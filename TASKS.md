@@ -15,17 +15,19 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 4 across 3 Parts: 2 blocked, 2 watch
+## Open items — 6 across 4 Parts: 2 startable, 2 blocked, 2 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 105 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
-| 172 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 195 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 252 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 107 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
+| 174 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 197 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 254 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 283 | 290 | A ComfyUI run that fails DURING execution polls as "Running" until the dead… | startable |  |
+| 288 | 290 | A pipeline cannot reach a QUEUED backend | startable |  |
 
 <!-- open-items:end -->
 
@@ -273,6 +275,23 @@ there is nothing here to code: what remains is evidence only recurrence can supp
   <br>**So it is `watch · data` rather than startable**: what it needs is a recurrence carrying the frame
   BELOW `OpenAsync`, because the three causes a reading can reach are gone and the remaining ones are all
   in the runner's resource behaviour — the same shape as Part 99 above, by a different mechanism.
+
+## Part 290 — what building GEN7's mesh stage found (2026-09-25)
+
+_Both found while building the ComfyUI mesh stage (**D180**); the owner ruled on each on 2026-09-25._
+
+- [ ] **A ComfyUI run that fails DURING execution polls as "Running" until the deadline.** <!-- item: state=startable -->
+  `ComfyUiProvider`'s poll (`src/Lyntai.Generation/ComfyUiProvider.cs`) reads `status.completed` and the
+  outputs, never the error the history document records, so a failed graph looks like a slow one. **Owner
+  ruling: measure, then fix** — submit a deliberately failing graph to the local ComfyUI, capture what history
+  says on an error, and map it to a failed poll carrying the node's message (the field names behind options, D69).
+- [ ] **A pipeline cannot reach a QUEUED backend.** `GenerationPipeline.RunPipelineAsync` composes only <!-- item: state=startable -->
+  `IMediaRouter.GenerateAsync`, and every video backend (ComfyUI, fal) is queued-only — so `image → video`
+  through the library's own runner has never run on a real video backend, and GEN7's live mesh chain had to
+  bridge each stage by hand. **Owner ruling: a durable pipeline JOB** — each stage runs as the render job does
+  (submit → poll → fetch, checkpointed), its artifact feeding the next through `MediaArtifact.ToInput`, so a
+  pipeline survives a restart, reports progress and cancels cleanly; `RunPipelineAsync` stays as the inline
+  form. Needs a design pass before code.
 
 ## Retired — five Parts that outlived their open work (2026-09-16)
 
