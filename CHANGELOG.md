@@ -126,6 +126,11 @@ every addition.
   implements `DerivedGrade` — returning null if the policy derives no grade; a decorator forwards it to the
   policy it wraps.
 
+- **A preset call with a literal `null` as its second argument is now ambiguous** (CS0121), because each
+  OpenAI-shaped preset gained an options overload (see Added): `AddLlamaProvider(url, null)` or
+  `AddOpenAiProvider(key, null)`, with nothing positional after the `null`, matches both overloads. It is the
+  trade `AddOllamaProvider` already made. **What to DO:** name the argument (`model: null`) or drop it.
+
 ### Security
 
 - **Recalled memory can no longer forge a prompt section** (**D166**). Both composers rendered an item as
@@ -224,8 +229,19 @@ every addition.
   `{"chat_template_kwargs":{"enable_thinking":false}}`. The library ships no value, since the spelling is the
   server's and the template's; null, the default, sends the body unchanged, as does every call at `Default`. A
   member the request sets itself, or a value that is not one JSON object, is refused at registration; a server
-  that rejects a field fails the call like any other rejected request. `AddLlamaProvider` takes no options, so
-  register `llama-server` with `AddHttpProvider` to set it — the recipe is in `docs/memory.md` §6.
+  that rejects a field fails the call like any other rejected request. Set it on a `llama-server` through
+  `AddLlamaProvider(id, o => …)`, below — the recipe is in `docs/memory.md` §6.
+
+- **Every OpenAI-shaped preset takes an options action**: `AddOpenAiProvider`, `AddLlamaProvider`,
+  `AddOpenRouterProvider` and `AddAzureOpenAiProvider` each gain an overload
+  `(string id, Action<HttpModelOptions> configure, Func<IServiceProvider, HttpClient>? httpClient = null)`,
+  as `AddOllamaProvider` already had, so any `HttpModelOptions` knob — `SuppressReasoningFields`, `Produces`,
+  `MaxInputChars` — is set on the preset rather than by rewriting it as `AddHttpProvider`. Each seeds the
+  preset's defaults before `configure` runs: the endpoint (`http://localhost:8080` for llama-server, which
+  matters, since the options' own default is OpenAI's), and for Azure `AzureConventions = true` with an EMPTY
+  `BaseUrl` — set your resource URL, or the registration reports itself unavailable and its key is sent
+  nowhere. Each stays on the OpenAI-shaped wire whatever its URL, and the positional forms are unchanged —
+  except the one call shape the Breaking entry above names.
 
 ### Fixed
 

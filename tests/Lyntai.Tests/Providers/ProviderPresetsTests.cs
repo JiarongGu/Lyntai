@@ -1,14 +1,16 @@
 using Lyntai.Inference;
 using System.Net;
+using System.Text.Json.Nodes;
 using Lyntai;
+using Lyntai.Providers.Http;
 using Lyntai.Tests.Fakes;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Lyntai.Tests.Providers;
 
 /// <summary>The pre-configured provider presets set the right endpoint/id defaults and route through
-/// the same OpenAI-shaped provider; a BYO-httpClient path lets each hit a scripted handler. Apps
-/// wanting bespoke config keep AddHttpProvider or their own IModelProvider via AddProvider.</summary>
+/// the same OpenAI-shaped provider; a BYO-httpClient path lets each hit a scripted handler. Each preset's
+/// options overload seeds those defaults, then runs the caller's configure.</summary>
 public class ProviderPresetsTests
 {
     private const string OkBody = """
@@ -101,6 +103,176 @@ public class ProviderPresetsTests
 
         Assert.StartsWith("https://openrouter.ai/api/v1", handler.Requests[0].Uri!.ToString());
     }
+
+    // ---- the options overloads: the preset's SEED, then configure, then the OpenAI-shaped registration ----
+
+    private const string QwenOff = """{"chat_template_kwargs":{"enable_thinking":false}}""";
+
+    [Fact]
+    public async Task Llama_options_overload_seeds_llama_servers_port_not_the_options_default()
+    {
+        // HttpModelOptions.BaseUrl defaults to api.openai.com: without the seed this would post there
+        var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, OkBody);
+        using var sp = Compose(b => b.AddLlamaProvider("llama", o => o.Model = "gemma-3-4b", Client(handler)), "llama");
+
+        await Complete(sp);
+
+        Assert.Equal("http://localhost:8080/v1/chat/completions", handler.Requests[0].Uri!.ToString());
+        Assert.Null(handler.Requests[0].Auth);
+        Assert.Equal("gemma-3-4b", (string)JsonNode.Parse(handler.Requests[0].Body)!["model"]!);
+    }
+
+    [Fact]
+    public async Task Llama_options_overload_sends_SuppressReasoningFields_to_llama_server()
+    {
+        var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, OkBody);
+        using var sp = Compose(b => b.AddLlamaProvider("llama", o => o.SuppressReasoningFields = QwenOff,
+            Client(handler)), "llama");
+
+        await Complete(sp, TextReasoning.Suppress);
+
+        Assert.Equal("http://localhost:8080/v1/chat/completions", handler.Requests[0].Uri!.ToString());
+        Assert.False((bool)JsonNode.Parse(handler.Requests[0].Body)!["chat_template_kwargs"]!["enable_thinking"]!);
+    }
+
+    [Fact]
+    public async Task Llama_options_overload_composes_a_bounded_reranker()
+    {
+        var handler = new StubHttpHandler().Enqueue(request =>
+        {
+            var sent = JsonNode.Parse(request.Content!.ReadAsStringAsync().GetAwaiter().GetResult())!["documents"]!.AsArray();
+            var results = new JsonArray([.. sent.Select((_, i) =>
+                (JsonNode)new JsonObject { ["index"] = i, ["relevance_score"] = 0.5 })]);
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(new JsonObject { ["results"] = results }.ToJsonString()),
+            };
+        });
+        using var sp = Compose(b => b.AddLlamaProvider("rerank", o =>
+        {
+            o.Produces = ProviderKinds.Score;
+            o.MaxInputChars = 40;
+        }, Client(handler)));
+        var provider = sp.GetServices<IModelProvider>().OfType<HttpModelProvider>().Single();
+
+        var reply = await provider.CallAsync(new ScoreRequest("q",
+            [string.Join(' ', Enumerable.Range(0, 30).Select(i => $"w{i:00}"))]));
+
+        Assert.Equal([ProviderKinds.Score], provider.Capabilities.Produces);
+        Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
+        Assert.Single(reply.Scores);
+        Assert.Equal("http://localhost:8080/v1/rerank", handler.Requests[0].Uri!.ToString());
+        var pieces = JsonNode.Parse(handler.Requests[0].Body)!["documents"]!.AsArray();
+        Assert.True(pieces.Count > 1);
+        Assert.All(pieces, p => Assert.True(p!.GetValue<string>().Length <= 40));
+    }
+
+    [Theory]
+    [InlineData("openai", "https://api.openai.com/v1/chat/completions")]
+    [InlineData("openrouter", "https://openrouter.ai/api/v1/chat/completions")]
+    public async Task A_hosted_options_overload_seeds_its_endpoint(string preset, string expected)
+    {
+        var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, OkBody);
+        using var sp = Compose(b => Register(b, preset, o => o.ApiKey = "k", Client(handler)), preset);
+
+        await Complete(sp);
+
+        Assert.Equal(expected, handler.Requests[0].Uri!.ToString());
+        Assert.Equal("Bearer k", handler.Requests[0].Auth);
+    }
+
+    [Fact]
+    public async Task Azure_options_overload_seeds_Azure_conventions_so_any_host_takes_them()
+    {
+        var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, OkBody);
+        using var sp = Compose(b => b.AddAzureOpenAiProvider("azure-openai", o =>
+        {
+            o.BaseUrl = "https://llm.contoso.example";   // a custom domain: nothing in it says Azure
+            o.ApiKey = "az-key";
+        }, Client(handler)), "azure-openai");
+
+        await Complete(sp);
+
+        Assert.Equal("https://llm.contoso.example/openai/v1/chat/completions", handler.Requests[0].Uri!.ToString());
+        Assert.Equal("az-key", handler.Requests[0].ApiKeyHeader);
+    }
+
+    [Fact]
+    public async Task Azure_options_overload_without_a_BaseUrl_never_posts_its_key_elsewhere()
+    {
+        var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, OkBody);
+        using var sp = Compose(b => b.AddAzureOpenAiProvider("azure-openai", o => o.ApiKey = "az-key",
+            Client(handler)), "azure-openai");
+
+        var reply = await Complete(sp);
+
+        Assert.False(sp.GetServices<IModelProvider>().Single().IsAvailable);
+        Assert.NotEqual(ProviderVerdict.Ok, reply.Verdict);
+        Assert.Empty(handler.Requests);
+    }
+
+    [Theory]
+    [InlineData("openai")]
+    [InlineData("llama")]
+    [InlineData("openrouter")]
+    [InlineData("azure-openai")]
+    public async Task Every_options_overload_lets_configure_override_the_seed_and_set_knobs(string preset)
+    {
+        var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, OkBody);
+        using var sp = Compose(b => Register(b, preset, o =>
+        {
+            o.BaseUrl = "https://proxy.example/v1";
+            o.AzureConventions = false;
+            o.ApiKey = "k";
+            o.SuppressReasoningFields = QwenOff;
+        }, Client(handler)), preset);
+
+        await Complete(sp, TextReasoning.Suppress);
+
+        Assert.Equal("https://proxy.example/v1/chat/completions", handler.Requests[0].Uri!.ToString());
+        Assert.Null(handler.Requests[0].ApiKeyHeader);   // Azure's api-key header goes with its conventions
+        Assert.NotNull(JsonNode.Parse(handler.Requests[0].Body)!["chat_template_kwargs"]);
+    }
+
+    [Fact]
+    public async Task A_llama_options_registration_on_Ollamas_port_stays_OpenAI_shaped()
+    {
+        var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, OkBody);
+        using var sp = Compose(b => b.AddLlamaProvider("llama", o => o.BaseUrl = "http://localhost:11434",
+            Client(handler)), "llama");
+
+        await Complete(sp);
+
+        Assert.Equal("http://localhost:11434/v1/chat/completions", handler.Requests[0].Uri!.ToString());
+    }
+
+    private static LyntaiBuilder Register(LyntaiBuilder b, string preset, Action<HttpModelOptions> configure,
+        Func<IServiceProvider, HttpClient> client) => preset switch
+    {
+        "openai" => b.AddOpenAiProvider(preset, configure, client),
+        "llama" => b.AddLlamaProvider(preset, configure, client),
+        "openrouter" => b.AddOpenRouterProvider(preset, configure, client),
+        "azure-openai" => b.AddAzureOpenAiProvider(preset, configure, client),
+        _ => throw new ArgumentOutOfRangeException(nameof(preset), preset, null),
+    };
+
+    private static Func<IServiceProvider, HttpClient> Client(StubHttpHandler handler) =>
+        _ => new HttpClient(handler, disposeHandler: false);
+
+    private static ServiceProvider Compose(Func<LyntaiBuilder, LyntaiBuilder> register, string? candidate = null)
+    {
+        var services = new ServiceCollection();
+        services.AddLyntai(b =>
+        {
+            register(b);
+            if (candidate is not null) b.UseDefaultCandidates(candidate);
+        });
+        return services.BuildServiceProvider();
+    }
+
+    private static Task<TextResponse> Complete(IServiceProvider sp, TextReasoning reasoning = TextReasoning.Default) =>
+        sp.GetRequiredService<ITextClient>().CompleteAsync(
+            new TextRequest { Messages = [TextMessage.User("hi")], Reasoning = reasoning });
 
     [Fact]
     public async Task Presets_compose_and_route_by_id_with_bring_your_own_provider()

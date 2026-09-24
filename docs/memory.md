@@ -414,15 +414,13 @@ models reason regardless — asking is not the same as being obeyed.
 **Over the OpenAI-shaped wire the ask needs your server's spelling**, because that schema has no field for it
 and the library ships none (**D179**): set `HttpModelOptions.SuppressReasoningFields` on the judge's
 registration to what your server and chat template take. Unset, a thinking-capable model reasons on every
-verdict. For `llama-server` serving a Qwen3 template — an example, not a default:
+verdict. For `llama-server` serving a Qwen3 template — an example, not a default — through the preset's
+options action, which seeds `http://localhost:8080` before it runs:
 
 ```csharp
 services.AddLyntai(b => b
-    .AddHttpProvider("llama", o =>
-    {
-        o.BaseUrl = "http://localhost:8080";
-        o.SuppressReasoningFields = """{"chat_template_kwargs":{"enable_thinking":false}}""";
-    })
+    .AddLlamaProvider("llama", o =>
+        o.SuppressReasoningFields = """{"chat_template_kwargs":{"enable_thinking":false}}""")
     .UseDefaultCandidates("llama")
     .AddMemoryEngine("project", e => e.UseGraph())
     .AddMemoryVerification());

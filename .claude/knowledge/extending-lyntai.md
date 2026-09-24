@@ -46,7 +46,8 @@ Four paths — pick the cheapest one that reaches your backend:
 **A. Is the backend reachable over HTTP on a wire Lyntai already speaks? Then it is already supported
 (preferred).** OpenAI, Azure, Ollama,
 OpenRouter, vLLM, llama-server, Groq, DeepSeek and most of the rest ship such an endpoint. You do *nothing*
-but register: `builder.AddHttpProvider("my-id", o => o.BaseUrl = …)` for anything OpenAI-shaped,
+but register: `builder.AddHttpProvider("my-id", o => o.BaseUrl = …)` for anything OpenAI-shaped (or its
+vendor preset, whose options overload — `AddLlamaProvider("llama", o => …)` — takes the same knobs),
 `builder.AddOllamaProvider(…)` for Ollama-native (**D160**) — one
 registration serves chat, embeddings or reranking depending on `Produces`. **Only write a native provider if
 no shipped wire reaches it** — which, since **D146** deleted the Microsoft.Extensions.AI bridge, means a vendor

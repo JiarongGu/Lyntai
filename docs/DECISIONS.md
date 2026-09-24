@@ -5565,5 +5565,8 @@ unknown field. A typed enum of known spellings: it bakes model-family names into
 variable: it guesses the server AND the template, and a wrong guess is a rejected call or a silent no-op. A
 per-request field on `TextRequest`: which server answers is the registration's knowledge, not the caller's.
 
-**Known limit.** `AddLlamaProvider` takes no options action, so a `llama-server` registration that needs the
-fields is made with `AddHttpProvider` (`docs/memory.md` §6 has the recipe).
+**Set where the backend is registered.** Every OpenAI-shaped preset takes an options action
+(`AddLlamaProvider(id, o => …)`; `docs/memory.md` §6 has the recipe), seeding its own defaults before it runs,
+so no knob sends a preset user to `AddHttpProvider`. It is an OVERLOAD beside the positional form, not a new
+optional parameter, which would change the signature a compiled caller binds to (**D70**); the cost is that a
+literal `null` second argument becomes ambiguous, the trade `AddOllamaProvider` already made.

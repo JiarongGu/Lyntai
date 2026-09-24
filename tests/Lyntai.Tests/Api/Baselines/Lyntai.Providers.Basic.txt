@@ -6,10 +6,14 @@ static class Lyntai.CodexCliBuilderExtensions
     static AddCodexCliProvider(LyntaiBuilder builder, String command = null, IReadOnlyDictionary<String,String> environment = null, CodexCliBackend backend = null) : LyntaiBuilder
 static class Lyntai.HttpProviderBuilderExtensions
     static AddAzureOpenAiProvider(LyntaiBuilder builder, String endpoint, String apiKey, String model = null, String id = "azure-openai", Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
+    static AddAzureOpenAiProvider(LyntaiBuilder builder, String id, Action<HttpModelOptions> configure, Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
     static AddHttpProvider(LyntaiBuilder builder, String id, Action<HttpModelOptions> configure, Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
     static AddLlamaProvider(LyntaiBuilder builder, String baseUrl = null, String model = null, String id = "llama", Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
+    static AddLlamaProvider(LyntaiBuilder builder, String id, Action<HttpModelOptions> configure, Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
     static AddOpenAiProvider(LyntaiBuilder builder, String apiKey, String model = null, String id = "openai", Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
+    static AddOpenAiProvider(LyntaiBuilder builder, String id, Action<HttpModelOptions> configure, Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
     static AddOpenRouterProvider(LyntaiBuilder builder, String apiKey, String model = null, String id = "openrouter", Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
+    static AddOpenRouterProvider(LyntaiBuilder builder, String id, Action<HttpModelOptions> configure, Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
 static class Lyntai.Model2VecBuilderExtensions
     static AddModel2VecProvider(LyntaiBuilder builder, String modelDirectory, Action<Model2VecProviderOptions> configure = null) : LyntaiBuilder
 static class Lyntai.OllamaBuilderExtensions

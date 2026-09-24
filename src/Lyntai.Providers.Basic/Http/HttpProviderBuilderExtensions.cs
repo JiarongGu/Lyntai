@@ -20,7 +20,8 @@ public static class HttpProviderBuilderExtensions
     /// <para><b>This one KEEPS the <c>Provider</c> suffix</b> where a named backend drops it (<b>D134</b>):
     /// like <see cref="LyntaiBuilder.AddProvider(Func{IServiceProvider,Lyntai.Inference.IModelProvider},Lyntai.Inference.ProviderCapabilities)"/>
     /// it is the GENERIC registration, so <c>Provider</c> is the noun it takes rather than a suffix on a
-    /// vendor's name. The vendor presets below — <see cref="AddOpenAiProvider"/>,
+    /// vendor's name. The vendor presets below —
+    /// <see cref="AddOpenAiProvider(LyntaiBuilder,string,string?,string,Func{IServiceProvider,HttpClient}?)"/>,
     /// <see cref="OllamaBuilderExtensions.AddOllamaProvider(LyntaiBuilder,string?,string?,string,Func{IServiceProvider,HttpClient}?)"/>
     /// — name a backend, so they do not carry it.</para>
     /// <para>BYO HttpClient: pass <paramref name="httpClient"/> to supply your own configured client
@@ -103,19 +104,35 @@ public static class HttpProviderBuilderExtensions
     }
 
     // ---- pre-configured presets ------------------------------------------------------------------
-    // Thin wrappers with sensible defaults for common endpoints. Apps that need something bespoke keep
-    // AddHttpProvider (or their own IModelProvider via builder.AddProvider). All presets accept a BYO
-    // httpClient like the base method. The Ollama preset lives with its provider: OllamaBuilderExtensions.
+    // Each preset has a positional form and an OPTIONS form; the positional one calls the options one, so
+    // there is one path per preset. The options form seeds the preset's defaults BEFORE configure runs —
+    // load-bearing, since HttpModelOptions.BaseUrl defaults to api.openai.com. The Ollama preset lives with
+    // its provider: OllamaBuilderExtensions.
 
-    /// <summary>OpenAI (api.openai.com). Default id "openai".</summary>
+    private const string OpenAiBaseUrl = "https://api.openai.com";
+    private const string LlamaBaseUrl = "http://localhost:8080";
+    private const string OpenRouterBaseUrl = "https://openrouter.ai/api/v1";
+
+    /// <summary>OpenAI (api.openai.com). Default id "openai". The options overload reaches every other
+    /// <see cref="HttpModelOptions"/> knob.</summary>
     public static LyntaiBuilder AddOpenAiProvider(this LyntaiBuilder builder, string apiKey,
         string? model = null, string id = "openai", Func<IServiceProvider, HttpClient>? httpClient = null) =>
-        builder.AddOpenAiShaped(id, new HttpModelOptions
+        builder.AddOpenAiProvider(id, o =>
         {
-            BaseUrl = "https://api.openai.com",
-            ApiKey = apiKey,
-            Model = model,
+            o.ApiKey = apiKey;
+            o.Model = model;
         }, httpClient);
+
+    /// <summary>OpenAI, configured through <see cref="HttpModelOptions"/>: SEEDS
+    /// <see cref="HttpModelOptions.BaseUrl"/> = <c>https://api.openai.com</c>, then runs
+    /// <paramref name="configure"/> — which sets the key, the model and any other knob, and may override the
+    /// seed. Registered on the OpenAI-shaped wire whatever the URL; BYO <paramref name="httpClient"/> as
+    /// <c>AddHttpProvider</c> takes one.</summary>
+    /// <exception cref="ArgumentException">An option <c>AddHttpProvider</c> refuses —
+    /// <see cref="HttpModelOptions.MaxInputChars"/> or <see cref="HttpModelOptions.SuppressReasoningFields"/>.</exception>
+    public static LyntaiBuilder AddOpenAiProvider(this LyntaiBuilder builder, string id,
+        Action<HttpModelOptions> configure, Func<IServiceProvider, HttpClient>? httpClient = null) =>
+        builder.AddPreset(id, o => o.BaseUrl = OpenAiBaseUrl, configure, httpClient);
 
     /// <summary>A local (or remote) llama.cpp <c>llama-server</c>, which speaks the plain OpenAI schema off
     /// its ROOT. Default base "http://localhost:8080", id "llama", keyless.
@@ -128,42 +145,99 @@ public static class HttpProviderBuilderExtensions
     /// <para>Pass the server ROOT, not its <c>/v1</c>: requests compose to <c>…/v1/chat/completions</c>.
     /// Unlike the Ollama preset there is no native surface to reach — <c>llama-server</c> has only the
     /// OpenAI-shaped one — so an attachment travels as an <c>image_url</c> part and a remote <c>Uri</c>
-    /// attachment is deliverable, which Ollama's own schema cannot express.</para></summary>
+    /// attachment is deliverable, which Ollama's own schema cannot express.</para>
+    /// <para>The options overload reaches every other <see cref="HttpModelOptions"/> knob.</para></summary>
     public static LyntaiBuilder AddLlamaProvider(this LyntaiBuilder builder, string? baseUrl = null,
         string? model = null, string id = "llama", Func<IServiceProvider, HttpClient>? httpClient = null) =>
-        builder.AddOpenAiShaped(id, new HttpModelOptions
+        builder.AddLlamaProvider(id, o =>
         {
-            BaseUrl = baseUrl ?? "http://localhost:8080",
-            ApiKey = null,
-            Model = model,
+            o.BaseUrl = baseUrl ?? o.BaseUrl;
+            o.Model = model;
         }, httpClient);
 
+    /// <summary>A <c>llama-server</c>, configured through <see cref="HttpModelOptions"/>: SEEDS
+    /// <see cref="HttpModelOptions.BaseUrl"/> = <c>http://localhost:8080</c> with no key, then runs
+    /// <paramref name="configure"/>, which may override the seed and set any knob —
+    /// <see cref="HttpModelOptions.SuppressReasoningFields"/> for a thinking chat template, or
+    /// <c>Produces = ProviderKinds.Score</c> with <see cref="HttpModelOptions.MaxInputChars"/> for a
+    /// small-window reranker. Without the seed the options' own default would post to OpenAI.
+    /// <para>Registered on the OpenAI-shaped wire whatever the URL, so a <c>llama-server</c> on Ollama's port
+    /// is never re-detected as Ollama. BYO <paramref name="httpClient"/> as <c>AddHttpProvider</c> takes one.
+    /// What a model name means to <c>llama-server</c>: the positional overload's remarks.</para></summary>
+    /// <exception cref="ArgumentException">An option <c>AddHttpProvider</c> refuses —
+    /// <see cref="HttpModelOptions.MaxInputChars"/> or <see cref="HttpModelOptions.SuppressReasoningFields"/>.</exception>
+    public static LyntaiBuilder AddLlamaProvider(this LyntaiBuilder builder, string id,
+        Action<HttpModelOptions> configure, Func<IServiceProvider, HttpClient>? httpClient = null) =>
+        builder.AddPreset(id, o => o.BaseUrl = LlamaBaseUrl, configure, httpClient);
+
     /// <summary>OpenRouter (openrouter.ai). Default id "openrouter". Nothing about its wire differs from
-    /// the plain OpenAI schema today; the preset earns its keep as the endpoint + key convention.</summary>
+    /// the plain OpenAI schema today; the preset earns its keep as the endpoint + key convention. The options
+    /// overload reaches every other <see cref="HttpModelOptions"/> knob.</summary>
     public static LyntaiBuilder AddOpenRouterProvider(this LyntaiBuilder builder, string apiKey,
         string? model = null, string id = "openrouter", Func<IServiceProvider, HttpClient>? httpClient = null) =>
-        builder.AddOpenAiShaped(id, new HttpModelOptions
+        builder.AddOpenRouterProvider(id, o =>
         {
-            BaseUrl = "https://openrouter.ai/api/v1",
-            ApiKey = apiKey,
-            Model = model,
+            o.ApiKey = apiKey;
+            o.Model = model;
         }, httpClient);
+
+    /// <summary>OpenRouter, configured through <see cref="HttpModelOptions"/>: SEEDS
+    /// <see cref="HttpModelOptions.BaseUrl"/> = <c>https://openrouter.ai/api/v1</c>, then runs
+    /// <paramref name="configure"/> — which sets the key, the model and any other knob, and may override the
+    /// seed. Registered on the OpenAI-shaped wire whatever the URL; BYO <paramref name="httpClient"/> as
+    /// <c>AddHttpProvider</c> takes one.</summary>
+    /// <exception cref="ArgumentException">An option <c>AddHttpProvider</c> refuses —
+    /// <see cref="HttpModelOptions.MaxInputChars"/> or <see cref="HttpModelOptions.SuppressReasoningFields"/>.</exception>
+    public static LyntaiBuilder AddOpenRouterProvider(this LyntaiBuilder builder, string id,
+        Action<HttpModelOptions> configure, Func<IServiceProvider, HttpClient>? httpClient = null) =>
+        builder.AddPreset(id, o => o.BaseUrl = OpenRouterBaseUrl, configure, httpClient);
 
     /// <summary>Azure OpenAI, targeting the resource's OpenAI-shaped <c>v1</c> surface.
     /// <paramref name="endpoint"/> is your resource URL (e.g. <c>https://my-resource.openai.azure.com</c> —
     /// requests compose to <c>…/openai/v1/chat/completions</c>); <paramref name="apiKey"/> is sent as both
     /// the <c>api-key</c> header (Azure key auth) and a Bearer token. Default id "azure-openai". The preset
     /// pins <see cref="HttpModelOptions.AzureConventions"/>, so a custom domain fronting the resource works
-    /// without the URL looking like Azure.</summary>
+    /// without the URL looking like Azure. The options overload reaches every other
+    /// <see cref="HttpModelOptions"/> knob.</summary>
     public static LyntaiBuilder AddAzureOpenAiProvider(this LyntaiBuilder builder, string endpoint, string apiKey,
         string? model = null, string id = "azure-openai", Func<IServiceProvider, HttpClient>? httpClient = null) =>
-        builder.AddOpenAiShaped(id, new HttpModelOptions
+        builder.AddAzureOpenAiProvider(id, o =>
         {
-            BaseUrl = endpoint,
-            ApiKey = apiKey,
-            Model = model,
-            AzureConventions = true,
+            o.BaseUrl = endpoint;
+            o.ApiKey = apiKey;
+            o.Model = model;
         }, httpClient);
+
+    /// <summary>Azure OpenAI, configured through <see cref="HttpModelOptions"/>: SEEDS
+    /// <see cref="HttpModelOptions.AzureConventions"/> = <see langword="true"/> and an EMPTY
+    /// <see cref="HttpModelOptions.BaseUrl"/>, then runs <paramref name="configure"/> — which sets your
+    /// resource URL, the key (sent as the <c>api-key</c> header and a Bearer token), the model and any other
+    /// knob, and may override the seed.
+    /// <para><b>Set <c>BaseUrl</c>.</b> There is no default resource, so it is seeded empty rather than left at
+    /// the options' OpenAI default: a registration that never sets it reports itself unavailable and is skipped,
+    /// and the key is sent nowhere. Registered on the OpenAI-shaped wire whatever the URL; BYO
+    /// <paramref name="httpClient"/> as <c>AddHttpProvider</c> takes one.</para></summary>
+    /// <exception cref="ArgumentException">An option <c>AddHttpProvider</c> refuses —
+    /// <see cref="HttpModelOptions.MaxInputChars"/> or <see cref="HttpModelOptions.SuppressReasoningFields"/>.</exception>
+    public static LyntaiBuilder AddAzureOpenAiProvider(this LyntaiBuilder builder, string id,
+        Action<HttpModelOptions> configure, Func<IServiceProvider, HttpClient>? httpClient = null) =>
+        builder.AddPreset(id, o =>
+        {
+            o.BaseUrl = "";
+            o.AzureConventions = true;
+        }, configure, httpClient);
+
+    /// <summary>A preset's options door: its seed, then <paramref name="configure"/>, then the OpenAI-shaped
+    /// registration — never URL detection.</summary>
+    private static LyntaiBuilder AddPreset(this LyntaiBuilder builder, string id, Action<HttpModelOptions> seed,
+        Action<HttpModelOptions> configure, Func<IServiceProvider, HttpClient>? httpClient)
+    {
+        ArgumentNullException.ThrowIfNull(configure);
+        var config = new HttpModelOptions();
+        seed(config);
+        configure(config);
+        return builder.AddOpenAiShaped(id, config, httpClient);
+    }
 
     // One name, because there is one registration per host now — an embeddings-only host is a provider with
     // Chat nulled, so it takes the provider client like any other (D132).
