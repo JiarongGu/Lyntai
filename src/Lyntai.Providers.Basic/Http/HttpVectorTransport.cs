@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Lyntai.Inference;
+using Lyntai.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -97,7 +98,8 @@ internal sealed class HttpVectorTransport(
         return Pool(plan, response);
     }
 
-    /// <summary>One vector per input: a segmented input's pieces pooled, any other input's vector as sent.</summary>
+    /// <summary>One vector per input: a segmented input's pieces pooled by
+    /// <see cref="VectorMath.WeightedMeanDirection"/>, weighted by length; any other input's vector as sent.</summary>
     private VectorResponse Pool(Segmentation plan, VectorResponse response)
     {
         var vectors = new float[plan.Inputs.Count][];
@@ -109,42 +111,16 @@ internal sealed class HttpVectorTransport(
                 vectors[i] = response.Vectors[first];
                 continue;
             }
-            if (PooledUnitVector(response.Vectors, plan.Pieces, first, end) is not { } pooled)
+            List<float[]> pieces = [.. response.Vectors.Skip(first).Take(end - first)];
+            // a server's answer, so a mismatch is a malformed reply rather than the caller error the pooling refuses
+            if (pieces.Any(v => v.Length != pieces[0].Length))
                 return VectorResponse.Failure(ProviderVerdict.Failed,
                     $"{id}: the pieces of input {i} came back in different dimensions");
-            vectors[i] = pooled;
+            vectors[i] = VectorMath.WeightedMeanDirection(
+                pieces, [.. plan.Pieces.Skip(first).Take(end - first).Select(p => (double)p.Length)]);
         }
         return VectorResponse.Success(vectors, usage: response.Usage);
     }
-
-    /// <summary>The length-weighted mean of the pieces' unit vectors, re-normalised; the longest piece's
-    /// unit vector where they cancel out. Null when the pieces disagree on dimension.</summary>
-    private static float[]? PooledUnitVector(IReadOnlyList<float[]> vectors, IReadOnlyList<string> pieces,
-        int first, int end)
-    {
-        var dim = vectors[first].Length;
-        var sum = new double[dim];
-        var longest = first;
-        for (var j = first; j < end; j++)
-        {
-            if (vectors[j].Length != dim) return null;
-            if (pieces[j].Length > pieces[longest].Length) longest = j;
-            var norm = Norm(vectors[j]);
-            if (norm == 0) continue;
-            // the weighted mean's divisor is dropped: re-normalising removes it anyway
-            for (var k = 0; k < dim; k++) sum[k] += pieces[j].Length * vectors[j][k] / norm;
-        }
-        var total = Math.Sqrt(sum.Sum(x => x * x));
-        if (total == 0)
-        {
-            var fallback = vectors[longest];
-            var norm = Norm(fallback);
-            return norm == 0 ? fallback : [.. fallback.Select(x => (float)(x / norm))];
-        }
-        return [.. sum.Select(x => (float)(x / total))];
-    }
-
-    private static double Norm(float[] v) => Math.Sqrt(v.Sum(x => (double)x * x));
 
     /// <summary>Embed every text as sent, split per <see cref="Settings.BatchSize"/> and concatenated in
     /// order.</summary>

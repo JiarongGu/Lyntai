@@ -421,17 +421,16 @@ public class OnnxCrossEncoderLiveTests
     }
 
     [SkippableFact]
-    public async Task A_document_past_the_context_limit_is_TRUNCATED_and_the_QUERY_still_decides()
+    public async Task A_relevant_passage_PAST_the_context_limit_still_decides_the_score()
     {
-        // The pair-encoding budget rule, end to end: truncation takes from the DOCUMENT first, so a document
-        // long enough to fill the window on its own must not shorten the question being asked. If the query
-        // were truncated away instead, both documents would score alike and the ordering would collapse.
+        // D177, end to end: a document past the window is scored as its BEST window, the query whole in each.
+        // Cut at the window instead, both documents would be scored on the same filler and TIE.
         using var reranker = Load();
-        var padding = string.Join(' ', Enumerable.Repeat("berlin is a city in germany", 400));
+        var filler = string.Join(' ', Enumerable.Repeat("the weather was mild and the sky stayed grey all week", 60));
 
-        var scores = await reranker.ScoreAsync(Query, [$"{Relevant} {padding}", $"{Unrelated} {padding}"]);
+        var scores = await reranker.ScoreAsync(Query, [$"{filler} {Relevant}", $"{filler} {Unrelated}"]);
 
-        Assert.All(scores, s => Assert.True(double.IsFinite(s), $"a truncated pair scored {s}"));
+        Assert.All(scores, s => Assert.True(double.IsFinite(s), $"a segmented pair scored {s}"));
         Assert.True(scores[0] > scores[1], $"relevant {scores[0]:F4} should outrank unrelated {scores[1]:F4}");
     }
 

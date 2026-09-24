@@ -5481,9 +5481,12 @@ answered exactly as without it, so a deployment that never crosses the bound see
 
 **The bound lives on the registration because the window belongs to the MODEL** — the EF-provider rule: the
 knob goes in that provider's options. It counts characters because an HTTP client has no tokenizer, and the
-option's doc says when that bounds tokens and when it does not. The same rule governs the ONNX provider, which
-can count tokens exactly; until it is applied there, that provider still cuts at
-`OnnxProviderOptions.MaxTokens` (`TASKS.md` Part 287).
+option's doc says when that bounds tokens and when it does not. The ONNX provider applies the same rule with
+NO option, because it knows its window exactly: past `OnnxProviderOptions.MaxTokens` it segments by TOKENS — a
+window ends after a sentence-end token in its latter half, else before a word start, and the next restarts in
+its last 15% — carries a cross-encoder's query whole in every window, and combines the pieces the same way,
+weighted by token count. **The pooling is one public method, `VectorMath.WeightedMeanDirection`**, because
+two packages need it and a copy in each would drift.
 
 **Rejected.** Cutting: it silently loses the text past the window. A bound on the verification seam: it fixes
 one caller, guesses a model's window from outside it, and leaves embedding unbounded. A second option for the
@@ -5492,7 +5495,9 @@ vector-store contract for every backend. FirstP, the first piece's score: cuttin
 rewards length, so a long document outranks a short one that answers. The two ways to count tokens instead:
 a server's `/tokenize` route is not on the OpenAI-shaped wire, so a bound built on it is not portable; and
 shrink-and-retry on the server's complaint costs a round trip per failure and depends on each server's wording.
+An option on the ONNX provider: it knows its window, so the only alternative to segmenting is cutting.
 
 **Known limits.** The pooled vector's retrieval QUALITY is unmeasured (`docs/model-tasks.md` §3.3). An
 embedding registration on an Ollama server root, which `AddHttpProvider` composes as the Ollama-native
-provider, refuses the bound rather than dropping it.
+provider, refuses the bound rather than dropping it. A query that leaves the ONNX cross-encoder no room for
+a document is still cut, as the tokenizer's pair rule cuts it.

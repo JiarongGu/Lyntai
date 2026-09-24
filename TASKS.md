@@ -15,23 +15,22 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 10 across 6 Parts: 6 startable, 2 blocked, 2 watch
+## Open items — 9 across 6 Parts: 5 startable, 2 blocked, 2 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 111 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
-| 164 | 33 | GEN7 — pipelines (3d → image → video) | startable |  |
-| 223 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 246 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 303 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
-| 333 | 286 | A configured text candidate naming a NON-text backend is still called | startable |  |
-| 341 | 286 | Gate "no default body on a member of an interface the library decorates" | startable |  |
-| 355 | 287 | The ONNX provider CUTS an over-long input silently | startable |  |
-| 361 | 287 | The Ollama-native embed path still CUTS on the server | startable |  |
-| 376 | 288 | Express `TextReasoning.Suppress` on the OpenAI-shaped wire | startable |  |
+| 110 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
+| 163 | 33 | GEN7 — pipelines (3d → image → video) | startable |  |
+| 222 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 245 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 302 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 332 | 286 | A configured text candidate naming a NON-text backend is still called | startable |  |
+| 340 | 286 | Gate "no default body on a member of an interface the library decorates" | startable |  |
+| 354 | 287 | The Ollama-native embed path still CUTS on the server | startable |  |
+| 369 | 288 | Express `TextReasoning.Suppress` on the OpenAI-shaped wire | startable |  |
 
 <!-- open-items:end -->
 
@@ -352,12 +351,6 @@ _An adopting application's reranker screen and bench on llama.cpp b10549 (`docs/
 The owner ruled: fix everything, one item at a time; an over-long input is segmented, never cut (**D177**).
 What closed is archived with the Part; what remains is below._
 
-- [ ] **The ONNX provider CUTS an over-long input silently.** `OnnxCrossEncoderHead` and <!-- item: state=startable -->
-  `OnnxPoolingHead` (`src/Lyntai.Providers.Onnx/`) encode at `OnnxProviderOptions.MaxTokens` and drop the
-  rest. Owner ruling 2026-09-24: follow the rule **D177** applied to the HTTP provider, segmenting by TOKENS
-  (exact here, where the HTTP side can only count characters) and combining the pieces the same way.
-  **Owner ruling 2026-09-24: the pooling math moves to a public `VectorMath` method in Core**, used by
-  `HttpVectorTransport` and the ONNX provider alike, rather than a second copy.
 - [ ] **The Ollama-native embed path still CUTS on the server.** Ollama's `/api/embed` defaults to <!-- item: state=startable -->
   `truncate: true`, and the body Lyntai sends carries only `{model, input}`, so an over-long input is cut
   server-side — the behaviour **D177** rejects. `MaxInputChars` is refused on an Ollama server root, which

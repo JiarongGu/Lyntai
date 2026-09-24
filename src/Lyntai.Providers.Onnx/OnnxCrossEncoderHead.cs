@@ -4,8 +4,8 @@ using Microsoft.ML.OnnxRuntime;
 
 namespace Lyntai.Providers.Onnx;
 
-/// <summary>The CROSS-ENCODER head: a <c>[CLS] query [SEP] document [SEP]</c> pair per row, the
-/// classification head read as one score per pair. Selected by
+/// <summary>The CROSS-ENCODER head: a <c>[CLS] query [SEP] document [SEP]</c> pair per row — a row per window
+/// of a document past the model's window — the classification head read as one score per pair. Selected by
 /// <see cref="OnnxProviderOptions.Produces"/>, so the same <see cref="OnnxProvider"/> serves
 /// <see cref="ProviderKinds.Score"/> instead of vectors — the model on disk is what differs, not the
 /// backend (<c>docs/DECISIONS.md</c> <b>D157</b>).</summary>
@@ -32,17 +32,29 @@ internal sealed class OnnxCrossEncoderHead : IOnnxScoreHead
     /// question, and a runtime that zeroes them scores the pair as one undifferentiated string — which is
     /// how the same weights rank a published reference pair BACKWARDS through llama.cpp
     /// (<c>docs/memory-measurements.md</c> §5).</remarks>
-    public double[] Score(OnnxRun run, string outputName, string query, IReadOnlyList<string> documents)
+    public double[] Score(OnnxRun run, string outputName, string query, IReadOnlyList<string> documents) =>
+        Score(run.Windows, query, documents, rows =>
+        {
+            var width = rows.Max(e => e.Ids.Length);
+            using var results = run.Session.Run(OnnxGraph.Feed(run.Session, rows, width), [outputName]);
+            var head = results[0].AsTensor<float>();
+            return CrossEncoderLogits.Read(head.ToArray(), head.Dimensions, rows.Length);
+        });
+
+    /// <summary>Score each document as its BEST window (<c>docs/DECISIONS.md</c> <b>D177</b>): a document is
+    /// as relevant as its most relevant passage. Every window of every document goes through
+    /// <paramref name="forward"/> in one batch, and the scores come back one per document, in input order.</summary>
+    /// <param name="windows">The tokenizer, bounded by the model's window.</param>
+    /// <param name="query">The question every document is scored against; never segmented.</param>
+    /// <param name="documents">The documents, in the order their scores are returned.</param>
+    /// <param name="forward">The graph: one score per row it is fed.</param>
+    internal static double[] Score(WindowedTokenizer windows, string query, IReadOnlyList<string> documents,
+        Func<WordPieceEncoding[], double[]> forward)
     {
         ArgumentNullException.ThrowIfNull(documents);
-
-        var encodings = new WordPieceEncoding[documents.Count];
-        for (var i = 0; i < documents.Count; i++)
-            encodings[i] = run.Tokenizer.Encode(query, documents[i] ?? string.Empty, run.MaxTokens);
-
-        var width = encodings.Max(e => e.Ids.Length);
-        using var results = run.Session.Run(OnnxGraph.Feed(run.Session, encodings, width), [outputName]);
-        var head = results[0].AsTensor<float>();
-        return CrossEncoderLogits.Read(head.ToArray(), head.Dimensions, documents.Count);
+        var batch = windows.EncodePairs(query, documents);
+        var rowScores = forward(batch.Rows);
+        return [.. Enumerable.Range(0, documents.Count)
+            .Select(i => rowScores[batch.First[i]..batch.First[i + 1]].Max())];
     }
 }

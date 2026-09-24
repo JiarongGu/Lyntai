@@ -1,15 +1,13 @@
-using Lyntai.Text;
 using Microsoft.ML.OnnxRuntime;
 
 namespace Lyntai.Providers.Onnx;
 
-/// <summary>The loaded engine, handed to a head for one call: a session, its tokenizer, and the
-/// sequence limit both truncate at. Carries no decision of its own — everything that INTERPRETS a tensor
-/// belongs to the head.</summary>
+/// <summary>The loaded engine, handed to a head for one call: a session, and its tokenizer bounded by the
+/// model's window. Carries no decision of its own — everything that INTERPRETS a tensor belongs to the
+/// head.</summary>
 /// <param name="Session">The ONNX graph, already open.</param>
-/// <param name="Tokenizer">The model's own WordPiece vocabulary.</param>
-/// <param name="MaxTokens">Where input is truncated, including the special tokens.</param>
-internal readonly record struct OnnxRun(InferenceSession Session, WordPieceTokenizer Tokenizer, int MaxTokens);
+/// <param name="Windows">The model's own WordPiece vocabulary, segmenting past its window.</param>
+internal readonly record struct OnnxRun(InferenceSession Session, WindowedTokenizer Windows);
 
 /// <summary>What a <see cref="OnnxProvider"/> DOES with its session — the model's HEAD, in the ML sense:
 /// the two ends of a call, and therefore what that provider produces (<c>docs/DECISIONS.md</c> <b>D157</b>,
@@ -42,7 +40,8 @@ internal interface IOnnxHead
 /// <summary>A head that turns texts into VECTORS — the bi-encoder shape.</summary>
 internal interface IOnnxVectorHead : IOnnxHead
 {
-    /// <summary>One batched forward pass: encode each text, pad to the longest, run, reduce each row.</summary>
+    /// <summary>One batched forward pass: encode each text as a row per window, pad to the longest, run,
+    /// reduce each row — and pool a text that took several rows into one vector.</summary>
     /// <param name="run">The engine for this call.</param>
     /// <param name="outputName">What <see cref="IOnnxHead.ResolveOutput"/> chose at composition.</param>
     /// <param name="texts">The batch; never empty (the provider answers an empty request itself).</param>
@@ -53,8 +52,8 @@ internal interface IOnnxVectorHead : IOnnxHead
 /// encodes a PAIR per row rather than one text.</summary>
 internal interface IOnnxScoreHead : IOnnxHead
 {
-    /// <summary>One batched forward pass over the pairs: encode each, pad to the longest, run, read one
-    /// score per row.</summary>
+    /// <summary>One batched forward pass over the pairs: encode each as a row per window of its document,
+    /// pad to the longest, run, read one score per row — and take a document's best row as its score.</summary>
     /// <param name="run">The engine for this call.</param>
     /// <param name="outputName">What <see cref="IOnnxHead.ResolveOutput"/> chose at composition.</param>
     /// <param name="query">The question every document is scored against.</param>

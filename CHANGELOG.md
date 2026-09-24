@@ -106,6 +106,16 @@ every addition.
   nothing for a bare provider id; a provider id that itself contains `:` passes a `ProviderCandidate` to the
   other overload instead.
 
+- **The ONNX provider SEGMENTS an input past its window instead of cutting it** (**D177**). It encoded the first
+  `OnnxProviderOptions.MaxTokens` tokens and silently dropped the rest, so text past the window never counted.
+  Now the input is split by tokens into windows and every window runs: a cross-encoder scores a document as
+  its BEST window, with the whole query in each, and an embedder returns the token-weighted mean of its
+  windows' unit vectors, re-normalised — unit length even for a model that does not normalise. There is no
+  option, because the provider knows its window; an input within it is answered exactly as before, and a
+  longer one costs a forward pass per window. **What to DO:** re-embed every stored entry longer than the
+  model's window wherever its old vector will be compared with new ones, and re-score any stored score of
+  such a document; for inputs within the window, nothing.
+
 ### Security
 
 - **Recalled memory can no longer forge a prompt section** (**D166**). Both composers rendered an item as
@@ -162,6 +172,11 @@ every addition.
   window holds too. Null, the default, sends every input whole, and an input within the bound is sent exactly
   as before. `AddHttpProvider` refuses it on an EMBEDDING registration at an Ollama server root; register that
   server's `/v1` base instead.
+
+- **`VectorMath.WeightedMeanDirection` pools several vectors into one unit vector**: each is scaled to unit
+  length, the unit vectors are summed by weight and the sum is re-normalised, falling back to the heaviest
+  vector's direction where they cancel. It is the one pooling both the HTTP and the ONNX provider apply to a
+  segmented input (**D177**), so a backend of your own that segments can pool the same way.
 
 ### Fixed
 

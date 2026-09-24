@@ -2560,6 +2560,7 @@ sealed class Lyntai.Memory.VectorMatch
 static class Lyntai.Memory.VectorMath
     static Cosine(Single[] a, Single[] b) : Double
     static NormalizeInPlace(Single[] vector) : Void
+    static WeightedMeanDirection(IReadOnlyList<Single[]> vectors, IReadOnlyList<Double> weights) : Single[]
 interface Lyntai.Memory.Verification.IMemoryVerificationPolicy
     VerifyAsync(MemoryVerificationRequest request, CancellationToken ct = default) : Task<MemoryVerification>
 sealed class Lyntai.Memory.Verification.LlmMemoryVerificationPolicy

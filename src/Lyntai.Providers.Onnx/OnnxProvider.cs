@@ -19,7 +19,10 @@ namespace Lyntai.Providers.Onnx;
 /// trim/AOT claim.</para>
 ///
 /// <para><b>It HAS a context limit</b>, which the static class does not: a BERT encoder has positional
-/// embeddings, so input past <see cref="OnnxProviderOptions.MaxTokens"/> is truncated.</para>
+/// embeddings. An input past <see cref="OnnxProviderOptions.MaxTokens"/> is SEGMENTED by tokens, never cut
+/// (<c>docs/DECISIONS.md</c> <b>D177</b>): every window runs, a document scores as its best window, and a
+/// text's vector is its windows' unit vectors averaged by token count and re-normalised. An input that fits
+/// is answered from its single row, untouched.</para>
 ///
 /// <para><b>Inference runs on the calling thread.</b> The async signature is the seam's, not a promise to
 /// yield — a batch of long documents is CPU-bound for tens of milliseconds. Wrap the call if that matters
@@ -27,18 +30,15 @@ namespace Lyntai.Providers.Onnx;
 public sealed class OnnxProvider : IVectorProvider, IScoreProvider, IDisposable
 {
     private readonly InferenceSession _session;
-    private readonly WordPieceTokenizer _tokenizer;
+    private readonly WindowedTokenizer _windows;
     private readonly IOnnxHead _head;
-    private readonly int _maxTokens;
     private readonly string _outputName;
 
-    private OnnxProvider(InferenceSession session, WordPieceTokenizer tokenizer,
-        IOnnxHead head, int maxTokens, string id)
+    private OnnxProvider(InferenceSession session, WindowedTokenizer windows, IOnnxHead head, string id)
     {
         _session = session;
-        _tokenizer = tokenizer;
+        _windows = windows;
         _head = head;
-        _maxTokens = maxTokens;
         Id = id;
         // resolved ONCE, so a graph this head cannot read fails at composition rather than per call
         _outputName = head.ResolveOutput(session);
@@ -62,8 +62,9 @@ public sealed class OnnxProvider : IVectorProvider, IScoreProvider, IDisposable
     /// non-ONNX model has already thrown at composition.</summary>
     public bool IsAvailable => true;
 
-    /// <summary>The sequence length this backend truncates at, including the special tokens.</summary>
-    public int MaxTokens => _maxTokens;
+    /// <summary>The sequence length one forward pass takes, including the special tokens; a longer input is
+    /// segmented into windows of it.</summary>
+    public int MaxTokens => _windows.MaxTokens;
 
     /// <summary>Load an ONNX export: a graph plus <c>vocab.txt</c>, with the sequence limit — and, for the
     /// default bi-encoder (pooling) head, pooling mode and normalization — taken from the model's own
@@ -84,13 +85,15 @@ public sealed class OnnxProvider : IVectorProvider, IScoreProvider, IDisposable
         var model = OnnxGraph.Resolve(directory, options.ModelFile,
             $"{nameof(OnnxProviderOptions)}.{nameof(OnnxProviderOptions.ModelFile)}");
         var tokenizer = WordPieceTokenizer.FromModelDirectory(directory);
+        // the tokenizer answers ids only; which rows continue a word or end a sentence is read off the same file
+        var boundaries = TokenBoundaries.FromVocabulary(File.ReadAllLines(Path.Combine(directory, "vocab.txt")));
 
         // One reader for both heads: a cross-encoder wants only the position limit, but
         // `max_position_embeddings` lives in the same config.json and one reader cannot drift.
         var config = SentenceTransformerConfig.FromDirectory(directory);
 
-        return new OnnxProvider(new InferenceSession(model), tokenizer, HeadFor(options, config),
-            options.MaxTokens ?? config.MaxTokens, options.Id);
+        var windows = new WindowedTokenizer(tokenizer, boundaries, options.MaxTokens ?? config.MaxTokens);
+        return new OnnxProvider(new InferenceSession(model), windows, HeadFor(options, config), options.Id);
     }
 
     /// <summary>Which head serves the declared kind. An unknown one is refused HERE rather than
@@ -142,7 +145,7 @@ public sealed class OnnxProvider : IVectorProvider, IScoreProvider, IDisposable
     }
 
     /// <summary>The engine handed to a head for one call.</summary>
-    private OnnxRun Run => new(_session, _tokenizer, _maxTokens);
+    private OnnxRun Run => new(_session, _windows);
 
     /// <summary>Why a call was declined. <b>A router should never see this</b> — it selects on
     /// <see cref="Capabilities"/>, which names the one kind this head serves, so reaching here means a

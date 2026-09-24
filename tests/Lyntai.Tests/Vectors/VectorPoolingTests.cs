@@ -267,20 +267,23 @@ public class OnnxProviderLiveTests
     }
 
     [SkippableFact]
-    public async Task TRUNCATES_past_its_context_limit_rather_than_throwing()
+    public async Task SEGMENTS_past_its_context_limit_so_the_TAIL_still_counts()
     {
-        // The one capability a model2vec table has over this class, from the other side: a transformer has
-        // positional embeddings, so an over-long input must be cut. Failing here would mean a single long
-        // document could refuse a whole corpus.
+        // A transformer has positional embeddings, so an over-long input runs as windows pooled into one
+        // vector (D177). Cut at the window instead, two inputs sharing their first 1,200 tokens would embed
+        // IDENTICALLY — the loss this pins.
         using var vectorProvider = Load();
+        var shared = string.Join(' ', Enumerable.Repeat("alpha beta gamma", 400));
 
         var vectors = await vectorProvider.EmbedAsync([
-            string.Join(' ', Enumerable.Repeat("alpha beta gamma", 4000)),
+            $"{shared} the weather forecast for tomorrow",
+            $"{shared} a stock market share price quote",
             "short",
         ]);
 
-        Assert.All(vectors, v => Assert.Contains(v, component => component != 0f));
-        Assert.Equal(vectors[0].Length, vectors[1].Length);
+        Assert.NotEqual(vectors[0], vectors[1]);
+        Assert.All(vectors, v => Assert.Equal(1.0, Math.Sqrt(v.Sum(c => (double)c * c)), 4));
+        Assert.Equal(vectors[0].Length, vectors[2].Length);
     }
 
     [SkippableFact]
