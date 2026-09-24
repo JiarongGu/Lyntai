@@ -358,11 +358,11 @@ public sealed class LyntaiBuilder
 
     /// <summary>Enable LIVE per-consumer routing: the router (and the response cache) read the consumer's route —
     /// <c>lyntai.route.&lt;consumer&gt;</c> = <c>provider:model[, provider:model…]</c> — from the key-value store
-    /// on each call and, when one is set, route over it IN PLACE of the configured candidates. So an admin moves
-    /// a consumer to another backend and model together, WITHOUT a restart (see
+    /// on each call and, when one is set, route over it IN PLACE of the candidates the call was given, explicit
+    /// ones included. So an admin moves a consumer to another backend and model together, WITHOUT a restart (see
     /// <see cref="KeyValueModelRoutingStore"/>; the namespace is <see cref="LyntaiOptions.RouteKeyPrefix"/>).
-    /// Needs a registered <see cref="IKeyValueStore"/>; opt-in, so apps that don't want the per-call lookup pay
-    /// nothing.</summary>
+    /// Text calls only. Needs a registered <see cref="IKeyValueStore"/>; opt-in, so apps that don't want the
+    /// per-call lookup pay nothing.</summary>
     public LyntaiBuilder AddLiveModelRouting()
     {
         Services.TryAddSingleton<IModelRoutingStore>(sp =>
@@ -483,9 +483,12 @@ public sealed class LyntaiBuilder
 
     /// <summary>Set the router fallback order used when callers don't pass explicit candidates.
     /// SETS (clears + replaces) the default candidate list — the last call wins; it does not append.
-    /// Each provider id becomes an <see cref="ProviderCandidate"/> with default options.</summary>
+    /// Each entry is a candidate spec, as <c>LYNTAI_DEFAULT_CANDIDATES</c> reads one: a provider id, optionally
+    /// <c>"provider:model"</c>, split at the FIRST colon (so <c>"ollama:qwen3:4b"</c> is <c>ollama</c> serving
+    /// <c>qwen3:4b</c>). A provider id that itself contains a colon takes the <see cref="ProviderCandidate"/>
+    /// overload.</summary>
     public LyntaiBuilder UseDefaultCandidates(params string[] providerIds) =>
-        UseDefaultCandidates([.. providerIds.Select(id => new ProviderCandidate(id))]);
+        UseDefaultCandidates([.. providerIds.Select(ProviderCandidateSpec.Parse)]);
 
     /// <summary>Set the router fallback order used when callers don't pass explicit candidates.
     /// SETS (clears + replaces) the default candidate list — the last call wins; it does not append.</summary>

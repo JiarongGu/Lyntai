@@ -17,7 +17,7 @@ namespace Lyntai.Benchmarks;
 ///
 /// <para><b>Every loop arm runs the REAL <see cref="ToolLoop"/> over a real <see cref="ToolRegistry"/>.</b>
 /// Only the <see cref="ITextClient"/> is the bench's, which is what puts the loop on its prompt path
-/// (<c>GetCapabilitiesAsync</c> defaults to unknown) and what lets the prompt the transport actually sent be
+/// (its <c>GetCapabilitiesAsync</c> answers unknown) and what lets the prompt the transport actually sent be
 /// counted rather than reconstructed.</para>
 ///
 /// <para><b>The cross-shape arm is the point.</b> The same trials posed as a plain <c>select-from-list</c>
@@ -829,7 +829,7 @@ internal static class ToolAffordanceSweep
 
     /// <summary>The loop's model, and the instrument that counts what the transport actually sent.
     ///
-    /// <para><b><c>GetCapabilitiesAsync</c> is left at its interface default of unknown</b>, which is what puts
+    /// <para><b><c>GetCapabilitiesAsync</c> answers unknown</b>, which is what puts
     /// <see cref="ToolLoop"/> on its prompt path. That is the measurement, not a limitation: the native path
     /// is silently inert on both models this machine holds.</para>
     ///
@@ -876,6 +876,9 @@ internal static class ToolAffordanceSweep
 
         public IAsyncEnumerable<TextChunk> StreamAsync(TextRequest req, CancellationToken ct = default) =>
             throw new NotSupportedException("the affordance arm drives the loop's completion path");
+
+        public ValueTask<ProviderCapabilities?> GetCapabilitiesAsync(TextRequest req, CancellationToken ct = default) =>
+            ValueTask.FromResult<ProviderCapabilities?>(null);
     }
 
     /// <summary>The same loop over the NATIVE function-calling transport: declarations go on the request and
@@ -975,6 +978,9 @@ internal static class ToolAffordanceSweep
 
         public IAsyncEnumerable<TextChunk> StreamAsync(TextRequest req, CancellationToken ct = default) =>
             throw new NotSupportedException("the scripted control drives the loop's completion path");
+
+        public ValueTask<ProviderCapabilities?> GetCapabilitiesAsync(TextRequest req, CancellationToken ct = default) =>
+            ValueTask.FromResult<ProviderCapabilities?>(null); // the prompt path, which this control exercises
     }
 
     /// <summary>A well-formed arguments object for a tool, read off its own schema. The control must not

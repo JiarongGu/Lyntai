@@ -103,6 +103,28 @@ public class TextClientTests
         Assert.Same(plain.Capabilities, await sp.GetRequiredService<ITextClient>().GetCapabilitiesAsync(Req));
     }
 
+    [Theory]
+    [InlineData(typeof(ITextClient))]
+    [InlineData(typeof(ITextRouter))]
+    public void The_capability_probe_has_no_default_body(Type door)
+    {
+        // a client or decorator that does not answer is a BUILD error, never a silent drop to the prompt path
+        Assert.True(door.GetMethod(nameof(ITextClient.GetCapabilitiesAsync))!.IsAbstract);
+    }
+
+    [Fact]
+    public void A_default_candidate_string_is_a_candidate_spec()
+    {
+        var services = new ServiceCollection();
+        services.AddLyntai(b => b.AddProvider(_ => new FakeTextProvider("llama"))
+            .UseDefaultCandidates("llama:qwen3", "ollama:qwen3:4b", " claude ", "codex:"));
+        using var sp = services.BuildServiceProvider();
+
+        Assert.Equal(
+            [new ProviderCandidate("llama", "qwen3"), new("ollama", "qwen3:4b"), new("claude"), new("codex")],
+            sp.GetRequiredService<LyntaiOptions>().DefaultCandidates);
+    }
+
     [Fact]
     public async Task Capabilities_are_unknown_when_no_candidate_is_live()
     {

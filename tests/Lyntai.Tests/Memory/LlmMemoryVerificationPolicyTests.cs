@@ -33,6 +33,9 @@ public class LlmMemoryVerificationPolicyTests
 
         public IAsyncEnumerable<TextChunk> StreamAsync(TextRequest req, CancellationToken ct = default) =>
             throw new NotSupportedException();
+
+        public ValueTask<ProviderCapabilities?> GetCapabilitiesAsync(TextRequest req, CancellationToken ct = default) =>
+            ValueTask.FromResult<ProviderCapabilities?>(null);
     }
 
     private sealed class ThrowingClient : ITextClient
@@ -42,6 +45,9 @@ public class LlmMemoryVerificationPolicyTests
 
         public IAsyncEnumerable<TextChunk> StreamAsync(TextRequest req, CancellationToken ct = default) =>
             throw new NotSupportedException();
+
+        public ValueTask<ProviderCapabilities?> GetCapabilitiesAsync(TextRequest req, CancellationToken ct = default) =>
+            ValueTask.FromResult<ProviderCapabilities?>(null);
     }
 
     /// <summary>Honours the token, which the shared <c>FakeTextClient</c> deliberately does not — the point of
@@ -57,6 +63,9 @@ public class LlmMemoryVerificationPolicyTests
 
         public IAsyncEnumerable<TextChunk> StreamAsync(TextRequest req, CancellationToken ct = default) =>
             throw new NotSupportedException();
+
+        public ValueTask<ProviderCapabilities?> GetCapabilitiesAsync(TextRequest req, CancellationToken ct = default) =>
+            ValueTask.FromResult<ProviderCapabilities?>(null);
     }
 
     /// <summary>Throws exactly what <c>HttpClient</c> throws when its own timeout elapses — a cancellation
@@ -71,6 +80,9 @@ public class LlmMemoryVerificationPolicyTests
 
         public IAsyncEnumerable<TextChunk> StreamAsync(TextRequest req, CancellationToken ct = default) =>
             throw new NotSupportedException();
+
+        public ValueTask<ProviderCapabilities?> GetCapabilitiesAsync(TextRequest req, CancellationToken ct = default) =>
+            ValueTask.FromResult<ProviderCapabilities?>(null);
     }
 
     private sealed class SingleClientFactory(ITextClient client) : ITextClientFactory

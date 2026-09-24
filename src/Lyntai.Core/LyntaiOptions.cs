@@ -48,7 +48,9 @@ public sealed class LyntaiOptions
     /// (scorers, composition helpers, the Playground).</summary>
     public List<ProviderCandidate> DefaultCandidates { get; } = [];
 
-    /// <summary>Default model per consumer tag ("default" applies when the tag has no entry).</summary>
+    /// <summary>Default model per consumer tag ("default" applies when the tag has no entry). Read for the
+    /// candidates a call is given; a live route's entries never fall back to it (see
+    /// <see cref="IModelRoutingStore"/>).</summary>
     public Dictionary<string, string> DefaultModelByConsumer { get; } = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Provider timeout per consumer tag ("default" applies when the tag has no entry) — e.g. give a

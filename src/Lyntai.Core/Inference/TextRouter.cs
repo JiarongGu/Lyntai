@@ -75,11 +75,11 @@ public sealed class TextRouter(
 
     public async Task<TextResponse> CompleteAsync(IReadOnlyList<ProviderCandidate> candidates, TextRequest req, CancellationToken ct = default)
     {
-        candidates = await LiveRouteAsync(candidates, req.Consumer, ct).ConfigureAwait(false);
+        var routing = await LiveRouteAsync(candidates, req, ct).ConfigureAwait(false);
         TextResponse? last = null;           // the last SUBSTANTIVE failure — what the caller is told
         TextResponse? lastBlameless = null;  // …kept apart, so it can answer only when there was no real failure
 
-        foreach (var (provider, effectiveModel, key) in LiveCandidates(candidates, req))
+        foreach (var (provider, effectiveModel, key) in LiveCandidates(routing, req))
         {
             WarnIfToolsUnsupported(provider, req, streaming: false);
             // retry-then-advance: the same candidate may be retried on transient faults before advancing
@@ -136,10 +136,10 @@ public sealed class TextRouter(
     public async IAsyncEnumerable<TextChunk> StreamAsync(IReadOnlyList<ProviderCandidate> candidates, TextRequest req,
         [EnumeratorCancellation] CancellationToken ct = default)
     {
-        candidates = await LiveRouteAsync(candidates, req.Consumer, ct).ConfigureAwait(false);
+        var routing = await LiveRouteAsync(candidates, req, ct).ConfigureAwait(false);
         var failures = new StreamFailures();
 
-        foreach (var (provider, effectiveModel, key) in LiveCandidates(candidates, req))
+        foreach (var (provider, effectiveModel, key) in LiveCandidates(routing, req))
         {
             WarnIfToolsUnsupported(provider, req, streaming: true);
             var effective = req with { Model = effectiveModel };
@@ -358,24 +358,30 @@ public sealed class TextRouter(
     public async ValueTask<ProviderCapabilities?> GetCapabilitiesAsync(IReadOnlyList<ProviderCandidate> candidates,
         TextRequest req, CancellationToken ct = default)
     {
-        candidates = await LiveRouteAsync(candidates, req.Consumer, ct).ConfigureAwait(false);
-        foreach (var candidate in LiveCandidates(candidates, req))
+        var routing = await LiveRouteAsync(candidates, req, ct).ConfigureAwait(false);
+        foreach (var candidate in LiveCandidates(routing, req))
             return candidate.Provider.Capabilities; // the first live candidate decides
         return null;
     }
 
+    /// <summary>The candidates one call routes over, and whether they are the consumer's live route.</summary>
+    private readonly record struct Routing(IReadOnlyList<ProviderCandidate> Candidates, bool IsLiveRoute);
+
     /// <summary>The shared candidate-selection preamble every door runs: dedup the list, resolve each
-    /// candidate's EFFECTIVE model (candidate model → request model → consumer default), skip
-    /// unknown/unavailable/cooling providers (with the sole-candidate exemption), and pair each survivor with
-    /// its cooldown key.</summary>
+    /// candidate's EFFECTIVE model, skip unknown/unavailable/cooling providers (with the sole-candidate
+    /// exemption), and pair each survivor with its cooldown key. A given candidate's model is its own, else the
+    /// request's, else the consumer default; a live route entry's never falls to the consumer default, which
+    /// belongs to the candidates the route replaced — its own, else the request's, else the backend's.</summary>
     private IEnumerable<(IModelProvider Provider, string? Model, string Key)> LiveCandidates(
-        IReadOnlyList<ProviderCandidate> candidates, TextRequest req)
+        Routing routing, TextRequest req)
     {
-        var deduped = CandidateDedup.Dedup(candidates);
+        var deduped = CandidateDedup.Dedup(routing.Candidates);
         var soleCandidate = deduped.Count == 1;
         foreach (var candidate in deduped)
         {
-            var effectiveModel = options.ResolveModel(req.Consumer, candidate.Model ?? req.Model);
+            var effectiveModel = routing.IsLiveRoute
+                ? RouteEntryModel(candidate, req.Model)
+                : options.ResolveModel(req.Consumer, candidate.Model ?? req.Model);
             var provider = SelectLive(candidate, effectiveModel, soleCandidate, out var skipReason);
             if (provider is null)
             {
@@ -420,13 +426,14 @@ public sealed class TextRouter(
 
     /// <summary>The candidates a call routes over: the consumer's live route when one is set, else
     /// <paramref name="given"/>. Read once per call, and never silently wrong: a store that throws, and a route
-    /// naming no provider this router knows, each leave <paramref name="given"/> in force with a warning; a route
-    /// naming only SOME unknown providers is used, with a warning naming them — a typo in the primary otherwise
-    /// moves all traffic to the backup unseen.</summary>
-    private async Task<IReadOnlyList<ProviderCandidate>> LiveRouteAsync(
-        IReadOnlyList<ProviderCandidate> given, string consumer, CancellationToken ct)
+    /// naming no registered TEXT provider, each leave <paramref name="given"/> in force with a warning; a route
+    /// naming only SOME such entries is used without them, with a warning naming them — a typo in the primary
+    /// otherwise moves all traffic to the backup unseen. A request model the route can never serve warns too.</summary>
+    private async Task<Routing> LiveRouteAsync(
+        IReadOnlyList<ProviderCandidate> given, TextRequest req, CancellationToken ct)
     {
-        if (modelRouting is null) return given;
+        if (modelRouting is null) return new(given, false);
+        var consumer = req.Consumer;
         IReadOnlyList<ProviderCandidate> route;
         try
         {
@@ -435,22 +442,39 @@ public sealed class TextRouter(
         catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
         {
             _logger.LogWarning(ex, "router: the live route read failed for consumer {Consumer}; routing over the given candidates", consumer);
-            return given;
+            return new(given, false);
         }
-        if (route is not { Count: > 0 }) return given;
+        if (route is not { Count: > 0 }) return new(given, false);
 
-        var unknown = route.Where(c => !_byId.Value.ContainsKey(c.ProviderId)).Select(ProviderCandidateSpec.Format).ToList();
-        if (unknown.Count == route.Count)
+        // a registered backend that serves no text (an embedder, a reranker) is as unusable here as an unknown id
+        bool ServesText(ProviderCandidate c) => _byId.Value.TryGetValue(c.ProviderId, out var p)
+            && p.Capabilities.Produces.Contains(ProviderKinds.Text, StringComparer.OrdinalIgnoreCase);
+        var usable = route.Where(ServesText).ToList();
+        var unusable = route.Where(c => !ServesText(c)).Select(ProviderCandidateSpec.Format).ToList();
+        if (usable.Count == 0)
         {
-            _logger.LogWarning("router: the live route for consumer {Consumer} ({Route}) names no registered provider; routing over the given candidates",
-                consumer, string.Join(", ", unknown));
-            return given;
+            _logger.LogWarning("router: the live route for consumer {Consumer} ({Route}) names no registered text provider; routing over the given candidates",
+                consumer, string.Join(", ", unusable));
+            return new(given, false);
         }
-        if (unknown.Count > 0)
-            _logger.LogWarning("router: the live route for consumer {Consumer} names providers not registered here ({Unknown}); they are skipped",
-                consumer, string.Join(", ", unknown));
-        return route;
+        if (unusable.Count > 0)
+            _logger.LogWarning("router: the live route for consumer {Consumer} names providers not registered here or serving no text ({Unknown}); they are skipped",
+                consumer, string.Join(", ", unusable));
+
+        // D119's composition-time check, at run time: every entry pins a model and none is the one asked for
+        if (!string.IsNullOrEmpty(req.Model) && ClientCandidates.ModelPinIsInert(req.Model, usable))
+            _logger.LogWarning("router: consumer {Consumer} asks for model {Model}, which its live route ({Route}) can never serve — every entry pins another; the route's models serve",
+                consumer, req.Model, string.Join(", ", usable.Select(ProviderCandidateSpec.Format)));
+        return new(usable, true);
     }
+
+    /// <summary>A live route entry's model: its own, else the request's, else null — the backend's default. A
+    /// blank entry model pins nothing, as <see cref="ClientCandidates.ModelPinIsInert"/> reads a pin, and an
+    /// empty request model is absent, as <see cref="LyntaiOptions.ResolveModel"/> reads one.</summary>
+    private static string? RouteEntryModel(ProviderCandidate entry, string? requestModel) =>
+        !string.IsNullOrWhiteSpace(entry.Model) ? entry.Model
+        : !string.IsNullOrEmpty(requestModel) ? requestModel
+        : null;
 
     /// <summary>The backstop under the capability probe: tools sent to a backend that does not declare native
     /// tool calls (on a stream, that its STREAM carries them) go uncalled, and the reply reads as a final answer

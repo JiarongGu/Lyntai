@@ -19,8 +19,8 @@ public interface ITextClient
     /// choose between native tool calls (<see cref="ProviderCapabilities.SupportsToolCalls"/>, and
     /// <see cref="ProviderCapabilities.SupportsStreamingToolCalls"/> for its streaming half) and its prompt
     /// protocol.
-    /// <para>Null means UNKNOWN — no live candidate, or a client that cannot say — and a caller must read it as
-    /// the safe answer: no native tool calls. That is the default body.</para></summary>
-    ValueTask<ProviderCapabilities?> GetCapabilitiesAsync(TextRequest req, CancellationToken ct = default) =>
-        ValueTask.FromResult<ProviderCapabilities?>(null);
+    /// <para>Null means UNKNOWN — no live candidate — and a caller must read it as the safe answer: no native
+    /// tool calls. A client that cannot say returns null; a decorator forwards to the client it wraps
+    /// (<see cref="DelegatingTextClient"/> does).</para></summary>
+    ValueTask<ProviderCapabilities?> GetCapabilitiesAsync(TextRequest req, CancellationToken ct = default);
 }

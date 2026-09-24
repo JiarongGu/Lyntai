@@ -765,6 +765,9 @@ internal static class SweepDoubles
             public IAsyncEnumerable<TextChunk> StreamAsync(TextRequest req, CancellationToken ct = default) =>
                 throw new NotSupportedException(
                     "the bench client backs a verification judge, which does not stream");
+
+            public ValueTask<ProviderCapabilities?> GetCapabilitiesAsync(TextRequest req, CancellationToken ct = default) =>
+                ValueTask.FromResult<ProviderCapabilities?>(null);
         }
     }
 }

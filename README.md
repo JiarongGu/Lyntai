@@ -797,8 +797,9 @@ front-door decorator with no error at all. One trap: taking a built-in's order s
 two — first writer wins per slot — and the loser's options are still applied and its `IResponseCache` /
 `IUsageTracker` / `IRateLimiter` still registered, so the wiring reads as complete while that governance
 layer is simply not in the chain. **Derive the layer from `DelegatingTextClient`**, which forwards
-`GetCapabilitiesAsync` to the layer inside it, or pass that call through yourself: a layer that answers it
-with the interface's default (null, unknown) puts every tool loop above it on the prompt path, silently.
+`GetCapabilitiesAsync` to the layer inside it, or pass that call through yourself — it has no default body, so
+a layer that forgets it does not compile, and one that answers null (unknown) puts every tool loop above it
+on the prompt path.
 
 **Persisting a governance store needs `StorageFeature.Governance`.** The default `StorageFeature.All`
 already includes it, so this only concerns a deployment that migrates a subset. The three governance-backed

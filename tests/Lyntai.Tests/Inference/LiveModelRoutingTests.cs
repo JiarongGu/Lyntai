@@ -4,6 +4,7 @@ using Lyntai.Inference.Caching;
 using Lyntai;
 using Lyntai.Storage;
 using Lyntai.Tests.Fakes;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using InMemoryKeyValueStore = Lyntai.Storage.InMemory.InMemoryKeyValueStore;
 
@@ -156,6 +157,34 @@ public class LiveModelRoutingTests
     }
 
     [Fact]
+    public async Task A_store_that_cannot_list_is_checked_for_lyntai_model_keys_once()
+    {
+        var warnings = new List<string>();
+        var kv = new FaultingKeyValueStore { OnList = () => new NotSupportedException("no listing here") };
+        kv.Data["lyntai.route.memory"] = "claude:haiku";
+        var store = new KeyValueModelRoutingStore(kv, Logger<KeyValueModelRoutingStore>(warnings));
+
+        for (var call = 0; call < 4; call++)
+            Assert.Equal("claude|haiku", Render(await store.GetRouteAsync("memory")));
+
+        Assert.Equal(1, kv.Lists); // a store that cannot list never will: the check is done, nothing reported
+        Assert.Empty(warnings);
+    }
+
+    [Fact]
+    public async Task A_listing_that_keeps_failing_is_given_up_after_three_attempts()
+    {
+        var kv = new FaultingKeyValueStore { OnList = () => new InvalidOperationException("listing down") };
+        kv.Data["lyntai.route.memory"] = "claude:haiku";
+        var store = new KeyValueModelRoutingStore(kv);
+
+        for (var call = 0; call < 6; call++)
+            Assert.Equal("claude|haiku", Render(await store.GetRouteAsync("memory")));
+
+        Assert.Equal(3, kv.Lists);
+    }
+
+    [Fact]
     public async Task A_failed_route_read_does_not_also_list_lyntai_model_keys()
     {
         var down = new FaultingKeyValueStore { OnGet = () => new InvalidOperationException("kv down") };
@@ -228,7 +257,7 @@ public class LiveModelRoutingTests
     }
 
     [Theory, InlineData(false), InlineData(true)]
-    public async Task A_route_entry_resolves_its_model_as_a_configured_candidate_does(bool streaming)
+    public async Task A_route_entry_takes_its_own_model_else_the_requests_never_the_consumer_default(bool streaming)
     {
         var (router, _, a, b, kv, _) = Routed(aFails: false);
 
@@ -238,9 +267,100 @@ public class LiveModelRoutingTests
         await kv.SetAsync("lyntai.route.memory", "b:m2");
         await CallAsync(router, Configured, Memory with { Model = "asked" }, streaming);
 
-        // a bare entry takes the request's model, else the consumer default; an entry's own model outranks both
-        Assert.Equal(new string?[] { "d", "asked", "m2" }, b.Calls.Select(c => c.Model));
+        // a bare entry takes the request's model, else the backend's own default — never the consumer
+        // default "d", which belongs to the configured candidates the route replaced
+        Assert.Equal(new string?[] { null, "asked", "m2" }, b.Calls.Select(c => c.Model));
         Assert.Empty(a.Calls);
+    }
+
+    [Theory, InlineData(false), InlineData(true)]
+    public async Task A_bare_route_entry_benches_and_is_probed_under_the_backends_default_model(bool streaming)
+    {
+        var deadHosts = new DeadHostTracker();
+        var (router, _, a, b, kv, _) = Routed(aFails: false, deadHosts: deadHosts,
+            configure: o => o.Routing.CooldownScope = CooldownScope.ProviderAndModel);
+        await kv.SetAsync("lyntai.route.memory", "b, a");
+
+        deadHosts.MarkDead("b::d"); // the consumer default's key is not the one a bare entry runs under
+        Assert.Same(b.Capabilities, await router.GetCapabilitiesAsync(Configured, Memory));
+
+        deadHosts.MarkDead("b::(default)");
+        Assert.Same(a.Capabilities, await router.GetCapabilitiesAsync(Configured, Memory));
+        Assert.StartsWith("a ", await CallAsync(router, Configured, Memory, streaming)); // the probe and the call agree
+        Assert.Empty(b.Calls);
+        Assert.Null(Assert.Single(a.Calls).Model);
+    }
+
+    [Theory, InlineData(false), InlineData(true)]
+    public async Task A_given_candidate_still_resolves_through_the_consumer_default_under_cooldown(bool streaming)
+    {
+        var deadHosts = new DeadHostTracker();
+        var (router, x, _, _, _, _) = Routed(aFails: false, deadHosts: deadHosts,
+            configure: o => o.Routing.CooldownScope = CooldownScope.ProviderAndModel);
+
+        deadHosts.MarkDead("x::(default)"); // not x's key: a given candidate runs under the consumer default
+        Assert.Same(x.Capabilities, await router.GetCapabilitiesAsync([new("x"), new("a")], Memory));
+        Assert.StartsWith("x ", await CallAsync(router, [new("x"), new("a")], Memory, streaming));
+        Assert.Equal("d", Assert.Single(x.Calls).Model);
+    }
+
+    [Theory, InlineData(false), InlineData(true)]
+    public async Task A_request_model_a_fully_pinned_route_can_never_serve_is_a_warning_on_each_call(bool streaming)
+    {
+        var (router, _, a, _, kv, warnings) = Routed(aFails: false);
+        await kv.SetAsync("lyntai.route.memory", "a:m1, b:m2");
+
+        await CallAsync(router, Configured, Memory with { Model = "pinned" }, streaming);
+
+        Assert.Equal("m1", Assert.Single(a.Calls).Model); // the route's model serves
+        var warning = Assert.Single(warnings);
+        Assert.Contains("memory", warning);
+        Assert.Contains("pinned", warning);
+        Assert.Contains("a:m1, b:m2", warning);
+
+        warnings.Clear();
+        await CallAsync(router, Configured, Memory with { Model = "pinned" }, streaming);
+        Assert.Single(warnings);
+    }
+
+    [Theory]
+    [InlineData("a:m1, b")]       // a bare entry can take the request's model
+    [InlineData("a:m1, b:pinned")] // an entry pins it
+    [InlineData("a:m1, b:PINNED")] // matched as the predicate at composition matches it
+    public async Task A_route_that_can_serve_the_requests_model_does_not_warn(string route)
+    {
+        var (router, _, _, _, kv, warnings) = Routed(aFails: false);
+        await kv.SetAsync("lyntai.route.memory", route);
+
+        await router.CompleteAsync(Configured, Memory with { Model = "pinned" });
+        await router.CompleteAsync(Configured, Memory); // no model asked for, nothing to contradict
+        await kv.SetAsync("lyntai.route.memory", "a:m1, b:m2");
+        await router.CompleteAsync(Configured, Memory);
+
+        Assert.Empty(warnings);
+    }
+
+    [Theory, InlineData(false), InlineData(true)]
+    public async Task A_route_entry_naming_a_backend_that_serves_no_text_is_skipped_as_an_unknown_one_is(bool streaming)
+    {
+        var v = new FakeTextProvider("v")
+        {
+            Capabilities = new() { Accepts = [ProviderKinds.Text], Produces = [ProviderKinds.Vector], Operations = [ProviderOperation.Complete] },
+        };
+        var (router, x, _, b, kv, warnings) = Routed(aFails: false, more: [v]);
+
+        await kv.SetAsync("lyntai.route.memory", "v:e5, b:m2");
+        Assert.StartsWith("b ", await CallAsync(router, Configured, Memory, streaming));
+        Assert.Contains("v:e5", Assert.Single(warnings));
+
+        warnings.Clear();
+        await kv.SetAsync("lyntai.route.memory", "v:e5");
+        Assert.StartsWith("x ", await CallAsync(router, Configured, Memory, streaming)); // the given candidates serve
+        Assert.Contains("v:e5", Assert.Single(warnings));
+        Assert.Same(x.Capabilities, await router.GetCapabilitiesAsync(Configured, Memory));
+
+        Assert.Empty(v.Calls);
+        Assert.Equal("m2", Assert.Single(b.Calls).Model);
     }
 
     [Theory, InlineData(false), InlineData(true)]
@@ -451,6 +571,73 @@ public class LiveModelRoutingTests
     }
 
     [Fact]
+    public async Task Under_a_route_the_cache_key_names_the_requests_own_model_not_the_consumer_default()
+    {
+        var kv = new InMemoryKeyValueStore();
+        var (client, cache, _) = Cached(kv); // the consumer default is "d"
+        await kv.SetAsync("lyntai.route.memory", "b");
+
+        await client.CompleteAsync(Memory);                     // b is asked for its own default model
+        await client.CompleteAsync(Memory with { Model = "d" }); // b is asked for "d"
+
+        Assert.NotEqual(cache.Keys[0], cache.Keys[1]);
+    }
+
+    [Fact]
+    public async Task Under_a_route_the_cache_key_still_moves_with_the_consumer_default()
+    {
+        // a route naming nothing the router knows is ignored, and the given candidates then resolve through
+        // the consumer default — so a key blind to it could serve a reply across a changed default
+        var kv = new InMemoryKeyValueStore();
+        await kv.SetAsync("lyntai.route.memory", "gone");
+        var (client, cache, options) = Cached(kv);
+
+        await client.CompleteAsync(Memory);
+        options.DefaultModelByConsumer["memory"] = "d2";
+        await client.CompleteAsync(Memory);
+
+        Assert.NotEqual(cache.Keys[0], cache.Keys[1]);
+    }
+
+    [Fact]
+    public async Task The_callers_cancellation_during_the_caches_route_read_propagates()
+    {
+        using var cts = new CancellationTokenSource();
+        var marker = new OperationCanceledException("the caller left", cts.Token);
+        var inner = new FakeTextClient();
+        var cache = new KeyRecordingCache();
+        var client = new CachingTextClient(inner, cache, new LyntaiOptions(),
+            modelRouting: new ThrowingRouteStore(() => { cts.Cancel(); return marker; }));
+
+        var thrown = await Assert.ThrowsAsync<OperationCanceledException>(() => client.CompleteAsync(Memory, cts.Token));
+
+        Assert.Same(marker, thrown);
+        Assert.Empty(inner.Calls);
+        Assert.Empty(cache.Keys);
+    }
+
+    [Theory, InlineData(false), InlineData(true)]
+    public async Task AddLiveModelRouting_moves_the_containers_front_door(bool streaming)
+    {
+        var x = new FakeTextProvider("x");
+        var b = new FakeTextProvider("b");
+        var kv = new InMemoryKeyValueStore();
+        var services = new ServiceCollection();
+        services.AddSingleton<IKeyValueStore>(kv);
+        services.AddLyntai(o => o.AddProvider(_ => x).AddProvider(_ => b)
+            .UseDefaultCandidates("x").AddResponseCache().AddLiveModelRouting());
+        using var sp = services.BuildServiceProvider();
+        var client = sp.GetRequiredService<ITextClient>();
+
+        await kv.SetAsync("lyntai.route.memory", "b:m2");
+        if (streaming) { await foreach (var _ in client.StreamAsync(Memory)) { } }
+        else await client.CompleteAsync(Memory);
+
+        Assert.Equal("m2", Assert.Single(b.Calls).Model);
+        Assert.Empty(x.Calls);
+    }
+
+    [Fact]
     public async Task A_faulting_route_store_neither_fails_the_call_nor_touches_the_cache()
     {
         var warnings = new List<string>();
@@ -477,11 +664,12 @@ public class LiveModelRoutingTests
     private static string Render(IReadOnlyList<ProviderCandidate> route) =>
         string.Join(" ", route.Select(c => $"{c.ProviderId}|{c.Model ?? "(default)"}"));
 
-    /// <summary>A router over x, a and b for consumer "memory", whose configured default model is "d"; calls are
-    /// given the candidates [x]. With <paramref name="aFails"/>, a throws on both doors. The route is read from
-    /// the returned KV store unless another <paramref name="store"/> is given.</summary>
+    /// <summary>A router over x, a and b (and <paramref name="more"/>) for consumer "memory", whose configured
+    /// default model is "d"; calls are given the candidates [x]. With <paramref name="aFails"/>, a throws on both
+    /// doors. The route is read from the returned KV store unless another <paramref name="store"/> is given.</summary>
     private static (TextRouter Router, FakeTextProvider X, FakeTextProvider A, FakeTextProvider B,
-        InMemoryKeyValueStore Kv, List<string> Warnings) Routed(bool aFails, IModelRoutingStore? store = null)
+        InMemoryKeyValueStore Kv, List<string> Warnings) Routed(bool aFails, IModelRoutingStore? store = null,
+        DeadHostTracker? deadHosts = null, Action<LyntaiOptions>? configure = null, IModelProvider[]? more = null)
     {
         var kv = new InMemoryKeyValueStore();
         var x = new FakeTextProvider("x");
@@ -494,9 +682,10 @@ public class LiveModelRoutingTests
         var b = new FakeTextProvider("b");
         var options = new LyntaiOptions();
         options.DefaultModelByConsumer["memory"] = "d";
+        configure?.Invoke(options);
         var warnings = new List<string>();
-        var router = new TextRouter([x, a, b], new DeadHostTracker(), options, Logger<TextRouter>(warnings),
-            modelRouting: store ?? new KeyValueModelRoutingStore(kv));
+        var router = new TextRouter([x, a, b, .. more ?? []], deadHosts ?? new DeadHostTracker(), options,
+            Logger<TextRouter>(warnings), modelRouting: store ?? new KeyValueModelRoutingStore(kv));
         return (router, x, a, b, kv, warnings);
     }
 

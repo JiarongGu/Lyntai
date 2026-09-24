@@ -20,8 +20,8 @@ public interface ITextRouter
     /// selected exactly as <see cref="CompleteAsync"/> selects it — the same effective model and cooldown key,
     /// and the consumer's live <c>IModelRoutingStore</c> route in place of <paramref name="candidates"/> when one
     /// is set. A fallback the call would never reach does not change the answer.
-    /// <para>Null means UNKNOWN (no live candidate); read it as no native tool calls. The default body answers
-    /// null.</para></summary>
+    /// <para>Null means UNKNOWN (no live candidate); read it as no native tool calls. A router that cannot say
+    /// returns null.</para></summary>
     ValueTask<ProviderCapabilities?> GetCapabilitiesAsync(IReadOnlyList<ProviderCandidate> candidates, TextRequest req,
-        CancellationToken ct = default) => ValueTask.FromResult<ProviderCapabilities?>(null);
+        CancellationToken ct = default);
 }

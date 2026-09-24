@@ -53,12 +53,15 @@ every addition.
   between a rebind and the restart that rewired it, the model reached a provider it was never written for;
   memory's fail-open policies made both silent. The key is now `lyntai.route.<consumer>`, and its value the
   candidate spec `LYNTAI_DEFAULT_CANDIDATES` already reads — `provider:model[, …]` in fallback order, split at
-  the first `:` so `ollama:qwen3:4b` is `ollama` plus `qwen3:4b`, a bare `provider` naming no model.
+  the first `:` so `ollama:qwen3:4b` is `ollama` plus `qwen3:4b`. An entry's model is its own, else the
+  request's, else the backend's own default: a bare `provider` never takes the consumer's configured default
+  (`DefaultModelByConsumer`, `LYNTAI_MODEL_<consumer>`), which was written for the candidates the route
+  replaces. Text calls only — embeds, reranks and media under the same consumer do not move.
   `IModelRoutingStore.GetRouteAsync` returns it and replaces `GetModelOverrideAsync`; `LyntaiOptions` <!-- drift-ok: the entry names the member it removes -->
   renames `ModelKeyPrefix` to `RouteKeyPrefix` (default `lyntai.route.`) and loses its three-argument <!-- drift-ok: as above -->
   `ResolveModel`; the const `KeyValueModelRoutingStore.DefaultKeyPrefix` is now `lyntai.route.`. An old
   `lyntai.model.*` key is inert — never read as a route — and the store warns once that one exists. A route
-  naming no registered provider, or a store that throws, logs a warning and the given candidates serve.
+  naming no registered text provider, or a store that throws, logs a warning and the given candidates serve.
   **What to DO:** rewrite each `lyntai.model.<consumer>` = `model` as `lyntai.route.<consumer>` =
   `provider:model[, …]`; rename `ModelKeyPrefix` to `RouteKeyPrefix` — and if you had set it to a namespace of <!-- drift-ok: as above -->
   your own, rewrite that namespace's values as routes (`provider:model`) or move to a new prefix so the old
@@ -71,9 +74,11 @@ every addition.
 - **A live route outranks what the CALL named.** A route is a list of pairs, as configured candidates are, so it
   replaces the candidates a call was given — including candidates passed EXPLICITLY to `ITextRouter`, not only
   the configured ones — and an entry's model outranks an explicit `TextRequest.Model`, exactly as a configured
-  candidate's model does. The old model-only override ranked below both. **What to DO:** where the request's own
-  model must win for a routed consumer, write that route entry bare (`provider`, no model); where explicit
-  candidates must win, keep that consumer's route key unset.
+  candidate's model does. The old model-only override ranked below both. A request's model that a route can
+  never serve — every entry pins another, the case `AddMemoryVerification` and `AddMemoryAnnotation` already
+  refuse at composition — logs a warning on each call. **What to DO:** where the request's own model must win
+  for a routed consumer, write that route entry bare (`provider`, no model); where explicit candidates must win,
+  keep that consumer's route key unset.
 
 - **The tool loop asks the backend that will serve: one async `GetCapabilitiesAsync` replaces
   `SupportsToolCalls` and `SupportsStreamingToolCalls` on `ITextClient` and `ITextRouter`** (**D176**). The
@@ -81,19 +86,25 @@ every addition.
   calls still sent the loop down the native path and its tools went uncalled. `GetCapabilitiesAsync` (the
   router's also takes the candidates) answers with the `ProviderCapabilities` of the backend that would serve,
   live route included; null means unknown, and the tool loop then takes the prompt path. The router also warns
-  when a request carrying tools reaches a backend that does not declare tool calls. **A BYO client or
-  front-door decorator that answered `true` to the old probe STILL COMPILES and now SILENTLY takes the prompt
-  path** — its old method is a plain method nothing calls — until it implements `GetCapabilitiesAsync`; one that
-  overrode the probe on `DelegatingTextClient` no longer compiles. **What to DO:** a BYO `ITextClient` or
-  `ITextRouter`, decorators included, implements `GetCapabilitiesAsync` (deriving from `DelegatingTextClient`
-  inherits the pass-through) and deletes the old probes; a caller of them awaits `GetCapabilitiesAsync` and
-  reads `SupportsToolCalls` / `SupportsStreamingToolCalls` off the answer, treating null as no native tool calls.
+  when a request carrying tools reaches a backend that does not declare tool calls. `GetCapabilitiesAsync` has
+  no default body, so a BYO client or front-door decorator that does not answer it no longer compiles, rather
+  than silently taking the prompt path. **What to DO:** a BYO `ITextClient` or `ITextRouter`, decorators
+  included, implements `GetCapabilitiesAsync` — a decorator forwards it to the client it wraps (deriving from
+  `DelegatingTextClient` inherits that), and a client that cannot say returns null — and deletes the old probes;
+  a caller of them awaits `GetCapabilitiesAsync` and reads `SupportsToolCalls` / `SupportsStreamingToolCalls`
+  off the answer, treating null as no native tool calls.
 
 - **`LYNTAI_DEFAULT_CANDIDATES` reads through the one candidate-spec parser, so `provider:` means no model.** A
-  trailing colon now reads exactly as a bare `provider` does — the request's model, else the configured
-  default, else the backend's own — everywhere a candidate spec is read. It used to yield an EMPTY model that
+  trailing colon now reads exactly as a bare `provider` does, everywhere a candidate spec is read — here the
+  request's model, else the configured default, else the backend's own. It used to yield an EMPTY model that
   skipped the request's own; and the variable now trims both sides of the `:` as well as each entry. **What to
   DO:** a value relying on a trailing `provider:` to ignore the request's model names the model explicitly.
+
+- **`UseDefaultCandidates(params string[])` reads each entry as a candidate spec**, as
+  `UseDefaultMediaCandidates` and `LYNTAI_DEFAULT_CANDIDATES` already do: `"llama:qwen3"` is provider `llama`
+  serving `qwen3`, where it used to be a provider NAMED `llama:qwen3`, which no backend matched. **What to DO:**
+  nothing for a bare provider id; a provider id that itself contains `:` passes a `ProviderCandidate` to the
+  other overload instead.
 
 ### Security
 

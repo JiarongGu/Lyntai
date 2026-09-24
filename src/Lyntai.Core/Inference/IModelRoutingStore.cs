@@ -9,11 +9,14 @@ namespace Lyntai.Inference;
 /// model WITHOUT a restart. Opt in with <c>AddLiveModelRouting()</c>; without it every call routes over the
 /// candidates it was given.
 /// <para>A route is a whole fallback list of <see cref="ProviderCandidate"/> pairs. When one is set the router
-/// uses it IN PLACE of the given candidates, and each entry carries its own model, so a fallback backend is
-/// never asked for another backend's model. An entry resolves its model as a given candidate does: its own,
-/// else the request's, else the consumer's configured default
-/// (<see cref="LyntaiOptions.ResolveModel(string,string)"/>). A route naming no provider the router knows is
-/// ignored, with a warning, and the given candidates serve.</para>
+/// uses it IN PLACE of the given candidates, and an entry's model is its own, else the request's, else none —
+/// the backend's own default. The consumer's configured default
+/// (<see cref="LyntaiOptions.DefaultModelByConsumer"/>) is never consulted, so no entry is asked for a model
+/// written for another backend. A request model that no entry can serve — every entry pins another — is a
+/// warning on each call. A route naming no registered text provider is ignored, with a warning, and the given
+/// candidates serve.</para>
+/// <para>TEXT calls only: <see cref="ITextRouter"/> reads the route, while embeds, reranks and media under the
+/// same consumer route over their own candidates.</para>
 /// </summary>
 public interface IModelRoutingStore
 {
@@ -37,7 +40,9 @@ public interface IModelRoutingStore
 /// <para>A key under <c>lyntai.model.</c> — whose values name a model, not a route — is never read, unless it
 /// also sits under <see cref="KeyPrefix"/> (a store configured onto that namespace reads its own keys as
 /// routes). The first successful read lists that namespace ONCE per instance and logs one warning if any
-/// such key remains; a key written after that check is not reported.</para></summary>
+/// such key remains; a key written after that check is not reported. A store that cannot list
+/// (<see cref="NotSupportedException"/>) is not asked again, and after three failed listings the check gives
+/// up.</para></summary>
 public sealed class KeyValueModelRoutingStore(
     IKeyValueStore? kv = null, ILogger<KeyValueModelRoutingStore>? logger = null, string? keyPrefix = null) : IModelRoutingStore
 {
@@ -52,8 +57,12 @@ public sealed class KeyValueModelRoutingStore(
     public string KeyPrefix { get; } = keyPrefix ?? DefaultKeyPrefix;
     private readonly ILogger _logger = logger ?? NullLogger<KeyValueModelRoutingStore>.Instance;
 
-    // 1 once the lyntai.model. check has run, or while it runs; a failed check resets it so a later call asks again
+    /// <summary>Failed listings after which the <c>lyntai.model.</c> check gives up.</summary>
+    private const int MaxListAttempts = 3;
+
+    // 1 once the lyntai.model. check is done, or while it runs; a failed listing resets it until MaxListAttempts
     private int _modelOnlyKeysChecked;
+    private int _failedListings;
 
     /// <inheritdoc/>
     public async Task<IReadOnlyList<ProviderCandidate>> GetRouteAsync(string consumer, CancellationToken ct = default)
@@ -91,7 +100,7 @@ public sealed class KeyValueModelRoutingStore(
     private async Task WarnOfModelOnlyKeysOnceAsync(IKeyValueStore store, CancellationToken ct)
     {
         if (Interlocked.Exchange(ref _modelOnlyKeysChecked, 1) == 1) return;
-        var checkedOk = false;
+        var done = false;
         try
         {
             var keys = await store.ListKeysAsync(ModelOnlyKeyPrefix, ct).ConfigureAwait(false);
@@ -101,16 +110,22 @@ public sealed class KeyValueModelRoutingStore(
                 _logger.LogWarning(
                     "live routing: keys remain under {ModelOnlyPrefix}; their values name a model alone and are not read — write each consumer's route as {RoutePrefix}<consumer> = provider:model[, provider:model…]",
                     ModelOnlyKeyPrefix, KeyPrefix);
-            checkedOk = true;
+            done = true;
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (NotSupportedException)
+        {
+            done = true; // a store that cannot list never will; asking again costs an exception per read
+        }
         catch (Exception ex)
         {
-            _logger.LogDebug(ex, "live routing: could not list {ModelOnlyPrefix} keys; will ask again", ModelOnlyKeyPrefix);
+            done = Interlocked.Increment(ref _failedListings) >= MaxListAttempts;
+            _logger.LogDebug(ex, "live routing: could not list {ModelOnlyPrefix} keys; {Next}", ModelOnlyKeyPrefix,
+                done ? "giving up" : "will ask again");
         }
         finally
         {
-            if (!checkedOk) Volatile.Write(ref _modelOnlyKeysChecked, 0);
+            if (!done) Volatile.Write(ref _modelOnlyKeysChecked, 0);
         }
     }
 }

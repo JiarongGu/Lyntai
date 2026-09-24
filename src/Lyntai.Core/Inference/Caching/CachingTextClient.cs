@@ -64,12 +64,14 @@ public sealed class CachingTextClient(
     /// <summary>The key's model component. The cache sits in front of the router and cannot know which
     /// candidate will serve, so a live route joins it whole, in fallback order, as <c>|route=</c> plus its
     /// entries (the provider id lower-cased, as the router matches it) — appended ONLY when there is one, so a
-    /// consumer with no live route keeps its key.</summary>
+    /// consumer with no live route keeps its key. With a route, the request's OWN model joins it as
+    /// <c>|model=</c>: a route entry resolves against it and never against the consumer default, which stays
+    /// in the key for the given candidates a route naming no usable provider falls back to.</summary>
     private string? EffectiveModel(TextRequest req, IReadOnlyList<ProviderCandidate> route)
     {
         var model = options.ResolveModel(req.Consumer, req.Model);
         if (route is not { Count: > 0 }) return model;
-        return model + "|route=" + string.Join(",", route.Select(c =>
+        return model + "|model=" + req.Model + "|route=" + string.Join(",", route.Select(c =>
             ProviderCandidateSpec.Format(c with { ProviderId = c.ProviderId.ToLowerInvariant() })));
     }
 
