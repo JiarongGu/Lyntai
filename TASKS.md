@@ -15,22 +15,23 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 9 across 6 Parts: 5 startable, 2 blocked, 2 watch
+## Open items — 10 across 6 Parts: 6 startable, 2 blocked, 2 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 110 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
-| 163 | 33 | GEN7 — pipelines (3d → image → video) | startable |  |
-| 222 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 245 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 302 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
-| 332 | 286 | A configured text candidate naming a NON-text backend is still called | startable |  |
-| 339 | 286 | Gate "no default body on a member of an interface the library decorates" | startable |  |
-| 360 | 287 | The ONNX provider CUTS an over-long input silently | startable |  |
-| 372 | 288 | Express `TextReasoning.Suppress` on the OpenAI-shaped wire | startable |  |
+| 111 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
+| 164 | 33 | GEN7 — pipelines (3d → image → video) | startable |  |
+| 223 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 246 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 303 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 333 | 286 | A configured text candidate naming a NON-text backend is still called | startable |  |
+| 340 | 286 | Gate "no default body on a member of an interface the library decorates" | startable |  |
+| 354 | 287 | The ONNX provider CUTS an over-long input silently | startable |  |
+| 361 | 287 | The Ollama-native embed path still CUTS on the server | startable |  |
+| 375 | 288 | Express `TextReasoning.Suppress` on the OpenAI-shaped wire | startable |  |
 
 <!-- open-items:end -->
 
@@ -345,22 +346,24 @@ ruled out of that Part's scope rather than left implied; both are startable._
 
 ## Part 287 — what an adopting application's reranker screen found (2026-09-24)
 
-_An adopting application screened four sub-500 MB rerankers on llama.cpp b10549 against this repository's
-reference pair and its own harder pair, then benched the survivors on its own zh/en fixture. Its results
-answer two open questions in `docs/model-tasks.md` §3.2 and expose one library defect in three parts and two
-instrument gaps. The owner ruled: record the measurements, fix everything, one item at a time. The
-measurements are recorded (`docs/memory-measurements.md` §5, `rerank-screen-adopter-b10549` and
-`rerank-bench-adopter-zh-en-240`; `docs/model-tasks.md` §3 / §3.2), and llama.cpp's over-context rejection
-now classifies as the input's fault with a repeating verification failure at Warning (`docs/FIXES.md`
-2026-09-24), and an over-long input to an HTTP reranker or embedder is segmented rather than sent whole
-(`HttpModelOptions.MaxInputChars`, **D177**). `rerank-screen` now asserts an English and a Chinese overlap
-trap and reads a decisive [0, 1] pair as probabilities (`.claude/knowledge/pitfalls.md`, the reranker
-smoke-test entries); what remains is below._
+_An adopting application's reranker screen and bench on llama.cpp b10549 (`docs/memory-measurements.md` §5,
+`rerank-screen-adopter-b10549`) exposed a small-window backend rejecting or silently cutting long input.
+The owner ruled: fix everything, one item at a time; an over-long input is segmented, never cut (**D177**).
+What closed is archived with the Part; what remains is below._
 
 - [ ] **The ONNX provider CUTS an over-long input silently.** `OnnxCrossEncoderHead` and <!-- item: state=startable -->
   `OnnxPoolingHead` (`src/Lyntai.Providers.Onnx/`) encode at `OnnxProviderOptions.MaxTokens` and drop the
   rest. Owner ruling 2026-09-24: follow the rule **D177** applied to the HTTP provider, segmenting by TOKENS
   (exact here, where the HTTP side can only count characters) and combining the pieces the same way.
+  **Decide first where the pooling math lives**: `HttpVectorTransport` now carries the length-weighted mean
+  of unit vectors, and a second copy in `Lyntai.Providers.Onnx` is the duplication `VectorMath` (public, in
+  Core) exists to prevent — move it there or justify not doing so.
+- [ ] **The Ollama-native embed path still CUTS on the server.** Ollama's `/api/embed` defaults to <!-- item: state=startable -->
+  `truncate: true`, and the body Lyntai sends carries only `{model, input}`, so an over-long input is cut
+  server-side — the behaviour **D177** rejects. `MaxInputChars` is refused on an Ollama server root, which
+  covers only a deployment that ASKED for a bound. Decide whether the Ollama-native provider segments as the
+  HTTP one does (a knob on `OllamaOptions`), sends `truncate: false` so the cut becomes a visible
+  `ContextWindowExceeded`, or both.
 
 ## Part 288 — the OpenAI-shaped wire drops `TextReasoning.Suppress` (2026-09-24)
 
