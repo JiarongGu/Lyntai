@@ -5491,7 +5491,7 @@ embedder takes the length-weighted mean of its windows' unit vectors, re-normali
 (counting tokens) and over HTTP (`MaxInputChars` on a Score registration), so the query, never segmented,
 keeps at most (1 − `MinDocumentShare`) of it, cut ONCE per call so every document meets the same question.
 HTTP counts characters after NFKC — a linear upper bound — because a tokenizer normalises before it counts,
-and cuts between text elements, else at a code point, so no piece outgrows the bound; pieces are still sent as
+and cuts between text elements, else at a code point, so only a lone code point can outgrow it; pieces are sent as
 the original text. `MaxPiecesPerInput` keeps that many windows, spread from the first to the last. Otherwise,
 an input that fits is answered exactly as without segmenting.
 
