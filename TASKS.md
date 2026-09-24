@@ -170,6 +170,17 @@ The fal-first naming that once hid ComfyUI inside this list is recorded in
   what the history document says for a 3D output and whether a GLB uploads as an input. Then the ComfyUI
   provider declares `ProviderKinds.Model3d` and accepts a mesh input; a generating stage needs a
   Hunyuan3D/TRELLIS2 download, which is a step, not a blocker.
+  <br>**Owner ruling 2026-09-25:** measure the two graphs, then build Model3d output and mesh input on the
+  ComfyUI provider if they answer; the mesh-GENERATING stage is measured later from real use (as `sd-cli`'s
+  argv was), not by a download here.
+  <br>**MEASURED 2026-09-25 against the local ComfyUI 0.36.0 — both graphs ANSWER, with a hand-written 688 B
+  cube GLB and no 3D model.** `POST upload/image` with `subfolder=3d`, `type=input` stores a GLB and answers
+  `{"name","subfolder":"3d","type":"input"}`; `Load3DAdvanced` runs headless with `model_file = "3d/<name>"`
+  and `viewport_state = {}` (the browser-only `Load3D` does not). `Get3DComponents → SaveGLB` files its output
+  under the collection **`3d`** as `{filename, subfolder: "3d", type: "output"}`, and `view` serves it as
+  `application/octet-stream` (magic `glTF`) — so a mesh's media type must come from the extension, not the
+  header. `Get3DComponents → RenderMesh (solid) → SaveImage` returns an ordinary `images` PNG showing the cube's
+  auto-framed front face: a real rasterisation, server-side.
   **Blocker restated 2026-08-11 — the original "deferred until ≥2 real backends exist" now reads as SATISFIED
   and is the wrong test.** Counted by kind rather than by total: **image has 5** backends (`Automatic1111`,
   `ComfyUi`, `FalQueue`, `LocalDiffusion`, `OpenAiImage`), **video has 2** (`ComfyUi`, `FalQueue`) — and
