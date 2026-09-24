@@ -685,6 +685,7 @@ export default {
       // (`SupportsToolCalls` / `SupportsStreamingToolCalls` on ITextClient and ITextRouter) are NOT here:
       // `ProviderCapabilities` and `ICliBackend` keep live members of both names, and a rule matches a
       // baseline TOKEN, never "this member on this type" — the limit the MemoryRetentionPolicy entry states.
+      // Their QUALIFIED forms are a `retiredTerms` prose rule instead.
       names: ['GetModelOverrideAsync', 'ModelKeyPrefix'],
       use: '`IModelRoutingStore.GetRouteAsync` (a `provider:model[, …]` route) and '
         + '`LyntaiOptions.RouteKeyPrefix` (default `lyntai.route.`)',
@@ -1467,6 +1468,16 @@ export default {
       use: '`IModelRoutingStore.GetRouteAsync` and `LyntaiOptions.RouteKeyPrefix`',
       why: 'the model-only live override is retired: a live override is the consumer\'s ROUTE, a provider '
         + 'and its model together (docs/DECISIONS.md D176)',
+    },
+    {
+      // D176's removed tool PROBES, in their QUALIFIED forms only — `ProviderCapabilities` and `ICliBackend`
+      // keep live members of both names, so the bare words cannot be a rule. Any `…TextClient.` or
+      // `…TextRouter.` receiver matches, the decorators included.
+      term: '\\b\\w*Text(?:Client|Router)\\.Supports(?:Streaming)?ToolCalls\\b',
+      use: '`GetCapabilitiesAsync` on `ITextClient` / `ITextRouter`, then `SupportsToolCalls` or '
+        + '`SupportsStreamingToolCalls` on the `ProviderCapabilities` it answers (null = no native tool calls)',
+      why: 'the synchronous probes answered for the candidates a client was configured with, so a live route '
+        + 'to a backend without tool calls still sent the tool loop down the native path (docs/DECISIONS.md D176)',
     },
   ],
 

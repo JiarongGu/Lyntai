@@ -106,11 +106,14 @@ Three properties of that split are load-bearing:
   actions, which `Surface` no longer triggers.)
 - **Rebind a consumer live, without a restart** (**D176**): `AddLiveModelRouting()` over a key-value store,
   then write `lyntai.route.<consumer>` = `provider:model[, …]` — e.g. `llama:qwen3-4b-gguf, claude:haiku`, the
-  spec `LYNTAI_DEFAULT_CANDIDATES` reads (split at the FIRST `:`; a bare `provider` names no model). The next
-  call routes over it IN PLACE of its candidates, configured or passed explicitly, provider and model together,
-  and `GetCapabilitiesAsync` follows it. The router's own providers bound it: unknown entries are skipped with a
-  warning, and a route naming no known provider is ignored, warning on every call. Delete the key to go back;
-  `LyntaiOptions.RouteKeyPrefix` moves the prefix.
+  spec `LYNTAI_DEFAULT_CANDIDATES` reads (split at the FIRST `:`). A bare `provider` takes the request's model,
+  else the backend's own default — never the consumer's configured default, which belongs to the candidates the
+  route replaces. The next call routes over it IN PLACE of its candidates, configured or passed explicitly,
+  provider and model together, and `GetCapabilitiesAsync` follows it. TEXT calls only: embeds, reranks and
+  media under the same consumer do not move (`"memory"` also names its embeds and reranks). The router's own
+  text providers bound it: unknown or non-text entries are skipped with a warning, a route naming none is
+  ignored, and a request model every entry pins away from warns — each on every call. Delete the key to go
+  back; `LyntaiOptions.RouteKeyPrefix` moves the prefix.
 - **Rerank or embed OUTSIDE the memory seams** — the score kind deliberately has no front door, so a
   consumer composes the factory (and gets cooldown, admission, the configured policy and D163's governance
   with it):

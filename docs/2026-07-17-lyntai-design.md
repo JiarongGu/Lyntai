@@ -926,10 +926,12 @@ count, a cooldown-key scope, and a sole-candidate exemption — overridable via 
 *(2026-09-24: **live routing moves a ROUTE** — `docs/DECISIONS.md` **D176**. Under `AddLiveModelRouting()` a
 consumer's route — `lyntai.route.<consumer>` = `provider:model[, …]`, read through
 `IModelRoutingStore.GetRouteAsync` by the router once per call and once per capability probe, and by the
-response cache once per call — REPLACES the candidates the call was given, on both doors, and each entry
-resolves its model as a configured candidate does. The router's own providers bound it: a route naming none of
-them, or a store that throws, leaves the given candidates in force with a warning, and the unknown entries of a
-partly-known route are skipped with one. `ITextClient.GetCapabilitiesAsync` answers for the backend the route
+response cache once per call — REPLACES the candidates the call was given, on both doors, for TEXT calls only
+(embeds, reranks and media under the same consumer keep their own). An entry's model is its own, else the
+request's, else the backend's default — never the consumer's configured default — and a request model no entry
+can serve is a warning on each call. The router's own text providers bound it: a route naming none of them, or
+a store that throws, leaves the given candidates in force with a warning, and the unusable entries of a
+partly-usable route are skipped with one. `ITextClient.GetCapabilitiesAsync` answers for the backend the route
 will serve; null means unknown, which the tool loop reads as no native tool calls.)*
 
 **CLI hygiene** (Gatherlight/Sonora): `UseShellExecute=false`, `ArgumentList` only (never a shell —

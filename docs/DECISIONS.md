@@ -5429,30 +5429,35 @@ consumer that must decide BEFORE writing anything.
 `<RouteKeyPrefix><consumer>` (default `lyntai.route.`), value `provider:model[, …]`, each entry parsed by
 `ProviderCandidateSpec.Parse` — split at the first `:`, so `claude` and `claude:` both name no model.
 `IModelRoutingStore.GetRouteAsync` returns it, empty meaning none. `TextRouter` uses a non-empty route IN PLACE
-of the candidates a call was given, on both doors, bounded by the router's own providers, and each entry
-resolves its model as a configured candidate does: its own, else the request's, else the consumer's default.
-The pair is the routing unit (**D125**); the override this replaces moved half of one — it swapped the model
-while the container chose the provider, so on fallback, and between a rebind and its restart, the model
-reached a provider never written for it, silently under memory's fail-open policies.
+of the candidates a call was given, on both doors, for TEXT calls only — embeds, reranks and media under the
+same consumer keep their own. An entry's model is its own, else the request's, else the backend's default —
+never the consumer's configured default, written for the candidates the route replaces. The pair is the
+routing unit (**D125**); the old override moved half of one, so on fallback, and between a rebind and its
+restart, the model reached a provider never written for it — silently, under memory's fail-open policies.
 
-**Never silently wrong.** A route naming no registered provider is ignored with a warning and the given
-candidates serve; a partly-unknown route is used, with one warning naming the unknown entries; a store that
-throws is a warning and the given candidates, only the caller's cancellation propagating. Keys under the
-retired `lyntai.model.` prefix are inert, never read as routes, and the shipped store warns once that they
-exist. The response cache's key is unchanged unless a route exists, which is then appended in order so a reply
-is never served across a rebind; a store that throws skips the cache for that call.
+**It lives in the router**, the one place holding the named client's provider pool that must bound a route —
+so it replaces explicit candidates too. Rejected: a front-door-only route, leaving every direct `ITextRouter`
+caller on the binding the admin just moved.
+
+**Never silently wrong.** A route naming no registered text provider is ignored with a warning and the given
+candidates serve; a partly-unusable route is used without those entries, one warning naming them; a store that
+throws is a warning and the given candidates, only the caller's cancellation propagating. A request model the
+route can never serve — **D119**'s predicate, every entry pinning another — warns per call, or a fail-open
+seam's pin loses silently. Keys under the retired `lyntai.model.` prefix are inert, and the shipped store warns
+once that they exist. The cache key is unchanged unless a route exists; then the route, in order, and the
+request's own model join it, so no reply is served across a rebind; a throwing store skips the cache that call.
 
 **The capability probe follows the route.** One async `GetCapabilitiesAsync` on `ITextClient` and
 `ITextRouter` replaces the two synchronous tool probes and answers for the backend that would serve, read
-through the same route step as the call; null is unknown, and the tool loop takes the prompt path. Rejected: a
-snapshot of "the route last read" behind a sync probe — wrong on the first run after start and after every
+through the same route step as the call; null is unknown, and the tool loop takes the prompt path. No default
+body (**D67**): a decorator that forgets to forward it is a build error, never a silent prompt path. Rejected:
+a snapshot of "the route last read" behind a sync probe — wrong on the first run after start and after every
 rebind, and hidden mutable state in every router. The backstop: tools reaching a backend that does not declare
 tool calls (on a stream, streaming tool calls) is a warning, fallback included.
 
-**How often each warns.** The route warnings fire per call and per probe, for as long as the misconfiguration
-stands; a store that throws warns from the cache AND the router, while the shipped store catches its own
-fault and warns once per read; the backstop once per candidate tried; a CLI provider handed tools gets its
-engine's warning and the backstop's.
+**How often each warns.** Route warnings fire per call and per probe while the misconfiguration stands; a
+throwing store warns from the cache AND the router, while the shipped store catches its own fault and warns
+once per read; the backstop once per candidate tried, beside a CLI engine's own ignored-tools warning.
 
 **Rejected.** The model-only override: half a pair, the defect itself. A per-provider model map — the first
 build of `docs/task-archive.md` Part 284, never released: it fixes the wrong-model case but cannot move the
