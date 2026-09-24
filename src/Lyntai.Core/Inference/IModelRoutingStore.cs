@@ -11,9 +11,10 @@ namespace Lyntai.Inference;
 /// <para>A route is a whole fallback list of <see cref="ProviderCandidate"/> pairs. When one is set the router
 /// uses it IN PLACE of the given candidates, and an entry's model is its own, else the request's, else none —
 /// the backend's own default. The consumer's configured default
-/// (<see cref="LyntaiOptions.DefaultModelByConsumer"/>) is never consulted, so no entry is asked for a model
-/// written for another backend. A request model that no entry can serve — every entry pins another — is a
-/// warning on each call. A route naming no registered text provider is ignored, with a warning, and the given
+/// (<see cref="LyntaiOptions.DefaultModelByConsumer"/>) is never consulted, so no entry inherits the model
+/// configured for the candidates the route replaced — but an entry naming no model takes the request's as
+/// given, so pin a model on every entry a caller's own model was not written for. A request model that no
+/// entry can serve — every entry pins another — is a warning on each call. A route naming no registered text provider is ignored, with a warning, and the given
 /// candidates serve.</para>
 /// <para>TEXT calls only: <see cref="ITextRouter"/> reads the route, while embeds, reranks and media under the
 /// same consumer route over their own candidates.</para>

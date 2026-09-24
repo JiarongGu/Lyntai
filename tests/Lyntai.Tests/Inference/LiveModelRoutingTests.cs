@@ -11,8 +11,8 @@ using InMemoryKeyValueStore = Lyntai.Storage.InMemory.InMemoryKeyValueStore;
 namespace Lyntai.Tests.Inference;
 
 /// <summary>Live routing: a consumer's ROUTE — <c>lyntai.route.&lt;consumer&gt;</c> = <c>provider:model[, …]</c> in
-/// the KV store — replaces the candidates a call was given, from the very next call and without a restart. Each
-/// candidate carries its own model, so a fallback backend is never asked for another backend's model.</summary>
+/// the KV store — replaces the candidates a call was given, from the very next call and without a restart. An
+/// entry's model is its own, else the request's, else the backend's default — never the consumer's configured one.</summary>
 public class LiveModelRoutingTests
 {
     // ---- the value is the library's own candidate spec ----------------------------------------------
