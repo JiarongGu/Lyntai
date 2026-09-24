@@ -15,20 +15,25 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 7 across 4 Parts: 3 startable, 2 blocked, 2 watch
+## Open items — 12 across 5 Parts: 8 startable, 2 blocked, 2 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 108 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
-| 161 | 33 | GEN7 — pipelines (3d → image → video) | startable |  |
-| 220 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 243 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 300 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
-| 330 | 286 | A configured text candidate naming a NON-text backend is still called | startable |  |
-| 337 | 286 | Gate "no default body on a member of an interface the library decorates" | startable |  |
+| 113 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
+| 166 | 33 | GEN7 — pipelines (3d → image → video) | startable |  |
+| 225 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 248 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 305 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 335 | 286 | A configured text candidate naming a NON-text backend is still called | startable |  |
+| 342 | 286 | Gate "no default body on a member of an interface the library decorates" | startable |  |
+| 357 | 287 | llama.cpp's over-context rejection reads as a HOST fault | startable |  |
+| 361 | 287 | A scoring backend's failed answer is logged only at Debug | startable |  |
+| 364 | 287 | No input bound for a small-window HTTP reranker or embedder | startable |  |
+| 370 | 287 | `rerank-screen` passes a model that ranks by word overlap | startable |  |
+| 373 | 287 | `rerank-screen`'s logit-scale check misflags a probability-output reranker | startable |  |
 
 <!-- open-items:end -->
 
@@ -340,6 +345,34 @@ ruled out of that Part's scope rather than left implied; both are startable._
   A rule written down and still violated is a missing gate (CLAUDE.md §Dev loop). First step: define
   "decorated" mechanically — a Core interface with a `Delegating*` base or a Core decorator implementing it
   — and measure the tree against that definition before choosing the gate's shape.
+
+## Part 287 — what an adopting application's reranker screen found (2026-09-24)
+
+_An adopting application screened four sub-500 MB rerankers on llama.cpp b10549 against this repository's
+reference pair and its own harder pair, then benched the survivors on its own zh/en fixture. Its results
+answer two open questions in `docs/model-tasks.md` §3.2 and expose one library defect in three parts and two
+instrument gaps. The owner ruled: record the measurements, fix everything, one item at a time. The
+measurements are recorded (`docs/memory-measurements.md` §5, `rerank-screen-adopter-b10549` and
+`rerank-bench-adopter-zh-en-240`; `docs/model-tasks.md` §3 / §3.2); what remains is below._
+- [ ] **llama.cpp's over-context rejection reads as a HOST fault.** `input (1052 tokens) is larger than the <!-- item: state=startable -->
+  max context size (512 tokens)` (captured twice: b10603 here, b10549 by the adopter) misses
+  `ProviderVerdictClassifier`'s context-window pattern, so it classifies `Failed` — `PenalizeAndAdvance`,
+  counting toward the dead-host threshold — instead of `ContextWindowExceeded` (`Advance`, not a host fault).
+- [ ] **A scoring backend's failed answer is logged only at Debug.** `ScoringVerificationPolicy` <!-- item: state=startable -->
+  (`src/Lyntai.Core/Memory/Verification/ScoringVerificationPolicy.cs`) turns any non-Ok `ScoreResponse` into
+  `NoOpinion` at Debug, so one over-long candidate silently switches verification off for that recall.
+- [ ] **No input bound for a small-window HTTP reranker or embedder.** The ONNX provider truncates at <!-- item: state=startable -->
+  `OnnxProviderOptions.MaxTokens`; the HTTP provider sends every document whole, and a 512-window backend
+  rejects the WHOLE call when any one exceeds it. **Owner rulings 2026-09-24:** the bound lives on the HTTP
+  provider's registration (the window is the model's), and an over-long input is SEGMENTED, never just cut —
+  each piece is scored (a document keeps its best piece's score) or embedded (the pieces pooled into one
+  vector), so the one-answer-per-input contract holds and nothing past the window is lost.
+- [ ] **`rerank-screen` passes a model that ranks by word overlap.** xVITA passes the reference pair and <!-- item: state=startable -->
+  fails a pair whose distractor shares more of the query than the answer does — the same shape as the
+  retracted four-document fixture. Add an overlap-trap pair (English and Chinese) asserting ORDER.
+- [ ] **`rerank-screen`'s logit-scale check misflags a probability-output reranker.** Qwen3-Reranker <!-- item: state=startable -->
+  answers in [0, 1] (0.998 / 0.0015 on the reference pair), which the "LOGIT-SCALED, not collapsed" check
+  reads as collapse. Detect the scale and report it rather than fail it.
 
 ## Retired — five Parts that outlived their open work (2026-09-16)
 

@@ -209,7 +209,9 @@ That collapses the sizing question into one sentence: **a correct reranker must 
 RoBERTa-family, and that family's 250,002-token vocabulary puts it above 100 MB** — the best multilingual
 candidate bottoms out at **124,925,504 B**, only 6.1% below its own Q8_0, because the vocabulary is 81.6%
 of the parameters and quantisation is not a lever on an embedding table. So 468,393,760 B was recorded as
-the measured floor, with sub-100 MB blocked by an unmerged patch rather than by availability.
+the measured floor, with sub-100 MB blocked by an unmerged patch rather than by availability. **The
+multilingual floor has since moved to 132,584,000 B** — `mmarco-mMiniLMv2` Q8_0, screened correct by an
+adopting application on 2026-09-24 (§3.2) — still above 100 MB, exactly as the vocabulary argument predicts.
 
 > **SCOPED 2026-09-14: every sentence above is about llama.cpp, and the floor went with it.** Read through
 > a runtime that does not convert, the same `ms-marco-MiniLM-L6-v2` reproduces its own model card to four
@@ -421,10 +423,14 @@ and MB straddle a 500 threshold (`.claude/knowledge/pitfalls.md`). Surveyed 2026
 re-checked against the model cards and the HF API.
 
 **Rerankers under 500 MB, multilingual:** `LAMAR-600m` Q5_K_M **468,393,760 B** — measured, see
-`docs/task-archive.md` Part 176. `xVITA-300M` Q8_0 **332,894,432 B** (2026-08-23, modern-bert) is the
-untested one and is the smallest credible MULTILINGUAL candidate — **not the smallest credible one
-outright**: an ENGLISH-only reranker screens 8/8 at **33,257,824 B**, and the multilingual floor is a
-separate and much higher number for the structural reason §3 records. `Qwen3-Reranker-0.6B` Q6_K
+`docs/task-archive.md` Part 176. **Two more were SCREENED by an adopting application on 2026-09-24**
+(`docs/memory-measurements.md` §5, `rerank-screen-adopter-b10549`, uploaders and sha256 there):
+`mmarco-mMiniLMv2-L12-H384-v1` Q8_0 at **132,584,000 B** passes the reference pair AND an overlap trap and
+is now the smallest correct MULTILINGUAL reranker on record — XLM-R, so immune to #21729, and within 6.1% of
+the vocabulary floor §3 derives; mind its non-commercial training data. `xVITA-300M` Q8_0 **332,894,432 B**
+(modern-bert) LOADS on b10549 and passes the reference pair, then ranks by word overlap on the trap — so it
+is screened OUT, not merely untested. The English-only floor is separate and lower for the structural
+reason §3 records. `Qwen3-Reranker-0.6B` Q6_K
 **494,879,136 B** is **deprioritised for a Chinese-first deployment** — 0.85 BEHIND bge on MTEB-zh (71.31
 against 72.16) while +8.77 on English, and jina's independent table scores it BEIR 56.94 against bge's
 56.42, so the English gain is protocol-dependent. It is also `Qwen3ForCausalLM` scoring yes/no logits, not a
@@ -508,7 +514,9 @@ model cards, never called (`docs/task-archive.md` Part 215). Two things make tha
 than merely unconfirmed: a community conversion of a reranker can be missing its classification head, in
 which case it still loads and still returns scores that are simply wrong; and one such quant differs from a
 working one only by a tensor count. **Smoke-test a reranker before trusting a run** — score a known answer
-against known distractors and assert both the ordering and that the scores are distinct.
+against known distractors and assert both the ordering and that the scores are distinct, and include a
+distractor that shares MORE of the query than the answer does: a model ranking by word overlap passes every
+other check (`docs/memory-measurements.md` §5, `rerank-screen-adopter-b10549`).
 
 ## 4. The shapes this library deliberately refuses a model
 
