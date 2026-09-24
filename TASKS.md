@@ -15,21 +15,22 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 8 across 5 Parts: 4 startable, 2 blocked, 2 watch
+## Open items — 9 across 6 Parts: 5 startable, 2 blocked, 2 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 109 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
-| 162 | 33 | GEN7 — pipelines (3d → image → video) | startable |  |
-| 221 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 244 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 301 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
-| 331 | 286 | A configured text candidate naming a NON-text backend is still called | startable |  |
-| 338 | 286 | Gate "no default body on a member of an interface the library decorates" | startable |  |
-| 359 | 287 | The ONNX provider CUTS an over-long input silently | startable |  |
+| 110 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
+| 163 | 33 | GEN7 — pipelines (3d → image → video) | startable |  |
+| 222 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 245 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 302 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 332 | 286 | A configured text candidate naming a NON-text backend is still called | startable |  |
+| 339 | 286 | Gate "no default body on a member of an interface the library decorates" | startable |  |
+| 360 | 287 | The ONNX provider CUTS an over-long input silently | startable |  |
+| 372 | 288 | Express `TextReasoning.Suppress` on the OpenAI-shaped wire | startable |  |
 
 <!-- open-items:end -->
 
@@ -360,6 +361,23 @@ smoke-test entries); what remains is below._
   `OnnxPoolingHead` (`src/Lyntai.Providers.Onnx/`) encode at `OnnxProviderOptions.MaxTokens` and drop the
   rest. Owner ruling 2026-09-24: follow the rule **D177** applied to the HTTP provider, segmenting by TOKENS
   (exact here, where the HTTP side can only count characters) and combining the pieces the same way.
+
+## Part 288 — the OpenAI-shaped wire drops `TextReasoning.Suppress` (2026-09-24)
+
+_Reported by an adopting application measuring small chat judges on llama.cpp b10549, and confirmed in the
+tree: `OpenAiPayload.Build` (`src/Lyntai.Providers.Basic/Http/Payloads/OpenAiPayload.cs`) never reads
+`TextRequest.Reasoning`, while `OllamaPayload` maps `Suppress` to `think: false`. Both memory seams send
+`Suppress` on every call (**D59**)._
+
+- [ ] **Express `TextReasoning.Suppress` on the OpenAI-shaped wire.** Against `llama-server`'s default <!-- item: state=startable -->
+  `--reasoning auto`, a thinking-capable template thinks on every verification and annotation call: the
+  adopter measured `Qwen3-0.6B` Q8_0 at 1.3–7.5 s per verdict and `Qwen3.5-0.8B` Q8_0 at 17.5 s, then past a
+  300 s timeout; with the server forced to `--reasoning off` the same models answer in 10–21 tokens,
+  ~50–350 ms. `reasoning-budget = 0` is NOT equivalent — the model writes its reasoning into the content and
+  4 of 6 replies failed to parse. **The design question:** the OpenAI-shaped wire serves hosted APIs that may
+  reject an unknown field, so `chat_template_kwargs: {"enable_thinking": false}` cannot simply be sent to
+  every endpoint — the library knows no vendor's spelling here any more than it does for `DocumentPrefix`.
+  When it ships, the adopter can drop its server-side `reasoning = off` preset, and should be told.
 
 ## Retired — five Parts that outlived their open work (2026-09-16)
 
