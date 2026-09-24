@@ -77,20 +77,62 @@ export const REFERENCE = {
  *  loses the segment signal that tells the query from the document. */
 export const COMPRESSED_SPREAD = 1.0;
 
-/** `{ordered, spread, ratio, compressed}` for the reference pair. `ordered` is the assertion; the rest is
- *  reported, because the published magnitude is one model's and the ordering is every model's. */
+/** The same floor for a reranker that answers a yes/no PROBABILITY (Qwen3-Reranker): 0.997 is the most a
+ *  decisive pair can separate on that scale, so a logit threshold would condemn every one of them. */
+export const COMPRESSED_PROBABILITY_SPREAD = 0.5;
+
+/** `{ordered, spread, ratio, compressed, scale}` for the reference pair. `ordered` is the assertion; the rest
+ *  is reported, because the published magnitude is one model's and the ordering is every model's.
+ *  <br>The pair reads as PROBABILITIES only when both scores sit in [0, 1] AND straddle one half — collapsed
+ *  logits also land in [0, 1] (jina's 0.123 / 0.029), and reading those as probabilities would pass the
+ *  defect this check exists for. `ratio` is null on that scale: a logit card says nothing about it. */
 export function evaluateReference(rows, reference = REFERENCE) {
   const byIndex = rows.slice().sort((a, b) => a.index - b.index).map((r) => r.score);
   const other = reference.relevant === 0 ? 1 : 0;
   const spread = byIndex[reference.relevant] - byIndex[other];
   const published = reference.published[0] - reference.published[1];
+  const inUnit = byIndex.every((s) => s >= 0 && s <= 1);
+  const scale = inUnit && Math.max(...byIndex) >= 0.5 && Math.min(...byIndex) < 0.5 ? 'probability' : 'logit';
   return {
     ordered: spread > 0,
     spread,
-    ratio: published / spread,
-    compressed: Math.abs(spread) < COMPRESSED_SPREAD,
+    ratio: scale === 'logit' ? published / spread : null,
+    compressed: Math.abs(spread) < (scale === 'logit' ? COMPRESSED_SPREAD : COMPRESSED_PROBABILITY_SPREAD),
+    scale,
     scores: byIndex,
   };
+}
+
+/** Pairs whose DISTRACTOR echoes the query and whose answer shares almost none of its words — the shape an
+ *  adopting application caught a reranker failing after it had passed `REFERENCE` (`docs/memory-measurements.md`
+ *  §5, `rerank-screen-adopter-b10549`). No published score exists, so only the ORDER is asserted. One is
+ *  Chinese because a model can rank by overlap in one script and not another. */
+export const OVERLAP_TRAPS = [
+  {
+    lang: 'en',
+    query: 'When did the Berlin Wall fall?',
+    documents: [
+      'The border crossings opened on the night of 9 November 1989, and crowds began tearing the barrier down.',
+      'When did the Berlin Wall fall? Visitors to the Berlin Wall memorial often ask this in the gift shop.',
+    ],
+    answer: 0,
+  },
+  {
+    lang: 'zh',
+    query: '柏林墙是哪一年倒塌的？',
+    documents: [
+      '1989年11月9日夜里，边境检查站开放，人们开始拆除这道屏障。',
+      '柏林墙是哪一年倒塌的？参观柏林墙纪念馆的游客常常问这个问题。',
+    ],
+    answer: 0,
+  },
+];
+
+/** `{ordered, spread}` for one trap: the answer must outrank the echo. */
+export function evaluateTrap(rows, trap) {
+  const byIndex = byDocumentOrder(rows);
+  const spread = byIndex[trap.answer] - byIndex[1 - trap.answer];
+  return { ordered: spread > 0, spread };
 }
 
 /** `{index, score}[]` from a `/v1/rerank` body, or NULL when the shape is unusable — never a fabricated
@@ -404,9 +446,22 @@ async function screenMain(opts) {
       record('REFERENCE pair: the answering passage outranks the on-topic one', ref.ordered,
         `[${ref.scores.map((s) => s.toFixed(4)).join(', ')}] — published ` +
         `[${REFERENCE.published.join(', ')}] (${REFERENCE.source})`);
-      record('reference scores are LOGIT-SCALED, not collapsed', !ref.compressed,
-        `spread ${ref.spread.toFixed(4)} vs published 12.9272 (${ref.ratio.toFixed(1)}x) — a collapsed ` +
-        `spread means a dropped pooler or zeroed token_type_ids, not a weak model`);
+      record('reference scores SEPARATE, not collapsed', !ref.compressed,
+        ref.scale === 'logit'
+          ? `logit-scaled: spread ${ref.spread.toFixed(4)} vs published 12.9272 (${ref.ratio.toFixed(1)}x) — a ` +
+            `collapsed spread means a dropped pooler or zeroed token_type_ids, not a weak model`
+          : `read as PROBABILITIES (both in [0, 1], straddling one half): spread ${ref.spread.toFixed(4)}, ` +
+            `floor ${COMPRESSED_PROBABILITY_SPREAD} — the published logit spread does not apply`);
+    }
+
+    // THE OVERLAP TRAP. A model ranking by shared words passes REFERENCE — both of its documents mention
+    // Berlin — and fails here, where only the distractor echoes the question.
+    for (const trap of OVERLAP_TRAPS) {
+      const trapRows = parseRerankRows((await rank(trap.documents, trap.query)).json);
+      if (!trapRows) { record(`OVERLAP TRAP (${trap.lang}) scores`, false, 'no usable result'); continue; }
+      const t = evaluateTrap(trapRows, trap);
+      record(`OVERLAP TRAP (${trap.lang}): the answer outranks a distractor that echoes the query`, t.ordered,
+        `[${byDocumentOrder(trapRows).map((s) => s.toFixed(4)).join(', ')}], answer [${trap.answer}]`);
     }
 
     const long = longProbe();

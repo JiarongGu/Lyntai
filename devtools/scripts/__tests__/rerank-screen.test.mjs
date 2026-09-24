@@ -7,8 +7,9 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import {
-  FIXTURE, REFERENCE, COMPRESSED_SPREAD, longProbe, parseRerankRows, byDocumentOrder, evaluateOrdering,
-  evaluateReference, maxDrift, headVerdict, HEAD_TENSORS, readGgufHeader, parseArgs, DEFAULT_PORT,
+  FIXTURE, REFERENCE, COMPRESSED_SPREAD, COMPRESSED_PROBABILITY_SPREAD, OVERLAP_TRAPS, longProbe,
+  parseRerankRows, byDocumentOrder, evaluateOrdering, evaluateReference, evaluateTrap, maxDrift, headVerdict,
+  HEAD_TENSORS, readGgufHeader, parseArgs, DEFAULT_PORT,
 } from '../rerank-screen.mjs';
 
 const rows = (...scores) => scores.map((score, index) => ({ index, score }));
@@ -217,6 +218,59 @@ describe('evaluateReference — the check FIXTURE was too easy to make', () => {
     // Both mention Berlin, so lexical overlap cannot separate them and a degraded head cannot coast.
     assert.equal(REFERENCE.documents.length, 2);
     for (const d of REFERENCE.documents) assert.match(d, /Berlin/);
+  });
+
+  it('reads a PROBABILITY-scaled reranker as separated rather than collapsed', () => {
+    // Qwen3-Reranker-0.6B Q6_K, measured by an adopting application: 0.998495 / 0.001490. A yes/no
+    // probability, not a logit — a spread of 0.997 is the most separation that scale can show.
+    const v = evaluateReference(ref(0.998495, 0.00149));
+    assert.equal(v.scale, 'probability');
+    assert.equal(v.ordered, true);
+    assert.equal(v.compressed, false);
+    assert.equal(v.ratio, null, 'a logit card\'s spread says nothing about a probability');
+  });
+
+  it('keeps collapsed logits COLLAPSED even though they happen to fall inside [0, 1]', () => {
+    // The jina pair above sits in [0, 1] too; reading every such pair as probabilities would pass the
+    // very defect the spread check exists for. A probability decision straddles one half; this does not.
+    const v = evaluateReference(ref(0.12275171, 0.02895314));
+    assert.equal(v.scale, 'logit');
+    assert.equal(v.compressed, true);
+  });
+
+  it('flags an UNDECIDED probability pair, which separates no better than a collapsed logit', () => {
+    const v = evaluateReference(ref(0.6, 0.4));
+    assert.equal(v.scale, 'probability');
+    assert.equal(v.compressed, true);
+    assert.ok(COMPRESSED_PROBABILITY_SPREAD > 0.2 && COMPRESSED_PROBABILITY_SPREAD < 0.997);
+  });
+});
+
+describe('OVERLAP_TRAPS — the pair a model ranking by word overlap cannot pass', () => {
+  const words = (s) => new Set(s.toLowerCase().match(/[\p{Script=Han}]|[\p{L}\p{N}]+/gu) ?? []);
+  const shared = (query, doc) => [...words(query)].filter((w) => words(doc).has(w)).length;
+
+  it('holds its premise: the distractor shares MORE of the query than the answer does', () => {
+    // An adopting application found a reranker that passes REFERENCE and FAILS this shape; the check is
+    // worthless the moment the answer happens to echo the query more than the distractor does.
+    for (const t of OVERLAP_TRAPS) {
+      const answer = t.documents[t.answer], distractor = t.documents[1 - t.answer];
+      assert.ok(shared(t.query, distractor) > shared(t.query, answer),
+        `${t.lang}: distractor ${shared(t.query, distractor)} vs answer ${shared(t.query, answer)}`);
+    }
+  });
+
+  it('covers a language that tokenizes without spaces', () => {
+    assert.ok(OVERLAP_TRAPS.some((t) => /\p{Script=Han}/u.test(t.query)));
+    assert.ok(OVERLAP_TRAPS.some((t) => /^[\x20-\x7e]+$/.test(t.query)));
+  });
+
+  it('passes a scorer that ranks the answer first and fails one that ranks the echo first', () => {
+    const [t] = OVERLAP_TRAPS;
+    const scored = (answer, distractor) => (t.answer === 0 ? rows(answer, distractor) : rows(distractor, answer));
+    assert.equal(evaluateTrap(scored(3.1, -2.0), t).ordered, true);
+    // the adopter's capture from the failing model: distractor 10.019 against answer 7.420
+    assert.equal(evaluateTrap(scored(7.419926, 10.018924), t).ordered, false);
   });
 });
 

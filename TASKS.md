@@ -15,23 +15,21 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 10 across 5 Parts: 6 startable, 2 blocked, 2 watch
+## Open items — 8 across 5 Parts: 4 startable, 2 blocked, 2 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 111 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
-| 164 | 33 | GEN7 — pipelines (3d → image → video) | startable |  |
-| 223 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 246 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 303 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
-| 333 | 286 | A configured text candidate naming a NON-text backend is still called | startable |  |
-| 340 | 286 | Gate "no default body on a member of an interface the library decorates" | startable |  |
+| 109 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
+| 162 | 33 | GEN7 — pipelines (3d → image → video) | startable |  |
+| 221 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 244 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 301 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 331 | 286 | A configured text candidate naming a NON-text backend is still called | startable |  |
+| 338 | 286 | Gate "no default body on a member of an interface the library decorates" | startable |  |
 | 359 | 287 | The ONNX provider CUTS an over-long input silently | startable |  |
-| 363 | 287 | `rerank-screen` passes a model that ranks by word overlap | startable |  |
-| 366 | 287 | `rerank-screen`'s logit-scale check misflags a probability-output reranker | startable |  |
 
 <!-- open-items:end -->
 
@@ -354,18 +352,14 @@ measurements are recorded (`docs/memory-measurements.md` §5, `rerank-screen-ado
 `rerank-bench-adopter-zh-en-240`; `docs/model-tasks.md` §3 / §3.2), and llama.cpp's over-context rejection
 now classifies as the input's fault with a repeating verification failure at Warning (`docs/FIXES.md`
 2026-09-24), and an over-long input to an HTTP reranker or embedder is segmented rather than sent whole
-(`HttpModelOptions.MaxInputChars`, **D177**); what remains is below._
+(`HttpModelOptions.MaxInputChars`, **D177**). `rerank-screen` now asserts an English and a Chinese overlap
+trap and reads a decisive [0, 1] pair as probabilities (`.claude/knowledge/pitfalls.md`, the reranker
+smoke-test entries); what remains is below._
 
 - [ ] **The ONNX provider CUTS an over-long input silently.** `OnnxCrossEncoderHead` and <!-- item: state=startable -->
   `OnnxPoolingHead` (`src/Lyntai.Providers.Onnx/`) encode at `OnnxProviderOptions.MaxTokens` and drop the
   rest. Owner ruling 2026-09-24: follow the rule **D177** applied to the HTTP provider, segmenting by TOKENS
   (exact here, where the HTTP side can only count characters) and combining the pieces the same way.
-- [ ] **`rerank-screen` passes a model that ranks by word overlap.** xVITA passes the reference pair and <!-- item: state=startable -->
-  fails a pair whose distractor shares more of the query than the answer does — the same shape as the
-  retracted four-document fixture. Add an overlap-trap pair (English and Chinese) asserting ORDER.
-- [ ] **`rerank-screen`'s logit-scale check misflags a probability-output reranker.** Qwen3-Reranker <!-- item: state=startable -->
-  answers in [0, 1] (0.998 / 0.0015 on the reference pair), which the "LOGIT-SCALED, not collapsed" check
-  reads as collapse. Detect the scale and report it rather than fail it.
 
 ## Retired — five Parts that outlived their open work (2026-09-16)
 
