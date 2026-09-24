@@ -28,10 +28,10 @@ _Edit a marker, never this table — `verify` fails the moment the two disagree.
 | 246 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
 | 303 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
 | 333 | 286 | A configured text candidate naming a NON-text backend is still called | startable |  |
-| 340 | 286 | Gate "no default body on a member of an interface the library decorates" | startable |  |
-| 354 | 287 | The ONNX provider CUTS an over-long input silently | startable |  |
+| 341 | 286 | Gate "no default body on a member of an interface the library decorates" | startable |  |
+| 355 | 287 | The ONNX provider CUTS an over-long input silently | startable |  |
 | 361 | 287 | The Ollama-native embed path still CUTS on the server | startable |  |
-| 375 | 288 | Express `TextReasoning.Suppress` on the OpenAI-shaped wire | startable |  |
+| 376 | 288 | Express `TextReasoning.Suppress` on the OpenAI-shaped wire | startable |  |
 
 <!-- open-items:end -->
 
@@ -334,9 +334,10 @@ ruled out of that Part's scope rather than left implied; both are startable._
   (`src/Lyntai.Core/Inference/TextRouter.cs`) never reads `ProviderCapabilities.Produces`, so a given
   candidate naming a registered embedder, reranker or media backend is called on the text path and returns
   `Unsupported` — which memory's fail-open seams swallow. Live-route entries are filtered by kind now
-  (`ServesText`, **D176**); given candidates never were. Decide where the check belongs — at composition, as
-  **D119** and `ClientCandidates.OutsideThePool` fail a provably dead configuration, or per call as the route
-  does — and apply one rule to both.
+  (`ServesText`, **D176**); given candidates never were. **Owner ruling 2026-09-24: both** — a configured
+  list (default candidates, a named client's) naming a registered non-text backend FAILS at composition, as
+  **D119** and `ClientCandidates.OutsideThePool` fail a provably dead configuration; a list passed at run time
+  skips such a candidate per call, the route's `ServesText` rule, and the router's failure says why.
 - [ ] **Gate "no default body on a member of an interface the library decorates".** **D67** states the rule <!-- item: state=startable -->
   and `.claude/knowledge/pitfalls.md` records it broken a FOURTH time — the async capability probe, caught by
   review, now pinned for its two members alone by `TextClientTests.The_capability_probe_has_no_default_body`.
@@ -355,15 +356,15 @@ What closed is archived with the Part; what remains is below._
   `OnnxPoolingHead` (`src/Lyntai.Providers.Onnx/`) encode at `OnnxProviderOptions.MaxTokens` and drop the
   rest. Owner ruling 2026-09-24: follow the rule **D177** applied to the HTTP provider, segmenting by TOKENS
   (exact here, where the HTTP side can only count characters) and combining the pieces the same way.
-  **Decide first where the pooling math lives**: `HttpVectorTransport` now carries the length-weighted mean
-  of unit vectors, and a second copy in `Lyntai.Providers.Onnx` is the duplication `VectorMath` (public, in
-  Core) exists to prevent — move it there or justify not doing so.
+  **Owner ruling 2026-09-24: the pooling math moves to a public `VectorMath` method in Core**, used by
+  `HttpVectorTransport` and the ONNX provider alike, rather than a second copy.
 - [ ] **The Ollama-native embed path still CUTS on the server.** Ollama's `/api/embed` defaults to <!-- item: state=startable -->
   `truncate: true`, and the body Lyntai sends carries only `{model, input}`, so an over-long input is cut
   server-side — the behaviour **D177** rejects. `MaxInputChars` is refused on an Ollama server root, which
-  covers only a deployment that ASKED for a bound. Decide whether the Ollama-native provider segments as the
-  HTTP one does (a knob on `OllamaOptions`), sends `truncate: false` so the cut becomes a visible
-  `ContextWindowExceeded`, or both.
+  covers only a deployment that ASKED for a bound. **Owner ruling 2026-09-24: both** —
+  `OllamaOptions.MaxInputChars` segments as the HTTP provider does, and every `/api/embed` call sends
+  `truncate: false`, so the server never cuts silently and an over-long input without a bound is a visible
+  `ContextWindowExceeded` (Breaking; the action is to set the bound).
 
 ## Part 288 — the OpenAI-shaped wire drops `TextReasoning.Suppress` (2026-09-24)
 
@@ -377,10 +378,11 @@ tree: `OpenAiPayload.Build` (`src/Lyntai.Providers.Basic/Http/Payloads/OpenAiPay
   adopter measured `Qwen3-0.6B` Q8_0 at 1.3–7.5 s per verdict and `Qwen3.5-0.8B` Q8_0 at 17.5 s, then past a
   300 s timeout; with the server forced to `--reasoning off` the same models answer in 10–21 tokens,
   ~50–350 ms. `reasoning-budget = 0` is NOT equivalent — the model writes its reasoning into the content and
-  4 of 6 replies failed to parse. **The design question:** the OpenAI-shaped wire serves hosted APIs that may
-  reject an unknown field, so `chat_template_kwargs: {"enable_thinking": false}` cannot simply be sent to
-  every endpoint — the library knows no vendor's spelling here any more than it does for `DocumentPrefix`.
-  When it ships, the adopter can drop its server-side `reasoning = off` preset, and should be told.
+  4 of 6 replies failed to parse. The OpenAI-shaped wire serves hosted APIs that may reject an unknown field,
+  so `chat_template_kwargs: {"enable_thinking": false}` cannot simply be sent to every endpoint. **Owner
+  ruling 2026-09-24: CONFIGURED fields** — a registration option holding JSON merged into the request only
+  when a call asks `Suppress`; like `DocumentPrefix`, the library knows no vendor's spelling and ships no
+  default. When it ships, the adopter can drop its server-side `reasoning = off` preset, and should be told.
 
 ## Retired — five Parts that outlived their open work (2026-09-16)
 
