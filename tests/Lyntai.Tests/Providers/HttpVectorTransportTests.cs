@@ -43,7 +43,8 @@ public class HttpVectorTransportTests
             : HttpEndpoint.Build(config.BaseUrl, azure, "embeddings");
         return new HttpVectorTransport("openai", new HttpVectorTransport.Settings(
                 endpoint, config.ApiKey, azure, config.Model,
-                config.BatchSize, config.DocumentPrefix, config.QueryPrefix, config.MaxInputChars),
+                config.BatchSize, config.DocumentPrefix, config.QueryPrefix, config.MaxInputChars,
+                config.Segmentation),
             () => new HttpClient(handler, disposeHandler: false),
             new LyntaiOptions { ProviderTimeout = TimeSpan.FromSeconds(30) });
     }
@@ -521,6 +522,46 @@ public class HttpVectorTransportTests
             .EmbedAsync([new string('a', 100)]));
 
         Assert.Equal([1f, 0f], vector);
+    }
+
+    [Fact]
+    public async Task Overflow_TRUNCATE_sends_each_input_cut_at_the_bound_and_keeps_its_vector_as_sent()
+    {
+        var handler = Embedder((_, _) => [0f, 3f, 4f]);
+
+        var vectors = await VectorProvider(handler, c =>
+        {
+            c.MaxInputChars = 40;
+            c.Segmentation = new InputSegmentation { Overflow = InputOverflow.Truncate };
+        }).EmbedAsync(["short", Words30]);
+
+        Assert.Equal(["short", InputSegmenter.Truncate(Words30, 40)], SentInputs(Assert.Single(handler.Requests).Body));
+        Assert.All(vectors, v => Assert.Equal([0f, 3f, 4f], v));   // one per input, neither pooled nor normalised
+    }
+
+    [Fact]
+    public async Task The_configured_OVERLAP_decides_where_each_piece_restarts()
+    {
+        var handler = Embedder((_, _) => [1f, 0f]);
+
+        await VectorProvider(handler, c =>
+        {
+            c.MaxInputChars = 40;
+            c.Segmentation = new InputSegmentation { Overlap = 0 };
+        }).EmbedAsync([Words30]);
+
+        Assert.Equal(Words30, string.Join(' ', SentInputs(handler.Requests[0].Body)));   // no word sent twice
+    }
+
+    [Fact]
+    public async Task Segmentation_WITHOUT_MaxInputChars_changes_nothing()
+    {
+        var handler = Embedder((_, _) => [1f, 0f]);
+
+        await VectorProvider(handler, c => c.Segmentation = new InputSegmentation { Overflow = InputOverflow.Truncate })
+            .EmbedAsync([Words30]);
+
+        Assert.Equal([Words30], SentInputs(handler.Requests[0].Body));
     }
 
     [Fact] // the whole point: declaring the embeddings route wires a vector backend → ISemanticMemory turns on

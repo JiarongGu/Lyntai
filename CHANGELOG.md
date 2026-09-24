@@ -106,16 +106,6 @@ every addition.
   nothing for a bare provider id; a provider id that itself contains `:` passes a `ProviderCandidate` to the
   other overload instead.
 
-- **The ONNX provider SEGMENTS an input past its window instead of cutting it** (**D177**). It encoded the first
-  `OnnxProviderOptions.MaxTokens` tokens and silently dropped the rest, so text past the window never counted.
-  Now the input is split by tokens into windows and every window runs: a cross-encoder scores a document as
-  its BEST window, with the whole query in each, and an embedder returns the token-weighted mean of its
-  windows' unit vectors, re-normalised — unit length even for a model that does not normalise. There is no
-  option, because the provider knows its window; an input within it is answered exactly as before, and a
-  longer one costs a forward pass per window. **What to DO:** re-embed every stored entry longer than the
-  model's window wherever its old vector will be compared with new ones, and re-score any stored score of
-  such a document; for inputs within the window, nothing.
-
 ### Security
 
 - **Recalled memory can no longer forge a prompt section** (**D166**). Both composers rendered an item as
@@ -162,21 +152,44 @@ every addition.
   `TryAdd`: call it before `UseSqliteStorage` to take its domains and let SQLite hold the rest. Already in the
   `Lyntai` bundle, since its package is; nothing is written until a root is named.
 
-- **`HttpModelOptions.MaxInputChars` segments an over-long input for a small-window HTTP embedder or
-  reranker** (**D177**). Such a backend — a 512-token reranker on llama.cpp, say — rejects the WHOLE call when
-  any one input exceeds its window, so one long entry cost every other answer in the call. Set the bound on the
-  registration and a longer input is split into pieces within it, at paragraph, line, sentence or word
-  boundaries with a small overlap, and every piece is sent: a reranker scores a document as its best piece, and
-  an embedder returns one vector per input, the length-weighted mean of its pieces' unit vectors re-normalised.
-  It counts CHARACTERS, not tokens, so leave margin — and on a reranker subtract your longest query, which the
-  window holds too. Null, the default, sends every input whole, and an input within the bound is sent exactly
-  as before. `AddHttpProvider` refuses it on an EMBEDDING registration at an Ollama server root; register that
-  server's `/v1` base instead.
+- **Segmenting an over-long input is a capability every provider with a window can be configured for**
+  (**D177**). One record, `InputSegmentation` (`Lyntai.Inference`), sets it on each provider as
+  `Segmentation`: `Overflow` — `InputOverflow.Segment` or `Truncate` — `Overlap`, how far each window reaches
+  back into the one before (default 0.15), and `MinDocumentShare`, how much of a reranker pair's window its
+  document keeps before the query is cut (default 0.5). Segmenting splits an input into windows, answers every
+  one, and combines the answers into one per input: a reranker scores a document as its BEST window, and an
+  embedder returns the length-weighted mean of its windows' unit vectors, re-normalised. An input that fits is
+  answered exactly as without it. **Every default is the provider's behaviour before it**, so nothing changes
+  until you configure it.
+
+- **`HttpModelOptions.MaxInputChars` bounds the input an HTTP embedder or reranker is sent** (**D177**). A
+  small-window backend — a 512-token reranker on llama.cpp, say — rejects the WHOLE call when any one input
+  exceeds its window, so one long entry cost every other answer in the call. Set the bound and a longer input
+  is segmented at paragraph, line, sentence or word boundaries, every piece sent in the same request — or,
+  with `Segmentation = new() { Overflow = InputOverflow.Truncate }`, sent cut where its first piece would end.
+  It counts CHARACTERS, not tokens, so leave margin; on a reranker subtract your longest query, which the
+  window holds too and `MinDocumentShare` cannot measure here. Null, the default, sends every input whole. At
+  an Ollama server root, `AddHttpProvider` carries the bound and `Segmentation` onto the Ollama-native
+  provider.
+
+- **`OllamaOptions.MaxInputChars` and `OllamaOptions.Segmentation` bound what `/api/embed` is sent**, with
+  the same pieces and pooling as the HTTP provider. Null, the default, sends every input whole and leaves the
+  server's own silent cut at the model's context in place; once the bound is set, every request also carries
+  `truncate: false`, so a piece that still overflows fails the call visibly instead of being cut behind it.
+
+- **`OnnxProviderOptions.Segmentation` lets the in-process ONNX provider segment by TOKENS.** It still
+  truncates at `MaxTokens` by default. With a record that segments, a window ends after a sentence end or
+  before a word start where one is in reach, and every window runs, in forward passes no larger than the same
+  call unsegmented or eight rows, whichever is more. For a cross-encoder a pair is segmented only when its
+  query, its document and the three special tokens exceed `MaxTokens`; the query is never segmented, and is cut
+  only as far as `MinDocumentShare` requires. A segmented embedding is unit length even for a model that does
+  not normalise.
 
 - **`VectorMath.WeightedMeanDirection` pools several vectors into one unit vector**: each is scaled to unit
   length, the unit vectors are summed by weight and the sum is re-normalised, falling back to the heaviest
-  vector's direction where they cancel. It is the one pooling both the HTTP and the ONNX provider apply to a
-  segmented input (**D177**), so a backend of your own that segments can pool the same way.
+  vector that has a direction where they cancel; a null vector or a non-finite component is refused. It is the
+  one pooling both the HTTP and the ONNX provider apply to a segmented input (**D177**), so a backend of your
+  own that segments can pool the same way.
 
 ### Fixed
 

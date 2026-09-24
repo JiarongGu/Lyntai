@@ -365,14 +365,22 @@ public class OnnxCrossEncoderLiveTests
     /// <summary>The cross-encoder DIALECT is not optional here, and nothing but a real model would say so:
     /// the default is the bi-encoder one, so omitting it opens a reranker export and reads the wrong
     /// tensor. This suite is env-gated, so that mistake survives a green <c>verify</c>.</summary>
-    private static OnnxProvider Load()
+    private static OnnxProvider Load(InputSegmentation? segmentation = null)
     {
         Skip.If(string.IsNullOrWhiteSpace(ModelDirectory), "set LYNTAI_ONNX_RERANK_MODEL_DIR to a cross-encoder export");
         return OnnxProvider.FromDirectory(ModelDirectory!, new OnnxProviderOptions
         {
             Id = "onnx-rerank",
             Produces = ProviderKinds.Score,
+            Segmentation = segmentation,
         });
+    }
+
+    /// <summary>The same filler past a 512-token window, then the passage that decides.</summary>
+    private static string[] FillerThen(params string[] passages)
+    {
+        var filler = string.Join(' ', Enumerable.Repeat("the weather was mild and the sky stayed grey all week", 60));
+        return [.. passages.Select(p => $"{filler} {p}")];
     }
 
     /// <summary>The whole of D157 in one assertion: one provider class, and what it PRODUCES came from the
@@ -421,14 +429,22 @@ public class OnnxCrossEncoderLiveTests
     }
 
     [SkippableFact]
-    public async Task A_relevant_passage_PAST_the_context_limit_still_decides_the_score()
+    public async Task By_DEFAULT_a_passage_past_the_context_limit_is_CUT_and_the_documents_tie()
     {
-        // D177, end to end: a document past the window is scored as its BEST window, the query whole in each.
-        // Cut at the window instead, both documents would be scored on the same filler and TIE.
         using var reranker = Load();
-        var filler = string.Join(' ', Enumerable.Repeat("the weather was mild and the sky stayed grey all week", 60));
 
-        var scores = await reranker.ScoreAsync(Query, [$"{filler} {Relevant}", $"{filler} {Unrelated}"]);
+        var scores = await reranker.ScoreAsync(Query, FillerThen(Relevant, Unrelated));
+
+        Assert.Equal(scores[0], scores[1]);
+    }
+
+    [SkippableFact]
+    public async Task With_SEGMENTATION_a_relevant_passage_past_the_context_limit_decides_the_score()
+    {
+        // D177, end to end: segmented, a document is scored as its BEST window, the query whole in each
+        using var reranker = Load(new InputSegmentation());
+
+        var scores = await reranker.ScoreAsync(Query, FillerThen(Relevant, Unrelated));
 
         Assert.All(scores, s => Assert.True(double.IsFinite(s), $"a segmented pair scored {s}"));
         Assert.True(scores[0] > scores[1], $"relevant {scores[0]:F4} should outrank unrelated {scores[1]:F4}");

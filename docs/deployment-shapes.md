@@ -133,7 +133,7 @@ column turned out to need no separate build, for the reason under the table.
 | | CPU | GPU |
 |---|---|---|
 | **static** (lookup table, no matmul) | **SHIPS** in `Lyntai.Providers.Basic` (**D121**, **D122**) — `AddModel2VecProvider(dir)`, needing NO package and NO dependency because its WordPiece tokenizer is owned and sits in Core; **0.5 points** behind on the memory default and ~12 on a selective task, and the only cell with NO context limit | n/a — there is nothing to accelerate |
-| **transformer** | **SHIPS** as `Lyntai.Providers.Onnx` (**D124**) — `AddOnnxProvider(dir)`. A NATIVE dependency, so it opts OUT of the trim/AOT claim the static cell keeps, and it HAS a 512-token limit | **the SAME package**: it references ONNX Runtime's managed half only, so the app adding `.DirectML` (any DX12 device) or `.Gpu` (CUDA) instead of the CPU backend moves this cell with no library change |
+| **transformer** | **SHIPS** as `Lyntai.Providers.Onnx` (**D124**) — `AddOnnxProvider(dir)`. A NATIVE dependency, so it opts OUT of the trim/AOT claim the static cell keeps, and it HAS a 512-token limit, which it truncates at unless `OnnxProviderOptions.Segmentation` says to segment (**D177**) | **the SAME package**: it references ONNX Runtime's managed half only, so the app adding `.DirectML` (any DX12 device) or `.Gpu` (CUDA) instead of the CPU backend moves this cell with no library change |
 
 **For a game, DirectML is the one worth noting**: it is vendor-neutral on any DX12 device and ships with
 Windows, where a CUDA backend requires the user to have an NVIDIA card and runtime. A library that

@@ -1,5 +1,6 @@
 using Lyntai.Inference;
 using System.Net;
+using System.Text.Json.Nodes;
 using Lyntai;
 using Lyntai.Providers.Http;
 using Lyntai.Providers.Http.Payloads;
@@ -631,18 +632,29 @@ public class HttpModelProviderTests
         })));
     }
 
-    [Fact]
-    public void MaxInputChars_on_an_Ollama_ROOT_is_refused_rather_than_dropped_by_the_native_provider()
+    [Theory]
+    [InlineData(InputOverflow.Segment, 4)]
+    [InlineData(InputOverflow.Truncate, 1)]
+    public async Task MaxInputChars_and_Segmentation_at_an_Ollama_ROOT_are_CARRIED_to_the_native_provider(
+        InputOverflow overflow, int piecesSent)
     {
+        var handler = OllamaProviderTests.Embedder();
         var services = new ServiceCollection();
-
-        var ex = Assert.Throws<NotSupportedException>(() => services.AddLyntai(b => b.AddHttpProvider("ollama", o =>
+        services.AddLyntai(b => b.AddHttpProvider("ollama", o =>
         {
             o.BaseUrl = "http://localhost:11434";
             o.Produces = ProviderKinds.Vector;
-            o.MaxInputChars = 2000;
-        })));
+            o.MaxInputChars = 40;
+            o.Segmentation = new InputSegmentation { Overflow = overflow };
+        }, _ => new HttpClient(handler, disposeHandler: false)));
+        using var sp = services.BuildServiceProvider();
+        var provider = sp.GetServices<IModelProvider>().OfType<Lyntai.Providers.Ollama.OllamaProvider>().Single();
 
-        Assert.Contains("/v1", ex.Message, StringComparison.Ordinal);
+        await provider.CallAsync(new VectorRequest([string.Join(' ', Enumerable.Range(0, 30).Select(i => $"w{i:00}"))]));
+
+        Assert.Equal(new Uri("http://localhost:11434/api/embed"), handler.Requests[0].Uri);
+        var sent = JsonNode.Parse(handler.Requests[0].Body)!["input"]!.AsArray();
+        Assert.Equal(piecesSent, sent.Count);
+        Assert.All(sent, t => Assert.True(t!.GetValue<string>().Length <= 40));
     }
 }

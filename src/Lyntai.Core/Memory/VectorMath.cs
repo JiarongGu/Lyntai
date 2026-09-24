@@ -49,16 +49,18 @@ public static class VectorMath
     /// such as the pieces of a text too long to embed in one window.
     ///
     /// <para>A zero vector has no direction and contributes nothing, whatever its weight. Where the weighted
-    /// sum is itself zero — every vector zero, or directions that cancel — the result is the unit vector of
-    /// the HEAVIEST vector (the first on a tie), and a zero vector when that one is zero too; never NaN.</para>
+    /// sum is itself zero — directions that cancel, or weights of zero — the result is the unit vector of the
+    /// HEAVIEST vector that has a direction (the first on a tie); never NaN.</para>
     ///
     /// <para>Sums in <c>double</c>, as <see cref="NormalizeInPlace"/> does.</para></summary>
-    /// <param name="vectors">The vectors, all of one dimension. Not modified.</param>
+    /// <param name="vectors">The vectors, all of one dimension, every component finite. Not modified.</param>
     /// <param name="weights">One weight per vector, non-negative and finite — a piece's length, say.</param>
-    /// <returns>A new array of the same dimension: unit length, or zero when every vector is zero.</returns>
+    /// <returns>A new array of the same dimension: unit length, or all zeros when every vector is
+    /// zero.</returns>
     /// <exception cref="ArgumentNullException">Either argument is null.</exception>
-    /// <exception cref="ArgumentException">No vectors, a weight count that differs from the vector count,
-    /// or vectors of different dimensions.</exception>
+    /// <exception cref="ArgumentException">No vectors, a null vector, a weight count that differs from the
+    /// vector count, vectors of different dimensions, or a component that is NaN or infinite — refused
+    /// rather than pooled, since one would turn every component of the result into NaN.</exception>
     /// <exception cref="ArgumentOutOfRangeException">A weight is negative, infinite or NaN.</exception>
     public static float[] WeightedMeanDirection(IReadOnlyList<float[]> vectors, IReadOnlyList<double> weights)
     {
@@ -69,31 +71,37 @@ public static class VectorMath
             throw new ArgumentException(
                 $"{weights.Count} weights were given for {vectors.Count} vectors.", nameof(weights));
 
-        var dimension = vectors[0].Length;
-        var sum = new double[dimension];
-        var heaviest = 0;
+        var dimension = -1;
+        var sum = Array.Empty<double>();
+        int? heaviest = null;
         for (var j = 0; j < vectors.Count; j++)
         {
             var (vector, weight) = (vectors[j], weights[j]);
+            if (vector is null) throw new ArgumentException($"Vector {j} is null.", nameof(vectors));
+            if (dimension < 0) (dimension, sum) = (vector.Length, new double[vector.Length]);
             if (vector.Length != dimension)
                 throw new ArgumentException(
                     $"Vector {j} has {vector.Length} dimensions where the first has {dimension}.", nameof(vectors));
+            if (!Array.TrueForAll(vector, float.IsFinite))
+                throw new ArgumentException(
+                    $"Vector {j} has a component that is not a finite number.", nameof(vectors));
             if (!double.IsFinite(weight) || weight < 0)
                 throw new ArgumentOutOfRangeException(
                     nameof(weights), weight, $"Weight {j} is not a finite, non-negative number.");
 
-            if (weight > weights[heaviest]) heaviest = j;
             var length = Length(vector);
             if (length == 0) continue;
+            if (heaviest is not { } h || weight > weights[h]) heaviest = j;
             for (var k = 0; k < dimension; k++) sum[k] += weight * vector[k] / length;
         }
 
         var total = Math.Sqrt(sum.Sum(x => x * x));
         if (total > 0) return [.. sum.Select(x => (float)(x / total))];
+        if (heaviest is not { } fallback) return new float[dimension];
 
-        var fallback = (float[])vectors[heaviest].Clone();
-        NormalizeInPlace(fallback);
-        return fallback;
+        var unit = (float[])vectors[fallback].Clone();
+        NormalizeInPlace(unit);
+        return unit;
     }
 
     private static double Length(float[] vector)

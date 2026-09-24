@@ -98,23 +98,15 @@ public sealed class HttpModelProvider : IModelProvider, IVectorProvider, IScoreP
         BatchSize: c.BatchSize,
         DocumentPrefix: c.DocumentPrefix,
         QueryPrefix: c.QueryPrefix,
-        MaxInputChars: c.MaxInputChars);
+        MaxInputChars: c.MaxInputChars,
+        Segmentation: c.Segmentation);
 
     /// <summary>Throws when <see cref="HttpModelOptions.MaxInputChars"/> cannot bound a piece — run at
     /// registration as well as here, so a bad bound fails composition rather than a first call.</summary>
     internal static void ValidateInputBound(HttpModelOptions c)
     {
-        if (c.MaxInputChars is not { } max || !(ServesVectors(c) || ServesScores(c))) return;
-        if (max <= 0)
-            throw new ArgumentOutOfRangeException(nameof(HttpModelOptions.MaxInputChars), max,
-                $"{nameof(HttpModelOptions.MaxInputChars)} must be positive.");
-        if (!ServesVectors(c)) return;
-        foreach (var (name, prefix) in new[]
-                 { (nameof(c.DocumentPrefix), c.DocumentPrefix), (nameof(c.QueryPrefix), c.QueryPrefix) })
-            if (prefix is { Length: var length } && length >= max)
-                throw new ArgumentOutOfRangeException(nameof(HttpModelOptions.MaxInputChars), max,
-                    $"{nameof(HttpModelOptions.MaxInputChars)} ({max}) leaves no room for text after {name} "
-                    + $"({length} characters): every piece carries the prefix.");
+        if (ServesVectors(c) || ServesScores(c))
+            InputSegmenter.ValidateBound(c.MaxInputChars, ServesVectors(c), c.DocumentPrefix, c.QueryPrefix);
     }
 
     /// <summary>The <c>/embeddings</c> wire shape, or null when this backend produces something else. It is

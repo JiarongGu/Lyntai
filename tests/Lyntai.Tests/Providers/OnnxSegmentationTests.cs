@@ -1,3 +1,4 @@
+using Lyntai.Inference;
 using Lyntai.Providers.Onnx;
 using Lyntai.Text;
 
@@ -159,10 +160,48 @@ public class TokenSegmenterTests
     {
         Assert.Throws<ArgumentOutOfRangeException>(() => TokenSegmenter.Windows(Ids("w w"), 0, Boundaries));
     }
+
+    [Theory]
+    [InlineData(0.0, 20)]    // no overlap: each window starts where the last one ended
+    [InlineData(0.15, 17)]
+    [InlineData(0.5, 10)]    // half a window back
+    public void The_OVERLAP_is_the_share_of_the_window_the_next_one_reaches_back_into(double overlap, int restart)
+    {
+        var windows = TokenSegmenter.Windows(Ids(Repeat("w", 50)), 20, Boundaries, overlap);
+
+        Assert.Equal((0, 20), windows[0]);
+        Assert.Equal(restart, windows[1].Start);
+    }
+
+    [Fact]
+    public void A_RUN_of_sentence_ends_never_starts_a_window()
+    {
+        // the run straddles the budget: cutting inside it would start the next window on a period
+        var ids = Ids($"{Repeat("w", 8)} . . . {Repeat("w", 10)}");
+
+        var windows = TokenSegmenter.Windows(ids, 10, Boundaries);
+
+        Assert.All(windows, w => Assert.False(Boundaries.EndsSentence(ids[w.Start]), $"a window starts on a period at {w.Start}"));
+    }
+
+    [Theory]
+    [InlineData(5)]
+    [InlineData(7)]
+    [InlineData(9)]
+    [InlineData(12)]
+    public void Runs_of_sentence_ends_start_no_window_at_any_budget(int budget)
+    {
+        var ids = Ids(Repeat("w w w w . . .", 12));
+
+        var windows = TokenSegmenter.Windows(ids, budget, Boundaries);
+
+        Assert.All(windows, w => Assert.False(Boundaries.EndsSentence(ids[w.Start]), $"a window starts on a period at {w.Start}"));
+    }
 }
 
-/// <summary>What the ONNX provider feeds its graph: one encoded row per WINDOW, and which rows belong to which
-/// input — with an input inside the window encoded exactly as the tokenizer alone encodes it.</summary>
+/// <summary>What the ONNX provider feeds its graph: one encoded row per input, or per WINDOW once
+/// <see cref="InputSegmentation"/> says to segment — with an input inside the window encoded exactly as the
+/// tokenizer alone encodes it, and no segmentation configured meaning the tokenizer's own truncation.</summary>
 public class WindowedTokenizerTests
 {
     internal static readonly List<string> Vocabulary =
@@ -174,14 +213,27 @@ public class WindowedTokenizerTests
 
     internal static readonly WordPieceTokenizer Tokenizer = WordPieceTokenizer.FromVocabulary(Vocabulary);
 
-    internal static WindowedTokenizer Windows(int maxTokens) =>
-        new(Tokenizer, TokenBoundaries.FromVocabulary(Vocabulary), maxTokens);
+    internal static WindowedTokenizer Windows(int maxTokens, InputSegmentation? segmentation = null) =>
+        new(Tokenizer, TokenBoundaries.FromVocabulary(Vocabulary), maxTokens, segmentation);
+
+    /// <summary>A fresh record that segments, with every other value at its default.</summary>
+    internal static InputSegmentation Segment => new();
 
     internal const string Query = "how many people live in berlin?";                 // 7 tokens
 
     /// <summary><paramref name="sentences"/> sentences of five tokens each.</summary>
     internal static string River(int sentences) =>
         string.Join(' ', Enumerable.Repeat("the river runs north.", sentences));
+
+    /// <summary>A query of exactly <paramref name="tokens"/> tokens.</summary>
+    private static string Berlins(int tokens) => string.Join(' ', Enumerable.Repeat("berlin", tokens));
+
+    /// <summary>A pair row's query tokens and document tokens: <c>[CLS] query [SEP] document [SEP]</c>.</summary>
+    private static (int[] Query, int[] Document) Sides(WordPieceEncoding row)
+    {
+        var separator = Array.IndexOf(row.Ids, 3);
+        return (row.Ids[1..separator], row.Ids[(separator + 1)..^1]);
+    }
 
     internal static void AssertSame(WordPieceEncoding expected, WordPieceEncoding actual)
     {
@@ -190,27 +242,58 @@ public class WindowedTokenizerTests
         Assert.Equal(expected.TokenTypeIds, actual.TokenTypeIds);
     }
 
-    [Fact]
-    public void Texts_within_the_window_encode_EXACTLY_as_the_tokenizer_does()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Texts_within_the_window_encode_EXACTLY_as_the_tokenizer_does(bool segment)
     {
         string[] texts = ["the city is old.", "", River(2), "underground"];
 
-        var batch = Windows(16).EncodeTexts(texts);
+        var batch = Windows(16, segment ? Segment : null).EncodeTexts(texts);
 
         Assert.Equal([0, 1, 2, 3, 4], batch.First);
         for (var i = 0; i < texts.Length; i++) AssertSame(Tokenizer.Encode(texts[i], 16), batch.Rows[i]);
     }
 
-    [Fact]
-    public void Pairs_within_the_window_encode_EXACTLY_as_the_tokenizer_does()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Pairs_within_the_window_encode_EXACTLY_as_the_tokenizer_does(bool segment)
     {
         string[] documents = ["the city is old.", "", River(4)];
 
-        var batch = Windows(32).EncodePairs(Query, documents);
+        var batch = Windows(32, segment ? Segment : null).EncodePairs(Query, documents);
 
         Assert.Equal([0, 1, 2, 3], batch.First);
         for (var i = 0; i < documents.Length; i++)
             AssertSame(Tokenizer.Encode(Query, documents[i], 32), batch.Rows[i]);
+    }
+
+    [Fact]
+    public void With_NO_segmentation_an_over_long_input_is_TRUNCATED_exactly_as_the_tokenizer_truncates()
+    {
+        // the provider's default, and the behaviour it had before segmenting existed — including a query
+        // long enough to leave the document nothing, which the tokenizer's own pair rule allows
+        var texts = Windows(16).EncodeTexts([River(8)]);
+        var pairs = Windows(32).EncodePairs(Query, [River(10)]);
+        var longQuery = Windows(12).EncodePairs(Berlins(14), [River(6)]);
+
+        AssertSame(Tokenizer.Encode(River(8), 16), Assert.Single(texts.Rows));
+        AssertSame(Tokenizer.Encode(Query, River(10), 32), Assert.Single(pairs.Rows));
+        AssertSame(Tokenizer.Encode(Berlins(14), River(6), 12), Assert.Single(longQuery.Rows));
+    }
+
+    [Fact]
+    public void An_explicit_TRUNCATE_is_one_row_per_input_cut_at_the_window()
+    {
+        var truncate = new InputSegmentation { Overflow = InputOverflow.Truncate };
+
+        var texts = Windows(16, truncate).EncodeTexts([River(8), "the city is old."]);
+        var pairs = Windows(32, truncate).EncodePairs(Query, [River(10)]);
+
+        Assert.Equal([0, 1, 2], texts.First);
+        AssertSame(Tokenizer.Encode(River(8), 16), texts.Rows[0]);
+        AssertSame(Tokenizer.Encode(Query, River(10), 32), Assert.Single(pairs.Rows));   // a short query cuts nothing
     }
 
     [Fact]
@@ -219,7 +302,7 @@ public class WindowedTokenizerTests
         var text = River(8);                                   // 40 tokens against a 14-token budget
         var content = Tokenizer.EncodeToIds(text);
 
-        var batch = Windows(16).EncodeTexts([text, "the city is old."]);
+        var batch = Windows(16, Segment).EncodeTexts([text, "the city is old."]);
 
         var rows = batch.Rows[batch.First[0]..batch.First[1]];
         Assert.True(rows.Length >= 3, $"{rows.Length} rows");
@@ -247,7 +330,7 @@ public class WindowedTokenizerTests
     [Fact]
     public void A_document_past_the_window_keeps_the_WHOLE_query_in_every_row()
     {
-        var batch = Windows(32).EncodePairs(Query, [River(10)]);   // 50 tokens against a 22-token budget
+        var batch = Windows(32, Segment).EncodePairs(Query, [River(10)]);   // 50 tokens against a 22-token budget
 
         var queryRow = Tokenizer.Encode(Query, string.Empty, 32);   // [CLS] query [SEP] [SEP]
         Assert.True(batch.Rows.Length >= 3, $"{batch.Rows.Length} rows");
@@ -262,30 +345,64 @@ public class WindowedTokenizerTests
         });
     }
 
-    [Fact]
-    public void A_query_that_leaves_NO_room_falls_back_to_the_tokenizers_own_truncation()
+    // A 32-token window holds 29 content tokens. At the default MinDocumentShare of 0.5 the document keeps
+    // ceil(14.5) = 15 of them, so the query may take 14 before it is cut.
+
+    [Theory]
+    [InlineData(13, 13, 16)]
+    [InlineData(14, 14, 15)]   // the most a query may take whole
+    [InlineData(15, 14, 15)]   // one more, and the query is cut
+    [InlineData(28, 14, 15)]   // left alone, this document would have one token per window
+    [InlineData(29, 14, 15)]   // left alone, it would have none — where the tokenizer's own rule scores the query only
+    [InlineData(60, 14, 15)]
+    public void The_QUERY_is_cut_so_the_document_keeps_its_MinDocumentShare_of_the_window(
+        int queryTokens, int queryKept, int documentBudget)
     {
-        // 12 tokens of window, 9 left after the specials, and a 14-token query: nothing to segment into
-        var longQuery = "how many people live in berlin how many people live in berlin now?";
-        string[] documents = [River(6), "the city is old."];
+        var batch = Windows(32, Segment).EncodePairs(Berlins(queryTokens), [River(10)]);
 
-        var batch = Windows(12).EncodePairs(longQuery, documents);
+        Assert.All(batch.Rows, row =>
+        {
+            var (query, document) = Sides(row);
+            Assert.Equal(queryKept, query.Length);
+            Assert.InRange(document.Length, 1, documentBudget);
+            Assert.True(row.Ids.Length <= 32);
+        });
+        // 50 document tokens in windows of up to 15: a handful of rows, never one per token
+        Assert.InRange(batch.Rows.Length, 4, 8);
+    }
 
-        Assert.Equal([0, 1, 2], batch.First);
-        for (var i = 0; i < documents.Length; i++)
-            AssertSame(Tokenizer.Encode(longQuery, documents[i], 12), batch.Rows[i]);
+    [Fact]
+    public void A_larger_MinDocumentShare_cuts_the_query_sooner()
+    {
+        // 0.8 of 29 is 23.2, so the document keeps 24 and the 7-token query is cut to 5
+        var batch = Windows(32, new InputSegmentation { MinDocumentShare = 0.8 }).EncodePairs(Query, ["the city is old."]);
+
+        Assert.Equal(Tokenizer.EncodeToIds(Query).Take(5), Sides(Assert.Single(batch.Rows)).Query);
+    }
+
+    [Fact]
+    public void An_explicit_TRUNCATE_keeps_the_document_its_share_too()
+    {
+        var batch = Windows(32, new InputSegmentation { Overflow = InputOverflow.Truncate })
+            .EncodePairs(Berlins(40), [River(10)]);
+
+        var (query, document) = Sides(Assert.Single(batch.Rows));
+        Assert.Equal(14, query.Length);
+        Assert.Equal(Tokenizer.EncodeToIds(River(10)).Take(15), document);
     }
 
     [Fact]
     public void A_window_too_small_for_the_special_tokens_is_refused_as_the_tokenizer_refuses_it()
     {
+        Assert.Throws<ArgumentOutOfRangeException>(() => Windows(2, Segment).EncodeTexts(["x"]));
+        Assert.Throws<ArgumentOutOfRangeException>(() => Windows(3, Segment).EncodePairs("q", ["x"]));
         Assert.Throws<ArgumentOutOfRangeException>(() => Windows(2).EncodeTexts(["x"]));
         Assert.Throws<ArgumentOutOfRangeException>(() => Windows(3).EncodePairs("q", ["x"]));
     }
 }
 
-/// <summary>The two HEADS over a window-segmented batch, with the graph replaced by a function of the rows it
-/// is fed — the half of a call a test can reach without a model on disk.</summary>
+/// <summary>The two HEADS over a windowed batch, with the graph replaced by a function of the rows it is fed —
+/// the half of a call a test can reach without a model on disk.</summary>
 public class OnnxWindowedHeadTests
 {
     private static readonly int Berlin = WindowedTokenizerTests.Vocabulary.IndexOf("berlin");
@@ -294,6 +411,11 @@ public class OnnxWindowedHeadTests
     private static double[] CountBerlin(WordPieceEncoding[] rows) =>
         [.. rows.Select(r => (double)r.Ids.Where((id, t) => r.TokenTypeIds[t] == 1 && id == Berlin).Count())];
 
+    /// <summary>A stand-in embedder whose vector depends only on the row's own content, never on where the
+    /// row sits in a pass.</summary>
+    private static float[][] ByContent(WordPieceEncoding[] rows) =>
+        [.. rows.Select(r => new float[] { r.Ids[1], r.Ids.Length, 1f })];
+
     [Fact]
     public void A_document_past_the_window_scores_as_its_BEST_window_not_its_first()
     {
@@ -301,23 +423,39 @@ public class OnnxWindowedHeadTests
         var document = $"{WindowedTokenizerTests.River(8)} berlin is old. {WindowedTokenizerTests.River(8)}";
         var fed = new List<WordPieceEncoding[]>();
 
-        var scores = OnnxCrossEncoderHead.Score(WindowedTokenizerTests.Windows(32), WindowedTokenizerTests.Query,
+        var scores = OnnxCrossEncoderHead.Score(
+            WindowedTokenizerTests.Windows(32, WindowedTokenizerTests.Segment), WindowedTokenizerTests.Query,
             [document, "the city is old.", "berlin is old."],
             rows => { fed.Add(rows); return CountBerlin(rows); });
 
         Assert.Equal([1.0, 0.0, 1.0], scores);                 // one per document, in input order
-        var rows = Assert.Single(fed);
-        Assert.True(rows.Length >= 5, $"{rows.Length} rows");   // every window reached the graph, in ONE pass
+        var rows = Assert.Single(fed);                          // 7 rows fit one pass of 8
+        Assert.True(rows.Length >= 5, $"{rows.Length} rows");
         Assert.Equal(0.0, CountBerlin([rows[0]])[0]);
     }
 
     [Fact]
-    public void An_in_window_call_feeds_the_graph_EXACTLY_what_the_tokenizer_alone_would()
+    public void With_NO_segmentation_a_document_past_the_window_is_scored_on_its_first_window_alone()
+    {
+        var document = $"{WindowedTokenizerTests.River(8)} berlin is old. {WindowedTokenizerTests.River(8)}";
+
+        var scores = OnnxCrossEncoderHead.Score(WindowedTokenizerTests.Windows(32), WindowedTokenizerTests.Query,
+            [document], CountBerlin);
+
+        Assert.Equal([0.0], scores);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void An_in_window_call_feeds_the_graph_EXACTLY_what_the_tokenizer_alone_would(bool segment)
     {
         string[] documents = ["the city is old.", WindowedTokenizerTests.River(4), ""];
         WordPieceEncoding[]? fed = null;
 
-        OnnxCrossEncoderHead.Score(WindowedTokenizerTests.Windows(32), WindowedTokenizerTests.Query, documents,
+        OnnxCrossEncoderHead.Score(
+            WindowedTokenizerTests.Windows(32, segment ? WindowedTokenizerTests.Segment : null),
+            WindowedTokenizerTests.Query, documents,
             rows => { fed = rows; return new double[rows.Length]; });
 
         Assert.Equal(documents.Length, fed!.Length);
@@ -331,7 +469,8 @@ public class OnnxWindowedHeadTests
     {
         WordPieceEncoding[]? fed = null;
 
-        var vectors = OnnxPoolingHead.Embed(WindowedTokenizerTests.Windows(16), [WindowedTokenizerTests.River(9)],
+        var vectors = OnnxPoolingHead.Embed(WindowedTokenizerTests.Windows(16, WindowedTokenizerTests.Segment),
+            [WindowedTokenizerTests.River(9)],
             rows => { fed = rows; return [.. rows.Select((_, r) => new float[] { (r + 1) * 2f, 2f, 0f })]; });
 
         var vector = Assert.Single(vectors);
@@ -351,7 +490,7 @@ public class OnnxWindowedHeadTests
     [Fact]
     public void A_text_within_the_window_keeps_its_vector_EXACTLY_as_the_head_computed_it()
     {
-        var vectors = OnnxPoolingHead.Embed(WindowedTokenizerTests.Windows(16),
+        var vectors = OnnxPoolingHead.Embed(WindowedTokenizerTests.Windows(16, WindowedTokenizerTests.Segment),
             ["the city is old.", WindowedTokenizerTests.River(9)],
             rows => [.. rows.Select((_, r) => r == 0 ? new float[] { 1f, 2f, 2f } : [0f, 3f, 4f])]);
 
@@ -359,17 +498,77 @@ public class OnnxWindowedHeadTests
         Assert.Equal(1.0, Math.Sqrt(vectors[1].Sum(x => (double)x * x)), 1e-6);
     }
 
-    [Fact]
-    public void An_in_window_embed_feeds_the_graph_EXACTLY_what_the_tokenizer_alone_would()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void An_in_window_embed_feeds_the_graph_EXACTLY_what_the_tokenizer_alone_would(bool segment)
     {
         string[] texts = ["the city is old.", WindowedTokenizerTests.River(2), ""];
         WordPieceEncoding[]? fed = null;
 
-        OnnxPoolingHead.Embed(WindowedTokenizerTests.Windows(16), texts,
+        OnnxPoolingHead.Embed(WindowedTokenizerTests.Windows(16, segment ? WindowedTokenizerTests.Segment : null), texts,
             rows => { fed = rows; return [.. rows.Select(_ => new float[] { 1f })]; });
 
         Assert.Equal(texts.Length, fed!.Length);
         for (var i = 0; i < texts.Length; i++)
             WindowedTokenizerTests.AssertSame(WindowedTokenizerTests.Tokenizer.Encode(texts[i], 16), fed[i]);
     }
+
+    // ---- passes: the graph never sees more rows at once than the same call unsegmented, or a small floor ----
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void An_unsegmented_call_is_ONE_pass_however_many_inputs_it_holds(bool segment)
+    {
+        var texts = Enumerable.Repeat("the city is old.", 3 * WindowedBatch.MinPassRows).ToArray();
+        var embedPasses = new List<int>();
+        var scorePasses = new List<int>();
+        var windows = WindowedTokenizerTests.Windows(32, segment ? WindowedTokenizerTests.Segment : null);
+
+        OnnxPoolingHead.Embed(windows, texts, rows => { embedPasses.Add(rows.Length); return ByContent(rows); });
+        OnnxCrossEncoderHead.Score(windows, WindowedTokenizerTests.Query, texts,
+            rows => { scorePasses.Add(rows.Length); return new double[rows.Length]; });
+
+        Assert.Equal([texts.Length], embedPasses);
+        Assert.Equal([texts.Length], scorePasses);
+    }
+
+    [Fact]
+    public void A_segmented_call_runs_in_passes_of_at_most_the_floor_or_its_input_count_and_loses_no_row()
+    {
+        var windows = WindowedTokenizerTests.Windows(16, WindowedTokenizerTests.Segment);
+        string[] texts = [WindowedTokenizerTests.River(60), "the city is old."];
+        var passes = new List<int>();
+
+        var vectors = OnnxPoolingHead.Embed(windows, texts, rows => { passes.Add(rows.Length); return ByContent(rows); });
+
+        var batch = windows.EncodeTexts(texts);
+        Assert.True(passes.Count >= 4, $"{passes.Count} passes");
+        Assert.All(passes, rows => Assert.InRange(rows, 1, Math.Max(WindowedBatch.MinPassRows, texts.Length)));
+        Assert.Equal(batch.Rows.Length, passes.Sum());
+        // chunking must keep each row's answer paired with its row
+        var first = batch.Rows[batch.First[0]..batch.First[1]];
+        var expected = Lyntai.Memory.VectorMath.WeightedMeanDirection(
+            ByContent(first), [.. batch.Weights[batch.First[0]..batch.First[1]].Select(w => (double)w)]);
+        Assert.Equal(expected, vectors[0]);
+        Assert.Equal(ByContent([batch.Rows[^1]])[0], vectors[1]);
+    }
+
+    [Fact]
+    public void A_segmented_SCORE_call_runs_in_passes_and_keeps_every_document_its_best_window()
+    {
+        var document = $"{WindowedTokenizerTests.River(20)} berlin is old. {WindowedTokenizerTests.River(20)}";
+        var passes = new List<int>();
+
+        var scores = OnnxCrossEncoderHead.Score(
+            WindowedTokenizerTests.Windows(32, WindowedTokenizerTests.Segment), WindowedTokenizerTests.Query,
+            [document, WindowedTokenizerTests.River(30)],
+            rows => { passes.Add(rows.Length); return CountBerlin(rows); });
+
+        Assert.Equal([1.0, 0.0], scores);
+        Assert.True(passes.Count >= 2, $"{passes.Count} passes");
+        Assert.All(passes, rows => Assert.InRange(rows, 1, WindowedBatch.MinPassRows));
+    }
 }
+

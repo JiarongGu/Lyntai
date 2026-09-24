@@ -54,4 +54,23 @@ public sealed class OllamaOptions
     /// <see cref="DocumentPrefix"/>: a model may instruct one side only, and an unset side must stay
     /// verbatim rather than inherit the other.</summary>
     public string? QueryPrefix { get; set; }
+
+    /// <summary>The most CHARACTERS one input may carry in an <c>/api/embed</c> request when serving
+    /// <see cref="ProviderKinds.Vector"/> — the bound <c>HttpModelOptions.MaxInputChars</c> is, with the same
+    /// pieces, pooling and caveat that characters only approximate tokens (see its doc). A role prefix counts
+    /// inside it. Ignored for <see cref="ProviderKinds.Text"/>.
+    ///
+    /// <para><b>Null (the default) sends every input whole and leaves the server's own handling alone</b>:
+    /// Ollama cuts an input past the model's context silently. Set, the bound governs instead — every request
+    /// also carries <c>truncate: false</c>, so a piece that still overflows is reported as a failed call rather
+    /// than cut behind the bound. The provider throws <see cref="ArgumentOutOfRangeException"/> when it is not
+    /// positive or leaves a prefix no room.</para></summary>
+    public int? MaxInputChars { get; set; }
+
+    /// <summary>What happens to an input longer than <see cref="MaxInputChars"/>, and ignored without it
+    /// (<c>docs/DECISIONS.md</c> <b>D177</b>): null — the default — or <see cref="InputOverflow.Segment"/>
+    /// segments it and pools its pieces' vectors; <see cref="InputOverflow.Truncate"/> sends it cut where its
+    /// first piece would end. <see cref="InputSegmentation.MinDocumentShare"/> does not apply: an embedder
+    /// takes no query.</summary>
+    public InputSegmentation? Segmentation { get; set; }
 }

@@ -1,0 +1,59 @@
+using Lyntai.Inference;
+
+namespace Lyntai.Tests.Inference;
+
+/// <summary>The one configuration every provider with a window shares for an input longer than that window
+/// (<c>docs/DECISIONS.md</c> <b>D177</b>): segment or truncate, how much consecutive windows overlap, and how
+/// much of a reranker pair's window the document keeps.</summary>
+public class InputSegmentationTests
+{
+    [Fact]
+    public void A_new_record_SEGMENTS_with_a_15_percent_overlap_and_keeps_a_document_half_the_window()
+    {
+        var segmentation = new InputSegmentation();
+
+        Assert.Equal(InputOverflow.Segment, segmentation.Overflow);
+        Assert.Equal(0.15, segmentation.Overlap);
+        Assert.Equal(0.5, segmentation.MinDocumentShare);
+    }
+
+    [Theory]
+    [InlineData(0.0)]
+    [InlineData(0.5)]
+    public void An_overlap_from_none_to_half_a_window_is_accepted(double overlap)
+    {
+        Assert.Equal(overlap, new InputSegmentation { Overlap = overlap }.Overlap);
+    }
+
+    [Theory]
+    [InlineData(-0.01)]
+    [InlineData(0.51)]
+    [InlineData(double.NaN)]
+    [InlineData(double.PositiveInfinity)]
+    public void An_overlap_outside_none_to_half_a_window_is_refused(double overlap)
+    {
+        var ex = Assert.Throws<ArgumentOutOfRangeException>(() => new InputSegmentation { Overlap = overlap });
+
+        Assert.Equal(nameof(InputSegmentation.Overlap), ex.ParamName);
+    }
+
+    [Theory]
+    [InlineData(0.01)]
+    [InlineData(0.99)]
+    public void A_document_share_strictly_between_none_and_all_is_accepted(double share)
+    {
+        Assert.Equal(share, new InputSegmentation { MinDocumentShare = share }.MinDocumentShare);
+    }
+
+    [Theory]
+    [InlineData(0.0)]
+    [InlineData(1.0)]
+    [InlineData(-0.5)]
+    [InlineData(double.NaN)]
+    public void A_document_share_of_none_or_all_of_the_window_is_refused(double share)
+    {
+        var ex = Assert.Throws<ArgumentOutOfRangeException>(() => new InputSegmentation { MinDocumentShare = share });
+
+        Assert.Equal(nameof(InputSegmentation.MinDocumentShare), ex.ParamName);
+    }
+}

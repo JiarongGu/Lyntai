@@ -6,7 +6,7 @@ namespace Lyntai.Providers.Onnx;
 /// model's window. Carries no decision of its own — everything that INTERPRETS a tensor belongs to the
 /// head.</summary>
 /// <param name="Session">The ONNX graph, already open.</param>
-/// <param name="Windows">The model's own WordPiece vocabulary, segmenting past its window.</param>
+/// <param name="Windows">The model's own WordPiece vocabulary, and what it does past the window.</param>
 internal readonly record struct OnnxRun(InferenceSession Session, WindowedTokenizer Windows);
 
 /// <summary>What a <see cref="OnnxProvider"/> DOES with its session — the model's HEAD, in the ML sense:
@@ -40,8 +40,9 @@ internal interface IOnnxHead
 /// <summary>A head that turns texts into VECTORS — the bi-encoder shape.</summary>
 internal interface IOnnxVectorHead : IOnnxHead
 {
-    /// <summary>One batched forward pass: encode each text as a row per window, pad to the longest, run,
-    /// reduce each row — and pool a text that took several rows into one vector.</summary>
+    /// <summary>Encode each text as a row — a row per window when segmenting — and run the rows in bounded
+    /// passes, each padded to its longest row; reduce each row, and pool a text that took several rows into
+    /// one vector. A call with no segmented text is one pass.</summary>
     /// <param name="run">The engine for this call.</param>
     /// <param name="outputName">What <see cref="IOnnxHead.ResolveOutput"/> chose at composition.</param>
     /// <param name="texts">The batch; never empty (the provider answers an empty request itself).</param>
@@ -52,8 +53,9 @@ internal interface IOnnxVectorHead : IOnnxHead
 /// encodes a PAIR per row rather than one text.</summary>
 internal interface IOnnxScoreHead : IOnnxHead
 {
-    /// <summary>One batched forward pass over the pairs: encode each as a row per window of its document,
-    /// pad to the longest, run, read one score per row — and take a document's best row as its score.</summary>
+    /// <summary>Encode each pair as a row — a row per window of its document when segmenting — and run the
+    /// rows in bounded passes, each padded to its longest row; read one score per row, and take a document's
+    /// best row as its score. A call with no segmented document is one pass.</summary>
     /// <param name="run">The engine for this call.</param>
     /// <param name="outputName">What <see cref="IOnnxHead.ResolveOutput"/> chose at composition.</param>
     /// <param name="query">The question every document is scored against.</param>

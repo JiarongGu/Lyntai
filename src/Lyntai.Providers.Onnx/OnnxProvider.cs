@@ -19,14 +19,13 @@ namespace Lyntai.Providers.Onnx;
 /// trim/AOT claim.</para>
 ///
 /// <para><b>It HAS a context limit</b>, which the static class does not: a BERT encoder has positional
-/// embeddings. An input past <see cref="OnnxProviderOptions.MaxTokens"/> is SEGMENTED by tokens, never cut
-/// (<c>docs/DECISIONS.md</c> <b>D177</b>): every window runs, a document scores as its best window, and a
-/// text's vector is its windows' unit vectors averaged by token count and re-normalised. An input that fits
-/// is answered from its single row, untouched.</para>
+/// embeddings, so input past <see cref="OnnxProviderOptions.MaxTokens"/> is truncated — or, where
+/// <see cref="OnnxProviderOptions.Segmentation"/> says so, segmented by tokens and every window answered
+/// (<c>docs/DECISIONS.md</c> <b>D177</b>).</para>
 ///
 /// <para><b>Inference runs on the calling thread.</b> The async signature is the seam's, not a promise to
-/// yield — a batch of long documents is CPU-bound for tens of milliseconds. Wrap the call if that matters
-/// to your scheduler.</para></summary>
+/// yield — a call is CPU-bound for as long as its forward passes take, and a segmented input adds a pass
+/// per window. Wrap the call if that matters to your scheduler.</para></summary>
 public sealed class OnnxProvider : IVectorProvider, IScoreProvider, IDisposable
 {
     private readonly InferenceSession _session;
@@ -62,8 +61,8 @@ public sealed class OnnxProvider : IVectorProvider, IScoreProvider, IDisposable
     /// non-ONNX model has already thrown at composition.</summary>
     public bool IsAvailable => true;
 
-    /// <summary>The sequence length one forward pass takes, including the special tokens; a longer input is
-    /// segmented into windows of it.</summary>
+    /// <summary>The sequence length one row of a forward pass takes, including the special tokens; a longer
+    /// input is truncated to it, or segmented into windows of it.</summary>
     public int MaxTokens => _windows.MaxTokens;
 
     /// <summary>Load an ONNX export: a graph plus <c>vocab.txt</c>, with the sequence limit — and, for the
@@ -92,7 +91,8 @@ public sealed class OnnxProvider : IVectorProvider, IScoreProvider, IDisposable
         // `max_position_embeddings` lives in the same config.json and one reader cannot drift.
         var config = SentenceTransformerConfig.FromDirectory(directory);
 
-        var windows = new WindowedTokenizer(tokenizer, boundaries, options.MaxTokens ?? config.MaxTokens);
+        var windows = new WindowedTokenizer(
+            tokenizer, boundaries, options.MaxTokens ?? config.MaxTokens, options.Segmentation);
         return new OnnxProvider(new InferenceSession(model), windows, HeadFor(options, config), options.Id);
     }
 

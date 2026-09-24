@@ -44,7 +44,11 @@ internal sealed class HttpVectorTransport(
     /// <param name="DocumentPrefix">Prepended verbatim to <see cref="EmbeddingRole.Document"/> text.</param>
     /// <param name="QueryPrefix">Prepended verbatim to <see cref="EmbeddingRole.Query"/> text.</param>
     /// <param name="MaxInputChars">The most characters one sent input may carry, prefix included; a longer
-    /// input is segmented and its pieces' vectors pooled. Null sends every input whole.</param>
+    /// input is segmented and its pieces' vectors pooled, or truncated. Null sends every input whole.</param>
+    /// <param name="Segmentation">Segment or truncate past <paramref name="MaxInputChars"/>, and the overlap;
+    /// null segments.</param>
+    /// <param name="NoServerTruncation">Send <c>truncate: false</c>, so a server that would cut an over-long
+    /// input silently (Ollama's <c>/api/embed</c>) reports it instead.</param>
     internal sealed record Settings(
         Uri Endpoint,
         string? ApiKey,
@@ -53,7 +57,9 @@ internal sealed class HttpVectorTransport(
         int BatchSize,
         string? DocumentPrefix,
         string? QueryPrefix,
-        int? MaxInputChars = null);
+        int? MaxInputChars = null,
+        InputSegmentation? Segmentation = null,
+        bool NoServerTruncation = false);
 
     private readonly ILogger _logger = logger ?? NullLogger<HttpVectorTransport>.Instance;
 
@@ -70,8 +76,8 @@ internal sealed class HttpVectorTransport(
     /// would hand the caller fewer vectors than texts, silently mis-pairing every one after the gap.</para>
     ///
     /// <para>An input that, with its prefix, is longer than <see cref="Settings.MaxInputChars"/> is segmented,
-    /// each piece carrying the prefix, and answered with its pieces' vectors pooled; every other input's vector
-    /// is returned exactly as the endpoint sent it.</para>
+    /// each piece carrying the prefix, and answered with its pieces' vectors pooled — or, truncating, sent
+    /// cut; every other input's vector is returned exactly as the endpoint sent it.</para>
     /// </summary>
     /// <exception cref="OperationCanceledException">The caller's <paramref name="ct"/> was cancelled — the
     /// one failure that is not a verdict, because it belongs to the caller.</exception>
@@ -79,10 +85,18 @@ internal sealed class HttpVectorTransport(
     {
         ArgumentNullException.ThrowIfNull(request);
         var prefix = request.Role == EmbeddingRole.Query ? config.QueryPrefix : config.DocumentPrefix;
-        var plan = config.MaxInputChars is { } max
-            ? InputSegmenter.Segment(request.Texts, max - (prefix?.Length ?? 0))
-            : null;
-        var pieces = plan?.Pieces ?? request.Texts;
+        Segmentation? plan = null;
+        var pieces = request.Texts;
+        if (config.MaxInputChars - (prefix?.Length ?? 0) is { } budget)
+        {
+            if (config.Segmentation?.Overflow == InputOverflow.Truncate)
+                pieces = [.. request.Texts.Select(t => InputSegmenter.Truncate(t, budget))];
+            else
+            {
+                plan = InputSegmenter.Segment(request.Texts, budget, config.Segmentation?.Overlap);
+                pieces = plan.Pieces;
+            }
+        }
         IReadOnlyList<string> texts = string.IsNullOrEmpty(prefix)
             ? pieces
             : [.. pieces.Select(t => prefix + t)];
@@ -228,6 +242,7 @@ internal sealed class HttpVectorTransport(
             ["model"] = config.Model ?? "",
             ["input"] = new JsonArray([.. texts.Select(t => (JsonNode)JsonValue.Create(t))]),
         };
+        if (config.NoServerTruncation) payload["truncate"] = false;
         var request = new HttpRequestMessage(HttpMethod.Post, config.Endpoint)
         {
             Content = new StringContent(payload.ToJsonString(), new UTF8Encoding(false), "application/json"),

@@ -34,6 +34,8 @@ public sealed class OllamaProvider : IModelProvider, IVectorProvider
     /// <exception cref="NotSupportedException"><paramref name="config"/> declares
     /// <see cref="ProviderKinds.Score"/> — Ollama serves no rerank surface, and refusing here is a
     /// composition error heard while a human is watching rather than a 404 on the first call.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><see cref="OllamaOptions.MaxInputChars"/> is not
+    /// positive, or leaves an embedding prefix no room for text.</exception>
     public OllamaProvider(
         string id,
         OllamaOptions config,
@@ -42,6 +44,7 @@ public sealed class OllamaProvider : IModelProvider, IVectorProvider
         ILogger<OllamaProvider>? logger = null,
         bool disposeHttpClient = true)
     {
+        ValidateInputBound(config);
         _id = id;
         _config = config;
         Capabilities = CapabilitiesFor(config);
@@ -100,7 +103,18 @@ public sealed class OllamaProvider : IModelProvider, IVectorProvider
         Model: c.Model,
         BatchSize: c.BatchSize,
         DocumentPrefix: c.DocumentPrefix,
-        QueryPrefix: c.QueryPrefix);
+        QueryPrefix: c.QueryPrefix,
+        MaxInputChars: c.MaxInputChars,
+        Segmentation: c.Segmentation,
+        NoServerTruncation: c.MaxInputChars is not null);
+
+    /// <summary>Throws when <see cref="OllamaOptions.MaxInputChars"/> cannot bound a piece — run at
+    /// registration as well as here, so a bad bound fails composition rather than a first call.</summary>
+    internal static void ValidateInputBound(OllamaOptions c)
+    {
+        if (ServesVectors(c))
+            InputSegmenter.ValidateBound(c.MaxInputChars, embeds: true, c.DocumentPrefix, c.QueryPrefix);
+    }
 
     public bool IsAvailable => !string.IsNullOrWhiteSpace(_config.BaseUrl);
 

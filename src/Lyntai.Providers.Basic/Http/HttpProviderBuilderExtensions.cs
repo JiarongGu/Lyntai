@@ -30,8 +30,6 @@ public static class HttpProviderBuilderExtensions
     /// infinite HttpClient timeout so the per-call <see cref="LyntaiOptions.ProviderTimeout"/> owns deadlines.</para></summary>
     /// <exception cref="ArgumentOutOfRangeException"><see cref="HttpModelOptions.MaxInputChars"/> is not
     /// positive, or leaves an embedding prefix no room for text.</exception>
-    /// <exception cref="NotSupportedException"><see cref="HttpModelOptions.MaxInputChars"/> is set on an
-    /// embedding registration whose BaseUrl is an Ollama server root.</exception>
     public static LyntaiBuilder AddHttpProvider(this LyntaiBuilder builder, string id,
         Action<HttpModelOptions> configure, Func<IServiceProvider, HttpClient>? httpClient = null)
     {
@@ -44,13 +42,6 @@ public static class HttpProviderBuilderExtensions
         if (!string.Equals(config.Produces, ProviderKinds.Score, StringComparison.OrdinalIgnoreCase)
             && ProviderDetect.IsOllamaRoot(config.BaseUrl))
         {
-            // the native provider has no input bound, so carrying on would drop it without a word
-            if (config.MaxInputChars is not null
-                && string.Equals(config.Produces, ProviderKinds.Vector, StringComparison.OrdinalIgnoreCase))
-                throw new NotSupportedException(
-                    $"{id}: MaxInputChars is not honoured on an Ollama server root, which composes the "
-                    + "Ollama-native provider. Register the server's /v1 base to stay on the OpenAI-shaped "
-                    + "wire, where the bound applies.");
             return builder.AddOllamaProvider(id, new Providers.Ollama.OllamaOptions
             {
                 BaseUrl = config.BaseUrl,
@@ -60,6 +51,8 @@ public static class HttpProviderBuilderExtensions
                 BatchSize = config.BatchSize,
                 DocumentPrefix = config.DocumentPrefix,
                 QueryPrefix = config.QueryPrefix,
+                MaxInputChars = config.MaxInputChars,
+                Segmentation = config.Segmentation,
             }, httpClient);
         }
 

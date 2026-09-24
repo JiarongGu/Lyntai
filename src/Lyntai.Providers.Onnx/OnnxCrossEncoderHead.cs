@@ -5,7 +5,7 @@ using Microsoft.ML.OnnxRuntime;
 namespace Lyntai.Providers.Onnx;
 
 /// <summary>The CROSS-ENCODER head: a <c>[CLS] query [SEP] document [SEP]</c> pair per row — a row per window
-/// of a document past the model's window — the classification head read as one score per pair. Selected by
+/// of a segmented document — the classification head read as one score per pair. Selected by
 /// <see cref="OnnxProviderOptions.Produces"/>, so the same <see cref="OnnxProvider"/> serves
 /// <see cref="ProviderKinds.Score"/> instead of vectors — the model on disk is what differs, not the
 /// backend (<c>docs/DECISIONS.md</c> <b>D157</b>).</summary>
@@ -42,8 +42,9 @@ internal sealed class OnnxCrossEncoderHead : IOnnxScoreHead
         });
 
     /// <summary>Score each document as its BEST window (<c>docs/DECISIONS.md</c> <b>D177</b>): a document is
-    /// as relevant as its most relevant passage. Every window of every document goes through
-    /// <paramref name="forward"/> in one batch, and the scores come back one per document, in input order.</summary>
+    /// as relevant as its most relevant passage, and one that took a single row scores as that row. The rows
+    /// go through <paramref name="forward"/> in the bounded passes <see cref="WindowedBatch.Forward{T}"/>
+    /// makes, and the scores come back one per document, in input order.</summary>
     /// <param name="windows">The tokenizer, bounded by the model's window.</param>
     /// <param name="query">The question every document is scored against; never segmented.</param>
     /// <param name="documents">The documents, in the order their scores are returned.</param>
@@ -53,7 +54,7 @@ internal sealed class OnnxCrossEncoderHead : IOnnxScoreHead
     {
         ArgumentNullException.ThrowIfNull(documents);
         var batch = windows.EncodePairs(query, documents);
-        var rowScores = forward(batch.Rows);
+        var rowScores = batch.Forward(forward);
         return [.. Enumerable.Range(0, documents.Count)
             .Select(i => rowScores[batch.First[i]..batch.First[i + 1]].Max())];
     }

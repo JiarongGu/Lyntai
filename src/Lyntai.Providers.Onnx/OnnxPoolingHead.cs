@@ -29,11 +29,11 @@ internal sealed class OnnxPoolingHead(OnnxPooling pooling, bool normalize) : IOn
     public float[][] Embed(OnnxRun run, string outputName, IReadOnlyList<string> texts) =>
         Embed(run.Windows, texts, rows => Reduce(run.Session, outputName, rows));
 
-    /// <summary>One vector per text: a text within the window gets its row's vector exactly as
-    /// <paramref name="forward"/> computed it; a longer one gets its windows' vectors pooled by
+    /// <summary>One vector per text: a text that took one row gets that row's vector exactly as
+    /// <paramref name="forward"/> computed it; a segmented one gets its windows' vectors pooled by
     /// <see cref="VectorMath.WeightedMeanDirection"/>, weighted by each window's tokens (<c>docs/DECISIONS.md</c>
-    /// <b>D177</b>) — unit length whatever <c>normalize</c> says. Every window goes through
-    /// <paramref name="forward"/> in one batch.</summary>
+    /// <b>D177</b>) — unit length whatever <c>normalize</c> says. The rows go through
+    /// <paramref name="forward"/> in the bounded passes <see cref="WindowedBatch.Forward{T}"/> makes.</summary>
     /// <param name="windows">The tokenizer, bounded by the model's window.</param>
     /// <param name="texts">The texts, in the order their vectors are returned.</param>
     /// <param name="forward">The graph plus the reduction: one vector per row it is fed.</param>
@@ -42,7 +42,7 @@ internal sealed class OnnxPoolingHead(OnnxPooling pooling, bool normalize) : IOn
     {
         ArgumentNullException.ThrowIfNull(texts);
         var batch = windows.EncodeTexts(texts);
-        var rowVectors = forward(batch.Rows);
+        var rowVectors = batch.Forward(forward);
 
         var vectors = new float[texts.Count][];
         for (var i = 0; i < vectors.Length; i++)
@@ -66,10 +66,12 @@ internal sealed class OnnxPoolingHead(OnnxPooling pooling, bool normalize) : IOn
         var hiddenSize = hidden.Dimensions[2];
         var flat = hidden.ToArray();
 
+        var rowSize = checked(width * hiddenSize);
         var vectors = new float[rows.Length][];
         for (var i = 0; i < rows.Length; i++)
         {
-            var block = flat.AsSpan(i * width * hiddenSize, width * hiddenSize);
+            // checked: a wrapped offset would read another row's block rather than fail
+            var block = flat.AsSpan(checked(i * rowSize), rowSize);
             vectors[i] = VectorPooling.Reduce(block, hiddenSize, PaddedMask(rows[i], width), pooling, normalize);
         }
 

@@ -34,15 +34,25 @@ internal sealed class HttpRerankTransport(
     /// <para>Failure is a <see cref="ScoreResponse"/> verdict, classified like the chat and vector paths, so
     /// a 429 cools this host and a 401 answered to a call with no key is NotConfigured (D153).</para>
     /// <para>A document longer than <see cref="HttpModelOptions.MaxInputChars"/> is sent as pieces, in the
-    /// same request as everything else, and scores as its best piece.</para></summary>
+    /// same request as everything else, and scores as its best piece — or, truncating, is sent cut.</para></summary>
     /// <exception cref="OperationCanceledException">The caller's <paramref name="ct"/> was cancelled.</exception>
     public async Task<ScoreResponse> CallAsync(ScoreRequest request, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(request);
         var query = request.Query;
         if (request.Documents.Count == 0) return new ScoreResponse(ProviderVerdict.Ok, []);
-        var plan = config.MaxInputChars is { } max ? InputSegmenter.Segment(request.Documents, max) : null;
-        var documents = plan?.Pieces ?? request.Documents;
+        Segmentation? plan = null;
+        var documents = request.Documents;
+        if (config.MaxInputChars is { } max)
+        {
+            if (config.Segmentation?.Overflow == InputOverflow.Truncate)
+                documents = [.. request.Documents.Select(d => InputSegmenter.Truncate(d, max))];
+            else
+            {
+                plan = InputSegmenter.Segment(request.Documents, max, config.Segmentation?.Overlap);
+                documents = plan.Pieces;
+            }
+        }
 
         // the same resolution ladder the text shape has always had — explicit seconds (clamped), the
         // consumer's TimeoutByConsumer tier, the default tier, the global timeout (D162/D163)

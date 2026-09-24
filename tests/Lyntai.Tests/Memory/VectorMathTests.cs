@@ -110,6 +110,37 @@ public class VectorMathTests
     }
 
     [Fact]
+    public void The_fallback_passes_over_a_heavier_ZERO_vector_for_the_heaviest_one_with_a_direction()
+    {
+        // the zero vector outweighs the rest but has no direction to fall back to; 1 − 2 + 1 cancels, and
+        // the heaviest of the three that do is the second
+        var pooled = VectorMath.WeightedMeanDirection(
+            [[0f, 0f], [2f, 0f], [-1f, 0f], [5f, 0f]], [9, 1, 2, 1]);
+
+        Assert.Equal([-1f, 0f], pooled);
+        // …and a tie among them still goes to the first
+        Assert.Equal([1f, 0f], VectorMath.WeightedMeanDirection([[0f, 0f], [3f, 0f], [-1f, 0f]], [9, 1, 1]));
+    }
+
+    [Theory]
+    [InlineData(float.NaN)]
+    [InlineData(float.PositiveInfinity)]
+    [InlineData(float.NegativeInfinity)]
+    public void A_NON_FINITE_component_is_refused_rather_than_poisoning_the_pool(float component)
+    {
+        var ex = Assert.Throws<ArgumentException>(
+            () => VectorMath.WeightedMeanDirection([[1f, 0f], [component, 1f]], [1, 1]));
+
+        Assert.Contains("Vector 1", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_NULL_vector_in_the_list_is_refused()
+    {
+        Assert.Throws<ArgumentException>(() => VectorMath.WeightedMeanDirection([[1f, 0f], null!], [1, 1]));
+    }
+
+    [Fact]
     public void Every_vector_ZERO_pools_to_a_zero_vector_rather_than_NaN()
     {
         var pooled = VectorMath.WeightedMeanDirection([[0f, 0f], [0f, 0f]], [1, 1]);

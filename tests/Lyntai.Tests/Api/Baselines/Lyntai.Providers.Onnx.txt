@@ -21,3 +21,4 @@ sealed class Lyntai.Providers.Onnx.OnnxProviderOptions
     Normalize : Nullable<Boolean>
     Pooling : Nullable<OnnxPooling>
     Produces : String
+    Segmentation : InputSegmentation

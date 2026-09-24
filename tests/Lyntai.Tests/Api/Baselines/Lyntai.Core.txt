@@ -886,6 +886,15 @@ interface Lyntai.Inference.ITextRouterFactory
     For(IReadOnlyList<IModelProvider> providers) : ITextRouter
     For(IReadOnlyList<ProviderRegistration<IModelProvider>> providers) : ITextRouter
 interface Lyntai.Inference.IVectorProvider
+enum Lyntai.Inference.InputOverflow
+    Segment : InputOverflow const
+    Truncate : InputOverflow const
+    value__ : Int32
+sealed class Lyntai.Inference.InputSegmentation
+    .ctor()
+    MinDocumentShare : Double
+    Overflow : InputOverflow
+    Overlap : Double
 sealed class Lyntai.Inference.KeyValueModelRoutingStore
     .ctor(IKeyValueStore kv = null, ILogger<KeyValueModelRoutingStore> logger = null, String keyPrefix = null)
     DefaultKeyPrefix : String const

@@ -180,6 +180,23 @@ public class HttpRerankTransportTests
     }
 
     [Fact]
+    public async Task Overflow_TRUNCATE_sends_each_document_cut_at_the_bound_one_per_document()
+    {
+        var handler = Reranker(d => d.Contains("needle") ? 5.0 : -2.0);
+        var scorer = Scorer(handler, configure: o =>
+        {
+            o.MaxInputChars = 60;
+            o.Segmentation = new InputSegmentation { Overflow = InputOverflow.Truncate };
+        });
+
+        var scores = await scorer.ScoreAsync("where is the needle", ["alpha document", LongDocument]);
+
+        Assert.Equal([-2.0, -2.0], scores);   // the needle sat past the cut
+        Assert.Equal(["alpha document", InputSegmenter.Truncate(LongDocument, 60)],
+            Sent(Assert.Single(handler.Requests).Body));
+    }
+
+    [Fact]
     public async Task With_no_document_over_MaxInputChars_the_request_is_BYTE_IDENTICAL_to_one_without_it()
     {
         // edge whitespace included: a bound that trimmed documents it did not need to split would show here

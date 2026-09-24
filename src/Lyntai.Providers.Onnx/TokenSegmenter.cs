@@ -1,3 +1,5 @@
+using Lyntai.Inference;
+
 namespace Lyntai.Providers.Onnx;
 
 /// <summary>Which vocabulary rows continue a word and which end a sentence — what
@@ -40,26 +42,28 @@ internal sealed class TokenBoundaries
 
 /// <summary>Splits a token sequence longer than a budget into windows within it, so a transformer sees every
 /// token of an input rather than the first window's worth (<c>docs/DECISIONS.md</c> <b>D177</b>). Deterministic:
-/// the same ids and budget always give the same windows.
+/// the same ids, budget and overlap always give the same windows.
 ///
-/// <para>A window ends after the LAST sentence-ending token in its latter half, else before the last token
-/// there that can start a window — one that neither continues a word nor ends a sentence — else hard at the
-/// budget. The next window restarts inside the last 15% of the one just cut, after a sentence end, else at the
-/// earliest token that can start one, else at the cut; so consecutive windows overlap slightly, and a window
-/// starts on a <c>##</c> continuation only after a hard cut.</para></summary>
+/// <para>A token CAN START a window when it neither continues a word nor ends a sentence. A window ends after
+/// the LAST sentence-ending token in its latter half that a starter follows, else before the last starter
+/// there, else hard at the budget. The next window restarts inside the last
+/// <see cref="InputSegmentation.Overlap"/> of the one just cut — after a sentence end, else at the earliest
+/// starter — else at the cut. So consecutive windows overlap slightly, and a window starts on a
+/// <c>##</c> continuation or a sentence end only after a hard cut.</para></summary>
 internal static class TokenSegmenter
 {
-    private const double Overlap = 0.15;
+    private static readonly double DefaultOverlap = new InputSegmentation().Overlap;
 
     /// <summary>The windows of <paramref name="ids"/> as <c>[Start, End)</c> ranges, in order: one window, the
-    /// whole sequence, when it fits the budget.</summary>
+    /// whole sequence, when it fits the budget. A null overlap is the default one.</summary>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="budget"/> is under 1.</exception>
     public static IReadOnlyList<(int Start, int End)> Windows(
-        IReadOnlyList<int> ids, int budget, TokenBoundaries boundaries)
+        IReadOnlyList<int> ids, int budget, TokenBoundaries boundaries, double? overlap = null)
     {
         ArgumentNullException.ThrowIfNull(ids);
         ArgumentNullException.ThrowIfNull(boundaries);
         ArgumentOutOfRangeException.ThrowIfLessThan(budget, 1);
+        var reach = overlap ?? DefaultOverlap;
 
         var windows = new List<(int Start, int End)>();
         var start = 0;
@@ -67,7 +71,7 @@ internal static class TokenSegmenter
         {
             var cut = Cut(ids, start, budget, boundaries);
             windows.Add((start, cut));
-            start = Restart(ids, start, cut, boundaries);   // always > start, so the loop ends
+            start = Restart(ids, start, cut, reach, boundaries);   // always > start, so the loop ends
         }
         windows.Add((start, ids.Count));
         return windows;
@@ -80,22 +84,27 @@ internal static class TokenSegmenter
         var lo = start + Math.Max(1, budget / 2);
         var hi = start + budget;
         for (var c = hi; c >= lo; c--)
-            if (boundaries.EndsSentence(ids[c - 1])) return c;
+            if (AfterSentenceEnd(ids, c, boundaries)) return c;
         for (var c = hi; c >= lo; c--)
             if (CanStart(ids[c], boundaries)) return c;
         return hi;
     }
 
     /// <summary>Where the window after <c>[start, cut)</c> begins.</summary>
-    private static int Restart(IReadOnlyList<int> ids, int start, int cut, TokenBoundaries boundaries)
+    private static int Restart(
+        IReadOnlyList<int> ids, int start, int cut, double overlap, TokenBoundaries boundaries)
     {
-        var from = Math.Max(start + 1, cut - (int)((cut - start) * Overlap));
+        var from = Math.Max(start + 1, cut - (int)((cut - start) * overlap));
         for (var p = from; p < cut; p++)
-            if (boundaries.EndsSentence(ids[p - 1])) return p;
+            if (AfterSentenceEnd(ids, p, boundaries)) return p;
         for (var p = from; p < cut; p++)
             if (CanStart(ids[p], boundaries)) return p;
         return cut;
     }
+
+    // inside a run like ". . ." only the position after its LAST mark qualifies
+    private static bool AfterSentenceEnd(IReadOnlyList<int> ids, int p, TokenBoundaries boundaries) =>
+        boundaries.EndsSentence(ids[p - 1]) && CanStart(ids[p], boundaries);
 
     // a sentence end belongs to the window before it, so it starts none
     private static bool CanStart(int id, TokenBoundaries boundaries) =>

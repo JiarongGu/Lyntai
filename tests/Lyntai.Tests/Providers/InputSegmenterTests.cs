@@ -165,6 +165,45 @@ public class InputSegmenterTests
     }
 
     [Theory]
+    [InlineData(0.0, 40)]    // no overlap: each piece starts where the last one ended
+    [InlineData(0.15, 36)]   // the default: the last word of the piece before
+    [InlineData(0.5, 20)]    // half a window back
+    public void The_OVERLAP_is_the_share_of_the_piece_the_next_one_reaches_back_into(double overlap, int restart)
+    {
+        var spans = InputSegmenter.Spans(Words(30), 40, overlap);   // the first piece ends at 40
+
+        Assert.Equal(40, spans[0].End);
+        Assert.Equal(restart, spans[1].Start);
+    }
+
+    [Fact]
+    public void TRUNCATING_keeps_the_first_piece_segmenting_would_send()
+    {
+        var input = Words(30);
+
+        Assert.Equal(InputSegmenter.Split(input, 40)[0], InputSegmenter.Truncate(input, 40));
+        Assert.Equal("one two three four five.",
+            InputSegmenter.Truncate("one two three four five. six seven eight nine ten eleven twelve thirteen", 40));
+    }
+
+    [Fact]
+    public void Truncating_leaves_an_input_within_the_budget_EXACTLY_as_given()
+    {
+        const string input = "  padded, and within the budget  ";
+
+        Assert.Same(input, InputSegmenter.Truncate(input, input.Length));
+    }
+
+    [Fact]
+    public void Truncating_never_splits_a_surrogate_pair()
+    {
+        var cut = InputSegmenter.Truncate(string.Concat(Enumerable.Repeat("😀", 60)), 25);
+
+        Assert.Equal(24, cut.Length);
+        Assert.False(char.IsHighSurrogate(cut[^1]));
+    }
+
+    [Theory]
     [InlineData("long-word", 7)]
     [InlineData("dots", 3)]
     [InlineData("cjk-ends", 3)]

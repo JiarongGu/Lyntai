@@ -203,10 +203,17 @@ public class OnnxProviderLiveTests
 {
     private static string? ModelDirectory => Environment.GetEnvironmentVariable("LYNTAI_ONNX_MODEL_DIR");
 
-    private static OnnxProvider Load()
+    private static OnnxProvider Load(InputSegmentation? segmentation = null)
     {
         Skip.If(string.IsNullOrWhiteSpace(ModelDirectory), "set LYNTAI_ONNX_MODEL_DIR to an ONNX export");
-        return OnnxProvider.FromDirectory(ModelDirectory!);
+        return OnnxProvider.FromDirectory(ModelDirectory!, new OnnxProviderOptions { Segmentation = segmentation });
+    }
+
+    /// <summary>Two inputs sharing their first 1,200 tokens, differing only past a 512-token window.</summary>
+    private static string[] SharedHead()
+    {
+        var shared = string.Join(' ', Enumerable.Repeat("alpha beta gamma", 400));
+        return [$"{shared} the weather forecast for tomorrow", $"{shared} a stock market share price quote", "short"];
     }
 
     [SkippableFact]
@@ -267,19 +274,26 @@ public class OnnxProviderLiveTests
     }
 
     [SkippableFact]
-    public async Task SEGMENTS_past_its_context_limit_so_the_TAIL_still_counts()
+    public async Task TRUNCATES_past_its_context_limit_by_DEFAULT_rather_than_throwing()
     {
-        // A transformer has positional embeddings, so an over-long input runs as windows pooled into one
-        // vector (D177). Cut at the window instead, two inputs sharing their first 1,200 tokens would embed
-        // IDENTICALLY — the loss this pins.
+        // A transformer has positional embeddings, so by default an over-long input is cut at the window:
+        // two inputs that differ only past it embed IDENTICALLY. Failing instead would mean a single long
+        // document could refuse a whole corpus.
         using var vectorProvider = Load();
-        var shared = string.Join(' ', Enumerable.Repeat("alpha beta gamma", 400));
 
-        var vectors = await vectorProvider.EmbedAsync([
-            $"{shared} the weather forecast for tomorrow",
-            $"{shared} a stock market share price quote",
-            "short",
-        ]);
+        var vectors = await vectorProvider.EmbedAsync(SharedHead());
+
+        Assert.Equal(vectors[0], vectors[1]);
+        Assert.All(vectors, v => Assert.Contains(v, component => component != 0f));
+    }
+
+    [SkippableFact]
+    public async Task With_SEGMENTATION_the_TAIL_past_the_context_limit_still_counts()
+    {
+        // D177: segmented, the input runs as windows pooled into one vector, so the tail moves it
+        using var vectorProvider = Load(new InputSegmentation());
+
+        var vectors = await vectorProvider.EmbedAsync(SharedHead());
 
         Assert.NotEqual(vectors[0], vectors[1]);
         Assert.All(vectors, v => Assert.Equal(1.0, Math.Sqrt(v.Sum(c => (double)c * c)), 4));

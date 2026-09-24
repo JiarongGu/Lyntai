@@ -78,8 +78,8 @@ public sealed class HttpModelOptions
 
     /// <summary>The most CHARACTERS (UTF-16 code units, <c>string.Length</c>) one input may carry in a request
     /// when serving <see cref="ProviderKinds.Vector"/> or <see cref="ProviderKinds.Score"/>; a longer input is
-    /// SEGMENTED into pieces within it, never cut. Null (the default) sends every input whole. Ignored for
-    /// <see cref="ProviderKinds.Text"/>.
+    /// SEGMENTED into pieces within it, or cut where <see cref="Segmentation"/> says to truncate. Null (the
+    /// default) sends every input whole. Ignored for <see cref="ProviderKinds.Text"/>.
     ///
     /// <para><b>Set it for a small-window backend</b>, which rejects the WHOLE call when any one input exceeds
     /// its window. A piece ends at a paragraph, line, sentence or word boundary in its latter half, and the
@@ -98,7 +98,16 @@ public sealed class HttpModelOptions
     /// never segmented: set this to the window minus your longest query, with margin.</para>
     ///
     /// <para>The provider throws <see cref="ArgumentOutOfRangeException"/> when it is not positive or leaves
-    /// an embedding prefix no room. <c>AddHttpProvider</c> refuses it on an EMBEDDING registration at an Ollama
-    /// server root, which composes the Ollama-native provider: register the server's <c>/v1</c> base.</para></summary>
+    /// an embedding prefix no room. At an Ollama server root, <c>AddHttpProvider</c> carries it and
+    /// <see cref="Segmentation"/> onto the Ollama-native provider it composes.</para></summary>
     public int? MaxInputChars { get; set; }
+
+    /// <summary>What happens to an input longer than <see cref="MaxInputChars"/>, and ignored without it
+    /// (<c>docs/DECISIONS.md</c> <b>D177</b>). Null — the default — SEGMENTS it, as does a record with
+    /// <see cref="InputOverflow.Segment"/>; <see cref="InputOverflow.Truncate"/> sends each input cut where
+    /// its first piece would end and answers what was sent.
+    /// <para><see cref="InputSegmentation.Overlap"/> sets how far each piece reaches back into the one before.
+    /// <see cref="InputSegmentation.MinDocumentShare"/> does not apply here: the bound is per document and
+    /// never counts a reranker's query.</para></summary>
+    public InputSegmentation? Segmentation { get; set; }
 }

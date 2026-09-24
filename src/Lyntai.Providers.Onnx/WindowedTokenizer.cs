@@ -1,3 +1,4 @@
+using Lyntai.Inference;
 using Lyntai.Text;
 
 namespace Lyntai.Providers.Onnx;
@@ -6,34 +7,60 @@ namespace Lyntai.Providers.Onnx;
 /// <param name="Rows">What to feed the graph, every input's windows in input order.</param>
 /// <param name="First">Input <c>i</c>'s rows are <c>Rows[First[i]..First[i + 1]]</c>.</param>
 /// <param name="Weights">Each row's own content tokens — the tokens of its window, not the specials or a
-/// query.</param>
+/// query — and 0 where an input took a single row, which is never pooled.</param>
 internal sealed record WindowedBatch(WordPieceEncoding[] Rows, int[] First, int[] Weights)
 {
+    /// <summary>The most rows a forward pass holds when a call has fewer inputs than this.</summary>
+    public const int MinPassRows = 8;
+
     /// <summary>Whether input <paramref name="i"/> ran past the window, and so took several rows.</summary>
     public bool IsSegmented(int i) => First[i + 1] - First[i] > 1;
+
+    /// <summary>Every row through <paramref name="forward"/>, in passes of at most
+    /// <c>max(<see cref="MinPassRows"/>, inputs)</c> rows, the answers concatenated in row order. A call with
+    /// no segmented input is therefore ONE pass, the one it would be unsegmented, and segmenting never makes a
+    /// pass larger than that bound.</summary>
+    /// <param name="forward">The graph: one answer per row it is fed, in order.</param>
+    public T[] Forward<T>(Func<WordPieceEncoding[], T[]> forward)
+    {
+        var size = Math.Max(MinPassRows, First.Length - 1);
+        if (Rows.Length <= size) return forward(Rows);
+        var answers = new List<T>(Rows.Length);
+        for (var at = 0; at < Rows.Length; at += size)
+            answers.AddRange(forward(Rows[at..Math.Min(Rows.Length, at + size)]));
+        return [.. answers];
+    }
 }
 
 /// <summary>The model's tokenizer, bounded by its window: encodes a text, or a query and its documents, as the
-/// rows a transformer takes, SEGMENTING whatever runs past <see cref="MaxTokens"/> by tokens rather than
-/// cutting it (<c>docs/DECISIONS.md</c> <b>D177</b>).
+/// rows a transformer takes (<c>docs/DECISIONS.md</c> <b>D177</b>).
 ///
-/// <para>An input within the window becomes exactly the one row <see cref="WordPieceTokenizer.Encode(string,int)"/>
-/// or <see cref="WordPieceTokenizer.Encode(string,string,int)"/> would give it. A longer one becomes a row per
-/// <see cref="TokenSegmenter"/> window, each bracketed by the special tokens and, for a pair, carrying the whole
-/// query: the query is never segmented.</para></summary>
+/// <para>With no <see cref="InputSegmentation"/> — the provider's default — every input is the one row the
+/// tokenizer itself gives it, cut at the window: <see cref="WordPieceTokenizer.Encode(string,int)"/> or
+/// <see cref="WordPieceTokenizer.Encode(string,string,int)"/>, exactly. With a record, an input within the
+/// window is still that row, and a longer one is a row per <see cref="TokenSegmenter"/> window — or, when the
+/// record truncates, one row cut at the window. A pair's query is never segmented: it rides whole in every
+/// row unless that would leave the document less than <see cref="InputSegmentation.MinDocumentShare"/> of
+/// the window, and is then cut to the rest.</para></summary>
 /// <param name="tokenizer">The model's own vocabulary and rules.</param>
 /// <param name="boundaries">Which of its rows continue a word or end a sentence.</param>
 /// <param name="maxTokens">The sequence length a row may take, INCLUDING the special tokens.</param>
-internal sealed class WindowedTokenizer(WordPieceTokenizer tokenizer, TokenBoundaries boundaries, int maxTokens)
+/// <param name="segmentation">What to do past the window; null truncates, as the tokenizer does.</param>
+internal sealed class WindowedTokenizer(
+    WordPieceTokenizer tokenizer, TokenBoundaries boundaries, int maxTokens, InputSegmentation? segmentation)
 {
     /// <summary>The sequence length a row may take, including the special tokens.</summary>
     public int MaxTokens => maxTokens;
 
-    /// <summary>One text per input: <c>[CLS] window [SEP]</c> per window.</summary>
+    /// <summary>One text per input: <c>[CLS] text [SEP]</c>, per window when segmenting.</summary>
     /// <exception cref="ArgumentOutOfRangeException"><see cref="MaxTokens"/> is under 3.</exception>
     public WindowedBatch EncodeTexts(IReadOnlyList<string> texts)
     {
         ArgumentNullException.ThrowIfNull(texts);
+        // truncating a text is exactly the tokenizer's own cut, record or none
+        if (segmentation is not { Overflow: InputOverflow.Segment } segment)
+            return OneRowEach(texts, text => tokenizer.Encode(text ?? string.Empty, maxTokens));
+
         // the tokenizer's own special ids, and its own guard on the length, read off an empty encoding
         var shell = tokenizer.Encode(string.Empty, maxTokens).Ids;
         var batch = new Builder(texts.Count);
@@ -41,36 +68,50 @@ internal sealed class WindowedTokenizer(WordPieceTokenizer tokenizer, TokenBound
         {
             batch.Begin(i);
             var ids = tokenizer.EncodeToIds(texts[i] ?? string.Empty);
-            foreach (var (start, end) in TokenSegmenter.Windows(ids, maxTokens - 2, boundaries))
-                batch.Add(Row(shell, null, ids, start, end), end - start);
+            var windows = TokenSegmenter.Windows(ids, maxTokens - 2, boundaries, segment.Overlap);
+            foreach (var (start, end) in windows)
+                batch.Add(Row(shell, null, ids, start, end), windows.Count > 1 ? end - start : 0);
         }
         return batch.Build();
     }
 
-    /// <summary>One query and document per row: <c>[CLS] query [SEP] window [SEP]</c> per window of each
-    /// document, the query in segment 0 and the window in segment 1.
-    ///
-    /// <para>A query too long to leave the document any room falls back to the tokenizer's own pair rule,
-    /// which shortens the query and keeps no document token — there is no window to segment into.</para></summary>
+    /// <summary>One query and document per row: <c>[CLS] query [SEP] document [SEP]</c>, the query in segment
+    /// 0 and the document — or one window of it — in segment 1.</summary>
     /// <exception cref="ArgumentOutOfRangeException"><see cref="MaxTokens"/> is under 4.</exception>
     public WindowedBatch EncodePairs(string query, IReadOnlyList<string> documents)
     {
         ArgumentNullException.ThrowIfNull(documents);
+        if (segmentation is null)
+            return OneRowEach(documents,
+                document => tokenizer.Encode(query ?? string.Empty, document ?? string.Empty, maxTokens));
+
         var shell = tokenizer.Encode(string.Empty, string.Empty, maxTokens).Ids;
+        var budget = maxTokens - 3;                             // content tokens across both sides
+        var documentShare = (int)Math.Ceiling(segmentation.MinDocumentShare * budget);
         var queryIds = tokenizer.EncodeToIds(query ?? string.Empty);
-        var budget = maxTokens - 3 - queryIds.Count;
+        List<int> kept = [.. queryIds.Take(budget - documentShare)];
+        var documentBudget = budget - kept.Count;
         var batch = new Builder(documents.Count);
         for (var i = 0; i < documents.Count; i++)
         {
             batch.Begin(i);
-            if (budget < 1)
-            {
-                batch.Add(tokenizer.Encode(query ?? string.Empty, documents[i] ?? string.Empty, maxTokens), 0);
-                continue;
-            }
             var ids = tokenizer.EncodeToIds(documents[i] ?? string.Empty);
-            foreach (var (start, end) in TokenSegmenter.Windows(ids, budget, boundaries))
-                batch.Add(Row(shell, queryIds, ids, start, end), end - start);
+            IReadOnlyList<(int Start, int End)> windows = segmentation.Overflow == InputOverflow.Segment
+                ? TokenSegmenter.Windows(ids, documentBudget, boundaries, segmentation.Overlap)
+                : [(0, Math.Min(ids.Count, documentBudget))];
+            foreach (var (start, end) in windows)
+                batch.Add(Row(shell, kept, ids, start, end), windows.Count > 1 ? end - start : 0);
+        }
+        return batch.Build();
+    }
+
+    private static WindowedBatch OneRowEach(IReadOnlyList<string> inputs, Func<string, WordPieceEncoding> encode)
+    {
+        var batch = new Builder(inputs.Count);
+        for (var i = 0; i < inputs.Count; i++)
+        {
+            batch.Begin(i);
+            batch.Add(encode(inputs[i]), 0);
         }
         return batch.Build();
     }

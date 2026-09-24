@@ -5,6 +5,7 @@ using System.Text.Json.Nodes;
 using Lyntai;
 using Lyntai.Providers.Ollama;
 using Lyntai.Tests.Fakes;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Lyntai.Tests.Providers;
 
@@ -150,6 +151,110 @@ public class OllamaProviderTests
         Assert.Equal(new Uri("http://localhost:11434/api/embed"), handler.Requests[0].Uri);
         var body = JsonNode.Parse(handler.Requests[0].Body)!;
         Assert.Equal(2, body["input"]!.AsArray().Count); // batched {model, input[]}
+    }
+
+    // ---- MaxInputChars + Segmentation: the same bound the HTTP provider takes (D177) --------------------
+
+    // "w00 w01 … w29", 119 characters
+    private static readonly string Words30 = string.Join(' ', Enumerable.Range(0, 30).Select(i => $"w{i:00}"));
+
+    private static List<string> SentInputs(string body) =>
+        [.. JsonNode.Parse(body)!["input"]!.AsArray().Select(t => t!.GetValue<string>())];
+
+    /// <summary>An <c>/api/embed</c> server answering <c>[1, 0]</c> for every input it is sent.</summary>
+    internal static StubHttpHandler Embedder() => new StubHttpHandler().Enqueue(request =>
+    {
+        var sent = SentInputs(request.Content!.ReadAsStringAsync().GetAwaiter().GetResult());
+        var embeddings = new JsonArray([.. sent.Select(_ => (JsonNode)new JsonArray(1.0, 0.0))]);
+        return new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(new JsonObject { ["embeddings"] = embeddings }.ToJsonString()),
+        };
+    });
+
+    [Fact]
+    public async Task Without_MaxInputChars_the_input_goes_whole_and_the_servers_own_truncation_stands()
+    {
+        var handler = Embedder();
+
+        await Provider(handler, o => o.Produces = ProviderKinds.Vector).CallAsync(new VectorRequest([Words30]));
+
+        Assert.Equal([Words30], SentInputs(handler.Requests[0].Body));
+        Assert.False(JsonNode.Parse(handler.Requests[0].Body)!.AsObject().ContainsKey("truncate"));
+    }
+
+    [Fact]
+    public async Task MaxInputChars_SEGMENTS_an_over_long_input_and_turns_the_servers_truncation_OFF()
+    {
+        var handler = Embedder();
+
+        var response = await Provider(handler, o => { o.Produces = ProviderKinds.Vector; o.MaxInputChars = 40; })
+            .CallAsync(new VectorRequest([Words30, "short"]));
+
+        Assert.Equal(2, response.Vectors.Count);                // one per INPUT
+        var sent = SentInputs(handler.Requests[0].Body);
+        Assert.True(sent.Count >= 4, $"the long input should travel as pieces; sent {sent.Count}");
+        Assert.All(sent, t => Assert.True(t.Length <= 40, $"a {t.Length}-character input was sent"));
+        // a bound set here governs: a piece that still overflows must be reported, not cut behind it
+        Assert.False(JsonNode.Parse(handler.Requests[0].Body)!["truncate"]!.GetValue<bool>());
+    }
+
+    [Fact]
+    public async Task Overflow_TRUNCATE_cuts_each_input_on_the_client()
+    {
+        var handler = Embedder();
+
+        await Provider(handler, o =>
+        {
+            o.Produces = ProviderKinds.Vector;
+            o.MaxInputChars = 40;
+            o.Segmentation = new InputSegmentation { Overflow = InputOverflow.Truncate };
+        }).CallAsync(new VectorRequest([Words30]));
+
+        var sent = Assert.Single(SentInputs(handler.Requests[0].Body));
+        Assert.Equal(Words30[..39], sent);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-3)]
+    public void A_MaxInputChars_that_is_not_positive_is_refused_at_construction(int max)
+    {
+        var ex = Assert.Throws<ArgumentOutOfRangeException>(() => Provider(new StubHttpHandler(), o =>
+        {
+            o.Produces = ProviderKinds.Vector;
+            o.MaxInputChars = max;
+        }));
+
+        Assert.Contains(nameof(OllamaOptions.MaxInputChars), ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_prefix_that_leaves_a_piece_no_room_for_text_is_refused()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => Provider(new StubHttpHandler(), o =>
+        {
+            o.Produces = ProviderKinds.Vector;
+            o.MaxInputChars = 17;
+            o.DocumentPrefix = "search_document: ";   // 17 characters
+        }));
+    }
+
+    [Fact]
+    public void MaxInputChars_is_IGNORED_on_a_text_registration()
+    {
+        Assert.Equal([ProviderKinds.Text], Provider(new StubHttpHandler(), o => o.MaxInputChars = 0).Capabilities.Produces);
+    }
+
+    [Fact]
+    public void An_invalid_MaxInputChars_fails_at_REGISTRATION_not_at_first_resolve()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => new ServiceCollection()
+            .AddLyntai(b => b.AddOllamaProvider("embed", o =>
+            {
+                o.Produces = ProviderKinds.Vector;
+                o.MaxInputChars = 0;
+            })));
     }
 
     [Fact]

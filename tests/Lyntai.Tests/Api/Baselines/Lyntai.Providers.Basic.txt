@@ -114,6 +114,7 @@ sealed class Lyntai.Providers.Http.HttpModelOptions
     Model : String
     Produces : String
     QueryPrefix : String
+    Segmentation : InputSegmentation
 sealed class Lyntai.Providers.Http.HttpModelProvider
     .ctor(String id, HttpModelOptions config, Func<HttpClient> httpFactory, LyntaiOptions options, ILogger<HttpModelProvider> logger = null, Boolean disposeHttpClient = true)
     CallAsync(ScoreRequest request, CancellationToken ct = default) : Task<ScoreResponse>
@@ -141,9 +142,11 @@ sealed class Lyntai.Providers.Ollama.OllamaOptions
     BatchSize : Int32
     ContextSize : Nullable<Int32>
     DocumentPrefix : String
+    MaxInputChars : Nullable<Int32>
     Model : String
     Produces : String
     QueryPrefix : String
+    Segmentation : InputSegmentation
 sealed class Lyntai.Providers.Ollama.OllamaProvider
     .ctor(String id, OllamaOptions config, Func<HttpClient> httpFactory, LyntaiOptions options, ILogger<OllamaProvider> logger = null, Boolean disposeHttpClient = true)
     CallAsync(VectorRequest request, CancellationToken ct = default) : Task<VectorResponse>

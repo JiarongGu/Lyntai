@@ -34,7 +34,8 @@ All four failed before the change and pass after it.
 
 **Introduced by.** `b827de01` (2026-09-18, D153 step 5), which made a failed rerank a classified verdict
 rather than a throw; the Debug-only judge line dates from `4199069c` (3.0). Neither caused the whole-call
-rejection itself, which is the backend's — `TASKS.md` Part 287 segments an over-long input instead.
+rejection itself, which is the backend's — `HttpModelOptions.MaxInputChars` segments an over-long input instead
+(**D177**).
 
 ## 2026-09-24 — a failed similarity link or search cost the graph engine its vector
 

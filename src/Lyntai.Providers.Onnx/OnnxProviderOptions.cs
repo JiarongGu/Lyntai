@@ -32,10 +32,27 @@ public sealed class OnnxProviderOptions
 
     /// <summary>Maximum sequence length INCLUDING <c>[CLS]</c> and <c>[SEP]</c>. Null reads
     /// <c>config.json</c>'s <c>max_position_embeddings</c>, defaulting to 512.
-    /// <para><b>Longer text is SEGMENTED, never cut or refused</b> (<c>docs/DECISIONS.md</c> <b>D177</b>): it
-    /// is split by tokens into windows of this length and their answers combined — a cross-encoder's query
-    /// rides whole in every window. A <c>model2vec</c> table needs no windows at all.</para></summary>
+    /// <para><b>Longer text is TRUNCATED, not refused</b>, which is what every BERT-family encoder does —
+    /// unless <see cref="Segmentation"/> says to segment it. A <c>model2vec</c> table has no such
+    /// limit.</para></summary>
     public int? MaxTokens { get; set; }
+
+    /// <summary>What happens to an input longer than <see cref="MaxTokens"/> (<c>docs/DECISIONS.md</c>
+    /// <b>D177</b>). Null — the default — TRUNCATES it at the window, exactly as the tokenizer cuts: a pair
+    /// keeps its query and gives up the document's tail, and only a query that fills the window alone is
+    /// shortened. A record changes that:
+    /// <list type="bullet">
+    /// <item><see cref="InputOverflow.Segment"/> splits it by tokens into windows, each ending after a
+    /// sentence end or before a word start where one is in reach, and runs every window: a cross-encoder
+    /// scores a document as its BEST window, and an embedder returns its windows' unit vectors averaged by
+    /// token count and re-normalised. An input that fits is answered exactly as without the record; a longer
+    /// one costs a forward pass per window.</item>
+    /// <item><see cref="InputOverflow.Truncate"/> cuts it at the window, as null does.</item>
+    /// </list>
+    /// <para>With a record in either mode, a cross-encoder query that would leave the document less than
+    /// <see cref="InputSegmentation.MinDocumentShare"/> of the window is cut to the rest; the query is never
+    /// segmented.</para></summary>
+    public InputSegmentation? Segmentation { get; set; }
 
     /// <summary>The model file, relative to the directory. Null probes <c>onnx/model.onnx</c> then
     /// <c>model.onnx</c> — the two layouts a downloaded export actually uses. Set it to pick a quantized

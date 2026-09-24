@@ -478,7 +478,8 @@ list-length rule turning up on a **model-free** arm. Size the model to the list 
    roster, a query, a headline. Ask a candidate's `context_length` before its byte count.
    <br>**Served over HTTP, one can now be reached anyway**: set `HttpModelOptions.MaxInputChars` below its
    window and an over-long entry is embedded as pieces pooled into one vector instead of being rejected
-   (**D177**). That makes it REACHABLE, not recommended — the pooled vector's retrieval quality is unmeasured.
+   (**D177**). In process, `AddOnnxProvider` with `Segmentation` set does the same by tokens, where by default
+   it truncates. That makes it REACHABLE, not recommended — the pooled vector's retrieval quality is unmeasured.
 
 **And check the POOLING before you believe any of it.** `bert.pooling_type` survives conversion — MiniLM
 declares mean, both bge models declare CLS — so the correct flag is no `--pooling` flag. Forcing MiniLM to

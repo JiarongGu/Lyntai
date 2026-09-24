@@ -246,7 +246,7 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D174](#d174--the-file-graph-store-journals-its-machine-state-and-both-in-process-stores-share-one-core-2026-09-23) | 2026-09-23 | the file graph store journals its machine state, and both in-process stores share one core |
 | [D175](#d175--a-remember-reports-what-the-write-did-the-write-side-of-memoryrecallran-2026-09-24) | 2026-09-24 | a remember REPORTS what the write did: the write side of `MemoryRecall.Ran` |
 | [D176](#d176--live-routing-moves-a-route-not-half-of-one-2026-09-24) | 2026-09-24 | live routing moves a ROUTE, not half of one |
-| [D177](#d177--an-over-long-input-is-segmented-on-the-backends-registration-never-cut-2026-09-24) | 2026-09-24 | an over-long input is SEGMENTED on the backend's registration, never cut |
+| [D177](#d177--segmenting-an-over-long-input-is-a-configured-capability-and-every-default-is-the-prior-behaviour-2026-09-24) | 2026-09-24 | segmenting an over-long input is a CONFIGURED capability, and every default is the prior behaviour |
 
 _All 177 entries are live decisions._
 
@@ -5467,37 +5467,39 @@ the defect. A visible refusal of a model no candidate serves: providers declare 
 under the old key: an old bare model would be misread as a provider id, where a new prefix leaves old keys
 inert. The break is named in `CHANGELOG.md` (**D161**).
 
-## D177 — an over-long input is SEGMENTED on the backend's registration, never cut (2026-09-24)
+## D177 — segmenting an over-long input is a CONFIGURED capability, and every default is the prior behaviour (2026-09-24)
 
-**The decision.** `HttpModelOptions.MaxInputChars` bounds what one input may carry in a request to an HTTP
-embedder or reranker. A longer input is split into pieces within it, every piece is sent, and the pieces are
-combined back into ONE answer per input — so each caller's one-answer-per-input contract holds and no text
-past the window is lost. A piece ends at the last paragraph, line, sentence or word boundary in its window's
-latter half (a hard cut when there is none, never inside a surrogate pair), and the next restarts at a
-boundary inside the last 15% of it. A reranker sends every piece in one request and scores a document as its
-BEST piece (MaxP: a document is as relevant as its most relevant passage); an embedder returns the
-length-weighted mean of its pieces' unit vectors, re-normalised. An input within the bound is sent and
-answered exactly as without it, so a deployment that never crosses the bound sees no change.
+**The decision.** A provider with a window can SEGMENT an input longer than it: split it into windows, answer
+every window, and combine the answers into ONE per input, so each caller's one-answer-per-input contract holds
+and no text past the window is lost. It is a capability a deployment configures, never a rule the library
+imposes — segmenting extends what a small model can take, and whether that is worth a pass per window is the
+deployment's call. **One record in Core configures it on every provider**: `InputSegmentation` —
+`Overflow` (Segment or Truncate), `Overlap` (0.15) and, for a reranker pair, `MinDocumentShare` (0.5). Each
+provider keeps its own WINDOW setting (`MaxInputChars` on `HttpModelOptions` and `OllamaOptions`, `MaxTokens`
+on `OnnxProviderOptions`) and takes the record as `Segmentation`.
 
-**The bound lives on the registration because the window belongs to the MODEL** — the EF-provider rule: the
-knob goes in that provider's options. It counts characters because an HTTP client has no tokenizer, and the
-option's doc says when that bounds tokens and when it does not. The ONNX provider applies the same rule with
-NO option, because it knows its window exactly: past `OnnxProviderOptions.MaxTokens` it segments by TOKENS — a
-window ends after a sentence-end token in its latter half, else before a word start, and the next restarts in
-its last 15% — carries a cross-encoder's query whole in every window, and combines the pieces the same way,
-weighted by token count. **The pooling is one public method, `VectorMath.WeightedMeanDirection`**, because
-two packages need it and a copy in each would drift.
+**Every default is the provider's prior behaviour.** The ONNX provider truncates at its window unless told to
+segment. The HTTP and Ollama providers do nothing until `MaxInputChars` is set, then segment unless told to
+truncate; Ollama's own server-side cut stands until then, and once the bound is set every request carries
+`truncate: false`, so the bound governs.
 
-**Rejected.** Cutting: it silently loses the text past the window. A bound on the verification seam: it fixes
-one caller, guesses a model's window from outside it, and leaves embedding unbounded. A second option for the
-overlap: a knob with no measurement to set it by. Storing several vectors per entry: it changes the
-vector-store contract for every backend. FirstP, the first piece's score: cutting by another name. SumP: it
-rewards length, so a long document outranks a short one that answers. The two ways to count tokens instead:
-a server's `/tokenize` route is not on the OpenAI-shaped wire, so a bound built on it is not portable; and
-shrink-and-retry on the server's complaint costs a round trip per failure and depends on each server's wording.
-An option on the ONNX provider: it knows its window, so the only alternative to segmenting is cutting.
+**How it segments.** A window ends at the last boundary in its latter half — paragraph, line, sentence or word
+over characters; a sentence-end token, else a word start, over tokens — else hard, never inside a surrogate
+pair, and the next restarts at a boundary inside the last `Overlap` of it. A reranker scores a document as its
+BEST window (MaxP: a document is as relevant as its most relevant passage); an embedder returns the
+length-weighted mean of its windows' unit vectors, re-normalised — `VectorMath.WeightedMeanDirection`, one
+public method because two packages need it and a copy would drift. An input that fits is answered exactly as
+without segmenting. The HTTP bound counts characters because an HTTP client has no tokenizer, and the option's
+doc says when that bounds tokens; the ONNX provider counts tokens exactly, so there a pair's query, never
+segmented, is cut only as far as `MinDocumentShare` requires.
 
-**Known limits.** The pooled vector's retrieval QUALITY is unmeasured (`docs/model-tasks.md` §3.3). An
-embedding registration on an Ollama server root, which `AddHttpProvider` composes as the Ollama-native
-provider, refuses the bound rather than dropping it. A query that leaves the ONNX cross-encoder no room for
-a document is still cut, as the tokenizer's pair rule cuts it.
+**Rejected.** Forcing it: whether to segment is a processing judgement that belongs to the deployment, and a
+forced one changes what an unchanged configuration returns. Per-provider knobs: three copies that drift.
+Cutting as the only behaviour: it silently loses the text past the window. A bound on the verification seam: it
+fixes one caller, guesses a model's window from outside it, and leaves embedding unbounded. Several vectors per
+entry: it changes the vector-store contract for every backend. FirstP: cutting by another name. SumP: it
+rewards length, so a long document outranks a short one that answers. Counting tokens over HTTP: a server's
+`/tokenize` route is not on the OpenAI-shaped wire, and shrink-and-retry costs a round trip per failure.
+
+**Known limits.** The pooled vector's retrieval QUALITY is unmeasured (`docs/model-tasks.md` §3.3), and so are
+the defaults for `Overlap` and `MinDocumentShare` — which is why they are settings.
