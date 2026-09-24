@@ -29,8 +29,8 @@ _Edit a marker, never this table — `verify` fails the moment the two disagree.
 | 302 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
 | 335 | 289 | A reranker's window holds the QUERY too, so the HTTP bound must count it | startable |  |
 | 339 | 289 | Measure a piece's length after NFKC normalisation | startable |  |
-| 342 | 289 | `InputSegmentation.MaxPiecesPerInput` | startable |  |
-| 345 | 289 | Record the adopter's cut-vs-segmented measurements | startable |  |
+| 342 | 289 | A per-input piece cap on `InputSegmentation` | startable |  |
+| 346 | 289 | Record the adopter's cut-vs-segmented measurements | startable |  |
 
 <!-- open-items:end -->
 
@@ -339,7 +339,8 @@ each item below (2026-09-24). D177 is unreleased, so none of this breaks anythin
 - [ ] **Measure a piece's length after NFKC normalisation.** Pieces are still cut from, and sent as, the <!-- item: state=startable -->
   original text; only the COUNT uses the NFKC form, which the adopter measured at tokens ≤ characters + 1 across
   64,012 scalars where raw ㎡ / ㌚ cost 2–6 tokens each. No setting.
-- [ ] **`InputSegmentation.MaxPiecesPerInput`** — optional, null = unbounded as today; when set, the pieces <!-- item: state=startable -->
+- [ ] **A per-input piece cap on `InputSegmentation`** (to be named `MaxPiecesPerInput`) — optional, null = <!-- item: state=startable -->
+  unbounded as today; when set, the pieces
   spread evenly from the start with the last anchored at the tail, on every provider. A per-CALL cap is rejected:
   a call's total is already inputs × this cap, and adapting to measured latency is a deployment's policy.
 - [ ] **Record the adopter's cut-vs-segmented measurements** in `docs/memory-measurements.md` §5, and the <!-- item: state=startable -->
