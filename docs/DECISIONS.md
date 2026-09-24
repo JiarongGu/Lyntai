@@ -246,8 +246,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D174](#d174--the-file-graph-store-journals-its-machine-state-and-both-in-process-stores-share-one-core-2026-09-23) | 2026-09-23 | the file graph store journals its machine state, and both in-process stores share one core |
 | [D175](#d175--a-remember-reports-what-the-write-did-the-write-side-of-memoryrecallran-2026-09-24) | 2026-09-24 | a remember REPORTS what the write did: the write side of `MemoryRecall.Ran` |
 | [D176](#d176--live-routing-moves-a-route-not-half-of-one-2026-09-24) | 2026-09-24 | live routing moves a ROUTE, not half of one |
+| [D177](#d177--an-over-long-input-is-segmented-on-the-backends-registration-never-cut-2026-09-24) | 2026-09-24 | an over-long input is SEGMENTED on the backend's registration, never cut |
 
-_All 176 entries are live decisions._
+_All 177 entries are live decisions._
 
 <!-- index:end -->
 
@@ -5465,3 +5466,31 @@ provider live, and adds a type the pair already covers. Keeping both: two doors 
 the defect. A visible refusal of a model no candidate serves: providers declare no model catalogue. A new value
 under the old key: an old bare model would be misread as a provider id, where a new prefix leaves old keys
 inert. The break is named in `CHANGELOG.md` (**D161**).
+
+## D177 — an over-long input is SEGMENTED on the backend's registration, never cut (2026-09-24)
+
+**The decision.** `HttpModelOptions.MaxInputChars` bounds what one input may carry in a request to an HTTP
+embedder or reranker. A longer input is split into pieces within it, every piece is sent, and the pieces are
+combined back into ONE answer per input — so each caller's one-answer-per-input contract holds and no text
+past the window is lost. A piece ends at the last paragraph, line, sentence or word boundary in its window's
+latter half (a hard cut when there is none, never inside a surrogate pair), and the next restarts at a
+boundary inside the last 15% of it. A reranker sends every piece in one request and scores a document as its
+BEST piece (MaxP: a document is as relevant as its most relevant passage); an embedder returns the
+length-weighted mean of its pieces' unit vectors, re-normalised. An input within the bound is sent and
+answered exactly as without it, so a deployment that never crosses the bound sees no change.
+
+**The bound lives on the registration because the window belongs to the MODEL** — the EF-provider rule: the
+knob goes in that provider's options. It counts characters because an HTTP client has no tokenizer, and the
+option's doc says when that bounds tokens and when it does not. The same rule governs the ONNX provider, which
+can count tokens exactly; until it is applied there, that provider still cuts at
+`OnnxProviderOptions.MaxTokens` (`TASKS.md` Part 287).
+
+**Rejected.** Cutting: it silently loses the text past the window. A bound on the verification seam: it fixes
+one caller, guesses a model's window from outside it, and leaves embedding unbounded. A second option for the
+overlap: a knob with no measurement to set it by. Storing several vectors per entry: it changes the
+vector-store contract for every backend. FirstP, the first piece's score: cutting by another name. SumP: it
+rewards length, so a long document outranks a short one that answers.
+
+**Known limits.** The pooled vector's retrieval QUALITY is unmeasured (`docs/model-tasks.md` §3.3). An
+embedding registration on an Ollama server root, which `AddHttpProvider` composes as the Ollama-native
+provider, refuses the bound rather than dropping it.

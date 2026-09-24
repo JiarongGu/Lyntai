@@ -42,6 +42,8 @@ internal sealed class HttpVectorTransport(
     /// <param name="BatchSize">Max inputs per request; <c>0</c> sends the whole batch at once.</param>
     /// <param name="DocumentPrefix">Prepended verbatim to <see cref="EmbeddingRole.Document"/> text.</param>
     /// <param name="QueryPrefix">Prepended verbatim to <see cref="EmbeddingRole.Query"/> text.</param>
+    /// <param name="MaxInputChars">The most characters one sent input may carry, prefix included; a longer
+    /// input is segmented and its pieces' vectors pooled. Null sends every input whole.</param>
     internal sealed record Settings(
         Uri Endpoint,
         string? ApiKey,
@@ -49,7 +51,8 @@ internal sealed class HttpVectorTransport(
         string? Model,
         int BatchSize,
         string? DocumentPrefix,
-        string? QueryPrefix);
+        string? QueryPrefix,
+        int? MaxInputChars = null);
 
     private readonly ILogger _logger = logger ?? NullLogger<HttpVectorTransport>.Instance;
 
@@ -64,6 +67,10 @@ internal sealed class HttpVectorTransport(
     ///
     /// <para><b>A failed BATCH fails the whole call.</b> Returning the batches that happened to succeed
     /// would hand the caller fewer vectors than texts, silently mis-pairing every one after the gap.</para>
+    ///
+    /// <para>An input longer than <see cref="Settings.MaxInputChars"/> is segmented, each piece carrying the
+    /// prefix, and answered with its pieces' vectors pooled; every other input's vector is returned exactly
+    /// as the endpoint sent it.</para>
     /// </summary>
     /// <exception cref="OperationCanceledException">The caller's <paramref name="ct"/> was cancelled — the
     /// one failure that is not a verdict, because it belongs to the caller.</exception>
@@ -71,14 +78,79 @@ internal sealed class HttpVectorTransport(
     {
         ArgumentNullException.ThrowIfNull(request);
         var prefix = request.Role == EmbeddingRole.Query ? config.QueryPrefix : config.DocumentPrefix;
+        var plan = config.MaxInputChars is { } max
+            ? InputSegmenter.Segment(request.Texts, max - (prefix?.Length ?? 0))
+            : null;
+        var pieces = plan?.Pieces ?? request.Texts;
         IReadOnlyList<string> texts = string.IsNullOrEmpty(prefix)
-            ? request.Texts
-            : [.. request.Texts.Select(t => prefix + t)];
+            ? pieces
+            : [.. pieces.Select(t => prefix + t)];
 
         // nothing asked for is nothing owed, and no HTTP call. Constructed directly rather than through
         // Success, whose empty-list guard is about an Ok that answered a real request with nothing.
         if (texts.Count == 0) return new VectorResponse(ProviderVerdict.Ok, []);
 
+        var response = await EmbedAllAsync(texts, request, ct).ConfigureAwait(false);
+        if (plan is null || plan.Segmented == 0 || !response.IsOk) return response;
+        _logger.LogDebug("{Id}: segmented {Segmented} of {Count} inputs into {Pieces} pieces",
+            id, plan.Segmented, request.Texts.Count, plan.Pieces.Count);
+        return Pool(plan, response);
+    }
+
+    /// <summary>One vector per input: a segmented input's pieces pooled, any other input's vector as sent.</summary>
+    private VectorResponse Pool(Segmentation plan, VectorResponse response)
+    {
+        var vectors = new float[plan.Inputs.Count][];
+        for (var i = 0; i < vectors.Length; i++)
+        {
+            var (first, end) = (plan.First[i], plan.First[i + 1]);
+            if (!plan.IsSegmented(i))
+            {
+                vectors[i] = response.Vectors[first];
+                continue;
+            }
+            if (PooledUnitVector(response.Vectors, plan.Pieces, first, end) is not { } pooled)
+                return VectorResponse.Failure(ProviderVerdict.Failed,
+                    $"{id}: the pieces of input {i} came back in different dimensions");
+            vectors[i] = pooled;
+        }
+        return VectorResponse.Success(vectors, usage: response.Usage);
+    }
+
+    /// <summary>The length-weighted mean of the pieces' unit vectors, re-normalised; the longest piece's
+    /// unit vector where they cancel out. Null when the pieces disagree on dimension.</summary>
+    private static float[]? PooledUnitVector(IReadOnlyList<float[]> vectors, IReadOnlyList<string> pieces,
+        int first, int end)
+    {
+        var dim = vectors[first].Length;
+        var sum = new double[dim];
+        var longest = first;
+        for (var j = first; j < end; j++)
+        {
+            if (vectors[j].Length != dim) return null;
+            if (pieces[j].Length > pieces[longest].Length) longest = j;
+            var norm = Norm(vectors[j]);
+            if (norm == 0) continue;
+            // the weighted mean's divisor is dropped: re-normalising removes it anyway
+            for (var k = 0; k < dim; k++) sum[k] += pieces[j].Length * vectors[j][k] / norm;
+        }
+        var total = Math.Sqrt(sum.Sum(x => x * x));
+        if (total == 0)
+        {
+            var fallback = vectors[longest];
+            var norm = Norm(fallback);
+            return norm == 0 ? fallback : [.. fallback.Select(x => (float)(x / norm))];
+        }
+        return [.. sum.Select(x => (float)(x / total))];
+    }
+
+    private static double Norm(float[] v) => Math.Sqrt(v.Sum(x => (double)x * x));
+
+    /// <summary>Embed every text as sent, split per <see cref="Settings.BatchSize"/> and concatenated in
+    /// order.</summary>
+    private async Task<VectorResponse> EmbedAllAsync(IReadOnlyList<string> texts, VectorRequest request,
+        CancellationToken ct)
+    {
         using var owned = OwnedClient();       // disposed only when Lyntai owns it
         var http = owned ?? httpFactory();     // BYO client: fetched, not disposed
 

@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text.Json.Nodes;
 using Lyntai.Inference;
 using Lyntai.Providers.Http;
 using Lyntai.Tests.Fakes;
@@ -18,16 +19,39 @@ namespace Lyntai.Tests.Providers;
 /// asking.</para></summary>
 public class HttpRerankTransportTests
 {
-    private static HttpModelProvider Scorer(StubHttpHandler handler, bool dispose = true) =>
-        new("rerank",
-            new HttpModelOptions
-            {
-                BaseUrl = "http://localhost:8081",
-                Produces = ProviderKinds.Score,
-            },
+    private static HttpModelProvider Scorer(StubHttpHandler handler, bool dispose = true,
+        Action<HttpModelOptions>? configure = null)
+    {
+        var options = new HttpModelOptions { BaseUrl = "http://localhost:8081", Produces = ProviderKinds.Score };
+        configure?.Invoke(options);
+        return new("rerank", options,
             () => new HttpClient(handler, disposeHandler: false),
             new LyntaiOptions { ProviderTimeout = TimeSpan.FromSeconds(5) },
             logger: null, disposeHttpClient: dispose);
+    }
+
+    /// <summary>A reranker that scores each document it is SENT with <paramref name="score"/> and answers
+    /// sorted best-first, as real endpoints do.</summary>
+    private static StubHttpHandler Reranker(Func<string, double> score) =>
+        new StubHttpHandler().Enqueue(request =>
+        {
+            var sent = Sent(request.Content!.ReadAsStringAsync().GetAwaiter().GetResult());
+            var results = new JsonArray([.. sent
+                .Select((d, i) => (Index: i, Score: score(d)))
+                .OrderByDescending(r => r.Score)
+                .Select(r => (JsonNode)new JsonObject { ["index"] = r.Index, ["relevance_score"] = r.Score })]);
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(new JsonObject { ["results"] = results }.ToJsonString()),
+            };
+        });
+
+    private static List<string> Sent(string body) =>
+        [.. JsonNode.Parse(body)!["documents"]!.AsArray().Select(d => d!.GetValue<string>())];
+
+    // twelve sentences, the needle in the seventh — in neither the first piece nor the last
+    private static readonly string LongDocument = string.Join(' ', Enumerable.Range(0, 12)
+        .Select(i => i == 6 ? "The needle is here." : $"Sentence number {i:00} says nothing much."));
 
     [Fact]
     public void A_score_backend_declares_the_kind_and_no_stream()
@@ -134,6 +158,39 @@ public class HttpRerankTransportTests
         var response = await scorer.CallAsync(new ScoreRequest("q", ["a"]));
 
         Assert.Equal(ProviderVerdict.ContextWindowExceeded, response.Verdict);
+    }
+
+    [Fact]
+    public async Task A_document_over_MaxInputChars_is_sent_as_PIECES_and_scores_as_its_BEST_piece()
+    {
+        var handler = Reranker(d => d.Contains("needle") ? 5.0 : d.Contains("alpha") ? 1.0 : -2.0);
+        var scorer = Scorer(handler, configure: o => o.MaxInputChars = 60);
+
+        var scores = await scorer.ScoreAsync("where is the needle",
+            ["alpha document", LongDocument, "beta document"]);
+
+        Assert.Equal([1.0, 5.0, -2.0], scores);   // one per DOCUMENT, in input order
+        var request = Assert.Single(handler.Requests);
+        var sent = Sent(request.Body);
+        Assert.True(sent.Count > 3, $"the long document should travel as several pieces; sent {sent.Count}");
+        Assert.All(sent, d => Assert.True(d.Length <= 60, $"a {d.Length}-character piece was sent"));
+        Assert.Equal("alpha document", sent[0]);
+        Assert.Equal("beta document", sent[^1]);
+        Assert.Contains($"\"top_n\":{sent.Count}", request.Body, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task With_no_document_over_MaxInputChars_the_request_is_BYTE_IDENTICAL_to_one_without_it()
+    {
+        // edge whitespace included: a bound that trimmed documents it did not need to split would show here
+        string[] documents = ["  padded document  ", "ends with a newline\n", "plain"];
+        var bounded = Reranker(_ => 1.0);
+        var unbounded = Reranker(_ => 1.0);
+
+        await Scorer(bounded, configure: o => o.MaxInputChars = 20).ScoreAsync("q", documents);
+        await Scorer(unbounded).ScoreAsync("q", documents);
+
+        Assert.Equal(unbounded.Requests[0].Body, bounded.Requests[0].Body);
     }
 
     [Fact]

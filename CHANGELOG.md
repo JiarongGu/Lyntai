@@ -152,6 +152,16 @@ every addition.
   `TryAdd`: call it before `UseSqliteStorage` to take its domains and let SQLite hold the rest. Already in the
   `Lyntai` bundle, since its package is; nothing is written until a root is named.
 
+- **`HttpModelOptions.MaxInputChars` segments an over-long input for a small-window HTTP embedder or
+  reranker** (**D177**). Such a backend — a 512-token reranker on llama.cpp, say — rejects the WHOLE call when
+  any one input exceeds its window, so one long entry cost every other answer in the call. Set the bound on the
+  registration and a longer input is split into pieces within it, at paragraph, line, sentence or word
+  boundaries with a small overlap, and every piece is sent: a reranker scores a document as its best piece, and
+  an embedder returns one vector per input, the length-weighted mean of its pieces' unit vectors re-normalised.
+  It counts CHARACTERS, not tokens, so leave margin — and on a reranker subtract your longest query, which the
+  window holds too. Null, the default, sends every input whole, and an input within the bound is sent exactly
+  as before. `AddHttpProvider` refuses it on an Ollama server root; register that server's `/v1` base instead.
+
 ### Fixed
 
 - **An input over a model's context window no longer benches a healthy host, and no longer switches memory

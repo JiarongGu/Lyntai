@@ -32,14 +32,17 @@ internal sealed class HttpRerankTransport(
 
     /// <summary>Score every document against the query, one score per document IN INPUT ORDER.
     /// <para>Failure is a <see cref="ScoreResponse"/> verdict, classified like the chat and vector paths, so
-    /// a 429 cools this host and a 401 answered to a call with no key is NotConfigured (D153).</para></summary>
+    /// a 429 cools this host and a 401 answered to a call with no key is NotConfigured (D153).</para>
+    /// <para>A document longer than <see cref="HttpModelOptions.MaxInputChars"/> is sent as pieces, in the
+    /// same request as everything else, and scores as its best piece.</para></summary>
     /// <exception cref="OperationCanceledException">The caller's <paramref name="ct"/> was cancelled.</exception>
     public async Task<ScoreResponse> CallAsync(ScoreRequest request, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(request);
         var query = request.Query;
-        var documents = request.Documents;
-        if (documents.Count == 0) return new ScoreResponse(ProviderVerdict.Ok, []);
+        if (request.Documents.Count == 0) return new ScoreResponse(ProviderVerdict.Ok, []);
+        var plan = config.MaxInputChars is { } max ? InputSegmenter.Segment(request.Documents, max) : null;
+        var documents = plan?.Pieces ?? request.Documents;
 
         // the same resolution ladder the text shape has always had — explicit seconds (clamped), the
         // consumer's TimeoutByConsumer tier, the default tier, the global timeout (D162/D163)
@@ -73,9 +76,20 @@ internal sealed class HttpRerankTransport(
         if (scores is null)
             return ScoreResponse.Failure(
                 ProviderVerdict.Failed, $"{id}: malformed or incomplete rerank response");
+        if (plan is { Segmented: > 0 })
+        {
+            _logger.LogDebug("{Id}: segmented {Segmented} of {Count} documents into {Pieces} pieces",
+                id, plan.Segmented, plan.Inputs.Count, plan.Pieces.Count);
+            scores = BestPiece(plan, scores);
+        }
         _logger.LogDebug("{Id}: scored {Count} documents", id, scores.Length);
         return ScoreResponse.Success(scores);
     }
+
+    /// <summary>A document is as relevant as its most relevant passage: the maximum over its pieces.</summary>
+    private static double[] BestPiece(Segmentation plan, double[] pieceScores) =>
+        [.. Enumerable.Range(0, plan.Inputs.Count)
+            .Select(i => pieceScores[plan.First[i]..plan.First[i + 1]].Max())];
 
     private HttpRequestMessage BuildRequest(string query, IReadOnlyList<string> documents)
     {

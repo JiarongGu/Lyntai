@@ -110,6 +110,7 @@ sealed class Lyntai.Providers.Http.HttpModelOptions
     BaseUrl : String
     BatchSize : Int32
     DocumentPrefix : String
+    MaxInputChars : Nullable<Int32>
     Model : String
     Produces : String
     QueryPrefix : String

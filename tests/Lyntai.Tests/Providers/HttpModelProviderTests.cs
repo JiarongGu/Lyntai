@@ -4,6 +4,7 @@ using Lyntai;
 using Lyntai.Providers.Http;
 using Lyntai.Providers.Http.Payloads;
 using Lyntai.Tests.Fakes;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Lyntai.Tests.Providers;
 
@@ -559,5 +560,89 @@ public class HttpModelProviderTests
         await provider.CompleteAsync(Req);
 
         Assert.Equal(new Uri("https://openrouter.ai/api/v1/chat/completions"), handler.Requests[0].Uri);
+    }
+
+    // ---- MaxInputChars is checked where the registration is built, not on the first over-long call ----
+
+    [Theory]
+    [InlineData("vector", 0)]
+    [InlineData("vector", -1)]
+    [InlineData("score", 0)]
+    [InlineData("score", -40)]
+    public void A_MaxInputChars_that_is_not_positive_is_refused_at_construction(string produces, int max)
+    {
+        var ex = Assert.Throws<ArgumentOutOfRangeException>(() =>
+            Provider(new StubHttpHandler(), c => { c.Produces = produces; c.MaxInputChars = max; }));
+
+        Assert.Contains(nameof(HttpModelOptions.MaxInputChars), ex.Message, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("passage: ", null, 9)]   // a prefix exactly as long as the bound leaves nothing
+    [InlineData(null, "query: ", 3)]
+    public void A_prefix_that_leaves_a_piece_no_room_for_text_is_refused_naming_both_values(
+        string? documentPrefix, string? queryPrefix, int max)
+    {
+        var prefix = documentPrefix ?? queryPrefix!;
+
+        var ex = Assert.Throws<ArgumentOutOfRangeException>(() => Provider(new StubHttpHandler(), c =>
+        {
+            c.Produces = ProviderKinds.Vector;
+            c.MaxInputChars = max;
+            c.DocumentPrefix = documentPrefix;
+            c.QueryPrefix = queryPrefix;
+        }));
+
+        Assert.Contains($"({max})", ex.Message, StringComparison.Ordinal);
+        Assert.Contains($"({prefix.Length} characters)", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_prefix_one_character_shorter_than_the_bound_is_accepted()
+    {
+        var provider = Provider(new StubHttpHandler(), c =>
+        {
+            c.Produces = ProviderKinds.Vector;
+            c.MaxInputChars = 10;
+            c.DocumentPrefix = "passage: ";
+        });
+
+        Assert.Equal([ProviderKinds.Vector], provider.Capabilities.Produces);
+    }
+
+    [Fact]
+    public void MaxInputChars_is_IGNORED_on_a_text_registration_like_the_other_non_text_knobs()
+    {
+        var provider = Provider(new StubHttpHandler(), c => c.MaxInputChars = 0);
+
+        Assert.Equal([ProviderKinds.Text], provider.Capabilities.Produces);
+    }
+
+    [Fact]
+    public void An_invalid_MaxInputChars_fails_at_REGISTRATION_not_at_first_resolve()
+    {
+        var services = new ServiceCollection();
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => services.AddLyntai(b => b.AddHttpProvider("rerank", o =>
+        {
+            o.BaseUrl = "http://localhost:8081";
+            o.Produces = ProviderKinds.Score;
+            o.MaxInputChars = 0;
+        })));
+    }
+
+    [Fact]
+    public void MaxInputChars_on_an_Ollama_ROOT_is_refused_rather_than_dropped_by_the_native_provider()
+    {
+        var services = new ServiceCollection();
+
+        var ex = Assert.Throws<NotSupportedException>(() => services.AddLyntai(b => b.AddHttpProvider("ollama", o =>
+        {
+            o.BaseUrl = "http://localhost:11434";
+            o.Produces = ProviderKinds.Vector;
+            o.MaxInputChars = 2000;
+        })));
+
+        Assert.Contains("/v1", ex.Message, StringComparison.Ordinal);
     }
 }

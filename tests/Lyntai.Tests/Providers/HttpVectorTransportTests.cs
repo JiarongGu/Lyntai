@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text.Json.Nodes;
 using Lyntai;
 using Lyntai.Inference;
 using Lyntai.Memory;
@@ -42,10 +43,35 @@ public class HttpVectorTransportTests
             : HttpEndpoint.Build(config.BaseUrl, azure, "embeddings");
         return new HttpVectorTransport("openai", new HttpVectorTransport.Settings(
                 endpoint, config.ApiKey, azure, config.Model,
-                config.BatchSize, config.DocumentPrefix, config.QueryPrefix),
+                config.BatchSize, config.DocumentPrefix, config.QueryPrefix, config.MaxInputChars),
             () => new HttpClient(handler, disposeHandler: false),
             new LyntaiOptions { ProviderTimeout = TimeSpan.FromSeconds(30) });
     }
+
+    /// <summary>An embeddings endpoint answering each request with <paramref name="embed"/>(index in that
+    /// request, text as sent) — so a test sees exactly what segmenting sent.</summary>
+    private static StubHttpHandler Embedder(Func<int, string, float[]> embed) =>
+        new StubHttpHandler().Enqueue(request =>
+        {
+            var sent = SentInputs(request.Content!.ReadAsStringAsync().GetAwaiter().GetResult());
+            var data = new JsonArray([.. sent.Select((t, i) => (JsonNode)new JsonObject
+            {
+                ["index"] = i,
+                ["embedding"] = new JsonArray([.. embed(i, t).Select(f => (JsonNode)JsonValue.Create(f))]),
+            })]);
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(new JsonObject { ["data"] = data }.ToJsonString()),
+            };
+        });
+
+    private static List<string> SentInputs(string body) =>
+        [.. JsonNode.Parse(body)!["input"]!.AsArray().Select(t => t!.GetValue<string>())];
+
+    // "w00 w01 … w29", 119 characters: at 40 it splits into three 39-character pieces and an 11-character one
+    private static readonly string Words30 = string.Join(' ', Enumerable.Range(0, 30).Select(i => $"w{i:00}"));
+
+    private static double Norm(IReadOnlyList<float> v) => Math.Sqrt(v.Sum(x => (double)x * x));
 
     // A 401 answered to a call carrying NO key is NotConfigured, not AuthFailed — full parity with the chat
     // path, and the difference is not cosmetic: AuthFailed BENCHES this host for the cooldown window, while
@@ -380,6 +406,96 @@ public class HttpVectorTransportTests
         Assert.Equal([1.0f], vectors[0]);
         Assert.Equal([2.0f], vectors[1]);
         Assert.Equal([3.0f], vectors[2]);
+    }
+
+    // ---- MaxInputChars: an over-long input is SEGMENTED and its pieces pooled into one vector ----------
+
+    [Fact]
+    public async Task An_input_over_MaxInputChars_is_the_length_weighted_mean_of_its_pieces_unit_vectors_renormalised()
+    {
+        var handler = Embedder((i, _) => [i + 1f, 1f]);   // a different direction per piece
+
+        var vector = Assert.Single(await VectorProvider(handler, c => c.MaxInputChars = 40).EmbedAsync([Words30]));
+
+        var pieces = SentInputs(Assert.Single(handler.Requests).Body);
+        Assert.Equal(4, pieces.Count);
+        var expected = new double[2];
+        for (var i = 0; i < pieces.Count; i++)
+        {
+            double[] v = [i + 1, 1];
+            var norm = Math.Sqrt(v[0] * v[0] + v[1] * v[1]);
+            for (var k = 0; k < 2; k++) expected[k] += pieces[i].Length * v[k] / norm;
+        }
+        var length = Math.Sqrt(expected[0] * expected[0] + expected[1] * expected[1]);
+        Assert.Equal(expected[0] / length, vector[0], 1e-6);
+        Assert.Equal(expected[1] / length, vector[1], 1e-6);
+        Assert.Equal(1.0, Norm(vector), 1e-6);
+    }
+
+    [Fact]
+    public async Task An_input_within_MaxInputChars_keeps_its_vector_EXACTLY_as_the_backend_sent_it()
+    {
+        var handler = Embedder((_, t) => t == "short" ? [1f, 2f, 2f] : [0f, 3f, 4f]);
+
+        var vectors = await VectorProvider(handler, c => c.MaxInputChars = 40).EmbedAsync(["short", Words30]);
+
+        Assert.Equal([1f, 2f, 2f], vectors[0]);   // not normalised, though its neighbour's is
+        Assert.Equal(0.0, vectors[1][0], 1e-6);
+        Assert.Equal(0.6, vectors[1][1], 1e-6);
+        Assert.Equal(0.8, vectors[1][2], 1e-6);
+    }
+
+    [Fact]
+    public async Task The_role_prefix_is_applied_to_EVERY_piece_and_counted_inside_the_bound()
+    {
+        var handler = Embedder((_, _) => [1f, 0f]);
+
+        await VectorProvider(handler, c => { c.MaxInputChars = 30; c.DocumentPrefix = "passage: "; })
+            .EmbedAsync([Words30], EmbeddingRole.Document);
+
+        var sent = SentInputs(handler.Requests[0].Body);
+        Assert.True(sent.Count >= 2, $"expected several pieces; sent {sent.Count}");
+        Assert.All(sent, t =>
+        {
+            Assert.StartsWith("passage: ", t, StringComparison.Ordinal);
+            Assert.True(t.Length <= 30, $"a {t.Length}-character input was sent");
+        });
+    }
+
+    [Fact]
+    public async Task BatchSize_counts_PIECES_since_pieces_are_what_is_sent()
+    {
+        var handler = Embedder((_, _) => [1f, 0f]);
+
+        var vectors = await VectorProvider(handler, c => { c.MaxInputChars = 40; c.BatchSize = 3; })
+            .EmbedAsync([Words30]);
+
+        Assert.Single(vectors);
+        Assert.Equal([3, 1], handler.Requests.Select(r => SentInputs(r.Body).Count));
+    }
+
+    [Fact]
+    public async Task Pieces_of_one_input_answering_in_different_DIMENSIONS_are_a_malformed_answer()
+    {
+        var handler = Embedder((i, _) => i == 0 ? [1f, 0f] : [1f, 0f, 0f]);
+
+        var response = await VectorProvider(handler, c => c.MaxInputChars = 40)
+            .CallAsync(new VectorRequest([Words30]));
+
+        Assert.Equal(ProviderVerdict.Failed, response.Verdict);
+        Assert.Empty(response.Vectors);
+    }
+
+    [Fact]
+    public async Task Pieces_that_cancel_out_fall_back_to_the_LONGEST_piece_rather_than_a_zero_vector()
+    {
+        // two 50-character pieces pointing opposite ways pool to nothing; the tie goes to the first
+        var handler = Embedder((i, _) => i == 0 ? [2f, 0f] : [-2f, 0f]);
+
+        var vector = Assert.Single(await VectorProvider(handler, c => c.MaxInputChars = 50)
+            .EmbedAsync([new string('a', 100)]));
+
+        Assert.Equal([1f, 0f], vector);
     }
 
     [Fact] // the whole point: declaring the embeddings route wires a vector backend → ISemanticMemory turns on

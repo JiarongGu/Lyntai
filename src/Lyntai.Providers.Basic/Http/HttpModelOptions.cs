@@ -75,4 +75,30 @@ public sealed class HttpModelOptions
     /// <para>Set independently of <see cref="DocumentPrefix"/>: a model may instruct one side only, which is
     /// the BGE shape, and an unset side must stay verbatim rather than inherit the other.</para></summary>
     public string? QueryPrefix { get; set; }
+
+    /// <summary>The most CHARACTERS one input may carry in a request when serving
+    /// <see cref="ProviderKinds.Vector"/> or <see cref="ProviderKinds.Score"/>; a longer input is SEGMENTED
+    /// into pieces within it, never cut. Null (the default) sends every input whole. Ignored for
+    /// <see cref="ProviderKinds.Text"/>.
+    ///
+    /// <para><b>Set it for a small-window backend</b>, which rejects the WHOLE call when any one input
+    /// exceeds its window. A piece ends at a paragraph, line, sentence or word boundary where one falls in its
+    /// latter half, and the next restarts slightly before that end. A reranker is sent every piece in one
+    /// request and scores a document as its BEST piece; an embedder embeds every piece
+    /// (<see cref="BatchSize"/> counts pieces) and returns one vector per input, the length-weighted mean of
+    /// its pieces' unit vectors re-normalised to unit length. An input within the bound is sent, and
+    /// answered, exactly as without it.</para>
+    ///
+    /// <para><b>An HTTP client has no tokenizer, so this bounds a token window only where the model's
+    /// tokenizer never yields more tokens than characters</b> — as a WordPiece or an XLM-R-style
+    /// SentencePiece vocabulary does not, while one that falls back to BYTES (byte-level BPE, or
+    /// SentencePiece with byte fallback) can on CJK and rarer scripts. Leave margin, special tokens included.
+    /// An embedding's role prefix (<see cref="DocumentPrefix"/>, <see cref="QueryPrefix"/>) counts inside
+    /// the bound. A reranker's window also holds the QUERY, which is never segmented: set this to the window
+    /// minus your longest query, with margin.</para>
+    ///
+    /// <para>The provider throws <see cref="ArgumentOutOfRangeException"/> when it is not positive or leaves
+    /// an embedding prefix no room. On an Ollama server root, which <c>AddHttpProvider</c> composes as the
+    /// Ollama-native provider, it is refused: register the server's <c>/v1</c> base instead.</para></summary>
+    public int? MaxInputChars { get; set; }
 }
