@@ -25,6 +25,9 @@ internal sealed class HttpRerankTransport(
     ILogger? logger = null,
     bool disposeHttpClient = true)
 {
+    // a bound with no record segments at the record's defaults
+    private static readonly InputSegmentation Defaults = new();
+
     private readonly ILogger _logger = logger ?? NullLogger<HttpRerankTransport>.Instance;
     private readonly bool _azure = HttpEndpoint.AzureFor(config);
 
@@ -33,8 +36,9 @@ internal sealed class HttpRerankTransport(
     /// <summary>Score every document against the query, one score per document IN INPUT ORDER.
     /// <para>Failure is a <see cref="ScoreResponse"/> verdict, classified like the chat and vector paths, so
     /// a 429 cools this host and a 401 answered to a call with no key is NotConfigured (D153).</para>
-    /// <para>A document longer than <see cref="HttpModelOptions.MaxInputChars"/> is sent as pieces, in the
-    /// same request as everything else, and scores as its best piece — or, truncating, is sent cut.</para></summary>
+    /// <para><see cref="HttpModelOptions.MaxInputChars"/> is the PAIR window: the query keeps at most its
+    /// share, cut once for every document, and a document longer than the rest is sent as pieces, in the same
+    /// request as everything else, and scores as its best piece — or, truncating, is sent cut.</para></summary>
     /// <exception cref="OperationCanceledException">The caller's <paramref name="ct"/> was cancelled.</exception>
     public async Task<ScoreResponse> CallAsync(ScoreRequest request, CancellationToken ct = default)
     {
@@ -43,13 +47,17 @@ internal sealed class HttpRerankTransport(
         if (request.Documents.Count == 0) return new ScoreResponse(ProviderVerdict.Ok, []);
         Segmentation? plan = null;
         var documents = request.Documents;
-        if (config.MaxInputChars is { } max)
+        if (config.MaxInputChars is { } window)
         {
-            if (config.Segmentation?.Overflow == InputOverflow.Truncate)
-                documents = [.. request.Documents.Select(d => InputSegmenter.Truncate(d, max))];
+            var segmentation = config.Segmentation ?? Defaults;
+            query = InputSegmenter.QueryWithin(query, window, segmentation.MinDocumentShare);
+            var budget = window - InputSegmenter.Measure(query);
+            if (segmentation.Overflow == InputOverflow.Truncate)
+                documents = [.. request.Documents.Select(d => InputSegmenter.Truncate(d, budget))];
             else
             {
-                plan = InputSegmenter.Segment(request.Documents, max, config.Segmentation?.Overlap);
+                plan = InputSegmenter.Segment(
+                    request.Documents, budget, segmentation.Overlap, segmentation.MaxPiecesPerInput);
                 documents = plan.Pieces;
             }
         }

@@ -28,6 +28,7 @@ public sealed class InputSegmentation
     private InputOverflow _overflow = InputOverflow.Segment;
     private double _overlap = 0.15;
     private double _minDocumentShare = 0.5;
+    private int? _maxPiecesPerInput;
 
     /// <summary>Whether an over-long input is segmented (the default) or truncated. Where a truncating
     /// provider cuts is stated by its <c>Segmentation</c> option.</summary>
@@ -59,9 +60,8 @@ public sealed class InputSegmentation
     /// even one that would fit beside the whole query — because scores against different question text are
     /// not comparable. Default 0.5. The query itself is never segmented.
     ///
-    /// <para>It applies only where a provider measures query and document against one window — the ONNX
-    /// cross-encoder. An HTTP bound is per document and never counts the query, so there it does not
-    /// apply.</para></summary>
+    /// <para>It applies wherever one window holds the pair: the ONNX cross-encoder, and an HTTP reranker, whose
+    /// <c>MaxInputChars</c> is that pair window. An embedder takes no query.</para></summary>
     /// <exception cref="ArgumentOutOfRangeException">The value is not strictly between 0 and 1: a document
     /// needs some of the window, and so does the query.</exception>
     public double MinDocumentShare
@@ -71,5 +71,23 @@ public sealed class InputSegmentation
             ? value
             : throw new ArgumentOutOfRangeException(nameof(MinDocumentShare), value,
                 "MinDocumentShare must be greater than 0 and less than 1.");
+    }
+
+    /// <summary>The most pieces one input is segmented into; null — the default — sets no cap. An input that
+    /// would take more keeps this many, spread evenly: the first piece, the LAST, and the rest at even steps
+    /// between (piece <c>round(i·(n−1)/(cap−1))</c> of <c>n</c>); a cap of 1 keeps the first. <b>Coverage then
+    /// has gaps</b> — text in a dropped piece is neither scored nor embedded — which is the trade for bounding
+    /// the cost of one long input. It applies on every provider that segments.
+    ///
+    /// <para>There is no per-CALL cap: a call's pieces are already at most its inputs times this, and fitting
+    /// a call to a latency budget is a policy for the deployment that measured it.</para></summary>
+    /// <exception cref="ArgumentOutOfRangeException">The value is under 1.</exception>
+    public int? MaxPiecesPerInput
+    {
+        get => _maxPiecesPerInput;
+        set => _maxPiecesPerInput = value is null or >= 1
+            ? value
+            : throw new ArgumentOutOfRangeException(nameof(MaxPiecesPerInput), value,
+                "MaxPiecesPerInput must be at least 1, or null for no cap.");
     }
 }

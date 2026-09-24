@@ -554,6 +554,28 @@ public class HttpVectorTransportTests
     }
 
     [Fact]
+    public async Task MaxPiecesPerInput_embeds_only_the_pieces_it_keeps_the_first_and_the_last()
+    {
+        var handler = Embedder((i, _) => [i + 1f, 1f]);
+
+        var vector = Assert.Single(await VectorProvider(handler, c =>
+        {
+            c.MaxInputChars = 40;
+            c.Segmentation = new InputSegmentation { MaxPiecesPerInput = 2 };
+        }).EmbedAsync([Words30]));
+
+        var all = InputSegmenter.Split(Words30, 40);
+        var sent = SentInputs(Assert.Single(handler.Requests).Body);
+        Assert.Equal([all[0], all[^1]], sent);
+        // pooled from those two alone, each weighted by its length
+        double[] expected = [sent[0].Length / Math.Sqrt(2) + sent[1].Length * 2 / Math.Sqrt(5),
+            sent[0].Length / Math.Sqrt(2) + sent[1].Length / Math.Sqrt(5)];
+        var length = Math.Sqrt(expected[0] * expected[0] + expected[1] * expected[1]);
+        Assert.Equal(expected[0] / length, vector[0], 1e-6);
+        Assert.Equal(expected[1] / length, vector[1], 1e-6);
+    }
+
+    [Fact]
     public async Task Segmentation_WITHOUT_MaxInputChars_changes_nothing()
     {
         var handler = Embedder((_, _) => [1f, 0f]);

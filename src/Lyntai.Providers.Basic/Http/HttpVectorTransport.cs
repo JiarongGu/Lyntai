@@ -43,10 +43,11 @@ internal sealed class HttpVectorTransport(
     /// <param name="BatchSize">Max inputs per request; <c>0</c> sends the whole batch at once.</param>
     /// <param name="DocumentPrefix">Prepended verbatim to <see cref="EmbeddingRole.Document"/> text.</param>
     /// <param name="QueryPrefix">Prepended verbatim to <see cref="EmbeddingRole.Query"/> text.</param>
-    /// <param name="MaxInputChars">The most characters one sent input may carry, prefix included; a longer
-    /// input is segmented and its pieces' vectors pooled, or truncated. Null sends every input whole.</param>
-    /// <param name="Segmentation">Segment or truncate past <paramref name="MaxInputChars"/>, and the overlap;
-    /// null segments.</param>
+    /// <param name="MaxInputChars">The most characters, counted after NFKC normalisation, one sent input may
+    /// carry, prefix included; a longer input is segmented and its pieces' vectors pooled, or truncated. Null
+    /// sends every input whole.</param>
+    /// <param name="Segmentation">Segment or truncate past <paramref name="MaxInputChars"/>, the overlap, and
+    /// the piece cap; null segments.</param>
     /// <param name="NoServerTruncation">Send <c>truncate: false</c>, so a server that would cut an over-long
     /// input silently (Ollama's <c>/api/embed</c>) reports it instead.</param>
     internal sealed record Settings(
@@ -87,13 +88,14 @@ internal sealed class HttpVectorTransport(
         var prefix = request.Role == EmbeddingRole.Query ? config.QueryPrefix : config.DocumentPrefix;
         Segmentation? plan = null;
         var pieces = request.Texts;
-        if (config.MaxInputChars - (prefix?.Length ?? 0) is { } budget)
+        if (config.MaxInputChars - InputSegmenter.Measure(prefix ?? string.Empty) is { } budget)
         {
             if (config.Segmentation?.Overflow == InputOverflow.Truncate)
                 pieces = [.. request.Texts.Select(t => InputSegmenter.Truncate(t, budget))];
             else
             {
-                plan = InputSegmenter.Segment(request.Texts, budget, config.Segmentation?.Overlap);
+                plan = InputSegmenter.Segment(
+                    request.Texts, budget, config.Segmentation?.Overlap, config.Segmentation?.MaxPiecesPerInput);
                 pieces = plan.Pieces;
             }
         }

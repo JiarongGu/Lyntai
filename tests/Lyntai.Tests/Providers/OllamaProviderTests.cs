@@ -216,6 +216,21 @@ public class OllamaProviderTests
     }
 
     [Fact]
+    public async Task MaxPiecesPerInput_reaches_the_native_embed_path()
+    {
+        var handler = Embedder();
+
+        await Provider(handler, o =>
+        {
+            o.Produces = ProviderKinds.Vector;
+            o.MaxInputChars = 40;
+            o.Segmentation = new InputSegmentation { MaxPiecesPerInput = 1 };
+        }).CallAsync(new VectorRequest([Words30]));
+
+        Assert.Equal(Words30[..39], Assert.Single(SentInputs(handler.Requests[0].Body)));   // the first piece
+    }
+
+    [Fact]
     public async Task Under_TRUNCATE_the_servers_own_cut_stands_rather_than_failing_the_call()
     {
         // the deployment already accepted loss: refusing an input that still overflows would bring back the

@@ -5472,43 +5472,40 @@ inert. The break is named in `CHANGELOG.md` (**D161**).
 ## D177 — segmenting an over-long input is a CONFIGURED capability, and every default is the prior behaviour (2026-09-24)
 
 **The decision.** A provider with a window can SEGMENT an input longer than it: split it into windows, answer
-every window, and combine the answers into ONE per input, so each caller's one-answer-per-input contract holds
-and no text past the window is lost. It is a capability a deployment configures, never a rule the library
-imposes — segmenting extends what a small model can take, and whether answering every window is worth its
-cost is the deployment's call. **One record in Core configures it on every provider**: `InputSegmentation` —
-`Overflow` (Segment or Truncate), `Overlap` (0.15) and, for a reranker pair, `MinDocumentShare` (0.5). Each
-provider keeps its own WINDOW setting (`MaxInputChars` on `HttpModelOptions` and `OllamaOptions`, `MaxTokens`
-on `OnnxProviderOptions`) and takes the record as `Segmentation`.
+each, and combine the answers into ONE per input, so no text past the window is lost. It is a capability a
+deployment configures, never a rule the library imposes: segmenting extends what a small model can take, and
+whether that is worth a window's cost is the deployment's call. **One record in Core configures every
+provider**: `InputSegmentation` — `Overflow` (Segment or Truncate), `Overlap` (0.15), `MaxPiecesPerInput`
+(none) and, for a reranker pair, `MinDocumentShare` (0.5) — taken as `Segmentation` beside each provider's own
+WINDOW setting (`MaxInputChars` on `HttpModelOptions` and `OllamaOptions`, `MaxTokens` on `OnnxProviderOptions`).
 
-**Every default is the provider's prior behaviour.** The ONNX provider truncates at its window unless told to
-segment. The HTTP and Ollama providers do nothing until `MaxInputChars` is set, then segment unless told to
-truncate; Ollama's own server-side cut stands until then. Once the bound is set, and unless the record
-truncates, every request carries `truncate: false`, so a piece that still overflows fails visibly rather than
-being cut behind the bound; under Truncate the deployment has accepted the loss, and the server's cut stands.
+**Every default is the prior behaviour.** ONNX truncates at its window unless told to segment. HTTP and Ollama
+do nothing until `MaxInputChars` is set, then segment unless told to truncate; Ollama's own silent cut stands
+until then, and once the bound is set, unless the record truncates, every request carries `truncate: false`.
 
-**How it segments.** A window ends at the last boundary in its latter half — paragraph, line, sentence or word
-over characters; a sentence-end token, else a word start, over tokens — else hard, never inside a surrogate
-pair, and the next restarts at a boundary inside the last `Overlap` of it. A reranker scores a document as its
-BEST window (MaxP: a document is as relevant as its most relevant passage); an embedder returns the
-length-weighted mean of its windows' unit vectors, re-normalised — `VectorMath.WeightedMeanDirection`, one
-public method because two packages need it and a copy would drift. The HTTP bound counts characters because
-an HTTP client has no tokenizer, and the option's doc says when that bounds tokens. The ONNX provider counts
-tokens exactly, so there a record gives a pair's query, never segmented, at most (1 − `MinDocumentShare`) of
-the window, cut ONCE per call: every document is scored against the same question, since a reranker's output
-is a ranking. Otherwise an input that fits is answered exactly as without segmenting.
+**How.** A window ends at the last boundary in its latter half — paragraph, line, sentence or word over
+characters; a sentence-end token, else a word start, over tokens — else hard, never inside a text element, and
+the next restarts inside the last `Overlap` of it. A reranker scores a document as its BEST window (MaxP); an
+embedder takes the length-weighted mean of its windows' unit vectors, re-normalised, through one public
+`VectorMath.WeightedMeanDirection`, so two packages cannot drift. A reranker's window holds the PAIR, on ONNX
+(counting tokens) and over HTTP (`MaxInputChars` on a Score registration), so the query, never segmented,
+keeps at most (1 − `MinDocumentShare`) of it, cut ONCE per call so every document meets the same question.
+HTTP counts characters after NFKC, summed per text element — a linear upper bound — because a tokenizer
+normalises before it counts; pieces are still sent as the original text. `MaxPiecesPerInput` keeps that many
+windows, spread from the first to the last. An input that fits is answered exactly as without segmenting.
 
-**Rejected.** Forcing it: whether to segment is a processing judgement that belongs to the deployment, and a
-forced one changes what an unchanged configuration returns. Per-provider knobs: three copies that drift.
-Cutting as the only behaviour: it silently loses the text past the window. A bound on the verification seam: it
-fixes one caller, guesses a model's window from outside it, and leaves embedding unbounded. Several vectors per
-entry: it changes the vector-store contract for every backend. FirstP: cutting by another name. SumP: it
-rewards length, so a long document outranks a short one that answers. Counting tokens over HTTP: a server's
-`/tokenize` route is not on the OpenAI-shaped wire, and shrink-and-retry costs a round trip per failure.
-Cutting the query per pair, only where that pair overflows: it keeps a fitting pair exact, but scores the
-documents of one call against different questions, whose scores do not rank against each other.
+**Rejected.** Forcing it: a processing judgement the deployment owns, and it changes what an unchanged
+configuration returns. Per-provider knobs: three copies that drift. Cutting only: it loses the text past the
+window. A bound on the verification seam: one caller, and a guess at the model's window. Several vectors per
+entry: a new vector-store contract. FirstP: cutting by another name. SumP: it rewards length. Counting tokens
+over HTTP: `/tokenize` is off the OpenAI-shaped wire, and shrink-and-retry costs a round trip per failure.
+Cutting the query per pair on overflow only: one call's documents would meet different questions. A per-CALL
+piece cap: a call's pieces are already its inputs × `MaxPiecesPerInput`, and fitting a latency budget is the
+deployment's policy.
 
-**Known limits.** The pooled vector's retrieval QUALITY is unmeasured (`docs/model-tasks.md` §3.3), and so are
-the defaults for `Overlap` and `MinDocumentShare` — which is why they are settings.
+**Known limits.** MaxP gives a long document more chances: its extra windows can outscore a short document
+holding the answer (`rerank-segmented-adopter-long-notes`: 8 losses to 1 gain at the start position). Pooled
+vectors' retrieval quality, and the defaults for `Overlap` and `MinDocumentShare`, are unmeasured.
 
 ## D178 — a text candidate naming a backend that produces no text is refused at composition and skipped per call (2026-09-24)
 

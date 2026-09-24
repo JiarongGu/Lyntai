@@ -192,8 +192,60 @@ public class HttpRerankTransportTests
         var scores = await scorer.ScoreAsync("where is the needle", ["alpha document", LongDocument]);
 
         Assert.Equal([-2.0, -2.0], scores);   // the needle sat past the cut
-        Assert.Equal(["alpha document", InputSegmenter.Truncate(LongDocument, 60)],
+        // the pair window holds the 19-character query, so each document has 41
+        Assert.Equal(["alpha document", InputSegmenter.Truncate(LongDocument, 41)],
             Sent(Assert.Single(handler.Requests).Body));
+    }
+
+    // ---- on a reranker, MaxInputChars is the PAIR window: the query counts ----------------------------------
+
+    private static string SentQuery(string body) => JsonNode.Parse(body)!["query"]!.GetValue<string>();
+
+    [Fact]
+    public async Task On_a_reranker_MaxInputChars_is_the_PAIR_window_so_each_piece_leaves_room_for_the_query()
+    {
+        const string query = "where is the needle";   // 19 characters
+        var handler = Reranker(d => d.Contains("needle") ? 5.0 : -2.0);
+
+        var scores = await Scorer(handler, configure: o => o.MaxInputChars = 60)
+            .ScoreAsync(query, [LongDocument]);
+
+        Assert.Equal([5.0], scores);
+        var sent = Sent(Assert.Single(handler.Requests).Body);
+        Assert.All(sent, d => Assert.True(d.Length <= 60 - query.Length, $"a {d.Length}-character piece beside the query"));
+        Assert.Equal(query, SentQuery(handler.Requests[0].Body));   // within its share, untouched
+    }
+
+    [Fact]
+    public async Task A_query_past_its_share_is_cut_ONCE_at_a_word_boundary_and_every_document_meets_the_same_one()
+    {
+        var query = string.Join(' ', Enumerable.Range(0, 20).Select(i => $"word{i:00}"));   // 139 characters
+        var handler = Reranker(_ => 1.0);
+
+        await Scorer(handler, configure: o => o.MaxInputChars = 60).ScoreAsync(query, ["short", LongDocument]);
+
+        // the default share leaves the document 30 of the 60: the query keeps what is left, to a word
+        var kept = SentQuery(Assert.Single(handler.Requests).Body);
+        Assert.Equal(InputSegmenter.QueryWithin(query, 60, 0.5), kept);
+        Assert.InRange(kept.Length, 15, 30);
+        Assert.Equal(' ', query[kept.Length]);
+        Assert.All(Sent(handler.Requests[0].Body), d => Assert.True(d.Length <= 60 - kept.Length));
+    }
+
+    [Fact]
+    public async Task MaxPiecesPerInput_keeps_a_long_documents_FIRST_and_LAST_pieces_and_drops_the_middle()
+    {
+        var handler = Reranker(d => d.Contains("needle") ? 5.0 : -2.0);
+
+        var scores = await Scorer(handler, configure: o =>
+        {
+            o.MaxInputChars = 60;
+            o.Segmentation = new InputSegmentation { MaxPiecesPerInput = 2 };
+        }).ScoreAsync("where is the needle", [LongDocument]);
+
+        var all = InputSegmenter.Split(LongDocument, 41);
+        Assert.Equal([all[0], all[^1]], Sent(Assert.Single(handler.Requests).Body));
+        Assert.Equal([-2.0], scores);   // the needle was in a piece the cap dropped: coverage has gaps
     }
 
     [Fact]
@@ -204,7 +256,8 @@ public class HttpRerankTransportTests
         var bounded = Reranker(_ => 1.0);
         var unbounded = Reranker(_ => 1.0);
 
-        await Scorer(bounded, configure: o => o.MaxInputChars = 20).ScoreAsync("q", documents);
+        // the pair window: the one-character query beside the longest, 20-character document
+        await Scorer(bounded, configure: o => o.MaxInputChars = 21).ScoreAsync("q", documents);
         await Scorer(unbounded).ScoreAsync("q", documents);
 
         Assert.Equal(unbounded.Requests[0].Body, bounded.Requests[0].Body);

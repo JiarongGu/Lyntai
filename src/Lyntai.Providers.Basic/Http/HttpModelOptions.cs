@@ -76,26 +76,25 @@ public sealed class HttpModelOptions
     /// the BGE shape, and an unset side must stay verbatim rather than inherit the other.</para></summary>
     public string? QueryPrefix { get; set; }
 
-    /// <summary>The most CHARACTERS (UTF-16 code units, <c>string.Length</c>) one input may carry in a request
-    /// when serving <see cref="ProviderKinds.Vector"/> or <see cref="ProviderKinds.Score"/>; a longer input is
-    /// SEGMENTED into pieces within it, or cut where <see cref="Segmentation"/> says to truncate. Null (the
-    /// default) sends every input whole. Ignored for <see cref="ProviderKinds.Text"/>.
+    /// <summary>The most CHARACTERS one input may carry in a request when serving <see cref="ProviderKinds.Vector"/>
+    /// — or, serving <see cref="ProviderKinds.Score"/>, the query and one document TOGETHER, since a reranker's
+    /// window holds both. A longer input is SEGMENTED into pieces within it, or cut where
+    /// <see cref="Segmentation"/> says to truncate. Null (the default) sends every input whole. Ignored for
+    /// <see cref="ProviderKinds.Text"/>.
     ///
     /// <para><b>Set it for a small-window backend</b>, which rejects the WHOLE call when any one input exceeds
-    /// its window. A piece ends at a paragraph, line, sentence or word boundary in its latter half, and the
-    /// next restarts slightly before that end. A reranker is sent every piece in one request and scores a
-    /// document as its BEST piece; an embedder embeds every piece (<see cref="BatchSize"/> counts pieces) and
-    /// returns the length-weighted mean of its pieces' unit vectors, re-normalised. An input within the bound
-    /// is sent, and answered, exactly as without it.</para>
+    /// its window. A piece ends at a paragraph, line, sentence or word boundary in its latter half; a reranker
+    /// scores a document as its BEST piece, and an embedder returns its pieces' unit vectors averaged by length
+    /// (<see cref="BatchSize"/> counts pieces). An input within the bound is sent, and answered, exactly as
+    /// without it. On a reranker the query keeps at most (1 − <see cref="InputSegmentation.MinDocumentShare"/>)
+    /// of the bound, cut once per call at a word boundary: under a 512-token window, 506 keeps a query to 253.</para>
     ///
-    /// <para><b>An HTTP client has no tokenizer, so characters only approximate tokens.</b> A WordPiece or
-    /// XLM-R-style SentencePiece tokenizer rarely yields more tokens than characters — an XLM-R tokenizer was
-    /// measured at most one token over, and NFKC normalisation can expand a compatibility character — while
-    /// one falling back to BYTES (byte-level BPE, SentencePiece with byte fallback) can on CJK and rarer
-    /// scripts. Leave margin, special tokens included: a piece that still overflows fails the whole call as
-    /// <see cref="ProviderVerdict.ContextWindowExceeded"/>, which the memory verification seams log at
-    /// Warning. An embedding's role prefix counts inside the bound. A reranker's window also holds the QUERY,
-    /// never segmented: set this to the window minus your longest query, with margin.</para>
+    /// <para><b>Characters only approximate tokens</b>, so the count is taken after NFKC normalisation while
+    /// pieces are cut from, and sent as, the original text: an XLM-R tokenizer was measured at tokens ≤ NFKC
+    /// characters + 1 across 64,012 scalars, where a raw ㎡ costs two tokens and ㌚ six. A byte-fallback
+    /// tokenizer can still exceed it on CJK. Leave margin, special tokens and an embedding's role prefix
+    /// included: a piece that overflows fails the whole call as <see cref="ProviderVerdict.ContextWindowExceeded"/>
+    /// (<c>docs/DECISIONS.md</c> <b>D177</b>).</para>
     ///
     /// <para>The provider throws <see cref="ArgumentOutOfRangeException"/> when it is not positive or leaves
     /// an embedding prefix no room. At an Ollama server root, <c>AddHttpProvider</c> carries it and
@@ -103,12 +102,13 @@ public sealed class HttpModelOptions
     public int? MaxInputChars { get; set; }
 
     /// <summary>What happens to an input longer than <see cref="MaxInputChars"/>, and ignored without it
-    /// (<c>docs/DECISIONS.md</c> <b>D177</b>). Null — the default — SEGMENTS it, as does a record with
-    /// <see cref="InputOverflow.Segment"/>; <see cref="InputOverflow.Truncate"/> sends each input cut where
-    /// its first piece would end and answers what was sent.
-    /// <para><see cref="InputSegmentation.Overlap"/> sets how far each piece reaches back into the one before.
-    /// <see cref="InputSegmentation.MinDocumentShare"/> does not apply here: the bound is per document and
-    /// never counts a reranker's query.</para></summary>
+    /// (<c>docs/DECISIONS.md</c> <b>D177</b>). Null — the default — SEGMENTS it at the record's defaults, as
+    /// does a record with <see cref="InputOverflow.Segment"/>; <see cref="InputOverflow.Truncate"/> sends each
+    /// input cut where its first piece would end and answers what was sent.
+    /// <para><see cref="InputSegmentation.Overlap"/> sets how far each piece reaches back into the one before,
+    /// and <see cref="InputSegmentation.MaxPiecesPerInput"/> caps the pieces of one input.
+    /// <see cref="InputSegmentation.MinDocumentShare"/> applies to a reranker, whose bound holds the query too;
+    /// an embedder takes no query.</para></summary>
     public InputSegmentation? Segmentation { get; set; }
 
     /// <summary>A JSON object whose members are added to the <c>chat/completions</c> request body of every call

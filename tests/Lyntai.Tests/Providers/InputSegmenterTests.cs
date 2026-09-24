@@ -203,6 +203,114 @@ public class InputSegmenterTests
         Assert.False(char.IsHighSurrogate(cut[^1]));
     }
 
+    // ---- the COUNT is taken after NFKC normalisation; the text cut and sent is the original ----------------
+
+    [Theory]
+    [InlineData("℃")]         // °C
+    [InlineData("㎡")]         // m2
+    [InlineData("㍿")]         // 株式会社
+    [InlineData("㌚")]         // ミリバール
+    [InlineData("ﷺ")]         // eighteen characters of Arabic
+    public void A_compatibility_character_COUNTS_as_its_NFKC_form(string character)
+    {
+        var nfkc = character.Normalize(System.Text.NormalizationForm.FormKC).Length;
+
+        Assert.True(nfkc > character.Length, "the case should expand under NFKC");
+        Assert.Equal(nfkc, InputSegmenter.Measure(character));
+    }
+
+    [Theory]
+    [InlineData("plain ASCII text, already normal")]
+    [InlineData("é composes to one character")]   // a combining mark, composed by NFKC
+    [InlineData("㎡ and ℃ beside 株式会社 and ﷺ")]
+    [InlineData("👩‍👩‍👧 a family, 🇯🇵 a flag")]
+    [InlineData("ｆｕｌｌ－ｗｉｄｔｈ　ｔｅｘｔ")]
+    public void The_count_is_NEVER_below_the_NFKC_length_of_the_whole(string text)
+    {
+        Assert.True(InputSegmenter.Measure(text) >= text.Normalize(System.Text.NormalizationForm.FormKC).Length);
+    }
+
+    [Fact]
+    public void An_input_whose_RAW_length_fits_but_whose_NFKC_length_does_not_is_split()
+    {
+        var input = string.Concat(Enumerable.Repeat("㎡", 15));   // 15 characters, 30 after NFKC
+
+        var pieces = InputSegmenter.Split(input, 20);
+
+        Assert.True(pieces.Count >= 2, $"{pieces.Count} piece(s)");
+        Assert.All(pieces, p => Assert.True(InputSegmenter.Measure(p) <= 20, $"a piece counting {InputSegmenter.Measure(p)}"));
+        Assert.Equal(input, string.Concat(pieces));   // cut from, and sent as, the ORIGINAL text
+    }
+
+    [Fact]
+    public void Counting_NFKC_is_LINEAR_in_the_length_of_the_text()
+    {
+        // 400,000 characters that are not NFKC-normal: re-normalising each candidate piece would be quadratic
+        var input = string.Concat(Enumerable.Repeat("㎡ ℃ ", 100_000));
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+
+        var pieces = InputSegmenter.Split(input, 1_000);
+
+        Assert.True(clock.Elapsed < TimeSpan.FromSeconds(10), $"took {clock.Elapsed}");
+        Assert.All(pieces, p => Assert.True(InputSegmenter.Measure(p) <= 1_000));
+    }
+
+    [Fact]
+    public void A_cut_never_falls_INSIDE_a_text_element()
+    {
+        // a base with two combining marks is one element: splitting it would count its marks as nothing
+        var input = string.Concat(Enumerable.Repeat("á̂", 40));
+
+        var spans = InputSegmenter.Spans(input, 10);
+
+        Assert.All(spans, s => Assert.Equal('a', input[s.Start]));
+    }
+
+    // ---- MaxPiecesPerInput: the pieces kept are spread from the first to the LAST ----------------------------
+
+    [Theory]
+    [InlineData(1, new[] { 0 })]
+    [InlineData(2, new[] { 0, 3 })]
+    [InlineData(3, new[] { 0, 2, 3 })]
+    [InlineData(4, new[] { 0, 1, 2, 3 })]
+    [InlineData(9, new[] { 0, 1, 2, 3 })]
+    public void A_piece_cap_keeps_that_many_pieces_the_first_at_the_start_and_the_last_at_the_TAIL(
+        int cap, int[] kept)
+    {
+        var all = InputSegmenter.Split(Words(30), 40);   // four pieces
+
+        var plan = InputSegmenter.Segment([Words(30), "short"], 40, maxPieces: cap);
+
+        Assert.Equal(4, all.Count);
+        Assert.Equal(kept.Select(i => all[i]), plan.Pieces.Take(plan.First[1]));
+        Assert.Equal("short", plan.Pieces[^1]);
+    }
+
+    // ---- a reranker's query, cut ONCE per call to its share of the pair window ------------------------------
+
+    [Fact]
+    public void A_query_within_its_share_of_the_pair_window_is_kept_EXACTLY()
+    {
+        const string query = "where is the needle";
+
+        Assert.Same(query, InputSegmenter.QueryWithin(query, 60, 0.5));
+    }
+
+    [Theory]
+    [InlineData(506, 0.5, 253)]   // an adopting application's own bound under a 512-token window
+    [InlineData(60, 0.5, 30)]
+    [InlineData(60, 0.8, 12)]
+    public void A_longer_query_keeps_at_most_its_share_cut_at_a_WORD_boundary(int window, double share, int most)
+    {
+        var query = Words(200);
+
+        var kept = InputSegmenter.QueryWithin(query, window, share);
+
+        Assert.InRange(InputSegmenter.Measure(kept), most / 2, most);
+        Assert.StartsWith(kept, query, StringComparison.Ordinal);
+        Assert.Equal(' ', query[kept.Length]);   // it ended where a word did
+    }
+
     [Theory]
     [InlineData("long-word", 7)]
     [InlineData("dots", 3)]

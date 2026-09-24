@@ -180,30 +180,35 @@ every addition.
 - **Segmenting an over-long input is a capability every provider with a window can be configured for**
   (**D177**). One record, `InputSegmentation` (`Lyntai.Inference`), sets it on each provider as
   `Segmentation`: `Overflow` — `InputOverflow.Segment` or `Truncate` — `Overlap`, how far each window reaches
-  back into the one before (default 0.15), and `MinDocumentShare`, how much of a reranker pair's window its
-  document keeps before the query is cut (default 0.5). Segmenting splits an input into windows, answers every
-  one, and combines the answers into one per input: a reranker scores a document as its BEST window, and an
-  embedder returns the length-weighted mean of its windows' unit vectors, re-normalised. An input that fits is
-  answered exactly as without it, except where the ONNX entry below says a record cuts a long query. **Every
-  default is the provider's behaviour before it**, so nothing changes until you configure it.
+  back into the one before (default 0.15), `MinDocumentShare`, how much of a reranker pair's window its
+  document keeps before the query is cut (default 0.5), and `MaxPiecesPerInput`, a cap on one input's pieces
+  (default none) that keeps the first, the last and the rest spread evenly between, leaving gaps in coverage.
+  Segmenting splits an input into windows, answers every one, and combines the answers into one per input: a
+  reranker scores a document as its BEST window, and an embedder returns the length-weighted mean of its
+  windows' unit vectors, re-normalised. An input that fits is answered exactly as without it, except where a
+  reranker entry below says a record cuts a long query. **Every default is the provider's behaviour before
+  it**, so nothing changes until you configure it.
 
 - **`HttpModelOptions.MaxInputChars` bounds the input an HTTP embedder or reranker is sent** (**D177**). A
   small-window backend — a 512-token reranker on llama.cpp, say — rejects the WHOLE call when any one input
   exceeds its window, so one long entry cost every other answer in the call. Set the bound and a longer input
-  is segmented at paragraph, line, sentence or word boundaries and every piece is sent — a reranker's all in one
-  request, an embedder's batched by `BatchSize`, which counts pieces — or, with
-  `Segmentation = new() { Overflow = InputOverflow.Truncate }`, sent cut where its first piece would end.
-  It counts CHARACTERS, not tokens, so leave margin; on a reranker subtract your longest query, which the
-  window holds too and `MinDocumentShare` cannot measure here. Null, the default, sends every input whole. At
-  an Ollama server root, `AddHttpProvider` carries the bound and `Segmentation` onto the Ollama-native
-  provider.
+  is segmented at paragraph, line, sentence or word boundaries and every piece is sent — a reranker's all in
+  one request, an embedder's batched by `BatchSize`, which counts pieces — or, with
+  `Segmentation = new() { Overflow = InputOverflow.Truncate }`, sent cut where its first piece would end. On a
+  reranker the bound is the PAIR window, query and document together: the query keeps at most
+  (1 − `MinDocumentShare`) of it, cut once per call at a word boundary so every document is scored against
+  the same question, and each document gets the rest; a call whose query keeps within its share and whose
+  documents fit beside it is sent untouched. It counts CHARACTERS after NFKC normalisation, not tokens: pieces
+  are cut from, and sent as, the original text, but a raw ㎡ or ㌚ counts as the several characters a
+  tokenizer sees. Leave margin. Null, the default, sends every input whole. At an Ollama server root,
+  `AddHttpProvider` carries the bound and `Segmentation` onto the Ollama-native provider.
 
 - **`OllamaOptions.MaxInputChars` and `OllamaOptions.Segmentation` bound what `/api/embed` is sent**, with
-  the same pieces and pooling as the HTTP provider. Null, the default, sends every input whole and leaves the
-  server's own silent cut at the model's context in place. Once the bound is set, and unless `Segmentation`
-  truncates, every request also carries `truncate: false`, so a piece that still overflows fails the call
-  visibly instead of being cut behind it; under `Truncate` you have accepted the loss, and the server's own cut
-  stands behind the client's.
+  the same pieces, count and pooling as the HTTP provider. Null, the default, sends every input whole and
+  leaves the server's own silent cut at the model's context in place. Once the bound is set, and unless
+  `Segmentation` truncates, every request also carries `truncate: false`, so a piece that still overflows fails
+  the call visibly instead of being cut behind it; under `Truncate` you have accepted the loss, and the
+  server's own cut stands behind the client's.
 
 - **`OnnxProviderOptions.Segmentation` lets the in-process ONNX provider segment by TOKENS.** It still
   truncates at `MaxTokens` by default. With a record that segments, a window ends after a sentence end or

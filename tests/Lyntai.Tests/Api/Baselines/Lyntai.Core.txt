@@ -892,6 +892,7 @@ enum Lyntai.Inference.InputOverflow
     value__ : Int32
 sealed class Lyntai.Inference.InputSegmentation
     .ctor()
+    MaxPiecesPerInput : Nullable<Int32>
     MinDocumentShare : Double
     Overflow : InputOverflow
     Overlap : Double

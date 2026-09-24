@@ -15,22 +15,18 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 9 across 4 Parts: 5 startable, 2 blocked, 2 watch
+## Open items — 5 across 3 Parts: 1 startable, 2 blocked, 2 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 110 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
-| 163 | 33 | GEN7 — pipelines (3d → image → video) | startable |  |
-| 222 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 245 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 302 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
-| 335 | 289 | A reranker's window holds the QUERY too, so the HTTP bound must count it | startable |  |
-| 339 | 289 | Measure a piece's length after NFKC normalisation | startable |  |
-| 342 | 289 | A per-input piece cap on `InputSegmentation` | startable |  |
-| 346 | 289 | Record the adopter's cut-vs-segmented measurements | startable |  |
+| 106 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
+| 159 | 33 | GEN7 — pipelines (3d → image → video) | startable |  |
+| 218 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 241 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 298 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
 
 <!-- open-items:end -->
 
@@ -323,29 +319,6 @@ there is nothing here to code: what remains is evidence only recurrence can supp
   <br>**So it is `watch · data` rather than startable**: what it needs is a recurrence carrying the frame
   BELOW `OpenAsync`, because the three causes a reading can reach are gone and the remaining ones are all
   in the runner's resource behaviour — the same shape as Part 99 above, by a different mechanism.
-
-## Part 289 — segmentation, completed against an adopting application's own build (2026-09-24)
-
-_An adopting application shipped its own reranker segmentation before **D177** landed and will delete it once
-the library's is equivalent. Compared, it does three things D177 does not, and measured the whole approach: with
-the answer at the end of a ~1,000-character note, found@8 rose 4 → 44 of 60 on a 512-window reranker, where
-cutting read worse than no judge. The owner asked for the complete library; the controller's analysis ruled
-each item below (2026-09-24). D177 is unreleased, so none of this breaks anything._
-
-- [ ] **A reranker's window holds the QUERY too, so the HTTP bound must count it.** On a `Score` <!-- item: state=startable -->
-  registration, `MaxInputChars` becomes the PAIR window (query + document) and `MinDocumentShare` applies over
-  HTTP as it does on ONNX: the query keeps at most its share, cut once per call, and each document gets the rest.
-  `Vector` keeps its per-input meaning.
-- [ ] **Measure a piece's length after NFKC normalisation.** Pieces are still cut from, and sent as, the <!-- item: state=startable -->
-  original text; only the COUNT uses the NFKC form, which the adopter measured at tokens ≤ characters + 1 across
-  64,012 scalars where raw ㎡ / ㌚ cost 2–6 tokens each. No setting.
-- [ ] **A per-input piece cap on `InputSegmentation`** (to be named `MaxPiecesPerInput`) — optional, null = <!-- item: state=startable -->
-  unbounded as today; when set, the pieces
-  spread evenly from the start with the last anchored at the tail, on every provider. A per-CALL cap is rejected:
-  a call's total is already inputs × this cap, and adapting to measured latency is a deployment's policy.
-- [ ] **Record the adopter's cut-vs-segmented measurements** in `docs/memory-measurements.md` §5, and the <!-- item: state=startable -->
-  one cost it found (a long document's extra windows can outscore a short answer at the start position, 8 losses
-  / 1 gain) as a known limit of D177's best-piece rule.
 
 ## Retired — five Parts that outlived their open work (2026-09-16)
 

@@ -389,6 +389,32 @@ public class WindowedTokenizerTests
         Assert.Equal(Sides(batch.Rows[batch.First[0]]).Query, Sides(batch.Rows[batch.First[1]]).Query);
     }
 
+    [Theory]
+    [InlineData(1)]
+    [InlineData(3)]
+    public void MaxPiecesPerInput_keeps_that_many_windows_the_first_at_the_start_and_the_last_at_the_TAIL(int cap)
+    {
+        var text = River(60);                                   // 300 tokens, some thirty windows of 14
+        var content = Tokenizer.EncodeToIds(text);
+        var all = TokenSegmenter.Windows(content, 14, TokenBoundaries.FromVocabulary(Vocabulary));
+
+        var rows = Windows(16, new InputSegmentation { MaxPiecesPerInput = cap }).EncodeTexts([text]).Rows;
+
+        Assert.Equal(cap, rows.Length);
+        Assert.Equal(content.Take(all[0].End - all[0].Start), rows[0].Ids[1..^1]);
+        if (cap > 1) Assert.Equal(content.Skip(all[^1].Start), rows[^1].Ids[1..^1]);
+    }
+
+    [Fact]
+    public void MaxPiecesPerInput_caps_a_documents_windows_under_the_whole_query()
+    {
+        var batch = Windows(32, new InputSegmentation { MaxPiecesPerInput = 2 }).EncodePairs(Query, [River(30)]);
+
+        var all = TokenSegmenter.Windows(Tokenizer.EncodeToIds(River(30)), 22, TokenBoundaries.FromVocabulary(Vocabulary));
+        Assert.Equal(2, batch.Rows.Length);
+        Assert.Equal(all[^1].End - all[^1].Start, Sides(batch.Rows[^1]).Document.Length);
+    }
+
     [Fact]
     public void A_larger_MinDocumentShare_cuts_the_query_sooner()
     {

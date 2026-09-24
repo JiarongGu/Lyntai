@@ -43,7 +43,8 @@ public sealed class OnnxProviderOptions
     /// shortened. A record changes that:
     /// <list type="bullet">
     /// <item><see cref="InputOverflow.Segment"/> splits it by tokens into windows, each ending after a
-    /// sentence end or before a word start where one is in reach, and runs every window: a cross-encoder
+    /// sentence end or before a word start where one is in reach, and runs every window — or
+    /// <see cref="InputSegmentation.MaxPiecesPerInput"/> of them, spread to the tail: a cross-encoder
     /// scores a document as its BEST window, and an embedder returns its windows' unit vectors averaged by
     /// token count and re-normalised. A text that fits is answered exactly as without the record; a longer
     /// one is a row per window, and rows run in passes of at most eight or the call's input count, whichever

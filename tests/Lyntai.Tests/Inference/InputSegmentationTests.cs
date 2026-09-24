@@ -17,6 +17,34 @@ public class InputSegmentationTests
         Assert.Equal(0.5, segmentation.MinDocumentShare);
     }
 
+    [Fact]
+    public void A_new_record_puts_NO_cap_on_the_pieces_of_an_input()
+    {
+        Assert.Null(new InputSegmentation().MaxPiecesPerInput);
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(8)]
+    public void A_piece_cap_of_one_or_more_is_accepted(int cap)
+    {
+        var segmentation = new InputSegmentation { MaxPiecesPerInput = cap };
+        Assert.Equal(cap, segmentation.MaxPiecesPerInput);
+
+        segmentation.MaxPiecesPerInput = null;   // back to unbounded
+        Assert.Null(segmentation.MaxPiecesPerInput);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public void A_piece_cap_under_one_is_refused(int cap)
+    {
+        var ex = Assert.Throws<ArgumentOutOfRangeException>(() => new InputSegmentation { MaxPiecesPerInput = cap });
+
+        Assert.Equal(nameof(InputSegmentation.MaxPiecesPerInput), ex.ParamName);
+    }
+
     [Theory]
     [InlineData(InputOverflow.Segment)]
     [InlineData(InputOverflow.Truncate)]
