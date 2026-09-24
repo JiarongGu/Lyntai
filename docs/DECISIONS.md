@@ -5519,16 +5519,25 @@ skip and the composition check alike. Two layers, because a list is known at two
   composed, and each named client's resolved candidates, when `ITextClientFactory` is: a candidate naming a
   registered backend that produces no text throws `InvalidOperationException` naming it, what it produces and
   the fix. Same stance as **D119** and `ClientCandidates.OutsideThePool` — a setting that can never take effect
-  is heard at startup. A candidate naming NO registered backend is not this check's business: an adapter
-  package may be absent in one environment, and the router skips it per call as before.
-- **A list passed at RUN TIME is skipped per call.** `TextRouter` never calls such a candidate, on either door
-  or in the capability probe, and records why — an explicit `ITextRouter` call or a job payload is not known
-  until it arrives.
+  is heard at startup. It runs when the front door is resolved, not inside `AddLyntai`, because a factory
+  provider is opaque until it is built and `DeclaredCapabilities` carries no ids. A candidate naming NO
+  registered backend is not this check's business: an adapter package may be absent in one environment, and
+  the router skips it per call as before.
+- **A list passed at RUN TIME is skipped per call**, with a warning, as **D176** warns of such a route entry.
+  `TextRouter` never calls such a candidate, on either door or in the capability probe, and records why — a
+  list your code passes to `ITextRouter` is not known until it arrives.
 
 **The router says why.** When every candidate was skipped and each serves no text, the reply is
 `ProviderVerdict.Unsupported` naming them — the capability-gap verdict, blameless, benching no host. Any other
 all-skipped list is `Failed`, its detail naming each candidate and the reason it was skipped.
 
-**Rejected.** Per call only: a provably dead configuration would stand for the life of the process, one
-Debug-level skip per call its only trace. Composition only: a run-time list never passes through composition. `Failed` for the all-non-text case: nothing failed, and a `Failed` reads as a host problem where
-the defect is the list. The break is named in `CHANGELOG.md` (**D161**).
+**An EMPTY `Produces` serves nothing**, as `ProviderCapabilities` says, so such a backend is refused and skipped
+like any other — but the message tells it to declare `ProviderKinds.Text` rather than to leave the list, since
+a chat backend that forgot to declare is the likelier case. A bridge fills an empty `Accepts`, `Produces` or
+`Operations` with its text defaults: its delegates take and return text, so it cannot mean "nothing".
+
+**Rejected.** Per call only: a provably dead configuration would stand for the life of the process, a warning
+per call its only trace. Composition only: a run-time list never passes through composition. `Failed` for the
+all-non-text case: nothing failed, and a `Failed` reads as a host problem where the defect is the list. Reading
+an empty `Produces` as text: it reverses the contract's fail-closed default for every kind. The break is named
+in `CHANGELOG.md` (**D161**).

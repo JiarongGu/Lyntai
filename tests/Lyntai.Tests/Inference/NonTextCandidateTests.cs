@@ -2,6 +2,7 @@ using Lyntai.Inference;
 using Lyntai;
 using Lyntai.Tests.Fakes;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace Lyntai.Tests.Inference;
 
@@ -22,14 +23,15 @@ public class NonTextCandidateTests
         Assert.Contains("embed:e5", error.Message, StringComparison.Ordinal);
         Assert.Contains("vector", error.Message, StringComparison.Ordinal);
         Assert.Contains("UseDefaultCandidates", error.Message, StringComparison.Ordinal); // and says the fix
+        Assert.DoesNotContain("declare ProviderKinds.Text", error.Message, StringComparison.Ordinal);
 
         Assert.Throws<InvalidOperationException>(() => sp.GetRequiredService<ITextClientFactory>());
     }
 
     [Theory]
-    [InlineData(false)] // its candidates derived from the backends it is pooled over
-    [InlineData(true)]  // its candidates stated outright
-    public void A_named_clients_candidates_naming_a_non_text_backend_fail_at_composition(bool stated)
+    [InlineData(false, "UseProviders")] // its candidates derived from the backends it is pooled over
+    [InlineData(true, "UseCandidates")]  // its candidates stated outright
+    public void A_named_clients_candidates_naming_a_non_text_backend_fail_at_composition(bool stated, string fix)
     {
         using var sp = Build(b => b.UseDefaultCandidates("chat").AddTextClient("judge", c =>
         {
@@ -41,8 +43,47 @@ public class NonTextCandidateTests
         Assert.Contains("judge", error.Message, StringComparison.Ordinal);
         Assert.Contains("rerank", error.Message, StringComparison.Ordinal);
         Assert.Contains("score", error.Message, StringComparison.Ordinal);
+        Assert.Contains(fix, error.Message, StringComparison.Ordinal);
 
         Assert.NotNull(sp.GetRequiredService<ITextClient>()); // the default list names none, so it composes
+    }
+
+    [Fact]
+    public void A_named_client_inheriting_the_default_list_is_pointed_at_the_default_list()
+    {
+        using var sp = Build(b => b.UseDefaultCandidates("chat", "embed").AddTextClient("judge", _ => { }));
+
+        var error = Assert.Throws<InvalidOperationException>(() => sp.GetRequiredService<ITextClientFactory>());
+        Assert.Contains("'judge'", error.Message, StringComparison.Ordinal);
+        Assert.Contains("inherited from the default candidates", error.Message, StringComparison.Ordinal);
+        Assert.Contains("UseDefaultCandidates", error.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("UseCandidates", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_named_pool_holding_an_embedder_composes_when_its_stated_candidates_leave_it_out()
+    {
+        using var sp = Build(b => b.UseDefaultCandidates("chat")
+            .AddTextClient("judge", c => c.UseProviders("chat", "embed").UseCandidates(new ProviderCandidate("chat"))));
+
+        Assert.NotNull(sp.GetRequiredService<ITextClientFactory>().Get("judge"));
+    }
+
+    [Fact]
+    public void A_backend_declaring_no_output_is_told_to_declare_text_rather_than_to_be_removed()
+    {
+        // an empty Produces serves nothing under ProviderCapabilities' contract, but a BYO chat backend that
+        // simply forgot to declare is the likelier case, so removing it would be the wrong fix
+        using var sp = Build(b =>
+        {
+            b.Services.AddSingleton<IModelProvider>(DeclaringNothing("custom"));
+            b.UseDefaultCandidates("custom", "chat");
+        });
+
+        var error = Assert.Throws<InvalidOperationException>(() => sp.GetRequiredService<ITextClient>());
+        Assert.Contains("custom (produces nothing)", error.Message, StringComparison.Ordinal);
+        Assert.Contains("declare ProviderKinds.Text in its ProviderCapabilities.Produces", error.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("Remove", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -70,7 +111,8 @@ public class NonTextCandidateTests
     [Theory, InlineData(false), InlineData(true)]
     public async Task A_mixed_list_skips_the_non_text_backend_and_serves_from_the_text_one(bool streaming)
     {
-        var (router, chat, embed, rerank) = Routed();
+        var warnings = new List<string>();
+        var (router, chat, embed, rerank) = Routed(warnings: warnings);
 
         var (verdict, text) = await CallAsync(router, [new("embed"), new("rerank"), new("chat")], streaming);
 
@@ -79,6 +121,38 @@ public class NonTextCandidateTests
         Assert.Empty(embed.Calls);
         Assert.Empty(rerank.Calls);
         Assert.Single(chat.Calls);
+        // a caller defect, not transient state — warned of as the live route warns of the same entry
+        Assert.Equal(2, warnings.Count);
+        Assert.Contains("embed", warnings[0]);
+        Assert.Contains("rerank", warnings[1]);
+    }
+
+    [Theory, InlineData(false), InlineData(true)]
+    public async Task A_backend_declaring_no_output_is_skipped_per_call(bool streaming)
+    {
+        var chat = new FakeTextProvider("chat");
+        var custom = DeclaringNothing("custom");
+        var router = new TextRouter([custom, chat], new DeadHostTracker(), new LyntaiOptions());
+
+        var (served, text) = await CallAsync(router, [new("custom"), new("chat")], streaming);
+        Assert.Equal(ProviderVerdict.Ok, served);
+        Assert.StartsWith("chat ", text);
+
+        var (alone, detail) = await CallAsync(router, [new("custom")], streaming);
+        Assert.Equal(ProviderVerdict.Unsupported, alone);
+        Assert.Contains("custom: produces nothing, not text", detail);
+        Assert.Empty(custom.Calls);
+    }
+
+    [Theory, InlineData(false), InlineData(true)]
+    public async Task An_empty_list_is_Failed_saying_none_was_given(bool streaming)
+    {
+        var (router, _, _, _) = Routed();
+
+        var (verdict, detail) = await CallAsync(router, [], streaming);
+
+        Assert.Equal(ProviderVerdict.Failed, verdict);
+        Assert.Equal("no live candidate (none given)", detail);
     }
 
     [Theory]
@@ -149,6 +223,12 @@ public class NonTextCandidateTests
         Capabilities = new() { Accepts = [ProviderKinds.Text], Produces = [kind], Operations = [ProviderOperation.Complete] },
     };
 
+    /// <summary>A BYO backend that answers text but declared no output kind at all.</summary>
+    private static FakeTextProvider DeclaringNothing(string id) => new(id)
+    {
+        Capabilities = new() { Accepts = [ProviderKinds.Text], Operations = [ProviderOperation.Complete, ProviderOperation.Stream] },
+    };
+
     /// <summary>A container over two chat backends, an embedder and a reranker, composed by
     /// <paramref name="configure"/>.</summary>
     private static ServiceProvider Build(Action<LyntaiBuilder> configure)
@@ -183,13 +263,26 @@ public class NonTextCandidateTests
     }
 
     private static (TextRouter Router, FakeTextProvider Chat, FakeTextProvider Embed, FakeTextProvider Rerank) Routed(
-        DeadHostTracker? tracker = null)
+        DeadHostTracker? tracker = null, List<string>? warnings = null)
     {
         var chat = new FakeTextProvider("chat");
         var embed = Producing("embed", ProviderKinds.Vector);
         var rerank = Producing("rerank", ProviderKinds.Score);
-        return (new TextRouter([embed, rerank, chat], tracker ?? new DeadHostTracker(), new LyntaiOptions()),
+        var logger = warnings is null ? null : new CapturingLogger<TextRouter>(warnings);
+        return (new TextRouter([embed, rerank, chat], tracker ?? new DeadHostTracker(), new LyntaiOptions(), logger),
             chat, embed, rerank);
+    }
+
+    /// <summary>Keeps every Warning and above.</summary>
+    private sealed class CapturingLogger<T>(List<string> sink) : ILogger<T>
+    {
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+        public bool IsEnabled(LogLevel logLevel) => true;
+        public void Log<TState>(LogLevel level, EventId id, TState state, Exception? ex,
+            Func<TState, Exception?, string> fmt)
+        {
+            if (level >= LogLevel.Warning) sink.Add(fmt(state, ex));
+        }
     }
 
     /// <summary>One call through the chosen door: the verdict, and the reply's text on success or its detail

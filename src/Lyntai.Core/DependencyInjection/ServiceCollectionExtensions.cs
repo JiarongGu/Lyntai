@@ -153,6 +153,9 @@ public static class LyntaiServiceCollectionExtensions
                 sp.GetService<Lyntai.Inference.RateLimiting.IRateLimiter>()));
     }
 
+    /// <summary>Where the default candidate list is set, for a message telling someone to change it.</summary>
+    private const string DefaultListFix = "UseDefaultCandidates or LYNTAI_DEFAULT_CANDIDATES";
+
     /// <summary>The LLM front door: process runner, dead-host tracker, router, and the consumer
     /// <see cref="ITextClient"/> — Lyntai behaving like ONE provider, with any front-door decorators folded
     /// over the base client.</summary>
@@ -181,7 +184,8 @@ public static class LyntaiServiceCollectionExtensions
         // registration order), so they compose predictably instead of clobbering.
         services.TryAddSingleton<ITextClient>(sp =>
         {
-            RefuseCandidatesServingNoText("the default client", options.DefaultCandidates, sp.GetServices<IModelProvider>());
+            RefuseCandidatesServingNoText("the default client", DefaultListFix, options.DefaultCandidates,
+                sp.GetServices<IModelProvider>());
             return Compose(sp, sp.GetRequiredService<ITextRouter>());
         });
 
@@ -252,7 +256,12 @@ public static class LyntaiServiceCollectionExtensions
                     "it, or drop it.");
 
             var candidates = ClientCandidates.Resolve(client.ProviderIds, client.Candidates, options.DefaultCandidates);
-            RefuseCandidatesServingNoText($"LLM client '{name}'", candidates, providers);
+            // name the setting the list actually came from — ClientCandidates.Resolve's precedence
+            var (whose, fix) = client.Candidates.Count > 0 ? ($"LLM client '{name}'", "its UseCandidates")
+                : client.ProviderIds.Count > 0
+                    ? ($"LLM client '{name}'", "its UseProviders, or state its list with UseCandidates")
+                    : ($"LLM client '{name}', whose list is inherited from the default candidates,", DefaultListFix);
+            RefuseCandidatesServingNoText(whose, fix, candidates, providers);
 
             var router = sp.GetRequiredService<ITextRouterFactory>().For(providers);
             return Compose(sp, router, candidates);
@@ -260,17 +269,24 @@ public static class LyntaiServiceCollectionExtensions
 
         // A CONFIGURED text list naming a backend that produces no text is provably dead, so composition fails
         // as it does for a candidate outside the pool (D178). A list passed at run time is skipped per call.
-        static void RefuseCandidatesServingNoText(
-            string client, IReadOnlyList<ProviderCandidate> candidates, IEnumerable<IModelProvider> providers)
+        // A backend declaring no kind at all is more likely a chat backend that forgot to declare one, so it is
+        // told to declare Text rather than to leave the list.
+        static void RefuseCandidatesServingNoText(string client, string fix,
+            IReadOnlyList<ProviderCandidate> candidates, IEnumerable<IModelProvider> providers)
         {
             var dead = ClientCandidates.ServingNoText(candidates, providers);
             if (dead.Count == 0) return;
-            throw new InvalidOperationException(
-                $"{client} routes text over candidate(s) {string.Join(", ", dead)}, naming a backend that " +
-                "produces no text, so a text call can never be served by one. Remove it from the text " +
-                "candidates — UseDefaultCandidates or LYNTAI_DEFAULT_CANDIDATES for the default client, " +
-                "UseCandidates or UseProviders for a named one; a vector or score backend is selected by its " +
-                "kind and needs no candidate entry.");
+
+            var message = $"{client} routes text over candidate(s) " +
+                $"{string.Join(", ", dead.Select(d => $"{d.Candidate} (produces {d.Produces})"))}, naming a " +
+                "backend that produces no text, so a text call can never be served by one.";
+            if (dead.Any(d => d.Produces == ClientCandidates.NothingProduced))
+                message += " A backend that declares no output serves nothing: if it serves text, declare " +
+                    "ProviderKinds.Text in its ProviderCapabilities.Produces.";
+            if (dead.Any(d => d.Produces != ClientCandidates.NothingProduced))
+                message += $" Remove a backend of another kind from {fix}; a vector or score backend is " +
+                    "selected by its kind and needs no candidate entry.";
+            throw new InvalidOperationException(message);
         }
 
         // THE FRONT DOOR, built ONCE for every client this container hands out. Only the ROUTER differs

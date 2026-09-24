@@ -34,7 +34,8 @@ public sealed class TextClientBuilder
     /// what it TRIES — <c>UseDefaultCandidates</c> governs the default client, not this one. An id the
     /// global list already pins to a model keeps that model; the rest get the backend's own default. State
     /// the list outright with <see cref="UseCandidates"/> when that is not what you want. A backend that
-    /// produces no text cannot be one of them: composition throws.</para>
+    /// produces no text cannot be one of the DERIVED candidates — composition throws — so a client pooled over
+    /// one states its text list with <see cref="UseCandidates"/>.</para>
     ///
     /// <para>Naming none leaves the client over EVERY registered provider — the default client's own
     /// behaviour, which is the right meaning for a name that exists only to carry different governance

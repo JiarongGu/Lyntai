@@ -103,6 +103,47 @@ public class BridgeProviderTests
     }
 
     [Fact]
+    public async Task Capabilities_that_leave_the_kinds_empty_take_the_text_defaults_and_keep_the_rest()
+    {
+        // the documented way to declare tool calls; its delegates take and return text, so an empty
+        // Produces must not make the bridge a backend that serves nothing
+        using var sp = Build(b => b
+            .AddBridgeProvider("vendor", (_, _) => Task.FromResult(new TextResponse("served", ProviderVerdict.Ok)),
+                capabilities: new ProviderCapabilities { SupportsToolCalls = true })
+            .UseDefaultCandidates("vendor"));
+
+        var reply = await sp.GetRequiredService<ITextClient>().CompleteAsync(Ask());
+        var caps = Assert.Single(sp.GetServices<IModelProvider>()).Capabilities;
+
+        Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
+        Assert.Equal("served", reply.Text);
+        Assert.True(caps.SupportsToolCalls);
+        Assert.True(caps.Supports(ProviderKinds.Text, ProviderOperation.Complete, accepts: ProviderKinds.Text));
+        Assert.False(caps.Supports(ProviderKinds.Text, ProviderOperation.Stream)); // no stream delegate
+    }
+
+    [Fact]
+    public void A_field_the_caller_set_is_kept_while_an_empty_one_takes_the_default()
+    {
+        using var sp = Build(b => b.AddBridgeProvider("scorer",
+            (_, _) => Task.FromResult(new TextResponse("", ProviderVerdict.Unsupported)),
+            (_, _) => Chunks(),
+            capabilities: new ProviderCapabilities { Produces = [ProviderKinds.Score] }));
+
+        var caps = Assert.Single(sp.GetServices<IModelProvider>()).Capabilities;
+
+        Assert.Equal([ProviderKinds.Score], caps.Produces);
+        Assert.Equal([ProviderKinds.Text], caps.Accepts);
+        Assert.Equal([ProviderOperation.Complete, ProviderOperation.Stream], caps.Operations);
+
+        static async IAsyncEnumerable<TextChunk> Chunks()
+        {
+            await Task.CompletedTask;
+            yield return TextChunk.Content("x");
+        }
+    }
+
+    [Fact]
     public void An_id_or_delegate_that_is_missing_fails_at_COMPOSITION_rather_than_on_first_call()
     {
         var b = new ServiceCollection();

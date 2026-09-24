@@ -140,7 +140,8 @@ public sealed class LyntaiBuilder
     /// stream.</param>
     /// <param name="capabilities">Optional. Defaults to text in, text out, with the operations implied by
     /// which delegates were supplied. Pass one to declare something else — tool calls, another
-    /// <see cref="ProviderKinds"/>, a model list, declared limits.</param>
+    /// <see cref="ProviderKinds"/>, a model list, declared limits; an <c>Accepts</c>, <c>Produces</c> or
+    /// <c>Operations</c> it leaves empty takes that default.</param>
     public LyntaiBuilder AddBridgeProvider(
         string id,
         Func<TextRequest, CancellationToken, Task<TextResponse>> complete,
@@ -150,13 +151,20 @@ public sealed class LyntaiBuilder
         ArgumentException.ThrowIfNullOrWhiteSpace(id);
         ArgumentNullException.ThrowIfNull(complete);
 
-        var declared = capabilities ?? new ProviderCapabilities
+        var defaults = new ProviderCapabilities
         {
             Accepts = [ProviderKinds.Text],
             Produces = [ProviderKinds.Text],
             Operations = stream is null
                 ? [ProviderOperation.Complete]
                 : [ProviderOperation.Complete, ProviderOperation.Stream],
+        };
+        // the delegates take and return text, so an empty kind means "the default", never "serves nothing"
+        var declared = capabilities is null ? defaults : capabilities with
+        {
+            Accepts = capabilities.Accepts.Count > 0 ? capabilities.Accepts : defaults.Accepts,
+            Produces = capabilities.Produces.Count > 0 ? capabilities.Produces : defaults.Produces,
+            Operations = capabilities.Operations.Count > 0 ? capabilities.Operations : defaults.Operations,
         };
         return AddProvider(_ => new BridgeProvider(id, declared, complete, stream));
     }
@@ -486,14 +494,16 @@ public sealed class LyntaiBuilder
     /// Each entry is a candidate spec, as <c>LYNTAI_DEFAULT_CANDIDATES</c> reads one: a provider id, optionally
     /// <c>"provider:model"</c>, split at the FIRST colon (so <c>"ollama:qwen3:4b"</c> is <c>ollama</c> serving
     /// <c>qwen3:4b</c>). A provider id that itself contains a colon takes the <see cref="ProviderCandidate"/>
-    /// overload. Naming a registered backend that produces no text throws at composition; a vector or score
-    /// backend is selected by its kind and needs no entry here.</summary>
+    /// overload. Naming a registered backend that produces no text throws when the default
+    /// <see cref="ITextClient"/> is resolved; a vector or score backend is selected by its kind and needs no
+    /// entry here.</summary>
     public LyntaiBuilder UseDefaultCandidates(params string[] providerIds) =>
         UseDefaultCandidates([.. providerIds.Select(ProviderCandidateSpec.Parse)]);
 
     /// <summary>Set the router fallback order used when callers don't pass explicit candidates.
     /// SETS (clears + replaces) the default candidate list — the last call wins; it does not append. Naming a
-    /// registered backend that produces no text throws at composition.</summary>
+    /// registered backend that produces no text throws when the default <see cref="ITextClient"/> is
+    /// resolved.</summary>
     public LyntaiBuilder UseDefaultCandidates(params ProviderCandidate[] candidates)
     {
         Options.DefaultCandidates.Clear();

@@ -414,7 +414,13 @@ public sealed class TextRouter(
             var provider = SelectLive(candidate, effectiveModel, soleCandidate, out var skipReason, out var servesNoText);
             if (provider is null)
             {
-                _logger.LogDebug("router: skipping {Candidate} — {Reason}", candidate.ProviderId, skipReason);
+                // a text-less backend in a text list is the caller's defect, not transient state: warn, as D176
+                // warns of the same entry in a live route
+                if (servesNoText)
+                    _logger.LogWarning("router: skipping {Candidate} — {Reason}; a text candidate list should not name it",
+                        ProviderCandidateSpec.Format(candidate), skipReason);
+                else
+                    _logger.LogDebug("router: skipping {Candidate} — {Reason}", candidate.ProviderId, skipReason);
                 skipped?.Add(candidate, skipReason, servesNoText);
                 continue;
             }

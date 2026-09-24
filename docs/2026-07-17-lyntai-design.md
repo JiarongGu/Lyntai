@@ -934,6 +934,14 @@ a store that throws, leaves the given candidates in force with a warning, and th
 partly-usable route are skipped with one. `ITextClient.GetCapabilitiesAsync` answers for the backend the route
 will serve; null means unknown, which the tool loop reads as no native tool calls.)*
 
+*(2026-09-24: **a text candidate must name a backend that produces text** — `docs/DECISIONS.md` **D178**. A
+backend serves a text call when its `ProviderCapabilities.Produces` lists `ProviderKinds.Text`. A CONFIGURED
+list — the default candidates, a named client's resolved candidates — naming a registered backend that does not
+throws when that front door is resolved; a candidate naming no registered backend is still skipped per call. A
+list passed at run time skips such a candidate on both doors and in the capability probe, with a warning. When
+no candidate could be tried, the synthetic reply names each one and why: `Unsupported` when every one serves no
+text, else `Failed`.)*
+
 **CLI hygiene** (Gatherlight/Sonora): `UseShellExecute=false`, `ArgumentList` only (never a shell —
 prompts carry newlines + metacharacters), prompt over **stdin**, **BOM-less UTF-8** both directions,
 resolved-path cache (`where.exe`/`which`, prefer `.cmd`/`.exe`), `Kill(entireProcessTree:true)` on

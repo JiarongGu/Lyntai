@@ -1,7 +1,9 @@
 
 namespace Lyntai.Inference;
 
-/// <summary>Works out the fallback list a NAMED <see cref="ITextClient"/> routes over.
+/// <summary>Works out the fallback list a NAMED <see cref="ITextClient"/> routes over, and holds the rules a
+/// text candidate list is judged by — at composition and by <see cref="TextRouter"/> per call: a model pin that
+/// can never take effect, and a backend that serves no text.
 ///
 /// <para><b>Why a name needs its own list at all.</b> A named client narrows the router's PROVIDER set, and
 /// the candidates a call tries are a separate thing. Take them from
@@ -79,25 +81,29 @@ internal static class ClientCandidates
     internal static bool ServesText(IModelProvider provider) =>
         provider.Capabilities.Produces.Contains(ProviderKinds.Text, StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>What a backend declares it produces, for a message.</summary>
+    /// <summary>What a backend declares it produces, for a message: <see cref="NothingProduced"/> when it
+    /// declares no kind at all.</summary>
     internal static string Produces(IModelProvider provider) =>
-        provider.Capabilities.Produces.Count == 0 ? "nothing" : string.Join(" and ", provider.Capabilities.Produces);
+        provider.Capabilities.Produces.Count == 0 ? NothingProduced : string.Join(" and ", provider.Capabilities.Produces);
+
+    /// <summary>How <see cref="Produces"/> names an empty declaration.</summary>
+    internal const string NothingProduced = "nothing";
 
     /// <summary>The candidates of a CONFIGURED text list that name a registered backend serving no text, each
-    /// with what it produces — a call to one can never be served, so the caller hears about it at composition.
+    /// as its spec and what it produces — a call to one can never be served, so the caller hears about it at
+    /// composition.
     /// <para>A candidate naming NO registered backend is not reported: an adapter package may be absent in one
     /// environment, and the router skips it per call.</para></summary>
     /// <param name="candidates">The list, as the client routes over it.</param>
     /// <param name="providers">The backends it routes over; the first under an id wins, as in the router.</param>
-    internal static IReadOnlyList<string> ServingNoText(
+    internal static IReadOnlyList<(string Candidate, string Produces)> ServingNoText(
         IReadOnlyList<ProviderCandidate> candidates, IEnumerable<IModelProvider> providers)
     {
         var byId = new Dictionary<string, IModelProvider>(StringComparer.OrdinalIgnoreCase);
         foreach (var p in providers) byId.TryAdd(p.Id, p);
-        return [.. candidates
+        return [.. CandidateDedup.Dedup(candidates)
             .Select(c => (Candidate: c, Provider: byId.GetValueOrDefault(c.ProviderId)))
             .Where(x => x.Provider is not null && !ServesText(x.Provider))
-            .Select(x => $"{ProviderCandidateSpec.Format(x.Candidate)} (produces {Produces(x.Provider!)})")
-            .Distinct(StringComparer.OrdinalIgnoreCase)];
+            .Select(x => (ProviderCandidateSpec.Format(x.Candidate), Produces(x.Provider!)))];
     }
 }

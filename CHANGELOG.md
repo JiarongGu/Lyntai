@@ -113,9 +113,13 @@ every addition.
   is — the message names each such candidate and what it produces. Such a candidate could never serve a text
   call: it was called anyway and came back `Unsupported`, which the router surfaces without trying the next
   candidate and memory's fail-open seams swallow. A candidate naming no registered backend is still skipped per
-  call, as before. **What to DO:** remove the backend from the text list — a vector or score backend is
-  selected by its kind and needs no candidate entry; a named client pooled over one to reach it for text drops
-  it from `UseProviders` too.
+  call, as before. A custom `IModelProvider` whose `Capabilities.Produces` omits `ProviderKinds.Text` is such a
+  backend too, though it used to serve text, because the router never read `Produces` for a candidate; a bridge
+  is unaffected, since `AddBridgeProvider` now fills an empty `Accepts`, `Produces` or `Operations` with its
+  text defaults. **What to DO:** a custom provider that serves text declares `ProviderKinds.Text` in its
+  `Capabilities.Produces`. Otherwise remove the backend from the text list — a vector or score backend is
+  selected by its kind and needs no candidate entry; a named client pooled over one keeps it in `UseProviders`
+  and states its text list with `UseCandidates`.
 
 ### Security
 
@@ -209,11 +213,11 @@ every addition.
 
 ### Fixed
 
-- **A candidate list passed at run time no longer calls a backend that produces no text** (**D178**). An
-  explicit `ITextRouter` call or a job payload naming an embedder, reranker or media backend skips it on both
-  doors, and the capability probe skips it too, so a text backend later in the list serves. When no candidate
-  could be tried, the router's reply now names each one and why it was skipped: `Unsupported` when every one
-  serves no text, else `Failed`.
+- **A candidate list passed at run time no longer calls a backend that produces no text** (**D178**). A list
+  your code passes to `ITextRouter` naming an embedder, reranker or media backend skips it on both doors, with
+  a warning, and the capability probe skips it too, so a text backend later in the list serves. When no
+  candidate could be tried, the router's reply now names each one and why it was skipped: `Unsupported` when
+  every one serves no text, else `Failed`.
 
 - **An input over a model's context window no longer benches a healthy host, and no longer switches memory
   verification off unseen.** llama.cpp's rejection (`input (N tokens) is larger than the max context size`)
