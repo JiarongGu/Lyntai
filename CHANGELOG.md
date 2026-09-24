@@ -106,6 +106,17 @@ every addition.
   nothing for a bare provider id; a provider id that itself contains `:` passes a `ProviderCandidate` to the
   other overload instead.
 
+- **A configured text candidate naming a backend that produces no text now fails at composition** (**D178**).
+  Default candidates (`UseDefaultCandidates`, `LYNTAI_DEFAULT_CANDIDATES`) naming a registered embedder,
+  reranker or media backend throw `InvalidOperationException` when the default `ITextClient` is resolved, and a
+  named client's candidates (`UseCandidates`, or those derived from `UseProviders`) when `ITextClientFactory`
+  is — the message names each such candidate and what it produces. Such a candidate could never serve a text
+  call: it was called anyway and came back `Unsupported`, which the router surfaces without trying the next
+  candidate and memory's fail-open seams swallow. A candidate naming no registered backend is still skipped per
+  call, as before. **What to DO:** remove the backend from the text list — a vector or score backend is
+  selected by its kind and needs no candidate entry; a named client pooled over one to reach it for text drops
+  it from `UseProviders` too.
+
 ### Security
 
 - **Recalled memory can no longer forge a prompt section** (**D166**). Both composers rendered an item as
@@ -197,6 +208,12 @@ every addition.
   own that segments can pool the same way.
 
 ### Fixed
+
+- **A candidate list passed at run time no longer calls a backend that produces no text** (**D178**). An
+  explicit `ITextRouter` call or a job payload naming an embedder, reranker or media backend skips it on both
+  doors, and the capability probe skips it too, so a text backend later in the list serves. When no candidate
+  could be tried, the router's reply now names each one and why it was skipped: `Unsupported` when every one
+  serves no text, else `Failed`.
 
 - **An input over a model's context window no longer benches a healthy host, and no longer switches memory
   verification off unseen.** llama.cpp's rejection (`input (N tokens) is larger than the max context size`)

@@ -72,4 +72,32 @@ internal static class ClientCandidates
         candidates.Count > 0
         && candidates.All(c => !string.IsNullOrWhiteSpace(c.Model))
         && !candidates.Any(c => string.Equals(c.Model, model, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>Whether a backend can serve a TEXT call: it declares <see cref="ProviderKinds.Text"/> among what
+    /// it produces. The one rule the router's live-route filter, its per-call skip and the composition check
+    /// all read.</summary>
+    internal static bool ServesText(IModelProvider provider) =>
+        provider.Capabilities.Produces.Contains(ProviderKinds.Text, StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>What a backend declares it produces, for a message.</summary>
+    internal static string Produces(IModelProvider provider) =>
+        provider.Capabilities.Produces.Count == 0 ? "nothing" : string.Join(" and ", provider.Capabilities.Produces);
+
+    /// <summary>The candidates of a CONFIGURED text list that name a registered backend serving no text, each
+    /// with what it produces — a call to one can never be served, so the caller hears about it at composition.
+    /// <para>A candidate naming NO registered backend is not reported: an adapter package may be absent in one
+    /// environment, and the router skips it per call.</para></summary>
+    /// <param name="candidates">The list, as the client routes over it.</param>
+    /// <param name="providers">The backends it routes over; the first under an id wins, as in the router.</param>
+    internal static IReadOnlyList<string> ServingNoText(
+        IReadOnlyList<ProviderCandidate> candidates, IEnumerable<IModelProvider> providers)
+    {
+        var byId = new Dictionary<string, IModelProvider>(StringComparer.OrdinalIgnoreCase);
+        foreach (var p in providers) byId.TryAdd(p.Id, p);
+        return [.. candidates
+            .Select(c => (Candidate: c, Provider: byId.GetValueOrDefault(c.ProviderId)))
+            .Where(x => x.Provider is not null && !ServesText(x.Provider))
+            .Select(x => $"{ProviderCandidateSpec.Format(x.Candidate)} (produces {Produces(x.Provider!)})")
+            .Distinct(StringComparer.OrdinalIgnoreCase)];
+    }
 }

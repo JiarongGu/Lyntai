@@ -67,12 +67,14 @@ report it.
 ## Fallback (`TextRouter.CompleteAsync`)
 
 Dedup candidates by `(providerId, model)` (first wins — a mis-ordered list that re-prepends the primary
-won't retry it), then try in order, skipping providers that are unregistered / `!IsAvailable` / in
-dead-host cooldown. Log every attempt with provider + verdict + detail. A candidate may be RETRIED before the
-router advances (`RoutingPolicy.Retry`), and the retries are part of ONE attempt at that candidate: exactly one
-failure is recorded when they are exhausted, never one per retry — recording per retry would cross the
-dead-host threshold inside a single call. When all candidates are exhausted the router returns the last
-SUBSTANTIVE failure; a `Failed` "no live candidate" reply if none were even eligible.
+won't retry it), then try in order, skipping providers that are unregistered / serving no text
+(`ClientCandidates.ServesText`, the one predicate; a CONFIGURED list naming one fails at composition, **D178**) /
+`!IsAvailable` / in dead-host cooldown. Log every attempt with provider + verdict + detail. A candidate may be
+RETRIED before the router advances (`RoutingPolicy.Retry`), and the retries are part of ONE attempt at that
+candidate: exactly one failure is recorded when they are exhausted, never one per retry — recording per retry
+would cross the dead-host threshold inside a single call. When all candidates are exhausted the router returns the last
+SUBSTANTIVE failure; if none were even eligible, a reply naming each skipped candidate and why — `Unsupported`
+when every one serves no text, else `Failed` "no live candidate".
 
 **"The last reply" is not the rule — a blameless verdict is kept apart from a real failure.** `CompleteAsync`
 holds two slots, `last` (the last substantive failure — what the caller is told) and `lastBlameless`, and

@@ -33,7 +33,8 @@ public sealed class TextClientBuilder
     /// <para><b>These ids become the client's candidate list</b>, so narrowing a client's backends narrows
     /// what it TRIES — <c>UseDefaultCandidates</c> governs the default client, not this one. An id the
     /// global list already pins to a model keeps that model; the rest get the backend's own default. State
-    /// the list outright with <see cref="UseCandidates"/> when that is not what you want.</para>
+    /// the list outright with <see cref="UseCandidates"/> when that is not what you want. A backend that
+    /// produces no text cannot be one of them: composition throws.</para>
     ///
     /// <para>Naming none leaves the client over EVERY registered provider — the default client's own
     /// behaviour, which is the right meaning for a name that exists only to carry different governance
@@ -57,7 +58,8 @@ public sealed class TextClientBuilder
     ///
     /// <para><b>Every candidate must name a backend this client is pooled over</b>, or composition throws:
     /// a candidate the router can never select is a call that fails on every attempt, and that failure is
-    /// worth having at startup rather than per request.</para>
+    /// worth having at startup rather than per request. The same holds for a candidate naming a backend that
+    /// produces no text — an embedder, a reranker, a media backend.</para>
     ///
     /// <para>SETS (clears + replaces), matching <c>UseDefaultCandidates</c> — the last call wins; it does not
     /// append.</para>

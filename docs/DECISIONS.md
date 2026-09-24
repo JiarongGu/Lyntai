@@ -247,8 +247,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D175](#d175--a-remember-reports-what-the-write-did-the-write-side-of-memoryrecallran-2026-09-24) | 2026-09-24 | a remember REPORTS what the write did: the write side of `MemoryRecall.Ran` |
 | [D176](#d176--live-routing-moves-a-route-not-half-of-one-2026-09-24) | 2026-09-24 | live routing moves a ROUTE, not half of one |
 | [D177](#d177--segmenting-an-over-long-input-is-a-configured-capability-and-every-default-is-the-prior-behaviour-2026-09-24) | 2026-09-24 | segmenting an over-long input is a CONFIGURED capability, and every default is the prior behaviour |
+| [D178](#d178--a-text-candidate-naming-a-backend-that-produces-no-text-is-refused-at-composition-and-skipped-per-call-2026-09-24) | 2026-09-24 | a text candidate naming a backend that produces no text is refused at composition and skipped per… |
 
-_All 177 entries are live decisions._
+_All 178 entries are live decisions._
 
 <!-- index:end -->
 
@@ -5507,3 +5508,27 @@ documents of one call against different questions, whose scores do not rank agai
 
 **Known limits.** The pooled vector's retrieval QUALITY is unmeasured (`docs/model-tasks.md` §3.3), and so are
 the defaults for `Overlap` and `MinDocumentShare` — which is why they are settings.
+
+## D178 — a text candidate naming a backend that produces no text is refused at composition and skipped per call (2026-09-24)
+
+**The decision.** A backend serves a text call when `ProviderCapabilities.Produces` lists `ProviderKinds.Text`,
+and ONE predicate says so — `ClientCandidates.ServesText`, read by the live-route filter (**D176**), the per-call
+skip and the composition check alike. Two layers, because a list is known at two different times:
+
+- **A CONFIGURED list fails at composition.** The default candidates, when the default `ITextClient` is
+  composed, and each named client's resolved candidates, when `ITextClientFactory` is: a candidate naming a
+  registered backend that produces no text throws `InvalidOperationException` naming it, what it produces and
+  the fix. Same stance as **D119** and `ClientCandidates.OutsideThePool` — a setting that can never take effect
+  is heard at startup. A candidate naming NO registered backend is not this check's business: an adapter
+  package may be absent in one environment, and the router skips it per call as before.
+- **A list passed at RUN TIME is skipped per call.** `TextRouter` never calls such a candidate, on either door
+  or in the capability probe, and records why — an explicit `ITextRouter` call or a job payload is not known
+  until it arrives.
+
+**The router says why.** When every candidate was skipped and each serves no text, the reply is
+`ProviderVerdict.Unsupported` naming them — the capability-gap verdict, blameless, benching no host. Any other
+all-skipped list is `Failed`, its detail naming each candidate and the reason it was skipped.
+
+**Rejected.** Per call only: a provably dead configuration would stand for the life of the process, one
+Debug-level skip per call its only trace. Composition only: a run-time list never passes through composition. `Failed` for the all-non-text case: nothing failed, and a `Failed` reads as a host problem where
+the defect is the list. The break is named in `CHANGELOG.md` (**D161**).

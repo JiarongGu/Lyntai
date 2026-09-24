@@ -78,8 +78,9 @@ public sealed class TextRouter(
         var routing = await LiveRouteAsync(candidates, req, ct).ConfigureAwait(false);
         TextResponse? last = null;           // the last SUBSTANTIVE failure — what the caller is told
         TextResponse? lastBlameless = null;  // …kept apart, so it can answer only when there was no real failure
+        var skipped = new SkippedCandidates();
 
-        foreach (var (provider, effectiveModel, key) in LiveCandidates(routing, req))
+        foreach (var (provider, effectiveModel, key) in LiveCandidates(routing, req, skipped))
         {
             WarnIfToolsUnsupported(provider, req, streaming: false);
             // retry-then-advance: the same candidate may be retried on transient faults before advancing
@@ -129,8 +130,9 @@ public sealed class TextRouter(
         // a real failure outranks a blameless one; with no real failure the blameless verdict is still the
         // honest answer (a host turns "not configured" into a setup prompt), and only a candidate list that
         // produced nothing at all falls through to the synthetic reply
-        return last ?? lastBlameless
-            ?? new TextResponse("", ProviderVerdict.Failed, Detail: "no live candidate (all skipped: unknown, unavailable, or dead)");
+        if ((last ?? lastBlameless) is { } answer) return answer;
+        var (verdict, detail) = skipped.Outcome();
+        return new TextResponse("", verdict, Detail: detail);
     }
 
     public async IAsyncEnumerable<TextChunk> StreamAsync(IReadOnlyList<ProviderCandidate> candidates, TextRequest req,
@@ -138,8 +140,9 @@ public sealed class TextRouter(
     {
         var routing = await LiveRouteAsync(candidates, req, ct).ConfigureAwait(false);
         var failures = new StreamFailures();
+        var skipped = new SkippedCandidates();
 
-        foreach (var (provider, effectiveModel, key) in LiveCandidates(routing, req))
+        foreach (var (provider, effectiveModel, key) in LiveCandidates(routing, req, skipped))
         {
             WarnIfToolsUnsupported(provider, req, streaming: true);
             var effective = req with { Model = effectiveModel };
@@ -171,7 +174,7 @@ public sealed class TextRouter(
             }
         }
 
-        yield return failures.Closing();
+        yield return failures.Closing(skipped);
     }
 
     /// <summary>ONE stream attempt at one candidate, under its own span: read the provider's chunks, apply
@@ -332,9 +335,34 @@ public sealed class TextRouter(
         }
 
         /// <summary>A real failure outranks a blameless one; only a candidate list that produced nothing at
-        /// all falls through to the synthetic chunk.</summary>
-        public TextChunk Closing() => LastError ?? LastBlameless
-            ?? TextChunk.Error(ProviderVerdict.Failed, "no live candidate (all skipped: unknown, unavailable, or dead)");
+        /// all falls through to the synthetic chunk, which <paramref name="skipped"/> words.</summary>
+        public TextChunk Closing(SkippedCandidates skipped)
+        {
+            if ((LastError ?? LastBlameless) is { } error) return error;
+            var (verdict, detail) = skipped.Outcome();
+            return TextChunk.Error(verdict, detail);
+        }
+    }
+
+    /// <summary>The candidates one call skipped, and why — what the router answers with when it tried none.</summary>
+    private sealed class SkippedCandidates
+    {
+        private readonly List<(string Candidate, string Reason, bool ServesNoText)> _skipped = [];
+
+        public void Add(ProviderCandidate candidate, string reason, bool servesNoText) =>
+            _skipped.Add((ProviderCandidateSpec.Format(candidate), reason, servesNoText));
+
+        /// <summary><see cref="ProviderVerdict.Unsupported"/> when every candidate serves no text — a capability
+        /// gap, which benches nothing — else <see cref="ProviderVerdict.Failed"/>; either way the detail names
+        /// each candidate and why it was skipped.</summary>
+        public (ProviderVerdict Verdict, string Detail) Outcome()
+        {
+            if (_skipped.Count == 0) return (ProviderVerdict.Failed, "no live candidate (none given)");
+            var reasons = string.Join("; ", _skipped.Select(s => $"{s.Candidate}: {s.Reason}"));
+            return _skipped.TrueForAll(s => s.ServesNoText)
+                ? (ProviderVerdict.Unsupported, $"no candidate serves text ({reasons})")
+                : (ProviderVerdict.Failed, $"no live candidate (all skipped: {reasons})");
+        }
     }
 
     /// <summary>One attempt's own state, carried out of <see cref="StreamOnceAsync"/> because an async
@@ -368,12 +396,13 @@ public sealed class TextRouter(
     private readonly record struct Routing(IReadOnlyList<ProviderCandidate> Candidates, bool IsLiveRoute);
 
     /// <summary>The shared candidate-selection preamble every door runs: dedup the list, resolve each
-    /// candidate's EFFECTIVE model, skip unknown/unavailable/cooling providers (with the sole-candidate
-    /// exemption), and pair each survivor with its cooldown key. A given candidate's model is its own, else the
-    /// request's, else the consumer default; a live route entry's never falls to the consumer default, which
-    /// belongs to the candidates the route replaced — its own, else the request's, else the backend's.</summary>
+    /// candidate's EFFECTIVE model, skip unknown/text-less/unavailable/cooling providers (with the sole-candidate
+    /// exemption from cooldown), recording each skip in <paramref name="skipped"/>, and pair each survivor with
+    /// its cooldown key. A given candidate's model is its own, else the request's, else the consumer default; a
+    /// live route entry's never falls to the consumer default, which belongs to the candidates the route
+    /// replaced — its own, else the request's, else the backend's.</summary>
     private IEnumerable<(IModelProvider Provider, string? Model, string Key)> LiveCandidates(
-        Routing routing, TextRequest req)
+        Routing routing, TextRequest req, SkippedCandidates? skipped = null)
     {
         var deduped = CandidateDedup.Dedup(routing.Candidates);
         var soleCandidate = deduped.Count == 1;
@@ -382,10 +411,11 @@ public sealed class TextRouter(
             var effectiveModel = routing.IsLiveRoute
                 ? RouteEntryModel(candidate, req.Model)
                 : options.ResolveModel(req.Consumer, candidate.Model ?? req.Model);
-            var provider = SelectLive(candidate, effectiveModel, soleCandidate, out var skipReason);
+            var provider = SelectLive(candidate, effectiveModel, soleCandidate, out var skipReason, out var servesNoText);
             if (provider is null)
             {
                 _logger.LogDebug("router: skipping {Candidate} — {Reason}", candidate.ProviderId, skipReason);
+                skipped?.Add(candidate, skipReason, servesNoText);
                 continue;
             }
             yield return (provider, effectiveModel, CooldownKey(provider, effectiveModel));
@@ -448,7 +478,7 @@ public sealed class TextRouter(
 
         // a registered backend that serves no text (an embedder, a reranker) is as unusable here as an unknown id
         bool ServesText(ProviderCandidate c) => _byId.Value.TryGetValue(c.ProviderId, out var p)
-            && p.Capabilities.Produces.Contains(ProviderKinds.Text, StringComparer.OrdinalIgnoreCase);
+            && ClientCandidates.ServesText(p);
         var usable = route.Where(ServesText).ToList();
         var unusable = route.Where(c => !ServesText(c)).Select(ProviderCandidateSpec.Format).ToList();
         if (usable.Count == 0)
@@ -511,10 +541,20 @@ public sealed class TextRouter(
             : identity;
     }
 
-    private IModelProvider? SelectLive(ProviderCandidate candidate, string? effectiveModel, bool soleCandidate, out string skipReason)
+    private IModelProvider? SelectLive(ProviderCandidate candidate, string? effectiveModel, bool soleCandidate,
+        out string skipReason, out bool servesNoText)
     {
+        servesNoText = false;
         if (!_byId.Value.TryGetValue(candidate.ProviderId, out var provider))
         { skipReason = "no provider with this id registered"; return null; }
+
+        // composition refuses a CONFIGURED list naming one; a list passed at run time reaches here
+        if (!ClientCandidates.ServesText(provider))
+        {
+            skipReason = $"produces {ClientCandidates.Produces(provider)}, not text";
+            servesNoText = true;
+            return null;
+        }
         if (!provider.IsAvailable) { skipReason = "provider reports unavailable"; return null; }
 
         // sole-candidate exemption: benching the only option just guarantees a synthetic failure —

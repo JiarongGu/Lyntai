@@ -179,7 +179,11 @@ public static class LyntaiServiceCollectionExtensions
         // Default candidates internal. Any registered front-door decorators (response cache, usage budget, …)
         // are folded over the base client in ascending Order (the decorator's declared position — NOT raw
         // registration order), so they compose predictably instead of clobbering.
-        services.TryAddSingleton<ITextClient>(sp => Compose(sp, sp.GetRequiredService<ITextRouter>()));
+        services.TryAddSingleton<ITextClient>(sp =>
+        {
+            RefuseCandidatesServingNoText("the default client", options.DefaultCandidates, sp.GetServices<IModelProvider>());
+            return Compose(sp, sp.GetRequiredService<ITextRouter>());
+        });
 
         // Named clients (AddTextClient) — the chat counterpart of the memory engine registry. Each is the
         // SAME composition as the default client over a narrower provider set: base client, the same
@@ -247,9 +251,26 @@ public static class LyntaiServiceCollectionExtensions
                     "A candidate the router cannot select fails every call; add it to UseProviders, register " +
                     "it, or drop it.");
 
+            var candidates = ClientCandidates.Resolve(client.ProviderIds, client.Candidates, options.DefaultCandidates);
+            RefuseCandidatesServingNoText($"LLM client '{name}'", candidates, providers);
+
             var router = sp.GetRequiredService<ITextRouterFactory>().For(providers);
-            return Compose(sp, router,
-                ClientCandidates.Resolve(client.ProviderIds, client.Candidates, options.DefaultCandidates));
+            return Compose(sp, router, candidates);
+        }
+
+        // A CONFIGURED text list naming a backend that produces no text is provably dead, so composition fails
+        // as it does for a candidate outside the pool (D178). A list passed at run time is skipped per call.
+        static void RefuseCandidatesServingNoText(
+            string client, IReadOnlyList<ProviderCandidate> candidates, IEnumerable<IModelProvider> providers)
+        {
+            var dead = ClientCandidates.ServingNoText(candidates, providers);
+            if (dead.Count == 0) return;
+            throw new InvalidOperationException(
+                $"{client} routes text over candidate(s) {string.Join(", ", dead)}, naming a backend that " +
+                "produces no text, so a text call can never be served by one. Remove it from the text " +
+                "candidates — UseDefaultCandidates or LYNTAI_DEFAULT_CANDIDATES for the default client, " +
+                "UseCandidates or UseProviders for a named one; a vector or score backend is selected by its " +
+                "kind and needs no candidate entry.");
         }
 
         // THE FRONT DOOR, built ONCE for every client this container hands out. Only the ROUTER differs

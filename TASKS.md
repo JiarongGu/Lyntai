@@ -15,21 +15,20 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 8 across 5 Parts: 4 startable, 2 blocked, 2 watch
+## Open items — 7 across 5 Parts: 3 startable, 2 blocked, 2 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 109 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
-| 162 | 33 | GEN7 — pipelines (3d → image → video) | startable |  |
-| 221 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 244 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 301 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
-| 331 | 286 | A configured text candidate naming a NON-text backend is still called | startable |  |
-| 339 | 286 | Gate "no default body on a member of an interface the library decorates" | startable |  |
-| 353 | 288 | Express `TextReasoning.Suppress` on the OpenAI-shaped wire | startable |  |
+| 108 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
+| 161 | 33 | GEN7 — pipelines (3d → image → video) | startable |  |
+| 220 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 243 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 300 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 330 | 286 | Gate "no default body on a member of an interface the library decorates" | startable |  |
+| 344 | 288 | Express `TextReasoning.Suppress` on the OpenAI-shaped wire | startable |  |
 
 <!-- open-items:end -->
 
@@ -328,14 +327,6 @@ there is nothing here to code: what remains is evidence only recurrence can supp
 _Opened by the final review of `docs/task-archive.md` **Part 284**. Both were verified against the tree and
 ruled out of that Part's scope rather than left implied; both are startable._
 
-- [ ] **A configured text candidate naming a NON-text backend is still called.** `TextRouter.SelectLive` <!-- item: state=startable -->
-  (`src/Lyntai.Core/Inference/TextRouter.cs`) never reads `ProviderCapabilities.Produces`, so a given
-  candidate naming a registered embedder, reranker or media backend is called on the text path and returns
-  `Unsupported` — which memory's fail-open seams swallow. Live-route entries are filtered by kind now
-  (`ServesText`, **D176**); given candidates never were. **Owner ruling 2026-09-24: both** — a configured
-  list (default candidates, a named client's) naming a registered non-text backend FAILS at composition, as
-  **D119** and `ClientCandidates.OutsideThePool` fail a provably dead configuration; a list passed at run time
-  skips such a candidate per call, the route's `ServesText` rule, and the router's failure says why.
 - [ ] **Gate "no default body on a member of an interface the library decorates".** **D67** states the rule <!-- item: state=startable -->
   and `.claude/knowledge/pitfalls.md` records it broken a FOURTH time — the async capability probe, caught by
   review, now pinned for its two members alone by `TextClientTests.The_capability_probe_has_no_default_body`.
