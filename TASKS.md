@@ -15,20 +15,19 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 7 across 5 Parts: 3 startable, 2 blocked, 2 watch
+## Open items — 6 across 4 Parts: 2 startable, 2 blocked, 2 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 108 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
-| 161 | 33 | GEN7 — pipelines (3d → image → video) | startable |  |
-| 220 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 243 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 300 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
-| 330 | 286 | Gate "no default body on a member of an interface the library decorates" | startable |  |
-| 344 | 288 | Express `TextReasoning.Suppress` on the OpenAI-shaped wire | startable |  |
+| 107 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
+| 160 | 33 | GEN7 — pipelines (3d → image → video) | startable |  |
+| 219 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 242 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 299 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 331 | 288 | Express `TextReasoning.Suppress` on the OpenAI-shaped wire | startable |  |
 
 <!-- open-items:end -->
 
@@ -321,18 +320,6 @@ there is nothing here to code: what remains is evidence only recurrence can supp
   <br>**So it is `watch · data` rather than startable**: what it needs is a recurrence carrying the frame
   BELOW `OpenAsync`, because the three causes a reading can reach are gone and the remaining ones are all
   in the runner's resource behaviour — the same shape as Part 99 above, by a different mechanism.
-
-## Part 286 — what the live-route review found outside its scope (2026-09-24)
-
-_Opened by the final review of `docs/task-archive.md` **Part 284**. Both were verified against the tree and
-ruled out of that Part's scope rather than left implied; both are startable._
-
-- [ ] **Gate "no default body on a member of an interface the library decorates".** **D67** states the rule <!-- item: state=startable -->
-  and `.claude/knowledge/pitfalls.md` records it broken a FOURTH time — the async capability probe, caught by
-  review, now pinned for its two members alone by `TextClientTests.The_capability_probe_has_no_default_body`.
-  A rule written down and still violated is a missing gate (CLAUDE.md §Dev loop). First step: define
-  "decorated" mechanically — a Core interface with a `Delegating*` base or a Core decorator implementing it
-  — and measure the tree against that definition before choosing the gate's shape.
 
 ## Part 288 — the OpenAI-shaped wire drops `TextReasoning.Suppress` (2026-09-24)
 
