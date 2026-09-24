@@ -8,8 +8,9 @@ namespace Lyntai.Providers.Http.Payloads;
 /// Tool parameter schemas embed as JSON objects; structured output uses response_format.json_schema.</summary>
 internal static class OpenAiPayload
 {
-    /// <summary>Every top-level member <see cref="Build"/> can set — what configured fields may never name.</summary>
-    internal static readonly IReadOnlySet<string> WireMembers = new HashSet<string>(StringComparer.Ordinal)
+    /// <summary>Every top-level member <see cref="Build"/> can set — what configured fields may never name, in
+    /// any case: a server matching keys without case lets the later one win, which would override the request.</summary>
+    internal static readonly IReadOnlySet<string> WireMembers = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
     {
         "model", "messages", "stream", "stream_options", "max_tokens", "temperature", "tools", "response_format",
     };
@@ -55,6 +56,7 @@ internal static class OpenAiPayload
     /// <param name="stream">Whether to ask for the SSE stream.</param>
     /// <param name="suppressReasoningFields">Added, as deep copies, when the request asks
     /// <see cref="TextReasoning.Suppress"/>; from <see cref="ParseSuppressReasoningFields"/>.</param>
+    /// <exception cref="InvalidOperationException">A field names a member the body already holds.</exception>
     public static JsonObject Build(TextRequest req, string model, bool stream,
         JsonObject? suppressReasoningFields = null)
     {
@@ -101,7 +103,14 @@ internal static class OpenAiPayload
         // A copy per request: a JsonNode has exactly one parent, so the configured node cannot be attached itself.
         if (req.Reasoning == TextReasoning.Suppress && suppressReasoningFields is not null)
             foreach (var (key, value) in suppressReasoningFields)
+            {
+                // the backstop for WireMembers drifting from this method: an override fails, never happens
+                if (payload.Any(p => string.Equals(p.Key, key, StringComparison.OrdinalIgnoreCase)))
+                    throw new InvalidOperationException(
+                        $"{nameof(HttpModelOptions.SuppressReasoningFields)} names \"{key}\", which the request "
+                        + "body already holds; the option only adds members.");
                 payload[key] = value?.DeepClone();
+            }
         return payload;
     }
 

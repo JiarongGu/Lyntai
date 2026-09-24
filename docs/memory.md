@@ -428,9 +428,12 @@ services.AddLyntai(b => b
     .AddMemoryVerification());
 ```
 
-Only calls asking `Suppress` carry the fields. A server that rejects one fails the call, and the judge then
-leaves the ranking alone and logs a warning, as for any failed verdict — so a value your server rejects looks
-like no judge at all everywhere but the log. Try it against your server before relying on it.
+Only calls asking `Suppress` carry the fields. A server that rejects one fails the call. With the judge's
+backend as its ONLY candidate, the judge then leaves the ranking alone and logs a warning, as for any failed
+verdict — so a value your server rejects looks like no judge at all everywhere but the log. With a fallback
+list, the failure advances instead: the judge quietly runs on the next candidate, which may be a paid one, and
+consecutive failures bench the host for its cooldown for every caller (`LyntaiOptions.DeadHostThreshold`).
+Try the value against your server before relying on it.
 
 #### It is a policy, so switching is one line
 

@@ -128,10 +128,10 @@ public sealed class HttpModelOptions
     ///
     /// <para>Each top-level member is added as given, never merged into one the request sets: a member the
     /// provider sets itself (<c>model</c>, <c>messages</c>, <c>stream</c>, <c>stream_options</c>,
-    /// <c>max_tokens</c>, <c>temperature</c>, <c>tools</c>, <c>response_format</c>) is refused. The provider
-    /// throws <see cref="ArgumentException"/> naming the problem when the value is not one JSON object or holds
-    /// such a member. Ignored unless <see cref="Produces"/> is <see cref="ProviderKinds.Text"/>, and when
-    /// <c>AddHttpProvider</c> is given an Ollama server root: the native provider it composes sends its own
-    /// <c>think: false</c>.</para></summary>
+    /// <c>max_tokens</c>, <c>temperature</c>, <c>tools</c>, <c>response_format</c>) is refused, in any letter
+    /// case. The provider throws <see cref="ArgumentException"/> naming the problem when the value is not one
+    /// JSON object or holds such a member. Ignored unless <see cref="Produces"/> is
+    /// <see cref="ProviderKinds.Text"/>, and when <c>AddHttpProvider</c> is given an Ollama server root: the
+    /// native provider it composes sends its own <c>think: false</c>.</para></summary>
     public string? SuppressReasoningFields { get; set; }
 }

@@ -134,6 +134,9 @@ public class SuppressReasoningFieldsTests
     [InlineData("temperature")]
     [InlineData("tools")]
     [InlineData("response_format")]
+    [InlineData("Model")]          // a server matching keys without case (Go's encoding/json) lets the later
+    [InlineData("STREAM")]         // one win, so a case variant would override the request rather than add
+    [InlineData("Messages")]
     public void A_member_the_wire_sets_itself_is_refused_at_construction_naming_it(string key)
     {
         var ex = Assert.Throws<ArgumentException>(() =>
@@ -163,11 +166,13 @@ public class SuppressReasoningFieldsTests
     {
         var services = new ServiceCollection();
 
-        Assert.Throws<ArgumentException>(() => services.AddLyntai(b => b.AddHttpProvider("llama", o =>
+        var ex = Assert.Throws<ArgumentException>(() => services.AddLyntai(b => b.AddHttpProvider("llama", o =>
         {
             o.BaseUrl = "http://localhost:8080";
             o.SuppressReasoningFields = """{"model":"other"}""";
         })));
+
+        Assert.Equal(nameof(HttpModelOptions.SuppressReasoningFields), ex.ParamName);
     }
 
     [Theory]
@@ -197,6 +202,21 @@ public class SuppressReasoningFieldsTests
         var keys = OpenAiPayload.Build(everything, "m", stream: true).Select(p => p.Key).ToHashSet();
 
         Assert.Equal(keys.Order(StringComparer.Ordinal), OpenAiPayload.WireMembers.Order(StringComparer.Ordinal));
+    }
+
+    /// <summary>The backstop for drift between the two: fields that reach the merge naming a member the body
+    /// already holds — in any case — fail the call rather than override the request.</summary>
+    [Theory]
+    [InlineData("model")]
+    [InlineData("MESSAGES")]
+    public void The_merge_never_overwrites_a_member_the_body_already_holds(string key)
+    {
+        var unreserved = new JsonObject { [key] = "configured" };
+
+        var ex = Assert.Throws<InvalidOperationException>(() =>
+            OpenAiPayload.Build(Req(TextReasoning.Suppress), "m", stream: false, unreserved));
+
+        Assert.Contains($"\"{key}\"", ex.Message, StringComparison.Ordinal);
     }
 
     private static TextRequest Req(TextReasoning reasoning) =>
