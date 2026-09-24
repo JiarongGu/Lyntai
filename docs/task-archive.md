@@ -5003,3 +5003,16 @@ BYO implementer might not know how to answer carries an "Implementing it" note.
 
 - A configured text candidate naming a NON-text backend is still called
 - Gate "no default body on a member of an interface the library decorates"
+
+## Part 288 — the OpenAI-shaped wire drops `TextReasoning.Suppress` (2026-09-24)
+
+✅ done 2026-09-24 — **Outcome:** `HttpModelOptions.SuppressReasoningFields` holds JSON merged into a chat
+request only when the call asks `Suppress` — e.g. `{"chat_template_kwargs":{"enable_thinking":false}}` for
+llama-server serving a Qwen3 template; the library knows no vendor's spelling and ships no default, a member the
+wire itself sets is refused in any letter case, and a merge never overwrites (**D179**; recipe in
+`docs/memory.md` §6). Reported by an adopting application whose small Qwen judges thought on every verification
+call (1.3–17.5 s, and a 300 s timeout, against 50–350 ms with reasoning off). Every OpenAI-shaped preset gained
+an options-action overload, so `AddLlamaProvider(id, o => …)` reaches any `HttpModelOptions` knob. When this
+ships, the adopter can drop its server-side `reasoning = off` preset.
+
+- Express `TextReasoning.Suppress` on the OpenAI-shaped wire
