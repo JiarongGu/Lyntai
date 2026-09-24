@@ -20,7 +20,9 @@ sealed class Lyntai.Generation.Providers.ComfyUiOptions
     CompletedField : String
     HistoryPath : String
     Id : String
+    InputPathOption : String
     InterruptPath : String
+    MeshSubfolder : String
     OutputsField : String
     Produces : IReadOnlyList<String>
     PromptIdField : String
@@ -29,6 +31,7 @@ sealed class Lyntai.Generation.Providers.ComfyUiOptions
     SubmitPath : String
     SystemStatsPath : String
     Timeout : TimeSpan
+    UploadPath : String
     ViewPath : String
     WorkflowOption : String
 sealed class Lyntai.Generation.Providers.ComfyUiProvider

@@ -1222,10 +1222,10 @@ exactly as they govern one render. A stage that cannot identify a single artifac
 (`Unsupported`) rather than guessing — a media type cannot be branched on, and "the first `image/*`" picks a
 texture atlas on a mesh backend; `GenerationStage.SelectInput` is where you state your own rule.
 
-**`3d → image → video` is not one of the chains you can build**, and the reason is worth knowing before you
-try: no image or video backend accepts a mesh, so that first edge is a *rasterization* rather than a
-generation and this platform performs none. `ProviderKinds.Model3d` exists so a backend serving it needs no
-contract change.
+**A mesh chains into an image only through a backend that RASTERIZES it.** That edge is a render, not a
+generation, and this library performs none — but a ComfyUI graph with a render node does: bind the mesh
+through `Options["input-path"]` and it returns a view of the object. ComfyUI is a queued backend, and
+`RunPipelineAsync` drives the inline door, so run each ComfyUI stage through submit → poll → fetch yourself.
 
 Every backend answers **"are you usable?"** without generating anything (`ProbeAsync`), so a setup screen
 never has to pay for a test image. The `generate_backends` tool asks all of them **concurrently, under one
@@ -1255,7 +1255,7 @@ failure rather than inventing an artifact.
 |---|---|---|
 | `OpenAiImageProvider` | Inline | `/images/generations`, or `/images/edits` when the request carries an input image. A `url` response comes back as a URI artifact — never downloaded for you |
 | `Automatic1111Provider` | Inline | A locally-run SD WebUI: `txt2img` / `img2img`. Not running reports **NotConfigured** (skipped, not blamed), and its probe checks a checkpoint is *loaded* — "up" isn't "usable". The WebUI's currently-loaded checkpoint decides the model: `MediaRequest.Model`, including a candidate's `a1111:sd_xl_base` pin, is **not** sent |
-| `ComfyUiProvider` | **Job** | *Measured against a live server, image and video workflows both.* Local and workflow-driven: you supply the graph in `Options["workflow"]` (+ optional `Options["prompt-path"]` to place the prompt), and outputs come back as view URIs. A transport failure while polling reports **Running, not Failed** — an unanswered status call says nothing about a run still going — while a 4xx or an unconfigured base URL stays terminal, so a bad id never polls forever |
+| `ComfyUiProvider` | **Job** | *Measured against a live server, image, video and mesh workflows.* Local and workflow-driven: you supply the graph in `Options["workflow"]` (+ optional `Options["prompt-path"]` to place the prompt), and outputs come back as view URIs — a mesh as `model/gltf-binary`. Each input (bytes, or a URI it fetches) is uploaded and its stored name written at the field `Options["input-path"]` names, or `Options["input-path:<role>"]` for an input with a role; an input with nowhere to go is refused, never dropped. A transport failure while polling reports **Running, not Failed** — an unanswered status call says nothing about a run still going — while a 4xx or an unconfigured base URL stays terminal, so a bad id never polls forever |
 | `LocalDiffusionProvider` | Inline | A local `sd-cli` / stable-diffusion.cpp subprocess through `IProcessRunner` — no key, no network, no content policy in the path. Argv and the multiple-of-64 size clamp are measured against a real engine (txt2img and img2img, end to end through the library) |
 | `FalQueueProvider` | **Job** | *Documented, not measured.* One aggregator queue reaching the Wan/Kling/Veo-class video models. The operation id **carries its model** (`"model#requestId"`) because a resumed job has only the id, and a transport failure while polling reports **Running, not Failed** — a 500 says nothing about a paid render still in flight |
 | `PiperProvider` | Inline + **Stream** | A local piper TTS engine through `IProcessRunner` — no key, no network. Raw PCM **streams** through the media stream door as it is synthesised (measured against a real engine: several chunks before one terminal), typed `audio/pcm;rate=…;bits=16;channels=1;endian=little` with the rate read from the voice's own config. `GenerateAsync` is the same stream, buffered |

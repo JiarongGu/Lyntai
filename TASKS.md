@@ -15,18 +15,17 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 5 across 3 Parts: 1 startable, 2 blocked, 2 watch
+## Open items — 4 across 3 Parts: 2 blocked, 2 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 106 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
-| 159 | 33 | GEN7 — pipelines (3d → image → video) | startable |  |
-| 229 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 252 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 309 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 105 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
+| 172 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 195 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 252 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
 
 <!-- open-items:end -->
 
@@ -155,62 +154,6 @@ The fal-first naming that once hid ComfyUI inside this list is recorded in
   `Lyntai.Generation`, and driving a real render with real weights for a real use case is what that migration
   does. Measuring where there is a real setup and a real use case is the owner's stated preference, and is why
   this never blocked a release — 3.0 ships the package under the full SemVer promise (**D70**)._
-
-- [ ] **GEN7 — pipelines (3d → image → video)**: ordered stages feeding `artifact.ToInput(role)` forward, with <!-- item: state=startable -->
-  per-stage candidates and per-stage failure semantics.
-  <br>**RE-CHECKED 2026-09-23 (`docs/task-archive.md` Part 279's wide check), and the structural blocker is REFUTED: the
-  rasterizer does not have to live in this library, because ComfyUI's CORE now carries one.** Read from the
-  local ComfyUI 0.36.0 source, not a vendor page: `RenderMesh` (`comfy_extras/nodes_mesh_postprocess.py`)
-  ray-casts a `MESH` to an `IMAGE` server-side, auto-framing a front view; `RotateMesh` gives the other views;
-  `SaveGLB` writes one; `Get3DComponents` turns an uploaded GLB into a `MESH`; Hunyuan3D and TRELLIS2 generate
-  one. So `image → mesh → rendered views → video` is a chain of ComfyUI graphs the existing HTTP adapter
-  shape can drive, exactly as ComfyUI already hosts image and video.
-  <br>**First step — no 3D MODEL needed, the trick Part 264's video used:** a headless graph
-  `Load3D → Get3DComponents → SaveGLB` and one `… → RenderMesh → SaveImage` over an uploaded GLB, to measure
-  what the history document says for a 3D output and whether a GLB uploads as an input. Then the ComfyUI
-  provider declares `ProviderKinds.Model3d` and accepts a mesh input; a generating stage needs a
-  Hunyuan3D/TRELLIS2 download, which is a step, not a blocker.
-  <br>**Owner ruling 2026-09-25:** measure the two graphs, then build Model3d output and mesh input on the
-  ComfyUI provider if they answer; the mesh-GENERATING stage is measured later from real use (as `sd-cli`'s
-  argv was), not by a download here.
-  <br>**MEASURED 2026-09-25 against the local ComfyUI 0.36.0 — both graphs ANSWER, with a hand-written 688 B
-  cube GLB and no 3D model.** `POST upload/image` with `subfolder=3d`, `type=input` stores a GLB and answers
-  `{"name","subfolder":"3d","type":"input"}`; `Load3DAdvanced` runs headless with `model_file = "3d/<name>"`
-  and `viewport_state = {}` (the browser-only `Load3D` does not). `Get3DComponents → SaveGLB` files its output
-  under the collection **`3d`** as `{filename, subfolder: "3d", type: "output"}`, and `view` serves it as
-  `application/octet-stream` (magic `glTF`) — so a mesh's media type must come from the extension, not the
-  header. `Get3DComponents → RenderMesh (solid) → SaveImage` returns an ordinary `images` PNG showing the cube's
-  auto-framed front face: a real rasterisation, server-side.
-  **Blocker restated 2026-08-11 — the original "deferred until ≥2 real backends exist" now reads as SATISFIED
-  and is the wrong test.** Counted by kind rather than by total: **image has 5** backends (`Automatic1111`,
-  `ComfyUi`, `FalQueue`, `LocalDiffusion`, `OpenAiImage`), **video has 2** (`ComfyUi`, `FalQueue`) — and
-  **3d has ZERO**. `ProviderKinds.Model3d` exists in the contract and no provider declares it. **The
-  pipeline's FIRST STAGE has no backend at all**, which is a harder blocker than any count, and the one the
-  original wording hid.
-  Both video backends also still carry unverified-surface markers — precisely what GEN-VERIFY covers — so
-  "real" in the measured sense is not yet true of the output stage either.
-  **The survey RAN on 2026-08-30 (`docs/task-archive.md` Part 124) and its answer is that neither option was
-  on the menu.** It asked mesh vs turntable stills; the dominant 3D family returns a **mesh and nothing
-  renderable** (Hunyuan3D, Rodin), a minority adds a **single preview thumbnail** (Meshy) which is one fixed
-  view rather than a turntable, and **turntable output belongs to a different model family altogether**
-  (SV3D-class orbital synthesis), which is **image→views** and so does not occupy a 3D stage's place in the
-  chain. **So `3d → image → video` corresponds to no buildable chain today, and the chain that IS buildable
-  (`image → orbital views → video`) has no 3D stage in it.** The 3d→image edge is not a generation at all —
-  it is a RASTERIZATION, which no vendor on this platform performs.
-  <br>**What that unblocked was the runner at `image → video`, and it SHIPPED on 2026-08-30** as GEN7a
-  (`docs/task-archive.md` Part 126): `router.RunPipelineAsync(stages)`, ordered stages chaining through
-  `MediaArtifact.ToInput(role)`. A stage is a stage, so **adding a 3D stage later needs no change to the
-  runner** — which is what made building it an unblocking rather than a narrowing. What is left of GEN7 is
-  therefore the 3D STAGE alone. A rasterizer is the only thing that makes a
-  mesh chain and it belongs to an application with a renderer, never inside a library whose core promise is a
-  small dependency footprint (`dotnet-package-layout.md` §Package boundaries).
-  <br>**Two defects on the OUTPUT stage were found while establishing that, and both are FIXED**
-  (`docs/task-archive.md` Part 125) — `ComfyUiProvider` declaring `SupportsInputs = true` while never
-  reading `request.Inputs`, and `ProviderKinds.Model3d`'s shipped XML doc claiming a chain that does not
-  exist. So they no longer gate the runner below.
-  <br>_Desk survey: read from published API pages, never called. That is the tier GEN-VERIFY exists to
-  distrust, so the SHAPES transfer and no individual field name is confirmed — nothing in it licenses
-  deleting an unverified marker._
 
 > Add new tasks here as checklist items with an `id` and a short `file:line` where known. Group related
 > tasks under a `## Part N — <theme>` heading. Move an item to the archive when it lands — don't leave a

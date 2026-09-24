@@ -87,12 +87,10 @@ the full promise and these are confirmations rather than repairs. In priority or
    before one terminal, the per-chunk `MediaType` carrying the metadata a raw wire cannot. A hosted
    vendor's wire stays worth measuring when an account exists (the owner's 2026-09-19 ruling sequences
    local first; it does not exclude). TTS before music, still.
-3. **Pipelines** (3d → image → video) — ordered stages feeding `artifact.ToInput(role)` forward. The original
-   "defer until ≥2 real backends exist" test now reads as satisfied and is the wrong one: counted by KIND,
-   image has five backends and video two, but **3d has ZERO** — so the pipeline's FIRST stage has no backend
-   at all. A 3D-backend survey is the critical path (mesh vs turntable stills — only the latter chains into
-   today's video backends), and it decides whether a 3D stage can feed the rest before the runner's shape can
-   be designed at all.
+3. **Pipelines — DONE 2026-09-25.** The runner shipped 2026-08-30 (`RunPipelineAsync`); the 3D stage is the
+   ComfyUI provider, which now takes a mesh input and produces `Model3d`, and a ComfyUI render graph is the
+   mesh → image edge (**D180**), measured with no 3D model. A mesh-GENERATING stage is measured from real use,
+   not by a download here.
 
 _Generation wiring helpers (`AddOpenAiImageProvider()` and friends) were item 4 here and **shipped in 2.1.0**
 — see `docs/task-archive.md` Part 36. Every remaining item above needs a real

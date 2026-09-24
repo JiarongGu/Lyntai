@@ -1,5 +1,6 @@
 using Lyntai.Inference;
 using System.Net;
+using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -19,9 +20,10 @@ public sealed class ComfyUiOptions
     /// <summary>The candidate id this backend registers under.</summary>
     public string Id { get; set; } = "comfyui";
 
-    /// <summary>Media kinds this install can serve. Both by default: which one a run produces is decided by
-    /// the WORKFLOW, not by the endpoint — so the host declares what its graphs cover.</summary>
-    public IReadOnlyList<string> Produces { get; set; } = [ProviderKinds.Image, ProviderKinds.Video];
+    /// <summary>Media kinds this install can serve. All three by default: which one a run produces is decided
+    /// by the WORKFLOW, not by the endpoint — so the host declares what its graphs cover.</summary>
+    public IReadOnlyList<string> Produces { get; set; } =
+        [ProviderKinds.Image, ProviderKinds.Video, ProviderKinds.Model3d];
 
     /// <summary>Queue a workflow (returns a prompt id).</summary>
     public string SubmitPath { get; set; } = "prompt";
@@ -37,6 +39,15 @@ public sealed class ComfyUiOptions
 
     /// <summary>Server/version info — the free probe.</summary>
     public string SystemStatsPath { get; set; } = "system_stats";
+
+    /// <summary>Stores an input file in the server's input folder and answers the name it was stored under
+    /// (<c>name</c>, <c>subfolder</c>). Every <see cref="MediaRequest.Inputs"/> entry is sent here before the
+    /// workflow is queued.</summary>
+    public string UploadPath { get; set; } = "upload/image";
+
+    /// <summary>The input subfolder a mesh (a <c>model/*</c> media type) is uploaded into — where ComfyUI's 3D
+    /// loaders look. Any other input goes to the input folder's root.</summary>
+    public string MeshSubfolder { get; set; } = "3d";
 
     /// <summary>The option key holding the workflow graph JSON.</summary>
     public string WorkflowOption { get; set; } = "workflow";
@@ -62,6 +73,13 @@ public sealed class ComfyUiOptions
     /// <summary>The option key holding a dotted path to the node input that receives
     /// <see cref="MediaRequest.Prompt"/> (e.g. <c>"6.inputs.text"</c>).</summary>
     public string PromptPathOption { get; set; } = "prompt-path";
+
+    /// <summary>The option key holding a dotted path to the node input that receives an uploaded input's
+    /// stored name (e.g. <c>"1.inputs.model_file"</c>). An input with no role binds through this key; an input
+    /// with a role binds through <c>"&lt;key&gt;:&lt;role&gt;"</c> (<c>"input-path:init"</c>) and never falls
+    /// back to the roleless one. An input whose key is unset, or whose path is not a field of the workflow, is
+    /// REFUSED before anything is uploaded — never dropped.</summary>
+    public string InputPathOption { get; set; } = "input-path";
 
     /// <summary>Ceiling for ONE HTTP call to the server — a submit, a history read, an interrupt, a probe.
     ///
@@ -89,7 +107,10 @@ public sealed class ComfyUiOptions
 /// <item><b>Graph-shaped.</b> ComfyUI runs a WORKFLOW, not a prompt, so the caller supplies the graph
 ///   (<c>Options["workflow"]</c>) and optionally where the prompt belongs in it
 ///   (<c>Options["prompt-path"]</c>). <see cref="MediaRequest.Prompt"/> may be null, and no default
-///   graph is invented — guessing one would silently produce something nobody asked for.</item>
+///   graph is invented — guessing one would silently produce something nobody asked for. Each
+///   <see cref="MediaRequest.Inputs"/> entry is uploaded and its stored name written where the caller says
+///   (<c>Options["input-path"]</c>, or <c>Options["input-path:&lt;role&gt;"]</c>): the loader node is
+///   the caller's, so an input with nowhere to go is refused.</item>
 /// <item><b>Asynchronous, locally.</b> <see cref="ProviderOperation.Queued"/> delivery on a machine you own,
 ///   composing with <c>Lyntai.Jobs</c> exactly like a hosted render.</item>
 /// <item><b>No content policy in the path</b>, which makes it the candidate to place after a hosted backend
@@ -97,10 +118,11 @@ public sealed class ComfyUiOptions
 /// </list>
 /// </summary>
 /// <remarks>
-/// <para><b>MEASURED against a live server</b> (ComfyUI 0.36.0), image and video both: probe, submit,
-/// poll, fetch and interrupt all answered on the documented paths, every response field name was confirmed
-/// as shipped, and the view URI served what its history entry named — a rendered PNG, and an MP4 a
-/// video-producing workflow filed under the collection called <c>images</c>
+/// <para><b>MEASURED against a live server</b> (ComfyUI 0.36.0) over image, video and mesh workflows:
+/// probe, submit, poll, fetch, interrupt and upload all answered on the documented paths, every response
+/// field name was confirmed as shipped, and the view URI served what its history entry named — a rendered
+/// PNG, an MP4 a video-producing workflow filed under the collection called <c>images</c>, and a GLB filed
+/// under <c>3d</c> that chained, uploaded again, into a graph that rendered it
 /// (<c>ComfyUiLiveTests</c> is the measurement). Every path stays an option
 /// (<see cref="ComfyUiOptions"/>) because upstream can rename between releases, and the parsing stays
 /// defensive: an unrecognised history shape reports "not finished" rather than inventing an artifact.</para>
@@ -127,9 +149,9 @@ public sealed class ComfyUiProvider(
         Accepts = [ProviderKinds.Text],
         Produces = options.Produces,
         Operations = [ProviderOperation.Queued],
-        // NOT SupportsInputs: a graph takes its init image from a node the CALLER authored, and the platform
-        // cannot know which node that is — so MediaRequest.Inputs has nowhere to go. Declaring it is an
-        // admission promise (ProviderCapabilities.Supports) that the submit path below cannot keep.
+        // an admission promise the submit path keeps: each input is uploaded and bound at the graph field the
+        // CALLER names (ComfyUiOptions.InputPathOption), and one with nowhere to go is refused, never dropped
+        SupportsInputs = true,
     };
 
     /// <summary>Reads server info — free, and it answers "is it up, and which build?" without generating.
@@ -169,7 +191,8 @@ public sealed class ComfyUiProvider(
 
     /// <inheritdoc/>
     /// <remarks>Bounded by the request's <see cref="MediaRequest.TimeoutSeconds"/> if it carries one, else
-    /// <see cref="ComfyUiOptions.Timeout"/> — the QUEUEING call only, not the run it starts.</remarks>
+    /// <see cref="ComfyUiOptions.Timeout"/> — the input uploads and the QUEUEING call together, not the run
+    /// it starts. A failed upload fails the submit and queues nothing.</remarks>
     public Task<QueuedOperation> SubmitAsync(MediaRequest request, CancellationToken ct = default) =>
         GenerationDeadline.GuardAsync(
             GenerationDeadline.Resolve(request.TimeoutSeconds, options.Timeout), ct,
@@ -187,14 +210,6 @@ public sealed class ComfyUiProvider(
         if (string.IsNullOrWhiteSpace(options.BaseUrl))
             return Failed("no BaseUrl configured");
 
-        // Refuse rather than drop. The router will not route an input-carrying request here (SupportsInputs
-        // is not declared), but a caller holding the provider directly can still reach this — and a dropped
-        // input runs the graph as authored, which bills a render nobody asked for and looks plausible.
-        if (request.Inputs.Count > 0)
-            return Failed("ComfyUI takes an init image from a node inside the workflow graph, so there is "
-                + "nowhere to put MediaInput — reference the image from the graph in "
-                + $"Options[\"{options.WorkflowOption}\"] instead");
-
         if (request.Option(options.WorkflowOption) is not { Length: > 0 } workflowJson)
             return Failed($"ComfyUI needs a workflow graph in Options[\"{options.WorkflowOption}\"] — " +
                 "there is no sensible default graph to invent on your behalf");
@@ -204,17 +219,30 @@ public sealed class ComfyUiProvider(
         catch (JsonException ex) { return Failed($"the workflow in Options[\"{options.WorkflowOption}\"] is not valid JSON: {ex.Message}"); }
         if (graph is null) return Failed("the workflow parsed to nothing");
 
+        // a prompt path that misses leaves the graph as the caller wrote it, placeholder and all
         if (request.Prompt is { Length: > 0 } prompt &&
-            request.Option(options.PromptPathOption) is { Length: > 0 } path)
-            Substitute(graph, path, prompt);
+            request.Option(options.PromptPathOption) is { Length: > 0 } path &&
+            Resolve(graph, path) is { } promptField)
+            promptField.Owner[promptField.Name] = prompt;
 
-        // JsonObject over an anonymous type — keeps the package's trim/AOT claim honest
-        var payload = new JsonObject { ["prompt"] = graph }.ToJsonString();
+        // every input is bound BEFORE anything is uploaded, so a refusal spends nothing
+        var (bindings, refusal) = BindInputs(graph, request);
+        if (refusal is not null) return Failed(refusal);
 
         using var lease = HttpClientLease.From(httpFactory, disposeHttpClient);
         var http = lease.Client;
         try
         {
+            foreach (var binding in bindings)
+            {
+                var (stored, failure) = await UploadAsync(http, binding.Input, ct).ConfigureAwait(false);
+                if (failure is not null)
+                    return Failed($"{binding.Describe} was not uploaded, so the workflow was not submitted: {failure}");
+                binding.Field.Owner[binding.Field.Name] = stored;
+            }
+
+            // JsonObject over an anonymous type — keeps the package's trim/AOT claim honest
+            var payload = new JsonObject { ["prompt"] = graph }.ToJsonString();
             using var content = new StringContent(payload, Encoding.UTF8, "application/json");
             using var response = await http.PostAsync(Url(options.SubmitPath), content, ct).ConfigureAwait(false);
             var body = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
@@ -369,21 +397,107 @@ public sealed class ComfyUiProvider(
         }
     }
 
-    /// <summary>Substitute the prompt at a dotted path (<c>"6.inputs.text"</c>). A path that doesn't exist is
-    /// left alone rather than created: inventing nodes in someone's graph is worse than sending it unchanged
-    /// with the placeholder they wrote.</summary>
-    private static void Substitute(JsonNode graph, string dottedPath, string value)
+    /// <summary>The EXISTING field a dotted path (<c>"6.inputs.text"</c>) names, or null. Never created:
+    /// inventing nodes in someone's graph is worse than any answer a miss leads to.</summary>
+    private static GraphField? Resolve(JsonNode graph, string dottedPath)
     {
         var segments = dottedPath.Split('.', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        if (segments.Length == 0) return;
+        if (segments.Length == 0) return null;
 
         var node = graph;
         for (var i = 0; i < segments.Length - 1; i++)
         {
             node = node is JsonObject obj && obj.TryGetPropertyValue(segments[i], out var next) ? next : null;
-            if (node is null) return;
+            if (node is null) return null;
         }
-        if (node is JsonObject target && target.ContainsKey(segments[^1])) target[segments[^1]] = value;
+        return node is JsonObject owner && owner.ContainsKey(segments[^1]) ? new GraphField(owner, segments[^1]) : null;
+    }
+
+    private sealed record GraphField(JsonObject Owner, string Name);
+
+    private sealed record InputBinding(MediaInput Input, GraphField Field, string Describe);
+
+    /// <summary>Where each input goes: the path under <see cref="ComfyUiOptions.InputPathOption"/>, or under
+    /// <c>"&lt;key&gt;:&lt;role&gt;"</c> for an input with a role. The first input with nowhere to go — no
+    /// path, a path the graph lacks, a field another input already took — is the refusal.</summary>
+    private (IReadOnlyList<InputBinding> Bindings, string? Refusal) BindInputs(JsonNode graph, MediaRequest request)
+    {
+        var bindings = new List<InputBinding>();
+        for (var i = 0; i < request.Inputs.Count; i++)
+        {
+            var input = request.Inputs[i];
+            var key = input.Role is { Length: > 0 } role ? $"{options.InputPathOption}:{role}" : options.InputPathOption;
+            var describe = $"input {i + 1} ({input.MediaType}{(input.Role is { Length: > 0 } r ? $", role {r}" : "")})";
+
+            if (request.Option(key) is not { Length: > 0 } path)
+                return ([], $"{describe} has nowhere to go: set Options[\"{key}\"] to the dotted path of the "
+                    + "workflow field that loads it (e.g. \"1.inputs.model_file\")");
+            if (Resolve(graph, path) is not { } field)
+                return ([], $"{describe}: Options[\"{key}\"] is \"{path}\", which is not a field of the workflow");
+            if (bindings.Any(b => ReferenceEquals(b.Field.Owner, field.Owner) && b.Field.Name == field.Name))
+                return ([], $"{describe}: \"{path}\" is already bound to another input, which it would erase");
+            if (input.Data is null && string.IsNullOrWhiteSpace(input.Uri))
+                return ([], $"{describe} carries neither bytes nor a URI");
+
+            bindings.Add(new InputBinding(input, field, describe));
+        }
+        return (bindings, null);
+    }
+
+    /// <summary>Store one input in the server's input folder and answer the name a loader reads it by —
+    /// <c>"&lt;subfolder&gt;/&lt;name&gt;"</c> AS THE SERVER REPORTED IT, since the server may rename.</summary>
+    private async Task<(string? Stored, string? Failure)> UploadAsync(
+        HttpClient http, MediaInput input, CancellationToken ct)
+    {
+        var bytes = input.Data;
+        if (bytes is null)
+        {
+            try
+            {
+                using var source = await http.GetAsync(input.Uri, ct).ConfigureAwait(false);
+                if (!source.IsSuccessStatusCode)
+                    return (null, $"fetching {input.Uri} answered {(int)source.StatusCode}");
+                bytes = await source.Content.ReadAsByteArrayAsync(ct).ConfigureAwait(false);
+            }
+            catch (HttpRequestException ex)
+            {
+                return (null, $"fetching {input.Uri} failed: {ex.Message}");
+            }
+        }
+
+        // a fresh name per upload: a shared one would let two concurrent jobs load each other's file
+        var name = $"lyntai-{Guid.NewGuid():N}{HttpArtifacts.ExtensionForMediaType(input.MediaType)}";
+        var file = new ByteArrayContent(bytes);
+        if (MediaTypeHeaderValue.TryParse(input.MediaType, out var contentType))
+            file.Headers.ContentType = contentType;
+
+        using var form = new MultipartFormDataContent { { file, "image", name }, { new StringContent("input"), "type" } };
+        if (input.MediaType.StartsWith("model/", StringComparison.OrdinalIgnoreCase) &&
+            options.MeshSubfolder is { Length: > 0 } subfolder)
+            form.Add(new StringContent(subfolder), "subfolder");
+
+        using var response = await http.PostAsync(Url(options.UploadPath), form, ct).ConfigureAwait(false);
+        var body = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+        if (!response.IsSuccessStatusCode)
+            return (null, $"the upload answered {(int)response.StatusCode}: {HttpArtifacts.FailureDetail(body)}");
+
+        return StoredName(body) is { } stored
+            ? (stored, null)
+            : (null, $"the upload answered no name: {HttpArtifacts.FailureDetail(body, 200)}");
+    }
+
+    private static string? StoredName(string body)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(body);
+            if (HttpArtifacts.Str(doc.RootElement, "name") is not { } name) return null;
+            return HttpArtifacts.Str(doc.RootElement, "subfolder") is { } subfolder ? $"{subfolder}/{name}" : name;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
     }
 
     private static JsonElement? Entry(string body, string operationId)

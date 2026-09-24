@@ -291,8 +291,9 @@ What a backend implements:
   threshold — no answer is no evidence of ill health either.
 - **MEASURE the wire format before shipping it**, and read what that discipline just cost. Of the six
   backends here, three are now measured against a real engine (`sd-cli`, ComfyUI over image AND video, and
-  piper, all 2026-09-19); two are PORTED from a sibling app's production implementation and say so
-  (`Automatic1111`, `OpenAiImage`) — someone else's evidence, which is not none and is not ours; and one is
+  piper, all 2026-09-19 — then ComfyUI's input upload and mesh output on 2026-09-25, **D180**); two are
+  PORTED from a sibling app's production implementation and say so (`Automatic1111`, `OpenAiImage`) —
+  someone else's evidence, which is not none and is not ours; and one is
   written from vendor documentation with no key to call it (`fal`), which is the only kind GEN-VERIFY ever
   meant and the only one still blocked on a vendor (`TASKS.md` Part 33). **Two of the three measurements
   CONFIRMED the mapping and the third found it WRONG** — the engine had retired the `img2img` mode value,

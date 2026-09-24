@@ -249,8 +249,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D177](#d177--segmenting-an-over-long-input-is-a-configured-capability-and-every-default-is-the-prior-behaviour-2026-09-24) | 2026-09-24 | segmenting an over-long input is a CONFIGURED capability, and every default is the prior behaviour |
 | [D178](#d178--a-text-candidate-naming-a-backend-that-produces-no-text-is-refused-at-composition-and-skipped-per-call-2026-09-24) | 2026-09-24 | a text candidate naming a backend that produces no text is refused at composition and skipped per… |
 | [D179](#d179--the-openai-shaped-wire-expresses-textreasoningsuppress-through-configured-fields-2026-09-24) | 2026-09-24 | the OpenAI-shaped wire expresses `TextReasoning.Suppress` through CONFIGURED fields |
+| [D180](#d180--comfyui-binds-each-input-at-a-graph-field-the-caller-names-and-produces-model3d-2026-09-25) | 2026-09-25 | ComfyUI binds each input at a graph field the CALLER names, and produces `Model3d` |
 
-_All 179 entries are live decisions._
+_All 180 entries are live decisions._
 
 <!-- index:end -->
 
@@ -5571,3 +5572,28 @@ per-request field on `TextRequest`: which server answers is the registration's k
 so no knob sends a preset user to `AddHttpProvider`. It is an OVERLOAD beside the positional form, not a new
 optional parameter, which would change the signature a compiled caller binds to (**D70**); the cost is that a
 literal `null` second argument becomes ambiguous, the trade `AddOllamaProvider` already made.
+
+## D180 — ComfyUI binds each input at a graph field the CALLER names, and produces `Model3d` (2026-09-25)
+
+**The decision.** `ComfyUiProvider` declares `SupportsInputs` and keeps it by upload and binding. Each
+`MediaRequest.Inputs` entry — inline bytes, or a `Uri` fetched through the provider's own client — is uploaded
+through `ComfyUiOptions.UploadPath` under a fresh name per upload, a mesh (`model/*`) into `MeshSubfolder` and
+anything else into the input root, and the name the server ANSWERS is written at the dotted path the request
+names, as `prompt-path` places the prompt. The key is `InputPathOption` (`input-path`) for an input with no
+role and `input-path:<role>` for one with a role, which never falls back to the roleless key, so a pipeline
+stage's `InputRole` selects the field. An input with no path, a path the workflow lacks, or a field another
+input already took is REFUSED before anything is uploaded: a dropped input runs the graph as authored, billed
+and plausible (`pitfalls.md`, "a capability FLAG is a promise"). `ProviderKinds.Model3d` joins the default
+`Produces`, as `Video` did, because the workflow decides what comes out; the shared extension table learns
+`glb`, `gltf`, `obj` and `stl`, because `view` serves a GLB as `application/octet-stream`.
+
+**So a mesh chains into an image where the BACKEND rasterizes it** — a ComfyUI render graph, measured on 0.36.0
+with no 3D model (`ComfyUiLiveTests`). **D140**'s remark that no backend accepts a mesh no longer holds for
+ComfyUI; the library still renders nothing itself, and a mesh backend's `image/*` output is still an atlas.
+
+**Rejected.** Detecting the loader node: node ids are the caller's, and a guess binds the wrong field silently.
+A mesh-specific option: an image input binds the same way, so the binding is general. Referencing the previous
+stage's output in place (`"<file> [output]"`) rather than fetching and uploading it: unmeasured, and it works
+only when both stages run on one server. `overwrite=true` onto a shared name: concurrent jobs would load each
+other's file. Falling back from a role's key to the roleless one: an input meant for one loader would silently
+feed another.

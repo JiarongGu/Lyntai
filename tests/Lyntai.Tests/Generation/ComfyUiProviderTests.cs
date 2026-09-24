@@ -1,5 +1,8 @@
 using Lyntai.Inference;
 using System.Net;
+using System.Text;
+using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using Lyntai.Generation;
 using Lyntai.Generation.Providers;
 using Lyntai.Tests.Fakes;
@@ -39,36 +42,141 @@ public class ComfyUiProviderTests
     }
 
     [Fact]
-    public void It_declares_itself_a_JOB_backend_across_image_and_video()
+    public void It_declares_itself_a_JOB_backend_across_image_video_and_3d()
     {
         var (provider, _) = Provider();
 
         Assert.Equal("comfyui", provider.Id);
         Assert.Contains(ProviderKinds.Image, provider.Capabilities.Produces);
         Assert.Contains(ProviderKinds.Video, provider.Capabilities.Produces);   // local video via a workflow
+        Assert.Contains(ProviderKinds.Model3d, provider.Capabilities.Produces); // a mesh via a workflow
         Assert.Equal([ProviderOperation.Queued], provider.Capabilities.Operations);
         Assert.IsAssignableFrom<IMediaJobProvider>(provider);
     }
 
     [Fact]
-    public void It_does_not_declare_SupportsInputs_because_the_graph_owns_the_init_image()
+    public void It_declares_SupportsInputs_because_every_input_is_bound_or_refused()
     {
-        // SupportsInputs is an ADMISSION filter in ProviderCapabilities.Supports, so declaring it promises
-        // the router this backend reads MediaRequest.Inputs. It cannot: the init image is a node the
-        // caller authored and the platform cannot know which one.
+        // SupportsInputs is an ADMISSION filter, so it is a promise that MediaRequest.Inputs is read: each is
+        // uploaded to the field the caller names, and one with no field is refused (the facts below)
         var (provider, _) = Provider();
 
-        Assert.False(provider.Capabilities.SupportsInputs);
-        Assert.False(provider.Capabilities.Supports(
-            Ask().Kind, ProviderOperation.Queued, Ask().Model, hasInputs: true));
+        Assert.True(provider.Capabilities.SupportsInputs);
+        Assert.True(provider.Capabilities.Supports(
+            ProviderKinds.Model3d, ProviderOperation.Queued, ProviderKinds.Text, hasInputs: true));
+    }
+
+    // ---- inputs: uploaded, then bound at the dotted path the caller names --------------------------------
+
+    private const string MeshWorkflow = """
+        {"1":{"class_type":"Load3DAdvanced","inputs":{"model_file":"none","viewport_state":{}}},
+         "2":{"class_type":"LoadImage","inputs":{"image":"none"}},
+         "3":{"class_type":"SaveGLB","inputs":{"mesh":["1",0]}}}
+        """;
+
+    private static MediaRequest MeshAsk(Dictionary<string, string> paths, params MediaInput[] inputs)
+    {
+        var options = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { ["workflow"] = MeshWorkflow };
+        foreach (var (key, path) in paths) options[key] = path;
+        return new MediaRequest { Kind = ProviderKinds.Model3d, Inputs = inputs, Options = options };
+    }
+
+    private static Dictionary<string, string> Bound(string key, string path) =>
+        new(StringComparer.OrdinalIgnoreCase) { [key] = path };
+
+    private static MediaInput Mesh(string content) =>
+        new("model/gltf-binary", Data: Encoding.ASCII.GetBytes(content));
+
+    private static string Uploaded(string name, string subfolder) =>
+        $$"""{"name":"{{name}}","subfolder":"{{subfolder}}","type":"input"}""";
+
+    private static string? Posted(string promptBody, string node, string field) =>
+        JsonNode.Parse(promptBody)!["prompt"]![node]!["inputs"]![field]!.GetValue<string>();
+
+    /// <summary>One field of a multipart body, or null. The fixtures carry no <c>--</c> of their own, so
+    /// splitting on it is splitting on the boundary.</summary>
+    private static string? FormField(string multipart, string field)
+    {
+        foreach (var part in multipart.Split("--"))
+        {
+            var split = part.IndexOf("\r\n\r\n", StringComparison.Ordinal);
+            if (split < 0) continue;
+            if (!Regex.IsMatch(part[..split],
+                    $@"name=""?{Regex.Escape(field)}""?(;|\r|$)")) continue;
+            return part[(split + 4)..].TrimEnd('\r', '\n');
+        }
+        return null;
+    }
+
+    private static string? UploadedFileName(string multipart) =>
+        Regex.Match(multipart, @"filename=""?([^"";\r\n]+)") is { Success: true } m
+            ? m.Groups[1].Value
+            : null;
+
+    [Fact]
+    public async Task A_mesh_input_is_uploaded_into_the_3d_subfolder_and_the_RETURNED_name_is_written_at_its_path()
+    {
+        // the server may rename an upload, so the name written into the graph is the one it answered with
+        var (provider, http) = Provider();
+        http.Enqueue(HttpStatusCode.OK, Uploaded("cube (1).glb", "3d"))
+            .Enqueue(HttpStatusCode.OK, """{"prompt_id":"abc-123"}""");
+
+        var operation = await provider.SubmitAsync(
+            MeshAsk(Bound("input-path", "1.inputs.model_file"), Mesh("MESH-BYTES-7F3A")));
+
+        Assert.Equal(QueuedOperationStatus.Queued, operation.Status);
+        Assert.Equal("http://127.0.0.1:8188/upload/image", http.Requests[0].Uri?.ToString());
+        Assert.Equal("MESH-BYTES-7F3A", FormField(http.Requests[0].Body, "image"));
+        Assert.Equal("3d", FormField(http.Requests[0].Body, "subfolder"));
+        Assert.Equal("input", FormField(http.Requests[0].Body, "type"));
+        Assert.EndsWith(".glb", UploadedFileName(http.Requests[0].Body));   // a loader picks its parser by it
+
+        Assert.Equal("http://127.0.0.1:8188/prompt", http.Requests[1].Uri?.ToString());
+        Assert.Equal("3d/cube (1).glb", Posted(http.Requests[1].Body, "1", "model_file"));
     }
 
     [Fact]
-    public async Task An_input_is_refused_rather_than_dropped_so_a_chained_frame_cannot_vanish()
+    public async Task A_URI_input_is_fetched_then_uploaded()
     {
-        // a caller holding the provider directly bypasses the router's capability filter. Dropping the input
-        // here runs the graph as authored — a text-to-video render billed against a caller who asked for
-        // image→video, coming back plausible. The same shape FalQueueProvider refuses a bytes-only input for.
+        // a chained artifact arrives as a view URI; the loader reads the server's input folder, not a URL
+        var (provider, http) = Provider();
+        http.Enqueue(HttpStatusCode.OK, "MESH-FROM-URI", "application/octet-stream")
+            .Enqueue(HttpStatusCode.OK, Uploaded("m.glb", "3d"))
+            .Enqueue(HttpStatusCode.OK, """{"prompt_id":"abc-123"}""");
+        var source = "http://127.0.0.1:8188/view?filename=a.glb&subfolder=3d&type=output";
+
+        var operation = await provider.SubmitAsync(MeshAsk(Bound("input-path", "1.inputs.model_file"),
+            new MediaInput("model/gltf-binary", Uri: source)));
+
+        Assert.Equal(QueuedOperationStatus.Queued, operation.Status);
+        Assert.Equal(source, http.Requests[0].Uri?.ToString());
+        Assert.Equal("MESH-FROM-URI", FormField(http.Requests[1].Body, "image"));
+        Assert.Equal("3d/m.glb", Posted(http.Requests[2].Body, "1", "model_file"));
+    }
+
+    [Fact]
+    public async Task An_input_WITH_a_role_binds_through_its_role_keyed_path_and_a_non_mesh_goes_to_the_input_root()
+    {
+        var (provider, http) = Provider();
+        http.Enqueue(HttpStatusCode.OK, Uploaded("m.glb", "3d"))
+            .Enqueue(HttpStatusCode.OK, Uploaded("i.png", ""))
+            .Enqueue(HttpStatusCode.OK, """{"prompt_id":"abc-123"}""");
+        var paths = Bound("input-path", "1.inputs.model_file");
+        paths["input-path:init"] = "2.inputs.image";
+
+        var operation = await provider.SubmitAsync(MeshAsk(paths,
+            Mesh("MESH"), MediaInput.Init(Encoding.ASCII.GetBytes("IMAGE"), "image/png")));
+
+        Assert.Equal(QueuedOperationStatus.Queued, operation.Status);
+        Assert.True(string.IsNullOrEmpty(FormField(http.Requests[1].Body, "subfolder")));
+        Assert.Equal("3d/m.glb", Posted(http.Requests[2].Body, "1", "model_file"));
+        Assert.Equal("i.png", Posted(http.Requests[2].Body, "2", "image"));
+    }
+
+    [Fact]
+    public async Task An_input_with_no_path_to_go_to_is_refused_and_nothing_is_uploaded_or_submitted()
+    {
+        // dropping it would run the graph as authored — billed, plausible, and not what was asked for
         var (provider, http) = Provider();
 
         var operation = await provider.SubmitAsync(Ask() with
@@ -77,8 +185,151 @@ public class ComfyUiProviderTests
         });
 
         Assert.Equal(QueuedOperationStatus.Failed, operation.Status);
-        Assert.Contains("workflow graph", operation.Detail);
-        Assert.Empty(http.Requests);          // nothing was submitted, so nothing was billed
+        Assert.Contains("input-path:first-frame", operation.Detail);
+        Assert.Empty(http.Requests);
+    }
+
+    [Fact]
+    public async Task A_role_with_no_path_of_its_own_is_refused_rather_than_taking_the_roleless_one()
+    {
+        var (provider, http) = Provider();
+
+        var operation = await provider.SubmitAsync(MeshAsk(Bound("input-path", "1.inputs.model_file"),
+            MediaInput.Init(new byte[] { 1 }, "image/png")));
+
+        Assert.Equal(QueuedOperationStatus.Failed, operation.Status);
+        Assert.Contains("input-path:init", operation.Detail);
+        Assert.Empty(http.Requests);
+    }
+
+    [Fact]
+    public async Task A_path_that_is_not_a_field_of_the_graph_is_refused()
+    {
+        // the prompt's path is left alone when it misses; an input's cannot be, or the input is dropped
+        var (provider, http) = Provider();
+
+        var operation = await provider.SubmitAsync(
+            MeshAsk(Bound("input-path", "9.inputs.model_file"), Mesh("MESH")));
+
+        Assert.Equal(QueuedOperationStatus.Failed, operation.Status);
+        Assert.Contains("9.inputs.model_file", operation.Detail);
+        Assert.Empty(http.Requests);
+    }
+
+    [Fact]
+    public async Task Two_inputs_bound_to_one_field_are_refused_because_the_second_would_erase_the_first()
+    {
+        var (provider, http) = Provider();
+
+        var operation = await provider.SubmitAsync(
+            MeshAsk(Bound("input-path", "1.inputs.model_file"), Mesh("A"), Mesh("B")));
+
+        Assert.Equal(QueuedOperationStatus.Failed, operation.Status);
+        Assert.Contains("1.inputs.model_file", operation.Detail);
+        Assert.Empty(http.Requests);
+    }
+
+    [Fact]
+    public async Task A_failed_upload_is_a_failed_submit_with_the_servers_reason_and_the_workflow_is_never_sent()
+    {
+        var (provider, http) = Provider();
+        http.Enqueue(HttpStatusCode.InternalServerError, """{"error":"disk full"}""");
+
+        var operation = await provider.SubmitAsync(
+            MeshAsk(Bound("input-path", "1.inputs.model_file"), Mesh("MESH")));
+
+        Assert.Equal(QueuedOperationStatus.Failed, operation.Status);
+        Assert.Contains("disk full", operation.Detail);
+        Assert.False(operation.Inconclusive);   // nothing was queued, so nothing can have been billed
+        Assert.Single(http.Requests);
+    }
+
+    [Fact]
+    public async Task A_URI_that_cannot_be_fetched_is_a_failed_submit_naming_it()
+    {
+        var (provider, http) = Provider();
+        http.Enqueue(HttpStatusCode.NotFound, "gone");
+        var source = "http://127.0.0.1:8188/view?filename=a.glb&subfolder=3d&type=output";
+
+        var operation = await provider.SubmitAsync(MeshAsk(Bound("input-path", "1.inputs.model_file"),
+            new MediaInput("model/gltf-binary", Uri: source)));
+
+        Assert.Equal(QueuedOperationStatus.Failed, operation.Status);
+        Assert.Contains(source, operation.Detail);
+        Assert.Single(http.Requests);
+    }
+
+    [Fact]
+    public async Task Every_upload_gets_its_own_name_and_never_asks_to_overwrite()
+    {
+        // two jobs uploading onto one shared name would each load whichever file landed last
+        var (provider, http) = Provider();
+        http.Enqueue(HttpStatusCode.OK, Uploaded("a.glb", "3d")).Enqueue(HttpStatusCode.OK, """{"prompt_id":"1"}""")
+            .Enqueue(HttpStatusCode.OK, Uploaded("b.glb", "3d")).Enqueue(HttpStatusCode.OK, """{"prompt_id":"2"}""");
+        var ask = MeshAsk(Bound("input-path", "1.inputs.model_file"), Mesh("MESH"));
+
+        await provider.SubmitAsync(ask);
+        await provider.SubmitAsync(ask);
+
+        var first = UploadedFileName(http.Requests[0].Body);
+        var second = UploadedFileName(http.Requests[2].Body);
+        Assert.False(string.IsNullOrEmpty(first));
+        Assert.NotEqual(first, second);
+        Assert.Null(FormField(http.Requests[0].Body, "overwrite"));
+    }
+
+    [Fact]
+    public async Task The_upload_path_the_mesh_subfolder_and_the_path_option_key_are_host_options()
+    {
+        var (provider, http) = Provider(new ComfyUiOptions
+        {
+            BaseUrl = "http://127.0.0.1:8188",
+            UploadPath = "api/upload/image",
+            MeshSubfolder = "meshes",
+            InputPathOption = "load-into",
+        });
+        http.Enqueue(HttpStatusCode.OK, Uploaded("m.glb", "meshes")).Enqueue(HttpStatusCode.OK, """{"prompt_id":"1"}""");
+
+        var operation = await provider.SubmitAsync(
+            MeshAsk(Bound("load-into", "1.inputs.model_file"), Mesh("MESH")));
+
+        Assert.Equal(QueuedOperationStatus.Queued, operation.Status);
+        Assert.Equal("http://127.0.0.1:8188/api/upload/image", http.Requests[0].Uri?.ToString());
+        Assert.Equal("meshes", FormField(http.Requests[0].Body, "subfolder"));
+        Assert.Equal("meshes/m.glb", Posted(http.Requests[1].Body, "1", "model_file"));
+    }
+
+    [Fact]
+    public async Task A_mesh_output_filed_under_the_3d_collection_comes_back_as_a_gltf_binary_artifact()
+    {
+        // MEASURED: SaveGLB files under "3d", and view serves it as octet-stream — the extension is the signal
+        var (provider, http) = Provider();
+        http.Enqueue(HttpStatusCode.OK, """
+            {"abc-123":{"status":{"completed":true},"outputs":{"3":{"3d":[{"filename":"lyntai_00001_.glb","subfolder":"3d","type":"output"}]}}}}
+            """);
+
+        var result = await provider.FetchAsync("abc-123");
+
+        Assert.True(result.IsOk, result.Detail);
+        var artifact = Assert.Single(result.Artifacts);
+        Assert.Equal("model/gltf-binary", artifact.MediaType);
+        Assert.Contains("subfolder=3d", artifact.Uri);
+    }
+
+    [Theory]
+    [InlineData("scene.gltf", "model/gltf+json")]
+    [InlineData("mesh.obj", "model/obj")]
+    [InlineData("print.STL", "model/stl")]
+    public async Task The_other_mesh_extensions_map_to_their_model_media_types(string filename, string expected)
+    {
+        var (provider, http) = Provider();
+        http.Enqueue(HttpStatusCode.OK, """
+            {"abc-123":{"status":{"completed":true},"outputs":{"3":{"3d":[{"filename":"FILENAME","subfolder":"3d","type":"output"}]}}}}
+            """.Replace("FILENAME", filename));
+
+        var result = await provider.FetchAsync("abc-123");
+
+        Assert.Equal(expected, Assert.Single(result.Artifacts).MediaType);
     }
 
     [Fact]

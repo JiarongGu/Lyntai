@@ -248,6 +248,20 @@ every addition.
   nowhere. Each stays on the OpenAI-shaped wire whatever its URL, and the positional forms are unchanged —
   except the one call shape the Breaking entry above names.
 
+- **The ComfyUI provider takes inputs, and produces `ProviderKinds.Model3d`** (**D180**). Through 3.2.0 it
+  refused every `MediaRequest.Inputs` entry. Each is now uploaded to the server — inline bytes, or a `Uri` the
+  provider fetches — and the name the server stored it under is written at the workflow field
+  `Options["input-path"]` names (`"1.inputs.model_file"`); an input with a role binds through
+  `Options["input-path:<role>"]` instead, so a pipeline stage's `InputRole` picks the field. A mesh (`model/*`)
+  goes into the input folder's `3d` subfolder, where the 3D loaders look. An input with no path, a path the
+  workflow lacks, or a field another input already took is refused before anything is uploaded, never dropped.
+  `Model3d` joins `ComfyUiOptions.Produces`' default, and a produced `.glb`, `.gltf`, `.obj` or `.stl` comes back
+  as `model/gltf-binary`, `model/gltf+json`, `model/obj` or `model/stl` — from fal too. New options, defaults
+  measured on ComfyUI 0.36.0: `UploadPath` (`upload/image`), `MeshSubfolder` (`3d`) and `InputPathOption`
+  (`input-path`). With no 3D model, a GLB uploaded, saved again, and chained into a render graph that returned
+  a PNG of it. ComfyUI is queued-only and `RunPipelineAsync` drives the inline door, so run a ComfyUI stage
+  through submit → poll → fetch.
+
 ### Fixed
 
 - **A candidate list passed at run time no longer calls a backend that produces no text** (**D178**). A list

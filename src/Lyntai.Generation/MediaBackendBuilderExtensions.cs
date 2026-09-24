@@ -63,8 +63,8 @@ public static class MediaBackendBuilderExtensions
     }
 
     /// <summary>A ComfyUI server, driven by workflow graphs the HOST supplies. Default id <c>"comfyui"</c>
-    /// (<see cref="ComfyUiOptions.Id"/>). Note this backend's surface is documented-not-measured — every
-    /// endpoint path is an option for exactly that reason.</summary>
+    /// (<see cref="ComfyUiOptions.Id"/>). Its surface is measured against ComfyUI 0.36.0, and every endpoint
+    /// path stays an option because upstream can move.</summary>
     /// <param name="builder">The builder.</param>
     /// <param name="configure">Endpoint paths, declared kinds and option keys.</param>
     /// <param name="httpClient">BYO client — see the type summary. Null = Lyntai's own.</param>

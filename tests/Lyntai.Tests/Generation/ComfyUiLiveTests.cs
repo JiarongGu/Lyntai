@@ -1,3 +1,5 @@
+using System.IO.Compression;
+using System.Text;
 using Lyntai.Generation;
 using Lyntai.Generation.Providers;
 using Lyntai.Inference;
@@ -14,8 +16,8 @@ namespace Lyntai.Tests.Generation;
 ///
 /// <para>Skipped without <c>LYNTAI_COMFYUI_URL</c> (e.g. <c>http://127.0.0.1:8188</c>) and
 /// <c>LYNTAI_COMFYUI_CHECKPOINT</c> (a checkpoint filename the server's <c>models/checkpoints</c> holds,
-/// e.g. an SD 1.5). A CPU render is minutes, not seconds — this suite is a measurement, not a regression
-/// gate.</para></summary>
+/// e.g. an SD 1.5) — except the mesh journey, which needs no model and only the URL. A CPU render is
+/// minutes, not seconds — this suite is a measurement, not a regression gate.</para></summary>
 public class ComfyUiLiveTests
 {
     private static string? BaseUrl => Environment.GetEnvironmentVariable("LYNTAI_COMFYUI_URL");
@@ -163,6 +165,163 @@ public class ComfyUiLiveTests
         var bytes = await http.GetByteArrayAsync(artifact.Uri);
         Assert.True(bytes.Length > 12 && bytes[4] == 'f' && bytes[5] == 't' && bytes[6] == 'y' && bytes[7] == 'p',
             "the view URI did not serve an MP4 container");
+    }
+
+    /// <summary>Stage 1: load the uploaded GLB headlessly (<c>Load3DAdvanced</c>; the browser-bound
+    /// <c>Load3D</c> needs a viewer) and save it again as the stage's mesh output.</summary>
+    private const string ResaveWorkflow = """
+        {
+          "1": {"class_type": "Load3DAdvanced",
+                "inputs": {"model_file": "none", "viewport_state": {}, "width": 256, "height": 256}},
+          "2": {"class_type": "Get3DComponents", "inputs": {"model_3d": ["1", 0]}},
+          "3": {"class_type": "SaveGLB", "inputs": {"mesh": ["2", 0], "filename_prefix": "3d/lyntai-live"}}
+        }
+        """;
+
+    /// <summary>Stage 2: the chained mesh, rasterized server-side from an auto-framed front view.</summary>
+    private const string RenderWorkflow = """
+        {
+          "1": {"class_type": "Load3DAdvanced",
+                "inputs": {"model_file": "none", "viewport_state": {}, "width": 256, "height": 256}},
+          "2": {"class_type": "Get3DComponents", "inputs": {"model_3d": ["1", 0]}},
+          "3": {"class_type": "RenderMesh", "inputs": {"mesh": ["2", 0], "mode": "solid",
+                "width": 256, "height": 256, "background": "#000000"}},
+          "4": {"class_type": "SaveImage", "inputs": {"images": ["3", 0], "filename_prefix": "lyntai-live-mesh"}}
+        }
+        """;
+
+    private static Dictionary<string, string> Graph(string workflow) =>
+        new(StringComparer.OrdinalIgnoreCase) { ["workflow"] = workflow, ["input-path"] = "1.inputs.model_file" };
+
+    /// <summary>The mesh stage as a two-stage pipeline, with no 3D MODEL: stage 1 takes a hand-made GLB as
+    /// inline bytes and yields a <see cref="ProviderKinds.Model3d"/> artifact; stage 2 chains that artifact's
+    /// view URI through <c>input-path</c> into a render graph and yields a PNG. So it measures the upload
+    /// binding both ways (bytes, then a fetched URI), the <c>3d</c> output collection and its media type, and
+    /// that a mesh chains into an image when the backend RASTERIZES it.</summary>
+    [SkippableFact]
+    public async Task A_mesh_uploads_saves_and_chains_into_a_rendered_image_through_a_pipeline()
+    {
+        Skip.If(string.IsNullOrWhiteSpace(BaseUrl), "set LYNTAI_COMFYUI_URL to a running ComfyUI");
+
+        var provider = new ComfyUiProvider(new ComfyUiOptions { BaseUrl = BaseUrl! }, () => new HttpClient());
+        var router = new SubmitPollFetch(new MediaRouter([provider]), provider);
+        ProviderCandidate[] comfy = [new(provider.Id)];
+
+        var result = await router.RunPipelineAsync(
+        [
+            new GenerationStage(new MediaRequest
+            {
+                Kind = ProviderKinds.Model3d,
+                Inputs = [new MediaInput("model/gltf-binary", Data: Cube())],
+                Options = Graph(ResaveWorkflow),
+            }, comfy),
+            new GenerationStage(new MediaRequest { Kind = ProviderKinds.Image, Options = Graph(RenderWorkflow) }, comfy),
+        ]);
+
+        Assert.True(result.IsOk, $"stage {result.FailedAt + 1}: {result.Verdict} {result.Detail}");
+        using var http = new HttpClient();
+
+        var mesh = Assert.Single(result.Stages[0].Artifacts);
+        Assert.Equal("model/gltf-binary", mesh.MediaType);
+        Assert.Equal("glTF"u8.ToArray(), (await http.GetByteArrayAsync(mesh.Uri))[..4]);
+
+        var image = Assert.Single(result.Artifacts);
+        Assert.Equal("image/png", image.MediaType);
+        var png = await http.GetByteArrayAsync(image.Uri);
+        Assert.Equal((256, 256), (ReadBigEndian(png, 16), ReadBigEndian(png, 20)));
+        Assert.Equal((8, 2), (png[24], png[25]));   // 8-bit RGB, which NotBlank reads
+        Assert.True(NotBlank(png), "the render is uniformly background — nothing was rasterized");
+    }
+
+    /// <summary><c>RunPipelineAsync</c> drives the INLINE door and this backend is queued-only, so each stage
+    /// is bridged here: submitted through a real <see cref="MediaRouter"/>, whose capability filter is part of
+    /// what is measured, then polled and fetched.</summary>
+    private sealed class SubmitPollFetch(MediaRouter router, IMediaJobProvider job) : IMediaRouter
+    {
+        public async Task<MediaResponse> GenerateAsync(
+            IReadOnlyList<ProviderCandidate> candidates, MediaRequest request, CancellationToken ct = default)
+        {
+            var submitted = await router.SubmitAsync(candidates, request, ct);
+            if (submitted.Operation.Status == QueuedOperationStatus.Failed)
+                return MediaResponse.Failure(ProviderVerdict.Failed, $"not accepted: {submitted.Operation.Detail}");
+
+            var deadline = DateTime.UtcNow + TimeSpan.FromMinutes(3);
+            QueuedOperation polled;
+            do
+            {
+                await Task.Delay(TimeSpan.FromSeconds(1), ct);
+                polled = await job.PollAsync(submitted.Operation.Id, ct);
+                if (polled.Status == QueuedOperationStatus.Failed)
+                    return MediaResponse.Failure(ProviderVerdict.Failed, $"the run failed: {polled.Detail}");
+            }
+            while (polled.Status != QueuedOperationStatus.Succeeded && DateTime.UtcNow < deadline);
+
+            return polled.Status == QueuedOperationStatus.Succeeded
+                ? await job.FetchAsync(submitted.Operation.Id, ct)
+                : MediaResponse.Failure(ProviderVerdict.Timeout, $"not finished inside the budget: {polled.Detail}");
+        }
+
+        public Task<MediaSubmission> SubmitAsync(
+            IReadOnlyList<ProviderCandidate> candidates, MediaRequest request, CancellationToken ct = default) =>
+            router.SubmitAsync(candidates, request, ct);
+
+        public IAsyncEnumerable<MediaChunk> StreamAsync(
+            IReadOnlyList<ProviderCandidate> candidates, MediaRequest request, CancellationToken ct = default) =>
+            throw new NotSupportedException("the pipeline drives the inline door");
+    }
+
+    /// <summary>A unit cube as a minimal GLB: 8 positions and 12 triangles, no normals or material.</summary>
+    private static byte[] Cube()
+    {
+        float[] positions = [-.5f, -.5f, -.5f, .5f, -.5f, -.5f, .5f, .5f, -.5f, -.5f, .5f, -.5f,
+                             -.5f, -.5f, .5f, .5f, -.5f, .5f, .5f, .5f, .5f, -.5f, .5f, .5f];
+        ushort[] indices = [0, 2, 1, 0, 3, 2, 4, 5, 6, 4, 6, 7, 0, 4, 7, 0, 7, 3,
+                            1, 2, 6, 1, 6, 5, 0, 1, 5, 0, 5, 4, 3, 7, 6, 3, 6, 2];
+        var bin = new byte[96 + 72];   // both views already end on a 4-byte boundary
+        Buffer.BlockCopy(positions, 0, bin, 0, 96);
+        Buffer.BlockCopy(indices, 0, bin, 96, 72);
+
+        var json = """
+            {"asset":{"version":"2.0"},"scene":0,"scenes":[{"nodes":[0]}],"nodes":[{"mesh":0}],
+             "meshes":[{"primitives":[{"attributes":{"POSITION":0},"indices":1}]}],
+             "buffers":[{"byteLength":168}],
+             "bufferViews":[{"buffer":0,"byteLength":96,"target":34962},
+                            {"buffer":0,"byteOffset":96,"byteLength":72,"target":34963}],
+             "accessors":[{"bufferView":0,"componentType":5126,"count":8,"type":"VEC3",
+                           "min":[-0.5,-0.5,-0.5],"max":[0.5,0.5,0.5]},
+                          {"bufferView":1,"componentType":5123,"count":36,"type":"SCALAR"}]}
+            """;
+        var chunk = Encoding.ASCII.GetBytes(json.PadRight((json.Length + 3) / 4 * 4));   // space-padded, per spec
+
+        using var glb = new MemoryStream();
+        using var w = new BinaryWriter(glb);   // little-endian, as GLB is
+        w.Write(0x46546C67u); w.Write(2u); w.Write((uint)(12 + 8 + chunk.Length + 8 + bin.Length));
+        w.Write((uint)chunk.Length); w.Write(0x4E4F534Au); w.Write(chunk);   // "JSON"
+        w.Write((uint)bin.Length); w.Write(0x004E4942u); w.Write(bin);        // "BIN\0"
+        w.Flush();
+        return glb.ToArray();
+    }
+
+    /// <summary>Whether any pixel of an 8-bit RGB PNG is non-zero. A scanline of zero pixels filters to zero
+    /// under every PNG filter, so any non-zero byte past each row's filter byte is a non-zero pixel.</summary>
+    private static bool NotBlank(byte[] png)
+    {
+        using var idat = new MemoryStream();
+        for (var at = 8; at + 8 <= png.Length;)
+        {
+            var length = ReadBigEndian(png, at);
+            if (Encoding.ASCII.GetString(png, at + 4, 4) == "IDAT") idat.Write(png, at + 8, length);
+            at += 12 + length;
+        }
+        idat.Position = 0;
+        using var rows = new MemoryStream();
+        using (var z = new ZLibStream(idat, CompressionMode.Decompress)) z.CopyTo(rows);
+
+        var stride = 1 + ReadBigEndian(png, 16) * 3;
+        var bytes = rows.ToArray();
+        for (var i = 0; i < bytes.Length; i++)
+            if (i % stride != 0 && bytes[i] != 0) return true;
+        return false;
     }
 
     private static int ReadBigEndian(byte[] bytes, int at) =>

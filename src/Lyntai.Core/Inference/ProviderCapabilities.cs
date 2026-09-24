@@ -45,12 +45,12 @@ public static class ProviderKinds
     /// <summary>Speech, music or sound effects.</summary>
     public const string Audio = "audio";
 
-    /// <summary>A 3D asset (mesh/scene). <b>No shipped backend declares this kind, and a mesh does NOT chain
-    /// into <see cref="Image"/> or <see cref="Video"/>:</b> no image or video backend accepts a mesh, so the
-    /// 3d→image edge is a RASTERIZATION rather than a generation, and this platform performs none. A mesh
-    /// backend's own <c>image/*</c> artifacts are usually UV texture atlases — a flattened skin, not a view of
-    /// the object — so chaining one through <c>MediaArtifact.ToInput</c> renders fine and is wrong. The
-    /// kind is declared so a backend serving it needs no contract change.</summary>
+    /// <summary>A 3D asset (mesh/scene). ComfyUI declares it by default — its workflow decides what comes
+    /// out. <b>A mesh chains into <see cref="Image"/> only through a backend that RASTERIZES it</b>, such as a
+    /// ComfyUI graph with a render node that takes the mesh as an input; this library renders nothing itself.
+    /// A mesh backend's own <c>image/*</c> artifacts are usually UV texture atlases — a flattened skin, not a
+    /// view of the object — so chaining one through <c>MediaArtifact.ToInput</c> renders fine and is
+    /// wrong.</summary>
     public const string Model3d = "3d";
 
     /// <summary>What a RERANKER produces: a relevance score for a (query, document) pair. Unbounded and
@@ -77,10 +77,10 @@ public static class ProviderKinds
 /// aggregator fronts hundreds behind one id and cannot enumerate them.</para>
 ///
 /// <para><b><see cref="Produces"/> is a LIST, and that is load-bearing.</b> It means one CALL returning
-/// several kinds at once — a workflow host serving image AND video (<c>ComfyUiOptions</c> declares both), a
-/// multimodal model emitting text and an image. It does NOT mean two endpoints behind one hostname: a chat
-/// model and an embedding model on one server are two registrations under two ids, each declaring its one
-/// kind, so a trace can say which backend answered (<c>docs/DECISIONS.md</c> D130/D133).</para></summary>
+/// several kinds at once — a workflow host serving image, video and 3d (<c>ComfyUiOptions</c> declares all
+/// three), a multimodal model emitting text and an image. It does NOT mean two endpoints behind one hostname:
+/// a chat model and an embedding model on one server are two registrations under two ids, each declaring its
+/// one kind, so a trace can say which backend answered (<c>docs/DECISIONS.md</c> D130/D133).</para></summary>
 public sealed record ProviderCapabilities
 {
     /// <summary>The content types this backend takes IN (<see cref="ProviderKinds"/>), matched

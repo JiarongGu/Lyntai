@@ -116,22 +116,48 @@ internal static class HttpArtifacts
     /// <c>IGenerationArtifactSink</c> switches on and what <c>MediaArtifact.ToInput</c> carries into
     /// the next stage of a chain.</para>
     /// <para>Extension EXTRACTION stays per-backend: ComfyUI reports a filename, fal a URL that may carry a
-    /// query string. Those are genuinely different inputs; the mapping is not.</para></summary>
+    /// query string. Those are genuinely different inputs; the mapping is not.</para>
+    /// <para>A mesh's type comes from here too: ComfyUI's <c>view</c> serves a GLB as
+    /// <c>application/octet-stream</c>, so the header says nothing.</para></summary>
     /// <param name="extension">The file extension, with or without its leading dot; case-insensitive.</param>
-    public static string MediaTypeForExtension(string? extension) =>
-        (extension ?? string.Empty).ToLowerInvariant().TrimStart('.') switch
-        {
-            "png" => "image/png",
-            "jpg" or "jpeg" => "image/jpeg",
-            "webp" => "image/webp",
-            "gif" => "image/gif",
-            "mp4" => "video/mp4",
-            "webm" => "video/webm",
-            "flac" => "audio/flac",
-            "wav" => "audio/wav",
-            "mp3" => "audio/mpeg",
-            _ => "application/octet-stream",
-        };
+    public static string MediaTypeForExtension(string? extension)
+    {
+        var wanted = (extension ?? string.Empty).ToLowerInvariant().TrimStart('.');
+        foreach (var (ext, mediaType) in Extensions)
+            if (ext == wanted) return mediaType;
+        return "application/octet-stream";
+    }
+
+    /// <summary>The same table read the other way: the extension, with its dot, to name a stored file of
+    /// this media type — or empty when the table does not know it. A loader may pick its parser by the
+    /// extension, so an uploaded input needs the right one.</summary>
+    /// <param name="mediaType">The MIME type; parameters after <c>;</c> are ignored, case-insensitive.</param>
+    public static string ExtensionForMediaType(string? mediaType)
+    {
+        var wanted = (mediaType ?? string.Empty).Split(';')[0].Trim().ToLowerInvariant();
+        foreach (var (ext, type) in Extensions)
+            if (type == wanted) return "." + ext;
+        return "";
+    }
+
+    // the FIRST extension listed for a type is the one a stored file is named with
+    private static readonly (string Extension, string MediaType)[] Extensions =
+    [
+        ("png", "image/png"),
+        ("jpg", "image/jpeg"),
+        ("jpeg", "image/jpeg"),
+        ("webp", "image/webp"),
+        ("gif", "image/gif"),
+        ("mp4", "video/mp4"),
+        ("webm", "video/webm"),
+        ("flac", "audio/flac"),
+        ("wav", "audio/wav"),
+        ("mp3", "audio/mpeg"),
+        ("glb", "model/gltf-binary"),
+        ("gltf", "model/gltf+json"),
+        ("obj", "model/obj"),
+        ("stl", "model/stl"),
+    ];
 
     /// <summary>A non-empty string property of a JSON object, or null. Shared with the queue backends, which
     /// read their own envelopes the same way — the object-kind guard is the part a copied reader loses, and
