@@ -216,6 +216,17 @@ every addition.
   one pooling both the HTTP and the ONNX provider apply to a segmented input (**D177**), so a backend of your
   own that segments can pool the same way.
 
+- **`HttpModelOptions.SuppressReasoningFields` lets the OpenAI-shaped provider express
+  `TextReasoning.Suppress`** (**D179**). That schema has no field for it, so the provider sent nothing, and a
+  thinking-capable model behind it reasoned on every call that asked it not to — the memory judge and annotator
+  ask on every call. Set it to a JSON object and its members are added to the request body of every call
+  asking `Suppress`, buffered or streamed: for `llama-server` serving a Qwen3 chat template,
+  `{"chat_template_kwargs":{"enable_thinking":false}}`. The library ships no value, since the spelling is the
+  server's and the template's; null, the default, sends the body unchanged, as does every call at `Default`. A
+  member the request sets itself, or a value that is not one JSON object, is refused at registration; a server
+  that rejects a field fails the call like any other rejected request. `AddLlamaProvider` takes no options, so
+  register `llama-server` with `AddHttpProvider` to set it — the recipe is in `docs/memory.md` §6.
+
 ### Fixed
 
 - **A candidate list passed at run time no longer calls a backend that produces no text** (**D178**). A list

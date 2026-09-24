@@ -248,8 +248,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D176](#d176--live-routing-moves-a-route-not-half-of-one-2026-09-24) | 2026-09-24 | live routing moves a ROUTE, not half of one |
 | [D177](#d177--segmenting-an-over-long-input-is-a-configured-capability-and-every-default-is-the-prior-behaviour-2026-09-24) | 2026-09-24 | segmenting an over-long input is a CONFIGURED capability, and every default is the prior behaviour |
 | [D178](#d178--a-text-candidate-naming-a-backend-that-produces-no-text-is-refused-at-composition-and-skipped-per-call-2026-09-24) | 2026-09-24 | a text candidate naming a backend that produces no text is refused at composition and skipped per… |
+| [D179](#d179--the-openai-shaped-wire-expresses-textreasoningsuppress-through-configured-fields-2026-09-24) | 2026-09-24 | the OpenAI-shaped wire expresses `TextReasoning.Suppress` through CONFIGURED fields |
 
-_All 178 entries are live decisions._
+_All 179 entries are live decisions._
 
 <!-- index:end -->
 
@@ -5541,3 +5542,28 @@ per call its only trace. Composition only: a run-time list never passes through 
 all-non-text case: nothing failed, and a `Failed` reads as a host problem where the defect is the list. Reading
 an empty `Produces` as text: it reverses the contract's fail-closed default for every kind. The break is named
 in `CHANGELOG.md` (**D161**).
+
+## D179 — the OpenAI-shaped wire expresses `TextReasoning.Suppress` through CONFIGURED fields (2026-09-24)
+
+**The decision.** `HttpModelOptions.SuppressReasoningFields` holds a JSON object whose top-level members are
+added to the `chat/completions` body of every call asking `TextReasoning.Suppress`, buffered or streamed. The
+schema has no field for that intent, and the one a server honours is the server's — often its VALUE is the
+model's chat template's: `llama-server` reads `chat_template_kwargs`, and `enable_thinking` inside it is a
+variable of Qwen's template. So the library ships no value and knows no spelling, as with `DocumentPrefix`.
+Unset, blank, or a call at `Default`: the body is byte-identical to a registration without the option, so no
+endpoint receives a field nobody configured for it.
+
+**It only adds.** A member the wire sets itself (`OpenAiPayload.WireMembers`, which a test holds equal to what
+the payload can carry) is refused, as is a value that is not one JSON object — at registration and at
+construction, naming the problem. The members are copied into each request. It applies to a text registration
+only; Ollama-native keeps its own `think: false`. Both memory model seams ask `Suppress` on every call (**D59**),
+which is why the gap cost a thinking-capable judge seconds per verdict behind `llama-server`.
+
+**Rejected.** A fixed field on every OpenAI-shaped call: the wire also serves hosted APIs that may reject an
+unknown field. A typed enum of known spellings: it bakes model-family names into shared code
+(`model-decoupling.md`) and goes stale with each new template. Detecting `llama-server` and sending Qwen's
+variable: it guesses the server AND the template, and a wrong guess is a rejected call or a silent no-op. A
+per-request field on `TextRequest`: which server answers is the registration's knowledge, not the caller's.
+
+**Known limit.** `AddLlamaProvider` takes no options action, so a `llama-server` registration that needs the
+fields is made with `AddHttpProvider` (`docs/memory.md` §6 has the recipe).

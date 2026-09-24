@@ -1,4 +1,5 @@
 using Lyntai.Inference;
+using Lyntai.Providers.Http.Payloads;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -33,6 +34,8 @@ public sealed class HttpModelProvider : IModelProvider, IVectorProvider, IScoreP
     /// APP-supplied client, whose lifetime the app owns.</param>
     /// <exception cref="ArgumentOutOfRangeException"><see cref="HttpModelOptions.MaxInputChars"/> is not
     /// positive, or leaves an embedding prefix no room for text.</exception>
+    /// <exception cref="ArgumentException"><see cref="HttpModelOptions.SuppressReasoningFields"/> is not one
+    /// JSON object, or names a member the request sets itself.</exception>
     public HttpModelProvider(
         string id,
         HttpModelOptions config,
@@ -41,7 +44,7 @@ public sealed class HttpModelProvider : IModelProvider, IVectorProvider, IScoreP
         ILogger<HttpModelProvider>? logger = null,
         bool disposeHttpClient = true)
     {
-        ValidateInputBound(config);
+        Validate(config);
         _id = id;
         _config = config;
         Capabilities = CapabilitiesFor(config);
@@ -101,12 +104,15 @@ public sealed class HttpModelProvider : IModelProvider, IVectorProvider, IScoreP
         MaxInputChars: c.MaxInputChars,
         Segmentation: c.Segmentation);
 
-    /// <summary>Throws when <see cref="HttpModelOptions.MaxInputChars"/> cannot bound a piece — run at
-    /// registration as well as here, so a bad bound fails composition rather than a first call.</summary>
-    internal static void ValidateInputBound(HttpModelOptions c)
+    /// <summary>Throws when <see cref="HttpModelOptions.MaxInputChars"/> cannot bound a piece, or
+    /// <see cref="HttpModelOptions.SuppressReasoningFields"/> is not a usable object — run at registration as
+    /// well as here, so a bad value fails composition rather than a first call.</summary>
+    internal static void Validate(HttpModelOptions c)
     {
         if (ServesVectors(c) || ServesScores(c))
             InputSegmenter.ValidateBound(c.MaxInputChars, ServesVectors(c), c.DocumentPrefix, c.QueryPrefix);
+        if (ServesText(c))
+            OpenAiPayload.ParseSuppressReasoningFields(c.SuppressReasoningFields);
     }
 
     /// <summary>The <c>/embeddings</c> wire shape, or null when this backend produces something else. It is

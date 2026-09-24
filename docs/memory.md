@@ -411,6 +411,27 @@ preference: a model failing any of them is unsuitable however well it scores.
 `TextRequest.Reasoning = Suppress` is set by both policies already, so the library asks. Ollama's qwen-family
 models reason regardless — asking is not the same as being obeyed.
 
+**Over the OpenAI-shaped wire the ask needs your server's spelling**, because that schema has no field for it
+and the library ships none (**D179**): set `HttpModelOptions.SuppressReasoningFields` on the judge's
+registration to what your server and chat template take. Unset, a thinking-capable model reasons on every
+verdict. For `llama-server` serving a Qwen3 template — an example, not a default:
+
+```csharp
+services.AddLyntai(b => b
+    .AddHttpProvider("llama", o =>
+    {
+        o.BaseUrl = "http://localhost:8080";
+        o.SuppressReasoningFields = """{"chat_template_kwargs":{"enable_thinking":false}}""";
+    })
+    .UseDefaultCandidates("llama")
+    .AddMemoryEngine("project", e => e.UseGraph())
+    .AddMemoryVerification());
+```
+
+Only calls asking `Suppress` carry the fields. A server that rejects one fails the call, and the judge then
+leaves the ranking alone and logs a warning, as for any failed verdict — so a value your server rejects looks
+like no judge at all everywhere but the log. Try it against your server before relying on it.
+
 #### It is a policy, so switching is one line
 
 Everything above is a REGISTRATION, not a rebuild — the point of the seam table below. The judge is

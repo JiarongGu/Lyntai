@@ -115,6 +115,7 @@ sealed class Lyntai.Providers.Http.HttpModelOptions
     Produces : String
     QueryPrefix : String
     Segmentation : InputSegmentation
+    SuppressReasoningFields : String
 sealed class Lyntai.Providers.Http.HttpModelProvider
     .ctor(String id, HttpModelOptions config, Func<HttpClient> httpFactory, LyntaiOptions options, ILogger<HttpModelProvider> logger = null, Boolean disposeHttpClient = true)
     CallAsync(ScoreRequest request, CancellationToken ct = default) : Task<ScoreResponse>

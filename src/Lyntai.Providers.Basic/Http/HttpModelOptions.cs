@@ -110,4 +110,28 @@ public sealed class HttpModelOptions
     /// <see cref="InputSegmentation.MinDocumentShare"/> does not apply here: the bound is per document and
     /// never counts a reranker's query.</para></summary>
     public InputSegmentation? Segmentation { get; set; }
+
+    /// <summary>A JSON object whose members are added to the <c>chat/completions</c> request body of every call
+    /// asking <see cref="TextReasoning.Suppress"/>, buffered or streamed — how this provider expresses that
+    /// intent, since the OpenAI-shaped schema has no field for it. Null or blank (the default) sends the body
+    /// unchanged, as does every call left at <see cref="TextReasoning.Default"/>.
+    ///
+    /// <para><b>What this is for.</b> A thinking-capable model reasons on a call that asked it not to unless
+    /// its server is told — and the memory judge and annotator ask on every call. <b>The library supplies no
+    /// default and knows no server's spelling</b>: the field belongs to the server, and often its value to the
+    /// model's chat template. For example, <c>llama-server</c> serving a Qwen3 template takes
+    /// <c>{"chat_template_kwargs":{"enable_thinking":false}}</c>; another server or template wants another.</para>
+    ///
+    /// <para><b>Advisory</b>, as <see cref="TextReasoning"/> is: a model may reason anyway. <b>A server that
+    /// rejects a field fails the call</b> like any rejected request — an HTTP 400 is classified from its body,
+    /// usually <see cref="ProviderVerdict.Failed"/> — so set it only where the server accepts it.</para>
+    ///
+    /// <para>Each top-level member is added as given, never merged into one the request sets: a member the
+    /// provider sets itself (<c>model</c>, <c>messages</c>, <c>stream</c>, <c>stream_options</c>,
+    /// <c>max_tokens</c>, <c>temperature</c>, <c>tools</c>, <c>response_format</c>) is refused. The provider
+    /// throws <see cref="ArgumentException"/> naming the problem when the value is not one JSON object or holds
+    /// such a member. Ignored unless <see cref="Produces"/> is <see cref="ProviderKinds.Text"/>, and when
+    /// <c>AddHttpProvider</c> is given an Ollama server root: the native provider it composes sends its own
+    /// <c>think: false</c>.</para></summary>
+    public string? SuppressReasoningFields { get; set; }
 }

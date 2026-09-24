@@ -30,6 +30,8 @@ public static class HttpProviderBuilderExtensions
     /// infinite HttpClient timeout so the per-call <see cref="LyntaiOptions.ProviderTimeout"/> owns deadlines.</para></summary>
     /// <exception cref="ArgumentOutOfRangeException"><see cref="HttpModelOptions.MaxInputChars"/> is not
     /// positive, or leaves an embedding prefix no room for text.</exception>
+    /// <exception cref="ArgumentException"><see cref="HttpModelOptions.SuppressReasoningFields"/> is not one
+    /// JSON object, or names a member the request sets itself.</exception>
     public static LyntaiBuilder AddHttpProvider(this LyntaiBuilder builder, string id,
         Action<HttpModelOptions> configure, Func<IServiceProvider, HttpClient>? httpClient = null)
     {
@@ -65,7 +67,7 @@ public static class HttpProviderBuilderExtensions
     private static LyntaiBuilder AddOpenAiShaped(this LyntaiBuilder builder, string id,
         HttpModelOptions config, Func<IServiceProvider, HttpClient>? httpClient)
     {
-        HttpModelProvider.ValidateInputBound(config);
+        HttpModelProvider.Validate(config);
         var resolveClient = ResolveClient(builder, id, httpClient);
 
         HttpModelProvider Build(IServiceProvider sp) => new(

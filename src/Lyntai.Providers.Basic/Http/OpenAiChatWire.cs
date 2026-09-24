@@ -14,6 +14,9 @@ internal sealed class OpenAiChatWire(HttpModelOptions config) : IHttpChatWire
 {
     private readonly bool _azure = HttpEndpoint.AzureFor(config);
 
+    private readonly JsonObject? _suppressReasoningFields =
+        OpenAiPayload.ParseSuppressReasoningFields(config.SuppressReasoningFields);
+
     public Uri Endpoint => HttpEndpoint.Build(config.BaseUrl, _azure, "chat/completions");
 
     public string? DefaultModel => config.Model;
@@ -27,7 +30,7 @@ internal sealed class OpenAiChatWire(HttpModelOptions config) : IHttpChatWire
     public void ApplyAuth(HttpRequestMessage request) => HttpEndpoint.ApplyAuth(request, config.ApiKey, _azure);
 
     public JsonObject BuildPayload(TextRequest req, string model, bool stream) =>
-        OpenAiPayload.Build(req, model, stream);
+        OpenAiPayload.Build(req, model, stream, _suppressReasoningFields);
 
     /// <summary>Reads <c>choices[0].message.content</c>, <c>finish_reason</c>, native <c>tool_calls</c> and
     /// <c>usage</c>. A recognized message OR a finish_reason is a well-formed reply, even with empty content

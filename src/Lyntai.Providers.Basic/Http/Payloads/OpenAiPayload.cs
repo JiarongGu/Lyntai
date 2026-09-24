@@ -8,7 +8,55 @@ namespace Lyntai.Providers.Http.Payloads;
 /// Tool parameter schemas embed as JSON objects; structured output uses response_format.json_schema.</summary>
 internal static class OpenAiPayload
 {
-    public static JsonObject Build(TextRequest req, string model, bool stream)
+    /// <summary>Every top-level member <see cref="Build"/> can set — what configured fields may never name.</summary>
+    internal static readonly IReadOnlySet<string> WireMembers = new HashSet<string>(StringComparer.Ordinal)
+    {
+        "model", "messages", "stream", "stream_options", "max_tokens", "temperature", "tools", "response_format",
+    };
+
+    /// <summary>Parse <see cref="HttpModelOptions.SuppressReasoningFields"/>: null when unset or blank.</summary>
+    /// <exception cref="ArgumentException">The value is not one JSON object, or names a
+    /// <see cref="WireMembers"/> member.</exception>
+    internal static JsonObject? ParseSuppressReasoningFields(string? json)
+    {
+        const string name = nameof(HttpModelOptions.SuppressReasoningFields);
+        if (string.IsNullOrWhiteSpace(json)) return null;
+        JsonNode? node;
+        try
+        {
+            node = JsonNode.Parse(json, documentOptions: new JsonDocumentOptions { AllowDuplicateProperties = false });
+        }
+        catch (JsonException ex)
+        {
+            throw new ArgumentException($"{name} is not valid JSON: {ex.Message}", name, ex);
+        }
+        if (node is not JsonObject fields)
+        {
+            var kind = node?.GetValueKind() switch
+            {
+                null => "null",
+                JsonValueKind.True or JsonValueKind.False => "boolean",
+                var k => k.Value.ToString().ToLowerInvariant(),
+            };
+            throw new ArgumentException(
+                $"{name} must be a JSON object whose members are added to the request body; got a JSON {kind}.",
+                name);
+        }
+        foreach (var (key, _) in fields)
+            if (WireMembers.Contains(key))
+                throw new ArgumentException(
+                    $"{name} may not set \"{key}\": the request sets that member itself, and this option only "
+                    + "adds members.", name);
+        return fields;
+    }
+
+    /// <param name="req">The canonical request.</param>
+    /// <param name="model">The resolved model id.</param>
+    /// <param name="stream">Whether to ask for the SSE stream.</param>
+    /// <param name="suppressReasoningFields">Added, as deep copies, when the request asks
+    /// <see cref="TextReasoning.Suppress"/>; from <see cref="ParseSuppressReasoningFields"/>.</param>
+    public static JsonObject Build(TextRequest req, string model, bool stream,
+        JsonObject? suppressReasoningFields = null)
     {
         var payload = new JsonObject
         {
@@ -48,6 +96,12 @@ internal static class OpenAiPayload
                 },
             };
         }
+
+        // Last, and only when asked, so every other call's body is byte-identical to one without the option.
+        // A copy per request: a JsonNode has exactly one parent, so the configured node cannot be attached itself.
+        if (req.Reasoning == TextReasoning.Suppress && suppressReasoningFields is not null)
+            foreach (var (key, value) in suppressReasoningFields)
+                payload[key] = value?.DeepClone();
         return payload;
     }
 
