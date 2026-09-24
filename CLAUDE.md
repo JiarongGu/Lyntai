@@ -18,11 +18,14 @@ carve-out (**D70**). The reasoning is `docs/DECISIONS.md`, **D1–D179** — rea
 rather than any list of decisions kept here. **Everything before 3.0 is HISTORY, not context**:
 `.claude/rules/repo-mechanics.md` says what that forbids.
 
-**The baseline a green run should match:** `4211 passed / 4249 total, 38 skipped` (the skips are
+**The baseline a green run should match:** `4468 passed / 4508 total, 40 skipped` (the skips are
 live-backend only), e2e 3/3, guard-script tests 887/887, doc samples 61/61. **The xUnit trio is held by no
 gate** — re-measure those three by hand after `verify` rather than extrapolating them from a diff, and read
 a skip count in the low HUNDREDS as "Docker is down and the whole Postgres leg went silently unexercised".
-**MEASURED with Docker up, re-attested 2026-09-24 at `17636d54`** (+65 against `9527a8eb`: archive Part 284 —
+**MEASURED with Docker up, re-attested 2026-09-24 at `5b1e4afd`** (+257 passed against `17636d54`: archive
+Parts 286–288 — segmentation on the HTTP, Ollama and ONNX providers, the non-text-candidate rule, the D67 gate,
+the reasoning fields and the preset overloads; skipped +2, the two live ONNX tests pinning the default
+truncation; +65 before that, archive Part 284 —
 44 for the live route and its async capability probe, 21 for the final review's fixes; +13 before that,
 archive Part 285 — the 13 `MemoryWriteResultTests` facts; +13 before that, archive Part 283 — 3 journal, 1 cross-engine restart,
 9 skip-logging; +117 before that, the file-system graph store, archive
