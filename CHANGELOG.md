@@ -160,7 +160,8 @@ every addition.
   an embedder returns one vector per input, the length-weighted mean of its pieces' unit vectors re-normalised.
   It counts CHARACTERS, not tokens, so leave margin — and on a reranker subtract your longest query, which the
   window holds too. Null, the default, sends every input whole, and an input within the bound is sent exactly
-  as before. `AddHttpProvider` refuses it on an Ollama server root; register that server's `/v1` base instead.
+  as before. `AddHttpProvider` refuses it on an EMBEDDING registration at an Ollama server root; register that
+  server's `/v1` base instead.
 
 ### Fixed
 

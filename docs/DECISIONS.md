@@ -5489,7 +5489,9 @@ can count tokens exactly; until it is applied there, that provider still cuts at
 one caller, guesses a model's window from outside it, and leaves embedding unbounded. A second option for the
 overlap: a knob with no measurement to set it by. Storing several vectors per entry: it changes the
 vector-store contract for every backend. FirstP, the first piece's score: cutting by another name. SumP: it
-rewards length, so a long document outranks a short one that answers.
+rewards length, so a long document outranks a short one that answers. The two ways to count tokens instead:
+a server's `/tokenize` route is not on the OpenAI-shaped wire, so a bound built on it is not portable; and
+shrink-and-retry on the server's complaint costs a round trip per failure and depends on each server's wording.
 
 **Known limits.** The pooled vector's retrieval QUALITY is unmeasured (`docs/model-tasks.md` §3.3). An
 embedding registration on an Ollama server root, which `AddHttpProvider` composes as the Ollama-native

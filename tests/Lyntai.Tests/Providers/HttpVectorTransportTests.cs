@@ -49,8 +49,9 @@ public class HttpVectorTransportTests
     }
 
     /// <summary>An embeddings endpoint answering each request with <paramref name="embed"/>(index in that
-    /// request, text as sent) — so a test sees exactly what segmenting sent.</summary>
-    private static StubHttpHandler Embedder(Func<int, string, float[]> embed) =>
+    /// request, text as sent) — so a test sees exactly what segmenting sent — and, when given,
+    /// <paramref name="promptTokens"/> as that request's usage.</summary>
+    private static StubHttpHandler Embedder(Func<int, string, float[]> embed, int? promptTokens = null) =>
         new StubHttpHandler().Enqueue(request =>
         {
             var sent = SentInputs(request.Content!.ReadAsStringAsync().GetAwaiter().GetResult());
@@ -59,10 +60,9 @@ public class HttpVectorTransportTests
                 ["index"] = i,
                 ["embedding"] = new JsonArray([.. embed(i, t).Select(f => (JsonNode)JsonValue.Create(f))]),
             })]);
-            return new HttpResponseMessage(HttpStatusCode.OK)
-            {
-                Content = new StringContent(new JsonObject { ["data"] = data }.ToJsonString()),
-            };
+            var body = new JsonObject { ["data"] = data };
+            if (promptTokens is { } tokens) body["usage"] = new JsonObject { ["prompt_tokens"] = tokens };
+            return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(body.ToJsonString()) };
         });
 
     private static List<string> SentInputs(string body) =>
@@ -443,6 +443,31 @@ public class HttpVectorTransportTests
         Assert.Equal(0.0, vectors[1][0], 1e-6);
         Assert.Equal(0.6, vectors[1][1], 1e-6);
         Assert.Equal(0.8, vectors[1][2], 1e-6);
+    }
+
+    [Fact]
+    public async Task An_input_EXACTLY_at_MaxInputChars_is_not_segmented()
+    {
+        var atBound = new string('e', 40);
+        var handler = Embedder((_, t) => t == atBound ? [1f, 2f, 2f] : [0f, 3f, 4f]);
+
+        // beside an over-long input, so the call pools and each input's own length decides
+        var vectors = await VectorProvider(handler, c => c.MaxInputChars = 40).EmbedAsync([atBound, Words30]);
+
+        Assert.Equal(atBound, SentInputs(handler.Requests[0].Body)[0]);
+        Assert.Equal([1f, 2f, 2f], vectors[0]);
+    }
+
+    [Fact]
+    public async Task Usage_survives_pooling_summed_over_every_request_the_pieces_took()
+    {
+        var handler = Embedder((_, _) => [1f, 0f], promptTokens: 5);
+
+        var response = await VectorProvider(handler, c => { c.MaxInputChars = 40; c.BatchSize = 3; })
+            .CallAsync(new VectorRequest([Words30]));
+
+        Assert.True(response.IsOk);
+        Assert.Equal(10, response.Usage!.InputTokens);   // two requests, five each
     }
 
     [Fact]

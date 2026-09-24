@@ -71,6 +71,54 @@ public class InputSegmenterTests
     }
 
     [Fact]
+    public void The_cut_is_searched_only_in_the_windows_LATTER_half()
+    {
+        // the line break outranks a sentence end but sits in the FIRST half; cutting there would halve the piece
+        const string input = "head\none two three four five six. seven eight nine ten eleven twelve";
+
+        Assert.Equal("head\none two three four five six.", InputSegmenter.Split(input, 40)[0]);
+    }
+
+    [Theory]
+    [InlineData("aaaaaaaaaaaaaaaaaaaaaa 3.14159265358979323846 and more words after it")]
+    [InlineData("aaaaaaaaaaaaaaaaaaaaaa e.g.fused!tokens?here;joined and more words after it")]
+    public void ASCII_punctuation_NOT_followed_by_whitespace_is_no_sentence_end(string input)
+    {
+        // the only whitespace in the latter half is after the a's; a decimal point or an abbreviation is not a cut
+        Assert.Equal(new string('a', 22), InputSegmenter.Split(input, 40)[0]);
+    }
+
+    [Fact]
+    public void The_restart_prefers_a_sentence_end_over_earlier_whitespace_in_the_tail()
+    {
+        // the line break puts the cut at 98; the tail [84, 98) holds whitespace at 88 and a sentence end at 94
+        var input = new string('a', 87) + " bbbbb. cc\n" + new string('d', 60);
+
+        var spans = InputSegmenter.Spans(input, 100);
+
+        Assert.Equal(98, spans[0].End);
+        Assert.Equal(94, spans[1].Start);
+    }
+
+    [Fact]
+    public void The_restart_takes_the_EARLIEST_boundary_in_the_tail_for_the_most_overlap()
+    {
+        // the cut is at 95; the tail [81, 95) holds whitespace boundaries at 88 and 92
+        var input = new string('a', 87) + " bbb cc\n" + new string('d', 60);
+
+        var spans = InputSegmenter.Spans(input, 100);
+
+        Assert.Equal(95, spans[0].End);
+        Assert.Equal(88, spans[1].Start);
+    }
+
+    [Fact]
+    public void A_pair_that_overruns_a_one_character_budget_leaves_no_empty_span_behind()
+    {
+        Assert.Equal([(0, 1), (1, 3)], InputSegmenter.Spans("a😀", 1));
+    }
+
+    [Fact]
     public void A_CJK_sentence_end_needs_no_whitespace_after_it()
     {
         var pieces = InputSegmenter.Split("这是第一句话。这是第二句话。这是第三句话。这是第四句话。", 16);

@@ -68,9 +68,9 @@ internal sealed class HttpVectorTransport(
     /// <para><b>A failed BATCH fails the whole call.</b> Returning the batches that happened to succeed
     /// would hand the caller fewer vectors than texts, silently mis-pairing every one after the gap.</para>
     ///
-    /// <para>An input longer than <see cref="Settings.MaxInputChars"/> is segmented, each piece carrying the
-    /// prefix, and answered with its pieces' vectors pooled; every other input's vector is returned exactly
-    /// as the endpoint sent it.</para>
+    /// <para>An input that, with its prefix, is longer than <see cref="Settings.MaxInputChars"/> is segmented,
+    /// each piece carrying the prefix, and answered with its pieces' vectors pooled; every other input's vector
+    /// is returned exactly as the endpoint sent it.</para>
     /// </summary>
     /// <exception cref="OperationCanceledException">The caller's <paramref name="ct"/> was cancelled — the
     /// one failure that is not a verdict, because it belongs to the caller.</exception>

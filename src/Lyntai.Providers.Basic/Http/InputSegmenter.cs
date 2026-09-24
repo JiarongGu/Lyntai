@@ -74,7 +74,8 @@ internal static class InputSegmenter
         {
             if (input.Length - start <= budget)
             {
-                spans.Add((start, input.Length));
+                // empty only when a pair overran a one-character budget and the cut already reached the end
+                if (start < input.Length || spans.Count == 0) spans.Add((start, input.Length));
                 return spans;
             }
             var cut = Cut(input, start, budget);

@@ -1126,7 +1126,7 @@ of the two: most of these traps recur in a subsystem that had never met them.
   Ollama truncates and answers; `llama-server` returns `500 … input is too large`. So a run that "worked"
   on Ollama can crash on llama.cpp, and what that proves is that the truncation was always happening and
   nothing reported it. The benches now truncate explicitly and COUNT it in the footer. Related and easy to
-  get wrong in the fix: a character budget cannot bound a token limit.
+  get wrong in the fix: a character budget cannot bound a token limit — **D177** takes one anyway, with margin.
 - **An Ollama model IS a GGUF on disk, and stock `llama-server` still may not load it.** The blobs under <!-- trap: sub=build,measurement shape=unmeasured -->
   `~/.ollama/models/blobs/sha256-*` carry the `GGUF` magic and Ollama runs them through its own bundled
   llama.cpp, so pointing your own `llama-server --model <blob>` at one looks like a free way to serve an
