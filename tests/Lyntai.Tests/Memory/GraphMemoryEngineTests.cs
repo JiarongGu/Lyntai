@@ -1030,6 +1030,7 @@ public class GraphMemoryEngineTests
         public double Retrievability(in MemoryDecayState state) => 1;
         public MemoryDecayState Reinforce(in MemoryDecayState state) => state;
         public double CandidateCutoff(double minRetrievability) => double.PositiveInfinity;
+        public double? DerivedGrade(in MemoryDecayState state) => null;
     }
 
     /// <summary>A second, DIFFERENTLY-NAMED salience policy type — the genuine cross-type collision the production

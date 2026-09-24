@@ -618,6 +618,7 @@ public class GraphMemoryWiringTests
         public double Retrievability(in MemoryDecayState state) => value;
         public MemoryDecayState Reinforce(in MemoryDecayState state) => state;
         public double CandidateCutoff(double minRetrievability) => double.PositiveInfinity;
+        public double? DerivedGrade(in MemoryDecayState state) => null;
     }
 
     [Fact]

@@ -95,8 +95,11 @@ public interface IMemoryRetrievabilityPolicy
     /// true retrievability is at least <paramref name="minRetrievability"/> may exceed it.
     /// <para>This is what lets a store bound its candidate set with plain arithmetic and never evaluate the
     /// curve — which matters because no fixed SQL expression could encode a policy the application
-    /// supplies. A policy that cannot bound its curve returns <see cref="double.PositiveInfinity"/> —
-    /// correct, at the cost of an in-scope scan.</para>
+    /// supplies.</para>
+    /// <para><b>Implementing it:</b> a policy that cannot bound its curve returns
+    /// <see cref="double.PositiveInfinity"/> — correct, at the cost of an in-scope scan. A decorator forwards to
+    /// the policy it wraps, widened by the most it can lengthen a stability; a narrower bound lets a prune
+    /// delete an entry still above the floor.</para>
     /// </summary>
     /// <param name="minRetrievability">The floor a caller intends to apply.</param>
     double CandidateCutoff(double minRetrievability);
@@ -106,7 +109,9 @@ public interface IMemoryRetrievabilityPolicy
     /// <see cref="InitialStability"/> or <see cref="Reinforce"/>. Exactly one bit; never
     /// <see cref="MemoryRetrievabilityProvenance.None"/> and never more than one bit, or a fitness check
     /// reading it would report this policy as having contributed when it never ran (or never distinguish it
-    /// from a different one).</summary>
+    /// from a different one).
+    /// <para><b>Implementing it:</b> a decorator that does not compute the stored state itself forwards the bit
+    /// of the policy it wraps, which is the one that did.</para></summary>
     MemoryRetrievabilityProvenance Provenance { get; }
 
     /// <summary>The grade this policy would derive from <paramref name="state"/> — for a REVIEW LOG (design
@@ -124,14 +129,14 @@ public interface IMemoryRetrievabilityPolicy
     /// design spec §1's drift guard applies only when the difficulty update actually ran) even though it
     /// always has a grade concept, while a future policy that never grades anything returns null
     /// unconditionally.</para>
-    /// <para><b>Defaults to null.</b> Exactly one shipped policy owns a grade concept today
-    /// (<see cref="DsrRetrievability"/>); every other implementation — including every test double already
-    /// in this tree — needs no override to satisfy this member correctly.</para>
+    /// <para><b>Implementing it:</b> a policy that derives no grade returns null. A decorator forwards to the
+    /// policy it wraps — there is no default body, because a wrapper that answered null would silently record
+    /// no grade in every review row.</para>
     /// <para><paramref name="state"/> MUST be the PRE-reinforcement state, the same one a caller is about to
     /// pass to <see cref="Reinforce"/> — calling this on a state <see cref="Reinforce"/> already
     /// produced answers a different, meaningless question (design spec §1's own caveat: the grade must come
     /// from the state that made THIS recall succeed, never from a value the same update is about to
     /// write).</para></summary>
     /// <param name="state">The entry's decay bookkeeping, before this reinforcement.</param>
-    double? DerivedGrade(in MemoryDecayState state) => null;
+    double? DerivedGrade(in MemoryDecayState state);
 }

@@ -121,6 +121,11 @@ every addition.
   selected by its kind and needs no candidate entry; a named client pooled over one keeps it in `UseProviders`
   and states its text list with `UseCandidates`.
 
+- **`IMemoryRetrievabilityPolicy.DerivedGrade` has no default body** (**D67**), because a wrapper that forgot to
+  forward it silently recorded "no grade" in every review row. **What to DO:** a BYO `IMemoryRetrievabilityPolicy`
+  implements `DerivedGrade` — returning null if the policy derives no grade; a decorator forwards it to the
+  policy it wraps.
+
 ### Security
 
 - **Recalled memory can no longer forge a prompt section** (**D166**). Both composers rendered an item as

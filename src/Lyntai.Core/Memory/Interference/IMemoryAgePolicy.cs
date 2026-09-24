@@ -64,7 +64,11 @@ public interface IMemoryAgePolicy
     /// <summary>Which primitive <see cref="Age"/> actually recomputes from — <see cref="MemoryAgeKind.Derivable"/>
     /// for a pure function of <see cref="MemoryAgeSample"/>, <see cref="MemoryAgeKind.Accumulating"/> for one
     /// that needs its own write-time accumulator instead. Declared, not inferred: the engine reads this
-    /// rather than testing the policy's runtime type, so a future policy states which it is.</summary>
+    /// rather than testing the policy's runtime type, so a future policy states which it is.
+    /// <para><b>Implementing it:</b> a decorator forwards the kind of the policy it wraps, unless it changes
+    /// <see cref="Advance"/> in a way no <see cref="MemoryAgeSample"/> can reproduce — as
+    /// <see cref="BurstDampenedAgePolicy"/>'s damping does — and then it is
+    /// <see cref="MemoryAgeKind.Accumulating"/>.</para></summary>
     MemoryAgeKind Kind { get; }
 
     /// <summary>What <paramref name="write"/> does to the memory, for the named <paramref name="engine"/>.

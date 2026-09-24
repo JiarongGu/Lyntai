@@ -1,3 +1,5 @@
+using System.Text.RegularExpressions;
+
 using Lyntai.Inference;
 using Lyntai.Memory;
 
@@ -12,14 +14,12 @@ public class DecoratedInterfaceTests
     /// so the list only shrinks.</summary>
     private static readonly Dictionary<string, string> Allowances = new(StringComparer.Ordinal)
     {
-        ["Lyntai.Memory.Forgetting.IMemoryRetrievabilityPolicy.DerivedGrade(MemoryDecayState)"] =
-            "null is the right answer for every policy without a grade concept; ModulatedRetrievability forwards it",
         ["Lyntai.Storage.IConversationStore.CountThreadsAsync(CancellationToken)"] =
-            "the default counts through ListThreadsAsync, which a decorator forwards: a missed forward is slow, never wrong",
+            "the fallback counts through ListThreadsAsync, which a decorator forwards: correct, only slower (O(n))",
         ["Lyntai.Storage.IConversationStore.ListThreadsPageAsync(Int32, ChatThread, CancellationToken)"] =
-            "the default slices ListThreadsAsync, which a decorator forwards: a missed forward is slow, never wrong",
+            "the fallback slices ListThreadsAsync, which a decorator forwards: correct, only slower (O(n))",
         ["Lyntai.Storage.IDbConnectionFactory.OpenAsync(CancellationToken)"] =
-            "the default wraps the decorator's own Open: a missed forward loses the inner async open, not the decorator",
+            "the fallback runs the decorator's own Open: correct, only loses the inner factory's async open",
     };
 
     private static readonly Type[] Shipped =
@@ -57,6 +57,22 @@ public class DecoratedInterfaceTests
         Assert.Contains(nameof(DelegatingTextClient), decorated[typeof(ITextClient)]);
         Assert.Contains(nameof(BudgetedMediaRouter), decorated[typeof(IMediaRouter)]);
         Assert.Contains(nameof(CompositeMemoryEngine), decorated[typeof(IMemoryEngine)]);
+    }
+
+    [Fact]
+    public void The_readme_lists_exactly_the_interfaces_the_library_decorates()
+    {
+        var readme = File.ReadAllText(Path.Combine(RepoRoot(), "README.md"));
+        var block = Regex.Match(readme,
+            "<!-- decorated-interfaces:begin -->(.*?)<!-- decorated-interfaces:end -->", RegexOptions.Singleline);
+        Assert.True(block.Success, "README.md has lost its decorated-interfaces block");
+
+        var listed = Regex.Matches(block.Groups[1].Value, @"^\| `(I\w+)` \|", RegexOptions.Multiline)
+            .Select(m => m.Groups[1].Value);
+
+        Assert.Equal(
+            DecoratedInterfaces.Find(Shipped).Keys.Select(t => t.Name).Order(StringComparer.Ordinal),
+            listed.Order(StringComparer.Ordinal));
     }
 
     [Fact]
@@ -138,6 +154,13 @@ public class DecoratedInterfaceTests
     private static readonly Dictionary<string, string> None = [];
 
     private static string Key(Type type, string member) => $"{type.FullName}.{member}";
+
+    private static string RepoRoot()
+    {
+        for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)
+            if (File.Exists(Path.Combine(dir.FullName, "Lyntai.slnx"))) return dir.FullName;
+        throw new InvalidOperationException("no Lyntai.slnx above the test assembly");
+    }
 
     private interface IGoverned
     {

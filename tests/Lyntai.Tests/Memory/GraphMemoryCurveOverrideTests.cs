@@ -47,6 +47,8 @@ public sealed class GraphMemoryCurveOverrideTests : IDisposable
         public MemoryDecayState Reinforce(in MemoryDecayState state) => state;
 
         public double CandidateCutoff(double minRetrievability) => double.PositiveInfinity;
+
+        public double? DerivedGrade(in MemoryDecayState state) => null;
     }
 
     private static readonly MemoryRetrievabilityProvenance CurveA = (MemoryRetrievabilityProvenance)(1L << 40);

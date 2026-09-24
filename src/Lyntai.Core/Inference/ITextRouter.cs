@@ -22,8 +22,10 @@ public interface ITextRouter
     /// and cooldown key, and the consumer's live <c>IModelRoutingStore</c> route in place of
     /// <paramref name="candidates"/> when one is set. A fallback the call would never reach does not change the
     /// answer.
-    /// <para>Null means UNKNOWN (no live candidate); read it as no native tool calls. A router that cannot say
-    /// returns null.</para></summary>
+    /// <para>Null means UNKNOWN — no live candidate — and a caller must read it as the safe answer: no native
+    /// tool calls, so the prompt path.</para>
+    /// <para><b>Implementing it:</b> a router that cannot say returns null. A wrapper forwards to the router it
+    /// wraps.</para></summary>
     ValueTask<ProviderCapabilities?> GetCapabilitiesAsync(IReadOnlyList<ProviderCandidate> candidates, TextRequest req,
         CancellationToken ct = default);
 }

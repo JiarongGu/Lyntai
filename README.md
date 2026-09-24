@@ -894,6 +894,27 @@ than degrading, because binary cannot be served through the buffered member's st
 decode is corruption, not a slower answer. Implement it only if a byte-streaming backend routes through
 your runner (**D165**).
 
+**The interfaces the library itself decorates.** A BYO implementation of one of these can end up wrapped by
+a class the library ships, and a BYO decorator joins a chain beside them. A decorator forwards every member
+to the instance it wraps; where a member can go unanswered, its own documentation says what to return, under
+**Implementing it**. A member added to one of these takes no default body (**D67**), so a decorator that
+misses it fails to compile instead of silently running a default. The three older default bodies named below
+fall back correctly, only more slowly. `DecoratedInterfaceTests` holds this table to the tree: a newly
+decorated interface fails the tests until it is listed here, and so does a row nothing decorates any more.
+
+<!-- decorated-interfaces:begin -->
+| interface | decorated by | what a decorator owes it |
+| --- | --- | --- |
+| `ITextClient` | `DelegatingTextClient` (derive from it), `BudgetedTextClient`, `CachingTextClient`, `RateLimitedTextClient`, `GuardedTextClient`, `RefusalScreeningTextClient` | every member, `GetCapabilitiesAsync` included |
+| `IMediaRouter` | `BudgetedMediaRouter`, `RateLimitedMediaRouter` | all three doors, each one governed: the compiler cannot tell a governed door from a pass-through |
+| `IConversationStore` | `EnrichingConversationStore` | every member; the defaults of `CountThreadsAsync` and `ListThreadsPageAsync` are correct but O(n) |
+| `IDbConnectionFactory` | `LazyMigratingConnectionFactory` | `Open`, and `OpenAsync`, whose default loses the inner factory's async open |
+| `IMemoryEngine` | `CompositeMemoryEngine`, over its members | every member |
+| `IMemoryAgePolicy` | `BurstDampenedAgePolicy` | every member; `Kind` says when not to forward |
+| `IMemoryRankingPolicy` | `CompositeRankingPolicy`, over two | `Rank` |
+| `IMemoryRetrievabilityPolicy` | `ModulatedRetrievability` | every member; `Provenance`, `CandidateCutoff` and `DerivedGrade` say how |
+<!-- decorated-interfaces:end -->
+
 ### Backend self-maintenance: version · upgrade · pinned install · auth
 
 `ProbeAsync` is on `IModelProvider` itself (**D127**) and defaults to reporting `IsAvailable`, so *every*

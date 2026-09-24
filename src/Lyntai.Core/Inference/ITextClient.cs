@@ -20,7 +20,8 @@ public interface ITextClient
     /// <see cref="ProviderCapabilities.SupportsStreamingToolCalls"/> for its streaming half) and its prompt
     /// protocol.
     /// <para>Null means UNKNOWN — no live candidate — and a caller must read it as the safe answer: no native
-    /// tool calls. A client that cannot say returns null; a decorator forwards to the client it wraps
-    /// (<see cref="DelegatingTextClient"/> does).</para></summary>
+    /// tool calls, so the prompt path.</para>
+    /// <para><b>Implementing it:</b> a client that cannot say returns null. A decorator forwards to the client it
+    /// wraps, as <see cref="DelegatingTextClient"/> does.</para></summary>
     ValueTask<ProviderCapabilities?> GetCapabilitiesAsync(TextRequest req, CancellationToken ct = default);
 }

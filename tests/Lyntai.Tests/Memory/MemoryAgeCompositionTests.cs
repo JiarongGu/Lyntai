@@ -100,6 +100,7 @@ public class MemoryAgeCompositionTests
         public double Retrievability(in MemoryDecayState state) => state.Age;
         public MemoryDecayState Reinforce(in MemoryDecayState state) => state;
         public double CandidateCutoff(double minRetrievability) => double.PositiveInfinity;
+        public double? DerivedGrade(in MemoryDecayState state) => null;
     }
 
     /// <summary>Fix round 1, C-1 — reproduces the review's own measured scenario EXACTLY: seed, +10 days,
