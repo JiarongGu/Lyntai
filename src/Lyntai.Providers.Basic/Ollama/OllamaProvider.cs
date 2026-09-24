@@ -106,7 +106,8 @@ public sealed class OllamaProvider : IModelProvider, IVectorProvider
         QueryPrefix: c.QueryPrefix,
         MaxInputChars: c.MaxInputChars,
         Segmentation: c.Segmentation,
-        NoServerTruncation: c.MaxInputChars is not null);
+        // under Truncate the deployment accepted loss, so the server's own cut may stand behind the client's
+        NoServerTruncation: c.MaxInputChars is not null && c.Segmentation?.Overflow != InputOverflow.Truncate);
 
     /// <summary>Throws when <see cref="OllamaOptions.MaxInputChars"/> cannot bound a piece — run at
     /// registration as well as here, so a bad bound fails composition rather than a first call.</summary>

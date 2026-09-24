@@ -24,8 +24,9 @@ namespace Lyntai.Providers.Onnx;
 /// (<c>docs/DECISIONS.md</c> <b>D177</b>).</para>
 ///
 /// <para><b>Inference runs on the calling thread.</b> The async signature is the seam's, not a promise to
-/// yield — a call is CPU-bound for as long as its forward passes take, and a segmented input adds a pass
-/// per window. Wrap the call if that matters to your scheduler.</para></summary>
+/// yield — a call is CPU-bound for as long as its forward passes take, and a segmented input adds a row per
+/// window, rows running in passes of at most eight or the call's input count, whichever is more. Wrap the
+/// call if that matters to your scheduler.</para></summary>
 public sealed class OnnxProvider : IVectorProvider, IScoreProvider, IDisposable
 {
     private readonly InferenceSession _session;

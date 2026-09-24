@@ -37,11 +37,12 @@ internal sealed record WindowedBatch(WordPieceEncoding[] Rows, int[] First, int[
 ///
 /// <para>With no <see cref="InputSegmentation"/> — the provider's default — every input is the one row the
 /// tokenizer itself gives it, cut at the window: <see cref="WordPieceTokenizer.Encode(string,int)"/> or
-/// <see cref="WordPieceTokenizer.Encode(string,string,int)"/>, exactly. With a record, an input within the
+/// <see cref="WordPieceTokenizer.Encode(string,string,int)"/>, exactly. With a record, a text within the
 /// window is still that row, and a longer one is a row per <see cref="TokenSegmenter"/> window — or, when the
-/// record truncates, one row cut at the window. A pair's query is never segmented: it rides whole in every
-/// row unless that would leave the document less than <see cref="InputSegmentation.MinDocumentShare"/> of
-/// the window, and is then cut to the rest.</para></summary>
+/// record truncates, one row cut at the window. A pair's query is never segmented, and keeps at most
+/// (1 − <see cref="InputSegmentation.MinDocumentShare"/>) of the window: one longer is cut ONCE for the whole
+/// call, so every document is scored against the same question, and a pair that would fit beside the whole
+/// query is not the tokenizer's row.</para></summary>
 /// <param name="tokenizer">The model's own vocabulary and rules.</param>
 /// <param name="boundaries">Which of its rows continue a word or end a sentence.</param>
 /// <param name="maxTokens">The sequence length a row may take, INCLUDING the special tokens.</param>

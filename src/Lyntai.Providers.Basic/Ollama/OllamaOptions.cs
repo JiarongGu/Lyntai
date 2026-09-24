@@ -61,10 +61,12 @@ public sealed class OllamaOptions
     /// inside it. Ignored for <see cref="ProviderKinds.Text"/>.
     ///
     /// <para><b>Null (the default) sends every input whole and leaves the server's own handling alone</b>:
-    /// Ollama cuts an input past the model's context silently. Set, the bound governs instead — every request
-    /// also carries <c>truncate: false</c>, so a piece that still overflows is reported as a failed call rather
-    /// than cut behind the bound. The provider throws <see cref="ArgumentOutOfRangeException"/> when it is not
-    /// positive or leaves a prefix no room.</para></summary>
+    /// Ollama cuts an input past the model's context silently. Set, the bound governs instead: unless
+    /// <see cref="Segmentation"/> truncates, every request also carries <c>truncate: false</c>, so a piece
+    /// that still overflows is reported as a failed call rather than cut behind the bound. Under
+    /// <see cref="InputOverflow.Truncate"/> the loss is accepted, and the server may cut further. The provider
+    /// throws <see cref="ArgumentOutOfRangeException"/> when it is not positive or leaves a prefix no
+    /// room.</para></summary>
     public int? MaxInputChars { get; set; }
 
     /// <summary>What happens to an input longer than <see cref="MaxInputChars"/>, and ignored without it

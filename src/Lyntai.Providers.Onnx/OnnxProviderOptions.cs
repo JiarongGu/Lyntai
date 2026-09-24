@@ -45,13 +45,16 @@ public sealed class OnnxProviderOptions
     /// <item><see cref="InputOverflow.Segment"/> splits it by tokens into windows, each ending after a
     /// sentence end or before a word start where one is in reach, and runs every window: a cross-encoder
     /// scores a document as its BEST window, and an embedder returns its windows' unit vectors averaged by
-    /// token count and re-normalised. An input that fits is answered exactly as without the record; a longer
-    /// one costs a forward pass per window.</item>
+    /// token count and re-normalised. A text that fits is answered exactly as without the record; a longer
+    /// one is a row per window, and rows run in passes of at most eight or the call's input count, whichever
+    /// is more.</item>
     /// <item><see cref="InputOverflow.Truncate"/> cuts it at the window, as null does.</item>
     /// </list>
-    /// <para>With a record in either mode, a cross-encoder query that would leave the document less than
-    /// <see cref="InputSegmentation.MinDocumentShare"/> of the window is cut to the rest; the query is never
-    /// segmented.</para></summary>
+    /// <para><b>With a record in either mode, a cross-encoder query keeps at most
+    /// (1 − <see cref="InputSegmentation.MinDocumentShare"/>) of the window</b>, and a longer one is cut ONCE
+    /// per call, the same for every document — so a pair that would fit beside the whole query is still
+    /// scored with the cut one, because scores against different question text do not rank. The query is
+    /// never segmented.</para></summary>
     public InputSegmentation? Segmentation { get; set; }
 
     /// <summary>The model file, relative to the directory. Null probes <c>onnx/model.onnx</c> then

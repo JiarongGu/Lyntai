@@ -5472,26 +5472,28 @@ inert. The break is named in `CHANGELOG.md` (**D161**).
 **The decision.** A provider with a window can SEGMENT an input longer than it: split it into windows, answer
 every window, and combine the answers into ONE per input, so each caller's one-answer-per-input contract holds
 and no text past the window is lost. It is a capability a deployment configures, never a rule the library
-imposes — segmenting extends what a small model can take, and whether that is worth a pass per window is the
-deployment's call. **One record in Core configures it on every provider**: `InputSegmentation` —
+imposes — segmenting extends what a small model can take, and whether answering every window is worth its
+cost is the deployment's call. **One record in Core configures it on every provider**: `InputSegmentation` —
 `Overflow` (Segment or Truncate), `Overlap` (0.15) and, for a reranker pair, `MinDocumentShare` (0.5). Each
 provider keeps its own WINDOW setting (`MaxInputChars` on `HttpModelOptions` and `OllamaOptions`, `MaxTokens`
 on `OnnxProviderOptions`) and takes the record as `Segmentation`.
 
 **Every default is the provider's prior behaviour.** The ONNX provider truncates at its window unless told to
 segment. The HTTP and Ollama providers do nothing until `MaxInputChars` is set, then segment unless told to
-truncate; Ollama's own server-side cut stands until then, and once the bound is set every request carries
-`truncate: false`, so the bound governs.
+truncate; Ollama's own server-side cut stands until then. Once the bound is set, and unless the record
+truncates, every request carries `truncate: false`, so a piece that still overflows fails visibly rather than
+being cut behind the bound; under Truncate the deployment has accepted the loss, and the server's cut stands.
 
 **How it segments.** A window ends at the last boundary in its latter half — paragraph, line, sentence or word
 over characters; a sentence-end token, else a word start, over tokens — else hard, never inside a surrogate
 pair, and the next restarts at a boundary inside the last `Overlap` of it. A reranker scores a document as its
 BEST window (MaxP: a document is as relevant as its most relevant passage); an embedder returns the
 length-weighted mean of its windows' unit vectors, re-normalised — `VectorMath.WeightedMeanDirection`, one
-public method because two packages need it and a copy would drift. An input that fits is answered exactly as
-without segmenting. The HTTP bound counts characters because an HTTP client has no tokenizer, and the option's
-doc says when that bounds tokens; the ONNX provider counts tokens exactly, so there a pair's query, never
-segmented, is cut only as far as `MinDocumentShare` requires.
+public method because two packages need it and a copy would drift. The HTTP bound counts characters because
+an HTTP client has no tokenizer, and the option's doc says when that bounds tokens. The ONNX provider counts
+tokens exactly, so there a record gives a pair's query, never segmented, at most (1 − `MinDocumentShare`) of
+the window, cut ONCE per call: every document is scored against the same question, since a reranker's output
+is a ranking. Otherwise an input that fits is answered exactly as without segmenting.
 
 **Rejected.** Forcing it: whether to segment is a processing judgement that belongs to the deployment, and a
 forced one changes what an unchanged configuration returns. Per-provider knobs: three copies that drift.
@@ -5500,6 +5502,8 @@ fixes one caller, guesses a model's window from outside it, and leaves embedding
 entry: it changes the vector-store contract for every backend. FirstP: cutting by another name. SumP: it
 rewards length, so a long document outranks a short one that answers. Counting tokens over HTTP: a server's
 `/tokenize` route is not on the OpenAI-shaped wire, and shrink-and-retry costs a round trip per failure.
+Cutting the query per pair, only where that pair overflows: it keeps a fitting pair exact, but scores the
+documents of one call against different questions, whose scores do not rank against each other.
 
 **Known limits.** The pooled vector's retrieval QUALITY is unmeasured (`docs/model-tasks.md` §3.3), and so are
 the defaults for `Overlap` and `MinDocumentShare` — which is why they are settings.

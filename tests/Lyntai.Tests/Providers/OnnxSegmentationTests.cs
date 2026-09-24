@@ -200,8 +200,9 @@ public class TokenSegmenterTests
 }
 
 /// <summary>What the ONNX provider feeds its graph: one encoded row per input, or per WINDOW once
-/// <see cref="InputSegmentation"/> says to segment — with an input inside the window encoded exactly as the
-/// tokenizer alone encodes it, and no segmentation configured meaning the tokenizer's own truncation.</summary>
+/// <see cref="InputSegmentation"/> says to segment. No record means the tokenizer's own truncation; under a
+/// record a text inside the window is still the tokenizer's row, while a pair's query is cut once per call to
+/// its share of the window.</summary>
 public class WindowedTokenizerTests
 {
     internal static readonly List<string> Vocabulary =
@@ -258,7 +259,8 @@ public class WindowedTokenizerTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public void Pairs_within_the_window_encode_EXACTLY_as_the_tokenizer_does(bool segment)
+    public void Pairs_within_the_window_whose_query_keeps_to_its_share_encode_EXACTLY_as_the_tokenizer_does(
+        bool segment)
     {
         string[] documents = ["the city is old.", "", River(4)];
 
@@ -371,6 +373,22 @@ public class WindowedTokenizerTests
         Assert.InRange(batch.Rows.Length, 4, 8);
     }
 
+    [Theory]
+    [InlineData(InputOverflow.Segment)]
+    [InlineData(InputOverflow.Truncate)]
+    public void Under_a_record_the_query_is_cut_ONCE_per_call_the_same_for_a_short_document_and_a_long_one(
+        InputOverflow overflow)
+    {
+        // a 20-token query beside a 5-token document fits the 29-token budget whole — and is still cut to its
+        // 14-token share, because every document of one call is scored against the SAME question
+        var batch = Windows(32, new InputSegmentation { Overflow = overflow })
+            .EncodePairs(Berlins(20), ["the city is old.", River(10)]);
+
+        var queries = batch.Rows.Select(row => Sides(row).Query).ToList();
+        Assert.All(queries, query => Assert.Equal(Tokenizer.EncodeToIds(Berlins(20)).Take(14), query));
+        Assert.Equal(Sides(batch.Rows[batch.First[0]]).Query, Sides(batch.Rows[batch.First[1]]).Query);
+    }
+
     [Fact]
     public void A_larger_MinDocumentShare_cuts_the_query_sooner()
     {
@@ -448,7 +466,8 @@ public class OnnxWindowedHeadTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public void An_in_window_call_feeds_the_graph_EXACTLY_what_the_tokenizer_alone_would(bool segment)
+    public void A_fitting_score_call_whose_query_keeps_to_its_share_feeds_the_graph_the_tokenizers_EXACT_rows(
+        bool segment)
     {
         string[] documents = ["the city is old.", WindowedTokenizerTests.River(4), ""];
         WordPieceEncoding[]? fed = null;

@@ -8,7 +8,8 @@ public enum InputOverflow
     /// re-normalised.</summary>
     Segment = 0,
 
-    /// <summary>Cut it at the window and answer the part that fits.</summary>
+    /// <summary>Cut it and answer the part kept — at the window, or where the first piece would end; each
+    /// provider's <c>Segmentation</c> option says which.</summary>
     Truncate = 1,
 }
 
@@ -24,12 +25,21 @@ public enum InputOverflow
 /// <para>Each setter validates its value, so an out-of-range record fails where it is configured.</para></summary>
 public sealed class InputSegmentation
 {
+    private InputOverflow _overflow = InputOverflow.Segment;
     private double _overlap = 0.15;
     private double _minDocumentShare = 0.5;
 
     /// <summary>Whether an over-long input is segmented (the default) or truncated. Where a truncating
     /// provider cuts is stated by its <c>Segmentation</c> option.</summary>
-    public InputOverflow Overflow { get; set; } = InputOverflow.Segment;
+    /// <exception cref="ArgumentOutOfRangeException">The value is not a defined <see cref="InputOverflow"/>,
+    /// which providers would otherwise read differently.</exception>
+    public InputOverflow Overflow
+    {
+        get => _overflow;
+        set => _overflow = Enum.IsDefined(value)
+            ? value
+            : throw new ArgumentOutOfRangeException(nameof(Overflow), value, "Overflow must be Segment or Truncate.");
+    }
 
     /// <summary>How far each window after the first reaches back into the one before, as a share of that
     /// window: the next starts at a boundary inside its last <c>Overlap</c>, else where it ended. Default
@@ -45,8 +55,9 @@ public sealed class InputSegmentation
     }
 
     /// <summary>For a reranker PAIR, the share of the window its DOCUMENT keeps however long the query is:
-    /// a query too long to leave the document that much is cut to the rest. Default 0.5. The query itself is
-    /// never segmented.
+    /// the query keeps at most the rest, and one longer is cut ONCE per call, the same for every document —
+    /// even one that would fit beside the whole query — because scores against different question text are
+    /// not comparable. Default 0.5. The query itself is never segmented.
     ///
     /// <para>It applies only where a provider measures query and document against one window — the ONNX
     /// cross-encoder. An HTTP bound is per document and never counts the query, so there it does not

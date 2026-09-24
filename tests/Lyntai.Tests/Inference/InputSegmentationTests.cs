@@ -18,6 +18,25 @@ public class InputSegmentationTests
     }
 
     [Theory]
+    [InlineData(InputOverflow.Segment)]
+    [InlineData(InputOverflow.Truncate)]
+    public void Either_overflow_is_accepted(InputOverflow overflow)
+    {
+        Assert.Equal(overflow, new InputSegmentation { Overflow = overflow }.Overflow);
+    }
+
+    [Theory]
+    [InlineData(2)]
+    [InlineData(-1)]
+    public void An_UNDEFINED_overflow_is_refused_rather_than_read_differently_by_each_provider(int value)
+    {
+        var ex = Assert.Throws<ArgumentOutOfRangeException>(
+            () => new InputSegmentation { Overflow = (InputOverflow)value });
+
+        Assert.Equal(nameof(InputSegmentation.Overflow), ex.ParamName);
+    }
+
+    [Theory]
     [InlineData(0.0)]
     [InlineData(0.5)]
     public void An_overlap_from_none_to_half_a_window_is_accepted(double overlap)

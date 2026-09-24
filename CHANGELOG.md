@@ -159,14 +159,15 @@ every addition.
   document keeps before the query is cut (default 0.5). Segmenting splits an input into windows, answers every
   one, and combines the answers into one per input: a reranker scores a document as its BEST window, and an
   embedder returns the length-weighted mean of its windows' unit vectors, re-normalised. An input that fits is
-  answered exactly as without it. **Every default is the provider's behaviour before it**, so nothing changes
-  until you configure it.
+  answered exactly as without it, except where the ONNX entry below says a record cuts a long query. **Every
+  default is the provider's behaviour before it**, so nothing changes until you configure it.
 
 - **`HttpModelOptions.MaxInputChars` bounds the input an HTTP embedder or reranker is sent** (**D177**). A
   small-window backend — a 512-token reranker on llama.cpp, say — rejects the WHOLE call when any one input
   exceeds its window, so one long entry cost every other answer in the call. Set the bound and a longer input
-  is segmented at paragraph, line, sentence or word boundaries, every piece sent in the same request — or,
-  with `Segmentation = new() { Overflow = InputOverflow.Truncate }`, sent cut where its first piece would end.
+  is segmented at paragraph, line, sentence or word boundaries and every piece is sent — a reranker's all in one
+  request, an embedder's batched by `BatchSize`, which counts pieces — or, with
+  `Segmentation = new() { Overflow = InputOverflow.Truncate }`, sent cut where its first piece would end.
   It counts CHARACTERS, not tokens, so leave margin; on a reranker subtract your longest query, which the
   window holds too and `MinDocumentShare` cannot measure here. Null, the default, sends every input whole. At
   an Ollama server root, `AddHttpProvider` carries the bound and `Segmentation` onto the Ollama-native
@@ -174,16 +175,20 @@ every addition.
 
 - **`OllamaOptions.MaxInputChars` and `OllamaOptions.Segmentation` bound what `/api/embed` is sent**, with
   the same pieces and pooling as the HTTP provider. Null, the default, sends every input whole and leaves the
-  server's own silent cut at the model's context in place; once the bound is set, every request also carries
-  `truncate: false`, so a piece that still overflows fails the call visibly instead of being cut behind it.
+  server's own silent cut at the model's context in place. Once the bound is set, and unless `Segmentation`
+  truncates, every request also carries `truncate: false`, so a piece that still overflows fails the call
+  visibly instead of being cut behind it; under `Truncate` you have accepted the loss, and the server's own cut
+  stands behind the client's.
 
 - **`OnnxProviderOptions.Segmentation` lets the in-process ONNX provider segment by TOKENS.** It still
   truncates at `MaxTokens` by default. With a record that segments, a window ends after a sentence end or
-  before a word start where one is in reach, and every window runs, in forward passes no larger than the same
-  call unsegmented or eight rows, whichever is more. For a cross-encoder a pair is segmented only when its
-  query, its document and the three special tokens exceed `MaxTokens`; the query is never segmented, and is cut
-  only as far as `MinDocumentShare` requires. A segmented embedding is unit length even for a model that does
-  not normalise.
+  before a word start where one is in reach, and every window is a row, the rows running in forward passes of
+  at most eight or the call's input count, whichever is more. For a cross-encoder, any record gives the query
+  at most (1 − `MinDocumentShare`) of the window, cut ONCE per call so every document is scored against the
+  same question; the query is never segmented. So under a record a score changes for a pair whose query,
+  document and three special tokens exceed `MaxTokens`, and for every pair in a call whose query exceeds its
+  share, even a pair that fits. A segmented embedding is unit length even for a model that does not
+  normalise.
 
 - **`VectorMath.WeightedMeanDirection` pools several vectors into one unit vector**: each is scaled to unit
   length, the unit vectors are summed by weight and the sum is re-normalised, falling back to the heaviest

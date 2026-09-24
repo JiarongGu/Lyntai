@@ -215,6 +215,23 @@ public class OllamaProviderTests
         Assert.Equal(Words30[..39], sent);
     }
 
+    [Fact]
+    public async Task Under_TRUNCATE_the_servers_own_cut_stands_rather_than_failing_the_call()
+    {
+        // the deployment already accepted loss: refusing an input that still overflows would bring back the
+        // whole-call rejection segmenting exists to remove
+        var handler = Embedder();
+
+        await Provider(handler, o =>
+        {
+            o.Produces = ProviderKinds.Vector;
+            o.MaxInputChars = 40;
+            o.Segmentation = new InputSegmentation { Overflow = InputOverflow.Truncate };
+        }).CallAsync(new VectorRequest([Words30]));
+
+        Assert.False(JsonNode.Parse(handler.Requests[0].Body)!.AsObject().ContainsKey("truncate"));
+    }
+
     [Theory]
     [InlineData(0)]
     [InlineData(-3)]
