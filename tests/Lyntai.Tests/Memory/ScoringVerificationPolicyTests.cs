@@ -254,6 +254,15 @@ public class ScoringVerificationPolicyTests
         Assert.DoesNotContain(LogLevel.Warning, await LevelsFrom(new InvalidOperationException("malformed")));
     }
 
+    /// <summary>The other half of that line: a failure the SAME recall will meet again is a defect, not noise
+    /// — one candidate over a small reranker's window fails the whole call on every recall that surfaces it.</summary>
+    [Fact]
+    public async Task A_failure_that_will_REPEAT_is_a_WARNING()
+    {
+        Assert.Contains(LogLevel.Warning, await LevelsFrom(new InvalidOperationException(
+            "input (1052 tokens) is larger than the max context size (512 tokens). skipping")));
+    }
+
     [Fact]
     public async Task A_short_answer_is_NO_OPINION_rather_than_a_mis_paired_endorsement()
     {

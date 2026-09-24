@@ -20,6 +20,8 @@ public class ProviderVerdictClassifierTests
     [InlineData("This model's maximum context length is 8192 tokens", ProviderVerdict.ContextWindowExceeded)]
     [InlineData("error code: context_length_exceeded", ProviderVerdict.ContextWindowExceeded)]
     [InlineData("prompt is too long: 210000 tokens", ProviderVerdict.ContextWindowExceeded)]
+    // llama.cpp's own wording, captured on two builds from a 512-window reranker
+    [InlineData("input (1052 tokens) is larger than the max context size (512 tokens). skipping", ProviderVerdict.ContextWindowExceeded)]
     [InlineData("Incorrect API key provided", ProviderVerdict.AuthFailed)]
     [InlineData("401 Unauthorized", ProviderVerdict.AuthFailed)]
     [InlineData("authentication failed for this endpoint", ProviderVerdict.AuthFailed)]

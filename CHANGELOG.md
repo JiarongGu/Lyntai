@@ -154,6 +154,12 @@ every addition.
 
 ### Fixed
 
+- **An input over a model's context window no longer benches a healthy host, and no longer switches memory
+  verification off unseen.** llama.cpp's rejection (`input (N tokens) is larger than the max context size`)
+  now classifies as `ContextWindowExceeded` rather than as a host fault that counted toward the dead-host
+  cooldown. And both memory verification seams now log a failed answer at Warning when it will repeat — an
+  over-long input, a rejected key, a refusal — keeping Debug for a transient blip.
+
 - **A headline carrying a newline no longer forges a note in the LLM judge's list.** Every candidate now
   renders as one numbered line, the rule **D166** gave the composers; a line break inside an authored
   headline used to start a line the judge read as a note of its own.

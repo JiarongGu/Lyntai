@@ -15,25 +15,24 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 12 across 5 Parts: 8 startable, 2 blocked, 2 watch
+## Open items — 11 across 5 Parts: 7 startable, 2 blocked, 2 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 113 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
-| 166 | 33 | GEN7 — pipelines (3d → image → video) | startable |  |
-| 225 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 248 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 305 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
-| 335 | 286 | A configured text candidate naming a NON-text backend is still called | startable |  |
-| 342 | 286 | Gate "no default body on a member of an interface the library decorates" | startable |  |
-| 357 | 287 | llama.cpp's over-context rejection reads as a HOST fault | startable |  |
-| 361 | 287 | A scoring backend's failed answer is logged only at Debug | startable |  |
-| 364 | 287 | No input bound for a small-window HTTP reranker or embedder | startable |  |
-| 370 | 287 | `rerank-screen` passes a model that ranks by word overlap | startable |  |
-| 373 | 287 | `rerank-screen`'s logit-scale check misflags a probability-output reranker | startable |  |
+| 112 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
+| 165 | 33 | GEN7 — pipelines (3d → image → video) | startable |  |
+| 224 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 247 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 304 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 334 | 286 | A configured text candidate naming a NON-text backend is still called | startable |  |
+| 341 | 286 | Gate "no default body on a member of an interface the library decorates" | startable |  |
+| 359 | 287 | No input bound for a small-window HTTP reranker or embedder | startable |  |
+| 368 | 287 | The ONNX provider CUTS an over-long input silently | startable |  |
+| 372 | 287 | `rerank-screen` passes a model that ranks by word overlap | startable |  |
+| 375 | 287 | `rerank-screen`'s logit-scale check misflags a probability-output reranker | startable |  |
 
 <!-- open-items:end -->
 
@@ -353,20 +352,23 @@ reference pair and its own harder pair, then benched the survivors on its own zh
 answer two open questions in `docs/model-tasks.md` §3.2 and expose one library defect in three parts and two
 instrument gaps. The owner ruled: record the measurements, fix everything, one item at a time. The
 measurements are recorded (`docs/memory-measurements.md` §5, `rerank-screen-adopter-b10549` and
-`rerank-bench-adopter-zh-en-240`; `docs/model-tasks.md` §3 / §3.2); what remains is below._
-- [ ] **llama.cpp's over-context rejection reads as a HOST fault.** `input (1052 tokens) is larger than the <!-- item: state=startable -->
-  max context size (512 tokens)` (captured twice: b10603 here, b10549 by the adopter) misses
-  `ProviderVerdictClassifier`'s context-window pattern, so it classifies `Failed` — `PenalizeAndAdvance`,
-  counting toward the dead-host threshold — instead of `ContextWindowExceeded` (`Advance`, not a host fault).
-- [ ] **A scoring backend's failed answer is logged only at Debug.** `ScoringVerificationPolicy` <!-- item: state=startable -->
-  (`src/Lyntai.Core/Memory/Verification/ScoringVerificationPolicy.cs`) turns any non-Ok `ScoreResponse` into
-  `NoOpinion` at Debug, so one over-long candidate silently switches verification off for that recall.
+`rerank-bench-adopter-zh-en-240`; `docs/model-tasks.md` §3 / §3.2), and llama.cpp's over-context rejection
+now classifies as the input's fault with a repeating verification failure at Warning (`docs/FIXES.md`
+2026-09-24); what remains is below._
+
 - [ ] **No input bound for a small-window HTTP reranker or embedder.** The ONNX provider truncates at <!-- item: state=startable -->
   `OnnxProviderOptions.MaxTokens`; the HTTP provider sends every document whole, and a 512-window backend
   rejects the WHOLE call when any one exceeds it. **Owner rulings 2026-09-24:** the bound lives on the HTTP
   provider's registration (the window is the model's), and an over-long input is SEGMENTED, never just cut —
   each piece is scored (a document keeps its best piece's score) or embedded (the pieces pooled into one
-  vector), so the one-answer-per-input contract holds and nothing past the window is lost.
+  vector), so the one-answer-per-input contract holds and nothing past the window is lost. Named
+  `HttpModelOptions.MaxInputChars`; consecutive pieces overlap by a small fixed share (a piece restarts at a
+  boundary inside the last ~15% of the one before), with no second option; a vector is the length-weighted
+  mean of its pieces' unit vectors, re-normalised.
+- [ ] **The ONNX provider CUTS an over-long input silently.** `OnnxCrossEncoderHead` and <!-- item: state=startable -->
+  `OnnxPoolingHead` (`src/Lyntai.Providers.Onnx/`) encode at `OnnxProviderOptions.MaxTokens` and drop the
+  rest. Owner ruling 2026-09-24: follow the same rule as the HTTP item above, segmenting by TOKENS (exact
+  here, where the HTTP side can only count characters) and combining the pieces the same way.
 - [ ] **`rerank-screen` passes a model that ranks by word overlap.** xVITA passes the reference pair and <!-- item: state=startable -->
   fails a pair whose distractor shares more of the query than the answer does — the same shape as the
   retracted four-document fixture. Add an overlap-trap pair (English and Chinese) asserting ORDER.

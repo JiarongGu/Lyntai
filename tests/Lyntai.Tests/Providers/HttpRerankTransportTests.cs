@@ -124,6 +124,19 @@ public class HttpRerankTransportTests
     }
 
     [Fact]
+    public async Task An_input_over_the_models_window_is_CONTEXT_WINDOW_EXCEEDED_not_a_host_fault()
+    {
+        // A host-fault verdict counts toward benching a healthy reranker; this one is about the INPUT.
+        var scorer = Scorer(new StubHttpHandler().Enqueue(HttpStatusCode.BadRequest, """
+            {"error":{"code":400,"message":"input (1052 tokens) is larger than the max context size (512 tokens). skipping","type":"invalid_request_error"}}
+            """));
+
+        var response = await scorer.CallAsync(new ScoreRequest("q", ["a"]));
+
+        Assert.Equal(ProviderVerdict.ContextWindowExceeded, response.Verdict);
+    }
+
+    [Fact]
     public async Task An_empty_document_list_costs_no_HTTP_call()
     {
         var handler = new StubHttpHandler();

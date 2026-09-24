@@ -7,6 +7,35 @@ to `.claude/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-09-24 — an input over a reranker's window benched the host and switched verification off unseen
+
+**Symptom.** Reported by an adopting application screening a 512-window reranker on llama.cpp b10549: one
+candidate over the window gets `400 input (1052 tokens) is larger than the max context size (512 tokens).
+skipping`, and the WHOLE scoring call fails (`docs/memory-measurements.md` §5,
+`rerank-screen-adopter-b10549`). The verification seam then reported no opinion for that recall, logged only
+at Debug, and did so on every recall that surfaced the same candidate.
+
+**Root cause.** Two independent gaps. `ProviderVerdictClassifier`'s context-window pattern knew
+`maximum context` but not llama.cpp's `max context size`, so the rejection classified `Failed` — a host fault
+that `RoutingPolicy` penalizes toward the dead-host threshold — rather than `ContextWindowExceeded`, which
+advances without blame. And both verification seams logged every non-Ok answer at Debug, which was right for
+the transient case they were written for and wrong for a failure the same recall will meet again.
+
+**Fix.** The pattern reads `max(?:imum)? context`. `ScoringVerificationPolicy` and `LlmMemoryVerificationPolicy`
+log a failed answer at Warning when its verdict is not `IsTransient()` — an over-long input, a rejected key, a
+refusal — and keep Debug for a transient one, so the rule "a blip is per-recall noise" stands.
+
+**Verify.** `ProviderVerdictClassifierTests` carries the captured wording;
+`HttpRerankTransportTests.An_input_over_the_models_window_is_CONTEXT_WINDOW_EXCEEDED_not_a_host_fault` reads it
+from a 400 body; `ScoringVerificationPolicyTests.A_failure_that_will_REPEAT_is_a_WARNING` and
+`LlmMemoryVerificationPolicyTests.A_failed_verdict_that_will_REPEAT_is_a_WARNING_and_a_transient_one_stays_at_DEBUG`
+pin the level, beside the existing `A_TRANSIENT_failure_stays_at_DEBUG_rather_than_crying_wolf_every_recall`.
+All four failed before the change and pass after it.
+
+**Introduced by.** `b827de01` (2026-09-18, D153 step 5), which made a failed rerank a classified verdict
+rather than a throw; the Debug-only judge line dates from `4199069c` (3.0). Neither caused the whole-call
+rejection itself, which is the backend's — `TASKS.md` Part 287 segments an over-long input instead.
+
 ## 2026-09-24 — a failed similarity link or search cost the graph engine its vector
 
 **Symptom.** None observed; the link half was found while designing `docs/task-archive.md` Part 285's write

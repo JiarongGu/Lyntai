@@ -1,5 +1,6 @@
 using Lyntai.Inference;
 using Lyntai.Memory.Verification;
+using Microsoft.Extensions.Logging;
 
 namespace Lyntai.Tests.Memory;
 
@@ -126,6 +127,30 @@ public class LlmMemoryVerificationPolicyTests
     [Fact] public Task Fails_open() =>
         MemoryVerificationPolicyContract.A_failing_policy_yields_NoOpinion_and_not_NothingRelevant(
             Policy(new ThrowingClient()));
+
+    private sealed class CapturingLogger : ILogger<LlmMemoryVerificationPolicy>
+    {
+        public List<LogLevel> Levels { get; } = [];
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+        public bool IsEnabled(LogLevel logLevel) => true;
+        public void Log<TState>(LogLevel level, EventId id, TState state, Exception? error,
+            Func<TState, Exception?, string> formatter) => Levels.Add(level);
+    }
+
+    private static async Task<List<LogLevel>> LevelsFor(ProviderVerdict verdict)
+    {
+        var logger = new CapturingLogger();
+        var policy = new LlmMemoryVerificationPolicy(new SingleClientFactory(new ScriptedClient("", verdict)), logger: logger);
+        await policy.VerifyAsync(new MemoryVerificationRequest("where is the review?", Notes));
+        return logger.Levels;
+    }
+
+    [Fact]
+    public async Task A_failed_verdict_that_will_REPEAT_is_a_WARNING_and_a_transient_one_stays_at_DEBUG()
+    {
+        Assert.Contains(LogLevel.Warning, await LevelsFor(ProviderVerdict.ContextWindowExceeded));
+        Assert.DoesNotContain(LogLevel.Warning, await LevelsFor(ProviderVerdict.Timeout));
+    }
 
     [Fact] public Task Its_own_timeout_fails_open() =>
         MemoryVerificationPolicyContract.A_policy_timing_out_on_its_own_yields_NoOpinion(

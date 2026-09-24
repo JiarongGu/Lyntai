@@ -123,7 +123,7 @@ public static partial class ProviderVerdictClassifier
     [GeneratedRegex(@"rate[\s_-]?limit|too\s+many\s+requests|quota\s+exceeded|resource[\s_-]?exhausted|(?:http|status(?:\s+code)?|error|code)\s*[:=]?\s*429\b", RegexOptions.IgnoreCase)]
     private static partial Regex RateLimitPattern();
 
-    [GeneratedRegex(@"context[\s_-]?(?:window|length)|maximum\s+context|context_length_exceeded|prompt\s+is\s+too\s+long|input\s+is\s+too\s+long|too\s+many\s+(?:input\s+)?tokens|exceeds\s+the\s+.{0,20}token", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"context[\s_-]?(?:window|length)|max(?:imum)?\s+context|context_length_exceeded|prompt\s+is\s+too\s+long|input\s+is\s+too\s+long|too\s+many\s+(?:input\s+)?tokens|exceeds\s+the\s+.{0,20}token", RegexOptions.IgnoreCase)]
     private static partial Regex ContextWindowPattern();
 
     // "unauthorized" alone is NOT enough (e.g. "user is unauthorized to read file X" is a tool/

@@ -113,7 +113,10 @@ public sealed class ScoringVerificationPolicy(
 
         if (!response.IsOk)
         {
-            _logger.LogDebug("no backend scored usably ({Verdict}: {Detail}); reporting NoOpinion",
+            // a transient fault is per-recall noise; one this recall will meet again — an input over the
+            // model's window, a rejected key — is a defect, and fail-open must not hide it
+            _logger.Log(response.Verdict.IsTransient() ? LogLevel.Debug : LogLevel.Warning,
+                "no backend scored usably ({Verdict}: {Detail}); reporting NoOpinion",
                 response.Verdict, response.Detail);
             return MemoryVerification.NoOpinion;
         }

@@ -161,7 +161,10 @@ public sealed class LlmMemoryVerificationPolicy(
 
             if (reply.Verdict != ProviderVerdict.Ok || string.IsNullOrWhiteSpace(reply.Text))
             {
-                _logger.LogDebug("verification returned {Verdict}; leaving the ranking alone", reply.Verdict);
+                // Warning only for a failure this recall will meet again, as ScoringVerificationPolicy draws it
+                var repeats = reply.Verdict != ProviderVerdict.Ok && !reply.Verdict.IsTransient();
+                _logger.Log(repeats ? LogLevel.Warning : LogLevel.Debug,
+                    "verification returned {Verdict}; leaving the ranking alone", reply.Verdict);
                 return MemoryVerification.NoOpinion;
             }
 
