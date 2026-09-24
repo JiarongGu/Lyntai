@@ -5016,3 +5016,20 @@ an options-action overload, so `AddLlamaProvider(id, o => …)` reaches any `Htt
 ships, the adopter can drop its server-side `reasoning = off` preset.
 
 - Express `TextReasoning.Suppress` on the OpenAI-shaped wire
+
+## Part 289 — segmentation, completed against an adopting application's own build (2026-09-24)
+
+✅ done 2026-09-25 — **Outcome:** **D177** gained what the adopter's own build had and it lacked. On a `Score`
+registration `MaxInputChars` is the PAIR window, the query keeping at most (1 − `MinDocumentShare`) of it, cut once
+per call; the HTTP/Ollama character bound counts after NFKC, cutting between text elements, else at a code point,
+so a document always keeps room; and `InputSegmentation.MaxPiecesPerInput` caps an input's pieces, first to tail
+(a per-call cap is rejected: a call's total is already inputs × the cap). The adopter's cut-vs-segmented figures
+are `docs/memory-measurements.md` §5, `rerank-segmented-adopter-long-notes`, and D177 names the best-piece
+rule's one cost and that segmenting multiplies a call's work. **An adopting application ships an app-side
+segmenting score-provider decorator: tell it when D177 releases, so it can measure the library's against its own
+and remove its copy.**
+
+- A reranker's window holds the QUERY too, so the HTTP bound must count it
+- Measure a piece's length after NFKC normalisation
+- A per-input piece cap on `InputSegmentation`
+- Record the adopter's cut-vs-segmented measurements
