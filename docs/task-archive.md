@@ -4967,3 +4967,25 @@ build — a per-provider model map, `ModelOverrides` (commit e3d546df, never rel
 day: it fixed the wrong-model case but could not move the provider live. Pinned by `LiveModelRoutingTests`.
 
 - Scope a live model override to what it was written for — neither filed shape: the override became a route
+
+## Part 287 — an adopting application's reranker screen found small-window backends rejecting or cutting long input (2026-09-24)
+
+✅ done 2026-09-24 — **Outcome:** the adopter's screen and bench are recorded (`docs/memory-measurements.md` §5,
+`rerank-screen-adopter-b10549` and `rerank-bench-adopter-zh-en-240`; `docs/model-tasks.md` §3.2): modern-bert
+loads on b10549, a 132,584,000 B multilingual reranker screens correct, and xVITA ranks by word overlap.
+llama.cpp's over-context rejection classifies `ContextWindowExceeded`, and a verification failure that will
+repeat logs at Warning (`docs/FIXES.md` 2026-09-24). An over-long input to a small-window backend can be
+SEGMENTED — one public `InputSegmentation` record on the HTTP, Ollama and ONNX providers, pieces combined by the
+best score or `VectorMath.WeightedMeanDirection`, every default the prior behaviour (**D177**). The first ruling
+was "segment, never cut", and an ONNX build forced it (14dc33d8, never released) before the owner made it a
+configured capability. `rerank-screen` gained English and Chinese overlap traps and reads a decisive [0, 1] pair
+as probabilities (`.claude/knowledge/pitfalls.md`).
+
+- Record the adopter's screen and bench
+- llama.cpp's over-context rejection reads as a HOST fault
+- A scoring backend's failed answer is logged only at Debug
+- No input bound for a small-window HTTP reranker or embedder
+- The ONNX provider CUTS an over-long input silently — made configurable, not forced
+- `rerank-screen` passes a model that ranks by word overlap
+- `rerank-screen`'s logit-scale check misflags a probability-output reranker
+- The Ollama-native embed path cannot segment
