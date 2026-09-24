@@ -15,22 +15,23 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 9 across 6 Parts: 5 startable, 2 blocked, 2 watch
+## Open items — 10 across 6 Parts: 6 startable, 2 blocked, 2 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 110 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
-| 163 | 33 | GEN7 — pipelines (3d → image → video) | startable |  |
-| 222 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 245 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 302 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
-| 332 | 286 | A configured text candidate naming a NON-text backend is still called | startable |  |
-| 340 | 286 | Gate "no default body on a member of an interface the library decorates" | startable |  |
-| 354 | 287 | The Ollama-native embed path still CUTS on the server | startable |  |
-| 369 | 288 | Express `TextReasoning.Suppress` on the OpenAI-shaped wire | startable |  |
+| 111 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
+| 164 | 33 | GEN7 — pipelines (3d → image → video) | startable |  |
+| 223 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 246 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 303 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 333 | 286 | A configured text candidate naming a NON-text backend is still called | startable |  |
+| 341 | 286 | Gate "no default body on a member of an interface the library decorates" | startable |  |
+| 355 | 287 | Segmenting is FORCED on the ONNX provider, and a long input is one unbounde… | startable |  |
+| 362 | 287 | The Ollama-native embed path cannot segment | startable |  |
+| 374 | 288 | Express `TextReasoning.Suppress` on the OpenAI-shaped wire | startable |  |
 
 <!-- open-items:end -->
 
@@ -348,16 +349,20 @@ ruled out of that Part's scope rather than left implied; both are startable._
 
 _An adopting application's reranker screen and bench on llama.cpp b10549 (`docs/memory-measurements.md` §5,
 `rerank-screen-adopter-b10549`) exposed a small-window backend rejecting or silently cutting long input.
-The owner ruled: fix everything, one item at a time; an over-long input is segmented, never cut (**D177**).
-What closed is archived with the Part; what remains is below._
+The owner ruled: fix everything, one item at a time; segmenting is an available, CONFIGURED capability
+(**D177**). What closed is archived with the Part; what remains is below._
 
-- [ ] **The Ollama-native embed path still CUTS on the server.** Ollama's `/api/embed` defaults to <!-- item: state=startable -->
-  `truncate: true`, and the body Lyntai sends carries only `{model, input}`, so an over-long input is cut
-  server-side — the behaviour **D177** rejects. `MaxInputChars` is refused on an Ollama server root, which
-  covers only a deployment that ASKED for a bound. **Owner ruling 2026-09-24: both** —
-  `OllamaOptions.MaxInputChars` segments as the HTTP provider does, and every `/api/embed` call sends
-  `truncate: false`, so the server never cuts silently and an over-long input without a bound is a visible
-  `ContextWindowExceeded` (Breaking; the action is to set the bound).
+- [ ] **Segmenting is FORCED on the ONNX provider, and a long input is one unbounded pass.** Owner ruling <!-- item: state=startable -->
+  2026-09-24, after its review: how to cut or segment is CONFIGURATION — segmenting extends a small model's
+  capability and is no judgement on how input must be processed. One shared public `InputSegmentation`
+  record in Core (`Overflow` Segment | Truncate, `Overlap`, `MinDocumentShare` for a reranker pair) on every
+  provider with a window; defaults keep today's behaviour (ONNX truncates unless told to segment); **D177**
+  rewritten accordingly. Plus the review's blocking fixes: bounded forward-pass chunks, the
+  `VectorMath.WeightedMeanDirection` contract, the CHANGELOG's affected-user scope.
+- [ ] **The Ollama-native embed path cannot segment.** Ollama's `/api/embed` defaults to `truncate: true`, <!-- item: state=startable -->
+  and `MaxInputChars` is refused on an Ollama server root. **Owner ruling 2026-09-24 (revised):** give
+  `OllamaOptions` the same `MaxInputChars` + `Segmentation` as the HTTP provider; with neither set the server
+  default stands — no `truncate: false` unless configured.
 
 ## Part 288 — the OpenAI-shaped wire drops `TextReasoning.Suppress` (2026-09-24)
 
