@@ -186,8 +186,8 @@ every addition.
   Segmenting splits an input into windows, answers every one, and combines the answers into one per input: a
   reranker scores a document as its BEST window, and an embedder returns the length-weighted mean of its
   windows' unit vectors, re-normalised. An input that fits is answered exactly as without it, except where a
-  reranker entry below says a record cuts a long query. **Every default is the provider's behaviour before
-  it**, so nothing changes until you configure it.
+  reranker entry below says a long query is cut. **Every default is the provider's behaviour before it**, so
+  nothing changes until you configure it.
 
 - **`HttpModelOptions.MaxInputChars` bounds the input an HTTP embedder or reranker is sent** (**D177**). A
   small-window backend — a 512-token reranker on llama.cpp, say — rejects the WHOLE call when any one input

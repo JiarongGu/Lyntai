@@ -89,8 +89,9 @@ internal sealed class WindowedTokenizer(
 
         var shell = tokenizer.Encode(string.Empty, string.Empty, maxTokens).Ids;
         var budget = maxTokens - 3;                             // content tokens across both sides
-        // in decimal, so 0.8 of 60 is 48 rather than a binary 48.000…01 that rounds up to 49
-        var documentShare = (int)Math.Ceiling((decimal)segmentation.MinDocumentShare * budget);
+        // in decimal, so 0.8 of 60 is 48 rather than a binary 48.000…01 that rounds up to 49; and at least one
+        // token, since a share below decimal's range converts to zero
+        var documentShare = Math.Max(1, (int)Math.Ceiling((decimal)segmentation.MinDocumentShare * budget));
         var queryIds = tokenizer.EncodeToIds(query ?? string.Empty);
         List<int> kept = [.. queryIds.Take(budget - documentShare)];
         var documentBudget = budget - kept.Count;

@@ -554,6 +554,19 @@ public class HttpVectorTransportTests
     }
 
     [Fact]
+    public async Task One_text_element_past_the_bound_is_cut_at_code_points_into_pieces_within_it()
+    {
+        var input = "a" + new string('\u0301', 700);   // ONE text element
+        var handler = Embedder((_, _) => [1f, 0f]);
+
+        Assert.Single(await VectorProvider(handler, c => c.MaxInputChars = 100).EmbedAsync([input]));
+
+        var sent = SentInputs(Assert.Single(handler.Requests).Body);
+        Assert.True(sent.Count >= 7, $"{sent.Count} piece(s)");
+        Assert.All(sent, t => Assert.True(InputSegmenter.Measure(t) <= 100, $"a piece counting {InputSegmenter.Measure(t)}"));
+    }
+
+    [Fact]
     public async Task MaxPiecesPerInput_embeds_only_the_pieces_it_keeps_the_first_and_the_last()
     {
         var handler = Embedder((i, _) => [i + 1f, 1f]);

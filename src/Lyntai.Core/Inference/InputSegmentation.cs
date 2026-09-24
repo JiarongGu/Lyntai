@@ -77,7 +77,9 @@ public sealed class InputSegmentation
     /// would take more keeps this many, spread evenly: the first piece, the LAST, and the rest at even steps
     /// between (piece <c>round(i·(n−1)/(cap−1))</c> of <c>n</c>); a cap of 1 keeps the first. <b>Coverage then
     /// has gaps</b> — text in a dropped piece is neither scored nor embedded — which is the trade for bounding
-    /// the cost of one long input. It applies on every provider that segments.
+    /// the cost of one long input. It applies on every provider that segments. Segmenting multiplies a call's
+    /// work, and a call that outruns its timeout fails as <see cref="ProviderVerdict.Timeout"/>, so on slow
+    /// hardware this cap is what bounds it.
     ///
     /// <para>There is no per-CALL cap: a call's pieces are already at most its inputs times this, and fitting
     /// a call to a latency budget is a policy for the deployment that measured it.</para></summary>

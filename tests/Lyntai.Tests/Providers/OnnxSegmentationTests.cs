@@ -416,6 +416,20 @@ public class WindowedTokenizerTests
     }
 
     [Fact]
+    public void A_vanishing_MinDocumentShare_still_leaves_every_window_one_document_token()
+    {
+        // 1e-30 is below decimal's range, so the share rounds to nothing unless it is floored at one
+        var batch = Windows(32, new InputSegmentation { MinDocumentShare = 1e-30 }).EncodePairs(Berlins(40), [River(2)]);
+
+        Assert.All(batch.Rows, row =>
+        {
+            var (query, document) = Sides(row);
+            Assert.Equal(28, query.Length);
+            Assert.Single(document);
+        });
+    }
+
+    [Fact]
     public void A_larger_MinDocumentShare_cuts_the_query_sooner()
     {
         // 0.8 of 29 is 23.2, so the document keeps 24 and the 7-token query is cut to 5

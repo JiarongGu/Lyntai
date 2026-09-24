@@ -5490,9 +5490,10 @@ embedder takes the length-weighted mean of its windows' unit vectors, re-normali
 `VectorMath.WeightedMeanDirection`, so two packages cannot drift. A reranker's window holds the PAIR, on ONNX
 (counting tokens) and over HTTP (`MaxInputChars` on a Score registration), so the query, never segmented,
 keeps at most (1 − `MinDocumentShare`) of it, cut ONCE per call so every document meets the same question.
-HTTP counts characters after NFKC, summed per text element — a linear upper bound — because a tokenizer
-normalises before it counts; pieces are still sent as the original text. `MaxPiecesPerInput` keeps that many
-windows, spread from the first to the last. An input that fits is answered exactly as without segmenting.
+HTTP counts characters after NFKC — a linear upper bound — because a tokenizer normalises before it counts,
+and cuts between text elements, else at a code point, so no piece outgrows the bound; pieces are still sent as
+the original text. `MaxPiecesPerInput` keeps that many windows, spread from the first to the last. Otherwise,
+an input that fits is answered exactly as without segmenting.
 
 **Rejected.** Forcing it: a processing judgement the deployment owns, and it changes what an unchanged
 configuration returns. Per-provider knobs: three copies that drift. Cutting only: it loses the text past the
@@ -5504,8 +5505,11 @@ piece cap: a call's pieces are already its inputs × `MaxPiecesPerInput`, and fi
 deployment's policy.
 
 **Known limits.** MaxP gives a long document more chances: its extra windows can outscore a short document
-holding the answer (`rerank-segmented-adopter-long-notes`: 8 losses to 1 gain at the start position). Pooled
-vectors' retrieval quality, and the defaults for `Overlap` and `MinDocumentShare`, are unmeasured.
+holding the answer (`rerank-segmented-adopter-long-notes`: 8 losses to 1 gain at the start position).
+Segmenting multiplies a call's work: on slow hardware bound it with `MaxPiecesPerInput`, since a call that
+outruns its timeout fails as `Timeout`, which the verification seams log at Debug as transient. Pooled
+vectors' retrieval quality (`docs/model-tasks.md` §3.3) and the defaults for `Overlap` and
+`MinDocumentShare` are unmeasured.
 
 ## D178 — a text candidate naming a backend that produces no text is refused at composition and skipped per call (2026-09-24)
 

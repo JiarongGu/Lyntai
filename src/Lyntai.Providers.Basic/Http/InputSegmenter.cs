@@ -22,10 +22,12 @@ internal sealed record Segmentation(IReadOnlyList<string> Inputs, IReadOnlyList<
 /// only the first of those pieces. Deterministic: the same input, budget and overlap always give the same
 /// pieces.
 ///
-/// <para><b>A budget counts characters after NFKC normalisation</b>, summed one text element at a time
-/// (<see cref="Measure"/>), because a tokenizer normalises before it counts and a compatibility character can
-/// expand several-fold. Pieces are still cut from, and sent as, the original text, and a cut never falls
-/// inside a text element.</para>
+/// <para><b>A budget counts characters after NFKC normalisation</b> — summed one text element at a time to
+/// decide whether an input fits (<see cref="Measure"/>), one code point at a time to place a cut, each an
+/// upper bound — because a tokenizer normalises before it counts and a compatibility character can expand
+/// several-fold. Pieces are still cut from, and sent as, the original text. A cut falls between text
+/// elements while one fits the budget, and otherwise inside the element at a code point, never inside a
+/// surrogate pair: only a single code point that alone outcounts the budget can make a piece exceed it.</para>
 ///
 /// <para>Each cut is the LAST boundary in the window's latter half — a blank line, else a line break, else a
 /// sentence end, else whitespace — or a hard cut at the budget when there is none. The next piece restarts at
@@ -84,13 +86,17 @@ internal static class InputSegmenter
     {
         var most = window - DocumentShare(window, minDocumentShare);
         if (Measure(query) <= most) return query;
-        return most < 1 ? string.Empty : Truncate(query, most);
+        if (most < 1) return string.Empty;
+        var kept = Truncate(query, most);
+        // only a first code point that alone outcounts the share can overrun it, and then nothing of it fits
+        return Measure(kept) <= most ? kept : string.Empty;
     }
 
     /// <summary>What a document keeps of a pair window: its share, rounded up — in decimal, so 0.8 of 60 is
-    /// 48 rather than a binary 48.000…01 that rounds to 49.</summary>
+    /// 48 rather than a binary 48.000…01 that rounds to 49 — and never less than one character, which a share
+    /// below decimal's range would otherwise round to.</summary>
     public static int DocumentShare(int window, double minDocumentShare) =>
-        (int)Math.Ceiling((decimal)minDocumentShare * window);
+        Math.Max(1, (int)Math.Ceiling((decimal)minDocumentShare * window));
 
     /// <summary>Segment every input against one budget, keeping at most <paramref name="maxPieces"/> pieces of
     /// each (<see cref="Spread{T}"/>); a null overlap is the default one.</summary>
@@ -165,7 +171,7 @@ internal static class InputSegmenter
         {
             if (count.Between(start, input.Length) <= budget)
             {
-                // empty only when an element overran the budget and the cut already reached the end
+                // empty only when a code point overran the budget and the cut already reached the end
                 if (start < input.Length || spans.Count == 0) spans.Add((start, input.Length));
                 return spans;
             }
@@ -175,27 +181,41 @@ internal static class InputSegmenter
         }
     }
 
-    /// <summary>Where a piece starting at <paramref name="start"/> ends (exclusive).</summary>
+    /// <summary>Where a piece starting at <paramref name="start"/> ends (exclusive): at a text-element
+    /// boundary while one fits, else inside the element at a code point, never inside a surrogate pair.</summary>
     private static int Cut(string s, Count count, int start, int budget)
     {
-        var hi = start;
-        for (var c = start + 1; c <= s.Length; c++)
+        var hi = Furthest(s, count, start, budget, count.IsElement);
+        if (hi == start)
         {
-            if (!count.IsBoundary(c)) continue;
-            if (count.Between(start, c) > budget) break;
-            hi = c;
+            // one element outcounts the whole budget: cut it at a code point rather than send it whole
+            hi = Furthest(s, count, start, budget, count.IsCodePoint);
+            // and a single code point that alone outcounts the budget is the one piece that can exceed it
+            return hi > start ? hi : count.NextCodePoint(start);
         }
-        // one element over the whole budget goes whole rather than split
-        if (hi == start) return count.Next(start);
 
         var half = Math.Max(1, budget / 2);
         foreach (var boundary in CutPreference)
             for (var c = hi; c > start; c--)
             {
-                if (!count.IsBoundary(c)) continue;
+                if (!count.IsElement(c)) continue;
                 if (count.Between(start, c) < half) break;
                 if (boundary(s, c)) return c;
             }
+        return hi;
+    }
+
+    /// <summary>The furthest position after <paramref name="start"/> that <paramref name="allowed"/> admits
+    /// and whose piece counts within the budget; <paramref name="start"/> itself when none does.</summary>
+    private static int Furthest(string s, Count count, int start, int budget, Func<int, bool> allowed)
+    {
+        var hi = start;
+        for (var c = start + 1; c <= s.Length; c++)
+        {
+            if (!allowed(c)) continue;
+            if (count.Between(start, c) > budget) break;
+            hi = c;
+        }
         return hi;
     }
 
@@ -207,18 +227,19 @@ internal static class InputSegmenter
         var from = cut;
         for (var p = cut - 1; p > start; p--)
         {
-            if (!count.IsBoundary(p)) continue;
+            if (!count.IsElement(p)) continue;
             if (count.Between(p, cut) > reach) break;
             from = p;
         }
         for (var p = from; p < cut; p++)
-            if (count.IsBoundary(p) && IsSentenceEnd(s, p)) return p;
+            if (count.IsElement(p) && IsSentenceEnd(s, p)) return p;
         for (var p = from; p < cut; p++)
-            if (count.IsBoundary(p) && IsWhitespace(s, p)) return p;
+            if (count.IsElement(p) && IsWhitespace(s, p)) return p;
         return cut;
     }
 
-    /// <summary>One element's NFKC length. Ill-formed UTF-16 has no normal form, so it counts as it stands.</summary>
+    /// <summary>The NFKC length of <c>text[start..start + length]</c>, one text element or one code point.
+    /// Ill-formed UTF-16 has no normal form, so it counts as it stands.</summary>
     private static int Weigh(string text, int start, int length)
     {
         if (length == 1 && text[start] < 0x80) return 1;
@@ -244,15 +265,19 @@ internal static class InputSegmenter
         }
     }
 
-    /// <summary>One text's element boundaries and its count up to each: <c>at[i]</c> is the count of
-    /// <c>text[..i]</c> where an element starts at <c>i</c>, and at the end; −1 inside an element.</summary>
-    private sealed class Count(int[] at)
+    /// <summary>One text counted CODE POINT by code point, each at its own NFKC length — never less than the
+    /// NFKC length of any piece, whose normal form never outgrows its parts — with its text elements marked, so
+    /// a cut prefers them. <c>at[i]</c> is the count of <c>text[..i]</c> where a code point starts at <c>i</c>,
+    /// and at the end; −1 inside a surrogate pair.</summary>
+    private sealed class Count(int[] at, bool[] element)
     {
-        public bool IsBoundary(int i) => at[i] >= 0;
+        public bool IsCodePoint(int i) => at[i] >= 0;
+
+        public bool IsElement(int i) => element[i];
 
         public int Between(int from, int to) => at[to] - at[from];
 
-        public int Next(int i)
+        public int NextCodePoint(int i)
         {
             do i++;
             while (at[i] < 0);
@@ -262,18 +287,26 @@ internal static class InputSegmenter
         public static Count Of(string text)
         {
             var at = new int[text.Length + 1];
+            var element = new bool[text.Length + 1];
             Array.Fill(at, -1);
             var normal = IsNormal(text);
             var total = 0;
             for (var i = 0; i < text.Length;)
             {
-                at[i] = total;
-                var length = StringInfo.GetNextTextElementLength(text.AsSpan(i));
-                total += normal ? length : Weigh(text, i, length);
-                i += length;
+                element[i] = true;
+                var end = i + StringInfo.GetNextTextElementLength(text.AsSpan(i));
+                while (i < end)
+                {
+                    at[i] = total;
+                    var width = char.IsSurrogatePair(text, i) ? 2 : 1;
+                    // text already in NFKC is its own length, code point by code point
+                    total += normal ? width : Weigh(text, i, width);
+                    i += width;
+                }
             }
             at[text.Length] = total;
-            return new Count(at);
+            element[text.Length] = true;
+            return new Count(at, element);
         }
     }
 

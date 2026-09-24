@@ -89,12 +89,12 @@ public sealed class HttpModelOptions
     /// without it. On a reranker the query keeps at most (1 − <see cref="InputSegmentation.MinDocumentShare"/>)
     /// of the bound, cut once per call at a word boundary: under a 512-token window, 506 keeps a query to 253.</para>
     ///
-    /// <para><b>Characters only approximate tokens</b>, so the count is taken after NFKC normalisation while
-    /// pieces are cut from, and sent as, the original text: an XLM-R tokenizer was measured at tokens ≤ NFKC
-    /// characters + 1 across 64,012 scalars, where a raw ㎡ costs two tokens and ㌚ six. A byte-fallback
-    /// tokenizer can still exceed it on CJK. Leave margin, special tokens and an embedding's role prefix
-    /// included: a piece that overflows fails the whole call as <see cref="ProviderVerdict.ContextWindowExceeded"/>
-    /// (<c>docs/DECISIONS.md</c> <b>D177</b>).</para>
+    /// <para><b>Characters only approximate tokens</b>, so the count is taken after NFKC normalisation, which
+    /// a tokenizer applies first, while pieces are cut from, and sent as, the original text — what that bounds
+    /// is measured in <c>docs/memory-measurements.md</c> §5. A byte-fallback tokenizer can still exceed it on
+    /// CJK. Leave margin, special tokens and an embedding's role prefix included: a piece that overflows fails
+    /// the whole call as <see cref="ProviderVerdict.ContextWindowExceeded"/> (<c>docs/DECISIONS.md</c>
+    /// <b>D177</b>).</para>
     ///
     /// <para>The provider throws <see cref="ArgumentOutOfRangeException"/> when it is not positive or leaves
     /// an embedding prefix no room. At an Ollama server root, <c>AddHttpProvider</c> carries it and

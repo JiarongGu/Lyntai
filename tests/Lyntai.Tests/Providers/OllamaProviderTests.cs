@@ -3,6 +3,7 @@ using System.Net;
 using System.Text;
 using System.Text.Json.Nodes;
 using Lyntai;
+using Lyntai.Providers.Http;
 using Lyntai.Providers.Ollama;
 using Lyntai.Tests.Fakes;
 using Microsoft.Extensions.DependencyInjection;
@@ -213,6 +214,22 @@ public class OllamaProviderTests
 
         var sent = Assert.Single(SentInputs(handler.Requests[0].Body));
         Assert.Equal(Words30[..39], sent);
+    }
+
+    [Fact]
+    public async Task One_text_element_past_the_bound_is_cut_at_code_points_rather_than_failing_the_call()
+    {
+        // under truncate: false a piece over the model's window fails the whole call, so none may be sent
+        var input = "a" + new string('\u0301', 700);   // ONE text element, 700 after NFKC
+        var handler = Embedder();
+
+        var response = await Provider(handler, o => { o.Produces = ProviderKinds.Vector; o.MaxInputChars = 100; })
+            .CallAsync(new VectorRequest([input]));
+
+        Assert.True(response.IsOk, response.Detail);
+        var sent = SentInputs(handler.Requests[0].Body);
+        Assert.True(sent.Count >= 7, $"{sent.Count} piece(s)");
+        Assert.All(sent, t => Assert.True(InputSegmenter.Measure(t) <= 100, $"a piece counting {InputSegmenter.Measure(t)}"));
     }
 
     [Fact]

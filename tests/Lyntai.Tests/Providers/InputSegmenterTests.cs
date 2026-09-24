@@ -221,7 +221,7 @@ public class InputSegmenterTests
 
     [Theory]
     [InlineData("plain ASCII text, already normal")]
-    [InlineData("é composes to one character")]   // a combining mark, composed by NFKC
+    [InlineData("e\u0301 composes to one character")]   // a combining mark, composed by NFKC
     [InlineData("㎡ and ℃ beside 株式会社 and ﷺ")]
     [InlineData("👩‍👩‍👧 a family, 🇯🇵 a flag")]
     [InlineData("ｆｕｌｌ－ｗｉｄｔｈ　ｔｅｘｔ")]
@@ -256,10 +256,10 @@ public class InputSegmenterTests
     }
 
     [Fact]
-    public void A_cut_never_falls_INSIDE_a_text_element()
+    public void A_cut_falls_BETWEEN_text_elements_while_a_whole_one_fits_the_budget()
     {
-        // a base with two combining marks is one element: splitting it would count its marks as nothing
-        var input = string.Concat(Enumerable.Repeat("á̂", 40));
+        // a base with two combining marks is one element, and whole ones fit the budget, so none is cut inside
+        var input = string.Concat(Enumerable.Repeat("a\u0301\u0302", 40));
 
         var spans = InputSegmenter.Spans(input, 10);
 

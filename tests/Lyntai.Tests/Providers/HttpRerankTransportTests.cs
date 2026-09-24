@@ -233,6 +233,72 @@ public class HttpRerankTransportTests
     }
 
     [Fact]
+    public async Task The_query_counts_at_its_NFKC_length_so_a_compatibility_character_shrinks_the_documents_room()
+    {
+        var query = string.Concat(Enumerable.Repeat("㎡", 10));   // 10 characters, 20 after NFKC
+        var document = string.Join(' ', Enumerable.Range(0, 8).Select(i => $"word{i}"));   // 47 characters
+        var handler = Reranker(_ => 1.0);
+
+        await Scorer(handler, configure: o => o.MaxInputChars = 60).ScoreAsync(query, [document]);
+
+        // 60 less 20 leaves 40, so the 47-character document is split; counted raw it would have gone whole
+        var sent = Sent(Assert.Single(handler.Requests).Body);
+        Assert.True(sent.Count >= 2, $"{sent.Count} piece(s)");
+        Assert.All(sent, d => Assert.True(d.Length <= 40, $"a {d.Length}-character piece"));
+    }
+
+    // ---- one text element longer than the budget is cut at a code point, never sent whole ------------------
+
+    /// <summary>ONE text element: a base with <paramref name="marks"/> combining marks after it.</summary>
+    private static string Cluster(int marks) => "a" + new string('\u0301', marks);
+
+    [Fact]
+    public async Task A_QUERY_holding_one_element_past_its_share_is_cut_inside_it_and_the_call_still_answers()
+    {
+        var query = Cluster(600) + " where is the needle";
+        var handler = Reranker(_ => 1.0);
+
+        var response = await Scorer(handler, configure: o => o.MaxInputChars = 506)
+            .CallAsync(new ScoreRequest(query, ["short", LongDocument]));
+
+        Assert.True(response.IsOk, response.Detail);
+        var kept = SentQuery(Assert.Single(handler.Requests).Body);
+        Assert.InRange(InputSegmenter.Measure(kept), 1, 253);
+        Assert.All(Sent(handler.Requests[0].Body),
+            d => Assert.True(InputSegmenter.Measure(d) <= 506 - InputSegmenter.Measure(kept)));
+    }
+
+    [Fact]
+    public async Task A_DOCUMENT_holding_one_element_past_the_budget_is_cut_inside_it_at_code_points()
+    {
+        var document = Cluster(700);
+        var handler = Reranker(_ => 1.0);
+
+        await Scorer(handler, configure: o => o.MaxInputChars = 101).ScoreAsync("q", [document]);
+
+        var sent = Sent(Assert.Single(handler.Requests).Body);
+        Assert.True(sent.Count >= 7, $"{sent.Count} piece(s)");
+        Assert.All(sent, d => Assert.True(InputSegmenter.Measure(d) <= 100, $"a piece counting {InputSegmenter.Measure(d)}"));
+        Assert.Equal(document, string.Concat(sent));   // a combining mark is no boundary, so nothing overlaps
+    }
+
+    [Fact]
+    public async Task A_vanishing_MinDocumentShare_still_leaves_every_document_one_character()
+    {
+        var handler = Reranker(_ => 1.0);
+
+        var response = await Scorer(handler, configure: o =>
+        {
+            o.MaxInputChars = 60;
+            o.Segmentation = new InputSegmentation { MinDocumentShare = 1e-30 };   // below decimal's range
+        }).CallAsync(new ScoreRequest(new string('x', 100), ["ok"]));
+
+        Assert.True(response.IsOk, response.Detail);
+        Assert.Equal(59, SentQuery(handler.Requests[0].Body).Length);
+        Assert.Equal(1, InputSegmenter.DocumentShare(506, 1e-30));
+    }
+
+    [Fact]
     public async Task MaxPiecesPerInput_keeps_a_long_documents_FIRST_and_LAST_pieces_and_drops_the_middle()
     {
         var handler = Reranker(d => d.Contains("needle") ? 5.0 : -2.0);

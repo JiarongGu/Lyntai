@@ -72,7 +72,8 @@ public sealed class OllamaOptions
     /// <summary>What happens to an input longer than <see cref="MaxInputChars"/>, and ignored without it
     /// (<c>docs/DECISIONS.md</c> <b>D177</b>): null — the default — or <see cref="InputOverflow.Segment"/>
     /// segments it and pools its pieces' vectors; <see cref="InputOverflow.Truncate"/> sends it cut where its
-    /// first piece would end. <see cref="InputSegmentation.MinDocumentShare"/> does not apply: an embedder
+    /// first piece would end. <see cref="InputSegmentation.MaxPiecesPerInput"/> caps one input's pieces, as on
+    /// the HTTP provider. <see cref="InputSegmentation.MinDocumentShare"/> does not apply: an embedder
     /// takes no query.</summary>
     public InputSegmentation? Segmentation { get; set; }
 }
