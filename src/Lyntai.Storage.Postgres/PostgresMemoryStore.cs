@@ -65,7 +65,7 @@ public sealed class PostgresMemoryStore(
                    expires_at AS ExpiresAt, LENGTH(content) AS Length
             FROM lyntai_memory_entry WHERE task_key = @taskKey AND scope = @scope
             """, new { taskKey, scope }, cancellationToken: ct)).ConfigureAwait(false);
-        return [.. rows.Select(r => new MemoryEviction.Row(r.Id, r.CreatedAt, r.LastAccessedAt, r.ExpiresAt, r.Length))];
+        return [.. rows.Select(r => r.ToRow())];
     }
 
     public async Task<IReadOnlyList<MemoryEntry>> RecallAsync(string taskKey, string? scope = null,

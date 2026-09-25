@@ -3001,6 +3001,10 @@ static class Lyntai.Storage.JobStoreSql
     SetProgress : String const
     SetStepLog : String const
     SetSucceeded : String const
+static class Lyntai.Storage.KeyValueStoreSql
+    Delete : String const
+    Get : String const
+    Set : String const
 sealed class Lyntai.Storage.KeyedLock`1
     .ctor()
     AcquireAsync(TKey key, CancellationToken ct = default) : ValueTask<IDisposable>
@@ -3023,7 +3027,7 @@ sealed class Lyntai.Storage.LikeTermClause
     Predicate : String
     TermCount : Int32
     ToString() : String
-class Lyntai.Storage.MemoryEdgeRow
+sealed class Lyntai.Storage.MemoryEdgeRow
     .ctor()
     EdgeAge : Double
     EdgeOrdinalAge : Double
@@ -3085,15 +3089,24 @@ sealed class Lyntai.Storage.MemoryEvictionPolicy
     static SizeBudget(Int32 maxChars, MemoryEvictionMode mode = MemoryEvictionMode.Fifo) : MemoryEvictionPolicy
     static TimeToLive(TimeSpan ttl, Nullable<Int32> maxEntries = null) : MemoryEvictionPolicy
 static class Lyntai.Storage.MemoryGraphSql
+    AdvancePosition : String const
     DeleteSubjects : String const
     Forget : String const
     InsertReview : String const
+    InsertSubject : String const
     MinimumStability : String const
+    NodeById : String const
+    NodeColumns : String const
+    Reviews : String const
+    SeedRecent : String const
     StrengthenEdge : String const
+    Totals : String const
+    Touch : String const
     TrimReviews : String const
     static MinimumStabilityValue : Double
     static Prune(String ageOverStability) : String
-class Lyntai.Storage.MemoryNodeRow
+    static SeedMatching(LikeTermClause kw) : String
+sealed class Lyntai.Storage.MemoryNodeRow
     .ctor()
     Age : Double
     Content : String
@@ -3122,7 +3135,7 @@ class Lyntai.Storage.MemoryNodeRow
     TaskKey : String
     ToNode(DateTimeOffset encodedAt) : GraphNode
     VolumeAge : Double
-class Lyntai.Storage.MemoryPositionRow
+sealed class Lyntai.Storage.MemoryPositionRow
     .ctor()
     Chars : Int64
     EncodedAt : DateTimeOffset
@@ -3167,6 +3180,11 @@ sealed class Lyntai.Storage.PromptVersionRow
     Template : String
     ToEntity() : PromptVersion
     Version : Int32
+static class Lyntai.Storage.ResponseCacheSql
+    DeleteExpired : String const
+    Get : String const
+    Remove : String const
+    Set : String const
 enum Lyntai.Storage.SchemaMigration
     None : SchemaMigration const
     OnFirstUse : SchemaMigration const
@@ -3251,6 +3269,7 @@ sealed class Lyntai.Storage.TraceSessionRow
     Mode : String
     SessionId : String
     StartedAt : DateTimeOffset
+    ToRecord(IEnumerable<TraceStepRow> steps) : RunTrace
     TraceId : String
 sealed class Lyntai.Storage.TraceStepRow
     .ctor()
@@ -3263,8 +3282,10 @@ sealed class Lyntai.Storage.TraceStepRow
     OffsetMs : Int64
     OutputTokens : Int64
     Sequence : Int64
+    ToRecord() : TraceStep
 static class Lyntai.Storage.TraceStoreSql
     DeleteTrace : String const
+    GetSteps : String const
     GetTrace : String const
     InsertStep : String const
     InsertTrace : String const
