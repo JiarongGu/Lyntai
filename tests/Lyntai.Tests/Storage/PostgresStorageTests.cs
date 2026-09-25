@@ -278,7 +278,7 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
     }
 
     private PostgresMemoryStore PgMemory(MutableClock? clock = null) =>
-        new(pg.Factory, new LyntaiOptions { MemoryCapPerScope = 3, MemoryRecallLimit = 100 }, clock: (clock ?? new MutableClock()).Get);
+        new(pg.Factory, new LyntaiOptions { MemoryEviction = MemoryEvictionPolicy.CountCap(3), MemoryRecallLimit = 100 }, clock: (clock ?? new MutableClock()).Get);
 
     private PostgresMemoryStore PgMemoryWith(MemoryEvictionPolicy p, MutableClock clock) =>
         new(pg.Factory, new LyntaiOptions { MemoryEviction = p, MemoryRecallLimit = 100 }, clock: clock.Get);

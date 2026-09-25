@@ -13,7 +13,7 @@ namespace Lyntai.Tests.Storage;
 public abstract class MemoryStoreContractFacts
 {
     protected DateTimeOffset Now = new(2026, 7, 17, 12, 0, 0, TimeSpan.Zero);
-    protected static readonly LyntaiOptions Options = new() { MemoryCapPerScope = 3, MemoryRecallLimit = 100 };
+    protected static readonly LyntaiOptions Options = new() { MemoryEviction = MemoryEvictionPolicy.CountCap(3), MemoryRecallLimit = 100 };
 
     protected abstract IMemoryStore New();
     protected abstract IMemoryStore NewWith(MemoryEvictionPolicy p);

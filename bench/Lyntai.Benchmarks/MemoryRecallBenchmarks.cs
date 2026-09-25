@@ -1,5 +1,6 @@
 using BenchmarkDotNet.Attributes;
 using Lyntai;
+using Lyntai.Storage;
 using Lyntai.Storage.Sqlite;
 using Lyntai.Storage.Sqlite.Migrations;
 
@@ -22,7 +23,7 @@ public class MemoryRecallBenchmarks
         _dbPath = Path.Combine(Path.GetTempPath(), $"lyntai-bench-{Rows}-{Guid.NewGuid():N}.db");
         MigrationRunnerService.MigrateUp(_dbPath);
         var factory = new SqliteConnectionFactory(_dbPath);
-        _store = new SqliteMemoryStore(factory, new LyntaiOptions { MemoryCapPerScope = int.MaxValue });
+        _store = new SqliteMemoryStore(factory, new LyntaiOptions { MemoryEviction = MemoryEvictionPolicy.CountCap(int.MaxValue) });
 
         // seed Rows entries across 50 tasks; one task carries the needle we recall
         for (var i = 0; i < Rows; i++)

@@ -75,15 +75,6 @@ public sealed class LyntaiOptions
     /// the historical 500-entry FIFO cap; tune via <c>ConfigureMemory(...)</c> or <c>LYNTAI_MEMORY_*</c>.</summary>
     public MemoryEvictionPolicy MemoryEviction { get; set; } = MemoryEvictionPolicy.Default;
 
-    /// <summary>[Shortcut] Max entries kept per (task, scope) — proxies
-    /// <see cref="MemoryEvictionPolicy.MaxEntriesPerScope"/> on <see cref="MemoryEviction"/> (0 = uncapped).
-    /// Prefer configuring <see cref="MemoryEviction"/> directly.</summary>
-    public int MemoryCapPerScope
-    {
-        get => MemoryEviction.MaxEntriesPerScope ?? 0;
-        set => MemoryEviction.MaxEntriesPerScope = value > 0 ? value : null;
-    }
-
     /// <summary>Default max entries returned by a memory recall.</summary>
     public int MemoryRecallLimit { get; set; } = 20;
 

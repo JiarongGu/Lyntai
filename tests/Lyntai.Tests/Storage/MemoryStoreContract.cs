@@ -180,7 +180,7 @@ public static class MemoryStoreContract
 
     public static async Task Cap_trims_to_the_newest_entries(IMemoryStore store, string key)
     {
-        // The store must be built with MemoryCapPerScope = 3. Assert the COUNT and SET membership only —
+        // The store must be built with a count cap of 3. Assert the COUNT and SET membership only —
         // NOT the sequence (no-query recall recency-orders, but we don't pin the exact order here to stay
         // strictly backend-agnostic).
         for (var i = 1; i <= 5; i++) await store.RememberAsync(key, "s", $"entry {i}");

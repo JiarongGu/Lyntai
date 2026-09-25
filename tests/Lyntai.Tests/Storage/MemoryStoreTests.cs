@@ -17,7 +17,7 @@ namespace Lyntai.Tests.Storage;
 public class MemoryStoreTests : IDisposable
 {
     private readonly TempDb _db = new();
-    private readonly LyntaiOptions _options = new() { MemoryCapPerScope = 3, MemoryRecallLimit = 10 };
+    private readonly LyntaiOptions _options = new() { MemoryEviction = MemoryEvictionPolicy.CountCap(3), MemoryRecallLimit = 10 };
     private readonly SqliteMemoryStore _store;
 
     public MemoryStoreTests() => _store = new SqliteMemoryStore(_db.Factory, _options);

@@ -1731,7 +1731,6 @@ sealed class Lyntai.LyntaiOptions
     DefaultModelByConsumer : Dictionary<String,String>
     Jobs : JobOptions
     MaxProviderTimeout : TimeSpan
-    MemoryCapPerScope : Int32
     MemoryEviction : MemoryEvictionPolicy
     MemoryRecallLimit : Int32
     PromptKeyPrefix : String

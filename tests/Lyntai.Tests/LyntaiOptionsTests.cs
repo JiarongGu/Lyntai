@@ -14,7 +14,7 @@ public class LyntaiOptionsTests
         Assert.Equal(3, options.DeadHostThreshold);
         Assert.Equal(TimeSpan.FromSeconds(30), options.DeadHostCooldown);
         Assert.Empty(options.DefaultCandidates);
-        Assert.True(options.MemoryCapPerScope > 0);
+        Assert.True(options.MemoryEviction.MaxEntriesPerScope > 0);
         Assert.NotNull(options.Routing); // §6-default policy present out of the box
     }
 
