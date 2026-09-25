@@ -1425,7 +1425,8 @@ public class MemoryCorpusTests
         Assert.NotEmpty(ownQueries);
         Assert.All(ownQueries, q => Assert.Contains("topic0", q.Text));
 
-        var otherTopicQueries = corpus.Steps.OfType<CorpusQuery>().Where(q => Mentions(q.Text, "topic1"));
+        var otherTopicQueries = corpus.Steps.OfType<CorpusQuery>().Where(q => Mentions(q.Text, "topic1")).ToList();
+        Assert.NotEmpty(otherTopicQueries);   // the negative below would pass over no queries at all
         Assert.All(otherTopicQueries, q => Assert.DoesNotContain("topic0", q.RelevantIds));
     }
 

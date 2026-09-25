@@ -192,18 +192,25 @@ public class MemorySubjectLinkingTests
 
     /// <summary>An annotator that returns no subjects links nothing, and an engine with one behaves exactly
     /// as an engine without — so registering an annotator that has no opinion costs correctness nothing.
-    /// </summary>
+    /// Asserted as EQUALITY with the no-annotator control, plus the lexical hit, so an empty recall cannot
+    /// pass it.</summary>
     [Fact]
     public async Task An_annotator_with_no_opinion_changes_nothing()
     {
-        using var db = new TempDb();
-        var engine = NewEngine(db, new TableAnnotator([]));
-        await WriteClusterAsync(engine);
+        async Task<List<string?>> RecallTexts(IMemoryAnnotationPolicy? annotator)
+        {
+            using var db = new TempDb();
+            var engine = NewEngine(db, annotator);
+            await WriteClusterAsync(engine);
+            var recall = await engine.RecallAsync(new MemoryQuery("t", "s", "my spouse", Limit: 10));
+            return [.. recall.Items.Select(i => i.Content ?? i.Headline)];
+        }
 
-        var recall = await engine.RecallAsync(new MemoryQuery("t", "s", "my spouse", Limit: 10));
-        var texts = recall.Items.Select(i => i.Content ?? i.Headline).ToList();
+        var withNoOpinion = await RecallTexts(new TableAnnotator([]));
 
-        Assert.DoesNotContain(texts, t => t!.Contains("Kyoto", StringComparison.Ordinal));
+        Assert.Contains(withNoOpinion, t => t!.Contains("Alice", StringComparison.Ordinal));
+        Assert.DoesNotContain(withNoOpinion, t => t!.Contains("Kyoto", StringComparison.Ordinal));
+        Assert.Equal(await RecallTexts(annotator: null), withNoOpinion);
     }
 
     /// <summary>

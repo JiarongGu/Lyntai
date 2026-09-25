@@ -34,12 +34,26 @@ public class GraphMemoryRetentionWiringTests
         public double StabilityFactor(in MemoryDecayState state) => factor;
     }
 
-    private static GraphMemoryEngine Engine(IMemoryRetentionPolicy[]? retention) =>
-        new("e", new InMemoryMemoryGraphStore(), seams: new GraphMemorySeams
-            {
-                AgePolicies = [new PerWriteAgePolicy()],
-                RetentionPolicies = retention,
-            });
+    /// <summary>A multiplier combination the library does not ship, so a test can tell which rule ran.</summary>
+    private sealed class MaxRetentionComposition : IMemoryRetentionCompositionPolicy
+    {
+        public double StabilityFactor(IReadOnlyList<double> factors) => factors.Count == 0 ? 1 : factors.Max();
+    }
+
+    /// <summary>The retrievability one aged entry recalls at under <paramref name="seams"/> — the age policy is
+    /// fixed, so the only thing that differs between two calls is the retention wiring under test.</summary>
+    private static async Task<double> RecalledRetrievability(GraphMemorySeams seams)
+    {
+        var engine = new GraphMemoryEngine("e", new InMemoryMemoryGraphStore(),
+            seams: seams with { AgePolicies = [new PerWriteAgePolicy()] });
+        await engine.RememberAsync(new MemoryWrite("t", "s", "a fact worth keeping around"));
+        for (var i = 0; i < 40; i++)
+            await engine.RememberAsync(new MemoryWrite("t", "s", $"filler {i}"));
+
+        var recall = await engine.RecallAsync(new MemoryQuery("t", "s", "a fact worth keeping around", Limit: 10));
+        return Assert.Single(recall.Items, i => i.Headline.Contains("worth keeping", StringComparison.Ordinal))
+            .Retrievability;
+    }
 
     /// <summary>A hand-built engine handed retention policies APPLIES them, with no decorator in sight.
     /// <para>Before this, the only way to get retention into a hand-built engine was to know that
@@ -48,28 +62,13 @@ public class GraphMemoryRetentionWiringTests
     [Fact]
     public async Task Retention_passed_to_the_ENGINE_lengthens_retrievability_without_a_decorator()
     {
-        var write = new MemoryWrite("t", "s", "a fact worth keeping around");
+        var plain = await RecalledRetrievability(new GraphMemorySeams());
+        var retained = await RecalledRetrievability(new GraphMemorySeams
+            {
+                RetentionPolicies = [new FixedRetentionPolicy(4)],
+            });
 
-        var plain = Engine(null);
-        var retained = Engine([new FixedRetentionPolicy(4)]);
-        await plain.RememberAsync(write);
-        await retained.RememberAsync(write);
-
-        // Age the engines identically, so the only difference is the stability multiplier retention applies.
-        for (var i = 0; i < 40; i++)
-        {
-            await plain.RememberAsync(new MemoryWrite("t", "s", $"filler {i}"));
-            await retained.RememberAsync(new MemoryWrite("t", "s", $"filler {i}"));
-        }
-
-        var query = new MemoryQuery("t", "s", "a fact worth keeping around", Limit: 10);
-        var plainItem = Assert.Single((await plain.RecallAsync(query)).Items,
-            i => i.Headline.Contains("worth keeping", StringComparison.Ordinal));
-        var retainedItem = Assert.Single((await retained.RecallAsync(query)).Items,
-            i => i.Headline.Contains("worth keeping", StringComparison.Ordinal));
-
-        Assert.True(retainedItem.Retrievability > plainItem.Retrievability,
-            $"retention did not reach the engine: {retainedItem.Retrievability} vs {plainItem.Retrievability}");
+        Assert.True(retained > plain, $"retention did not reach the engine: {retained} vs {plain}");
     }
 
     /// <summary>
@@ -102,25 +101,36 @@ public class GraphMemoryRetentionWiringTests
         Assert.Contains("twice", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
-    /// <summary>A pre-modulated curve ALONE is still accepted — that is the composition route the seam's
-    /// publicness exists for, and only the double-application is refused.</summary>
+    /// <summary>A pre-modulated curve ALONE is still accepted AND applied — that is the composition route the
+    /// seam's publicness exists for, and only the double-application is refused.</summary>
     [Fact]
-    public void A_pre_modulated_curve_on_its_own_is_still_accepted() =>
-        Assert.NotNull(new GraphMemoryEngine("e", new InMemoryMemoryGraphStore(), seams: new GraphMemorySeams
+    public async Task A_pre_modulated_curve_on_its_own_is_still_accepted()
+    {
+        var plain = await RecalledRetrievability(new GraphMemorySeams());
+        var preModulated = await RecalledRetrievability(new GraphMemorySeams
             {
                 Retrievability = new ModulatedRetrievability(
                     new Lyntai.Memory.Forgetting.DsrRetrievability(), [new FixedRetentionPolicy(2)]),
-            }));
+            });
+
+        Assert.True(preModulated > plain, $"the pre-modulated curve was not applied: {preModulated} vs {plain}");
+    }
 
     /// <summary>The composition policy is the engine's too, so several coexisting retention dimensions
-    /// combine by a rule the caller can replace — the second half of what D48 calls a plural domain, and the
-    /// half a decorator-only path made reachable exclusively through a constructor overload.</summary>
+    /// combine by a rule the caller can replace — the second half of what D48 calls a plural domain. Two
+    /// rules over the same factors (2 and 3) must recall differently: 6× multiplied, 3× by maximum.</summary>
     [Fact]
-    public void An_engine_accepts_a_retention_COMPOSITION_alongside_the_policies() =>
-        Assert.NotNull(new GraphMemoryEngine("e", new InMemoryMemoryGraphStore(), seams: new GraphMemorySeams
-            {
-                AgePolicies = [new PerWriteAgePolicy()],
-                RetentionPolicies = [new FixedRetentionPolicy(2), new FixedRetentionPolicy(3)],
-                RetentionComposition = new MultiplicativeRetentionCompositionPolicy(),
-            }));
+    public async Task An_engine_accepts_a_retention_COMPOSITION_alongside_the_policies()
+    {
+        GraphMemorySeams Composed(IMemoryRetentionCompositionPolicy composition) => new()
+        {
+            RetentionPolicies = [new FixedRetentionPolicy(2), new FixedRetentionPolicy(3)],
+            RetentionComposition = composition,
+        };
+
+        var multiplied = await RecalledRetrievability(Composed(new MultiplicativeRetentionCompositionPolicy()));
+        var maximum = await RecalledRetrievability(Composed(new MaxRetentionComposition()));
+
+        Assert.True(multiplied > maximum, $"the composition passed was not the one applied: {multiplied} vs {maximum}");
+    }
 }

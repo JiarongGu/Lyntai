@@ -177,6 +177,7 @@ public class CuratedMemoryEngineTests
         Assert.Contains(graded.Items, i => i.Grade == MemoryGrade.Associative);
 
         var plain = await engines.Get("plain").RecallAsync(new MemoryQuery("t"));
+        Assert.Equal(2, plain.Items.Count);   // the same two glossary entries the graded engine demotes one of
         Assert.All(plain.Items, i => Assert.Equal(MemoryGrade.Authoritative, i.Grade));
 
         Assert.Equal(3, (await engines.Get("whole").RecallAsync(new MemoryQuery("t"))).Items.Count);
