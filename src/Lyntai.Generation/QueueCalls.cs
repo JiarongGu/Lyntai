@@ -71,7 +71,7 @@ internal static class QueueCalls
         new(operationId, transport ? QueuedOperationStatus.Running : QueuedOperationStatus.Failed, Detail: failure);
 
     /// <summary>A failed fetch, CLASSIFIED — by the typed status where there is one, since a status line is not
-    /// the vocabulary <see cref="ProviderVerdictClassifier.FromErrorText(string, ProviderVerdict)"/> matches on.</summary>
+    /// the vocabulary <see cref="ProviderVerdictClassifier.FromErrorText(string?, ProviderVerdict)"/> matches on.</summary>
     public static MediaResponse FetchFailure(HttpStatusCode? status, string failure, bool hasCredentials) =>
         MediaResponse.Failure(
             status is { } code
