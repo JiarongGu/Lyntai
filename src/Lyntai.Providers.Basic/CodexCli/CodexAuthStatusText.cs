@@ -7,18 +7,16 @@ namespace Lyntai.Providers.CodexCli;
 ///
 /// Unlike the claude CLI, codex has **no machine-readable auth readout** — measured on codex-cli 0.146.0
 /// (2026-08-04): <c>codex login status --json</c> is rejected (<c>error: unexpected argument '--json'</c>) and
-/// the command prints prose. Signed-out is exactly <c>"Not logged in"</c> with exit code 0. So this is
-/// deliberately a PROSE sniffer, which is why <see cref="Inference.Cli.ICliBackend.ParseAuthStatus"/> takes
-/// raw text rather than assuming JSON.
+/// the command prints prose. Both states are measured, each with exit code 0: signed-out is exactly
+/// <c>"Not logged in"</c> (0.146.0), signed-in with a ChatGPT account exactly <c>"Logged in using ChatGPT"</c>
+/// (0.155.1, 2026-09-25) — which names the method and no account. So this is deliberately a PROSE sniffer,
+/// which is why <see cref="Inference.Cli.ICliBackend.ParseAuthStatus"/> takes raw text rather than assuming
+/// JSON.
 ///
 /// Conservative by construction: an explicit negative marker means signed out, an explicit positive marker
 /// means signed in, and anything else returns <c>null</c> — "unknown". The engine then reports
 /// <c>Authenticated: false</c> with the CLI's own words in the detail, so an unrecognized wording can never
 /// be mistaken for a signed-in state.</summary>
-/// <remarks>UNVERIFIED CORNER: only the signed-OUT wording could be measured here (this machine's codex is not
-/// logged in, and signing in requires a real account + browser flow). If a future build's signed-in line
-/// doesn't match <see cref="SignedInPattern"/>, status degrades to "unknown" with the raw text — never to a
-/// wrong answer. Widen the pattern once a signed-in line has actually been observed.</remarks>
 internal static partial class CodexAuthStatusText
 {
     public static ProviderAuthStatus? Parse(string output)

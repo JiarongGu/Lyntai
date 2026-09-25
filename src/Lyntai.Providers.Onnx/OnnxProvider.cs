@@ -13,10 +13,9 @@ namespace Lyntai.Providers.Onnx;
 /// what this provider PRODUCES — an embedding model and a reranker are the same backend with different
 /// weights, so a kind is never a reason to fork this class.</para>
 ///
-/// <para><b>What it buys over the static class, measured.</b> On tool routing a 25,008,064 B transformer
-/// reads 78.6% at three options against a 30,236,760 B <c>model2vec</c> table's 69.0%
-/// (<c>docs/memory-measurements.md</c> §5). What it costs is ~16 MB of native runtime and this package's
-/// trim/AOT claim.</para>
+/// <para><b>What it buys over the static <c>model2vec</c> backend</b> is measured quality on selective
+/// tasks (<c>docs/memory-measurements.md</c> §5); what it costs is ~16 MB of native runtime and this
+/// package's trim/AOT claim.</para>
 ///
 /// <para><b>It HAS a context limit</b>, which the static class does not: a BERT encoder has positional
 /// embeddings, so input past <see cref="OnnxProviderOptions.MaxTokens"/> is truncated — or, where

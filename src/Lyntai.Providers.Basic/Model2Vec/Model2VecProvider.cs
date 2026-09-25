@@ -23,15 +23,12 @@ public sealed class Model2VecProviderOptions
 /// <c>model2vec</c> static lookup table, mean-pooled.
 ///
 /// <para><b>The case for it is OPERATIONAL, not quality or speed.</b> Encode-only vectors are
-/// byte-identical across devices, so moving a model in-process cannot change a retrieval score; and a local
-/// HTTP call with <c>UseProxy = false</c> measures 0.4 ms, so there is no latency to win. What it buys is
-/// no second process to ship and supervise, no port to conflict, and a lifetime tied to the application's —
-/// decisive for a distributed app and invisible to a benchmark (<c>docs/deployment-shapes.md</c>).</para>
+/// byte-identical across devices, so moving a model in-process cannot change a retrieval score, and a local
+/// HTTP call is not where the latency is. What it buys is no second process to ship and supervise, no port to
+/// conflict, and a lifetime tied to the application's (<c>docs/deployment-shapes.md</c>).</para>
 ///
-/// <para><b>What the class costs, measured.</b> On the memory workload `potion-base-8M` (30,236,760 B) is
-/// <b>0.5 points</b> behind a 333,590,944 B server-hosted vector backend on the shipped default; on a purely
-/// embedding-bound selective task it is about <b>12</b> points behind. <b>How much a vector backend is worth is a
-/// property of the ARM</b> — read the one that matches your workload, not the headline
+/// <para><b>What it costs is a property of the WORKLOAD</b> — small on the memory default, larger on a
+/// purely embedding-bound selective task. Read the arm that matches yours, not a headline
 /// (<c>docs/memory-measurements.md</c> §5).</para>
 ///
 /// <para><b>It has NO context limit</b>, unlike every sub-100 MB transformer vector backend, which reject an input

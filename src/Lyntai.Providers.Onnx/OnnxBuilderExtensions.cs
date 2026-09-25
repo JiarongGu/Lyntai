@@ -1,7 +1,6 @@
 using Lyntai.Inference;
 using Lyntai.Providers.Onnx;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
 
 // Lives in the Lyntai namespace so the Add*/Use* methods appear on the builder.
 namespace Lyntai;
@@ -27,8 +26,9 @@ public static class OnnxBuilderExtensions
     /// loading lazily trades a loud startup failure for a quiet first-recall one. Every knob defaults to
     /// the model's own files; see <see cref="OnnxProviderOptions"/>.</para>
     ///
-    /// <para>Registered with <c>TryAdd</c>, so a backend registered before this call wins — the BYO story
-    /// every seam here has.</para>
+    /// <para>Every call ADDS a provider to the collection the router selects from. Give each its own
+    /// <see cref="OnnxProviderOptions.Id"/>: with a duplicate id the router keeps the first and never reaches
+    /// the second.</para>
     ///
     /// <para><b>The SAME call registers a reranker</b>: set <see cref="OnnxProviderOptions.Produces"/> to
     /// <see cref="Lyntai.Inference.ProviderKinds.Score"/>, with its own <see cref="OnnxProviderOptions.Id"/>
@@ -60,12 +60,9 @@ public static class OnnxBuilderExtensions
     /// <c>AddSingleton(instance)</c> does not dispose what it did not create and these hold a native session.
     /// Collapsing it reads as a tidy-up and leaks one per container.</para>
     ///
-    ///
     /// <para><b>The capability is READ, never restated.</b> The backend is built before this runs,
     /// so the declaration handed to composition is the provider's own — there is no second place to get it
-    /// wrong, and no parameter saying which kind this is (<c>docs/DECISIONS.md</c> <b>D152</b>). An earlier
-    /// shape took an <c>embeds</c> bool, which is a fact the object already carried.</para></summary>
+    /// wrong, and no parameter saying which kind this is (<c>docs/DECISIONS.md</c> <b>D152</b>).</para></summary>
     internal static LyntaiBuilder RegisterOwned(LyntaiBuilder builder, IModelProvider provider) =>
         builder.AddProvider(_ => provider, provider.Capabilities);
-
 }

@@ -14,39 +14,39 @@ namespace Lyntai.Providers.CodexCli;
 /// model-metadata warning), so treating either as terminal fails healthy turns. See
 /// <see cref="CodexJsonlParser"/> for the full measured capture.</para>
 ///
-/// Members marked INFERRED have NOT been observed in this repository's capture — they are named so a wrong
-/// guess is visible rather than load-bearing.</summary>
+/// Every member is MEASURED, and says against which codex-cli release (<c>docs/DECISIONS.md</c> D35).</summary>
 internal static class CodexEnvelope
 {
     // ── envelope types ───────────────────────────────────────────────────────
 
-    /// <summary>MEASURED: <c>{"type":"thread.started","thread_id":"…"}</c> — the session id.</summary>
+    /// <summary>MEASURED (0.146.0): <c>{"type":"thread.started","thread_id":"…"}</c> — the session id.</summary>
     public const string ThreadStarted = "thread.started";
 
-    /// <summary>MEASURED: carries usage and ends a SUCCESSFUL turn (no text of its own).</summary>
+    /// <summary>MEASURED (0.146.0): carries usage and ends a SUCCESSFUL turn (no text of its own).</summary>
     public const string TurnCompleted = "turn.completed";
 
-    /// <summary>MEASURED: the ONLY terminal failure. The process still exits 0.</summary>
+    /// <summary>MEASURED (0.146.0): the ONLY terminal failure. The process still exits 0.</summary>
     public const string TurnFailed = "turn.failed";
 
-    /// <summary>MEASURED: one thread item finished, carrying the item's payload.</summary>
+    /// <summary>MEASURED (0.146.0): one thread item finished, carrying the item's payload.</summary>
     public const string ItemCompleted = "item.completed";
 
-    /// <summary>INFERRED: not seen in this repository's capture (whose turn ran no tools). Handled so a
-    /// tool step is reported the moment it BEGINS where codex emits one; the completion path below stands
-    /// on its own if it never arrives.</summary>
+    /// <summary>MEASURED (0.155.1): a tool item BEGINS — emitted for every tool item, so a tool step is
+    /// reported the moment it starts; the completion path still stands on its own if one never
+    /// arrives.</summary>
     public const string ItemStarted = "item.started";
 
     // ── item types ───────────────────────────────────────────────────────────
 
-    /// <summary>MEASURED: <c>{"id":…,"type":"agent_message","text":"…"}</c> — the assistant's answer.</summary>
+    /// <summary>MEASURED (0.146.0): <c>{"id":…,"type":"agent_message","text":"…"}</c> — the assistant's
+    /// answer.</summary>
     public const string AgentMessageItem = "agent_message";
 
-    /// <summary>MEASURED: a NON-terminal warning item ("Model metadata … not found"), seen in a turn that
-    /// succeeded. Never a failure.</summary>
+    /// <summary>MEASURED (0.146.0): a NON-terminal warning item ("Model metadata … not found"), seen in a turn
+    /// that succeeded. Never a failure.</summary>
     public const string ErrorItem = "error";
 
-    /// <summary>INFERRED: the item type expected to carry the model's reasoning summary.</summary>
+    /// <summary>MEASURED (0.155.1): the model's reasoning summary, in the item's <c>text</c>.</summary>
     public const string ReasoningItem = "reasoning";
 
     // ── field reads ──────────────────────────────────────────────────────────

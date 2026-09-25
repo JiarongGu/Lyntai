@@ -21,10 +21,10 @@ namespace Lyntai.Providers.CodexCli;
 /// <c>codex</c> on PATH — same env seams as the provider, so tests can stub it.
 /// </summary>
 /// <remarks>
-/// <para><b>Half of this backend's event mapping is inferred — know which half before you rely on it.</b>
-/// Treat a tool step's KIND as provisional and its PAYLOAD as reliable; switch on
-/// <see cref="ToolCall.Name"/>. <c>CodexAgentReader</c>'s own summary states what is MEASURED, what is
-/// INFERRED, and how far the inference is bounded.</para>
+/// <para><b>The event mapping is measured; one thing about it is reached by elimination.</b> An item that is
+/// not a message, a reasoning summary or a warning is surfaced as a tool step under codex's own item type,
+/// carrying codex's own item object — so a tool step's KIND is provisional and its PAYLOAD reliable. Switch
+/// on <see cref="ToolCall.Name"/>.</para>
 /// <para><b>Two neutral options codex cannot honour</b>, each handled explicitly:
 /// <see cref="AgentSessionOptions.DisallowedTools"/> is logged as unhonoured (codex's tool gate is the
 /// sandbox, not a deny list), and <see cref="AgentSessionOptions.SystemPrompt"/> travels as a leading block
