@@ -424,10 +424,10 @@ public sealed class MediaRouter(
     private bool IsBenched(IModelProvider provider, int capableCount) =>
         _bookkeeping.IsBenched(_bookkeeping.Key(provider), capableCount == 1, _policy.ExemptSoleCandidate);
 
-    /// <summary>Candidates that exist, are registered, are DISTINCT, and DECLARE they can serve this
-    /// request/delivery — with the candidate's model applied to the request when it pins one. Materialized
-    /// because the sole-candidate cooldown exemption needs to know how many there are before trying the
-    /// first.
+    /// <summary>Candidates that exist, are registered, report themselves available, are DISTINCT, and DECLARE
+    /// they can serve this request/delivery — with the candidate's model applied to the request when it pins
+    /// one. Materialized because the sole-candidate cooldown exemption needs to know how many there are before
+    /// trying the first.
     ///
     /// <para><b>Dedup happens on the RESOLVED pair, and it happens HERE.</b> Resolved, because that is the
     /// pair that decides what is actually called: <c>"fal"</c> and <c>"FAL"</c> select one provider (ids match
@@ -455,6 +455,8 @@ public sealed class MediaRouter(
         {
             var provider = ProviderLookup.Find(providers, candidate.ProviderId);
             if (provider is null) continue;   // an unknown id is a config typo, not a crash
+            // before the count, so an unavailable backend never withdraws the sole-candidate exemption
+            if (!provider.IsAvailable) continue;
 
             resolved.Add((provider,
                 candidate.Model is { Length: > 0 } model ? request with { Model = model } : request));
