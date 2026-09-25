@@ -74,8 +74,8 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D2](#d2--storage-is-per-domain-interfaces-and-a-backend-implements-as-many-as-it-wants) | — | storage is per-domain interfaces, and a backend implements as many as it wants |
 | [D3](#d3--fallback-is-verdict-driven-through-one-shared-classifier-and-the-policy-is-replaceable) | — | fallback is verdict-driven, through one shared classifier, and the policy is REPLACEABLE |
 | [D4](#d4--streaming-no-fallback-after-the-first-token-and-the-timeout-is-an-inactivity-clock) | — | streaming: no fallback after the first token, and the timeout is an inactivity clock |
-| [D5](#d5--illmclient-is-the-front-door----drift-ok-the-record-names-the-type-as-it-was-d154-renamed-it-after---) | — | `ILlmClient` is the front door <!-- drift-ok: the record names the type AS IT WAS; D154 renamed i… |
-| [D6](#d6--every-sqlite-object-is-lyntai-prefixed) | — | every SQLite object is `lyntai_`-prefixed |
+| [D5](#d5--illmclient-is-the-front-door-) | — | `ILlmClient` is the front door <!-- drift-ok: the record names the type AS IT WAS; D154 renamed it after --> |
+| [D6](#d6--every-sqlite-object-is-lyntai_-prefixed) | — | every SQLite object is `lyntai_`-prefixed |
 | [D7](#d7--trimaot-posture-annotate-honestly-and-never-make-a-false-promise) | — | trim/AOT posture: annotate honestly, and never make a false promise |
 | [D8](#d8--the-public-api-is-snapshot-tested-update-the-baseline-deliberately) | — | the public API is snapshot-tested; update the baseline deliberately |
 | [D9](#d9--pre-release-fold-a-migration-into-the-one-that-owns-the-table-a-released-table-needs-a-new-one) | — | pre-release, fold a migration into the one that owns the table; a RELEASED table needs a new one |
@@ -252,7 +252,7 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D180](#d180--comfyui-binds-each-input-at-a-graph-field-the-caller-names-and-produces-model3d-2026-09-25) | 2026-09-25 | ComfyUI binds each input at a graph field the CALLER names, and produces `Model3d` |
 | [D181](#d181--a-generation-pipeline-runs-as-a-durable-job-each-stage-through-the-door-its-first-capable-candidate-serves-2026-09-25) | 2026-09-25 | a generation pipeline runs as a durable JOB, each stage through the door its first capable candid… |
 
-_All 181 entries are live decisions._
+**176 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
