@@ -5625,22 +5625,24 @@ checkpointed before the first poll and never re-submitted; an INLINE stage rende
 implements `IMediaJobProvider` and declares `Queued` for the request (the router's own `MediaRouter.Capable`), so a
 backend declaring both goes queued; inline otherwise. A door exhausted WITHOUT committing anything falls back to the
 other door's candidates; an Inconclusive submission, or a refusal the policy surfaced, never does. The handler tells
-the two apart by asking `MediaRoutingPolicy` about the verdict, and every failed submission `MediaRouter` returns
-now carries one — the verdict it surfaced, or, when nobody accepted, the one `GenerateAsync` would report.
+the two apart by asking `MediaRoutingPolicy` about the verdict, and every failed submission `MediaRouter` returns,
+Inconclusive aside, now carries one — the verdict it surfaced, or, when nobody accepted, the one `GenerateAsync`
+would report; its budget and rate-limit decorators refuse a submission with their inline door's verdict.
 
 **A result is billed, checkpointed, then delivered.** A queued stage is billed after its fetch; an inline one by the
 router, and only when `AddMediaUsageBudget` wraps it. The result is checkpointed BEFORE delivery when its inline
 bytes fit `GenerationPipelineJobOptions.MaxCheckpointBytes` (4 MiB), so a sink that throws gets it again with no
-second render, fetch or bill; an over-cap result, and a crash between a render returning and that save, stay
-at-least-once. Every stage reaches `IGenerationArtifactSink` tagged `StageIndex` and `IsFinal` (default true, so a
-render job's delivery still reads as output) under the `ProviderId` the router names: the new
+second render, fetch or bill; an over-cap result, and a crash between a backend answering (a render, or a
+submission's id) and the save that records it, stay at-least-once. Every stage reaches `IGenerationArtifactSink`
+tagged `StageIndex` and `IsFinal` (default true, so a render job's delivery still reads as output) under the
+`ProviderId` the router names: the new
 `MediaResponse.ProviderId`, which `MediaRouter` stamps on every backend's answer. An inline `OperationId` is empty.
 Then the ONE artifact the next stage chains — its `InputMediaType`'s match, or the single one — is checkpointed,
 failing the job past the cap. An unreadable checkpoint fails rather than restarting from stage 1.
 
 **Rejected.** Queued first whatever the order: the order is the caller's stated preference, and an inline backend
 listed first is usually a cost choice the library has no standing to overrule. Delivering, then checkpointing: a
-throwing sink re-rendered an inline stage and re-fetched and re-billed a queued one. Polling inside
+throwing sink re-renders an inline stage and re-fetches and re-bills a queued one. Polling inside
 `RunPipelineAsync`: the loop `IMediaJobProvider` exists not to hide. Documentation only: every consumer re-implements
 checkpoint-before-poll. A stage declaring its door: it drifts from what its backends declare. Persisting
 `SelectInput`: a delegate does not survive a restart. URIs-only intermediates: inline image backends return bytes.

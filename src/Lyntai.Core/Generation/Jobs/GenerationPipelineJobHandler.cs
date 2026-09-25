@@ -34,14 +34,14 @@ public sealed record GenerationPipelineJobOptions
 /// <remarks>
 /// <para><b>The caller's order picks each stage's door.</b> The FIRST candidate able to serve the stage decides
 /// it: QUEUED when it implements <see cref="IMediaJobProvider"/> and declares <see cref="ProviderOperation.Queued"/>
-/// for the request — so a backend declaring both doors goes queued — and INLINE otherwise. A door exhausted
-/// without committing anything (every candidate advanced past, blamelessly or on cooldown) falls back to the
-/// other door's candidates; an Inconclusive submission, or a refusal the routing policy surfaces, never does.</para>
-/// <para><b>Nothing paid for is re-run.</b> A queued stage's operation id is checkpointed before its first poll
-/// and never re-submitted. A stage's result is billed, checkpointed, THEN delivered, so a sink that throws gets
-/// it again with no second render, fetch or bill. Two cases stay at-least-once: a result whose inline bytes
-/// exceed <see cref="GenerationPipelineJobOptions.MaxCheckpointBytes"/>, and a crash between the render
-/// returning and that checkpoint.</para>
+/// for the request — so a backend declaring both doors, leading the list, goes queued — and INLINE otherwise. A
+/// door exhausted without committing anything (every candidate advanced past, blamelessly or on cooldown) falls
+/// back to the other door's candidates; an Inconclusive submission, or a refusal the policy surfaces, never does.</para>
+/// <para><b>Nothing paid for is re-run, but for three narrow cases.</b> A checkpointed operation is polled, never
+/// re-submitted, and a stage's result is billed, checkpointed, THEN delivered, so a sink that throws gets it again
+/// with no second render, fetch or bill. What stays at-least-once: a crash between a submission returning and its
+/// operation id being saved (the resume submits again), a crash between a render returning and its checkpoint, and
+/// a result whose inline bytes exceed <see cref="GenerationPipelineJobOptions.MaxCheckpointBytes"/>.</para>
 /// <para>Every failure names its stage from 1 and fails the job; a backend still working returns
 /// <see cref="JobOutcome.Poll"/>. <b>Using it:</b> <c>AddJobHandler&lt;GenerationPipelineJobHandler&gt;()</c>,
 /// then enqueue <see cref="JobType"/> with <see cref="GenerationPipelineJob.ToJson"/>. Why:
@@ -55,8 +55,11 @@ public sealed record GenerationPipelineJobOptions
 /// <param name="usage">Optional spend ledger for QUEUED stages, recorded after the fetch and before delivery. An
 /// inline stage is recorded by the router, and only when <c>AddMediaUsageBudget()</c> wraps it — never here, so
 /// it is never counted twice.</param>
-/// <param name="policy">The fallback policy the router applies, read to tell a refusal it surfaced from a door it
-/// exhausted. Null = the defaults, which is also what the router uses when none is configured.</param>
+/// <param name="policy">The fallback policy the ROUTER applies, read to tell a refusal it surfaced from a door it
+/// exhausted — so pass the SAME <see cref="MediaRoutingPolicy"/> instance the router was built with. The container
+/// does this: <c>ConfigureMediaRouting</c> configures the one instance both receive. Null = the defaults, which is
+/// also what the router uses when none is configured. A router whose failures carry no verdict — a custom
+/// <see cref="IMediaRouter"/> — gets no cross-door fallback.</param>
 public sealed class GenerationPipelineJobHandler(
     IMediaRouter router,
     IEnumerable<IModelProvider> providers,
@@ -395,8 +398,8 @@ public sealed class GenerationPipelineJobHandler(
                         ? new PipelineCheckpoint(stage, providerId, operationId)
                         : null;
 
-                if (hasPending)
-                    return !hasArtifacts && ReadArtifacts(pending, "artifacts") is { } produced
+                if (hasPending)   // a produced result is never empty: an Ok with nothing in it is not one
+                    return !hasArtifacts && ReadArtifacts(pending, "artifacts") is { Count: > 0 } produced
                         ? new PipelineCheckpoint(stage, Pending: new Produced(
                             new MediaResponse(ProviderVerdict.Ok, produced, ReadUsage(pending)),
                             GenerationJson.Str(pending, "providerId") ?? "",

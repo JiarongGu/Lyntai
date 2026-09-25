@@ -60,8 +60,11 @@ public sealed class BudgetedMediaRouter(
         IReadOnlyList<ProviderCandidate> candidates, MediaRequest request, CancellationToken ct = default)
     {
         if (await OverBudgetAsync(request.Consumer, ct).ConfigureAwait(false) is { } reason)
-            return new MediaSubmission("",
-                new QueuedOperation("", QueuedOperationStatus.Failed, Detail: reason));
+            return new MediaSubmission("",   // the inline door's verdict, so both doors refuse alike
+                new QueuedOperation("", QueuedOperationStatus.Failed, Detail: reason)
+                {
+                    Verdict = ProviderVerdict.Refused,
+                });
 
         return await inner.SubmitAsync(candidates, request, ct).ConfigureAwait(false);
     }

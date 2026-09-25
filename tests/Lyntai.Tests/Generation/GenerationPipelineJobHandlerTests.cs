@@ -860,6 +860,7 @@ public class GenerationPipelineJobHandlerTests
             """{"stage":0,"providerId":"sd","operationId":"op","artifacts":[{"mediaType":"image/png"}]}""",
             """{"stage":0,"providerId":"sd","operationId":"op","pending":{"artifacts":[]}}""",
             """{"stage":0,"pending":{"artifacts":[{"mediaType":"image/png","data":"not base64!"}]}}""",
+            """{"stage":0,"pending":{"artifacts":[]}}""",                          // an Ok result with nothing in it
         ];
         foreach (var checkpoint in unreadable)
         {
@@ -927,6 +928,30 @@ public class GenerationPipelineJobHandlerTests
 
         Assert.Null(delivery.StageIndex);
         Assert.True(delivery.IsFinal);
+    }
+
+    [Fact]
+    public async Task The_container_gives_the_handler_the_SAME_routing_policy_as_the_router()
+    {
+        // With Refused ADVANCING, the router runs out of queued candidates on a refusal, so the stage is exhausted
+        // and falls back inline. A handler reading the DEFAULT policy would read that Refused as surfaced and fail.
+        var services = new ServiceCollection();
+        services.AddSingleton<IGenerationArtifactSink>(new CollectingSink());
+        var fal = new QueuedBackend { Id = "fal", Produces = ProviderKinds.Image, RefuseWith = ProviderVerdict.Refused };
+        var sd = new InlineBackend { Id = "sd" };
+        services.AddLyntai(b => b
+            .AddProvider(_ => fal)
+            .AddProvider(_ => sd)
+            .AddMediaRouting()
+            .ConfigureMediaRouting(p => p.On(ProviderVerdict.Refused, FallbackAction.Advance))
+            .AddJobHandler<GenerationPipelineJobHandler>());
+        using var sp = services.BuildServiceProvider();
+
+        var handler = Assert.Single(sp.GetServices<IJobHandler>().OfType<GenerationPipelineJobHandler>());
+        var outcome = await handler.HandleAsync(new RecordingContext().Build(Payload(Stage(ProviderKinds.Image, "fal", "sd"))));
+
+        Assert.Equal(JobOutcome.Kind.Complete, outcome.Result);
+        Assert.Equal((1, 1), (fal.Submitted.Count, sd.Requests.Count));
     }
 
     [Fact]

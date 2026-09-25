@@ -163,8 +163,9 @@ every addition.
 - **The `generate` tool's sink delivery names the backend that rendered it** (**D181**) — its
   `GenerationArtifactDelivery.ProviderId` said `"inline"`, and now carries `MediaResponse.ProviderId`, empty
   when the router names none. `OperationId` stays empty, as for every inline render.
-  <br>**What to DO:** a sink that recognised the tool's render by the `"inline"` literal tests for an empty
-  `OperationId` instead.
+  <br>**What to DO:** a sink that recognised the tool's render by the `"inline"` literal tests for a null
+  `StageIndex` with an empty `OperationId` instead — an empty `OperationId` alone also matches a pipeline job's
+  inline stage, and a null `StageIndex` alone a render job's delivery.
 
 ### Added
 
@@ -301,8 +302,9 @@ every addition.
   Each stage's result is checkpointed, then delivered to your `IGenerationArtifactSink` as the stage finishes, so a
   later failure loses nothing already paid for and a sink that throws gets it again with no second render, fetch
   or charge — except a result over `GenerationPipelineJobOptions.MaxCheckpointBytes` (4 MiB), or a crash in the
-  instant before that checkpoint. Deliveries carry the new `GenerationArtifactDelivery.StageIndex` and `IsFinal` —
-  true, the default, on a render job's delivery. A stage chains its predecessor's single artifact, or the one its
+  instant between a backend answering and the checkpoint that records it (a queued stage is then submitted
+  again). Deliveries carry the new `GenerationArtifactDelivery.StageIndex` and `IsFinal` — true, the default, on a
+  render job's delivery. A stage chains its predecessor's single artifact, or the one its
   `InputMediaType` names (`image/png`, `model/*`); zero or several fail the job, and so does a chained artifact
   over the cap. Register it with `AddJobHandler<GenerationPipelineJobHandler>()`; the README's generation section
   has the recipe. `RunPipelineAsync` is unchanged, and still inline only.
@@ -317,7 +319,9 @@ every addition.
   where both kinds carried none: a refusal the routing policy surfaced carries the verdict it was surfaced for, and
   one no candidate accepted carries the verdict `GenerateAsync` would report for the same run — the first
   substantive rejection's, else the first blameless one's, else `RateLimited` when every candidate was on cooldown
-  and `Unsupported` when none could take it. `MediaSubmission.ProviderId` stays empty on both.
+  and `Unsupported` when none could take it. `MediaSubmission.ProviderId` stays empty on both. The budget and
+  rate-limit decorators refuse a submission with `Refused` and `RateLimited`, the verdicts their inline refusals
+  already report, so an over-budget or throttled pipeline stage is treated alike on either door.
 
 ### Fixed
 

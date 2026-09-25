@@ -284,11 +284,14 @@ What a backend implements:
   `AuthFailed`, because `AuthFailed` benches the backend for the cooldown window. The classifier DELEGATES its
   pattern corpus to `ProviderVerdictClassifier` and translates; never carry a second copy of "what does a 429 look
   like".
-- **Declaring `ProviderOperation.Queued` sends a pipeline stage to your submit path.** The pipeline job gives a
-  stage the door of its FIRST capable candidate, queued wherever that candidate declares `Queued` for the request
-  and implements `IMediaJobProvider` (**D181**) — so a backend declaring both doors is always driven through
-  submit → poll → fetch there. Declare only the doors you implement. **A failed submission's verdict now steers
-  it too**: `Unsupported` sends the stage to the other door's candidates, while a surfaced `Refused` ends it.
+- **Declaring `ProviderOperation.Queued` sends a pipeline stage to your submit path — but not always.** The
+  pipeline job gives a stage the door of its FIRST capable candidate, queued wherever that candidate declares
+  `Queued` for the request and implements `IMediaJobProvider` (**D181**). A backend declaring both doors is
+  therefore submitted when it leads the list, yet still asked INLINE in two cases: when an inline-only candidate
+  precedes it, the router's inline door reaches it in turn; and when the queued door is exhausted — its own
+  submission refused included — the fallback asks it inline. So declare only the doors you implement, and serve
+  each one honestly. **A failed submission's verdict steers the fallback**: `Unsupported` sends the stage to the
+  other door's candidates, while a surfaced `Refused` ends it.
 - **A submit whose outcome is UNKNOWN is `QueuedOperation.Inconclusive`, and is never re-submitted.** A
   backend that ANSWERS "no" can be retried elsewhere for free; a backend that never answered may already hold
   a billable render, and handing the same request to the next candidate buys the same generation twice. The

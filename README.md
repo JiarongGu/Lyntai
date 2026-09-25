@@ -1246,12 +1246,14 @@ var pipeline = new GenerationPipelineJob(
 await jobs.EnqueueAsync(new JobSpec("render", GenerationPipelineJobHandler.JobType, pipeline.ToJson()));
 ```
 
-**What a restart or a failing sink costs.** A queued stage is never submitted twice, and a stage's result is
-checkpointed before it is delivered, so a sink that throws gets the same artifacts again with no second render,
-fetch or charge. Two cases are paid for again: a result carrying more inline bytes than
-`GenerationPipelineJobOptions.MaxCheckpointBytes` (4 MiB), which is delivered without that checkpoint, and a
-crash in the instant between a render returning and its checkpoint. So store deliveries keyed on the job id AND
-`StageIndex`, a redelivery replacing what that key holds: the latest is the one the next stage chained.
+**What a restart or a failing sink costs.** A queued stage's operation id is checkpointed before its first poll,
+so a restart polls that render rather than submitting another, and a stage's result is checkpointed before it is
+delivered, so a sink that throws gets the same artifacts again with no second render, fetch or charge. Three
+cases are paid for again: a crash in the instant between a submission returning and its operation id being saved,
+which submits again on resume; a crash between a render returning and its checkpoint; and a result carrying more
+inline bytes than `GenerationPipelineJobOptions.MaxCheckpointBytes` (4 MiB), which is delivered without that
+checkpoint. So store deliveries keyed on the job id AND `StageIndex`, a redelivery replacing what that key holds:
+the latest is the one the next stage chained.
 
 A stage says which artifact it chains with `InputMediaType` (`"model/*"` picks a mesh out of its textures)
 where `RunPipelineAsync` takes a delegate, because a delegate does not survive a restart. That artifact must fit

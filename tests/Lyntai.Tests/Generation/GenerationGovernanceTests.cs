@@ -257,6 +257,21 @@ public class GenerationGovernanceTests
         Assert.Equal(0, backend.SubmitCalls);
     }
 
+    [Fact]
+    public async Task An_over_budget_submission_carries_the_verdict_its_inline_refusal_reports()
+    {
+        // one gate, one verdict on both doors — so a durable pipeline treats the refusal the same way on either
+        var backend = new FakeGenerationJobProvider { Id = "video" };
+        var (router, tracker) = Budgeted(backend, options => options.Budget.MaxCostUsd = 1.0);
+        await tracker.RecordAsync("default", new Lyntai.Inference.ProviderUsage(0, 0, 2.0));
+
+        var inline = await router.GenerateAsync(Order("video"), Video);
+        var submission = await router.SubmitAsync(Order("video"), Video);
+
+        Assert.Equal(ProviderVerdict.Refused, inline.Verdict);
+        Assert.Equal(inline.Verdict, submission.Operation.Verdict);
+    }
+
     // ---- throttling ----------------------------------------------------------------------------------
 
     [Fact]
@@ -272,6 +287,22 @@ public class GenerationGovernanceTests
         Assert.True(first.IsOk);
         Assert.Equal(ProviderVerdict.RateLimited, second.Verdict);
         Assert.Equal(1, backend.GenerateCalls);
+    }
+
+    [Fact]
+    public async Task A_throttled_submission_carries_the_verdict_its_inline_refusal_reports()
+    {
+        var backend = new FakeGenerationJobProvider { Id = "video" };
+        var limits = new RateLimitOptions { PermitsPerSecond = 1, Burst = 1, MaxWait = TimeSpan.Zero };
+        var router = new RateLimitedMediaRouter(Router([backend]), new TokenBucketRateLimiter(limits, () => FrozenNow));
+        await router.SubmitAsync(Order("video"), Video);                       // spends the one permit
+
+        var inline = await router.GenerateAsync(Order("video"), Video);
+        var submission = await router.SubmitAsync(Order("video"), Video);
+
+        Assert.Equal(ProviderVerdict.RateLimited, inline.Verdict);
+        Assert.Equal(inline.Verdict, submission.Operation.Verdict);
+        Assert.Equal(1, backend.SubmitCalls);
     }
 
     [Fact]
