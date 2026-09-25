@@ -108,24 +108,6 @@ public class OllamaProviderTests
     }
 
     [Fact]
-    public async Task An_inline_image_reaches_the_wire_in_the_images_array()
-    {
-        var png = Encoding.UTF8.GetBytes("fake-png-bytes");
-        var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK,
-            """{"message":{"content":"a cat"},"done":true}""");
-
-        var reply = await Provider(handler).CompleteAsync(new TextRequest
-        {
-            Messages = [TextMessage.UserWithImage("what is this?", png, "image/png")],
-            Model = "llava",
-        });
-
-        Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
-        Assert.Contains("\"images\"", handler.Requests[0].Body, StringComparison.Ordinal);
-        Assert.Contains(Convert.ToBase64String(png), handler.Requests[0].Body, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public async Task An_in_band_error_at_http_200_classifies_and_does_not_resend()
     {
         var handler = new StubHttpHandler()

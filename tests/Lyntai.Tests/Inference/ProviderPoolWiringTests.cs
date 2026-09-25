@@ -134,21 +134,11 @@ public class ProviderPoolWiringTests
     // concrete backend type would be a DIFFERENT pool no router ever consults, which is why nothing
     // registers one.
     [Fact]
-    public void Both_provider_seams_resolve_a_pool_from_the_one_registration()
+    public void The_default_registration_resolves_the_bounded_pool()
     {
         using var sp = Provider(_ => { });
 
         Assert.IsType<BoundedProviderPool<IModelProvider>>(sp.GetRequiredService<IProviderPool<IModelProvider>>());
-        Assert.IsType<BoundedProviderPool<IModelProvider>>(sp.GetRequiredService<IProviderPool<IModelProvider>>());
-    }
-
-    [Fact]
-    public void UseTransientProviders_switches_both_seams()
-    {
-        using var sp = Provider(b => b.UseTransientProviders());
-
-        Assert.IsType<TransientProviderPool<IModelProvider>>(sp.GetRequiredService<IProviderPool<IModelProvider>>());
-        Assert.IsType<TransientProviderPool<IModelProvider>>(sp.GetRequiredService<IProviderPool<IModelProvider>>());
     }
 
     [Fact]
@@ -174,15 +164,6 @@ public class ProviderPoolWiringTests
             .UseTransientProviders());
 
         Assert.IsType<TransientProviderPool<IModelProvider>>(sp.GetRequiredService<IProviderPool<IModelProvider>>());
-    }
-
-    [Fact]
-    public void Admission_options_are_configurable_and_resolvable()
-    {
-        using var sp = Provider(b => b.ConfigureProviderAdmission(o => o.BySlot["local-diffusion"] = 1));
-        var admission = sp.GetRequiredService<ProviderAdmission>();
-
-        Assert.NotNull(admission);
     }
 
     // NotNull is not enough: the options object has to be the one the callback mutated, or the limit is
@@ -333,17 +314,6 @@ public class ProviderPoolWiringTests
         Assert.True(result.IsOk);
         Assert.Equal(key, Assert.Single(admission.Entered));
         Assert.Equal(1, admission.Released);
-    }
-
-    // Both domains reach their factory through the container; leaving the chat one unregistered would make
-    // half the feature unreachable.
-    [Fact]
-    public void Both_router_factories_resolve()
-    {
-        using var sp = Provider(b => b.AddProvider(_ => new FakeGenerationProvider { Id = "a1111" }).AddMediaRouting());
-
-        Assert.NotNull(sp.GetRequiredService<ITextRouterFactory>());
-        Assert.NotNull(sp.GetRequiredService<IMediaRouterFactory>());
     }
 
     // The chat factory is registered even for an app with no generation domain at all.

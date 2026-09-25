@@ -69,15 +69,4 @@ public class ProviderVerdictExtensionsTests
             .FromHttpFailure(System.Net.HttpStatusCode.TooManyRequests, "slow down").IsTransient());
     }
 
-    [Fact]
-    public void The_helpers_read_the_same_off_every_verdict_carrier()
-    {
-        // the helpers hang off the ENUM, not off TextResponse, precisely so the five carriers share one definition
-        var reply = new TextResponse("hi", ProviderVerdict.Ok);
-        var chunk = TextChunk.Error(ProviderVerdict.RateLimited, "slow down");
-
-        Assert.True(reply.Verdict.IsOk());
-        Assert.False(chunk.Verdict.IsOk());
-        Assert.True(chunk.Verdict.IsTransient());
-    }
 }

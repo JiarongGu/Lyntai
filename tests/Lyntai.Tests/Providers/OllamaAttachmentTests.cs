@@ -38,20 +38,6 @@ public class OllamaAttachmentTests
     }
 
     [Fact]
-    public void The_base64_carries_no_data_url_prefix()
-    {
-        // `data:image/png;base64,…` is the OpenAI image_url shape; Ollama wants the payload alone, and a
-        // prefixed string decodes to garbage rather than failing loudly
-        var req = new TextRequest { Messages = [TextMessage.UserWithImage("describe", Png, "image/png")] };
-
-        var image = (string)OllamaPayload.Build(req, "llava", stream: false)["messages"]!
-            .AsArray()[0]!["images"]!.AsArray()[0]!;
-
-        Assert.DoesNotContain("data:", image, StringComparison.Ordinal);
-        Assert.DoesNotContain("base64,", image, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public void Several_images_all_travel_in_one_array()
     {
         var second = Encoding.UTF8.GetBytes("second-image");

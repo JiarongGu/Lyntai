@@ -113,9 +113,8 @@ public class TextRouterStreamTests
 
         var chunks = await Router(p1, p2).StreamAsync([new("p1"), new("p2")], Req).ToListAsync();
 
-        Assert.Equal("recovered",
-            string.Concat(chunks.Where(c => c.Kind == TextChunkKind.Content && c.Text.Length > 0).Select(c => c.Text)));
-        Assert.Equal(1, p2.StreamCalls); // the empty chunk didn't commit, so it fell over
+        Assert.Equal(["recovered"], chunks.Where(c => c.Kind == TextChunkKind.Content).Select(c => c.Text));
+        Assert.Equal(1, p2.StreamCalls); // the empty chunk didn't commit, so it fell over — and did not leak
     }
 
     [Fact] // L4: zero chunks = a contract-violating empty stream → Failed + fall over (not a silent end)

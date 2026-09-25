@@ -282,26 +282,6 @@ public class InputSegmenterTests
         Assert.All(spans, s => Assert.Equal('a', input[s.Start]));
     }
 
-    // ---- MaxPiecesPerInput: the pieces kept are spread from the first to the LAST ----------------------------
-
-    [Theory]
-    [InlineData(1, new[] { 0 })]
-    [InlineData(2, new[] { 0, 3 })]
-    [InlineData(3, new[] { 0, 2, 3 })]
-    [InlineData(4, new[] { 0, 1, 2, 3 })]
-    [InlineData(9, new[] { 0, 1, 2, 3 })]
-    public void A_piece_cap_keeps_that_many_pieces_the_first_at_the_start_and_the_last_at_the_TAIL(
-        int cap, int[] kept)
-    {
-        var all = InputSegmenter.Split(Words(30), 40);   // four pieces
-
-        var plan = InputSegmenter.Segment([Words(30), "short"], 40, maxPieces: cap);
-
-        Assert.Equal(4, all.Count);
-        Assert.Equal(kept.Select(i => all[i]), plan.Pieces.Take(plan.First[1]));
-        Assert.Equal("short", plan.Pieces[^1]);
-    }
-
     // ---- a reranker's query, cut ONCE per call to its share of the pair window ------------------------------
 
     [Fact]

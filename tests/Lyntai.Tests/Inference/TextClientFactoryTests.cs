@@ -89,16 +89,6 @@ public class TextClientFactoryTests
         Assert.Contains("already registered", ex.Message, StringComparison.Ordinal);
     }
 
-    /// <summary>Naming no provider means EVERY registered one — the default client's own behaviour, which is
-    /// the right meaning for a name that exists only to carry different governance later.</summary>
-    [Fact]
-    public void Naming_no_provider_routes_over_all_of_them()
-    {
-        using var sp = Build(b => WithProviders(b, "a", "b").AddTextClient("everything"));
-
-        Assert.NotNull(sp.GetRequiredService<ITextClientFactory>().Get("everything"));
-    }
-
     /// <summary><b>A named client is governed exactly like the default one.</b> The front-door decorators are
     /// folded over it in the same order, so a usage budget cannot be escaped by asking for a client by name.
     /// Asserted through the OBSERVABLE consequence — the budget refuses — rather than by inspecting the

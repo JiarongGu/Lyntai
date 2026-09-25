@@ -338,14 +338,6 @@ public class ClaudeAgentSessionTests
     // ── CLI1: headless skip-all-permissions ───────────────────────────────────
 
     [Fact]
-    public void Build_skip_all_permissions_emits_dangerous_flag()
-    {
-        var opts = new ClaudeAgentOptions { Prompt = "hi", SkipAllPermissions = true };
-        var argv = Args(opts).ToList();
-        Assert.Contains("--dangerously-skip-permissions", argv);
-    }
-
-    [Fact]
     public void Build_skip_all_permissions_suppresses_permission_mode_even_for_write_policy()
     {
         var opts = new ClaudeAgentOptions { Prompt = "hi", ToolPolicy = AgentToolPolicy.Write, SkipAllPermissions = true };

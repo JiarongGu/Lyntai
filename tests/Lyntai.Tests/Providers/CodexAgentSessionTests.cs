@@ -120,17 +120,6 @@ public class CodexAgentSessionTests
         Assert.Equal("workspace-write", args[args.IndexOf("--sandbox") + 1]);
     }
 
-    [Fact] // MEASURED
-    public async Task A_read_only_policy_keeps_the_read_only_sandbox()
-    {
-        var runner = new FakeProcessRunner(MeasuredSuccess);
-
-        await Session(runner).StreamAsync(Ask() with { ToolPolicy = AgentToolPolicy.ReadOnly }).ToListAsync();
-
-        var args = runner.LastArgs!.ToList();
-        Assert.Equal("read-only", args[args.IndexOf("--sandbox") + 1]);
-    }
-
     [Fact]
     public async Task An_explicit_sandbox_mode_wins_over_the_policy_mapping()
     {

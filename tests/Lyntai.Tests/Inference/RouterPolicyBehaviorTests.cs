@@ -194,27 +194,6 @@ public class RouterPolicyBehaviorTests
     }
 
     [Fact]
-    public async Task Streaming_empty_chunk_then_error_still_falls_over_without_leaking()
-    {
-        var options = new LyntaiOptions();
-        var p1 = new FakeTextProvider("p1")
-        {
-            StreamScript = _ => [TextChunk.Content(""), TextChunk.Error(ProviderVerdict.Failed, "cold")],
-        };
-        var p2 = new FakeTextProvider("p2")
-        {
-            StreamScript = _ => [TextChunk.Content("served by fallback"), TextChunk.Final()],
-        };
-
-        var chunks = new List<TextChunk>();
-        await foreach (var c in Router(options, null, p1, p2).StreamAsync([new("p1"), new("p2")], Req)) chunks.Add(c);
-
-        // no empty chunk from p1 leaked before p2's real content
-        Assert.Equal("served by fallback",
-            string.Concat(chunks.Where(c => c.Kind == TextChunkKind.Content).Select(c => c.Text)));
-    }
-
-    [Fact]
     public async Task Streaming_retry_then_advance_reconnects_the_same_candidate_pre_content()
     {
         var options = new LyntaiOptions();

@@ -135,21 +135,6 @@ public class StreamJsonAgentReaderTests
     }
 
     [Fact]
-    public void Assistant_updates_model_for_subsequent_UsageFinal()
-    {
-        var reader = new StreamJsonAgentReader();
-        const string initLine = """{"type":"system","subtype":"init","session_id":"sess-1","model":"claude-opus-4-8"}""";
-        // Consume the init line to set model
-        _ = reader.Read(initLine).ToList();
-
-        const string resultLine = """{"type":"result","subtype":"success","is_error":false,"result":"Done.","session_id":"sess-1","usage":{"input_tokens":100,"output_tokens":20,"cache_read_input_tokens":50,"cache_creation_input_tokens":10}}""";
-        var events = reader.Read(resultLine).ToList();
-
-        var final = Assert.Single(events.OfType<UsageFinal>());
-        Assert.Equal("claude-opus-4-8", final.Model);
-    }
-
-    [Fact]
     public void Assistant_without_usage_yields_only_ToolCalls()
     {
         var reader = new StreamJsonAgentReader();

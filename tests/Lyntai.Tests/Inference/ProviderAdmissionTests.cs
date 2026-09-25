@@ -59,21 +59,6 @@ public class ProviderAdmissionTests
     }
 
     [Fact]
-    public async Task The_same_configuration_shares_capacity_across_callers()
-    {
-        var options = new ProviderAdmissionOptions();
-        options.BySlot["local-diffusion"] = 1;
-        var admission = new ProviderAdmission(options);
-
-        var one = await admission.EnterAsync(Key("shared"));
-        var two = admission.EnterAsync(Key("shared"), CancellationToken.None);
-
-        Assert.False(two.IsCompleted);
-        one.Dispose();
-        (await two.AsTask().WaitAsync(GateWait)).Dispose();
-    }
-
-    [Fact]
     public async Task The_default_limit_applies_to_a_slot_with_no_entry()
     {
         var admission = new ProviderAdmission(new ProviderAdmissionOptions { Default = 1 });

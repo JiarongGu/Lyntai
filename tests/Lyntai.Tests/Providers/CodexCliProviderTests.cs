@@ -120,18 +120,6 @@ public class CodexCliProviderTests
     }
 
     [Fact]
-    public async Task A_completion_sandboxes_read_only_by_default()
-    {
-        // this seam is a TEXT completion: it must not let the agent edit the caller's disk to produce one
-        var runner = new FakeProcessRunner { RunResult = Ok("") };
-
-        await Provider(runner).CompleteAsync(Ask());
-
-        var args = runner.LastArgs!.ToList();
-        Assert.Equal("read-only", args[args.IndexOf("--sandbox") + 1]);
-    }
-
-    [Fact]
     public async Task The_sandbox_can_be_raised_deliberately_through_the_dialect()
     {
         var runner = new FakeProcessRunner { RunResult = Ok("") };

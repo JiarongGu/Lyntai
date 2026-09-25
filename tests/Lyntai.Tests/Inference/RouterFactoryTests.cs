@@ -35,6 +35,7 @@ public class RouterFactoryTests
 
         Assert.True(result.IsOk);
         Assert.Equal(1, backend.GenerateCalls);
+        Assert.Equal(1, pool.Statistics.Created);   // a single registration is not tripped by the duplicate check
     }
 
     [Fact]
@@ -162,20 +163,6 @@ public class RouterFactoryTests
         Assert.Equal(1, secondary.GenerateCalls);
         Assert.Equal(0, primary.GenerateCalls);
         Assert.Equal(2, pool.Statistics.Created);
-    }
-
-    // The single-registration path is the common one and must not have grown a cost or a false positive.
-    [Fact]
-    public async Task A_single_registration_is_unaffected_by_the_duplicate_check()
-    {
-        var pool = new BoundedProviderPool<IModelProvider>();
-        var backend = new FakeGenerationProvider { Id = "a1111" };
-
-        var router = Factory(pool).For([new ProviderRegistration<IModelProvider>(Key("a"), () => backend)]);
-        var result = await router.GenerateAsync([new ProviderCandidate("a1111")], Request());
-
-        Assert.True(result.IsOk);
-        Assert.Equal(1, pool.Statistics.Created);
     }
 
     // The instance overload never touches the pool, so it is not subject to the check at all — a caller

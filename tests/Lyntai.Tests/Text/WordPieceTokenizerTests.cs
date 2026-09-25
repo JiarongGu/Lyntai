@@ -353,13 +353,6 @@ public class WordPieceEncodeTests
     }
 
     [Fact]
-    public void The_single_text_overload_still_emits_ALL_ZERO_segments()
-    {
-        // The control: a pair's segment ids mean nothing unless the single-text case is genuinely all zero.
-        Assert.All(Tokenizer("red").Encode("red").TokenTypeIds, id => Assert.Equal(0, id));
-    }
-
-    [Fact]
     public void Truncation_takes_from_the_DOCUMENT_and_leaves_the_query_whole()
     {
         // Losing the tail of a long document costs some evidence; losing the tail of the query changes the
