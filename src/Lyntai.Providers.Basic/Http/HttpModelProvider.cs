@@ -135,35 +135,30 @@ public sealed class HttpModelProvider : IModelProvider, IVectorProvider, IScoreP
     public bool IsAvailable => !string.IsNullOrWhiteSpace(_config.BaseUrl);
 
     /// <inheritdoc/>
-    /// <exception cref="NotSupportedException">This registration does not produce vectors. A router checks
-    /// <see cref="Capabilities"/> first, so only a caller that ignored them reaches this.</exception>
+    /// <remarks>A registration that does not produce vectors answers <see cref="ProviderVerdict.Unsupported"/>
+    /// — a router checks <see cref="Capabilities"/> first, so only a direct caller sees it.</remarks>
     public Task<VectorResponse> CallAsync(VectorRequest request, CancellationToken ct = default) =>
-        (_embeddings ?? throw new NotSupportedException(
-            $"{_id} produces {_config.Produces}, not {ProviderKinds.Vector} — an embedding model is its own "
-            + "backend, registered with Produces = ProviderKinds.Vector."))
-        .CallAsync(request, ct);
+        _embeddings?.CallAsync(request, ct) ?? Task.FromResult(VectorResponse.Failure(
+            ProviderVerdict.Unsupported, WrongKindCall.Detail(_id, _config.Produces, ProviderKinds.Vector)));
 
     /// <inheritdoc/>
-    /// <exception cref="NotSupportedException">This registration does not produce scores. A router checks
-    /// <see cref="Capabilities"/> first, so only a caller that ignored them reaches this.</exception>
+    /// <remarks>A registration that does not produce scores answers <see cref="ProviderVerdict.Unsupported"/>
+    /// — a router checks <see cref="Capabilities"/> first, so only a direct caller sees it.</remarks>
     public Task<ScoreResponse> CallAsync(ScoreRequest request, CancellationToken ct = default) =>
-        (_rerank ?? throw new NotSupportedException(
-            $"{_id} produces {_config.Produces}, not {ProviderKinds.Score} — a reranker is its own backend, "
-            + "registered with Produces = ProviderKinds.Score."))
-        .CallAsync(request, ct);
+        _rerank?.CallAsync(request, ct) ?? Task.FromResult(ScoreResponse.Failure(
+            ProviderVerdict.Unsupported, WrongKindCall.Detail(_id, _config.Produces, ProviderKinds.Score)));
 
     /// <inheritdoc/>
+    /// <remarks>A registration that does not produce text answers <see cref="ProviderVerdict.Unsupported"/>.</remarks>
     public Task<TextResponse> CompleteAsync(TextRequest req, CancellationToken ct = default) =>
-        Chat().CompleteAsync(req, ct);
+        _chat?.CompleteAsync(req, ct) ?? Task.FromResult(new TextResponse("", ProviderVerdict.Unsupported,
+            Detail: WrongKindCall.Detail(_id, _config.Produces, ProviderKinds.Text)));
 
     /// <inheritdoc/>
-    /// <remarks>True tool-call streaming since 3.0: the stream assembles the vendor's fragmented tool-call
-    /// deltas and yields complete calls as <see cref="TextChunkKind.ToolCall"/> chunks.</remarks>
+    /// <remarks>The stream assembles the vendor's fragmented tool-call deltas and yields complete calls as
+    /// <see cref="TextChunkKind.ToolCall"/> chunks. A registration that does not produce text answers one
+    /// <see cref="ProviderVerdict.Unsupported"/> error chunk.</remarks>
     public IAsyncEnumerable<TextChunk> StreamAsync(TextRequest req, CancellationToken ct = default) =>
-        Chat().StreamAsync(req, ct);
-
-    private HttpChatEngine Chat() => _chat
-        ?? throw new NotSupportedException(
-            $"{_id} produces {_config.Produces}, not {ProviderKinds.Text} — a chat model is its own "
-            + "backend, registered with Produces = ProviderKinds.Text.");
+        _chat?.StreamAsync(req, ct)
+        ?? WrongKindCall.Stream(WrongKindCall.Detail(_id, _config.Produces, ProviderKinds.Text));
 }
