@@ -35,7 +35,7 @@ namespace Lyntai.Memory.Engines;
 /// own <see cref="IMemoryAgePolicy.Kind"/>, and this engine honours it: a <see cref="MemoryAgeKind.Derivable"/>
 /// policy's retrievability-facing age is projected from the primitives (<see cref="GraphNode.AgeSample"/>);
 /// an <see cref="MemoryAgeKind.Accumulating"/> one's comes from the store's own <c>Advance</c>-driven
-/// accumulator (<see cref="GraphNode.Age"/>) — see <see cref="ResolvedAge"/>.</param>
+/// accumulator (<see cref="GraphNode.Age"/>).</param>
 /// <param name="ageComposition">How several coexisting age policies combine into one tick and one age; null
 /// takes <see cref="SummedAgeCompositionPolicy"/>. Irrelevant when only one policy is registered — composing a
 /// singleton is the identity.</param>
@@ -119,9 +119,10 @@ public sealed class GraphMemoryEngine(
     private readonly IMemoryRetrievabilityPolicy _policy =
         ValidatedRetrievability(Modulate(retrievability ?? new DsrRetrievability(),
             retentionPolicies, retentionComposition));
-    private readonly IReadOnlyList<IMemoryAgePolicy> _agePolicies = NormalizeAgePolicies(agePolicies);
-    private readonly IMemoryAgeCompositionPolicy _ageComposition = ageComposition ?? new SummedAgeCompositionPolicy();
+    private readonly MemoryAgeResolver _age = new(agePolicies, ageComposition);
     private readonly ILogger _logger = logger ?? NullLogger<GraphMemoryEngine>.Instance;
+    private readonly GraphVectorProjection _vectors = new(name, providers, vectors, routing,
+        logger ?? (ILogger)NullLogger<GraphMemoryEngine>.Instance);
     private readonly IReadOnlyList<IMemorySaliencePolicy> _saliencePolicies =
         NormalizeSaliencePolicies(saliencePolicies);
     private readonly IMemorySalienceCompositionPolicy _salienceComposition =
@@ -182,29 +183,6 @@ public sealed class GraphMemoryEngine(
                 + "curve alone.", nameof(retentionPolicies));
 
         return new ModulatedRetrievability(inner, list, composition);
-    }
-
-    /// <summary>Null or empty takes a single burst-damped per-write age policy — the engine's default.
-    /// <para><b>Rejects a second <see cref="MemoryAgeKind.Accumulating"/> policy.</b> The
-    /// store's position accumulator is ONE number; two path-dependent quantities cannot share it without one
-    /// silently overwriting or blending into the other, and a silent sum is exactly the quiet wrongness this
-    /// domain refuses everywhere else (see <see cref="RememberAsync"/>'s own remarks on why only an
-    /// Accumulating tick's Position ever reaches the accumulator).</para></summary>
-    private static IReadOnlyList<IMemoryAgePolicy> NormalizeAgePolicies(
-        IEnumerable<IMemoryAgePolicy>? agePolicies)
-    {
-        var list = agePolicies?.ToList() ?? [];
-        if (list.Count == 0) return [new BurstDampenedAgePolicy(new PerWriteAgePolicy())];
-
-        var accumulating = list.Count(c => c.Kind == MemoryAgeKind.Accumulating);
-        if (accumulating > 1)
-            throw new ArgumentException(
-                $"{accumulating} Accumulating age policies were registered ({string.Join(", ", list
-                    .Where(c => c.Kind == MemoryAgeKind.Accumulating).Select(c => c.GetType().Name))}); " +
-                "at most one is supported. The store's position accumulator is a single number, and two " +
-                "path-dependent (Accumulating) policies cannot share it without silently blending their " +
-                "distinct histories together.", nameof(agePolicies));
-        return list;
     }
 
     /// <summary>Null or empty takes a single <see cref="StructuralSaliencePolicy"/> — the engine's default.
@@ -289,11 +267,7 @@ public sealed class GraphMemoryEngine(
         return policy;
     }
 
-    // The VECTOR STORE is checked first deliberately: it is a null test, where `CanEmbed` walks the
-    // registered backends and asks each whether it is available — which for a CLI backend resolves a
-    // command on PATH. This property is read on every write and every recall, so the cheap half leads and
-    // an engine with no vector store never pays for the other one at all.
-    private bool Enriches => vectors is not null && EmbeddingRouting.CanEmbed(providers);
+    private bool Enriches => _vectors.Enriches;
 
     /// <summary>This engine embeds every write and no recall reads those vectors — a vector backend and a vector
     /// store are wired, so novelty and similarity linking run on the WRITE path, while no
@@ -351,13 +325,13 @@ public sealed class GraphMemoryEngine(
                 ? write.Content
                 : MemoryHeadline.Derive(write.Content, _options.HeadlineChars));
 
-        var tick = AdvanceAgePolicies(write);
+        var tick = _age.Advance(write, Name);
 
         // ONE embed, ONE similarity search, shared between salience judgement (which needs the comparison before
         // the node has an id) and EnrichAsync below (linking + indexing, which needs it after). Without a
         // vector store there is nothing to compare against, so nothing is judged or linked — the honest
         // answer, not a degraded one.
-        var search = await SearchAsync(write, ct).ConfigureAwait(false);
+        var search = await _vectors.SearchAsync(write, _options.SimilarityK, ct).ConfigureAwait(false);
         var (signals, salienceProvenance) = CollectSignals(write, Probe(write, search, _options.MinSimilarity));
 
         var id = await store.UpsertAsync(
@@ -467,64 +441,7 @@ public sealed class GraphMemoryEngine(
         }
     }
 
-    /// <summary>The one embed and similarity search a write needs, shared by <see cref="Probe"/> (novelty,
-    /// before the node has an id) and <see cref="EnrichAsync"/> (linking + indexing, after) — a vector backend
-    /// that bills a network call per invocation is paid ONCE per write, never twice for one.
-    /// <para>Null when nothing is enriched (no vector backend/vector store wired, or
-    /// <see cref="GraphMemoryOptions.SimilarityK"/> is non-positive) or when the EMBED fails. A failed SEARCH
-    /// keeps the vector with no neighbours, so the write is still indexed — pgvector stores a vector of any
-    /// dimension but cannot compare two of different ones, so after a model swap a rebuild converges only this
-    /// way. Both BEST-EFFORT, like the enrichment they back: a failing vector backend must not fail the
-    /// write.</para>
-    /// <para>Searches <see cref="GraphMemoryOptions.SimilarityK"/> + 1 because, on a re-remember, this
-    /// write's own PRIOR vector — from the earlier write of identical content — is still sitting in the
-    /// collection (its replacement is written only once <see cref="EnrichAsync"/> knows the id) and would
-    /// otherwise occupy a slot a genuine neighbour should have. <see cref="Probe"/> and
-    /// <see cref="EnrichAsync"/> both exclude that self-match by CONTENT — the store's own dedup key —
-    /// rather than by id. <see cref="Probe"/> runs before this write has an id at all, so id-equality is
-    /// simply unavailable there. <b>On a refresh, the reused id would ALSO identify the self-match inside
-    /// <see cref="EnrichAsync"/></b> — that id's own prior vector is already indexed under it from the
-    /// earlier write — so id-equality is not wrong there, only insufficient on its own: content is the ONE
-    /// rule that works at both call sites, so both use it, rather than each guessing its own definition of
-    /// "self".</para></summary>
-    private async Task<(float[] Vector, IReadOnlyList<VectorMatch> Near)?> SearchAsync(MemoryWrite write,
-        CancellationToken ct)
-    {
-        if (!Enriches || _options.SimilarityK <= 0) return null;
-        float[] vector;
-        try
-        {
-            vector = await EmbeddingRouting.EmbedOneAsync(
-                providers, write.Content, EmbeddingRole.Document, _logger, routing,
-                ProviderConsumers.Memory, ct).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex,
-                "embedding failed for {Engine}; storing without its vector, signals or links", Name);
-            return null;
-        }
-
-        try
-        {
-            var near = await vectors!
-                .SearchAsync(VectorCollection(write.TaskKey, write.Scope), vector, _options.SimilarityK + 1, ct)
-                .ConfigureAwait(false);
-            return (vector, near);
-        }
-        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
-        catch (Exception ex)
-        {
-            // no neighbours is exactly what Probe reads as "nothing to judge against", so salience declines
-            // as it would with no search at all — only the index still gets the vector
-            _logger.LogWarning(ex,
-                "similarity search failed for {Engine}; storing without signals or links", Name);
-            return (vector, []);
-        }
-    }
-
-    /// <summary>What this write can be judged against, from the shared <see cref="SearchAsync"/> result —
+    /// <summary>What this write can be judged against, from the write's one similarity search —
     /// how unlike its nearest neighbours it is, and how many neighbours there were to compare with, once
     /// this write's own PRIOR vector (identical content, an earlier write) is excluded. Without that
     /// exclusion a re-remember would find itself at cosine ≈ 1, be judged as minimally novel, and (via
@@ -600,28 +517,15 @@ public sealed class GraphMemoryEngine(
     {
         if (search is null) return false;
         var (vector, near) = search.Value;
-        var collection = VectorCollection(write.TaskKey, write.Scope);
-        var indexed = false;
-        try
-        {
-            await vectors!
-                .UpsertAsync(collection, id.ToString(CultureInfo.InvariantCulture), vector, write.Content, ct)
-                .ConfigureAwait(false);
-            indexed = true;
-        }
-        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex,
-                "similarity enrichment failed for {Engine}; the entry is stored without its vector", Name);
-        }
+        // the index first, in its own block: a failed link must cost links, never the vector (D175)
+        var indexed = await _vectors.IndexAsync(id, write, vector, ct).ConfigureAwait(false);
 
         try
         {
             foreach (var match in near)
             {
                 // this write's own PRIOR vector, from an earlier remember of identical content — never a
-                // neighbour of itself; see the note on SearchAsync
+                // neighbour of itself (the search asked for one extra slot for it)
                 if (string.Equals(match.Payload, write.Content, StringComparison.Ordinal)) continue;
                 if (match.Score < _options.MinSimilarity) continue;
                 if (!long.TryParse(match.Id, NumberStyles.Integer, CultureInfo.InvariantCulture, out var other))
@@ -685,7 +589,7 @@ public sealed class GraphMemoryEngine(
         var verdict = await VerifyAsync(query.Query ?? string.Empty,
             [.. ordinary.Take(depth)], ct).ConfigureAwait(false);
 
-        ordinary = ApplyVerdict(ordinary, verdict);
+        ordinary = MemoryVerdicts.Apply(ordinary, verdict, _options.VerdictCombination);
 
         // Ordinary material leads, in the policy's order, then the reserved exact facts — the same
         // "matches lead, exact facts take the low end" shape the store's own merge uses, so the two agree.
@@ -784,36 +688,6 @@ public sealed class GraphMemoryEngine(
         var reservedIds = reserved.Select(r => r.Candidate.Node.Id).ToHashSet();
 
         return (reserved, ranked.Where(r => !reservedIds.Contains(r.Candidate.Node.Id)).ToList());
-    }
-
-    /// <summary>The verifier's one bit, folded into the ranking the cut will read.</summary>
-    private List<RankedMemory> ApplyVerdict(
-        List<RankedMemory> ordinary, MemoryVerification verdict)
-    {
-        // A judged-relevant candidate is PROMOTED to the front, keeping the policy's relative order among
-        // promoted and among demoted alike — the verifier is asked which entries answered, never to invent
-        // a total ordering, so its verdict reorders in one bit rather than replacing the ranking wholesale.
-        //
-        // `VerdictCombination` decides whether that promotion is absolute (Partition, the default) or has to
-        // COMPETE with the ranking's own order (Fuse). The partition's cost scales with how many candidates
-        // the judge endorses, and the option's own doc carries the measurement.
-        if (!verdict.Judged || verdict.RelevantIds.Count == 0) return ordinary;
-
-        var relevant = verdict.RelevantIds.ToHashSet(StringComparer.Ordinal);
-        bool IsRelevant(RankedMemory r) =>
-            relevant.Contains(r.Candidate.Node.Id.ToString(CultureInfo.InvariantCulture));
-
-        // Both arms start from the SAME promoted ordering, which is what makes `Fuse` a blend of the two
-        // rankings rather than a third one: it is the partition's own result, competing on rank against
-        // the order the policy produced.
-        var promoted = new List<RankedMemory>(ordinary.Count);
-        promoted.AddRange(ordinary.Where(IsRelevant));
-        promoted.AddRange(ordinary.Where(r => !IsRelevant(r)));
-
-        return _options.VerdictCombination
-                == MemoryVerdictCombination.Fuse
-            ? FuseVerdict(ordinary, promoted)
-            : promoted;
     }
 
     /// <summary>Record what a recall produced — reinforcing what the verdict endorsed, logging everything it
@@ -966,12 +840,12 @@ public sealed class GraphMemoryEngine(
     /// <remarks>
     /// <para><b>Two paths, chosen by whether the store's raw accumulator is provably what
     /// <see cref="Retrievability"/> reads.</b> With every registered
-    /// <see cref="IMemoryAgePolicy"/> <see cref="MemoryAgeKind.Accumulating"/> (at most one, per
-    /// <c>NormalizeAgePolicies</c>) — including the engine's shipped default — <see cref="ResolvedAge"/> reads
-    /// <see cref="GraphNode.Age"/> directly, so the store's own cheap, SQL-side
+    /// <see cref="IMemoryAgePolicy"/> <see cref="MemoryAgeKind.Accumulating"/> (at most one is allowed) —
+    /// including the engine's shipped default — the resolved age IS
+    /// <see cref="GraphNode.Age"/>, so the store's own cheap, SQL-side
     /// <see cref="IMemoryGraphStore.PruneAsync"/> stays EXACT and is what runs.</para>
     /// <para>With ANY <see cref="MemoryAgeKind.Derivable"/> policy registered, the accumulator can diverge
-    /// from <see cref="ResolvedAge"/> — most sharply after a policy SWAP over pre-existing data, where the
+    /// from the resolved age — most sharply after a policy SWAP over pre-existing data, where the
     /// accumulator still carries residue built up under whichever policy governed each historical write,
     /// while a Derivable policy's own projection re-derives fresh from the swap-safe primitives every time.
     /// The store never evaluates a curve, so this method does what <see cref="RecallAsync"/> already does —
@@ -981,8 +855,8 @@ public sealed class GraphMemoryEngine(
     /// faintness bound of its own, so a sufficiently large <c>limit</c> is a full scope scan, oldest entries
     /// included.</para>
     /// <para><b>That path is EXACT on BOTH age axes, not just one.</b> A store tracks the per-edge age
-    /// primitives too (<see cref="GraphNode.StrengthAgeSample"/>), so <see cref="ResolvedStrengthAge"/>
-    /// projects the connection axis in the installed policy's own unit and no connected entry is exempt from
+    /// primitives too (<see cref="GraphNode.StrengthAgeSample"/>), so the resolver projects the connection
+    /// axis in the installed policy's own unit and no connected entry is exempt from
     /// deletion. Still deliberately more expensive than the cheap path: pruning is periodic maintenance, not
     /// a hot path.</para>
     /// </remarks>
@@ -996,7 +870,7 @@ public sealed class GraphMemoryEngine(
         // method alone. A floor of 0 is the opt-out: retrievability is never below zero.
         var floorValue = minRetrievability ?? _options.MinRetrievability;
 
-        if (!_agePolicies.Any(c => c.Kind == MemoryAgeKind.Derivable))
+        if (!_age.AnyDerivable)
             return await PruneInStoreAsync(taskKey, scope, floorValue, olderThan, ct).ConfigureAwait(false);
 
         var createdBefore = olderThan is null ? (DateTimeOffset?)null : _clock() - olderThan.Value;
@@ -1006,7 +880,7 @@ public sealed class GraphMemoryEngine(
         var doomed = candidates
             .Where(n => n.Grade != MemoryGrade.Authoritative) // never eligible — retrievability fixed at 1
             .Where(n =>
-                // both age axes are now resolved through the installed policies (ResolvedState), so a
+                // both age axes are resolved through the installed policies (ResolvedState), so a
                 // connected entry's boost is computed in the same unit as its age and the retrievability
                 // criterion is exact for it — no connected-entry carve-out remains
                 (floorValue > 0 && Retrievability(n) < floorValue) ||
@@ -1016,7 +890,7 @@ public sealed class GraphMemoryEngine(
         if (doomed.Count == 0) return 0;
 
         var count = await store.DeleteAsync(Name, [.. doomed.Select(n => n.Id)], ct).ConfigureAwait(false);
-        await RemoveVectorsAsync(doomed, ct).ConfigureAwait(false);
+        await _vectors.RemoveAsync(doomed, ct).ConfigureAwait(false);
         return count;
     }
 
@@ -1033,7 +907,7 @@ public sealed class GraphMemoryEngine(
         TimeSpan? olderThan, CancellationToken ct)
     {
         double? cutoff = floorValue > 0 ? _policy.CandidateCutoff(floorValue) : null;
-        if (vectors is null)
+        if (!_vectors.Wired)
             return await store.PruneAsync(Name, taskKey, scope, cutoff, olderThan, ct).ConfigureAwait(false);
 
         var before = await store.SeedAsync(Name, taskKey, scope, query: null, limit: int.MaxValue, ct)
@@ -1045,7 +919,7 @@ public sealed class GraphMemoryEngine(
         var surviving = (await store.SeedAsync(Name, taskKey, scope, query: null, limit: int.MaxValue, ct)
             .ConfigureAwait(false)).Select(n => n.Id).ToHashSet();
 
-        await RemoveVectorsAsync([.. before.Where(n => !surviving.Contains(n.Id))], ct).ConfigureAwait(false);
+        await _vectors.RemoveAsync([.. before.Where(n => !surviving.Contains(n.Id))], ct).ConfigureAwait(false);
         return count;
     }
 
@@ -1063,86 +937,12 @@ public sealed class GraphMemoryEngine(
     /// <param name="ct">Cancellation.</param>
     public async Task ForgetAsync(string taskKey, string? scope = null, CancellationToken ct = default)
     {
-        await ForgetVectorsAsync(taskKey, scope, ct).ConfigureAwait(false);
+        await _vectors.ForgetAsync(taskKey, scope, async () =>
+                (await store.SeedAsync(Name, taskKey, scope: null, query: null, limit: int.MaxValue, ct)
+                    .ConfigureAwait(false)).Select(n => n.Scope).Distinct(StringComparer.Ordinal),
+            ct).ConfigureAwait(false);
         await store.ForgetAsync(Name, taskKey, scope, ct).ConfigureAwait(false);
     }
-
-    /// <summary>Drop the similarity-index collections a <see cref="ForgetAsync"/> is erasing.
-    /// <para>An unscoped forget drops the collection of every scope the task's nodes name, and — over an
-    /// <see cref="IListableVectorStore"/> — every collection under this engine and task's
-    /// <see cref="MemoryVectorCollection.PrefixFor"/>, which also reaches an ORPHAN whose nodes an earlier
-    /// partial failure already removed. The prefix matches no other task (its separator is one no key carries,
-    /// see <see cref="MemoryVectorCollection"/>). A store that cannot list still gets every derived address,
-    /// so a consent withdrawal never depends on the optional member.</para></summary>
-    private async Task ForgetVectorsAsync(string taskKey, string? scope, CancellationToken ct)
-    {
-        // `vectors`, not `Enriches`: an engine whose vector backend was removed still has to erase what an earlier
-        // configuration indexed.
-        if (vectors is null) return;
-
-        if (scope is not null)
-        {
-            // A named scope is an exact address, so dropping the whole collection also clears any orphan in
-            // it — strictly more complete than deleting the ids that happen to still exist.
-            await vectors.RemoveCollectionAsync(VectorCollection(taskKey, scope), ct).ConfigureAwait(false);
-            return;
-        }
-
-        var nodes = await store.SeedAsync(Name, taskKey, scope: null, query: null, limit: int.MaxValue, ct)
-            .ConfigureAwait(false);
-
-        var collections = new HashSet<string>(
-            nodes.Select(n => VectorCollection(taskKey, n.Scope)), StringComparer.Ordinal);
-        if (vectors is IListableVectorStore listable)
-            collections.UnionWith(await listable
-                .ListCollectionsAsync(MemoryVectorCollection.PrefixFor(Name, taskKey), ct).ConfigureAwait(false));
-
-        foreach (var collection in collections)
-        {
-            ct.ThrowIfCancellationRequested();
-            await vectors.RemoveCollectionAsync(collection, ct).ConfigureAwait(false);
-        }
-    }
-
-    /// <summary>Delete the vector payloads of nodes a PRUNE removed, keyed on each node's OWN task and scope
-    /// so a scope-spanning call reaches every collection it touched.
-    /// <para><b>BEST-EFFORT, unlike <see cref="ForgetVectorsAsync"/>, and the asymmetry runs all the way
-    /// through.</b> A prune clears the index AFTER the store, so by the time this can fail the nodes are
-    /// already gone: throwing would lose the COUNT and leave the caller unable to tell that the prune had in
-    /// fact succeeded. The honest degradation is an orphaned vector — which is precisely the state every
-    /// prune left behind before this existed — and <see cref="IPrunableMemory.PruneAsync"/> is best-effort
-    /// capacity management by contract, where "removing fewer entries than hoped is a deferred cost rather
-    /// than a defect". A FORGET is the opposite on every axis: index first, and a failure must surface.</para>
-    /// <para>Cancellation still propagates: that is the caller leaving, not a store fault.</para></summary>
-    private async Task RemoveVectorsAsync(IReadOnlyList<GraphNode> removed, CancellationToken ct)
-    {
-        if (vectors is null || removed.Count == 0) return;
-
-        try
-        {
-            foreach (var node in removed)
-            {
-                ct.ThrowIfCancellationRequested();
-                await vectors
-                    .DeleteAsync(VectorCollection(node.TaskKey, node.Scope),
-                        node.Id.ToString(CultureInfo.InvariantCulture), ct)
-                    .ConfigureAwait(false);
-            }
-        }
-        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex,
-                "similarity index cleanup failed for {Engine}; {Count} entr(ies) were removed from the store "
-                + "and their vectors remain as orphans", Name, removed.Count);
-        }
-    }
-
-    /// <summary>This engine's similarity-index address for one (task, scope). The shape itself belongs to
-    /// <see cref="MemoryVectorCollection"/>, which the read side uses too — one spelling, because two is how
-    /// a removal quietly misses the collection a write created.</summary>
-    private string VectorCollection(string taskKey, string scope) =>
-        MemoryVectorCollection.For(Name, taskKey, scope);
 
     /// <summary>Clamp one component of a composed <see cref="MemoryTick"/> to something a store may keep.
     /// <para>Both components are PERSISTED, and a bare <see cref="Math.Max(double,double)"/> propagates a BYO
@@ -1158,39 +958,6 @@ public sealed class GraphMemoryEngine(
     /// </summary>
     private static double Ordinary(double component) =>
         double.IsFinite(component) ? Math.Max(0, component) : 1;
-
-    /// <summary>The ONE tick <see cref="RememberAsync"/> hands the store — <see cref="ResolvedAge"/>'s
-    /// write-time counterpart.
-    /// <para><b>Encoding composes across EVERY registered policy, always</b> — it is multiplied once into
-    /// this write's <c>InitialStability</c> and never re-derived anywhere else, so composing every policy's
-    /// own judgment can never double-count, unlike Position.</para>
-    /// <para><b>Position composes across the ACCUMULATING policy alone when one is registered — never summed
-    /// with a Derivable policy's own tick.</b> A Derivable policy's contribution is already recorded EXACTLY,
-    /// unconditionally, in the three primitives (<see cref="GraphNode.AgeSample"/>) — writing its tick into
-    /// the accumulator TOO is precisely the double count <see cref="ResolvedAge"/> would then read a second
-    /// time. With no Accumulating policy registered (an all-Derivable configuration), Position composes
-    /// across every registered tick — <see cref="ResolvedAge"/> never reads <see cref="GraphNode.Age"/> in
-    /// that configuration at all, so there is nothing to double-count against.</para>
-    /// <para>Every registered policy's <see cref="IMemoryAgePolicy.Advance"/> is still called, unconditionally
-    /// — a STATEFUL policy (burst detection, "since this engine's own last write") needs its own per-engine
-    /// bookkeeping kept current regardless of whether its tick feeds the accumulator.</para></summary>
-    private MemoryTick AdvanceAgePolicies(MemoryWrite write)
-    {
-        var allTicks = new MemoryTick[_agePolicies.Count];
-        for (var i = 0; i < _agePolicies.Count; i++) allTicks[i] = _agePolicies[i].Advance(write, Name);
-
-        var encoding = _ageComposition.Advance(allTicks).Encoding;
-
-        var accumulatingTicks = new List<MemoryTick>(allTicks.Length);
-        for (var i = 0; i < _agePolicies.Count; i++)
-            if (_agePolicies[i].Kind == MemoryAgeKind.Accumulating) accumulatingTicks.Add(allTicks[i]);
-
-        var position = accumulatingTicks.Count > 0
-            ? _ageComposition.Advance(accumulatingTicks).Position
-            : _ageComposition.Advance(allTicks).Position;
-
-        return new MemoryTick(position, encoding);
-    }
 
     /// <summary>Resolves <see cref="MemoryQuery.RankingPolicyName"/> against this engine's own
     /// <see cref="_namedRanking"/> catalog — null takes <see cref="_ranking"/>, the engine's configured
@@ -1228,39 +995,11 @@ public sealed class GraphMemoryEngine(
     /// <see cref="Lyntai.Memory.Forgetting.DsrRetrievability"/> divides <c>Age</c> by an effective stability
     /// that <c>StrengthAge</c> itself lengthens — so resolving one and leaving the other as the store's raw
     /// accumulator mixes two units inside a single expression.</para></summary>
-    private MemoryDecayState ResolvedState(GraphNode node) =>
-        node.DecayState with { Age = ResolvedAge(node), StrengthAge = ResolvedStrengthAge(node) };
-
-    /// <summary>The composed CONNECTION age every registered <see cref="IMemoryAgePolicy"/> resolves
-    /// <paramref name="node"/> to — <see cref="ResolvedAge"/>'s exact counterpart, honouring each policy's own
-    /// <see cref="IMemoryAgePolicy.Kind"/> the same way: a <see cref="MemoryAgeKind.Derivable"/> policy
-    /// projects from <see cref="GraphNode.StrengthAgeSample"/>, an <see cref="MemoryAgeKind.Accumulating"/>
-    /// one reads the store's own <see cref="GraphNode.StrengthAge"/> accumulator.
-    /// <para><b>The engine's shipped default (one <see cref="BurstDampenedAgePolicy"/>, Accumulating)
-    /// therefore composes exactly <see cref="GraphNode.StrengthAge"/>, the store's own accumulator</b> —
-    /// the same guarantee <see cref="ResolvedAge"/> makes for the other axis.</para></summary>
-    private double ResolvedStrengthAge(GraphNode node) =>
-        _ageComposition.Age([.. _agePolicies.Select(c =>
-            c.Kind == MemoryAgeKind.Derivable ? c.Age(node.StrengthAgeSample) : node.StrengthAge)]);
-
-    /// <summary>The composed age every registered <see cref="IMemoryAgePolicy"/> resolves <paramref name="node"/>
-    /// to, honouring each policy's own declared <see cref="IMemoryAgePolicy.Kind"/> rather than reading
-    /// <see cref="GraphNode.Age"/> unconditionally:
-    /// <list type="bullet">
-    /// <item><see cref="MemoryAgeKind.Derivable"/> projects from the primitives
-    /// (<see cref="GraphNode.AgeSample"/>) — a pure function, so this is EXACTLY the age a fresh
-    /// <see cref="IMemoryAgePolicy.Advance"/>-replay would have produced.</item>
-    /// <item><see cref="MemoryAgeKind.Accumulating"/> reads <see cref="GraphNode.Age"/>, the store's own
-    /// <c>Advance</c>-driven accumulator — genuinely non-recomputable from the primitives (see
-    /// <see cref="BurstDampenedAgePolicy.Age"/>'s own remarks), so the stored value is read as it
-    /// stands.</item>
-    /// </list>
-    /// <b>The engine's shipped default (one <see cref="BurstDampenedAgePolicy"/>, Accumulating) therefore
-    /// composes a one-element list containing exactly <see cref="GraphNode.Age"/> — the store's own
-    /// accumulator, unchanged.</b></summary>
-    private double ResolvedAge(GraphNode node) =>
-        _ageComposition.Age([.. _agePolicies.Select(c =>
-            c.Kind == MemoryAgeKind.Derivable ? c.Age(node.AgeSample) : node.Age)]);
+    private MemoryDecayState ResolvedState(GraphNode node) => node.DecayState with
+    {
+        Age = _age.Compose(node.AgeSample, node.Age),
+        StrengthAge = _age.Compose(node.StrengthAgeSample, node.StrengthAge),
+    };
 
     /// <summary>An edge's weight after decay. The store orders by the RAW value as a cheap pre-sort and the
     /// curve is applied here, so a heavy but stale link falls below a lighter fresh one — which is what
@@ -1273,19 +1012,11 @@ public sealed class GraphMemoryEngine(
     private double EffectiveEdgeWeight(GraphNeighbour neighbour)
     {
         var halfLife = _options.EdgeHalfLife;
-        var age = ResolvedEdgeAge(neighbour);
+        var age = _age.Compose(neighbour.EdgeAgeSample, neighbour.EdgeAge);
         return age <= 0 || halfLife <= 0
             ? neighbour.EdgeWeight
             : neighbour.EdgeWeight * Math.Pow(2, -age / halfLife);
     }
-
-    /// <summary>The composed TRAVERSAL age every registered <see cref="IMemoryAgePolicy"/> resolves this edge
-    /// to — <see cref="ResolvedAge"/>'s and <see cref="ResolvedStrengthAge"/>'s counterpart for the edge that
-    /// actually reached a neighbour, honouring each policy's <see cref="IMemoryAgePolicy.Kind"/> the same
-    /// way.</summary>
-    private double ResolvedEdgeAge(GraphNeighbour neighbour) =>
-        _ageComposition.Age([.. _agePolicies.Select(c =>
-            c.Kind == MemoryAgeKind.Derivable ? c.Age(neighbour.EdgeAgeSample) : neighbour.EdgeAge)]);
 
     /// <summary>One gathered candidate: the entry, how far out it was reached, and which sources matched it
     /// at what rank. A hop neighbour carries <see cref="MemorySeedRanks.Empty"/>.</summary>
@@ -1416,89 +1147,11 @@ public sealed class GraphMemoryEngine(
             ranks.TryGetValue(f.Node.Id, out var r) ? new MemorySeedRanks(r) : MemorySeedRanks.Empty))];
     }
 
-    /// <summary>Blends the ranking's order with the verdict's by reciprocal rank, so an endorsement moves a
-    /// candidate up without entitling it to the page.
-    ///
-    /// <para><b>Every candidate carries a verdict rank — an unendorsed one is ranked LAST, never unranked.</b>
-    /// <c>MemoryVerification.RelevantIds</c> says why: an unlisted id is judged NOT to have answered, which is
-    /// a low rank rather than an absence. Scoring absence as zero makes the worst endorsement outscore the
-    /// best non-endorsement at every rank, which silently reproduces the partition this is an alternative
-    /// to.</para>
-    ///
-    /// <para>Ranks are positions, so this is independent of which ranking policy produced the order — the same
-    /// property that lets <c>ReciprocalRankFusionPolicy</c> combine sources that are not commensurable.</para>
-    /// </summary>
-    /// <param name="byPolicy">The ranking's own order.</param>
-    /// <param name="byVerdict">The same items, endorsed-first — the page the partition would have built.</param>
-    /// <remarks>The fusion constant is the SHIPPED DEFAULT of <see cref="ReciprocalRankFusionOptions.K"/>,
-    /// read from the type rather than restated as a literal, so changing that default moves both.
-    ///
-    /// <para><b>Deliberately not the consumer's configured value.</b> This fuses the RANKING's order with the
-    /// VERDICT's — a different pair of signals from the ones a <c>ReciprocalRankFusionPolicy</c> combines,
-    /// measured at this constant, and a knob nothing has priced; the same reasoning as <c>weight</c>
-    /// below.</para></remarks>
-    private static List<RankedMemory> FuseVerdict(
-        IReadOnlyList<RankedMemory> byPolicy, IReadOnlyList<RankedMemory> byVerdict)
-    {
-        var verdictRank = new Dictionary<long, int>(byVerdict.Count);
-        for (var i = 0; i < byVerdict.Count; i++) verdictRank[byVerdict[i].Candidate.Node.Id] = i + 1;
-
-        // The verdict's weight against the ranking's own term. 1 puts them on equal footing, which is where
-        // the measurement was taken; it is deliberately not a knob, because no run has priced any other value.
-        const double weight = 1.0;
-        var k = new ReciprocalRankFusionOptions().K;
-
-        return [.. byPolicy
-            .Select((r, i) => (Item: r, Index: i, Score: (1 / (k + i + 1))
-                + (weight / (k + verdictRank[r.Candidate.Node.Id]))))
-            // A stable tiebreak on the policy's own position: two equal scores must not reorder run to run.
-            .OrderByDescending(x => x.Score)
-            .ThenBy(x => x.Index)
-            .Select(x => x.Item)];
-    }
-
-    /// <summary>Asks the verifier which of these actually answered the query, fail-open in every direction.
-    /// <para><b>Any failure yields <see cref="Lyntai.Memory.Verification.MemoryVerification.NoOpinion"/>,
-    /// never "nothing was relevant".</b> Those two are opposite instructions to the caller above: no opinion
-    /// reinforces normally, while an empty judged verdict teaches the engine the recall failed. Collapsing
-    /// them would make a model outage silently unlearn the whole corpus — the single most damaging thing a
-    /// best-effort seam could do here.</para></summary>
-    private async Task<MemoryVerification> VerifyAsync(
-        string queryText, IReadOnlyList<RankedMemory> scored, CancellationToken ct)
-    {
-        if (verification is null) return MemoryVerification.NoOpinion;
-
-        try
-        {
-            var request = new MemoryVerificationRequest(
-                queryText,
-                // the same Relevance the caller will see on MemoryItem, so a policy can judge from the score
-                // distribution instead of reading the text
-                // Content rides along because the store already read it — the headline is a truncation of
-                // it, so a policy that scores WORDING was scoring a fragment. Which of the two to read
-                // stays the policy's choice: the cost of the text is a prompt, and only it knows whether
-                // it pays one.
-                [.. scored.Select(x => new MemoryVerificationCandidate(
-                    x.Candidate.Node.Id.ToString(CultureInfo.InvariantCulture),
-                    x.Candidate.Node.Headline,
-                    x.Candidate.Node.Relevance)
-                {
-                    Content = x.Candidate.Node.Content,
-                })]);
-
-            return await verification.VerifyAsync(request, ct).ConfigureAwait(false)
-                   ?? MemoryVerification.NoOpinion;
-        }
-        // Only the CALLER's cancellation propagates: a policy's own timeout arrives as a
-        // TaskCanceledException, which IS an OperationCanceledException, and must fail open like any fault.
-        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex,
-                "memory verification failed for {Engine}; reinforcing what was returned", Name);
-            return MemoryVerification.NoOpinion;
-        }
-    }
+    /// <summary>Asks the verifier which of these actually answered the query, fail-open in every direction
+    /// (<see cref="MemoryVerdicts.AskAsync"/>).</summary>
+    private Task<MemoryVerification> VerifyAsync(string queryText, IReadOnlyList<RankedMemory> scored,
+        CancellationToken ct) =>
+        MemoryVerdicts.AskAsync(verification, queryText, scored, _logger, Name, ct);
 
     /// <summary>Record reinforcement and co-activation for what a recall actually returned.
     /// <para>BEST-EFFORT by design: a failure logs and the caller keeps its hits, so a read-only database
