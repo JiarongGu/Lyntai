@@ -137,6 +137,29 @@ every addition.
   `AddOpenAiProvider(key, null)`, with nothing positional after the `null`, matches both overloads. It is the
   trade `AddOllamaProvider` already made. **What to DO:** name the argument (`model: null`) or drop it.
 
+- **Every job-schedule registration is validated at composition, and a repeated schedule name throws.**
+  `AddJobSchedule` (both overloads), `AddCronSchedule` and `AddMemoryPruneJob` all go through one check: a blank
+  name, both triggers or neither (`ArgumentException`), a non-positive interval (`ArgumentOutOfRangeException`), a
+  cron that does not parse — an out-of-range number included, which used to throw `OverflowException` and stop
+  every later schedule on every tick — (`FormatException`), and a name another schedule already uses
+  (`InvalidOperationException`: two schedules sharing a name shared one persisted next-run, so one never fired).
+  **What to DO:** give every schedule its own name — a second `AddMemoryPruneJob` included, whose `name` has a
+  default — and fix any registration the check refuses.
+
+- **A front-door decorator on an order another decorator already holds throws.** The built-ins hold 5 (rate
+  limit), 10 (budget) and 20 (cache). A second decorator on a taken order used to be dropped silently, so
+  `AddFrontDoorDecorator(10, …)` plus `AddUsageBudget()` registered a budget that never enforced. Repeating the
+  SAME registration is still a no-op. **What to DO:** give each custom decorator an order no other uses.
+
+- **`LyntaiBuilder.ConfigureMemory` is `ConfigureMemoryEviction`.** It only ever set `LyntaiOptions.MemoryEviction`,
+  the size bound on `IMemoryStore`, never the graph memory engine. **What to DO:** rename the call.
+
+- **`IJobHandlerRegistry.Handlers` is removed** (and `JobHandlerRegistry.Handlers`); nothing read it. **What to DO:**
+  a BYO registry deletes the member; a caller resolves `IEnumerable<IJobHandler>` instead.
+
+- **`Lyntai.Text.JsonArgs` left `Lyntai.Core`**; it is internal to `Lyntai.Tools.Mcp`, its only user. **What to DO:**
+  build argument JSON with `System.Text.Json.Nodes.JsonObject`.
+
 ### Security
 
 - **Recalled memory can no longer forge a prompt section** (**D166**). Both composers rendered an item as
@@ -167,7 +190,24 @@ every addition.
   `StageIndex` with an empty `OperationId` instead — an empty `OperationId` alone also matches a pipeline job's
   inline stage, and a null `StageIndex` alone a render job's delivery.
 
+- **`KeyValueSecretVault.ListNamesAsync` lists the stored `lyntai:secret:` keys** rather than a separately written
+  index, so a secret whose index write failed or raced is no longer hidden. A `lyntai:secret-names` key an earlier
+  version wrote is no longer read and can be deleted.
+
+- **The hosted MCP endpoint records the `execute_tool` span and `lyntai.tool.invocations`** for each call, as the
+  tool loop does. The guard-block and tool-throw log lines lose their `tool-loop:` / `mcp-host:` prefix; the logger
+  category tells the two doors apart.
+
+- **`VectorToolSelector` scores with `VectorMath.Cosine`**, so a tool vector of another dimension ranks last
+  rather than being scored over the shorter prefix.
+
 ### Added
+
+- **`ToolInvocation.InvokeGatedAsync` and `GatedToolResult`** (`Lyntai.Agents`): the ONE guarded flow for invoking
+  a tool — the guard rail inspects the arguments before and the observation after, a throw becomes an error
+  observation, and the span and counter are recorded. The tool loop and the hosted MCP endpoint both run it; any
+  door of your own onto the app's `ITool`s should too. `ToolObservations` is public (`ErrorPrefix`, `Error`,
+  `IsError`).
 
 - **`LlmVerificationOptions.ContentChars` lets the LLM memory judge read an entry's CONTENT** (**D170**).
   The judge was shown only each candidate's headline, which is right while a headline is a truncation and
@@ -366,6 +406,16 @@ every addition.
   same id. A consumer persisting the event stream stored one "session started" per tick. The reader now
   announces an id when it is new; a genuinely different id is still announced.
   <br>**What to DO:** a consumer that deduplicated `SessionStarted` itself can drop that guard.
+
+- **`JobRunner` with `GlobalMaxConcurrency` set could keep a global slot for good.** A lane with nothing to claim
+  gave its slot back through a cancellable, unguarded call, and the heartbeat renewed a slot it failed to release
+  for the life of the process. The release cannot be cancelled now, and one that fails is retried on the next pass.
+
+- **`ITraceRecorder.CompleteAsync` is fail-open again when a trace store's own request times out**: the store's
+  `TaskCanceledException` is logged and swallowed; the caller's own cancellation still propagates.
+
+- **A disposable `IConversationStore` the container built is disposed again once an `IConversationEnricher` is
+  registered.** The enriching wrapper had taken its place in the container's disposal.
 
 ## 3.2.0 — 2026-09-19
 
