@@ -333,7 +333,7 @@ public sealed class MediaRouter(
         var closed = false;                // did the backend send a terminal chunk of its own?
         MediaChunk? failure = null;
 
-        await using var chunks = streamer.StreamAsync(resolved, ct).GetAsyncEnumerator(ct);
+        await using var chunks = StreamOpening.Deferred(() => streamer.StreamAsync(resolved, ct), ct).GetAsyncEnumerator(ct);
         while (true)
         {
             bool moved;

@@ -192,7 +192,7 @@ public sealed class TextRouter(
         string? outcomeDetail = null;
         try
         {
-            var enumerator = provider.StreamAsync(effective, ct).GetAsyncEnumerator(ct);
+            var enumerator = StreamOpening.Deferred(() => provider.StreamAsync(effective, ct), ct).GetAsyncEnumerator(ct);
             await using (enumerator.ConfigureAwait(false))
             {
                 while (true)
