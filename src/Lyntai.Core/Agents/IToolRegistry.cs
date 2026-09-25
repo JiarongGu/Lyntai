@@ -11,23 +11,11 @@ public interface IToolRegistry
 }
 
 /// <inheritdoc/>
-public sealed class ToolRegistry : IToolRegistry
+public sealed class ToolRegistry(IEnumerable<ITool> tools) : IToolRegistry
 {
-    private readonly IReadOnlyDictionary<string, ITool> _byName;
+    private readonly FirstWinsIndex<ITool> _index = new(tools, t => t.Name);
 
-    public ToolRegistry(IEnumerable<ITool> tools)
-    {
-        var map = new Dictionary<string, ITool>(StringComparer.OrdinalIgnoreCase);
-        var ordered = new List<ITool>();
-        foreach (var t in tools)
-            if (map.TryAdd(t.Name, t)) // first-wins on a duplicate name (mirrors the router)
-                ordered.Add(t);
-        _byName = map;
-        Tools = ordered;
-    }
+    public IReadOnlyList<ITool> Tools => _index.Items;
 
-    public IReadOnlyList<ITool> Tools { get; }
-
-    public ITool? Find(string name) =>
-        !string.IsNullOrEmpty(name) && _byName.TryGetValue(name, out var t) ? t : null;
+    public ITool? Find(string name) => _index.Find(name);
 }

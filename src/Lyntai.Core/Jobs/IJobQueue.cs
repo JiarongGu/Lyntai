@@ -24,7 +24,8 @@ public interface IJobQueue
     Task<IReadOnlyList<JobRecord>> ListAsync(JobStatus? status = null, string? lane = null, int limit = 100, CancellationToken ct = default);
 
     /// <summary>The dead-letter queue: jobs that exhausted their retries (<see cref="JobStatus.Dead"/>),
-    /// newest first, for inspection.</summary>
+    /// newest first, for inspection. A convenience for <see cref="ListAsync"/> with
+    /// <see cref="JobStatus.Dead"/>.</summary>
     Task<IReadOnlyList<JobRecord>> ListDeadAsync(string? lane = null, int limit = 100, CancellationToken ct = default);
 
     /// <summary>Requeue a dead-lettered (or Failed) job for another run. Returns whether one was requeued.</summary>

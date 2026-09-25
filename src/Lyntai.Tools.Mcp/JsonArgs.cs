@@ -1,14 +1,15 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
-namespace Lyntai.Text;
+namespace Lyntai.Tools.Mcp;
 
 /// <summary>Reflection-free (trim/AOT-clean) conversion of tool-call argument values to JSON. An LLM/MEAI/MCP
 /// client hands tool-call arguments back as a mix of <see cref="JsonElement"/> (parsed off the wire),
 /// <see cref="JsonNode"/>, and occasionally boxed CLR primitives; these helpers preserve each value's JSON
-/// type (a <c>3</c> stays a number, not <c>"3"</c>) without <see cref="JsonSerializer"/>'s reflection.
-/// Shared by the MCP tool-host (<c>ToolFunction</c>) and the MEAI provider bridge so the two can't drift.</summary>
-public static class JsonArgs
+/// type (a <c>3</c> stays a number, not <c>"3"</c>) without <see cref="JsonSerializer"/>'s reflection. The
+/// tool host (<c>ToolFunction</c>) serializes with it and the client side (<c>McpToolset</c>) parses, so the
+/// two directions cannot drift.</summary>
+internal static class JsonArgs
 {
     /// <summary>One argument value → a JSON node, preserving its JSON type. <c>null</c> → <c>null</c>.</summary>
     public static JsonNode? ToNode(object? value) => value switch

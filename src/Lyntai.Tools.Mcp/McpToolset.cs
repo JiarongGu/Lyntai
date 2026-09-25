@@ -43,15 +43,15 @@ public static class McpToolset
         if (text.Length == 0 && result.Content.Count > 0)
             text = string.Join("\n", result.Content.Select(b => $"[{b.Type} content]"));
         if (result.IsError == true)
-            return $"error: {(text.Length > 0 ? text : "tool reported an error with no message")}";
+            return ToolObservations.Error(text.Length > 0 ? text : "tool reported an error with no message");
         return text;
     }
 
     /// <summary>JSON arguments string → the dictionary the MCP call wants (values kept as detached
-    /// <see cref="JsonNode"/>s — the SDK serializes them on the wire). Delegates to the shared
-    /// <see cref="Lyntai.Text.JsonArgs"/> (the exact reason it exists — parallel parsers drift).</summary>
+    /// <see cref="JsonNode"/>s — the SDK serializes them on the wire), through the same
+    /// <see cref="JsonArgs"/> the tool host serializes with.</summary>
     private static IReadOnlyDictionary<string, object?> ParseArgs(string argsJson) =>
-        Lyntai.Text.JsonArgs.Parse(argsJson) as IReadOnlyDictionary<string, object?> ?? EmptyArgs;
+        JsonArgs.Parse(argsJson) as IReadOnlyDictionary<string, object?> ?? EmptyArgs;
 
     private static readonly IReadOnlyDictionary<string, object?> EmptyArgs = new Dictionary<string, object?>();
 }

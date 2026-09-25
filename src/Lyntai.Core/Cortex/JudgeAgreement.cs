@@ -2,8 +2,8 @@ namespace Lyntai.Cortex;
 
 /// <summary>How well two judges (or a judge and a gold label) agree over the same items. Pure code,
 /// no LLM — feed it paired scores/labels to calibrate whether an LLM judge is trustworthy before you
-/// rely on it. Research found no settled practice here, so the surface is deliberately small and the
-/// metrics are the well-understood ones.</summary>
+/// rely on it. The metrics are the well-understood ones: exact agreement, mean absolute error and
+/// Pearson correlation.</summary>
 /// <param name="Count">Number of paired items compared.</param>
 /// <param name="ExactAgreementRate">Fraction of items where both sides gave the same discretized
 /// verdict (score rounded to <c>buckets</c> bins). 1.0 = identical, 0.0 = never agree.</param>

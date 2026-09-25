@@ -388,8 +388,10 @@ public class JobRunnerTests
         var handler = new FakeJobHandler("t", _ => Task.FromResult(JobOutcome.Complete));
         var (a, b, _, queue) = TwoWorkers(
             o => { o.Jobs.DefaultLaneConcurrency = 10; o.Jobs.GlobalMaxConcurrency = 1; }, handler);
+        // the lane must be ACTIVE for a slot to be taken at all, so park a job in the future
+        await queue.EnqueueAsync(new JobSpec("x", "t", "{}", AvailableAt: DateTimeOffset.MaxValue));
 
-        Assert.Equal(0, await a.RunOnceAsync());   // nothing enqueued: acquires a slot, finds no job, releases
+        Assert.Equal(0, await a.RunOnceAsync());   // nothing claimable: acquires a slot, finds no job, releases
 
         await queue.EnqueueAsync("x", "t", "{}");
         Assert.Equal(1, await b.RunOnceAsync());   // the slot was NOT stranded by a's empty pass

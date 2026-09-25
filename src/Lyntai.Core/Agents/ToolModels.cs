@@ -6,20 +6,28 @@ namespace Lyntai.Agents;
 /// the observation returned (or an <c>error: …</c> string when the tool was unknown or threw).</summary>
 public sealed record ToolStep(string Tool, string ArgumentsJson, string Result);
 
-/// <summary>The error-observation marker shared by the loop's producer (unknown tool / a tool that threw)
-/// and both stream doors' <c>ToolResult.IsError</c> flags — one prefix, so producer and readers can't drift.</summary>
-internal static class ToolObservations
+/// <summary>The error-observation convention: an observation that starts with <see cref="ErrorPrefix"/> tells
+/// the model its tool call failed — unknown, thrown, refused or reported as an error by the tool's own
+/// server — and sets <see cref="ToolResult.IsError"/> on a streamed result. Build one with
+/// <see cref="Error"/>, so every producer writes the prefix the readers test for.</summary>
+public static class ToolObservations
 {
+    /// <summary>The prefix every error observation starts with.</summary>
     public const string ErrorPrefix = "error:";
+
+    /// <summary>An error observation carrying <paramref name="message"/>.</summary>
+    public static string Error(string message) => $"{ErrorPrefix} {message}";
+
+    /// <summary>Whether <paramref name="observation"/> reports a failed call.</summary>
     public static bool IsError(string observation) => observation.StartsWith(ErrorPrefix, StringComparison.Ordinal);
 }
 
 /// <summary>Which transport carried a tool loop's calls.
-/// <para>Worth reporting because the fallback is not a degradation of degree. Measured on one model both
-/// ways (<c>docs/memory-measurements.md</c> §5): the prompt protocol invokes a tool on <b>90-100%</b> of
-/// requests nothing on the roster serves against native's 20-30%, converges on 11.3-24.4% of runs against
-/// 99.4-100%, and bills an extra repair round. A deployment on a model whose chat template carries no tool
-/// section gets that column, and until this existed nothing said so at runtime.</para></summary>
+/// <para>Worth reporting because the fallback is not a degradation of degree: on the same model, the prompt
+/// protocol calls a tool far more often when nothing on the roster serves, converges far less often, and
+/// bills an extra repair round (<c>docs/memory-measurements.md</c> §5, <c>affordance-native-false-calls</c>).
+/// A deployment on a model whose chat template carries no tool section gets that behaviour, and this is
+/// what says so at runtime.</para></summary>
 public enum ToolTransport
 {
     /// <summary>No tools were registered, so the loop made one plain completion and chose no transport.</summary>
@@ -57,8 +65,6 @@ public sealed record ToolLoopResult(
     /// <summary>Which transport carried this run, or <c>null</c> when the loop did not report one.
     /// <para><b>Null and <see cref="ToolTransport.None"/> are not the same</b> and must not be collapsed:
     /// <c>None</c> is a positive claim that no tools were registered, while null is a BYO
-    /// <see cref="IToolLoop"/> that never said. The built-in <see cref="ToolLoop"/> always reports one.</para>
-    /// <para>An init-only property rather than a record parameter on purpose — widening the primary
-    /// constructor would be a BINARY break for every caller that constructs this positionally.</para></summary>
+    /// <see cref="IToolLoop"/> that never said. The built-in <see cref="ToolLoop"/> always reports one.</para></summary>
     public ToolTransport? Transport { get; init; }
 }

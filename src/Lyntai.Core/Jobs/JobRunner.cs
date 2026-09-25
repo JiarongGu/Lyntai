@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using Lyntai.Diagnostics;
 using Lyntai.Storage;
@@ -33,12 +34,17 @@ public sealed class JobRunner(
     private readonly Func<DateTimeOffset> _clock = clock ?? (() => DateTimeOffset.UtcNow);
     private readonly IJobAdmissionController _admission = admission ?? new AdmitAllAdmissionController();
     private readonly string _workerId = Guid.NewGuid().ToString("N");
+    private readonly ConcurrentDictionary<int, byte> _stranded = new(); // slots whose release failed
     private int _rotation; // rotates the lane start each pass so no lane is perpetually first under the cap
 
     private JobOptions Opts => options.Jobs;
 
     public async Task<int> RunOnceAsync(CancellationToken ct = default)
     {
+        foreach (var slot in _stranded.Keys)
+            if (_stranded.TryRemove(slot, out _))
+                await ReleaseSlotQuietlyAsync(slot).ConfigureAwait(false);
+
         // Claim a bounded set across ALL active lanes and run them CONCURRENTLY — including across lanes —
         // with the per-lane + global MaxConcurrency limits as the control logic. Claiming is ROUND-ROBIN
         // (one job per lane per round, rotating the start each pass), so when the global cap binds no lane
@@ -96,6 +102,7 @@ public sealed class JobRunner(
                             progressed = false;
                             break;
                         }
+                        _stranded.TryRemove(slot.Value, out _); // handed to us afresh, so no longer ours to retry
                     }
 
                     JobRecord? job;
@@ -112,8 +119,7 @@ public sealed class JobRunner(
                     }
                     if (job is null)
                     {
-                        if (slot is { } unused)
-                            await _store.ReleaseSlotAsync(unused, _workerId, ct).ConfigureAwait(false);
+                        if (slot is { } unused) await ReleaseSlotQuietlyAsync(unused).ConfigureAwait(false);
                         remaining[lane] = 0; // this lane is drained for now
                         continue;
                     }
@@ -196,13 +202,17 @@ public sealed class JobRunner(
     }
 
     /// <summary>Hand a slot back on a path that must not fail and must not be cancellable: a cancelled pass
-    /// must still release, or a graceful shutdown leaves the deployment throttled until the lease expires —
-    /// and on the claim loop's throw paths, until the process exits, because the heartbeat renews every slot
-    /// this worker holds.</summary>
+    /// must still release, or a graceful shutdown leaves the deployment throttled until the lease expires.
+    /// A release that FAILS is retried at the start of the next pass, because the heartbeat renews every slot
+    /// this worker holds — so a slot never retried would stay held until the process exits.</summary>
     private async Task ReleaseSlotQuietlyAsync(int slot)
     {
         try { await _store.ReleaseSlotAsync(slot, _workerId, CancellationToken.None).ConfigureAwait(false); }
-        catch (Exception ex) { _logger.LogWarning(ex, "releasing job slot {Slot} failed; it expires with the lease", slot); }
+        catch (Exception ex)
+        {
+            _stranded.TryAdd(slot, 0);
+            _logger.LogWarning(ex, "releasing job slot {Slot} failed; retrying on the next pass", slot);
+        }
     }
 
     public async Task RunAsync(CancellationToken ct = default)

@@ -55,14 +55,22 @@ public sealed class JobScheduler(
     {
         var now = _clock();
         var enqueued = 0;
+        var names = new HashSet<string>(StringComparer.Ordinal);
         foreach (var s in _schedules)
         {
-            if (!IsValid(s)) continue; // malformed schedule (no trigger / bad cron / non-positive interval)
-
-            // NextAfter can throw for a parseable-but-impossible cron (e.g. Feb 30) — quarantine that ONE
-            // schedule so it neither aborts the tick (skipping later schedules) nor spins on every poll
+            // a throw here — an impossible cron's NextAfter (Feb 30), anything else — quarantines that ONE
+            // schedule, so it neither aborts the tick (skipping later schedules) nor spins on every poll
             try
             {
+                if (!IsValid(s)) continue; // malformed schedule (no trigger / bad cron / non-positive interval)
+                if (!names.Add(s.Name))
+                {
+                    // the name keys the persisted next-run, so a second schedule of it could never fire
+                    if (FirstSight("duplicate\n" + s.Name))
+                        _logger.LogWarning("scheduler: ignoring a second schedule named '{Name}' — it shares the first one's next-run", s.Name);
+                    continue;
+                }
+
                 var next = await GetNextAsync(s.Name, ct).ConfigureAwait(false);
                 if (next is null)
                 {
@@ -90,13 +98,8 @@ public sealed class JobScheduler(
 
     /// <summary>The next fire time strictly after <paramref name="from"/> — the cron's next occurrence, or
     /// the interval advanced past <paramref name="from"/> (so a lapsed ticker coalesces to one slot).</summary>
-    private DateTimeOffset NextAfter(JobSchedule s, DateTimeOffset from)
-    {
-        if (Cron(s) is { } cron) return cron.Next(from);
-        var interval = s.Interval!.Value;
-        var t = from + interval;
-        return t; // interval schedules fire one interval out; coalescing is implicit (from is 'now')
-    }
+    private DateTimeOffset NextAfter(JobSchedule s, DateTimeOffset from) =>
+        Cron(s)?.Next(from) ?? from + s.Interval!.Value;
 
     private bool IsValid(JobSchedule s)
     {

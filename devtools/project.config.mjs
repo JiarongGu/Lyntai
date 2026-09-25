@@ -148,6 +148,18 @@ export default {
 
   retiredApiNames: [
     {
+      // The Part 293 review (CORE-13). The builder method set `LyntaiOptions.MemoryEviction` and nothing
+      // else, so a consumer tuning the GRAPH engine — the memory surface most often reasoned about wrongly —
+      // reached for it first and configured the keyword store instead.
+      names: ['ConfigureMemory'],
+      proseExempt: 'pending, not permanent: the prose that names it (README, a DECISIONS entry, a '
+        + 'LyntaiOptions doc comment) sits outside the files the rename owned; the rule '
+        + '`\\bConfigureMemory\\s*\\(` replaces this exemption once they are repointed',
+      use: '`ConfigureMemoryEviction(p => …)`, which sets `LyntaiOptions.MemoryEviction`',
+      why: 'a method named for all of memory configured only IMemoryStore eviction, the surface most often '
+        + 'confused with the graph engine',
+    },
+    {
       // D154 NS-3a, NS-3b and NS-4, the SURFACE half of all three. Every one of these was a public type on
       // the frozen baseline, so a reintroduction is a break nothing else would name: the baseline reports
       // THAT a name changed, never that it should not have come back. `LlmConsumers` is here under a name
@@ -551,7 +563,7 @@ export default {
       // is the SPECIFIC property `MemoryEvictionPolicy.Eviction`, which stuttered against its own type —  link-ok
       // and a rule that cannot express "this member on this type" should not pretend to by banning the word.
       names: ['MemoryRetentionPolicy'],
-      use: '`MemoryEvictionPolicy` (and `LyntaiOptions.MemoryEviction`, `ConfigureMemory(p => p.Mode = …)`)',
+      use: '`MemoryEvictionPolicy` (and `LyntaiOptions.MemoryEviction`, `ConfigureMemoryEviction(p => p.Mode = …)`)',
       why: 'renamed for 3.0 (docs/DECISIONS.md D13) because it sat one `I` away from the unrelated '
         + '`IMemoryRetentionPolicy` graph seam. The old name reappearing would restore a collision two '
         + 'entries in this file had to carry a KNOWN HAZARD note about',

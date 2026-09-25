@@ -74,7 +74,8 @@ public sealed class TraceService(
             {
                 await owner._store.SaveAsync(trace, ct).ConfigureAwait(false);
             }
-            catch (OperationCanceledException) { throw; }
+            // the filter is load-bearing: a remote store's own timeout is a TaskCanceledException too
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
             catch (Exception ex)
             {
                 owner._logger.LogWarning(ex, "trace persistence failed for {Session} (fail-open)", sessionId);

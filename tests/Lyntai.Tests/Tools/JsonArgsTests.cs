@@ -1,12 +1,12 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using Lyntai.Text;
+using Lyntai.Tools.Mcp;
 
-namespace Lyntai.Tests.Text;
+namespace Lyntai.Tests.Tools;
 
-/// <summary>The shared reflection-free tool-argument serializer — the boxed-primitive/JsonElement/JsonNode
-/// → JSON switch ToolFunction (MCP) needs. It served the MEAI bridge too until D146 deleted that. Pins that primitives
-/// keep their JSON type (a 3 stays a number, not "3").</summary>
+/// <summary>The MCP package's reflection-free tool-argument serializer — the boxed-primitive/JsonElement/JsonNode
+/// → JSON switch ToolFunction needs. Pins that primitives keep their JSON type (a 3 stays a number, not
+/// "3").</summary>
 public class JsonArgsTests
 {
     [Fact]

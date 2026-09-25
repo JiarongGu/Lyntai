@@ -28,6 +28,9 @@ public sealed class CronExpression
         _domRestricted = domR; _dowRestricted = dowR;
     }
 
+    /// <summary>Parse a 5-field expression or a macro.</summary>
+    /// <exception cref="FormatException">The expression is malformed — the only exception a bad expression
+    /// produces.</exception>
     public static CronExpression Parse(string expression)
     {
         var expr = (expression ?? "").Trim();
@@ -94,7 +97,7 @@ public sealed class CronExpression
             if (slash >= 0)
             {
                 body = part[..slash];
-                step = int.Parse(part[(slash + 1)..], CultureInfo.InvariantCulture);
+                step = Number(part[(slash + 1)..], part);
                 if (step <= 0) throw new FormatException($"cron step must be positive: '{part}'");
             }
 
@@ -103,12 +106,13 @@ public sealed class CronExpression
             else if (body.Contains('-'))
             {
                 var r = body.Split('-');
-                lo = int.Parse(r[0], CultureInfo.InvariantCulture);
-                hi = int.Parse(r[1], CultureInfo.InvariantCulture);
+                if (r.Length != 2) throw new FormatException($"cron range '{part}' must have exactly two ends (in '{spec}')");
+                lo = Number(r[0], part);
+                hi = Number(r[1], part);
             }
             else
             {
-                lo = int.Parse(body, CultureInfo.InvariantCulture);
+                lo = Number(body, part);
                 hi = slash >= 0 ? max : lo; // "n/step" means from n to max by step; bare "n" is just n
             }
 
@@ -129,4 +133,11 @@ public sealed class CronExpression
         }
         return set;
     }
+
+    // TryParse, not Parse: an int overflow is an OverflowException, which is not the FormatException every
+    // caller of Parse handles as "malformed"
+    private static int Number(string text, string part) =>
+        int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var n)
+            ? n
+            : throw new FormatException($"cron field '{part}' has a malformed number '{text}'");
 }

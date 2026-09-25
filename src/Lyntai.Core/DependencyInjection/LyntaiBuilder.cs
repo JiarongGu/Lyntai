@@ -38,6 +38,10 @@ public sealed class LyntaiBuilder
     /// one another.</summary>
     internal List<(int Order, Func<IServiceProvider, ITextClient, ITextClient> Decorate)> FrontDoorDecorators { get; } = [];
 
+    /// <summary>Who holds each <see cref="FrontDoorDecorators"/> slot — a built-in's name, or a custom
+    /// decorator's delegate — so a repeat by the same owner is told apart from a collision.</summary>
+    private readonly Dictionary<int, object> _decoratorOwners = [];
+
     /// <summary>Named LLM clients (<c>AddTextClient</c>) → what each was configured with: the backend ids it
     /// routes over (empty meaning "every registered provider") and any candidate list it stated outright.
     /// Composed by <c>AddLyntai</c> into <see cref="Lyntai.Inference.ITextClientFactory"/> — the chat counterpart of
@@ -188,12 +192,7 @@ public sealed class LyntaiBuilder
     /// <summary>Register an <see cref="IConversationEnricher"/> into the enricher collection —
     /// the app's "add additional info" seam. Lyntai owns the conversation store; each registered enricher is
     /// invoked after a thread/message write to persist the app's own info (in its own store), without
-    /// replacing the store. Add a class + one registration, never a fork.
-    /// <para>Registering any enricher rewrites the <see cref="IConversationStore"/> descriptor to the
-    /// <see cref="EnrichingConversationStore"/> wrapper, which forwards the store methods and NOT disposal —
-    /// so a BYO store implementing <see cref="IDisposable"/>/<see cref="IAsyncDisposable"/> stops being
-    /// disposed by the container. Own its lifetime yourself. (None of the shipped stores is
-    /// disposable.)</para></summary>
+    /// replacing the store. Add a class + one registration, never a fork.</summary>
     public LyntaiBuilder AddConversationEnricher<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] T>()
         where T : class, IConversationEnricher
     {
@@ -284,26 +283,42 @@ public sealed class LyntaiBuilder
 
     /// <summary>Register a recurring job: every <paramref name="every"/>, the <see cref="IJobScheduler"/>
     /// enqueues a <paramref name="type"/> job on <paramref name="lane"/> with <paramref name="payload"/>.
-    /// <paramref name="name"/> must be stable + unique (it keys the persisted next-run). The app drives the
-    /// scheduler's pump (TickAsync/RunAsync).
-    /// <para><paramref name="every"/> must be POSITIVE, and that is not checked here: a zero or negative
-    /// interval registers fine and is then skipped by the scheduler on every tick with a warning. Unlike
-    /// <see cref="AddCronSchedule"/>, which parses the expression now and throws on a bad one.</para></summary>
+    /// Validated as <see cref="AddJobSchedule(JobSchedule)"/> says. The app drives the scheduler's pump
+    /// (TickAsync/RunAsync).</summary>
     public LyntaiBuilder AddJobSchedule(string name, string lane, string type, string payload, TimeSpan every, int priority = 0) =>
         AddJobSchedule(new JobSchedule(name, lane, type, payload, every, priority));
 
     /// <summary>Register a recurring job on a <b>cron</b> schedule (5-field <c>min hour dom month dow</c>, or
-    /// a macro like <c>@daily</c>; evaluated in UTC). The expression is validated now — a bad one throws
-    /// here rather than being silently skipped at tick time. The app drives the scheduler pump.</summary>
-    public LyntaiBuilder AddCronSchedule(string name, string lane, string type, string payload, string cron, int priority = 0)
-    {
-        _ = CronExpression.Parse(cron); // fail fast on a malformed expression
-        return AddJobSchedule(new JobSchedule(name, lane, type, payload, Cron: cron, Priority: priority));
-    }
+    /// a macro like <c>@daily</c>; evaluated in UTC). Validated as <see cref="AddJobSchedule(JobSchedule)"/>
+    /// says. The app drives the scheduler pump.</summary>
+    public LyntaiBuilder AddCronSchedule(string name, string lane, string type, string payload, string cron, int priority = 0) =>
+        AddJobSchedule(new JobSchedule(name, lane, type, payload, Cron: cron, Priority: priority));
 
-    /// <summary>Register a recurring <see cref="JobSchedule"/>.</summary>
+    /// <summary>Register a recurring <see cref="JobSchedule"/> — the door every schedule registration comes
+    /// through, so each is validated HERE, at composition, rather than skipped at tick time.</summary>
+    /// <exception cref="ArgumentException">The name is blank, or the schedule sets both triggers or
+    /// neither.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">The interval is not positive.</exception>
+    /// <exception cref="FormatException">The cron does not parse.</exception>
+    /// <exception cref="InvalidOperationException">A schedule of the same name is already registered: the
+    /// name keys the persisted next-run, so only one of the two would ever fire.</exception>
     public LyntaiBuilder AddJobSchedule(JobSchedule schedule)
     {
+        ArgumentNullException.ThrowIfNull(schedule);
+        ArgumentException.ThrowIfNullOrWhiteSpace(schedule.Name, nameof(schedule));
+        if ((schedule.Interval is null) == (schedule.Cron is null))
+            throw new ArgumentException(
+                $"Schedule '{schedule.Name}' must set exactly one of Interval or Cron.", nameof(schedule));
+        if (schedule.Cron is { } cron) _ = CronExpression.Parse(cron);
+        else if (schedule.Interval <= TimeSpan.Zero)
+            throw new ArgumentOutOfRangeException(nameof(schedule), schedule.Interval,
+                $"Schedule '{schedule.Name}' needs a positive Interval.");
+        if (Services.Any(d => d.ServiceType == typeof(JobSchedule) && !d.IsKeyedService
+                && d.ImplementationInstance is JobSchedule other
+                && string.Equals(other.Name, schedule.Name, StringComparison.Ordinal)))
+            throw new InvalidOperationException(
+                $"A job schedule named '{schedule.Name}' is already registered. The name keys the persisted " +
+                "next-run, so only one of the two would ever fire; give each schedule its own name.");
         Services.AddSingleton(schedule);
         return this;
     }
@@ -314,8 +329,9 @@ public sealed class LyntaiBuilder
     /// <c>(taskKey, scope)</c>s that on-write eviction never revisits. Lyntai owns the prune WORK; the APP
     /// owns the pump (drive <c>IJobScheduler.RunAsync</c>/<c>TickAsync</c> + <c>IJobRunner</c>). Needs a
     /// memory store (e.g. <c>UseSqliteStorage</c>) wired. <paramref name="taskKey"/> null = all tasks. The
-    /// cron is validated now (a bad one throws here). Call more than once with distinct
-    /// <paramref name="name"/>s for several schedules — the handler is registered once.</summary>
+    /// schedule is validated now, as <see cref="AddJobSchedule(JobSchedule)"/> says. Call more than once
+    /// with distinct <paramref name="name"/>s for several schedules — a repeated name throws, and the
+    /// handler is registered once.</summary>
     public LyntaiBuilder AddMemoryPruneJob(string cron, TimeSpan? olderThan = null, string? taskKey = null,
         string lane = "default", string name = "lyntai-memory-prune", int priority = 0)
     {
@@ -347,21 +363,18 @@ public sealed class LyntaiBuilder
     /// cost + latency and making repeated runs deterministic. Uses the in-process
     /// <see cref="InMemoryResponseCache"/> by default; register your own
     /// <see cref="IResponseCache"/> before this to back it with a persistent/shared
-    /// store. Streaming, native tool requests, and non-Ok replies are never cached.
-    /// <para>Folds at <see cref="CacheDecoratorOrder"/>; a custom decorator already holding that slot keeps
-    /// it and THIS one is dropped with no error — the options and the <see cref="IResponseCache"/> are still
-    /// applied, only the caching layer is missing. See <see cref="AddFrontDoorDecorator"/>.</para></summary>
+    /// store. Streaming, native tool requests, and non-Ok replies are never cached. Folds at
+    /// <see cref="CacheDecoratorOrder"/>.</summary>
     public LyntaiBuilder AddResponseCache(Action<CacheOptions>? configure = null)
     {
         configure?.Invoke(Options.Cache);
         Services.TryAddSingleton<IResponseCache>(_ => new InMemoryResponseCache(Options));
         // Decorate the front door (folded over the base client by AddLyntai, so it composes with any other
         // decorator) — every ITextClient resolution (tool loop, orchestrator, scorers) reads through it.
-        AddFrontDoorDecorator(CacheDecoratorOrder, (sp, inner) => new CachingTextClient(
+        return AddFrontDoorDecorator(CacheDecoratorOrder, nameof(AddResponseCache), (sp, inner) => new CachingTextClient(
             inner, sp.GetRequiredService<IResponseCache>(), Options,
             sp.GetService<ILogger<CachingTextClient>>(),
             sp.GetService<IModelRoutingStore>()));
-        return this;
     }
 
     /// <summary>Enable LIVE per-consumer routing: the router (and the response cache) read the consumer's route —
@@ -386,26 +399,38 @@ public sealed class LyntaiBuilder
     /// chain as the built-in governance decorators — so it composes with them instead of forcing the app to
     /// pre-register a whole <see cref="ITextClient"/> (which trips the governance guard). <paramref name="order"/>
     /// positions it: higher = outer; the built-ins are <see cref="RateLimitDecoratorOrder"/> (5) /
-    /// <see cref="BudgetDecoratorOrder"/> (10) / <see cref="CacheDecoratorOrder"/> (20). Idempotent per
-    /// order — one decorator per slot (a repeated Add of the same order is ignored), so pick a distinct
-    /// order (e.g. 15 to sit between budget and cache, 25 to sit outside the cache).
-    /// <para><b>Taking a built-in's order silently disables it.</b> First writer wins per slot, so when
-    /// <paramref name="order"/> equals one of the three above, whichever <c>Add*</c> ran first keeps the slot
-    /// and the other decorator is dropped entirely — with no error. The loser's OPTIONS are still applied and
-    /// its <see cref="IResponseCache"/> / <see cref="IUsageTracker"/> / <see cref="IRateLimiter"/> still
-    /// registered, so the wiring reads as complete while that governance layer is simply not in the
-    /// chain.</para>
+    /// <see cref="BudgetDecoratorOrder"/> (10) / <see cref="CacheDecoratorOrder"/> (20). One decorator per
+    /// slot, so pick a distinct order (e.g. 15 to sit between budget and cache, 25 to sit outside the cache):
+    /// adding the same delegate again is a no-op, and a DIFFERENT decorator on a taken order — a built-in's
+    /// included — throws <see cref="InvalidOperationException"/> naming the slot and both registrations.
     /// <para>This is also the supported way to add a layer at all: the governance guard in <c>AddLyntai</c>
     /// observes only an <see cref="ITextClient"/> registered BEFORE the call, so registering one on
     /// <see cref="Services"/> inside the configure callback — or on the collection after <c>AddLyntai</c>
     /// returns — discards every front-door decorator with no error at all.</para></summary>
     public LyntaiBuilder AddFrontDoorDecorator(int order, Func<IServiceProvider, ITextClient, ITextClient> decorate)
     {
-        // idempotent per order: a repeated Add* still re-applies its options but must NOT stack a second
-        // decorator in the same slot — two rate limiters in series would double-charge permits.
-        if (FrontDoorDecorators.All(d => d.Order != order))
-            FrontDoorDecorators.Add((order, decorate));
+        ArgumentNullException.ThrowIfNull(decorate);
+        return AddFrontDoorDecorator(order, decorate, decorate);
+    }
+
+    // A repeat by the same owner re-applies its options but must NOT stack a second layer (two rate limiters
+    // in series would double-charge permits); a different owner would be dropped while its options still
+    // read as wired, so it is refused.
+    private LyntaiBuilder AddFrontDoorDecorator(int order, object owner, Func<IServiceProvider, ITextClient, ITextClient> decorate)
+    {
+        if (_decoratorOwners.TryGetValue(order, out var holder))
+        {
+            if (holder.Equals(owner)) return this;
+            throw new InvalidOperationException(
+                $"Front-door decorator order {order} is already held by {Describe(holder)}, so {Describe(owner)} " +
+                "cannot take it too: a slot holds one decorator. Give the custom decorator a distinct order " +
+                $"(the built-ins are {RateLimitDecoratorOrder}, {BudgetDecoratorOrder} and {CacheDecoratorOrder}).");
+        }
+        _decoratorOwners[order] = owner;
+        FrontDoorDecorators.Add((order, decorate));
         return this;
+
+        static string Describe(object who) => who as string ?? $"a custom {nameof(AddFrontDoorDecorator)}";
     }
 
     /// <summary>Meter token/cost usage across the front door and REFUSE further calls once a configured cap
@@ -415,18 +440,14 @@ public sealed class LyntaiBuilder
     /// BEFORE each call (a call whose cost isn't yet known can push a total slightly past the cap — a soft
     /// ceiling). Query or reset spend at runtime via the registered
     /// <see cref="IUsageTracker"/>; register your own before this to override the
-    /// in-memory default.
-    /// <para>Folds at <see cref="BudgetDecoratorOrder"/>; a custom decorator already holding that slot keeps
-    /// it and THIS one is dropped with no error — the caps and the <see cref="IUsageTracker"/> are still
-    /// applied, only the enforcement layer is missing. See <see cref="AddFrontDoorDecorator"/>.</para></summary>
+    /// in-memory default. Folds at <see cref="BudgetDecoratorOrder"/>.</summary>
     public LyntaiBuilder AddUsageBudget(Action<BudgetOptions>? configure = null)
     {
         configure?.Invoke(Options.Budget);
         Services.TryAddSingleton<IUsageTracker, InMemoryUsageTracker>();
-        AddFrontDoorDecorator(BudgetDecoratorOrder, (sp, inner) => new BudgetedTextClient(
+        return AddFrontDoorDecorator(BudgetDecoratorOrder, nameof(AddUsageBudget), (sp, inner) => new BudgetedTextClient(
             inner, sp.GetRequiredService<IUsageTracker>(), Options,
             sp.GetService<ILogger<BudgetedTextClient>>()));
-        return this;
     }
 
     /// <summary>Throttle front-door calls with a token-bucket rate limiter — over the rate a call waits up
@@ -434,16 +455,12 @@ public sealed class LyntaiBuilder
     /// via <see cref="RateLimitOptions"/> (<c>PermitsPerSecond</c>/<c>Burst</c>) with optional per-consumer
     /// rates; also <c>LYNTAI_RATELIMIT_*</c>. Sits inside the response cache, so cached hits don't spend a
     /// permit. Register your own <see cref="IRateLimiter"/> before this for a
-    /// distributed/shared limiter.
-    /// <para>Folds at <see cref="RateLimitDecoratorOrder"/>; a custom decorator already holding that slot
-    /// keeps it and THIS one is dropped with no error — the rates and the <see cref="IRateLimiter"/> are
-    /// still applied, only the throttling layer is missing. See
-    /// <see cref="AddFrontDoorDecorator"/>.</para></summary>
+    /// distributed/shared limiter. Folds at <see cref="RateLimitDecoratorOrder"/>.</summary>
     public LyntaiBuilder AddRateLimit(Action<RateLimitOptions>? configure = null)
     {
         configure?.Invoke(Options.RateLimit);
         Services.TryAddSingleton<IRateLimiter>(_ => new TokenBucketRateLimiter(Options));
-        AddFrontDoorDecorator(RateLimitDecoratorOrder, (sp, inner) =>
+        return AddFrontDoorDecorator(RateLimitDecoratorOrder, nameof(AddRateLimit), (sp, inner) =>
         {
             var limiter = sp.GetRequiredService<IRateLimiter>();
             // the built-in token bucket with no positive global rate and no per-consumer entry throttles
@@ -459,7 +476,6 @@ public sealed class LyntaiBuilder
             return new RateLimitedTextClient(
                 inner, limiter, sp.GetService<ILogger<RateLimitedTextClient>>());
         });
-        return this;
     }
 
     /// <summary>Set by any <c>AddSemanticMemory</c> overload: the app has STATED it wants semantic recall,
@@ -529,11 +545,11 @@ public sealed class LyntaiBuilder
         return this;
     }
 
-    /// <summary>Tune how <c>IMemoryStore</c> bounds its size — count cap + eviction mode (FIFO/LRU), default
-    /// TTL, size budget. The defaults reproduce the historical 500-entry FIFO cap; use a
-    /// <see cref="MemoryEvictionPolicy"/> preset (e.g.
-    /// <c>b.ConfigureMemory(p => { p.Mode = MemoryEvictionMode.Lru; p.DefaultTtl = TimeSpan.FromDays(7); })</c>).</summary>
-    public LyntaiBuilder ConfigureMemory(Action<MemoryEvictionPolicy> configure)
+    /// <summary>Tune how <see cref="IMemoryStore"/> bounds its size — count cap + eviction mode (FIFO/LRU),
+    /// default TTL, size budget — by setting <see cref="LyntaiOptions.MemoryEviction"/> (e.g.
+    /// <c>b.ConfigureMemoryEviction(p => { p.Mode = MemoryEvictionMode.Lru; p.DefaultTtl = TimeSpan.FromDays(7); })</c>).
+    /// The graph memory engine is not configured here.</summary>
+    public LyntaiBuilder ConfigureMemoryEviction(Action<MemoryEvictionPolicy> configure)
     {
         configure(Options.MemoryEviction);
         return this;
