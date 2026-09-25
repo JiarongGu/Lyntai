@@ -805,7 +805,7 @@ public sealed class GraphMemoryEngine(
         // is concatenated whole — and "within the caller's Limit" is a promise. The `?? limit` default
         // already carried this cap; only an EXPLICIT value escaped it.
         var reserve = Math.Min(limit,
-            Math.Min(authoritative.Count, Math.Max(0, _options.AuthoritativeReserve ?? limit)));
+            Math.Min(authoritative.Count, _options.AuthoritativeReserve ?? limit));
         var reserved = authoritative.Take(reserve).ToList();
         var reservedIds = reserved.Select(r => r.Candidate.Node.Id).ToHashSet();
 
@@ -908,7 +908,7 @@ public sealed class GraphMemoryEngine(
         // `hops` is CLAMPED to the engine's configured ceiling rather than honoured unbounded: this is a
         // model-facing seam (MemoryTools advertises the parameter in its tool schema), so an agent asking for
         // a large number must not be able to walk the whole graph. Zero is legal and means "just this entry".
-        var depth = Math.Clamp(hops, 0, Math.Max(0, _options.Hops));
+        var depth = Math.Clamp(hops, 0, _options.Hops);
 
         // Breadth-first, level by level, each level ordered by effective edge weight. `seen` carries the seed
         // so a symmetric edge cannot walk back to it, and so a diamond yields its far node once.
@@ -1385,7 +1385,7 @@ public sealed class GraphMemoryEngine(
     {
         // no faintness bound: the store returns candidates grade-first, then most-recently-used, and the
         // count is the only limit, so nothing is excluded for having decayed — burial happens by rank, above
-        var candidates = Saturating(limit, Math.Max(1, _options.CandidateMultiplier));
+        var candidates = Saturating(limit, _options.CandidateMultiplier);
         var request = new MemorySeedRequest(Name, store, query, candidates);
 
         var found = new List<(GraphNode Node, int Hop)>();
@@ -1584,7 +1584,7 @@ public sealed class GraphMemoryEngine(
             // Applies to RECALL only: an expansion is a single entry a caller explicitly paid for, and
             // there is no ranked tail to trim.
             if (act == MemoryReinforcementActs.Recall && _options.RecallReinforceCap is { } cap)
-                reinforceable = [.. reinforceable.Take(Math.Max(0, cap))];
+                reinforceable = [.. reinforceable.Take(cap)];
 
             var batchId = Guid.NewGuid();
             var touches = new List<GraphTouch>(reinforceable.Count);
@@ -1639,7 +1639,7 @@ public sealed class GraphMemoryEngine(
 
             // The co-activation set: every pair among the top CoActivationCap hits, C(5,2) = ten edges at
             // the shipped cap.
-            var top = nodes.Take(Math.Max(0, _options.CoActivationCap)).Select(n => n.Id).ToList();
+            var top = nodes.Take(_options.CoActivationCap).Select(n => n.Id).ToList();
             var edges = new List<GraphEdgeWrite>(top.Count * (top.Count - 1) / 2);
             for (var i = 0; i < top.Count; i++)
                 for (var j = i + 1; j < top.Count; j++)

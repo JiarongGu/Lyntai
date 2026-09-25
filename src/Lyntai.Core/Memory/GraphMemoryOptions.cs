@@ -1,19 +1,21 @@
 namespace Lyntai.Memory;
 
 /// <summary>How the graph engine retrieves. Every value is defaulted; several are <b>unmeasured</b> and say
-/// so — see the MEM-TUNE task before treating them as tuned.</summary>
+/// so. Every count is validated where it is SET, so none is clamped where it is read.</summary>
 public sealed record GraphMemoryOptions
 {
     /// <summary>How far to spread from the seed set. Three or more hops reaches most of a connected graph,
-    /// which defeats the purpose. Reasoned, not measured.</summary>
-    public int Hops { get; init; } = 2;
+    /// which defeats the purpose. Reasoned, not measured. Zero walks nothing beyond the seeds.</summary>
+    /// <exception cref="ArgumentOutOfRangeException">Set below zero.</exception>
+    public int Hops { get; init => field = MemoryOption.Require(value, 0, nameof(GraphMemoryOptions), ZeroIsOff); } = 2;
 
     /// <summary>The character budget an expansion falls back to when the caller passes none — the "engine's
     /// configured budget" <see cref="IExpandableMemory.ExpandAsync"/> has always promised.
     /// <para>Null (the default) means UNBOUNDED, which is what the engine did before the parameter was
     /// honoured at all, so leaving it unset changes nothing. It bounds the NEIGHBOURS only: the expanded
     /// entry's own content is always returned whole, because that is what expansion is for.</para></summary>
-    public int? ExpandCharBudget { get; init; }
+    /// <exception cref="ArgumentOutOfRangeException">Set below zero.</exception>
+    public int? ExpandCharBudget { get; init => field = MemoryOption.Require(value, 0, nameof(GraphMemoryOptions), ZeroIsOff); }
 
     /// <summary>The retrievability below which <c>PruneAsync</c> may REMOVE an entry — "forgotten enough to
     /// delete".
@@ -31,11 +33,18 @@ public sealed record GraphMemoryOptions
 
     /// <summary>Length cap for a DERIVED headline; an authored one is used as given, and authoritative
     /// content is never shortened at all. <b>A starting point, not a tuned value.</b></summary>
-    public int HeadlineChars { get; init; } = 120;
+    /// <exception cref="ArgumentOutOfRangeException">Set below one.</exception>
+    public int HeadlineChars
+    {
+        get;
+        init => field = MemoryOption.Require(value, 1, nameof(GraphMemoryOptions),
+            "a headline of no characters leaves the index nothing to show.");
+    } = 120;
 
     /// <summary>How many of the returned nodes get co-activation edges. A ten-item recall would otherwise
-    /// write forty-five edges every turn. Reasoned, not measured.</summary>
-    public int CoActivationCap { get; init; } = 5;
+    /// write forty-five edges every turn. Reasoned, not measured. Zero writes none.</summary>
+    /// <exception cref="ArgumentOutOfRangeException">Set below zero.</exception>
+    public int CoActivationCap { get; init => field = MemoryOption.Require(value, 0, nameof(GraphMemoryOptions), ZeroIsOff); } = 5;
 
     /// <summary>
     /// How many of a recall's slots <see cref="MemoryGrade.Authoritative"/> material may take. <c>null</c>
@@ -54,42 +63,63 @@ public sealed record GraphMemoryOptions
     /// <c>Relevance 0</c>, so reserving only for OMITTED entries would change nothing. A reserved entry
     /// keeps the policy's own score where it produced one.</para>
     /// </summary>
-    public int? AuthoritativeReserve { get; init; }
+    /// <exception cref="ArgumentOutOfRangeException">Set below zero.</exception>
+    public int? AuthoritativeReserve { get; init => field = MemoryOption.Require(value, 0, nameof(GraphMemoryOptions), ZeroIsOff); }
 
     /// <summary>How many recent entries an <see cref="Lyntai.Memory.Annotation.IMemoryAnnotationPolicy"/> is
     /// shown, so a pronoun in the fact being written is resolvable ("she works at a hospital" is about
     /// nobody without them). Zero shows none, which makes every annotation a judgement on the write alone.
     /// <para>Costs one no-query seed per write, and only when an annotator is registered — no annotator, no
     /// read.</para></summary>
-    public int AnnotationContext { get; init; } = 8;
+    /// <exception cref="ArgumentOutOfRangeException">Set below zero.</exception>
+    public int AnnotationContext { get; init => field = MemoryOption.Require(value, 0, nameof(GraphMemoryOptions), ZeroIsOff); } = 8;
 
     /// <summary>How many existing entries each annotated SUBJECT links the new one to. Bounds the write:
     /// subjects × this many edges, so a fact about three entities cannot quietly become a hub. Reasoned, not
-    /// measured — the mechanism is what this release establishes; the constant is a starting point.</summary>
-    public int AnnotationLinkK { get; init; } = 3;
+    /// measured — the constant is a starting point. Zero records subjects and links nothing.</summary>
+    /// <exception cref="ArgumentOutOfRangeException">Set below zero.</exception>
+    public int AnnotationLinkK { get; init => field = MemoryOption.Require(value, 0, nameof(GraphMemoryOptions), ZeroIsOff); } = 3;
 
     /// <summary>How many already-used subjects an annotator is shown as REUSE candidates, most-used first.
     /// Zero shows none, which measurably degrades consistency: real models answered three facts about one
     /// person with three different-but-defensible handles, and nothing linked. Costs one grouped read per
     /// annotated write.</summary>
-    public int AnnotationKnownSubjects { get; init; } = 24;
+    /// <exception cref="ArgumentOutOfRangeException">Set below zero.</exception>
+    public int AnnotationKnownSubjects
+    {
+        get;
+        init => field = MemoryOption.Require(value, 0, nameof(GraphMemoryOptions), ZeroIsOff);
+    } = 24;
 
     /// <summary>How many candidates to fetch per requested item. The store bounds the candidate set with
     /// plain arithmetic and the policy ranks it exactly afterwards, so a multiple above 1 is what keeps
     /// that ranking meaningful.</summary>
-    public int CandidateMultiplier { get; init; } = 4;
+    /// <exception cref="ArgumentOutOfRangeException">Set below one.</exception>
+    public int CandidateMultiplier
+    {
+        get;
+        init => field = MemoryOption.Require(value, 1, nameof(GraphMemoryOptions),
+            "fewer candidates than the items asked for leaves the ranking nothing to choose between.");
+    } = 4;
 
     /// <summary>Items returned when the query names no limit.</summary>
-    public int DefaultLimit { get; init; } = 10;
+    /// <exception cref="ArgumentOutOfRangeException">Set below one.</exception>
+    public int DefaultLimit
+    {
+        get;
+        init => field = MemoryOption.Require(value, 1, nameof(GraphMemoryOptions),
+            "a recall whose default returns nothing is no recall; pass Limit per query to ask for less.");
+    } = 10;
 
     /// <summary>How many near neighbours a new entry is linked to when similarity enrichment is wired (an
     /// embedding backend and an <see cref="IVectorStore"/> are registered).
     /// <b>A starting point, not a tuned value</b> — chosen against a synthetic corpus, never against
     /// production usage.
-    /// <para><b>Zero or less disables linking, indexing and novelty together</b>: a write is not embedded, so
+    /// <para><b>Zero disables linking, indexing and novelty together</b>: a write is not embedded, so
     /// its <see cref="MemoryWriteResult.Ran"/> never carries <see cref="MemorySources.Similarity"/> — while a
     /// recall still reports it, since there the flag means enrichment is wired.</para></summary>
-    public int SimilarityK { get; init; } = 5;
+    /// <exception cref="ArgumentOutOfRangeException">Set below zero.</exception>
+    public int SimilarityK { get; init => field = MemoryOption.Require(value, 0, nameof(GraphMemoryOptions), ZeroIsOff); } = 5;
 
     /// <summary>Cosine similarity below which enrichment does not link. Without a floor a new entry links
     /// to its <see cref="SimilarityK"/> nearest neighbours however unrelated they are, which in a small or
@@ -252,7 +282,8 @@ public sealed record GraphMemoryOptions
     ///
     /// <para>Applies to a RECALL only. An expansion is a single entry a caller explicitly paid for, so
     /// there is no ranked tail to trim.</para></summary>
-    public int? RecallReinforceCap { get; init; } = DefaultRecallReinforceCap;
+    /// <exception cref="ArgumentOutOfRangeException">Set below zero.</exception>
+    public int? RecallReinforceCap { get; init => field = MemoryOption.Require(value, 0, nameof(GraphMemoryOptions), ZeroIsOff); }
 
     /// <summary>Whether a registered <see cref="Lyntai.Memory.Verification.IMemoryVerificationPolicy"/> may
     /// also REMOVE results from what the caller sees, rather than only steering what gets reinforced.
@@ -322,7 +353,13 @@ public sealed record GraphMemoryOptions
     /// recall than the recall itself. Depth trades that cost against how far down an answer may be rescued
     /// from. Values below the recall's limit are raised to it — a verifier that saw fewer candidates than
     /// are being returned could only ever demote.</para></summary>
-    public int? VerificationDepth { get; init; }
+    /// <exception cref="ArgumentOutOfRangeException">Set below zero.</exception>
+    public int? VerificationDepth
+    {
+        get;
+        init => field = MemoryOption.Require(value, 0, nameof(GraphMemoryOptions),
+            "a negative depth shows a judge nothing; any value below the recall's limit is raised to it.");
+    }
 
     /// <summary>What <see cref="VerificationDepth"/> defaults to, as a multiple of the recall's limit.
     /// The measured saturation point — <c>docs/DECISIONS.md</c> D59 has the sweep.</summary>
@@ -333,9 +370,10 @@ public sealed record GraphMemoryOptions
     /// its own (design spec §3). Bounded, not exact: see
     /// <see cref="Lyntai.Memory.MemoryReviewLogPacing"/> for the eviction strategy and its trade-off. Ignored
     /// entirely when <see cref="LogReviews"/> is false.</summary>
-    public int ReviewLogCap { get; init; } = 10_000;
+    /// <exception cref="ArgumentOutOfRangeException">Set below zero.</exception>
+    public int ReviewLogCap { get; init => field = MemoryOption.Require(value, 0, nameof(GraphMemoryOptions), ZeroIsOff); } = 10_000;
 
-    /// <summary>The measured default for <see cref="RecallReinforceCap"/>. Set from measurement, never
-    /// reasoned.</summary>
-    private static readonly int? DefaultRecallReinforceCap = null;
+    /// <summary>Why a count whose zero already means "none" refuses a negative: it can only be a mistake,
+    /// and reading it as zero would hide that.</summary>
+    private const string ZeroIsOff = "zero already means none, so a negative count can only be a mistake.";
 }

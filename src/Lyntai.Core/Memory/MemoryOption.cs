@@ -7,14 +7,9 @@ namespace Lyntai.Memory;
 /// The ONE domain guard every memory options record validates through — the same discipline
 /// <see cref="MemorySignals"/> already applies to salience, applied to option DOMAINS.
 ///
-/// <para><b>Why one function and not a copy per property.</b> The shape was written out at 31 sites across
-/// five files, and three of those files had ALREADY extracted a private local helper — one per file, each
-/// with its own signature. The check itself never drifted, but two things around it had: the sites disagreed
-/// about what <see cref="ArgumentException.ParamName"/> should report (an inline guard passes the
-/// literal <c>"value"</c>, because that is what <c>nameof(value)</c> means inside an <c>init</c> accessor;
-/// the extracted helpers passed the PROPERTY name, which is the one a caller can act on), and every
-/// message's domain phrase was hand-written beside a check nothing tied it to. A property whose text says
-/// <c>[0, 1]</c> while its code tests <c>&lt; 0 || &gt;= 1</c> would compile, pass, and mislead.</para>
+/// <para><b><see cref="ArgumentException.ParamName"/> is the PROPERTY</b>, supplied by the compiler — the
+/// name a caller can act on, where <c>nameof(value)</c> inside an <c>init</c> accessor would report
+/// <c>"value"</c>.</para>
 ///
 /// <para><b>The domain phrase is DERIVED from the range that is actually tested</b>
 /// (<see cref="MemoryOptionRange.Describe"/>), so the sentence a consumer reads and the comparison that
@@ -50,6 +45,32 @@ internal static class MemoryOption
         throw new ArgumentOutOfRangeException(member, value,
             $"{owner}.{member} must be {range.Describe()} — {why}");
     }
+
+    /// <summary>Accept an integer at or above <paramref name="min"/>, or throw naming the property — the
+    /// integer counterpart of the overload above, so a count is guarded where it is SET rather than clamped
+    /// at each place that reads it.</summary>
+    /// <param name="value">The incoming value.</param>
+    /// <param name="min">The smallest legal value.</param>
+    /// <param name="owner">The declaring record's name.</param>
+    /// <param name="why">What a smaller value would mean — the consequence, not the rule.</param>
+    /// <param name="member">Supplied by the compiler; do not pass.</param>
+    /// <exception cref="ArgumentOutOfRangeException">The value is below <paramref name="min"/>.</exception>
+    public static int Require(int value, int min, string owner, string why, [CallerMemberName] string member = "")
+    {
+        if (value >= min) return value;
+        var domain = min switch
+        {
+            0 => "a non-negative integer",
+            1 => "a positive integer",
+            _ => $"an integer at or above {min.ToString(CultureInfo.InvariantCulture)}",
+        };
+        throw new ArgumentOutOfRangeException(member, value, $"{owner}.{member} must be {domain} — {why}");
+    }
+
+    /// <inheritdoc cref="Require(int, int, string, string, string)"/>
+    /// <remarks>Null passes through: it is the "take the default" value of an optional count.</remarks>
+    public static int? Require(int? value, int min, string owner, string why, [CallerMemberName] string member = "") =>
+        value is { } v ? Require(v, min, owner, why, member) : null;
 }
 
 /// <summary>A closed, half-open or unbounded interval over the FINITE doubles, carrying enough to both test

@@ -67,11 +67,8 @@ public sealed class LlmVerificationOptions
     public int ContentChars
     {
         get;
-        set
-        {
-            ArgumentOutOfRangeException.ThrowIfNegative(value);
-            field = value;
-        }
+        set => field = MemoryOption.Require(value, 0, nameof(LlmVerificationOptions),
+            "zero already shows the headline instead.");
     }
 }
 

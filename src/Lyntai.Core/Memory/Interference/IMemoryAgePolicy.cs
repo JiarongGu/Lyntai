@@ -134,19 +134,11 @@ public sealed class ContentSizeAgePolicy : IMemoryAgePolicy
     /// <param name="perUnit">Scales characters into positions — the default treats 200 characters as one
     /// unit, so stability constants stay in the same range as <see cref="PerWriteAgePolicy"/>.</param>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="perUnit"/> is zero, negative, or
-    /// non-finite (<c>NaN</c>, <c>+Infinity</c>, <c>-Infinity</c>). A silent fallback here
-    /// previously let <see cref="Advance"/> and <see cref="Age"/> DISAGREE on what a degenerate
-    /// configuration means (one per write vs. the raw, unscaled character count), and once <see cref="Age"/>
-    /// feeds real decay the disagreement is a ~200× age jump, not a cosmetic inconsistency — so the invalid
-    /// value is refused at construction instead, the same guard this subsystem's options records
-    /// (<c>MultiplicativeRankingOptions</c>) already apply to their own constants.</exception>
-    public ContentSizeAgePolicy(double perUnit = 200)
-    {
-        if (!double.IsFinite(perUnit) || perUnit <= 0)
-            throw new ArgumentOutOfRangeException(nameof(perUnit), perUnit,
-                "ContentSizeAgePolicy.perUnit must be a finite, positive number.");
-        _perUnit = perUnit;
-    }
+    /// non-finite (<c>NaN</c>, <c>+Infinity</c>, <c>-Infinity</c>).</exception>
+    public ContentSizeAgePolicy(double perUnit = 200) =>
+        _perUnit = MemoryOption.Require(perUnit, MemoryOptionRange.Positive, nameof(ContentSizeAgePolicy),
+            "it divides every write's length, and a degenerate scale would make Advance and Age disagree " +
+            "about what a write weighs.", nameof(perUnit));
 
     /// <inheritdoc />
     public MemoryAgeKind Kind => MemoryAgeKind.Derivable;

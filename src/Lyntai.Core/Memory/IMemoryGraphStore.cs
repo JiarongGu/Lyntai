@@ -650,13 +650,10 @@ public interface IMemoryGraphStore
     /// links. Showing it the handles already in use is what anchors it, exactly as showing it recent facts is
     /// what makes a pronoun resolvable.</para>
     ///
-    /// <para><b>It has a DEFAULT BODY on purpose — one of THREE on this interface, and the only one whose
-    /// default costs QUALITY rather than speed.</b> Ignoring <see cref="LinkManyAsync"/> or
-    /// <see cref="WriteBackAsync"/> leaves a store correct and merely slower; ignoring this one leaves it
-    /// correct and less CONSISTENT, because an annotator with no reuse candidates invents a fresh handle
-    /// where it could have matched an existing one. Every other member is required. Forcing a BYO store to
-    /// implement this for a feature it may never enable would be a cost with no matching guarantee — but
-    /// implement it if you enable annotation, because nothing reports the difference.</para>
+    /// <para><b>It is also the SUBJECT recall channel's only way in</b>: <c>SubjectSeedSource</c>, registered by
+    /// every <c>AddMemoryEngine</c>, matches a query against exactly these handles, so a store answering
+    /// nothing here silently turns that channel off while every write still pays its annotator. That is why it
+    /// takes no default body.</para>
     /// </summary>
     /// <param name="engine">The owning engine's name.</param>
     /// <param name="taskKey">The task to read within.</param>
@@ -664,6 +661,5 @@ public interface IMemoryGraphStore
     /// <param name="limit">The most subjects to return.</param>
     /// <param name="ct">Cancellation.</param>
     Task<IReadOnlyList<string>> KnownSubjectsAsync(string engine, string taskKey, string? scope,
-        int limit, CancellationToken ct = default) =>
-        Task.FromResult<IReadOnlyList<string>>([]);
+        int limit, CancellationToken ct = default);
 }
