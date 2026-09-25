@@ -268,10 +268,13 @@ public sealed class ComfyUiProvider(
             // (a local GPU is not free either). Before that, nothing was queued — and a deadline spent waiting
             // on another server is the input's fault, not this host's.
             reason => stage.Queueing
-                ? Failed($"the submit {reason}; the workflow may still have been accepted") with { Inconclusive = true }
+                ? QueuedOperation.Failure($"the submit {reason}; the workflow may still have been accepted") with
+                {
+                    Inconclusive = true,
+                }
                 : stage.FetchingFrom is { } origin
                     ? Unsupported($"the submit {reason} while fetching an input from {origin}, so nothing was queued")
-                    : Failed($"the submit {reason} before the workflow was sent, so nothing was queued"));
+                    : QueuedOperation.Failure($"the submit {reason} before the workflow was sent, so nothing was queued"));
     }
 
     /// <summary>Where a submit had got to, read by its timeout handler.</summary>
@@ -285,7 +288,7 @@ public sealed class ComfyUiProvider(
     {
         // never set up is not a fault of this host, so routing advances without a strike (D31)
         if (string.IsNullOrWhiteSpace(options.BaseUrl))
-            return Failed("no BaseUrl configured") with { Verdict = ProviderVerdict.NotConfigured };
+            return QueuedOperation.Failure("no BaseUrl configured", ProviderVerdict.NotConfigured);
 
         if (request.Option(options.WorkflowOption) is not { Length: > 0 } workflowJson)
             return Unsupported($"ComfyUI needs a workflow graph in Options[\"{options.WorkflowOption}\"] — " +
@@ -318,8 +321,8 @@ public sealed class ComfyUiProvider(
             {
                 var (stored, failure, verdict) = await UploadAsync(http, binding.Input, stage, ct).ConfigureAwait(false);
                 if (failure is not null)
-                    return Failed($"{binding.Describe} was not uploaded, so the workflow was not submitted: {failure}")
-                        with { Verdict = verdict };
+                    return QueuedOperation.Failure(
+                        $"{binding.Describe} was not uploaded, so the workflow was not submitted: {failure}", verdict);
                 binding.Field.Owner[binding.Field.Name] = stored;
             }
 
@@ -330,22 +333,23 @@ public sealed class ComfyUiProvider(
             using var response = await http.PostAsync(Url(options.SubmitPath), content, ct).ConfigureAwait(false);
             var body = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
-                return Failed($"{(int)response.StatusCode}: {HttpArtifacts.FailureDetail(body)}")
-                    with { Verdict = RequestRefusal(response.StatusCode, body) };
+                return QueuedOperation.Failure($"{(int)response.StatusCode}: {HttpArtifacts.FailureDetail(body)}",
+                    RequestRefusal(response.StatusCode, body));
 
             var id = Field(body, options.PromptIdField);
             return id is null
-                ? Failed($"no {options.PromptIdField} in the response: {HttpArtifacts.FailureDetail(body, 200)}")
+                ? QueuedOperation.Failure($"no {options.PromptIdField} in a 2xx answer, so the workflow may still " +
+                                          $"have been accepted: {HttpArtifacts.FailureDetail(body, 200)}") with { Inconclusive = true }
                 : new QueuedOperation(id, QueuedOperationStatus.Queued);
         }
         catch (OperationCanceledException) { throw; }
-        catch (HttpRequestException ex)
-        {
-            return Failed(Unreachable(ex));
-        }
         catch (Exception ex)
         {
-            return Failed(ex.Message);
+            var operation = QueuedOperation.FromThrownSubmit(ex, sent: stage.Queueing);
+            // "not reachable" only where nothing can have been queued
+            return ex is HttpRequestException unreached && !operation.Inconclusive
+                ? operation with { Detail = Unreachable(unreached) }
+                : operation;
         }
     }
 
@@ -432,12 +436,10 @@ public sealed class ComfyUiProvider(
 
     private string Unreachable(HttpRequestException ex) => $"ComfyUI at {Root} is not reachable: {ex.Message}";
 
-    private static QueuedOperation Failed(string detail) => QueueCalls.Failed(detail);
-
     /// <summary>A refusal of the REQUEST as posed, not a fault of this host: the router advances past it without
     /// counting it against the backend, since another candidate may serve the same request.</summary>
     private static QueuedOperation Unsupported(string detail) =>
-        Failed(detail) with { Verdict = ProviderVerdict.Unsupported };
+        QueuedOperation.Failure(detail, ProviderVerdict.Unsupported);
 
     /// <summary>The verdict of a refused call to this server. A 4xx other than access or a rate limit refuses
     /// THIS request — a graph failing validation (a missing model or node, a bad value), a stale view URI — so

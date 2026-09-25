@@ -71,7 +71,7 @@ internal static class QueueCalls
         new(operationId, transport ? QueuedOperationStatus.Running : QueuedOperationStatus.Failed, Detail: failure);
 
     /// <summary>A failed fetch, CLASSIFIED — by the typed status where there is one, since a status line is not
-    /// the vocabulary <see cref="ProviderVerdictClassifier.FromErrorText"/> matches on.</summary>
+    /// the vocabulary <see cref="ProviderVerdictClassifier.FromErrorText(string, ProviderVerdict)"/> matches on.</summary>
     public static MediaResponse FetchFailure(HttpStatusCode? status, string failure, bool hasCredentials) =>
         MediaResponse.Failure(
             status is { } code
@@ -89,7 +89,4 @@ internal static class QueueCalls
     /// <summary>A cancel that never got an answer: it may or may not have landed, so the render is still RUNNING.</summary>
     public static QueuedOperation CancelUnanswered(string operationId, Exception ex) =>
         new(operationId, QueuedOperationStatus.Running, Detail: ex.Message);
-
-    /// <summary>A submission that failed, with no operation to name.</summary>
-    public static QueuedOperation Failed(string detail) => new("", QueuedOperationStatus.Failed, Detail: detail);
 }

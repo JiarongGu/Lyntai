@@ -119,7 +119,8 @@ public class Automatic1111ProviderTests
     {
         // a local WebUI that simply isn't running is the normal case on a fresh machine: routing should skip
         // to the next candidate, and a host should be told to start it — not shown a stack trace
-        var handler = new StubHttpHandler().Enqueue(_ => throw new HttpRequestException("connection refused"));
+        var handler = new StubHttpHandler().Enqueue(_ =>
+            throw new HttpRequestException(HttpRequestError.ConnectionError, "connection refused"));
         var provider = new Automatic1111Provider(
             new Automatic1111Options { BaseUrl = "http://127.0.0.1:7860" },
             () => new HttpClient(handler, disposeHandler: false));

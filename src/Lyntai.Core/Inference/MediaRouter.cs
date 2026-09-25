@@ -161,13 +161,9 @@ public sealed class MediaRouter(
                 // and benching a working backend on a slow network helps nobody.
                 if (operation.Inconclusive) return new MediaSubmission(provider.Id, operation);
 
-                // A rejected submission gets a VERDICT, because "advance and always take a dead-host strike"
-                // is wrong for the same reason it is wrong inline: an unconfigured queue backend
-                // (FalQueueProvider answers "not configured: …" before it opens a socket) would be penalised
-                // on every attempt for a fact known before the call — precisely the harm NotConfigured was
-                // introduced to prevent (docs/DECISIONS.md D31). The backend's own verdict wins where it gives
-                // one; otherwise it comes from classifying the backend's words through the shared corpus, and
-                // an unclassifiable rejection still lands on Failed, which is what it did before.
+                // A rejection gets a VERDICT, so a blameless one takes no strike (an unconfigured FalProvider
+                // says NotConfigured before it opens a socket; D31): the backend's own where it gives one, else
+                // its words classified, and Failed when nothing recognises them.
                 var verdict = operation.Verdict ?? ProviderVerdictClassifier.FromErrorText(operation.Detail);
                 failures.File(new Rejection(provider.Id, operation.Detail, verdict), verdict, operation.Detail);
 

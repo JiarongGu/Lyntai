@@ -179,15 +179,16 @@ public sealed class Automatic1111Provider(
                     $"no image in the response: {HttpArtifacts.FailureDetail(body, 200)}");
         }
         catch (OperationCanceledException) { throw; }
-        catch (HttpRequestException ex)
+        catch (HttpRequestException ex) when (ex.HttpRequestError == HttpRequestError.ConnectionError)
         {
-            // a local server that isn't running is NOT a fault to penalise — it's an unconfigured candidate
+            // nothing listening is an unconfigured candidate, not a fault to penalise; one that dropped a
+            // render mid-response is a fault, and falls through
             return MediaResponse.Failure(ProviderVerdict.NotConfigured,
                 $"the WebUI at {Root} is not reachable: {ex.Message}");
         }
         catch (Exception ex)
         {
-            return MediaResponse.Failure(ProviderVerdictClassifier.FromException(ex), ex.Message);
+            return MediaResponse.Failure(ProviderVerdictClassifier.FromThrown(ex), ex.Message);
         }
     }
 

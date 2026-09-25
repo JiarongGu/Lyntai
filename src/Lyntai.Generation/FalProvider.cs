@@ -194,25 +194,26 @@ public sealed class FalProvider(
             token => SubmitCoreAsync(request, token),
             // a submit that timed out may still have been ACCEPTED, and a queued render is billable: Inconclusive
             // stops the router buying the same generation from the next backend
-            reason => QueueCalls.Failed($"the submit {reason}; the request may still have been enqueued") with
+            reason => QueuedOperation.Failure($"the submit {reason}; the request may still have been enqueued") with
             {
                 Inconclusive = true,
             });
 
     private async Task<QueuedOperation> SubmitCoreAsync(MediaRequest request, CancellationToken ct)
     {
-        if (Unconfigured() is { } missing) return QueueCalls.Failed(missing);
+        if (Unconfigured() is { } missing) return QueuedOperation.Failure(missing, ProviderVerdict.NotConfigured);
         if (Model(request) is not { Length: > 0 } model)
-            return QueueCalls.Failed(
+            return QueuedOperation.Failure(
                 "no model: name one on the request, the candidate (\"fal:model-id\") or FalOptions.Model");
 
         if (InputRefusal(request) is { } refusal)
-            return QueueCalls.Failed(refusal) with { Verdict = ProviderVerdict.Unsupported };
+            return QueuedOperation.Failure(refusal, ProviderVerdict.Unsupported);
 
         var url = Url(model, request.Option("webhook") is { Length: > 0 } webhook ? webhook : null);
 
         using var lease = HttpClientLease.From(httpFactory, disposeHttpClient);
         var http = lease.Client;
+        var sent = false;
         try
         {
             using var message = new HttpRequestMessage(HttpMethod.Post, url)
@@ -220,20 +221,22 @@ public sealed class FalProvider(
                 Content = new StringContent(BuildInput(request), Encoding.UTF8, "application/json"),
             };
             Authorize(message);
+            sent = true;   // from here the queue may hold a render, whatever reaches this process
             using var response = await http.SendAsync(message, ct).ConfigureAwait(false);
             var body = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
 
             if (!response.IsSuccessStatusCode)
-                return QueueCalls.Failed($"{(int)response.StatusCode}: {HttpArtifacts.FailureDetail(body)}");
+                return QueuedOperation.Failure($"{(int)response.StatusCode}: {HttpArtifacts.FailureDetail(body)}");
 
             return Field(body, "request_id") is { } requestId
                 ? new QueuedOperation($"{model}{ModelSeparator}{requestId}", QueuedOperationStatus.Queued)
-                : QueueCalls.Failed($"no request_id in the response: {HttpArtifacts.FailureDetail(body, 200)}");
+                : QueuedOperation.Failure("no request_id in a 2xx answer, so the request may still have been " +
+                                          $"enqueued: {HttpArtifacts.FailureDetail(body, 200)}") with { Inconclusive = true };
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception ex)
         {
-            return QueueCalls.Failed(ex.Message);
+            return QueuedOperation.FromThrownSubmit(ex, sent);
         }
     }
 

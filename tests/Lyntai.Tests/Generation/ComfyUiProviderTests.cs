@@ -1084,7 +1084,8 @@ public class ComfyUiProviderTests
     [Fact]
     public async Task An_unreachable_local_server_is_NOT_CONFIGURED_on_every_path()
     {
-        var handler = new StubHttpHandler().Enqueue(_ => throw new HttpRequestException("connection refused"));
+        var handler = new StubHttpHandler().Enqueue(_ =>
+            throw new HttpRequestException(HttpRequestError.ConnectionError, "connection refused"));
         var provider = new ComfyUiProvider(
             new ComfyUiOptions { BaseUrl = "http://127.0.0.1:8188" },
             () => new HttpClient(handler, disposeHandler: false));

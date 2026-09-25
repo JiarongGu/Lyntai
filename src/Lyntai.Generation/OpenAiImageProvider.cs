@@ -176,7 +176,7 @@ public sealed class OpenAiImageProvider(
         catch (OperationCanceledException) { throw; }
         catch (Exception ex)
         {
-            return MediaResponse.Failure(ProviderVerdictClassifier.FromException(ex), ex.Message);
+            return MediaResponse.Failure(ProviderVerdictClassifier.FromThrown(ex), ex.Message);
         }
     }
 
