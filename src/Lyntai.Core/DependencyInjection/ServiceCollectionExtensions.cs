@@ -233,7 +233,7 @@ public static class LyntaiServiceCollectionExtensions
                 throw new InvalidOperationException(
                     $"{seam} pins Model '{model}', but every candidate {where} routes over pins a model of " +
                     $"its own and none is '{model}' " +
-                    $"({string.Join(", ", candidates.Select(c => $"{c.ProviderId}:{c.Model}"))}). " +
+                    $"({string.Join(", ", candidates.Select(ProviderCandidateSpec.Format))}). " +
                     "The router resolves `candidate.Model ?? request.Model`, so this setting can never take " +
                     "effect and the seam would silently run on another model. Name a client whose candidates " +
                     "pin the model you want (ClientName), or drop the Model.");
@@ -324,7 +324,7 @@ public static class LyntaiServiceCollectionExtensions
             var all = sp.GetServices<IModelProvider>().ToList();
             if (ids.Count == 0) return all;
 
-            var byId = all.ToDictionary(p => p.Id, StringComparer.OrdinalIgnoreCase);
+            var byId = ProviderLookup.ById(all);
             var missing = ids.Where(id => !byId.ContainsKey(id)).ToList();
             if (missing.Count > 0)
                 throw new InvalidOperationException(

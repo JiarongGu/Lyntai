@@ -57,21 +57,9 @@ public sealed class TextRouter(
     // be indistinguishable from no delegate at all
     private readonly Func<IModelProvider, ProviderKey?> _configuration = configuration ?? (_ => null);
 
-    // provider lookup by id, built once — O(1) per candidate/retry instead of a linear scan. First
-    // registration wins on a duplicate id (preserving the prior FirstOrDefault semantics).
-    //
-    // Keyed CASE-INSENSITIVELY, like every other id lookup in the tree (MediaRouter, ProviderPoolGuard,
-    // IToolRegistry, IJobHandlerRegistry, BoundedProviderPool). An ordinal table made a pool slot cased
-    // differently from the provider's own Id — which ProviderPoolGuard deliberately ACCEPTS — reachable by
-    // the guard, poolable, and then never selected here: the backend was simply never tried, with no error
-    // and one debug line. Case-folding also merges two registrations whose ids differ only in case, which is
-    // the same "first registration wins" rule one step earlier: the second was unreachable either way.
-    private readonly Lazy<IReadOnlyDictionary<string, IModelProvider>> _byId = new(() =>
-    {
-        var map = new Dictionary<string, IModelProvider>(StringComparer.OrdinalIgnoreCase);
-        foreach (var p in providers) map.TryAdd(p.Id, p);
-        return map;
-    });
+    // built once — O(1) per candidate/retry. Case-insensitive, as ProviderPoolGuard accepts a pool slot cased
+    // differently from the provider's own Id: an ordinal table left such a backend poolable and never tried.
+    private readonly Lazy<IReadOnlyDictionary<string, IModelProvider>> _byId = new(() => ProviderLookup.ById(providers));
 
     public async Task<TextResponse> CompleteAsync(IReadOnlyList<ProviderCandidate> candidates, TextRequest req, CancellationToken ct = default)
     {

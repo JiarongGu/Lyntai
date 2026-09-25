@@ -567,8 +567,7 @@ public sealed class MediaRouter(
         var resolved = new List<(IModelProvider Provider, MediaRequest Request)>();
         foreach (var candidate in candidates)
         {
-            var provider = providers.FirstOrDefault(p =>
-                string.Equals(p.Id, candidate.ProviderId, StringComparison.OrdinalIgnoreCase));
+            var provider = ProviderLookup.Find(providers, candidate.ProviderId);
             if (provider is null) continue;   // an unknown id is a config typo, not a crash
 
             resolved.Add((provider,

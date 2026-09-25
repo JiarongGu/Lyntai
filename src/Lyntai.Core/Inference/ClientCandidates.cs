@@ -100,8 +100,7 @@ internal static class ClientCandidates
     internal static IReadOnlyList<(string Candidate, string Produces, bool DeclaresNothing)> ServingNoText(
         IReadOnlyList<ProviderCandidate> candidates, IEnumerable<IModelProvider> providers)
     {
-        var byId = new Dictionary<string, IModelProvider>(StringComparer.OrdinalIgnoreCase);
-        foreach (var p in providers) byId.TryAdd(p.Id, p);
+        var byId = ProviderLookup.ById(providers);
         return [.. CandidateDedup.Dedup(candidates)
             .Select(c => (Candidate: c, Provider: byId.GetValueOrDefault(c.ProviderId)))
             .Where(x => x.Provider is not null && !ServesText(x.Provider))
