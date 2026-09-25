@@ -273,6 +273,24 @@ describe('check-sensitive — end to end over a real repository', () => {
     assert.doesNotMatch(log.text(), /deleted in the working tree/, 'and it is not mistaken for a deletion');
   });
 
+  it('--tree FAILS on an empty listing — a scan of nothing proves nothing clean', (t) => {
+    const dir = makeRepo({});
+    t.after(() => removeTree(dir));
+
+    const log = recorder(); const err = recorder();
+    assert.equal(checkSensitive({ repo: dir, tree: true, log, err }), 1);
+    assert.match(err.text(), /listing is EMPTY/);
+    assert.doesNotMatch(log.text(), /clean/);
+  });
+
+  it('a staged run with nothing staged passes quietly — a deletion-only commit is ordinary', (t) => {
+    const dir = makeRepo({});
+    t.after(() => removeTree(dir));
+
+    const log = recorder(); const err = recorder();
+    assert.equal(checkSensitive({ repo: dir, tree: false, log, err }), 0);
+  });
+
   it('does not block on a tracked file deleted from the working tree — it reports the skip', (t) => {
     const dir = makeRepo({ 'docs/a.md': 'fine\n', 'docs/b.md': 'fine\n' });
     t.after(() => removeTree(dir));

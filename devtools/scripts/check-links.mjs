@@ -23,7 +23,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { HISTORICAL, IN_SCOPE, IS_SCANNED, LIVE_PREFIX, liveLinesOnly } from './check-docs.mjs';
-import { repoFiles, twoLineWindows, windowHits } from './_repo-files.mjs';
+import { readRepoText, repoFiles, twoLineWindows, windowHits } from './_repo-files.mjs';
 
 const here = fileURLToPath(import.meta.url);
 const repo = join(dirname(here), '..', '..');
@@ -386,8 +386,8 @@ export function checkLinks(repo, config, log = console.log, files = null) {
   const archivedParts = partsIn('docs/task-archive.md');
 
   for (const file of docs) {
-    let text;
-    try { text = readFileSync(join(repo, file), 'utf8'); } catch { continue; }
+    const text = readRepoText(repo, file);
+    if (text === null) continue;
 
     // A partly-historical file is read only where it is LIVE — a prefix (CHANGELOG's unreleased half)
     // or the dated amendment regions (the design record, D164) — with historical lines BLANKED so line
@@ -425,8 +425,8 @@ export function checkLinks(repo, config, log = console.log, files = null) {
   // that measurement re-run when the tree has grown around it, exactly as a blocked backlog item does.
   const COMMENT = /^\s*(?:\/\/|\*|#)/;
   for (const file of code) {
-    let text;
-    try { text = readFileSync(join(repo, file), 'utf8'); } catch { continue; }
+    const text = readRepoText(repo, file);
+    if (text === null) continue;
 
     // Non-comment lines blanked, so no half reads code and a window never joins a comment to it.
     const lines = text.split(/\r?\n/).map((l) => (COMMENT.test(l) ? l : ''));

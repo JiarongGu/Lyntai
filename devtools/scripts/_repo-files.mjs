@@ -1,4 +1,6 @@
 import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 /**
  * The ONE file list every full-tree gate scans: tracked files PLUS new files that are not ignored.
@@ -39,6 +41,39 @@ export const repoFiles = (repo, tiers = []) => {
 
   return [...new Set([...list([]), ...list(['--others', '--exclude-standard'])])];
 };
+
+/**
+ * What a scanning guard reads: a file list and a reader for each file's BYTES. The full tree
+ * (`repoFiles`, working-tree bytes) or, `staged`, the INDEX — what a commit is about to record, read with
+ * `git show :<path>`, because a pre-commit guard that reads the working tree passes a damaged blob that was
+ * repaired on disk without being re-staged, and blocks on damage the commit does not touch.
+ *
+ * `R` in the staged filter is load-bearing: rename detection is on by default, so `git mv` plus an edit
+ * stages as status R, and an `ACM` filter returns an EMPTY list. `D` has no staged blob to scan. `-z` is
+ * load-bearing for `repoFiles`' reason: a C-quoted non-ASCII name matches no blob.
+ */
+export function repoSources(repo, { staged = false } = {}) {
+  if (!staged) return { files: repoFiles(repo), bytesOf: (f) => readFileSync(join(repo, f)) };
+  const git = (args, encoding) => execFileSync('git', args, { cwd: repo, encoding, maxBuffer: 64 * 1024 * 1024 });
+  return {
+    files: git(['diff', '--cached', '--name-only', '--diff-filter=ACMR', '-z'], 'utf8').split('\0').filter(Boolean),
+    bytesOf: (f) => git(['show', `:${f}`], 'buffer'),
+  };
+}
+
+/**
+ * A listed file's text, or `null` when it is gone from the working tree — a pending deletion, with nothing
+ * left to certify. Any OTHER read error THROWS: a file a gate cannot read is one it cannot prove clean, and
+ * skipping it while counting it in a green total is a false PASS.
+ */
+export function readRepoText(repo, f) {
+  try {
+    return readFileSync(join(repo, f), 'utf8');
+  } catch (e) {
+    if (e?.code === 'ENOENT') return null;
+    throw new Error(`${f}: could not be read (${e?.code ?? e?.message}), so no gate can prove it clean`);
+  }
+}
 
 /**
  * The two-line window three gates share: `check-counts` and `check-docs` join a claim across a wrap this

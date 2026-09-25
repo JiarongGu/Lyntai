@@ -8,7 +8,23 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { twoLineWindows, windowHits } from '../_repo-files.mjs';
+import { readRepoText, twoLineWindows, windowHits } from '../_repo-files.mjs';
+import { makeTree, removeTree } from './_fixtures.mjs';
+
+describe('readRepoText — the one read rule every scanning gate shares', () => {
+  it('returns the text, or null for a listed file gone from the working tree (a pending deletion)', (t) => {
+    const dir = makeTree({ 'docs/a.md': 'hello\n' });
+    t.after(() => removeTree(dir));
+    assert.equal(readRepoText(dir, 'docs/a.md'), 'hello\n');
+    assert.equal(readRepoText(dir, 'docs/gone.md'), null);
+  });
+
+  it('THROWS on any other read error — a file a gate cannot read is one it cannot prove clean', (t) => {
+    const dir = makeTree({ 'docs/dir.md/inner.txt': 'x' });   // `docs/dir.md` reads as EISDIR
+    t.after(() => removeTree(dir));
+    assert.throws(() => readRepoText(dir, 'docs/dir.md'), /docs\/dir\.md: could not be read \(EISDIR\)/);
+  });
+});
 
 describe('windowHits — the one "line alone, else the two-line window" rule the prose gates share', () => {
   const WIDGET = /\bWidget\b/g;

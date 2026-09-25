@@ -4,7 +4,7 @@ import path from 'node:path';
 import { test } from 'node:test';
 
 import { MOJIBAKE, SCANNED, checkEncoding } from '../check-encoding.mjs';
-import { makeTree, removeTree } from './_fixtures.mjs';
+import { git, makeRepo, makeTree, removeTree, writeInto } from './_fixtures.mjs';
 
 /// A fixture tree, cleaned up whatever happens. No git needed: every fact here passes the file list to
 /// `checkEncoding` explicitly, so `trackedFiles` is out of scope.
@@ -124,6 +124,52 @@ test('every registered pattern is actually detected', () => {
   }
 });
 
+
+test('a C0 CONTROL character FAILS — a `\\b` written through a tool that turned it into a backspace', () => {
+  // pitfalls.md's own entry about a `\b` silently becoming U+0008 was itself written that way, and it was
+  // invisible to every gate: the text still read, minus the subject it was about.
+  withRepo({ 'docs/a.md': `written with \`${String.fromCharCode(8)}\` in a string\n` }, (repo) => {
+    const lines = [];
+    assert.equal(checkEncoding(repo, (m) => lines.push(m), ['docs/a.md']), 1);
+    assert.match(lines.join('\n'), /docs\/a\.md:1 — control character U\+0008/);
+  });
+});
+
+test('TAB, LF and CR are text, not control damage', () => {
+  withRepo({ 'src/a.cs': 'a\tb\r\nc\n' }, (repo) => {
+    const lines = [];
+    assert.equal(checkEncoding(repo, (m) => lines.push(m), ['src/a.cs']), 0, lines.join('\n'));
+  });
+});
+
+test('--staged scans the STAGED blob, not the working tree — the blob is what gets committed', () => {
+  // The pre-commit hook's mode: a file staged with mojibake and then repaired on disk without re-staging
+  // would otherwise pass while the corrupt blob is committed.
+  const dir = makeRepo({ 'src/a.cs': 'clean\n' });
+  try {
+    git(dir, ['add', '.']);
+    git(dir, ['commit', '-qm', 'seed']);
+    writeInto(dir, 'src/a.cs', `// ${mangle('a — b', 'gbk')}\n`);
+    git(dir, ['add', 'src/a.cs']);
+    writeInto(dir, 'src/a.cs', 'repaired on disk only\n');
+
+    const lines = [];
+    assert.equal(checkEncoding(dir, (m) => lines.push(m), null, { staged: true }), 1);
+    assert.match(lines.join('\n'), /src\/a\.cs:1/);
+  } finally { removeTree(dir); }
+});
+
+test('--staged ignores a damaged file the commit does not touch, and an empty commit passes', () => {
+  const dir = makeRepo({ 'src/a.cs': 'clean\n' });
+  try {
+    git(dir, ['add', '.']);
+    git(dir, ['commit', '-qm', 'seed']);
+    writeInto(dir, 'src/untracked.cs', `// ${mangle('a — b', 'gbk')}\n`);
+
+    const lines = [];
+    assert.equal(checkEncoding(dir, (m) => lines.push(m), null, { staged: true }), 0, lines.join('\n'));
+  } finally { removeTree(dir); }
+});
 
 test('fail-closed: an empty listing FAILS rather than printing a tick', () => {
   // check-api-vocabulary's rule, which this gate was missing (2026-08-15). An empty source list is a broken

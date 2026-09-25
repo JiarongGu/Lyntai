@@ -14,9 +14,7 @@ node devtools/scripts/check-sensitive.mjs || exit 1
 node devtools/scripts/check-version-bump.mjs || exit 1
 
 # 3. Encoding guard (see .claude/rules/windows-machine.md § Text and encoding) — blocks a commit carrying
-#    MOJIBAKE: UTF-8 that was decoded as another codepage and written back. It belongs here rather than only
-#    in `verify` for the same reason the sensitive scan does: once committed the damage is in the history,
-#    and unlike a failing test it breaks nothing — the file stays valid UTF-8, compiles and ships. The rule
-#    against round-tripping a file through PowerShell 5 predates this hook and was still broken three times
-#    in one session, which is what turned it from a rule into a gate.
-node devtools/scripts/check-encoding.mjs || exit 1
+#    MOJIBAKE or a raw control character. It belongs here rather than only in `verify` for the same reason
+#    the sensitive scan does: once committed the damage is in the history. `--staged` reads the blobs being
+#    committed, exactly as the sensitive scan does, not the working tree.
+node devtools/scripts/check-encoding.mjs --staged || exit 1

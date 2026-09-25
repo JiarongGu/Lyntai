@@ -26,7 +26,7 @@ import { fileURLToPath } from 'node:url';
 import { parseItems } from './check-backlog.mjs';
 import { IN_SCOPE, IS_SCANNED, SUPERSEDED_BANNER, liveLinesOnly } from './check-docs.mjs';
 import { packableProjects } from './check-packages.mjs';
-import { repoFiles, twoLineWindows, windowHits } from './_repo-files.mjs';
+import { readRepoText, repoFiles, twoLineWindows, windowHits } from './_repo-files.mjs';
 
 const here = fileURLToPath(import.meta.url);
 const repo = path.resolve(path.dirname(here), '..', '..');
@@ -531,9 +531,8 @@ export function checkCounts(repo, claims = COUNTED_CLAIMS, log = console.log, fi
   const seen = new Map(claims.map((c) => [c, 0]));
 
   for (const file of docs) {
-    let text;
-    try { text = fs.readFileSync(path.join(repo, file), 'utf8'); } catch { continue; }
-    if (SUPERSEDED_BANNER.test(text)) continue;
+    const text = readRepoText(repo, file);
+    if (text === null || SUPERSEDED_BANNER.test(text)) continue;
 
     // Historical lines BLANKED (`liveLinesOnly`), so a frozen seed is never asked to agree with today's tree.
     const lines = liveLinesOnly(file, text.split(/\r?\n/));

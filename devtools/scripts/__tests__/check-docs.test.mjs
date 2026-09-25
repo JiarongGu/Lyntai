@@ -63,6 +63,14 @@ describe('check-docs — regression: the three measured defects', () => {
     assert.deepEqual(out.match(/docs\/a\.md:\d+/g), ['docs/a.md:2']);
   });
 
+  it('defect 4: a listed file that cannot be READ fails the run instead of being skipped and counted clean', () => {
+    // Only a pending deletion (ENOENT) may be skipped; EISDIR here stands in for a Windows lock or EACCES.
+    const dir = makeTree({ 'docs/locked.md/inner.txt': 'x' });
+    try {
+      assert.throws(() => checkDocs(dir, config, recorder(), ['docs/locked.md']), /docs\/locked\.md: could not be read/);
+    } finally { removeTree(dir); }
+  });
+
   it('defect 1c: a claim wrapped onto an INDENTED continuation is still caught (regression)', () => {
     // Demonstrated failure: the join kept the continuation's own leading indentation, so
     // "available," + " " + "      not the default" carried extra spaces between "available," and "not"

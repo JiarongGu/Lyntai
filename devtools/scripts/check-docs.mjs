@@ -9,7 +9,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { repoFiles, twoLineWindows, windowHits } from './_repo-files.mjs';
+import { readRepoText, repoFiles, twoLineWindows, windowHits } from './_repo-files.mjs';
 
 const here = fileURLToPath(import.meta.url);
 const repo = join(dirname(here), '..', '..');
@@ -325,8 +325,8 @@ export function checkDocs(repo, config, log = console.log, files = null) {
   let skipped = 0;
 
   for (const file of tracked) {
-    let text;
-    try { text = readFileSync(join(repo, file), 'utf8'); } catch { continue; }
+    const text = readRepoText(repo, file);
+    if (text === null) continue;
 
     const isCode = CODE_IN_SCOPE(file);
     if (!isCode && SUPERSEDED_BANNER.test(text)) { skipped++; continue; }

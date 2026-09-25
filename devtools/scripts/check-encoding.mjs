@@ -1,5 +1,6 @@
-// check-encoding — FAIL when a tracked text file contains MOJIBAKE: UTF-8 that was decoded as some other
-// codepage and written back, corrupting every non-ASCII character in it.
+// check-encoding — FAIL when a tracked text file contains MOJIBAKE (UTF-8 that was decoded as some other
+// codepage and written back, corrupting every non-ASCII character in it) or a C0 CONTROL character (an
+// escape a tool wrote as its raw byte).
 //
 // WHY THIS IS A GATE AND NOT A RULE. `windows-machine.md` and `repo-mechanics.md` both already say never to
 // round-trip a source file through PowerShell 5's Set-Content, and the rule was still broken THREE TIMES in
@@ -11,11 +12,10 @@
 // WHAT MAKES IT DANGEROUS is that it does not fail anything. Mangled CJK and em-dashes compile, pass every
 // test, and ship — the file is still valid UTF-8, just wrong. The damage is silent and permanent once
 // committed, exactly like a leaked path.
-import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { repoFiles } from './_repo-files.mjs';
+import { repoSources } from './_repo-files.mjs';
 
 const here = fileURLToPath(import.meta.url);
 const repo = path.resolve(path.dirname(here), '..', '..');
@@ -55,25 +55,29 @@ export const MOJIBAKE = [
   { codes: [0x00E4, 0x00B8, 0x00AD], why: 'CJK read as CP1252' },
 ].map((m) => ({ ...m, pattern: String.fromCodePoint(...m.codes) }));
 
-export const trackedFiles = (repo) => repoFiles(repo);
+/**
+ * A C0 control character other than TAB, LF and CR. Authored text never holds one; a `\b` written through a
+ * tool that interprets escapes lands as U+0008 and the sentence simply loses its subject — which is how
+ * `pitfalls.md`'s own entry about that trap came to be missing the `\b` it was about.
+ */
+export const CONTROL = /[\x00-\x08\x0b\x0c\x0e-\x1f]/g;
 
-export function checkEncoding(repo, log = console.log, files = null) {
-  const source = files ?? trackedFiles(repo);
+/**
+ * @param {string[] | null} files a caller-chosen list, read from disk; `null` = the gate's own source —
+ *   the full tree, or with `staged` the index (the pre-commit hook's mode: what the commit will record).
+ */
+export function checkEncoding(repo, log = console.log, files = null, { staged = false } = {}) {
+  const { files: source, bytesOf } = files === null
+    ? repoSources(repo, { staged })
+    : { files, bytesOf: (f) => fs.readFileSync(path.join(repo, f)) };
   const candidates = source
     .filter((f) => SCANNED.test(f))
     .filter((f) => !EXCLUDED.includes(f.replace(/\\/g, '/')));
 
-  // Fail-closed: a gate that scanned nothing must never print a tick (check-api-vocabulary's rule, which
-  // this gate was missing). It matters more here than anywhere: this gate's whole premise is that mojibake
-  // is invisible to every OTHER check, so a false pass is unrecoverable in the same way check-sensitive's
-  // rename blind spot was.
-  //
-  // TWO ways a run scans nothing, and only one of them is always wrong. An empty SOURCE is a broken listing
-  // whoever supplied it — the exact shape that let check-sensitive skip every renamed file. Zero CANDIDATES
-  // from a full tree means the text filter rejected everything, which this repository cannot legitimately
-  // produce; from a caller-supplied list it is ordinary (a commit touching only binaries), so that half is
-  // checked on the tree path alone.
-  if (source.length === 0 || (files === null && candidates.length === 0)) {
+  // Fail-closed on the tree path: an empty listing is broken whoever supplied it, and zero candidates from a
+  // full tree means the text filter rejected everything. A staged run may be empty (a deletion-only commit),
+  // and a caller's list may hold only binaries.
+  if (!staged && (source.length === 0 || (files === null && candidates.length === 0))) {
     log('check-encoding: ✗ found no tracked text files to scan');
     log('  Nothing was scanned, so this gate proves nothing — check the repo root and the file listing.');
     return 1;
@@ -84,10 +88,10 @@ export function checkEncoding(repo, log = console.log, files = null) {
   for (const file of candidates) {
     let text;
     try {
-      text = fs.readFileSync(path.join(repo, file), 'utf8');
+      text = bytesOf(file).toString('utf8');
     } catch (e) {
       // ENOENT is a pending deletion — nothing left to certify. Anything ELSE is a file this guard cannot
-      // prove clean, and a silent skip there is a false PASS (check-sensitive's rule, owed here too).
+      // prove clean, and a silent skip there is a false PASS.
       if (e?.code === 'ENOENT') continue;
       unreadable.push(`${file}: ${e.message}`);
       continue;
@@ -99,6 +103,12 @@ export function checkEncoding(repo, log = console.log, files = null) {
         if (lines[i].includes(pattern)) hits.push({ file, line: i + 1, why });
       }
     }
+    for (let i = 0; i < lines.length; i++) {
+      for (const [ch] of lines[i].matchAll(CONTROL)) {
+        const code = ch.charCodeAt(0).toString(16).toUpperCase().padStart(4, '0');
+        hits.push({ file, line: i + 1, why: `control character U+${code} — an escape written as its raw byte` });
+      }
+    }
   }
 
   if (unreadable.length > 0) {
@@ -108,24 +118,27 @@ export function checkEncoding(repo, log = console.log, files = null) {
 
   if (hits.length === 0) {
     if (unreadable.length > 0) return 1;
-    log(`check-encoding: ${candidates.length} tracked text file(s) free of mojibake ✓`);
+    log(`check-encoding: ${candidates.length} ${staged ? 'staged' : 'tracked'} text file(s) free of `
+      + 'mojibake and control characters ✓');
     return 0;
   }
 
-  log(`check-encoding: ✗ ${hits.length} mojibake sequence(s) in tracked text`);
+  log(`check-encoding: ✗ ${hits.length} damaged sequence(s) in tracked text`);
   for (const h of hits.slice(0, 20)) log(`  ${h.file}:${h.line} — ${h.why}`);
   if (hits.length > 20) log(`  …and ${hits.length - 20} more`);
   log('');
-  log('  This is UTF-8 that was decoded as another codepage and written back. It compiles, passes every');
-  log('  test and ships — the file is still valid UTF-8, just wrong — so nothing else will catch it.');
+  log('  Mojibake is UTF-8 decoded as another codepage and written back; a control character is an escape');
+  log('  (`\\b`, `\\x1b`) a tool wrote as its raw byte. Both compile, pass every test and ship, so nothing');
+  log('  else will catch them.');
   log('');
   log('  Almost always: a file was round-tripped through PowerShell 5 (Get-Content/Set-Content), or content');
-  log('  was echoed through a non-UTF-8 console. Recover with `git checkout -- <file>` and redo the edit');
+  log('  was echoed through a shell or console. Recover with `git checkout -- <file>` and redo the edit');
   log('  with the file-writing tools, never through the shell. See `.claude/rules/windows-machine.md`.');
   return 1;
 }
 
-// CLI entry point — a thin wrapper, so importing this module for a test runs nothing.
+// CLI entry point — a thin wrapper, so importing this module for a test runs nothing. `--staged` is the
+// pre-commit hook's mode.
 if (import.meta.main ?? (process.argv[1] && path.resolve(process.argv[1]) === here)) {
-  process.exitCode = checkEncoding(repo);
+  process.exitCode = checkEncoding(repo, console.log, null, { staged: process.argv.includes('--staged') });
 }

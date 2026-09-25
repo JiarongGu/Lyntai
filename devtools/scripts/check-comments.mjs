@@ -39,11 +39,10 @@
 // worst block FAILS — so the numbers can only ever come down, and a file that improves must record it. That
 // is the same "an allowance that stops matching FAILS" discipline `check-api-vocabulary` and `check-links`
 // already carry, turned into a budget instead of a boolean.
-import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { repoFiles } from './_repo-files.mjs';
+import { readRepoText, repoFiles } from './_repo-files.mjs';
 
 const here = fileURLToPath(import.meta.url);
 const repo = path.resolve(path.dirname(here), '..', '..');
@@ -209,8 +208,8 @@ export function checkComments(repo, cfg, log = console.log, files = null) {
   const seen = new Set();
 
   for (const f of scanned) {
-    let text;
-    try { text = fs.readFileSync(path.join(repo, f), 'utf8'); } catch { continue; }
+    const text = readRepoText(repo, f);
+    if (text === null) continue;
     seen.add(f);
 
     for (const s of strandedIn(text)) stranded.push({ file: f, ...s });

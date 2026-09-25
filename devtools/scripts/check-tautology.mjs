@@ -7,10 +7,9 @@
 // `check-docs` are all in `docs/GATES.md` §check-tautology.
 //
 // Escape token: `tautology-ok`, this gate's own and no other's.
-import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { repoFiles, twoLineWindows, windowHits } from './_repo-files.mjs';
+import { readRepoText, repoFiles, twoLineWindows, windowHits } from './_repo-files.mjs';
 
 const here = fileURLToPath(import.meta.url);
 const repo = join(dirname(here), '..', '..');
@@ -105,8 +104,8 @@ export function checkTautology(repo, log = console.log, files = null) {
 
   const hits = [];
   for (const file of scanned) {
-    let text;
-    try { text = readFileSync(join(repo, file), 'utf8'); } catch { continue; }
+    const text = readRepoText(repo, file);
+    if (text === null) continue;
 
     const lines = proseOf(file, text);
     const windows = twoLineWindows(lines);

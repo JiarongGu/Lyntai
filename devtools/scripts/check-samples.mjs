@@ -59,6 +59,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { IN_SCOPE, IS_SCANNED, LIVE_PREFIX, SUPERSEDED_BANNER, liveLineMask, trackedFiles } from './check-docs.mjs';
+import { readRepoText } from './_repo-files.mjs';
 
 const here = fileURLToPath(import.meta.url);
 const repoDefault = join(dirname(here), '..', '..');
@@ -508,7 +509,7 @@ const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
  * `files` is the raw candidate list (a `git ls-files` shape) for the same reason.
  */
 export function checkSamples(repo, { log = console.log, files = null, compile = null, read = null, list = false } = {}) {
-  const readFile = read ?? ((f) => readFileSync(join(repo, f), 'utf8'));
+  const readFile = read ?? ((f) => readRepoText(repo, f));
   const source = files ?? trackedFiles(repo);
   const tracked = source
     .filter((f) => f.endsWith('.md'))
@@ -521,8 +522,8 @@ export function checkSamples(repo, { log = console.log, files = null, compile = 
   const conflicts = [];
   let supersededDocs = 0;
   for (const file of tracked) {
-    let text;
-    try { text = readFile(file); } catch { continue; }
+    const text = readFile(file);
+    if (text == null) continue;                    // a pending deletion; any other read error throws
     if (SUPERSEDED_BANNER.test(text)) { supersededDocs++; continue; }
     // Shared with check-docs, deliberately: a partly-historical file is live down to its boundary
     // (CHANGELOG) or inside its dated amendment regions (the design record, D164), so a fenced sample

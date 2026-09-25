@@ -1367,9 +1367,9 @@ of the two: most of these traps recur in a subsystem that had never met them.
   answer cannot see a false positive at all, so any change that merely pushes harder scores as a clean win.
   Build the negative half before tuning anything against the positive half.
 
-- <!-- trap: sub=gates shape=vacuous -->**A `retiredTerms` pattern written with `` in a JavaScript single-quoted string can NEVER fire, and
-  nothing reports it.** The source needs `\b`; a single backslash is JS's *backspace* escape, so the rule
-  compiles to `[]Name[]` and matches nothing. `check-docs` then passes on a tree full of the term it
+- <!-- trap: sub=gates shape=vacuous -->**A `retiredTerms` pattern written with `\b` in a JavaScript single-quoted string can NEVER fire, and
+  nothing reports it.** The source needs `\\b`; a single backslash is JS's *backspace* escape, so the rule
+  compiles to U+0008`Name`U+0008 and matches nothing. `check-docs` then passes on a tree full of the term it
   was added to ban — the gate is present, green, and dead, which reads exactly like "clean".
   <br>**Every registry entry that is a REGEX has this shape**, and CLAUDE.md's rule — *write every new
   allowance so that one looser than needed, or one that stops matching, FAILS* — is the same principle one

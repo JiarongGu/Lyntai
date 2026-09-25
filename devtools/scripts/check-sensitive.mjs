@@ -14,11 +14,10 @@
 // devtools/scripts/__tests__/check-sensitive.test.mjs can prove each pattern FIRES. A guard whose failure
 // mode is a false PASS cannot be validated by running it — see docs/task-archive.md Part 60.
 
-import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { repoFiles } from './_repo-files.mjs';
+import { repoSources } from './_repo-files.mjs';
 
 const here = fileURLToPath(import.meta.url);
 const repo = path.resolve(path.dirname(here), '..', '..');
@@ -72,45 +71,12 @@ export function decodeText(buf) {
   return text.includes('\0') ? null : text;                 // still NUL after utf8 → true binary
 }
 
-const git = (repoRoot, args) =>
-  execFileSync('git', args, { cwd: repoRoot, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
-const gitBuf = (repoRoot, args) => execFileSync('git', args, { cwd: repoRoot, maxBuffer: 64 * 1024 * 1024 });
-
 /**
- * Files to scan + a getter for their raw bytes (staged blob vs on-disk).
- *
- * `-z` (NUL-separated) is load-bearing, not tidiness. Without it git C-QUOTES any path containing a
- * non-ASCII byte — `docs/灵台.md` arrives as `"docs/\347\201\265\345\217\260.md"` — and that name matches no  link-ok
- * file on disk. In `--tree` mode the read then ENOENTs and lands in the "pending deletion" branch below, so
- * the file is SILENTLY SKIPPED and a leak inside it is never seen; in staged mode `git show :<quoted>` fails
- * and it is (correctly, but confusingly) fail-closed. Measured 2026-08-11 while writing this gate's tests —
- * a false PASS in the highest-stakes guard, in a repository whose own name is CJK.
- *
- * `R` in the staged filter is load-bearing for the same reason. Rename detection is ON by default, so
- * `git mv` plus an edit stages as status R — and an `ACM` filter drops it, returning an EMPTY file list, so
- * the pre-commit hook exits 0 having printed nothing. This repository's own procedures are built on `git mv`
- * (archiving a document, moving a record into `local/`), and `sensitive-info.md` is explicit that a committed
- * leak is a HISTORY problem: `--tree` would catch it only once it is already in history. Found 2026-08-14 by
- * the whole-codebase review. `D` stays excluded deliberately — a deletion has no staged blob to scan.
+ * Files to scan + a getter for their raw bytes: the staged blobs (what the hook reads — a leak reaches
+ * history through the index), or with `tree` every tracked and new-but-not-ignored file. `repoSources`
+ * (`_repo-files.mjs`) owns both, and why each spelling of the listing is load-bearing.
  */
-export function sources(repoRoot, { tree = false } = {}) {
-  if (tree) {
-    return {
-      // TRACKED *and* new-but-not-ignored. `git ls-files` lists the INDEX, so a file written this session and
-      // not yet `git add`ed is absent from it — and a leak in a file written this session is precisely what a
-      // full-tree scan is for. The staged path below is unaffected: a leak reaches history through the index,
-      // which is what the pre-commit hook reads. Ignored paths (`local/`, `devtools/_*`) stay out on their
-      // own, and `local/sensitive-patterns.txt` living there is exactly why that must remain true.
-      files: repoFiles(repoRoot),
-      bytesOf: (f) => readFileSync(path.join(repoRoot, f)),
-    };
-  }
-  return {
-    files: git(repoRoot, ['diff', '--cached', '--name-only', '--diff-filter=ACMR', '-z'])
-      .split('\0').filter(Boolean),
-    bytesOf: (f) => gitBuf(repoRoot, ['show', `:${f}`]),
-  };
-}
+export const sources = (repoRoot, { tree = false } = {}) => repoSources(repoRoot, { staged: !tree });
 
 /** The scan itself: every line of every file against every pattern. */
 export function scanFiles(files, bytesOf, patterns) {
@@ -149,6 +115,12 @@ export function checkSensitive({ repo: repoRoot = repo, tree = false, log = cons
   if (localFileMissing) err('check-sensitive: local/sensitive-patterns.txt missing — running built-ins only.');
 
   const { files, bytesOf } = sources(repoRoot, { tree });
+  // Fail closed on an empty TREE listing — a broken `git ls-files` must never print "clean". An empty
+  // staged list is an ordinary commit of deletions only.
+  if (tree && files.length === 0) {
+    err('check-sensitive: ✗ the tree listing is EMPTY — nothing was scanned, so nothing is proved clean.');
+    return 1;
+  }
   const { hits, unreadable, goneFromWorkingTree } = scanFiles(files, bytesOf, patterns);
 
   // Fail closed: a file we couldn't read might hide a leak — block rather than pass silently.
