@@ -6,11 +6,19 @@ namespace Lyntai.Agents;
 /// the observation returned (or an <c>error: …</c> string when the tool was unknown or threw).</summary>
 public sealed record ToolStep(string Tool, string ArgumentsJson, string Result);
 
-/// <summary>The error-observation marker shared by the loop's producer (unknown tool / a tool that threw)
-/// and both stream doors' <c>ToolResult.IsError</c> flags — one prefix, so producer and readers can't drift.</summary>
-internal static class ToolObservations
+/// <summary>The error-observation convention: an observation that starts with <see cref="ErrorPrefix"/> tells
+/// the model its tool call failed — unknown, thrown, refused or reported as an error by the tool's own
+/// server — and sets <see cref="ToolResult.IsError"/> on a streamed result. Build one with
+/// <see cref="Error"/>, so every producer writes the prefix the readers test for.</summary>
+public static class ToolObservations
 {
+    /// <summary>The prefix every error observation starts with.</summary>
     public const string ErrorPrefix = "error:";
+
+    /// <summary>An error observation carrying <paramref name="message"/>.</summary>
+    public static string Error(string message) => $"{ErrorPrefix} {message}";
+
+    /// <summary>Whether <paramref name="observation"/> reports a failed call.</summary>
     public static bool IsError(string observation) => observation.StartsWith(ErrorPrefix, StringComparison.Ordinal);
 }
 

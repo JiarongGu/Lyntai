@@ -231,7 +231,7 @@ public sealed class ToolLoop(
                     foreach (var ev in finish(ProviderVerdict.Refused, null, gated.Reason)) yield return ev;
                     yield break;
                 }
-                steps.Add(new ToolStep(call.Name, gated.Args, gated.Observation));
+                steps.Add(new ToolStep(call.Name, gated.ArgumentsJson, gated.Observation));
                 yield return new ToolResult(call.Id, gated.Observation, IsErrorObservation(gated.Observation));
                 messages.Add(TextMessage.ToolResult(call.Id, gated.Observation));
             }
@@ -357,7 +357,7 @@ public sealed class ToolLoop(
                 foreach (var ev in finish(ProviderVerdict.Refused, null, gated.Reason)) yield return ev;
                 yield break;
             }
-            steps.Add(new ToolStep(call.ToolName, gated.Args, gated.Observation));
+            steps.Add(new ToolStep(call.ToolName, gated.ArgumentsJson, gated.Observation));
             yield return new ToolResult(null, gated.Observation, IsErrorObservation(gated.Observation));
 
             // feed the model its own tool-call turn, then the observation, and continue
@@ -366,47 +366,18 @@ public sealed class ToolLoop(
         }
     }
 
-    // A tool observation carrying an unknown-tool / threw-exception marker (see InvokeAsync) is flagged as an
-    // error on the streamed ToolResult; the model still receives it and can recover.
+    // An error observation (unknown tool, a tool that threw) is flagged on the streamed ToolResult; the model
+    // still receives it and can recover.
     private static bool IsErrorObservation(string observation) => ToolObservations.IsError(observation);
 
-    /// <summary>Gate a tool call's ARGS before it runs and its OBSERVATION after — the tool-loop guard hook
-    /// (guards otherwise only cover the chat boundary, not model-driven tool calls). A Block in either
-    /// direction aborts the loop as a jail violation; a Replace rewrites the args / redacts the observation.
-    /// No guard rail (or no guards registered) → straight through.</summary>
-    private async Task<Gated> GatedInvokeAsync(string name, string argumentsJson, CancellationToken ct)
-    {
-        if (guards is not null)
-        {
-            var pre = await guards.InspectToolCallAsync(name, argumentsJson, ct).ConfigureAwait(false);
-            if (pre.Result == GuardOutcome.Kind.Block)
-            {
-                _logger.LogInformation("tool-loop: guard blocked tool call {Tool}: {Reason}", name, pre.Reason);
-                return Gated.Block(pre.Reason ?? $"tool call '{name}' blocked by guard");
-            }
-            if (pre.Result == GuardOutcome.Kind.Replace) argumentsJson = pre.Replacement!;
-        }
-
-        var observation = await InvokeAsync(name, argumentsJson, ct).ConfigureAwait(false);
-
-        if (guards is not null)
-        {
-            var post = await guards.InspectToolResultAsync(name, observation, ct).ConfigureAwait(false);
-            if (post.Result == GuardOutcome.Kind.Block)
-            {
-                _logger.LogInformation("tool-loop: guard blocked the observation from {Tool}: {Reason}", name, post.Reason);
-                return Gated.Block(post.Reason ?? $"observation from '{name}' blocked by guard");
-            }
-            if (post.Result == GuardOutcome.Kind.Replace) observation = post.Replacement!;
-        }
-        return Gated.Ok(observation, argumentsJson);
-    }
-
-    private readonly record struct Gated(bool Blocked, string? Reason, string Observation, string Args)
-    {
-        public static Gated Block(string reason) => new(true, reason, "", "");
-        public static Gated Ok(string observation, string args) => new(false, null, observation, args);
-    }
+    /// <summary>Gate a tool call's ARGS before it runs and its OBSERVATION after, through the flow every door
+    /// shares (<see cref="ToolInvocation"/>). A Block in either direction aborts THIS loop as a jail
+    /// violation — its callers turn <see cref="GatedToolResult.Blocked"/> into a terminal Refused.</summary>
+    private Task<GatedToolResult> GatedInvokeAsync(string name, string argumentsJson, CancellationToken ct) =>
+        ToolInvocation.InvokeGatedAsync(name, registry.Find(name), argumentsJson, guards, _logger,
+            () => ToolObservations.Error(
+                $"unknown tool \"{name}\". Available tools: {string.Join(", ", registry.Tools.Select(t => t.Name))}"),
+            ct);
 
     /// <summary>Folds each front-door reply's <see cref="TextUsage"/> into a running total (TL1). Stays null
     /// until at least one reply reports usage, so a run over providers that surface no tokens yields a null
@@ -427,38 +398,6 @@ public sealed class ToolLoop(
                 a.OutputTokens + next.OutputTokens,
                 a.CacheReadTokens + next.CacheReadTokens,
                 cost);
-        }
-    }
-
-    private async Task<string> InvokeAsync(string name, string argumentsJson, CancellationToken ct)
-    {
-        var tool = registry.Find(name);
-        if (tool is null)
-        {
-            var available = string.Join(", ", registry.Tools.Select(t => t.Name));
-            return $"error: unknown tool \"{name}\". Available tools: {available}";
-        }
-        using var activity = LyntaiDiagnostics.StartToolCall(name);
-        var error = false;
-        try
-        {
-            _logger.LogDebug("tool-loop: invoking {Tool} with {Args}", name, argumentsJson);
-            return await tool.InvokeAsync(argumentsJson, ct).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException) when (ct.IsCancellationRequested)
-        {
-            throw; // caller-initiated cancel is not a tool error
-        }
-        catch (Exception ex)
-        {
-            // a throwing tool is recoverable: report it back so the model can adjust, don't kill the loop
-            error = true;
-            _logger.LogWarning(ex, "tool-loop: tool {Tool} threw", name);
-            return $"error: {ex.Message}";
-        }
-        finally
-        {
-            LyntaiDiagnostics.EndToolCall(activity, name, error);
         }
     }
 

@@ -100,6 +100,17 @@ sealed class Lyntai.Agents.FunctionTool
     InvokeAsync(String argumentsJson, CancellationToken ct = default) : Task<String>
     Name : String
     ParametersJsonSchema : String
+sealed class Lyntai.Agents.GatedToolResult
+    .ctor(Boolean Blocked, String Reason, String Observation, String ArgumentsJson)
+    ArgumentsJson : String
+    Blocked : Boolean
+    Deconstruct(Boolean& Blocked, String& Reason, String& Observation, String& ArgumentsJson) : Void
+    Equals(GatedToolResult other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Observation : String
+    Reason : String
+    ToString() : String
 interface Lyntai.Agents.IAgentSession
     StreamAsync(AgentSessionOptions options, CancellationToken ct = default) : IAsyncEnumerable<AgentStreamEvent>
 interface Lyntai.Agents.IChatOrchestrator
@@ -202,6 +213,8 @@ sealed class Lyntai.Agents.ToolCall
     Name : String
     PrintMembers(StringBuilder builder) : Boolean
     ToString() : String
+static class Lyntai.Agents.ToolInvocation
+    static InvokeGatedAsync(ITool tool, String argumentsJson, IGuardRail guards, ILogger logger = null, CancellationToken ct = default) : Task<GatedToolResult>
 sealed class Lyntai.Agents.ToolLoop
     .ctor(ITextClient client, IToolRegistry registry, LyntaiOptions options, ILogger<ToolLoop> logger = null, IGuardRail guards = null, IToolSelector selector = null)
     DefaultProtocolPreamble : String const
@@ -221,6 +234,10 @@ sealed class Lyntai.Agents.ToolLoopResult
     Transport : Nullable<ToolTransport>
     Usage : TextUsage
     Verdict : ProviderVerdict
+static class Lyntai.Agents.ToolObservations
+    ErrorPrefix : String const
+    static Error(String message) : String
+    static IsError(String observation) : Boolean
 sealed class Lyntai.Agents.ToolRegistry
     .ctor(IEnumerable<ITool> tools)
     Find(String name) : ITool
@@ -3270,10 +3287,6 @@ sealed class Lyntai.Storage.UsageTotalsRow
     CostUsd : Double
     InputTokens : Int64
     OutputTokens : Int64
-static class Lyntai.Text.JsonArgs
-    static Parse(String argumentsJson) : IDictionary<String,Object>
-    static Serialize(IEnumerable<KeyValuePair<String,Object>> args) : String
-    static ToNode(Object value) : JsonNode
 static class Lyntai.Text.JsonExtract
     static ExtractObject(String text) : String
     static IsValid(String text) : Boolean
