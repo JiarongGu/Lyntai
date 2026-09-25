@@ -2,6 +2,7 @@ using System.Text.Json;
 using Lyntai.Inference;
 using Lyntai.Inference.Budgeting;
 using Lyntai.Jobs;
+using Lyntai.Text;
 
 namespace Lyntai.Generation.Jobs;
 
@@ -296,7 +297,7 @@ internal sealed class GenerationJobEngine(
         int Stage, string? ProviderId = null, string? OperationId = null,
         IReadOnlyList<MediaArtifact>? Chained = null, Produced? Pending = null)
     {
-        public string ToJson() => GenerationJson.WriteObject(writer =>
+        public string ToJson() => JsonExtract.WriteObject(writer =>
         {
             writer.WriteNumber("stage", Stage);
             if (OperationId is not null)
@@ -337,7 +338,7 @@ internal sealed class GenerationJobEngine(
                     !s.TryGetInt32(out var stage) || stage < 0 || stage >= stages)
                     return null;
 
-                var (providerId, operationId) = (GenerationJson.Str(root, "providerId"), GenerationJson.Str(root, "operationId"));
+                var (providerId, operationId) = (JsonExtract.StringProperty(root, "providerId"), JsonExtract.StringProperty(root, "operationId"));
                 var hasArtifacts = root.TryGetProperty("artifacts", out var artifacts);
                 var hasPending = root.TryGetProperty("pending", out var pending);
 
@@ -350,8 +351,8 @@ internal sealed class GenerationJobEngine(
                     return !hasArtifacts && ReadArtifacts(pending, "artifacts") is { Count: > 0 } produced
                         ? new PipelineCheckpoint(stage, Pending: new Produced(
                             new MediaResponse(ProviderVerdict.Ok, produced, ReadUsage(pending)),
-                            GenerationJson.Str(pending, "providerId") ?? "",
-                            GenerationJson.Str(pending, "operationId") ?? "",
+                            JsonExtract.StringProperty(pending, "providerId") ?? "",
+                            JsonExtract.StringProperty(pending, "operationId") ?? "",
                             Queued: false))
                         : null;
 
@@ -395,10 +396,10 @@ internal sealed class GenerationJobEngine(
             var read = new List<MediaArtifact>();
             foreach (var entry in array.EnumerateArray())
             {
-                if (GenerationJson.Str(entry, "mediaType") is not { } mediaType) return null;
+                if (JsonExtract.StringProperty(entry, "mediaType") is not { } mediaType) return null;
                 var data = GenerationJson.Bytes(entry);
-                if (data is null && GenerationJson.Str(entry, "data") is not null) return null;
-                read.Add(new MediaArtifact(mediaType, data, GenerationJson.Str(entry, "uri"), Metadata(entry)));
+                if (data is null && JsonExtract.StringProperty(entry, "data") is not null) return null;
+                read.Add(new MediaArtifact(mediaType, data, JsonExtract.StringProperty(entry, "uri"), Metadata(entry)));
             }
             return read;
         }

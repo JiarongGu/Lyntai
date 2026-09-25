@@ -1,4 +1,5 @@
 using Lyntai.Inference;
+using Lyntai.Text;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
@@ -656,8 +657,8 @@ public sealed class ComfyUiProvider(
         try
         {
             using var doc = JsonDocument.Parse(body);
-            if (HttpArtifacts.Str(doc.RootElement, "name") is not { } name) return null;
-            return HttpArtifacts.Str(doc.RootElement, "subfolder") is { } subfolder ? $"{subfolder}/{name}" : name;
+            if (JsonExtract.StringProperty(doc.RootElement, "name") is not { } name) return null;
+            return JsonExtract.StringProperty(doc.RootElement, "subfolder") is { } subfolder ? $"{subfolder}/{name}" : name;
         }
         catch (JsonException)
         {
@@ -694,7 +695,7 @@ public sealed class ComfyUiProvider(
     {
         if (entry is not { ValueKind: JsonValueKind.Object } value ||
             !value.TryGetProperty(options.StatusField, out var status) || status.ValueKind != JsonValueKind.Object ||
-            HttpArtifacts.Str(status, options.StatusTextField) is not { } text ||
+            JsonExtract.StringProperty(status, options.StatusTextField) is not { } text ||
             !string.Equals(text, options.FailedStatusText, StringComparison.OrdinalIgnoreCase))
             return null;
 
@@ -708,10 +709,10 @@ public sealed class ComfyUiProvider(
                 var error = message[1];
                 var node = string.Join(" ", new[]
                 {
-                    HttpArtifacts.Scalar(error, "node_id") is { } id ? $"node {id}" : null,
-                    HttpArtifacts.Str(error, "node_type") is { } type ? $"({type})" : null,
+                    JsonExtract.ScalarProperty(error, "node_id") is { } id ? $"node {id}" : null,
+                    JsonExtract.StringProperty(error, "node_type") is { } type ? $"({type})" : null,
                 }.OfType<string>());
-                var said = HttpArtifacts.Str(error, "exception_message") is { } m
+                var said = JsonExtract.StringProperty(error, "exception_message") is { } m
                     ? HttpArtifacts.FailureDetail(m) : "no message";
                 return $"the run failed{(node.Length > 0 ? $" at {node}" : "")}: {said}";
             }
@@ -754,10 +755,10 @@ public sealed class ComfyUiProvider(
                 foreach (var file in collection.Value.EnumerateArray())
                 {
                     if (file.ValueKind != JsonValueKind.Object) continue;
-                    if (HttpArtifacts.Str(file, "filename") is not { } filename) continue;
+                    if (JsonExtract.StringProperty(file, "filename") is not { } filename) continue;
 
-                    var subfolder = HttpArtifacts.Str(file, "subfolder") ?? "";
-                    var type = HttpArtifacts.Str(file, "type") ?? "output";
+                    var subfolder = JsonExtract.StringProperty(file, "subfolder") ?? "";
+                    var type = JsonExtract.StringProperty(file, "type") ?? "output";
                     var uri = $"{Url(options.ViewPath)}?filename={Uri.EscapeDataString(filename)}" +
                         $"&subfolder={Uri.EscapeDataString(subfolder)}&type={Uri.EscapeDataString(type)}";
                     artifacts.Add(new MediaArtifact(MediaTypeOf(filename), Uri: uri,
@@ -789,7 +790,7 @@ public sealed class ComfyUiProvider(
     private static string? Field(string body, string name)
     {
         if (!HttpArtifacts.TryParseObject(body, out var doc)) return null;
-        using (doc) return HttpArtifacts.Scalar(doc.RootElement, name);
+        using (doc) return JsonExtract.ScalarProperty(doc.RootElement, name);
     }
 
     private static string? ComfyVersion(string body)
@@ -799,7 +800,7 @@ public sealed class ComfyUiProvider(
             using var doc = JsonDocument.Parse(body);
             if (doc.RootElement.ValueKind == JsonValueKind.Object &&
                 doc.RootElement.TryGetProperty("system", out var system))
-                return HttpArtifacts.Str(system, "comfyui_version");
+                return JsonExtract.StringProperty(system, "comfyui_version");
             return null;
         }
         catch (JsonException)

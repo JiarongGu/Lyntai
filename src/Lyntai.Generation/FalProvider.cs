@@ -1,4 +1,5 @@
 using Lyntai.Inference;
+using Lyntai.Text;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
@@ -369,7 +370,7 @@ public sealed class FalProvider(
             };
             if (said is null) return null;
             var type = options.ErrorTypeField is { Length: > 0 } typeField
-                ? HttpArtifacts.Scalar(doc.RootElement, typeField)
+                ? JsonExtract.ScalarProperty(doc.RootElement, typeField)
                 : null;
             return $"the render failed{(type is null ? "" : $" ({type})")}: {HttpArtifacts.FailureDetail(said)}";
         }
@@ -448,27 +449,20 @@ public sealed class FalProvider(
     /// <summary>The model's input object. Common fields are mapped; everything else in
     /// <see cref="MediaRequest.Options"/> is passed through verbatim, because each model on an aggregator
     /// takes its own parameters and typing them would need a release per model.</summary>
-    internal static string BuildInput(MediaRequest request)
+    internal static string BuildInput(MediaRequest request) => JsonExtract.WriteObject(writer =>
     {
-        using var buffer = new MemoryStream();
-        using (var writer = new Utf8JsonWriter(buffer))
+        if (request.Prompt is { Length: > 0 } prompt) writer.WriteString("prompt", prompt);
+
+        // any other input shape was refused before this is built (InputRefusal)
+        if (request.Inputs is [{ Uri: { Length: > 0 } uri } input] && InputField(input.Role) is { } field)
+            writer.WriteString(field, uri);
+
+        foreach (var (key, value) in request.Options)
         {
-            writer.WriteStartObject();
-            if (request.Prompt is { Length: > 0 } prompt) writer.WriteString("prompt", prompt);
-
-            // any other input shape was refused before this is built (InputRefusal)
-            if (request.Inputs is [{ Uri: { Length: > 0 } uri } input] && InputField(input.Role) is { } field)
-                writer.WriteString(field, uri);
-
-            foreach (var (key, value) in request.Options)
-            {
-                if (string.Equals(key, "webhook", StringComparison.OrdinalIgnoreCase)) continue;  // a URL, not an input
-                writer.WriteString(key, value);
-            }
-            writer.WriteEndObject();
+            if (string.Equals(key, "webhook", StringComparison.OrdinalIgnoreCase)) continue;  // a URL, not an input
+            writer.WriteString(key, value);
         }
-        return Encoding.UTF8.GetString(buffer.ToArray());
-    }
+    });
 
     /// <summary>Pull artifacts out of a completed result. Tolerant by design: fal's models return their output
     /// under model-specific names (<c>video</c>, <c>images</c>, <c>audio</c>), so ANY object carrying a
@@ -491,9 +485,9 @@ public sealed class FalProvider(
         switch (element.ValueKind)
         {
             case JsonValueKind.Object:
-                if (HttpArtifacts.Str(element, "url") is { } url)
+                if (JsonExtract.StringProperty(element, "url") is { } url)
                 {
-                    var contentType = HttpArtifacts.Str(element, "content_type") ?? MediaTypeOf(url);
+                    var contentType = JsonExtract.StringProperty(element, "content_type") ?? MediaTypeOf(url);
                     artifacts.Add(new MediaArtifact(contentType, Uri: url));
                     return;   // this object IS the artifact — don't also walk its siblings
                 }
@@ -525,10 +519,10 @@ public sealed class FalProvider(
     private static string MediaTypeOf(string url) =>
         HttpArtifacts.MediaTypeForExtension(Path.GetExtension(url.Split('?', '#')[0]));
 
-    /// <summary>A top-level string-or-number field of a wire body (<see cref="HttpArtifacts.Scalar"/>), or null.</summary>
+    /// <summary>A top-level string-or-number field of a wire body (<see cref="JsonExtract.ScalarProperty"/>), or null.</summary>
     private static string? Field(string body, string name)
     {
         if (!HttpArtifacts.TryParseObject(body, out var doc)) return null;
-        using (doc) return HttpArtifacts.Scalar(doc.RootElement, name);
+        using (doc) return JsonExtract.ScalarProperty(doc.RootElement, name);
     }
 }

@@ -3250,8 +3250,11 @@ sealed class Lyntai.Storage.UsageTotalsRow
 static class Lyntai.Text.JsonExtract
     static ExtractObject(String text) : String
     static IsValid(String text) : Boolean
+    static ScalarProperty(JsonElement element, String name) : String
+    static StringProperty(JsonElement element, String name) : String
     static TryParseObject(String text, JsonDocument& doc) : Boolean
     static TryReadObject(String text, String& json) : Boolean
+    static WriteObject(Action<Utf8JsonWriter> members) : String
 struct Lyntai.Text.WordPieceEncoding
     .ctor(Int32[] Ids, Int32[] AttentionMask, Int32[] TokenTypeIds)
     AttentionMask : Int32[]

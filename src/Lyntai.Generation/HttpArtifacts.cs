@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using Lyntai.Inference;
+using Lyntai.Text;
 
 namespace Lyntai.Generation.Providers;
 
@@ -64,9 +65,9 @@ internal static class HttpArtifacts
             foreach (var item in data.EnumerateArray())
             {
                 if (item.ValueKind != JsonValueKind.Object) continue;
-                if (Str(item, "b64_json") is { } b64 && DecodeBase64(b64) is { } bytes)
+                if (JsonExtract.StringProperty(item, "b64_json") is { } b64 && DecodeBase64(b64) is { } bytes)
                     artifacts.Add(new MediaArtifact("image/png", Data: bytes, Metadata: RevisedPrompt(item)));
-                else if (Str(item, "url") is { } url)
+                else if (JsonExtract.StringProperty(item, "url") is { } url)
                     artifacts.Add(new MediaArtifact("image/png", Uri: url, Metadata: RevisedPrompt(item)));
             }
             return artifacts;
@@ -102,32 +103,13 @@ internal static class HttpArtifacts
                 if (doc.RootElement.TryGetProperty("error", out var error))
                     message = error.ValueKind == JsonValueKind.String
                         ? error.GetString() ?? body
-                        : Str(error, "message") ?? body;
-                else if (Str(doc.RootElement, "message") is { } flat)
+                        : JsonExtract.StringProperty(error, "message") ?? body;
+                else if (JsonExtract.StringProperty(doc.RootElement, "message") is { } flat)
                     message = flat;
             }
 
         message = message.Trim();
         return message.Length <= max ? message : message[..max];
-    }
-
-    /// <summary>A scalar identifier field as text, accepting a JSON <b>string OR number</b>.
-    /// <para>Separate from <see cref="Str"/> deliberately, rather than widening it: <c>Str</c> reads
-    /// <c>url</c>, <c>b64_json</c> and error messages, where a number is meaningless and answering null is
-    /// the honest result. An ID is the one field a backend may legitimately send either way — so every
-    /// backend reads one through here, or an accepted <c>{"prompt_id": 12345}</c> reads as rejected.</para></summary>
-    /// <param name="element">The element to read from; anything but an object answers null.</param>
-    /// <param name="name">The property name.</param>
-    public static string? Scalar(JsonElement element, string name)
-    {
-        if (element.ValueKind != JsonValueKind.Object || !element.TryGetProperty(name, out var value))
-            return null;
-        return value.ValueKind switch
-        {
-            JsonValueKind.String => value.GetString() is { Length: > 0 } s ? s : null,
-            JsonValueKind.Number => value.ToString(),
-            _ => null,
-        };
     }
 
     /// <summary>MIME type for a produced file's extension — the only signal these backends give about what a
@@ -181,22 +163,8 @@ internal static class HttpArtifacts
         ("stl", "model/stl"),
     ];
 
-    /// <summary>A non-empty string property of a JSON object, or null. Shared with the queue backends, which
-    /// read their own envelopes the same way — the object-kind guard is the part a copied reader loses, and
-    /// <c>JsonElement.TryGetProperty</c> throws rather than answering false when the element is not an
-    /// object.</summary>
-    /// <param name="element">The element to read from; anything but an object answers null.</param>
-    /// <param name="name">The property name.</param>
-    public static string? Str(JsonElement element, string name) =>
-        element.ValueKind == JsonValueKind.Object &&
-        element.TryGetProperty(name, out var value) &&
-        value.ValueKind == JsonValueKind.String &&
-        value.GetString() is { Length: > 0 } text
-            ? text
-            : null;
-
     private static IReadOnlyDictionary<string, string>? RevisedPrompt(JsonElement item) =>
-        Str(item, "revised_prompt") is { } revised
+        JsonExtract.StringProperty(item, "revised_prompt") is { } revised
             ? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { ["revised_prompt"] = revised }
             : null;
 }

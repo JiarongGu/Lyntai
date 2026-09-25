@@ -16,9 +16,57 @@ namespace Lyntai.Text;
 ///
 /// <para><b>The scan tracks strings but not COMMENTS</b>, so a block comment containing <c>}</c> ends it
 /// early and the fragment fails to parse. Leniency and extraction disagree there, and the direction is the
-/// safe one — a caller retries rather than receiving a truncated object.</para></summary>
+/// safe one — a caller retries rather than receiving a truncated object.</para>
+///
+/// <para><b>Beside them, three helpers for JSON walked BY HAND</b> — <see cref="StringProperty"/>,
+/// <see cref="ScalarProperty"/> and <see cref="WriteObject"/>, which trim/AOT-safe code uses instead of a
+/// reflection serializer. They tolerate nothing: they read an element already parsed.</para></summary>
 public static class JsonExtract
 {
+    /// <summary>A non-empty string member of a JSON object, or null when <paramref name="element"/> is not an
+    /// object, the member is absent, or it is not a non-empty string. The object-kind test is the point:
+    /// <see cref="JsonElement.TryGetProperty(string, out JsonElement)"/> THROWS on any other kind.</summary>
+    /// <param name="element">The element to read; any kind.</param>
+    /// <param name="name">The member's name.</param>
+    public static string? StringProperty(JsonElement element, string name) =>
+        element.ValueKind == JsonValueKind.Object &&
+        element.TryGetProperty(name, out var value) &&
+        value.ValueKind == JsonValueKind.String &&
+        value.GetString() is { Length: > 0 } text
+            ? text
+            : null;
+
+    /// <summary>A scalar member as text: a non-empty string, or a number in its JSON spelling; null otherwise,
+    /// and for anything but an object. For an identifier a service may send either way
+    /// (<c>{"prompt_id": 12345}</c>), which <see cref="StringProperty"/> would read as absent.</summary>
+    /// <param name="element">The element to read; any kind.</param>
+    /// <param name="name">The member's name.</param>
+    public static string? ScalarProperty(JsonElement element, string name)
+    {
+        if (element.ValueKind != JsonValueKind.Object || !element.TryGetProperty(name, out var value)) return null;
+        return value.ValueKind switch
+        {
+            JsonValueKind.String => value.GetString() is { Length: > 0 } text ? text : null,
+            JsonValueKind.Number => value.GetRawText(),
+            _ => null,
+        };
+    }
+
+    /// <summary>One JSON object as text, its members written by <paramref name="members"/>.</summary>
+    /// <param name="members">Writes the object's members; the braces are written for it.</param>
+    public static string WriteObject(Action<Utf8JsonWriter> members)
+    {
+        ArgumentNullException.ThrowIfNull(members);
+        using var buffer = new MemoryStream();
+        using (var writer = new Utf8JsonWriter(buffer))
+        {
+            writer.WriteStartObject();
+            members(writer);
+            writer.WriteEndObject();
+        }
+        return Encoding.UTF8.GetString(buffer.ToArray());
+    }
+
     public static string? ExtractObject(string? text)
     {
         if (string.IsNullOrWhiteSpace(text)) return null;

@@ -5,6 +5,7 @@ using System.Text;
 using System.Text.Json;
 using Lyntai.Agents;
 using Lyntai.Generation.Jobs;
+using Lyntai.Text;
 
 namespace Lyntai.Generation.Tools;
 
@@ -36,14 +37,11 @@ internal static class GenerationToolJson
 
     /// <summary>A machine-readable error observation. Returned rather than thrown: the model should be able to
     /// read what it got wrong and retry, which a stack trace doesn't help with.</summary>
-    public static string Error(string message) => Write(writer =>
+    public static string Error(string message) => JsonExtract.WriteObject(writer =>
     {
         writer.WriteBoolean("ok", false);
         writer.WriteString("error", message);
     });
-
-    /// <summary>Build a JSON observation.</summary>
-    public static string Write(Action<Utf8JsonWriter> body) => GenerationJson.WriteObject(body);
 
     /// <summary>Describe artifacts for a model: what they are and where, never the bytes. A base64 image in a
     /// tool observation would blow the context window for no benefit — the app's sink is where bytes go.</summary>
@@ -99,7 +97,7 @@ internal static class GenerationToolJson
                     options[property.Name] = property.Value.ToString();
 
         var role = defaultRole;
-        if (GenerationJson.Str(root, "imageRole") is { } named)
+        if (JsonExtract.StringProperty(root, "imageRole") is { } named)
         {
             role = ImageRoles.FirstOrDefault(r => string.Equals(r, named, StringComparison.OrdinalIgnoreCase))!;
             if (role is null)
@@ -111,15 +109,15 @@ internal static class GenerationToolJson
 
         // the media type is left to the backend: "image/*" says what the agent knows, and no more
         var inputs = new List<MediaInput>();
-        if (GenerationJson.Str(root, "imageUrl") is { } imageUrl)
+        if (JsonExtract.StringProperty(root, "imageUrl") is { } imageUrl)
             inputs.Add(new MediaInput("image/*", Uri: imageUrl, Role: role));
 
         return new MediaRequest
         {
-            Kind = GenerationJson.Str(root, "kind") ?? ProviderKinds.Image,
+            Kind = JsonExtract.StringProperty(root, "kind") ?? ProviderKinds.Image,
             Consumer = consumer,
-            Prompt = GenerationJson.Str(root, "prompt"),
-            Model = GenerationJson.Str(root, "model"),
+            Prompt = JsonExtract.StringProperty(root, "prompt"),
+            Model = JsonExtract.StringProperty(root, "model"),
             Options = options,
             Inputs = inputs,
         };
@@ -160,8 +158,8 @@ internal static class GenerationToolJson
         operationId = "";
         error = null;
 
-        if (GenerationJson.Str(args.RootElement, "backend") is not { } id ||
-            GenerationJson.Str(args.RootElement, "operationId") is not { } operation)
+        if (JsonExtract.StringProperty(args.RootElement, "backend") is not { } id ||
+            JsonExtract.StringProperty(args.RootElement, "operationId") is not { } operation)
         {
             error = Error("both 'backend' and 'operationId' are required");
             return false;
@@ -218,7 +216,7 @@ internal sealed class GenerationBackendsTool(
 
         var probes = await Task.WhenAll(list.Select(p => ProbeAsync(p, ct, budget.Token))).ConfigureAwait(false);
 
-        return GenerationToolJson.Write(writer =>
+        return JsonExtract.WriteObject(writer =>
         {
             writer.WriteBoolean("ok", true);
             writer.WriteStartArray("backends");
@@ -346,7 +344,7 @@ internal sealed class GenerationInlineTool(
             delivered = true;
         }
 
-        return GenerationToolJson.Write(writer =>
+        return JsonExtract.WriteObject(writer =>
         {
             writer.WriteBoolean("ok", true);
             GenerationToolJson.WriteArtifacts(writer, result.Artifacts, delivered);
@@ -409,7 +407,7 @@ internal sealed class GenerationSubmitTool(
             // the question instead. The machine-readable flag rides alongside so a host can branch on it
             // without parsing prose.
             return submission.Operation.Inconclusive
-                ? GenerationToolJson.Write(writer =>
+                ? JsonExtract.WriteObject(writer =>
                 {
                     writer.WriteBoolean("ok", false);
                     writer.WriteBoolean("inconclusive", true);
@@ -424,7 +422,7 @@ internal sealed class GenerationSubmitTool(
                 })
                 : GenerationToolJson.Error(submission.Operation.Detail ?? "no backend accepted the request");
 
-        return GenerationToolJson.Write(writer =>
+        return JsonExtract.WriteObject(writer =>
         {
             writer.WriteBoolean("ok", true);
             writer.WriteString("backend", submission.ProviderId);
@@ -458,7 +456,7 @@ internal sealed class GenerationStatusTool(IEnumerable<IModelProvider> providers
             return error;
 
         var operation = await backend.PollAsync(operationId, ct).ConfigureAwait(false);
-        return GenerationToolJson.Write(writer =>
+        return JsonExtract.WriteObject(writer =>
         {
             writer.WriteBoolean("ok", true);
             writer.WriteString("status", operation.Status.ToString().ToLowerInvariant());
@@ -526,7 +524,7 @@ internal sealed class GenerationFetchTool(
             delivered = true;
         }
 
-        return GenerationToolJson.Write(writer =>
+        return JsonExtract.WriteObject(writer =>
         {
             writer.WriteBoolean("ok", true);
             GenerationToolJson.WriteArtifacts(writer, result.Artifacts, delivered);

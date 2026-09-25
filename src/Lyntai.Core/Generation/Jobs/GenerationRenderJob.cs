@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Lyntai.Inference;
+using Lyntai.Text;
 
 namespace Lyntai.Generation.Jobs;
 
@@ -14,7 +15,7 @@ namespace Lyntai.Generation.Jobs;
 public sealed record GenerationRenderJob(IReadOnlyList<string> Candidates, MediaRequest Request)
 {
     /// <summary>Serialize for <c>JobSpec.Payload</c>.</summary>
-    public string ToJson() => GenerationJson.WriteObject(writer =>
+    public string ToJson() => JsonExtract.WriteObject(writer =>
     {
         GenerationJson.WriteCandidates(writer, Candidates);
         GenerationJson.WriteRequest(writer, Request);
