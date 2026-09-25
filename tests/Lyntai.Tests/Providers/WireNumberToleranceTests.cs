@@ -6,6 +6,7 @@ using Lyntai.Providers.ClaudeCli;
 using Lyntai.Providers.CodexCli;
 using Lyntai.Providers.Http;
 using Lyntai.Tests.Fakes;
+using static Lyntai.Tests.Fakes.HttpProviders;
 
 namespace Lyntai.Tests.Providers;
 
@@ -90,8 +91,7 @@ public class WireNumberToleranceTests
             """;
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, sse, "text/event-stream");
 
-        var chunks = new List<TextChunk>();
-        await foreach (var c in Provider(handler).StreamAsync(Req)) chunks.Add(c);
+        var chunks = await Provider(handler).StreamAsync(Req).ToListAsync();
 
         Assert.Equal(["hi"], chunks.Where(c => c.Kind == TextChunkKind.Content).Select(c => c.Text));
         var final = chunks[^1];
@@ -166,15 +166,6 @@ public class WireNumberToleranceTests
     }
 
     // ── helpers ──────────────────────────────────────────────────────────────
-
-    private static HttpModelProvider Provider(StubHttpHandler handler,
-        Action<HttpModelOptions>? configure = null)
-    {
-        var config = new HttpModelOptions { BaseUrl = "https://api.openai.com", ApiKey = "test-key" };
-        configure?.Invoke(config);
-        return new HttpModelProvider("openai", config, () => new HttpClient(handler, disposeHandler: false),
-            new LyntaiOptions { ProviderTimeout = TimeSpan.FromSeconds(30) });
-    }
 
     private static TextRequest Req => new() { Messages = [TextMessage.User("hi")], Model = "gpt-x" };
 }

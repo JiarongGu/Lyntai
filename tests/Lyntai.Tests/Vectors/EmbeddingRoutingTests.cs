@@ -1,7 +1,7 @@
 using Lyntai.Tests.Fakes;
 using Lyntai.Inference;
 
-namespace Lyntai.Tests.Embeddings;
+namespace Lyntai.Tests.Vectors;
 
 /// <summary>Routing for the Vector capability: the capability filter, and the failover.
 ///

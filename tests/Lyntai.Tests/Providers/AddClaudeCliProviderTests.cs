@@ -5,7 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Lyntai.Tests.Providers;
 
 [Collection("provider-cmd-env")] // serialized with other tests that set LYNTAI_PROVIDER_CMD
-public class AddClaudeCliTests
+public class AddClaudeCliProviderTests
 {
     [Fact]
     public async Task Registered_provider_serves_through_the_router_by_id()

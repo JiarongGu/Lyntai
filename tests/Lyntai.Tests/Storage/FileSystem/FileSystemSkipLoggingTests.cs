@@ -1,6 +1,7 @@
 using Lyntai.Memory;
 using Lyntai.Storage.FileSystem;
 using Microsoft.Extensions.Logging;
+using Lyntai.Tests.Fakes;
 
 namespace Lyntai.Tests.Storage.FileSystem;
 
@@ -10,28 +11,15 @@ namespace Lyntai.Tests.Storage.FileSystem;
 public class FileSystemSkipLoggingTests : IDisposable
 {
     private const string Broken = "a person's half-finished edit";
-    private readonly List<(LogLevel Level, string Message)> _log = [];
+    private readonly CapturingLogger _log = new(minLevel: LogLevel.Trace);
     private readonly TempRoot _temp;
 
-    public FileSystemSkipLoggingTests() => _temp = new TempRoot(new CapturingLogger(_log));
+    public FileSystemSkipLoggingTests() => _temp = new TempRoot(_log);
 
     public void Dispose() => _temp.Dispose();
 
-    private sealed class CapturingLogger(List<(LogLevel, string)> sink) : ILogger
-    {
-        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
-
-        public bool IsEnabled(LogLevel logLevel) => true;
-
-        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
-            Func<TState, Exception?, string> formatter)
-        {
-            lock (sink) sink.Add((logLevel, formatter(state, exception)));
-        }
-    }
-
     private void AssertWarned(string phrase, string file) =>
-        Assert.Contains(_log, e => e.Level == LogLevel.Warning
+        Assert.Contains(_log.Entries, e => e.Level == LogLevel.Warning
             && e.Message.Contains(phrase, StringComparison.Ordinal)
             && e.Message.Contains(Path.GetFileName(file), StringComparison.Ordinal));
 

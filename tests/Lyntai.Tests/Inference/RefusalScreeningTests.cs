@@ -63,10 +63,11 @@ public class RefusalScreeningTests
     public async Task A_non_ok_reply_is_left_untouched()
     {
         var inner = new FakeTextClient();
-        inner.Replies.Enqueue(new TextResponse("", ProviderVerdict.RateLimited, Detail: "429"));
+        // the text MATCHES, so only the verdict clause keeps it from being re-labelled a refusal
+        inner.Replies.Enqueue(new TextResponse("I cannot help with that", ProviderVerdict.RateLimited, Detail: "429"));
         var screened = new RefusalScreeningTextClient(inner);
 
-        var reply = await screened.CompleteAsync(Req(refusalPattern: "429"));
+        var reply = await screened.CompleteAsync(Req(refusalPattern: "cannot help"));
         Assert.Equal(ProviderVerdict.RateLimited, reply.Verdict); // screening only downgrades Ok replies
     }
 
@@ -130,7 +131,7 @@ public class RefusalScreeningTests
         Assert.Equal(ProviderVerdict.Ok, reply.Verdict); // matcher blew up → reply passes through unchanged
     }
 
-    [Fact] // I3: a matcher registered against a PRE-REGISTERED ITextClient would be silently ignored — guard it
+    [Fact] // A matcher registered against a PRE-REGISTERED ITextClient would be silently ignored — guard it
     public void A_pre_registered_front_door_with_a_refusal_matcher_throws()
     {
         var services = new ServiceCollection();

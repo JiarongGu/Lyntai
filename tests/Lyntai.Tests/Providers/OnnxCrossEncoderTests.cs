@@ -33,7 +33,7 @@ public class CrossEncoderLogitsTests
     [Fact]
     public void REFUSES_a_MULTI_LABEL_head_rather_than_taking_column_zero()
     {
-        // The silent failure this guards is Part 177's own shape: an NLI-style head puts relevance in a
+        // The silent failure this guards (`docs/task-archive.md` Part 215): an NLI-style head puts relevance in a
         // column that is not the first, so reading column 0 returns well-formed numbers in the WRONG order.
         // There is no score meaning "wrong class of model", so this throws — the rule ScoreAsync states.
         var error = Assert.Throws<InvalidOperationException>(
@@ -178,25 +178,23 @@ public class CrossEncoderShapeDeclarationTests
 /// that silently stops being verified.</summary>
 public class OnnxCrossEncoderCompositionTests : IDisposable
 {
-    private readonly string _dir = Directory.CreateTempSubdirectory("lyntai-onnx-ce-").FullName;
+    private readonly ScratchDir _scratch = new("onnx-ce");
 
-    public void Dispose()
-    {
-        try { Directory.Delete(_dir, recursive: true); } catch (IOException) { /* a temp dir is not worth failing a run */ }
-        GC.SuppressFinalize(this);
-    }
+    private string Dir => _scratch.Path;
+
+    public void Dispose() => _scratch.Dispose();
 
     [Fact]
     public void A_MISSING_directory_says_so_rather_than_null_referencing()
     {
         Assert.Throws<DirectoryNotFoundException>(
-            () => OnnxProvider.FromDirectory(Path.Combine(_dir, "nope")));
+            () => OnnxProvider.FromDirectory(Path.Combine(Dir, "nope")));
     }
 
     [Fact]
     public void No_GRAPH_names_both_layouts_it_looked_for()
     {
-        var error = Assert.Throws<FileNotFoundException>(() => OnnxProvider.FromDirectory(_dir));
+        var error = Assert.Throws<FileNotFoundException>(() => OnnxProvider.FromDirectory(Dir));
 
         Assert.Contains("onnx/model.onnx", error.Message, StringComparison.Ordinal);
     }
@@ -204,10 +202,10 @@ public class OnnxCrossEncoderCompositionTests : IDisposable
     [Fact]
     public void A_graph_WITHOUT_a_vocabulary_fails_on_the_vocabulary()
     {
-        Directory.CreateDirectory(Path.Combine(_dir, "onnx"));
-        File.WriteAllText(Path.Combine(_dir, "onnx", "model.onnx"), "not really a graph");
+        Directory.CreateDirectory(Path.Combine(Dir, "onnx"));
+        File.WriteAllText(Path.Combine(Dir, "onnx", "model.onnx"), "not really a graph");
 
-        var error = Assert.Throws<FileNotFoundException>(() => OnnxProvider.FromDirectory(_dir));
+        var error = Assert.Throws<FileNotFoundException>(() => OnnxProvider.FromDirectory(Dir));
 
         Assert.Contains("vocab.txt", error.Message, StringComparison.Ordinal);
     }
@@ -251,9 +249,9 @@ public class OnnxCrossEncoderReachabilityTests
         Assert.Equal(["b"], verdict.RelevantIds);
     }
 
-    /// <summary>What a provider running the cross-encoder dialect declares. Built from the DIALECT rather
-    /// than copied, because the dialect is what decides it (<c>docs/DECISIONS.md</c> <b>D157</b>) — a copy
-    /// would go on passing after the thing it describes changed.</summary>
+    /// <summary>What a provider running the cross-encoder dialect declares. <c>Produces</c> is taken from the
+    /// dialect, which decides it (<c>docs/DECISIONS.md</c> <b>D157</b>); <c>Accepts</c> and <c>Operations</c>
+    /// restate <c>OnnxProvider</c>'s constructor, which cannot be reached without a real model.</summary>
     internal static readonly ProviderCapabilities ScoreDeclaration = new()
     {
         Accepts = [ProviderKinds.Text],
@@ -268,10 +266,6 @@ public class OnnxCrossEncoderReachabilityTests
     {
         Assert.Equal(ProviderKinds.Score, new OnnxCrossEncoderHead().Produces);
         Assert.Equal(ProviderKinds.Vector, new OnnxPoolingHead(OnnxPooling.Mean, true).Produces);
-
-        Assert.Equal([ProviderKinds.Score], ScoreDeclaration.Produces);
-        Assert.Equal([ProviderKinds.Text], ScoreDeclaration.Accepts);
-        Assert.Equal([ProviderOperation.Complete], ScoreDeclaration.Operations);
     }
 }
 

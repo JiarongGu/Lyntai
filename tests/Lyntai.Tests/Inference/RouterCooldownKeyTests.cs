@@ -1,7 +1,8 @@
 using Lyntai.Inference;
 using Lyntai.Tests.Fakes;
+using static Lyntai.Tests.Fakes.TestTimeouts;
 
-namespace Lyntai.Tests.Lifecycle;
+namespace Lyntai.Tests.Inference;
 
 /// <summary>Both routers key dead-host cooldown — and, for the generation side, concurrency admission — on the
 /// CONFIGURATION a provider is running under rather than on its id, so that several configurations of one
@@ -17,17 +18,6 @@ public class RouterCooldownKeyTests
 
     private static List<ProviderCandidate> Candidates(params string[] ids) =>
         [.. ids.Select(id => new ProviderCandidate(id))];
-
-    /// <summary>How long a bounded await waits before failing the test outright. Generous enough never to
-    /// fire on a loaded machine, short enough that the failure is legible.
-    ///
-    /// <para>Every await on a gated call in this class is bounded by it, because the regression these tests
-    /// exist to catch — a permit that is never returned — makes the waiting caller wait FOREVER. An
-    /// unbounded await would turn that regression into an indefinite hang: <c>verify</c> stops producing
-    /// output at all and no test names the problem, which destroys the signal for every other test in the
-    /// run. A <see cref="TimeoutException"/> at the assertion that matters is the difference between a red
-    /// test and a dead run.</para></summary>
-    private static readonly TimeSpan GateWait = TimeSpan.FromSeconds(5);
 
     // Default behaviour must be untouched: an app that never supplies a delegate benches by provider id,
     // exactly as it does today.
@@ -88,7 +78,7 @@ public class RouterCooldownKeyTests
         var admission = new ProviderAdmission(options);
         var key = ProviderKey.For("a1111").With("v", "a").Build();
 
-        var backend = new BlockingGenerationProvider { Id = "a1111" };
+        var backend = new GatedGenerationProvider { Id = "a1111" };
         var router = new MediaRouter([backend], null, new DeadHostTracker(), _ => key, admission);
 
         var first = router.GenerateAsync(Candidates("a1111"), Request());
@@ -113,14 +103,17 @@ public class RouterCooldownKeyTests
         var options = new ProviderAdmissionOptions();
         options.BySlot["a1111"] = 1;
         var admission = new ProviderAdmission(options);
+        var recording = new RecordingAdmission(admission);
         var key = ProviderKey.For("a1111").With("v", "a").Build();
 
         var failing = new FakeGenerationProvider { Id = "a1111" };
         failing.Verdicts.Enqueue(ProviderVerdict.Refused);       // Surface: returns from mid-attempt
-        var router = new MediaRouter([failing], null, new DeadHostTracker(), _ => key, admission);
+        var router = new MediaRouter([failing], null, new DeadHostTracker(), _ => key, recording);
 
         await router.GenerateAsync(Candidates("a1111"), Request());
 
+        Assert.Equal(key, Assert.Single(recording.Entered));   // it was admitted at all…
+        Assert.Equal(1, recording.Released);                    // …and handed the permit back
         Assert.Equal(0, admission.GateCount);
         // and the gate still admits, which a leaked permit on a limit of 1 would prevent
         var next = admission.EnterAsync(key, CancellationToken.None);
@@ -140,16 +133,19 @@ public class RouterCooldownKeyTests
         var options = new ProviderAdmissionOptions();
         options.BySlot["a1111"] = 1;
         var admission = new ProviderAdmission(options);
+        var recording = new RecordingAdmission(admission);
         var key = ProviderKey.For("a1111").With("v", "a").Build();
 
         var router = new MediaRouter(
             [new FakeGenerationProvider { Id = "a1111", Throws = new InvalidOperationException("backend blew up") }],
-            null, new DeadHostTracker(), _ => key, admission);
+            null, new DeadHostTracker(), _ => key, recording);
 
         var result = await router.GenerateAsync(Candidates("a1111"), Request());
 
         Assert.False(result.IsOk);                       // classified, not propagated
         Assert.Contains("backend blew up", result.Detail);
+        Assert.Equal(key, Assert.Single(recording.Entered));   // it was admitted at all…
+        Assert.Equal(1, recording.Released);                    // …and handed the permit back
         Assert.Equal(0, admission.GateCount);
         // and the gate still admits, which a leaked permit on a limit of 1 would prevent
         var next = admission.EnterAsync(key, CancellationToken.None);
@@ -166,14 +162,17 @@ public class RouterCooldownKeyTests
         var options = new ProviderAdmissionOptions();
         options.BySlot["fake-video"] = 1;
         var admission = new ProviderAdmission(options);
+        var recording = new RecordingAdmission(admission);
         var key = ProviderKey.For("fake-video").With("v", "a").Build();
 
         var backend = new FakeGenerationJobProvider { SubmitStatus = QueuedOperationStatus.Failed };
-        var router = new MediaRouter([backend], null, new DeadHostTracker(), _ => key, admission);
+        var router = new MediaRouter([backend], null, new DeadHostTracker(), _ => key, recording);
 
         var submission = await router.SubmitAsync(Candidates("fake-video"), VideoRequest()).WaitAsync(GateWait);
 
         Assert.Equal("", submission.ProviderId);          // nobody took the job
+        Assert.Equal(key, Assert.Single(recording.Entered));   // it was admitted at all…
+        Assert.Equal(1, recording.Released);                    // …and handed the permit back
         Assert.Equal(0, admission.GateCount);
         // and the gate still admits, which a leaked permit on a limit of 1 would prevent
         var next = admission.EnterAsync(key, CancellationToken.None);
@@ -189,6 +188,7 @@ public class RouterCooldownKeyTests
         var options = new ProviderAdmissionOptions();
         options.BySlot["fake-video"] = 1;
         var admission = new ProviderAdmission(options);
+        var recording = new RecordingAdmission(admission);
         var key = ProviderKey.For("fake-video").With("v", "a").Build();
 
         var backend = new FakeGenerationJobProvider
@@ -196,12 +196,14 @@ public class RouterCooldownKeyTests
             SubmitStatus = QueuedOperationStatus.Failed,
             SubmitInconclusive = true,
         };
-        var router = new MediaRouter([backend], null, new DeadHostTracker(), _ => key, admission);
+        var router = new MediaRouter([backend], null, new DeadHostTracker(), _ => key, recording);
 
         var submission = await router.SubmitAsync(Candidates("fake-video"), VideoRequest()).WaitAsync(GateWait);
 
         Assert.Equal("fake-video", submission.ProviderId);  // surfaced with its owner, not shopped onward
         Assert.True(submission.Operation.Inconclusive);
+        Assert.Equal(key, Assert.Single(recording.Entered));   // it was admitted at all…
+        Assert.Equal(1, recording.Released);                    // …and handed the permit back
         Assert.Equal(0, admission.GateCount);
         var next = admission.EnterAsync(key, CancellationToken.None);
         Assert.True(next.IsCompleted);
@@ -261,17 +263,20 @@ public class RouterCooldownKeyTests
         var options = new ProviderAdmissionOptions();
         options.BySlot["openai"] = 1;
         var admission = new ProviderAdmission(options);
+        var recording = new RecordingAdmission(admission);
         var cfg = ProviderKey.For("openai").With("tenant", "a").Build();
 
         var provider = new FakeTextProvider("openai");
         provider.Replies.Enqueue(new TextResponse("nope", ProviderVerdict.RateLimited));
 
         var router = new TextRouter([provider], new DeadHostTracker(), new LyntaiOptions(),
-            configuration: _ => cfg, admission: admission);
+            configuration: _ => cfg, admission: recording);
 
         await router.CompleteAsync([new ProviderCandidate("openai")],
             new TextRequest { Messages = [TextMessage.User("hi")] });
 
+        Assert.Equal(cfg, Assert.Single(recording.Entered));   // it was admitted at all…
+        Assert.Equal(1, recording.Released);                    // …and handed the permit back
         Assert.Equal(0, admission.GateCount);
     }
 
@@ -284,10 +289,11 @@ public class RouterCooldownKeyTests
         var options = new ProviderAdmissionOptions();
         options.BySlot["openai"] = 1;
         var admission = new ProviderAdmission(options);
+        var recording = new RecordingAdmission(admission);
         var cfg = ProviderKey.For("openai").With("tenant", "a").Build();
 
         var router = new TextRouter([new FakeTextProvider("openai")], new DeadHostTracker(), new LyntaiOptions(),
-            configuration: _ => cfg, admission: admission);
+            configuration: _ => cfg, admission: recording);
 
         var chunks = new List<TextChunk>();
         await foreach (var chunk in router.StreamAsync([new ProviderCandidate("openai")],
@@ -299,39 +305,8 @@ public class RouterCooldownKeyTests
         }
 
         Assert.NotEmpty(chunks);
+        Assert.Empty(recording.Entered);   // never entered, rather than entered and released
         Assert.Equal(0, admission.GateCount);
-    }
-
-    /// <summary>Blocks inside GenerateAsync so a second caller can be observed queueing at the gate.</summary>
-    private sealed class BlockingGenerationProvider : IModelProvider
-    {
-        private readonly TaskCompletionSource _gate = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        private int _concurrent;
-
-        public string Id { get; init; } = "a1111";
-        public TaskCompletionSource Entered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        public int Concurrent => Volatile.Read(ref _concurrent);
-
-        public ProviderCapabilities Capabilities { get; } = new()
-        {
-            Accepts = [ProviderKinds.Text],
-            Produces = [ProviderKinds.Image],
-            Operations = [ProviderOperation.Complete],
-        };
-
-        public Task<ProviderProbeResult> ProbeAsync(CancellationToken ct = default) =>
-            Task.FromResult(new ProviderProbeResult(true, "ready"));
-
-        public async Task<MediaResponse> GenerateAsync(MediaRequest request, CancellationToken ct = default)
-        {
-            Interlocked.Increment(ref _concurrent);
-            Entered.TrySetResult();
-            await _gate.Task.ConfigureAwait(false);
-            Interlocked.Decrement(ref _concurrent);
-            return MediaResponse.Success([new MediaArtifact("image/png", Data: [0x89])]);
-        }
-
-        public void Release() => _gate.TrySetResult();
     }
 
 }

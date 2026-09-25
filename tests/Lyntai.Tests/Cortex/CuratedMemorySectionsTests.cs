@@ -63,6 +63,7 @@ public class CuratedMemorySectionsTests
             E(2, "glossary", "any lang", task: "translation", scope: null),   // null scope → every scope
             E(3, "rules",    "meta rule", task: "metadata",   scope: null),
             E(4, "persona",  "be terse",  task: null,         scope: null),    // null task → every task
+            E(5, "glossary", "ja term",   task: "translation", scope: "lang:ja"), // right task, other scope
         };
 
         var text = CuratedMemorySections.Compose(entries, taskKey: "translation", scopes: ["lang:zh"]);
@@ -71,5 +72,6 @@ public class CuratedMemorySectionsTests
         Assert.Contains("any lang", text);
         Assert.Contains("be terse", text);       // universal (null task) row
         Assert.DoesNotContain("meta rule", text); // other task filtered out
+        Assert.DoesNotContain("ja term", text);   // other scope filtered out
     }
 }

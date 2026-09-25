@@ -5,16 +5,15 @@ namespace Lyntai.Tests.Api;
 /// drops has no place in the baseline at all, so a break in it does not weaken the gate — it deletes the
 /// gate for that shape, silently.
 ///
-/// <para>Three details were dropped until 2026-08-05, each hiding a real break:</para>
+/// <para>Three details a rendering can drop, each hiding a real break when it does:</para>
 /// <list type="bullet">
-/// <item><b>type parameters</b> — <c>AddSemanticMemory()</c> and <c>AddSemanticMemory&lt;TVectorProvider&gt;()</c>
-/// rendered as the identical line, so the baseline literally held it twice; deleting either overload left a
-/// baseline the gate still accepted, because the diff read as an ordinary removal of something the surviving
-/// duplicate covered. Removing a public overload from a frozen surface is exactly what the gate is for;</item>
-/// <item><b>parameter names</b> — only types were rendered, so a rename passed silently even though it is a
-/// source break for every named-argument caller, which the README actively teaches;</item>
-/// <item><b>default values</b> — a bare <c>=</c> marker recorded only that a default EXISTED, so flipping
-/// one passed silently.</item>
+/// <item><b>type parameters</b> — without them <c>AddSemanticMemory()</c> and
+/// <c>AddSemanticMemory&lt;TVectorProvider&gt;()</c> render as one line, so deleting either overload reads as
+/// the removal of something the surviving duplicate covers;</item>
+/// <item><b>parameter names</b> — a rename is a source break for every named-argument caller, which the
+/// README actively teaches;</item>
+/// <item><b>default values</b> — a bare <c>=</c> marker records only that a default EXISTS, so flipping one
+/// passes.</item>
 /// </list>
 ///
 /// <para>The fixtures below are local on purpose: pinning a real signature here would duplicate what the
@@ -22,25 +21,10 @@ namespace Lyntai.Tests.Api;
 /// </summary>
 public class ApiSurfaceRendererTests
 {
-    /// <summary>The reported shape, on a LOCAL fixture — which is what this file's own header asks for and
-    /// what this one fact did not do until 2026-09-17. It pinned <c>AddSemanticMemory()</c> against
-    /// <c>AddSemanticMemory&lt;TVectorProvider&gt;()</c> on the real builder, and **D151** deleted the generic
-    /// overload, so the fact failed for a reason that had nothing to do with the renderer. No
-    /// zero-argument generic/non-generic pair survives anywhere on the public surface now, so the shape is
-    /// only testable on a fixture — which is the argument the header already made.</summary>
-    [Fact]
-    public void A_generic_overload_does_not_collapse_onto_its_non_generic_sibling()
-    {
-        var lines = Lines(ApiSurface.Render(typeof(Overloads)));
 
-        Assert.Contains("Overloaded() : Void", lines);
-        Assert.Contains("Overloaded<TItem>() : Void", lines);
-    }
-
-    /// <summary>The deletion the gate could not see, performed: two overloads render, one is dropped, and
-    /// the rendering must be poorer by exactly the dropped one. Before the fix the two overloads rendered
-    /// identically, so the "after" set was covered by the surviving duplicate and this difference was
-    /// empty — the removal of public surface simply did not reach the baseline.</summary>
+    /// <summary>The deletion the gate must see, performed: two overloads render, one is dropped, and the
+    /// rendering must be poorer by exactly the dropped one. Rendered without type parameters the two are one
+    /// line, the difference is empty, and the removal never reaches the baseline.</summary>
     [Fact]
     public void Dropping_a_generic_overload_changes_the_rendered_surface()
     {
@@ -51,15 +35,36 @@ public class ApiSurfaceRendererTests
         Assert.Equal(new[] { "Overloaded() : Void", "Overloaded<TItem>() : Void" }, before);
         Assert.Equal(new[] { "Overloaded() : Void" }, after);
 
-        // the punchline: the rendering is poorer by EXACTLY the deleted overload. Before the fix both lines
-        // of `before` read "Overloaded() : Void", so this difference was empty — the deletion of public
-        // surface reached the baseline as nothing at all.
+        // the rendering is poorer by EXACTLY the deleted overload
         Assert.Equal(new[] { "Overloaded<TItem>() : Void" }, before.Except(after, StringComparer.Ordinal));
 
         static List<string> Overloaded(Type t) =>
             Lines(ApiSurface.Render(t))
                 .Where(l => l.StartsWith("Overloaded", StringComparison.Ordinal))
                 .ToList();
+    }
+
+    [Fact]
+    public void A_property_renders_the_accessors_a_caller_can_use()
+    {
+        var lines = Lines(ApiSurface.Render(typeof(Accessors)));
+
+        Assert.Contains("Settable : Int32 { get; set; }", lines);
+        Assert.Contains("ReadOnly : Int32 { get; }", lines);
+        Assert.Contains("InitOnly : Int32 { get; init; }", lines);
+        Assert.Contains("PrivatelySet : Int32 { get; }", lines);
+        Assert.Contains("ProtectedSet : Int32 { get; protected set; }", lines);
+    }
+
+    /// <summary>The break a name-and-type rendering could not see: removing a public setter breaks every
+    /// <c>Configure(o =&gt; o.X = …)</c> caller while the property line stays byte-identical.</summary>
+    [Fact]
+    public void Removing_a_public_setter_changes_the_rendered_surface()
+    {
+        var before = Lines(ApiSurface.Render(typeof(Accessors))).Single(l => l.StartsWith("Settable", StringComparison.Ordinal));
+        var after = Lines(ApiSurface.Render(typeof(AccessorsMinusSetter))).Single(l => l.StartsWith("Settable", StringComparison.Ordinal));
+
+        Assert.NotEqual(before, after);
     }
 
     [Fact]
@@ -134,6 +139,21 @@ public class ApiSurfaceRendererTests
             TimeSpan? window = null,
             StringComparison how = StringComparison.Ordinal,
             CancellationToken token = default) { }
+    }
+
+    public class Accessors
+    {
+        public int Settable { get; set; }
+        public int ReadOnly { get; }
+        public int InitOnly { get; init; }
+        public int PrivatelySet { get; private set; }
+        public int ProtectedSet { get; protected set; }
+    }
+
+    /// <summary><see cref="Accessors"/> with the public setter removed — the break being simulated.</summary>
+    public class AccessorsMinusSetter
+    {
+        public int Settable { get; }
     }
 
     private sealed class Overloads

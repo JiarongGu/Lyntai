@@ -1,7 +1,7 @@
 using Lyntai.Inference;
 using Lyntai.Tests.Fakes;
 
-namespace Lyntai.Tests.Lifecycle;
+namespace Lyntai.Tests.Inference;
 
 public class BoundedProviderPoolTests
 {
@@ -23,16 +23,6 @@ public class BoundedProviderPoolTests
         Assert.Same(first, second);
         Assert.Equal(1, pool.Statistics.Created);
         Assert.Equal(1, pool.Statistics.Reused);
-    }
-
-    [Fact]
-    public void A_changed_key_builds_a_new_instance_and_replaces_the_old()
-    {
-        var pool = Pool();
-        var first = pool.GetOrAdd(Key("a"), () => new FakeGenerationProvider());
-        var second = pool.GetOrAdd(Key("b"), () => new FakeGenerationProvider());
-
-        Assert.NotSame(first, second);
     }
 
     // The multi-configuration requirement: one backend id, several credentials, all live at once.

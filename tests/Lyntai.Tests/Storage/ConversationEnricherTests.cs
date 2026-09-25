@@ -51,7 +51,7 @@ public class ConversationEnricherTests
         Assert.IsType<InMemoryConversationStore>(sp.GetRequiredService<IConversationStore>()); // not wrapped
     }
 
-    [Fact] // I6: wrapping must PRESERVE the BYO store's lifetime, not silently promote it to singleton
+    [Fact] // Wrapping must PRESERVE the BYO store's lifetime, not silently promote it to singleton
     public void Enrichment_wrap_preserves_a_byo_stores_registered_lifetime()
     {
         var services = new ServiceCollection();

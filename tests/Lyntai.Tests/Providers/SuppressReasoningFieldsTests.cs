@@ -235,8 +235,7 @@ public class SuppressReasoningFieldsTests
 
     private static async Task<List<TextChunk>> Stream(HttpModelProvider provider, TextRequest req)
     {
-        var chunks = new List<TextChunk>();
-        await foreach (var c in provider.StreamAsync(req)) chunks.Add(c);
+        var chunks = await provider.StreamAsync(req).ToListAsync();
         return chunks;
     }
 

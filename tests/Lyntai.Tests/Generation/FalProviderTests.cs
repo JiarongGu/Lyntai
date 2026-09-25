@@ -294,11 +294,10 @@ public class FalProviderTests
     [InlineData(HttpStatusCode.RequestTimeout)]
     public async Task A_retryable_status_while_polling_keeps_an_already_paid_render_alive(HttpStatusCode status)
     {
-        // Round 2 of this review caught the first version classifying "terminal unless 5xx", copied from
-        // ComfyUiProvider — where it is right, because ComfyUI is a loopback server that never rate-limits.
-        // fal is a hosted, paid, rate-limiting API: under that rule ONE 429 dead-lettered a render that was
-        // still running and already billed, because the job handler turns Failed into JobOutcome.Fail.
-        // Only a 404 (this id will never resolve) and the unconfigured pre-check are terminal now.
+        // Not "terminal unless 5xx", which is right for ComfyUiProvider (a loopback server that never
+        // rate-limits) and wrong here: fal is a hosted, paid, rate-limiting API, and the job handler turns
+        // Failed into JobOutcome.Fail, so ONE 429 would dead-letter a render still running and already billed.
+        // Only a 404 (this id will never resolve) and the unconfigured pre-check are terminal.
         var (provider, http) = Provider();
         http.Enqueue(status, "{\"detail\":\"slow down\"}");
 
@@ -529,6 +528,82 @@ public class FalProviderTests
         var (provider, http) = Provider();
 
         var operation = await provider.PollAsync("no-separator-here");
+
+        Assert.Equal(QueuedOperationStatus.Failed, operation.Status);
+        Assert.Contains("malformed", operation.Detail);
+        Assert.Empty(http.Requests);
+    }
+
+    // ---- cancel: every URL segment is settable, the one that stops a paid render included ----------------
+
+    [Fact]
+    public async Task A_cancel_calls_the_default_segment_on_the_requests_path()
+    {
+        var (provider, http) = Provider();
+        http.Enqueue(HttpStatusCode.OK, "{}");
+
+        var operation = await provider.CancelAsync("fal-ai/wan-t2v#req-123");
+
+        Assert.Equal(QueuedOperationStatus.Cancelled, operation.Status);
+        Assert.Equal("https://queue.fal.run/fal-ai/wan-t2v/requests/req-123/cancel",
+            http.Requests[0].Uri?.ToString());
+        Assert.Equal("Key k", http.Requests[0].Auth);
+    }
+
+    [Fact]
+    public async Task A_host_can_retarget_the_cancel_segment_the_way_it_retargets_status_and_requests()
+    {
+        // the whole point of the settable segments: a moved path is repairable by the host, not by a release
+        var (provider, http) = Provider(new FalOptions
+        {
+            ApiKey = "k",
+            Model = "fal-ai/wan-t2v",
+            RequestsSegment = "req",
+            StatusSegment = "state",
+            CancelSegment = "abort",
+        });
+        http.Enqueue(HttpStatusCode.OK, "{}");
+
+        var operation = await provider.CancelAsync("fal-ai/wan-t2v#req-123");
+
+        Assert.Equal(QueuedOperationStatus.Cancelled, operation.Status);
+        Assert.Equal("https://queue.fal.run/fal-ai/wan-t2v/req/req-123/abort", http.Requests[0].Uri?.ToString());
+    }
+
+    [Fact]
+    public async Task A_rejected_cancel_still_reports_the_render_as_running_rather_than_pretending_it_stopped()
+    {
+        // a render already in flight may not be cancellable; reporting Cancelled would strand a paid generation
+        // that is still producing artifacts
+        var (provider, http) = Provider();
+        http.Enqueue(HttpStatusCode.Conflict, "{\"detail\":\"already running\"}");
+
+        var operation = await provider.CancelAsync("fal-ai/wan-t2v#req-123");
+
+        Assert.Equal(QueuedOperationStatus.Running, operation.Status);
+        Assert.Contains("409", operation.Detail);
+    }
+
+    [Fact]
+    public async Task A_202_cancellation_REQUEST_reports_the_render_still_running()
+    {
+        // fal documents its cancel as `202 {"status":"CANCELLATION_REQUESTED"}` — a request, not a confirmed
+        // stop: the render may still finish and be billed, so only polling says how it ended
+        var (provider, http) = Provider();
+        http.Enqueue(HttpStatusCode.Accepted, """{"status":"CANCELLATION_REQUESTED"}""");
+
+        var operation = await provider.CancelAsync("fal-ai/wan-t2v#req-123");
+
+        Assert.Equal(QueuedOperationStatus.Running, operation.Status);
+        Assert.Contains("CANCELLATION_REQUESTED", operation.Detail);
+    }
+
+    [Fact]
+    public async Task A_malformed_operation_id_never_calls_a_cancel_url_at_all()
+    {
+        var (provider, http) = Provider();
+
+        var operation = await provider.CancelAsync("no-separator-here");
 
         Assert.Equal(QueuedOperationStatus.Failed, operation.Status);
         Assert.Contains("malformed", operation.Detail);

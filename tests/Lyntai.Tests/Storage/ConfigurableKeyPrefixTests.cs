@@ -4,6 +4,7 @@ using Lyntai.Prompts;
 using Lyntai.Storage;
 using Lyntai.Tests.Fakes;
 using Microsoft.Extensions.DependencyInjection;
+using Lyntai.Storage.InMemory;
 
 namespace Lyntai.Tests.Storage;
 
@@ -16,7 +17,7 @@ public class ConfigurableKeyPrefixTests
     public async Task PromptRegistry_custom_prefix_reads_the_apps_own_key()
     {
         var kv = new InMemoryKeyValueStore();
-        kv.Data["cortex.prompt.plan"] = "app override: {v}";
+        await kv.SetAsync("cortex.prompt.plan", "app override: {v}");
 
         var registry = new PromptRegistry(kv, keyPrefix: "cortex.prompt.");
         var rendered = await registry.RenderAsync("plan", "default {v}",
@@ -31,7 +32,7 @@ public class ConfigurableKeyPrefixTests
         Assert.Equal("lyntai.prompt.", PromptRegistry.DefaultKeyPrefix);
 
         var kv = new InMemoryKeyValueStore();
-        kv.Data[PromptRegistry.DefaultKeyPrefix + "plan"] = "lyntai override: {v}";
+        await kv.SetAsync(PromptRegistry.DefaultKeyPrefix + "plan", "lyntai override: {v}");
 
         var registry = new PromptRegistry(kv); // no prefix override
         var rendered = await registry.RenderAsync("plan", "default {v}",
@@ -44,8 +45,8 @@ public class ConfigurableKeyPrefixTests
     public async Task ModelRoutingStore_custom_prefix_reads_the_apps_own_key()
     {
         var kv = new InMemoryKeyValueStore();
-        kv.Data["llm.route.chat"] = "claude:haiku";
-        kv.Data["lyntai.route.chat"] = "ollama:ignored"; // the default namespace is not this store's
+        await kv.SetAsync("llm.route.chat", "claude:haiku");
+        await kv.SetAsync("lyntai.route.chat", "ollama:ignored"); // the default namespace is not this store's
 
         var route = await new KeyValueModelRoutingStore(kv, keyPrefix: "llm.route.").GetRouteAsync("chat");
 
@@ -58,7 +59,7 @@ public class ConfigurableKeyPrefixTests
         Assert.Equal("lyntai.route.", KeyValueModelRoutingStore.DefaultKeyPrefix);
 
         var kv = new InMemoryKeyValueStore();
-        kv.Data[KeyValueModelRoutingStore.DefaultKeyPrefix + "chat"] = "claude:haiku";
+        await kv.SetAsync(KeyValueModelRoutingStore.DefaultKeyPrefix + "chat", "claude:haiku");
 
         var route = await new KeyValueModelRoutingStore(kv).GetRouteAsync("chat"); // no prefix override
 
@@ -69,7 +70,7 @@ public class ConfigurableKeyPrefixTests
     public async Task Configured_prompt_prefix_flows_through_AddLyntai()
     {
         var kv = new InMemoryKeyValueStore();
-        kv.Data["cortex.prompt.p"] = "app override: {v}";
+        await kv.SetAsync("cortex.prompt.p", "app override: {v}");
 
         var services = new ServiceCollection();
         services.AddSingleton<IKeyValueStore>(kv);
@@ -88,7 +89,7 @@ public class ConfigurableKeyPrefixTests
     public async Task Configured_route_prefix_flows_through_AddLiveModelRouting()
     {
         var kv = new InMemoryKeyValueStore();
-        kv.Data["llm.route.scoring"] = "claude:haiku";
+        await kv.SetAsync("llm.route.scoring", "claude:haiku");
 
         var services = new ServiceCollection();
         services.AddSingleton<IKeyValueStore>(kv);

@@ -2,7 +2,7 @@ using System.Reflection;
 using Lyntai.Inference;
 using Lyntai.Tests.Fakes;
 
-namespace Lyntai.Tests.Lifecycle;
+namespace Lyntai.Tests.Inference;
 
 public class ProviderIdentityTests
 {
@@ -31,14 +31,4 @@ public class ProviderIdentityTests
         Assert.True(typeof(IProviderIdentity).IsAssignableFrom(typeof(IModelProvider)));
     }
 
-    // The whole point of reusing the member both seams already declare: nothing that exists has to change.
-    [Fact]
-    public void An_existing_implementor_satisfies_it_unchanged()
-    {
-        IProviderIdentity generation = new FakeGenerationProvider { Id = "a1111" };
-        IProviderIdentity llm = new FakeTextProvider("openai");
-
-        Assert.Equal("a1111", generation.Id);
-        Assert.Equal("openai", llm.Id);
-    }
 }

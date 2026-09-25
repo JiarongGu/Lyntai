@@ -2,7 +2,7 @@ using Lyntai.Inference;
 using Lyntai.Tests.Fakes;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Lyntai.Tests.Lifecycle;
+namespace Lyntai.Tests.Inference;
 
 /// <summary>The router factories: a router is built PER CALL over the provider set the caller chose, while
 /// the bookkeeping it routes against — the dead-host tracker, the limiter, the ledger, the admission table —
@@ -35,6 +35,7 @@ public class RouterFactoryTests
 
         Assert.True(result.IsOk);
         Assert.Equal(1, backend.GenerateCalls);
+        Assert.Equal(1, pool.Statistics.Created);   // a single registration is not tripped by the duplicate check
     }
 
     [Fact]
@@ -164,20 +165,6 @@ public class RouterFactoryTests
         Assert.Equal(2, pool.Statistics.Created);
     }
 
-    // The single-registration path is the common one and must not have grown a cost or a false positive.
-    [Fact]
-    public async Task A_single_registration_is_unaffected_by_the_duplicate_check()
-    {
-        var pool = new BoundedProviderPool<IModelProvider>();
-        var backend = new FakeGenerationProvider { Id = "a1111" };
-
-        var router = Factory(pool).For([new ProviderRegistration<IModelProvider>(Key("a"), () => backend)]);
-        var result = await router.GenerateAsync([new ProviderCandidate("a1111")], Request());
-
-        Assert.True(result.IsOk);
-        Assert.Equal(1, pool.Statistics.Created);
-    }
-
     // The instance overload never touches the pool, so it is not subject to the check at all — a caller
     // that hands over two same-id instances is describing today's DI collection, which already de-duplicates
     // by first-wins and must keep doing so.
@@ -195,12 +182,11 @@ public class RouterFactoryTests
         Assert.Equal(0, second.GenerateCalls);
     }
 
-    // The same guard on the LLM side, and here it is STRICTER than the router it feeds rather than an echo
-    // of it: TextRouter._byId is an ORDINAL dictionary, so "openai" and "OpenAI" would both be stored and both
-    // be reachable — no first-wins collapse to lean on. The factory rejects the pair up front because the
-    // router downstream would not notice it.
+    // The same guard on the text side. The router's id lookup is case-insensitive and first-wins, so "openai"
+    // and "OpenAI" would collapse to one entry and the second would be silently unreachable; the factory
+    // rejects the pair up front so the shadowing is loud.
     [Fact]
-    public void The_llm_factory_rejects_two_registrations_sharing_a_slot()
+    public void The_text_factory_rejects_two_registrations_sharing_a_slot()
     {
         var pool = new BoundedProviderPool<IModelProvider>();
         var factory = LlmFactory(pool, new DeadHostTracker());
@@ -275,7 +261,7 @@ public class RouterFactoryTests
     private static TextRequest Prompt() => new() { Messages = [TextMessage.User("hi")] };
 
     [Fact]
-    public async Task The_llm_pooled_overload_routes_over_the_pooled_instance_and_benches_its_configuration()
+    public async Task The_text_pooled_overload_routes_over_the_pooled_instance_and_benches_its_configuration()
     {
         var pool = new BoundedProviderPool<IModelProvider>();
         var tracker = new DeadHostTracker(threshold: 1);
@@ -294,7 +280,7 @@ public class RouterFactoryTests
     }
 
     [Fact]
-    public async Task The_llm_instance_overload_keys_cooldown_on_the_provider_id()
+    public async Task The_text_instance_overload_keys_cooldown_on_the_provider_id()
     {
         var pool = new BoundedProviderPool<IModelProvider>();
         var tracker = new DeadHostTracker(threshold: 1);

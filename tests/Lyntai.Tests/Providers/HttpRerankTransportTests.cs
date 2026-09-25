@@ -14,9 +14,9 @@ namespace Lyntai.Tests.Providers;
 /// endorse, which field of a candidate to send — is the caller's, and lives in
 /// <c>ScoringVerificationPolicyTests</c>, which needs no HTTP at all.</para>
 ///
-/// <para><b>Everything here THROWS rather than degrading</b>, because there is no score meaning "I could
-/// not" and a zero ranks as confidently as a real one. Failing open is a decision for whoever is
-/// asking.</para></summary>
+/// <para><b>Every failure here is a non-Ok VERDICT with no scores, never a degraded ranking</b>, because
+/// there is no score meaning "I could not" and a zero ranks as confidently as a real one. Failing open is
+/// a decision for whoever is asking.</para></summary>
 public class HttpRerankTransportTests
 {
     private static HttpModelProvider Scorer(StubHttpHandler handler, bool dispose = true,
@@ -104,19 +104,18 @@ public class HttpRerankTransportTests
     }
 
     [Theory]
-    [InlineData(HttpStatusCode.OK, "not json at all")]
-    [InlineData(HttpStatusCode.OK, """{"no_results_key":[]}""")]
-    [InlineData(HttpStatusCode.OK, """{"results":[{"index":0}]}""")]
-    [InlineData(HttpStatusCode.OK, """{"results":[{"index":0,"score":"high"}]}""")]
+    [InlineData("not json at all")]
+    [InlineData("""{"no_results_key":[]}""")]
+    [InlineData("""{"results":[{"index":0}]}""")]
+    [InlineData("""{"results":[{"index":0,"score":"high"}]}""")]
     // an index the caller never sent is unusable, and trusting the REST of that answer is the fail-open
-    // direction — it used to be dropped, leaving the other documents scored and one silently absent
-    [InlineData(HttpStatusCode.OK, """{"results":[{"index":7,"score":0.99},{"index":0,"score":0.5}]}""")]
+    // direction: the other documents scored and one silently absent
+    [InlineData("""{"results":[{"index":7,"score":0.99},{"index":0,"score":0.5}]}""")]
     // a document left unscored would read as 0.0, which ranks as confidently as a real score
-    [InlineData(HttpStatusCode.OK, """{"results":[{"index":0,"score":0.5}]}""")]
-    public async Task A_malformed_or_incomplete_answer_FAILS_rather_than_ranking_on_holes(
-        HttpStatusCode status, string body)
+    [InlineData("""{"results":[{"index":0,"score":0.5}]}""")]
+    public async Task A_malformed_or_incomplete_2xx_answer_FAILS_rather_than_ranking_on_holes(string body)
     {
-        var scorer = Scorer(new StubHttpHandler().Enqueue(status, body));
+        var scorer = Scorer(new StubHttpHandler().Enqueue(HttpStatusCode.OK, body));
 
         var response = await scorer.CallAsync(new ScoreRequest("q", ["a", "b"]));
 

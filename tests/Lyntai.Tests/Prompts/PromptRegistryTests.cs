@@ -1,5 +1,6 @@
 using Lyntai.Prompts;
 using Lyntai.Tests.Fakes;
+using Lyntai.Storage.InMemory;
 
 namespace Lyntai.Tests.Prompts;
 
@@ -10,24 +11,12 @@ public class PromptRegistryTests
 
     // ---- "a store outage → the default" has to survive a BYO store's OWN deadline ---------------------
 
-    private sealed class TimingOutKeyValueStore : Lyntai.Storage.IKeyValueStore
-    {
-        public Task<string?> GetAsync(string key, CancellationToken ct = default) =>
-            throw new OperationCanceledException("the store's own deadline");
-        public Task SetAsync(string key, string value, CancellationToken ct = default) =>
-            throw new OperationCanceledException("the store's own deadline");
-        public Task DeleteAsync(string key, CancellationToken ct = default) =>
-            throw new OperationCanceledException("the store's own deadline");
-        public Task<IReadOnlyList<string>> ListKeysAsync(string? prefix = null, CancellationToken ct = default) =>
-            throw new OperationCanceledException("the store's own deadline");
-    }
-
     [Fact]
     public async Task A_STORES_own_timeout_falls_back_to_the_default_template()
     {
         // A remote override store with its own deadline must not be able to stop a prompt rendering —
         // which the class doc has always promised and a bare rethrow quietly broke.
-        var registry = new PromptRegistry(new TimingOutKeyValueStore());
+        var registry = new PromptRegistry(Throwing.Of<Lyntai.Storage.IKeyValueStore>(() => new OperationCanceledException("the store's own deadline")));
 
         var rendered = await registry.RenderAsync("summary", Default,
             new Dictionary<string, string> { ["input"] = "the text", ["lang"] = "English" });
@@ -40,7 +29,7 @@ public class PromptRegistryTests
     {
         using var cts = new CancellationTokenSource();
         cts.Cancel();
-        var registry = new PromptRegistry(new TimingOutKeyValueStore());
+        var registry = new PromptRegistry(Throwing.Of<Lyntai.Storage.IKeyValueStore>(() => new OperationCanceledException("the store's own deadline")));
 
         await Assert.ThrowsAsync<OperationCanceledException>(
             async () => await registry.RenderAsync("summary", Default, vars: null, ct: cts.Token));
@@ -57,7 +46,7 @@ public class PromptRegistryTests
         Assert.Equal("Summarize the text in English.", rendered);
     }
 
-    [Fact] // R2: ANY key grammar substitutes — hyphens, dots, CJK (the single-pass rewrite must not narrow it)
+    [Fact] // ANY key grammar substitutes — hyphens, dots, CJK (the single-pass rewrite must not narrow it)
     public async Task Non_identifier_and_cjk_keys_still_substitute()
     {
         var registry = new PromptRegistry(_kv);
@@ -73,7 +62,7 @@ public class PromptRegistryTests
         Assert.Equal("Ada does 翻译 at dawn", rendered);
     }
 
-    [Fact] // A3: substitution is SINGLE-PASS — a var VALUE containing a placeholder must stay literal
+    [Fact] // Substitution is SINGLE-PASS — a var VALUE containing a placeholder must stay literal
     public async Task Var_values_containing_placeholders_are_not_resubstituted()
     {
         var registry = new PromptRegistry(_kv);
@@ -92,7 +81,7 @@ public class PromptRegistryTests
     [Fact]
     public async Task Override_wins_when_it_keeps_all_placeholders()
     {
-        _kv.Data[PromptRegistry.DefaultKeyPrefix + "summary"] = "TL;DR of {input} ({lang}):";
+        await _kv.SetAsync(PromptRegistry.DefaultKeyPrefix + "summary", "TL;DR of {input} ({lang}):");
         var registry = new PromptRegistry(_kv);
 
         var rendered = await registry.RenderAsync("summary", Default,
@@ -105,7 +94,7 @@ public class PromptRegistryTests
     public async Task Override_dropping_a_placeholder_is_rejected_falls_back_to_default()
     {
         // documented decision: reject + warn + use the default (fail-open, no silent content loss)
-        _kv.Data[PromptRegistry.DefaultKeyPrefix + "summary"] = "TL;DR of {input}:"; // dropped {lang}
+        await _kv.SetAsync(PromptRegistry.DefaultKeyPrefix + "summary", "TL;DR of {input}:"); // dropped {lang}
         var registry = new PromptRegistry(_kv);
 
         var rendered = await registry.RenderAsync("summary", Default,

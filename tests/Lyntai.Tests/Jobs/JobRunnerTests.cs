@@ -119,13 +119,9 @@ public class JobRunnerTests
     [Fact]
     public async Task Poll_requeues_without_spending_an_attempt_so_a_long_operation_is_never_dead_lettered()
     {
-        // Found 2026-08-14 by the whole-codebase review. GenerationRenderJobHandler expressed "the render is
-        // still running, come back later" as JobOutcome.Retry — and a retry SPENDS an attempt, so at the
-        // default MaxAttempts of 3 the third poll dead-lettered the job. At a 15s poll delay that meant any
-        // render over ~30 seconds died, against a class doc promising to "poll to completion across as many
-        // process lifetimes as it takes", and the operator was told "retries exhausted" while a PAID render
-        // carried on unwatched. Polling and retrying are different things; Retry keeps its meaning (a failed
-        // attempt worth repeating) and Poll is the word that was missing.
+        // Polling is not retrying. A retry SPENDS an attempt, so "still running, come back later" expressed as
+        // Retry dead-letters a long render at MaxAttempts and tells the operator "retries exhausted" while a
+        // PAID render carries on unwatched. Retry is a failed attempt worth repeating; Poll spends nothing.
         var polls = 0;
         var handler = new FakeJobHandler("render",
             _ => Task.FromResult(++polls < 5 ? JobOutcome.Poll(TimeSpan.FromSeconds(1)) : JobOutcome.Complete));
@@ -143,24 +139,6 @@ public class JobRunnerTests
         Assert.Equal(5, handler.Calls);                   // four polls then the completing run
         Assert.True(final.Attempts <= 2,
             $"polling must not accumulate attempts — MaxAttempts is 2 and the job ran 5 times, saw {final.Attempts}");
-    }
-
-    [Fact]
-    public async Task A_poll_outcome_still_dead_letters_a_job_whose_lease_was_lost()
-    {
-        // Poll un-counts the claim's attempt increment, so it must stay FENCED on the worker id exactly like
-        // every other terminal transition — otherwise a worker whose lease was reclaimed could drive another
-        // worker's job backwards forever, which is the one way an un-counted outcome could become unbounded.
-        var handler = new FakeJobHandler("render", _ => Task.FromResult(JobOutcome.Poll(TimeSpan.FromSeconds(1))));
-        var (runner, store, queue, _) = Build(o => o.Jobs.DefaultMaxAttempts = 3, handler);
-        var id = await queue.EnqueueAsync("default", "render", "{}");
-
-        await runner.RunOnceAsync();
-        var afterPoll = (await store.GetAsync(id))!;
-        Assert.Equal(JobStatus.Pending, afterPoll.Status);
-
-        // a DIFFERENT worker's poll must not land on this record
-        Assert.False(await store.PollAgainAsync(id, "someone-else", DateTimeOffset.UtcNow.AddMinutes(5)));
     }
 
     [Fact]
@@ -275,9 +253,12 @@ public class JobRunnerTests
         // tight timeout there is a false negative, not a real failure. Big enough to never flake, small
         // enough to still fail fast if cross-lane concurrency is genuinely broken (then it never releases).
         var runTask = runner.RunOnceAsync();
-        Assert.True(await arrived.WaitAsync(TimeSpan.FromSeconds(30)), "lane a's job did not start"); // in flight
-        Assert.True(await arrived.WaitAsync(TimeSpan.FromSeconds(30)), "lane b's job did not start concurrently");
-        release.SetResult();
+        try
+        {
+            Assert.True(await arrived.WaitAsync(TimeSpan.FromSeconds(30)), "lane a's job did not start"); // in flight
+            Assert.True(await arrived.WaitAsync(TimeSpan.FromSeconds(30)), "lane b's job did not start concurrently");
+        }
+        finally { release.TrySetResult(); }
 
         Assert.Equal(2, await runTask);
     }
@@ -355,11 +336,14 @@ public class JobRunnerTests
         // MaxConcurrency of 2 and four handlers would be inside the gate at once.
         var runA = a.RunOnceAsync();
         var runB = b.RunOnceAsync();
-        Assert.True(await gate.WaitAsync(TimeSpan.FromSeconds(30)), "no job started");
-        Assert.True(await gate.WaitAsync(TimeSpan.FromSeconds(30)), "a second job did not start");
-        // A third entrant would have to arrive while the first two are blocked; give it a real chance to.
-        Assert.False(await gate.WaitAsync(TimeSpan.FromSeconds(2)), "a THIRD job ran past the global cap of 2");
-        release.SetResult();
+        try
+        {
+            Assert.True(await gate.WaitAsync(TimeSpan.FromSeconds(30)), "no job started");
+            Assert.True(await gate.WaitAsync(TimeSpan.FromSeconds(30)), "a second job did not start");
+            // A third entrant would have to arrive while the first two are blocked; give it a real chance to.
+            Assert.False(await gate.WaitAsync(TimeSpan.FromSeconds(2)), "a THIRD job ran past the global cap of 2");
+        }
+        finally { release.TrySetResult(); }
         await Task.WhenAll(runA, runB);
 
         Assert.Equal(2, peak);
@@ -436,91 +420,6 @@ public class JobRunnerTests
 
         Assert.Equal(4, await a.RunOnceAsync() + await b.RunOnceAsync());
         Assert.Empty(await store.ListAsync(JobStatus.Pending));
-    }
-
-    [Fact]
-    public async Task A_crashed_workers_slot_is_reclaimed_after_the_slot_lease()
-    {
-        // No release ever arrives from a process that died, so expiry is what stops a crash throttling the
-        // deployment. SlotLease can be SHORT because a live worker heartbeats — see the test below.
-        var store = new InMemoryJobStore(() => DateTimeOffset.UnixEpoch);
-        Assert.Equal(0, await store.TryAcquireSlotAsync(1, "dead-worker", Lease));
-        Assert.Null(await store.TryAcquireSlotAsync(1, "live-worker", Lease));   // cap of 1, and it is held
-
-        var later = new InMemoryJobStore(() => DateTimeOffset.UnixEpoch);
-        Assert.Equal(0, await later.TryAcquireSlotAsync(1, "dead-worker", TimeSpan.Zero));
-        Assert.Equal(0, await later.TryAcquireSlotAsync(1, "live-worker", TimeSpan.Zero)); // expired → retaken
-    }
-
-    [Fact]
-    public async Task A_heartbeat_keeps_a_LONG_job_holding_its_slot_past_the_lease()
-    {
-        // THE PROPERTY THE HEARTBEAT BUYS. A single expiry cannot serve both questions: long enough for a
-        // job that runs for hours and a crashed worker throttles the fleet for hours; short enough to
-        // recover quickly and that long job loses its slot while still running. Renewal separates them —
-        // the lease measures only "how long since we last heard from you".
-        var clock = new MutableClock();
-        var store = new InMemoryJobStore(clock.Get);
-        var slotLease = TimeSpan.FromSeconds(30);
-
-        Assert.Equal(0, await store.TryAcquireSlotAsync(1, "long-runner", slotLease));
-
-        // well past the lease, but the worker has been beating throughout
-        for (var beat = 0; beat < 10; beat++)
-        {
-            clock.Advance(TimeSpan.FromSeconds(10));
-            await store.HeartbeatSlotsAsync("long-runner");
-        }
-
-        Assert.Null(await store.TryAcquireSlotAsync(1, "someone-else", slotLease)); // still held, 100s in
-
-        clock.Advance(slotLease + TimeSpan.FromSeconds(1));                          // beats stop: it died
-        Assert.Equal(0, await store.TryAcquireSlotAsync(1, "someone-else", slotLease));
-    }
-
-    [Fact]
-    public async Task A_heartbeat_does_NOT_revive_a_slot_already_reclaimed_from_this_worker()
-    {
-        // A stalled worker that wakes up and beats must not steal back a slot its successor now holds —
-        // the same fencing the release has, for the same reason.
-        var clock = new MutableClock();
-        var store = new InMemoryJobStore(clock.Get);
-        var slotLease = TimeSpan.FromSeconds(30);
-        Assert.Equal(0, await store.TryAcquireSlotAsync(1, "stalled", slotLease));
-
-        clock.Advance(slotLease + TimeSpan.FromSeconds(1));
-        Assert.Equal(0, await store.TryAcquireSlotAsync(1, "successor", slotLease));   // taken over
-
-        await store.HeartbeatSlotsAsync("stalled");                                    // too late
-
-        clock.Advance(TimeSpan.FromSeconds(10));
-        Assert.Null(await store.TryAcquireSlotAsync(1, "third", slotLease));           // successor still holds it
-    }
-
-    [Fact]
-    public async Task Releasing_is_FENCED_so_an_expired_worker_cannot_free_its_successors_slot()
-    {
-        var store = new InMemoryJobStore(() => DateTimeOffset.UnixEpoch);
-        Assert.Equal(0, await store.TryAcquireSlotAsync(1, "first", TimeSpan.Zero));
-        Assert.Equal(0, await store.TryAcquireSlotAsync(1, "second", TimeSpan.Zero));   // took it over
-
-        await store.ReleaseSlotAsync(0, "first");   // the evicted worker finishes and tidies up
-
-        Assert.Null(await store.TryAcquireSlotAsync(1, "third", Lease));   // 'second' still holds it
-    }
-
-    [Fact]
-    public async Task The_cap_is_CONFIGURATION_so_lowering_it_needs_no_cleanup()
-    {
-        // Slots are created lazily and selected only below the cap, which is what lets a host retune without
-        // a migration or a stranded row.
-        var store = new InMemoryJobStore(() => DateTimeOffset.UnixEpoch);
-        Assert.Equal(0, await store.TryAcquireSlotAsync(3, "w", Lease));
-        Assert.Equal(1, await store.TryAcquireSlotAsync(3, "w", Lease));
-        Assert.Equal(2, await store.TryAcquireSlotAsync(3, "w", Lease));
-
-        await store.ReleaseSlotAsync(2, "w");
-        Assert.Null(await store.TryAcquireSlotAsync(2, "w", Lease));   // index 2 exists but is above the cap
     }
 
     [Fact]

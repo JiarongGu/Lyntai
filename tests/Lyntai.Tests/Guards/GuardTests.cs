@@ -78,7 +78,7 @@ public class GuardTests
         }
     }
 
-    [Fact] // A1: chained arg-rewriting guards COMPOSE on the tool-call gate (guard 2 sees guard 1's rewrite)
+    [Fact] // Chained arg-rewriting guards COMPOSE on the tool-call gate (guard 2 sees guard 1's rewrite)
     public async Task Tool_call_gate_chains_arg_rewrites_across_guards()
     {
         var rail = new GuardRail([
@@ -159,7 +159,7 @@ public class GuardTests
     [Fact]
     public async Task Guarded_client_replace_also_clears_tool_calls_and_detail()
     {
-        // R3 — a response Replace redacts the reply; it must NOT leave denied content in ToolCalls/Detail
+        // A response Replace redacts the reply; it must NOT leave denied content in ToolCalls/Detail
         // (which the output gate also scans). The replacement text is the whole sanitized reply.
         var inner = new FakeTextClient();
         inner.Replies.Enqueue(new TextResponse("sensitive output", ProviderVerdict.Ok, Detail: "trace: leaked-path")

@@ -8,6 +8,7 @@ using Lyntai.Inference.Budgeting;
 using Lyntai.Inference.RateLimiting;
 using Lyntai.Tests.Fakes;
 using Microsoft.Extensions.DependencyInjection;
+using static Lyntai.Tests.Fakes.CandidateLists;
 
 namespace Lyntai.Tests.Generation;
 
@@ -25,9 +26,6 @@ public class GenerationGovernanceTests
     // clock are only reliably refused if the whole gap between them stays under a second — which a loaded
     // machine does not guarantee. Mirrors RateLimitTests.T0.
     private static readonly DateTimeOffset FrozenNow = new(2026, 7, 18, 0, 0, 0, TimeSpan.Zero);
-
-    private static IReadOnlyList<ProviderCandidate> Order(params string[] ids) =>
-        [.. ids.Select(id => new ProviderCandidate(id))];
 
     // ---- dead-host cooldown --------------------------------------------------------------------------
 
@@ -67,16 +65,17 @@ public class GenerationGovernanceTests
     public async Task A_success_clears_the_penalty_so_an_occasional_blip_never_accumulates()
     {
         var blippy = new FakeGenerationProvider { Id = "blippy" };
-        blippy.Verdicts.Enqueue(ProviderVerdict.Failed);
-        blippy.Verdicts.Enqueue(ProviderVerdict.Ok);
+        foreach (var verdict in new[] { ProviderVerdict.Failed, ProviderVerdict.Ok, ProviderVerdict.Failed, ProviderVerdict.Ok })
+            blippy.Verdicts.Enqueue(verdict);
         var router = Router([blippy, new FakeGenerationProvider { Id = "local" }],
             new DeadHostTracker(threshold: 2, cooldown: TimeSpan.FromMinutes(5)));
 
         await router.GenerateAsync(Order("blippy", "local"), Image);   // fail  → 1 strike
         await router.GenerateAsync(Order("blippy", "local"), Image);   // ok    → cleared
-        await router.GenerateAsync(Order("blippy", "local"), Image);   // ok
+        await router.GenerateAsync(Order("blippy", "local"), Image);   // fail  → 1 strike, not 2
+        await router.GenerateAsync(Order("blippy", "local"), Image);   // still asked
 
-        Assert.Equal(3, blippy.GenerateCalls);
+        Assert.Equal(4, blippy.GenerateCalls);   // without the reset the third run benches it: 3
     }
 
     [Fact]
@@ -93,6 +92,22 @@ public class GenerationGovernanceTests
         await router.GenerateAsync(Order("needs-setup", "local"), Image);
 
         Assert.Equal(2, unconfigured.GenerateCalls);
+    }
+
+    [Fact]
+    public async Task An_UNSUPPORTED_answer_never_counts_against_a_backend_either()
+    {
+        // the backend knows the request is the problem, not its health: a repeated capability gap must leave it
+        // in rotation, exactly as "not configured" does above
+        var gap = new FakeGenerationProvider { Id = "a" };
+        gap.Verdicts.Enqueue(ProviderVerdict.Unsupported);
+        var router = Router([gap, new FakeGenerationProvider { Id = "b" }],
+            new DeadHostTracker(threshold: 1, cooldown: TimeSpan.FromMinutes(5)));
+
+        await router.GenerateAsync(Order("a", "b"), Image);
+        await router.GenerateAsync(Order("a", "b"), Image);
+
+        Assert.Equal(2, gap.GenerateCalls);
     }
 
     [Fact]
@@ -158,23 +173,6 @@ public class GenerationGovernanceTests
         await router.GenerateAsync(Order("hosted", "local"), Image);
 
         Assert.Equal(2, limited.GenerateCalls);
-    }
-
-    [Fact]
-    public async Task A_submission_also_benches_a_backend_that_refuses_to_take_the_job()
-    {
-        // a paid render's submit path needs the same protection as the inline one
-        var deadHosts = new DeadHostTracker(threshold: 1, cooldown: TimeSpan.FromMinutes(5));
-        var broken = new BrokenSubmitProvider { Id = "broken" };
-        var working = new FakeGenerationJobProvider { Id = "working" };
-        var router = Router([broken, working], deadHosts);
-
-        var first = await router.SubmitAsync(Order("broken", "working"), Video);
-        var second = await router.SubmitAsync(Order("broken", "working"), Video);
-
-        Assert.Equal("working", first.ProviderId);
-        Assert.Equal("working", second.ProviderId);
-        Assert.Equal(1, broken.SubmitCalls);
     }
 
     // ---- spend caps ----------------------------------------------------------------------------------
@@ -475,13 +473,6 @@ public class GenerationGovernanceTests
     // second entry point reaches the same objects, and adding a door is the cheapest way to lose one. So the
     // behaviour is pinned per door rather than assumed from the signature.
 
-    private static async Task<List<MediaChunk>> Collect(IAsyncEnumerable<MediaChunk> stream)
-    {
-        var chunks = new List<MediaChunk>();
-        await foreach (var chunk in stream) chunks.Add(chunk);
-        return chunks;
-    }
-
     private static readonly MediaRequest Speech =
         new() { Kind = ProviderKinds.Audio, Prompt = "read this aloud" };
 
@@ -496,7 +487,7 @@ public class GenerationGovernanceTests
         var (router, tracker) = Budgeted(backend, o => o.Budget.MaxCostUsd = 1.0);
         await tracker.RecordAsync("default", new ProviderUsage(0, 0, 1.0));
 
-        var chunks = await Collect(router.StreamAsync(Order("tts"), Speech));
+        var chunks = await router.StreamAsync(Order("tts"), Speech).ToListAsync();
 
         var terminal = Assert.Single(chunks);
         Assert.Equal(ProviderVerdict.Refused, terminal.Error);
@@ -516,7 +507,7 @@ public class GenerationGovernanceTests
         };
         var (router, tracker) = Budgeted(backend, o => o.Budget.MaxCostUsd = 10.0);
 
-        await Collect(router.StreamAsync(Order("tts"), Speech));
+        await router.StreamAsync(Order("tts"), Speech).ToListAsync();
 
         Assert.Equal(0.25, (await tracker.TotalAsync()).CostUsd);
     }
@@ -532,8 +523,8 @@ public class GenerationGovernanceTests
         var limits = new RateLimitOptions { PermitsPerSecond = 1, Burst = 1, MaxWait = TimeSpan.Zero };
         var router = new RateLimitedMediaRouter(Router([backend]), new TokenBucketRateLimiter(limits, () => FrozenNow));
 
-        var first = await Collect(router.StreamAsync(Order("tts"), Speech));
-        var second = await Collect(router.StreamAsync(Order("tts"), Speech));
+        var first = await router.StreamAsync(Order("tts"), Speech).ToListAsync();
+        var second = await router.StreamAsync(Order("tts"), Speech).ToListAsync();
 
         Assert.True(first[^1].Final);
         Assert.Equal(ProviderVerdict.RateLimited, Assert.Single(second).Error);
@@ -585,38 +576,4 @@ public class GenerationGovernanceTests
         return listener;
     }
 
-    /// <summary>A job backend whose submissions always fail — the submit-path counterpart of a dead host.</summary>
-    private sealed class BrokenSubmitProvider : IModelProvider, IMediaJobProvider
-    {
-        public string Id { get; init; } = "broken";
-        public int SubmitCalls { get; private set; }
-
-        public ProviderCapabilities Capabilities { get; } = new()
-        {
-            Accepts = [ProviderKinds.Text],
-            Produces = [ProviderKinds.Video],
-            Operations = [ProviderOperation.Queued],
-        };
-
-        public Task<ProviderProbeResult> ProbeAsync(CancellationToken ct = default) =>
-            Task.FromResult(new ProviderProbeResult(true, "up"));
-
-        public Task<MediaResponse> GenerateAsync(MediaRequest request, CancellationToken ct = default) =>
-            Task.FromResult(MediaResponse.Failure(ProviderVerdict.Unsupported, "job backend"));
-
-        public Task<QueuedOperation> SubmitAsync(MediaRequest request, CancellationToken ct = default)
-        {
-            SubmitCalls++;
-            return Task.FromResult(new QueuedOperation("", QueuedOperationStatus.Failed, Detail: "queue down"));
-        }
-
-        public Task<QueuedOperation> PollAsync(string operationId, CancellationToken ct = default) =>
-            Task.FromResult(new QueuedOperation(operationId, QueuedOperationStatus.Failed));
-
-        public Task<MediaResponse> FetchAsync(string operationId, CancellationToken ct = default) =>
-            Task.FromResult(MediaResponse.Failure(ProviderVerdict.Failed, "nothing"));
-
-        public Task<QueuedOperation> CancelAsync(string operationId, CancellationToken ct = default) =>
-            Task.FromResult(new QueuedOperation(operationId, QueuedOperationStatus.Cancelled));
-    }
 }

@@ -81,7 +81,7 @@ public class ChatOrchestratorTests
         }
     }
 
-    [Fact] // R1: recalled memory must NOT bypass the input gate (facts can enter via public seams un-gated)
+    [Fact] // Recalled memory must NOT bypass the input gate (facts can enter via public seams un-gated)
     public async Task Recalled_memory_is_still_input_gated_before_the_model()
     {
         var provider = new FakeTextProvider("p");
@@ -99,7 +99,7 @@ public class ChatOrchestratorTests
         Assert.Empty(provider.Calls); // blocked BEFORE the provider — the recalled fact never left the process
     }
 
-    [Fact] // A2: an input-gate Replace persists Q as the REWRITTEN USER MESSAGE — never the composed prompt
+    [Fact] // An input-gate Replace persists Q as the REWRITTEN USER MESSAGE — never the composed prompt
     public async Task Replaced_input_remembers_the_rewritten_message_not_the_composed_prompt()
     {
         var provider = new FakeTextProvider("p");

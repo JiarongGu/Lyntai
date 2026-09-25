@@ -38,20 +38,6 @@ public class OllamaAttachmentTests
     }
 
     [Fact]
-    public void The_base64_carries_no_data_url_prefix()
-    {
-        // `data:image/png;base64,…` is the OpenAI image_url shape; Ollama wants the payload alone, and a
-        // prefixed string decodes to garbage rather than failing loudly
-        var req = new TextRequest { Messages = [TextMessage.UserWithImage("describe", Png, "image/png")] };
-
-        var image = (string)OllamaPayload.Build(req, "llava", stream: false)["messages"]!
-            .AsArray()[0]!["images"]!.AsArray()[0]!;
-
-        Assert.DoesNotContain("data:", image, StringComparison.Ordinal);
-        Assert.DoesNotContain("base64,", image, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public void Several_images_all_travel_in_one_array()
     {
         var second = Encoding.UTF8.GetBytes("second-image");
@@ -105,7 +91,7 @@ public class OllamaAttachmentTests
         var logs = new List<string>();
         var req = new TextRequest { Messages = [TextMessage.UserWithImageUrl("describe", "https://example.com/i.jpg")] };
 
-        var msg = OllamaPayload.Build(req, "llava", stream: false, logger: new CapturingLogger(logs))["messages"]!
+        var msg = OllamaPayload.Build(req, "llava", stream: false, logger: new CapturingLogger(logs, LogLevel.Warning))["messages"]!
             .AsArray()[0]!;
 
         Assert.Null(msg["images"]);                       // nothing to inline, so nothing invented
@@ -133,7 +119,7 @@ public class OllamaAttachmentTests
             ],
         };
 
-        var msg = OllamaPayload.Build(req, "llava", stream: false, logger: new CapturingLogger(logs))["messages"]!
+        var msg = OllamaPayload.Build(req, "llava", stream: false, logger: new CapturingLogger(logs, LogLevel.Warning))["messages"]!
             .AsArray()[0]!;
 
         var images = msg["images"]!.AsArray();
@@ -175,20 +161,5 @@ public class OllamaAttachmentTests
         Assert.Equal(new Uri("http://localhost:11434/api/chat"), handler.Requests[0].Uri);
         Assert.Contains("\"images\"", handler.Requests[0].Body, StringComparison.Ordinal);
         Assert.Contains(Base64, handler.Requests[0].Body, StringComparison.Ordinal);
-    }
-
-    /// <summary>Warning-and-above sink, so a test can assert a capability was REPORTED rather than dropped.
-    /// The twin in <c>CodexAgentSessionTests</c> is private to that class, so it is not shareable.</summary>
-    private sealed class CapturingLogger(List<string> sink) : ILogger
-    {
-        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
-
-        public bool IsEnabled(LogLevel logLevel) => true;
-
-        public void Log<TState>(LogLevel level, EventId id, TState state, Exception? ex,
-            Func<TState, Exception?, string> fmt)
-        {
-            if (level >= LogLevel.Warning) sink.Add(fmt(state, ex));
-        }
     }
 }

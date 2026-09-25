@@ -13,13 +13,13 @@ namespace Lyntai.Tests.Jobs;
 /// injected clock.</summary>
 public class JobSchedulerTests
 {
-    private static (JobScheduler sched, InMemoryJobStore jobs, MutableClock clock, FakeKvStore kv) Build(
+    private static (JobScheduler sched, InMemoryJobStore jobs, MutableClock clock, InMemoryKeyValueStore kv) Build(
         params JobSchedule[] schedules)
     {
         var clock = new MutableClock();
         var jobs = new InMemoryJobStore(clock.Get);
         var options = new LyntaiOptions();
-        var kv = new FakeKvStore();
+        var kv = new InMemoryKeyValueStore();
         var scheduler = new JobScheduler(new JobQueue(jobs, options), schedules, options, kv, clock: clock.Get);
         return (scheduler, jobs, clock, kv);
     }
@@ -53,7 +53,7 @@ public class JobSchedulerTests
         Assert.Equal(3, (await jobs.ListAsync()).Count); // one per elapsed interval
     }
 
-    [Fact] // I4: a corrupt persisted next-run self-heals (re-anchor + overwrite) instead of freezing the schedule
+    [Fact] // A corrupt persisted next-run self-heals (re-anchor + overwrite) instead of freezing the schedule
     public async Task Corrupt_persisted_next_run_re_anchors_instead_of_freezing_the_schedule()
     {
         var (sched, jobs, clock, kv) = Build(Every(TimeSpan.FromMinutes(10)));
@@ -96,7 +96,7 @@ public class JobSchedulerTests
         var clock = new MutableClock();
         var jobs = new InMemoryJobStore(clock.Get);
         var options = new LyntaiOptions();
-        var kv = new FakeKvStore(); // shared store = the durable next-run
+        var kv = new InMemoryKeyValueStore(); // shared store = the durable next-run
         var sched = Every(TimeSpan.FromMinutes(10));
 
         // instance 1 schedules the first run, then the "process restarts"
@@ -125,9 +125,14 @@ public class JobSchedulerTests
     [Fact]
     public async Task A_non_positive_interval_is_skipped_not_spun()
     {
+        // several ticks with time passing between them: a first tick never fires anything, so one tick alone
+        // cannot tell a skipped schedule from one that fires every tick
         var (sched, jobs, clock, _) = Build(new JobSchedule("bad", "l", "t", "{}", TimeSpan.Zero));
-        clock.Advance(TimeSpan.FromMinutes(10));
-        Assert.Equal(0, await sched.TickAsync()); // no enqueue, no infinite advance loop
+        for (var tick = 0; tick < 3; tick++)
+        {
+            Assert.Equal(0, await sched.TickAsync()); // no enqueue, no infinite advance loop
+            clock.Advance(TimeSpan.FromMinutes(10));
+        }
         Assert.Empty(await jobs.ListAsync());
     }
 
@@ -164,17 +169,29 @@ public class JobSchedulerTests
     [Fact]
     public async Task An_invalid_cron_schedule_is_skipped_not_thrown_at_tick()
     {
-        var (sched, jobs, clock, _) = Build(new JobSchedule("bad", "l", "t", "{}", Cron: "not a cron"));
-        clock.Advance(TimeSpan.FromHours(2));
-        Assert.Equal(0, await sched.TickAsync()); // skipped, no throw
+        // skipped by validation, which says so ONCE — not left to the per-tick catch, which would warn every poll
+        var clock = new MutableClock();
+        var jobs = new InMemoryJobStore(clock.Get);
+        var options = new LyntaiOptions();
+        var logger = new CapturingLogger<JobScheduler>();
+        var sched = new JobScheduler(new JobQueue(jobs, options),
+            [new JobSchedule("bad", "l", "t", "{}", Cron: "not a cron")], options, new InMemoryKeyValueStore(), logger, clock.Get);
+
+        for (var tick = 0; tick < 3; tick++)
+        {
+            Assert.Equal(0, await sched.TickAsync()); // skipped, no throw
+            clock.Advance(TimeSpan.FromHours(2));
+        }
+
         Assert.Empty(await jobs.ListAsync());
+        Assert.Contains("invalid cron", Assert.Single(logger.Messages), StringComparison.Ordinal);
     }
 
     [Fact]
     public void AddCronSchedule_validates_the_expression_eagerly()
     {
         var services = new ServiceCollection();
-        Assert.ThrowsAny<Exception>(() => services.AddLyntai(b => b
+        Assert.Throws<FormatException>(() => services.AddLyntai(b => b
             .AddProvider(_ => new FakeTextProvider("p"))
             .UseInMemoryStorage()
             .AddCronSchedule("bad", "l", "t", "{}", "not a cron"))); // throws at composition, not at tick
@@ -193,18 +210,5 @@ public class JobSchedulerTests
         var scheduler = sp.GetRequiredService<IJobScheduler>();
         Assert.IsType<JobScheduler>(scheduler);
         Assert.Equal(0, await scheduler.TickAsync()); // first tick schedules without throwing
-    }
-
-    /// <summary>A dict-backed <see cref="IKeyValueStore"/> that persists across scheduler instances.</summary>
-    private sealed class FakeKvStore : IKeyValueStore
-    {
-        private readonly Dictionary<string, string> _d = new(StringComparer.Ordinal);
-        public Task<string?> GetAsync(string key, CancellationToken ct = default) => Task.FromResult(_d.GetValueOrDefault(key));
-        public Task SetAsync(string key, string value, CancellationToken ct = default) { _d[key] = value; return Task.CompletedTask; }
-        public Task DeleteAsync(string key, CancellationToken ct = default) { _d.Remove(key); return Task.CompletedTask; }
-        public Task<IReadOnlyList<string>> ListKeysAsync(string? prefix = null, CancellationToken ct = default) =>
-            Task.FromResult<IReadOnlyList<string>>([.. _d.Keys
-                .Where(k => prefix is null || k.StartsWith(prefix, StringComparison.Ordinal))
-                .OrderBy(k => k, StringComparer.Ordinal)]);
     }
 }

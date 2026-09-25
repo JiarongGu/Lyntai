@@ -245,13 +245,29 @@ public class InputSegmenterTests
     [Fact]
     public void Counting_NFKC_is_LINEAR_in_the_length_of_the_text()
     {
-        // 400,000 characters that are not NFKC-normal: re-normalising each candidate piece would be quadratic
-        var input = string.Concat(Enumerable.Repeat("㎡ ℃ ", 100_000));
-        var clock = System.Diagnostics.Stopwatch.StartNew();
+        // Text that is not NFKC-normal: re-normalising each candidate piece would be quadratic. Timed at two
+        // sizes 4x apart, best of three each: linear work takes ~4x as long, quadratic ~16x. A RATIO, because
+        // a loaded machine slows both sizes alike where it would push a fixed wall-clock bound either way.
+        static (TimeSpan Best, IReadOnlyList<string> Pieces) Time(int repeats)
+        {
+            var input = string.Concat(Enumerable.Repeat("㎡ ℃ ", repeats));
+            var best = TimeSpan.MaxValue;
+            IReadOnlyList<string> pieces = [];
+            for (var run = 0; run < 3; run++)
+            {
+                var clock = System.Diagnostics.Stopwatch.StartNew();
+                pieces = InputSegmenter.Split(input, 1_000);
+                if (clock.Elapsed < best) best = clock.Elapsed;
+            }
+            return (best, pieces);
+        }
 
-        var pieces = InputSegmenter.Split(input, 1_000);
+        Time(2_500);   // JIT and caches, outside the measurement
+        var small = Time(25_000).Best;
+        var (large, pieces) = Time(100_000);
 
-        Assert.True(clock.Elapsed < TimeSpan.FromSeconds(10), $"took {clock.Elapsed}");
+        var ratio = large.TotalMilliseconds / Math.Max(small.TotalMilliseconds, 0.001);
+        Assert.True(ratio < 10, $"4x the text took {ratio:F1}x as long ({small} -> {large}); quadratic reads ~16x");
         Assert.All(pieces, p => Assert.True(InputSegmenter.Measure(p) <= 1_000));
     }
 
@@ -264,26 +280,6 @@ public class InputSegmenterTests
         var spans = InputSegmenter.Spans(input, 10);
 
         Assert.All(spans, s => Assert.Equal('a', input[s.Start]));
-    }
-
-    // ---- MaxPiecesPerInput: the pieces kept are spread from the first to the LAST ----------------------------
-
-    [Theory]
-    [InlineData(1, new[] { 0 })]
-    [InlineData(2, new[] { 0, 3 })]
-    [InlineData(3, new[] { 0, 2, 3 })]
-    [InlineData(4, new[] { 0, 1, 2, 3 })]
-    [InlineData(9, new[] { 0, 1, 2, 3 })]
-    public void A_piece_cap_keeps_that_many_pieces_the_first_at_the_start_and_the_last_at_the_TAIL(
-        int cap, int[] kept)
-    {
-        var all = InputSegmenter.Split(Words(30), 40);   // four pieces
-
-        var plan = InputSegmenter.Segment([Words(30), "short"], 40, maxPieces: cap);
-
-        Assert.Equal(4, all.Count);
-        Assert.Equal(kept.Select(i => all[i]), plan.Pieces.Take(plan.First[1]));
-        Assert.Equal("short", plan.Pieces[^1]);
     }
 
     // ---- a reranker's query, cut ONCE per call to its share of the pair window ------------------------------

@@ -1,6 +1,7 @@
 using Lyntai.Prompts;
 using Lyntai.Storage.Sqlite;
 using Lyntai.Tests.Fakes;
+using Lyntai.Storage.InMemory;
 
 namespace Lyntai.Tests.Storage;
 
@@ -16,7 +17,7 @@ public class PromptRegistryVersioningTests : IDisposable
     {
         var versions = new SqlitePromptVersionStore(_db.Factory);
         var kv = new InMemoryKeyValueStore();
-        kv.Data[PromptRegistry.DefaultKeyPrefix + "ask"] = "KV override: {q}";
+        await kv.SetAsync(PromptRegistry.DefaultKeyPrefix + "ask", "KV override: {q}");
         var registry = new PromptRegistry(kv, versions);
 
         // no version yet → the KV key is used

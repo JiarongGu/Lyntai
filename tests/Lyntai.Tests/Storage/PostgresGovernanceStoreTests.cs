@@ -112,13 +112,9 @@ public sealed class PostgresGovernanceStoreTests(PostgresFixture pg)
         Assert.Equal(15, (await new PostgresUsageTracker(pg.Factory).TotalAsync(consumer)).TotalTokens);
     }
 
-    // The cross-backend VectorStoreContract, wired here because this class owns the container lifetime and
-    // NAMESPACED with Uid() so it coexists with the other tests on the shared instance. This is the backend
-    // that computes similarity in SQL (pgvector's <=> cosine distance) rather than through VectorMath, so it
-    // is where a divergence from the in-process store would actually live — and the pre-existing fixtures
-    // could not have seen one: they used unit basis vectors, under which cosine and a raw dot product agree
-    // on both ordering and sign. Measured 2026-08-14: swapping VectorMath.Cosine for a bare dot product left
-    // all 29 existing vector/semantic tests green, including the one named "ranks_by_cosine".
+    // The cross-backend VectorStoreContract, NAMESPACED with Uid() so it coexists with the other tests on the
+    // shared instance. This backend computes similarity in SQL (pgvector's <=> cosine distance) rather than
+    // through VectorMath, so it is where a divergence from the in-process store would live.
     private async Task VecPg(Func<IVectorStore, string, Task> body)
     {
         Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
@@ -146,44 +142,6 @@ public sealed class PostgresGovernanceStoreTests(PostgresFixture pg)
     {
         Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
         VectorStoreContract.Every_shipped_store_can_list_its_collections(new PostgresVectorStore(pg.Factory));
-    }
-
-    [SkippableFact]
-    public async Task VectorStore_pgvector_ranks_by_cosine_dedups_and_removes()
-    {
-        Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
-        var c = Uid();
-        var store = new PostgresVectorStore(pg.Factory);
-        await store.UpsertAsync(c, "a", [1f, 0f, 0f], "A");
-        await store.UpsertAsync(c, "b", [0f, 1f, 0f], "B");
-        await store.UpsertAsync(c, "a", [1f, 0f, 0f], "A2"); // same id → dedup (payload updated)
-
-        var hits = await store.SearchAsync(c, [0.9f, 0.1f, 0f], k: 5);
-        Assert.Equal(2, hits.Count);            // a (deduped) + b
-        Assert.Equal("A2", hits[0].Payload);    // nearest to the query, latest payload
-        Assert.True(hits[0].Score > hits[1].Score);
-
-        await store.RemoveCollectionAsync(c);
-        Assert.Empty(await store.SearchAsync(c, [1f, 0f, 0f], k: 5));
-    }
-
-    [SkippableFact]
-    public async Task VectorStore_pgvector_delete_removes_one_by_id_and_absent_is_a_no_op()
-    {
-        Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
-        var c = Uid();
-        var store = new PostgresVectorStore(pg.Factory);
-        await store.UpsertAsync(c, "keep", [1f, 0f, 0f], "KEEP");
-        await store.UpsertAsync(c, "drop", [0f, 1f, 0f], "DROP");
-
-        await store.DeleteAsync(c, "drop");   // remove one by id
-        await store.DeleteAsync(c, "never");  // absent id → no-op, no throw
-
-        var hits = await store.SearchAsync(c, [0.5f, 0.5f, 0f], k: 5);
-        Assert.Single(hits);
-        Assert.Equal("KEEP", hits[0].Payload); // only the un-deleted vector remains
-
-        await store.RemoveCollectionAsync(c);  // hygiene: shared container
     }
 
     [SkippableFact]

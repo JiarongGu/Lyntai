@@ -11,8 +11,9 @@ namespace Lyntai.Tests.Api;
 /// protected surface fails this test until the baseline is updated deliberately — so pre-1.0 breaks
 /// are visible in review and, post-1.0, gate a major bump.
 ///
-/// To update a baseline after an intentional change: delete the file and re-run (it re-seeds), or copy
-/// the emitted <c>.actual</c> file over it. Baselines seed automatically on first run.
+/// To update a baseline after an intentional change: copy the emitted <c>.actual</c> file over it. A
+/// MISSING baseline is written and the test still FAILS, so a seed is reviewed and committed on purpose
+/// rather than passing the one run that created it.
 ///
 /// <para>This test proves only that the surface still EQUALS its baseline — never that the rendering can
 /// SEE a given break. That second half is <see cref="ApiSurfaceRendererTests"/>, and it is not optional:
@@ -68,8 +69,8 @@ public class ApiSurfaceTests
 
         if (!File.Exists(baselinePath))
         {
-            File.WriteAllText(baselinePath, actual); // seed on first run; commit the result
-            return;
+            File.WriteAllText(baselinePath, actual);
+            Assert.Fail($"No baseline for {assemblyName}: seeded {baselinePath}. Review it and commit it.");
         }
 
         var expected = File.ReadAllText(baselinePath).Replace("\r\n", "\n");

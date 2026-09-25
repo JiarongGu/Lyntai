@@ -1,6 +1,8 @@
 using Lyntai.Generation;
 using Lyntai.Inference;
 using Lyntai.Tests.Fakes;
+using static Lyntai.Tests.Fakes.CandidateLists;
+using static Lyntai.Tests.Fakes.TestTimeouts;
 
 namespace Lyntai.Tests.Generation;
 
@@ -20,13 +22,6 @@ public class GenerationSubmitFallbackTests
 {
     private static MediaRequest Video() => new() { Kind = ProviderKinds.Video, Prompt = "a cat surfing" };
 
-    private static ProviderCandidate[] Order(params string[] ids) => [.. ids.Select(id => new ProviderCandidate(id))];
-
-    /// <summary>How long a bounded await waits before failing outright — see the note in
-    /// <c>RouterCooldownKeyTests</c>: a leaked permit makes the waiting caller wait FOREVER, and an unbounded
-    /// await would turn a red test into a dead run.</summary>
-    private static readonly TimeSpan GateWait = TimeSpan.FromSeconds(5);
-
     // ---- the verdict ---------------------------------------------------------------------------------
 
     [Fact]
@@ -35,7 +30,7 @@ public class GenerationSubmitFallbackTests
         // a 429 is the queue telling us to stop; the threshold exists for faults that MIGHT be transient, and
         // spending two more submissions to be refused twice more is not what it is for
         var tracker = new DeadHostTracker(threshold: 3, cooldown: TimeSpan.FromMinutes(5));
-        var limited = new RejectingJobProvider { Id = "hosted", Detail = "429 Too Many Requests" };
+        var limited = FakeGenerationJobProvider.Rejecting("hosted", "429 Too Many Requests");
         var working = new FakeGenerationJobProvider { Id = "local" };
         var router = new MediaRouter([limited, working], deadHosts: tracker);
 
@@ -56,11 +51,7 @@ public class GenerationSubmitFallbackTests
             t.Contains("queue-unconfigured-probe", StringComparison.Ordinal) ? ProviderVerdict.NotConfigured : null);
 
         var tracker = new DeadHostTracker(threshold: 1, cooldown: TimeSpan.FromMinutes(5));
-        var unconfigured = new RejectingJobProvider
-        {
-            Id = "needs-setup",
-            Detail = "queue-unconfigured-probe: BaseUrl and ApiKey are both required",
-        };
+        var unconfigured = FakeGenerationJobProvider.Rejecting("needs-setup", "queue-unconfigured-probe: BaseUrl and ApiKey are both required");
         var working = new FakeGenerationJobProvider { Id = "local" };
         var router = new MediaRouter([unconfigured, working], deadHosts: tracker);
 
@@ -77,13 +68,15 @@ public class GenerationSubmitFallbackTests
         // the counterweight: classifying the detail must not turn every unrecognised rejection blameless, or
         // a genuinely broken queue would never be benched at all
         var tracker = new DeadHostTracker(threshold: 1, cooldown: TimeSpan.FromMinutes(5));
-        var broken = new RejectingJobProvider { Id = "broken", Detail = "queue down" };
+        var broken = FakeGenerationJobProvider.Rejecting("broken", "queue down");
         var working = new FakeGenerationJobProvider { Id = "local" };
         var router = new MediaRouter([broken, working], deadHosts: tracker);
 
-        await router.SubmitAsync(Order("broken", "local"), Video());
-        await router.SubmitAsync(Order("broken", "local"), Video());
+        var first = await router.SubmitAsync(Order("broken", "local"), Video());
+        var second = await router.SubmitAsync(Order("broken", "local"), Video());
 
+        Assert.Equal("local", first.ProviderId);
+        Assert.Equal("local", second.ProviderId);
         Assert.Equal(1, broken.SubmitCalls);
         Assert.True(tracker.IsDead("generation::broken"));
     }
@@ -94,10 +87,7 @@ public class GenerationSubmitFallbackTests
         // the backend knows the request is the problem, not its health — and its text would otherwise classify
         // as a rate limit and bench it. Threshold 1: a single recorded failure would bench it.
         var tracker = new DeadHostTracker(threshold: 1, cooldown: TimeSpan.FromMinutes(5));
-        var cannot = new RejectingJobProvider
-        {
-            Id = "graph", Detail = "429 Too Many Requests", Verdict = ProviderVerdict.Unsupported,
-        };
+        var cannot = FakeGenerationJobProvider.Rejecting("graph", "429 Too Many Requests", ProviderVerdict.Unsupported);
         var working = new FakeGenerationJobProvider { Id = "local" };
         var router = new MediaRouter([cannot, working], deadHosts: tracker);
 
@@ -115,7 +105,7 @@ public class GenerationSubmitFallbackTests
     {
         // the same rule the inline path follows: a content refusal is the backend judging the PROMPT, and
         // re-submitting it elsewhere is not a library's decision to make
-        var refusing = new RejectingJobProvider { Id = "hosted", Detail = "content policy violation" };
+        var refusing = FakeGenerationJobProvider.Rejecting("hosted", "content policy violation");
         var permissive = new FakeGenerationJobProvider { Id = "local" };
 
         var submission = await new MediaRouter([refusing, permissive])
@@ -131,7 +121,7 @@ public class GenerationSubmitFallbackTests
     {
         // proof the policy is genuinely consulted rather than the Refused case being hardcoded here
         var policy = new MediaRoutingPolicy().On(ProviderVerdict.Refused, FallbackAction.Advance);
-        var refusing = new RejectingJobProvider { Id = "hosted", Detail = "content policy violation" };
+        var refusing = FakeGenerationJobProvider.Rejecting("hosted", "content policy violation");
         var permissive = new FakeGenerationJobProvider { Id = "local" };
 
         var submission = await new MediaRouter([refusing, permissive], policy)
@@ -145,8 +135,8 @@ public class GenerationSubmitFallbackTests
     public async Task A_submission_no_candidate_accepted_carries_the_verdict_of_its_most_telling_rejection()
     {
         // the synthesized "nobody took it" must say WHY, or a caller cannot tell it from a surfaced refusal
-        var unsupported = new RejectingJobProvider { Id = "comfy", Detail = "no workflow", Verdict = ProviderVerdict.Unsupported };
-        var broken = new RejectingJobProvider { Id = "broken", Detail = "queue is full" };
+        var unsupported = FakeGenerationJobProvider.Rejecting("comfy", "no workflow", ProviderVerdict.Unsupported);
+        var broken = FakeGenerationJobProvider.Rejecting("broken", "queue is full");
 
         var blameless = await new MediaRouter([unsupported]).SubmitAsync(Order("comfy"), Video());
         var mixed = await new MediaRouter([unsupported, broken]).SubmitAsync(Order("comfy", "broken"), Video());
@@ -176,7 +166,7 @@ public class GenerationSubmitFallbackTests
     public async Task A_surfaced_refusal_carries_the_verdict_it_was_surfaced_for()
     {
         // classified from the text, so the backend set none: the router says what it acted on
-        var refusing = new RejectingJobProvider { Id = "hosted", Detail = "content policy violation" };
+        var refusing = FakeGenerationJobProvider.Rejecting("hosted", "content policy violation");
 
         var submission = await new MediaRouter([refusing]).SubmitAsync(Order("hosted"), Video());
 
@@ -191,8 +181,8 @@ public class GenerationSubmitFallbackTests
         // without this the only thing that survives is a list of candidate ids, which is what the durable job
         // handler fails the job with and what the agent tool hands a model — neither can act on "these didn't
         // work". The FIRST reason, like the inline path keeps the first substantive failure.
-        var first = new RejectingJobProvider { Id = "broken", Detail = "queue is full" };
-        var second = new RejectingJobProvider { Id = "also-broken", Detail = "disk on fire" };
+        var first = FakeGenerationJobProvider.Rejecting("broken", "queue is full");
+        var second = FakeGenerationJobProvider.Rejecting("also-broken", "disk on fire");
 
         var submission = await new MediaRouter([first, second])
             .SubmitAsync(Order("broken", "also-broken"), Video());
@@ -207,7 +197,7 @@ public class GenerationSubmitFallbackTests
     {
         // IMediaRouter defines empty as "no candidate accepted", and both callers branch on exactly that
         // — so the rejecting backend's id belongs in the sentence, never in this field
-        var broken = new RejectingJobProvider { Id = "broken", Detail = "queue is full" };
+        var broken = FakeGenerationJobProvider.Rejecting("broken", "queue is full");
 
         var submission = await new MediaRouter([broken]).SubmitAsync(Order("broken"), Video());
 
@@ -219,7 +209,7 @@ public class GenerationSubmitFallbackTests
     [Fact]
     public async Task A_rejection_with_no_reason_at_all_still_names_who_rejected_it()
     {
-        var silent = new RejectingJobProvider { Id = "silent", Detail = null };
+        var silent = FakeGenerationJobProvider.Rejecting("silent", null);
 
         var submission = await new MediaRouter([silent]).SubmitAsync(Order("silent"), Video());
 
@@ -238,7 +228,7 @@ public class GenerationSubmitFallbackTests
         var admission = new ProviderAdmission(options);
         var key = ProviderKey.For("hosted").With("v", "a").Build();
 
-        var refusing = new RejectingJobProvider { Id = "hosted", Detail = "content policy violation" };
+        var refusing = FakeGenerationJobProvider.Rejecting("hosted", "content policy violation");
         var router = new MediaRouter([refusing], null, new DeadHostTracker(), _ => key, admission);
 
         var submission = await router.SubmitAsync(Order("hosted"), Video()).WaitAsync(GateWait);
@@ -251,50 +241,4 @@ public class GenerationSubmitFallbackTests
         (await next).Dispose();
     }
 
-    /// <summary>A job backend that always REJECTS the submission, with a detail the test chooses — the thing
-    /// the router now classifies. Conclusive on purpose: an inconclusive rejection is decided before the
-    /// verdict is, and is already covered by <c>GenerationTimeoutTests</c>.</summary>
-    private sealed class RejectingJobProvider : IModelProvider, IMediaJobProvider
-    {
-        public string Id { get; init; } = "rejecting";
-
-        /// <summary>What the rejected submission reports as its reason; null = none at all.</summary>
-        public string? Detail { get; init; }
-
-        /// <summary>The verdict the rejection carries; null = none, so the router classifies the detail.</summary>
-        public ProviderVerdict? Verdict { get; init; }
-
-        public int SubmitCalls { get; private set; }
-
-        public ProviderCapabilities Capabilities { get; } = new()
-        {
-            Accepts = [ProviderKinds.Text],
-            Produces = [ProviderKinds.Video],
-            Operations = [ProviderOperation.Queued],
-        };
-
-        public Task<ProviderProbeResult> ProbeAsync(CancellationToken ct = default) =>
-            Task.FromResult(new ProviderProbeResult(true, "up"));
-
-        public Task<MediaResponse> GenerateAsync(MediaRequest request, CancellationToken ct = default) =>
-            Task.FromResult(MediaResponse.Failure(ProviderVerdict.Unsupported, "job backend"));
-
-        public Task<QueuedOperation> SubmitAsync(MediaRequest request, CancellationToken ct = default)
-        {
-            SubmitCalls++;
-            return Task.FromResult(new QueuedOperation("", QueuedOperationStatus.Failed, Detail: Detail)
-            {
-                Verdict = Verdict,
-            });
-        }
-
-        public Task<QueuedOperation> PollAsync(string operationId, CancellationToken ct = default) =>
-            Task.FromResult(new QueuedOperation(operationId, QueuedOperationStatus.Failed));
-
-        public Task<MediaResponse> FetchAsync(string operationId, CancellationToken ct = default) =>
-            Task.FromResult(MediaResponse.Failure(ProviderVerdict.Failed, "nothing"));
-
-        public Task<QueuedOperation> CancelAsync(string operationId, CancellationToken ct = default) =>
-            Task.FromResult(new QueuedOperation(operationId, QueuedOperationStatus.Cancelled));
-    }
 }

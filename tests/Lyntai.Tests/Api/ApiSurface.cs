@@ -8,14 +8,9 @@ namespace Lyntai.Tests.Api;
 /// baseline the approval test compares against so any public-surface change is deliberate.
 ///
 /// <para><b>Whatever this renderer drops, the gate cannot see.</b> A dropped detail does not weaken the
-/// gate, it deletes it for that shape: the baseline simply has no place to record the change. Three
-/// details were dropped until 2026-08-05, each hiding a real break — a method's TYPE PARAMETERS (so
-/// <c>AddSemanticMemory()</c> and <c>AddSemanticMemory&lt;TVectorProvider&gt;()</c> rendered as one identical
-/// line, held twice, and deleting either overload still matched), its parameter NAMES (a rename is a
-/// source break for every named-argument caller), and an optional parameter's DEFAULT VALUE (a bare
-/// <c>=</c> marker made flipping a default invisible). Adding a fourth detail is cheap; noticing a
-/// missing one costs an audit, so prefer rendering more. <c>ApiSurfaceRendererTests</c> is the gate on
-/// this gate.</para>
+/// gate, it deletes it for that shape: the baseline simply has no place to record the change. Adding a
+/// detail is cheap; noticing a missing one costs an audit, so prefer rendering more.
+/// <c>ApiSurfaceRendererTests</c> is the gate on this gate.</para>
 ///
 /// <para>Every rendering decision must be DETERMINISTIC and culture-invariant — the whole output is
 /// sorted and diffed, so a value that formats differently on another machine turns an unrelated review
@@ -84,7 +79,7 @@ internal static class ApiSurface
                     yield return $"{(method.IsStatic ? "static " : "")}{method.Name}{TypeParams(method)}({Params(method.GetParameters())}) : {Simple(method.ReturnType)}";
                     break;
                 case PropertyInfo prop:
-                    yield return $"{(prop.GetAccessors(true)[0].IsStatic ? "static " : "")}{prop.Name} : {Simple(prop.PropertyType)}{(IsRequired(prop) ? " required" : "")}";
+                    yield return $"{(prop.GetAccessors(true)[0].IsStatic ? "static " : "")}{prop.Name} : {Simple(prop.PropertyType)} {Accessors(prop)}{(IsRequired(prop) ? " required" : "")}";
                     break;
                 case FieldInfo field:
                     yield return $"{(field.IsStatic && !field.IsLiteral ? "static " : "")}{field.Name} : {Simple(field.FieldType)}{(field.IsLiteral ? " const" : "")}";
@@ -99,6 +94,22 @@ internal static class ApiSurface
         }
     }
 
+    // The ACCESSORS are surface: removing a public setter, turning set into init, or narrowing a setter to
+    // protected breaks every `Configure(o => o.X = …)` caller while the property's name and type stay put.
+    private static string Accessors(PropertyInfo p)
+    {
+        var parts = new List<string>();
+        if (p.GetMethod is { } get && IsVisible(get)) parts.Add(Visibility(get) + "get;");
+        if (p.SetMethod is { } set && IsVisible(set)) parts.Add(Visibility(set) + (IsInit(set) ? "init;" : "set;"));
+        return "{ " + string.Join(" ", parts) + " }";
+    }
+
+    private static string Visibility(MethodBase m) => m.IsPublic ? "" : "protected ";
+
+    private static bool IsInit(MethodInfo setter) =>
+        setter.ReturnParameter.GetRequiredCustomModifiers()
+            .Any(t => t.FullName == "System.Runtime.CompilerServices.IsExternalInit");
+
     private static bool IsRequired(PropertyInfo p) =>
         p.GetCustomAttributesData().Any(a =>
             a.AttributeType.FullName == "System.Runtime.CompilerServices.RequiredMemberAttribute");
@@ -106,9 +117,9 @@ internal static class ApiSurface
     private static bool IsVisible(MemberInfo m) => m switch
     {
         MethodBase mb => mb.IsPublic || mb.IsFamily || mb.IsFamilyOrAssembly,
-        PropertyInfo p => IsVisible(p.GetMethod ?? (MemberInfo)p.SetMethod!),
+        PropertyInfo p => (p.GetMethod is { } get && IsVisible(get)) || (p.SetMethod is { } set && IsVisible(set)),
         FieldInfo f => f.IsPublic || f.IsFamily || f.IsFamilyOrAssembly,
-        EventInfo e => e.AddMethod is { } a && (a.IsPublic || a.IsFamily),
+        EventInfo e => e.AddMethod is { } a && IsVisible(a),
         _ => false,
     };
 

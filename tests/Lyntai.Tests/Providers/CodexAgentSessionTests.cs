@@ -120,17 +120,6 @@ public class CodexAgentSessionTests
         Assert.Equal("workspace-write", args[args.IndexOf("--sandbox") + 1]);
     }
 
-    [Fact] // MEASURED
-    public async Task A_read_only_policy_keeps_the_read_only_sandbox()
-    {
-        var runner = new FakeProcessRunner(MeasuredSuccess);
-
-        await Session(runner).StreamAsync(Ask() with { ToolPolicy = AgentToolPolicy.ReadOnly }).ToListAsync();
-
-        var args = runner.LastArgs!.ToList();
-        Assert.Equal("read-only", args[args.IndexOf("--sandbox") + 1]);
-    }
-
     [Fact]
     public async Task An_explicit_sandbox_mode_wins_over_the_policy_mapping()
     {
@@ -514,7 +503,7 @@ public class CodexAgentSessionTests
         Assert.DoesNotContain("--disallowed-tools", runner.LastArgs!);   // codex has no such flag to invent
     }
 
-    // ── the host application's own MCP servers (CLI14) ───────────────────────
+    // ── the host application's own MCP servers ───────────────────────────────
 
     /// <summary>MEASURED turn-free against codex-cli 0.146.0 (2026-08-05): `codex exec --help` documents
     /// `-c, --config &lt;key=value&gt;` with a dotted path and a TOML value, and driving `codex mcp list` /
@@ -675,8 +664,8 @@ public class CodexAgentSessionTests
     public async Task Two_names_differing_only_by_dash_or_underscore_refuse_rather_than_crossing_tokens(
         string first, string second)
     {
-        // Found 2026-08-14 by the whole-codebase review. IsUsableName permits BOTH '_' and '-', and the dedup
-        // above keys on the RAW name, so this pair validates. CodexMcpConfig then derives the bearer variable
+        // IsUsableName permits BOTH '_' and '-', and the dedup above keys on the RAW name, so this pair
+        // validates. CodexMcpConfig then derives the bearer variable
         // as Name.Replace('-','_').ToUpperInvariant() — both collapse to one variable, the dictionary keeps the
         // LAST token, and BOTH servers' bearer_token_env_var point at it. codex therefore presents the second
         // server's token to the FIRST server's URL: a credential disclosed to an endpoint it was never issued
@@ -887,15 +876,4 @@ public class CodexAgentSessionTests
     }
 
     // ── helpers ──────────────────────────────────────────────────────────────
-
-    private sealed class CapturingLogger<T>(List<string> sink) : ILogger<T>
-    {
-        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
-        public bool IsEnabled(LogLevel logLevel) => true;
-        public void Log<TState>(LogLevel level, EventId id, TState state, Exception? ex,
-            Func<TState, Exception?, string> fmt)
-        {
-            if (level >= LogLevel.Warning) sink.Add(fmt(state, ex));
-        }
-    }
 }

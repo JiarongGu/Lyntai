@@ -1,6 +1,6 @@
 using Lyntai.Inference;
 
-namespace Lyntai.Tests.Lifecycle;
+namespace Lyntai.Tests.Inference;
 
 public class ProviderKeyTests
 {

@@ -2,29 +2,19 @@ namespace Lyntai.Tests.Live;
 
 /// <summary>The one place that decides whether a live-Ollama test may run, and where it points.
 ///
-/// <para><b>Extracted 2026-08-13 from SIX copies.</b> Every live suite had grown its own
-/// <c>BaseUrl</c> + <c>LiveAsync</c> pair — same intent, drifted in every detail: a 3-second timeout in two
-/// files and 5 in the others, <c>string.IsNullOrEmpty</c> against a list pattern, a string concat against
-/// an interpolation. None of that variation was a decision; it was three separate authors of the same idea,
-/// and each new live suite copied whichever one it happened to sit next to.</para>
+/// <para>One probe, because these decide whether a test RUNS: a copy with a stricter timeout silently skips
+/// on a slow machine while its siblings run.</para>
 ///
-/// <para><b>Why the duplication mattered rather than merely being untidy.</b> These probes decide whether a
-/// test RUNS. A copy with a subtly stricter timeout silently skips on a slow machine while its siblings run,
-/// so the suite's coverage varies by which file you look at — and a skip reads as a pass in every summary.
-/// One implementation means one answer to "is the backend up".</para>
-///
-/// <para><b>Its scope narrowed 2026-08-26, and the narrowing is the point — this is NOT the gate to reach
-/// for.</b> Only suites that are ABOUT Ollama belong here: they exercise <c>OllamaProvider</c>'s
-/// NATIVE routes, so <c>/api/tags</c> is exactly the right probe and a
-/// non-Ollama endpoint SHOULD skip them. A suite that merely needs a model to embed or judge with uses
-/// <see cref="LiveModel"/>, which probes the OpenAI-shaped routes both Ollama and llama.cpp's
-/// <c>llama-server</c> serve. Four suites were gated here for no reason other than being written next to
-/// these two, and the effect was that they could not run against any other backend at all.</para></summary>
+/// <para><b>This is NOT the gate to reach for</b> unless the suite is ABOUT Ollama — it exercises
+/// <c>OllamaProvider</c>'s NATIVE routes, so <c>/api/tags</c> is the right probe and a non-Ollama endpoint
+/// SHOULD skip it. A suite that merely needs a model to embed or judge with uses <see cref="LiveModel"/>,
+/// which probes the OpenAI-shaped routes both Ollama and llama.cpp's <c>llama-server</c> serve.</para></summary>
 public static class OllamaLive
 {
     /// <summary>Where Ollama is. Overridable so a live run can point at another host without editing tests.</summary>
     public static string BaseUrl =>
-        Environment.GetEnvironmentVariable("LYNTAI_OLLAMA_URL") ?? "http://localhost:11434";
+        // an EMPTY variable is unset: "" would build a relative URI, fail the probe and skip in silence
+        Environment.GetEnvironmentVariable("LYNTAI_OLLAMA_URL") is { Length: > 0 } url ? url : "http://localhost:11434";
 
     /// <summary>Whether live-Ollama tests may run: the opt-in variable is set AND the endpoint answers.
     ///
@@ -44,6 +34,23 @@ public static class OllamaLive
             return (await http.GetAsync(new Uri(BaseUrl + "/api/tags"))).IsSuccessStatusCode;
         }
         catch { return false; }   // unreachable, refused, DNS — all mean "not available", none mean "broken"
+    }
+
+    /// <summary>Whether the endpoint has <paramref name="model"/> pulled — a name as <c>ollama pull</c> takes it,
+    /// with or without its tag. A missing model is a SKIP: an embed call against it FAILS, which reads as a
+    /// defect rather than as a machine that has not pulled it.</summary>
+    public static async Task<bool> HasModelAsync(string model)
+    {
+        try
+        {
+            using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
+            using var tags = System.Text.Json.JsonDocument.Parse(await http.GetStringAsync(new Uri(BaseUrl + "/api/tags")));
+            return tags.RootElement.TryGetProperty("models", out var models)
+                && models.EnumerateArray().Any(m => m.TryGetProperty("name", out var name)
+                    && name.GetString() is { } pulled
+                    && (pulled == model || pulled.StartsWith(model + ":", StringComparison.Ordinal)));
+        }
+        catch { return false; }
     }
 
     /// <summary>The message a skip carries. One string, so every live suite explains itself the same way and

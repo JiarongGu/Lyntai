@@ -4,8 +4,9 @@ using Lyntai.Providers.Model2Vec;
 using Lyntai.Inference;
 using Microsoft.Extensions.DependencyInjection;
 using Lyntai.Tests.Fakes;
+using static Lyntai.Tests.Fakes.VectorMath;
 
-namespace Lyntai.Tests.Embeddings;
+namespace Lyntai.Tests.Vectors;
 
 /// <summary>The in-process, server-free vector backend.
 ///
@@ -15,13 +16,11 @@ namespace Lyntai.Tests.Embeddings;
 /// </summary>
 public class Model2VecProviderTests : IDisposable
 {
-    private readonly string _dir = Directory.CreateTempSubdirectory("lyntai-static-").FullName;
+    private readonly ScratchDir _scratch = new("static");
 
-    public void Dispose()
-    {
-        try { Directory.Delete(_dir, recursive: true); } catch (IOException) { /* a temp dir is not worth failing a run */ }
-        GC.SuppressFinalize(this);
-    }
+    private string Dir => _scratch.Path;
+
+    public void Dispose() => _scratch.Dispose();
 
     /// <summary>Writes a model whose row <c>i</c> is all-<c>i</c>, so a mean over known ids is exact.</summary>
     private string WriteModel(IReadOnlyList<string> vocabulary, int dimensions = 4, bool? normalize = false)
@@ -39,18 +38,18 @@ public class Model2VecProviderTests : IDisposable
             "{\"embeddings\":{\"dtype\":\"F32\",\"shape\":[" + rows + "," + dimensions
             + "],\"data_offsets\":[0," + payload.Length + "]}}");
 
-        using (var file = File.Create(Path.Combine(_dir, "model.safetensors")))
+        using (var file = File.Create(Path.Combine(Dir, "model.safetensors")))
         {
             file.Write(BitConverter.GetBytes((long)header.Length));
             file.Write(header);
             file.Write(payload);
         }
 
-        File.WriteAllLines(Path.Combine(_dir, "vocab.txt"), vocabulary);
+        File.WriteAllLines(Path.Combine(Dir, "vocab.txt"), vocabulary);
         if (normalize is { } n)
-            File.WriteAllText(Path.Combine(_dir, "config.json"),
+            File.WriteAllText(Path.Combine(Dir, "config.json"),
                 JsonSerializer.Serialize(new Dictionary<string, object> { ["normalize"] = n }));
-        return _dir;
+        return Dir;
     }
 
     /// <summary>A BERT vocabulary needs its special tokens present, and WordPiece needs [UNK].</summary>
@@ -150,9 +149,9 @@ public class Model2VecProviderTests : IDisposable
     {
         // A partial download is the common failure and its unguarded symptom is a null reference far away.
         WriteModel(Vocabulary("alpha"));
-        File.Delete(Path.Combine(_dir, "vocab.txt"));
+        File.Delete(Path.Combine(Dir, "vocab.txt"));
 
-        var error = Assert.Throws<FileNotFoundException>(() => Model2VecProvider.FromDirectory(_dir));
+        var error = Assert.Throws<FileNotFoundException>(() => Model2VecProvider.FromDirectory(Dir));
         Assert.Contains("vocab.txt", error.Message, StringComparison.Ordinal);
     }
 
@@ -162,9 +161,9 @@ public class Model2VecProviderTests : IDisposable
         // The dangerous direction: a silently wrong table embeds fine and costs retrieval quality nobody
         // can trace back to it.
         WriteModel(Vocabulary("alpha"));
-        File.WriteAllText(Path.Combine(_dir, "model.safetensors"), "this is not a tensor file at all");
+        File.WriteAllText(Path.Combine(Dir, "model.safetensors"), "this is not a tensor file at all");
 
-        Assert.Throws<InvalidDataException>(() => Model2VecProvider.FromDirectory(_dir));
+        Assert.Throws<InvalidDataException>(() => Model2VecProvider.FromDirectory(Dir));
     }
 
     [Fact]
@@ -172,11 +171,14 @@ public class Model2VecProviderTests : IDisposable
     {
         // Every sub-100 MB transformer vector backend rejects an input past 512 tokens. A lookup table has no
         // positional embeddings, so a long document is just more rows to average.
+        // 4000 alphas THEN 4000 betas: the whole text means (5 + 6) / 2 = 5.5, while any truncation keeps only
+        // alphas and means 5 — a periodic text would average the same either way
         var vectorProvider = Model2VecProvider.FromDirectory(WriteModel(Vocabulary("alpha", "beta")));
+        var text = string.Join(" ", [.. Enumerable.Repeat("alpha", 4000), .. Enumerable.Repeat("beta", 4000)]);
 
-        var vector = (await vectorProvider.EmbedAsync([string.Join(" ", Enumerable.Repeat("alpha beta", 4000))]))[0];
+        var vector = (await vectorProvider.EmbedAsync([text]))[0];
 
-        Assert.Contains(vector, v => v != 0f);
+        Assert.All(vector, v => Assert.Equal(5.5f, v, 3));
     }
 }
 
@@ -212,10 +214,4 @@ public class Model2VecProviderLiveTests
             $"related {related:F4} should outrank unrelated {unrelated:F4} — a wrong row mapping looks like this");
     }
 
-    private static double Cosine(float[] a, float[] b)
-    {
-        double dot = 0, na = 0, nb = 0;
-        for (var i = 0; i < a.Length; i++) { dot += a[i] * b[i]; na += a[i] * a[i]; nb += b[i] * b[i]; }
-        return na == 0 || nb == 0 ? 0 : dot / (Math.Sqrt(na) * Math.Sqrt(nb));
-    }
 }

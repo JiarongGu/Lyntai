@@ -272,16 +272,6 @@ public class HttpVectorTransportTests
     }
 
     [Fact]
-    public async Task A_401_with_an_api_key_supplied_does_not_claim_it_is_unconfigured()
-    {
-        var handler = new StubHttpHandler().Enqueue(HttpStatusCode.Unauthorized, "unauthorized");
-
-        var response = await VectorProvider(handler).CallAsync(new VectorRequest(["a"]));
-
-        Assert.NotEqual(ProviderVerdict.NotConfigured, response.Verdict);
-    }
-
-    [Fact]
     public async Task Openai_v1_embeddings_shape_parses_vectors_and_sends_model_input_and_bearer()
     {
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, OpenAiBody);

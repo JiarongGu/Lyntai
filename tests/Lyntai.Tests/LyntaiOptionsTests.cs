@@ -107,7 +107,7 @@ public class LyntaiOptionsTests
         Assert.Equal("base-x", options.ResolveModel("chat", null));     // falls through to "default"
     }
 
-    [Fact] // I1: env numbers parse INVARIANT — a comma-decimal locale must not read "1.5" as 15
+    [Fact] // Env numbers parse INVARIANT — a comma-decimal locale must not read "1.5" as 15
     public void Numeric_env_overrides_parse_invariant_regardless_of_culture()
     {
         var original = Thread.CurrentThread.CurrentCulture;
@@ -130,10 +130,17 @@ public class LyntaiOptionsTests
     [Fact]
     public void Injected_env_getter_without_allEnv_does_not_scan_the_real_machine()
     {
-        // a test passing only getEnv must be deterministic — the real machine env is NOT enumerated
-        var options = new LyntaiOptions();
-        options.ApplyEnvOverrides(_ => null);
-        Assert.Empty(options.DefaultModelByConsumer);
+        // a test passing only getEnv must be deterministic — the real machine env is NOT enumerated. A probe
+        // variable is set on the real process, so this fails on a machine that has none of its own.
+        const string probe = "LYNTAI_MODEL_AUDITPROBE";
+        Environment.SetEnvironmentVariable(probe, "leaked-model");
+        try
+        {
+            var options = new LyntaiOptions();
+            options.ApplyEnvOverrides(_ => null);
+            Assert.Empty(options.DefaultModelByConsumer);
+        }
+        finally { Environment.SetEnvironmentVariable(probe, null); }
     }
 
     [Fact]

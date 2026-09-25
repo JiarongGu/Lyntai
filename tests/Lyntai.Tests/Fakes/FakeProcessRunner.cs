@@ -35,6 +35,9 @@ public sealed class FakeProcessRunner : IProcessRunner
     /// <summary>Canned result returned by <see cref="RunAsync"/>.</summary>
     public ProcessResult RunResult { get; set; } = new(0, string.Empty, string.Empty);
 
+    /// <summary>A clean exit that printed <paramref name="stdout"/> — <c>using static</c> this type for it.</summary>
+    public static ProcessResult Ok(string stdout) => new(0, stdout, "");
+
     /// <summary>Per-call result selector for <see cref="RunAsync"/>, so a test can script a SEQUENCE of
     /// buffered runs by inspecting (command, args) — e.g. a version probe, then an update, then a
     /// re-probe. Falls back to <see cref="RunResult"/> when null; may throw to simulate a missing binary
@@ -53,11 +56,21 @@ public sealed class FakeProcessRunner : IProcessRunner
     public TimeSpan? LastMaxDuration => Calls.Count > 0 ? Calls[^1].MaxDuration : null;
     public IReadOnlyDictionary<string, string>? LastEnvironment => Calls.Count > 0 ? Calls[^1].Environment : null;
 
+    /// <summary>Runs at each spawn, before any output — for a check that only means something while the
+    /// process would be running (a file handed to it that is deleted when the turn ends).</summary>
+    public Action<Call>? OnSpawn { get; set; }
+
+    private void Record(Call call)
+    {
+        Calls.Add(call);
+        OnSpawn?.Invoke(call);
+    }
+
     public Task<ProcessResult> RunAsync(string command, IReadOnlyList<string> args, string? stdin = null,
         TimeSpan? inactivityTimeout = null, TimeSpan? maxDuration = null, string? workingDirectory = null,
         IReadOnlyDictionary<string, string>? environment = null, CancellationToken ct = default)
     {
-        Calls.Add(new Call(command, args, stdin, workingDirectory, inactivityTimeout, maxDuration, environment));
+        Record(new Call(command, args, stdin, workingDirectory, inactivityTimeout, maxDuration, environment));
         return Task.FromResult(RunHandler is null ? RunResult : RunHandler(command, args));
     }
 
@@ -66,7 +79,7 @@ public sealed class FakeProcessRunner : IProcessRunner
         IReadOnlyDictionary<string, string>? environment = null,
         [EnumeratorCancellation] CancellationToken ct = default)
     {
-        Calls.Add(new Call(command, args, stdin, workingDirectory, inactivityTimeout, maxDuration, environment));
+        Record(new Call(command, args, stdin, workingDirectory, inactivityTimeout, maxDuration, environment));
 
         foreach (var line in StreamLines)
         {
@@ -88,7 +101,7 @@ public sealed class FakeProcessRunner : IProcessRunner
         IReadOnlyDictionary<string, string>? environment = null,
         [EnumeratorCancellation] CancellationToken ct = default)
     {
-        Calls.Add(new Call(command, args, stdin, workingDirectory, inactivityTimeout, maxDuration, environment));
+        Record(new Call(command, args, stdin, workingDirectory, inactivityTimeout, maxDuration, environment));
 
         foreach (var chunk in StreamBytes)
         {

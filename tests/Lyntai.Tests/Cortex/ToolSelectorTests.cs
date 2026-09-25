@@ -1,6 +1,7 @@
 using Lyntai.Inference;
 using Lyntai.Agents;
 using Lyntai.Tests.Fakes;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Lyntai.Tests.Cortex;
 
@@ -57,13 +58,80 @@ public class ToolSelectorTests
     {
         // Fail-open, like every other model-backed seam here. A selector is an optimisation; a broken one
         // must cost tokens, never the tool the request actually needed.
-        var loop = new ToolLoop(Answering(), new ToolRegistry([Weather, Stocks, Recipes]),
-            new LyntaiOptions(), logger: null, guards: null, selector: new ThrowingSelector());
+        var client = Answering();
+        var selector = new ThrowingSelector();
+        var loop = new ToolLoop(client, new ToolRegistry([Weather, Stocks, Recipes]),
+            new LyntaiOptions(), logger: null, guards: null, selector: selector);
 
         var result = await loop.RunAsync(Ask("what is the weather"));
 
         Assert.True(result.Ok);
-        Assert.Equal(3, ThrowingSelector.LastRosterSize);
+        Assert.Equal(3, selector.RosterSize);   // it was asked about the whole roster…
+        var roster = RosterShown(client);        // …and the model was shown the whole roster
+        Assert.Contains("stocks", roster, StringComparison.Ordinal);
+        Assert.Contains("recipes", roster, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task The_loop_shows_the_model_ONLY_what_the_selector_chose()
+    {
+        var client = Answering();
+        var loop = new ToolLoop(client, new ToolRegistry([Weather, Stocks, Recipes]),
+            new LyntaiOptions(), logger: null, guards: null, selector: new FixedSelector(Stocks));
+
+        await loop.RunAsync(Ask("what is the weather"));
+
+        var roster = RosterShown(client);
+        Assert.Contains("stocks", roster, StringComparison.Ordinal);
+        Assert.DoesNotContain("recipes", roster, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_selector_that_chooses_NOTHING_leaves_the_roster_whole()
+    {
+        var client = Answering();
+        var loop = new ToolLoop(client, new ToolRegistry([Weather, Stocks, Recipes]),
+            new LyntaiOptions(), logger: null, guards: null, selector: new FixedSelector());
+
+        await loop.RunAsync(Ask("what is the weather"));
+
+        var roster = RosterShown(client);
+        Assert.Contains("stocks", roster, StringComparison.Ordinal);
+        Assert.Contains("recipes", roster, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task AddVectorToolSelector_narrows_the_loop_the_container_builds()
+    {
+        var chat = new FakeTextProvider("chat");
+        chat.Replies.Enqueue(new TextResponse("""{"final":"done"}""", ProviderVerdict.Ok));
+        var services = new ServiceCollection();
+        services.AddLyntai(b => b
+            .AddProvider(_ => chat)
+            .AddProvider(_ => new FakeVectorProvider(), FakeVectorProvider.Declared)
+            .UseDefaultCandidates("chat")
+            .AddTool(_ => Weather).AddTool(_ => Stocks).AddTool(_ => Recipes)
+            .AddVectorToolSelector(o => o.Limit = 1));
+        using var sp = services.BuildServiceProvider();
+
+        Assert.IsType<VectorToolSelector>(sp.GetRequiredService<IToolSelector>());
+        await sp.GetRequiredService<IToolLoop>().RunAsync(Ask("what is the weather forecast rain today"));
+
+        var roster = string.Join("\n", chat.Calls[0].Messages.Select(m => m.Content));
+        Assert.DoesNotContain("stocks", roster, StringComparison.Ordinal);   // Limit = 1 reached the selector
+        Assert.DoesNotContain("recipes", roster, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_selector_registered_BEFORE_AddVectorToolSelector_wins()
+    {
+        var mine = new FixedSelector(Stocks);
+        var services = new ServiceCollection();
+        services.AddSingleton<IToolSelector>(mine);
+        services.AddLyntai(b => b.AddProvider(_ => new FakeTextProvider("p")).AddVectorToolSelector());
+        using var sp = services.BuildServiceProvider();
+
+        Assert.Same(mine, sp.GetRequiredService<IToolSelector>());
     }
 
     [Fact]
@@ -98,15 +166,27 @@ public class ToolSelectorTests
         return client;
     }
 
+    /// <summary>Everything the model was shown on its first turn — the prompt protocol lists the roster in its
+    /// system message.</summary>
+    private static string RosterShown(FakeTextClient client) =>
+        string.Join("\n", client.Calls[0].Messages.Select(m => m.Content));
+
     private sealed class ThrowingSelector : IToolSelector
     {
-        internal static int LastRosterSize { get; private set; }
+        public int RosterSize { get; private set; }
 
         public Task<IReadOnlyList<ITool>> SelectAsync(
             TextRequest request, IReadOnlyList<ITool> tools, CancellationToken ct = default)
         {
-            LastRosterSize = tools.Count;
+            RosterSize = tools.Count;
             throw new InvalidOperationException("selector is down");
         }
+    }
+
+    private sealed class FixedSelector(params ITool[] chosen) : IToolSelector
+    {
+        public Task<IReadOnlyList<ITool>> SelectAsync(
+            TextRequest request, IReadOnlyList<ITool> tools, CancellationToken ct = default) =>
+            Task.FromResult<IReadOnlyList<ITool>>(chosen);
     }
 }

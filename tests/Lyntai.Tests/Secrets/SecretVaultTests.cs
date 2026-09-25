@@ -3,6 +3,7 @@ using Lyntai;
 using Lyntai.Secrets;
 using Lyntai.Tests.Fakes;
 using Microsoft.Extensions.DependencyInjection;
+using Lyntai.Storage.InMemory;
 
 namespace Lyntai.Tests.Secrets;
 

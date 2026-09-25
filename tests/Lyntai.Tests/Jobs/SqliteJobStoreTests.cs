@@ -23,13 +23,14 @@ public class SqliteJobStoreTests : JobStoreContractFacts, IDisposable
     [Fact]
     public async Task Concurrent_claims_never_double_grab()
     {
-        var store = new SqliteJobStore(_db.Factory); // real clock — this is a genuine concurrency test
+        var store = new SqliteJobStore(_db.Factory);
         const int n = 20;
         for (var i = 0; i < n; i++) await store.EnqueueAsync(new JobSpec("race", "t", "{}"));
 
-        // 40 workers race for 20 jobs; the atomic claim must give each job to exactly one
+        // 40 workers race for 20 jobs; the atomic claim must give each job to exactly one. Task.Run is
+        // load-bearing: SQLite's async completes synchronously, so inline calls would run one after another.
         var claims = await Task.WhenAll(Enumerable.Range(0, n * 2)
-            .Select(i => store.ClaimNextAsync("race", $"w{i}", TimeSpan.FromMinutes(5))));
+            .Select(i => Task.Run(() => store.ClaimNextAsync("race", $"w{i}", TimeSpan.FromMinutes(5)))));
 
         var ids = claims.Where(j => j is not null).Select(j => j!.Id).ToList();
         Assert.Equal(n, ids.Count);              // exactly the 20 jobs claimed

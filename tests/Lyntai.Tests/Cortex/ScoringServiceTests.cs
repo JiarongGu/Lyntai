@@ -62,23 +62,11 @@ public class ScoringServiceTests
     {
         // Same shape one layer down, and its own log line already promised "results still returned".
         var scorer = new FakeScorer("a", score: _ => new ScoreResult(0.7));
-        var service = new ScoringService([scorer], new TimingOutScoreStore());
+        var service = new ScoringService([scorer], Throwing.Of<Lyntai.Storage.IScoreStore>(() => new OperationCanceledException("the store's own deadline")));
 
         var results = await service.EvaluateAsync(Ctx);
 
         Assert.Single(results);
-    }
-
-    private sealed class TimingOutScoreStore : Lyntai.Storage.IScoreStore
-    {
-        public Task SaveAsync(string sessionId, IReadOnlyList<ScoredResult> results, CancellationToken ct = default) =>
-            throw new OperationCanceledException("the store's own deadline");
-        public Task<IReadOnlyList<ScoredResult>> GetAsync(string sessionId, CancellationToken ct = default) =>
-            Task.FromResult<IReadOnlyList<ScoredResult>>([]);
-        public Task<IReadOnlyList<ScorerAggregate>> AggregateAsync(CancellationToken ct = default) =>
-            Task.FromResult<IReadOnlyList<ScorerAggregate>>([]);
-        public Task<IReadOnlyList<ScoreExportEntry>> ExportAsync(CancellationToken ct = default) =>
-            Task.FromResult<IReadOnlyList<ScoreExportEntry>>([]);
     }
 
     [Fact]
@@ -133,22 +121,6 @@ public class ScoringServiceTests
     }
 
     [Fact]
-    public async Task Default_Applies_is_true_and_null_result_still_omitted()
-    {
-        // Regression guard for the null path: a scorer with the DEFAULT Applies (true) whose ScoreAsync
-        // returns null still ran but contributes nothing.
-        var na = new FakeScorer("not-applicable", score: _ => null); // default Applies => true
-        var a = new FakeScorer("a", score: _ => new ScoreResult(1.0));
-        var service = new ScoringService([na, a]);
-
-        var results = await service.EvaluateAsync(Ctx);
-
-        Assert.Single(results);
-        Assert.Equal("a", results[0].ScorerId);
-        Assert.Equal(1, na.Invocations); // it ran (Applies true), it just didn't apply
-    }
-
-    [Fact]
     public async Task Applicable_scorer_still_scores_and_persists()
     {
         var store = new InMemoryScoreStore();
@@ -192,7 +164,7 @@ public class ScoringServiceTests
         Assert.Single(await store.GetAsync("s1"));
     }
 
-    // R17 — a dashboard reads/aggregates/exports through the SERVICE seam, not by reaching past it into the store.
+    // A dashboard reads/aggregates/exports through the SERVICE seam, not by reaching past it into the store.
     [Fact]
     public async Task Service_surfaces_read_aggregate_and_export_over_the_store()
     {

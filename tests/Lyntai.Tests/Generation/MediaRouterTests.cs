@@ -8,7 +8,7 @@ namespace Lyntai.Tests.Generation;
 /// <summary>Media routing differs from LLM routing in one decisive way: a candidate that CANNOT serve the
 /// request (wrong medium, wrong delivery, needs inputs it doesn't take) must be skipped BEFORE anything is
 /// spent — capability first, verdict-driven fallback second.</summary>
-public class GenerationRouterTests
+public class MediaRouterTests
 {
     private static MediaRouter Router(params IModelProvider[] providers) => new(providers);
 
@@ -17,27 +17,12 @@ public class GenerationRouterTests
     private static MediaRequest Video() => new() { Kind = ProviderKinds.Video, Prompt = "a cat surfing" };
 
     [Fact]
-    public async Task It_generates_through_the_first_capable_candidate()
-    {
-        var image = new FakeGenerationProvider { Id = "image-backend" };
-        var video = new FakeGenerationJobProvider { Id = "video-backend" };
-
-        var result = await Router(video, image).GenerateAsync(
-            [new ProviderCandidate("video-backend"), new ProviderCandidate("image-backend")], Image());
-
-        Assert.True(result.IsOk);
-        Assert.Equal(1, image.GenerateCalls);
-    }
-
-    [Fact]
     public async Task A_throwing_backend_is_classified_and_fallen_over_rather_than_propagated()
     {
-        // THE TRUST BOUNDARY, found 2026-08-15. TextRouter.TryCompleteAsync has caught and classified a
-        // thrown provider since it shipped, with the reason written out: "a provider that THROWS must get
-        // the same fallback policy as one that returns a verdict reply". MediaRouter had NO try/catch
-        // at all, so one buggy BYO backend — AddProvider is a documented extension point — killed
-        // the whole chain: the healthy candidate was never tried, no telemetry was recorded, and the caller
-        // got a raw exception from a contract whose whole point is "a verdict, never a throw".
+        // THE TRUST BOUNDARY, as on the text side: a provider that THROWS gets the same fallback policy as one
+        // that returns a verdict. AddProvider is a documented extension point, so without the catch one buggy
+        // BYO backend kills the whole chain — the healthy candidate never tried, no telemetry, and a raw
+        // exception from a contract whose whole point is "a verdict, never a throw".
         var broken = new FakeGenerationProvider { Id = "byo", Throws = new HttpRequestException("socket died") };
         var healthy = new FakeGenerationProvider { Id = "a1111" };
 
@@ -84,12 +69,11 @@ public class GenerationRouterTests
     [Fact]
     public async Task A_submit_throw_that_never_left_the_process_PROPAGATES_so_the_job_runner_retries_it()
     {
-        // Round 2 of the 3.0 review caught the first version of the submit catch swallowing EVERY throw into
-        // an Inconclusive result. GenerationRenderJobHandler turns a failed submission into JobOutcome.Fail,
-        // so a connection-refused blip during a deploy became a permanently dead-lettered job — where before
-        // this router had any catch at all, JobRunner caught the throw and retried. A refused connection
-        // provably committed nothing, so there is no duplicate-charge risk to protect against, which is the
-        // same distinction this review taught FalProvider one file over.
+        // The submit catch must not swallow EVERY throw into an Inconclusive result: GenerationRenderJobHandler
+        // turns a failed submission into JobOutcome.Fail, so a connection-refused blip during a deploy would
+        // dead-letter the job for good, where a propagated throw is retried by JobRunner. A refused connection
+        // provably committed nothing, so there is no duplicate-charge risk to protect against (FalProvider
+        // draws the same line).
         var broken = new FakeGenerationJobProvider
         {
             Id = "byo-video",

@@ -1,8 +1,9 @@
 using Lyntai.Inference;
 using Lyntai.Tests.Fakes;
 using Microsoft.Extensions.DependencyInjection;
+using static Lyntai.Tests.Fakes.TestTimeouts;
 
-namespace Lyntai.Tests.Lifecycle;
+namespace Lyntai.Tests.Inference;
 
 /// <summary>The DI wiring: the pool, its two strategies and the admission table reach the container, and the
 /// router factories that consume them resolve for BOTH domains.
@@ -14,16 +15,6 @@ namespace Lyntai.Tests.Lifecycle;
 public class ProviderPoolWiringTests
 {
     private static ProviderKey Key(string value) => ProviderKey.For("a1111").With("v", value).Build();
-
-    /// <summary>How long an await on a GATED permit waits before failing the test outright. Generous enough
-    /// never to fire on a loaded machine, short enough that the failure is legible.
-    ///
-    /// <para>The regression the admission tests below exist to catch — a permit that is never returned —
-    /// makes the waiting caller wait FOREVER, so an unbounded await turns a red test into an indefinite hang:
-    /// <c>verify</c> stops producing output at all and no test names the problem, destroying the signal for
-    /// every other test in the run. Same constant, same reason, as
-    /// <c>RouterCooldownKeyTests.GateWait</c>.</para></summary>
-    private static readonly TimeSpan GateWait = TimeSpan.FromSeconds(5);
 
     private static ServiceProvider Provider(Action<LyntaiBuilder> configure)
     {
@@ -143,21 +134,11 @@ public class ProviderPoolWiringTests
     // concrete backend type would be a DIFFERENT pool no router ever consults, which is why nothing
     // registers one.
     [Fact]
-    public void Both_provider_seams_resolve_a_pool_from_the_one_registration()
+    public void The_default_registration_resolves_the_bounded_pool()
     {
         using var sp = Provider(_ => { });
 
         Assert.IsType<BoundedProviderPool<IModelProvider>>(sp.GetRequiredService<IProviderPool<IModelProvider>>());
-        Assert.IsType<BoundedProviderPool<IModelProvider>>(sp.GetRequiredService<IProviderPool<IModelProvider>>());
-    }
-
-    [Fact]
-    public void UseTransientProviders_switches_both_seams()
-    {
-        using var sp = Provider(b => b.UseTransientProviders());
-
-        Assert.IsType<TransientProviderPool<IModelProvider>>(sp.GetRequiredService<IProviderPool<IModelProvider>>());
-        Assert.IsType<TransientProviderPool<IModelProvider>>(sp.GetRequiredService<IProviderPool<IModelProvider>>());
     }
 
     [Fact]
@@ -183,15 +164,6 @@ public class ProviderPoolWiringTests
             .UseTransientProviders());
 
         Assert.IsType<TransientProviderPool<IModelProvider>>(sp.GetRequiredService<IProviderPool<IModelProvider>>());
-    }
-
-    [Fact]
-    public void Admission_options_are_configurable_and_resolvable()
-    {
-        using var sp = Provider(b => b.ConfigureProviderAdmission(o => o.BySlot["local-diffusion"] = 1));
-        var admission = sp.GetRequiredService<ProviderAdmission>();
-
-        Assert.NotNull(admission);
     }
 
     // NotNull is not enough: the options object has to be the one the callback mutated, or the limit is
@@ -248,37 +220,6 @@ public class ProviderPoolWiringTests
         (await second).Dispose();
     }
 
-    /// <summary>Blocks inside GenerateAsync until released, and signals the moment TWO calls are inside at
-    /// once — the observation an admission limit of one would make impossible.</summary>
-    private sealed class GatedGenerationProvider : IModelProvider
-    {
-        private readonly TaskCompletionSource _gate = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        private int _concurrent;
-
-        public string Id { get; init; } = "a1111";
-        public TaskCompletionSource BothInside { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
-
-        public ProviderCapabilities Capabilities { get; } = new()
-        {
-            Accepts = [ProviderKinds.Text],
-            Produces = [ProviderKinds.Image],
-            Operations = [ProviderOperation.Complete],
-        };
-
-        public Task<ProviderProbeResult> ProbeAsync(CancellationToken ct = default) =>
-            Task.FromResult(new ProviderProbeResult(true, "ready"));
-
-        public async Task<MediaResponse> GenerateAsync(MediaRequest request, CancellationToken ct = default)
-        {
-            if (Interlocked.Increment(ref _concurrent) == 2) BothInside.TrySetResult();
-            await _gate.Task.ConfigureAwait(false);
-            Interlocked.Decrement(ref _concurrent);
-            return MediaResponse.Success([new MediaArtifact("image/png", Data: [0x89])]);
-        }
-
-        public void Release() => _gate.TrySetResult();
-    }
-
     // Admission binds to the router factories' POOLED overloads only; the CONTAINER-composed IMediaRouter
     // is built through the INSTANCE overload and is handed no admission at all, so a configured limit does not
     // bound it. Four doc sites say so and nothing asserted it — pinned here so the single-deployment case is a
@@ -317,23 +258,6 @@ public class ProviderPoolWiringTests
     /// <summary>A host-supplied admission table — the shape a distributed limiter takes from the library's
     /// side. Records every configuration admitted, and counts the permits handed back, because a seam that
     /// takes permits and never returns them is the failure that pins a resource forever.</summary>
-    private sealed class RecordingAdmission : IProviderAdmission
-    {
-        public List<ProviderKey> Entered { get; } = [];
-        public int Released;
-
-        public ValueTask<IDisposable> EnterAsync(ProviderKey key, CancellationToken ct = default)
-        {
-            Entered.Add(key);
-            return ValueTask.FromResult<IDisposable>(new Handle(this));
-        }
-
-        private sealed class Handle(RecordingAdmission owner) : IDisposable
-        {
-            public void Dispose() => Interlocked.Increment(ref owner.Released);
-        }
-    }
-
     private static ServiceProvider ProviderWithHostAdmission(
         IProviderAdmission admission, Action<LyntaiBuilder> configure)
     {
@@ -358,7 +282,7 @@ public class ProviderPoolWiringTests
     // Resolving the host's instance is not enough — the factory has to hand it to the router it builds, and
     // the router has to enter it on the CONFIGURATION rather than on the provider id.
     [Fact]
-    public async Task The_llm_factory_routes_through_a_host_registered_admission()
+    public async Task The_text_factory_routes_through_a_host_registered_admission()
     {
         var admission = new RecordingAdmission();
         using var sp = ProviderWithHostAdmission(admission, _ => { });
@@ -392,20 +316,9 @@ public class ProviderPoolWiringTests
         Assert.Equal(1, admission.Released);
     }
 
-    // Both domains reach their factory through the container; leaving the chat one unregistered would make
-    // half the feature unreachable.
-    [Fact]
-    public void Both_router_factories_resolve()
-    {
-        using var sp = Provider(b => b.AddProvider(_ => new FakeGenerationProvider { Id = "a1111" }).AddMediaRouting());
-
-        Assert.NotNull(sp.GetRequiredService<ITextRouterFactory>());
-        Assert.NotNull(sp.GetRequiredService<IMediaRouterFactory>());
-    }
-
     // The chat factory is registered even for an app with no generation domain at all.
     [Fact]
-    public async Task The_llm_factory_routes_over_a_pooled_configuration()
+    public async Task The_text_factory_routes_over_a_pooled_configuration()
     {
         using var sp = Provider(_ => { });
         var provider = new FakeTextProvider("openai");

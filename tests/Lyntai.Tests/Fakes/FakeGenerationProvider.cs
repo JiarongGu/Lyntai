@@ -21,20 +21,16 @@ public sealed class FakeGenerationProvider : IModelProvider
     /// <summary>Verdicts to return, in order; the last one repeats. Ok produces a 1-byte PNG artifact.</summary>
     public Queue<ProviderVerdict> Verdicts { get; } = new();
 
-    public bool ProbeAvailable { get; set; } = true;
-
     /// <summary>What each successful render REPORTS costing — for the spend-governance tests.</summary>
     public double? CostUsd { get; set; }
 
     public int GenerateCalls { get; private set; }
-    public int ProbeCalls { get; private set; }
 
-    public Task<ProviderProbeResult> ProbeAsync(CancellationToken ct = default)
-    {
-        ProbeCalls++;
-        return Task.FromResult(new ProviderProbeResult(ProbeAvailable,
-            ProbeAvailable ? "fake ready" : "fake not configured"));
-    }
+    /// <summary>Every request <see cref="GenerateAsync"/> was handed, in order.</summary>
+    public List<MediaRequest> Requests { get; } = [];
+
+    public Task<ProviderProbeResult> ProbeAsync(CancellationToken ct = default) =>
+        Task.FromResult(new ProviderProbeResult(true, "fake ready"));
 
     /// <summary>When set, <see cref="GenerateAsync"/> THROWS it instead of returning a verdict — a backend
     /// that violates the fail-safe contract on purpose. The router is the trust boundary, so a BYO backend's
@@ -44,6 +40,7 @@ public sealed class FakeGenerationProvider : IModelProvider
     public Task<MediaResponse> GenerateAsync(MediaRequest request, CancellationToken ct = default)
     {
         GenerateCalls++;
+        Requests.Add(request);
         if (Throws is not null) throw Throws;
         var verdict = Verdicts.Count > 1 ? Verdicts.Dequeue()
             : Verdicts.Count == 1 ? Verdicts.Peek()
@@ -79,6 +76,16 @@ public sealed class FakeGenerationJobProvider : IModelProvider, IMediaJobProvide
     /// surfaces instead of advancing (see <see cref="QueuedOperation.Inconclusive"/>).</summary>
     public bool SubmitInconclusive { get; set; }
 
+    /// <summary>What a Failed submission reports as its reason; null = none at all.</summary>
+    public string? SubmitDetail { get; set; }
+
+    /// <summary>The verdict a Failed submission carries; null = none, so the router classifies the detail.</summary>
+    public ProviderVerdict? SubmitVerdict { get; set; }
+
+    /// <summary>A backend that REJECTS every submission — answered, so nothing was committed.</summary>
+    public static FakeGenerationJobProvider Rejecting(string id, string? detail, ProviderVerdict? verdict = null) =>
+        new() { Id = id, SubmitStatus = QueuedOperationStatus.Failed, SubmitDetail = detail, SubmitVerdict = verdict };
+
     /// <summary>What the next poll reports — Succeeded by default, so a job test reaches delivery in one hop.</summary>
     public QueuedOperationStatus PollStatus { get; set; } = QueuedOperationStatus.Succeeded;
 
@@ -99,7 +106,12 @@ public sealed class FakeGenerationJobProvider : IModelProvider, IMediaJobProvide
     public Task<QueuedOperation> SubmitAsync(MediaRequest request, CancellationToken ct = default)
     {
         if (SubmitThrows is not null) throw SubmitThrows;
-        return Task.FromResult(new QueuedOperation($"op-{++_submits}", SubmitStatus) { Inconclusive = SubmitInconclusive });
+        ++_submits;
+        // a failed submission carries no operation id, as QueuedOperation.Failure's does
+        return Task.FromResult(SubmitStatus == QueuedOperationStatus.Failed
+            ? new QueuedOperation("", SubmitStatus, Detail: SubmitDetail)
+                { Verdict = SubmitVerdict, Inconclusive = SubmitInconclusive }
+            : new QueuedOperation($"op-{_submits}", SubmitStatus) { Inconclusive = SubmitInconclusive });
     }
 
     public Task<QueuedOperation> PollAsync(string operationId, CancellationToken ct = default) =>

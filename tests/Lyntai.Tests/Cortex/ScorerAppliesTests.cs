@@ -6,7 +6,7 @@ using Lyntai.Tests.Fakes;
 namespace Lyntai.Tests.Cortex;
 
 /// <summary>
-/// Part 43 SCORER-APPLIES. <see cref="LlmScorerBase.Applies"/> is PROTECTED, and a protected member cannot
+/// <c>docs/task-archive.md</c> Part 43, SCORER-APPLIES. <see cref="LlmScorerBase.Applies"/> is PROTECTED, and a protected member cannot
 /// implicitly implement an interface member — so before the explicit
 /// <c>bool IScorer.Applies(…) =&gt; Applies(…)</c> forwarder, every judge answered the INTERFACE-level call
 /// with <see cref="IScorer"/>'s default implementation (always true), whatever the subclass said.

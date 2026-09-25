@@ -130,8 +130,8 @@ public class SearchTermsTests
     /// <c>我今天deploy了</c>, <c>部署key</c>. Sliding one window across the whole token instead shreds the Latin
     /// word into fragments (<c>dep</c>, <c>epl</c>, <c>plo</c>) that are not words in any language, while
     /// never emitting <c>deploy</c> itself. The fragments then match arbitrary unrelated text.</para>
-    /// <para>This test asserted the shredding behaviour until 2026-08-13 — it pinned what the code did rather
-    /// than what it should do, which is why the defect survived being tested.</para></summary>
+    /// <para>It asserts what the tokenizer SHOULD emit, not what it happens to: a test pinning the shredded
+    /// fragments would have kept the defect green.</para></summary>
     [Fact]
     public void A_token_mixing_scripts_is_split_into_script_runs()
     {
@@ -162,10 +162,9 @@ public class SearchTermsTests
     public void ProfileOf_returns_the_first_runs_profile(string token, string expected) =>
         Assert.Equal(expected, SearchTerms.ProfileOf(token).Name);
 
-    /// <summary><b>Thai is spaceless too, and gets the same treatment.</b> It was outside the script ranges
-    /// until 2026-08-13, so a Thai sentence was handed back as ONE whitespace token and could only match an
-    /// entry containing that exact substring — precisely the defect fixed for CJK, still live for a script
-    /// nobody had looked at.
+    /// <summary><b>Thai is spaceless too, and gets the same treatment.</b> Outside the script ranges, a Thai
+    /// sentence is ONE whitespace token that can only match an entry containing that exact substring — the
+    /// defect the CJK handling exists to prevent.
     /// <para>Thai has no case, and its words are frequently two or three characters, so it takes the same
     /// profile shape as Han. <b>Unmeasured</b>, deliberately said out loud: Japanese is the standing warning
     /// that adding a range without measuring it proves nothing, and Thai has no corpus. This makes it

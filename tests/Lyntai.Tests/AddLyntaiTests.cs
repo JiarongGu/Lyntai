@@ -5,6 +5,7 @@ using Lyntai.Prompts;
 using Lyntai.Storage;
 using Lyntai.Tests.Fakes;
 using Microsoft.Extensions.DependencyInjection;
+using Lyntai.Storage.InMemory;
 
 namespace Lyntai.Tests;
 
@@ -56,7 +57,7 @@ public class AddLyntaiTests
     public async Task Registered_kv_store_feeds_the_prompt_registry()
     {
         var kv = new InMemoryKeyValueStore();
-        kv.Data[PromptRegistry.DefaultKeyPrefix + "p"] = "override {v}";
+        await kv.SetAsync(PromptRegistry.DefaultKeyPrefix + "p", "override {v}");
 
         var services = new ServiceCollection();
         services.AddSingleton<IKeyValueStore>(kv);
@@ -117,7 +118,7 @@ public class AddLyntaiTests
             Task.FromResult<ScoreResult?>(null);
     }
 
-    // R11 — a custom cross-cutting decorator folds over the front door via the public seam, without the app
+    // A custom cross-cutting decorator folds over the front door via the public seam, without the app
     // pre-registering a whole ITextClient (which would trip the governance guard).
     [Fact]
     public async Task Custom_front_door_decorator_wraps_the_client()

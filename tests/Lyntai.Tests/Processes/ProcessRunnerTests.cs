@@ -70,22 +70,15 @@ public class ProcessRunnerTests
         // Prints nothing and hangs — but self-exits at 60s, because an ORPHANED child inherits the test
         // host's console handles and wedges the whole runner past the test's own failure (measured: the
         // RED run of this very test hung `dotnet test` until the stray node was killed by hand).
-        var script = Path.Combine(Path.GetTempPath(), $"lyntai-hanging-locator-{Guid.NewGuid():N}.js");
-        await File.WriteAllTextAsync(script, "setTimeout(() => process.exit(0), 60000);");
-        try
-        {
-            var run = Task.Run(() => ProcessRunner.RunLocator("node", script));
+        using var scratch = new ScratchDir("hanging-locator");
+        var script = scratch.File("locator.js", "setTimeout(() => process.exit(0), 60000);");
+        var run = Task.Run(() => ProcessRunner.RunLocator("node", script));
 
-            // Bounded wait so a regression FAILS here instead of hanging the suite (pitfalls.md §Testing).
-            var done = await Task.WhenAny(run, Task.Delay(TimeSpan.FromSeconds(30)));
+        // Bounded wait so a regression FAILS here instead of hanging the suite (pitfalls.md §Testing).
+        var done = await Task.WhenAny(run, Task.Delay(TimeSpan.FromSeconds(30)));
 
-            Assert.Same(run, done);   // the 5s locator bound fired; the call came back
-            Assert.Null(await run);   // and a locator that answered nothing resolves to null
-        }
-        finally
-        {
-            File.Delete(script);
-        }
+        Assert.Same(run, done);   // the 5s locator bound fired; the call came back
+        Assert.Null(await run);   // and a locator that answered nothing resolves to null
     }
 
     [Fact]
@@ -263,7 +256,7 @@ public class ProcessRunnerTests
         Assert.True(sw.Elapsed < TimeSpan.FromSeconds(30), $"took {sw.Elapsed} — kill didn't work");
     }
 
-    [Fact] // R3: a child actively DRAINING a large stdin is ALIVE — each drained slice re-arms the clock
+    [Fact] // A child actively DRAINING a large stdin is ALIVE — each drained slice re-arms the clock
     public async Task Child_actively_draining_stdin_past_the_window_is_not_killed()
     {
         // stdout closes instantly; the child then SIPS stdin (take one pipe-buffer's worth, nap 150ms,
@@ -272,14 +265,9 @@ public class ProcessRunnerTests
         // slice write completes, and that progress re-arms the clock. Pre-fix, the single fixed post-EOF
         // window killed this healthy child mid-drain.
         //
-        // THE WINDOW IS 5s, NOT 2s, AND THAT IS A FLAKE FIX (2026-08-16). At 2s the margin over a 150ms sip
-        // was 13x, which a loaded machine eats: this failed once inside a full ~3,000-test run and passed
-        // 3/3 in isolation, because a stalled Node process going quiet for 2s is indistinguishable from a
-        // wedged one. The property under test is unchanged — total drain still far exceeds the window — and
-        // the margin is now 33x. Widening costs no coverage: the OPPOSITE direction, that the post-EOF
-        // observe is bounded and cannot hang forever, is pinned by its own test below.
-        // A timing test whose failure mode is "the product looks broken" has to be robust to load, or it
-        // teaches the next reader to re-run the suite instead of reading the failure.
+        // The window is 5s, 33x the 150ms sip, because a loaded machine eats a thinner margin (at 2s a stalled
+        // Node process is indistinguishable from a wedged one). Total drain still far exceeds the window, and
+        // the opposite direction — the post-EOF observe is bounded — is pinned by its own test below.
         const string script = """
             process.stdout.end();
             process.stdin.on('end', () => process.exit(0));
@@ -296,7 +284,7 @@ public class ProcessRunnerTests
         Assert.False(result.TimedOut); // drain progress counted as activity — the healthy child finished
     }
 
-    [Fact] // I2: the stdin observe after stdout EOF is bounded by the inactivity clock (no unbounded hang)
+    [Fact] // The stdin observe after stdout EOF is bounded by the inactivity clock (no unbounded hang)
     public async Task Child_that_closes_stdout_but_never_drains_stdin_is_killed_by_the_inactivity_clock()
     {
         // stdout ends immediately (EOF for the read loop), stdin is never read, and the child lingers —
@@ -394,14 +382,16 @@ public class ProcessRunnerTests
     [Fact]
     public async Task Abandoning_the_stream_kills_the_child_process()
     {
-        var heartbeat = Path.Combine(TestPaths.TestDbsDir, $"heartbeat-{Guid.NewGuid():N}.txt");
-        try
+        using var scratch = new ScratchDir("heartbeat");
+        var heartbeat = scratch.Combine("heartbeat.txt");
         {
-            // child appends a heartbeat every 100ms forever; the enumerator is abandoned after
-            // the first line — the child must die with it, not keep generating in the background
+            // child appends a heartbeat every 100ms; the enumerator is abandoned after the first line — the
+            // child must die with it, not keep generating in the background. It still exits on its own after
+            // a minute, so a regression orphans nothing that could wedge the runner (pitfalls.md).
             const string script = """
                 const fs = require('fs');
-                setInterval(() => { try { fs.appendFileSync(process.argv[1], 'x'); } catch {} console.log('beat'); }, 100);
+                setTimeout(() => process.exit(0), 60000);
+                setInterval(() => { fs.appendFileSync(process.argv[1], 'x'); console.log('beat'); }, 100);
                 """;
             await foreach (var _ in _runner.StreamLinesAsync("node", ["-e", script, heartbeat]))
                 break; // abandon immediately
@@ -421,10 +411,7 @@ public class ProcessRunnerTests
                 stableWindows = size == last ? stableWindows + 1 : 0;
                 last = size;
             }
-        }
-        finally
-        {
-            try { File.Delete(heartbeat); } catch { }
+            Assert.True(last > 0, "the child never beat at all, so its silence proves nothing about the kill");
         }
     }
 
@@ -440,93 +427,60 @@ public class ProcessRunnerTests
         Assert.Equal(expected, result.StdOut.Trim().TrimEnd(Path.DirectorySeparatorChar), ignoreCase: true);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task Runs_a_powershell_ps1_launcher_shim()
     {
         // PR1: a .ps1 launcher shim (some Windows CLIs ship one) can't be exec'd directly by CreateProcess —
         // the runner must host it in PowerShell rather than fail with a Win32Exception. ASCII output only:
         // the UTF-8-no-BOM round-trip is locked separately by Stdin_passes_through_including_utf8_cjk (a real
         // shim's child .exe writes its own bytes through the inherited pipe; PS 5.1 doesn't re-encode them).
-        if (!OperatingSystem.IsWindows()) return; // .ps1 hosting via powershell.exe is a Windows concern
+        Skip.IfNot(OperatingSystem.IsWindows(), ".ps1 hosting via powershell.exe is a Windows concern");
 
-        var ps1 = Path.Combine(TestPaths.TestScratchDir, $"shim-{Guid.NewGuid():N}.ps1");
-        await File.WriteAllTextAsync(ps1, "param($arg) Write-Output \"ps1-shim-ran:$arg\"\n");
-        try
-        {
-            // passing the .ps1 path directly (as a BYO command would); the runner wraps it in powershell.
-            var result = await _runner.RunAsync(ps1, ["ok"]);
+        using var scratch = new ScratchDir("ps1-shim");
+        var ps1 = scratch.File("shim.ps1", "param($arg) Write-Output \"ps1-shim-ran:$arg\"\n");
 
-            Assert.Equal(0, result.ExitCode);
-            Assert.False(result.TimedOut);
-            Assert.Contains("ps1-shim-ran:ok", result.StdOut);
-        }
-        finally
-        {
-            try { File.Delete(ps1); } catch { }
-        }
+        // passing the .ps1 path directly (as a BYO command would); the runner wraps it in powershell.
+        var result = await _runner.RunAsync(ps1, ["ok"]);
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.False(result.TimedOut);
+        Assert.Contains("ps1-shim-ran:ok", result.StdOut);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task Runs_an_extensionless_npm_shim_through_its_cmd_sibling()
     {
-        // CLI2: an npm/nvm global install drops THREE launchers side by side — an extensionless `tool`
+        // An npm/nvm global install drops THREE launchers side by side — an extensionless `tool`
         // (a POSIX sh script, for Git Bash), `tool.cmd`, and `tool.ps1`. CreateProcess can't exec the
         // extensionless one ("The specified executable is not a valid application for this OS platform"),
         // and it's exactly what a caller-supplied path (or a where.exe hit list without the .cmd) can
         // resolve to — so the runner must launch the spawnable SIBLING instead of failing.
-        if (!OperatingSystem.IsWindows()) return; // an extensionless shim is executable as-is elsewhere
+        Skip.IfNot(OperatingSystem.IsWindows(), "an extensionless shim is executable as-is elsewhere");
 
-        var (dir, shim) = await WriteShimAsync("cmdsib",
-            (".cmd", "@echo off\r\necho cmd-sibling-ran:%1\r\n"));
-        try
-        {
-            var result = await _runner.RunAsync(shim, ["ok"]);
+        using var scratch = new ScratchDir("shim-cmdsib");
+        var shim = WindowsShim.Write(scratch, "mytool", (".cmd", "@echo off\r\necho cmd-sibling-ran:%1\r\n"));
 
-            Assert.Equal(0, result.ExitCode);
-            Assert.False(result.TimedOut);
-            Assert.Contains("cmd-sibling-ran:ok", result.StdOut);
-        }
-        finally
-        {
-            try { Directory.Delete(dir, recursive: true); } catch { }
-        }
+        var result = await _runner.RunAsync(shim, ["ok"]);
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.False(result.TimedOut);
+        Assert.Contains("cmd-sibling-ran:ok", result.StdOut);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task Runs_an_extensionless_shim_through_its_ps1_sibling_when_there_is_no_cmd()
     {
         // Same shape with only a PowerShell sibling present: the shim resolves to the .ps1, which is
         // itself un-exec'able and gets the powershell.exe host (the existing .ps1 launcher path).
-        if (!OperatingSystem.IsWindows()) return;
+        Skip.IfNot(OperatingSystem.IsWindows(), "an extensionless shim is executable as-is elsewhere");
 
-        var (dir, shim) = await WriteShimAsync("ps1sib",
-            (".ps1", "param($arg) Write-Output \"ps1-sibling-ran:$arg\"\n"));
-        try
-        {
-            var result = await _runner.RunAsync(shim, ["ok"]);
+        using var scratch = new ScratchDir("shim-ps1sib");
+        var shim = WindowsShim.Write(scratch, "mytool", (".ps1", "param($arg) Write-Output \"ps1-sibling-ran:$arg\"\n"));
 
-            Assert.Equal(0, result.ExitCode);
-            Assert.Contains("ps1-sibling-ran:ok", result.StdOut);
-        }
-        finally
-        {
-            try { Directory.Delete(dir, recursive: true); } catch { }
-        }
-    }
+        var result = await _runner.RunAsync(shim, ["ok"]);
 
-    /// <summary>Write an npm-style launcher trio into a fresh scratch dir: the extensionless POSIX shim
-    /// (what CreateProcess chokes on) plus the given Windows sibling(s). Returns the dir + the
-    /// extensionless shim path.</summary>
-    private static async Task<(string Dir, string Shim)> WriteShimAsync(
-        string name, params (string Extension, string Content)[] siblings)
-    {
-        var dir = Path.Combine(TestPaths.TestScratchDir, $"shim-{name}-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(dir);
-        var shim = Path.Combine(dir, "mytool");
-        await File.WriteAllTextAsync(shim, "#!/bin/sh\nexec node \"$0.mjs\" \"$@\"\n"); // a real npm shim: sh, not PE
-        foreach (var (extension, content) in siblings)
-            await File.WriteAllTextAsync(shim + extension, content);
-        return (dir, shim);
+        Assert.Equal(0, result.ExitCode);
+        Assert.Contains("ps1-sibling-ran:ok", result.StdOut);
     }
 
     // The kill-versus-clean-exit decision, as a truth table. It was written TWICE — StreamLinesAsync tested

@@ -8,12 +8,9 @@ namespace Lyntai.Tests.Generation;
 
 /// <summary>Backend-agnostic facts every <see cref="IModelProvider"/> satisfies.
 ///
-/// <para><b>Why this file exists.</b> The five shipped backends had no shared contract: <c>GenerationContractTests</c>
-/// pins the RECORD defaults and everything about BACKEND behaviour lived in per-backend files, which is the
-/// shape <c>pitfalls.md</c> §"Second doors" names as the defect and which <c>VectorStoreContract</c> /
-/// <c>MemoryGraphStoreContract</c> / <c>JobStoreContract</c> are the in-tree fix for. Two duplicated-reader
-/// defects had already shipped past every per-backend test (an extension→MIME table missing entries on one
-/// side, a scalar-id reader accepting a JSON number on one side only). Added 2026-08-17 (archive Part 86).</para>
+/// <para><c>GenerationContractTests</c> pins the RECORD defaults; this pins BACKEND behaviour once for every
+/// backend, because per-backend files are where duplicated readers drift apart (<c>pitfalls.md</c>
+/// §"Second doors").</para>
 ///
 /// <para>Each fact is the seam's OWN written promise. The two that carry the most: a backend is
 /// <b>contractually fail-safe</b> — "a transport or backend failure is a verdict, never a throw" — and a
@@ -87,13 +84,13 @@ public static class GenerationProviderContract
     }
 
     /// <summary>A backend that cannot serve inline says so with <see cref="ProviderVerdict.Unsupported"/>
-    /// rather than hiding a poll loop behind <c>GenerateAsync</c>. Unsupported is the one verdict the routing
-    /// policy SURFACES rather than advancing on (<c>docs/DECISIONS.md</c> D3), because trying the next
-    /// candidate cannot fix a capability mismatch.</summary>
+    /// rather than hiding a poll loop behind <c>GenerateAsync</c>. <see cref="MediaRoutingPolicy"/> ADVANCES
+    /// on Unsupported without a strike — a capability gap is nobody's fault — so the router moves on to a
+    /// backend that can serve the door.</summary>
     public static async Task An_inline_call_to_a_job_only_backend_is_Unsupported(
         IModelProvider provider, MediaRequest ask)
     {
-        if (provider.Capabilities.Operations.Contains(ProviderOperation.Complete)) return;
+        Assert.DoesNotContain(ProviderOperation.Complete, provider.Capabilities.Operations);
 
         var result = await provider.GenerateAsync(ask);
 

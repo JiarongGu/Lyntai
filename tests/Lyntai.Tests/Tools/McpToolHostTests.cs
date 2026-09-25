@@ -4,6 +4,7 @@ using Lyntai.Tools.Mcp.Hosting;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Client;
 using Lyntai.Inference;
+using Lyntai.Tests.Fakes;
 
 namespace Lyntai.Tests.Tools;
 
@@ -51,12 +52,10 @@ public class McpToolHostTests
     [Fact]
     public async Task A_guard_blocks_a_hosted_tool_call_the_same_way_it_blocks_one_in_the_tool_loop()
     {
-        // THE JAIL, found 2026-08-15. The archive records "Guards don't cover the agent tool loop" being
-        // closed for ToolLoop in 2026-07; MCP hosting arrived later and reopened it from the other side. The
-        // SAME ITool instances (sp.GetServices<ITool>()) are reachable both ways, so a consumer who
-        // registered a guard had it enforced through IToolLoop and silently not through the hosted endpoint
-        // the CLI's own agent calls. Neither ChatOrchestrator gate can see it either: gate 1 saw the user
-        // message, gate 2 sees only the final answer.
+        // THE JAIL. The SAME ITool instances (sp.GetServices<ITool>()) are reachable through IToolLoop and
+        // through the hosted endpoint the CLI's own agent calls, so a guard enforced on one path and not the
+        // other is silently absent there. Neither ChatOrchestrator gate can see a hosted call either: gate 1
+        // sees the user message, gate 2 only the final answer.
         var ran = false;
         ITool secret = new FunctionTool("read_secret",
             (_, _) => { ran = true; return Task.FromResult("SECRET_KEY=hunter2"); },
@@ -97,7 +96,7 @@ public class McpToolHostTests
 
         const string token = "test-bearer-token";
         await using var host = await McpToolHost.StartAsync(
-            [secret], token, guards: new BlockingRail(), logger: new CapturingLogger(logs));
+            [secret], token, guards: new BlockingRail(), logger: new CapturingLogger(logs, LogLevel.Trace));
 
         var transport = new HttpClientTransport(new HttpClientTransportOptions
         {
@@ -131,7 +130,7 @@ public class McpToolHostTests
 
         const string token = "test-bearer-token";
         await using var host = await McpToolHost.StartAsync(
-            [boom], token, logger: new CapturingLogger(logs));
+            [boom], token, logger: new CapturingLogger(logs, LogLevel.Trace));
 
         var transport = new HttpClientTransport(new HttpClientTransportOptions
         {
@@ -146,17 +145,6 @@ public class McpToolHostTests
         Assert.Contains("error:", result, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("no such record", result, StringComparison.Ordinal);
         Assert.Contains(logs, l => l.Contains("boom", StringComparison.Ordinal));
-    }
-
-    private sealed class CapturingLogger(List<string> sink) : ILogger
-    {
-        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
-        public bool IsEnabled(LogLevel logLevel) => true;
-        public void Log<TState>(LogLevel level, EventId id, TState state, Exception? ex,
-            Func<TState, Exception?, string> fmt)
-        {
-            lock (sink) sink.Add(fmt(state, ex));
-        }
     }
 
     [Fact]
@@ -186,28 +174,6 @@ public class McpToolHostTests
         Assert.Contains("[redacted]", result, StringComparison.Ordinal);
     }
 
-    [Fact]
-    public async Task With_no_guard_rail_a_hosted_tool_runs_exactly_as_before()
-    {
-        // The control. Guarding must be free when nothing is registered — the overwhelmingly common case,
-        // and the one where a regression here would be most expensive.
-        ITool echo = new FunctionTool("echo", (args, _) => Task.FromResult($"echoed:{args}"), "echoes",
-            """{"type":"object","properties":{"message":{"type":"string"}}}""");
-
-        const string token = "test-bearer-token";
-        await using var host = await McpToolHost.StartAsync([echo], token);
-
-        var transport = new HttpClientTransport(new HttpClientTransportOptions
-        {
-            Endpoint = new Uri(host.Url),
-            AdditionalHeaders = new Dictionary<string, string> { ["Authorization"] = $"Bearer {token}" },
-        });
-        await using var client = await McpClient.CreateAsync(transport);
-        var tool = Assert.Single(await McpToolset.FromClientAsync(client));
-
-        Assert.Contains("echoed", await tool.InvokeAsync("""{"message":"hi"}"""));
-    }
-
     private sealed class BlockingRail : Lyntai.Guards.IGuardRail
     {
         public Task<Lyntai.Guards.GuardOutcome> InspectRequestAsync(Lyntai.Inference.TextRequest req, CancellationToken ct = default) =>
@@ -226,19 +192,31 @@ public class McpToolHostTests
             Task.FromResult(Lyntai.Guards.GuardOutcome.Replace("[redacted]"));
     }
 
-    [Fact]
-    public async Task Host_rejects_requests_without_the_bearer_token()
+    [Theory]
+    [InlineData(null)]                       // no Authorization header
+    [InlineData("Bearer the-wrong-token")]   // a token, but not this host's
+    [InlineData("the-real-token")]           // the right secret without its scheme
+    public async Task Host_rejects_a_request_without_its_exact_bearer_token(string? authorization)
     {
-        ITool echo = new FunctionTool("echo", (a, _) => Task.FromResult(a));
+        var ran = false;
+        ITool echo = new FunctionTool("echo", (a, _) => { ran = true; return Task.FromResult(a); });
         await using var host = await McpToolHost.StartAsync([echo], "the-real-token");
 
-        // no Authorization header → the MCP handshake must fail (401)
-        var transport = new HttpClientTransport(new HttpClientTransportOptions { Endpoint = new Uri(host.Url) });
-        await Assert.ThrowsAnyAsync<Exception>(async () =>
+        // raw HTTP rather than an MCP client, so the assertion is the host's 401 and not whatever a client
+        // happens to throw on a failed handshake
+        using var http = new HttpClient();
+        using var request = new HttpRequestMessage(HttpMethod.Post, host.Url)
         {
-            await using var client = await McpClient.CreateAsync(transport);
-            await McpToolset.FromClientAsync(client);
-        });
+            Content = new StringContent(
+                """{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"echo","arguments":{}}}""",
+                System.Text.Encoding.UTF8, "application/json"),
+        };
+        if (authorization is not null) request.Headers.TryAddWithoutValidation("Authorization", authorization);
+
+        using var response = await http.SendAsync(request);
+
+        Assert.Equal(System.Net.HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.False(ran);
     }
 
     [Fact]

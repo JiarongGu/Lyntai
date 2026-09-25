@@ -3,17 +3,17 @@ static class Lyntai.LlamaSharpBuilderExtensions
     static AddLlamaSharpProvider(LyntaiBuilder builder, String modelPath, Action<LlamaSharpOptions> configure = null, String id = "llamasharp") : LyntaiBuilder
 sealed class Lyntai.Providers.LlamaSharp.LlamaSharpOptions
     .ctor()
-    ContextSize : Nullable<Int32>
-    GpuLayerCount : Int32
-    MaxTokens : Nullable<Int32>
-    ModelPath : String
-    StopSequences : IReadOnlyList<String>
-    Temperature : Single
+    ContextSize : Nullable<Int32> { get; set; }
+    GpuLayerCount : Int32 { get; set; }
+    MaxTokens : Nullable<Int32> { get; set; }
+    ModelPath : String { get; set; }
+    StopSequences : IReadOnlyList<String> { get; set; }
+    Temperature : Single { get; set; }
 sealed class Lyntai.Providers.LlamaSharp.LlamaSharpProvider
     .ctor(String id, LlamaSharpOptions options, LyntaiOptions lyntai, ILogger<LlamaSharpProvider> logger = null)
-    Capabilities : ProviderCapabilities
+    Capabilities : ProviderCapabilities { get; }
     CompleteAsync(TextRequest req, CancellationToken ct = default) : Task<TextResponse>
     Dispose() : Void
-    Id : String
-    IsAvailable : Boolean
+    Id : String { get; }
+    IsAvailable : Boolean { get; }
     StreamAsync(TextRequest req, CancellationToken ct = default) : IAsyncEnumerable<TextChunk>

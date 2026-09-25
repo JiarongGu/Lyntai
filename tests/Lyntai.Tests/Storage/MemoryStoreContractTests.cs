@@ -32,6 +32,7 @@ public abstract class MemoryStoreContractFacts
     [Fact] public Task Prune_by_age() => MemoryStoreContract.Prune_older_than_removes_by_age_within_a_task(New(), "k", Advance);
     [Fact] public Task Prune_scoped() => MemoryStoreContract.Prune_scoped_to_one_task_leaves_the_sibling(New(), "k", Advance);
     [Fact] public Task Cap() => MemoryStoreContract.Cap_trims_to_the_newest_entries(New(), "k");
+    [Fact] public Task Separated_words() => MemoryStoreContract.Separated_words_recall_on_every_backend(New(), "k");
     [Fact] public Task Limit_scope() => MemoryStoreContract.Limit_caps_results_and_composes_with_scope(New(), "k");
     [Fact] public Task Non_positive_limit() => MemoryStoreContract.A_non_positive_limit_recalls_nothing(New(), "k");
     [Fact] public Task Forget() => MemoryStoreContract.Forget_clears_a_task(New(), "k");
@@ -50,6 +51,8 @@ public abstract class MemoryStoreContractFacts
 /// <summary>The <see cref="MemoryStoreContract"/> against the InMemory backend.</summary>
 public class InMemoryMemoryStoreContractTests : MemoryStoreContractFacts
 {
+    [Fact] public Task Match_count_ranking() => MemoryStoreContract.More_matched_terms_outrank_a_newer_weaker_match(New(), "k", by => Now += by);
+
     protected override IMemoryStore New() => new InMemoryMemoryStore(Options, clock: () => Now);
     protected override IMemoryStore NewWith(MemoryEvictionPolicy p) =>
         new InMemoryMemoryStore(new LyntaiOptions { MemoryEviction = p, MemoryRecallLimit = 100 }, clock: () => Now);

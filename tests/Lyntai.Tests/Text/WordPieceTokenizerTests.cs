@@ -1,5 +1,6 @@
 using System.Text;
 using Microsoft.ML.Tokenizers;
+using Lyntai.Tests.Fakes;
 
 // Microsoft.ML.Tokenizers ships a WordPieceTokenizer of its own, so the type under test is aliased rather
 // than imported. BertTokenizer, not that type, is the reference: it runs the FULL pipeline (clean, CJK,
@@ -142,7 +143,7 @@ public class WordPieceTokenizerTests
 
     /// <summary>Inputs where <c>Microsoft.ML.Tokenizers</c> departs from the reference BERT pipeline, so
     /// matching it would mean reproducing a defect. Each is asserted in
-    /// <see cref="Corrects_the_two_rules_the_previous_tokenizer_got_wrong"/> rather than merely skipped —
+    /// <see cref="Corrects_the_four_rules_the_previous_tokenizer_got_wrong"/> rather than merely skipped —
     /// an unexplained exclusion list is how a real disagreement gets filed as a known difference.</summary>
     private static readonly string[] WhereTheReferenceImplementationIsWrong =
         ["alpha\tbeta", "alpha\nbeta", "alpha\rbeta"];
@@ -189,10 +190,7 @@ public class WordPieceTokenizerTests
             "123",
             "the quick brown fox",
             "  alpha   beta  ",
-            "alpha\tbeta",
-            "alpha\nbeta",
-            "alpha\rbeta",
-            "alpha beta",
+            "alpha\u00A0beta", // a NO-BREAK space: escaped, because written raw it reads as the first row
             "zzzz alpha",
             "-alpha-",
             "ALPHA中文beta",
@@ -201,14 +199,14 @@ public class WordPieceTokenizerTests
         // Every mismatch at once, not the first: a tokenizer diverging on one rule usually diverges on
         // several, and finding them one run at a time hides how big the disagreement is.
         var divergences = new List<string>();
-        foreach (var text in corpus.Except(WhereTheReferenceImplementationIsWrong))
+        // (the whitespace separators the reference gets wrong are not here: the next test asserts them)
+        foreach (var text in corpus)
         {
             var expected = theirs.EncodeToIds(text);
             var actual = ours.EncodeToIds(text);
             if (!expected.SequenceEqual(actual))
                 divergences.Add(
-                    $"'{text.Replace("\t", "\\t").Replace("\n", "\\n").Replace("\r", "\\r")}' -> "
-                    + $"reference [{string.Join(',', expected)}], ours [{string.Join(',', actual)}]");
+                    $"'{text}' -> reference [{string.Join(',', expected)}], ours [{string.Join(',', actual)}]");
         }
 
         Assert.True(divergences.Count == 0, string.Join(Environment.NewLine, divergences));
@@ -352,13 +350,6 @@ public class WordPieceEncodeTests
     }
 
     [Fact]
-    public void The_single_text_overload_still_emits_ALL_ZERO_segments()
-    {
-        // The control: a pair's segment ids mean nothing unless the single-text case is genuinely all zero.
-        Assert.All(Tokenizer("red").Encode("red").TokenTypeIds, id => Assert.Equal(0, id));
-    }
-
-    [Fact]
     public void Truncation_takes_from_the_DOCUMENT_and_leaves_the_query_whole()
     {
         // Losing the tail of a long document costs some evidence; losing the tail of the query changes the
@@ -403,19 +394,17 @@ public class WordPieceEncodeTests
 /// the model instead of from the caller's guess.</summary>
 public class WordPieceTokenizerFromModelDirectoryTests : IDisposable
 {
-    private readonly string _dir = Directory.CreateTempSubdirectory("lyntai-wordpiece-").FullName;
+    private readonly ScratchDir _scratch = new("wordpiece");
 
-    public void Dispose()
-    {
-        try { Directory.Delete(_dir, recursive: true); } catch (IOException) { /* a temp dir is not worth failing a run */ }
-        GC.SuppressFinalize(this);
-    }
+    private string Dir => _scratch.Path;
+
+    public void Dispose() => _scratch.Dispose();
 
     private string WriteVocabulary(params string[] words)
     {
-        File.WriteAllLines(Path.Combine(_dir, "vocab.txt"),
+        File.WriteAllLines(Path.Combine(Dir, "vocab.txt"),
             ["[PAD]", "[UNK]", "[CLS]", "[SEP]", "[MASK]", .. words]);
-        return _dir;
+        return Dir;
     }
 
     [Fact]
@@ -424,9 +413,9 @@ public class WordPieceTokenizerFromModelDirectoryTests : IDisposable
         // do_lower_case: false is the discriminating case — under the default it would match, so a
         // tokenizer that ignored the config would pass a test written with the default.
         WriteVocabulary("alpha");
-        File.WriteAllText(Path.Combine(_dir, "tokenizer_config.json"), "{\"do_lower_case\": false}");
+        File.WriteAllText(Path.Combine(Dir, "tokenizer_config.json"), "{\"do_lower_case\": false}");
 
-        var tokenizer = WordPieceTokenizer.FromModelDirectory(_dir);
+        var tokenizer = WordPieceTokenizer.FromModelDirectory(Dir);
 
         Assert.Equal([5], tokenizer.EncodeToIds("alpha"));
         Assert.Equal([1], tokenizer.EncodeToIds("ALPHA"));
@@ -444,7 +433,7 @@ public class WordPieceTokenizerFromModelDirectoryTests : IDisposable
     [Fact]
     public void A_missing_vocabulary_names_the_file_rather_than_null_referencing()
     {
-        var error = Assert.Throws<FileNotFoundException>(() => WordPieceTokenizer.FromModelDirectory(_dir));
+        var error = Assert.Throws<FileNotFoundException>(() => WordPieceTokenizer.FromModelDirectory(Dir));
 
         Assert.Contains("vocab.txt", error.Message, StringComparison.Ordinal);
     }

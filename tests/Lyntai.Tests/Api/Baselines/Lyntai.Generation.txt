@@ -1,52 +1,52 @@
 sealed class Lyntai.Generation.Providers.Automatic1111Options
     .ctor()
-    BaseUrl : String
-    CfgScale : Double
-    DefaultHeight : Int32
-    DefaultWidth : Int32
-    DenoisingStrength : Double
-    Id : String
-    Steps : Int32
-    Timeout : TimeSpan
+    BaseUrl : String { get; set; }
+    CfgScale : Double { get; set; }
+    DefaultHeight : Int32 { get; set; }
+    DefaultWidth : Int32 { get; set; }
+    DenoisingStrength : Double { get; set; }
+    Id : String { get; set; }
+    Steps : Int32 { get; set; }
+    Timeout : TimeSpan { get; set; }
 sealed class Lyntai.Generation.Providers.Automatic1111Provider
     .ctor(Automatic1111Options options, Func<HttpClient> httpFactory, Boolean disposeHttpClient = true)
-    Capabilities : ProviderCapabilities
+    Capabilities : ProviderCapabilities { get; }
     GenerateAsync(MediaRequest request, CancellationToken ct = default) : Task<MediaResponse>
-    Id : String
+    Id : String { get; }
     ProbeAsync(CancellationToken ct = default) : Task<ProviderProbeResult>
 sealed class Lyntai.Generation.Providers.ComfyUiOptions
     .ctor()
-    BaseUrl : String
-    CompletedField : String
-    ExecutionErrorEvent : String
-    FailedStatusText : String
-    FetchTimeout : TimeSpan
-    HistoryPath : String
-    Id : String
-    InputPathOption : String
-    InterruptPath : String
-    MaxFetchBytes : Int64
-    MeshSubfolder : String
-    MessagesField : String
-    OutputsField : String
-    Produces : IReadOnlyList<String>
-    PromptIdField : String
-    PromptPathOption : String
-    StatusField : String
-    StatusTextField : String
-    SubmitPath : String
-    SystemStatsPath : String
-    Timeout : TimeSpan
-    UploadPath : String
-    ViewPath : String
-    WorkflowOption : String
+    BaseUrl : String { get; set; }
+    CompletedField : String { get; set; }
+    ExecutionErrorEvent : String { get; set; }
+    FailedStatusText : String { get; set; }
+    FetchTimeout : TimeSpan { get; set; }
+    HistoryPath : String { get; set; }
+    Id : String { get; set; }
+    InputPathOption : String { get; set; }
+    InterruptPath : String { get; set; }
+    MaxFetchBytes : Int64 { get; set; }
+    MeshSubfolder : String { get; set; }
+    MessagesField : String { get; set; }
+    OutputsField : String { get; set; }
+    Produces : IReadOnlyList<String> { get; set; }
+    PromptIdField : String { get; set; }
+    PromptPathOption : String { get; set; }
+    StatusField : String { get; set; }
+    StatusTextField : String { get; set; }
+    SubmitPath : String { get; set; }
+    SystemStatsPath : String { get; set; }
+    Timeout : TimeSpan { get; set; }
+    UploadPath : String { get; set; }
+    ViewPath : String { get; set; }
+    WorkflowOption : String { get; set; }
 sealed class Lyntai.Generation.Providers.ComfyUiProvider
     .ctor(ComfyUiOptions options, Func<HttpClient> httpFactory, Boolean disposeHttpClient = true)
     CancelAsync(String operationId, CancellationToken ct = default) : Task<QueuedOperation>
-    Capabilities : ProviderCapabilities
+    Capabilities : ProviderCapabilities { get; }
     FetchAsync(String operationId, CancellationToken ct = default) : Task<MediaResponse>
     GenerateAsync(MediaRequest request, CancellationToken ct = default) : Task<MediaResponse>
-    Id : String
+    Id : String { get; }
     PollAsync(String operationId, CancellationToken ct = default) : Task<QueuedOperation>
     ProbeAsync(CancellationToken ct = default) : Task<ProviderProbeResult>
     SubmitAsync(MediaRequest request, CancellationToken ct = default) : Task<QueuedOperation>
@@ -56,84 +56,84 @@ enum Lyntai.Generation.Providers.DiffusionAccelerator
     value__ : Int32
 sealed class Lyntai.Generation.Providers.FalOptions
     .ctor()
-    ApiKey : String
-    AuthScheme : String
-    BaseUrl : String
-    CancelSegment : String
-    CostFields : IList<String>
-    ErrorField : String
-    ErrorTypeField : String
-    Id : String
-    Model : String
-    Produces : IReadOnlyList<String>
-    QueryParameters : IDictionary<String,String>
-    RequestsSegment : String
-    StatusSegment : String
-    StatusVocabulary : IDictionary<String,QueuedOperationStatus>
-    Timeout : TimeSpan
-    WebhookQueryParameter : String
+    ApiKey : String { get; set; }
+    AuthScheme : String { get; set; }
+    BaseUrl : String { get; set; }
+    CancelSegment : String { get; set; }
+    CostFields : IList<String> { get; set; }
+    ErrorField : String { get; set; }
+    ErrorTypeField : String { get; set; }
+    Id : String { get; set; }
+    Model : String { get; set; }
+    Produces : IReadOnlyList<String> { get; set; }
+    QueryParameters : IDictionary<String,String> { get; set; }
+    RequestsSegment : String { get; set; }
+    StatusSegment : String { get; set; }
+    StatusVocabulary : IDictionary<String,QueuedOperationStatus> { get; set; }
+    Timeout : TimeSpan { get; set; }
+    WebhookQueryParameter : String { get; set; }
 sealed class Lyntai.Generation.Providers.FalProvider
     .ctor(FalOptions options, Func<HttpClient> httpFactory, Boolean disposeHttpClient = true)
     CancelAsync(String operationId, CancellationToken ct = default) : Task<QueuedOperation>
-    Capabilities : ProviderCapabilities
+    Capabilities : ProviderCapabilities { get; }
     FetchAsync(String operationId, CancellationToken ct = default) : Task<MediaResponse>
     GenerateAsync(MediaRequest request, CancellationToken ct = default) : Task<MediaResponse>
-    Id : String
+    Id : String { get; }
     PollAsync(String operationId, CancellationToken ct = default) : Task<QueuedOperation>
     ProbeAsync(CancellationToken ct = default) : Task<ProviderProbeResult>
     SubmitAsync(MediaRequest request, CancellationToken ct = default) : Task<QueuedOperation>
 sealed class Lyntai.Generation.Providers.LocalDiffusionOptions
     .ctor()
-    Accelerator : DiffusionAccelerator
-    ArgvFlags : IDictionary<String,String>
-    BinaryPath : String
-    CfgScale : Double
-    DenoisingStrength : Double
-    ExtraArgs : IList<String>
-    Id : String
-    Img2ImgMode : String
-    InactivityTimeout : TimeSpan
-    MaxDimension : Nullable<Int32>
-    ModelPath : String
-    Steps : Int32
-    Timeout : TimeSpan
-    WorkDirectory : String
+    Accelerator : DiffusionAccelerator { get; set; }
+    ArgvFlags : IDictionary<String,String> { get; set; }
+    BinaryPath : String { get; set; }
+    CfgScale : Double { get; set; }
+    DenoisingStrength : Double { get; set; }
+    ExtraArgs : IList<String> { get; set; }
+    Id : String { get; set; }
+    Img2ImgMode : String { get; set; }
+    InactivityTimeout : TimeSpan { get; set; }
+    MaxDimension : Nullable<Int32> { get; set; }
+    ModelPath : String { get; set; }
+    Steps : Int32 { get; set; }
+    Timeout : TimeSpan { get; set; }
+    WorkDirectory : String { get; set; }
 sealed class Lyntai.Generation.Providers.LocalDiffusionProvider
     .ctor(LocalDiffusionOptions options, IProcessRunner runner)
-    Capabilities : ProviderCapabilities
+    Capabilities : ProviderCapabilities { get; }
     GenerateAsync(MediaRequest request, CancellationToken ct = default) : Task<MediaResponse>
-    Id : String
+    Id : String { get; }
     ProbeAsync(CancellationToken ct = default) : Task<ProviderProbeResult>
 sealed class Lyntai.Generation.Providers.OpenAiImageOptions
     .ctor()
-    ApiKey : String
-    BaseUrl : String
-    DefaultSize : String
-    Id : String
-    Model : String
-    ResponseFormat : String
-    Timeout : TimeSpan
+    ApiKey : String { get; set; }
+    BaseUrl : String { get; set; }
+    DefaultSize : String { get; set; }
+    Id : String { get; set; }
+    Model : String { get; set; }
+    ResponseFormat : String { get; set; }
+    Timeout : TimeSpan { get; set; }
 sealed class Lyntai.Generation.Providers.OpenAiImageProvider
     .ctor(OpenAiImageOptions options, Func<HttpClient> httpFactory, Boolean disposeHttpClient = true)
-    Capabilities : ProviderCapabilities
+    Capabilities : ProviderCapabilities { get; }
     GenerateAsync(MediaRequest request, CancellationToken ct = default) : Task<MediaResponse>
-    Id : String
+    Id : String { get; }
     ProbeAsync(CancellationToken ct = default) : Task<ProviderProbeResult>
 sealed class Lyntai.Generation.Providers.PiperOptions
     .ctor()
-    ArgvFlags : IDictionary<String,String>
-    BinaryPath : String
-    ExtraArgs : IList<String>
-    Id : String
-    InactivityTimeout : TimeSpan
-    ModelPath : String
-    SampleRate : Nullable<Int32>
-    Timeout : TimeSpan
+    ArgvFlags : IDictionary<String,String> { get; set; }
+    BinaryPath : String { get; set; }
+    ExtraArgs : IList<String> { get; set; }
+    Id : String { get; set; }
+    InactivityTimeout : TimeSpan { get; set; }
+    ModelPath : String { get; set; }
+    SampleRate : Nullable<Int32> { get; set; }
+    Timeout : TimeSpan { get; set; }
 sealed class Lyntai.Generation.Providers.PiperProvider
     .ctor(PiperOptions options, IProcessRunner runner)
-    Capabilities : ProviderCapabilities
+    Capabilities : ProviderCapabilities { get; }
     GenerateAsync(MediaRequest request, CancellationToken ct = default) : Task<MediaResponse>
-    Id : String
+    Id : String { get; }
     ProbeAsync(CancellationToken ct = default) : Task<ProviderProbeResult>
     StreamAsync(MediaRequest request, CancellationToken ct = default) : IAsyncEnumerable<MediaChunk>
 static class Lyntai.MediaBackendBuilderExtensions

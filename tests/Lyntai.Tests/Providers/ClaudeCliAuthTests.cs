@@ -4,6 +4,7 @@ using Lyntai.Inference.Cli;
 using Lyntai.Processes;
 using Lyntai.Providers.ClaudeCli;
 using Lyntai.Tests.Fakes;
+using static Lyntai.Tests.Fakes.FakeProcessRunner;
 
 namespace Lyntai.Tests.Providers;
 
@@ -15,8 +16,6 @@ public class ClaudeCliAuthTests
 {
     private static ClaudeCliProvider Provider(FakeProcessRunner runner, string command = "claude") =>
         new(runner, new LyntaiOptions(), command: command);
-
-    private static ProcessResult Ok(string stdout) => new(0, stdout, "");
 
     /// <summary>The real <c>claude auth status --json</c> shape (measured against CLI v2.1.220).</summary>
     private const string SignedInJson = """
@@ -326,31 +325,20 @@ public class ClaudeCliAuthTests
         Assert.Equal("provider-stub", status.Method);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task Status_works_against_a_windows_npm_shim_install()
     {
-        // same CLI2 exposure as the probe/update seams: an npm/nvm `claude` resolves to an EXTENSIONLESS
+        // the same exposure as the probe/update seams: an npm/nvm `claude` resolves to an EXTENSIONLESS
         // POSIX launcher next to its `.cmd` sibling, which CreateProcess refuses. Every maintenance spawn
         // must go through the runner's shim handling, not just completions.
-        if (!OperatingSystem.IsWindows()) return;
+        Skip.IfNot(OperatingSystem.IsWindows(), "an npm shim is spawnable as-is off Windows");
 
-        var dir = Path.Combine(TestPaths.TestScratchDir, $"claude-auth-shim-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(dir);
-        var shim = Path.Combine(dir, "claude");
-        var stub = Path.Combine(TestPaths.DevtoolsDir("scripts"), "provider-stub.mjs");
-        await File.WriteAllTextAsync(shim, "#!/bin/sh\nexec node \"$0.mjs\" \"$@\"\n");
-        await File.WriteAllTextAsync(shim + ".cmd", $"@echo off\r\nnode \"{stub}\" %*\r\n");
-        try
-        {
-            var provider = new ClaudeCliProvider(new ProcessRunner(), new LyntaiOptions(), command: $"\"{shim}\"");
+        using var scratch = new ScratchDir("claude-auth-shim");
+        var shim = WindowsShim.Write(scratch, "claude", WindowsShim.CmdRunningTheProviderStub());
+        var provider = new ClaudeCliProvider(new ProcessRunner(), new LyntaiOptions(), command: $"\"{shim}\"");
 
-            var status = await provider.StatusAsync();
+        var status = await provider.StatusAsync();
 
-            Assert.True(status.Authenticated, $"auth status failed: {status.Detail}");
-        }
-        finally
-        {
-            try { Directory.Delete(dir, recursive: true); } catch { }
-        }
+        Assert.True(status.Authenticated, $"auth status failed: {status.Detail}");
     }
 }

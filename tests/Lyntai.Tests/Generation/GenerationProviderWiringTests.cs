@@ -144,12 +144,10 @@ public class GenerationProviderWiringTests
     {
         // the sd-cli backend spawns rather than calls, so its seam is IProcessRunner — a shim that newed up a
         // ProcessRunner would silently bypass a host's audited/sandboxed one
-        var dir = Path.Combine(TestPaths.TestScratchDir, $"sd-wiring-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(dir);
-        var exe = Path.Combine(dir, "sd-cli.exe");
-        var model = Path.Combine(dir, "sd15.gguf");
-        File.WriteAllText(exe, "");
-        File.WriteAllText(model, "");
+        using var scratch = new ScratchDir("sd-wiring");
+        var dir = scratch.Path;
+        var exe = scratch.File("sd-cli.exe");
+        var model = scratch.File("sd15.gguf");
 
         var runner = new FakeProcessRunner();
         var services = new ServiceCollection();
@@ -166,10 +164,9 @@ public class GenerationProviderWiringTests
     }
 
     [Fact]
-    public void An_options_object_is_required_rather_than_a_configure_callback()
+    public void A_null_configure_callback_is_refused_at_registration()
     {
-        // the options are records with `required`/`init` members, so a mutate-after-construction callback
-        // cannot work — passing the instance is what keeps `required BaseUrl` compiler-enforced
+        // at the registration call, not at the first resolve, where the stack no longer names the caller
         var services = new ServiceCollection();
 
         Assert.Throws<ArgumentNullException>(() =>

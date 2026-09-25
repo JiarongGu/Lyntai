@@ -1,7 +1,7 @@
 using Lyntai.Inference;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Lyntai.Tests.Lifecycle;
+namespace Lyntai.Tests.Inference;
 
 /// <summary>A backend built from a FUNCTION — the general form of bridging something that already answers.
 ///
@@ -82,7 +82,7 @@ public class BridgeProviderTests
     }
 
     [Fact]
-    public async Task Declared_capabilities_are_the_callers_to_state_not_the_librarys_to_infer()
+    public void Declared_capabilities_are_the_callers_to_state_not_the_librarys_to_infer()
     {
         // A bridge over an embedding SDK is the same mechanism with a different declaration — nothing here
         // is text-specific except the default.
@@ -99,7 +99,6 @@ public class BridgeProviderTests
 
         Assert.Equal([ProviderKinds.Score], caps.Produces);
         Assert.False(caps.Supports(ProviderKinds.Text, ProviderOperation.Complete));
-        await Task.CompletedTask;
     }
 
     [Fact]

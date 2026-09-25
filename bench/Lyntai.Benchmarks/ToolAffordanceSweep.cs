@@ -1050,7 +1050,7 @@ internal static class ToolAffordanceSweep
 
     // ── reporting ─────────────────────────────────────────────────────────────────────────────────────────
 
-    private static void PrintPreamble(SweepDoubles.OpenAiCompatibleChat big,
+    private static void PrintPreamble(SweepDoubles.OpenAiCompatibleChat? big,
         SweepDoubles.OpenAiCompatibleChat? small, bool rerankOk, Difficulty difficulty, int trials, int lanes,
         IReadOnlyList<(string Label, SweepDoubles.CachingVectorProvider VectorProvider)> extra, bool scorersOnly,
         SweepDoubles.OpenAiCompatibleChat? nativeChat, bool skipBaseline)

@@ -4,6 +4,7 @@ using Lyntai.Inference.Cli;
 using Lyntai.Processes;
 using Lyntai.Providers.ClaudeCli;
 using Lyntai.Tests.Fakes;
+using static Lyntai.Tests.Fakes.FakeProcessRunner;
 
 namespace Lyntai.Tests.Providers;
 
@@ -15,8 +16,6 @@ public class ClaudeCliProbeTests
 {
     private static ClaudeCliProvider Provider(FakeProcessRunner runner, string command = "claude") =>
         new(runner, new LyntaiOptions(), command: command);
-
-    private static ProcessResult Ok(string stdout) => new(0, stdout, "");
 
     [Fact]
     public void The_capabilities_are_discoverable_through_the_core_seams()
@@ -32,7 +31,7 @@ public class ClaudeCliProbeTests
         Assert.IsAssignableFrom<IProviderUpdater>(provider);
     }
 
-    // ── CLI2: the probe ──────────────────────────────────────────────────────
+    // ── the probe ────────────────────────────────────────────────────────────
 
     [Fact]
     public async Task Probe_reports_the_version_the_cli_prints()
@@ -131,7 +130,7 @@ public class ClaudeCliProbeTests
         Assert.Equal(expected, CliVersionLine.Parse(line).Version);
     }
 
-    // ── CLI3: the self-update seam ───────────────────────────────────────────
+    // ── the self-update seam ─────────────────────────────────────────────────
 
     [Fact]
     public async Task Update_runs_the_cli_updater_and_reports_the_version_change()
@@ -206,7 +205,7 @@ public class ClaudeCliProbeTests
         Assert.Null(result.FromVersion);
     }
 
-    // ── CLI4: the PINNED install (a named version of the backend) ────────────
+    // ── the PINNED install (a named version of the backend) ──────────────────
 
     [Fact]
     public void The_pinned_install_capability_is_discoverable_through_the_core_seam()
@@ -352,37 +351,25 @@ public class ClaudeCliProbeTests
         Assert.Equal(result.FromVersion, result.ToVersion);   // the stub installs nothing
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task Probe_and_update_work_against_a_windows_npm_shim_install()
     {
-        // CLI2 (found consuming 1.2.0 on Windows): a `claude` installed by npm/nvm resolves to an
-        // EXTENSIONLESS launcher script sitting next to its `claude.cmd`. Spawning that raw file throws
-        // "The specified executable is not a valid application for this OS platform", so the turn-free
-        // maintenance seams reported Available=false / Succeeded=false on a perfectly working install.
-        // Both must spawn it the way a COMPLETION does — through the runner's Windows shim handling.
-        if (!OperatingSystem.IsWindows()) return;
+        // A `claude` installed by npm/nvm resolves to an EXTENSIONLESS launcher script next to its
+        // `claude.cmd`. Spawning that raw file throws "The specified executable is not a valid application
+        // for this OS platform", so a maintenance seam spawning it directly reports Available=false /
+        // Succeeded=false on a working install. Both must spawn it the way a COMPLETION does — through the
+        // runner's Windows shim handling.
+        Skip.IfNot(OperatingSystem.IsWindows(), "an npm shim is spawnable as-is off Windows");
 
-        var dir = Path.Combine(TestPaths.TestScratchDir, $"claude-shim-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(dir);
-        var shim = Path.Combine(dir, "claude");
-        var stub = Path.Combine(TestPaths.DevtoolsDir("scripts"), "provider-stub.mjs");
-        await File.WriteAllTextAsync(shim, "#!/bin/sh\nexec node \"$0.mjs\" \"$@\"\n"); // the POSIX sibling
-        await File.WriteAllTextAsync(shim + ".cmd", $"@echo off\r\nnode \"{stub}\" %*\r\n");
-        try
-        {
-            var provider = new ClaudeCliProvider(new ProcessRunner(), new LyntaiOptions(),
-                command: $"\"{shim}\"");
+        using var scratch = new ScratchDir("claude-shim");
+        var shim = WindowsShim.Write(scratch, "claude", WindowsShim.CmdRunningTheProviderStub());
+        var provider = new ClaudeCliProvider(new ProcessRunner(), new LyntaiOptions(), command: $"\"{shim}\"");
 
-            var probe = await provider.ProbeAsync();
-            Assert.True(probe.Available, $"probe failed: {probe.Detail}");
-            Assert.StartsWith("0.0.0", probe.Version);
+        var probe = await provider.ProbeAsync();
+        Assert.True(probe.Available, $"probe failed: {probe.Detail}");
+        Assert.StartsWith("0.0.0", probe.Version);
 
-            var update = await provider.UpdateAsync();
-            Assert.True(update.Succeeded, $"update failed: {update.Detail}");
-        }
-        finally
-        {
-            try { Directory.Delete(dir, recursive: true); } catch { }
-        }
+        var update = await provider.UpdateAsync();
+        Assert.True(update.Succeeded, $"update failed: {update.Detail}");
     }
 }

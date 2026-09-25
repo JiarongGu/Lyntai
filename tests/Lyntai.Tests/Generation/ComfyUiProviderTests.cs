@@ -664,18 +664,6 @@ public class ComfyUiProviderTests
 
     // ---- a timed-out submit is inconclusive only once the queue call has been sent -----------------------
 
-    private sealed class StallingHandler : HttpMessageHandler
-    {
-        public List<Uri?> Seen { get; } = [];
-
-        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
-        {
-            Seen.Add(request.RequestUri);
-            await Task.Delay(Timeout.InfiniteTimeSpan, ct);
-            throw new InvalidOperationException("unreachable");
-        }
-    }
-
     private static (ComfyUiProvider Provider, StallingHandler Http) Stalled()
     {
         var stalling = new StallingHandler();
@@ -1082,7 +1070,7 @@ public class ComfyUiProviderTests
     }
 
     [Fact]
-    public async Task An_unreachable_local_server_is_NOT_CONFIGURED_on_every_path()
+    public async Task An_unreachable_local_server_fails_the_submit_and_the_probe_saying_so()
     {
         var handler = new StubHttpHandler().Enqueue(_ =>
             throw new HttpRequestException(HttpRequestError.ConnectionError, "connection refused"));
@@ -1111,10 +1099,17 @@ public class ComfyUiProviderTests
         Assert.Equal("0.3.40", probe.Version);
     }
 
-    [Fact]
-    public async Task Every_endpoint_path_is_overridable_because_the_surface_is_unverified()
+    /// <summary>Every door's path is retargetable, so a host whose server (a proxy, a fork, a later
+    /// release) moves one needs no library release. One row per door: an option a door ignored would pass a
+    /// test that exercised only another.</summary>
+    [Theory]
+    [InlineData("submit", "http://127.0.0.1:8188/api/prompt")]
+    [InlineData("poll", "http://127.0.0.1:8188/api/history/abc-123")]
+    [InlineData("fetch", "http://127.0.0.1:8188/api/view?")]
+    [InlineData("cancel", "http://127.0.0.1:8188/api/interrupt")]
+    [InlineData("probe", "http://127.0.0.1:8188/api/system_stats")]
+    public async Task Every_endpoint_path_is_overridable(string door, string expected)
     {
-        // the guard against having guessed wrong: a host can retarget any path without waiting for a release
         var (provider, http) = Provider(new ComfyUiOptions
         {
             BaseUrl = "http://127.0.0.1:8188",
@@ -1124,19 +1119,36 @@ public class ComfyUiProviderTests
             InterruptPath = "api/interrupt",
             SystemStatsPath = "api/system_stats",
         });
-        http.Enqueue(HttpStatusCode.OK, "{\"prompt_id\":\"x\"}");
+        http.Enqueue(HttpStatusCode.OK, door switch
+        {
+            "submit" => """{"prompt_id":"x"}""",
+            "poll" or "fetch" => """{"abc-123":{"outputs":{"9":{"images":[{"filename":"out.png","subfolder":"","type":"output"}]}}}}""",
+            "probe" => """{"system":{"comfyui_version":"0.3.40"}}""",
+            _ => "{}",
+        });
 
-        await provider.SubmitAsync(Ask());
+        var used = door switch
+        {
+            "submit" => await Sent(provider.SubmitAsync(Ask())),
+            "poll" => await Sent(provider.PollAsync("abc-123")),
+            "fetch" => Assert.Single((await provider.FetchAsync("abc-123")).Artifacts).Uri,   // the VIEW path
+            "cancel" => await Sent(provider.CancelAsync("abc-123")),
+            _ => await Sent(provider.ProbeAsync()),
+        };
 
-        Assert.Equal("http://127.0.0.1:8188/api/prompt", http.Requests[0].Uri?.ToString());
+        Assert.StartsWith(expected, used, StringComparison.Ordinal);
+
+        async Task<string?> Sent(Task call)
+        {
+            await call;
+            return http.Requests[0].Uri?.ToString();
+        }
     }
 
-    // ---- the unmeasured surface is CORRECTABLE without a library release ------------------------------
+    // ---- the response FIELD names are correctable without a library release too ----------------------
     //
-    // This class's own header says every endpoint path is settable because the surface was never measured
-    // against a running server. The response FIELD names were not, and they fail more quietly than a path
-    // does: a wrong path is a 404 on the first call, a wrong field name means a submitted render is never
-    // recognised as accepted or a finished one is polled forever. These pin that both are now correctable.
+    // They fail more quietly than a path does: a wrong path is a 404 on the first call, a wrong field name
+    // means a submitted render is never recognised as accepted or a finished one is polled forever.
 
     [Fact]
     public async Task A_host_can_retarget_the_field_carrying_the_accepted_runs_id()
@@ -1191,6 +1203,28 @@ public class ComfyUiProviderTests
         Assert.True(result.IsOk);
         var artifact = Assert.Single(result.Artifacts);
         Assert.Contains("filename=out.png", artifact.Uri);
+    }
+
+    /// <summary>The retargeted completion signal is READ, not merely tolerated: outputs are present, so only
+    /// the configured <c>state.done = false</c> says the run is unfinished. A provider still reading the
+    /// default field names falls back to the outputs' presence and calls it finished.</summary>
+    [Fact]
+    public async Task A_retargeted_completion_signal_saying_NOT_done_wins_over_present_outputs()
+    {
+        var (provider, http) = Provider(new ComfyUiOptions
+        {
+            BaseUrl = "http://127.0.0.1:8188",
+            StatusField = "state",
+            CompletedField = "done",
+            OutputsField = "results",
+        });
+        http.Enqueue(HttpStatusCode.OK, """
+            {"abc-123":{"state":{"done":false},"results":{"9":{"images":[{"filename":"out.png","subfolder":"","type":"output"}]}}}}
+            """);
+
+        var polled = await provider.PollAsync("abc-123");
+
+        Assert.Equal(QueuedOperationStatus.Running, polled.Status);
     }
 
     [Fact]

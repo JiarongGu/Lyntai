@@ -273,18 +273,6 @@ public class NonTextCandidateTests
             chat, embed, rerank);
     }
 
-    /// <summary>Keeps every Warning and above.</summary>
-    private sealed class CapturingLogger<T>(List<string> sink) : ILogger<T>
-    {
-        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
-        public bool IsEnabled(LogLevel logLevel) => true;
-        public void Log<TState>(LogLevel level, EventId id, TState state, Exception? ex,
-            Func<TState, Exception?, string> fmt)
-        {
-            if (level >= LogLevel.Warning) sink.Add(fmt(state, ex));
-        }
-    }
-
     /// <summary>One call through the chosen door: the verdict, and the reply's text on success or its detail
     /// otherwise.</summary>
     private static async Task<(ProviderVerdict Verdict, string Text)> CallAsync(

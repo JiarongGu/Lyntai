@@ -8,9 +8,9 @@ using Lyntai.Tests.Memory;
 
 namespace Lyntai.Tests.Storage;
 
-/// <summary>The persistent SQLite backends for the front-door governance + semantic-memory seams
-/// (response cache, usage tracker, vector store) against a real migrated temp db — round-trip, TTL/size
-/// eviction, accounting, cosine ranking, and (the point) survival across a fresh store instance.</summary>
+/// <summary>The persistent SQLite backends for the front-door governance + semantic-memory seams (response
+/// cache, usage tracker, vector store) against a real migrated temp db: what the contracts do not pin —
+/// survival across a fresh store instance, size eviction — plus the vector contract's wiring.</summary>
 public class SqliteGovernanceStoreTests : IDisposable
 {
     private readonly TempDb _db = new();
@@ -35,18 +35,6 @@ public class SqliteGovernanceStoreTests : IDisposable
     }
 
     [Fact]
-    public async Task ResponseCache_expires_by_ttl()
-    {
-        var clock = new MutableClock();
-        var cache = new SqliteResponseCache(_db.Factory, new LyntaiOptions(), clock.Get);
-        await cache.SetAsync("k", new TextResponse("x", ProviderVerdict.Ok), TimeSpan.FromMinutes(5));
-        clock.Advance(TimeSpan.FromMinutes(4));
-        Assert.NotNull(await cache.GetAsync("k")); // still fresh
-        clock.Advance(TimeSpan.FromMinutes(2));       // past 5m
-        Assert.Null(await cache.GetAsync("k"));
-    }
-
-    [Fact]
     public async Task ResponseCache_evicts_the_oldest_beyond_max_entries()
     {
         var options = new LyntaiOptions();
@@ -62,80 +50,12 @@ public class SqliteGovernanceStoreTests : IDisposable
         Assert.NotNull(await cache.GetAsync("c"));
     }
 
-    [Fact]
-    public async Task ResponseCache_remove_evicts_one_entry_and_a_missing_key_is_a_no_op()
-    {
-        var options = new LyntaiOptions();
-        var cache = new SqliteResponseCache(_db.Factory, options);
-        await cache.SetAsync("keep", new TextResponse("keep", ProviderVerdict.Ok));
-        await cache.SetAsync("poisoned", new TextResponse("bad", ProviderVerdict.Ok));
-
-        await cache.RemoveAsync("poisoned");
-        await cache.RemoveAsync("never-set"); // no-op, no throw
-
-        Assert.Null(await new SqliteResponseCache(_db.Factory, options).GetAsync("poisoned"));
-        Assert.NotNull(await new SqliteResponseCache(_db.Factory, options).GetAsync("keep"));
-    }
-
     // ---- usage tracker -------------------------------------------------------------------------------
-
-    [Fact]
-    public async Task UsageTracker_accumulates_per_consumer_and_globally_persisted()
-    {
-        await new SqliteUsageTracker(_db.Factory).RecordAsync("a", new ProviderUsage(10, 5, CostUsd: 0.10));
-        await new SqliteUsageTracker(_db.Factory).RecordAsync("a", new ProviderUsage(20, 5, CostUsd: 0.20));
-        await new SqliteUsageTracker(_db.Factory).RecordAsync("b", new ProviderUsage(1, 1, CostUsd: 0.01));
-
-        var tracker = new SqliteUsageTracker(_db.Factory); // fresh instance reads persisted totals
-        var a = (await tracker.TotalAsync("a"));
-        Assert.Equal(30, a.InputTokens);
-        Assert.Equal(0.30, a.CostUsd, 5);
-        Assert.Equal(2, a.Calls);
-        Assert.Equal(0.31, (await tracker.TotalAsync()).CostUsd, 5);   // global SUM across rows
-        Assert.Equal(UsageTotals.Empty, (await tracker.TotalAsync("never-seen")));
-    }
-
-    [Fact] // R6: consumer identity is case-INSENSITIVE everywhere — totals AGGREGATE across casings, so
-    // the budget cap (whose PerConsumer map is OrdinalIgnoreCase, like every options map) can't be
-    // overspent 2x by tagging "App" in one code path and "app" in another. (Supersedes the earlier
-    // case-sensitive pin, which matched the SQL PK but let each casing accrue its own uncapped total.)
-    public async Task UsageTracker_consumer_totals_aggregate_across_casings_on_every_backend()
-    {
-        IUsageTracker[] trackers = [new InMemoryUsageTracker(), new SqliteUsageTracker(_db.Factory)];
-        foreach (var t in trackers)
-        {
-            await t.RecordAsync("App", new ProviderUsage(10, 0, CostUsd: 0.10));
-            await t.RecordAsync("app", new ProviderUsage(20, 0, CostUsd: 0.20));
-            Assert.Equal(2, (await t.TotalAsync("App")).Calls);           // ONE consumer identity, either casing
-            Assert.Equal(2, (await t.TotalAsync("app")).Calls);
-            Assert.Equal(30, (await t.TotalAsync("APP")).InputTokens);
-            Assert.Equal(0.30, (await t.TotalAsync("app")).CostUsd, 5);
-        }
-    }
-
-    [Fact]
-    public async Task UsageTracker_reset_clears_a_consumer_or_all()
-    {
-        var t = new SqliteUsageTracker(_db.Factory);
-        await t.RecordAsync("a", new ProviderUsage(10, 0, CostUsd: 0.10));
-        await t.RecordAsync("b", new ProviderUsage(20, 0, CostUsd: 0.20));
-
-        await t.ResetAsync("a");
-        Assert.Equal(UsageTotals.Empty, (await t.TotalAsync("a")));
-        Assert.Equal(0.20, (await t.TotalAsync()).CostUsd, 5);         // b remains
-
-        await t.ResetAsync();
-        Assert.Equal(UsageTotals.Empty, (await t.TotalAsync()));
-    }
 
     // ---- vector store --------------------------------------------------------------------------------
 
-    // The cross-backend contract, wired here because this class owns the database lifetime — same split
-    // MemoryGraphStoreContract uses. Added 2026-08-14: IVectorStore had three implementations and no
-    // contract, and every vector fixture in the repository was a UNIT BASIS VECTOR, under which cosine and a
-    // raw dot product induce the same ordering AND the same sign — so the per-backend tests below could not
-    // tell them apart. Measured: replacing VectorMath.Cosine with a bare dot product left all 29 existing
-    // vector/semantic tests green, including the one named "ranks_by_cosine".
+    // The cross-backend VectorStoreContract, wired here because this class owns the database lifetime. Its
+    // fixtures are deliberately NOT unit basis vectors, under which cosine and a raw dot product agree.
     [Fact] public Task Contract_cosine_not_dot() => VectorStoreContract.Ranking_is_by_cosine_so_magnitude_does_not_win(new SqliteVectorStore(_db.Factory), "vc1");
     [Fact] public Task Contract_score_in_range() => VectorStoreContract.A_score_is_a_cosine_in_the_documented_range(new SqliteVectorStore(_db.Factory), "vc2");
     [Fact] public Task Contract_upsert_replaces() => VectorStoreContract.Upserting_the_same_id_replaces_rather_than_duplicating(new SqliteVectorStore(_db.Factory), "vc3");
@@ -162,36 +82,6 @@ public class SqliteGovernanceStoreTests : IDisposable
         var hits = await new SqliteVectorStore(_db.Factory).SearchAsync("c", [0.9f, 0.1f, 0f], k: 2);
         Assert.Equal("A", hits[0].Payload);
         Assert.True(hits[0].Score > hits[1].Score);
-    }
-
-    [Fact]
-    public async Task VectorStore_upsert_dedups_and_remove_collection_clears()
-    {
-        var store = new SqliteVectorStore(_db.Factory);
-        await store.UpsertAsync("c", "same", [1f, 0f], "first");
-        await store.UpsertAsync("c", "same", [1f, 0f], "second"); // same id → overwrite
-
-        var hits = await store.SearchAsync("c", [1f, 0f], k: 5);
-        Assert.Single(hits);
-        Assert.Equal("second", hits[0].Payload);
-
-        await store.RemoveCollectionAsync("c");
-        Assert.Empty(await store.SearchAsync("c", [1f, 0f], k: 5));
-    }
-
-    [Fact]
-    public async Task VectorStore_delete_removes_one_by_id_and_absent_is_a_no_op()
-    {
-        var store = new SqliteVectorStore(_db.Factory);
-        await store.UpsertAsync("c", "keep", [1f, 0f], "KEEP");
-        await store.UpsertAsync("c", "drop", [0f, 1f], "DROP");
-
-        await store.DeleteAsync("c", "drop");   // remove one by id
-        await store.DeleteAsync("c", "never");  // absent id → no-op, no throw
-
-        var hits = await store.SearchAsync("c", [1f, 1f], k: 5);
-        Assert.Single(hits);
-        Assert.Equal("KEEP", hits[0].Payload);  // only the un-deleted vector remains (persisted)
     }
 
     [Fact]

@@ -89,16 +89,6 @@ public class TextClientFactoryTests
         Assert.Contains("already registered", ex.Message, StringComparison.Ordinal);
     }
 
-    /// <summary>Naming no provider means EVERY registered one — the default client's own behaviour, which is
-    /// the right meaning for a name that exists only to carry different governance later.</summary>
-    [Fact]
-    public void Naming_no_provider_routes_over_all_of_them()
-    {
-        using var sp = Build(b => WithProviders(b, "a", "b").AddTextClient("everything"));
-
-        Assert.NotNull(sp.GetRequiredService<ITextClientFactory>().Get("everything"));
-    }
-
     /// <summary><b>A named client is governed exactly like the default one.</b> The front-door decorators are
     /// folded over it in the same order, so a usage budget cannot be escaped by asking for a client by name.
     /// Asserted through the OBSERVABLE consequence — the budget refuses — rather than by inspecting the
@@ -290,12 +280,13 @@ public class TextClientFactoryTests
     [Fact]
     public void A_candidate_outside_the_clients_own_pool_is_refused()
     {
-        using var sp = Build(b => WithProviders(b, "a", "b")
-            .AddTextClient("judge", c => c.UseProviders("a").UseCandidates(new ProviderCandidate("b"))));
+        using var sp = Build(b => WithProviders(b, "cheap", "best")
+            .AddTextClient("judge", c => c.UseProviders("cheap").UseCandidates(new ProviderCandidate("best"))));
 
         var ex = Assert.Throws<InvalidOperationException>(() => sp.GetRequiredService<ITextClientFactory>());
         Assert.Contains("judge", ex.Message, StringComparison.Ordinal);
-        Assert.Contains("b", ex.Message, StringComparison.Ordinal);
+        Assert.Contains("best", ex.Message, StringComparison.Ordinal);     // the candidate at fault…
+        Assert.Contains("(cheap)", ex.Message, StringComparison.Ordinal);  // …and the pool it is outside
     }
 
     /// <summary>…and the same holds when the client names no provider, which is the case the first version of
@@ -311,12 +302,12 @@ public class TextClientFactoryTests
     [Fact]
     public void A_stated_candidate_naming_no_registered_backend_is_refused_even_with_no_pool()
     {
-        using var sp = Build(b => WithProviders(b, "a")
+        using var sp = Build(b => WithProviders(b, "registered")
             .AddTextClient("judge", c => c.UseCandidates(new ProviderCandidate("ghost"))));
 
         var ex = Assert.Throws<InvalidOperationException>(() => sp.GetRequiredService<ITextClientFactory>());
         Assert.Contains("ghost", ex.Message, StringComparison.Ordinal);
-        Assert.Contains("a", ex.Message, StringComparison.Ordinal);   // and says what IS available
+        Assert.Contains("(registered)", ex.Message, StringComparison.Ordinal);   // and says what IS available
     }
 
     private sealed class AlwaysRefuses : IRefusalMatcher

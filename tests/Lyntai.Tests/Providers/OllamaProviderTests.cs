@@ -67,8 +67,7 @@ public class OllamaProviderTests
             """;
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, ndjson, "application/x-ndjson");
 
-        var chunks = new List<TextChunk>();
-        await foreach (var c in Provider(handler).StreamAsync(Req)) chunks.Add(c);
+        var chunks = await Provider(handler).StreamAsync(Req).ToListAsync();
 
         Assert.Equal(["a", "b"], chunks.Where(c => c.Kind == TextChunkKind.Content).Select(c => c.Text));
         Assert.Equal(TextChunkKind.Final, chunks[^1].Kind);
@@ -106,24 +105,6 @@ public class OllamaProviderTests
 
         var body = JsonNode.Parse(handler.Requests[0].Body)!;
         Assert.Equal(31337, (int)body["options"]!["num_ctx"]!);
-    }
-
-    [Fact]
-    public async Task An_inline_image_reaches_the_wire_in_the_images_array()
-    {
-        var png = Encoding.UTF8.GetBytes("fake-png-bytes");
-        var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK,
-            """{"message":{"content":"a cat"},"done":true}""");
-
-        var reply = await Provider(handler).CompleteAsync(new TextRequest
-        {
-            Messages = [TextMessage.UserWithImage("what is this?", png, "image/png")],
-            Model = "llava",
-        });
-
-        Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
-        Assert.Contains("\"images\"", handler.Requests[0].Body, StringComparison.Ordinal);
-        Assert.Contains(Convert.ToBase64String(png), handler.Requests[0].Body, StringComparison.Ordinal);
     }
 
     [Fact]

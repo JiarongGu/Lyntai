@@ -10,16 +10,17 @@ namespace Lyntai.Tests.Providers;
 /// Deterministic wiring tests for the local (LLamaSharp) provider. These never load a real model or
 /// touch the native backend: a missing model file (and/or an absent backend in the test run) both
 /// resolve to a Failed verdict, which is exactly the router-fallback contract we want to pin. Real
-/// inference is covered by the opt-in <see cref="LocalProviderLiveTests"/>.
+/// inference is covered by the opt-in <see cref="LlamaSharpProviderLiveTests"/>.
 /// </summary>
-public class AddLlamaSharpTests
+public class AddLlamaSharpProviderTests : IDisposable
 {
+    private readonly ScratchDir _scratch = new("llamasharp");
+
+    public void Dispose() => _scratch.Dispose();
+
     private static TextRequest Ask(string prompt = "hi") => new() { Messages = [TextMessage.User(prompt)] };
 
-    // scratch under devtools/_* (family rule: never OS temp), gitignored
-    private static string ScratchDir() => TestPaths.DevtoolsDir("_test-models");
-
-    private static string MissingModel() => Path.Combine(ScratchDir(), $"does-not-exist-{Guid.NewGuid():N}.gguf");
+    private string MissingModel() => _scratch.Combine("does-not-exist.gguf");
 
     [Fact]
     public void AddLlamaSharp_registers_a_provider_under_the_id()
@@ -34,11 +35,15 @@ public class AddLlamaSharpTests
     [Fact]
     public void AddLlamaSharp_honors_a_custom_id_and_options()
     {
+        // the options action runs AFTER the positional path, so pointing it at a file that exists is what
+        // makes the provider available — observable proof the action reached the provider
+        var present = _scratch.File("present.gguf", "placeholder");
         var services = new ServiceCollection();
-        services.AddLyntai(b => b.AddLlamaSharpProvider(MissingModel(), o => o.GpuLayerCount = 20, id: "phi-local"));
+        services.AddLyntai(b => b.AddLlamaSharpProvider(MissingModel(), o => o.ModelPath = present, id: "phi-local"));
         using var sp = services.BuildServiceProvider();
 
-        Assert.Contains(sp.GetServices<IModelProvider>(), p => p.Id == "phi-local");
+        var provider = Assert.Single(sp.GetServices<IModelProvider>(), p => p.Id == "phi-local");
+        Assert.True(provider.IsAvailable);
     }
 
     [Fact]
@@ -51,14 +56,10 @@ public class AddLlamaSharpTests
     [Fact]
     public void IsAvailable_is_true_when_the_model_file_exists()
     {
-        var path = Path.Combine(ScratchDir(), $"present-{Guid.NewGuid():N}.gguf");
-        File.WriteAllText(path, "placeholder — presence is all IsAvailable checks");
-        try
-        {
-            using var provider = new LlamaSharpProvider("local", new LlamaSharpOptions { ModelPath = path }, new LyntaiOptions());
-            Assert.True(provider.IsAvailable);
-        }
-        finally { File.Delete(path); }
+        var path = _scratch.File("present.gguf", "placeholder — presence is all IsAvailable checks");
+
+        using var provider = new LlamaSharpProvider("local", new LlamaSharpOptions { ModelPath = path }, new LyntaiOptions());
+        Assert.True(provider.IsAvailable);
     }
 
     [Fact]
@@ -80,12 +81,14 @@ public class AddLlamaSharpTests
     {
         var services = new ServiceCollection();
         services.AddLyntai(b => b
-            .AddLlamaSharpProvider(MissingModel())    // IsAvailable false → skipped by the router
+            .AddLlamaSharpProvider(MissingModel(), id: "local")    // IsAvailable false → skipped by the router
             .UseDefaultCandidates("local"));
         using var sp = services.BuildServiceProvider();
 
         var reply = await sp.GetRequiredService<ITextClient>().CompleteAsync(Ask());
 
         Assert.NotEqual(ProviderVerdict.Ok, reply.Verdict); // no live candidate remained
+        // SKIPPED, not called: calling it would also fail, so only the reason tells the two apart
+        Assert.Contains("provider reports unavailable", reply.Detail, StringComparison.Ordinal);
     }
 }

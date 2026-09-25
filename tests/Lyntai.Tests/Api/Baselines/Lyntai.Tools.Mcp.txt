@@ -5,9 +5,9 @@ static class Lyntai.McpToolHostBuilderExtensions
     static AddMcpToolHost(LyntaiBuilder builder, IMcpCliConnector connector, Action<McpToolHostOptions> configure = null) : LyntaiBuilder
 sealed class Lyntai.Tools.Mcp.Hosting.McpToolHostOptions
     .ctor()
-    BindAddress : String
+    BindAddress : String { get; set; }
     DefaultBindAddress : String const
     DefaultServerName : String const
-    ServerName : String
+    ServerName : String { get; set; }
 static class Lyntai.Tools.Mcp.McpToolset
     static FromClientAsync(McpClient client, CancellationToken ct = default) : Task<IReadOnlyList<ITool>>

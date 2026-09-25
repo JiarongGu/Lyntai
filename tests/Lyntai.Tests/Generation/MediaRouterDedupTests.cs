@@ -12,7 +12,7 @@ namespace Lyntai.Tests.Generation;
 /// withdraws the sole-candidate exemption, which turns an actionable "rate limited, try in a minute" into a
 /// synthetic "no capable backend" — the exact harm the exemption exists to prevent. A dedup applied after the
 /// count is taken fixes only the first.</para></summary>
-public class GenerationRouterDedupTests
+public class MediaRouterDedupTests
 {
     private static MediaRequest Image() => new() { Kind = ProviderKinds.Image, Prompt = "a red square" };
 

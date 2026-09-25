@@ -78,14 +78,15 @@ public static class PromptVersionStoreContract
     {
         // Two writers racing the MAX(version)+1 read must never surface a raw unique-violation: every backend
         // serializes writers of one name (Postgres's per-name advisory lock, SQLite's immediate transaction,
-        // the in-process locks). Four writers through one gate make the overlap real.
+        // the in-process locks). Four writers, each on its own thread, released by one gate that does NOT run
+        // their continuations inline — a default gate would run all four on this thread, one after another.
         var name = key + "-raced";
-        var gate = new TaskCompletionSource();
-        var saves = Enumerable.Range(0, 4).Select(async _ =>
+        var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var saves = Enumerable.Range(0, 4).Select(_ => Task.Run(async () =>
         {
             await gate.Task;
             return await store.SaveAsync(name, "raced template");
-        }).ToArray();
+        })).ToArray();
         gate.SetResult();
 
         var versions = (await Task.WhenAll(saves)).Select(s => s.Version).Order().ToArray();
@@ -106,7 +107,7 @@ public static class PromptVersionStoreContract
 
         for (var round = 0; round < 25; round++)
         {
-            var gate = new TaskCompletionSource();
+            var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             var template = $"round {round}";
             Task[] racers =
             [

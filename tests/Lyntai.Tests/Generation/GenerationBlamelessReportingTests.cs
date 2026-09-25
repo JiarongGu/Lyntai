@@ -1,30 +1,25 @@
 using Lyntai.Generation;
 using Lyntai.Inference;
 using Lyntai.Tests.Fakes;
+using static Lyntai.Tests.Fakes.CandidateLists;
 
 namespace Lyntai.Tests.Generation;
 
-/// <summary>A media verdict has to be able to be BLAMELESS and REPORTABLE at once, and until 2026-08-05 the
-/// router forced a choice between them (<c>docs/task-archive.md</c> Part 40, opened by
+/// <summary>A media verdict can be BLAMELESS and REPORTABLE at once (<c>docs/task-archive.md</c> Part 40,
 /// <c>docs/DECISIONS.md</c> D36).
 ///
-/// <para>The rule that forced it is right and stays: a blameless verdict must never MASK a real failure, or
-/// <c>[downHost → Failed, neverConfigured → NotConfigured]</c> sends the caller off to set up a key while the
-/// backend they HAD configured is the one that is down (D31). What was missing is the OTHER half — when
-/// nothing substantive failed at all, the blameless backend's own words are the honest answer, and the
-/// synthetic "every capable backend reported it is not configured" was not even accurate for a run in which
-/// every candidate said <see cref="ProviderVerdict.Unsupported"/>.</para>
-///
-/// <para>So the router keeps a second slot, exactly as <c>TextRouter.CompleteAsync</c> already did
-/// (<c>last ?? lastBlameless ?? synthetic</c>) — and only once that was in place could
-/// <see cref="ProviderVerdict.ContextWindowExceeded"/> become <see cref="ProviderVerdict.Unsupported"/>, which is
-/// what stops repeated oversized prompts from benching a healthy backend. Doing the mapping first would just
-/// have swapped one cost for the other.</para></summary>
+/// <para>A blameless verdict never MASKS a real failure, or <c>[downHost → Failed, neverConfigured →
+/// NotConfigured]</c> sends the caller off to set up a key while the backend they HAD configured is the one
+/// that is down (D31). When nothing substantive failed, the blameless backend's own words are the honest
+/// answer — a synthetic "every capable backend reported it is not configured" is not even accurate when every
+/// candidate said <see cref="ProviderVerdict.Unsupported"/>. So the router keeps a second slot, as
+/// <c>TextRouter.CompleteAsync</c> does (<c>last ?? lastBlameless ?? synthetic</c>), and that slot is what
+/// lets <see cref="ProviderVerdict.ContextWindowExceeded"/> map to <see cref="ProviderVerdict.Unsupported"/>
+/// without repeated oversized prompts benching a healthy backend.</para></summary>
 public class GenerationBlamelessReportingTests
 {
     private static MediaRequest Image() => new() { Kind = ProviderKinds.Image, Prompt = "a red square" };
 
-    private static ProviderCandidate[] Order(params string[] ids) => [.. ids.Select(id => new ProviderCandidate(id))];
 
     // ---- the reporting rule --------------------------------------------------------------------------
 
@@ -207,7 +202,6 @@ public class GenerationSubmitBlamelessReportingTests
 {
     private static MediaRequest Video() => new() { Kind = ProviderKinds.Video, Prompt = "a cat surfing" };
 
-    private static ProviderCandidate[] Order(params string[] ids) => [.. ids.Select(id => new ProviderCandidate(id))];
 
     [Fact]
     public async Task A_submission_only_blameless_queues_rejected_still_reports_what_one_of_them_said()
@@ -217,10 +211,7 @@ public class GenerationSubmitBlamelessReportingTests
         using var _ = ProviderVerdictClassifier.AddErrorTextMatcher(t =>
             t.Contains("queue-blameless-probe", StringComparison.Ordinal) ? ProviderVerdict.NotConfigured : null);
 
-        var unconfigured = new RejectingJobBackend
-        {
-            Id = "needs-setup", Detail = "queue-blameless-probe: BaseUrl and ApiKey are both required",
-        };
+        var unconfigured = FakeGenerationJobProvider.Rejecting("needs-setup", "queue-blameless-probe: BaseUrl and ApiKey are both required");
 
         var submission = await new MediaRouter([unconfigured]).SubmitAsync(Order("needs-setup"), Video());
 
@@ -236,8 +227,8 @@ public class GenerationSubmitBlamelessReportingTests
         using var _ = ProviderVerdictClassifier.AddErrorTextMatcher(t =>
             t.Contains("queue-blameless-probe", StringComparison.Ordinal) ? ProviderVerdict.NotConfigured : null);
 
-        var unconfigured = new RejectingJobBackend { Id = "needs-setup", Detail = "queue-blameless-probe: no key" };
-        var broken = new RejectingJobBackend { Id = "broken", Detail = "queue is full" };
+        var unconfigured = FakeGenerationJobProvider.Rejecting("needs-setup", "queue-blameless-probe: no key");
+        var broken = FakeGenerationJobProvider.Rejecting("broken", "queue is full");
 
         var submission = await new MediaRouter([unconfigured, broken])
             .SubmitAsync(Order("needs-setup", "broken"), Video());
@@ -246,39 +237,4 @@ public class GenerationSubmitBlamelessReportingTests
         Assert.DoesNotContain("queue-blameless-probe", submission.Operation.Detail);
     }
 
-    /// <summary>A job backend that always rejects the submission, with a detail the test chooses — the text
-    /// the router classifies. Conclusive on purpose: an inconclusive rejection is decided BEFORE the verdict
-    /// is, and is covered by <c>GenerationTimeoutTests</c>.</summary>
-    private sealed class RejectingJobBackend : IModelProvider, IMediaJobProvider
-    {
-        public string Id { get; init; } = "rejecting";
-
-        /// <summary>What the rejected submission reports as its reason.</summary>
-        public string? Detail { get; init; }
-
-        public ProviderCapabilities Capabilities { get; } = new()
-        {
-            Accepts = [ProviderKinds.Text],
-            Produces = [ProviderKinds.Video],
-            Operations = [ProviderOperation.Queued],
-        };
-
-        public Task<ProviderProbeResult> ProbeAsync(CancellationToken ct = default) =>
-            Task.FromResult(new ProviderProbeResult(true, "up"));
-
-        public Task<MediaResponse> GenerateAsync(MediaRequest request, CancellationToken ct = default) =>
-            Task.FromResult(MediaResponse.Failure(ProviderVerdict.Unsupported, "job backend"));
-
-        public Task<QueuedOperation> SubmitAsync(MediaRequest request, CancellationToken ct = default) =>
-            Task.FromResult(new QueuedOperation("", QueuedOperationStatus.Failed, Detail: Detail));
-
-        public Task<QueuedOperation> PollAsync(string operationId, CancellationToken ct = default) =>
-            Task.FromResult(new QueuedOperation(operationId, QueuedOperationStatus.Failed));
-
-        public Task<MediaResponse> FetchAsync(string operationId, CancellationToken ct = default) =>
-            Task.FromResult(MediaResponse.Failure(ProviderVerdict.Failed, "nothing"));
-
-        public Task<QueuedOperation> CancelAsync(string operationId, CancellationToken ct = default) =>
-            Task.FromResult(new QueuedOperation(operationId, QueuedOperationStatus.Cancelled));
-    }
 }

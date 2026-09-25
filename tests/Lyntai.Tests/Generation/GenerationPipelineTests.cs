@@ -2,6 +2,7 @@ using Lyntai.Inference;
 using Lyntai.Inference.Budgeting;
 using Lyntai.Tests.Fakes;
 using Lyntai.Generation;
+using static Lyntai.Tests.Fakes.CandidateLists;
 
 namespace Lyntai.Tests.Generation;
 
@@ -16,9 +17,6 @@ public class GenerationPipelineTests
 
     private static readonly MediaRequest Video =
         new() { Kind = ProviderKinds.Video, Prompt = "pan across it" };
-
-    private static IReadOnlyList<ProviderCandidate> Order(params string[] ids) =>
-        [.. ids.Select(id => new ProviderCandidate(id))];
 
     /// <summary>An Ok carrying <paramref name="artifacts"/> artifacts. Built through the CONSTRUCTOR rather
     /// than <see cref="MediaResponse.Success"/> so zero is expressible — that shape is what a BYO router
@@ -110,7 +108,7 @@ public class GenerationPipelineTests
     [Fact]
     public async Task A_stage_that_cannot_choose_among_several_artifacts_refuses_without_calling_a_backend()
     {
-        // Part 124: a media type cannot be branched on and "the first image/*" picks a UV atlas, so a stage
+        // `docs/task-archive.md` Part 124: a media type cannot be branched on and "the first image/*" picks a UV atlas, so a stage
         // that cannot identify a chainable artifact REFUSES rather than guessing at a billed render
         var router = new ScriptedRouter(Produced(4));
 
@@ -301,8 +299,8 @@ public class GenerationPipelineTests
     [Fact]
     public async Task A_first_stage_that_declares_chaining_settings_throws_because_nothing_would_read_them()
     {
-        // a setting nothing implements is the shape Part 125 fixed on ComfyUiProvider: the caller believes
-        // something is happening, and silence is the expensive answer
+        // a setting nothing implements is the shape `docs/task-archive.md` Part 125 fixed on ComfyUiProvider:
+        // the caller believes something is happening, and silence is the expensive answer
         var router = new ScriptedRouter(Produced(1));
 
         await Assert.ThrowsAsync<ArgumentException>(() => router.RunPipelineAsync(

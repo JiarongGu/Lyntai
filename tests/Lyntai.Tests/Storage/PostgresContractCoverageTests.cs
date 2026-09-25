@@ -1,5 +1,6 @@
 using System.Reflection;
 
+using Lyntai.Tests.Jobs;
 using Lyntai.Tests.Memory;
 
 namespace Lyntai.Tests.Storage;
@@ -35,7 +36,7 @@ public class PostgresContractCoverageTests
         nameof(ConversationStoreContract), nameof(CuratedMemoryStoreContract), nameof(KeyValueStoreContract),
         nameof(MemoryStoreContract), nameof(PromptVersionStoreContract), nameof(ScoreStoreContract),
         nameof(TraceStoreContract), nameof(VectorStoreContract), nameof(UsageTrackerContract),
-        nameof(ResponseCacheContract),
+        nameof(ResponseCacheContract), nameof(JobStoreContract),
     ];
 
     /// <summary>Facts deliberately NOT run against Postgres, each with the reason. An entry that stops

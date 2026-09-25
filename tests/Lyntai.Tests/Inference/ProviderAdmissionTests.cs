@@ -1,20 +1,13 @@
 using Lyntai.Inference;
+using Lyntai.Tests.Fakes;
+using static Lyntai.Tests.Fakes.TestTimeouts;
 
-namespace Lyntai.Tests.Lifecycle;
+namespace Lyntai.Tests.Inference;
 
 public class ProviderAdmissionTests
 {
     private static ProviderKey Key(string value, string slot = "local-diffusion") =>
         ProviderKey.For(slot).With("v", value).Build();
-
-    /// <summary>How long an await on a GATED permit waits before failing the test outright. Generous enough
-    /// never to fire on a loaded machine, short enough that the failure is legible.
-    ///
-    /// <para>The regression these tests exist to catch — a permit that is never returned — makes the waiting
-    /// caller wait FOREVER, so an unbounded await turns a red test into an indefinite hang: <c>verify</c>
-    /// stops producing output at all and no test names the problem, destroying the signal for every other
-    /// test in the run. Same constant, same reason, as <c>RouterCooldownKeyTests.GateWait</c>.</para></summary>
-    private static readonly TimeSpan GateWait = TimeSpan.FromSeconds(5);
 
     [Fact]
     public async Task With_no_limit_configured_everything_is_admitted_immediately()
@@ -22,9 +15,14 @@ public class ProviderAdmissionTests
         var admission = new ProviderAdmission();
         var held = new List<IDisposable>();
 
-        for (var i = 0; i < 50; i++) held.Add(await admission.EnterAsync(Key("a")));
+        for (var i = 0; i < 50; i++)
+        {
+            // asserted before it is awaited: a throttled entry would otherwise HANG this test, not fail it
+            var entry = admission.EnterAsync(Key("a"));
+            Assert.True(entry.IsCompleted, $"entry {i} waited — an unconfigured slot must admit at once");
+            held.Add(await entry);
+        }
 
-        Assert.Equal(50, held.Count);
         foreach (var h in held) h.Dispose();
     }
 
@@ -58,21 +56,6 @@ public class ProviderAdmissionTests
         Assert.True(tenantB.IsCompleted);
         tenantA.Dispose();
         (await tenantB).Dispose();
-    }
-
-    [Fact]
-    public async Task The_same_configuration_shares_capacity_across_callers()
-    {
-        var options = new ProviderAdmissionOptions();
-        options.BySlot["local-diffusion"] = 1;
-        var admission = new ProviderAdmission(options);
-
-        var one = await admission.EnterAsync(Key("shared"));
-        var two = admission.EnterAsync(Key("shared"), CancellationToken.None);
-
-        Assert.False(two.IsCompleted);
-        one.Dispose();
-        (await two.AsTask().WaitAsync(GateWait)).Dispose();
     }
 
     [Fact]
@@ -120,12 +103,13 @@ public class ProviderAdmissionTests
         var waiting = admission.EnterAsync(Key("a"), cts.Token);
         await cts.CancelAsync();
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await waiting);
+        // bounded: a waiter that ignored its token would otherwise hang here rather than fail
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => waiting.AsTask().WaitAsync(GateWait));
         held.Dispose();
     }
 
-    // Coverage added in fix round 1: the table must be bounded by calls in flight, not by every
-    // configuration ever seen (a ConcurrentDictionary that never removed entries was the finding).
+    // The gate table is bounded by calls in flight, not by every configuration ever seen: a dictionary that
+    // never removes an entry grows with every distinct slot.
 
     [Fact]
     public async Task A_gate_is_removed_once_its_last_holder_disposes()
@@ -155,7 +139,7 @@ public class ProviderAdmissionTests
         var held = await admission.EnterAsync(Key("a"));
         var waiting = admission.EnterAsync(Key("a"), cts.Token);
         await cts.CancelAsync();
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await waiting);
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => waiting.AsTask().WaitAsync(GateWait));
 
         held.Dispose();
 

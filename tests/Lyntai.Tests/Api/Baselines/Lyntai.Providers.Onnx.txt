@@ -7,18 +7,18 @@ enum Lyntai.Providers.Onnx.OnnxPooling
 sealed class Lyntai.Providers.Onnx.OnnxProvider
     CallAsync(ScoreRequest request, CancellationToken ct = default) : Task<ScoreResponse>
     CallAsync(VectorRequest request, CancellationToken ct = default) : Task<VectorResponse>
-    Capabilities : ProviderCapabilities
+    Capabilities : ProviderCapabilities { get; }
     Dispose() : Void
-    Id : String
-    IsAvailable : Boolean
-    MaxTokens : Int32
+    Id : String { get; }
+    IsAvailable : Boolean { get; }
+    MaxTokens : Int32 { get; }
     static FromDirectory(String directory, OnnxProviderOptions options = null) : OnnxProvider
 sealed class Lyntai.Providers.Onnx.OnnxProviderOptions
     .ctor()
-    Id : String
-    MaxTokens : Nullable<Int32>
-    ModelFile : String
-    Normalize : Nullable<Boolean>
-    Pooling : Nullable<OnnxPooling>
-    Produces : String
-    Segmentation : InputSegmentation
+    Id : String { get; set; }
+    MaxTokens : Nullable<Int32> { get; set; }
+    ModelFile : String { get; set; }
+    Normalize : Nullable<Boolean> { get; set; }
+    Pooling : Nullable<OnnxPooling> { get; set; }
+    Produces : String { get; set; }
+    Segmentation : InputSegmentation { get; set; }
