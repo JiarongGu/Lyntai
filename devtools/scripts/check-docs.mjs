@@ -39,9 +39,8 @@ export const HISTORICAL = [
  * A file that is historical BELOW a boundary and MAINTAINED above it — scanned down to that line and no
  * further.
  *
- * `CHANGELOG.md` is the case, added 2026-08-11 (docs/task-archive.md Part 53). The exemption above rests
- * on records
- * being "accurate BY using the vocabulary of their day", which is true of a RELEASED section and false of
+ * `CHANGELOG.md` is the case (docs/task-archive.md Part 53). The exemption above rests on records being
+ * "accurate BY using the vocabulary of their day", which is true of a RELEASED section and false of
  * `## Unreleased`: that section describes behaviour that has not shipped, is still being edited, and can
  * still change under the words describing it. Measured 2026-08-09 — the `ReciprocalRankFusionPolicy` entry
  * kept asserting the pre-fix tie behaviour AND its retired justification after the code changed, while a

@@ -22,26 +22,30 @@
 //   else             -> echo a deterministic agent_message + turn.completed with usage
 import process from 'node:process';
 
+/** Exit once stdout has DRAINED: `process.exit()` with pipe writes still queued drops them, and the
+ * lines it drops are the ones a test asserts on. Never resolves — the process ends in the callback. */
+const exitFlushed = (code) => new Promise(() => process.stdout.write('', () => process.exit(code)));
+
 const argv = process.argv.slice(2);
 const emit = (obj) => process.stdout.write(JSON.stringify(obj) + '\n');
 
 if (argv.includes('--version')) {
   process.stdout.write('codex-cli 0.0.0-stub\n');
-  process.exit(0);
+  await exitFlushed(0);
 }
 if (argv[0] === 'update') {
   process.stdout.write('codex is already up to date (0.0.0-stub)\n');
-  process.exit(0);
+  await exitFlushed(0);
 }
 if (argv[0] === 'login' && argv[1] === 'status') {
   process.stdout.write(process.env.LYNTAI_STUB_AUTH === 'in'
     ? 'Logged in using ChatGPT account stub@example.invalid\n'
     : 'Not logged in\n');
-  process.exit(0);
+  await exitFlushed(0);
 }
 if (argv[0] === 'login' || argv[0] === 'logout') {
   process.stdout.write(`codex stub ${argv[0]} complete\n`);
-  process.exit(0);
+  await exitFlushed(0);
 }
 
 const chunks = [];
@@ -59,8 +63,7 @@ if (prompt.includes('NOISY')) {
 
 emit({ type: 'turn.started' });
 
-// The exit code is SET, never `process.exit()`d: exiting while stdout writes are still queued would drop
-// the very lines a test is asserting on (stdout is a pipe here, so its writes are async).
+// The exit code is SET rather than exited on, so every line below drains first (`exitFlushed` above).
 // AUTH_ERROR_EXIT is checked BEFORE AUTH_ERROR — the specific marker contains the general one.
 if (prompt.includes('AUTH_ERROR_EXIT')) {
   // MEASURED 2026-08-05 against an account whose login had EXPIRED: one turn prints both error-ish events,

@@ -133,9 +133,8 @@ export const declaredParts = (text) => {
  * `docs/d.md` §5–7 (an ILLUSTRATION of the range shape, never a file here). link-ok
  *
  * The THIRD way an inbound reference rots, and neither half above can see it — the path resolves, the
- * record is right, and the §N names a heading that is not there. Measured 2026-08-28
- * (docs/task-archive.md Part 107):
- * `docs/memory.md`'s `## 8. What is NOT measured` was folded into `## 7` while §9/§10 were left
+ * record is right, and the §N names a heading that is not there. Measured 2026-08-28 (docs/task-archive.md
+ * Part 107): `docs/memory.md`'s `## 8. What is NOT measured` was folded into `## 7` while §9/§10 were left
  * un-renumbered, and SEVEN citations across six files kept naming a section that had stopped existing.
  *
  * ONLY the unambiguous form — the filename, an optional closing delimiter, then the §. Anything looser

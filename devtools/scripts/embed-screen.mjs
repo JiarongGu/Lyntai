@@ -398,8 +398,8 @@ async function screenOne({ model, pooling, opts, serverExe, scratchDir, isContro
   } finally {
     // Unconditional, not `if (pids.length)`: a start that THREW is the most likely moment to have
     // leaked one, so the survivor re-read must run on that path above all. An ENDPOINT row started
-    // nothing and must tear down nothing — killing a server this screen did not start is the
-    // image-name mistake  records, aimed at a port instead of a process name.
+    // nothing and must tear down nothing — killing a server this screen did not start is the image-name
+    // mistake `.claude/knowledge/pitfalls.md` records, aimed at a port instead of a process name.
     const { survivors } = manage ? await stopServers(pids, [opts.port]) : { survivors: [] };
     if (survivors.length) {
       console.error(`  *** PORT STILL LISTENING after teardown: ${JSON.stringify(survivors)} — kill by PID ***`);
