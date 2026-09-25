@@ -839,6 +839,12 @@ Run by hand. It blocks a hand-edited `<VersionPrefix>` and a hand-stamped `## Un
 `Lyntai.*`. Prefer the environment variable — `--api-key` puts the key in shell history — and never commit
 one; the tool redacts the key from its own error output.
 
+**A key is the only credential nuget.org's unlist takes** (`X-NuGet-ApiKey` on `DELETE /api/v2/package`), so
+there is no sign-in mode to add. Trusted Publishing, which `release.yml` uses, also yields an API key — a
+temporary one, minted from a CI run's OIDC token — and is documented for PUBLISHING; that its key may unlist is
+unverified (checked 2026-09-26). Without a key, unlist by hand while signed in on nuget.org (Manage package →
+Listing); with one, mint it short-lived and scoped to the ids being unlisted.
+
 Unlisting hides a version from search and from *range* resolution but never breaks a pinned consumer, and
 never frees the number. Everything below 2.0.1 is unlisted (`docs/DECISIONS.md` D44), so
 `Lyntai.Providers.ClaudeCli`, `.CodexCli` and `.OpenAiCompatible` have no listed version at all.
