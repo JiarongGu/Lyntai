@@ -947,10 +947,21 @@ blocked.**_
 
 _Closes `TASKS.md` Part 75's "make the remaining memory engines forgettable". `docs/DECISIONS.md` **D72**._
 
+**Outcome.** `UseCurated("glossary").UseGraph()` — a blend from the README — can now remove at all: the
+curated member could not forget, so a consent withdrawal had nothing to call, and `PruneAsync` with its
+durable `MemoryPruneJobHandler` was unreachable through the common blend. `LexicalMemoryEngine` gained
+forget (the store takes the same optional scope, null included) and prune; `SemanticMemoryEngine` gained
+forget and NOT prune; `CuratedMemoryEngine` needed no change, because the default removal policy reads its
+authoritative-only grade.
+
 ## Part 79 — the three §9 leftovers, and what re-reading a deferral is worth (2026-08-16)
 
 _Not from `TASKS.md` — from `docs/ROADMAP.md`'s standing §9 list, taken up on the owner's "all three".
 `docs/DECISIONS.md` **D71**, **D73**, **D74**._
+
+**Outcome.** All three were picked up as work rather than dismissed. The native-tool-calling one was
+measurable because the claude CLI (v2.1.220) was installed here, unlike the codex half, and measuring it is
+what retired it (**D74**).
 
 ## Part 80 — the memory corpus can finally SEE headline search (2026-08-16)
 
@@ -967,6 +978,12 @@ backends; every public-surface change purely additive (the API baseline gained 1
 nothing a consumer compiled against moved). Four measured baselines in `CLAUDE.md` re-measured. `verify`
 15/15; suite 3022 passed / 3043 with 21 skipped, which is the count that says Docker was up and the whole
 Postgres leg actually ran.
+
+**The shared row types (`docs/DECISIONS.md` **D77**), measured per pair.** The memory graph pair: 291 → 215
+distinct identical code lines, 1008 → 825 code lines, the API baseline +66 and nothing lost; the six further
+pairs: 405 → 304. One rename was forced on the way in — the score store's private `ExportRow` would have
+shadowed `Lyntai.Cortex.ScoreExportRow`, the contract type it builds, so it is `ScoreExportEntryRow`. The
+option-domain guard (**D78**): 237 lines deleted and 111 added across five files, the API baseline untouched.
 
 ## Part 83 — the adversarial re-check, and the three findings it unblocked (2026-08-16)
 
