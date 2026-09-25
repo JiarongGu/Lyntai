@@ -6,7 +6,8 @@ namespace Lyntai.Tools.Mcp.Hosting;
 
 /// <summary>
 /// The provider-neutral <see cref="ICliToolProvisioner"/>: on each CLI invocation it mints a bearer token,
-/// stands up an <see cref="McpToolHost"/> exposing the registered <see cref="ITool"/>s, asks the
+/// stands up an <see cref="McpToolHost"/> exposing the registered <see cref="ITool"/>s its consumer is mapped to in
+/// <see cref="McpToolHostOptions.ToolsByConsumer"/> (all of them when unmapped), asks the
 /// <see cref="IMcpCliConnector"/> for the CLI args that point at it, and returns a session that stops the
 /// host and deletes every temp file the connector wrote. With no tools registered it's a no-op (no host,
 /// no args, connector never consulted), so the CLI runs exactly as before.
@@ -16,9 +17,36 @@ internal sealed class McpToolHostProvisioner(
     Lyntai.Guards.IGuardRail? guards = null,
     Microsoft.Extensions.Logging.ILogger<McpToolHostProvisioner>? logger = null) : ICliToolProvisioner
 {
-    public async Task<CliToolSession> ProvisionAsync(CancellationToken ct = default)
+    // the DI tool collection is fixed once the container is built, so it is read — and checked — once
+    private readonly IReadOnlyList<ITool> _registered = Registered(tools, options);
+
+    public Task<CliToolSession> ProvisionAsync(CancellationToken ct = default) => HostAsync(_registered, ct);
+
+    public Task<CliToolSession> ProvisionAsync(CliToolRequest request, CancellationToken ct = default)
     {
-        var toolList = tools.ToList();
+        ArgumentNullException.ThrowIfNull(request);
+        return HostAsync(options.ToolsByConsumer.TryGetValue(request.Request.Consumer, out var names)
+            ? [.. _registered.Where(t => names.Contains(t.Name, StringComparer.Ordinal))]
+            : _registered, ct);
+    }
+
+    /// <summary>The registered tools, after refusing a <see cref="McpToolHostOptions.ToolsByConsumer"/> name none of
+    /// them has — a typo would otherwise host a smaller set than configured, silently.</summary>
+    private static IReadOnlyList<ITool> Registered(IEnumerable<ITool> tools, McpToolHostOptions options)
+    {
+        var list = tools.ToList();
+        var unknown = options.ToolsByConsumer.Values.SelectMany(n => n)
+            .Where(n => !list.Any(t => string.Equals(t.Name, n, StringComparison.Ordinal)))
+            .Distinct(StringComparer.Ordinal).ToList();
+        if (unknown.Count > 0)
+            throw new InvalidOperationException(
+                $"McpToolHostOptions.ToolsByConsumer names {string.Join(", ", unknown.Select(n => $"'{n}'"))}, which no "
+                + $"registered ITool has; registered: {string.Join(", ", list.Select(t => t.Name))}.");
+        return list;
+    }
+
+    private async Task<CliToolSession> HostAsync(IReadOnlyList<ITool> toolList, CancellationToken ct)
+    {
         if (toolList.Count == 0) return new CliToolSession([]);
 
         var token = Convert.ToHexString(RandomNumberGenerator.GetBytes(32)); // per-host bearer

@@ -9,5 +9,6 @@ sealed class Lyntai.Tools.Mcp.Hosting.McpToolHostOptions
     DefaultBindAddress : String const
     DefaultServerName : String const
     ServerName : String { get; set; }
+    ToolsByConsumer : Dictionary<String,IReadOnlyList<String>> { get; }
 static class Lyntai.Tools.Mcp.McpToolset
     static FromClientAsync(McpClient client, CancellationToken ct = default) : Task<IReadOnlyList<ITool>>
