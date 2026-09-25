@@ -2,6 +2,7 @@ using System.Text.Json;
 using Lyntai.Inference;
 using Lyntai.Inference.Budgeting;
 using Lyntai.Jobs;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Lyntai.Generation.Jobs;
 
@@ -52,9 +53,10 @@ public sealed record GenerationPipelineJobOptions
 /// a checkpointed operation.</param>
 /// <param name="sink">Where every stage's artifacts go, tagged with <see cref="GenerationArtifactDelivery.StageIndex"/>.</param>
 /// <param name="options">Poll cadence and the checkpoint's byte cap.</param>
-/// <param name="usage">Optional spend ledger for QUEUED stages, recorded after the fetch and before delivery. An
-/// inline stage is recorded by the router, and only when <c>AddMediaUsageBudget()</c> wraps it — never here, so
-/// it is never counted twice.</param>
+/// <param name="usage">Optional spend ledger for QUEUED stages, recorded after the fetch and before delivery. The
+/// container fills it only when <c>AddMediaUsageBudget()</c> is configured — the same gate the router's budget
+/// decorator is under, so a text-only budget never bills a render here. An inline stage is recorded by that
+/// decorator, never here, so it is never counted twice.</param>
 /// <param name="policy">The fallback policy the ROUTER applies, read to tell a refusal it surfaced from a door it
 /// exhausted — so pass the SAME <see cref="MediaRoutingPolicy"/> instance the router was built with. The container
 /// does this: <c>ConfigureMediaRouting</c> configures the one instance both receive. Null = the defaults, which is
@@ -65,7 +67,7 @@ public sealed class GenerationPipelineJobHandler(
     IEnumerable<IModelProvider> providers,
     IGenerationArtifactSink sink,
     GenerationPipelineJobOptions? options = null,
-    IUsageTracker? usage = null,
+    [FromKeyedServices(GenerationBuilderExtensions.MediaSpendKey)] IUsageTracker? usage = null,
     MediaRoutingPolicy? policy = null) : IJobHandler
 {
     /// <summary>The job type this handler serves.</summary>

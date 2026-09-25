@@ -77,10 +77,18 @@ public static class GenerationBuilderExtensions
     {
         configure?.Invoke(builder.Options.Budget);
         builder.Services.TryAddSingleton<IUsageTracker, InMemoryUsageTracker>();
-        builder.Services.TryAddSingleton<MediaBudgetGovernance>();
+        builder.Services.TryAddKeyedSingleton<IUsageTracker>(MediaSpendKey,
+            (sp, _) => sp.GetRequiredService<IUsageTracker>());
         EnsureRouter(builder);
         return builder;
     }
+
+    /// <summary>The key <see cref="AddMediaUsageBudget"/> registers the shared <see cref="IUsageTracker"/> under,
+    /// and the ONE gate every media door records through — the router's budget decorator, the durable job
+    /// handlers and <c>generate_fetch</c>. Absent, no door records a render: a text-only budget or a storage
+    /// package's usage tracking registers the tracker too, and must not bill queued renders while inline ones
+    /// go unbilled.</summary>
+    internal const string MediaSpendKey = "lyntai.media-spend";
 
     /// <summary>Throttle generation with a token-bucket limiter on its OWN rate
     /// (<see cref="MediaOptions.RateLimit"/> — not the chat one; see that property for why). Over the
@@ -131,14 +139,14 @@ public static class GenerationBuilderExtensions
 
         builder.Services.TryAddSingleton<IMediaRouterFactory>(sp =>
         {
-            var budgeted = sp.GetService<MediaBudgetGovernance>() is not null;
+            var spend = sp.GetKeyedService<IUsageTracker>(MediaSpendKey);
             return new MediaRouterFactory(
                 sp.GetRequiredService<IProviderPool<IModelProvider>>(),
                 sp.GetRequiredService<DeadHostTracker>(),
                 sp.GetService<MediaRoutingPolicy>(),
                 sp.GetService<MediaRateLimitGovernance>()?.Limiter,
-                budgeted ? sp.GetRequiredService<IUsageTracker>() : null,
-                budgeted ? sp.GetRequiredService<LyntaiOptions>() : null,
+                spend,
+                spend is null ? null : sp.GetRequiredService<LyntaiOptions>(),
                 sp.GetService<ILoggerFactory>(),
                 sp.GetService<IProviderAdmission>());
         });
@@ -199,7 +207,7 @@ public static class GenerationBuilderExtensions
         builder.Services.AddSingleton<Lyntai.Agents.ITool>(sp => new Lyntai.Generation.Tools.GenerationFetchTool(
             sp.GetServices<IModelProvider>(),
             sp.GetService<Lyntai.Generation.Jobs.IGenerationArtifactSink>(),
-            sp.GetService<Lyntai.Inference.Budgeting.IUsageTracker>()));
+            sp.GetKeyedService<IUsageTracker>(MediaSpendKey)));
         return builder;
     }
 
@@ -219,10 +227,6 @@ public static class GenerationBuilderExtensions
     /// instance regardless of call order.</summary>
     private static MediaRoutingPolicy RoutingPolicyFor(LyntaiBuilder builder) =>
         InstanceFor(builder, () => new MediaRoutingPolicy());
-
-    /// <summary>Marker: spend governance is configured. INTERNAL — it is wiring state, not a knob, and the
-    /// public surface should not grow a type whose only job is to exist.</summary>
-    internal sealed class MediaBudgetGovernance;
 
     /// <summary>Marker carrying the generation limiter — carried rather than registered as
     /// <see cref="IRateLimiter"/> so it can never be mistaken for (or overwrite) the chat limiter.</summary>

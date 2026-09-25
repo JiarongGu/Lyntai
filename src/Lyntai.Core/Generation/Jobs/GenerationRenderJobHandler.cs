@@ -2,6 +2,7 @@ using Lyntai.Inference;
 using System.Text.Json;
 using Lyntai.Jobs;
 using Lyntai.Inference.Budgeting;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Lyntai.Generation.Jobs;
 
@@ -37,14 +38,14 @@ public sealed record GenerationRenderJobOptions(TimeSpan? PollDelay = null)
 /// <param name="sink">Where finished artifacts go (the app's concern, D24).</param>
 /// <param name="options">Poll cadence.</param>
 /// <param name="usage">Optional spend ledger. A durable render's cost is only known when it FINISHES, and by
-/// then the request that submitted it is long gone — so the handler is the only place that can bill it. Wired
-/// automatically when <c>AddMediaUsageBudget()</c> is configured.</param>
+/// then the request that submitted it is long gone — so the handler is the only place that can bill it. The
+/// container fills it only when <c>AddMediaUsageBudget()</c> is configured.</param>
 public sealed class GenerationRenderJobHandler(
     IMediaRouter router,
     IEnumerable<IModelProvider> providers,
     IGenerationArtifactSink sink,
     GenerationRenderJobOptions? options = null,
-    IUsageTracker? usage = null) : IJobHandler
+    [FromKeyedServices(GenerationBuilderExtensions.MediaSpendKey)] IUsageTracker? usage = null) : IJobHandler
 {
     /// <summary>The job type this handler serves.</summary>
     public const string JobType = "lyntai.generation.render";

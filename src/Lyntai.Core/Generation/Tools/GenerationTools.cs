@@ -85,8 +85,12 @@ internal static class GenerationToolJson
     /// <paramref name="error"/> set when an argument is invalid. Unknown members become pass-through
     /// <see cref="MediaRequest.Options"/>, so a model can use a backend's own knobs (duration, aspect, voice)
     /// without Lyntai enumerating them.</summary>
+    /// <param name="root">The tool's arguments object.</param>
+    /// <param name="consumer">The billing tag — the host's, never read from the arguments.</param>
     /// <param name="defaultRole">The role <c>imageUrl</c> takes when the model names none — what the tool's
     /// medium implies.</param>
+    /// <param name="candidates">The backends the model named, in order; empty for the host's default.</param>
+    /// <param name="error">Why the arguments are invalid, when the result is null.</param>
     public static MediaRequest? ReadRequest(JsonElement root, string consumer, string defaultRole,
         out IReadOnlyList<string> candidates, out string? error)
     {
@@ -494,8 +498,9 @@ public sealed class GenerationStatusTool(IEnumerable<IModelProvider> providers) 
 /// them metered.</para></summary>
 /// <param name="providers">The registered backends; the tool resolves the one named in its arguments.</param>
 /// <param name="sink">Where artifacts are delivered, if the app registered one.</param>
-/// <param name="usage">Usage ledger (<see cref="Lyntai.Inference.Budgeting.IUsageTracker"/>). Null means no budget
-/// is configured and nothing is recorded — the same optionality the router's own budgeting has.</param>
+/// <param name="usage">Usage ledger (<see cref="Lyntai.Inference.Budgeting.IUsageTracker"/>). Null means nothing is
+/// recorded; <c>AddGenerationTools</c> passes one only when <c>AddMediaUsageBudget()</c> is configured, the gate
+/// the router's own budgeting is under.</param>
 /// <param name="consumer">Whose spend this is, defaulting to the same <c>"agent"</c> tag its sibling tools
 /// use, so one <c>Budget.PerConsumer["agent"]</c> entry binds every agent-driven render regardless of which
 /// delivery mode produced it.</param>
