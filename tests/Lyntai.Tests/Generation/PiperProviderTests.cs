@@ -9,20 +9,25 @@ namespace Lyntai.Tests.Generation;
 /// <see cref="IProcessRunner.StreamBytesAsync"/> exists: raw PCM is binary, and a line-shaped read would
 /// treat 0x0A as framing. Driven through the BYO <see cref="IProcessRunner"/>, so no binary is spawned
 /// here; <c>PiperLiveTests</c> is what runs the real engine.</summary>
-public class PiperProviderTests
+public class PiperProviderTests : IDisposable
 {
-    private static (PiperProvider Provider, FakeProcessRunner Runner, string Dir) Provider(
+    private readonly List<ScratchDir> _scratch = [];
+
+    public void Dispose() => _scratch.ForEach(s => s.Dispose());
+
+    private (PiperProvider Provider, FakeProcessRunner Runner, string Dir) Provider(
         Action<PiperOptions>? configure = null, bool createFiles = true, string? voiceJson = null)
     {
-        var dir = Path.Combine(TestPaths.TestScratchDir, $"piper-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(dir);
-        var exe = Path.Combine(dir, "piper.exe");
-        var model = Path.Combine(dir, "voice.onnx");
+        var scratch = new ScratchDir("piper");
+        _scratch.Add(scratch);
+        var dir = scratch.Path;
+        var exe = scratch.Combine("piper.exe");
+        var model = scratch.Combine("voice.onnx");
         if (createFiles)
         {
-            File.WriteAllText(exe, "");
-            File.WriteAllText(model, "");
-            if (voiceJson is not null) File.WriteAllText(model + ".json", voiceJson);
+            scratch.File("piper.exe");
+            scratch.File("voice.onnx");
+            if (voiceJson is not null) scratch.File("voice.onnx.json", voiceJson);
         }
 
         var options = new PiperOptions { BinaryPath = exe, ModelPath = model };

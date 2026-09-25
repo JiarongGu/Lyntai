@@ -178,25 +178,23 @@ public class CrossEncoderShapeDeclarationTests
 /// that silently stops being verified.</summary>
 public class OnnxCrossEncoderCompositionTests : IDisposable
 {
-    private readonly string _dir = Directory.CreateTempSubdirectory("lyntai-onnx-ce-").FullName;
+    private readonly ScratchDir _scratch = new("onnx-ce");
 
-    public void Dispose()
-    {
-        try { Directory.Delete(_dir, recursive: true); } catch (IOException) { /* a temp dir is not worth failing a run */ }
-        GC.SuppressFinalize(this);
-    }
+    private string Dir => _scratch.Path;
+
+    public void Dispose() => _scratch.Dispose();
 
     [Fact]
     public void A_MISSING_directory_says_so_rather_than_null_referencing()
     {
         Assert.Throws<DirectoryNotFoundException>(
-            () => OnnxProvider.FromDirectory(Path.Combine(_dir, "nope")));
+            () => OnnxProvider.FromDirectory(Path.Combine(Dir, "nope")));
     }
 
     [Fact]
     public void No_GRAPH_names_both_layouts_it_looked_for()
     {
-        var error = Assert.Throws<FileNotFoundException>(() => OnnxProvider.FromDirectory(_dir));
+        var error = Assert.Throws<FileNotFoundException>(() => OnnxProvider.FromDirectory(Dir));
 
         Assert.Contains("onnx/model.onnx", error.Message, StringComparison.Ordinal);
     }
@@ -204,10 +202,10 @@ public class OnnxCrossEncoderCompositionTests : IDisposable
     [Fact]
     public void A_graph_WITHOUT_a_vocabulary_fails_on_the_vocabulary()
     {
-        Directory.CreateDirectory(Path.Combine(_dir, "onnx"));
-        File.WriteAllText(Path.Combine(_dir, "onnx", "model.onnx"), "not really a graph");
+        Directory.CreateDirectory(Path.Combine(Dir, "onnx"));
+        File.WriteAllText(Path.Combine(Dir, "onnx", "model.onnx"), "not really a graph");
 
-        var error = Assert.Throws<FileNotFoundException>(() => OnnxProvider.FromDirectory(_dir));
+        var error = Assert.Throws<FileNotFoundException>(() => OnnxProvider.FromDirectory(Dir));
 
         Assert.Contains("vocab.txt", error.Message, StringComparison.Ordinal);
     }

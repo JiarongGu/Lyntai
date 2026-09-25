@@ -144,12 +144,10 @@ public class GenerationProviderWiringTests
     {
         // the sd-cli backend spawns rather than calls, so its seam is IProcessRunner — a shim that newed up a
         // ProcessRunner would silently bypass a host's audited/sandboxed one
-        var dir = Path.Combine(TestPaths.TestScratchDir, $"sd-wiring-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(dir);
-        var exe = Path.Combine(dir, "sd-cli.exe");
-        var model = Path.Combine(dir, "sd15.gguf");
-        File.WriteAllText(exe, "");
-        File.WriteAllText(model, "");
+        using var scratch = new ScratchDir("sd-wiring");
+        var dir = scratch.Path;
+        var exe = scratch.File("sd-cli.exe");
+        var model = scratch.File("sd15.gguf");
 
         var runner = new FakeProcessRunner();
         var services = new ServiceCollection();

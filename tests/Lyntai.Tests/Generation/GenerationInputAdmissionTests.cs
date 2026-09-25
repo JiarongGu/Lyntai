@@ -10,8 +10,12 @@ namespace Lyntai.Tests.Generation;
 /// source image, as the init image. <c>SupportsInputs</c> makes the router hand them any input-carrying request,
 /// so an input they cannot place must be REFUSED (<see cref="ProviderVerdict.Unsupported"/>, nothing sent), never
 /// used as the init image or dropped: a second input, or one in a role other than init.</summary>
-public class GenerationInputAdmissionTests
+public class GenerationInputAdmissionTests : IDisposable
 {
+    private readonly ScratchDir _scratch = new("sd-admission");
+
+    public void Dispose() => _scratch.Dispose();
+
     private static readonly byte[] Png = [0x89, 0x50, 0x4E, 0x47];
 
     private static MediaRequest Ask(params MediaInput[] inputs) =>
@@ -19,7 +23,7 @@ public class GenerationInputAdmissionTests
 
     public static TheoryData<string> Backends => ["openai", "a1111", "sd-cli"];
 
-    private static (IModelProvider Provider, Func<int> Calls) New(string backend)
+    private (IModelProvider Provider, Func<int> Calls) New(string backend)
     {
         var http = new StubHttpHandler();
         http.Enqueue(HttpStatusCode.OK, """{"data":[{"b64_json":"iVBORw=="}],"images":["iVBORw=="]}""");
@@ -32,12 +36,9 @@ public class GenerationInputAdmissionTests
                 return (new Automatic1111Provider(new Automatic1111Options(),
                     () => new HttpClient(http, disposeHandler: false)), () => http.Requests.Count);
             default:
-                var dir = Path.Combine(TestPaths.TestScratchDir, $"sd-admission-{Guid.NewGuid():N}");
-                Directory.CreateDirectory(dir);
-                var exe = Path.Combine(dir, "sd-cli.exe");
-                var model = Path.Combine(dir, "sd15.gguf");
-                File.WriteAllText(exe, "");
-                File.WriteAllText(model, "");
+                var dir = _scratch.Path;
+                var exe = _scratch.File("sd-cli.exe");
+                var model = _scratch.File("sd15.gguf");
                 var runner = new FakeProcessRunner();
                 return (new LocalDiffusionProvider(
                     new LocalDiffusionOptions { BinaryPath = exe, ModelPath = model, WorkDirectory = dir }, runner),

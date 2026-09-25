@@ -70,22 +70,15 @@ public class ProcessRunnerTests
         // Prints nothing and hangs — but self-exits at 60s, because an ORPHANED child inherits the test
         // host's console handles and wedges the whole runner past the test's own failure (measured: the
         // RED run of this very test hung `dotnet test` until the stray node was killed by hand).
-        var script = Path.Combine(Path.GetTempPath(), $"lyntai-hanging-locator-{Guid.NewGuid():N}.js");
-        await File.WriteAllTextAsync(script, "setTimeout(() => process.exit(0), 60000);");
-        try
-        {
-            var run = Task.Run(() => ProcessRunner.RunLocator("node", script));
+        using var scratch = new ScratchDir("hanging-locator");
+        var script = scratch.File("locator.js", "setTimeout(() => process.exit(0), 60000);");
+        var run = Task.Run(() => ProcessRunner.RunLocator("node", script));
 
-            // Bounded wait so a regression FAILS here instead of hanging the suite (pitfalls.md §Testing).
-            var done = await Task.WhenAny(run, Task.Delay(TimeSpan.FromSeconds(30)));
+        // Bounded wait so a regression FAILS here instead of hanging the suite (pitfalls.md §Testing).
+        var done = await Task.WhenAny(run, Task.Delay(TimeSpan.FromSeconds(30)));
 
-            Assert.Same(run, done);   // the 5s locator bound fired; the call came back
-            Assert.Null(await run);   // and a locator that answered nothing resolves to null
-        }
-        finally
-        {
-            File.Delete(script);
-        }
+        Assert.Same(run, done);   // the 5s locator bound fired; the call came back
+        Assert.Null(await run);   // and a locator that answered nothing resolves to null
     }
 
     [Fact]
@@ -394,8 +387,8 @@ public class ProcessRunnerTests
     [Fact]
     public async Task Abandoning_the_stream_kills_the_child_process()
     {
-        var heartbeat = Path.Combine(TestPaths.TestDbsDir, $"heartbeat-{Guid.NewGuid():N}.txt");
-        try
+        using var scratch = new ScratchDir("heartbeat");
+        var heartbeat = scratch.Combine("heartbeat.txt");
         {
             // child appends a heartbeat every 100ms forever; the enumerator is abandoned after
             // the first line — the child must die with it, not keep generating in the background
@@ -421,10 +414,6 @@ public class ProcessRunnerTests
                 stableWindows = size == last ? stableWindows + 1 : 0;
                 last = size;
             }
-        }
-        finally
-        {
-            try { File.Delete(heartbeat); } catch { }
         }
     }
 

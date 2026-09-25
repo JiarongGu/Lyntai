@@ -1,5 +1,6 @@
 using System.Text;
 using Microsoft.ML.Tokenizers;
+using Lyntai.Tests.Fakes;
 
 // Microsoft.ML.Tokenizers ships a WordPieceTokenizer of its own, so the type under test is aliased rather
 // than imported. BertTokenizer, not that type, is the reference: it runs the FULL pipeline (clean, CJK,
@@ -403,19 +404,17 @@ public class WordPieceEncodeTests
 /// the model instead of from the caller's guess.</summary>
 public class WordPieceTokenizerFromModelDirectoryTests : IDisposable
 {
-    private readonly string _dir = Directory.CreateTempSubdirectory("lyntai-wordpiece-").FullName;
+    private readonly ScratchDir _scratch = new("wordpiece");
 
-    public void Dispose()
-    {
-        try { Directory.Delete(_dir, recursive: true); } catch (IOException) { /* a temp dir is not worth failing a run */ }
-        GC.SuppressFinalize(this);
-    }
+    private string Dir => _scratch.Path;
+
+    public void Dispose() => _scratch.Dispose();
 
     private string WriteVocabulary(params string[] words)
     {
-        File.WriteAllLines(Path.Combine(_dir, "vocab.txt"),
+        File.WriteAllLines(Path.Combine(Dir, "vocab.txt"),
             ["[PAD]", "[UNK]", "[CLS]", "[SEP]", "[MASK]", .. words]);
-        return _dir;
+        return Dir;
     }
 
     [Fact]
@@ -424,9 +423,9 @@ public class WordPieceTokenizerFromModelDirectoryTests : IDisposable
         // do_lower_case: false is the discriminating case — under the default it would match, so a
         // tokenizer that ignored the config would pass a test written with the default.
         WriteVocabulary("alpha");
-        File.WriteAllText(Path.Combine(_dir, "tokenizer_config.json"), "{\"do_lower_case\": false}");
+        File.WriteAllText(Path.Combine(Dir, "tokenizer_config.json"), "{\"do_lower_case\": false}");
 
-        var tokenizer = WordPieceTokenizer.FromModelDirectory(_dir);
+        var tokenizer = WordPieceTokenizer.FromModelDirectory(Dir);
 
         Assert.Equal([5], tokenizer.EncodeToIds("alpha"));
         Assert.Equal([1], tokenizer.EncodeToIds("ALPHA"));
@@ -444,7 +443,7 @@ public class WordPieceTokenizerFromModelDirectoryTests : IDisposable
     [Fact]
     public void A_missing_vocabulary_names_the_file_rather_than_null_referencing()
     {
-        var error = Assert.Throws<FileNotFoundException>(() => WordPieceTokenizer.FromModelDirectory(_dir));
+        var error = Assert.Throws<FileNotFoundException>(() => WordPieceTokenizer.FromModelDirectory(Dir));
 
         Assert.Contains("vocab.txt", error.Message, StringComparison.Ordinal);
     }

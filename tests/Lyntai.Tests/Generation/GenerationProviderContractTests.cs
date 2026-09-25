@@ -223,19 +223,20 @@ public class FalProviderContractTests : HttpGenerationProviderContractFacts
 
 /// <summary>The subprocess backend. It takes the universal facts only — it speaks no HTTP, so a 401 has no
 /// meaning for it and asserting one would be a fact that cannot fail.</summary>
-public class LocalDiffusionProviderContractTests : GenerationProviderContractFacts
+public class LocalDiffusionProviderContractTests : GenerationProviderContractFacts, IDisposable
 {
+    private readonly ScratchDir _scratch = new("sd-contract");
+
+    public void Dispose() => _scratch.Dispose();
+
     protected override IModelProvider New(StubHttpHandler http)
     {
-        var dir = Path.Combine(TestPaths.TestScratchDir, $"sd-contract-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(dir);
-        var exe = Path.Combine(dir, "sd-cli.exe");
-        var model = Path.Combine(dir, "sd15.gguf");
-        File.WriteAllText(exe, "");
-        File.WriteAllText(model, "");
-
         return new LocalDiffusionProvider(
-            new LocalDiffusionOptions { BinaryPath = exe, ModelPath = model, WorkDirectory = dir },
+            new LocalDiffusionOptions
+            {
+                BinaryPath = _scratch.File("sd-cli.exe"), ModelPath = _scratch.File("sd15.gguf"),
+                WorkDirectory = _scratch.Path,
+            },
             new FakeProcessRunner());
     }
 

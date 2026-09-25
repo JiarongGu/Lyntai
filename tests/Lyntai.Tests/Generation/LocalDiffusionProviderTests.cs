@@ -14,20 +14,20 @@ namespace Lyntai.Tests.Generation;
 /// <see cref="LocalDiffusionLiveTests"/> is the measurement, and these exact-argv assertions pin its result:
 /// if a future edit drifts from the shape that engine accepted, these fail rather than a user's render
 /// failing.</summary>
-public class LocalDiffusionProviderTests
+public class LocalDiffusionProviderTests : IDisposable
 {
-    private static (LocalDiffusionProvider Provider, FakeProcessRunner Runner, string Dir) Provider(
+    private readonly List<ScratchDir> _scratch = [];
+
+    public void Dispose() => _scratch.ForEach(s => s.Dispose());
+
+    private (LocalDiffusionProvider Provider, FakeProcessRunner Runner, string Dir) Provider(
         Action<LocalDiffusionOptions>? configure = null, bool createFiles = true)
     {
-        var dir = Path.Combine(TestPaths.TestScratchDir, $"sd-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(dir);
-        var exe = Path.Combine(dir, "sd-cli.exe");
-        var model = Path.Combine(dir, "sd15.gguf");
-        if (createFiles)
-        {
-            File.WriteAllText(exe, "");
-            File.WriteAllText(model, "");
-        }
+        var scratch = new ScratchDir("sd");
+        _scratch.Add(scratch);
+        var dir = scratch.Path;
+        var exe = createFiles ? scratch.File("sd-cli.exe") : scratch.Combine("sd-cli.exe");
+        var model = createFiles ? scratch.File("sd15.gguf") : scratch.Combine("sd15.gguf");
 
         var options = new LocalDiffusionOptions { BinaryPath = exe, ModelPath = model, WorkDirectory = dir };
         configure?.Invoke(options);

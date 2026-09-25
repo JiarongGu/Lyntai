@@ -64,17 +64,15 @@ public class VectorPoolingTests
 /// property of how the model was TRAINED, so guessing returns plausible vectors that rank wrongly.</summary>
 public class SentenceTransformerConfigTests : IDisposable
 {
-    private readonly string _dir = Directory.CreateTempSubdirectory("lyntai-onnx-cfg-").FullName;
+    private readonly ScratchDir _scratch = new("onnx-cfg");
 
-    public void Dispose()
-    {
-        try { Directory.Delete(_dir, recursive: true); } catch (IOException) { /* a temp dir is not worth failing a run */ }
-        GC.SuppressFinalize(this);
-    }
+    private string Dir => _scratch.Path;
+
+    public void Dispose() => _scratch.Dispose();
 
     private void Write(string relative, string json)
     {
-        var path = Path.Combine(_dir, relative);
+        var path = Path.Combine(Dir, relative);
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllText(path, json);
     }
@@ -84,7 +82,7 @@ public class SentenceTransformerConfigTests : IDisposable
     {
         Write("1_Pooling/config.json", "{\"pooling_mode_cls_token\": false, \"pooling_mode_mean_tokens\": true}");
 
-        Assert.Equal(OnnxPooling.Mean, SentenceTransformerConfig.FromDirectory(_dir).Pooling);
+        Assert.Equal(OnnxPooling.Mean, SentenceTransformerConfig.FromDirectory(Dir).Pooling);
     }
 
     [Fact]
@@ -92,7 +90,7 @@ public class SentenceTransformerConfigTests : IDisposable
     {
         Write("1_Pooling/config.json", "{\"pooling_mode_cls_token\": true, \"pooling_mode_mean_tokens\": false}");
 
-        Assert.Equal(OnnxPooling.Cls, SentenceTransformerConfig.FromDirectory(_dir).Pooling);
+        Assert.Equal(OnnxPooling.Cls, SentenceTransformerConfig.FromDirectory(Dir).Pooling);
     }
 
     [Fact]
@@ -102,19 +100,19 @@ public class SentenceTransformerConfigTests : IDisposable
         // safe reading: it is the class default, and picking CLS on a mean-trained model is the worse error.
         Write("1_Pooling/config.json", "{\"pooling_mode_cls_token\": true, \"pooling_mode_mean_tokens\": true}");
 
-        Assert.Equal(OnnxPooling.Mean, SentenceTransformerConfig.FromDirectory(_dir).Pooling);
+        Assert.Equal(OnnxPooling.Mean, SentenceTransformerConfig.FromDirectory(Dir).Pooling);
     }
 
     [Fact]
     public void Normalizes_only_when_modules_json_lists_a_Normalize_step()
     {
         Write("modules.json", "[{\"type\": \"sentence_transformers.models.Transformer\"}]");
-        Assert.False(SentenceTransformerConfig.FromDirectory(_dir).Normalize);
+        Assert.False(SentenceTransformerConfig.FromDirectory(Dir).Normalize);
 
         Write("modules.json",
             "[{\"type\": \"sentence_transformers.models.Transformer\"},"
             + "{\"type\": \"sentence_transformers.models.Normalize\"}]");
-        Assert.True(SentenceTransformerConfig.FromDirectory(_dir).Normalize);
+        Assert.True(SentenceTransformerConfig.FromDirectory(Dir).Normalize);
     }
 
     [Fact]
@@ -126,13 +124,13 @@ public class SentenceTransformerConfigTests : IDisposable
         Write("config.json", "{\"max_position_embeddings\": 512}");
         Write("tokenizer_config.json", "{\"model_max_length\": 1000000}");
 
-        Assert.Equal(512, SentenceTransformerConfig.FromDirectory(_dir).MaxTokens);
+        Assert.Equal(512, SentenceTransformerConfig.FromDirectory(Dir).MaxTokens);
     }
 
     [Fact]
     public void An_EMPTY_directory_reads_as_the_sentence_transformers_defaults()
     {
-        var config = SentenceTransformerConfig.FromDirectory(_dir);
+        var config = SentenceTransformerConfig.FromDirectory(Dir);
 
         Assert.Equal(OnnxPooling.Mean, config.Pooling);
         Assert.False(config.Normalize);
@@ -143,25 +141,23 @@ public class SentenceTransformerConfigTests : IDisposable
 /// <summary>Composition failures — the ones a partial download actually produces.</summary>
 public class OnnxProviderCompositionTests : IDisposable
 {
-    private readonly string _dir = Directory.CreateTempSubdirectory("lyntai-onnx-").FullName;
+    private readonly ScratchDir _scratch = new("onnx");
 
-    public void Dispose()
-    {
-        try { Directory.Delete(_dir, recursive: true); } catch (IOException) { /* a temp dir is not worth failing a run */ }
-        GC.SuppressFinalize(this);
-    }
+    private string Dir => _scratch.Path;
+
+    public void Dispose() => _scratch.Dispose();
 
     [Fact]
     public void A_MISSING_directory_says_so_rather_than_null_referencing()
     {
         Assert.Throws<DirectoryNotFoundException>(
-            () => OnnxProvider.FromDirectory(Path.Combine(_dir, "nope")));
+            () => OnnxProvider.FromDirectory(Path.Combine(Dir, "nope")));
     }
 
     [Fact]
     public void No_GRAPH_names_both_layouts_it_looked_for()
     {
-        var error = Assert.Throws<FileNotFoundException>(() => OnnxProvider.FromDirectory(_dir));
+        var error = Assert.Throws<FileNotFoundException>(() => OnnxProvider.FromDirectory(Dir));
 
         Assert.Contains("onnx/model.onnx", error.Message, StringComparison.Ordinal);
     }
@@ -170,7 +166,7 @@ public class OnnxProviderCompositionTests : IDisposable
     public void An_EXPLICIT_model_file_that_is_absent_names_that_file_not_the_default()
     {
         var error = Assert.Throws<FileNotFoundException>(
-            () => OnnxProvider.FromDirectory(_dir, new OnnxProviderOptions { ModelFile = "onnx/model_qint8.onnx" }));
+            () => OnnxProvider.FromDirectory(Dir, new OnnxProviderOptions { ModelFile = "onnx/model_qint8.onnx" }));
 
         Assert.Contains("model_qint8.onnx", error.Message, StringComparison.Ordinal);
     }
@@ -180,10 +176,10 @@ public class OnnxProviderCompositionTests : IDisposable
     {
         // Ordering matters: the graph is found, so the next missing piece must be named rather than
         // surfacing as a null reference inside the tokenizer.
-        Directory.CreateDirectory(Path.Combine(_dir, "onnx"));
-        File.WriteAllText(Path.Combine(_dir, "onnx", "model.onnx"), "not really a graph");
+        Directory.CreateDirectory(Path.Combine(Dir, "onnx"));
+        File.WriteAllText(Path.Combine(Dir, "onnx", "model.onnx"), "not really a graph");
 
-        var error = Assert.Throws<FileNotFoundException>(() => OnnxProvider.FromDirectory(_dir));
+        var error = Assert.Throws<FileNotFoundException>(() => OnnxProvider.FromDirectory(Dir));
 
         Assert.Contains("vocab.txt", error.Message, StringComparison.Ordinal);
     }
