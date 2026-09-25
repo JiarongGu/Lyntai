@@ -422,18 +422,12 @@ public class GraphMemoryWiringTests
     [Fact]
     public void A_registered_MultiplicativeRankingOptions_reaches_an_explicitly_restored_MultiplicativeRankingPolicy()
     {
-        // MultiplicativeRankingPolicy is no longer the DI DEFAULT as of 3.0 — drift-ok: names the retired
-        // default deliberately. ReciprocalRankFusionPolicy is; see MemoryEngineRegistration's own remarks.
-        // This fact used to prove
-        // a registered MultiplicativeRankingOptions reached the (then-default) policy with NOTHING else
-        // registered; that shape went from "discriminating" to "silently wrong" the moment the default
-        // changed — registering ONLY the options record now reaches nothing at all, since the default
-        // policy (RRF) does not read MultiplicativeRankingOptions. Restructured into the regression test for
-        // the DOCUMENTED RESTORE PATH instead (mirrors how A_registered_DsrRetrievability_is_what_the_engine_
-        // actually_uses stopped being an override-precedence test the moment DsrRetrievability became
-        // default, and was kept as a plumbing-correctness test in its own right): a consumer who wants
-        // Multiplicative back registers it via the OPTIONS-aware factory shape below — the one-line restore —
-        // and this proves that shape still reaches Multiplicative's own arithmetic correctly.
+        // MultiplicativeRankingPolicy is not the DI DEFAULT — drift-ok: names the retired default
+        // deliberately. ReciprocalRankFusionPolicy is; see MemoryEngineRegistration's own remarks. Registering
+        // ONLY the options record reaches nothing, since the default policy does not read
+        // MultiplicativeRankingOptions — so this is the regression test for the DOCUMENTED RESTORE PATH: a
+        // consumer who wants Multiplicative back registers it via the OPTIONS-aware factory shape below, and
+        // this proves that shape still reaches Multiplicative's own arithmetic correctly.
         //
         // MultiplicativeRankingPolicy exposes no public reader for its own options (by design — see the
         // class doc on why a policy's score scale is its own business), so this proves the option reached
@@ -570,47 +564,10 @@ public class GraphMemoryWiringTests
         return (item, state);
     }
 
-    [Fact]
-    public async Task A_registered_DsrRetrievability_is_what_the_engine_actually_uses()
-    {
-        // The whole promise of the seam: swapping the forgetting model is a registration, not a fork.
-        //
-        // The threshold here is NOT a hardcoded age — it is the entry's own MemoryDecayState, read back
-        // from the store, so DsrRetrievability is evaluated at the SAME state the engine actually produced.
-        // A fixed constant (e.g. comparing against a hand-picked MemoryDecayState(60, 0, 20)) would be a
-        // statement about one arbitrary age, not about which policy the engine is using — and matching to 12
-        // decimal places (below) is itself strong enough evidence that the engine evaluated this exact
-        // formula: a different formula agreeing with DSR to 1e-12 at an arbitrary state would be a
-        // coincidence with no plausible cause.
-        var services = new ServiceCollection();
-        services.AddSingleton<IMemoryStore>(new FakeMemoryStore());
-        var store = new InMemoryMemoryGraphStore();
-        services.AddSingleton<IMemoryGraphStore>(store);
-        services.AddSingleton<IMemoryAgePolicy>(new PerWriteAgePolicy());
-        services.AddSingleton<IMemoryRetrievabilityPolicy>(new DsrRetrievability());
-        services.AddLyntai(b =>
-        {
-            b.AddProvider(_ => new FakeTextProvider("p"));
-            b.AddMemoryEngine("m", e => e.UseGraph());
-        });
-        using var sp = services.BuildServiceProvider();
-
-        var (item, state) = await RecallAFactAfterInterference(
-            sp.GetRequiredService<IMemoryEngineFactory>(), store, "m");
-
-        var dsr = new DsrRetrievability().Retrievability(state);
-
-        // proves the engine actually EVALUATED the registered policy, not merely that recall still works:
-        // what the engine reported must match DSR evaluated at the SAME state, bit for bit.
-        Assert.Equal(dsr, item.Retrievability, 12);
-    }
-
     /// <summary>A distinguishable, test-only stand-in for "a consumer's own, non-default retrievability
-    /// policy" — replaces the deleted <c>HalfLifeRetrievability</c> (<c>docs/DECISIONS.md</c> D49) as the
-    /// NON-default this fact needs to prove a consumer's own registration wins, without resurrecting a
-    /// shipped curve's own arithmetic (2026-08-10, fsrs-properly plan Task 1). Ignoring the state entirely
-    /// and returning a fixed value is deliberate: nothing about this fact depends on the fake's own curve
-    /// SHAPE, only on its output being unmistakably not whatever DSR would compute.</summary>
+    /// policy". Ignoring the state entirely and returning a fixed value is deliberate: nothing about the fact
+    /// below depends on the fake's curve SHAPE, only on its output being unmistakably not whatever DSR would
+    /// compute.</summary>
     private sealed class ConstantRetrievability(double value) : IMemoryRetrievabilityPolicy
     {
         public double InitialStability => 20;
@@ -664,11 +621,13 @@ public class GraphMemoryWiringTests
     [Fact]
     public async Task The_zero_configuration_default_is_DsrRetrievability()
     {
-        // C1 (fix round, 2026-08-10): the whole behaviour change D49 ships — DsrRetrievability becoming the
-        // REGISTERED default — had no coverage. Every existing fact in this file either registered Dsr
-        // explicitly (which now passes whether or not the registration mattered, since Dsr is the default
-        // either way) or bypassed DI entirely. This is the one fact that registers NOTHING for
-        // IMemoryRetrievabilityPolicy and checks what a consumer who configures nothing actually gets.
+        // D49: DsrRetrievability is the REGISTERED default. This registers NOTHING for
+        // IMemoryRetrievabilityPolicy and checks what a consumer who configures nothing actually gets —
+        // registering Dsr explicitly would pass whether or not the registration mattered.
+        //
+        // The comparison is against the entry's own MemoryDecayState read back from the store, so DSR is
+        // evaluated at the SAME state the engine produced: a different formula agreeing to 1e-12 at that
+        // state would be a coincidence with no plausible cause.
         var services = new ServiceCollection();
         services.AddSingleton<IMemoryStore>(new FakeMemoryStore());
         var store = new InMemoryMemoryGraphStore();

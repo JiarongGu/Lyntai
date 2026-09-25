@@ -83,23 +83,28 @@ public class MemoryGraphStoreCoverageTests
     [Fact]
     public void Every_SHIPPED_graph_store_has_a_suite_in_the_list_above()
     {
-        // Closes the one hole the list above cannot close by itself. Driving the three known backends from
-        // a shared source makes a missing FACT impossible; it does nothing about a missing BACKEND — a
-        // fourth store could ship with no contract suite at all and every check here would stay green,
-        // which is the same defect one level up.
+        // Closes the one hole the list above cannot close by itself. Driving every known backend from a
+        // shared source makes a missing FACT impossible; it does nothing about a missing BACKEND — a new
+        // store could ship with no contract suite at all and every check here would stay green, which is the
+        // same defect one level up.
         //
-        // So the list is checked against the tree rather than trusted: every concrete IMemoryGraphStore a
-        // Lyntai package ships must be named by one of the suites. Adding a backend therefore fails this
-        // until its suite exists, which is the point.
-        var shipped = new[]
-        {
-            typeof(Lyntai.Storage.InMemory.InMemoryMemoryGraphStore).Assembly,
-            typeof(Lyntai.Storage.Sqlite.SqliteMemoryGraphStore).Assembly,
-            typeof(Lyntai.Storage.Postgres.PostgresMemoryGraphStore).Assembly,
-            typeof(IMemoryGraphStore).Assembly,
-        }
+        // So the list is checked against the build output rather than trusted: EVERY Lyntai assembly beside
+        // this test assembly is scanned — a hand list of assemblies would be the same hole again, blind to a
+        // store shipped from a new package — and every concrete IMemoryGraphStore in them must be named by
+        // one of the suites. Adding a backend therefore fails this until its suite exists, which is the point.
+        var scanned = Directory.EnumerateFiles(AppContext.BaseDirectory, "Lyntai*.dll")
+            .Where(path => !Path.GetFileName(path).StartsWith("Lyntai.Tests", StringComparison.Ordinal))
+            .Select(path => Assembly.Load(AssemblyName.GetAssemblyName(path)))
             .Distinct()
-            .SelectMany(a => a.GetTypes())
+            .ToArray();
+
+        // the scan really reaches the packages, or an empty result below would be vacuously green
+        Assert.Contains(typeof(Lyntai.Storage.Sqlite.SqliteMemoryGraphStore).Assembly, scanned);
+        Assert.Contains(typeof(Lyntai.Storage.Postgres.PostgresMemoryGraphStore).Assembly, scanned);
+        Assert.Contains(typeof(Lyntai.Storage.InMemory.InMemoryMemoryGraphStore).Assembly, scanned);
+
+        var shipped = scanned
+            .SelectMany(LoadableTypes)
             .Where(t => t is { IsClass: true, IsAbstract: false } && typeof(IMemoryGraphStore).IsAssignableFrom(t))
             .Select(t => t.Name)
             .OrderBy(n => n, StringComparer.Ordinal)
@@ -116,6 +121,13 @@ public class MemoryGraphStoreCoverageTests
             Assert.True(suiteNames.Contains(prefix, StringComparison.Ordinal),
                 $"{store} ships but no suite in {nameof(Backends)} covers it — add one driven from "
                 + $"{nameof(MemoryGraphStoreFacts)}.{nameof(MemoryGraphStoreFacts.Names)}, then list it here.");
+        }
+
+        // a package whose optional dependency is absent still has its OTHER types scanned
+        static IEnumerable<Type> LoadableTypes(Assembly assembly)
+        {
+            try { return assembly.GetTypes(); }
+            catch (ReflectionTypeLoadException ex) { return ex.Types.OfType<Type>(); }
         }
     }
 

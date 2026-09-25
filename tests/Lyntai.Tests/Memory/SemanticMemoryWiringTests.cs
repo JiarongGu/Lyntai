@@ -31,6 +31,7 @@ public sealed class SemanticMemoryWiringTests : IDisposable
 
         var mem = sp.GetRequiredService<ISemanticMemory>();
         await mem.RememberAsync("t", "s", "cancel subscription anytime");
+        await mem.RememberAsync("t", "s", "pizza menu today");   // the distractor k: 1 must leave out
         var hits = await mem.RecallAsync("t", "s", "how to cancel", k: 1);
 
         Assert.Single(hits);
@@ -192,7 +193,7 @@ public sealed class SemanticMemoryWiringTests : IDisposable
     [Fact]
     public void A_host_registered_vector_store_still_wins()
     {
-        var mine = new CountingVectorStore();
+        var mine = new NoOpVectorStore();
         var services = new ServiceCollection();
         services.AddSingleton<IVectorStore>(mine);
         services.AddLyntai(b => b.AddProvider(_ => new FakeTextProvider("p")).AddProvider(_ => new FakeVectorProvider(), FakeVectorProvider.Declared).AddSemanticMemory());
@@ -237,7 +238,7 @@ public sealed class SemanticMemoryWiringTests : IDisposable
             _inner.EmbedAsync(texts, ct);
     }
 
-    private sealed class CountingVectorStore : IVectorStore
+    private sealed class NoOpVectorStore : IVectorStore
     {
         public Task UpsertAsync(string collection, string id, float[] vector, string payload, CancellationToken ct = default) => Task.CompletedTask;
         public Task<IReadOnlyList<VectorMatch>> SearchAsync(string collection, float[] query, int k, CancellationToken ct = default) =>

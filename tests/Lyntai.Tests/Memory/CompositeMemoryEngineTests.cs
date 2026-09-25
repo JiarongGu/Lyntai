@@ -298,7 +298,8 @@ public class CompositeMemoryEngineTests
     // The distinction the composite now draws: a member that CANNOT remove is a gap and refuses the whole
     // verb; a member that declares its content OPERATOR-authored is out of scope and is skipped. Collapsing
     // them would turn every gap into a silent partial, which is what D63 was written about — so both
-    // directions are pinned here.
+    // directions are pinned: the gap that still refuses is A_blend_with_ONE_member_that_cannot_remove_…
+    // above (skipping is earned by DECLARING content operator-authored, never by lacking the capability).
 
     private static RecordingEngine Glossary(string name = "project/glossary") =>
         new(name, MemoryGrades.Authoritative);
@@ -320,22 +321,6 @@ public class CompositeMemoryEngineTests
     }
 
     [Fact]
-    public async Task A_member_that_holds_user_content_and_cannot_remove_STILL_refuses()
-    {
-        // The other direction, and the one that must not regress: skipping is earned by DECLARING the
-        // content operator-authored, never by failing to implement the capability.
-        var graph = new ForgettableEngine("project/graph", pruneCount: 4);
-        var gap = new RecordingEngine("project/gap", MemoryGrades.Associative);   // in scope by default
-        var engine = Composite(gap, graph);
-
-        var ex = await Assert.ThrowsAsync<NotSupportedException>(
-            () => Assert.IsAssignableFrom<IForgettableMemory>(engine).ForgetAsync("t", "s"));
-
-        Assert.Contains("project/gap", ex.Message, StringComparison.Ordinal);
-        Assert.Empty(graph.Forgets);   // still checked BEFORE anything is removed
-    }
-
-    [Fact]
     public async Task A_blend_of_ONLY_operator_authored_members_removes_nothing_and_does_not_throw()
     {
         // Nothing here is the user's, so there is nothing to withdraw — that is a legitimate zero, not the
@@ -354,7 +339,7 @@ public class CompositeMemoryEngineTests
         // operator boilerplate, another's holds preferences the user typed. And the two verbs can legitimately
         // differ — keep the glossary out of an automatic prune, include it in an explicit consent withdrawal —
         // which no single boolean on the engine could have expressed.
-        var glossary = new ForgettableEngine("project/glossary") { };
+        var glossary = new ForgettableEngine("project/glossary");
         var graph = new ForgettableEngine("project/graph", pruneCount: 4);
         var engine = new CompositeMemoryEngine("project", [glossary, graph],
             removalPolicy: new ForgetOnlyForAuthoritativePolicy(glossary.Name));

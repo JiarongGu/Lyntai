@@ -50,40 +50,23 @@ public class MemoryAnnotationTimeoutTests
     private static GraphMemoryOptions NoContextReads() =>
         new() { AnnotationContext = 0, AnnotationKnownSubjects = 0 };
 
-    private static async Task<MemoryRef> RememberWithTimingOutAnnotator(CancellationToken ct = default)
-    {
-        var engine = new GraphMemoryEngine("graph", new InMemoryMemoryGraphStore(), seams: new GraphMemorySeams
-            {
-                Annotation = new TimesOut(),
-            });
-        return (await engine.RememberAsync(new MemoryWrite("t", "s", "marker11 the deployment checklist"), ct))
-            .Reference;
-    }
-
     [Fact]
     public async Task An_annotator_timing_out_stores_the_fact_rather_than_failing_the_write()
     {
-        var stored = await RememberWithTimingOutAnnotator();
-
-        // MemoryRef is a value type, so its own existence asserts nothing — the id is what proves a row was
-        // written rather than a default struct handed back.
-        Assert.NotEmpty(stored.Id);
-        Assert.Equal("graph", stored.Engine);
-    }
-
-    [Fact]
-    public async Task The_fact_it_stored_is_recallable()
-    {
-        // The premise of the test above: an id proves the write path ran, not that the entry is findable.
         var engine = new GraphMemoryEngine("graph", new InMemoryMemoryGraphStore(), seams: new GraphMemorySeams
             {
                 Annotation = new TimesOut(),
             });
-        await engine.RememberAsync(new MemoryWrite("t", "s", "marker11 the deployment checklist"));
 
-        var recall = await engine.RecallAsync(new MemoryQuery("t", "s", "marker11", 10));
+        var stored = (await engine.RememberAsync(new MemoryWrite("t", "s", "marker11 the deployment checklist")))
+            .Reference;
 
-        Assert.NotEmpty(recall.Items);
+        // MemoryRef is a value type, so its own existence asserts nothing — the id proves a row was written,
+        // and the recall proves the entry is findable rather than merely that the write path ran
+        Assert.NotEmpty(stored.Id);
+        Assert.Equal("graph", stored.Engine);
+        var recalled = Assert.Single((await engine.RecallAsync(new MemoryQuery("t", "s", "marker11", 10))).Items);
+        Assert.Equal(stored.Id, recalled.Reference.Id);
     }
 
     [Fact]

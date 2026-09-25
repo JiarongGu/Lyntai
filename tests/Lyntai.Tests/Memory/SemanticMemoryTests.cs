@@ -1,8 +1,6 @@
-using Lyntai;
 using Lyntai.Inference;
 using Lyntai.Memory;
 using Lyntai.Tests.Fakes;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Lyntai.Tests.Memory;
 
@@ -177,25 +175,5 @@ public class SemanticMemoryTests
         var recall = await engine.RecallAsync(new MemoryQuery("t", Scope: null, Query: "children"));
 
         Assert.Equal(written.Id, Assert.Single(recall.Items).Reference.Id);
-    }
-
-    // ---- DI wiring -----------------------------------------------------------------------------------
-
-    [Fact]
-    public async Task A_declared_vector_backend_wires_semantic_memory_end_to_end()
-    {
-        var services = new ServiceCollection();
-        services.AddLyntai(b => b
-            .AddProvider(_ => new FakeTextProvider("p"))
-            .AddProvider(_ => new FakeVectorProvider(), FakeVectorProvider.Declared).AddSemanticMemory());
-        using var sp = services.BuildServiceProvider();
-
-        var mem = sp.GetRequiredService<ISemanticMemory>();
-        await mem.RememberAsync("t", "s", "cancel subscription anytime");
-        await mem.RememberAsync("t", "s", "pizza menu today");
-
-        var hits = await mem.RecallAsync("t", "s", "how to cancel", k: 1);
-        Assert.Single(hits);
-        Assert.Contains("cancel", hits[0].Content);
     }
 }

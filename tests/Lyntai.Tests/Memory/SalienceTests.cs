@@ -143,10 +143,8 @@ public class SalienceTests
             .Get(MemorySignals.WellKnown.Salience);
 
         Assert.Equal(7, retentionPolicy.MaxStabilityFactor, 6);
-        Assert.Equal(7, highest, 6); // clamped from 101 — deleting the clamp fails here
-        Assert.True(highest <= retentionPolicy.MaxStabilityFactor,
-            $"the salience policy reported {highest}, exceeding the retention policy's declared " +
-            $"{retentionPolicy.MaxStabilityFactor} — CandidateCutoff would be too narrow");
+        Assert.Equal(7, highest, 6); // clamped from 101 — deleting the clamp fails here, and so it never
+                                     // exceeds the retention policy's declared 7 (CandidateCutoff stays wide enough)
     }
 
     [Fact]
