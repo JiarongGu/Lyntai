@@ -22,9 +22,7 @@ public sealed class AsyncMigrationTests : IDisposable
 
         using var conn = new SqliteConnectionFactory(_db.Path).Open();
         var versions = conn.Query<long>("SELECT Version FROM lyntai_version_info ORDER BY Version").ToList();
-        Assert.Equal(
-            [202607280001, 202607280002, 202607280003, 202607280004, 202607280005, 202607280006, 202607280007, 202607280008, 202607280009, 202608081215, 202608121100, 202608161159],
-            versions);
+        Assert.Equal(SchemaFacts.SqliteVersions, versions);
     }
 
     [Fact]
@@ -34,7 +32,7 @@ public sealed class AsyncMigrationTests : IDisposable
         await MigrationRunnerService.MigrateUpAsync(_db.Path);
 
         using var conn = new SqliteConnectionFactory(_db.Path).Open();
-        Assert.Equal(12L, conn.ExecuteScalar<long>("SELECT COUNT(*) FROM lyntai_version_info")); // 9 baseline (1.0 squash) + MemoryGraph (2.5.0) + MemoryRetentionModel (3.0 squash) + JobSlots (3.0)
+        Assert.Equal(SchemaFacts.SqliteVersions.Length, conn.ExecuteScalar<long>("SELECT COUNT(*) FROM lyntai_version_info"));
     }
 
     [Fact]
@@ -109,11 +107,5 @@ public sealed class AsyncMigrationTests : IDisposable
                 StorageFeature.Score, cts.Token));
     }
 
-    private bool TableExists(string table)
-    {
-        using var conn = new SqliteConnectionFactory(_db.Path).Open();
-        return conn.ExecuteScalar<long>(
-            "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = @table",
-            new { table }) > 0;
-    }
+    private bool TableExists(string table) => SchemaFacts.SqliteTableExists(new SqliteConnectionFactory(_db.Path), table);
 }

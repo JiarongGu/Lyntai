@@ -53,9 +53,14 @@ public class DeferredMigrationTests : IDisposable
     [Fact]
     public async Task Migration_runs_exactly_once_under_concurrent_first_access()
     {
-        // the factory UseSqliteStorage(path, SchemaMigration.OnFirstUse) builds
-        var factory = new LazyMigratingConnectionFactory(new SqliteConnectionFactory(_db.Path),
-            () => Lyntai.Storage.Sqlite.Migrations.MigrationRunnerService.MigrateUp(_db.Path));
+        // the factory UseSqliteStorage(path, SchemaMigration.OnFirstUse) builds. The migrator is COUNTED:
+        // an idempotent second run leaves the same rows, so the version table alone cannot see "once"
+        var runs = 0;
+        var factory = new LazyMigratingConnectionFactory(new SqliteConnectionFactory(_db.Path), () =>
+        {
+            Interlocked.Increment(ref runs);
+            Lyntai.Storage.Sqlite.Migrations.MigrationRunnerService.MigrateUp(_db.Path);
+        });
 
         // 16 threads race to open the very first connection; the lazy migration must run once and
         // all of them must get a working, migrated connection
@@ -67,6 +72,7 @@ public class DeferredMigrationTests : IDisposable
             return Convert.ToInt64(cmd.ExecuteScalar());
         })));
 
-        Assert.All(opens, count => Assert.Equal(12L, count)); // all migrations applied, once
+        Assert.Equal(1, runs);
+        Assert.All(opens, count => Assert.Equal(SchemaFacts.SqliteVersions.Length, count)); // every open saw the full schema
     }
 }

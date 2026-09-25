@@ -28,11 +28,6 @@ public sealed class SelectiveMigrationTests : IDisposable
         Assert.False(TableExists(factory, "lyntai_version_info"));
     }
 
-    private static bool TableExists(SqliteConnectionFactory factory, string table)
-    {
-        using var conn = factory.Open();
-        return conn.ExecuteScalar<long>(
-            "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = @table",
-            new { table }) > 0;
-    }
+    private static bool TableExists(SqliteConnectionFactory factory, string table) =>
+        SchemaFacts.SqliteTableExists(factory, table);
 }

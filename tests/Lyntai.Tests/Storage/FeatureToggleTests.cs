@@ -27,12 +27,8 @@ public class FeatureToggleTests : IDisposable
         foreach (var db in _dbs) db.Dispose();
     }
 
-    private static bool TableExists(SqliteConnectionFactory factory, string table)
-    {
-        using var conn = factory.Open();
-        return conn.ExecuteScalar<long>(
-            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=@table", new { table }) > 0;
-    }
+    private static bool TableExists(SqliteConnectionFactory factory, string table) =>
+        SchemaFacts.SqliteTableExists(factory, table);
 
     [Fact]
     public void Selective_migration_lands_only_the_selected_features_tables()

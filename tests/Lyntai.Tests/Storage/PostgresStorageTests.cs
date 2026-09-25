@@ -152,25 +152,13 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
         await MigrationRunnerService.MigrateUpAsync(pg.ConnectionString);
 
         using var conn = pg.Factory.Open();
-        var applied = await Dapper.SqlMapper.ExecuteScalarAsync<long>(conn,
-            "SELECT COUNT(*) FROM lyntai_version_info");
-        // 9 baseline (1.0 squash) + MemoryGraph (2.5.0) + MemoryRetentionModel (3.0 squash)
-        // + MemoryHeadlineSearch (3.0) — POSTGRES-ONLY, which is why this is 12 where SQLite is 11.
-        // That migration adds a trigram index on `headline` so recall can match an authored one without a
-        // sequential scan; SQLite needs no counterpart because its FTS5 mirror has indexed `headline,
-        // content` since the graph store shipped. A per-backend count is the honest shape here: migrations
-        // are per-backend projects, and forcing symmetry would mean adding a SQLite migration that does
-        // nothing just to keep two numbers equal.
-        Assert.Equal(13L, applied);
+        var applied = (await Dapper.SqlMapper.QueryAsync<long>(conn,
+            "SELECT version FROM lyntai_version_info ORDER BY version")).ToList();
+        Assert.Equal(SchemaFacts.PostgresVersions, applied);
     }
 
-    private static async Task<bool> TableExists(IDbConnectionFactory factory, string table)
-    {
-        using var conn = factory.Open();
-        return await Dapper.SqlMapper.ExecuteScalarAsync<bool>(conn,
-            "SELECT EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = @table)",
-            new { table });
-    }
+    private static Task<bool> TableExists(IDbConnectionFactory factory, string table) =>
+        SchemaFacts.PostgresTableExists(factory, table);
 
     // ---- cross-backend contracts, run against Postgres over the shared container ----------------------
     // Each is namespaced by a unique key (Uid()) so it coexists with the other tests on the one shared,
