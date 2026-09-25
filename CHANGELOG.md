@@ -154,6 +154,12 @@ every addition.
   the two composers into line rather than inventing a convention.
   <br>**What to DO:** a consumer asserting on the old heading updates the string.
 
+- **`AddComfyUiProvider`'s own client no longer follows redirects** (**D180**). It carries what you configure for
+  ComfyUI, and a redirect it followed by itself would take that to wherever the redirect pointed; the provider now
+  follows an input fetch's redirects itself, choosing a client per hop. ComfyUI itself never redirects.
+  <br>**What to DO:** a host whose `BaseUrl` answered through a redirect — a proxy upgrading `http` to `https`,
+  say — points `BaseUrl` at the address that answers. A client you supply should not follow redirects either.
+
 ### Added
 
 - **`LlmVerificationOptions.ContentChars` lets the LLM memory judge read an entry's CONTENT** (**D170**).
@@ -249,18 +255,30 @@ every addition.
   except the one call shape the Breaking entry above names.
 
 - **The ComfyUI provider takes inputs, and produces `ProviderKinds.Model3d`** (**D180**). Through 3.2.0 it
-  refused every `MediaRequest.Inputs` entry. Each is now uploaded to the server — inline bytes, or a `Uri` the
-  provider fetches — and the name the server stored it under is written at the workflow field
-  `Options["input-path"]` names (`"1.inputs.model_file"`); an input with a role binds through
-  `Options["input-path:<role>"]` instead, so a pipeline stage's `InputRole` picks the field. A mesh (`model/*`)
-  goes into the input folder's `3d` subfolder, where the 3D loaders look. An input with no path, a path the
-  workflow lacks, or a field another input already took is refused before anything is uploaded, never dropped.
-  `Model3d` joins `ComfyUiOptions.Produces`' default, and a produced `.glb`, `.gltf`, `.obj` or `.stl` comes back
-  as `model/gltf-binary`, `model/gltf+json`, `model/obj` or `model/stl` — from fal too. New options, defaults
-  measured on ComfyUI 0.36.0: `UploadPath` (`upload/image`), `MeshSubfolder` (`3d`) and `InputPathOption`
-  (`input-path`). With no 3D model, a GLB uploaded, saved again, and chained into a render graph that returned
-  a PNG of it. ComfyUI is queued-only and `RunPipelineAsync` drives the inline door, so run a ComfyUI stage
-  through submit → poll → fetch.
+  refused every `MediaRequest.Inputs` entry. Each is now uploaded to the server and the name the server stored it
+  under is written at the workflow field `Options["input-path"]` names (`"1.inputs.model_file"`); an input with a
+  role binds through `Options["input-path:<role>"]` instead, so a pipeline stage's `InputRole` picks the field. A
+  mesh (`model/*`) goes into the input folder's `3d` subfolder, where the 3D loaders look. An input with no path,
+  a path the workflow lacks, or a field the prompt or another input already took is refused before anything is
+  sent, never dropped. `Model3d` joins `ComfyUiOptions.Produces`' default, and a produced `.glb`, `.gltf`,
+  `.obj` or `.stl` comes back as `model/gltf-binary`, `model/gltf+json`, `model/obj` or `model/stl` — from fal
+  too. New options, defaults measured on ComfyUI 0.36.0: `UploadPath` (`upload/image`), `MeshSubfolder` (`3d`)
+  and `InputPathOption` (`input-path`). With no 3D model, a GLB uploaded, saved again, and chained into a render
+  graph that returned a PNG of it. ComfyUI is queued-only and `RunPipelineAsync` drives the inline door, so run a
+  ComfyUI stage through submit → poll → fetch.
+  <br>**An input given as a URI is FETCHED, from any http(s) server**, and capped by the new
+  `ComfyUiOptions.MaxFetchBytes` (128 MiB) — by its declared length and again while it is read; over the cap,
+  nothing is uploaded or queued. The ComfyUI client, and whatever you configured on it, is used on ComfyUI's own
+  origin only; any other origin, a redirect's target included, is fetched with no credentials, and a URI that is
+  not absolute http(s) is refused. **If a model can name inputs** — an agent tool's `imageUrl` — validate those
+  URIs before they reach the provider: the library fetches what it is handed.
+
+- **`QueuedOperation.Verdict` lets a queued backend say WHY a submission failed** (**D180**). Set to
+  `ProviderVerdict.Unsupported`, the router advances to the next candidate without counting the rejection against
+  the backend, so a request one backend cannot serve as posed no longer benches it. Null, the default, keeps the
+  router classifying `Detail` as before. ComfyUI sets it on every refusal of the request itself: no workflow, a
+  workflow that does not parse, an input with nowhere to go or nothing to send, a URI it will not fetch or one
+  over the cap, and a fetch from another origin that fails.
 
 ### Fixed
 

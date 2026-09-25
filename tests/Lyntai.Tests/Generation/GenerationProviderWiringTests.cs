@@ -175,4 +175,25 @@ public class GenerationProviderWiringTests
         Assert.Throws<ArgumentNullException>(() =>
             services.AddLyntai(b => b.AddOpenAiImageProvider(null!)));
     }
+
+    [Fact]
+    public void AddComfyUiProviders_own_client_does_not_follow_redirects()
+    {
+        // it carries what a host adds for ComfyUI; a redirect it followed by itself would take that elsewhere,
+        // so the provider follows a fetch's redirects and picks the client per hop
+        var services = new ServiceCollection();
+        services.AddLyntai(b => b.AddComfyUiProvider(o => o.BaseUrl = "http://127.0.0.1:8188"));
+        using var sp = services.BuildServiceProvider();
+
+        var handler = sp.GetRequiredService<IHttpMessageHandlerFactory>()
+            .CreateHandler(MediaBackendBuilderExtensions.HttpClientName("comfyui"));
+        while (handler is DelegatingHandler outer && outer.InnerHandler is { } inner) handler = inner;
+
+        Assert.False(handler switch
+        {
+            HttpClientHandler h => h.AllowAutoRedirect,
+            SocketsHttpHandler s => s.AllowAutoRedirect,
+            _ => throw new InvalidOperationException($"unexpected primary handler {handler.GetType()}"),
+        });
+    }
 }

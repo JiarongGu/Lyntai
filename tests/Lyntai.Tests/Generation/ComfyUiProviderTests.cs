@@ -186,6 +186,7 @@ public class ComfyUiProviderTests
 
         Assert.Equal(QueuedOperationStatus.Failed, operation.Status);
         Assert.Contains("input-path:first-frame", operation.Detail);
+        Assert.Equal(ProviderVerdict.Unsupported, operation.Verdict);   // the request, not the host
         Assert.Empty(http.Requests);
     }
 
@@ -199,6 +200,7 @@ public class ComfyUiProviderTests
 
         Assert.Equal(QueuedOperationStatus.Failed, operation.Status);
         Assert.Contains("input-path:init", operation.Detail);
+        Assert.Equal(ProviderVerdict.Unsupported, operation.Verdict);
         Assert.Empty(http.Requests);
     }
 
@@ -213,6 +215,7 @@ public class ComfyUiProviderTests
 
         Assert.Equal(QueuedOperationStatus.Failed, operation.Status);
         Assert.Contains("9.inputs.model_file", operation.Detail);
+        Assert.Equal(ProviderVerdict.Unsupported, operation.Verdict);
         Assert.Empty(http.Requests);
     }
 
@@ -226,6 +229,7 @@ public class ComfyUiProviderTests
 
         Assert.Equal(QueuedOperationStatus.Failed, operation.Status);
         Assert.Contains("1.inputs.model_file", operation.Detail);
+        Assert.Equal(ProviderVerdict.Unsupported, operation.Verdict);
         Assert.Empty(http.Requests);
     }
 
@@ -241,6 +245,7 @@ public class ComfyUiProviderTests
         Assert.Equal(QueuedOperationStatus.Failed, operation.Status);
         Assert.Contains("disk full", operation.Detail);
         Assert.False(operation.Inconclusive);   // nothing was queued, so nothing can have been billed
+        Assert.Null(operation.Verdict);         // a failing server IS a host fault: classified, and it counts
         Assert.Single(http.Requests);
     }
 
@@ -257,6 +262,240 @@ public class ComfyUiProviderTests
         Assert.Equal(QueuedOperationStatus.Failed, operation.Status);
         Assert.Contains(source, operation.Detail);
         Assert.Single(http.Requests);
+    }
+
+    // ---- a URI input: fetched from any server, but ComfyUI's credentials stay on ComfyUI's origin --------
+
+    private const string Secret = "comfy-secret";
+
+    /// <summary>A provider whose ComfyUI client carries credentials, and whose credential-less client for any
+    /// other origin is a stub of its own — so a test can see which client each fetch went through.</summary>
+    private static (ComfyUiProvider Provider, StubHttpHandler Comfy, StubHttpHandler Foreign) WithForeign(
+        ComfyUiOptions? options = null)
+    {
+        var comfy = new StubHttpHandler();
+        var foreign = new StubHttpHandler();
+        var provider = new ComfyUiProvider(
+            options ?? new ComfyUiOptions { BaseUrl = "http://127.0.0.1:8188" },
+            () =>
+            {
+                var client = new HttpClient(comfy, disposeHandler: false);
+                client.DefaultRequestHeaders.Authorization = new("Bearer", Secret);
+                client.DefaultRequestHeaders.Add("api-key", Secret);
+                return client;
+            },
+            foreign);
+        return (provider, comfy, foreign);
+    }
+
+    private static MediaRequest FromUri(string uri) =>
+        MeshAsk(Bound("input-path", "1.inputs.model_file"), new MediaInput("model/gltf-binary", Uri: uri));
+
+    private const string OwnView = "http://127.0.0.1:8188/view?filename=a.glb&subfolder=3d&type=output";
+
+    [Fact]
+    public async Task A_URI_on_another_origin_is_fetched_WITHOUT_the_ComfyUI_clients_credentials()
+    {
+        var (provider, comfy, foreign) = WithForeign();
+        foreign.Enqueue(HttpStatusCode.OK, "FOREIGN-MESH", "application/octet-stream");
+        comfy.Enqueue(HttpStatusCode.OK, Uploaded("f.glb", "3d")).Enqueue(HttpStatusCode.OK, """{"prompt_id":"1"}""");
+
+        var operation = await provider.SubmitAsync(FromUri("https://cdn.example.org/models/f.glb"));
+
+        Assert.Equal(QueuedOperationStatus.Queued, operation.Status);
+        var fetch = Assert.Single(foreign.Requests);
+        Assert.Equal("https://cdn.example.org/models/f.glb", fetch.Uri?.ToString());
+        Assert.Null(fetch.Auth);
+        Assert.Null(fetch.ApiKeyHeader);
+        Assert.Equal(2, comfy.Requests.Count);    // the upload and the queue call, never the fetch
+        Assert.Equal("FOREIGN-MESH", FormField(comfy.Requests[0].Body, "image"));
+    }
+
+    [Fact]
+    public async Task A_redirect_from_ComfyUIs_own_origin_to_another_host_is_followed_WITHOUT_the_credentials()
+    {
+        var (provider, comfy, foreign) = WithForeign();
+        comfy.Enqueue(_ => new HttpResponseMessage(HttpStatusCode.Found)
+            {
+                Headers = { Location = new Uri("https://elsewhere.example/x.glb") },
+            })
+            .Enqueue(HttpStatusCode.OK, Uploaded("x.glb", "3d")).Enqueue(HttpStatusCode.OK, """{"prompt_id":"1"}""");
+        foreign.Enqueue(HttpStatusCode.OK, "REDIRECTED-MESH", "application/octet-stream");
+
+        var operation = await provider.SubmitAsync(FromUri(OwnView));
+
+        Assert.Equal(QueuedOperationStatus.Queued, operation.Status);
+        Assert.Equal(OwnView, comfy.Requests[0].Uri?.ToString());   // its own origin: its own credentials
+        var hop = Assert.Single(foreign.Requests);
+        Assert.Equal("https://elsewhere.example/x.glb", hop.Uri?.ToString());
+        Assert.Null(hop.Auth);
+        Assert.Null(hop.ApiKeyHeader);
+        Assert.Equal("REDIRECTED-MESH", FormField(comfy.Requests[1].Body, "image"));
+    }
+
+    [Fact]
+    public async Task A_client_that_followed_a_redirect_off_ComfyUIs_origin_by_itself_has_its_answer_refused()
+    {
+        // a client the host supplies may follow redirects on its own; its answer from elsewhere is not used
+        var (provider, comfy, foreign) = WithForeign();
+        comfy.Enqueue(request =>
+        {
+            request.RequestUri = new Uri("https://elsewhere.example/x.glb");
+            return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("X"), RequestMessage = request };
+        });
+
+        var operation = await provider.SubmitAsync(FromUri(OwnView));
+
+        Assert.Equal(QueuedOperationStatus.Failed, operation.Status);
+        Assert.Contains("elsewhere.example", operation.Detail);
+        Assert.Single(comfy.Requests);            // nothing uploaded, nothing queued
+        Assert.Empty(foreign.Requests);
+    }
+
+    [Fact]
+    public async Task A_fetch_whose_declared_length_is_over_MaxFetchBytes_is_refused_and_nothing_is_uploaded()
+    {
+        var (provider, comfy, _) = WithForeign(new ComfyUiOptions { BaseUrl = "http://127.0.0.1:8188", MaxFetchBytes = 8 });
+        comfy.Enqueue(HttpStatusCode.OK, "TWENTY-BYTES-OF-MESH", "application/octet-stream");
+
+        var operation = await provider.SubmitAsync(FromUri(OwnView));
+
+        Assert.Equal(QueuedOperationStatus.Failed, operation.Status);
+        Assert.Contains("MaxFetchBytes", operation.Detail);
+        Assert.Contains("input 1", operation.Detail);
+        Assert.Equal(ProviderVerdict.Unsupported, operation.Verdict);
+        Assert.Single(comfy.Requests);
+    }
+
+    [Fact]
+    public async Task A_body_that_outgrows_its_declared_length_is_cut_at_MaxFetchBytes_while_it_streams()
+    {
+        var (provider, comfy, _) = WithForeign(new ComfyUiOptions { BaseUrl = "http://127.0.0.1:8188", MaxFetchBytes = 8 });
+        comfy.Enqueue(_ =>
+        {
+            var content = new ByteArrayContent(Encoding.ASCII.GetBytes("TWENTY-BYTES-OF-MESH"));
+            content.Headers.ContentLength = 4;    // a header that lies: only the count while reading can tell
+            return new HttpResponseMessage(HttpStatusCode.OK) { Content = content };
+        });
+
+        var operation = await provider.SubmitAsync(FromUri(OwnView));
+
+        Assert.Equal(QueuedOperationStatus.Failed, operation.Status);
+        Assert.Contains("MaxFetchBytes", operation.Detail);
+        Assert.Single(comfy.Requests);
+    }
+
+    [Theory]
+    [InlineData("file:///C:/models/x.glb")]
+    [InlineData("/view?filename=a.glb&type=output")]
+    [InlineData("ftp://files.example/x.glb")]
+    [InlineData("not a uri at all")]
+    public async Task Only_an_absolute_http_or_https_URI_is_fetched_and_anything_else_is_refused_before_any_call(
+        string uri)
+    {
+        var (provider, comfy, foreign) = WithForeign();
+
+        var operation = await provider.SubmitAsync(FromUri(uri));
+
+        Assert.Equal(QueuedOperationStatus.Failed, operation.Status);
+        Assert.Contains("input 1", operation.Detail);
+        Assert.Contains($"fetching {uri}", operation.Detail);
+        Assert.Equal(ProviderVerdict.Unsupported, operation.Verdict);
+        Assert.Empty(comfy.Requests);
+        Assert.Empty(foreign.Requests);
+    }
+
+    [Fact]
+    public async Task A_fetch_that_throws_keeps_the_inputs_name_and_the_URI_in_the_detail()
+    {
+        var (provider, comfy, _) = WithForeign();
+        comfy.Enqueue(_ => throw new InvalidOperationException("the handler blew up"));
+
+        var operation = await provider.SubmitAsync(FromUri(OwnView));
+
+        Assert.Equal(QueuedOperationStatus.Failed, operation.Status);
+        Assert.Contains("input 1", operation.Detail);
+        Assert.Contains($"fetching {OwnView}", operation.Detail);
+        Assert.Contains("the handler blew up", operation.Detail);
+    }
+
+    [Fact]
+    public async Task Empty_bytes_and_no_URI_is_an_input_with_neither_and_is_refused()
+    {
+        // zero bytes are no image, as the sibling backends read them — uploading them would load nothing
+        var (provider, http) = Provider();
+
+        var operation = await provider.SubmitAsync(MeshAsk(Bound("input-path", "1.inputs.model_file"),
+            new MediaInput("model/gltf-binary", Data: [])));
+
+        Assert.Equal(QueuedOperationStatus.Failed, operation.Status);
+        Assert.Contains("neither bytes nor a URI", operation.Detail);
+        Assert.Equal(ProviderVerdict.Unsupported, operation.Verdict);
+        Assert.Empty(http.Requests);
+    }
+
+    [Fact]
+    public async Task An_input_bound_to_the_field_the_prompt_was_written_to_is_refused()
+    {
+        // the upload's name would silently replace the caller's prompt
+        var (provider, http) = Provider();
+        var paths = Bound("input-path", "1.inputs.model_file");
+        paths["prompt-path"] = "1.inputs.model_file";
+
+        var operation = await provider.SubmitAsync(MeshAsk(paths, Mesh("MESH")) with { Prompt = "a cube" });
+
+        Assert.Equal(QueuedOperationStatus.Failed, operation.Status);
+        Assert.Contains("prompt", operation.Detail);
+        Assert.Equal(ProviderVerdict.Unsupported, operation.Verdict);
+        Assert.Empty(http.Requests);
+    }
+
+    // ---- a timed-out submit is inconclusive only once the queue call has been sent -----------------------
+
+    private sealed class StallingHandler : HttpMessageHandler
+    {
+        public List<Uri?> Seen { get; } = [];
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
+        {
+            Seen.Add(request.RequestUri);
+            await Task.Delay(Timeout.InfiniteTimeSpan, ct);
+            throw new InvalidOperationException("unreachable");
+        }
+    }
+
+    private static (ComfyUiProvider Provider, StallingHandler Http) Stalled()
+    {
+        var stalling = new StallingHandler();
+        var provider = new ComfyUiProvider(
+            new ComfyUiOptions { BaseUrl = "http://127.0.0.1:8188", Timeout = TimeSpan.FromMilliseconds(150) },
+            () => new HttpClient(stalling, disposeHandler: false) { Timeout = TimeSpan.FromSeconds(5) });
+        return (provider, stalling);
+    }
+
+    [Fact]
+    public async Task A_timeout_while_UPLOADING_is_not_inconclusive_because_nothing_was_queued()
+    {
+        var (provider, stalling) = Stalled();
+
+        var operation = await provider.SubmitAsync(MeshAsk(Bound("input-path", "1.inputs.model_file"), Mesh("M")));
+
+        Assert.Equal("http://127.0.0.1:8188/upload/image", Assert.Single(stalling.Seen)?.ToString());
+        Assert.Equal(QueuedOperationStatus.Failed, operation.Status);
+        Assert.False(operation.Inconclusive);
+        Assert.Contains("nothing was queued", operation.Detail);
+    }
+
+    [Fact]
+    public async Task A_timeout_on_the_QUEUE_call_is_inconclusive_because_the_workflow_may_have_been_accepted()
+    {
+        var (provider, stalling) = Stalled();
+
+        var operation = await provider.SubmitAsync(Ask());
+
+        Assert.Equal("http://127.0.0.1:8188/prompt", Assert.Single(stalling.Seen)?.ToString());
+        Assert.True(operation.Inconclusive);
+        Assert.Contains("may still have been accepted", operation.Detail);
     }
 
     [Fact]
@@ -383,6 +622,7 @@ public class ComfyUiProviderTests
 
         Assert.Equal(QueuedOperationStatus.Failed, operation.Status);
         Assert.Contains("workflow", operation.Detail);
+        Assert.Equal(ProviderVerdict.Unsupported, operation.Verdict);   // another backend may need no graph
         Assert.Empty(http.Requests);
     }
 
@@ -394,6 +634,7 @@ public class ComfyUiProviderTests
         var operation = await provider.SubmitAsync(Ask(workflow: "{not json"));
 
         Assert.Equal(QueuedOperationStatus.Failed, operation.Status);
+        Assert.Equal(ProviderVerdict.Unsupported, operation.Verdict);
         Assert.Empty(http.Requests);
     }
 

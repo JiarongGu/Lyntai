@@ -64,18 +64,32 @@ public static class MediaBackendBuilderExtensions
 
     /// <summary>A ComfyUI server, driven by workflow graphs the HOST supplies. Default id <c>"comfyui"</c>
     /// (<see cref="ComfyUiOptions.Id"/>). Its surface is measured against ComfyUI 0.36.0, and every endpoint
-    /// path stays an option because upstream can move.</summary>
+    /// path stays an option because upstream can move. Lyntai's own client for it does NOT follow redirects:
+    /// point <see cref="ComfyUiOptions.BaseUrl"/> at the address that answers.</summary>
     /// <param name="builder">The builder.</param>
     /// <param name="configure">Endpoint paths, declared kinds and option keys.</param>
-    /// <param name="httpClient">BYO client — see the type summary. Null = Lyntai's own.</param>
+    /// <param name="httpClient">BYO client — see the type summary. Null = Lyntai's own. A client you supply
+    /// should not follow redirects either: it carries your ComfyUI credentials, and a redirect it follows by
+    /// itself takes them along before the provider can see where it went.</param>
     public static LyntaiBuilder AddComfyUiProvider(this LyntaiBuilder builder,
         Action<ComfyUiOptions> configure, Func<IServiceProvider, HttpClient>? httpClient = null)
     {
         ArgumentNullException.ThrowIfNull(configure);
         var options = new ComfyUiOptions();
         configure(options);
-        return builder.AddProvider(HttpBackend(builder, options.Id, httpClient,
+        var registered = builder.AddProvider(HttpBackend(builder, options.Id, httpClient,
             (client, dispose) => new ComfyUiProvider(options, client, dispose))).AddMediaRouting();
+
+        // this client carries what a host configures FOR ComfyUI; following a redirect by itself would take that
+        // to wherever the redirect points, so the provider follows a fetch's redirects and picks a client per hop
+        if (httpClient is null)
+            builder.Services.AddHttpClient(HttpClientName(options.Id))
+                .ConfigurePrimaryHttpMessageHandler((handler, _) =>
+                {
+                    if (handler is HttpClientHandler classic) classic.AllowAutoRedirect = false;
+                    else if (handler is SocketsHttpHandler sockets) sockets.AllowAutoRedirect = false;
+                });
+        return registered;
     }
 
     /// <summary>The fal.ai queue — submit/poll/fetch, which is the shape a video render needs. Default id

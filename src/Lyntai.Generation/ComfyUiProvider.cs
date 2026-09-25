@@ -1,6 +1,7 @@
 using Lyntai.Inference;
 using System.Net;
 using System.Net.Http.Headers;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -49,6 +50,12 @@ public sealed class ComfyUiOptions
     /// loaders look. Any other input goes to the input folder's root.</summary>
     public string MeshSubfolder { get; set; } = "3d";
 
+    /// <summary>The most bytes one URI input may be fetched as — 128 MiB by default, above any image or mesh
+    /// and a short clip. A declared length over it is refused before reading, and a body is cut off once it
+    /// passes it; either way nothing is uploaded and the workflow is not queued. Inline bytes are not
+    /// counted: they are already in the caller's memory.</summary>
+    public long MaxFetchBytes { get; set; } = 128L * 1024 * 1024;
+
     /// <summary>The option key holding the workflow graph JSON.</summary>
     public string WorkflowOption { get; set; } = "workflow";
 
@@ -78,10 +85,14 @@ public sealed class ComfyUiOptions
     /// stored name (e.g. <c>"1.inputs.model_file"</c>). An input with no role binds through this key; an input
     /// with a role binds through <c>"&lt;key&gt;:&lt;role&gt;"</c> (<c>"input-path:init"</c>) and never falls
     /// back to the roleless one. An input whose key is unset, or whose path is not a field of the workflow, is
-    /// REFUSED before anything is uploaded — never dropped.</summary>
+    /// REFUSED before anything is uploaded — never dropped.
+    /// <para>An input given as a URI is FETCHED from wherever it points — any absolute http(s) URI, bounded
+    /// by <see cref="MaxFetchBytes"/> — so a host that lets a model supply inputs (an agent tool's
+    /// <c>imageUrl</c>) validates those URIs before they reach this provider.</para></summary>
     public string InputPathOption { get; set; } = "input-path";
 
-    /// <summary>Ceiling for ONE HTTP call to the server — a submit, a history read, an interrupt, a probe.
+    /// <summary>Ceiling for ONE call of this provider — a probe, a history read, an interrupt, or a submit,
+    /// which covers fetching and uploading every input as well as the queue call itself.
     ///
     /// <para><b>It does not bound the render.</b> This backend is submit → poll → fetch, and the run outlives
     /// any single call: <c>GenerationRenderJobHandler</c> polls it across job re-dispatches and process
@@ -91,7 +102,8 @@ public sealed class ComfyUiOptions
     /// answers.</para>
     ///
     /// <para>Shorter than the inline backends' default because these calls are queue operations rather than
-    /// renders — none of them should take minutes. On <c>SubmitAsync</c> a request's
+    /// renders — none of them should take minutes, though a submit carrying large inputs may need more. On
+    /// <c>SubmitAsync</c> a request's
     /// <see cref="MediaRequest.TimeoutSeconds"/> still overrides it (it is the most specific thing that
     /// caller can say about that call). <see cref="Timeout.InfiniteTimeSpan"/> removes THIS deadline, but a
     /// submit whose request carries its own <see cref="MediaRequest.TimeoutSeconds"/> still has
@@ -129,6 +141,11 @@ public sealed class ComfyUiOptions
 /// <para>Produced files are returned as <b>view URIs</b>, not bytes — the same rule as a hosted backend's
 /// signed URL. A local video is easily 100 MB, and downloading it uninvited would be the platform spending
 /// the caller's memory.</para>
+/// <para><b>An input given as a URI is the one thing this backend downloads</b>, because a loader node reads
+/// the server's input folder, not a URL. It is fetched from any http(s) server, capped by
+/// <see cref="ComfyUiOptions.MaxFetchBytes"/>, with the ComfyUI client — and whatever the host configured on
+/// it — used on ComfyUI's own origin only; every other origin, a redirect's target included, gets a client
+/// carrying no credentials. So a host that lets a MODEL name inputs validates those URIs first.</para>
 /// </remarks>
 /// <param name="options">Endpoint paths, declared kinds and option keys.</param>
 /// <param name="httpFactory">Supplies the <see cref="HttpClient"/> — BYO (design §7).</param>
@@ -140,6 +157,25 @@ public sealed class ComfyUiProvider(
     ComfyUiOptions options, Func<HttpClient> httpFactory, bool disposeHttpClient = true)
     : IModelProvider, IMediaJobProvider
 {
+    // no credentials, cookies or redirects: what a URI on any other origin is fetched through. Static, so a
+    // fetch never costs a connection pool of its own.
+    private static readonly HttpClient SharedForeignClient = new(new SocketsHttpHandler
+    {
+        AllowAutoRedirect = false,
+        UseCookies = false,
+        PooledConnectionLifetime = TimeSpan.FromMinutes(5),
+    })
+    {
+        Timeout = System.Threading.Timeout.InfiniteTimeSpan,   // the submit's own deadline bounds it
+    };
+
+    private readonly HttpClient _foreign = SharedForeignClient;
+
+    /// <summary>The same provider with the credential-less client's handler replaced, for tests.</summary>
+    internal ComfyUiProvider(ComfyUiOptions options, Func<HttpClient> httpFactory, HttpMessageHandler foreignHandler)
+        : this(options, httpFactory) =>
+        _foreign = new HttpClient(foreignHandler, disposeHandler: false);
+
     /// <inheritdoc/>
     public string Id => options.Id;
 
@@ -191,43 +227,50 @@ public sealed class ComfyUiProvider(
 
     /// <inheritdoc/>
     /// <remarks>Bounded by the request's <see cref="MediaRequest.TimeoutSeconds"/> if it carries one, else
-    /// <see cref="ComfyUiOptions.Timeout"/> — the input uploads and the QUEUEING call together, not the run
-    /// it starts. A failed upload fails the submit and queues nothing.</remarks>
-    public Task<QueuedOperation> SubmitAsync(MediaRequest request, CancellationToken ct = default) =>
-        GenerationDeadline.GuardAsync(
+    /// <see cref="ComfyUiOptions.Timeout"/> — every input fetch and upload and the QUEUEING call together, not
+    /// the run it starts. A failed fetch or upload fails the submit and queues nothing.</remarks>
+    public Task<QueuedOperation> SubmitAsync(MediaRequest request, CancellationToken ct = default)
+    {
+        var queueing = new StrongBox<bool>();
+        return GenerationDeadline.GuardAsync(
             GenerationDeadline.Resolve(request.TimeoutSeconds, options.Timeout), ct,
-            token => SubmitCoreAsync(request, token),
-            // A submit that timed out may still have been queued — say so rather than implying nothing
-            // happened, and mark it inconclusive so the router surfaces it instead of queueing the same
-            // workflow at the next backend (a local GPU is not free either).
-            reason => Failed($"the submit {reason}; the workflow may still have been accepted") with
-            {
-                Inconclusive = true,
-            });
+            token => SubmitCoreAsync(request, queueing, token),
+            // Only once the queue call is out may a submit that timed out have been accepted: then it is
+            // inconclusive, so the router surfaces it instead of queueing the same workflow at the next backend
+            // (a local GPU is not free either). Before that, nothing was queued.
+            reason => queueing.Value
+                ? Failed($"the submit {reason}; the workflow may still have been accepted") with { Inconclusive = true }
+                : Failed($"the submit {reason} before the workflow was sent, so nothing was queued"));
+    }
 
-    private async Task<QueuedOperation> SubmitCoreAsync(MediaRequest request, CancellationToken ct)
+    private async Task<QueuedOperation> SubmitCoreAsync(
+        MediaRequest request, StrongBox<bool> queueing, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(options.BaseUrl))
             return Failed("no BaseUrl configured");
 
         if (request.Option(options.WorkflowOption) is not { Length: > 0 } workflowJson)
-            return Failed($"ComfyUI needs a workflow graph in Options[\"{options.WorkflowOption}\"] — " +
+            return Unsupported($"ComfyUI needs a workflow graph in Options[\"{options.WorkflowOption}\"] — " +
                 "there is no sensible default graph to invent on your behalf");
 
         JsonNode? graph;
         try { graph = JsonNode.Parse(workflowJson); }
-        catch (JsonException ex) { return Failed($"the workflow in Options[\"{options.WorkflowOption}\"] is not valid JSON: {ex.Message}"); }
-        if (graph is null) return Failed("the workflow parsed to nothing");
+        catch (JsonException ex) { return Unsupported($"the workflow in Options[\"{options.WorkflowOption}\"] is not valid JSON: {ex.Message}"); }
+        if (graph is null) return Unsupported("the workflow parsed to nothing");
 
         // a prompt path that misses leaves the graph as the caller wrote it, placeholder and all
+        GraphField? promptField = null;
         if (request.Prompt is { Length: > 0 } prompt &&
             request.Option(options.PromptPathOption) is { Length: > 0 } path &&
-            Resolve(graph, path) is { } promptField)
-            promptField.Owner[promptField.Name] = prompt;
+            Resolve(graph, path) is { } field)
+        {
+            field.Owner[field.Name] = prompt;
+            promptField = field;
+        }
 
-        // every input is bound BEFORE anything is uploaded, so a refusal spends nothing
-        var (bindings, refusal) = BindInputs(graph, request);
-        if (refusal is not null) return Failed(refusal);
+        // every input is bound BEFORE anything is fetched or uploaded, so a refusal spends nothing
+        var (bindings, refusal) = BindInputs(graph, request, promptField);
+        if (refusal is not null) return Unsupported(refusal);
 
         using var lease = HttpClientLease.From(httpFactory, disposeHttpClient);
         var http = lease.Client;
@@ -235,15 +278,19 @@ public sealed class ComfyUiProvider(
         {
             foreach (var binding in bindings)
             {
-                var (stored, failure) = await UploadAsync(http, binding.Input, ct).ConfigureAwait(false);
+                var (stored, failure, requestAtFault) = await UploadAsync(http, binding.Input, ct).ConfigureAwait(false);
                 if (failure is not null)
-                    return Failed($"{binding.Describe} was not uploaded, so the workflow was not submitted: {failure}");
+                {
+                    var detail = $"{binding.Describe} was not uploaded, so the workflow was not submitted: {failure}";
+                    return requestAtFault ? Unsupported(detail) : Failed(detail);
+                }
                 binding.Field.Owner[binding.Field.Name] = stored;
             }
 
             // JsonObject over an anonymous type — keeps the package's trim/AOT claim honest
             var payload = new JsonObject { ["prompt"] = graph }.ToJsonString();
             using var content = new StringContent(payload, Encoding.UTF8, "application/json");
+            queueing.Value = true;   // from here, an answer that never comes may hide a queued run
             using var response = await http.PostAsync(Url(options.SubmitPath), content, ct).ConfigureAwait(false);
             var body = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
@@ -363,6 +410,11 @@ public sealed class ComfyUiProvider(
     private QueuedOperation Failed(string detail) =>
         new("", QueuedOperationStatus.Failed, Detail: detail);
 
+    /// <summary>A refusal of the REQUEST as posed, not a fault of this host: the router advances past it without
+    /// counting it against the backend, since another candidate may serve the same request.</summary>
+    private QueuedOperation Unsupported(string detail) =>
+        Failed(detail) with { Verdict = ProviderVerdict.Unsupported };
+
     /// <summary>Reads the history document. <c>Transport</c> distinguishes "the server did not answer" — an
     /// unreachable host or a 5xx — from a failure that is about THIS operation: an unconfigured BaseUrl, or a
     /// 4xx saying the id (or the guessed <see cref="ComfyUiOptions.HistoryPath"/>) is wrong. Only the poll cares,
@@ -413,14 +465,19 @@ public sealed class ComfyUiProvider(
         return node is JsonObject owner && owner.ContainsKey(segments[^1]) ? new GraphField(owner, segments[^1]) : null;
     }
 
-    private sealed record GraphField(JsonObject Owner, string Name);
+    private sealed record GraphField(JsonObject Owner, string Name)
+    {
+        public bool Is(GraphField other) => ReferenceEquals(Owner, other.Owner) && Name == other.Name;
+    }
 
     private sealed record InputBinding(MediaInput Input, GraphField Field, string Describe);
 
     /// <summary>Where each input goes: the path under <see cref="ComfyUiOptions.InputPathOption"/>, or under
     /// <c>"&lt;key&gt;:&lt;role&gt;"</c> for an input with a role. The first input with nowhere to go — no
-    /// path, a path the graph lacks, a field another input already took — is the refusal.</summary>
-    private (IReadOnlyList<InputBinding> Bindings, string? Refusal) BindInputs(JsonNode graph, MediaRequest request)
+    /// path, a path the graph lacks, a field the prompt or another input already took, nothing to send, or a
+    /// URI that is not absolute http(s) — is the refusal.</summary>
+    private (IReadOnlyList<InputBinding> Bindings, string? Refusal) BindInputs(
+        JsonNode graph, MediaRequest request, GraphField? promptField)
     {
         var bindings = new List<InputBinding>();
         for (var i = 0; i < request.Inputs.Count; i++)
@@ -434,10 +491,17 @@ public sealed class ComfyUiProvider(
                     + "workflow field that loads it (e.g. \"1.inputs.model_file\")");
             if (Resolve(graph, path) is not { } field)
                 return ([], $"{describe}: Options[\"{key}\"] is \"{path}\", which is not a field of the workflow");
-            if (bindings.Any(b => ReferenceEquals(b.Field.Owner, field.Owner) && b.Field.Name == field.Name))
+            if (promptField is not null && field.Is(promptField))
+                return ([], $"{describe}: \"{path}\" is where the prompt was written, which it would erase");
+            if (bindings.Any(b => b.Field.Is(field)))
                 return ([], $"{describe}: \"{path}\" is already bound to another input, which it would erase");
-            if (input.Data is null && string.IsNullOrWhiteSpace(input.Uri))
-                return ([], $"{describe} carries neither bytes nor a URI");
+            if (input.Data is not { Length: > 0 })
+            {
+                if (string.IsNullOrWhiteSpace(input.Uri))
+                    return ([], $"{describe} carries neither bytes nor a URI");
+                if (!Uri.TryCreate(input.Uri, UriKind.Absolute, out var uri) || uri.Scheme is not ("http" or "https"))
+                    return ([], $"{describe}: fetching {input.Uri} is refused — only an absolute http or https URI is fetched");
+            }
 
             bindings.Add(new InputBinding(input, field, describe));
         }
@@ -445,24 +509,17 @@ public sealed class ComfyUiProvider(
     }
 
     /// <summary>Store one input in the server's input folder and answer the name a loader reads it by —
-    /// <c>"&lt;subfolder&gt;/&lt;name&gt;"</c> AS THE SERVER REPORTED IT, since the server may rename.</summary>
-    private async Task<(string? Stored, string? Failure)> UploadAsync(
+    /// <c>"&lt;subfolder&gt;/&lt;name&gt;"</c> AS THE SERVER REPORTED IT, since the server may rename.
+    /// <c>RequestAtFault</c> marks a failure that is the input's rather than this host's.</summary>
+    private async Task<(string? Stored, string? Failure, bool RequestAtFault)> UploadAsync(
         HttpClient http, MediaInput input, CancellationToken ct)
     {
         var bytes = input.Data;
-        if (bytes is null)
+        if (bytes is not { Length: > 0 })
         {
-            try
-            {
-                using var source = await http.GetAsync(input.Uri, ct).ConfigureAwait(false);
-                if (!source.IsSuccessStatusCode)
-                    return (null, $"fetching {input.Uri} answered {(int)source.StatusCode}");
-                bytes = await source.Content.ReadAsByteArrayAsync(ct).ConfigureAwait(false);
-            }
-            catch (HttpRequestException ex)
-            {
-                return (null, $"fetching {input.Uri} failed: {ex.Message}");
-            }
+            var (fetched, failure, requestAtFault) = await DownloadAsync(http, new Uri(input.Uri!), ct).ConfigureAwait(false);
+            if (fetched is null) return (null, $"fetching {input.Uri} failed: {failure}", requestAtFault);
+            bytes = fetched;
         }
 
         // a fresh name per upload: a shared one would let two concurrent jobs load each other's file
@@ -479,12 +536,81 @@ public sealed class ComfyUiProvider(
         using var response = await http.PostAsync(Url(options.UploadPath), form, ct).ConfigureAwait(false);
         var body = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
         if (!response.IsSuccessStatusCode)
-            return (null, $"the upload answered {(int)response.StatusCode}: {HttpArtifacts.FailureDetail(body)}");
+            return (null, $"the upload answered {(int)response.StatusCode}: {HttpArtifacts.FailureDetail(body)}", false);
 
         return StoredName(body) is { } stored
-            ? (stored, null)
-            : (null, $"the upload answered no name: {HttpArtifacts.FailureDetail(body, 200)}");
+            ? (stored, null, false)
+            : (null, $"the upload answered no name: {HttpArtifacts.FailureDetail(body, 200)}", false);
     }
+
+    private const int MaxRedirects = 5;
+
+    /// <summary>GET a URI input. ComfyUI's client carries what the host configured FOR ComfyUI, so it is
+    /// used on ComfyUI's own origin only; any other origin gets the credential-less client. Redirects are
+    /// followed HERE, so that choice is made again at every hop. A failure from another origin is the
+    /// input's, not this host's.</summary>
+    private async Task<(byte[]? Bytes, string? Failure, bool RequestAtFault)> DownloadAsync(
+        HttpClient comfy, Uri uri, CancellationToken ct)
+    {
+        var at = uri;
+        for (var hop = 0; hop <= MaxRedirects; hop++)
+        {
+            var own = OnComfyUi(at);
+            try
+            {
+                using var request = new HttpRequestMessage(HttpMethod.Get, at);
+                using var response = await (own ? comfy : _foreign)
+                    .SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
+
+                // a client the host supplies may follow a redirect by itself; an answer from elsewhere is not used
+                if (response.RequestMessage?.RequestUri is { } answered && !SameOrigin(answered, at))
+                    return (null, $"the client followed a redirect to {answered.GetLeftPart(UriPartial.Authority)}, "
+                        + "whose answer is not used", false);
+
+                if ((int)response.StatusCode is >= 300 and < 400 && response.Headers.Location is { } location)
+                {
+                    at = location.IsAbsoluteUri ? location : new Uri(at, location);
+                    if (at.Scheme is not ("http" or "https"))
+                        return (null, $"it redirected to {at}, which is not http or https", true);
+                    continue;
+                }
+                if (!response.IsSuccessStatusCode)
+                    return (null, $"it answered {(int)response.StatusCode}", !own);
+                if (response.Content.Headers.ContentLength > options.MaxFetchBytes ||
+                    await ReadCappedAsync(response.Content, ct).ConfigureAwait(false) is not { } bytes)
+                    return (null, $"it is over ComfyUiOptions.MaxFetchBytes ({options.MaxFetchBytes} bytes)", true);
+                return (bytes, null, false);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                return (null, ex.Message, !own);
+            }
+        }
+        return (null, $"it redirected more than {MaxRedirects} times", true);
+    }
+
+    /// <summary>The body, or null once it passes <see cref="ComfyUiOptions.MaxFetchBytes"/> — counted while
+    /// reading, because a declared length can be absent or wrong.</summary>
+    private async Task<byte[]?> ReadCappedAsync(HttpContent content, CancellationToken ct)
+    {
+        await using var body = await content.ReadAsStreamAsync(ct).ConfigureAwait(false);
+        using var kept = new MemoryStream();
+        var chunk = new byte[81920];
+        int read;
+        while ((read = await body.ReadAsync(chunk, ct).ConfigureAwait(false)) > 0)
+        {
+            if (kept.Length + read > options.MaxFetchBytes) return null;
+            kept.Write(chunk, 0, read);
+        }
+        return kept.ToArray();
+    }
+
+    private bool OnComfyUi(Uri uri) => Uri.TryCreate(Root, UriKind.Absolute, out var root) && SameOrigin(uri, root);
+
+    private static bool SameOrigin(Uri a, Uri b) =>
+        a.IsAbsoluteUri && b.IsAbsoluteUri && a.Port == b.Port &&
+        string.Equals(a.Scheme, b.Scheme, StringComparison.OrdinalIgnoreCase) &&
+        string.Equals(a.IdnHost, b.IdnHost, StringComparison.OrdinalIgnoreCase);
 
     private static string? StoredName(string body)
     {

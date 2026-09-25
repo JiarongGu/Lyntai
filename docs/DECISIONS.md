@@ -4359,6 +4359,10 @@ confidently as a real score.
 
 ## D140 — the routing ACTION and the media KINDS join the taxonomy they were copies of (2026-09-15)
 
+> **The `Model3d` remark is superseded for ComfyUI by D180.** Everything else here stands. ComfyUI now takes a
+> mesh as an input, and a render graph returns a view of it, so "no image or video backend accepts a mesh" no
+> longer holds for that backend. The library still rasterizes nothing itself, and the atlas warning stands.
+
 `GenerationFallbackAction` and `GenerationKinds` are gone. `FallbackAction` moves to `Lyntai.Lifecycle` <!-- drift-ok: this entry RETIRES both names, so it has to say them -->
 beside `ProviderVerdict`, and the four media constants live on `ProviderKinds`.
 
@@ -5576,24 +5580,34 @@ literal `null` second argument becomes ambiguous, the trade `AddOllamaProvider` 
 ## D180 — ComfyUI binds each input at a graph field the CALLER names, and produces `Model3d` (2026-09-25)
 
 **The decision.** `ComfyUiProvider` declares `SupportsInputs` and keeps it by upload and binding. Each
-`MediaRequest.Inputs` entry — inline bytes, or a `Uri` fetched through the provider's own client — is uploaded
-through `ComfyUiOptions.UploadPath` under a fresh name per upload, a mesh (`model/*`) into `MeshSubfolder` and
-anything else into the input root, and the name the server ANSWERS is written at the dotted path the request
-names, as `prompt-path` places the prompt. The key is `InputPathOption` (`input-path`) for an input with no
-role and `input-path:<role>` for one with a role, which never falls back to the roleless key, so a pipeline
-stage's `InputRole` selects the field. An input with no path, a path the workflow lacks, or a field another
-input already took is REFUSED before anything is uploaded: a dropped input runs the graph as authored, billed
-and plausible (`pitfalls.md`, "a capability FLAG is a promise"). `ProviderKinds.Model3d` joins the default
-`Produces`, as `Video` did, because the workflow decides what comes out; the shared extension table learns
+`MediaRequest.Inputs` entry — inline bytes, or a `Uri` it fetches — is uploaded through `ComfyUiOptions.UploadPath`
+under a fresh name per upload, a mesh (`model/*`) into `MeshSubfolder` and anything else into the input root, and
+the name the server ANSWERS is written at the dotted path the request names, as `prompt-path` places the prompt.
+The key is `InputPathOption` (`input-path`) for an input with no role and `input-path:<role>` for one with a
+role, never falling back to the roleless key, so a pipeline stage's `InputRole` selects the field. An input with
+no path, a path the workflow lacks, or a field the prompt or another input already took is REFUSED before anything
+is sent: a dropped input runs the graph as authored, billed and plausible (`pitfalls.md`, "a capability FLAG is
+a promise"). `ProviderKinds.Model3d` joins the default `Produces`, as `Video` did; the shared extension table learns
 `glb`, `gltf`, `obj` and `stl`, because `view` serves a GLB as `application/octet-stream`.
 
-**So a mesh chains into an image where the BACKEND rasterizes it** — a ComfyUI render graph, measured on 0.36.0
-with no 3D model (`ComfyUiLiveTests`). **D140**'s remark that no backend accepts a mesh no longer holds for
-ComfyUI; the library still renders nothing itself, and a mesh backend's `image/*` output is still an atlas.
+**A URI input is fetched from ANY server — a deliberate departure** from `OpenAiImageProvider` and
+`Automatic1111Provider`, which refuse a URI rather than download it, and from this class's own rule that it downloads
+nothing uninvited: a loader reads the server's input folder, and a chain may cross servers (a fal output into
+ComfyUI). So it is fenced. The ComfyUI client, carrying what the host set up FOR ComfyUI, fetches on ComfyUI's
+own origin only; every other origin, a redirect's target included, gets a shared credential-less client — the
+provider follows redirects itself, and `AddComfyUiProvider`'s client follows none. Only absolute http(s) is
+fetched, and `MaxFetchBytes` caps the body by its declared length and again while reading. The library fetches
+what it is handed, so a host that lets a model name inputs (an `imageUrl`) validates those URIs.
+
+**A refusal of the REQUEST carries a verdict.** `QueuedOperation.Verdict` lets a submission say `Unsupported`, which
+`MediaRouter` advances past without a strike, so a request ComfyUI cannot serve as posed — no workflow, an input
+with nowhere to go, a URI it will not fetch, a fetch from another origin that fails — never benches it. Unset, the
+router classifies the detail as before. A mesh then chains into an image where the BACKEND rasterizes it — a
+ComfyUI render graph, measured on 0.36.0 with no 3D model (`ComfyUiLiveTests`); **D140**'s remark yields to this.
 
 **Rejected.** Detecting the loader node: node ids are the caller's, and a guess binds the wrong field silently.
-A mesh-specific option: an image input binds the same way, so the binding is general. Referencing the previous
-stage's output in place (`"<file> [output]"`) rather than fetching and uploading it: unmeasured, and it works
-only when both stages run on one server. `overwrite=true` onto a shared name: concurrent jobs would load each
-other's file. Falling back from a role's key to the roleless one: an input meant for one loader would silently
-feed another.
+A mesh-specific option: an image binds the same way. Referencing the previous stage's output in place
+(`"<file> [output]"`): unmeasured, and it works only on one server. `overwrite=true` onto a shared name: concurrent
+jobs would load each other's file. A role falling back to the roleless key: an input meant for one loader would
+feed another. Refusing a URI input, as the byte-taking siblings do: no chain could cross servers. Fetching every
+URI through the ComfyUI client: the host's ComfyUI credentials would go wherever a URI or a redirect pointed.

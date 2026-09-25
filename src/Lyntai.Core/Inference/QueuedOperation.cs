@@ -55,4 +55,11 @@ public sealed record QueuedOperation(
     /// <see cref="QueuedOperationStatus.Failed"/> on purpose, so every existing status check behaves
     /// exactly as before; only code that opts into this flag changes.</para></summary>
     public bool Inconclusive { get; init; }
+
+    /// <summary>The verdict of a <see cref="QueuedOperationStatus.Failed"/> submission, when the backend knows
+    /// it. A request the backend cannot serve AS POSED is <see cref="ProviderVerdict.Unsupported"/>, which
+    /// <c>MediaRouter.SubmitAsync</c> advances past without counting it against the backend — the request is
+    /// at fault, not the backend's health. Null, the default, leaves the router classifying
+    /// <see cref="Detail"/> as before. <see cref="Inconclusive"/> is decided first, whatever this says.</summary>
+    public ProviderVerdict? Verdict { get; init; }
 }

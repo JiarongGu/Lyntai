@@ -89,6 +89,28 @@ public class GenerationSubmitFallbackTests
     }
 
     [Fact]
+    public async Task A_submission_carrying_an_Unsupported_VERDICT_advances_blamelessly_whatever_its_text_says()
+    {
+        // the backend knows the request is the problem, not its health — and its text would otherwise classify
+        // as a rate limit and bench it. Threshold 1: a single recorded failure would bench it.
+        var tracker = new DeadHostTracker(threshold: 1, cooldown: TimeSpan.FromMinutes(5));
+        var cannot = new RejectingJobProvider
+        {
+            Id = "graph", Detail = "429 Too Many Requests", Verdict = ProviderVerdict.Unsupported,
+        };
+        var working = new FakeGenerationJobProvider { Id = "local" };
+        var router = new MediaRouter([cannot, working], deadHosts: tracker);
+
+        for (var i = 0; i < 3; i++)
+            Assert.Equal("local", (await router.SubmitAsync(Order("graph", "local"), Video())).ProviderId);
+
+        Assert.Equal(3, cannot.SubmitCalls);             // asked every time: never benched
+        Assert.False(tracker.IsDead("generation::graph"));
+        // the same text WITHOUT a verdict benches on the first run —
+        // A_rate_limited_submission_BENCHES_the_backend_rather_than_taking_one_strike
+    }
+
+    [Fact]
     public async Task A_refused_submission_SURFACES_instead_of_shopping_the_prompt_to_the_next_queue()
     {
         // the same rule the inline path follows: a content refusal is the backend judging the PROMPT, and
@@ -197,6 +219,9 @@ public class GenerationSubmitFallbackTests
         /// <summary>What the rejected submission reports as its reason; null = none at all.</summary>
         public string? Detail { get; init; }
 
+        /// <summary>The verdict the rejection carries; null = none, so the router classifies the detail.</summary>
+        public ProviderVerdict? Verdict { get; init; }
+
         public int SubmitCalls { get; private set; }
 
         public ProviderCapabilities Capabilities { get; } = new()
@@ -215,7 +240,10 @@ public class GenerationSubmitFallbackTests
         public Task<QueuedOperation> SubmitAsync(MediaRequest request, CancellationToken ct = default)
         {
             SubmitCalls++;
-            return Task.FromResult(new QueuedOperation("", QueuedOperationStatus.Failed, Detail: Detail));
+            return Task.FromResult(new QueuedOperation("", QueuedOperationStatus.Failed, Detail: Detail)
+            {
+                Verdict = Verdict,
+            });
         }
 
         public Task<QueuedOperation> PollAsync(string operationId, CancellationToken ct = default) =>

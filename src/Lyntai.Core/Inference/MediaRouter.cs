@@ -20,8 +20,9 @@ namespace Lyntai.Inference;
 /// never answered may already hold a billable render and the next candidate would buy it twice.</para>
 ///
 /// <para><b>The policy governs submission too, at one remove.</b> A submission carries a
-/// <see cref="QueuedOperationStatus"/>, not a verdict, so a rejection is classified from the backend's
-/// own <see cref="QueuedOperation.Detail"/> and answered by the same table. Two things hold whatever the
+/// <see cref="QueuedOperationStatus"/>, so a rejection takes the backend's own
+/// <see cref="QueuedOperation.Verdict"/> where it sets one, is otherwise classified from its
+/// <see cref="QueuedOperation.Detail"/>, and is answered by the same table. Two things hold whatever the
 /// text says: Inconclusive is decided BEFORE the verdict, and a submission the router does not accept
 /// reports an EMPTY <see cref="MediaSubmission.ProviderId"/> — <see cref="IMediaRouter"/>'s "no
 /// candidate accepted" — with the first rejection folded into the detail by the two-slot rule above.</para>
@@ -214,10 +215,10 @@ public sealed class MediaRouter(
                 // is wrong for the same reason it is wrong inline: an unconfigured queue backend
                 // (FalQueueProvider answers "not configured: …" before it opens a socket) would be penalised
                 // on every attempt for a fact known before the call — precisely the harm NotConfigured was
-                // introduced to prevent (docs/DECISIONS.md D31). An operation carries a STATUS, not a verdict,
-                // so the verdict comes from classifying the backend's own words through the shared corpus;
+                // introduced to prevent (docs/DECISIONS.md D31). The backend's own verdict wins where it gives
+                // one; otherwise it comes from classifying the backend's words through the shared corpus, and
                 // an unclassifiable rejection still lands on Failed, which is what it did before.
-                var verdict = ProviderVerdictClassifier.FromErrorText(operation.Detail);
+                var verdict = operation.Verdict ?? ProviderVerdictClassifier.FromErrorText(operation.Detail);
 
                 // blameless verdicts do not outrank reasons — remembered apart, exactly as GenerateAsync does,
                 // so "nothing is set up" never masks "the one you configured refused the job", while a

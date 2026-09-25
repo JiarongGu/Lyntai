@@ -164,8 +164,9 @@ public class Automatic1111ProviderContractTests : HttpGenerationProviderContract
 
 public class ComfyUiProviderContractTests : HttpGenerationProviderContractFacts
 {
+    // node 10 loads the first frame, so the input fact sees it CONSUMED (uploaded) rather than refused
     private const string Workflow =
-        """{"3":{"class_type":"KSampler","inputs":{"seed":0}},"6":{"class_type":"CLIPTextEncode","inputs":{"text":"placeholder"}}}""";
+        """{"3":{"class_type":"KSampler","inputs":{"seed":0}},"6":{"class_type":"CLIPTextEncode","inputs":{"text":"placeholder"}},"10":{"class_type":"LoadImage","inputs":{"image":"none"}}}""";
 
     protected override IModelProvider New(StubHttpHandler http) =>
         new ComfyUiProvider(
@@ -180,6 +181,7 @@ public class ComfyUiProviderContractTests : HttpGenerationProviderContractFacts
         {
             ["workflow"] = Workflow,
             ["prompt-path"] = "6.inputs.text",
+            ["input-path:first-frame"] = "10.inputs.image",
         },
     };
 }

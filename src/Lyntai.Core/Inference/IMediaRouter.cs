@@ -21,9 +21,10 @@ public interface IMediaRouter
     /// <summary>Submit an asynchronous generation through the first capable job-capable candidate. The
     /// returned operation is paired with the provider id that owns it, because an operation id only means
     /// something to the backend that issued it.</summary>
-    /// <remarks>The per-verdict fallback policy governs this path too, at one remove: a submission comes back
-    /// carrying a status, not a verdict, so a rejected one is classified from the backend's own
-    /// <see cref="QueuedOperation.Detail"/> and then answered by the same table — a rate limit benches the
+    /// <remarks>The per-verdict fallback policy governs this path too, at one remove: a rejected submission
+    /// takes the backend's own <see cref="QueuedOperation.Verdict"/> where it sets one, is otherwise
+    /// classified from its <see cref="QueuedOperation.Detail"/>, and is then answered by the same table — a
+    /// request the backend cannot serve as posed advances without blame, a rate limit benches the
     /// backend, an unconfigured one is advanced past blamelessly, and a rejection nothing recognises still
     /// counts toward the dead-host threshold.
     /// <para>Two rules hold whatever the text says. A submission the backend never answered

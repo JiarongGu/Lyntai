@@ -87,10 +87,12 @@ the full promise and these are confirmations rather than repairs. In priority or
    before one terminal, the per-chunk `MediaType` carrying the metadata a raw wire cannot. A hosted
    vendor's wire stays worth measuring when an account exists (the owner's 2026-09-19 ruling sequences
    local first; it does not exclude). TTS before music, still.
-3. **Pipelines — DONE 2026-09-25.** The runner shipped 2026-08-30 (`RunPipelineAsync`); the 3D stage is the
-   ComfyUI provider, which now takes a mesh input and produces `Model3d`, and a ComfyUI render graph is the
-   mesh → image edge (**D180**), measured with no 3D model. A mesh-GENERATING stage is measured from real use,
-   not by a download here.
+3. **Pipelines — the 3D stage and the mesh → image edge are DONE (2026-09-25, D180).** The runner shipped
+   2026-08-30 (`RunPipelineAsync`); the ComfyUI provider now takes a mesh input and produces `Model3d`, and a
+   ComfyUI render graph is the mesh → image edge, measured with no 3D model. **Queued stages are not yet
+   reachable from the runner**: it drives the inline door, and every video backend and ComfyUI are queued-only,
+   so such a chain is driven stage by stage through submit → poll → fetch (`TASKS.md` Part 290). A
+   mesh-GENERATING stage is measured from real use, not by a download here.
 
 _Generation wiring helpers (`AddOpenAiImageProvider()` and friends) were item 4 here and **shipped in 2.1.0**
 — see `docs/task-archive.md` Part 36. Every remaining item above needs a real

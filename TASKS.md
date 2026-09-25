@@ -90,8 +90,8 @@ _Part 32 (MED1: the generation platform + the 2.0.1 package restructure) landed 
 that plan's Plans 3–7, each a separate pass because each needs its own measurement.
 <br>**Nothing below EXECUTES from that plan any more, which is why it left `docs/` (D149).** Its Plan 6
 still names a streaming interface **D127** deleted and its Plan 7 predates the 2026-08-30 3D survey and
-GEN7a shipping, so the three item bodies below are the current framing and the plan is the record of how
-the core was built._
+GEN7a shipping, so the one item body below is the current framing and the plan is the record of how the
+core was built._
 
 _GEN3 (local `sd-cli`), GEN4 (durable renders + the fal.ai queue backend), GEN6's tool/MCP bridge half and
 GEN5 (governance + telemetry parity) all landed 2026-08-04 — see `docs/task-archive.md` Part 33._
@@ -109,9 +109,9 @@ The fal-first naming that once hid ComfyUI inside this list is recorded in
   or fix the mapping.
 
   _**This is fal's OWN wire format and nothing else.** It is not the generation platform's verification
-  story and must not be treated as one — the two sibling items above cover the other two backends without
-  a vendor, and the video DELIVERY path is reachable through ComfyUI. Filed narrowly on purpose, because
-  the old bundled item let "we are waiting on fal" stand in for "the platform is unverified"._
+  story and must not be treated as one — `sd-cli` and ComfyUI, once bundled with it, were measured without a
+  vendor (the note above), and the video DELIVERY path is reachable through ComfyUI. Filed narrowly on
+  purpose, because the old bundled item let "we are waiting on fal" stand in for "the platform is unverified"._
 
   _**This half IS blocked, and it is the rule's own example of one**: a vendor key or an account, which no
   download can supply. Split from the `sd-cli` half on 2026-09-16 because they were always independent —

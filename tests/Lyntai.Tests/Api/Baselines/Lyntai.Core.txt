@@ -1223,6 +1223,7 @@ sealed class Lyntai.Inference.QueuedOperation
     Progress : Nullable<Double>
     Status : QueuedOperationStatus
     ToString() : String
+    Verdict : Nullable<ProviderVerdict>
 enum Lyntai.Inference.QueuedOperationStatus
     Cancelled : QueuedOperationStatus const
     Failed : QueuedOperationStatus const
