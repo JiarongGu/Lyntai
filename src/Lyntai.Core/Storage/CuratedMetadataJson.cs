@@ -1,6 +1,5 @@
-using System.Buffers;
-using System.Text;
 using System.Text.Json;
+using Lyntai.Text;
 
 namespace Lyntai.Storage;
 
@@ -17,15 +16,11 @@ public static class CuratedMetadataJson
     public static string? Serialize(IReadOnlyDictionary<string, string>? metadata)
     {
         if (metadata is null || metadata.Count == 0) return null;
-        var buffer = new ArrayBufferWriter<byte>();
-        using (var writer = new Utf8JsonWriter(buffer))
+        return JsonExtract.WriteObject(writer =>
         {
-            writer.WriteStartObject();
             foreach (var key in metadata.Keys.OrderBy(k => k, StringComparer.Ordinal))
                 writer.WriteString(key, metadata[key]);
-            writer.WriteEndObject();
-        }
-        return Encoding.UTF8.GetString(buffer.WrittenSpan);
+        });
     }
 
     /// <summary>Parse a stored JSON object back into a map, or <c>null</c> when the text is null/blank/empty

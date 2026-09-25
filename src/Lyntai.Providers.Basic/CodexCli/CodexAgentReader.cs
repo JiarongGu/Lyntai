@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using Lyntai.Agents;
 using Lyntai.Providers.Basic;
+using Lyntai.Text;
 
 namespace Lyntai.Providers.CodexCli;
 
@@ -57,7 +58,7 @@ internal sealed class CodexAgentReader
         switch (CodexEnvelope.Type(root))
         {
             case CodexEnvelope.ThreadStarted:
-                if (WireJson.String(root, "thread_id") is { Length: > 0 } threadId)
+                if (JsonExtract.StringProperty(root, "thread_id") is { } threadId)
                 {
                     _threadId = threadId;
                     yield return new SessionStarted(threadId);
@@ -119,7 +120,7 @@ internal sealed class CodexAgentReader
     private IEnumerable<AgentStreamEvent> ReadItem(JsonElement root, bool started)
     {
         if (CodexEnvelope.Item(root) is not { } item) yield break;
-        if (WireJson.String(item, "type") is not { Length: > 0 } itemType) yield break;
+        if (JsonExtract.StringProperty(item, "type") is not { } itemType) yield break;
 
         var id = WireJson.String(item, "id");
 
@@ -129,7 +130,7 @@ internal sealed class CodexAgentReader
             // deltas, so a TextDelta here is one complete assistant message, not a token. Accumulated the
             // same way the codex PROVIDER accumulates content, so RunAsync and CompleteAsync agree.
             case CodexEnvelope.AgentMessageItem:
-                if (!started && WireJson.String(item, "text") is { Length: > 0 } text)
+                if (!started && JsonExtract.StringProperty(item, "text") is { } text)
                 {
                     _answer.Append(text);
                     yield return new TextDelta(text);
@@ -139,7 +140,7 @@ internal sealed class CodexAgentReader
             // MEASURED (codex 0.155.1): the item type is `reasoning` — not `agent_reasoning` — and the
             // text field is `text`, both confirmed on a real turn (D35 re-measurement).
             case CodexEnvelope.ReasoningItem:
-                if (!started && WireJson.String(item, "text") is { Length: > 0 } thought)
+                if (!started && JsonExtract.StringProperty(item, "text") is { } thought)
                     yield return new Thinking(thought);
                 break;
 
