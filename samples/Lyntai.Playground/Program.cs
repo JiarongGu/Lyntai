@@ -1,6 +1,6 @@
 // Lyntai.Playground — full-stack smoke over the real library surface:
-// AddLyntai(SQLite + claude-cli + an openai-shaped endpoint) → prompt override/compose →
-// completion via the router → scoring (incl. an LLM judge) → trace persist/read → memory recall.
+// AddLyntai(SQLite + claude-cli) → prompt override/compose → completion via the router → scoring
+// (deterministic + an LLM judge) → trace persist/read → memory recall.
 // Honors LYNTAI_PROVIDER_CMD (the devtools e2e harness points it at the deterministic stub, so a
 // run spends no real tokens) and LYNTAI_DATA (isolated data folder).
 using Lyntai.Inference;
@@ -50,19 +50,13 @@ using var meterListener = tel.CreateMeterListener();
 var services = new ServiceCollection();
 services.AddLyntai(b => b
     .AddClaudeCliProvider()
-    .AddHttpProvider("ollama", c =>
-    {
-        c.BaseUrl = Environment.GetEnvironmentVariable("LYNTAI_OLLAMA_URL") ?? "http://localhost:11434";
-        c.Model = "llama3";
-    })
     .UseSqliteStorage(dbPath)
     .AddScorer<OutcomeScorer>()
-    .AddScorer<StructureScorer>()
     .AddScorer<RelevancyScorer>()
     .AddJobHandler<DemoJobHandler>()
     // an inline tool the model can call inside the tool loop (step 8)
     .AddTool(_ => new FunctionTool("echo", (args, _) => Task.FromResult($"observed:{args}"), "echoes its JSON arguments"))
-    .UseDefaultCandidates("claude-cli", "ollama"));
+    .UseDefaultCandidates("claude-cli"));
 await using var sp = services.BuildServiceProvider();
 
 var sessionId = $"playground-{Guid.NewGuid():N}";
@@ -82,8 +76,8 @@ var composer = sp.GetRequiredService<IPromptComposer>();
 var prompt = await composer.ComposeAsync(basePrompt, "playground", scope: "demo");
 recorder.Record(new TraceStep { Kind = "phase", Label = "compose" });
 
-// 2. completion through the front door — Lyntai behaving like one provider
-//    (fallback across claude-cli → ollama happens invisibly behind ITextClient)
+// 2. completion through the front door — Lyntai behaving like one provider (a second candidate would be
+//    fallen over to invisibly behind ITextClient)
 var llm = sp.GetRequiredService<ITextClient>();
 var stopwatch = Stopwatch.StartNew();
 var reply = await llm.CompleteAsync(
@@ -174,7 +168,10 @@ Console.WriteLine($"playground: telemetry chatSpans={tel.ChatSpans} toolLoopSpan
 var telemetryEmitted = tel.ChatSpans > 0 && tel.ToolLoopSpans > 0 && tel.ToolCallSpans > 0
     && tel.JobSpans > 0 && tel.ToolInvocations > 0 && tel.JobsProcessed > 0;
 
-var healthy = trace is { Steps.Count: > 0 } && scores.Count > 0 && recalled.Count > 0 && streamedChunks > 0
+// the LLM judge must have scored: the deterministic scorer always does, so a count alone cannot see a broken
+// judge path (a judge that fails is omitted, not scored zero)
+var judged = scores.Any(s => s.ScorerId == "relevancy");
+var healthy = trace is { Steps.Count: > 0 } && judged && recalled.Count > 0 && streamedChunks > 0
     && finishedJob is { Status: JobStatus.Succeeded } && toolResult.Ok && telemetryEmitted;
 Console.WriteLine(healthy ? "playground: OK" : "playground: INCOMPLETE");
 return healthy ? 0 : 1;
