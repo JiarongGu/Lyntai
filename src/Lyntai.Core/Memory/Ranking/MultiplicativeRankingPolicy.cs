@@ -92,7 +92,7 @@ public sealed record MultiplicativeRankingOptions
 /// Relevance × Retrievability × boost × HopAttenuation^Hop</c>, where <c>boost</c> is <c>1</c> unless
 /// <see cref="MultiplicativeRankingOptions.SalienceRankWeight"/> is opted above its shipped 0, then floored
 /// against its own best score.
-/// <para><b>No longer the registered default as of 3.0</b> —
+/// <para><b>Not the registered default</b> —
 /// <see cref="Lyntai.Memory.Ranking.ReciprocalRankFusionPolicy"/> is (<c>docs/DECISIONS.md</c> D49). It ships
 /// unchanged and is one line to restore:
 /// <c>services.AddSingleton&lt;IMemoryRankingPolicy&gt;(new MultiplicativeRankingPolicy())</c>, before or

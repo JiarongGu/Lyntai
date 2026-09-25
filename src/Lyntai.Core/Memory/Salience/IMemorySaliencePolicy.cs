@@ -129,17 +129,10 @@ public sealed record SalienceOptions
     /// <para><b>A negative weight is INERT, not inverting.</b> <c>StructuralSaliencePolicy</c> computes
     /// <c>Math.Clamp(1 + factor × novelty, 1, MaxSalience)</c>, and that lower bound is 1 — so for any
     /// novelty above zero a negative factor floors to the neutral value and the policy returns no signal at
-    /// all. This paragraph claimed the opposite ("a negative weight legitimately inverts the effect") until
-    /// 2026-08-29, when an arm of <c>memory-salience --novelty</c> came back byte-identical to the
-    /// weight-zero arm and to salience-off. Inverting the SIGN of the preference needs a different policy,
-    /// not a negative weight here.</para>
-    /// <para>The guard is finiteness only, and it rejects just
-    /// <see cref="double.NaN"/> and the infinities. It was the ONE unguarded field of this record while both
-    /// its siblings validated: <c>StructuralSaliencePolicy</c> feeds it to
-    /// <see cref="Math.Clamp(double,double,double)"/>, which PROPAGATES <c>NaN</c> rather than clamping it,
-    /// so a non-finite weight put a <c>NaN</c> salience into the signals bag. Three downstream readers
-    /// happened to coerce it back, which is the shape <c>pitfalls.md</c> warns about — the guard belongs to
-    /// the VALUE, not to whoever reads it last.</para></summary>
+    /// all. Inverting the SIGN of the preference needs a different policy, not a negative weight here.</para>
+    /// <para>The guard is finiteness only: the policy feeds this to <see cref="Math.Clamp(double,double,double)"/>,
+    /// which PROPAGATES <c>NaN</c> into the stored signal (<c>.claude/knowledge/pitfalls.md</c>, "a clamp is not
+    /// a finiteness guard").</para></summary>
     /// <exception cref="ArgumentOutOfRangeException">Set to a non-finite value.</exception>
     public double NoveltyWeight
     {

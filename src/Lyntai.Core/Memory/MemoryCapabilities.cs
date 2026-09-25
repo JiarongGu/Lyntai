@@ -46,13 +46,10 @@ public interface ILinkableMemory
 /// <summary>An engine that can remove entries. Removal is always EXPLICIT — nothing in this library deletes
 /// remembered material as a side effect of decay, which only ever affects ranking.
 ///
-/// <para><b>Both removing verbs live here, and that is what makes them reachable.</b> Through 2.5.x
-/// <c>ForgetAsync</c> was a bare public method on <c>GraphMemoryEngine</c> and on no interface at all, while
-/// <c>CompositeMemoryEngine</c> — which <c>MemoryEngineBuilder.Build</c> produces for EVERY registration,
-/// even a single-member one — did not implement this interface. So a consumer holding the
-/// <see cref="IMemoryEngine"/> that <see cref="IMemoryEngineFactory"/> hands back could reach neither: the
-/// type test failed and the method was invisible. A memory subsystem you cannot delete from is not a
-/// capability that was deferred, it is one that was lost behind a wrapper.</para></summary>
+/// <para><b>Reached by a type test</b> on the <see cref="IMemoryEngine"/> that
+/// <see cref="IMemoryEngineFactory"/> hands back — which is always a <c>CompositeMemoryEngine</c>, so every
+/// capability an engine has must also be declared by the blend around it, or no consumer can reach
+/// it.</para></summary>
 public interface IForgettableMemory
 {
     /// <summary>Forget everything remembered under (<paramref name="taskKey"/>, <paramref name="scope"/>),
@@ -78,17 +75,11 @@ public interface IForgettableMemory
 
 /// <summary>OPTIONAL capability: an engine that can remove a qualifying SUBSET, for capacity management.
 ///
-/// <para><b>Split from <see cref="IForgettableMemory"/> in 3.0, because the two answer different
-/// questions.</b> Forgetting is a targeted withdrawal of one user's data — it must be complete, and a
-/// partial one is a broken promise. Pruning bounds an ever-growing store — it is best-effort by nature, an
-/// operator's or a scheduler's act rather than a user's, and removing fewer entries than hoped is a
-/// deferred cost rather than a defect.</para>
-///
-/// <para>They were one interface, and that forced an engine to claim both or neither. A vector store with no
-/// age column can forget a scope exactly and cannot prune by age at all; under the old shape it had to either
-/// lie about pruning or give up forgetting. Worse, a composite could only pre-check that members implemented
-/// the interface — so a member that implemented it and threw from one of the two methods produced the exact
-/// outcome the pre-check exists to prevent: some members removed, then an exception.</para></summary>
+/// <para><b>Separate from <see cref="IForgettableMemory"/>, because the two answer different questions</b>
+/// (<c>docs/DECISIONS.md</c> D72). Forgetting is a targeted withdrawal of one user's data — it must be
+/// complete. Pruning bounds an ever-growing store — best-effort by nature, an operator's or a scheduler's
+/// act, and removing fewer entries than hoped is a deferred cost rather than a defect. A vector store can
+/// forget a scope exactly and cannot prune at all, so an engine declares each capability it has.</para></summary>
 public interface IPrunableMemory
 {
     /// <summary>Remove entries matching the criteria, returning how many were removed.</summary>

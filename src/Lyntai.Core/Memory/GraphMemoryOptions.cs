@@ -11,9 +11,8 @@ public sealed record GraphMemoryOptions
 
     /// <summary>The character budget an expansion falls back to when the caller passes none — the "engine's
     /// configured budget" <see cref="IExpandableMemory.ExpandAsync"/> has always promised.
-    /// <para>Null (the default) means UNBOUNDED, which is what the engine did before the parameter was
-    /// honoured at all, so leaving it unset changes nothing. It bounds the NEIGHBOURS only: the expanded
-    /// entry's own content is always returned whole, because that is what expansion is for.</para></summary>
+    /// <para>Null (the default) means UNBOUNDED. It bounds the NEIGHBOURS only: the expanded entry's own
+    /// content is always returned whole, because that is what expansion is for.</para></summary>
     /// <exception cref="ArgumentOutOfRangeException">Set below zero.</exception>
     public int? ExpandCharBudget { get; init => field = MemoryOption.Require(value, 0, nameof(GraphMemoryOptions), ZeroIsOff); }
 
@@ -55,8 +54,8 @@ public sealed record GraphMemoryOptions
     ///
     /// <para><b>What a value buys.</b> With <c>2</c> against a limit of <c>10</c>, at most two slots go to
     /// re-admitted exact facts and eight remain for ordinary hits — for a task that marks many facts
-    /// authoritative and still needs ordinary recall through. <c>0</c> restores the pre-3.0 behaviour and
-    /// re-breaks objective (1), which is why it is not the default.</para>
+    /// authoritative and still needs ordinary recall through. <c>0</c> reserves nothing and re-breaks
+    /// objective (1), which is why it is not the default.</para>
     ///
     /// <para><b>It counts EVERY authoritative candidate, not only the ones a ranking policy dropped.</b> A
     /// policy does not omit an exact fact, it RANKS it, and one the query did not match carries
@@ -147,13 +146,9 @@ public sealed record GraphMemoryOptions
     /// saturates, and spreading stops discriminating because everything reaches everything.
     /// <see cref="Lyntai.Memory.Engines.GraphMemoryEngine"/> reads this directly (<c>EffectiveEdgeWeight</c>),
     /// independent of whichever retrievability policy is registered — it is this ENGINE's own knob, not the
-    /// curve's, which is why it lives here rather than on an options record a policy owns.
-    /// <para><b>Moved here in 3.0</b> from the now-deleted <c>HalfLifeOptions.EdgeHalfLife</c>, which this
-    /// record used to carry as its own <c>Decay</c> member (<c>docs/DECISIONS.md</c>) — the five OTHER fields
-    /// that record carried (<c>InitialStability</c>, <c>ReinforceFactor</c>, <c>MaxStability</c>,
-    /// <c>ConnectionBoost</c>, <c>MaxConnectionBoost</c>) governed the deleted exponential curve's own
-    /// arithmetic and went with it; only this one was ever this engine's rather than that curve's, and it is
-    /// the reason <c>Decay</c> could not simply disappear without a replacement.</para></summary>
+    /// curve's, which is why it lives here rather than on an options record a policy owns. Not
+    /// <c>DsrOptions.EdgeHalfLife</c>, which decays connection STRENGTH inside the curve — same name, same
+    /// default, different quantity.</summary>
     public double EdgeHalfLife
     {
         get;
@@ -197,19 +192,13 @@ public sealed record GraphMemoryOptions
     /// it. Shared as one constant because they share one failure mode; the guard itself is shared with every
     /// other memory options record through <see cref="MemoryOption"/>.
     ///
-    /// <para><b>NaN is the one that matters, and it is not theoretical here.</b> <c>EffectiveEdgeWeight</c>
-    /// guards <see cref="EdgeHalfLife"/> with <c>halfLife &lt;= 0</c> — false for <c>NaN</c> — so a NaN
-    /// falls through into <c>Math.Pow(2, -age / NaN)</c> and every edge weight in the graph becomes NaN.
-    /// Traversal then orders by a value that compares false against everything: spreading silently stops
-    /// discriminating, and nothing reports a problem. <c>DsrOptions.MaxStability</c> had the identical
-    /// defect until 3.0, where a NaN was written back to the store and left an entry that neither ranked,
-    /// nor pruned, nor surfaced as broken.</para>
+    /// <para>A NaN is not theoretical: <c>EffectiveEdgeWeight</c>'s <c>halfLife &lt;= 0</c> guard is false for
+    /// it, so every edge weight becomes NaN and traversal stops discriminating, silently
+    /// (<c>.claude/knowledge/pitfalls.md</c>, "a clamp is not a finiteness guard").</para>
     ///
-    /// <para><b>Deliberately finiteness only, not a domain.</b> Each of these three knobs has a sensible
-    /// range, but an out-of-range FINITE value merely exaggerates its effect and stays diagnosable, while a
-    /// non-finite one makes every comparison downstream meaningless. Guarding the second without inventing
-    /// bounds the measurements have not justified is the honest line — and the same one
-    /// <c>MultiplicativeRankingOptions</c> draws when it rejects NaN and both infinities everywhere.</para>
+    /// <para><b>Deliberately finiteness only, not a domain.</b> An out-of-range FINITE value merely
+    /// exaggerates its knob and stays diagnosable; bounds the measurements have not justified would be
+    /// invented.</para>
     /// </summary>
     private const string Disables =
         "a NaN or an infinity here does not exaggerate the knob, it silently disables every comparison that "

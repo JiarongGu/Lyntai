@@ -28,16 +28,7 @@ namespace Lyntai.Memory.Engines;
 /// <param name="store">Node and edge storage.</param>
 /// <param name="options">Retrieval knobs; null takes the defaults.</param>
 /// <param name="retrievability">The decay curve; null builds a <see cref="Lyntai.Memory.Forgetting.DsrRetrievability"/>
-/// with default options. <b>This bare default and the DI-registered one now agree</b>
-/// (<c>AddMemoryEngine</c>/<c>AddMemory</c>/<c>UseGraph</c> — see <c>docs/DECISIONS.md</c> D49) — a
-/// two-defaults split existed here through 3.0's own D49 change, when this constructor's own fallback stayed
-/// on the deleted exponential curve while the DI path had already moved to DSR, deliberately, so that
-/// flipping this fallback would not silently retarget every test in this repository that constructed the
-/// engine directly to exercise the exponential curve's own arithmetic without naming it. Deleting that curve
-/// removed the second option the split was choosing between, and resolved it on its own: a hand-constructing
-/// consumer now gets the same curve DI gives, unless this parameter (or
-/// <c>services.AddSingleton&lt;IMemoryRetrievabilityPolicy&gt;</c> ahead of a DI-built engine) says
-/// otherwise.</param>
+/// with default options — the same curve a DI-built engine takes (<c>docs/DECISIONS.md</c> D49).</param>
 /// <param name="agePolicies">What one write does to this memory — the coexisting age dimensions in play; null
 /// or empty takes a single burst-damped per-write age policy. <b>The damping is not optional garnish</b> — an
 /// undamped count-based policy lets a bulk ingest wipe everything stored before it. Each policy declares its
@@ -73,8 +64,7 @@ namespace Lyntai.Memory.Engines;
 /// <param name="clock">Reads "now" for <see cref="PruneAsync"/>'s <c>olderThan</c> criterion, on the
 /// derivable path only; null takes <see cref="DateTimeOffset.UtcNow"/>. Mirrors the injectable clock every
 /// <see cref="IMemoryGraphStore"/> implementation already takes, so a test that fakes the store's clock can
-/// fake this engine's too — an earlier review's minor: before this parameter existed the two disagreed under a
-/// test clock, because this engine had no seam of its own and read the wall clock directly.</param>
+/// fake this engine's too.</param>
 /// <param name="annotation">Judges what each written fact is ABOUT, so entries concerning the same entity
 /// become connected — the only mechanism that reaches a cluster whose members share no distinguishing word
 /// (see <see cref="Lyntai.Memory.Annotation.IMemoryAnnotationPolicy"/>). Null is the model-free floor: no
@@ -82,8 +72,7 @@ namespace Lyntai.Memory.Engines;
 /// <param name="verification">Judges which of a recall's candidates actually ANSWERED the query, so
 /// reinforcement follows evidence rather than the ranker's own prior and an outranked answer can be promoted
 /// past the limit (see <see cref="Lyntai.Memory.Verification.IMemoryVerificationPolicy"/>). Null is the
-/// model-free floor: the ranking policy's order stands and everything a recall returns is reinforced,
-/// exactly as before this seam existed.</param>
+/// model-free floor: the ranking policy's order stands and everything a recall returns is reinforced.</param>
 /// <param name="retentionPolicies">The coexisting retention dimensions — a DI collection, like
 /// <paramref name="agePolicies"/> and <paramref name="saliencePolicies"/>, because retention is a PLURAL
 /// domain (<c>docs/DECISIONS.md</c> <b>D48</b>). The engine composes them over
@@ -97,15 +86,11 @@ namespace Lyntai.Memory.Engines;
 /// <param name="seedSources">The retrieval CHANNELS a recall gathers candidates from — a DI collection, like
 /// <paramref name="agePolicies"/>, because seeding is a PLURAL domain (<c>docs/DECISIONS.md</c> <b>D48</b>):
 /// lexical reads text, semantic reads a vector space, subject reads handles, and all three are true at once.
-/// Null or empty takes the two this engine has always run — <see cref="LexicalSeedSource"/> and
-/// <see cref="SubjectSeedSource"/> — so a hand-built engine seeds exactly as it did before this parameter
-/// existed. Two sources sharing a <see cref="IMemorySeedSource.Name"/> throws.
-/// <para>Appended LAST on purpose (<c>docs/DECISIONS.md</c> D50): inserting it beside the other collections
-/// would silently re-bind every positional caller.</para></param>
+/// Null or empty takes <see cref="LexicalSeedSource"/> and <see cref="SubjectSeedSource"/>, the two a
+/// DI-built engine registers. Two sources sharing a <see cref="IMemorySeedSource.Name"/> throws.</param>
 /// <param name="routing">Supplies the SHARED dead-host cooldown and admission for the embedding calls
-/// similarity enrichment makes. Null routes over <paramref name="providers"/> with neither, which is what
-/// this engine did before — a vector backend that rate-limited was asked again on the very next write.
-/// Appended last for the same reason <paramref name="seedSources"/> was.</param>
+/// similarity enrichment makes. Null routes over <paramref name="providers"/> with neither, so a vector
+/// backend that rate-limited is asked again on the very next write.</param>
 /// <exception cref="ArgumentException">Two <paramref name="seedSources"/> share a name.</exception>
 public sealed class GraphMemoryEngine(
     string name,
@@ -164,15 +149,12 @@ public sealed class GraphMemoryEngine(
     /// Wraps the curve in the engine's own retention modulation — the ENGINE composing a plural domain it
     /// owns, exactly as it does for age and salience.
     ///
-    /// <para><b>Retention used to arrive pre-wrapped inside the <c>retrievability</c> argument</b>, so a
-    /// DI-built engine applied it and a hand-built one silently did not unless its author knew to construct a
-    /// <see cref="ModulatedRetrievability"/>. Every bench sweep hand-builds. <c>docs/DECISIONS.md</c> D48
-    /// calls retention a plural domain; a plural domain reaching the engine through ANOTHER domain's
-    /// constructor is a modelling error however convenient it is.</para>
+    /// <para>Retention arrives as its OWN collection, never pre-wrapped inside <c>retrievability</c>: a plural
+    /// domain (<c>docs/DECISIONS.md</c> D48) reaching the engine through another domain's constructor applied
+    /// on a DI-built engine and silently not on a hand-built one.</para>
     ///
-    /// <para><b>No policies means no wrapper</b>, so an engine that was never given retention is byte-identical
-    /// to one built before this parameter existed — the wrapper is exactly <c>inner</c> when its collection is
-    /// empty, but skipping it keeps that a property of construction rather than of the decorator.</para>
+    /// <para><b>No policies means no wrapper</b> — the wrapper would be exactly <c>inner</c>, but skipping it
+    /// keeps that a property of construction rather than of the decorator.</para>
     ///
     /// <para><b><see cref="ModulatedRetrievability"/> stays PUBLIC and composing one yourself stays
     /// supported</b> — it implements a public seam, and a consumer with their own curve, or one not using
@@ -568,8 +550,8 @@ public sealed class GraphMemoryEngine(
     }
 
     /// <summary>Collect signals from every registered salience policy, treating each one's own failure as "no
-    /// signals from THAT policy" — a broken policy must degrade to 2.5.0 decay behaviour, never to a lost
-    /// write, and never take a healthy sibling down with it. The composition then decides how the resulting
+    /// signals from THAT policy" — a broken policy degrades to unmodulated decay, never to a lost write, and
+    /// never takes a healthy sibling down with it. The composition then decides how the resulting
     /// bags combine into the ONE bag a write stores — the identity when only one policy is
     /// registered.
     /// <para><b>Provenance records who PRODUCED a signal, not who merely ran.</b> A policy that declined
@@ -1163,13 +1145,9 @@ public sealed class GraphMemoryEngine(
         MemoryVectorCollection.For(Name, taskKey, scope);
 
     /// <summary>Clamp one component of a composed <see cref="MemoryTick"/> to something a store may keep.
-    /// <para><b><see cref="Math.Max(double,double)"/> is not a finiteness guard</b> — it PROPAGATES
-    /// <see cref="double.NaN"/> per IEEE 754, the same trap <see cref="MemorySignals.Difficulty"/> records for
-    /// <see cref="Math.Clamp(double,double,double)"/>. Both components are PERSISTED, so a bare <c>Max</c> was
-    /// the one place a BYO <see cref="IMemoryAgePolicy.Advance"/> could poison the store permanently: on
-    /// Postgres a <c>NaN</c> position adds into the engine's running total and every LATER entry then reports
-    /// a non-finite age, while SQLite refuses the bind and fails loudly — so the two backends disagreed about
-    /// a poisoned write, which is worse than either answer alone.</para>
+    /// <para>Both components are PERSISTED, and a bare <see cref="Math.Max(double,double)"/> propagates a BYO
+    /// <see cref="IMemoryAgePolicy.Advance"/>'s <c>NaN</c> into every later entry's age
+    /// (<c>.claude/knowledge/pitfalls.md</c>, "a clamp is not a finiteness guard").</para>
     /// <para>A non-finite component becomes <c>1</c> rather than <c>0</c> because <see cref="MemoryTick.One"/>
     /// already defines that as an ordinary write ("crowds by one and is fully encoded"). <c>0</c> would be a
     /// second, invented meaning — and on the encoding side it multiplies
@@ -1455,10 +1433,10 @@ public sealed class GraphMemoryEngine(
     /// <remarks>The fusion constant is the SHIPPED DEFAULT of <see cref="ReciprocalRankFusionOptions.K"/>,
     /// read from the type rather than restated as a literal, so changing that default moves both.
     ///
-    /// <para><b>Deliberately not the consumer's configured value</b>, which a 2026-09-15 review read it as
-    /// and is worth stating outright. This fuses the RANKING's order with the VERDICT's — a different pair
-    /// of signals from the ones a <c>ReciprocalRankFusionPolicy</c> combines, measured at this constant, and
-    /// a knob nothing has priced. It is the same reasoning as <c>weight</c> just below.</para></remarks>
+    /// <para><b>Deliberately not the consumer's configured value.</b> This fuses the RANKING's order with the
+    /// VERDICT's — a different pair of signals from the ones a <c>ReciprocalRankFusionPolicy</c> combines,
+    /// measured at this constant, and a knob nothing has priced; the same reasoning as <c>weight</c>
+    /// below.</para></remarks>
     private static List<RankedMemory> FuseVerdict(
         IReadOnlyList<RankedMemory> byPolicy, IReadOnlyList<RankedMemory> byVerdict)
     {
@@ -1511,10 +1489,8 @@ public sealed class GraphMemoryEngine(
             return await verification.VerifyAsync(request, ct).ConfigureAwait(false)
                    ?? MemoryVerification.NoOpinion;
         }
-        // Only the CALLER's cancellation propagates. A policy's own timeout arrives as a
-        // TaskCanceledException — which IS an OperationCanceledException — so a bare rethrow made this
-        // fail-open seam fail CLOSED on the likeliest failure a model-backed policy has, taking the whole
-        // recall down with it (found 2026-09-09, `docs/FIXES.md`).
+        // Only the CALLER's cancellation propagates: a policy's own timeout arrives as a
+        // TaskCanceledException, which IS an OperationCanceledException, and must fail open like any fault.
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (Exception ex)
         {
@@ -1591,14 +1567,10 @@ public sealed class GraphMemoryEngine(
             var reviews = new List<MemoryReviewWrite>(loggable.Count);
             var touched = reinforceable.Select(n => n.Id).ToHashSet();
 
-            // THE TWO EFFECTS, SEPARATED HERE (`docs/task-archive.md` Part 64). A touch resets the entry's
-            // age on every
-            // scale AND writes back the grown stability — one store round-trip, two effects that pull in
-            // opposite directions. The age reset keeps a rarely-queried critical fact alive; the growth
-            // entrenches whatever the ranker already returned, because nothing here observes whether the
-            // return was CORRECT. Which of them applies is the ENGINE's call, so it is decided at this line
-            // rather than left to one curve's private constant (`DsrOptions.ReinforceGain`), which a
-            // consumer's own policy would not have.
+            // THE TWO EFFECTS, SEPARATED HERE: a touch resets age AND writes back the grown stability, and
+            // the two pull in opposite directions — the reset keeps a rarely-queried fact alive, the growth
+            // entrenches whatever the ranker returned (docs/DECISIONS.md D57). Which applies is the ENGINE's
+            // call, never one curve's private constant a consumer's own policy would not have.
             var grow = _options.Reinforcement.HasFlag(MemoryReinforcementEffects.StabilityGrowth);
             var resetAge = _options.Reinforcement.HasFlag(MemoryReinforcementEffects.AgeReset);
 

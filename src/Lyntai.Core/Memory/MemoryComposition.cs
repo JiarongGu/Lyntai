@@ -17,11 +17,9 @@ public sealed record MemoryCompositionOptions
     /// recall returned can be reserved, so a fact your selection already dropped is not rescued here — and
     /// the section still looks full. If your own retrieval ranks authoritative material against ordinary
     /// hits, offer the exact material to this renderer IN FULL and let the reserve do the bounding.</para>
-    /// <para><b>CHARACTERS, and named for it.</b> Through 2.5.x this was <c>AuthoritativeReserve</c> — the
-    /// same identifier as <see cref="GraphMemoryOptions.AuthoritativeReserve"/>, in the same namespace, in
-    /// different UNITS (that one reserves recall SLOTS) and with different null conventions, both reachable
-    /// from one <see cref="MemoryEngineBuilder"/> chain. A consumer reading "reserve 2" as slots got two
-    /// characters, which truncates every authoritative fact to nothing.</para></summary>
+    /// <para><b>CHARACTERS, and named for it</b>: <see cref="GraphMemoryOptions.AuthoritativeReserve"/>, reachable
+    /// from the same <see cref="MemoryEngineBuilder"/> chain, reserves recall SLOTS, and "reserve 2" read as
+    /// characters truncates every authoritative fact to nothing (<c>docs/DECISIONS.md</c> D66).</para></summary>
     public int AuthoritativeCharacters { get; init; } = 1000;
 
     /// <summary>Heading for exact material.</summary>

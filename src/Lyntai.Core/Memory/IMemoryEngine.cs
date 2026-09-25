@@ -43,15 +43,13 @@ public interface IMemoryEngine
     /// test is <c>ct.IsCancellationRequested</c> rather than the exception's type: a component's OWN deadline
     /// arrives as a <see cref="TaskCanceledException"/>, which IS an
     /// <see cref="OperationCanceledException"/> and says nothing about the caller, so it is a storage outage
-    /// like any other. This read "cancellation belongs to the caller" until 2026-09-09, and that premise was
-    /// the defect (<c>docs/FIXES.md</c>).</para>
+    /// like any other.</para>
     /// <para><b>A recall MUTATES.</b> An engine may reinforce what it returned and link those entries to one
     /// another, so asking the same question twice is not asking it twice under the same conditions. The
     /// consequence for anyone MEASURING: an A/B over this method has to be paired and counterbalanced — each
     /// query asked under both arms back to back with the order alternating — because running one arm to
     /// completion and then the other compares a cold graph against one the first arm warmed, and the bias
-    /// lands silently on whichever arm ran second. Reported by an adopter whose first numbers were
-    /// untrustworthy for exactly this reason.</para></summary>
+    /// lands silently on whichever arm ran second.</para></summary>
     Task<MemoryRecall> RecallAsync(MemoryQuery query, CancellationToken ct = default);
 }
 

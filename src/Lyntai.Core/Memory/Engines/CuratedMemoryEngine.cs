@@ -84,18 +84,11 @@ public sealed class CuratedMemoryEngine(
         {
             // no query = "everything that applies to this task", which is the catalog's composition read.
             //
-            // ForCompositionAsync takes NEITHER kind NOR limit — it is the whole-catalog read that
-            // CuratedMemorySections renders per section — so both are applied HERE, matching what the
-            // SearchAsync branch below already passes down. Without that, an engine bound to one section
-            // returned every section of the catalog, unbounded, all graded Authoritative; a blend of two
-            // curated engines over one catalog therefore returned each fact once per member, and the
-            // duplicates consumed the authoritative reserve objective (1) exists to protect. Filtering in the
-            // engine rather than widening the store contract keeps this a two-line fix and leaves
-            // ForCompositionAsync doing the one job its other caller needs (found 2026-08-14).
-            //
-            // `kind: null` skips the section filter on both branches — the whole-catalog read the engine
-            // otherwise narrows, which is what makes a catalog of several sections readable through ONE
-            // engine instead of a composite of N.
+            // ForCompositionAsync takes NEITHER kind NOR limit (it is CuratedMemorySections' whole-catalog
+            // read), so both are applied HERE, as SearchAsync below applies them in the store. Unfiltered, a
+            // blend of two curated engines over one catalog returned each fact once per member and the
+            // duplicates spent the authoritative reserve. `kind: null` skips the section filter on both
+            // branches — one engine reading every section.
             var entries = string.IsNullOrWhiteSpace(query.Query)
                 ? (await store.ForCompositionAsync(query.TaskKey,
                             query.Scope is null ? [] : [query.Scope], enabledOnly: true, ct)

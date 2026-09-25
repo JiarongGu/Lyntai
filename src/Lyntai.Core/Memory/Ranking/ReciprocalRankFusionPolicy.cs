@@ -264,9 +264,8 @@ public sealed class ReciprocalRankFusionPolicy(ReciprocalRankFusionOptions? opti
         // answer decides which relevance term the whole set is scored by and a per-candidate test
         // would silently mix two scales — the very defect this change removes.
         //
-        // FALSE is the compatibility path: a hand-built engine, a BYO gather, or any caller
-        // constructing MemoryCandidate directly never populates Ranks, and must rank exactly as it
-        // did before this member existed.
+        // FALSE is the ranks-free path: a BYO gather, or any caller constructing MemoryCandidate directly,
+        // never populates Ranks and ranks relevance by position.
         //
         // The MIXED case is normal, not a fallback trigger: hop neighbours carry no ranks and sit
         // beside seeds that do. They contribute no relevance term, which is what Matched null/false

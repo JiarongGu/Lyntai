@@ -163,17 +163,10 @@ public sealed class ContentSizeAgePolicy : IMemoryAgePolicy
 /// because almost no time passed. Elapsed time is self-limiting in a way a count is not.</para>
 /// <para>The first write of a process advances by zero — there is no previous write to measure from, and
 /// inventing one would age a fresh memory by however long the process had been up.</para>
-/// <para><b>RESOLVED: <see cref="Advance"/> is keyed per the write's OWNING ENGINE, not per policy
-/// instance.</b> An earlier review recorded that
-/// <see cref="Advance"/>'s <c>_previous</c> was scoped to the POLICY INSTANCE — sharing one (the ordinary
-/// DI-singleton shape, one <see cref="IMemoryAgePolicy"/> resolved for every engine) tracked the last write
-/// across ALL of them, not per engine, while <see cref="Age"/> reads <see cref="MemoryAgeSample.ElapsedDays"/>,
-/// which a store derives PER ENGINE by construction (§5.7) — so a shared instance's crowding and its own age
-/// projection measured two different things whenever 2+ engines shared it. <see cref="IMemoryAgePolicy.Advance"/>
-/// now carries the engine's own name for exactly this reason: <see cref="_previous"/> is a dictionary keyed on
-/// it, so one shared instance tracks each engine's "since last write" independently and <see cref="Advance"/>'s
-/// crowding agrees with <see cref="Age"/>'s projection again, even when many engines share one
-/// instance.</para></summary>
+/// <para><b><see cref="Advance"/> is keyed per the write's OWNING ENGINE, not per policy instance.</b>
+/// <see cref="Age"/> reads <see cref="MemoryAgeSample.ElapsedDays"/>, which a store derives PER ENGINE, so one
+/// instance shared across engines (the ordinary DI-singleton shape) must track each engine's "since last
+/// write" separately, or its crowding and its own age projection would measure two different things.</para></summary>
 /// <param name="clock">Time source; null takes the system clock.</param>
 public sealed class ElapsedAgePolicy(Func<DateTimeOffset>? clock = null) : IMemoryAgePolicy
 {
@@ -221,7 +214,7 @@ public sealed class ElapsedAgePolicy(Func<DateTimeOffset>? clock = null) : IMemo
 /// <param name="inner">The clock being damped; null takes <see cref="PerWriteAgePolicy"/>.</param>
 /// <param name="window">A gap longer than this ends the burst. Null takes five seconds.</param>
 /// <param name="clock">Time source for burst detection; null takes the system clock.</param>
-/// <remarks>Burst state is keyed per engine, the same fix <see cref="ElapsedAgePolicy"/> carries (Task 3): one
+/// <remarks>Burst state is keyed per engine, as <see cref="ElapsedAgePolicy"/>'s is: one
 /// instance shared across several engines (the ordinary DI-singleton shape) tracks each engine's OWN burst
 /// independently, rather than one engine's writes resetting — or extending — another's window.</remarks>
 public sealed class BurstDampenedAgePolicy(
