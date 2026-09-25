@@ -1278,7 +1278,7 @@ branch that could have consumed an input, because a ComfyUI init image is a node
 the platform cannot know which node that is. Introduced by `a0efbe6` (2026-08-04), the commit that added
 the backend — never a regression, wrong from the first line.
 
-`FalQueueProvider` had the same defect on its own side and fixed it, leaving the reasoning in a comment:
+`FalQueueProvider` had the same defect on its own side and fixed it, leaving the reasoning in a comment: <!-- drift-ok: the provider's name when this was recorded -->
 dropping a bytes-only input "submitted — and billed — a text-to-video render against a caller who asked
 for image→video, and the result looked plausible". ComfyUI kept it for 26 days after fal's cure was in the
 tree, because nothing generalised the cure.
@@ -1743,7 +1743,7 @@ render FAILED. That is wrong, unactionable, and expensive in a way the verdict t
 missing credential, so a deployment one config line from working benches itself instead.
 
 **Root cause.** The typed status was thrown away before anyone could classify it. Both
-`ComfyUiProvider.HistoryAsync` and `FalQueueProvider.GetAsync` collapse a failed response into
+`ComfyUiProvider.HistoryAsync` and `FalQueueProvider.GetAsync` collapse a failed response into <!-- drift-ok: the provider's name when this was recorded -->
 `$"{(int)StatusCode}: {body}"` and return it as a string, so their fetch paths could not call <!-- drift-ok: the PRE-MERGE name this incident was recorded under -->
 `GenerationVerdictClassifier.FromHttpFailure` — the entry point the classifier's own doc names as better <!-- drift-ok: the PRE-MERGE name this incident was recorded under -->
 ("typed status wins over body text"). ComfyUI then hardcoded `GenerationVerdict.Failed`; fal called <!-- drift-ok: the PRE-MERGE name this incident was recorded under -->
@@ -2074,7 +2074,7 @@ case for having a round 2 at all: this repository's last comparable pass found f
 
 ---
 
-**1. A rate limit dead-lettered an already-paid render.** `FalQueueProvider.GetAsync` classified
+**1. A rate limit dead-lettered an already-paid render.** `FalQueueProvider.GetAsync` classified <!-- drift-ok: the provider's name when this was recorded -->
 `transport = status >= 500`, copied from `ComfyUiProvider.HistoryAsync`. `GenerationRenderJobHandler` turns a
 `Failed` poll into `JobOutcome.Fail`, so ONE `429` from fal permanently dead-lettered a render that was still
 running and already billed — as would a `401` mid key-rotation, a `403` WAF challenge, or a `408`.
@@ -2090,7 +2090,7 @@ from the regime where they DISAGREE" exactly.
 throw to `Inconclusive`, which surfaces, which the handler fails. Before round 1 the throw propagated and
 `JobRunner` retried it. A connection-refused during a deploy went from "retries and succeeds" to "dead-
 lettered, permanently". The duplicate-charge reasoning was right for an ambiguous failure and wrong for one
-that provably never left the process — **the same distinction round 1 taught `FalQueueProvider` one file
+that provably never left the process — **the same distinction round 1 taught `FalQueueProvider` one file <!-- drift-ok: the provider's name when this was recorded -->
 over, and did not apply to its own catch.** `NeverReachedTheBackend` now decides it, and such a throw
 propagates untouched.
 
@@ -2405,7 +2405,7 @@ request id fal no longer knew, polled every 15 seconds for the life of the proce
 dead-lettered, never failed and never completed; the reason — *"not configured: BaseUrl and ApiKey are both
 required"* — sat in `QueuedOperation.Detail`, where nothing acts on it.
 
-**Root cause.** `FalQueueProvider.PollCoreAsync` mapped EVERY `GetAsync` failure to
+**Root cause.** `FalQueueProvider.PollCoreAsync` mapped EVERY `GetAsync` failure to <!-- drift-ok: the provider's name when this was recorded -->
 `QueuedOperationStatus.Running`, and `GetAsync` produces a failure for three unrelated things: an
 unconfigured backend, any non-2xx, and any exception. The method's own `<remarks>` justified only the narrow
 case — *"the same treatment a transport failure already gets here"* — so the code was broader than the
@@ -2429,7 +2429,7 @@ the caller acts on now, where a poll is a question that can be asked again.
 `An_unconfigured_backend_polling_is_TERMINAL_rather_than_polled_forever`, with the pre-existing 500 fact
 still green — it is the control that stops the fix over-firing into "abandon a render that is still running".
 
-**Introduced by.** `FalQueueProvider` as first written (the 2026-08-04 durable-renders work); the surface is
+**Introduced by.** `FalQueueProvider` as first written (the 2026-08-04 durable-renders work); the surface is <!-- drift-ok: the provider's name when this was recorded -->
 one of the two GEN-VERIFY names as documented-not-measured, though this half is control flow rather than
 wire format and needed no key to settle.
 

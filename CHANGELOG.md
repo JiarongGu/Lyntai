@@ -173,7 +173,7 @@ every addition.
 - **`ProviderRouter<TRequest,TResponse>.Capable()` is private**; it was public only for an internal helper with no
   caller. **What to DO:** ask `CanServe()`.
 
-- **`FalQueueProvider` / `FalQueueOptions` are `FalProvider` / `FalOptions`.** "Queue" is the delivery shape
+- **`FalQueueProvider` / `FalQueueOptions` are `FalProvider` / `FalOptions`.** "Queue" is the delivery shape <!-- drift-ok: the entry ANNOUNCING the rename has to name it -->
   `ProviderCapabilities.Operations` already declares; a provider is named for its backend. The namespace and
   `AddFalProvider` are unchanged. **What to DO:** rename the two types where you construct the provider or name the
   options type; an `AddFalProvider(o => …)` lambda needs no change.

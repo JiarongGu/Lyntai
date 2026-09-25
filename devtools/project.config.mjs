@@ -87,9 +87,6 @@ export default {
       // else, so a consumer tuning the GRAPH engine — the memory surface most often reasoned about wrongly —
       // reached for it first and configured the keyword store instead.
       names: ['ConfigureMemory'],
-      proseExempt: 'pending, not permanent: the prose that names it (README, a DECISIONS entry, a '
-        + 'LyntaiOptions doc comment) sits outside the files the rename owned; the rule '
-        + '`\\bConfigureMemory\\s*\\(` replaces this exemption once they are repointed',
       use: '`ConfigureMemoryEviction(p => …)`, which sets `LyntaiOptions.MemoryEviction`',
       why: 'a method named for all of memory configured only IMemoryStore eviction, the surface most often '
         + 'confused with the graph engine',
@@ -644,9 +641,6 @@ export default {
       // `FalQueueOptions` — the one media backend whose type did not match its registration, and "Queue" is
       // the DELIVERY shape (`ProviderOperation.Queued`), which a provider name does not carry.
       names: ['FalQueueProvider', 'FalQueueOptions'],
-      proseExempt: 'every prose site is a dated record naming the type as it was that day — FIXES entries, '
-        + 'the pitfalls instances of the rule-copying trap, CHANGELOG narration — while the few live README '
-        + 'and knowledge sites are repointed by hand, the ratio pitfalls.md records as untightenable',
       use: '`FalProvider` / `FalOptions`, registered by `AddFalProvider` as before',
       why: 'a provider is named for its BACKEND and its options after the provider; a delivery shape is '
         + 'declared in `ProviderCapabilities.Operations`, never spelt into the type name',
@@ -1494,6 +1488,21 @@ export default {
         + '|ScoringVerification)Registration\\b',
       use: 'the same name with `BuilderExtensions` for `Registration` (`MemoryEngineBuilderExtensions`, …)',
       why: 'a `this LyntaiBuilder` extension class is a `*BuilderExtensions`, the suffix every other one uses',
+    },
+    {
+      // The prose half of CORE-13, in CALL shape: the entry announcing the rename names the member bare, and
+      // `ConfigureMemoryEviction(` is live — the `\s*\(` right after the name keeps it from matching.
+      term: '\\bConfigureMemory\\s*\\(',
+      use: '`ConfigureMemoryEviction(p => …)`, which sets `LyntaiOptions.MemoryEviction`',
+      why: 'the method only ever bounded `IMemoryStore` eviction, and a name for all of memory sent a reader '
+        + 'tuning the graph engine to the keyword store',
+    },
+    {
+      // The prose half of GEN-19. The FIXES entries recorded under the old name carry `drift-ok`.
+      term: '\\bFalQueue(?:Provider|Options)\\b',
+      use: '`FalProvider` / `FalOptions`, registered by `AddFalProvider` as before',
+      why: 'a provider is named for its BACKEND; "Queue" is the delivery shape `ProviderCapabilities.Operations` '
+        + 'declares, never part of the type name',
     },
   ],
 
