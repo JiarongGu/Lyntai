@@ -510,7 +510,7 @@ public class ComfyUiProviderTests
     [Fact]
     public async Task A_foreign_fetch_that_answers_an_error_is_the_inputs_fault_even_a_5xx()
     {
-        // another server's 503 says nothing about ComfyUI's health — the same code from ComfyUI itself would
+        // another server's 503 says nothing about ComfyUI's health; the same code from ComfyUI itself is a host fault
         var (provider, _, foreign) = WithForeign();
         foreign.Enqueue(HttpStatusCode.ServiceUnavailable, "down");
 
