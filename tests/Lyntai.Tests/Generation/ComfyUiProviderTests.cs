@@ -680,6 +680,18 @@ public class ComfyUiProviderTests
     }
 
     [Fact]
+    public async Task Submitting_to_an_unconfigured_backend_is_NotConfigured_so_routing_advances_without_blame()
+    {
+        var (provider, http) = Provider(new ComfyUiOptions { BaseUrl = "" });   // never configured
+
+        var operation = await provider.SubmitAsync(Ask());
+
+        Assert.Equal(QueuedOperationStatus.Failed, operation.Status);
+        Assert.Equal(ProviderVerdict.NotConfigured, operation.Verdict);   // never set up is not a fault (D31)
+        Assert.Empty(http.Requests);
+    }
+
+    [Fact]
     public async Task Polling_an_unconfigured_backend_is_terminal_rather_than_perpetually_running()
     {
         var (provider, http) = Provider(new ComfyUiOptions { BaseUrl = "" });   // never configured

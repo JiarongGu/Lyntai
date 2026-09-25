@@ -246,8 +246,9 @@ public sealed class ComfyUiProvider(
     private async Task<QueuedOperation> SubmitCoreAsync(
         MediaRequest request, StrongBox<bool> queueing, CancellationToken ct)
     {
+        // never set up is not a fault of this host, so routing advances without a strike (D31)
         if (string.IsNullOrWhiteSpace(options.BaseUrl))
-            return Failed("no BaseUrl configured");
+            return Failed("no BaseUrl configured") with { Verdict = ProviderVerdict.NotConfigured };
 
         if (request.Option(options.WorkflowOption) is not { Length: > 0 } workflowJson)
             return Unsupported($"ComfyUI needs a workflow graph in Options[\"{options.WorkflowOption}\"] — " +

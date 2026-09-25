@@ -21,6 +21,12 @@ every addition.
 
 ### Breaking
 
+- **`AddComfyUiProvider`'s own client no longer follows redirects** (**D180**). It carries what you configure for
+  ComfyUI, and a redirect it followed by itself would take that to wherever the redirect pointed; the provider now
+  follows an input fetch's redirects itself, choosing a client per hop. ComfyUI itself never redirects.
+  <br>**What to DO:** a host whose `BaseUrl` answered through a redirect — a proxy upgrading `http` to `https`,
+  say — points `BaseUrl` at the address that answers. A client you supply should not follow redirects either.
+
 - **`Lyntai.Tools.Mcp` now depends on `ModelContextProtocol.Core` 2.2.0, a major step from 1.4.1** (**D172**),
   and every other dependency floor rose to its current release — `Microsoft.Extensions.*` 10.0.12,
   `Microsoft.Data.Sqlite` 10.0.12, `SQLitePCLRaw.bundle_e_sqlite3` 3.0.5 (which ships the native SQLite),
@@ -153,12 +159,6 @@ every addition.
   `MemoryComposition`'s engine-backed path already marked its associative section this way, so this brings
   the two composers into line rather than inventing a convention.
   <br>**What to DO:** a consumer asserting on the old heading updates the string.
-
-- **`AddComfyUiProvider`'s own client no longer follows redirects** (**D180**). It carries what you configure for
-  ComfyUI, and a redirect it followed by itself would take that to wherever the redirect pointed; the provider now
-  follows an input fetch's redirects itself, choosing a client per hop. ComfyUI itself never redirects.
-  <br>**What to DO:** a host whose `BaseUrl` answered through a redirect — a proxy upgrading `http` to `https`,
-  say — points `BaseUrl` at the address that answers. A client you supply should not follow redirects either.
 
 ### Added
 
