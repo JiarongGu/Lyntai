@@ -208,6 +208,26 @@ every addition.
   in one `Unsupported` error chunk) instead of throwing `NotSupportedException`, as the `IModelProvider` defaults
   and ONNX already did. A router never sends one. **What to DO:** a direct caller reads the response's `Verdict`.
 
+- **`IConversationStore` has one listing member: `ListThreadsAsync(limit, after)`.** `ListThreadsPageAsync` is gone <!-- drift-ok: the entry ANNOUNCING the removal has to name it -->
+  <!-- link-ok: the entry ANNOUNCING the removal has to name it --> and `CountThreadsAsync` lost its default body,
+  which loaded the whole table for a BYO store while every shipped store overrode it. **What to DO:** call
+  `ListThreadsAsync(limit, after)`; a BYO store or decorator implements it and `CountThreadsAsync`.
+
+- **Storage surface tidied to its own vocabulary** (each rename is a `retiredApiNames` entry):
+  `IJobStore.CountRunningAsync` and `JobStoreSql.CountRunning` are removed (count with <!-- link-ok: as above -->
+  `ListAsync(JobStatus.Running, lane)`); `JobStoreSql.CancelPending` is `CancelNotStarted`, since it cancels Paused <!-- link-ok: as above -->
+  jobs too; the contract record `Lyntai.Cortex.ScoreExportRow` is `ScoreExportEntry` and its materialization
+  `ScoreExportEntryRow` is `ScoreExportRow` (`*Row` is the row suffix); `PromptVersionRow.ToEntity()` is <!-- link-ok: as above -->
+  `ToRecord()`; `MemoryNodeRow`, `MemoryEdgeRow` and `MemoryPositionRow` are sealed; `StorageFeatures.TagsFor` is
+  private (`TagPasses` is the question); `FtsQuery.Build(raw, column)` is removed. **What to DO:** follow each <!-- link-ok: as above -->
+  rename; a BYO job store deletes its count; a store that derived from a graph row wraps it; to confine an FTS match
+  to one column, wrap `FtsQuery.Build(raw)` as `{column} : (…)`.
+
+- **`Lyntai.Storage.Sqlite.MigratingConnectionFactory` and `Lyntai.Storage.Postgres.MigratingConnectionFactory` are <!-- drift-ok: the entry ANNOUNCING the removal has to name it -->
+  removed**: each only bound a lambda over Core's `LazyMigratingConnectionFactory`. **What to DO:** use
+  `SchemaMigration.OnFirstUse`, or `new LazyMigratingConnectionFactory(new SqliteConnectionFactory(path), () =>
+  MigrationRunnerService.MigrateUp(path))` (the same shape on Postgres).
+
 ### Security
 
 - **Recalled memory can no longer forge a prompt section** (**D166**). Both composers rendered an item as
@@ -274,7 +294,20 @@ every addition.
   already did: both sessions now run one turn loop. The package descriptions of `Lyntai.Providers.Basic`, `.Onnx`,
   `.LlamaSharp` and the `Lyntai` bundle say what each serves (reranking, native Ollama, ONNX reranking included).
 
+- **Postgres orders score aggregates and exports by byte** (`COLLATE "C"`), as every other backend does; the
+  locale caveat on `IScoreStore` is gone. The SQLite `MigrationRunnerService.MigrateUp` / `MigrateUpAsync` create the
+  database's directory, so the documented `SchemaMigration.None` recipe works on a fresh nested path.
+
 ### Added
+
+- **Storage helpers a BYO backend shares instead of re-deriving**: `TraceOrdinals.Stored` (the trace ordinal rule),
+  `ChatThreads.Page` (the thread keyset cursor), `CuratedMemoryUpdates.Rescope` (the null-keeps / empty-clears
+  sentinel), `SearchTerms.MatchCount` over several columns, `TraceSessionRow.ToRecord` / `TraceStepRow.ToRecord`, and
+  the shared statement classes `KeyValueStoreSql`, `ResponseCacheSql`, `UsageTrackerSql` and more of `MemoryGraphSql`
+  — SQL now written once wherever a portable spelling runs on both dialects.
+
+- **`JsonExtract.StringProperty`, `ScalarProperty` and `WriteObject`** (`Lyntai.Text`): member reads that never throw
+  on an element of the wrong kind, and a writer for one hand-built object in trim/AOT-safe code.
 
 - **`ToolInvocation.InvokeGatedAsync` and `GatedToolResult`** (`Lyntai.Agents`): the ONE guarded flow for invoking
   a tool — the guard rail inspects the arguments before and the observation after, a throw becomes an error
@@ -555,6 +588,48 @@ every addition.
   after a late options edit; piper reads a non-numeric or non-positive `sample_rate` as unstated instead of throwing
   or dividing by zero; a render checkpoint field that is not a string fails the job as unreadable instead of
   throwing; ComfyUI names an `image/*` upload from its URI's extension; `RunPipelineAsync` refuses a null stage.
+
+- **A queue backend's submit failure no longer buys the render twice.** `FalProvider` and `ComfyUiProvider` caught
+  their own submit exceptions and reported a plain `Failed`, so the router submitted to the next candidate while the
+  first queue might already hold a billable render. A caught submit throw now follows
+  `QueuedOperation.FromThrownSubmit`: `Inconclusive` once the request may have left the process, unless the throw
+  proves it never did (a refused connection, a failed name lookup or TLS handshake). A `2xx` submit answer with no
+  `request_id` / `prompt_id` is `Inconclusive` too. An unconfigured `FalProvider` reports `NotConfigured`.
+
+- **`OpenAiImageProvider` and `Automatic1111Provider` never report a thrown exception as `Refused`**, so a proxy page
+  mentioning a content policy falls over instead of ending the run; Automatic1111 reports `NotConfigured` only when
+  nothing is listening, and a WebUI that drops a render mid-response is `Failed`. A backend that declares queued
+  delivery without implementing `IMediaJobProvider` no longer withdraws the submit door's sole-candidate exemption.
+
+- **Two SQL storage wirings in one container no longer cross-wire.** Every store was registered first-wins but
+  resolved the connection factory the LAST wiring registered, so `UseSqliteStorage("a.db", StorageFeature.Memory)`
+  followed by `UseSqliteStorage("b.db")` — or a Postgres wiring — sent memory writes to the wrong database, and
+  recall failed open to nothing. Each store now runs over its own wiring's factory, and the governance helpers
+  (`Use*ResponseCache`, `Use*UsageTracking`, `Use*VectorStore`) bind to their own backend's last wiring.
+
+- **The storage backends agree where they used to diverge**: a fetch by id reports `Matched null` on SQL as in
+  process (Postgres had given a single subject-seed hit the channel's best rank); a limit of zero or less returns
+  nothing everywhere (SQLite returned the whole table, Postgres threw); pgvector scores a wrong-dimension or zero
+  vector 0 instead of failing the whole search or returning NaN; the in-process graph seed ranks by matched terms as
+  SQL does; the in-memory conversation store refuses an append to an unknown thread and the in-memory trace store
+  applies the ordinal rule; a non-ASCII usage consumer is one ledger on every backend; in-process subject and edge
+  writes refuse what SQL refuses, and SQL skips an edge to a deleted node instead of failing mid-batch.
+
+- **Postgres keeps exactly one active prompt revision when a save and a rollback race**; `GetActiveAsync` used to
+  throw on the two it left. Storage recall and curated search degrade on their store's own timeout instead of
+  failing closed; the file prompt store never writes over an `active.md` it could not read; the file store's atomic
+  replace survives a transient Windows refusal; the SQLite synchronous open no longer leaks a connection when its
+  pragmas fail.
+
+### Internal (no public surface change)
+
+- **The repository's gates fail closed where they had failed open.** `check-sensitive` catches every spelling of a
+  machine path (doubled backslash, forward slash, Git Bash's `/c/…`); the pre-commit encoding guard scans the staged
+  blobs and rejects control characters; `check-options` reads multi-line and expression-bodied accessors and
+  positional records (41 options had been invisible); a `link-ok` excuses only its own line; `check-comments`
+  measures `/* */` blocks; empty registries, a missing sample claim and an unreadable file fail rather than pass.
+  `verify` builds once and runs 23 gates; the command roster is `devtools/commands.mjs`; the llama-server sweeps
+  share one harness and port registry; `memory-spacing` and `memory-reinforcement` are retired.
 
 ## 3.2.0 — 2026-09-19
 
