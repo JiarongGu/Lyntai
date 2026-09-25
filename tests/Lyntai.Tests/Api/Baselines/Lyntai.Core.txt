@@ -545,11 +545,46 @@ sealed class Lyntai.Generation.Jobs.GenerationArtifactDelivery
     Equals(GenerationArtifactDelivery other) : Boolean
     Equals(Object obj) : Boolean
     GetHashCode() : Int32
+    IsFinal : Boolean
     JobId : Guid
     OperationId : String
     ProviderId : String
+    StageIndex : Nullable<Int32>
     ToString() : String
     Usage : MediaUsage
+sealed class Lyntai.Generation.Jobs.GenerationPipelineJob
+    .ctor(IReadOnlyList<GenerationPipelineJobStage> stages)
+    Equals(GenerationPipelineJob other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Stages : IReadOnlyList<GenerationPipelineJobStage>
+    ToJson() : String
+    ToString() : String
+    static Parse(String payload) : GenerationPipelineJob
+sealed class Lyntai.Generation.Jobs.GenerationPipelineJobHandler
+    .ctor(IMediaRouter router, IEnumerable<IModelProvider> providers, IGenerationArtifactSink sink, GenerationPipelineJobOptions options = null, IUsageTracker usage = null)
+    HandleAsync(JobContext ctx, CancellationToken ct = default) : Task<JobOutcome>
+    JobType : String const
+    Type : String
+sealed class Lyntai.Generation.Jobs.GenerationPipelineJobOptions
+    .ctor()
+    Equals(GenerationPipelineJobOptions other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    MaxCheckpointBytes : Int64
+    PollDelay : TimeSpan
+    ToString() : String
+sealed class Lyntai.Generation.Jobs.GenerationPipelineJobStage
+    .ctor(IReadOnlyList<String> Candidates, MediaRequest Request)
+    Candidates : IReadOnlyList<String>
+    Deconstruct(IReadOnlyList`1& Candidates, MediaRequest& Request) : Void
+    Equals(GenerationPipelineJobStage other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    InputMediaType : String
+    InputRole : String
+    Request : MediaRequest
+    ToString() : String
 sealed class Lyntai.Generation.Jobs.GenerationRenderJob
     .ctor(IReadOnlyList<String> Candidates, MediaRequest Request)
     Candidates : IReadOnlyList<String>

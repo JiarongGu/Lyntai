@@ -545,12 +545,20 @@ public sealed class MediaRouter(
     /// <para>The dedup itself is <see cref="TextRouter"/>'s (<see cref="CandidateDedup"/>) — first wins, order preserved
     /// — rather than a second copy of it here.</para></summary>
     private List<(IModelProvider Provider, MediaRequest Request)> Capable(
-        IReadOnlyList<ProviderCandidate> candidates, MediaRequest request, ProviderOperation delivery)
+        IReadOnlyList<ProviderCandidate> candidates, MediaRequest request, ProviderOperation delivery) =>
+        Capable(_providers, candidates, request, delivery);
+
+    /// <summary>The capability filter over an explicit backend set — the one copy of it, which a caller that
+    /// must know the answer BEFORE routing (the pipeline job choosing a stage's door) reads rather than
+    /// re-deriving.</summary>
+    internal static List<(IModelProvider Provider, MediaRequest Request)> Capable(
+        IReadOnlyList<IModelProvider> providers, IReadOnlyList<ProviderCandidate> candidates,
+        MediaRequest request, ProviderOperation delivery)
     {
         var resolved = new List<(IModelProvider Provider, MediaRequest Request)>();
         foreach (var candidate in candidates)
         {
-            var provider = _providers.FirstOrDefault(p =>
+            var provider = providers.FirstOrDefault(p =>
                 string.Equals(p.Id, candidate.ProviderId, StringComparison.OrdinalIgnoreCase));
             if (provider is null) continue;   // an unknown id is a config typo, not a crash
 

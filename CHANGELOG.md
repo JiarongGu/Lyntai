@@ -264,8 +264,8 @@ every addition.
   `.obj` or `.stl` comes back as `model/gltf-binary`, `model/gltf+json`, `model/obj` or `model/stl` — from fal
   too. New options, defaults measured on ComfyUI 0.36.0: `UploadPath` (`upload/image`), `MeshSubfolder` (`3d`)
   and `InputPathOption` (`input-path`). With no 3D model, a GLB uploaded, saved again, and chained into a render
-  graph that returned a PNG of it. ComfyUI is queued-only and `RunPipelineAsync` drives the inline door, so run a
-  ComfyUI stage through submit → poll → fetch.
+  graph that returned a PNG of it. ComfyUI is queued-only, so a pipeline with a ComfyUI stage runs through
+  `GenerationPipelineJobHandler` (**D181**).
   <br>**An input given as a URI is FETCHED, from any http(s) server**, and capped by the new
   `ComfyUiOptions.MaxFetchBytes` (128 MiB) — by its declared length and again while it is read; over the cap,
   that input is not uploaded and nothing is queued. The ComfyUI client, and whatever you configured on it, is used
@@ -284,6 +284,19 @@ every addition.
   over the cap, a fetch from another origin that fails or times out, and a 4xx from ComfyUI itself — a graph that
   fails validation (a missing model or node, a bad value), a stale view URI — other than 401, 403 and 429, which
   are classified as access and rate as before. A 5xx is still the server's fault.
+
+- **A generation pipeline runs as a durable job, so a queued stage is reachable** (**D181**).
+  `GenerationPipelineJobHandler` (job type `lyntai.generation.pipeline`) runs a `GenerationPipelineJob` — ordered
+  `GenerationPipelineJobStage`s, each candidate specs, a `MediaRequest`, `InputRole` and `InputMediaType` — the way
+  `GenerationRenderJobHandler` runs one render. A stage any of whose candidates can queue it is submitted, its
+  operation checkpointed before the first poll and polled across restarts, never re-submitted; any other stage
+  runs inline in the step. Every stage's artifacts reach your `IGenerationArtifactSink` as the stage finishes, so a
+  later failure loses nothing already paid for, tagged with the new `GenerationArtifactDelivery.StageIndex` and
+  `IsFinal` — true, the default, on a render job's delivery. A stage chains its predecessor's single artifact, or
+  the one its `InputMediaType` names (`image/png`, `model/*`); zero or several fail the job. That artifact's inline
+  bytes are checkpointed up to `GenerationPipelineJobOptions.MaxCheckpointBytes` (4 MiB), past which the job fails
+  naming the stage. Register it with `AddJobHandler<GenerationPipelineJobHandler>()`; the README's generation
+  section has the recipe. `RunPipelineAsync` is unchanged, and still inline only.
 
 ### Fixed
 

@@ -20,43 +20,8 @@ public sealed record GenerationRenderJob(IReadOnlyList<string> Candidates, Media
         using (var writer = new Utf8JsonWriter(buffer))
         {
             writer.WriteStartObject();
-
-            writer.WriteStartArray("candidates");
-            foreach (var candidate in Candidates) writer.WriteStringValue(candidate);
-            writer.WriteEndArray();
-
-            writer.WriteString("kind", Request.Kind);
-            // the consumer tag rides along so a render RESUMED in another process still bills to whoever
-            // asked for it — a durable job outlives the request that created it
-            if (Request.Consumer != "default") writer.WriteString("consumer", Request.Consumer);
-            if (Request.Prompt is { } prompt) writer.WriteString("prompt", prompt);
-            if (Request.Model is { } model) writer.WriteString("model", model);
-            if (Request.TimeoutSeconds is { } timeout) writer.WriteNumber("timeoutSeconds", timeout);
-
-            if (Request.Options.Count > 0)
-            {
-                writer.WriteStartObject("options");
-                foreach (var (key, value) in Request.Options) writer.WriteString(key, value);
-                writer.WriteEndObject();
-            }
-
-            if (Request.Inputs.Count > 0)
-            {
-                writer.WriteStartArray("inputs");
-                foreach (var input in Request.Inputs)
-                {
-                    writer.WriteStartObject();
-                    writer.WriteString("mediaType", input.MediaType);
-                    // base64 — a first-frame image or voice sample must survive the queue, and the job store
-                    // holds text
-                    if (input.Data is { Length: > 0 } data) writer.WriteString("data", Convert.ToBase64String(data));
-                    if (input.Uri is { } uri) writer.WriteString("uri", uri);
-                    if (input.Role is { } role) writer.WriteString("role", role);
-                    writer.WriteEndObject();
-                }
-                writer.WriteEndArray();
-            }
-
+            GenerationJson.WriteCandidates(writer, Candidates);
+            GenerationJson.WriteRequest(writer, Request);
             writer.WriteEndObject();
         }
         return System.Text.Encoding.UTF8.GetString(buffer.ToArray());
@@ -70,47 +35,9 @@ public sealed record GenerationRenderJob(IReadOnlyList<string> Candidates, Media
         try
         {
             using var doc = JsonDocument.Parse(payload);
-            var root = doc.RootElement;
-            if (root.ValueKind != JsonValueKind.Object) return null;
-            if (GenerationJson.Str(root, "kind") is not { } kind) return null;
-
-            var candidates = new List<string>();
-            if (root.TryGetProperty("candidates", out var candidateArray) &&
-                candidateArray.ValueKind == JsonValueKind.Array)
-                foreach (var candidate in candidateArray.EnumerateArray())
-                    if (candidate.ValueKind == JsonValueKind.String && candidate.GetString() is { Length: > 0 } spec)
-                        candidates.Add(spec);
-
-            var options = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            if (root.TryGetProperty("options", out var optionObject) && optionObject.ValueKind == JsonValueKind.Object)
-                foreach (var option in optionObject.EnumerateObject())
-                    if (option.Value.ValueKind == JsonValueKind.String)
-                        options[option.Name] = option.Value.GetString() ?? "";
-
-            var inputs = new List<MediaInput>();
-            if (root.TryGetProperty("inputs", out var inputArray) && inputArray.ValueKind == JsonValueKind.Array)
-                foreach (var input in inputArray.EnumerateArray())
-                {
-                    if (input.ValueKind != JsonValueKind.Object) continue;
-                    if (GenerationJson.Str(input, "mediaType") is not { } mediaType) continue;
-                    byte[]? data = null;
-                    if (GenerationJson.Str(input, "data") is { } base64)
-                        try { data = Convert.FromBase64String(base64); } catch (FormatException) { }
-                    inputs.Add(new MediaInput(mediaType, data,
-                        GenerationJson.Str(input, "uri"), GenerationJson.Str(input, "role")));
-                }
-
-            return new GenerationRenderJob(candidates, new MediaRequest
-            {
-                Kind = kind,
-                Consumer = GenerationJson.Str(root, "consumer") ?? "default",
-                Prompt = GenerationJson.Str(root, "prompt"),
-                Model = GenerationJson.Str(root, "model"),
-                Options = options,
-                Inputs = inputs,
-                TimeoutSeconds = root.TryGetProperty("timeoutSeconds", out var t) &&
-                    t.ValueKind == JsonValueKind.Number && t.TryGetInt32(out var seconds) ? seconds : null,
-            });
+            return GenerationJson.ReadRequest(doc.RootElement) is { } request
+                ? new GenerationRenderJob(GenerationJson.ReadCandidates(doc.RootElement), request)
+                : null;
         }
         catch (JsonException)
         {

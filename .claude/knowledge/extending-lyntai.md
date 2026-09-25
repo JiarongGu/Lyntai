@@ -284,6 +284,10 @@ What a backend implements:
   `AuthFailed`, because `AuthFailed` benches the backend for the cooldown window. The classifier DELEGATES its
   pattern corpus to `ProviderVerdictClassifier` and translates; never carry a second copy of "what does a 429 look
   like".
+- **Declaring `ProviderOperation.Queued` sends a pipeline stage to your submit path.** The pipeline job picks
+  a stage's door from its candidates' declarations — queued whenever any declares `Queued` for the request and
+  implements `IMediaJobProvider`, even behind an inline candidate (**D181**) — so a backend declaring both doors
+  is always driven through submit → poll → fetch there. Declare only the doors you implement.
 - **A submit whose outcome is UNKNOWN is `QueuedOperation.Inconclusive`, and is never re-submitted.** A
   backend that ANSWERS "no" can be retried elsewhere for free; a backend that never answered may already hold
   a billable render, and handing the same request to the next candidate buys the same generation twice. The

@@ -53,8 +53,9 @@ public sealed class BudgetedMediaRouter(
     /// <inheritdoc/>
     /// <remarks>The submit path is where the money is COMMITTED — a hosted video render is charged for
     /// whether or not anyone ever fetches it — so the check belongs here rather than at fetch time. The cost
-    /// itself is only known when the render finishes, which is why <c>GenerationRenderJobHandler</c> records
-    /// it: this decorator never sees the completed result.</remarks>
+    /// itself is only known when the render finishes, which is why the durable job handlers
+    /// (<c>GenerationRenderJobHandler</c>, <c>GenerationPipelineJobHandler</c>) record it: this decorator never
+    /// sees the completed result.</remarks>
     public async Task<MediaSubmission> SubmitAsync(
         IReadOnlyList<ProviderCandidate> candidates, MediaRequest request, CancellationToken ct = default)
     {

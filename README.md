@@ -1224,9 +1224,31 @@ texture atlas on a mesh backend; `GenerationStage.SelectInput` is where you stat
 
 **A mesh chains into an image only through a backend that RASTERIZES it.** That edge is a render, not a
 generation, and this library performs none — but a ComfyUI graph with a render node does: bind the mesh
-through `Options["input-path"]` and it returns a view of the object. **A queued backend (ComfyUI, fal) is not
-reachable from `RunPipelineAsync`**, which drives the inline door — the `fal` stage in the example above
-included — so run a queued stage through submit → poll → fetch yourself.
+through `Options["input-path"]` and it returns a view of the object.
+
+**A queued backend (ComfyUI, fal) is not reachable from `RunPipelineAsync`**, which drives the inline door — the
+`fal` stage in the example above included — **so run such a pipeline as a durable job.**
+`GenerationPipelineJobHandler` takes each stage through the door its candidates can serve: submitted, checkpointed
+and polled like a render job when any of them can queue it, inline otherwise. It delivers every stage to your
+`IGenerationArtifactSink` as the stage finishes, tagged `StageIndex` (and `IsFinal` on the last), and a restart
+resumes it without paying for any stage twice:
+
+<!-- compile-given: IJobQueue jobs; MediaRequest image; MediaRequest video; -->
+```csharp
+builder.AddJobHandler<GenerationPipelineJobHandler>();   // with your IGenerationArtifactSink registered
+
+var pipeline = new GenerationPipelineJob(
+[
+    new GenerationPipelineJobStage(["openai-images"], image),
+    new GenerationPipelineJobStage(["fal"], video) { InputRole = MediaInputRoles.FirstFrame },
+]);
+await jobs.EnqueueAsync(new JobSpec("render", GenerationPipelineJobHandler.JobType, pipeline.ToJson()));
+```
+
+A stage says which artifact it chains with `InputMediaType` (`"model/*"` picks a mesh out of its textures)
+where `RunPipelineAsync` takes a delegate, because a delegate does not survive a restart. An intermediate that
+carries bytes is checkpointed up to `GenerationPipelineJobOptions.MaxCheckpointBytes` (4 MiB); past it the job
+fails and names the stage to move to a backend that returns a URI.
 
 Every backend answers **"are you usable?"** without generating anything (`ProbeAsync`), so a setup screen
 never has to pay for a test image. The `generate_backends` tool asks all of them **concurrently, under one

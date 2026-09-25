@@ -1,8 +1,12 @@
+using System.Diagnostics;
 using System.IO.Compression;
 using System.Text;
-using Lyntai.Generation;
+using Lyntai.Generation.Jobs;
 using Lyntai.Generation.Providers;
 using Lyntai.Inference;
+using Lyntai.Jobs;
+using Lyntai.Storage.InMemory;
+using Xunit.Abstractions;
 
 namespace Lyntai.Tests.Generation;
 
@@ -18,7 +22,7 @@ namespace Lyntai.Tests.Generation;
 /// <c>LYNTAI_COMFYUI_CHECKPOINT</c> (a checkpoint filename the server's <c>models/checkpoints</c> holds,
 /// e.g. an SD 1.5) — except the mesh journey, which needs no model and only the URL. A CPU render is
 /// minutes, not seconds — this suite is a measurement, not a regression gate.</para></summary>
-public class ComfyUiLiveTests
+public class ComfyUiLiveTests(ITestOutputHelper output)
 {
     private static string? BaseUrl => Environment.GetEnvironmentVariable("LYNTAI_COMFYUI_URL");
     private static string? Checkpoint => Environment.GetEnvironmentVariable("LYNTAI_COMFYUI_CHECKPOINT");
@@ -193,39 +197,74 @@ public class ComfyUiLiveTests
     private static Dictionary<string, string> Graph(string workflow) =>
         new(StringComparer.OrdinalIgnoreCase) { ["workflow"] = workflow, ["input-path"] = "1.inputs.model_file" };
 
-    /// <summary>The mesh stage as a two-stage pipeline, with no 3D MODEL: stage 1 takes a hand-made GLB as
-    /// inline bytes and yields a <see cref="ProviderKinds.Model3d"/> artifact; stage 2 chains that artifact's
-    /// view URI through <c>input-path</c> into a render graph and yields a PNG. So it measures the upload
-    /// binding both ways (bytes, then a fetched URI), the <c>3d</c> output collection and its media type, and
-    /// that a mesh chains into an image when the backend RASTERIZES it.</summary>
+    /// <summary>GEN7's mesh chain as a DURABLE pipeline job, with no 3D MODEL: stage 1 takes a hand-made GLB as
+    /// inline bytes and saves it again, stage 2 chains that mesh's view URI (picked by <c>InputMediaType</c>) and
+    /// saves it again, and stage 3 rasterizes it into a PNG. The job runner drives it over an in-memory store, so
+    /// every stage is submitted, checkpointed, polled and fetched by the library's own handler — and it measures
+    /// the upload binding both ways (bytes, then a fetched URI), the <c>3d</c> output collection and its media
+    /// type, and that a mesh chains into an image when the backend RASTERIZES it.</summary>
     [SkippableFact]
-    public async Task A_mesh_uploads_saves_and_chains_into_a_rendered_image_through_a_pipeline()
+    public async Task A_mesh_chain_runs_as_a_durable_pipeline_job_mesh_to_mesh_to_rendered_image()
     {
         Skip.If(string.IsNullOrWhiteSpace(BaseUrl), "set LYNTAI_COMFYUI_URL to a running ComfyUI");
 
         var provider = new ComfyUiProvider(new ComfyUiOptions { BaseUrl = BaseUrl! }, () => new HttpClient());
-        var router = new SubmitPollFetch(new MediaRouter([provider]), provider);
-        ProviderCandidate[] comfy = [new(provider.Id)];
+        IModelProvider[] providers = [provider];
+        var clock = Stopwatch.StartNew();
+        var sink = new TimedSink(clock);
+        var handler = new GenerationPipelineJobHandler(new MediaRouter(providers), providers, sink,
+            new GenerationPipelineJobOptions { PollDelay = TimeSpan.FromSeconds(1) });
+        var store = new InMemoryJobStore();
+        var options = new LyntaiOptions();
+        var runner = new JobRunner(store, new JobHandlerRegistry([handler]), options);
+        string[] comfy = [provider.Id];
 
-        var result = await router.RunPipelineAsync(
-        [
-            new GenerationStage(new MediaRequest
-            {
-                Kind = ProviderKinds.Model3d,
-                Inputs = [new MediaInput("model/gltf-binary", Data: Cube())],
-                Options = Graph(ResaveWorkflow),
-            }, comfy),
-            new GenerationStage(new MediaRequest { Kind = ProviderKinds.Image, Options = Graph(RenderWorkflow) }, comfy),
-        ]);
+        var id = await new JobQueue(store, options).EnqueueAsync(new JobSpec("default", GenerationPipelineJobHandler.JobType,
+            new GenerationPipelineJob(
+            [
+                new GenerationPipelineJobStage(comfy, new MediaRequest
+                {
+                    Kind = ProviderKinds.Model3d,
+                    Inputs = [new MediaInput("model/gltf-binary", Data: Cube())],
+                    Options = Graph(ResaveWorkflow),
+                }),
+                new GenerationPipelineJobStage(comfy, new MediaRequest { Kind = ProviderKinds.Model3d, Options = Graph(ResaveWorkflow) })
+                {
+                    InputMediaType = "model/*",
+                },
+                new GenerationPipelineJobStage(comfy, new MediaRequest { Kind = ProviderKinds.Image, Options = Graph(RenderWorkflow) }),
+            ]).ToJson()));
 
-        Assert.True(result.IsOk, $"stage {result.FailedAt + 1}: {result.Verdict} {result.Detail}");
+        var deadline = DateTime.UtcNow + TimeSpan.FromMinutes(3);
+        JobRecord job;
+        var passes = 0;
+        while (true)
+        {
+            passes += await runner.RunOnceAsync();
+            job = (await store.GetAsync(id))!;
+            if (job.Status is JobStatus.Succeeded or JobStatus.Failed or JobStatus.Dead or JobStatus.Cancelled ||
+                DateTime.UtcNow > deadline)
+                break;
+            await Task.Delay(250);
+        }
+        output.WriteLine($"job {job.Status} after {clock.Elapsed.TotalSeconds:F1} s over {passes} handler runs");
+        foreach (var (stage, at, artifact) in sink.Received)
+            output.WriteLine($"  stage {stage + 1} delivered at {at.TotalSeconds:F1} s: {artifact.MediaType} {artifact.Uri}");
+        Assert.True(job.Status == JobStatus.Succeeded, $"{job.Status}: {job.LastError}");
+
+        Assert.Equal([0, 1, 2], sink.Deliveries.Select(d => d.StageIndex!.Value));
+        Assert.Equal([false, false, true], sink.Deliveries.Select(d => d.IsFinal));
+        Assert.All(sink.Deliveries, d => Assert.Equal(provider.Id, d.ProviderId));
         using var http = new HttpClient();
 
-        var mesh = Assert.Single(result.Stages[0].Artifacts);
-        Assert.Equal("model/gltf-binary", mesh.MediaType);
-        Assert.Equal("glTF"u8.ToArray(), (await http.GetByteArrayAsync(mesh.Uri))[..4]);
+        foreach (var delivery in sink.Deliveries.Take(2))
+        {
+            var mesh = Assert.Single(delivery.Artifacts);
+            Assert.Equal("model/gltf-binary", mesh.MediaType);
+            Assert.Equal("glTF"u8.ToArray(), (await http.GetByteArrayAsync(mesh.Uri))[..4]);
+        }
 
-        var image = Assert.Single(result.Artifacts);
+        var image = Assert.Single(sink.Deliveries[2].Artifacts);
         Assert.Equal("image/png", image.MediaType);
         var png = await http.GetByteArrayAsync(image.Uri);
         Assert.Equal((256, 256), (ReadBigEndian(png, 16), ReadBigEndian(png, 20)));
@@ -233,41 +272,22 @@ public class ComfyUiLiveTests
         Assert.True(NotBlank(png), "the render is uniformly background — nothing was rasterized");
     }
 
-    /// <summary><c>RunPipelineAsync</c> drives the INLINE door and this backend is queued-only, so each stage
-    /// is bridged here: submitted through a real <see cref="MediaRouter"/>, whose capability filter is part of
-    /// what is measured, then polled and fetched.</summary>
-    private sealed class SubmitPollFetch(MediaRouter router, IMediaJobProvider job) : IMediaRouter
+    /// <summary>Every delivery, stamped with when it arrived.</summary>
+    private sealed class TimedSink(Stopwatch clock) : IGenerationArtifactSink
     {
-        public async Task<MediaResponse> GenerateAsync(
-            IReadOnlyList<ProviderCandidate> candidates, MediaRequest request, CancellationToken ct = default)
+        public List<GenerationArtifactDelivery> Deliveries { get; } = [];
+
+        public IEnumerable<(int Stage, TimeSpan At, MediaArtifact Artifact)> Received =>
+            _arrived.SelectMany(a => a.Delivery.Artifacts.Select(artifact => (a.Delivery.StageIndex ?? -1, a.At, artifact)));
+
+        private readonly List<(GenerationArtifactDelivery Delivery, TimeSpan At)> _arrived = [];
+
+        public Task ReceiveAsync(GenerationArtifactDelivery delivery, CancellationToken ct = default)
         {
-            var submitted = await router.SubmitAsync(candidates, request, ct);
-            if (submitted.Operation.Status == QueuedOperationStatus.Failed)
-                return MediaResponse.Failure(ProviderVerdict.Failed, $"not accepted: {submitted.Operation.Detail}");
-
-            var deadline = DateTime.UtcNow + TimeSpan.FromMinutes(3);
-            QueuedOperation polled;
-            do
-            {
-                await Task.Delay(TimeSpan.FromSeconds(1), ct);
-                polled = await job.PollAsync(submitted.Operation.Id, ct);
-                if (polled.Status == QueuedOperationStatus.Failed)
-                    return MediaResponse.Failure(ProviderVerdict.Failed, $"the run failed: {polled.Detail}");
-            }
-            while (polled.Status != QueuedOperationStatus.Succeeded && DateTime.UtcNow < deadline);
-
-            return polled.Status == QueuedOperationStatus.Succeeded
-                ? await job.FetchAsync(submitted.Operation.Id, ct)
-                : MediaResponse.Failure(ProviderVerdict.Timeout, $"not finished inside the budget: {polled.Detail}");
+            Deliveries.Add(delivery);
+            _arrived.Add((delivery, clock.Elapsed));
+            return Task.CompletedTask;
         }
-
-        public Task<MediaSubmission> SubmitAsync(
-            IReadOnlyList<ProviderCandidate> candidates, MediaRequest request, CancellationToken ct = default) =>
-            router.SubmitAsync(candidates, request, ct);
-
-        public IAsyncEnumerable<MediaChunk> StreamAsync(
-            IReadOnlyList<ProviderCandidate> candidates, MediaRequest request, CancellationToken ct = default) =>
-            throw new NotSupportedException("the pipeline drives the inline door");
     }
 
     /// <summary>A unit cube as a minimal GLB: 8 positions and 12 triangles, no normals or material.</summary>

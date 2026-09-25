@@ -15,18 +15,17 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 5 across 4 Parts: 1 startable, 2 blocked, 2 watch
+## Open items — 4 across 3 Parts: 2 blocked, 2 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 106 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
-| 173 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 196 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 253 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
-| 282 | 290 | A pipeline cannot reach a QUEUED backend | startable |  |
+| 105 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
+| 172 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 195 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 252 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
 
 <!-- open-items:end -->
 
@@ -274,21 +273,6 @@ there is nothing here to code: what remains is evidence only recurrence can supp
   <br>**So it is `watch · data` rather than startable**: what it needs is a recurrence carrying the frame
   BELOW `OpenAsync`, because the three causes a reading can reach are gone and the remaining ones are all
   in the runner's resource behaviour — the same shape as Part 99 above, by a different mechanism.
-
-## Part 290 — what building GEN7's mesh stage found (2026-09-25)
-
-_Found while building the ComfyUI mesh stage (**D180**); the owner ruled on it on 2026-09-25._
-
-- [ ] **A pipeline cannot reach a QUEUED backend.** `GenerationPipeline.RunPipelineAsync` composes only <!-- item: state=startable -->
-  `IMediaRouter.GenerateAsync`, and every video backend (ComfyUI, fal) is queued-only — so `image → video`
-  through the library's own runner has never run on a real video backend, and GEN7's live mesh chain had to
-  bridge each stage by hand. **Owner ruling: a durable pipeline JOB** — each stage runs as the render job does
-  (submit → poll → fetch, checkpointed), its artifact feeding the next through `MediaArtifact.ToInput`, so a
-  pipeline survives a restart, reports progress and cancels cleanly; `RunPipelineAsync` stays as the inline
-  form. **Design rulings 2026-09-25:** a stage's input is the previous stage's single artifact, or the ONE
-  matching an optional `InputMediaType` filter (refusing zero or several); stages may be inline or queued, mixed;
-  the checkpoint carries the previous artifacts, inline bytes included up to a cap that fails loudly; and every
-  stage's artifacts are delivered to the sink tagged with their stage. Every render-job invariant carries over.
 
 ## Retired — five Parts that outlived their open work (2026-09-16)
 

@@ -250,8 +250,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D178](#d178--a-text-candidate-naming-a-backend-that-produces-no-text-is-refused-at-composition-and-skipped-per-call-2026-09-24) | 2026-09-24 | a text candidate naming a backend that produces no text is refused at composition and skipped per… |
 | [D179](#d179--the-openai-shaped-wire-expresses-textreasoningsuppress-through-configured-fields-2026-09-24) | 2026-09-24 | the OpenAI-shaped wire expresses `TextReasoning.Suppress` through CONFIGURED fields |
 | [D180](#d180--comfyui-binds-each-input-at-a-graph-field-the-caller-names-and-produces-model3d-2026-09-25) | 2026-09-25 | ComfyUI binds each input at a graph field the CALLER names, and produces `Model3d` |
+| [D181](#d181--a-generation-pipeline-runs-as-a-durable-job-each-stage-taking-the-door-its-candidates-can-serve-2026-09-25) | 2026-09-25 | a generation pipeline runs as a durable JOB, each stage taking the door its candidates can serve |
 
-_All 180 entries are live decisions._
+_All 181 entries are live decisions._
 
 <!-- index:end -->
 
@@ -5612,3 +5613,35 @@ A mesh-specific option: an image binds the same way. Referencing the previous st
 jobs would load each other's file. A role falling back to the roleless key: an input meant for one loader would
 feed another. Refusing a URI input, as the byte-taking siblings do: no chain could cross servers. Fetching every
 URI through the ComfyUI client: the host's ComfyUI credentials would go wherever a URI or a redirect pointed.
+
+## D181 — a generation pipeline runs as a durable JOB, each stage taking the door its candidates can serve (2026-09-25)
+
+**The decision.** `GenerationPipelineJobHandler` (`lyntai.generation.pipeline`) runs a `GenerationPipelineJob` —
+ordered stages, each candidate specs, a `MediaRequest`, `InputRole` and `InputMediaType` — with the render job's
+durability. A QUEUED stage is submitted through `IMediaRouter.SubmitAsync`, its operation checkpointed before the
+first poll and never re-submitted, polled with `JobOutcome.Poll` and fetched; an INLINE stage runs in the step
+through `GenerateAsync`. `RunPipelineAsync` stays as the in-memory form, inline only.
+
+**The candidates choose the door, queued first.** A stage is queued when any candidate is registered, implements
+`IMediaJobProvider` and declares `Queued` for the request — `MediaRouter.Capable`, the router's own filter, read
+rather than copied — even behind an inline candidate; otherwise it is inline. Queued first because a queued stage
+is the one a restart resumes: an inline stage has no handle, so a crash, a lost lease or a throwing sink between
+its render and the next checkpoint renders it again. One door per stage: a rejected submission is not retried inline.
+
+**A finished stage is billed, delivered, then checkpointed.** Spend is recorded for a queued stage after its fetch,
+which the router never sees, and never for an inline one, which its router already recorded. Every stage reaches
+`IGenerationArtifactSink` tagged `StageIndex` and `IsFinal` — init properties, so `GenerationArtifactDelivery`'s
+constructor is unchanged (**D70**), and `IsFinal` defaults true so a render job's delivery still reads as its
+job's output. Only then is the artifact the next stage chains checkpointed, picked as that stage finishes: the one
+matching the next stage's `InputMediaType` (a type or `type/*`), or the single artifact produced, zero or several
+failing the job. Its inline bytes travel as base64 up to `GenerationPipelineJobOptions.MaxCheckpointBytes`
+(4 MiB), past which the job fails naming the stage and a URI-returning backend as the fix. An unreadable
+checkpoint fails the job rather than restarting it from stage 1.
+
+**Rejected.** Polling inside `RunPipelineAsync`: the loop `IMediaJobProvider` exists not to hide — no progress, no
+cancellation, nothing to resume. Documentation only: every consumer would re-implement the checkpoint-before-poll
+ordering that keeps a render paid for once. A stage declaring its door: the declaration drifts from what its
+backends declare. Persisting `GenerationStage.SelectInput`: a delegate does not survive a restart, so the pick is
+data. URIs-only intermediates: an inline image backend returns bytes, which would bar most image → video chains.
+Checkpointing every artifact of a stage: a mesh's texture atlases would spend the cap on bytes nothing chains.
+Final-only delivery: a failure at stage 3 would lose stages 1 and 2, already paid for.

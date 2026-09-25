@@ -9,10 +9,11 @@ to `.claude/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ## 2026-09-25 — a ComfyUI run that failed while executing polled as "still running" until the caller gave up
 
-**Symptom.** Found building GEN7's mesh stage (**D180**), filed as `TASKS.md` Part 290: a graph that raises at run
-time — measured with a GLB holding a node and no mesh, which makes `Get3DComponents` raise — never reached a
-terminal state. Every poll answered `Running`, "not in history yet", although the history entry was already
-there, so a broken graph read exactly like a slow one until the job's own deadline or retry budget ran out.
+**Symptom.** Found building GEN7's mesh stage (**D180**), filed beside the queued-pipeline gap **D181** closed: a
+graph that raises at run time — measured with a GLB holding a node and no mesh, which makes `Get3DComponents`
+raise — never reached a terminal state. Every poll answered `Running`, "not in history yet", although the history
+entry was already there, so a broken graph read exactly like a slow one until the job's own deadline or retry budget
+ran out.
 
 **Root cause.** `ComfyUiProvider.Completed` trusted `status.completed`, and ComfyUI leaves that `false` on a run
 that errored; the entry's `status.status_str` (`"error"`) and its `execution_error` event were never read. The
