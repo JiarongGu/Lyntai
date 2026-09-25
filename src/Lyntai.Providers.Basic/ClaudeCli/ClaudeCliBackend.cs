@@ -25,9 +25,8 @@ public sealed class ClaudeCliBackend : CliBackendBase
     public override IReadOnlyList<string> CommandEnvironmentVariables => ["LYNTAI_PROVIDER_CMD", "CLAUDE_CMD"];
 
     /// <summary>Print mode + stream-json, with interactive UI tools disallowed for a library call.
-    /// <para>This argv ends in OPTIONS and takes its prompt on stdin, so appending the tool-host args is
-    /// correct here — which is exactly why the engine appending them for every backend went unnoticed: the
-    /// only CLI that had driven that path is the one where it happens to work.</para></summary>
+    /// <para>This argv ends in OPTIONS and takes its prompt on stdin, so the tool-host args are
+    /// appended.</para></summary>
     public override IReadOnlyList<string> BuildCompletionArgs(
         TextRequest request, IReadOnlyList<string> toolHostArgs) =>
         [.. ClaudeArgs.Build(request.Model), .. toolHostArgs];
@@ -40,10 +39,8 @@ public sealed class ClaudeCliBackend : CliBackendBase
         {
             StreamJsonEventKind.AssistantText => CliOutputEvent.Content(evt.Text),
             StreamJsonEventKind.Result => CliOutputEvent.Result(evt.Text, evt.Usage),
-            // The engine's in-band-failure precedence exists for exactly this and was unreachable from this
-            // backend until 2026-08-14: a turn the CLI flagged `is_error` came back as an Ok reply carrying
-            // whatever text had arrived. The message is the backend's OWN words, so a 401 classifies as
-            // AuthFailed (which cools the host) rather than a bare Failed (which merely advances).
+            // a turn the CLI flagged `is_error`, in the backend's OWN words, so a 401 classifies as
+            // AuthFailed (which cools the host) rather than a bare Failed (which merely advances)
             StreamJsonEventKind.Failure => CliOutputEvent.Failure(evt.Text),
             _ => CliOutputEvent.Ignored,
         };

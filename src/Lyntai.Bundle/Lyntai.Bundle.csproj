@@ -1,11 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!--
-    The one-line install: `dotnet add package Lyntai` gets Core, the basic backends (the claude/codex CLIs,
-    any OpenAI-shaped endpoint, and the in-process model2vec embedder), in-memory and file storage, and BOTH
-    halves of MCP. Everything with a heavy or platform-specific dependency stays an explicit opt-in —
-    Lyntai.Storage.Sqlite's native binary, Lyntai.Providers.LlamaSharp's LLamaSharp, Lyntai.Secrets.Dpapi's
-    Windows-only API. See docs/DECISIONS.md D25.
+    The one-line install: `dotnet add package Lyntai` gets Core, the basic backends (Lyntai.Providers.Basic),
+    in-memory and file storage, and BOTH halves of MCP. Everything with a heavy or platform-specific dependency
+    stays an explicit opt-in — Lyntai.Storage.Sqlite's native binary, Lyntai.Providers.LlamaSharp's and
+    Lyntai.Providers.Onnx's native runtimes, Lyntai.Secrets.Dpapi's Windows-only API. See docs/DECISIONS.md D25.
 
     This is how "most consumers want X" is served WITHOUT putting X's dependencies in front of someone who only
     wanted storage: a metapackage is opt-in convenience, whereas Core is mandatory. MCP is included here rather
@@ -24,7 +23,7 @@
     <PackageId>Lyntai</PackageId>
     <AssemblyName>Lyntai.Bundle</AssemblyName>
     <RootNamespace>Lyntai.Bundle</RootNamespace>
-    <Description>The recommended STARTING set for Lyntai — not the whole library (5 of 11 packages). You get: the core library, the default LLM backends (claude/codex CLI, any OpenAI-shaped endpoint for chat + embeddings, an in-process model2vec embedder), both halves of MCP, IN-MEMORY storage, and FILE storage you switch on by naming a root (UseFileSystemStorage). Two things to know: storage is in-memory until you name that root, and for a database ADD Lyntai.Storage.Sqlite (or .Postgres); and image/video/audio generation is NOT included — add Lyntai.Generation. Also opt-in: Lyntai.Providers.LlamaSharp (local GGUF) and Lyntai.Secrets.Dpapi (Windows). Everything left out is left out because it drags a native payload, a platform-specific API, or a dependency an application that did not ask for that feature should not carry.</Description>
+    <Description>The recommended STARTING set for Lyntai — not the whole library (5 of 11 packages). You get: the core library, the basic backends (the claude/codex CLIs, any OpenAI-shaped endpoint for chat, embeddings or reranking, Ollama's native API, an in-process model2vec embedder), both halves of MCP, IN-MEMORY storage, and FILE storage you switch on by naming a root (UseFileSystemStorage). Two things to know: storage is in-memory until you name that root, and for a database ADD Lyntai.Storage.Sqlite (or .Postgres); and image/video/audio generation is NOT included — add Lyntai.Generation. Also opt-in: Lyntai.Providers.LlamaSharp (in-process GGUF), Lyntai.Providers.Onnx (in-process transformers) and Lyntai.Secrets.Dpapi (Windows). Everything left out is left out because it drags a native payload, a platform-specific API, or a dependency an application that did not ask for that feature should not carry.</Description>
     <IncludeBuildOutput>false</IncludeBuildOutput>
     <SuppressDependenciesWhenPacking>false</SuppressDependenciesWhenPacking>
     <!-- nothing is compiled here, so the doc-file and trim analyzers have nothing to say -->

@@ -78,7 +78,7 @@ internal static class ClaudeAgentArgs
             args.Add(string.Join(",", disallowed));
         }
 
-        // Headless bypass (CLI1): an agent on the user's own machine against the user's own resources needs
+        // Headless bypass: an agent on the user's own machine against the user's own resources needs
         // to skip ALL prompts (in `-p` there is no responder — a prompt hangs the turn). --dangerously-skip-
         // permissions REPLACES --permission-mode / --allowedTools (the CLI rejects combining them); the
         // --disallowed-tools denial above (always-denied flow tools + caller-supplied + ReadOnly writes) stands.

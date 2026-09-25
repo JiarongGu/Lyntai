@@ -6,6 +6,8 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 // Lives in the Lyntai namespace so `AddMcpToolHost` shows up right on the builder.
 namespace Lyntai;
 
+/// <summary>DI entry point for the MCP tool HOST: the app's registered tools, served to a CLI that runs its
+/// own agent loop. A consumer composes it through the builder and never constructs its types by hand.</summary>
 public static class McpToolHostBuilderExtensions
 {
     /// <summary>Give a CLI provider that runs its OWN agent loop proper tool-calling: the app's registered
