@@ -1,7 +1,8 @@
 using Lyntai.Memory;
 using Lyntai.Memory.Engines;
 using Lyntai.Memory.Verification;
-using Lyntai.Storage.InMemory;
+using Lyntai.Storage.Sqlite;
+using Lyntai.Tests.Storage;
 
 namespace Lyntai.Tests.Memory;
 
@@ -22,24 +23,13 @@ namespace Lyntai.Tests.Memory;
 /// </summary>
 public class MemoryVerificationRelevanceTests
 {
-    /// <summary>Captures the request verbatim and judges nothing, so ordering is unchanged and the only thing
-    /// under test is what the engine handed over.</summary>
-    private sealed class CapturingVerification : IMemoryVerificationPolicy
-    {
-        public MemoryVerificationRequest? Last { get; private set; }
-
-        public Task<MemoryVerification> VerifyAsync(
-            MemoryVerificationRequest request, CancellationToken ct = default)
-        {
-            Last = request;
-            return Task.FromResult(MemoryVerification.NoOpinion);
-        }
-    }
-
-    private static async Task<(CapturingVerification Judge, MemoryRecall Recall)> RecallWithJudge()
+    /// <summary>On SQLite, whose relevance is a rank position (<c>1 - i/n</c>), so two matches carry two
+    /// DIFFERENT values. The in-process store reports <c>1</c> for every match, where a candidate wired to the
+    /// literal <c>1</c> would pass both facts below.</summary>
+    private static async Task<(CapturingVerification Judge, MemoryRecall Recall)> RecallWithJudge(TempDb db)
     {
         var judge = new CapturingVerification();
-        var engine = new GraphMemoryEngine("graph", new InMemoryMemoryGraphStore(), seams: new GraphMemorySeams
+        var engine = new GraphMemoryEngine("graph", new SqliteMemoryGraphStore(db.Factory), seams: new GraphMemorySeams
             {
                 Verification = judge,
             });
@@ -61,7 +51,8 @@ public class MemoryVerificationRelevanceTests
     [Fact]
     public async Task Every_candidate_carries_the_relevance_the_recall_computed()
     {
-        var (judge, recall) = await RecallWithJudge();
+        using var db = new TempDb();
+        var (judge, recall) = await RecallWithJudge(db);
 
         Assert.NotNull(judge.Last);
         Assert.NotEmpty(judge.Last!.Candidates);
@@ -81,12 +72,15 @@ public class MemoryVerificationRelevanceTests
     public async Task Relevance_is_not_a_constant_placeholder()
     {
         // A field wired to a literal would satisfy the test above on every row. The verifier is shown
-        // candidates in RANK order, so the sequence must be non-increasing and must not be uniformly zero —
-        // a flat zero column is exactly what a score-floor policy would read as "nothing matched".
-        var (judge, _) = await RecallWithJudge();
+        // candidates in RANK order, so the sequence must be non-increasing, must not be uniformly zero — a
+        // flat zero column is exactly what a score-floor policy would read as "nothing matched" — and must
+        // carry at least two distinct values, which no literal can.
+        using var db = new TempDb();
+        var (judge, _) = await RecallWithJudge(db);
         var scores = judge.Last!.Candidates.Select(c => c.Relevance).ToList();
 
         Assert.Contains(scores, s => s > 0);
+        Assert.True(scores.Distinct().Count() >= 2, $"relevance is a constant: {string.Join(", ", scores)}");
         for (var i = 1; i < scores.Count; i++)
         {
             Assert.True(scores[i] <= scores[i - 1] + 1e-9,

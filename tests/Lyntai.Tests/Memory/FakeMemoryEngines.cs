@@ -244,103 +244,141 @@ internal sealed class ForgettableEngine(string name, int pruneCount = 0)
     }
 }
 
-/// <summary>A graph store whose OWN deadline fires on the members named in <paramref name="timesOutOn"/>,
-/// spelled the way a network-backed BYO store really spells it: <see cref="TaskCanceledException"/>, which
-/// IS an <see cref="OperationCanceledException"/> and says nothing about the caller.
+/// <summary>The fault the <c>TimingOut*</c> doubles throw: the store's OWN deadline, spelled the way a
+/// network-backed BYO store spells it (<see cref="TaskCanceledException"/>, which IS an
+/// <see cref="OperationCanceledException"/> and says nothing about the caller) — or, when the double is handed
+/// the caller's source, the CALLER cancelling mid-call, marked with <see cref="CallerMarker"/>.
+/// <para>The marker is what lets a caller-cancel test fail: a PRE-cancelled token is rejected by every
+/// engine's entry check before any fail-open catch runs, so a bare <c>ThrowsAnyAsync</c> on one passes
+/// whatever those catches do (<c>.claude/knowledge/pitfalls.md</c>).</para></summary>
+internal static class StoreFault
+{
+    public const string CallerMarker = "the store saw the caller's cancellation mid-call";
+
+    public static Exception For(CancellationTokenSource? caller)
+    {
+        if (caller is null) return new TaskCanceledException(TimingOutEngine.Marker);
+        caller.Cancel();
+        return new OperationCanceledException(CallerMarker, caller.Token);
+    }
+}
+
+/// <summary>An <see cref="IMemoryGraphStore"/> forwarding every member to a real in-process store, so a
+/// double overrides only the members that differ; every forward calls <see cref="OnCall"/> first.
+/// <para><b>It deliberately does not declare the two default-body members</b>, <c>LinkManyAsync</c> and
+/// <c>WriteBackAsync</c>: the interface's own bodies then route through THIS double's <c>LinkAsync</c>,
+/// <c>TouchAsync</c> and <c>RecordReviewsAsync</c>, so a hostile or counting override still sees the
+/// write-back. A double that must intercept those two re-lists <see cref="IMemoryGraphStore"/> and declares
+/// them itself.</para></summary>
+internal class DelegatingGraphStore : IMemoryGraphStore
+{
+    /// <summary>The real store. Typed as the INTERFACE, because the in-process store takes the two
+    /// default-body members from the interface rather than declaring them.</summary>
+    protected IMemoryGraphStore Inner { get; } = new Lyntai.Storage.InMemory.InMemoryMemoryGraphStore();
+
+    /// <summary>Called with the member's name before every forward.</summary>
+    protected virtual void OnCall(string member) { }
+
+    public virtual Task<long> UpsertAsync(GraphNodeWrite write, CancellationToken ct = default)
+    { OnCall(nameof(UpsertAsync)); return Inner.UpsertAsync(write, ct); }
+
+    public virtual Task<IReadOnlyList<GraphNode>> SeedAsync(string engine, string taskKey, string? scope,
+        string? query, int limit, CancellationToken ct = default)
+    { OnCall(nameof(SeedAsync)); return Inner.SeedAsync(engine, taskKey, scope, query, limit, ct); }
+
+    public virtual Task<IReadOnlyList<GraphNeighbour>> NeighboursAsync(string engine, string taskKey,
+        IReadOnlyCollection<long> ids, int limit, CancellationToken ct = default)
+    { OnCall(nameof(NeighboursAsync)); return Inner.NeighboursAsync(engine, taskKey, ids, limit, ct); }
+
+    public virtual Task<GraphNode?> GetAsync(string engine, long id, CancellationToken ct = default)
+    { OnCall(nameof(GetAsync)); return Inner.GetAsync(engine, id, ct); }
+
+    public virtual Task TouchAsync(string engine, IReadOnlyCollection<GraphTouch> touches,
+        CancellationToken ct = default)
+    { OnCall(nameof(TouchAsync)); return Inner.TouchAsync(engine, touches, ct); }
+
+    public virtual Task LinkAsync(string engine, long from, long to, string? kind, double weight, bool symmetric,
+        CancellationToken ct = default)
+    { OnCall(nameof(LinkAsync)); return Inner.LinkAsync(engine, from, to, kind, weight, symmetric, ct); }
+
+    public virtual Task<int> PruneAsync(string engine, string taskKey, string? scope,
+        double? maxAgeOverStability, TimeSpan? olderThan, CancellationToken ct = default)
+    { OnCall(nameof(PruneAsync)); return Inner.PruneAsync(engine, taskKey, scope, maxAgeOverStability, olderThan, ct); }
+
+    public virtual Task<int> DeleteAsync(string engine, IReadOnlyCollection<long> ids, CancellationToken ct = default)
+    { OnCall(nameof(DeleteAsync)); return Inner.DeleteAsync(engine, ids, ct); }
+
+    public virtual Task ForgetAsync(string engine, string taskKey, string? scope, CancellationToken ct = default)
+    { OnCall(nameof(ForgetAsync)); return Inner.ForgetAsync(engine, taskKey, scope, ct); }
+
+    public virtual Task RecordReviewsAsync(string engine, IReadOnlyCollection<MemoryReviewWrite> reviews, int cap,
+        CancellationToken ct = default)
+    { OnCall(nameof(RecordReviewsAsync)); return Inner.RecordReviewsAsync(engine, reviews, cap, ct); }
+
+    public virtual Task<IReadOnlyList<MemoryReview>> ReviewsAsync(string engine, CancellationToken ct = default)
+    { OnCall(nameof(ReviewsAsync)); return Inner.ReviewsAsync(engine, ct); }
+
+    public virtual Task RecordSubjectsAsync(string engine, long nodeId, IReadOnlyCollection<string> subjects,
+        CancellationToken ct = default)
+    { OnCall(nameof(RecordSubjectsAsync)); return Inner.RecordSubjectsAsync(engine, nodeId, subjects, ct); }
+
+    public virtual Task<IReadOnlyList<long>> NodesBySubjectAsync(string engine, string taskKey, string? scope,
+        string subject, int limit, CancellationToken ct = default)
+    { OnCall(nameof(NodesBySubjectAsync)); return Inner.NodesBySubjectAsync(engine, taskKey, scope, subject, limit, ct); }
+
+    public virtual Task<IReadOnlyList<string>> KnownSubjectsAsync(string engine, string taskKey, string? scope,
+        int limit, CancellationToken ct = default)
+    { OnCall(nameof(KnownSubjectsAsync)); return Inner.KnownSubjectsAsync(engine, taskKey, scope, limit, ct); }
+}
+
+/// <summary>A graph store whose OWN deadline fires on the members named in <paramref name="timesOutOn"/>
+/// (<see cref="StoreFault"/>) — or, given <see cref="Caller"/>, where the CALLER cancels mid-call.
 /// <para>Per-member rather than whole-store, because the engine's fail-open promises are per-PATH — a
 /// seed that times out must yield an empty recall, while a write-back that times out must still return the
-/// hits the recall already found. Everything not named delegates to a real in-process store, so a test can
-/// assert what still worked.</para></summary>
-internal sealed class TimingOutGraphStore(params string[] timesOutOn) : IMemoryGraphStore
+/// hits the recall already found. Everything not named delegates, so a test can assert what still
+/// worked.</para></summary>
+internal sealed class TimingOutGraphStore(params string[] timesOutOn) : DelegatingGraphStore, IMemoryGraphStore
 {
-    private readonly Lyntai.Storage.InMemory.InMemoryMemoryGraphStore _inner = new();
     private readonly HashSet<string> _members = new(timesOutOn, StringComparer.Ordinal);
 
     /// <summary>How many calls timed out — so a test can show the faulting path was reached, not assume it.</summary>
     public int TimedOut { get; private set; }
 
-    private void Gate(string member)
+    /// <summary>The caller's source: when set, a named member cancels THE CALLER instead of timing out.</summary>
+    public CancellationTokenSource? Caller { get; init; }
+
+    protected override void OnCall(string member)
     {
         if (!_members.Contains(member)) return;
         TimedOut++;
-        throw new TaskCanceledException(TimingOutEngine.Marker);
+        throw StoreFault.For(Caller);
     }
 
-    public Task<long> UpsertAsync(GraphNodeWrite write, CancellationToken ct = default)
-    { Gate(nameof(UpsertAsync)); return _inner.UpsertAsync(write, ct); }
-
-    public Task<IReadOnlyList<GraphNode>> SeedAsync(string engine, string taskKey, string? scope,
-        string? query, int limit, CancellationToken ct = default)
-    { Gate(nameof(SeedAsync)); return _inner.SeedAsync(engine, taskKey, scope, query, limit, ct); }
-
-    public Task<IReadOnlyList<GraphNeighbour>> NeighboursAsync(string engine, string taskKey,
-        IReadOnlyCollection<long> ids, int limit, CancellationToken ct = default)
-    { Gate(nameof(NeighboursAsync)); return _inner.NeighboursAsync(engine, taskKey, ids, limit, ct); }
-
-    public Task<GraphNode?> GetAsync(string engine, long id, CancellationToken ct = default)
-    { Gate(nameof(GetAsync)); return _inner.GetAsync(engine, id, ct); }
-
-    public Task TouchAsync(string engine, IReadOnlyCollection<GraphTouch> touches,
-        CancellationToken ct = default)
-    { Gate(nameof(TouchAsync)); return _inner.TouchAsync(engine, touches, ct); }
-
-    public Task LinkAsync(string engine, long from, long to, string? kind, double weight, bool symmetric,
-        CancellationToken ct = default)
-    { Gate(nameof(LinkAsync)); return _inner.LinkAsync(engine, from, to, kind, weight, symmetric, ct); }
-
-    public Task<int> PruneAsync(string engine, string taskKey, string? scope,
-        double? maxAgeOverStability, TimeSpan? olderThan, CancellationToken ct = default)
-    { Gate(nameof(PruneAsync)); return _inner.PruneAsync(engine, taskKey, scope, maxAgeOverStability, olderThan, ct); }
-
-    public Task<int> DeleteAsync(string engine, IReadOnlyCollection<long> ids, CancellationToken ct = default)
-    { Gate(nameof(DeleteAsync)); return _inner.DeleteAsync(engine, ids, ct); }
-
-    public Task ForgetAsync(string engine, string taskKey, string? scope, CancellationToken ct = default)
-    { Gate(nameof(ForgetAsync)); return _inner.ForgetAsync(engine, taskKey, scope, ct); }
-
-    public Task RecordReviewsAsync(string engine, IReadOnlyCollection<MemoryReviewWrite> reviews, int cap,
-        CancellationToken ct = default)
-    { Gate(nameof(RecordReviewsAsync)); return _inner.RecordReviewsAsync(engine, reviews, cap, ct); }
-
-    public Task<IReadOnlyList<MemoryReview>> ReviewsAsync(string engine, CancellationToken ct = default)
-    { Gate(nameof(ReviewsAsync)); return _inner.ReviewsAsync(engine, ct); }
-
-    public Task RecordSubjectsAsync(string engine, long nodeId, IReadOnlyCollection<string> subjects,
-        CancellationToken ct = default)
-    { Gate(nameof(RecordSubjectsAsync)); return _inner.RecordSubjectsAsync(engine, nodeId, subjects, ct); }
-
-    public Task<IReadOnlyList<long>> NodesBySubjectAsync(string engine, string taskKey, string? scope,
-        string subject, int limit, CancellationToken ct = default)
-    { Gate(nameof(NodesBySubjectAsync)); return _inner.NodesBySubjectAsync(engine, taskKey, scope, subject, limit, ct); }
-
-    // The three members carrying a DEFAULT BODY are overridden so they can be gated too: the default
-    // would route WriteBackAsync through TouchAsync/LinkAsync and never observe this double's own name.
-    public Task<IReadOnlyList<string>> KnownSubjectsAsync(string engine, string taskKey, string? scope,
-        int limit, CancellationToken ct = default)
-    { Gate(nameof(KnownSubjectsAsync)); return _inner.KnownSubjectsAsync(engine, taskKey, scope, limit, ct); }
-
-    // Through the INTERFACE: the in-process store takes these two from the default bodies rather than
-    // declaring them, so a call on the concrete type does not compile.
+    // Declared, so they can be gated by name too: the interface's bodies would route through the members
+    // above and never observe these two names.
     public Task LinkManyAsync(string engine, IReadOnlyList<GraphEdgeWrite> edges, CancellationToken ct = default)
-    { Gate(nameof(LinkManyAsync)); return ((IMemoryGraphStore)_inner).LinkManyAsync(engine, edges, ct); }
+    { OnCall(nameof(LinkManyAsync)); return Inner.LinkManyAsync(engine, edges, ct); }
 
     public Task WriteBackAsync(string engine, GraphWriteBack work, CancellationToken ct = default)
-    { Gate(nameof(WriteBackAsync)); return ((IMemoryGraphStore)_inner).WriteBackAsync(engine, work, ct); }
+    { OnCall(nameof(WriteBackAsync)); return Inner.WriteBackAsync(engine, work, ct); }
 }
 
 /// <summary>An <see cref="IMemoryStore"/> whose own deadline fires on RECALL — the lexical engine's
-/// fail-open case, spelled the way a network-backed BYO store spells it. Everything else delegates, so a
-/// test can still write before reading.</summary>
+/// fail-open case — or, given <see cref="Caller"/>, where the caller cancels mid-recall. Everything else
+/// delegates, so a test can still write before reading.</summary>
 internal sealed class TimingOutMemoryStore : IMemoryStore
 {
     private readonly FakeMemoryStore _inner = new();
+
+    /// <summary>The caller's source: when set, a recall cancels THE CALLER instead of timing out.</summary>
+    public CancellationTokenSource? Caller { get; init; }
 
     public Task RememberAsync(string taskKey, string scope, string content, TimeSpan? ttl = null,
         CancellationToken ct = default) => _inner.RememberAsync(taskKey, scope, content, ttl, ct);
 
     public Task<IReadOnlyList<MemoryEntry>> RecallAsync(string taskKey, string? scope = null,
         string? query = null, int? limit = null, CancellationToken ct = default) =>
-        throw new TaskCanceledException(TimingOutEngine.Marker);
+        throw StoreFault.For(Caller);
 
     public Task ForgetAsync(string taskKey, string? scope = null, CancellationToken ct = default) =>
         _inner.ForgetAsync(taskKey, scope, ct);
@@ -349,10 +387,14 @@ internal sealed class TimingOutMemoryStore : IMemoryStore
         CancellationToken ct = default) => _inner.PruneAsync(taskKey, olderThan, ct);
 }
 
-/// <summary>An <see cref="ICuratedMemoryStore"/> whose own deadline fires on both READ paths.</summary>
+/// <summary>An <see cref="ICuratedMemoryStore"/> whose own deadline fires on both READ paths — or, given
+/// <see cref="Caller"/>, where the caller cancels mid-read.</summary>
 internal sealed class TimingOutCuratedStore : ICuratedMemoryStore
 {
     private readonly FakeCuratedStore _inner = new();
+
+    /// <summary>The caller's source: when set, a read cancels THE CALLER instead of timing out.</summary>
+    public CancellationTokenSource? Caller { get; init; }
 
     public Task<long> AddAsync(string kind, string content, bool enabled = true, string? taskKey = null,
         string? scope = null, bool pinned = false,
@@ -376,24 +418,28 @@ internal sealed class TimingOutCuratedStore : ICuratedMemoryStore
     public Task<IReadOnlyList<CuratedMemory>> SearchAsync(string query, string? kind = null,
         string? taskKey = null, string? scope = null, bool enabledOnly = false, int? limit = null,
         IReadOnlyDictionary<string, string>? metadata = null, CancellationToken ct = default) =>
-        throw new TaskCanceledException(TimingOutEngine.Marker);
+        throw StoreFault.For(Caller);
 
     public Task<IReadOnlyList<CuratedMemory>> ForCompositionAsync(string taskKey,
         IEnumerable<string> scopes, bool enabledOnly = true, CancellationToken ct = default) =>
-        throw new TaskCanceledException(TimingOutEngine.Marker);
+        throw StoreFault.For(Caller);
 }
 
-/// <summary>An <see cref="ISemanticMemory"/> whose own deadline fires on recall.</summary>
+/// <summary>An <see cref="ISemanticMemory"/> whose own deadline fires on recall — or, given
+/// <see cref="Caller"/>, where the caller cancels mid-recall.</summary>
 internal sealed class TimingOutSemanticMemory : ISemanticMemory
 {
     private readonly FakeSemanticMemory _inner = new();
+
+    /// <summary>The caller's source: when set, a recall cancels THE CALLER instead of timing out.</summary>
+    public CancellationTokenSource? Caller { get; init; }
 
     public Task RememberAsync(string taskKey, string scope, string content, CancellationToken ct = default) =>
         _inner.RememberAsync(taskKey, scope, content, ct);
 
     public Task<IReadOnlyList<SemanticHit>> RecallAsync(string taskKey, string? scope, string query,
         int k = 10, double minScore = 0, CancellationToken ct = default) =>
-        throw new TaskCanceledException(TimingOutEngine.Marker);
+        throw StoreFault.For(Caller);
 
     public Task ForgetAsync(string taskKey, string scope, CancellationToken ct = default) =>
         _inner.ForgetAsync(taskKey, scope, ct);
@@ -401,182 +447,77 @@ internal sealed class TimingOutSemanticMemory : ISemanticMemory
 
 /// <summary>A graph store that refuses to LEARN but still remembers — for the read-only-database case,
 /// where recall must degrade to "no learning" rather than to "no memory".</summary>
-internal sealed class TouchHostileGraphStore : IMemoryGraphStore
+internal sealed class TouchHostileGraphStore : DelegatingGraphStore
 {
-    private readonly Lyntai.Storage.InMemory.InMemoryMemoryGraphStore _inner = new();
-
-    public Task<long> UpsertAsync(GraphNodeWrite write, CancellationToken ct = default) =>
-        _inner.UpsertAsync(write, ct);
-
-    public Task<IReadOnlyList<GraphNode>> SeedAsync(string engine, string taskKey, string? scope,
-        string? query, int limit, CancellationToken ct = default) =>
-        _inner.SeedAsync(engine, taskKey, scope, query, limit, ct);
-
-    public Task<IReadOnlyList<GraphNeighbour>> NeighboursAsync(string engine, string taskKey, IReadOnlyCollection<long> ids,
-        int limit, CancellationToken ct = default) =>
-        _inner.NeighboursAsync(engine, taskKey, ids, limit, ct);
-
-    public Task<GraphNode?> GetAsync(string engine, long id, CancellationToken ct = default) =>
-        _inner.GetAsync(engine, id, ct);
-
-    public Task TouchAsync(string engine, IReadOnlyCollection<GraphTouch> touches,
-        CancellationToken ct = default) =>
-        throw new InvalidOperationException("attempt to write to a read-only database");
-
-    public Task LinkAsync(string engine, long from, long to, string? kind, double weight, bool symmetric,
-        CancellationToken ct = default) =>
-        throw new InvalidOperationException("attempt to write to a read-only database");
-
-    public Task<int> PruneAsync(string engine, string taskKey, string? scope,
-        double? maxAgeOverStability, TimeSpan? olderThan, CancellationToken ct = default) =>
-        _inner.PruneAsync(engine, taskKey, scope, maxAgeOverStability, olderThan, ct);
-
-    public Task<int> DeleteAsync(string engine, IReadOnlyCollection<long> ids, CancellationToken ct = default) =>
-        _inner.DeleteAsync(engine, ids, ct);
-
-    public Task ForgetAsync(string engine, string taskKey, string? scope, CancellationToken ct = default) =>
-        _inner.ForgetAsync(engine, taskKey, scope, ct);
-
-    public Task RecordReviewsAsync(string engine, IReadOnlyCollection<MemoryReviewWrite> reviews, int cap,
-        CancellationToken ct = default) =>
-        throw new InvalidOperationException("attempt to write to a read-only database");
-
-    public Task<IReadOnlyList<MemoryReview>> ReviewsAsync(string engine, CancellationToken ct = default) =>
-        _inner.ReviewsAsync(engine, ct);
-
-    // a write, so it fails like every other write on this store — which is the point of the double
-    public Task RecordSubjectsAsync(string engine, long nodeId, IReadOnlyCollection<string> subjects,
-        CancellationToken ct = default) =>
-        throw new InvalidOperationException("attempt to write to a read-only database");
-
-    public Task<IReadOnlyList<long>> NodesBySubjectAsync(string engine, string taskKey, string? scope,
-        string subject, int limit, CancellationToken ct = default) =>
-        _inner.NodesBySubjectAsync(engine, taskKey, scope, subject, limit, ct);
-
-    public Task<IReadOnlyList<string>> KnownSubjectsAsync(string engine, string taskKey, string? scope,
-        int limit, CancellationToken ct = default) =>
-        _inner.KnownSubjectsAsync(engine, taskKey, scope, limit, ct);
+    // every LEARNING write fails — subjects included, like every other write on a read-only database
+    protected override void OnCall(string member)
+    {
+        if (member is nameof(TouchAsync) or nameof(LinkAsync) or nameof(RecordReviewsAsync)
+            or nameof(RecordSubjectsAsync))
+            throw new InvalidOperationException("attempt to write to a read-only database");
+    }
 }
 
-/// <summary>A graph store that fails ONLY when logging a review — the Task 3 best-effort proof at a
-/// STRICTER grain than <see cref="TouchHostileGraphStore"/>: touching, linking, and everything else delegate
-/// to a real in-process store, so a test using this can assert that reinforcement (stability/difficulty)
-/// still lands and recall still returns its hits even though the log write specifically fails every
-/// time.</summary>
-internal sealed class ReviewLogHostileGraphStore : IMemoryGraphStore
+/// <summary>A graph store that fails ONLY when logging a review — best-effort at a STRICTER grain than
+/// <see cref="TouchHostileGraphStore"/>: touching, linking, subjects and everything else delegate, so a test
+/// can assert that reinforcement still lands and recall still returns its hits although every log write
+/// fails.</summary>
+internal sealed class ReviewLogHostileGraphStore : DelegatingGraphStore
 {
-    private readonly Lyntai.Storage.InMemory.InMemoryMemoryGraphStore _inner = new();
-
-    public Task<long> UpsertAsync(GraphNodeWrite write, CancellationToken ct = default) =>
-        _inner.UpsertAsync(write, ct);
-
-    public Task<IReadOnlyList<GraphNode>> SeedAsync(string engine, string taskKey, string? scope,
-        string? query, int limit, CancellationToken ct = default) =>
-        _inner.SeedAsync(engine, taskKey, scope, query, limit, ct);
-
-    public Task<IReadOnlyList<GraphNeighbour>> NeighboursAsync(string engine, string taskKey, IReadOnlyCollection<long> ids,
-        int limit, CancellationToken ct = default) =>
-        _inner.NeighboursAsync(engine, taskKey, ids, limit, ct);
-
-    public Task<GraphNode?> GetAsync(string engine, long id, CancellationToken ct = default) =>
-        _inner.GetAsync(engine, id, ct);
-
-    public Task TouchAsync(string engine, IReadOnlyCollection<GraphTouch> touches,
-        CancellationToken ct = default) =>
-        _inner.TouchAsync(engine, touches, ct);
-
-    public Task LinkAsync(string engine, long from, long to, string? kind, double weight, bool symmetric,
-        CancellationToken ct = default) =>
-        _inner.LinkAsync(engine, from, to, kind, weight, symmetric, ct);
-
-    public Task<int> PruneAsync(string engine, string taskKey, string? scope,
-        double? maxAgeOverStability, TimeSpan? olderThan, CancellationToken ct = default) =>
-        _inner.PruneAsync(engine, taskKey, scope, maxAgeOverStability, olderThan, ct);
-
-    public Task<int> DeleteAsync(string engine, IReadOnlyCollection<long> ids, CancellationToken ct = default) =>
-        _inner.DeleteAsync(engine, ids, ct);
-
-    public Task ForgetAsync(string engine, string taskKey, string? scope, CancellationToken ct = default) =>
-        _inner.ForgetAsync(engine, taskKey, scope, ct);
-
-    public Task RecordReviewsAsync(string engine, IReadOnlyCollection<MemoryReviewWrite> reviews, int cap,
-        CancellationToken ct = default) =>
-        throw new InvalidOperationException("the review log is unavailable");
-
-    public Task<IReadOnlyList<MemoryReview>> ReviewsAsync(string engine, CancellationToken ct = default) =>
-        _inner.ReviewsAsync(engine, ct);
-
-    // only the REVIEW LOG is hostile on this double — subjects pass through, so a test using it still
-    // exercises subject linking rather than silently losing it
-    public Task RecordSubjectsAsync(string engine, long nodeId, IReadOnlyCollection<string> subjects,
-        CancellationToken ct = default) =>
-        _inner.RecordSubjectsAsync(engine, nodeId, subjects, ct);
-
-    public Task<IReadOnlyList<long>> NodesBySubjectAsync(string engine, string taskKey, string? scope,
-        string subject, int limit, CancellationToken ct = default) =>
-        _inner.NodesBySubjectAsync(engine, taskKey, scope, subject, limit, ct);
-
-    public Task<IReadOnlyList<string>> KnownSubjectsAsync(string engine, string taskKey, string? scope,
-        int limit, CancellationToken ct = default) =>
-        _inner.KnownSubjectsAsync(engine, taskKey, scope, limit, ct);
+    protected override void OnCall(string member)
+    {
+        if (member is nameof(RecordReviewsAsync)) throw new InvalidOperationException("the review log is unavailable");
+    }
 }
 
-/// <summary>A graph store that fails ONLY when recording SUBJECTS — the third member of this family, and
-/// the one that isolates the subject INDEX from the annotator that feeds it.
+/// <summary>A graph store that fails ONLY when recording SUBJECTS — the one that isolates the subject INDEX
+/// from the annotator that feeds it.
 /// <para>A failing annotator is already covered
 /// (<c>MemorySubjectLinkingTests.A_failing_annotator_still_stores_the_fact</c>) and is a different link in
 /// the chain: there the model never answers, so nothing reaches the store. Here the model answers perfectly
-/// and the projection refuses the write, which is the half that catch has never been asked about.</para></summary>
-internal sealed class SubjectHostileGraphStore : IMemoryGraphStore
+/// and the projection refuses the write.</para></summary>
+internal sealed class SubjectHostileGraphStore : DelegatingGraphStore
 {
-    private readonly Lyntai.Storage.InMemory.InMemoryMemoryGraphStore _inner = new();
+    protected override void OnCall(string member)
+    {
+        if (member is nameof(RecordSubjectsAsync)) throw new InvalidOperationException("the subject index is unavailable");
+    }
+}
 
-    public Task<long> UpsertAsync(GraphNodeWrite write, CancellationToken ct = default) =>
-        _inner.UpsertAsync(write, ct);
+/// <summary>Faults on every subject-index READ (<see cref="IMemoryGraphStore.KnownSubjectsAsync"/>) and
+/// delegates everything else, so a test can tell "the index read is broken" from "nothing matched" by
+/// watching the rest of the store still work.</summary>
+internal sealed class SubjectIndexHostileGraphStore : DelegatingGraphStore
+{
+    protected override void OnCall(string member)
+    {
+        if (member is nameof(KnownSubjectsAsync)) throw new InvalidOperationException("the subject index is unavailable");
+    }
+}
 
-    public Task<IReadOnlyList<GraphNode>> SeedAsync(string engine, string taskKey, string? scope,
-        string? query, int limit, CancellationToken ct = default) =>
-        _inner.SeedAsync(engine, taskKey, scope, query, limit, ct);
+/// <summary>Records the <c>limit</c> a caller actually asks <see cref="IMemoryGraphStore.NodesBySubjectAsync"/>
+/// for, and COUNTS both subject-index reads — so a test can assert the COST half of a guard (no call at
+/// all) rather than only its output, which a downstream guard can satisfy on its own.</summary>
+internal sealed class RecordingSubjectGraphStore : DelegatingGraphStore
+{
+    public int? RequestedNodesLimit { get; private set; }
+    public int KnownSubjectsCalls { get; private set; }
+    public int NodesBySubjectCalls { get; private set; }
 
-    public Task<IReadOnlyList<GraphNeighbour>> NeighboursAsync(string engine, string taskKey, IReadOnlyCollection<long> ids,
-        int limit, CancellationToken ct = default) => _inner.NeighboursAsync(engine, taskKey, ids, limit, ct);
+    public override Task<IReadOnlyList<string>> KnownSubjectsAsync(string engine, string taskKey, string? scope,
+        int limit, CancellationToken ct = default)
+    {
+        KnownSubjectsCalls++;
+        return base.KnownSubjectsAsync(engine, taskKey, scope, limit, ct);
+    }
 
-    public Task<GraphNode?> GetAsync(string engine, long id, CancellationToken ct = default) =>
-        _inner.GetAsync(engine, id, ct);
-
-    public Task TouchAsync(string engine, IReadOnlyCollection<GraphTouch> touches,
-        CancellationToken ct = default) => _inner.TouchAsync(engine, touches, ct);
-
-    public Task LinkAsync(string engine, long from, long to, string? kind, double weight, bool symmetric,
-        CancellationToken ct = default) => _inner.LinkAsync(engine, from, to, kind, weight, symmetric, ct);
-
-    public Task<int> PruneAsync(string engine, string taskKey, string? scope, double? maxAgeOverStability,
-        TimeSpan? olderThan, CancellationToken ct = default) =>
-        _inner.PruneAsync(engine, taskKey, scope, maxAgeOverStability, olderThan, ct);
-
-    public Task<int> DeleteAsync(string engine, IReadOnlyCollection<long> ids, CancellationToken ct = default) =>
-        _inner.DeleteAsync(engine, ids, ct);
-
-    public Task ForgetAsync(string engine, string taskKey, string? scope, CancellationToken ct = default) =>
-        _inner.ForgetAsync(engine, taskKey, scope, ct);
-
-    public Task RecordReviewsAsync(string engine, IReadOnlyCollection<MemoryReviewWrite> reviews, int cap,
-        CancellationToken ct = default) => _inner.RecordReviewsAsync(engine, reviews, cap, ct);
-
-    public Task<IReadOnlyList<MemoryReview>> ReviewsAsync(string engine, CancellationToken ct = default) =>
-        _inner.ReviewsAsync(engine, ct);
-
-    public Task RecordSubjectsAsync(string engine, long nodeId, IReadOnlyCollection<string> subjects,
-        CancellationToken ct = default) =>
-        throw new InvalidOperationException("the subject index is unavailable");
-
-    public Task<IReadOnlyList<long>> NodesBySubjectAsync(string engine, string taskKey, string? scope,
-        string subject, int limit, CancellationToken ct = default) =>
-        _inner.NodesBySubjectAsync(engine, taskKey, scope, subject, limit, ct);
-
-    public Task<IReadOnlyList<string>> KnownSubjectsAsync(string engine, string taskKey, string? scope,
-        int limit, CancellationToken ct = default) =>
-        _inner.KnownSubjectsAsync(engine, taskKey, scope, limit, ct);
+    public override Task<IReadOnlyList<long>> NodesBySubjectAsync(string engine, string taskKey, string? scope,
+        string subject, int limit, CancellationToken ct = default)
+    {
+        NodesBySubjectCalls++;
+        RequestedNodesLimit = limit;
+        return base.NodesBySubjectAsync(engine, taskKey, scope, subject, limit, ct);
+    }
 }
 
 /// <summary>In-process <see cref="ISemanticMemory"/> whose "similarity" is substring containment, so a
@@ -696,105 +637,51 @@ internal sealed class FakeCuratedStore : ICuratedMemoryStore
 /// level up — a round-trip count is checkable where the latency it buys sits inside the instrument's noise.
 /// <para>It records the ORDER too, because the review log going LAST is contract (a broken log must cost
 /// neither the touch nor the edges) and nothing else would catch a reordering.</para></summary>
-internal sealed class WriteBackCountingGraphStore : IMemoryGraphStore
+internal sealed class WriteBackCountingGraphStore : DelegatingGraphStore, IMemoryGraphStore
 {
-    // typed as the INTERFACE: LinkManyAsync is a default-body member, so the in-process store does not
-    // declare it and only an interface-typed reference can reach it
-    private readonly IMemoryGraphStore _inner = new Lyntai.Storage.InMemory.InMemoryMemoryGraphStore();
-
     public int WriteBacks { get; private set; }
     public int DirectTouches { get; private set; }
     public int DirectBatchedLinks { get; private set; }
     public int DirectReviewWrites { get; private set; }
     public List<string> Order { get; } = [];
 
-    // Overridden rather than left to the interface's default body, which would call the three members below
-    // and make the combined path indistinguishable from the three calls it replaced.
+    // Declared rather than left to the interface's default body, which would call the three members below
+    // and make the combined path indistinguishable from the three calls it replaced — so it reaches the
+    // INNER store directly.
     public async Task WriteBackAsync(string engine, GraphWriteBack work, CancellationToken ct = default)
     {
         WriteBacks++;
         if (work.Touches.Count > 0)
         {
             Order.Add("touch");
-            await _inner.TouchAsync(engine, work.Touches, ct);
+            await Inner.TouchAsync(engine, work.Touches, ct);
         }
 
         if (work.Edges.Count > 0)
         {
             Order.Add("edges");
-            await _inner.LinkManyAsync(engine, work.Edges, ct);
+            await Inner.LinkManyAsync(engine, work.Edges, ct);
         }
 
         if (work.Reviews.Count > 0)
         {
             Order.Add("reviews");
-            await _inner.RecordReviewsAsync(engine, work.Reviews, work.ReviewLogCap, ct);
+            await Inner.RecordReviewsAsync(engine, work.Reviews, work.ReviewLogCap, ct);
         }
-    }
-
-    public Task TouchAsync(string engine, IReadOnlyCollection<GraphTouch> touches,
-        CancellationToken ct = default)
-    {
-        DirectTouches++;
-        return _inner.TouchAsync(engine, touches, ct);
     }
 
     public Task LinkManyAsync(string engine, IReadOnlyList<GraphEdgeWrite> edges,
         CancellationToken ct = default)
     {
         DirectBatchedLinks++;
-        return _inner.LinkManyAsync(engine, edges, ct);
+        return Inner.LinkManyAsync(engine, edges, ct);
     }
 
-    public Task RecordReviewsAsync(string engine, IReadOnlyCollection<MemoryReviewWrite> reviews, int cap,
-        CancellationToken ct = default)
+    protected override void OnCall(string member)
     {
-        DirectReviewWrites++;
-        return _inner.RecordReviewsAsync(engine, reviews, cap, ct);
+        if (member is nameof(TouchAsync)) DirectTouches++;
+        else if (member is nameof(RecordReviewsAsync)) DirectReviewWrites++;
     }
-
-    public Task<long> UpsertAsync(GraphNodeWrite write, CancellationToken ct = default) =>
-        _inner.UpsertAsync(write, ct);
-
-    public Task<IReadOnlyList<GraphNode>> SeedAsync(string engine, string taskKey, string? scope,
-        string? query, int limit, CancellationToken ct = default) =>
-        _inner.SeedAsync(engine, taskKey, scope, query, limit, ct);
-
-    public Task<IReadOnlyList<GraphNeighbour>> NeighboursAsync(string engine, string taskKey,
-        IReadOnlyCollection<long> ids, int limit, CancellationToken ct = default) =>
-        _inner.NeighboursAsync(engine, taskKey, ids, limit, ct);
-
-    public Task<GraphNode?> GetAsync(string engine, long id, CancellationToken ct = default) =>
-        _inner.GetAsync(engine, id, ct);
-
-    public Task LinkAsync(string engine, long from, long to, string? kind, double weight, bool symmetric,
-        CancellationToken ct = default) =>
-        _inner.LinkAsync(engine, from, to, kind, weight, symmetric, ct);
-
-    public Task<int> PruneAsync(string engine, string taskKey, string? scope,
-        double? maxAgeOverStability, TimeSpan? olderThan, CancellationToken ct = default) =>
-        _inner.PruneAsync(engine, taskKey, scope, maxAgeOverStability, olderThan, ct);
-
-    public Task<int> DeleteAsync(string engine, IReadOnlyCollection<long> ids, CancellationToken ct = default) =>
-        _inner.DeleteAsync(engine, ids, ct);
-
-    public Task ForgetAsync(string engine, string taskKey, string? scope, CancellationToken ct = default) =>
-        _inner.ForgetAsync(engine, taskKey, scope, ct);
-
-    public Task<IReadOnlyList<MemoryReview>> ReviewsAsync(string engine, CancellationToken ct = default) =>
-        _inner.ReviewsAsync(engine, ct);
-
-    public Task RecordSubjectsAsync(string engine, long nodeId, IReadOnlyCollection<string> subjects,
-        CancellationToken ct = default) =>
-        _inner.RecordSubjectsAsync(engine, nodeId, subjects, ct);
-
-    public Task<IReadOnlyList<long>> NodesBySubjectAsync(string engine, string taskKey, string? scope,
-        string subject, int limit, CancellationToken ct = default) =>
-        _inner.NodesBySubjectAsync(engine, taskKey, scope, subject, limit, ct);
-
-    public Task<IReadOnlyList<string>> KnownSubjectsAsync(string engine, string taskKey, string? scope,
-        int limit, CancellationToken ct = default) =>
-        _inner.KnownSubjectsAsync(engine, taskKey, scope, limit, ct);
 }
 
 /// <summary>Counts how a recall's co-activation reaches the store: as ONE batched call or as N single ones.
@@ -802,23 +689,20 @@ internal sealed class WriteBackCountingGraphStore : IMemoryGraphStore
 /// instrument could not resolve that change above its run-to-run noise — <c>memory-scale</c>'s 10k p50 spans
 /// 8.9–11.2ms across runs of identical code. A countable claim is checkable where a timing one is not.</para>
 /// </summary>
-internal sealed class LinkCountingGraphStore : IMemoryGraphStore
+internal sealed class LinkCountingGraphStore : DelegatingGraphStore, IMemoryGraphStore
 {
-    private readonly Lyntai.Storage.InMemory.InMemoryMemoryGraphStore _inner = new();
-
     public int SingleLinks { get; private set; }
     public int BatchedLinks { get; private set; }
     public int EdgesWritten { get; private set; }
 
-    public Task LinkAsync(string engine, long from, long to, string? kind, double weight, bool symmetric,
-        CancellationToken ct = default)
+    protected override void OnCall(string member)
     {
+        if (member is not nameof(LinkAsync)) return;
         SingleLinks++;
         EdgesWritten++;
-        return _inner.LinkAsync(engine, from, to, kind, weight, symmetric, ct);
     }
 
-    // Overridden rather than left to the interface's default body, which would loop LinkAsync and make the
+    // Declared rather than left to the interface's default body, which would loop LinkAsync and make the
     // two counters indistinguishable — the whole point is telling one call from ten.
     public async Task LinkManyAsync(string engine, IReadOnlyList<GraphEdgeWrite> edges,
         CancellationToken ct = default)
@@ -826,53 +710,6 @@ internal sealed class LinkCountingGraphStore : IMemoryGraphStore
         BatchedLinks++;
         EdgesWritten += edges.Count;
         foreach (var e in edges)
-            await _inner.LinkAsync(engine, e.From, e.To, e.Kind, e.Weight, e.Symmetric, ct);
+            await Inner.LinkAsync(engine, e.From, e.To, e.Kind, e.Weight, e.Symmetric, ct);
     }
-
-    public Task<long> UpsertAsync(GraphNodeWrite write, CancellationToken ct = default) =>
-        _inner.UpsertAsync(write, ct);
-
-    public Task<IReadOnlyList<GraphNode>> SeedAsync(string engine, string taskKey, string? scope,
-        string? query, int limit, CancellationToken ct = default) =>
-        _inner.SeedAsync(engine, taskKey, scope, query, limit, ct);
-
-    public Task<IReadOnlyList<GraphNeighbour>> NeighboursAsync(string engine, string taskKey,
-        IReadOnlyCollection<long> ids, int limit, CancellationToken ct = default) =>
-        _inner.NeighboursAsync(engine, taskKey, ids, limit, ct);
-
-    public Task<GraphNode?> GetAsync(string engine, long id, CancellationToken ct = default) =>
-        _inner.GetAsync(engine, id, ct);
-
-    public Task TouchAsync(string engine, IReadOnlyCollection<GraphTouch> touches,
-        CancellationToken ct = default) =>
-        _inner.TouchAsync(engine, touches, ct);
-
-    public Task<int> PruneAsync(string engine, string taskKey, string? scope,
-        double? maxAgeOverStability, TimeSpan? olderThan, CancellationToken ct = default) =>
-        _inner.PruneAsync(engine, taskKey, scope, maxAgeOverStability, olderThan, ct);
-
-    public Task<int> DeleteAsync(string engine, IReadOnlyCollection<long> ids, CancellationToken ct = default) =>
-        _inner.DeleteAsync(engine, ids, ct);
-
-    public Task ForgetAsync(string engine, string taskKey, string? scope, CancellationToken ct = default) =>
-        _inner.ForgetAsync(engine, taskKey, scope, ct);
-
-    public Task RecordReviewsAsync(string engine, IReadOnlyCollection<MemoryReviewWrite> reviews, int cap,
-        CancellationToken ct = default) =>
-        _inner.RecordReviewsAsync(engine, reviews, cap, ct);
-
-    public Task<IReadOnlyList<MemoryReview>> ReviewsAsync(string engine, CancellationToken ct = default) =>
-        _inner.ReviewsAsync(engine, ct);
-
-    public Task RecordSubjectsAsync(string engine, long nodeId, IReadOnlyCollection<string> subjects,
-        CancellationToken ct = default) =>
-        _inner.RecordSubjectsAsync(engine, nodeId, subjects, ct);
-
-    public Task<IReadOnlyList<long>> NodesBySubjectAsync(string engine, string taskKey, string? scope,
-        string subject, int limit, CancellationToken ct = default) =>
-        _inner.NodesBySubjectAsync(engine, taskKey, scope, subject, limit, ct);
-
-    public Task<IReadOnlyList<string>> KnownSubjectsAsync(string engine, string taskKey, string? scope,
-        int limit, CancellationToken ct = default) =>
-        _inner.KnownSubjectsAsync(engine, taskKey, scope, limit, ct);
 }

@@ -1,5 +1,6 @@
 using Lyntai.Inference;
 using Lyntai.Memory.Verification;
+using Lyntai.Tests.Fakes;
 using Microsoft.Extensions.Logging;
 
 namespace Lyntai.Tests.Memory;
@@ -127,6 +128,7 @@ public class ScoringVerificationPolicyTests
             .VerifyAsync(Request("a", "b", "c"));
 
         Assert.Equal(["b"], verdict.RelevantIds);
+        Assert.NotNull(verdict.Scores);
         Assert.Equal(3, verdict.Scores.Count);
         Assert.Equal(0.5, verdict.Scores["c"]);
     }
@@ -203,37 +205,17 @@ public class ScoringVerificationPolicyTests
         Assert.False((await policy.VerifyAsync(Request("a", "b"))).Judged);
     }
 
-    [Fact]
-    public async Task A_backend_that_THROWS_is_no_opinion_rather_than_a_failed_recall()
-    {
-        // The provider throws by contract — there is no score meaning "I could not". Failing open is this
-        // layer's decision, which is exactly what could not be expressed while the two were one class.
-        var verdict = await Policy(new FakeScorer(_ => throw new InvalidOperationException("malformed")))
-            .VerifyAsync(Request("a"));
+    // A backend that THROWS is no opinion rather than a failed recall: the contract's Fails_open row below.
+    // Judged=false is the load-bearing half — an EMPTY endorsement means "none of these answered", which is a
+    // real judgement and would let the engine drop results under VerificationFilters.
 
-        // Judged=false is the load-bearing half: an EMPTY endorsement means "none of these answered",
-        // which is a real judgement and would let the engine drop results under VerificationFilters.
-        Assert.False(verdict.Judged);
-    }
-
-    /// <summary>Records the LEVEL each line was written at, which is the whole subject of the pair below.</summary>
-    private sealed class CapturingLogger : ILogger<ScoringVerificationPolicy>
-    {
-        public List<LogLevel> Levels { get; } = [];
-
-        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
-
-        public bool IsEnabled(LogLevel logLevel) => true;
-
-        public void Log<TState>(LogLevel level, EventId id, TState state, Exception? error,
-            Func<TState, Exception?, string> formatter) => Levels.Add(level);
-    }
-
-    private static async Task<List<LogLevel>> LevelsFrom(Exception thrown)
+    /// <summary>The LEVEL each line was written at, which is the whole subject of the pair below.</summary>
+    private static async Task<IReadOnlyList<LogLevel>> LevelsFrom(Exception thrown)
     {
         var logger = new CapturingLogger();
         var policy = new ScoringVerificationPolicy(
-            [new FakeScorer(_ => throw thrown)], new ScoringVerificationOptions(), logger);
+            [new FakeScorer(_ => throw thrown)], new ScoringVerificationOptions(),
+            logger.For<ScoringVerificationPolicy>());
 
         await policy.VerifyAsync(Request("a"));
         return logger.Levels;
@@ -285,29 +267,6 @@ public class ScoringVerificationPolicyTests
     }
 
     [Fact]
-    public async Task The_CALLERS_cancellation_is_re_thrown_rather_than_swallowed_as_no_opinion()
-    {
-        // The distinction the 2026-09-09 fail-open sweep drew: a component's own timeout is NoOpinion, but
-        // the caller's cancel belongs to the caller and must propagate. Both arrive as the same exception
-        // type, so this can only be told apart by ct.IsCancellationRequested.
-        using var cts = new CancellationTokenSource();
-        await cts.CancelAsync();
-
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(
-            () => Policy(new FakeScorer(_ => [1.0])).VerifyAsync(Request("a"), cts.Token));
-    }
-
-    [Fact]
-    public async Task A_component_timeout_is_NO_OPINION_and_does_not_fail_the_recall()
-    {
-        // Same exception type as the test above, uncancelled token: this one must NOT propagate.
-        var verdict = await Policy(new FakeScorer(_ => throw new TaskCanceledException()))
-            .VerifyAsync(Request("a"));
-
-        Assert.False(verdict.Judged);
-    }
-
-    [Fact]
     public async Task A_verdict_with_NO_scores_is_distinguishable_from_one_that_scored_everything_at_zero()
     {
         // Null means the policy reported none; a populated map of zeros is a real judgement that nothing
@@ -324,7 +283,9 @@ public class ScoringVerificationPolicyTests
 
     // ---- the seam's policy-agnostic contract ---------------------------------------------------------
     // PolicyContractCoverageTests fails until every shipped IMemoryVerificationPolicy is run through these,
-    // which is what caught this policy the moment it became a second shipped implementation.
+    // which is what caught this policy the moment it became a second shipped implementation. A component's
+    // own timeout (NoOpinion) and the CALLER's cancel (propagates) arrive as the same exception type, so the
+    // two rows below that pin them are told apart only by ct.IsCancellationRequested.
 
     private static ScoringVerificationPolicy Working() =>
         Policy(new FakeScorer(d => [.. d.Select((_, i) => (double)d.Count - i)]), endorse: 2);

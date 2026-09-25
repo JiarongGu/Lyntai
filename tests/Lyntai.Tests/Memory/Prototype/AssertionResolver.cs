@@ -15,9 +15,9 @@ namespace Lyntai.Tests.Memory.Prototype;
 ///
 /// <para><b>Why it needs no new API.</b> Metadata is app-owned and open-ended, and
 /// <see cref="IMemoryGraphStore"/> hands back <see cref="GraphNode.Metadata"/> on both readers (pinned by
-/// <c>MemoryGraphStoreContract</c>). The ENGINE drops it — <c>GraphMemoryEngine</c> builds
-/// <c>MemoryItem</c> without it on recall and expansion alike — which is why this reads the STORE, and is
-/// the clearest thing a first-class version would change: one nullable property on <c>MemoryItem</c>.</para>
+/// <c>MemoryGraphStoreContract</c>), and the engine carries it on as <see cref="MemoryItem.Metadata"/>
+/// (<b>D93</b>). This reads the STORE, so it sees every assertion for a key rather than only what one recall
+/// happened to return.</para>
 ///
 /// <para><b><c>ValidTo</c> is DERIVED, and as of <b>D91</b> that is CHOSEN rather than forced.</b> An
 /// interval ends where the next assertion for the same <c>canonical_key</c> begins. This prototype

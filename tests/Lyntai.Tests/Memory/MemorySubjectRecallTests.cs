@@ -26,16 +26,6 @@ namespace Lyntai.Tests.Memory;
 /// </summary>
 public class MemorySubjectRecallTests
 {
-    /// <summary>Annotates from a fixed content→subjects table — a model that answers perfectly by
-    /// construction, so a failure here is the engine's.</summary>
-    private sealed class TableAnnotator(Dictionary<string, string[]> subjectsByContent) : IMemoryAnnotationPolicy
-    {
-        public Task<MemoryAnnotation> AnnotateAsync(MemoryAnnotationRequest request, CancellationToken ct = default) =>
-            Task.FromResult(subjectsByContent.TryGetValue(request.Write.Content, out var subjects)
-                ? new MemoryAnnotation(subjects)
-                : MemoryAnnotation.None);
-    }
-
     /// <summary><paramref name="subjectSeedK"/> is the handle channel's own knob — <c>0</c> is its documented
     /// off-switch, and the source stays REGISTERED at it, which is what keeps the controls below the same
     /// wiring as the facts they control for rather than a different one.</summary>
@@ -170,18 +160,31 @@ public class MemorySubjectRecallTests
 
     /// <summary>An enumeration — a recall with no query — seeds no subjects. There is nothing to match
     /// against, and inventing "every subject matches" would make a no-query recall return the whole store in
-    /// subject order.</summary>
+    /// subject order.
+    /// <para>Observed as subject-index CALLS, because the items cannot show it: a subject seed that fired would
+    /// add the same entry the enumeration already returns. The queried recall afterwards is the control that
+    /// the counters see a subject seed at all.</para></summary>
     [Fact]
     public async Task A_query_less_recall_seeds_no_subjects()
     {
-        using var db = new TempDb();
-        var engine = NewEngine(db, new TableAnnotator(OneFactAbout(SpouseCn, "配偶")));
+        var store = new RecordingSubjectGraphStore();
+        var engine = new GraphMemoryEngine("subjects", store, seams: new GraphMemorySeams
+            {
+                AgePolicies = [new PerWriteAgePolicy()],
+                Annotation = new TableAnnotator(OneFactAbout(SpouseCn, "配偶")),
+                SeedSources = [new LexicalSeedSource(), new SubjectSeedSource(new SubjectSeedOptions { K = 5 })],
+            });
         await engine.RememberAsync(new MemoryWrite("t", "s", SpouseCn));
         await engine.RememberAsync(new MemoryWrite("t", "s", "unrelated material"));
+        var (known, bySubject) = (store.KnownSubjectsCalls, store.NodesBySubjectCalls);   // the writes' own reads
 
         var recall = await engine.RecallAsync(new MemoryQuery("t", "s", null, Limit: 10));
 
-        // Both entries come back because a null query enumerates, not because subjects were consulted.
-        Assert.Equal(2, recall.Items.Count);
+        Assert.Equal(2, recall.Items.Count);   // a null query enumerates
+        Assert.Equal(known, store.KnownSubjectsCalls);
+        Assert.Equal(bySubject, store.NodesBySubjectCalls);
+
+        await engine.RecallAsync(new MemoryQuery("t", "s", "配偶", Limit: 10));
+        Assert.True(store.NodesBySubjectCalls > bySubject, "a NAMED subject must reach the index, or the zero above proves nothing");
     }
 }

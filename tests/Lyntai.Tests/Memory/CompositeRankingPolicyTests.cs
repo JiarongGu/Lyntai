@@ -1,5 +1,6 @@
 using Lyntai.Memory;
 using Lyntai.Memory.Ranking;
+using static Lyntai.Tests.Memory.RankingFixtures;
 
 namespace Lyntai.Tests.Memory;
 
@@ -12,21 +13,13 @@ namespace Lyntai.Tests.Memory;
 /// the two, weights held fixed but unequal, changes the result; (3) a fully tied input (this project's own
 /// shipped trap, `.claude/knowledge/pitfalls.md`) must not let either member's tiebreak-broken OUTPUT LIST
 /// leak in as if it were a real, distinguishing rank.</summary>
-public class CompositeRankingPolicyTests
+public class CompositeRankingPolicyTests : MemoryRankingPolicyContractFacts
 {
-    private static GraphNode Node(long id, double relevance = 1, MemorySignals signals = default) =>
-        new(id, "e", "t", "s", $"headline {id}", $"content {id}", MemoryGrade.Associative,
-            DateTimeOffset.UnixEpoch, RecallCount: 0, Stability: 20, Age: 0, Relevance: relevance,
-            Degree: 0, Metadata: null, Signals: signals);
-
-    private static MemoryCandidate Candidate(long id, double relevance = 1, double retrievability = 1,
-        int hop = 0, MemorySignals signals = default) =>
-        new(Node(id, relevance, signals), retrievability, hop);
-
-    private static readonly MemoryRankingContext Context = new(Limit: 10, Engine: "test");
-
     private static CompositeRankingPolicy Default() =>
         new(new MultiplicativeRankingPolicy(), new ReciprocalRankFusionPolicy());
+
+    protected override IMemoryRankingPolicy New() =>
+        new CompositeRankingPolicy(new MultiplicativeRankingPolicy(), new ReciprocalRankFusionPolicy());
 
     /// <summary>A ranking policy under FULL manual control — returns exactly the (id, score) pairs given, in
     /// that order, filtered to whichever candidates were actually passed in. Lets the mutation-check facts
@@ -43,33 +36,6 @@ public class CompositeRankingPolicyTests
                 .ToList();
         }
     }
-
-    // ---- the shared contract every policy must satisfy ----
-
-    [Fact] public void Deterministic() => MemoryRankingPolicyContract.Ordering_is_deterministic(Default());
-    [Fact] public void Best_first() => MemoryRankingPolicyContract.Scores_are_ordered_best_first(Default());
-
-    [Fact]
-    public void Subset_no_duplicates() =>
-        MemoryRankingPolicyContract.It_returns_a_subset_without_duplicates(Default());
-
-    [Fact]
-    public void Empty_in_empty_out() =>
-        MemoryRankingPolicyContract.An_empty_candidate_set_ranks_to_empty(Default());
-
-    [Fact]
-    public void No_non_finite_score() =>
-        MemoryRankingPolicyContract.No_returned_score_is_non_finite(Default());
-
-    [Fact]
-    public void Infinite_relevance_does_not_empty_a_healthy_recall() =>
-        MemoryRankingPolicyContract.A_non_finite_relevance_that_would_otherwise_be_best_does_not_empty_a_healthy_recall(
-            Default());
-
-    [Fact]
-    public void An_overflowing_product_of_finite_inputs_does_not_empty_a_healthy_recall() =>
-        MemoryRankingPolicyContract.A_finite_input_whose_score_overflows_does_not_empty_a_healthy_recall(
-            Default());
 
     /// <summary>This class carried the SAME "sum of positive, bounded reciprocal terms, so <c>best</c> can
     /// never turn non-finite" claim <see cref="ReciprocalRankFusionPolicy"/> did, and it was false here for

@@ -209,6 +209,8 @@ public static class MemoryEngineContract
 
         var recall = await engine.RecallAsync(new MemoryQuery(key, "s", "gate"));
 
+        // the filter below would pass over an empty recall, or one that mis-graded the entry
+        Assert.Contains(recall.Items, i => i.Grade == MemoryGrade.Authoritative);
         Assert.All(recall.Items.Where(i => i.Grade == MemoryGrade.Authoritative),
             i => Assert.Equal("the build gate is dev.mjs verify", i.Content));
     }
@@ -242,6 +244,9 @@ public static class MemoryEngineContract
         Assert.NotNull(recall.Items);
     }
 
+    /// <summary>A PRE-cancelled token is refused — the entry check only. It never reaches a fail-open
+    /// catch, so a catch that swallowed the caller's cancellation would pass here; the mid-call, marked
+    /// half is <see cref="MemoryFailOpenCancellationTests"/>.</summary>
     public static async Task Cancellation_propagates(IMemoryEngine engine, string key)
     {
         using var cts = new CancellationTokenSource();

@@ -57,29 +57,6 @@ public sealed class SeedSourceTests : IDisposable
             Task.FromResult<IReadOnlyList<float[]>>([.. texts.Select(_ => vector)]);
     }
 
-    /// <summary>Faults on every call, so the source's own catch is what a test observes rather than the
-    /// double's plumbing.</summary>
-    private sealed class ThrowingVectorProvider : FakeVectorProviderBase
-    {
-        public override Task<IReadOnlyList<float[]>> EmbedAsync(IReadOnlyList<string> texts, CancellationToken ct = default) =>
-            throw new InvalidOperationException("vector backend unavailable");
-    }
-
-    /// <summary>Mirrors <c>SemanticSeedProbeTests.CapturingLogger</c>: a swallowed fault reads as an empty
-    /// result unless something is listening, so the warning list is what tells the two apart.</summary>
-    private sealed class CapturingLogger : ILogger<SemanticSeedSource>
-    {
-        public List<string> Warnings { get; } = [];
-        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
-        public bool IsEnabled(LogLevel logLevel) => true;
-
-        public void Log<TState>(LogLevel level, EventId id, TState state, Exception? ex,
-            Func<TState, Exception?, string> formatter)
-        {
-            if (level >= LogLevel.Warning) Warnings.Add(formatter(state, ex));
-        }
-    }
-
     /// <summary>Returns exactly the matches it is given, in the CALLER'S order, regardless of score —
     /// <see cref="IVectorStore.SearchAsync"/>'s own contract leaves ties between backends unspecified and
     /// says a SQL-backed store need not break them, so this is a legitimate shape for a real backend to have.
@@ -116,124 +93,6 @@ public sealed class SeedSourceTests : IDisposable
             CancellationToken ct = default) => throw new NotSupportedException();
         public Task DeleteAsync(string collection, string id, CancellationToken ct = default) => Task.CompletedTask;
         public Task RemoveCollectionAsync(string collection, CancellationToken ct = default) => Task.CompletedTask;
-    }
-
-    /// <summary>Faults on every subject-index READ — delegates everything else to a real in-process store, so
-    /// a test using this can tell "the index read is broken" from "nothing matched" by watching that the rest
-    /// of the store still works.</summary>
-    private sealed class SubjectIndexHostileGraphStore : IMemoryGraphStore
-    {
-        private readonly InMemoryMemoryGraphStore _inner = new();
-
-        public Task<IReadOnlyList<string>> KnownSubjectsAsync(string engine, string taskKey, string? scope,
-            int limit, CancellationToken ct = default) =>
-            throw new InvalidOperationException("the subject index is unavailable");
-
-        public Task<long> UpsertAsync(GraphNodeWrite write, CancellationToken ct = default) =>
-            _inner.UpsertAsync(write, ct);
-        public Task<IReadOnlyList<GraphNode>> SeedAsync(string engine, string taskKey, string? scope,
-            string? query, int limit, CancellationToken ct = default) =>
-            _inner.SeedAsync(engine, taskKey, scope, query, limit, ct);
-        public Task<IReadOnlyList<GraphNeighbour>> NeighboursAsync(string engine, string taskKey,
-            IReadOnlyCollection<long> ids, int limit, CancellationToken ct = default) =>
-            _inner.NeighboursAsync(engine, taskKey, ids, limit, ct);
-        public Task<GraphNode?> GetAsync(string engine, long id, CancellationToken ct = default) =>
-            _inner.GetAsync(engine, id, ct);
-        public Task TouchAsync(string engine, IReadOnlyCollection<GraphTouch> touches,
-            CancellationToken ct = default) => _inner.TouchAsync(engine, touches, ct);
-        public Task LinkAsync(string engine, long from, long to, string? kind, double weight, bool symmetric,
-            CancellationToken ct = default) => _inner.LinkAsync(engine, from, to, kind, weight, symmetric, ct);
-        public Task<int> PruneAsync(string engine, string taskKey, string? scope, double? maxAgeOverStability,
-            TimeSpan? olderThan, CancellationToken ct = default) =>
-            _inner.PruneAsync(engine, taskKey, scope, maxAgeOverStability, olderThan, ct);
-        public Task<int> DeleteAsync(string engine, IReadOnlyCollection<long> ids, CancellationToken ct = default) =>
-            _inner.DeleteAsync(engine, ids, ct);
-        public Task ForgetAsync(string engine, string taskKey, string? scope, CancellationToken ct = default) =>
-            _inner.ForgetAsync(engine, taskKey, scope, ct);
-        public Task RecordReviewsAsync(string engine, IReadOnlyCollection<MemoryReviewWrite> reviews, int cap,
-            CancellationToken ct = default) => _inner.RecordReviewsAsync(engine, reviews, cap, ct);
-        public Task<IReadOnlyList<MemoryReview>> ReviewsAsync(string engine, CancellationToken ct = default) =>
-            _inner.ReviewsAsync(engine, ct);
-        public Task RecordSubjectsAsync(string engine, long nodeId, IReadOnlyCollection<string> subjects,
-            CancellationToken ct = default) => _inner.RecordSubjectsAsync(engine, nodeId, subjects, ct);
-        public Task<IReadOnlyList<long>> NodesBySubjectAsync(string engine, string taskKey, string? scope,
-            string subject, int limit, CancellationToken ct = default) =>
-            _inner.NodesBySubjectAsync(engine, taskKey, scope, subject, limit, ct);
-    }
-
-    /// <summary>Records the <c>limit</c> <see cref="SubjectSeedSource"/> actually asks
-    /// <see cref="IMemoryGraphStore.NodesBySubjectAsync"/> for, independent of what comes back — so a test can
-    /// tell "the fetch used K" from "the fetch used Limit" purely from the recorded value. Also COUNTS calls
-    /// to both subject-index reads, so a test can assert the COST-avoidance half of a guard (no call at all)
-    /// rather than only its output shape, which a downstream guard the store already carries can satisfy on
-    /// its own. Everything else delegates to a real in-process store, so
-    /// <see cref="GraphMemoryEngine.RememberAsync"/> works normally against it.</summary>
-    private sealed class RecordingSubjectGraphStore : IMemoryGraphStore
-    {
-        private readonly InMemoryMemoryGraphStore _inner = new();
-
-        public int? RequestedNodesLimit { get; private set; }
-        public int KnownSubjectsCalls { get; private set; }
-        public int NodesBySubjectCalls { get; private set; }
-
-        public Task<IReadOnlyList<string>> KnownSubjectsAsync(string engine, string taskKey, string? scope,
-            int limit, CancellationToken ct = default)
-        {
-            KnownSubjectsCalls++;
-            return _inner.KnownSubjectsAsync(engine, taskKey, scope, limit, ct);
-        }
-
-        public Task<IReadOnlyList<long>> NodesBySubjectAsync(string engine, string taskKey, string? scope,
-            string subject, int limit, CancellationToken ct = default)
-        {
-            NodesBySubjectCalls++;
-            RequestedNodesLimit = limit;
-            return _inner.NodesBySubjectAsync(engine, taskKey, scope, subject, limit, ct);
-        }
-
-        public Task<long> UpsertAsync(GraphNodeWrite write, CancellationToken ct = default) =>
-            _inner.UpsertAsync(write, ct);
-        public Task<IReadOnlyList<GraphNode>> SeedAsync(string engine, string taskKey, string? scope,
-            string? query, int limit, CancellationToken ct = default) =>
-            _inner.SeedAsync(engine, taskKey, scope, query, limit, ct);
-        public Task<IReadOnlyList<GraphNeighbour>> NeighboursAsync(string engine, string taskKey,
-            IReadOnlyCollection<long> ids, int limit, CancellationToken ct = default) =>
-            _inner.NeighboursAsync(engine, taskKey, ids, limit, ct);
-        public Task<GraphNode?> GetAsync(string engine, long id, CancellationToken ct = default) =>
-            _inner.GetAsync(engine, id, ct);
-        public Task TouchAsync(string engine, IReadOnlyCollection<GraphTouch> touches,
-            CancellationToken ct = default) => _inner.TouchAsync(engine, touches, ct);
-        public Task LinkAsync(string engine, long from, long to, string? kind, double weight, bool symmetric,
-            CancellationToken ct = default) => _inner.LinkAsync(engine, from, to, kind, weight, symmetric, ct);
-        public Task<int> PruneAsync(string engine, string taskKey, string? scope, double? maxAgeOverStability,
-            TimeSpan? olderThan, CancellationToken ct = default) =>
-            _inner.PruneAsync(engine, taskKey, scope, maxAgeOverStability, olderThan, ct);
-        public Task<int> DeleteAsync(string engine, IReadOnlyCollection<long> ids, CancellationToken ct = default) =>
-            _inner.DeleteAsync(engine, ids, ct);
-        public Task ForgetAsync(string engine, string taskKey, string? scope, CancellationToken ct = default) =>
-            _inner.ForgetAsync(engine, taskKey, scope, ct);
-        public Task RecordReviewsAsync(string engine, IReadOnlyCollection<MemoryReviewWrite> reviews, int cap,
-            CancellationToken ct = default) => _inner.RecordReviewsAsync(engine, reviews, cap, ct);
-        public Task<IReadOnlyList<MemoryReview>> ReviewsAsync(string engine, CancellationToken ct = default) =>
-            _inner.ReviewsAsync(engine, ct);
-        public Task RecordSubjectsAsync(string engine, long nodeId, IReadOnlyCollection<string> subjects,
-            CancellationToken ct = default) => _inner.RecordSubjectsAsync(engine, nodeId, subjects, ct);
-    }
-
-    /// <summary>The same capture as <see cref="CapturingLogger"/>, typed for <see cref="SubjectSeedSource"/> —
-    /// <see cref="ILogger{TCategoryName}"/>'s generic parameter is the category, so the two cannot share a
-    /// type.</summary>
-    private sealed class SubjectCapturingLogger : ILogger<SubjectSeedSource>
-    {
-        public List<string> Warnings { get; } = [];
-        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
-        public bool IsEnabled(LogLevel logLevel) => true;
-
-        public void Log<TState>(LogLevel level, EventId id, TState state, Exception? ex,
-            Func<TState, Exception?, string> formatter)
-        {
-            if (level >= LogLevel.Warning) Warnings.Add(formatter(state, ex));
-        }
     }
 
     [Fact]
@@ -306,7 +165,8 @@ public sealed class SeedSourceTests : IDisposable
     {
         var store = new SqliteMemoryGraphStore(_db.Factory);
         var log = new CapturingLogger();
-        var source = new SemanticSeedSource([new ThrowingVectorProvider()], new InMemoryVectorStore(), logger: log);
+        var source = new SemanticSeedSource([new ThrowingVectorProvider()], new InMemoryVectorStore(),
+            logger: log.For<SemanticSeedSource>());
         var request = new MemorySeedRequest("seedtest", store,
             new MemoryQuery(TaskKey: "task", Scope: "scope", Query: "anything"), Limit: 10);
 
@@ -416,8 +276,8 @@ public sealed class SeedSourceTests : IDisposable
     public async Task The_subject_source_returns_empty_rather_than_throwing_when_the_subject_index_faults()
     {
         var store = new SubjectIndexHostileGraphStore();
-        var log = new SubjectCapturingLogger();
-        var source = new SubjectSeedSource(logger: log);
+        var log = new CapturingLogger();
+        var source = new SubjectSeedSource(logger: log.For<SubjectSeedSource>());
         var request = new MemorySeedRequest("seedtest", store,
             new MemoryQuery("task", Scope: "scope", Query: "anything"), Limit: 10);
 

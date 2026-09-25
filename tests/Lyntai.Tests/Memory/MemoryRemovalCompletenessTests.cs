@@ -198,20 +198,28 @@ public class MemoryRemovalCompletenessTests
         // The cost claim, asserted rather than reasoned. Recovering the removed ids on the store's own path
         // needs a before/after census — two full-scope scans — and a deployment with no similarity index has
         // nothing to keep in step, so it must not pay for one. Counting the reads is the only way to tell
-        // "the census was skipped" from "the census happened to find nothing".
-        var store = new CountingGraphStore();
-        var engine = new GraphMemoryEngine("project/graph", store, new GraphMemoryOptions { MinRetrievability = 0.9 }, seams: new GraphMemorySeams
-            {
-                AgePolicies = [Accumulating()],
-            });
+        // "the census was skipped" from "the census happened to find nothing" — and the twin WITH a vector
+        // store is the control that shows the counter sees the census at all.
+        async Task<int> PruneReads(IVectorStore? vectors)
+        {
+            var store = new CountingGraphStore();
+            var engine = new GraphMemoryEngine("project/graph", store, new GraphMemoryOptions { MinRetrievability = 0.9 }, seams: new GraphMemorySeams
+                {
+                    AgePolicies = [Accumulating()],
+                    Providers = vectors is null ? null : [new FakeVectorProvider()],
+                    Vectors = vectors,
+                });
 
-        await engine.RememberAsync(new MemoryWrite("t", "s", "a faint associative entry about widgets"));
-        await Crowd(engine, "t", 200);
+            await engine.RememberAsync(new MemoryWrite("t", "s", "a faint associative entry about widgets"));
+            await Crowd(engine, "t", 200);
 
-        var before = store.Seeds;
-        await engine.PruneAsync("t", "s");
+            var before = store.Seeds;
+            await engine.PruneAsync("t", "s");
+            return store.Seeds - before;
+        }
 
-        Assert.Equal(before, store.Seeds);
+        Assert.Equal(0, await PruneReads(vectors: null));
+        Assert.Equal(2, await PruneReads(new InMemoryVectorStore()));   // the before/after census
     }
 
     [Fact]
@@ -222,7 +230,7 @@ public class MemoryRemovalCompletenessTests
         // withdrawal that reported success over surviving content is the failure this exists to prevent.
         // What the caller gets is an exception and an unchanged store, which is retryable.
         var store = new InMemoryMemoryGraphStore();
-        var engine = Engine(new ThrowingVectorStore(), store: store);
+        var engine = Engine(new RemovalHostileVectorStore(), store: store);
         await engine.RememberAsync(new MemoryWrite("t", "s", "the recovery key is on the blue card"));
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => engine.ForgetAsync("t", "s"));
@@ -244,7 +252,7 @@ public class MemoryRemovalCompletenessTests
         // The ORDER was asymmetric from the start and the ERROR HANDLING was not, which is the defect this
         // fact was written to catch.
         var store = new InMemoryMemoryGraphStore();
-        var engine = Engine(new ThrowingVectorStore(), new GraphMemoryOptions { MinRetrievability = 0.9 },
+        var engine = Engine(new RemovalHostileVectorStore(), new GraphMemoryOptions { MinRetrievability = 0.9 },
             store);
         await engine.RememberAsync(new MemoryWrite("t", "s", "a faint associative entry about widgets"));
         await Crowd(engine, "t", 40);
@@ -257,7 +265,7 @@ public class MemoryRemovalCompletenessTests
 
     /// <summary>An <see cref="IVectorStore"/> whose every operation fails — a backend that is down, which is
     /// the condition both removal verbs have to answer for and neither had been asked about.</summary>
-    private sealed class ThrowingVectorStore : IVectorStore
+    private sealed class RemovalHostileVectorStore : IVectorStore
     {
         public Task UpsertAsync(string collection, string id, float[] vector, string payload,
             CancellationToken ct = default) => Task.CompletedTask;   // the WRITE succeeds; removal is the subject
@@ -272,81 +280,15 @@ public class MemoryRemovalCompletenessTests
             throw new InvalidOperationException("the vector store is unavailable");
     }
 
-    /// <summary>An <see cref="IVectorStore"/> that is deliberately NOT an
-    /// <see cref="IListableVectorStore"/> — the BYO shape the fallback exists for.</summary>
-    private sealed class UnlistableVectorStore : IVectorStore
-    {
-        private readonly InMemoryVectorStore _inner = new();
-
-        public Task UpsertAsync(string collection, string id, float[] vector, string payload,
-            CancellationToken ct = default) => _inner.UpsertAsync(collection, id, vector, payload, ct);
-
-        public Task<IReadOnlyList<VectorMatch>> SearchAsync(string collection, float[] query, int k,
-            CancellationToken ct = default) => _inner.SearchAsync(collection, query, k, ct);
-
-        public Task DeleteAsync(string collection, string id, CancellationToken ct = default) =>
-            _inner.DeleteAsync(collection, id, ct);
-
-        public Task RemoveCollectionAsync(string collection, CancellationToken ct = default) =>
-            _inner.RemoveCollectionAsync(collection, ct);
-    }
-
     /// <summary>A real in-process graph store that counts its <see cref="SeedAsync"/> reads, so the census a
     /// vector store forces can be told apart from one that ran and found nothing.</summary>
-    private sealed class CountingGraphStore : IMemoryGraphStore
+    private sealed class CountingGraphStore : DelegatingGraphStore
     {
-        private readonly InMemoryMemoryGraphStore _inner = new();
-
         public int Seeds { get; private set; }
 
-        public Task<long> UpsertAsync(GraphNodeWrite write, CancellationToken ct = default) =>
-            _inner.UpsertAsync(write, ct);
-
-        public Task<IReadOnlyList<GraphNode>> SeedAsync(string engine, string taskKey, string? scope,
-            string? query, int limit, CancellationToken ct = default)
+        protected override void OnCall(string member)
         {
-            Seeds++;
-            return _inner.SeedAsync(engine, taskKey, scope, query, limit, ct);
+            if (member is nameof(SeedAsync)) Seeds++;
         }
-
-        public Task<IReadOnlyList<GraphNeighbour>> NeighboursAsync(string engine, string taskKey,
-            IReadOnlyCollection<long> ids, int limit, CancellationToken ct = default) =>
-            _inner.NeighboursAsync(engine, taskKey, ids, limit, ct);
-
-        public Task<GraphNode?> GetAsync(string engine, long id, CancellationToken ct = default) =>
-            _inner.GetAsync(engine, id, ct);
-
-        public Task TouchAsync(string engine, IReadOnlyCollection<GraphTouch> touches,
-            CancellationToken ct = default) => _inner.TouchAsync(engine, touches, ct);
-
-        public Task LinkAsync(string engine, long from, long to, string? kind, double weight, bool symmetric,
-            CancellationToken ct = default) => _inner.LinkAsync(engine, from, to, kind, weight, symmetric, ct);
-
-        public Task<int> PruneAsync(string engine, string taskKey, string? scope,
-            double? maxAgeOverStability, TimeSpan? olderThan, CancellationToken ct = default) =>
-            _inner.PruneAsync(engine, taskKey, scope, maxAgeOverStability, olderThan, ct);
-
-        public Task<int> DeleteAsync(string engine, IReadOnlyCollection<long> ids,
-            CancellationToken ct = default) => _inner.DeleteAsync(engine, ids, ct);
-
-        public Task ForgetAsync(string engine, string taskKey, string? scope, CancellationToken ct = default) =>
-            _inner.ForgetAsync(engine, taskKey, scope, ct);
-
-        public Task RecordReviewsAsync(string engine, IReadOnlyCollection<MemoryReviewWrite> reviews, int cap,
-            CancellationToken ct = default) => _inner.RecordReviewsAsync(engine, reviews, cap, ct);
-
-        public Task<IReadOnlyList<MemoryReview>> ReviewsAsync(string engine, CancellationToken ct = default) =>
-            _inner.ReviewsAsync(engine, ct);
-
-        public Task RecordSubjectsAsync(string engine, long nodeId, IReadOnlyCollection<string> subjects,
-            CancellationToken ct = default) => _inner.RecordSubjectsAsync(engine, nodeId, subjects, ct);
-
-        public Task<IReadOnlyList<long>> NodesBySubjectAsync(string engine, string taskKey, string? scope,
-            string subject, int limit, CancellationToken ct = default) =>
-            _inner.NodesBySubjectAsync(engine, taskKey, scope, subject, limit, ct);
-
-        public Task<IReadOnlyList<string>> KnownSubjectsAsync(string engine, string taskKey, string? scope,
-            int limit, CancellationToken ct = default) =>
-            _inner.KnownSubjectsAsync(engine, taskKey, scope, limit, ct);
     }
 }

@@ -105,65 +105,19 @@ public sealed class MemorySalienceInversionTests
 
     private static async Task<Arm> RunAsync(CorpusShape shape, ArmKind arm)
     {
-        var corpus = MemoryCorpus.Generate(shape, Seed);
         var store = new InMemoryMemoryGraphStore();
-        var engine = NewEngine(store, arm);
-        var first = corpus.Steps.OfType<CorpusWrite>().First().Write;
-
-        var byRef = new Dictionary<string, string>(StringComparer.Ordinal);
         var salientWrites = 0;
-        long returned = 0, noise = 0, wanted = 0, missed = 0;
 
-        foreach (var step in corpus.Steps)
-            switch (step)
+        // diverse noise puts the id FIRST, so the id is read position-independently
+        var share = await CorpusReplay.RunAsync(NewEngine(store, arm), MemoryCorpus.Generate(shape, Seed),
+            QueryLimit, idOf: MemoryCorpusTestAccess.IdAnywhereIn,
+            afterWrite: async memRef =>
             {
-                case CorpusWrite w:
-                    var memRef = (await engine.RememberAsync(w.Write)).Reference;
-                    byRef[memRef.Id] = CorpusIdOf(w.Write.Content);
-                    var node = await store.GetAsync("e", long.Parse(memRef.Id, CultureInfo.InvariantCulture));
-                    if (node?.Signals.Get(MemorySignals.WellKnown.Salience) > 1) salientWrites++;
-                    break;
+                var node = await store.GetAsync("e", long.Parse(memRef.Id, CultureInfo.InvariantCulture));
+                if (node?.Signals.Get(MemorySignals.WellKnown.Salience) > 1) salientWrites++;
+            });
 
-                case CorpusQuery q:
-                    var recall = await engine.RecallAsync(
-                        new MemoryQuery(first.TaskKey, first.Scope, q.Text, Limit: QueryLimit));
-                    var got = new HashSet<string>(StringComparer.Ordinal);
-                    foreach (var item in recall.Items)
-                    {
-                        returned++;
-                        if (!byRef.TryGetValue(item.Reference.Id, out var id)) continue;
-                        got.Add(id);
-                        if (id.StartsWith("noise", StringComparison.Ordinal)) noise++;
-                    }
-                    foreach (var want in q.RelevantIds)
-                    {
-                        wanted++;
-                        if (!got.Contains(want)) missed++;
-                    }
-                    break;
-            }
-
-        return new Arm(
-            returned == 0 ? 0 : (double)noise / returned,
-            wanted == 0 ? 0 : (double)missed / wanted,
-            salientWrites);
-    }
-
-    /// <summary>The corpus id embedded in an entry's content. Every template places it as the second
-    /// whitespace-delimited token; diverse noise places it first, so both are covered by taking the first
-    /// token that looks like an id rather than by a fixed position.</summary>
-    private static string CorpusIdOf(string content)
-    {
-        foreach (var token in content.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries))
-            if (token.StartsWith("noise", StringComparison.Ordinal)
-                || token.StartsWith("crit", StringComparison.Ordinal)
-                || token.StartsWith("topic", StringComparison.Ordinal)
-                || token.StartsWith("hot", StringComparison.Ordinal)
-                || token.StartsWith("pad", StringComparison.Ordinal)
-                || token.StartsWith("attr", StringComparison.Ordinal)
-                || token.StartsWith("authoritative", StringComparison.Ordinal))
-                return token;
-        return content;
+        return new Arm(share.Pollution, share.Miss, salientWrites);
     }
 
     /// <summary><b>THE MEASUREMENT.</b> Three arms on both noise kinds, with the isolated salience effect

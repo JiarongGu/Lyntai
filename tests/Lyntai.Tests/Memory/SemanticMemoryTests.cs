@@ -1,63 +1,14 @@
-using Lyntai;
 using Lyntai.Inference;
 using Lyntai.Memory;
 using Lyntai.Tests.Fakes;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Lyntai.Tests.Memory;
 
-/// <summary>Semantic memory: the in-memory vector store's cosine ranking + dedup/forget, and the
-/// SemanticMemory service's meaning-based recall / scope isolation / no-vector backend guard — deterministic via
-/// the feature-hashed <see cref="FakeVectorProvider"/>.</summary>
+/// <summary>The SemanticMemory service's meaning-based recall / scope isolation / no-vector backend guard —
+/// deterministic via the feature-hashed <see cref="FakeVectorProvider"/>. The vector store's own ranking,
+/// dedup, delete and forget are <see cref="VectorStoreContract"/>, run on every shipped store.</summary>
 public class SemanticMemoryTests
 {
-    // ---- vector store --------------------------------------------------------------------------------
-
-    [Fact]
-    public async Task Vector_store_ranks_by_cosine_and_respects_k()
-    {
-        var store = new InMemoryVectorStore();
-        await store.UpsertAsync("c", "a", [1f, 0f, 0f], "A");
-        await store.UpsertAsync("c", "b", [0f, 1f, 0f], "B");
-        await store.UpsertAsync("c", "c", [0f, 0f, 1f], "C");
-
-        var hits = await store.SearchAsync("c", [0.9f, 0.1f, 0f], k: 2);
-
-        Assert.Equal(2, hits.Count);
-        Assert.Equal("A", hits[0].Payload);   // nearest to the query direction
-        Assert.True(hits[0].Score > hits[1].Score);
-    }
-
-    [Fact]
-    public async Task Vector_store_upsert_dedups_by_id_and_forget_clears()
-    {
-        var store = new InMemoryVectorStore();
-        await store.UpsertAsync("c", "same", [1f, 0f], "first");
-        await store.UpsertAsync("c", "same", [1f, 0f], "second"); // same id → overwrite
-
-        var hits = await store.SearchAsync("c", [1f, 0f], k: 5);
-        Assert.Single(hits);
-        Assert.Equal("second", hits[0].Payload);
-
-        await store.RemoveCollectionAsync("c");
-        Assert.Empty(await store.SearchAsync("c", [1f, 0f], k: 5));
-    }
-
-    [Fact]
-    public async Task Vector_store_delete_removes_one_by_id_and_absent_is_a_no_op()
-    {
-        var store = new InMemoryVectorStore();
-        await store.UpsertAsync("c", "keep", [1f, 0f], "KEEP");
-        await store.UpsertAsync("c", "drop", [0f, 1f], "DROP");
-
-        await store.DeleteAsync("c", "drop");         // remove one by id
-        await store.DeleteAsync("c", "never");        // absent id → no-op, no throw
-
-        var hits = await store.SearchAsync("c", [1f, 1f], k: 5);
-        Assert.Single(hits);
-        Assert.Equal("KEEP", hits[0].Payload);        // only the un-deleted vector remains
-    }
-
     // ---- semantic memory service ---------------------------------------------------------------------
 
     private static SemanticMemory NewMemory() => new([new FakeVectorProvider()], new InMemoryVectorStore());
@@ -187,22 +138,6 @@ public class SemanticMemoryTests
         Assert.Empty(await mem.RecallAsync("t", scope: null, "anything", k: 5));
     }
 
-    /// <summary>A BYO store with only the required half of the seam — it forwards every
-    /// <see cref="IVectorStore"/> member to a real store and simply does not implement
-    /// <see cref="IListableVectorStore"/>.</summary>
-    private sealed class UnlistableVectorStore : IVectorStore
-    {
-        private readonly InMemoryVectorStore _inner = new();
-        public Task UpsertAsync(string collection, string id, float[] vector, string payload, CancellationToken ct = default) =>
-            _inner.UpsertAsync(collection, id, vector, payload, ct);
-        public Task<IReadOnlyList<VectorMatch>> SearchAsync(string collection, float[] query, int k, CancellationToken ct = default) =>
-            _inner.SearchAsync(collection, query, k, ct);
-        public Task DeleteAsync(string collection, string id, CancellationToken ct = default) =>
-            _inner.DeleteAsync(collection, id, ct);
-        public Task RemoveCollectionAsync(string collection, CancellationToken ct = default) =>
-            _inner.RemoveCollectionAsync(collection, ct);
-    }
-
     [Fact]
     public async Task Without_a_vector_backend_a_call_throws_a_clear_error()
     {
@@ -240,25 +175,5 @@ public class SemanticMemoryTests
         var recall = await engine.RecallAsync(new MemoryQuery("t", Scope: null, Query: "children"));
 
         Assert.Equal(written.Id, Assert.Single(recall.Items).Reference.Id);
-    }
-
-    // ---- DI wiring -----------------------------------------------------------------------------------
-
-    [Fact]
-    public async Task A_declared_vector_backend_wires_semantic_memory_end_to_end()
-    {
-        var services = new ServiceCollection();
-        services.AddLyntai(b => b
-            .AddProvider(_ => new FakeTextProvider("p"))
-            .AddProvider(_ => new FakeVectorProvider(), FakeVectorProvider.Declared).AddSemanticMemory());
-        using var sp = services.BuildServiceProvider();
-
-        var mem = sp.GetRequiredService<ISemanticMemory>();
-        await mem.RememberAsync("t", "s", "cancel subscription anytime");
-        await mem.RememberAsync("t", "s", "pizza menu today");
-
-        var hits = await mem.RecallAsync("t", "s", "how to cancel", k: 1);
-        Assert.Single(hits);
-        Assert.Contains("cancel", hits[0].Content);
     }
 }

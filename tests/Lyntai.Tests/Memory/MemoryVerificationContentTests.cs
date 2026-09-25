@@ -22,20 +22,6 @@ namespace Lyntai.Tests.Memory;
 /// </summary>
 public class MemoryVerificationContentTests
 {
-    /// <summary>Captures the request verbatim and judges nothing, so ordering is unchanged and the only
-    /// thing under test is what the engine handed over.</summary>
-    private sealed class CapturingVerification : IMemoryVerificationPolicy
-    {
-        public MemoryVerificationRequest? Last { get; private set; }
-
-        public Task<MemoryVerification> VerifyAsync(
-            MemoryVerificationRequest request, CancellationToken ct = default)
-        {
-            Last = request;
-            return Task.FromResult(MemoryVerification.NoOpinion);
-        }
-    }
-
     /// <summary>Comfortably past the 120-character default, so the headline is provably a cut of it.</summary>
     private static string LongContent(string marker) =>
         $"{marker} the deployment checklist covers the approval step, the rollback plan, the on-call "

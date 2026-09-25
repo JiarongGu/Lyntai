@@ -7,20 +7,18 @@ using Lyntai.Tests.Storage;
 
 namespace Lyntai.Tests.Memory;
 
-/// <summary>The power-law forgetting curve — the only shipped forgetting curve as of 3.0. It shared the
-/// domain, through 2.5.x, with an exponential one (<c>HalfLifeRetrievability</c>, deleted in 3.0 —
-/// <c>docs/DECISIONS.md</c> D49 made this curve the registered default first; a later decision then deleted
-/// the alternative it had been measured against).
+/// <summary>The power-law forgetting curve — the only shipped forgetting curve (<c>docs/DECISIONS.md</c>
+/// D49).
 /// <para>Why a power law at all: a superposition of exponentials with DIFFERENT stabilities is better
 /// approximated by a power function, so a heterogeneous corpus — identity facts beside booking details
 /// beside conversational noise — decays as a power law even if each individual memory does not. FSRS moved
 /// from exponential to power at v4 for exactly that reason, fitted against real review logs.</para></summary>
-public class DsrRetrievabilityTests
+public class DsrRetrievabilityTests : RetrievabilityPolicyContractFacts
 {
     private static MemoryDecayState State(double age, double stability) => new(age, 0, stability);
 
     /// <summary>A policy with the three stability-increase laws switched ON.
-    /// <para><b>They default to OFF as of 3.0</b> (<c>DsrOptions.ReinforceGain = 0</c>,
+    /// <para><b>They default to OFF</b> (<c>DsrOptions.ReinforceGain = 0</c>,
     /// <c>docs/DECISIONS.md</c> D54 — a measured default, not a cautious one: retrieval-driven growth made
     /// recall measurably worse on every corpus shape, and capped and non-compounding variants both lost to
     /// not growing at all). The laws themselves are unchanged and correct, so a fact ABOUT a law switches it
@@ -80,16 +78,6 @@ public class DsrRetrievabilityTests
     }
 
     [Fact]
-    public void Stability_still_means_HALF_LIFE_not_FSRS_ninety_percent_point()
-    {
-        // THE convention anchor. The stability column is already populated, so a policy reinterpreting it
-        // would silently change what every stored value means the moment someone swapped policies.
-        var policy = new DsrRetrievability();
-
-        Assert.Equal(0.5, policy.Retrievability(State(age: 20, stability: 20)), precision: 9);
-    }
-
-    [Fact]
     public void The_half_life_anchor_holds_for_any_decay_exponent()
     {
         // F is DERIVED from C precisely so this holds. If F were configurable the two could drift into a
@@ -103,10 +91,8 @@ public class DsrRetrievabilityTests
     }
 
     /// <summary>The plain <c>r = 2^(-age/stability)</c> exponential — the textbook curve DSR is compared
-    /// against below, not the deleted <c>HalfLifeRetrievability</c> class (gone in 3.0, <c>docs/DECISIONS.md</c>
-    /// D49): that class carried a reinforcement/connection-boost model this comparison never exercised (both
-    /// facts below use <c>Strength = 0</c>), so the formula alone is the honest, minimal stand-in — not a
-    /// resurrection of the deleted type.</summary>
+    /// against below. Both facts use <c>Strength = 0</c>, so the formula alone is the whole
+    /// comparator.</summary>
     private static double PureExponential(MemoryDecayState state) =>
         state.Age <= 0 ? 1 : Math.Pow(2, -state.Age / state.Stability);
 
@@ -342,22 +328,6 @@ public class DsrRetrievabilityTests
         // sanity check: the guard rejects the bad domain without also rejecting the valid one
         Assert.Equal(500.0, new DsrOptions { MaxStability = 500.0 }.MaxStability);
 
-    [Fact]
-    public void A_poisoned_MaxStability_can_no_longer_reach_a_stored_stability()
-    {
-        // The defect stated end-to-end rather than as a domain check: before the guard, `new DsrOptions
-        // { MaxStability = double.NaN }` constructed happily and every Reinforce returned NaN — the value
-        // GraphMemoryEngine writes back through TouchAsync. Mutation-checking this is the point: delete the
-        // guard's IsFinite clause and this fact fails on the FIRST assertion (construction succeeds), which
-        // the domain Theory above cannot distinguish from a guard that merely throws the wrong type.
-        Assert.Throws<ArgumentOutOfRangeException>(() => new DsrOptions { MaxStability = double.NaN });
-
-        // and the shipped default still reinforces to a finite, non-shrinking stability
-        var reinforced = new DsrRetrievability().Reinforce(State(age: 40, stability: 20));
-        Assert.True(double.IsFinite(reinforced.Stability), $"stability was {reinforced.Stability}");
-        Assert.True(reinforced.Stability >= 20, $"stability shrank to {reinforced.Stability}");
-    }
-
     [Theory]
     [InlineData(-0.5)]
     [InlineData(-1e-9)]
@@ -529,8 +499,8 @@ public class DsrRetrievabilityTests
     {
         // THE sharpest difference from the flat x1.5 multiplier: at r = 1 the spacing term is exactly zero,
         // so reviewing what you just saw teaches nothing. Dropping the "- 1" from the spacing term destroys
-        // this while every other test stays green, which is why it needs its own.
-        var policy = new DsrRetrievability();
+        // this while every other test stays green, which is why it needs its own — and why growth is ON here.
+        var policy = Reinforcing();
 
         Assert.Equal(100, policy.Reinforce(new MemoryDecayState(Age: 0, RecallCount: 0, Stability: 100)).Stability,
             precision: 9);
@@ -570,7 +540,7 @@ public class DsrRetrievabilityTests
     [Fact]
     public void Law1_harder_material_gains_less()
     {
-        // Difficulty is LIVE state now (2026-08-10, fsrs-properly plan Task 2) — Reinforce reads
+        // Difficulty is LIVE state — Reinforce reads
         // state.Difficulty directly, never the signals bag (which only seeds/refreshes the live value at
         // WRITE time, a store's job, not this policy's — see MemoryDecayState.Difficulty's own remarks).
         var policy = Reinforcing();
@@ -582,64 +552,55 @@ public class DsrRetrievabilityTests
     }
 
     [Fact]
-    public void An_absent_difficulty_is_neutral_and_never_throws()
-    {
-        // every entry written before this field existed defaults to the neutral value, and none may change
-        // behaviour unpredictably because of it
-        var policy = new DsrRetrievability();
-
-        var reinforced = policy.Reinforce(new MemoryDecayState(50, 0, 50));
-
-        Assert.True(reinforced.Stability >= 50);
-        Assert.True(double.IsFinite(reinforced.Stability));
-    }
-
-    [Fact]
     public void A_non_finite_or_out_of_range_difficulty_is_coerced_not_propagated()
     {
         // Difficulty arrives through a public seam (a consumer may construct MemoryDecayState directly), so
         // a NaN would otherwise poison stability permanently - and a NaN stability makes every later
         // comparison false, which empties recalls silently.
         //
-        // "finite and in range" alone is too weak an assertion here: removing the Math.Clamp while keeping
-        // the IsFinite check still yields all-finite, in-range values, so it would pass right through this
-        // check while law 1 quietly INVERTS - difficulty -5 would gain MORE than the floor, and 1e9 would
-        // land somewhere past the difficulty=10 ceiling while still reading as "in range". Coercion must be
-        // pinned EXACTLY: every out-of-range value collapses onto its clamped boundary, nothing in between.
+        // Growth is ON: law 1's difficulty factor multiplies ReinforceGain, so at the shipped 0 every arm
+        // below reads 50 whatever the coercion does. With it on, the three baselines are distinct.
         //
-        // Non-finite is NOT the same boundary as below-range, corrected 2026-08-11: non-finite means "no
-        // information" and coerces to the NEUTRAL mid-point (5, DsrOptions.NeutralDifficulty's own default),
-        // while an EXPLICIT below-range value (a real judgement, just out of domain) still clamps to the
-        // FLOOR (1) - the two used to coincide (both were 1) which is exactly how this defect went
-        // unnoticed; they are now two different results and this fact tests both, separately.
-        var policy = new DsrRetrievability();
-        var neutral = policy.Reinforce(new MemoryDecayState(50, 0, 50)).Stability;
-        var atFloorDifficulty = policy.Reinforce(new MemoryDecayState(50, 0, 50, Difficulty: 1)).Stability;
-        var atMaxDifficulty = policy.Reinforce(new MemoryDecayState(50, 0, 50, Difficulty: 10)).Stability;
+        // Coercion must be pinned EXACTLY: removing the Math.Clamp while keeping the IsFinite check still
+        // yields finite values, while law 1 quietly INVERTS - difficulty -5 would gain MORE than the floor.
+        // Non-finite means "no information" and coerces to the NEUTRAL mid-point (DsrOptions.NeutralDifficulty),
+        // while an EXPLICIT below-range value (a real judgement, out of domain) clamps to the FLOOR (1).
+        var policy = Reinforcing();
+        MemoryDecayState At(double? difficulty) => difficulty is double d
+            ? new MemoryDecayState(50, 0, 50, Difficulty: d)
+            : new MemoryDecayState(50, 0, 50);     // the record's default: an entry that was never judged
+        var neutral = policy.Reinforce(At(null));
+        var atFloorDifficulty = policy.Reinforce(At(1));
+        var atMaxDifficulty = policy.Reinforce(At(10));
+
+        // the absent (never-judged) difficulty is itself neutral, finite and grows
+        Assert.True(neutral.Stability > 50, $"a never-judged entry did not grow: {neutral.Stability}");
+        Assert.NotEqual(neutral.Stability, atFloorDifficulty.Stability, precision: 9);
+        Assert.NotEqual(neutral.Stability, atMaxDifficulty.Stability, precision: 9);
 
         foreach (var difficulty in new[] { double.NaN, double.PositiveInfinity, double.NegativeInfinity })
         {
-            var state = new MemoryDecayState(50, 0, 50, Difficulty: difficulty);
+            var reinforced = policy.Reinforce(At(difficulty));
 
-            // non-finite coerces to the NEUTRAL (mid-point) result — the same one an unspecified Difficulty
-            // (the record's own default) already produces, since both mean "no information".
-            Assert.Equal(neutral, policy.Reinforce(state).Stability, precision: 9);
+            // non-finite coerces to the NEUTRAL (mid-point) result, on both halves Reinforce writes
+            Assert.Equal(neutral.Stability, reinforced.Stability, precision: 9);
+            Assert.Equal(neutral.Difficulty, reinforced.Difficulty, precision: 9);
         }
 
-        var belowMin = new MemoryDecayState(50, 0, 50, Difficulty: -5);
-        // below-range coerces to EXACTLY the difficulty=1 (floor) result — an explicit judgement, clamped,
-        // NOT the neutral value, even though both were "1" before this correction.
-        Assert.Equal(atFloorDifficulty, policy.Reinforce(belowMin).Stability, precision: 9);
+        // below-range coerces to EXACTLY the difficulty=1 (floor) result — clamped, NOT the neutral value
+        var belowMin = policy.Reinforce(At(-5));
+        Assert.Equal(atFloorDifficulty.Stability, belowMin.Stability, precision: 9);
+        Assert.Equal(atFloorDifficulty.Difficulty, belowMin.Difficulty, precision: 9);
 
-        var overMax = new MemoryDecayState(50, 0, 50, Difficulty: 1e9);
         // above-range coerces to EXACTLY the difficulty=10 result, not merely something finite and in range
-        Assert.Equal(atMaxDifficulty, policy.Reinforce(overMax).Stability, precision: 9);
+        var overMax = policy.Reinforce(At(1e9));
+        Assert.Equal(atMaxDifficulty.Stability, overMax.Stability, precision: 9);
+        Assert.Equal(atMaxDifficulty.Difficulty, overMax.Difficulty, precision: 9);
     }
 
-    // ---- the grade signal (design spec §1) and the difficulty update it drives (design spec §2,
-    // 2026-08-10 fsrs-properly plan Task 2) ----
+    // ---- the grade signal and the difficulty update it drives ----
 
-    /// <summary>THE drift guard. Design spec §1: a curve graded by its own prediction can drift — one that
+    /// <summary>THE drift guard. A curve graded by its own prediction can drift — one that
     /// systematically overestimates retrievability would derive "Easy" and lower its own difficulty,
     /// reinforcing the overestimate forever. The mitigation is cheap and absolute: the grade must come from
     /// the state BEFORE this reinforcement, never from a value this same call produces.
@@ -649,34 +610,28 @@ public class DsrRetrievabilityTests
     /// comparing against <see cref="DsrRetrievability.Reinforce"/>'s actual output. The age/stability here
     /// (200/20, ten half-lives) is chosen so reinforcement grows stability substantially, which is exactly
     /// what makes pre- and post-reinforcement retrievability at the SAME age genuinely different numbers —
-    /// a state where reinforcement grew nothing at all could not distinguish the two.</para>
-    /// <para><b>Mutation-checked live</b> (task brief Step 2): temporarily changed this class's own
-    /// <c>Reinforce</c> to derive the grade from <c>Retrievability(state with { Stability = grown })</c> —
-    /// the POST-reinforcement stability at the same age — instead of the pre-reinforcement <c>retrievability</c>
-    /// local already computed at the top of the method. This fact failed (the independently-computed
-    /// <c>expected</c> no longer matched, because post-reinforcement retrievability at age 200 with the
-    /// grown stability is measurably higher than the pre-reinforcement value). Reverted; re-ran; passes
-    /// again — confirming the guard is load-bearing, not decoration.</para></summary>
+    /// a state where reinforcement grew nothing at all could not distinguish the two, which is why growth is
+    /// switched ON here (<see cref="Reinforcing"/>).</para></summary>
     [Fact]
     public void The_derived_grade_is_computed_from_the_state_BEFORE_this_reinforcement()
     {
         // DifficultyReversionWeight: 0 isolates exactly what this fact is about — the pre/post-state
-        // timing question — from the separate mean-reversion force (fix round 1, C2), which would otherwise
-        // need reproducing here too just to keep this test's own independent computation in sync.
+        // timing question — from the separate mean-reversion force, which would otherwise need reproducing
+        // here too just to keep this test's own independent computation in sync.
         var options = new DsrOptions { DifficultyChangeWeight = 0.5, DifficultyReversionWeight = 0 };
-        var policy = new DsrRetrievability(options);
+        var policy = Reinforcing(options);
         var state = new MemoryDecayState(Age: 200, RecallCount: 0, Stability: 20);
+        Assert.True(policy.Reinforce(state).Stability > state.Stability * 1.1,
+            "growth must be substantial, or pre- and post-reinforcement retrievability coincide");
 
         // the PRE-reinforcement retrievability — `state` is never mutated, so this is definitionally the
         // value that made this recall succeed, not anything the reinforcement itself is about to produce.
-        // g = 2 + 2r (fix round 1, C3 — restricted to the success sub-range [2,4], never emits FSRS's lapse
-        // rating; see DsrOptions.DifficultyChangeWeight's and Reinforce's own remarks).
+        // g = 2 + 2r, restricted to the success sub-range [2,4] (never FSRS's lapse rating).
         var preReinforcementR = policy.Retrievability(state);
         var derivedGrade = 2 + 2 * preReinforcementR;
         var delta = -options.DifficultyChangeWeight * (derivedGrade - 3);
         // Starts from state.Difficulty itself, not a hardcoded literal — this fact is about the PRE/POST
-        // timing question, not about which specific value the record's own default carries (2026-08-11: that
-        // default moved from 1 to 5; referencing it directly keeps this fact correct across such a change).
+        // timing question, not about which value the record's own default carries.
         var expected = Math.Clamp(state.Difficulty + (10 - state.Difficulty) * delta / 9, 1, 10);
 
         Assert.Equal(expected, policy.Reinforce(state).Difficulty, precision: 6);
@@ -685,8 +640,8 @@ public class DsrRetrievabilityTests
     [Fact]
     public void A_recall_derived_as_hard_low_retrievability_raises_difficulty()
     {
-        // recalled at low r -> nearly forgotten -> derives toward Hard, never Again (design spec §1, fix
-        // round 1 C3 — every graded event here is a success by construction) -> difficulty rises, so future
+        // recalled at low r -> nearly forgotten -> derives toward Hard, never Again (every graded event
+        // here is a success by construction) -> difficulty rises, so future
         // reinforcement is damped harder (law 1) — the model treating this as material that needs more
         // support, not less
         var policy = new DsrRetrievability(new DsrOptions { DifficultyReversionWeight = 0 }); // isolate law 1's own direction from the separate reversion pull
@@ -695,7 +650,7 @@ public class DsrRetrievabilityTests
 
         Assert.True(policy.Retrievability(faded) < 0.5,
             $"test setup drifted: r={policy.Retrievability(faded)} is not in the Hard zone (< 0.5, this " +
-            "curve's own half-life anchor and, since fix round 1 C3, the grade mapping's neutral point too)");
+            "curve's own half-life anchor and the grade mapping's neutral point too)");
         Assert.True(policy.Reinforce(faded).Difficulty > faded.Difficulty,
             $"difficulty did not rise on a derived-hard recall: {faded.Difficulty} -> {policy.Reinforce(faded).Difficulty}");
     }
@@ -703,7 +658,7 @@ public class DsrRetrievabilityTests
     [Fact]
     public void A_recall_derived_as_easy_high_retrievability_lowers_difficulty()
     {
-        // recalled at high r -> fresh -> derives toward Easy (design spec §1) -> difficulty falls
+        // recalled at high r -> fresh -> derives toward Easy -> difficulty falls
         var policy = new DsrRetrievability(new DsrOptions { DifficultyReversionWeight = 0 }); // isolate law 1's own direction from the separate reversion pull
         // starts away from the floor so a fall is actually observable; age 1 against stability 100 keeps r
         // close to 1, well into the Easy zone
@@ -715,23 +670,20 @@ public class DsrRetrievabilityTests
             $"difficulty did not fall on a derived-easy recall: {fresh.Difficulty} -> {policy.Reinforce(fresh).Difficulty}");
     }
 
-    /// <summary>THE mutation result behind the 2026-08-11 neutral-difficulty fix, kept permanently rather than
-    /// only in the task report — a whole-plan review's own Critical caught that the migrations still
-    /// backfilled the DEFECT default (<c>1</c>) after this fact's own sibling
-    /// (<see cref="A_recall_derived_as_easy_high_retrievability_lowers_difficulty"/>, above) had already shown
-    /// difficulty moving from a HAND-CONSTRUCTED starting point — never from the specific value a real
-    /// migrated row would have carried. This fact closes that gap directly: two states, differing ONLY in
-    /// their starting <see cref="MemoryDecayState.Difficulty"/> (<c>1</c>, what every row migrated before this
-    /// fix carries; <c>5</c>, what the corrected migration and every fresh write carries), reinforced at the
+    /// <summary>Why the neutral difficulty is <c>5</c> and not the floor <c>1</c>, from the value a real row
+    /// carries rather than the HAND-CONSTRUCTED starting point
+    /// <see cref="A_recall_derived_as_easy_high_retrievability_lowers_difficulty"/> uses: two states, differing
+    /// ONLY in their starting <see cref="MemoryDecayState.Difficulty"/> (<c>1</c>, the floor; <c>5</c>, what
+    /// the migrations backfill and every fresh write carries), reinforced at the
     /// SAME realistic, Easy-leaning recall (this library's own corpus measured 89.6% of derived grades
     /// Easy-leaning, mean <c>g=3.81</c> — this fact's own <c>r≈0.93</c> derives <c>g≈3.87</c>, squarely in that
     /// band, not a contrived edge case) — using the SHIPPED FSRS-6 defaults throughout, not an isolated law.
-    /// <para><b>The old default is PINNED, exactly, not merely "slow to move."</b> From <c>D=1</c>, an
+    /// <para><b>A floor default is PINNED, exactly, not merely "slow to move."</b> From <c>D=1</c>, an
     /// Easy-leaning grade's damped value lands BELOW the floor, and <c>Math.Clamp(_, 1, 10)</c> floors it
-    /// right back to the IDENTICAL starting value — a migrated row that keeps being successfully recalled
-    /// (the common case) never leaves <c>1</c>, ever, which is the exact defect the fix addresses. The new
-    /// default genuinely moves under the IDENTICAL grade, because <c>5</c> is far enough from either bound
-    /// for the SAME damped delta to land inside <c>[1, 10]</c> without clamping.</para></summary>
+    /// right back to the IDENTICAL starting value — a row that keeps being successfully recalled (the
+    /// common case) never leaves <c>1</c>, ever. The neutral default genuinely moves under the IDENTICAL
+    /// grade, because <c>5</c> is far enough from either bound for the SAME damped delta to land inside
+    /// <c>[1, 10]</c> without clamping.</para></summary>
     [Fact]
     public void A_row_migrated_under_the_old_default_stays_pinned_while_the_corrected_default_moves()
     {
@@ -742,7 +694,7 @@ public class DsrRetrievabilityTests
         var r = policy.Retrievability(migratedUnderOldDefault);
         Assert.True(r > 0.499,
             $"test setup drifted: r={r} is not comfortably past the ~0.499 boundary below which even D=1 " +
-            "could still move (the whole-plan review's own computed threshold) — this fact needs a realistic " +
+            "could still move — this fact needs a realistic " +
             "Easy-leaning recall, not a contrived Hard one.");
 
         var oldStaysPinned = policy.Reinforce(migratedUnderOldDefault).Difficulty;
@@ -753,7 +705,7 @@ public class DsrRetrievabilityTests
             $"expected the corrected default (5) to fall under this Easy-leaning grade; got {newMoves}");
     }
 
-    /// <summary>Fix-round-1 C3, the load-bearing property: every graded event here is a SUCCESS by
+    /// <summary>The load-bearing property: every graded event here is a SUCCESS by
     /// construction (an entry that is not returned never reaches <see cref="DsrRetrievability.Reinforce"/>),
     /// so the derived grade must never emit FSRS's lapse rating (<c>Again = 1</c>) — not even at the
     /// theoretical floor of retrievability, <c>r = 0</c>. Pinned at the ACTUAL floor of what
@@ -762,10 +714,8 @@ public class DsrRetrievabilityTests
     /// hold at the limit): a huge age/stability ratio drives <c>r</c> to the smallest positive value this
     /// policy's own arithmetic produces, and the resulting <c>Difficulty</c> must still be exactly what a
     /// grade of 2 (Hard, not 1/Again) predicts.
-    /// <para><b>Mutation-checked live</b> (fix round 1): temporarily reverted <c>DerivedGrade</c> to
-    /// <c>1 + 3 * retrievability</c> — this fact's own independently-computed <c>expected</c> (using the
-    /// CORRECT <c>2 + 2r</c>) no longer matched <c>Reinforce</c>'s actual output. Reverted; re-ran; passes
-    /// again.</para></summary>
+    /// <para><b>Mutation-checked</b>: <c>DerivedGrade</c> as <c>1 + 3 * retrievability</c> no longer matches
+    /// this fact's independently-computed <c>expected</c> (the correct <c>2 + 2r</c>).</para></summary>
     [Fact]
     public void The_derived_grade_never_emits_the_lapse_rating_even_at_the_practical_floor_of_r()
     {
@@ -793,10 +743,8 @@ public class DsrRetrievabilityTests
     /// for an immediate subsequent recall). Without the Δt=0 bypass, every one of those calls would derive
     /// Easy (<c>r=1</c> at <c>Age&lt;=0</c>) and lower difficulty every time — a free difficulty-lowering
     /// pump driven by recall CADENCE, not by how hard the material actually is.
-    /// <para><b>Mutation-checked live</b> (fix round 1): temporarily removed the <c>state.Age &lt;= 0</c>
-    /// bypass in <c>Reinforce</c> (always computed <c>NextDifficulty(difficulty, DerivedGrade(retrievability))</c>).
-    /// This fact failed — difficulty drifted from 5 down across the ten iterations instead of staying exactly
-    /// 5. Reverted; re-ran; passes again.</para></summary>
+    /// <para><b>Mutation-checked</b>: without the <c>state.Age &lt;= 0</c> bypass in <c>Reinforce</c>,
+    /// difficulty drifts down from 5 across the ten iterations instead of staying exactly 5.</para></summary>
     [Fact]
     public void A_session_burst_with_no_intervening_write_does_not_move_difficulty()
     {
@@ -898,13 +846,12 @@ public class DsrRetrievabilityTests
         // already pins)
         Assert.Throws<ArgumentOutOfRangeException>(() => new DsrOptions { DifficultyChangeWeight = weight });
 
-    /// <summary>Zero is allowed on EACH weight and is NOT decoration, but (fix round 1, C2) neither one
-    /// ALONE is the difficulty-inert control any more: <c>DifficultyChangeWeight</c> gates law 1's
-    /// grade-driven delta, <c>DifficultyReversionWeight</c> gates the SEPARATE restoring force, and with
-    /// reversion restored (this fix round) both must be zero together for <c>Reinforce</c> to write
-    /// <c>Difficulty</c> back UNCHANGED on every review. That pair is the "difficulty-inert" DSR the design
-    /// spec's §2/§5 needs as the comparator against difficulty-live DSR, and it needs no second, test-only
-    /// curve type: the same <see cref="DsrRetrievability"/> class with these two options isolates the exact
+    /// <summary>Zero is allowed on EACH weight and is NOT decoration, but neither one ALONE is the
+    /// difficulty-inert control: <c>DifficultyChangeWeight</c> gates law 1's grade-driven delta,
+    /// <c>DifficultyReversionWeight</c> gates the SEPARATE restoring force, and both must be zero together for
+    /// <c>Reinforce</c> to write <c>Difficulty</c> back UNCHANGED on every review. That pair is the
+    /// "difficulty-inert" comparator against difficulty-live DSR, and it needs no second, test-only curve
+    /// type: the same <see cref="DsrRetrievability"/> class with these two options isolates the exact
     /// change under measurement.</summary>
     [Fact]
     public void Both_difficulty_weights_at_zero_together_make_the_update_a_no_op_the_inert_control()
@@ -935,16 +882,6 @@ public class DsrRetrievabilityTests
         Assert.NotEqual(3.7, reinforced.Difficulty, precision: 9);
     }
 
-    [Fact]
-    public void Reinforcement_stops_at_the_ceiling()
-    {
-        var options = new DsrOptions();
-        var policy = new DsrRetrievability(options);
-        var atCeiling = new MemoryDecayState(5000, 0, options.MaxStability);
-
-        Assert.Equal(options.MaxStability, policy.Reinforce(atCeiling).Stability, precision: 6);
-    }
-
     /// <summary>THE Part-54 DSR2 fix (2026-08-11): an entry whose stored stability is ALREADY past the
     /// ceiling is FROZEN — it can no longer grow — rather than TRUNCATED down to the ceiling.
     /// <para><b>What shipped before:</b> <c>Reinforce</c> ended in a bare
@@ -961,11 +898,12 @@ public class DsrRetrievabilityTests
     /// about GROWTH, and freezing stops growth just as completely as truncation did.</para>
     /// <para>The equality is two-sided on purpose: <c>100000</c> exactly, so this fails both if the entry is
     /// cut back to the ceiling (the old defect) and if the floor were written in a way that let an
-    /// over-ceiling entry keep compounding (the thing the ceiling exists to prevent).</para></summary>
+    /// over-ceiling entry keep compounding (the thing the ceiling exists to prevent). The second half needs
+    /// growth ON, since at the shipped gain of 0 nothing compounds.</para></summary>
     [Fact]
     public void An_entry_stored_ABOVE_the_ceiling_is_frozen_not_truncated()
     {
-        var policy = new DsrRetrievability(); // MaxStability at its shipped default of 2000
+        var policy = Reinforcing(); // MaxStability at its shipped default of 2000
         // the measured reproduction from archive Part 54 DSR2, verbatim: a stored 100000 came back as 2000
         var overCeiling = new MemoryDecayState(Age: 5000, RecallCount: 0, Stability: 100_000);
 
@@ -989,11 +927,9 @@ public class DsrRetrievabilityTests
     [Fact]
     public void A_zero_stability_entry_reinforces_from_InitialStability_not_from_zero()
     {
-        // The stub Task 2 replaces deliberately dropped this: it returned state.Stability verbatim, so a
-        // zero-stability entry reinforced to 0 * (1 + increase) = 0 - and a zero written back to the store
-        // is permanent (the fsrs-properly plan's Task 2 stub named this in its own <remarks>;
-        // local/superpowers/plans/2026-08-10-fsrs-properly-plan-7.md). EffectiveStability already
-        // substitutes InitialStability for a non-positive stored stability; Reinforce must do the same.
+        // Reinforcing a zero stability multiplicatively yields 0 * (1 + increase) = 0, and a zero written
+        // back to the store is permanent. EffectiveStability already substitutes InitialStability for a
+        // non-positive stored stability; Reinforce must do the same.
         var policy = new DsrRetrievability();
         var zero = new MemoryDecayState(Age: 5, RecallCount: 0, Stability: 0);
         var fromInitial = new MemoryDecayState(Age: 5, RecallCount: 0, Stability: policy.InitialStability);
@@ -1147,26 +1083,19 @@ public class DsrRetrievabilityTests
             precision: 9);
     }
 
-    // ---- the shared contract, which every policy must satisfy ----
+    // ---- the shared contract, which every policy must satisfy: inherited from the base class ----
 
-    [Fact] public void Probability() => RetrievabilityPolicyContract.Retrievability_is_a_probability(new DsrRetrievability());
-    [Fact] public void One_at_zero() => RetrievabilityPolicyContract.It_is_one_at_zero_age(new DsrRetrievability());
-    [Fact] public void Monotone() => RetrievabilityPolicyContract.It_never_increases_with_age(new DsrRetrievability());
-    [Fact] public void Reinforce_grows() => RetrievabilityPolicyContract.Reinforcement_never_shortens_a_memory(new DsrRetrievability());
-    [Fact] public void Cutoff_superset() => RetrievabilityPolicyContract.CandidateCutoff_is_a_conservative_superset(new DsrRetrievability());
-    [Fact] public void Unbounded_ok() => RetrievabilityPolicyContract.An_unbounded_policy_is_still_correct(new DsrRetrievability());
-    [Fact] public void Connectedness_helps() => RetrievabilityPolicyContract.Connectedness_never_lowers_retrievability(new DsrRetrievability());
-    [Fact] public void Stability_unit() => RetrievabilityPolicyContract.Stability_is_the_position_delta_at_which_retrievability_is_half(new DsrRetrievability());
-    [Fact] public void Reinforce_owns_only_stability_and_difficulty() => RetrievabilityPolicyContract.Reinforcement_leaves_every_field_it_does_not_own_unchanged(new DsrRetrievability());
+    protected override IMemoryRetrievabilityPolicy New() => new DsrRetrievability();
 
-    // ---- the load-bearing claim of the fsrs-properly plan's Task 1 (design §0): deleting
-    // HalfLifeRetrievability strands NO data ----
+    protected override IMemoryRetrievabilityPolicy Growing() => Reinforcing();
+
+    // ---- a row written under the retired exponential curve needs NO migration ----
 
     /// <summary>
     /// THE claim <c>docs/DECISIONS.md</c>'s deletion decision rests on: <c>Stability</c> means exactly one
     /// thing across every implementation — the position delta at which retrievability is 0.5 — enforced by
     /// <see cref="RetrievabilityPolicyContract.Stability_is_the_position_delta_at_which_retrievability_is_half"/>
-    /// against every shipped curve (Plan 5, Task 5). Both curves therefore stored stability in the SAME
+    /// against every shipped curve. Both curves therefore stored stability in the SAME
     /// units, so a row a 2.5.x deployment wrote under the deleted exponential curve is already valid under
     /// DSR with no migration and no conversion.
     /// <para>Writes a node the way 2.5.x actually wrote one — <c>InitialStability</c> in half-life units, and
@@ -1178,10 +1107,9 @@ public class DsrRetrievabilityTests
     /// r(S) = 0.5 anchor's own fixture state, so a curve that reinterpreted what "stability" MEANS (the exact
     /// failure the unit contract exists to prevent) would read something other than 0.5 here, not merely "a
     /// plausible-looking number".</para>
-    /// <para><b>Mutation-checked</b> (task brief Step 4): temporarily changing <see cref="DsrRetrievability"/>
-    /// to anchor at a different age/stability ratio — for instance FSRS's own 90%-retention convention instead
-    /// of the half-life one this fact and <c>Stability_unit</c> above both pin — makes the final assertion
-    /// fail; confirmed while implementing this task, then reverted (see <c>task-1-report.md</c>).</para>
+    /// <para><b>Mutation-checked</b>: anchoring <see cref="DsrRetrievability"/> at a different age/stability
+    /// ratio — for instance FSRS's own 90%-retention convention instead of the half-life one this fact and
+    /// <c>Stability_unit</c> above both pin — makes the final assertion fail.</para>
     /// </summary>
     [Fact]
     public async Task A_row_written_under_2_5s_HalfLife_curve_recalls_correctly_under_Dsr_with_no_migration()
@@ -1221,7 +1149,7 @@ public class DsrRetrievabilityTests
         Assert.Equal(0.5, item.Retrievability, precision: 6);
     }
 
-    // ---- IMemoryRetrievabilityPolicy.DerivedGrade (2026-08-11, fsrs-properly plan Task 3): the seam a
+    // ---- IMemoryRetrievabilityPolicy.DerivedGrade: the seam a
     // review log reads to record what THIS reinforcement actually used, without re-deriving it from a
     // separately-computed retrievability that could drift from Reinforce's own internal one. ----
 

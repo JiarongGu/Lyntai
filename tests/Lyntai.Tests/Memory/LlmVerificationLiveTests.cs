@@ -131,44 +131,9 @@ public class LlmVerificationLiveTests(Xunit.Abstractions.ITestOutputHelper outpu
     /// than whichever env var happened to be read.</summary>
     private static string ArmLabel => UsesClaude ? $"claude-cli/{ClaudeModel}" : Model;
 
-    /// <summary>A judge wired from the corpus's own ground truth: it promotes exactly the relevant entries
-    /// and nothing else.
-    ///
-    /// <para><b>This is a REFERENCE ARM, not a ceiling, and calling it one was wrong.</b> It was described
-    /// as an upper bound no model could exceed — then <c>gemma3:4b</c> beat it reproducibly (miss 0.2571 and
-    /// 0.2643 against its 0.2857; pollution 0.0492 and 0.0571 against its 0.1549). The error was treating
-    /// "maximally precise" as "optimal", and two mechanisms make it not:</para>
-    /// <list type="number">
-    /// <item><b>Promotion fills slots.</b> Promoting only the two or three strictly-relevant entries leaves
-    /// the remaining slots to the unchanged noisy ranking. A model with a broader notion of relevance
-    /// displaces noise from those slots — which is why its pollution is a third of this arm's.</item>
-    /// <item><b>Reinforcement follows the verdict.</b> This arm reinforces only strict ground truth, so
-    /// fewer entries get their age reset — and the age reset is what keeps material alive
-    /// (<c>docs/DECISIONS.md</c> <b>D57</b>/<b>D58</b>). Its stinginess costs it later recalls. It is
-    /// optimal for the CURRENT recall's ordering and not for the trajectory.</item>
-    /// </list>
-    ///
-    /// <para>It remains the right reference: it is deterministic, it is defined by the corpus rather than by
-    /// a model's taste, and the share-of-reference figure is still the most useful single number for
-    /// comparing judges. It just is not a bound, and a value above 100% is a real result rather than a
-    /// bug.</para></summary>
-    private sealed class OracleVerifier : IMemoryVerificationPolicy
-    {
-        private readonly Dictionary<string, HashSet<string>> _truth = new(StringComparer.Ordinal);
-
-        public void Teach(string queryText, IEnumerable<string> ids) => _truth[queryText] = [.. ids];
-
-        public Task<MemoryVerification> VerifyAsync(MemoryVerificationRequest request,
-            CancellationToken ct = default)
-        {
-            if (!_truth.TryGetValue(request.Query, out var relevant))
-                return Task.FromResult(MemoryVerification.NoOpinion);
-            var hits = request.Candidates.Select(c => c.Id).Where(relevant.Contains).ToList();
-            return Task.FromResult(hits.Count == 0
-                ? MemoryVerification.NothingRelevant
-                : new MemoryVerification(hits));
-        }
-    }
+    // The OracleVerifier arm is a REFERENCE, not a ceiling: promoting only strict ground truth leaves the
+    // other slots to the unchanged ranking and resets fewer ages, so a model with a broader notion of
+    // relevance can beat it — a share above 100% is a real result (docs/memory-measurements.md §5).
 
     private readonly record struct Arm(double Miss, double Pollution, int Judged, int NoOpinion);
 
@@ -177,58 +142,18 @@ public class LlmVerificationLiveTests(Xunit.Abstractions.ITestOutputHelper outpu
     /// rather than only in aggregate.</summary>
     private static async Task<Arm> RunAsync(IMemoryVerificationPolicy? verifier, OracleVerifier? oracle)
     {
-        var corpus = MemoryCorpus.Generate(CorpusShape.Default, Seed);
-        var store = new InMemoryMemoryGraphStore();
         var counting = verifier is null ? null : new CountingVerifier(verifier);
-        var engine = new GraphMemoryEngine("e", store, seams: new GraphMemorySeams
+        var engine = new GraphMemoryEngine("e", new InMemoryMemoryGraphStore(), seams: new GraphMemorySeams
             {
                 Retrievability = new DsrRetrievability(new DsrOptions { ReinforceGain = 0 }),
                 AgePolicies = [new PerWriteAgePolicy()],
                 Verification = counting,
             });
 
-        var first = corpus.Steps.OfType<CorpusWrite>().First().Write;
-        var byCorpusId = new Dictionary<string, string>(StringComparer.Ordinal);
-        var byRef = new Dictionary<string, string>(StringComparer.Ordinal);
-        long returned = 0, noise = 0, wanted = 0, missed = 0;
+        var share = await CorpusReplay.RunAsync(engine, MemoryCorpus.Generate(CorpusShape.Default, Seed),
+            QueryLimit, beforeQuery: oracle is null ? null : CorpusReplay.Teach(oracle));
 
-        foreach (var step in corpus.Steps)
-            switch (step)
-            {
-                case CorpusWrite w:
-                    var memRef = (await engine.RememberAsync(w.Write)).Reference;
-                    var corpusId = MemoryCorpusTestAccess.IdOf(w.Write.Content);
-                    byCorpusId[corpusId] = memRef.Id;
-                    byRef[memRef.Id] = corpusId;
-                    break;
-
-                case CorpusQuery q:
-                    oracle?.Teach(q.Text,
-                        q.RelevantIds.Where(byCorpusId.ContainsKey).Select(id => byCorpusId[id]));
-
-                    var recall = await engine.RecallAsync(
-                        new MemoryQuery(first.TaskKey, first.Scope, q.Text, Limit: QueryLimit));
-                    var got = new HashSet<string>(StringComparer.Ordinal);
-                    foreach (var item in recall.Items)
-                    {
-                        returned++;
-                        if (!byRef.TryGetValue(item.Reference.Id, out var id)) continue;
-                        got.Add(id);
-                        if (id.StartsWith("noise", StringComparison.Ordinal)) noise++;
-                    }
-                    foreach (var want in q.RelevantIds)
-                    {
-                        wanted++;
-                        if (!got.Contains(want)) missed++;
-                    }
-                    break;
-            }
-
-        return new Arm(
-            wanted == 0 ? 0 : (double)missed / wanted,
-            returned == 0 ? 0 : (double)noise / returned,
-            counting?.Judged ?? 0,
-            counting?.NoOpinion ?? 0);
+        return new Arm(share.Miss, share.Pollution, counting?.Judged ?? 0, counting?.NoOpinion ?? 0);
     }
 
     /// <summary>Wraps a verifier to count how many calls produced a real verdict versus fell through to

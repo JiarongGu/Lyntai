@@ -5,9 +5,9 @@ using Lyntai.Memory.Interference;
 using Lyntai.Memory.Ranking;
 using Lyntai.Memory.Seeding;
 using Lyntai.Storage.InMemory;
+using Lyntai.Tests.Fakes;
 using Lyntai.Tests.Live;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using Xunit;
 
 namespace Lyntai.Tests.Memory;
@@ -35,26 +35,6 @@ namespace Lyntai.Tests.Memory;
 /// a silent failure loud.</para></summary>
 public class SemanticSeedProbeTests(Xunit.Abstractions.ITestOutputHelper output)
 {
-    /// <summary>Listens to BOTH the engine and the vector channel, because the semantic seed's own
-    /// best-effort catch lives in <see cref="SemanticSeedSource"/> now — hearing only the engine would leave
-    /// exactly the swallowed fault this class was written about inaudible.</summary>
-    private sealed class CapturingLogger(Xunit.Abstractions.ITestOutputHelper output)
-        : ILogger<GraphMemoryEngine>, ILogger<SemanticSeedSource>
-    {
-        public List<string> Warnings { get; } = [];
-        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
-        public bool IsEnabled(LogLevel logLevel) => true;
-
-        public void Log<TState>(LogLevel level, EventId id, TState state, Exception? ex,
-            Func<TState, Exception?, string> formatter)
-        {
-            if (level < LogLevel.Warning) return;
-            var line = $"{level}: {formatter(state, ex)}" + (ex is null ? "" : $"\n  {ex}");
-            Warnings.Add(line);
-            output.WriteLine(line);
-        }
-    }
-
     private static string BaseUrl => LiveModel.BaseUrl;
 
     private static ServiceProvider Build()
@@ -79,6 +59,8 @@ public class SemanticSeedProbeTests(Xunit.Abstractions.ITestOutputHelper output)
 
         using var sp = Build();
 
+        // listens to BOTH the engine and the vector channel: the semantic seed's own best-effort catch lives
+        // in SemanticSeedSource, so hearing only the engine would leave the swallowed fault inaudible
         var logger = new CapturingLogger(output);
         var store = new InMemoryMemoryGraphStore();
         var providers = sp.GetServices<IModelProvider>();
@@ -89,8 +71,9 @@ public class SemanticSeedProbeTests(Xunit.Abstractions.ITestOutputHelper output)
                 Providers = providers,
                 Vectors = vectors,
                 SeedSources = [new LexicalSeedSource(),
-                    new SemanticSeedSource(providers, vectors, new SemanticSeedOptions { K = 5 }, logger)],
-            }, logger: logger);
+                    new SemanticSeedSource(providers, vectors, new SemanticSeedOptions { K = 5 },
+                        logger.For<SemanticSeedSource>())],
+            }, logger: logger.For<GraphMemoryEngine>());
 
         var target = (await engine.RememberAsync(
             new MemoryWrite("t", "s", "the meeting was postponed until next week"))).Reference;
@@ -118,22 +101,19 @@ public class SemanticSeedProbeTests(Xunit.Abstractions.ITestOutputHelper output)
         Assert.DoesNotContain(atLimit.Items, i => i.Reference.Id == target.Id);
     }
 
-    /// <summary><b>Weighting relevance above recency IS the fix — the seed was always there, the default
-    /// fusion just would not spend a slot on it.</b>
+    /// <summary><b>No shipped ranking configuration surfaces the semantic seed — the seed is a candidate,
+    /// and no policy as shipped will spend a slot on it.</b>
     ///
-    /// <para>`ReciprocalRankFusionPolicy` fuses five signals at equal weight, with relevance summing one term
-    /// PER SOURCE that matched a candidate. This paraphrase matches only through the semantic channel and
-    /// ranks FIRST there, but LAST on retrievability (it is the oldest entry — everything else was written
-    /// after it), so it nets out behind recent unrelated notes. That is not a defect in fusion; it is fusion
-    /// doing what it says. It does mean semantic seeding and the DEFAULT weights disagree about what a
-    /// recall is for.</para>
+    /// <para>`ReciprocalRankFusionPolicy` fuses its signals with relevance summing one term PER SOURCE that
+    /// matched a candidate. This paraphrase matches only through the semantic channel and ranks FIRST there,
+    /// but LAST on retrievability (it is the oldest entry — everything else was written after it), so it nets
+    /// out behind recent unrelated notes. That is fusion doing what it says, not a defect in it.</para>
     ///
-    /// <para>Measured here rather than reasoned: raising <c>RelevanceWeight</c> surfaces the entry at the
-    /// same limit that loses it above, with everything else identical. That makes the pairing concrete —
-    /// the vector channel widens the candidate set, and either a relevance-weighted fusion or a verifier
-    /// is what spends a slot on it.</para></summary>
+    /// <para>Measured here rather than reasoned: not a heavier relevance weight, not <c>K = 1</c>, not both,
+    /// and not <see cref="MultiplicativeRankingPolicy"/> surfaces it at the same limit. So the vector channel
+    /// widens the candidate set and a verifier is what spends a slot on it.</para></summary>
     [SkippableFact]
-    public async Task Weighting_relevance_above_recency_surfaces_the_semantic_seed()
+    public async Task No_shipped_ranking_configuration_surfaces_the_semantic_seed()
     {
         Skip.IfNot(await LiveModel.IsAvailableAsync(), LiveModel.SkipReason);
 

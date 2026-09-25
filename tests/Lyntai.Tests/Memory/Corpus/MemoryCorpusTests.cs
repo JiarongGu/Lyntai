@@ -5,8 +5,8 @@ using Lyntai.Memory.Forgetting;
 using Shape = CorpusShape;
 
 /// <summary>
-/// Proves <see cref="MemoryCorpus"/> produces what it CLAIMS, because every later measurement in this plan
-/// depends on it: a sweep over a corpus whose ground truth is wrong reports the wrong winner, and a sweep
+/// Proves <see cref="MemoryCorpus"/> produces what it CLAIMS, because every measurement over it depends on
+/// it: a sweep over a corpus whose ground truth is wrong reports the wrong winner, and a sweep
 /// over a corpus that ignores one of its own swept parameters reports a whole column of meaningless noise.
 /// <para>Two determinism facts, one per direction — same seed ⇒ identical corpus is necessary but not
 /// sufficient, because a generator that ignores its seed entirely passes that half perfectly. Then one fact
@@ -17,15 +17,11 @@ using Shape = CorpusShape;
 /// a shared top-level helper — deliberately, so nothing in this file teaches the shape of a two-phase
 /// (write-everything-then-query-everything) consumer. See <see cref="MemoryCorpus"/>'s own doc comment for
 /// the ordering contract this is protecting.</para>
-/// <para><b>A second family, added 2026-08-10 (<c>docs/task-archive.md</c> Part 55, Task 1):
-/// proves the corpus actually reaches the DISCRIMINATING regime, and that neither curve collapses to a
-/// shared boundary once it does</b> — the whole reason for that retarget (see <see cref="MemoryCorpus"/>'s
-/// own class doc, "this corpus is an INSTRUMENT, not a simulation"). These guards are PROPERTY-BASED over
-/// <see cref="Grid"/>, the SAME 60-shape grid <see cref="No_reuse_query_occurs_at_age_zero"/> already used —
-/// not a hand-picked shape, which is the defect this file's own history records recurring twice already
-/// (<see cref="Topical_reuse_queries_reach_the_discriminating_bands_ceiling"/> and
-/// <see cref="Hot_ephemeral_in_window_queries_reach_the_discriminating_bands_floor"/> each replace a
-/// single-shape predecessor that made exactly that mistake).</para>
+/// <para><b>A second family proves the corpus actually reaches the DISCRIMINATING regime, and that the curve
+/// does not collapse to a boundary once it does</b> (<see cref="MemoryCorpus"/>'s class doc, "this corpus is
+/// an INSTRUMENT, not a simulation"; <c>docs/task-archive.md</c> Part 55). These guards are PROPERTY-BASED
+/// over <see cref="Grid"/>, never a hand-picked shape: a single-shape guard lets every other legal shape go
+/// unchecked.</para>
 /// </summary>
 public class MemoryCorpusTests
 {
@@ -625,17 +621,14 @@ public class MemoryCorpusTests
     [Fact]
     public void No_reuse_query_occurs_at_age_zero()
     {
-        // THE direct guard for the timing defect this fix closes. DsrRetrievability.Retrievability
-        // short-circuits Age<=0 to a perfect 1.0 (as did the deleted HalfLifeRetrievability.Retrievability),
-        // so a query fired in the same instant as its target's own write
+        // DsrRetrievability.Retrievability short-circuits Age<=0 to a perfect 1.0, so a query fired in the same instant as its target's own write
         // is simultaneously the best textual match (its token is unique) AND unmissable by every policy —
         // it cannot ever register a miss, so it measures nothing.
         //
-        // PROPERTY-BASED over a grid, not the sweep's six named shapes (fix round 4, F1): the six shapes in
-        // bench/Lyntai.Benchmarks/MemoryPolicySweep.cs never exercise NoiseDensity=0 or
-        // CandidateCount<=HotRounds, and the generator's flush path failed on exactly those two legal
-        // shapes while every shape-pinned fact in this file stayed green — a guard whose coverage is pinned
-        // to today's callers is not a guard. NoiseDensity spans 0 (a legal shape with no noise class at
+        // PROPERTY-BASED over the grid, not the sweep's six named shapes: those never exercise NoiseDensity=0
+        // or CandidateCount<=HotRounds, the two legal shapes the generator's flush path once failed on while
+        // every shape-pinned fact stayed green — a guard whose coverage is pinned to today's callers is not a
+        // guard. NoiseDensity spans 0 (a legal shape with no noise class at
         // all) through well above the sweep's own high-noise value; CandidateCount spans 0 through
         // HotRounds(5) — where hot-ephemeral, not topical, becomes the corpus's structurally last-written
         // class — through well above HotRounds.
@@ -648,15 +641,8 @@ public class MemoryCorpusTests
         // (see MemoryCorpus.cs's ROUTINE, PART 2 comment). Invisible below only because every Shape here is
         // built positionally, leaving RoutineCount at its default of 0 — adding it to this grid will fail
         // this assertion for every routineB* id, and that failure is EXPECTED, not a regression.
-        var noiseDensities = new[] { 0, 1, 2, 8, 40 };
-        var candidateCounts = new[] { 0, 1, 3, 5, 10, 40 };
-        var reuseRatios = new[] { 1, 10 };
-
-        foreach (var noiseDensity in noiseDensities)
-        foreach (var candidateCount in candidateCounts)
-        foreach (var reuseRatio in reuseRatios)
+        foreach (var shape in Grid())
         {
-            var shape = new Shape(reuseRatio, noiseDensity, 6, candidateCount);
             var corpus = MemoryCorpus.Generate(shape, seed: 12345);
             var steps = corpus.Steps.ToList();
             var writeIndexById = WriteIndexById(steps);
@@ -677,23 +663,14 @@ public class MemoryCorpusTests
         }
     }
 
-    // The property grid shared by every age/N-band guard below — IDENTICAL to No_reuse_query_occurs_at_age_zero's
-    // own grid, deliberately, so "property-based over the 60-shape grid" means the SAME 60 shapes everywhere in
-    // this file rather than each guard quietly picking its own subset (the defect this whole retarget was asked
-    // to close for good — docs/task-archive.md Part 55, the plan's Task 1 brief, "That defect has
-    // recurred twice in this file already").
-    //
-    // HOISTED to CorpusGrid 2026-08-28: MemoryGistSupportSweep restated these same three arrays, with nothing
-    // gating the copies against each other. Same defect, one level up.
-    private static readonly int[] GridNoiseDensities = CorpusGrid.NoiseDensities;
-    private static readonly int[] GridCandidateCounts = CorpusGrid.CandidateCounts;
-    private static readonly int[] GridReuseRatios = CorpusGrid.ReuseRatios;
+    // The property grid every age/N-band guard in this file runs over — CorpusGrid, the ONE definition, so
+    // "property-based over the 60-shape grid" means the SAME 60 shapes everywhere rather than each guard
+    // quietly picking its own subset.
 
     private static IEnumerable<Shape> Grid(int criticalRarity = CorpusGrid.DefaultCriticalRarity) =>
         CorpusGrid.Shapes(criticalRarity);
 
-    // DsrOptions.InitialStability defaults this to 20 (as did the deleted HalfLifeOptions.InitialStability,
-    // at the time both existed) — see MemoryCorpus's own AssumedInitialStability, the same documented assumption
+    // DsrOptions.InitialStability's default — see MemoryCorpus's own AssumedInitialStability, the same documented assumption
     // rather than a derived value, kept identical here so a query like "age/S" means the same ratio in the
     // corpus's own comments and in this test's assertions.
     private const int AssumedInitialStability = 20;
@@ -701,11 +678,7 @@ public class MemoryCorpusTests
     [Fact]
     public void Topical_reuse_queries_reach_the_discriminating_bands_ceiling()
     {
-        // REPLACES the single-shape "The_interference_range_reaches_a_meaningful_age" (2026-08-10,
-        // docs/task-archive.md Part 55, Task 1): that version asserted a floor of 40 against ONE shape
-        // ("high-noise") and let every other shape in the grid go unchecked — precisely the defect
-        // No_reuse_query_occurs_at_age_zero was made property-based to stop recurring, recurring anyway one test
-        // below it. PROPERTY-BASED here instead: every topical entry's own reuse queries are GUARANTEED (via
+        // Every topical entry's own reuse queries are GUARANTEED (via
         // MemoryCorpus.TopUpTo, not merely scheduled) to reach TopicalReuseDelayWrites — the discriminating
         // band's own CEILING, 5 x AssumedInitialStability — on EVERY shape in the grid, not just a wide one.
         const int Ceiling = 5 * AssumedInitialStability; // = TopicalReuseDelayWrites, restated verbatim here so
@@ -739,13 +712,7 @@ public class MemoryCorpusTests
     [Fact]
     public void Hot_ephemeral_in_window_queries_reach_the_discriminating_bands_floor()
     {
-        // REPLACES "Hot_ephemeral_in_window_queries_reach_a_discriminating_age" (2026-08-10,
-        // docs/task-archive.md Part 55, Task 1 Step 3, closing that item). The OLD force-drain block in
-        // MemoryCorpus.Generate dequeued and fired a round's in-window reuse batch UNCONDITIONALLY the instant it
-        // reached the front of the queue, without ever checking DueWriteCount — bypassing HotReuseDelayWrites on
-        // every shape but the widest one ("high-noise"), which is why the old guard could only pin a GlobalFloor
-        // of 1 (age effectively unconstrained) plus a second, shape-specific floor of 9 for "high-noise" alone.
-        // The force-drain now tops up with filler writes to the scheduled due count BEFORE firing (see
+        // The force-drain tops up with filler writes to the scheduled due count BEFORE firing (see
         // MemoryCorpus.TopUpTo), so every shape reaches AT LEAST HotReuseDelayWrites — the discriminating band's
         // own FLOOR, 1.5 x AssumedInitialStability — not just the one shape wide enough to get there naturally.
         const int Floor = 3 * AssumedInitialStability / 2; // = HotReuseDelayWrites, restated verbatim (1.5 x S)
@@ -782,7 +749,7 @@ public class MemoryCorpusTests
     [Fact]
     public void Critical_rare_queries_reach_the_discriminating_bands_midpoint()
     {
-        // NEW (2026-08-10, DSR-default falsification plan Task 1 Step 1): critical-rare's own age is "the whole
+        // Critical-rare's own age is "the whole
         // rest of the corpus" by design (see MemoryCorpus's own remarks on criticalIds), which usually exceeds
         // this floor on its own once topical/hot-ephemeral's own — larger — delays above have run. This guards
         // the case neither of them covers: a shape with no topical entries at all (CandidateCount=0) and a thin
@@ -817,9 +784,8 @@ public class MemoryCorpusTests
     [Fact]
     public void Critical_rare_clears_its_independent_target_floor_at_its_rarest_named_setting()
     {
-        // NEW (2026-08-10, docs/task-archive.md Part 55, Task 1 Step 2): critical-rare is
-        // the DECIDING class for the curve question, and it used to carry only 2-4 independent targets per cell
-        // (CriticalBudget=12), so a single entry flipping moved a cell's MissRate by 0.25-0.5. CriticalRarity=12
+        // Critical-rare is the DECIDING class for the curve question; with only 2-4 independent targets per
+        // cell a single entry flipping moves a cell's MissRate by 0.25-0.5. CriticalRarity=12
         // is this corpus's own rarest NAMED setting (bench/Lyntai.Benchmarks/MemoryPolicySweep.cs's
         // "rare-critical" shape) — this pins the floor there, the hardest case, on the same Shape.Default base
         // every other single-shape fact in this file uses.
@@ -1079,15 +1045,11 @@ public class MemoryCorpusTests
     [Fact]
     public void Reuse_repeats_never_fire_back_to_back_a_real_write_always_interposes()
     {
-        // NEW (2026-08-10, docs/task-archive.md Part 55, Task 1 Step 2): before this fix, a
-        // reuse batch's `reuse` repeats fired with NOTHING interposed between them — correlated draws of the
-        // same retrieval decision, not independent ones, so a printed N of (say) 100 at ReuseRatio=10 carried
-        // the granularity of 10 independent targets, not 100. PROPERTY-BASED over the same grid, at
-        // ReuseRatio=10 specifically so there are repeats to check at all (ReuseRatio=1 has none, vacuously).
-        foreach (var noiseDensity in GridNoiseDensities)
-        foreach (var candidateCount in GridCandidateCounts)
+        // Repeats with NOTHING interposed are correlated draws of the same retrieval decision, so a printed
+        // N of 100 at ReuseRatio=10 would carry the granularity of 10 independent targets. The grid's
+        // ReuseRatio=10 shapes only — ReuseRatio=1 has no repeats to check.
+        foreach (var shape in Grid().Where(g => g.ReuseRatio == 10))
         {
-            var shape = new Shape(ReuseRatio: 10, noiseDensity, CriticalRarity: 6, candidateCount);
             var corpus = MemoryCorpus.Generate(shape, seed: 12345);
             var steps = corpus.Steps.ToList();
 
@@ -1183,7 +1145,7 @@ public class MemoryCorpusTests
     [Fact]
     public void Filler_entries_are_never_declared_relevant_to_any_query()
     {
-        // NEW (2026-08-10): fillers are the write class MemoryCorpus.Generate's TopUpTo introduces purely to
+        // Fillers are the write class MemoryCorpus.Generate's TopUpTo introduces purely to
         // interpose age — the same never-relevant guarantee Noise_entries_are_never_declared_relevant_to_any_query
         // already pins for noise, extended to the corpus's other inert write class.
         var corpus = MemoryCorpus.Generate(Shape.Default with { CandidateCount = 0, NoiseDensity = 0 }, seed: 7);
@@ -1204,12 +1166,7 @@ public class MemoryCorpusTests
     [Fact]
     public void Dsr_is_not_floored_at_the_grids_largest_reached_age()
     {
-        // Retargeted (2026-08-10, fsrs-properly plan Task 1) from a two-curve divergence check: this corpus
-        // was tuned into the age/S band where DSR and the exponential curve it used to ship beside
-        // (HalfLifeRetrievability, deleted in 3.0 — docs/DECISIONS.md D49) diverge, specifically so a sweep
-        // comparing the two could tell them apart. That comparison is now moot — there is only one shipped
-        // curve — but the property this fact actually needs from the CORPUS survives the curve's deletion:
-        // the ages it drives entries to must not be so extreme that DSR's own power-law tail collapses to the
+        // The ages this corpus drives entries to must not be so extreme that DSR's own power-law tail collapses to the
         // same near-zero floor a much steeper curve would reach. A corpus that floors its own curve at its
         // largest ages is measuring "everything is unrecallable" rather than the forgetting model, whichever
         // curve is under test.
@@ -1425,7 +1382,8 @@ public class MemoryCorpusTests
         Assert.NotEmpty(ownQueries);
         Assert.All(ownQueries, q => Assert.Contains("topic0", q.Text));
 
-        var otherTopicQueries = corpus.Steps.OfType<CorpusQuery>().Where(q => Mentions(q.Text, "topic1"));
+        var otherTopicQueries = corpus.Steps.OfType<CorpusQuery>().Where(q => Mentions(q.Text, "topic1")).ToList();
+        Assert.NotEmpty(otherTopicQueries);   // the negative below would pass over no queries at all
         Assert.All(otherTopicQueries, q => Assert.DoesNotContain("topic0", q.RelevantIds));
     }
 

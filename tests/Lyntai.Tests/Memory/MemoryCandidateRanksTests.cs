@@ -35,7 +35,7 @@ public class MemoryCandidateRanksTests
         Assert.Equal(2, rank);
     }
 
-    // Guards Task 1's content equality from the consumer's side: without it these compare
+    // Guards MemorySeedRanks' content equality from the consumer's side: without it these compare
     // unequal on the array reference and every candidate comparison in the suite shifts.
     [Fact]
     public void Two_candidates_with_equal_ranks_are_equal()

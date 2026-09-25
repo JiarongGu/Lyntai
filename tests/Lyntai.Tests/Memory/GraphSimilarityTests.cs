@@ -58,7 +58,8 @@ public class GraphSimilarityTests
         await engine.RecallAsync(new MemoryQuery("t", "s", "widgets")); // co-activation links them
         var recall = await engine.RecallAsync(new MemoryQuery("t", "s", "widgets"));
 
-        Assert.All(recall.Items, i => Assert.True(i.Degree >= 1));
+        Assert.Equal(2, recall.Items.Count);
+        Assert.All(recall.Items, i => Assert.True(i.Degree >= 1, "co-activation did not link the items returned together"));
         Assert.False(recall.Ran.HasFlag(MemorySources.Similarity)); // absent, not merely empty
     }
 
@@ -92,7 +93,7 @@ public class GraphSimilarityTests
         var writingVectors = new InMemoryVectorStore();
         var writing = new GraphMemoryEngine("e", store, seams: new GraphMemorySeams
             {
-                Providers = writingVectorProvider is null ? null : [writingVectorProvider],
+                Providers = [writingVectorProvider],
                 Vectors = writingVectors,
                 SeedSources = [new LexicalSeedSource(),
                     new SemanticSeedSource([writingVectorProvider], writingVectors, new SemanticSeedOptions { K = 5 })],
@@ -103,7 +104,7 @@ public class GraphSimilarityTests
         var readingVectors = new InMemoryVectorStore();
         var reading = new GraphMemoryEngine("e", store, seams: new GraphMemorySeams
             {
-                Providers = throwing is null ? null : [throwing],
+                Providers = [throwing],
                 Vectors = readingVectors,
                 SeedSources = [new LexicalSeedSource(),
                     new SemanticSeedSource([throwing], readingVectors, new SemanticSeedOptions { K = 5 })],
@@ -146,6 +147,7 @@ public class GraphSimilarityTests
 
         var recall = await engine.RecallAsync(new MemoryQuery("t", "s", "kittens"));
 
-        Assert.All(recall.Items, i => Assert.Equal(0, i.Degree));
+        // the positive twin is A_new_entry_is_linked_to_a_similar_existing_one, at a floor it can clear
+        Assert.Equal(0, Assert.Single(recall.Items).Degree);
     }
 }

@@ -158,13 +158,6 @@ public sealed class GraphMemoryCurveOverrideTests : IDisposable
 
     /// <summary>Lengthens every entry's half-life by a fixed factor, so retention modulation is either
     /// visibly in force or visibly absent.</summary>
-    private sealed class FixedRetentionPolicy(double factor) : IMemoryRetentionPolicy
-    {
-        public string Name => "fixed";
-        public double MaxStabilityFactor => factor;
-        public double StabilityFactor(in MemoryDecayState state) => factor;
-    }
-
     [Fact]
     public async Task A_selected_curve_is_still_wrapped_in_retention_modulation()
     {

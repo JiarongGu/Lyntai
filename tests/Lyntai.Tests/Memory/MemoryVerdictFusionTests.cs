@@ -1,10 +1,5 @@
 using Lyntai.Memory;
-using Lyntai.Memory.Engines;
-using Lyntai.Memory.Forgetting;
-using Lyntai.Memory.Interference;
-using Lyntai.Memory.Ranking;
 using Lyntai.Memory.Verification;
-using Lyntai.Storage.Sqlite;
 using Lyntai.Tests.Storage;
 
 namespace Lyntai.Tests.Memory;
@@ -18,61 +13,18 @@ namespace Lyntai.Tests.Memory;
 /// than the page REPLACES the ranking instead of refining it. Measured on LoCoMo with a real 4B judge —
 /// −10.5 points partitioned, and exactly its unjudged base when fused (<c>docs/memory-measurements.md</c> §5).</para>
 ///
-/// <para><b>Each arm runs on its OWN database</b>, for the reason
-/// <see cref="MemoryVerificationOrderingTests"/> states: a recall reinforces and links what it returns, so
-/// sharing a store compares a cold graph with a warmed one.</para>
+/// <para>The fixture — and the reason each arm runs on its own database — is
+/// <see cref="VerdictOrderingFixture"/>, shared with <see cref="MemoryVerificationOrderingTests"/>.</para>
 /// </summary>
 public class MemoryVerdictFusionTests
 {
-    private const string Query = "deployment note";
+    private static Task<IReadOnlyList<string>> RecallAsync(TempDb db, IMemoryVerificationPolicy? verifier,
+        int limit, GraphMemoryOptions? options = null) =>
+        VerdictOrderingFixture.RecallAsync(db, verifier, limit, options);
 
-    private static readonly string[] Facts =
-    [
-        "deployment note one covers response caching",
-        "deployment note two covers index rebuilds",
-        "deployment note three covers schema migrations",
-        "deployment note four covers rollback drills",
-    ];
+    private static Task<IReadOnlyList<string>> BaselineAsync() => VerdictOrderingFixture.BaselineAsync();
 
-    /// <summary>Endorses whichever candidates carry <paramref name="headline"/> — keyed on the text so a
-    /// fixture states WHICH entry it endorses rather than a store-assigned number.</summary>
-    private sealed class Endorses(string headline) : IMemoryVerificationPolicy
-    {
-        public Task<MemoryVerification> VerifyAsync(MemoryVerificationRequest request,
-            CancellationToken ct = default)
-        {
-            var hits = request.Candidates
-                .Where(c => string.Equals(c.Headline, headline, StringComparison.Ordinal))
-                .Select(c => c.Id)
-                .ToList();
-            return Task.FromResult(hits.Count == 0
-                ? MemoryVerification.NothingRelevant
-                : new MemoryVerification(hits));
-        }
-    }
-
-    private static async Task<IReadOnlyList<string>> RecallAsync(
-        TempDb db, IMemoryVerificationPolicy? verifier, int limit, GraphMemoryOptions? options = null)
-    {
-        var engine = new GraphMemoryEngine("verify", new SqliteMemoryGraphStore(db.Factory), options: options, seams: new GraphMemorySeams
-            {
-                AgePolicies = [new PerWriteAgePolicy()],
-                Retrievability = new DsrRetrievability(),
-                Ranking = new ReciprocalRankFusionPolicy(),
-                Verification = verifier,
-            });
-
-        foreach (var fact in Facts) await engine.RememberAsync(new MemoryWrite("t", "s", fact));
-
-        var recall = await engine.RecallAsync(new MemoryQuery("t", "s", Query, Limit: limit));
-        return [.. recall.Items.Select(i => i.Headline ?? string.Empty)];
-    }
-
-    private static async Task<IReadOnlyList<string>> BaselineAsync()
-    {
-        using var db = new TempDb();
-        return await RecallAsync(db, verifier: null, limit: 10);
-    }
+    private static VerdictOrderingFixture.Endorses Endorses(string headline) => new(headline);
 
     private static GraphMemoryOptions Fused() =>
         new() { VerdictCombination = MemoryVerdictCombination.Fuse };
@@ -98,11 +50,11 @@ public class MemoryVerdictFusionTests
         Assert.Equal(4, baseline.Count);
 
         using var partitioned = new TempDb();
-        var byPartition = await RecallAsync(partitioned, new Endorses(baseline[3]), limit: 10);
+        var byPartition = await RecallAsync(partitioned, Endorses(baseline[3]), limit: 10);
         Assert.Equal(baseline[3], byPartition[0]);              // the shipped behaviour, for contrast
 
         using var db = new TempDb();
-        var fused = await RecallAsync(db, new Endorses(baseline[3]), limit: 10, Fused());
+        var fused = await RecallAsync(db, Endorses(baseline[3]), limit: 10, Fused());
 
         Assert.Equal(baseline[0], fused[0]);                    // the ranking's leader survives the verdict
         Assert.Equal(baseline[3], fused[1]);                    // the endorsement still gains three places
@@ -119,7 +71,7 @@ public class MemoryVerdictFusionTests
         var baseline = await BaselineAsync();
 
         using var db = new TempDb();
-        var fused = await RecallAsync(db, new Endorses(baseline[3]), limit: 2, Fused());
+        var fused = await RecallAsync(db, Endorses(baseline[3]), limit: 2, Fused());
 
         Assert.Equal(2, fused.Count);
         Assert.Contains(baseline[3], fused);
@@ -134,7 +86,7 @@ public class MemoryVerdictFusionTests
         var baseline = await BaselineAsync();
 
         using var db = new TempDb();
-        var fused = await RecallAsync(db, new Endorses(baseline[0]), limit: 10, Fused());
+        var fused = await RecallAsync(db, Endorses(baseline[0]), limit: 10, Fused());
 
         Assert.Equal(baseline, fused);
     }

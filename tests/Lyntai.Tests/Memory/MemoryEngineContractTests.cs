@@ -3,9 +3,20 @@ using Lyntai.Memory.Engines;
 
 namespace Lyntai.Tests.Memory;
 
-public class LexicalEngineContractTests
+/// <summary>Every <see cref="MemoryEngineContract"/> fact, inherited: a suite derives this, builds its engine
+/// and declares what that engine can carry, so every fact runs on every engine BY CONSTRUCTION — the shape
+/// <see cref="MemoryAgePolicyContractFacts"/> uses. Each fact is namespaced by its own key, so engines
+/// sharing state stay isolated.</summary>
+public abstract class MemoryEngineContractFacts
 {
-    private static IMemoryEngine New() => new LexicalMemoryEngine("lex", new FakeMemoryStore());
+    /// <summary>A fresh engine under test.</summary>
+    protected abstract IMemoryEngine New();
+
+    /// <summary>Whether this engine's store can carry <see cref="MemoryWrite.Metadata"/> back to a read.</summary>
+    protected abstract bool CarriesMetadata { get; }
+
+    /// <summary>Whether expanding an entry this engine wrote returns that entry.</summary>
+    protected virtual bool Expands => false;
 
     [Fact] public Task Remember_then_recall() => MemoryEngineContract.Remember_then_recall_finds_it(New(), "k1");
     [Fact] public Task Carries_name() => MemoryEngineContract.Every_item_carries_this_engines_name(New(), "k2");
@@ -17,86 +28,58 @@ public class LexicalEngineContractTests
     [Fact] public Task Empty_query() => MemoryEngineContract.An_empty_query_does_not_throw(New(), "k7");
     [Fact] public Task Cancellation() => MemoryEngineContract.Cancellation_propagates(New(), "k8");
     [Fact] public Task Honours_limit() => MemoryEngineContract.A_recall_returns_at_most_the_limit(New(), "k9");
+
+    [Fact]
+    public Task Metadata_round_trip() =>
+        MemoryEngineContract.Metadata_written_is_returned_or_explicitly_absent(New(), "k10", CarriesMetadata);
+
+    [Fact]
+    public Task Metadata_on_expansion() =>
+        MemoryEngineContract.Metadata_survives_an_EXPANSION_not_only_a_recall(New(), "k12", CarriesMetadata, Expands);
+
+    [Fact] public Task Walks() => MemoryEngineContract.A_walk_yields_at_least_one_step_and_never_throws(New(), "k13");
+}
+
+public class LexicalEngineContractTests : MemoryEngineContractFacts
+{
+    protected override IMemoryEngine New() => new LexicalMemoryEngine("lex", new FakeMemoryStore());
+
     // MemoryEntry has no metadata column
-    [Fact] public Task Metadata_round_trip() =>
-        MemoryEngineContract.Metadata_written_is_returned_or_explicitly_absent(New(), "k10", carries: false);
-    [Fact] public Task Metadata_on_expansion() =>
-        MemoryEngineContract.Metadata_survives_an_EXPANSION_not_only_a_recall(New(), "k12", carries: false, expands: false);
-    [Fact] public Task Walks() => MemoryEngineContract.A_walk_yields_at_least_one_step_and_never_throws(New(), "k13");
+    protected override bool CarriesMetadata => false;
 }
 
-public class SemanticEngineContractTests
+public class SemanticEngineContractTests : MemoryEngineContractFacts
 {
-    private static IMemoryEngine New() => new SemanticMemoryEngine("sem", new FakeSemanticMemory());
+    protected override IMemoryEngine New() => new SemanticMemoryEngine("sem", new FakeSemanticMemory());
 
-    [Fact] public Task Remember_then_recall() => MemoryEngineContract.Remember_then_recall_finds_it(New(), "k1");
-    [Fact] public Task Carries_name() => MemoryEngineContract.Every_item_carries_this_engines_name(New(), "k2");
-    [Fact] public Task Reports_tier() => MemoryEngineContract.Recall_reports_the_tier_that_ran(New(), "k3");
-    [Fact] public Task Refuses_grade() => MemoryEngineContract.An_unsupported_grade_throws_rather_than_downgrading(New(), "k4");
-    [Fact] public Task Resolves_grade() => MemoryEngineContract.An_inherited_grade_resolves_and_is_never_returned_as_Inherit(New(), "k5");
-    [Fact] public Task Authoritative_full() => MemoryEngineContract.Authoritative_items_always_carry_full_content(New(), "k6");
-    [Fact] public Task Full_detail() => MemoryEngineContract.Full_detail_returns_content_on_every_item(New(), "k14");
-    [Fact] public Task Empty_query() => MemoryEngineContract.An_empty_query_does_not_throw(New(), "k7");
-    [Fact] public Task Cancellation() => MemoryEngineContract.Cancellation_propagates(New(), "k8");
-    [Fact] public Task Honours_limit() => MemoryEngineContract.A_recall_returns_at_most_the_limit(New(), "k9");
     // a vector hit carries content and a score, nothing else
-    [Fact] public Task Metadata_round_trip() =>
-        MemoryEngineContract.Metadata_written_is_returned_or_explicitly_absent(New(), "k10", carries: false);
-    [Fact] public Task Metadata_on_expansion() =>
-        MemoryEngineContract.Metadata_survives_an_EXPANSION_not_only_a_recall(New(), "k12", carries: false, expands: false);
-    [Fact] public Task Walks() => MemoryEngineContract.A_walk_yields_at_least_one_step_and_never_throws(New(), "k13");
+    protected override bool CarriesMetadata => false;
 }
 
-public class GraphEngineContractTests
+public class GraphEngineContractTests : MemoryEngineContractFacts
 {
-    private static IMemoryEngine New() =>
+    protected override IMemoryEngine New() =>
         new GraphMemoryEngine("graph", new Lyntai.Storage.InMemory.InMemoryMemoryGraphStore());
 
-    [Fact] public Task Remember_then_recall() => MemoryEngineContract.Remember_then_recall_finds_it(New(), "k1");
-    [Fact] public Task Carries_name() => MemoryEngineContract.Every_item_carries_this_engines_name(New(), "k2");
-    [Fact] public Task Reports_tier() => MemoryEngineContract.Recall_reports_the_tier_that_ran(New(), "k3");
-    [Fact] public Task Refuses_grade() => MemoryEngineContract.An_unsupported_grade_throws_rather_than_downgrading(New(), "k4");
-    [Fact] public Task Resolves_grade() => MemoryEngineContract.An_inherited_grade_resolves_and_is_never_returned_as_Inherit(New(), "k5");
-    [Fact] public Task Authoritative_full() => MemoryEngineContract.Authoritative_items_always_carry_full_content(New(), "k6");
-    [Fact] public Task Full_detail() => MemoryEngineContract.Full_detail_returns_content_on_every_item(New(), "k14");
-    [Fact] public Task Empty_query() => MemoryEngineContract.An_empty_query_does_not_throw(New(), "k7");
-    [Fact] public Task Cancellation() => MemoryEngineContract.Cancellation_propagates(New(), "k8");
-    [Fact] public Task Honours_limit() => MemoryEngineContract.A_recall_returns_at_most_the_limit(New(), "k9");
     // GraphNode.Metadata is persisted and already returned by the store
-    [Fact] public Task Metadata_round_trip() =>
-        MemoryEngineContract.Metadata_written_is_returned_or_explicitly_absent(New(), "k10", carries: true);
-    // the ONE engine that genuinely expands, and the site the recall-only fact could not see
-    [Fact] public Task Metadata_on_expansion() =>
-        MemoryEngineContract.Metadata_survives_an_EXPANSION_not_only_a_recall(New(), "k12", carries: true, expands: true);
-    // ...and therefore the one whose walk takes more than a single step
-    [Fact] public Task Walks() => MemoryEngineContract.A_walk_yields_at_least_one_step_and_never_throws(New(), "k13");
+    protected override bool CarriesMetadata => true;
+
+    // the ONE engine that genuinely expands — the site a recall-only fact could not see — and therefore
+    // the one whose walk takes more than a single step
+    protected override bool Expands => true;
 }
 
-public class CompositeEngineContractTests
+public class CompositeEngineContractTests : MemoryEngineContractFacts
 {
-    private static IMemoryEngine New() => new CompositeMemoryEngine("blend",
+    protected override IMemoryEngine New() => new CompositeMemoryEngine("blend",
     [
         new LexicalMemoryEngine("blend/lex", new FakeMemoryStore()),
         new CuratedMemoryEngine("blend/cur", new FakeCuratedStore(), kind: "glossary"),
     ]);
 
-    [Fact] public Task Remember_then_recall() => MemoryEngineContract.Remember_then_recall_finds_it(New(), "k1");
-    [Fact] public Task Carries_name() => MemoryEngineContract.Every_item_carries_this_engines_name(New(), "k2");
-    [Fact] public Task Reports_tier() => MemoryEngineContract.Recall_reports_the_tier_that_ran(New(), "k3");
-    [Fact] public Task Refuses_grade() => MemoryEngineContract.An_unsupported_grade_throws_rather_than_downgrading(New(), "k4");
-    [Fact] public Task Resolves_grade() => MemoryEngineContract.An_inherited_grade_resolves_and_is_never_returned_as_Inherit(New(), "k5");
-    [Fact] public Task Authoritative_full() => MemoryEngineContract.Authoritative_items_always_carry_full_content(New(), "k6");
-    [Fact] public Task Full_detail() => MemoryEngineContract.Full_detail_returns_content_on_every_item(New(), "k14");
-    [Fact] public Task Empty_query() => MemoryEngineContract.An_empty_query_does_not_throw(New(), "k7");
-    [Fact] public Task Cancellation() => MemoryEngineContract.Cancellation_propagates(New(), "k8");
-    [Fact] public Task Honours_limit() => MemoryEngineContract.A_recall_returns_at_most_the_limit(New(), "k9");
-    // an Inherit write routes to the FIRST member, which is lexical here
-    [Fact] public Task Metadata_round_trip() =>
-        MemoryEngineContract.Metadata_written_is_returned_or_explicitly_absent(New(), "k10", carries: false);
-    // a composite always implements IExpandableMemory; a lexical owner makes it fail OPEN
-    [Fact] public Task Metadata_on_expansion() =>
-        MemoryEngineContract.Metadata_survives_an_EXPANSION_not_only_a_recall(New(), "k12", carries: false, expands: false);
-    [Fact] public Task Walks() => MemoryEngineContract.A_walk_yields_at_least_one_step_and_never_throws(New(), "k13");
+    // an Inherit write routes to the FIRST member, which is lexical here; a composite always implements
+    // IExpandableMemory, and a lexical owner makes it fail OPEN
+    protected override bool CarriesMetadata => false;
 
     [Fact]
     public async Task A_blend_does_not_STRIP_metadata_from_a_member_that_carries_it()
@@ -116,26 +99,12 @@ public class CompositeEngineContractTests
     }
 }
 
-public class CuratedEngineContractTests
+public class CuratedEngineContractTests : MemoryEngineContractFacts
 {
-    private static IMemoryEngine New() => new CuratedMemoryEngine("cur", new FakeCuratedStore(), kind: "glossary");
+    protected override IMemoryEngine New() => new CuratedMemoryEngine("cur", new FakeCuratedStore(), kind: "glossary");
 
-    [Fact] public Task Remember_then_recall() => MemoryEngineContract.Remember_then_recall_finds_it(New(), "k1");
-    [Fact] public Task Carries_name() => MemoryEngineContract.Every_item_carries_this_engines_name(New(), "k2");
-    [Fact] public Task Reports_tier() => MemoryEngineContract.Recall_reports_the_tier_that_ran(New(), "k3");
-    [Fact] public Task Refuses_grade() => MemoryEngineContract.An_unsupported_grade_throws_rather_than_downgrading(New(), "k4");
-    [Fact] public Task Resolves_grade() => MemoryEngineContract.An_inherited_grade_resolves_and_is_never_returned_as_Inherit(New(), "k5");
-    [Fact] public Task Authoritative_full() => MemoryEngineContract.Authoritative_items_always_carry_full_content(New(), "k6");
-    [Fact] public Task Full_detail() => MemoryEngineContract.Full_detail_returns_content_on_every_item(New(), "k14");
-    [Fact] public Task Empty_query() => MemoryEngineContract.An_empty_query_does_not_throw(New(), "k7");
-    [Fact] public Task Cancellation() => MemoryEngineContract.Cancellation_propagates(New(), "k8");
-    [Fact] public Task Honours_limit() => MemoryEngineContract.A_recall_returns_at_most_the_limit(New(), "k9");
     // CuratedMemory.Metadata is persisted
-    [Fact] public Task Metadata_round_trip() =>
-        MemoryEngineContract.Metadata_written_is_returned_or_explicitly_absent(New(), "k10", carries: true);
-    [Fact] public Task Metadata_on_expansion() =>
-        MemoryEngineContract.Metadata_survives_an_EXPANSION_not_only_a_recall(New(), "k12", carries: true, expands: false);
-    [Fact] public Task Walks() => MemoryEngineContract.A_walk_yields_at_least_one_step_and_never_throws(New(), "k13");
+    protected override bool CarriesMetadata => true;
 
     [Fact]
     public async Task A_query_less_recall_returns_only_this_engines_kind_and_honours_the_limit()

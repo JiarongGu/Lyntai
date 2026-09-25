@@ -3,21 +3,63 @@ using Lyntai.Memory.Ranking;
 
 namespace Lyntai.Tests.Memory;
 
+/// <summary>The candidate builders every ranking suite shares: a policy sees candidates, never a store or a
+/// clock, so each fact builds <see cref="MemoryCandidate"/>s directly.</summary>
+internal static class RankingFixtures
+{
+    public static readonly MemoryRankingContext Context = new(Limit: 10, Engine: "test");
+
+    public static GraphNode Node(long id, double relevance = 1, MemorySignals signals = default, int degree = 0) =>
+        new(id, "e", "t", "s", $"headline {id}", $"content {id}", MemoryGrade.Associative,
+            DateTimeOffset.UnixEpoch, RecallCount: 0, Stability: 20, Age: 0, Relevance: relevance,
+            Degree: degree, Metadata: null, Signals: signals);
+
+    public static MemoryCandidate Candidate(long id, double relevance = 1, double retrievability = 1,
+        int hop = 0, MemorySignals signals = default, int degree = 0) =>
+        new(Node(id, relevance, signals, degree), retrievability, hop);
+}
+
+/// <summary>Every <see cref="MemoryRankingPolicyContract"/> fact, inherited: a suite derives this and names
+/// its policy, so every fact runs on every shipped policy BY CONSTRUCTION rather than by seven hand-wired
+/// one-liners per suite that could drift apart — the shape <see cref="MemoryAgePolicyContractFacts"/> uses.</summary>
+public abstract class MemoryRankingPolicyContractFacts
+{
+    /// <summary>The policy under test, configured so the contract exercises its real paths.</summary>
+    protected abstract IMemoryRankingPolicy New();
+
+    [Fact] public void Deterministic() => MemoryRankingPolicyContract.Ordering_is_deterministic(New());
+
+    [Fact] public void Best_first() => MemoryRankingPolicyContract.Scores_are_ordered_best_first(New());
+
+    [Fact] public void Subset_no_duplicates() => MemoryRankingPolicyContract.It_returns_a_subset_without_duplicates(New());
+
+    [Fact] public void Empty_in_empty_out() => MemoryRankingPolicyContract.An_empty_candidate_set_ranks_to_empty(New());
+
+    [Fact] public void No_non_finite_score() => MemoryRankingPolicyContract.No_returned_score_is_non_finite(New());
+
+    [Fact]
+    public void Infinite_relevance_does_not_empty_a_healthy_recall() =>
+        MemoryRankingPolicyContract.A_non_finite_relevance_that_would_otherwise_be_best_does_not_empty_a_healthy_recall(
+            New());
+
+    [Fact]
+    public void An_overflowing_product_of_finite_inputs_does_not_empty_a_healthy_recall() =>
+        MemoryRankingPolicyContract.A_finite_input_whose_score_overflows_does_not_empty_a_healthy_recall(New());
+}
+
 /// <summary>Facts every <see cref="IMemoryRankingPolicy"/> satisfies, run against each shipped
-/// implementation so a custom policy cannot quietly break what
-/// <see cref="Lyntai.Memory.Engines.GraphMemoryEngine"/> relies on.
+/// implementation (through <see cref="MemoryRankingPolicyContractFacts"/>) so a custom policy cannot quietly
+/// break what <see cref="Lyntai.Memory.Engines.GraphMemoryEngine"/> relies on.
 /// <para>A policy sees candidates, never a store or a clock: everything here is built from
 /// <see cref="MemoryCandidate"/> directly, with no engine or recall involved.</para></summary>
 public static class MemoryRankingPolicyContract
 {
     private static GraphNode Node(long id, double relevance = 1, MemorySignals signals = default) =>
-        new(id, "e", "t", "s", $"headline {id}", $"content {id}", MemoryGrade.Associative,
-            DateTimeOffset.UnixEpoch, RecallCount: 0, Stability: 20, Age: 0, Relevance: relevance,
-            Degree: 0, Metadata: null, Signals: signals);
+        RankingFixtures.Node(id, relevance, signals);
 
     private static MemoryCandidate Candidate(long id, double relevance = 1, double retrievability = 1,
         int hop = 0, MemorySignals signals = default) =>
-        new(Node(id, relevance, signals), retrievability, hop);
+        RankingFixtures.Candidate(id, relevance, retrievability, hop, signals);
 
     private static readonly MemoryRankingContext Context = new(Limit: 10, Engine: "contract");
 

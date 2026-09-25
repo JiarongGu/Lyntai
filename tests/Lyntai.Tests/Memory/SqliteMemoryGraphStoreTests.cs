@@ -88,9 +88,6 @@ public class SqliteMemoryGraphStoreTests : IDisposable
         }
     }
 
-    // SQLite has no BOOLEAN: this one exercises the hand-written 1/0/NULL mapping at the call site, which
-    // is where a tri-state silently collapses to two.
-
     /// <summary>SQLite-specific because it pins the INDEX choice: the trigram tokenizer gives indexed CJK
     /// substring recall, which unicode61 would silently return nothing for. (The portable half — that a CJK
     /// query matches on every backend at all — is
@@ -113,17 +110,30 @@ public class SqliteMemoryGraphStoreTests : IDisposable
 
     /// <summary>The FTS index must stop matching text that was deleted. Missing the <c>'delete'</c> command
     /// row is the single most botched thing in this repository's storage layer, and it is silent — stale
-    /// rows keep matching forever.</summary>
+    /// rows keep matching forever.
+    /// <para>Asserted on the INDEX itself, not through <c>SeedAsync</c>: the seed query joins the node table
+    /// and ids are never reused, so a stale entry for a deleted row joins to nothing and a seed reads empty
+    /// with or without the trigger. The UPDATE trigger's portable half is
+    /// <see cref="MemoryGraphStoreContract.A_restated_headline_stops_matching_words_only_the_old_one_carried"/>.</para></summary>
     [Fact]
     public async Task Fts_stays_in_sync_after_a_delete()
     {
         var store = New();
         await store.UpsertAsync(new GraphNodeWrite("e", "sync", "s", "distinctive phrase here",
             "distinctive phrase here", MemoryGrade.Associative, 7, 1, null));
+        Assert.Equal(1, await IndexMatches("distinctive"));   // the entry really is indexed first
 
         await store.ForgetAsync("e", "sync", "s");
 
-        Assert.Empty(await store.SeedAsync("e", "sync", "s", "distinctive", 10));
+        Assert.Equal(0, await IndexMatches("distinctive"));
+
+        async Task<long> IndexMatches(string term)
+        {
+            using var conn = _db.Factory.Open();
+            return await conn.ExecuteScalarAsync<long>(
+                "SELECT count(*) FROM lyntai_memory_node_fts WHERE lyntai_memory_node_fts MATCH @term",
+                new { term });
+        }
     }
 
     /// <summary>SQLite-specific, because only this backend merges two independent queries. The FTS branch is
@@ -246,9 +256,7 @@ public class SqliteMemoryGraphStoreTests : IDisposable
     [Fact]
     public async Task A_row_that_omits_salience_gets_the_neutral_column_default()
     {
-        using var db = new TempDb();
-
-        using (var conn = db.Factory.Open())
+        using (var conn = _db.Factory.Open())
         {
             await conn.ExecuteAsync("""
                 INSERT INTO lyntai_memory_node
@@ -264,7 +272,7 @@ public class SqliteMemoryGraphStoreTests : IDisposable
         }
 
         // and it behaves neutrally in ordering: a judged, higher-salience row still outranks it
-        var store = new SqliteMemoryGraphStore(db.Factory);
+        var store = New();
         var signals = MemorySignals.Empty.With(MemorySignals.WellKnown.Salience, 5);
         await store.UpsertAsync(new GraphNodeWrite("e", "legacy", "s", "h", "a judged row",
             MemoryGrade.Associative, 7, 1, null, signals));
@@ -298,28 +306,21 @@ public class SqliteMemoryGraphStoreTests : IDisposable
         using var conn = _db.Factory.Open();
         var salience = await conn.ExecuteScalarAsync<double>(
             "SELECT salience FROM lyntai_memory_node WHERE task_key = 'nanwrite'");
-        Assert.False(double.IsNaN(salience), $"the salience column holds {salience}, not the neutral value");
-        Assert.Equal(1, salience);
+        Assert.Equal(1, salience);   // the neutral value, not NaN
     }
 
-    /// <summary>The <c>NOT NULL DEFAULT 5</c> decision for <c>difficulty</c> (2026-08-10, fsrs-properly plan
-    /// Task 2; corrected 2026-08-11 from an initial <c>DEFAULT 1</c> — see the migration's own doc for why
-    /// the floor was a genuine defect, not a placeholder choice), pinned as ACTUAL INSERT BEHAVIOUR — the
-    /// same shape <see cref="A_row_that_omits_salience_gets_the_neutral_column_default"/> pins for
-    /// <c>salience</c>. Bypasses the store to write a row that OMITS <c>difficulty</c> entirely — exactly
-    /// what every row from before this migration ran becomes — and confirms the column default gives it the
-    /// neutral MID-POINT, which <see cref="Lyntai.Memory.Forgetting.DsrRetrievability.Reinforce"/> then reads
-    /// and evolves from normally rather than needing any special case for "never computed". (The permanent
-    /// demonstration that the OLD default, `1`, did NOT evolve normally — it stayed pinned at the floor under
-    /// a realistic recall — lives in
-    /// <c>DsrRetrievabilityTests.A_row_migrated_under_the_old_default_stays_pinned_while_the_corrected_default_moves</c>,
-    /// a pure policy-level fact that does not need a store round-trip.)</summary>
+    /// <summary>The <c>NOT NULL DEFAULT 5</c> decision for <c>difficulty</c> (see the migration's own doc for
+    /// why the floor was a genuine defect), pinned as ACTUAL INSERT BEHAVIOUR — the same shape
+    /// <see cref="A_row_that_omits_salience_gets_the_neutral_column_default"/> pins for <c>salience</c>.
+    /// Bypasses the store to write a row that OMITS <c>difficulty</c> entirely — exactly what every row from
+    /// before this migration ran becomes — and confirms the column default gives it the neutral MID-POINT,
+    /// which <see cref="Lyntai.Memory.Forgetting.DsrRetrievability.Reinforce"/> then reads and evolves from
+    /// normally. (Why the OLD default, `1`, did NOT evolve normally is
+    /// <c>DsrRetrievabilityTests.A_row_migrated_under_the_old_default_stays_pinned_while_the_corrected_default_moves</c>.)</summary>
     [Fact]
     public async Task A_row_that_omits_difficulty_gets_the_neutral_column_default()
     {
-        using var db = new TempDb();
-
-        using (var conn = db.Factory.Open())
+        using (var conn = _db.Factory.Open())
         {
             await conn.ExecuteAsync("""
                 INSERT INTO lyntai_memory_node
@@ -331,13 +332,13 @@ public class SqliteMemoryGraphStoreTests : IDisposable
 
             var difficulty = await conn.ExecuteScalarAsync<double>(
                 "SELECT difficulty FROM lyntai_memory_node WHERE task_key = 'predifficulty'");
-            Assert.Equal(5, difficulty); // the DEFAULT (mid-point, corrected 2026-08-11), not NULL
+            Assert.Equal(5, difficulty); // the DEFAULT mid-point, not NULL
         }
 
         // and Reinforce evolves it normally from there — no special case needed for a row this migration
         // never touched at write time (ProvenanceRetrievability is None for it, distinguishing "never
         // computed" from "computed as neutral" without guessing from the value alone)
-        var store = new SqliteMemoryGraphStore(db.Factory);
+        var store = New();
         var node = Assert.Single(await store.SeedAsync("e", "predifficulty", "s", null, 10));
         Assert.Equal(0, node.ProvenanceRetrievability);
 
@@ -364,7 +365,6 @@ public class SqliteMemoryGraphStoreTests : IDisposable
         using var conn = _db.Factory.Open();
         var difficulty = await conn.ExecuteScalarAsync<double>(
             "SELECT difficulty FROM lyntai_memory_node WHERE task_key = 'nandifficulty'");
-        Assert.False(double.IsNaN(difficulty), $"the difficulty column holds {difficulty}, not the neutral value");
-        Assert.Equal(5, difficulty); // the neutral mid-point, corrected 2026-08-11 from the floor 1
+        Assert.Equal(5, difficulty); // the neutral mid-point, not NaN and not the floor 1
     }
 }

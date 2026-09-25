@@ -7,22 +7,13 @@ namespace Lyntai.Tests.Memory;
 
 /// <summary>The decorator that makes retention open. Every fact here exists because its absence loses
 /// memories silently rather than failing.</summary>
-public class ModulatedRetrievabilityTests
+public class ModulatedRetrievabilityTests : RetrievabilityPolicyContractFacts
 {
-    /// <summary>A retention policy that lengthens by a fixed factor, optionally LYING about its own bound.</summary>
-    private sealed class FixedRetentionPolicy(double factor, double? declaredMax = null) : IMemoryRetentionPolicy
-    {
-        public string Name => "fixed";
-        public double MaxStabilityFactor => declaredMax ?? factor;
-        public double StabilityFactor(in MemoryDecayState state) => factor;
-    }
-
     /// <summary>A minimal, purpose-built curve for isolating <see cref="ModulatedRetrievability"/>'s own
     /// behaviour from any shipped curve's arithmetic. <c>HalfLifeRetrievability</c> is deleted; <!-- drift-ok: names the deleted curve deliberately -->
     /// substituting <see cref="DsrRetrievability"/> here would trade the clean,
     /// hand-checkable expected values below (<c>0.25</c>, <c>0.5</c>, <c>Math.Pow(2, -0.5)</c>, …) for a
-    /// power-law formula with no equally simple closed form — exactly the "copy of the deleted curve" the
-    /// task brief warns against, wearing a different excuse. This keeps only the plain
+    /// power-law formula with no equally simple closed form. This keeps only the plain
     /// <c>r = 2^(-age/effectiveStability)</c> exponential shape the shipped curve's own connection-boost
     /// math already assumes, with no reinforcement growth and no unmeasured tuning constants — the minimum
     /// surface <see cref="IMemoryRetrievabilityPolicy"/> demands, nothing more. Every fact below leaves
@@ -44,7 +35,7 @@ public class ModulatedRetrievabilityTests
         public MemoryDecayState Reinforce(in MemoryDecayState state) => state; // never reinforces — irrelevant here
 
         // a fixed, distinguishable value nothing else in this file could produce — proves DerivedGrade
-        // delegation (2026-08-11, fsrs-properly plan Task 3) rather than a coincidental agreement with the
+        // delegation rather than a coincidental agreement with the
         // interface's own default (null)
         public double? DerivedGrade(in MemoryDecayState state) => state.Age <= 0 ? null : 3.14;
 
@@ -68,62 +59,20 @@ public class ModulatedRetrievabilityTests
         new(age, 0, stability);
 
     // ---- the shared RetrievabilityPolicyContract, run against ModulatedRetrievability itself ----
-    // (fix round 2, cheap minor) — the policy AddMemoryEngine actually installs via UseGraph/
-    // UseBestAvailable (MemoryEngineBuilderExtensions), never exercised by this fact set before this addition.
+    // (inherited) — the policy AddMemoryEngine actually installs via UseGraph/UseBestAvailable.
     //
     // NEUTRAL, not empty: SalienceRetentionPolicy is the real, shipped default retention policy, not a
-    // stand-in — With_no_retention_policies_it_is_the_inner_policy_exactly (above) already covers the
-    // trivially-identical empty case. Every contract state below carries EMPTY Signals (the model-free default
-    // deployment, no salience policy has ever run), under which SalienceRetentionPolicy.StabilityFactor reports
-    // EXACTLY 1 — Modulated's own `factor == 1` short-circuit — so the wrapped policy is observably identical to
-    // the inner curve for every state the contract exercises, while genuinely running the real decision logic
-    // (compute the factor, compare to 1) rather than the constructor's own zero-policy shortcut.
+    // stand-in — With_no_retention_policies_it_is_the_inner_policy_exactly (below) already covers the
+    // trivially-identical empty case. Every contract state carries EMPTY Signals, under which
+    // SalienceRetentionPolicy.StabilityFactor reports EXACTLY 1, so the wrapped policy is observably identical
+    // to the inner curve while genuinely running the real decision logic (compute the factor, compare to 1).
     //
     // THIS IS THE ONLY CASE THAT CAN HOLD. The r(S) = 0.5 anchor and "may never SHORTEN a memory" are claims
-    // about the CURVE's own unit convention; a retention policy whose whole purpose is to LENGTHEN stability
-    // beyond the stored value (what every NON-neutral retention policy does, by design) necessarily moves where
-    // retrievability crosses 0.5 for that entry — that is modulation working as intended, not a violation of
-    // the anchor. Running the contract under a genuinely non-neutral retention policy would assert the wrong
-    // claim, not a stronger one.
-    private static IMemoryRetrievabilityPolicy NeutralDefault() =>
+    // about the CURVE's own unit convention; a retention policy LENGTHENS stability by design and so moves where
+    // retrievability crosses 0.5 — modulation working, not a violation. Running the contract under a
+    // non-neutral retention policy would assert the wrong claim, not a stronger one.
+    protected override IMemoryRetrievabilityPolicy New() =>
         new ModulatedRetrievability(new SimpleExponentialRetrievability(), [new SalienceRetentionPolicy()]);
-
-    [Fact]
-    public void Neutral_Probability() =>
-        RetrievabilityPolicyContract.Retrievability_is_a_probability(NeutralDefault());
-
-    [Fact]
-    public void Neutral_One_at_zero() =>
-        RetrievabilityPolicyContract.It_is_one_at_zero_age(NeutralDefault());
-
-    [Fact]
-    public void Neutral_Monotone() =>
-        RetrievabilityPolicyContract.It_never_increases_with_age(NeutralDefault());
-
-    [Fact]
-    public void Neutral_Reinforce_grows() =>
-        RetrievabilityPolicyContract.Reinforcement_never_shortens_a_memory(NeutralDefault());
-
-    [Fact]
-    public void Neutral_Cutoff_superset() =>
-        RetrievabilityPolicyContract.CandidateCutoff_is_a_conservative_superset(NeutralDefault());
-
-    [Fact]
-    public void Neutral_Unbounded_ok() =>
-        RetrievabilityPolicyContract.An_unbounded_policy_is_still_correct(NeutralDefault());
-
-    [Fact]
-    public void Neutral_Connectedness() =>
-        RetrievabilityPolicyContract.Connectedness_never_lowers_retrievability(NeutralDefault());
-
-    [Fact]
-    public void Neutral_Stability_unit() =>
-        RetrievabilityPolicyContract.Stability_is_the_position_delta_at_which_retrievability_is_half(
-            NeutralDefault());
-
-    [Fact]
-    public void Neutral_Reinforce_owns_only_stability_and_difficulty() =>
-        RetrievabilityPolicyContract.Reinforcement_leaves_every_field_it_does_not_own_unchanged(NeutralDefault());
 
     [Fact]
     public void With_no_retention_policies_it_is_the_inner_policy_exactly()
@@ -173,8 +122,7 @@ public class ModulatedRetrievabilityTests
         Assert.Equal(6, composition.StabilityFactor([2, 3]), 9);
     }
 
-    /// <summary>A composition policy nothing can vary is decoration (2026-08-10 memory-policy-seams plan,
-    /// Task 3, Step 3's mutation-check requirement) — this proves the seam is real by swapping in a
+    /// <summary>A composition policy nothing can vary is decoration — this proves the seam is real by swapping in a
     /// DIFFERENT combination rule (max instead of the shipped multiply) over the SAME two retention policies and
     /// showing the result changes. Multiply gives 2 × 3 = 6× the half-life; max gives 3× — different enough
     /// to be unmistakable, not a rounding difference.</summary>
@@ -269,7 +217,7 @@ public class ModulatedRetrievabilityTests
         Assert.Equal(Inner().Reinforce(state), policy.Reinforce(state));
     }
 
-    /// <summary>DerivedGrade (2026-08-11, fsrs-properly plan Task 3) forwards to the wrapped policy
+    /// <summary>DerivedGrade forwards to the wrapped policy
     /// unchanged, on the SAME raw state <see cref="Reinforce"/> itself uses — never the modulated one — for
     /// the identical reason: whichever policy actually computed the grade is the one a review log must
     /// credit, on the state that produced it.</summary>

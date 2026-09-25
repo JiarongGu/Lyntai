@@ -8,18 +8,14 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Lyntai.Tests.Memory;
 
-/// <summary>Task 6 of the 2026-08-10 memory-policy-seams plan: a named engine can pick its OWN ranking policy
-/// (<c>UseGraph</c>'s <c>ranking</c> parameter — per-ENGINE selection) and expose named alternates a single
-/// call can select BY NAME (<see cref="MemoryQuery.RankingPolicyName"/> — per-CALL override), with an unknown
-/// name erroring rather than silently falling back to the engine's own default.
-/// <para><b>Runs against SQLite, not InMemory, and that is load-bearing.</b>
-/// <see cref="Lyntai.Storage.InMemory.InMemoryMemoryGraphStore"/>'s <c>SeedAsync</c> matches a query as a
-/// contiguous SUBSTRING of content, so a realistic two-fact corpus recalls nothing there and a test built on
-/// it would silently exercise only the write path (`.claude/knowledge/pitfalls.md`) — exactly the trap that
-/// cost this project two tasks four days apart. The two fixtures below use trivial, hand-controlled ranking
-/// fakes rather than either shipped formula, so the expected order is exact and needs no arithmetic — what is
-/// genuinely under test is the ENGINE's resolution logic and the SQLite store's real seed/gather pipeline,
-/// not a ranking formula (already covered elsewhere).</para></summary>
+/// <summary>A named engine can pick its OWN ranking policy (<c>UseGraph</c>'s <c>ranking</c> parameter —
+/// per-ENGINE selection) and expose named alternates a single call can select BY NAME
+/// (<see cref="MemoryQuery.RankingPolicyName"/> — per-CALL override), with an unknown name erroring rather than
+/// silently falling back to the engine's own default.
+/// <para>The ranking fakes order by id, so the expected order is exact and needs no arithmetic: what is under
+/// test is the ENGINE's resolution logic over a real store's seed/gather pipeline, not a ranking formula. Every
+/// ordering fact asserts the recalled ids, so a recall that matched nothing fails rather than passing on the
+/// write path alone (<c>.claude/knowledge/pitfalls.md</c>).</para></summary>
 public sealed class GraphMemoryRankingOverrideTests : IDisposable
 {
     private readonly TempDb _db = new();

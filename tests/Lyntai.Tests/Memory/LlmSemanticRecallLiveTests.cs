@@ -164,7 +164,7 @@ public class LlmSemanticRecallLiveTests(Xunit.Abstractions.ITestOutputHelper out
                 AgePolicies = [new PerWriteAgePolicy()],
                 Providers = providers,
                 Vectors = vectors,
-                SeedSources = semanticSeedK <= 0 || vectors is null
+                SeedSources = semanticSeedK <= 0 || vectors is null || providers is null
                     ? [new LexicalSeedSource()]
                     : [new LexicalSeedSource(),
                         new SemanticSeedSource(providers, vectors, new SemanticSeedOptions { K = semanticSeedK })],

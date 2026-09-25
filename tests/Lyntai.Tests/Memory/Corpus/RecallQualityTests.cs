@@ -9,11 +9,10 @@ namespace Lyntai.Tests.Memory.Corpus;
 /// <see cref="A_perfect_recall_scores_zero_on_both_metrics"/> is a genuine identity, its symmetry inherent
 /// rather than accidental. The other two are deliberately ASYMMETRIC and bracket the definition from both
 /// directions (high miss / zero pollution, then zero miss / high pollution) — a fixture pair with EQUAL
-/// values for both metrics cannot tell a reader (or a mutation that swaps the two) which number is which;
-/// found the hard way in this task's own mutation round, when the brief's original second example (miss
-/// 0.5, pollution 0.5) let a swap of the two metrics pass undetected. The next four pin the "awkward case"
+/// values for both metrics (miss 0.5, pollution 0.5) cannot tell a reader, or a mutation that swaps the
+/// two, which number is which. The next four pin the "awkward case"
 /// choices <see cref="RecallQuality"/>'s own XML docs make explicit — they are the actual point of this
-/// instrument, not edge-case padding, because a sweep (Task 3) compares numbers ACROSS corpus shapes, and
+/// instrument, not edge-case padding, because a sweep compares numbers ACROSS corpus shapes, and
 /// corpus shapes in this harness routinely land in one of these four regimes (critical-rare's two-query
 /// ground truth against a wide <c>limit</c>; a broad recall's relevant set smaller than a generous
 /// <c>CandidateCount</c>; a hot-ephemeral query outside its window).</para>
@@ -116,7 +115,7 @@ public class RecallQualityTests
     public void An_empty_relevant_set_has_no_misses_and_all_recalled_items_count_as_pollution()
     {
         // relevant = {} (this query's window has closed — the hot-ephemeral corpus class reaches this
-        // legitimately, per Task 1's report); two items still came back, against a limit equal to how many
+        // legitimately); two items still came back, against a limit equal to how many
         // came back so the arithmetic reads cleanly.
         // miss = 0 BY CONVENTION (nothing was ever relevant, so nothing can be missed — the alternative,
         // 0/0, is undefined and never evaluated);

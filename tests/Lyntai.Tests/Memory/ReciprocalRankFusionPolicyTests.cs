@@ -1,60 +1,22 @@
 using Lyntai.Memory;
 using Lyntai.Memory.Ranking;
+using static Lyntai.Tests.Memory.RankingFixtures;
 
 namespace Lyntai.Tests.Memory;
 
-/// <summary>This ranking domain's SECOND implementation, chronologically — and, as of 3.0, the REGISTERED
-/// default (owner ruling, 2026-08-11; see <c>docs/DECISIONS.md</c>): this library's own measurement
-/// (<c>local/superpowers/records/2026-08-09-memory-policy-measurement.md</c>, fsrs-properly plan Task 4) found it beating
-/// <see cref="MultiplicativeRankingPolicy"/> on the corpus's `topical` class in every shape tested, over two
-/// independent runs. This file's job is only to pin what the formula itself does, exactly like
-/// <c>MultiplicativeRankingPolicyTests</c> pins its sibling — default status is a separate, versioned fact
-/// this file does not itself assert.</summary>
-public class ReciprocalRankFusionPolicyTests
+/// <summary>This ranking domain's REGISTERED default (<c>docs/DECISIONS.md</c>): measured beating
+/// <see cref="MultiplicativeRankingPolicy"/> on the corpus's `topical` class in every shape tested. This
+/// file's job is only to pin what the formula itself does, exactly like
+/// <c>MultiplicativeRankingPolicyTests</c> pins its sibling — default status is a separate fact this file
+/// does not itself assert.</summary>
+public class ReciprocalRankFusionPolicyTests : MemoryRankingPolicyContractFacts
 {
-    private static GraphNode Node(long id, double relevance = 1, MemorySignals signals = default,
-        int degree = 0) =>
-        new(id, "e", "t", "s", $"headline {id}", $"content {id}", MemoryGrade.Associative,
-            DateTimeOffset.UnixEpoch, RecallCount: 0, Stability: 20, Age: 0, Relevance: relevance,
-            Degree: degree, Metadata: null, Signals: signals);
-
-    private static MemoryCandidate Candidate(long id, double relevance = 1, double retrievability = 1,
-        int hop = 0, MemorySignals signals = default, int degree = 0) =>
-        new(Node(id, relevance, signals, degree), retrievability, hop);
-
     private static MemorySignals Salience(double value) =>
         MemorySignals.Empty.With(MemorySignals.WellKnown.Salience, value);
 
-    private static readonly MemoryRankingContext Context = new(Limit: 10, Engine: "test");
-
     private static ReciprocalRankFusionPolicy Default() => new();
 
-    // ---- the shared contract every policy must satisfy ----
-
-    [Fact] public void Deterministic() => MemoryRankingPolicyContract.Ordering_is_deterministic(Default());
-    [Fact] public void Best_first() => MemoryRankingPolicyContract.Scores_are_ordered_best_first(Default());
-
-    [Fact]
-    public void Subset_no_duplicates() =>
-        MemoryRankingPolicyContract.It_returns_a_subset_without_duplicates(Default());
-
-    [Fact]
-    public void Empty_in_empty_out() =>
-        MemoryRankingPolicyContract.An_empty_candidate_set_ranks_to_empty(Default());
-
-    [Fact]
-    public void No_non_finite_score() =>
-        MemoryRankingPolicyContract.No_returned_score_is_non_finite(Default());
-
-    [Fact]
-    public void Infinite_relevance_does_not_empty_a_healthy_recall() =>
-        MemoryRankingPolicyContract.A_non_finite_relevance_that_would_otherwise_be_best_does_not_empty_a_healthy_recall(
-            Default());
-
-    [Fact]
-    public void An_overflowing_product_of_finite_inputs_does_not_empty_a_healthy_recall() =>
-        MemoryRankingPolicyContract.A_finite_input_whose_score_overflows_does_not_empty_a_healthy_recall(
-            Default());
+    protected override IMemoryRankingPolicy New() => new ReciprocalRankFusionPolicy();
 
     /// <summary><b>This policy's own "finite by construction" claim was FALSE, and this fact is what makes it
     /// true.</b> <c>Rank</c>'s own comment argued that a sum of positive, bounded reciprocal terms can never
@@ -126,7 +88,7 @@ public class ReciprocalRankFusionPolicyTests
     [Fact]
     public void Rank_compression_over_forty_candidates_keeps_the_score_span_under_a_factor_of_two()
     {
-        // THE reason RelativeFloor defaults to 0 for this policy (see
+        // THE reason RelativeFloor defaults to 0 for this policy (pinned in The_shipped_defaults_… below; see
         // ReciprocalRankFusionOptions.RelativeFloor's own doc): forty candidates, fully discriminated and
         // identically ordered on all four signals (candidate i ranks i-th on every one of them), so the
         // fused score is exactly 4/(60+i). Best (i=1) is 4/61; worst (i=40) is 4/100 — a ratio of 100/61 ≈
@@ -144,12 +106,6 @@ public class ReciprocalRankFusionPolicyTests
         var ratio = ranked[0].Score / ranked[^1].Score;
         Assert.InRange(ratio, 1.5, 2.0);
     }
-
-    [Fact]
-    public void The_shipped_default_RelativeFloor_is_zero_because_compression_would_make_a_nonzero_one_inert() =>
-        // paired with the compression fact above: a 2% floor (Multiplicative's default) over a span this
-        // tight would never cut anything, so burial would silently become inert rather than merely weaker.
-        Assert.Equal(0, new ReciprocalRankFusionOptions().RelativeFloor);
 
     [Fact]
     public void A_candidate_winning_every_signal_ranks_first_and_one_losing_every_signal_ranks_last()
@@ -186,36 +142,34 @@ public class ReciprocalRankFusionPolicyTests
     [Fact]
     public void Uniformly_tied_signals_contribute_nothing_to_the_ordering()
     {
-        // THE fact that would have caught F1 — and it needs TWO signals tied at once to actually
-        // discriminate the bug, mirroring the exact adversarial shape the fix report worked out by hand.
-        // The library's own DEFAULT deployment ties exactly these two together: no vector backend/vector store
-        // makes StructuralSaliencePolicy report the identical neutral salience for every node, AND a
-        // fresh graph (or Hops = 0) makes every hit hop 0 — salience and hop tie SIMULTANEOUSLY, not in
-        // isolation. Five candidates, real signals (relevance, retrievability) assigned the OPPOSITE way
-        // round from id (id 1 is the best performer, id 5 the worst) so a leaked id bias has to fight the
-        // real signals rather than agree with them by accident.
+        // It needs TWO signals tied at once, each carrying weight, to discriminate position-based ranking
+        // of a tie. A deployment with no vector backend ties exactly these two together: salience is the
+        // identical neutral value for every node, and a fresh graph (or Hops = 0) makes every hit hop 0. Five
+        // candidates, real signals (relevance, retrievability) assigned the OPPOSITE way round from id (id 1
+        // is the best performer, id 5 the worst) so a leaked id bias has to fight the real signals.
         //
-        // Under the OLD position-based ranking this fixture produces an EXACT tie between id 1 (best on
-        // both real signals) and id 5 (worst on both), and between id 2 and id 4 — the two uniformly-tied
-        // signals hand out ranks 1..5 by id descending, exactly cancelling the two real signals' own 1..5
-        // — so the FINAL id-descending tiebreak alone decides, and the worst candidate (id 5) beats the
-        // best one (id 1). Under competition ranking every candidate gets the SAME rank (1) on both tied
-        // signals, contributing an identical constant each — provable by comparing against both weights
-        // explicitly set to 0, which must produce the exact same ORDER (not the same scores — the constant
-        // itself differs, only its effect on ordering must vanish).
+        // SalienceWeight is set to 1 EXPLICITLY: it ships at 0 (D89), and with only hop weighted a leaked
+        // position rank loses to the two real signals and the order survives the bug. With both weighted,
+        // position-based ranking makes id 1 and id 5 score EXACTLY alike (the tied pair's ranks 1..5 by id
+        // descending cancel the real signals' own 1..5), so the id tiebreak alone decides and id 5 beats
+        // id 1. Under competition ranking every candidate takes rank 1 on both tied signals — an identical
+        // constant each, so the ORDER must equal the one with both tied weights at 0.
         var candidates = Enumerable.Range(1, 5)
             .Select(id => Candidate(id, relevance: 6 - id, retrievability: 6 - id, hop: 0))
             .ToArray(); // id 1 is best on relevance/retrievability, id 5 is worst; hop and salience tied for all
 
-        var rankedAtDefault = Default().Rank(candidates, in Context);
+        var rankedWithTiedSignalsOn = new ReciprocalRankFusionPolicy(new ReciprocalRankFusionOptions
+        {
+            SalienceWeight = 1, HopWeight = 1,
+        }).Rank(candidates, in Context);
         var rankedWithTiedSignalsOff = new ReciprocalRankFusionPolicy(new ReciprocalRankFusionOptions
         {
             RelevanceWeight = 1, RetrievabilityWeight = 1, SalienceWeight = 0, HopWeight = 0,
         }).Rank(candidates, in Context);
 
-        var defaultOrder = rankedAtDefault.Select(r => r.Candidate.Node.Id).ToArray();
-        Assert.Equal([1L, 2, 3, 4, 5], defaultOrder); // the real signals' own order, untouched by the tied pair
-        Assert.Equal(rankedWithTiedSignalsOff.Select(r => r.Candidate.Node.Id).ToArray(), defaultOrder);
+        var tiedOnOrder = rankedWithTiedSignalsOn.Select(r => r.Candidate.Node.Id).ToArray();
+        Assert.Equal([1L, 2, 3, 4, 5], tiedOnOrder); // the real signals' own order, untouched by the tied pair
+        Assert.Equal(rankedWithTiedSignalsOff.Select(r => r.Candidate.Node.Id).ToArray(), tiedOnOrder);
     }
 
     [Fact]

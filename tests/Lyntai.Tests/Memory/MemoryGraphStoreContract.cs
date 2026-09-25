@@ -2,19 +2,16 @@ using Lyntai.Memory;
 
 namespace Lyntai.Tests.Memory;
 
-/// <summary>Backend-agnostic <see cref="IMemoryGraphStore"/> facts. MEM2b runs these against SQLite and
-/// Postgres unchanged; per <c>storage.md</c> the contract IS the deduplication mechanism for the relational
-/// pair, not a shared base class.
+/// <summary>Backend-agnostic <see cref="IMemoryGraphStore"/> facts, run unchanged against every shipped
+/// backend through <see cref="MemoryGraphStoreFacts"/>; per <c>storage.md</c> the contract IS the
+/// deduplication mechanism for the backends, not a shared base class.
 /// <para><b>Aging is done by WRITING</b>, not by advancing a clock: an entry's age is how far the engine's
 /// position has moved since it was last used, and only writes move it. <see cref="Crowd"/> is how these
 /// facts make something old.</para>
-/// <para><b>MULTI-TOKEN matching is a PORTABLE guarantee as of 3.0, and was not before.</b> Until then only
-/// SQLite's FTS path split a query into words; every other path matched the whole query as one contiguous
-/// substring, so a realistic cue found the entry on one backend and nothing at all on another. That was
-/// filed here as a by-design divergence, which it was not: an ORDERING difference is a divergence, a
-/// different answer to "is the fact found" is a defect. <see cref="Lyntai.Storage.SearchTerms"/> is now the
-/// one split, and <see cref="Seeding_matches_any_term_of_a_multi_word_query"/> holds every backend to it.
-/// </para>
+/// <para><b>MULTI-TOKEN matching is a PORTABLE guarantee</b>: an ORDERING difference between backends is a
+/// divergence, a different answer to "is the fact found" is a defect. <see cref="Lyntai.Storage.SearchTerms"/>
+/// is the one split, and <see cref="Seeding_matches_any_term_of_a_multi_word_query"/> holds every backend to
+/// it.</para>
 /// <para>What REMAINS deliberately omitted is same-match ORDERING — SQLite ranks by bm25, the others by
 /// matched-term count then recency — exactly as <c>IMemoryStore.RecallAsync</c> documents.</para></summary>
 public static class MemoryGraphStoreContract
@@ -33,6 +30,12 @@ public static class MemoryGraphStoreContract
             await store.UpsertAsync(new GraphNodeWrite(engine, key, "filler", $"filler {i}", $"filler {i}",
                 MemoryGrade.Associative, Stability, 1, null));
     }
+
+    /// <summary>Advance the POSITION by <paramref name="advance"/> in ONE write — for a fact that needs a large
+    /// <see cref="GraphNode.Age"/> and not a large ordinal age, without paying thousands of upserts per backend.</summary>
+    private static Task CrowdAtOnce(IMemoryGraphStore store, string engine, string key, double advance) =>
+        store.UpsertAsync(new GraphNodeWrite(engine, key, "filler", "one large filler", "one large filler",
+            MemoryGrade.Associative, Stability, advance, null));
 
     public static async Task Upsert_then_seed_by_single_token_substring(IMemoryGraphStore store, string key)
     {
@@ -164,7 +167,7 @@ public static class MemoryGraphStoreContract
 
     /// <summary>A deleted node keeps no claim on its subjects — otherwise it would keep linking live facts
     /// to something that no longer exists, which is the subject-side twin of the dangling edge
-    /// <see cref="Deleting_a_node_takes_its_edges_with_it"/> guards against.</summary>
+    /// <see cref="DeleteAsync_takes_edges_with_the_nodes"/> guards against.</summary>
     public static async Task Deleting_a_node_takes_its_subjects_with_it(IMemoryGraphStore store, string key)
     {
         var id = await store.UpsertAsync(Write("e", key, "a fact that will be deleted"));
@@ -175,9 +178,9 @@ public static class MemoryGraphStoreContract
 
         Assert.Empty(await store.NodesBySubjectAsync("e", key, "s", "owner", 10));
 
-        // ...AND through the reader that does NOT join. Measured 2026-08-14: this fact asserted only through
-        // NodesBySubjectAsync, whose JOIN against the node table hides an orphaned subject row — so it passed
-        // on all three backends while neither SQL backend deleted the row at all (no foreign key, no cascade,
+        // ...AND through the reader that does NOT join. NodesBySubjectAsync's JOIN against the node table
+        // hides an orphaned subject row — asserted through it alone, this passed on every backend while
+        // neither SQL backend deleted the row at all (no foreign key, no cascade,
         // and DeleteAsync/PruneAsync/ForgetAsync touched only the node table). KnownSubjectsAsync does not
         // join, so it is the reader that can see the leak, and it is the one the annotator actually consumes:
         // GraphMemoryEngine feeds its top-N to the model as reuse candidates ordered by COUNT(*), so a fully
@@ -265,7 +268,7 @@ public static class MemoryGraphStoreContract
         IMemoryGraphStore store, string key)
     {
         await store.UpsertAsync(Write("quiet", key, "a fact nobody disturbs"));
-        await Crowd(store, "busy", key, 200);
+        await CrowdAtOnce(store, "busy", key, 200);
 
         var hits = await store.SeedAsync("quiet", key, "s", null, 10);
 
@@ -284,7 +287,7 @@ public static class MemoryGraphStoreContract
     {
         await store.UpsertAsync(Write("e", key, "a note nobody has used in a long time"));
         await store.UpsertAsync(Write("e", key, "an exact fact", MemoryGrade.Authoritative));
-        await Crowd(store, "e", key, 5000);
+        await CrowdAtOnce(store, "e", key, 5000);
 
         var hits = await store.SeedAsync("e", key, "s", null, 10);
 
@@ -294,18 +297,17 @@ public static class MemoryGraphStoreContract
         Assert.True(hits.First(h => h.Content.Contains("long time", StringComparison.Ordinal)).Age > 4000);
     }
 
-    /// <summary><b>A word only in the HEADLINE is found, on every backend.</b> Found 2026-08-15:
+    /// <summary><b>A word only in the HEADLINE is found, on every backend.</b>
     /// <c>lyntai_memory_node_fts</c> declares <c>headline, content</c> so SQLite matched one, while
     /// Postgres's trigram index and the in-process store read content alone — the same call answering
     /// differently per backend, which <c>storage.md</c> calls a defect rather than a difference.
-    /// <para><b>Converged by WIDENING, and the first attempt got the direction wrong.</b> It confined
-    /// SQLite's expression to <c>content</c>, reading this interface's portable guarantee as content-only.
-    /// That guarantee states a MINIMUM ("is found on every backend"), not a ceiling — so SQLite was not
-    /// exceeding a contract, and narrowing removed a real capability from the one backend that had it. An
+    /// <para><b>Converged by WIDENING, never by narrowing.</b> Confining SQLite's expression to
+    /// <c>content</c> would read this interface's portable guarantee as content-only.
+    /// That guarantee states a MINIMUM ("is found on every backend"), not a ceiling — so matching the headline
+    /// exceeds no contract, and narrowing would remove a real capability. An
     /// authored <c>MemoryWrite.Headline</c> is a summary a caller wrote so the entry could be found by it,
-    /// with words that may appear nowhere in the content. Round 2 of that review caught it; Postgres gained
-    /// a headline trigram index (<c>M202608152310_MemoryHeadlineSearch</c>) and the in-process store now
-    /// reads both.</para></summary>
+    /// with words that may appear nowhere in the content. Postgres has a headline trigram index
+    /// (<c>M202608152310_MemoryHeadlineSearch</c>) and the in-process store reads both.</para></summary>
     public static async Task A_word_only_in_the_HEADLINE_matches_on_every_backend(
         IMemoryGraphStore store, string key)
     {
@@ -549,8 +551,8 @@ public static class MemoryGraphStoreContract
         Assert.Equal(1, node.Signals.Get(MemorySignals.WellKnown.Salience, fallback: 1));
     }
 
-    /// <summary>THE fact that pins salience's new job: it is now decay resistance AND admission priority
-    /// (2026-08-09 reversal — see the Task 5 brief's amendment). A salient ASSOCIATIVE entry — no grade
+    /// <summary>THE fact that pins salience's second job: it is decay resistance AND admission priority. A
+    /// salient ASSOCIATIVE entry — no grade
     /// carve-out to lean on — nobody has touched in a long while must still survive the candidate LIMIT
     /// against a wall of fresher, unjudged material, exactly the way an authoritative fact survives it by
     /// grade in <see cref="Seeding_admits_a_long_quiet_exact_fact_over_fresher_material"/>.
@@ -634,8 +636,8 @@ public static class MemoryGraphStoreContract
         Assert.Equal("a half-judged note", hits[0].Content);
     }
 
-    /// <summary>The other half of the store-side reinforcement guarantee InMemoryMemoryGraphStore has had
-    /// since Task 4 (see its UpsertAsync comment): a salience policy that DECLINES to judge a re-remembered write
+    /// <summary>The other half of the store-side reinforcement guarantee (see the in-process store's
+    /// UpsertAsync): a salience policy that DECLINES to judge a re-remembered write
     /// — too few comparables, a novelty probe that found only the entry's own prior vector, a caught failure
     /// — reports <see cref="MemorySignals.Empty"/>, and that must never be read as "this entry is no longer
     /// salient". A blanket overwrite would let the very write that is supposed to REINFORCE an entry instead
@@ -673,7 +675,7 @@ public static class MemoryGraphStoreContract
         Assert.Equal(2, node.Signals.Get(MemorySignals.WellKnown.Salience), 9);
     }
 
-    /// <summary>Both provenance columns round-trip (design doc §5.7, Task 4) — read and written only
+    /// <summary>Both provenance columns round-trip (design doc §5.7) — read and written only
     /// through <see cref="GraphNode.ProvenanceRetrievability"/>/<see cref="GraphNode.ProvenanceSalience"/>
     /// and <see cref="GraphNodeWrite.ProvenanceRetrievability"/>/<see cref="GraphNodeWrite.ProvenanceSalience"/>,
     /// exactly like <see cref="Signals_round_trip_through_the_store"/> pins for the signals bag
@@ -776,8 +778,8 @@ public static class MemoryGraphStoreContract
         Assert.Equal(0x2, node!.ProvenanceRetrievability);
     }
 
-    // ---- difficulty (2026-08-10, fsrs-properly plan Task 2): a SECOND writer besides the salience policy now
-    // exists (the retrievability policy, via TouchAsync), which is what makes this different from salience
+    // ---- difficulty: a SECOND writer besides the salience policy exists (the retrievability policy, via
+    // TouchAsync), which is what makes this different from salience
     // — see MemoryDecayState.Difficulty's own remarks for the full precedence rule between the two. ----
 
     /// <summary>Seeded from the incoming signal at first write, coerced the one documented way
@@ -794,7 +796,7 @@ public static class MemoryGraphStoreContract
     }
 
     /// <summary>An entry written before this field existed — or before it was ever judged — reads back at
-    /// the neutral value (the mid-point <c>5</c>, corrected 2026-08-11 from the floor <c>1</c> — see
+    /// the neutral value (the mid-point <c>5</c>, not the floor <c>1</c> — see
     /// <see cref="Lyntai.Memory.Forgetting.DsrOptions.NeutralDifficulty"/>'s own remarks), never null, never
     /// a throw, mirroring <see cref="A_node_with_no_signals_reads_back_empty"/> for the bag itself.</summary>
     public static async Task A_node_with_no_difficulty_signal_reads_back_neutral(IMemoryGraphStore store, string key)
@@ -914,13 +916,12 @@ public static class MemoryGraphStoreContract
 
         var hits = await store.SeedAsync("e", key, "s", null, 10);
 
-        // High/low are EXPLICIT out-of-range judgements — clamped to the scale's own bounds, unchanged by
-        // the 2026-08-11 neutral correction (that correction only touches what "no information at all"
-        // means, never the clamp bounds themselves).
+        // High/low are EXPLICIT out-of-range judgements — clamped to the scale's own bounds; the neutral value
+        // only answers "no information at all", never the clamp bounds.
         Assert.Equal(10, hits.Single(h => h.Content == "an absurdly hard note").Difficulty, 9);
         Assert.Equal(1, hits.Single(h => h.Content == "a negative-difficulty note").Difficulty, 9);
         // Non-finite is NOT an explicit judgement — it means no real information was supplied, so it reads
-        // as the NEUTRAL value (5, corrected 2026-08-11 from the floor 1), not the floor.
+        // as the NEUTRAL value (5), not the floor (1).
         Assert.Equal(5, hits.Single(h => h.Content == "a non-finite judgement").Difficulty, 9);
     }
 
@@ -968,7 +969,7 @@ public static class MemoryGraphStoreContract
     }
 
     /// <summary>The real-time primitive (design doc §5.7): <see cref="GraphNode.ElapsedAge"/> is a REAL,
-    /// controllable quantity — not merely "0 unless untouched" (fix round 1, C2). Requires the store to be
+    /// controllable quantity — not merely "0 unless untouched". Requires the store to be
     /// built over a controllable clock (see <paramref name="advance"/>), matching
     /// <c>MemoryStoreContract</c>'s own TTL facts.
     /// <para><b>Mutation target.</b> A store that returns a constant (or mishandles a timestamp's offset on
@@ -999,7 +1000,7 @@ public static class MemoryGraphStoreContract
     /// <c>ElapsedAgePolicy</c> is shipped. Under it, a constant zero means every edge reads as freshly
     /// strengthened forever: <c>GraphMemoryOptions.EdgeHalfLife</c> decays nothing and a connection boost
     /// never fades. That is <c>CLAUDE.md</c>'s own headline claim — "all THREE age axes now speak one unit"
-    /// — resting on two axes nothing could observe. Found 2026-08-14.</para></summary>
+    /// — resting on two axes nothing could observe.</para></summary>
     public static async Task Strength_elapsed_age_advances_by_real_time_between_strengthenings(
         IMemoryGraphStore store, string key, Action<TimeSpan> advance)
     {
@@ -1026,7 +1027,7 @@ public static class MemoryGraphStoreContract
         IMemoryGraphStore store, string key)
     {
         await store.UpsertAsync(Write("quiet", key, "a fact nobody disturbs"));
-        await Crowd(store, "busy", key, 200);
+        await Crowd(store, "busy", key, 3);
 
         var hits = await store.SeedAsync("quiet", key, "s", null, 10);
 
@@ -1328,9 +1329,9 @@ public static class MemoryGraphStoreContract
         Assert.True(neighbour.EdgeElapsedAge >= 0);                   // wall-clock, so only its sign is fixed
     }
 
-    /// <summary>An unconnected node has nothing to measure connection freshness FROM, so every strength scale
-    /// reads zero — including the three primitives, whose SQL <c>MAX</c> over no rows is NULL and must not
-    /// surface as one.</summary>
+    /// <summary>An unconnected node has no strength and nothing to measure connection freshness FROM, so
+    /// every strength scale reads zero — including the three primitives, whose SQL <c>MAX</c> over no rows is
+    /// NULL and must not surface as one.</summary>
     public static async Task An_unconnected_node_reports_no_connection_freshness(
         IMemoryGraphStore store, string key)
     {
@@ -1340,20 +1341,11 @@ public static class MemoryGraphStoreContract
         var node = await store.GetAsync("e", id);
         Assert.NotNull(node);
 
-        Assert.Equal(0, node!.StrengthAge, precision: 6);
+        Assert.Equal(0, node!.Strength);
+        Assert.Equal(0, node.StrengthAge, precision: 6);
         Assert.Equal(0, node.StrengthOrdinalAge, precision: 6);
         Assert.Equal(0, node.StrengthVolumeAge, precision: 6);
         Assert.Equal(0, node.StrengthElapsedAge, precision: 6);
-    }
-
-    public static async Task An_unconnected_node_reports_no_strength(IMemoryGraphStore store, string key)
-    {
-        var id = await store.UpsertAsync(Write("e", key, "alone"));
-
-        var node = await store.GetAsync("e", id);
-
-        Assert.Equal(0, node!.Strength);
-        Assert.Equal(0, node.StrengthAge);
     }
 
     public static async Task Prune_removes_only_what_it_is_told_to(IMemoryGraphStore store, string key)
@@ -1393,8 +1385,8 @@ public static class MemoryGraphStoreContract
     }
 
     /// <summary>The precise counterpart to <see cref="Prune_removes_only_what_it_is_told_to"/> — a caller
-    /// (2026-08-10 memory-policy-seams plan, Task 3 fix round 1, I-1: <c>GraphMemoryEngine.PruneAsync</c>,
-    /// once ANY Derivable age policy is registered) that has already decided WHICH ids to remove, rather than
+    /// (<c>GraphMemoryEngine.PruneAsync</c>, once ANY Derivable age policy is registered) that has already
+    /// decided WHICH ids to remove, rather than
     /// asking the store to decide by ratio.</summary>
     public static async Task DeleteAsync_removes_exactly_the_given_ids(IMemoryGraphStore store, string key)
     {
@@ -1453,18 +1445,21 @@ public static class MemoryGraphStoreContract
         Assert.Empty(await store.SeedAsync("e", key, "s", null, 10));
     }
 
-    public static async Task Deleting_a_node_takes_its_edges_with_it(IMemoryGraphStore store, string key)
+    /// <summary>Forgetting a scope takes every edge touching it, observed from a SURVIVING node in another
+    /// scope. Re-inserting the forgotten content and reading the new row's degree cannot see a dangling edge:
+    /// no backend ever reuses an id, so the stale edge points at an id nothing has any more.</summary>
+    public static async Task Forgetting_a_scope_takes_its_edges_with_it(IMemoryGraphStore store, string key)
     {
-        var a = await store.UpsertAsync(Write("e", key, "alpha"));
-        var b = await store.UpsertAsync(Write("e", key, "beta"));
-        await store.LinkAsync("e", a, b, null, 1, symmetric: true);
+        var gone = await store.UpsertAsync(Write("e", key, "alpha"));
+        var keep = await store.UpsertAsync(new GraphNodeWrite("e", key, "keep", "beta", "beta",
+            MemoryGrade.Associative, Stability, 1, null));
+        await store.LinkAsync("e", gone, keep, null, 1, symmetric: true);
+        Assert.Equal(1, (await store.GetAsync("e", keep))!.Degree);   // the edge is really there first
 
         await store.ForgetAsync("e", key, "s");
-        await store.UpsertAsync(Write("e", key, "alpha")); // same content, new row
 
-        var reborn = await store.SeedAsync("e", key, "s", "alpha", 10);
-        Assert.Single(reborn);
-        Assert.Equal(0, reborn[0].Degree); // no dangling edge survived
+        Assert.Equal(0, (await store.GetAsync("e", keep))!.Degree);
+        Assert.Empty(await store.NeighboursAsync("e", key, [keep], 10));
     }
 
     public static async Task Cancellation_propagates(IMemoryGraphStore store, string key)
@@ -1476,7 +1471,7 @@ public static class MemoryGraphStoreContract
             store.SeedAsync("e", key, "s", null, 10, cts.Token));
     }
 
-    // ---- the review log (2026-08-11, fsrs-properly plan Task 3): one row per reinforcement, carrying the
+    // ---- the review log: one row per reinforcement, carrying the
     // pre-review state, the derived grade, and the post-review state. Scoped by ENGINE alone, not by
     // task/scope like every fact above, so `key` is used as the engine name itself here — that is what keeps
     // these facts isolated from each other and from the review-free facts above when several run against
@@ -1564,7 +1559,7 @@ public static class MemoryGraphStoreContract
         Assert.Empty(await store.ReviewsAsync(key));
     }
 
-    /// <summary>Bounded by default (design spec §3): the cap ACTUALLY evicts, not merely exists as a number
+    /// <summary>Bounded by default: the cap ACTUALLY evicts, not merely exists as a number
     /// nobody enforces. <c>cap = 3</c> makes <see cref="Lyntai.Memory.MemoryReviewLogPacing.TrimInterval"/>
     /// its own floor of 1, so every single-row write in this fact crosses a trim boundary and the table can
     /// never exceed the cap even transiently — which is what turns this into an EXACT assertion (the newest
@@ -1618,6 +1613,11 @@ public static class MemoryGraphStoreContract
             olderThan: null);
 
         Assert.Equal(0, removed);
+
+        // the positive control: the same entry IS prunable under a cutoff below its floored ratio (the filler
+        // is age 0, so it is not), so the zero above is the floor at work rather than a prune that does nothing
+        Assert.Equal(1, await store.PruneAsync(engine, key, scope: null, maxAgeOverStability: 5e5,
+            olderThan: null));
     }
 
     /// <summary><b>An UNSTATED grade keeps the stored one; a stated grade overwrites it.</b>
@@ -1679,6 +1679,27 @@ public static class MemoryGraphStoreContract
         Assert.Equal("prod DB (subnet only)", (await store.GetAsync(engine, id))!.Headline);
     }
 
+    /// <summary><b>A restated headline stops matching the words only the OLD headline carried.</b> The
+    /// search index must follow an UPDATE, not only an insert or a delete: the row keeps its id, so an index
+    /// entry left behind for the old headline still joins to a live row and keeps matching forever. On SQLite
+    /// this is what the <c>AFTER UPDATE</c> FTS trigger exists for.</summary>
+    public static async Task A_restated_headline_stops_matching_words_only_the_old_one_carried(
+        IMemoryGraphStore store, string key)
+    {
+        const string engine = "reheadline";
+        const string content = "the release train leaves every other thursday";
+
+        await store.UpsertAsync(new GraphNodeWrite(engine, key, "s", "zebra crossing", content,
+            MemoryGrade.Associative, Stability, 1, null));
+        Assert.Single(await store.SeedAsync(engine, key, "s", "zebra", 10));   // the old headline matched
+
+        await store.UpsertAsync(new GraphNodeWrite(engine, key, "s", "giraffe schedule", content,
+            MemoryGrade.Associative, Stability, 1, null));
+
+        Assert.Empty(await store.SeedAsync(engine, key, "s", "zebra", 10));
+        Assert.Single(await store.SeedAsync(engine, key, "s", "giraffe", 10));
+    }
+
     /// <summary><b>No read crosses a <c>taskKey</c>.</b> The isolation every other guarantee is stated
     /// inside — "an authoritative fact is returned for a query it is relevant to" means nothing if the query
     /// can reach another tenant's scope.
@@ -1731,10 +1752,8 @@ public static class MemoryGraphStoreContract
     }
 
     /// <summary><b><see cref="GraphNodeWrite.Metadata"/> round-trips, through BOTH readers.</b>
-    /// <para>Untested until 2026-08-26: the contract passed <c>Metadata: null</c> at every one of its call
-    /// sites, so "app-owned extra data" was persisted by three backends and asserted by none. It is the one
-    /// open-ended field a caller can put anything in, which makes it the natural carrier for a prototype —
-    /// and a prototype resting on an untested round-trip is resting on nothing.</para>
+    /// <para>It is the one open-ended field a caller can put anything in, which makes it the natural carrier
+    /// for a prototype — and a prototype resting on an untested round-trip is resting on nothing.</para>
     /// <para>Both readers, because they are different queries: <see cref="IMemoryGraphStore.GetAsync"/>
     /// selects one row and <see cref="IMemoryGraphStore.SeedAsync"/> projects a candidate set, and a column
     /// missing from one projection is exactly the silent null <c>storage.md</c> warns about.</para></summary>

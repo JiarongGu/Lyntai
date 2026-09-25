@@ -13,18 +13,6 @@ namespace Lyntai.Tests.Memory;
 /// read back into the decay state, and consumed by the retention policy.</summary>
 public class GraphMemorySalienceTests
 {
-    /// <summary>Reports a fixed salience so the test pins PLUMBING rather than the default salience policy's
-    /// curve, which <see cref="SalienceTests"/> already covers.</summary>
-    private sealed class FixedSaliencePolicy(double salience) : IMemorySaliencePolicy
-    {
-        // a fake's own bit, from the consumer range (32-62) — never None: fix round 2's provenance
-        // validation rejects a policy declaring None, since every REAL, running policy has an identity.
-        public MemorySalienceProvenance Provenance => (MemorySalienceProvenance)(1L << 32);
-
-        public MemorySignals Signals(MemoryWrite write, in SalienceContext context) =>
-            MemorySignals.Empty.With(MemorySignals.WellKnown.Salience, salience);
-    }
-
     /// <summary>Always declines to judge — the salience policy a re-remember sees when the shared search finds
     /// nothing to compare against but this write's own prior self.</summary>
     private sealed class EmptySaliencePolicy : IMemorySaliencePolicy
@@ -40,13 +28,6 @@ public class GraphMemorySalienceTests
 
         public MemorySignals Signals(MemoryWrite write, in SalienceContext context) =>
             throw new InvalidOperationException("the salience policy is broken");
-    }
-
-    private sealed class ThrowingVectorProvider : FakeVectorProviderBase
-    {
-        public override Task<IReadOnlyList<float[]>> EmbedAsync(IReadOnlyList<string> texts,
-            CancellationToken ct = default) =>
-            throw new InvalidOperationException("embedding endpoint is down");
     }
 
     private static GraphMemoryEngine Engine(IMemoryGraphStore store, IMemorySaliencePolicy? saliencePolicy) =>

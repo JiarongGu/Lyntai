@@ -1,5 +1,6 @@
 using Lyntai.Memory;
 using Lyntai.Memory.Engines;
+using Lyntai.Memory.Forgetting;
 using Lyntai.Memory.Interference;
 using Lyntai.Storage.InMemory;
 using Xunit;
@@ -10,21 +11,21 @@ namespace Lyntai.Tests.Memory;
 /// <b>What a RE-REMEMBER of unchanged content does to everything the caller did not restate.</b>
 ///
 /// <para>An entry's identity is (engine, task, scope, content), so writing the same text twice refreshes one
-/// row rather than making two. That single write path applies <b>four different update rules</b> to the
-/// fields around the content, and until 2026-08-26 exactly one of them was asserted anywhere:</para>
+/// row rather than making two. That single write path applies <b>several different update rules</b> to the
+/// fields around the content:</para>
 ///
 /// <list type="bullet">
-/// <item><c>Headline</c> and <c>Grade</c> are OVERWRITTEN from the incoming write.</item>
-/// <item><c>Signals</c> (and salience, and its provenance) keep what is stored when the incoming bag is
-/// EMPTY — "no opinion", because a salience policy may decline for reasons of its own.</item>
+/// <item><c>Grade</c> and <c>Headline</c> are overwritten only when the write STATES one
+/// (<c>GradeStated</c>, <c>HeadlineStated</c>); an unstated one keeps what is stored.</item>
+/// <item><c>Metadata</c>, <c>Signals</c> (and salience, and its provenance) keep what is stored when the
+/// incoming bag is EMPTY — "no opinion" — and a supplied one replaces it (D91).</item>
 /// <item><c>Difficulty</c> is narrower still: overwritten only when the incoming bag NAMES a difficulty.</item>
-/// <item><c>Stability</c>, <c>provenance_retrievability</c>, <c>CreatedAt</c> and <c>Metadata</c> are never
-/// revisited.</item>
+/// <item>The AGE resets: a re-remember is a new encoding, so the age primitives restamp to now.</item>
+/// <item><c>Stability</c>, <c>provenance_retrievability</c> and <c>CreatedAt</c> are never revisited.</item>
 /// </list>
 ///
-/// <para>Four rules on one write, each defensible on its own and none discoverable without reading the SQL.
-/// These facts make the whole set legible, so a change to any of them is a decision rather than an
-/// accident.</para>
+/// <para>Each rule is defensible on its own and none is discoverable without reading the store. These facts
+/// make the whole set legible, so a change to any of them is a decision rather than an accident.</para>
 /// </summary>
 public class MemoryReRememberTests
 {
@@ -180,27 +181,43 @@ public class MemoryReRememberTests
     }
 
     [Fact]
-    public async Task A_re_remember_never_revisits_the_entry_s_age_or_its_creation_time()
+    public async Task A_re_remember_resets_the_age_but_never_revisits_stability_or_creation_time()
     {
-        // The deliberate immutables, and the reason they are deliberate: stability is what the retention
-        // policy has LEARNED about this entry, and a re-remember is not a review. Resetting it would let a
-        // caller launder a decayed entry back to fresh by writing the same text again -- which is the
-        // "permanent change driven by the system's own decisions" that design section 5.7.0 forbids, reached
-        // from the write side instead of the recall side.
-        var (engine, store) = Build();
+        // A re-remember is a new ENCODING, so the age resets — the primitives restamp to now. It is not a
+        // REVIEW, so stability — what the curve has LEARNED about this entry — is left exactly as it was:
+        // neither regrown nor reset to a fresh entry's value.
+        //
+        // The stability is grown FIRST (growth on, then one aged recall), so an equality below could fail:
+        // an entry that was never reinforced sits at InitialStability whether or not a refresh resets it.
+        var store = new InMemoryMemoryGraphStore();
+        var engine = new GraphMemoryEngine(Engine, store, seams: new GraphMemorySeams
+            {
+                Retrievability = new DsrRetrievability(new DsrOptions { ReinforceGain = 2.0 }),
+                AgePolicies = [new PerWriteAgePolicy()],
+            });
 
         await engine.RememberAsync(new MemoryWrite("t", "s", Fact));
-        var before = await OnlyNodeAsync(store);
-
         // filler goes in ANOTHER scope: the position is per-engine, so it ages this entry either way, and
         // keeping the subject scope to one row is what lets the assertions below name that row
-        for (var i = 0; i < 30; i++)
-            await engine.RememberAsync(new MemoryWrite("t", "filler", $"unrelated filler {i}"));
+        await CrowdAsync(engine, 30);
+        Assert.NotEmpty((await engine.RecallAsync(new MemoryQuery("t", "s", "production database"))).Items);
+        await CrowdAsync(engine, 30);
+
+        var before = await OnlyNodeAsync(store);
+        Assert.True(before.Stability > new DsrOptions().InitialStability, "the recall must have grown it");
+        Assert.True(before.OrdinalAge > 0, "the entry must have aged, or the reset below proves nothing");
 
         await engine.RememberAsync(new MemoryWrite("t", "s", Fact));
         var after = await OnlyNodeAsync(store);
 
-        Assert.Equal(before.Stability, after.Stability);
+        Assert.Equal(0, after.OrdinalAge, precision: 9);          // a new encoding
+        Assert.Equal(before.Stability, after.Stability);          // not a review
         Assert.Equal(before.CreatedAt, after.CreatedAt);
+
+        static async Task CrowdAsync(GraphMemoryEngine engine, int writes)
+        {
+            for (var i = 0; i < writes; i++)
+                await engine.RememberAsync(new MemoryWrite("t", "filler", $"unrelated filler {Guid.NewGuid():N}"));
+        }
     }
 }

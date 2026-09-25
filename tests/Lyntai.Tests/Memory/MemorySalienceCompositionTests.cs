@@ -8,26 +8,12 @@ namespace Lyntai.Tests.Memory;
 
 /// <summary>
 /// <see cref="IMemorySalienceCompositionPolicy"/> — the seam that combines several coexisting
-/// <see cref="IMemorySaliencePolicy"/>s' own bags into ONE (2026-08-10 memory-policy-seams plan, Task 3,
-/// Steps 1-3). <see cref="MaximalSalienceCompositionPolicy"/> is pinned in isolation, and a mutation-check proves
+/// <see cref="IMemorySaliencePolicy"/>s' own bags into ONE. <see cref="MaximalSalienceCompositionPolicy"/> is pinned in isolation, and a mutation-check proves
 /// the seam is genuinely load-bearing by swapping it for a different combination rule and showing the stored
 /// signal changes end to end, through a real <see cref="GraphMemoryEngine"/>.
 /// </summary>
 public class MemorySalienceCompositionTests
 {
-    private sealed class FixedSaliencePolicy(double salience) : IMemorySaliencePolicy
-    {
-        // a fake's own bit, from the consumer range (32-62) — never None: fix round 2's provenance
-        // validation rejects a policy declaring None, since every REAL, running policy has an identity.
-        // Two INSTANCES of this same type coexist below (Build's own saliencePolicies list) sharing this one
-        // bit deliberately — that is not a collision (see MemoryProvenance.ValidateProvenanceBits's
-        // own remarks): "did FixedSaliencePolicy run" is unambiguous regardless of how many instances did.
-        public MemorySalienceProvenance Provenance => (MemorySalienceProvenance)(1L << 32);
-
-        public MemorySignals Signals(MemoryWrite write, in SalienceContext context) =>
-            MemorySignals.Empty.With(MemorySignals.WellKnown.Salience, salience);
-    }
-
     [Fact]
     public void MaximalSalienceComposition_takes_the_largest_value_per_name_and_the_singleton_case_is_identity()
     {
