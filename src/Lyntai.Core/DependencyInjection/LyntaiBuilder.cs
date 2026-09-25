@@ -192,12 +192,7 @@ public sealed class LyntaiBuilder
     /// <summary>Register an <see cref="IConversationEnricher"/> into the enricher collection —
     /// the app's "add additional info" seam. Lyntai owns the conversation store; each registered enricher is
     /// invoked after a thread/message write to persist the app's own info (in its own store), without
-    /// replacing the store. Add a class + one registration, never a fork.
-    /// <para>Registering any enricher rewrites the <see cref="IConversationStore"/> descriptor to the
-    /// <see cref="EnrichingConversationStore"/> wrapper, which forwards the store methods and NOT disposal —
-    /// so a BYO store implementing <see cref="IDisposable"/>/<see cref="IAsyncDisposable"/> stops being
-    /// disposed by the container. Own its lifetime yourself. (None of the shipped stores is
-    /// disposable.)</para></summary>
+    /// replacing the store. Add a class + one registration, never a fork.</summary>
     public LyntaiBuilder AddConversationEnricher<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] T>()
         where T : class, IConversationEnricher
     {

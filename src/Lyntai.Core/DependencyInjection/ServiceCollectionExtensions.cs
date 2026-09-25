@@ -336,14 +336,13 @@ public static class LyntaiServiceCollectionExtensions
 
         services.Remove(backend);
         // PRESERVE the original lifetime — a BYO store registered scoped/transient must not be silently
-        // promoted to singleton (one cached instance + potential captive dependencies)
-        services.Add(ServiceDescriptor.Describe(typeof(IConversationStore), sp =>
-        {
-            var inner = (IConversationStore)(backend.ImplementationInstance
-                ?? backend.ImplementationFactory?.Invoke(sp)
-                ?? ActivatorUtilities.GetServiceOrCreateInstance(sp, backend.ImplementationType!));
-            return new EnrichingConversationStore(inner, sp.GetServices<IConversationEnricher>());
-        }, backend.Lifetime));
+        // promoted to singleton (one cached instance + potential captive dependencies). The inner store gets
+        // a descriptor of its own so the container still disposes what it built.
+        services.Add(ServiceDescriptor.Describe(typeof(OwnedConversationStore),
+            sp => OwnedConversationStore.For(sp, backend), backend.Lifetime));
+        services.Add(ServiceDescriptor.Describe(typeof(IConversationStore), sp => new EnrichingConversationStore(
+            sp.GetRequiredService<OwnedConversationStore>().Store, sp.GetServices<IConversationEnricher>()),
+            backend.Lifetime));
     }
 
     /// <summary>Whether anything in the container will be able to embed, decided WITHOUT building a
