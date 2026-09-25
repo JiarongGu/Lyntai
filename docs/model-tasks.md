@@ -38,11 +38,10 @@ is fail-closed where every other seam here is fail-open, and it *"spends a secon
 charge and never returns a cached hit"*. A pair comparison with position-bias mitigation on is therefore
 worst-case **four** model calls for one logical decision.
 
-**And it is the one row where reading this table produced a code change (2026-09-15).** Being the shape with
-no judgement in it at all, *repair* is the shape code should own — so the read now tolerates a trailing
-comma and a stray comment and re-serializes, and those replies cost no call. What still reaches the model is
-a TRUNCATED object, which is missing content rather than punctuation. **The negative space in §4 is not
-fixed** — a shape can move into it, and this is the exercise that moves one. *Delegate a run* hands a whole task to a model
+**Being the shape with no judgement in it at all, *repair* is the shape code should own** — so the read
+tolerates a trailing comma and a stray comment and re-serializes, and those replies cost no call. What still
+reaches the model is a TRUNCATED object, which is missing content rather than punctuation. **The negative
+space in §4 is not fixed** — a shape can move into it. *Delegate a run* hands a whole task to a model
 running its own loop out of process, so **the budget, rate-limit and cache advice in this document does not
 reach it**, and the size question is a choice of CLI rather than of a weight file.
 
@@ -69,17 +68,15 @@ model, and it splits:
   **90-95%** of trials, fabricating arguments to force the fit; a 0.5B on the same protocol reads
   **90-100%**. **Two prompt rewrites in opposite directions moved it by nothing** — so unlike the two cases
   above, no instruction helps, and §1 marks this the one shape the library leaves *unbounded*.
-  <br>**But the TRANSPORT bounds it, which this bullet denied until 2026-09-13.** It read *"cannot be
-  bounded by the model AT ALL"* and named narrowing the roster as the only lever. Measured on the one model
-  here that can take both paths, native function-calling invokes a tool on **20-30%** of those same
+  <br>**But the TRANSPORT bounds it.** Measured on the one model here that can take both paths, native function-calling invokes a tool on **20-30%** of those same
   requests against the prompt protocol's 90-100% — and it is discrimination rather than blanket restraint,
   firing on 70-78% of requests a tool DOES serve against 20-30% where none does, about **50 points of
   separation** where the prompt protocol has none. It costs **2.4-9.6 points** of accuracy where a tool
   does fit. §3.1 has the figures; a 1B on the prompt protocol fails the exact mirror way.
 
 **A budget that RAISES the output is the tell**, and it is only visible if you count how often the seam
-fired. The trap and its full reasoning are `.claude/knowledge/pitfalls.md` §A model given an UNBOUNDED task;
-the measurement that owns those figures is `docs/memory-measurements.md` §5.
+fired. The trap is `.claude/knowledge/pitfalls.md` §A model given an UNBOUNDED task; the measurement that
+owns these figures is `docs/memory-measurements.md` §5.
 
 ### For a selective task, LIST LENGTH is the governing variable
 
@@ -179,95 +176,62 @@ an input that fits is answered exactly as without segmenting.
 > that DID work small is `score-a-pair`. `affordance` has no evidence at any size; do not read the above as
 > covering it.
 >
-> **This paragraph used to end "the evidence points at a SCORER over a bounded candidate list, never a <!-- drift-ok: quotes the rule the 3-7 measurement retired -->
-> generator asked to choose", and the 3-7 region has since been MEASURED and it is not that simple**
-> (2026-09-12, `docs/memory-measurements.md` §5, `decision-shape-single-evidence`). Among the GENERATIVE
+> **Scorer or generator is not a fixed answer: the 3-7 region is MEASURED** (2026-09-12,
+> `docs/memory-measurements.md` §5, `decision-shape-single-evidence`). Among the GENERATIVE
 > arms **the winning shape inverts with model size**: at 2,489,757,856 B a generator asked to choose beats
 > N scorings at every list length from 3 to 7 (`p<0.0001`); at 806,058,240 B it loses at every one, because
 > it stops choosing and emits a constant. **Pick the shape from the size, never in advance.**
 >
-> **`affordance` is no longer blank, and its result is the sharpest warning in this document — §3.1.**
+> **`affordance`'s result is the sharpest warning in this document — §3.1.**
 > A 4B routes a 3-7 tool roster well (86.3% at N = 7 against an embedder's 81.0%), and on the same roster it
 > invokes a tool for **90-95% of requests nothing on it serves**. The selective half works; the DECLINE does
 > not, and two prompt rewrites in opposite directions moved it by nothing.
 >
-> **What survives intact is the recommendation, and it got stronger.** The best arm measured is a
+> **The scorer recommendation holds.** The best arm measured is a
 > **468,393,760-byte cross-encoder** doing the scorer shape in one round trip — it matches the 5.3x larger
 > instruct model at three options (72.0% against 71.5%), pulls AHEAD as the list grows (67.4% against
 > 63.6% at seven), and is the only arm flat in N.
 
-**FOUR quality measurements of a sub-500 MB model now exist, and the fourth is the first SUB-100 MB one in
-any role** (2026-09-15, `locomo-onnx-sub100mb-n200`): a **23,200,716-byte** cross-encoder running in
-process captures **+3.0** of the 9.5 evidence-hit points a perfect judge offers, where a 468,393,760-byte
-one captures **+9.0**. It works and it is a third as good — and its fp32 sibling at 91,011,230 B scores
-**identically in every cell**, so within this family the extra bytes are not a lever. The other three, and
-the first is still the narrowest. `docs/memory-measurements.md` §5 owns all of them: the RERANKER
-(`locomo-lamar600m-q8-n200`, n = 200, `ships=no`) — a **468,393,760-byte** cross-encoder captures **6.0 of
-the 7.0 points** a perfect judge offers on that workload, at 74% of the incumbent's bytes, and a model 28
-months newer at the same architecture and size scores identically; the EMBEDDER (§3.3, `ships=no`) — a
-**25,008,064-byte** bi-encoder routes tools within 2.4 points of a 13× larger one at a three-option roster;
-and TOOL CHOOSING (§3.1, `ships=no`) — a **491,400,032-byte** instruct model picks the right tool on
-**60.7%** of trials at three options, six times what a larger 1B managed. **State the byte count whenever
-a size decides anything** — the same file is 606 MiB and 636 MB depending on the unit, and a 500 threshold
-falls between them.
+**Four sub-500 MB models have a quality figure** — `docs/memory-measurements.md` §5 owns every number, and
+all four are `ships=no`. The RERANKER (`locomo-lamar600m-q8-n200`, n = 200): a **468,393,760-byte**
+cross-encoder captures **6.0 of the 7.0 points** a perfect judge offers, at 74% of the incumbent's bytes,
+and a model 28 months newer at the same architecture and size scores identically. The EMBEDDER (§3.3): a
+**25,008,064-byte** bi-encoder routes tools within 2.4 points of a 13× larger one at a three-option roster.
+TOOL CHOOSING (§3.1): a **491,400,032-byte** instruct model picks the right tool on **60.7%** of trials at
+three options, six times what a larger 1B managed. The fourth is a sub-100 MB reranker, below. **State
+the byte count whenever a size decides anything** — the same file is 606 MiB and 636 MB depending on the
+unit, and a 500 threshold falls between them.
 
-**Below that, nothing works today — and the blocker is UPSTREAM, not the model shelf** (2026-09-12,
-`rerank-screen-reference-pair`). This paragraph briefly claimed a working reranker at 33,257,824 B, *"14.1×
-below"* the figure above; that was retracted the same day when the candidates were re-screened on a pair
-with a published reference score. `ms-marco-MiniLM-L6-v2` ranks that pair **backwards**, and
-`jina-reranker-v1-tiny-en` orders it correctly with **137.8× too little separation**.
+**A sub-100 MB reranker WORKS through a runtime that does not convert, and is a THIRD as good**
+(`locomo-onnx-sub100mb-n200`): a **23,200,716-byte** int8 ONNX export of `ms-marco-MiniLM-L6-v2`, running
+in process, captures **+3.0** of the 9.5 evidence-hit points a perfect judge offers, against 468,393,760 B's
+**+9.0** on the same tree and embedder. Its fp32 sibling at 91,011,230 B is **identical in every cell**, so
+the extra bytes are not the lever; the 512-token window **never bit** (0 of 16,000 pairs truncated); and
+the comparison stacks size against architecture against runtime, which it does not separate. Through ONNX
+Runtime the model reproduces its own card to four decimal places (`rerank-screen-onnx-runtime`), and it is
+reachable from configuration: `AddOnnxProvider` with `Produces = ProviderKinds.Score` declares the kind
+`AddMemoryScoringVerification` selects on (**D139**).
 
-**Read `tokenizer.ggml.token_type_count` before anything else.** llama.cpp PR #21729 — token_type_ids
-hardcoded to zero, pooling layers dropped in conversion — is **open and unmerged**, so a BERT cross-encoder
-loses its pooler in the file and its segment signal at runtime, and a cross-encoder needs segments to tell
-the query from the document. `2` means the model wants a signal it will not get; `1` means RoBERTa/XLM-R,
-which never had segment embeddings and is immune. **Every model that works here reads 1.**
+**Through llama.cpp the same model ranks BACKWARDS, and the blocker is UPSTREAM rather than the model
+shelf** (`rerank-screen-reference-pair`): on a pair with a published reference score,
+`jina-reranker-v1-tiny-en` orders it correctly with **137.8× too little separation**. llama.cpp PR #21729 —
+`token_type_ids` hardcoded to zero, pooling layers dropped in conversion — is **open and unmerged**, and a
+cross-encoder needs segments to tell the query from the document. **Read `tokenizer.ggml.token_type_count`
+before anything else:** `2` means the model wants a signal it will not get; `1` means RoBERTa/XLM-R, which
+never had segment embeddings and is immune. **Every model that works here reads 1.**
 
-That collapses the sizing question into one sentence: **a correct reranker must currently be
-RoBERTa-family, and that family's 250,002-token vocabulary puts it above 100 MB** — the best multilingual
-candidate bottoms out at **124,925,504 B**, only 6.1% below its own Q8_0, because the vocabulary is 81.6%
-of the parameters and quantisation is not a lever on an embedding table. So 468,393,760 B was recorded as
-the measured floor, with sub-100 MB blocked by an unmerged patch rather than by availability. **The
-multilingual floor has since moved to 132,584,000 B** — `mmarco-mMiniLMv2` Q8_0, screened correct by an
-adopting application on 2026-09-24 (§3.2) — still above 100 MB, exactly as the vocabulary argument predicts.
-
-> **SCOPED 2026-09-14: every sentence above is about llama.cpp, and the floor went with it.** Read through
-> a runtime that does not convert, the same `ms-marco-MiniLM-L6-v2` reproduces its own model card to four
-> decimal places — and its int8 ONNX export is **23,200,716 B**, correctly ordered and still logit-scaled,
-> **20.2× below** that floor (`docs/memory-measurements.md` §5, `rerank-screen-onnx-runtime`). So the
-> constraint was never "a correct sub-100 MB cross-encoder does not exist"; it was "llama.cpp cannot
-> convert one". **What survives untouched** is the multilingual half — the 250,002-token vocabulary is a
-> property of the model, not the runtime, so a Chinese-first deployment is still above 100 MB — and the
-> 512-token ceiling, likewise the model's. **What is NOT established** is any quality figure, and that the
-> library can reach an ONNX model at all: `AddMemoryScoringVerification` (**D115**) takes a
-> `/v1/rerank` endpoint and an ONNX file has no server.
->
-> **BOTH CLOSED 2026-09-15, so the sentence above is fully spent.** Reachability needed no new seam —
-> `AddOnnxProvider` with `Produces = ProviderKinds.Score` loads a cross-encoder in process and declares that kind, which
-> `AddMemoryScoringVerification` already selects on (**D139** replaced D115's endpoint-shaped reading).
-> <br>**And the quality figure now exists** (`locomo-onnx-sub100mb-n200`): **+3.0** evidence-hit at
-> 23,200,716 B against `LAMAR-600m`'s **+9.0** at 468,393,760 B on the same tree and embedder, of 9.5
-> points reachable. **So sub-100 MB WORKS and is a THIRD as good** — the size class is answered rather
-> than merely available. Two things that answer settles and one it does not: the fp32 export is
-> **identical in every cell**, so the extra 67,810,514 B is not the lever; the 512-token window
-> **never bit** (0 of 16,000 pairs truncated), so it is not the cause either; and the comparison stacks
-> size against architecture against runtime, which it does not separate.
-
-**RE-AIMED 2026-09-12, and this paragraph read as more final than it is.** Everything above is about the
-**cross-encoder** role, and #21729's two defects are role-specific: zeroed `token_type_ids` costs a model
-its SEGMENT signal, and a dropped pooler costs it a LEARNED pooling head. A cross-encoder needs both to tell
-a query from a document. **A single-sequence embedder needs neither** — and §3.3 has now TESTED that rather
-than arguing it, with a mechanism sharper than this paragraph first carried: a single sequence IS segment 0,
-so zeroing `token_type_ids` writes the correct value instead of destroying a signal.
-
-**And the floor turned out to belong to the VOCABULARY rather than to the role** (§3.3, finding 5). The
-468,393,760 B above reads here as what a cross-encoder structurally costs; measured one role over, the same
-wall stands in the same place for the same reason — an XLM-R embedding table is 96,000,768 parameters, which
-is **102,000,816 B at Q8_0** and therefore over the target before a single transformer layer. So
-**monolingual is the escape and quantising is not**: a Chinese-capable embedder screens healthy at
+**The multilingual floor belongs to the VOCABULARY, so no runtime and no role escapes it.** RoBERTa/XLM-R's
+250,002-token vocabulary is 81.6% of a small model's parameters, and quantisation is not a lever on an
+embedding table: the best multilingual candidate bottoms out at **124,925,504 B**, only 6.1% below its own
+Q8_0, and the smallest multilingual reranker screened correct is **132,584,000 B** (`mmarco-mMiniLMv2`
+Q8_0, §3.2). The 512-token ceiling is likewise the model's. #21729's defects ARE role-specific — a single
+sequence IS segment 0, so zeroing `token_type_ids` writes the correct value, and an embedder needs no
+learned pooling head — yet the same wall stands one role over (§3.3, finding 5): an XLM-R embedding table
+alone is 96,000,768 parameters, **102,000,816 B at Q8_0**, over the target before a single transformer
+layer. **Monolingual is the escape and quantising is not**: a Chinese-capable embedder screens healthy at
 **47,886,240 B**.
 
-**The STATIC class is now MEASURED, and the answer is that it works and costs ~12 points.** A `model2vec` /
+**The STATIC class is MEASURED: it works and costs ~12 points.** A `model2vec` /
 `potion` model is a token→vector table plus pooling with no transformer at inference, which moves the
 question off llama.cpp entirely — and that is the appeal, since it is the only candidate class where
 "sub-100 MB" and "no server at all" are one sentence. **No GGUF of any such model exists** (the HuggingFace
@@ -285,12 +249,9 @@ measurable. On tool routing (`docs/memory-measurements.md` §5, `affordance-stat
 for no server, no GPU and no port — which is worth very different amounts to a shared host and to a game
 that already owns the device.
 
-**BOTH in-process routes now ship, and the hard part was smaller than this paragraph assumed** — it read
-"a new dependency and new public surface". WordPiece over a `vocab.txt` is ~250 lines, so
-`Lyntai.Text.WordPieceTokenizer` adds one public type and no dependency at all (**D122**), and the
-TRANSFORMER half is `Lyntai.Providers.Onnx` (**D124**), where the runtime genuinely is a native dependency
-and is isolated for exactly that reason. The trade this section describes is therefore now a
-CONFIGURATION choice rather than a gap: ~12 points against ~16 MB of native code and a 512-token limit.
+**Both in-process routes ship** — `AddModel2VecProvider` (**D121**, **D122**) and `AddOnnxProvider`
+(**D124**) — so this trade is a configuration choice; `docs/deployment-shapes.md` §Shape: no server at all
+(in-process) has the 2×2 and what each cell costs in dependencies.
 
 **But the shipped class is ENGLISH, and the limit is the VOCABULARY rather than the tokenizer.** Counted
 2026-09-14 over `potion-base-8M`'s 29,528 rows: **1,900 non-ASCII (6.4%)** — **488 Han**, 188 Kana,
@@ -301,7 +262,7 @@ cannot work at all. **This is the same floor §3 records for the reranker role, 
 route** — a multilingual vocabulary is most of a small model's parameters. A CJK-first deployment needs a
 multilingual export, and the caveat in D122 is that those are usually SentencePiece rather than WordPiece.
 
-**Three things that row does not say, and each one matters more than the number.**
+**Three things the reranker row does not say, and each one matters more than the number.**
 
 1. **It tests the cross-encoder RERANKER role only.** That is *score-a-pair*, a model class trained to emit
    a relevance score. The record is explicitly silent on the JUDGE role — *decide IF each of 80 answered,
@@ -309,51 +270,34 @@ multilingual export, and the caveat in D122 is that those are usually SentencePi
 2. **`ships=no`.** It is a ladder rung, not a configuration recommendation. Reading a rung, a ceiling or an
    oracle as a default is the specific mistake `docs/memory-measurements.md` invites and its status index
    exists to prevent.
-3. **You can now reach it from configuration** — `AddMemoryScoringVerification` fills the verification
-   seam from ANY backend producing `ProviderKinds.Score`: a `/v1/rerank` endpoint through
-   `AddHttpProvider`, or an in-process ONNX cross-encoder through `AddOnnxProvider` with `Produces = ProviderKinds.Score`, which needs no
-   server at all. Until it shipped, the only code that could call one was a bench
-   harness, so this row's measurement described something a consumer could not have. **Set
-   `ScoringVerificationOptions.EndorseCount` to your recall limit**: it is a fixed count so that
-   promotion refines the ranking, and endorsing more than a page replaces it instead — which is exactly how
-   an instruct model lost 10.5 points in the neighbouring row.
+3. **You can reach it from configuration** — `AddMemoryScoringVerification` fills the verification seam
+   from ANY backend producing `ProviderKinds.Score`: a `/v1/rerank` endpoint through `AddHttpProvider`, or
+   an in-process ONNX cross-encoder through `AddOnnxProvider` with `Produces = ProviderKinds.Score`, which
+   needs no server at all. **Set `ScoringVerificationOptions.EndorseCount` to your recall limit**: it is a
+   fixed count so that promotion refines the ranking, and endorsing more than a page replaces it instead —
+   which is exactly how an instruct model lost 10.5 points in the neighbouring row.
 
-**ANNOTATION is no longer a blank cell, and its answer is the sharpest warning here after §3.1**
-(2026-09-15, `annotation-drift-corrected-context`). The seam links two facts when their subjects MATCH, and
-three local models — **491,400,032 B**, **806,058,240 B** and **2,489,757,856 B** — invented a new handle on
-**58.3% to 90.5%** of the facts where the right one was already on offer. **This is the one cell where SIZE
-buys something**: the 2.49 GB model drifts least in both languages (83.3% English, 58.3% Chinese) and the
-two sub-gigabyte ones sit within a few points of each other above it.
-<br>**And it is the cell where nothing ELSE buys anything** — four alternatives to a bigger model were
-priced and all four failed: name similarity and shared fragments move 1 of 6 cells, co-occurrence cannot
-reach a drifted handle at all, recency is a write-order artifact that collapses half the handle space on an
-interleaved stream, and **reshaping the seam to `select-from-list` makes the 2.49 GB model answer ONE handle
-for eight unrelated entities**. That last one matters most here, because it is this document's own
-prescription for a generative task that must reuse — and one seam over it reproduces §3.1's constant-emitter
-exactly: offered a list and a "none of these", both models take the list. Read it beside §3's reranker row,
-where a 468 MB purpose-built model beat a 5.3× larger instruct one: **the shape decides whether size, code
-or re-asking is the lever, and annotation is the cell where only size is.** The practical rule is
-`docs/memory.md`'s: screen the annotator you intend to ship.
-<br>_An earlier reading of this run said the opposite — "size is not the lever", with the best English
-model the worst Chinese one. It was RETRACTED the same day: the harness built the annotator's context
-itself and built a cleaner one than the engine passes, which flattered the small models by up to 24.5
-points and inverted the ranking._
+**ANNOTATION is the sharpest warning here after §3.1** (`docs/memory-measurements.md` §5,
+`annotation-drift-corrected-context`, owns the figures). The seam links two facts when their subjects
+MATCH, and three local models from 491,400,032 B to 2,489,757,856 B invent a new handle on most of the facts
+where the right one was already on offer. **This is the one cell where SIZE buys something** — the largest
+drifts least in both languages — **and the one where nothing ELSE does**: four alternatives to a bigger
+model were priced and all four failed. The one that matters most here is **reshaping the seam to
+`select-from-list`, which makes the 2.49 GB model answer ONE handle for eight unrelated entities** — this
+document's own prescription for a generative task that must reuse, and one seam over it reproduces §3.1's
+constant-emitter exactly: offered a list and a "none of these", both models take the list. Read it beside
+§3's reranker row, where a 468 MB purpose-built model beat a 5.3× larger instruct one: **the shape decides
+whether size, code or re-asking is the lever, and annotation is the cell where only size is.** The
+practical rule is `docs/memory.md`'s: screen the annotator you intend to ship.
 
 **Every other shape is unmeasured under 500 MB, and that is a statement about this repository rather than
 about the models.** The smallest model called in the JUDGE role here is **806,058,240 B**
 (`gemma-3-1b-it` Q4_K_M, `locomo-judge-1b-n200`) — and it was **inert**, with a ceiling of zero, which is a
 measured negative rather than a blank. Below that, nothing has been tried in any selective role; the
 shipped extract seam has never been quality-measured at any size; classify and the generative graded-quality
-scorer have no evidence at any size (**affordance now has some — §3.1**). **Do not read a blank cell as a
-negative result** —
+scorer have no evidence at any size (affordance: §3.1). **Do not read a blank cell as a negative result** —
 and do not read that 1B row as one either, since it prices *instruct models in a selective role*, which is
 precisely the shape §1 says to stop reaching for.
-
-> _Corrected 2026-09-12. This paragraph read "the smallest model ever *called* in the judge role here is a
-> 4B at roughly 3.3 GB. Nothing under 2 GB has been tried in any selective role" — **both false when
-> written**: the 1B judge run landed the day before. Recorded rather than silently fixed because the
-> mechanism is the one `pitfalls.md` files under a backlog summary going stale — the sentence was composed
-> from the §2 narrative about the 4B, not from the results index, which already carried the row._
 
 **And do not carry any magnitude here into your own deployment.** Direction transfers between corpora and
 size does not — the same 4B model reads best-in-class on this repository's own synthetic corpus and
@@ -366,13 +310,11 @@ the corpus at hand; `.claude/knowledge/model-decoupling.md` is the standing rule
 `affordance-false-call-4b`), on a SYNTHETIC 42-tool fixture through `IToolLoop`'s prompt protocol — the
 weakest evidence tier here, so read the directions and none of the magnitudes.
 
-**THAT HEADLINE WAS THE MODEL, NOT THE SIZE CLASS — CORRECTED 2026-09-13.** This section read *"at the
-size class this project targets, the prompt-protocol tool transport does not work"*, on a
-**806,058,240 B** `gemma-3-1b-it` picking the right tool on **10.1% of trials at three options falling to
-3.0% at seven** (36.9% → 19.0% posed as a flat choice). Same arm, same corpus, same harness, a
-**491,400,032 B** `qwen2.5-0.5b-instruct` reads **60.7% → 48.8%** — about **six times** the score at
-**61% of the bytes**, and INSIDE the sizing target. `docs/memory-measurements.md` §5
-(`affordance-native-transport`) owns the table.
+**Size class is not the problem; the MODEL was.** A **806,058,240 B** `gemma-3-1b-it` picks the right tool
+on **10.1% of trials at three options falling to 3.0% at seven** (36.9% → 19.0% posed as a flat choice).
+Same arm, same corpus, same harness, a **491,400,032 B** `qwen2.5-0.5b-instruct` reads **60.7% → 48.8%** —
+about **six times** the score at **61% of the bytes**, and INSIDE the sizing target.
+`docs/memory-measurements.md` §5 (`affordance-native-transport`) owns the table.
 
 **So the transport is not what was broken; that model was.** What survives unchanged is the comparison
 against the free arm: **a 333,590,944 B embedder scoring the same tool descriptions reads 81.0%, flat in
@@ -415,7 +357,7 @@ failure: 0-5% false calls, but it never invokes a tool when one DOES fit (81-93%
 `{"final": "…Please wait a moment while I retrieve the data."}` — the task understood, the grammar
 unavailable. **One prompt, two opposite pathologies, decided by size.**
 
-**The third consequence, added 2026-09-13: PREFER THE NATIVE TRANSPORT where the model has a tool
+**The third consequence: PREFER THE NATIVE TRANSPORT where the model has a tool
 template.** On the one model measured both ways, it cuts false calls from 90-100% to **20-30%** while still
 firing on 70-78% of requests a tool serves — roughly 50 points of separation against the prompt
 protocol's none — and it never hallucinates a tool name or emits unusable arguments, where the prompt path
@@ -424,16 +366,15 @@ does both on 1-3% of trials. It also finishes the loop: **99.4-100% converged ag
 costs 2.4-9.6 points of choice accuracy. **Check the template before relying on it** — a model without a
 tool section returns 200 with `tool_calls: null` and answers anyway, which is why `ToolLoop` keeps the
 prompt protocol as its portable fallback.
-<br>**And you no longer have to check by hand at runtime**: `ToolLoopResult.Transport` (**D117**) reports
+<br>**And the run reports which transport it took**: `ToolLoopResult.Transport` (**D117**) reports
 which of the two actually ran, so a deployment that silently landed in the second column above can see it.
 It is a fact about the run rather than a warning, so it fires no threshold and says nothing about whether
 the fallback was the wrong answer for your model.
 
 ### 3.2 Cross-encoder candidates under 500 MB — a DESK survey, not a measurement
 
-**The candidate list for `AddMemoryScoringVerification` (D115).** Moved here from `TASKS.md` on
-2026-09-12 when the item holding it was retired — it is the candidate list for a SHIPPED seam, which is
-maintained state rather than open work.
+**The candidate list for `AddMemoryScoringVerification` (D115)** — maintained state for a SHIPPED seam,
+which is why it lives here rather than in the backlog.
 
 **A DESK survey — sizes and capabilities read, not called.** That is the tier GEN-VERIFY exists to distrust,
 so the SHAPES transfer and nothing here licenses skipping a smoke test. Sizes are exact bytes because MiB
@@ -461,7 +402,10 @@ architecture `new`, which llama.cpp does not register, so it cannot load at all.
 **Provenance matters more than the quant here.** `mradermacher`'s Qwen3-Reranker Q6_K has **310** tensors
 against the working **311** — it is missing `cls.output.weight` and scores silently wrong (llama.cpp
 #16407). `Voodisss` and `zhiqian99` are byte-identical to each other and correct. Prefer an official
-conversion, and smoke-test whatever you pull.
+conversion, and **smoke-test whatever you pull**: score a known answer against known distractors, assert
+both the ordering and that the scores are distinct, and include a distractor that shares MORE of the query
+than the answer does — a model ranking by word overlap passes every other check
+(`docs/memory-measurements.md` §5, `rerank-screen-adopter-b10549`).
 
 ### 3.3 `embed`: sub-100 MB WORKS, and the deficit grows with the list
 
@@ -470,8 +414,8 @@ conversion, and smoke-test whatever you pull.
 directions and none of the magnitudes. This is the one filled cell outside the reranker role.
 
 **Four sub-100 MB GGUF embedders load, serve and screen HEALTHY on llama.cpp today**, against the
-333,590,944 B incumbent as a known-good control. The re-aiming in §3 is therefore confirmed rather than
-merely argued.
+333,590,944 B incumbent as a known-good control — so §3's argument that #21729's defects are role-specific
+is tested rather than merely argued.
 
 | model | bytes | tool routing, N = 3 | N = 7 |
 |---|---:|---|---|
@@ -506,40 +450,10 @@ CLS costs it 45% of its cosine range, which would publish as a property of the m
 
 ### The shape decides how badly a BUSY GPU hurts you
 
-**Give every seam the GPU — and know that a contended one punishes the shapes very differently.** On a free
-device offloading wins across the board. What changes under contention is not the size of the win but its
-SIGN, and only for one shape.
-
-Measured on one laptop with plenty of VRAM free in every cell, the only difference being whether a game was
-rendering. Read the DIRECTION and re-measure on your own hardware:
-
-| shape | busy GPU | free GPU |
-|---|---|---|
-| generative (a 4B instruct model) | **92× slower** than CPU | **12× faster** than CPU |
-| encode-only (an embedder) | 4.8× faster than CPU | 5.4× faster than CPU |
-
-_The busy-GPU generation cell read **26×** until 2026-09-13 and does not divide out of the measurement it
-comes from: 0.10 tokens/s offloaded against 9.22 on CPU, both in the busy column, is 92×. The encode row
-was correct. `.claude/knowledge/pitfalls.md` carries the raw table and the correction._
-
-**Encode-only work is robust to a busy GPU; generation is not.** That is a second and independent reason to
-prefer a cross-encoder over an instruct model where something else owns the device — a game, another
-service, anything you do not control. Its quality advantage is in §3; this is its cost advantage, and the
-two are unrelated.
-
-**Two practical rules.** Set the offload level explicitly, because the server's default is not neutral and
-it logs nothing to say what it chose. And if a generative seam is mysteriously an order of magnitude slow,
-suspect the neighbour before the model — the tell is a *non-monotone* curve as you vary the offload level,
-since a genuinely wrong setting degrades smoothly and contention does not.
-
-**Where a shortlist of small models exists at all it is a DESK survey** — sizes and capabilities read from
-model cards, never called (`docs/task-archive.md` Part 215). Two things make that tier worth distrusting here rather
-than merely unconfirmed: a community conversion of a reranker can be missing its classification head, in
-which case it still loads and still returns scores that are simply wrong; and one such quant differs from a
-working one only by a tensor count. **Smoke-test a reranker before trusting a run** — score a known answer
-against known distractors and assert both the ordering and that the scores are distinct, and include a
-distractor that shares MORE of the query than the answer does: a model ranking by word overlap passes every
-other check (`docs/memory-measurements.md` §5, `rerank-screen-adopter-b10549`).
+**Encode-only work survives a busy GPU and generation does not** — a sign flip for the generative shape
+only, with the figures and the non-monotone tell in `docs/deployment-shapes.md` §The three facts, fact 3.
+That is a cost argument for a cross-encoder over an instruct model where something else owns the device,
+independent of its quality advantage in §3.
 
 ## 4. The shapes this library deliberately refuses a model
 
@@ -569,7 +483,7 @@ guard's block is advisory rather than terminal — there is no "abandon the sess
 can be reported and not enforced. **A structural constraint is only available where the library owns the
 loop**, which is worth checking before you rely on one.
 
-## 5. Pinning a model per seam — two seams configure it, everything else is composition
+## 5. Pinning a model per seam — three seams configure it, everything else is composition
 
 **The argument for pinning is the library's own:** a subsystem that calls a model on your behalf should not
 silently run on whatever backend happens to be default. The surface does not yet reflect that evenly.
@@ -577,14 +491,15 @@ silently run on whatever backend happens to be default. The surface does not yet
 - **`LlmVerificationOptions.ClientName` and `LlmAnnotationOptions.ClientName` are the only two options of
   their kind in the library.** Those two seams are also the only ones that suppress reasoning on the
   request, which matters because a thinking model turns a short answer into a long one — measured at
-  roughly 25 s per judgement against 1.5 s.
+  roughly 25 s per judgement against 1.5 s. The third memory seam pins by backend id instead:
+  `ScoringVerificationOptions.ProviderId` names the cross-encoder's provider (**D148**).
 - **Everything else takes a named client at the composition root instead.** This is not a workaround and it
   does not need a custom type: the shipped scorer, comparer and tool loop each take a client on a public
   constructor, and the container registrations are try-add, so registering your own instance first wins.
   Resolve the factory, ask it for the name you want, and hand it in.
 - **The embedding seam has no named-client story at all**, and it is the most frequent model contact in the
-  library — per write *and* per recall. It is also never batched: every call site goes through the
-  single-text path, one text per call.
+  library — per write *and* per recall. Memory's embeds are never batched: every memory call site embeds one
+  text per call.
 
 > **The trap that eats the obvious advice.** Setting a seam's `Model` is inert on any deployment whose
 > default candidates pin models, because a candidate's own model wins over the request's. Both memory seams
