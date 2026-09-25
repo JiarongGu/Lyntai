@@ -111,6 +111,7 @@ sealed class Lyntai.Generation.Providers.OpenAiImageOptions
     DefaultSize : String
     Id : String
     Model : String
+    ResponseFormat : String
     Timeout : TimeSpan
 sealed class Lyntai.Generation.Providers.OpenAiImageProvider
     .ctor(OpenAiImageOptions options, Func<HttpClient> httpFactory, Boolean disposeHttpClient = true)
