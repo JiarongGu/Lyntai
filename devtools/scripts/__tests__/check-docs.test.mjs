@@ -359,9 +359,9 @@ describe('check-docs — what is deliberately NOT scanned', () => {
     assert.equal(page.code, 1, 'the published design PAGE is tracked prose and is scanned');
   });
 
-  it('says so, and passes, when the registry is empty', () => {
+  it('FAILS when the registry is empty — a renamed config key must not disarm the gate silently', () => {
     const { code, out } = run({ 'docs/x.md': 'available but not the default\n' }, { rules: { retiredTerms: [] } });
-    assert.equal(code, 0);
+    assert.equal(code, 1);
     assert.match(out, /no retired terms configured/);
   });
 });

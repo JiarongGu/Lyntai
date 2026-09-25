@@ -18,7 +18,7 @@ import { fileURLToPath } from 'node:url';
 
 import {
   IN_SCOPE, PREAMBLE, SHAPES, annotationsAbove, attemptsFor, checkSamples, extractBlocks, guessShape,
-  libraryNamespaces, projectFile, quotedSampleCount, shadowsLibrary, synthesize,
+  libraryNamespaces, projectFile, shadowsLibrary, synthesize,
 } from '../check-samples.mjs';
 import { git, makeRepo, recorder, removeTree } from './_fixtures.mjs';
 
@@ -49,6 +49,7 @@ function run(docs, errorsFor = () => [], options = {}) {
     files: Object.keys(docs),
     read: (f) => docs[f],
     compile,
+    baseline: () => 0,   // the CLAUDE.md baseline has its own tests (_baseline.test.mjs)
     ...options,
   });
   return { code, out: log.text(), rounds };
@@ -433,7 +434,7 @@ describe('check-samples — the fixed-point loop', () => {
       return { byFile, harness: null };
     };
     const log = recorder();
-    const code = checkSamples('/repo', { log, files: Object.keys(docs), read: (f) => docs[f], compile });
+    const code = checkSamples('/repo', { log, files: Object.keys(docs), read: (f) => docs[f], compile, baseline: () => 0 });
     assert.equal(code, 0, 'the member shape compiles it, so nothing is reported');
     assert.match(log.text(), /1\/1 documented C# sample\(s\) compile/);
   });
@@ -555,41 +556,6 @@ describe('check-samples — fail-closed on an empty scan', () => {
     // only an indictment on the full-tree path — where 74 of them exist and a zero is impossible.
     const { code, out } = run({ 'README.md': 'prose with no fenced sample at all\n' });
     assert.equal(code, 0, out);
-  });
-});
-
-describe('check-samples — the sample count CLAUDE.md quotes', () => {
-  // A run-derived number is checked by the gate that PRODUCES it. check-counts tried and could not: it
-  // counts what the TREE holds (121 fenced blocks) while the claim is the COMPILED subset (78), and
-  // reproducing that means reproducing this file's filtering. Two copies of "what counts as a sample?"
-  // drift the moment an annotation is added.
-  const withClaim = (line) => makeRepo({ 'CLAUDE.md': `# repo\n\n${line}\n` });
-
-  it('passes when the quoted number matches the run', () => {
-    const repo = withClaim('e2e 3/3, doc samples 78/78.');
-    try {
-      const log = recorder();
-      assert.equal(quotedSampleCount(repo, 78, log), 0, log.text());
-    } finally { removeTree(repo); }
-  });
-
-  it('FAILS when it does not, naming both numbers', () => {
-    const repo = withClaim('e2e 3/3, doc samples 78/78.');
-    try {
-      const log = recorder();
-      assert.equal(quotedSampleCount(repo, 80, log), 1);
-      assert.match(log.text(), /78\/78/);
-      assert.match(log.text(), /compiled 80/);
-    } finally { removeTree(repo); }
-  });
-
-  // Fails OPEN on an absent claim, deliberately: the sentence belongs to CLAUDE.md, and a gate insisting a
-  // particular sentence EXIST would be dictating prose rather than checking it.
-  it('passes when CLAUDE.md makes no such claim at all', () => {
-    const repo = withClaim('no counted claim here.');
-    try {
-      assert.equal(quotedSampleCount(repo, 78, recorder()), 0);
-    } finally { removeTree(repo); }
   });
 });
 

@@ -234,9 +234,9 @@ describe('check-api-vocabulary — fail-closed', () => {
     }
   });
 
-  it('says so, and passes, when the registry is empty', () => {
+  it('FAILS when the registry is empty — a renamed config key must not disarm the gate silently', () => {
     const { code, out } = run({ 'Lyntai.Core.txt': LIVE }, { retiredApiNames: [] });
-    assert.equal(code, 0);
+    assert.equal(code, 1);
     assert.match(out, /no retired API names configured/);
   });
 });

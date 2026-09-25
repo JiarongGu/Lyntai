@@ -80,7 +80,12 @@ export function checkBundle({
 } = {}) {
   const label = 'check-bundle';
   const cfg = config?.bundle;
-  if (!cfg) { log(`${label}: no bundle configured — skipped`); return 0; }
+  // A missing key is a renamed config entry, never a repository without a bundle: fail rather than skip.
+  if (!cfg) {
+    error(`${label}: ✗ no \`bundle\` in the config — the dependency budget is unchecked. Restore it in `
+      + 'devtools/project.config.mjs.');
+    return 1;
+  }
 
   const restored = (restore ?? (() => restoreBundle(repo, cfg.project)))();
   if (restored.status !== 0) {

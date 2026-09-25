@@ -294,9 +294,11 @@ export function checkDocs(repo, config, log = console.log, files = null) {
     return 1;
   }
   const rules = config.retiredTerms ?? [];
+  // An empty registry is a renamed or deleted config key, never a clean tree.
   if (rules.length === 0) {
-    log('check-docs: no retired terms configured — nothing to check.');
-    return 0;
+    log('check-docs: ✗ no retired terms configured — `retiredTerms` is empty or missing, so this gate');
+    log('  checks nothing. Restore the registry in devtools/project.config.mjs.');
+    return 1;
   }
 
   const source = files ?? trackedFiles(repo);

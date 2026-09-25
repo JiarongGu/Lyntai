@@ -95,6 +95,13 @@ export function countMigrations(repo) {
   return fs.readdirSync(dir).filter((f) => /^M\d{12}_.+\.cs$/.test(f)).length;
 }
 
+/** The memory subsystem's source root, which four counters below walk. */
+const MEMORY = 'src/Lyntai.Core/Memory';
+
+/** The `.cs` files under a directory, from the ONE file list every gate scans (`repoFiles`). */
+const csUnder = (repo, dir) => repoFiles(repo, [dir]).filter((f) => f.endsWith('.cs'));
+const read = (repo, f) => readRepoText(repo, f) ?? '';
+
 /**
  * Call sites of the one memory option-domain guard (`MemoryOption.Require`, D78).
  *
@@ -107,19 +114,7 @@ export function countMigrations(repo) {
  * establishes, so if the two ever diverge the call-site count is the one that describes the code.
  */
 export function countOptionGuards(repo) {
-  const roots = [path.join(repo, 'src', 'Lyntai.Core', 'Memory')];
-  let n = 0;
-  const walk = (dir) => {
-    if (!fs.existsSync(dir)) return;
-    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
-      const p = path.join(dir, e.name);
-      if (e.isDirectory()) walk(p);
-      else if (e.name.endsWith('.cs'))
-        n += (fs.readFileSync(p, 'utf8').match(/MemoryOption\.Require\b/g) ?? []).length;
-    }
-  };
-  roots.forEach(walk);
-  return n;
+  return csUnder(repo, MEMORY).reduce((n, f) => n + (read(repo, f).match(/MemoryOption\.Require\b/g) ?? []).length, 0);
 }
 
 /**
@@ -135,21 +130,14 @@ export function countOptionGuards(repo) {
  * into one guarded, so a stale figure here is a backlog item that has silently already been done.
  */
 export function countBareCancellationCatches(repo) {
-  const root = path.join(repo, 'src', 'Lyntai.Core', 'Memory');
-  if (!fs.existsSync(root)) return -1;
+  if (!fs.existsSync(path.join(repo, MEMORY))) return -1;
   let n = 0;
-  const walk = (dir) => {
-    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
-      const p = path.join(dir, e.name);
-      if (e.isDirectory()) walk(p);
-      else if (e.name.endsWith('.cs'))
-        for (const line of fs.readFileSync(p, 'utf8').split(/\r?\n/))
-          // The filter is what makes a site answered; anything else catching an OCE is still bare.
-          if (/catch\s*\(\s*OperationCanceledException/.test(line)
-              && !/when\s*\(\s*ct\.IsCancellationRequested\s*\)/.test(line)) n++;
-    }
-  };
-  walk(root);
+  for (const f of csUnder(repo, MEMORY)) {
+    for (const line of read(repo, f).split(/\r?\n/))
+      // The filter is what makes a site answered; anything else catching an OCE is still bare.
+      if (/catch\s*\(\s*OperationCanceledException/.test(line)
+          && !/when\s*\(\s*ct\.IsCancellationRequested\s*\)/.test(line)) n++;
+  }
   return n;
 }
 
@@ -256,12 +244,9 @@ export const ROOT_MEMORY_POLICY_EXEMPTIONS = {
 
 /** Root-level `IMemory<X>Policy` seams with no recorded exemption — each one a domain nobody filed. */
 export function unexemptedRootMemoryPolicies(repo) {
-  const dir = path.join(repo, 'src', 'Lyntai.Core', 'Memory');
-  if (!fs.existsSync(dir)) return [];
   const found = [];
-  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
-    if (!e.isFile() || !e.name.endsWith('.cs')) continue;
-    const text = fs.readFileSync(path.join(dir, e.name), 'utf8');
+  for (const f of csUnder(repo, MEMORY).filter((p) => !p.slice(MEMORY.length + 1).includes('/'))) {
+    const text = read(repo, f);
     if (!/^namespace Lyntai\.Memory;/m.test(text)) continue;
     for (const m of text.matchAll(/^\s*public interface (IMemory\w+Policy)\b/gm))
       if (!Object.hasOwn(ROOT_MEMORY_POLICY_EXEMPTIONS, m[1])) found.push(m[1]);
@@ -285,21 +270,14 @@ export function unexemptedRootMemoryPolicies(repo) {
  * seven, which is the loud failure; the fix is then to file it as a domain or record why it is not.
  */
 export function countMemoryDomains(repo) {
-  const dir = path.join(repo, 'src', 'Lyntai.Core', 'Memory');
-  if (!fs.existsSync(dir)) return -1;
+  if (!fs.existsSync(path.join(repo, MEMORY))) return -1;
   const domains = new Set();
-  const walk = (d) => {
-    for (const e of fs.readdirSync(d, { withFileTypes: true })) {
-      const p = path.join(d, e.name);
-      if (e.isDirectory()) { walk(p); continue; }
-      if (!e.name.endsWith('.cs')) continue;
-      const text = fs.readFileSync(p, 'utf8');
-      const ns = text.match(/^namespace (Lyntai\.Memory\.[A-Za-z]+)/m);
-      // The seam is what makes a sub-namespace a DOMAIN — `IMemory<X>Policy` declared in it.
-      if (ns && /^\s*public interface IMemory\w+Policy\b/m.test(text)) domains.add(ns[1]);
-    }
-  };
-  walk(dir);
+  for (const f of csUnder(repo, MEMORY)) {
+    const text = read(repo, f);
+    const ns = text.match(/^namespace (Lyntai\.Memory\.[A-Za-z]+)/m);
+    // The seam is what makes a sub-namespace a DOMAIN — `IMemory<X>Policy` declared in it.
+    if (ns && /^\s*public interface IMemory\w+Policy\b/m.test(text)) domains.add(ns[1]);
+  }
   return domains.size + unexemptedRootMemoryPolicies(repo).length;
 }
 

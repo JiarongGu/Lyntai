@@ -59,6 +59,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { IN_SCOPE, IS_SCANNED, LIVE_PREFIX, SUPERSEDED_BANNER, liveLineMask, trackedFiles } from './check-docs.mjs';
+import { checkQuotedBaseline } from './_baseline.mjs';
 import { readRepoText } from './_repo-files.mjs';
 
 const here = fileURLToPath(import.meta.url);
@@ -352,39 +353,6 @@ export function synthesize(body, shape, id, given = null) {
  *
  * Derived from the tree rather than listed, so a new namespace is covered the day it is added.
  */
-/**
- * Fail when `CLAUDE.md` quotes a sample count this run disagrees with.
- *
- * **Why HERE and not in `check-counts`.** That gate counts things derivable from the TREE; `78/78` is
- * derivable only from a RUN — 121 fenced blocks, less 19 carrying a skip reason and 23 in a
- * wholesale-opted-out document. Reproducing it there means reproducing this file's whole filtering, and two
- * copies of "what counts as a sample?" drift the moment an annotation is added, silently, on whichever copy
- * was forgotten. Attempted 2026-08-23 and it returned 121 against a claim of 78, which is how the rule below
- * was arrived at rather than assumed.
- *
- * **The general rule: a run-derived number is checked by the gate that PRODUCES it.** The producer already
- * holds the number and already reads the docs, so the check costs nothing and cannot disagree with itself.
- *
- * Fails OPEN on an absent claim, deliberately: the sentence is `CLAUDE.md`'s to write, and a gate that
- * insisted on a particular sentence existing would be dictating prose rather than checking it.
- */
-export function quotedSampleCount(repo, compiled, log = console.log) {
-  const file = join(repo, 'CLAUDE.md');
-  if (!existsSync(file)) return 0;
-  const m = /\bdoc samples\s+(\d+)\s*\/\s*(\d+)/i.exec(readFileSync(file, 'utf8'));
-  if (!m) return 0;
-
-  const quoted = Number(m[1]);
-  if (quoted === compiled) return 0;
-
-  log(`check-samples: ✗ CLAUDE.md says "doc samples ${m[1]}/${m[2]}" — this run compiled ${compiled}`);
-  log('');
-  log('  That line is a BASELINE a reader is told to compare against, so a stale number teaches them to');
-  log('  stop comparing — the same argument check-counts makes for existing. Update it to the number');
-  log('  above, which is what the tree actually produces.');
-  return 1;
-}
-
 export function libraryNamespaces(repo) {
   const found = new Set();
   const files = execFileSync('git', ['ls-files', '-z', 'src/*/*.cs', 'src/*/**/*.cs'],
@@ -506,9 +474,13 @@ const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
 /**
  * The gate. `compile` is a seam so the tests can drive every branch without dotnet in the loop.
- * `files` is the raw candidate list (a `git ls-files` shape) for the same reason.
+ * `files` is the raw candidate list (a `git ls-files` shape) for the same reason, and `baseline` checks a
+ * green run's `compiled/total` against the `doc samples N/N` CLAUDE.md quotes (`_baseline.mjs`).
  */
-export function checkSamples(repo, { log = console.log, files = null, compile = null, read = null, list = false } = {}) {
+export function checkSamples(repo, {
+  log = console.log, files = null, compile = null, read = null, list = false,
+  baseline = (passed, total) => checkQuotedBaseline(repo, { gate: 'check-samples', label: 'doc samples', passed, total }, log),
+} = {}) {
   const readFile = read ?? ((f) => readRepoText(repo, f));
   const source = files ?? trackedFiles(repo);
   const tracked = source
@@ -707,7 +679,7 @@ export function checkSamples(repo, { log = console.log, files = null, compile = 
   if (failures.length === 0) {
     log(`check-samples: ${compiled}/${blocks.length} documented C# sample(s) compile ✓`
       + (notes.length ? ` (${notes.join('; ')})` : ''));
-    return quotedSampleCount(repo, compiled, log);
+    return baseline(compiled, blocks.length);
   }
 
   log(`check-samples: ✗ ${plural(failures.length, 'documented sample')} ${failures.length === 1 ? 'does' : 'do'}`

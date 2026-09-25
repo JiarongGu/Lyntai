@@ -18,7 +18,7 @@ import {
   COUNTED_CLAIMS, ROOT_MEMORY_POLICY_EXEMPTIONS, checkCounts, countBareCancellationCatches, countDecisions, countGoldenShapes, countGuardTests, countLanguageArms, countMemoryDomains, countMigrations, countOptionGuards, countPackages, countStartableItems, countVerifyGates, unexemptedRootMemoryPolicies,
   parseCount,
 } from '../check-counts.mjs';
-import { makeTree, recorder, removeTree } from './_fixtures.mjs';
+import { makeRepo, makeTree, recorder, removeTree } from './_fixtures.mjs';
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
@@ -164,10 +164,12 @@ describe('check-counts — the counters, pinned against the real tree', () => {
     const n = countLanguageArms(repo);
     const text = fs.readFileSync(
       path.join(repo, 'tests', 'Lyntai.Tests', 'Memory', 'Corpus', 'CorpusLexicon.cs'), 'utf8');
-    // Cross-checked against the member NAMES rather than a literal, so adding an arm moves both together.
-    for (const name of ['English', 'Chinese', 'Japanese', 'Korean', 'ChineseMixed'])
-      assert.ok(text.includes(name), `${name} must be an arm`);
-    assert.equal(n, 5, 'five arms as of 2026-08-15 — update with the enum, and the roster prose with it');
+    // Cross-checked against an INDEPENDENT read of the enum — one member per line, rather than the counter's
+    // comma split — so adding an arm moves both together and never a literal here.
+    const body = text.slice(text.indexOf('enum CorpusLanguage'));
+    const members = body.slice(body.indexOf('{'), body.indexOf('}')).match(/^\s*[A-Z]\w*\s*,?\s*$/gm) ?? [];
+    assert.ok(members.length > 1, 'sanity: the independent read found the enum members');
+    assert.equal(n, members.length);
   });
 
   it('golden shapes counts hash literals in Goldens(), not data rows', () => {
@@ -178,16 +180,14 @@ describe('check-counts — the counters, pinned against the real tree', () => {
       path.join(repo, 'tests', 'Lyntai.Tests', 'Memory', 'Corpus', 'MemoryCorpusGoldenTests.cs'), 'utf8');
     const rows = (text.match(/^\s*\{\s*"[\w-]+",/gm) ?? []).length;
     const n = countGoldenShapes(repo);
+    assert.ok(rows > 0, 'sanity: the row read found the goldens');
     assert.equal(n, rows, 'the hash-literal count must match the actual row count');
-    assert.equal(n, 8, 'eight shapes as of 2026-08-30 (five pre-dating the language axis, one for the routine class, one for its STANDING answer arm, one for its SETTLE gap) — update with Goldens() and the "pins N golden shapes" prose with it');
   });
 
   it('memory domains counts SEAMS, not sub-directories', () => {
     // `.Engines` is a sub-namespace and is NOT a domain — it holds the engines, not a policy seam. Counting
     // folders would give eight, which looks plausible and is wrong. So the count is asserted alongside the
     // structural rule that produces it, the same way the verify-gate counter is pinned by its NAMES.
-    assert.equal(countMemoryDomains(repo), 7);
-
     const memory = path.join(repo, 'src', 'Lyntai.Core', 'Memory');
     const seamOwners = new Set();
     const dirs = fs.readdirSync(memory, { withFileTypes: true }).filter((e) => e.isDirectory());
@@ -200,6 +200,8 @@ describe('check-counts — the counters, pinned against the real tree', () => {
     assert.ok(seamOwners.has('Annotation') && seamOwners.has('Verification'),
       'the two model-in-the-loop domains must be counted — they defaulted to none and were missed for that reason');
     assert.ok(!seamOwners.has('Engines'), 'Engines holds engines, not a policy seam, and is not a domain');
+    // The independent folder read agrees with the counter — never a literal a new domain would break.
+    assert.equal(countMemoryDomains(repo), seamOwners.size + unexemptedRootMemoryPolicies(repo).length);
   });
 
   it('a ROOT-level policy seam is exempted by name or it raises the count', () => {
@@ -255,7 +257,8 @@ describe('check-counts — the counters, pinned against the real tree', () => {
     // Discrimination is proved on a FIXTURE, not on the real tree: every site there is guarded today, so a
     // real-tree assertion of "finds some" would have to be deleted the moment the gate's own subject was
     // fixed — which is exactly what happened to the first version of this test.
-    const dir = makeTree({
+    // A git fixture: the counters read `repoFiles`, the one file list every gate scans.
+    const dir = makeRepo({
       'src/Lyntai.Core/Memory/Bare.cs': 'try { } catch (OperationCanceledException) { throw; }\n',
       'src/Lyntai.Core/Memory/Nested/AlsoBare.cs':
         'catch (OperationCanceledException) { throw; }\ncatch (OperationCanceledException ex) { }\n',

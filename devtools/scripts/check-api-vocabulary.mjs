@@ -169,9 +169,12 @@ export function checkApiVocabulary(repoRoot = repo, config, log = console.log, e
     return 1;
   }
 
+  // An empty registry is a renamed or deleted config key far more often than a real choice, and it would
+  // print a tick over a surface nothing checked.
   if (empty) {
-    log('check-api-vocabulary: no retired API names configured — nothing to check.');
-    return 0;
+    err('check-api-vocabulary: ✗ no retired API names configured — `retiredApiNames` is empty or missing,');
+    err('  so this gate checks nothing. Restore the registry in devtools/project.config.mjs.');
+    return 1;
   }
 
   if (!hits.length && !problems.length) {
