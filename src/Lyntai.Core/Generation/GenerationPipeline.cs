@@ -75,9 +75,9 @@ public static class GenerationPipeline
     /// <param name="router">The router every stage goes through.</param>
     /// <param name="stages">The stages, in order. At least one.</param>
     /// <param name="ct">Cancellation, which is never swallowed.</param>
-    /// <exception cref="ArgumentException"><paramref name="stages"/> is empty, or its first stage sets
-    /// <see cref="GenerationStage.InputRole"/> or <see cref="GenerationStage.SelectInput"/> — which chain
-    /// from nothing there, so a caller who set one believes something is happening.</exception>
+    /// <exception cref="ArgumentException"><paramref name="stages"/> is empty or holds a null, or its first
+    /// stage sets <see cref="GenerationStage.InputRole"/> or <see cref="GenerationStage.SelectInput"/> — which
+    /// chain from nothing there, so a caller who set one believes something is happening.</exception>
     public static Task<GenerationPipelineResult> RunPipelineAsync(
         this IMediaRouter router, IReadOnlyList<GenerationStage> stages, CancellationToken ct = default)
     {
@@ -85,6 +85,8 @@ public static class GenerationPipeline
         ArgumentNullException.ThrowIfNull(stages);
         if (stages.Count == 0)
             throw new ArgumentException("a pipeline needs at least one stage", nameof(stages));
+        if (stages.Any(stage => stage is null))
+            throw new ArgumentException("a pipeline stage cannot be null", nameof(stages));
         if (stages[0].InputRole is not null || stages[0].SelectInput is not null)
             throw new ArgumentException(
                 "the first stage chains from nothing, so InputRole and SelectInput are never read there",

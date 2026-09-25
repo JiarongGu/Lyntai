@@ -24,11 +24,9 @@ public sealed class MediaOptions
 
     /// <summary>How long <c>generate_backends</c> may take IN TOTAL to probe every registered backend.
     /// Zero or negative means no deadline. Default: 20 seconds.
-    /// <para>It is an AGGREGATE because that is the number a caller can act on. Each backend already bounds
-    /// its own call, but with its RENDER budget — ten minutes on two of the shipped ones, correctly, since a
-    /// render outlives <see cref="HttpClient"/>'s own default — so two backends that accept a connection and
-    /// stall made the tool an agent is told to call FIRST block for twenty. Every backend disclosed its
-    /// timeout and the composition disclosed nothing.</para>
+    /// <para>It is an AGGREGATE because that is the number a caller can act on: each backend bounds its own
+    /// call with its RENDER budget — ten minutes on two of the shipped ones — so stalled backends would add
+    /// up to many minutes on the tool an agent is told to call FIRST.</para>
     /// <para>Short by design: a probe is contractually free and must never generate, so a backend that cannot
     /// answer in seconds is not usable for the render that would follow. A backend that overruns is reported
     /// unusable WITH the reason, never dropped from the listing.</para>
@@ -52,7 +50,7 @@ public static class GenerationBuilderExtensions
     /// <para><b>Pair it with <c>AddProvider</c>, which is where a backend is registered</b> — media included
     /// (<c>docs/DECISIONS.md</c> <b>D156</b>). A BYO render backend is two lines: <c>AddProvider(sp =&gt; new
     /// MyBackend(…), declares: …)</c> registers it, and this makes the media router exist to route it. The
-    /// five shipped presets (<c>AddOpenAiImageProvider</c> and friends) do both for you.</para>
+    /// shipped presets (<c>AddOpenAiImageProvider</c> and friends) do both for you.</para>
     ///
     /// <para>Calling it with no media backend registered is harmless: the router resolves and reports that
     /// nothing serves the request, which is the same answer it gives when every backend is down.</para></summary>

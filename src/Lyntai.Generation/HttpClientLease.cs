@@ -1,13 +1,7 @@
 namespace Lyntai.Generation.Providers;
 
-/// <summary>The BYO-or-ours disposal rule for one call's <see cref="HttpClient"/>, in one place.
-///
-/// <para>Every HTTP backend in this package takes a <c>Func&lt;HttpClient&gt;</c> plus a
-/// <c>disposeHttpClient</c> flag (design §7): a client Lyntai's <c>Add*</c> shim creates per call is ours to
-/// dispose, while a client the HOST supplied outlives the call and is the host's. Getting that backwards is not
-/// a leak but an <see cref="ObjectDisposedException"/> on the SECOND render — the first one succeeds, which is
-/// why the ternary deciding it is worth having in one place rather than at each of the eleven
-/// calls.</para></summary>
+/// <summary>One call's <see cref="HttpClient"/>, disposed only when Lyntai created it — the rule each backend's
+/// <c>disposeHttpClient</c> parameter documents.</summary>
 /// <param name="client">The client this call runs on.</param>
 /// <param name="owned">Whether disposing the lease disposes <paramref name="client"/>.</param>
 internal readonly struct HttpClientLease(HttpClient client, bool owned) : IDisposable

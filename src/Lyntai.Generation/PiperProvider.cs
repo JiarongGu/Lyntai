@@ -96,19 +96,13 @@ public sealed class PiperProvider(PiperOptions options, IProcessRunner runner) :
 
     /// <summary>Presence of the engine and its voice on disk — free, exact, and never synthesises to
     /// answer a setup question.</summary>
-    public Task<ProviderProbeResult> ProbeAsync(CancellationToken ct = default)
-    {
-        if (options.BinaryPath is not { Length: > 0 } binary || !File.Exists(binary))
-            return Task.FromResult(new ProviderProbeResult(false,
-                $"not configured: no piper binary at '{options.BinaryPath}' (the host provisions it — D20)"));
+    public Task<ProviderProbeResult> ProbeAsync(CancellationToken ct = default) =>
+        Task.FromResult(Missing() is { } missing
+            ? new ProviderProbeResult(false, missing)
+            : new ProviderProbeResult(true,
+                $"piper at '{options.BinaryPath}' with voice '{Path.GetFileName(options.ModelPath)}'"));
 
-        if (options.ModelPath is not { Length: > 0 } model || !File.Exists(model))
-            return Task.FromResult(new ProviderProbeResult(false,
-                $"not configured: the engine is present but its voice is missing at '{options.ModelPath}'"));
-
-        return Task.FromResult(new ProviderProbeResult(true,
-            $"piper at '{binary}' with voice '{Path.GetFileName(model)}'"));
-    }
+    private string? Missing() => LocalEngine.Missing(options.BinaryPath, options.ModelPath, "piper", "voice");
 
     /// <inheritdoc/>
     /// <remarks>The buffered mode: the SAME stream, collected into one artifact, so the two modes cannot
@@ -138,13 +132,12 @@ public sealed class PiperProvider(PiperOptions options, IProcessRunner runner) :
     public async IAsyncEnumerable<MediaChunk> StreamAsync(MediaRequest request,
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct = default)
     {
-        if (options.BinaryPath is not { Length: > 0 } binary || !File.Exists(binary) ||
-            options.ModelPath is not { Length: > 0 } model || !File.Exists(model))
+        if (Missing() is { } missing)
         {
-            yield return MediaChunk.Failure(ProviderVerdict.NotConfigured,
-                "the local engine or its voice is not present on disk");
+            yield return MediaChunk.Failure(ProviderVerdict.NotConfigured, missing);
             yield break;
         }
+        var (binary, model) = (options.BinaryPath!, options.ModelPath!);
 
         if (request.Prompt is not { Length: > 0 } prompt || string.IsNullOrWhiteSpace(prompt))
         {
@@ -157,10 +150,8 @@ public sealed class PiperProvider(PiperOptions options, IProcessRunner runner) :
         var mediaType = PcmMediaType(rate);
         var argv = BuildArgs(model);
 
-        // never below the inactivity window: a caller who shortens the absolute budget shouldn't end up
-        // with a silence detector that can never fire
         var maxDuration = options.Timeout;
-        var inactivity = options.InactivityTimeout < maxDuration ? options.InactivityTimeout : maxDuration;
+        var inactivity = LocalEngine.Inactivity(maxDuration, options.InactivityTimeout);
 
         long total = 0;
         await using var enumerator = runner.StreamBytesAsync(binary, argv, stdin: prompt,
@@ -216,9 +207,7 @@ public sealed class PiperProvider(PiperOptions options, IProcessRunner runner) :
     /// stdin, which is both the spawn hygiene rule and piper's own input contract.</summary>
     internal List<string> BuildArgs(string model)
     {
-        var flag = (string name) => options.ArgvFlags.TryGetValue(name, out var f)
-            ? f
-            : PiperOptions.DefaultArgvFlags[name];
+        var flag = (string name) => LocalEngine.Flag(options.ArgvFlags, PiperOptions.DefaultArgvFlags, name);
 
         List<string> args = [flag("model"), model, flag("output-raw")];
         args.AddRange(options.ExtraArgs);
