@@ -221,7 +221,8 @@ public sealed class LocalDiffusionProvider(LocalDiffusionOptions options, IProce
             return MediaResponse.Failure(ProviderVerdict.NotConfigured,
                 "the local engine or its model is not present on disk");
 
-        var source = request.Inputs.FirstOrDefault();
+        var source = SingleInitInput.Read(request, "the engine", out var refusal);
+        if (refusal is not null) return MediaResponse.Failure(ProviderVerdict.Unsupported, refusal);
         if (source is not null && source.Data is not { Length: > 0 })
             return MediaResponse.Failure(ProviderVerdict.Unsupported,
                 "the engine reads its source image from DISK; supply MediaInput.Data rather than a URI");

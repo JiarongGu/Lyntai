@@ -133,7 +133,8 @@ public sealed class OpenAiImageProvider(
         if (string.IsNullOrWhiteSpace(options.BaseUrl))
             return MediaResponse.Failure(ProviderVerdict.NotConfigured, "no BaseUrl configured");
 
-        var edit = request.Inputs.FirstOrDefault();
+        var edit = SingleInitInput.Read(request, "the images endpoint", out var refusal);
+        if (refusal is not null) return MediaResponse.Failure(ProviderVerdict.Unsupported, refusal);
         if (edit is not null && edit.Data is not { Length: > 0 })
             return MediaResponse.Failure(ProviderVerdict.Unsupported,
                 "this endpoint edits BYTES; supply MediaInput.Data (a URI-only input would mean the " +

@@ -134,12 +134,14 @@ public sealed class FalProvider(
     public string Id => options.Id;
 
     /// <inheritdoc/>
-    public ProviderCapabilities Capabilities { get; } = new()
+    /// <remarks>Derived per access, so a host that changes <see cref="FalOptions.Produces"/> after
+    /// registration is routed by the new value.</remarks>
+    public ProviderCapabilities Capabilities => new()
     {
         Accepts = [ProviderKinds.Text],
         Produces = options.Produces,
         Operations = [ProviderOperation.Queued],
-        SupportsInputs = true,          // image→video, reference→video: the model decides
+        SupportsInputs = true,          // ONE input, by URL, in a role fal has a field for; any other is refused
         // Models deliberately NOT enumerated: hundreds, changing without us, and an empty list means
         // "unknown" rather than "serves nothing" (ProviderCapabilities.Models).
     };
@@ -181,14 +183,10 @@ public sealed class FalProvider(
         if (Model(request) is not { Length: > 0 } model)
             return Failed("no model: name one on the request, the candidate (\"fal:model-id\") or FalOptions.Model");
 
-        // fal reads input media from a URL it can fetch, so a bytes-only input has nowhere to go. Refusing is
-        // the only honest answer: dropping it (which is what BuildInput used to do) submitted — and billed — a
-        // text-to-video render against a caller who asked for image→video, and the result looked plausible.
-        if (request.Inputs.Count > 0 && !request.Inputs.Any(i => i.Uri is { Length: > 0 }))
-            return Failed("fal takes input media as a URL; supply MediaInput.Uri rather than Data — the " +
-                "platform will not upload your bytes on your behalf");
+        if (InputRefusal(request) is { } refusal)
+            return Failed(refusal) with { Verdict = ProviderVerdict.Unsupported };
 
-        var url = $"{Root}/{model.Trim('/')}";
+        var url = $"{Root}/{model}";
         if (request.Option("webhook") is { Length: > 0 } webhook)
             url += $"?{options.WebhookQueryParameter}={Uri.EscapeDataString(webhook)}";
 
@@ -343,8 +341,38 @@ public sealed class FalProvider(
             ? "not configured: BaseUrl and ApiKey are both required"
             : null;
 
+    // trimmed ONCE, here: the submit URL and the operation id every later call builds from must agree
     private string? Model(MediaRequest request) =>
-        request.Model is { Length: > 0 } model ? model : options.Model;
+        (request.Model is { Length: > 0 } model ? model : options.Model)?.Trim('/');
+
+    /// <summary>Why fal cannot take this request's inputs, or null. fal maps ONE input, given as a URL it
+    /// fetches itself, onto one field — so a second input, a bytes-only one, or a role it has no field for is
+    /// refused before anything is sent: dropping it bills a render the caller did not ask for.</summary>
+    private static string? InputRefusal(MediaRequest request)
+    {
+        if (request.Inputs.Count == 0) return null;
+        if (request.Inputs.Count > 1)
+            return $"fal maps one input onto one field and this request carries {request.Inputs.Count}; send " +
+                "one, and pass any further model field through MediaRequest.Options";
+        var input = request.Inputs[0];
+        if (input.Uri is not { Length: > 0 })
+            return "fal takes input media as a URL; supply MediaInput.Uri rather than Data — the platform " +
+                "will not upload your bytes on your behalf";
+        return InputField(input.Role) is null
+            ? $"fal has no field for an input in the role '{input.Role}' — it takes an init, first-frame or " +
+              "reference image"
+            : null;
+    }
+
+    /// <summary>The request field an input in <paramref name="role"/> is sent as, or null for a role fal
+    /// has no field for.</summary>
+    private static string? InputField(string? role) =>
+        string.IsNullOrEmpty(role) || Is(role, MediaInputRoles.Init) || Is(role, MediaInputRoles.Reference)
+            ? "input_image_url"
+            : Is(role, MediaInputRoles.FirstFrame) ? "image_url" : null;
+
+    private static bool Is(string role, string expected) =>
+        string.Equals(role, expected, StringComparison.OrdinalIgnoreCase);
 
     private void Authorize(HttpRequestMessage message)
     {
@@ -427,15 +455,9 @@ public sealed class FalProvider(
             writer.WriteStartObject();
             if (request.Prompt is { Length: > 0 } prompt) writer.WriteString("prompt", prompt);
 
-            // a first-frame / reference image travels as a URL, because fal takes URLs only. An input carrying
-            // nothing but bytes is refused in SubmitCoreAsync rather than skipped here — skipping it is what
-            // billed a text-to-video render against a caller who asked for image→video.
-            if (request.Inputs.FirstOrDefault(i => i.Uri is { Length: > 0 }) is { } input)
-                writer.WriteString(
-                    string.Equals(input.Role, MediaInputRoles.FirstFrame, StringComparison.OrdinalIgnoreCase)
-                        ? "image_url"
-                        : "input_image_url",
-                    input.Uri!);
+            // any other input shape was refused before this is built (InputRefusal)
+            if (request.Inputs is [{ Uri: { Length: > 0 } uri } input] && InputField(input.Role) is { } field)
+                writer.WriteString(field, uri);
 
             foreach (var (key, value) in request.Options)
             {
@@ -500,8 +522,7 @@ public sealed class FalProvider(
         Field(body, "queue_position") is { } position ? $"queue position {position}" : null;
 
     private static string MediaTypeOf(string url) =>
-        HttpArtifacts.MediaTypeForExtension(Path.GetExtension(
-            new Uri(url, UriKind.RelativeOrAbsolute).ToString().Split('?')[0]));
+        HttpArtifacts.MediaTypeForExtension(Path.GetExtension(url.Split('?', '#')[0]));
 
     private static string? Field(string body, string name)
     {

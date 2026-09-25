@@ -92,13 +92,31 @@ public abstract class HttpGenerationProviderContractFacts : GenerationProviderCo
     [Fact]
     public async Task A_declared_input_capability_is_honoured()
     {
+        var marker = Encoding.ASCII.GetBytes("LYNTAI-INPUT-MARKER-7F3A");
+
+        await HandInputs(MediaInput.Init(marker, "image/png"));
+    }
+
+    /// <summary>The same fact with TWO inputs in two roles — the shape a pipeline stage carrying its own input
+    /// hands a backend once the previous stage's artifact is chained in after it.</summary>
+    [Fact]
+    public async Task Every_handed_input_is_consumed_or_the_call_refused()
+    {
+        var first = Encoding.ASCII.GetBytes("LYNTAI-INPUT-MARKER-1B2C");
+        var second = Encoding.ASCII.GetBytes("LYNTAI-INPUT-MARKER-3D4E");
+
+        await HandInputs(MediaInput.FirstFrame(first, "image/png"), MediaInput.Init(second, "image/png"));
+    }
+
+    private async Task HandInputs(params MediaInput[] inputs)
+    {
         var http = new StubHttpHandler();
-        http.Enqueue(HttpStatusCode.OK, "{}");
+        // junk to every backend but an uploading one, which must get past its first upload to send the second
+        http.Enqueue(HttpStatusCode.OK, """{"name":"stored.png"}""");
         var provider = New(http);
         if (!provider.Capabilities.SupportsInputs) return;
 
-        var marker = Encoding.ASCII.GetBytes("LYNTAI-INPUT-MARKER-7F3A");
-        var ask = Ask() with { Inputs = [MediaInput.FirstFrame(marker, "image/png")] };
+        var ask = Ask() with { Inputs = inputs };
 
         if (provider.Capabilities.Operations.Contains(ProviderOperation.Complete))
             await provider.GenerateAsync(ask);
@@ -106,7 +124,7 @@ public abstract class HttpGenerationProviderContractFacts : GenerationProviderCo
             await jobs.SubmitAsync(ask);
 
         GenerationProviderContract.A_handed_input_is_consumed_or_refused(
-            provider.Id, [.. http.Requests.Select(r => r.Body)], marker);
+            provider.Id, [.. http.Requests.Select(r => r.Body)], [.. inputs.Select(i => i.Data!)]);
     }
 
     /// <summary>The INLINE door classifies a 401.</summary>
@@ -164,9 +182,10 @@ public class Automatic1111ProviderContractTests : HttpGenerationProviderContract
 
 public class ComfyUiProviderContractTests : HttpGenerationProviderContractFacts
 {
-    // node 10 loads the first frame, so the input fact sees it CONSUMED (uploaded) rather than refused
+    // nodes 10 and 11 load the first frame and the init image, so the input facts see both CONSUMED
+    // (uploaded) rather than refused
     private const string Workflow =
-        """{"3":{"class_type":"KSampler","inputs":{"seed":0}},"6":{"class_type":"CLIPTextEncode","inputs":{"text":"placeholder"}},"10":{"class_type":"LoadImage","inputs":{"image":"none"}}}""";
+        """{"3":{"class_type":"KSampler","inputs":{"seed":0}},"6":{"class_type":"CLIPTextEncode","inputs":{"text":"placeholder"}},"10":{"class_type":"LoadImage","inputs":{"image":"none"}},"11":{"class_type":"LoadImage","inputs":{"image":"none"}}}""";
 
     protected override IModelProvider New(StubHttpHandler http) =>
         new ComfyUiProvider(
@@ -182,6 +201,7 @@ public class ComfyUiProviderContractTests : HttpGenerationProviderContractFacts
             ["workflow"] = Workflow,
             ["prompt-path"] = "6.inputs.text",
             ["input-path:first-frame"] = "10.inputs.image",
+            ["input-path:init"] = "11.inputs.image",
         },
     };
 }

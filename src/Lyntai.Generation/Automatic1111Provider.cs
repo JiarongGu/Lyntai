@@ -132,7 +132,8 @@ public sealed class Automatic1111Provider(
         if (string.IsNullOrWhiteSpace(options.BaseUrl))
             return MediaResponse.Failure(ProviderVerdict.NotConfigured, "no BaseUrl configured");
 
-        var source = request.Inputs.FirstOrDefault();
+        var source = SingleInitInput.Read(request, "img2img", out var refusal);
+        if (refusal is not null) return MediaResponse.Failure(ProviderVerdict.Unsupported, refusal);
         if (source is not null && source.Data is not { Length: > 0 })
             return MediaResponse.Failure(ProviderVerdict.Unsupported,
                 "img2img needs the source BYTES; supply MediaInput.Data rather than a URI");

@@ -318,6 +318,101 @@ public class FalProviderTests
     }
 
     [Fact]
+    public async Task A_second_input_is_refused_rather_than_dropped()
+    {
+        // fal maps ONE input to one field, so a second — a chained artifact after a stage's own reference —
+        // would be sent nowhere while the render is billed as if it had been
+        var (provider, http) = Provider();
+
+        var operation = await provider.SubmitAsync(Ask() with
+        {
+            Inputs =
+            [
+                MediaInput.FirstFrame(new Uri("https://cdn.invalid/first.png"), "image/png"),
+                MediaInput.Reference(new Uri("https://cdn.invalid/style.png"), "image/png"),
+            ],
+        });
+
+        Assert.Equal(QueuedOperationStatus.Failed, operation.Status);
+        Assert.Equal(ProviderVerdict.Unsupported, operation.Verdict);
+        Assert.Empty(http.Requests);
+    }
+
+    [Fact]
+    public async Task A_bytes_input_beside_a_uri_input_is_refused_rather_than_dropped()
+    {
+        var (provider, http) = Provider();
+
+        var operation = await provider.SubmitAsync(Ask() with
+        {
+            Inputs =
+            [
+                MediaInput.FirstFrame(new Uri("https://cdn.invalid/first.png"), "image/png"),
+                MediaInput.Reference(new byte[] { 1, 2, 3 }, "image/png"),
+            ],
+        });
+
+        Assert.Equal(QueuedOperationStatus.Failed, operation.Status);
+        Assert.Empty(http.Requests);
+    }
+
+    [Fact]
+    public async Task An_input_in_a_role_fal_has_no_field_for_is_refused()
+    {
+        var (provider, http) = Provider();
+
+        var operation = await provider.SubmitAsync(Ask() with
+        {
+            Inputs = [MediaInput.Voice(new Uri("https://cdn.invalid/voice.wav"), "audio/wav")],
+        });
+
+        Assert.Equal(QueuedOperationStatus.Failed, operation.Status);
+        Assert.Equal(ProviderVerdict.Unsupported, operation.Verdict);
+        Assert.Contains("voice", operation.Detail);
+        Assert.Empty(http.Requests);
+    }
+
+    [Fact]
+    public async Task A_model_with_stray_slashes_polls_the_same_path_it_submitted_to()
+    {
+        // the submit trimmed the model while the operation id kept it raw, so poll/fetch/cancel built
+        // `…//fal-ai/wan-t2v/requests/…` for a model configured with a leading or trailing slash
+        var (provider, http) = Provider(new FalOptions { ApiKey = "k", Model = "/fal-ai/wan-t2v/" });
+        http.Enqueue(HttpStatusCode.OK, """{"request_id":"req-1"}""");
+        http.Enqueue(HttpStatusCode.OK, """{"status":"IN_PROGRESS"}""");
+
+        var submitted = await provider.SubmitAsync(Ask());
+        await provider.PollAsync(submitted.Id);
+
+        Assert.Equal("fal-ai/wan-t2v#req-1", submitted.Id);
+        Assert.Equal("https://queue.fal.run/fal-ai/wan-t2v/requests/req-1/status", http.Requests[1].Uri?.ToString());
+    }
+
+    [Fact]
+    public async Task A_malformed_artifact_url_is_a_result_rather_than_a_throw()
+    {
+        var (provider, http) = Provider();
+        http.Enqueue(HttpStatusCode.OK, """{"video":{"url":"http://[::1"}}""");
+
+        var result = await provider.FetchAsync("fal-ai/wan-t2v#req-1");
+
+        Assert.True(result.IsOk);
+        Assert.Equal("application/octet-stream", result.Artifacts[0].MediaType);
+    }
+
+    [Fact]
+    public void The_advertised_kinds_follow_the_options_after_construction()
+    {
+        // the registration keeps the options instance a host may change later; the router filters on this
+        var options = new FalOptions { ApiKey = "k", Model = "fal-ai/wan-t2v" };
+        var (provider, _) = Provider(options);
+
+        options.Produces = [ProviderKinds.Audio];
+
+        Assert.Equal([ProviderKinds.Audio], provider.Capabilities.Produces);
+    }
+
+    [Fact]
     public async Task Inline_generation_is_declined_because_the_queue_is_asynchronous()
     {
         var (provider, _) = Provider();

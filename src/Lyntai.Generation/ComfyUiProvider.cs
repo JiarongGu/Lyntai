@@ -207,7 +207,9 @@ public sealed class ComfyUiProvider(
     public string Id => options.Id;
 
     /// <inheritdoc/>
-    public ProviderCapabilities Capabilities { get; } = new()
+    /// <remarks>Derived per access, so a host that changes <see cref="ComfyUiOptions.Produces"/> after
+    /// registration is routed by the new value.</remarks>
+    public ProviderCapabilities Capabilities => new()
     {
         Accepts = [ProviderKinds.Text],
         Produces = options.Produces,

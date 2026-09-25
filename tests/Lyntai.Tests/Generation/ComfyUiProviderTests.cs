@@ -66,6 +66,18 @@ public class ComfyUiProviderTests
             ProviderKinds.Model3d, ProviderOperation.Queued, ProviderKinds.Text, hasInputs: true));
     }
 
+    [Fact]
+    public void The_advertised_kinds_follow_the_options_after_construction()
+    {
+        // the registration keeps the options instance a host may change later; the router filters on this
+        var options = new ComfyUiOptions { BaseUrl = "http://127.0.0.1:8188" };
+        var (provider, _) = Provider(options);
+
+        options.Produces = [ProviderKinds.Image];
+
+        Assert.Equal([ProviderKinds.Image], provider.Capabilities.Produces);
+    }
+
     // ---- inputs: uploaded, then bound at the dotted path the caller names --------------------------------
 
     private const string MeshWorkflow = """
