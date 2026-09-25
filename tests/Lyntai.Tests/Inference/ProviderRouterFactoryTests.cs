@@ -178,6 +178,9 @@ public class ProviderRouterFactoryTests
 
         Assert.True(reply.IsOk);          // the embedder was ASKED — the reranker's bench is not its bench
         Assert.Equal(1, vector.Calls);
+        // a lone candidate is asked even while benched, so the reply alone cannot tell; the keys can
+        Assert.True(tracker.IsDead("score::onnx"));
+        Assert.False(tracker.IsDead("vector::onnx"));
     }
 
     [Fact]

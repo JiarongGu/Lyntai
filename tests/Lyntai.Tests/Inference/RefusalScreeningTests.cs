@@ -63,10 +63,11 @@ public class RefusalScreeningTests
     public async Task A_non_ok_reply_is_left_untouched()
     {
         var inner = new FakeTextClient();
-        inner.Replies.Enqueue(new TextResponse("", ProviderVerdict.RateLimited, Detail: "429"));
+        // the text MATCHES, so only the verdict clause keeps it from being re-labelled a refusal
+        inner.Replies.Enqueue(new TextResponse("I cannot help with that", ProviderVerdict.RateLimited, Detail: "429"));
         var screened = new RefusalScreeningTextClient(inner);
 
-        var reply = await screened.CompleteAsync(Req(refusalPattern: "429"));
+        var reply = await screened.CompleteAsync(Req(refusalPattern: "cannot help"));
         Assert.Equal(ProviderVerdict.RateLimited, reply.Verdict); // screening only downgrades Ok replies
     }
 

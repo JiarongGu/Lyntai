@@ -170,11 +170,14 @@ public class Model2VecProviderTests : IDisposable
     {
         // Every sub-100 MB transformer vector backend rejects an input past 512 tokens. A lookup table has no
         // positional embeddings, so a long document is just more rows to average.
+        // 4000 alphas THEN 4000 betas: the whole text means (5 + 6) / 2 = 5.5, while any truncation keeps only
+        // alphas and means 5 — a periodic text would average the same either way
         var vectorProvider = Model2VecProvider.FromDirectory(WriteModel(Vocabulary("alpha", "beta")));
+        var text = string.Join(" ", [.. Enumerable.Repeat("alpha", 4000), .. Enumerable.Repeat("beta", 4000)]);
 
-        var vector = (await vectorProvider.EmbedAsync([string.Join(" ", Enumerable.Repeat("alpha beta", 4000))]))[0];
+        var vector = (await vectorProvider.EmbedAsync([text]))[0];
 
-        Assert.Contains(vector, v => v != 0f);
+        Assert.All(vector, v => Assert.Equal(5.5f, v, 3));
     }
 }
 

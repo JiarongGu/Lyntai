@@ -317,23 +317,6 @@ public class ProviderPoolWiringTests
     /// <summary>A host-supplied admission table — the shape a distributed limiter takes from the library's
     /// side. Records every configuration admitted, and counts the permits handed back, because a seam that
     /// takes permits and never returns them is the failure that pins a resource forever.</summary>
-    private sealed class RecordingAdmission : IProviderAdmission
-    {
-        public List<ProviderKey> Entered { get; } = [];
-        public int Released;
-
-        public ValueTask<IDisposable> EnterAsync(ProviderKey key, CancellationToken ct = default)
-        {
-            Entered.Add(key);
-            return ValueTask.FromResult<IDisposable>(new Handle(this));
-        }
-
-        private sealed class Handle(RecordingAdmission owner) : IDisposable
-        {
-            public void Dispose() => Interlocked.Increment(ref owner.Released);
-        }
-    }
-
     private static ServiceProvider ProviderWithHostAdmission(
         IProviderAdmission admission, Action<LyntaiBuilder> configure)
     {

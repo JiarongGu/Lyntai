@@ -22,9 +22,14 @@ public class ProviderAdmissionTests
         var admission = new ProviderAdmission();
         var held = new List<IDisposable>();
 
-        for (var i = 0; i < 50; i++) held.Add(await admission.EnterAsync(Key("a")));
+        for (var i = 0; i < 50; i++)
+        {
+            // asserted before it is awaited: a throttled entry would otherwise HANG this test, not fail it
+            var entry = admission.EnterAsync(Key("a"));
+            Assert.True(entry.IsCompleted, $"entry {i} waited — an unconfigured slot must admit at once");
+            held.Add(await entry);
+        }
 
-        Assert.Equal(50, held.Count);
         foreach (var h in held) h.Dispose();
     }
 
@@ -120,7 +125,8 @@ public class ProviderAdmissionTests
         var waiting = admission.EnterAsync(Key("a"), cts.Token);
         await cts.CancelAsync();
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await waiting);
+        // bounded: a waiter that ignored its token would otherwise hang here rather than fail
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => waiting.AsTask().WaitAsync(GateWait));
         held.Dispose();
     }
 
@@ -155,7 +161,7 @@ public class ProviderAdmissionTests
         var held = await admission.EnterAsync(Key("a"));
         var waiting = admission.EnterAsync(Key("a"), cts.Token);
         await cts.CancelAsync();
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await waiting);
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => waiting.AsTask().WaitAsync(GateWait));
 
         held.Dispose();
 
