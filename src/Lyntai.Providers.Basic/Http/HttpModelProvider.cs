@@ -34,8 +34,10 @@ public sealed class HttpModelProvider : IModelProvider, IVectorProvider, IScoreP
     /// APP-supplied client, whose lifetime the app owns.</param>
     /// <exception cref="ArgumentOutOfRangeException"><see cref="HttpModelOptions.MaxInputChars"/> is not
     /// positive, or leaves an embedding prefix no room for text.</exception>
-    /// <exception cref="ArgumentException"><see cref="HttpModelOptions.SuppressReasoningFields"/> is not one
-    /// JSON object, or names a member the request sets itself.</exception>
+    /// <exception cref="ArgumentException"><see cref="HttpModelOptions.Produces"/> is not
+    /// <see cref="ProviderKinds.Text"/>, <see cref="ProviderKinds.Vector"/> or <see cref="ProviderKinds.Score"/>;
+    /// or <see cref="HttpModelOptions.SuppressReasoningFields"/> is not one JSON object, or names a member the
+    /// request sets itself.</exception>
     public HttpModelProvider(
         string id,
         HttpModelOptions config,
@@ -56,7 +58,7 @@ public sealed class HttpModelProvider : IModelProvider, IVectorProvider, IScoreP
             ? new HttpVectorTransport(id, VectorSettings(config), httpFactory, options, log, disposeHttpClient)
             : null;
         _rerank = ServesScores(config)
-            ? new HttpRerankTransport(id, config, httpFactory, options, log, disposeHttpClient)
+            ? new HttpRerankTransport(id, RerankSettings(config), httpFactory, options, log, disposeHttpClient)
             : null;
     }
 
@@ -104,11 +106,28 @@ public sealed class HttpModelProvider : IModelProvider, IVectorProvider, IScoreP
         MaxInputChars: c.MaxInputChars,
         Segmentation: c.Segmentation);
 
-    /// <summary>Throws when <see cref="HttpModelOptions.MaxInputChars"/> cannot bound a piece, or
+    /// <summary>The Cohere-shaped <c>rerank</c> route under the <c>/v1</c> convention — there is no Ollama
+    /// arm, since Ollama serves no rerank surface and its provider refuses a Score registration.</summary>
+    private static HttpRerankTransport.Settings RerankSettings(HttpModelOptions c) => new(
+        Endpoint: HttpEndpoint.Build(c.BaseUrl, HttpEndpoint.AzureFor(c), "rerank"),
+        ApiKey: c.ApiKey,
+        AzureConventions: HttpEndpoint.AzureFor(c),
+        Model: c.Model,
+        MaxInputChars: c.MaxInputChars,
+        Segmentation: c.Segmentation);
+
+    /// <summary>Throws when <see cref="HttpModelOptions.Produces"/> is a kind this wire does not serve,
+    /// <see cref="HttpModelOptions.MaxInputChars"/> cannot bound a piece, or
     /// <see cref="HttpModelOptions.SuppressReasoningFields"/> is not a usable object — run at registration as
     /// well as here, so a bad value fails composition rather than a first call.</summary>
     internal static void Validate(HttpModelOptions c)
     {
+        if (!ServesText(c) && !ServesVectors(c) && !ServesScores(c))
+            throw new ArgumentException(
+                $"{nameof(HttpModelOptions)}.{nameof(HttpModelOptions.Produces)} is '{c.Produces}', which this "
+                + $"backend does not serve. An OpenAI-shaped endpoint produces {ProviderKinds.Text} "
+                + $"(chat/completions), {ProviderKinds.Vector} (embeddings) or {ProviderKinds.Score} (rerank).",
+                nameof(c));
         if (ServesVectors(c) || ServesScores(c))
             InputSegmenter.ValidateBound(c.MaxInputChars, ServesVectors(c), c.DocumentPrefix, c.QueryPrefix);
         if (ServesText(c))
@@ -126,35 +145,30 @@ public sealed class HttpModelProvider : IModelProvider, IVectorProvider, IScoreP
     public bool IsAvailable => !string.IsNullOrWhiteSpace(_config.BaseUrl);
 
     /// <inheritdoc/>
-    /// <exception cref="NotSupportedException">This registration does not produce vectors. A router checks
-    /// <see cref="Capabilities"/> first, so only a caller that ignored them reaches this.</exception>
+    /// <remarks>A registration that does not produce vectors answers <see cref="ProviderVerdict.Unsupported"/>
+    /// — a router checks <see cref="Capabilities"/> first, so only a direct caller sees it.</remarks>
     public Task<VectorResponse> CallAsync(VectorRequest request, CancellationToken ct = default) =>
-        (_embeddings ?? throw new NotSupportedException(
-            $"{_id} produces {_config.Produces}, not {ProviderKinds.Vector} — an embedding model is its own "
-            + "backend, registered with Produces = ProviderKinds.Vector."))
-        .CallAsync(request, ct);
+        _embeddings?.CallAsync(request, ct) ?? Task.FromResult(VectorResponse.Failure(
+            ProviderVerdict.Unsupported, WrongKindCall.Detail(_id, _config.Produces, ProviderKinds.Vector)));
 
     /// <inheritdoc/>
-    /// <exception cref="NotSupportedException">This registration does not produce scores. A router checks
-    /// <see cref="Capabilities"/> first, so only a caller that ignored them reaches this.</exception>
+    /// <remarks>A registration that does not produce scores answers <see cref="ProviderVerdict.Unsupported"/>
+    /// — a router checks <see cref="Capabilities"/> first, so only a direct caller sees it.</remarks>
     public Task<ScoreResponse> CallAsync(ScoreRequest request, CancellationToken ct = default) =>
-        (_rerank ?? throw new NotSupportedException(
-            $"{_id} produces {_config.Produces}, not {ProviderKinds.Score} — a reranker is its own backend, "
-            + "registered with Produces = ProviderKinds.Score."))
-        .CallAsync(request, ct);
+        _rerank?.CallAsync(request, ct) ?? Task.FromResult(ScoreResponse.Failure(
+            ProviderVerdict.Unsupported, WrongKindCall.Detail(_id, _config.Produces, ProviderKinds.Score)));
 
     /// <inheritdoc/>
+    /// <remarks>A registration that does not produce text answers <see cref="ProviderVerdict.Unsupported"/>.</remarks>
     public Task<TextResponse> CompleteAsync(TextRequest req, CancellationToken ct = default) =>
-        Chat().CompleteAsync(req, ct);
+        _chat?.CompleteAsync(req, ct) ?? Task.FromResult(new TextResponse("", ProviderVerdict.Unsupported,
+            Detail: WrongKindCall.Detail(_id, _config.Produces, ProviderKinds.Text)));
 
     /// <inheritdoc/>
-    /// <remarks>True tool-call streaming since 3.0: the stream assembles the vendor's fragmented tool-call
-    /// deltas and yields complete calls as <see cref="TextChunkKind.ToolCall"/> chunks.</remarks>
+    /// <remarks>The stream assembles the vendor's fragmented tool-call deltas and yields complete calls as
+    /// <see cref="TextChunkKind.ToolCall"/> chunks. A registration that does not produce text answers one
+    /// <see cref="ProviderVerdict.Unsupported"/> error chunk.</remarks>
     public IAsyncEnumerable<TextChunk> StreamAsync(TextRequest req, CancellationToken ct = default) =>
-        Chat().StreamAsync(req, ct);
-
-    private HttpChatEngine Chat() => _chat
-        ?? throw new NotSupportedException(
-            $"{_id} produces {_config.Produces}, not {ProviderKinds.Text} — a chat model is its own "
-            + "backend, registered with Produces = ProviderKinds.Text.");
+        _chat?.StreamAsync(req, ct)
+        ?? WrongKindCall.Stream(WrongKindCall.Detail(_id, _config.Produces, ProviderKinds.Text));
 }

@@ -3,6 +3,7 @@ using Lyntai.Inference;
 using Lyntai.Inference.Cli;
 using Lyntai.Processes;
 using Microsoft.Extensions.Logging;
+using Lyntai.Providers.Basic;
 
 namespace Lyntai.Providers.ClaudeCli;
 
@@ -20,8 +21,9 @@ namespace Lyntai.Providers.ClaudeCli;
 public sealed class ClaudeCliProvider : IModelProvider, IProviderUpdater,
     IProviderVersionInstaller, IProviderAuth
 {
-    /// <summary>The router-facing id this provider answers to — name it in a candidate list, or in
-    /// <c>UseDefaultCandidates</c>, to route to the claude CLI. Also the value of <see cref="Id"/>.</summary>
+    /// <summary>The DEFAULT router-facing id — the backend's name, which <see cref="Id"/> reports unless a
+    /// registration names another. Name it in a candidate list, or in <c>UseDefaultCandidates</c>, to route to
+    /// the claude CLI.</summary>
     public const string ProviderId = "claude-cli";
 
     private readonly CliProviderEngine _engine;
@@ -35,26 +37,31 @@ public sealed class ClaudeCliProvider : IModelProvider, IProviderUpdater,
     /// <param name="environment">Extra environment variables for every spawn — a portable install usually
     /// wants its own <c>CLAUDE_CONFIG_DIR</c> so it neither reads nor mutates the machine-wide install's
     /// state (the maintenance seams honour it too, so a probe/auth check reports the PORTABLE state).</param>
+    /// <param name="id">The router-facing id; <see cref="ProviderId"/> by default. Give a second registration
+    /// — a second portable install, a second account — its own, or the first-wins router never reaches it.</param>
     public ClaudeCliProvider(
         IProcessRunner runner,
         LyntaiOptions options,
         ILogger<ClaudeCliProvider>? logger = null,
         string? command = null,
         ICliToolProvisioner? provisioner = null,
-        IReadOnlyDictionary<string, string>? environment = null)
-        => _engine = new CliProviderEngine(new ClaudeCliBackend(), runner, options, logger, command, provisioner, environment);
+        IReadOnlyDictionary<string, string>? environment = null,
+        string id = ProviderId)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(id);
+        var backend = new ClaudeCliBackend();
+        _engine = new CliProviderEngine(backend, runner, options, logger, command, provisioner, environment);
+        Capabilities = CliComposition.Capabilities(backend);
+        Id = id;
+    }
 
     /// <inheritdoc/>
-    public string Id => ProviderId;
+    public string Id { get; }
 
-    /// <summary>What this backend serves — the spawned claude CLI: text in, text out, buffered or streamed. Tool calls go through the
-    /// prompt protocol rather than a native tool API, so neither tool flag is declared.</summary>
-    public ProviderCapabilities Capabilities { get; } = new()
-    {
-        Accepts = [ProviderKinds.Text],
-        Produces = [ProviderKinds.Text],
-        Operations = [ProviderOperation.Complete, ProviderOperation.Stream],
-    };
+    /// <summary>What this backend serves — the spawned claude CLI: text in, text out, buffered or streamed.
+    /// Tool calls go through the prompt protocol rather than a native tool API, so the backend declares no
+    /// request-level tools and neither tool flag is set.</summary>
+    public ProviderCapabilities Capabilities { get; }
 
     /// <summary>Whether the <c>claude</c> CLI looks callable — the resolved command on the local PATH for the
     /// built-in runner, optimistically true for a BYO <see cref="IProcessRunner"/> (which resolves commands in

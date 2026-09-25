@@ -14,17 +14,39 @@ internal static class ClaudeAgentArgs
     // Denied when the caller opts into ReadOnly policy (no filesystem writes).
     private static readonly string[] ReadOnlyDenied = ["Edit", "Write", "NotebookEdit"];
 
-    /// <summary>Build the argv list for a claude agent session. The prompt is NOT included here —
-    /// send it over stdin via <see cref="Lyntai.Processes.IProcessRunner.StreamLinesAsync"/>.
+    /// <summary>Build the argv list for a claude agent session, or REFUSE the turn. The prompt is NOT included
+    /// here — send it over stdin via <see cref="Lyntai.Processes.IProcessRunner.StreamLinesAsync"/>.
     ///
-    /// <para><see cref="AgentSessionOptions.McpServers"/> is assumed already validated by the caller
+    /// <para>The only refusal is a <see cref="AgentSessionOptions.ResumeToken"/> the CLI would read as an
+    /// OPTION (<see cref="AgentResumeToken"/>); it is checked before anything is written.
+    /// <see cref="AgentSessionOptions.McpServers"/> is assumed already validated by the caller
     /// (<see cref="AgentMcpServers.TryValidate"/>, which the session runs so a refusal carries its own
-    /// subtype) — this method renders, it does not judge.</para></summary>
+    /// subtype) — this method renders it, it does not judge it.</para></summary>
     /// <param name="options">The turn.</param>
     /// <param name="writeTempFile">Given a short <c>kind</c> tag and the file's content, writes a config
     /// file and returns its path. Supplied by the caller so the paths can be tracked and deleted when the
     /// turn ends — and so a test can assert the file's contents without touching the disk.</param>
-    public static IReadOnlyList<string> Build(AgentSessionOptions options, Func<string, string, string> writeTempFile)
+    /// <param name="args">The argv, or empty when refused.</param>
+    /// <param name="refusal">Why the turn cannot be spawned, or null when it can.</param>
+    public static bool TryBuild(
+        AgentSessionOptions options, Func<string, string, string> writeTempFile,
+        out IReadOnlyList<string> args, out string? refusal)
+    {
+        string? resumeId = null;
+        if (options.ResumeToken is { Length: > 0 } token
+            && !AgentResumeToken.TryRead(token, "claude", out resumeId, out refusal))
+        {
+            args = [];
+            return false;
+        }
+
+        args = Build(options, resumeId, writeTempFile);
+        refusal = null;
+        return true;
+    }
+
+    private static List<string> Build(
+        AgentSessionOptions options, string? resumeId, Func<string, string, string> writeTempFile)
     {
         // the print-mode prefix is declared once, on ClaudeArgs — this path only adds the partial-message
         // events the agent reader needs on top of it
@@ -56,7 +78,7 @@ internal static class ClaudeAgentArgs
             args.Add(string.Join(",", disallowed));
         }
 
-        // Headless bypass (CLI1): an agent on the user's own machine against the user's own resources needs
+        // Headless bypass: an agent on the user's own machine against the user's own resources needs
         // to skip ALL prompts (in `-p` there is no responder — a prompt hangs the turn). --dangerously-skip-
         // permissions REPLACES --permission-mode / --allowedTools (the CLI rejects combining them); the
         // --disallowed-tools denial above (always-denied flow tools + caller-supplied + ReadOnly writes) stands.
@@ -110,10 +132,10 @@ internal static class ClaudeAgentArgs
             args.AddRange(mcpConfigs);
         }
 
-        if (!string.IsNullOrEmpty(options.ResumeToken))
+        if (resumeId is not null)
         {
             args.Add("--resume");
-            args.Add(options.ResumeToken);
+            args.Add(resumeId);
         }
 
         if (!string.IsNullOrEmpty(options.Model))

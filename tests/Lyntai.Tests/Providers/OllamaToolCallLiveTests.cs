@@ -7,7 +7,7 @@ namespace Lyntai.Tests.Providers;
 
 /// <summary>
 /// OPT-IN end-to-end proof of NATIVE tool-calling against a real local Ollama: registers a real tool,
-/// runs the full <see cref="IToolLoop"/> through the OpenAI-shaped (Ollama) provider, and asserts
+/// runs the full <see cref="IToolLoop"/> through the Ollama-native provider, and asserts
 /// the model actually called the tool and the loop returned a tool-informed answer — not just the stub.
 /// Runs only when <c>LYNTAI_LIVE_OLLAMA</c> is set AND the endpoint is reachable; otherwise it reports as
 /// SKIPPED (<c>Xunit.SkippableFact</c>) rather than as a pass that observed nothing.

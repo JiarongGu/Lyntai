@@ -21,8 +21,21 @@ namespace Lyntai.Providers.ClaudeCli;
 /// </summary>
 public sealed class ClaudeCliMcpConnector : IMcpCliConnector
 {
+    /// <summary>A connector for every claude registration that has none of its own: keyed on
+    /// <see cref="ClaudeCliProvider.ProviderId"/>, the id claude registrations fall back to.</summary>
+    public ClaudeCliMcpConnector() : this(ClaudeCliProvider.ProviderId) { }
+
+    /// <summary>A connector for ONE claude registration — the one registered under
+    /// <paramref name="providerId"/>, which prefers it over the shared one.</summary>
+    /// <param name="providerId">The id that claude registration was given.</param>
+    public ClaudeCliMcpConnector(string providerId)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(providerId);
+        ProviderId = providerId;
+    }
+
     /// <inheritdoc />
-    public string ProviderId => ClaudeCliProvider.ProviderId;
+    public string ProviderId { get; }
 
     /// <inheritdoc />
     public ValueTask<IReadOnlyList<string>> BuildArgsAsync(McpCliContext context, CancellationToken ct = default)
@@ -40,19 +53,9 @@ public sealed class ClaudeCliMcpConnector : IMcpCliConnector
     }
 
     /// <summary>The <c>--mcp-config</c> file: points the CLI's MCP client at the running host over HTTP,
-    /// carrying the per-host bearer token.</summary>
-    internal static string McpConfigJson(McpEndpoint endpoint) => new JsonObject
-    {
-        ["mcpServers"] = new JsonObject
-        {
-            [endpoint.ServerName] = new JsonObject
-            {
-                ["type"] = "http",
-                ["url"] = endpoint.Url,
-                ["headers"] = new JsonObject { ["Authorization"] = $"Bearer {endpoint.AuthToken}" },
-            },
-        },
-    }.ToJsonString();
+    /// carrying the per-host bearer token — rendered by the same code as an agent session's servers.</summary>
+    internal static string McpConfigJson(McpEndpoint endpoint) =>
+        ClaudeMcpConfig.Json([AgentMcpServer.Http(endpoint.ServerName, endpoint.Url, endpoint.AuthToken)]);
 
     /// <summary>The <c>--settings</c> file: pre-approves our server's tools so print mode never blocks on
     /// a permission prompt.</summary>

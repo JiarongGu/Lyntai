@@ -39,20 +39,7 @@ internal static class OllamaPayload
 
         if (options.Count > 0) payload["options"] = options;
 
-        if (req.Tools is { Count: > 0 })
-        {
-            // same function-tool envelope as OpenAI; parameter schemas are objects here too
-            payload["tools"] = new JsonArray([.. req.Tools.Select(t => (JsonNode)new JsonObject
-            {
-                ["type"] = "function",
-                ["function"] = new JsonObject
-                {
-                    ["name"] = t.Name,
-                    ["description"] = t.Description,
-                    ["parameters"] = OpenAiPayload.ParseSchema(t.ParametersJsonSchema),
-                },
-            })]);
-        }
+        if (req.Tools is { Count: > 0 }) payload["tools"] = OpenAiPayload.Tools(req.Tools);
 
         if (req.JsonSchema is not null)
             payload["format"] = OpenAiPayload.ParseSchema(req.JsonSchema); // schema OBJECT, not a string
@@ -75,7 +62,7 @@ internal static class OllamaPayload
                 ["content"] = m.Content, // "" — Ollama has no null-content requirement
                 ["tool_calls"] = new JsonArray([.. m.ToolCalls.Select(tc => (JsonNode)new JsonObject
                 {
-                    ["function"] = new JsonObject { ["name"] = tc.Name, ["arguments"] = OpenAiPayload.ParseObject(tc.ArgumentsJson) },
+                    ["function"] = new JsonObject { ["name"] = tc.Name, ["arguments"] = ParseObject(tc.ArgumentsJson) },
                 })]),
             };
         if (m.ToolCallId is not null)
@@ -113,5 +100,14 @@ internal static class OllamaPayload
                 };
         }
         return new JsonObject { ["role"] = m.Role, ["content"] = m.Content };
+    }
+
+    /// <summary>A tool call's arguments as the OBJECT this schema embeds (an empty object when they do not
+    /// parse).</summary>
+    private static JsonNode ParseObject(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return new JsonObject();
+        try { return JsonNode.Parse(json) ?? new JsonObject(); }
+        catch (System.Text.Json.JsonException) { return new JsonObject(); }
     }
 }

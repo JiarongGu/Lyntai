@@ -3,6 +3,7 @@ using Lyntai.Inference;
 using Lyntai.Inference.Cli;
 using Lyntai.Processes;
 using Microsoft.Extensions.Logging;
+using Lyntai.Providers.Basic;
 
 namespace Lyntai.Providers.CodexCli;
 
@@ -22,6 +23,8 @@ namespace Lyntai.Providers.CodexCli;
 /// </summary>
 public sealed class CodexCliProvider : IModelProvider, IProviderUpdater, IProviderAuth
 {
+    /// <summary>The DEFAULT router-facing id — the backend's name, which <see cref="Id"/> reports unless a
+    /// registration names another.</summary>
     public const string ProviderId = "codex-cli";
 
     private readonly CliProviderEngine _engine;
@@ -36,6 +39,8 @@ public sealed class CodexCliProvider : IModelProvider, IProviderUpdater, IProvid
     /// wants its own <c>CODEX_HOME</c> so it neither reads nor mutates the machine-wide install's state.</param>
     /// <param name="backend">A pre-configured backend, to change codex-specific behaviour such as
     /// <see cref="CodexCliBackend.SandboxMode"/>. Defaults to a read-only sandbox.</param>
+    /// <param name="id">The router-facing id; <see cref="ProviderId"/> by default. Give a second registration
+    /// — a second portable install, a second account — its own, or the first-wins router never reaches it.</param>
     public CodexCliProvider(
         IProcessRunner runner,
         LyntaiOptions options,
@@ -43,21 +48,23 @@ public sealed class CodexCliProvider : IModelProvider, IProviderUpdater, IProvid
         string? command = null,
         ICliToolProvisioner? provisioner = null,
         IReadOnlyDictionary<string, string>? environment = null,
-        CodexCliBackend? backend = null)
-        => _engine = new CliProviderEngine(backend ?? new CodexCliBackend(), runner, options, logger, command,
-            provisioner, environment);
+        CodexCliBackend? backend = null,
+        string id = ProviderId)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(id);
+        backend ??= new CodexCliBackend();
+        _engine = new CliProviderEngine(backend, runner, options, logger, command, provisioner, environment);
+        Capabilities = CliComposition.Capabilities(backend);
+        Id = id;
+    }
 
     /// <inheritdoc/>
-    public string Id => ProviderId;
+    public string Id { get; }
 
-    /// <summary>What this backend serves — the spawned codex CLI: text in, text out, buffered or streamed. Its tool steps are surfaced by
-    /// the agent session rather than by this seam, so neither tool flag is declared.</summary>
-    public ProviderCapabilities Capabilities { get; } = new()
-    {
-        Accepts = [ProviderKinds.Text],
-        Produces = [ProviderKinds.Text],
-        Operations = [ProviderOperation.Complete, ProviderOperation.Stream],
-    };
+    /// <summary>What this backend serves — the spawned codex CLI: text in, text out, buffered or streamed.
+    /// Its tool steps are surfaced by the agent session rather than by this seam, so the backend declares no
+    /// request-level tools and neither tool flag is set.</summary>
+    public ProviderCapabilities Capabilities { get; }
 
     /// <summary>Whether the <c>codex</c> CLI looks callable — see <see cref="CliProviderEngine.IsAvailable"/>
     /// (a portable copy is checked for presence; a BYO runner is trusted).</summary>

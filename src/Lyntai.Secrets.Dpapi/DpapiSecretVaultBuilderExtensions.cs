@@ -3,6 +3,8 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Lyntai;
 
+/// <summary>DI entry point for <c>Lyntai.Secrets.Dpapi</c>: the secret vault sealed to this Windows host. A
+/// consumer composes it through the builder and never constructs its types by hand.</summary>
 public static class DpapiSecretVaultBuilderExtensions
 {
     /// <summary>Register an <see cref="EnvelopeSecretVault"/> whose DEK is machine-bound with Windows DPAPI

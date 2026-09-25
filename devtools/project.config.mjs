@@ -388,8 +388,8 @@ export default {
       ],
       proseExempt: 'the residue is `EmbedderHttpClientName`; the embedder-era measurement (2026-09-19, '
         + '~35 record sites, zero live-tier defects) covers it — the sibling names have their own rules',
-      use: '`AddHttpProvider` with `HttpModelOptions.Embeddings` set (and `Chat = null` '
-        + 'for a host that serves no chat); the wire shape is the internal `HttpEmbeddingsTransport`',
+      use: '`AddHttpProvider` with `Produces = ProviderKinds.Vector` — one registration per route, so a host '
+        + 'that also serves chat is registered twice; the wire shape is the internal `HttpVectorTransport`',
       why: 'a second Add* method for the same backend IS the chat-vs-embedder split, re-entering through '
         + 'the one surface a consumer types. One host, one registration, routes as configuration (D132)',
     },
@@ -898,7 +898,7 @@ export default {
         + '|\\bAddOnnxEmbedder\\b|\\bAddLocalProvider\\b',
       why: 'every registration returns an IModelProvider, so an *Embedder suffix sorted backends by what '
         + 'they produce — the taxonomy D130 deleted from the types and D132 from the surface',
-      use: '`AddHttpProvider` (with `Chat`/`Embeddings` saying which routes), '
+      use: '`AddHttpProvider` (with `Produces` saying which route), '
         + '`AddOnnxProvider`, `AddModel2VecProvider`, `AddLlamaSharpProvider`, `HttpVectorTransport`',
     },
     {

@@ -11,7 +11,12 @@ internal readonly record struct HttpStreamLine(
     TextUsage? Usage,
     bool IsFinal,
     string? FinishReason,
-    IReadOnlyList<ToolCallDelta>? ToolCalls);
+    IReadOnlyList<ToolCallDelta>? ToolCalls)
+{
+    /// <summary>The error the line reported IN BAND (<see cref="HttpBody.InBandError(System.Text.Json.JsonElement)"/>),
+    /// read off the document the wire already parsed — also on a line the wire otherwise skips.</summary>
+    public string? InBandError { get; init; }
+}
 
 /// <summary>The backend-specific half of an HTTP chat backend: where one completion is POSTed, how the
 /// request body is shaped, and how the response — buffered or streamed — is read. Everything that is the
@@ -26,19 +31,20 @@ internal interface IHttpChatWire
     /// <summary>The configured model, used when the request pins none.</summary>
     string? DefaultModel { get; }
 
-    /// <summary>Whether this backend was given credentials — what separates "not set up yet"
-    /// (<see cref="ProviderVerdict.NotConfigured"/>) from "your key was rejected"
+    /// <summary>The configured key, or null for a keyless endpoint. Whether one was given is what separates
+    /// "not set up yet" (<see cref="ProviderVerdict.NotConfigured"/>) from "your key was rejected"
     /// (<see cref="ProviderVerdict.AuthFailed"/>) when the server answers 401/403.</summary>
-    bool HasCredentials { get; }
+    string? ApiKey { get; }
+
+    /// <summary>Whether the key also travels in Azure's <c>api-key</c> header
+    /// (<see cref="HttpEndpoint.ApplyAuth"/>).</summary>
+    bool AzureConventions { get; }
 
     /// <summary>Whether a line reporting <see cref="HttpStreamLine.IsFinal"/> ENDS the stream. True for
     /// NDJSON (Ollama's <c>done:true</c> is the last line); false for SSE, which runs on to its
     /// <c>[DONE]</c> sentinel so the trailing usage chunk — sent AFTER the finish reason, with an EMPTY
     /// choices array — is still read.</summary>
     bool EndsStreamOnFinal { get; }
-
-    /// <summary>Apply this backend's auth convention to one outgoing request. No key → no headers.</summary>
-    void ApplyAuth(HttpRequestMessage request);
 
     /// <summary>The request body for one completion.</summary>
     JsonObject BuildPayload(TextRequest req, string model, bool stream);

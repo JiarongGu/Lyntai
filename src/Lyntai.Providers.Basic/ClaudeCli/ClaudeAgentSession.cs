@@ -1,7 +1,7 @@
 using Lyntai.Inference;
 using System.Runtime.CompilerServices;
 using Lyntai.Agents;
-using Lyntai.Inference.Streaming;
+using Lyntai.Inference.Cli;
 using Lyntai.Processes;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -20,6 +20,9 @@ namespace Lyntai.Providers.ClaudeCli;
 /// </summary>
 public sealed class ClaudeAgentSession : IAgentSession
 {
+    // the backend is the single declaration of this CLI's default command and env seams, shared with the provider
+    private static readonly ClaudeCliBackend Backend = new();
+
     private readonly IProcessRunner _runner;
     private readonly LyntaiOptions _options;
     private readonly ILogger _logger;
@@ -31,10 +34,9 @@ public sealed class ClaudeAgentSession : IAgentSession
     /// <param name="logger">Null = no logging.</param>
     /// <param name="command">A PORTABLE <c>claude</c> path; null = the env overrides, then PATH.</param>
     /// <param name="environment">Extra environment variables for every spawn — the same seam
-    /// <see cref="ClaudeCliProvider"/> has, and for the same reason: a portable install usually wants its own
-    /// <c>CLAUDE_CONFIG_DIR</c> so it neither reads nor mutates the machine-wide install's state. Without it a
-    /// host that passes one to the provider and the session alike (which both methods' docs instruct) had it
-    /// honoured for completions and silently dropped for agent turns.</param>
+    /// <see cref="ClaudeCliProvider"/> has, for the same reason: a portable install usually wants its own
+    /// <c>CLAUDE_CONFIG_DIR</c> so it neither reads nor mutates the machine-wide install's state. Pass the
+    /// provider and the session the same value.</param>
     public ClaudeAgentSession(
         IProcessRunner runner,
         LyntaiOptions options,
@@ -55,99 +57,48 @@ public sealed class ClaudeAgentSession : IAgentSession
     /// alongside a <c>ClaudeAgentOptions.McpConfigPath</c> the caller supplied, never instead of it. An
     /// entry that cannot be rendered REFUSES the turn (a single <see cref="SessionEnded"/> with
     /// <see cref="ProviderVerdict.Unsupported"/>) rather than being dropped, because an agent that silently lost
-    /// the tools it exists to use looks like a working agent.</param>
+    /// the tools it exists to use looks like a working agent. So does a
+    /// <see cref="AgentSessionOptions.ResumeToken"/> the CLI would read as an OPTION rather than an id: blank,
+    /// or starting with <c>-</c>.</param>
     /// <param name="ct">Cancels the turn and kills the process tree.</param>
     public async IAsyncEnumerable<AgentStreamEvent> StreamAsync(
         AgentSessionOptions options, [EnumeratorCancellation] CancellationToken ct = default)
     {
+        if (!AgentMcpServers.TryValidate(options.McpServers, out var mcpRefusal))
+        {
+            yield return CliAgentLoop.Refused(AgentMcpServers.RefusedSubtype, mcpRefusal);
+            yield break;
+        }
+
         // written before the spawn, deleted in the finally below — the file carries whatever secrets the
         // caller's servers need (a bearer token, a stdio server's env), so it must not outlive the turn
         var tempFiles = new List<string>();
         string Write(string kind, string content)
         {
-            var path = CliTempFile.Write(kind, content);
+            var path = OwnerOnlyTempFile.Write(kind, content);
             tempFiles.Add(path);
             return path;
         }
 
-        if (!AgentMcpServers.TryValidate(options.McpServers, out var refusal))
+        if (!ClaudeAgentArgs.TryBuild(options, Write, out var agentArgs, out var refusal))
         {
-            yield return new SessionEnded(ProviderVerdict.Unsupported, true, "mcp-server-invalid", null, null, refusal);
+            yield return CliAgentLoop.Refused(AgentResumeToken.RefusedSubtype, refusal);
             yield break;
         }
 
-        var agentArgs = ClaudeAgentArgs.Build(options, Write);
         try
         {
-            await foreach (var evt in RunAsync(options, agentArgs, ct).ConfigureAwait(false))
+            var (exe, prefixArgs) = CliCommand.Resolve(_command, Backend);
+            var reader = new StreamJsonAgentReader();
+            var turn = CliAgentLoop.RunAsync(_runner, exe, [.. prefixArgs, .. agentArgs], options.Prompt,
+                _options.ResolveTimeout(options.TimeoutSeconds), options, _environment, reader.Read, _logger,
+                "claude", ct);
+            await foreach (var evt in turn.ConfigureAwait(false))
                 yield return evt;
         }
         finally
         {
-            foreach (var path in tempFiles) CliTempFile.TryDelete(path);
-        }
-    }
-
-    private async IAsyncEnumerable<AgentStreamEvent> RunAsync(
-        AgentSessionOptions options, IReadOnlyList<string> agentArgs,
-        [EnumeratorCancellation] CancellationToken ct = default)
-    {
-        var (exe, prefixArgs) = ClaudeCommand.Resolve(_command);
-        var argv = prefixArgs.Concat(agentArgs).ToList();
-
-        var timeout = _options.ResolveTimeout(options.TimeoutSeconds);
-
-        var reader = new StreamJsonAgentReader();
-        var sawTerminal = false;
-        string? lastSessionId = null;
-
-        var lines = _runner.StreamLinesAsync(exe, argv, stdin: options.Prompt, inactivityTimeout: timeout,
-            workingDirectory: options.WorkingDirectory, environment: _environment, ct: ct);
-        var e = lines.GetAsyncEnumerator(ct);
-        await using (e.ConfigureAwait(false))
-        {
-            // the guarded loop lives once in Core; the fault→terminal translation lives once in this package
-            // (CliAgentTerminal.FromFault), so the codex session answers the same exceptions the same way.
-            // No clock here — the inactivity window is the RUNNER's (its timeout arrives as
-            // ProcessTimeoutException), so ANY OperationCanceledException is cancellation and PROPAGATES:
-            // FromFault returns null for it. The fault terminal captures lastSessionId at FAULT time (the
-            // closure reads the loop-mutated local).
-            var guarded = GuardedStream.ReadAll<string, SessionEnded>(
-                async () => await e.MoveNextAsync().ConfigureAwait(false) ? e.Current : null,
-                ex => CliAgentTerminal.FromFault(ex, lastSessionId),
-                ct);
-            await foreach (var (line, terminal) in guarded.ConfigureAwait(false))
-            {
-                if (terminal is not null)
-                {
-                    if (!sawTerminal) yield return terminal;
-                    yield break;
-                }
-
-                foreach (var evt in reader.Read(line!))
-                {
-                    if (evt is SessionStarted ss) lastSessionId = ss.SessionId;
-                    else if (evt is SessionEnded se)
-                    {
-                        // SessionEnded is THE single terminal: the first one wins, and anything the CLI
-                        // prints after it can add events but never a second ending. Same rule
-                        // CodexAgentSession enforces — without it a transcript carrying two `result` lines
-                        // ends the session twice, and RunAsync's fold (last-one-wins) reports the SECOND
-                        // verdict, so a stray trailing line could turn a finished Ok turn into a failure.
-                        if (sawTerminal) continue;
-                        sawTerminal = true;
-                        lastSessionId = se.SessionId ?? lastSessionId;
-                    }
-                    yield return evt;
-                }
-            }
-        }
-
-        if (!sawTerminal)
-        {
-            _logger.LogWarning("ClaudeAgentSession produced no terminal event; session={SessionId}", lastSessionId);
-            yield return new SessionEnded(ProviderVerdict.Failed, true, null, lastSessionId, null,
-                "no output produced (no terminal result)");
+            foreach (var path in tempFiles) OwnerOnlyTempFile.TryDelete(path);
         }
     }
 }

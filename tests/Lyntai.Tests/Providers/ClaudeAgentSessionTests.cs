@@ -29,12 +29,15 @@ public class ClaudeAgentSessionTests
     /// <see cref="Tools.ClaudeCliMcpConnectorTests"/> uses for the tool-host path. The returned path is
     /// deterministic so argv assertions can name it.</summary>
     private static IReadOnlyList<string> Args(
-        AgentSessionOptions options, List<(string Kind, string Content)>? written = null) =>
-        ClaudeAgentArgs.Build(options, (kind, content) =>
+        AgentSessionOptions options, List<(string Kind, string Content)>? written = null)
+    {
+        Assert.True(ClaudeAgentArgs.TryBuild(options, (kind, content) =>
         {
             written?.Add((kind, content));
             return $"<temp:{kind}>";
-        });
+        }, out var args, out var refusal), refusal);
+        return args;
+    }
 
     [Fact]
     public void Build_always_includes_base_flags()
@@ -315,7 +318,7 @@ public class ClaudeAgentSessionTests
     public async Task The_rendered_config_file_is_DELETED_when_the_turn_ends()
     {
         // it carries whatever secrets the caller's servers need, so it must not outlive the turn — this is
-        // the real CliTempFile path (the session writes it), not the recording writer above
+        // the real OwnerOnlyTempFile path (the session writes it), not the recording writer above
         var runner = new FakeProcessRunner(FullTranscript);
         var session = new ClaudeAgentSession(runner, new LyntaiOptions(), command: "claude");
         var opts = new AgentSessionOptions { Prompt = "hi", McpServers = [Stdio()] };

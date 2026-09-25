@@ -36,10 +36,11 @@ public interface ICliBackend
     /// <summary>Whether this CLI accepts request-level tool DECLARATIONS
     /// (<see cref="TextRequest.Tools"/>). False for CLIs that expose tools their own way (e.g. over MCP via
     /// an <see cref="Agents.ICliToolProvisioner"/>) — the engine then warns rather than dropping them
-    /// silently. That warning is ALL this flag drives: a backend returning true must have its composing
-    /// <see cref="IModelProvider"/> declare <c>SupportsToolCalls =&gt; true</c> itself (per <c>DECISIONS.md</c>
-    /// D21 the provider is the capability declarer), or <see cref="ITextRouter.GetCapabilitiesAsync"/> reports
-    /// none and the tool loop silently takes its prompt-based fallback.</summary>
+    /// silently. The engine reads it for that warning only; the composing <see cref="IModelProvider"/> is the
+    /// capability declarer (<c>DECISIONS.md</c> D21), so it DERIVES its
+    /// <see cref="ProviderCapabilities.SupportsToolCalls"/> from this flag — as the shipped CLI providers do —
+    /// or <see cref="ITextRouter.GetCapabilitiesAsync"/> reports none and the tool loop takes its prompt-based
+    /// fallback.</summary>
     bool SupportsToolCalls { get; }
 
     /// <summary>How this CLI wants the prompt: stdin (the safe default) or a trailing argument.</summary>
@@ -60,14 +61,10 @@ public interface ICliBackend
     /// <param name="toolHostArgs">Args from an <see cref="Lyntai.Agents.ICliToolProvisioner"/> that point
     /// this CLI at the host's own MCP endpoint — empty when nothing is hosted.
     ///
-    /// <para><b>The BACKEND places these, because only it knows where they may legally go.</b> The
-    /// engine used to append them after this method's return value, which is correct only for a CLI whose
-    /// argv ends in options. It does not for <c>codex</c>, whose argv ends in the <c>-</c> stdin positional:
-    /// everything after it is read as PROMPT text, and on that CLI a swallowed flag is a SPENT TURN rather
-    /// than an error. That hazard was documented on <c>CodexExecArgs</c> — which takes its own
-    /// <c>extraOptions</c> parameter for exactly this reason — and the agent path honoured it while the
-    /// completion path had no way to. Appending is still the right answer for most CLIs; it is now a choice
-    /// each backend makes rather than one the engine makes for all of them.</para></param>
+    /// <para><b>The BACKEND places these, because only it knows where they may legally go</b>
+    /// (<c>docs/DECISIONS.md</c> D65). Appending suits a CLI whose argv ends in options; it is wrong for one
+    /// whose argv ends in a positional — <c>codex</c>'s ends in the <c>-</c> stdin marker, after which a flag
+    /// is read as PROMPT text and spends a turn.</para></param>
     IReadOnlyList<string> BuildCompletionArgs(TextRequest request, IReadOnlyList<string> toolHostArgs);
 
     /// <summary>Flatten the request's messages into the single prompt this CLI takes.</summary>
@@ -76,10 +73,10 @@ public interface ICliBackend
     /// <summary>Decode ONE line of the CLI's output. Must be tolerant: an unknown or malformed line is
     /// <see cref="CliOutputEvent.Ignored"/>, never a throw — a stream carries plenty that isn't the answer.
     /// The line arrives WITHOUT its terminator on both the buffered and the streamed path (no trailing
-    /// <c>\n</c>, and no <c>\r</c> from a CRLF-emitting child), so an exact match is safe. A
-    /// <see cref="CliOutputEventKind.Content"/> event MUST carry non-empty text — a line that turned out to
-    /// hold none is <see cref="CliOutputEvent.Ignored"/>, because the engine's "did anything arrive?" test
-    /// counts Content events rather than their length.</summary>
+    /// <c>\n</c>, and no <c>\r</c> from a CRLF-emitting child), so an exact match is safe. Report a line
+    /// that turned out to hold no content as <see cref="CliOutputEvent.Ignored"/>; an EMPTY
+    /// <see cref="CliOutputEventKind.Content"/> event is tolerated, since the engine counts content by its
+    /// length (<see cref="CliOutputEvent.Content"/>).</summary>
     CliOutputEvent ParseLine(string line);
 
     /// <summary>Read the backend's version banner (and a model id, only if the line explicitly labels one —

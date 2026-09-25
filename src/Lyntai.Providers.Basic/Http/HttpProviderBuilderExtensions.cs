@@ -17,13 +17,6 @@ public static class HttpProviderBuilderExtensions
     /// URL every local-model reader pastes: a BaseUrl that is an Ollama server ROOT (its well-known port,
     /// no <c>/v1</c>) composes the Ollama-NATIVE provider instead, exactly as <c>AddOllamaProvider</c>
     /// would. An Ollama <c>/v1</c> base stays here, on the OpenAI-shaped wire its path names.</para>
-    /// <para><b>This one KEEPS the <c>Provider</c> suffix</b> where a named backend drops it (<b>D134</b>):
-    /// like <see cref="LyntaiBuilder.AddProvider(Func{IServiceProvider,Lyntai.Inference.IModelProvider},Lyntai.Inference.ProviderCapabilities)"/>
-    /// it is the GENERIC registration, so <c>Provider</c> is the noun it takes rather than a suffix on a
-    /// vendor's name. The vendor presets below —
-    /// <see cref="AddOpenAiProvider(LyntaiBuilder,string,string?,string,Func{IServiceProvider,HttpClient}?)"/>,
-    /// <see cref="OllamaBuilderExtensions.AddOllamaProvider(LyntaiBuilder,string?,string?,string,Func{IServiceProvider,HttpClient}?)"/>
-    /// — name a backend, so they do not carry it.</para>
     /// <para>BYO HttpClient: pass <paramref name="httpClient"/> to supply your own configured client
     /// (Polly resilience, auth handlers, a proxy, service discovery, or an existing named
     /// <see cref="IHttpClientFactory"/> client — e.g. <c>sp =&gt; sp.GetRequiredService&lt;IHttpClientFactory&gt;().CreateClient("my")</c>).
@@ -31,8 +24,9 @@ public static class HttpProviderBuilderExtensions
     /// infinite HttpClient timeout so the per-call <see cref="LyntaiOptions.ProviderTimeout"/> owns deadlines.</para></summary>
     /// <exception cref="ArgumentOutOfRangeException"><see cref="HttpModelOptions.MaxInputChars"/> is not
     /// positive, or leaves an embedding prefix no room for text.</exception>
-    /// <exception cref="ArgumentException"><see cref="HttpModelOptions.SuppressReasoningFields"/> is not one
-    /// JSON object, or names a member the request sets itself.</exception>
+    /// <exception cref="ArgumentException"><see cref="HttpModelOptions.Produces"/> is a kind the wire does not
+    /// serve; or <see cref="HttpModelOptions.SuppressReasoningFields"/> is not one JSON object, or names a
+    /// member the request sets itself.</exception>
     public static LyntaiBuilder AddHttpProvider(this LyntaiBuilder builder, string id,
         Action<HttpModelOptions> configure, Func<IServiceProvider, HttpClient>? httpClient = null)
     {

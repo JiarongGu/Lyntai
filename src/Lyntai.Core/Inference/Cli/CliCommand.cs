@@ -11,6 +11,19 @@ namespace Lyntai.Inference.Cli;
 /// provider stub instead of a real backend.</remarks>
 public static class CliCommand
 {
+    /// <summary>Resolve the command <paramref name="backend"/> spawns: the override, else the backend's
+    /// <see cref="ICliBackend.CommandEnvironmentVariables"/>, else its <see cref="ICliBackend.DefaultCommand"/>.
+    /// The backend is the single declaration of both, so every seam over one CLI (a provider, an agent
+    /// session) spawns the same binary.</summary>
+    /// <param name="command">An explicit override; wins over everything when non-blank.</param>
+    /// <param name="backend">The CLI being spawned.</param>
+    /// <returns>The executable plus any prefix args, as the other overload returns them.</returns>
+    public static (string Exe, IReadOnlyList<string> PrefixArgs) Resolve(string? command, ICliBackend backend)
+    {
+        ArgumentNullException.ThrowIfNull(backend);
+        return Resolve(command, backend.DefaultCommand, backend.CommandEnvironmentVariables);
+    }
+
     /// <summary>Resolve the command to spawn.</summary>
     /// <param name="command">An explicit override (a ctor argument / configuration value). Wins over
     /// everything when non-blank.</param>

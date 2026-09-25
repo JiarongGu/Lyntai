@@ -57,17 +57,18 @@ public class TwoBackendsOneHostTests
         Assert.False(provider.Capabilities.SupportsStreamingToolCalls);
     }
 
-    // Reached only by a caller that ignored Capabilities — a router checks first. It THROWS rather than
-    // returning an empty list, for the reason IModelProvider.EmbedAsync's own default gives: there is no
-    // vector that means "I could not", and a zero vector compares as real.
+    // Reached only by a caller that ignored Capabilities — a router checks first. It answers an Unsupported
+    // VERDICT with no vectors, never an empty Ok: there is no vector that means "I could not".
     [Fact]
-    public async Task Embedding_a_TEXT_backend_throws_and_says_what_to_register_instead()
+    public async Task Embedding_a_TEXT_backend_is_Unsupported_and_says_what_to_register_instead()
     {
         var provider = Provider(new StubHttpHandler(), _ => { });
 
-        var ex = await Assert.ThrowsAsync<NotSupportedException>(async () => await provider.EmbedAsync(["a"]));
+        var response = await provider.CallAsync(new VectorRequest(["a"]));
 
-        Assert.Contains("Produces = ProviderKinds.Vector", ex.Message, StringComparison.Ordinal);
+        Assert.Equal(ProviderVerdict.Unsupported, response.Verdict);
+        Assert.Empty(response.Vectors);
+        Assert.Contains("Produces = ProviderKinds.Vector", response.Detail, StringComparison.Ordinal);
     }
 
     [Fact]

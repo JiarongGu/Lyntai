@@ -1,5 +1,6 @@
 using Lyntai.Inference;
 using System.Text.Json;
+using Lyntai.Providers.Basic;
 
 namespace Lyntai.Providers.Http;
 
@@ -49,26 +50,27 @@ internal static class HttpBody
         try
         {
             using var doc = JsonDocument.Parse(body);
-            if (doc.RootElement.ValueKind != JsonValueKind.Object) return null;
-            if (!doc.RootElement.TryGetProperty("error", out var error)) return null;
-
-            var text = error.ValueKind switch
-            {
-                JsonValueKind.Null => null,
-                JsonValueKind.String => error.GetString(),
-                JsonValueKind.Object =>
-                    error.TryGetProperty("message", out var m) && m.ValueKind == JsonValueKind.String
-                        ? m.GetString()
-                        : error.GetRawText(),
-                _ => error.GetRawText(),
-            };
-
-            return string.IsNullOrWhiteSpace(text) ? null : text;
+            return InBandError(doc.RootElement);
         }
         catch (JsonException)
         {
             // not JSON at all — the caller's existing malformed-body path owns that case
             return null;
         }
+    }
+
+    /// <summary>The same read over a document a wire already parsed — a streamed line is parsed once.</summary>
+    internal static string? InBandError(JsonElement root)
+    {
+        if (root.ValueKind != JsonValueKind.Object || !root.TryGetProperty("error", out var error)) return null;
+
+        var text = error.ValueKind switch
+        {
+            JsonValueKind.Null => null,
+            JsonValueKind.String => error.GetString(),
+            JsonValueKind.Object => WireJson.String(error, "message") ?? error.GetRawText(),
+            _ => error.GetRawText(),
+        };
+        return string.IsNullOrWhiteSpace(text) ? null : text;
     }
 }

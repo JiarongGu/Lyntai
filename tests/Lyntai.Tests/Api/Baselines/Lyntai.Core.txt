@@ -740,8 +740,12 @@ abstract class Lyntai.Inference.Cli.CliBackendBase
     VersionArgs : IReadOnlyList<String>
     static FlagShaped(String value) : Boolean
 static class Lyntai.Inference.Cli.CliCommand
+    static Resolve(String command, ICliBackend backend) : ValueTuple<String,IReadOnlyList<String>>
     static Resolve(String command, String defaultCommand, IReadOnlyList<String> environmentVariables, Func<String,String> environmentLookup = null) : ValueTuple<String,IReadOnlyList<String>>
     static Tokenize(String commandLine) : List<String>
+static class Lyntai.Inference.Cli.CliFault
+    static Classify(Exception fault) : Nullable<ValueTuple<ProviderVerdict,String>>
+    static Exited(Int32 exitCode, String stdErrTail) : ValueTuple<ProviderVerdict,String>
 sealed class Lyntai.Inference.Cli.CliOutputEvent
     .ctor(CliOutputEventKind Kind, String Text = "", TextUsage Usage = null)
     Deconstruct(CliOutputEventKind& Kind, String& Text, TextUsage& Usage) : Void
@@ -906,6 +910,8 @@ sealed class Lyntai.Inference.InputSegmentation
     MinDocumentShare : Double
     Overflow : InputOverflow
     Overlap : Double
+    static DocumentShare(Int32 window, Double minDocumentShare) : Int32
+    static Spread<T>(IReadOnlyList<T> pieces, Nullable<Int32> cap) : IReadOnlyList<T>
 sealed class Lyntai.Inference.KeyValueModelRoutingStore
     .ctor(IKeyValueStore kv = null, ILogger<KeyValueModelRoutingStore> logger = null, String keyPrefix = null)
     DefaultKeyPrefix : String const
@@ -2653,6 +2659,9 @@ interface Lyntai.Processes.IProcessRunner
     RunAsync(String command, IReadOnlyList<String> args, String stdin = null, Nullable<TimeSpan> inactivityTimeout = null, Nullable<TimeSpan> maxDuration = null, String workingDirectory = null, IReadOnlyDictionary<String,String> environment = null, CancellationToken ct = default) : Task<ProcessResult>
     StreamBytesAsync(String command, IReadOnlyList<String> args, String stdin = null, Nullable<TimeSpan> inactivityTimeout = null, Nullable<TimeSpan> maxDuration = null, String workingDirectory = null, IReadOnlyDictionary<String,String> environment = null, CancellationToken ct = default) : IAsyncEnumerable<Byte[]>
     StreamLinesAsync(String command, IReadOnlyList<String> args, String stdin = null, Nullable<TimeSpan> inactivityTimeout = null, Nullable<TimeSpan> maxDuration = null, String workingDirectory = null, IReadOnlyDictionary<String,String> environment = null, CancellationToken ct = default) : IAsyncEnumerable<String>
+static class Lyntai.Processes.OwnerOnlyTempFile
+    static TryDelete(String path) : Void
+    static Write(String kind, String content) : String
 sealed class Lyntai.Processes.ProcessResult
     .ctor(Int32 ExitCode, String StdOut, String StdErr, ProcessTimeoutKind TimeoutKind = ProcessTimeoutKind.None)
     Deconstruct(Int32& ExitCode, String& StdOut, String& StdErr, ProcessTimeoutKind& TimeoutKind) : Void

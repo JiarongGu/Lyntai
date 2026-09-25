@@ -20,17 +20,13 @@ internal sealed class OllamaChatWire(OllamaOptions config, ILogger logger) : IHt
 
     public string? DefaultModel => config.Model;
 
-    public bool HasCredentials => !string.IsNullOrWhiteSpace(config.ApiKey);
+    public string? ApiKey => config.ApiKey;
+
+    public bool AzureConventions => false;
 
     /// <summary>NDJSON's <c>done:true</c> line is the last one — usage rides on it, so there is nothing
     /// after it to wait for.</summary>
     public bool EndsStreamOnFinal => true;
-
-    public void ApplyAuth(HttpRequestMessage request)
-    {
-        if (!string.IsNullOrEmpty(config.ApiKey))
-            request.Headers.Authorization = new("Bearer", config.ApiKey);
-    }
 
     public JsonObject BuildPayload(TextRequest req, string model, bool stream) =>
         OllamaPayload.Build(req, model, stream, config.ContextSize, logger);
@@ -49,52 +45,42 @@ internal sealed class OllamaChatWire(OllamaOptions config, ILogger logger) : IHt
         {
             using var doc = JsonDocument.Parse(body);
             var root = doc.RootElement;
-            if (root.ValueKind != JsonValueKind.Object) return false;
-            if (!root.TryGetProperty("message", out var message) || message.ValueKind != JsonValueKind.Object)
-                return false;
+            if (WireJson.Object(doc.RootElement, "message") is not { } message) return false;
 
-            if (message.TryGetProperty("content", out var content) && content.ValueKind == JsonValueKind.String)
-                text = content.GetString() ?? "";
+            text = WireJson.String(message, "content") ?? "";
             toolCalls = WireToolCalls.Read(message);
-            usage = ExtractUsage(root);
+            usage = ExtractUsage(doc.RootElement);
             return true;
         }
-        catch (JsonException)
+        catch (Exception ex) when (WireJson.IsShapeFault(ex))
         {
             return false;
         }
     }
 
-    private static TextUsage? ExtractUsage(JsonElement root)
-    {
-        // WireJson.Long tolerates a count that is not an integral long (a fractional count from a proxy,
-        // an exponent form) — nothing here catches a FormatException, so a strict read would throw out of
-        // an otherwise good reply
-        if (root.TryGetProperty("prompt_eval_count", out _) || root.TryGetProperty("eval_count", out _))
-            return new TextUsage(WireJson.Long(root, "prompt_eval_count"), WireJson.Long(root, "eval_count"));
-        return null;
-    }
+    private static TextUsage? ExtractUsage(JsonElement root) =>
+        root.TryGetProperty("prompt_eval_count", out _) || root.TryGetProperty("eval_count", out _)
+            ? new TextUsage(WireJson.Long(root, "prompt_eval_count"), WireJson.Long(root, "eval_count"))
+            : null;
 
     /// <summary>One NDJSON line → delta text, <c>done:true</c> as the final marker (with the eval counts on
-    /// that same line). Tool calls arrive COMPLETE on one line, which the shared assembler handles as a
-    /// single-fragment accumulation — one path, not a per-wire branch.</summary>
+    /// that same line). Each tool call arrives COMPLETE, one per line (measured, Ollama 0.34.2), with its
+    /// <c>index</c> inside <c>function</c> — so every call is read as its own slot rather than joined by an
+    /// index, and calls on separate lines can never merge.</summary>
     public HttpStreamLine ParseStreamLine(string payload)
     {
         try
         {
             using var doc = JsonDocument.Parse(payload);
             var root = doc.RootElement;
-            if (root.ValueKind != JsonValueKind.Object) return default;
-            if (!root.TryGetProperty("message", out var message)) return default;
+            var inBand = HttpBody.InBandError(root);
+            if (WireJson.Object(root, "message") is not { } message) return new HttpStreamLine { InBandError = inBand };
 
-            string? text = null;
-            if (message.TryGetProperty("content", out var c) && c.ValueKind == JsonValueKind.String)
-                text = c.GetString();
             var final = root.TryGetProperty("done", out var d) && d.ValueKind == JsonValueKind.True;
-            return new HttpStreamLine(text, final ? ExtractUsage(root) : null, final, null,
-                StreamingToolCalls.Read(message));
+            return new HttpStreamLine(WireJson.String(message, "content"), final ? ExtractUsage(root) : null,
+                final, null, StreamingToolCalls.Read(message, complete: true)) { InBandError = inBand };
         }
-        catch (JsonException)
+        catch (Exception ex) when (WireJson.IsShapeFault(ex))
         {
             return default; // malformed stream line — skip it
         }

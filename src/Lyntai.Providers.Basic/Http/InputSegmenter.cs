@@ -8,7 +8,7 @@ namespace Lyntai.Providers.Http;
 /// <param name="Inputs">The inputs as the caller gave them.</param>
 /// <param name="Pieces">What to send — <paramref name="Inputs"/> itself when none exceeds the budget.</param>
 /// <param name="First">Input <c>i</c>'s pieces are <c>Pieces[First[i]..First[i + 1]]</c>.</param>
-internal sealed record Segmentation(IReadOnlyList<string> Inputs, IReadOnlyList<string> Pieces, int[] First)
+internal sealed record SegmentPlan(IReadOnlyList<string> Inputs, IReadOnlyList<string> Pieces, int[] First)
 {
     /// <summary>Whether input <paramref name="i"/> went as several pieces, whose answers are combined.</summary>
     public bool IsSegmented(int i) => First[i + 1] - First[i] > 1;
@@ -84,7 +84,7 @@ internal static class InputSegmenter
     /// word boundary when one falls in the share's latter half.</summary>
     public static string QueryWithin(string query, int window, double minDocumentShare)
     {
-        var most = window - DocumentShare(window, minDocumentShare);
+        var most = window - InputSegmentation.DocumentShare(window, minDocumentShare);
         if (Measure(query) <= most) return query;
         if (most < 1) return string.Empty;
         var kept = Truncate(query, most);
@@ -92,15 +92,9 @@ internal static class InputSegmenter
         return Measure(kept) <= most ? kept : string.Empty;
     }
 
-    /// <summary>What a document keeps of a pair window: its share, rounded up — in decimal, so 0.8 of 60 is
-    /// 48 rather than a binary 48.000…01 that rounds to 49 — and never less than one character, which a share
-    /// below decimal's range would otherwise round to.</summary>
-    public static int DocumentShare(int window, double minDocumentShare) =>
-        Math.Max(1, (int)Math.Ceiling((decimal)minDocumentShare * window));
-
     /// <summary>Segment every input against one budget, keeping at most <paramref name="maxPieces"/> pieces of
-    /// each (<see cref="Spread{T}"/>); a null overlap is the default one.</summary>
-    public static Segmentation Segment(
+    /// each (<see cref="InputSegmentation.Spread{T}"/>); a null overlap is the default one.</summary>
+    public static SegmentPlan Segment(
         IReadOnlyList<string> inputs, int budget, double? overlap = null, int? maxPieces = null)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(budget, 1);
@@ -108,17 +102,17 @@ internal static class InputSegmenter
         if (inputs.All(t => Measure(t) <= budget))
         {
             for (var i = 0; i <= inputs.Count; i++) first[i] = i;
-            return new Segmentation(inputs, inputs, first);
+            return new SegmentPlan(inputs, inputs, first);
         }
 
         var pieces = new List<string>(inputs.Count);
         for (var i = 0; i < inputs.Count; i++)
         {
             first[i] = pieces.Count;
-            pieces.AddRange(Spread(Split(inputs[i], budget, overlap), maxPieces));
+            pieces.AddRange(InputSegmentation.Spread(Split(inputs[i], budget, overlap), maxPieces));
         }
         first[inputs.Count] = pieces.Count;
-        return new Segmentation(inputs, pieces, first);
+        return new SegmentPlan(inputs, pieces, first);
     }
 
     /// <summary>The pieces of one input, each counting at most <paramref name="budget"/>.</summary>
@@ -144,19 +138,6 @@ internal static class InputSegmenter
         var head = input[..Cut(input, Count.Of(input), 0, budget)];
         var trimmed = head.TrimEnd();
         return trimmed.Length > 0 ? trimmed : head;
-    }
-
-    /// <summary>At most <paramref name="cap"/> of <paramref name="pieces"/>: the first, the last, and the rest
-    /// at even steps between — piece <c>round(i·(n−1)/(cap−1))</c>, halves rounded up — or the first alone for
-    /// a cap of 1. Every piece, as given, when there is no cap or the pieces are within it.</summary>
-    public static IReadOnlyList<T> Spread<T>(IReadOnlyList<T> pieces, int? cap)
-    {
-        if (cap is not { } most || pieces.Count <= most) return pieces;
-        if (most == 1) return [pieces[0]];
-        var kept = new T[most];
-        for (var i = 0; i < most; i++)
-            kept[i] = pieces[(int)((2L * i * (pieces.Count - 1) + (most - 1)) / (2L * (most - 1)))];
-        return kept;
     }
 
     /// <summary>The untrimmed character ranges <see cref="Split"/> takes its pieces from.</summary>

@@ -77,20 +77,6 @@ internal static class TokenSegmenter
         return windows;
     }
 
-    /// <summary>At most <paramref name="cap"/> of <paramref name="windows"/>: the first, the last, and the rest
-    /// at even steps between — window <c>round(i·(n−1)/(cap−1))</c>, halves rounded up — or the first alone for
-    /// a cap of 1; every window, as given, when there is no cap or they are within it. The HTTP segmenter keeps
-    /// its pieces by the same rule, which <c>PieceSpreadTests</c> holds both to.</summary>
-    public static IReadOnlyList<T> Spread<T>(IReadOnlyList<T> windows, int? cap)
-    {
-        if (cap is not { } most || windows.Count <= most) return windows;
-        if (most == 1) return [windows[0]];
-        var kept = new T[most];
-        for (var i = 0; i < most; i++)
-            kept[i] = windows[(int)((2L * i * (windows.Count - 1) + (most - 1)) / (2L * (most - 1)))];
-        return kept;
-    }
-
     /// <summary>Where a window starting at <paramref name="start"/> ends (exclusive). The sequence runs past
     /// <c>start + budget</c>, so every index read here exists.</summary>
     private static int Cut(IReadOnlyList<int> ids, int start, int budget, TokenBoundaries boundaries)

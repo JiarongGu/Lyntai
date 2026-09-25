@@ -92,4 +92,34 @@ public sealed class InputSegmentation
             : throw new ArgumentOutOfRangeException(nameof(MaxPiecesPerInput), value,
                 "MaxPiecesPerInput must be at least 1, or null for no cap.");
     }
+
+    /// <summary>The pieces of one input that <see cref="MaxPiecesPerInput"/> keeps: at most
+    /// <paramref name="cap"/> of <paramref name="pieces"/> — the first, the last, and the rest at even steps
+    /// between, piece <c>round(i·(n−1)/(cap−1))</c> with halves rounded up — or the first alone for a cap of 1.
+    /// Every piece, the same list, when <paramref name="cap"/> is null or the pieces are within it. A provider
+    /// honouring this record keeps its pieces by this rule, whatever a piece is (text, a token window).</summary>
+    /// <param name="pieces">One input's pieces, in order.</param>
+    /// <param name="cap">The cap; null keeps every piece.</param>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="cap"/> is under 1.</exception>
+    public static IReadOnlyList<T> Spread<T>(IReadOnlyList<T> pieces, int? cap)
+    {
+        ArgumentNullException.ThrowIfNull(pieces);
+        if (cap is not { } most) return pieces;
+        ArgumentOutOfRangeException.ThrowIfLessThan(most, 1, nameof(cap));
+        if (pieces.Count <= most) return pieces;
+        if (most == 1) return [pieces[0]];
+        var kept = new T[most];
+        for (var i = 0; i < most; i++)
+            kept[i] = pieces[(int)((2L * i * (pieces.Count - 1) + (most - 1)) / (2L * (most - 1)))];
+        return kept;
+    }
+
+    /// <summary>What a reranker pair's DOCUMENT keeps of a window of <paramref name="window"/> units
+    /// (<see cref="MinDocumentShare"/>): the share rounded up — in decimal, so 0.8 of 60 is 48 rather than a
+    /// binary 48.000…01 that rounds to 49 — and never less than one unit, which a share below decimal's range
+    /// would otherwise round to. The query keeps at most the rest.</summary>
+    /// <param name="window">The pair window, in whatever unit the provider bounds (characters, tokens).</param>
+    /// <param name="minDocumentShare">The share; <see cref="MinDocumentShare"/> of the record in force.</param>
+    public static int DocumentShare(int window, double minDocumentShare) =>
+        Math.Max(1, (int)Math.Ceiling((decimal)minDocumentShare * window));
 }

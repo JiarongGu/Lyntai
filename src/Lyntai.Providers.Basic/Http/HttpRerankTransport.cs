@@ -1,9 +1,9 @@
 using Lyntai.Inference;
-using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Lyntai.Providers.Basic;
 
 namespace Lyntai.Providers.Http;
 
@@ -19,17 +19,34 @@ namespace Lyntai.Providers.Http;
 /// the verdict; <c>ScoringVerificationPolicy</c> does exactly that.</para></summary>
 internal sealed class HttpRerankTransport(
     string id,
-    HttpModelOptions config,
+    HttpRerankTransport.Settings config,
     Func<HttpClient> httpFactory,
     LyntaiOptions options,
     ILogger? logger = null,
     bool disposeHttpClient = true)
 {
+    /// <summary>What the owning provider decides: the absolute endpoint and the auth convention, plus the
+    /// pair window — the same split <see cref="HttpVectorTransport.Settings"/> makes.</summary>
+    /// <param name="Endpoint">The absolute rerank endpoint this registration POSTs to.</param>
+    /// <param name="ApiKey">Bearer token; null for a keyless local endpoint.</param>
+    /// <param name="AzureConventions">Whether key auth also travels in Azure's <c>api-key</c> header.</param>
+    /// <param name="Model">The model named on the wire, when the endpoint selects by name.</param>
+    /// <param name="MaxInputChars">The PAIR window, in characters after NFKC normalisation; null sends every
+    /// pair whole.</param>
+    /// <param name="Segmentation">Segment or truncate past the window; null segments at the record's
+    /// defaults.</param>
+    internal sealed record Settings(
+        Uri Endpoint,
+        string? ApiKey,
+        bool AzureConventions,
+        string? Model,
+        int? MaxInputChars = null,
+        InputSegmentation? Segmentation = null);
+
     // a bound with no record segments at the record's defaults
     private static readonly InputSegmentation Defaults = new();
 
     private readonly ILogger _logger = logger ?? NullLogger<HttpRerankTransport>.Instance;
-    private readonly bool _azure = HttpEndpoint.AzureFor(config);
 
     private HttpClient? OwnedClient() => disposeHttpClient ? httpFactory() : null;
 
@@ -45,7 +62,7 @@ internal sealed class HttpRerankTransport(
         ArgumentNullException.ThrowIfNull(request);
         var query = request.Query;
         if (request.Documents.Count == 0) return new ScoreResponse(ProviderVerdict.Ok, []);
-        Segmentation? plan = null;
+        SegmentPlan? plan = null;
         var documents = request.Documents;
         if (config.MaxInputChars is { } window)
         {
@@ -65,30 +82,14 @@ internal sealed class HttpRerankTransport(
         // the same resolution ladder the text shape has always had — explicit seconds (clamped), the
         // consumer's TimeoutByConsumer tier, the default tier, the global timeout (D162/D163)
         var timeout = options.ResolveTimeout(request.TimeoutSeconds, request.Consumer);
-        string body;
-        try
+        HttpJsonReply reply;
+        using (var owned = OwnedClient())       // disposed only when Lyntai owns it
         {
-            using var owned = OwnedClient();       // disposed only when Lyntai owns it
-            var http = owned ?? httpFactory();     // BYO client: fetched, not disposed
-            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            timeoutCts.CancelAfter(timeout);
-            using var response = await http.SendAsync(BuildRequest(query, documents), timeoutCts.Token)
-                .ConfigureAwait(false);
-            if (!response.IsSuccessStatusCode)
-            {
-                var errorBody = await HttpBody.SafeRead(response, timeoutCts.Token).ConfigureAwait(false);
-                return ScoreResponse.Failure(
-                    ProviderVerdictClassifier.FromHttpFailure(
-                        response.StatusCode, errorBody, hasCredentials: !string.IsNullOrWhiteSpace(config.ApiKey)),
-                    $"{id}: rerank HTTP {(int)response.StatusCode} {HttpBody.Head(errorBody)}");
-            }
-            body = await response.Content.ReadAsStringAsync(timeoutCts.Token).ConfigureAwait(false);
+            var http = owned ?? httpFactory();  // BYO client: fetched, not disposed
+            reply = await HttpJsonCall.SendAsync(http, BuildRequest(query, documents), timeout,
+                HttpEndpoint.HasCredentials(config.ApiKey), id, "rerank", ct).ConfigureAwait(false);
         }
-        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
-        catch (OperationCanceledException)
-        {
-            return ScoreResponse.Failure(ProviderVerdict.Timeout, $"{id}: no rerank response within {timeout}");
-        }
+        if (reply.Body is not { } body) return ScoreResponse.Failure(reply.Verdict, reply.Detail);
 
         var scores = TryExtractScores(body, documents.Count);
         if (scores is null)
@@ -105,7 +106,7 @@ internal sealed class HttpRerankTransport(
     }
 
     /// <summary>A document is as relevant as its most relevant passage: the maximum over its pieces.</summary>
-    private static double[] BestPiece(Segmentation plan, double[] pieceScores) =>
+    private static double[] BestPiece(SegmentPlan plan, double[] pieceScores) =>
         [.. Enumerable.Range(0, plan.Inputs.Count)
             .Select(i => pieceScores[plan.First[i]..plan.First[i + 1]].Max())];
 
@@ -119,19 +120,8 @@ internal sealed class HttpRerankTransport(
             // every document, because the caller wants a score per document rather than a shortlist
             ["top_n"] = documents.Count,
         };
-        var request = new HttpRequestMessage(HttpMethod.Post, Endpoint())
-        {
-            Content = new StringContent(payload.ToJsonString(), new UTF8Encoding(false), "application/json"),
-        };
-        HttpEndpoint.ApplyAuth(request, config.ApiKey, _azure);
-        return request;
+        return HttpJsonCall.Post(config.Endpoint, payload, config.ApiKey, config.AzureConventions);
     }
-
-    /// <summary>The OpenAI/Cohere-shaped <c>rerank</c> route under the <c>/v1</c> convention. There is no
-    /// Ollama arm on purpose: Ollama serves no rerank surface, and its provider refuses a Score
-    /// registration at construction rather than guessing a route that 404s.</summary>
-    private Uri Endpoint() =>
-        HttpEndpoint.Build(config.BaseUrl, _azure, "rerank");
 
     /// <summary>Reads <c>results[].index</c> plus <c>relevance_score</c> (Cohere/llama.cpp) or <c>score</c>,
     /// and puts them back in INPUT order — the endpoint answers SORTED, and an index is only meaningful to
@@ -145,27 +135,25 @@ internal sealed class HttpRerankTransport(
         try
         {
             using var doc = JsonDocument.Parse(body);
-            if (!doc.RootElement.TryGetProperty("results", out var results)
-                || results.ValueKind != JsonValueKind.Array) return null;
+            if (WireJson.Array(doc.RootElement, "results") is not { } results) return null;
 
             var scores = new double[count];
             var seen = new bool[count];
             foreach (var r in results.EnumerateArray())
             {
                 if (r.ValueKind != JsonValueKind.Object) return null;
-                if (!r.TryGetProperty("index", out var i) || i.ValueKind != JsonValueKind.Number) return null;
+                if (WireJson.Int32(r, "index") is not { } index) return null;
                 if ((!r.TryGetProperty("relevance_score", out var s) || s.ValueKind != JsonValueKind.Number)
                     && (!r.TryGetProperty("score", out s) || s.ValueKind != JsonValueKind.Number)) return null;
                 var value = s.GetDouble();
                 if (double.IsNaN(value) || double.IsInfinity(value)) return null;
-                var index = i.GetInt32();
                 if (index < 0 || index >= count) return null;   // an index we did not send is unusable
                 scores[index] = value;
                 seen[index] = true;
             }
             return Array.TrueForAll(seen, x => x) ? scores : null;
         }
-        catch (JsonException)
+        catch (Exception ex) when (WireJson.IsShapeFault(ex))
         {
             return null;
         }

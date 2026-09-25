@@ -31,9 +31,10 @@ public sealed class OllamaProvider : IModelProvider, IVectorProvider
     /// <param name="logger">Optional diagnostics — also where an undeliverable attachment is reported.</param>
     /// <param name="disposeHttpClient">True for Lyntai-created clients (disposed per call); false for an
     /// APP-supplied client, whose lifetime the app owns.</param>
-    /// <exception cref="NotSupportedException"><paramref name="config"/> declares
-    /// <see cref="ProviderKinds.Score"/> — Ollama serves no rerank surface, and refusing here is a
-    /// composition error heard while a human is watching rather than a 404 on the first call.</exception>
+    /// <exception cref="ArgumentException"><paramref name="config"/> declares a kind other than
+    /// <see cref="ProviderKinds.Text"/> or <see cref="ProviderKinds.Vector"/> — notably
+    /// <see cref="ProviderKinds.Score"/>, since Ollama serves no rerank surface. Refusing here is a composition
+    /// error heard while a human is watching rather than a 404 on the first call.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><see cref="OllamaOptions.MaxInputChars"/> is not
     /// positive, or leaves an embedding prefix no room for text.</exception>
     public OllamaProvider(
@@ -44,10 +45,10 @@ public sealed class OllamaProvider : IModelProvider, IVectorProvider
         ILogger<OllamaProvider>? logger = null,
         bool disposeHttpClient = true)
     {
+        Capabilities = CapabilitiesFor(config);
         ValidateInputBound(config);
         _id = id;
         _config = config;
-        Capabilities = CapabilitiesFor(config);
         ILogger log = logger ?? NullLogger<OllamaProvider>.Instance;
         _chat = ServesText(config)
             ? new HttpChatEngine(id, new OllamaChatWire(config, log), httpFactory, options, log, disposeHttpClient)
@@ -69,15 +70,17 @@ public sealed class OllamaProvider : IModelProvider, IVectorProvider
     /// <summary>The capabilities a registration with these options serves — the SAME derivation the built
     /// provider carries, exposed so the registration's composition-time declaration cannot drift from the
     /// built truth.</summary>
-    /// <exception cref="NotSupportedException">The options declare <see cref="ProviderKinds.Score"/>; see
-    /// the constructor's remarks.</exception>
+    /// <exception cref="ArgumentException">The options declare a kind this wire does not serve; see the
+    /// constructor.</exception>
     internal static ProviderCapabilities CapabilitiesFor(OllamaOptions config)
     {
-        if (Serves(config, ProviderKinds.Score))
-            throw new NotSupportedException(
-                "Ollama serves no rerank surface, so Produces = ProviderKinds.Score cannot be registered "
-                + "against it. Register an OpenAI-shaped reranker (llama-server --reranking, TEI, vLLM) "
-                + "with AddHttpProvider instead.");
+        if (!ServesText(config) && !ServesVectors(config))
+            throw new ArgumentException(
+                $"{nameof(OllamaOptions)}.{nameof(OllamaOptions.Produces)} is '{config.Produces}', which this "
+                + $"backend does not serve. Ollama's native surface produces {ProviderKinds.Text} (/api/chat) "
+                + $"or {ProviderKinds.Vector} (/api/embed); it has no rerank surface, so register an OpenAI-shaped "
+                + "reranker (llama-server --reranking, TEI, vLLM) with AddHttpProvider instead.",
+                nameof(config));
         return new()
         {
             Accepts = [ProviderKinds.Text],
@@ -120,27 +123,25 @@ public sealed class OllamaProvider : IModelProvider, IVectorProvider
     public bool IsAvailable => !string.IsNullOrWhiteSpace(_config.BaseUrl);
 
     /// <inheritdoc/>
+    /// <remarks>A registration that does not produce text answers <see cref="ProviderVerdict.Unsupported"/>.</remarks>
     public Task<TextResponse> CompleteAsync(TextRequest req, CancellationToken ct = default) =>
-        Chat().CompleteAsync(req, ct);
+        _chat?.CompleteAsync(req, ct) ?? Task.FromResult(new TextResponse("", ProviderVerdict.Unsupported,
+            Detail: WrongKindCall.Detail(_id, _config.Produces, ProviderKinds.Text)));
 
     /// <inheritdoc/>
     /// <remarks>NDJSON: one JSON object per line, terminated by <c>done:true</c>, whose line also carries
-    /// the eval counts that become <see cref="TextChunk.Usage"/> on the Final chunk. Tool calls arrive
-    /// complete on one line and are still delivered before the terminal chunk, like every provider.</remarks>
+    /// the eval counts that become <see cref="TextChunk.Usage"/> on the Final chunk. Each tool call arrives
+    /// complete on its own line and is delivered before the terminal chunk, like every provider. A
+    /// registration that does not produce text answers one <see cref="ProviderVerdict.Unsupported"/> error
+    /// chunk.</remarks>
     public IAsyncEnumerable<TextChunk> StreamAsync(TextRequest req, CancellationToken ct = default) =>
-        Chat().StreamAsync(req, ct);
+        _chat?.StreamAsync(req, ct)
+        ?? WrongKindCall.Stream(WrongKindCall.Detail(_id, _config.Produces, ProviderKinds.Text));
 
     /// <inheritdoc/>
-    /// <exception cref="NotSupportedException">This registration does not produce vectors. A router checks
-    /// <see cref="Capabilities"/> first, so only a caller that ignored them reaches this.</exception>
+    /// <remarks>A registration that does not produce vectors answers <see cref="ProviderVerdict.Unsupported"/>
+    /// — a router checks <see cref="Capabilities"/> first, so only a direct caller sees it.</remarks>
     public Task<VectorResponse> CallAsync(VectorRequest request, CancellationToken ct = default) =>
-        (_embed ?? throw new NotSupportedException(
-            $"{_id} produces {_config.Produces}, not {ProviderKinds.Vector} — an embedding model is its own "
-            + "backend, registered with Produces = ProviderKinds.Vector."))
-        .CallAsync(request, ct);
-
-    private HttpChatEngine Chat() => _chat
-        ?? throw new NotSupportedException(
-            $"{_id} produces {_config.Produces}, not {ProviderKinds.Text} — a chat model is its own "
-            + "backend, registered with Produces = ProviderKinds.Text.");
+        _embed?.CallAsync(request, ct) ?? Task.FromResult(VectorResponse.Failure(
+            ProviderVerdict.Unsupported, WrongKindCall.Detail(_id, _config.Produces, ProviderKinds.Vector)));
 }

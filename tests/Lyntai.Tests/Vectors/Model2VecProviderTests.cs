@@ -68,7 +68,7 @@ public class Model2VecProviderTests : IDisposable
         Assert.Equal([ProviderKinds.Text], vectorProvider.Capabilities.Accepts);
         Assert.Equal([ProviderKinds.Vector], vectorProvider.Capabilities.Produces);
         Assert.Equal([ProviderOperation.Complete], vectorProvider.Capabilities.Operations);
-        Assert.Equal("static", vectorProvider.Id);
+        Assert.Equal("model2vec", vectorProvider.Id);
         Assert.True(vectorProvider.IsAvailable);
     }
 
@@ -83,7 +83,7 @@ public class Model2VecProviderTests : IDisposable
 
         Assert.True(EmbeddingRouting.CanEmbed(provider.GetServices<IModelProvider>()));
         var asProvider = Assert.Single(
-            provider.GetServices<IModelProvider>().Where(p => p.Id == "static"));
+            provider.GetServices<IModelProvider>().Where(p => p.Id == "model2vec"));
         Assert.Contains(ProviderKinds.Vector, asProvider.Capabilities.Produces);
     }
 

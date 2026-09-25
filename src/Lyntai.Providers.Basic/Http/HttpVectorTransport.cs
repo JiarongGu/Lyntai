@@ -1,11 +1,10 @@
-using System.Net;
-using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Lyntai.Inference;
 using Lyntai.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Lyntai.Providers.Basic;
 
 namespace Lyntai.Providers.Http;
 
@@ -19,12 +18,9 @@ namespace Lyntai.Providers.Http;
 /// <see cref="LyntaiOptions.ProviderTimeout"/> is the deadline for one HTTP REQUEST, so a call that
 /// <see cref="Settings.BatchSize"/> splits is bounded by batches × that value rather than by it once.
 /// <para><b>Failures come back as a <see cref="VectorResponse"/> verdict</b> (<c>docs/DECISIONS.md</c>
-/// <b>D153</b>), classified through the same
-/// <see cref="ProviderVerdictClassifier.FromHttpFailure(System.Net.HttpStatusCode,string,bool)"/> the
-/// chat path uses — so a 429 cools this host and a 401 answered to a call carrying NO key is
-/// <see cref="ProviderVerdict.NotConfigured"/> rather than a blamed <see cref="ProviderVerdict.AuthFailed"/>.
-/// This class previously threw and said that distinction in the MESSAGE, because an embed call had no
-/// verdict to put it in.</para>
+/// <b>D153</b>), through the same <see cref="HttpJsonCall"/> the chat path uses — so a 429 cools this host
+/// and a 401 answered to a call carrying NO key is <see cref="ProviderVerdict.NotConfigured"/> rather than a
+/// blamed <see cref="ProviderVerdict.AuthFailed"/>.</para>
 /// </summary>
 internal sealed class HttpVectorTransport(
     string id,
@@ -86,7 +82,7 @@ internal sealed class HttpVectorTransport(
     {
         ArgumentNullException.ThrowIfNull(request);
         var prefix = request.Role == EmbeddingRole.Query ? config.QueryPrefix : config.DocumentPrefix;
-        Segmentation? plan = null;
+        SegmentPlan? plan = null;
         var pieces = request.Texts;
         if (config.MaxInputChars - InputSegmenter.Measure(prefix ?? string.Empty) is { } budget)
         {
@@ -116,7 +112,7 @@ internal sealed class HttpVectorTransport(
 
     /// <summary>One vector per input: a segmented input's pieces pooled by
     /// <see cref="VectorMath.WeightedMeanDirection"/>, weighted by length; any other input's vector as sent.</summary>
-    private VectorResponse Pool(Segmentation plan, VectorResponse response)
+    private VectorResponse Pool(SegmentPlan plan, VectorResponse response)
     {
         var vectors = new float[plan.Inputs.Count][];
         for (var i = 0; i < vectors.Length; i++)
@@ -175,33 +171,9 @@ internal sealed class HttpVectorTransport(
     private async Task<VectorResponse> EmbedBatchAsync(IReadOnlyList<string> batch, HttpClient http,
         TimeSpan timeout, CancellationToken ct)
     {
-        string body;
-        try
-        {
-            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            timeoutCts.CancelAfter(timeout);
-            using var response = await http.SendAsync(BuildRequest(batch), timeoutCts.Token).ConfigureAwait(false);
-            if (!response.IsSuccessStatusCode)
-            {
-                var errorBody = await HttpBody.SafeRead(response, timeoutCts.Token).ConfigureAwait(false);
-                // the THREE-argument overload: a 401/403 answered to a call that carried no credentials is
-                // NotConfigured, which advances blamelessly, where AuthFailed benches the host
-                return VectorResponse.Failure(
-                    ProviderVerdictClassifier.FromHttpFailure(
-                        response.StatusCode, errorBody, hasCredentials: !string.IsNullOrWhiteSpace(config.ApiKey)),
-                    $"{id}: embeddings HTTP {(int)response.StatusCode} {HttpBody.Head(errorBody)}");
-            }
-            body = await response.Content.ReadAsStringAsync(timeoutCts.Token).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
-        catch (OperationCanceledException)
-        {
-            return VectorResponse.Failure(
-                ProviderVerdict.Timeout, $"{id}: no embeddings response within {timeout}");
-        }
-        // A transport-level throw (socket reset, DNS, TLS) is deliberately NOT caught here: the classifier's
-        // thrown-exception arm is internal to Core, and `ProviderRouter` already applies it to anything that
-        // escapes a backend. Catching it here would mean a second, weaker copy of that taxonomy.
+        var reply = await HttpJsonCall.SendAsync(http, BuildRequest(batch), timeout,
+            HttpEndpoint.HasCredentials(config.ApiKey), id, "embeddings", ct).ConfigureAwait(false);
+        if (reply.Body is not { } body) return VectorResponse.Failure(reply.Verdict, reply.Detail);
 
         var vectors = TryExtractVectors(body);
         if (vectors is null)
@@ -224,12 +196,12 @@ internal sealed class HttpVectorTransport(
             var root = doc.RootElement;
             if (root.ValueKind != JsonValueKind.Object) return null;
             if (root.TryGetProperty("usage", out var u) && u.ValueKind == JsonValueKind.Object)
-                return new ProviderUsage(Lyntai.Providers.Basic.WireJson.Long(u, "prompt_tokens"));
+                return new ProviderUsage(WireJson.Long(u, "prompt_tokens"));
             if (root.TryGetProperty("prompt_eval_count", out _))
-                return new ProviderUsage(Lyntai.Providers.Basic.WireJson.Long(root, "prompt_eval_count"));
+                return new ProviderUsage(WireJson.Long(root, "prompt_eval_count"));
             return null;
         }
-        catch (JsonException)
+        catch (Exception ex) when (WireJson.IsShapeFault(ex))
         {
             return null;
         }
@@ -245,18 +217,12 @@ internal sealed class HttpVectorTransport(
             ["input"] = new JsonArray([.. texts.Select(t => (JsonNode)JsonValue.Create(t))]),
         };
         if (config.NoServerTruncation) payload["truncate"] = false;
-        var request = new HttpRequestMessage(HttpMethod.Post, config.Endpoint)
-        {
-            Content = new StringContent(payload.ToJsonString(), new UTF8Encoding(false), "application/json"),
-        };
-        HttpEndpoint.ApplyAuth(request, config.ApiKey, config.AzureConventions);
-        return request;
+        return HttpJsonCall.Post(config.Endpoint, payload, config.ApiKey, config.AzureConventions);
     }
 
     /// <summary>Tolerant extraction covering the two response shapes: OpenAI/LM-Studio
     /// <c>data[].embedding</c> (ordered by the authoritative <c>index</c>) and Ollama <c>embeddings[[…]]</c>
-    /// (input order). Also accepts Ollama's legacy single <c>embedding[]</c> shape. Returns null on a
-    /// malformed body or a shape carrying no vectors.</summary>
+    /// (input order). Returns null on a malformed body or a shape carrying no vectors.</summary>
     private static IReadOnlyList<float[]>? TryExtractVectors(string body)
     {
         try
@@ -278,8 +244,11 @@ internal sealed class HttpVectorTransport(
                         // a bad element fails the WHOLE response: dropping just this vector would trip the
                         // count check with a message about arity, pointing away from the real defect
                         if (TryToFloats(emb) is not { } vector) return null;
-                        var index = el.TryGetProperty("index", out var ix) && ix.ValueKind == JsonValueKind.Number
-                            ? ix.GetInt32() : i;
+                        // an index present but not an int is malformed, not a reason to fall back on position
+                        int index;
+                        if (!el.TryGetProperty("index", out var ix)) index = i;
+                        else if (WireJson.Int32(el, "index") is { } read) index = read;
+                        else return null;
                         items.Add((index, vector));
                     }
                     i++;
@@ -300,26 +269,18 @@ internal sealed class HttpVectorTransport(
                 return list.Count > 0 ? list : null;
             }
 
-            // Ollama legacy single /api/embeddings: { embedding: [...] }
-            if (root.TryGetProperty("embedding", out var single) && single.ValueKind == JsonValueKind.Array)
-                return TryToFloats(single) is { } vector ? [vector] : null;
-
             return null;
         }
-        catch (JsonException)
+        catch (Exception ex) when (WireJson.IsShapeFault(ex))
         {
             return null;
         }
     }
 
     /// <summary>The vector, or NULL when any element is not a finite number — which makes the whole response
-    /// malformed rather than yielding a vector with a hole in it.
-    ///
-    /// <para><b>A bad element used to become <c>0f</c>.</b> That is indistinguishable from a legitimate zero
-    /// component, so a null, a stringified number or an overflowing magnitude produced a plausible vector
-    /// that was then stored and compared by cosine with nothing reporting it. Failing the response is the
-    /// behaviour this type's own doc already promises, and the caller already turns null into that
-    /// exception.</para></summary>
+    /// malformed rather than yielding a vector with a hole in it: a bad element read as <c>0f</c> is
+    /// indistinguishable from a real zero component, and a plausible vector would be stored and compared by
+    /// cosine with nothing reporting it.</summary>
     private static float[]? TryToFloats(JsonElement array)
     {
         var vector = new float[array.GetArrayLength()];
@@ -333,17 +294,4 @@ internal sealed class HttpVectorTransport(
         }
         return vector;
     }
-
-    /// <summary>" (not configured: no ApiKey)" when the server demanded credentials this call never carried,
-    /// otherwise empty. A vector backend has no verdict and no fallback — it THROWS — so unlike a chat provider it
-    /// has no <c>NotConfigured</c> outcome to report and nothing to route around; the wording is the only
-    /// thing a host can act on. Without it a 401 sends someone to check a key they never supplied, when the
-    /// answer is to set one. Same distinction as the provider side, expressed the only way this seam allows.
-    /// A local embeddings server (LM Studio, Ollama) needs no key, so the hint is tied to the server actually
-    /// answering 401/403 rather than to the key being absent.</summary>
-    private string NotConfiguredHint(HttpStatusCode status) =>
-        status is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden
-        && string.IsNullOrWhiteSpace(config.ApiKey)
-            ? " (not configured: no ApiKey)"
-            : "";
 }

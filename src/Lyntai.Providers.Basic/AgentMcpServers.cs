@@ -9,11 +9,13 @@ namespace Lyntai.Providers.Basic;
 ///
 /// <para><b>Why REFUSE rather than drop.</b> An MCP server the caller named and the agent never received is
 /// a silent capability loss — the agent runs, answers, and simply cannot do the thing it was embedded to do,
-/// with no error anywhere. That is the exact failure CLI14 exists to prevent, so an unusable entry ends the
-/// turn before anything is spawned, the same way <see cref="CodexCli.CodexExecArgs.TryBuildResume"/> refuses
-/// a resume token the CLI would read as an option.</para></summary>
+/// with no error anywhere. So an unusable entry ends the turn before anything is spawned, the same way
+/// <see cref="AgentResumeToken"/> refuses a resume token the CLI would read as an option.</para></summary>
 internal static class AgentMcpServers
 {
+    /// <summary>The <see cref="SessionEnded.Subtype"/> of a turn refused for an unusable entry.</summary>
+    internal const string RefusedSubtype = "mcp-server-invalid";
+
     /// <summary>Can every entry be rendered? Returns false with a caller-actionable
     /// <paramref name="refusal"/> otherwise. An empty list is valid and means "no app servers".</summary>
     public static bool TryValidate(IReadOnlyList<AgentMcpServer> servers, out string? refusal)
@@ -42,13 +44,10 @@ internal static class AgentMcpServers
                 return false;
             }
 
-            // ...and the same question asked of the DERIVED bearer-token variable, which normalises '-' to '_'
-            // and upper-cases. Two names that survive the check above can still collapse here ('app-tools' and
-            // 'app_tools'), and the consequence is worse than a lost server: both entries' bearer_token_env_var
-            // point at one variable that holds only the LAST token, so codex presents one server's credential
-            // to the OTHER server's URL. Refused on the NAMES rather than on whether a token is set today —
-            // the collision is a property of the derived variable, so a token-less pair is the same defect
-            // waiting for someone to add one. Found 2026-08-14 by the whole-codebase review.
+            // ...and of the DERIVED bearer-token variable ('-' → '_', upper-cased): 'app-tools' and 'app_tools'
+            // pass the check above yet share one variable, so codex would present one server's credential to
+            // the OTHER's URL. Refused on the NAMES, not on whether a token is set today — a token-less pair is
+            // the same defect waiting for someone to add one.
             if (!seenEnvKeys.Add(EnvKey(server.Name)))
             {
                 refusal = $"MCP server '{server.Name}' collides with an earlier server once the bearer-token " +

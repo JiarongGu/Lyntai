@@ -19,12 +19,10 @@ internal static class StreamJsonFields
     /// null when no usage object is present.</summary>
     public static WireUsage? ReadUsage(JsonElement root)
     {
-        if (!root.TryGetProperty("usage", out var u) || u.ValueKind != JsonValueKind.Object) return null;
+        if (WireJson.Object(root, "usage") is not { } u) return null;
         double? cost = root.TryGetProperty("total_cost_usd", out var c) && c.ValueKind == JsonValueKind.Number
             ? c.GetDouble()
             : null;
-        // the number read is WireJson.Long (package-wide): tolerant of a count that is not an integral long,
-        // because this reader's contract is "never throws" and GetInt64 does
         return new WireUsage(
             WireJson.Long(u, "input_tokens"),
             WireJson.Long(u, "output_tokens"),
@@ -34,14 +32,13 @@ internal static class StreamJsonFields
     }
 
     /// <summary>Concatenate the text of every <c>{"type":"text","text":…}</c> block in a content array
-    /// (Anthropic message content is an array of typed blocks). Empty for a non-array / no text blocks.</summary>
+    /// (Anthropic message content is an array of typed blocks). Empty for a non-array / no text blocks; a
+    /// block that is not an object is skipped.</summary>
     public static string ConcatTextBlocks(JsonElement content)
     {
         if (content.ValueKind != JsonValueKind.Array) return "";
         return string.Concat(content.EnumerateArray()
-            .Where(b => b.TryGetProperty("type", out var t) && t.ValueEquals("text"))
-            .Select(b => b.TryGetProperty("text", out var txt) && txt.ValueKind == JsonValueKind.String
-                ? txt.GetString() ?? ""
-                : ""));
+            .Where(b => WireJson.String(b, "type") == "text")
+            .Select(b => WireJson.String(b, "text") ?? ""));
     }
 }

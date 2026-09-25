@@ -1,5 +1,6 @@
 using Lyntai.Inference;
 using System.Text.Json;
+using Lyntai.Providers.Basic;
 
 namespace Lyntai.Providers.ClaudeCli;
 
@@ -13,12 +14,9 @@ internal enum StreamJsonEventKind
 
     /// <summary>A terminal result the CLI itself flagged as failed (<c>is_error</c>). Carries the backend's
     /// OWN words so the engine can classify them, which is what turns a 401 into <c>AuthFailed</c> rather
-    /// than a bare <c>Failed</c>.
-    /// <para>This member did not exist through 2.5.0, so no claude line could reach
-    /// <c>CliOutputEventKind.Failure</c> and the engine's in-band-failure precedence was dead code for this
-    /// backend — a failed turn came back as an <c>Ok</c> reply carrying whatever text had arrived. The
-    /// sibling reader of this same wire format (<c>StreamJsonAgentReader</c>) has always read
-    /// <c>is_error</c>; the two halves had drifted.</para></summary>
+    /// than a bare <c>Failed</c>. Without it a failed turn would come back as an <c>Ok</c> reply carrying
+    /// whatever text had arrived; the sibling reader of this wire (<c>StreamJsonAgentReader</c>) reads the
+    /// same <c>is_error</c>.</summary>
     Failure,
 
     /// <summary>Anything else (system/init, tool chatter, malformed) — ignored by the provider.</summary>
@@ -49,7 +47,7 @@ internal static class StreamJsonParser
                 _ => new StreamJsonEvent(StreamJsonEventKind.Other),
             };
         }
-        catch (JsonException)
+        catch (Exception ex) when (WireJson.IsShapeFault(ex))
         {
             return new StreamJsonEvent(StreamJsonEventKind.Other);
         }
@@ -57,8 +55,7 @@ internal static class StreamJsonParser
 
     private static StreamJsonEvent ParseAssistant(JsonElement root)
     {
-        if (!root.TryGetProperty("message", out var msg) ||
-            !msg.TryGetProperty("content", out var content) || content.ValueKind != JsonValueKind.Array)
+        if (WireJson.Object(root, "message") is not { } msg || WireJson.Array(msg, "content") is not { } content)
             return new StreamJsonEvent(StreamJsonEventKind.Other);
 
         var text = StreamJsonFields.ConcatTextBlocks(content);

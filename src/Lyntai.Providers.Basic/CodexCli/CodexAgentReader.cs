@@ -2,6 +2,7 @@ using Lyntai.Inference;
 using System.Text;
 using System.Text.Json;
 using Lyntai.Agents;
+using Lyntai.Providers.Basic;
 
 namespace Lyntai.Providers.CodexCli;
 
@@ -36,60 +37,59 @@ internal sealed class CodexAgentReader
     public string? ThreadId => _threadId;
 
     /// <summary>Translates one JSONL line into 0..N events. Never throws.</summary>
-    public IEnumerable<AgentStreamEvent> Read(string line)
+    public IReadOnlyList<AgentStreamEvent> Read(string line)
     {
-        if (string.IsNullOrWhiteSpace(line)) yield break;
-
-        JsonDocument? doc = null;
+        if (string.IsNullOrWhiteSpace(line)) return [];
         try
         {
-            doc = JsonDocument.Parse(line);
+            // materialized inside the using: every element read belongs to the document
+            using var doc = JsonDocument.Parse(line);
+            return [.. ReadLine(doc.RootElement)];
         }
-        catch (JsonException)
+        catch (Exception ex) when (WireJson.IsShapeFault(ex))
         {
-            yield break;   // codex interleaves plain-text tracing lines with the JSONL
+            return [];   // codex interleaves plain-text tracing lines with the JSONL
         }
+    }
 
-        using (doc)
+    private IEnumerable<AgentStreamEvent> ReadLine(JsonElement root)
+    {
+        switch (CodexEnvelope.Type(root))
         {
-            var root = doc.RootElement;
-            switch (CodexEnvelope.Type(root))
-            {
-                case CodexEnvelope.ThreadStarted:
-                    if (CodexEnvelope.StringField(root, "thread_id") is { Length: > 0 } threadId)
-                    {
-                        _threadId = threadId;
-                        yield return new SessionStarted(threadId);
-                    }
-                    break;
+            case CodexEnvelope.ThreadStarted:
+                if (WireJson.String(root, "thread_id") is { Length: > 0 } threadId)
+                {
+                    _threadId = threadId;
+                    yield return new SessionStarted(threadId);
+                }
+                break;
 
-                case CodexEnvelope.ItemStarted:
-                    foreach (var e in ReadItem(root, started: true)) yield return e;
-                    break;
+            case CodexEnvelope.ItemStarted:
+                foreach (var e in ReadItem(root, started: true)) yield return e;
+                break;
 
-                case CodexEnvelope.ItemCompleted:
-                    foreach (var e in ReadItem(root, started: false)) yield return e;
-                    break;
+            case CodexEnvelope.ItemCompleted:
+                foreach (var e in ReadItem(root, started: false)) yield return e;
+                break;
 
-                case CodexEnvelope.TurnCompleted:
-                    foreach (var e in ReadTurnCompleted(root)) yield return e;
-                    break;
+            case CodexEnvelope.TurnCompleted:
+                foreach (var e in ReadTurnCompleted(root)) yield return e;
+                break;
 
-                case CodexEnvelope.TurnFailed:
-                    var message = CodexEnvelope.FailureMessage(root);
-                    yield return new SessionEnded(
-                        Verdict: ProviderVerdictClassifier.FromErrorText(message),
-                        IsError: true,
-                        Subtype: null,                 // codex reports no failure subtype
-                        SessionId: _threadId,
-                        FinalText: null,               // a failed turn's partial text is not an answer
-                        Diagnostic: message);
-                    break;
+            case CodexEnvelope.TurnFailed:
+                var message = CodexEnvelope.FailureMessage(root);
+                yield return new SessionEnded(
+                    Verdict: ProviderVerdictClassifier.FromErrorText(message),
+                    IsError: true,
+                    Subtype: null,                 // codex reports no failure subtype
+                    SessionId: _threadId,
+                    FinalText: null,               // a failed turn's partial text is not an answer
+                    Diagnostic: message);
+                break;
 
-                // Everything else — `turn.started`, a bare `error` NOTICE, `item.updated` (a partial whose
-                // accumulation rule is unmeasured, so counting it would risk duplicating the answer), and
-                // any future envelope type — is deliberately ignored.
-            }
+            // Everything else — `turn.started`, a bare `error` NOTICE, `item.updated` (a partial whose
+            // accumulation rule is unmeasured, so counting it would risk duplicating the answer), and
+            // any future envelope type — is deliberately ignored.
         }
     }
 
@@ -119,9 +119,9 @@ internal sealed class CodexAgentReader
     private IEnumerable<AgentStreamEvent> ReadItem(JsonElement root, bool started)
     {
         if (CodexEnvelope.Item(root) is not { } item) yield break;
-        if (CodexEnvelope.StringField(item, "type") is not { Length: > 0 } itemType) yield break;
+        if (WireJson.String(item, "type") is not { Length: > 0 } itemType) yield break;
 
-        var id = CodexEnvelope.StringField(item, "id");
+        var id = WireJson.String(item, "id");
 
         switch (itemType)
         {
@@ -129,7 +129,7 @@ internal sealed class CodexAgentReader
             // deltas, so a TextDelta here is one complete assistant message, not a token. Accumulated the
             // same way the codex PROVIDER accumulates content, so RunAsync and CompleteAsync agree.
             case CodexEnvelope.AgentMessageItem:
-                if (!started && CodexEnvelope.StringField(item, "text") is { Length: > 0 } text)
+                if (!started && WireJson.String(item, "text") is { Length: > 0 } text)
                 {
                     _answer.Append(text);
                     yield return new TextDelta(text);
@@ -139,7 +139,7 @@ internal sealed class CodexAgentReader
             // MEASURED (codex 0.155.1): the item type is `reasoning` — not `agent_reasoning` — and the
             // text field is `text`, both confirmed on a real turn (D35 re-measurement).
             case CodexEnvelope.ReasoningItem:
-                if (!started && CodexEnvelope.StringField(item, "text") is { Length: > 0 } thought)
+                if (!started && WireJson.String(item, "text") is { Length: > 0 } thought)
                     yield return new Thinking(thought);
                 break;
 
@@ -186,7 +186,7 @@ internal sealed class CodexAgentReader
     /// <see cref="ToolResult.Content"/> either way.</para></summary>
     private static bool IsFailedItem(JsonElement item)
     {
-        if (CodexEnvelope.StringField(item, "status") is { } status &&
+        if (WireJson.String(item, "status") is { } status &&
             status.Equals("failed", StringComparison.OrdinalIgnoreCase))
             return true;
 

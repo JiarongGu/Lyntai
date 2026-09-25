@@ -38,6 +38,8 @@ internal sealed class HttpChatEngine(
     /// owns its lifetime, so disposing it would break every call after the first.</summary>
     private HttpClient? OwnedClient() => disposeHttpClient ? httpFactory() : null;
 
+    private readonly bool _hasCredentials = HttpEndpoint.HasCredentials(wire.ApiKey);
+
     public async Task<TextResponse> CompleteAsync(TextRequest req, CancellationToken ct = default)
     {
         var model = req.Model ?? wire.DefaultModel ?? "";
@@ -46,32 +48,9 @@ internal sealed class HttpChatEngine(
         var http = owned ?? httpFactory();     // BYO client: fetched, not disposed
         for (var attempt = 0; ; attempt++)
         {
-            HttpResponseMessage response;
-            string body;
-            try
-            {
-                using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-                timeoutCts.CancelAfter(timeout);
-                response = await http.SendAsync(BuildRequest(req, model, stream: false), timeoutCts.Token).ConfigureAwait(false);
-                using (response)
-                {
-                    if (!response.IsSuccessStatusCode)
-                    {
-                        var errorBody = await HttpBody.SafeRead(response, timeoutCts.Token).ConfigureAwait(false);
-                        return MapHttpFailure(response.StatusCode, errorBody);
-                    }
-                    body = await response.Content.ReadAsStringAsync(timeoutCts.Token).ConfigureAwait(false);
-                }
-            }
-            catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
-            catch (OperationCanceledException)
-            {
-                return new TextResponse("", ProviderVerdict.Timeout, Detail: $"{id}: no response within {timeout}");
-            }
-            catch (HttpRequestException ex)
-            {
-                return new TextResponse("", ProviderVerdict.Failed, Detail: $"{id}: {ex.Message}");
-            }
+            var reply = await HttpJsonCall.SendAsync(http, BuildRequest(req, model, stream: false), timeout,
+                _hasCredentials, id, what: null, ct).ConfigureAwait(false);
+            if (reply.Body is not { } body) return new TextResponse("", reply.Verdict, Detail: reply.Detail);
 
             if (wire.TryExtract(body, out var text, out var usage, out var finishReason, out var toolCalls))
             {
@@ -152,7 +131,7 @@ internal sealed class HttpChatEngine(
             if (parsed.Usage is not null) progress.Usage = parsed.Usage;
             if (parsed.FinishReason is not null) progress.FinishReason = parsed.FinishReason;
             if (parsed.ToolCalls is not null) progress.ToolCalls.Add(parsed.ToolCalls);
-            if (HttpBody.InBandError(payload) is { } streamed) progress.InBandError = streamed;
+            if (parsed.InBandError is { } streamed) progress.InBandError = streamed;
             if (parsed.Text is { Length: > 0 })
             {
                 progress.SawContent = true;
@@ -180,8 +159,9 @@ internal sealed class HttpChatEngine(
             if (!response.IsSuccessStatusCode)
             {
                 var errorBody = await HttpBody.SafeRead(response, timeoutCts.Token).ConfigureAwait(false);
-                var mapped = MapHttpFailure(response.StatusCode, errorBody);
-                startupError = TextChunk.Error(mapped.Verdict, mapped.Detail);
+                startupError = TextChunk.Error(
+                    ProviderVerdictClassifier.FromHttpFailure(response.StatusCode, errorBody, _hasCredentials),
+                    $"{id}: HTTP {(int)response.StatusCode} {HttpBody.Head(errorBody)}");
             }
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
@@ -239,16 +219,10 @@ internal sealed class HttpChatEngine(
             yield return TextChunk.Error(ProviderVerdict.Refused, $"{id}: content filter");
             yield break;
         }
-        // TOOL CALLS, assembled from their fragments and delivered before the terminal chunk (3.0). Until
-        // then TextChunk had no tool-call payload, and the two shapes this replaces were both wrong: a
-        // tool-call-only turn reported Unsupported and told the caller to use CompleteAsync, while a turn
-        // that streamed prose ALONGSIDE a call fell through to a benign Final and SILENTLY DROPPED the call.
-        // The second is why this is a fix and not only a feature.
-        //
-        // They are yielded here rather than as they arrive because a vendor sends arguments in pieces and
-        // TextChunk.ToolCall promises a COMPLETE call — the assembly is the provider's job so no consumer has
-        // to know a vendor's fragmentation rules. `finish_reason` is not required: Ollama sends none, and a
-        // stream that produced complete calls has produced them whatever it says about why it stopped.
+        // TOOL CALLS, assembled from their fragments and delivered before the terminal chunk — never dropped
+        // for a benign Final when prose streamed alongside them. Yielded here rather than as they arrive
+        // because TextChunk.ToolCall promises a COMPLETE call. `finish_reason` is not required: Ollama sends
+        // none, and a stream that produced complete calls has produced them whatever it says about stopping.
         var assembled = progress.ToolCalls.Any ? progress.ToolCalls.Build() : [];
         foreach (var call in assembled) yield return TextChunk.Tool(call);
         if (assembled.Count > 0)
@@ -284,16 +258,8 @@ internal sealed class HttpChatEngine(
         yield return TextChunk.Final(progress.Usage);
     }
 
-    private HttpRequestMessage BuildRequest(TextRequest req, string model, bool stream)
-    {
-        var payload = wire.BuildPayload(req, model, stream);
-        var request = new HttpRequestMessage(HttpMethod.Post, wire.Endpoint)
-        {
-            Content = new StringContent(payload.ToJsonString(), new UTF8Encoding(false), "application/json"),
-        };
-        wire.ApplyAuth(request);
-        return request;
-    }
+    private HttpRequestMessage BuildRequest(TextRequest req, string model, bool stream) =>
+        HttpJsonCall.Post(wire.Endpoint, wire.BuildPayload(req, model, stream), wire.ApiKey, wire.AzureConventions);
 
     /// <summary>Classify an error the backend reported IN BAND under a 2xx status. The status carries no
     /// information here — it said success — so the verdict comes from the backend's own words through the
@@ -306,17 +272,8 @@ internal sealed class HttpChatEngine(
     private TextResponse InBandFailure(string error)
     {
         var verdict = ProviderVerdictClassifier.FromErrorText(error);
-        if (verdict == ProviderVerdict.AuthFailed && !wire.HasCredentials) verdict = ProviderVerdict.NotConfigured;
+        if (verdict == ProviderVerdict.AuthFailed && !_hasCredentials) verdict = ProviderVerdict.NotConfigured;
         return new TextResponse("", verdict, Detail: $"{id}: {HttpBody.Head(error)}");
     }
 
-    private TextResponse MapHttpFailure(HttpStatusCode status, string body)
-    {
-        var detail = $"{id}: HTTP {(int)status} {HttpBody.Head(body)}";
-        // typed status wins; body text goes through the ONE shared classifier (never local heuristics).
-        // hasCredentials separates "never set up" (NotConfigured — skipped blamelessly) from "your key was
-        // rejected" (AuthFailed — benched for the cooldown window). A local keyless server needs no key, so
-        // the missing key only means unconfigured once the server has actually demanded one.
-        return new TextResponse("", ProviderVerdictClassifier.FromHttpFailure(status, body, wire.HasCredentials), Detail: detail);
-    }
 }

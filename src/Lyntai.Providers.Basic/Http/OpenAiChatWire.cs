@@ -21,13 +21,13 @@ internal sealed class OpenAiChatWire(HttpModelOptions config) : IHttpChatWire
 
     public string? DefaultModel => config.Model;
 
-    public bool HasCredentials => !string.IsNullOrWhiteSpace(config.ApiKey);
+    public string? ApiKey => config.ApiKey;
+
+    public bool AzureConventions => _azure;
 
     /// <summary>SSE runs on to its <c>[DONE]</c> sentinel so the trailing usage chunk — sent AFTER the
     /// finish reason, with an EMPTY choices array — is still read.</summary>
     public bool EndsStreamOnFinal => false;
-
-    public void ApplyAuth(HttpRequestMessage request) => HttpEndpoint.ApplyAuth(request, config.ApiKey, _azure);
 
     public JsonObject BuildPayload(TextRequest req, string model, bool stream) =>
         OpenAiPayload.Build(req, model, stream, _suppressReasoningFields);
@@ -48,41 +48,38 @@ internal sealed class OpenAiChatWire(HttpModelOptions config) : IHttpChatWire
             var root = doc.RootElement;
             if (root.ValueKind != JsonValueKind.Object) return false;
 
-            JsonElement message = default;
-            var found = false;
-            if (root.TryGetProperty("choices", out var choices) &&
-                choices.ValueKind == JsonValueKind.Array && choices.GetArrayLength() > 0)
+            JsonElement? message = null;
+            if (FirstChoice(root) is { } choice)
             {
-                var choice = choices[0];
-                if (choice.TryGetProperty("message", out message)) found = true;
-                if (choice.TryGetProperty("finish_reason", out var fr) && fr.ValueKind == JsonValueKind.String)
-                    finishReason = fr.GetString();
+                message = WireJson.Object(choice, "message");
+                finishReason = WireJson.String(choice, "finish_reason");
             }
-            if (message.ValueKind == JsonValueKind.Object &&
-                message.TryGetProperty("content", out var content) && content.ValueKind == JsonValueKind.String)
-                text = content.GetString() ?? "";
-
-            if (message.ValueKind == JsonValueKind.Object)
-                toolCalls = WireToolCalls.Read(message);
+            if (message is { } m)
+            {
+                text = WireJson.String(m, "content") ?? "";
+                toolCalls = WireToolCalls.Read(m);
+            }
 
             usage = ExtractUsage(root);
-            return (found && message.ValueKind == JsonValueKind.Object) || finishReason is not null;
+            return message is not null || finishReason is not null;
         }
-        catch (JsonException)
+        catch (Exception ex) when (WireJson.IsShapeFault(ex))
         {
             return false;
         }
     }
 
-    private static TextUsage? ExtractUsage(JsonElement root)
-    {
-        // WireJson.Long (package-wide) rather than a local read: a token count that is not an integral long
-        // (a fractional count from a proxy, an exponent form) must not throw out of an otherwise good reply —
-        // nothing here catches a FormatException, so it escaped CompleteAsync and the stream enumerator alike
-        if (root.TryGetProperty("usage", out var u) && u.ValueKind == JsonValueKind.Object)
-            return new TextUsage(WireJson.Long(u, "prompt_tokens"), WireJson.Long(u, "completion_tokens"));
-        return null;
-    }
+    /// <summary><c>choices[0]</c>, or null when there is none or it is not an object.</summary>
+    private static JsonElement? FirstChoice(JsonElement root) =>
+        WireJson.Array(root, "choices") is { } choices && choices.GetArrayLength() > 0 &&
+        choices[0].ValueKind == JsonValueKind.Object
+            ? choices[0]
+            : null;
+
+    private static TextUsage? ExtractUsage(JsonElement root) =>
+        WireJson.Object(root, "usage") is { } u
+            ? new TextUsage(WireJson.Long(u, "prompt_tokens"), WireJson.Long(u, "completion_tokens"))
+            : null;
 
     /// <summary>One SSE data line → delta text, usage if present, finish reason. A string finish_reason is
     /// the wire's end-of-answer signal, never automatically a benign one — the engine classifies a
@@ -93,36 +90,32 @@ internal sealed class OpenAiChatWire(HttpModelOptions config) : IHttpChatWire
         {
             using var doc = JsonDocument.Parse(payload);
             var root = doc.RootElement;
-            if (root.ValueKind != JsonValueKind.Object) return default;
+            var inBand = HttpBody.InBandError(root);
 
             // choices[0].delta.content, finish_reason set on the last data line
-            if (root.TryGetProperty("choices", out var choices) &&
-                choices.ValueKind == JsonValueKind.Array && choices.GetArrayLength() > 0)
+            if (FirstChoice(root) is { } choice)
             {
-                var choice = choices[0];
                 string? text = null;
                 IReadOnlyList<ToolCallDelta>? toolCalls = null;
-                if (choice.TryGetProperty("delta", out var delta))
+                if (WireJson.Object(choice, "delta") is { } delta)
                 {
-                    if (delta.TryGetProperty("content", out var c) && c.ValueKind == JsonValueKind.String)
-                        text = c.GetString();
+                    text = WireJson.String(delta, "content");
                     toolCalls = StreamingToolCalls.Read(delta);
                 }
-                string? finishReason = null;
-                if (choice.TryGetProperty("finish_reason", out var fr) && fr.ValueKind == JsonValueKind.String)
-                    finishReason = fr.GetString();
-                return new HttpStreamLine(text, ExtractUsage(root), finishReason is not null, finishReason, toolCalls);
+                var finishReason = WireJson.String(choice, "finish_reason");
+                return new HttpStreamLine(text, ExtractUsage(root), finishReason is not null, finishReason, toolCalls)
+                    { InBandError = inBand };
             }
 
             // the stream_options usage chunk: the trailing data line AFTER finish_reason carries usage
             // with an EMPTY choices array (the branch above requires a non-empty one) — usage only, not a
             // terminator ([DONE] follows it)
-            if (root.TryGetProperty("usage", out var trailing) && trailing.ValueKind == JsonValueKind.Object)
-                return new HttpStreamLine(null, ExtractUsage(root), false, null, null);
+            if (ExtractUsage(root) is { } trailing)
+                return new HttpStreamLine(null, trailing, false, null, null) { InBandError = inBand };
 
-            return default;
+            return new HttpStreamLine { InBandError = inBand };
         }
-        catch (JsonException)
+        catch (Exception ex) when (WireJson.IsShapeFault(ex))
         {
             return default; // malformed stream line — skip it
         }

@@ -72,19 +72,7 @@ internal static class OpenAiPayload
         if (req.MaxTokens is not null) payload["max_tokens"] = req.MaxTokens;
         if (req.Temperature is not null) payload["temperature"] = req.Temperature;
 
-        if (req.Tools is { Count: > 0 })
-        {
-            payload["tools"] = new JsonArray([.. req.Tools.Select(t => (JsonNode)new JsonObject
-            {
-                ["type"] = "function",
-                ["function"] = new JsonObject
-                {
-                    ["name"] = t.Name,
-                    ["description"] = t.Description,
-                    ["parameters"] = ParseSchema(t.ParametersJsonSchema),
-                },
-            })]);
-        }
+        if (req.Tools is { Count: > 0 }) payload["tools"] = Tools(req.Tools);
 
         if (req.JsonSchema is not null)
         {
@@ -151,14 +139,19 @@ internal static class OpenAiPayload
         return new JsonObject { ["role"] = m.Role, ["content"] = m.Content };
     }
 
-    /// <summary>Parse a JSON arguments string into a JSON object node (empty object on failure) — used
-    /// where a dialect wants arguments embedded as an object rather than a string (Ollama).</summary>
-    internal static JsonNode ParseObject(string? json)
-    {
-        if (string.IsNullOrWhiteSpace(json)) return new JsonObject();
-        try { return JsonNode.Parse(json) ?? new JsonObject(); }
-        catch (JsonException) { return new JsonObject(); }
-    }
+    /// <summary>The function-tool envelope both chat wires send — the same on Ollama's native surface, with
+    /// each parameter schema as an OBJECT.</summary>
+    internal static JsonArray Tools(IReadOnlyList<TextTool> tools) =>
+        new([.. tools.Select(t => (JsonNode)new JsonObject
+        {
+            ["type"] = "function",
+            ["function"] = new JsonObject
+            {
+                ["name"] = t.Name,
+                ["description"] = t.Description,
+                ["parameters"] = ParseSchema(t.ParametersJsonSchema),
+            },
+        })]);
 
     /// <summary>Schemas arrive as strings on the canonical request but must be embedded as JSON
     /// OBJECTS (a string-encoded schema is the classic interop bug this normalizes away).</summary>

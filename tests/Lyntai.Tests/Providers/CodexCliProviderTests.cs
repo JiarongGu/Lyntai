@@ -285,6 +285,17 @@ public class CodexCliProviderTests
         Assert.Equal(expectedAccount, status.Account);
     }
 
+    [Fact] // MEASURED verbatim: `codex login status` on codex-cli 0.155.1, signed in with ChatGPT, exit 0
+    public void The_auth_text_parser_reads_the_measured_signed_in_line()
+    {
+        var status = CodexAuthStatusText.Parse("Logged in using ChatGPT\n");
+
+        Assert.NotNull(status);
+        Assert.True(status.Authenticated);
+        Assert.Equal("ChatGPT", status.Method);
+        Assert.Null(status.Account);   // the measured line names no account, and none is invented
+    }
+
     [Theory]
     [InlineData("Not logged in")]
     [InlineData("You are logged out.")]
