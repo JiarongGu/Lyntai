@@ -2,7 +2,7 @@ using Lyntai.Inference;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
-using Lyntai.Text;
+using System.Net;
 
 namespace Lyntai.Generation.Providers;
 
@@ -192,22 +192,22 @@ public sealed class FalProvider(
         GenerationDeadline.GuardAsync(
             GenerationDeadline.Resolve(request.TimeoutSeconds, options.Timeout), ct,
             token => SubmitCoreAsync(request, token),
-            // A submit that timed out may still have been ACCEPTED — and a queued render is billable, so this
-            // must not read as "nothing happened". Inconclusive is what stops the router trying the NEXT
-            // backend and paying for the same generation twice.
-            reason => Failed($"the submit {reason}; the request may still have been enqueued") with
+            // a submit that timed out may still have been ACCEPTED, and a queued render is billable: Inconclusive
+            // stops the router buying the same generation from the next backend
+            reason => QueueCalls.Failed($"the submit {reason}; the request may still have been enqueued") with
             {
                 Inconclusive = true,
             });
 
     private async Task<QueuedOperation> SubmitCoreAsync(MediaRequest request, CancellationToken ct)
     {
-        if (Unconfigured() is { } missing) return Failed(missing);
+        if (Unconfigured() is { } missing) return QueueCalls.Failed(missing);
         if (Model(request) is not { Length: > 0 } model)
-            return Failed("no model: name one on the request, the candidate (\"fal:model-id\") or FalOptions.Model");
+            return QueueCalls.Failed(
+                "no model: name one on the request, the candidate (\"fal:model-id\") or FalOptions.Model");
 
         if (InputRefusal(request) is { } refusal)
-            return Failed(refusal) with { Verdict = ProviderVerdict.Unsupported };
+            return QueueCalls.Failed(refusal) with { Verdict = ProviderVerdict.Unsupported };
 
         var url = Url(model, request.Option("webhook") is { Length: > 0 } webhook ? webhook : null);
 
@@ -224,29 +224,26 @@ public sealed class FalProvider(
             var body = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
 
             if (!response.IsSuccessStatusCode)
-                return Failed($"{(int)response.StatusCode}: {HttpArtifacts.FailureDetail(body)}");
+                return QueueCalls.Failed($"{(int)response.StatusCode}: {HttpArtifacts.FailureDetail(body)}");
 
             return Field(body, "request_id") is { } requestId
                 ? new QueuedOperation($"{model}{ModelSeparator}{requestId}", QueuedOperationStatus.Queued)
-                : Failed($"no request_id in the response: {HttpArtifacts.FailureDetail(body, 200)}");
+                : QueueCalls.Failed($"no request_id in the response: {HttpArtifacts.FailureDetail(body, 200)}");
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception ex)
         {
-            return Failed(ex.Message);
+            return QueueCalls.Failed(ex.Message);
         }
     }
 
     /// <inheritdoc/>
-    /// <remarks>Bounded by <see cref="FalOptions.Timeout"/>. A status call that times out reports the
-    /// operation as still RUNNING — the same treatment a transport failure already gets here, and for the same
-    /// reason: no answer is not a failed render, and reading it as terminal would abandon a submitted (and
-    /// billed) generation that is merely still going.</remarks>
+    /// <remarks>Bounded by <see cref="FalOptions.Timeout"/>. A status call that times out, or never reaches the
+    /// queue, reports the render still RUNNING — no answer is not a failed render. Only a <c>404</c> and an
+    /// unconfigured backend are terminal: a 429, 401, 403, 408 or 5xx says nothing about a render already paid
+    /// for.</remarks>
     public Task<QueuedOperation> PollAsync(string operationId, CancellationToken ct = default) =>
-        GenerationDeadline.GuardAsync(options.Timeout, ct,
-            token => PollCoreAsync(operationId, token),
-            reason => new QueuedOperation(operationId, QueuedOperationStatus.Running,
-                Detail: $"the status call {reason} — the render is still assumed to be running"));
+        QueueCalls.PollGuard(options.Timeout, operationId, ct, token => PollCoreAsync(operationId, token));
 
     private async Task<QueuedOperation> PollCoreAsync(string operationId, CancellationToken ct)
     {
@@ -257,14 +254,9 @@ public sealed class FalProvider(
 
         var (body, failure, transport, _) = await GetAsync(
             Url($"{model}/{options.RequestsSegment}/{requestId}/{options.StatusSegment}"), ct).ConfigureAwait(false);
-        // a 404 or an unconfigured backend is terminal; anything else keeps polling (GetAsync)
-        if (failure is not null)
-            return new QueuedOperation(operationId,
-                transport ? QueuedOperationStatus.Running : QueuedOperationStatus.Failed,
-                Detail: failure);
+        if (failure is not null) return QueueCalls.PollFailure(operationId, failure, transport);
 
         var status = Field(body!, "status");
-
         if (status is not null && options.StatusVocabulary.TryGetValue(status, out var mapped))
         {
             // fal reports a FAILED request as COMPLETED plus an error field
@@ -285,9 +277,7 @@ public sealed class FalProvider(
     /// <remarks>Bounded by <see cref="FalOptions.Timeout"/>; a fired deadline is a
     /// <see cref="ProviderVerdict.Timeout"/> result, and the operation can simply be fetched again.</remarks>
     public Task<MediaResponse> FetchAsync(string operationId, CancellationToken ct = default) =>
-        GenerationDeadline.GuardAsync(options.Timeout, ct,
-            token => FetchCoreAsync(operationId, token),
-            reason => MediaResponse.Failure(ProviderVerdict.Timeout, $"the result fetch {reason}"));
+        QueueCalls.FetchGuard(options.Timeout, ct, token => FetchCoreAsync(operationId, token));
 
     private async Task<MediaResponse> FetchCoreAsync(string operationId, CancellationToken ct)
     {
@@ -295,19 +285,11 @@ public sealed class FalProvider(
         if (requestId is null)
             return MediaResponse.Failure(ProviderVerdict.Failed, $"malformed operation id '{operationId}'");
 
-        // the fetch path classifies the failure rather than branching on transport: a fetch that cannot be
-        // completed is a result the caller acts on now, where a poll is a question that can be asked again
+        // a fetch that cannot complete is a result the caller acts on now, so it is classified rather than
+        // read as transport the way a poll — a question that can be asked again — is
         var (body, failure, _, status) = await GetAsync(
             Url($"{model}/{options.RequestsSegment}/{requestId}"), ct).ConfigureAwait(false);
-        // The TYPED status leads where there is one: classifying "401: …" as TEXT reports Failed, because a
-        // status line is not the vocabulary FromErrorText matches on — so a rejected key read as a failed
-        // render, which both benches the backend and hides the one thing a host could act on.
-        if (failure is not null)
-            return MediaResponse.Failure(
-                status is { } code
-                    ? ProviderVerdictClassifier.FromHttpFailure(code, failure, hasCredentials: true)
-                    : ProviderVerdictClassifier.FromErrorText(failure),
-                failure);
+        if (failure is not null) return QueueCalls.FetchFailure(status, failure, hasCredentials: true);
 
         var artifacts = ReadArtifacts(body!);
         return artifacts.Count > 0
@@ -323,10 +305,7 @@ public sealed class FalProvider(
     /// by <see cref="FalOptions.Timeout"/>; a cancel that timed out may or may not have landed, so it too reports
     /// the render still running.</remarks>
     public Task<QueuedOperation> CancelAsync(string operationId, CancellationToken ct = default) =>
-        GenerationDeadline.GuardAsync(options.Timeout, ct,
-            token => CancelCoreAsync(operationId, token),
-            reason => new QueuedOperation(operationId, QueuedOperationStatus.Running,
-                Detail: $"the cancel {reason}"));
+        QueueCalls.CancelGuard(options.Timeout, operationId, ct, token => CancelCoreAsync(operationId, token));
 
     private async Task<QueuedOperation> CancelCoreAsync(string operationId, CancellationToken ct)
     {
@@ -342,23 +321,18 @@ public sealed class FalProvider(
                 Url($"{model}/{options.RequestsSegment}/{requestId}/{options.CancelSegment}"));
             Authorize(message);
             using var response = await http.SendAsync(message, ct).ConfigureAwait(false);
-            if (response.StatusCode == System.Net.HttpStatusCode.Accepted)
-            {
-                var body = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
-                return new QueuedOperation(operationId, QueuedOperationStatus.Running,
-                    Detail: $"cancellation requested ({Field(body, "status") ?? "202"}): the render may still " +
-                            "finish and be billed — poll to see how it ended");
-            }
-            return response.IsSuccessStatusCode
-                ? new QueuedOperation(operationId, QueuedOperationStatus.Cancelled)
-                // a render already running may not be cancellable — report it, don't pretend
-                : new QueuedOperation(operationId, QueuedOperationStatus.Running,
-                    Detail: $"cancel rejected: {(int)response.StatusCode}");
+            if (response.StatusCode != HttpStatusCode.Accepted)
+                return QueueCalls.CancelAnswered(operationId, response.StatusCode);
+
+            var body = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+            return new QueuedOperation(operationId, QueuedOperationStatus.Running,
+                Detail: $"cancellation requested ({Field(body, "status") ?? "202"}): the render may still " +
+                        "finish and be billed — poll to see how it ended");
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception ex)
         {
-            return new QueuedOperation(operationId, QueuedOperationStatus.Running, Detail: ex.Message);
+            return QueueCalls.CancelUnanswered(operationId, ex);
         }
     }
 
@@ -379,7 +353,7 @@ public sealed class FalProvider(
     /// <see cref="FalOptions.ErrorTypeField"/>, or null when it reports none.</summary>
     private string? ReportedError(string body)
     {
-        if (options.ErrorField is not { Length: > 0 } field || !JsonExtract.TryParseObject(body, out var doc))
+        if (options.ErrorField is not { Length: > 0 } field || !HttpArtifacts.TryParseObject(body, out var doc))
             return null;
         using (doc)
         {
@@ -388,7 +362,7 @@ public sealed class FalProvider(
             {
                 JsonValueKind.Null or JsonValueKind.Undefined => null,
                 JsonValueKind.String => error.GetString() is { Length: > 0 } text ? text : null,
-                _ => HttpArtifacts.FailureDetail(error.GetRawText()),
+                _ => error.GetRawText(),
             };
             if (said is null) return null;
             var type = options.ErrorTypeField is { Length: > 0 } typeField
@@ -442,9 +416,6 @@ public sealed class FalProvider(
             message.Headers.Authorization = new AuthenticationHeaderValue(options.AuthScheme, key);
     }
 
-    private static QueuedOperation Failed(string detail) =>
-        new("", QueuedOperationStatus.Failed, Detail: detail);
-
     /// <summary>Split <c>"model#requestId"</c>. The model may itself contain slashes (<c>fal-ai/wan-t2v</c>),
     /// which is why the separator is a character the ids don't use rather than the last path segment.</summary>
     private static (string Model, string? RequestId) Split(string operationId)
@@ -455,55 +426,20 @@ public sealed class FalProvider(
             : (operationId[..at], operationId[(at + 1)..]);
     }
 
-    /// <summary><c>Transport</c> distinguishes a failure that says NOTHING about the render from one that
-    /// says this id will never resolve. Only <see cref="PollAsync"/> cares, and it is the difference between
-    /// waiting and abandoning something already paid for.
-    ///
-    /// <para><b>The bar for terminal is high, and deliberately higher than ComfyUI's.</b> Only a <c>404</c>
-    /// — the queue saying it does not know this id — and the unconfigured pre-check are terminal.
-    /// <c>429</c>, <c>401</c>, <c>403</c>, <c>408</c> and every 5xx keep polling. This rule was first
-    /// written as "terminal unless 5xx", copied from <c>ComfyUiProvider.HistoryAsync</c>, and that copy does
-    /// not transfer: ComfyUI is a loopback server that never rate-limits, while fal is a hosted, paid,
-    /// rate-limiting API — so a single <c>429</c> would have dead-lettered a render that was still running
-    /// and already billed. A render abandoned is money gone; a render polled a few times too many is not.</para>
-    ///
-    /// <para>Nothing polls forever regardless: such a job ends by cancellation, a deadline, or the handler
-    /// returning <c>Fail</c>. The terminal arm exists for the one case where none of those would ever fire
-    /// because the id is simply unknown.</para>
-    ///
-    /// <para><c>Status</c> carries the TYPED status back rather than only its rendering inside the failure
-    /// text: <see cref="ProviderVerdictClassifier"/> documents that a typed status wins over body text, and
-    /// a caller holding only the string cannot reach the better entry point.</para></summary>
-    private async Task<(string? Body, string? Failure, bool Transport, System.Net.HttpStatusCode? Status)>
-        GetAsync(string url, CancellationToken ct)
+    /// <summary>GET <paramref name="url"/>. The bar for TRANSPORT is deliberately higher than ComfyUI's: every
+    /// status but a <c>404</c> keeps polling, because fal is a hosted, paid, rate-limiting API where a render
+    /// abandoned is money gone and one polled a few times too many is not.</summary>
+    private async Task<(string? Body, string? Failure, bool Transport, HttpStatusCode? Status)> GetAsync(
+        string url, CancellationToken ct)
     {
         if (Unconfigured() is { } missing) return (null, missing, false, null);
 
         using var lease = HttpClientLease.From(httpFactory, disposeHttpClient);
-        var http = lease.Client;
-        try
-        {
-            using var message = new HttpRequestMessage(HttpMethod.Get, url);
-            Authorize(message);
-            using var response = await http.SendAsync(message, ct).ConfigureAwait(false);
-            var body = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
-            return response.IsSuccessStatusCode
-                ? (body, null, false, response.StatusCode)
-                : (null, $"{(int)response.StatusCode}: {HttpArtifacts.FailureDetail(body)}",
-                   // transport = "keep waiting". Everything EXCEPT a 404 qualifies: a rate limit, an auth
-                   // blip during a key rotation, a gateway challenge and a 5xx all say nothing about whether
-                   // the render is still running, and it is already paid for.
-                   response.StatusCode != System.Net.HttpStatusCode.NotFound, response.StatusCode);
-        }
-        catch (OperationCanceledException) { throw; }
-        catch (HttpRequestException ex)
-        {
-            return (null, ex.Message, true, null);   // never reached the queue — says nothing about the render
-        }
-        catch (Exception ex)
-        {
-            return (null, ex.Message, false, null);
-        }
+        using var message = new HttpRequestMessage(HttpMethod.Get, url);
+        Authorize(message);
+        return await QueueCalls.SendAsync(lease.Client, message,
+            isTransport: status => status != HttpStatusCode.NotFound,
+            unreachable: ex => ex.Message, ct).ConfigureAwait(false);
     }
 
     /// <summary>The model's input object. Common fields are mapped; everything else in
@@ -536,7 +472,7 @@ public sealed class FalProvider(
     /// <c>url</c> counts — and nothing recognised means "no artifacts", never an invented one.</summary>
     internal static IReadOnlyList<MediaArtifact> ReadArtifacts(string body)
     {
-        if (!JsonExtract.TryParseObject(body, out var doc)) return [];
+        if (!HttpArtifacts.TryParseObject(body, out var doc)) return [];
         using (doc)
         {
             var artifacts = new List<MediaArtifact>();
@@ -569,7 +505,7 @@ public sealed class FalProvider(
 
     private double? Cost(string body)
     {
-        if (!JsonExtract.TryParseObject(body, out var doc)) return null;
+        if (!HttpArtifacts.TryParseObject(body, out var doc)) return null;
         using (doc)
         {
             foreach (var name in options.CostFields)
@@ -586,18 +522,10 @@ public sealed class FalProvider(
     private static string MediaTypeOf(string url) =>
         HttpArtifacts.MediaTypeForExtension(Path.GetExtension(url.Split('?', '#')[0]));
 
+    /// <summary>A top-level string-or-number field of a wire body (<see cref="HttpArtifacts.Scalar"/>), or null.</summary>
     private static string? Field(string body, string name)
     {
-        if (!JsonExtract.TryParseObject(body, out var doc)) return null;
-        using (doc)
-        {
-            if (!doc.RootElement.TryGetProperty(name, out var value)) return null;
-            return value.ValueKind switch
-            {
-                JsonValueKind.String => value.GetString(),
-                JsonValueKind.Number => value.ToString(),
-                _ => null,
-            };
-        }
+        if (!HttpArtifacts.TryParseObject(body, out var doc)) return null;
+        using (doc) return HttpArtifacts.Scalar(doc.RootElement, name);
     }
 }

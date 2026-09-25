@@ -117,11 +117,10 @@ public sealed class ComfyUiOptions
     /// which covers fetching and uploading every input as well as the queue call itself.
     ///
     /// <para><b>It does not bound the render.</b> This backend is submit → poll → fetch, and the run outlives
-    /// any single call: <c>GenerationRenderJobHandler</c> polls it across job re-dispatches and process
-    /// restarts, so poll and fetch arrive with no memory of when the submit happened and no request in hand. A
-    /// whole-operation deadline could only live where the operation does — in the job's own retry budget. What
-    /// this bounds is the thing that was genuinely unbounded: a server that accepts a connection and never
-    /// answers.</para>
+    /// any single call: a durable job polls it across re-dispatches and process restarts, so poll and fetch
+    /// arrive with no memory of when the submit happened and no request in hand. A whole-operation deadline
+    /// could only live where the operation does — in the job's own retry budget. What this bounds is the thing
+    /// that was genuinely unbounded: a server that accepts a connection and never answers.</para>
     ///
     /// <para>Shorter than the inline backends' default because these calls are queue operations rather than
     /// renders — none of them should take minutes, though a submit carrying large inputs may need more. On
@@ -342,7 +341,7 @@ public sealed class ComfyUiProvider(
         catch (OperationCanceledException) { throw; }
         catch (HttpRequestException ex)
         {
-            return Failed($"ComfyUI at {Root} is not reachable: {ex.Message}");
+            return Failed(Unreachable(ex));
         }
         catch (Exception ex)
         {
@@ -357,17 +356,12 @@ public sealed class ComfyUiProvider(
     /// unconfigured BaseUrl IS terminal — that id will never resolve, and polling it forever strands the
     /// job.</summary>
     public Task<QueuedOperation> PollAsync(string operationId, CancellationToken ct = default) =>
-        GenerationDeadline.GuardAsync(options.Timeout, ct,
-            token => PollCoreAsync(operationId, token),
-            reason => new QueuedOperation(operationId, QueuedOperationStatus.Running,
-                Detail: $"the status call {reason} — the run is still assumed to be going"));
+        QueueCalls.PollGuard(options.Timeout, operationId, ct, token => PollCoreAsync(operationId, token));
 
     private async Task<QueuedOperation> PollCoreAsync(string operationId, CancellationToken ct)
     {
         var (body, failure, transport, _) = await HistoryAsync(operationId, ct).ConfigureAwait(false);
-        if (failure is not null)
-            return new QueuedOperation(operationId,
-                transport ? QueuedOperationStatus.Running : QueuedOperationStatus.Failed, Detail: failure);
+        if (failure is not null) return QueueCalls.PollFailure(operationId, failure, transport);
 
         var entry = Entry(body!, operationId);
         if (ExecutionFailure(entry) is { } failed)
@@ -383,25 +377,15 @@ public sealed class ComfyUiProvider(
     /// <remarks>Bounded by <see cref="ComfyUiOptions.Timeout"/>; a fired deadline is a
     /// <see cref="ProviderVerdict.Timeout"/> result, and the operation can simply be fetched again.</remarks>
     public Task<MediaResponse> FetchAsync(string operationId, CancellationToken ct = default) =>
-        GenerationDeadline.GuardAsync(options.Timeout, ct,
-            token => FetchCoreAsync(operationId, token),
-            reason => MediaResponse.Failure(ProviderVerdict.Timeout, $"the result fetch {reason}"));
+        QueueCalls.FetchGuard(options.Timeout, ct, token => FetchCoreAsync(operationId, token));
 
     private async Task<MediaResponse> FetchCoreAsync(string operationId, CancellationToken ct)
     {
         // a fetch is asked for a finished render's bytes, so an unanswered read is a failed fetch (the caller
         // simply fetches again) rather than the "still going" the poll reports
         var (body, failure, _, status) = await HistoryAsync(operationId, ct).ConfigureAwait(false);
-        // CLASSIFY rather than flatten. This hardcoded Failed for every failed read, so ComfyUI behind an
-        // authenticating proxy told a host "the render failed" — which is both wrong and unactionable, where
-        // NotConfigured says to go and set the credential up. hasCredentials is FALSE because this backend
-        // has no credential surface at all: a 401 here can only mean something in front of it wants one.
-        if (failure is not null)
-            return MediaResponse.Failure(
-                status is { } code
-                    ? ProviderVerdictClassifier.FromHttpFailure(code, failure, hasCredentials: false)
-                    : ProviderVerdictClassifier.FromErrorText(failure),
-                failure);
+        // no credential surface here, so a 401 can only mean something IN FRONT of ComfyUI wants one
+        if (failure is not null) return QueueCalls.FetchFailure(status, failure, hasCredentials: false);
 
         var entry = Entry(body!, operationId);
         if (ExecutionFailure(entry) is { } failed)
@@ -422,10 +406,7 @@ public sealed class ComfyUiProvider(
     /// <see cref="ComfyUiOptions.Timeout"/>; an interrupt that timed out may or may not have landed, so the run
     /// is reported as still going rather than assumed stopped.</summary>
     public Task<QueuedOperation> CancelAsync(string operationId, CancellationToken ct = default) =>
-        GenerationDeadline.GuardAsync(options.Timeout, ct,
-            token => CancelCoreAsync(operationId, token),
-            reason => new QueuedOperation(operationId, QueuedOperationStatus.Running,
-                Detail: $"the interrupt {reason}"));
+        QueueCalls.CancelGuard(options.Timeout, operationId, ct, token => CancelCoreAsync(operationId, token));
 
     private async Task<QueuedOperation> CancelCoreAsync(string operationId, CancellationToken ct)
     {
@@ -435,16 +416,13 @@ public sealed class ComfyUiProvider(
         {
             using var content = new StringContent("{}", Encoding.UTF8, "application/json");
             using var response = await http.PostAsync(Url(options.InterruptPath), content, ct).ConfigureAwait(false);
-            return response.IsSuccessStatusCode
-                ? new QueuedOperation(operationId, QueuedOperationStatus.Cancelled,
-                    Detail: "interrupt sent (ComfyUI interrupts the RUNNING job, not this id specifically)")
-                : new QueuedOperation(operationId, QueuedOperationStatus.Running,
-                    Detail: $"interrupt rejected: {(int)response.StatusCode}");
+            return QueueCalls.CancelAnswered(operationId, response.StatusCode,
+                "interrupt sent (ComfyUI interrupts the RUNNING job, not this id specifically)");
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception ex)
         {
-            return new QueuedOperation(operationId, QueuedOperationStatus.Running, Detail: ex.Message);
+            return QueueCalls.CancelUnanswered(operationId, ex);
         }
     }
 
@@ -452,12 +430,13 @@ public sealed class ComfyUiProvider(
 
     private string Url(string path) => $"{Root}/{path.TrimStart('/')}";
 
-    private QueuedOperation Failed(string detail) =>
-        new("", QueuedOperationStatus.Failed, Detail: detail);
+    private string Unreachable(HttpRequestException ex) => $"ComfyUI at {Root} is not reachable: {ex.Message}";
+
+    private static QueuedOperation Failed(string detail) => QueueCalls.Failed(detail);
 
     /// <summary>A refusal of the REQUEST as posed, not a fault of this host: the router advances past it without
     /// counting it against the backend, since another candidate may serve the same request.</summary>
-    private QueuedOperation Unsupported(string detail) =>
+    private static QueuedOperation Unsupported(string detail) =>
         Failed(detail) with { Verdict = ProviderVerdict.Unsupported };
 
     /// <summary>The verdict of a refused call to this server. A 4xx other than access or a rate limit refuses
@@ -484,25 +463,10 @@ public sealed class ComfyUiProvider(
         if (string.IsNullOrWhiteSpace(options.BaseUrl)) return (null, "no BaseUrl configured", false, null);
 
         using var lease = HttpClientLease.From(httpFactory, disposeHttpClient);
-        var http = lease.Client;
-        try
-        {
-            using var response = await http.GetAsync($"{Url(options.HistoryPath)}/{operationId}", ct).ConfigureAwait(false);
-            var body = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
-            return response.IsSuccessStatusCode
-                ? (body, null, false, response.StatusCode)
-                : (null, $"{(int)response.StatusCode}: {HttpArtifacts.FailureDetail(body)}",
-                   (int)response.StatusCode >= 500, response.StatusCode);
-        }
-        catch (OperationCanceledException) { throw; }
-        catch (HttpRequestException ex)
-        {
-            return (null, $"ComfyUI at {Root} is not reachable: {ex.Message}", true, null);
-        }
-        catch (Exception ex)
-        {
-            return (null, ex.Message, false, null);
-        }
+        using var message = new HttpRequestMessage(HttpMethod.Get, $"{Url(options.HistoryPath)}/{operationId}");
+        // a loopback server that never rate-limits: only a 5xx says nothing about the run
+        return await QueueCalls.SendAsync(lease.Client, message,
+            isTransport: status => (int)status >= 500, unreachable: Unreachable, ct).ConfigureAwait(false);
     }
 
     /// <summary>The EXISTING field a dotted path (<c>"6.inputs.text"</c>) names, or null. Never created:
@@ -708,11 +672,8 @@ public sealed class ComfyUiProvider(
             if (doc.RootElement.TryGetProperty(operationId, out var entry))
                 return entry.Clone();
 
-            // Some builds key history by their own id, so a SINGLE-entry object is unambiguous and is used.
-            // The count check is the whole guard: `foreach { return }` took the first property of an object
-            // of ANY size, so an un-keyed listing — which `HistoryPath` being a host option makes reachable —
-            // silently returned ANOTHER RENDER's status and artifacts, and the job handler completed the job
-            // with them. Wrong data, no failure anywhere.
+            // some builds key history by their own id, so a SINGLE-entry object is unambiguous and is used; the
+            // count is the whole guard, since an un-keyed listing's first entry is ANOTHER render's
             if (doc.RootElement.EnumerateObject().Count() != 1) return null;
             foreach (var property in doc.RootElement.EnumerateObject())
                 return property.Value.Clone();
@@ -825,15 +786,8 @@ public sealed class ComfyUiProvider(
 
     private static string? Field(string body, string name)
     {
-        try
-        {
-            using var doc = JsonDocument.Parse(body);
-            return HttpArtifacts.Scalar(doc.RootElement, name);
-        }
-        catch (JsonException)
-        {
-            return null;
-        }
+        if (!HttpArtifacts.TryParseObject(body, out var doc)) return null;
+        using (doc) return HttpArtifacts.Scalar(doc.RootElement, name);
     }
 
     private static string? ComfyVersion(string body)

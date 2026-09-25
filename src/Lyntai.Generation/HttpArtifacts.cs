@@ -1,14 +1,38 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using Lyntai.Inference;
-using Lyntai.Text;
 
 namespace Lyntai.Generation.Providers;
 
 /// <summary>Shared reading of what an HTTP generation backend sends back. Lives once because the HTTP backends
 /// in this package face the same two questions — "did it fail, and what does that mean?" and "where are the
-/// bytes?" — and only the JSON path differs. (The local engine is the one backend that is not HTTP.)</summary>
+/// bytes?" — and only the JSON path differs. (The local engines, `sd-cli` and piper, are not HTTP.)</summary>
 internal static class HttpArtifacts
 {
+    /// <summary>Parse a wire body as ONE JSON object, strictly: a vendor's reply is JSON or it is not, so none of
+    /// the tolerances for reading a model's reply apply — least of all finding "the first balanced object" inside
+    /// an HTML error page. False, with no document, for anything else. The caller disposes the document.</summary>
+    public static bool TryParseObject(string? body, [NotNullWhen(true)] out JsonDocument? doc)
+    {
+        doc = null;
+        if (string.IsNullOrWhiteSpace(body)) return false;
+        try
+        {
+            var parsed = JsonDocument.Parse(body);
+            if (parsed.RootElement.ValueKind == JsonValueKind.Object)
+            {
+                doc = parsed;
+                return true;
+            }
+            parsed.Dispose();
+            return false;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+    }
+
     /// <summary>Base64 that may arrive as a bare payload or as a <c>data:image/png;base64,…</c> URL. Both
     /// occur in practice from the same backend family, so both are handled in one place.</summary>
     public static byte[]? DecodeBase64(string? value)
@@ -28,9 +52,9 @@ internal static class HttpArtifacts
     /// <summary>Read the OpenAI-shaped images envelope: <c>{ data: [ { b64_json | url } ] }</c>.
     /// A URL is returned AS a URI artifact rather than downloaded — the platform never spends the caller's
     /// bandwidth (or guesses at auth for someone else's host) uninvited.</summary>
-    public static IReadOnlyList<MediaArtifact> FromOpenAiEnvelope(string body, string mediaType = "image/png")
+    public static IReadOnlyList<MediaArtifact> FromOpenAiEnvelope(string body)
     {
-        if (!JsonExtract.TryParseObject(body, out var doc)) return [];
+        if (!TryParseObject(body, out var doc)) return [];
         using (doc)
         {
             if (!doc.RootElement.TryGetProperty("data", out var data) || data.ValueKind != JsonValueKind.Array)
@@ -41,18 +65,18 @@ internal static class HttpArtifacts
             {
                 if (item.ValueKind != JsonValueKind.Object) continue;
                 if (Str(item, "b64_json") is { } b64 && DecodeBase64(b64) is { } bytes)
-                    artifacts.Add(new MediaArtifact(mediaType, Data: bytes, Metadata: RevisedPrompt(item)));
+                    artifacts.Add(new MediaArtifact("image/png", Data: bytes, Metadata: RevisedPrompt(item)));
                 else if (Str(item, "url") is { } url)
-                    artifacts.Add(new MediaArtifact(mediaType, Uri: url, Metadata: RevisedPrompt(item)));
+                    artifacts.Add(new MediaArtifact("image/png", Uri: url, Metadata: RevisedPrompt(item)));
             }
             return artifacts;
         }
     }
 
     /// <summary>Read the Stable Diffusion WebUI envelope: <c>{ images: [ "&lt;base64&gt;" ] }</c>.</summary>
-    public static IReadOnlyList<MediaArtifact> FromWebUiEnvelope(string body, string mediaType = "image/png")
+    public static IReadOnlyList<MediaArtifact> FromWebUiEnvelope(string body)
     {
-        if (!JsonExtract.TryParseObject(body, out var doc)) return [];
+        if (!TryParseObject(body, out var doc)) return [];
         using (doc)
         {
             if (!doc.RootElement.TryGetProperty("images", out var images) || images.ValueKind != JsonValueKind.Array)
@@ -61,7 +85,7 @@ internal static class HttpArtifacts
             var artifacts = new List<MediaArtifact>();
             foreach (var item in images.EnumerateArray())
                 if (item.ValueKind == JsonValueKind.String && DecodeBase64(item.GetString()) is { } bytes)
-                    artifacts.Add(new MediaArtifact(mediaType, Data: bytes));
+                    artifacts.Add(new MediaArtifact("image/png", Data: bytes));
             return artifacts;
         }
     }
@@ -72,7 +96,7 @@ internal static class HttpArtifacts
     public static string FailureDetail(string body, int max = 500)
     {
         var message = body;
-        if (JsonExtract.TryParseObject(body, out var doc))
+        if (TryParseObject(body, out var doc))
             using (doc)
             {
                 if (doc.RootElement.TryGetProperty("error", out var error))
@@ -90,10 +114,8 @@ internal static class HttpArtifacts
     /// <summary>A scalar identifier field as text, accepting a JSON <b>string OR number</b>.
     /// <para>Separate from <see cref="Str"/> deliberately, rather than widening it: <c>Str</c> reads
     /// <c>url</c>, <c>b64_json</c> and error messages, where a number is meaningless and answering null is
-    /// the honest result. An ID is the one field a backend may legitimately send either way.</para>
-    /// <para>Shared because the two spellings had already DIVERGED — fal accepted a numeric id and the
-    /// ComfyUI reader did not, so a build returning <c>{"prompt_id": 12345}</c> had an accepted workflow
-    /// reported as rejected, which is the exact failure the reader's own doc says it guards against.</para></summary>
+    /// the honest result. An ID is the one field a backend may legitimately send either way — so every
+    /// backend reads one through here, or an accepted <c>{"prompt_id": 12345}</c> reads as rejected.</para></summary>
     /// <param name="element">The element to read from; anything but an object answers null.</param>
     /// <param name="name">The property name.</param>
     public static string? Scalar(JsonElement element, string name)
