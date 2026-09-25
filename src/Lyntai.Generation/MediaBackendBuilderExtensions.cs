@@ -93,8 +93,9 @@ public static class MediaBackendBuilderExtensions
     }
 
     /// <summary>The fal.ai queue — submit/poll/fetch, which is the shape a video render needs. Default id
-    /// <c>"fal"</c> (<see cref="FalOptions.Id"/>). This backend's wire format is documented-not-measured
-    /// (TASKS.md GEN-VERIFY); every URL segment is an option so a host can retarget it.</summary>
+    /// <c>"fal"</c> (<see cref="FalOptions.Id"/>). Written from fal's public docs and never called against the
+    /// real service (see <see cref="FalProvider"/>'s remarks); its URL segments, status vocabulary, error, cost
+    /// and auth settings are options, so a host corrects a wrong one in configuration.</summary>
     /// <param name="builder">The builder.</param>
     /// <param name="configure">Endpoint, credential and declared kinds.</param>
     /// <param name="httpClient">BYO client — see the type summary. Null = Lyntai's own.</param>

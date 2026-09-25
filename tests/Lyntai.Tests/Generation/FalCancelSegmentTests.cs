@@ -78,6 +78,20 @@ public class FalCancelSegmentTests
     }
 
     [Fact]
+    public async Task A_202_cancellation_REQUEST_reports_the_render_still_running()
+    {
+        // fal documents its cancel as `202 {"status":"CANCELLATION_REQUESTED"}` — a request, not a confirmed
+        // stop: the render may still finish and be billed, so only polling says how it ended
+        var (provider, http) = Provider();
+        http.Enqueue(HttpStatusCode.Accepted, """{"status":"CANCELLATION_REQUESTED"}""");
+
+        var operation = await provider.CancelAsync("fal-ai/wan-t2v#req-123");
+
+        Assert.Equal(QueuedOperationStatus.Running, operation.Status);
+        Assert.Contains("CANCELLATION_REQUESTED", operation.Detail);
+    }
+
+    [Fact]
     public async Task A_malformed_operation_id_never_calls_a_cancel_url_at_all()
     {
         var (provider, http) = Provider();

@@ -57,12 +57,16 @@ enum Lyntai.Generation.Providers.DiffusionAccelerator
 sealed class Lyntai.Generation.Providers.FalOptions
     .ctor()
     ApiKey : String
+    AuthScheme : String
     BaseUrl : String
     CancelSegment : String
     CostFields : IList<String>
+    ErrorField : String
+    ErrorTypeField : String
     Id : String
     Model : String
     Produces : IReadOnlyList<String>
+    QueryParameters : IDictionary<String,String>
     RequestsSegment : String
     StatusSegment : String
     StatusVocabulary : IDictionary<String,QueuedOperationStatus>

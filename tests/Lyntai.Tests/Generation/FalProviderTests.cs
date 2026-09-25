@@ -155,6 +155,107 @@ public class FalProviderTests
     }
 
     [Fact]
+    public async Task A_COMPLETED_status_carrying_an_error_is_a_FAILED_render()
+    {
+        // fal's documentation reports a failed request as COMPLETED plus `error` / `error_type`; read as
+        // Succeeded, the job fetched, got a 4xx and reported "succeeded but its artifacts could not be fetched"
+        var (provider, http) = Provider();
+        http.Enqueue(HttpStatusCode.OK,
+            """{"status":"COMPLETED","error":"NSFW content detected","error_type":"content_policy_violation"}""");
+
+        var operation = await provider.PollAsync("fal-ai/wan-t2v#req-1");
+
+        Assert.Equal(QueuedOperationStatus.Failed, operation.Status);
+        Assert.Contains("NSFW content detected", operation.Detail);
+        Assert.Contains("content_policy_violation", operation.Detail);
+    }
+
+    [Fact]
+    public async Task A_COMPLETED_status_with_a_null_error_still_succeeds()
+    {
+        var (provider, http) = Provider();
+        http.Enqueue(HttpStatusCode.OK, """{"status":"COMPLETED","error":null}""");
+
+        var operation = await provider.PollAsync("fal-ai/wan-t2v#req-1");
+
+        Assert.Equal(QueuedOperationStatus.Succeeded, operation.Status);
+    }
+
+    [Fact]
+    public async Task A_host_can_retarget_or_disable_the_error_field()
+    {
+        var retargeted = new FalOptions { ApiKey = "k", Model = "fal-ai/wan-t2v", ErrorField = "failure" };
+        var (provider, http) = Provider(retargeted);
+        http.Enqueue(HttpStatusCode.OK, """{"status":"COMPLETED","failure":"out of memory"}""");
+        Assert.Equal(QueuedOperationStatus.Failed, (await provider.PollAsync("fal-ai/wan-t2v#req-1")).Status);
+
+        var disabled = new FalOptions { ApiKey = "k", Model = "fal-ai/wan-t2v", ErrorField = "" };
+        (provider, http) = Provider(disabled);
+        http.Enqueue(HttpStatusCode.OK, """{"status":"COMPLETED","error":"ignored"}""");
+        Assert.Equal(QueuedOperationStatus.Succeeded, (await provider.PollAsync("fal-ai/wan-t2v#req-1")).Status);
+    }
+
+    [Fact]
+    public async Task The_auth_scheme_is_settable()
+    {
+        var (provider, http) = Provider(new FalOptions { ApiKey = "k", Model = "fal-ai/wan-t2v", AuthScheme = "Bearer" });
+        http.Enqueue(HttpStatusCode.OK, """{"request_id":"r"}""");
+
+        await provider.SubmitAsync(Ask());
+
+        Assert.Equal("Bearer k", http.Requests[0].Auth);
+    }
+
+    [Fact]
+    public async Task Query_parameters_ride_on_every_call_beside_the_webhook()
+    {
+        var options = new FalOptions { ApiKey = "k", Model = "fal-ai/wan-t2v" };
+        options.QueryParameters["_subdomain"] = "queue";
+        var (provider, http) = Provider(options);
+        http.Enqueue(HttpStatusCode.OK, """{"request_id":"req-1"}""");
+        http.Enqueue(HttpStatusCode.OK, """{"status":"IN_QUEUE"}""");
+        http.Enqueue(HttpStatusCode.OK, """{"video":{"url":"https://cdn.invalid/a.mp4"}}""");
+        http.Enqueue(HttpStatusCode.OK, "{}");
+
+        await provider.SubmitAsync(Ask() with
+        {
+            Options = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { ["webhook"] = "https://app.invalid/h" },
+        });
+        await provider.PollAsync("fal-ai/wan-t2v#req-1");
+        await provider.FetchAsync("fal-ai/wan-t2v#req-1");
+        await provider.CancelAsync("fal-ai/wan-t2v#req-1");
+
+        Assert.Equal("https://queue.fal.run/fal-ai/wan-t2v?_subdomain=queue&fal_webhook=https%3A%2F%2Fapp.invalid%2Fh",
+            http.Requests[0].Uri?.AbsoluteUri);
+        Assert.Equal("https://queue.fal.run/fal-ai/wan-t2v/requests/req-1/status?_subdomain=queue", http.Requests[1].Uri?.AbsoluteUri);
+        Assert.Equal("https://queue.fal.run/fal-ai/wan-t2v/requests/req-1?_subdomain=queue", http.Requests[2].Uri?.AbsoluteUri);
+        Assert.Equal("https://queue.fal.run/fal-ai/wan-t2v/requests/req-1/cancel?_subdomain=queue", http.Requests[3].Uri?.AbsoluteUri);
+    }
+
+    [Fact]
+    public async Task The_hugging_face_router_route_is_configuration_alone()
+    {
+        // the free way to reach fal's own queue wire: a Hugging Face token, Bearer, and `?_subdomain=queue`
+        var options = new FalOptions
+        {
+            BaseUrl = "https://router.huggingface.co/fal-ai",
+            ApiKey = "hf_token",
+            AuthScheme = "Bearer",
+            Model = "fal-ai/krea-2/turbo",
+        };
+        options.QueryParameters["_subdomain"] = "queue";
+        var (provider, http) = Provider(options);
+        http.Enqueue(HttpStatusCode.OK, """{"request_id":"req-9"}""");
+
+        var operation = await provider.SubmitAsync(Ask() with { Kind = ProviderKinds.Image });
+
+        Assert.Equal("fal-ai/krea-2/turbo#req-9", operation.Id);
+        Assert.Equal("https://router.huggingface.co/fal-ai/fal-ai/krea-2/turbo?_subdomain=queue",
+            http.Requests[0].Uri?.AbsoluteUri);
+        Assert.Equal("Bearer hf_token", http.Requests[0].Auth);
+    }
+
+    [Fact]
     public async Task A_transport_failure_while_polling_keeps_the_render_alive_rather_than_abandoning_it()
     {
         // a 500 or a dropped connection says nothing about the render — reporting Failed here would abandon

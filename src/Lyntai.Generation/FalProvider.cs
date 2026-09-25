@@ -7,20 +7,30 @@ using Lyntai.Text;
 namespace Lyntai.Generation.Providers;
 
 /// <summary>Configuration for <see cref="FalProvider"/>.</summary>
-/// <remarks>The queue's path segments — <see cref="RequestsSegment"/>, <see cref="StatusSegment"/> and
-/// <see cref="CancelSegment"/> — are settable because this backend's surface is <b>documented, not measured</b>:
-/// see the remarks on <see cref="FalProvider"/>. A host that finds one has moved can retarget it here
-/// instead of waiting for a Lyntai release. <b>Every</b> segment the provider builds a URL from is one of these;
-/// a hardcoded literal among them would be the one path a host could not repair without a Lyntai
-/// release.</remarks>
+/// <remarks>Every URL segment, the status vocabulary, the error and cost fields, the auth scheme and the extra
+/// query parameters are settable because this backend has never been called against the real service (see
+/// <see cref="FalProvider"/>): a host that finds the wire differs corrects it here, in configuration, rather
+/// than waiting for a Lyntai release.</remarks>
 public sealed class FalOptions
 {
     /// <summary>The queue API root. Blank = not configured.</summary>
     public string BaseUrl { get; set; } = "https://queue.fal.run";
 
-    /// <summary>The API key, sent as <c>Authorization: Key &lt;key&gt;</c>. Passed in by the host and never
-    /// stored (D20/D24).</summary>
+    /// <summary>The API key, sent as <c>Authorization: {AuthScheme} &lt;key&gt;</c>. Passed in by the host and
+    /// never stored (D20/D24).</summary>
     public string? ApiKey { get; set; }
+
+    /// <summary>The scheme <see cref="ApiKey"/> is sent under. fal's own queue takes <c>Key</c>, the default; a
+    /// gateway proxying fal's wire may take <c>Bearer</c> (see <see cref="QueryParameters"/>).</summary>
+    public string AuthScheme { get; set; } = "Key";
+
+    /// <summary>Query parameters added to EVERY call — submit, status, result and cancel — before the
+    /// webhook's. Empty by default.
+    /// <para>They make a gateway that proxies fal's own wire a configuration rather than a class. Hugging
+    /// Face's router reaches fal with <c>BaseUrl = "https://router.huggingface.co/fal-ai"</c>,
+    /// <c>AuthScheme = "Bearer"</c>, a Hugging Face token as <see cref="ApiKey"/> and
+    /// <c>QueryParameters["_subdomain"] = "queue"</c> — the same wire, so the same parsing.</para></summary>
+    public IDictionary<string, string> QueryParameters { get; set; } = new Dictionary<string, string>();
 
     /// <summary>The candidate id this backend registers under.</summary>
     public string Id { get; set; } = "fal";
@@ -72,6 +82,18 @@ public sealed class FalOptions
     /// which is honest when a deployment knows the number is wrong.</summary>
     public IList<string> CostFields { get; set; } = ["cost", "cost_usd", "price"];
 
+    /// <summary>The status-document field that marks a FAILED request. fal documents a failed request as
+    /// <c>COMPLETED</c> carrying this field, so a status that maps to
+    /// <see cref="QueuedOperationStatus.Succeeded"/> and carries a non-empty value here polls as
+    /// <see cref="QueuedOperationStatus.Failed"/>, the value in the detail — never as a success whose fetch
+    /// then fails. Empty disables the check.</summary>
+    public string ErrorField { get; set; } = "error";
+
+    /// <summary>The field beside <see cref="ErrorField"/> naming the failure's kind
+    /// (<c>content_policy_violation</c>), carried into the failed operation's detail. Empty leaves it
+    /// out.</summary>
+    public string ErrorTypeField { get; set; } = "error_type";
+
     /// <summary>Query parameter used to hand the backend a webhook URL the APP hosts. Lyntai never hosts one
     /// (D24) — supply the URL via <c>MediaRequest.Options["webhook"]</c> and call
     /// <see cref="FalProvider.FetchAsync"/> when it fires.</summary>
@@ -80,12 +102,11 @@ public sealed class FalOptions
     /// <summary>Ceiling for ONE HTTP call to the queue — a submit, a status read, a result fetch, a cancel.
     ///
     /// <para><b>It does not bound the render.</b> The queue is asynchronous by design: a video render outlives
-    /// every individual call, and <see cref="Jobs.GenerationRenderJobHandler"/> polls it across job re-dispatches and
-    /// process restarts — so poll and fetch arrive with no memory of when the submit happened and no request in
-    /// hand. A whole-operation deadline could only live where the operation does, in the job's own retry
-    /// budget. What this bounds is the thing that was genuinely unbounded: a queue that accepts a connection
-    /// and never answers, against a client the <c>Add*</c> shim gives an infinite
-    /// <see cref="HttpClient"/> timeout.</para>
+    /// every individual call, and a durable job polls it across re-dispatches and process restarts — so poll and
+    /// fetch arrive with no memory of when the submit happened and no request in hand. A whole-operation
+    /// deadline could only live where the operation does, in the job's own retry budget. What this bounds is
+    /// the thing that was genuinely unbounded: a queue that accepts a connection and never answers, against a
+    /// client the <c>Add*</c> shim gives an infinite <see cref="HttpClient"/> timeout.</para>
     ///
     /// <para>Shorter than the inline backends' default because these are queue operations rather than renders.
     /// On <see cref="FalProvider.SubmitAsync"/> a request's
@@ -97,25 +118,27 @@ public sealed class FalOptions
 }
 
 /// <summary>
-/// An <see cref="IModelProvider"/> + <see cref="IMediaJobProvider"/> over <b>fal.ai's queue API</b> —
-/// the aggregator chosen as the first remote backend because one integration reaches the Wan/Kling/Veo-class
-/// models behind a single queue shape (submit → poll → fetch, or a webhook the app owns).
-///
-/// Pairs with <see cref="Jobs.GenerationRenderJobHandler"/>: submit once, checkpoint the operation id, poll to
-/// completion across restarts. That is the combination that stops a crash from paying for a render twice.
+/// An <see cref="IModelProvider"/> + <see cref="IMediaJobProvider"/> over <b>fal.ai's queue API</b> — one
+/// integration reaching the Wan/Kling/Veo-class models behind a single queue shape (submit → poll → fetch, or a
+/// webhook the app owns). A durable job (<see cref="Jobs.GenerationPipelineJobHandler"/>) submits once,
+/// checkpoints the operation id and polls to completion across restarts, so a crash never pays for a render twice.
 /// </summary>
 /// <remarks>
-/// <para><b>UNVERIFIED SURFACE.</b> Written from documented shapes without an API key to call. Paths and
-/// field names are therefore options, response parsing is tolerant (an unrecognised payload reports "no
-/// artifacts" rather than inventing one), and this wants confirming against a live account. Its tests pin
-/// OUR behaviour given a shape, never that the shape is right.</para>
-/// <para><b>The operation id carries its model</b> (<c>"{model}#{requestId}"</c>). The queue's status and result
-/// URLs both need the model id, but a resumed job only hands back an operation id — so the model travels inside
-/// it rather than forcing every caller to persist a second field. Documented because it is visible in
-/// checkpoints and logs.</para>
-/// <para><b>Cost:</b> fal prices per model AND per resolution, so the headline rate often buys a lower tier.
-/// Whatever the response reports lands in <see cref="MediaUsage.CostUsd"/> — it is never inferred from a
-/// rate card.</para>
+/// <para><b>Never called against fal.ai.</b> Written from fal's public queue documentation; nobody maintaining
+/// Lyntai holds a fal account, so no request from it has reached the real service. Its tests pin this library's
+/// behaviour for each documented shape, never that fal answers in it — treat the first real run as the
+/// verification. A host corrects in configuration the URL segments, the status vocabulary, the error, cost and
+/// auth settings, extra query parameters (<see cref="FalOptions"/>), and any request field, which
+/// <see cref="MediaRequest.Options"/> sends verbatim. It cannot correct the response fields read by name:
+/// <c>request_id</c>, <c>status</c>, <c>queue_position</c>, <c>url</c> and <c>content_type</c>.</para>
+/// <para><b>Open against the docs:</b> whether a model with a sub-path (<c>fal-ai/flux/dev</c>) takes its full
+/// path in the status and result URLs, which is what this sends; and a cancel is a REQUEST (202), so
+/// <see cref="CancelAsync"/> reports the render still running and only a poll says how it ended.</para>
+/// <para><b>Cost:</b> fal's documented results carry NO cost field, so unless a
+/// <see cref="FalOptions.CostFields"/> name matches, <see cref="MediaUsage.CostUsd"/> is null and a spend cap
+/// never sees these renders. A reported cost is used as given, never inferred from a rate card.</para>
+/// <para><b>The operation id carries its model</b> (<c>"{model}#{requestId}"</c>): the status and result URLs
+/// need the model, and a resumed job hands back only an operation id.</para>
 /// </remarks>
 /// <param name="options">Endpoint, credential and declared kinds.</param>
 /// <param name="httpFactory">Supplies the <see cref="HttpClient"/> — BYO (design §7).</param>
@@ -159,8 +182,8 @@ public sealed class FalProvider(
     /// <summary>Inline delivery is not this backend's mode — the queue is asynchronous by design.</summary>
     public Task<MediaResponse> GenerateAsync(MediaRequest request, CancellationToken ct = default) =>
         Task.FromResult(MediaResponse.Failure(ProviderVerdict.Unsupported,
-            "fal's queue is asynchronous: use submit → poll → fetch (IMediaJobProvider), or the durable " +
-            "GenerationRenderJobHandler"));
+            "fal's queue is asynchronous: use submit → poll → fetch (IMediaJobProvider), or a durable " +
+            "generation job"));
 
     /// <inheritdoc/>
     /// <remarks>Bounded by the request's <see cref="MediaRequest.TimeoutSeconds"/> if it carries one, else
@@ -186,9 +209,7 @@ public sealed class FalProvider(
         if (InputRefusal(request) is { } refusal)
             return Failed(refusal) with { Verdict = ProviderVerdict.Unsupported };
 
-        var url = $"{Root}/{model}";
-        if (request.Option("webhook") is { Length: > 0 } webhook)
-            url += $"?{options.WebhookQueryParameter}={Uri.EscapeDataString(webhook)}";
+        var url = Url(model, request.Option("webhook") is { Length: > 0 } webhook ? webhook : null);
 
         using var lease = HttpClientLease.From(httpFactory, disposeHttpClient);
         var http = lease.Client;
@@ -235,12 +256,8 @@ public sealed class FalProvider(
                 Detail: $"malformed operation id '{operationId}' — expected \"model{ModelSeparator}requestId\"");
 
         var (body, failure, transport, _) = await GetAsync(
-            $"{Root}/{model}/{options.RequestsSegment}/{requestId}/{options.StatusSegment}", ct).ConfigureAwait(false);
-        // A failure that never reached the queue leaves the render alive; one the queue ANSWERED — a 4xx for
-        // an id it does not know, or a backend with no key — is terminal. Reporting every failure as Running
-        // stranded the job: GenerationRenderJobHandler re-checkpoints and polls again, forever, so the render
-        // was never dead-lettered, never failed and never completed, with the reason sitting in Detail where
-        // nothing acts on it.
+            Url($"{model}/{options.RequestsSegment}/{requestId}/{options.StatusSegment}"), ct).ConfigureAwait(false);
+        // a 404 or an unconfigured backend is terminal; anything else keeps polling (GetAsync)
         if (failure is not null)
             return new QueuedOperation(operationId,
                 transport ? QueuedOperationStatus.Running : QueuedOperationStatus.Failed,
@@ -248,14 +265,15 @@ public sealed class FalProvider(
 
         var status = Field(body!, "status");
 
-        // The vocabulary is CONFIGURED, not compiled in. This backend's wire format is documented, not
-        // measured, so the shipped three are a best reading of vendor docs — and the host who first runs it
-        // for real is the one who finds out. Correcting a wrong string must not require a library release,
-        // and `StatusVocabulary` is a plain dictionary precisely so it can be fixed in `appsettings.json`.
         if (status is not null && options.StatusVocabulary.TryGetValue(status, out var mapped))
+        {
+            // fal reports a FAILED request as COMPLETED plus an error field
+            if (mapped == QueuedOperationStatus.Succeeded && ReportedError(body!) is { } error)
+                return new QueuedOperation(operationId, QueuedOperationStatus.Failed, Detail: error);
             return new QueuedOperation(operationId, mapped,
                 Progress: mapped == QueuedOperationStatus.Succeeded ? 1 : null,
                 Detail: mapped == QueuedOperationStatus.Queued ? QueueDetail(body!) : null);
+        }
 
         // an unknown status is NOT a failure: treating "something new" as terminal would abandon a render
         // that is merely in a state this build hasn't heard of
@@ -280,7 +298,7 @@ public sealed class FalProvider(
         // the fetch path classifies the failure rather than branching on transport: a fetch that cannot be
         // completed is a result the caller acts on now, where a poll is a question that can be asked again
         var (body, failure, _, status) = await GetAsync(
-            $"{Root}/{model}/{options.RequestsSegment}/{requestId}", ct).ConfigureAwait(false);
+            Url($"{model}/{options.RequestsSegment}/{requestId}"), ct).ConfigureAwait(false);
         // The TYPED status leads where there is one: classifying "401: …" as TEXT reports Failed, because a
         // status line is not the vocabulary FromErrorText matches on — so a rejected key read as a failed
         // render, which both benches the backend and hides the one thing a host could act on.
@@ -299,8 +317,11 @@ public sealed class FalProvider(
     }
 
     /// <inheritdoc/>
-    /// <remarks>Bounded by <see cref="FalOptions.Timeout"/>; a cancel that timed out may or may not have
-    /// landed, so the render is reported as still running rather than assumed stopped.</remarks>
+    /// <remarks>fal documents its cancel as a REQUEST — <c>202 {"status":"CANCELLATION_REQUESTED"}</c> — so a
+    /// 202 reports the render still <see cref="QueuedOperationStatus.Running"/>: it may yet finish and be billed,
+    /// and only a poll says how it ended. Any other 2xx is <see cref="QueuedOperationStatus.Cancelled"/>. Bounded
+    /// by <see cref="FalOptions.Timeout"/>; a cancel that timed out may or may not have landed, so it too reports
+    /// the render still running.</remarks>
     public Task<QueuedOperation> CancelAsync(string operationId, CancellationToken ct = default) =>
         GenerationDeadline.GuardAsync(options.Timeout, ct,
             token => CancelCoreAsync(operationId, token),
@@ -318,9 +339,16 @@ public sealed class FalProvider(
         try
         {
             using var message = new HttpRequestMessage(HttpMethod.Put,
-                $"{Root}/{model}/{options.RequestsSegment}/{requestId}/{options.CancelSegment}");
+                Url($"{model}/{options.RequestsSegment}/{requestId}/{options.CancelSegment}"));
             Authorize(message);
             using var response = await http.SendAsync(message, ct).ConfigureAwait(false);
+            if (response.StatusCode == System.Net.HttpStatusCode.Accepted)
+            {
+                var body = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+                return new QueuedOperation(operationId, QueuedOperationStatus.Running,
+                    Detail: $"cancellation requested ({Field(body, "status") ?? "202"}): the render may still " +
+                            "finish and be billed — poll to see how it ended");
+            }
             return response.IsSuccessStatusCode
                 ? new QueuedOperation(operationId, QueuedOperationStatus.Cancelled)
                 // a render already running may not be cancellable — report it, don't pretend
@@ -335,6 +363,40 @@ public sealed class FalProvider(
     }
 
     private string Root => options.BaseUrl.TrimEnd('/');
+
+    /// <summary><c>{Root}/{path}</c> with <see cref="FalOptions.QueryParameters"/> and, on a submit, the
+    /// webhook.</summary>
+    private string Url(string path, string? webhook = null)
+    {
+        var query = options.QueryParameters
+            .Select(p => $"{Uri.EscapeDataString(p.Key)}={Uri.EscapeDataString(p.Value)}")
+            .ToList();
+        if (webhook is not null) query.Add($"{options.WebhookQueryParameter}={Uri.EscapeDataString(webhook)}");
+        return query.Count == 0 ? $"{Root}/{path}" : $"{Root}/{path}?{string.Join('&', query)}";
+    }
+
+    /// <summary>The failure a status document reports under <see cref="FalOptions.ErrorField"/>, with its
+    /// <see cref="FalOptions.ErrorTypeField"/>, or null when it reports none.</summary>
+    private string? ReportedError(string body)
+    {
+        if (options.ErrorField is not { Length: > 0 } field || !JsonExtract.TryParseObject(body, out var doc))
+            return null;
+        using (doc)
+        {
+            if (!doc.RootElement.TryGetProperty(field, out var error)) return null;
+            var said = error.ValueKind switch
+            {
+                JsonValueKind.Null or JsonValueKind.Undefined => null,
+                JsonValueKind.String => error.GetString() is { Length: > 0 } text ? text : null,
+                _ => HttpArtifacts.FailureDetail(error.GetRawText()),
+            };
+            if (said is null) return null;
+            var type = options.ErrorTypeField is { Length: > 0 } typeField
+                ? HttpArtifacts.Scalar(doc.RootElement, typeField)
+                : null;
+            return $"the render failed{(type is null ? "" : $" ({type})")}: {HttpArtifacts.FailureDetail(said)}";
+        }
+    }
 
     private string? Unconfigured() =>
         string.IsNullOrWhiteSpace(options.BaseUrl) || string.IsNullOrWhiteSpace(options.ApiKey)
@@ -377,7 +439,7 @@ public sealed class FalProvider(
     private void Authorize(HttpRequestMessage message)
     {
         if (options.ApiKey is { Length: > 0 } key)
-            message.Headers.Authorization = new AuthenticationHeaderValue("Key", key);
+            message.Headers.Authorization = new AuthenticationHeaderValue(options.AuthScheme, key);
     }
 
     private static QueuedOperation Failed(string detail) =>
