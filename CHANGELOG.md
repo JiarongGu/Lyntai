@@ -173,7 +173,7 @@ every addition.
 - **`ProviderRouter<TRequest,TResponse>.Capable()` is private**; it was public only for an internal helper with no
   caller. **What to DO:** ask `CanServe()`.
 
-- **`FalQueueProvider` / `FalQueueOptions` are `FalProvider` / `FalOptions`.** "Queue" is the delivery shape
+- **`FalQueueProvider` / `FalQueueOptions` are `FalProvider` / `FalOptions`.** "Queue" is the delivery shape <!-- drift-ok: the entry ANNOUNCING the rename has to name it -->
   `ProviderCapabilities.Operations` already declares; a provider is named for its backend. The namespace and
   `AddFalProvider` are unchanged. **What to DO:** rename the two types where you construct the provider or name the
   options type; an `AddFalProvider(o => …)` lambda needs no change.
@@ -184,6 +184,13 @@ every addition.
   throwing sink no longer re-fetches and re-bills it; its progress and failure messages are worded as the <!-- drift-ok: as above -->
   pipeline's. **What to DO:** replace `new GenerationRenderJobOptions(PollDelay: x)` with <!-- drift-ok: as above -->
   `new GenerationPipelineJobOptions { PollDelay = x }` and register that type.
+
+- **The `generate` tool's sink delivery names the backend that rendered it** (**D181**): its
+  `GenerationArtifactDelivery.ProviderId` said `"inline"`, and now carries `MediaResponse.ProviderId`, empty
+  when the router names none. `OperationId` stays empty, as for every inline render. **What to DO:** a sink
+  that recognised the tool's render by the `"inline"` literal tests for a null `StageIndex` with an empty
+  `OperationId` instead — an empty `OperationId` alone also matches a pipeline job's inline stage, and a null
+  `StageIndex` alone a render job's delivery.
 
 - **The generation tools (`GenerationBackendsTool`, `GenerationInlineTool`, `GenerationSubmitTool`,
   `GenerationStatusTool`, `GenerationFetchTool`) are internal.** **What to DO:** register them with
@@ -266,28 +273,22 @@ every addition.
   prompt — including `## Known facts (authoritative)`, the heading `MemoryComposition` uses to mean *exact,
   never truncated*. Text that arrived through an ordinary remember call could therefore claim a grade the
   renderer alone is entitled to state, and a model reading the forged section was told it was exact. Every
-  rendered memory is now flattened to exactly one line — `MemoryComposition.Render` on BOTH grades, and
-  `MemoryPromptComposer`. Nothing is censored: the text stays, contained inside its bullet, where it is
-  inert prose rather than structure.
+  rendered memory is now flattened to exactly one line — `MemoryComposition.Render` on BOTH grades, which the
+  default chat composer now renders through (`MemoryPromptComposer` is removed, see Breaking). Nothing is
+  censored: the text stays, contained inside its bullet, where it is inert prose rather than structure.
   <br>**What to DO:** nothing at a call site — no signature changed and no seam gained a member. A consumer
   whose memories hold deliberately multi-line content will see it rendered on one line; one asserting on the
   old rendering updates the assertion.
 
 ### Changed
 
-- **The flat composer heads its section `## Recalled facts (<task> — may be stale or partial)`.** It read
-  `## Learned facts (<task>)`, which asserts the material IS fact and lands in the prompt as prose the
-  system prompt appears to own — a recalled sentence that reads as a directive is one a model may follow.
-  `MemoryComposition`'s engine-backed path already marked its associative section this way, so this brings
-  the two composers into line rather than inventing a convention.
+- **The default chat memory section is headed `MemoryCompositionOptions.AssociativeHeading`** —
+  `## Recalled context (associative — may be stale or partial)` — where the 3.2.0 default composer wrote
+  `## Learned facts (<task>)`, which asserts the material IS fact and lands in the prompt as prose the system
+  prompt appears to own: a recalled sentence that reads as a directive is one a model may follow. Keyword hits
+  render before semantic ones, and `Render` writes an identical line once (a fan-out blend returns each write
+  twice). A graph write's similarity and subject links reach the store in one batch per kind.
   <br>**What to DO:** a consumer asserting on the old heading updates the string.
-
-- **The `generate` tool's sink delivery names the backend that rendered it** (**D181**) — its
-  `GenerationArtifactDelivery.ProviderId` said `"inline"`, and now carries `MediaResponse.ProviderId`, empty
-  when the router names none. `OperationId` stays empty, as for every inline render.
-  <br>**What to DO:** a sink that recognised the tool's render by the `"inline"` literal tests for a null
-  `StageIndex` with an empty `OperationId` instead — an empty `OperationId` alone also matches a pipeline job's
-  inline stage, and a null `StageIndex` alone a render job's delivery.
 
 - **`KeyValueSecretVault.ListNamesAsync` lists the stored `lyntai:secret:` keys** rather than a separately written
   index, so a secret whose index write failed or raced is no longer hidden. A `lyntai:secret-names` key an earlier
@@ -328,10 +329,6 @@ every addition.
 - **Postgres orders score aggregates and exports by byte** (`COLLATE "C"`), as every other backend does; the
   locale caveat on `IScoreStore` is gone. The SQLite `MigrationRunnerService.MigrateUp` / `MigrateUpAsync` create the
   database's directory, so the documented `SchemaMigration.None` recipe works on a fresh nested path.
-
-- **The default chat memory section** uses `MemoryCompositionOptions.AssociativeHeading`, keyword hits render before
-  semantic ones, and `Render` writes an identical line once (a fan-out blend returns each write twice). A graph
-  write's similarity and subject links reach the store in one batch per kind.
 
 - **The memory recall tool reads an empty `scope` or `query` argument as omitted**, so an empty scope falls back to
   the scope the tools were registered with. The `lyntai.tool.invocations` metric is described as "Tool
@@ -393,53 +390,45 @@ every addition.
   `Lyntai` bundle, since its package is; nothing is written until a root is named.
 
 - **Segmenting an over-long input is a capability every provider with a window can be configured for**
-  (**D177**). One record, `InputSegmentation` (`Lyntai.Inference`), sets it on each provider as
-  `Segmentation`: `Overflow` — `InputOverflow.Segment` or `Truncate` — `Overlap`, how far each window reaches
-  back into the one before (default 0.15), `MinDocumentShare`, how much of a reranker pair's window its
-  document keeps before the query is cut (default 0.5), and `MaxPiecesPerInput`, a cap on one input's pieces
-  (default none) that keeps the first, the last and the rest spread evenly between, leaving gaps in coverage.
-  Segmenting splits an input into windows, answers every one, and combines the answers into one per input: a
-  reranker scores a document as its BEST window, and an embedder returns the length-weighted mean of its
-  windows' unit vectors, re-normalised. An input that fits is answered exactly as without it, except where a
-  reranker entry below says a long query is cut. **Every default is the provider's behaviour before it**, so
-  nothing changes until you configure it.
-
-- **`HttpModelOptions.MaxInputChars` bounds the input an HTTP embedder or reranker is sent** (**D177**). A
+  (**D177**), and **every default is the provider's behaviour before it**, so nothing changes until you configure
+  it. One record, `InputSegmentation` (`Lyntai.Inference`), sets it on each provider as `Segmentation`:
+  `Overflow` — `InputOverflow.Segment` or `Truncate` — `Overlap`, how far each window reaches back into the one
+  before (default 0.15), `MinDocumentShare`, how much of a reranker pair's window its document keeps before the
+  query is cut (default 0.5), and `MaxPiecesPerInput`, a cap on one input's pieces (default none) that keeps the
+  first, the last and the rest spread evenly between, leaving gaps in coverage. Segmenting splits an input into
+  windows, answers every one, and combines the answers into one per input: a reranker scores a document as its
+  BEST window, and an embedder returns the length-weighted mean of its windows' unit vectors, re-normalised. That
+  pooling is public, `VectorMath.WeightedMeanDirection` — each vector scaled to unit length, summed by weight and
+  re-normalised, falling back to the heaviest vector that has a direction where they cancel, refusing a null vector
+  or a non-finite component — so a backend of your own that segments can pool the same way. A reranker's query
+  keeps at most (1 − `MinDocumentShare`) of the pair window, cut ONCE per call so every document is scored
+  against the same question, and is never segmented; otherwise an input that fits is answered exactly as
+  without segmentation. Each provider's window:
+  <br>**HTTP** — `HttpModelOptions.MaxInputChars` bounds what an HTTP embedder or reranker is sent. A
   small-window backend — a 512-token reranker on llama.cpp, say — rejects the WHOLE call when any one input
-  exceeds its window, so one long entry cost every other answer in the call. Set the bound and a longer input
-  is segmented at paragraph, line, sentence or word boundaries and every piece is sent — a reranker's all in
-  one request, an embedder's batched by `BatchSize`, which counts pieces — or, with
+  exceeds its window, so one long entry cost every other answer in the call. Set the bound and a longer input is
+  segmented at paragraph, line, sentence or word boundaries and every piece is sent — a reranker's all in one
+  request, an embedder's batched by `BatchSize`, which counts pieces — or, with
   `Segmentation = new() { Overflow = InputOverflow.Truncate }`, sent cut where its first piece would end. On a
-  reranker the bound is the PAIR window, query and document together: the query keeps at most
-  (1 − `MinDocumentShare`) of it, cut once per call at a word boundary so every document is scored against
-  the same question, and each document gets the rest; a call whose query keeps within its share and whose
-  documents fit beside it is sent untouched. It counts CHARACTERS after NFKC normalisation, not tokens: pieces
-  are cut from, and sent as, the original text, but a raw ㎡ or ㌚ counts as the several characters a
-  tokenizer sees. Leave margin. Null, the default, sends every input whole. At an Ollama server root,
-  `AddHttpProvider` carries the bound and `Segmentation` onto the Ollama-native provider.
-
-- **`OllamaOptions.MaxInputChars` and `OllamaOptions.Segmentation` bound what `/api/embed` is sent**, with
-  the same pieces, count and pooling as the HTTP provider. Null, the default, sends every input whole and
-  leaves the server's own silent cut at the model's context in place. Once the bound is set, and unless
-  `Segmentation` truncates, every request also carries `truncate: false`, so a piece that still overflows fails
-  the call visibly instead of being cut behind it; under `Truncate` you have accepted the loss, and the
-  server's own cut stands behind the client's.
-
-- **`OnnxProviderOptions.Segmentation` lets the in-process ONNX provider segment by TOKENS.** It still
-  truncates at `MaxTokens` by default. With a record that segments, a window ends after a sentence end or
-  before a word start where one is in reach, and every window is a row, the rows running in forward passes of
-  at most eight or the call's input count, whichever is more. For a cross-encoder, any record gives the query
-  at most (1 − `MinDocumentShare`) of the window, cut ONCE per call so every document is scored against the
-  same question; the query is never segmented. So under a record a score changes for a pair whose query,
-  document and three special tokens exceed `MaxTokens`, and for every pair in a call whose query exceeds its
-  share, even a pair that fits. A segmented embedding is unit length even for a model that does not
-  normalise.
-
-- **`VectorMath.WeightedMeanDirection` pools several vectors into one unit vector**: each is scaled to unit
-  length, the unit vectors are summed by weight and the sum is re-normalised, falling back to the heaviest
-  vector that has a direction where they cancel; a null vector or a non-finite component is refused. It is the
-  one pooling both the HTTP and the ONNX provider apply to a segmented input (**D177**), so a backend of your
-  own that segments can pool the same way.
+  reranker the bound is the PAIR window, query and document together; the query is cut at a word boundary, each
+  document gets the rest, and a call whose query keeps within its share and whose documents fit beside it is sent
+  untouched. It counts CHARACTERS after NFKC normalisation, not tokens: pieces are cut from, and sent as, the
+  original text, but a raw ㎡ or ㌚ counts as the several characters a tokenizer sees. Leave margin. Null, the
+  default, sends every input whole. At an Ollama server root, `AddHttpProvider` carries the bound and
+  `Segmentation` onto the Ollama-native provider.
+  <br>**Ollama** — `OllamaOptions.MaxInputChars` and `OllamaOptions.Segmentation` bound what `/api/embed` is
+  sent, with the same pieces, count and pooling. Null, the default, sends every input whole and leaves the
+  server's own silent cut at the model's context in place. Once the bound is set, and unless `Segmentation`
+  truncates, every request also carries `truncate: false`, so a piece that still overflows fails the call
+  visibly instead of being cut behind it; under `Truncate` you have accepted the loss, and the server's own cut
+  stands behind the client's.
+  <br>**ONNX** — `OnnxProviderOptions.Segmentation` segments by TOKENS; the provider still truncates at
+  `MaxTokens` by default. With a record that segments, a window ends after a sentence end or before a word start
+  where one is in reach, and every window is a row, the rows running in forward passes of at most eight or the
+  call's input count, whichever is more. For a cross-encoder ANY record applies the query's share, so under a
+  record a score changes for a pair whose query, document and three special tokens exceed `MaxTokens`, and for
+  every pair in a call whose query exceeds its share, even a pair that fits. A segmented embedding is unit length
+  even for a model that does not normalise.
 
 - **`HttpModelOptions.SuppressReasoningFields` lets the OpenAI-shaped provider express
   `TextReasoning.Suppress`** (**D179**). That schema has no field for it, so the provider sent nothing, and a
@@ -485,14 +474,21 @@ every addition.
   not absolute http(s) is refused. **If a model can name inputs** — an agent tool's `imageUrl` — validate those
   URIs before they reach the provider: the library fetches what it is handed.
 
-- **`QueuedOperation.Verdict` lets a queued backend say WHY a submission failed** (**D180**). Set to
-  `ProviderVerdict.Unsupported`, the router advances to the next candidate without counting the rejection against
-  the backend, so a request one backend cannot serve as posed no longer benches it. Null, the default, keeps the
+- **`QueuedOperation.Verdict` says WHY a submission failed** (**D180**, **D181**). A queued backend that sets it
+  to `ProviderVerdict.Unsupported` makes the router advance to the next candidate without counting the rejection
+  against it, so a request one backend cannot serve as posed no longer benches it. Null, the default, keeps the
   router classifying `Detail` as before. ComfyUI sets it on every refusal of the request itself: no workflow, a
   workflow that does not parse, an input with nowhere to go or nothing to send, a URI it will not fetch or one
   over the cap, a fetch from another origin that fails or times out, and a 4xx from ComfyUI itself — a graph that
   fails validation (a missing model or node, a bad value), a stale view URI — other than 401, 403 and 429, which
   are classified as access and rate as before. A 5xx is still the server's fault.
+  <br>`MediaRouter` fills it too: every failed submission it returns, Inconclusive aside, carries one, where both
+  kinds carried none. A refusal the routing policy surfaced carries the verdict it was surfaced for, and one no
+  candidate accepted carries the verdict `GenerateAsync` would report for the same run — the first substantive
+  rejection's, else the first blameless one's, else `RateLimited` when every candidate was on cooldown and
+  `Unsupported` when none could take it. `MediaSubmission.ProviderId` stays empty on both. The budget and
+  rate-limit decorators refuse a submission with `Refused` and `RateLimited`, the verdicts their inline refusals
+  already report, so an over-budget or throttled pipeline stage is treated alike on either door.
 
 - **A generation pipeline runs as a durable job, so a queued stage is reachable** (**D181**).
   `GenerationPipelineJobHandler` (job type `lyntai.generation.pipeline`) runs a `GenerationPipelineJob` — ordered
@@ -517,13 +513,9 @@ every addition.
   not. It takes part in the record's equality. A pipeline job's inline delivery carries it as its `ProviderId`,
   with an empty `OperationId`.
 
-- **A failed submission `MediaRouter` returns carries a `QueuedOperation.Verdict`** (**D181**), Inconclusive aside,
-  where both kinds carried none: a refusal the routing policy surfaced carries the verdict it was surfaced for, and
-  one no candidate accepted carries the verdict `GenerateAsync` would report for the same run — the first
-  substantive rejection's, else the first blameless one's, else `RateLimited` when every candidate was on cooldown
-  and `Unsupported` when none could take it. `MediaSubmission.ProviderId` stays empty on both. The budget and
-  rate-limit decorators refuse a submission with `Refused` and `RateLimited`, the verdicts their inline refusals
-  already report, so an over-budget or throttled pipeline stage is treated alike on either door.
+- **ComfyUI's execution-failure wire is configurable** (**D69**): `ComfyUiOptions.StatusTextField`
+  (`status_str`), `FailedStatusText` (`error`), `MessagesField` (`messages`) and `ExecutionErrorEvent`
+  (`execution_error`), the defaults measured on ComfyUI 0.36.0 — the poll that reads them is under Fixed.
 
 ### Fixed
 
@@ -531,9 +523,7 @@ every addition.
   says `status_str: "error"` and leaves `completed` false, so the poll read it as still running and a broken graph
   looked like a slow one until the caller's own deadline. The detail is the failing node and its
   `exception_message` — never the event's traceback or inputs, which carry the server's file paths — and a
-  fetch of such a run reports the same. Measured on ComfyUI 0.36.0; the field, the value, the messages array and
-  the event are new options with those defaults: `StatusTextField`, `FailedStatusText`, `MessagesField`,
-  `ExecutionErrorEvent`.
+  fetch of such a run reports the same. Measured on ComfyUI 0.36.0; each name it reads is an option (see Added).
 
 - **Submitting to a ComfyUI provider with no `BaseUrl` is `NotConfigured`**, so routing advances without counting
   it against the backend. Through 3.2.0 it was a plain failure, and a strike toward the dead-host threshold.

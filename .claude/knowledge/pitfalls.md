@@ -12,7 +12,7 @@ is what to do when you know the SHAPE of what you are worried about but not wher
 
 <!-- facets:begin — GENERATED. Edit the per-trap `trap:` markers, never this index. -->
 
-## Facets — 224 traps, indexed two ways
+## Facets — 230 traps, indexed two ways
 
 _Generated from the per-trap `<!-- trap: … -->` markers by `node devtools/dev.mjs check-pitfalls --write`. Edit a marker, never this index._
 _Line numbers only, on purpose: this is for JUMPING, not for reading. The facets are ORTHOGONAL to the headings below — a probe's nine relevant traps once spanned five of them, two of which nobody_
@@ -20,35 +20,35 @@ _looking for that task would have opened._
 
 **By AREA** — which part of the repository breaks.
 
-- **`gates`** (46) — 57 · 90 · 99 · 108 · 115 · 121 · 128 · 134 · 143 · 153 · 160 · 168 · 174 · 189 · 197 · 216 · 221 · 299 · 355 · 364 · 374 · 397 · 404 · 422 · 429 · 620 · 726 · 739 · 754 · 764 · 773 · 781 · 804 · 938 · 1493 · 1509 · 1524 · 1535 · 1543 · 1550 · 1554 · 1570 · 1742 · 1784 · 1793 · 1800
-- **`encoding`** (6) — 65 · 85 · 88 · 381 · 513 · 1570
-- **`git`** (7) — 168 · 181 · 189 · 202 · 381 · 389 · 1493
-- **`build`** (14) — 88 · 355 · 364 · 374 · 397 · 612 · 764 · 773 · 938 · 1470 · 1477 · 1481 · 1502 · 1514
-- **`router`** (6) — 813 · 817 · 826 · 828 · 831 · 930
-- **`cli`** (19) — 65 · 435 · 513 · 813 · 833 · 841 · 850 · 854 · 861 · 865 · 872 · 876 · 883 · 887 · 906 · 913 · 917 · 922 · 1393
-- **`lifetime`** (6) — 950 · 959 · 964 · 969 · 975 · 983
-- **`storage`** (17) — 796 · 896 · 992 · 1038 · 1052 · 1065 · 1073 · 1204 · 1207 · 1223 · 1230 · 1239 · 1364 · 1410 · 1563 · 1651 · 1728
-- **`memory`** (46) — 233 · 250 · 277 · 344 · 655 · 700 · 896 · 1002 · 1012 · 1018 · 1031 · 1038 · 1046 · 1057 · 1065 · 1073 · 1083 · 1090 · 1097 · 1102 · 1111 · 1114 · 1122 · 1129 · 1142 · 1149 · 1156 · 1191 · 1213 · 1246 · 1253 · 1269 · 1285 · 1295 · 1319 · 1328 · 1340 · 1353 · 1402 · 1410 · 1452 · 1461 · 1602 · 1669 · 1682 · 1721
-- **`generation`** (12) — 648 · 671 · 717 · 817 · 975 · 1295 · 1313 · 1372 · 1378 · 1387 · 1437 · 1445
-- **`di`** (13) — 969 · 1090 · 1097 · 1111 · 1253 · 1261 · 1263 · 1266 · 1269 · 1277 · 1319 · 1378 · 1402
-- **`measurement`** (70) — 108 · 227 · 233 · 242 · 250 · 258 · 269 · 277 · 291 · 306 · 314 · 322 · 334 · 344 · 411 · 435 · 442 · 447 · 456 · 462 · 475 · 483 · 490 · 498 · 506 · 518 · 522 · 530 · 541 · 562 · 578 · 584 · 592 · 605 · 612 · 638 · 648 · 655 · 665 · 671 · 678 · 686 · 693 · 700 · 709 · 717 · 841 · 992 · 1031 · 1114 · 1122 · 1142 · 1163 · 1174 · 1182 · 1191 · 1213 · 1285 · 1481 · 1524 · 1580 · 1620 · 1627 · 1636 · 1644 · 1651 · 1661 · 1676 · 1710 · 1721
-- **`docs`** (31) — 74 · 115 · 134 · 143 · 207 · 389 · 404 · 411 · 422 · 620 · 626 · 630 · 634 · 739 · 754 · 804 · 1018 · 1313 · 1328 · 1359 · 1421 · 1431 · 1477 · 1509 · 1535 · 1543 · 1550 · 1554 · 1563 · 1692 · 1800
-- **`tests`** (26) — 74 · 781 · 789 · 796 · 906 · 1024 · 1046 · 1057 · 1083 · 1102 · 1204 · 1207 · 1364 · 1591 · 1602 · 1613 · 1682 · 1698 · 1728 · 1736 · 1742 · 1754 · 1765 · 1771 · 1775 · 1779
+- **`gates`** (46) — 57 · 90 · 99 · 108 · 115 · 121 · 128 · 134 · 143 · 153 · 160 · 168 · 174 · 189 · 197 · 216 · 221 · 299 · 355 · 364 · 374 · 397 · 404 · 422 · 429 · 620 · 726 · 739 · 754 · 764 · 773 · 781 · 804 · 960 · 1548 · 1564 · 1579 · 1590 · 1598 · 1605 · 1609 · 1625 · 1797 · 1839 · 1848 · 1855
+- **`encoding`** (6) — 65 · 85 · 88 · 381 · 513 · 1625
+- **`git`** (7) — 168 · 181 · 189 · 202 · 381 · 389 · 1548
+- **`build`** (14) — 88 · 355 · 364 · 374 · 397 · 612 · 764 · 773 · 960 · 1525 · 1532 · 1536 · 1557 · 1569
+- **`router`** (10) — 813 · 817 · 826 · 828 · 831 · 833 · 839 · 844 · 952 · 1379
+- **`cli`** (20) — 65 · 435 · 513 · 813 · 839 · 849 · 857 · 866 · 870 · 877 · 881 · 888 · 892 · 899 · 903 · 926 · 933 · 937 · 944 · 1444
+- **`lifetime`** (6) — 972 · 981 · 986 · 991 · 997 · 1005
+- **`storage`** (19) — 796 · 916 · 1014 · 1062 · 1076 · 1081 · 1095 · 1103 · 1234 · 1237 · 1253 · 1260 · 1269 · 1308 · 1411 · 1461 · 1618 · 1706 · 1783
+- **`memory`** (46) — 233 · 250 · 277 · 344 · 655 · 700 · 916 · 1024 · 1036 · 1042 · 1055 · 1062 · 1070 · 1087 · 1095 · 1103 · 1113 · 1120 · 1127 · 1132 · 1141 · 1144 · 1152 · 1159 · 1172 · 1179 · 1186 · 1221 · 1243 · 1276 · 1283 · 1299 · 1324 · 1334 · 1358 · 1367 · 1387 · 1400 · 1453 · 1461 · 1507 · 1516 · 1657 · 1724 · 1737 · 1776
+- **`generation`** (13) — 648 · 671 · 717 · 817 · 997 · 1334 · 1352 · 1379 · 1419 · 1427 · 1438 · 1490 · 1500
+- **`di`** (14) — 991 · 1120 · 1127 · 1141 · 1283 · 1291 · 1293 · 1296 · 1299 · 1308 · 1316 · 1358 · 1427 · 1453
+- **`measurement`** (70) — 108 · 227 · 233 · 242 · 250 · 258 · 269 · 277 · 291 · 306 · 314 · 322 · 334 · 344 · 411 · 435 · 442 · 447 · 456 · 462 · 475 · 483 · 490 · 498 · 506 · 518 · 522 · 530 · 541 · 562 · 578 · 584 · 592 · 605 · 612 · 638 · 648 · 655 · 665 · 671 · 678 · 686 · 693 · 700 · 709 · 717 · 857 · 1014 · 1055 · 1144 · 1152 · 1172 · 1193 · 1204 · 1212 · 1221 · 1243 · 1324 · 1536 · 1579 · 1635 · 1675 · 1682 · 1691 · 1699 · 1706 · 1716 · 1731 · 1765 · 1776
+- **`docs`** (31) — 74 · 115 · 134 · 143 · 207 · 389 · 404 · 411 · 422 · 620 · 626 · 630 · 634 · 739 · 754 · 804 · 1042 · 1352 · 1367 · 1406 · 1474 · 1484 · 1532 · 1564 · 1590 · 1598 · 1605 · 1609 · 1618 · 1747 · 1855
+- **`tests`** (26) — 74 · 781 · 789 · 796 · 926 · 1048 · 1070 · 1087 · 1113 · 1132 · 1234 · 1237 · 1411 · 1646 · 1657 · 1668 · 1737 · 1753 · 1783 · 1791 · 1797 · 1809 · 1820 · 1826 · 1830 · 1834
 
 **By SHAPE** — how the wrongness stays invisible. Orthogonal to the area, and usually the more useful
 of the two: most of these traps recur in a subsystem that had never met them.
 
-- **`fail-open`** (24) — 168 · 233 · 250 · 277 · 404 · 456 · 638 · 717 · 826 · 831 · 850 · 906 · 964 · 1012 · 1149 · 1156 · 1269 · 1285 · 1372 · 1378 · 1402 · 1445 · 1452 · 1669
-- **`cancellation`** (5) — 813 · 817 · 1002 · 1012 · 1024
-- **`vacuous`** (51) — 108 · 153 · 160 · 227 · 258 · 269 · 291 · 306 · 364 · 462 · 483 · 498 · 530 · 648 · 655 · 665 · 671 · 686 · 726 · 739 · 773 · 789 · 876 · 913 · 930 · 1024 · 1046 · 1057 · 1083 · 1102 · 1122 · 1163 · 1174 · 1191 · 1285 · 1328 · 1563 · 1602 · 1613 · 1627 · 1676 · 1682 · 1698 · 1710 · 1728 · 1742 · 1754 · 1765 · 1775 · 1784 · 1793
-- **`scope-blind`** (44) — 90 · 121 · 128 · 134 · 143 · 153 · 168 · 174 · 189 · 216 · 221 · 381 · 422 · 429 · 693 · 739 · 764 · 804 · 938 · 1090 · 1097 · 1142 · 1204 · 1207 · 1313 · 1328 · 1340 · 1364 · 1410 · 1461 · 1509 · 1514 · 1524 · 1535 · 1543 · 1550 · 1554 · 1563 · 1613 · 1676 · 1682 · 1784 · 1793 · 1800
-- **`second-door`** (21) — 828 · 861 · 865 · 876 · 883 · 917 · 922 · 983 · 1065 · 1230 · 1269 · 1319 · 1353 · 1364 · 1372 · 1378 · 1387 · 1410 · 1421 · 1437 · 1461
-- **`stale-claim`** (24) — 57 · 134 · 181 · 207 · 411 · 490 · 506 · 620 · 630 · 773 · 1018 · 1266 · 1313 · 1359 · 1387 · 1421 · 1477 · 1481 · 1535 · 1543 · 1550 · 1692 · 1754 · 1800
-- **`silent-loss`** (63) — 65 · 74 · 85 · 88 · 115 · 197 · 202 · 216 · 221 · 242 · 250 · 334 · 381 · 397 · 404 · 435 · 447 · 483 · 513 · 522 · 541 · 562 · 605 · 638 · 671 · 678 · 717 · 754 · 764 · 781 · 854 · 865 · 896 · 950 · 975 · 1031 · 1052 · 1065 · 1073 · 1083 · 1156 · 1182 · 1213 · 1223 · 1230 · 1239 · 1246 · 1261 · 1266 · 1277 · 1319 · 1340 · 1393 · 1437 · 1452 · 1470 · 1481 · 1502 · 1509 · 1570 · 1620 · 1651 · 1710
-- **`wrong-subject`** (70) — 57 · 74 · 99 · 108 · 202 · 227 · 242 · 269 · 277 · 299 · 306 · 314 · 322 · 334 · 344 · 355 · 374 · 462 · 475 · 498 · 506 · 522 · 541 · 562 · 578 · 584 · 626 · 634 · 648 · 655 · 665 · 678 · 686 · 693 · 700 · 709 · 754 · 796 · 828 · 872 · 938 · 959 · 969 · 992 · 1031 · 1057 · 1111 · 1114 · 1129 · 1142 · 1163 · 1174 · 1191 · 1253 · 1295 · 1445 · 1470 · 1493 · 1502 · 1580 · 1620 · 1627 · 1636 · 1644 · 1651 · 1698 · 1721 · 1742 · 1771 · 1775
-- **`unmeasured`** (17) — 314 · 344 · 389 · 411 · 422 · 442 · 592 · 612 · 833 · 841 · 850 · 887 · 913 · 1129 · 1295 · 1431 · 1692
-- **`ordering`** (11) — 374 · 854 · 922 · 1038 · 1052 · 1239 · 1277 · 1393 · 1402 · 1591 · 1661
-- **`resource`** (12) — 355 · 397 · 518 · 584 · 709 · 833 · 906 · 983 · 992 · 1263 · 1736 · 1779
+- **`fail-open`** (25) — 168 · 233 · 250 · 277 · 404 · 456 · 638 · 717 · 826 · 831 · 839 · 866 · 926 · 986 · 1036 · 1179 · 1186 · 1299 · 1324 · 1419 · 1427 · 1453 · 1500 · 1507 · 1724
+- **`cancellation`** (5) — 813 · 817 · 1024 · 1036 · 1048
+- **`vacuous`** (53) — 108 · 153 · 160 · 227 · 258 · 269 · 291 · 306 · 364 · 462 · 483 · 498 · 530 · 648 · 655 · 665 · 671 · 686 · 726 · 739 · 773 · 789 · 833 · 892 · 933 · 952 · 1048 · 1070 · 1087 · 1113 · 1132 · 1152 · 1193 · 1204 · 1221 · 1324 · 1367 · 1379 · 1618 · 1657 · 1668 · 1682 · 1731 · 1737 · 1753 · 1765 · 1783 · 1797 · 1809 · 1820 · 1830 · 1839 · 1848
+- **`scope-blind`** (44) — 90 · 121 · 128 · 134 · 143 · 153 · 168 · 174 · 189 · 216 · 221 · 381 · 422 · 429 · 693 · 739 · 764 · 804 · 960 · 1120 · 1127 · 1172 · 1234 · 1237 · 1352 · 1367 · 1387 · 1411 · 1461 · 1516 · 1564 · 1569 · 1579 · 1590 · 1598 · 1605 · 1609 · 1618 · 1668 · 1731 · 1737 · 1839 · 1848 · 1855
+- **`second-door`** (23) — 828 · 833 · 877 · 881 · 892 · 899 · 937 · 944 · 1005 · 1095 · 1260 · 1299 · 1358 · 1379 · 1400 · 1411 · 1419 · 1427 · 1438 · 1461 · 1474 · 1490 · 1516
+- **`stale-claim`** (24) — 57 · 134 · 181 · 207 · 411 · 490 · 506 · 620 · 630 · 773 · 1042 · 1296 · 1352 · 1406 · 1438 · 1474 · 1532 · 1536 · 1590 · 1598 · 1605 · 1747 · 1809 · 1855
+- **`silent-loss`** (65) — 65 · 74 · 85 · 88 · 115 · 197 · 202 · 216 · 221 · 242 · 250 · 334 · 381 · 397 · 404 · 435 · 447 · 483 · 513 · 522 · 541 · 562 · 605 · 638 · 671 · 678 · 717 · 754 · 764 · 781 · 844 · 870 · 881 · 916 · 972 · 997 · 1055 · 1076 · 1095 · 1103 · 1113 · 1186 · 1212 · 1243 · 1253 · 1260 · 1269 · 1276 · 1291 · 1296 · 1308 · 1316 · 1358 · 1387 · 1444 · 1490 · 1507 · 1525 · 1536 · 1557 · 1564 · 1625 · 1675 · 1706 · 1765
+- **`wrong-subject`** (70) — 57 · 74 · 99 · 108 · 202 · 227 · 242 · 269 · 277 · 299 · 306 · 314 · 322 · 334 · 344 · 355 · 374 · 462 · 475 · 498 · 506 · 522 · 541 · 562 · 578 · 584 · 626 · 634 · 648 · 655 · 665 · 678 · 686 · 693 · 700 · 709 · 754 · 796 · 828 · 888 · 960 · 981 · 991 · 1014 · 1055 · 1087 · 1141 · 1144 · 1159 · 1172 · 1193 · 1204 · 1221 · 1283 · 1334 · 1500 · 1525 · 1548 · 1557 · 1635 · 1675 · 1682 · 1691 · 1699 · 1706 · 1753 · 1776 · 1797 · 1826 · 1830
+- **`unmeasured`** (18) — 314 · 344 · 389 · 411 · 422 · 442 · 592 · 612 · 844 · 849 · 857 · 866 · 903 · 933 · 1159 · 1334 · 1484 · 1747
+- **`ordering`** (13) — 374 · 870 · 944 · 1062 · 1076 · 1081 · 1269 · 1308 · 1316 · 1444 · 1453 · 1646 · 1716
+- **`resource`** (13) — 355 · 397 · 518 · 584 · 709 · 849 · 926 · 1005 · 1014 · 1081 · 1293 · 1791 · 1834
 
 <!-- facets:end -->
 
@@ -830,6 +830,22 @@ of the two: most of these traps recur in a subsystem that had never met them.
   stack frame must not trip a verdict that benches a healthy host.
 - **Empty provider output as `Ok`** — must be `Failed` (and a terminal `Error` chunk when streaming) so <!-- trap: sub=router shape=fail-open -->
   the router can fall over.
+- **A backend whose `StreamAsync` throws from the CALL, not from inside an iterator, walks past a guard on <!-- trap: sub=router shape=second-door,vacuous -->
+  `MoveNextAsync`.** An async iterator defers every throw to the first read, so a router guarding only
+  `MoveNextAsync` looks complete, and every iterator-based fake agrees. A non-iterator implementation throws
+  from `StreamAsync` itself: that escaped both routers with no fallback, and the text span recorded `Ok`.
+  **Open the stream inside the guarded read** (`StreamOpening.Deferred`), and prove it with a fake that is
+  NOT an iterator.
+- **A "never throws" JSON reader that catches only `JsonException` throws on valid JSON of the wrong <!-- trap: sub=router,cli shape=fail-open -->
+  SHAPE.** `TryGetProperty` throws `InvalidOperationException` on a non-object and `GetInt32` a
+  `FormatException` on `1.5`, so `{"choices":[null]}`, `{"type":"assistant","message":"x"}` or a rerank body
+  of `[]` — all well-formed — escaped `CompleteAsync`, a stream or an agent session. Read wire JSON through
+  `WireJson`'s guarded reads, and catch `WireJson.IsShapeFault` as the backstop, never `JsonException` alone.
+- **A streamed tool-call SLOT read from the wrong JSON level merges calls silently.** Ollama nests `index` <!-- trap: sub=router shape=silent-loss,unmeasured -->
+  inside `function`, so a rule of "top-level `index`, else position within the line" put two lines' calls in
+  slot 0 — the first name kept, the arguments concatenated into invalid JSON, the second call gone — and only
+  the buffered path had a live test (`docs/FIXES.md`, 2026-09-25). **A wire whose calls arrive whole marks
+  them `Complete` and never joins slots across lines**; measure the STREAMED shape before trusting it.
 - **Asking the `claude` CLI a question it doesn't recognize SPENDS A TURN.** An unrecognized token is <!-- trap: sub=cli shape=unmeasured,resource -->
   treated as a PROMPT, not an error (`claude zzznotacommand` answers in prose), and `config`/`models` hang
   waiting on a session. So a turn-free question must be a **flag** or a **verified** subcommand — `--version`
@@ -884,15 +900,19 @@ of the two: most of these traps recur in a subsystem that had never met them.
   the same JSONL as `CodexCliProvider`, so the vocabulary and the non-terminal-`error` rule live once in
   `CodexEnvelope`. Two readers of one wire format drift, and the drift is invisible until the halves disagree
   about whether a turn failed.
-- **Mapping a wire format you have not measured, name by name.** The codex agent session's tool-step half is <!-- trap: sub=cli shape=unmeasured -->
-  INFERRED (the measured capture ran no tools). It is written **shape-driven**: any unknown item type becomes
-  a tool step under the BACKEND's own name carrying the BACKEND's own payload, nothing renamed or normalised.
-  That guarantees *no payload is invented or dropped* and *every uncertainty stays inside the tool-step half*
-  — NOT the right KIND of event: `CodexAgentReader.ReadItem` reaches the tool arm by **elimination** against
-  three names, one itself a guess, so a renamed `reasoning` surfaces as a *fabricated* `ToolCall`. A tool
-  step's **kind is provisional, its payload is reliable** — tell consumers to switch on `ToolCall.Name`. Mark
-  every inferred member as inferred in the XML docs, and where a guess would COST something (codex spends a
-  turn on an unrecognized subcommand), refuse rather than guess (`docs/DECISIONS.md` D35).
+- **Mapping a wire format you have not measured, name by name.** <!-- trap: sub=cli shape=unmeasured -->
+  > MEASURED since `docs/task-archive.md` Part 260 (codex-cli 0.155.1): `item.started` fires for every tool
+  > item, and `reasoning` with field `text` is confirmed. What remains true: the tool arm is reached by
+  > elimination, so a tool step's KIND is provisional and its PAYLOAD reliable.
+
+  The codex agent session's tool-step half was written **shape-driven** before it was measured: any unknown
+  item type becomes a tool step under the BACKEND's own name carrying the BACKEND's own payload, nothing
+  renamed or normalised. That guarantees *no payload is invented or dropped* and *every uncertainty stays
+  inside the tool-step half* — NOT the right KIND of event: `CodexAgentReader.ReadItem` reaches the tool arm by
+  **elimination** against three names, so a renamed `reasoning` would surface as a *fabricated* `ToolCall`.
+  Tell consumers to switch on `ToolCall.Name`. Mark every inferred member as inferred in the XML docs, and
+  where a guess would COST something (codex spends a turn on an unrecognized subcommand), refuse rather than
+  guess (`docs/DECISIONS.md` D35).
 - **When one layer RESOLVES a caller's "not stated" into a concrete value, the next layer cannot tell it <!-- trap: sub=memory,storage shape=silent-loss -->
   from a value the caller chose — and writing it back destroys their data silently.** Three times in one
   subsystem (**D91**; `docs/FIXES.md`, 2026-08-26): `GraphMemoryEngine` turned `MemoryGrade.Inherit` into
@@ -918,7 +938,9 @@ of the two: most of these traps recur in a subsystem that had never met them.
   `ProviderInstallRequest.Version` are free-form so other backends fit the contract — but an adapter must
   REFUSE a value it doesn't recognize instead of synthesizing `--<whatever>`, and must refuse a flag-shaped
   value in a data slot (`Email: "--dangerously-x"`, `Version: "--force"`). `ArgumentList` prevents *shell*
-  injection, not the backend's own argument parser reading your value as an option.
+  injection, not the backend's own argument parser reading your value as an option. An agent session's
+  `ResumeToken` is such a slot, and the claude session shipped without the refusal its codex twin had
+  (`docs/FIXES.md`, 2026-09-25): both now share `AgentResumeToken`.
 - **Spawning a Windows CLI by its EXTENSIONLESS npm/nvm shim** — a global npm install writes three <!-- trap: sub=cli shape=ordering,second-door -->
   launchers side by side (`claude`, `claude.cmd`, `claude.ps1`); the extensionless one is a POSIX `sh`
   script, and CreateProcess rejects it with *"The specified executable is not a valid application for this
@@ -968,7 +990,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   (`ProviderAdmission`) is the only shape that survives both strategies.
 - **A key derived from the options OBJECT is wrong for every generation backend, and silently.** Every <!-- trap: sub=lifetime,di shape=wrong-subject -->
   generation options type is a mutable `sealed class` compared by REFERENCE, and `ComfyUiOptions.Produces` /
-  `FalQueueOptions.Produces` are lists built per instance, so two identical configurations never compare
+  `FalOptions.Produces` are lists built per instance, so two identical configurations never compare
   equal. Name every contribution (`ProviderKey.For(id).With("baseUrl", …).WithSecret("apiKey", …)`) so a
   forgotten member is visible in review, and fold in values the backend resolves at RUNTIME —
   `ProviderKeyBuilder`'s own doc says why.
@@ -1009,6 +1031,8 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   `Lyntai.Core/Memory` held 21 such sites; every one is now
   guarded and **0** bare. The idiom had been in `SemanticMemory`'s embed catch since 2026-07-18 — **look for
   your own prior art before concluding a defect is novel**; it turns "add a guard" into "make the rule uniform".
+  The storage adapters were outside that census, and six of their fail-open catches still rethrew by TYPE
+  until 2026-09-25 (`StoreFailOpenCancellationTests`).
 - **Fail-open handlers nest, so the promise is only as good as the WEAKEST link in the chain — and testing <!-- trap: sub=memory shape=fail-open,cancellation -->
   a link in isolation cannot see that.** One timeout from a BYO embedder passes through the seed source, the
   engine's gather, the composite and then the walk: four handlers, each documented fail-open, each looking
@@ -1054,6 +1078,12 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   connection opened outside the factory (it loses `foreign_keys=ON`, so cascades stop); a reused migration
   number (silently skipped — use `dev.mjs new-migration`); an `ORDER BY` on a non-unique column with no
   tiebreaker (nondeterministic on ties).
+- **Windows refuses a replace-rename while another process holds the target, and a burst of rewrites to one <!-- trap: sub=storage shape=resource,ordering -->
+  file provokes it reliably.** An indexer, or a scan of the file just written, is enough: the file store's
+  write-to-temp-then-move threw `UnauthorizedAccessException` / `IOException` on every run of a racing
+  contract fact, while every sequential test passed (`docs/FIXES.md`, 2026-09-25). **An atomic replace on
+  Windows retries a refusal briefly and boundedly**, then reports it; a single attempt is right only for a
+  file nothing else is watching.
 - **A `Relevance` normalized by RANK POSITION, not by score margin, makes a bounded rank boost's effect <!-- trap: sub=memory,tests shape=wrong-subject,vacuous -->
   CANDIDATE-COUNT DEPENDENT.** The stores report `MemoryRelevance.ByRankPosition` (`1 - i / count`): with two
   candidates that is exactly 1.0 and 0.5, a fixed 2× gap however close the underlying `bm25` scores are; with
@@ -1273,7 +1303,16 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   `AddMemory().AddMemoryVerification()` registered a policy that never ran (`docs/FIXES.md`, 2026-08-14).
   Optional parameters compile when omitted, the fallback is a real behaviour, and the only symptom is
   quality. **The fix is one call site, never a second copy kept in step by review**, and the test asserts the
-  policy was CONSULTED (a recording fake), not that recall still worked.
+  policy was CONSULTED (a recording fake), not that recall still worked. The engine now takes one
+  `GraphMemorySeams` record, which the one site fills.
+- **A service registered FIRST-wins that resolves its dependency from the container at run time gets the <!-- trap: sub=di,storage shape=ordering,silent-loss -->
+  LAST registration of that dependency — another wiring's.** Every SQL store was `TryAdd`-ed, so an app's own
+  store wins, but built over the `IDbConnectionFactory` it resolved when first used, and every wiring
+  registered its factory with a plain `AddSingleton`. Two `Use*Storage` calls split by feature therefore ran
+  the first wiring's stores over the second's database — memory writes in the wrong file, or SQLite SQL over an
+  Npgsql connection — and recall failed open to nothing (`docs/FIXES.md`, 2026-09-25). **Build a wiring's
+  services over what THAT wiring holds**, captured at registration, and write a test with two wirings in one
+  container: every single-wiring test is blind to this.
 - **A `TryAddSingleton` reached during `configure(builder)` BEATS `AddLyntai`'s own options-built <!-- trap: sub=di shape=ordering,silent-loss -->
   registration.** `AddLyntai` invokes `configure(builder)` before `RegisterTextFrontDoor`, where the
   `DeadHostTracker` built from `LyntaiOptions` is registered, so a `TryAddSingleton<DeadHostTracker>()` inside
@@ -1294,7 +1333,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
 
 - **A rule moved from where it was true to where it is not looks like careful reuse, and carries a premise <!-- trap: sub=generation,memory shape=unmeasured,wrong-subject -->
   that held only where it came from.** The instances (`docs/FIXES.md`, 2026-08-15 and 2026-08-17):
-  · `ComfyUiProvider`'s *"a 4xx is terminal"* copied onto `FalQueueProvider`, where one `429` dead-lettered a
+  · `ComfyUiProvider`'s *"a 4xx is terminal"* copied onto the fal provider, where one `429` dead-lettered a
     running, billed render — the premise "this backend does not rate-limit" was never written down;
   · `SeedAsync`'s portable guarantee read as a CEILING when it is a FLOOR — a minimum and a maximum are the
     same sentence in English until you ask what it FORBIDS;
@@ -1337,6 +1376,14 @@ benched tenant, an unbounded engine or a render nobody cancelled.
 
 ## Second doors
 
+- **A rule a router applies to a THROW is dead code when every shipped backend catches its own exceptions <!-- trap: sub=generation,router shape=second-door,vacuous -->
+  first.** `MediaRouter` marks a thrown submit `Inconclusive` unless it provably never left the process, but fal
+  and ComfyUI caught every submit exception themselves and returned a conclusive `Failed` — so a possibly
+  delivered submit was re-bought from the next backend (`docs/FIXES.md`, 2026-09-25; **D64**). The router's
+  tests threw from a fake, the one path no shipped backend takes. **Ask of any rule a caller applies to a
+  failure whether the callee lets that failure reach it**; the exposing fact throws INSIDE the real backend,
+  after sending, and asserts the second candidate is never asked (`GenerationBackendThrowTests`).
+
 - **A field accepted on WRITE and absent from the READ record is a write-only field, and every gate on earth <!-- trap: sub=memory shape=silent-loss,scope-blind -->
   says it is fine.** `MemoryWrite.Metadata` was accepted, persisted and returned by all three stores — then
   dropped at the **three** lines in `GraphMemoryEngine` that project a node onto `MemoryItem`, for four
@@ -1374,12 +1421,16 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   cost, and a queue backend prices at FETCH — so a configured cap never fired (`docs/FIXES.md`, 2026-08-16).
   **The tell is a check and a record living on different paths**: ask where the total is INCREMENTED and
   whether every path that spends reaches it. A cap whose total never moves fails silently and permissively,
-  and exercising a path end to end is not testing its accounting.
+  and exercising a path end to end is not testing its accounting. **The GATE can differ per door too**: the
+  router recorded under a media-budget marker while the job handlers and `generate_fetch` recorded whenever
+  ANY `IUsageTracker` was registered, so a chat-only budget billed queued renders (**D185**).
 - **A capability enforced at one entry point is not enforced if a second entry point reaches the same <!-- trap: sub=di,generation shape=second-door,fail-open -->
   objects.** The hosted MCP endpoint ran the app's `ITool`s through `ToolFunction` with no `IGuardRail`, while
-  the tool loop gated every call (`docs/FIXES.md`, 2026-08-15). **The tell is shared STATE, not shared code**:
-  ask "what else can reach these objects, and does it apply the same rules?" whenever a new surface is given
-  the app's tools, stores or providers — guards, budgets, rate limits and redaction each live at one door.
+  the tool loop gated every call (`docs/FIXES.md`, 2026-08-15); both doors now run
+  `ToolInvocation.InvokeGatedAsync`, and a new door onto the app's `ITool`s runs it too. **The tell is shared
+  STATE, not shared code**: ask "what else can reach these objects, and does it apply the same rules?"
+  whenever a new surface is given the app's tools, stores or providers — guards, budgets, rate limits and
+  redaction each live at one door.
   **Gated for decorators**: `DecoratedInterfaceTests` fails a default body on any interface a shipped class
   decorates, because a default compiles clean while a decorator silently skips the new door (the compiler
   forced both media decorators to take `StreamAsync`, **D67**; a null-bodied async probe slipped through,
@@ -1416,7 +1467,9 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   what else the write touched** (index rows, vectors, caches, review logs). **Order the two deletes by which
   failure you can live with** — projection first where a residue is the defect, store first where an orphan
   is — and give the ERROR HANDLING the same asymmetry as the order; **derive a projection's address from the
-  records removed**, since a prefix match on `{engine}|{task}|{scope}` over-deletes.
+  records removed**, and sweep a PREFIX as well only where no key can contain its separator
+  (`MemoryVectorCollection.PrefixFor`, U+001F): over a printable one a prefix match over-deletes into a
+  neighbouring task, and without the sweep an orphan of an earlier partial failure survives an unscoped forget.
 
 - **When a decision falsifies a claim, grep the CLAIM — not the file you happened to be reading.** Measured <!-- trap: sub=docs shape=stale-claim,second-door -->
   2026-08-30 (`docs/task-archive.md` Part 126). The 3D survey established that `3d → image → video` chains
@@ -1440,7 +1493,9 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   input dropped, the render plausible and billed (`docs/FIXES.md`, 2026-08-30). **The detection: grep the
   flag's own subject** — declared once and read never is the whole bug. **The fix belongs in the CONTRACT**
   (`GenerationProviderContract.A_handed_input_is_consumed_or_refused`): whenever a capability, delivery mode
-  or kind is DECLARED, something must assert the code path behind it exists.
+  or kind is DECLARED, something must assert the code path behind it exists. **And the contract's own INPUT is
+  an axis**: the fact first handed ONE input, so four backends that read only the first passed it while
+  dropping a second — a pipeline stage's chained artifact. It hands two now.
 
 - **"Pick the first `image/*` artifact" chains a texture ATLAS, which renders perfectly and is completely <!-- trap: sub=generation shape=wrong-subject,fail-open -->
   wrong — and the media type cannot save you.** From a desk survey of 3D backends (`docs/task-archive.md`

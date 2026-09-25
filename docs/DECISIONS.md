@@ -251,8 +251,16 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D179](#d179--the-openai-shaped-wire-expresses-textreasoningsuppress-through-configured-fields-2026-09-24) | 2026-09-24 | the OpenAI-shaped wire expresses `TextReasoning.Suppress` through CONFIGURED fields |
 | [D180](#d180--comfyui-binds-each-input-at-a-graph-field-the-caller-names-and-produces-model3d-2026-09-25) | 2026-09-25 | ComfyUI binds each input at a graph field the CALLER names, and produces `Model3d` |
 | [D181](#d181--a-generation-pipeline-runs-as-a-durable-job-each-stage-through-the-door-its-first-capable-candidate-serves-2026-09-25) | 2026-09-25 | a generation pipeline runs as a durable JOB, each stage through the door its first capable candid… |
+| [D182](#d182--a-front-door-decorator-slot-has-one-owner-the-same-owner-again-is-a-no-op-another-one-throws-2026-09-25) | 2026-09-25 | a front-door decorator slot has ONE owner: the same owner again is a no-op, another one throws |
+| [D183](#d183--a-providers-default-id-is-its-backends-name-and-every-registration-can-be-given-one-2026-09-25) | 2026-09-25 | a provider's default id is its BACKEND's name, and every registration can be given one |
+| [D184](#d184--the-media-adapters-keep-the-lyntaigenerationproviders-namespace-2026-09-25) | 2026-09-25 | the media adapters keep the `Lyntai.Generation.Providers` namespace |
+| [D185](#d185--media-spend-is-gated-by-one-registration-and-every-door-that-spends-reads-it-2026-09-25) | 2026-09-25 | media spend is gated by ONE registration, and every door that spends reads it |
+| [D186](#d186--dialect-free-relational-plumbing-is-one-linked-source-compiled-into-each-adapter-2026-09-25) | 2026-09-25 | dialect-free relational plumbing is ONE linked source, compiled into each adapter |
+| [D187](#d187--a-sql-statement-is-shared-wherever-a-portable-spelling-exists-a-second-copy-is-for-real-dialect-only-2026-09-25) | 2026-09-25 | a SQL statement is shared wherever a PORTABLE spelling exists; a second copy is for real dialect… |
+| [D188](#d188--a-chats-memory-binding-is-one-seam-with-a-read-half-and-a-write-half-2026-09-25) | 2026-09-25 | a chat's memory binding is ONE seam with a read half and a write half |
+| [D189](#d189--a-second-hosted-queue-vendor-is-its-own-provider-over-a-shared-internal-queue-engine-extracted-when-that-vendor-is-written-2026-09-25) | 2026-09-25 | a second hosted queue vendor is its OWN provider over a shared internal queue engine, extracted w… |
 
-**176 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**184 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -389,9 +397,9 @@ all-tag that every migration carries, while a subset is one pass PER selected fe
 version table. Detail in `.claude/knowledge/storage.md`.
 
 ## D13 — `IMemoryStore` size management is an app-configurable, multi-strategy policy
-`MemoryEvictionPolicy` (`LyntaiOptions.MemoryEviction`, `ConfigureMemory(...)`) bounds the keyword store
-rather than a fixed cap — a per-scope count cap, an eviction order, a default TTL and a per-scope character
-budget, with presets naming the common shapes. The default reproduces the historical 500-entry FIFO cap.
+`MemoryEvictionPolicy` (`LyntaiOptions.MemoryEviction`, `ConfigureMemoryEviction(...)`) bounds the keyword
+store rather than a fixed cap — a per-scope count cap, an eviction order, a default TTL and a per-scope
+character budget, with presets naming the common shapes. The default is a 500-entry FIFO cap per scope.
 
 **`MemoryEviction.Survivors` is the single PURE reference for *what* survives.** *How* it is applied splits
 by path, and both provably match it — the cross-backend contract tests pin the parity. A count cap becomes
@@ -406,8 +414,7 @@ Two behaviours that look like bugs and are not:
 - **LRU counts a QUERIED recall as a use, not a bare list-all.** A targeted lookup refreshes
   `last_accessed_at`; enumerating a scope does not. So an application that composes *every* fact into each
   prompt should choose FIFO — under LRU its reads would touch everything and rank nothing.
-- **`MemoryCapPerScope = 0` means UNCAPPED**, a deliberate change from the pre-policy meaning ("cap 0 =
-  store nothing"). It proxies `MaxEntriesPerScope`, where ≤ 0 is no count cap.
+- **`MaxEntriesPerScope` ≤ 0 means UNCAPPED**, as null does — never "store nothing".
 
 **On-write eviction only bounds a scope you keep writing to.** A cold `(taskKey, scope)` accumulates expired
 rows forever, so collecting them is an opt-in `AddMemoryPruneJob(cron, olderThan?)` over the durable-jobs
@@ -561,6 +568,12 @@ instead of inheriting a claim it will fail at runtime.
 
 **Validated by a second implementer immediately**: the codex backend was built on the seam the claude one
 produced, which is the only real evidence that a seam generalises rather than describing its first case.
+
+**The agent-session half follows the same rule** (extended 2026-09-25). The CLI fault → verdict map is
+`CliFault` (Core, public) and command resolution is `CliCommand.Resolve(command, backend)`, each stated once
+for the engine and every agent session. The two sessions share one turn loop, `CliAgentLoop` (internal to
+`Lyntai.Providers.Basic`): the first terminal wins, and a turn with none tells "printed nothing" from
+"streamed, then died". A new CLI agent session supplies only its argv, its stdin and its line reader.
 
 ## D22 — a CLI backend may be PORTABLE (application-bundled), not just a global install (2026-08-04)
 A host may ship or side-load its own copy of a CLI rather than depend on a machine-wide install. For a
@@ -879,8 +892,10 @@ them would have made one type mean both.
 
 ## D39 — long-term memory is a NAMED-ENGINE COLLECTION beside the existing three (2026-08-08)
 `IMemoryEngine` / `IMemoryEngineFactory` / `AddMemoryEngine` resolve engines by name, the way
-`IHttpClientFactory` resolves clients. This is **purely additive**: `IMemoryStore`, `ICuratedMemoryStore`
-and `ISemanticMemory` are unchanged and co-exist with it. The contract is design §5.7.
+`IHttpClientFactory` resolves clients. It is **additive**: `IMemoryStore`, `ICuratedMemoryStore` and
+`ISemanticMemory` stay as STORAGE seams beside it. The library's own consumer doors reach memory through
+engines — the chat reads and writes through one engine-backed composer (**D188**), and the prune job prunes
+every engine that can, beside the keyword store. The contract is `docs/memory.md` (**D164**).
 
 **A blend IS an engine.** `CompositeMemoryEngine` implements the same interface as its members, so a
 consumer cannot tell whether a name resolves to one engine or several — which is what makes composition an
@@ -1070,6 +1085,10 @@ every consumer is first-party, so the question becomes "do I need to?" rather th
 not, because a new overload or an `init` property adds the same capability and breaks nobody, the shape
 D83–D86 took.
 
+**The ENGINE's constructor took that shape** (2026-09-25): `GraphMemoryEngine` takes its seams as one
+init-only `GraphMemorySeams` record, so a new seam is a property and never re-binds a positional caller,
+where each had been an optional parameter appended LAST. `UseGraph`'s own parameters are still positional.
+
 **Symmetry is the argument**: `ranking` was already per-engine and the curve was not, yet under D48 the two
 are the SAME class of seam — singular, one installed at a time. Leaving one selectable and the other not
 was an accident of when each was written.
@@ -1143,6 +1162,9 @@ it evidence rather than curve-shopping — and it held for a reason that had not
 mechanism. Predicting the direction is not evidence for the explanation; only an experiment that separates
 the candidates is.
 
+The sweeps that measured this (`memory-spacing`, `memory-reinforcement`) are retired from the command
+roster; the instruments are in git history.
+
 ## D54 — retrieval-driven stability growth is OFF by default: `ReinforceGain = 0` (2026-08-12)
 Five studies agree, and every alternative to changing the default was tested first. A recall still resets an
 entry's age; it no longer lengthens its half-life.
@@ -1156,6 +1178,8 @@ it could not compound by construction. Not growing at all beat all three, which 
 The mechanism that fits: the age reset **expires** (the entry decays again at the same rate) while growth
 **persists** and is conditioned on the system's own ranking output — so growth banks the ranker's error
 instead of letting it wash out. The arithmetic stays shipped and is live for anyone who raises the gain.
+The sweeps that measured this (`memory-spacing`, `memory-reinforcement`) are retired from the command
+roster; the instruments are in git history, and `memory-bounded` still runs the growth rule's form.
 
 ## D55 — one tokenization for every backend, handling spaceless scripts by default (2026-08-12)
 `SearchTerms` owns the one query split and every backend uses it; `FtsQuery` keeps only FTS5 syntax. Before
@@ -1409,7 +1433,10 @@ from trying a healthy candidate. Backends signal a real refusal with a verdict R
 catches and classifies rather than propagating, and says which of the two shapes it is: advance (a retryable
 attempt) or surface (an act that may already have cost something). Note also what this did NOT change:
 `OperationCanceledException` under the caller's own token still propagates on both paths, because a caller
-must be able to tell their own cancellation from a backend's failure.
+must be able to tell their own cancellation from a backend's failure. *(2026-09-25: the router's throw rules
+fire only when a backend lets the throw escape, and every shipped backend catches its own — so each applies
+them itself: a caught submit throw is `QueuedOperation.FromThrownSubmit(ex, sent)`, a caught inline throw
+`ProviderVerdictClassifier.FromThrown`, and a 2xx submit answer with no operation id is Inconclusive too.)*
 
 ## D65 — the DIALECT places tool-host args, because only it knows where they may legally go (2026-08-15)
 
@@ -1572,11 +1599,8 @@ clothes.
 **The decision.** Every mapping in a documented-not-measured generation backend is settable by the host:
 fal's status vocabulary and cost field names, ComfyUI's `prompt_id` / `outputs` / `status` / `completed`
 field names, and `sd-cli`'s entire argv flag set plus an `ExtraArgs` escape. The backends stay unmeasured;
-what changes is that **finding out costs a configuration edit rather than a Lyntai release.**
-
-**What this replaces.** GEN-VERIFY framed these backends as "confirm against reality", blocked on a vendor
-key — a *third party's* availability as a precondition for this library's backlog. The answerable question is
-**"what happens to the host who finds out our reading is wrong"**, and the answer was: nothing they can do.
+what changes is that **finding out costs a configuration edit rather than a Lyntai release** — the
+answerable question is what a host who finds our reading wrong can do, not when a vendor key arrives.
 
 **Three of these already had it, which is what made the gap visible.** ComfyUI's own header has always said
 *"Every endpoint path is settable for one specific reason: this backend's surface was not measured."* fal
@@ -1601,8 +1625,11 @@ names are wrong — the budget decorator spends against whatever this reports.
 **What is still genuinely unmeasured, and this decision does not claim otherwise.** If a wire format differs
 STRUCTURALLY — a status that is not a string field at all, a history document shaped differently — no
 per-field option saves it, and that is what a real run still has to confirm. The claim here is narrower and
-true: every *value* that could be wrong is now the host's to fix, so the residual risk is a shape, not a
-spelling.
+true: every mapping the docs name is the host's to fix, so the residual risk is a shape, not a spelling.
+*(2026-09-25: one structural difference arrived as fal's documented failure shape — `COMPLETED` plus an
+`error` field — and became `FalOptions.ErrorField`; the auth scheme and per-call query parameters became
+options too, which lets the Hugging Face router verify fal's wire for free. fal's response field names —
+`request_id`, `status`, `queue_position`, `url`, `content_type` — stay literals: a wrong one needs a release.)*
 
 **Byte-identical unconfigured**, pinned per backend — the flags became a dictionary lookup rather than
 literals, and an unconfigured host must not be able to tell. *(2026-09-19: MEASURED — upstream HAD retired
@@ -1824,7 +1851,9 @@ a world that may no longer exist, or may never have existed.
 
 **The decision.** The hosted MCP endpoint keeps its advisory refusal; the in-process tool loop keeps its
 terminal one. That asymmetry is documented as intended. What is fixed is the SIGNAL: `ToolFunction` now logs
-a block the way `ToolLoop` already did.
+a block the way `ToolLoop` already did. *(2026-09-25: both doors run one public flow,
+`ToolInvocation.InvokeGatedAsync`, so the signal leftover is closed — the MCP door records the tool span and
+`lyntai.tool.invocations` too — and each door still decides a Block's FORCE from `GatedToolResult.Blocked`.)*
 
 **The complaint split in two, and the halves have opposite answers** (the backlog item it closed is
 `docs/task-archive.md` Part 81).
@@ -1848,10 +1877,10 @@ a logger and its twin is not.
 **What is deliberately NOT added: a retry counter.** The unbounded-retry worry is real but the bound belongs
 to the client's own loop budget, and inventing a policy here would mean holding per-session state this seam
 does not have, for a rule no consumer has asked for. Repetition is already observable — every block
-increments `lyntai.guard.result=block`, so an operator can alert on a RATE rather than discover it after the
-fact. **A concrete report of a model looping on a blocked tool is what would justify more**, which is the
-same "a real failure is a better starting point than a speculative one" rule `repo-mechanics.md` records for
-the backlog.
+increments `lyntai.guard.decisions` tagged `lyntai.guard.result=block`, so an operator can alert on a RATE
+rather than discover it after the fact. **A concrete report of a model looping on a blocked tool is what
+would justify more**, which is the same "a real failure is a better starting point than a speculative one"
+rule `repo-mechanics.md` records for the backlog.
 
 **The generalizable half.** This is the third door-parity finding in the same subsystem, and the useful
 question turned out not to be "do both doors behave identically" but **"which differences are forced by what
@@ -1908,7 +1937,8 @@ oversight.
 **The decision.** A row type two relational backends materialize identically lives ONCE, in
 `Lyntai.Core/Storage`: the memory graph's `MemoryNodeRow`, `MemoryEdgeRow`, `MemoryPositionRow` and
 `MemoryReviewRow` with `MemoryGraphSql`, and — extended 2026-08-17, absorbing D80 — nine more pairs in
-`StorageRows.cs`. The QUERIES stay per-backend. The counts are `docs/task-archive.md` Part 82.
+`StorageRows.cs`. A QUERY is shared only where a portable spelling exists (**D187**); the rest stay
+per-backend. The counts are `docs/task-archive.md` Part 82.
 
 **Why: a column↔property mismatch is a SILENT null**, not an error, so two copies are two places for the
 silence to appear, and neither the compiler nor a test that runs one backend can see either.
@@ -1918,27 +1948,27 @@ mapping it fed stayed duplicated. Fixing one instance of a defect and leaving ni
 folklore.
 
 **The alternative, written down as settled.** `PostgresMemoryGraphStore`'s class doc said the parallel
-"is NOT duplication waiting to be extracted: the two differ by dialect necessity". Every clause of that is
-true of the SQL — `GREATEST`/`MAX`, `ILIKE`/FTS5, `= ANY`/`IN`, `ON CONFLICT`/`INSERT OR IGNORE` — and it
-had been read as a claim about the file.
+"is NOT duplication waiting to be extracted: the two differ by dialect necessity". Some of that is true of
+the SQL — `GREATEST`/`MAX`, `ILIKE`/FTS5, `= ANY`/`IN` — and it had been read as a claim about the file;
+`ON CONFLICT`/`INSERT OR IGNORE` turned out to be a spelling, not a dialect (**D187**).
 
-**What deliberately did NOT move, so the next reader does not "finish" it.** The seed and neighbour
-queries, `UpsertAsync`'s statements, the by-id delete, the subject INSERT and the two subject READS (one
-`::text` cast apart). `verified`, which SQLite binds as 1/0/NULL and Postgres as `bool?`, so
-`MemoryReviewRow` leaves that column undeclared and unsealed — the tri-state is load-bearing (**D59**). And
-the vector-store pair, which shares a NAME and nothing else — SQLite materializes the vector, Postgres a
-computed score. **Hoist what does not differ; never invent a portability the storage engines lack.** The
+**What deliberately stays per-backend, so the next reader does not "finish" it.** SQLite's FTS seed and
+its merge, the neighbour and delete id-lists (`IN @ids` against `= ANY(@ids)`), the upsert (`::jsonb`), the
+two subject READS (one `::text` cast apart) and the zero-stability guard. `verified`, which SQLite binds as
+1/0/NULL and Postgres as `bool?`, so `MemoryReviewRow` leaves that column undeclared and unsealed — the
+tri-state is load-bearing (**D59**). And the vector-store pair, which shares a NAME and nothing else —
+SQLite materializes the vector, Postgres a computed score. **Hoist what does not differ; never invent a portability the storage engines lack.** The
 one hoisted constant is `MemoryGraphSql.MinimumStability`, while each backend still spells its guard,
 because the spelling IS the dialect.
 
 ## D78 — one option-domain guard, and the domain phrase is DERIVED from the check (2026-08-16)
 
 **The decision.** One function guards every option domain in the memory subsystem:
-`MemoryOption.Require(value, MemoryOptionRange, owner, why)` is the sole `ArgumentOutOfRangeException` guard
-at all 54 sites across ten files. It replaced 31 hand-rolled copies across five when it landed —
-`DsrOptions`, `GraphMemoryOptions` and the three ranking options records — and every option guarded since has
-gone through it, `SalienceOptions.NoveltyWeight` first. `MemoryOptionRange` both TESTS the value and DESCRIBES itself, so the message's domain phrase and
-the comparison that rejected the caller come from one place. Both types are `internal`.
+`MemoryOption.Require(value, MemoryOptionRange, owner, why)`, with an integer twin taking a floor, is the
+sole `ArgumentOutOfRangeException` guard at all 54 sites across ten files. It replaced 31 hand-rolled copies
+across five when it landed — `DsrOptions`, `GraphMemoryOptions` and the three ranking options records — and
+every option guarded since has gone through it. `MemoryOptionRange` both TESTS the value and DESCRIBES
+itself, so the message's domain phrase and the comparison that rejected the caller come from one place.
 
 **Why this is not merely line count.** The check had not drifted; two things around it had.
 
@@ -1988,11 +2018,17 @@ invariants inside them, and not in this log, which is not a specification's home
 ## D80 — MERGED INTO D77 (2026-08-16, folded 2026-08-17)
 
 Its own title was *"the rest of the relational row types follow D77"* — an application of that decision to
-the other nine row-type pairs, not a choice between alternatives. It now lives in **D77 §SCOPE**, with the
-negative result that bounds it (the vector-store pair stays per-backend) and the one forced rename. The
-number is kept rather than reclaimed so every existing reference still resolves; see §How to read it.
+the other nine row-type pairs, not a choice between alternatives. It now lives in **D77**, with the
+negative result that bounds it (the vector-store pair stays per-backend); the score-export pair follows the
+suffix rule, `ScoreExportRow` the row and `ScoreExportEntry` the contract record. The number is kept rather
+than reclaimed so every existing reference still resolves; see §How to read it.
 
 ## D81 — shared SQL has a HIGHER bar than a shared mapping, because SQL drift fails loudly (2026-08-16)
+
+> **The SQL bar is superseded by D187**: a statement is shared wherever a portable spelling exists, not only
+> when a domain's whole surface is dialect-free, so the key-value, cache and usage stores and more of the
+> graph and trace stores now share theirs, one class per file (`KeyValueStoreSql`, `ResponseCacheSql`,
+> `UsageTrackerSql`, …). What stands: a row type hoists whenever the columns match, and the paging pair.
 
 **The rule.** Hoist a row type whenever two backends materialize the same columns; hoist SQL only when a
 domain's WHOLE statement surface is dialect-free. The asymmetry is the point: a column↔property mismatch in
@@ -3600,6 +3636,10 @@ in `GenerationRouter.Capable` and gained its own router test there. <!-- drift-o
 
 ## D127 — ONE provider interface: IModelProvider, with every operation defaulted to Unsupported (2026-09-14)
 
+> **The `EmbedAsync` half is superseded by D153**: embedding left this interface for its own call shape,
+> `IVectorProvider`, whose `VectorResponse` carries a verdict — so an embedder that could not answer says so
+> without a zero vector. The seam and its defaulted operations stand for text and media.
+
 `ILlmProvider`, `IGenerationProvider`, `IGenerationStreamProvider` and `IProviderProbe` are gone. <!-- drift-ok: the entry RETIRING these seams has to name them -->
 `Lyntai.Lifecycle.IModelProvider` is the single backend seam: `Id`, `IsAvailable`, `Capabilities`, and <!-- drift-ok: the record names where the type went AT THE TIME; D154 renamed it after -->
 `CompleteAsync` / `StreamAsync` / `EmbedAsync` / `GenerateAsync` / `ProbeAsync` — **every operation with a
@@ -3611,7 +3651,8 @@ sense of "provider"; these are model backends and the name should say so, while 
 
 **The fat-interface objection is answered by D126, not waved away.** A backend never sees an operation it
 does not serve: `Capabilities` declares the content `Kinds` and `Operations`, and a router filters BEFORE
-dispatching. Declining costs no code because the default body is already there. This is the contract every
+dispatching — `TextRouter` on `Produces` AND on the door's `ProviderOperation`, so a Complete-only backend
+is never asked to stream. Declining costs no code because the default body is already there. This is the contract every
 generation backend has lived under since the platform shipped; it is now the contract for all of them.
 
 **What is NOT folded in, and the line is content-type versus contract-shape.**
@@ -4356,7 +4397,8 @@ than about the document having finished — the distinction this entry turns on.
 
 **The decision.** `UseSqliteVectorStore` and its five siblings check the Governance prerequisite at the
 call that needs it, against the feature selection registered SO FAR — not once at the end of configuration.
-Each adapter keeps the guard; neither keeps the argument for it.
+The guard is written once, `src/Shared/Relational/GovernanceGuard.cs`, compiled into each adapter
+(**D186**); the argument for it lives here and in neither backend.
 
 **Why a guard at all.** `lyntai_response_cache`, `lyntai_usage` and `lyntai_vector` ship in the ONE
 Governance migration, so a feature subset omitting `StorageFeature.Governance` leaves those helpers
@@ -4373,16 +4415,16 @@ offending line, which is the property the guard was added for. The remedy is to 
 or to make the widening call first.
 
 **Two scope rules that are not obvious from the code.** It is order-independent across the
-storage/helper PAIR only — each side records a sentinel nothing ever resolves, so swapping those two builder
-lines cannot defeat it — but two `Use*Storage` calls are competing SELECTIONS where the last wins, so order
-IS load-bearing there by design. And it applies only where Lyntai owns the schema: under
+storage/helper PAIR only — each side records a descriptor the other reads at configuration time, so
+swapping those two builder lines cannot defeat it — but two `Use*Storage` calls are competing SELECTIONS
+where the last wins, so order IS load-bearing there by design. And it applies only where Lyntai owns the schema: under
 `SchemaMigration.None` or a host-supplied factory the app's DDL decides what exists. **The consequence worth
 knowing**: a BYO-factory call made LAST stands the guard down for the whole wiring.
 
 **Why this is a decision rather than a comment.** The argument stood in both `Lyntai.Storage.Sqlite` and
 `Lyntai.Storage.Postgres`, ~40 lines each, saying the same thing twice — with the rejected alternative in
-the copy nobody reviews. A third SQL backend would have made three (`.claude/knowledge/extending-lyntai.md`
-tells one to write its own `RequireGovernance`, which is now a pointer to this entry).
+the copy nobody reviews. A third SQL backend would have made three; a new relational adapter links the one
+source instead.
 
 ---
 
@@ -4488,10 +4530,9 @@ generic rather than a fourth hard-coded shape.
 capability, because one class can implement a shape and be CONFIGURED not to serve it — `HttpModelProvider`
 implements the vector call whatever its `Produces` says, so the type test alone would hand a chat-only
 endpoint an embed call. The inverse is refused at composition: a backend DECLARING `Vector` without
-implementing the seam satisfies startup and is then never selected, which is silent and total. It cost the
-shipped sample exactly that during this change. **The same asymmetry is why `AddProvider`'s `declares`
-argument survives** rather than being replaced by reading `typeof(T)`: a type test answers what a class CAN
-do, and composition needs what this REGISTRATION does.
+implementing the seam satisfies startup and is then never selected, which is silent and total. **The same
+asymmetry is why `AddProvider`'s `declares` argument survives** rather than being replaced by reading
+`typeof(T)`: a type test answers what a class CAN do, and composition needs what this REGISTRATION does.
 
 **It does NOT merge `LlmRouter` and `GenerationRouter`, and the refusal is the recorded part.** They differ <!-- drift-ok: the record names the type AS IT WAS; D154 renamed it after -->
 in eight deliberate ways — last- versus first-substantive failure, blameless slot semantics, retries present
@@ -4499,6 +4540,10 @@ versus absent, id-resolution versus capability-filtering, one synthetic failure 
 counting, filing order around the `Surface` check, and admission one frame deeper. Folding those in means
 eight injection points on the most load-bearing code here, which is the flag multiplication
 `library-api-design.md` warns about, and the goal needs none of it. Converging them is a separate decision.
+*(2026-09-25: shared HELPERS are not that merge — every router keeps its bookkeeping in `RouterBookkeeping`
+and the two reading `RoutingPolicy` run `CandidateAttempt`, each keeping its key shape and all eight
+differences. Where the generic router had to pick a side, an all-benched run answers `Failed`, the text
+router's choice over the media router's `RateLimited`: "what you configured is down" reads alike for all.)*
 
 **`Job` is not a delivery mode's name here.** `Lyntai.Jobs` is the durable queue an APPLICATION runs, and
 the two compose rather than coincide, so the mode is `Queued` and its handle `QueuedOperation`.
@@ -4640,7 +4685,7 @@ it must be data the dialect states rather than a class the consumer picks betwee
 
 **A provider MAY serve several kinds, and that is said in DATA.** `ProviderCapabilities.Produces` is a
 LIST for exactly that — one call returning text and an image. Whether a backend's OPTIONS take one kind
-or several mirrors what that backend can actually do: `ComfyUiOptions`/`FalQueueOptions` take a list
+or several mirrors what that backend can actually do: `ComfyUiOptions`/`FalOptions` take a list
 because one workflow host serves image AND video; `HttpModelOptions` and `OnnxProviderOptions` take one,
 because one registration is one route and one session is one graph. **Never flatten that to a rule about
 the library** — it is a fact about each backend.
@@ -4835,6 +4880,13 @@ maintained twin (changes the file's role and re-fights D114's split traps for le
 buys); accepting the hole (what the review just measured the cost of). Gating the inline tier keeps the
 seeds' protection and makes the live half fail loudly, which is the whole of what was asked.
 
+**The memory contract is `docs/memory.md`, not design §5.7** (2026-09-25). §5.7's body is seed prose the
+gates do not read, and it had rotted exactly there — retired vocabulary, a backend count one short, plan and
+fix-round provenance. So the maintained, gated `docs/memory.md` is the contract, headed by the subsystem's
+load-bearing invariants, and §5.7 is historical like every other seed, behind a pointer banner. **Rejected:
+registering §5.7 as a live region** — every stale term in it lights up at once and the section must be
+rewritten in present tense, a second maintained copy of a contract that already has one.
+
 ## D165 — the process seam gains a BINARY stream, and its default REFUSES rather than degrades (2026-09-19)
 
 **The decision.** `IProcessRunner.StreamBytesAsync` yields a child's stdout as raw byte chunks — for an
@@ -4859,15 +4911,16 @@ on every chunk rather than framing anything into the bytes.
 ## D166 — recalled memory renders as exactly ONE line, so content cannot forge the grade (2026-09-21)
 
 **The decision.** Every memory a composer renders is flattened to a single line first
-(`MemoryLine.Flatten`, internal), in `MemoryComposition.Render` on BOTH grades and in
-`MemoryPromptComposer`. Recalled content is consumer-authored and therefore attacker-influenceable:
-rendered as `- {content}`, an item carrying its own newlines escaped that bullet and wrote raw markdown
-into the prompt — including `## Known facts (authoritative)`, the heading the renderer uses to mean
-*exact, never truncated*. A grade is the renderer's to state and never the content's.
+(`MemoryLine.Flatten`, internal), in `MemoryComposition.Render` on BOTH grades — the default chat composer
+renders through it — and in the curated catalog's `CuratedMemorySections.Compose`. Recalled content is
+consumer-authored and therefore attacker-influenceable: rendered as `- {content}`, an item carrying its own
+newlines escaped that bullet and wrote raw markdown into the prompt — including
+`## Known facts (authoritative)`, the heading the renderer uses to mean *exact, never truncated*. A grade is
+the renderer's to state and never the content's.
 
 **The alternatives, and why this one.** ESCAPING the markdown was rejected: the consumer of this text is a
 model rather than a parser, so there is no escape syntax that reliably means "inert" — and every escape
-scheme has to be got right in both composers forever. A DELIMITED block (`<recalled-memory>` plus a
+scheme has to be got right in every renderer forever. A DELIMITED block (`<recalled-memory>` plus a
 sentence telling the model to treat it as data) was considered and refused for now: it adds tokens to
 every composed call and changes the prompt for every consumer, while the one-line invariant already
 closes the forgery, because a heading must begin a line. The delimiter remains available if a measurement
@@ -4975,7 +5028,8 @@ taken on headline-length notes; the trigger is a run of the judge arm with conte
 **The decision.** The file-system backend writes one Markdown record per file and answers from memory:
 each domain loads its directory on first use and writes through, disk first, on every change; one process owns
 a root through an exclusive lock file. It serves `IKeyValueStore`, `IPromptVersionStore`, `IConversationStore`,
-`IMemoryStore`, `ICuratedMemoryStore` and, under **D174**, `IMemoryGraphStore`.
+`IMemoryStore`, `ICuratedMemoryStore` and, under **D174**, `IMemoryGraphStore` — the last three over the
+same in-process core the in-memory backend runs.
 
 **Why not scan.** A recall that reads its files costs 137 ms at 1,000 records and 1.9 s at 10,000, against a
 pre-registered 100 ms (`docs/memory-measurements.md` §A file-per-record store cannot SCAN). Holding records
@@ -5069,7 +5123,8 @@ rewrite, and an unreadable memory file's journal state is kept, so repairing it 
 **Why one core.** `InMemoryMemoryGraphStore` and this store run `MemoryGraphState`: a mutation is PLANNED
 without effect, then applied, and the file store writes the plan first. Re-implementing the semantics a
 fourth time was the alternative, and cross-backend divergence in this contract has cost real defects
-(`pitfalls.md` §Storage).
+(`pitfalls.md` §Storage). The curated and task-memory stores share the same way, and in the same shape:
+`CuratedCatalog` and `MemoryEntryLog` are each one core that both in-process stores run.
 
 ## D175 — a remember REPORTS what the write did: the write side of `MemoryRecall.Ran` (2026-09-24)
 
@@ -5302,7 +5357,10 @@ with no second render, fetch or bill; only an over-cap result, or a crash betwee
 the save that records it, stays at-least-once. Every stage is delivered; only the ONE artifact the next
 stage chains is carried forward, and an unreadable checkpoint fails rather than restarting from stage 1.
 The delivery's fields (`StageIndex`, `IsFinal`, `MediaResponse.ProviderId`) and where each door bills are
-the handler's XML doc.
+the handler's XML doc. *(2026-09-25: the render job handler is a one-stage, queued-only run of the same
+internal engine, so its result is checkpointed before delivery too, and its options record folded into
+`GenerationPipelineJobOptions`. Rejected: two machines — they had drifted in the direction that costs
+money, a throwing sink re-billing a render.)*
 
 **Rejected.** Queued first whatever the order: the order is the caller's stated preference, and an inline backend
 listed first is usually a cost choice the library has no standing to overrule. Delivering, then checkpointing: a
@@ -5313,3 +5371,183 @@ checkpoint-before-poll. A stage declaring its door: it drifts from what its back
 Carrying every artifact into the next stage's checkpoint: a mesh's atlases would spend the cap on bytes nothing
 chains. Final-only delivery: a failure at stage 3 would lose stages 1 and 2. A `Surfaced` flag on
 `MediaSubmission`: the verdict and the policy already answer it, with no new member.
+
+## D182 — a front-door decorator slot has ONE owner: the same owner again is a no-op, another one throws (2026-09-25)
+
+**The decision.** Each front-door decorator order is a SLOT with one owner — a built-in's name, or a custom
+decorator's delegate. The built-ins fold at 5 (`AddRateLimit`), 10 (`AddUsageBudget`) and 20
+(`AddResponseCache`), and `AddFrontDoorDecorator` takes any order. The same owner registering its slot again
+is a no-op; a DIFFERENT owner on a held slot throws `InvalidOperationException` at composition, naming the
+slot and both registrations.
+
+**Why.** The slot was first-writer-wins, so `AddFrontDoorDecorator(10, …)` plus `AddUsageBudget()` kept the
+custom decorator and dropped the budget, while `BudgetOptions` and the registered `IUsageTracker` still read
+as wired: a cap that never enforced, and nothing said so.
+
+**Rejected.** First-writer-wins, the old rule: the second decorator vanished while its options and its
+service looked wired. Last-writer-wins: the same silence, pointed the other way. Stacking both on one order:
+a repeated built-in call would layer twice — two rate limiters in series charge a permit twice — and which
+of two equal orders runs outer would fall to registration order, the thing an ordered chain exists to make
+explicit.
+
+**What this constrains.** A new built-in decorator registers with an owner token, its method's name, so a
+repeated call stays idempotent and a collision with a custom decorator is heard at startup. A custom
+decorator takes an order no other uses.
+
+## D183 — a provider's default id is its BACKEND's name, and every registration can be given one (2026-09-25)
+
+**The decision.** Every provider registration takes an id — a positional builder as a parameter, an
+option-driven in-process backend as `Options.Id` — and the default is the BACKEND's name: `openai`,
+`llama`, `ollama`, `llamasharp`, `model2vec`, `onnx`, `claude-cli`, `codex-cli`. Never a role (`local`) or a
+technique (`static`). Keyed lookups follow the id: the CLI tool provisioner is found keyed on its
+registration's id, then on the CLI's default id, then unkeyed.
+
+**Why an id on every registration.** The router keeps the FIRST provider per id, so a registration that
+cannot be given one is a backend that can be registered once. Two portable CLI installs — two accounts, two
+bundled copies (**D22**) — collided on `claude-cli`, and the second was unreachable while looking registered.
+
+**Why the backend's name.** A provider is named for its backend (**D152**), and a default id is what
+consumers copy into candidate lists, `UseDefaultCandidates` and `ScoringVerificationOptions.ProviderId` — so
+a role word as the default spreads into every configuration that names it. `local` was also the name of a
+retired package.
+
+**Rejected.** Keeping `"local"` and `"static"` as compatibility defaults: the name is the defect, and a
+default is what gets copied. Moving `Model2VecProviderOptions.Id` and `OnnxProviderOptions.Id` to a
+positional parameter for uniformity: both are already settable per registration, so the break adds nothing.
+
+**What this constrains.** A new provider registration takes an id defaulting to its backend's name, and a
+service looked up per provider is keyed on that id first.
+
+## D184 — the media adapters keep the `Lyntai.Generation.Providers` namespace (2026-09-25)
+
+**The decision.** The six media backends of the `Lyntai.Generation` package — `FalProvider`,
+`ComfyUiProvider`, `OpenAiImageProvider`, `Automatic1111Provider`, `LocalDiffusionProvider`,
+`PiperProvider` — stay in `Lyntai.Generation.Providers`, although the `Lyntai.Providers.*` family otherwise
+names ADAPTERS, one segment per adapter package (**D154**). It is that map's one recorded exception.
+
+**Why.** Moving them edits every consumer's `using` and changes no dependency footprint: the package, its
+references and what a consumer installs stay exactly as they are. Moving code between packages must never
+cost a consumer an import (`.claude/rules/dotnet-package-layout.md`), so a move that is NOTHING BUT an
+import edit buys consistency and bills every consumer for it.
+
+**Rejected.** `Lyntai.Providers.Generation`: the segment would name a DOMAIN where the family names an
+adapter — the shape **D156** refused for the media registration — and the package holds six backends, so no
+single adapter segment fits it. A namespace per backend (`Lyntai.Providers.Fal`, …): six `using`s where one
+serves, for backends that share one package and one dependency set.
+
+**What this constrains.** A new media backend in the `Lyntai.Generation` package joins
+`Lyntai.Generation.Providers`. A media backend that earns its own package by footprint (**D25**) is an
+adapter like any other and takes its own `Lyntai.Providers.*` segment.
+
+## D185 — media spend is gated by ONE registration, and every door that spends reads it (2026-09-25)
+
+**The decision.** `AddMediaUsageBudget` is the one thing that turns media spend recording on. It registers
+the shared `IUsageTracker` under an internal key, and every media door that spends — the router's budget
+decorator, the render and pipeline job handlers, `generate_fetch` — records through that key. A handler
+constructed by hand still records into whatever tracker it is given.
+
+**Why.** The doors disagreed about the GATE, not only about the recording: the router recorded under a
+budget marker, while the job handlers and `generate_fetch` recorded whenever ANY `IUsageTracker` was
+registered — which a text-only `AddUsageBudget()` and the storage packages' usage tracking both register. A
+host with a chat budget and no media budget had its queued renders billed into the chat wallet and its
+inline renders billed nowhere.
+
+**Rejected.** Gating on an `IUsageTracker` being registered: text budgets and the storage packages register
+one, so its presence says nothing about a media budget. A public ledger type for the doors to resolve:
+public surface whose only job is to exist, where an internal key does the same.
+
+**What this constrains.** A new media door that records spend reads the keyed tracker, never the unkeyed
+`IUsageTracker` (`.claude/knowledge/pitfalls.md`, "A SPEND cap is a capability too").
+
+## D186 — dialect-free relational plumbing is ONE linked source, compiled into each adapter (2026-09-25)
+
+**The decision.** What both relational adapters need identically and what holds no dialect — the Dapper
+conventions, the reflection JSON helper, the Governance guard (**D150**) and the store wiring — lives once in
+`src/Shared/Relational/*.cs`, compiled into `Lyntai.Storage.Sqlite` and `Lyntai.Storage.Postgres` through
+`<Compile Include … LinkBase>`, as INTERNAL types.
+
+**Why it is shared, and why not in Core.** Core carries no Dapper (**D25**), so this was copied into each
+adapter and held identical by a parity test — and a test holds only what it asserts: both wiring copies
+carried the same cross-wiring defect (`docs/FIXES.md` 2026-09-25). Dapper's type-handler registry is
+process-global, so two copies of one handler must stay identical or one backend round-trips by the other's
+rules; one source makes that structural.
+
+**Rejected.** An adapter→adapter reference: it breaks **D25**. A shared `Lyntai.Storage.Relational`
+package: a package, and an entry in every registry `check-packages` gates, for about 160 internal lines.
+Moving it into Core: the types are Dapper's. Two copies held by a parity test: the arrangement that let one
+defect ship twice.
+
+**What this constrains.** Only DIALECT-FREE code goes there, and all of it is `internal`: each adapter
+compiles its own copy, so the SQLite and Postgres `FeatureSelection` sentinels are distinct types that never
+read each other's, and a public type there would collide for a consumer referencing both packages — which is
+also why there is no shared public job-store base. `check-packages` counts only `src/*/*.csproj` as
+packages, so `src/Shared` is not one.
+
+## D187 — a SQL statement is shared wherever a PORTABLE spelling exists; a second copy is for real dialect only (2026-09-25)
+
+**The decision.** When SQLite and Postgres can run the same text, they run ONE copy, in Core's per-domain
+statement class (`MemoryGraphSql`, `KeyValueStoreSql`, `ResponseCacheSql`, `UsageTrackerSql`,
+`TraceStoreSql`, `ConversationStoreSql`, `JobStoreSql`). The portable spellings are chosen on purpose:
+`CAST(… AS DOUBLE PRECISION)` (REAL affinity on SQLite, a no-op on Postgres), a table-qualified
+`ON CONFLICT … DO UPDATE SET` (Postgres requires it, SQLite accepts it), `ON CONFLICT … DO NOTHING` over
+`INSERT OR IGNORE`, and unquoted aliases (Dapper matches a column to its property without case). A backend
+keeps its own copy only for genuine dialect: SQLite's FTS5 seed, `IN @ids` against `= ANY(@ids)`, `MAX`
+against `GREATEST`, `::jsonb` and `::text`, `COLLATE "C"`, `LIMIT -1 OFFSET`.
+
+**Why.** Four claims had kept about 150 graph-store lines per backend apart, and code already in the tree
+refuted each: SQLite's own graph upsert qualified its `DO UPDATE SET` columns, its job store already ran
+`ON CONFLICT … DO NOTHING`, every other Postgres store used unquoted aliases and passed its contract suite,
+and the CAST is portable. A copy kept for an avoidable spelling is one more place for a statement to drift.
+
+**Rejected.** Per-backend copies justified by avoidable spellings — the prior state — and **D81**'s bar,
+which shared SQL only for a domain whose WHOLE statement surface was dialect-free.
+
+**What this constrains.** Try the portable spelling first, and prove it on both legs: only the Postgres
+contract suite shows a spelling works there, so such a change lands with Docker up. A statement a backend
+keeps for itself is one of the dialect cases above.
+
+## D188 — a chat's memory binding is ONE seam with a read half and a write half (2026-09-25)
+
+**The decision.** `IPromptComposer` carries both halves of a chat's memory: `ComposeAsync` reads recalled
+memory into the prompt, and `RememberAsync` writes an exchange where that read will find it. `ChatOrchestrator`
+takes only the composer, with no memory store of its own. The default composer is an
+`EngineBackedPromptComposer` over a blend of whichever keyword store and semantic memory the container
+holds, every write fanned out to both; `UseMemoryComposer(name)` points both halves at one named engine.
+
+**Why.** With the halves apart, a chat wrote one memory and read another. Under `AddMemory()`, the README's
+headline setup, the composer read the graph engine while the orchestrator wrote the keyword store and
+semantic memory, so the chat recalled nothing it had said — silently, because recall fails open
+(`docs/FIXES.md` 2026-09-25). Two registrations cannot say they point at the same memory; one object can.
+
+**`RememberAsync` has no default body**: a default that wrote nowhere would compile every BYO composer
+straight into the defect this closes.
+
+**Rejected.** Separate read and write registrations — a composer beside a writer: the shape that split, and
+a host replacing one re-splits it. Keeping the orchestrator's own store parameters beside the composer: the
+same split, one constructor down.
+
+**What this constrains.** A BYO `IPromptComposer` writes where its `ComposeAsync` reads, or returns without
+writing when it is read-only; whatever reads a chat's memory and whatever writes it are one composer.
+
+## D189 — a second hosted queue vendor is its OWN provider over a shared internal queue engine, extracted when that vendor is written (2026-09-25)
+
+**The option, and its trigger.** `FalProvider` holds the rules every hosted queue vendor needs, once each: a
+submit with no answer is Inconclusive, an unknown status reads as Running, a poll failure is terminal only on
+404, fetch verdicts are typed, every call runs under its own deadline, the artifact walk never invents an
+artifact, and the operation id carries its own routing data. `QueueCalls` already shares the deadline and
+failure scaffolding with ComfyUI. **When a SECOND hosted queue vendor is actually written**, those rules move
+into an internal queue engine with an internal wire per backend — building the submit, poll, fetch and cancel
+requests, and reading the id, the status and failure, the artifacts and the cost — the shape **D160** gave the
+HTTP chat wires. Not before: an engine cut from one vendor describes that vendor, which is why **D21** counts
+only a second implementer as evidence that a seam generalises.
+
+**What constrains that vendor.** It is its own public provider named for its BACKEND (**D152**, **D157**), with
+its own options class and `Add<Backend>Provider`, and every mapping settable from configuration (**D69**). **A
+backend that speaks fal's own wire is a `FalOptions` preset, not a class**: the Hugging Face router is
+`FalOptions` with another `BaseUrl`, `AuthScheme` and `QueryParameters`, as `HttpModelOptions.AzureConventions`
+is on the text side.
+
+**Rejected.** A public `HttpQueueProvider`: named for a delivery shape, which **D157** and **D160** refuse. A
+public vendor-neutral mapping language in configuration: a third of the surveyed vendors differ STRUCTURALLY,
+so it either grows without bound or silently leaves them out, and it moves per-vendor knowledge out of
+reviewed code into host configuration nobody tests. Extracting now: see the trigger.
