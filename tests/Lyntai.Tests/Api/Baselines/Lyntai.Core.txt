@@ -1531,7 +1531,6 @@ interface Lyntai.Jobs.IJobHandler
     Type : String
 interface Lyntai.Jobs.IJobHandlerRegistry
     Find(String type) : IJobHandler
-    Handlers : IReadOnlyList<IJobHandler>
 interface Lyntai.Jobs.IJobQueue
     CancelAsync(Guid id, CancellationToken ct = default) : Task<Boolean>
     EnqueueAsync(JobSpec spec, CancellationToken ct = default) : Task<Guid>
@@ -1564,7 +1563,6 @@ sealed class Lyntai.Jobs.JobContext
 sealed class Lyntai.Jobs.JobHandlerRegistry
     .ctor(IEnumerable<IJobHandler> handlers)
     Find(String type) : IJobHandler
-    Handlers : IReadOnlyList<IJobHandler>
 sealed class Lyntai.Jobs.JobOptions
     .ctor()
     DefaultLaneConcurrency : Int32
@@ -1726,7 +1724,7 @@ sealed class Lyntai.LyntaiBuilder
     BudgetDecoratorOrder : Int32 const
     CacheDecoratorOrder : Int32 const
     Configure(Action<LyntaiOptions> configure) : LyntaiBuilder
-    ConfigureMemory(Action<MemoryEvictionPolicy> configure) : LyntaiBuilder
+    ConfigureMemoryEviction(Action<MemoryEvictionPolicy> configure) : LyntaiBuilder
     ConfigureRouting(Action<RoutingPolicy> configure) : LyntaiBuilder
     Options : LyntaiOptions
     RateLimitDecoratorOrder : Int32 const

@@ -550,11 +550,11 @@ public sealed class LyntaiBuilder
         return this;
     }
 
-    /// <summary>Tune how <c>IMemoryStore</c> bounds its size — count cap + eviction mode (FIFO/LRU), default
-    /// TTL, size budget. The defaults reproduce the historical 500-entry FIFO cap; use a
-    /// <see cref="MemoryEvictionPolicy"/> preset (e.g.
-    /// <c>b.ConfigureMemory(p => { p.Mode = MemoryEvictionMode.Lru; p.DefaultTtl = TimeSpan.FromDays(7); })</c>).</summary>
-    public LyntaiBuilder ConfigureMemory(Action<MemoryEvictionPolicy> configure)
+    /// <summary>Tune how <see cref="IMemoryStore"/> bounds its size — count cap + eviction mode (FIFO/LRU),
+    /// default TTL, size budget — by setting <see cref="LyntaiOptions.MemoryEviction"/> (e.g.
+    /// <c>b.ConfigureMemoryEviction(p => { p.Mode = MemoryEvictionMode.Lru; p.DefaultTtl = TimeSpan.FromDays(7); })</c>).
+    /// The graph memory engine is not configured here.</summary>
+    public LyntaiBuilder ConfigureMemoryEviction(Action<MemoryEvictionPolicy> configure)
     {
         configure(Options.MemoryEviction);
         return this;

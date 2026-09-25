@@ -25,7 +25,7 @@ public interface IGuardRail
     /// gate's re-thread to rewrite, so each guard sees the original args) — the built-in <see cref="GuardRail"/>
     /// overrides it with an args-aware re-thread; a BYO rail with multiple rewriting guards should too.</summary>
     Task<GuardOutcome> InspectToolCallAsync(string toolName, string argumentsJson, CancellationToken ct = default) =>
-        InspectRequestAsync(new TextRequest { Messages = [TextMessage.AssistantToolCalls([new TextToolCall("", toolName, argumentsJson)])] }, ct);
+        InspectRequestAsync(GuardRail.ToolCallProbe(toolName, argumentsJson), ct);
 
     /// <summary>Gate a tool's observation BEFORE it is fed back to the model — so a denied term can't be
     /// exfiltrated through a tool result. Modelled as an inbound reply, so existing response guards inspect
@@ -94,7 +94,8 @@ public sealed class GuardRail(IEnumerable<IGuard> guards, ILogger<GuardRail>? lo
         return effective;
     }
 
-    private static TextRequest ToolCallProbe(string toolName, string argumentsJson) =>
+    /// <summary>A tool call as the request gate sees it: an assistant turn carrying the one call.</summary>
+    internal static TextRequest ToolCallProbe(string toolName, string argumentsJson) =>
         new() { Messages = [TextMessage.AssistantToolCalls([new TextToolCall("", toolName, argumentsJson)])] };
 
     /// <summary>Rewrite the LAST user message's content (request-gate Replace only rewrites the last user
