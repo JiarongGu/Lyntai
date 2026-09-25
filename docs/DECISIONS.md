@@ -258,8 +258,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D186](#d186--dialect-free-relational-plumbing-is-one-linked-source-compiled-into-each-adapter-2026-09-25) | 2026-09-25 | dialect-free relational plumbing is ONE linked source, compiled into each adapter |
 | [D187](#d187--a-sql-statement-is-shared-wherever-a-portable-spelling-exists-a-second-copy-is-for-real-dialect-only-2026-09-25) | 2026-09-25 | a SQL statement is shared wherever a PORTABLE spelling exists; a second copy is for real dialect… |
 | [D188](#d188--a-chats-memory-binding-is-one-seam-with-a-read-half-and-a-write-half-2026-09-25) | 2026-09-25 | a chat's memory binding is ONE seam with a read half and a write half |
+| [D189](#d189--a-second-hosted-queue-vendor-is-its-own-provider-over-a-shared-internal-queue-engine-extracted-when-that-vendor-is-written-2026-09-25) | 2026-09-25 | a second hosted queue vendor is its OWN provider over a shared internal queue engine, extracted w… |
 
-**183 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**184 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -5527,3 +5528,26 @@ same split, one constructor down.
 
 **What this constrains.** A BYO `IPromptComposer` writes where its `ComposeAsync` reads, or returns without
 writing when it is read-only; whatever reads a chat's memory and whatever writes it are one composer.
+
+## D189 — a second hosted queue vendor is its OWN provider over a shared internal queue engine, extracted when that vendor is written (2026-09-25)
+
+**The option, and its trigger.** `FalProvider` holds the rules every hosted queue vendor needs, once each: a
+submit with no answer is Inconclusive, an unknown status reads as Running, a poll failure is terminal only on
+404, fetch verdicts are typed, every call runs under its own deadline, the artifact walk never invents an
+artifact, and the operation id carries its own routing data. `QueueCalls` already shares the deadline and
+failure scaffolding with ComfyUI. **When a SECOND hosted queue vendor is actually written**, those rules move
+into an internal queue engine with an internal wire per backend — building the submit, poll, fetch and cancel
+requests, and reading the id, the status and failure, the artifacts and the cost — the shape **D160** gave the
+HTTP chat wires. Not before: an engine cut from one vendor describes that vendor, which is why **D21** counts
+only a second implementer as evidence that a seam generalises.
+
+**What constrains that vendor.** It is its own public provider named for its BACKEND (**D152**, **D157**), with
+its own options class and `Add<Backend>Provider`, and every mapping settable from configuration (**D69**). **A
+backend that speaks fal's own wire is a `FalOptions` preset, not a class**: the Hugging Face router is
+`FalOptions` with another `BaseUrl`, `AuthScheme` and `QueryParameters`, as `HttpModelOptions.AzureConventions`
+is on the text side.
+
+**Rejected.** A public `HttpQueueProvider`: named for a delivery shape, which **D157** and **D160** refuse. A
+public vendor-neutral mapping language in configuration: a third of the surveyed vendors differ STRUCTURALLY,
+so it either grows without bound or silently leaves them out, and it moves per-vendor knowledge out of
+reviewed code into host configuration nobody tests. Extracting now: see the trigger.
