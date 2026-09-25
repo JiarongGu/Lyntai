@@ -10,7 +10,10 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { RETIRED, mustBePublished, nugetUnlist } from '../../nuget-unlist.mjs';
+import { EventEmitter } from 'node:events';
+import { Readable } from 'node:stream';
+
+import { RETIRED, mustBePublished, nugetUnlist, promptHidden } from '../../nuget-unlist.mjs';
 
 describe('nuget-unlist RETIRED roster', () => {
   it('flags a retired id the feed has never published, because that can only be a typo', () => {
@@ -86,5 +89,52 @@ describe('nuget-unlist — the tool, driven through its seams (no network, no ke
     });
     assert.doesNotMatch(out, new RegExp(key));
     assert.match(out, /\*\*\*/);
+  });
+
+  it('a bare --api-key PROMPTS for the key, which reaches the delete and is never printed', async () => {
+    const key = 'k' + 'ey-' + 'TYPED';
+    const { code, out, calls } = await drive({
+      args: ['--apply', '--api-key'], prompt: async () => key, fetch: feed({ 'Lyntai.Core': ['1.0.0'] }),
+    });
+    assert.equal(code, 0, out);
+    assert.ok(calls[0][1].includes(key), 'the typed key is what the delete carries');
+    assert.doesNotMatch(out, new RegExp(key));
+  });
+
+  it('a DRY RUN never prompts, since it needs no key', async () => {
+    const { code } = await drive({
+      args: ['--api-key'], prompt: async () => { throw new Error('prompted on a dry run'); },
+      fetch: feed({ 'Lyntai.Core': ['1.0.0'] }),
+    });
+    assert.equal(code, 0);
+  });
+
+  it('an EMPTY answer is no key, and touches nothing', async () => {
+    const { code, out, calls } = await drive({
+      args: ['--apply', '--api-key'], prompt: async () => '  ', fetch: feed({ 'Lyntai.Core': ['1.0.0'] }),
+    });
+    assert.equal(code, 1);
+    assert.match(out, /No API key/);
+    assert.deepEqual(calls, []);
+  });
+});
+
+describe('nuget-unlist — promptHidden', () => {
+  const sink = () => { const s = { text: '', write: (x) => { s.text += x; } }; return s; };
+
+  it('reads the FIRST line of a pipe — a secret store or an echo', async () => {
+    const input = Readable.from([Buffer.from('from-a-pipe\nignored\n')]);
+    assert.equal(await promptHidden('key: ', { input, output: sink() }), 'from-a-pipe');
+  });
+
+  it('on a terminal it echoes nothing and honours backspace', async () => {
+    const tty = Object.assign(new EventEmitter(), {
+      isTTY: true, setRawMode() {}, resume() {}, pause() {}, setEncoding() {},
+    });
+    const output = sink();
+    const answer = promptHidden('key: ', { input: tty, output });
+    tty.emit('data', 'abc\u007fd\r');
+    assert.equal(await answer, 'abd');
+    assert.equal(output.text, 'key: \n', 'only the question and a newline are written — never the key');
   });
 });

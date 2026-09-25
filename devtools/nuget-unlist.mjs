@@ -4,10 +4,11 @@
 // `dotnet nuget delete` UNLISTS on nuget.org and never deletes: a pinned restore keeps working, the number is
 // never freed, and the Manage page reverses it. Deprecation has no API, so it stays a web-UI step.
 //
-//   node devtools/dev.mjs nuget-unlist [--below 1.1.0] [--only <id>] [--apply] [--api-key <key>]
+//   node devtools/dev.mjs nuget-unlist [--below 1.1.0] [--only <id>] [--apply] [--api-key [<key>]]
 //
-// A DRY RUN unless `--apply`. The key comes from `NUGET_API_KEY` (preferred — it stays out of shell history)
-// or `--api-key`, minted Unlist-scoped for `Lyntai.*`; it is redacted from everything this prints. Idempotent:
+// A DRY RUN unless `--apply`. The key is minted Unlist-scoped on nuget.org and comes from a bare `--api-key`,
+// which PROMPTS for it with typing hidden (or reads a pipe's first line); from `NUGET_API_KEY`; or from
+// `--api-key <key>`, which leaves it in shell history. It is redacted from everything this prints. Idempotent:
 // only what the feed still LISTS is touched, so a re-run after a partial failure does the remainder.
 import { execFile } from 'node:child_process';
 import { readdirSync, readFileSync } from 'node:fs';
@@ -88,13 +89,55 @@ export async function listedVersions(id, fetchFn = fetch) {
 }
 
 /**
+ * Read a secret without echoing it: on a terminal in raw mode, honouring backspace; from a pipe, its first
+ * line — a secret store's output, say. A terminal emulator that presents no TTY (Git Bash's mintty without
+ * winpty) is read as a pipe, so its typing shows; the hint says so.
+ * @returns {Promise<string>} what was entered
+ */
+export async function promptHidden(question, { input = process.stdin, output = process.stderr } = {}) {
+  if (!input.isTTY) {
+    output.write('(input is not a terminal, so typing would show — pipe the key in, or use PowerShell/cmd)\n');
+    output.write(question);
+    const chunks = [];
+    for await (const chunk of input) {
+      chunks.push(Buffer.from(chunk));
+      if (Buffer.concat(chunks).includes('\n')) break;
+    }
+    output.write('\n');
+    return Buffer.concat(chunks).toString('utf8').split(/\r?\n/)[0];
+  }
+  output.write(question);
+  return new Promise((resolveAnswer, reject) => {
+    let value = '';
+    const finish = (error) => {
+      input.setRawMode(false);
+      input.pause();
+      input.off('data', onData);
+      output.write('\n');
+      if (error) reject(error); else resolveAnswer(value);
+    };
+    const onData = (text) => {
+      for (const ch of String(text)) {
+        if (ch === '\r' || ch === '\n') return finish();
+        if (ch === '\u0003') return finish(new Error('cancelled'));     // Ctrl+C in raw mode
+        value = ch === '\u007f' || ch === '\b' ? value.slice(0, -1) : value + ch;
+      }
+    };
+    input.setRawMode(true);
+    input.setEncoding('utf8');
+    input.on('data', onData);
+    input.resume();
+  });
+}
+
+/**
  * The tool. Every effect is a seam — `fetch` for the feed, `run` for `dotnet nuget delete`, `ids` for the
- * roster — so a test drives it without the network or the key.
+ * roster, `prompt` for a bare `--api-key` — so a test drives it without the network or the key.
  * @returns {Promise<number>} the exit code
  */
 export async function nugetUnlist({
   args = [], env = {}, fetch: fetchFn = fetch, run = promisify(execFile), log = console.log,
-  ids = () => [...currentPackageIds(), ...RETIRED].sort(),
+  ids = () => [...currentPackageIds(), ...RETIRED].sort(), prompt = promptHidden,
 } = {}) {
   const valueOf = (flag) => {
     const i = args.indexOf(flag);
@@ -103,12 +146,16 @@ export async function nugetUnlist({
   const apply = args.includes('--apply');
   const cutoff = valueOf('--below') ?? '1.1.0';
   const only = valueOf('--only');
-  const key = valueOf('--api-key') ?? env.NUGET_API_KEY;
+  // a bare --api-key asks for the key — only when applying, since a dry run needs none
+  const asks = apply && args.includes('--api-key') && valueOf('--api-key') === null;
+  const key = (asks ? (await prompt('nuget.org API key (hidden): ')).trim() : null)
+    || valueOf('--api-key') || env.NUGET_API_KEY;
   const redact = (text) => (key ? String(text).split(key).join('***') : String(text));
 
   if (apply && !key) {
     log('No API key. Mint an Unlist-scoped key on nuget.org (glob `Lyntai.*`), then either');
-    log('  $env:NUGET_API_KEY = "..."   (preferred — stays out of shell history)');
+    log('  --api-key                    (prompts for it, typing hidden — or pipe it in)');
+    log('  $env:NUGET_API_KEY = "..."   (stays out of the command line)');
     log('  --api-key <key>              (convenient — the key lands in shell history)');
     return 1;
   }

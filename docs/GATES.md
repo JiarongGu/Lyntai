@@ -835,9 +835,10 @@ Run by hand. It blocks a hand-edited `<VersionPrefix>` and a hand-stamped `## Un
 ### `nuget-unlist` — hiding a superseded version from the feed
 
 `node devtools/dev.mjs nuget-unlist [--below <version>] [--only <id>]`, **dry run by default**; add
-`--apply` to act. Key from `NUGET_API_KEY` or `--api-key <key>`, minted on nuget.org scoped `Unlist` + glob
-`Lyntai.*`. Prefer the environment variable — `--api-key` puts the key in shell history — and never commit
-one; the tool redacts the key from its own error output.
+`--apply` to act. The key is minted on nuget.org scoped `Unlist` + a glob of the ids being unlisted, and comes
+from a bare `--api-key`, which prompts with typing hidden (or reads a pipe's first line); from `NUGET_API_KEY`; or
+from `--api-key <key>`, which leaves it in shell history. Never commit one; the tool redacts the key from its own
+output, and a dry run never asks for it.
 
 **A key is the only credential nuget.org's unlist takes** (`X-NuGet-ApiKey` on `DELETE /api/v2/package`), so
 there is no sign-in mode to add. Trusted Publishing, which `release.yml` uses, also yields an API key — a
@@ -847,7 +848,8 @@ Listing); with one, mint it short-lived and scoped to the ids being unlisted.
 
 Unlisting hides a version from search and from *range* resolution but never breaks a pinned consumer, and
 never frees the number. Everything below 2.0.1 is unlisted (`docs/DECISIONS.md` D44), so
-`Lyntai.Providers.ClaudeCli`, `.CodexCli` and `.OpenAiCompatible` have no listed version at all.
+`Lyntai.Providers.ClaudeCli`, `.CodexCli` and `.OpenAiCompatible` have no listed version at all, nor — since
+2026-09-26 — does `Lyntai.Storage.InMemory`, folded into `Lyntai.Storage.Basic` (D173).
 
 **The roster is derived from `src/*/*.csproj`**; only retired ids are hand-kept, in the script's `RETIRED`
 array — the rule for adding one is `.claude/rules/repo-mechanics.md` §Package layout.
