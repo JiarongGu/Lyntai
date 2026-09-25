@@ -160,6 +160,19 @@ every addition.
 - **`Lyntai.Text.JsonArgs` left `Lyntai.Core`**; it is internal to `Lyntai.Tools.Mcp`, its only user. **What to DO:**
   build argument JSON with `System.Text.Json.Nodes.JsonObject`.
 
+- **The text router asks a backend only on a door its `ProviderCapabilities.Operations` declares.** A Complete-only
+  backend is skipped on `StreamAsync` and a Stream-only one on `CompleteAsync`; a list with no candidate for the
+  door answers `Unsupported`, naming each. Before, such a backend was asked, answered `Unsupported`, and the call
+  ended there with no fallback — which is how `AddBridgeProvider` without a stream delegate broke streaming for
+  every candidate behind it. **What to DO:** a BYO text backend that serves both doors declares both
+  `ProviderOperation.Complete` and `ProviderOperation.Stream`, or it is no longer asked to stream.
+
+- **`LyntaiOptions.MemoryCapPerScope` is removed**: a second spelling of `MemoryEviction.MaxEntriesPerScope` with its
+  own "0 means uncapped" rule. **What to DO:** `MemoryEviction = MemoryEvictionPolicy.CountCap(n)`.
+
+- **`ProviderRouter<TRequest,TResponse>.Capable()` is private**; it was public only for an internal helper with no
+  caller. **What to DO:** ask `CanServe()`.
+
 ### Security
 
 - **Recalled memory can no longer forge a prompt section** (**D166**). Both composers rendered an item as
@@ -208,6 +221,17 @@ every addition.
   observation, and the span and counter are recorded. The tool loop and the hosted MCP endpoint both run it; any
   door of your own onto the app's `ITool`s should too. `ToolObservations` is public (`ErrorPrefix`, `Error`,
   `IsError`).
+
+- **The classification rules a backend needs to honour the routers' own**, public:
+  `ProviderVerdictClassifier.FromThrown` (a thrown exception never classifies as `Refused`),
+  `ProviderVerdictClassifier.FromErrorText(text, hasCredentials)` (an uncredentialed auth failure is
+  `NotConfigured`), `QueuedOperation.FromThrownSubmit(ex, sent)` (a submit that may have reached the queue is
+  `Inconclusive`, never a plain failure the router would buy again elsewhere), and the factories
+  `QueuedOperation.Failure` / `MediaSubmission.Failure`. Also `ProcessResult.StdErrTail(max)`.
+
+- **The generic router (embed, rerank, custom kinds) emits telemetry**: a span per attempt with
+  `gen_ai.operation.name` `embeddings` / `rerank` / the kind's own name, `gen_ai.client.operation.duration` and
+  token usage, as the text and media routers already did.
 
 - **`LlmVerificationOptions.ContentChars` lets the LLM memory judge read an entry's CONTENT** (**D170**).
   The judge was shown only each candidate's headline, which is right while a headline is a truncation and
@@ -416,6 +440,24 @@ every addition.
 
 - **A disposable `IConversationStore` the container built is disposed again once an `IConversationEnricher` is
   registered.** The enriching wrapper had taken its place in the container's disposal.
+
+- **The response cache no longer cross-serves between named clients whose candidates pin different models**: the
+  key carries the client's candidate list whenever a candidate pins a model, as it already did for a live route.
+
+- **A backend whose `StreamAsync` throws from the call itself** (not from inside an iterator) is classified and
+  falls over on both routers. The throw used to escape the router, and the text span recorded `Ok`.
+
+- **A named client over a provider id registered twice resolves, first registration winning**, instead of throwing
+  a raw duplicate-key error — reachable with two default-id `AddOnnxProvider` registrations.
+
+- **An embed or rerank run with every capable backend on cooldown reports `Failed`**, not the blameless
+  `NotConfigured` that told the caller to set something up.
+
+- **A failed media submission says every backend is on cooldown only when none was attempted**, and the media
+  router skips a backend whose `IsAvailable` is false.
+
+- **`LyntaiOptions.ResolveTimeout(int?)` honours `TimeoutByConsumer["default"]`**, as the two-argument overload
+  does; the claude and codex agent sessions used to ignore a host's default timeout.
 
 ## 3.2.0 — 2026-09-19
 
