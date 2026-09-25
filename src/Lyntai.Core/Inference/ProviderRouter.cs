@@ -118,7 +118,7 @@ public sealed class ProviderRouter<TRequest, TResponse>(
     {
         TResponse? last = default;          // the last SUBSTANTIVE failure — what the caller is told
         TResponse? lastBlameless = default; // …kept apart, so it answers only when nothing really failed
-        var tried = 0;
+        var benched = 0;
 
         var capable = Capable();
         var sole = capable.Count == 1;
@@ -128,10 +128,10 @@ public sealed class ProviderRouter<TRequest, TResponse>(
             if (!(sole && _policy.ExemptSoleCandidate) && deadHosts?.IsDead(key) == true)
             {
                 _logger.LogDebug("router: skipping {Provider} — dead-host cooldown", provider.Id);
+                benched++;
                 continue;
             }
 
-            tried++;
             var retries = 0;
             while (true)
             {
@@ -168,13 +168,12 @@ public sealed class ProviderRouter<TRequest, TResponse>(
             }
         }
 
-        if (last is not null) return last;
-        if (lastBlameless is not null) return lastBlameless;
-        return synthesize(
-            tried == 0 ? ProviderVerdict.NotConfigured : ProviderVerdict.Failed,
-            tried == 0
-                ? "no registered backend serves this call (none capable, or every one is on cooldown)"
-                : $"every capable backend failed ({tried} tried)");
+        // every attempted backend filled a slot or returned, so reaching the synthetic reply means none was tried:
+        // benched is a fault (the backend they configured is down), only "nothing capable" is blameless
+        if ((last ?? lastBlameless) is { } answer) return answer;
+        return benched > 0
+            ? synthesize(ProviderVerdict.Failed, $"every capable backend is on dead-host cooldown ({benched} benched)")
+            : synthesize(ProviderVerdict.NotConfigured, "no registered backend serves this call");
     }
 
     /// <summary>One attempt at one backend: take an admission permit, call it, and turn a throw into a
