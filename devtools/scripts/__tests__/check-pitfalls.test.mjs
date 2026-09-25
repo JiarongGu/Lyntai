@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, it } from 'node:test';
 
 import {
-  BLOCK_BEGIN, BLOCK_END, MAX_VALUES, RECORD, checkPitfalls, facetFixedPoint, parseTraps,
+  BLOCK_BEGIN, BLOCK_END, MAX_TRAP, MAX_VALUES, RECORD, checkPitfalls, facetFixedPoint, parseTraps,
 } from '../check-pitfalls.mjs';
 import { makeTree, recorder, removeTree } from './_fixtures.mjs';
 
@@ -289,4 +289,84 @@ describe('check-pitfalls — the generated index', () => {
       assert.ok(traps.length > 100, `the record must hold its traps; found ${traps.length}`);
     });
   });
+});
+
+describe('check-pitfalls — the per-trap length ratchet', () => {
+  /** A trap whose first line is the lead and whose body is `n - 1` further non-blank lines. */
+  const trap = (lead, n) =>
+    [`- **${lead}** Prose. ${marker()}`, ...Array.from({ length: n - 1 }, (_, i) => `  body ${i}`)];
+
+  const withTraps = (...extra) => pitfalls({ extra: ['', ...extra.flat()] });
+  const cfg = (allowances) => ({ pitfallFacets: VOCAB, pitfallLengthAllowances: allowances });
+
+  it('measures a trap as its NON-BLANK lines up to the next trap or heading, fences included', () => {
+    const { traps } = parseTraps([
+      '## H',
+      '- **a.** x <!-- trap: sub=gates shape=fail-open -->',
+      '  second line',
+      '',
+      '  ```',
+      '  - a captured line that is not a trap',
+      '  ```',
+      '- **b.** y <!-- trap: sub=storage shape=vacuous -->',
+      '  one more',
+      '## Next',
+      'an intro paragraph belongs to no trap',
+      '- **c.** z <!-- trap: sub=gates shape=vacuous -->',
+    ], VOCAB);
+
+    assert.deepEqual(traps.map((t) => [t.lead, t.length]), [['a.', 5], ['b.', 2], ['c.', 1]],
+      'a blank line is formatting, not prose; the last trap runs to the end of the file');
+  });
+
+  it('passes a trap exactly AT the limit and FAILS one line over it, naming its line', () => {
+    assert.equal(run(withTraps(trap('at the limit.', MAX_TRAP)), cfg({})).code, 0);
+
+    const { code, out } = run(withTraps(trap('one over.', MAX_TRAP + 1)), cfg({}));
+    assert.equal(code, 1);
+    assert.match(out, new RegExp(`is ${MAX_TRAP + 1} non-blank lines \\(limit ${MAX_TRAP}\\)`));
+    assert.match(out, new RegExp(`${RECORD.replace(/[./]/g, '\\$&')}:\\d+`));
+  });
+
+  it('an allowance keyed by the START of a trap\'s lead holds that trap to its recorded length', () => {
+    const text = withTraps(trap('A long trap that earned it.', MAX_TRAP + 3));
+    assert.equal(run(text, cfg({ 'A long trap': MAX_TRAP + 3 })).code, 0);
+
+    const grown = withTraps(trap('A long trap that earned it.', MAX_TRAP + 4));
+    const { code, out } = run(grown, cfg({ 'A long trap': MAX_TRAP + 3 }));
+    assert.equal(code, 1, 'an allowance is a ceiling, not a permission to grow');
+    assert.match(out, new RegExp(`limit ${MAX_TRAP + 3}`));
+  });
+
+  it('FAILS an allowance LOOSER than the trap needs, or at or below the limit', () => {
+    const text = withTraps(trap('A long trap that earned it.', MAX_TRAP + 2));
+
+    const looser = run(text, cfg({ 'A long trap': MAX_TRAP + 5 }));
+    assert.equal(looser.code, 1);
+    assert.match(looser.out, /LOOSER than the entry needs/);
+
+    const paid = run(withTraps(trap('A long trap that earned it.', MAX_TRAP)), cfg({ 'A long trap': MAX_TRAP }));
+    assert.equal(paid.code, 1, 'an allowance at the limit does nothing and must be deleted');
+    assert.match(paid.out, /should simply be deleted/);
+  });
+
+  it('FAILS an allowance that matches NO trap, and one that matches TWO', () => {
+    const stale = run(withTraps(trap('Something else.', 3)), cfg({ 'A vanished trap': MAX_TRAP + 2 }));
+    assert.equal(stale.code, 1);
+    assert.match(stale.out, /name an entry that does not exist/);
+    assert.match(stale.out, /A vanished trap/);
+
+    const twice = run(withTraps(trap('A long one.', MAX_TRAP + 2), trap('A long two.', MAX_TRAP + 2)),
+      cfg({ 'A long': MAX_TRAP + 2 }));
+    assert.equal(twice.code, 1, 'a key that matches two traps holds neither to anything');
+    assert.match(twice.out, /matches 2 traps/);
+  });
+
+  it('the real record is measured — its traps have lengths, not zeros', () =>
+    import('../../project.config.mjs').then(({ default: real }) => {
+      const { traps } = parseTraps(
+        fs.readFileSync(path.join(repo, RECORD), 'utf8').split(/\r?\n/), real.pitfallFacets);
+      assert.ok(traps.every((t) => t.length >= 1), 'every trap counts at least its own line');
+      assert.ok(traps.some((t) => t.length > 5), 'multi-line traps must measure as multi-line');
+    }));
 });

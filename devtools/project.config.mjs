@@ -1632,6 +1632,18 @@ export default {
   },
 
   /**
+   * PER-TRAP LENGTH ALLOWANCES — `check-pitfalls`' ratchet (`MAX_TRAP` non-blank lines), with
+   * `_entry-length.mjs`'s ledger semantics: a trap may not grow past its number, and an allowance LOOSER
+   * than the trap needs, at or below the limit, or matching no trap (or two) FAILS. Keyed by the START of
+   * the trap's lead as it reads with markup stripped, because a trap has no id and its line moves with
+   * every edit above it. Seeded 2026-09-25 from the tree: the two traps over the bound.
+   */
+  pitfallLengthAllowances: {
+    'GPU CONTENTION inverts the offload decision': 19,
+    'A rule moved from where it was true to where it is not': 17,
+  },
+
+  /**
    * MEASUREMENT METRICS — the CLOSED vocabulary every result in `docs/memory-measurements.md` is scored
    * by, enforced by `dev.mjs check-measurements` (part of `verify`), which also GENERATES that record's
    * results index from the per-result markers.
