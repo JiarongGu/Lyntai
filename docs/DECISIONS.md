@@ -259,8 +259,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D187](#d187--a-sql-statement-is-shared-wherever-a-portable-spelling-exists-a-second-copy-is-for-real-dialect-only-2026-09-25) | 2026-09-25 | a SQL statement is shared wherever a PORTABLE spelling exists; a second copy is for real dialect… |
 | [D188](#d188--a-chats-memory-binding-is-one-seam-with-a-read-half-and-a-write-half-2026-09-25) | 2026-09-25 | a chat's memory binding is ONE seam with a read half and a write half |
 | [D189](#d189--a-second-hosted-queue-vendor-is-its-own-provider-over-a-shared-internal-queue-engine-extracted-when-that-vendor-is-written-2026-09-25) | 2026-09-25 | a second hosted queue vendor is its OWN provider over a shared internal queue engine, extracted w… |
+| [D190](#d190--a-cli-spawns-tools-are-chosen-per-consumer-by-configuration-2026-09-26) | 2026-09-26 | a CLI spawn's tools are chosen per CONSUMER, by configuration |
 
-**184 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**185 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -5560,3 +5561,18 @@ is on the text side.
 public vendor-neutral mapping language in configuration: a third of the surveyed vendors differ STRUCTURALLY,
 so it either grows without bound or silently leaves them out, and it moves per-vendor knowledge out of
 reviewed code into host configuration nobody tests. Extracting now: see the trigger.
+
+## D190 — a CLI spawn's tools are chosen per CONSUMER, by configuration (2026-09-26)
+
+`ICliToolProvisioner` gains `ProvisionAsync(CliToolRequest, ct)`, defaulting to the request-blind member, and
+`CliProviderEngine` calls it on both doors; the shipped MCP host reads `McpToolHostOptions.ToolsByConsumer` —
+absent means every tool, empty means none and no host, names mean that subset. An adopting app reached the same
+choice through ambient `AsyncLocal` state because the seam never saw the call.
+
+**The request is a record** (`CliToolRequest`: the call and the spawning backend), as every seam here takes its
+call, so a later field is additive rather than another overload.
+
+**Rejected.** `TextRequest.Tools` as a by-name filter on a CLI backend: on an HTTP backend the same field lists
+declarations the CALLER executes, so a request falling back across the two would change meaning mid-route.
+Seam only: every app wanting "no tools on this call" would write its own provisioner. Breaking the seam to make
+the request member the only abstract one: it gains nothing a default does not and costs every implementer an edit.

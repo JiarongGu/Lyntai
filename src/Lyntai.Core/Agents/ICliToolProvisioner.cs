@@ -26,9 +26,9 @@ public interface ICliToolProvisioner
     Task<CliToolSession> ProvisionAsync(CliToolRequest request, CancellationToken ct = default) => ProvisionAsync(ct);
 }
 
-/// <summary>The result of <see cref="ICliToolProvisioner.ProvisionAsync"/>: the extra CLI args the spawn
-/// needs (e.g. <c>--mcp-config &lt;file&gt;</c>), and an async-disposable that tears the host and temp
-/// files down. <paramref name="dispose"/> runs on <see cref="DisposeAsync"/>.
+/// <summary>The result of <see cref="ICliToolProvisioner.ProvisionAsync(CliToolRequest, CancellationToken)"/>:
+/// the extra CLI args the spawn needs (e.g. <c>--mcp-config &lt;file&gt;</c>), and an async-disposable that
+/// tears the host and temp files down. <paramref name="dispose"/> runs on <see cref="DisposeAsync"/>.
 /// <para><b>These are HANDED TO THE BACKEND, never appended to its argv</b> — they reach
 /// <see cref="Lyntai.Inference.Cli.ICliBackend.BuildCompletionArgs(Lyntai.Inference.TextRequest, IReadOnlyList{string})"/>
 /// and the backend decides where they may legally go (<c>docs/DECISIONS.md</c> D65). Only the backend knows

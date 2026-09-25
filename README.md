@@ -778,6 +778,11 @@ services.AddLyntai(b => b
 // var reply = await llm.CompleteAsync(...);  → the CLI calls get_weather and answers
 ```
 
+**Per call, by consumer.** A spawn hosts every registered tool unless its request's `Consumer` is mapped in
+`McpToolHostOptions.ToolsByConsumer`: an empty list hosts none and starts no host — the fast plain call — and
+names host only those tools. A provisioner of your own sees the call through
+`ProvisionAsync(CliToolRequest, ct)` (`docs/DECISIONS.md` D190).
+
 **Which** CLI connects and **how** it is told to is an `IMcpCliConnector` (flag names plus config-file
 shapes), so another CLI is one small class (`.claude/knowledge/extending-lyntai.md` §Add a CLI tool-hosting
 connector), registered keyed on its `ProviderId` beside the others. The loopback `HttpListener` it runs
