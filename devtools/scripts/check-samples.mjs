@@ -53,7 +53,7 @@
 // The stub preamble declares only TYPES (`static IServiceCollection services => null!;`) — nothing runs, so
 // the type is the whole check. They are static members rather than locals on purpose: a sample that
 // declares its own `var services = …` legally shadows a field and would collide with a local.
-import { execFileSync, spawnSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -355,18 +355,11 @@ export function synthesize(body, shape, id, given = null) {
  */
 export function libraryNamespaces(repo) {
   const found = new Set();
-  const files = execFileSync('git', ['ls-files', '-z', 'src/*/*.cs', 'src/*/**/*.cs'],
-    { cwd: repo, encoding: 'utf8' }).split('\0').filter(Boolean);
-  for (const f of files) {
-    // `git ls-files` lists what is TRACKED, which during a refactor includes a file already deleted from the
-    // working tree but not yet staged — reading it throws ENOENT and, before this, took the whole gate down
-    // with an unhandled crash naming a file the author had just deliberately removed. Skipping is right here
-    // and is NOT the permissive direction the sibling guards had to worry about: a deleted file contributes
-    // no namespace, and any namespace it was the only source of simply stops resolving in the samples that
-    // use it — which is a check-samples FAILURE, not a silent pass. Same file-list-vs-bytes disagreement as
-    // check-sensitive's and check-docs's ENOENT paths (.claude/knowledge/pitfalls.md).
-    let text;
-    try { text = readFileSync(join(repo, f), 'utf8'); } catch { continue; }
+  // The ONE file list (`repoFiles`): a namespace in a new, unstaged file is covered the day it is written.
+  for (const f of repoFiles(repo, ['src']).filter((p) => p.endsWith('.cs'))) {
+    // A pending deletion contributes no namespace; a sample that needed it then FAILS, never passes.
+    const text = readRepoText(repo, f);
+    if (text === null) continue;
     const m = text.match(/^namespace\s+([A-Za-z_][\w.]*)\s*[;{]/m);
     if (m) found.add(m[1]);
   }
@@ -417,8 +410,7 @@ ${usings}
 
 /** Every packable project, which is what a consumer can reference — the whole documented surface. */
 export const srcProjects = (repo) =>
-  execFileSync('git', ['ls-files', '-z', 'src/*/*.csproj'], { cwd: repo, encoding: 'utf8' })
-    .split('\0').filter(Boolean).map((p) => join(repo, p));
+  repoFiles(repo, ['src']).filter((p) => /^src\/[^/]+\/[^/]+\.csproj$/.test(p)).map((p) => join(repo, p));
 
 /**
  * Compile one batch. Returns a Map of generated-file basename -> [{ line, code, message }].
