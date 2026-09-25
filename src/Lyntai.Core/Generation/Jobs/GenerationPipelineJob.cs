@@ -38,27 +38,20 @@ public sealed record GenerationPipelineJob
     public IReadOnlyList<GenerationPipelineJobStage> Stages { get; }
 
     /// <summary>Serialize for <c>JobSpec.Payload</c>. Inline input bytes travel as base64.</summary>
-    public string ToJson()
+    public string ToJson() => GenerationJson.WriteObject(writer =>
     {
-        using var buffer = new MemoryStream();
-        using (var writer = new Utf8JsonWriter(buffer))
+        writer.WriteStartArray("stages");
+        foreach (var stage in Stages)
         {
             writer.WriteStartObject();
-            writer.WriteStartArray("stages");
-            foreach (var stage in Stages)
-            {
-                writer.WriteStartObject();
-                GenerationJson.WriteCandidates(writer, stage.Candidates);
-                GenerationJson.WriteRequest(writer, stage.Request);
-                if (stage.InputRole is { } role) writer.WriteString("inputRole", role);
-                if (stage.InputMediaType is { } mediaType) writer.WriteString("inputMediaType", mediaType);
-                writer.WriteEndObject();
-            }
-            writer.WriteEndArray();
+            GenerationJson.WriteCandidates(writer, stage.Candidates);
+            GenerationJson.WriteRequest(writer, stage.Request);
+            if (stage.InputRole is { } role) writer.WriteString("inputRole", role);
+            if (stage.InputMediaType is { } mediaType) writer.WriteString("inputMediaType", mediaType);
             writer.WriteEndObject();
         }
-        return System.Text.Encoding.UTF8.GetString(buffer.ToArray());
-    }
+        writer.WriteEndArray();
+    });
 
     /// <summary>Read a payload back, or null when it isn't a valid one — including a stage it cannot read,
     /// which is never skipped (every stage after it would chain from the wrong one). Null rather than

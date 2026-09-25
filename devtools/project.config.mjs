@@ -704,6 +704,14 @@ export default {
       why: 'a provider is named for its BACKEND and its options after the provider; a delivery shape is '
         + 'declared in `ProviderCapabilities.Operations`, never spelt into the type name',
     },
+    {
+      // The 2026-09-25 full review (GEN-4). The render job runs on the pipeline job's machine, so it takes the
+      // pipeline's options; its own record had already drifted (a nullable PollDelay plus an Effective* read).
+      names: ['GenerationRenderJobOptions', 'EffectivePollDelay'],
+      use: '`GenerationPipelineJobOptions` (`PollDelay`, `MaxCheckpointBytes`), which both job handlers take',
+      why: 'two option records for one machine drift; the render handler is a one-stage, queued-only run of '
+        + 'the pipeline engine',
+    },
   ],
 
   /**
@@ -815,6 +823,13 @@ export default {
         + 'target is advertising a feature that is gone',
       use: '`AddBridgeProvider` (a lambda, so it costs the library no dependency — D147), or '
         + '`AddHttpProvider` / `AddOllamaProvider` for a wire the library already speaks',
+    },
+    {
+      // The 2026-09-25 full review (GEN-4), the prose half — the SURFACE half is in `retiredApiNames`.
+      // Measured at zero hits when written: no document ever named the record, so this only keeps it gone.
+      term: '\\bGenerationRenderJobOptions\\b|\\bEffectivePollDelay\\b',
+      use: '`GenerationPipelineJobOptions`, which both durable generation job handlers take',
+      why: 'the render job runs on the pipeline job\'s machine, so it takes the pipeline\'s options',
     },
     {
       // D140. The prose half; the input-role vocabulary is absent for the reason on the surface rule

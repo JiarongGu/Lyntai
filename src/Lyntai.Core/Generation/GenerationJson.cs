@@ -20,6 +20,19 @@ internal static class GenerationJson
             ? text
             : null;
 
+    /// <summary>One JSON object as text, its members written by <paramref name="body"/>.</summary>
+    public static string WriteObject(Action<Utf8JsonWriter> body)
+    {
+        using var buffer = new MemoryStream();
+        using (var writer = new Utf8JsonWriter(buffer))
+        {
+            writer.WriteStartObject();
+            body(writer);
+            writer.WriteEndObject();
+        }
+        return System.Text.Encoding.UTF8.GetString(buffer.ToArray());
+    }
+
     /// <summary>Write <paramref name="candidates"/> as the <c>candidates</c> array of the object being written.</summary>
     public static void WriteCandidates(Utf8JsonWriter writer, IReadOnlyList<string> candidates)
     {

@@ -42,17 +42,7 @@ internal static class GenerationToolJson
     });
 
     /// <summary>Build a JSON observation.</summary>
-    public static string Write(Action<Utf8JsonWriter> body)
-    {
-        using var buffer = new MemoryStream();
-        using (var writer = new Utf8JsonWriter(buffer))
-        {
-            writer.WriteStartObject();
-            body(writer);
-            writer.WriteEndObject();
-        }
-        return Encoding.UTF8.GetString(buffer.ToArray());
-    }
+    public static string Write(Action<Utf8JsonWriter> body) => GenerationJson.WriteObject(body);
 
     /// <summary>Describe artifacts for a model: what they are and where, never the bytes. A base64 image in a
     /// tool observation would blow the context window for no benefit — the app's sink is where bytes go.</summary>
@@ -176,7 +166,7 @@ internal static class GenerationToolJson
             return false;
         }
 
-        if (GenerationToolRegistry.JobBackend(providers, id) is not { } resolved)
+        if (MediaJobBackends.Find(providers, id) is not { } resolved)
         {
             error = Error($"'{id}' is not a registered asynchronous backend");
             return false;
@@ -535,8 +525,7 @@ public sealed class GenerationFetchTool(
         var result = await backend.FetchAsync(operationId, ct).ConfigureAwait(false);
         if (!result.IsOk) return GenerationToolJson.Error($"{result.Verdict}: {result.Detail}");
 
-        // Bill BEFORE delivery, for the reason GenerationRenderJobHandler states on its own fetch: the money
-        // is spent either way, and a sink that throws would lose the record.
+        // bill BEFORE delivery: the money is spent either way, and a sink that throws would lose the record
         if (usage is not null)
             await Lyntai.Inference.BudgetedMediaRouter
                 .RecordAsync(usage, Consumer, result.Usage, ct).ConfigureAwait(false);
@@ -555,14 +544,4 @@ public sealed class GenerationFetchTool(
             GenerationToolJson.WriteArtifacts(writer, result.Artifacts, delivered);
         });
     }
-}
-
-/// <summary>Shared backend lookup for the status/fetch tools.</summary>
-internal static class GenerationToolRegistry
-{
-    /// <summary>The registered backend with this id, IF it is asynchronous. Null covers both "no such backend"
-    /// and "that one is inline-only" — a model gets one clear message either way.</summary>
-    public static IMediaJobProvider? JobBackend(IEnumerable<IModelProvider> providers, string id) =>
-        providers.FirstOrDefault(p => string.Equals(p.Id, id, StringComparison.OrdinalIgnoreCase))
-            as IMediaJobProvider;
 }

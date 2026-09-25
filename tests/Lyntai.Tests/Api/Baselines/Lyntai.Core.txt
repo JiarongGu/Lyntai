@@ -597,19 +597,10 @@ sealed class Lyntai.Generation.Jobs.GenerationRenderJob
     ToString() : String
     static Parse(String payload) : GenerationRenderJob
 sealed class Lyntai.Generation.Jobs.GenerationRenderJobHandler
-    .ctor(IMediaRouter router, IEnumerable<IModelProvider> providers, IGenerationArtifactSink sink, GenerationRenderJobOptions options = null, IUsageTracker usage = null)
+    .ctor(IMediaRouter router, IEnumerable<IModelProvider> providers, IGenerationArtifactSink sink, GenerationPipelineJobOptions options = null, IUsageTracker usage = null)
     HandleAsync(JobContext ctx, CancellationToken ct = default) : Task<JobOutcome>
     JobType : String const
     Type : String
-sealed class Lyntai.Generation.Jobs.GenerationRenderJobOptions
-    .ctor(Nullable<TimeSpan> PollDelay = null)
-    Deconstruct(Nullable`1& PollDelay) : Void
-    EffectivePollDelay : TimeSpan
-    Equals(GenerationRenderJobOptions other) : Boolean
-    Equals(Object obj) : Boolean
-    GetHashCode() : Int32
-    PollDelay : Nullable<TimeSpan>
-    ToString() : String
 interface Lyntai.Generation.Jobs.IGenerationArtifactSink
     ReceiveAsync(GenerationArtifactDelivery delivery, CancellationToken ct = default) : Task
 sealed class Lyntai.Generation.Tools.GenerationBackendsTool
