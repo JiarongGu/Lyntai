@@ -17,10 +17,12 @@ public abstract class ConversationStoreContractFacts
     [Fact] public Task Mixed_events() => ConversationStoreContract.Appends_mixed_kind_events_with_json_payloads_in_seq_order(NewStore(), "k");
     [Fact] public Task Cjk() => ConversationStoreContract.Cjk_payload_round_trips(NewStore(), "k");
     [Fact] public Task Seq_and_metadata() => ConversationStoreContract.Seq_is_1_based_and_restarts_per_thread_with_guid_ids_and_per_message_metadata(NewStore(), "k");
-    [Fact] public Task Aliases() => ConversationStoreContract.Role_content_aliases_map_to_kind_payload(NewStore(), "k");
+    [Fact] public Task Unknown_thread_append() => ConversationStoreContract.Appending_to_an_unknown_thread_throws(NewStore(), "k");
+    [Fact] public Task Aliases() =>ConversationStoreContract.Role_content_aliases_map_to_kind_payload(NewStore(), "k");
     [Fact] public Task Cascade() => ConversationStoreContract.Delete_thread_cascades_to_messages(NewStore(), "k");
     [Fact] public Task List_newest_first() => ConversationStoreContract.List_threads_returns_newest_first(NewStore(), "k");
-    [Fact] public Task Count() => ConversationStoreContract.Count_reflects_inserted_and_deleted_threads(NewStore(), "k");
+    [Fact] public Task Non_positive_limit() => ConversationStoreContract.A_non_positive_limit_lists_no_threads(NewStore(), "k");
+    [Fact] public Task Count() =>ConversationStoreContract.Count_reflects_inserted_and_deleted_threads(NewStore(), "k");
     [Fact] public Task Paged() => ConversationStoreContract.Paged_cursor_walks_every_thread_exactly_once(NewStore(), "k");
     [Fact] public Task Paged_tiebreak() => ConversationStoreContract.A_cursor_at_the_same_instant_falls_back_to_the_id(NewStore(), "k");
 }

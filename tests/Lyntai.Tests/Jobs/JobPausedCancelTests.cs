@@ -78,7 +78,7 @@ public class JobPausedCancelTests
         // SQLite and Postgres both route CancelAsync through this ONE statement, and the Postgres contract leg
         // only runs against a live container — so this is what keeps the third backend from diverging on a
         // machine with no container. RequestCancel is asserted too: it must NOT have been widened alongside.
-        Assert.Contains("status IN ('Pending','Paused')", JobStoreSql.CancelPending, StringComparison.Ordinal);
+        Assert.Contains("status IN ('Pending','Paused')", JobStoreSql.CancelNotStarted, StringComparison.Ordinal);
         Assert.Contains("status='Running'", JobStoreSql.RequestCancel, StringComparison.Ordinal);
         Assert.DoesNotContain("Paused", JobStoreSql.RequestCancel, StringComparison.Ordinal);
     }

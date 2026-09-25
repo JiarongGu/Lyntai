@@ -56,6 +56,22 @@ public static class UsageTrackerContract
         Assert.Equal(0.30, (await tracker.TotalAsync(consumer)).CostUsd, 5);
     }
 
+    /// <summary>The same identity for a consumer name OUTSIDE ASCII — the fold <c>OrdinalIgnoreCase</c> applies,
+    /// which a database's own case rules (SQLite's <c>NOCASE</c> folds A–Z only) do not reproduce.</summary>
+    public static async Task Consumer_identity_aggregates_across_non_ASCII_casings(IUsageTracker tracker, string consumer)
+    {
+        var lower = $"ärzte-{consumer}".ToLowerInvariant();
+        var upper = lower.ToUpperInvariant();
+        await tracker.RecordAsync(lower, Call(10, 0, 0.10));
+        await tracker.RecordAsync(upper, Call(20, 0, 0.20));
+
+        Assert.Equal(2, (await tracker.TotalAsync(lower)).Calls);
+        Assert.Equal(2, (await tracker.TotalAsync(upper)).Calls);
+
+        await tracker.ResetAsync(upper);
+        Assert.Equal(UsageTotals.Empty, await tracker.TotalAsync(lower));
+    }
+
     public static async Task Resetting_a_consumer_clears_it(IUsageTracker tracker, string consumer)
     {
         await tracker.RecordAsync(consumer, Call(10, 0, 0.10));

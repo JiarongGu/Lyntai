@@ -57,7 +57,7 @@ public static class StorageFeatures
     /// <see cref="StorageFeature.None"/>/<see cref="StorageFeature.All"/> themselves). A SUBSET migrates one
     /// pass per tag (each migration carries exactly one feature tag); <see cref="StorageFeature.All"/> uses
     /// <see cref="AllTag"/> instead (one pass).</summary>
-    public static string[] TagsFor(StorageFeature features) =>
+    private static string[] TagsFor(StorageFeature features) =>
         [.. Enum.GetValues<StorageFeature>()
             .Where(f => f is not (StorageFeature.None or StorageFeature.All) && features.HasFlag(f))
             .Select(f => f.ToString())];

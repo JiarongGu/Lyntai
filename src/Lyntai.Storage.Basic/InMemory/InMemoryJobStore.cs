@@ -162,7 +162,7 @@ public sealed class InMemoryJobStore(Func<DateTimeOffset>? clock = null, int ste
         var now = _clock();
         lock (_lock)
         {
-            // mirrors JobStoreSql.CancelPending's `status IN ('Pending','Paused')` — a job that has not
+            // mirrors JobStoreSql.CancelNotStarted's `status IN ('Pending','Paused')` — a job that has not
             // started cancels outright whether or not an operator is holding it (resuming it first would put
             // it back in the claimable set, where a polling runner could take it before the cancel landed)
             if (!_jobs.TryGetValue(id, out var j) || j.Status is not (JobStatus.Pending or JobStatus.Paused))
@@ -214,11 +214,6 @@ public sealed class InMemoryJobStore(Func<DateTimeOffset>? clock = null, int ste
             _jobs[id] = j with { Status = JobStatus.Cancelled, UpdatedAt = now };
             return Task.FromResult(true);
         }
-    }
-
-    public Task<int> CountRunningAsync(string lane, CancellationToken ct = default)
-    {
-        lock (_lock) return Task.FromResult(_jobs.Values.Count(j => j.Lane == lane && j.Status == JobStatus.Running));
     }
 
     /// <summary>Slots held right now: index → (worker, when taken). Absent = free.</summary>

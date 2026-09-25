@@ -2,7 +2,8 @@ namespace Lyntai.Storage;
 
 /// <summary>Builds a SQL <c>LIKE</c>/<c>ILIKE</c> substring pattern from raw user text, escaping the
 /// wildcards (<c>%</c>, <c>_</c>) and the escape char itself so the query matches literally. Use with
-/// an explicit <c>ESCAPE '\'</c> clause. Shared by the SQLite and Postgres memory stores (both dialects
+/// an explicit <c>ESCAPE '\'</c> clause. Every SQL substring search reaches it through
+/// <see cref="SearchTerms"/>, and the Postgres key-value prefix listing calls it directly (both dialects
 /// treat <c>\</c> as the escape char), so the escaping lives in one place.</summary>
 public static class LikePattern
 {

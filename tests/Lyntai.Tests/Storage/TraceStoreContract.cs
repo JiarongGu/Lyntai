@@ -57,6 +57,44 @@ public static class TraceStoreContract
         Assert.Null(await store.GetAsync(key + "-nope"));
     }
 
+    /// <summary>A hand-built trace leaves every <see cref="TraceStep.Sequence"/> at 0, and the ordinal rule
+    /// stores each step at its LIST POSITION instead — so it reads back 0,1,2, never three zeros.</summary>
+    public static async Task Unset_sequences_store_the_list_position(ITraceStore store, string key)
+    {
+        await store.SaveAsync(Sample(key) with
+        {
+            Steps =
+            [
+                new TraceStep { Kind = "phase", Label = "first" },
+                new TraceStep { Kind = "phase", Label = "second" },
+                new TraceStep { Kind = "phase", Label = "third" },
+            ],
+        });
+
+        var loaded = await store.GetAsync(key);
+        Assert.Equal(["first", "second", "third"], loaded!.Steps.Select(s => s.Label));
+        Assert.Equal([0L, 1L, 2L], loaded.Steps.Select(s => s.Sequence));
+    }
+
+    /// <summary>A trace whose recorded sequences arrive OUT of list order reads back ordered by sequence —
+    /// the store orders by its ordinal, not by the order it was handed the steps in.</summary>
+    public static async Task Steps_read_back_in_sequence_order(ITraceStore store, string key)
+    {
+        await store.SaveAsync(Sample(key) with
+        {
+            Steps =
+            [
+                new TraceStep { Kind = "llm", Label = "c", Sequence = 3 },
+                new TraceStep { Kind = "llm", Label = "a", Sequence = 1 },
+                new TraceStep { Kind = "llm", Label = "b", Sequence = 2 },
+            ],
+        });
+
+        var loaded = await store.GetAsync(key);
+        Assert.Equal(["a", "b", "c"], loaded!.Steps.Select(s => s.Label));
+        Assert.Equal([1L, 2L, 3L], loaded.Steps.Select(s => s.Sequence));
+    }
+
     public static async Task Step_sequence_and_offset_round_trip(ITraceStore store, string key)
     {
         await store.SaveAsync(Sample(key));

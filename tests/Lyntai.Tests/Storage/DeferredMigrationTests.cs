@@ -53,7 +53,9 @@ public class DeferredMigrationTests : IDisposable
     [Fact]
     public async Task Migration_runs_exactly_once_under_concurrent_first_access()
     {
-        var factory = new MigratingConnectionFactory(_db.Path);
+        // the factory UseSqliteStorage(path, SchemaMigration.OnFirstUse) builds
+        var factory = new LazyMigratingConnectionFactory(new SqliteConnectionFactory(_db.Path),
+            () => Lyntai.Storage.Sqlite.Migrations.MigrationRunnerService.MigrateUp(_db.Path));
 
         // 16 threads race to open the very first connection; the lazy migration must run once and
         // all of them must get a working, migrated connection

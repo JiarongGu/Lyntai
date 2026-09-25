@@ -3,46 +3,23 @@ namespace Lyntai.Storage.InMemory;
 /// <summary>
 /// In-memory <see cref="IMemoryStore"/> honoring the domain contract: dedup on remember, per-entry TTL, a
 /// configurable <see cref="MemoryEvictionPolicy"/> (count cap + FIFO/LRU eviction, default TTL, size
-/// budget), and fail-open recall. Recall matches by case-insensitive SUBSTRING (recency-ordered; the
-/// in-memory analogue of SQLite's LIKE fallback) — adequate for tests and ephemeral use.
+/// budget), and fail-open recall. Its semantics are <see cref="MemoryEntryLog"/>'s, shared with the
+/// file-system store — adequate for tests and ephemeral use.
 /// </summary>
 public sealed class InMemoryMemoryStore(LyntaiOptions options, Func<DateTimeOffset>? clock = null) : IMemoryStore
 {
-    private sealed record Entry(long Id, string TaskKey, string Scope, string Content,
-        DateTimeOffset CreatedAt, DateTimeOffset LastAccessedAt, DateTimeOffset? ExpiresAt, int RuneLength);
-
     private readonly Lock _lock = new();
-    private readonly List<Entry> _entries = [];
+    private readonly MemoryEntryLog _log = new(options);
     private readonly Func<DateTimeOffset> _clock = clock ?? (() => DateTimeOffset.UtcNow);
-    private long _nextId = 1;
 
     public Task RememberAsync(string taskKey, string scope, string content, TimeSpan? ttl = null, CancellationToken ct = default)
     {
         var now = _clock();
-        var policy = options.MemoryEviction;
-        var effectiveTtl = ttl ?? policy.DefaultTtl; // a per-call ttl wins over the policy default
-        var expiresAt = effectiveTtl is null ? (DateTimeOffset?)null : now + effectiveTtl.Value;
         lock (_lock)
         {
-            // dedup: refresh an identical fact (recency + access + TTL) rather than duplicating it
-            var existing = _entries.FindIndex(e => e.TaskKey == taskKey && e.Scope == scope && e.Content == content);
-            if (existing >= 0)
-                _entries[existing] = _entries[existing] with { CreatedAt = now, LastAccessedAt = now, ExpiresAt = expiresAt };
-            else
-                // cache the code-point (rune) length once at insert — the size budget reads it without rescanning
-                _entries.Add(new Entry(_nextId++, taskKey, scope, content, now, now, expiresAt, content.EnumerateRunes().Count()));
-
-            // policy-driven eviction — the shared MemoryEviction helper picks the survivors (count cap +
-            // FIFO/LRU + size budget), identical to the SQLite/Postgres backends. Manual = no size bound = keep all.
-            if (policy.HasSizeBound)
-            {
-                var scoped = _entries.Where(e => e.TaskKey == taskKey && e.Scope == scope)
-                    // RuneLength = cached code-point count (matches SQL LENGTH()), NOT string.Length (UTF-16),
-                    // which would diverge from the SQL backends on astral content.
-                    .Select(e => new MemoryEviction.Row(e.Id, e.CreatedAt, e.LastAccessedAt, e.ExpiresAt, e.RuneLength));
-                var keep = MemoryEviction.Survivors(policy, scoped, now);
-                _entries.RemoveAll(e => e.TaskKey == taskKey && e.Scope == scope && !keep.Contains(e.Id));
-            }
+            var (write, evicted) = _log.PlanRemember(taskKey, scope, content, ttl, now);
+            _log.Apply(write);
+            foreach (var id in evicted) _log.Remove(id);
         }
         return Task.CompletedTask;
     }
@@ -50,54 +27,15 @@ public sealed class InMemoryMemoryStore(LyntaiOptions options, Func<DateTimeOffs
     public Task<IReadOnlyList<MemoryEntry>> RecallAsync(string taskKey, string? scope = null,
         string? query = null, int? limit = null, CancellationToken ct = default)
     {
-        var take = limit ?? options.MemoryRecallLimit;
         var now = _clock();
-        // LRU refreshes recency only on a QUERIED recall (a targeted lookup counts as "use"); a bare
-        // list-all is enumeration, not use, so it must not bump every returned entry (that would churn the
-        // working set — a routine "compose all memories" read would keep resetting the LRU order).
-        var touch = options.MemoryEviction.TracksAccess && !string.IsNullOrWhiteSpace(query);
         try
         {
             lock (_lock)
             {
-                var candidates = _entries.Where(e =>
-                    e.TaskKey == taskKey
-                    && (scope is null || e.Scope == scope)
-                    && (e.ExpiresAt is null || e.ExpiresAt > now));
-
-                IReadOnlyList<string> terms = [];
-                if (!string.IsNullOrWhiteSpace(query))
-                {
-                    // Term-wise, via the shared split, so a multi-word recall finds the same entries here as
-                    // on the SQL backends. An empty term list means the query was too short to yield one, and
-                    // the whole-query substring test it always had still applies.
-                    terms = SearchTerms.SubstringTerms(query);
-                    candidates = terms.Count == 0
-                        ? candidates.Where(e => e.Content.Contains(query.Trim(), StringComparison.OrdinalIgnoreCase))
-                        : candidates.Where(e => terms.Any(t => e.Content.Contains(t, StringComparison.OrdinalIgnoreCase)));
-                }
-
-                // MATCHED-TERM COUNT leads, then recency — the ordering IMemoryStore.RecallAsync documents
-                // for this backend and both SQL stores implement. Ordering by recency alone meant a LIMIT
-                // returned different ENTRIES here than on SQLite/Postgres for the same query: an entry
-                // matching one term could displace one matching every term simply by being newer. With no
-                // query every count is 0, so this collapses to the documented "most recent first".
-                var ordered = candidates
-                    .OrderByDescending(e => SearchTerms.MatchCount(e.Content, terms, query))
-                    .ThenByDescending(e => e.CreatedAt)
-                    .ThenByDescending(e => e.Id)
-                    .Take(take)
-                    .ToList();
-
-                if (touch && ordered.Count > 0) // LRU: mark the recalled entries as recently used
-                {
-                    var ids = ordered.Select(e => e.Id).ToHashSet();
-                    for (var i = 0; i < _entries.Count; i++)
-                        if (ids.Contains(_entries[i].Id)) _entries[i] = _entries[i] with { LastAccessedAt = now };
-                }
-
-                IReadOnlyList<MemoryEntry> result =
-                    [.. ordered.Select(e => new MemoryEntry(e.Id, e.TaskKey, e.Scope, e.Content, e.CreatedAt))];
+                var hits = _log.Recall(taskKey, scope, query, limit, now);
+                if (_log.Touches(query))
+                    foreach (var hit in hits) _log.Apply(hit with { LastAccessedAt = now }); // LRU: recently used
+                IReadOnlyList<MemoryEntry> result = [.. hits.Select(e => e.ToEntry())];
                 return Task.FromResult(result);
             }
         }
@@ -110,21 +48,18 @@ public sealed class InMemoryMemoryStore(LyntaiOptions options, Func<DateTimeOffs
     public Task ForgetAsync(string taskKey, string? scope = null, CancellationToken ct = default)
     {
         lock (_lock)
-            _entries.RemoveAll(e => e.TaskKey == taskKey && (scope is null || e.Scope == scope));
+            foreach (var id in _log.ForgetIds(taskKey, scope)) _log.Remove(id);
         return Task.CompletedTask;
     }
 
     public Task<int> PruneAsync(string? taskKey = null, TimeSpan? olderThan = null, CancellationToken ct = default)
     {
         var now = _clock();
-        var cutoff = olderThan is null ? (DateTimeOffset?)null : now - olderThan.Value;
         lock (_lock)
         {
-            var removed = _entries.RemoveAll(e =>
-                (taskKey is null || e.TaskKey == taskKey)
-                && ((e.ExpiresAt is not null && e.ExpiresAt <= now)
-                    || (cutoff is not null && e.CreatedAt < cutoff)));
-            return Task.FromResult(removed);
+            var ids = _log.PruneIds(taskKey, olderThan, now);
+            foreach (var id in ids) _log.Remove(id);
+            return Task.FromResult(ids.Count);
         }
     }
 }

@@ -659,6 +659,43 @@ export default {
       why: 'two option records for one machine drift; the render handler is a one-stage, queued-only run of '
         + 'the pipeline engine',
     },
+    {
+      // Part 293 review (STOR-13): one public shim per relational package, each binding a lambda over Core's
+      // LazyMigratingConnectionFactory. Whole-identifier matching leaves the Core type itself live.
+      names: ['MigratingConnectionFactory'],
+      use: '`SchemaMigration.OnFirstUse` on `UseSqliteStorage` / `UsePostgresStorage`, or for a BYO wiring '
+        + '`new LazyMigratingConnectionFactory(inner, () => MigrationRunnerService.MigrateUp(…))`',
+      why: 'each only bound a lambda over the Core type a BYO backend already uses, and the pair were two '
+        + 'public types sharing one simple name across two namespaces',
+    },
+    {
+      // Part 293 review (CORE-9): one listing operation had two members, and both default bodies loaded the
+      // whole table for a BYO store while every shipped store overrode them.
+      names: ['ListThreadsPageAsync'],
+      use: '`IConversationStore.ListThreadsAsync(limit, after)` — the keyset cursor is its `after` argument',
+      why: 'the list-all member was the page member with no cursor; one member with an optional cursor says '
+        + 'the same thing, and CountThreadsAsync lost its O(table) default body with it',
+    },
+    {
+      // Part 293 review (CORE-10, CORE-16): a count nothing called, which every BYO job store still had to
+      // implement, and a statement whose name had to be excused in its own doc.
+      names: ['CountRunningAsync', 'CountRunning', 'CancelPending'],
+      proseExempt: 'docs/DECISIONS.md D73 names the count it argued against, which is the record of why a '
+        + 'count cannot gate a claim; no maintained prose recommends either member',
+      use: '`IJobStore.ListAsync(JobStatus.Running, lane)` for a count; `JobStoreSql.CancelNotStarted`',
+      why: 'the count had no caller and could never gate a claim (D73); the statement cancels Pending AND '
+        + 'Paused jobs, which its old name did not say',
+    },
+    {
+      // Part 293 review (CORE-14): `*Row` is the materialization suffix, so the contract record became
+      // `ScoreExportEntry` and its row took the plain `ScoreExportRow` name — which is why that name is not
+      // retired here. `ToEntity` was the one row projection not spelled `ToRecord`.
+      names: ['ScoreExportEntryRow', 'ToEntity'],
+      proseExempt: 'docs/DECISIONS.md D80 records the forced `ScoreExportEntryRow` name this rename undoes; '
+        + '`ToEntity` is a generic word no prose rule should own',
+      use: '`ScoreExportEntry` (the contract record) / `ScoreExportRow` (the row); `PromptVersionRow.ToRecord`',
+      why: 'dotnet-package-layout.md §Naming reserves `*Row` for a materialization type',
+    },
   ],
 
   /**
@@ -1425,6 +1462,18 @@ export default {
         + '`SupportsStreamingToolCalls` on the `ProviderCapabilities` it answers (null = no native tool calls)',
       why: 'the synchronous probes answered for the candidates a client was configured with, so a live route '
         + 'to a backend without tool calls still sent the tool loop down the native path (docs/DECISIONS.md D176)',
+    },
+    {
+      // The prose half of the relational MigratingConnectionFactory shims' removal. `\b` keeps Core's
+      // LazyMigratingConnectionFactory live: no word boundary falls between its `y` and `M`.
+      term: '\\bMigratingConnectionFactory\\b',
+      use: '`SchemaMigration.OnFirstUse`, or Core\'s `LazyMigratingConnectionFactory` for a BYO wiring',
+      why: 'the two relational shims over the Core type are removed; they only bound a lambda',
+    },
+    {
+      term: '\\bListThreadsPageAsync\\b',
+      use: '`IConversationStore.ListThreadsAsync(limit, after)`',
+      why: 'one listing member with an optional keyset cursor replaced the list/page pair',
     },
   ],
 

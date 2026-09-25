@@ -54,12 +54,6 @@ public sealed class SqliteCuratedMemoryStore(IDbConnectionFactory factory,
         return id;
     }
 
-    // The null / empty-string sentinel is ICuratedMemoryStore.UpdateAsync's. It cannot ride the SET's
-    // COALESCE because NULL is a LEGAL stored value here, so it is resolved in C# — which is also what makes
-    // the collision check below and the UPDATE write the identical value.
-    private static string? Rescope(string? argument, string? current)
-        => argument is null ? current : argument.Length == 0 ? null : argument;
-
     public async Task<bool> UpdateAsync(long id, string? content = null, bool? enabled = null, string? kind = null,
         string? taskKey = null, string? scope = null,
         IReadOnlyDictionary<string, string>? metadata = null, CancellationToken ct = default)
@@ -77,8 +71,9 @@ public sealed class SqliteCuratedMemoryStore(IDbConnectionFactory factory,
         if (cur is null) return false;                             // no such row (the tx rolls back on dispose)
         var newKind = kind ?? cur.Kind;
         var newContent = content ?? cur.Content;
-        var newTask = Rescope(taskKey, cur.TaskKey);
-        var newScope = Rescope(scope, cur.Scope);
+        // resolved in C#, not in the SET: NULL is a LEGAL stored value, so COALESCE cannot carry the sentinel
+        var newTask = CuratedMemoryUpdates.Rescope(taskKey, cur.TaskKey);
+        var newScope = CuratedMemoryUpdates.Rescope(scope, cur.Scope);
 
         // Refuse a collision rather than mint the duplicate dedup:true promises not to create, and check only
         // when the identity actually MOVES — both are ICuratedMemoryStore.UpdateAsync's contract, stated
@@ -139,6 +134,7 @@ public sealed class SqliteCuratedMemoryStore(IDbConnectionFactory factory,
         string? taskKey = null, string? scope = null, int? limit = null,
         IReadOnlyDictionary<string, string>? metadataMatch = null, CancellationToken ct = default)
     {
+        if (limit <= 0) return []; // asks for nothing; the -1 below is this dialect's own spelling of "no cap"
         var p = new DynamicParameters(new { kind, task = taskKey, scope, enabledOnly, limit = limit ?? -1 });
         var meta = BuildMetaClause(metadataMatch, "lyntai_curated_memory.id", p);
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
@@ -156,7 +152,7 @@ public sealed class SqliteCuratedMemoryStore(IDbConnectionFactory factory,
         string? scope = null, bool enabledOnly = false, int? limit = null,
         IReadOnlyDictionary<string, string>? metadataMatch = null, CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(query)) return [];
+        if (string.IsNullOrWhiteSpace(query) || limit <= 0) return [];
         try
         {
             await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
@@ -200,7 +196,7 @@ public sealed class SqliteCuratedMemoryStore(IDbConnectionFactory factory,
                 """, pl, cancellationToken: ct)).ConfigureAwait(false);
             return [.. likeHits.Select(r => r.ToRecord())];
         }
-        catch (OperationCanceledException) { throw; }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "curated search failed; returning empty (fail-open)");

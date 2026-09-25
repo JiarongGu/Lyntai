@@ -9,8 +9,8 @@ namespace Lyntai.Storage.Sqlite.Migrations;
 /// predicate only looks below that cap — so the cap stays pure configuration: raising it needs no migration
 /// and lowering it needs no cleanup, because the high rows simply stop being selected.</para>
 ///
-/// <para><b>Why a table at all.</b> Counting Running jobs cannot gate a claim — a count-then-claim races,
-/// which <c>IJobStore.CountRunningAsync</c> has always warned about — and folding the count into the claim
+/// <para><b>Why a table at all.</b> Counting Running jobs cannot gate a claim — a count-then-claim races —
+/// and folding the count into the claim
 /// statement fixes that only on a single-writer store. Postgres claims with <c>FOR UPDATE SKIP LOCKED</c>
 /// precisely so workers do not block each other, so a count there reads an MVCC snapshot and two claimers
 /// see the same headroom. A slot is a ROW, so exclusion comes from the mechanism that already works on both

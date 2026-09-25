@@ -76,10 +76,9 @@ public static class PromptVersionStoreContract
 
     public static async Task Concurrent_saves_of_one_name_get_distinct_consecutive_versions(IPromptVersionStore store, string key)
     {
-        // Two writers racing the MAX(version)+1 read must never surface a raw unique-violation: the loser
-        // recomputes (Postgres — the same bounded 23505 retry the conversation store's append carries) or
-        // is serialized outright (SQLite's immediate transaction, InMemory's lock). Four writers through
-        // one gate keep the worst-case loser inside the bounded retry while making the overlap real.
+        // Two writers racing the MAX(version)+1 read must never surface a raw unique-violation: every backend
+        // serializes writers of one name (Postgres's per-name advisory lock, SQLite's immediate transaction,
+        // the in-process locks). Four writers through one gate make the overlap real.
         var name = key + "-raced";
         var gate = new TaskCompletionSource();
         var saves = Enumerable.Range(0, 4).Select(async _ =>
@@ -92,6 +91,36 @@ public static class PromptVersionStoreContract
         var versions = (await Task.WhenAll(saves)).Select(s => s.Version).Order().ToArray();
         Assert.Equal([1, 2, 3, 4], versions);
         Assert.Equal(4, (await store.HistoryAsync(name)).Count);
+    }
+
+    /// <summary>Saves and rollbacks racing one name leave EXACTLY one active revision, round after round —
+    /// two active rows make <c>GetActiveAsync</c> throw until the next save repairs it. Each call runs on its
+    /// own thread, because a backend whose "async" completes synchronously would otherwise serialize the race
+    /// away before it starts.</summary>
+    public static async Task Racing_saves_and_rollbacks_leave_exactly_one_active_revision(
+        IPromptVersionStore store, string key)
+    {
+        var name = key + "-contended";
+        await store.SaveAsync(name, "v1");
+        await store.SaveAsync(name, "v2");
+
+        for (var round = 0; round < 25; round++)
+        {
+            var gate = new TaskCompletionSource();
+            var template = $"round {round}";
+            Task[] racers =
+            [
+                Task.Run(async () => { await gate.Task; await store.SaveAsync(name, template); }),
+                Task.Run(async () => { await gate.Task; await store.SaveAsync(name, template + "'"); }),
+                Task.Run(async () => { await gate.Task; await store.RollbackAsync(name, 1); }),
+                Task.Run(async () => { await gate.Task; await store.RollbackAsync(name, 2); }),
+            ];
+            gate.SetResult();
+            await Task.WhenAll(racers);
+
+            Assert.Single((await store.HistoryAsync(name)).Where(v => v.IsActive));
+            Assert.NotNull(await store.GetActiveAsync(name));
+        }
     }
 
     public static async Task Names_are_isolated(IPromptVersionStore store, string key)

@@ -898,8 +898,8 @@ your runner (**D165**).
 a class the library ships, and a BYO decorator joins a chain beside them. A decorator forwards every member
 to the instance it wraps; where a member can go unanswered, its own documentation says what to return, under
 **Implementing it**. A member added to one of these takes no default body (**D67**), so a decorator that
-misses it fails to compile instead of silently running a default. The three older default bodies named below
-fall back correctly, only more slowly. `DecoratedInterfaceTests` holds this table to the tree: a newly
+misses it fails to compile instead of silently running a default. The one older default body named below
+falls back correctly, only more slowly. `DecoratedInterfaceTests` holds this table to the tree: a newly
 decorated interface fails the tests until it is listed here, and so does a row nothing decorates any more.
 
 <!-- decorated-interfaces:begin -->
@@ -907,7 +907,7 @@ decorated interface fails the tests until it is listed here, and so does a row n
 | --- | --- | --- |
 | `ITextClient` | `DelegatingTextClient` (derive from it), `BudgetedTextClient`, `CachingTextClient`, `RateLimitedTextClient`, `GuardedTextClient`, `RefusalScreeningTextClient` | every member, `GetCapabilitiesAsync` included |
 | `IMediaRouter` | `BudgetedMediaRouter`, `RateLimitedMediaRouter` | all three doors, each one governed: the compiler cannot tell a governed door from a pass-through |
-| `IConversationStore` | `EnrichingConversationStore` | every member; the defaults of `CountThreadsAsync` and `ListThreadsPageAsync` are correct but O(n) |
+| `IConversationStore` | `EnrichingConversationStore` | every member |
 | `IDbConnectionFactory` | `LazyMigratingConnectionFactory` | `Open`, and `OpenAsync`, whose default loses the inner factory's async open |
 | `IMemoryEngine` | `CompositeMemoryEngine`, over its members | every member |
 | `IMemoryAgePolicy` | `BurstDampenedAgePolicy` | every member; `Kind` says when not to forward |

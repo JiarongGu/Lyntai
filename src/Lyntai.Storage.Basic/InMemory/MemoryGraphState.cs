@@ -160,6 +160,8 @@ internal sealed class MemoryGraphState(Func<DateTimeOffset> clock)
         foreach (var e in edges)
         {
             if (e.From == e.To) continue; // a self-edge is never useful and would skew Degree
+            // an endpoint that no longer exists (deleted mid-write-back) is skipped — the SQL foreign key's rule
+            if (!_nodes.ContainsKey(e.From) || !_nodes.ContainsKey(e.To)) continue;
             Strengthen(e.From, e.To, e.Kind, e.Weight);
             if (e.Symmetric) Strengthen(e.To, e.From, e.Kind, e.Weight);
         }
@@ -184,10 +186,13 @@ internal sealed class MemoryGraphState(Func<DateTimeOffset> clock)
     public GraphChange PlanSubjects(string engine, long nodeId, IReadOnlyCollection<string> subjects)
     {
         var change = new GraphChange();
-        // REPLACE, never accumulate; MemorySubject.Canonicalize is the ONE normalization. A missing node clears.
-        change.Subjects.Add((engine, nodeId, _nodes.ContainsKey(nodeId) ? MemorySubject.Canonicalize(subjects) : []));
+        // REPLACE, never accumulate; MemorySubject.Canonicalize is the ONE normalization. A node this engine
+        // does not hold only clears, as the SQL insert joins the node on its engine.
+        change.Subjects.Add((engine, nodeId, Holds(engine, nodeId) ? MemorySubject.Canonicalize(subjects) : []));
         return change;
     }
+
+    private bool Holds(string engine, long id) => _nodes.TryGetValue(id, out var n) && n.Record.Engine == engine;
 
     public GraphChange PlanReviews(string engine, IReadOnlyCollection<MemoryReviewWrite> reviews, int cap)
     {
@@ -307,34 +312,30 @@ internal sealed class MemoryGraphState(Func<DateTimeOffset> clock)
 
     public IReadOnlyList<GraphNode> Seed(string engine, string taskKey, string? scope, string? query, int limit)
     {
+        if (limit <= 0) return [];
         var totals = Totals(engine);
+        var asked = !string.IsNullOrWhiteSpace(query);
         var terms = SearchTerms.SubstringTerms(query);
         return [.. InScope(engine, taskKey, scope)
+            // over content AND headline, a term counting once whichever holds it — the SQL LIKE clause's rule
+            .Select(n => (Node: n, Count: asked ? SearchTerms.MatchCount([n.Record.Content, n.Record.Headline], terms, query) : 0))
             // authoritative material is admitted unconditionally; FAINTNESS excludes nothing — decay buries by rank
-            .Where(n => n.Record.Grade == MemoryGrade.Authoritative || Matches(n.Record, query, terms))
-            // exact facts first, or the limit cuts the quietest one; then salience — through MemorySignals.Salience,
-            // the one coercion every backend calls — then recency
-            .OrderByDescending(n => n.Record.Grade == MemoryGrade.Authoritative)
-            .ThenByDescending(n => MemorySignals.Salience(n.State.Signals))
-            .ThenByDescending(n => n.State.LastRecalledPosition)
-            .ThenByDescending(n => n.Id) // unique tiebreaker: ties must not wobble
+            .Where(x => !asked || x.Count > 0 || x.Node.Record.Grade == MemoryGrade.Authoritative)
+            // exact facts first, or the limit cuts the quietest one; then how much of the query matched, as both
+            // SQL substring paths order; then salience (MemorySignals.Salience, the one coercion); then recency
+            .OrderByDescending(x => x.Node.Record.Grade == MemoryGrade.Authoritative)
+            .ThenByDescending(x => x.Count)
+            .ThenByDescending(x => MemorySignals.Salience(x.Node.State.Signals))
+            .ThenByDescending(x => x.Node.State.LastRecalledPosition)
+            .ThenByDescending(x => x.Node.Id) // unique tiebreaker: ties must not wobble
             .Take(limit)
             // a grade-admitted node the query never matched reports 0; this read asked, so it may answer (D97)
-            .Select(n => ToNode(n, totals) with
+            .Select(x => ToNode(x.Node, totals) with
             {
-                Relevance = Matches(n.Record, query, terms) ? 1 : 0,
-                Matched = Matches(n.Record, query, terms),
+                Relevance = !asked || x.Count > 0 ? 1 : 0,
+                Matched = !asked || x.Count > 0,
             })];
     }
-
-    // ANY term, case-insensitively, over content AND headline; a query too short to yield a term matches whole
-    private static bool Matches(GraphNodeRecord node, string? query, IReadOnlyList<string> terms) =>
-        string.IsNullOrWhiteSpace(query) ||
-        (terms.Count == 0
-            ? node.Content.Contains(query.Trim(), StringComparison.OrdinalIgnoreCase)
-              || node.Headline.Contains(query.Trim(), StringComparison.OrdinalIgnoreCase)
-            : terms.Any(t => node.Content.Contains(t, StringComparison.OrdinalIgnoreCase)
-                          || node.Headline.Contains(t, StringComparison.OrdinalIgnoreCase)));
 
     public IReadOnlyList<GraphNeighbour> Neighbours(string engine, string taskKey, IReadOnlyCollection<long> ids, int limit)
     {
@@ -394,6 +395,7 @@ internal sealed class MemoryGraphState(Func<DateTimeOffset> clock)
     {
         foreach (var (nodeId, byEngine) in _subjects)
             if (byEngine.TryGetValue(engine, out var subjects) && _nodes.TryGetValue(nodeId, out var node)
+                && node.Record.Engine == engine
                 && node.Record.TaskKey == taskKey && (scope is null || node.Record.Scope == scope))
                 foreach (var subject in subjects)
                     yield return (nodeId, subject);

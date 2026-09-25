@@ -94,6 +94,7 @@ public sealed class PostgresGovernanceStoreTests(PostgresFixture pg)
     [SkippableFact] public Task Usage_accumulates() => UsagePg(UsageTrackerContract.Records_accumulate_per_consumer);
     [SkippableFact] public Task Usage_unrecorded() => UsagePg(UsageTrackerContract.An_unrecorded_consumer_is_Empty);
     [SkippableFact] public Task Usage_casings() => UsagePg(UsageTrackerContract.Consumer_identity_aggregates_across_casings);
+    [SkippableFact] public Task Usage_non_ascii_casings() => UsagePg(UsageTrackerContract.Consumer_identity_aggregates_across_non_ASCII_casings);
     [SkippableFact] public Task Usage_reset_one() => UsagePg(UsageTrackerContract.Resetting_a_consumer_clears_it);
     [SkippableFact] public Task Usage_reset_scoped() => UsagePg(UsageTrackerContract.Resetting_ONE_consumer_leaves_the_others_intact);
     [SkippableFact] public Task Usage_reset_casing() => UsagePg(UsageTrackerContract.Resetting_is_case_insensitive_like_the_totals);
@@ -134,6 +135,8 @@ public sealed class PostgresGovernanceStoreTests(PostgresFixture pg)
     [SkippableFact] public Task Contract_tie_by_id() => VecPg(VectorStoreContract.Equal_scores_are_ordered_by_id);
     [SkippableFact] public Task Contract_tie_at_k() => VecPg(VectorStoreContract.The_k_boundary_keeps_the_same_tied_entries);
     [SkippableFact] public Task Contract_tie_loses_to_score() => VecPg(VectorStoreContract.The_tiebreak_never_outranks_the_score);
+    [SkippableFact] public Task Contract_other_dimension() => VecPg(VectorStoreContract.A_vector_of_another_dimension_scores_zero_and_ranks_last);
+    [SkippableFact] public Task Contract_zero_vector() => VecPg(VectorStoreContract.A_zero_vector_scores_zero_and_ranks_last);
     [SkippableFact] public Task Contract_list_prefix() => VecPg(VectorStoreContract.Listing_matches_a_prefix_ordinally);
     [SkippableFact] public Task Contract_list_literal() => VecPg(VectorStoreContract.A_listing_prefix_is_never_read_as_a_pattern);
     [SkippableFact] public Task Contract_list_empty() => VecPg(VectorStoreContract.Listing_omits_emptied_collections_and_never_throws);

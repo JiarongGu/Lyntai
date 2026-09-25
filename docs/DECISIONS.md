@@ -1738,11 +1738,11 @@ store, enforced by `lyntai_job_slot` — a row per execution slot, acquired by t
 the job table already uses. `0` is the default and means unbounded, which is the pre-3.0 behaviour with no
 extra round-trip.
 
-**Why not the obvious thing.** `IJobStore.CountRunningAsync` has always warned it is *"NEVER a claim gate (a
-count-then-claim would race)"*, and that also rules out folding the count INTO the claim statement. That
-works on SQLite, whose single writer makes one statement the whole exclusion, and NOT on Postgres, which
-claims with `FOR UPDATE SKIP LOCKED` so workers do not block each other: a `COUNT` in the same statement
-reads an MVCC snapshot, so two claimers see the same headroom and both take it.
+**Why not the obvious thing.** `IJobStore.CountRunningAsync` (removed in the Part 293 review) always warned it <!-- link-ok: the removed member is why a count cannot gate a claim -->
+was *"NEVER a claim gate (a count-then-claim would race)"*, and that also rules out folding the count INTO the
+claim statement. That works on SQLite, whose single writer makes one statement the whole exclusion, and NOT on
+Postgres, which claims with `FOR UPDATE SKIP LOCKED` so workers do not block each other: a `COUNT` in the same
+statement reads an MVCC snapshot, so two claimers see the same headroom and both take it.
 
 **The alternative that was refused, and it is the interesting one.** `pg_advisory_xact_lock` makes Postgres
 exact with less code than a table, and is self-defeating: it removes the parallel claiming `SKIP LOCKED`

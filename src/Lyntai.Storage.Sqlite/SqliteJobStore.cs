@@ -150,14 +150,7 @@ public sealed class SqliteJobStore(IDbConnectionFactory factory, Func<DateTimeOf
         Fenced(JobStoreSql.SetCancelled, id, workerId, ct);
 
     public Task<bool> CancelAsync(Guid id, CancellationToken ct = default) =>
-        Transition(JobStoreSql.CancelPending, id, ct);
-
-    public async Task<int> CountRunningAsync(string lane, CancellationToken ct = default)
-    {
-        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
-        return await conn.ExecuteScalarAsync<int>(new CommandDefinition(
-            JobStoreSql.CountRunning, new { lane }, cancellationToken: ct)).ConfigureAwait(false);
-    }
+        Transition(JobStoreSql.CancelNotStarted, id, ct);
 
     public async Task<IReadOnlyList<string>> ActiveLanesAsync(CancellationToken ct = default)
     {

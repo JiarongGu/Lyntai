@@ -29,4 +29,4 @@ public sealed record ScorerAggregate(string ScorerId, string ScorerName, double 
 
 /// <summary>One row of the bulk score export — a flat <c>(session, scorer, score)</c> tuple, for building a
 /// tuning dataset across every session.</summary>
-public sealed record ScoreExportRow(string SessionId, string ScorerId, double Score);
+public sealed record ScoreExportEntry(string SessionId, string ScorerId, double Score);

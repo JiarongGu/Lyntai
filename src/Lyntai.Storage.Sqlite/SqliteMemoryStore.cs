@@ -65,7 +65,7 @@ public sealed class SqliteMemoryStore(
                    expires_at AS ExpiresAt, LENGTH(content) AS Length
             FROM lyntai_memory_entry WHERE task_key = @taskKey AND scope = @scope
             """, new { taskKey, scope }, cancellationToken: ct)).ConfigureAwait(false);
-        return [.. rows.Select(r => new MemoryEviction.Row(r.Id, r.CreatedAt, r.LastAccessedAt, r.ExpiresAt, r.Length))];
+        return [.. rows.Select(r => r.ToRow())];
     }
 
     public async Task<int> PruneAsync(string? taskKey = null, TimeSpan? olderThan = null, CancellationToken ct = default)
@@ -85,6 +85,7 @@ public sealed class SqliteMemoryStore(
         string? query = null, int? limit = null, CancellationToken ct = default)
     {
         var take = limit ?? options.MemoryRecallLimit;
+        if (take <= 0) return []; // asks for nothing — never the dialect's opinion of a negative LIMIT
         var now = _clock(); // expired entries (@now past expires_at) are never returned
         // Queried-only, per MemoryEvictionPolicy.TracksAccess.
         var touch = options.MemoryEviction.TracksAccess && !string.IsNullOrWhiteSpace(query);
@@ -141,7 +142,7 @@ public sealed class SqliteMemoryStore(
                 """, new { taskKey, scope, take, now }, cancellationToken: ct)).ConfigureAwait(false)).AsList();
             return await TouchAsync(conn, recent, touch, now, ct).ConfigureAwait(false);
         }
-        catch (OperationCanceledException) { throw; }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "memory recall failed for {Task}; returning empty (fail-open)", taskKey);
@@ -164,7 +165,7 @@ public sealed class SqliteMemoryStore(
                     "UPDATE lyntai_memory_entry SET last_accessed_at = @now WHERE id IN @ids",
                     new { now, ids }, cancellationToken: ct)).ConfigureAwait(false);
             }
-            catch (OperationCanceledException) { throw; }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "LRU last-access refresh failed for {Count} entries; recall result kept", hits.Count);

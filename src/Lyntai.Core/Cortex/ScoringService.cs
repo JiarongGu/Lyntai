@@ -64,6 +64,6 @@ public sealed class ScoringService(
     public Task<IReadOnlyList<ScorerAggregate>> AggregateAsync(CancellationToken ct = default) =>
         store is null ? Task.FromResult<IReadOnlyList<ScorerAggregate>>([]) : store.AggregateAsync(ct);
 
-    public Task<IReadOnlyList<ScoreExportRow>> ExportAsync(CancellationToken ct = default) =>
-        store is null ? Task.FromResult<IReadOnlyList<ScoreExportRow>>([]) : store.ExportAsync(ct);
+    public Task<IReadOnlyList<ScoreExportEntry>> ExportAsync(CancellationToken ct = default) =>
+        store is null ? Task.FromResult<IReadOnlyList<ScoreExportEntry>>([]) : store.ExportAsync(ct);
 }

@@ -11,10 +11,11 @@ namespace Lyntai.Storage.InMemory;
 /// <see cref="PruneAsync"/>'s <c>olderThan</c> and auditing.</para>
 /// <para>Recall matches any TERM of the query, case-insensitively, using the shared
 /// <see cref="SearchTerms"/> split — so a multi-word cue finds the same entries here as on SQLite and
-/// Postgres. It then orders by GRADE first, then by recency: authoritative material is admitted
-/// unconditionally, and a recency-led ordering would let the candidate limit cut the quietest exact fact
-/// before the engine ranked anything. What stays backend-specific is the RANKING among matches — this store
-/// has none to give, where SQLite has bm25.</para>
+/// Postgres. It orders by GRADE first — authoritative material is admitted unconditionally, and a
+/// recency-led ordering would let the candidate limit cut the quietest exact fact before the engine ranked
+/// anything — then by how many terms matched, then salience, then recency: the order both SQL substring
+/// paths use, so under a limit the candidates are the same ENTRIES. SQLite's full-text path ranks by bm25
+/// instead.</para>
 /// <para>This store has no relevance SCORE to normalize, so it reports <see cref="GraphNode.Relevance"/>
 /// <c>1</c> for anything the query matched and <c>0</c> for a node admitted by the grade carve-out that the
 /// query did NOT match (see <see cref="IMemoryGraphStore.SeedAsync"/>). A flat <c>1</c> is what a query-less

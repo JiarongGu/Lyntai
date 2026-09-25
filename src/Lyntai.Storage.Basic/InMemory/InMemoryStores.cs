@@ -61,18 +61,9 @@ public sealed class InMemoryConversationStore : IConversationStore
         return Task.CompletedTask;
     }
 
-    public Task<IReadOnlyList<ChatThread>> ListThreadsAsync(int limit = 100, CancellationToken ct = default)
+    public Task<IReadOnlyList<ChatThread>> ListThreadsAsync(int limit = 100, ChatThread? after = null, CancellationToken ct = default)
     {
-        lock (_lock)
-        {
-            IReadOnlyList<ChatThread> result =
-            [
-                .. _threads.Values
-                    .OrderByDescending(t => t.CreatedAt).ThenByDescending(t => t.Id, StringComparer.Ordinal)
-                    .Take(limit)
-            ];
-            return Task.FromResult(result);
-        }
+        lock (_lock) return Task.FromResult(ChatThreads.Page(_threads.Values, limit, after));
     }
 
     public Task<int> CountThreadsAsync(CancellationToken ct = default)
@@ -80,26 +71,13 @@ public sealed class InMemoryConversationStore : IConversationStore
         lock (_lock) return Task.FromResult(_threads.Count);
     }
 
-    public Task<IReadOnlyList<ChatThread>> ListThreadsPageAsync(int limit, ChatThread? after = null, CancellationToken ct = default)
-    {
-        lock (_lock)
-        {
-            // keyset paging in the SAME order as ListThreadsAsync (created_at DESC, id DESC ordinal), starting
-            // strictly after the cursor — same-tick threads are tiebroken by id so none is skipped/duplicated.
-            IEnumerable<ChatThread> q = _threads.Values
-                .OrderByDescending(t => t.CreatedAt).ThenByDescending(t => t.Id, StringComparer.Ordinal);
-            if (after is not null)
-                q = q.Where(t => t.CreatedAt < after.CreatedAt
-                    || (t.CreatedAt == after.CreatedAt && string.CompareOrdinal(t.Id, after.Id) < 0));
-            IReadOnlyList<ChatThread> result = [.. q.Take(limit)];
-            return Task.FromResult(result);
-        }
-    }
-
     public Task<ChatMessage> AppendMessageAsync(string threadId, string kind, string payload, string? metadata = null, CancellationToken ct = default)
     {
         lock (_lock)
         {
+            // an event needs its thread, as the SQL backends' foreign key and the file store require
+            if (!_threads.ContainsKey(threadId))
+                throw new InvalidOperationException($"there is no thread '{threadId}' to append to");
             // Id is a GUID handle; Seq is the 1-based per-thread order = MAX(seq)+1 (mirrors the SQL backends'
             // COALESCE(MAX(seq),0)+1 — NOT Count+1, which would reuse a seq if a message were ever deleted).
             var seq = _messages.Where(m => m.ThreadId == threadId).Select(m => m.Seq).DefaultIfEmpty(0L).Max() + 1;
@@ -176,14 +154,14 @@ public sealed class InMemoryScoreStore : IScoreStore
         }
     }
 
-    public Task<IReadOnlyList<ScoreExportRow>> ExportAsync(CancellationToken ct = default)
+    public Task<IReadOnlyList<ScoreExportEntry>> ExportAsync(CancellationToken ct = default)
     {
         lock (_lock)
         {
-            IReadOnlyList<ScoreExportRow> rows =
+            IReadOnlyList<ScoreExportEntry> rows =
             [
                 .. _bySession
-                    .SelectMany(kv => kv.Value.Select(r => new ScoreExportRow(kv.Key, r.ScorerId, r.Score)))
+                    .SelectMany(kv => kv.Value.Select(r => new ScoreExportEntry(kv.Key, r.ScorerId, r.Score)))
                     .OrderBy(r => r.SessionId, StringComparer.Ordinal).ThenBy(r => r.ScorerId, StringComparer.Ordinal),
             ];
             return Task.FromResult(rows);
@@ -198,7 +176,7 @@ public sealed class InMemoryTraceStore : ITraceStore
 
     public Task SaveAsync(RunTrace trace, CancellationToken ct = default)
     {
-        _bySession[trace.SessionId] = trace;
+        _bySession[trace.SessionId] = trace with { Steps = TraceOrdinals.Stored(trace.Steps) };
         return Task.CompletedTask;
     }
 

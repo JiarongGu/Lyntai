@@ -76,27 +76,14 @@ internal sealed class FileSystemConversationStore(FileSystemRoot root, Func<Date
         lock (_lock) return Task.FromResult(Threads().TryGetValue(id, out var t) ? t.Value : null);
     }
 
-    public Task<IReadOnlyList<ChatThread>> ListThreadsAsync(int limit = 100, CancellationToken ct = default) =>
-        ListThreadsPageAsync(limit, null, ct);
+    public Task<IReadOnlyList<ChatThread>> ListThreadsAsync(int limit = 100, ChatThread? after = null, CancellationToken ct = default)
+    {
+        lock (_lock) return Task.FromResult(ChatThreads.Page(Threads().Values.Select(t => t.Value), limit, after));
+    }
 
     public Task<int> CountThreadsAsync(CancellationToken ct = default)
     {
         lock (_lock) return Task.FromResult(Threads().Count);
-    }
-
-    public Task<IReadOnlyList<ChatThread>> ListThreadsPageAsync(int limit, ChatThread? after = null, CancellationToken ct = default)
-    {
-        lock (_lock)
-        {
-            // created_at DESC, id DESC ordinal, strictly after the cursor — the order InMemory and SQLite share
-            IEnumerable<ChatThread> q = Threads().Values.Select(t => t.Value)
-                .OrderByDescending(t => t.CreatedAt).ThenByDescending(t => t.Id, StringComparer.Ordinal);
-            if (after is not null)
-                q = q.Where(t => t.CreatedAt < after.CreatedAt
-                    || (t.CreatedAt == after.CreatedAt && string.CompareOrdinal(t.Id, after.Id) < 0));
-            IReadOnlyList<ChatThread> page = [.. q.Take(limit)];
-            return Task.FromResult(page);
-        }
     }
 
     public Task SetThreadMetadataAsync(string id, string? metadata, CancellationToken ct = default)

@@ -21,15 +21,15 @@ public static class MigrationRunnerService
     /// lands.</summary>
     public static void MigrateUp(string dbPath, StorageFeature features)
     {
-        // build the connection string safely (a raw $"Data Source={dbPath}" corrupts on a path with
-        // ';' or '='); matches SqliteConnectionFactory's own builder-based construction.
-        var connectionString = new SqliteConnectionStringBuilder { DataSource = dbPath }.ToString();
-        SeedPragmas(connectionString);
+        CreateDirectory(dbPath);
+        // FluentMigrator opens its own connection, so the persistent WAL header and a busy-wait are seeded
+        // first, through the factory that applies them to every connection
+        using (new SqliteConnectionFactory(dbPath).Open()) { }
 
         // the All-vs-subset tag dispatch lives in Core (StorageFeatures.TagPasses) so both backend
         // runners share the all-requested-tags-must-match semantics
         foreach (var tags in StorageFeatures.TagPasses(features))
-            RunPass(connectionString, tags);
+            RunPass(ConnectionString(dbPath), tags);
     }
 
     /// <summary>Migrate every domain's schema, awaitable — for an app owning its schema
@@ -57,37 +57,24 @@ public static class MigrationRunnerService
     public static async Task MigrateUpAsync(string dbPath, StorageFeature features, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested(); // before ANY work — not even the db file is created
-        var connectionString = new SqliteConnectionStringBuilder { DataSource = dbPath }.ToString();
-        await SeedPragmasAsync(connectionString, ct).ConfigureAwait(false);
+        CreateDirectory(dbPath);
+        await using (await new SqliteConnectionFactory(dbPath).OpenAsync(ct).ConfigureAwait(false)) { }
 
         foreach (var tags in StorageFeatures.TagPasses(features))
         {
             ct.ThrowIfCancellationRequested(); // a pass boundary is the last honest cancellation point
-            RunPass(connectionString, tags);
+            RunPass(ConnectionString(dbPath), tags);
         }
     }
 
-    private static void SeedPragmas(string connectionString)
-    {
-        // WAL is a persistent header setting later connections inherit; a busy_timeout turns a momentary
-        // lock during migrate into a bounded wait, not an instant "database is locked". FluentMigrator opens
-        // its own connection, so do this first.
-        using var seed = new SqliteConnection(connectionString);
-        seed.Open();
-        using var pragma = seed.CreateCommand();
-        pragma.CommandText = "PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000; PRAGMA foreign_keys=ON;";
-        pragma.ExecuteNonQuery();
-    }
+    // a raw $"Data Source={dbPath}" corrupts on a path with ';' or '=' — the factory builds it the same way
+    private static string ConnectionString(string dbPath) =>
+        new SqliteConnectionStringBuilder { DataSource = dbPath }.ToString();
 
-    /// <summary>The async form of <see cref="SeedPragmas"/> — same statements over the async ADO.NET calls,
-    /// mirroring <c>SqliteConnectionFactory.OpenAsync</c>.</summary>
-    private static async Task SeedPragmasAsync(string connectionString, CancellationToken ct)
+    private static void CreateDirectory(string dbPath)
     {
-        await using var seed = new SqliteConnection(connectionString);
-        await seed.OpenAsync(ct).ConfigureAwait(false);
-        await using var pragma = seed.CreateCommand();
-        pragma.CommandText = "PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000; PRAGMA foreign_keys=ON;";
-        await pragma.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
+        var dir = Path.GetDirectoryName(Path.GetFullPath(dbPath));
+        if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
     }
 
     private static void RunPass(string connectionString, string[] tags)

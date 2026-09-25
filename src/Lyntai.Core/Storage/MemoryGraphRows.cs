@@ -3,17 +3,9 @@ using Lyntai.Memory;
 namespace Lyntai.Storage;
 
 /// <summary>The materialization row for <c>lyntai_memory_node</c>, projected to <see cref="GraphNode"/> by
-/// <see cref="ToNode"/> — shared by the relational backends so the column↔record mapping cannot drift.
-///
-/// <para><b>Settable properties, never a positional record.</b> Dapper will not bind a SQLite INTEGER to a
-/// positional record's constructor parameter, and a property-mapped row sidesteps its exact-type matching
-/// entirely. The Postgres store had reached the same shape for its own reasons.</para>
-///
-/// <para><b>Why this is shared when the QUERIES are not.</b> Every backend aliases each column explicitly,
-/// because a name mismatch here is a SILENT null rather than an error — and two independent copies of a
-/// 25-property mapping is two places for that silence to appear. The queries genuinely differ by dialect;
-/// the property names they alias to do not, and this type is what makes that a fact instead of a
-/// coincidence.</para>
+/// <see cref="ToNode"/> — shared by the relational backends so the column↔record mapping cannot drift: a name
+/// mismatch here is a SILENT null rather than an error. Settable properties, never a positional record,
+/// because Dapper will not bind a SQLite INTEGER to a positional record's constructor parameter.
 ///
 /// <para><b>The three age marks are SUBTRACTIONS against policy-independent primitives</b> (design §5.7).
 /// <see cref="Age"/>, <see cref="OrdinalAge"/> and <see cref="VolumeAge"/> — and their
@@ -24,10 +16,10 @@ namespace Lyntai.Storage;
 /// corrupt them. <see cref="ProvenanceRetrievability"/> and <see cref="ProvenanceSalience"/> are plain
 /// counters read straight back — nothing is computed for them, here or in SQL.</para>
 ///
-/// <para><b>What each backend still states for itself is the DIALECT</b>, and only that: SQLite's column
-/// affinity can hold <c>1.0</c> as an INTEGER and <c>0.5</c> as a REAL in one column, so its 0..1-shaped
-/// reads need a <c>CAST</c> that Postgres's <c>DOUBLE PRECISION</c> does not.</para></summary>
-public class MemoryNodeRow
+/// <para>Every 0..1-shaped and age column is read through <c>CAST(… AS DOUBLE PRECISION)</c>
+/// (<see cref="MemoryGraphSql.NodeColumns"/>): SQLite's affinity can hold <c>1.0</c> as an INTEGER and
+/// <c>0.5</c> as a REAL in one column.</para></summary>
+public sealed class MemoryNodeRow
 {
     public long Id { get; set; }
     public string Engine { get; set; } = "";
@@ -77,12 +69,9 @@ public class MemoryNodeRow
     /// <para><see cref="GraphNode.Relevance"/> is deliberately NOT scored here. It is the caller's own rank
     /// position, and it goes through <see cref="MemoryRelevance.ByRankPosition"/> at the query site where
     /// that position is known. This projection therefore reports <c>0</c> with
-    /// <see cref="GraphNode.Matched"/> <c>null</c> — "nobody asked" — and a seed overwrites both.
-    /// <para><b>It reported <c>1</c> until 2026-08-29, which is the whole of D97.</b> Every read that is not
-    /// a seed — a graph walk, a fetch by id for a semantic or subject seed — therefore handed back the
-    /// MAXIMUM relevance, so an unscored candidate outranked every scored one. The pairing matters: dropping
-    /// to <c>0</c> without <see cref="GraphNode.Matched"/> beside it deletes those candidates under a
-    /// multiplicative policy instead of merely ranking them low.</para></para></summary>
+    /// <see cref="GraphNode.Matched"/> <c>null</c> — "nobody asked" — and a seed overwrites both. The two
+    /// travel together: a <c>0</c> without the <c>null</c> would delete an unscored candidate under a
+    /// multiplicative ranking policy instead of ranking it on its other signals (D97).</para></summary>
     /// <param name="encodedAt">Where the engine's own elapsed-time primitive currently stands.</param>
     public GraphNode ToNode(DateTimeOffset encodedAt) => new(
         Id, Engine, TaskKey, Scope, Headline, Content, (MemoryGrade)Grade,
@@ -102,7 +91,7 @@ public class MemoryNodeRow
 /// <see cref="MemoryNodeRow"/>'s own reasoning. <see cref="EdgeStrengthenedAt"/> is nullable because
 /// <c>MAX</c> over no rows is NULL, exactly as the node's own <see cref="MemoryNodeRow.StrengthenedAt"/>
 /// is.</summary>
-public class MemoryEdgeRow
+public sealed class MemoryEdgeRow
 {
     public double EdgeWeight { get; set; }
     public double EdgeAge { get; set; }
@@ -118,7 +107,7 @@ public class MemoryEdgeRow
 /// <para>Every member defaults to its zero value for an engine nothing has been written to, which is
 /// correct rather than merely convenient: nothing has happened in it, so nothing has aged. Both backends
 /// substitute <see cref="DateTimeOffset.UnixEpoch"/> for the missing row.</para></summary>
-public class MemoryPositionRow
+public sealed class MemoryPositionRow
 {
     public double Position { get; set; }
     public long Ordinal { get; set; }

@@ -1,4 +1,5 @@
 using Dapper;
+using Lyntai.Storage.Relational;
 using Lyntai.Inference;
 using Lyntai.Inference.Caching;
 
@@ -17,10 +18,9 @@ public sealed class PostgresResponseCache(IDbConnectionFactory factory, LyntaiOp
     public async Task<TextResponse?> GetAsync(string key, CancellationToken ct = default)
     {
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
-        var json = await conn.QuerySingleOrDefaultAsync<string>(new CommandDefinition(
-            "SELECT reply_json FROM lyntai_response_cache WHERE cache_key = @key AND expires_at > @now",
+        var json = await conn.QuerySingleOrDefaultAsync<string>(new CommandDefinition(ResponseCacheSql.Get,
             new { key, now = _clock() }, cancellationToken: ct)).ConfigureAwait(false);
-        return json is null ? null : PostgresJson.Deserialize<TextResponse>(json);
+        return json is null ? null : ReflectionJson.Deserialize<TextResponse>(json);
     }
 
     public async Task SetAsync(string key, TextResponse reply, TimeSpan? ttl = null, CancellationToken ct = default)
@@ -29,16 +29,12 @@ public sealed class PostgresResponseCache(IDbConnectionFactory factory, LyntaiOp
         if (window <= TimeSpan.Zero) return; // non-positive TTL disables caching
         var now = _clock();
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
-        await conn.ExecuteAsync(new CommandDefinition("""
-            INSERT INTO lyntai_response_cache (cache_key, reply_json, expires_at, created_at)
-            VALUES (@key, @json, @expiresAt, @now)
-            ON CONFLICT (cache_key) DO UPDATE SET reply_json = @json, expires_at = @expiresAt, created_at = @now
-            """, new { key, json = PostgresJson.Serialize(reply), expiresAt = now + window, now }, cancellationToken: ct)).ConfigureAwait(false);
+        await conn.ExecuteAsync(new CommandDefinition(ResponseCacheSql.Set, new { key, json = ReflectionJson.Serialize(reply), expiresAt = now + window, now }, cancellationToken: ct)).ConfigureAwait(false);
 
         // opportunistic eviction: drop expired, then trim the oldest beyond the size cap (OFFSET past the
         // newest @max rows → the surplus older ones)
         await conn.ExecuteAsync(new CommandDefinition(
-            "DELETE FROM lyntai_response_cache WHERE expires_at <= @now", new { now }, cancellationToken: ct)).ConfigureAwait(false);
+            ResponseCacheSql.DeleteExpired, new { now }, cancellationToken: ct)).ConfigureAwait(false);
         await conn.ExecuteAsync(new CommandDefinition("""
             DELETE FROM lyntai_response_cache WHERE cache_key IN (
                 SELECT cache_key FROM lyntai_response_cache ORDER BY created_at DESC, cache_key OFFSET @max)
@@ -49,6 +45,6 @@ public sealed class PostgresResponseCache(IDbConnectionFactory factory, LyntaiOp
     {
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         await conn.ExecuteAsync(new CommandDefinition(
-            "DELETE FROM lyntai_response_cache WHERE cache_key = @key", new { key }, cancellationToken: ct)).ConfigureAwait(false);
+            ResponseCacheSql.Remove, new { key }, cancellationToken: ct)).ConfigureAwait(false);
     }
 }

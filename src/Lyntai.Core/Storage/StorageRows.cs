@@ -2,19 +2,9 @@ using Lyntai.Cortex;
 
 namespace Lyntai.Storage;
 
-// The materialization rows the relational backends share, in one place for the reason JobStoreSql and
-// MemoryGraphRows already carry: every one of these aliases its columns explicitly, and a column↔property
-// mismatch is a SILENT null rather than an error, so a second copy is a second place for that silence to
-// appear with nothing able to see it (docs/DECISIONS.md D80).
-//
-// Each was byte-identical in SqliteX/PostgresX before being hoisted. What stays per-backend is the SQL —
-// the queries genuinely differ by dialect — and the one row type that genuinely differs: the vector stores
-// read different columns (SQLite materializes the stored vector, Postgres a computed score), so neither
-// has a shared shape to hoist and both keep their own.
-//
-// SETTABLE PROPERTIES, never positional records, throughout. Dapper will not bind a SQLite INTEGER to a
-// positional record's constructor parameter — a bool column is the common case — and a property-mapped row
-// sidesteps its exact-type matching entirely. The Postgres stores had reached the same shape independently.
+// The materialization rows the relational backends share: a column↔property mismatch is a SILENT null, so
+// one copy per row (docs/DECISIONS.md D80). SETTABLE PROPERTIES, never positional records — Dapper will not
+// bind a SQLite INTEGER to a positional record's constructor parameter.
 
 /// <summary>A <c>lyntai_curated_memory</c> row.</summary>
 public sealed class CuratedMemoryRow
@@ -45,7 +35,7 @@ public sealed class PromptVersionRow
     public bool IsActive { get; set; }
 
     /// <summary>Project to the contract type.</summary>
-    public PromptVersion ToEntity() => new(Name, Version, Template, Author, CreatedAt, IsActive);
+    public PromptVersion ToRecord() => new(Name, Version, Template, Author, CreatedAt, IsActive);
 }
 
 /// <summary>One scorer's result within a session.</summary>
@@ -75,16 +65,16 @@ public sealed class ScoreAggregateRow
 }
 
 /// <summary>One (session, scorer, score) triple, for a flat export — the materialization of
-/// <see cref="Lyntai.Cortex.ScoreExportRow"/>, which is a positional record Dapper will not bind
+/// <see cref="ScoreExportEntry"/>, which is a positional record Dapper will not bind
 /// into.</summary>
-public sealed class ScoreExportEntryRow
+public sealed class ScoreExportRow
 {
     public string SessionId { get; set; } = "";
     public string ScorerId { get; set; } = "";
     public double Score { get; set; }
 
     /// <summary>Project to the contract type.</summary>
-    public Lyntai.Cortex.ScoreExportRow ToRecord() => new(SessionId, ScorerId, Score);
+    public ScoreExportEntry ToRecord() => new(SessionId, ScorerId, Score);
 }
 
 /// <summary>The session half of a trace read.</summary>
@@ -95,6 +85,18 @@ public sealed class TraceSessionRow
     public DateTimeOffset StartedAt { get; set; }
     public DateTimeOffset? EndedAt { get; set; }
     public string? TraceId { get; set; }
+
+    /// <summary>Project to the contract type, with the session's steps in the order they were read.</summary>
+    /// <param name="steps">The session's step rows.</param>
+    public RunTrace ToRecord(IEnumerable<TraceStepRow> steps) => new()
+    {
+        SessionId = SessionId,
+        Mode = Mode,
+        StartedAt = StartedAt,
+        EndedAt = EndedAt,
+        TraceId = TraceId,
+        Steps = [.. steps.Select(s => s.ToRecord())],
+    };
 }
 
 /// <summary>One step within a traced session.</summary>
@@ -109,6 +111,20 @@ public sealed class TraceStepRow
     public double CostUsd { get; set; }
     public long DurationMs { get; set; }
     public string? Detail { get; set; }
+
+    /// <summary>Project to the contract type.</summary>
+    public TraceStep ToRecord() => new()
+    {
+        Kind = Kind,
+        Label = Label,
+        Sequence = Sequence,
+        OffsetMs = OffsetMs,
+        InputTokens = InputTokens,
+        OutputTokens = OutputTokens,
+        CostUsd = CostUsd,
+        DurationMs = DurationMs,
+        Detail = Detail,
+    };
 }
 
 /// <summary>Totals for one consumer's usage window.</summary>

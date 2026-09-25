@@ -48,7 +48,7 @@ public sealed record ScriptProfile(
     /// more readily than three Han characters do, and a Japanese query drags in material that then displaces
     /// the relevant entries under the recall limit.
     /// <para>The gram length here is the knob that answers it, and it is deliberately <b>not</b> tuned by
-    /// assumption — see <c>TASKS.md</c>. Raising it costs no migration (a longer query phrase still matches a
+    /// assumption. Raising it costs no migration (a longer query phrase still matches a
     /// trigram index) and must be MEASURED, because a longer gram is more selective and also matches less:
     /// the failure mode of over-correcting is a miss rate that rises for the opposite reason.</para></summary>
     public static ScriptProfile Kana { get; } = new("kana", true, 3, 2);

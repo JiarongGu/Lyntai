@@ -77,8 +77,8 @@ public class ScoringServiceTests
             Task.FromResult<IReadOnlyList<ScoredResult>>([]);
         public Task<IReadOnlyList<ScorerAggregate>> AggregateAsync(CancellationToken ct = default) =>
             Task.FromResult<IReadOnlyList<ScorerAggregate>>([]);
-        public Task<IReadOnlyList<ScoreExportRow>> ExportAsync(CancellationToken ct = default) =>
-            Task.FromResult<IReadOnlyList<ScoreExportRow>>([]);
+        public Task<IReadOnlyList<ScoreExportEntry>> ExportAsync(CancellationToken ct = default) =>
+            Task.FromResult<IReadOnlyList<ScoreExportEntry>>([]);
     }
 
     [Fact]

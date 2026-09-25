@@ -37,37 +37,19 @@ public interface IConversationStore
 
     Task<ChatThread?> GetThreadAsync(string id, CancellationToken ct = default);
 
-    /// <summary>Threads newest first (created_at DESC, id DESC), at most <paramref name="limit"/> of them.
-    /// <para>The id tiebreak between two threads sharing a timestamp is byte-ordinal on SQLite/InMemory and
-    /// follows the database collation on Postgres, so their relative order may differ between backends.</para></summary>
-    Task<IReadOnlyList<ChatThread>> ListThreadsAsync(int limit = 100, CancellationToken ct = default);
+    /// <summary>Threads newest first (created_at DESC, id DESC), at most <paramref name="limit"/> of them,
+    /// starting strictly AFTER <paramref name="after"/> when one is given — keyset paging: pass the last thread
+    /// of the previous page, or null to start at the newest. A non-positive <paramref name="limit"/> returns
+    /// none, on every backend.
+    /// <para>The (created_at, id) cursor is stable across same-timestamp ties — the cursor and the ordering
+    /// share one collation, so a walk never skips or repeats a thread. That collation is byte-ordinal on
+    /// SQLite and in process and the database's on Postgres, so which of two same-timestamp threads comes
+    /// first may differ between backends. An in-process store gets the rule from
+    /// <see cref="ChatThreads.Page"/>.</para></summary>
+    Task<IReadOnlyList<ChatThread>> ListThreadsAsync(int limit = 100, ChatThread? after = null, CancellationToken ct = default);
 
-    /// <summary>Total number of threads in the store — for stats/backlog counts. The shipped SQLite/Postgres/
-    /// InMemory backends do it in O(1) (<c>COUNT(*)</c>). <b>WARNING for a BYO impl:</b> the DEFAULT here
-    /// materializes the WHOLE table (<c>ListThreadsAsync(int.MaxValue)</c>) then counts — a naive fallback
-    /// so the interface stays small, NOT a cheap call. Override it for any store of non-trivial size.</summary>
-    async Task<int> CountThreadsAsync(CancellationToken ct = default) =>
-        (await ListThreadsAsync(int.MaxValue, ct).ConfigureAwait(false)).Count;
-
-    /// <summary>One page of threads in the same newest-first order as <see cref="ListThreadsAsync"/>
-    /// (created_at DESC, id DESC), starting strictly AFTER <paramref name="after"/> (keyset/cursor paging —
-    /// pass the last thread of the previous page; null starts at the newest). Walks the whole store page by
-    /// page without loading it all at once. The (created_at, id) cursor is stable across same-timestamp ties:
-    /// the cursor comparison and the ordering share one collation on every backend, so a walk never skips or
-    /// repeats a thread — but that collation is byte-ordinal on SQLite/InMemory and the database's on
-    /// Postgres, so which of two same-timestamp threads comes first may differ between backends.
-    /// The shipped backends do a server-side keyset. <b>WARNING for a BYO impl:</b> the DEFAULT here loads the
-    /// WHOLE table (<c>ListThreadsAsync(int.MaxValue)</c>) then slices in memory — a naive fallback, NOT the
-    /// cheap keyset it looks like. Override it for any store of non-trivial size.</summary>
-    async Task<IReadOnlyList<ChatThread>> ListThreadsPageAsync(int limit, ChatThread? after = null, CancellationToken ct = default)
-    {
-        var all = await ListThreadsAsync(int.MaxValue, ct).ConfigureAwait(false); // already ordered created_at DESC, id DESC
-        IEnumerable<ChatThread> q = all;
-        if (after is not null)
-            q = q.Where(t => t.CreatedAt < after.CreatedAt
-                || (t.CreatedAt == after.CreatedAt && string.CompareOrdinal(t.Id, after.Id) < 0));
-        return [.. q.Take(limit)];
-    }
+    /// <summary>Total number of threads in the store — for stats and backlog counts.</summary>
+    Task<int> CountThreadsAsync(CancellationToken ct = default);
 
     /// <summary>Replace a thread's opaque metadata (thread-level state that changes over the run —
     /// e.g. phase/plan/commit projections). No-op if the thread doesn't exist.</summary>
@@ -76,13 +58,37 @@ public interface IConversationStore
     /// <summary>Append an event to a thread. <paramref name="kind"/> is the event type (a role for a plain
     /// chat turn); <paramref name="payload"/> is the body (text, or JSON for a richer event);
     /// <paramref name="metadata"/> is optional per-event JSON. The store assigns a GUID <c>Id</c> and the
-    /// next per-thread <c>Seq</c>.</summary>
+    /// next per-thread <c>Seq</c>. Appending to a thread that does not exist THROWS on every backend and
+    /// stores nothing.</summary>
     Task<ChatMessage> AppendMessageAsync(string threadId, string kind, string payload, string? metadata = null, CancellationToken ct = default);
 
     /// <summary>Events of a thread in append (sequence) order.</summary>
     Task<IReadOnlyList<ChatMessage>> GetMessagesAsync(string threadId, CancellationToken ct = default);
 
     Task DeleteThreadAsync(string id, CancellationToken ct = default);
+}
+
+/// <summary><see cref="IConversationStore.ListThreadsAsync"/>'s ordering and cursor rule, for a store that
+/// holds its threads in process — the one spelling the shipped in-process stores use, so a BYO one pages the
+/// same way.</summary>
+public static class ChatThreads
+{
+    /// <summary>One page: newest first (created_at DESC, then id DESC byte-ordinally), strictly after
+    /// <paramref name="after"/> when given, at most <paramref name="limit"/> — none for a non-positive one.</summary>
+    /// <param name="threads">Every thread, in any order.</param>
+    /// <param name="limit">The most to return.</param>
+    /// <param name="after">The last thread of the previous page, or null for the first.</param>
+    public static IReadOnlyList<ChatThread> Page(IEnumerable<ChatThread> threads, int limit, ChatThread? after)
+    {
+        ArgumentNullException.ThrowIfNull(threads);
+        if (limit <= 0) return [];
+        var q = threads.OrderByDescending(t => t.CreatedAt).ThenByDescending(t => t.Id, StringComparer.Ordinal)
+            .AsEnumerable();
+        if (after is not null)
+            q = q.Where(t => t.CreatedAt < after.CreatedAt
+                || (t.CreatedAt == after.CreatedAt && string.CompareOrdinal(t.Id, after.Id) < 0));
+        return [.. q.Take(limit)];
+    }
 }
 
 /// <summary>Contributes app-specific ADDITIONAL INFO to a conversation WITHOUT owning the store — Lyntai

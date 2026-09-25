@@ -63,7 +63,28 @@ internal sealed class FileSystemRoot : IDisposable
             stream.Write(Utf8.GetBytes(text));
             stream.Flush(flushToDisk: true);
         }
-        File.Move(temp, file, overwrite: true);
+        Replace(temp, file);
+    }
+
+    private const int ReplaceAttempts = 8;
+
+    // Windows refuses a replace-rename while another process — an indexer, a scan of the file just written —
+    // holds the target open, and a burst of writes to one file provokes it reliably. Brief and bounded (at
+    // most ~140 ms in all): a refusal that outlasts it is reported.
+    private static void Replace(string temp, string file)
+    {
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                File.Move(temp, file, overwrite: true);
+                return;
+            }
+            catch (Exception ex) when (attempt < ReplaceAttempts && ex is UnauthorizedAccessException or IOException)
+            {
+                Thread.Sleep(5 * attempt);
+            }
+        }
     }
 
     /// <summary>Appends <paramref name="text"/> and flushes it to disk before returning — the journals' write-through.

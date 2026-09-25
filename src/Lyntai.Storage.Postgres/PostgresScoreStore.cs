@@ -8,7 +8,7 @@ public sealed class PostgresScoreStore(IDbConnectionFactory factory) : IScoreSto
     public async Task SaveAsync(string sessionId, IReadOnlyList<ScoredResult> results, CancellationToken ct = default)
     {
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
-        using var tx = conn.BeginTransaction();
+        await using var tx = await conn.BeginTransactionAsync(ct).ConfigureAwait(false);
         var now = DateTimeOffset.UtcNow;
         foreach (var r in results)
         {
@@ -21,7 +21,7 @@ public sealed class PostgresScoreStore(IDbConnectionFactory factory) : IScoreSto
                 """, new { sessionId, r.ScorerId, r.ScorerName, r.Group, r.IsLlm, r.Score, r.Reason, now },
                 tx, cancellationToken: ct)).ConfigureAwait(false);
         }
-        tx.Commit();
+        await tx.CommitAsync(ct).ConfigureAwait(false);
     }
 
     public async Task<IReadOnlyList<ScorerAggregate>> AggregateAsync(CancellationToken ct = default)
@@ -30,17 +30,17 @@ public sealed class PostgresScoreStore(IDbConnectionFactory factory) : IScoreSto
         var rows = await conn.QueryAsync<ScoreAggregateRow>(new CommandDefinition("""
             SELECT scorer_id AS ScorerId, MAX(scorer_name) AS ScorerName,
                    AVG(score) AS AverageScore, COUNT(*) AS Count
-            FROM lyntai_score_result GROUP BY scorer_id ORDER BY scorer_id
+            FROM lyntai_score_result GROUP BY scorer_id ORDER BY scorer_id COLLATE "C"
             """, cancellationToken: ct)).ConfigureAwait(false);
         return [.. rows.Select(r => r.ToRecord())];
     }
 
-    public async Task<IReadOnlyList<ScoreExportRow>> ExportAsync(CancellationToken ct = default)
+    public async Task<IReadOnlyList<ScoreExportEntry>> ExportAsync(CancellationToken ct = default)
     {
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
-        var rows = await conn.QueryAsync<ScoreExportEntryRow>(new CommandDefinition("""
+        var rows = await conn.QueryAsync<ScoreExportRow>(new CommandDefinition("""
             SELECT session_id AS SessionId, scorer_id AS ScorerId, score AS Score
-            FROM lyntai_score_result ORDER BY session_id, scorer_id
+            FROM lyntai_score_result ORDER BY session_id COLLATE "C", scorer_id COLLATE "C"
             """, cancellationToken: ct)).ConfigureAwait(false);
         return [.. rows.Select(r => r.ToRecord())];
     }
