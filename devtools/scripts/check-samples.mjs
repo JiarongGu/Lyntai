@@ -1,58 +1,20 @@
 // check-samples — fail when a fenced C# block in our own documentation does not compile.
 //
-// The gap this closes: `check-warnings` gates the code, `check-docs` gates the prose's VOCABULARY,
-// `check-api-vocabulary` gates the public surface's NAMES, and `consumer-smoke` gates the PACKAGES — but a
-// fenced ```csharp block in README.md or docs/ was never compiled by anything. Measured cost: a README
-// sample assigning `TimeSpan.FromDays(14)` to a `double`-typed property shipped and survived every gate
-// (2026-08-09), and the 3.0 migration guide's samples are correct only because its author hand-built a
-// throwaway probe project and a v2.5.0 worktree to compile both halves (2026-08-11). The repo's own
-// position is that an unfailed warning is a false promise shipped to consumers; a sample that cannot
-// compile is the same promise, in the document a consumer copies from — and for a migration guide the
-// samples ARE the deliverable.
+// A sample that cannot compile is a false promise in the document a consumer copies from. DEFAULT-ON: an
+// opt-in marker makes coverage whatever someone remembered to tag. Why, and what it cost: `docs/GATES.md`
+// §check-samples.
 //
-// THE DEFAULT IS ON. A block is compiled unless it opts out. The inversion is the point: an opt-IN marker
-// makes coverage whatever someone remembered to tag, which is the "checklist in someone's head" failure
-// `dotnet-package-layout.md` §"Shipping a package" already names. Default-on means a sample written
-// tomorrow is covered tomorrow.
+// Two annotations, and reach for the first: `<!-- compile-given: <declarations> -->` supplies the context
+// a fragment assumes and keeps the block COMPILED (the declarations compile too, so it cannot wave a
+// sample through); `<!-- compile-skip: <reason> -->` takes the block out. Both on one block is an ERROR.
+// `<!-- compile-skip-file: … -->` opts out a whole historical document.
 //
-// TWO ANNOTATIONS, and they are not interchangeable — reach for the first one:
-//   · `<!-- compile-given: <declarations> -->` supplies the reader-side context a fragment assumes
-//     (`string apiKey;`, `sealed class MyLoggingHandler : DelegatingHandler { }`). The block STAYS
-//     COMPILED, and the declarations are compiled with it — so a `compile-given` naming a type that does
-//     not exist FAILS, exactly like any other unresolved name. It cannot wave a sample through; it can
-//     only give one a context that genuinely type-checks.
-//   · `<!-- compile-skip: <reason> -->` takes the block out entirely. Correct only where no context would
-//     help: a partial signature quoted for illustration, a before/after pair of one member, a menu of
-//     alternatives — or where the context needed is a whole program rather than a few declarations.
-// Both on one block is an ERROR, not a precedence question: they state opposite intents, and whichever
-// lost would sit unread. `<!-- compile-skip-file: … -->` opts out a whole document (a historical record).
-//
-// HOW A BLOCK IS COMPILED. Documented samples are fragments, not files, so each one is wrapped by SHAPE:
-//   · declaration — the block is a type declaration; it goes at namespace scope
-//   · member      — the block is a member fragment; it goes inside a class body
-//   · statement   — the block is statements; it goes in a method body over a small typed stub preamble
-//   · expression  — the block is a bare expression (`new GraphMemoryOptions { … }`); `_ = ( … );`
-// The shape is GUESSED from the first meaningful line, then retried for whatever is still failing — each
-// pass one batched compilation, attributing errors to the block's own generated file. A block passes if
-// any shape compiles it; nothing is reported that compiles somewhere.
-//
-// TWO WAYS THIS GATE COULD HAVE LIED, both measured on its own first run and both fixed here:
-//
-//  1. ROSLYN NEVER BINDS A COMPILATION THAT HAS A SYNTAX ERROR. Parse errors in ONE file suppress semantic
-//     analysis for EVERY file, so the first batch reported 132 errors — all of them syntactic — and zero
-//     CS0246s, while eleven blocks referencing types that do not exist here sailed through as "compiles".
-//     A batch is therefore only trustworthy when it is CLEAN: the loop below iterates to a fixed point,
-//     re-shaping or dropping whatever failed and recompiling, and a block is passed only by a compilation
-//     in which nothing at all errored. Anything else is a green light over unbound code.
-//  2. A TYPE DECLARED IN SOURCE BEATS THE SAME TYPE FROM A REFERENCED ASSEMBLY, compilation-wide (CS0436 is
-//     a WARNING). So one sample opening `namespace Lyntai.Inference;` silently redefines the real
-//     `MediaRequest` for every OTHER sample in the same batch, which then verify against the doc's
-//     type instead of the library's. Blocks that declare a namespace under the library root are compiled
-//     ISOLATED, one build each, for that reason — never batched.
-//
-// The stub preamble declares only TYPES (`static IServiceCollection services => null!;`) — nothing runs, so
-// the type is the whole check. They are static members rather than locals on purpose: a sample that
-// declares its own `var services = …` legally shadows a field and would collide with a local.
+// Each block is wrapped by SHAPE — declaration (namespace scope), member (a class body), statement (a
+// method over the stub PREAMBLE), expression (`_ = ( … );`) — guessed, then retried until one compiles.
+// Two rules keep it honest (`.claude/knowledge/pitfalls.md`): Roslyn binds NOTHING in a compilation
+// carrying a syntax error, so a block passes only in a compilation where nothing errored; and a type
+// declared in source outranks the same type from a reference, so a block declaring a namespace under the
+// library root compiles ISOLATED.
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';

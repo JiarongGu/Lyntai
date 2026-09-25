@@ -8,11 +8,7 @@
 // decision under D26 — it forces the dependency on every one-line-install consumer — so it stays a human call,
 // and check-bundle will fail if a dependency sneaks in without one.
 //
-// Split into a function over a repo ROOT plus a thin CLI wrapper 2026-08-11 (docs/task-archive.md Part 62)
-// so it can be
-// tested against a fixture tree. It used to be one top-level script writing into this repository at import
-// time — untestable by construction, and it is the one tool here whose failure mode is a HALF-registered
-// package (see the note on `insert`). Nothing it writes changed in the move.
+// Its failure mode is a HALF-registered package — see the note on `insert`.
 //
 // Usage: node devtools/dev.mjs new-package Lyntai.Storage.Redis [--description "..."]
 import fs from 'node:fs';

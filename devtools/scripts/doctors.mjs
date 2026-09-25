@@ -2,11 +2,7 @@
 //
 // Unlike its neighbours this file has NO CLI entry point of its own: `dev.mjs` is its command line
 // (`doctor [--fix]`, `changelog [--fix] [--version X.Y.Z] [--date YYYY-MM-DD]`), and `pack` calls the first
-// of them directly. It was extracted from dev.mjs 2026-08-11 (docs/task-archive.md Part 62) for one reason
-// — a function
-// living inside a `switch` in the dispatcher cannot be driven by a test, and these three write to
-// README.md, judge the release version, and rewrite CHANGELOG.md headings. Nothing about what they check
-// changed in the move.
+// of them directly. Each writes or judges a release artifact, which is why each is a function a test drives.
 //
 // Every file access is behind a `read`/`write` seam so a test never touches the real README or CHANGELOG.
 import { spawnSync } from 'node:child_process';

@@ -1,23 +1,11 @@
 // check-links — fail when a maintained doc points at an in-repo path that is not there.
 //
-// The gap this closes, and it is a MEASURED one rather than a hypothetical. `docs/superpowers/INDEX.md`
-// § "Archiving one that is still in `docs/`" ends with "repoint every inbound reference, and check nothing
-// dangles". That step was skipped when the ranking × forgetting measurement record was untracked under D43:
-// SIX references in maintained state — README (×3), the design contract (×1), DECISIONS (×2) — kept naming
-// `docs/2026-08-09-memory-policy-measurement.md`, a path that had stopped existing. Every gate stayed  link-ok
-// green. (That path is named deliberately: it is the dead reference this gate was BUILT for.)
-// Found by a reader, which is precisely the failure mode `check-docs` and `check-encoding` were each added
-// to end: a rule that is written down and still violated is a missing gate, not a knowledge problem.
-//
-// SCOPE, stated so nobody widens it by accident:
-//   - EXISTENCE only, never line numbers. A `file.cs:123` reference rots on the next edit for entirely
-//     legitimate reasons, and `pitfalls.md` §DI/config already records line numbers rotting twice and being
-//     deleted in favour of names. Gating them would make every refactor fail this check for no defect.
-//   - `local/**` is skipped: untracked by design (`docs/superpowers/INDEX.md`), so "not on disk" says
-//     nothing about whether the reference is right.
-//   - The SAME "is this maintained state?" predicates as check-docs, imported rather than restated. Two
-//     copies of that question drift the moment a document is archived, and silently, in the permissive
-//     direction, on whichever copy was forgotten — check-samples already imports them for this reason.
+// It checks a reference four ways — a PATH that must exist, a `TASKS.md`/archive Part that must be in the
+// record it names, a `§` section that must be a heading, a `Type.Member` that must be declared — because
+// there are four ways one rots. Why each exists, what was measured, and its scope: `docs/GATES.md`
+// §check-links. EXISTENCE only, never line numbers, and `local/**` is skipped (untracked by design).
+// Escape: `link-ok`, this gate's own. The "is this maintained state?" predicates are check-docs',
+// imported rather than restated.
 import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';

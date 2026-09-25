@@ -1,23 +1,11 @@
 // check-counts — FAIL when a COUNT written in prose disagrees with the tree it counts.
 //
-// WHY THIS IS A GATE. `docs/task-archive.md` Part 73 measured six corrections to a counted claim inside
-// sixty commits,
-// all the same shape: a number written by hand that nothing computes. Two more went stale during the
-// 2026-08-15 session that built this, both in `CLAUDE.md`'s own baseline line, and both caught by a person
-// who happened to be looking. That is eight incidents and zero automated catches.
+// A number written by hand that nothing computes goes stale silently, and no other gate can see it: a stale
+// count retires no vocabulary, so the sentence stays grammatical and wrong. What it cost and its limit (it
+// covers only counts somebody REGISTERED): `docs/GATES.md` §check-counts.
 //
-// `check-docs` structurally CANNOT see this. Its registry holds vocabulary a decision RETIRED, and a count
-// going stale retires nothing — the sentence stays grammatical, plausible, and wrong. It is the same
-// relationship `check-links` has to `check-docs`: one asks whether a document still SAYS what was settled,
-// this asks whether what it COUNTS is still true.
-//
-// THE HONEST LIMIT, stated here rather than discovered: this only ever covers counts somebody REGISTERED.
-// It is a gate against recurrence in the places that have drifted, not a proof that every number in the
-// documentation is right.
-//
-// WHY THE REGISTRY IS CODE AND NOT `project.config.mjs`. Every other registry there (`retiredTerms`,
-// `retiredApiNames`) is pure data. An entry here is a regex plus a FUNCTION over
-// the tree, so it lives beside the gate that runs it and keeps the config a data file.
+// The registry is `COUNTED_CLAIMS` below rather than in `project.config.mjs`, because an entry is a regex
+// plus a FUNCTION over the tree. Escape: `count-ok`, for a sentence quoting a historical count.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';

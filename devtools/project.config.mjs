@@ -1704,9 +1704,6 @@ export default {
     "bench/Lyntai.Benchmarks/MemoryVerificationSweep.cs": [27],
     // A ratchet that keeps being raised by one is measuring something that should not exist: `dev.mjs`'s
     // entry climbed 31 → 35 on a hand-kept usage banner until the list was derived and the entry deleted.
-    "devtools/scripts/check-comments.mjs": [41],
-    "devtools/scripts/check-samples.mjs": [55],
-    "devtools/scripts/check-version-bump.mjs": [30],
     "src/Lyntai.Core/Memory/IMemoryGraphStore.cs": [31],
     "tests/Lyntai.Tests/Memory/Corpus/MemoryCorpus.cs": [88, 35, 27],
     "tests/Lyntai.Tests/Memory/Corpus/RecallQuality.cs": [40],

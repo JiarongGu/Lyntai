@@ -7,11 +7,6 @@
 // cref ships inside the XML docs consumers read in IntelliSense. Scoped to `src/` — tests and samples are
 // free to warn. `--list` prints them all instead of the first 15.
 //
-// Extracted from dev.mjs 2026-08-11 (docs/task-archive.md Part 62) so it can be driven by a test. Nothing
-// about what it
-// CATCHES changed in the move: the same two-part line filter (a warning CODE, and a `src/` path), the same
-// dedup, the same build invocation down to its flags and buffer.
-//
 // THE THREE BUILD FLAGS ARE LOAD-BEARING, and two of them fail in the direction that reports success:
 //   · `-v normal` — `minimal` does not print the per-project warning lines this parses at all.
 //   · `--no-incremental` — MSBuild does not re-emit warnings for a project it did not rebuild, so a second
@@ -32,23 +27,10 @@ const repoDefault = join(dirname(here), '..', '..');
 /**
  * An MSBuild diagnostic line carrying a warning CODE — `warning` alone is prose, and prose is not a defect.
  *
- * **Widened 2026-08-12 (docs/task-archive.md Part 62).** The original `[A-Z]{2,4}\d+` could not see two
- * whole families of real diagnostic id, so a published project could carry one and this gate would report
- * `src/` clean:
- *
- *   · **Longer than four letters** — .NET's own obsoletion warnings are `SYSLIB0011` (six).
- *   · **Not all upper case** — several analyzer packages emit camelCase ids (`xUnit1013`).
- *
- * Filed as a KNOWN LIMIT rather than fixed when the tests were written, because that pass was explicitly not
- * allowed to change what the gate CATCHES. This change is that change, made deliberately.
- *
- * **Measured before and after, because widening a matcher is how false positives get in.** A full
- * `--no-incremental` solution build scanned with the loose pattern finds the same warnings the strict one
- * did — zero in `src/` — so this closes a latent hole without reclassifying anything that exists today.
- *
- * The bounds are still real bounds, not `.+`: at least two leading letters (so a bare `warning 42` stays
- * prose), at most ten (no identifier in either family comes close), and at least one digit. Case-insensitive
- * only in the id, never in the literal `warning`, which MSBuild always emits lower case.
+ * Both id families are real: longer than four letters (`SYSLIB0011`) and not all upper case (analyzer ids
+ * such as `xUnit1013`) — a narrower pattern reports `src/` clean over either. Still BOUNDED: two to ten
+ * letters then a digit, so `warning 42` stays prose, and the literal `warning` is lower case as MSBuild
+ * always emits it.
  */
 export const WARNING_CODE = /warning [A-Za-z]{2,10}\d+/;
 

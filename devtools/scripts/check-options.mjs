@@ -1,18 +1,10 @@
 #!/usr/bin/env node
 // check-options — FAIL when a shipped option reaches a consumer with nothing to explain it.
 //
-// The standard is the owner's: which model to run and which option to select is the consuming
-// application's job, so the library's job is to document all of them and WHY they exist. A settable
-// property on a public `*Options` type is the exact surface where that obligation lands — it is what a
-// consumer sets, and an undocumented one shows up in IntelliSense as a bare name with no hint of what it
-// buys or what the default costs.
-//
-// SCOPE IS DELIBERATELY NARROW, and the narrowness is the measurement rather than timidity. The rule is
-// "carries no `///` doc at all", which scored 5 defects in 5 hits on the first real run — all five genuine,
-// four of them on `AgentSessionOptions`, including `Model`. The obvious wider rule ("a one-line doc says
-// WHAT and not WHY") was refused: 53 options have one and most are correct, because `ApiKey` and `BaseUrl`
-// do not need an essay. `pitfalls.md` records two gates this repository built, measured at a 0% defect
-// rate, and withdrew; a hit here is a defect by construction, which is the bar.
+// Which model to run and which option to select is the consuming application's job, so the library's job
+// is to document every option — and a settable property on a public `*Options` type is where a consumer
+// meets one. The rule is "carries NO `///` doc", deliberately; why not a wider one is `docs/GATES.md`
+// §check-options. `optionDocAllowances` excuses one option with a reason, and a dead allowance FAILS.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';

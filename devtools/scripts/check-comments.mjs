@@ -1,44 +1,12 @@
 // check-comments — FAIL when a comment block outgrows what it explains.
 //
-// WHY THIS IS A GATE. Measured 2026-08-16: `src/` carried **0.86 comment lines per line of real code** and
-// 1.6× more prose than `DECISIONS.md` + `pitfalls.md` + the task archive + the design contract COMBINED. A
-// third of it sat in blocks long enough that nobody reads them in place — including a 120-line `<remarks>`
-// on one method.
+// A long comment is an unindexed, ungated, unreviewed document in the worst possible location; the rule
+// is `.claude/rules/code-commentary.md` and why it is a gate is `docs/GATES.md` §check-comments. Scope:
+// `src`, `tests`, `devtools`, `bench` — `.cs` and `.mjs`.
 //
-// A long comment is an unindexed, ungated, unreviewed document in the worst possible location. This
-// repository runs `check-docs`, `check-links` and `check-counts` to stop its MAINTAINED prose rotting; none
-// of them can see a code comment, so the longest and least-read prose in the tree was also the only prose
-// nothing checked. `pitfalls.md` records it rotting exactly as you would expect.
-//
-// The rule this enforces is `.claude/rules/code-commentary.md`: the XML doc is the CONTRACT, a `//` comment
-// ANNOTATES the code beneath it, and the DESIGN argument belongs in a record.
-//
-// SCOPE — all four tiers (`src`, `tests`, `devtools`, `bench`), `.cs` and `.mjs`. Measured 2026-08-16,
-// comment lines per line of real code:
-//
-//     src/       378 files   ratio 0.65   (was 0.86, 28 long blocks / 893 lines, before that day's paydown)
-//     tests/     262 files   ratio 0.27
-//     devtools/   47 files   ratio 0.27
-//     bench/      13 files   ratio 0.27
-//
-// It scanned `src/` ONLY at first, and this header argued that was deliberate: the RATIO problem is
-// `src/`-specific by roughly 3x, `src/` is the only tier whose comments ship to consumers as XML docs, and a
-// test explaining at length what its fixture proves is doing the job the rule asks. Half of that survived
-// contact with a measurement. The worst block in `tests/` — 88 lines — states a real constraint on what any
-// number measured from that corpus may claim, AND carries a dated heading plus a long narration of what an
-// earlier version did wrong. Same defect, lower density.
-//
-// Widening cost nothing, because the ratchet does not demand a paydown — it freezes. And it immediately
-// found FIVE stacked-summary defects the other tiers had been hiding, one of them a 53-line record doc
-// stranded above a different type, so the record it documented had no doc at all. That is the argument
-// against "this tier is different": the tiers were not better, they were unmeasured.
-//
-// THE RATCHET, and why it is not a plain threshold. 69 blocks were already over the limit when this landed,
-// so a gate that simply failed would have to be switched off. Instead every offending FILE carries its
-// current worst block in `commentBlockAllowances`, and an allowance that is LARGER than the file's actual
-// worst block FAILS — so the numbers can only ever come down, and a file that improves must record it. That
-// is the same "an allowance that stops matching FAILS" discipline `check-api-vocabulary` and `check-links`
-// already carry, turned into a budget instead of a boolean.
+// A RATCHET, not a threshold: every over-limit block is recorded in `commentBlockAllowances` as the
+// file's MULTISET of block lengths, and an allowance looser than the file needs FAILS, so the numbers only
+// come down. It also fails a doc block documenting the wrong member and punctuation a deleted clause left.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';

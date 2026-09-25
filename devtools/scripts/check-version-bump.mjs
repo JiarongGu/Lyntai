@@ -6,29 +6,14 @@
 //   node devtools/scripts/check-version-bump.mjs      # scan STAGED changes (what pre-commit does)
 //   LYNTAI_RELEASE=1 git commit …                     # escape hatch (see below)
 //
-// WHY (this failure is not hypothetical — it fired in a sibling repo and cost a whole version number):
-// release.yml's "Determine version" step reads the CURRENT version from <VersionPrefix> and bumps FROM it
-// when no explicit version input is given. So a session that helpfully bumps the version by hand ("ready
-// for the next release") silently moves the baseline: the next run bumps again and publishes the version
-// AFTER the intended one. Over there a hand-edited 0.1.2 → 0.2.0 published 0.3.0, and 0.2.0 went from
-// unreleased to skipped without anyone deciding to skip it. On a post-1.0 repo the same slip lands on a
-// MAJOR. The second half of the same failure: the workflow STAMPS `## Unreleased` with the version being
-// released, so a commit that stamps (or deletes) that heading by hand leaves nothing to stamp and the
-// release ships with the wrong section title.
+// release.yml bumps FROM the current <VersionPrefix>, so a hand-bump silently moves the baseline and the
+// next release publishes the version AFTER the intended one (D19); a hand-stamped `## Unreleased` leaves
+// the release nothing to stamp. `doctor` catches the resulting STATE; this catches the ACT, at the commit.
 //
-// `doctor`'s version check catches the resulting STATE (VersionPrefix != newest release tag); this catches
-// the ACT, at the commit that introduces it. Note what is NOT the property at risk: `doctor`'s README/npm
-// consistency checks all stay green through a hand-bump, because a hand-bump keeps everything consistent.
-// Consistency was never the risk — AUTHORSHIP was.
+// Escape: LYNTAI_RELEASE=1 — the release pipeline, or a human deliberately repairing a botched release.
 //
-// Escape hatch: LYNTAI_RELEASE=1 — for the release pipeline itself, and for a human deliberately repairing
-// a botched release (in which case you know exactly which version you are writing and why).
-//
-// The rules take DIFF TEXT rather than reading git themselves, so devtools/scripts/__tests__ can drive each
-// one directly as well as end-to-end over a real staged fixture repo (docs/task-archive.md Part 60).
-//
-// It fails CLOSED on a git failure (2026-08-11, docs/task-archive.md Part 62): an empty diff and an
-// unreadable one differ, and this guard used to report both as "no problems". See `StagedDiffFailure`.
+// The rules take DIFF TEXT so a test drives each directly, and a git failure fails CLOSED: an empty diff
+// and an unreadable one differ (`StagedDiffFailure`).
 
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
