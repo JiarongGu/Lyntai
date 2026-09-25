@@ -5027,3 +5027,25 @@ The live GEN7 mesh chain now runs through the job.
 
 - A ComfyUI run that fails DURING execution polls as "Running" until the deadline
 - A pipeline cannot reach a QUEUED backend
+
+## Part 295 — a full review of code, tests, tooling and docs, and what it fixed (2026-09-25)
+
+✅ done 2026-09-25 — **Outcome:** closes `TASKS.md` Part 293 on the owner's terms (all four areas, autonomous
+commits, breaks allowed under **D161**, fal kept). Thirteen read-only passes found about 340 verified defects,
+fixed on fourteen branches in three waves; every merge was re-verified on master. Headline bugs: the
+`AddMemory()` chat never recalled its own turns; two SQL wirings in one container cross-wired; a claude
+resume token could be read as a CLI flag; queue backends re-bought a possibly-delivered render; the text router
+asked Complete-only backends to stream. About sixty vacuous tests now fail under a named mutation, 34 job-store
+facts run on Postgres, and test scratch no longer leaks. Records: `pitfalls.md` 3,355 → ~1,860 lines, README
+1,740 → 898 (generation moved to `docs/generation.md`), `CLAUDE.md` 299 → ~190; `docs/memory.md` is the
+memory contract (D164). What changed for a consumer is `CHANGELOG.md` `## Unreleased`; the choices are
+D182–D189 plus amendments; the incidents are `docs/FIXES.md` 2026-09-25. fal is documented as never called,
+with a free Hugging Face verification route; the vendor survey is D189. The trio moved 4629 / 4670 → 4926 /
+4967 (41 skipped), each step reconciled to a branch's own added and removed tests. **What went wrong on the
+way:** agent worktrees start at a stale commit and must be fast-forwarded first; a usage limit stopped five
+branches mid-run (resumed from their worktrees); merges interacted — an ambiguous cref, an escape token that
+had to move to its own line, two branches each writing a shared fake — and only `verify` on master caught them.
+Declined: memory policy options stay `Action<T>` (the library-wide `Add*` shape); `sql-storage.md` became an
+index rather than deleted. Left open: `TASKS.md` Part 294.
+
+- A full review of code AND docs, and fix what it finds

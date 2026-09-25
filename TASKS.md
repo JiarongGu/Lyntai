@@ -15,18 +15,20 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 5 across 4 Parts: 1 startable, 2 blocked, 2 watch
+## Open items — 7 across 4 Parts: 2 startable, 2 blocked, 2 watch, 1 decision-only
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 106 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
-| 177 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 200 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 257 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
-| 287 | 293 | A full review of code AND docs, and fix what it finds | startable |  |
+| 108 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a free Hugging Face account (an hf_ token) — its router proxies fal's own q… |
+| 182 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 205 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 262 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 292 | 294 | An unreachable LOCAL media server: `NotConfigured` or `Failed`? | decision-only · decision | an owner ruling on whether a local server that is not listening is unconfig… |
+| 298 | 294 | Give the vector-store, verification and annotation contracts an abstract Fa… | startable |  |
+| 301 | 294 | Sweep test comments for history narration that carries no tag or date | startable |  |
 
 <!-- open-items:end -->
 
@@ -103,13 +105,16 @@ provider only ever reads the history document, and a core-node MP4 measures that
 The fal-first naming that once hid ComfyUI inside this list is recorded in
 `.claude/knowledge/pitfalls.md`._
 
-- [ ] **GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key**, checking the status <!-- item: state=blocked kind=env needs="a fal.ai account and key — nobody here has one, and no download substitutes for it" -->
+- [ ] **GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key**, checking the status <!-- item: state=blocked kind=env needs="a free Hugging Face account (an hf_ token) — its router proxies fal's own queue; or a fal.ai key" -->
   vocabulary, the result field names and what `cost` reports. Then delete that backend's "unverified" notes
   or fix the mapping.
   <br>**PARKED 2026-09-25 by the owner, who holds no fal.ai account** and did not know why fal was the vendor
   chosen: it arrived with GEN4 (2026-08-04) as the hosted queue-shaped video backend the durable render job was
-  built against, written from fal's public docs, and has never been called. Whether an uncalled vendor backend
-  should stay at all is a question for the full review (Part 293), not for this item.
+  built against, written from fal's public docs, and has never been called. **The full review kept it** (Part 293,
+  owner) and found a cheaper verifier: the Hugging Face router proxies fal's queue for a free account, and
+  `FalOptions.AuthScheme` / `QueryParameters` make that route configuration (`docs/generation.md` §3). One run
+  there confirms the status vocabulary, the `COMPLETED`+`error` failure shape (`FalOptions.ErrorField`), the result
+  fields and the sub-path question; it does not confirm fal's own `Key` auth or billing.
 
   _**This is fal's OWN wire format and nothing else.** It is not the generation platform's verification
   story and must not be treated as one — `sd-cli` and ComfyUI, once bundled with it, were measured without a
@@ -122,7 +127,7 @@ The fal-first naming that once hid ComfyUI inside this list is recorded in
   it for weeks._
 
   _**The BLOCKING half is gone (2026-08-16, `docs/DECISIONS.md` D69) — what is left is confirmation, not
-  repair.** Every mapping that could be wrong is now a host option: fal's status vocabulary and cost fields,
+  repair.** Every mapping the docs name is now a host option: fal's status vocabulary and cost fields,
   ComfyUI's four response field names, and `sd-cli`'s whole argv plus an `ExtraArgs` escape. So an adopting
   application that discovers the real wire format fixes it in `appsettings.json` and keeps going — it no
   longer waits on a Lyntai release, which is what made this item block anything. Reframed deliberately: the
@@ -211,7 +216,7 @@ there is nothing here to code: what remains is evidence only recurrence can supp
   RouterEndToEndTests.Healthy_primary_cli_serves_and_http_is_never_called
   RouterEndToEndTests.Streaming_never_falls_back_after_the_first_token
   RouterEndToEndTests.Dead_host_cooldown_skips_then_retries_after_expiry
-  AddClaudeCliTests.Registered_provider_serves_through_the_router_by_id
+  AddClaudeCliProviderTests.Registered_provider_serves_through_the_router_by_id
   ClaudeCliProviderTests.Explicit_command_makes_the_provider_available
   CodexCliProviderTests.A_portable_install_is_wired_without_touching_the_process_environment
   ProcessRunnerTests.Resolve_command_path_finds_node_and_caches
@@ -279,37 +284,23 @@ there is nothing here to code: what remains is evidence only recurrence can supp
   BELOW `OpenAsync`, because the three causes a reading can reach are gone and the remaining ones are all
   in the runner's resource behaviour — the same shape as Part 99 above, by a different mechanism.
 
-## Part 293 — a full review: refactor, dedup and cleanup of code and docs (2026-09-25)
+## Part 294 — what the full review left open (2026-09-25)
 
-_Requested by the owner for the NEXT fresh session, after a long run of feature work (archive Parts 282–292).
-Start through the discovery skills (`skills-workflow.md`) and read `.claude/knowledge/pitfalls.md` first._
+_Opened by `docs/task-archive.md` **Part 295**, the full review of code, tests, tooling and docs. Each was
+found and deliberately not done in that pass; everything else it found is fixed and archived._
 
-- [ ] **A full review of code AND docs, and fix what it finds.** Design, duplication and dead weight: <!-- item: state=startable -->
-  refactor where a shape has drifted, dedup where the same rule lives twice, delete what no longer earns its
-  place. Seeds from recent work, not a limit on scope: the piece-spread rule copied into
-  `Lyntai.Providers.Basic` and `Lyntai.Providers.Onnx` (held equal by `PieceSpreadTests`, accepted for now);
-  D177 and D181 near `check-decisions`' length bound; the size of `README.md`, `.claude/knowledge/pitfalls.md`
-  and CLAUDE.md's baseline narrative; and whether the never-called fal backend should stay (the owner holds no
-  account). Scope, depth and what counts as done are the owner's to set at the start of that session.
-  <br>**SET 2026-09-25 by the owner, choosing among posed options:** scope is ALL FOUR areas — `src/`,
-  `tests/`, `devtools/` and the maintained docs (the append-only records are in scope for duplication and
-  length only, never for rewriting what they recorded). The session reviews, fixes and COMMITS autonomously.
-  **Breaking changes are allowed**, each under `CHANGELOG.md` `### Breaking` naming its action (**D161**).
-  **fal STAYS**: document why it is unverified, and survey the other hosted generation vendors as fallback
-  options beside it. Findings land in `devtools/_review/` (scratch) and are triaged here as they are fixed.
-  <br>**Progress (2026-09-25).** The review ran as 13 parallel read-only passes (one per area, plus a hosted
-  vendor survey) and returned about 340 verified findings. The fixes go in three WAVES, because the same file
-  is shared across areas: (1) seven per-package fix branches in parallel — Core inference, the rest of Core,
-  Core memory, storage, providers, generation, tooling — each owning its files and reporting the record edits
-  it needs rather than making them; (2) the cross-area adoptions wave 1 prepared (the Core helpers an adapter
-  now calls), the test-suite cleanup (vacuous facts first) and the renames that span areas; (3) the docs:
-  `CLAUDE.md`, `README.md`, `pitfalls.md`, the design record, `DECISIONS.md` lengths and supersessions, plus
-  every record edit waves 1–2 reported. The pre-change baseline is the one `CLAUDE.md` states, re-read green.
-  <br>**State at `81a52571`:** wave 1 merged for inference, the rest of Core, generation, providers, storage, tooling
-  and the records, plus wave 2's generation follow-up; `verify` green on 23 gates at 4924 / 4965 / 41 (each step
-  reconciled to the tests its branch added). Still open: the memory branch, the test-suite cleanup (non-memory
-  running; memory after the memory branch), one cross-area pass, and wave 3. Each branch's unapplied record edits
-  are in `devtools/_review/notes/` until wave 3 lands them.
+- [ ] **An unreachable LOCAL media server: `NotConfigured` or `Failed`?** Automatic1111 reports a refused <!-- item: state=decision-only kind=decision needs="an owner ruling on whether a local server that is not listening is unconfigured or down" -->
+  connection as `NotConfigured` (blameless — no dead-host strike, so every call retries a fast refusal);
+  ComfyUI reports the same refusal as `Failed` (benched after the threshold), which is what **D31**'s
+  `downHost → Failed` reads as. Both are defensible; the two local backends should agree, and whichever rule
+  wins belongs in D31. `ComfyUiProviderTests.An_unreachable_local_server_fails_the_submit_and_the_probe_saying_so`
+  and `Automatic1111ProviderTests` pin today's split.
+- [ ] **Give the vector-store, verification and annotation contracts an abstract Facts base**, as the engine, <!-- item: state=startable -->
+  ranking and retrievability contracts now have (`tests/Lyntai.Tests/Memory/`), so no fact can be wired to one
+  implementation and silently skipped on another. The vector-store one spans `tests/Lyntai.Tests/Storage/`.
+- [ ] **Sweep test comments for history narration that carries no tag or date.** The review cut every tagged or <!-- item: state=startable -->
+  dated provenance line (74 hits to 1), but untagged narration ("this used to…", "until the fix…") needs a
+  reading pass, not a regex — `code-commentary.md` applies to tests as it does to `src/`.
 
 ## Retired — five Parts that outlived their open work (2026-09-16)
 

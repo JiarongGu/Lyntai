@@ -81,8 +81,7 @@ public class Model2VecProviderTests : IDisposable
         var provider = services.BuildServiceProvider();
 
         Assert.True(EmbeddingRouting.CanEmbed(provider.GetServices<IModelProvider>()));
-        var asProvider = Assert.Single(
-            provider.GetServices<IModelProvider>().Where(p => p.Id == "model2vec"));
+        var asProvider = Assert.Single(provider.GetServices<IModelProvider>(), p => p.Id == "model2vec");
         Assert.Contains(ProviderKinds.Vector, asProvider.Capabilities.Produces);
     }
 

@@ -119,7 +119,7 @@ public static class PromptVersionStoreContract
             gate.SetResult();
             await Task.WhenAll(racers);
 
-            Assert.Single((await store.HistoryAsync(name)).Where(v => v.IsActive));
+            Assert.Single(await store.HistoryAsync(name), v => v.IsActive);
             Assert.NotNull(await store.GetActiveAsync(name));
         }
     }

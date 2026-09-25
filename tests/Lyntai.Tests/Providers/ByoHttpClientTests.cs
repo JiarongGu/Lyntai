@@ -60,6 +60,6 @@ public class ByoHttpClientTests
             .CompleteAsync(new TextRequest { Messages = [TextMessage.User("hi")] });
 
         Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
-        Assert.Equal("127.0.0.1:1", Assert.Single(handler.Requests).Uri.Authority);   // the configured base
+        Assert.Equal("127.0.0.1:1", Assert.Single(handler.Requests).Uri!.Authority);   // the configured base
     }
 }

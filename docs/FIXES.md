@@ -1539,7 +1539,7 @@ belong to — `pitfalls.md` §"Copying a rule copies its assumptions", fourth in
 not come back.
 
 **Verification.**
-`GenerationRouterStreamTests.A_connection_class_THROW_before_any_data_falls_over_like_any_other_pre_commit_failure`
+`MediaRouterStreamTests.A_connection_class_THROW_before_any_data_falls_over_like_any_other_pre_commit_failure`
 — red with the raw `SocketException` before the fix. The existing post-commit throw fact still holds (a
 throw after data stays final).
 

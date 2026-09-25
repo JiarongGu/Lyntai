@@ -1644,8 +1644,8 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   arm rather than reasoning about it.**
 
 - **Asserting a specific FAILURE MODE when the claim is only "it tried" makes a test race the clock.** <!-- trap: sub=tests shape=ordering -->
-  Measured 2026-09-04: `ByoHttpClientTests.Default_path_still_creates_a_lyntai_client` points at a closed
-  local port and pinned `ProviderVerdict.Failed`, whose own comment says it is proving *the client existed and
+  Measured 2026-09-04: `ByoHttpClientTests.Default_path_still_creates_a_lyntai_client` pointed at a closed
+  local port (a scripted handler now) and pinned `ProviderVerdict.Failed`, whose own comment says it is proving *the client existed and
   tried*. Under load — a session that had been driving a local model server for an hour — the connect
   outlasted the 5 s `ProviderTimeout` and the verdict was `Timeout`: **a different correct answer, and a red
   `verify`.** It passed standalone immediately afterwards, which is what makes this class expensive to
