@@ -79,7 +79,7 @@ columns are the two things read wrongly here (**D114**) · `docs/DECISIONS.md` �
 rationale log, present tense, contiguous `D1..Dn` · `docs/GATES.md` — what each gate is for and the numbers
 it holds · `docs/model-tasks.md` — every model-backed seam by the SHAPE of the question it asks ·
 `docs/deployment-shapes.md` — the same evidence cut by the shape of the deployment · `README.md` — the
-consuming story · `CHANGELOG.md` — per-release detail · `docs/ROADMAP.md` — one line per version ·
+consuming story · `docs/generation.md` — the media generation guide · `CHANGELOG.md` — per-release detail · `docs/ROADMAP.md` — one line per version ·
 `TASKS.md` — the OPEN backlog, whose generated roster is the live work: read it, never a copy kept here ·
 `docs/task-archive.md` — the closed one, one Part per task · `docs/FIXES.md` — the fix log ·
 `docs/superpowers/INDEX.md` — the tracked list of specs and plans, whose records live untracked in
