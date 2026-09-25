@@ -1,6 +1,6 @@
 name: Release
 
-# Manual-trigger only (mirrors the sibling Gatherlight release model). Cutting a release is a deliberate
+# Manual-trigger only. Cutting a release is a deliberate
 # act you start from the Actions tab (Run workflow) — there is intentionally NO tag-push / release-published
 # trigger. The full verify gate (build · test · e2e · leak scan) runs against the exact commit before the
 # irreversible NuGet push, and the version bump is committed only AFTER the publish succeeds.

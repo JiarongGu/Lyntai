@@ -1,8 +1,6 @@
-// project.config.mjs — the ONLY project-specific inputs for the devtools dispatcher.
-//
-// The dispatcher (dev.mjs) and the scripts under scripts/ are otherwise generic (pattern shared with the
-// sibling projects — Gatherlight/Vidora/Sonora). To reuse this toolkit elsewhere, copy devtools/ and edit
-// THIS file.
+// project.config.mjs — the project's DATA inputs to the devtools: registries, allowances and vocabularies.
+// A registry whose entries are predicates over the tree lives in its gate instead (`docs/GATES.md` §Writing
+// a new gate).
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -347,8 +345,8 @@ export default {
       ],
       proseExempt: 'the residue is `EmbedderHttpClientName`; the embedder-era measurement (2026-09-19, '
         + '~35 record sites, zero live-tier defects) covers it — the sibling names have their own rules',
-      use: '`AddHttpProvider` with `HttpModelOptions.Embeddings` set (and `Chat = null` '
-        + 'for a host that serves no chat); the wire shape is the internal `HttpEmbeddingsTransport`',
+      use: '`AddHttpProvider` with `HttpModelOptions.Produces = ProviderKinds.Vector` — one registration '
+        + 'per backend, so a host serving chat AND vectors is registered twice (D133)',
       why: 'a second Add* method for the same backend IS the chat-vs-embedder split, re-entering through '
         + 'the one surface a consumer types. One host, one registration, routes as configuration (D132)',
     },
@@ -536,7 +534,7 @@ export default {
       // (repo-mechanics.md is explicit that `dto` is not an abbreviation for `DateTimeOffset` either)
       // without claiming every identifier that happens to start with those three letters.
       pattern: '\\w*Dto\\w*|dto',
-      use: '`*Row` for a materialization type, `*Request`/`*Reply`, `*Result`, `*Entry`',
+      use: '`*Row` for a materialization type, `*Request`/`*Response`, `*Result`, `*Entry`',
       why: 'a name says what a thing IS, never which layer it crossed. `.claude/rules/repo-mechanics.md` '
         + '§Naming records that the tree contains zero `Dto` identifiers and that this is worth keeping; '
         + '`retiredTerms` already fences the prose, and this fences the surface the prose describes',
@@ -711,7 +709,7 @@ export default {
       // own entry, which takes `drift-ok`) and zero elsewhere. `EmbeddingRole` is untouched: it survives.
       term: '\\bAddEmbeddings\\s*[(<]',
       use: '"an embedding backend" / "a backend that produces `ProviderKinds.Vector`", registered with '
-        + '`AddEmbeddingProvider` or a shipped `Add…Provider`',
+        + '`AddProvider(factory, declares)` or a shipped `Add…Provider`',
       why: 'embedding is a CAPABILITY a provider declares, not a seam of its own — D151 deleted the front '
         + 'door, so prose offering one sends a reader to an interface the library no longer has',
     },
@@ -1176,7 +1174,7 @@ export default {
       // Identifier-SHAPED only (`CustomerDto`), not the bare word: the rules tier has to quote what it
       // bans, and a pattern that cannot tell a leak from a prohibition just teaches people to add escapes.
       term: '\\w+Dto\\b',
-      use: '`*Row` for a materialization type, `*Request`/`*Reply`, `*Result`, `*Entry`',
+      use: '`*Row` for a materialization type, `*Request`/`*Response`, `*Result`, `*Entry`',
       why: 'a name says what a thing IS, never which layer it crossed; the tree holds zero Dto identifiers '
         + 'and prose seeds the name back in on the next change (repo-mechanics.md §Naming)',
     },
