@@ -87,7 +87,7 @@ public sealed class CodexAgentSession : IAgentSession
 
         if (!CodexAgentArgs.TryBuild(options, out var agentArgs, out var mcpEnvironment, out var refusal))
         {
-            yield return new SessionEnded(ProviderVerdict.Unsupported, true, "resume-token-invalid", null, null, refusal);
+            yield return new SessionEnded(ProviderVerdict.Unsupported, true, AgentResumeToken.RefusedSubtype, null, null, refusal);
             yield break;
         }
 

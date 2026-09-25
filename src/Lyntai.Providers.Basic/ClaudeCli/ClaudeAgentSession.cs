@@ -70,13 +70,18 @@ public sealed class ClaudeAgentSession : IAgentSession
             return path;
         }
 
-        if (!AgentMcpServers.TryValidate(options.McpServers, out var refusal))
+        if (!AgentMcpServers.TryValidate(options.McpServers, out var mcpRefusal))
         {
-            yield return new SessionEnded(ProviderVerdict.Unsupported, true, "mcp-server-invalid", null, null, refusal);
+            yield return new SessionEnded(ProviderVerdict.Unsupported, true, "mcp-server-invalid", null, null, mcpRefusal);
             yield break;
         }
 
-        var agentArgs = ClaudeAgentArgs.Build(options, Write);
+        if (!ClaudeAgentArgs.TryBuild(options, Write, out var agentArgs, out var refusal))
+        {
+            yield return new SessionEnded(ProviderVerdict.Unsupported, true, AgentResumeToken.RefusedSubtype, null, null, refusal);
+            yield break;
+        }
+
         try
         {
             await foreach (var evt in RunAsync(options, agentArgs, ct).ConfigureAwait(false))

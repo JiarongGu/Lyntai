@@ -1,3 +1,5 @@
+using Lyntai.Providers.Basic;
+
 namespace Lyntai.Providers.CodexCli;
 
 /// <summary>The ONE place that knows how to ask the <c>codex</c> CLI for a non-interactive turn. Both codex
@@ -46,12 +48,10 @@ internal static class CodexExecArgs
     /// precede the <c>-</c>. What it does NOT settle is where the OPTIONS sit relative to the id, so the argv
     /// follows the CLI's own usage line (options, then id, then <c>-</c>) — see <c>BuildArgv</c>.</para>
     ///
-    /// <para>The token is free-form and opaque to Lyntai, so it is REFUSED when codex would read it as an
-    /// OPTION instead of an id — anything starting with <c>-</c>, notably this subcommand's own <c>--last</c>
-    /// ("Resume the most recent recorded session"), which would quietly resume the WRONG thread, and
-    /// <c>-i &lt;file&gt;</c>, which would eat the next argument. Values travel as separate argument-list
-    /// entries, never through a shell, so this is not shell injection — it is the backend's own parser
-    /// reading a data slot as an option (same guard as <c>ClaudeCliBackend</c>'s version/email slots).</para></summary>
+    /// <para>The token is REFUSED when codex would read it as an OPTION instead of an id
+    /// (<see cref="AgentResumeToken"/>, shared with the claude session) — notably this subcommand's own
+    /// <c>--last</c>, which would quietly resume the WRONG thread, and <c>-i &lt;file&gt;</c>, which would eat
+    /// the next argument.</para></summary>
     /// <param name="sandboxMode">As <see cref="Build"/>.</param>
     /// <param name="model">As <see cref="Build"/>.</param>
     /// <param name="resumeToken">The caller's opaque resume handle (a prior run's session id).</param>
@@ -62,19 +62,13 @@ internal static class CodexExecArgs
         string sandboxMode, string? model, string? resumeToken, IReadOnlyList<string>? extraOptions,
         out List<string> args, out string? refusal)
     {
-        var sessionId = resumeToken?.Trim();
-        if (sessionId is not { Length: > 0 } || sessionId[0] == '-')
+        if (!AgentResumeToken.TryRead(resumeToken, "codex", out var sessionId, out refusal))
         {
             args = [];
-            refusal = $"'{resumeToken}' is not a codex session id — a resume token that is blank, or that " +
-                "starts with '-', would be read by the CLI as an OPTION in the positional [SESSION_ID] slot " +
-                "(its own --last would resume the most recent thread instead of yours). Pass the SessionId " +
-                "reported by SessionStarted/SessionEnded, or null to start a fresh session.";
             return false;
         }
 
         args = BuildArgv(sandboxMode, model, sessionId, extraOptions);
-        refusal = null;
         return true;
     }
 
