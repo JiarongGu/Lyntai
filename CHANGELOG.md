@@ -17,7 +17,7 @@ and every Breaking entry ends by naming that action. A pure addition goes under 
 moves the `ApiSurfaceTests` baseline: the baseline gates DELIBERATENESS (D8), not breakage, and it moves for
 every addition.
 
-## Unreleased
+## 3.3.0 — 2026-09-25
 
 ### Breaking
 
