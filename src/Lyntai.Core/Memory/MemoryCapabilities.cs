@@ -7,7 +7,9 @@ namespace Lyntai.Memory;
 /// neighbours, matching how every other recall-shaped read in this library degrades.</para></summary>
 public interface IExpandableMemory
 {
-    /// <summary>The entry's full content plus its neighbours, ordered by connection strength.</summary>
+    /// <summary>The entry's full content plus its neighbours, ordered by connection strength. A reference
+    /// whose <see cref="MemoryRef.Engine"/> names another engine expands to nothing: its id addresses another
+    /// store.</summary>
     /// <param name="reference">The entry to expand.</param>
     /// <param name="hops">How far to walk from it.</param>
     /// <param name="charBudget">Maximum characters to return; null takes the engine's configured budget.</param>
@@ -29,7 +31,8 @@ public interface IExpandableMemory
 /// worse than a visible failure.</para></summary>
 public interface ILinkableMemory
 {
-    /// <summary>Connect two entries. Directed unless <paramref name="symmetric"/>.</summary>
+    /// <summary>Connect two entries. Directed unless <paramref name="symmetric"/>. Both must belong to the
+    /// engine linking them: a reference naming another engine throws <see cref="ArgumentException"/>.</summary>
     /// <param name="from">The source entry.</param>
     /// <param name="to">The target entry.</param>
     /// <param name="kind">Optional relation name; null is an untyped association.</param>

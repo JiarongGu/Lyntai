@@ -247,6 +247,15 @@ public sealed class GraphMemoryEngine(
     {
         var list = saliencePolicies?.ToList() ?? [];
         if (list.Count == 0) return [new StructuralSaliencePolicy()];
+        // checked BEFORE provenance: Neutral shares Structural's bit, so the collision would name the bit rather
+        // than the real mistake — an off switch combined with a policy that is on
+        if (list.Count > 1 && list.Any(p => p is NeutralSaliencePolicy))
+            throw new ArgumentException(
+                $"{nameof(NeutralSaliencePolicy)} turns salience OFF and cannot be combined with " +
+                $"{string.Join(", ", list.Where(p => p is not NeutralSaliencePolicy).Select(p => p.GetType().Name))}. " +
+                "AddMemoryEngine seeds the default policy unless one is already registered, so register " +
+                $"{nameof(NeutralSaliencePolicy)} BEFORE AddLyntai, or remove the others.",
+                nameof(saliencePolicies));
         MemoryProvenance.ValidateProvenanceBits(
             [.. list.Select(a => (long)a.Provenance)], i => list[i].GetType().Name);
         return list;
@@ -453,15 +462,17 @@ public sealed class GraphMemoryEngine(
     private async Task LinkBySubjectAsync(long id, MemoryWrite write, MemoryAnnotation annotated,
         CancellationToken ct)
     {
-        if (annotated.Subjects.Count == 0) return;
+        // canonical first: the store records "Alice" and " alice " as one handle, so looking both up would link
+        // the same pair twice — and duplicate links ADD weight
+        var subjects = MemorySubject.Canonicalize(annotated.Subjects);
+        if (subjects.Count == 0) return;
         try
         {
-            await store.RecordSubjectsAsync(Name, id, [.. annotated.Subjects], ct).ConfigureAwait(false);
+            await store.RecordSubjectsAsync(Name, id, subjects, ct).ConfigureAwait(false);
             if (_options.AnnotationLinkK <= 0) return;
 
-            foreach (var subject in annotated.Subjects)
+            foreach (var subject in subjects)
             {
-                if (string.IsNullOrWhiteSpace(subject)) continue;
                 // +1 because this node is now recorded under the subject too and is filtered out below —
                 // without it a K of 1 would find only itself and link nothing
                 var found = await store.NodesBySubjectAsync(Name, write.TaskKey, write.Scope, subject,
@@ -674,6 +685,7 @@ public sealed class GraphMemoryEngine(
         var ranking = ResolveRanking(query.RankingPolicyName);
 
         var limit = query.Limit ?? _options.DefaultLimit;
+        if (limit <= 0) return MemoryRecall.Empty;
 
         var found = await TryGatherAsync(query, limit, ct).ConfigureAwait(false);
         if (found is null) return MemoryRecall.Empty;
@@ -695,7 +707,7 @@ public sealed class GraphMemoryEngine(
         // candidate, because showing a model every candidate's headline per recall is not a shippable cost.
         // Depth is the knob that trades judgement cost against how far down an answer may be rescued from.
         var depth = Math.Max(limit,
-            _options.VerificationDepth ?? limit * GraphMemoryOptions.DefaultVerificationDepthFactor);
+            _options.VerificationDepth ?? Saturating(limit, GraphMemoryOptions.DefaultVerificationDepthFactor));
         var verdict = await VerifyAsync(query.Query ?? string.Empty,
             [.. ordinary.Take(depth)], ct).ConfigureAwait(false);
 
@@ -905,7 +917,9 @@ public sealed class GraphMemoryEngine(
         MemoryDetail detail = MemoryDetail.Headline, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
-        if (!long.TryParse(reference.Id, NumberStyles.Integer, CultureInfo.InvariantCulture, out var id))
+        // another engine's reference names another store's node, so a matching id here would be the wrong entry
+        if (!Owns(reference) ||
+            !long.TryParse(reference.Id, NumberStyles.Integer, CultureInfo.InvariantCulture, out var id))
             return MemoryRecall.Empty;
 
         var node = await store.GetAsync(Name, id, ct).ConfigureAwait(false);
@@ -977,6 +991,10 @@ public sealed class GraphMemoryEngine(
     public async Task LinkAsync(MemoryRef from, MemoryRef to, string? kind = null, double weight = 1.0,
         bool symmetric = false, CancellationToken ct = default)
     {
+        if (!Owns(from) || !Owns(to))
+            throw new ArgumentException(
+                $"Memory engine '{Name}' links only its own entries; got '{from.Engine}' and '{to.Engine}'. A " +
+                "link across engines would connect whichever of this engine's nodes share those ids.");
         if (!long.TryParse(from.Id, NumberStyles.Integer, CultureInfo.InvariantCulture, out var a) ||
             !long.TryParse(to.Id, NumberStyles.Integer, CultureInfo.InvariantCulture, out var b))
             throw new ArgumentException(
@@ -1110,16 +1128,12 @@ public sealed class GraphMemoryEngine(
     }
 
     /// <summary>Drop the similarity-index collections a <see cref="ForgetAsync"/> is erasing.
-    /// <para><b>Addresses are DERIVED from the nodes, never matched by prefix.</b> A collection name embeds
-    /// the task and the scope with a separator either may legitimately contain, so a prefix sweep for task
-    /// <c>"t"</c> also matches task <c>"t|x"</c>'s collections — and over-deleting is the one direction a
-    /// removal must never err in (<see cref="IPrunableMemory.PruneAsync"/>'s own remarks). Deriving is also
-    /// why this needs no <see cref="IListableVectorStore"/>: that member is optional, and a consent
-    /// withdrawal must not degrade to whatever a BYO index happens to be able to enumerate.</para>
-    /// <para><b>What deriving does NOT cover</b>, since a defence usually reads as covering the whole
-    /// method: a scope whose nodes are ALREADY gone names no collection here, so an orphan left by an
-    /// earlier partial failure survives an unscoped forget. Naming the scope clears it — that path drops the
-    /// whole collection rather than the ids still present.</para></summary>
+    /// <para>An unscoped forget drops the collection of every scope the task's nodes name, and — over an
+    /// <see cref="IListableVectorStore"/> — every collection under this engine and task's
+    /// <see cref="MemoryVectorCollection.PrefixFor"/>, which also reaches an ORPHAN whose nodes an earlier
+    /// partial failure already removed. The prefix matches no other task (its separator is one no key carries,
+    /// see <see cref="MemoryVectorCollection"/>). A store that cannot list still gets every derived address,
+    /// so a consent withdrawal never depends on the optional member.</para></summary>
     private async Task ForgetVectorsAsync(string taskKey, string? scope, CancellationToken ct)
     {
         // `vectors`, not `Enriches`: an engine whose vector backend was removed still has to erase what an earlier
@@ -1137,10 +1151,16 @@ public sealed class GraphMemoryEngine(
         var nodes = await store.SeedAsync(Name, taskKey, scope: null, query: null, limit: int.MaxValue, ct)
             .ConfigureAwait(false);
 
-        foreach (var each in nodes.Select(n => n.Scope).Distinct(StringComparer.Ordinal))
+        var collections = new HashSet<string>(
+            nodes.Select(n => VectorCollection(taskKey, n.Scope)), StringComparer.Ordinal);
+        if (vectors is IListableVectorStore listable)
+            collections.UnionWith(await listable
+                .ListCollectionsAsync(MemoryVectorCollection.PrefixFor(Name, taskKey), ct).ConfigureAwait(false));
+
+        foreach (var collection in collections)
         {
             ct.ThrowIfCancellationRequested();
-            await vectors.RemoveCollectionAsync(VectorCollection(taskKey, each), ct).ConfigureAwait(false);
+            await vectors.RemoveCollectionAsync(collection, ct).ConfigureAwait(false);
         }
     }
 
@@ -1252,6 +1272,13 @@ public sealed class GraphMemoryEngine(
             $"No ranking policy named '{name}' is registered on memory engine '{Name}'. Registered: " +
             (_namedRanking.Count == 0 ? "(none)" : string.Join(", ", _namedRanking.Keys)) + ".");
     }
+
+    private bool Owns(MemoryRef reference) => string.Equals(reference.Engine, Name, StringComparison.Ordinal);
+
+    /// <summary>A product of two non-negative counts, capped at <see cref="int.MaxValue"/> rather than wrapped
+    /// negative: a caller's limit is unbounded, and a negative count means "no limit" to SQLite, throws on
+    /// Postgres and returns nothing in-process.</summary>
+    private static int Saturating(int a, int b) => (int)Math.Min(int.MaxValue, (long)a * b);
 
     private double Retrievability(GraphNode node) =>
         node.Grade == MemoryGrade.Authoritative ? 1 : _policy.Retrievability(ResolvedState(node));
@@ -1405,7 +1432,7 @@ public sealed class GraphMemoryEngine(
     {
         // no faintness bound: the store returns candidates grade-first, then most-recently-used, and the
         // count is the only limit, so nothing is excluded for having decayed — burial happens by rank, above
-        var candidates = limit * Math.Max(1, _options.CandidateMultiplier);
+        var candidates = Saturating(limit, Math.Max(1, _options.CandidateMultiplier));
         var request = new MemorySeedRequest(Name, store, query, candidates);
 
         var found = new List<(GraphNode Node, int Hop)>();

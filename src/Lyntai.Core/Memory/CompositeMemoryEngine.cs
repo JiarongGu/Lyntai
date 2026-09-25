@@ -124,12 +124,12 @@ public sealed class CompositeMemoryEngine
             _ => MemoryGrades.None,
         };
 
-        // Inherit is every member's business — the grade is unresolved, so each one stores it at its own
-        // role. An explicit grade is ROUTED to the members that can hold it, and never downgraded: accepting
-        // an authoritative write and storing it as associative is precisely the failure the grade split
-        // exists to prevent, and it would be undetectable afterwards.
+        // Inherit is every WRITABLE member's business — the grade is unresolved, so each one stores it at its
+        // own role; a read-only member (Supported None) is never a target. An explicit grade is ROUTED to the
+        // members that can hold it, and never downgraded: accepting an authoritative write and storing it as
+        // associative is precisely the failure the grade split exists to prevent.
         IReadOnlyList<IMemoryEngine> capable = wanted == MemoryGrades.None
-            ? _members
+            ? [.. _members.Where(m => m.Supported != MemoryGrades.None)]
             : [.. _members.Where(m => m.Supported.HasFlag(wanted))];
 
         IReadOnlyList<IMemoryEngine> targets = WriteRouting == MemoryWriteRouting.EveryCapable

@@ -49,9 +49,9 @@ public sealed class CuratedMemoryEngine(
 
     /// <inheritdoc />
     /// <remarks>Authoritative, whatever <see cref="Grade"/> reports on the read path — see that property for
-    /// why this does not widen.</remarks>
-    public MemoryGrades Supported => MemoryGrades.Authoritative;
-
+    /// why this does not widen. <see cref="MemoryGrades.None"/> for an every-section engine (<c>kind: null</c>),
+    /// which cannot write, so a blend routes around it.</remarks>
+    public MemoryGrades Supported => kind is null ? MemoryGrades.None : MemoryGrades.Authoritative;
 
     /// <inheritdoc />
     public async Task<MemoryWriteResult> RememberAsync(MemoryWrite write, CancellationToken ct = default)

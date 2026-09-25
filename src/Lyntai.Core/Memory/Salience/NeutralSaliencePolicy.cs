@@ -20,10 +20,12 @@ namespace Lyntai.Memory.Salience;
 /// The one shape where it measurably hurt is <c>many-candidates</c>. So this is a real knob for a
 /// dense-candidate deployment, not a general recommendation.</para>
 ///
+/// <para><b>It must be the ONLY salience policy.</b> Beside any other it is not "off", so the graph engine
+/// refuses the combination by name. <c>AddMemoryEngine</c> seeds <see cref="StructuralSaliencePolicy"/> unless
+/// a policy is already registered, so register this one BEFORE <c>AddLyntai</c>.</para>
 /// <para>It declares <see cref="MemorySalienceProvenance.Structural"/> — the bit of the policy it replaces.
-/// Safe because provenance uniqueness is checked across what is actually REGISTERED, and honest because a
-/// policy that never returns a signal never contributes provenance to any row: an entry written under this
-/// policy records <c>None</c>, which is the truth.</para>
+/// Honest because a policy that never returns a signal never contributes provenance to any row: an entry
+/// written under this policy records <c>None</c>, which is the truth.</para>
 /// </summary>
 public sealed class NeutralSaliencePolicy : IMemorySaliencePolicy
 {
