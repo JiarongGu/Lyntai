@@ -5,10 +5,8 @@
 // incumbent answers and every figure is silently taken on the wrong model. This closes that, and it is
 // what makes "which embedder / which reader" an ARGUMENT rather than an ambient property of the machine.
 //
-// It reuses `memory-contention`'s hygiene rather than restating it: check the SPECIFIC port immediately
-// before binding, wait for the port, kill by PID, RE-READ (a kill's exit code is not evidence), and
-// re-check the neighbour afterwards. It also reads each port's identity back from `/props`, because a
-// `--model`-started `llama-server` answers to whatever name it is asked.
+// The server lifecycle is `_llama-harness.mjs`' `withOwnedServers`. It also reads each port's identity back
+// from `/props`, because a `--model`-started `llama-server` answers to whatever name it is asked.
 //
 // Usage:
 //   node dev.mjs locomo-pair --embed <file.gguf> --chat <file.gguf> [-- <memory-locomo args…>]
@@ -17,16 +15,13 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
-  neighbourReport, ownedPids, resolveServerExe, runTracked, startServers, stopServers,
-  vanishedNeighbours,
-} from './memory-contention.mjs';
+  HARNESS_PORTS, modelDirFromEnv, resolveServerExe, runTracked, tearDownOnSigint, withOwnedServers,
+} from './_llama-harness.mjs';
 
 const here = fileURLToPath(import.meta.url);
 
-/** Ports this harness owns. Above every other block here — `memory-contention`'s 8140-8144,
- *  `rerank-screen`'s 8147, `memory-decision`'s 8150-8153, `tool-affordance`'s 8160-8166 and 8169,
- *  `embed-screen`'s 8167 — and nowhere near 8090, which a sibling tool's embedder has held for sessions. */
-export const PORTS = { embed: 8170, chat: 8171 };
+/** Ports this harness owns — `_llama-harness.mjs`' registry, which keeps every harness disjoint. */
+export const PORTS = HARNESS_PORTS['locomo-pair'];
 
 /** `{label, port, argv}` per role — the shape `startServers` takes, exported so a test can assert the
  *  argv without spawning anything.
@@ -102,7 +97,7 @@ async function servedFile(port) {
 
 async function main() {
   const { embed, embedEndpoint, chat, benchArgs } = parseArgs(process.argv.slice(2));
-  const modelDir = process.env.LYNTAI_MODEL_DIR ?? process.env.LYNTAI_CONTENTION_MODEL_DIR;
+  const modelDir = modelDirFromEnv();
   if (!modelDir || !(embed || embedEndpoint)) {
     console.error('locomo-pair: set LYNTAI_MODEL_DIR and pass --embed <file.gguf> (or');
     console.error('  --embed-endpoint <url> for an embedder this harness cannot start), plus');
@@ -124,52 +119,33 @@ async function main() {
   fs.mkdirSync(scratchDir, { recursive: true });
 
   const serverExe = (embed || chat) ? await resolveServerExe() : null;
-  const before = await neighbourReport(ownedPids());
-  console.log(`Neighbours BEFORE (${before.length}): ${JSON.stringify(before.map((r) => r.pid))}`);
   console.log(embed
     ? `embedder: ${embed} (${fs.statSync(path.join(modelDir, embed)).size} B)`
     : `embedder: ${embedEndpoint} (already running; this harness did not start it)`);
   console.log(chat ? `reader  : ${chat} (${fs.statSync(path.join(modelDir, chat)).size} B)`
     : 'reader  : NONE — a mode that does not read needs no chat server');
 
-  let pids = [];
+  const specs = serverSpecs(embed, chat, modelDir);
   const started = Date.now();
   try {
-    const specs = serverSpecs(embed, chat, modelDir);
-    pids = await startServers(specs, { scratchDir, serverExe });
-    console.log(`servers up on ${specs.map((s) => s.port).join(', ') || '(none needed)'} `
-      + `(pids ${pids.join(', ') || '-'})`);
-    for (const spec of specs)
-      console.log(`  ${spec.label}: serving ${await servedFile(spec.port) ?? 'unknown'}`);
+    await withOwnedServers({
+      label: 'locomo-pair', specs, scratchDir, serverExe,
+      run: async () => {
+        for (const spec of specs)
+          console.log(`  ${spec.label}: serving ${await servedFile(spec.port) ?? 'unknown'}`);
 
-    const code = await runTracked('dotnet', ['run', '-c', 'Release',
-      '--project', path.join(repoRoot, 'bench', 'Lyntai.Benchmarks'), '--', '--locomo', ...benchArgs],
-      envFor({ embedUrl: embedEndpoint ?? undefined, chat: !!chat }));
-    if (code !== 0) process.exitCode = code;
+        const code = await runTracked('dotnet', ['run', '-c', 'Release',
+          '--project', path.join(repoRoot, 'bench', 'Lyntai.Benchmarks'), '--', '--locomo', ...benchArgs],
+          envFor({ embedUrl: embedEndpoint ?? undefined, chat: !!chat }));
+        if (code !== 0) process.exitCode = code;
+      },
+    });
   } finally {
-    // Unconditional: a start that THREW is the likeliest moment to have leaked one, so the survivor
-    // re-read must run on that path above all.
-    const { survivors } = await stopServers(pids, serverSpecs(embed, chat, modelDir).map((s) => s.port));
-    if (survivors.length) {
-      console.error(`*** PORTS STILL LISTENING: ${JSON.stringify(survivors)} — kill these by PID ***`);
-      process.exitCode = 1;
-    } else console.log('teardown: both owned ports free');
-
-    const after = await neighbourReport(ownedPids());
-    const lost = vanishedNeighbours(before, after);
-    if (lost.length) {
-      console.error(`*** NEIGHBOUR LOST: ${JSON.stringify(lost)} — restart it ***`);
-      process.exitCode = 1;
-    } else console.log(`neighbours after: all ${before.length} still alive`);
     console.log(`wall clock: ${((Date.now() - started) / 1000).toFixed(0)}s`);
   }
 }
 
 if (import.meta.main ?? (process.argv[1] && path.resolve(process.argv[1]) === here)) {
-  process.on('SIGINT', async () => {
-    console.error('\nSIGINT — tearing down owned servers before exiting.');
-    try { await stopServers(ownedPids(), Object.values(PORTS)); } catch { /* best effort on the way out */ }
-    process.exit(130);
-  });
+  tearDownOnSigint(Object.values(PORTS));
   await main().catch((err) => { console.error(err); process.exitCode = 1; });
 }

@@ -1,40 +1,43 @@
 // Tests for check-decision-claims.
 //
 // The gate's failure mode is a FALSE PASS — a predicate that quietly stops discriminating reports a clean
-// repository forever, which is the whole reason `test-devtools` runs first in `verify` (TASKS.md Part 60,
+// repository forever, which is the whole reason `test-devtools` runs first in `verify` (docs/task-archive.md Part 60,
 // where three check-docs defects had passed every gate for their entire lifetime, all in the permissive
 // direction).
 //
 // So these drive the pure function against SYNTHESIZED trees rather than the real one: a test that only ever
 // asserts "the real repo is green" passes on a predicate that can never go red.
 import assert from 'node:assert/strict';
-import fs from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
-import { describe, it } from 'node:test';
+import { after, describe, it } from 'node:test';
 
 import {
   DECISION_CLAIMS, checkDecisionClaims, coreThirdPartyRefs, defaultOf,
-  missingReleasedMigrations, policyDomainFolders,
+  missingReleasedMigrations,
   requiredModelProviderMembers,
   silentAotOptOuts,
   sqliteObjectsMissingPrefix,
   wireJsonSerializerUses,
 } from '../check-decision-claims.mjs';
+import { makeRepo, makeTree, removeTree, repoRoot as repo } from './_fixtures.mjs';
 
-const repo = path.resolve(path.dirname(new URL(import.meta.url).pathname).replace(/^\/([A-Za-z]:)/, '$1'),
-  '..', '..', '..');
+const trees = [];
+after(() => trees.forEach(removeTree));
 
-/** A throwaway tree, so a predicate can be driven to RED without touching the repository. */
-function fixture(files) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lyntai-dc-'));
-  for (const [rel, body] of Object.entries(files)) {
-    const full = path.join(root, rel);
-    fs.mkdirSync(path.dirname(full), { recursive: true });
-    fs.writeFileSync(full, body);
-  }
+/** A throwaway tree (`_fixtures.mjs`, never OS temp), so a predicate can be driven to RED without touching
+ * the repository. `git: true` for a predicate that lists files through `repoFiles`. */
+function fixture(files, { git = false } = {}) {
+  const root = git ? makeRepo(files) : makeTree(files);
+  trees.push(root);
   return root;
 }
+
+/** Every root the D14 predicate walks, so a fixture exercises the files it adds rather than a missing root. */
+const WIRE_ROOTS = ['src/Lyntai.Core/Inference', 'src/Lyntai.Core/Generation', 'src/Lyntai.Generation',
+  'src/Lyntai.Providers.Basic', 'src/Lyntai.Providers.LlamaSharp'];
+const wire = (files) => fixture({
+  ...Object.fromEntries(WIRE_ROOTS.map((root) => [`${root}/Placeholder.cs`, '// nothing here'])),
+  ...files,
+}, { git: true });
 
 describe('defaultOf', () => {
   it('reads an explicit initializer', () => {
@@ -56,15 +59,22 @@ describe('defaultOf', () => {
   });
 });
 
-describe('policyDomainFolders', () => {
-  it('counts only directories holding an IMemory<X>Policy seam, and never Engines', () => {
+describe('D47 — a root-level policy seam needs a recorded exemption', () => {
+  const d47 = DECISION_CLAIMS.find((c) => c.id === 'D47');
+
+  it('is RED for an unexempted IMemory<X>Policy at the Memory root, naming it', () => {
     const r = fixture({
-      'src/Lyntai.Core/Memory/Salience/IMemorySaliencePolicy.cs': '',
-      'src/Lyntai.Core/Memory/Ranking/IMemoryRankingPolicy.cs': '',
-      'src/Lyntai.Core/Memory/Engines/GraphMemoryEngine.cs': '',   // not a domain
-      'src/Lyntai.Core/Memory/Storage/SomeRow.cs': '',             // no seam
-    });
-    assert.equal(policyDomainFolders(r), 2);
+      'src/Lyntai.Core/Memory/IMemoryStrayPolicy.cs': 'namespace Lyntai.Memory;\npublic interface IMemoryStrayPolicy { }\n',
+    }, { git: true });
+    assert.equal(d47.holds(r), false);
+    assert.match(d47.detail(r), /IMemoryStrayPolicy/);
+  });
+
+  it('holds for the exempted removal policy — check-counts\' registry, the one both gates read', () => {
+    const r = fixture({
+      'src/Lyntai.Core/Memory/IMemoryRemovalPolicy.cs': 'namespace Lyntai.Memory;\npublic interface IMemoryRemovalPolicy { }\n',
+    }, { git: true });
+    assert.equal(d47.holds(r), true);
   });
 });
 
@@ -100,22 +110,23 @@ describe('silentAotOptOuts (D7)', () => {
 
 describe('sqliteObjectsMissingPrefix (D6)', () => {
   const sql = (body) => ({ 'src/Lyntai.Storage.Sqlite/Migrations/M1.cs': body });
+  const db = (files) => fixture(files, { git: true });
 
   it('names an object a new migration forgot to prefix — the RED case', () => {
-    const r = fixture(sql('Execute.Sql("CREATE TABLE orders (id INTEGER)");'));
+    const r = db(sql('Execute.Sql("CREATE TABLE orders (id INTEGER)");'));
     assert.deepEqual(sqliteObjectsMissingPrefix(r), ['orders']);
   });
 
   it('accepts an index that CARRIES the prefix without leading with it', () => {
     // `ix_`/`ux_` + `lyntai_` is the shipped convention; D6 says objects "carry the prefix", and what it
     // buys is non-collision with an application's own schema, which an infix satisfies.
-    const r = fixture(sql(
+    const r = db(sql(
       'CREATE UNIQUE INDEX ux_lyntai_memory_dedup ON x(y); CREATE INDEX ix_lyntai_job_claim ON a(b);'));
     assert.deepEqual(sqliteObjectsMissingPrefix(r), []);
   });
 
   it('reads tables, triggers and virtual tables, in any quoting style', () => {
-    const r = fixture(sql('CREATE TABLE IF NOT EXISTS "lyntai_kv" (k TEXT);'
+    const r = db(sql('CREATE TABLE IF NOT EXISTS "lyntai_kv" (k TEXT);'
       + 'CREATE TRIGGER lyntai_memory_node_ai AFTER INSERT ON x BEGIN END;'
       + 'CREATE VIRTUAL TABLE lyntai_memory_fts USING fts5(headline);'
       + 'CREATE TRIGGER audit_log_ai AFTER INSERT ON y BEGIN END;'));
@@ -124,7 +135,7 @@ describe('sqliteObjectsMissingPrefix (D6)', () => {
 
   it('FAILS CLOSED when nothing parses, rather than reporting a clean tree', () => {
     // The shape check-sensitive paid for: a broken pattern must never look like a clean repository.
-    const r = fixture(sql('// no SQL at all in this migration'));
+    const r = db(sql('// no SQL at all in this migration'));
     assert.equal(sqliteObjectsMissingPrefix(r).length, 1);
     assert.match(sqliteObjectsMissingPrefix(r)[0], /broken predicate/);
   });
@@ -135,7 +146,7 @@ describe('sqliteObjectsMissingPrefix (D6)', () => {
     // likeliest collision of all because FluentMigrator's default name is the very generic `VersionInfo`.
     // It is declared as metadata PROPERTIES rather than DDL, so a CREATE-only scan cannot see it: probed
     // 2026-09-10, renaming it back to the default left the predicate reporting a clean tree.
-    const r = fixture({
+    const r = db({
       ...sql('Execute.Sql("CREATE TABLE lyntai_kv (k TEXT)");'),
       'src/Lyntai.Storage.Sqlite/Migrations/LyntaiVersionTable.cs':
         'public string TableName => "VersionInfo";\n public string UniqueIndexName => "ux_VersionInfo";',
@@ -144,7 +155,7 @@ describe('sqliteObjectsMissingPrefix (D6)', () => {
   });
 
   it('accepts the version table as it SHIPS, so the new assertion is not merely always-red', () => {
-    const r = fixture({
+    const r = db({
       ...sql('Execute.Sql("CREATE TABLE lyntai_kv (k TEXT)");'),
       'src/Lyntai.Storage.Sqlite/Migrations/LyntaiVersionTable.cs':
         'public string TableName => "lyntai_version_info";\n'
@@ -156,7 +167,7 @@ describe('sqliteObjectsMissingPrefix (D6)', () => {
   it('ignores the version table\'s NON-NAME metadata, which carry no object name to collide', () => {
     // `ColumnName`/`DescriptionColumnName`/`AppliedOnColumnName` are COLUMNS inside an already-prefixed
     // table, and `SchemaName` ships empty. Treating them as object names would flag the shipped file.
-    const r = fixture({
+    const r = db({
       ...sql('Execute.Sql("CREATE TABLE lyntai_kv (k TEXT)");'),
       'src/Lyntai.Storage.Sqlite/Migrations/LyntaiVersionTable.cs':
         'public string SchemaName => "";\n public string TableName => "lyntai_version_info";\n'
@@ -210,7 +221,7 @@ describe('missingReleasedMigrations (D9)', () => {
 
 describe('wireJsonSerializerUses (D14)', () => {
   it('finds a real USE in a wire path — the RED case the claim exists for', () => {
-    const r = fixture({
+    const r = wire({
       'src/Lyntai.Providers.Basic/HttpBody.cs': 'var x = JsonSerializer.Deserialize<Reply>(body);',
     });
     assert.deepEqual(wireJsonSerializerUses(r), ['src/Lyntai.Providers.Basic/HttpBody.cs']);
@@ -219,7 +230,7 @@ describe('wireJsonSerializerUses (D14)', () => {
   it('IGNORES the word in a comment, which is what the first run got wrong', () => {
     // Two shipped files say "JsonDocument.Parse (not JsonSerializer)" precisely because they honour D14;
     // a text match flagged the two call sites most explicitly obeying it.
-    const r = fixture({
+    const r = wire({
       // Must be a path the predicate actually WALKS, or this passes by scanning nothing rather than by
       // ignoring the comment — the vacuous-filter shape. It named a package that has since been folded
       // away (D123), which would have left it green and meaningless.
@@ -236,7 +247,7 @@ describe('wireJsonSerializerUses (D14)', () => {
     // SqliteJson/PostgresJson serialize this library's OWN persisted payloads; MCP hands the SDK its own
     // JsonTypeInfo. Both use JsonSerializer legitimately, so a predicate that scanned them would be red
     // against a correct tree.
-    const r = fixture({
+    const r = wire({
       'src/Lyntai.Storage.Sqlite/SqliteJson.cs': 'JsonSerializer.Serialize(value);',
       'src/Lyntai.Tools.Mcp/McpToolHost.cs': 'JsonSerializer.DeserializeAsync(s, info, ct);',
     });
@@ -244,10 +255,18 @@ describe('wireJsonSerializerUses (D14)', () => {
   });
 
   it('skips bin/obj, which hold copies of the sources own XML docs', () => {
-    const r = fixture({
+    const r = wire({
+      '.gitignore': 'bin/\nobj/\n',
       'src/Lyntai.Generation/bin/Release/Lyntai.Generation.cs': 'JsonSerializer.Deserialize<T>(s);',
     });
     assert.deepEqual(wireJsonSerializerUses(r), []);
+  });
+
+  it('REPORTS a root that no longer exists — a rename must never read as an empty, clean scan', () => {
+    const r = fixture({ 'src/Lyntai.Providers.Basic/HttpBody.cs': '// clean' }, { git: true });
+    const hits = wireJsonSerializerUses(r);
+    assert.ok(hits.includes('<root missing: src/Lyntai.Core/Inference> — broken predicate'), hits.join('\n'));
+    assert.equal(DECISION_CLAIMS.find((c) => c.id === 'D14').holds(r), false);
   });
 });
 
@@ -290,11 +309,6 @@ describe('checkDecisionClaims', () => {
     assert.match(lines.join('\n'), /nothing to check/);
   });
 
-  it('every registered claim holds against the REAL tree', () => {
-    // Pinned last, deliberately: it is the weakest assertion here, because it passes on a predicate that can
-    // never go red. The fixtures above are what prove these can.
-    assert.equal(checkDecisionClaims(repo, DECISION_CLAIMS, () => {}), 0);
-  });
 });
 
 describe('coreThirdPartyRefs (D25)', () => {

@@ -20,10 +20,16 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { unexemptedRootMemoryPolicies } from './check-counts.mjs';
+import { repoFiles } from './_repo-files.mjs';
+
 const here = fileURLToPath(import.meta.url);
 const repo = path.resolve(path.dirname(here), '..', '..');
 
 const read = (r, ...p) => fs.readFileSync(path.join(r, ...p), 'utf8');
+
+/** The `.cs` files under some directories, from the ONE file list every gate scans (`repoFiles`). */
+const csFiles = (r, dirs) => repoFiles(r, dirs).filter((f) => f.endsWith('.cs'));
 
 /**
  * Every `.cs` under the WIRE-JSON paths that names `JsonSerializer` (D14), repo-relative.
@@ -42,26 +48,16 @@ const read = (r, ...p) => fs.readFileSync(path.join(r, ...p), 'utf8');
  * itself. A USE is `JsonSerializer.`; the bare word is prose.
  */
 export function wireJsonSerializerUses(r) {
-  // `walk` returns silently on a path that does not exist, so a root renamed out from under this list
-  // makes the predicate scan NOTHING there and still report clean. That has now happened twice to this
-  // same function — D154 NS-1 (`Lifecycle` → `Inference`) and NS-4 (`Llm` → `Inference`) — because a
-  // slashed PATH is invisible to a dotted-namespace rewrite. Check these against the tree when a
-  // directory moves.
+  // A root renamed out from under this list is REPORTED, never scanned as empty: a slashed path is invisible
+  // to a dotted-namespace rewrite, and two such renames (D154) once left this predicate reading nothing.
   const roots = ['src/Lyntai.Core/Inference', 'src/Lyntai.Core/Generation', 'src/Lyntai.Generation',
     'src/Lyntai.Providers.Basic', 'src/Lyntai.Providers.LlamaSharp'];
   const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
-  const hits = [];
-  const walk = (rel) => {
-    const abs = path.join(r, rel);
-    if (!fs.existsSync(abs)) return;
-    for (const e of fs.readdirSync(abs, { withFileTypes: true })) {
-      // `bin`/`obj` hold copies of the sources' own XML docs, which would match the text and are not code.
-      if (e.isDirectory()) { if (e.name !== 'bin' && e.name !== 'obj') walk(`${rel}/${e.name}`); continue; }
-      if (e.name.endsWith('.cs') && /JsonSerializer\s*\./.test(strip(read(r, rel, e.name))))
-        hits.push(`${rel}/${e.name}`);
-    }
-  };
-  roots.forEach(walk);
+  const hits = roots.filter((root) => !fs.existsSync(path.join(r, root)))
+    .map((root) => `<root missing: ${root}> — broken predicate`);
+  // `repoFiles` leaves out the ignored `bin`/`obj`, whose copies of the sources' XML docs are not code.
+  for (const f of csFiles(r, roots))
+    if (/JsonSerializer\s*\./.test(strip(read(r, f)))) hits.push(f);
   return hits;
 }
 
@@ -81,28 +77,22 @@ export function wireJsonSerializerUses(r) {
  * every gate here is built to avoid.
  */
 export function sqliteObjectsMissingPrefix(r) {
-  const dir = path.join(r, 'src', 'Lyntai.Storage.Sqlite');
-  if (!fs.existsSync(dir)) return ['<no SQLite package>'];
+  const dir = 'src/Lyntai.Storage.Sqlite';
+  if (!fs.existsSync(path.join(r, dir))) return ['<no SQLite package>'];
   const names = [];
-  const walk = (abs) => {
-    for (const e of fs.readdirSync(abs, { withFileTypes: true })) {
-      const full = path.join(abs, e.name);
-      if (e.isDirectory()) { if (e.name !== 'bin' && e.name !== 'obj') walk(full); continue; }
-      if (!e.name.endsWith('.cs')) continue;
-      const sql = fs.readFileSync(full, 'utf8');
-      for (const m of sql.matchAll(
-        /CREATE\s+(?:UNIQUE\s+|VIRTUAL\s+)?(?:TABLE|INDEX|TRIGGER)\s+(?:IF\s+NOT\s+EXISTS\s+)?["`[]?([A-Za-z_][A-Za-z0-9_]*)/gi))
-        names.push(m[1]);
-      // The VERSION TABLE is named by metadata PROPERTIES, never by DDL, so the scan above cannot reach the
-      // one object D6 calls out by name. Only the two properties that name an OBJECT are read: `ColumnName`,
-      // `DescriptionColumnName` and `AppliedOnColumnName` are columns INSIDE an already-prefixed table and
-      // `SchemaName` ships empty, so reading those would flag the shipped file.
-      for (const m of sql.matchAll(
-        /\b(?:TableName|UniqueIndexName)\s*(?:=>|=)\s*"([^"]+)"/g))
-        names.push(m[1]);
-    }
-  };
-  walk(dir);
+  for (const f of csFiles(r, [dir])) {
+    const sql = read(r, f);
+    for (const m of sql.matchAll(
+      /CREATE\s+(?:UNIQUE\s+|VIRTUAL\s+)?(?:TABLE|INDEX|TRIGGER)\s+(?:IF\s+NOT\s+EXISTS\s+)?["`[]?([A-Za-z_][A-Za-z0-9_]*)/gi))
+      names.push(m[1]);
+    // The VERSION TABLE is named by metadata PROPERTIES, never by DDL, so the scan above cannot reach the
+    // one object D6 calls out by name. Only the two properties that name an OBJECT are read: `ColumnName`,
+    // `DescriptionColumnName` and `AppliedOnColumnName` are columns INSIDE an already-prefixed table and
+    // `SchemaName` ships empty, so reading those would flag the shipped file.
+    for (const m of sql.matchAll(
+      /\b(?:TableName|UniqueIndexName)\s*(?:=>|=)\s*"([^"]+)"/g))
+      names.push(m[1]);
+  }
   // A parse that finds NOTHING is a broken predicate, not a clean tree — the shape check-sensitive paid for.
   if (names.length === 0) return ['<no CREATE statements found — broken predicate>'];
   return [...new Set(names.filter((n) => !n.toLowerCase().includes('lyntai_')))];
@@ -200,26 +190,6 @@ export function silentAotOptOuts(r) {
   return bad;
 }
 
-/** The seven graph-memory policy domains: a sub-directory holding one seam (D46/D47). */
-export function policyDomainFolders(r) {
-  const dir = path.join(r, 'src', 'Lyntai.Core', 'Memory');
-  if (!fs.existsSync(dir)) return -1;
-  return fs.readdirSync(dir, { withFileTypes: true })
-    .filter((e) => e.isDirectory() && e.name !== 'Engines')
-    .filter((e) => fs.readdirSync(path.join(dir, e.name)).some((f) => /^IMemory\w+Policy\.cs$/.test(f)))
-    .length;
-}
-
-/**
- * A `private readonly` default on a shipped options record, by field name.
- *
- * <p>Returns `0` for a field DECLARED WITHOUT AN INITIALIZER, because that is C#'s default and this
- * repository ships at least one deliberate zero that way (`_diagnosticityWeight`, D62). An earlier version
- * matched only explicit initializers and reported that field as missing — a broken predicate reading as a
- * stale decision, which is the failure this gate's own error path exists to keep separate.</p>
- *
- * <p>Returns `NaN` only when the field is ABSENT, so "shipped at 0" and "deleted" stay distinguishable.</p>
- */
 /**
  * Third-party ids `Lyntai.Core` references — the package every consumer is forced to take (**D25**).
  *
@@ -290,6 +260,11 @@ export function requiredModelProviderMembers(r) {
  * `check-api-vocabulary` against the frozen surface. Registering it here too would be a second copy.
  */
 
+/**
+ * A `private readonly` default on a shipped options record, by field name: `0` for a field DECLARED
+ * WITHOUT AN INITIALIZER (C#'s default, and how `_diagnosticityWeight` ships its deliberate zero, D62), and
+ * `NaN` only when the field is ABSENT, so "shipped at 0" and "deleted" stay distinguishable.
+ */
 export function defaultOf(r, relative, field) {
   const src = read(r, relative);
   const withValue = new RegExp(`private readonly \\w+ _${field}\\s*=\\s*(-?[\\d.]+)`).exec(src);
@@ -397,25 +372,13 @@ export const DECISION_CLAIMS = [
     why: 'D88 turns this ON deliberately, unlike SemanticSeedOptions.K (AddMemorySemanticSeeds is not '
       + 'registered by default); the two are easy to conflate',
   },
-  {
-    id: 'D46',
-    claim: "CLAUDE.md's namespace map states the live policy-domain count",
-    holds: (r) => {
-      const n = policyDomainFolders(r);
-      return new RegExp(`DOMAINS are (SEVEN|${n})\\b`, 'i').test(read(r, 'CLAUDE.md')) && n > 0;
-    },
-    detail: (r) => `${policyDomainFolders(r)} domain folder(s) hold an IMemory<X>Policy seam`,
-    why: "D46's own title carried a stale count for two domain additions, and decisions-index rendered it into the index table too",
-  },
+  // The domain COUNT D46 carries in CLAUDE.md is check-counts' claim ("DOMAINS are N"); the root-level
+  // exemptions are its `ROOT_MEMORY_POLICY_EXEMPTIONS` — one registry for both gates.
   {
     id: 'D47',
-    claim: 'every IMemory<X>Policy seam lives in a domain folder, except the composite-level removal policy',
-    holds: (r) => {
-      const root = path.join(r, 'src', 'Lyntai.Core', 'Memory');
-      const strays = fs.readdirSync(root).filter((f) => /^IMemory\w+Policy\.cs$/.test(f));
-      return strays.length === 1 && strays[0] === 'IMemoryRemovalPolicy.cs';
-    },
-    detail: (r) => `at the Memory root: ${fs.readdirSync(path.join(r, 'src', 'Lyntai.Core', 'Memory')).filter((f) => /^IMemory\w+Policy\.cs$/.test(f)).join(', ') || '(none)'}`,
+    claim: 'every IMemory<X>Policy seam lives in a domain folder, except the recorded root-level exemptions',
+    holds: (r) => unexemptedRootMemoryPolicies(r).length === 0,
+    detail: (r) => `unexempted at the Memory root: ${unexemptedRootMemoryPolicies(r).join(', ')}`,
     why: 'the ONE documented exception — removal governs blend MEMBERS, not entries. This audit filed its placement as a violation on the strength of the name and nearly moved it, breaking the API for nothing; the predicate is what makes the exception checkable instead of arguable',
   },
   // The three below were added 2026-09-17, covering the D125–D147 band: nine decisions landed in a day and
@@ -462,7 +425,7 @@ export function checkDecisionClaims(r, claims = DECISION_CLAIMS, log = console.l
   for (const c of claims) {
     let ok;
     try {
-      ok = c.invert ? !c.holds(r) : c.holds(r);
+      ok = c.holds(r);
     } catch (err) {
       // A predicate that THROWS is a broken gate, not a stale decision — say so, because "fix the decision"
       // is the wrong advice when the checker is what failed. Same stance check-counts takes.

@@ -1,13 +1,7 @@
 import { strict as assert } from 'node:assert';
 import { describe, it } from 'node:test';
 
-import { DEFAULT_PORT as EMBED_SCREEN_PORT } from '../embed-screen.mjs';
 import { PORTS, envFor, parseArgs, serverSpecs } from '../locomo-pair.mjs';
-import { PORTS as CONTENTION_PORTS } from '../memory-contention.mjs';
-import { PORTS as DECISION_PORTS } from '../memory-decision.mjs';
-import {
-  EXTRA_PORT_BASE, MAX_EXTRA_ARMS, NATIVE_PORT, PORTS as AFFORDANCE_PORTS,
-} from '../tool-affordance.mjs';
 
 describe('serverSpecs', () => {
   const specs = serverSpecs('e.gguf', 'c.gguf', '/models');
@@ -43,15 +37,6 @@ describe('serverSpecs', () => {
     for (const spec of specs) for (const arg of spec.argv) assert.ok(!/^[A-Za-z]:\\/.test(arg), arg);
   });
 
-  it('claims ports no neighbouring harness owns, and never 8090', () => {
-    // Binding a busy port fails UPWARD: the incumbent answers and every figure is taken on its model.
-    const taken = [
-      ...Object.values(CONTENTION_PORTS), 8147, ...Object.values(DECISION_PORTS),
-      ...Object.values(AFFORDANCE_PORTS), NATIVE_PORT, EMBED_SCREEN_PORT, 8090,
-      ...Array.from({ length: MAX_EXTRA_ARMS }, (_, i) => EXTRA_PORT_BASE + i),
-    ];
-    for (const port of Object.values(PORTS)) assert.ok(!taken.includes(port), `${port} collides`);
-  });
 });
 
 describe('envFor', () => {

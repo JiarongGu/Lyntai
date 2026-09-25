@@ -31,11 +31,8 @@ describe('serverSpecs', () => {
     }
   });
 
-  it('claims one port per role and none that another harness owns', () => {
-    assert.deepEqual(specs.map((s) => s.port).sort(), [8150, 8151, 8152, 8153]);
-    // 8140-8144 is memory-contention, 8147 is rerank-screen, 8090 is a sibling tool's embedder.
-    for (const port of Object.values(PORTS)) assert.ok(port < 8140 || port > 8147, `${port} collides`);
-    assert.ok(!Object.values(PORTS).includes(8090));
+  it('serves one role per registry port — _llama-harness.test holds them disjoint', () => {
+    assert.deepEqual(specs.map((s) => s.port).sort(), Object.values(PORTS).sort());
   });
 
   it('serves the two instruct models the size axis compares, at different sizes', () => {

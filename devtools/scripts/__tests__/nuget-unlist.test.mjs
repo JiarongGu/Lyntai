@@ -10,7 +10,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { RETIRED, mustBePublished } from '../../nuget-unlist.mjs';
+import { RETIRED, mustBePublished, nugetUnlist } from '../../nuget-unlist.mjs';
 
 describe('nuget-unlist RETIRED roster', () => {
   it('flags a retired id the feed has never published, because that can only be a typo', () => {
@@ -39,5 +39,52 @@ describe('nuget-unlist RETIRED roster', () => {
   // means a re-introduction fails on the name rather than on a count.
   it('holds no NAMESPACE that was never a published package', () => {
     assert.ok(!RETIRED.includes('Lyntai.ExtensionsAi'));
+  });
+});
+
+describe('nuget-unlist — the tool, driven through its seams (no network, no key)', () => {
+  const feed = (byId) => async (url) => {
+    const id = Object.keys(byId).find((k) => url.includes(`/${k.toLowerCase()}/`));
+    const versions = id ? byId[id] : null;
+    if (versions === null) return { status: 404, ok: false };
+    return { status: 200, ok: true, json: async () => ({ items: [{ items: versions.map((v) => ({ catalogEntry: { version: v } })) }] }) };
+  };
+  const drive = async (opts) => {
+    const lines = [];
+    const calls = [];
+    const code = await nugetUnlist({
+      log: (s) => lines.push(s), run: async (...a) => { calls.push(a); }, ids: () => ['Lyntai.Core'], ...opts,
+    });
+    return { code, out: lines.join('\n'), calls };
+  };
+
+  it('refuses --apply without a key, and touches nothing', async () => {
+    const { code, out, calls } = await drive({ args: ['--apply'], fetch: feed({ 'Lyntai.Core': ['1.0.0'] }) });
+    assert.equal(code, 1);
+    assert.match(out, /No API key/);
+    assert.deepEqual(calls, []);
+  });
+
+  it('a DRY RUN plans the versions below the cutoff and runs nothing', async () => {
+    const { code, out, calls } = await drive({ args: [], fetch: feed({ 'Lyntai.Core': ['1.0.0', '1.2.0'] }) });
+    assert.equal(code, 0);
+    assert.match(out, /unlist \(1\): 1\.0\.0/);
+    assert.deepEqual(calls, []);
+  });
+
+  it('FAILS the run on a RETIRED id the feed has never published', async () => {
+    const { code, out } = await drive({ ids: () => ['Lyntai.Providers.Default'], fetch: feed({}) });
+    assert.equal(code, 1);
+    assert.match(out, /RETIRED but the feed has never published it/);
+  });
+
+  it('never prints the key, even inside a failing tool\'s echoed arguments', async () => {
+    const key = 'k' + 'ey-' + 'EXAMPLE';
+    const { out } = await drive({
+      args: ['--apply'], env: { NUGET_API_KEY: key }, fetch: feed({ 'Lyntai.Core': ['1.0.0'] }),
+      run: async () => { const e = new Error(`delete --api-key ${key} failed`); throw e; },
+    });
+    assert.doesNotMatch(out, new RegExp(key));
+    assert.match(out, /\*\*\*/);
   });
 });

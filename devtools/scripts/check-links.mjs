@@ -1,29 +1,16 @@
 // check-links — fail when a maintained doc points at an in-repo path that is not there.
 //
-// The gap this closes, and it is a MEASURED one rather than a hypothetical. `docs/superpowers/INDEX.md`
-// § "Archiving one that is still in `docs/`" ends with "repoint every inbound reference, and check nothing
-// dangles". That step was skipped when the ranking × forgetting measurement record was untracked under D43:
-// SIX references in maintained state — README (×3), the design contract (×1), DECISIONS (×2) — kept naming
-// `docs/2026-08-09-memory-policy-measurement.md`, a path that had stopped existing. Every gate stayed  link-ok
-// green. (That path is named deliberately: it is the dead reference this gate was BUILT for.)
-// Found by a reader, which is precisely the failure mode `check-docs` and `check-encoding` were each added
-// to end: a rule that is written down and still violated is a missing gate, not a knowledge problem.
-//
-// SCOPE, stated so nobody widens it by accident:
-//   - EXISTENCE only, never line numbers. A `file.cs:123` reference rots on the next edit for entirely
-//     legitimate reasons, and `pitfalls.md` §DI/config already records line numbers rotting twice and being
-//     deleted in favour of names. Gating them would make every refactor fail this check for no defect.
-//   - `local/**` is skipped: untracked by design (`docs/superpowers/INDEX.md`), so "not on disk" says
-//     nothing about whether the reference is right.
-//   - The SAME "is this maintained state?" predicates as check-docs, imported rather than restated. Two
-//     copies of that question drift the moment a document is archived, and silently, in the permissive
-//     direction, on whichever copy was forgotten — check-samples already imports them for this reason.
-import { execFileSync } from 'node:child_process';
+// It checks a reference four ways — a PATH that must exist, a `TASKS.md`/archive Part that must be in the
+// record it names, a `§` section that must be a heading, a `Type.Member` that must be declared — because
+// there are four ways one rots. Why each exists, what was measured, and its scope: `docs/GATES.md`
+// §check-links. EXISTENCE only, never line numbers, and `local/**` is skipped (untracked by design).
+// Escape: `link-ok`, this gate's own. The "is this maintained state?" predicates are check-docs',
+// imported rather than restated.
 import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { HISTORICAL, IN_SCOPE, IS_SCANNED, LIVE_PREFIX, liveLinesOnly } from './check-docs.mjs';
-import { repoFiles, twoLineWindows } from './_repo-files.mjs';
+import { readRepoText, repoFiles, twoLineWindows, windowHits } from './_repo-files.mjs';
 
 const here = fileURLToPath(import.meta.url);
 const repo = join(dirname(here), '..', '..');
@@ -142,19 +129,12 @@ export const declaredParts = (text) => {
 };
 
 /**
- * The tracked file list, `-z` so git does not C-QUOTE a non-ASCII path — `docs/灵台.md` would otherwise  link-ok
- * arrive as an 8-escape string matching no file on disk, and this gate would both fail to scan it AND
- * report every reference to it as dangling. Same root cause as check-sensitive's and check-docs' own,
- * measured 2026-08-11 (docs/task-archive.md Part 60).
- */
-/**
  * A citation naming a SECTION of a document: `` `docs/memory.md` §7 ``, `<c>pitfalls.md</c> §Storage`,
  * `docs/d.md` §5–7 (an ILLUSTRATION of the range shape, never a file here). link-ok
  *
  * The THIRD way an inbound reference rots, and neither half above can see it — the path resolves, the
- * record is right, and the §N names a heading that is not there. Measured 2026-08-28
- * (docs/task-archive.md Part 107):
- * `docs/memory.md`'s `## 8. What is NOT measured` was folded into `## 7` while §9/§10 were left
+ * record is right, and the §N names a heading that is not there. Measured 2026-08-28 (docs/task-archive.md
+ * Part 107): `docs/memory.md`'s `## 8. What is NOT measured` was folded into `## 7` while §9/§10 were left
  * un-renumbered, and SEVEN citations across six files kept naming a section that had stopped existing.
  *
  * ONLY the unambiguous form — the filename, an optional closing delimiter, then the §. Anything looser
@@ -224,8 +204,6 @@ export const unresolvedAnchor = (anchors, token) => {
   return t;
 };
 
-export const trackedFiles = (repo) => repoFiles(repo);
-
 /**
  * Check every maintained doc's in-repo references resolve.
  *
@@ -233,10 +211,9 @@ export const trackedFiles = (repo) => repoFiles(repo);
  * supplies one list and gets both halves — a reference is dangling exactly when it names something the
  * tracked list does not contain.
  */
-export function checkLinks(repo, config, log = console.log, files = null) {
-  const tracked = files ?? trackedFiles(repo);
+export function checkLinks(repo, config = {}, log = console.log, files = null) {
+  const tracked = files ?? repoFiles(repo);
   const onDisk = new Set(tracked);
-  const allowances = config.staleReferenceAllowances ?? [];
 
   // The MEMBER half's vocabulary, read from the same tracked listing everything else uses.
   const { known: knownIdents, types: knownTypes } = csharpVocabulary(
@@ -259,28 +236,12 @@ export function checkLinks(repo, config, log = console.log, files = null) {
     .filter(IN_SCOPE)
     .filter(IS_SCANNED);
 
-  // The CODE tiers, added 2026-08-15 (Part 72). Narrower than the prose scan on BOTH axes, and each
-  // narrowing is a measured decision rather than caution:
-  //
-  //   COMMENT LINES ONLY — a path in a string literal is data the program uses, not a reference a reader
-  //   follows.
-  //
-  //   `docs/` TARGETS ONLY — `pitfalls.md` records an existence check over prose returning ~45 hits and
-  //   zero defects, and that came from checking EVERY path: source files are renamed for legitimate
-  //   reasons and a comment describing the old shape is correct. Documents move, and a moved document is
-  //   the defect this gate was built for. `local/` stays skipped for the reason it always was — untracked
-  //   by design, so "not on disk" says nothing.
-  //
-  // Part 72 proposed a third narrowing — `///` XML docs only — and the measurement REFUSED it. Replaying
-  // the pre-repair tree: 9 genuine dead references lived in the code tiers, an XML-only rule catches 6, and
-  // all 3 it misses were in ordinary `//` comments and all 3 were real. The entry's hypothesis was that
-  // `//` comments would be where false positives live; every false positive was in fact a guard script
-  // naming a FIXTURE, which is what `link-ok` is for. So the line is drawn at the target, not the style.
+  // The CODE tiers: comment lines only, and `docs/` targets only for the path half — both measured, and
+  // why is `docs/GATES.md` §check-links. The guard tests are scanned too: their fixtures live in string
+  // literals, which no comment-line scan reads, and a comment NAMING a fixture takes `link-ok`.
   const code = tracked
     .filter((f) => /\.(cs|mjs)$/.test(f))
-    .filter((f) => /^(src|tests|bench|samples|devtools)\//.test(f))
-    // The guard fixtures are synthetic paths BY DESIGN — a tree built to be scanned, never to be followed.
-    .filter((f) => !f.includes('__tests__'));
+    .filter((f) => /^(src|tests|bench|samples|devtools)\//.test(f));
 
   // Fail-closed: a gate that scanned nothing must never print a tick (check-api-vocabulary's rule, which
   // this gate was missing). It shares check-docs' scope predicates, so a broken one disarms BOTH at once —
@@ -295,17 +256,9 @@ export function checkLinks(repo, config, log = console.log, files = null) {
     return 1;
   }
 
-  // NO fail-closed guard on the code half, and the reason is worth stating because the other scanners all
-  // have one. A fail-closed check needs a SOURCE the filtered set can be compared against, and this filter
-  // has DELIBERATE exclusions (`__tests__`, non-tier directories) — so "zero survivors" cannot be told
-  // apart from "legitimately nothing to scan" without duplicating the filter, which would then agree with
-  // itself by construction. Two attempts proved it empirically: guarding on `code.length === 0` failed the
-  // CJK-fixture test (a repository of two markdown files), and guarding on "the tree has code but none
-  // survived" failed the `__tests__`-skip test (a repository whose only code is deliberately excluded).
-  // Instead the green line REPORTS the count, so a filter that stopped matching shows up as `0 code
-  // file(s)` on a passing run, and a test pins the real tree's count above zero.
+  // NO fail-closed guard on the code half: a repository of markdown alone legitimately has no code to
+  // scan, so "zero survivors" proves nothing either way. The green line REPORTS the count instead.
 
-  const allowed = new Map(allowances.map((a) => [a.file, { ...a, used: 0 }]));
   const hits = [];
   const misfiled = [];
   const deadAnchors = [];
@@ -342,20 +295,37 @@ export function checkLinks(repo, config, log = console.log, files = null) {
     return anchorCache.get(target);
   };
 
-  // `beginsWithin` carries the two-line window's rule: a match starting in the CONTINUATION is seen again
-  // when that line is the window's own first line, so counting it from both would double-report it.
-  const scanAnchors = (file, lineNo, text, beginsWithin = Infinity) => {
-    for (const match of text.matchAll(ANCHOR_PATTERN)) {
-      if (match.index > beginsWithin) continue;
-      const [, name, token] = match;
-      const target = resolveDoc(name);
-      if (!target) continue;
-      const anchors = anchorsFor(target);
-      if (!anchors) continue;
-      anchorsChecked++;
-      const dead = unresolvedAnchor(anchors, token);
-      if (dead === null) continue;
-      deadAnchors.push({ file, line: lineNo, target, anchor: dead, text: text.trim() });
+  const checkAnchor = (file, lineNo, [, name, token], text) => {
+    const target = resolveDoc(name);
+    if (!target) return;
+    const anchors = anchorsFor(target);
+    if (!anchors) return;
+    anchorsChecked++;
+    const dead = unresolvedAnchor(anchors, token);
+    if (dead !== null) deadAnchors.push({ file, line: lineNo, target, anchor: dead, text: text.trim() });
+  };
+
+  const checkPart = (file, lineNo, [, record, num], text) => {
+    const n = Number(num);
+    const claimsBacklog = record === 'TASKS.md';
+    if (claimsBacklog ? openParts.has(n) : archivedParts.has(n)) return;
+    const elsewhere = claimsBacklog ? archivedParts.has(n) : openParts.has(n);
+    misfiled.push({
+      file,
+      line: lineNo,
+      record,
+      part: n,
+      actually: elsewhere ? (claimsBacklog ? 'in the ARCHIVE' : 'still OPEN in TASKS.md') : 'in NEITHER record',
+      text: text.trim(),
+    });
+  };
+
+  // The Part and section halves read the two-line window (`windowHits`): a reference spans a backtick, a
+  // filename and a number or `§`, so it straddles a wrap readily. `link-ok` on the next line excuses only
+  // a match that straddles the join; the path and member halves read the raw line and its own token.
+  const scanWindowed = (file, lines, windows, re, check) => {
+    for (const h of windowHits(lines, re, { escape: 'link-ok', windows })) {
+      if (!h.escaped) check(file, h.at + 1, h.match, h.straddles ? windows[h.at] : lines[h.at]);
     }
   };
 
@@ -369,8 +339,8 @@ export function checkLinks(repo, config, log = console.log, files = null) {
   const archivedParts = partsIn('docs/task-archive.md');
 
   for (const file of docs) {
-    let text;
-    try { text = readFileSync(join(repo, file), 'utf8'); } catch { continue; }
+    const text = readRepoText(repo, file);
+    if (text === null) continue;
 
     // A partly-historical file is read only where it is LIVE — a prefix (CHANGELOG's unreleased half)
     // or the dated amendment regions (the design record, D164) — with historical lines BLANKED so line
@@ -381,151 +351,52 @@ export function checkLinks(repo, config, log = console.log, files = null) {
     const windows = twoLineWindows(lines);
 
     for (const [i, line] of lines.entries()) {
-      // `link-ok` — its OWN annotation, deliberately not check-docs' `drift-ok`.
-      //
-      // The two silence unrelated gates, and sharing one token means a line annotated for a path reason
-      // silently stops being checked for retired VOCABULARY too (and the reverse). That is a hole nobody
-      // can see opening, on a line somebody already had a reason to annotate. The measured need is real
-      // rather than theoretical: `docs/FIXES.md` and `pitfalls.md` describe the leak-scanner incident by
-      // NAMING its fixtures (`docs/灵台.md`, `docs/plain.md`) — paths that never existed in this repository  link-ok
-      // and never should. Those are prose about data, not links, and no pattern can tell the difference.
+      // `link-ok` is this gate's OWN token, never check-docs' `drift-ok`: a line naming a path as DATA (a
+      // guard fixture's name) must not also stop being checked for retired vocabulary.
       if (line.includes('link-ok')) continue;
       for (const [, target] of line.matchAll(PATH_PATTERN)) {
         if (target.startsWith('local/')) continue;   // untracked by design
         if (onDisk.has(target)) continue;
-        const allowance = allowed.get(file);
-        if (allowance) { allowance.used++; continue; }
         hits.push({ file, line: i + 1, target, text: line.trim() });
       }
-
-      // The Part half. A reference is wrong when the record it NAMES does not declare that Part — whether
-      // the other record does (mis-filed) or neither does (gone).
-      //
-      // Matched over `twoLineWindows` (`_repo-files.mjs`), the same window builder check-docs and
-      // check-counts use, not the raw line. These documents wrap at ~110 columns and a Part reference spans
-      // a backtick, a filename and a bold marker, so it is among the likeliest claims to straddle a break —
-      // and the one live defect this gate existed for had done exactly that: the design contract's
-      // "`TASKS.md`\n**Part 40**", naming the backlog for a Part archived long ago (link-ok: quotes the
-      // defect as it was written). `line` alone stays the
-      // unit for the PATH half above, where a target is a single token and cannot wrap mid-name.
-      //
-      // A match is kept only when it BEGINS in this line: one that begins in the next is seen again when
-      // that line is the window's own first line, and reporting it from both would double-count every
-      // reference in the file. Anchoring on the start index is exact, where deduplicating by file+part
-      // would silently collapse two genuinely distinct references into one report — and it stays exact
-      // because `twoLineWindows` never trims the first line, only the continuation (see its own doc for why
-      // that asymmetry is load-bearing).
-      //
-      // `link-ok` on EITHER line silences the pair, because the ESCAPE unit has to match the MATCH unit.
-      // With a two-line window and a one-line escape, an annotation on line i+1 — the line where a reader
-      // actually SEES "Part 53" — is invisible here, so the gate fires on prose somebody deliberately
-      // annotated and the fix a maintainer reaches for is duplicating the token.
-      const next = i + 1 < lines.length ? lines[i + 1] : '';
-      if (next.includes('link-ok')) continue;
-
-      const window = windows[i];
-      for (const match of window.matchAll(PART_PATTERN)) {
-        if (match.index > line.length) continue;
-        const [, record, num] = match;
-        const n = Number(num);
-        const claimsBacklog = record === 'TASKS.md';
-        if (claimsBacklog ? openParts.has(n) : archivedParts.has(n)) continue;
-        const elsewhere = claimsBacklog ? archivedParts.has(n) : openParts.has(n);
-        misfiled.push({
-          file,
-          line: i + 1,
-          record,
-          part: n,
-          actually: elsewhere ? (claimsBacklog ? 'in the ARCHIVE' : 'still OPEN in TASKS.md') : 'in NEITHER record',
-          text: line.trim(),
-        });
-      }
-
-      // The SECTION half, over the same window and by the same rules — these documents wrap at ~110
-      // columns and a citation spans a backtick, a filename and a `§`, so it straddles a break as readily
-      // as a Part reference does.
-      scanAnchors(file, i + 1, window, line.length);
-
-      // The MEMBER half reads the RAW line, not the window: a citation lives inside backticks or a cref
-      // attribute, neither of which an author breaks across a wrap (it would stop rendering as code), and
-      // scanning the join would report every hit on the following line a second time.
+      // The raw line: a citation lives inside backticks or a cref, which an author never breaks across a wrap.
       scanMembers(file, i + 1, line);
     }
+    scanWindowed(file, lines, windows, PART_PATTERN, checkPart);
+    scanWindowed(file, lines, windows, ANCHOR_PATTERN, checkAnchor);
   }
 
-  // The code tiers: comment lines only, `docs/` targets only.
-  //
-  // THE PART HALF IS HERE NOW, and its absence was a stale MEASUREMENT rather than a scope decision. This
-  // comment read "no Part half — a task-record reference is a prose convention, and the measurement found
-  // none in code"; re-run on 2026-09-16 it finds **150 across 73 files** — every bench sweep, and several
-  // gate scripts, name the thread they belong to. None was gated, so retiring four backlog Parts silently
-  // broke 28 of them and `check-links` reported the tree clean. A scope justified by a measurement needs
-  // that measurement re-run when the tree has grown around it, exactly as a blocked backlog item does.
-  const COMMENT = /^\s*(?:\/\/|\*|#)/;
+  // The code tiers: comment lines only (`//`, `///` and a block comment's `*`), `docs/` targets only.
+  const COMMENT = /^\s*(?:\/\/|\*)/;
   for (const file of code) {
-    let text;
-    try { text = readFileSync(join(repo, file), 'utf8'); } catch { continue; }
+    const text = readRepoText(repo, file);
+    if (text === null) continue;
 
-    const lines = text.split(/\r?\n/);
+    // Non-comment lines blanked, so no half reads code and a window never joins a comment to it.
+    const lines = text.split(/\r?\n/).map((l) => (COMMENT.test(l) ? l : ''));
     for (const [i, line] of lines.entries()) {
-      if (!COMMENT.test(line)) continue;
-      if (line.includes('link-ok')) continue;
+      if (!line || line.includes('link-ok')) continue;
       for (const [, target] of line.matchAll(PATH_PATTERN)) {
         if (!target.startsWith('docs/')) continue;
         if (onDisk.has(target)) continue;
         hits.push({ file, line: i + 1, target, text: line.trim() });
       }
-
-      // A two-line window, unlike this tier's other halves — a Part reference spans a backtick, a filename
-      // and a number, so it straddles a wrap for the same reason it does in prose, and 2 of the 150 do.
-      // The continuation's own comment marker is stripped first, the way check-docs' `commentLinesOnly`
-      // does, or the `//` sits between the two halves of the claim. `match.index > line.length` is the same
-      // no-double-report anchor the prose tier uses.
-      const continuation = (lines[i + 1] ?? '').replace(/^\s*(?:\/\/+|\*)\s*/, '');
-      if (!continuation.includes('link-ok')) {
-        for (const match of `${line} ${continuation}`.matchAll(PART_PATTERN)) {
-          if (match.index > line.length) continue;
-          const [, record, num] = match;
-          const n = Number(num);
-          const claimsBacklog = record === 'TASKS.md';
-          if (claimsBacklog ? openParts.has(n) : archivedParts.has(n)) continue;
-          const elsewhere = claimsBacklog ? archivedParts.has(n) : openParts.has(n);
-          misfiled.push({
-            file,
-            line: i + 1,
-            record,
-            part: n,
-            actually: elsewhere
-              ? (claimsBacklog ? 'in the ARCHIVE' : 'still OPEN in TASKS.md')
-              : 'in NEITHER record',
-            text: line.trim(),
-          });
-        }
-      }
-
-      // The SECTION half is NOT narrowed to `docs/` the way the path half is. That narrowing exists
-      // because source files are renamed for legitimate reasons and a comment describing the old shape is
-      // correct — an argument that cannot apply here, since an anchor citation names a `.md` by
-      // construction. Three of the seven measured dead citations lived in this tier.
-      scanAnchors(file, i + 1, line);
-
-      // The MEMBER half runs on the code tier too, and unlike the path half it is NOT narrowed further:
-      // measured at 485 citations and ZERO false positives there, so the tier is free to include.
+      // The section half is not narrowed to `docs/`: an anchor citation names a `.md` by construction.
+      for (const match of line.matchAll(ANCHOR_PATTERN)) checkAnchor(file, i + 1, match, line);
       scanMembers(file, i + 1, line);
     }
+    // The Part half wraps here as in prose, once the continuation's own comment marker is stripped.
+    const windows = lines.map((l, i) => (i + 1 < lines.length
+      ? `${l} ${lines[i + 1].replace(/^\s*(?:\/\/+|\*)\s*/, '')}` : l));
+    scanWindowed(file, lines, windows, PART_PATTERN, checkPart);
   }
 
-  // An allowance that matches NOTHING fails, the same rule check-api-vocabulary's own escapes carry: an
-  // exclusion nobody can see expiring is an exclusion that rots into a permanent hole.
-  const dead = [...allowed.values()].filter((a) => a.used === 0);
-
-  if (hits.length === 0 && dead.length === 0 && misfiled.length === 0 && deadAnchors.length === 0
+  if (hits.length === 0 && misfiled.length === 0 && deadAnchors.length === 0
     && deadMembers.length === 0) {
     // Every count is reported, so a filter that silently stopped matching one tier is visible in the
     // GREEN line rather than only in a failure that never comes.
     log(`check-links: ${docs.length} maintained doc(s) + ${code.length} code file(s) — every in-repo `
-      + `reference resolves ✓ (${anchorsChecked} §-citation(s) checked)`
-      + (allowances.length ? ` (${allowances.length} allowance(s), all still needed)` : ''));
+      + `reference resolves ✓ (${anchorsChecked} §-citation(s) checked)`);
     return 0;
   }
 
@@ -541,9 +412,8 @@ export function checkLinks(repo, config, log = console.log, files = null) {
     log('  `docs/superpowers/INDEX.md` § "Archiving one that is still in `docs/`", and skipping it is what');
     log('  this gate exists to catch. If a passage deliberately names a path that is gone (a guard FIXTURE,');
     log('  a changelog entry about the move itself), put `link-ok` on that line — NOT `drift-ok`, which is');
-    log('  check-docs\' annotation and must not silence this gate too. If a whole document is a record whose');
-    log('  paths were right on its own day, give it an entry in `staleReferenceAllowances`');
-    log('  (devtools/project.config.mjs) with the reason.');
+    log('  check-docs\' annotation and must not silence this gate too. A whole record whose paths were');
+    log('  right on its own day belongs in check-docs\' HISTORICAL list.');
   }
 
   if (misfiled.length > 0) {
@@ -591,11 +461,6 @@ export function checkLinks(repo, config, log = console.log, files = null) {
     log('  DECLARATION instead. If a line deliberately names a member that never existed — a REJECTED');
     log('  alternative, which `persist-working-state.md` explicitly asks you to record — put `link-ok` on');
     log('  it, NOT `drift-ok`.');
-  }
-
-  if (dead.length > 0) {
-    log(`\ncheck-links: ✗ ${dead.length} stale-reference allowance(s) no longer match anything:\n`);
-    for (const a of dead) log(`  ${a.file} — every reference in it now resolves; delete this allowance.`);
   }
 
   return 1;

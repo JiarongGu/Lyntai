@@ -8,7 +8,77 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { twoLineWindows } from '../_repo-files.mjs';
+import { readRepoText, twoLineWindows, windowHits } from '../_repo-files.mjs';
+import { makeTree, removeTree } from './_fixtures.mjs';
+
+describe('readRepoText — the one read rule every scanning gate shares', () => {
+  it('returns the text, or null for a listed file gone from the working tree (a pending deletion)', (t) => {
+    const dir = makeTree({ 'docs/a.md': 'hello\n' });
+    t.after(() => removeTree(dir));
+    assert.equal(readRepoText(dir, 'docs/a.md'), 'hello\n');
+    assert.equal(readRepoText(dir, 'docs/gone.md'), null);
+  });
+
+  it('THROWS on any other read error — a file a gate cannot read is one it cannot prove clean', (t) => {
+    const dir = makeTree({ 'docs/dir.md/inner.txt': 'x' });   // `docs/dir.md` reads as EISDIR
+    t.after(() => removeTree(dir));
+    assert.throws(() => readRepoText(dir, 'docs/dir.md'), /docs\/dir\.md: could not be read \(EISDIR\)/);
+  });
+});
+
+describe('windowHits — the one "line alone, else the two-line window" rule the prose gates share', () => {
+  const WIDGET = /\bWidget\b/g;
+
+  it('reports a hit lying wholly on one line ONCE, at that line — never again from the window above it', () => {
+    // The double report check-docs shipped: line N-1's window contains a hit lying wholly on line N, so
+    // every occurrence was reported twice and half the `file:line` pointers named the wrong line.
+    const hits = windowHits(['an intro line', 'the Widget is here', 'a tail'], WIDGET);
+    assert.deepEqual(hits.map((h) => h.at), [1]);
+    assert.equal(hits[0].straddles, false);
+  });
+
+  it('reports a claim broken ACROSS the wrap at the line it begins on', () => {
+    const hits = windowHits(['the library ships seven', 'widgets; that is the set'], /seven widgets/g);
+    assert.deepEqual(hits.map((h) => [h.at, h.straddles]), [[0, true]]);
+  });
+
+  it('takes a match that extends across the join WHOLE — the range whose second end is on the next line', () => {
+    const hits = windowHits(['see §7–', '8 for the rest'], /§(\d+(?:\s*–\s*\d+)?)/g);
+    assert.equal(hits.length, 1);
+    assert.equal(hits[0].match[1], '7– 8');
+  });
+
+  it('excuses a hit wholly on line N only by line N\'s OWN escape — never by an unrelated next line', () => {
+    const hits = windowHits(['the Widget is here', 'an unrelated line <!-- ok -->'], WIDGET, { escape: 'ok' });
+    assert.equal(hits.length, 1);
+    assert.equal(hits[0].escaped, false, 'a following line\'s escape is not this line\'s');
+  });
+
+  it('excuses a hit straddling the wrap by the escape on EITHER line', () => {
+    const lines = ['the library ships seven', 'widgets; the set <!-- ok -->'];
+    const [hit] = windowHits(lines, /seven widgets/g, { escape: 'ok' });
+    assert.equal(hit.escaped, true);
+  });
+
+  it('a match the line alone sees is not excused by the NEXT line even when the window extends it', () => {
+    // A named §-citation at a line's end runs greedily into the next line's words; it still lies on line N.
+    const lines = ['see `pitfalls.md` §Storage', 'records three <!-- ok -->'];
+    const [hit] = windowHits(lines, /§([A-Z]\w*(?:\s+[a-z]\w*)*)/g, { escape: 'ok' });
+    assert.equal(hit.match[1], 'Storage records three', 'the window match is the one returned');
+    assert.equal(hit.escaped, false);
+  });
+
+  it('keeps an escaped hit in the result, flagged, so a caller can still COUNT it', () => {
+    const [hit] = windowHits(['the Widget <!-- ok -->'], WIDGET, { escape: 'ok' });
+    assert.equal(hit.escaped, true);
+  });
+
+  it('reads caller-supplied windows, so a code tier can strip its own comment marker from the continuation', () => {
+    const lines = ['// the library ships seven', '// widgets; the set'];
+    const windows = [`${lines[0]} widgets; the set`, lines[1]];
+    assert.equal(windowHits(lines, /seven widgets/g, { windows }).length, 1);
+  });
+});
 
 describe('twoLineWindows', () => {
   it('joins a line to an UNINDENTED continuation with a single space (unchanged behaviour)', () => {

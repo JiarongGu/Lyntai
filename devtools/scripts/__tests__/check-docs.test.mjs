@@ -2,14 +2,15 @@
 //
 // The first three tests are REGRESSION tests for three measured defects, all found in one sitting on
 // 2026-08-11 and all of which had passed every gate for their whole lifetime because each failed in the
-// PERMISSIVE direction (TASKS.md Part 60). Each was mutation-checked: revert that specific fix in
+// PERMISSIVE direction (docs/task-archive.md Part 60). Each was mutation-checked: revert that specific fix in
 // check-docs.mjs and that test fails. They are not coverage theatre — they are the reason this file exists.
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { HISTORICAL, IN_SCOPE, IS_SCANNED, checkDocs, liveLineCount, liveLineMask, trackedFiles } from '../check-docs.mjs';
+import { CODE_IN_SCOPE, HISTORICAL, IN_SCOPE, IS_SCANNED, checkDocs, liveLineCount, liveLineMask } from '../check-docs.mjs';
+import { repoFiles } from '../_repo-files.mjs';
 import { git, makeRepo, makeTree, recorder, removeTree } from './_fixtures.mjs';
 
 /** One rule, phrased like a real registry entry: a CLAIM shape, short enough to sit inside one wrapped line. */
@@ -53,6 +54,22 @@ describe('check-docs — regression: the three measured defects', () => {
     });
     assert.equal(code, 1);
     assert.equal((out.match(/docs\/a\.md:/g) ?? []).length, 1, 'one hit, not one per window');
+  });
+
+  it('defect 1d: a claim lying wholly on one line is reported ONCE, at that line — not from the window above', () => {
+    // Measured over README: three real occurrences reported as six, half at the wrong line, because line
+    // N-1's window holds a hit lying wholly on line N.
+    const { code, out } = run({ 'docs/a.md': 'an intro line\nthe seam is available but not default here\n' });
+    assert.equal(code, 1);
+    assert.deepEqual(out.match(/docs\/a\.md:\d+/g), ['docs/a.md:2']);
+  });
+
+  it('defect 4: a listed file that cannot be READ fails the run instead of being skipped and counted clean', () => {
+    // Only a pending deletion (ENOENT) may be skipped; EISDIR here stands in for a Windows lock or EACCES.
+    const dir = makeTree({ 'docs/locked.md/inner.txt': 'x' });
+    try {
+      assert.throws(() => checkDocs(dir, config, recorder(), ['docs/locked.md']), /docs\/locked\.md: could not be read/);
+    } finally { removeTree(dir); }
   });
 
   it('defect 1c: a claim wrapped onto an INDENTED continuation is still caught (regression)', () => {
@@ -130,7 +147,7 @@ describe('check-docs — drift-ok, the honest annotation', () => {
 });
 
 describe('check-docs — CHANGELOG.md is historical only BELOW its first released heading', () => {
-  // TASKS.md Part 53, closed 2026-08-11. The wholesale exemption rested on records being "accurate BY using
+  // docs/task-archive.md Part 53, closed 2026-08-11. The wholesale exemption rested on records being "accurate BY using
   // the vocabulary of their day" — true of a released section, false of `## Unreleased`, which describes
   // behaviour that has not shipped and can still change under the words describing it. Measured 2026-08-09:
   // the RRF entry kept asserting the pre-fix tie behaviour AND its retired justification after the code
@@ -308,12 +325,13 @@ describe('check-docs — the CODE tiers, comment lines only', () => {
     assert.equal(run({ 'src/A.cs': line }).code, 0);
   });
 
-  it('does NOT scan devtools/, because the registry that defines the terms lives there', () => {
-    // Structural, not a judgement call: a registry necessarily quotes every term it bans, and scanning it
-    // yields only the rules themselves (15 hits, measured). `check-encoding` met the identical problem and
-    // solved it by construction — patterns stored as code points — which prose patterns cannot do.
+  it('scans devtools/ EXCEPT the files that quote retired vocabulary by design', () => {
+    // The registry quotes every term it bans, the published-id roster quotes retired package ids, and the
+    // guards' tests use the terms as fixtures. Excluding the whole tier once hid a stale claim in a script.
     assert.equal(run({ 'devtools/project.config.mjs': '// available but not the default\n' }).code, 0);
-    assert.equal(run({ 'devtools/scripts/x.mjs': '// available but not the default\n' }).code, 0);
+    assert.equal(run({ 'devtools/nuget-unlist.mjs': '// available but not the default\n' }).code, 0);
+    assert.equal(run({ 'devtools/scripts/__tests__/x.test.mjs': '// available but not the default\n' }).code, 0);
+    assert.equal(run({ 'devtools/scripts/x.mjs': '// available but not the default\n' }).code, 1);
   });
 
   it('scans tests/ and bench/, not just src/ — the tiers a review would forget', () => {
@@ -321,12 +339,9 @@ describe('check-docs — the CODE tiers, comment lines only', () => {
     assert.equal(run({ 'bench/B.cs': '// available but not the default\nclass B;\n' }).code, 1);
   });
 
-  it('the real tree is clean under the widened scope', () => {
-    // Pinned against the tree rather than a fixture: closing this hole cost four annotations once, and a
-    // regression would be a stale CLAIM shipping in a doc comment — the exact defect it was opened for.
-    const log = recorder();
-    assert.equal(checkDocs(repo, realConfig, log), 0, log.text());
-    assert.match(log.text(), /\d{3,} doc\(s\) clean/, 'the widened scan must reach the hundreds, not 45');
+  it('the widened scope reaches the code tiers of the real tree — hundreds of files, not 45', () => {
+    // Whether the tree is CLEAN is verify's question; this pins only that the scope still matches.
+    assert.ok(repoFiles(repo).filter(CODE_IN_SCOPE).length > 100);
   });
 });
 
@@ -343,9 +358,9 @@ describe('check-docs — what is deliberately NOT scanned', () => {
     assert.equal(page.code, 1, 'the published design PAGE is tracked prose and is scanned');
   });
 
-  it('says so, and passes, when the registry is empty', () => {
+  it('FAILS when the registry is empty — a renamed config key must not disarm the gate silently', () => {
     const { code, out } = run({ 'docs/x.md': 'available but not the default\n' }, { rules: { retiredTerms: [] } });
-    assert.equal(code, 0);
+    assert.equal(code, 1);
     assert.match(out, /no retired terms configured/);
   });
 });
@@ -373,7 +388,7 @@ describe('check-docs — the tracked-file list', () => {
     t.after(() => removeTree(dir));
     git(dir, ['add', '.']);
 
-    const files = trackedFiles(dir);
+    const files = repoFiles(dir);
     assert.deepEqual(files, ['docs/灵台.md'], 'the path must arrive raw, not C-quoted');
 
     const log = recorder();

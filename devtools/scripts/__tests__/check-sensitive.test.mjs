@@ -65,6 +65,34 @@ describe('check-sensitive — the built-in patterns FIRE', () => {
     assert.deepEqual(hits.map((h) => h.line), [1, 3]);
   });
 
+  // Every spelling a real session produces: the single backslash Windows prints, the DOUBLED one a JSON or
+  // C# string escapes it to, the forward slash Node, .NET and git print, and the Git Bash mount form.
+  const BS = '\\';
+  const spellings = (segment) => [
+    ['single backslash', `${DRIVE}${BS}${segment}${BS}nobody${BS}f`],
+    ['doubled backslash', `${DRIVE}${BS}${BS}${segment}${BS}${BS}nobody${BS}${BS}f`],
+    ['forward slash', `${DRIVE}/${segment}/nobody/f`],
+    ['Git Bash mount', `/c/${segment}/nobody/f`],
+  ];
+  for (const [segment, why] of [['Users', 'Windows user-home absolute path'],
+    ['Development', 'dev-machine project-root absolute path']]) {
+    for (const [name, leak] of spellings(segment)) {
+      it(`catches the ${segment} root in its ${name} spelling`, () => {
+        const { hits } = scanText(`the file lives at ${leak} on my box\n`);
+        assert.equal(hits.length, 1, `${leak} is a machine path whatever its separator`);
+        assert.equal(hits[0].why, why);
+      });
+    }
+  }
+
+  it('does NOT fire on a URL or a relative path that merely contains a Users segment', () => {
+    const clean = scanText([
+      'https://example.com/a/Users/list',
+      'see src/a/Users/Controller.cs and ./b/Development/notes',
+    ].join('\n'));
+    assert.deepEqual(clean.hits, []);
+  });
+
   it('ships exactly the two structural built-ins (they are the tracked, publishable half)', () => {
     assert.equal(builtins.length, 2);
     assert.equal(builtinsOnly.length, 2, 'no local file → the built-ins still run');
@@ -243,6 +271,24 @@ describe('check-sensitive — end to end over a real repository', () => {
     assert.equal(checkSensitive({ repo: dir, tree: true, log, err }), 1);
     assert.match(err.text(), /docs\/灵台\.md:1/);
     assert.doesNotMatch(log.text(), /deleted in the working tree/, 'and it is not mistaken for a deletion');
+  });
+
+  it('--tree FAILS on an empty listing — a scan of nothing proves nothing clean', (t) => {
+    const dir = makeRepo({});
+    t.after(() => removeTree(dir));
+
+    const log = recorder(); const err = recorder();
+    assert.equal(checkSensitive({ repo: dir, tree: true, log, err }), 1);
+    assert.match(err.text(), /listing is EMPTY/);
+    assert.doesNotMatch(log.text(), /clean/);
+  });
+
+  it('a staged run with nothing staged passes quietly — a deletion-only commit is ordinary', (t) => {
+    const dir = makeRepo({});
+    t.after(() => removeTree(dir));
+
+    const log = recorder(); const err = recorder();
+    assert.equal(checkSensitive({ repo: dir, tree: false, log, err }), 0);
   });
 
   it('does not block on a tracked file deleted from the working tree — it reports the skip', (t) => {

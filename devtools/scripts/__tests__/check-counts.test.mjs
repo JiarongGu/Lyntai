@@ -1,6 +1,6 @@
 // check-counts — the counted-claim gate. See devtools/scripts/check-counts.mjs.
 //
-// TASKS.md Part 73's caveat is what this file exists for, quoted because it IS the requirement: "a counter
+// docs/task-archive.md Part 73's caveat is what this file exists for, quoted because it IS the requirement: "a counter
 // that is subtly wrong is worse than none — it fails a clean tree and the fix is to edit the counter, which
 // trains exactly the 'ignore this gate' reflex". So every counter is pinned against the REAL tree, not a
 // fixture, and where a runtime truth exists the counter is compared against that rather than a literal.
@@ -15,10 +15,11 @@ import { fileURLToPath } from 'node:url';
 import { describe, it } from 'node:test';
 
 import {
-  COUNTED_CLAIMS, ROOT_MEMORY_POLICY_EXEMPTIONS, checkCounts, countBareCancellationCatches, countDecisions, countGoldenShapes, countGuardTests, countLanguageArms, countMemoryDomains, countMigrations, countOptionGuards, countPackages, countStartableItems, countVerifyGates, unexemptedRootMemoryPolicies,
+  COUNTED_CLAIMS, ROOT_MEMORY_POLICY_EXEMPTIONS, checkCounts, countBareCancellationCatches, countDecisions, countGoldenShapes, countLanguageArms, countMemoryDomains, countMigrations, countOptionGuards, countPackages, countVerifyGates, unexemptedRootMemoryPolicies,
   parseCount,
 } from '../check-counts.mjs';
-import { makeTree, recorder, removeTree } from './_fixtures.mjs';
+import { VERIFY_STEPS } from '../../commands.mjs';
+import { makeRepo, makeTree, recorder, removeTree } from './_fixtures.mjs';
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
@@ -93,20 +94,9 @@ describe('check-counts — the counters, pinned against the real tree', () => {
     assert.equal(n, reported, 'the counter and the gate must agree about the package count');
   });
 
-  it('verify gates matches what verify actually runs', () => {
-    const n = countVerifyGates(repo);
-    assert.ok(n > 0, 'must parse the steps array');
-    // verify's summary line is itself DERIVED from the steps array, so this compares the counter against
-    // the same source of truth the summary uses — a parse that silently broke would show up as a mismatch.
-    const dev = fs.readFileSync(path.join(repo, 'devtools', 'dev.mjs'), 'utf8');
-    const names = [...(dev.match(/const steps = \[([\s\S]*?)\];/)[1]).matchAll(/\['([a-z0-9-]+)',\s*\[/g)]
-      .map((m) => m[1]);
-    assert.equal(n, names.length);
-    // The NAMES, not just the total — the first counter got the right total from two cancelling errors
-    // (it could not match `e2e`, and it counted the inner `['--tree']` argument array as a step).
-    assert.ok(names.includes('e2e'), 'a step name containing a digit must be parsed');
-    assert.ok(!names.includes('--tree'), 'an inner argument array must not be counted as a step');
-    assert.ok(names.includes('test') && names.includes('build'), 'sanity: the parse found real step names');
+  it('verify gates is the roster verify runs — imported, never parsed out of the dispatcher', () => {
+    assert.equal(countVerifyGates(), VERIFY_STEPS.length);
+    assert.ok(VERIFY_STEPS.some(([s]) => s === 'e2e'), 'sanity: the roster holds real step names');
   });
 
   it('migrations counts migrations, NOT every file in the directory', () => {
@@ -120,54 +110,16 @@ describe('check-counts — the counters, pinned against the real tree', () => {
     for (const f of all.filter((f) => /^M\d{12}_/.test(f))) assert.match(f, /\.cs$/);
   });
 
-  it('the guard-test counting RULE agrees with what `node --test` reports', () => {
-    // Deliberately NOT `dev.mjs test-devtools`: that runs every guard test, including this file, which
-    // spawns it again — unbounded recursion, and slow enough to hide it. So the equality is proved on a
-    // FIXTURE exercising the shapes these files actually use (top-level `test`, `it` nested in `describe`,
-    // and a loop INSIDE one test, which must count as one), which is what the claim really rests on.
-    // Laid out at the path the counter reads — it takes a REPO ROOT, not a directory of tests.
-    const at = 'devtools/scripts/__tests__';
-    const dir = makeTree({
-      [`${at}/a.test.mjs`]: "import { test, describe, it } from 'node:test';\n"
-        + "test('one', () => {});\n"
-        + "describe('group', () => {\n  it('two', () => {});\n  it('three', () => {});\n});\n"
-        + "test('four — a loop inside ONE test is still one', () => { for (const x of [1, 2, 3]) String(x); });\n",
-      [`${at}/b.test.mjs`]: "import { test } from 'node:test';\ntest('five', () => {});\n",
-    });
-    try {
-      // A GLOB, not the bare directory: on Node 24 `node --test <dir>` loads the directory as a module and
-      // dies with "Cannot find module". Already recorded in `repo-mechanics.md` §Dev loop, and walked into
-      // again while writing this — which is what the note is there to shorten.
-      //
-      // FORWARD slashes, even on Windows: `path.join` yields backslashes, which Node's glob does not treat
-      // as separators, so the pattern matches nothing and the run reports no tests at all. Silent — it looks
-      // exactly like a fixture that legitimately contains none.
-      const glob = `${dir.replace(/\\/g, '/')}/${at}/*.test.mjs`;
-      // NODE_TEST_CONTEXT must be cleared. A `node --test` spawned from INSIDE one inherits it, detects a
-      // test context and switches from the spec reporter to TAP — so `ℹ pass 5` arrives as `# pass 5`, the
-      // match yields NaN, and the assertion fails for a reason that has nothing to do with counting.
-      const env = { ...process.env };
-      delete env.NODE_TEST_CONTEXT;
-      const out = spawnSync('node', ['--test', glob], { encoding: 'utf8', env });
-      const reported = Number(((out.stdout + out.stderr).match(/[ℹ#] pass (\d+)/) ?? [])[1]);
-      assert.equal(reported, 5, 'sanity: the fixture must actually run five tests');
-      assert.equal(countGuardTests(dir), reported, 'the counting rule must equal the runtime total');
-    } finally { removeTree(dir); }
-  });
-
-  it('and it finds a plausible number on the real tree', () => {
-    const n = countGuardTests(repo);
-    assert.ok(n > 200, `expected the guard suite to be substantial, got ${n}`);
-  });
-
   it('language arms matches the enum the sweep iterates', () => {
     const n = countLanguageArms(repo);
     const text = fs.readFileSync(
       path.join(repo, 'tests', 'Lyntai.Tests', 'Memory', 'Corpus', 'CorpusLexicon.cs'), 'utf8');
-    // Cross-checked against the member NAMES rather than a literal, so adding an arm moves both together.
-    for (const name of ['English', 'Chinese', 'Japanese', 'Korean', 'ChineseMixed'])
-      assert.ok(text.includes(name), `${name} must be an arm`);
-    assert.equal(n, 5, 'five arms as of 2026-08-15 — update with the enum, and the roster prose with it');
+    // Cross-checked against an INDEPENDENT read of the enum — one member per line, rather than the counter's
+    // comma split — so adding an arm moves both together and never a literal here.
+    const body = text.slice(text.indexOf('enum CorpusLanguage'));
+    const members = body.slice(body.indexOf('{'), body.indexOf('}')).match(/^\s*[A-Z]\w*\s*,?\s*$/gm) ?? [];
+    assert.ok(members.length > 1, 'sanity: the independent read found the enum members');
+    assert.equal(n, members.length);
   });
 
   it('golden shapes counts hash literals in Goldens(), not data rows', () => {
@@ -178,16 +130,14 @@ describe('check-counts — the counters, pinned against the real tree', () => {
       path.join(repo, 'tests', 'Lyntai.Tests', 'Memory', 'Corpus', 'MemoryCorpusGoldenTests.cs'), 'utf8');
     const rows = (text.match(/^\s*\{\s*"[\w-]+",/gm) ?? []).length;
     const n = countGoldenShapes(repo);
+    assert.ok(rows > 0, 'sanity: the row read found the goldens');
     assert.equal(n, rows, 'the hash-literal count must match the actual row count');
-    assert.equal(n, 8, 'eight shapes as of 2026-08-30 (five pre-dating the language axis, one for the routine class, one for its STANDING answer arm, one for its SETTLE gap) — update with Goldens() and the "pins N golden shapes" prose with it');
   });
 
   it('memory domains counts SEAMS, not sub-directories', () => {
     // `.Engines` is a sub-namespace and is NOT a domain — it holds the engines, not a policy seam. Counting
     // folders would give eight, which looks plausible and is wrong. So the count is asserted alongside the
     // structural rule that produces it, the same way the verify-gate counter is pinned by its NAMES.
-    assert.equal(countMemoryDomains(repo), 7);
-
     const memory = path.join(repo, 'src', 'Lyntai.Core', 'Memory');
     const seamOwners = new Set();
     const dirs = fs.readdirSync(memory, { withFileTypes: true }).filter((e) => e.isDirectory());
@@ -200,6 +150,8 @@ describe('check-counts — the counters, pinned against the real tree', () => {
     assert.ok(seamOwners.has('Annotation') && seamOwners.has('Verification'),
       'the two model-in-the-loop domains must be counted — they defaulted to none and were missed for that reason');
     assert.ok(!seamOwners.has('Engines'), 'Engines holds engines, not a policy seam, and is not a domain');
+    // The independent folder read agrees with the counter — never a literal a new domain would break.
+    assert.equal(countMemoryDomains(repo), seamOwners.size + unexemptedRootMemoryPolicies(repo).length);
   });
 
   it('a ROOT-level policy seam is exempted by name or it raises the count', () => {
@@ -255,7 +207,8 @@ describe('check-counts — the counters, pinned against the real tree', () => {
     // Discrimination is proved on a FIXTURE, not on the real tree: every site there is guarded today, so a
     // real-tree assertion of "finds some" would have to be deleted the moment the gate's own subject was
     // fixed — which is exactly what happened to the first version of this test.
-    const dir = makeTree({
+    // A git fixture: the counters read `repoFiles`, the one file list every gate scans.
+    const dir = makeRepo({
       'src/Lyntai.Core/Memory/Bare.cs': 'try { } catch (OperationCanceledException) { throw; }\n',
       'src/Lyntai.Core/Memory/Nested/AlsoBare.cs':
         'catch (OperationCanceledException) { throw; }\ncatch (OperationCanceledException ex) { }\n',
@@ -304,34 +257,6 @@ describe('check-counts — the counters, pinned against the real tree', () => {
     assert.deepEqual(matches('see D30, and **D39–D41**, and D42–D44'), []);
     assert.deepEqual(matches('docs/DECISIONS.md (D1–D76 — the memory subsystem'), ['76']);
     assert.deepEqual(matches('the log runs D1-D76 today'), ['76']);
-  });
-
-  it('the startable counter reads the MARKERS, so watch and decision-only are not startable', () => {
-    // The distinction IS the claim. A `- [ ]` cannot say "watch", which is why the banner counted a watch
-    // item and a self-declared non-startable one among its startable work for weeks.
-    const dir = makeTree({
-      'TASKS.md': ['# B', '', '<!-- open-items:begin -->', '<!-- open-items:end -->', '',
-        '## Active backlog', '', 'a line.', '', '## Part 1 — a thing', '',
-        '- [ ] **one.** x <!-- item: state=startable -->',
-        '- [ ] **two.** x <!-- item: state=watch needs="recurrence" -->',
-        '- [ ] **three.** x <!-- item: state=blocked kind=env needs="a key" -->',
-        '- [ ] **four.** x <!-- item: state=decision-only needs="a ruling" -->',
-        '- [ ] **five.** x <!-- item: state=startable -->', ''].join('\n'),
-    });
-    try { assert.equal(countStartableItems(dir), 2); } finally { removeTree(dir); }
-  });
-
-  it('and it agrees with an INDEPENDENT read of the real backlog', () => {
-    const text = fs.readFileSync(path.join(repo, 'TASKS.md'), 'utf8');
-    const independent = (text.match(/^- \[ \][^\n]*<!--\s*item:[^>]*state=startable/gm) ?? []).length;
-
-    // The anti-vacuity guard is that the file holds MARKED OPEN ITEMS — not that any of them is startable.
-    // It asserted `independent > 0` until 2026-09-13, when the last startable item closed and this failed
-    // on a legitimate backlog. Zero startable is a real state and the banner says so; what would make the
-    // agreement below vacuous is a file this regex cannot parse at all, which is what this now checks.
-    assert.ok((text.match(/^- \[ \][^\n]*<!--\s*item:/gm) ?? []).length > 0,
-      'TASKS.md must hold marked open items for this counter to mean anything');
-    assert.equal(countStartableItems(repo), independent);
   });
 
   it('every registered claim has a counter that computes SOMETHING on this tree', () => {
@@ -404,6 +329,16 @@ describe('check-counts — matching', () => {
     assert.equal(code, 0, out);
   });
 
+  it('a frozen SEED line of the design record is never compared — only its dated amendments are live', () => {
+    // check-docs' `liveLineMask` is the one answer to "which lines are live"; this gate used to scan the
+    // whole design record and would have pushed an author to edit a v0.1 seed.
+    const { code, out } = run({
+      'docs/2026-07-17-lyntai-design.md': '# design\n\nThe v0.1 seed ships seven widgets; frozen.\n'
+        + '*(2026-09-19: it ships twelve widgets; today.)*\n',
+    }, fixedClaim(12));
+    assert.equal(code, 0, out);
+  });
+
   it('a non-numeric word is not treated as a claim', () => {
     const { code, out } = run({ 'docs/a.md': 'The library ships many widgets; more each year.\n' }, fixedClaim(12));
     // Not a claim at all, so the entry matched nothing and the DEAD-ENTRY rule fires instead — which is the
@@ -415,9 +350,8 @@ describe('check-counts — matching', () => {
 
 describe('check-counts — the registry cannot rot', () => {
   it('a registered claim matching NOTHING fails', () => {
-    // Same rule `staleReferenceAllowances` and `retiredApiNames` carry: an entry nobody can see expiring is
-    // one that silently stops protecting anything. Here it also catches a pattern narrowed until it no
-    // longer finds its own claim — the exact risk narrowing created on this gate's first run.
+    // Same rule `retiredApiNames` carries: an entry nobody can see expiring silently stops protecting
+    // anything. Here it also catches a pattern narrowed until it no longer finds its own claim.
     const { code, out } = run({ 'docs/a.md': 'Nothing here resembles the claim.\n' }, fixedClaim(12));
     assert.equal(code, 1);
     assert.match(out, /match nothing/);

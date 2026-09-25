@@ -1,5 +1,5 @@
-// Shared e2e harness (lives with the suites in devtools/scripts/e2e/). Leading `_` → the runner
-// (dev.mjs, `^p\d+\.mjs$`) never picks this up as a suite. Each suite imports what it needs; the
+// Shared e2e harness (lives with the suites in devtools/scripts/e2e/). The runner (`run.mjs`) discovers
+// `^p\d+\.mjs$` only, so neither file is ever run as a suite. Each suite imports what it needs; the
 // boilerplate (reporter, Playground runner) lives here once.
 //
 // Unlike the sibling apps (which boot a long-running server), Lyntai is a library: its e2e boots the
@@ -29,14 +29,6 @@ export function makeReporter(suite) {
     process.exit(failures === 0 ? 0 : 1);
   };
   return { ok, fail, done };
-}
-
-/** Skip a suite gracefully (exit 0, counts as PASS) when a prerequisite is absent — keeps `e2e all` green
- *  on a fresh box / CI that hasn't provisioned something heavy. */
-export function skipSuite(suite, reason) {
-  console.log(`  · ${reason} — skipping ${suite} (no failures).`);
-  console.log(`\ne2e-${suite} PASS (skipped)`);
-  process.exit(0);
 }
 
 /** Fresh isolated data folder for a suite (removes any prior run). */

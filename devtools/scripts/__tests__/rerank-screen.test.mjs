@@ -154,10 +154,8 @@ describe('readGgufHeader', () => {
 });
 
 describe('parseArgs', () => {
-  it('defaults to a port outside memory-contention\'s range and away from the sibling on 8090', () => {
+  it('defaults to the registry port — _llama-harness.test holds it disjoint', () => {
     assert.equal(parseArgs([]).port, DEFAULT_PORT);
-    assert.ok(DEFAULT_PORT < 8140 || DEFAULT_PORT > 8144, 'must not collide with memory-contention PORTS');
-    assert.notEqual(DEFAULT_PORT, 8090, "8090 is a sibling tool's embedding server");
   });
 
   it('collects --inspect urls and ignores later flags', () => {

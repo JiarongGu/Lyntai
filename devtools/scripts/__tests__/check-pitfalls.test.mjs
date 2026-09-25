@@ -128,6 +128,14 @@ describe('check-pitfalls — the per-trap markers', () => {
   });
 });
 
+describe('check-pitfalls — a marker too broken to match', () => {
+  it('is reported as BROKEN, never as missing — a `>` makes the pattern match nothing', () => {
+    const { unmarked, problems } = parseTraps(['## H', '- **a.** x <!-- trap: sub=gates shape=fail-open > -->'], VOCAB);
+    assert.equal(unmarked.length, 0, 'the marker is there; calling it missing sends the author hunting');
+    assert.ok(problems.some((p) => /contains `>` and therefore matches NOTHING/.test(p.why)));
+  });
+});
+
 describe('check-pitfalls — what is and is not a trap', () => {
   it('ignores an INDENTED bullet, which is a sub-point of the trap above it', () => {
     const { traps } = parseTraps([
@@ -273,14 +281,11 @@ describe('check-pitfalls — the generated index', () => {
     }
   });
 
-  it('the real record is fully filed and its index is current', () => {
-    const log = recorder();
+  it('the parser reads the real record — its traps, not an empty read', () => {
     // Read the REAL config rather than the fixture vocabulary — the point is the tree, not the fixture.
     return import('../../project.config.mjs').then(({ default: real }) => {
-      assert.equal(checkPitfalls(repo, real, log), 0, log.text());
-      const { traps, unmarked } = parseTraps(
+      const { traps } = parseTraps(
         fs.readFileSync(path.join(repo, RECORD), 'utf8').split(/\r?\n/), real.pitfallFacets);
-      assert.equal(unmarked.length, 0, 'every trap in the record must carry a marker');
       assert.ok(traps.length > 100, `the record must hold its traps; found ${traps.length}`);
     });
   });

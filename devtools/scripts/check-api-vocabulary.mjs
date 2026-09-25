@@ -1,37 +1,15 @@
 // check-api-vocabulary — fail when the FROZEN PUBLIC SURFACE still spells a name a decision retired.
 //
-// The gap this closes sits BETWEEN two gates that each work correctly:
-//   · check-docs deliberately excludes `src/` (XML docs sit beside the code and the compiler gates their
-//     crefs), so it never reads a parameter name;
-//   · the API-surface baseline RECORDS parameter names without judging them. It reports THAT a name
-//     changed, never THAT a name should have — so a stale name round-trips cleanly through the one gate
-//     whose entire job is noticing API changes.
-// Measured cost (docs/task-archive.md Part 61, docs/DECISIONS.md D47): `GraphMemoryEngine(ageClocks:)`,
-// `GraphMemoryEngine(appraisers:)` and `ModulatedRetrievability(modulators:)` kept the words "clock",
-// "appraiser" and "modulator" all the way to the eve of the 3.0 freeze — the exact three words that
-// decision retired. A human review caught all three; no gate did. **Named arguments are source-compatible
-// public surface**, so after a freeze each one costs a major version.
+// The API baseline RECORDS parameter and type names without judging them, so a stale name round-trips
+// through the one gate whose job is noticing API changes — and a named argument is source-compatible public
+// surface, so after a freeze each one costs a major version. What it cost, and its limit (it catches an
+// exact retired identifier, never every descendant of a retired word): `docs/GATES.md`
+// §check-api-vocabulary. The registry is `retiredApiNames` in devtools/project.config.mjs.
 //
-// The registry is `retiredApiNames` in devtools/project.config.mjs — deliberately NOT `retiredTerms`,
-// which is written for PROSE (claim shapes, qualified namespace paths) and is meaningless against a
-// baseline, which is identifiers and signatures only.
-//
-// MATCHING IS WHOLE-IDENTIFIER, NEVER SUBSTRING, and that is the load-bearing property. The registry
-// retires `modulators` and `IRetentionModulator` while `Lyntai.Memory.Modulation` (a namespace) and
-// `ModulatedRetrievability` (a type) are LIVE — same root, opposite verdicts, both sides genuinely in
-// today's baseline. It retires `MemoryRetentionPolicy` (the 3.0 collision fix) while the seam
-// `IMemoryRetentionPolicy` is LIVE and contains it character-for-character, so here a substring rule would
-// fire on the very name the rename exists to protect. And `InactivityClock` is a live type sharing a word
-// with four retired `*Clock` policies. A substring rule fires on every one of them, and a gate that cries wolf on a
-// deliberate decision gets an exclusion added and then rots — the failure mode `retiredTerms`'s own
-// comments warn about for bare-name patterns.
-// So each baseline line is TOKENIZED into identifiers and compared token-for-token: a `names` rule is set
-// membership, a `pattern` rule is a regex anchored to the WHOLE token.
-//
-// The limit, stated plainly rather than oversold: this catches the REINTRODUCTION of an exact retired
-// identifier. It cannot catch every descendant of a retired word — a method named for the verb form of a
-// retired type (`Appraise`, from `ISalienceAppraiser`) is not that type's name, so no rule here would have
-// flagged it. That kind of drift needs a reader.
+// MATCHING IS WHOLE-IDENTIFIER, NEVER SUBSTRING: a retired name routinely sits inside a LIVE one (a retired
+// type name inside the live seam that replaced it, with an `I` in front), so each baseline line is
+// TOKENIZED and compared token-for-token — a `names` rule is set membership, a `pattern` rule a regex
+// anchored to the whole token.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -169,9 +147,12 @@ export function checkApiVocabulary(repoRoot = repo, config, log = console.log, e
     return 1;
   }
 
+  // An empty registry is a renamed or deleted config key far more often than a real choice, and it would
+  // print a tick over a surface nothing checked.
   if (empty) {
-    log('check-api-vocabulary: no retired API names configured — nothing to check.');
-    return 0;
+    err('check-api-vocabulary: ✗ no retired API names configured — `retiredApiNames` is empty or missing,');
+    err('  so this gate checks nothing. Restore the registry in devtools/project.config.mjs.');
+    return 1;
   }
 
   if (!hits.length && !problems.length) {

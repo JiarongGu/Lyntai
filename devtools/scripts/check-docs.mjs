@@ -5,11 +5,9 @@
 // survives every check, and the next session reads it and implements the wrong thing.
 //
 // The registry is `retiredTerms` in devtools/project.config.mjs — a term, what to say instead, and why.
-import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { repoFiles, twoLineWindows } from './_repo-files.mjs';
+import { readRepoText, repoFiles, twoLineWindows, windowHits } from './_repo-files.mjs';
 
 const here = fileURLToPath(import.meta.url);
 const repo = join(dirname(here), '..', '..');
@@ -31,25 +29,9 @@ const repo = join(dirname(here), '..', '..');
 export const HISTORICAL = [
   /^CHANGELOG\.md$/,
   /^docs\/task-archive\.md$/,
-  // Two entries were REMOVED here on 2026-09-16, and removed rather than left because an exemption whose
-  // file is gone is an exemption nobody can see expiring — the rule this repository already states for
-  // `staleReferenceAllowances` and `retiredApiNames`. The 2026-08-04 generation plan and the 2.5→3.0
-  // migration guide are both untracked now (**D149**): a document exempted from every prose gate BECAUSE
-  // it is a record of its own day is a document that has finished, and the honest place for it is
-  // `local/superpowers/`, not a permanent hole in this list.
-  //
-  // The frozen v0.1 design record. Its §5 blocks are SEEDS kept verbatim and its amendments are DATED, so
-  // "out of date" is its normal and intended state — the amendment log is what carries the present tense.
-  // Added 2026-09-15 after this gate did the damage it exists to prevent: under the pressure to stay green,
-  // a rename sweep rewrote the v0.1 blocks and the dated amendments alike, collapsing `IGenerationProvider`
-  // and `IGenerationStreamProvider` to one name in a sentence that CONTRASTED them, and restating a 2.0.1
-  // package merge under a name that package never had. A gate checking CURRENT vocabulary against a record
-  // of its own day does not find drift; it manufactures it.
-  //
-  // NARROWED 2026-09-19 (D164): the seeds stay exempt, but the DATED AMENDMENTS are re-admitted through
-  // LIVE_REGIONS below — they are the file's live half, present-tense contract claims, and the 2026-09-19
-  // review found D152–D158 had left zero trace in them precisely because this whole-file hole hid them
-  // from every sweep. The exemption's reason only ever covered the seeds.
+  // The frozen v0.1 design record: its seeds are kept verbatim, and its DATED AMENDMENTS — the file's live
+  // half — are read through LIVE_REGIONS below (D164). Checking current vocabulary against a record of its
+  // own day manufactures drift instead of finding it; a sweep that did so is `docs/GATES.md` §check-tautology.
   /^docs\/2026-07-17-lyntai-design\.md$/,
 ];
 
@@ -57,9 +39,8 @@ export const HISTORICAL = [
  * A file that is historical BELOW a boundary and MAINTAINED above it — scanned down to that line and no
  * further.
  *
- * `CHANGELOG.md` is the case, added 2026-08-11 (docs/task-archive.md Part 53). The exemption above rests
- * on records
- * being "accurate BY using the vocabulary of their day", which is true of a RELEASED section and false of
+ * `CHANGELOG.md` is the case (docs/task-archive.md Part 53). The exemption above rests on records being
+ * "accurate BY using the vocabulary of their day", which is true of a RELEASED section and false of
  * `## Unreleased`: that section describes behaviour that has not shipped, is still being edited, and can
  * still change under the words describing it. Measured 2026-08-09 — the `ReciprocalRankFusionPolicy` entry
  * kept asserting the pre-fix tie behaviour AND its retired justification after the code changed, while a
@@ -167,42 +148,22 @@ export function liveLinesOnly(file, lines) {
 export const SUPERSEDED_BANNER = /^(?:.*\n){0,20}?[^\S\n]*>?[^\S\n]*\*\*[^*\n]{0,40}?\bSUPERSEDED\b/;
 
 /**
- * Only prose is checked; see the note on `retiredTerms` for why `src/` is deliberately excluded.
+ * The CODE tiers this gate scans — comment lines only, since a retired term in a string literal is data the
+ * program uses rather than a claim a reader believes. The compiler resolves `<see cref>` and nothing else,
+ * so without this a retired CLAIM in a `<c>` tag or a `//` comment was checked by no one.
  *
- * The two repo-root files were added 2026-08-11, after a whole-branch review found `CLAUDE.md` describing a
- * subsystem the branch had reshaped underneath it — untouched, unflagged, and never scanned. They are the
- * highest-leverage omission this gate could have: `CLAUDE.md` is AUTO-LOADED into every session, so a stale
- * claim there is read by the next session before it reads anything else, and `TASKS.md` is the open backlog
- * a session picks work from. Both are maintained state by the same definition as `docs/` — the historical
- * twins (`CHANGELOG.md`, `docs/task-archive.md`) stay excluded below.
- */
-/**
- * The CODE tiers this gate scans, added 2026-08-17 — comment lines only.
- *
- * `src/` was excluded for the gate's whole life, and the registry's own header stated the cost precisely:
- * the compiler resolves `<see cref>` and NOTHING else, so a retired claim in a `<c>` tag or a `//` comment
- * was checked by no one. `check-api-vocabulary` covers retired IDENTIFIERS on the frozen surface; nothing
- * covered a retired CLAIM. That is how `GraphMemoryOptions.AuthoritativeReserve` shipped a paragraph
- * describing an implementation the measurement had already rejected.
- *
- * Measured cost of closing it: FOUR sites. Two were real stale claims — a test asserting "both shipped
- * curves" when 3.0 deleted one of the two — and two are deliberate mentions that took `drift-ok`.
- *
- * <p>Two narrowings, both for the same reason `check-links` narrows its own code scan.</p>
- *
- * COMMENT LINES ONLY. A retired term inside a string literal is data the program uses — a SQL fragment, a
- * prompt, a test fixture — not a claim a reader believes. Non-comment lines are blanked rather than removed
- * so line numbers stay true and the soft-join window cannot bridge across code.
- *
- * `devtools/` IS EXCLUDED, and this is the one exclusion that is structural rather than a judgement: the
- * retired-term registry LIVES there, and a registry necessarily quotes every term it bans. Scanning it
- * yields 15 hits that are all the rules themselves. `check-encoding` met the identical problem and solved it
- * by construction — storing its patterns as code points so the guard never contains what it hunts — which
- * is not available for prose patterns, so the carve-out is stated instead of engineered.
+ * `devtools/` is scanned too, except the three files whose job is to QUOTE retired vocabulary: the
+ * registry itself (`project.config.mjs`), the roster of published package ids (`nuget-unlist.mjs`) and the
+ * guards' own tests, whose fixtures are the terms. Excluding the whole tier once hid a stale `IEmbedder`
+ * in a sweep script. `docs/GATES.md` §check-docs has the history.
  */
 export const CODE_IN_SCOPE = (path) =>
   (path.endsWith('.cs') || path.endsWith('.mjs'))
-  && (path.startsWith('src/') || path.startsWith('tests/') || path.startsWith('bench/'));
+  && (path.startsWith('src/') || path.startsWith('tests/') || path.startsWith('bench/')
+    || (path.startsWith('devtools/') && !QUOTES_THE_REGISTRY.includes(path) && !path.startsWith('devtools/scripts/__tests__/')));
+
+/** The `devtools/` files that quote retired vocabulary by design — see `CODE_IN_SCOPE`. */
+const QUOTES_THE_REGISTRY = ['devtools/project.config.mjs', 'devtools/nuget-unlist.mjs'];
 
 /**
  * Non-comment lines blanked, so only prose is scanned and every line number stays true. A surviving
@@ -214,6 +175,12 @@ export const CODE_IN_SCOPE = (path) =>
 export const commentLinesOnly = (lines) =>
   lines.map((l) => (l.trim().startsWith('//') ? l.trim().replace(/^\/{2,3}\s*/, '') : ''));
 
+/**
+ * The maintained PROSE this gate reads: the repo-root documents, `docs/` and `.claude/`. `CLAUDE.md` is
+ * auto-loaded into every session and `TASKS.md` is the backlog a session picks work from, so both are in;
+ * the historical twins (`CHANGELOG.md` below its live prefix, `docs/task-archive.md`) are read through
+ * `HISTORICAL`/`LIVE_PREFIX`.
+ */
 export const IN_SCOPE = (path) =>
   path === 'README.md'
   || path === 'CLAUDE.md'
@@ -227,20 +194,6 @@ export const IN_SCOPE = (path) =>
   || path.startsWith('docs/')
   || path.startsWith('.claude/');
 
-/**
- * The tracked file list this gate scans. Its own seam so a test can supply one without a git fixture.
- *
- * `-z` (NUL-separated) is load-bearing: without it git C-QUOTES any path with a non-ASCII byte, so
- * `docs/灵台.md` arrives as `"docs/\347\201\265\345\217\260.md"`, the read below fails, and its `catch`  link-ok: a fixture name, quoted as data
- * skips the file — a doc that is never scanned and never reported as unscanned. Same root cause and same
- * fix as check-sensitive's; measured 2026-08-11 (docs/task-archive.md Part 60).
- */
-export const trackedFiles = (repo) => repoFiles(repo);
-
-/**
- * `files` is the raw candidate list (a `git ls-files` shape); it is filtered here, so a test that injects
- * one still exercises the extension, scope and historical-exclusion filters.
- */
 /**
  * The PAIRING audit between the two retirement registries. The gap this closes was measured: D157's renames
  * entered `retiredApiNames` (the baseline registry) and never `retiredTerms`, so README recommended a
@@ -294,12 +247,14 @@ export function checkDocs(repo, config, log = console.log, files = null) {
     return 1;
   }
   const rules = config.retiredTerms ?? [];
+  // An empty registry is a renamed or deleted config key, never a clean tree.
   if (rules.length === 0) {
-    log('check-docs: no retired terms configured — nothing to check.');
-    return 0;
+    log('check-docs: ✗ no retired terms configured — `retiredTerms` is empty or missing, so this gate');
+    log('  checks nothing. Restore the registry in devtools/project.config.mjs.');
+    return 1;
   }
 
-  const source = files ?? trackedFiles(repo);
+  const source = files ?? repoFiles(repo);
   const tracked = source
     // .html too: the published design record is a tracked page, and an untracked one drifted three times
     .filter((f) => f.endsWith('.md') || f.endsWith('.html'))
@@ -325,8 +280,8 @@ export function checkDocs(repo, config, log = console.log, files = null) {
   let skipped = 0;
 
   for (const file of tracked) {
-    let text;
-    try { text = readFileSync(join(repo, file), 'utf8'); } catch { continue; }
+    const text = readRepoText(repo, file);
+    if (text === null) continue;
 
     const isCode = CODE_IN_SCOPE(file);
     if (!isCode && SUPERSEDED_BANNER.test(text)) { skipped++; continue; }
@@ -337,38 +292,17 @@ export function checkDocs(repo, config, log = console.log, files = null) {
     const all = text.split(/\r?\n/);
     const lines = isCode ? commentLinesOnly(all) : liveLinesOnly(file, all);
 
-    // Each line is tested BOTH alone and soft-joined to the one after it. Line-only matching was a blind
-    // spot that hid every rule in the registry from any claim spanning a wrap: these documents wrap at ~110
-    // columns, so a sentence like "…`ReciprocalRankFusionPolicy`, available\nbut not the default" reads as
-    // one claim and matched nothing. Found 2026-08-11 when a whole-branch review caught that exact sentence
-    // in CLAUDE.md, stale, while this gate reported the file clean. A two-line window is enough by
-    // construction — a wrap inserts one break, and the claims these rules describe are far shorter than a
-    // line. Rules are authored against prose, so the join is a SPACE: a pattern written with `[^.\n]{0,60}`
-    // still cannot run past a sentence, only past a wrap. See `twoLineWindows` for why the continuation is
-    // trimmed and the first line is not.
+    // A claim is matched on its line or across the wrap into the next (`windowHits`: one report per hit,
+    // at the line it begins on, and `drift-ok` on either line excuses only a hit straddling the join).
     const windows = twoLineWindows(lines);
 
     for (const rule of rules) {
-      const re = new RegExp(rule.term, 'g');
-      lines.forEach((line, i) => {
-        // `drift-ok` is the honest annotation for a passage that deliberately NAMES the retired thing.
-        //
-        // The two matches take DIFFERENT escapes, and conflating them was a hole (found 2026-08-15). A hit on
-        // the line ALONE is excused only by that line's own annotation. A hit on the joined window spans a
-        // wrap, so either line may carry it — which is the whole reason the window reads N+1. Applying the
-        // N+1 escape to both meant an ordinary line inherited the exemption of whatever followed it, and two
-        // unrelated adjacent paragraphs were enough to silence a genuine stale claim.
-        const selfOk = line.includes('drift-ok');
-        const nextOk = (lines[i + 1] ?? '').includes('drift-ok');
-        re.lastIndex = 0;
-        if (re.test(line)) {
-          if (!selfOk) hits.push({ file, line: i + 1, rule, text: line.trim() });
-          return;
-        }
-        if (selfOk || nextOk) return;
-        re.lastIndex = 0;
-        if (re.test(windows[i])) hits.push({ file, line: i + 1, rule, text: windows[i].trim() });
-      });
+      const reported = new Set();
+      for (const h of windowHits(lines, new RegExp(rule.term, 'g'), { escape: 'drift-ok', windows })) {
+        if (h.escaped || reported.has(h.at)) continue;
+        reported.add(h.at);
+        hits.push({ file, line: h.at + 1, rule, text: (h.straddles ? windows[h.at] : lines[h.at]).trim() });
+      }
     }
   }
 

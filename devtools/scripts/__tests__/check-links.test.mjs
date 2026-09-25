@@ -7,16 +7,17 @@
 // dangles"; this file is what makes that step fail loudly instead of being remembered.
 //
 // A guard whose failure mode is a false PASS cannot be validated by running it, which is why the negative
-// cases below matter as much as the positive one (TASKS.md Part 60).
+// cases below matter as much as the positive one (docs/task-archive.md Part 60).
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { PATH_PATTERN, checkLinks, declaredAnchors, trackedFiles } from '../check-links.mjs';
+import { PATH_PATTERN, checkLinks, declaredAnchors } from '../check-links.mjs';
+import { repoFiles } from '../_repo-files.mjs';
 import { git, makeRepo, makeTree, recorder, removeTree } from './_fixtures.mjs';
 
-const noAllowances = { staleReferenceAllowances: [] };
+const noAllowances = {};
 
 /**
  * Run the gate over a fixture tree with an INJECTED file list, which doubles as the on-disk set — a
@@ -114,42 +115,15 @@ describe('check-links — what it does NOT flag', () => {
   });
 });
 
-describe('check-links — allowances cannot rot', () => {
-  const allowed = {
-    staleReferenceAllowances: [{ file: 'docs/plan.md', why: 'its layout is superseded; paths are as-written' }],
-  };
-
-  it('an allowance suppresses that document, and only that document', () => {
-    const { code, out } = run({
-      'docs/plan.md': 'built into `src/Lyntai.Generation/ProviderKinds.cs`\n',
-      'docs/live.md': 'built into `src/Lyntai.Generation/ProviderKinds.cs`\n',
-    }, allowed);
-
-    assert.equal(code, 1);
-    assert.match(out, /docs\/live\.md:1/);
-    assert.doesNotMatch(out, /docs\/plan\.md:1/);
-  });
-
-  it('an allowance that matches NOTHING is itself a failure', () => {
-    // The same rule retiredApiNames' escapes carry: once a document's last stale reference is repaired the
-    // allowance is a hole nobody can see expiring, and the next genuine one in that file goes unreported.
-    const { code, out } = run({ 'docs/plan.md': 'nothing stale here\n' }, allowed);
-
-    assert.equal(code, 1);
-    assert.match(out, /no longer match anything/);
-    assert.match(out, /docs\/plan\.md — every reference in it now resolves/);
-  });
-});
-
 describe('check-links — the file list', () => {
   it('reads tracked files NUL-separated, so a non-ASCII NAME is not C-quoted', () => {
-    // Without `-z`, `docs/灵台.md` arrives as `"docs/\347\201\265\345\217\260.md"` — a name matching no file
+    // Without `-z`, `docs/灵台.md` arrives as `"docs/\347\201\265\345\217\260.md"` — a name matching no file link-ok: a fixture name, quoted as data
     // on disk — so the gate would both fail to scan it AND report every reference TO it as dangling. Same
-    // root cause as check-sensitive's and check-docs' own (TASKS.md Part 60).
+    // root cause as check-sensitive's and check-docs' own (docs/task-archive.md Part 60).
     const dir = makeRepo({ 'docs/灵台.md': '# 灵台\n', 'README.md': 'see `docs/灵台.md`\n' });
     try {
       git(dir, ['add', '-A']);
-      const files = trackedFiles(dir);
+      const files = repoFiles(dir);
 
       assert.ok(files.includes('docs/灵台.md'), `expected the raw path; got ${JSON.stringify(files)}`);
 
@@ -239,7 +213,7 @@ describe('check-links — a reference naming the WRONG record for a Part', () =>
     //
     // These documents wrap at ~110 columns and a Part reference spans a backtick, a filename and a bold
     // marker, so it is among the likeliest claims to straddle a break — which is exactly what had happened
-    // to the design contract's own "TASKS.md\n**Part 40**", a Part that had long since been archived.
+    // to the design contract's own "TASKS.md\n**Part 40**", a Part that had long since been archived. link-ok: quotes the defect as it was written
     const { code, out } = run({
       ...records,
       'README.md': 'that rule is the open call — `TASKS.md`\n**Part 53** — and must not be revisited.\n',
@@ -327,6 +301,36 @@ describe('check-links — a reference naming the WRONG record for a Part', () =>
     const { code } = run({ ...records, 'README.md': 'was `TASKS.md` Part 53 <!-- link-ok: quoting the entry as written -->\n' });
     assert.equal(code, 0);
   });
+
+  it('an UNRELATED `link-ok` on the next line does not excuse a reference lying wholly on this one', () => {
+    // check-docs' 2026-08-15 rule: a following line's escape excuses only a match that straddles the join.
+    const { code, out } = run({
+      ...records,
+      'README.md': 'tracked in `TASKS.md` Part 53 today.\nthe fixture `docs/gone.md` <!-- link-ok: data -->\n',
+    });
+    assert.equal(code, 1, out);
+    assert.match(out, /README\.md:1\s+says TASKS\.md Part 53/);
+  });
+});
+
+describe('check-links — a following line\'s escape never reaches this line\'s own citations', () => {
+  it('a dead member on line N is reported despite a `link-ok` on line N+1', () => {
+    const { code, out } = run({
+      'src/Thing.cs': 'public sealed class GenerationCapabilities { public bool Supports() => true; }\n',
+      'TASKS.md': '`GenerationCapabilities.CanServe` admits it.\nthe fixture `docs/gone.md` <!-- link-ok -->\n',
+    });
+    assert.equal(code, 1, out);
+    assert.match(out, /GenerationCapabilities\.CanServe/);
+  });
+
+  it('a dead section wholly on line N is reported despite a `link-ok` on line N+1', () => {
+    const { code, out } = run({
+      'docs/memory.md': '# memory\n\n## 7. Things\n',
+      'CLAUDE.md': 'the blind spot `docs/memory.md` §8 concedes.\nthe fixture `docs/gone.md` <!-- link-ok -->\n',
+    });
+    assert.equal(code, 1, out);
+    assert.match(out, /CLAUDE\.md:1\s+says docs\/memory\.md §8/);
+  });
 });
 
 describe('check-links — fail-closed on an empty scan', () => {
@@ -403,10 +407,25 @@ describe('check-links — the CODE tiers (Part 72)', () => {
     assert.equal(code, 0, out);
   });
 
-  it('the guard-script fixture tree is skipped — its paths are synthetic by design', () => {
+  it('the guard tests are scanned — a fixture lives in a string literal, which no comment scan reads', () => {
+    // Excluding the whole directory once hid about ten misfiled `TASKS.md Part N` comments there.
+    const fixture = run({
+      'README.md': 'intro\n',
+      'devtools/scripts/__tests__/x.test.mjs': "const dir = makeTree({ 'docs/2026-08-09-gone.md': '' });\n",
+    });
+    assert.equal(fixture.code, 0, fixture.out);
+
+    const comment = run({
+      'README.md': 'intro\n',
+      'devtools/scripts/__tests__/x.test.mjs': '// measured on docs/2026-08-09-gone.md\n',
+    });
+    assert.equal(comment.code, 1, comment.out);
+  });
+
+  it('a `#` line is not a comment — a preprocessor directive, a shebang or a markdown fixture line', () => {
     const { code, out } = run({
       'README.md': 'intro\n',
-      'devtools/scripts/__tests__/x.test.mjs': "// makeTree({'docs/2026-08-09-gone.md': ''})\n",
+      'devtools/scripts/gen.mjs': "const md = `\n## the history is in docs/2026-08-09-gone.md\n`;\n",
     });
     assert.equal(code, 0, out);
   });
@@ -422,7 +441,7 @@ describe('check-links — the CODE tiers (Part 72)', () => {
 
 describe('check-links — a reference naming a SECTION that does not exist', () => {
   // The THIRD way an inbound reference rots, and neither half above can see it: the path resolves, the
-  // record is right, and the §N names a heading that is not there. Measured 2026-08-28 (TASKS.md Part 107):
+  // record is right, and the §N names a heading that is not there. Measured 2026-08-28 (docs/task-archive.md Part 107):
   // `docs/memory.md`'s `## 8. What is NOT measured` was folded into `## 7` and §9/§10 were left
   // un-renumbered, so SEVEN citations across six files pointed at a section that had stopped existing —
   // in CLAUDE.md, dev.mjs, the archive, the superpowers INDEX and two bench files. Every gate stayed green
@@ -498,7 +517,7 @@ describe('check-links — a reference naming a SECTION that does not exist', () 
   });
 
   it('a HISTORICAL record is exempt — its sections were right on its own day', () => {
-    // The archive holds four citations to `TASKS.md` §Startable, a heading removed when those items closed.
+    // The archive holds four citations to `TASKS.md` §Startable, a heading removed when those items closed. link-ok: quotes the dead citation
     // Rewriting them would falsify the record; check-docs grants the same exemption for the same reason.
     const { code, out } = run({
       'TASKS.md': '# backlog\n\n## Active backlog\n',

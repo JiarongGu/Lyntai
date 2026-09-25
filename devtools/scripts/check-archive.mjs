@@ -30,10 +30,6 @@ const HEADING = /^## (Part \d+)(?!\d)/;
 /** Every archive entry, as `{ id, line, length, title }`. See `_entry-length.mjs`. */
 export const entriesIn = (text) => entriesUnder(text, HEADING);
 
-/** Every entry past the limit, worst first — the unit the ledger records. */
-export const overLimitEntries = (text) =>
-  entriesIn(text).filter((e) => e.length > MAX_ENTRY).sort((a, b) => b.length - a.length);
-
 export function checkArchive(repo, cfg, log = console.log) {
   return runRatchet({
     repo,

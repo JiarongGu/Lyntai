@@ -15,17 +15,18 @@
 // `<!-- item: … -->` marker, and the roster at the head of the file is GENERATED from it, so the two cannot
 // disagree. See `docs/DECISIONS.md` D111.
 //
-// FOUR CHECKS, each anchored on something measured rather than on taste:
+// FIVE CHECKS, each anchored on something measured rather than on taste (`docs/GATES.md` §check-backlog):
 //   1. the PREAMBLE has a non-blank line budget — a RATCHET (`backlogPreambleAllowance`), no escape token;
 //   2. no HANDOVER block survives anywhere — a handover describes DONE work, so its home is the archive;
 //   3. every open `- [ ]` carries one well-formed marker, a blocker naming its KIND and what would clear it;
-//   4. the generated manifest equals what those markers say. `--write` regenerates it.
+//   4. no `## Part` heading survives with no open checkbox under it;
+//   5. the generated manifest equals what those markers say. `--write` regenerates it.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
-  anchorProblems, carriedEscapes, cell, escapeComments, fixedPoint, markerPattern, parseAttributes,
+  anchorProblems, carriedEscapes, cell, escapeComments, fixedPoint, parseAttributes, regenerate, scanMarkers,
 } from './_markers.mjs';
 
 const here = fileURLToPath(import.meta.url);
@@ -68,10 +69,6 @@ const OPEN_ITEM = /^- \[ \]/;
 const PART_HEADING = /^#{2,3} Part (\d+)\b/;
 const TITLE = /^- \[ \]\s+\*\*(.+?)\*\*/;
 
-// The marker cannot contain `>`, which is what keeps it from running past its own terminator. A `needs`
-// that wants one is a `needs` that has stopped being a short testable phrase.
-const MARKER = markerPattern('item');
-
 /** The anchors between which the manifest is generated. Placed by hand ONCE; content is never hand-written. */
 export const BLOCK_BEGIN = '<!-- open-items:begin';
 export const BLOCK_END = '<!-- open-items:end -->';
@@ -86,14 +83,15 @@ export const BLOCK_END = '<!-- open-items:end -->';
 export function parseItems(lines) {
   const items = [];
   const unmarked = [];
-  const problems = [];
+  // The generated block, fences and a marker too broken to match are `scanMarkers`' (`_markers.mjs`).
+  const { visible, problems } = scanMarkers(lines, { name: 'item', begin: BLOCK_BEGIN, end: BLOCK_END, noun: 'item' });
   // Every `## Part n` heading, and how many open checkboxes sit under it. Counted from the RAW checkbox
   // line rather than from `items`, so a Part holding only items with broken markers is not also reported
   // as empty — that would be one defect wearing two names, and the marker report is the actionable one.
   const parts = [];
   let part = null;
 
-  lines.forEach((raw, i) => {
+  visible.forEach(({ i, raw, marker, broken }) => {
     const heading = PART_HEADING.exec(raw);
     if (heading) {
       part = Number(heading[1]);
@@ -105,7 +103,7 @@ export function parseItems(lines) {
 
     const line = i + 1;
     const at = (why) => problems.push({ line, why });
-    const marker = MARKER.exec(raw);
+    if (broken) return;
     if (!marker) { unmarked.push({ line, text: raw.trim().slice(0, 78) }); return; }
     if (part === null) at('this open item sits outside any `## Part` heading, so nothing can place it');
 
@@ -196,10 +194,10 @@ export function renderManifest(items) {
   ];
 }
 
+const renderFrom = (t) => renderManifest(parseItems(t.split('\n')).items);
+
 /** The file with its manifest regenerated until it stops moving, or `null` if the anchors are missing. */
-export const manifestFixedPoint = (text) => fixedPoint(
-  text, (t) => renderManifest(parseItems(t.split('\n')).items), BLOCK_BEGIN, BLOCK_END,
-);
+export const manifestFixedPoint = (text) => fixedPoint(text, renderFrom, BLOCK_BEGIN, BLOCK_END);
 
 /**
  * The preamble's non-blank line count, every handover line, and the open-item roster.
@@ -262,19 +260,16 @@ export function checkBacklog(repo, config = {}, log = console.log, opts = {}) {
 
   // The manifest is only asked about once the markers are sound: a roster generated from a broken marker is
   // a confident wrong answer, which is worse than the missing one it replaces.
-  const normalized = lines.join('\n');
-  const fixed = failures.length === 0 ? manifestFixedPoint(normalized) : normalized;
-  const anchorsMissing = fixed === null;
-  const stale = !anchorsMissing && fixed !== normalized;
-
-  if (anchorsMissing)
+  const write = opts.write ? (next) => fs.writeFileSync(path.join(repo, RECORD), next) : null;
+  const outcome = failures.length === 0
+    ? regenerate(lines.join('\n'), renderFrom, BLOCK_BEGIN, BLOCK_END, write)
+    : 'current';
+  if (outcome === 'missing')
     failures.push(`the manifest anchors are missing — add \`${BLOCK_BEGIN} -->\` and \`${BLOCK_END}\``);
-  else if (stale && opts.write) {
-    fs.writeFileSync(path.join(repo, RECORD), fixed);
+  else if (outcome === 'written')
     log(`check-backlog: regenerated the open-items manifest in ${RECORD} — wrote ${items.length} row(s)`);
-  } else if (stale) {
+  else if (outcome === 'stale')
     failures.push(`the open-items manifest at the head of ${RECORD} is STALE`);
-  }
 
   if (failures.length === 0) {
     const slack = allowance > MAX_PREAMBLE ? ` (allowance ${allowance}, limit ${MAX_PREAMBLE})` : '';

@@ -1,32 +1,19 @@
 // check-counts — FAIL when a COUNT written in prose disagrees with the tree it counts.
 //
-// WHY THIS IS A GATE. `docs/task-archive.md` Part 73 measured six corrections to a counted claim inside
-// sixty commits,
-// all the same shape: a number written by hand that nothing computes. Two more went stale during the
-// 2026-08-15 session that built this, both in `CLAUDE.md`'s own baseline line, and both caught by a person
-// who happened to be looking. That is eight incidents and zero automated catches.
+// A number written by hand that nothing computes goes stale silently, and no other gate can see it: a stale
+// count retires no vocabulary, so the sentence stays grammatical and wrong. What it cost and its limit (it
+// covers only counts somebody REGISTERED): `docs/GATES.md` §check-counts.
 //
-// `check-docs` structurally CANNOT see this. Its registry holds vocabulary a decision RETIRED, and a count
-// going stale retires nothing — the sentence stays grammatical, plausible, and wrong. It is the same
-// relationship `check-links` has to `check-docs`: one asks whether a document still SAYS what was settled,
-// this asks whether what it COUNTS is still true.
-//
-// THE HONEST LIMIT, stated here rather than discovered: this only ever covers counts somebody REGISTERED.
-// It is a gate against recurrence in the places that have drifted, not a proof that every number in the
-// documentation is right.
-//
-// WHY THE REGISTRY IS CODE AND NOT `project.config.mjs`. Every other registry there (`retiredTerms`,
-// `retiredApiNames`, `staleReferenceAllowances`) is pure data. An entry here is a regex plus a FUNCTION over
-// the tree, so it lives beside the gate that runs it and keeps the config a data file.
-import { execFileSync } from 'node:child_process';
+// The registry is `COUNTED_CLAIMS` below rather than in `project.config.mjs`, because an entry is a regex
+// plus a FUNCTION over the tree. Escape: `count-ok`, for a sentence quoting a historical count.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { parseItems } from './check-backlog.mjs';
-import { IN_SCOPE, IS_SCANNED, SUPERSEDED_BANNER, liveLineCount } from './check-docs.mjs';
+import { VERIFY_STEPS } from '../commands.mjs';
+import { IN_SCOPE, IS_SCANNED, SUPERSEDED_BANNER, liveLinesOnly } from './check-docs.mjs';
 import { packableProjects } from './check-packages.mjs';
-import { repoFiles, twoLineWindows } from './_repo-files.mjs';
+import { readRepoText, repoFiles, twoLineWindows, windowHits } from './_repo-files.mjs';
 
 const here = fileURLToPath(import.meta.url);
 const repo = path.resolve(path.dirname(here), '..', '..');
@@ -66,21 +53,8 @@ export function parseCount(token) {
 /** Packable library projects. Reuses check-packages' own reader rather than re-deriving the rule. */
 export const countPackages = (repo) => packableProjects(repo).length;
 
-/**
- * Gates in `verify`, read from the `steps` array that `verify`'s own summary line is derived from.
- *
- * Matches an OUTER entry — `['name', [` — rather than any quoted word in the array. The first version used
- * `\['[a-z-]+'` and was wrong TWICE in cancelling directions: the character class excludes digits so it
- * never matched `e2e`, and it DID match the inner argument array in `['check-sensitive', ['--tree']]`. Both
- * errors together produced exactly the right total, so the gate agreed with the documentation for the wrong
- * reason. Caught by this counter's own test, which compares the parsed NAMES and not just the count — the
- * literal illustration of Part 73's "a counter that is subtly wrong is worse than none".
- */
-export function countVerifyGates(repo) {
-  const dev = fs.readFileSync(path.join(repo, 'devtools', 'dev.mjs'), 'utf8');
-  const m = dev.match(/const steps = \[([\s\S]*?)\];/);
-  return m ? [...m[1].matchAll(/\['([a-z0-9-]+)',\s*\[/g)].length : -1;
-}
+/** Gates in `verify` — the roster `verify` runs, imported rather than parsed out of the dispatcher. */
+export const countVerifyGates = () => VERIFY_STEPS.length;
 
 /**
  * FluentMigrator migrations.
@@ -95,6 +69,13 @@ export function countMigrations(repo) {
   return fs.readdirSync(dir).filter((f) => /^M\d{12}_.+\.cs$/.test(f)).length;
 }
 
+/** The memory subsystem's source root, which four counters below walk. */
+const MEMORY = 'src/Lyntai.Core/Memory';
+
+/** The `.cs` files under a directory, from the ONE file list every gate scans (`repoFiles`). */
+const csUnder = (repo, dir) => repoFiles(repo, [dir]).filter((f) => f.endsWith('.cs'));
+const read = (repo, f) => readRepoText(repo, f) ?? '';
+
 /**
  * Call sites of the one memory option-domain guard (`MemoryOption.Require`, D78).
  *
@@ -107,19 +88,7 @@ export function countMigrations(repo) {
  * establishes, so if the two ever diverge the call-site count is the one that describes the code.
  */
 export function countOptionGuards(repo) {
-  const roots = [path.join(repo, 'src', 'Lyntai.Core', 'Memory')];
-  let n = 0;
-  const walk = (dir) => {
-    if (!fs.existsSync(dir)) return;
-    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
-      const p = path.join(dir, e.name);
-      if (e.isDirectory()) walk(p);
-      else if (e.name.endsWith('.cs'))
-        n += (fs.readFileSync(p, 'utf8').match(/MemoryOption\.Require\b/g) ?? []).length;
-    }
-  };
-  roots.forEach(walk);
-  return n;
+  return csUnder(repo, MEMORY).reduce((n, f) => n + (read(repo, f).match(/MemoryOption\.Require\b/g) ?? []).length, 0);
 }
 
 /**
@@ -135,38 +104,15 @@ export function countOptionGuards(repo) {
  * into one guarded, so a stale figure here is a backlog item that has silently already been done.
  */
 export function countBareCancellationCatches(repo) {
-  const root = path.join(repo, 'src', 'Lyntai.Core', 'Memory');
-  if (!fs.existsSync(root)) return -1;
+  if (!fs.existsSync(path.join(repo, MEMORY))) return -1;
   let n = 0;
-  const walk = (dir) => {
-    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
-      const p = path.join(dir, e.name);
-      if (e.isDirectory()) walk(p);
-      else if (e.name.endsWith('.cs'))
-        for (const line of fs.readFileSync(p, 'utf8').split(/\r?\n/))
-          // The filter is what makes a site answered; anything else catching an OCE is still bare.
-          if (/catch\s*\(\s*OperationCanceledException/.test(line)
-              && !/when\s*\(\s*ct\.IsCancellationRequested\s*\)/.test(line)) n++;
-    }
-  };
-  walk(root);
+  for (const f of csUnder(repo, MEMORY)) {
+    for (const line of read(repo, f).split(/\r?\n/))
+      // The filter is what makes a site answered; anything else catching an OCE is still bare.
+      if (/catch\s*\(\s*OperationCanceledException/.test(line)
+          && !/when\s*\(\s*ct\.IsCancellationRequested\s*\)/.test(line)) n++;
+  }
   return n;
-}
-
-/**
- * Guard-script tests.
- *
- * Counted STATICALLY from the declarations, which is exact here and was verified to be: on 2026-08-15 the
- * static count matched `node --test`'s reported total on all sixteen files individually AND in aggregate.
- * That equality is a property of how these files are written (no test is generated in a loop), so the test
- * pinning this counter compares it against a real run rather than against a hard-coded number.
- */
-export function countGuardTests(repo) {
-  const dir = path.join(repo, 'devtools', 'scripts', '__tests__');
-  if (!fs.existsSync(dir)) return -1;
-  return fs.readdirSync(dir)
-    .filter((f) => f.endsWith('.test.mjs'))
-    .reduce((n, f) => n + (fs.readFileSync(path.join(dir, f), 'utf8').match(/^\s*(?:it|test)\(/gm) ?? []).length, 0);
 }
 
 /**
@@ -184,22 +130,6 @@ export function countE2eSuites(repo) {
   if (!fs.existsSync(dir)) return -1;
   return fs.readdirSync(dir).filter((f) => /^p\d+\.mjs$/.test(f)).length;
 }
-
-/**
- * A number this gate deliberately does NOT count, recorded so nobody re-attempts it: `doc samples 78/78`.
- *
- * Tried 2026-08-23 by reusing `check-samples`' own `extractBlocks`, and it returned **121** against a claim
- * of 78 — because 78 is the COMPILED subset (121 blocks, less 19 with a skip reason and 23 in a
- * wholesale-opted-out document), which is a property of a RUN rather than of the tree. Reproducing it here
- * means reproducing the gate's whole filtering, and two copies of "what counts as a sample?" would drift the
- * moment an annotation is added.
- *
- * **The rule that follows, and it is the general one: a run-derived number is checked by the GATE THAT
- * PRODUCES IT, never by a static counter.** `check-samples` already holds `78/78` in hand and already reads
- * the docs, so it asserts the prose itself. The same reasoning applies to the xUnit totals, which only
- * `dotnet test` knows — see `CLAUDE.md`'s test line, which now says which of its numbers are gated and by
- * what.
- */
 
 /**
  * Arms of the corpus language axis — the members of `CorpusLanguage`.
@@ -256,12 +186,9 @@ export const ROOT_MEMORY_POLICY_EXEMPTIONS = {
 
 /** Root-level `IMemory<X>Policy` seams with no recorded exemption — each one a domain nobody filed. */
 export function unexemptedRootMemoryPolicies(repo) {
-  const dir = path.join(repo, 'src', 'Lyntai.Core', 'Memory');
-  if (!fs.existsSync(dir)) return [];
   const found = [];
-  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
-    if (!e.isFile() || !e.name.endsWith('.cs')) continue;
-    const text = fs.readFileSync(path.join(dir, e.name), 'utf8');
+  for (const f of csUnder(repo, MEMORY).filter((p) => !p.slice(MEMORY.length + 1).includes('/'))) {
+    const text = read(repo, f);
     if (!/^namespace Lyntai\.Memory;/m.test(text)) continue;
     for (const m of text.matchAll(/^\s*public interface (IMemory\w+Policy)\b/gm))
       if (!Object.hasOwn(ROOT_MEMORY_POLICY_EXEMPTIONS, m[1])) found.push(m[1]);
@@ -285,21 +212,14 @@ export function unexemptedRootMemoryPolicies(repo) {
  * seven, which is the loud failure; the fix is then to file it as a domain or record why it is not.
  */
 export function countMemoryDomains(repo) {
-  const dir = path.join(repo, 'src', 'Lyntai.Core', 'Memory');
-  if (!fs.existsSync(dir)) return -1;
+  if (!fs.existsSync(path.join(repo, MEMORY))) return -1;
   const domains = new Set();
-  const walk = (d) => {
-    for (const e of fs.readdirSync(d, { withFileTypes: true })) {
-      const p = path.join(d, e.name);
-      if (e.isDirectory()) { walk(p); continue; }
-      if (!e.name.endsWith('.cs')) continue;
-      const text = fs.readFileSync(p, 'utf8');
-      const ns = text.match(/^namespace (Lyntai\.Memory\.[A-Za-z]+)/m);
-      // The seam is what makes a sub-namespace a DOMAIN — `IMemory<X>Policy` declared in it.
-      if (ns && /^\s*public interface IMemory\w+Policy\b/m.test(text)) domains.add(ns[1]);
-    }
-  };
-  walk(dir);
+  for (const f of csUnder(repo, MEMORY)) {
+    const text = read(repo, f);
+    const ns = text.match(/^namespace (Lyntai\.Memory\.[A-Za-z]+)/m);
+    // The seam is what makes a sub-namespace a DOMAIN — `IMemory<X>Policy` declared in it.
+    if (ns && /^\s*public interface IMemory\w+Policy\b/m.test(text)) domains.add(ns[1]);
+  }
   return domains.size + unexemptedRootMemoryPolicies(repo).length;
 }
 
@@ -329,25 +249,6 @@ export function countGoldenShapes(repo) {
   const end = text.indexOf('};', at);
   if (end < 0) return -1;
   return (text.slice(at, end).match(/"[0-9a-f]{64}"/g) ?? []).length;
-}
-
-/**
- * Open backlog items an author has marked `state=startable`.
- *
- * Reuses `check-backlog`'s own parser rather than grepping for the marker, the same way `countPackages`
- * reuses `check-packages`' reader: two definitions of "what counts as an open item" would drift, and this
- * one already encodes that an unmarked or malformed item is not silently given a state.
- *
- * The claim it gates is the oldest recurring defect in this repository's prose — `TASKS.md`'s startable-set
- * banner has advertised finished work FOUR times, always because an item was amended in place and the
- * banner was not amended with it (`.claude/knowledge/pitfalls.md`). The generated manifest above the banner
- * cannot disagree with the markers; this is what stops the SENTENCE from disagreeing with both.
- */
-export function countStartableItems(repo) {
-  const file = path.join(repo, 'TASKS.md');
-  if (!fs.existsSync(file)) return -1;
-  const { items } = parseItems(fs.readFileSync(file, 'utf8').split(/\r?\n/));
-  return items.filter((i) => i.state === 'startable').length;
 }
 
 /**
@@ -409,12 +310,6 @@ export const COUNTED_CLAIMS = [
     why: 'its predecessor shipped wrong in THREE maintained documents at once, derived by subtraction from a grep',
   },
   {
-    what: 'guard-script tests',
-    pattern: /guard-script tests\s+([\d]+)\s*\/\s*\d+/gi,
-    count: countGuardTests,
-    why: 'CLAUDE.md instructs the reader to COMPARE against this baseline — a stale one teaches them to stop comparing',
-  },
-  {
     what: 'memory policy domains',
     // Registered 2026-08-15, the day the claim was found stale in BOTH the design contract ("the five
     // domains so far") and CLAUDE.md's namespace map, while the tree held seven. The two that were missing
@@ -457,26 +352,6 @@ export const COUNTED_CLAIMS = [
     count: countDecisions,
     why: 'CLAUDE.md routes a reader to the decision log by RANGE, so a short range reads as "nothing landed after this"',
   },
-  /*
-   * `startable backlog items` was registered here until 2026-09-17, anchored on the banner sentence
-   * "the startable set is N items".
-   *
-   * IT WENT BECAUSE THE SENTENCE DID, and the sentence went because **D111** had already made it
-   * redundant: the roster at the head of `TASKS.md` is GENERATED from the per-item `item:` markers, and
-   * `check-backlog` fails while the manifest and the markers disagree. So the count is derived and gated
-   * either way, and the banner was a second, hand-maintained copy of it sitting thirty lines above the
-   * generated one.
-   *
-   * The history is the argument. This pattern was widened twice to chase the prose — `items?` when the
-   * count reached ONE, then an optional noun when it reached ZERO and the banner read "is EMPTY" — and it
-   * broke three more times in one session, every time because a human edited a number a table already
-   * owned. A counter that keeps needing a wider pattern is measuring a sentence that should not exist;
-   * the same reasoning retired `dev.mjs`'s usage banner (see `commentBlockAllowances`' own note).
-   *
-   * What the claim protected against was a banner ADVERTISING FINISHED WORK, four times. That risk lives
-   * in the prose being hand-written at all, which is what was removed — the preamble now names no number
-   * and points at the table instead.
-   */
   {
     what: 'golden corpus shapes',
     // Anchored on "pins N golden shapes" — the TOTAL, which is what the counter computes. Deliberately not
@@ -488,8 +363,6 @@ export const COUNTED_CLAIMS = [
     why: 'a sixth golden shape landed 2026-08-27 and "five goldens" stayed stale in every document quoting the total',
   },
 ];
-
-export const trackedFiles = (repo) => repoFiles(repo);
 
 /**
  * `count-ok` is the escape, deliberately NOT `drift-ok`.
@@ -506,7 +379,7 @@ export function checkCounts(repo, claims = COUNTED_CLAIMS, log = console.log, fi
     return 0;
   }
 
-  const source = files ?? trackedFiles(repo);
+  const source = files ?? repoFiles(repo);
   const docs = source.filter((f) => f.endsWith('.md')).filter(IN_SCOPE).filter(IS_SCANNED);
 
   // Fail-closed, the rule every scanner here carries: a gate that scanned nothing must never print a tick.
@@ -531,48 +404,32 @@ export function checkCounts(repo, claims = COUNTED_CLAIMS, log = console.log, fi
   const seen = new Map(claims.map((c) => [c, 0]));
 
   for (const file of docs) {
-    let text;
-    try { text = fs.readFileSync(path.join(repo, file), 'utf8'); } catch { continue; }
-    if (SUPERSEDED_BANNER.test(text)) continue;
+    const text = readRepoText(repo, file);
+    if (text === null || SUPERSEDED_BANNER.test(text)) continue;
 
-    const all = text.split(/\r?\n/);
-    const lines = all.slice(0, liveLineCount(file, all));
-    // Same window builder check-docs uses, and for the same measured reason: these documents wrap at ~110
-    // columns, so a claim can straddle a break and a line-only matcher would never see it.
+    // Historical lines BLANKED (`liveLinesOnly`), so a frozen seed is never asked to agree with today's tree.
+    const lines = liveLinesOnly(file, text.split(/\r?\n/));
     const windows = twoLineWindows(lines);
 
     for (const claim of claims) {
       if (truths.get(claim) < 0) continue;   // broken counter: reported once, not per occurrence
-      lines.forEach((line, i) => {
-        claim.pattern.lastIndex = 0;
-        const subject = claim.pattern.test(line) ? line : windows[i];
-        claim.pattern.lastIndex = 0;
-
-        // An ESCAPED occurrence still counts as a MATCH, so `count-ok` excuses the claim without making the
-        // registry entry look dead. Conflating the two meant the only annotated occurrence of a claim
-        // tripped the dead-entry rule instead of passing — a gate failing on correctly-annotated prose.
-        const escaped = line.includes(ESCAPE)
-          || (subject === windows[i] && (lines[i + 1] ?? '').includes(ESCAPE));
-        for (const m of subject.matchAll(claim.pattern)) {
-          // A match lying WHOLLY in the window's second half belongs to line i+1, which reports it on its
-          // own pass. Without this the same claim is reported at two line numbers — once from the window
-          // that straddles it and once from the line that contains it — and the second number is the
-          // useful one. The window's job is only to catch a claim broken ACROSS the wrap.
-          if (subject === windows[i] && m.index >= line.length + 1) continue;
-          // The FIRST non-empty group, not `m[1]`: a claim written two ways in two documents is one entry
-          // with an alternation, and only one branch's group is populated per match.
-          const said = parseCount(m.slice(1).find((g) => g != null));
-          if (said === null) continue;        // "many packages" — a word, not a claim
-          seen.set(claim, seen.get(claim) + 1);
-          if (!escaped && said !== truths.get(claim))
-            hits.push({ file, line: i + 1, claim, said, actual: truths.get(claim), text: subject.trim() });
+      for (const h of windowHits(lines, claim.pattern, { escape: ESCAPE, windows })) {
+        // The FIRST non-empty group, not `m[1]`: a claim written two ways in two documents is one entry
+        // with an alternation, and only one branch's group is populated per match.
+        const said = parseCount(h.match.slice(1).find((g) => g != null));
+        if (said === null) continue;        // "many packages" — a word, not a claim
+        // An ESCAPED occurrence still counts as a match, so `count-ok` never makes an entry look dead.
+        seen.set(claim, seen.get(claim) + 1);
+        if (!h.escaped && said !== truths.get(claim)) {
+          const text = (h.straddles ? windows[h.at] : lines[h.at]).trim();
+          hits.push({ file, line: h.at + 1, claim, said, actual: truths.get(claim), text });
         }
-      });
+      }
     }
   }
 
   // A registered claim that matches NOTHING is dead weight that cannot expire — the same rule
-  // `staleReferenceAllowances` and `retiredApiNames` carry, for the same reason: an entry nobody can see
+  // `retiredApiNames` and every allowance here carry, for the same reason: an entry nobody can see
   // rotting is one that silently stops protecting anything.
   const dead = claims.filter((c) => truths.get(c) >= 0 && seen.get(c) === 0);
 

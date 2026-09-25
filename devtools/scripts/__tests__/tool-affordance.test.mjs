@@ -1,8 +1,8 @@
 import { strict as assert } from 'node:assert';
 import { describe, it } from 'node:test';
 
-import { DEFAULT_PORT as EMBED_SCREEN_PORT } from '../embed-screen.mjs';
-import { ROLES as DECISION_ROLES, PORTS as DECISION_PORTS } from '../memory-decision.mjs';
+import { HARNESS_PORTS } from '../_llama-harness.mjs';
+import { ROLES as DECISION_ROLES } from '../memory-decision.mjs';
 import {
   EXTRA_PORT_BASE, MAX_EXTRA_ARMS, NATIVE_PORT, NEEDED_FREE_MIB, PORTS, ROLES,
   SCORERS_ONLY_FREE_MIB, armsEnv, envFor,
@@ -45,14 +45,10 @@ describe('serverSpecs', () => {
     assert.equal(ROLES, DECISION_ROLES);
   });
 
-  it('claims its OWN four ports and none that another harness owns', () => {
-    assert.deepEqual(specs.map((s) => s.port).sort(), [8160, 8161, 8162, 8163]);
-    // 8140-8144 memory-contention, 8147 rerank-screen, 8150-8153 memory-decision, 8090 a sibling tool.
-    for (const port of Object.values(PORTS)) {
-      assert.ok(port < 8140 || port > 8153, `${port} collides with a neighbouring harness`);
-      assert.ok(port !== 8090);
-      assert.ok(!Object.values(DECISION_PORTS).includes(port));
-    }
+  it('serves its four roles on the registry ports — _llama-harness.test holds them disjoint', () => {
+    const own = HARNESS_PORTS['tool-affordance'];
+    assert.deepEqual(PORTS, { chat: own.chat, small: own.small, embed: own.embed, rerank: own.rerank });
+    assert.deepEqual(specs.map((s) => s.port).sort(), Object.values(PORTS).sort());
   });
 
   it('does not embed a machine path — the caller supplies the model directory', () => {
@@ -133,16 +129,9 @@ describe('parseArgs', () => {
 describe('extra embedder arms — vary the SCORING, never the trial construction', () => {
   const arms = [{ label: 'minilm', file: 'a.gguf' }, { label: 'bgezh', file: 'b.gguf' }];
 
-  it('gives each arm its own port, inside this harness and outside every neighbour', () => {
+  it('gives each arm its own port from the registry block', () => {
     const specs = extraSpecs(arms, '/models');
     assert.deepEqual(specs.map((s) => s.port), [EXTRA_PORT_BASE, EXTRA_PORT_BASE + 1]);
-    const taken = [
-      ...Object.values(PORTS), ...Object.values(DECISION_PORTS), EMBED_SCREEN_PORT, 8090,
-    ];
-    for (const spec of specs) {
-      assert.ok(!taken.includes(spec.port), `${spec.port} collides with a neighbouring harness`);
-      assert.ok(spec.port < 8140 || spec.port > 8153, `${spec.port} collides`);
-    }
   });
 
   it('refuses more arms than it has ports, rather than overrunning into another harness', () => {
@@ -150,7 +139,6 @@ describe('extra embedder arms — vary the SCORING, never the trial construction
     // busy port fails UPWARD: the incumbent answers and every figure is taken on the wrong model.
     const many = Array.from({ length: MAX_EXTRA_ARMS + 1 }, (_, i) => ({ label: `m${i}`, file: 'x.gguf' }));
     assert.throws(() => extraSpecs(many, '/models'), /at most/);
-    assert.ok(EXTRA_PORT_BASE + MAX_EXTRA_ARMS - 1 < EMBED_SCREEN_PORT);
   });
 
   it('passes --embeddings and an explicit -ngl, like every other role here', () => {
@@ -202,17 +190,6 @@ describe('extra embedder arms — vary the SCORING, never the trial construction
     assert.equal(armsEnv([]), null);
     assert.equal(Object.hasOwn(envFor([]), 'LYNTAI_LIVE_EMBED_ARMS'), false);
     assert.equal(envFor(arms).LYNTAI_LIVE_EMBED_ARMS, armsEnv(arms));
-  });
-
-  it('gives the TOOL-CAPABLE model a port no arm and no neighbour owns', () => {
-    // Binding a busy port fails UPWARD — the incumbent answers — so a collision here would measure the
-    // native transport against whichever model happened to be on that port.
-    const taken = [
-      ...Object.values(PORTS), ...Object.values(DECISION_PORTS), EMBED_SCREEN_PORT, 8090,
-      ...Array.from({ length: MAX_EXTRA_ARMS }, (_, i) => EXTRA_PORT_BASE + i),
-    ];
-    assert.ok(!taken.includes(NATIVE_PORT), `${NATIVE_PORT} collides`);
-    assert.ok(NATIVE_PORT < 8140 || NATIVE_PORT > 8153, `${NATIVE_PORT} collides`);
   });
 
   it('serves the tool-capable model WITHOUT --jinja, because the probe refuted that dependency', () => {

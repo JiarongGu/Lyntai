@@ -6,10 +6,11 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
+import { ARMS, ROLES, parseArgs, renderPreset, settingsArgs } from '../memory-contention.mjs';
 import {
-  ARMS, PORTS, ROLES, renderPreset, settingsArgs, isFree, neighbourPids, ownedPidClosure, parseListeners,
-  vanishedNeighbours, parseGpuSample, aggregateGpuSamples, parseArgs, parseGpuComputeApps, censusContamination,
-} from '../memory-contention.mjs';
+  aggregateGpuSamples, censusContamination, isFree, neighbourPids, ownedPidClosure, parseGpuComputeApps,
+  parseGpuSample, parseListeners, vanishedNeighbours,
+} from '../_llama-harness.mjs';
 
 describe('renderPreset', () => {
   it('gives the embedder and the reranker their role flags and the chat model NEITHER', () => {
@@ -90,16 +91,6 @@ describe('ARMS', () => {
     assert.equal(byName['router-resident'].modelsMax, 4, 'must NOT swap at three models');
     assert.equal(byName['router-swapping'].modelsMax, 1, 'must be FORCED to evict');
     assert.equal(byName['dedicated'].kind, 'dedicated');
-  });
-
-  it('allocates no port the neighbour owns', () => {
-    assert.ok(!Object.values(PORTS).includes(8090), '8090 is a sibling tool\'s embedding server');
-  });
-
-  it('gives the busy-device load (Task 8) its own port, distinct from every role and the neighbour', () => {
-    const values = Object.values(PORTS);
-    assert.equal(new Set(values).size, values.length, 'no two roles share a port');
-    assert.ok(!values.includes(8090));
   });
 });
 

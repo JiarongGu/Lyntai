@@ -19,7 +19,7 @@ rather than any list of decisions kept here. **Everything before 3.0 is HISTORY,
 `.claude/rules/repo-mechanics.md` says what that forbids.
 
 **The baseline a green run should match:** `4629 passed / 4670 total, 41 skipped` (the skips are
-live-backend only), e2e 3/3, guard-script tests 887/887, doc samples 62/62. **The xUnit trio is held by no
+live-backend only), e2e 3/3, guard-script tests 940/940, doc samples 62/62. **The xUnit trio is held by no
 gate** — re-measure those three by hand after `verify` rather than extrapolating them from a diff, and read
 a skip count in the low HUNDREDS as "Docker is down and the whole Postgres leg went silently unexercised".
 **MEASURED with Docker up, re-attested 2026-09-25 at `78946f34`** (+100 passed against `d1b4fc77`: archive
@@ -232,7 +232,7 @@ rebuilds it and `verify` fails while the two disagree.
 
 | command | `verify` | what it does |
 | --- | :---: | --- |
-| `build` | ✓ | build the solution |
+| `build` |  | build the solution |
 | `check-warnings` | ✓ | a warning in `src/` — an unfailed IL2026 is a FALSE trim promise |
 | `check-bundle` | ✓ | the bundle's dependency closure — membership is a budget |
 | `check-packages` | ✓ | a package missing from any registry; the misses are silent |
@@ -243,8 +243,6 @@ rebuilds it and `verify` fails while the two disagree.
 | `playground` |  | the sample console app |
 | `bench` |  | BenchmarkDotNet router/FTS benchmarks |
 | `memory-sweep` |  | the {ranking × forgetting} 2×2 — miss and pollution rates |
-| `memory-spacing` |  | is `topical` responsive to `DsrOptions.SpacingWeight`? |
-| `memory-reinforcement` |  | law 3's `r`-dependence, isolated from reinforcement MAGNITUDE |
 | `memory-bounded` |  | the FORM of the growth rule, not its constants — set `ReinforceGain` |
 | `memory-salience` |  | enrichment held constant so only salience varies |
 | `memory-longmemeval` |  | prefer a revised fact over the superseded one — **run `--haystack`** |
@@ -277,6 +275,7 @@ rebuilds it and `verify` fails while the two disagree.
 | `changelog` |  | stamp `## Unreleased` at release time — never by hand |
 | `release-notes` |  | render the notes for a tagged version |
 | `pack` |  | → `publish/packages/` |
+| `nuget-unlist` |  | hide superseded versions on nuget.org — a DRY RUN unless `--apply` |
 | `e2e` | ✓ | the Playground against the deterministic provider-stub |
 | `check-docs` | ✓ | vocabulary a decision retired (`retiredTerms`) |
 | `check-links` | ✓ | a dead path, `Part N`, `§section` or `Type.Member` |
@@ -288,7 +287,7 @@ rebuilds it and `verify` fails while the two disagree.
 | `check-pitfalls` | ✓ | an unfiled trap or stale facet index; `--write` rebuilds it |
 | `check-options` | ✓ | a shipped option a consumer sets with NO xml doc to explain it |
 | `check-measurements` | ✓ | a result reading CURRENT that its own body retracts; `--write` rebuilds the index |
-| `check-dev-loop` | ✓ | this table drifting from `dev.mjs`; `--write` rebuilds it |
+| `check-dev-loop` | ✓ | this table drifting from `devtools/commands.mjs`; `--write` rebuilds it |
 | `check-decision-claims` | ✓ | a DECISION that stopped describing the code it governs |
 | `check-encoding` | ✓ | MOJIBAKE in tracked text — no other gate can see it |
 | `check-tautology` | ✓ | a rename that collapsed a CONTRAST — prose naming one thing twice |

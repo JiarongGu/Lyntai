@@ -26,20 +26,24 @@
 //                      `auth status` still reports whatever LYNTAI_STUB_AUTH says)
 import process from 'node:process';
 
+/** Exit once stdout has DRAINED: `process.exit()` with pipe writes still queued drops them, and the
+ * lines it drops are the ones a test asserts on. Never resolves — the process ends in the callback. */
+const exitFlushed = (code) => new Promise(() => process.stdout.write('', () => process.exit(code)));
+
 // Maintenance flags/commands first: these take no prompt, so they must not block on stdin.
 const argv0 = process.argv.slice(2);
 if (argv0.includes('--version')) {
   process.stdout.write('0.0.0-stub (provider-stub)\n');
-  process.exit(0);
+  await exitFlushed(0);
 }
 if (argv0.includes('update') || argv0.includes('upgrade')) {
   process.stdout.write('provider-stub is up to date (0.0.0-stub)\n');
-  process.exit(0);
+  await exitFlushed(0);
 }
 if (argv0.includes('install')) {
   const target = argv0[argv0.indexOf('install') + 1];
   process.stdout.write(`provider-stub install ${target && !target.startsWith('--') ? target : 'stable'}: nothing to do (0.0.0-stub)\n`);
-  process.exit(0);
+  await exitFlushed(0);
 }
 if (argv0[0] === 'auth') {
   const loggedIn = process.env.LYNTAI_STUB_AUTH !== 'out';
@@ -48,10 +52,10 @@ if (argv0[0] === 'auth') {
     process.stdout.write(JSON.stringify(loggedIn
       ? { loggedIn: true, authMethod: 'provider-stub', apiProvider: 'provider-stub', email: 'stub@example.invalid', orgId: 'stub-org', orgName: 'Stub Org', subscriptionType: 'stub' }
       : { loggedIn: false }) + '\n');
-    process.exit(0);
+    await exitFlushed(0);
   }
   process.stdout.write(`provider-stub ${argv0[1] === 'logout' ? 'logged out' : 'logged in'} (stateless stub)\n`);
-  process.exit(0);
+  await exitFlushed(0);
 }
 
 const chunks = [];
@@ -72,7 +76,7 @@ if (prompt.includes('AGENT_SESSION')) {
   emit({ type: 'assistant', message: { model: 'claude-stub', content: [{ type: 'tool_use', id: 'toolu_1', name: 'Read', input: { file_path: 'README.md' } }], usage: { input_tokens: 100, output_tokens: 20, cache_read_input_tokens: 50, cache_creation_input_tokens: 10 } } });
   emit({ type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: 'toolu_1', content: 'stub file body', is_error: false }] } });
   finish('Agent session complete.');
-  process.exit(0);
+  await exitFlushed(0);
 }
 
 emit({ type: 'system', subtype: 'init', session_id: sessionId });
@@ -83,26 +87,26 @@ if (prompt.includes('SLOW')) {
 
 if (prompt.includes('FORCE_ERROR')) {
   finish(''); // empty → the provider reports Failed (no output)
-  process.exit(0);
+  await exitFlushed(0);
 }
 
 if (prompt.includes('NO_RESULT')) {
   emit({ type: 'assistant', message: { content: [{ type: 'text', text: 'stub reply without result line' }] } });
-  process.exit(0); // no terminal result event
+  await exitFlushed(0); // no terminal result event
 }
 
 if (prompt.includes('SCORING TASK')) {
   const verdict = JSON.stringify({ score: 0.8, reason: 'stub judge verdict' });
   emit({ type: 'assistant', message: { content: [{ type: 'text', text: verdict }] } });
   finish(verdict);
-  process.exit(0);
+  await exitFlushed(0);
 }
 
 if (prompt.includes('JSON_SCHEMA')) {
   const obj = JSON.stringify({ ok: true, note: 'stub structured output' });
   emit({ type: 'assistant', message: { content: [{ type: 'text', text: obj }] } });
   finish(obj);
-  process.exit(0);
+  await exitFlushed(0);
 }
 
 if (prompt.includes('TOOL_DEMO')) {
@@ -114,7 +118,7 @@ if (prompt.includes('TOOL_DEMO')) {
     : JSON.stringify({ tool: 'echo', arguments: { text: 'lyntai' } });
   emit({ type: 'assistant', message: { content: [{ type: 'text', text: reply }] } });
   finish(reply);
-  process.exit(0);
+  await exitFlushed(0);
 }
 
 // Default: a deterministic completion. Echo the last non-empty prompt line so tests can assert round-trip.

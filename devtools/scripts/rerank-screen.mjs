@@ -17,17 +17,17 @@
 //   node dev.mjs rerank-screen --inspect <gguf-url> [<gguf-url> …]
 import fs from 'node:fs';
 import path from 'node:path';
-import { execFile, spawn } from 'node:child_process';
-import { promisify } from 'node:util';
+import { fileURLToPath } from 'node:url';
 
-import { parseListeners, isFree, neighbourPids } from './memory-contention.mjs';
+import {
+  HARNESS_PORTS, isFree, neighbourReport, netstat, ownedPids, parseListeners, resolveServerExe, startServers,
+  stopServers, tearDownOnSigint, vanishedNeighbours,
+} from './_llama-harness.mjs';
 
-const execFileAsync = promisify(execFile);
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const here = fileURLToPath(import.meta.url);
 
-/** Default port. DELIBERATELY outside `memory-contention.mjs`'s 8140-8144 so the two harnesses cannot
- *  collide, and nowhere near 8090, which a sibling tool's embedding server has held across two sessions. */
-export const DEFAULT_PORT = 8147;
+/** Default port — `_llama-harness.mjs`' registry, which keeps every harness disjoint. */
+export const DEFAULT_PORT = HARNESS_PORTS['rerank-screen'].screen;
 
 /** The fixture: one unambiguous answer and three distractors that SHARE VOCABULARY with the query.
  *  The overlap is the point — a model reduced to mean-pooled cosine by a bad conversion still ranks
@@ -300,9 +300,6 @@ export function parseArgs(argv) {
   };
 }
 
-const isEntry = process.argv[1] && path.basename(process.argv[1]) === 'rerank-screen.mjs';
-if (isEntry) await main(parseArgs(process.argv.slice(2)));
-
 async function main(opts) {
   if (opts.inspect.length) return inspectMain(opts.inspect);
   if (!opts.model) {
@@ -337,7 +334,6 @@ async function inspectMain(urls) {
 }
 
 async function screenMain(opts) {
-  const server = opts.server ?? process.env.LYNTAI_LLAMA_SERVER;
   const label = opts.label ?? path.basename(opts.model);
   const results = [];
   const record = (name, ok, detail) => {
@@ -346,11 +342,6 @@ async function screenMain(opts) {
   };
 
   console.log(`\n=== rerank-screen: ${label} ===`);
-  if (!server) {
-    console.error('  need --server <llama-server path> or LYNTAI_LLAMA_SERVER');
-    process.exitCode = 2;
-    return;
-  }
   if (!fs.existsSync(opts.model)) {
     console.error(`  model not found: ${opts.model}`);
     process.exitCode = 2;
@@ -360,24 +351,17 @@ async function screenMain(opts) {
   // Both units, always: they straddle round thresholds and a sweep once mis-sorted candidates by 27%.
   console.log(`  bytes   : ${bytes}  (${(bytes / 1024 / 1024).toFixed(2)} MiB | ${(bytes / 1e6).toFixed(2)} MB)`);
 
-  const listeners = async () => parseListeners((await execFileAsync('netstat', ['-ano', '-p', 'TCP'])).stdout);
-  const llamaRows = async () => {
-    const { stdout } = await execFileAsync('powershell', ['-NoProfile', '-Command',
-      "Get-CimInstance Win32_Process -Filter \"Name='llama-server.exe'\" | Select-Object ProcessId,ParentProcessId | ConvertTo-Json -Compress"]);
-    const t = stdout.trim();
-    if (!t || t === 'null') return [];
-    const p = JSON.parse(t);
-    return (Array.isArray(p) ? p : [p]).map((x) => ({ pid: x.ProcessId, ppid: x.ParentProcessId }));
-  };
-
-  if (!isFree(await listeners(), opts.port)) {
+  if (!isFree(parseListeners(await netstat()), opts.port)) {
     console.error(`  ABORT: port ${opts.port} is LISTENING. Binding it fails UPWARD — the incumbent would ` +
       `answer every request and this screen would read clean on somebody else's model.`);
     process.exitCode = 3;
     return;
   }
-  const before = neighbourPids(await llamaRows(), []);
-  console.log(`  neighbours before: ${JSON.stringify(before)} (not ours — must survive teardown)`);
+  const serverExe = opts.server ?? process.env.LYNTAI_LLAMA_SERVER ?? await resolveServerExe();
+  const scratchDir = path.resolve(path.dirname(here), '..', '_rerank-screen');
+  fs.mkdirSync(scratchDir, { recursive: true });
+  const before = await neighbourReport(ownedPids());
+  console.log(`  neighbours before: ${JSON.stringify(before.map((r) => r.pid))} (not ours — must survive teardown)`);
 
   // The query is a PARAMETER, never a default. It was `FIXTURE.query` for every call, so the reference
   // pair was scored against the wrong question — and the resulting FAIL on the known-good control is what
@@ -392,27 +376,18 @@ async function screenMain(opts) {
     return { status: r.status, json, text };
   };
 
-  let child = null;
+  let pids = [];
   try {
     const argv = ['--model', opts.model, '--port', String(opts.port), '--host', '127.0.0.1', '--reranking',
       '--ctx-size', String(opts.ctx), '--batch-size', String(opts.ctx), '--ubatch-size', String(opts.ctx),
       '--no-webui', '-ngl', String(opts.ngl)];
-    child = spawn(server, argv, { stdio: ['ignore', 'pipe', 'pipe'] });
-    let log = '', exited = null;
-    child.stdout.on('data', (d) => { log += d; });
-    child.stderr.on('data', (d) => { log += d; });
-    child.on('exit', (c) => { exited = c; });
-
-    let up = false;
-    for (let i = 0; i < 90 && !up && exited === null; i++) {
-      await sleep(1000);
-      try { up = (await fetch(`http://127.0.0.1:${opts.port}/health`)).ok; } catch { /* not yet */ }
-    }
-    if (!up) {
-      const why = exited !== null ? `process exited with code ${exited}` : 'no /health after 90s';
-      record('server starts', false, why);
-      const err = log.split(/\r?\n/).filter((l) => /error|failed/i.test(l)).slice(-4);
-      for (const l of err) console.log(`      ${l.trim()}`);
+    try {
+      pids = await startServers([{ label: 'rerank-screen', port: opts.port, argv }], { scratchDir, serverExe });
+    } catch (err) {
+      record('server starts', false, err.message);
+      const log = path.join(scratchDir, 'rerank-screen.err.log');
+      const lines = fs.existsSync(log) ? fs.readFileSync(log, 'utf8').split(/\r?\n/) : [];
+      for (const l of lines.filter((x) => /error|failed/i.test(x)).slice(-4)) console.log(`      ${l.trim()}`);
       return;
     }
     record('server starts', true);
@@ -480,16 +455,16 @@ async function screenMain(opts) {
     console.log(`  note    : top-two gap ${v.topTwoGap.toFixed(4)} vs drift ${drift.toExponential(2)} — ` +
       `this fixture cannot see a near-tie flip`);
   } finally {
-    if (child?.pid) {
-      try { await execFileAsync('taskkill', ['/F', '/T', '/PID', String(child.pid)]); } catch { /* gone */ }
-      await sleep(1500);
-    }
-    console.log(`  teardown: port ${opts.port} ${(await listeners()).has(opts.port) ? '*** STILL LISTENING ***' : 'free'}`);
-    const after = new Set((await llamaRows()).map((r) => r.pid));
-    const lost = before.filter((p) => !after.has(p));
+    // A survivor or a lost neighbour FAILS the run: a screen whose checks all pass must never exit 0 over an
+    // abandoned server or a neighbour it took down.
+    const { survivors } = await stopServers(pids, [opts.port]);
+    console.log(`  teardown: port ${opts.port} ${survivors.length ? '*** STILL LISTENING ***' : 'free'}`);
+    if (survivors.length) process.exitCode = 1;
+    const lost = vanishedNeighbours(before, await neighbourReport(ownedPids()));
     console.log(lost.length
       ? `  *** NEIGHBOUR LOST: ${JSON.stringify(lost)} — restart it ***`
       : `  neighbours after : all ${before.length} still alive`);
+    if (lost.length) process.exitCode = 1;
   }
 
   const failed = results.filter((r) => !r.ok);
@@ -497,4 +472,11 @@ async function screenMain(opts) {
     (failed.length ? ` — FAILED: ${failed.map((f) => f.name).join(', ')}` : ''));
   // Set the code; never process.exit() with a request possibly in flight — the abort REPLACES the code.
   if (failed.length || results.length === 0) process.exitCode = 1;
+}
+
+// CLI entry point — a thin wrapper, so importing this module for a test starts nothing.
+if (import.meta.main ?? (process.argv[1] && path.resolve(process.argv[1]) === here)) {
+  const opts = parseArgs(process.argv.slice(2));
+  tearDownOnSigint([opts.port]);
+  await main(opts);
 }

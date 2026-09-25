@@ -56,7 +56,7 @@ describe('check-warnings — which lines count as a warning', () => {
   });
 
   it('…and the two families the original pattern could not see (SYSLIB…, xUnit…)', () => {
-    // Was pinned here as a KNOWN LIMIT on 2026-08-11 and FIXED 2026-08-12 (TASKS.md Part 62). The old
+    // Was pinned here as a KNOWN LIMIT on 2026-08-11 and FIXED 2026-08-12 (docs/task-archive.md Part 62). The old
     // `[A-Z]{2,4}\d+` could match neither a six-letter prefix nor a lowercase-led one, so .NET's own
     // obsoletion warnings and the analyzer packages using camelCase ids were invisible — a published project
     // could carry one and this gate would report `src/` clean. Measured before widening: a full
@@ -132,6 +132,14 @@ describe('check-warnings — a log it cannot trust is never a green light', () =
     assert.equal(code, 1);
     assert.match(out, /build FAILED — fix the build first/);
     assert.doesNotMatch(out, /warning\(s\) in src\//, 'a failed build\'s warning list is noise, not the problem');
+  });
+
+  it('shows the compiler ERRORS of a failed build, deduplicated — it is the only build `verify` runs', () => {
+    const err = '  D:\\repo\\src\\Lyntai.Core\\D.cs(1,1): error CS0103: The name x does not exist [D:\\repo\\src\\X.csproj]';
+    const { code, out } = run(() => ({ status: 1, stdout: `${err}\n${err}\n  Build FAILED.\n` }));
+    assert.equal(code, 1);
+    assert.equal((out.match(/error CS0103/g) ?? []).length, 1, out);
+    assert.match(out, /\.\\src\\Lyntai\.Core\\D\.cs\(1,1\): error CS0103/);
   });
 
   it('never reports "warning-free" for a build that did not complete (the ENOBUFS shape)', () => {

@@ -1,49 +1,16 @@
 // check-comments — FAIL when a comment block outgrows what it explains.
 //
-// WHY THIS IS A GATE. Measured 2026-08-16: `src/` carried **0.86 comment lines per line of real code** and
-// 1.6× more prose than `DECISIONS.md` + `pitfalls.md` + the task archive + the design contract COMBINED. A
-// third of it sat in blocks long enough that nobody reads them in place — including a 120-line `<remarks>`
-// on one method.
+// A long comment is an unindexed, ungated, unreviewed document in the worst possible location; the rule
+// is `.claude/rules/code-commentary.md` and why it is a gate is `docs/GATES.md` §check-comments. Scope:
+// `src`, `tests`, `devtools`, `bench` — `.cs` and `.mjs`.
 //
-// A long comment is an unindexed, ungated, unreviewed document in the worst possible location. This
-// repository runs `check-docs`, `check-links` and `check-counts` to stop its MAINTAINED prose rotting; none
-// of them can see a code comment, so the longest and least-read prose in the tree was also the only prose
-// nothing checked. `pitfalls.md` records it rotting exactly as you would expect.
-//
-// The rule this enforces is `.claude/rules/code-commentary.md`: the XML doc is the CONTRACT, a `//` comment
-// ANNOTATES the code beneath it, and the DESIGN argument belongs in a record.
-//
-// SCOPE — all four tiers (`src`, `tests`, `devtools`, `bench`), `.cs` and `.mjs`. Measured 2026-08-16,
-// comment lines per line of real code:
-//
-//     src/       378 files   ratio 0.65   (was 0.86, 28 long blocks / 893 lines, before that day's paydown)
-//     tests/     262 files   ratio 0.27
-//     devtools/   47 files   ratio 0.27
-//     bench/      13 files   ratio 0.27
-//
-// It scanned `src/` ONLY at first, and this header argued that was deliberate: the RATIO problem is
-// `src/`-specific by roughly 3x, `src/` is the only tier whose comments ship to consumers as XML docs, and a
-// test explaining at length what its fixture proves is doing the job the rule asks. Half of that survived
-// contact with a measurement. The worst block in `tests/` — 88 lines — states a real constraint on what any
-// number measured from that corpus may claim, AND carries a dated heading plus a long narration of what an
-// earlier version did wrong. Same defect, lower density.
-//
-// Widening cost nothing, because the ratchet does not demand a paydown — it freezes. And it immediately
-// found FIVE stacked-summary defects the other tiers had been hiding, one of them a 53-line record doc
-// stranded above a different type, so the record it documented had no doc at all. That is the argument
-// against "this tier is different": the tiers were not better, they were unmeasured.
-//
-// THE RATCHET, and why it is not a plain threshold. 69 blocks were already over the limit when this landed,
-// so a gate that simply failed would have to be switched off. Instead every offending FILE carries its
-// current worst block in `commentBlockAllowances`, and an allowance that is LARGER than the file's actual
-// worst block FAILS — so the numbers can only ever come down, and a file that improves must record it. That
-// is the same "an allowance that stops matching FAILS" discipline `check-api-vocabulary` and `check-links`
-// already carry, turned into a budget instead of a boolean.
-import { execFileSync } from 'node:child_process';
+// A RATCHET, not a threshold: every over-limit block is recorded in `commentBlockAllowances` as the
+// file's MULTISET of block lengths, and an allowance looser than the file needs FAILS, so the numbers only
+// come down. It also fails a doc block documenting the wrong member and punctuation a deleted clause left.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { repoFiles } from './_repo-files.mjs';
+import { readRepoText, repoFiles } from './_repo-files.mjs';
 
 const here = fileURLToPath(import.meta.url);
 const repo = path.resolve(path.dirname(here), '..', '..');
@@ -56,8 +23,6 @@ export const ESCAPE = 'comment-ok';
 
 /** The tiers scanned. `src/` ships to consumers; the other three rot the same way and were unscanned. */
 export const TIERS = ['src', 'tests', 'devtools', 'bench'];
-
-export const trackedFiles = (repo) => repoFiles(repo, TIERS);
 
 /**
  * Every comment block in one file, as `{ line, length, escaped }`.
@@ -91,6 +56,15 @@ export function blocksIn(text) {
   const flush = () => { if (run > 0) out.push({ line: start, length: run, escaped }); run = 0; };
   for (let i = 0; i <= lines.length; i++) {
     const t = (lines[i] ?? '').trim();
+    // A `/* … */` span (JSDoc, the main doc form in `.mjs`) is ONE block, measured start to end.
+    if (t.startsWith('/*')) {
+      flush();
+      let end = i;
+      while (end < lines.length - 1 && !lines[end].includes('*/')) end++;
+      out.push({ line: i + 1, length: end - i + 1, escaped: t.includes(ESCAPE) });
+      i = end;
+      continue;
+    }
     if (!t.startsWith('//')) { flush(); continue; }
     if (NEW_SUBJECT.test(t)) flush();
     if (run === 0) { start = i + 1; escaped = t.includes(ESCAPE); }
@@ -98,10 +72,6 @@ export function blocksIn(text) {
   }
   return out;
 }
-
-/** The worst block in a file, ignoring escaped ones. 0 when the file has none. */
-export const worstBlock = (text) =>
-  blocksIn(text).filter((b) => !b.escaped).reduce((n, b) => Math.max(n, b.length), 0);
 
 /** Every unescaped block over the limit, worst first — the unit the ledger records. */
 export const overLimitBlocks = (text) =>
@@ -125,8 +95,8 @@ export const asAllowanceList = (v) => (Array.isArray(v) ? [...v] : [v]).sort((a,
  *
  * Both shapes were produced by this repository's own comment sweep and SHIPPED, inside `///` docs on public
  * members, so they reached consumers' IntelliSense as "…reads as the neutral 5 instead (" and "…field
- * instead . This exists so…". Every gate was green: `check-comments` measures block LENGTH, `check-docs`
- * scans prose files not `src/`, and the compiler has no opinion about a sentence. A person found them.
+ * instead . This exists so…". Every gate was green: `check-comments` measured block LENGTH, `check-docs`
+ * reads vocabulary, and the compiler has no opinion about a sentence. A person found them.
  *
  * The two rules are narrow ON PURPOSE, because the obvious broad versions are all false positives here:
  * "a comment line starting with punctuation" hits `.cmd, then .exe` and a wrapped `: 1e-6</c>)`, and "a line
@@ -175,6 +145,24 @@ export function stackedSummaries(text) {
   return out;
 }
 
+/**
+ * JSDoc blocks with no member between them and the next JSDoc block — the `.mjs` form of a stacked
+ * `<summary>`: the first documents a member that is not there, and the member below it reads the second.
+ */
+export function stackedDocBlocks(text) {
+  const lines = text.split(/\r?\n/);
+  const out = [];
+  for (let i = 0; i < lines.length; i++) {
+    if (!lines[i].trim().startsWith('/**')) continue;
+    const start = i;
+    while (i < lines.length - 1 && !lines[i].includes('*/')) i++;
+    let j = i + 1;
+    while (j < lines.length && (lines[j].trim() === '' || lines[j].trim().startsWith('//'))) j++;
+    if (j < lines.length && lines[j].trim().startsWith('/**')) out.push({ line: start + 1, jsdoc: true });
+  }
+  return out;
+}
+
 /** Comment lines whose punctuation says an edit removed the text around it. */
 export function strandedIn(text) {
   const out = [];
@@ -188,7 +176,7 @@ export function strandedIn(text) {
 }
 
 export function checkComments(repo, cfg, log = console.log, files = null) {
-  const source = files ?? trackedFiles(repo);
+  const source = files ?? repoFiles(repo, TIERS);
   // `.mjs` too — the guard scripts and the dev loop are the `devtools/` tier, and a gate that exempted its
   // own author's prose would be the least defensible scope of all.
   const scanned = source.filter((f) => f.endsWith('.cs') || f.endsWith('.mjs'));
@@ -209,12 +197,12 @@ export function checkComments(repo, cfg, log = console.log, files = null) {
   const seen = new Set();
 
   for (const f of scanned) {
-    let text;
-    try { text = fs.readFileSync(path.join(repo, f), 'utf8'); } catch { continue; }
+    const text = readRepoText(repo, f);
+    if (text === null) continue;
     seen.add(f);
 
     for (const s of strandedIn(text)) stranded.push({ file: f, ...s });
-    for (const s of stackedSummaries(text)) stacked.push({ file: f, ...s });
+    for (const s of [...stackedSummaries(text), ...stackedDocBlocks(text)]) stacked.push({ file: f, ...s });
 
     const blocks = overLimitBlocks(text);
     const actual = blocks.map((b) => b.length);
@@ -273,8 +261,11 @@ export function checkComments(repo, cfg, log = console.log, files = null) {
   }
 
   if (stacked.length > 0) {
-    log(`\ncheck-comments: ✗ ${stacked.length} doc run(s) carry more than one <summary>`);
-    for (const s of stacked) log(`  ${s.file}:${s.line}  ${s.count} summaries in one run`);
+    log(`\ncheck-comments: ✗ ${stacked.length} doc block(s) documenting a member that is not beneath them`);
+    for (const s of stacked) {
+      log(`  ${s.file}:${s.line}  ${s.jsdoc ? 'a doc block with no member between it and the next'
+        : `${s.count} summaries in one run`}`);
+    }
     log('  Two members\' docs are fused: one member has two summaries and another has none.');
     log('  Move the displaced block onto the member it describes, or make it a <remarks>.');
   }

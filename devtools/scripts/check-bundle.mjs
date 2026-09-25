@@ -6,12 +6,6 @@
 // decided on — the drift a growing package graph produces silently, since adding one ProjectReference can
 // pull a whole SDK behind it. The `Microsoft.Extensions.*` band is auto-allowed: those ship on the runtime's
 // own version band and any DI app already has them.
-//
-// Extracted from dev.mjs 2026-08-11 (docs/task-archive.md Part 62) so it can be driven by a test. Nothing
-// about what it
-// CATCHES changed in the move — the closure is read from the same `project.assets.json`, the band rule, the
-// two failure branches and every message are as they were. What the extraction buys is that the
-// allowlist-staleness branch, which had never run against a fixture, now runs on every `verify`.
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
@@ -80,7 +74,12 @@ export function checkBundle({
 } = {}) {
   const label = 'check-bundle';
   const cfg = config?.bundle;
-  if (!cfg) { log(`${label}: no bundle configured — skipped`); return 0; }
+  // A missing key is a renamed config entry, never a repository without a bundle: fail rather than skip.
+  if (!cfg) {
+    error(`${label}: ✗ no \`bundle\` in the config — the dependency budget is unchecked. Restore it in `
+      + 'devtools/project.config.mjs.');
+    return 1;
+  }
 
   const restored = (restore ?? (() => restoreBundle(repo, cfg.project)))();
   if (restored.status !== 0) {

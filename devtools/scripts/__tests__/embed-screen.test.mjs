@@ -1,10 +1,6 @@
 import { strict as assert } from 'node:assert';
 import { describe, it } from 'node:test';
 
-import { PORTS as CONTENTION_PORTS } from '../memory-contention.mjs';
-import { PORTS as DECISION_PORTS } from '../memory-decision.mjs';
-import { DEFAULT_PORT as RERANK_PORT } from '../rerank-screen.mjs';
-import { PORTS as AFFORDANCE_PORTS } from '../tool-affordance.mjs';
 import {
   COLLAPSED_RANGE, DEFAULT_PORT, FIXTURE, HEALTH, MIN_HEALTH_GAP, cosine, evaluateFixture,
   evaluateHealth, parseArgs, parseEmbedding, serverSpec,
@@ -249,18 +245,6 @@ describe('serverSpec', () => {
     const spec = serverSpec({ model: '/m/x.gguf', port: 8170 });
     const mine = spec.argv.filter((a) => /^[A-Za-z]:\\/.test(a));
     assert.deepEqual(mine, []);
-  });
-});
-
-describe('ports', () => {
-  it('claims a port no neighbouring harness owns, and never 8090', () => {
-    // 8140-8144 memory-contention, 8147 rerank-screen, 8150-8153 memory-decision,
-    // 8160-8163 tool-affordance, 8090 a sibling tool's embedding server across several sessions.
-    const taken = [
-      ...Object.values(CONTENTION_PORTS), RERANK_PORT,
-      ...Object.values(DECISION_PORTS), ...Object.values(AFFORDANCE_PORTS), 8090,
-    ];
-    assert.ok(!taken.includes(DEFAULT_PORT), `${DEFAULT_PORT} collides with a neighbouring harness`);
   });
 });
 

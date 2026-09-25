@@ -27,8 +27,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
-  anchorProblems, blockRange, carriedEscapes, cell, escapeComments, fixedPoint, markerPattern,
-  parseAttributes,
+  anchorProblems, carriedEscapes, cell, escapeComments, fixedPoint, markerPattern, parseAttributes,
+  regenerate, scanMarkers,
 } from './_markers.mjs';
 
 const here = fileURLToPath(import.meta.url);
@@ -86,18 +86,14 @@ export const BLOCK_END = '<!-- results:end -->';
 
 const MARKER = markerPattern('result');
 const FREE = markerPattern('result-free');
-/** A marker that OPENED — used to tell "no marker here" from "a marker too broken to match". */
-const OPENER = /<!--\s*result:/;
 const HEADING = /^(#{3,4}) (.+)$/;
-const FENCE = /^\s*```/;
 const ID = /^[a-z0-9][a-z0-9-]{0,47}$/;
 
 /**
  * Every result the file declares — `{ rows, sections, problems }`.
  *
- * THE GENERATED BLOCK IS SKIPPED, for the reason `check-pitfalls` records: its own rows quote the values
- * they were generated from, so without this the generator reads its own output back as a page of duplicate
- * ids and fails on the file it just wrote.
+ * The generated block (whose rows quote the values they came from), fenced code, an unclosed fence and a
+ * marker too broken to match are `scanMarkers`' (`_markers.mjs`).
  *
  * A section may carry MORE THAN ONE marker, and that is the mechanism rather than a nicety: this record
  * retracts inline, so one section holds a live result and a dead one, and only a second marker lets the
@@ -106,20 +102,13 @@ const ID = /^[a-z0-9][a-z0-9-]{0,47}$/;
 export function parseResults(lines, vocab = []) {
   const rows = [];
   const sections = [];
-  const problems = [];
-  const block = blockRange(lines, BLOCK_BEGIN, BLOCK_END);
-  let fenced = false;
-  let fenceOpenedAt = 0;
+  const { visible, problems } = scanMarkers(lines, { name: 'result', begin: BLOCK_BEGIN, end: BLOCK_END, noun: 'result' });
   let section = null;
 
   const at = (line, why) => problems.push({ line, why });
 
-  lines.forEach((raw, i) => {
+  visible.forEach(({ i, raw, marker, broken }) => {
     const line = i + 1;
-    if (block && i >= block.start && i <= block.end) return;
-    if (FENCE.test(raw)) { fenced = !fenced; fenceOpenedAt = fenced ? line : 0; return; }
-    if (fenced) return;
-
     const h = HEADING.exec(raw);
     if (h) {
       section = { line, level: h[1].length, title: h[2].replace(MARKER, '').replace(FREE, '').trim(), rows: 0, free: null };
@@ -134,18 +123,7 @@ export function parseResults(lines, vocab = []) {
       else section.free = free[1].trim();
     }
 
-    const marker = MARKER.exec(raw);
-    // A marker body may not contain `>` — that is what stops it running past its own terminator
-    // (`_markers.mjs`) — so one that does MATCHES NOTHING AT ALL and the whole result silently vanishes.
-    // Measured on the first real run: an `arm` reading "best threshold `>= 6`" disappeared, and the only
-    // thing that noticed was the closed-vocabulary rule reporting its metric as unused. Had the metric been
-    // a common one, the row would simply have been absent from the index it is the point of.
-    if (!marker && OPENER.test(raw)) {
-      at(line, 'this `result:` marker contains `>` and therefore matches NOTHING — the whole row vanishes '
-        + 'silently. Reword the value; `>` is what would let a marker run past its own `-->`');
-      return;
-    }
-    if (!marker) return;
+    if (broken || !marker) return;
     if (!section) { at(line, 'a `result:` marker sits above the first section heading'); return; }
     section.rows++;
 
@@ -194,16 +172,7 @@ export function parseResults(lines, vocab = []) {
     });
   });
 
-  // A fence that never balances deletes every section below it FROM THE PARSE and the gate then writes the
-  // truncated read — the defect `check-pitfalls` measured on the traps record, where one forgotten closing
-  // fence took 157 traps to 131 and published it at exit 0.
-  if (fenced)
-    problems.push({
-      line: fenceOpenedAt,
-      why: 'a code fence opened here is never closed, so every result below it is invisible to this gate — '
-        + 'the index would be written over a truncated read',
-    });
-
+  problems.sort((a, b) => a.line - b.line);
   return { rows, sections, problems };
 }
 
@@ -336,15 +305,13 @@ export function renderIndex(rows, state) {
   ];
 }
 
+const renderFrom = (vocab) => (t) => {
+  const { rows } = parseResults(t.split('\n'), vocab);
+  return renderIndex(rows, resolve(rows).state);
+};
+
 /** The file with its index regenerated until it stops moving, or `null` if the anchors are missing. */
-export const indexFixedPoint = (text, vocab) => fixedPoint(
-  text,
-  (t) => {
-    const { rows } = parseResults(t.split('\n'), vocab);
-    return renderIndex(rows, resolve(rows).state);
-  },
-  BLOCK_BEGIN, BLOCK_END,
-);
+export const indexFixedPoint = (text, vocab) => fixedPoint(text, renderFrom(vocab), BLOCK_BEGIN, BLOCK_END);
 
 export function checkMeasurements(repo, config = {}, log = console.log, opts = {}) {
   const vocab = config.measurementMetrics ?? [];
@@ -392,15 +359,14 @@ export function checkMeasurements(repo, config = {}, log = console.log, opts = {
   if (stale.length > 0)
     failures.push(`${stale.length} section heading(s) announce a retraction no result under them records`);
 
-  const fixed = failures.length === 0 ? indexFixedPoint(normalized, vocab) : normalized;
-  if (fixed === null) {
+  const write = opts.write ? (next) => fs.writeFileSync(path.join(repo, RECORD), next) : null;
+  const outcome = failures.length === 0 ? regenerate(normalized, renderFrom(vocab), BLOCK_BEGIN, BLOCK_END, write) : 'current';
+  if (outcome === 'missing')
     failures.push(`the index anchors are missing — add \`${BLOCK_BEGIN} -->\` and \`${BLOCK_END}\``);
-  } else if (fixed !== normalized && opts.write) {
-    fs.writeFileSync(path.join(repo, RECORD), fixed);
+  else if (outcome === 'written')
     log(`check-measurements: regenerated the results index in ${RECORD} — ${rows.length} result(s)`);
-  } else if (fixed !== normalized) {
+  else if (outcome === 'stale')
     failures.push(`the results index at the head of ${RECORD} is STALE`);
-  }
 
   if (failures.length === 0) {
     const derived = rows.filter((r) => state.get(r)?.status === DERIVED).length;

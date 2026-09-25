@@ -1,60 +1,31 @@
 #!/usr/bin/env node
-// nuget-unlist.mjs — bulk-UNLIST Lyntai package versions on nuget.org.
+// nuget-unlist — bulk-UNLIST Lyntai package versions on nuget.org (`docs/GATES.md` §nuget-unlist).
 //
-// `dotnet nuget delete` is misleadingly named: on nuget.org it UNLISTS (hides from search and the version
-// dropdown) and never deletes. Restore by exact version keeps working, and the operation is reversible from
-// the package's Manage page. Versions are immutable regardless — an unlisted version number can never be
-// re-published.
+// `dotnet nuget delete` UNLISTS on nuget.org and never deletes: a pinned restore keeps working, the number is
+// never freed, and the Manage page reverses it. Deprecation has no API, so it stays a web-UI step.
 //
-// Deprecation is NOT scriptable (no public API — it is web-UI only, on each package's Manage page).
-// This tool covers the unlist half only.
+//   node devtools/dev.mjs nuget-unlist [--below 1.1.0] [--only <id>] [--apply] [--api-key <key>]
 //
-//   Auth: mint the key at nuget.org -> Account -> API Keys, scope "Unlist", glob pattern `Lyntai.*`.
-//         Supply it either way — `--api-key` wins over the environment:
-//           $env:NUGET_API_KEY = "..."           # preferred: stays out of shell history
-//           --api-key <key>                      # convenient, but the key lands in shell history
-//         Never commit it. It is redacted from this tool's own output either way.
-//
-//   Usage:
-//     node devtools/nuget-unlist.mjs                 # DRY RUN — prints exactly what would be unlisted
-//     node devtools/nuget-unlist.mjs --apply         # actually unlist
-//     node devtools/nuget-unlist.mjs --below 1.1.0   # change the cutoff (default 1.1.0)
-//     node devtools/nuget-unlist.mjs --apply --only Lyntai.Core
-//     node devtools/nuget-unlist.mjs --apply --below 2.0.1 --api-key oy2...
-//
-// Idempotent: queries nuget.org for what is currently LISTED and skips everything else, so a re-run after
-// a partial failure only does the remainder.
-//
-// The roster is the packable ids read from `src/*/*.csproj` plus the hand-kept RETIRED list below — never a
-// single hand-written array, which went stale once and skipped a live package without saying so.
-
+// A DRY RUN unless `--apply`. The key comes from `NUGET_API_KEY` (preferred — it stays out of shell history)
+// or `--api-key`, minted Unlist-scoped for `Lyntai.*`; it is redacted from everything this prints. Idempotent:
+// only what the feed still LISTS is touched, so a re-run after a partial failure does the remainder.
 import { execFile } from 'node:child_process';
 import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 
-const run = promisify(execFile);
+const here = fileURLToPath(import.meta.url);
 const SOURCE = 'https://api.nuget.org/v3/index.json';
-const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+const REPO_ROOT = join(dirname(here), '..');
 
 /**
- * Ids retired from the tree. Their published versions still exist on the feed, and NOTHING on disk
- * remembers them — so this is the only half of the roster maintained by hand. Add an id here whenever a
- * package is removed or folded into another.
+ * Ids retired from the tree, whose published versions still sit on the feed — the one half of the roster
+ * nothing on disk remembers, so add an id here whenever a package is removed or folded (D44).
+ *
+ * These are PUBLISHED ids, never current names: a rename sweep must not touch them. `mustBePublished` is
+ * what catches one that it did.
  */
-// **These are PUBLISHED ids, not current type or package names.** A rename in the tree must never touch
-// them: THREE were silently rewritten by rename sweeps on 2026-09-15 — `Lyntai.Providers.OpenAiCompatible`
-// became `…Http`, `Lyntai.Providers.Local` became `…LlamaSharp` (turning a retired id into the name of a
-// LIVE package this would then have unlisted), and `Lyntai.Providers.ExtensionsAi` became the NAMESPACE
-// `Lyntai.ExtensionsAi`, which was never published at all. Restored from the commits that wrote them.
-//
-// The third is why `mustBePublished` below exists rather than another paragraph here. It was rewritten by
-// the commit AFTER the one that repaired the first two and wrote this warning — D145, whose own message
-// says "the PACKAGE does not move; only the namespace moves" — and it survived until 2026-09-16 because a
-// 404 read as `- not published, skipping`, one unremarkable line in a run that then reported success. Ten
-// listed versions (2.0.1–3.1.0) were waiting behind it. A rule stated in a comment and broken by the next
-// commit is a missing check, not a knowledge problem.
 export const RETIRED = [
   'Lyntai.Providers.ClaudeCli', //        folded into Lyntai.Providers.Default at 2.0.1
   'Lyntai.Providers.CodexCli', //         folded into Lyntai.Providers.Default at 2.0.1
@@ -69,22 +40,16 @@ export const RETIRED = [
 
 /**
  * A RETIRED id that the feed has never heard of is a TYPO, not an absence — the array exists only for ids
- * that WERE published, so "never published" is the one answer it can never legitimately give. Pure so a
- * test can exercise it without the network; `null` means the registration fetch 404'd.
+ * that WERE published, so "never published" is the one answer it can never legitimately give. `null` means
+ * the registration fetch 404'd.
  */
 export function mustBePublished(id, listed, retired = RETIRED) {
   return listed === null && retired.includes(id);
 }
 
-/**
- * The currently packable ids, READ FROM THE CSPROJS rather than listed here — because a hand-written
- * roster goes stale silently and the miss looks exactly like success. This one did: written before the
- * 2.0.1 repackaging, it omitted `Lyntai.Providers.CodexCli` (which still had 1.2.2 listed) along with
- * `Lyntai`, `Lyntai.Providers.Default` and `Lyntai.Generation`, and reported a clean run regardless.
- * Same failure family as `check-packages` (CLAUDE.md §Dev loop) — a missing registry entry means no gate.
- */
-function currentPackageIds() {
-  const src = join(REPO_ROOT, 'src');
+/** The currently packable ids, READ FROM THE CSPROJS — a hand-written roster once skipped a live package. */
+export function currentPackageIds(repo = REPO_ROOT) {
+  const src = join(repo, 'src');
   const ids = [];
   for (const entry of readdirSync(src, { withFileTypes: true })) {
     if (!entry.isDirectory()) continue;
@@ -95,125 +60,110 @@ function currentPackageIds() {
       continue; // not a project directory
     }
     const id = text.match(/<PackageId>([^<]+)<\/PackageId>/)?.[1]?.trim();
-    if (id) ids.push(id); // every packable src project declares one (repo-mechanics §Package layout)
+    if (id) ids.push(id);
   }
   if (ids.length === 0) throw new Error('no packable ids found under src/ — run this from the repository');
   return ids;
 }
 
-const args = process.argv.slice(2);
-const apply = args.includes('--apply');
-const cutoff = valueOf('--below') ?? '1.1.0';
-const only = valueOf('--only');
-
-function valueOf(flag) {
-  const i = args.indexOf(flag);
-  return i >= 0 && args[i + 1] && !args[i + 1].startsWith('--') ? args[i + 1] : null;
-}
-
 /** Numeric semver-core compare (these packages carry no prerelease/build suffixes). */
-function cmp(a, b) {
+export function cmp(a, b) {
   const pa = a.split('.').map(Number);
   const pb = b.split('.').map(Number);
   for (let i = 0; i < 3; i++) if ((pa[i] || 0) !== (pb[i] || 0)) return (pa[i] || 0) - (pb[i] || 0);
   return 0;
 }
 
-/** Currently LISTED versions, from the registration index (unlisted ones carry listed:false). */
-async function listedVersions(id) {
+/** Currently LISTED versions from the registration index, or `null` when the id was never published. */
+export async function listedVersions(id, fetchFn = fetch) {
   const url = `https://api.nuget.org/v3/registration5-gz-semver2/${id.toLowerCase()}/index.json`;
-  const res = await fetch(url);
-  if (res.status === 404) return null; // never published
+  const res = await fetchFn(url);
+  if (res.status === 404) return null;
   if (!res.ok) throw new Error(`${id}: registration fetch failed (HTTP ${res.status})`);
   const doc = await res.json();
   const out = [];
   for (const page of doc.items ?? [])
-    for (const item of page.items ?? []) {
-      const c = item.catalogEntry;
-      if (c.listed !== false) out.push(c.version);
-    }
+    for (const item of page.items ?? []) if (item.catalogEntry.listed !== false) out.push(item.catalogEntry.version);
   return out.sort(cmp);
 }
 
-const key = valueOf('--api-key') ?? process.env.NUGET_API_KEY;
+/**
+ * The tool. Every effect is a seam — `fetch` for the feed, `run` for `dotnet nuget delete`, `ids` for the
+ * roster — so a test drives it without the network or the key.
+ * @returns {Promise<number>} the exit code
+ */
+export async function nugetUnlist({
+  args = [], env = {}, fetch: fetchFn = fetch, run = promisify(execFile), log = console.log,
+  ids = () => [...currentPackageIds(), ...RETIRED].sort(),
+} = {}) {
+  const valueOf = (flag) => {
+    const i = args.indexOf(flag);
+    return i >= 0 && args[i + 1] && !args[i + 1].startsWith('--') ? args[i + 1] : null;
+  };
+  const apply = args.includes('--apply');
+  const cutoff = valueOf('--below') ?? '1.1.0';
+  const only = valueOf('--only');
+  const key = valueOf('--api-key') ?? env.NUGET_API_KEY;
+  const redact = (text) => (key ? String(text).split(key).join('***') : String(text));
 
-/** Never let a key reach the console, even inside a tool error that happened to echo the arguments. */
-const redact = (text) => (key ? String(text).split(key).join('***') : String(text));
-
-async function main() {
-const PACKAGES = [...currentPackageIds(), ...RETIRED].sort();
-
-if (apply && !key) {
-  console.error('No API key. Mint an Unlist-scoped key on nuget.org (glob `Lyntai.*`), then either');
-  console.error('  $env:NUGET_API_KEY = "..."   (preferred — stays out of shell history)');
-  console.error('  --api-key <key>              (convenient — the key lands in shell history)');
-  process.exit(1);
-}
-
-console.log(`${apply ? 'UNLISTING' : 'DRY RUN — nothing will change'} · versions below ${cutoff}\n`);
-
-let planned = 0, done = 0, failed = 0;
-
-for (const id of PACKAGES) {
-  if (only && id.toLowerCase() !== only.toLowerCase()) continue;
-
-  let listed;
-  try {
-    listed = await listedVersions(id);
-  } catch (err) {
-    console.log(`${id}\n  ! ${err.message}\n`);
-    failed++;
-    continue;
+  if (apply && !key) {
+    log('No API key. Mint an Unlist-scoped key on nuget.org (glob `Lyntai.*`), then either');
+    log('  $env:NUGET_API_KEY = "..."   (preferred — stays out of shell history)');
+    log('  --api-key <key>              (convenient — the key lands in shell history)');
+    return 1;
   }
-  if (mustBePublished(id, listed)) {
-    console.log(`${id}\n  ✗ RETIRED but the feed has never published it — this id is wrong.`);
-    console.log('    Nothing here can unlist the real package, and the run below still says "Done".');
-    console.log('    A rename sweep is the usual cause: these are PUBLISHED ids, never current names.\n');
-    failed++;
-    continue;
-  }
-  if (listed === null) {
-    console.log(`${id}\n  - not published, skipping\n`);
-    continue;
-  }
+  log(`${apply ? 'UNLISTING' : 'DRY RUN — nothing will change'} · versions below ${cutoff}\n`);
 
-  const targets = listed.filter((v) => cmp(v, cutoff) < 0);
-  const keep = listed.filter((v) => cmp(v, cutoff) >= 0);
-  planned += targets.length;
-
-  console.log(id);
-  if (targets.length === 0) {
-    console.log('  - nothing listed below the cutoff\n');
-    continue;
-  }
-  console.log(`  unlist (${targets.length}): ${targets.join(', ')}`);
-  console.log(`  keep   (${keep.length}): ${keep.join(', ') || '(none — package fully unlisted)'}`);
-
-  if (!apply) {
-    console.log('');
-    continue;
-  }
-
-  for (const version of targets) {
+  let planned = 0, done = 0, failed = 0;
+  for (const id of ids()) {
+    if (only && id.toLowerCase() !== only.toLowerCase()) continue;
+    let listed;
     try {
-      await run('dotnet', ['nuget', 'delete', id, version,
-        '--source', SOURCE, '--api-key', key, '--non-interactive']);
-      done++;
-      process.stdout.write(`  ✓ ${version}\n`);
+      listed = await listedVersions(id, fetchFn);
     } catch (err) {
+      log(`${id}\n  ! ${err.message}\n`);
       failed++;
-      process.stdout.write(`  ✗ ${version} — ${redact(err.stderr || err.message).trim().split('\n')[0]}\n`);
+      continue;
     }
+    if (mustBePublished(id, listed)) {
+      log(`${id}\n  ✗ RETIRED but the feed has never published it — this id is wrong.`);
+      log('    Nothing here can unlist the real package. A rename sweep is the usual cause: these are');
+      log('    PUBLISHED ids, never current names.\n');
+      failed++;
+      continue;
+    }
+    if (listed === null) { log(`${id}\n  - not published, skipping\n`); continue; }
+
+    const targets = listed.filter((v) => cmp(v, cutoff) < 0);
+    const keep = listed.filter((v) => cmp(v, cutoff) >= 0);
+    planned += targets.length;
+    log(id);
+    if (targets.length === 0) { log('  - nothing listed below the cutoff\n'); continue; }
+    log(`  unlist (${targets.length}): ${targets.join(', ')}`);
+    log(`  keep   (${keep.length}): ${keep.join(', ') || '(none — package fully unlisted)'}`);
+    if (!apply) { log(''); continue; }
+
+    for (const version of targets) {
+      try {
+        await run('dotnet', ['nuget', 'delete', id, version, '--source', SOURCE, '--api-key', key, '--non-interactive']);
+        done++;
+        log(`  ✓ ${version}`);
+      } catch (err) {
+        failed++;
+        log(`  ✗ ${version} — ${redact(err.stderr || err.message).trim().split('\n')[0]}`);
+      }
+    }
+    log('');
   }
-  console.log('');
+
+  log(apply
+    ? `Done. ${done} unlisted, ${failed} failed.`
+    : `Planned: ${planned} version(s) would be unlisted. Re-run with --apply to do it.`);
+  return failed ? 1 : 0;
 }
 
-console.log(apply
-  ? `Done. ${done} unlisted, ${failed} failed.`
-  : `Planned: ${planned} version(s) would be unlisted. Re-run with --apply to do it.`);
-if (failed) process.exitCode = 1;
+// CLI entry point — a thin wrapper, so importing this module reads no argument, no key and no network.
+// The exit code is SET rather than `process.exit()`ed, which would abort a request still in flight.
+if (import.meta.main ?? (process.argv[1] && resolve(process.argv[1]) === here)) {
+  process.exitCode = await nugetUnlist({ args: process.argv.slice(2), env: process.env });
 }
-
-// Run only when invoked directly, so a test can import `mustBePublished` without the tool reaching the
-// network — the seam repo-mechanics §Dev loop asks for ("test through a pure function, never by spawning").
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) await main();

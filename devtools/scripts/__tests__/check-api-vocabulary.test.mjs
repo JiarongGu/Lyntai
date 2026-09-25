@@ -1,9 +1,9 @@
 // check-api-vocabulary — the SURFACE gate (retired identifiers). See devtools/scripts/check-api-vocabulary.mjs.
 //
 // This gate exists because a stale PARAMETER NAME passed every check the repository had: `check-docs`
-// excludes `src/`, and the API baseline records parameter names without judging them. Three of them
+// reads prose, and the API baseline records parameter names without judging them. Three of them
 // (`ageClocks:`, `appraisers:`, `modulators:`) reached the eve of the 3.0 freeze and a human review, not a
-// gate, caught them — TASKS.md Part 61, docs/DECISIONS.md D47.
+// gate, caught them — docs/task-archive.md Part 61, docs/DECISIONS.md D47.
 //
 // Two properties carry the whole gate, and both are tested here rather than assumed:
 //   · a retired identifier IS caught, in a parameter position, which is where the measured defect lived;
@@ -234,9 +234,9 @@ describe('check-api-vocabulary — fail-closed', () => {
     }
   });
 
-  it('says so, and passes, when the registry is empty', () => {
+  it('FAILS when the registry is empty — a renamed config key must not disarm the gate silently', () => {
     const { code, out } = run({ 'Lyntai.Core.txt': LIVE }, { retiredApiNames: [] });
-    assert.equal(code, 0);
+    assert.equal(code, 1);
     assert.match(out, /no retired API names configured/);
   });
 });

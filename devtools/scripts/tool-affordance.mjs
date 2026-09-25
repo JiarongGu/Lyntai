@@ -19,9 +19,8 @@ import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 
 import {
-  neighbourReport, ownedPids, resolveServerExe, runTracked,
-  startGpuSampler, startServers, stopServers, vanishedNeighbours,
-} from './memory-contention.mjs';
+  HARNESS_PORTS, buildBench, modelDirFromEnv, resolveServerExe, runTracked, tearDownOnSigint, withOwnedServers,
+} from './_llama-harness.mjs';
 import {
   ROLES, envFor as decisionEnvFor, identityReport, screenReranker, specsFor,
 } from './memory-decision.mjs';
@@ -29,10 +28,9 @@ import {
 const here = fileURLToPath(import.meta.url);
 const execFileAsync = promisify(execFile);
 
-/** Ports this harness owns. DELIBERATELY outside `memory-contention`'s 8140-8144, `rerank-screen`'s 8147
- *  and `memory-decision`'s 8150-8153, and nowhere near 8090, which a sibling tool's embedding server has
- *  held across several sessions. Its own block rather than a re-use so both sweeps can be up at once. */
-export const PORTS = { chat: 8160, small: 8161, embed: 8162, rerank: 8163 };
+/** The four role ports — `_llama-harness.mjs`' registry, which keeps every harness disjoint. */
+const OWN = HARNESS_PORTS['tool-affordance'];
+export const PORTS = { chat: OWN.chat, small: OWN.small, embed: OWN.embed, rerank: OWN.rerank };
 
 /** Re-exported, not redeclared. The assertion that these are the same four weights `memory-decision`
  *  serves lives in this module's test, because it is the invariant that keeps the two tables comparable. */
@@ -47,9 +45,8 @@ export { ROLES };
 export const serverSpecs = (modelDir, scorersOnly = false) => specsFor(PORTS, modelDir)
   .filter((s) => !scorersOnly || s.label === 'embed' || s.label === 'rerank');
 
-/** Ports for EXTRA embedder arms. Its own small block above the four roles and below `embed-screen`'s
- *  8167, so the cap is structural rather than a convention someone has to remember. */
-export const EXTRA_PORT_BASE = 8164;
+/** Ports for EXTRA embedder arms: `extra0`… in the registry, one per arm up to `MAX_EXTRA_ARMS`. */
+export const EXTRA_PORT_BASE = OWN.extra0;
 
 export const MAX_EXTRA_ARMS = 3;
 
@@ -70,10 +67,8 @@ export function extraSpecs(arms, modelDir) {
   }));
 }
 
-/** The TOOL-CAPABLE model's port. Clear of the four roles (8160-8163), of every embedder arm
- *  (`EXTRA_PORT_BASE` + `MAX_EXTRA_ARMS` - 1 = 8166) and of `embed-screen`'s 8167 — a test asserts all
- *  three, because binding a busy port fails UPWARD and the incumbent answers every request. */
-export const NATIVE_PORT = 8169;
+/** The TOOL-CAPABLE model's port, in the registry beside the others. */
+export const NATIVE_PORT = OWN.native;
 
 /** The tool-capable chat server, or `[]` when none was asked for. Served like the other chat roles and
  *  NOT with `--jinja`: measured 2026-09-13, that flag is byte-irrelevant on this build for both a model
@@ -177,12 +172,6 @@ async function assertGpuHeadroom(needMiB = NEEDED_FREE_MIB) {
   return false;
 }
 
-async function buildBench(repoRoot) {
-  const code = await runTracked('dotnet',
-    ['build', '-c', 'Release', path.join(repoRoot, 'bench', 'Lyntai.Benchmarks'), '-v', 'q', '--nologo']);
-  if (code !== 0) throw new Error(`dotnet build failed with exit code ${code}`);
-}
-
 /** `--difficulty`, `--n`, `--concurrency`, `--dump` and anything else are FORWARDED verbatim to the C#
  *  sweep; only `--skip-build` and `--embed-arm` are this module's. Nothing else is stripped, so a flag
  *  added to the bench needs no edit here.
@@ -225,7 +214,7 @@ export function parseArgs(argv) {
 async function main() {
   const { skipBuild, benchArgs, embedArms, embedEndpoints, nativeModel } = parseArgs(process.argv.slice(2));
   const scorersOnly = benchArgs.includes('--scorers-only');
-  const modelDir = process.env.LYNTAI_MODEL_DIR ?? process.env.LYNTAI_CONTENTION_MODEL_DIR;
+  const modelDir = modelDirFromEnv();
   if (!modelDir) {
     console.error('tool-affordance: set LYNTAI_MODEL_DIR to the directory holding the GGUFs.');
     console.error('  No default, by design — a developer-machine path must never reach a tracked file.');
@@ -253,89 +242,47 @@ async function main() {
   }
 
   const serverExe = await resolveServerExe();
-  const before = await neighbourReport(ownedPids());
-  console.log(`Neighbour roster BEFORE (${before.length}):`);
-  for (const r of before) console.log(`  pid ${r.pid} port ${r.port ?? '?'} alive=${r.alive}`);
-
   if (!skipBuild) await buildBench(repoRoot);
 
-  let pids = [];
-  // HOISTED out of the try, because `finally` re-reads the OWNED ports and a port it does not know about
-  // is a leak nothing reports — the silent direction of the very check this teardown exists to be.
   const extras = [...extraSpecs(embedArms, modelDir), ...nativeSpecs(nativeModel, modelDir)];
-  const ownedPorts = [...Object.values(PORTS), ...extras.map((s) => s.port)];
-  const gpu = startGpuSampler();
-  try {
-    pids = await startServers([...serverSpecs(modelDir, scorersOnly), ...extras], { scratchDir, serverExe });
-    console.log(`\nServers up on ${[...Object.values(PORTS), ...extras.map((s) => s.port)].join(', ')} `
-      + `(pids ${pids.join(', ')})\n`);
+  await withOwnedServers({
+    label: 'tool-affordance', specs: [...serverSpecs(modelDir, scorersOnly), ...extras], scratchDir, serverExe,
+    gpu: true, gpuNote: 'Accuracy is the metric here, so this bounds the WALL CLOCK rather than the result.',
+    run: async () => {
+      console.log('IDENTITY — what each port actually loaded, read back from the server:');
+      const identity = await identityReport(modelDir, PORTS);
+      for (const row of identity) {
+        const verdict = row.agrees === null ? 'unknown (this build exposes no /props)'
+          : row.agrees ? 'agrees' : `*** MISMATCH: serving ${row.served} ***`;
+        console.log(`  ${row.role.padEnd(7)} ${row.want}  ${row.bytes} B  — ${verdict}`);
+      }
+      // REFUSE on a mismatch. The 4B/1B contrast is one of this study's two axes, so a port serving the wrong
+      // weights does not degrade the result — it inverts it, and prints one marked line among a hundred.
+      if (identity.some((r) => r.agrees === false)) {
+        console.error('  Refusing to run: a port is serving weights this harness did not ask for, and model');
+        console.error('  SIZE is an axis under test — the table would be wrong rather than noisy.');
+        process.exitCode = 1;
+        return;
+      }
 
-    console.log('IDENTITY — what each port actually loaded, read back from the server:');
-    const identity = await identityReport(modelDir, PORTS);
-    for (const row of identity) {
-      const verdict = row.agrees === null ? 'unknown (this build exposes no /props)'
-        : row.agrees ? 'agrees' : `*** MISMATCH: serving ${row.served} ***`;
-      console.log(`  ${row.role.padEnd(7)} ${row.want}  ${row.bytes} B  — ${verdict}`);
-    }
-    // REFUSE on a mismatch. The 4B/1B contrast is one of this study's two axes, so a port serving the wrong
-    // weights does not degrade the result — it inverts it, and prints one marked line among a hundred.
-    if (identity.some((r) => r.agrees === false)) {
-      console.error('  Refusing to run: a port is serving weights this harness did not ask for, and model');
-      console.error('  SIZE is an axis under test — the table would be wrong rather than noisy.');
-      process.exitCode = 1;
-      return;
-    }
+      const screen = await screenReranker(PORTS);
+      console.log(`\nRERANK SCREEN (reference pair): ${screen.ok ? 'PASS' : '*** FAIL ***'} — ${screen.detail}`);
+      if (!screen.ok) {
+        console.error('  Refusing to run: a cross-encoder that cannot order a pair with a published score is');
+        console.error('  a broken conversion, and its arm would read as a weak model rather than a dead one.');
+        process.exitCode = 1;
+        return;
+      }
 
-    const screen = await screenReranker(PORTS);
-    console.log(`\nRERANK SCREEN (reference pair): ${screen.ok ? 'PASS' : '*** FAIL ***'} — ${screen.detail}`);
-    if (!screen.ok) {
-      console.error('  Refusing to run: a cross-encoder that cannot order a pair with a published score is');
-      console.error('  a broken conversion, and its arm would read as a weak model rather than a dead one.');
-      process.exitCode = 1;
-      return;
-    }
-
-    const code = await runTracked('dotnet', ['run', '-c', 'Release', '--no-build',
-      '--project', path.join(repoRoot, 'bench', 'Lyntai.Benchmarks'), '--', '--affordance', ...benchArgs],
-      envFor(embedArms, nativeModel, embedEndpoints));
-    if (code !== 0) process.exitCode = code;
-  } finally {
-    const device = await gpu.stop();
-    // Unconditional, not `if (pids.length)`: a start that THREW leaves `pids` empty while being the most
-    // likely moment to have leaked one, so the survivor re-read must run on that path above all.
-    const { survivors } = await stopServers(pids, ownedPorts);
-    if (survivors.length) {
-      console.error(`\n*** PORTS STILL LISTENING after teardown: ${JSON.stringify(survivors)} `
-        + '(port, pid) — kill these by PID before the next run ***');
-      process.exitCode = 1;
-    } else {
-      console.log(`\nTeardown: all ${ownedPorts.length} owned ports free`);
-    }
-    console.log(device.samples === 0
-      ? 'GPU: UNAVAILABLE — nvidia-smi produced zero samples. Reporting null, not zero.'
-      : `GPU during the run: max ${device.maxUtil.toFixed(0)}% util, mean ${device.meanUtil.toFixed(1)}%, `
-        + `max ${device.maxMemMiB.toFixed(0)} MiB over ${device.samples} sample(s). Accuracy is the metric `
-        + 'here, so this bounds the WALL CLOCK rather than the result.');
-
-    const after = await neighbourReport(ownedPids());
-    const lost = vanishedNeighbours(before, after);
-    if (lost.length) {
-      console.error(`*** NEIGHBOUR LOST: ${JSON.stringify(lost)} — restart it ***`);
-      process.exitCode = 1;
-    } else {
-      console.log(`Neighbours after: all ${before.length} still alive`);
-    }
-  }
+      const code = await runTracked('dotnet', ['run', '-c', 'Release', '--no-build',
+        '--project', path.join(repoRoot, 'bench', 'Lyntai.Benchmarks'), '--', '--affordance', ...benchArgs],
+        envFor(embedArms, nativeModel, embedEndpoints));
+      if (code !== 0) process.exitCode = code;
+    },
+  });
 }
 
 if (import.meta.main ?? (process.argv[1] && path.resolve(process.argv[1]) === here)) {
-  // Ctrl+C during the model-load window — up to 180 s with ~4.1 GB of weights coming up across four
-  // servers — would otherwise terminate the process without unwinding `finally`, orphaning every one of
-  // them on a GPU. `stopServers` is the same teardown the happy path uses.
-  process.on('SIGINT', async () => {
-    console.error('\nSIGINT — tearing down owned servers before exiting.');
-    try { await stopServers(ownedPids(), Object.values(PORTS)); } catch { /* best effort on the way out */ }
-    process.exit(130);
-  });
+  tearDownOnSigint(Object.values(OWN));
   await main().catch((err) => { console.error(err); process.exitCode = 1; });
 }

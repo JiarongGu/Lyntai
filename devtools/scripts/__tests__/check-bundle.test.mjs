@@ -137,10 +137,10 @@ describe('check-bundle — when the toolchain is unhappy', () => {
     assert.match(out, /no project\.assets\.json at src\/Lyntai\.Bundle\/obj/);
   });
 
-  it('skips, without failing, when no bundle is configured', () => {
+  it('FAILS when no bundle is configured — a renamed config key must not disarm the budget silently', () => {
     const log = recorder();
-    assert.equal(checkBundle({ config: {}, log, error: log, restore: () => ({ status: 0 }) }), 0);
-    assert.match(log.text(), /no bundle configured — skipped/);
+    assert.equal(checkBundle({ config: {}, log, error: log, restore: () => ({ status: 0 }) }), 1);
+    assert.match(log.text(), /no `bundle` in the config/);
   });
 });
 

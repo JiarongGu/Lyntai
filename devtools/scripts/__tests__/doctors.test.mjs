@@ -71,15 +71,21 @@ describe('pack-doctor — the README headline version', () => {
     assert.match(written, /Another \*\*v2\.5\.0\*\* further down/, 'and so is the mention below it');
   });
 
-  it('KNOWN LIMIT: --fix on a README with no `## Status` section reports a sync that did not happen', () => {
-    // Pinned as it BEHAVES: `search` returns -1, the slice pair reassembles the file unchanged, and the log
-    // claims a sync. Harmless (the file is rewritten identically) and unreachable while the README has the
-    // section, but recorded rather than discovered later. Found 2026-08-11 writing this suite.
+  it('--fix FAILS on a README with no `## Status` section, and writes nothing', () => {
+    // It used to rewrite the file unchanged, log a sync and return true — so `pack` shipped a README that
+    // advertises no version at all.
     const bare = '# Lyntai\n\nNo status section here.\n';
     const { ok, out, written } = drive(packDoctor, bare, { version: '2.6.0', fix: true });
-    assert.equal(ok, true);
-    assert.equal(written, bare, 'nothing actually changed');
-    assert.match(out, /synced README "## Status" version \(none\) → v2\.6\.0/);
+    assert.equal(ok, false);
+    assert.equal(written, null);
+    assert.match(out, /no `## Status` version to sync/);
+  });
+
+  it('--fix FAILS when `## Status` carries no version, rather than rewriting one in ANOTHER section', () => {
+    const noVersion = '# Lyntai\n\n## Status\n\nreleased.\n\n## Install\n\nAnother **v2.5.0** below.\n';
+    const { ok, written } = drive(packDoctor, noVersion, { version: '2.6.0', fix: true });
+    assert.equal(ok, false);
+    assert.equal(written, null, 'the Install section\'s version is not the Status headline');
   });
 });
 

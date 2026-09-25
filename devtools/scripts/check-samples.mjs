@@ -1,64 +1,28 @@
 // check-samples — fail when a fenced C# block in our own documentation does not compile.
 //
-// The gap this closes: `check-warnings` gates the code, `check-docs` gates the prose's VOCABULARY,
-// `check-api-vocabulary` gates the public surface's NAMES, and `consumer-smoke` gates the PACKAGES — but a
-// fenced ```csharp block in README.md or docs/ was never compiled by anything. Measured cost: a README
-// sample assigning `TimeSpan.FromDays(14)` to a `double`-typed property shipped and survived every gate
-// (2026-08-09), and the 3.0 migration guide's samples are correct only because its author hand-built a
-// throwaway probe project and a v2.5.0 worktree to compile both halves (2026-08-11). The repo's own
-// position is that an unfailed warning is a false promise shipped to consumers; a sample that cannot
-// compile is the same promise, in the document a consumer copies from — and for a migration guide the
-// samples ARE the deliverable.
+// A sample that cannot compile is a false promise in the document a consumer copies from. DEFAULT-ON: an
+// opt-in marker makes coverage whatever someone remembered to tag. Why, and what it cost: `docs/GATES.md`
+// §check-samples.
 //
-// THE DEFAULT IS ON. A block is compiled unless it opts out. The inversion is the point: an opt-IN marker
-// makes coverage whatever someone remembered to tag, which is the "checklist in someone's head" failure
-// `dotnet-package-layout.md` §"Shipping a package" already names. Default-on means a sample written
-// tomorrow is covered tomorrow.
+// Two annotations, and reach for the first: `<!-- compile-given: <declarations> -->` supplies the context
+// a fragment assumes and keeps the block COMPILED (the declarations compile too, so it cannot wave a
+// sample through); `<!-- compile-skip: <reason> -->` takes the block out. Both on one block is an ERROR.
+// `<!-- compile-skip-file: … -->` opts out a whole historical document.
 //
-// TWO ANNOTATIONS, and they are not interchangeable — reach for the first one:
-//   · `<!-- compile-given: <declarations> -->` supplies the reader-side context a fragment assumes
-//     (`string apiKey;`, `sealed class MyLoggingHandler : DelegatingHandler { }`). The block STAYS
-//     COMPILED, and the declarations are compiled with it — so a `compile-given` naming a type that does
-//     not exist FAILS, exactly like any other unresolved name. It cannot wave a sample through; it can
-//     only give one a context that genuinely type-checks.
-//   · `<!-- compile-skip: <reason> -->` takes the block out entirely. Correct only where no context would
-//     help: a partial signature quoted for illustration, a before/after pair of one member, a menu of
-//     alternatives — or where the context needed is a whole program rather than a few declarations.
-// Both on one block is an ERROR, not a precedence question: they state opposite intents, and whichever
-// lost would sit unread. `<!-- compile-skip-file: … -->` opts out a whole document (a historical record).
-//
-// HOW A BLOCK IS COMPILED. Documented samples are fragments, not files, so each one is wrapped by SHAPE:
-//   · declaration — the block is a type declaration; it goes at namespace scope
-//   · member      — the block is a member fragment; it goes inside a class body
-//   · statement   — the block is statements; it goes in a method body over a small typed stub preamble
-//   · expression  — the block is a bare expression (`new GraphMemoryOptions { … }`); `_ = ( … );`
-// The shape is GUESSED from the first meaningful line, then retried for whatever is still failing — each
-// pass one batched compilation, attributing errors to the block's own generated file. A block passes if
-// any shape compiles it; nothing is reported that compiles somewhere.
-//
-// TWO WAYS THIS GATE COULD HAVE LIED, both measured on its own first run and both fixed here:
-//
-//  1. ROSLYN NEVER BINDS A COMPILATION THAT HAS A SYNTAX ERROR. Parse errors in ONE file suppress semantic
-//     analysis for EVERY file, so the first batch reported 132 errors — all of them syntactic — and zero
-//     CS0246s, while eleven blocks referencing types that do not exist here sailed through as "compiles".
-//     A batch is therefore only trustworthy when it is CLEAN: the loop below iterates to a fixed point,
-//     re-shaping or dropping whatever failed and recompiling, and a block is passed only by a compilation
-//     in which nothing at all errored. Anything else is a green light over unbound code.
-//  2. A TYPE DECLARED IN SOURCE BEATS THE SAME TYPE FROM A REFERENCED ASSEMBLY, compilation-wide (CS0436 is
-//     a WARNING). So one sample opening `namespace Lyntai.Inference;` silently redefines the real
-//     `MediaRequest` for every OTHER sample in the same batch, which then verify against the doc's
-//     type instead of the library's. Blocks that declare a namespace under the library root are compiled
-//     ISOLATED, one build each, for that reason — never batched.
-//
-// The stub preamble declares only TYPES (`static IServiceCollection services => null!;`) — nothing runs, so
-// the type is the whole check. They are static members rather than locals on purpose: a sample that
-// declares its own `var services = …` legally shadows a field and would collide with a local.
-import { execFileSync, spawnSync } from 'node:child_process';
+// Each block is wrapped by SHAPE — declaration (namespace scope), member (a class body), statement (a
+// method over the stub PREAMBLE), expression (`_ = ( … );`) — guessed, then retried until one compiles.
+// Two rules keep it honest (`.claude/knowledge/pitfalls.md`): Roslyn binds NOTHING in a compilation
+// carrying a syntax error, so a block passes only in a compilation where nothing errored; and a type
+// declared in source outranks the same type from a reference, so a block declaring a namespace under the
+// library root compiles ISOLATED.
+import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { IN_SCOPE, IS_SCANNED, LIVE_PREFIX, SUPERSEDED_BANNER, liveLineMask, trackedFiles } from './check-docs.mjs';
+import { IN_SCOPE, IS_SCANNED, LIVE_PREFIX, SUPERSEDED_BANNER, liveLineMask } from './check-docs.mjs';
+import { checkQuotedBaseline } from './_baseline.mjs';
+import { readRepoText, repoFiles } from './_repo-files.mjs';
 
 const here = fileURLToPath(import.meta.url);
 const repoDefault = join(dirname(here), '..', '..');
@@ -193,9 +157,8 @@ const DECLARATION_START =
  * a ````markdown block can quote ```csharp blocks whole. Matching a bare three did both halves wrong here —
  * it read the four-backtick opener's info string as `` `markdown ``, then failed to recognise the
  * four-backtick CLOSER, leaving the scanner "inside" a block for the rest of the file. Measured
- * 2026-08-11 on the 2026-08-04 generation plan (`local/` since D149), where it lost one real block and silently <!-- link-ok: names where a measurement was taken, not a live path -->
- *
- * stopped scanning the remaining 140 lines.
+ * 2026-08-11 on the 2026-08-04 generation plan (untracked since D149), where it lost one real block and
+ * silently stopped scanning the remaining 140 lines.
  */
 export function extractBlocks(text, file) {
   const lines = text.split(/\r?\n/);
@@ -351,53 +314,13 @@ export function synthesize(body, shape, id, given = null) {
  *
  * Derived from the tree rather than listed, so a new namespace is covered the day it is added.
  */
-/**
- * Fail when `CLAUDE.md` quotes a sample count this run disagrees with.
- *
- * **Why HERE and not in `check-counts`.** That gate counts things derivable from the TREE; `78/78` is
- * derivable only from a RUN — 121 fenced blocks, less 19 carrying a skip reason and 23 in a
- * wholesale-opted-out document. Reproducing it there means reproducing this file's whole filtering, and two
- * copies of "what counts as a sample?" drift the moment an annotation is added, silently, on whichever copy
- * was forgotten. Attempted 2026-08-23 and it returned 121 against a claim of 78, which is how the rule below
- * was arrived at rather than assumed.
- *
- * **The general rule: a run-derived number is checked by the gate that PRODUCES it.** The producer already
- * holds the number and already reads the docs, so the check costs nothing and cannot disagree with itself.
- *
- * Fails OPEN on an absent claim, deliberately: the sentence is `CLAUDE.md`'s to write, and a gate that
- * insisted on a particular sentence existing would be dictating prose rather than checking it.
- */
-export function quotedSampleCount(repo, compiled, log = console.log) {
-  const file = join(repo, 'CLAUDE.md');
-  if (!existsSync(file)) return 0;
-  const m = /\bdoc samples\s+(\d+)\s*\/\s*(\d+)/i.exec(readFileSync(file, 'utf8'));
-  if (!m) return 0;
-
-  const quoted = Number(m[1]);
-  if (quoted === compiled) return 0;
-
-  log(`check-samples: ✗ CLAUDE.md says "doc samples ${m[1]}/${m[2]}" — this run compiled ${compiled}`);
-  log('');
-  log('  That line is a BASELINE a reader is told to compare against, so a stale number teaches them to');
-  log('  stop comparing — the same argument check-counts makes for existing. Update it to the number');
-  log('  above, which is what the tree actually produces.');
-  return 1;
-}
-
 export function libraryNamespaces(repo) {
   const found = new Set();
-  const files = execFileSync('git', ['ls-files', '-z', 'src/*/*.cs', 'src/*/**/*.cs'],
-    { cwd: repo, encoding: 'utf8' }).split('\0').filter(Boolean);
-  for (const f of files) {
-    // `git ls-files` lists what is TRACKED, which during a refactor includes a file already deleted from the
-    // working tree but not yet staged — reading it throws ENOENT and, before this, took the whole gate down
-    // with an unhandled crash naming a file the author had just deliberately removed. Skipping is right here
-    // and is NOT the permissive direction the sibling guards had to worry about: a deleted file contributes
-    // no namespace, and any namespace it was the only source of simply stops resolving in the samples that
-    // use it — which is a check-samples FAILURE, not a silent pass. Same file-list-vs-bytes disagreement as
-    // check-sensitive's and check-docs's ENOENT paths (.claude/knowledge/pitfalls.md).
-    let text;
-    try { text = readFileSync(join(repo, f), 'utf8'); } catch { continue; }
+  // The ONE file list (`repoFiles`): a namespace in a new, unstaged file is covered the day it is written.
+  for (const f of repoFiles(repo, ['src']).filter((p) => p.endsWith('.cs'))) {
+    // A pending deletion contributes no namespace; a sample that needed it then FAILS, never passes.
+    const text = readRepoText(repo, f);
+    if (text === null) continue;
     const m = text.match(/^namespace\s+([A-Za-z_][\w.]*)\s*[;{]/m);
     if (m) found.add(m[1]);
   }
@@ -448,8 +371,7 @@ ${usings}
 
 /** Every packable project, which is what a consumer can reference — the whole documented surface. */
 export const srcProjects = (repo) =>
-  execFileSync('git', ['ls-files', '-z', 'src/*/*.csproj'], { cwd: repo, encoding: 'utf8' })
-    .split('\0').filter(Boolean).map((p) => join(repo, p));
+  repoFiles(repo, ['src']).filter((p) => /^src\/[^/]+\/[^/]+\.csproj$/.test(p)).map((p) => join(repo, p));
 
 /**
  * Compile one batch. Returns a Map of generated-file basename -> [{ line, code, message }].
@@ -505,11 +427,15 @@ const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
 /**
  * The gate. `compile` is a seam so the tests can drive every branch without dotnet in the loop.
- * `files` is the raw candidate list (a `git ls-files` shape) for the same reason.
+ * `files` is the raw candidate list (a `git ls-files` shape) for the same reason, and `baseline` checks a
+ * green run's `compiled/total` against the `doc samples N/N` CLAUDE.md quotes (`_baseline.mjs`).
  */
-export function checkSamples(repo, { log = console.log, files = null, compile = null, read = null, list = false } = {}) {
-  const readFile = read ?? ((f) => readFileSync(join(repo, f), 'utf8'));
-  const source = files ?? trackedFiles(repo);
+export function checkSamples(repo, {
+  log = console.log, files = null, compile = null, read = null, list = false,
+  baseline = (passed, total) => checkQuotedBaseline(repo, { gate: 'check-samples', label: 'doc samples', passed, total }, log),
+} = {}) {
+  const readFile = read ?? ((f) => readRepoText(repo, f));
+  const source = files ?? repoFiles(repo);
   const tracked = source
     .filter((f) => f.endsWith('.md'))
     .filter(IN_SCOPE)
@@ -521,8 +447,8 @@ export function checkSamples(repo, { log = console.log, files = null, compile = 
   const conflicts = [];
   let supersededDocs = 0;
   for (const file of tracked) {
-    let text;
-    try { text = readFile(file); } catch { continue; }
+    const text = readFile(file);
+    if (text == null) continue;                    // a pending deletion; any other read error throws
     if (SUPERSEDED_BANNER.test(text)) { supersededDocs++; continue; }
     // Shared with check-docs, deliberately: a partly-historical file is live down to its boundary
     // (CHANGELOG) or inside its dated amendment regions (the design record, D164), so a fenced sample
@@ -706,7 +632,7 @@ export function checkSamples(repo, { log = console.log, files = null, compile = 
   if (failures.length === 0) {
     log(`check-samples: ${compiled}/${blocks.length} documented C# sample(s) compile ✓`
       + (notes.length ? ` (${notes.join('; ')})` : ''));
-    return quotedSampleCount(repo, compiled, log);
+    return baseline(compiled, blocks.length);
   }
 
   log(`check-samples: ✗ ${plural(failures.length, 'documented sample')} ${failures.length === 1 ? 'does' : 'do'}`

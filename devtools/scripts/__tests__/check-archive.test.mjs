@@ -16,7 +16,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, it } from 'node:test';
 
 import {
-  MAX_ENTRY, RECORD, checkArchive, entriesIn, overLimitEntries,
+  MAX_ENTRY, RECORD, checkArchive, entriesIn,
 } from '../check-archive.mjs';
 import { makeTree, recorder, removeTree } from './_fixtures.mjs';
 
@@ -62,11 +62,6 @@ describe('check-archive — finding the entries', () => {
     assert.deepEqual(e.map((x) => x.id), ['Part 12', 'Part 120']);
   });
 
-  it('reports the worst first, which is the order a paydown works in', () => {
-    const over = overLimitEntries(record(
-      entry('Part 1', MAX_ENTRY + 2), entry('Part 2', MAX_ENTRY + 9), entry('Part 3', 1)));
-    assert.deepEqual(over.map((e) => e.id), ['Part 2', 'Part 1']);
-  });
 });
 
 describe('check-archive — the ratchet', () => {

@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, it } from 'node:test';
 
 import {
-  MAX_ENTRY, RECORD, checkDecisions, entriesIn, overLimitEntries,
+  MAX_ENTRY, RECORD, checkDecisions, entriesIn,
 } from '../check-decisions.mjs';
 import { makeTree, recorder, removeTree } from './_fixtures.mjs';
 
@@ -66,13 +66,8 @@ describe('check-decisions — finding the entries', () => {
     assert.deepEqual(entriesIn(record(entry('D9', 1), entry('D95', 1))).map((x) => x.id), ['D9', 'D95']);
   });
 
-  it('overLimitEntries returns only entries past the limit, worst first', () => {
-    const over = overLimitEntries(record(entry('D1', MAX_ENTRY + 1), entry('D2', 2), entry('D3', MAX_ENTRY + 9)));
-    assert.deepEqual(over.map((x) => x.id), ['D3', 'D1']);
-  });
-
   it('an entry exactly AT the limit is not over it', () => {
-    assert.deepEqual(overLimitEntries(record(entry('D1', MAX_ENTRY))), []);
+    assert.equal(run(record(entry('D1', MAX_ENTRY)), {}).code, 0);
   });
 });
 
