@@ -3,7 +3,7 @@ using Lyntai;
 using Lyntai.Secrets;
 using Lyntai.Tests.Fakes;
 using Microsoft.Extensions.DependencyInjection;
-using InMemoryKeyValueStore = Lyntai.Storage.InMemory.InMemoryKeyValueStore;
+using Lyntai.Storage.InMemory;
 
 // Every test skips off Windows through Skip.IfNot, which the CA1416 platform analyzer cannot see as a guard —
 // so it is disabled file-wide here rather than sprinkled per line.

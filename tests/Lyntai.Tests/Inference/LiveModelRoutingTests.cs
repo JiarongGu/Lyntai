@@ -6,7 +6,7 @@ using Lyntai.Storage;
 using Lyntai.Tests.Fakes;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using InMemoryKeyValueStore = Lyntai.Storage.InMemory.InMemoryKeyValueStore;
+using Lyntai.Storage.InMemory;
 
 namespace Lyntai.Tests.Inference;
 
@@ -83,14 +83,14 @@ public class LiveModelRoutingTests
         var logger = Logger<KeyValueModelRoutingStore>(warnings);
 
         var down = new FaultingKeyValueStore { OnGet = () => new InvalidOperationException("kv down") };
-        down.Data["lyntai.route.memory"] = "claude:haiku";
+        await down.SeedAsync("lyntai.route.memory", "claude:haiku");
         Assert.Empty(await new KeyValueModelRoutingStore(down, logger).GetRouteAsync("memory"));
         Assert.Single(warnings);
 
         // a TIMEOUT is a cancellation nobody asked for, so it fails open too
         warnings.Clear();
         var slow = new FaultingKeyValueStore { OnGet = () => new TaskCanceledException("kv timed out") };
-        slow.Data["lyntai.route.memory"] = "claude:haiku";
+        await slow.SeedAsync("lyntai.route.memory", "claude:haiku");
         Assert.Empty(await new KeyValueModelRoutingStore(slow, logger).GetRouteAsync("memory"));
         Assert.Single(warnings);
     }
@@ -144,8 +144,8 @@ public class LiveModelRoutingTests
     {
         var warnings = new List<string>();
         var kv = new FaultingKeyValueStore { OnList = () => new InvalidOperationException("listing down") };
-        kv.Data["lyntai.route.memory"] = "claude:haiku";
-        kv.Data["lyntai.model.memory"] = "haiku";
+        await kv.SeedAsync("lyntai.route.memory", "claude:haiku");
+        await kv.SeedAsync("lyntai.model.memory", "haiku");
         var store = new KeyValueModelRoutingStore(kv, Logger<KeyValueModelRoutingStore>(warnings));
 
         Assert.Equal("claude|haiku", Render(await store.GetRouteAsync("memory")));
@@ -161,7 +161,7 @@ public class LiveModelRoutingTests
     {
         var warnings = new List<string>();
         var kv = new FaultingKeyValueStore { OnList = () => new NotSupportedException("no listing here") };
-        kv.Data["lyntai.route.memory"] = "claude:haiku";
+        await kv.SeedAsync("lyntai.route.memory", "claude:haiku");
         var store = new KeyValueModelRoutingStore(kv, Logger<KeyValueModelRoutingStore>(warnings));
 
         for (var call = 0; call < 4; call++)
@@ -175,7 +175,7 @@ public class LiveModelRoutingTests
     public async Task A_listing_that_keeps_failing_is_given_up_after_three_attempts()
     {
         var kv = new FaultingKeyValueStore { OnList = () => new InvalidOperationException("listing down") };
-        kv.Data["lyntai.route.memory"] = "claude:haiku";
+        await kv.SeedAsync("lyntai.route.memory", "claude:haiku");
         var store = new KeyValueModelRoutingStore(kv);
 
         for (var call = 0; call < 6; call++)
@@ -728,25 +728,24 @@ public class LiveModelRoutingTests
 
     private static ILogger<T> Logger<T>(List<string> warnings) => new CapturingLogger<T>(warnings);
 
-    /// <summary>Answers from <see cref="Data"/> until a fault is scripted for a call.</summary>
+    /// <summary>The production in-memory store with a fault scripted per read. It refuses writes, which the
+    /// routing reader never makes, so a test seeds it through <see cref="SeedAsync"/>.</summary>
     private sealed class FaultingKeyValueStore : IKeyValueStore
     {
-        public Dictionary<string, string> Data { get; } = [];
+        private readonly InMemoryKeyValueStore _inner = new();
         public Func<Exception>? OnGet { get; set; }
         public Func<Exception>? OnList { get; set; }
         public int Lists { get; private set; }
 
+        public Task SeedAsync(string key, string value) => _inner.SetAsync(key, value);
+
         public Task<string?> GetAsync(string key, CancellationToken ct = default) =>
-            OnGet is { } fault ? throw fault() : Task.FromResult(Data.GetValueOrDefault(key));
+            OnGet is { } fault ? throw fault() : _inner.GetAsync(key, ct);
 
         public Task<IReadOnlyList<string>> ListKeysAsync(string? prefix = null, CancellationToken ct = default)
         {
             Lists++;
-            return OnList is { } fault
-                ? throw fault()
-                : Task.FromResult<IReadOnlyList<string>>([.. Data.Keys
-                    .Where(k => prefix is null || k.StartsWith(prefix, StringComparison.Ordinal))
-                    .Order(StringComparer.Ordinal)]);
+            return OnList is { } fault ? throw fault() : _inner.ListKeysAsync(prefix, ct);
         }
 
         public Task SetAsync(string key, string value, CancellationToken ct = default) => throw new NotSupportedException();

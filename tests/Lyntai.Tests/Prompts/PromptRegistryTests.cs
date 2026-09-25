@@ -1,5 +1,6 @@
 using Lyntai.Prompts;
 using Lyntai.Tests.Fakes;
+using Lyntai.Storage.InMemory;
 
 namespace Lyntai.Tests.Prompts;
 
@@ -80,7 +81,7 @@ public class PromptRegistryTests
     [Fact]
     public async Task Override_wins_when_it_keeps_all_placeholders()
     {
-        _kv.Data[PromptRegistry.DefaultKeyPrefix + "summary"] = "TL;DR of {input} ({lang}):";
+        await _kv.SetAsync(PromptRegistry.DefaultKeyPrefix + "summary", "TL;DR of {input} ({lang}):");
         var registry = new PromptRegistry(_kv);
 
         var rendered = await registry.RenderAsync("summary", Default,
@@ -93,7 +94,7 @@ public class PromptRegistryTests
     public async Task Override_dropping_a_placeholder_is_rejected_falls_back_to_default()
     {
         // documented decision: reject + warn + use the default (fail-open, no silent content loss)
-        _kv.Data[PromptRegistry.DefaultKeyPrefix + "summary"] = "TL;DR of {input}:"; // dropped {lang}
+        await _kv.SetAsync(PromptRegistry.DefaultKeyPrefix + "summary", "TL;DR of {input}:"); // dropped {lang}
         var registry = new PromptRegistry(_kv);
 
         var rendered = await registry.RenderAsync("summary", Default,

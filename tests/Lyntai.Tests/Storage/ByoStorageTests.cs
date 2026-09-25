@@ -4,6 +4,7 @@ using Lyntai.Storage.Sqlite;
 using Lyntai.Tests.Fakes;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.DependencyInjection;
+using Lyntai.Storage.InMemory;
 
 namespace Lyntai.Tests.Storage;
 

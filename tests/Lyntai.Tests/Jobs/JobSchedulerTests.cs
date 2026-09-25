@@ -13,13 +13,13 @@ namespace Lyntai.Tests.Jobs;
 /// injected clock.</summary>
 public class JobSchedulerTests
 {
-    private static (JobScheduler sched, InMemoryJobStore jobs, MutableClock clock, FakeKvStore kv) Build(
+    private static (JobScheduler sched, InMemoryJobStore jobs, MutableClock clock, InMemoryKeyValueStore kv) Build(
         params JobSchedule[] schedules)
     {
         var clock = new MutableClock();
         var jobs = new InMemoryJobStore(clock.Get);
         var options = new LyntaiOptions();
-        var kv = new FakeKvStore();
+        var kv = new InMemoryKeyValueStore();
         var scheduler = new JobScheduler(new JobQueue(jobs, options), schedules, options, kv, clock: clock.Get);
         return (scheduler, jobs, clock, kv);
     }
@@ -96,7 +96,7 @@ public class JobSchedulerTests
         var clock = new MutableClock();
         var jobs = new InMemoryJobStore(clock.Get);
         var options = new LyntaiOptions();
-        var kv = new FakeKvStore(); // shared store = the durable next-run
+        var kv = new InMemoryKeyValueStore(); // shared store = the durable next-run
         var sched = Every(TimeSpan.FromMinutes(10));
 
         // instance 1 schedules the first run, then the "process restarts"
@@ -175,7 +175,7 @@ public class JobSchedulerTests
         var options = new LyntaiOptions();
         var logger = new CapturingLogger<JobScheduler>();
         var sched = new JobScheduler(new JobQueue(jobs, options),
-            [new JobSchedule("bad", "l", "t", "{}", Cron: "not a cron")], options, new FakeKvStore(), logger, clock.Get);
+            [new JobSchedule("bad", "l", "t", "{}", Cron: "not a cron")], options, new InMemoryKeyValueStore(), logger, clock.Get);
 
         for (var tick = 0; tick < 3; tick++)
         {
@@ -210,18 +210,5 @@ public class JobSchedulerTests
         var scheduler = sp.GetRequiredService<IJobScheduler>();
         Assert.IsType<JobScheduler>(scheduler);
         Assert.Equal(0, await scheduler.TickAsync()); // first tick schedules without throwing
-    }
-
-    /// <summary>A dict-backed <see cref="IKeyValueStore"/> that persists across scheduler instances.</summary>
-    private sealed class FakeKvStore : IKeyValueStore
-    {
-        private readonly Dictionary<string, string> _d = new(StringComparer.Ordinal);
-        public Task<string?> GetAsync(string key, CancellationToken ct = default) => Task.FromResult(_d.GetValueOrDefault(key));
-        public Task SetAsync(string key, string value, CancellationToken ct = default) { _d[key] = value; return Task.CompletedTask; }
-        public Task DeleteAsync(string key, CancellationToken ct = default) { _d.Remove(key); return Task.CompletedTask; }
-        public Task<IReadOnlyList<string>> ListKeysAsync(string? prefix = null, CancellationToken ct = default) =>
-            Task.FromResult<IReadOnlyList<string>>([.. _d.Keys
-                .Where(k => prefix is null || k.StartsWith(prefix, StringComparison.Ordinal))
-                .OrderBy(k => k, StringComparer.Ordinal)]);
     }
 }

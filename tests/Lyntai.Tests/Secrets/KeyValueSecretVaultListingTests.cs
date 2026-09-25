@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using Lyntai.Secrets;
 using Lyntai.Tests.Fakes;
+using Lyntai.Storage.InMemory;
 
 namespace Lyntai.Tests.Secrets;
 
