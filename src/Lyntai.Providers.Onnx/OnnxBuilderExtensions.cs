@@ -26,9 +26,7 @@ public static class OnnxBuilderExtensions
     /// loading lazily trades a loud startup failure for a quiet first-recall one. Every knob defaults to
     /// the model's own files; see <see cref="OnnxProviderOptions"/>.</para>
     ///
-    /// <para>Every call ADDS a provider to the collection the router selects from. Give each its own
-    /// <see cref="OnnxProviderOptions.Id"/>: with a duplicate id the router keeps the first and never reaches
-    /// the second.</para>
+    /// <para>Every call ADDS a provider; a duplicate id is one the first-wins router never reaches.</para>
     ///
     /// <para><b>The SAME call registers a reranker</b>: set <see cref="OnnxProviderOptions.Produces"/> to
     /// <see cref="Lyntai.Inference.ProviderKinds.Score"/>, with its own <see cref="OnnxProviderOptions.Id"/>
