@@ -532,7 +532,7 @@ switch (cmd) {
   case 'pack': {
     // auto-sync the README `## Status` version to VersionPrefix, then pack — the release pipeline bumps the
     // version, so pack updates the header for it (never packs a stale README, never hard-fails on a bump).
-    packDoctor({ repo, version: config.version, fix: true });
+    if (!packDoctor({ repo, version: config.version, fix: true })) { process.exitCode = 1; break; }
     // dotnet pack each packable library → publish/packages/*.nupkg, then print id + sha256.
     const out = path.join(repo, 'publish', 'packages');
     fs.rmSync(out, { recursive: true, force: true });

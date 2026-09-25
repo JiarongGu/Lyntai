@@ -43,12 +43,19 @@ export function packDoctor({
     return true;
   }
   if (fix) {
-    // rewrite ONLY the first `**vX.Y.Z` inside the `## Status` section
+    // Nothing to sync is a FAILURE: a README that advertises no version must not ship as "synced".
+    if (found === null) {
+      error('pack-doctor: README has no `## Status` version to sync — restore the section\'s '
+        + '`**vX.Y.Z**` headline by hand; --fix only ever rewrites an existing one.');
+      return false;
+    }
+    // Rewrite ONLY the first `**vX.Y.Z` inside the `## Status` section, never past its end.
     const at = readme.search(/^## Status/m);
-    (write ?? ((t) => writeFileSync(file, t)))(
-      readme.slice(0, at) + readme.slice(at).replace(/\*\*v\d+\.\d+\.\d+/, `**v${version}`));
-    log(`pack-doctor: synced README "## Status" version ${found ? 'v' + found : '(none)'} → `
-      + `v${version} (from VersionPrefix)`);
+    const next = readme.slice(at + 1).search(/^## /m);
+    const end = next < 0 ? readme.length : at + 1 + next;
+    (write ?? ((t) => writeFileSync(file, t)))(readme.slice(0, at)
+      + readme.slice(at, end).replace(/\*\*v\d+\.\d+\.\d+/, `**v${version}`) + readme.slice(end));
+    log(`pack-doctor: synced README "## Status" version v${found} → v${version} (from VersionPrefix)`);
     return true;
   }
   error(`pack-doctor: README "## Status" version (${found ?? 'none found'}) != VersionPrefix `
