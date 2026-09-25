@@ -49,7 +49,7 @@ wrongly reading it as stale:
 | Site | What it is | Obligation when a verdict is added |
 |---|---|---|
 | `Inference/ProviderVerdict.cs` | the CANONICAL statement, and the IntelliSense a consumer reads | the member, with its own doc |
-| `ITextRouter.cs`'s XML doc | the contract a consumer reads — genuinely ENUMERATES all nine | add it to the enumeration |
+| `ITextRouter.cs`'s XML doc | the contract a consumer reads — genuinely ENUMERATES every non-`Ok` verdict | add it to the enumeration |
 | design §5.1 + §6 | the frozen v0.1 record | a DATED amendment, never a rewrite (§5.1 already carries the "now nine members" note) |
 | `README.md` §The semantics you're getting | a consuming-story SUMMARY, deliberately not an enumeration — it names six of nine and omits `Unsupported`/`ContextWindowExceeded` on purpose | only if the new verdict changes what a consumer must DO; silence here is not drift |
 
@@ -89,7 +89,7 @@ Three properties of that split are load-bearing:
   `ContextWindowExceeded`, and "your prompt is too big" is a real, actionable answer that must still surface.
 - **Only ELIGIBILITY is decided there.** Which substantive failure wins is untouched and the two domains
   differ on purpose: this router keeps the LAST (`last = reply` each time), `MediaRouter` keeps the FIRST
-  (`firstFailure ??= result`) — the first backend's error explains a media run better than the last one's.
+  (`FirstFailures<T>.File`: `_substantive ??= failure`) — the first backend's error explains a media run better than the last one's.
 - **It is ONE function** (**D136**) — `ProviderVerdict.IsBlameless()` in `ProviderVerdictExtensions`, called
   by every router (`TextRouter`, `MediaRouter`, `ProviderRouter<,>`). A private copy per router is how a
   duplicated taxonomy drifts.
@@ -97,7 +97,7 @@ Three properties of that split are load-bearing:
 ## Routing recipes
 
 - **Single-provider adopter who wants a 429 to hard-stop** (protect the quota window instead of
-  cool-and-advance — e.g. Sonora): the default maps `RateLimited → CooldownAndAdvance`, and with a lone
+  cool-and-advance): the default maps `RateLimited → CooldownAndAdvance`, and with a lone
   candidate `ExemptSoleCandidate=true` (the default) even *retries* the cooled sole host. To surface the
   429 to the caller immediately with no cooldown/retry:
   ```csharp
@@ -273,3 +273,7 @@ To a consumer, Lyntai behaves like **one** provider: `ITextClient` wraps the rou
 candidate list so callers don't thread candidates through. New consumer-facing surface (structured
 output, etc.) hangs off the front door, not the raw router. There is no MEAI bridge in either direction since **D146** deleted it; an OpenAI-shaped backend is
 reached with `AddHttpProvider`.
+
+**A front-door decorator slot has ONE owner** (**D182**). A decorator registers at an ORDER with an owner
+token: the same owner again re-applies its options without stacking a second layer, and a different owner on
+a held order throws, since the second would be dropped while its options still read as wired.

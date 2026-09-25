@@ -37,12 +37,12 @@ an implementer must honour. It is what a stranger meets in IntelliSense.
   the RULE plus a pointer. *"Reversion is not optional: damping's factor is zero at `D = 10`, so dropping
   it leaves the ceiling absorbing"* is a rule. Three paragraphs on how that was discovered is a record.
 
-**25 is a PROXY for the real rule — a comment must be smaller than what it explains — and exactly one block
-in `src/` has earned an exception**, because it states seven distinct guarantees once each rather than one
-guarantee at length. **Be very slow to conclude your block is the second one:** strike every sentence that
-could be deleted without weakening a promise. If what remains is one guarantee explained at length, it is
-fat; if it is seven guarantees stated once each, it is contract. **And do not trust the measurement of your
-own paydown** — re-run the gate and read what it says.
+**25 is a PROXY for the real rule — a comment must be smaller than what it explains — and no block in `src/`
+holds an exception today**: the one that earned it, by stating seven distinct guarantees once each rather than
+one guarantee at length, has since come under the line. **Be very slow to conclude your block is an
+exception:** strike every sentence that could be deleted without weakening a promise. If what remains is one
+guarantee explained at length, it is fat; if it is seven guarantees stated once each, it is contract. **And do
+not trust the measurement of your own paydown** — re-run the gate and read what it says.
 
 **Trim to the rule, then stop.** Record what is left as an allowance rather than reaching for `comment-ok`:
 the allowance is a visible, ratcheted number that keeps the block from growing, while the escape removes it

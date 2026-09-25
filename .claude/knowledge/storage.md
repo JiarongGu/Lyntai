@@ -1,7 +1,7 @@
 ---
 name: storage
 applies_when: writing SQL, adding or changing a migration, or adding/extending a Lyntai storage backend
-enforces: alias every SELECT and CAST affinity-typed columns; open connections only through the factory; three FTS trigram triggers plus a backfill; both migration tags; never dedup the Sqlite/Postgres pair — the contract facts are the dedup mechanism
+enforces: alias every SELECT and CAST affinity-typed columns; open connections only through the factory; three FTS trigram triggers plus a backfill; both migration tags; share a statement wherever a portable spelling runs on both dialects and keep a per-backend copy only for dialect (D187) — the contract facts hold the rest
 ---
 
 # Storage internals
@@ -28,6 +28,8 @@ SQLite stores `1.0` as an INTEGER and `0.5` as a REAL in the *same* column, so D
 can hand a `double` property a boxed `long` and throw (or truncate). **Every** 0..1 / floating column
 (scores, `cost_usd`) MUST be read as `CAST(col AS REAL)` in the SELECT. Integer columns (token counts,
 durations) are fine uncast. `ScoreStoreTests.Doubles_round_trip_exactly_the_affinity_trap` guards this.
+**In a statement shared with Postgres** (Core's `*Sql` classes) spell it `CAST(col AS DOUBLE PRECISION)`: the
+name gives the same REAL affinity on SQLite, while Postgres's `REAL` is single precision (**D187**).
 
 **Bool from INTEGER + a positional record:** Dapper will NOT bind a SQLite `INTEGER` (0/1) column to a
 `bool` parameter of a **positional record constructor** — it fails with "no matching constructor". Bind
@@ -165,7 +167,7 @@ strategy. That isn't a dialect seam, it's a small ORM — and it would make both
 fork. The `*StoreContract` facts run every domain against InMemory + Sqlite + Postgres and hold them to one
 contract: **the contract tests are the dedup mechanism here, not a shared base class.**
 
-**What IS shared: every statement with a PORTABLE spelling.** The engine-independent statements live in Core
+**What IS shared: every statement with a PORTABLE spelling** (**D187**). The engine-independent statements live in Core
 as text — `JobStoreSql` (the job state machine: transition statements, the `claimed_by` write fence, the
 claim-candidate predicate, bound booleans `@t`/`@f`), `ConversationStoreSql`, `TraceStoreSql`,
 `KeyValueStoreSql`, `UsageTrackerSql`, `ResponseCacheSql`, `MemoryGraphSql` (**D77**) and
@@ -178,7 +180,7 @@ dialect only — FTS5, `IN @ids` vs `= ANY`, `MAX` vs `GREATEST`, `::jsonb`/`::t
 text and nothing more.
 
 **Dialect-free CODE is one linked source, not a package.** `src/Shared/Relational/*.cs` (`DapperConventions`,
-`GovernanceGuard`, `StoreWiring`) is compiled into each relational adapter through
+`ReflectionJson`, `GovernanceGuard`, `StoreWiring`) is compiled into each relational adapter through
 `<Compile Include="..\Shared\Relational\*.cs" LinkBase="Shared\Relational" />`, never referenced: an
 adapter→adapter reference breaks the package rule, Core has no Dapper, and a package would be a published id
 and nine registries for under two hundred internal lines.
@@ -236,7 +238,9 @@ scoped to **schema OWNERSHIP**: the selection carries a `LyntaiMigrates` flag an
 under `SchemaMigration.None` or an app-supplied `IDbConnectionFactory`, because there Lyntai runs no
 migration, the feature set decides nothing, and "add `StorageFeature.Governance`" would create no table —
 the guard's whole premise is that Lyntai was going to create the table and the feature set stopped it. Add a
-fourth Governance-backed helper and it must call `GovernanceGuard.Require` (`src/Shared/Relational/`), and
+fourth Governance-backed helper and it must call `GovernanceGuard.Require` and build its store over
+`StoreWiring.Factory(sp)` — never a container-resolved `IDbConnectionFactory`, which is whichever wiring
+registered last (`src/Shared/Relational/`) — and
 **D150** is why the check is eager and scoped this way. `UsePostgresVectorStore` is **exempt**:
 `PostgresVectorStore` creates its `vector` extension and table lazily, deliberately outside the migration, so
 pgvector is not forced on consumers who never use semantic memory.

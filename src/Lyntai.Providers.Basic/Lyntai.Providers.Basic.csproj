@@ -16,7 +16,7 @@
   <PropertyGroup>
     <IsPackable>true</IsPackable>
     <PackageId>Lyntai.Providers.Basic</PackageId>
-    <Description>The Lyntai backends that need nothing beyond Lyntai.Core and the BCL: the authenticated `claude` and `codex` CLIs (completions and self-driving agent sessions), any OpenAI-shaped HTTP endpoint (OpenAI, Azure OpenAI, OpenRouter, llama-server, LM Studio, vLLM) for chat, embeddings or reranking, Ollama's native API for chat and embeddings, and an in-process model2vec embedder — bundled because none of them ships a native payload. Media backends live in Lyntai.Generation; local GGUF inference is Lyntai.Providers.LlamaSharp; in-process transformers are Lyntai.Providers.Onnx.</Description>
+    <Description>The Lyntai backends that need nothing beyond Lyntai.Core, the BCL and Microsoft.Extensions.Http: the authenticated `claude` and `codex` CLIs (completions and self-driving agent sessions), any OpenAI-shaped HTTP endpoint (OpenAI, Azure OpenAI, OpenRouter, llama-server, LM Studio, vLLM) for chat, embeddings or reranking, Ollama's native API for chat and embeddings, and an in-process model2vec embedder — bundled because none of them ships a native payload. Media backends live in Lyntai.Generation; local GGUF inference is Lyntai.Providers.LlamaSharp; in-process transformers are Lyntai.Providers.Onnx.</Description>
   </PropertyGroup>
 
   <ItemGroup>

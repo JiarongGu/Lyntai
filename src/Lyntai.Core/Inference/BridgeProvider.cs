@@ -11,8 +11,9 @@ namespace Lyntai.Inference;
 ///
 /// <para><b>Nothing is inferred.</b> It declares exactly the operations it was given a function for, so a
 /// bridge with no stream delegate reports no <see cref="ProviderOperation.Stream"/> and a router never asks it
-/// to stream — the same rule every other backend follows. A caller wanting tool calls, embeddings or scores
-/// declares them the same way, by supplying the delegate and the capability that matches.</para></summary>
+/// to stream — the same rule every other backend follows. A caller wanting tool calls declares them the same
+/// way; embeddings and scores are not a bridge's, since their routers select an <see cref="IVectorProvider"/>
+/// or <see cref="IScoreProvider"/>.</para></summary>
 internal sealed class BridgeProvider(
     string id,
     ProviderCapabilities capabilities,

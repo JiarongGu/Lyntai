@@ -130,13 +130,15 @@ nobody can see opening.
 | `check-links` | `link-ok` | a line naming a path as DATA — a guard fixture's name, say |
 | `check-counts` | `count-ok` | a sentence quoting a HISTORICAL count ("the list said seven and had eleven") |
 | `check-comments` | `comment-ok` | on a block's first line; reserve it for a block no reader would want shorter — a table, a wire-format capture |
+| `check-tautology` | `tautology-ok` | a line that names the collapsed contrast deliberately |
 | `check-measurements` | `measure-ok` | a line discussing ANOTHER result's retraction; naming what this row supersedes is the better fix, and it is also the bookkeeping the index needs |
 | `check-decisions`, `check-archive`, `check-backlog`, `check-pitfalls`' length ratchet | **none** | an allowance is a visible ratcheted number and is the only way out |
 
 **An allowance that stops matching FAILS, and one looser than the subject needs FAILS**, so exclusions
 cannot rot and the numbers only ever come down. That rule applies to `retiredApiNames`' allow-list,
 `commentBlockAllowances`, `decisionLengthAllowances`, `archiveEntryLengthAllowances`,
-`pitfallLengthAllowances`, `optionDocAllowances` and `backlogPreambleAllowance` alike.
+`pitfallLengthAllowances` and `optionDocAllowances` alike. `backlogPreambleAllowance` is the exception: a
+single number whose slack over the 40-line limit is REPORTED on a green run, not failed.
 
 **Paying a ratchet down means RELOCATING, not deleting** — several long entries are the only maintained
 home for a trap. Move the rule to the record that owns it, keep a pointer, then cut.
@@ -198,7 +200,8 @@ deleted package leaves nothing stale behind.
 
 **The misses are silent**: a missing `ApiSurfaceTests` entry means no API gate at all, and nothing reports
 that. Many small packages is the intended shape — `docs/DECISIONS.md` D27 — and
-`node devtools/dev.mjs new-package <Lyntai.X>` scaffolds into all nine.
+`node devtools/dev.mjs new-package <Lyntai.X>` scaffolds eight of the nine and prints the ninth: one `test` run
+seeds the API baseline.
 
 ### `check-bundle` — bundle membership is a dependency BUDGET
 
@@ -399,8 +402,8 @@ gate against recurrence and not a proof that every number in the docs is right.
 
 ### `check-comments` — whether a comment is still doing a comment's job
 
-The FOURTH member of the prose family and the only one that looks at CODE — all four tiers (`src`, `tests`,
-`devtools`, `bench`), `.cs` and `.mjs`.
+The FOURTH member of the prose family and the one whose SUBJECT is the code tiers' comments themselves — all
+four tiers (`src`, `tests`, `devtools`, `bench`), `.cs` and `.mjs`.
 
 Measured cost of not having it: **0.86 comment lines per line of real code** in `src/` (14,927 against
 17,259, blanks and brace-only lines excluded), and `src/` carrying **1.6× more prose than
@@ -421,8 +424,8 @@ lines), so a plain threshold would have been switched off on day one. Every over
 recorded in `commentBlockAllowances`, as the MULTISET rather than just the file's worst — one number per
 file left 279 lines of debt invisible and let a budgeted file grow new long blocks behind it.
 
-**The 25-line proxy, its one exception (`IMemoryGraphStore.SeedAsync`, seven guarantees stated once each)
-and the rule to be slow about claiming a second are `.claude/rules/code-commentary.md`.** What this gate
+**The 25-line proxy and the rule to be slow about claiming an exception are
+`.claude/rules/code-commentary.md`**; `src/` holds no allowance today. What this gate
 measured behind that rule: the sweep that introduced it declared 19 files irreducible — "contract, not
 fat" — and an adversarial re-check the same day found that honest for **two**. Fourteen came under 25 by
 relocating exactly what the rule's always-wrong list names, and the most common single offender was a
@@ -482,9 +485,9 @@ file holding 17 open items. **The file had RECORDED deleting a 49-line tally for
 2026-09-03 and then regrew a 19-line one in the same place.**
 
 It checks FIVE things. Two are LENGTH: the preamble's non-blank line count against **40**
-(`backlogPreambleAllowance`, a ratchet, no escape token), and that **no `HANDOVER` block survives
-anywhere** — a handover describes work that is DONE, so its home is `docs/task-archive.md`, one Part per
-task. The generated roster is excluded from the budget by sitting above the `## Active backlog` heading,
+(`backlogPreambleAllowance` raises it, reported as slack; no escape token), and that **no `HANDOVER` block
+survives anywhere** — a handover describes work that is DONE, so its home is `docs/task-archive.md`, one Part
+per task. The generated roster is excluded from the budget by sitting above the `## Active backlog` heading,
 which is placement rather than a carve-out.
 
 The other two are the **open-item MANIFEST** (`docs/DECISIONS.md` **D111**): every open `- [ ]` carries a
@@ -634,10 +637,10 @@ the prose family. **None of the other four can see it**: a decision going stale 
 dangles no path and moves no registered count, so the sentence stays grammatical, plausible and wrong — and
 `decisions-index` renders a stale TITLE into the index table on top of that.
 
-Measured cost of not having it (2026-08-31, `docs/task-archive.md` Part 186): auditing the log against the
+Measured cost of not having it (2026-08-31, `docs/task-archive.md` Part 130): auditing the log against the
 tree found it **accurate about VALUES and drifting on COUNTS and CLASSIFICATIONS** — every stated constant
 verified, while D46's own title said "four DOMAINS" against seven and `CLAUDE.md` claimed five required
-`IMemoryGraphStore` members against thirteen, having dropped the "in this major" qualifier D67 carries.
+`IMemoryGraphStore` members against thirteen, having dropped the "in this major" qualifier D67 then carried.
 
 Registry is `DECISION_CLAIMS` in the script rather than `project.config.mjs`, because an entry is a
 predicate over the tree. **Every registered predicate was verified BY HAND before being registered**, and

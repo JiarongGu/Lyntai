@@ -76,7 +76,10 @@ the csproj.
       (what the router reads BEFORE spending anything; it has no default precisely because a silent
       capability serves nothing and would make the backend permanently invisible). Everything else is
       defaulted to an `Unsupported` verdict, so override only what you serve: `CompleteAsync`,
-      `StreamAsync`, and `IsAvailable`/`ProbeAsync` where a real check exists.
+      `StreamAsync`, and `IsAvailable`/`ProbeAsync` where a real check exists — and DECLARE each in
+      `Capabilities`: `Produces` lists `ProviderKinds.Text` (a configured candidate that does not is refused at
+      composition, D178), and `Operations` lists `ProviderOperation.Complete` / `.Stream` for each door you
+      override, since the text router never asks an undeclared door.
 - [ ] Failures classified via `ProviderVerdictClassifier` — no local heuristics.
 - [ ] An HTTP backend classifies through the THREE-argument `FromHttpFailure(status, body, hasCredentials)`
       (copy `HttpModelProvider`): an uncredentialed 401/403 is `NotConfigured`, not `AuthFailed`

@@ -4,7 +4,8 @@
 > is, how a request is routed and delivered, and what is and is not verified against a real service. The
 > reasoning behind each choice is `docs/DECISIONS.md` (**D24** scope, **D28** input roles, **D64** the
 > Inconclusive submit, **D67** the stream door, **D69** an unmeasured mapping is an option, **D127**
-> capabilities as data, **D156** one door for every backend, **D181** the durable pipeline); `README.md`
+> capabilities as data, **D156** one door for every backend, **D180** ComfyUI's inputs and `Model3d`, **D181**
+> the durable pipeline, **D185** the one spend gate, **D189** a second queue vendor); `README.md`
 > §Generation is the short version.
 
 ## 1. Registering backends
@@ -19,7 +20,9 @@ produces — and `AddMediaRouting()` wires the media router to route it.
 
 **BYO `HttpClient`** is optional on the four HTTP backends; `AddLocalDiffusionProvider` and `AddPiperProvider`
 take a BYO `IProcessRunner` instead, because they spawn a binary and never make a request. Lyntai **never
-disposes a client you supply**: it is yours, and it may be carrying a Polly pipeline or an auth handler. Omit
+disposes a client you supply**: it is yours, and it may be carrying a Polly pipeline or an auth handler.
+**ComfyUI's own client follows no redirect** (**D180**): it carries what you configured for ComfyUI, so point
+`ComfyUiOptions.BaseUrl` at the address that answers. Omit
 it and Lyntai registers a named client with an *infinite* `HttpClient` timeout, so the per-call deadline owns
 cancellation rather than the 100-second default aborting a healthy render. To decorate Lyntai's own client
 instead of replacing it, reach it by name:
@@ -59,7 +62,7 @@ documentation and has never been called** (§3).
 |---|---|---|
 | `OpenAiImageProvider` | Inline | `/images/generations`, or `/images/edits` when the request carries an input image. Shapes ported from a production implementation; **not yet measured against OpenAI's current GPT-image models**, which are reported to reject `response_format`, so that family is sent none by default (`OpenAiImageOptions.ResponseFormat`). A `url` response comes back as a URI artifact — never downloaded for you |
 | `Automatic1111Provider` | Inline | A locally-run SD WebUI: `txt2img` / `img2img`, shapes ported from a production implementation. A WebUI that is not running — nothing listening — reports **NotConfigured** (skipped, not blamed); one that drops a render mid-response is **Failed** and counts toward the dead-host threshold. Its probe checks a checkpoint is *loaded* — "up" isn't "usable". The WebUI's loaded checkpoint decides the model: `MediaRequest.Model`, including a candidate's `a1111:sd_xl_base` pin, is **not** sent |
-| `ComfyUiProvider` | **Job** | *Measured against a live server, image, video and mesh workflows.* Workflow-driven: you supply the graph in `Options["workflow"]` (+ optional `Options["prompt-path"]` to place the prompt), and outputs come back as view URIs — a mesh as `model/gltf-binary`. Each input (bytes, or a URI it fetches from any http(s) server, capped by `MaxFetchBytes` and never with ComfyUI's credentials off its own origin — validate URIs a model supplies) is uploaded and its stored name written at the field `Options["input-path"]` names, or `Options["input-path:<role>"]` for an input with a role; an input with nowhere to go is refused, never dropped. A transport failure while polling reports **Running, not Failed**, while a 4xx or an unconfigured base URL stays terminal, so a bad id never polls forever |
+| `ComfyUiProvider` | **Job** | *Measured against a live server, image, video and mesh workflows.* Workflow-driven: you supply the graph in `Options["workflow"]` (+ optional `Options["prompt-path"]` to place the prompt), and outputs come back as view URIs — a mesh as `model/gltf-binary`. Each input (bytes, or a URI it fetches from any http(s) server, capped by `MaxFetchBytes`, and fetched off ComfyUI's own origin with no credentials so long as the ComfyUI client follows no redirect itself — `AddComfyUiProvider`'s does not, and a client you supply should not either (**D180**); validate URIs a model supplies) is uploaded and its stored name written at the field `Options["input-path"]` names, or `Options["input-path:<role>"]` for an input with a role; an input with nowhere to go is refused, never dropped. A transport failure while polling reports **Running, not Failed**, while a 4xx or an unconfigured base URL stays terminal, so a bad id never polls forever |
 | `LocalDiffusionProvider` | Inline | A local `sd-cli` / stable-diffusion.cpp subprocess through `IProcessRunner` — no key, no network, no content policy in the path. Argv and the multiple-of-64 size clamp are measured against a real engine (txt2img and img2img, end to end through the library) |
 | `FalProvider` | **Job** | *Never called: written from fal.ai's public docs; no maintainer holds an account* (§3). One aggregator queue reaching the Wan/Kling/Veo-class video models. The operation id **carries its model** (`"model#requestId"`) because a resumed job has only the id, and a transport failure while polling reports **Running, not Failed** — a 500 says nothing about a paid render still in flight |
 | `PiperProvider` | Inline + **Stream** | A local piper TTS engine through `IProcessRunner` — no key, no network. Raw PCM **streams** through the media stream door as it is synthesised (measured against a real engine: several chunks before one terminal), typed `audio/pcm;rate=…;bits=16;channels=1;endian=little` with the rate read from the voice's own config. `GenerateAsync` is the same stream, buffered |
@@ -117,12 +120,15 @@ nobody has run it from this library yet.
 survey of hosted vendors' public documentation found three worth considering as a fallback: **WaveSpeedAI**
 (a queue over the same model families, with the submit shape closest to fal's), **OpenRouter** for video (one
 queue wire with normalised parameters, and a cost it documents in USD) and **Replicate** (a mature queue API
-that also offers a synchronous mode). Its recommendation is to extract a shared internal queue engine from
-`FalProvider` only when a second vendor is actually written, and to give each vendor its own provider named for
-it.
+that also offers a synchronous mode). **D189** makes that the rule: a second vendor is its OWN provider named for
+its backend — its own options class and `Add<Backend>Provider`, every mapping an option — and the shared
+internal queue engine is extracted from `FalProvider` only when that vendor is actually written. A backend that
+speaks fal's own wire is a `FalOptions` preset (§3), not a class.
 
-Until then, a hosted fallback is a backend of your own, registered through `AddProvider`. For a durable render
-it must implement `IMediaJobProvider` and declare `ProviderOperation.Queued`, and it helps only at SUBMIT: a
+Until then, a hosted fallback is a backend of your own, registered through `AddProvider`. To be tried beside
+fal on the queued door it must implement `IMediaJobProvider` and declare `ProviderOperation.Queued`; a
+pipeline-job stage (§8) also falls back to INLINE candidates once its queued ones run out without committing
+anything, while the render job is queued-only. Either way it helps only at SUBMIT: a
 render that fails after a backend accepted it is not re-routed, and an Inconclusive submit never falls back.
 `MediaRequest.Options` is request-wide, so fal and the fallback receive the same option keys — a cross-vendor
 fallback is reliable only on the fields both share.
@@ -136,11 +142,13 @@ role a backend documents itself — never the positional constructor. That const
 role string to the media type and leaves the role null — and then nothing fails: the backend gets a
 well-formed roleless input and an img2img request quietly becomes text-to-image (**D28**).
 
-Backends declare what they can do in `ProviderCapabilities` — media kinds, input roles, duration ceilings,
-model catalogues — and the router **skips a candidate that cannot serve the request** before spending
-anything. Fallback is a **policy**, not a law. The default matches the LLM router (a content `Refused`
-surfaces rather than being re-submitted elsewhere), but pairing a hosted backend with a locally-run one makes
-the other choice reasonable:
+Backends declare what they can do in `ProviderCapabilities` — media kinds, delivery modes, whether a request
+may carry inputs, model catalogues — and the router **skips a candidate that cannot serve the request** before
+spending anything. An input ROLE a backend has no place for is refused by the backend itself (`Unsupported`,
+nothing sent), which the router advances past; `Limits` is advisory and enforced by nothing. Fallback is a
+**policy**, not a law. The default matches the LLM router (a content `Refused` surfaces rather than being
+re-submitted elsewhere), but pairing a hosted backend with a locally-run one makes the other choice
+reasonable:
 
 ```csharp
 cfg.ConfigureMediaRouting(p =>
@@ -197,8 +205,9 @@ media type cannot be branched on, and "the first `image/*`" picks a texture atla
 `GenerationStage.SelectInput` is where you state your own rule.
 
 **A mesh chains into an image only through a backend that RASTERIZES it.** That edge is a render, not a
-generation, and this library performs none — but a ComfyUI graph with a render node does: bind the mesh
-through `Options["input-path"]` and it returns a view of the object.
+generation, and this library performs none — but a ComfyUI graph with a render node does, as a durable-job
+stage (§8): bind the mesh through `Options["input-path"]`, or `Options["input-path:<role>"]` when the stage
+sets `InputRole`, and it returns a view of the object.
 
 ## 8. Durable renders
 
@@ -216,10 +225,15 @@ builder.AddJobHandler<GenerationPipelineJobHandler>();   // with your IGeneratio
 var pipeline = new GenerationPipelineJob(
 [
     new GenerationPipelineJobStage(["openai-images"], image),
-    new GenerationPipelineJobStage(["fal"], video) { InputRole = MediaInputRoles.FirstFrame },
+    new GenerationPipelineJobStage(["comfyui"], video) { InputRole = MediaInputRoles.FirstFrame },
 ]);
 await jobs.EnqueueAsync(new JobSpec("render", GenerationPipelineJobHandler.JobType, pipeline.ToJson()));
 ```
+
+Mind what each backend takes: fal takes its one input only as a URL and refuses bytes (`Unsupported`, nothing
+sent), so a stage chaining INTO fal needs a predecessor that returns a URI — OpenAI images returns bytes by
+default. ComfyUI uploads bytes or fetches a URI, bound at the field the stage's request names
+(`Options["input-path:first-frame"]` here, **D180**).
 
 `GenerationRenderJobHandler` is the one-render form: a single queued stage on the same machine, enqueued with
 `GenerationRenderJob.ToJson()`.
@@ -241,7 +255,10 @@ URI.
 ## 9. Spend, throttling and agents
 
 `AddMediaUsageBudget()` meters what generation costs against the same `BudgetOptions` and `IUsageTracker` as
-the LLM front door, so "what has this app spent" stays one number. Only COST caps bind a render, and the cap
+the LLM front door, so "what has this app spent" stays one number. It is also the ONE switch that records
+media spend at all (**D185**): the router, both durable job handlers and `generate_fetch` record only under it
+— a text-only `AddUsageBudget()` or a storage package's usage tracking registers an `IUsageTracker` too, and
+bills no render. Only COST caps bind a render, and the cap
 is checked before a render and before a SUBMISSION — submitting is what commits the money for a hosted video.
 `AddMediaRateLimit()` throttles generation on its OWN rate, separate from chat's.
 

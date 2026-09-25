@@ -8,7 +8,7 @@
 > sequence is `docs/ROADMAP.md`.
 
 **Goal:** a NuGet-packable, DI-first .NET 10 library — an LLM provider abstraction (routing + fallback
-across CLI / HTTP / lambda-bridged providers), pluggable storage (SQLite / InMemory / Postgres), and the
+across CLI / HTTP / lambda-bridged providers), pluggable storage (SQLite / Postgres / in-memory / file system), and the
 LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and go.
 
 ---
@@ -23,12 +23,12 @@ _Edit a marker, never this table — `verify` fails the moment the two disagree.
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
 | 108 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a free Hugging Face account (an hf_ token) — its router proxies fal's own q… |
-| 182 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 205 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 262 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
-| 292 | 294 | An unreachable LOCAL media server: `NotConfigured` or `Failed`? | decision-only · decision | an owner ruling on whether a local server that is not listening is unconfig… |
-| 298 | 294 | Give the vector-store, verification and annotation contracts an abstract Fa… | startable |  |
-| 301 | 294 | Sweep test comments for history narration that carries no tag or date | startable |  |
+| 155 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 178 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 234 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 264 | 294 | An unreachable LOCAL media server: `NotConfigured` or `Failed`? | decision-only · decision | an owner ruling on whether a local server that is not listening is unconfig… |
+| 270 | 294 | Give the vector-store, verification and annotation contracts an abstract Fa… | startable |  |
+| 273 | 294 | Sweep test comments for history narration that carries no tag or date | startable |  |
 
 <!-- open-items:end -->
 
@@ -72,8 +72,8 @@ open checkboxes — five stacked `HANDOVER` blocks and a running tally of what h
 in a 1308-line file. `task-lifecycle.md` already forbade exactly that ("never let the backlog SUMMARIZE the
 archive"), and the section had even documented deleting a 49-line tally for that reason on 2026-09-03 —
 then regrew a 19-line one in its place. **A rule that keeps being violated is a missing gate**, so
-`check-backlog` now bounds this section; see `dev.mjs`. The content was not lost: the handovers describe
-Parts 143–176, which is where they live._
+`check-backlog` now bounds this section; see `devtools/scripts/check-backlog.mjs`. The content was not lost:
+the handovers describe Parts 143–176, which is where they live._
 
 **BLOCKED IS PER ITEM, never per Part** — which is why the state lives on the checkbox rather than in a
 roster of Parts. Part 33 was once marked blocked in full while two startable pieces sat inside it (they
@@ -87,8 +87,8 @@ were being counted as startable work.
 _Part 32 (MED1: the generation platform + the 2.0.1 package restructure) landed 2026-08-04 — see
 `docs/task-archive.md` Part 32, `docs/DECISIONS.md` D24/D25, and the plans of record
 `local/superpowers/plans/2026-08-04-generation-platform-plan.md` +
-`local/superpowers/plans/2026-08-04-restructure-2.0.1-plan.md`. What remains are
-that plan's Plans 3–7, each a separate pass because each needs its own measurement.
+`local/superpowers/plans/2026-08-04-restructure-2.0.1-plan.md`. Its Plans 3–7 have
+all closed (`docs/task-archive.md` Parts 33, 126, 261, 262, 264, 266 and 291), leaving fal's wire alone below.
 <br>**Nothing below EXECUTES from that plan any more, which is why it left `docs/` (D149).** Its Plan 6
 still names a streaming interface **D127** deleted and its Plan 7 predates the 2026-08-30 3D survey and
 GEN7a shipping, so the one item body below is the current framing and the plan is the record of how the
@@ -110,8 +110,8 @@ The fal-first naming that once hid ComfyUI inside this list is recorded in
   or fix the mapping.
   <br>**PARKED 2026-09-25 by the owner, who holds no fal.ai account** and did not know why fal was the vendor
   chosen: it arrived with GEN4 (2026-08-04) as the hosted queue-shaped video backend the durable render job was
-  built against, written from fal's public docs, and has never been called. **The full review kept it** (Part 293,
-  owner) and found a cheaper verifier: the Hugging Face router proxies fal's queue for a free account, and
+  built against, written from fal's public docs, and has never been called. **The full review kept it** (`docs/task-archive.md`
+  Part 295, owner) and found a cheaper verifier: the Hugging Face router proxies fal's queue for a free account, and
   `FalOptions.AuthScheme` / `QueryParameters` make that route configuration (`docs/generation.md` §3). One run
   there confirms the status vocabulary, the `COMPLETED`+`error` failure shape (`FalOptions.ErrorField`), the result
   fields and the sub-path question; it does not confirm fal's own `Key` auth or billing.
@@ -127,8 +127,8 @@ The fal-first naming that once hid ComfyUI inside this list is recorded in
   it for weeks._
 
   _**The BLOCKING half is gone (2026-08-16, `docs/DECISIONS.md` D69) — what is left is confirmation, not
-  repair.** Every mapping the docs name is now a host option: fal's status vocabulary and cost fields,
-  ComfyUI's four response field names, and `sd-cli`'s whole argv plus an `ExtraArgs` escape. So an adopting
+  repair.** Every mapping the docs name is now a host option: fal's status vocabulary and cost fields.
+  So an adopting
   application that discovers the real wire format fixes it in `appsettings.json` and keeps going — it no
   longer waits on a Lyntai release, which is what made this item block anything. Reframed deliberately: the
   old wording made a third party's availability a precondition for this backlog being clean, and the library
@@ -137,33 +137,6 @@ The fal-first naming that once hid ComfyUI inside this list is recorded in
   _**What a real run is still for**, stated so this is not read as closed: a STRUCTURAL difference — a status
   that is not a string field at all, a history document shaped differently — is not fixable by a per-field
   option. The residual risk is a shape, not a spelling._
-
-  _**The binary-directory working dir is CONFIRMED (2026-08-04)** and no longer part of this task — measured by
-  a consuming app against a real downloaded release: the engine ships `ggml*.dll` beside the exe, so spawning
-  from anywhere else fails at load time on a perfectly good install. Already implemented (the spawn's working
-  directory in `LocalDiffusionProvider.GenerateAsync`) and pinned by a test._
-
-  _**The max-dimension question is SETTLED (2026-08-16, `docs/DECISIONS.md` D68) and is no longer part of this
-  task.** It asked whether `LocalDiffusionOptions` should carry a max-dimension, whether a CPU build should cap
-  itself, or whether an unbounded size is the caller's problem. The answer: the ceiling is DERIVED from a
-  declared `Accelerator` — `Cpu` (the default) derives the consumer's measured 768, `Gpu` derives none, and
-  `MaxDimension` overrides either. A declaration, never a probe. What remains below is the ARGV, which still
-  needs a real render._
-
-  _Two more facts from that same measurement, **already true here** — recorded so they aren't re-investigated:
-  the binary is `sd-cli.exe` (upstream renamed it from `sd.exe`), and the tree contains zero `sd.exe`
-  references while `LocalDiffusionOptions.BinaryPath` has no default at all, so there is nothing to correct;
-  and it is a plain CPU x64 build (no GPU, no CUDA), which is what makes it viable as a zero-setup backend.
-  **The hazard to respect IF binary resolution is ever added:** the release zip contains `sd-cli.exe` AND
-  `sd-server.exe`, so a loose `sd`-prefix match selects the SERVER — presenting as a HANG rather than an error,
-  because the server starts and waits. Today `BinaryPath` is an explicit host-supplied path with no PATH probe
-  and no prefix match, which is precisely why that hazard doesn't exist — don't introduce one._
-
-  _Expect the argv + clamp half to close **from use, not from a harness here**: that consumer's live test stops
-  at `--help` (a render needs a ~1.7 GB model download per run), but it is migrating its media stack onto
-  `Lyntai.Generation`, and driving a real render with real weights for a real use case is what that migration
-  does. Measuring where there is a real setup and a real use case is the owner's stated preference, and is why
-  this never blocked a release — 3.0 ships the package under the full SemVer promise (**D70**)._
 
 > Add new tasks here as checklist items with an `id` and a short `file:line` where known. Group related
 > tasks under a `## Part N — <theme>` heading. Move an item to the archive when it lands — don't leave a
@@ -194,10 +167,10 @@ being looked for._
 
 _It opened holding the two Phase-1 gaps. One of those (cross-tenant isolation) closed the same day as
 **Part 100** and left a DECISION behind it; the flake below arrived from watching `verify` rather than from
-the proposal. **One item is left open here** — the rest closed into the archive, and this line said "all
+the proposal. **Two items are left open here, both WATCH items** — the rest closed into the archive, and this line said "all
 three are startable" until 2026-08-28, after two of them had gone._
 
-_**It is a WATCH item, not startable work, and the banner counted it as startable until 2026-08-28.** The
+_**The flake below is a WATCH item, not startable work, and the banner counted it as startable until 2026-08-28.** The
 suspected cause is fixed AND pinned — `ProcessRunnerTests.A_FAILED_path_lookup_is_not_cached_so_one_transient_locator_failure_is_not_permanent`,
 which carries a positive control so it cannot pass on an implementation that simply caches nothing. So
 there is nothing here to code: what remains is evidence only recurrence can supply._
@@ -226,7 +199,11 @@ there is nothing here to code: what remains is evidence only recurrence can supp
   the last one failing: the CLI-provider and router-e2e tests all reach the deterministic provider-stub
   through `LYNTAI_PROVIDER_CMD`, which is `node`. If `ProcessRunner` cannot resolve `node`, all nine fall
   together — one cause, nine symptoms, and a constant count is exactly what that predicts.
-  <br>**Why only under `verify`** is then the question worth asking, and the shape of an answer is already
+  <br>**Why only under `verify`** is then the question worth asking: on 2026-08-26 its test step ran after
+  `test-devtools`, a build and nine gates, `check-samples` spawning Roslyn over ~78 samples — heavy process
+  churn. The cache in `ProcessRunner.ResolveCommandPath` was the first suspect, since a cache that memoizes a
+  transient failure would produce precisely this: intermittent, all-or-nothing, and invisible to a standalone
+  run that starts clean.
   <br>**RECURRED 2026-09-15, and ALONE — which narrows the hypothesis rather than confirming it.** One of
   the nine failed by itself under `verify`
   (`CodexCliProviderTests.A_portable_install_is_wired_without_touching_the_process_environment`,
@@ -236,11 +213,6 @@ there is nothing here to code: what remains is evidence only recurrence can supp
   would not do. A per-entry cache race fits; a global `node`-not-on-PATH window does not.
   <br>**The count is therefore NOT the signature** — nine was one observation of it, not its shape, and a
   future single-test failure in this list is the same bug rather than a new one.
-  in `.claude/rules/windows-machine.md`: `verify` runs `test-devtools`, `build` and nine gates before the
-  test step, `check-samples` spawning Roslyn over ~78 samples, so the test step starts after heavy process
-  churn. Look at `ProcessRunner.ResolveLauncher`'s CACHE first — the failing test is named
-  `..._finds_node_and_caches`, and a cache that can memoize a transient failure would produce precisely
-  this: intermittent, all-or-nothing, and invisible to a standalone run that starts clean.
   <br>**Do not close this by observing a green run.** It was green 11 times out of 14, including twice
   consecutively while trying to reproduce it on purpose.
   <br>**A REAL BUG matching every symptom was found and fixed the same day** (`docs/FIXES.md`,
@@ -268,7 +240,7 @@ there is nothing here to code: what remains is evidence only recurrence can supp
   `verify` and has never reproduced standalone. This one failed **1 of 3 standalone runs** of its own
   class — so it is not `verify`-specific, not process-churn, and not the nine. Nothing here touches
   `ProcessRunner`.
-  <br>**Startable, and the reproduction is the cheap part** — loop the single class until it fails. What
+  <br>**The reproduction is the cheap part** — loop the single class until it fails. What
   makes it worth doing rather than muting: the exception says a connection was DISPOSED while in use, and
   the same factory serves every SQLite domain. A test that fails a third of the time is also a gate that
   passes two thirds of the time for the wrong reason.

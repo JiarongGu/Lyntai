@@ -5049,3 +5049,17 @@ Declined: memory policy options stay `Action<T>` (the library-wide `Add*` shape)
 index rather than deleted. Left open: `TASKS.md` Part 294.
 
 - A full review of code AND docs, and fix what it finds
+
+## Part 296 — the post-3.3.0 documentation sweep (2026-09-26)
+
+✅ done 2026-09-26 — **Outcome:** every maintained document checked against the released tree by five
+read-only audits, each finding re-verified against its declaration before it was applied. Release state:
+`CLAUDE.md`'s Released line, the ROADMAP's v3.3.0 row, and the INDEX's Shipped-in column (eleven rows, six
+of them stale since 3.2.0). The rest were corrections across README, the package descriptions, three XML docs,
+`docs/generation.md`, `docs/memory.md`, `docs/model-tasks.md`, `docs/AOT.md`, `docs/GATES.md`, the
+contributor how-tos (D186/D187 storage wiring, D178 declared doors) and `TASKS.md`; the consumer-visible half
+is `CHANGELOG.md`, the reusable trap `pitfalls.md` (a sample can compile and still misuse a parameter).
+Declined: a `retiredTerms` rule for `Lyntai.Storage.InMemory`, which is still a live namespace (D173).
+Left for a ruling: `AddBridgeProvider` accepts a `Produces` it can never serve, silently.
+
+- A deep doc cleanup/update after the 3.3.0 release

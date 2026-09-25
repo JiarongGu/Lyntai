@@ -13,7 +13,7 @@ scoring/eval, run traces, long-term memory — all wired by `AddLyntai(...)`.
 
 ## Current state
 
-**Released: v3.2.0 (2026-09-19).** Eleven packages, one of them unreleased. The public API is frozen under
+**Released: v3.3.0 (2026-09-25).** Eleven packages. The public API is frozen under
 SemVer 2.0 since 1.0 for every package (**D70**), but while every consumer is first-party a documented break
 may ship in a minor under `### Breaking` (**D18**, **D161**); storage and migration breaks stay major-only.
 The reasoning is `docs/DECISIONS.md`, **D1–D189** — read its generated index table rather than any list of
@@ -22,7 +22,7 @@ says what that forbids.
 
 **The baseline a green run should match:** `4926 passed / 4967 total, 41 skipped` (every skip is a
 live-backend gate), e2e 3/3, guard-script tests 955/955, doc samples 54/54 — MEASURED with Docker up at
-`73e197e7` (2026-09-25). No gate holds the xUnit trio (`docs/GATES.md` §Which numbers a gate holds), so:
+`c5c8cd37` (2026-09-26). No gate holds the xUnit trio (`docs/GATES.md` §Which numbers a gate holds), so:
 
 - **Re-measure it by hand after `verify`, off that run's own output**, never from a diff, and re-attest the
   COMMIT with the figures whenever they move.
@@ -65,7 +65,7 @@ Its contract, headed by the five invariants no gate holds, is `docs/memory.md`; 
 - `Llm` stays wherever it means "this asks a language model": `LlmScorerBase`, `LlmMemoryVerificationPolicy`,
   `IScorer.IsLlm`, the `is_llm` column in both SQL backends and the `"llm"` score group.
 - A PROVIDER is named for its BACKEND, and what it produces is DATA (`ProviderCapabilities.Produces`,
-  **D152**): one `Add<Backend>Provider(…)` per package, EF Core-style, never an `Add<Kind>Provider`. A kind
+  **D152**): one `Add<Backend>Provider(…)` per backend, EF Core-style, never an `Add<Kind>Provider`. A kind
   never forks a provider class; an options field selects it (`HttpModelOptions.Produces`,
   `OnnxProviderOptions.Produces`, **D157**), and is a list only where one backend really serves several
   (`ComfyUiOptions`, `FalOptions`).

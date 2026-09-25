@@ -54,7 +54,7 @@ version you installed.
 |---|---|
 | **`Lyntai`** | **The starting set (5 of 11)** — Core + the dependency-free LLM backends + both halves of MCP + **in-memory** storage + **file** storage (on once you name a root). Not the whole library: add `Lyntai.Storage.Sqlite` for a database and `Lyntai.Generation` for media. |
 | `Lyntai.Core` | Every domain's contracts and engines: LLM routing/fallback, generation, cortex (prompt/scoring/trace), jobs, guards, secrets, memory, storage interfaces, tools, DI — plus `Lyntai.Text.WordPieceTokenizer`, a BERT tokenizer owned rather than depended on (**D122**), usable anywhere a token-aware step is wanted. Deps: DI + Logging abstractions only. |
-| `Lyntai.Providers.Basic` | The dependency-free **LLM** backends — Core and the BCL, nothing else: authenticated `claude` and `codex` CLIs; any OpenAI-shaped endpoint (OpenAI/Ollama/OpenRouter/Azure) for chat and embeddings; `AddModel2VecProvider(dir)` — in-process embedding over a `model2vec` table with no server, GPU or port. Media backends are in `Lyntai.Generation`. |
+| `Lyntai.Providers.Basic` | The dependency-free **LLM** backends — Core, the BCL and `Microsoft.Extensions.Http`, no native payload: authenticated `claude` and `codex` CLIs (completions and agent sessions); any OpenAI-shaped endpoint (OpenAI, Azure OpenAI, OpenRouter, llama-server) for chat, embeddings or reranking; Ollama's native API for chat and embeddings; `AddModel2VecProvider(dir)` — in-process embedding over a `model2vec` table with no server, GPU or port. Media backends are in `Lyntai.Generation`. |
 | `Lyntai.Providers.LlamaSharp` | In-process local GGUF inference via LLamaSharp — add an `LLamaSharp.Backend.*` for your hardware. Named for the dependency, not the deployment: `AddLlamaSharpProvider(modelPath)`. |
 | `Lyntai.Storage.Sqlite` | SQLite for every storage domain (Dapper + FluentMigrator + FTS5; ships a native SQLite binary). |
 | `Lyntai.Storage.Postgres` | PostgreSQL storage (Npgsql + `pg_trgm` recall) for a server-backed deployment. |
@@ -120,7 +120,7 @@ public sealed class MyFeature(
     {
         var prompt = await prompts.RenderAsync("myfeature.ask",
             "Answer briefly: {question}", new Dictionary<string, string> { ["question"] = question }, ct);
-        prompt = await composer.ComposeAsync(prompt, taskKey: "myfeature", ct: ct); // + recalled facts
+        prompt = await composer.ComposeAsync(prompt, taskKey: "myfeature", ct: ct); // + recalled context
 
         var reply = await llm.CompleteAsync(
             new TextRequest { Messages = [TextMessage.User(prompt)], Consumer = "myfeature" }, ct);
@@ -154,7 +154,8 @@ anything being wrong with it). They hang off the enum, so they read the same off
 - **Dead-host cooldown** instead of exponential backoff; any success resets.
 - **Per-request timeout** — set `TextRequest.TimeoutSeconds` (or a per-consumer `TimeoutByConsumer` default)
   when one call legitimately runs far longer than the global `ProviderTimeout`, without inflating every short
-  call. Precedence: request → consumer → global; clamped to `MaxProviderTimeout`.
+  call. Precedence: request → consumer → global; only the request's own value is clamped, to
+  `MaxProviderTimeout`.
 - **All of the above is the default `RoutingPolicy` — tune it without a fork.** Retry a transient
   fault on the same candidate before failing over, override what each verdict does, cool by
   `(provider, model)` instead of whole-host, or keep the sole candidate always live:
@@ -243,9 +244,10 @@ services.AddLyntai(cfg => cfg
     }));
 ```
 
-- **The cache** is keyed by a stable hash of the output-determining request fields — `Consumer` excluded, so
-  two consumers issuing the same request share a hit — and holds only clean `Ok`, non-streaming completions
-  without native tools.
+- **The cache** is keyed by a stable hash of the output-determining request fields and the model the call
+  resolves to — `Consumer` itself excluded, so two consumers issuing the same request to the same model share a
+  hit; a live route, or a client's candidate list when a candidate pins a model, joins the key — and holds only
+  clean `Ok`, non-streaming completions without native tools.
 - **The budget** refuses a completion over a cap with `Verdict == Refused`, calling no provider. The ceiling
   is **soft**: the call that crosses a cap still runs, the next is refused. `IUsageTracker.TotalAsync()` and
   `ResetAsync()` read and reset spend at runtime.
@@ -280,7 +282,7 @@ resolves clients (**D39**).
 ```csharp
 services.AddLyntai(cfg => cfg
     .UseSqliteStorage("app.db")
-    .AddMemory());        // one working engine named "default", wired into ChatOrchestrator's prompt
+    .AddMemory());        // one working engine named "default": the chat reads from it and remembers into it
 ```
 
 That is the whole of the common case. For more than one, or for a blend, declare members:
@@ -293,7 +295,7 @@ services.AddLyntai(cfg => cfg
         .UseCurated("glossary").ReserveCharacters(1200)   // authoritative — exact, never decays
         .UseLexical()                           // associative — recalled context
         .Budget(3000))
-    .UseMemoryComposer("chat"));                // which engine backs the chat prompt
+    .UseMemoryComposer("chat"));                // the engine the chat reads from and remembers into
 
 var memory = sp.GetRequiredService<IMemoryEngineFactory>();
 await memory.Get("project").RememberAsync(new MemoryWrite("proj", "code", "prefers terse commits"));
@@ -383,10 +385,10 @@ services.AddLyntai(cfg => cfg
     {
         o.BaseUrl = "http://localhost:11434";     // same server, different backend
         o.Model = "nomic-embed-text";
-        o.Produces = ProviderKinds.Vector;        // -> /embeddings, not /chat/completions
+        o.Produces = ProviderKinds.Vector;        // an embedder: an Ollama root embeds on /api/embed
     })
     .AddSemanticMemory());                        // states the intent — see below
-    // …or bring your own: .AddProvider(_ => myBackend, declares)  // an IModelProvider producing Vector
+    // …or bring your own: .AddProvider(_ => myBackend, declares)  // an IModelProvider that implements IVectorProvider
 
 var memory = sp.GetRequiredService<ISemanticMemory>();
 await memory.RememberAsync(taskKey: "support", scope: "faq", "You can cancel your subscription anytime.");
@@ -612,8 +614,9 @@ router **skips a candidate that can't serve the request** before spending anythi
 modes** declared in `ProviderCapabilities.Operations`: inline, an async job (`IMediaJobProvider`: submit →
 poll → fetch) and streaming. **Chaining is first-class**: `RunPipelineAsync` feeds each stage's artifact into
 the next over the inline door, and a pipeline with a QUEUED stage runs as a durable job
-(`GenerationPipelineJobHandler`) that checkpoints every submission and result, so a restart or a throwing sink
-never pays for a render twice (`docs/generation.md` §7 and §8).
+(`GenerationPipelineJobHandler`) that checkpoints each submission before its first poll and each result before
+delivery, so a restart or a throwing sink does not pay for a render twice — bar a crash in the instant before a
+checkpoint, or a result over `GenerationPipelineJobOptions.MaxCheckpointBytes` (`docs/generation.md` §7 and §8).
 
 | Backend | Delivery | Standing |
 |---|---|---|
@@ -683,8 +686,10 @@ services.AddLyntai(cfg => cfg
 From there it is a backend like any other. **Return a verdict rather than throwing**: a throw is classified
 conservatively, while a verdict says what happened (`ProviderVerdictClassifier.FromHttpFailure(status, body,
 hasCredentials)` maps a response for you). **A bridge declares only what you hand it a delegate for**: omit
-`stream` and no router asks it to stream, and pass `capabilities` to declare more than text in, text out — a
-`Produces: [ProviderKinds.Vector]` bridge is an embedder, `[ProviderKinds.Score]` a reranker.
+`stream` and no router asks it to stream, and pass `capabilities` to declare more than the defaults — tool
+calls, a model list, declared limits. **A bridge answers text only**: an embedder or reranker of your own is an
+`IModelProvider` that implements `IVectorProvider` or `IScoreProvider`, registered with
+`AddProvider(_ => backend, declares)`.
 
 ### Local in-process inference (`Lyntai.Providers.LlamaSharp`)
 
@@ -819,12 +824,12 @@ rendered refuses the turn (`ProviderVerdict.Unsupported`, no process spawned) ra
 an `AuthToken` never reaches the command line.
 
 **The codex session** (`AddCodexCliAgentSession()`) sits behind the same `IAgentSession`, and both
-`Add*CliAgentSession` extensions also register keyed by provider id (`"claude-cli"`, `"codex-cli"`). What the
-codex mapping cannot do (`docs/DECISIONS.md` **D35**): a tool step arrives under codex's own item type with
-codex's own payload, so switch on `ToolCall.Name`; `UsageLive`, `SessionEnded.Subtype`, `UsageFinal.Model`
-and token-level deltas are never emitted; `DisallowedTools` is logged as unhonoured (codex gates on
-`--sandbox`, from `ToolPolicy` or `CodexAgentOptions.SandboxMode`); and `SystemPrompt` travels as a leading
-block of the prompt.
+`Add*CliAgentSession` extensions also register keyed by their `id` (`"claude-cli"`, `"codex-cli"` by
+default). What the codex mapping cannot do (`docs/DECISIONS.md` **D35**): a tool step arrives under codex's
+own item type with codex's own payload, so switch on `ToolCall.Name`; `UsageLive`, `SessionEnded.Subtype`,
+`UsageFinal.Model` and token-level deltas are never emitted; `DisallowedTools` is logged as unhonoured (codex
+gates on `--sandbox`, from `ToolPolicy` or `CodexAgentOptions.SandboxMode`); and `SystemPrompt` travels as a
+leading block of the prompt.
 
 ### Durable jobs (`Lyntai.Jobs`)
 
@@ -863,7 +868,7 @@ within a lane, and a job that exhausts its retries lands in the dead-letter queu
 await queue.EnqueueAsync("summarize", "summarize", payloadJson, priority: 10); // jumps the lane
 foreach (var dead in await queue.ListDeadAsync())    // inspect what gave up
     await queue.ReplayAsync(dead.Id);                // requeue it (attempts reset)
-await queue.CancelAsync(jobId);   // cancels a Pending job; requests cancellation of a Running one
+await queue.CancelAsync(jobId);   // cancels a Pending or Paused job; requests cancellation of a Running one
 ```
 
 Cancelling a running job is cooperative, through the handler's `CancellationToken`. **Recurring schedules**

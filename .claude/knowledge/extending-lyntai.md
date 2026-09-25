@@ -25,6 +25,7 @@ inferred from whichever seam you happened to read.
 | seam | a duplicate | why |
 |---|---|---|
 | `CompositeMemoryEngine` members, `AddTextClient` names | **throws** | the name is an ADDRESS a caller uses — an entry's `MemoryRef` must name one owner, and a client name must resolve to one client |
+| `AddJobSchedule` / `AddCronSchedule` / `AddMemoryPruneJob` names | **throws** | the name keys the one persisted next-run, so only one of two would ever fire |
 | `IModelProvider` ids (`TextRouter`), `ITool` names, `IJobHandler` types | **first-wins, silent** | the collection is a FALLBACK LIST the router walks; it also folds case, so refusing would reject registrations that differ only in case and are already merged one step earlier |
 
 **Do not "fix" the second row.** `TextRouter` builds its lookup with `TryAdd` over a case-insensitive
@@ -49,7 +50,8 @@ OpenRouter, vLLM, llama-server, Groq, DeepSeek and most of the rest ship such an
 but register: `builder.AddHttpProvider("my-id", o => o.BaseUrl = …)` for anything OpenAI-shaped (or its
 vendor preset, whose options overload — `AddLlamaProvider("llama", o => …)` — takes the same knobs),
 `builder.AddOllamaProvider(…)` for Ollama-native (**D160**) — one
-registration serves chat, embeddings or reranking depending on `Produces`. **Only write a native provider if
+registration serves chat, embeddings or (OpenAI-shaped only) reranking depending on `Produces`; Ollama-native
+takes Text or Vector and refuses anything else at registration. **Only write a native provider if
 no shipped wire reaches it** — which, since **D146** deleted the Microsoft.Extensions.AI bridge, means a vendor
 whose wire format is genuinely its own.
 
@@ -162,6 +164,9 @@ Non-negotiables (see `llm-and-router.md` for why — the router trusts every pro
   `Error`.
 - Spawning a CLI? Go through `ProcessRunner` (ArgumentList only, prompt via stdin, BOM-less UTF-8,
   kill-tree). Never build a provider that shells out directly.
+- **Declare what you serve.** A text backend's `Produces` lists `ProviderKinds.Text` (**D178**), and
+  `Operations` lists every door it overrides, because the text router asks a backend only on a declared door
+  (`ClientCandidates.Serves`).
 
 Builder extension (in the adapter package, extending Core's `LyntaiBuilder`):
 <!-- compile-skip: an extension-method sketch with its registration arguments elided -->
@@ -259,8 +264,10 @@ What a backend implements:
   generate-and-discard pattern it replaces bills a render to find out whether a key works.
 - **Inline and STREAMING are declared in DATA, the stateful JOB protocol is still an interface** — and
   which of the two a mode is decides how it breaks. `ProviderOperation.Complete` / `.Stream` go in
-  `ProviderCapabilities.Operations`, so the failure is a DECLARATION/IMPLEMENTATION mismatch the router
-  reports ("advertises Stream delivery but does not implement"). `IMediaJobProvider`
+  `ProviderCapabilities.Operations`, so the failure is a DECLARATION/IMPLEMENTATION mismatch: the router
+  selects on the flag, and the inherited default then answers `Unsupported`. `GenerationProviderContract`
+  fails a backend that declares `Stream` without overriding it, or `Queued` without `IMediaJobProvider` —
+  derive your test class from `GenerationProviderContractFacts`, as the six shipped backends do. `IMediaJobProvider`
   (submit → poll → fetch, for queued/long renders) is an ADDITIONAL interface the router type-tests, which
   is why nothing may wrap a provider in a decorator implementing only the base seam (see `pitfalls.md`) —
   a decorator erases the type test and every video render silently stops routing while image renders keep
@@ -307,6 +314,11 @@ What a backend implements:
   its default THROWS rather than degrading, so a host running a sandboxed `IProcessRunner` must implement it
   before a byte-streaming backend can route through them.
 
+- **A door that SPENDS records through the media-spend gate, never the unkeyed `IUsageTracker`** (**D185**).
+  `AddMediaUsageBudget` is the one switch: the router, both durable job handlers and `generate_fetch` record
+  under its keyed tracker, because a text budget or a storage package registers the unkeyed one too, and a
+  door reading that would bill renders nobody asked to meter.
+
 Before writing code, read the four generation traps already recorded in `pitfalls.md` — `TimeSpan.Zero` means
 "no deadline" here and "cancel instantly" on the LLM side; a cooldown keyed on the provider id benches other
 tenants; decorating a provider erases `IMediaJobProvider` so every video render silently stops routing
@@ -349,14 +361,18 @@ not a database mirrors `src/Lyntai.Storage.Basic/FileSystem/` instead** (**D171*
 the same contract suites, plus RESTART tests those suites cannot express, since each runs one live store. An
 in-process `IMemoryGraphStore` in that package runs its internal `MemoryGraphState` rather than re-implementing
 it (**D174**) — plan a change, persist it, apply it. Provide
-`builder.Use<Backend>Storage(...)` that registers an `IDbConnectionFactory` (or the backend's equivalent) +
-the stores + runs migrations.
+`builder.Use<Backend>Storage(...)` that registers the stores and runs migrations — a relational backend through
+`StoreWiring.Wire` with its own `RelationalBackend` (`src/Shared/Relational/StoreWiring.cs`, **D186**), which
+builds every store over THAT wiring's factory; a store resolving `IDbConnectionFactory` from the container
+runs over whichever wiring registered last (`docs/FIXES.md` 2026-09-25).
 
 Two seams the list alone doesn't reveal:
-- **`IJobStore` goes through `Core/Storage/JobStoreSql.cs`** — the job state machine (transition statements,
-  the `claimed_by` write fence, the claim-candidate predicate) plus the `JobRow` mapping are SHARED on
-  purpose, because drift there is a correctness bug; only the locking frame is per-dialect (`storage.md`
-  §Don't "dedup" the Sqlite/Postgres stores).
+- **The SQL is already written wherever it is portable** (**D187**): Core's statement classes — `JobStoreSql`
+  (the job state machine: transition statements, the `claimed_by` write fence, the claim-candidate predicate,
+  plus the `JobRow` mapping, where drift is a correctness bug), `ConversationStoreSql`, `TraceStoreSql`,
+  `KeyValueStoreSql`, `UsageTrackerSql`, `ResponseCacheSql`, `MemoryGraphSql`. Reuse each wherever your
+  dialect runs it and write your own only for genuine dialect — the job store's locking frame, say
+  (`storage.md` §Don't "dedup" the Sqlite/Postgres stores).
 - **A Governance-backed `Use*` helper needs the startup guard.** `lyntai_vector`, the response cache and
   the usage ledger all ship under `StorageFeature.Governance`, so those helpers must reject a Governance-less
   subset at wiring time rather than at first use. The guard is written once, in
@@ -364,9 +380,12 @@ Two seams the list alone doesn't reveal:
   "dedup") rather than writing its own — **`docs/DECISIONS.md` D150** is why the check is EAGER, what a lazy
   one would have accepted, and the two scope rules a copy gets wrong.
 
-Each domain you DO implement owes a `<Domain>StoreContract` fact class alongside the existing ones
-(`tests/Lyntai.Tests/Storage/`, and `tests/Lyntai.Tests/Jobs/` for `JobStoreContract`) — the contract facts
-run every domain against every backend and are what keeps them from drifting (`storage.md` §Don't "dedup").
+Each domain you DO implement runs that domain's existing contract — derive from its `*ContractFacts` base
+with a store factory where one exists, as `tests/Lyntai.Tests/Storage/FileSystem/FileSystemContractTests.cs`
+does. The contracts are `tests/Lyntai.Tests/Storage/*Contract.cs` (the governance pair are
+`ResponseCacheContract` / `UsageTrackerContract`), `tests/Lyntai.Tests/Jobs/JobStoreContract.cs`, and
+`tests/Lyntai.Tests/Memory/VectorStoreContract.cs` / `MemoryGraphStoreContract.cs`, whose suite joins
+`MemoryGraphStoreCoverageTests`' list — the contract facts run every domain against every backend and are what keeps them from drifting (`storage.md` §Don't "dedup").
 That is the gate a new backend passes.
 
 Read `storage.md` before writing SQL — the FTS trigram triggers, the `CAST(x AS REAL)` affinity trap,

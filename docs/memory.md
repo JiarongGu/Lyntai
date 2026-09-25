@@ -38,7 +38,7 @@ It is **one of four memory surfaces** and replaces none of them. `IMemoryStore` 
 
 ```csharp
 services.AddLyntai(cfg => cfg
-    .UseSqliteStorage("Data Source=app.db")
+    .UseSqliteStorage("app.db")
     .AddMemoryEngine("project", e => e.UseGraph()));
 ```
 
@@ -327,11 +327,12 @@ policies or control for salience explicitly (`docs/task-archive.md` Part 54).
 |---|---|---|
 | `AddMemoryAnnotation()` | every WRITE | one model call; links entries about the same entity |
 | `AddMemoryVerification()` | every RECALL | one model call; promotes buried answers |
-| `AddMemoryScoringVerification()` | every RECALL | one score call **per candidate** — a cross-encoder rather than a chat model |
+| `AddMemoryScoringVerification()` | every RECALL | one scoring call per recall, over every candidate `VerificationDepth` deep — a cross-encoder rather than a chat model |
 
 **The two verification calls are ALTERNATIVES, not a pair.** Both fill the singular
-`IMemoryVerificationPolicy` seam through `TryAdd`, so registering both silently keeps whichever landed
-first — pick one. On the field benchmark the cross-encoder is the one that wins, and not narrowly: **91.0%
+`IMemoryVerificationPolicy` seam, so registering both — or either one twice — throws
+`InvalidOperationException` at the second call, naming the first; pick one. A policy of your own registered
+first still wins silently, as on every seam here. On the field benchmark the cross-encoder is the one that wins, and not narrowly: **91.0%
 against the judge's 71.0%** over an 85.5% model-free base, with an oracle at 92.5%
 (`docs/memory-measurements.md` §5). The obvious confound was tested and refuted — capping the judge's
 endorsements at the page size moved nothing in any cell — so what remains is the judge's own calibration:
@@ -439,8 +440,9 @@ services.AddLyntai(b => b
 ```
 
 Only calls asking `Suppress` carry the fields. A server that rejects one fails the call. With the judge's
-backend as its ONLY candidate, the judge then leaves the ranking alone and logs a warning, as for any failed
-verdict — so a value your server rejects looks like no judge at all everywhere but the log. With a fallback
+backend as its ONLY candidate, the judge then leaves the ranking alone — the router logs the `Failed` verdict at Information, and the
+judge logs it only at Debug, since it reads `Failed` as transient — so a value your server rejects looks like
+no judge at all everywhere but the router's log. With a fallback
 list, the failure advances instead: the judge quietly runs on the next candidate, which may be a paid one, and
 consecutive failures bench the host for its cooldown for every caller (`LyntaiOptions.DeadHostThreshold`).
 Try the value against your server before relying on it.
@@ -503,7 +505,8 @@ Every one is `IMemory<Domain>Policy` (**D47**), registered in DI or passed per e
 | verification | singular | none |
 
 Plural domains coexist and are combined by a **composition policy**; the engine composes nothing itself
-(**D48**). To turn salience OFF, register `NeutralSaliencePolicy` — **registering nothing takes the shipped
+(**D48**). To turn salience OFF, register `NeutralSaliencePolicy` BEFORE `AddLyntai` — registered after it, it sits
+beside the shipped default and building the engine throws, naming it. **Registering nothing takes the shipped
 default instead**, which is the one trap in this table.
 
 #### Age: what counts as time passing
@@ -547,7 +550,7 @@ An engine can also expose alternates by NAME, for one call to pick:
 
 ```csharp
 services.AddLyntai(cfg => cfg
-    .UseSqliteStorage("Data Source=app.db")
+    .UseSqliteStorage("app.db")
     .AddMemoryEngine("project", e => e.UseGraph(namedRankingPolicies: new Dictionary<string, IMemoryRankingPolicy>
     {
         ["multiplicative"] = new MultiplicativeRankingPolicy(),
@@ -669,10 +672,12 @@ Each of these cost a real measurement to find.
 ### What is not measured
 
 - **Scale beyond cost.** Recall QUALITY at scale, Postgres, and any model in the loop.
-- **Salience's admission priority** is inert in every test because no arm creates budget pressure.
+- **Salience's admission priority on its OWN.** It is live at the defaults and has been priced only by
+  difference: against a genuine off arm it nearly cancels retention's miss cost (`docs/memory-measurements.md`
+  §5, `salience-novelty-nw15-true-off`).
 - **Real-world recall quality.** The corpus defines relevance lexically and is synthetic throughout.
-- **Parameter fitting.** Every `DsrOptions` constant is FSRS's published default, fitted against an external
-  corpus, never against this library's own reviews — **with one exception, `ReinforceGain`, which 3.0 moved
+- **Parameter fitting.** Every `DsrOptions` constant is either FSRS's published default — fitted against an
+  external corpus — or marked unmeasured in its own XML doc; none is fitted against this library's own reviews — **with one exception, `ReinforceGain`, which 3.0 moved
   to `0` on a measurement taken here** (§6's Learning table, **D54**). The review log can now carry real
   outcomes, so the blocker is a deployment's data rather than a design question.
 - **Abugida end-to-end recall.** Those scripts are measured for tokenizer discrimination only.
@@ -707,7 +712,7 @@ rather than silent. A rebuild that must not count such a write as done checks th
 with `HasFlag`, since flags may be added:
 
 - **Graph** — `Similarity` when this write's vector was indexed, even if its neighbour search failed and
-  nothing was linked. With `GraphMemoryOptions.SimilarityK` at zero or less nothing is embedded, so no write
+  nothing was linked. With `GraphMemoryOptions.SimilarityK` at zero nothing is embedded, so no write
   carries it, while a recall still reports it (there it means enrichment is wired).
 - **Semantic** — `Semantic`, which already means the vector exists (the store throws on a failed embed), and
   never `Similarity`. Over the shipped `SemanticMemory`, a BLANK write stores nothing and reports `None`, so a
@@ -778,7 +783,7 @@ look things up instead of you pre-loading context.
 
 ```csharp
 services.AddLyntai(cfg => cfg
-    .UseSqliteStorage("Data Source=app.db")
+    .UseSqliteStorage("app.db")
     .AddMemoryEngine("project", e => e.UseGraph())
     .AddMemoryTools("project", taskKey: "project", scope: "backend"));
 ```
@@ -790,8 +795,8 @@ one application and one database.
 
 ```csharp
 services.AddLyntai(cfg => cfg
-    .UseSqliteStorage("Data Source=app.db")
-    // chat: reinforce on everything, forget quickly
+    .UseSqliteStorage("app.db")
+    // chat: reinforce on every recall and expansion (the default)
     .AddMemoryEngine("chat", e => e.UseGraph(
         new GraphMemoryOptions { ReinforceOn = MemoryReinforcementActs.All }))
     // archive: never reinforce, so nothing a query touches becomes more durable
@@ -861,8 +866,8 @@ indexed with its **full content as the payload**, so a removal that stopped at t
 that content readable — `ForgetAsync` is the consent-withdrawal path and has to be complete. Nothing extra
 to configure, and it needs no `IListableVectorStore`. Two consequences worth knowing: `ForgetAsync` clears
 the index *before* the nodes, so a vector-store outage fails the call with the nodes intact rather than
-half-forgetting; and pruning through the store's own path pays one extra scope read to learn which ids it
-removed, which a deployment with no vector store does not pay.
+half-forgetting; and pruning through the store's own path pays a scope read before and, when anything was removed, one after,
+to learn which ids it removed, which a deployment with no vector store does not pay.
 
 ### Blend two members that index the same material
 
@@ -872,7 +877,7 @@ associative material, so by default the graph takes every write and the semantic
 <!-- compile-given: class MyVectorBackend : Lyntai.Inference.IModelProvider { public string Id => "mine"; public static readonly Lyntai.Inference.ProviderCapabilities Declared = new() { Accepts = [Lyntai.Inference.ProviderKinds.Text], Produces = [Lyntai.Inference.ProviderKinds.Vector], Operations = [Lyntai.Inference.ProviderOperation.Complete] }; public Lyntai.Inference.ProviderCapabilities Capabilities => Declared; public Task<IReadOnlyList<float[]>> EmbedAsync(IReadOnlyList<string> texts, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<float[]>>([]); } -->
 ```csharp
 services.AddLyntai(cfg => cfg
-    .UseSqliteStorage("Data Source=app.db")
+    .UseSqliteStorage("app.db")
     .UseSqliteVectorStore()
     .AddProvider(_ => new MyVectorBackend(), MyVectorBackend.Declared).AddSemanticMemory()
     .AddMemoryEngine("project", e => e.UseGraph().UseSemantic().FanOutWrites()));
@@ -915,8 +920,10 @@ Every seam is an interface plus a registration. Nothing here is a mode or a flag
 services.AddSingleton<IMemoryRankingPolicy, MyRanking>();
 ```
 
-Registered before or after `AddLyntai`, a container registration wins over the shipped default; an argument
-passed to `UseGraph(...)` wins over both, for that engine only.
+Registered before or after `AddLyntai`, a container registration of a SINGULAR seam — ranking, the forgetting
+curve — wins over the shipped default, and so does an age policy. Two PLURAL seams depend on order: a salience
+policy registered before `AddLyntai` replaces the default and one registered after runs beside it, and a
+retention policy always runs beside `SalienceRetentionPolicy`. An argument passed to `UseGraph(...)` wins over both, for that engine only.
 
 ## 10. Where to look next
 

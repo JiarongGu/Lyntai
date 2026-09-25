@@ -143,9 +143,10 @@ public sealed class LyntaiBuilder
     /// omitted, it declares only <see cref="ProviderOperation.Complete"/> and a router never asks it to
     /// stream.</param>
     /// <param name="capabilities">Optional. Defaults to text in, text out, with the operations implied by
-    /// which delegates were supplied. Pass one to declare something else — tool calls, another
-    /// <see cref="ProviderKinds"/>, a model list, declared limits; an <c>Accepts</c>, <c>Produces</c> or
-    /// <c>Operations</c> it leaves empty takes that default.</param>
+    /// which delegates were supplied. Pass one to declare something else — tool calls, an input kind such as
+    /// an image, a model list, declared limits; an <c>Accepts</c>, <c>Produces</c> or <c>Operations</c> it
+    /// leaves empty takes that default. A bridge answers TEXT: an embedder or reranker implements
+    /// <see cref="IVectorProvider"/> or <see cref="IScoreProvider"/>, which no delegate here supplies.</param>
     public LyntaiBuilder AddBridgeProvider(
         string id,
         Func<TextRequest, CancellationToken, Task<TextResponse>> complete,

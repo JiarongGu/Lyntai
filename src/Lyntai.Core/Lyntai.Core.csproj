@@ -3,7 +3,7 @@
   <PropertyGroup>
     <IsPackable>true</IsPackable>
     <PackageId>Lyntai.Core</PackageId>
-    <Description>Lyntai core: LLM provider abstraction with routing + streaming-aware fallback, prompt registry, scoring/trace cortex interfaces, storage domain interfaces, and DI wiring (AddLyntai). No heavy dependencies — adapters live in separate Lyntai.* packages.</Description>
+    <Description>Lyntai core: every domain's contracts and engines — LLM provider abstraction with routing + streaming-aware fallback, the media generation platform, prompt registry, scoring/eval and run traces, long-term memory (named engines over a decaying graph), durable jobs, the tool loop, guards, the secret vault, storage domain interfaces, and DI wiring (AddLyntai). Depends only on the DI and Logging abstractions — adapters live in separate Lyntai.* packages.</Description>
   </PropertyGroup>
 
   <ItemGroup>

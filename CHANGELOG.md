@@ -17,6 +17,18 @@ and every Breaking entry ends by naming that action. A pure addition goes under 
 moves the `ApiSurfaceTests` baseline: the baseline gates DELIBERATENESS (D8), not breakage, and it moves for
 every addition.
 
+## Unreleased
+
+### Fixed
+
+- **Documentation that described what 3.3.0 does not do.** A bridge answers text only — README and the
+  `AddBridgeProvider` doc had it embedding or reranking on a `Produces` declaration, which no router selects; an
+  embedder is an `IVectorProvider`. `docs/generation.md` §8's durable pipeline chained OpenAI images into fal,
+  which refuses bytes (it now chains into ComfyUI), and the README no longer promises a pipeline never pays
+  twice. `docs/memory.md`'s samples pass `UseSqliteStorage("app.db")`, a path, not a connection string;
+  registering both memory verifiers throws; `NeutralSaliencePolicy` goes before `AddLyntai`. Package
+  descriptions name what each package holds now.
+
 ## 3.3.0 — 2026-09-25
 
 ### Breaking

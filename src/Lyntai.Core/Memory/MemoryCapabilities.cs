@@ -85,7 +85,8 @@ public interface IPrunableMemory
     /// <summary>Remove entries matching the criteria, returning how many were removed.</summary>
     /// <param name="taskKey">The task to remove within.</param>
     /// <param name="scope">Optional scope filter; null removes across the task's scopes.</param>
-    /// <param name="minRetrievability">Remove entries below this retrievability; null ignores it.</param>
+    /// <param name="minRetrievability">Remove entries below this retrievability; null leaves it to the engine —
+    /// the graph engine applies its configured <c>GraphMemoryOptions.MinRetrievability</c>.</param>
     /// <param name="olderThan">Remove entries older than this; null ignores it.</param>
     /// <param name="ct">Cancellation, which is never swallowed.</param>
     /// <remarks><b>A criterion an engine cannot EXPRESS must remove nothing rather than be ignored.</b>

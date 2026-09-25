@@ -943,8 +943,10 @@ text, else `Failed`.)*
 prompts carry newlines + metacharacters), prompt over **stdin**, **BOM-less UTF-8** both directions,
 resolved-path cache (`where.exe`/`which`, prefer `.cmd`/`.exe`), `Kill(entireProcessTree:true)` on
 cancel, per-call timeout. Cheap utility calls run from a **neutral cwd** (no project config loaded).
-*(2026-08-04, names updated for D154/D159: these live once in `CliProviderEngine`
-(`Lyntai.Inference.Cli`); a new CLI backend is an `ICliBackend`, never a second copy — D21/D22.)*
+*(2026-08-04, names updated for D154/D159: the spawn half lives once in `ProcessRunner`
+(`Lyntai.Processes`) and the call half — the prompt assembled for stdin, the neutral cwd — once in
+`CliProviderEngine` (`Lyntai.Inference.Cli`); a new CLI backend is an `ICliBackend`, never a second copy —
+D21/D22.)*
 *(2026-09-19: the runner seam gained a BINARY stream — `IProcessRunner.StreamBytesAsync`, raw byte chunks
 for a child whose stdout is data (piper's PCM), under the same clocks and kill discipline; its default body
 REFUSES rather than degrading, because binary cannot pass through the buffered member's string-typed

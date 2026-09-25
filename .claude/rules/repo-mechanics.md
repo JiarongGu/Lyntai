@@ -111,8 +111,10 @@ cold-start measurement).
   `Lyntai.Providers.Basic`, `Lyntai.Providers.LlamaSharp`, …) that project-references Core only — or one
   domain package such as `Lyntai.Generation` — and **never adapter→adapter**. "Most consumers want X"
   makes it a member of the `Lyntai` metapackage, never a Core dependency (**D25**/**D26**/**D27**).
-- **Every `src/*` is packable**; `samples/` and `tests/` are not. `node devtools/dev.mjs new-package`
-  scaffolds into every registry `check-packages` gates — never hand-roll the csproj, the misses are silent.
+- **Every `src/*/*.csproj` is packable** (`src/Shared` is linked source, **D186**); `samples/` and `tests/`
+  are not. `node devtools/dev.mjs new-package` scaffolds eight of the nine registries `check-packages` gates
+  and prints the ninth — one `test` run seeds the API baseline. Never hand-roll the csproj; the misses are
+  silent.
 - **When a package is removed or folded, add its id to `devtools/nuget-unlist.mjs`'s `RETIRED` array.** The
   live roster is derived from `src/*/*.csproj`, so retired ids are the one thing the tree stops
   remembering, and a stale roster skips a live package while reporting a clean run (**D44**).
@@ -134,8 +136,9 @@ prescription. Suffix vocabulary: `dotnet-package-layout.md` §Naming.
   argument prints the same list, and `docs/GATES.md` is what each gate is FOR. Do not keep a second copy
   here.
 - e2e suites live in `devtools/scripts/e2e/` as `pN.mjs`, discovered by `^p\d+\.mjs$`; the guards' own tests are
-  `devtools/scripts/__tests__/*.test.mjs`. **A leading underscore keeps a helper out of a runner's
-  discovery** — `_e2e-common.mjs` and `_fixtures.mjs` both rely on it.
+  `devtools/scripts/__tests__/*.test.mjs`. **A helper stays out of a runner's discovery by not matching
+  its pattern** — `_e2e-common.mjs` is no `pN.mjs` and `_fixtures.mjs` no `*.test.mjs`; the leading underscore
+  marks a helper and excludes nothing (`_baseline.test.mjs` runs).
 - **Each guard is tested through a pure function** (`checkDocs(repo, config, log)` and its siblings) with
   the CLI entry point a thin wrapper — when adding a guard, extract that seam rather than spawning a
   process. A fixture must never contain a literal the leak scanner would flag; synthesize it from parts.

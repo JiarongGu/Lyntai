@@ -24,10 +24,10 @@ does and does not cover, and a blank means *not yet shown to fit the budget*, ne
 | **select-from-list** | which members of a visible list qualify | `LlmVerificationOptions` (which notes answered) | per RECALL, one call for all candidates | option | no |
 | **select-from-list** (short) | pick one of two | `IPairwiseComparer` | 2 calls per pair, by default | composition root | no |
 | **select-from-list** (roster) | which tool to call, or none | `IToolLoop`, both paths | per loop iteration, up to `LyntaiOptions.ToolLoopMaxIterations` | composition root | **yes — §3.1** |
-| **score-a-pair** (cross-encoder) | how relevant is this document to this query | `ScoringVerificationOptions` | per candidate | endpoint | **yes, one row** |
+| **score-a-pair** (cross-encoder) | how relevant is this document to this query | `ScoringVerificationOptions` | per candidate | option (provider id) | **yes — §3** |
 | **score-a-pair** (generative) | grade this output against this input, 0..1 | `LlmScorerBase`, and `RelevancyScorer` under it | per evaluation, per scorer | composition root | no |
 | **classify** | is this fact durable enough to keep verbatim | `LlmAnnotationOptions.SuggestGrade`, off by default | per WRITE, when on | option | no |
-| **affordance** | given these tools, what do you want | `MemoryTools`, the generation tools, an MCP-hosted toolset | per model tool call, unbounded by this library | no | **yes — §3.1** |
+| **affordance** | given these tools, what do you want | `AddMemoryTools`, `AddGenerationTools`, an MCP-hosted toolset | per model tool call, unbounded by this library | no | **yes — §3.1** |
 | **embed** | place this text in a vector space | `ProviderKinds.Vector` | per WRITE **and** per RECALL | no | **yes — §3.3** |
 | **repair** | re-emit that, as JSON this time | the shared JSON completion helper | at most once per call, under three seams | inherited | no |
 | **delegate a run** | here is a task, do it | `IAgentSession` | per session, model-driven | n/a — you pick a CLI | out of scope |
@@ -114,8 +114,9 @@ input is usually cheaper than a bigger model, and it is testable on the model yo
 task takes the instruction, a selective one ignores it, and an affordance task ignores it *and* acts anyway.
 Where the model supplies no bound, the caller must — which is a structural fix, not a prompt.
 
-**One honest limit on all of this.** Every library-authored prompt named in §1 is a compile-time constant,
-and none of them routes through the prompt registry. So on the two memory seams the prompt is not a knob
+**One honest limit on all of this.** Every library-authored prompt named in §1 is a compile-time constant
+— the tool loop's preamble aside (`LyntaiOptions.ToolProtocolPreamble`, §3.1) — and none of them routes
+through the prompt registry. So on the two memory seams the prompt is not a knob
 you have; replacing the whole policy is. What you *can* shape from configuration is the input — depth,
 candidate count, how much text each candidate carries.
 
@@ -137,7 +138,7 @@ and cuts between text elements, else at a code point, so only a lone code point 
 the original text. `MaxPiecesPerInput` keeps that many windows, spread from the first to the last. Otherwise,
 an input that fits is answered exactly as without segmenting.
 
-## 3. What survives under 500 MB — one measured row, and the rest blank
+## 3. What survives under 500 MB — a few measured rows, and the rest blank
 
 > **WHY 500 MB, and the status of that number — a WORKING POSITION, not a rule (2026-09-12).** The owner's
 > stated aim: *"we aim to support smaller model (to save resource because this just a memory system)"*, and
@@ -173,7 +174,7 @@ an input that fits is answered exactly as without segmenting.
 > is precisely the shape a small INSTRUCT model failed at (806,058,240 B, inert, ceiling of zero); **list
 > length governs it more than model size** (§2's table: 20 shown → 16.2% precision, 80 → 2.6%, below using
 > none at all); a stated budget does **not** bind a selective task and made one endorse MORE; and the shape
-> that DID work small is `score-a-pair`. `affordance` has no evidence at any size; do not read the above as
+> that DID work small is `score-a-pair`. `affordance` has evidence of its own (§3.1); do not read the above as
 > covering it.
 >
 > **Scorer or generator is not a fixed answer: the 3-7 region is MEASURED** (2026-09-12,
@@ -192,8 +193,8 @@ an input that fits is answered exactly as without segmenting.
 > instruct model at three options (72.0% against 71.5%), pulls AHEAD as the list grows (67.4% against
 > 63.6% at seven), and is the only arm flat in N.
 
-**Four sub-500 MB models have a quality figure** — `docs/memory-measurements.md` §5 owns every number, and
-all four are `ships=no`. The RERANKER (`locomo-lamar600m-q8-n200`, n = 200): a **468,393,760-byte**
+**Every sub-500 MB quality figure is `ships=no`** — `docs/memory-measurements.md` §5 owns every number. Four
+decide the seams below. The RERANKER (`locomo-lamar600m-q8-n200`, n = 200): a **468,393,760-byte**
 cross-encoder captures **6.0 of the 7.0 points** a perfect judge offers, at 74% of the incumbent's bytes,
 and a model 28 months newer at the same architecture and size scores identically. The EMBEDDER (§3.3): a
 **25,008,064-byte** bi-encoder routes tools within 2.4 points of a 13× larger one at a three-option roster.
@@ -293,11 +294,12 @@ practical rule is `docs/memory.md`'s: screen the annotator you intend to ship.
 **Every other shape is unmeasured under 500 MB, and that is a statement about this repository rather than
 about the models.** The smallest model called in the JUDGE role here is **806,058,240 B**
 (`gemma-3-1b-it` Q4_K_M, `locomo-judge-1b-n200`) — and it was **inert**, with a ceiling of zero, which is a
-measured negative rather than a blank. Below that, nothing has been tried in any selective role; the
-shipped extract seam has never been quality-measured at any size; classify and the generative graded-quality
-scorer have no evidence at any size (affordance: §3.1). **Do not read a blank cell as a negative result** —
-and do not read that 1B row as one either, since it prices *instruct models in a selective role*, which is
-precisely the shape §1 says to stop reaching for.
+measured negative rather than a blank. Below that, nothing has been tried in the JUDGE role (a roster is
+§3.1's); the shipped extract seam is measured only for subject DRIFT (`annotation-drift-corrected-context`,
+down to 491,400,032 B); classify and the generative graded-quality scorer have no evidence at any size
+(affordance: §3.1). **Do not read a blank cell as a negative result** — and do not read that 1B row as one
+either, since it prices *instruct models in a selective role*, which is precisely the shape §1 says to stop
+reaching for.
 
 **And do not carry any magnitude here into your own deployment.** Direction transfers between corpora and
 size does not — the same 4B model reads best-in-class on this repository's own synthetic corpus and
@@ -489,10 +491,13 @@ loop**, which is worth checking before you rely on one.
 silently run on whatever backend happens to be default. The surface does not yet reflect that evenly.
 
 - **`LlmVerificationOptions.ClientName` and `LlmAnnotationOptions.ClientName` are the only two options of
-  their kind in the library.** Those two seams are also the only ones that suppress reasoning on the
-  request, which matters because a thinking model turns a short answer into a long one — measured at
-  roughly 25 s per judgement against 1.5 s. The third memory seam pins by backend id instead:
-  `ScoringVerificationOptions.ProviderId` names the cross-encoder's provider (**D148**).
+  their kind in the library.** Those two seams are also the only ones that ASK to suppress reasoning on
+  the request, which matters because a thinking model turns a short answer into a long one — measured at
+  roughly 25 s per judgement against 1.5 s. **Asking is not suppressing:** Ollama sends `think: false`, but
+  the OpenAI-shaped wire carries the ask only once `HttpModelOptions.SuppressReasoningFields` names the
+  server's field (**D179**; the `llama-server` recipe is `docs/memory.md` §Choosing the model). The third
+  memory seam pins by backend id instead: `ScoringVerificationOptions.ProviderId` names the cross-encoder's
+  provider (**D148**).
 - **Everything else takes a named client at the composition root instead.** This is not a workaround and it
   does not need a custom type: the shipped scorer, comparer and tool loop each take a client on a public
   constructor, and the container registrations are try-add, so registering your own instance first wins.
@@ -524,11 +529,12 @@ answers a decision seam must never conflate: `MemoryVerification.NoOpinion` is *
 `ScoringVerificationPolicy` with `ScoringVerificationOptions.EndorseCount = 1` is argmax over N
 scorings in ONE round trip, reachable through `AddMemoryScoringVerification` (**D115**).
 
-**What is missing is the MARGIN, not the ability to ask.** `MemoryVerification` is
-`(IReadOnlyList<string>, bool)`, so the cross-encoder's real-valued scores are computed and discarded at
-the endorsement cut — and a confidence threshold, which is what a decision system is usually built on,
-cannot be expressed. **No public type in the library carries a per-option score out of a model-backed
-seam.** Whether to add one is open and is a surface question rather than a measurement.
+**The MARGIN is carried too — on the scoring route.** `MemoryVerification.Scores` (**D118**) holds the
+cross-encoder's real-valued score for EVERY candidate it scored, endorsed or not, so a confidence threshold
+is expressible as a RELATIVE test — the top against the rest; the scale is the policy's own, so no absolute
+floor transfers. `LlmMemoryVerificationPolicy` leaves it null: a judge returns ids and has no per-candidate
+number. The graph engine acts on `RelevantIds` alone, so a caller that wants the margin calls the policy
+directly.
 
 ### Why the other seams fit worse
 

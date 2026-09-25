@@ -16,7 +16,7 @@
 // disagree. See `docs/DECISIONS.md` D111.
 //
 // FIVE CHECKS, each anchored on something measured rather than on taste (`docs/GATES.md` §check-backlog):
-//   1. the PREAMBLE has a non-blank line budget — a RATCHET (`backlogPreambleAllowance`), no escape token;
+//   1. the PREAMBLE has a non-blank line budget — `backlogPreambleAllowance` raises it, reported as slack;
 //   2. no HANDOVER block survives anywhere — a handover describes DONE work, so its home is the archive;
 //   3. every open `- [ ]` carries one well-formed marker, a blocker naming its KIND and what would clear it;
 //   4. no `## Part` heading survives with no open checkbox under it;
