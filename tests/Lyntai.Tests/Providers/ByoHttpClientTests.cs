@@ -45,21 +45,21 @@ public class ByoHttpClientTests
     [Fact]
     public async Task Default_path_still_creates_a_lyntai_client()
     {
-        // no httpClient passed → Lyntai wires its own named client. Point at a closed local port so the
-        // call fails on a connection error (proving the client existed and tried) — no network.
+        // no httpClient passed → Lyntai wires its own NAMED client from IHttpClientFactory. Rerouting that
+        // name's primary handler to a script is what proves the provider used it: the request arrives there.
+        var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, OkBody);
         var services = new ServiceCollection();
         services.AddLyntai(b => b
             .AddHttpProvider("local", c => c.BaseUrl = "http://127.0.0.1:1")
-            .UseDefaultCandidates("local")
-            .Configure(o => o.ProviderTimeout = TimeSpan.FromSeconds(5)));
+            .UseDefaultCandidates("local"));
+        services.AddHttpClient(HttpProviderBuilderExtensions.HttpClientName("local"))
+            .ConfigurePrimaryHttpMessageHandler(() => handler);
         using var sp = services.BuildServiceProvider();
 
         var reply = await sp.GetRequiredService<ITextClient>()
             .CompleteAsync(new TextRequest { Messages = [TextMessage.User("hi")] });
-        // EITHER verdict proves the claim: DI resolved a real client and it TRIED. Pinning `Failed` alone
-        // races the timeout — on a loaded machine the connect to a closed port can outlast the 5s budget,
-        // and `Timeout` is then the correct answer. Only `Ok` would refute this test.
-        Assert.True(reply.Verdict is ProviderVerdict.Failed or ProviderVerdict.Timeout,
-            $"expected a connection failure of some kind, got {reply.Verdict}");
+
+        Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
+        Assert.Equal("127.0.0.1:1", Assert.Single(handler.Requests).Uri.Authority);   // the configured base
     }
 }

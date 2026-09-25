@@ -504,17 +504,24 @@ public class CodexCliProviderTests
     }
 
     [Fact]
-    public void A_portable_install_is_wired_without_touching_the_process_environment()
+    public async Task A_portable_install_is_wired_without_touching_the_process_environment()
     {
-        // the portable story end-to-end: a path + that install's own home dir, straight from app config
+        // the portable story end-to-end: a path + that install's own home dir, straight from app config —
+        // and the home dir reaches the SPAWN, which is the only place it does anything
+        var runner = new FakeProcessRunner();
         var services = new ServiceCollection();
+        services.AddSingleton<IProcessRunner>(runner);   // BYO, registered before AddLyntai's TryAdd
         services.AddLyntai(cfg => cfg.AddCodexCliProvider(
             command: StubCommand,
             environment: new Dictionary<string, string> { ["CODEX_HOME"] = "portable/home" }));
         using var sp = services.BuildServiceProvider();
 
         var provider = sp.GetServices<IModelProvider>().Single(p => p.Id == CodexCliProvider.ProviderId);
-
         Assert.True(provider.IsAvailable);   // resolves `node` (the stub's launcher), not a global codex
+
+        await provider.CompleteAsync(Ask("hello codex"));
+
+        Assert.Equal("portable/home", runner.LastEnvironment!["CODEX_HOME"]);
+        Assert.Null(Environment.GetEnvironmentVariable("CODEX_HOME"));   // this process was never touched
     }
 }

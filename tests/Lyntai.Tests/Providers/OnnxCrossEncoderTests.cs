@@ -249,9 +249,9 @@ public class OnnxCrossEncoderReachabilityTests
         Assert.Equal(["b"], verdict.RelevantIds);
     }
 
-    /// <summary>What a provider running the cross-encoder dialect declares. Built from the DIALECT rather
-    /// than copied, because the dialect is what decides it (<c>docs/DECISIONS.md</c> <b>D157</b>) — a copy
-    /// would go on passing after the thing it describes changed.</summary>
+    /// <summary>What a provider running the cross-encoder dialect declares. <c>Produces</c> is taken from the
+    /// dialect, which decides it (<c>docs/DECISIONS.md</c> <b>D157</b>); <c>Accepts</c> and <c>Operations</c>
+    /// restate <c>OnnxProvider</c>'s constructor, which cannot be reached without a real model.</summary>
     internal static readonly ProviderCapabilities ScoreDeclaration = new()
     {
         Accepts = [ProviderKinds.Text],
@@ -266,10 +266,6 @@ public class OnnxCrossEncoderReachabilityTests
     {
         Assert.Equal(ProviderKinds.Score, new OnnxCrossEncoderHead().Produces);
         Assert.Equal(ProviderKinds.Vector, new OnnxPoolingHead(OnnxPooling.Mean, true).Produces);
-
-        Assert.Equal([ProviderKinds.Score], ScoreDeclaration.Produces);
-        Assert.Equal([ProviderKinds.Text], ScoreDeclaration.Accepts);
-        Assert.Equal([ProviderOperation.Complete], ScoreDeclaration.Operations);
     }
 }
 

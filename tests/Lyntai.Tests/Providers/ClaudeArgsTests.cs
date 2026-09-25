@@ -1,6 +1,7 @@
 using Lyntai.Inference;
 using Lyntai.Inference.Cli;
 using Lyntai.Providers.ClaudeCli;
+using Lyntai.Tests.Fakes;
 
 namespace Lyntai.Tests.Providers;
 
@@ -27,15 +28,16 @@ public class ClaudeArgsTests
     }
 
     [Fact]
-    public void Prompt_never_lands_in_argv()
+    public async Task Prompt_never_lands_in_argv()
     {
         const string prompt = "tell me a secret\nwith a newline & | metachars";
-        var req = new TextRequest { Messages = [TextMessage.User(prompt)] };
+        var runner = new FakeProcessRunner();
+        var provider = new ClaudeCliProvider(runner, new LyntaiOptions(), command: "claude");
 
-        var args = ClaudeArgs.Build(req.Model);
+        await provider.CompleteAsync(new TextRequest { Messages = [TextMessage.User(prompt)] });
 
-        Assert.DoesNotContain(args, a => a.Contains("secret"));
-        Assert.Equal(prompt, CliPrompt.Flatten(req)); // it travels via stdin instead
+        Assert.DoesNotContain(runner.LastArgs!, a => a.Contains("secret", StringComparison.Ordinal));
+        Assert.Equal(prompt, runner.LastStdin);   // it travels via stdin instead
     }
 
     [Fact]

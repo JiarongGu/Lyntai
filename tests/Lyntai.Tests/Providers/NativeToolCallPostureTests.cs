@@ -4,6 +4,7 @@ using Lyntai.Inference.Cli;
 using Lyntai.Providers.ClaudeCli;
 using Lyntai.Providers.CodexCli;
 using Lyntai.Providers.LlamaSharp;
+using Lyntai.Tests.Fakes;
 
 namespace Lyntai.Tests.Providers;
 
@@ -30,13 +31,14 @@ public class NativeToolCallPostureTests
         // The real need — an app's own ITools reachable by the CLI — is met by ICliToolProvisioner, which
         // stands up an in-process MCP server and passes --mcp-config (shipped 1.1). So the tools do run in
         // this process, with the host's guards applied; they simply are not shaped as TextResponse.ToolCalls.
-        Assert.False(new ClaudeCliBackend().SupportsToolCalls);
+        // the router reads the PROVIDER's declaration, so that is what is asserted — not the backend's flag
+        Assert.False(new ClaudeCliProvider(new FakeProcessRunner(), new LyntaiOptions()).Capabilities.SupportsToolCalls);
     }
 
     [Fact]
     public void The_codex_CLI_does_not_either_for_the_same_structural_reason()
     {
-        Assert.False(new CodexCliBackend().SupportsToolCalls);
+        Assert.False(new CodexCliProvider(new FakeProcessRunner(), new LyntaiOptions()).Capabilities.SupportsToolCalls);
     }
 
     [Fact]
@@ -62,5 +64,7 @@ public class NativeToolCallPostureTests
         var local = new LlamaSharpProvider("local", new LlamaSharpOptions { ModelPath = "x.gguf" }, new LyntaiOptions());
 
         Assert.False(((IModelProvider)local).Capabilities.SupportsStreamingToolCalls);
+        Assert.False(new ClaudeCliProvider(new FakeProcessRunner(), new LyntaiOptions()).Capabilities.SupportsStreamingToolCalls);
+        Assert.False(new CodexCliProvider(new FakeProcessRunner(), new LyntaiOptions()).Capabilities.SupportsStreamingToolCalls);
     }
 }

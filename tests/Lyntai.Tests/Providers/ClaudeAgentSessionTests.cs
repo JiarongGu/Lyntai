@@ -319,7 +319,11 @@ public class ClaudeAgentSessionTests
     {
         // it carries whatever secrets the caller's servers need, so it must not outlive the turn — this is
         // the real OwnerOnlyTempFile path (the session writes it), not the recording writer above
-        var runner = new FakeProcessRunner(FullTranscript);
+        var existedAtSpawn = false;
+        var runner = new FakeProcessRunner(FullTranscript)
+        {
+            OnSpawn = call => existedAtSpawn = File.Exists(call.Args[call.Args.ToList().IndexOf("--mcp-config") + 1]),
+        };
         var session = new ClaudeAgentSession(runner, new LyntaiOptions(), command: "claude");
         var opts = new AgentSessionOptions { Prompt = "hi", McpServers = [Stdio()] };
 
@@ -327,6 +331,7 @@ public class ClaudeAgentSessionTests
 
         var idx = runner.LastArgs!.ToList().IndexOf("--mcp-config");
         var path = runner.LastArgs![idx + 1];
+        Assert.True(existedAtSpawn, "the config file was never written, so its absence proves nothing");
         Assert.False(File.Exists(path), $"the config file should have been deleted: {path}");
     }
 
