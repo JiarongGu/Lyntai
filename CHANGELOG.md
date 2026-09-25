@@ -173,6 +173,22 @@ every addition.
 - **`ProviderRouter<TRequest,TResponse>.Capable()` is private**; it was public only for an internal helper with no
   caller. **What to DO:** ask `CanServe()`.
 
+- **`FalQueueProvider` / `FalQueueOptions` are `FalProvider` / `FalOptions`.** "Queue" is the delivery shape
+  `ProviderCapabilities.Operations` already declares; a provider is named for its backend. The namespace and
+  `AddFalProvider` are unchanged. **What to DO:** rename the two types where you construct the provider or name the
+  options type; an `AddFalProvider(o => …)` lambda needs no change.
+
+- **`GenerationRenderJobHandler` runs on the pipeline job's machine and takes `GenerationPipelineJobOptions`;
+  `GenerationRenderJobOptions` is deleted.** It still serves `lyntai.generation.render` and resumes a job
+  checkpointed as `{providerId, operationId}`. A fetched render is now billed and checkpointed BEFORE delivery, so a
+  throwing sink no longer re-fetches and re-bills it; its progress and failure messages are worded as the
+  pipeline's. **What to DO:** replace `new GenerationRenderJobOptions(PollDelay: x)` with
+  `new GenerationPipelineJobOptions { PollDelay = x }` and register that type.
+
+- **The generation tools (`GenerationBackendsTool`, `GenerationInlineTool`, `GenerationSubmitTool`,
+  `GenerationStatusTool`, `GenerationFetchTool`) are internal.** **What to DO:** register them with
+  `AddGenerationTools(consumer)`, which now takes the billing tag, instead of constructing one.
+
 ### Security
 
 - **Recalled memory can no longer forge a prompt section** (**D166**). Both composers rendered an item as
@@ -213,6 +229,27 @@ every addition.
 
 - **`VectorToolSelector` scores with `VectorMath.Cosine`**, so a tool vector of another dimension ranks last
   rather than being scored over the shorter prefix.
+
+- **`FalProvider` says plainly that it has never been called against fal.ai**: it was written from fal's public
+  queue documentation, and no maintainer holds a fal account. Its XML docs list what a host can correct by
+  configuration and what it cannot (the response fields `request_id`, `status`, `queue_position`, `url`,
+  `content_type`), and that fal's documented results carry no cost field — a spend cap sees a fal render only when
+  `FalOptions.CostFields` maps one.
+
+- **New fal options for the shapes its documentation shows**: `ErrorField` / `ErrorTypeField` (fal reports a
+  failed request as `COMPLETED` plus an `error` field, which now polls Failed rather than Succeeded-then-unfetchable),
+  `AuthScheme` and `QueryParameters`. The last two make the Hugging Face router a configuration-only way to verify
+  fal's wire with a free account: `BaseUrl = "https://router.huggingface.co/fal-ai"`, `AuthScheme = "Bearer"`, an
+  `hf_` token, `QueryParameters["_subdomain"] = "queue"`. A `202` cancel (`CANCELLATION_REQUESTED`) reports the
+  render still Running.
+
+- **`AddGenerationTools(string consumer = "agent")`** sets the tag every render the tools start or fetch bills to,
+  and the tools take an optional `imageRole` (`init | first-frame | reference`; `first-frame` on `generate_submit`,
+  `init` on `generate`), so an image-to-video submit no longer sends the image as an img2img source.
+
+- **OpenAI images sends no `response_format` to the GPT-image family** (`gpt-image-*`, `chatgpt-image-*`), which is
+  reported to reject it, and reads a `url` reply as well as `b64_json`. `OpenAiImageOptions.ResponseFormat`
+  overrides the choice. Not measured against the service.
 
 ### Added
 
@@ -458,6 +495,22 @@ every addition.
 
 - **`LyntaiOptions.ResolveTimeout(int?)` honours `TimeoutByConsumer["default"]`**, as the two-argument overload
   does; the claude and codex agent sessions used to ignore a host's default timeout.
+
+- **A single-input media backend refuses an input it cannot place instead of dropping it.** OpenAI images,
+  Automatic1111 and `sd-cli` take one init image (a roleless input reads as init); fal takes one URL input as init,
+  first frame or reference. A second input, or one in another role, is now `Unsupported` with nothing sent — a
+  pipeline stage carrying its own input used to lose the chained artifact, which is appended last.
+
+- **Media spend is gated once for every door.** The durable job handlers and `generate_fetch` recorded spend
+  whenever ANY `IUsageTracker` was registered — a text-only `AddUsageBudget()` or the storage packages' usage
+  tracking — so queued renders were billed into the chat wallet while inline renders were not. Every media door now
+  records only under `AddMediaUsageBudget()`.
+
+- **Generation odds and ends**: a fal model configured with a stray slash polls the path it submitted to; a
+  malformed artifact URL no longer throws out of `FetchAsync`; fal and ComfyUI advertise the current `Produces`
+  after a late options edit; piper reads a non-numeric or non-positive `sample_rate` as unstated instead of throwing
+  or dividing by zero; a render checkpoint field that is not a string fails the job as unreadable instead of
+  throwing; ComfyUI names an `image/*` upload from its URI's extension; `RunPipelineAsync` refuses a null stage.
 
 ## 3.2.0 — 2026-09-19
 
