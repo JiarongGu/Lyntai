@@ -12,7 +12,7 @@ is what to do when you know the SHAPE of what you are worried about but not wher
 
 <!-- facets:begin — GENERATED. Edit the per-trap `trap:` markers, never this index. -->
 
-## Facets — 234 traps, indexed two ways
+## Facets — 233 traps, indexed two ways
 
 _Generated from the per-trap `<!-- trap: … -->` markers by `node devtools/dev.mjs check-pitfalls --write`. Edit a marker, never this index._
 _Line numbers only, on purpose: this is for JUMPING, not for reading. The facets are ORTHOGONAL to the headings below — a probe's nine relevant traps once spanned five of them, two of which nobody_
@@ -20,35 +20,35 @@ _looking for that task would have opened._
 
 **By AREA** — which part of the repository breaks.
 
-- **`gates`** (48) — 57 · 90 · 99 · 108 · 115 · 121 · 128 · 134 · 143 · 153 · 160 · 168 · 174 · 189 · 197 · 216 · 221 · 299 · 355 · 364 · 374 · 397 · 404 · 422 · 429 · 618 · 732 · 837 · 850 · 877 · 898 · 915 · 932 · 974 · 1147 · 2238 · 2262 · 2272 · 2304 · 2315 · 2334 · 2350 · 2361 · 2388 · 2760 · 2809 · 2818 · 2831
-- **`encoding`** (6) — 65 · 85 · 88 · 381 · 513 · 2388
-- **`git`** (7) — 168 · 181 · 189 · 202 · 381 · 389 · 2238
-- **`build`** (14) — 88 · 355 · 364 · 374 · 397 · 610 · 898 · 915 · 1147 · 2201 · 2222 · 2226 · 2247 · 2281
-- **`router`** (6) — 990 · 995 · 1004 · 1006 · 1009 · 1139
-- **`cli`** (19) — 65 · 435 · 513 · 990 · 1011 · 1019 · 1028 · 1032 · 1044 · 1048 · 1055 · 1059 · 1066 · 1070 · 1103 · 1122 · 1126 · 1131 · 2040
-- **`lifetime`** (6) — 1170 · 1179 · 1184 · 1189 · 1202 · 1210
-- **`storage`** (21) — 960 · 1082 · 1219 · 1323 · 1351 · 1353 · 1354 · 1356 · 1358 · 1376 · 1387 · 1635 · 1647 · 1664 · 1671 · 1680 · 1946 · 2070 · 2370 · 2552 · 2737
-- **`memory`** (47) — 233 · 250 · 277 · 344 · 680 · 790 · 1082 · 1253 · 1272 · 1283 · 1309 · 1323 · 1338 · 1359 · 1376 · 1387 · 1426 · 1441 · 1448 · 1453 · 1472 · 1483 · 1501 · 1508 · 1521 · 1534 · 1548 · 1599 · 1654 · 1697 · 1733 · 1769 · 1787 · 1794 · 1839 · 1861 · 1889 · 1928 · 1967 · 2049 · 2070 · 2168 · 2192 · 2445 · 2604 · 2632 · 2716
-- **`generation`** (12) — 665 · 725 · 817 · 995 · 1202 · 1769 · 1825 · 1980 · 1992 · 2023 · 2130 · 2155
-- **`di`** (13) — 1189 · 1441 · 1448 · 1472 · 1689 · 1691 · 1694 · 1697 · 1715 · 1794 · 1839 · 1992 · 2049
-- **`measurement`** (71) — 108 · 227 · 233 · 242 · 250 · 258 · 269 · 277 · 291 · 306 · 314 · 322 · 334 · 344 · 411 · 435 · 442 · 447 · 456 · 462 · 475 · 483 · 490 · 498 · 506 · 518 · 522 · 530 · 541 · 560 · 576 · 582 · 590 · 603 · 610 · 636 · 665 · 680 · 710 · 725 · 740 · 758 · 773 · 790 · 799 · 817 · 1019 · 1219 · 1238 · 1309 · 1483 · 1501 · 1521 · 1555 · 1566 · 1581 · 1599 · 1654 · 1733 · 2226 · 2304 · 2421 · 2472 · 2487 · 2511 · 2531 · 2552 · 2582 · 2619 · 2684 · 2716
-- **`docs`** (33) — 74 · 115 · 134 · 143 · 207 · 389 · 404 · 411 · 422 · 618 · 624 · 628 · 632 · 732 · 850 · 877 · 974 · 1283 · 1825 · 1861 · 1934 · 2105 · 2115 · 2222 · 2262 · 2272 · 2315 · 2334 · 2350 · 2361 · 2370 · 2642 · 2831
-- **`tests`** (28) — 74 · 932 · 946 · 960 · 1103 · 1295 · 1338 · 1359 · 1426 · 1453 · 1635 · 1647 · 1946 · 2434 · 2445 · 2456 · 2632 · 2655 · 2737 · 2745 · 2753 · 2757 · 2760 · 2772 · 2783 · 2796 · 2800 · 2804
+- **`gates`** (47) — 57 · 90 · 99 · 108 · 115 · 121 · 128 · 134 · 143 · 153 · 160 · 168 · 174 · 189 · 197 · 216 · 221 · 299 · 355 · 364 · 374 · 397 · 404 · 422 · 429 · 618 · 724 · 737 · 752 · 762 · 771 · 779 · 802 · 968 · 2059 · 2083 · 2093 · 2125 · 2136 · 2155 · 2171 · 2182 · 2209 · 2581 · 2630 · 2639 · 2652
+- **`encoding`** (6) — 65 · 85 · 88 · 381 · 513 · 2209
+- **`git`** (7) — 168 · 181 · 189 · 202 · 381 · 389 · 2059
+- **`build`** (14) — 88 · 355 · 364 · 374 · 397 · 610 · 762 · 771 · 968 · 2022 · 2043 · 2047 · 2068 · 2102
+- **`router`** (6) — 811 · 816 · 825 · 827 · 830 · 960
+- **`cli`** (19) — 65 · 435 · 513 · 811 · 832 · 840 · 849 · 853 · 865 · 869 · 876 · 880 · 887 · 891 · 924 · 943 · 947 · 952 · 1861
+- **`lifetime`** (6) — 991 · 1000 · 1005 · 1010 · 1023 · 1031
+- **`storage`** (21) — 794 · 903 · 1040 · 1144 · 1172 · 1174 · 1175 · 1177 · 1179 · 1197 · 1208 · 1456 · 1468 · 1485 · 1492 · 1501 · 1767 · 1891 · 2191 · 2373 · 2558
+- **`memory`** (47) — 233 · 250 · 277 · 344 · 653 · 698 · 903 · 1074 · 1093 · 1104 · 1130 · 1144 · 1159 · 1180 · 1197 · 1208 · 1247 · 1262 · 1269 · 1274 · 1293 · 1304 · 1322 · 1329 · 1342 · 1355 · 1369 · 1420 · 1475 · 1518 · 1554 · 1590 · 1608 · 1615 · 1660 · 1682 · 1710 · 1749 · 1788 · 1870 · 1891 · 1989 · 2013 · 2266 · 2425 · 2453 · 2537
+- **`generation`** (12) — 646 · 669 · 715 · 816 · 1023 · 1590 · 1646 · 1801 · 1813 · 1844 · 1951 · 1976
+- **`di`** (13) — 1010 · 1262 · 1269 · 1293 · 1510 · 1512 · 1515 · 1518 · 1536 · 1615 · 1660 · 1813 · 1870
+- **`measurement`** (71) — 108 · 227 · 233 · 242 · 250 · 258 · 269 · 277 · 291 · 306 · 314 · 322 · 334 · 344 · 411 · 435 · 442 · 447 · 456 · 462 · 475 · 483 · 490 · 498 · 506 · 518 · 522 · 530 · 541 · 560 · 576 · 582 · 590 · 603 · 610 · 636 · 646 · 653 · 663 · 669 · 676 · 684 · 691 · 698 · 707 · 715 · 840 · 1040 · 1059 · 1130 · 1304 · 1322 · 1342 · 1376 · 1387 · 1402 · 1420 · 1475 · 1554 · 2047 · 2125 · 2242 · 2293 · 2308 · 2332 · 2352 · 2373 · 2403 · 2440 · 2505 · 2537
+- **`docs`** (32) — 74 · 115 · 134 · 143 · 207 · 389 · 404 · 411 · 422 · 618 · 624 · 628 · 632 · 737 · 752 · 802 · 1104 · 1646 · 1682 · 1755 · 1926 · 1936 · 2043 · 2083 · 2093 · 2136 · 2155 · 2171 · 2182 · 2191 · 2463 · 2652
+- **`tests`** (28) — 74 · 779 · 787 · 794 · 924 · 1116 · 1159 · 1180 · 1247 · 1274 · 1456 · 1468 · 1767 · 2255 · 2266 · 2277 · 2453 · 2476 · 2558 · 2566 · 2574 · 2578 · 2581 · 2593 · 2604 · 2617 · 2621 · 2625
 
 **By SHAPE** — how the wrongness stays invisible. Orthogonal to the area, and usually the more useful
 of the two: most of these traps recur in a subsystem that had never met them.
 
-- **`fail-open`** (24) — 168 · 233 · 250 · 277 · 404 · 456 · 636 · 817 · 1004 · 1009 · 1028 · 1103 · 1184 · 1272 · 1534 · 1548 · 1697 · 1733 · 1980 · 1992 · 2049 · 2155 · 2168 · 2604
-- **`cancellation`** (5) — 990 · 995 · 1253 · 1272 · 1295
-- **`vacuous`** (51) — 108 · 153 · 160 · 227 · 258 · 269 · 291 · 306 · 364 · 462 · 483 · 498 · 530 · 665 · 680 · 710 · 725 · 758 · 837 · 850 · 915 · 946 · 1059 · 1122 · 1139 · 1295 · 1338 · 1359 · 1426 · 1453 · 1501 · 1555 · 1566 · 1599 · 1733 · 1861 · 2370 · 2445 · 2456 · 2487 · 2619 · 2632 · 2655 · 2684 · 2737 · 2760 · 2772 · 2783 · 2800 · 2809 · 2818
-- **`scope-blind`** (46) — 90 · 121 · 128 · 134 · 143 · 153 · 168 · 174 · 189 · 216 · 221 · 381 · 422 · 429 · 773 · 850 · 898 · 974 · 1147 · 1441 · 1448 · 1521 · 1635 · 1647 · 1825 · 1861 · 1889 · 1946 · 2070 · 2192 · 2262 · 2272 · 2281 · 2304 · 2315 · 2334 · 2350 · 2361 · 2370 · 2456 · 2619 · 2632 · 2757 · 2809 · 2818 · 2831
-- **`second-door`** (23) — 1006 · 1044 · 1048 · 1059 · 1066 · 1126 · 1131 · 1210 · 1354 · 1376 · 1671 · 1697 · 1839 · 1928 · 1946 · 1967 · 1980 · 1992 · 2023 · 2070 · 2105 · 2130 · 2192
-- **`stale-claim`** (25) — 57 · 134 · 181 · 207 · 411 · 490 · 506 · 618 · 628 · 915 · 1283 · 1694 · 1825 · 1934 · 1967 · 2023 · 2105 · 2222 · 2226 · 2315 · 2334 · 2350 · 2642 · 2772 · 2831
-- **`silent-loss`** (69) — 65 · 74 · 85 · 88 · 115 · 197 · 202 · 216 · 221 · 242 · 250 · 334 · 381 · 397 · 404 · 435 · 447 · 483 · 513 · 522 · 541 · 560 · 603 · 636 · 725 · 732 · 740 · 817 · 877 · 898 · 932 · 1032 · 1048 · 1082 · 1170 · 1202 · 1238 · 1309 · 1351 · 1353 · 1354 · 1356 · 1376 · 1387 · 1426 · 1548 · 1581 · 1654 · 1664 · 1671 · 1680 · 1689 · 1694 · 1715 · 1787 · 1839 · 1889 · 2040 · 2130 · 2168 · 2201 · 2226 · 2247 · 2262 · 2272 · 2388 · 2472 · 2552 · 2684
-- **`wrong-subject`** (70) — 57 · 74 · 99 · 108 · 202 · 227 · 242 · 269 · 277 · 299 · 306 · 314 · 322 · 334 · 344 · 355 · 374 · 462 · 475 · 498 · 506 · 522 · 541 · 560 · 576 · 582 · 624 · 632 · 665 · 680 · 710 · 740 · 758 · 773 · 790 · 799 · 877 · 960 · 1006 · 1055 · 1147 · 1179 · 1189 · 1219 · 1309 · 1359 · 1472 · 1483 · 1508 · 1521 · 1555 · 1566 · 1599 · 1769 · 1794 · 2155 · 2201 · 2238 · 2247 · 2421 · 2472 · 2487 · 2511 · 2531 · 2552 · 2655 · 2716 · 2760 · 2796 · 2800
-- **`unmeasured`** (17) — 314 · 344 · 389 · 411 · 422 · 442 · 590 · 610 · 1011 · 1019 · 1028 · 1070 · 1122 · 1508 · 1769 · 2115 · 2642
-- **`ordering`** (11) — 374 · 1032 · 1131 · 1323 · 1358 · 1680 · 1715 · 2040 · 2049 · 2434 · 2582
-- **`resource`** (13) — 355 · 397 · 518 · 582 · 799 · 1011 · 1103 · 1210 · 1219 · 1691 · 2745 · 2753 · 2804
+- **`fail-open`** (24) — 168 · 233 · 250 · 277 · 404 · 456 · 636 · 715 · 825 · 830 · 849 · 924 · 1005 · 1093 · 1355 · 1369 · 1518 · 1554 · 1801 · 1813 · 1870 · 1976 · 1989 · 2425
+- **`cancellation`** (5) — 811 · 816 · 1074 · 1093 · 1116
+- **`vacuous`** (51) — 108 · 153 · 160 · 227 · 258 · 269 · 291 · 306 · 364 · 462 · 483 · 498 · 530 · 646 · 653 · 663 · 669 · 684 · 724 · 737 · 771 · 787 · 880 · 943 · 960 · 1116 · 1159 · 1180 · 1247 · 1274 · 1322 · 1376 · 1387 · 1420 · 1554 · 1682 · 2191 · 2266 · 2277 · 2308 · 2440 · 2453 · 2476 · 2505 · 2558 · 2581 · 2593 · 2604 · 2621 · 2630 · 2639
+- **`scope-blind`** (46) — 90 · 121 · 128 · 134 · 143 · 153 · 168 · 174 · 189 · 216 · 221 · 381 · 422 · 429 · 691 · 737 · 762 · 802 · 968 · 1262 · 1269 · 1342 · 1456 · 1468 · 1646 · 1682 · 1710 · 1767 · 1891 · 2013 · 2083 · 2093 · 2102 · 2125 · 2136 · 2155 · 2171 · 2182 · 2191 · 2277 · 2440 · 2453 · 2578 · 2630 · 2639 · 2652
+- **`second-door`** (23) — 827 · 865 · 869 · 880 · 887 · 947 · 952 · 1031 · 1175 · 1197 · 1492 · 1518 · 1660 · 1749 · 1767 · 1788 · 1801 · 1813 · 1844 · 1891 · 1926 · 1951 · 2013
+- **`stale-claim`** (25) — 57 · 134 · 181 · 207 · 411 · 490 · 506 · 618 · 628 · 771 · 1104 · 1515 · 1646 · 1755 · 1788 · 1844 · 1926 · 2043 · 2047 · 2136 · 2155 · 2171 · 2463 · 2593 · 2652
+- **`silent-loss`** (68) — 65 · 74 · 85 · 88 · 115 · 197 · 202 · 216 · 221 · 242 · 250 · 334 · 381 · 397 · 404 · 435 · 447 · 483 · 513 · 522 · 541 · 560 · 603 · 636 · 669 · 676 · 715 · 752 · 762 · 779 · 853 · 869 · 903 · 991 · 1023 · 1059 · 1130 · 1172 · 1174 · 1175 · 1177 · 1197 · 1208 · 1247 · 1369 · 1402 · 1475 · 1485 · 1492 · 1501 · 1510 · 1515 · 1536 · 1608 · 1660 · 1710 · 1861 · 1951 · 1989 · 2022 · 2047 · 2068 · 2083 · 2093 · 2209 · 2293 · 2373 · 2505
+- **`wrong-subject`** (70) — 57 · 74 · 99 · 108 · 202 · 227 · 242 · 269 · 277 · 299 · 306 · 314 · 322 · 334 · 344 · 355 · 374 · 462 · 475 · 498 · 506 · 522 · 541 · 560 · 576 · 582 · 624 · 632 · 646 · 653 · 663 · 676 · 684 · 691 · 698 · 707 · 752 · 794 · 827 · 876 · 968 · 1000 · 1010 · 1040 · 1130 · 1180 · 1293 · 1304 · 1329 · 1342 · 1376 · 1387 · 1420 · 1590 · 1615 · 1976 · 2022 · 2059 · 2068 · 2242 · 2293 · 2308 · 2332 · 2352 · 2373 · 2476 · 2537 · 2581 · 2617 · 2621
+- **`unmeasured`** (17) — 314 · 344 · 389 · 411 · 422 · 442 · 590 · 610 · 832 · 840 · 849 · 891 · 943 · 1329 · 1590 · 1936 · 2463
+- **`ordering`** (11) — 374 · 853 · 952 · 1144 · 1179 · 1501 · 1536 · 1861 · 1870 · 2255 · 2403
+- **`resource`** (13) — 355 · 397 · 518 · 582 · 707 · 832 · 924 · 1031 · 1040 · 1512 · 2566 · 2574 · 2625
 
 <!-- facets:end -->
 
@@ -634,94 +634,38 @@ of the two: most of these traps recur in a subsystem that had never met them.
   sizing an always-loaded tier, measure the BODY the session actually receives, not the file.
 
 - **A server that ACCEPTS a `tools` array and returns 200 has not promised to use it — a model with no <!-- trap: sub=measurement shape=fail-open,silent-loss -->
-  tool template drops the roster on the floor and answers from parametric knowledge instead.** Measured
-  2026-09-12 scoping the affordance shape. `gemma-3-4b-it` Q4_K_M on `llama-server` build 10603, sent three
-  well-formed OpenAI function definitions: **HTTP 200, `tool_calls: null`**, and a confidently fabricated
-  weather report dated *November 2023* in the content field. `tool_choice: "required"` — the one structural
-  constraint the wire format offers — changed nothing; still `null`. **`--jinja` changed nothing either**,
-  byte-identically, so it is not the built-in-template fallback: gemma-3's own template has no tool section,
-  and the array is simply discarded.
-  <br>**The failure shape is the dangerous one.** No error, no warning, no empty reply — a plausible answer.
-  A deployment wiring a tool loop onto this model gets invented data where it expected a tool call, and
-  nothing in the transport reports it. The library's own fallback is the protection: `ToolLoop` prefers
-  native function-calling and degrades to a PROMPT protocol, which needs no template support at all.
-  <br>**The POSITIVE CONTROL now exists and it CONFIRMS the reading (2026-09-13).** This entry said the
-  finding was unusable without a model known to emit tool calls, because *"this model will not"* cannot be
-  told from *"this build drops the array"*. Both models were then sent a **byte-identical payload in one
-  run on one build**: `qwen2.5-0.5b-instruct` Q4_K_M (**491,400,032 B**) returns `finish_reason=tool_calls`
-  with `get_current_weather {"location": "Galway", "unit": "celsius"}` on all three of default,
-  `tool_choice: "required"` and a named `tool_choice`, while `gemma-3-4b-it` returns `null` on all three.
-  **The build is fine; the model is the cause**, and the conclusion above stands as written.
-  <br>**Two things the control corrected on the way.** **`--jinja` is irrelevant on this build for BOTH
-  models** — byte-identical with and without, so Qwen needs no flag and gemma is not rescued by one; do not
-  reach for it as the fix. And **`tool_choice: "required"` DOES bind** — on Qwen it is honoured, so its
-  failure on gemma is a property of that model rather than of the wire format, which is the opposite of
-  what a single-model probe suggests.
-  <br>**The rule survives the unblocking and is the transferable half: measure a model you KNOW emits tool
-  calls before concluding anything about one that does not.** Verify it from the GGUF's own
-  `tokenizer.chat_template` rather than a model card — Qwen2.5, Qwen3 and Llama-3.2 all carry a real tool
-  section, gemma-3 carries none — and prefer the prompt protocol wherever the template is unknown.
+  tool template drops the roster on the floor and answers from parametric knowledge instead.**
+  `gemma-3-4b-it` on `llama-server` build 10603, sent three function definitions: **HTTP 200,
+  `tool_calls: null`**, and a fabricated weather report; `tool_choice: "required"` and `--jinja` changed
+  nothing (2026-09-12). A positive control — `qwen2.5-0.5b-instruct` on a byte-identical payload in the same
+  run — returned the call on all three variants, so **the build is fine and the model is the cause**.
+  **Measure a model you KNOW emits tool calls before concluding anything about one that does not**; read the
+  GGUF's own `tokenizer.chat_template` (gemma-3 has no tool section), and prefer the prompt protocol, which
+  `ToolLoop` falls back to, wherever the template is unknown.
 
 - **An ACCURACY table is the wrong readout for a transport question — the two transports differ far more <!-- trap: sub=measurement,generation shape=wrong-subject,vacuous -->
-  in HOW they fail than in what they score.** Measured 2026-09-13, the same `qwen2.5-0.5b-instruct` on
-  `ToolLoop`'s prompt protocol and on native function-calling, paired trial for trial. Accuracy moves by
-  2.4-9.6 points. Meanwhile native declines on **21.6-30.3%** of trials against the prompt path's 1.8-5.4%,
-  hallucinates a tool name **0.0%** of the time against 0.6-1.8%, emits unusable arguments **0.0%** against
-  0.0-2.4% — and on requests NO tool serves it invokes one on **20-30%** against **90-100%**, which is the
-  largest number anywhere in the grid and is invisible to every accuracy column.
-  <br>**A deployment picking between them is choosing which failure to handle**, and an accuracy table
-  reports that choice as nearly a tie.
-  <br>**The largest effect was in a column nobody would have added for the accuracy question**:
-  CONVERGENCE. The prompt protocol picks a tool on 94-96% of trials and then finishes the loop on
-  **11.3-24.4%** of them, against native's **99.4-100%** — the model emits a well-formed `{"tool": …}` and
-  then cannot emit a well-formed `{"final": …}` after the observation. It also costs the extra call that
-  repair round bills: 2.34-2.54 model calls per run against 1.70-1.79. **Count what the loop DID, not just
-  what it chose**; the published grid could not see this because its models were 1.6x and 5x larger.
+  in HOW they fail than in what they score.** On `qwen2.5-0.5b-instruct`, native function-calling against
+  `ToolLoop`'s prompt protocol moves accuracy by a few points while false calls on requests NO tool serves run
+  20-30% against 90-100%, and the prompt path finishes the loop on only 11-24% of trials against 99-100%
+  (2026-09-13; `docs/memory-measurements.md` §5, `affordance-native-transport`). **Count what the loop DID,
+  not just what it chose** — a deployment is choosing which failure to handle, and an accuracy table reports
+  that as a tie.
 - **A scorer that matches TEXT is moved by any option that only changes how much text is SHOWN — so the <!-- trap: sub=measurement,memory shape=wrong-subject,vacuous -->
-  arm reads as a retrieval change when nothing about retrieval moved.** Caught 2026-09-13 while scoping
-  `MemoryDetail.Full` against LongMemEval's knowledge-update class, BEFORE the run. `MemoryItem` carries a
-  120-character `Headline` and a nullable whole-entry `Content`, and that bench reads
-  `i.Content ?? i.Headline`. Under `MemoryDetail.Headline` the scorer sees 120 characters per item; under
-  `Full` it sees the whole turn.
-  <br>**BOTH halves of this entry's original worked example were wrong, checked against the code 2026-09-13,
-  and the general rule below survives them.** It read that the knowledge-update bench *"scores by searching
-  `i.Content ?? i.Headline` for the superseded fact"* and that `Detail` *"rehydrates the text of an
-  already-chosen set and cannot change which items come back"*.
-  <br>**It does not search for the fact — it matches `Turn.Tag`**, a synthetic `(sNtM)` id the harness
-  prepends at character 0 of every ingested turn, and `MemoryHeadline.Derive` cuts a PREFIX. Replicated over
-  both corpora: **257,710 of 257,710 headlines contain their own tag**, tag length ≤ 9 against a
-  120-character headline. So that class was never text-matched and this confound could not have reached it.
-  <br>**And `Detail` CAN change which items come back** — not through ranking, which it genuinely cannot
-  touch (it is applied in the projection, after ranking and reinforcement), but through SIZE. Any character
-  cap prices an item at `Content?.Length ?? Headline.Length` — `MemoryQuery.CharBudget` in the engine, and
-  the bench's own `--budget` — so whole items spend the allowance faster and FEWER fit. `MemoryWalk` has a
-  second path: `UpgradedCount` is 0 throughout under `Full` (nothing left to upgrade), so
-  `step.NewItems.Count == 0 && step.UpgradedCount == 0` ends the walk a step earlier than it would under
-  headlines. **"Projection-only" is not the same as "inert".**
-  <br>**The reusable shape is that a lever can reach the scored set through a SECOND channel** — here item
-  size feeding a budget — and checking only the obvious channel is how a confound survives being looked for.
-  <br>**The three metrics in this repository divide cleanly on it, and only one is exposed.**
-  `evidence-hit@k` matches a `dia_id`, which survives truncation and is immune — its own doc says so. A
-  READER-facing metric (token-F1) is genuinely measuring the effect, because the reader really does see
-  more. A TEXT-MATCHED model-free metric is the confounded one.
-  <br>**Ask of any option under test: does the SCORER read the thing this option varies?** If it does, the
-  arm measures visibility rather than behaviour — and the fix is to score by an identifier the option
-  cannot touch, not to add a caveat to the table.
+  arm reads as a retrieval change when nothing about retrieval moved.** Scoping `MemoryDetail.Full` against
+  LongMemEval (2026-09-13): the knowledge-update scorer in fact matches `Turn.Tag`, a synthetic id at
+  character 0 that every 120-character headline keeps, so that class was immune — but `Detail` CAN change
+  which items come back, not through ranking but through SIZE: a character budget prices whole items higher,
+  and `MemoryWalk` ends a step earlier under `Full`. **"Projection-only" is not "inert"**: a lever can reach
+  the scored set through a SECOND channel. Of this repository's metrics, `evidence-hit@k` matches a `dia_id`
+  and is immune, a reader-facing token-F1 genuinely measures the effect, and a text-matched model-free
+  metric is confounded. **Ask whether the SCORER reads what the option varies**, and score by an identifier
+  the option cannot touch.
 - **A p-value that WANDERS between runs is evidence the test is underpowered, not evidence of no <!-- trap: sub=measurement shape=wrong-subject,vacuous -->
-  effect — and reading it the other way publishes a real result as a null.** Walked into 2026-09-13 and
-  caught by a third run. Two runs of the transport grid each had exactly one cell under p = 0.05 and **it
-  was a different cell each time** (N = 6 then N = 5), which was written up as *"on accuracy it is a wash,
-  and the run that said otherwise did not replicate"*. **The EFFECT SIZES had been stable across both runs
-  all along** — the per-cell net was −14 then −16 at N = 5, −16 then −13 at N = 6 — and the third run
-  landed on −16 and −14. The conclusion was taken from the noisiest statistic on the table while the
-  steadiest one sat beside it.
-  <br>**The mechanism: ~50 discordant trials cannot resolve a 10-trial net**, so McNemar's p wanders across
-  0.03-0.07 on an effect that is genuinely there. A wandering p is what an underpowered test DOES.
-  <br>**So compare EFFECT SIZES across runs first, and treat the p-value as a property of the sample
-  size.** Two runs are enough to notice a disagreement and not enough to call it noise — if two runs
-  disagree about significance while agreeing about magnitude, that is a reason to run a third, never a
-  reason to publish a null. This file already says a negative result is a deliverable; it is only a
-  deliverable when it is a negative RESULT rather than an underpowered one.
+  effect.** Two runs of the transport grid each had one cell under p = 0.05, a different cell each time, and
+  were written up as "a wash" — while the per-cell EFFECT SIZES agreed across both runs and a third landed on
+  them again (2026-09-13). ~50 discordant trials cannot resolve a 10-trial net, so McNemar's p wanders.
+  **Compare effect sizes across runs first and treat p as a property of the sample size**: two runs that
+  disagree on significance while agreeing on magnitude are a reason to run a third, never to publish a null.
 - **An OUTPUT CAP that cuts a turn off before any tool call reports as an empty `tool_calls`, which is <!-- trap: sub=measurement,generation shape=silent-loss,vacuous -->
   byte-identical to a model that DECLINED.** Same run. A 22-30% decline rate is a headline, and a harness
   that cannot separate the two would be publishing its own `max_tokens` as a model property. `finish_reason`
@@ -729,63 +673,27 @@ of the two: most of these traps recur in a subsystem that had never met them.
   1,469 native turns (1.09%)**, so the finding survived, but only because the counter existed to say so.
   **Any fail-open arm needs the artifact counted, not argued away** — this is the *answered / declined /
   unreachable* three-outcome rule one layer down, with the cap as a fourth.
-- **A `<!-- result: … -->` attribute value containing a DOUBLE QUOTE truncates at that quote**, and the <!-- trap: sub=gates,docs shape=silent-loss -->
-  gate reports it as stray text rather than as the escaping problem it is. Writing
-  `arm="… under default / tool_choice: \"required\" / …"` — a perfectly reasonable attempt to quote a wire
-  value — ended the attribute at the first `\"`, leaving the rest of the sentence loose in the marker.
-  `check-measurements` caught it, which is the good case; the same shape in a marker nothing gates would
-  simply lose half a value. This is the `>`-in-a-marker entry above in a second costume, and the same rule
-  closes both: **a marker value is not a string literal — keep `"` and `>` out of it entirely** and reword
-  rather than escape.
 - **A dataset's ground truth is a SET, and taking its first element turns the rest into DISTRACTORS — so <!-- trap: sub=measurement shape=wrong-subject,silent-loss -->
-  the benchmark scores a right answer as wrong.** Measured 2026-09-12 building `memory-decision`. LoCoMo's
-  `evidence` is a list of turn ids; the harness took `Evidence[0]` as "the" answer and drew distractors from
-  the rest of the conversation. **409 of 1,540 scored questions (26.6%) carry more than one evidence turn —
-  97.9% of the multi-hop class** — and because the distractors were the top turns BY COSINE, the discarded
-  golds are exactly what that pool selects. A quarter of trials had a second correct option while the prompt
-  asserted exactly one did.
-  <br>**The bias has a DIRECTION, and it is the one that flatters a broken arm.** Re-measured clean, every
-  arm that actually reads the options gained 7-15 points while the arm that emits a CONSTANT moved −0.3 to
-  +2.9 — nothing. So the contamination compressed the gap between judgement and none, which was the axis the
-  write-up argued from, and it reversed a headline: a 468 MB cross-encoder read 3.0 points behind a 2.49 GB
-  instruct model and actually sits ahead of it.
-  <br>**The tell is a plural field read in the singular**, and the loader it borrowed from had it right all
-  along — `MemoryLocomoBench` scores a hit as `Evidence.Any(...)`. Reusing a corpus loader does not inherit
-  its SCORING rule. Ask of any ground-truth field: *is this a set, and does my task permit more than one
-  right answer?* If the task needs exactly one, FILTER to the questions that have exactly one rather than
-  picking a representative — and exclude every flagged id from the distractor pool, not just the one chosen.
+  the benchmark scores a right answer as wrong.** `memory-decision` took LoCoMo's `Evidence[0]` as "the"
+  answer while 26.6% of scored questions carry more than one evidence turn (97.9% of multi-hop), and drew
+  distractors BY COSINE — exactly the discarded golds (2026-09-12). The bias FLATTERED the constant-emitting
+  arm and reversed a headline. **The tell is a plural field read in the singular**; reusing a corpus loader
+  does not inherit its SCORING rule. Filter to the questions with exactly one answer rather than picking a
+  representative, and exclude every flagged id from the distractor pool.
 
 - **A model asked for a score on a scale it will not use returns a BINARY verdict, and the tie rate that <!-- trap: sub=measurement shape=wrong-subject,vacuous -->
-  follows reads as a property of the SHAPE under test rather than of the prompt.** Measured 2026-09-12
-  building `memory-decision` (`docs/memory-measurements.md` §5). Asked for `LlmScorerBase`'s own 0..1, a 4B
-  and a 1B both replied `{"score": 0}` or `{"score": 1}` and **nothing between**, across every captured
-  reply. A binary score cannot rank 7 options, so an argmax over it is a coin flip — and the arm would have
-  been published as "the score-a-pair shape loses" when what lost was the scale the prompt asked for.
-  Widening to an integer 0-100 took the same model to a genuinely graded 0/10/20/30/60/70/75/90/95/100.
-  <br>**The tell is a tie rate, and it is only visible if something COUNTS ties.** Distinctness is not
-  discrimination and this file already says so for a reranker; the same audit is owed to any generative
-  scorer, because a coarse scale and a model that cannot tell the options apart produce identical tables.
-  <br>**The general rule: CAPTURE WHAT THE MODEL SAID before pricing what it did.** A raw-reply dump over
-  the first few trials is a few lines of harness and it is what separates "the model cannot do this" from
-  "the model was not asked for something it can give". Reasoning about the prompt would not have found it —
-  0..1 is the scale the library itself ships.
+  follows reads as a property of the SHAPE under test rather than of the prompt.** Asked for `LlmScorerBase`'s
+  own 0..1, a 4B and a 1B replied only `0` or `1` — an argmax over that is a coin flip — while an integer
+  0-100 drew a genuinely graded scale from the same model (2026-09-12). **The tell is a tie rate, visible only
+  if something COUNTS ties.** CAPTURE WHAT THE MODEL SAID before pricing what it did: a raw-reply dump over the
+  first trials separates "cannot do this" from "was not asked for something it can give".
 
 - **Pooling a per-POSITION table over list lengths confounds position with length, and the confound points <!-- trap: sub=measurement shape=wrong-subject,scope-blind -->
-  the same way the real effect does.** Measured 2026-09-12, in the first run of the same bench. Accuracy by
-  the gold option's slot was summed over N = 3..7 — but slot 7 occurs ONLY at N = 7, slot 6 only at N = 6
-  and 7, while slot 1 occurs at every length, and accuracy falls with N. So every arm showed a downward
-  slope by slot, **including three argmax arms that cannot have a position effect at all** (an argmax over
-  per-option scores does not know what order they were shown in). Read as position bias, it would have been
-  an artifact of which cells each slot averages.
-  <br>**The fix is to read it at ONE list length**, where every slot exists and every cell shares a length,
-  so a slope IS position. Doing that reversed the finding's shape: pooled, the 4B looked like it had a
-  monotone first-slot preference; at N = 7 alone its penalty lands on the LAST slot (21% against 46-81%
-  elsewhere) and the three controls show no dip there.
-  <br>**The general shape: when a breakdown's categories are not available in every cell you are summing
-  over, the aggregate measures availability as much as effect.** Ask of any pooled table — *does every
-  bucket draw from the same cells?* — and if not, report one cell rather than the sum. The control that
-  caught it is the one this file already prescribes: an arm that structurally CANNOT show the effect, kept
-  in the table for exactly this reason.
+  the same way the real effect does.** Summed over N = 3..7, slot 7 exists only at N = 7 while accuracy falls
+  with N, so every arm showed a slope by slot — **including three argmax arms that cannot have a position
+  effect at all** (2026-09-12); read at ONE list length, the finding changed shape. **When a breakdown's
+  categories are not available in every cell being summed, the aggregate measures availability**: report one
+  cell, and keep the arm that structurally CANNOT show the effect in the table for exactly this reason.
 
 - **A per-item signal "predicting" relevance is usually predicting LENGTH, so score it within length <!-- trap: sub=measurement,memory shape=wrong-subject -->
   strata or it will read as a finding.** Measured 2026-09-23 (`docs/task-archive.md` Part 273): a model's
@@ -797,42 +705,21 @@ of the two: most of these traps recur in a subsystem that had never met them.
   text inherits this confound by construction.
 
 - **A fan-out bench that lets ONE call throw discards every trial it had already finished, and the longer <!-- trap: sub=measurement shape=resource,wrong-subject -->
-  the run the likelier it is.** Measured 2026-09-12 building `tool-affordance`: a single chat call stalled
-  past the `HttpClient.Timeout` of 300 s on a device at 98.4% mean GPU util, and the `TaskCanceledException`
-  came out of `Parallel.ForEachAsync` unhandled — **96 minutes and roughly 70 of 168 completed trials, gone,
-  with nothing written down.** Every server was torn down correctly and the neighbour survived; the hygiene
-  held and the RESULT still evaporated.
-  <br>**The modelling error is the transferable half.** The harness already had a vocabulary for *the seam
-  declined* — the fired counter this file insists on — and none for *the endpoint never answered*. Those are
-  different events and only one is about the model, so had the call merely returned nothing the run would
-  have finished and published a stall as "the model chose not to call a tool". **A fail-open arm needs a
-  THIRD outcome, not two**: answered, declined, and unreachable.
-  <br>**So catch per call, count it, exclude it from every rate, print the count, and VOID the run above a
-  threshold** — and shorten the deadline while you are there, because a call an order of magnitude past the
-  median is unusable whether or not it eventually returns. Excluding without printing is the worse bug: it
-  shrinks every denominator while the table still looks complete. Never swallow the CALLER's cancellation
-  doing it — `TaskCanceledException` is an `OperationCanceledException`, so the filter has to ask
-  `!ct.IsCancellationRequested` rather than match on the type.
+  the run the likelier it is.** One chat call stalled past `HttpClient.Timeout` on a busy GPU and its
+  `TaskCanceledException` escaped `Parallel.ForEachAsync`: 96 minutes and ~70 completed trials gone
+  (2026-09-12). **A fail-open arm needs a THIRD outcome — answered, declined, UNREACHABLE** — or a stall
+  publishes as "the model chose not to call a tool". Catch per call, count it, exclude it from every rate,
+  PRINT the count, void the run above a threshold, and never swallow the caller's own cancellation (filter on
+  `!ct.IsCancellationRequested`, since `TaskCanceledException` IS an `OperationCanceledException`).
 
-- **A tool roster is not a menu a model will decline — hand a 4B seven tools and it invokes one for 90-95% <!-- trap: sub=measurement,generation shape=fail-open,silent-loss -->
-  of requests NONE of them serves.** Measured 2026-09-12 (`tool-affordance`, `docs/memory-measurements.md`
-  §5). It does not pick something defensibly adjacent; it fabricates arguments to force a fit —
-  `restart_service {"service": "sourdough_starter_knowledge_base"}` for a baking question,
-  `historical_weather {"place": "room"}` for *how much paint do I need*, `translate_text {"to": "en"}` on
-  English. The same model routes the roster WELL when a right tool exists (86.3% at seven options), so this
-  is not weakness: **the selective half works and the refusal half does not.**
-  <br>**Prompt wording does not reach it, and that is the expensive half to learn.** Two rewrites in
-  opposite directions, ten paired cells each: pushing toward tool use took false calls to **100%**, putting
-  the escape first left them at **90-95%** and was significant in **0 of 10**. Do not spend a round of
-  prompt engineering on this — it is a property of handing a model a roster.
-  <br>**So bound the roster BEFORE the model sees it**, because the model supplies no bound of its own; and
-  where a false call is expensive, make the tool itself refuse rather than trusting the decision not to
-  arrive. **A small model fails the MIRROR way** — 0-5% false calls and it will not call a tool when one
-  does fit — so a fix aimed at one size makes the other worse, and neither is visible without BOTH a
-  positive and a negative corpus.
-  <br>**The measurement trap underneath is the general one**: a fixture where every request has a right
-  answer cannot see a false positive at all, so any change that merely pushes harder scores as a clean win.
-  Build the negative half before tuning anything against the positive half.
+- **A tool roster is not a menu a model will decline — hand a 4B seven tools and it invokes one for most <!-- trap: sub=measurement,generation shape=fail-open,silent-loss -->
+  requests NONE of them serves**, fabricating arguments to force a fit (`restart_service {"service":
+  "sourdough_starter_knowledge_base"}` for a baking question) while routing the roster WELL when a right tool
+  exists (2026-09-12, `tool-affordance`). **Prompt wording does not reach it** — two rewrites in opposite
+  directions moved nothing. **Bound the roster BEFORE the model sees it**, and make an expensive tool refuse
+  rather than trusting the call not to arrive; a small model fails the MIRROR way. **A fixture where every
+  request has a right answer cannot see a false positive** — build the negative half before tuning against
+  the positive one. Figures: `docs/model-tasks.md` §3.1.
 
 - <!-- trap: sub=gates shape=vacuous -->**A `retiredTerms` pattern written with `` in a JavaScript single-quoted string can NEVER fire, and
   nothing reports it.** The source needs `\b`; a single backslash is JS's *backspace* escape, so the rule
@@ -852,138 +739,72 @@ of the two: most of these traps recur in a subsystem that had never met them.
   2026-09-15 (**D138**): **D132** retired `AddLocalProvider` and `AddOnnxEmbedder`, so the registrations <!-- drift-ok: the entry naming the half-landed rename is its whole subject -->
   moved — while `LocalProvider`, `LocalModelOptions`, `OnnxEmbedder` and `OnnxEmbedderOptions` stayed, and <!-- drift-ok: as above -->
   `AddLlamaSharpProvider` went on constructing a `LocalProvider`. Both options types are what a consumer <!-- drift-ok: as above -->
-  CONFIGURES, so the stale names were on the public surface the whole time.
-  <br>**The gate is name-driven, so it can only be as complete as the list it was handed** — and a
-  half-registered rename is indistinguishable from a finished one from the outside, exactly like the dead
-  regex above. Neither a green `check-api-vocabulary` nor a green `check-docs` is evidence that a rename
-  LANDED; they are evidence that the names you listed are absent.
-  <br>**Enumerate the whole vocabulary before writing the registry entry**: the method, the type it
-  constructs, that type's `*Options`, the `*BuilderExtensions` class, the NAMESPACE, and the test-class and
-  file names. Renaming `Foo` is not done until `grep -i foo` over `src/` returns only what you intended to
-  keep — and the things you INTEND to keep are worth naming in the entry's comment, since whole-identifier
-  matching is what proves the distinction is real rather than convenient.
-  <br>**That grep is also the only thing that catches the OTHER half of this — a rename script using plain
-  substring replace, which silently MINTS names that never existed.** Same session, from the sweep that
-  renamed `AddOpenAiCompatible` → `AddHttpProvider`: a `str.replace` with no word boundary rewrote the <!-- drift-ok: the sweep this entry is about -->
-  longer `AddOpenAiCompatibleEmbedder` into `AddHttpProviderEmbedder`, a method that has never existed in <!-- drift-ok: as above -->
-  any release — and it landed in two RUNTIME error messages telling a consumer to call it, plus two
-  CHANGELOG entries describing shipped versions, corrupting the record of what those versions actually
-  had. Every gate stayed green, because a minted name is on nobody's retired list.
-  <br>**Anchor every rename with `\\b` on BOTH sides, and audit for concatenations afterwards** —
-  `git grep -hoE "\\b<NewName>[A-Za-z0-9]+\\b"` over the tree returns the damage directly, and returns
-  nothing when there is none. A longer identifier that merely CONTAINS the one you are renaming is the
-  normal case, not the exotic one: it is exactly what a family of related names looks like.
+  CONFIGURES, so the stale names were on the public surface the whole time. A name-driven gate is only as
+  complete as the list it was handed: **enumerate the whole vocabulary before writing the entry** — the
+  method, the type it constructs, its `*Options`, the `*BuilderExtensions` class, the NAMESPACE, the test and
+  file names — and `grep -i` the old word over `src/` until only what you meant to keep remains.
+  <br>**The same grep catches the other half: a substring replace MINTS names that never existed.** The sweep
+  renaming `AddOpenAiCompatible` → `AddHttpProvider` turned the longer `AddOpenAiCompatibleEmbedder` into <!-- drift-ok: the sweep this entry is about -->
+  `AddHttpProviderEmbedder`, in two runtime error messages and two released CHANGELOG entries, every gate <!-- drift-ok: as above -->
+  green. **Anchor every rename with `\\b` on BOTH sides, and audit for concatenations afterwards**
+  (`git grep -hoE "\\b<NewName>[A-Za-z0-9]+\\b"` returns the damage directly).
 
 - <!-- trap: sub=gates,docs shape=wrong-subject,silent-loss -->**A vocabulary gate pointed at a FROZEN record
   does not find drift — it manufactures it, because the cheapest way to make it green is to rewrite the
-  record.** Found 2026-09-15 auditing the D125–D138 rename campaign. A sweep that renamed identifiers across
-  every `.md` rewrote `CHANGELOG.md` **below** its released headings (162 lines: a 3.0.x entry came to read
-  `HttpModelOptions.ContextSize` when that release shipped `OpenAiCompatibleOptions`, and a rename table's <!-- drift-ok: the corrupted spellings are this entry's subject -->
-  TARGET column silently changed), and rewrote the frozen v0.1 design record — collapsing
-  `IGenerationProvider` and `IGenerationStreamProvider` to one name inside a sentence that CONTRASTED them, <!-- drift-ok: as above -->
-  and restating a 2.0.1 package merge under a name that package never had.
-  <br>**Every gate stayed green the whole time**, because a record rewritten to current vocabulary is
-  exactly what a vocabulary gate wants. The damage is invisible until someone reads the old entry and finds
-  it describes a version that never existed.
-  <br>**`check-docs` and `check-samples` share `HISTORICAL` for this**, and `LIVE_PREFIX` splits a
-  half-historical file at its boundary heading — which is why the CHANGELOG's Unreleased section stays
-  checked while its released history does not. **Add the file to `HISTORICAL` rather than annotating it**;
-  the project had already learned this once, when D125 produced 45 hits in one dated plan.
-  <br>**The tell, and the audit:** a rename touching `*.md` should change ONLY maintained state. Diff every
-  historical document against the pre-sweep commit —
-  `git diff <base> -- docs/<record>.md` — and expect zero. A record earns a DATED amendment, never an edit
-  to its body. Exempting it costs the sample check on its blocks, and that is the right trade: those blocks
-  document an older API, so compiling them against HEAD is what forced the rewrite.
+  record.** A sweep renaming identifiers across every `.md` rewrote `CHANGELOG.md` BELOW its released headings
+  (a 3.0.x entry came to read `HttpModelOptions.ContextSize` when that release shipped `OpenAiCompatibleOptions`, and a rename table's <!-- drift-ok: the corrupted spellings are this entry's subject -->
+  TARGET column changed) and the frozen v0.1 design record, collapsing `IGenerationProvider` and `IGenerationStreamProvider` <!-- drift-ok: as above -->
+  to one name inside a sentence that CONTRASTED them (2026-09-15). Every gate stayed green. **`check-docs` and
+  `check-samples` share `HISTORICAL` for this** — add a record to it rather than annotating it. **The audit**:
+  a rename touching `*.md` should change ONLY maintained state, so diff every historical document against the
+  pre-sweep commit and expect zero; a record earns a DATED amendment, never an edit to its body.
 
 - <!-- trap: sub=build,gates shape=scope-blind,silent-loss -->**A registry of PUBLISHED names is not prose,
   and a rename sweep rewrites it anyway — then the tool that reads it reports the corruption as a routine
-  line.** `devtools/nuget-unlist.mjs`'s `RETIRED` array holds ids that exist only on nuget.org; nothing on
-  disk remembers them, which is exactly why a sweep has no other copy to disagree with. Three were rewritten
-  on 2026-09-15. Two were caught, and the repair wrote a warning into the file's own header — **the very
-  next commit broke it again**, D145, whose message says *"the PACKAGE does not move; only the namespace
-  moves"* while moving `Lyntai.Providers.ExtensionsAi` to the namespace `Lyntai.ExtensionsAi`. It survived <!-- drift-ok: the PUBLISHED id is this trap's subject; naming it is the whole point -->
-  until 2026-09-16 with **ten listed versions (2.0.1–3.1.0)** waiting behind it.
-  <br>**The invisibility is the tool's, not the sweep's**: a 404 printed `- not published, skipping` and the
-  run ended `Done.` — a typo and a genuinely-unpublished id were the same unremarkable line. Gated since: a
-  `RETIRED` id the feed has never published is an ERROR, which is true by construction (the array exists
-  only for ids that WERE published) and would have caught all three on the first dry run.
-  <br>**No prose gate could have.** `check-docs` excludes `devtools/` structurally — its own registry has to
-  quote what it retires, measured at 28 legitimate hits and 0 defects — and `check-links`' code tier reads
-  `.cs` only. **When a rename campaign ends, diff every registry of HISTORICAL names, not just every
-  historical document**: the `.md` audit above is half the sweep.
+  line.** `devtools/nuget-unlist.mjs`'s `RETIRED` array holds ids that exist only on nuget.org, so nothing on
+  disk disagrees when a sweep rewrites one: three were rewritten on 2026-09-15, and the very next commit
+  (**D145**) broke the published `Lyntai.Providers.ExtensionsAi` again, with ten listed versions behind it. A <!-- drift-ok: the PUBLISHED id is this trap's subject; naming it is the whole point -->
+  404 printed `- not published, skipping` beside `Done.`; an unpublished `RETIRED` id is now an ERROR, true by
+  construction. **When a rename campaign ends, diff every registry of HISTORICAL names, not just every
+  historical document.**
 
 - <!-- trap: sub=gates,build shape=stale-claim,vacuous -->**A gate deliberately kept OUT of the routine run
-  rots exactly as an unrun test does, and it tells you at the worst possible moment.** `consumer-smoke` is
-  this repository's release gate — the only check that compiles a fresh app against the PACKAGES rather than
-  project references. It is minutes, so it is out of `verify` on purpose, which means the only thing that
-  runs it is somebody remembering. Nobody did through the D125–D147 rename campaign, and on 2026-09-17 it
-  failed with FOUR compile errors: its consumer fixture still named `GenerationCandidate` (**D125** replaced <!-- drift-ok: the retired name the fixture still held is the subject -->
-  it), passed a `defaultModel:` argument (**D132** reshaped the registrations), and was missing the `using`
-  for two types that had moved to `Lyntai.Inference`.
-  <br>**The fixture is written in the library's own public API, so it is a CONSUMER — and every sweep that
-  updates callers has to update it too.** It lives in `devtools/`, which no prose gate scans and which a
-  solution-wide build never compiles, so it is invisible to all three of the mechanisms that would otherwise
-  have caught a stale API call.
-  <br>**What generalises: "run it before a release" is not a mechanism.** The cost of being outside the
-  routine run is not the minutes saved, it is that the gate's own correctness stops being checked — and a
-  release gate that has silently stopped working reports its failure exactly when the release is being cut.
-  If a gate is too slow for `verify`, it still needs a trigger someone cannot forget.
+  rots exactly as an unrun test does, and it tells you at the worst possible moment.** `consumer-smoke`, the
+  release gate, takes minutes and so is out of `verify`; nobody ran it through the D125–D147 renames, and on
+  2026-09-17 it failed with four compile errors — its consumer fixture still named `GenerationCandidate`. The <!-- drift-ok: the retired name the fixture still held is the subject -->
+  fixture is a CONSUMER written in the public API, living in `devtools/` where no prose gate scans and no
+  solution build compiles it, so every sweep that updates callers must update it too. **"Run it before a
+  release" is not a mechanism**: a gate too slow for `verify` still needs a trigger someone cannot forget.
 
 - <!-- trap: sub=tests,gates shape=silent-loss -->**Deleting a test file removes the tests you did not read,
-  and a green run cannot tell you — the SKIP count is the only tell.** Found 2026-09-15 splitting the fused
-  cross-encoder policy (**D139**): the old 319-line suite was read to line ~192 and deleted, taking with it
-  a `[SkippableFact]` live test, a DISPOSE CONTROL (the mirror that makes a BYO-client test mean anything),
-  and two assertions nothing else made. Everything stayed green, because deleted tests fail nothing.
-  <br>**The pair moved +12 where +18 was expected and the skip roster went 29 → 28**, which is the whole
-  signal. `CLAUDE.md` calls a LOWER skip count "the one direction that needs no investigation" — true only
-  when a live suite RAN; with no model directory set it means a live test stopped existing. Read the
-  sentence's condition, not its conclusion.
-  <br>**Before deleting a test file, list what is in it** — `grep -nE "\[Fact\]|\[Theory\]|\[SkippableFact\]"`
-  — and account for every entry in the replacement. A file long enough to be worth splitting is long enough
-  to have a tail you never opened, and the tail is where live tests and controls collect, because both get
-  appended rather than woven in.
+  and a green run cannot tell you — the SKIP count is the only tell.** Splitting the fused cross-encoder
+  policy (**D139**, 2026-09-15), the old suite was read to line ~192 and deleted, taking a `[SkippableFact]`
+  live test and a DISPOSE CONTROL with it; the pair moved +12 where +18 was expected and the skip roster went
+  29 → 28. A LOWER skip count means "a live suite ran" only when one could have. **Before deleting a test
+  file, list what is in it** (`grep -nE "\[Fact\]|\[Theory\]|\[SkippableFact\]"`) and account for every entry:
+  the tail you never opened is where live tests and controls collect.
 
 - <!-- trap: sub=tests shape=vacuous -->**A TAMPER test that writes a FIXED value tampers with nothing on
-  the runs where the value was already there — and then asserts that an UNTOUCHED input throws.** Found
-  2026-09-15: `Tampered_recovery_wrap_throws` replaced the last two base64 characters of a randomly
-  generated wrap with `"AA"`, so whenever the wrap already ended that way the "tampered" envelope was the
-  original, unwrapping succeeded, and the test failed. It reads as flakiness and is not: on those runs the
-  assertion was CORRECT and the setup was wrong.
-  <br>**The tell is a failure that will not reproduce in isolation**, because the input is regenerated per
-  run — the shape `TASKS.md` Part 99 watches. Re-running proves nothing either way; read the SETUP for a
-  constant written over random data.
-  <br>**Derive the mutation from the input and assert that it changed** — flip the byte you find rather
-  than writing one you chose, then `Assert.NotEqual(original, mutated)` as a control before the real
-  assertion. Same rule as any negative test: the thing that makes it negative has to be proven, not
-  assumed.
+  the runs where the value was already there — and then asserts that an UNTOUCHED input throws.**
+  `Tampered_recovery_wrap_throws` overwrote the last two base64 characters of a random wrap with `"AA"`, so
+  whenever the wrap already ended that way the test failed (2026-09-15). It reads as flakiness and will not
+  reproduce in isolation, the shape `TASKS.md` Part 99 watches. **Derive the mutation from the input and
+  assert it changed** (`Assert.NotEqual(original, mutated)`) before the real assertion.
 
 - <!-- trap: sub=storage,tests shape=wrong-subject -->**`SqliteConnection.ClearAllPools()` is
-  PROCESS-GLOBAL, so one test's teardown evicts another test's pooled connection mid-query** — and the
-  victim fails with `ObjectDisposedException: Cannot access a disposed object. Object name:
-  'SQLitePCL.sqlite3'` raised inside whatever it was doing, naming the CONNECTION FACTORY rather than
-  anything near the teardown that broke it. Under the parallel xUnit runner the two tests are in different
-  classes, so the failure looks unrelated to any change and is green in isolation.
-  <br>**`SqliteConnection.ClearPool(connection)` is the scoped form** and is what `TempDbPath.Dispose` uses
-  — one db's pool, keyed by ITS connection string, so a concurrent test's pool is untouched. Deleting the
-  file without clearing that pool is the other half: a pooled handle keeps the `-wal`/`-shm` alive, which is
-  why the delete is wrapped in a swallow.
-  <br>**The general shape is broader than SQLite**: a "clear everything" API called from per-test teardown
-  is scoped to the PROCESS while the test believes it is scoped to the test. Reach for the per-resource
-  overload, and if none exists, the cleanup belongs in a fixture whose lifetime actually matches.
+  PROCESS-GLOBAL, so one test's teardown evicts another test's pooled connection mid-query** — the victim
+  fails with `ObjectDisposedException … 'SQLitePCL.sqlite3'` naming the CONNECTION FACTORY, in a different
+  class under the parallel runner, and is green in isolation. **`SqliteConnection.ClearPool(connection)` is the
+  scoped form** `TempDbPath.Dispose` uses; a pooled handle keeps `-wal`/`-shm` alive, which is why the delete
+  is wrapped in a swallow. **A "clear everything" API in per-test teardown is scoped to the PROCESS**: reach
+  for the per-resource overload, or move the cleanup to a fixture whose lifetime matches.
 
 - <!-- trap: sub=gates,docs shape=scope-blind -->**`check-samples` proves a sample is TYPE-correct, never
   that a consumer could write it** — its scratch project opens EVERY `Lyntai.*` namespace, so a block
-  compiles wherever the member it calls happens to live. Found 2026-09-15 (**D145**): the README showed
-  `client.AsChatClient()` while that extension sat in `Lyntai.Providers.ExtensionsAi`, so a real consumer <!-- drift-ok: the namespace this entry is about -->
-  needed an import from a PROVIDERS namespace to call a front-door method, and neither the doc nor the gate
-  said so.
-  <br>**The ambient list is right for the gate's actual job** — a doc should not carry fifteen `using` lines
-  to make a three-line sample compile — so this is a LIMIT rather than a defect in it. Know the limit:
-  nothing here checks discoverability, and "the samples compile" is not evidence that an API is reachable
-  the way the prose implies.
-  <br>**To check reachability, build a throwaway project that imports ONLY what the prose does.**
-  `devtools/_probe` (gitignored scratch) with one `ProjectReference` and the two usings the sample shows
-  answers it in a few seconds, and is the only thing that does.
+  compiles wherever the member it calls lives. The README once showed `client.AsChatClient()` while that <!-- drift-ok: the retired extension this entry is about -->
+  extension sat in `Lyntai.Providers.ExtensionsAi`, a PROVIDERS namespace (**D145**). The ambient list is <!-- drift-ok: the namespace this entry is about -->
+  right for the gate's job, so this is a LIMIT: **to check reachability, build a throwaway project that
+  imports ONLY what the prose does** (`devtools/_probe`, gitignored).
 
 ## LLM / router (details in `llm-and-router.md`)
 
