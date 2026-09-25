@@ -78,9 +78,9 @@ public sealed class TextRouter(
         var routing = await LiveRouteAsync(candidates, req, ct).ConfigureAwait(false);
         TextResponse? last = null;           // the last SUBSTANTIVE failure — what the caller is told
         TextResponse? lastBlameless = null;  // …kept apart, so it can answer only when there was no real failure
-        var skipped = new SkippedCandidates();
+        var skipped = new SkippedCandidates(ProviderOperation.Complete);
 
-        foreach (var (provider, effectiveModel, key) in LiveCandidates(routing, req, skipped))
+        foreach (var (provider, effectiveModel, key) in LiveCandidates(routing, req, ProviderOperation.Complete, skipped))
         {
             WarnIfToolsUnsupported(provider, req, streaming: false);
             // retry-then-advance: the same candidate may be retried on transient faults before advancing
@@ -140,9 +140,9 @@ public sealed class TextRouter(
     {
         var routing = await LiveRouteAsync(candidates, req, ct).ConfigureAwait(false);
         var failures = new StreamFailures();
-        var skipped = new SkippedCandidates();
+        var skipped = new SkippedCandidates(ProviderOperation.Stream);
 
-        foreach (var (provider, effectiveModel, key) in LiveCandidates(routing, req, skipped))
+        foreach (var (provider, effectiveModel, key) in LiveCandidates(routing, req, ProviderOperation.Stream, skipped))
         {
             WarnIfToolsUnsupported(provider, req, streaming: true);
             var effective = req with { Model = effectiveModel };
@@ -344,23 +344,29 @@ public sealed class TextRouter(
         }
     }
 
+    /// <summary>Why a candidate was skipped, as far as the synthesized verdict cares: a CAPABILITY gap (it serves
+    /// no text, or not on this door) benches nothing and reports Unsupported; anything else is transient.</summary>
+    private enum Gap { None, NoText, NoDoor }
+
     /// <summary>The candidates one call skipped, and why — what the router answers with when it tried none.</summary>
-    private sealed class SkippedCandidates
+    private sealed class SkippedCandidates(ProviderOperation door)
     {
-        private readonly List<(string Candidate, string Reason, bool ServesNoText)> _skipped = [];
+        private readonly List<(string Candidate, string Reason, Gap Gap)> _skipped = [];
 
-        public void Add(ProviderCandidate candidate, string reason, bool servesNoText) =>
-            _skipped.Add((ProviderCandidateSpec.Format(candidate), reason, servesNoText));
+        public void Add(ProviderCandidate candidate, string reason, Gap gap) =>
+            _skipped.Add((ProviderCandidateSpec.Format(candidate), reason, gap));
 
-        /// <summary><see cref="ProviderVerdict.Unsupported"/> when every candidate serves no text — a capability
-        /// gap, which benches nothing — else <see cref="ProviderVerdict.Failed"/>; either way the detail names
-        /// each candidate and why it was skipped.</summary>
+        /// <summary><see cref="ProviderVerdict.Unsupported"/> when every candidate is a capability gap — which
+        /// benches nothing — else <see cref="ProviderVerdict.Failed"/>; either way the detail names each
+        /// candidate and why it was skipped.</summary>
         public (ProviderVerdict Verdict, string Detail) Outcome()
         {
             if (_skipped.Count == 0) return (ProviderVerdict.Failed, "no live candidate (none given)");
             var reasons = string.Join("; ", _skipped.Select(s => $"{s.Candidate}: {s.Reason}"));
-            return _skipped.TrueForAll(s => s.ServesNoText)
-                ? (ProviderVerdict.Unsupported, $"no candidate serves text ({reasons})")
+            if (_skipped.TrueForAll(s => s.Gap == Gap.NoText))
+                return (ProviderVerdict.Unsupported, $"no candidate serves text ({reasons})");
+            return _skipped.TrueForAll(s => s.Gap != Gap.None)
+                ? (ProviderVerdict.Unsupported, $"no candidate serves a text {door} call ({reasons})")
                 : (ProviderVerdict.Failed, $"no live candidate (all skipped: {reasons})");
         }
     }
@@ -382,12 +388,13 @@ public sealed class TextRouter(
 
     /// <inheritdoc/>
     /// <remarks>The live route is read through the same step the call takes, so the answer names the backend
-    /// the call would commit to first; a capable fallback that would never be reached does not flip it.</remarks>
+    /// <see cref="CompleteAsync"/> would commit to first; a capable fallback that would never be reached does not
+    /// flip it.</remarks>
     public async ValueTask<ProviderCapabilities?> GetCapabilitiesAsync(IReadOnlyList<ProviderCandidate> candidates,
         TextRequest req, CancellationToken ct = default)
     {
         var routing = await LiveRouteAsync(candidates, req, ct).ConfigureAwait(false);
-        foreach (var candidate in LiveCandidates(routing, req))
+        foreach (var candidate in LiveCandidates(routing, req, ProviderOperation.Complete))
             return candidate.Provider.Capabilities; // the first live candidate decides
         return null;
     }
@@ -396,13 +403,14 @@ public sealed class TextRouter(
     private readonly record struct Routing(IReadOnlyList<ProviderCandidate> Candidates, bool IsLiveRoute);
 
     /// <summary>The shared candidate-selection preamble every door runs: dedup the list, resolve each
-    /// candidate's EFFECTIVE model, skip unknown/text-less/unavailable/cooling providers (with the sole-candidate
-    /// exemption from cooldown), recording each skip in <paramref name="skipped"/>, and pair each survivor with
-    /// its cooldown key. A given candidate's model is its own, else the request's, else the consumer default; a
-    /// live route entry's never falls to the consumer default, which belongs to the candidates the route
-    /// replaced — its own, else the request's, else the backend's.</summary>
+    /// candidate's EFFECTIVE model, skip unknown/text-less/unavailable/cooling providers and those not declaring
+    /// <paramref name="door"/> (with the sole-candidate exemption from cooldown), recording each skip in
+    /// <paramref name="skipped"/>, and pair each survivor with its cooldown key. A given candidate's model is its
+    /// own, else the request's, else the consumer default; a live route entry's never falls to the consumer
+    /// default, which belongs to the candidates the route replaced — its own, else the request's, else the
+    /// backend's.</summary>
     private IEnumerable<(IModelProvider Provider, string? Model, string Key)> LiveCandidates(
-        Routing routing, TextRequest req, SkippedCandidates? skipped = null)
+        Routing routing, TextRequest req, ProviderOperation door, SkippedCandidates? skipped = null)
     {
         var deduped = CandidateDedup.Dedup(routing.Candidates);
         var soleCandidate = deduped.Count == 1;
@@ -411,17 +419,17 @@ public sealed class TextRouter(
             var effectiveModel = routing.IsLiveRoute
                 ? RouteEntryModel(candidate, req.Model)
                 : options.ResolveModel(req.Consumer, candidate.Model ?? req.Model);
-            var provider = SelectLive(candidate, effectiveModel, soleCandidate, out var skipReason, out var servesNoText);
+            var provider = SelectLive(candidate, effectiveModel, door, soleCandidate, out var skipReason, out var gap);
             if (provider is null)
             {
                 // a text-less backend in a text list is the caller's defect, not transient state: warn, as D176
                 // warns of the same entry in a live route
-                if (servesNoText)
+                if (gap == Gap.NoText)
                     _logger.LogWarning("router: skipping {Candidate} — {Reason}; a text candidate list should not name it",
                         ProviderCandidateSpec.Format(candidate), skipReason);
                 else
                     _logger.LogDebug("router: skipping {Candidate} — {Reason}", candidate.ProviderId, skipReason);
-                skipped?.Add(candidate, skipReason, servesNoText);
+                skipped?.Add(candidate, skipReason, gap);
                 continue;
             }
             yield return (provider, effectiveModel, CooldownKey(provider, effectiveModel));
@@ -547,10 +555,10 @@ public sealed class TextRouter(
             : identity;
     }
 
-    private IModelProvider? SelectLive(ProviderCandidate candidate, string? effectiveModel, bool soleCandidate,
-        out string skipReason, out bool servesNoText)
+    private IModelProvider? SelectLive(ProviderCandidate candidate, string? effectiveModel, ProviderOperation door,
+        bool soleCandidate, out string skipReason, out Gap gap)
     {
-        servesNoText = false;
+        gap = Gap.None;
         if (!_byId.Value.TryGetValue(candidate.ProviderId, out var provider))
         { skipReason = "no provider with this id registered"; return null; }
 
@@ -558,7 +566,14 @@ public sealed class TextRouter(
         if (!ClientCandidates.ServesText(provider))
         {
             skipReason = $"produces {ClientCandidates.Produces(provider)}, not text";
-            servesNoText = true;
+            gap = Gap.NoText;
+            return null;
+        }
+        // an undeclared door would answer Unsupported, which surfaces with no fallback — so it is never asked
+        if (!ClientCandidates.Serves(provider, door))
+        {
+            skipReason = $"does not declare {door}";
+            gap = Gap.NoDoor;
             return null;
         }
         if (!provider.IsAvailable) { skipReason = "provider reports unavailable"; return null; }
