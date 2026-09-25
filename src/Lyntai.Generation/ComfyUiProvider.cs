@@ -1,7 +1,6 @@
 using Lyntai.Inference;
 using System.Net;
 using System.Net.Http.Headers;
-using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -52,9 +51,16 @@ public sealed class ComfyUiOptions
 
     /// <summary>The most bytes one URI input may be fetched as — 128 MiB by default, above any image or mesh
     /// and a short clip. A declared length over it is refused before reading, and a body is cut off once it
-    /// passes it; either way nothing is uploaded and the workflow is not queued. Inline bytes are not
-    /// counted: they are already in the caller's memory.</summary>
+    /// passes it; either way that input is not uploaded and the workflow is not queued (an earlier input of
+    /// the same request may already be). Inline bytes are not counted: they are already in the caller's
+    /// memory.</summary>
     public long MaxFetchBytes { get; set; } = 128L * 1024 * 1024;
+
+    /// <summary>Ceiling for fetching a URI input from ANOTHER origin, per request including each redirect hop —
+    /// two minutes by default. It holds whatever the submit's own deadline is, so a stalled third-party server
+    /// cannot hold a submit open when <see cref="Timeout"/> is infinite. Past it the input is not uploaded and
+    /// the workflow is not queued. <see cref="System.Threading.Timeout.InfiniteTimeSpan"/> removes it.</summary>
+    public TimeSpan FetchTimeout { get; set; } = TimeSpan.FromMinutes(2);
 
     /// <summary>The option key holding the workflow graph JSON.</summary>
     public string WorkflowOption { get; set; } = "workflow";
@@ -76,6 +82,22 @@ public sealed class ComfyUiOptions
 
     /// <summary>Boolean inside <see cref="StatusField"/> that says a run has finished.</summary>
     public string CompletedField { get; set; } = "completed";
+
+    /// <summary>Text inside <see cref="StatusField"/> naming how a run ended (<c>"success"</c>, <c>"error"</c>).
+    /// Read only to recognise <see cref="FailedStatusText"/>.</summary>
+    public string StatusTextField { get; set; } = "status_str";
+
+    /// <summary>The <see cref="StatusTextField"/> value of a run that failed while executing. Such a run polls
+    /// as FAILED; without this it read as still running, because its completed flag stays false.</summary>
+    public string FailedStatusText { get; set; } = "error";
+
+    /// <summary>Array inside <see cref="StatusField"/> holding the run's events, each <c>[name, data]</c>.</summary>
+    public string MessagesField { get; set; } = "messages";
+
+    /// <summary>The event in <see cref="MessagesField"/> that says which node failed and why. The failure's
+    /// detail is its node and <c>exception_message</c> only — never its traceback or inputs, which carry the
+    /// server's file paths.</summary>
+    public string ExecutionErrorEvent { get; set; } = "execution_error";
 
     /// <summary>The option key holding a dotted path to the node input that receives
     /// <see cref="MediaRequest.Prompt"/> (e.g. <c>"6.inputs.text"</c>).</summary>
@@ -144,11 +166,16 @@ public sealed class ComfyUiOptions
 /// <para><b>An input given as a URI is the one thing this backend downloads</b>, because a loader node reads
 /// the server's input folder, not a URL. It is fetched from any http(s) server, capped by
 /// <see cref="ComfyUiOptions.MaxFetchBytes"/>, with the ComfyUI client — and whatever the host configured on
-/// it — used on ComfyUI's own origin only; every other origin, a redirect's target included, gets a client
-/// carrying no credentials. So a host that lets a MODEL name inputs validates those URIs first.</para>
+/// it — used on ComfyUI's own origin only; every other origin gets a client carrying no credentials. A
+/// redirect's target is fetched the same way as long as the ComfyUI client does not follow redirects itself:
+/// <c>AddComfyUiProvider</c>'s does not, but a client the <paramref name="httpFactory"/> returns may. So a
+/// host that lets a MODEL name inputs validates those URIs first.</para>
 /// </remarks>
 /// <param name="options">Endpoint paths, declared kinds and option keys.</param>
-/// <param name="httpFactory">Supplies the <see cref="HttpClient"/> — BYO (design §7).</param>
+/// <param name="httpFactory">Supplies the <see cref="HttpClient"/> — BYO (design §7). It should NOT follow
+/// redirects: it carries what you configured for ComfyUI, and a redirect it follows by itself takes that to
+/// wherever the redirect points before this provider can see where it went (an answer from off ComfyUI's
+/// origin is then refused, but the request has already been sent).</param>
 /// <param name="disposeHttpClient">Whether this provider disposes what <paramref name="httpFactory"/> returns.
 /// Default true, for the usual factory that MAKES a client per call. Pass false when the factory hands back a
 /// client the HOST owns — disposing that leaves the second call throwing
@@ -231,20 +258,29 @@ public sealed class ComfyUiProvider(
     /// the run it starts. A failed fetch or upload fails the submit and queues nothing.</remarks>
     public Task<QueuedOperation> SubmitAsync(MediaRequest request, CancellationToken ct = default)
     {
-        var queueing = new StrongBox<bool>();
+        var stage = new SubmitStage();
         return GenerationDeadline.GuardAsync(
             GenerationDeadline.Resolve(request.TimeoutSeconds, options.Timeout), ct,
-            token => SubmitCoreAsync(request, queueing, token),
+            token => SubmitCoreAsync(request, stage, token),
             // Only once the queue call is out may a submit that timed out have been accepted: then it is
             // inconclusive, so the router surfaces it instead of queueing the same workflow at the next backend
-            // (a local GPU is not free either). Before that, nothing was queued.
-            reason => queueing.Value
+            // (a local GPU is not free either). Before that, nothing was queued — and a deadline spent waiting
+            // on another server is the input's fault, not this host's.
+            reason => stage.Queueing
                 ? Failed($"the submit {reason}; the workflow may still have been accepted") with { Inconclusive = true }
-                : Failed($"the submit {reason} before the workflow was sent, so nothing was queued"));
+                : stage.FetchingFrom is { } origin
+                    ? Unsupported($"the submit {reason} while fetching an input from {origin}, so nothing was queued")
+                    : Failed($"the submit {reason} before the workflow was sent, so nothing was queued"));
     }
 
-    private async Task<QueuedOperation> SubmitCoreAsync(
-        MediaRequest request, StrongBox<bool> queueing, CancellationToken ct)
+    /// <summary>Where a submit had got to, read by its timeout handler.</summary>
+    private sealed class SubmitStage
+    {
+        public bool Queueing;
+        public string? FetchingFrom;
+    }
+
+    private async Task<QueuedOperation> SubmitCoreAsync(MediaRequest request, SubmitStage stage, CancellationToken ct)
     {
         // never set up is not a fault of this host, so routing advances without a strike (D31)
         if (string.IsNullOrWhiteSpace(options.BaseUrl))
@@ -279,23 +315,22 @@ public sealed class ComfyUiProvider(
         {
             foreach (var binding in bindings)
             {
-                var (stored, failure, requestAtFault) = await UploadAsync(http, binding.Input, ct).ConfigureAwait(false);
+                var (stored, failure, verdict) = await UploadAsync(http, binding.Input, stage, ct).ConfigureAwait(false);
                 if (failure is not null)
-                {
-                    var detail = $"{binding.Describe} was not uploaded, so the workflow was not submitted: {failure}";
-                    return requestAtFault ? Unsupported(detail) : Failed(detail);
-                }
+                    return Failed($"{binding.Describe} was not uploaded, so the workflow was not submitted: {failure}")
+                        with { Verdict = verdict };
                 binding.Field.Owner[binding.Field.Name] = stored;
             }
 
             // JsonObject over an anonymous type — keeps the package's trim/AOT claim honest
             var payload = new JsonObject { ["prompt"] = graph }.ToJsonString();
             using var content = new StringContent(payload, Encoding.UTF8, "application/json");
-            queueing.Value = true;   // from here, an answer that never comes may hide a queued run
+            stage.Queueing = true;   // from here, an answer that never comes may hide a queued run
             using var response = await http.PostAsync(Url(options.SubmitPath), content, ct).ConfigureAwait(false);
             var body = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
-                return Failed($"{(int)response.StatusCode}: {HttpArtifacts.FailureDetail(body)}");
+                return Failed($"{(int)response.StatusCode}: {HttpArtifacts.FailureDetail(body)}")
+                    with { Verdict = RequestRefusal(response.StatusCode, body) };
 
             var id = Field(body, options.PromptIdField);
             return id is null
@@ -332,7 +367,11 @@ public sealed class ComfyUiProvider(
             return new QueuedOperation(operationId,
                 transport ? QueuedOperationStatus.Running : QueuedOperationStatus.Failed, Detail: failure);
 
-        return Entry(body!, operationId) is { } entry && Completed(entry)
+        var entry = Entry(body!, operationId);
+        if (ExecutionFailure(entry) is { } failed)
+            return new QueuedOperation(operationId, QueuedOperationStatus.Failed, Detail: failed);
+
+        return Completed(entry)
             ? new QueuedOperation(operationId, QueuedOperationStatus.Succeeded, Progress: 1)
             : new QueuedOperation(operationId, QueuedOperationStatus.Running,
                 Detail: "not in history yet — still queued or running");
@@ -362,7 +401,10 @@ public sealed class ComfyUiProvider(
                     : ProviderVerdictClassifier.FromErrorText(failure),
                 failure);
 
-        if (Entry(body!, operationId) is not { } entry || !Completed(entry))
+        var entry = Entry(body!, operationId);
+        if (ExecutionFailure(entry) is { } failed)
+            return MediaResponse.Failure(ProviderVerdict.Failed, failed);
+        if (entry is null || !Completed(entry))
             return MediaResponse.Failure(ProviderVerdict.Failed,
                 $"operation {operationId} is not finished — poll until Succeeded before fetching");
 
@@ -415,6 +457,17 @@ public sealed class ComfyUiProvider(
     /// counting it against the backend, since another candidate may serve the same request.</summary>
     private QueuedOperation Unsupported(string detail) =>
         Failed(detail) with { Verdict = ProviderVerdict.Unsupported };
+
+    /// <summary>The verdict of a refused call to this server. A 4xx other than access or a rate limit refuses
+    /// THIS request — a graph failing validation (a missing model or node, a bad value), a stale view URI — so
+    /// it is <see cref="ProviderVerdict.Unsupported"/>; access and rate are classified as a fetch's are; a 5xx
+    /// is left to the router's reading of the detail, as a host fault.</summary>
+    private static ProviderVerdict? RequestRefusal(HttpStatusCode status, string? body) => (int)status switch
+    {
+        401 or 403 or 429 => ProviderVerdictClassifier.FromHttpFailure(status, body, hasCredentials: false),
+        >= 400 and < 500 => ProviderVerdict.Unsupported,
+        _ => null,
+    };
 
     /// <summary>Reads the history document. <c>Transport</c> distinguishes "the server did not answer" — an
     /// unreachable host or a 5xx — from a failure that is about THIS operation: an unconfigured BaseUrl, or a
@@ -511,15 +564,16 @@ public sealed class ComfyUiProvider(
 
     /// <summary>Store one input in the server's input folder and answer the name a loader reads it by —
     /// <c>"&lt;subfolder&gt;/&lt;name&gt;"</c> AS THE SERVER REPORTED IT, since the server may rename.
-    /// <c>RequestAtFault</c> marks a failure that is the input's rather than this host's.</summary>
-    private async Task<(string? Stored, string? Failure, bool RequestAtFault)> UploadAsync(
-        HttpClient http, MediaInput input, CancellationToken ct)
+    /// A failure carries the verdict routing should act on, or null to leave it to the router.</summary>
+    private async Task<(string? Stored, string? Failure, ProviderVerdict? Verdict)> UploadAsync(
+        HttpClient http, MediaInput input, SubmitStage stage, CancellationToken ct)
     {
         var bytes = input.Data;
         if (bytes is not { Length: > 0 })
         {
-            var (fetched, failure, requestAtFault) = await DownloadAsync(http, new Uri(input.Uri!), ct).ConfigureAwait(false);
-            if (fetched is null) return (null, $"fetching {input.Uri} failed: {failure}", requestAtFault);
+            var (fetched, failure, verdict) = await DownloadAsync(http, new Uri(input.Uri!), stage, ct).ConfigureAwait(false);
+            stage.FetchingFrom = null;   // left set only when a deadline escapes the fetch, for the handler to read
+            if (fetched is null) return (null, $"fetching {input.Uri} failed: {failure}", verdict);
             bytes = fetched;
         }
 
@@ -537,57 +591,69 @@ public sealed class ComfyUiProvider(
         using var response = await http.PostAsync(Url(options.UploadPath), form, ct).ConfigureAwait(false);
         var body = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
         if (!response.IsSuccessStatusCode)
-            return (null, $"the upload answered {(int)response.StatusCode}: {HttpArtifacts.FailureDetail(body)}", false);
+            return (null, $"the upload answered {(int)response.StatusCode}: {HttpArtifacts.FailureDetail(body)}",
+                RequestRefusal(response.StatusCode, body));
 
         return StoredName(body) is { } stored
-            ? (stored, null, false)
-            : (null, $"the upload answered no name: {HttpArtifacts.FailureDetail(body, 200)}", false);
+            ? (stored, null, null)
+            : (null, $"the upload answered no name: {HttpArtifacts.FailureDetail(body, 200)}", null);
     }
 
     private const int MaxRedirects = 5;
 
     /// <summary>GET a URI input. ComfyUI's client carries what the host configured FOR ComfyUI, so it is
-    /// used on ComfyUI's own origin only; any other origin gets the credential-less client. Redirects are
-    /// followed HERE, so that choice is made again at every hop. A failure from another origin is the
-    /// input's, not this host's.</summary>
-    private async Task<(byte[]? Bytes, string? Failure, bool RequestAtFault)> DownloadAsync(
-        HttpClient comfy, Uri uri, CancellationToken ct)
+    /// used on ComfyUI's own origin only; any other origin gets the credential-less client, bounded by
+    /// <see cref="ComfyUiOptions.FetchTimeout"/>. Redirects are followed HERE, so that choice is made again at
+    /// every hop. Anything another origin does is the input's fault, never this host's.</summary>
+    private async Task<(byte[]? Bytes, string? Failure, ProviderVerdict? Verdict)> DownloadAsync(
+        HttpClient comfy, Uri uri, SubmitStage stage, CancellationToken ct)
     {
         var at = uri;
         for (var hop = 0; hop <= MaxRedirects; hop++)
         {
             var own = OnComfyUi(at);
+            ProviderVerdict? Elsewhere() => own ? null : ProviderVerdict.Unsupported;
+            using var bound = own || options.FetchTimeout <= TimeSpan.Zero ? null : new CancellationTokenSource(options.FetchTimeout);
+            using var linked = bound is null ? null : CancellationTokenSource.CreateLinkedTokenSource(ct, bound.Token);
+            stage.FetchingFrom = own ? null : at.GetLeftPart(UriPartial.Authority);
             try
             {
                 using var request = new HttpRequestMessage(HttpMethod.Get, at);
                 using var response = await (own ? comfy : _foreign)
-                    .SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
+                    .SendAsync(request, HttpCompletionOption.ResponseHeadersRead, linked?.Token ?? ct).ConfigureAwait(false);
 
                 // a client the host supplies may follow a redirect by itself; an answer from elsewhere is not used
                 if (response.RequestMessage?.RequestUri is { } answered && !SameOrigin(answered, at))
                     return (null, $"the client followed a redirect to {answered.GetLeftPart(UriPartial.Authority)}, "
-                        + "whose answer is not used", false);
+                        + "whose answer is not used", null);
 
                 if ((int)response.StatusCode is >= 300 and < 400 && response.Headers.Location is { } location)
                 {
                     at = location.IsAbsoluteUri ? location : new Uri(at, location);
                     if (at.Scheme is not ("http" or "https"))
-                        return (null, $"it redirected to {at}, which is not http or https", true);
+                        return (null, $"it redirected to {at}, which is not http or https", ProviderVerdict.Unsupported);
                     continue;
                 }
                 if (!response.IsSuccessStatusCode)
-                    return (null, $"it answered {(int)response.StatusCode}", !own);
+                    return (null, $"it answered {(int)response.StatusCode}",
+                        own ? RequestRefusal(response.StatusCode, null) : ProviderVerdict.Unsupported);
                 if (response.Content.Headers.ContentLength > options.MaxFetchBytes ||
-                    await ReadCappedAsync(response.Content, ct).ConfigureAwait(false) is not { } bytes)
-                    return (null, $"it is over ComfyUiOptions.MaxFetchBytes ({options.MaxFetchBytes} bytes)", true);
-                return (bytes, null, false);
+                    await ReadCappedAsync(response.Content, linked?.Token ?? ct).ConfigureAwait(false) is not { } bytes)
+                    return (null, $"it is over ComfyUiOptions.MaxFetchBytes ({options.MaxFetchBytes} bytes)",
+                        ProviderVerdict.Unsupported);
+                return (bytes, null, null);
+            }
+            catch (OperationCanceledException) when (bound is { IsCancellationRequested: true } && !ct.IsCancellationRequested)
+            {
+                return (null, $"it did not answer within ComfyUiOptions.FetchTimeout ({options.FetchTimeout})",
+                    ProviderVerdict.Unsupported);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
-                return (null, ex.Message, !own);
+                return (null, ex.Message, Elsewhere());
             }
         }
-        return (null, $"it redirected more than {MaxRedirects} times", true);
+        return (null, $"it redirected more than {MaxRedirects} times", ProviderVerdict.Unsupported);
     }
 
     /// <summary>The body, or null once it passes <see cref="ComfyUiOptions.MaxFetchBytes"/> — counted while
@@ -650,6 +716,38 @@ public sealed class ComfyUiProvider(
         {
             return null;
         }
+    }
+
+    /// <summary>What a run that failed WHILE EXECUTING says, or null for any other run. Its completed flag stays
+    /// false, so without this it polled as running until the caller gave up. The detail is the failing node
+    /// and its exception message only: the event's traceback and inputs name paths on the SERVER.</summary>
+    private string? ExecutionFailure(JsonElement? entry)
+    {
+        if (entry is not { ValueKind: JsonValueKind.Object } value ||
+            !value.TryGetProperty(options.StatusField, out var status) || status.ValueKind != JsonValueKind.Object ||
+            HttpArtifacts.Str(status, options.StatusTextField) is not { } text ||
+            !string.Equals(text, options.FailedStatusText, StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        if (status.TryGetProperty(options.MessagesField, out var messages) && messages.ValueKind == JsonValueKind.Array)
+            foreach (var message in messages.EnumerateArray())
+            {
+                if (message.ValueKind != JsonValueKind.Array || message.GetArrayLength() < 2) continue;
+                if (message[0].ValueKind != JsonValueKind.String ||
+                    message[0].GetString() != options.ExecutionErrorEvent) continue;
+
+                var error = message[1];
+                var node = string.Join(" ", new[]
+                {
+                    HttpArtifacts.Scalar(error, "node_id") is { } id ? $"node {id}" : null,
+                    HttpArtifacts.Str(error, "node_type") is { } type ? $"({type})" : null,
+                }.OfType<string>());
+                var said = HttpArtifacts.Str(error, "exception_message") is { } m
+                    ? HttpArtifacts.FailureDetail(m) : "no message";
+                return $"the run failed{(node.Length > 0 ? $" at {node}" : "")}: {said}";
+            }
+
+        return $"the run failed: its history says \"{text}\" but carries no {options.ExecutionErrorEvent} message";
     }
 
     /// <summary>Treats a run as done when it says so, and — defensively — when it has outputs but no status

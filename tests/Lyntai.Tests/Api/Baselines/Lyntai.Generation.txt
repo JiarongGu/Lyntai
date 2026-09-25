@@ -18,17 +18,22 @@ sealed class Lyntai.Generation.Providers.ComfyUiOptions
     .ctor()
     BaseUrl : String
     CompletedField : String
+    ExecutionErrorEvent : String
+    FailedStatusText : String
+    FetchTimeout : TimeSpan
     HistoryPath : String
     Id : String
     InputPathOption : String
     InterruptPath : String
     MaxFetchBytes : Int64
     MeshSubfolder : String
+    MessagesField : String
     OutputsField : String
     Produces : IReadOnlyList<String>
     PromptIdField : String
     PromptPathOption : String
     StatusField : String
+    StatusTextField : String
     SubmitPath : String
     SystemStatsPath : String
     Timeout : TimeSpan

@@ -5594,14 +5594,15 @@ a promise"). `ProviderKinds.Model3d` joins the default `Produces`, as `Video` di
 `Automatic1111Provider`, which refuse a URI rather than download it, and from this class's own rule that it downloads
 nothing uninvited: a loader reads the server's input folder, and a chain may cross servers (a fal output into
 ComfyUI). So it is fenced. The ComfyUI client, carrying what the host set up FOR ComfyUI, fetches on ComfyUI's
-own origin only; every other origin, a redirect's target included, gets a shared credential-less client — the
-provider follows redirects itself, and `AddComfyUiProvider`'s client follows none. Only absolute http(s) is
-fetched, and `MaxFetchBytes` caps the body by its declared length and again while reading. The library fetches
-what it is handed, so a host that lets a model name inputs (an `imageUrl`) validates those URIs.
+own origin only; every other origin gets a shared credential-less client, bounded by `FetchTimeout`, and so does
+a redirect's target while the ComfyUI client follows none itself — `AddComfyUiProvider`'s does not; a BYO one
+may. Only absolute http(s) is fetched, and `MaxFetchBytes` caps the body by its declared length and again while
+reading. The library fetches what it is handed, so a host that lets a model name inputs validates those URIs.
 
 **A refusal of the REQUEST carries a verdict.** `QueuedOperation.Verdict` lets a submission say `Unsupported`, which
 `MediaRouter` advances past without a strike, so a request ComfyUI cannot serve as posed — no workflow, an input
-with nowhere to go, a URI it will not fetch, a fetch from another origin that fails — never benches it. Unset, the
+with nowhere to go, a URI it will not fetch, a fetch from another origin that fails, a 4xx ComfyUI answers other
+than 401/403/429 (a graph failing validation) — never benches it. Unset, the
 router classifies the detail as before. A mesh then chains into an image where the BACKEND rasterizes it — a
 ComfyUI render graph, measured on 0.36.0 with no 3D model (`ComfyUiLiveTests`); **D140**'s remark yields to this.
 

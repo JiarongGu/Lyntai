@@ -268,8 +268,11 @@ every addition.
   ComfyUI stage through submit → poll → fetch.
   <br>**An input given as a URI is FETCHED, from any http(s) server**, and capped by the new
   `ComfyUiOptions.MaxFetchBytes` (128 MiB) — by its declared length and again while it is read; over the cap,
-  nothing is uploaded or queued. The ComfyUI client, and whatever you configured on it, is used on ComfyUI's own
-  origin only; any other origin, a redirect's target included, is fetched with no credentials, and a URI that is
+  that input is not uploaded and nothing is queued. The ComfyUI client, and whatever you configured on it, is used
+  on ComfyUI's own origin only; any other origin is fetched with no credentials, and so is a redirect's target —
+  `AddComfyUiProvider`'s client follows no redirect itself, though a client passed to the constructor, or a
+  primary handler replaced on `HttpClientName(id)` after registration, may. A fetch from another origin is
+  bounded by `ComfyUiOptions.FetchTimeout` (two minutes) even when the submit has no deadline, and a URI that is
   not absolute http(s) is refused. **If a model can name inputs** — an agent tool's `imageUrl` — validate those
   URIs before they reach the provider: the library fetches what it is handed.
 
@@ -278,9 +281,22 @@ every addition.
   the backend, so a request one backend cannot serve as posed no longer benches it. Null, the default, keeps the
   router classifying `Detail` as before. ComfyUI sets it on every refusal of the request itself: no workflow, a
   workflow that does not parse, an input with nowhere to go or nothing to send, a URI it will not fetch or one
-  over the cap, and a fetch from another origin that fails.
+  over the cap, a fetch from another origin that fails or times out, and a 4xx from ComfyUI itself — a graph that
+  fails validation (a missing model or node, a bad value), a stale view URI — other than 401, 403 and 429, which
+  are classified as access and rate as before. A 5xx is still the server's fault.
 
 ### Fixed
+
+- **A ComfyUI run that fails while executing now polls as `Failed`, with the node's own words.** Its history
+  says `status_str: "error"` and leaves `completed` false, so the poll read it as still running and a broken graph
+  looked like a slow one until the caller's own deadline. The detail is the failing node and its
+  `exception_message` — never the event's traceback or inputs, which carry the server's file paths — and a
+  fetch of such a run reports the same. Measured on ComfyUI 0.36.0; the field, the value, the messages array and
+  the event are new options with those defaults: `StatusTextField`, `FailedStatusText`, `MessagesField`,
+  `ExecutionErrorEvent`.
+
+- **Submitting to a ComfyUI provider with no `BaseUrl` is `NotConfigured`**, so routing advances without counting
+  it against the backend. Through 3.2.0 it was a plain failure, and a strike toward the dead-host threshold.
 
 - **A candidate list passed at run time no longer calls a backend that produces no text** (**D178**). A list
   your code passes to `ITextRouter` naming an embedder, reranker or media backend skips it on both doors, with

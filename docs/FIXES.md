@@ -7,6 +7,34 @@ to `.claude/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-09-25 — a ComfyUI run that failed while executing polled as "still running" until the caller gave up
+
+**Symptom.** Found building GEN7's mesh stage (**D180**), filed as `TASKS.md` Part 290: a graph that raises at run
+time — measured with a GLB holding a node and no mesh, which makes `Get3DComponents` raise — never reached a
+terminal state. Every poll answered `Running`, "not in history yet", although the history entry was already
+there, so a broken graph read exactly like a slow one until the job's own deadline or retry budget ran out.
+
+**Root cause.** `ComfyUiProvider.Completed` trusted `status.completed`, and ComfyUI leaves that `false` on a run
+that errored; the entry's `status.status_str` (`"error"`) and its `execution_error` event were never read. The
+poll's "not finished" branch was the only one such an entry could reach.
+
+**Fix.** `ExecutionFailure` reads `status_str` and, when it equals `ComfyUiOptions.FailedStatusText`, the poll
+answers `Failed` and a fetch answers a failure, both with the node and its `exception_message` from the
+`execution_error` event — or a generic line when there is none. The event's `traceback` and `current_inputs`
+are never copied: they carry the server's file paths. The field, the value, the messages array and the event
+name are options with the measured defaults (**D69**).
+
+**Verify.** `ComfyUiProviderTests.A_run_that_failed_during_execution_polls_as_FAILED_with_the_nodes_message_and_no_server_paths`
+replays the measured entry, with a marker standing in for the paths, and asserts the marker is absent;
+`An_error_entry_with_no_execution_error_message_still_polls_as_failed`,
+`Fetching_a_run_that_failed_reports_its_error_rather_than_not_finished` and
+`The_failure_status_its_messages_and_the_error_event_are_host_options` cover the rest, and
+`A_run_that_succeeded_with_a_status_text_still_polls_as_succeeded` keeps the success path. All but the last failed
+before the change; making the poll ignore the status text fails three of them again.
+
+**Introduced by.** `a0efbe65` (2026-08-04), the commit that added the ComfyUI backend and read completion from
+`status.completed` alone.
+
 ## 2026-09-24 — an input over a reranker's window benched the host and switched verification off unseen
 
 **Symptom.** Reported by an adopting application screening a 512-window reranker on llama.cpp b10549: one

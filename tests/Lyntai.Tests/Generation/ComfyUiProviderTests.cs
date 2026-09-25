@@ -261,7 +261,95 @@ public class ComfyUiProviderTests
 
         Assert.Equal(QueuedOperationStatus.Failed, operation.Status);
         Assert.Contains(source, operation.Detail);
+        Assert.Equal(ProviderVerdict.Unsupported, operation.Verdict);   // a stale view URI is the request's fault
         Assert.Single(http.Requests);
+    }
+
+    [Fact]
+    public async Task A_5xx_from_ComfyUIs_own_origin_while_fetching_is_left_a_host_fault()
+    {
+        var (provider, http) = Provider();
+        http.Enqueue(HttpStatusCode.InternalServerError, "boom");
+
+        var operation = await provider.SubmitAsync(MeshAsk(Bound("input-path", "1.inputs.model_file"),
+            new MediaInput("model/gltf-binary", Uri: "http://127.0.0.1:8188/view?filename=a.glb&type=output")));
+
+        Assert.Equal(QueuedOperationStatus.Failed, operation.Status);
+        Assert.Equal(ProviderVerdict.Failed, EffectiveVerdict(operation));
+    }
+
+    [Fact]
+    public async Task An_upload_the_server_refuses_with_a_4xx_is_Unsupported()
+    {
+        var (provider, http) = Provider();
+        http.Enqueue(HttpStatusCode.RequestEntityTooLarge, "too large");
+
+        var operation = await provider.SubmitAsync(MeshAsk(Bound("input-path", "1.inputs.model_file"), Mesh("M")));
+
+        Assert.Equal(ProviderVerdict.Unsupported, operation.Verdict);
+        Assert.Single(http.Requests);
+    }
+
+    /// <summary>What <c>MediaRouter.SubmitAsync</c> acts on: the operation's own verdict, else its detail
+    /// classified.</summary>
+    private static ProviderVerdict EffectiveVerdict(QueuedOperation operation) =>
+        operation.Verdict ?? ProviderVerdictClassifier.FromErrorText(operation.Detail);
+
+    // ---- the queue call: a graph ComfyUI rejects is the request's fault, not the server's ----------------
+
+    /// <summary>What <c>POST /prompt</c> answers when a graph fails validation — a missing model, a missing
+    /// custom node, a value out of range.</summary>
+    private const string ValidationFailure = """
+        {"error":{"type":"prompt_outputs_failed_validation","message":"Prompt outputs failed validation",
+          "details":"","extra_info":{}},
+         "node_errors":{"4":{"errors":[{"type":"value_not_in_list","message":"Value not in list"}],
+          "dependent_outputs":["9"],"class_type":"CheckpointLoaderSimple"}}}
+        """;
+
+    [Theory]
+    [InlineData(HttpStatusCode.BadRequest, ProviderVerdict.Unsupported)]
+    [InlineData(HttpStatusCode.NotFound, ProviderVerdict.Unsupported)]
+    [InlineData(HttpStatusCode.TooManyRequests, ProviderVerdict.RateLimited)]
+    [InlineData(HttpStatusCode.Unauthorized, ProviderVerdict.NotConfigured)]
+    [InlineData(HttpStatusCode.Forbidden, ProviderVerdict.NotConfigured)]
+    [InlineData(HttpStatusCode.InternalServerError, ProviderVerdict.Failed)]
+    [InlineData(HttpStatusCode.ServiceUnavailable, ProviderVerdict.Failed)]
+    public async Task A_refused_queue_call_is_classified_by_its_status(HttpStatusCode status, ProviderVerdict expected)
+    {
+        // a 4xx that is not about access or rate is ComfyUI refusing THIS graph; a 5xx is the server's own fault
+        var (provider, http) = Provider();
+        http.Enqueue(status, ValidationFailure);
+
+        var operation = await provider.SubmitAsync(Ask());
+
+        Assert.Equal(QueuedOperationStatus.Failed, operation.Status);
+        Assert.False(operation.Inconclusive);   // it answered
+        Assert.Equal(expected, EffectiveVerdict(operation));
+    }
+
+    [Fact]
+    public async Task A_graph_that_fails_validation_advances_to_the_next_candidate_and_never_benches_ComfyUI()
+    {
+        var tracker = new DeadHostTracker(threshold: 1, cooldown: TimeSpan.FromMinutes(5));
+        var (comfy, http) = Provider();
+        http.Enqueue(HttpStatusCode.BadRequest, ValidationFailure);   // repeats for every submit
+        var other = new FakeGenerationJobProvider
+        {
+            Id = "other",
+            Capabilities = new()
+            {
+                Accepts = [ProviderKinds.Text], Produces = [ProviderKinds.Image], Operations = [ProviderOperation.Queued],
+            },
+        };
+        var router = new MediaRouter([comfy, other], deadHosts: tracker);
+
+        for (var i = 0; i < 3; i++)
+            Assert.Equal("other", (await router.SubmitAsync(
+                [new ProviderCandidate("comfyui"), new ProviderCandidate("other")], Ask())).ProviderId);
+
+        Assert.Equal(3, http.Requests.Count);    // asked every time: no strike, no bench
+        Assert.False(tracker.IsDead("generation::comfyui"));
+        Assert.Contains("failed validation", (await comfy.SubmitAsync(Ask())).Detail);
     }
 
     // ---- a URI input: fetched from any server, but ComfyUI's credentials stay on ComfyUI's origin --------
@@ -417,6 +505,103 @@ public class ComfyUiProviderTests
         Assert.Contains("input 1", operation.Detail);
         Assert.Contains($"fetching {OwnView}", operation.Detail);
         Assert.Contains("the handler blew up", operation.Detail);
+    }
+
+    [Fact]
+    public async Task A_foreign_fetch_that_answers_an_error_is_the_inputs_fault_even_a_5xx()
+    {
+        // another server's 503 says nothing about ComfyUI's health — the same code from ComfyUI itself would
+        var (provider, _, foreign) = WithForeign();
+        foreign.Enqueue(HttpStatusCode.ServiceUnavailable, "down");
+
+        var operation = await provider.SubmitAsync(FromUri("https://cdn.example.org/f.glb"));
+
+        Assert.Equal(QueuedOperationStatus.Failed, operation.Status);
+        Assert.Equal(ProviderVerdict.Unsupported, operation.Verdict);
+    }
+
+    [Fact]
+    public async Task A_foreign_fetch_that_throws_is_the_inputs_fault()
+    {
+        var (provider, _, foreign) = WithForeign();
+        foreign.Enqueue(_ => throw new HttpRequestException("connection refused"));
+
+        var operation = await provider.SubmitAsync(FromUri("https://cdn.example.org/f.glb"));
+
+        Assert.Equal(ProviderVerdict.Unsupported, operation.Verdict);
+        Assert.Contains("connection refused", operation.Detail);
+    }
+
+    [Fact]
+    public async Task A_redirect_to_a_scheme_other_than_http_is_refused()
+    {
+        var (provider, comfy, foreign) = WithForeign();
+        comfy.Enqueue(_ => new HttpResponseMessage(HttpStatusCode.Found)
+        {
+            Headers = { Location = new Uri("ftp://files.example/x.glb") },
+        });
+
+        var operation = await provider.SubmitAsync(FromUri(OwnView));
+
+        Assert.Equal(QueuedOperationStatus.Failed, operation.Status);
+        Assert.Contains("not http or https", operation.Detail);
+        Assert.Equal(ProviderVerdict.Unsupported, operation.Verdict);
+        Assert.Single(comfy.Requests);
+        Assert.Empty(foreign.Requests);
+    }
+
+    [Fact]
+    public async Task More_than_five_redirects_are_refused()
+    {
+        var (provider, comfy, _) = WithForeign();
+        comfy.Enqueue(_ => new HttpResponseMessage(HttpStatusCode.Found)
+        {
+            Headers = { Location = new Uri("http://127.0.0.1:8188/view?filename=again.glb&type=output") },
+        });   // the stub repeats it for every hop
+
+        var operation = await provider.SubmitAsync(FromUri(OwnView));
+
+        Assert.Equal(QueuedOperationStatus.Failed, operation.Status);
+        Assert.Contains("more than 5", operation.Detail);
+        Assert.Equal(6, comfy.Requests.Count);   // the first request and five redirects, no upload
+    }
+
+    private static ComfyUiProvider WithStalledForeign(ComfyUiOptions options) =>
+        new(options, () => new HttpClient(new StubHttpHandler(), disposeHandler: false), new StallingHandler());
+
+    [Fact]
+    public async Task A_stalled_foreign_fetch_is_bounded_by_FetchTimeout_even_when_the_submit_has_no_deadline()
+    {
+        var provider = WithStalledForeign(new ComfyUiOptions
+        {
+            BaseUrl = "http://127.0.0.1:8188",
+            Timeout = Timeout.InfiniteTimeSpan,
+            FetchTimeout = TimeSpan.FromMilliseconds(150),
+        });
+
+        var operation = await provider.SubmitAsync(FromUri("https://cdn.example.org/f.glb")).WaitAsync(TimeSpan.FromSeconds(10));
+
+        Assert.Equal(QueuedOperationStatus.Failed, operation.Status);
+        Assert.Contains("FetchTimeout", operation.Detail);
+        Assert.Equal(ProviderVerdict.Unsupported, operation.Verdict);
+        Assert.False(operation.Inconclusive);
+    }
+
+    [Fact]
+    public async Task The_submit_deadline_firing_during_a_foreign_fetch_is_the_inputs_fault_and_not_inconclusive()
+    {
+        var provider = WithStalledForeign(new ComfyUiOptions
+        {
+            BaseUrl = "http://127.0.0.1:8188",
+            Timeout = TimeSpan.FromMilliseconds(150),
+        });
+
+        var operation = await provider.SubmitAsync(FromUri("https://cdn.example.org/f.glb")).WaitAsync(TimeSpan.FromSeconds(10));
+
+        Assert.Equal(QueuedOperationStatus.Failed, operation.Status);
+        Assert.Contains("nothing was queued", operation.Detail);
+        Assert.Equal(ProviderVerdict.Unsupported, operation.Verdict);
+        Assert.False(operation.Inconclusive);
     }
 
     [Fact]
@@ -715,6 +900,100 @@ public class ComfyUiProviderTests
 
         Assert.Equal(QueuedOperationStatus.Succeeded, operation.Status);
         Assert.Equal(1, operation.Progress);
+    }
+
+    // ---- a run that fails DURING execution: measured on 0.36.0 (a GLB with a node and no mesh) ------------
+
+    /// <summary>The history entry of a graph that raised at run time, in the shape measured. The traceback and
+    /// inputs carry a marker standing in for the server's file paths.</summary>
+    private const string ExecutionError = """
+        {"abc-123":{"outputs":{},"status":{"status_str":"error","completed":false,"messages":[
+          ["execution_start",{"prompt_id":"abc-123","timestamp":1}],
+          ["execution_cached",{"nodes":[],"prompt_id":"abc-123","timestamp":2}],
+          ["execution_error",{"prompt_id":"abc-123","node_id":"2","node_type":"Get3DComponents","executed":["1"],
+            "exception_message":"Get3DComponents: no triangle geometry found in the glTF scene",
+            "exception_type":"ValueError",
+            "traceback":["  File \"/srv/SERVER-PATH-MARKER/execution.py\", line 510, in execute\n"],
+            "current_inputs":{"model_3d":["/srv/SERVER-PATH-MARKER/input/3d/x.glb"]},
+            "current_outputs":{},"timestamp":3}]]}}}
+        """;
+
+    [Fact]
+    public async Task A_run_that_failed_during_execution_polls_as_FAILED_with_the_nodes_message_and_no_server_paths()
+    {
+        // it read as "still running" until the caller's own deadline, so a broken graph looked like a slow one
+        var (provider, http) = Provider();
+        http.Enqueue(HttpStatusCode.OK, ExecutionError);
+
+        var operation = await provider.PollAsync("abc-123");
+
+        Assert.Equal(QueuedOperationStatus.Failed, operation.Status);
+        Assert.Contains("no triangle geometry found in the glTF scene", operation.Detail);
+        Assert.Contains("Get3DComponents", operation.Detail);
+        Assert.Contains("node 2", operation.Detail);
+        Assert.DoesNotContain("SERVER-PATH-MARKER", operation.Detail);   // never the traceback or the inputs
+        Assert.DoesNotContain("execution.py", operation.Detail);
+    }
+
+    [Fact]
+    public async Task An_error_entry_with_no_execution_error_message_still_polls_as_failed()
+    {
+        var (provider, http) = Provider();
+        http.Enqueue(HttpStatusCode.OK, """{"abc-123":{"outputs":{},"status":{"status_str":"error","completed":false,"messages":[]}}}""");
+
+        var operation = await provider.PollAsync("abc-123");
+
+        Assert.Equal(QueuedOperationStatus.Failed, operation.Status);
+        Assert.False(string.IsNullOrWhiteSpace(operation.Detail));
+    }
+
+    [Fact]
+    public async Task A_run_that_succeeded_with_a_status_text_still_polls_as_succeeded()
+    {
+        var (provider, http) = Provider();
+        http.Enqueue(HttpStatusCode.OK, """
+            {"abc-123":{"status":{"status_str":"success","completed":true,"messages":[["execution_success",{"prompt_id":"abc-123"}]]},
+             "outputs":{"9":{"images":[{"filename":"out.png","subfolder":"","type":"output"}]}}}}
+            """);
+
+        var operation = await provider.PollAsync("abc-123");
+
+        Assert.Equal(QueuedOperationStatus.Succeeded, operation.Status);
+    }
+
+    [Fact]
+    public async Task Fetching_a_run_that_failed_reports_its_error_rather_than_not_finished()
+    {
+        var (provider, http) = Provider();
+        http.Enqueue(HttpStatusCode.OK, ExecutionError);
+
+        var result = await provider.FetchAsync("abc-123");
+
+        Assert.False(result.IsOk);
+        Assert.Contains("no triangle geometry", result.Detail);
+        Assert.DoesNotContain("SERVER-PATH-MARKER", result.Detail);
+    }
+
+    [Fact]
+    public async Task The_failure_status_its_messages_and_the_error_event_are_host_options()
+    {
+        var (provider, http) = Provider(new ComfyUiOptions
+        {
+            BaseUrl = "http://127.0.0.1:8188",
+            StatusTextField = "state",
+            FailedStatusText = "failed",
+            MessagesField = "log",
+            ExecutionErrorEvent = "node_failed",
+        });
+        http.Enqueue(HttpStatusCode.OK, """
+            {"abc-123":{"outputs":{},"status":{"state":"failed","completed":false,"log":[
+              ["node_failed",{"node_id":"7","node_type":"SaveGLB","exception_message":"disk full"}]]}}}
+            """);
+
+        var operation = await provider.PollAsync("abc-123");
+
+        Assert.Equal(QueuedOperationStatus.Failed, operation.Status);
+        Assert.Contains("disk full", operation.Detail);
     }
 
     [Fact]

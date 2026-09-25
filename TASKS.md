@@ -15,19 +15,18 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 6 across 4 Parts: 2 startable, 2 blocked, 2 watch
+## Open items — 5 across 4 Parts: 1 startable, 2 blocked, 2 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 107 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
-| 174 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 197 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 254 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
-| 283 | 290 | A ComfyUI run that fails DURING execution polls as "Running" until the dead… | startable |  |
-| 293 | 290 | A pipeline cannot reach a QUEUED backend | startable |  |
+| 106 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
+| 173 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 196 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 253 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 282 | 290 | A pipeline cannot reach a QUEUED backend | startable |  |
 
 <!-- open-items:end -->
 
@@ -278,18 +277,8 @@ there is nothing here to code: what remains is evidence only recurrence can supp
 
 ## Part 290 — what building GEN7's mesh stage found (2026-09-25)
 
-_Both found while building the ComfyUI mesh stage (**D180**); the owner ruled on each on 2026-09-25._
+_Found while building the ComfyUI mesh stage (**D180**); the owner ruled on it on 2026-09-25._
 
-- [ ] **A ComfyUI run that fails DURING execution polls as "Running" until the deadline.** <!-- item: state=startable -->
-  `ComfyUiProvider`'s poll (`src/Lyntai.Generation/ComfyUiProvider.cs`) reads `status.completed` and the
-  outputs, never the error the history document records, so a failed graph looks like a slow one. **Owner
-  ruling: measure, then fix** — submit a deliberately failing graph to the local ComfyUI, capture what history
-  says on an error, and map it to a failed poll carrying the node's message (the field names behind options, D69).
-  <br>**MEASURED 2026-09-25 (local 0.36.0, a scene-without-mesh GLB making `Get3DComponents` raise):** the history
-  entry reads `status.status_str = "error"`, `status.completed = false`, `outputs = {}`, and `status.messages`
-  holds `["execution_error", {node_id, node_type, exception_type, exception_message, traceback, …}]`. The
-  failure's words are `exception_message` plus the node; the `traceback` carries the SERVER's file paths and
-  must not be copied into a detail a consumer logs.
 - [ ] **A pipeline cannot reach a QUEUED backend.** `GenerationPipeline.RunPipelineAsync` composes only <!-- item: state=startable -->
   `IMediaRouter.GenerateAsync`, and every video backend (ComfyUI, fal) is queued-only — so `image → video`
   through the library's own runner has never run on a real video backend, and GEN7's live mesh chain had to
