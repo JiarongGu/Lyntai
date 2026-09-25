@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Lyntai.Inference;
+using Lyntai.Text;
 
 namespace Lyntai.Generation;
 
@@ -9,30 +10,6 @@ namespace Lyntai.Generation;
 /// reflection serializer would quietly make that claim false.</summary>
 internal static class GenerationJson
 {
-    /// <summary>Read a string member, or null when it is absent, not a string, or empty. The object-kind test is
-    /// part of the contract, not a formality: <c>TryGetProperty</c> THROWS on an element that isn't an object,
-    /// so a copy of this reader without it is one careless caller away from an exception.</summary>
-    public static string? Str(JsonElement element, string name) =>
-        element.ValueKind == JsonValueKind.Object &&
-        element.TryGetProperty(name, out var value) &&
-        value.ValueKind == JsonValueKind.String &&
-        value.GetString() is { Length: > 0 } text
-            ? text
-            : null;
-
-    /// <summary>One JSON object as text, its members written by <paramref name="body"/>.</summary>
-    public static string WriteObject(Action<Utf8JsonWriter> body)
-    {
-        using var buffer = new MemoryStream();
-        using (var writer = new Utf8JsonWriter(buffer))
-        {
-            writer.WriteStartObject();
-            body(writer);
-            writer.WriteEndObject();
-        }
-        return System.Text.Encoding.UTF8.GetString(buffer.ToArray());
-    }
-
     /// <summary>Write <paramref name="candidates"/> as the <c>candidates</c> array of the object being written.</summary>
     public static void WriteCandidates(Utf8JsonWriter writer, IReadOnlyList<string> candidates)
     {
@@ -60,7 +37,7 @@ internal static class GenerationJson
         writer.WriteString("kind", request.Kind);
         // the consumer tag rides along so a job RESUMED in another process still bills to whoever asked for
         // it — a durable job outlives the request that created it
-        if (request.Consumer != "default") writer.WriteString("consumer", request.Consumer);
+        if (request.Consumer != ProviderConsumers.Default) writer.WriteString("consumer", request.Consumer);
         if (request.Prompt is { } prompt) writer.WriteString("prompt", prompt);
         if (request.Model is { } model) writer.WriteString("model", model);
         if (request.TimeoutSeconds is { } timeout) writer.WriteNumber("timeoutSeconds", timeout);
@@ -93,7 +70,7 @@ internal static class GenerationJson
     /// names no <c>kind</c>.</summary>
     public static MediaRequest? ReadRequest(JsonElement element)
     {
-        if (Str(element, "kind") is not { } kind) return null;
+        if (JsonExtract.StringProperty(element, "kind") is not { } kind) return null;
 
         var options = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         if (element.TryGetProperty("options", out var optionObject) && optionObject.ValueKind == JsonValueKind.Object)
@@ -105,16 +82,17 @@ internal static class GenerationJson
         if (element.TryGetProperty("inputs", out var inputArray) && inputArray.ValueKind == JsonValueKind.Array)
             foreach (var input in inputArray.EnumerateArray())
             {
-                if (Str(input, "mediaType") is not { } mediaType) continue;
-                inputs.Add(new MediaInput(mediaType, Bytes(input), Str(input, "uri"), Str(input, "role")));
+                if (JsonExtract.StringProperty(input, "mediaType") is not { } mediaType) continue;
+                inputs.Add(new MediaInput(mediaType, Bytes(input),
+                    JsonExtract.StringProperty(input, "uri"), JsonExtract.StringProperty(input, "role")));
             }
 
         return new MediaRequest
         {
             Kind = kind,
-            Consumer = Str(element, "consumer") ?? "default",
-            Prompt = Str(element, "prompt"),
-            Model = Str(element, "model"),
+            Consumer = JsonExtract.StringProperty(element, "consumer") ?? ProviderConsumers.Default,
+            Prompt = JsonExtract.StringProperty(element, "prompt"),
+            Model = JsonExtract.StringProperty(element, "model"),
             Options = options,
             Inputs = inputs,
             TimeoutSeconds = element.TryGetProperty("timeoutSeconds", out var t) &&
@@ -125,7 +103,7 @@ internal static class GenerationJson
     /// <summary>The base64 <c>data</c> member decoded, or null when it is absent or not base64.</summary>
     public static byte[]? Bytes(JsonElement element)
     {
-        if (Str(element, "data") is not { } base64) return null;
+        if (JsonExtract.StringProperty(element, "data") is not { } base64) return null;
         try { return Convert.FromBase64String(base64); }
         catch (FormatException) { return null; }
     }

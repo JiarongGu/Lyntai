@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Lyntai.Inference;
+using Lyntai.Text;
 
 namespace Lyntai.Generation.Jobs;
 
@@ -38,7 +39,7 @@ public sealed record GenerationPipelineJob
     public IReadOnlyList<GenerationPipelineJobStage> Stages { get; }
 
     /// <summary>Serialize for <c>JobSpec.Payload</c>. Inline input bytes travel as base64.</summary>
-    public string ToJson() => GenerationJson.WriteObject(writer =>
+    public string ToJson() => JsonExtract.WriteObject(writer =>
     {
         writer.WriteStartArray("stages");
         foreach (var stage in Stages)
@@ -72,8 +73,8 @@ public sealed record GenerationPipelineJob
                 if (GenerationJson.ReadRequest(element) is not { } request) return null;
                 stages.Add(new GenerationPipelineJobStage(GenerationJson.ReadCandidates(element), request)
                 {
-                    InputRole = GenerationJson.Str(element, "inputRole"),
-                    InputMediaType = GenerationJson.Str(element, "inputMediaType"),
+                    InputRole = JsonExtract.StringProperty(element, "inputRole"),
+                    InputMediaType = JsonExtract.StringProperty(element, "inputMediaType"),
                 });
             }
             return new GenerationPipelineJob(stages);

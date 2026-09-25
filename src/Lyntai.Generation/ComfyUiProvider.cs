@@ -1,4 +1,5 @@
 using Lyntai.Inference;
+using Lyntai.Text;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
@@ -268,10 +269,13 @@ public sealed class ComfyUiProvider(
             // (a local GPU is not free either). Before that, nothing was queued — and a deadline spent waiting
             // on another server is the input's fault, not this host's.
             reason => stage.Queueing
-                ? Failed($"the submit {reason}; the workflow may still have been accepted") with { Inconclusive = true }
+                ? QueuedOperation.Failure($"the submit {reason}; the workflow may still have been accepted") with
+                {
+                    Inconclusive = true,
+                }
                 : stage.FetchingFrom is { } origin
                     ? Unsupported($"the submit {reason} while fetching an input from {origin}, so nothing was queued")
-                    : Failed($"the submit {reason} before the workflow was sent, so nothing was queued"));
+                    : QueuedOperation.Failure($"the submit {reason} before the workflow was sent, so nothing was queued"));
     }
 
     /// <summary>Where a submit had got to, read by its timeout handler.</summary>
@@ -285,7 +289,7 @@ public sealed class ComfyUiProvider(
     {
         // never set up is not a fault of this host, so routing advances without a strike (D31)
         if (string.IsNullOrWhiteSpace(options.BaseUrl))
-            return Failed("no BaseUrl configured") with { Verdict = ProviderVerdict.NotConfigured };
+            return QueuedOperation.Failure("no BaseUrl configured", ProviderVerdict.NotConfigured);
 
         if (request.Option(options.WorkflowOption) is not { Length: > 0 } workflowJson)
             return Unsupported($"ComfyUI needs a workflow graph in Options[\"{options.WorkflowOption}\"] — " +
@@ -318,8 +322,8 @@ public sealed class ComfyUiProvider(
             {
                 var (stored, failure, verdict) = await UploadAsync(http, binding.Input, stage, ct).ConfigureAwait(false);
                 if (failure is not null)
-                    return Failed($"{binding.Describe} was not uploaded, so the workflow was not submitted: {failure}")
-                        with { Verdict = verdict };
+                    return QueuedOperation.Failure(
+                        $"{binding.Describe} was not uploaded, so the workflow was not submitted: {failure}", verdict);
                 binding.Field.Owner[binding.Field.Name] = stored;
             }
 
@@ -330,22 +334,23 @@ public sealed class ComfyUiProvider(
             using var response = await http.PostAsync(Url(options.SubmitPath), content, ct).ConfigureAwait(false);
             var body = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
-                return Failed($"{(int)response.StatusCode}: {HttpArtifacts.FailureDetail(body)}")
-                    with { Verdict = RequestRefusal(response.StatusCode, body) };
+                return QueuedOperation.Failure($"{(int)response.StatusCode}: {HttpArtifacts.FailureDetail(body)}",
+                    RequestRefusal(response.StatusCode, body));
 
             var id = Field(body, options.PromptIdField);
             return id is null
-                ? Failed($"no {options.PromptIdField} in the response: {HttpArtifacts.FailureDetail(body, 200)}")
+                ? QueuedOperation.Failure($"no {options.PromptIdField} in a 2xx answer, so the workflow may still " +
+                                          $"have been accepted: {HttpArtifacts.FailureDetail(body, 200)}") with { Inconclusive = true }
                 : new QueuedOperation(id, QueuedOperationStatus.Queued);
         }
         catch (OperationCanceledException) { throw; }
-        catch (HttpRequestException ex)
-        {
-            return Failed(Unreachable(ex));
-        }
         catch (Exception ex)
         {
-            return Failed(ex.Message);
+            var operation = QueuedOperation.FromThrownSubmit(ex, sent: stage.Queueing);
+            // "not reachable" only where nothing can have been queued
+            return ex is HttpRequestException unreached && !operation.Inconclusive
+                ? operation with { Detail = Unreachable(unreached) }
+                : operation;
         }
     }
 
@@ -432,12 +437,10 @@ public sealed class ComfyUiProvider(
 
     private string Unreachable(HttpRequestException ex) => $"ComfyUI at {Root} is not reachable: {ex.Message}";
 
-    private static QueuedOperation Failed(string detail) => QueueCalls.Failed(detail);
-
     /// <summary>A refusal of the REQUEST as posed, not a fault of this host: the router advances past it without
     /// counting it against the backend, since another candidate may serve the same request.</summary>
     private static QueuedOperation Unsupported(string detail) =>
-        Failed(detail) with { Verdict = ProviderVerdict.Unsupported };
+        QueuedOperation.Failure(detail, ProviderVerdict.Unsupported);
 
     /// <summary>The verdict of a refused call to this server. A 4xx other than access or a rate limit refuses
     /// THIS request — a graph failing validation (a missing model or node, a bad value), a stale view URI — so
@@ -654,8 +657,8 @@ public sealed class ComfyUiProvider(
         try
         {
             using var doc = JsonDocument.Parse(body);
-            if (HttpArtifacts.Str(doc.RootElement, "name") is not { } name) return null;
-            return HttpArtifacts.Str(doc.RootElement, "subfolder") is { } subfolder ? $"{subfolder}/{name}" : name;
+            if (JsonExtract.StringProperty(doc.RootElement, "name") is not { } name) return null;
+            return JsonExtract.StringProperty(doc.RootElement, "subfolder") is { } subfolder ? $"{subfolder}/{name}" : name;
         }
         catch (JsonException)
         {
@@ -692,7 +695,7 @@ public sealed class ComfyUiProvider(
     {
         if (entry is not { ValueKind: JsonValueKind.Object } value ||
             !value.TryGetProperty(options.StatusField, out var status) || status.ValueKind != JsonValueKind.Object ||
-            HttpArtifacts.Str(status, options.StatusTextField) is not { } text ||
+            JsonExtract.StringProperty(status, options.StatusTextField) is not { } text ||
             !string.Equals(text, options.FailedStatusText, StringComparison.OrdinalIgnoreCase))
             return null;
 
@@ -706,10 +709,10 @@ public sealed class ComfyUiProvider(
                 var error = message[1];
                 var node = string.Join(" ", new[]
                 {
-                    HttpArtifacts.Scalar(error, "node_id") is { } id ? $"node {id}" : null,
-                    HttpArtifacts.Str(error, "node_type") is { } type ? $"({type})" : null,
+                    JsonExtract.ScalarProperty(error, "node_id") is { } id ? $"node {id}" : null,
+                    JsonExtract.StringProperty(error, "node_type") is { } type ? $"({type})" : null,
                 }.OfType<string>());
-                var said = HttpArtifacts.Str(error, "exception_message") is { } m
+                var said = JsonExtract.StringProperty(error, "exception_message") is { } m
                     ? HttpArtifacts.FailureDetail(m) : "no message";
                 return $"the run failed{(node.Length > 0 ? $" at {node}" : "")}: {said}";
             }
@@ -752,10 +755,10 @@ public sealed class ComfyUiProvider(
                 foreach (var file in collection.Value.EnumerateArray())
                 {
                     if (file.ValueKind != JsonValueKind.Object) continue;
-                    if (HttpArtifacts.Str(file, "filename") is not { } filename) continue;
+                    if (JsonExtract.StringProperty(file, "filename") is not { } filename) continue;
 
-                    var subfolder = HttpArtifacts.Str(file, "subfolder") ?? "";
-                    var type = HttpArtifacts.Str(file, "type") ?? "output";
+                    var subfolder = JsonExtract.StringProperty(file, "subfolder") ?? "";
+                    var type = JsonExtract.StringProperty(file, "type") ?? "output";
                     var uri = $"{Url(options.ViewPath)}?filename={Uri.EscapeDataString(filename)}" +
                         $"&subfolder={Uri.EscapeDataString(subfolder)}&type={Uri.EscapeDataString(type)}";
                     artifacts.Add(new MediaArtifact(MediaTypeOf(filename), Uri: uri,
@@ -787,7 +790,7 @@ public sealed class ComfyUiProvider(
     private static string? Field(string body, string name)
     {
         if (!HttpArtifacts.TryParseObject(body, out var doc)) return null;
-        using (doc) return HttpArtifacts.Scalar(doc.RootElement, name);
+        using (doc) return JsonExtract.ScalarProperty(doc.RootElement, name);
     }
 
     private static string? ComfyVersion(string body)
@@ -797,7 +800,7 @@ public sealed class ComfyUiProvider(
             using var doc = JsonDocument.Parse(body);
             if (doc.RootElement.ValueKind == JsonValueKind.Object &&
                 doc.RootElement.TryGetProperty("system", out var system))
-                return HttpArtifacts.Str(system, "comfyui_version");
+                return JsonExtract.StringProperty(system, "comfyui_version");
             return null;
         }
         catch (JsonException)

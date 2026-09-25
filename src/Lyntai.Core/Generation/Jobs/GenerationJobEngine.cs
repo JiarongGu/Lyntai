@@ -2,6 +2,7 @@ using System.Text.Json;
 using Lyntai.Inference;
 using Lyntai.Inference.Budgeting;
 using Lyntai.Jobs;
+using Lyntai.Text;
 
 namespace Lyntai.Generation.Jobs;
 
@@ -69,7 +70,7 @@ internal sealed class GenerationJobEngine(
                 // bill before anything else: the money is spent either way. Only a queued stage — the router
                 // that ran an inline one recorded it, when the budget decorator wraps it.
                 if (produced.Queued && usage is not null)
-                    await BudgetedMediaRouter.RecordAsync(usage, stage.Request.Consumer, produced.Response.Usage, ct)
+                    await BudgetGate.RecordCostAsync(usage, stage.Request.Consumer, produced.Response.Usage, ct)
                         .ConfigureAwait(false);
 
                 // the result is checkpointed BEFORE delivery, so a sink that throws gets it again without a second
@@ -184,10 +185,9 @@ internal sealed class GenerationJobEngine(
         : null;
 
     /// <summary>The router's own capability filter, for one door.</summary>
-    private bool Serves(IReadOnlyList<ProviderCandidate> candidates, MediaRequest request, bool queued) => queued
-        ? MediaRouter.Capable(_providers, candidates, request, ProviderOperation.Queued)
-            .Any(capable => capable.Provider is IMediaJobProvider)
-        : MediaRouter.Capable(_providers, candidates, request, ProviderOperation.Complete).Count > 0;
+    private bool Serves(IReadOnlyList<ProviderCandidate> candidates, MediaRequest request, bool queued) =>
+        MediaRouter.Capable(_providers, candidates, request,
+            queued ? ProviderOperation.Queued : ProviderOperation.Complete).Count > 0;
 
     private async Task<JobOutcome> CheckpointSubmissionAsync(JobContext ctx, PipelineCheckpoint at, string name,
         int stages, MediaSubmission submission, Mode mode, CancellationToken ct)
@@ -297,7 +297,7 @@ internal sealed class GenerationJobEngine(
         int Stage, string? ProviderId = null, string? OperationId = null,
         IReadOnlyList<MediaArtifact>? Chained = null, Produced? Pending = null)
     {
-        public string ToJson() => GenerationJson.WriteObject(writer =>
+        public string ToJson() => JsonExtract.WriteObject(writer =>
         {
             writer.WriteNumber("stage", Stage);
             if (OperationId is not null)
@@ -338,7 +338,7 @@ internal sealed class GenerationJobEngine(
                     !s.TryGetInt32(out var stage) || stage < 0 || stage >= stages)
                     return null;
 
-                var (providerId, operationId) = (GenerationJson.Str(root, "providerId"), GenerationJson.Str(root, "operationId"));
+                var (providerId, operationId) = (JsonExtract.StringProperty(root, "providerId"), JsonExtract.StringProperty(root, "operationId"));
                 var hasArtifacts = root.TryGetProperty("artifacts", out var artifacts);
                 var hasPending = root.TryGetProperty("pending", out var pending);
 
@@ -351,8 +351,8 @@ internal sealed class GenerationJobEngine(
                     return !hasArtifacts && ReadArtifacts(pending, "artifacts") is { Count: > 0 } produced
                         ? new PipelineCheckpoint(stage, Pending: new Produced(
                             new MediaResponse(ProviderVerdict.Ok, produced, ReadUsage(pending)),
-                            GenerationJson.Str(pending, "providerId") ?? "",
-                            GenerationJson.Str(pending, "operationId") ?? "",
+                            JsonExtract.StringProperty(pending, "providerId") ?? "",
+                            JsonExtract.StringProperty(pending, "operationId") ?? "",
                             Queued: false))
                         : null;
 
@@ -396,10 +396,10 @@ internal sealed class GenerationJobEngine(
             var read = new List<MediaArtifact>();
             foreach (var entry in array.EnumerateArray())
             {
-                if (GenerationJson.Str(entry, "mediaType") is not { } mediaType) return null;
+                if (JsonExtract.StringProperty(entry, "mediaType") is not { } mediaType) return null;
                 var data = GenerationJson.Bytes(entry);
-                if (data is null && GenerationJson.Str(entry, "data") is not null) return null;
-                read.Add(new MediaArtifact(mediaType, data, GenerationJson.Str(entry, "uri"), Metadata(entry)));
+                if (data is null && JsonExtract.StringProperty(entry, "data") is not null) return null;
+                read.Add(new MediaArtifact(mediaType, data, JsonExtract.StringProperty(entry, "uri"), Metadata(entry)));
             }
             return read;
         }
@@ -432,6 +432,5 @@ internal static class MediaJobBackends
     /// <summary>The registered backend with this id, IF it is asynchronous. Null covers both "no such backend"
     /// and "that one is inline-only".</summary>
     public static IMediaJobProvider? Find(IEnumerable<IModelProvider> providers, string id) =>
-        providers.FirstOrDefault(p => string.Equals(p.Id, id, StringComparison.OrdinalIgnoreCase))
-            as IMediaJobProvider;
+        ProviderLookup.Find(providers, id) as IMediaJobProvider;
 }

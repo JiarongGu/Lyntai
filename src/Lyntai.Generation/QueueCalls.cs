@@ -89,7 +89,4 @@ internal static class QueueCalls
     /// <summary>A cancel that never got an answer: it may or may not have landed, so the render is still RUNNING.</summary>
     public static QueuedOperation CancelUnanswered(string operationId, Exception ex) =>
         new(operationId, QueuedOperationStatus.Running, Detail: ex.Message);
-
-    /// <summary>A submission that failed, with no operation to name.</summary>
-    public static QueuedOperation Failed(string detail) => new("", QueuedOperationStatus.Failed, Detail: detail);
 }

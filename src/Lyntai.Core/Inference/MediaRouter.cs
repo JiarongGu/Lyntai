@@ -115,7 +115,7 @@ public sealed class MediaRouter(
 
         foreach (var (provider, resolved) in capable)
         {
-            if (provider is not IMediaJobProvider job) continue;   // capability says Job; the type must agree
+            var job = (IMediaJobProvider)provider;   // Capable admits a Queued backend only when the type agrees
             if (IsBenched(provider, capable.Count)) { benched++; continue; }
             attempted++;
 
@@ -161,13 +161,9 @@ public sealed class MediaRouter(
                 // and benching a working backend on a slow network helps nobody.
                 if (operation.Inconclusive) return new MediaSubmission(provider.Id, operation);
 
-                // A rejected submission gets a VERDICT, because "advance and always take a dead-host strike"
-                // is wrong for the same reason it is wrong inline: an unconfigured queue backend
-                // (FalQueueProvider answers "not configured: …" before it opens a socket) would be penalised
-                // on every attempt for a fact known before the call — precisely the harm NotConfigured was
-                // introduced to prevent (docs/DECISIONS.md D31). The backend's own verdict wins where it gives
-                // one; otherwise it comes from classifying the backend's words through the shared corpus, and
-                // an unclassifiable rejection still lands on Failed, which is what it did before.
+                // A rejection gets a VERDICT, so a blameless one takes no strike (an unconfigured FalProvider
+                // says NotConfigured before it opens a socket; D31): the backend's own where it gives one, else
+                // its words classified, and Failed when nothing recognises them.
                 var verdict = operation.Verdict ?? ProviderVerdictClassifier.FromErrorText(operation.Detail);
                 failures.File(new Rejection(provider.Id, operation.Detail, verdict), verdict, operation.Detail);
 
@@ -425,9 +421,9 @@ public sealed class MediaRouter(
         _bookkeeping.IsBenched(_bookkeeping.Key(provider), capableCount == 1, _policy.ExemptSoleCandidate);
 
     /// <summary>Candidates that exist, are registered, report themselves available, are DISTINCT, and DECLARE
-    /// they can serve this request/delivery — with the candidate's model applied to the request when it pins
-    /// one. Materialized because the sole-candidate cooldown exemption needs to know how many there are before
-    /// trying the first.
+    /// they can serve this request/delivery — a queued one also implementing <see cref="IMediaJobProvider"/> —
+    /// with the candidate's model applied to the request when it pins one. Materialized because the
+    /// sole-candidate cooldown exemption needs to know how many there are before trying the first.
     ///
     /// <para><b>Dedup happens on the RESOLVED pair, and it happens HERE.</b> Resolved, because that is the
     /// pair that decides what is actually called: <c>"fal"</c> and <c>"FAL"</c> select one provider (ids match
@@ -473,7 +469,9 @@ public sealed class MediaRouter(
                     entry.Request.Kind, delivery,
                     accepts: ProviderKinds.Text,
                     model: entry.Request.Model,
-                    hasInputs: entry.Request.Inputs.Count > 0))
+                    hasInputs: entry.Request.Inputs.Count > 0) &&
+                // a declared queue the type cannot serve is not capable — nor counted toward the exemption
+                (delivery != ProviderOperation.Queued || entry.Provider is IMediaJobProvider))
                 capable.Add(entry);
         }
         return capable;

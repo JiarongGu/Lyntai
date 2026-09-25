@@ -53,9 +53,8 @@ public sealed class BudgetedMediaRouter(
     /// <inheritdoc/>
     /// <remarks>The submit path is where the money is COMMITTED — a hosted video render is charged for
     /// whether or not anyone ever fetches it — so the check belongs here rather than at fetch time. The cost
-    /// itself is only known when the render finishes, which is why the durable job handlers
-    /// (<c>GenerationRenderJobHandler</c>, <c>GenerationPipelineJobHandler</c>) record it: this decorator never
-    /// sees the completed result.</remarks>
+    /// itself is only known when the render finishes, which is why whatever FETCHES it records it — the durable
+    /// job handlers and the <c>generate_fetch</c> tool: this decorator never sees the completed result.</remarks>
     public async Task<MediaSubmission> SubmitAsync(
         IReadOnlyList<ProviderCandidate> candidates, MediaRequest request, CancellationToken ct = default)
     {
@@ -94,19 +93,13 @@ public sealed class BudgetedMediaRouter(
         }
     }
 
-    /// <summary>Forwards to <see cref="Budgeting.BudgetGate.RecordCostAsync"/>, where generation spend is mapped
-    /// onto the ledger; kept for the durable job handlers that record a finished render's cost.</summary>
-    internal static ValueTask RecordAsync(
-        IUsageTracker tracker, string consumer, MediaUsage? usage, CancellationToken ct = default) =>
-        Budgeting.BudgetGate.RecordCostAsync(tracker, consumer, usage, ct);
-
     private ValueTask RecordAsync(string consumer, MediaUsage? usage, CancellationToken ct) =>
-        Budgeting.BudgetGate.RecordCostAsync(tracker, consumer, usage, ct);
+        BudgetGate.RecordCostAsync(tracker, consumer, usage, ct);
 
     /// <summary>The refusal reason when a COST cap that applies to <paramref name="consumer"/> has been
-    /// reached — delegated to the ONE <see cref="Budgeting.BudgetGate"/> the text door and the generic
+    /// reached — delegated to the ONE <see cref="BudgetGate"/> the text door and the generic
     /// router's governance share, with token caps EXCLUDED: a render spends no tokens, and refusing one
     /// because chat exhausted a token budget would be governance by coincidence.</summary>
     private ValueTask<string?> OverBudgetAsync(string consumer, CancellationToken ct) =>
-        Budgeting.BudgetGate.OverBudgetAsync(options.Budget, tracker, consumer, includeTokens: false, _logger, ct);
+        BudgetGate.OverBudgetAsync(options.Budget, tracker, consumer, includeTokens: false, _logger, ct);
 }

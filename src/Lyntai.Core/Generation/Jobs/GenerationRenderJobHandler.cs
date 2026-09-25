@@ -2,6 +2,7 @@ using System.Text.Json;
 using Lyntai.Inference;
 using Lyntai.Inference.Budgeting;
 using Lyntai.Jobs;
+using Lyntai.Text;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Lyntai.Generation.Jobs;
@@ -66,8 +67,8 @@ public sealed class GenerationRenderJobHandler(
             using var doc = JsonDocument.Parse(checkpoint);
             var root = doc.RootElement;
             return root.ValueKind == JsonValueKind.Object && !root.TryGetProperty("stage", out _) &&
-                   GenerationJson.Str(root, "providerId") is { } providerId &&
-                   GenerationJson.Str(root, "operationId") is { } operationId
+                   JsonExtract.StringProperty(root, "providerId") is { } providerId &&
+                   JsonExtract.StringProperty(root, "operationId") is { } operationId
                 ? GenerationJobEngine.SubmittedCheckpoint(providerId, operationId)
                 : checkpoint;
         }
