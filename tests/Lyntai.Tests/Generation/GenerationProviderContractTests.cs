@@ -186,11 +186,11 @@ public class ComfyUiProviderContractTests : HttpGenerationProviderContractFacts
     };
 }
 
-public class FalQueueProviderContractTests : HttpGenerationProviderContractFacts
+public class FalProviderContractTests : HttpGenerationProviderContractFacts
 {
     protected override IModelProvider New(StubHttpHandler http) =>
-        new FalQueueProvider(
-            new FalQueueOptions { ApiKey = "k", Model = "fal-ai/wan-t2v" },
+        new FalProvider(
+            new FalOptions { ApiKey = "k", Model = "fal-ai/wan-t2v" },
             () => new HttpClient(http, disposeHandler: false));
 
     protected override MediaRequest Ask() =>

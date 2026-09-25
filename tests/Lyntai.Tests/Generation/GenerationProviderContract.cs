@@ -125,7 +125,7 @@ public static class GenerationProviderContract
     /// missing key, and it tells a host nothing it can act on.
     /// <para>This is the fact the divergence that prompted this contract would have failed:
     /// <c>ComfyUiProvider.FetchCoreAsync</c> hardcoded <c>Failed</c> for every failed history read while
-    /// <c>FalQueueProvider</c> routed the same class through <c>ProviderVerdictClassifier</c>, so the same
+    /// <c>FalProvider</c> routed the same class through <c>ProviderVerdictClassifier</c>, so the same
     /// authenticating proxy in front of each produced different verdicts.</para></summary>
     public static void An_authentication_failure_is_classified_rather_than_flattened(
         string door, string providerId, ProviderVerdict verdict) =>
@@ -155,7 +155,7 @@ public static class GenerationProviderContract
     /// to the router that this backend reads <see cref="MediaRequest.Inputs"/>, so a backend that
     /// declares it and ignores them is handed the chained artifact and drops it in silence.
     /// <para>Two answers are acceptable and one is not. SENDING NOTHING is honest — that is a refusal, and
-    /// <c>FalQueueProvider</c> refuses a bytes-only input exactly this way. Sending a request that carries the
+    /// <c>FalProvider</c> refuses a bytes-only input exactly this way. Sending a request that carries the
     /// input is honest. Sending a request that does NOT carry it is the defect: the render is billed, the
     /// result comes back plausible, and nothing in it says the caller's image was discarded.</para>
     /// <para>A backend declaring <c>false</c> is out of scope here and guarded by <c>Supports</c> instead —

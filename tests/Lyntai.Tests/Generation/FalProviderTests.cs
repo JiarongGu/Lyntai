@@ -11,13 +11,13 @@ namespace Lyntai.Tests.Generation;
 /// with a guess. What is pinned is what would break silently and cost money — the operation-id encoding a
 /// resumed job depends on, the status mapping the job handler branches on, and "no artifacts" never becoming a
 /// fake success. The vendor shape itself gets confirmed the first time it runs for real.</summary>
-public class FalQueueProviderTests
+public class FalProviderTests
 {
-    private static (FalQueueProvider Provider, StubHttpHandler Http) Provider(FalQueueOptions? options = null)
+    private static (FalProvider Provider, StubHttpHandler Http) Provider(FalOptions? options = null)
     {
         var handler = new StubHttpHandler();
-        return (new FalQueueProvider(
-            options ?? new FalQueueOptions { ApiKey = "k", Model = "fal-ai/wan-t2v" },
+        return (new FalProvider(
+            options ?? new FalOptions { ApiKey = "k", Model = "fal-ai/wan-t2v" },
             () => new HttpClient(handler, disposeHandler: false)), handler);
     }
 
@@ -100,7 +100,7 @@ public class FalQueueProviderTests
     [Fact]
     public async Task A_host_that_learns_the_real_status_vocabulary_can_correct_it_in_configuration()
     {
-        var options = new FalQueueOptions { ApiKey = "k", Model = "fal-ai/wan-t2v" };
+        var options = new FalOptions { ApiKey = "k", Model = "fal-ai/wan-t2v" };
         options.StatusVocabulary["ENQUEUED"] = QueuedOperationStatus.Queued;      // extend
         options.StatusVocabulary["COMPLETED"] = QueuedOperationStatus.Running;    // redefine
         var (provider, http) = Provider(options);
@@ -117,7 +117,7 @@ public class FalQueueProviderTests
     {
         // The override must not weaken the rule that matters most: an unknown state is never terminal, so a
         // host who maps two of three states cannot lose a render by omission.
-        var options = new FalQueueOptions { ApiKey = "k", Model = "fal-ai/wan-t2v" };
+        var options = new FalOptions { ApiKey = "k", Model = "fal-ai/wan-t2v" };
         options.StatusVocabulary.Clear();
         var (provider, http) = Provider(options);
         http.Enqueue(HttpStatusCode.OK, """{"status":"COMPLETED"}""");
@@ -131,7 +131,7 @@ public class FalQueueProviderTests
     [Fact]
     public async Task A_host_can_retarget_or_disable_the_cost_field()
     {
-        var options = new FalQueueOptions { ApiKey = "k", Model = "fal-ai/wan-t2v", CostFields = ["billing_usd"] };
+        var options = new FalOptions { ApiKey = "k", Model = "fal-ai/wan-t2v", CostFields = ["billing_usd"] };
         var (provider, http) = Provider(options);
         http.Enqueue(HttpStatusCode.OK, """{"billing_usd":0.42,"video":{"url":"https://x.invalid/a.mp4"}}""");
 
@@ -145,7 +145,7 @@ public class FalQueueProviderTests
     {
         // Honest when a deployment knows the shipped names are wrong: no number beats a number that is not
         // the price, because the budget decorator SPENDS against whatever this reports.
-        var options = new FalQueueOptions { ApiKey = "k", Model = "fal-ai/wan-t2v", CostFields = [] };
+        var options = new FalOptions { ApiKey = "k", Model = "fal-ai/wan-t2v", CostFields = [] };
         var (provider, http) = Provider(options);
         http.Enqueue(HttpStatusCode.OK, """{"cost":9.99,"video":{"url":"https://x.invalid/a.mp4"}}""");
 
@@ -211,7 +211,7 @@ public class FalQueueProviderTests
     {
         // The worst shape of the same bug: an operator rotates the key out of configuration and every
         // in-flight durable render polls "not configured: BaseUrl and ApiKey are both required" forever.
-        var (provider, _) = Provider(new FalQueueOptions { BaseUrl = "https://queue.fal.run", ApiKey = null });
+        var (provider, _) = Provider(new FalOptions { BaseUrl = "https://queue.fal.run", ApiKey = null });
 
         var operation = await provider.PollAsync("fal-ai/wan-t2v#req-123");
 
@@ -237,7 +237,7 @@ public class FalQueueProviderTests
     [Fact]
     public void The_artifact_reader_handles_an_array_shape_and_infers_type_from_the_extension()
     {
-        var artifacts = FalQueueProvider.ReadArtifacts(
+        var artifacts = FalProvider.ReadArtifacts(
             """{"images":[{"url":"https://cdn.invalid/a.png"},{"url":"https://cdn.invalid/b.jpg?x=1"}]}""");
 
         Assert.Equal(2, artifacts.Count);
@@ -260,7 +260,7 @@ public class FalQueueProviderTests
     [Fact]
     public async Task No_api_key_is_NOT_CONFIGURED_and_never_calls_out()
     {
-        var (provider, http) = Provider(new FalQueueOptions { Model = "m" });
+        var (provider, http) = Provider(new FalOptions { Model = "m" });
 
         var operation = await provider.SubmitAsync(Ask());
         var probe = await provider.ProbeAsync();
@@ -274,7 +274,7 @@ public class FalQueueProviderTests
     [Fact]
     public async Task A_request_with_no_model_says_where_to_put_one()
     {
-        var (provider, http) = Provider(new FalQueueOptions { ApiKey = "k" });
+        var (provider, http) = Provider(new FalOptions { ApiKey = "k" });
 
         var operation = await provider.SubmitAsync(Ask());
 

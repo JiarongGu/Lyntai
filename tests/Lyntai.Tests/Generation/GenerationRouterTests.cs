@@ -89,7 +89,7 @@ public class GenerationRouterTests
         // so a connection-refused blip during a deploy became a permanently dead-lettered job — where before
         // this router had any catch at all, JobRunner caught the throw and retried. A refused connection
         // provably committed nothing, so there is no duplicate-charge risk to protect against, which is the
-        // same distinction this review taught FalQueueProvider one file over.
+        // same distinction this review taught FalProvider one file over.
         var broken = new FakeGenerationJobProvider
         {
             Id = "byo-video",

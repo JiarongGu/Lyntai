@@ -692,6 +692,18 @@ export default {
       why: 'a live override that swaps the model while the container chooses the provider moves half of the '
         + 'routing pair, so the model reaches a provider it was never written for (docs/DECISIONS.md D176)',
     },
+    {
+      // The 2026-09-25 full review (GEN-19). `AddFalProvider` registered a `FalQueueProvider` configured by
+      // `FalQueueOptions` — the one media backend whose type did not match its registration, and "Queue" is
+      // the DELIVERY shape (`ProviderOperation.Queued`), which a provider name does not carry.
+      names: ['FalQueueProvider', 'FalQueueOptions'],
+      proseExempt: 'every prose site is a dated record naming the type as it was that day — FIXES entries, '
+        + 'the pitfalls instances of the rule-copying trap, CHANGELOG narration — while the few live README '
+        + 'and knowledge sites are repointed by hand, the ratio pitfalls.md records as untightenable',
+      use: '`FalProvider` / `FalOptions`, registered by `AddFalProvider` as before',
+      why: 'a provider is named for its BACKEND and its options after the provider; a delivery shape is '
+        + 'declared in `ProviderCapabilities.Operations`, never spelt into the type name',
+    },
   ],
 
   /**

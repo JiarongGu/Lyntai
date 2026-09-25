@@ -6,14 +6,14 @@ using Lyntai.Text;
 
 namespace Lyntai.Generation.Providers;
 
-/// <summary>Configuration for <see cref="FalQueueProvider"/>.</summary>
+/// <summary>Configuration for <see cref="FalProvider"/>.</summary>
 /// <remarks>The queue's path segments — <see cref="RequestsSegment"/>, <see cref="StatusSegment"/> and
 /// <see cref="CancelSegment"/> — are settable because this backend's surface is <b>documented, not measured</b>:
-/// see the remarks on <see cref="FalQueueProvider"/>. A host that finds one has moved can retarget it here
+/// see the remarks on <see cref="FalProvider"/>. A host that finds one has moved can retarget it here
 /// instead of waiting for a Lyntai release. <b>Every</b> segment the provider builds a URL from is one of these;
 /// a hardcoded literal among them would be the one path a host could not repair without a Lyntai
 /// release.</remarks>
-public sealed class FalQueueOptions
+public sealed class FalOptions
 {
     /// <summary>The queue API root. Blank = not configured.</summary>
     public string BaseUrl { get; set; } = "https://queue.fal.run";
@@ -74,7 +74,7 @@ public sealed class FalQueueOptions
 
     /// <summary>Query parameter used to hand the backend a webhook URL the APP hosts. Lyntai never hosts one
     /// (D24) — supply the URL via <c>MediaRequest.Options["webhook"]</c> and call
-    /// <see cref="FalQueueProvider.FetchAsync"/> when it fires.</summary>
+    /// <see cref="FalProvider.FetchAsync"/> when it fires.</summary>
     public string WebhookQueryParameter { get; set; } = "fal_webhook";
 
     /// <summary>Ceiling for ONE HTTP call to the queue — a submit, a status read, a result fetch, a cancel.
@@ -88,7 +88,7 @@ public sealed class FalQueueOptions
     /// <see cref="HttpClient"/> timeout.</para>
     ///
     /// <para>Shorter than the inline backends' default because these are queue operations rather than renders.
-    /// On <see cref="FalQueueProvider.SubmitAsync"/> a request's
+    /// On <see cref="FalProvider.SubmitAsync"/> a request's
     /// <see cref="MediaRequest.TimeoutSeconds"/> still overrides it (the most specific thing that caller
     /// can say about that call). <see cref="Timeout.InfiniteTimeSpan"/> removes THIS deadline, but a submit
     /// whose request carries its own <see cref="MediaRequest.TimeoutSeconds"/> still has
@@ -123,8 +123,8 @@ public sealed class FalQueueOptions
 /// Default true, for the usual factory that MAKES a client per call. Pass false when the factory hands back a
 /// client the HOST owns — disposing that leaves the second call throwing
 /// <see cref="ObjectDisposedException"/>. <c>AddFalProvider</c> sets this for you.</param>
-public sealed class FalQueueProvider(
-    FalQueueOptions options, Func<HttpClient> httpFactory, bool disposeHttpClient = true)
+public sealed class FalProvider(
+    FalOptions options, Func<HttpClient> httpFactory, bool disposeHttpClient = true)
     : IModelProvider, IMediaJobProvider
 {
     /// <summary>Separates the model id from the queue's request id inside an operation id.</summary>
@@ -162,7 +162,7 @@ public sealed class FalQueueProvider(
 
     /// <inheritdoc/>
     /// <remarks>Bounded by the request's <see cref="MediaRequest.TimeoutSeconds"/> if it carries one, else
-    /// <see cref="FalQueueOptions.Timeout"/> — the ENQUEUEING call only, not the render it starts.</remarks>
+    /// <see cref="FalOptions.Timeout"/> — the ENQUEUEING call only, not the render it starts.</remarks>
     public Task<QueuedOperation> SubmitAsync(MediaRequest request, CancellationToken ct = default) =>
         GenerationDeadline.GuardAsync(
             GenerationDeadline.Resolve(request.TimeoutSeconds, options.Timeout), ct,
@@ -179,7 +179,7 @@ public sealed class FalQueueProvider(
     {
         if (Unconfigured() is { } missing) return Failed(missing);
         if (Model(request) is not { Length: > 0 } model)
-            return Failed("no model: name one on the request, the candidate (\"fal:model-id\") or FalQueueOptions.Model");
+            return Failed("no model: name one on the request, the candidate (\"fal:model-id\") or FalOptions.Model");
 
         // fal reads input media from a URL it can fetch, so a bytes-only input has nowhere to go. Refusing is
         // the only honest answer: dropping it (which is what BuildInput used to do) submitted — and billed — a
@@ -219,7 +219,7 @@ public sealed class FalQueueProvider(
     }
 
     /// <inheritdoc/>
-    /// <remarks>Bounded by <see cref="FalQueueOptions.Timeout"/>. A status call that times out reports the
+    /// <remarks>Bounded by <see cref="FalOptions.Timeout"/>. A status call that times out reports the
     /// operation as still RUNNING — the same treatment a transport failure already gets here, and for the same
     /// reason: no answer is not a failed render, and reading it as terminal would abandon a submitted (and
     /// billed) generation that is merely still going.</remarks>
@@ -266,7 +266,7 @@ public sealed class FalQueueProvider(
     }
 
     /// <inheritdoc/>
-    /// <remarks>Bounded by <see cref="FalQueueOptions.Timeout"/>; a fired deadline is a
+    /// <remarks>Bounded by <see cref="FalOptions.Timeout"/>; a fired deadline is a
     /// <see cref="ProviderVerdict.Timeout"/> result, and the operation can simply be fetched again.</remarks>
     public Task<MediaResponse> FetchAsync(string operationId, CancellationToken ct = default) =>
         GenerationDeadline.GuardAsync(options.Timeout, ct,
@@ -301,7 +301,7 @@ public sealed class FalQueueProvider(
     }
 
     /// <inheritdoc/>
-    /// <remarks>Bounded by <see cref="FalQueueOptions.Timeout"/>; a cancel that timed out may or may not have
+    /// <remarks>Bounded by <see cref="FalOptions.Timeout"/>; a cancel that timed out may or may not have
     /// landed, so the render is reported as still running rather than assumed stopped.</remarks>
     public Task<QueuedOperation> CancelAsync(string operationId, CancellationToken ct = default) =>
         GenerationDeadline.GuardAsync(options.Timeout, ct,

@@ -93,19 +93,19 @@ public static class MediaBackendBuilderExtensions
     }
 
     /// <summary>The fal.ai queue — submit/poll/fetch, which is the shape a video render needs. Default id
-    /// <c>"fal"</c> (<see cref="FalQueueOptions.Id"/>). This backend's wire format is documented-not-measured
+    /// <c>"fal"</c> (<see cref="FalOptions.Id"/>). This backend's wire format is documented-not-measured
     /// (TASKS.md GEN-VERIFY); every URL segment is an option so a host can retarget it.</summary>
     /// <param name="builder">The builder.</param>
     /// <param name="configure">Endpoint, credential and declared kinds.</param>
     /// <param name="httpClient">BYO client — see the type summary. Null = Lyntai's own.</param>
     public static LyntaiBuilder AddFalProvider(this LyntaiBuilder builder,
-        Action<FalQueueOptions> configure, Func<IServiceProvider, HttpClient>? httpClient = null)
+        Action<FalOptions> configure, Func<IServiceProvider, HttpClient>? httpClient = null)
     {
         ArgumentNullException.ThrowIfNull(configure);
-        var options = new FalQueueOptions();
+        var options = new FalOptions();
         configure(options);
         return builder.AddProvider(HttpBackend(builder, options.Id, httpClient,
-            (client, dispose) => new FalQueueProvider(options, client, dispose))).AddMediaRouting();
+            (client, dispose) => new FalProvider(options, client, dispose))).AddMediaRouting();
     }
 
     /// <summary>A locally-installed <c>stable-diffusion.cpp</c> (<c>sd-cli</c>) — image generation with no key,
