@@ -252,6 +252,13 @@ every addition.
   graph store implements `KnownSubjectsAsync` (the handles in use under a task and scope, most-used first); register
   one verifier, once.
 
+- **The seven Core builder-extension classes named `*Registration` are `*BuilderExtensions`**, like every other
+  `this LyntaiBuilder` extension class: `TextClientBuilderExtensions`, `ToolSelectorBuilderExtensions`,
+  `MemoryEngineBuilderExtensions`, `MemorySeedBuilderExtensions`, `MemoryAnnotationBuilderExtensions`,
+  `MemoryVerificationBuilderExtensions` and `ScoringVerificationBuilderExtensions`. Extension calls are unchanged.
+  **What to DO:** code naming the class — a static call or `using static` — replaces `Registration` with
+  `BuilderExtensions`.
+
 ### Security
 
 - **Recalled memory can no longer forge a prompt section** (**D166**). Both composers rendered an item as
@@ -325,6 +332,10 @@ every addition.
 - **The default chat memory section** uses `MemoryCompositionOptions.AssociativeHeading`, keyword hits render before
   semantic ones, and `Render` writes an identical line once (a fan-out blend returns each write twice). A graph
   write's similarity and subject links reach the store in one batch per kind.
+
+- **The memory recall tool reads an empty `scope` or `query` argument as omitted**, so an empty scope falls back to
+  the scope the tools were registered with. The `lyntai.tool.invocations` metric is described as "Tool
+  executions", since the MCP door records it too.
 
 ### Added
 
@@ -678,6 +689,9 @@ every addition.
   measures `/* */` blocks; empty registries, a missing sample claim and an unreadable file fail rather than pass.
   `verify` builds once and runs 23 gates; the command roster is `devtools/commands.mjs`; the llama-server sweeps
   share one harness and port registry; `memory-spacing` and `memory-reinforcement` are retired.
+  The decisions index lists its superseded, reversed and merged stubs and its D5 and D6 links resolve;
+  `check-pitfalls` ratchets each trap to 14 non-blank lines; the bench's retired spacing and reinforcement sweeps
+  are deleted.
 
 ## 3.2.0 — 2026-09-19
 
