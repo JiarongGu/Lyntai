@@ -86,8 +86,10 @@ public class LocalDiffusionProviderTests : IDisposable
     public async Task It_spawns_from_the_BINARY_directory_so_the_engines_native_libraries_resolve()
     {
         // sd-cli loads ggml*.dll from beside itself; spawning from anywhere else fails at load time on a
-        // perfectly good install — measured against a real release by a consuming app, not merely ported
-        var (provider, runner, dir) = Provider();
+        // perfectly good install — measured against a real release by a consuming app, not merely ported.
+        // The WorkDirectory is kept apart from the binary's, so the spawn's directory tells the two apart.
+        var (provider, runner, dir) = Provider(o =>
+            o.WorkDirectory = Directory.CreateDirectory(Path.Combine(o.WorkDirectory!, "work")).FullName);
         runner.RunHandler = ProducesImage();
 
         await provider.GenerateAsync(Ask());
@@ -100,11 +102,16 @@ public class LocalDiffusionProviderTests : IDisposable
     {
         var (provider, runner, _) = Provider();
         string? initPath = null;
+        byte[]? staged = null;
         runner.RunHandler = (cmd, args) =>
         {
             var list = args.ToList();
             var at = list.IndexOf("-i");
-            if (at >= 0) initPath = list[at + 1];
+            if (at >= 0)
+            {
+                initPath = list[at + 1];
+                staged = File.ReadAllBytes(initPath);   // what the engine would read, AT the spawn
+            }
             return ProducesImage()(cmd, args);
         };
 
@@ -121,6 +128,7 @@ public class LocalDiffusionProviderTests : IDisposable
         Assert.Equal("0.5", args[args.IndexOf("--strength") + 1]);
         Assert.NotNull(initPath);
         // the engine reads the source from disk, so the bytes must have been staged before the spawn
+        Assert.Equal([1, 2, 3], staged);
         Assert.False(File.Exists(initPath), "the work directory should be cleaned up after the call");
     }
 

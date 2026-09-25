@@ -42,6 +42,12 @@ public class GenerationTimeoutTests
 
     private static readonly TimeSpan Short = TimeSpan.FromMilliseconds(150);
 
+    /// <summary>The BACKEND's own deadline ended the call, not the fixture client's <see cref="Backstop"/> —
+    /// which <c>GenerationDeadline</c> names as "the HttpClient's own Timeout". Without this, a backend that
+    /// ignored its Timeout would still pass, five seconds slower.</summary>
+    private static void AssertOwnDeadline(string? detail) =>
+        Assert.DoesNotContain("HttpClient", detail ?? "", StringComparison.Ordinal);
+
     // a budget no test can reach, so a test that ends did so for the reason it names — and if one ever does
     // reach it, Stalling()'s Backstop ends the call in seconds rather than letting the suite hang
     private static readonly TimeSpan Unreachable = TimeSpan.FromMinutes(30);
@@ -115,6 +121,7 @@ public class GenerationTimeoutTests
         var result = await provider.GenerateAsync(Ask());
 
         Assert.Equal(ProviderVerdict.Timeout, result.Verdict);
+        AssertOwnDeadline(result.Detail);
     }
 
     [Fact]
@@ -124,16 +131,19 @@ public class GenerationTimeoutTests
             new OpenAiImageOptions { BaseUrl = "https://example.invalid/v1", Timeout = Short }, Stalling())
             .ProbeAsync();
         Assert.False(openAi.Available);
+        AssertOwnDeadline(openAi.Detail);
 
         var a1111 = await new Automatic1111Provider(
             new Automatic1111Options { BaseUrl = "http://127.0.0.1:7860", Timeout = Short }, Stalling())
             .ProbeAsync();
         Assert.False(a1111.Available);
+        AssertOwnDeadline(a1111.Detail);
 
         var comfy = await new ComfyUiProvider(
             new ComfyUiOptions { BaseUrl = "http://127.0.0.1:8188", Timeout = Short }, Stalling())
             .ProbeAsync();
         Assert.False(comfy.Available);
+        AssertOwnDeadline(comfy.Detail);
     }
 
     // ---- the queue backends: a deadline bounds ONE HTTP call, and a timed-out POLL keeps the render ----
@@ -145,6 +155,7 @@ public class GenerationTimeoutTests
             new FalOptions { ApiKey = "k", Model = "fal-ai/wan-t2v", Timeout = Short }, Stalling())
             .SubmitAsync(new MediaRequest { Kind = ProviderKinds.Video, Prompt = "a wave" });
         Assert.Equal(QueuedOperationStatus.Failed, fal.Status);
+        AssertOwnDeadline(fal.Detail);
 
         var comfy = await new ComfyUiProvider(
             new ComfyUiOptions { BaseUrl = "http://127.0.0.1:8188", Timeout = Short }, Stalling())
@@ -154,6 +165,7 @@ public class GenerationTimeoutTests
                 Options = new Dictionary<string, string> { ["workflow"] = "{}" },
             });
         Assert.Equal(QueuedOperationStatus.Failed, comfy.Status);
+        AssertOwnDeadline(comfy.Detail);
     }
 
     [Fact]
@@ -165,11 +177,13 @@ public class GenerationTimeoutTests
             new FalOptions { ApiKey = "k", Timeout = Short }, Stalling())
             .PollAsync("fal-ai/wan-t2v#abc");
         Assert.Equal(QueuedOperationStatus.Running, fal.Status);
+        AssertOwnDeadline(fal.Detail);
 
         var comfy = await new ComfyUiProvider(
             new ComfyUiOptions { BaseUrl = "http://127.0.0.1:8188", Timeout = Short }, Stalling())
             .PollAsync("prompt-1");
         Assert.Equal(QueuedOperationStatus.Running, comfy.Status);
+        AssertOwnDeadline(comfy.Detail);
     }
 
     [Fact]
@@ -179,11 +193,13 @@ public class GenerationTimeoutTests
             new FalOptions { ApiKey = "k", Timeout = Short }, Stalling())
             .FetchAsync("fal-ai/wan-t2v#abc");
         Assert.Equal(ProviderVerdict.Timeout, fal.Verdict);
+        AssertOwnDeadline(fal.Detail);
 
         var comfy = await new ComfyUiProvider(
             new ComfyUiOptions { BaseUrl = "http://127.0.0.1:8188", Timeout = Short }, Stalling())
             .FetchAsync("prompt-1");
         Assert.Equal(ProviderVerdict.Timeout, comfy.Verdict);
+        AssertOwnDeadline(comfy.Detail);
     }
 
     [Fact]
@@ -222,6 +238,7 @@ public class GenerationTimeoutTests
         Assert.Equal(QueuedOperationStatus.Failed, operation.Status);
         Assert.True(operation.Inconclusive);
         Assert.Contains("may still have been enqueued", operation.Detail);
+        AssertOwnDeadline(operation.Detail);
     }
 
     [Fact]
@@ -247,6 +264,7 @@ public class GenerationTimeoutTests
         Assert.Equal(0, second.SubmitCalls);                       // the whole point: nobody pays twice
         Assert.Equal("fal", submission.ProviderId);                // and the caller learns WHO may hold it
         Assert.True(submission.Operation.Inconclusive);
+        AssertOwnDeadline(submission.Operation.Detail);
     }
 
     [Fact]
@@ -292,23 +310,25 @@ public class GenerationTimeoutTests
     public async Task The_callers_cancellation_still_propagates_instead_of_becoming_a_Timeout_verdict()
     {
         // the subtle half: the deadline is generous and unreachable here, so anything that ends these calls
-        // is the caller's token — which must surface as cancellation, never as a Timeout RESULT
-        using var cts = new CancellationTokenSource(Short);
-
+        // is the caller's token — which must surface as cancellation, never as a Timeout RESULT. One token per
+        // call, each cancelled mid-flight: a shared one arrives already cancelled at every call after the first,
+        // which a provider can reject before it ever reaches the code under test.
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => new OpenAiImageProvider(
             new OpenAiImageOptions { BaseUrl = "https://example.invalid/v1", Timeout = Unreachable }, Stalling())
-            .GenerateAsync(Ask(), cts.Token));
+            .GenerateAsync(Ask(), CancelledSoon()));
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => new Automatic1111Provider(
             new Automatic1111Options { BaseUrl = "http://127.0.0.1:7860", Timeout = Unreachable }, Stalling())
-            .GenerateAsync(Ask(), cts.Token));
+            .GenerateAsync(Ask(), CancelledSoon()));
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => new FalProvider(
             new FalOptions { ApiKey = "k", Timeout = Unreachable }, Stalling())
-            .PollAsync("fal-ai/wan-t2v#abc", cts.Token));
+            .PollAsync("fal-ai/wan-t2v#abc", CancelledSoon()));
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => new ComfyUiProvider(
             new ComfyUiOptions { BaseUrl = "http://127.0.0.1:8188", Timeout = Unreachable }, Stalling())
-            .ProbeAsync(cts.Token));
+            .ProbeAsync(CancelledSoon()));
+
+        static CancellationToken CancelledSoon() => new CancellationTokenSource(Short).Token;
     }
 }
