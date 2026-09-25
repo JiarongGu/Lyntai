@@ -46,7 +46,7 @@ internal sealed class HttpRerankTransport(
         ArgumentNullException.ThrowIfNull(request);
         var query = request.Query;
         if (request.Documents.Count == 0) return new ScoreResponse(ProviderVerdict.Ok, []);
-        Segmentation? plan = null;
+        SegmentPlan? plan = null;
         var documents = request.Documents;
         if (config.MaxInputChars is { } window)
         {
@@ -106,7 +106,7 @@ internal sealed class HttpRerankTransport(
     }
 
     /// <summary>A document is as relevant as its most relevant passage: the maximum over its pieces.</summary>
-    private static double[] BestPiece(Segmentation plan, double[] pieceScores) =>
+    private static double[] BestPiece(SegmentPlan plan, double[] pieceScores) =>
         [.. Enumerable.Range(0, plan.Inputs.Count)
             .Select(i => pieceScores[plan.First[i]..plan.First[i + 1]].Max())];
 

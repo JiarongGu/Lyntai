@@ -931,6 +931,8 @@ sealed class Lyntai.Inference.InputSegmentation
     MinDocumentShare : Double
     Overflow : InputOverflow
     Overlap : Double
+    static DocumentShare(Int32 window, Double minDocumentShare) : Int32
+    static Spread<T>(IReadOnlyList<T> pieces, Nullable<Int32> cap) : IReadOnlyList<T>
 sealed class Lyntai.Inference.KeyValueModelRoutingStore
     .ctor(IKeyValueStore kv = null, ILogger<KeyValueModelRoutingStore> logger = null, String keyPrefix = null)
     DefaultKeyPrefix : String const

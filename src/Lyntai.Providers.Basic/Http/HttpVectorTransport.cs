@@ -87,7 +87,7 @@ internal sealed class HttpVectorTransport(
     {
         ArgumentNullException.ThrowIfNull(request);
         var prefix = request.Role == EmbeddingRole.Query ? config.QueryPrefix : config.DocumentPrefix;
-        Segmentation? plan = null;
+        SegmentPlan? plan = null;
         var pieces = request.Texts;
         if (config.MaxInputChars - InputSegmenter.Measure(prefix ?? string.Empty) is { } budget)
         {
@@ -117,7 +117,7 @@ internal sealed class HttpVectorTransport(
 
     /// <summary>One vector per input: a segmented input's pieces pooled by
     /// <see cref="VectorMath.WeightedMeanDirection"/>, weighted by length; any other input's vector as sent.</summary>
-    private VectorResponse Pool(Segmentation plan, VectorResponse response)
+    private VectorResponse Pool(SegmentPlan plan, VectorResponse response)
     {
         var vectors = new float[plan.Inputs.Count][];
         for (var i = 0; i < vectors.Length; i++)

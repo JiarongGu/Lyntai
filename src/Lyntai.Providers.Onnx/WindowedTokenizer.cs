@@ -69,7 +69,7 @@ internal sealed class WindowedTokenizer(
         {
             batch.Begin(i);
             var ids = tokenizer.EncodeToIds(texts[i] ?? string.Empty);
-            var windows = TokenSegmenter.Spread(
+            var windows = InputSegmentation.Spread(
                 TokenSegmenter.Windows(ids, maxTokens - 2, boundaries, segment.Overlap), segment.MaxPiecesPerInput);
             foreach (var (start, end) in windows)
                 batch.Add(Row(shell, null, ids, start, end), windows.Count > 1 ? end - start : 0);
@@ -89,9 +89,7 @@ internal sealed class WindowedTokenizer(
 
         var shell = tokenizer.Encode(string.Empty, string.Empty, maxTokens).Ids;
         var budget = maxTokens - 3;                             // content tokens across both sides
-        // in decimal, so 0.8 of 60 is 48 rather than a binary 48.000…01 that rounds up to 49; and at least one
-        // token, since a share below decimal's range converts to zero
-        var documentShare = Math.Max(1, (int)Math.Ceiling((decimal)segmentation.MinDocumentShare * budget));
+        var documentShare = InputSegmentation.DocumentShare(budget, segmentation.MinDocumentShare);
         var queryIds = tokenizer.EncodeToIds(query ?? string.Empty);
         List<int> kept = [.. queryIds.Take(budget - documentShare)];
         var documentBudget = budget - kept.Count;
@@ -101,7 +99,7 @@ internal sealed class WindowedTokenizer(
             batch.Begin(i);
             var ids = tokenizer.EncodeToIds(documents[i] ?? string.Empty);
             IReadOnlyList<(int Start, int End)> windows = segmentation.Overflow == InputOverflow.Segment
-                ? TokenSegmenter.Spread(TokenSegmenter.Windows(ids, documentBudget, boundaries, segmentation.Overlap),
+                ? InputSegmentation.Spread(TokenSegmenter.Windows(ids, documentBudget, boundaries, segmentation.Overlap),
                     segmentation.MaxPiecesPerInput)
                 : [(0, Math.Min(ids.Count, documentBudget))];
             foreach (var (start, end) in windows)

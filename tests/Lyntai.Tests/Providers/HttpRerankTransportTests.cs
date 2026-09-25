@@ -295,7 +295,7 @@ public class HttpRerankTransportTests
 
         Assert.True(response.IsOk, response.Detail);
         Assert.Equal(59, SentQuery(handler.Requests[0].Body).Length);
-        Assert.Equal(1, InputSegmenter.DocumentShare(506, 1e-30));
+        Assert.Equal(1, Lyntai.Inference.InputSegmentation.DocumentShare(506, 1e-30));
     }
 
     [Fact]
