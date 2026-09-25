@@ -5046,6 +5046,21 @@ URI input is fetched from any server but hardened — ComfyUI's credentials neve
 included, and the fetch is size- and time-capped — and a refusal of the request itself carries the new
 `QueuedOperation.Verdict` (`Unsupported`), so routing advances without benching a healthy server. The live
 two-stage chain (mesh → mesh → rendered image) is `ComfyUiLiveTests`' durable instrument; that the in-memory
-runner cannot drive a queued stage is `TASKS.md` Part 290.
+runner cannot drive a queued stage is `docs/task-archive.md` Part 292.
 
 - GEN7 — pipelines (3d → image → video): the mesh stage
+
+## Part 292 — what building GEN7's mesh stage found: ComfyUI execution errors, and pipelines on queued backends (2026-09-25)
+
+✅ done 2026-09-25 — **Outcome:** a ComfyUI run that fails DURING execution now polls as Failed with the node
+and its message — measured on 0.36.0 (`status_str = "error"` plus an `execution_error` event), the server's
+traceback and paths never copied (`docs/FIXES.md` 2026-09-25). And a pipeline now reaches a QUEUED backend
+through a durable job (**D181**): `GenerationPipelineJobHandler` runs ordered stages over `Lyntai.Jobs`, the door
+following the caller's candidate order with cross-door fallback when a door is exhausted uncommitted; a stage's
+input is the single artifact or the one matching `InputMediaType`; each result is checkpointed before delivery
+so a sink failure never re-renders or re-bills; every stage is delivered tagged with its index; and
+`MediaResponse.ProviderId` says which backend served an inline stage. `RunPipelineAsync` stays the inline form.
+The live GEN7 mesh chain now runs through the job.
+
+- A ComfyUI run that fails DURING execution polls as "Running" until the deadline
+- A pipeline cannot reach a QUEUED backend
