@@ -413,8 +413,8 @@ internal static class MemoryPolicySweep
             curve.InitialStability, curveOptions, difficultyChangeWeight, difficultyReversionWeight);
     }
 
-    // internal, not private: MemorySpacingSweep replays the identical way against the identical corpus, and
-    // ONE copy of the replay is what keeps the two studies comparable. Its ARMS and its CONTROLS are its own
+    // internal, not private: the other corpus sweeps replay the identical way against the identical corpus,
+    // and ONE copy of the replay is what keeps the studies comparable. Their ARMS and CONTROLS are their own
     // — only this mechanism is shared.
     internal sealed record ReplayResult(
         Dictionary<string, List<RecallQuality>> ByClass, IReadOnlyList<char> ObservedOrder);
