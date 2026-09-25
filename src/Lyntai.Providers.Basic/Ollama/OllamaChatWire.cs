@@ -68,8 +68,9 @@ internal sealed class OllamaChatWire(OllamaOptions config, ILogger logger) : IHt
             : null;
 
     /// <summary>One NDJSON line → delta text, <c>done:true</c> as the final marker (with the eval counts on
-    /// that same line). Tool calls arrive COMPLETE on one line, which the shared assembler handles as a
-    /// single-fragment accumulation — one path, not a per-wire branch.</summary>
+    /// that same line). Each tool call arrives COMPLETE, one per line (measured, Ollama 0.34.2), with its
+    /// <c>index</c> inside <c>function</c> — so every call is read as its own slot rather than joined by an
+    /// index, and calls on separate lines can never merge.</summary>
     public HttpStreamLine ParseStreamLine(string payload)
     {
         try
@@ -80,7 +81,7 @@ internal sealed class OllamaChatWire(OllamaOptions config, ILogger logger) : IHt
 
             var final = root.TryGetProperty("done", out var d) && d.ValueKind == JsonValueKind.True;
             return new HttpStreamLine(WireJson.String(message, "content"), final ? ExtractUsage(root) : null,
-                final, null, StreamingToolCalls.Read(message));
+                final, null, StreamingToolCalls.Read(message, complete: true));
         }
         catch (Exception ex) when (WireJson.IsShapeFault(ex))
         {
