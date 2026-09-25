@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using Lyntai.Diagnostics;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -151,10 +153,14 @@ public sealed class ProviderRouter<TRequest, TResponse>(
     private async Task<TResponse> AttemptAsync(
         IProviderCall<TRequest, TResponse> provider, TRequest request, CancellationToken ct)
     {
+        // the permit is taken BEFORE the span opens, so a queued call's wait never inflates the reported latency
         using var permit = await _bookkeeping.EnterAsync(provider, ct).ConfigureAwait(false);
+        using var span = LyntaiDiagnostics.StartCall(Operation, provider.Id);
+        var started = Stopwatch.GetTimestamp();
+        TResponse response;
         try
         {
-            return await provider.CallAsync(request, ct).ConfigureAwait(false);
+            response = await provider.CallAsync(request, ct).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
@@ -163,7 +169,19 @@ public sealed class ProviderRouter<TRequest, TResponse>(
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "router: {Provider} threw; classifying and advancing", provider.Id);
-            return synthesize(ProviderVerdictClassifier.FromThrown(ex), $"{provider.Id}: {ex.Message}");
+            response = synthesize(ProviderVerdictClassifier.FromThrown(ex), $"{provider.Id}: {ex.Message}");
         }
+        LyntaiDiagnostics.RecordCallOutcome(span, Operation, provider.Id, model: null, response.Verdict,
+            response.Usage, cacheReadTokens: 0, Stopwatch.GetElapsedTime(started).TotalSeconds, response.Detail);
+        return response;
     }
+
+    /// <summary>The span's <c>gen_ai.operation.name</c>: the GenAI convention's <c>embeddings</c> for the vector
+    /// shape, <c>rerank</c> for the score shape, and an application kind's own name otherwise.</summary>
+    private static readonly string Operation = ProviderRouterFactory.KindOf(typeof(TRequest)) switch
+    {
+        "vector" => "embeddings",
+        "score" => "rerank",
+        var kind => kind,
+    };
 }
