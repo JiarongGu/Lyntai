@@ -166,6 +166,9 @@ query
   ↓  reinforcement        age reset and/or stability growth on what survived
 ```
 
+That is ONE step. What it returns is an index of headlines, and the intended read is a walk that expands
+from them (§9, Walk outward from a recall), so a one-shot metric measures the wrong mode.
+
 Two properties of that pipeline are easy to get wrong and are worth stating:
 
 - **Candidate seeding is LEXICAL by default.** Without `AddMemorySemanticSeeds` registered, the vector store
@@ -503,6 +506,62 @@ Plural domains coexist and are combined by a **composition policy**; the engine 
 (**D48**). To turn salience OFF, register `NeutralSaliencePolicy` — **registering nothing takes the shipped
 default instead**, which is the one trap in this table.
 
+#### Age: what counts as time passing
+
+An entry ages by INTERFERENCE — what happened since it was last used — and the age policy says what counts:
+
+| policy | an entry ages by | choose it when |
+|---|---|---|
+| `PerWriteAgePolicy` | one per write to the engine | every write is roughly one fact |
+| `ContentSizeAgePolicy` | the characters written (200 to a unit by default) | a long document should crowd harder than a note |
+| `ElapsedAgePolicy` | real days | "untouched for three months" is meaningful — a project memory. It gives up rarely-used-decays-slowly: an idle memory still ages |
+| `BurstDampenedAgePolicy` (the default) | a wrapped policy, damped inside a burst | always, around a count or volume clock |
+
+**The default is `BurstDampenedAgePolicy` over `PerWriteAgePolicy`**, and the damping is what makes ingest
+safe: the n-th write inside a five-second window crowds by `1/n` and is encoded at `1/√n` of the usual
+half-life, so 200 rapid writes advance the position by about 6 rather than 200, and a skimmed document fades
+faster than a note written in a quiet moment. **Registering any `IMemoryAgePolicy` replaces the default
+outright**, so wrap a count or volume clock yourself; `ElapsedAgePolicy` needs no wrapper, because elapsed
+time is self-limiting:
+
+```csharp
+services.AddSingleton<IMemoryAgePolicy>(new BurstDampenedAgePolicy(new ContentSizeAgePolicy()));
+```
+
+Age is plural: several registered policies are summed by `SummedAgeCompositionPolicy`, and at most one may be
+`Accumulating` (only `BurstDampenedAgePolicy` is), or composition throws. Summing policies of different units
+is well-defined but only meaningful if `Stability` and `EdgeHalfLife` are chosen against the combined scale.
+
+#### Ranking: one policy per engine, and a per-call override
+
+**The default, `ReciprocalRankFusionPolicy`, fuses by RANK POSITION** — `Σ w / (K + rank)` over
+retrievability, salience, hop, diagnosticity and each matching source's relevance — so no signal's raw scale
+can drown another (**D49**, **D82**). `MultiplicativeRankingPolicy`, a product of the same factors, ships
+beside it and is one line away: `UseGraph(ranking: new MultiplicativeRankingPolicy())` for one engine, or
+`services.AddSingleton<IMemoryRankingPolicy>(new MultiplicativeRankingPolicy())` for every engine that names
+none. **`CompositeRankingPolicy(primary, secondary)` blends two whole policies the same way** — by each one's
+rank position, never its raw score, because a score means nothing outside the policy that produced it; a
+candidate one member drops ranks worst for that member rather than disappearing.
+
+An engine can also expose alternates by NAME, for one call to pick:
+
+```csharp
+services.AddLyntai(cfg => cfg
+    .UseSqliteStorage("Data Source=app.db")
+    .AddMemoryEngine("project", e => e.UseGraph(namedRankingPolicies: new Dictionary<string, IMemoryRankingPolicy>
+    {
+        ["multiplicative"] = new MultiplicativeRankingPolicy(),
+        ["blend"] = new CompositeRankingPolicy(new ReciprocalRankFusionPolicy(), new MultiplicativeRankingPolicy()),
+    })));
+
+var recall = await engine.RecallAsync(
+    new MemoryQuery("project", Query: "deploy pipeline", RankingPolicyName: "blend"));
+```
+
+The name is scoped to the engine that registered it, and **an unknown name throws `KeyNotFoundException`**
+rather than falling back, so a typo fails where it was made. Engines with no ranking concept (lexical,
+semantic, curated) ignore the field.
+
 ## 7. Things that will surprise you
 
 Each of these cost a real measurement to find.
@@ -689,6 +748,28 @@ var neighbours = expanded.Items.Skip(1);          // what it is connected to, as
 ```
 
 `hops` is clamped to the engine's configured `Hops`; `charBudget` bounds the neighbours and never the entry.
+
+### Walk outward from a recall
+
+A recall returns HEADLINES, a cheap index, and the mode the graph engine is built for is an n-shot WALK over
+them rather than one top-k read (**D100**, **D102**): `MemoryWalk.WalkAsync` recalls, then expands outward
+from what each step newly turned up.
+
+```csharp
+await foreach (var step in engine.WalkAsync(new MemoryQuery("project", Query: "deploy pipeline")))
+{
+    if (step.Items.Any(i => i.Headline.Contains("rollback"))) break;   // the question is answered
+}
+```
+
+Step 1 is the recall; each later step expands up to `MemoryWalkOptions.SeedsPerStep` (3) of the previous
+step's new arrivals, `Hops` deep. **Your `break` is the stop condition**, because the useful depth belongs to
+the question (**D100**); the walk also ends on its own when a step discovers and upgrades nothing, or once it
+holds `MaxItems` entries (by default twice what step 1 returned). `UpgradedCount` says how many held
+headlines a step turned into full content — ask for `MemoryDetail.Full` and every entry arrives whole, leaving
+the walk only discovery. It fails open: a step that faults ends the walk with the last good one. **It
+MUTATES once per step** — reinforcing what it returns and walks — so an A/B over it is paired as §7 says. An
+engine that cannot expand yields exactly one step.
 
 ### Let a model search its own memory
 
