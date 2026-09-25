@@ -1,61 +1,19 @@
 using Lyntai.Memory;
 using Lyntai.Memory.Ranking;
+using static Lyntai.Tests.Memory.RankingFixtures;
 
 namespace Lyntai.Tests.Memory;
 
-/// <summary>This domain's first rank formula, given a name and a construction-time guard rather than
-/// changed — no longer the REGISTERED default as of 3.0 (owner ruling, 2026-08-11;
-/// <see cref="Lyntai.Memory.Ranking.ReciprocalRankFusionPolicy"/> is, see that class's own remarks), but
-/// unchanged, still shipped, and still registerable in one line. Every number and every comment in
-/// <see cref="MultiplicativeRankingPolicy"/> was ported verbatim in behaviour from
-/// <c>GraphMemoryEngine.RecallAsync</c>'s own hardcoded projection (still there — Task 3 of this plan wires
-/// the engine to call this seam instead) — this file pins that the port kept it that way, not that the
-/// formula is newly correct.</summary>
-public class MultiplicativeRankingPolicyTests
+/// <summary>This domain's first rank formula — still shipped and registerable in one line, though no longer
+/// the REGISTERED default (<see cref="Lyntai.Memory.Ranking.ReciprocalRankFusionPolicy"/> is, see that class's
+/// own remarks). This file pins what the formula does; the shared contract runs through the base class.</summary>
+public class MultiplicativeRankingPolicyTests : MemoryRankingPolicyContractFacts
 {
-    private static GraphNode Node(long id, double relevance = 1, MemorySignals signals = default) =>
-        new(id, "e", "t", "s", $"headline {id}", $"content {id}", MemoryGrade.Associative,
-            DateTimeOffset.UnixEpoch, RecallCount: 0, Stability: 20, Age: 0, Relevance: relevance,
-            Degree: 0, Metadata: null, Signals: signals);
-
-    private static MemoryCandidate Candidate(long id, double relevance = 1, double retrievability = 1,
-        int hop = 0, MemorySignals signals = default) =>
-        new(Node(id, relevance, signals), retrievability, hop);
-
-    private static readonly MemoryRankingContext Context = new(Limit: 10, Engine: "test");
-
     // a nonzero weight so the shared contract facts actually exercise the salience-boost path, rather than
     // leaving it permanently inert at the shipped default (0) — see MultiplicativeRankingOptions
     // .SalienceRankWeight's own doc for why 0 makes the whole ln(salience) term dead code.
-    private static MultiplicativeRankingPolicy Default() =>
-        new(new MultiplicativeRankingOptions { SalienceRankWeight = 0.3 });
-
-    // ---- the shared contract every policy must satisfy ----
-
-    [Fact] public void Deterministic() => MemoryRankingPolicyContract.Ordering_is_deterministic(Default());
-    [Fact] public void Best_first() => MemoryRankingPolicyContract.Scores_are_ordered_best_first(Default());
-
-    [Fact]
-    public void Subset_no_duplicates() =>
-        MemoryRankingPolicyContract.It_returns_a_subset_without_duplicates(Default());
-
-    [Fact]
-    public void Empty_in_empty_out() =>
-        MemoryRankingPolicyContract.An_empty_candidate_set_ranks_to_empty(Default());
-
-    [Fact]
-    public void No_non_finite_score() =>
-        MemoryRankingPolicyContract.No_returned_score_is_non_finite(Default());
-
-    [Fact]
-    public void Infinite_relevance_does_not_empty_a_healthy_recall() =>
-        MemoryRankingPolicyContract.A_non_finite_relevance_that_would_otherwise_be_best_does_not_empty_a_healthy_recall(
-            Default());
-
-    [Fact]
-    public void An_overflowing_product_of_finite_inputs_does_not_empty_a_healthy_recall() =>
-        MemoryRankingPolicyContract.A_finite_input_whose_score_overflows_does_not_empty_a_healthy_recall(
-            Default());
+    protected override IMemoryRankingPolicy New() =>
+        new MultiplicativeRankingPolicy(new MultiplicativeRankingOptions { SalienceRankWeight = 0.3 });
 
     /// <summary>The SECOND route into an overflowed score, and the one no input filter can reach at all
     /// because it does not come from a candidate: <see cref="MultiplicativeRankingOptions.SalienceRankWeight"/>
@@ -167,11 +125,11 @@ public class MultiplicativeRankingPolicyTests
     }
 
     [Fact]
-    public void The_shipped_defaults_match_todays_hardcoded_formula()
+    public void The_shipped_defaults_are_pinned()
     {
-        // pins the port's numeric fidelity against the values GraphMemoryEngine.cs / GraphMemoryOptions.cs
-        // still hardcode as of this task — a silent drift here would change recall order for every consumer
-        // who never configured ranking explicitly, once Task 3 wires this seam in.
+        // a silent drift here would change recall order for every consumer who registers this policy
+        // without configuring it. SalienceRankWeight is D45's ruling pinned as the CONSTANT because no
+        // scenario can see it: GraphMemoryRankingTests' own only rejects a default above ≈ 0.72.
         var options = new MultiplicativeRankingOptions();
 
         Assert.Equal(0.5, options.HopAttenuation);
@@ -245,6 +203,6 @@ public class MultiplicativeRankingPolicyTests
     }
 
     [Fact]
-    public void A_zero_SalienceRankWeight_is_accepted_as_the_shipped_default() =>
-        Assert.Equal(0, new MultiplicativeRankingOptions().SalienceRankWeight);
+    public void A_zero_SalienceRankWeight_is_accepted_because_off_is_not_a_mistake() =>
+        Assert.Equal(0, new MultiplicativeRankingOptions { SalienceRankWeight = 0 }.SalienceRankWeight);
 }

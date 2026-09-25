@@ -1,5 +1,6 @@
 using Lyntai.Memory;
 using Lyntai.Memory.Ranking;
+using static Lyntai.Tests.Memory.RankingFixtures;
 
 namespace Lyntai.Tests.Memory;
 
@@ -8,51 +9,14 @@ namespace Lyntai.Tests.Memory;
 /// file's job is only to pin what the formula itself does, exactly like
 /// <c>MultiplicativeRankingPolicyTests</c> pins its sibling — default status is a separate fact this file
 /// does not itself assert.</summary>
-public class ReciprocalRankFusionPolicyTests
+public class ReciprocalRankFusionPolicyTests : MemoryRankingPolicyContractFacts
 {
-    private static GraphNode Node(long id, double relevance = 1, MemorySignals signals = default,
-        int degree = 0) =>
-        new(id, "e", "t", "s", $"headline {id}", $"content {id}", MemoryGrade.Associative,
-            DateTimeOffset.UnixEpoch, RecallCount: 0, Stability: 20, Age: 0, Relevance: relevance,
-            Degree: degree, Metadata: null, Signals: signals);
-
-    private static MemoryCandidate Candidate(long id, double relevance = 1, double retrievability = 1,
-        int hop = 0, MemorySignals signals = default, int degree = 0) =>
-        new(Node(id, relevance, signals, degree), retrievability, hop);
-
     private static MemorySignals Salience(double value) =>
         MemorySignals.Empty.With(MemorySignals.WellKnown.Salience, value);
 
-    private static readonly MemoryRankingContext Context = new(Limit: 10, Engine: "test");
-
     private static ReciprocalRankFusionPolicy Default() => new();
 
-    // ---- the shared contract every policy must satisfy ----
-
-    [Fact] public void Deterministic() => MemoryRankingPolicyContract.Ordering_is_deterministic(Default());
-    [Fact] public void Best_first() => MemoryRankingPolicyContract.Scores_are_ordered_best_first(Default());
-
-    [Fact]
-    public void Subset_no_duplicates() =>
-        MemoryRankingPolicyContract.It_returns_a_subset_without_duplicates(Default());
-
-    [Fact]
-    public void Empty_in_empty_out() =>
-        MemoryRankingPolicyContract.An_empty_candidate_set_ranks_to_empty(Default());
-
-    [Fact]
-    public void No_non_finite_score() =>
-        MemoryRankingPolicyContract.No_returned_score_is_non_finite(Default());
-
-    [Fact]
-    public void Infinite_relevance_does_not_empty_a_healthy_recall() =>
-        MemoryRankingPolicyContract.A_non_finite_relevance_that_would_otherwise_be_best_does_not_empty_a_healthy_recall(
-            Default());
-
-    [Fact]
-    public void An_overflowing_product_of_finite_inputs_does_not_empty_a_healthy_recall() =>
-        MemoryRankingPolicyContract.A_finite_input_whose_score_overflows_does_not_empty_a_healthy_recall(
-            Default());
+    protected override IMemoryRankingPolicy New() => new ReciprocalRankFusionPolicy();
 
     /// <summary><b>This policy's own "finite by construction" claim was FALSE, and this fact is what makes it
     /// true.</b> <c>Rank</c>'s own comment argued that a sum of positive, bounded reciprocal terms can never

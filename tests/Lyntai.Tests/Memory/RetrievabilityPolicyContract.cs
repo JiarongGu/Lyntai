@@ -4,8 +4,34 @@ using Lyntai.Memory.Forgetting;
 
 namespace Lyntai.Tests.Memory;
 
-/// <summary>Facts every <see cref="IMemoryRetrievabilityPolicy"/> satisfies, run against the default curve so a
-/// custom policy cannot quietly break the store's candidate query.
+/// <summary>Every <see cref="RetrievabilityPolicyContract"/> fact, inherited, so each shipped curve runs the
+/// whole contract BY CONSTRUCTION — the shape <see cref="MemoryAgePolicyContractFacts"/> uses.</summary>
+public abstract class RetrievabilityPolicyContractFacts
+{
+    /// <summary>The policy under test.</summary>
+    protected abstract IMemoryRetrievabilityPolicy New();
+
+    /// <summary>The policy with reinforcement GROWTH on, for the one fact about growth: a curve that ships
+    /// with growth off returns every stability unchanged, where "never shortens" cannot fail.</summary>
+    protected virtual IMemoryRetrievabilityPolicy Growing() => New();
+
+    [Fact] public void Probability() => RetrievabilityPolicyContract.Retrievability_is_a_probability(New());
+    [Fact] public void One_at_zero() => RetrievabilityPolicyContract.It_is_one_at_zero_age(New());
+    [Fact] public void Monotone() => RetrievabilityPolicyContract.It_never_increases_with_age(New());
+    [Fact] public void Reinforce_grows() => RetrievabilityPolicyContract.Reinforcement_never_shortens_a_memory(Growing());
+    [Fact] public void Cutoff_superset() => RetrievabilityPolicyContract.CandidateCutoff_is_a_conservative_superset(New());
+    [Fact] public void Unbounded_ok() => RetrievabilityPolicyContract.An_unbounded_policy_is_still_correct(New());
+    [Fact] public void Connectedness_helps() => RetrievabilityPolicyContract.Connectedness_never_lowers_retrievability(New());
+    [Fact] public void Stability_unit() => RetrievabilityPolicyContract.Stability_is_the_position_delta_at_which_retrievability_is_half(New());
+
+    [Fact]
+    public void Reinforce_owns_only_stability_and_difficulty() =>
+        RetrievabilityPolicyContract.Reinforcement_leaves_every_field_it_does_not_own_unchanged(New());
+}
+
+/// <summary>Facts every <see cref="IMemoryRetrievabilityPolicy"/> satisfies, run against every shipped curve
+/// (through <see cref="RetrievabilityPolicyContractFacts"/>) so a custom policy cannot quietly break the
+/// store's candidate query.
 /// <para>A policy sees no clock: age is a dimensionless quantity the engine's <see cref="IMemoryAgePolicy"/>
 /// defines, and stability is in the same units.</para></summary>
 public static class RetrievabilityPolicyContract

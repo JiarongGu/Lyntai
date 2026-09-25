@@ -15,7 +15,7 @@ namespace Lyntai.Tests.Memory;
 /// approximated by a power function, so a heterogeneous corpus — identity facts beside booking details
 /// beside conversational noise — decays as a power law even if each individual memory does not. FSRS moved
 /// from exponential to power at v4 for exactly that reason, fitted against real review logs.</para></summary>
-public class DsrRetrievabilityTests
+public class DsrRetrievabilityTests : RetrievabilityPolicyContractFacts
 {
     private static MemoryDecayState State(double age, double stability) => new(age, 0, stability);
 
@@ -1099,18 +1099,11 @@ public class DsrRetrievabilityTests
             precision: 9);
     }
 
-    // ---- the shared contract, which every policy must satisfy ----
+    // ---- the shared contract, which every policy must satisfy: inherited from the base class ----
 
-    [Fact] public void Probability() => RetrievabilityPolicyContract.Retrievability_is_a_probability(new DsrRetrievability());
-    [Fact] public void One_at_zero() => RetrievabilityPolicyContract.It_is_one_at_zero_age(new DsrRetrievability());
-    [Fact] public void Monotone() => RetrievabilityPolicyContract.It_never_increases_with_age(new DsrRetrievability());
-    // growth ON: at the shipped gain of 0 Reinforce returns every stability unchanged, so "never shortens" could not fail
-    [Fact] public void Reinforce_grows() => RetrievabilityPolicyContract.Reinforcement_never_shortens_a_memory(Reinforcing());
-    [Fact] public void Cutoff_superset() => RetrievabilityPolicyContract.CandidateCutoff_is_a_conservative_superset(new DsrRetrievability());
-    [Fact] public void Unbounded_ok() => RetrievabilityPolicyContract.An_unbounded_policy_is_still_correct(new DsrRetrievability());
-    [Fact] public void Connectedness_helps() => RetrievabilityPolicyContract.Connectedness_never_lowers_retrievability(new DsrRetrievability());
-    [Fact] public void Stability_unit() => RetrievabilityPolicyContract.Stability_is_the_position_delta_at_which_retrievability_is_half(new DsrRetrievability());
-    [Fact] public void Reinforce_owns_only_stability_and_difficulty() => RetrievabilityPolicyContract.Reinforcement_leaves_every_field_it_does_not_own_unchanged(new DsrRetrievability());
+    protected override IMemoryRetrievabilityPolicy New() => new DsrRetrievability();
+
+    protected override IMemoryRetrievabilityPolicy Growing() => Reinforcing();
 
     // ---- the load-bearing claim of the fsrs-properly plan's Task 1 (design §0): deleting
     // HalfLifeRetrievability strands NO data ----
