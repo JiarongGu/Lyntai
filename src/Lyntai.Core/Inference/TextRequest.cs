@@ -38,7 +38,7 @@ public sealed record TextRequest
 
     /// <summary>An optional per-request refusal regex (case-insensitive). If an otherwise-<c>Ok</c> reply's
     /// text matches it, the reply is surfaced as <see cref="ProviderVerdict.Refused"/> (no fallback) — a caller-
-    /// supplied check on top of the central patterns, e.g. a per-language "I can't help with that" phrasing
+    /// supplied check on an Ok reply, e.g. a per-language "I can't help with that" phrasing
     /// the provider returns as a normal completion. Applied at the front door, so it also re-screens a
     /// cached hit. A malformed pattern is logged and ignored (the reply passes through). Completion-path
     /// only — streamed replies aren't screened.</summary>

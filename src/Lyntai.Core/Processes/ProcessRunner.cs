@@ -151,13 +151,9 @@ public sealed class ProcessRunner : IProcessRunner
             {
                 ct.ThrowIfCancellationRequested(); // caller cancel propagates; only a timeout is reported as a result
 
-                // …but a kill that FIRED is not the same as a kill that BEAT the child. Through 2.5.x this
-                // branch reported a timeout on the cancellation flag alone, so a child that exited 0 as the
-                // timer fired had its complete, successful stdout thrown away and reported as a stall — and
-                // CliProviderEngine.CompleteAsync branches on TimedOut before it parses stdout, so an
-                // already-billed turn became a Timeout verdict and the router paid for a second one.
-                // StreamLinesAsync has always asked the fuller question; the two now ask it through ONE
-                // function rather than through two copies kept in step by review.
+                // …but a kill that FIRED is not a kill that BEAT the child: one that exited 0 as the timer
+                // fired holds a complete, already-billed stdout, and reporting a stall would make the router
+                // pay for a second turn. Both paths ask through TimedOut.
                 if (TimedOut(true, process.ExitCode))
                 {
                     // killCts fired without a tagged reason ⇒ the caller's own token (handled above) or a race; default to inactivity
@@ -176,18 +172,10 @@ public sealed class ProcessRunner : IProcessRunner
 
     /// <summary>Did the kill BEAT the child, or did the child finish first? A kill request on its own does
     /// not mean a timeout: <c>KillTree</c> is a no-op against a process that has already gone, so a child
-    /// exiting <c>0</c> as the clock fires leaves the flag set and the run entirely successful.
-    ///
-    /// <para><b>One function because it was two copies, and they had already diverged.</b>
-    /// <c>StreamLinesAsync</c> asked both halves of this question; <c>RunAsync</c> asked only whether the
-    /// flag was set, and therefore reported a stall for a run whose complete stdout it was holding. The two
-    /// call sites are far apart in this file and neither is reachable from the other's tests, which is how a
-    /// guard existed on one path and was absent from the other for a whole release. Keeping the decision in
-    /// one place is what makes the divergence unrepresentable rather than merely fixed.</para>
-    ///
-    /// <para><b>Internal, and unit-tested through the truth table</b>, because the race it settles cannot be
-    /// driven deterministically from outside this class — which is precisely why the copy that DID carry the
-    /// guard never had a test.</para></summary>
+    /// exiting <c>0</c> as the clock fires leaves the flag set and the run entirely successful. ONE function
+    /// for <c>RunAsync</c> and <c>StreamLinesAsync</c>, so the two paths cannot answer differently; internal and
+    /// unit-tested through the truth table, because the race it settles cannot be driven deterministically from
+    /// outside.</summary>
     /// <param name="killRequested">Whether a stop was requested (an inactivity or max-duration clock).</param>
     /// <param name="exitCode">The removed child's exit code.</param>
     internal static bool TimedOut(bool killRequested, int exitCode) => killRequested && exitCode != 0;
@@ -342,14 +330,10 @@ public sealed class ProcessRunner : IProcessRunner
     /// separators are returned as-is. A resolved (or directly-supplied) <c>.ps1</c> is hosted in PowerShell
     /// at spawn time — see the private launcher resolution.</summary>
     /// <remarks><b>A FAILED lookup is never cached, and that asymmetry is the whole of this method.</b> The
-    /// cache is a process-wide static, so anything it remembers it remembers forever — and this used to
-    /// memoize <c>Locate(cmd) ?? cmd</c>, fallback included. One transient locator failure (a spawn that
-    /// could not start under load, an AV hook, a dead PATH entry) therefore pinned the unresolved bare name
-    /// for the lifetime of the process, and <see cref="CommandExists"/> reads a name with no directory part
-    /// as NOT FOUND. Every later call then reported an installed CLI as absent, silently and permanently.
-    /// <para>Re-looking-up a genuinely missing command costs one locator spawn per call, which is the right
-    /// trade: a command that is absent is absent once, while a command wrongly believed absent stays wrong
-    /// until the process restarts.</para></remarks>
+    /// cache is a process-wide static, so anything it remembers it remembers forever: caching the unresolved
+    /// bare name after one transient locator failure would make <see cref="CommandExists"/> report an
+    /// installed CLI as absent until the process restarts. Re-looking-up a genuinely missing command costs one
+    /// locator spawn per call, which is the right trade.</remarks>
     public static string ResolveCommandPath(string command)
     {
         if (Path.IsPathRooted(command) || command.Contains('/') || command.Contains('\\')) return command;

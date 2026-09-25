@@ -37,10 +37,6 @@ public sealed record TextChunk
     /// <summary>The requested tool call, on a <see cref="TextChunkKind.ToolCall"/> chunk. Always COMPLETE:
     /// vendors stream tool calls as fragments (an id here, a name there, arguments in pieces) and assembling
     /// them is the PROVIDER's job, so this is never partial JSON a consumer has to accumulate.</summary>
-    /// <remarks>Added in 3.0. Before it, the streaming contract carried no tool-call payload at all — which
-    /// made a native tool-calling turn unstreamable (<c>ToolLoop</c> had to buffer the whole turn through
-    /// <c>CompleteAsync</c>, losing time-to-first-token for every agentic answer) and, worse, silently DROPPED
-    /// a call from any turn that streamed prose alongside one.</remarks>
     public TextToolCall? ToolCall { get; init; }
 
     public static TextChunk Content(string text) => new() { Kind = TextChunkKind.Content, Text = text };

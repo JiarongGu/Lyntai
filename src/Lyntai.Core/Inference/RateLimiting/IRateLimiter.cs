@@ -1,9 +1,10 @@
 using Lyntai.Inference;
 namespace Lyntai.Inference.RateLimiting;
 
-/// <summary>Gates the rate of front-door calls. The built-in <see cref="TokenBucketRateLimiter"/> is what
-/// <c>AddRateLimit()</c> registers; register your own <see cref="IRateLimiter"/> first (e.g. a distributed
-/// limiter shared across processes) to override it.</summary>
+/// <summary>Gates the rate of calls per consumer — the text front door's and the generic router's
+/// (<c>AddRateLimit()</c>), and the media router's own instance (<c>AddMediaRateLimit()</c>). The built-in
+/// <see cref="TokenBucketRateLimiter"/> is the default; register your own <see cref="IRateLimiter"/> first
+/// (e.g. a distributed limiter shared across processes) to override it.</summary>
 public interface IRateLimiter
 {
     /// <summary>Acquire permission to proceed for <paramref name="consumer"/>. Returns true when cleared

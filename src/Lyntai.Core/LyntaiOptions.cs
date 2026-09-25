@@ -115,7 +115,7 @@ public sealed class LyntaiOptions
     {
         if (!string.IsNullOrEmpty(requestModel)) return requestModel;
         if (DefaultModelByConsumer.TryGetValue(consumer, out var m)) return m;
-        return DefaultModelByConsumer.TryGetValue("default", out var d) ? d : null;
+        return DefaultModelByConsumer.TryGetValue(ProviderConsumers.Default, out var d) ? d : null;
     }
 
     /// <summary>Resolve the provider timeout for a request: an explicit <see cref="TextRequest.TimeoutSeconds"/>
@@ -137,7 +137,7 @@ public sealed class LyntaiOptions
             return requested > MaxProviderTimeout ? MaxProviderTimeout : requested;
         }
         if (consumer is not null && TimeoutByConsumer.TryGetValue(consumer, out var t)) return t;
-        return TimeoutByConsumer.TryGetValue("default", out var d) ? d : ProviderTimeout;
+        return TimeoutByConsumer.TryGetValue(ProviderConsumers.Default, out var d) ? d : ProviderTimeout;
     }
 
     /// <summary>Resolve a provider timeout for a caller with no consumer to name — exactly
@@ -236,7 +236,7 @@ public sealed class LyntaiOptions
 
         var defaultModel = getEnv("LYNTAI_MODEL_DEFAULT") ?? getEnv("LYNTAI_DEFAULT_MODEL");
         if (!string.IsNullOrWhiteSpace(defaultModel))
-            DefaultModelByConsumer["default"] = defaultModel;
+            DefaultModelByConsumer[ProviderConsumers.Default] = defaultModel;
 
         // LYNTAI_MODEL_<CONSUMER> → per-consumer model (the dictionary is case-insensitive, so an
         // upper-cased env suffix resolves a lower-cased consumer tag like "scoring"). DEFAULT handled above.

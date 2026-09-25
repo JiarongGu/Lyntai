@@ -55,9 +55,4 @@ public interface IProviderCall<in TRequest, TResponse> : IModelProvider
     Task<TResponse> CallAsync(TRequest request, CancellationToken ct = default);
 }
 
-// There is deliberately no IProviderStream<,> or IProviderQueue<,> beside this seam. Both shipped with
-// D153 as generic streaming/queued counterparts and were deleted before the freeze: nothing implemented or
-// consumed either — text and media streaming live on IModelProvider's defaulted members, the queue door is
-// IMediaJobProvider — and ProviderRouter<,> routes IProviderCall<,> only, so an application closing one over
-// its own types would have gotten no routing at all. A public type with no consumer does not earn its keep
-// (docs/DECISIONS.md D155); reintroduce one only WITH the router support that makes it true.
+// No generic streaming or queued counterpart beside this seam, deliberately — docs/DECISIONS.md D155.

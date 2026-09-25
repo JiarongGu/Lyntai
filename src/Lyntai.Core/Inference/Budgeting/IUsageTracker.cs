@@ -1,8 +1,9 @@
 using Lyntai.Inference;
 namespace Lyntai.Inference.Budgeting;
 
-/// <summary>Accumulates token/cost usage across front-door calls, per consumer and globally. The
-/// <c>AddUsageBudget</c> decorator records into it and reads it to enforce caps; the app can query totals
+/// <summary>Accumulates token/cost usage per consumer and globally — ONE ledger for every door: the text front
+/// door (<c>AddUsageBudget</c>), the media router (<c>AddMediaUsageBudget</c>) and the generic router's
+/// governance record into it and read it to enforce caps; the app can query totals
 /// (what have I spent?) or reset them at a billing-window boundary. The built-in
 /// <see cref="InMemoryUsageTracker"/> is the default — register your own <see cref="IUsageTracker"/>
 /// before <c>AddUsageBudget</c> to persist/share spend across processes. ASYNC by contract:
