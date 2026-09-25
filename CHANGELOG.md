@@ -228,6 +228,30 @@ every addition.
   `SchemaMigration.OnFirstUse`, or `new LazyMigratingConnectionFactory(new SqliteConnectionFactory(path), () =>
   MigrationRunnerService.MigrateUp(path))` (the same shape on Postgres).
 
+- **The chat writes its memory through the composer that reads it.** `IPromptComposer` gains
+  `RememberAsync(taskKey, scope, content, ct)` with no default body, and `ChatOrchestrator` no longer takes
+  `IMemoryStore` / `ISemanticMemory` — it wrote there while `AddMemory()` read from the graph engine, so the chat
+  recalled nothing it had said (see Fixed). `MemoryPromptComposer` is removed: the default composer is an
+  `EngineBackedPromptComposer` over the keyword store and semantic memory, so every consumer door goes through an
+  engine. **What to DO:** a BYO `IPromptComposer` implements `RememberAsync`, writing where its `ComposeAsync` reads
+  (or returning, if read-only); a hand-built `ChatOrchestrator` drops the two arguments; code that constructed
+  `MemoryPromptComposer` relies on the default or on `AddMemoryEngine("x", e => e.UseLexical().UseSemantic()
+  .FanOutWrites()).UseMemoryComposer("x")`.
+
+- **`GraphMemoryEngine`'s constructor is `(name, store, options, seams, logger)`**: every other seam moved onto the
+  init-only `GraphMemorySeams` record, so a new seam no longer has to be appended last to keep positional callers
+  binding. **What to DO:** move named arguments such as `agePolicies:` into
+  `seams: new GraphMemorySeams { AgePolicies = … }`.
+
+- **Memory options and seams refuse what they used to accept silently.** `GraphMemoryOptions` integer setters throw
+  `ArgumentOutOfRangeException` below their floor (0 for most; 1 for `HeadlineChars`, `CandidateMultiplier`,
+  `DefaultLimit`); `SalienceOptions.MaxSalience` rejects ±Infinity (+∞ used to switch decay resistance off);
+  `IMemoryGraphStore.KnownSubjectsAsync` has no default body (the default switched the subject recall channel off);
+  and registering `AddMemoryVerification` with `AddMemoryScoringVerification`, or either twice, throws. **What to DO:**
+  pass 0 or the documented off value where a negative was passed; set a finite salience ceiling of at least 1; a BYO
+  graph store implements `KnownSubjectsAsync` (the handles in use under a task and scope, most-used first); register
+  one verifier, once.
+
 ### Security
 
 - **Recalled memory can no longer forge a prompt section** (**D166**). Both composers rendered an item as
@@ -297,6 +321,10 @@ every addition.
 - **Postgres orders score aggregates and exports by byte** (`COLLATE "C"`), as every other backend does; the
   locale caveat on `IScoreStore` is gone. The SQLite `MigrationRunnerService.MigrateUp` / `MigrateUpAsync` create the
   database's directory, so the documented `SchemaMigration.None` recipe works on a fresh nested path.
+
+- **The default chat memory section** uses `MemoryCompositionOptions.AssociativeHeading`, keyword hits render before
+  semantic ones, and `Render` writes an identical line once (a fan-out blend returns each write twice). A graph
+  write's similarity and subject links reach the store in one batch per kind.
 
 ### Added
 
@@ -620,6 +648,26 @@ every addition.
   failing closed; the file prompt store never writes over an `active.md` it could not read; the file store's atomic
   replace survives a transient Windows refusal; the SQLite synchronous open no longer leaks a connection when its
   pragmas fail.
+
+- **The `AddMemory()` chat recalls its own turns.** README's headline setup, `UseSqliteStorage().AddMemory()`, read
+  the chat's memory from the graph engine while `ChatOrchestrator` wrote each exchange only to the keyword store and
+  semantic memory, so nothing it said was ever recalled — silently, since recall fails open. The chat's write also
+  swallowed the caller's cancellation.
+
+- **Memory pruning reaches the engines.** A graph blend refused every prune (`GraphMemoryEngine` had stopped
+  declaring `IPrunableMemory`), and `AddMemoryPruneJob` pruned only the keyword store; a task-scoped job now also
+  prunes every `IPrunableMemory` engine.
+
+- **Memory fixes**: `UseCurated(kind: null).UseGraph()` no longer rejects every write (a read-only curated member
+  reports `Supported = None`); a curated entry can no longer forge a prompt heading (D166's one-line rule); the
+  recall tool clamps a model's `limit` to 1..50 and the candidate arithmetic saturates (an overflow scanned the
+  whole scope on SQLite); a subject's case or padding variants no longer double an edge's weight; a reference owned
+  by another engine expands to nothing and refuses to link, instead of addressing this engine's node; an unscoped
+  forget also drops orphaned vector collections; a scope-less semantic recall can no longer return a graph engine's
+  vectors from another task; expand skips an oversized neighbour instead of stopping at it; the LLM annotation and
+  verification policies read a reply with trailing text, a trailing comma or a comment; `NeutralSaliencePolicy`
+  beside another salience policy fails with an error naming it; `AddMemoryEngine` registers one factory however many
+  engines are added.
 
 ### Internal (no public surface change)
 
