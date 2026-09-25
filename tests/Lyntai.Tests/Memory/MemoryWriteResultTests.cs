@@ -135,7 +135,7 @@ public class MemoryWriteResultTests
     {
         // the vector is indexed BEFORE the links, each best-effort on its own — a link failure costs links only
         var vectors = new InMemoryVectorStore();
-        var store = new TimingOutGraphStore(nameof(IMemoryGraphStore.LinkAsync));
+        var store = new TimingOutGraphStore(nameof(IMemoryGraphStore.LinkManyAsync));
         var engine = Graph(new FakeVectorProvider(), vectors, store,
             options: new GraphMemoryOptions { MinSimilarity = 0.1 });
         await engine.RememberAsync(new MemoryWrite("t", "s", "you can cancel your subscription anytime"));

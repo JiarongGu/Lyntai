@@ -48,7 +48,7 @@ public class MemoryFailOpenCancellationTests
         // The per-PATH half: write-back runs AFTER the hits are found, so its timeout costs the learning
         // and never the answer. A whole-store double could not tell this from the fact above.
         var store = new TimingOutGraphStore(nameof(IMemoryGraphStore.WriteBackAsync),
-            nameof(IMemoryGraphStore.TouchAsync), nameof(IMemoryGraphStore.LinkAsync));
+            nameof(IMemoryGraphStore.TouchAsync), nameof(IMemoryGraphStore.LinkAsync), nameof(IMemoryGraphStore.LinkManyAsync));
         var engine = new GraphMemoryEngine("graph", store);
         await engine.RememberAsync(Write());
 

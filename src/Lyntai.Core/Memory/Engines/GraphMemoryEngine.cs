@@ -419,6 +419,8 @@ public sealed class GraphMemoryEngine(
             await store.RecordSubjectsAsync(Name, id, subjects, ct).ConfigureAwait(false);
             if (_options.AnnotationLinkK <= 0) return;
 
+            // one batch for the write: the edges come from one event, so one position stamps them all
+            var edges = new List<GraphEdgeWrite>();
             foreach (var subject in subjects)
             {
                 // +1 because this node is now recorded under the subject too and is filtered out below —
@@ -427,12 +429,9 @@ public sealed class GraphMemoryEngine(
                     _options.AnnotationLinkK + 1, ct).ConfigureAwait(false);
 
                 foreach (var other in found)
-                {
-                    if (other == id) continue;
-                    await store.LinkAsync(Name, id, other, "subject", 1, symmetric: true, ct)
-                        .ConfigureAwait(false);
-                }
+                    if (other != id) edges.Add(new GraphEdgeWrite(id, other, "subject", 1, Symmetric: true));
             }
+            if (edges.Count > 0) await store.LinkManyAsync(Name, edges, ct).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (Exception ex)
@@ -522,6 +521,7 @@ public sealed class GraphMemoryEngine(
 
         try
         {
+            var edges = new List<GraphEdgeWrite>(near.Count);
             foreach (var match in near)
             {
                 // this write's own PRIOR vector, from an earlier remember of identical content — never a
@@ -536,9 +536,9 @@ public sealed class GraphMemoryEngine(
                 // and Strength, and both feed retrievability — so the entry would prop itself up forever.
                 // The store rejects one too; catching it here also skips a pointless round trip.
                 if (other == id) continue;
-                await store.LinkAsync(Name, id, other, "similar", 1, symmetric: true, ct)
-                    .ConfigureAwait(false);
+                edges.Add(new GraphEdgeWrite(id, other, "similar", 1, Symmetric: true));
             }
+            if (edges.Count > 0) await store.LinkManyAsync(Name, edges, ct).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (Exception ex)
