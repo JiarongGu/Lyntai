@@ -61,7 +61,7 @@ When a task says "app X wants Y," run it through this before writing code:
    answer it. A default is fine — an unconfigurable answer is not.
    <br>**This is the rule that catches the SELF-INFLICTED case, which is why it is separate from the five
    above.** Every one of those starts "a consumer asked for X"; this one fires when nobody asked and the
-   shape was invented while designing. Measured 2026-08-16 (`docs/DECISIONS.md` **D75**, amending D72):
+   shape was invented while designing. Measured 2026-08-16 (`docs/DECISIONS.md` **D72**):
    `IMemoryEngine.HoldsUserContent` was a `bool` on the engine declaring whether its content was the user's <!-- link-ok: a REJECTED alternative; it never existed -->
    to withdraw — and one application's curated glossary is operator boilerplate while another's holds
    preferences the user typed. The property stated a fact about the HOST inside a type the host did not
@@ -101,7 +101,7 @@ notice, because there is no outside voice to disagree with.
 | App needed a full BYO runner for Windows `.cmd`/CJK | default `ProcessRunner` resolves shims + forces UTF-8 for everyone | Core |
 | Source-study tool re-`List`s to dedup a note | `dedup`/`scope` params, defaulted off | `ICuratedMemoryStore` (Core) |
 | Desktop app drives codex with three `-c mcp_servers.<its-name>.*` overrides per turn | neutral `McpServers` (stdio **or** http), rendered per backend | `AgentSessionOptions` (Core) + both adapters |
-| **Self-inflicted:** the library itself declaring whether a memory engine's content is the user's to withdraw | `IMemoryRemovalPolicy`, asked per member **and** per verb | Core seam, DI-registered (D75) |
+| **Self-inflicted:** the library itself declaring whether a memory engine's content is the user's to withdraw | `IMemoryRemovalPolicy`, asked per member **and** per verb | Core seam, DI-registered (D72) |
 | **Self-inflicted:** the library itself capping a local render at one size for every machine | host-declared `Accelerator` + `MaxDimension`; GPU derives **no** cap rather than an invented one | `LocalDiffusionOptions` (adapter, D68) |
 
 ## Related

@@ -257,6 +257,11 @@ _All 181 entries are live decisions._
 <!-- index:end -->
 
 ## D1 — the LLM seam is Lyntai's own `IModelProvider`, with a `Microsoft.Extensions.AI` bridge
+
+> **The bridge half is superseded by D146 and D147.** `Lyntai.ExtensionsAi` is deleted; a backend that <!-- drift-ok: names the package D146 deleted -->
+> already answers is bridged by `AddBridgeProvider`, a delegate that costs no dependency. The SEAM stands:
+> `IModelProvider` is Lyntai's own contract, because MEAI cannot express a CLI's process lifetime or D3's verdicts.
+
 Consuming applications are split between spawning a vendor CLI and calling an HTTP or local API, so the
 seam has to span both. `IModelProvider` is Lyntai's own contract; `Lyntai.ExtensionsAi` bridges any
 `Microsoft.Extensions.AI` `IChatClient` into it, in both directions. Adopting MEAI *as* the seam was
@@ -270,8 +275,9 @@ the backend at all.
 ## D2 — storage is per-domain interfaces, and a backend implements as many as it wants
 Each storage domain has its own interface in Core, free of cross-domain coupling **on purpose**, so a
 composite deployment can route each domain to a different backend without breaking consumers. There are
-thirteen such interfaces today and three shipped backends (SQLite, Postgres, InMemory) — the "one SQLite
-package" this entry originally described was the starting point, not the constraint. Don't couple domains.
+thirteen such interfaces today and four shipped backends in three packages (SQLite, Postgres, and
+`Lyntai.Storage.Basic`'s in-memory and file-system stores) — the "one SQLite package" this entry originally
+described was the starting point, not the constraint. Don't couple domains.
 
 ## D3 — fallback is verdict-driven, through one shared classifier, and the policy is REPLACEABLE
 One `ProviderVerdict` enum drives router behaviour, and every provider routes through the shared
@@ -353,6 +359,10 @@ every migration, index and FTS trigger parameterised on a name Lyntai does not c
 `lyntai_` prefix (D6) already prevents.
 
 ## D11 — direction: a platform kit — framework in Lyntai, domain in the application
+
+> **The `IEmbedder` example is superseded by D151:** that seam is removed, and a BYO embedder is a provider
+> implementing `IVectorProvider` and declaring `Produces: Vector` (**D153**). The direction stands.
+
 Lyntai grows into a LangChain-shaped kit with opinionated defaults: Lyntai owns the framework (routing,
 storage, prompts, scoring, traces, memory, jobs, guards, agents), the application owns its domain. This
 reversed the library's original scope — "brain + persistence core only" — which is now history.
@@ -531,6 +541,11 @@ location. Driving someone else's provisioning is not provisioning.
   reading your value as an option.
 
 ## D21 — a CLI-backed provider is `CliProviderEngine` + a DIALECT, never a second copy of the rules (2026-08-04)
+
+> (2026-09-19, **D159**: the seam is `ICliBackend` and the doctrine sentence "a new CLI backend is a DIALECT,
+> never a new provider" is retired — a new CLI backend is an `ICliBackend` plus a thin provider composing the
+> one engine. The CONTENT here is unchanged: the rules live once in the engine.)
+
 Driving a command-line agent involves a dozen invariants that have nothing to do with *which* CLI it is:
 spawn hygiene, the inactivity clock, exit-code-versus-in-band precedence, verdict classification, argument
 refusal. Those live once in `CliProviderEngine`; a new CLI is an `ICliProviderDialect`. The traps in <!-- drift-ok: the record names the seam of its day; a later decision renamed it -->
@@ -546,10 +561,6 @@ instead of inheriting a claim it will fail at runtime.
 
 **Validated by a second implementer immediately**: the codex backend was built on the seam the claude one
 produced, which is the only real evidence that a seam generalises rather than describing its first case.
-
-*(2026-09-19, **D159**: the seam is `ICliBackend` and the doctrine sentence "a new CLI backend is a DIALECT,
-never a new provider" is retired — a new CLI backend is an `ICliBackend` plus a thin provider composing the
-one engine. The CONTENT here is unchanged: the rules live once in the engine.)*
 
 ## D22 — a CLI backend may be PORTABLE (application-bundled), not just a global install (2026-08-04)
 A host may ship or side-load its own copy of a CLI rather than depend on a machine-wide install. For a
@@ -601,6 +612,12 @@ core was still uncommitted to consumers.
 the same shape the LLM side uses (D3).
 
 ## D25 — packages are split by DEPENDENCY FOOTPRINT, not by vendor or by size (2026-08-04)
+
+> **The RELEASE-CADENCE reason below is withdrawn by D70**, with the carve-out it served. The `Lyntai.Generation`
+> boundary stands on footprint alone, in a form this entry did not spell out: the package sits outside the
+> `Lyntai` bundle (**D26**), so a one-line install does not drag the media backends. The MCP paragraph's
+> "our own bridge" is gone too (**D146**).
+
 Lyntai had one package per backend, which read as "a package per vendor". The test is instead: *which
 dependency does this isolate?* Backends needing nothing extra share `Lyntai.Providers.Basic`; one earns
 its own package the moment it drags a native runtime, a platform-specific API, or a dependency a consumer
@@ -636,10 +653,6 @@ install.
 
 **Namespaces did not change when packages merged, and that is the rule, not a courtesy.** Consolidating
 packages must cost a consumer one `PackageReference` edit, never a sweep of `using` directives.
-
-**The cost, stated plainly rather than buried:** three published ids were abandoned at 1.2.2, one of them
-with twenty published versions. That was permitted in a minor only because every consumer was first-party
-(D18), and an abandoned id must never be resurrected for a different purpose (D23).
 
 ## D26 — what goes IN the `Lyntai` bundle is a DEPENDENCY BUDGET, enforced by a gate (2026-08-04)
 The bundle forces every dependency it carries onto every one-line-install consumer, because an untrimmed
@@ -816,6 +829,11 @@ go**, which is dropped rather than folded into a neighbouring field where it wou
 not. The fourth — a tool step whose shape was inferred — closed with CLI12.
 
 ## D36 — a translation between two verdict taxonomies gets one arm per member, gated by a TEST (2026-08-05)
+
+> **SUPERSEDED by D136, which deleted the translation layer**: one `ProviderVerdict` serves every domain, so
+> nothing is translated any more. What stands is the rule under it — a shared MEANING is not a shared
+> ACTION — which D136 keeps as "meaning shared, action per domain".
+
 Translating between the LLM and media verdict enums — two taxonomies then, one `ProviderVerdict` since
 **D136** — by falling back to a default silently mapped a
 meaningful verdict onto `Failed`. Every member gets an explicit arm, and because the compiler cannot force
@@ -829,17 +847,8 @@ changes what the router DOES while looking like a rename.
 **`ContextWindowExceeded` maps to `Unsupported`.** It is the one member with no media counterpart, and it is
 genuinely reachable — the shared corpus matches "prompt is too long", which image backends do say. Too big
 for THIS backend is a capability gap rather than ill health, so it must ADVANCE without counting toward the
-dead-host threshold.
-
-**Amended 2026-08-16 — this paragraph said the opposite, and was stale rather than wrong.** As first
-written it recorded a TRADE: `Unsupported` describes and routes it better, but a blameless verdict must
-never outrank a real failure while the router has only ONE reporting slot, so the member stayed at `Failed`
-(and therefore at `PenalizeAndAdvance`, penalising a backend for refusing an oversized prompt). It closed
-with *"the real remedy is a router change, not a mapping change, which is why it is filed rather than
-patched here"* — and that router change LANDED, as the second reporting slot in **D31**. The mapping moved
-with it; the decision record did not, so the log asserted a behaviour the code had not had for some time.
-Nothing could see it: `check-docs` gates retired VOCABULARY, and a decision going stale retires no word.
-Found while relocating a comment that cited this entry.
+dead-host threshold — which needed **D31**'s second reporting slot, so a blameless verdict never outranks a
+real failure.
 
 ## D37 — refuse an identity collision; and a Core exception may carry a verdict (2026-08-05)
 **Two rules, from items that stayed open until each got a decision.** An identity collision — two
@@ -964,18 +973,14 @@ sub-namespace holding one seam, its implementations **and its options**. Placeme
 consumption: a type a sibling domain merely depends on stays with its owner, and `MemoryDecayState` — the
 one type no domain owns, being the state they all read — is the only DOMAIN-shaped type left at the root.
 
-**Scoped to domain-owned types, and this sentence said "the only thing that belongs at the root" until
-2026-08-31.** Read literally that is false: ~40 types sit at the root and most correctly do, because they
+**Scoped to domain-owned types.** ~40 types sit at the root and most correctly do, because they
 are the subsystem's CONTRACT rather than any domain's — `IMemoryEngine`, `MemoryWrite`, `MemoryQuery`,
 `MemoryRecall`, `IMemoryGraphStore`, the engines, the vector store. What the rule forbids at the root is a
 *policy domain's* seam, implementations or options. Stated precisely because the loose form invites a
 reviewer to file everything at the root as a violation.
 
-**The RULE is what this decision fixes, never the count.** It said "four DOMAINS" in its own title until
-2026-08-31; there were seven by then, and `decisions-index` renders titles, so the stale number appeared in
-the index table too. `CLAUDE.md`'s namespace map is where the live roster belongs — it had already drifted
-once itself ("this list said five until 2026-08-15"), which is the argument for keeping a count in exactly
-one place rather than restating it in a title nothing gates.
+**The RULE is what this decision fixes, never the count.** `CLAUDE.md`'s namespace map holds the live
+roster, where `check-counts` gates it; a count restated in a title nothing gates goes stale.
 
 **It is a pure rename and nothing else.** No method body, constant, signature or documentation word changed
 meaning; the whole change is where the types live. That is what made it safe to take in one pass, and it is
@@ -1003,11 +1008,7 @@ says what it DOES, "retrievability that has been modulated", and stays accurate 
 name) and `DsrRetrievability` (its suffix is `Retrievability`, which the rename KEEPS — only the leading
 `I` form changed). Renaming either "for consistency" would be undoing this decision, not applying it.
 
-**This rename created one collision, and D13's type is the side that moved.** `IMemoryRetentionPolicy` landed
-one `I` away from a long-shipped storage type doing the opposite job. That was resolved in 3.0 by renaming
-the *storage* type, not this seam: the seam's name is the whole point of D47's one shape, while the storage
-type already lived among `MemoryEvictionMode` and `MemoryEviction.Survivors` and was the one using the wrong
-word. See D13.
+**This rename created one collision, and D13's type is the side that moved** — D13 says why.
 
 ## D48 — a seam is SINGULAR or PLURAL depending on whether its implementations read the same aspect (2026-08-10)
 D46 said implementations "accumulate rather than replace", which is right for some seams and wrong for
@@ -1064,18 +1065,20 @@ optional parameter is *source*-compatible — existing code compiles untouched �
 because the method signature changes and a pre-compiled caller does not re-bind. Under STRICT SemVer the
 same change costs a whole major version afterwards, so the window is the cheap moment.
 
-**Amended 2026-08-21 — that last sentence was read as a prohibition, and it is not one.** **D18** defers
-SemVer strictness while every consumer is first-party: a *documented* break may ship in a minor. So the
-right question after the window closes is not "may I?" but "do I need to?" — and usually not, because a new
-overload or an `init` property adds the same capability, breaks nobody and needs no disclosure at all. That
-is the shape D83–D86 took for exactly this reason, after first talking themselves out of it by citing the
-sentence above without its neighbour.
+**That is not a prohibition after the window.** **D18** lets a *documented* break ship in a minor while
+every consumer is first-party, so the question becomes "do I need to?" rather than "may I?" — and usually
+not, because a new overload or an `init` property adds the same capability and breaks nobody, the shape
+D83–D86 took.
 
 **Symmetry is the argument**: `ranking` was already per-engine and the curve was not, yet under D48 the two
 are the SAME class of seam — singular, one installed at a time. Leaving one selectable and the other not
 was an accident of when each was written.
 
 ## D51 — what 3.0 ships WITHOUT, and why each is a decision rather than a gap (2026-08-11)
+
+> **Two of the three rows are closed.** GEN6 shipped (`docs/task-archive.md` Part 266), and GEN-VERIFY's
+> `sd-cli` half was measured (**D69**), leaving GEN-VERIFY-FAL in `TASKS.md`. The FSRS-B refusal stands.
+
 Written on the owner's instruction that anything not done should carry a proper reason.
 
 **Three different things get called "deferred", and they are not equivalent — read the KIND first.**
@@ -1144,8 +1147,8 @@ the candidates is.
 Five studies agree, and every alternative to changing the default was tested first. A recall still resets an
 entry's age; it no longer lengthens its half-life.
 
-**It wins on every corpus shape and on BOTH metrics** — the fixed-corpus pin moves miss `0.234 → 0.103`,
-roughly a 56% relative improvement, without paying for it in pollution. **Every alternative lost**: not
+**It wins on every corpus shape and on BOTH metrics** (`docs/memory-measurements.md` §5,
+`reinforce-gain-zero-fixed-pin`), without paying for it in pollution. **Every alternative lost**: not
 only the shipped compounding rule, but a CAPPED variant and one computed from the entry's recall COUNT so
 it could not compound by construction. Not growing at all beat all three, which is what rules out
 "compounding is the problem" as the explanation.
@@ -1167,11 +1170,10 @@ two-character terms a spaceless script needs; `Extract` does not, because a trig
 them. Most Chinese content words are exactly two characters, so a substring backend must carry what the
 index cannot.
 
-**The cost of that was measured before adoption: ~108×.** On Postgres at 300k rows a two-character `ILIKE`
-cannot use the `pg_trgm` GIN index and degrades to a parallel sequential scan — 96.6 ms against 0.90 ms for
-a three-character pattern on identical, equally selective data. That number is why the widened clause runs
-only after the index-friendly pass returns nothing, and why removing that staging would be a silent
-performance regression rather than a simplification.
+**The cost of that was measured before adoption: ~108×** on Postgres, because a two-character `ILIKE`
+cannot use the `pg_trgm` GIN index (`docs/memory-measurements.md` §5, `postgres-bigram-ilike-seqscan`). That
+is why the widened clause runs only after the index-friendly pass returns nothing, and why removing that
+staging would be a silent performance regression rather than a simplification.
 
 **Scope, stated because the aggregate hides it:** this makes keyword recall work in Chinese. It does not
 make the graph's spreading activation work there — that is a separate mechanism with its own measurement.
@@ -1192,12 +1194,8 @@ that was documented rather than closed. It was documented in the belief that let
 every ordinary hit was the worse trade. Bounding the reserve is what makes both answers available, which is
 why the earlier scoping is now only history.
 
-**The durable lesson is about the CORPUS, not the engine.** A measurement harness that cannot express a
-promise reports "nothing moved" — which reads exactly like "no regression" — for as long as nobody notices
-it is blind. This promise went unmeasured for the whole life of the feature because the corpus contained no
-graded material at all, and documenting that blind spot was mistaken for handling it. Teaching the
-instrument to express the promise took an afternoon and immediately found the highest-priority guarantee
-broken in every language.
+**The durable lesson is about the CORPUS, not the engine**: a harness that cannot express a promise reports
+"nothing moved", which reads exactly like "no regression" (`.claude/knowledge/pitfalls.md` §Storage).
 
 ## D57 — the reinforcement seam is cut at the two EFFECTS, not the two ACTS (2026-08-13)
 A recall's age reset and its stability growth are separable, and they are what a consumer actually wants to
@@ -1233,17 +1231,15 @@ and rules out a better formula as the fix: every constant this subsystem tuned m
 so a buried answer is promoted rather than merely observed. Advisory by contract, and `VerificationDepth`
 bounds what a judgement costs.
 
-**The depth default is the measured SATURATION point, not a round number** — recorded here 2026-08-17
-because it had lived only in that property's own remarks, where the rule says a measurement must not. With a
-perfect-oracle judge over a full corpus replay at limit 10: depth 10 (observe-only) recovered `-0.0857` of
-the miss rate, depth 20 `-0.2214`, depth 40 `-0.2500` — and 80, 160 and 5000 all returned exactly what 40
-did. Four times the limit is where rescuing stops paying, which is what `DefaultVerificationDepthFactor`
-encodes. The shape matters more than the constant: rescue depth has a knee, so raising it past the knee buys
-nothing while costing per-recall tokens linearly.
+**The depth default is the measured SATURATION point, not a round number**: with a perfect-oracle judge,
+rescue stops paying at four times the limit, which is what `DefaultVerificationDepthFactor` encodes
+(`docs/memory-measurements.md` §5, `judge-oracle-depth-saturation`). The shape matters more than the
+constant: past the knee depth buys nothing and costs per-recall tokens linearly — and an ORACLE's knee is a
+ceiling on the mechanism, not a fit for a real judge, for which depth is a precision trade.
 
-**A hosted judge cut the miss rate by 65% relative** (`0.5357 → 0.1857`), past the ground-truth reference.
-**But ranking judges on miss alone is wrong** — the second metric is pollution, and on it a small local
-model (`gemma3:4b`) beat the ground-truth judge reproducibly on BOTH, at a third the pollution. Which model
+**A hosted judge finds the most answers, and ranking judges on miss alone is wrong** — the second metric is
+pollution, and on it a small local model (`gemma3:4b`) beat the ground-truth judge reproducibly on BOTH, at a
+third the pollution (`judge-gemma3-4b-miss-lever`). Which model
 to run is a deployment choice, and the measurement says a small one can be the right one rather than a
 compromise.
 
@@ -1296,7 +1292,7 @@ entry exists, since nothing else in the repository would say so.
 The reviewing pass argued against: 51 of the commits were already public, the release workflow builds from
 the remote (`pitfalls.md`), and the sequence that looks noisiest — fifteen `docs(decisions)` repair commits —
 is the honest record of one bulk rewrite that hollowed out entries and needed nine passes to find them all,
-which is the evidence behind Part 73. The counter-argument is that `CHANGELOG.md` already carries the
+which is the evidence behind `docs/task-archive.md` Part 73. The counter-argument is that `CHANGELOG.md` already carries the
 release narrative a reader actually needs, and per-commit archaeology of an unreleased development window is
 not what this repository's history is for. Both are true; the second is the one the owner weighed heavier.
 
@@ -1308,20 +1304,16 @@ citation sweep BEFORE the rewrite, not after — the sweep is only possible whil
 `ReciprocalRankFusionOptions.DiagnosticityWeight` ships at `0`. It exists, it works, and the measurement
 that would have justified turning it on refused it.
 
-**Where the idea came from, and why it looked strong.** A research review of the memory subsystem
-(2026-08-15) found this engine is an **ACT-R-shaped** system that nobody had noticed was one: base-level
-activation ≈ `Retrievability`, spreading activation ≈ the graph walk, retrieval threshold ≈ `RelativeFloor`.
-FSRS is cited 116 times in `src/`; ACT-R zero. One component of Anderson's model was missing entirely — the
-**fan effect**, where a cue's association strength falls as it gains associates. Nothing anywhere consulted
-`GraphNode.Degree`, so a node with fifty neighbours spread exactly as much as one with a single edge, while
-subject annotation exists *precisely to build hubs* (`AnnotationKnownSubjects` offers 24 by default). The
-supporting argument is information-theoretic rather than biomimetic, which is the form this library should
-be judged on: **a node adjacent to everything discriminates nothing.**
+**Where the idea came from, and why it looked strong.** A research review (2026-08-15) found this engine is
+ACT-R-shaped — base-level activation ≈ `Retrievability`, spreading activation ≈ the graph walk, retrieval
+threshold ≈ `RelativeFloor` — and missing the **fan effect**, where a cue's association strength falls as it
+gains associates: nothing consulted `GraphNode.Degree`, while subject annotation exists *precisely to build
+hubs*. The argument is information-theoretic rather than biomimetic: **a node adjacent to everything
+discriminates nothing.**
 
-**The measurement said no.** `node devtools/dev.mjs memory-fan`, 20 seeds × 4 shapes, weights 0/0.5/1/2:
-
-- `topical` miss `0.059 → 0.064 → 0.131 → 0.320` — cleanly monotonic in the WRONG direction;
-- `critical-rare` miss `0.275 → 0.536 → 0.190 → 0.509` — non-monotonic, which reads as noise, not signal.
+**The measurement said no** (`node devtools/dev.mjs memory-fan`; `docs/memory-measurements.md` §5,
+`fan-diagnosticity-weight-ladder`): on `topical` miss rises cleanly with the weight, in the WRONG direction,
+and `critical-rare` moves as noise.
 
 **Why it fails HERE, which is the part worth keeping.** The fan effect assumes degree measures how
 INDISCRIMINATE a node is. In this engine most edges come from **co-activation** — the engine links whatever a
@@ -1339,13 +1331,6 @@ thing ACT-R actually describes. That is an annotation-on versus annotation-off m
 **What this constrains.** Do not re-propose a degree penalty for this engine on the strength of the
 literature alone; the literature has already been consulted and the measurement is on record. Re-propose it
 with an annotation-dominated graph and a measurement, or not at all.
-
-**A guard the change exposed, recorded because it is the more general lesson.** RRF's "at least one signal
-above zero" validation listed four weights by name. Adding a fifth signal without adding it there made the
-guard wrong in the REFUSING direction — a coherent diagnosticity-only configuration was rejected. The mirror
-defect is worse and just as silent: a weight added to the score and not to the guard would let a
-configuration through whose score is identically zero, where ordering falls entirely to the id tiebreak.
-**A validation that enumerates its subjects by name is a maintenance obligation every time the set grows.**
 
 ## D63 — a wrapper's capability set is a contract with a test per capability, not a comment (2026-08-15)
 
@@ -1377,15 +1362,9 @@ abstraction. A consumer holding an `IMemoryEngine` could reach neither, and noth
 (task, scope) every member may hold material under. Removal one member and returning would leave the blend
 still holding the data the caller asked to remove.
 
-**Two more members of the same defect landed with it.** `MemoryRecall.Answered` — the abstention signal the
-3.0 verification seam exists to produce — was dropped by the composite's `new MemoryRecall(items, ran)`, so
-it was `null` on every DI-registered engine even when a judge had returned `false`, and `docs/memory.md`'s
-own "know when the memory has nothing useful" sample could never fire. It now folds as a three-value lattice
-(any `true` wins; `false` if some judged and none answered; `null` only when nothing judged), which is what
-keeps the no-verifier default from ever synthesising `false`. And `MemoryQuery.CharBudget` was reconciled by
-nothing, so an N-member blend could spend N× a budget a caller set as a *prompt* budget — the same
-two-scopes shape as the `Limit` cut one field over, using `GraphMemoryEngine`'s own rule verbatim so a blend
-and a bare engine cannot answer one query differently.
+**Two more members of the same defect landed with it**: the composite dropped `MemoryRecall.Answered` and let
+every member spend the whole `CharBudget` (`docs/FIXES.md` 2026-08-15). `Answered` now folds as a three-value
+lattice, so the no-verifier default never synthesises `false`.
 
 **What this constrains.** *Every* optional capability interface a member can implement must be implemented
 by the composite and pinned by its own forwarding test. The class docblock had asserted this in bold — *"It
@@ -1432,30 +1411,16 @@ attempt) or surface (an act that may already have cost something). Note also wha
 `OperationCanceledException` under the caller's own token still propagates on both paths, because a caller
 must be able to tell their own cancellation from a backend's failure.
 
-**A test that pinned the old behaviour was rewritten rather than deleted, and the distinction matters.**
-`A_throwing_backend_still_releases_its_permit` asserted the throw escaped — but the escape was never its
-SUBJECT, permit release was; the assertion merely encoded whatever behaviour existed while the subject was
-tested. It now asserts the permit comes back on the CLASSIFIED path, which is the stronger claim, because
-the release has to survive a catch block rather than an unwinding stack. **Before changing a test that
-blocks a fix, separate what it was written to prove from what it happens to assert.**
-
 ## D65 — the DIALECT places tool-host args, because only it knows where they may legally go (2026-08-15)
 
 **`ICliProviderDialect.BuildCompletionArgs` now takes the tool-host args** <!-- drift-ok: the record names the seam of its day; a later decision renamed it -->
 (`BuildCompletionArgs(LlmRequest request, IReadOnlyList<string> toolHostArgs)`), and `CliProviderEngine` no <!-- drift-ok: the record names the type AS IT WAS; D154 renamed it after -->
 longer appends them itself. Breaking for a BYO dialect; the in-tree implementors are two.
 
-**The defect this closes was documented in one file and committed in another.** `CodexExecArgs` takes an
-`extraOptions` parameter *specifically* so options land before the `-` stdin positional, and states why in
-its own words: *"an option landing after the `-` would be read as part of the [PROMPT] positional, and on
-this CLI a swallowed flag is a SPENT TURN rather than an error."* The AGENT path honoured that.
-`CodexCliDialect.BuildCompletionArgs` could not — the seam handed it only the request — so <!-- drift-ok: the record names the seam of its day; a later decision renamed it -->
-`CliProviderEngine` appended the provisioner's args after the dialect's argv, i.e. after the `-`. MCP
-tool-host args on codex therefore landed in the prompt slot.
-
-**Why it never bit:** `claude` is the only CLI that has driven the tool-hosting path, and its argv ends in
-options, so appending is correct *there*. **A rule that is right for the only implementation that exercises
-it is not a rule, it is a coincidence** — and the second implementation is where that shows.
+**The defect it closes**: the engine appended the provisioner's args after the backend's argv, so on codex —
+whose argv ends in the `-` stdin positional — MCP tool-host args landed in the PROMPT slot, a spent turn
+rather than an error. It never bit on `claude`, whose argv ends in options (`docs/FIXES.md` 2026-08-15).
+**A rule that is right for the only implementation that exercises it is a coincidence.**
 
 **The alternative, and why it lost.** The engine could have kept appending and special-cased the positional
 CLIs — a `PromptDelivery`-style flag, or "insert before the last element if it is a positional". That puts
@@ -1483,7 +1448,7 @@ a sibling.
 |---|---|---|
 | `MemoryCompositionOptions.AuthoritativeReserve` | `AuthoritativeCharacters` | the SAME identifier as `GraphMemoryOptions.AuthoritativeReserve`, same namespace, different UNITS — recall SLOTS there, prompt CHARACTERS here — and both reachable from one builder chain. Reading "reserve 2" as slots silently truncated every exact fact to two characters. |
 | `MemoryEngineBuilder.Reserve` | `ReserveCharacters` | the verb carried no unit at all, on the call that sets the above |
-| `IProviderInstallation` | `IModelProvider` | declares one `ProbeAsync` and installs NOTHING, one word from `IProviderVersionInstaller`, which does. The documented use is a capability type-test, so the name IS the API for a reader choosing between them. |   <!-- drift-ok: a rename record NAMES the retired spelling -->
+| `IProviderInstallation` | `IProviderProbe` | declares one `ProbeAsync` and installs NOTHING, one word from `IProviderVersionInstaller`, which does. The documented use is a capability type-test, so the name IS the API for a reader choosing between them. |   <!-- drift-ok: a rename record NAMES both retired spellings; D127 later folded IProviderProbe into IModelProvider -->
 | `GraphMemoryEngine(policy:)`, `UseGraph(policy:)` | `retrievability:` | the one parameter of sixteen not named for its domain, surrounded by `agePolicies`, `saliencePolicies`, `ranking`, `annotation`, `verification` — and it is the forgetting curve, the subsystem's most consequential seam |
 | `CuratedMemorySections(task:)` | `taskKey:` | the only place on the whole surface that said `task`, against `taskKey` on twelve interfaces — and `CLAUDE.md` already records a README sample passing `task:` where the parameter was `taskKey` |
 | `EnsureEachBitIsSingleRealAndUnique` | `ValidateProvenanceBits` | an assertion-shaped, ungrammatical name beside siblings called `Fits`/`Pack`/`Unpack` |   <!-- drift-ok: a rename record NAMES the retired spelling -->
@@ -1507,11 +1472,10 @@ churns every call site to settle a preference. **A break must buy a reader somet
 not that.** They are recorded here so the question is settled rather than rediscovered — and if any is ever
 taken, it is taken in a major, on this reasoning, not as tidying.
 
-**What this constrains — and the honest half, which round 2 had to force out of the first draft.** Seven of
-the retired spellings are registered in `retiredApiNames`: `EnsureEachBitIsSingleRealAndUnique`,   <!-- drift-ok: a rename record NAMES the retired spelling -->
-`IProviderInstallation`, the three `*Composition` type names, `Reserve` and `task`. **Four cannot be**, and   <!-- drift-ok: a rename record NAMES the retired spelling -->
-the reason is the registry's own stated limit meeting real cases — whole-identifier equality can only ban a
-name that is dead EVERYWHERE, and these are each still live and correct somewhere else:
+**What this constrains.** Seven of the retired spellings are registered in `retiredApiNames`:
+`EnsureEachBitIsSingleRealAndUnique`, `IProviderInstallation`, the three `*Composition` type names, `Reserve`   <!-- drift-ok: a rename record NAMES the retired spelling -->
+and `task`. **Four cannot be** — whole-identifier equality can only ban a name that is dead EVERYWHERE, and
+these are each still live and correct somewhere else:
 
 | unregisterable | live occurrences on the surface | where |
 |---|---|---|
@@ -1520,13 +1484,9 @@ name that is dead EVERYWHERE, and these are each still live and correct somewher
 | `Strength` | 6 | `GraphNode.Strength`, `MemoryDecayState.Strength` — connection strength |
 | `candidates` | 19 | `GenerationCandidate[]` parameters throughout the routing surface | <!-- drift-ok: a 2026-08-11 audit row recording the surface AS IT WAS; D125 renamed the type afterwards -->
 
-The first draft of this entry claimed "every rename above is registered", which was false for six of eleven,
-and its registry comment asserted `Reserve` was banned when `Reserve` appeared in no `names` array at all.
-Both were caught by an adversarial re-read of this pass's own diff, not by a gate — `check-api-vocabulary`
-cannot notice a name nobody registered. **An entry inventing a name that never existed was also tried and
-removed**: a registry line that guards nothing is worse than an honest hole, because it reads as coverage.
-The practical hole around `AuthoritativeReserve` is closed from the other side by banning `Reserve`, which
-was the only way to SET the characters one.
+The hole around `AuthoritativeReserve` is closed from the other side by banning `Reserve`, the only way to
+SET the characters one. A registry line for a name that never existed was tried and removed: it guards
+nothing and reads as coverage.
 
 ---
 
@@ -1534,7 +1494,7 @@ was the only way to SET the characters one.
 
 **The decision.** `IGenerationRouter` gains a third door, `StreamAsync`, and 3.0 ships the streaming path <!-- drift-ok: the record names the type AS IT WAS; D154 renamed it after -->
 wired: capability pre-filter, verdict-driven fallback, dead-host cooldown, budget and rate limiting, all on
-the same terms as the inline and submit doors. `IModelProvider` stays in `Lyntai.Core` under the
+the same terms as the inline and submit doors. `IGenerationStreamProvider` stays in `Lyntai.Core` under the <!-- drift-ok: the record names the seam of its day; D127 folded it into IModelProvider -->
 full SemVer promise.
 
 **The alternative, and why it lost.** The seam was heading into the freeze in the worst possible state: its
@@ -1543,22 +1503,20 @@ it"* and *"Read what follows as inferred, not measured"* — and it lives in Cor
 under the full promise. Three options were live. **Delete it until GEN6** had the strongest precedent
 (**D14**: a real failure is a better starting point than a speculative one) and was the recommendation.
 **Move it to the EXPERIMENTAL `Lyntai.Generation` package** would have bought reshaping room in a minor at <!-- drift-ok: the REJECTED alternative, named as the package stood that day; D70 withdrew the label the same week -->
-the cost of the layout rule that generation CONTRACTS live in Core. Both were refused for the same reason,
-and the owner's is the sharper statement of it: **nothing was blocking the platform work.** What GEN6 needs a
-vendor for is a *backend*; what made this seam unshippable was that the *router* could not reach it, and no
-key was ever required to fix that.
+the cost of the layout rule that generation CONTRACTS live in Core. Both were refused on the owner's reason:
+**nothing was blocking the platform work.** GEN6 needs a vendor for a *backend*; what made this seam
+unshippable was that the *router* could not reach it, which no key was required to fix.
 
 **So the caveat is now narrower rather than removed, which is the part worth keeping.** What was inferred was
 never the chunk *handling* — it is the chunk *shape*: data-then-terminal, with usage on the terminal, modelled
 on the LLM streaming contract. That shape is now specified and enforced, and the handling of it is measured by
 fifteen tests. The residual risk is not "does this work" but "is this the decomposition a real TTS stream
-wants", and saying that precisely is worth more than a blanket "unverified" that a reader learns to skip.
+wants" — worth more than a blanket "unverified" a reader learns to skip.
 
 **Two invariants are INHERITED, not invented**, from `.claude/knowledge/llm-and-router.md` § Streaming:
 fallback stops at the first chunk carrying real data, and only real data commits (a metadata-only opening
 chunk must not). They transfer because the failure they prevent is identical — splicing two responses into
-one stream — whether the bytes are tokens or audio. Reusing the measured rule rather than deriving a new one
-is the whole reason this path did not need its own measurement.
+one stream — whether the bytes are tokens or audio — so the measured rule needs no measurement of its own.
 
 **One invariant is this door's own: exactly one terminal chunk, guaranteed by the ROUTER.** A backend whose
 stream simply stops gets it closed here — a synthesized `Completed` if it produced data, a failure chunk if it
@@ -1569,15 +1527,12 @@ Putting that in the router rather than the contract means a BYO backend cannot g
 **A rule the inline door does not need had to be added here.** On the other two doors, "nothing was tried"
 implies "nothing was learned", so a synthetic message is the only honest answer. On this one a backend can be
 disqualified *without being called* — it advertised `Stream` and does not implement the seam — so the
-two-slot reason is consulted *before* the synthetic message, not after. A first draft got that ordering wrong
-and a test caught it: the one sentence naming the actual problem was replaced by "no capable media backend".
+two-slot reason is consulted *before* the synthetic message, not after.
 
-**Measured while implementing, and worth recording:** the compiler named **two** decorators, not one.
-`RateLimitedGenerationRouter` was as much a second door as `BudgetedGenerationRouter`, and only an abstract <!-- drift-ok: the record names the type AS IT WAS; D154 renamed it after -->
-interface member — no default body, the same choice `IMemoryGraphStore`'s five members took in this major —
-made that failure a build error instead of a silently ungoverned path. Behaviour is pinned per door anyway,
-because the compiler forces a decorator to *have* a `StreamAsync` and cannot tell a governed one from a
-pass-through.
+**The door is an abstract member with no default body**, so every decorator the library ships had to take
+it — the compiler named two where one was expected — and behaviour is pinned per door anyway, because the
+compiler cannot tell a governed implementation from a pass-through (`.claude/knowledge/pitfalls.md` §Second
+doors).
 
 ## D68 — the diffusion size ceiling is derived from a DECLARED accelerator, and the GPU profile derives none (2026-08-16)
 
@@ -1600,24 +1555,11 @@ documented-not-measured mistake GEN-VERIFY exists to correct, in the very backen
 which build of the engine was installed, which the host knows and this code cannot — and probing would make
 the same option behave differently on two machines with the same configuration.
 
-**The ceiling lived in THREE places, and each was found a different way.** That is the whole lesson of this
-entry: a constant does not sit in one place just because it was written once.
-
-1. **The scale.** `ClampSize` brought the longer side down to a hard-coded 768. The obvious one.
-2. **The rounding.** `Round64` then re-clamped through a *second* hard-coded 768, so raising the cap would
-   have moved the scale and left every result pinned at 768 by the rounder — a knob that appears to work and
-   cannot exceed its old value. Found by writing the test at 1024 *because* that is above the old constant;
-   mutation-checked by restoring the second constant.
-3. **The ADVERTISEMENT.** `Capabilities.Limits` published `max-width: 768` from a property initializer, so a
-   `Gpu` host would have accepted any size while still telling callers its ceiling was 768. Found by the
-   owner reading the diff and asking where the number came from — not by a test, and not by a gate.
-
-The third is the one worth generalizing. `GenerationCapabilities.Limits` is documented as informational — <!-- drift-ok: a dated entry naming the type AS IT WAS; D125 renamed it afterwards -->
-*"the platform does not enforce them"* — so nothing would have failed, no test would have reddened, and the
-backend would simply have been **lying to consumers who plan against a published ceiling**. A limit nobody
-enforces is exactly the kind of value that goes stale silently, because the only thing that reads it is a
-human. With no ceiling the keys are now **omitted** rather than set to a large number: an absent key already
-means "not enumerated", while any number would be the invented GPU ceiling this decision refuses to invent.
+**The ceiling had lived in THREE places** — the scale, a second clamp inside the rounding, and the
+ADVERTISED `Limits` — each found a different way (`docs/FIXES.md` 2026-08-17; the trap, a constant nothing
+enforces going stale silently, is `.claude/knowledge/pitfalls.md` §Second doors). With no ceiling the
+`Limits` keys are **omitted** rather than set to a large number: an absent key already means "not
+enumerated", while any number would be the invented GPU ceiling this decision refuses to invent.
 
 **The shipped default is byte-identical** to the hard-coded behaviour it replaces, pinned by its own test. A
 configuration knob that changes what an unconfigured host gets is a behaviour change wearing a feature's
@@ -1632,12 +1574,9 @@ fal's status vocabulary and cost field names, ComfyUI's `prompt_id` / `outputs` 
 field names, and `sd-cli`'s entire argv flag set plus an `ExtraArgs` escape. The backends stay unmeasured;
 what changes is that **finding out costs a configuration edit rather than a Lyntai release.**
 
-**What this replaces.** GEN-VERIFY had sat open since 2026-08-04 as "confirm these surfaces against reality",
-blocked on a fal.ai key and a ~1.7 GB model download. That framing made a *third party's* availability a
-precondition for this library's backlog being clean, which is the wrong dependency: the library cannot
-promise to have called every vendor, and pretending the item is merely pending misdescribes it. The
-answerable question is not "is our reading correct" but **"what happens to the host who finds out it isn't"**
-— and that was: nothing they can do.
+**What this replaces.** GEN-VERIFY framed these backends as "confirm against reality", blocked on a vendor
+key — a *third party's* availability as a precondition for this library's backlog. The answerable question is
+**"what happens to the host who finds out our reading is wrong"**, and the answer was: nothing they can do.
 
 **Three of these already had it, which is what made the gap visible.** ComfyUI's own header has always said
 *"Every endpoint path is settable for one specific reason: this backend's surface was not measured."* fal
@@ -1683,7 +1622,7 @@ closed.** `README.md` stated three, and they are checkable one by one —
 |---|---|
 | "two of its backends were written from vendor documentation with no key to call" | **D69** — every mapping those backends could have got wrong is now a host option, so a mismatch is a configuration edit rather than a library release |
 | "a third's argv is ported rather than measured" | **D69** — `LocalDiffusionOptions.ArgvFlags` makes the whole `sd-cli` argv the host's, keyed by meaning rather than spelling |
-| "`IModelProvider` has no implementation at all yet" | **D67** — the router's stream door, with fifteen tests over the handling |
+| "`IGenerationStreamProvider` has no implementation at all yet" | **D67** — the router's stream door, with fifteen tests over the handling | <!-- drift-ok: quotes the README of its day; D127 folded the seam into IModelProvider -->
 
 **That is the argument for writing a reason clause into an exemption in the first place.** An exemption
 justified by "this is new" can only ever be retired by taste. One justified by three specific facts is
@@ -1704,15 +1643,8 @@ major. D69 states that residual risk precisely and it is bounded: every VALUE is
 remains is a shape, not a spelling. 3.0 is the right moment to accept it, because it is the release where
 such a reshape would have been free anyway.
 
-**A dependent claim this withdraws, stated so it is not rediscovered later.** **D25** gave two reasons for
-the `Lyntai.Generation` package boundary: the dependency-footprint test, which it admits these backends
-answer "weakly", and RELEASE CADENCE — *"they need to ship EXPERIMENTAL and be reshaped in a minor while the
-rest of the library holds a frozen surface."* That second reason is now gone with the carve-out. **The
-boundary survives on the first after all, but on a form of it D25 did not spell out:** the package is
-deliberately outside the `Lyntai` bundle (**D26**), so a one-line-install consumer does not drag the media
-backends and their surface for a feature most applications never use. Merging it into `Providers.Default`
-would force exactly that. So the split stands — for footprint, not for cadence, and a future reader
-comparing D25's wording against a frozen package should find this paragraph rather than a contradiction.
+**A dependent claim this withdraws:** **D25**'s RELEASE-CADENCE reason for the `Lyntai.Generation` boundary.
+The split stands on footprint, and D25's head says in what form.
 
 **Mechanically**, this is prose plus a registry entry: `experimental` and `carve-out` join `retiredTerms`, so
 `check-docs` fails any maintained document that reintroduces the claim. Historical `CHANGELOG.md` entries and
@@ -1726,12 +1658,10 @@ comparing D25's wording against a frozen package should find this paragraph rath
 tool calls. `ToolLoop`'s native path runs over `StreamAsync` when — and only when — the provider declares
 `SupportsStreamingToolCalls`, a capability separate from `SupportsToolCalls`.
 
-**It is a fix before it is a feature, and that was not how the backlog described it.** The ROADMAP carried
-this as "streaming tool-calls (the `LlmChunk` contract carries no tool-call payload) — low value, revisit on <!-- drift-ok: the record names the type AS IT WAS; D154 renamed it after -->
-demand". The code said something worse, in a comment: *"if content ALSO streamed, don't clobber it — fall
-through to a benign Final (**tool call dropped**)."* A model that streamed prose alongside a tool call had
-the call **silently discarded** — no error, no verdict, no log. The caller asked for an agent and got a
-sentence. "Low value" described the feature; nobody had priced the defect underneath it.
+**It is a fix before it is a feature**, though the backlog had filed it as a low-value feature. A model that
+streamed prose alongside a tool call had the call **silently discarded** — the code fell through to a benign
+`Final`, *"tool call dropped"*, with no error, verdict or log — so the caller asked for an agent and got a
+sentence.
 
 **The measured cost of the missing payload, beyond that.** `ToolLoop` documented its own workaround —
 *"CompleteAsync, NOT CompleteJsonAsync/StreamAsync: a native tool-call turn has empty text and its structured
@@ -1761,79 +1691,43 @@ twice. A malformed `ToolCall` chunk carrying no call is dropped rather than comm
 trust-boundary rule the empty-content chunk already followed.
 
 **One behaviour deliberately replaced rather than kept.** A stream that finished *for* tool calls and
-assembled none used to report `Unsupported` with "use CompleteAsync for tool-calling". That was the honest
-answer while the contract could not carry calls; now it would be false. It is `Failed` with "the stream
-finished for tool calls but none could be assembled from its deltas" — the model asked for something this
-build could not read, which is a real failure and not a capability gap.
+assembled none used to report `Unsupported` — honest while the contract could not carry calls, false now.
+It is `Failed`: the model asked for something this build could not read, which is a real failure and not a
+capability gap (`docs/FIXES.md` 2026-08-17 closed the branch that still missed it).
 
 ---
 
 ## D72 — forgetting and pruning are different capabilities, and an engine declares whose content it holds (2026-08-16)
 
-**Two decisions, taken together because each is incomplete without the other.**
+**1. `IForgettableMemory` is split; `IPrunableMemory` carries `PruneAsync`.** Forgetting is a targeted
+withdrawal of one user's data and must be COMPLETE; pruning bounds a growing store and is best-effort by
+nature. The combined interface forced every engine to claim both or neither — a vector store forgets a
+(task, scope) exactly and cannot prune by age at all — and a member implementing it that threw from one
+method produced the partial removal the composite's pre-check exists to prevent. The pre-flight now asks
+for the capability the VERB needs rather than for the interface.
 
-**1. `IForgettableMemory` is split; `IPrunableMemory` carries `PruneAsync`.** They answer different questions.
-Forgetting is a targeted withdrawal of one user's data: it must be COMPLETE, and a partial one is a broken
-promise. Pruning bounds an ever-growing store: it is best-effort by nature, an operator's or a scheduler's
-act, and removing fewer entries than hoped defers a cost rather than breaking anything.
+**2. `IMemoryRemovalPolicy` decides which members a removal visits**, asked per member AND per kind
+(`Forget` / `Prune`). A member the policy excludes is SKIPPED, and the skip is LOGGED — a caller withdrawing
+consent is entitled to know a glossary was kept. `DefaultMemoryRemovalPolicy` excludes an
+authoritative-ONLY member, keying on the `MemoryGrades` every engine already declares: a HEURISTIC,
+acceptable because it is a default one registration replaces.
 
-The combined interface forced every engine to claim both or neither, and a vector store is the case that
-shows why that is wrong — it can forget a (task, scope) exactly and cannot prune by age at all, because
-nothing in `ISemanticMemory` exposes one. Under the old shape it had to lie about pruning or give up
-forgetting. **And the composite could only pre-check that a member implemented the interface**, so a member
-that implemented it and threw from one of the two methods produced precisely the outcome the pre-check
-exists to prevent: some members removed, then an exception. The pre-flight now asks for the capability the
-VERB needs.
+**Rejected: a `bool` on the engine** — `IMemoryEngine.HoldsUserContent`, with `CuratedMemoryEngine` <!-- link-ok: the rejected member never existed -->
+answering false. Eligibility is a DEPLOYMENT question — one application's glossary is operator
+boilerplate, another's holds what the user typed — and a boolean cannot vary per kind, where a host may
+keep a glossary out of an automatic prune and in a consent withdrawal. **Rejected: `member is
+CuratedMemoryEngine`** — an edit per backend, and blind to a BYO catalogue.
 
-**2. `IMemoryRemovalPolicy` decides which members a removal visits** — a seam, asked per member AND per kind
-(`Forget` / `Prune`). A member the policy excludes is SKIPPED instead of refusing the whole verb.
+**The distinction the seam preserves is D63's.** An engine that holds user data and cannot remove it is a
+GAP, and the composite refuses loudly; an engine the policy puts out of scope is SKIPPED. Treating them
+alike turns every gap into a silent partial.
 
-**The rejected alternative is a `bool` on the engine** — `IMemoryEngine.HoldsUserContent`, with <!-- link-ok: the rejected member never existed -->
-`CuratedMemoryEngine` answering false. It is wrong because **eligibility is a DEPLOYMENT question** the
-library cannot answer: one application's glossary is operator boilerplate, another's holds preferences the
-user typed. A compile-time property states a fact about the HOST inside a type the host did not write, the
-shape `.claude/knowledge/model-decoupling.md` exists to prevent — and it was the odd one out in a subsystem
-whose every other variable is an `IMemory*Policy`, seven of them, all DI-registered.
-
-**The seam is asked per KIND, which the boolean could not do at all.** A host can legitimately keep a
-glossary out of an automatic prune and include it in an explicit consent withdrawal, or the reverse. That
-possibility only becomes expressible once eligibility stops being a property of the engine.
-
-**Not a type check either, and not in the default.** `DefaultMemoryRemovalPolicy` excludes an
-authoritative-ONLY member, keying on `MemoryGrades` — a property every engine already declares. The grade
-split exists precisely to separate operator-maintained exact facts from decaying associative material, so
-authoritative-only IS a curated catalogue by construction, whoever wrote it. `member is CuratedMemoryEngine`
-would have been a conditional requiring an edit per backend and would have missed a BYO catalogue entirely.
-It is a HEURISTIC, and appropriate *because* it is a default: a deployment that disagrees registers one
-policy, which is the line that makes a guess acceptable here and not inside the engine.
-
-**The distinction it preserves is the whole point, and collapsing it would undo D63.** An engine that holds
-user data and cannot remove it is a **gap** — the composite refuses loudly, because removing the rest and
-reporting success leaves the blend holding exactly what the caller asked to remove. An engine that declares
-itself operator-authored is **out of scope** — skipping it is correct. One engine cannot do what was asked;
-the other was never asked. Treating them alike turns every gap into a silent partial, which is the defect
-D63 was written about. The skip is LOGGED, not silent: a caller withdrawing consent is entitled to know a
-glossary was kept.
-
-**What this unblocks, and it is the reason it was worth doing.** `UseCurated("glossary").UseGraph()` — a
-blend from this library's own README — could not remove AT ALL, because the curated member cannot forget. So an
-application withdrawing a user's consent had nothing to call, and an operator bounding disk had nothing
-either: `PruneAsync` and its durable `MemoryPruneJobHandler` already existed and were unreachable through the
-common blend. Curated material is what an operator maintains; it is neither the user's to withdraw nor what
-unbounded growth is made of.
-
-**Three engines gained what their stores could always do.** `LexicalMemoryEngine` forgets (its store takes
-the same optional scope, null included) and prunes. `SemanticMemoryEngine` forgets and does NOT prune.
-`CuratedMemoryEngine` needs no change at all — the default policy already reads its authoritative-only
-grade.
-
-**Two refusals that look like limitations and are the point.** A semantic forget with a NULL scope throws:
-the vector store is addressed by (task, scope) and cannot enumerate a task's scopes, so "every scope" is
-inexpressible — and the alternatives are worse, since forgetting nothing reports success while the embeddings
-remain. A lexical prune given a `scope` or a `minRetrievability` removes NOTHING and says so: that store filters
-on task and age only, and honouring the criteria it can while ignoring the ones it cannot deletes MORE than
-was asked for. **Over-deletion is the one direction a removal must never err in**, which is also why returning 0
-is honest for a prune and would not be for a forget.
+**Over-deletion is the one direction a removal must never err in**, which decides two refusals. A semantic
+forget with a NULL scope throws: the vector store cannot enumerate a task's scopes, and forgetting nothing
+would report success over embeddings still stored. A lexical prune given a `scope` or
+`minRetrievability` removes NOTHING and says so, since honouring only the criteria it can deletes more than
+was asked — 0 is honest for a prune, and would not be for a forget. What this unblocked is
+`docs/task-archive.md` Part 78.
 
 ---
 
@@ -1844,19 +1738,16 @@ store, enforced by `lyntai_job_slot` — a row per execution slot, acquired by t
 the job table already uses. `0` is the default and means unbounded, which is the pre-3.0 behaviour with no
 extra round-trip.
 
-**Why not the obvious thing.** `IJobStore.CountRunningAsync` has carried a warning since it shipped: *"for
-observability/tests only, NEVER a claim gate (a count-then-claim would race). The atomic claim is the real
-mutual exclusion."* That warning is correct, and it also rules out the next idea — folding the count INTO
-the claim statement. That works on SQLite, whose single writer makes one statement the whole exclusion. It
-does NOT work on Postgres, which claims with `FOR UPDATE SKIP LOCKED` *specifically so workers do not block
-each other*: a `COUNT` in the same statement reads an MVCC snapshot, so two claimers see the same headroom
-and both take it.
+**Why not the obvious thing.** `IJobStore.CountRunningAsync` has always warned it is *"NEVER a claim gate (a
+count-then-claim would race)"*, and that also rules out folding the count INTO the claim statement. That
+works on SQLite, whose single writer makes one statement the whole exclusion, and NOT on Postgres, which
+claims with `FOR UPDATE SKIP LOCKED` so workers do not block each other: a `COUNT` in the same statement
+reads an MVCC snapshot, so two claimers see the same headroom and both take it.
 
-**The alternative that was refused, and it is the interesting one.** Postgres can be made exact with
-`pg_advisory_xact_lock`, serializing claimers whenever a cap is set. It is less code than a table. It is
-also self-defeating: it removes the parallel claiming `SKIP LOCKED` exists to provide, exactly when there
-are most workers — and it would leave the two backends reaching correctness by different mechanisms, which
-`.claude/knowledge/sql-storage.md` records as where wrong-data bugs live.
+**The alternative that was refused, and it is the interesting one.** `pg_advisory_xact_lock` makes Postgres
+exact with less code than a table, and is self-defeating: it removes the parallel claiming `SKIP LOCKED`
+exists to provide exactly when there are most workers, and leaves the two backends correct by different
+mechanisms, which `.claude/knowledge/sql-storage.md` records as where wrong-data bugs live.
 
 **A slot is a ROW, and that turns the problem inside out.** Exclusion then comes from the mechanism already
 proven on both backends, and **`SKIP LOCKED` starts working FOR the cap instead of against it** — two
@@ -1874,32 +1765,15 @@ throttling the fleet until they expire). A process that dies releases nothing �
 and returns to the pool. Release is fenced by worker id, so a worker whose slot already expired and was
 retaken cannot free its successor's.
 
-**The slot lease is SHORT and HEARTBEATED**, because one expiry cannot serve two questions — how fast a dead
-worker is detected, and how long live work may take. Tuned long enough for a job that runs for hours, a crash
-throttles the deployment for hours; tuned short enough to recover promptly, that same job loses its slot
-while still running. So `JobOptions.SlotLease` (30s) measures ONLY "how long since we last heard from you", a
-live runner renews every third of it, and a job may run as long as it likes.
+**The slot lease is SHORT and HEARTBEATED**, because one expiry cannot say both how fast a dead worker is
+detected and how long live work may take; `JobOptions.SlotLease` and `IJobStore.HeartbeatSlotsAsync` carry
+the mechanics. **Reusing `JobOptions.Lease` is the rejected alternative**, and it is inconsistent rather
+than merely coarse: a job's own claim is already heartbeated, so taking its TIMEOUT while ignoring its
+RENEWAL copies half a pattern that was already here.
 
-**Reusing `JobOptions.Lease` is the rejected alternative**, and it is *inconsistent* rather than merely
-coarse: a job's own claim is already heartbeated — `JobStoreSql.SetCheckpoint` refreshes `claimed_at` — so
-taking the job's TIMEOUT while ignoring the job's RENEWAL copies half a pattern that was already here.
-
-`HeartbeatSlotsAsync` renews by WORKER rather than by slot, so one statement covers every job a runner has in
-flight and the cost does not grow with the batch. It is fenced the same way release is: it touches only rows
-the worker still holds, so a stalled worker that wakes and beats cannot steal back a slot its successor now
-owns.
-
-**The slot is taken BEFORE the job is claimed**, which is the one ordering that works. Claiming first and
-then finding no headroom would mean handing a claimed job back to Pending — churn that burns an attempt and
-briefly hides the job from every other worker. Taking the slot first costs at most one wasted acquire when a
-lane turns out to be empty, released immediately.
-
-**Measured while testing, and worth recording because it is a definition rather than a bug.** The first
-version of the headline test asserted "two passes run 2 jobs, not 4" and failed at 4 — correctly. The cap
-bounds how many run AT ONCE, and a pass completes its jobs and hands the slots back, so four jobs across two
-sequential passes never breaks a cap of two. The test now blocks inside the handler and counts what is in
-flight, with two runners over one store: a single-runner test cannot distinguish a global cap from the
-per-process one, which is exactly how a broken implementation would pass.
+**The slot is taken BEFORE the job is claimed**, the one ordering that works: claiming first and finding no
+headroom hands a claimed job back to Pending, burning an attempt. A single-runner test cannot tell this
+global cap from a per-process one (`.claude/knowledge/pitfalls.md` §Testing).
 
 ---
 
@@ -1907,11 +1781,8 @@ per-process one, which is exactly how a broken implementation would pass.
 
 **The decision.** The §9 leftover *"streaming tool-calls … and native tool-calling for the ClaudeCli/Local
 providers (both stay on the prompt fallback) — low value, revisit on demand"* is retired for its second half.
-Both providers keep `SupportsToolCalls => false`, and a test now pins that with the reason.
-
-**It was picked up as work, not dismissed.** The owner asked for all three §9 leftovers, and the claude CLI
-is installed on this machine (v2.1.220), so unlike the codex item this one was measurable. Measuring it is
-what killed it.
+Both providers keep `SupportsToolCalls => false`, and a test now pins that with the reason. Measuring it
+against the installed CLI is what retired it (`docs/task-archive.md` Part 79).
 
 **What the flag actually means, and why turning it on would be a REGRESSION.**
 `IModelProvider.SupportsToolCalls` means *"I return the model's calls on `LlmReply.ToolCalls` for YOUR loop to <!-- drift-ok: the record names the type AS IT WAS; D154 renamed it after -->
@@ -1955,11 +1826,8 @@ a world that may no longer exist, or may never have existed.
 terminal one. That asymmetry is documented as intended. What is fixed is the SIGNAL: `ToolFunction` now logs
 a block the way `ToolLoop` already did.
 
-**The backlog item was half right, and finding out which half is the point.** It read: *"`ToolLoop` ends the
-turn with `ProviderVerdict.Refused`; `ToolFunction` returns a refusal string, so the model may retry with
-perturbed arguments, unbounded, and the host gets no signal (that path has no logger) … Needs a decision
-about what a hosted refusal should DO."* Investigating it split the complaint in two, and the halves have
-opposite answers.
+**The complaint split in two, and the halves have opposite answers** (the backlog item it closed is
+`docs/task-archive.md` Part 81).
 
 **FORCE: the difference is imposed, not chosen.** `ToolLoop` OWNS the turn, so ending it is a thing it can
 do. `ToolFunction` is one MCP function invocation inside a loop the CLIENT owns, and the protocol has no
@@ -2005,10 +1873,6 @@ so the word's connotation is *gathering a yield*, close to the opposite of remov
 `IMemoryReapPolicy` cold could reasonably take it for something governing RECALL. The concrete verbs were <!-- drift-ok: the entry RETIRING the name must name it -->
 never the problem: `Forget` and `Prune` say exactly what they do. Only the invented umbrella did.
 
-**Caught on the eve of the freeze, by the owner asking "Reap?" — one word.** That timing is the whole
-point. The word had reached the frozen 3.0 API as three type names and a parameter, and prose can be
-reworded at any time while a shipped type name costs a major. A day later this would have been permanent.
-
 **Two candidate replacements were unavailable, and the reasons are worth recording** so nobody re-proposes
 them. **Retention** is taken: `IMemoryRetentionPolicy` is an existing seam (**D47**) for something else
 entirely, and reusing the stem would collide in the one subsystem where seven policy domains already have to
@@ -2024,11 +1888,6 @@ exactly that operation, and renaming it would trade a correct term for a vaguer 
 registered pattern requires a memory-domain word nearby and excludes process vocabulary — **a rule that
 banned the token everywhere would have been simpler to write and wrong**, and would have taught the next
 reader to add an exclusion rather than think.
-
-**A correction to the record made while doing this.** The word was assumed to be this pass's coinage and was
-not: `MemoryPruneJobHandler` used it on 2026-07-22, three weeks earlier. What this pass did was PROMOTE it
-from a comment into the public surface — which is the worse act, and the one that made the rename urgent
-rather than optional.
 
 **One question deserved the whole sweep, so the surface added after D66 got one.** D66's naming pass ran
 before D67–D76 existed, so ~35 public names had never been reviewed with the freeze in sight. Every one was
@@ -2046,64 +1905,31 @@ oversight.
 
 ## D77 — the relational memory stores share their MATERIALIZATION, and the claim that said otherwise was half right (2026-08-16)
 
-**The decision.** `MemoryNodeRow`, `MemoryEdgeRow`, `MemoryPositionRow` and `MemoryReviewRow` (with
-`MemoryNodeRow.ToNode` and `MemoryReviewRow.ToReview`) plus `MemoryGraphSql` now live once, in
-`Lyntai.Core/Storage`, and both relational `IMemoryGraphStore` backends consume them. The QUERIES stay
-per-backend. Purely additive to the public surface — the API baseline gained 66 lines and lost none.
+**The decision.** A row type two relational backends materialize identically lives ONCE, in
+`Lyntai.Core/Storage`: the memory graph's `MemoryNodeRow`, `MemoryEdgeRow`, `MemoryPositionRow` and
+`MemoryReviewRow` with `MemoryGraphSql`, and — extended 2026-08-17, absorbing D80 — nine more pairs in
+`StorageRows.cs`. The QUERIES stay per-backend. The counts are `docs/task-archive.md` Part 82.
 
-**The alternative, and it was written down as settled.** `PostgresMemoryGraphStore`'s own class doc said the
-parallel with the SQLite twin "is deliberate and is NOT duplication waiting to be extracted: the two differ
-by dialect necessity". That sentence is TRUE — `GREATEST` versus `MAX`, `ILIKE` over a GIN index versus an
-FTS5 virtual table and its triggers, `= ANY(@ids)` versus `IN @ids`, `ON CONFLICT … DO NOTHING` versus
-`INSERT OR IGNORE`, the table reference Postgres requires in `DO UPDATE SET`. Every clause of it is about
-the SQL, and it was read as a claim about the file.
+**Why: a column↔property mismatch is a SILENT null**, not an error, so two copies are two places for the
+silence to appear, and neither the compiler nor a test that runs one backend can see either.
+`JobStoreSql` + `JobRow` is the precedent, and `pitfalls.md` §Storage records three drift incidents in this
+subsystem, each closed by hoisting the RULE (`MemoryRelevance`, `MemorySignals`, `SearchTerms`) while the
+mapping it fed stayed duplicated. Fixing one instance of a defect and leaving nine is how a rule becomes
+folklore.
 
-**What it cost.** Four materialization types and the projection to `GraphNode` were byte-identical in both
-files — 25 properties, aliased explicitly in both because **a column↔property mismatch is a SILENT null
-rather than an error**. Two copies of that is two places for the silence to appear, and no gate can see
-either: the compiler binds nothing here, and the tests exercise whichever backend they happen to run on.
-Measured across the pair: 291 distinct identical code lines before, 215 after; 1008 code lines down to 825.
+**The alternative, written down as settled.** `PostgresMemoryGraphStore`'s class doc said the parallel
+"is NOT duplication waiting to be extracted: the two differ by dialect necessity". Every clause of that is
+true of the SQL — `GREATEST`/`MAX`, `ILIKE`/FTS5, `= ANY`/`IN`, `ON CONFLICT`/`INSERT OR IGNORE` — and it
+had been read as a claim about the file.
 
-**Why the precedent was already in the repository.** `JobStoreSql` + `JobRow` hoists the job state machine
-and its row into Core for the same pair of backends and says why in its own header — "so the SQLite and
-Postgres stores can't drift on it (drift in fencing = a correctness bug, not a style nit)". The memory graph
-store had the stronger case, because `pitfalls.md` §Storage records **three** measured drift incidents in
-this exact subsystem (the three-way `Relevance` divergence, `salience` read at four sites under three rules,
-and a recall divergence that failed on two of three backends for a year). Each was closed by hoisting the
-RULE — `MemoryRelevance`, `MemorySignals`, `MemorySubject`, `SearchTerms` — while the mapping those rules
-feed stayed duplicated.
-
-**What deliberately did NOT move, said here so the next reader does not "finish" it.** The seed and
-neighbour queries, `UpsertAsync`'s two statements, the by-id delete and the subject INSERT are genuine
-dialect. So are the two subject READS, and those are the interesting ones: they differ by a single `::text`
-cast Npgsql needs on the scope parameter, and threading a cast token through a shared string is more obscure
-than the two lines it saves. **`verified` stays per-backend too** — SQLite has no boolean and takes
-1/0/NULL, Postgres binds a native `bool?` — so `MemoryReviewRow` declines to declare that one column and is
-left unsealed for each backend to add it. Forcing it into one shape would be inventing a portability the
-storage engines do not have, and the tri-state it carries is load-bearing (**D59**).
-
-**The floor under `age / stability` is now one number, `MemoryGraphSql.MinimumStability`.** Both backends
-still spell the guard themselves, because the spelling IS the dialect difference; what they no longer do is
-each carry their own `0.000001` literal, which is how the same corpus starts pruning differently on the two
-backends after one edit.
-
-**SCOPE: the whole relational tier, not just the graph store** (extended 2026-08-17, absorbing what was D80).
-The argument above — *a column↔property mismatch is a silent null, so two copies is two places for that
-silence to appear and no gate can see either* — was never specific to the memory graph. Nine more row-type
-pairs across six more store pairs measured byte-identical and moved to `Lyntai.Core/Storage/StorageRows.cs`
-with their projections: `CuratedMemoryRow`, `PromptVersionRow`, `ScoreResultRow`, `ScoreAggregateRow`,
-`ScoreExportEntryRow`, `TraceSessionRow`, `TraceStepRow`, `UsageTotalsRow`, `MemoryEvictionCandidateRow`.
-Fixing one instance of a defect and leaving nine is how a rule becomes folklore.
-<br>**The measurement is also what stops this being a blanket rule.** The tenth pair —
-`SqliteVectorStore.Row` / `PostgresVectorStore.Row` — is genuinely different: SQLite materializes the stored
-vector, Postgres a computed score. They share a NAME and nothing else, and both keep their own. Same line
-drawn above for `verified`: hoist what does not differ, and leave what does rather than inventing a
-portability the storage engines lack.
-<br>One rename was forced on the way in: the score store's private `ExportRow` projects into
-`Lyntai.Cortex.ScoreExportRow`, so hoisting it under its obvious name shadowed the contract type it exists
-to build. It is `ScoreExportEntryRow`, which also matches how its siblings read.
-<br>Measured across the six affected pairs: 405 → 304 distinct identical code lines; private row types in
-the two backends 23 → 5, every survivor one of the exceptions named above.
+**What deliberately did NOT move, so the next reader does not "finish" it.** The seed and neighbour
+queries, `UpsertAsync`'s statements, the by-id delete, the subject INSERT and the two subject READS (one
+`::text` cast apart). `verified`, which SQLite binds as 1/0/NULL and Postgres as `bool?`, so
+`MemoryReviewRow` leaves that column undeclared and unsealed — the tri-state is load-bearing (**D59**). And
+the vector-store pair, which shares a NAME and nothing else — SQLite materializes the vector, Postgres a
+computed score. **Hoist what does not differ; never invent a portability the storage engines lack.** The
+one hoisted constant is `MemoryGraphSql.MinimumStability`, while each backend still spells its guard,
+because the spelling IS the dialect.
 
 ## D78 — one option-domain guard, and the domain phrase is DERIVED from the check (2026-08-16)
 
@@ -2117,9 +1943,8 @@ the comparison that rejected the caller come from one place. Both types are `int
 **Why this is not merely line count.** The check had not drifted; two things around it had.
 
 1. **The sites disagreed about `ParamName`.** An inline `nameof(value)` inside an `init` accessor is the
-   literal string `"value"` — useless to a caller — and 21 sites reported that, while the ones routed through
-   a file's own local helper reported the PROPERTY name. Nothing could see the split,
-   because no test asserts a `ParamName` and the exception type is identical either way.
+   literal `"value"`, and 21 sites reported that while those routed through a local helper reported the
+   PROPERTY name — invisible, because no test asserts a `ParamName` and the exception type is identical.
 2. **Every domain phrase was hand-written beside a check nothing tied it to.** `SpacingWeight` says
    "in [0, 700]" and tests `is < 0 or > 700`; they agree today by attention. A record whose text says
    `[0, 1]` while its code tests `< 0 || >= 1` compiles, passes, and misleads — the same class of defect as
@@ -2147,32 +1972,18 @@ copies of a sentence.
 **Internal, not public.** The behaviour that is public is the exception. A BYO policy with its own options
 record writes its own guard, exactly as it writes its own options — `library-api-design.md`'s "every public
 type earns its keep", and nobody has asked for this one. Reachable from the tests through
-`InternalsVisibleTo`, like `MemoryRankingContract` and `CandidateDedup`.
-
-**Measured:** 237 lines deleted, 111 added across the five files. No public surface change — the API
-baseline is untouched by this decision, and the options records' own tests (which assert the exception TYPE,
-never its text) all pass unchanged.
+`InternalsVisibleTo`, like `MemoryRankingContract` and `CandidateDedup`. What the change measured is
+`docs/task-archive.md` Part 82.
 
 ## D79 — the FSRS adaptation spec and the salience×spacing interaction live in the record, not in a method's remarks (2026-08-16)
 
-**The decision.** `DsrRetrievability.Reinforce`'s `<remarks>` keeps the three laws, the drift guard, the
-Δt=0 branch and the coercion rule — what a caller must know. The two DESIGN arguments it carried move here:
-how the difficulty law is adapted from FSRS, and what the salience×spacing interaction costs. The method
-keeps the rule and a pointer. First paydown under `.claude/rules/code-commentary.md` and
-`check-comments`' ratchet.
+> **RELOCATED.** The FSRS adaptation spec and the salience×spacing interaction live in **`docs/memory.md` §6
+> → Learning**, beside the `DsrOptions` table a reader consults when deciding something; the method's
+> `<remarks>` keep the three laws, the drift guard, the Δt=0 branch and the coercion rule, plus a pointer.
 
-**Why these two and not the rest.** Both answer "why is the code shaped this way", which is this record's
-job; the rest answer "what happens when I call this", which is the doc's. The block was 120 lines before
-the sweep and 107 after — past what anyone reads in place, which makes the invariants inside it invisible,
-which is the same outcome as not writing them down.
-
-**Amended 2026-08-17: the spec moved AGAIN, and the second move is the one this entry was always arguing
-for.** The two arguments landed HERE, which made this entry 76 lines — the longest in the file, and reference
-material rather than a choice between alternatives. That is the same defect one level up: a decision log is
-not a specification's home either. Both now live in **`docs/memory.md` §6 → Learning**, beside the
-`DsrOptions` table a reader consults when they are actually deciding something, and this entry keeps only
-what it decided. **The rule survives the move: an argument about why the code is shaped this way belongs in
-a record, and a SPEC belongs with the configuration it explains.**
+**The rule it decided: an argument about why the code is shaped this way belongs in a record, and a SPEC
+belongs with the configuration it explains** — not in a method's remarks, where 120 lines hid the
+invariants inside them, and not in this log, which is not a specification's home either.
 
 ## D80 — MERGED INTO D77 (2026-08-16, folded 2026-08-17)
 
@@ -2224,12 +2035,8 @@ the same rank, contributes the same constant term, and cannot move the ordering 
 signal's weight to `0`, without a consumer having to notice the discriminating power vanished and disable it
 by hand. A PARTIALLY tied signal degrades proportionally rather than totally.
 
-**Why it is a decision and not a comment.** It was written only as a rejected-alternative argument inside
-the policy's own remarks, which is where `.claude/rules/code-commentary.md` says such an argument must not
-live — and the 2026-08-16 comment paydown deleted it correctly, at which point the reasoning had no home and
-the measured 25% would have been lost. The tell that it belonged here rather than in the comment: it names a
-real alternative, states what that alternative costs, and constrains anyone who later "fixes" the duplicate
-ranks.
+**It is a decision rather than a comment** because it names a real alternative, states what that
+alternative costs, and constrains anyone who later "fixes" the duplicate ranks.
 
 ## D83 — composition's RENDERER is reachable without an engine (2026-08-21)
 
@@ -2266,7 +2073,7 @@ authoritative, and the `kind` axis is already spent on the catalog's own section
 
 **A delegate, not a reserved metadata key.** `CuratedMemory.Metadata` is app-owned. Which key carries
 provenance, and which of its values mean "exact", is a convention only the deployment has — the same rule
-that made `IMemoryRemovalPolicy` a seam rather than a boolean (D75).
+that made `IMemoryRemovalPolicy` a seam rather than a boolean (D72).
 
 **`Supported` stays `Authoritative`, and that is the load-bearing half.** Widening it would make a composite
 route associative writes to the CATALOG instead of to the engine that can decay them, and the store still
@@ -2287,24 +2094,22 @@ removes the composite-of-N a multi-section catalog needed for a single bounded r
 
 Two mechanisms, one decision: a registration that silently does nothing becomes either **impossible** or
 **loud**. Both shapes were reported by adopters on 3.0.0, and both are invisible by construction — nothing
-throws, no result is missing, and the only symptom is recall quality, which a consumer enabling a feature for
-the first time has no baseline for.
+throws, and the only symptom is recall quality, which a consumer has no baseline for.
 
 **Fan-out.** `CompositeMemoryEngine.WriteRouting` = `MemoryWriteRouting.EveryCapable`
 (`MemoryEngineBuilder.FanOutWrites()`) sends a write to every member that can hold its grade instead of to
 the first. Without it, `UseGraph().UseSemantic()` — a blend whose whole point is that its members index the
 same material differently — leaves the semantic member's store permanently empty, because the graph supports
-both grades and takes every write. This library's own README carried an instance of the same shape
-(`UseLexical().UseSemantic()`).
+both grades and takes every write.
 
 Opt-in, because duplicating a write is a real cost (N stores, an embedding per semantic member) and because
 of the `Inherit` rule: an unresolved grade is stored by each member at its OWN role, so a blend mixing an
-authoritative member with an associative one lands the same fact at both grades. Naming that cost is what
-makes the option honest; hiding it behind a default would not.
+authoritative member with an associative one lands the same fact at both grades — a cost a default would hide.
 
-**The wiring check** (`MemoryWiring`, internal, run when the engine factory is built) reports three things: a
-member whose every supported grade an earlier member already claims, and an `IMemoryVerificationPolicy` or
-`IMemoryAnnotationPolicy` registered where no engine can consult one. Logged at Warning by default;
+**The wiring check** (`MemoryWiring`, internal, run when the engine factory is built) reports four things: a
+member whose every supported grade an earlier member already claims; an `IMemoryVerificationPolicy` or
+`IMemoryAnnotationPolicy` registered where no engine can consult one; and a graph member that embeds every
+write while no semantic seed source reads any of it. Logged at Warning by default;
 `MemoryEngineBuilder.StrictWiring()` makes it a startup failure.
 
 **The rejected alternative is the one that sounds better: throw by default.** An `AddMemoryVerification()`
@@ -2318,24 +2123,17 @@ silent the moment any member is an engine this library does not recognise, becau
 consult those seams. And the shadowed-member rule fires only when EVERY grade a member supports is already
 claimed — which is why the README's documented `UseCurated("glossary").UseGraph()` reports nothing while the
 reversed order does. A check that fires on correct wiring trains a reader to ignore the channel it arrives
-on, which is worse than having no check; this repository has already paid for a gate that lied
-(`.claude/knowledge/pitfalls.md`, the `check-warnings` ENOBUFS entry).
+on, which is worse than having no check.
 
 **Registration is asked with `IServiceProviderIsService`, never by resolving the service.** The shipped
 verification policy resolves an `ILlmClientFactory` with `GetRequiredService`, so asking for the instance <!-- drift-ok: the record names the type AS IT WAS; D154 renamed it after -->
 would turn a diagnostic into the startup failure it exists to describe. A container that does not offer that
 service leaves both policy checks silent rather than guessing.
 
-**Amended 2026-08-21 — a FOURTH finding, and it is the one with no ambiguity at all.** A graph member wired
-with an embedder AND a vector store embeds every write (novelty, similarity linking) while no semantic seed
-source is registered (`AddMemorySemanticSeeds` not called), so no recall reads any of it: the consumer pays
-an embedding per write, gets vectors on disk, and sees no change in what recall returns. An adopter spent
-most of a session finding that with every check green.
-<br>Unlike the policy findings it needs no "is this engine one we recognise?" hedge — it reads two
-registrations and one options value **off the engine itself**, through an internal
-`GraphMemoryEngine.EmbedsWithoutSeeding`. A property rather than reflection, deliberately: `pitfalls.md`
-records that a name reached by reflection is a rename site the compiler cannot see, and this one lives in
-`src` rather than in a bench nobody runs on a schedule.
+**The embed-without-seeding finding needs no "is this an engine we recognise?" hedge**: it reads two
+registrations and one options value off the engine itself, through an internal
+`GraphMemoryEngine.EmbedsWithoutSeeding` — a property rather than reflection, because a name reached by
+reflection is a rename site the compiler cannot see.
 
 ## D86 — a null scope means EVERY scope of the task, through an OPTIONAL store capability (2026-08-21)
 
@@ -2375,18 +2173,10 @@ it would reach a different task whose key differs only in case; and `%`/`_` insi
 be read as wildcards on both. Postgres adds `COLLATE "C"` so the comparison is byte-exact, the same reasoning
 its `SearchAsync` tiebreak already carries.
 
-**Amended 2026-08-21 — the SECOND place the same defect lived, found by an adopter after the first was
-fixed.** `GraphMemoryEngine`'s own semantic seeding builds the literal collection `{Name}|{task}|{scope}`, so
-a null scope searched `{Name}|{task}|` — a name no write can create, since `MemoryWrite.Scope` is not
-nullable. The graph's LEXICAL half meanwhile spans scopes normally (`@scope IS NULL OR n.scope = @scope`), so
-one engine held two different answers to "what does an unscoped recall mean", and the unscoped path — the
-common case — was silently unimproved while the same query answered when a scope was named.
-<br>It now spans through the same `IListableVectorStore`, merged and bounded by `SemanticSeedOptions.K`, with ties
-broken by id: those scores become RANKING input, so an untiebroken merge would write run-to-run
-arbitrariness into what a recall returns.
-<br>**The generalisation, since fixing this seam once did not fix it:** when a null argument gains a meaning,
-grep for every place that argument is INTERPOLATED into a key, not just the seam that was reported. Both
-sites here read `query.Scope` and only one of them was in the first fix's diff.
+**The graph engine's own semantic seeding spans the same way.** It built the literal `{Name}|{task}|{scope}`,
+which for a null scope names a collection no write can create, while its lexical half spanned scopes — so it
+now enumerates through `IListableVectorStore`, merged and bounded by `SemanticSeedOptions.K`, with ties broken
+by id because those scores become RANKING input. The trap is `.claude/knowledge/pitfalls.md` §Second doors.
 
 ## D87 — a named LLM client's CANDIDATES are derived from its own pool, not from the global list (2026-08-23)
 
@@ -2428,7 +2218,7 @@ nothing in the library can detect it.
 `IMemoryAnnotationPolicy` produces subject handles at a model call per write, `RecordSubjectsAsync` stores
 them, and through 3.0.2 exactly two things ever read one — the write path's own linking and the annotator's
 reuse list, **both at write time**. So the handle `配偶` recorded against a fact whose text says `太太` was an
-index only its writer could use. Reported by an adopter who had paid for it and closed it app-side.
+index only its writer could use.
 
 `SubjectSeedOptions.K` (`AddMemoryEngine` registers this channel unconditionally; `AddMemorySubjectSeeds`
 only CONFIGURES it) puts the entries recorded under whichever subjects a query NAMES into the candidate set
@@ -2463,11 +2253,6 @@ non-ASCII) and Thai (spaceless, non-ASCII) in opposite directions.
 does not implement it seeds nothing here and behaves exactly as before — already its documented posture as
 an accuracy hint, now also a recall path worth knowing before writing one.
 
-**An adopter running the app-side workaround should DELETE it**, not leave it: engine-side matches arrive as
-ordinary ranked hits carrying real retrievability and degree, which the app-side ones never had, and a
-dedup-by-ref workaround will simply skip them — two implementations of one feature in one call path, each
-looking necessary to whoever reads only one.
-
 ## D89 — salience does not vote on RANKING: `ReciprocalRankFusionOptions.SalienceWeight` ships at 0 (2026-08-23)
 
 **D45 ruled the multiplicative rank boost OFF by argument** — *salience means "does not fade away", not
@@ -2493,13 +2278,9 @@ store admission are held identical across arms, so what is priced is the ranking
 co-equal — *"a change that trades a large miss reduction for a small pollution rise is accepted."* The
 aggregate ratio is **6:1** in favour of miss.
 
-**The second embedder is what made this decidable, and it refuted a conclusion rather than confirming one.**
-On `embeddinggemma` alone, Korean was the one language whose ordinary shapes REFUSED (miss −0.0253 against
-pollution +0.0474) and the reading was "four of five writing systems is not a default". On
-`nomic-embed-text` **Korean accepts and ENGLISH refuses**. The refusing row MOVED, so it was never a
-property of a language — it is the noise floor of the pollution column at ten seeds. A per-cell
-accept/refuse verdict computed from a quantity whose sign is unstable reads as a judgement and is a
-coin-flip; the verdict belongs on the aggregate.
+**The second embedder is what made this decidable**: the one language whose ordinary shapes refused MOVED
+between embedders (`docs/memory-measurements.md` §5), so a per-cell verdict from a quantity whose sign is
+unstable is a coin-flip, and the verdict belongs on the aggregate.
 
 **What this does NOT say.** Nothing bad about salience: its other two consumers — decay resistance
 (`SalienceRetentionPolicy`) and store admission — are untouched and were held constant throughout. The
@@ -2553,71 +2334,27 @@ or default on record is revisited, and no recall-quality figure changes meaning.
 
 ## D91 — a caller's "I did not say" must not be written as though they had: Metadata, and Headline (2026-08-26)
 
-**`GraphNodeWrite.Metadata` was WRITE-ONCE, and by omission rather than by design.** It sat in every
-backend's INSERT column list and was absent from `DO UPDATE SET` — where the neighbours that are
-*deliberately* absent (`stability`, `provenance_retrievability`) each carry a comment saying so, and this
-one did not. **D90** recorded whether that was right as an open question. It was not.
+**The rule, for every field a caller may omit: ABSENT is "no opinion" and keeps what is stored; SUPPLIED
+replaces it.** `GraphNodeWrite.Metadata` takes `Signals`' `COALESCE(@incoming, stored)` — a null or empty
+bag keeps, a supplied one replaces — and `Headline` gains `GraphNodeWrite.HeadlineStated`, the shape of
+`GradeStated`. Grade, metadata and headline had each been resolved by the engine from a caller's omission
+and then written to the store as though the caller had said it: silent, destructive of the caller's own
+data (a correction ignored; an authored headline replaced by a machine-made truncation), and discoverable
+only by reading the SQL. **D90** had recorded metadata's write-once as an open question; it was an
+omission, not a design. The incidents are `docs/FIXES.md` 2026-08-26.
 
-**The cost was silent and the workaround was destructive.** A caller correcting a mistyped `source_ref`, or
-attaching anything it learned after the first write, was ignored — no error, no signal, and the only route
-to a correction was delete-and-rewrite, which discards the node's id, its edges, its decay state and its
-subject links. That is the same shape as the `MemoryGrade.Inherit` demotion fixed hours earlier
-(`docs/task-archive.md` Part 101, `docs/FIXES.md`): a caller's explicit intent destroyed between two layers
-that each look correct.
+**REPLACE, not merge.** A supplied bag is the caller's whole opinion; merging reads as friendlier and makes
+REMOVING a key impossible, which is this defect's mirror image.
 
-**The rule is now `Signals`', which was already written one line above it in every upsert:**
-`COALESCE(@incoming, stored)`. An ABSENT (null or empty) bag is "no opinion" and keeps what is stored; a
-SUPPLIED bag replaces it. The two are the record's only open-ended, caller-owned dictionaries and they now
-answer the same question the same way.
+**The test that makes it a rule rather than a reflex: does the resolved value then overwrite something the
+CALLER authored?** Resolving an omission is ordinary and often right. `IMemoryStore`'s `ttl` resolves null
+to a default and overwrites an explicit one, and is NOT this defect — a TTL is the deployment's retention,
+not the caller's data (`MemoryStoreContract.Re_remembering_without_a_ttl_replaces_an_explicit_one`).
+`ICuratedMemoryStore.UpdateAsync` had the rule right all along, with a CLEAR sentinel for the one field
+where null was already spoken for — the pattern the graph path now follows.
 
-**REPLACE, not merge**, exactly as signals does. A supplied bag is the caller's whole opinion, so keys it
-does not restate are gone. Merging reads as friendlier and makes REMOVING a key impossible, which is this
-defect's mirror image.
-
-**No API changed.** The distinction was already on the wire — `MemoryWrite.Metadata` is nullable and
-`CuratedMetadataJson.Serialize` returns null for null-or-empty — so unlike the grade fix this needed no new
-member, only the `COALESCE` that was missing.
-
-**One knock-on:** the prototype resolver in `tests/Lyntai.Tests/Memory/Prototype/` derived an assertion's
-`ValidTo` from its successor's start and reported that as FORCED by write-once. The derivation stays — it is
-right on its own terms, since a stored `ValidTo` is a second copy of a fact the successor already carries —
-but write-once may no longer be quoted as its reason.
-
-**`Headline` is the third instance**, found by grepping this fix's own diff for the other places the
-distinction applies (`.claude/knowledge/pitfalls.md`: the round that articulates a distinction is the round
-most likely to violate it elsewhere). It is null-means-unstated exactly as `Grade` and `Metadata` were, the
-engine turns null into a TRUNCATION of the content, and the store overwrote unconditionally — so an
-application that authored a headline and later refreshed the fact without restating it had its own text
-silently replaced by a machine-made one. Fixed with `GraphNodeWrite.HeadlineStated`, the shape of
-`GradeStated`.
-
-**Three fields, one defect, and it is worth naming as one:** a caller's "I did not say" was resolved into a
-concrete value by the engine and then written to the store as though the caller HAD said it. Every one was
-silent, every one destroyed the caller's own data, and none was discoverable without reading the SQL. The
-shape to check on any future field: **does the engine resolve a caller's null into something, and does the
-store then overwrite with it?**
-
-**The rule was then applied ACROSS the library, and the negative results are the part that bounds it.**
-Every other surface that both resolves a caller's omission and persists the result was checked:
-
-- **`ICuratedMemoryStore.UpdateAsync` already had it right** — explicit COALESCE semantics ("only the
-  non-null arguments change"), *and* a CLEAR sentinel for the one field where a plain null was already
-  spoken for. So the correct pattern was in this repository the whole time, one surface over, and the graph
-  path simply did not follow it. That is a better argument for the fix than any reasoning from first
-  principles.
-- **`IMemoryStore`'s `ttl` resolves and overwrites too, and is NOT this defect.** A null ttl becomes the
-  store's default (or no expiry) and replaces an explicitly-set one — but a TTL is not the caller's *data*,
-  nothing is destroyed, and a deployment's retention default legitimately applies to every write. Pinned by
-  `MemoryStoreContract.Re_remembering_without_a_ttl_replaces_an_explicit_one`, which says in its own
-  summary that it was checked against this decision and found defensible.
-
-**The distinction those two draw is what makes this a rule rather than a reflex:** the test is not "does a
-layer resolve an omission" — that is ordinary and often right. It is **"does the resolved value then
-overwrite something the CALLER authored"**. Grade, headline and metadata were the caller's own; a TTL and a
-retention default are not.
-
-**Reverting is deleting one `COALESCE` per backend**; the contract fact names both directions, so a revert
-fails loudly rather than drifting.
+**No API changed** — the distinction was already on the wire (`MemoryWrite.Metadata` is nullable) — and
+reverting is deleting one `COALESCE` per backend, which the contract fact names in both directions.
 
 ---
 
@@ -2662,9 +2399,8 @@ as a real loss and is close to incoherent on inspection: two facts that belong t
 and "related but isolated" is not a thing this model can mean. A caller that wants it keeps the association
 in its own data, which is `library-api-design`'s standing answer to an app-specific need.
 
-**Pinned from both sides** — the refusal, and a fact that writes a cross-task edge *through the store*
-(bypassing the engine) to prove the walk still will not follow it. That second one is what would catch a
-future change that relaxed the scoping while leaving the refusal in place.
+**Pinned from both sides** — the refusal, and a cross-task edge written *through the store* that the walk
+still will not follow, which is what catches a change relaxing the scoping while leaving the refusal.
 
 ## D93 — what a recall RETURNS is widened twice: metadata comes back, and a verifier is shown scores (2026-08-27)
 
@@ -2676,10 +2412,8 @@ were found by an adopting application that had to rebuild the missing half outsi
 `MemoryWrite.Metadata` has documented "an engine whose store cannot hold it ignores it" since it shipped. The
 READ side said nothing at all, and `GraphNode.Metadata` was persisted, returned by the store, and then dropped
 at the projection onto `MemoryItem` — **three lines in `GraphMemoryEngine`, one in `RecallAsync` and TWO in
-`ExpandAsync`**, which projects the entry the caller NAMED separately from its neighbours. So a consumer could
-write a kind, a source or an ordering key and never get it back, and the only recourse was keeping a second
-copy of the store outside the library and re-reading it after every recall. (A search for `new MemoryItem(`
-finds only two of the three — the third is target-typed; `pitfalls.md` §Second doors.)
+`ExpandAsync`**, which projects the entry the caller NAMED separately from its neighbours. So the only
+recourse was keeping a second copy of the store outside the library (`pitfalls.md` §Second doors).
 
 **The alternative was a typed KIND on the item**, and it is the one to argue against, because it reads better.
 A kind is exactly the consumer's vocabulary — "standing context", "glossary", "episode" — and `generic-library`
@@ -2693,47 +2427,30 @@ question on a field that exists to be opaque. A consumer needing them apart writ
 ### `MemoryVerificationCandidate.Relevance` — the model-free floor was undocumented and unimplementable
 
 `IMemoryVerificationPolicy` describes itself as "best-effort over a model-free floor", and a candidate carried
-an `Id` and a `Headline`. From those the only route to *did anything answer this* is reading the text, so the
-seam's sole shipped implementation is `LlmMemoryVerificationPolicy` and every other implementation would have
-been one too. The engine computed each candidate's relevance and threw it away on the way to the judge.
+an `Id` and a `Headline`, so every implementation would have had to be a model. The engine computed each
+candidate's relevance and threw it away on the way to the judge.
 
-**No score-floor policy ships, and that is rule 7, not laziness.** A graph engine passes its store's own
-normalized rank position through and `IMemoryGraphStore.SeedAsync` makes that position explicitly
-backend-specific, so the number's scale belongs to the deployment's embedder and corpus. A library-chosen
-threshold would be the library answering a question only the host can — the shape **D68** records for the
-diffusion accelerator and **D75** for `HoldsUserContent`.
+**No score-floor policy ships, and that is rule 7, not laziness.** The value is a backend-specific rank
+position (`IMemoryGraphStore.SeedAsync`), so its scale belongs to the deployment's embedder and corpus — the
+shape **D68** records for the diffusion accelerator and **D72** for `HoldsUserContent`.
 
 **And no model-free ANSWER may be claimed from the value either**, by a shipped implementation or a doc.
-`MemoryRelevance.ByRankPosition` is `1 - index/count`: the top row is **always exactly `1.0`** and the rest
-an evenly-spaced ramp, identical whether the query was answered perfectly or not at all, and a single-row
-page reports `1` because there is no gradient to place it on. Within ONE request the values are not even
-commensurable — a lexical rank ramp, a real cosine on a semantic seed, a flat `1` on graph-walk and subject
-seeds, and `0` for a grade-admitted non-match, which by **D56** must not be read as a failed recall. So no
-arithmetic over this page recovers "did anything answer this", and the XML doc steers an implementer to a
-RELATIVE test while saying it is a heuristic over an ordering, not a floor. An adopting application measured
-**AUC 0.965** for a score-only signal against an LLM judge that promoted the right answer 0 of 6 times; that
-figure is real and is a fact about ITS cosine over one embedder, which is not this quantity.
+`MemoryRelevance.ByRankPosition` is `1 - index/count`: the top row is **always exactly `1.0`**, answered or
+not, and within ONE request the values are not commensurable — a lexical ramp, a real cosine on a semantic
+seed, a flat `1` on graph-walk and subject seeds, and `0` for a grade-admitted non-match (**D56**). The XML
+doc steers an implementer to a RELATIVE test and says it is a heuristic over an ordering, not a floor. **The
+member still earns its place**: it is what the caller sees on `MemoryItem.Relevance`, and withholding it
+forced every implementation to be a model (**D90**'s posture).
 
-**The member still earns its place**, on the narrower and true argument: it is what the caller will see on
-`MemoryItem.Relevance`, a verifier was the one reader of a recall that could not see it, and withholding it
-forced every implementation to be a model. **D90**'s posture applies — say which of the objectives a
-mechanism can actually be held to.
-
-### What both cost
-
-One trailing member each, defaulted, so construction by name or position is unaffected; `Deconstruct` gains a
-slot, which is a source break only for positional deconstruction — the same shape `GraphNodeWrite` took, and
-permitted in a minor by **D18** while every consumer is first-party.
-
-**Pinned as CONTRACT facts, not per engine**, across all five engines, each taking the caller's declaration
-of which answer is right for that engine and asserting BOTH branches positively — a single "null is
-acceptable" fact would pass vacuously for the two engines that cannot carry metadata. For the same reason a
-relevance fact asserts the column is not a constant, since a field wired to a literal satisfies an equality
-check on every row. A SECOND fact covers the expansion path, because the first calls `RecallAsync` and
-nothing else, which is exactly why the third projection survived a fix that named it — the reusable form is
-`pitfalls.md` §Testing.
+**What both cost:** one trailing defaulted member each, so construction is unaffected and `Deconstruct`
+gains a slot — a source break only for positional deconstruction, permitted in a minor by **D18**. Both are
+CONTRACT facts across all five engines, asserting both branches positively, with a second fact for the
+expansion path (`pitfalls.md` §Testing has why).
 
 ## D94 — "support" is TWO quantities under one name, so the gist tier ships no support seam (2026-08-28)
+
+> **The tier itself is refused by D106** — no gist tier ships — so nothing here constrains shipped code. What
+> stands is the finding: "support" names two quantities, and neither needs a seam.
 
 **The gist tier reports how much SUPPORT a generalisation over recurring entries has, and that word was
 carrying two different questions.** Separating them removes the configuration point the design was built
@@ -2756,32 +2473,18 @@ let a deployment pick. It is rejected because the split serves both hosts withou
 `library-api-design`'s *every public type earns its keep* then retires the type rather than choosing its
 default.
 
-**Why the measurement could not settle that alternative, which is the part worth carrying.** The obvious
-reading of the instrument is that raw is refuted: `rawA = 8 > rawB = 4` under both pacings while the corpus
-declares the newer, smaller regime correct, so raw picks the wrong regime with no pacing dependence at all.
-**That pacing-independence is real and it reappears in the sweep below as `count@0.1`**, which is the same
-quantity on this grid — see the threshold bullet, which is where the two readings are reconciled.
-That does not license retiring the seam, because **`generic-library` rule 7 is an ARGUMENT test — *could two
-honest applications answer this differently* — and no measurement taken on a fixture that ENCODES one of those
-applications can decide it.** The routine corpus is exactly that fixture: its query is *"what do I usually
-have for lunch"* and it declares the recent regime correct, which is the assistant host. The audit host would
-call the older regime correct on the same bytes, and this corpus cannot say otherwise. So the honest reading
-is narrower and stronger: raw is the wrong DEFAULT for one deployment model, and the seam dissolves on the
-argument rather than on the number.
+**Why the measurement could not settle that alternative, which is the part worth carrying.**
+**`generic-library` rule 7 is an ARGUMENT test — *could two honest applications answer this differently* —
+and no measurement taken on a fixture that ENCODES one of those applications can decide it.** The routine
+corpus is exactly that fixture: its query is *"what do I usually have for lunch"* and it declares the recent
+regime correct, which is the assistant host. The audit host would call the older regime correct on the same
+bytes, and this corpus cannot say otherwise. So the honest reading is narrower and stronger: raw is the
+wrong DEFAULT for one deployment model, and the seam dissolves on the argument rather than on the number.
 
-**What the sweep measured is `docs/memory-measurements.md` §5** — tables, retrievability bands and the full reading, from
-`node devtools/dev.mjs memory-support`. **Every combining form over member retrievability inverts on some
-axis a deployment does not control**: `sum` and every DISCRIMINATING `count@θ` on write pacing,
-`count@0.8`/`count@0.9` on cardinality, and `mean` on how long ago the newer regime was written. The only
-threshold invariant on all of them is `count@0.1`, which on this grid IS the raw count — where this meets the
-raw reading above, and wrong for the assistant host. A model in the loop bought nothing, and the scope is the
-reason: the prompt NAMES the recency ordering, so a model merely obeying the label scores the same.
-<br>`mean` was the last candidate and was untestable until 2026-08-30 — phase B sat at the retrievability
-ceiling, making `mean(B) ≥ mean(A)` a theorem about the fixture rather than a result — until
-`CorpusShape.RoutineSettleWrites` aged it off.
-
-**So no combining form is adopted and no default is set** — a measured negative, not an open question. The
-tier has no seam to build and no constant to adopt; what that leaves it able to report was `docs/task-archive.md` Part 153 — which closed it unbuilt (**D106**).
+**So no combining form is adopted and no default is set** — a measured negative, not an open question:
+every combining form over member retrievability inverts on some axis a deployment does not control, and a
+model in the loop bought nothing (`docs/memory-measurements.md` §5, from `node devtools/dev.mjs
+memory-support`). The tier closed unbuilt (`docs/task-archive.md` Part 153).
 
 ## D95 — the repository is LF, declared in a tracked `.gitattributes` (2026-08-28)
 
@@ -2808,11 +2511,6 @@ fact, because git's stat cache hides the state until a file is touched.
 **It also closes the splice trap** — `\n`-joined lines spliced into a CRLF file are left lone-LF while git
 reports only routine-looking `autocrlf` noise (`.claude/knowledge/pitfalls.md`). That needs a CRLF working
 tree, so `eol=lf` closes it on every clone rather than only where the config happens to agree.
-
-**There was no renormalize commit, and that overturned the task's premise.** It had been deferred because a
-renormalize *"rewrites most of the tree"* and buries anything landing beside it. Measured: every tracked file
-already read `i/lf` and none is binary, so `git add --renormalize .` staged **zero** files. Only the working
-tree needed refreshing, and that is not a commit.
 
 **Deliberately NOT gated — the exception to *a rule that is still violated is a missing gate*.** Git itself
 enforces the half that matters: a CRLF or mixed working file is normalized on checkin, so it cannot reach the
@@ -2853,8 +2551,8 @@ shorter, such as a table. No entry here has that shape, and an allowance is a vi
 an escape removes the subject from measurement entirely.
 
 **The obvious second check is deliberately absent.** Meta-commentary is what makes these entries long, and
-`code-commentary.md` calls it always-wrong — for a COMMENT. Here an amendment is often the point: D51's is
-what `CLAUDE.md` routes a reader to. No regex separates "this entry said two lines for a day" from "amended
+`code-commentary.md` calls it always-wrong — for a COMMENT. Here an amendment is often the point: D51's
+closing of FSRS-B is that entry's live answer. No regex separates "this entry said two lines for a day" from "amended
 2026-08-12: the observable now exists", so length is the honest instrument and the author chooses the cut.
 
 **Paying an entry down** moves MEASUREMENT narrative to the design record that owns it and AMENDMENT
@@ -2868,19 +2566,10 @@ null`, and `MultiplicativeRankingPolicy` then omits the relevance factor rather 
 
 **The defect it fixes was a literal.** Both row projections materialized every node with `Relevance = 1`,
 the MAXIMUM, and only `SeedAsync` overwrote it — so every walked or by-id candidate outranked everything
-that had actually been scored. Measured on LoCoMo (`docs/memory-measurements.md` §5), evidence-hit@20:
-
-| | shipped | fixed |
-|---|---|---|
-| defaults | 11.0% | **31.0%** |
-| `SemanticSeedOptions.K = 20` | 11.0% | **36.0%** |
-| + `RetrievabilityWeight = 0` | 22.5% | **63.5%** |
-
-`SemanticSeedOptions.K` becomes worth **+5.0 points** where it was worth exactly 0.0 — a real 0.785 cosine could
-never beat a fabricated 1.000, so the option was unreachable rather than weak.
-<br>_Both columns predate the per-question isolation fix (`docs/task-archive.md` **Part 118**), which moved
-every LoCoMo engine arm up 20–25 points; isolated, `defaults` reads 54.5% rather than 31.0%. The DELTA this
-table argues is a within-regime comparison and is unaffected — the defect and its size stand._
+that had actually been scored. On LoCoMo the fix roughly tripled evidence-hit at the defaults, and
+`SemanticSeedOptions.K` went from worth exactly 0.0 to +5.0 points — a real 0.785 cosine could never beat a
+fabricated 1.000, so the option was unreachable rather than weak (`docs/memory-measurements.md` §5,
+`locomo-lyntai-first-11pct-n200`, read for the DELTA).
 
 **The rejected alternatives, and the first one was tried and measured.** Reporting `0` alone gets the same
 retrieval numbers and **deletes graph traversal**: a multiplicative policy scores a product, so a zero
@@ -2905,18 +2594,16 @@ walked to. Default `0`, which admits everything and is what every release throug
 
 **The gap it closes.** `EdgeHalfLife` decays the EDGE; nothing consulted the ENTRY on the traversal path. So
 a recall would correctly bury a superseded fact and an expansion of its neighbour handed that fact straight
-back — forgetting governed recall and had no vote in the walk. Measured on LongMemEval's knowledge-update
-class (`docs/memory-measurements.md` §5): a context holding the current value and NOT the superseded one fell 40.0% →
-36.0% as the walk went deeper, while `stale@k` climbed 56.0% → 60.0%.
-<br>_Every figure in this entry is the **25-question** sample. Re-measured on all 70 (2026-08-29) the same
-fall reads 31.4% → 28.6% with `stale@k` 62.9% → 65.7%: the defect is the same shape and about a third
-smaller. The floor's own cells have not been re-run at 70._
+back — forgetting governed recall and had no vote in the walk. On LongMemEval's knowledge-update class a
+context holding the current value and NOT the superseded one FELL as the walk went deeper while `stale@k`
+climbed; the floor's current reading is `docs/memory-measurements.md` §5, `floor-08-knowledge-update-70q`
+(the 25-question figures this entry was decided on are retracted there).
 
 **An ORDERING weight was implemented first, measured, and withdrawn.** Scaling the walk order by
 retrievability moved every cell by exactly zero, because ordering can only matter when the caller's budget
 binds and in the measured case it did not — 15.9 items against a budget of 20, so everything the walk found
-fitted and the position it was found in was irrelevant. The floor holds the curve flat at 40.0% through all
-three shots. A knob whose measured effect on the case that motivated it is zero has not earned public
+fitted and the position it was found in was irrelevant. The floor holds the curve flat through all three
+shots. A knob whose measured effect on the case that motivated it is zero has not earned public
 surface, so the weight did not ship.
 
 **It excludes rather than deletes, and never hides the entry the caller NAMED.** A floored neighbour stays
@@ -2966,27 +2653,22 @@ anyone measured it: a recall returns HEADLINES because *"associative content is 
 that is what makes the first load cheap"*, and `ExpandAsync` reinforces what it walks because *"digging in
 one direction is exactly what should make that direction more retrievable next time"*. A one-shot metric is
 structurally blind to both halves. The design intent is a small first load that says what is RELATED,
-with detail bought per-entry by expanding — not a big context assembled up front.
-<br>**Amended 2026-09-02: this is now the DEFAULT, not the only behaviour.** **D104**'s `MemoryQuery.Detail`
-lets a caller whose workload is ANSWERING ask for whole entries; the reason for the default is unchanged.
+with detail bought per-entry by expanding — not a big context assembled up front. **It is the DEFAULT, not
+the only behaviour**: **D104**'s `MemoryQuery.Detail` lets a caller whose workload is ANSWERING ask for whole
+entries.
 
-**What measurement settled** (`docs/memory-measurements.md` §5). On LongMemEval knowledge-update, shot 1 returns a clean
-context — the current fact and not the superseded one — **31.4%** of the time on 1,169 characters, against
-cosine's **10.0%** on 10,387: **3.1× the precision on a ninth of the context**. _(Re-measured 2026-08-29 on
-all 70 questions; the 25-question sample this entry first quoted read 40.0% against 16.0%, so the LEVEL was
-optimistic while the RATIO it argues went 2.5× → 3.1×.)_
+**What measurement settled** (`docs/memory-measurements.md` §5). On LongMemEval knowledge-update, shot 1
+returns a clean context — the current fact and not the superseded one — at 3.1× cosine's rate on a ninth of
+the context, and at **2.2×** once both are held to the same characters (`lme-shots-clean-shot1-n70`,
+`longmemeval-ku-shot1-b1200-n70`): the claim narrows under equal spend and does not close. What it does NOT
+settle is that the walk is the best BODY — a deeper first recall beats it at that budget
+(`longmemeval-ku-fill-k80-b1200-n70`).
 
-**AMENDED 2026-08-29 — the LoCoMo half of the original evidence was a harness artefact and is withdrawn.**
-This entry read *"on LoCoMo, a SEARCH workload, shot 2 is worth +6.0 points where shot 3 is worth +0.5, so
-the useful shot count is a property of the QUESTION — resolution wants one, search wants two"*. LoCoMo
-questions within a conversation shared a store, and isolating them (**Part 118**) flattens that curve to
-**+1.5 and +1.0** on a shot 1 that was itself 24.5 points too low. *Search wants two shots* is therefore
-unsupported, and no measurement here now shows expansion buying much on a search workload.
-<br>**The decision stands on its other leg**, which is why it is amended rather than reversed: the engine
-withholds associative content until an expansion asks for it, so a one-shot metric cannot see the mode it is
-built for whatever the curve turns out to be. Evaluating as a walk is what makes the shot curve VISIBLE —
-and a visible flat curve is a result, not a reason to stop looking. That the shot count is not a constant is
-now carried by knowledge-update alone.
+**The LoCoMo half of the original evidence was a harness artefact** — questions shared a store
+(`docs/task-archive.md` **Part 118**) — so nothing here shows expansion buying much on a search workload.
+**The decision stands on its other leg**: the engine withholds associative content until an expansion asks
+for it, so a one-shot metric cannot see the mode it is built for, and evaluating as a walk is what makes
+the shot curve VISIBLE. That the shot count is not a constant is carried by knowledge-update alone.
 
 **What stays OPEN, deliberately.** That 2-shot is the expected shape for most adopting applications is the
 owner's working position, not a measured default: it holds on search and does not on resolution, and no
@@ -3066,13 +2748,8 @@ be exposed as a second half because it is pure; an accumulator is mutable state,
 covers the variation that exists. Exposing it later is additive; removing it later is not.
 
 **What reversing would cost.** Nothing depends on it — deleting the file restores the previous surface
-exactly, since no existing type changed.
-
-**The naming pass ran before anything shipped**, which is the only window in which it is free (**D70**):
-`Ordinal` → `Number`, `Discovered` → `NewItems`, `Upgraded` → `UpgradedCount`, `SelectSeeds` →
-`SeedSelector`, and `MaxEntries` → `MaxItems` — that last because this repository already spends
-`MaxEntries` on STORE capacity (`CacheOptions`, `MemoryEvictionPolicy`, `BoundedProviderPool`) while a walk
-bounds a returned context, which is the `AuthoritativeReserve` collision again.
+exactly, since no existing type changed. Its member names were settled before it shipped
+(`docs/task-archive.md` Part 121).
 
 ## D103 — seed retrieval is a plural PRODUCER seam, and RRF fuses the ranked lists it was named for (2026-08-31)
 
@@ -3095,24 +2772,19 @@ nodes all report ONE value carries no relevance evidence and earns no ranks at a
 which would hand every one of them that source's best fusion term and promote an uninformative channel
 instead of silencing it, the outcome **D82**'s competition argument already rules out.
 
-**Why position-ranking was tried and withdrawn.** An earlier cut ranked each source by list POSITION, which
-assumes every source already returns a relevance-ordered list. `InMemoryMemoryGraphStore` reports a flat
-`Relevance = 1` on every match and orders by grade, salience and recency — so position-ranking turned a
-RECENCY ordering into a fabricated relevance gradient, **D97** in a new costume: there a candidate nobody
-scored reported the maximum relevance; here a candidate nobody ordered by relevance reported a relevance
-RANK. It broke five corpus tests and reversed three recorded findings before the measurement caught it. The
-fix reads each source's own `Relevance` gradient instead of where it sat in the returned list.
+**Rejected: ranking each source by list POSITION**, tried first and withdrawn. It assumes every source
+returns a relevance-ordered list, and `InMemoryMemoryGraphStore` orders by grade, salience and recency under
+a flat `Relevance = 1` — so position turned a RECENCY ordering into a fabricated relevance RANK, **D97** in a
+new costume. It broke five corpus tests and reversed three recorded findings before the measurement caught it.
 
 **`SubjectSeedOptions.K = 0` remains a legitimate off-switch** — the one registered route to "no subject
 seeding" today. If a second, non-registration off-route is ever added on top of it, **D85** applies: report
 the collision at wiring time rather than let the two silently disagree about whether the channel runs.
 
-**Two scope limits of 83.0%, unstated until this fix.** It is a SQLITE result: `InMemoryMemoryGraphStore`
-reports a flat `Relevance` for every lexical match and `Matched null` for every subject fetch, so under the
-shipped default registration (lexical + subject, no semantic) no candidate carries a rank and the recall
-runs the pre-branch pooled fallback — one of three shipped backends is unaffected by this decision.
-`MultiplicativeRankingPolicy` still ranks on the pooled `GraphNode.Relevance` field, so the mixed-scale
-defect this decision removes survives unchanged in the second shipped ranking policy.
+**Its scope is stated where it was measured** (`docs/memory-measurements.md` §5,
+`locomo-fusion-sem-rel-only`): only a store reporting a relevance gradient is reached, so at the shipped
+registration the in-process core, and the file graph store sharing it (**D174**), run the pooled fallback;
+and `MultiplicativeRankingPolicy` still ranks on the pooled field.
 
 ## D104 — how much of an entry a recall returns is the CALLER's choice, per call (2026-09-02)
 
@@ -3126,10 +2798,9 @@ headlines, and a reader that must ANSWER from the excerpts wants the whole entry
 different call sites, which is why this is a per-CALL parameter rather than a deployment option or a seam —
 there is no policy to inject, only a size the caller already knows.
 
-**It is not a preference; it was priced.** Full content for the same twenty items is worth **+11.7
-token-F1** on LoCoMo, closing essentially the whole gap to plain cosine and cutting the reader's refusals
-from 29 to 13 (`docs/task-archive.md` Part 136). Before this it took N calls of
-`ExpandAsync(reference, hops: 0)`, one per returned item.
+**It is not a preference; it was priced.** Full content for the same twenty items closes essentially the
+whole token-F1 gap to plain cosine on LoCoMo (`docs/memory-measurements.md` §5,
+`locomo-rehydrate-full-n200`). Before this it took N calls of `ExpandAsync(reference, hops: 0)`.
 
 **D100 is unchanged and is the reason for the DEFAULT.** A recall returning headlines is what makes the first
 load cheap, and the n-shot walk is built on it. This decision does not retract that — it stops the cheapness
@@ -3141,7 +2812,7 @@ the caller is stating a size, not supplying behaviour, and `library-api-design.m
 disagreements about BEHAVIOUR. Ingesting as `MemoryGrade.Authoritative` to get full content: that grade also
 engages the carve-out and re-admission, so it moves ranking at the same time.
 
-**It takes TWO seams, and the second was found by a benchmark arm that lied.** `MemoryQuery.Detail` alone
+**It takes TWO seams.** `MemoryQuery.Detail` alone
 covers the recall; `IExpandableMemory.ExpandAsync` projects a discovered NEIGHBOUR exactly as a recall does,
 so a walk asked for whole entries got them for step 1 and headlines for everything found afterwards.
 `ExpandAsync` therefore takes the same parameter and a walk passes its query's value through — a caller
@@ -3149,8 +2820,8 @@ states it once. The named entry was always whole; only its neighbours moved.
 
 **It does NOT follow that the model-facing tool should change.** `MemoryTools.Recall` returns headlines and
 tells the model to call `expand` on what it wants — the right economics for an agent that pays per turn and
-can choose. The 11.7 points were measured on a ONE-SHOT reader with no second call available, which is a
-different consumer; do not carry the number across to one that can ask again.
+can choose. The gain was measured on a ONE-SHOT reader with no second call available, which is a
+different consumer; do not carry it across to one that can ask again.
 
 **Scope.** Only `GraphMemoryEngine` changes: the lexical, semantic and curated engines have no separate short
 form and already returned content under either value. The promise is stated as a cross-engine contract fact
@@ -3169,15 +2840,12 @@ combined (**D82**, **D103**).
 **The partition was the only signal in this engine combined by partition rather than by competition**, and
 that asymmetry is the harm. Its cost scales with how MANY candidates a judge endorses: a set larger than the
 caller's limit replaces the page instead of refining it, since everything unendorsed is pushed off however
-well it was ranked. Measured on LoCoMo with a real 4B judge at the shipped depth, the partition cost **10.5
-points** of evidence-hit on one embedder and **12.0** on a second, and it is that harm — not the size of the
-cure — that replicated (`docs/memory-measurements.md` §5).
+well it was ranked. On LoCoMo with a real 4B judge at the shipped depth that harm replicated across two
+embedders (`docs/memory-measurements.md` §5, `locomo-judge-fuse-depth80-n200`).
 
 **Fuse removes MOST of that loss and never beats the base, so it is insurance rather than an improvement.**
-It recovered all of the loss on the first embedder and 9.5 of 12.0 on the second, landing 2.5 short — so
-"removes a loss and adds nothing" was one embedder's phrasing, corrected on 2026-09-04 when the replication
-ran, here and in the shipped XML doc. The rescue a verdict exists for survives either way: an endorsed
-candidate below the limit still reaches the page, but an endorsement no longer entitles a candidate to lead.
+The rescue a verdict exists for survives either way: an endorsed candidate below the limit still reaches the
+page, but an endorsement no longer entitles a candidate to lead.
 
 **Why the default did NOT move**, which is the decision rather than the code. Changing it would be a silent
 reordering no consumer can detect at compile time (**D18**'s major-bump shape), bought on ONE model and ONE
@@ -3197,10 +2865,10 @@ reproducing the partition. The bench made exactly that error first, and
 `MemoryVerdictFusionTests.Fused_a_poorly_ranked_endorsement_does_not_displace_the_leader` is the control that
 fails if it recurs.
 
-**What `Fuse` costs a GOOD judge — measured 2026-09-07, and missing when this was decided.** 2.0 points at
-perfect judgement (92.5% → 90.5%, LoCoMo n = 200), so the partition has a real justification and the default
-is a **bet on judge quality**: +2.0 when it is right against −10.5 when the judge is a 4B model, ~5:1 against.
-It stays until that pair is measured on a second workload (`docs/memory-measurements.md` §5).
+**What `Fuse` costs a GOOD judge**, measured after this was decided: a little at perfect judgement
+(`locomo-oracle-partition-vs-fuse`), so the partition has a real justification and the default is a **bet on
+judge quality** — worth about a fifth of what a 4B judge loses to it. It stays until that pair is measured
+on a second workload.
 
 ## D106 — the gist tier is REFUTED AS SCOPED: abstraction belongs at encoding, not at retrieval (2026-09-04)
 
@@ -3228,7 +2896,8 @@ the more durable trace — so an abstraction that outlives its members, which a 
 free, is confabulation by construction. **D41** keeping members reachable is the countermeasure.
 
 **What would unblock it, stated so nobody re-derives it: valid-time on the write.** That is a new axis on
-`MemoryWrite` and on all three store backends, not a tier — a much larger change than Part 105, and the one
+`MemoryWrite` and on every store backend, not a tier — a much larger change than the tier
+`docs/task-archive.md` Part 153 closed, and the one
 every working system in the field actually made.
 
 **Alternatives rejected.** A SUPPORT surface that groups, counts, cites and flags the conflict without
@@ -3242,12 +2911,12 @@ times the cost.
 
 ## D107 — SQLite's memory statistics are the read-concurrency ceiling, and turning them off is the HOST's call (2026-09-08)
 
-Concurrent read-only recalls over SQLite peak at TWO workers on a 22-core machine and fall thereafter
-(`docs/memory.md` §7). The cause is not a lock: it is SQLite's collection of memory-allocation
-**statistics**, which takes a process-global mutex on every allocation and free. SQLite allocates heavily
-inside an FTS5 query, so concurrent readers serialise on the counter. Disabling it takes eight concurrent
-recalls from 340/s to 4,665/s and sixteen from 216/s to 6,275/s, and leaves single-threaded throughput
-alone — it buys concurrency, not speed.
+Concurrent read-only recalls over SQLite peak at TWO workers on a 22-core machine and fall thereafter. The
+cause is not a lock: it is SQLite's collection of memory-allocation **statistics**, which takes a
+process-global mutex on every allocation and free. SQLite allocates heavily inside an FTS5 query, so
+concurrent readers serialise on the counter. Disabling it multiplies eight- and sixteen-worker throughput
+by 14× and 29× and leaves single-threaded throughput alone — it buys concurrency, not speed
+(`docs/memory-measurements.md` §5, `scale-sqlite-statistics-off`).
 
 **`SqliteRuntime.DisableMemoryStatistics()` ships it as an opt-in startup call, and Lyntai never calls it.**
 `sqlite3_config` configures the native library the whole PROCESS shares, and it disables
@@ -3292,8 +2961,8 @@ able to tell that from a genuinely empty entry — the same distinction `MemoryV
 opinion and an empty endorsement.
 
 **What this does NOT settle.** Whether a cross-encoder should be a shipped default: it buys RECALL and
-discriminates no better between a fact and its replacement (`stale@k` +51.4 on knowledge-update, **D107**'s
-neighbour in `docs/task-archive.md` Part 169). This decision gives a policy the text; it recommends no
+discriminates no better between a fact and its replacement (`stale@k` +51.4 on knowledge-update,
+`docs/task-archive.md` Part 169). This decision gives a policy the text; it recommends no
 policy.
 
 ## D109 — no competitor penalty: RIF is refused, and the "contradicted" gap is a WRITE-time one (2026-09-08)
@@ -3369,7 +3038,7 @@ model's own top-k well above base rate, on the workload being served.
 session amends an item in place, and the banner is where that item's claim came from, so re-reading the item
 is exactly the check that fails. `.claude/knowledge/pitfalls.md` records three candidate gates measured
 against those four instances, and refuses all three — each catches at most one of four, and all three
-INFER a state from a `- [ ]`, which cannot express *"Part 99 is something to watch for recurrence"* or
+INFER a state from a `- [ ]`, which cannot express *"`TASKS.md` Part 99 is something to watch for recurrence"* or
 *"this one is not startable as a code change"*. Its conclusion was to reach for a registry.
 
 **This is that registry, and the choice is where the judgement LIVES.** Each open checkbox carries
@@ -3455,10 +3124,6 @@ alone. The destination is `docs/` so it stays `IN_SCOPE` and `IS_SCANNED`, which
 registered `check-counts` claims were anchored in exactly one sentence each, all in `CLAUDE.md`**, and a
 claim matching nothing fails the gate.
 
-**The refuted saving, recorded so it is not re-attempted:** deleting the rules tier's YAML frontmatter
-takes 2,857 bytes off disk and **zero** off the context, because the harness strips it before injection.
-Measure the BODY when measuring this tier.
-
 ## D114 — a measurement is a ROW, and a figure's currency is DERIVED, never authored twice (2026-09-10)
 
 The measurement half of `docs/memory.md` was **3,459 of that file's 4,248 lines**, and the cold-start probe
@@ -3522,6 +3187,9 @@ instruct judge, which endorsed 29.1 of 80. A future model-backed ranker belongs 
 than companions.
 
 ## D116 — the embedding seam carries a ROLE, because an asymmetric model cannot infer it (2026-09-12)
+
+> **The seam it amended is gone (D151, D153):** `IEmbedder` is removed, and the role rides the request —
+> `VectorRequest.Role`, defaulting to `Document`. Everything else below stands.
 
 `IEmbedder` gains a role-aware overload with a DEFAULT BODY forwarding to the role-less one, and every
 Lyntai call site passes `EmbeddingRole.Document` when storing and `Query` when searching. The library <!-- drift-ok: the entry RECORDS this spelling (D152 retired it) -->
@@ -3783,6 +3451,9 @@ is not.
 
 ## D123 — a package boundary must isolate a dependency the consumer can REFUSE; the MEAI bridge folds into Providers.Default (2026-09-14)
 
+> **The fold is moot: D146 deleted the bridge, and `Providers.Default` is now `Providers.Basic` (D144).** The
+> RULE stands — a boundary must isolate a dependency the consumer can refuse — and **D142** applies it.
+
 `Lyntai.ExtensionsAi` is gone. `ExtensionsAiProvider`, `LyntaiChatClient`, <!-- drift-ok: the bridge as it stood when this entry was written; D146 deleted it -->
 `LyntaiToolDeclaration` and `AddExtensionsAiProvider` are in `Lyntai.Providers.Basic` under their <!-- drift-ok: the bridge as it stood when this entry was written; D146 deleted it -->
 existing namespaces, so the migration is one `PackageReference` and no `using`. The old id is unlisted
@@ -3816,6 +3487,9 @@ is small too, and its native binary is refusable, so it stays.
 
 ## D124 — the TRANSFORMER embedder ships as Lyntai.Providers.Onnx, managed-half only, and embedders join the provider family (2026-09-14)
 
+> **The embedder-family half is superseded (D128, then D151):** `IEmbeddingProvider` and `IEmbedder` are both
+> gone, and an embedder is a provider declaring `Produces: Vector`. The package, factory and model-reading halves stand.
+
 `AddOnnxProvider(modelDirectory)` runs a sentence-transformer in process through ONNX Runtime — no server,
 no port. It completes the CPU column of `docs/deployment-shapes.md`'s 2×2, whose static half is **D121**.
 
@@ -3832,8 +3506,7 @@ referenced the failure is at load, and `AddOnnxProvider`'s doc names the three p
 effect worth stating — the same package serves the GPU cell, which was listed as unbuilt.
 
 **Embedders become PROVIDERS, additively.** `IEmbeddingProvider : IProviderIdentity, IEmbedder` gives an
-embedding backend the `Id` + `IsAvailable` that the chat and media provider seams already have (two seams
-then; **D127** has since collapsed them into `IModelProvider`).
+embedding backend the `Id` + `IsAvailable` that the chat and media provider seams already had.
 **Changing `IEmbedder` itself was refused**: those two could adopt `IProviderIdentity` as a base because
 they already declared `Id`, and `IEmbedder` does not — adding it would introduce a REQUIRED member and
 break every bring-your-own embedder at compile. This is the optional-capability pattern Core already uses
@@ -3891,6 +3564,9 @@ every generation backend already lives under exactly that contract. A declared c
 how a provider says "not mine", and the vocabulary for it shipped long ago.
 
 ## D126 — capability is DATA: ProviderCapabilities generalizes the model the generation domain already had (2026-09-14)
+
+> **`Operations: [Embed]` is superseded by D130:** embedding is an output KIND, so an embedder declares
+> `Produces: Vector` over the ordinary `Complete`. Capability-as-DATA, and both defaults, stand.
 
 `Lyntai.Lifecycle.ProviderCapabilities` replaces `GenerationCapabilities`, and `ProviderOperation` replaces <!-- drift-ok: the record names where the type went AT THE TIME; D154 renamed it after -->
 `GenerationDelivery`. A backend declares which content `Kinds` it serves, which `Operations`, and which
@@ -3961,6 +3637,9 @@ contract the caller can actually check.
 
 ## D128 — an embedder is a provider: IEmbeddingProvider is deleted and embedding is a declared OPERATION (2026-09-14)
 
+> **`IEmbedder` did not survive (D151)**, and embedding is a declared KIND rather than an operation (**D130**).
+> What stands is the mistake this entry names: a third provider family was the wrong split.
+
 `Model2VecProvider` and `OnnxProvider` implement `IModelProvider` declaring
 `Kinds: ["text"], Operations: [Embed]`, and register into the provider collection as well as the
 `IEmbedder` slot. `IEmbeddingProvider` — added earlier the same day — is gone.
@@ -3988,6 +3667,9 @@ router already owns candidates, cooldown and admission — the remaining step is
 second router, and that is exactly what minting a third family would have made impossible.
 
 ## D129 — IEmbedder is the FRONT DOOR, not a backend contract: embeddings get routing and fallback (2026-09-14)
+
+> **Public half REVERSED by D151:** `IEmbedder` is removed. The failover it bought stands, through the
+> routing helper every embedding consumer shares.
 
 `IEmbedder` is now implemented by `RoutedEmbedder` alone — a router over every `IModelProvider` declaring
 `ProviderOperation.Embed`. `Model2VecProvider`, `OnnxProvider` and `HttpEmbeddingsTransport` stop implementing it and are <!-- drift-ok: the entry RECORDS this spelling (D152 retired it) -->
@@ -4058,6 +3740,11 @@ sit under the old model and needed nothing new under this one — which is how i
 
 ## D131 — a backend's `Produces` is DERIVED from its configuration, so a modality is a field (2026-09-14)
 
+> **SUPERSEDED by D133.** The premise below — that a host answering both routes is ONE backend — is wrong: <!-- drift-ok: the amendment naming what it corrects -->
+> those are two services sharing a hostname, and merging them cost the id that says which one answered. What
+> survives is `Produces` being a list, which means one CALL returning several kinds. D132's single
+> registration METHOD stands; only this entry's bundling of two backends into one options object does not.
+
 `HttpModelOptions.Embeddings` is a nullable section. Set it and the provider declares
 `Produces: [text, vector]` and serves `/embeddings` from the same registration that serves
 `/chat/completions` — one id, one configuration, one `HttpClient`, one entry in the provider collection.
@@ -4081,11 +3768,6 @@ because declaring embeddings *there* says they live on the same server. Setting 
 the split-port deployment this repository's own benches use (chat on 8080, embeddings on 8081). **`Model`
 is the deliberate exception and does not inherit `DefaultModel`**: a chat model is not an embedding model,
 and defaulting one to the other posts a plausible request that returns nonsense rather than failing.
-
-> **SUPERSEDED by D133.** The premise below — that a host answering both routes is ONE backend — is wrong: <!-- drift-ok: the amendment naming what it corrects -->
-> those are two services sharing a hostname, and merging them cost the id that says which one answered. What
-> survives is `Produces` being a list, which means one CALL returning several kinds. D132's single
-> registration METHOD stands; only this entry's bundling of two backends into one options object does not.
 
 **Registration routes on the same fact:** a configured section makes it `AddEmbeddingProvider`, which is the <!-- drift-ok: the entry RECORDS this spelling (D152 retired it) -->
 same collection plus the statement that something can embed — the flag `AddSemanticMemory` and the routed
@@ -4192,6 +3874,9 @@ copied forward. `check-api-vocabulary` and `check-docs` hold the seventeen retir
 
 ## D135 — the HTTP family is named for the TRANSPORT and its dialects, not for OpenAI (2026-09-14)
 
+> **The DIALECT half is superseded:** **D159** retired the word as public vocabulary and **D160** deleted
+> `HttpDialect`, so each wire is its own provider. The TRANSPORT naming stands, and **D158** finishes it. <!-- drift-ok: names the enum D160 deleted -->
+
 `AddHttpProvider` / `HttpModelProvider` / `HttpModelOptions` / `HttpDialect`, in `Lyntai.Providers.Http`. <!-- drift-ok: the record names the seam of its day; a later decision renamed it -->
 `OpenAiFlavor.Flavor` becomes `HttpDialect.Dialect`. <!-- drift-ok: this entry RETIRES both names, so it has to say them -->
 
@@ -4238,9 +3923,9 @@ through it: `Unsupported` was reported as `Failed` for a whole release. As `Fail
 `PenalizeAndAdvance`, so repeated capability gaps benched a healthy backend. That failure needs a
 translation table to exist at all.
 
-**D21 rejected this once, and its reason was sound at the time**: media should not adopt LLM-named types,
-because it is a separate domain. That argument is answered by a name belonging to NEITHER domain — the same <!-- drift-ok: D21's argument, named by the entry that answers it -->
-move **D127**/**D128** made for `ILlmProvider`/`IGenerationProvider` → `IModelProvider`. The third option <!-- drift-ok: D21's argument, named by the entry that answers it -->
+**D24 rejected this once, and its reason was sound at the time**: media should not adopt LLM-named types,
+because it is a separate domain. That argument is answered by a name belonging to NEITHER domain — the same <!-- drift-ok: D24's argument, named by the entry that answers it -->
+move **D127**/**D128** made for `ILlmProvider`/`IGenerationProvider` → `IModelProvider`. The third option <!-- drift-ok: D24's argument, named by the entry that answers it -->
 was not visible then because the shared provider vocabulary did not exist yet.
 
 **What a verdict MEANS is now shared; what a router DOES about it is still per-domain, and that is the
@@ -4473,6 +4158,12 @@ one**, so the retirement registries cannot see them; the check is a scan of base
 
 ## D144 — `Lyntai.Providers.Basic`, and a provider module owns its own registration (2026-09-15)
 
+> **"What stays at the root" is superseded by D154 (2026-09-18), and its checkable claim is why.** Nobody
+> checked it: `WireJson` is read by `HttpModelProvider`, so the root's meaning was never "CLI helpers" in the
+> first place. All four moved to `Lyntai.Providers.Basic` — the package that owns them, which is the one true
+> thing about all four — leaving `Lyntai.Providers.*` meaning ADAPTERS and nothing else. Internal types, so no
+> surface moved.
+
 `Lyntai.Providers.Default` becomes `Lyntai.Providers.Basic`, and each backend's `Add*` extension moves into <!-- drift-ok: this entry RETIRES the package id, so it has to say it -->
 that backend's folder. Namespaces are unchanged; the old id joins the retirement roster.
 
@@ -4493,14 +4184,9 @@ root the only folder a reader had to scan to answer "what is in here".
 **What stays at the root is what is genuinely SHARED** — `AgentMcpServers`, `CliAgentTerminal`,
 `CliTempFile`, `WireJson`, in namespace `Lyntai.Providers`. That is now the root's whole meaning, so a file
 arriving there is making a claim a reviewer can check: every CLI backend in this package uses it.
-<br>**Superseded by D154 (2026-09-18), and the checkable claim above is why.** Nobody checked it: `WireJson`
-is read by `HttpModelProvider`, so the root's meaning was never "CLI helpers" in the first place. All four
-moved to `Lyntai.Providers.Basic` — the package that owns them, which is the one true thing about all four
-— leaving `Lyntai.Providers.*` meaning ADAPTERS and nothing else. Internal types, so no surface moved.
 
-**The package id is burned** (**D23**) and registered in `nuget-unlist.mjs`'s `RETIRED` array (**D44**) —
-the fourth entry added this session, and the array itself had to be repaired first: two of its published
-ids had been silently rewritten by rename sweeps (**D142**).
+**The package id is burned** (**D23**) and registered in `nuget-unlist.mjs`'s `RETIRED` array (**D44**),
+whose repair after the rename sweeps is **D142**'s.
 
 ## D145 — the Microsoft.Extensions.AI module is a BRIDGE, not a provider (2026-09-15)
 
@@ -4738,23 +4424,14 @@ would make BYO a lambda, but it re-answers what the shipped backends answer; add
 embedding. "Bridge an embedder as a CLI dialect, it is only a calling path and args" describes work that
 does not exist yet, and it is a LARGER change than the delegate above, not a smaller one.
 
-**Breaking, and this release is the window** — the public API is frozen under SemVer with no carve-out
-(**D70**), so it goes in the major now shipping or it waits for the next one.
-
-**Recorded ahead of the code and SHIPPED the same day.** The paper-first step was worth taking — the
-removal touched four public constructors, twelve surface entries and 33 test files — and the entry carried
-a "not yet implemented" banner until the change landed, because a decision written ahead of its code reads
-exactly like one describing the tree and `check-decision-claims` cannot catch that.
-
 ## D152 — a PROVIDER is named for its backend; the NOUN is `Vector`, the VERB is `Embed` (2026-09-17)
 
 **The decision.** A provider type, its namespace and its registration are named for the BACKEND they reach
 — `OnnxProvider`, `Model2VecProvider`, `HttpModelProvider` — because what a backend produces is declared in
 `ProviderCapabilities.Produces`, never encoded in a name. So `AddEmbeddingProvider` is deleted, <!-- drift-ok: the entry RECORDS the name it retires -->
 `EmbeddingToolSelector` is `VectorToolSelector`, and `Lyntai.Embeddings.Model2Vec` is <!-- drift-ok: as above -->
-`Lyntai.Providers.Model2Vec` — closing what the backlog carried as Part 101 (NS1) alongside Part 102's
-REL4 (`docs/task-archive.md` Part 246). The tree had already voted: every other registration named a
-backend and that one named a role.
+`Lyntai.Providers.Model2Vec` (`docs/task-archive.md` Part 246). The tree had already voted: every other
+registration named a backend and that one named a role.
 
 **But `EmbedAsync` and `EmbeddingRole` STAY, on this library's model rather than anyone else's
 convention.** The axis a router selects on is `Produces`, whose noun here is `ProviderKinds.Vector`;
@@ -4785,9 +4462,6 @@ but moves a startup failure to a lazily-resolved one for no gain once `declares`
 `token_embeddings` in a model's own config. And `Model2VecProvider` keeps its name for the reason
 `StaticEmbedder` lost its (**D130**/**D132**): `model2vec` is an upstream FORMAT, exactly as ONNX is, and a <!-- drift-ok: the entry RECORDS this spelling (D152 retired it) -->
 backend is named for what it reads. `StaticEmbeddingProvider` was considered and refused on that ground.
-
-**Breaking, and this release is the window** — the public surface is frozen under SemVer with no carve-out
-(**D70**), so it goes in the major now shipping or it waits for the next one.
 
 ## D153 — a seam per SIGNATURE, over a generic routed base (2026-09-17)
 
@@ -4870,8 +4544,7 @@ stopped.** `AddMediaUsageBudget` and its three siblings configure the router, so
 `AddGenerationProvider` did not follow, because a registration named for what a provider PRODUCES is the <!-- drift-ok: the record names the registration D156 deleted, which is this paragraph's subject -->
 shape **D152** retired `AddEmbeddingProvider` for — `AddMediaProvider` would be the same defect respelt. <!-- drift-ok: the record names the registration D152 retired, which is the comparison being drawn -->
 It was left visibly odd among five renamed siblings rather than settled by momentum; **D156** then answered
-it by DELETING the method. **A sweep that renames a name it never examined has decided something, and the
-decision is invisible precisely because everything around it moved too.**
+it by DELETING the method.
 
 ## D155 — the generic router gets a FACTORY, because what must not be rebuilt is the bookkeeping (2026-09-18)
 
@@ -4936,6 +4609,11 @@ reports that nothing serves the request, which is what it already says when ever
 
 ## D157 — a provider is the ENGINE and stays pure; a DIALECT decides what it produces (2026-09-18)
 
+> *(Correction, 2026-09-19: the worked example below misdescribed the shipped knob from the day it was written
+> — `OnnxProviderOptions` never had a `Dialect` member; the knob is `o.Produces` and the strategy is INTERNAL,
+> derived from it. **D159** then retired "dialect" entirely (`IOnnxHead`, `ICliBackend`), leaving this entry's
+> substance intact: the provider is the engine and stays pure, and a kind never forks the class.)*
+
 **The decision.** A provider class is the backend and nothing else: it opens the session, tokenizes, feeds
 and runs. What a call means at each END — how a request becomes tensors, how a tensor becomes an answer —
 is an `IOnnxProviderDialect`, set on the provider's own options. The dialect states what it `Produces`, the
@@ -4972,12 +4650,11 @@ of a shared engine — *"a dialect is a stateless description; the engine holds 
 `HttpModelOptions.Dialect` already carries one as an option. The ONNX seam is the same idea in the same <!-- link-ok: the record names the member as it stood that day; D160 deleted it -->
 words. A provider package may expose its own dialect seam; Core does not know it exists.
 
-*(Correction, 2026-09-19: the worked example above misdescribed the shipped knob from the day it was written
-— `OnnxProviderOptions` never had a `Dialect` member; the knob is `o.Produces` and the strategy is INTERNAL,
-derived from it. **D159** then retired "dialect" entirely (`IOnnxHead`, `ICliBackend`), leaving this entry's
-substance intact: the provider is the engine and stays pure, and a kind never forks the class.)*
-
 ## D158 — the HTTP family is named for its TRANSPORT; membership is a DIALECT, not a vendor's compatibility claim (2026-09-19)
+
+> *(2026-09-19: the naming half stands — the family is the TRANSPORT — and the membership half moved under
+> **D159**/**D160**: membership is now which WIRES the library ships as providers, `HttpDialect` itself being <!-- drift-ok: the record names the seam of its day; a later decision renamed it -->
+> deleted the same day this entry landed.)*
 
 **The decision.** "OpenAI-compatible" is retired from live prose. The question a consumer asks is *"is my
 backend reachable over HTTP in a dialect Lyntai speaks?"*, and the answer is `HttpDialect` — four members, <!-- drift-ok: the record names the seam of its day; a later decision renamed it -->
@@ -5009,10 +4686,6 @@ a false positive in `AOT.md` where "compatible" means AOT-compatible. A rule col
 and one wrong hit is the shape this repository already refused for `Providers.Default` — fix by hand,
 record the refusal, do not ship a rule that will rot.
 
-*(2026-09-19: the naming half stands — the family is the TRANSPORT — and the membership half moved under
-**D159**/**D160**: membership is now which WIRES the library ships as providers, `HttpDialect` itself being <!-- drift-ok: the record names the seam of its day; a later decision renamed it -->
-deleted the same day this entry landed.)*
-
 ## D159 — "dialect" is not public vocabulary; the extension point is always a PROVIDER (2026-09-19)
 
 **The decision.** The owner's ruling on DIALECT-1, executed in full: the library has no dialect concept —
@@ -5037,7 +4710,8 @@ enum read by if/switches across a package boundary) and is not — its two membe
 transports (stdio, streamable-HTTP), a discriminator on the `AgentMcpServer` data record; it grows when the
 SPEC grows, not when a backend is added. **Gating**: the identifiers went into `retiredApiNames` (the
 surface registry); a prose `retiredTerms` rule was measured and REFUSED — the identifiers appear ~30 times
-in records that must keep their day's wording, the cry-wolf ratio D144/D158 already refused twice.
+in records that must keep their day's wording, the cry-wolf ratio already refused twice (for
+`Providers.Default`, and in **D158**).
 
 ## D160 — a wire is a PROVIDER: Ollama-native is its own class, and the wire enum is deleted (2026-09-19)
 
@@ -5150,7 +4824,8 @@ copy goes unnoticed.
 **The `> **Amendment (…)**` blockquotes stay exempt, on a measurement.** The amendments turned out to be
 two tiers: eleven inline units (65 lines) of present-tense contract, and seven blockquotes (157 lines) of
 period record — shipping summaries, superseded policy statements — carrying 49 retired-vocabulary hits
-that are each accurate for their day. Gating those is the cry-wolf ratio D144/D158 refuse twice over; the
+that are each accurate for their day. Gating those is the cry-wolf ratio refused twice over (for
+`Providers.Default`, and in **D158**); the
 reading note now states the convention (current contract inline, period record blockquote), so the split
 is a rule a writer can follow rather than a fact a reader must infer.
 
@@ -5226,7 +4901,8 @@ CURRENT answer 64% of the time. Two detectors, three thresholds each, both corpu
 (`IMemoryVerificationPolicy`), the judge it would replace is already measured as firing BACKWARDS on this
 workload (**D109**), and "count witnesses" is the obvious next thing every reader of that result reaches
 for. This entry is what stops it being built on intuition: a conversational corpus re-asserts facts too
-rarely to count, which is Part 166's supersession-density finding arriving by a second route.
+rarely to count, which is `docs/task-archive.md` Part 166's supersession-density finding arriving by a
+second route.
 
 **The trigger to revisit** is a corpus with MEASURED re-assertion density — several writers, or a feed
 with genuine repetition — not another threshold or another detector on this one.
@@ -5484,22 +5160,13 @@ whether that is worth a window's cost is the deployment's call. **One record in 
 provider**: `InputSegmentation` — `Overflow` (Segment or Truncate), `Overlap` (0.15), `MaxPiecesPerInput`
 (none) and, for a reranker pair, `MinDocumentShare` (0.5) — taken as `Segmentation` beside each provider's own
 WINDOW setting (`MaxInputChars` on `HttpModelOptions` and `OllamaOptions`, `MaxTokens` on `OnnxProviderOptions`).
+A reranker takes a document's BEST window (MaxP), an embedder the re-normalised length-weighted mean of its
+windows through one public `VectorMath.WeightedMeanDirection`, so two packages cannot drift. The mechanism
+is `docs/model-tasks.md` §2 and each option's XML doc.
 
 **Every default is the prior behaviour.** ONNX truncates at its window unless told to segment. HTTP and Ollama
 do nothing until `MaxInputChars` is set, then segment unless told to truncate; Ollama's own silent cut stands
 until then, and once the bound is set, unless the record truncates, every request carries `truncate: false`.
-
-**How.** A window ends at the last boundary in its latter half — paragraph, line, sentence or word over
-characters; a sentence-end token, else a word start, over tokens — else hard, never inside a text element, and
-the next restarts inside the last `Overlap` of it. A reranker scores a document as its BEST window (MaxP); an
-embedder takes the length-weighted mean of its windows' unit vectors, re-normalised, through one public
-`VectorMath.WeightedMeanDirection`, so two packages cannot drift. A reranker's window holds the PAIR, on ONNX
-(counting tokens) and over HTTP (`MaxInputChars` on a Score registration), so the query, never segmented,
-keeps at most (1 − `MinDocumentShare`) of it, cut ONCE per call so every document meets the same question.
-HTTP counts characters after NFKC — a linear upper bound — because a tokenizer normalises before it counts,
-and cuts between text elements, else at a code point, so only a lone code point can outgrow it; pieces are sent as
-the original text. `MaxPiecesPerInput` keeps that many windows, spread from the first to the last. Otherwise,
-an input that fits is answered exactly as without segmenting.
 
 **Rejected.** Forcing it: a processing judgement the deployment owns, and it changes what an unchanged
 configuration returns. Per-provider knobs: three copies that drift. Cutting only: it loses the text past the
@@ -5629,16 +5296,13 @@ the two apart by asking `MediaRoutingPolicy` about the verdict, and every failed
 Inconclusive aside, now carries one — the verdict it surfaced, or, when nobody accepted, the one `GenerateAsync`
 would report; its budget and rate-limit decorators refuse a submission with their inline door's verdict.
 
-**A result is billed, checkpointed, then delivered.** A queued stage is billed after its fetch; an inline one by the
-router, and only when `AddMediaUsageBudget` wraps it. The result is checkpointed BEFORE delivery when its inline
-bytes fit `GenerationPipelineJobOptions.MaxCheckpointBytes` (4 MiB), so a sink that throws gets it again with no
-second render, fetch or bill; an over-cap result, and a crash between a backend answering (a render, or a
-submission's id) and the save that records it, stay at-least-once. Every stage reaches `IGenerationArtifactSink`
-tagged `StageIndex` and `IsFinal` (default true, so a render job's delivery still reads as output) under the
-`ProviderId` the router names: the new
-`MediaResponse.ProviderId`, which `MediaRouter` stamps on every backend's answer. An inline `OperationId` is empty.
-Then the ONE artifact the next stage chains — its `InputMediaType`'s match, or the single one — is checkpointed,
-failing the job past the cap. An unreadable checkpoint fails rather than restarting from stage 1.
+**Checkpoint, then deliver.** A stage's result is checkpointed BEFORE it reaches `IGenerationArtifactSink`
+whenever it fits `GenerationPipelineJobOptions.MaxCheckpointBytes`, so a sink that throws is re-delivered
+with no second render, fetch or bill; only an over-cap result, or a crash between a backend answering and
+the save that records it, stays at-least-once. Every stage is delivered; only the ONE artifact the next
+stage chains is carried forward, and an unreadable checkpoint fails rather than restarting from stage 1.
+The delivery's fields (`StageIndex`, `IsFinal`, `MediaResponse.ProviderId`) and where each door bills are
+the handler's XML doc.
 
 **Rejected.** Queued first whatever the order: the order is the caller's stated preference, and an inline backend
 listed first is usually a cost choice the library has no standing to overrule. Delivering, then checkpointing: a

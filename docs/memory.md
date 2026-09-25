@@ -1,12 +1,10 @@
-# Long-term memory — how it works, what was measured, how to configure it
+# Long-term memory — how it works, and how to configure it
 
 > **Maintained state.** This is the guide to the memory subsystem as it is TODAY. The contract (interfaces,
 > semantics, objectives) is `docs/2026-07-17-lyntai-design.md` §5.7; the reasoning behind each choice is
-> `docs/DECISIONS.md` **D39–D62**; the per-task history is `docs/task-archive.md`. When this page and the
+> `docs/DECISIONS.md` from **D39** on — its generated index names each; the evidence is
+> `docs/memory-measurements.md` §5; the per-task history is `docs/task-archive.md`. When this page and the
 > contract disagree, **the contract wins** and this page is wrong.
->
-> It exists because that knowledge was spread across twenty-two decisions and a 400 KB archive, and a
-> reader who wanted "how does this thing work and what is it good at" had nowhere to start.
 
 ## 1. What it is
 
@@ -163,16 +161,11 @@ Two properties of that pipeline are easy to get wrong and are worth stating:
 
 ## Measurements — moved to `docs/memory-measurements.md`
 
-**Every measured figure now lives in [`docs/memory-measurements.md`](memory-measurements.md), behind a
-generated results index.** It was 3,459 of this file's 4,248 lines, which is what made the contract
-unreadable end to end. It keeps the heading `## 5.` there, and the sections below keep their numbers:
-renumbering makes an existing `§` citation resolve silently to the WRONG section, so the gap at 5 is
-deliberate (`docs/DECISIONS.md` **D114**).
-
-**Cite `docs/memory-measurements.md` §5, never a bare `§5`.** A bare one is invisible to `check-links`,
-whose pattern needs a filename before the `§` — and this split is what turned eight of them in this
-file into silent lies in a single commit (`.claude/knowledge/pitfalls.md` §Refactoring & namespace
-moves).
+**Every measured figure lives in [`docs/memory-measurements.md`](memory-measurements.md) §5, behind a
+generated results index** (`docs/DECISIONS.md` **D114**); a figure quoted below names its result id. Cite
+it with its filename, never a bare `§5`, which no gate can check — and the gap at 5 in this file's
+numbering is deliberate, because renumbering makes an existing `§` citation resolve silently to the wrong
+section.
 
 ## 6. Configuration reference
 
@@ -199,15 +192,9 @@ moves).
 | `DsrOptions.ReinforceGain` | **`0`** | how much a recall lengthens the half-life — **zero in 3.0** |
 
 **`Reinforcement = All` does NOT mean a recall lengthens a half-life.** The two rows interact and the
-combination is the single biggest behavioural change in 3.0 (**D54**): `StabilityGrowth` is selected, and
-the shipped curve's gain is `0`, so the growth arm is a no-op at the defaults. Measured: `miss 0.234 → 0.103`
-on the fixed-corpus pin, winning on all six corpus shapes across thirty paired seeds, with every alternative
-built and beaten — a capped variant, and one computed from recall COUNT so it cannot compound by
-construction.
-<br>**What 2.5 did, stated exactly, because it is a different CURVE and not a different setting**: it shipped
-`HalfLifeRetrievability`, whose `ReinforceFactor = 0.5` multiplied stability by 1.5 per recall. That curve is
-deleted in 3.0 with no restore path (**D49**), so there is no 2.5 value to put back. `ReinforceGain = 2.0`
-was a development default inside the unreleased 3.0 window and never shipped.
+combination is the default that most surprises (**D54**): `StabilityGrowth` is selected, and the shipped
+curve's gain is `0`, so the growth arm is a no-op at the defaults. Measured on every corpus shape, with
+every alternative built and beaten (`docs/memory-measurements.md` §5, `reinforce-gain-zero-fixed-pin`).
 <br>The age reset is what a recall is worth, and it EXPIRES; permanent growth instead banks the ranker's own
 errors, so an entry wrongly returned becomes more likely to be returned wrongly again. To ask the 3.0 curve
 for a growth arm anyway: `new DsrRetrievability(new DsrOptions { ReinforceGain = 2.0 })`. The two knobs are
@@ -325,57 +312,35 @@ model-free floor again, reached by an accounting decision instead of by configur
 knowing before you read a quality drop as a bug in the engine. It applies only where governance is
 switched on (`AddUsageBudget()` / `AddRateLimit()`); a deployment that called neither is unaffected.
 
-**SCREEN YOUR ANNOTATOR, because a real one DRIFTS** (2026-09-15,
-`docs/memory-measurements.md` §5, `annotation-drift-corrected-context`). Two facts link because their
-subjects MATCH, and three local models invented a new handle on **58.3% to 90.5%** of the facts where the
-right one was already on offer — measured through the context this engine really passes. So the figures the
-annotation mechanism reports with a PERFECT annotator are a ceiling to read with a discount, not a result a
-deployment inherits. `node devtools/dev.mjs memory-annotation-drift` prints the rate for a candidate model,
-with a self-check that fails the table if the scorer is wrong.
-
-**A BIGGER annotator is the lever, and FOUR alternatives to it have been measured and refused.** The
-2,489,757,856 B model drifts least in both languages; the two sub-gigabyte ones sit within a few points of
-each other above it. What does not work: name similarity and shared fragments (1 of 6 cells),
-co-occurrence (cannot reach a drifted handle at all), a recency rule (a 52-point win on consecutively
-written facts, and half the handle space collapsed once a real stream interleaves them), and reshaping the
-question to `select-from-list` (the 2.49 GB model answers ONE handle for eight unrelated entities). **Spend
-on the model, not on repairing or re-asking it** — and if you cannot afford one, know that the mechanism's
-published ceiling is not what you will get.
+**SCREEN YOUR ANNOTATOR, because a real one DRIFTS.** Two facts link because their subjects MATCH, and
+local models invent a new handle on most of the facts where the right one was already on offer
+(`docs/memory-measurements.md` §5, `annotation-drift-corrected-context`), so the figures the annotation
+mechanism reports with a PERFECT annotator are a ceiling, not a result a deployment inherits.
+`node devtools/dev.mjs memory-annotation-drift` prints the rate for a candidate model, with a self-check
+that fails the table if the scorer is wrong. **Spend on the model, not on repairing or re-asking it**: a
+bigger annotator is the one lever that measured, and four alternatives to it were refused —
+`docs/model-tasks.md` §3 says why this is the one shape where size is the lever.
 
 #### What it costs you NOT to use a judge
 
-The model-free floor is supported, and it is also where the single largest measured gain sits. From the
-table in `docs/memory-measurements.md` §5, on this repository's corpus:
+The model-free floor is supported, and it is also where the single largest measured gain sits. On this
+repository's synthetic corpus a local `gemma3:4b` judge takes miss from 0.5357 to 0.2571 at ~1.5 s per
+recall and 3.3 GB of VRAM (`docs/memory-measurements.md` §5, `judge-gemma3-4b-miss-lever`, which also
+prices a hosted judge) — **~28 points of miss**, more than every ranking-policy decision in this library
+combined. The reason is that **0% of misses are retrieval failures** (`rank-miss-decomp-outranked-n140`):
+the answers are already in the candidate set and merely ranked below the cut. Nothing inside the library's
+own arithmetic fixes that, which is why the seam exists.
 
-| configuration | miss | pollution | what you pay |
-|---|---|---|---|
-| **no judge** (shipped default) | 0.5357 | 0.3331 | nothing |
-| `gemma3:4b` local | **0.2571** | **0.0492** | ~1.5 s/recall, 3.3 GB VRAM, $0 |
-| Claude Haiku via CLI | **0.1857** | 0.1271 | 3.0 s/recall, **$66 per 1,000 recalls** |
-
-**Not registering a judge costs ~28 points of miss** — more than every ranking-policy decision in this
-library combined, which move recall by hundredths. The reason is the decomposition in
-`docs/memory-measurements.md` §5: **0% of misses are retrieval failures**; the answers are already in the
-candidate set and merely ranked below the cut. Nothing
-inside the library's own arithmetic fixes that, which is why the seam exists.
-
-> **READ THIS BEFORE TURNING IT ON. The table above is this repository's own SYNTHETIC corpus, and on the
-> FIELD benchmarks a small local judge at the shipped defaults is net NEGATIVE.** Measured on LoCoMo,
-> n = 200, `gemma3:4b` (`docs/memory-measurements.md` §5, 2026-09-03):
+> **READ THIS BEFORE TURNING IT ON. That is the SYNTHETIC corpus, and on the FIELD benchmarks a small local
+> judge at the shipped defaults is net NEGATIVE.** On LoCoMo, n = 200, `gemma3:4b` at the shipped depth and
+> combination costs **10.5 points** of evidence-hit against no judge; halving `VerificationDepth` makes it
+> +1.0 and `VerdictCombination = Fuse` 0.0, against a PERFECT judge's +9.5 ceiling
+> (`docs/memory-measurements.md` §5, `locomo-judge-4b-depth80-n200`, `locomo-judge-depth40-n200`,
+> `locomo-judge-fuse-depth80-n200`).
 >
-> | configuration | evidence-hit | against no judge |
-> |---|---|---|
-> | no judge (`+sem+rel-only`) | **83.0%** | — |
-> | judge, **shipped** depth + combination | 72.5% | **−10.5** |
-> | judge, `VerdictCombination = Fuse` | 83.0% | 0.0 |
-> | judge, `VerificationDepth` halved (40) | **84.0%** | **+1.0** |
-> | a PERFECT judge (oracle ceiling) | 92.5% | +9.5 |
->
-> **So the seam's VALUE is real and this model does not earn it.** The ceiling says +9.5 is there; the 4B
-> model recovers at best +1.0, and at the shipped defaults it destroys 10.5. **The mechanism is measured**:
-> on the 19 calls of 200 where a verifier could possibly help, it ranked the deep evidence in its own top
-> five **zero** times — its confidence tracks what the ranking already found
-> (`docs/memory-measurements.md` §5).
+> **So the seam's VALUE is real and this model does not earn it.** On the 19 calls of 200 where a verifier
+> could possibly help, it ranked the deep evidence in its own top five **zero** times — its confidence tracks
+> what the ranking already found.
 >
 > **The actionable rule, if you register one anyway:** halve `VerificationDepth` or set
 > `VerdictCombination = Fuse`. The shipped depth factor of 4 was fitted against an ORACLE, for which depth is
@@ -587,104 +552,17 @@ Each of these cost a real measurement to find.
   an edge between two tasks, and traversal is scoped to the task besides — so an edge a pre-D92
   database already holds is never walked either. If you were relying on cross-task links, keep the
   association in your own data; two facts that belong together belong in one task.
-- **Scale — MEASURED 2026-08-26, and no longer the blank it was.** `node devtools/dev.mjs memory-scale`
-  runs the graph engine at 1k / 10k / 100k entries on SQLite. The headline: **write throughput does not
-  degrade** — 210–260 entries/s at every size, unchanged across 100× the store — and **recall grows
-  sub-linearly**, p50 `10.4ms → 18.5ms → 42.0ms` with p99 `77ms` at 100k. Storage is ~1 KB per entry
-  (100 MiB at 100k) and a cold first recall costs 21 → 49ms. Every cell reports a hit-rate control, and it
-  was `1.000` throughout — the latencies are real recalls, not fast misses (a recall matching nothing is
-  fast, and a table of fast empty recalls reads as good news).
-  <br>**What it covers that `MemoryRecallBenchmarks` did not**, which is why the blank existed at all: that
-  benchmark runs 1k/10k/100k against `SqliteMemoryStore`, the KEYWORD store, so the graph engine's own write
-  and read paths were unmeasured at any size. The two arms — `shipped` and `read-only` — exist to SPLIT a
-  default recall's latency into the read and the write-back it performs afterwards. It runs **sequentially**
-  where every other sweep fans out, because contention cannot bias a rate and biases a latency silently.
-  <br>**What is still NOT measured, stated separately because the numbers above make it easy to assume
-  otherwise:** recall QUALITY at scale (that corpus has no ground truth and none of this speaks to miss or
-  pollution), Postgres, and any model in the loop — an embedder, annotator or verifier would dominate every
-  number here and none is wired.
-  <br>**CONCURRENCY was on that list until 2026-09-07** and is now measured — `memory-scale --concurrency`,
-  1k, five repeats per cell:
+- **Scale is measured, and a default recall is WRITER-BOUND.** `memory-scale` (1k / 10k / 100k, SQLite):
+  write throughput does not degrade with size, recall grows sub-linearly, and concurrency buys a default
+  recall nothing because it ends in a write-back — read `ReinforceOn = None` as a concurrency knob, and
+  `ReinforceOn = None`, `CoActivationCap = 0`, `LogReviews = false` together as roughly halving a recall.
+  Pure reads scale only once SQLite's allocation statistics are off (`SqliteRuntime.DisableMemoryStatistics`,
+  **D107**), which Lyntai does not do for you because the setting is process-wide. Figures, repeats and the
+  refuted explanations: `docs/memory-measurements.md` §5, `scale-graph-sqlite-sequential` and its neighbours.
 
-  | arm | workers | p50 | p99 | recalls/s |
-  |---|---|---|---|---|
-  | `shipped` | 1 | 4.7ms | 45.9ms | 155 |
-  | `shipped` | 8 | 4.4ms | **1061.6ms** | 160 |
-  | `read-only` | 2 | 1.8ms | 3.5ms | **1024** |
-  | `read-only` | 8 | 19.9ms | 33.1ms | 368 |
+### What is not measured
 
-  **A default recall is WRITER-BOUND, and concurrency buys nothing while costing the tail everything.**
-  Throughput is pinned near 160/s at every worker count — SQLite is single-writer under WAL and a default
-  recall ends in a write-back — while p99 climbs **23× past a full second**. **Zero errors at every level**,
-  which is the part a deployment feels: a 5s `busy_timeout` under a 30s command timeout turns the lock into
-  latency, so nothing reaches an error log. **Read `ReinforceOn = None` as a concurrency knob**, not only a
-  latency one.
-  <br>**The waiting is now MEASURED rather than inferred, and it holds for only one of the two arms.** The
-  sweep reports CPU over wall time, and `shipped` keeps **0.2 cores** busy at every worker count — threads
-  genuinely blocked on the writer, which is what the paragraph above claims. `read-only` keeps **1.0 / 1.9 /
-  4.1 / 7.7**, so those threads are running flat out while throughput falls. A single "contention here
-  waits" reading covers the write-back arm and is wrong about the read one.
-  <br>**And pure reads do not scale either, which WAL says they should**: `read-only` peaks at TWO workers
-  and falls to 368/s by eight, on a 22-core machine. **One explanation was tested and REFUTED**: every
-  connection open issues `PRAGMA journal_mode=WAL` (`SqliteConnectionFactory`), and setting the journal mode
-  takes a database lock even when it is a no-op — but making it run once per factory moved every cell inside
-  its own spread (`shipped` 8-worker p99 1061.6 → 1115.1; `read-only` 2-worker rate 1024 → 1080). The
-  experiment was reverted.
-
-  <br>**ANSWERED 2026-09-08, and it is not a lock at all: it is SQLite's global memory-allocation
-  STATISTICS.** Maintaining them takes a process-global mutex on every allocation and free, and SQLite
-  allocates heavily inside an FTS5 query, so concurrent readers serialise on the counter. Turning them off
-  (`SqliteRuntime.DisableMemoryStatistics`, **D107**) changes nothing else about the run:
-
-  | workers | 1 | 2 | 4 | 8 | 16 |
-  |---|---|---|---|---|---|
-  | recalls/s, shipped | 744 | 1,060 | 754 | 340 | 216 |
-  | recalls/s, statistics off | 858 | 1,712 | 2,842 | 4,665 | **6,275** |
-  | scale, statistics off | 1.00× | 1.99× | 3.31× | 5.43× | **7.31×** |
-
-  **The peak at TWO WORKERS disappears** and the curve becomes monotonic; one thread is unaffected, so this
-  buys concurrency rather than speed. Reproduced across three interleaved rounds at eight workers with
-  non-overlapping spreads (on 330/320/317, off 3,154/4,056/4,060).
-
-  <br>**The chain that got there, because every step was a refutation and each one is worth not repeating.**
-  It is NOT the connection open (one connection per worker, zero opens in the timed loop, same collapse),
-  not GC (0% pause, allocation flat at 81 KB/op, and Server GC changes nothing), not exceptions (zero
-  first-chance), not the WAL (checkpointing 4 MB to 0 changes nothing), not journal mode, not the
-  measurement window (a 10× window with a warmup reproduces it at `hit` 1.000), not the engine (raw
-  `SeedAsync` with no engine code collapses identically), and **not any shared state** — one engine, one
-  store and one database file per worker collapse exactly as the shared ones do. What located it was that
-  eight separate PROCESSES deliver 4,422 recalls/s where one process with eight workers delivers 431:
-  process-global, which is what a per-database isolation ladder can never reach and what a second process
-  gets for free.
-
-  <br>**Lyntai does not turn it off for you**, because `sqlite3_config` is the whole process's and it
-  disables `sqlite3_memory_used`, `sqlite3_status` and the heap limits for the host's own SQLite too
-  (**D107**). Nothing in this library reads them.
-  <br>**What a recall spends on LEARNING, settled with repeats.** The sweep splits a default recall's
-  latency into the read and the write-back (reinforcement + co-activation edges + the review-log row) it
-  performs afterwards. At 5 runs per cell that write-back is **75% of the p50 at 1k and 50% at 10k** — so
-  the read path grows faster than the learning does, and learning's *share* falls as the store grows even
-  though its absolute cost barely moves. A deployment that does not need it can turn it off
-  (`ReinforceOn = None`, `CoActivationCap = 0`, `LogReviews = false`) and recall roughly halves.
-  <br>**RE-RUN 2026-09-07, and the share did NOT fall.** Those percentages predated **D99** and **D101**,
-  and this document said the share was *"expected to have fallen"* while conceding a once-taken before/after
-  could not settle it. At the baseline's own 5 repeats it reads **76% at 1k and 49% at 10k** — the recorded
-  75% and 50%, reproduced. **So the round-trip COUNT fell and the latency share did not**, which is
-  consistent with D101 rather than against it: the claim D101 makes is a count, and this says the write-back's
-  cost is not dominated by how many store calls it takes.
-  <br>**A single-repeat run of the same sweep said otherwise, and it was noise** — 71% / 45%, an apparent
-  4–5 point improvement that vanished under repeats. That is the trap `pitfalls.md` records for a p50 moving
-  less than its own run-to-run spread, met again by the person who had just quoted the warning. **The 100k
-  cell is the sharper case**: 35% at one repeat against **7%** at five, with the two arms' p50 spreads
-  (32.9–36.3ms and 29.4–32.8ms) overlapping outright.
-  <br>**At 100k the write-back is no longer the story.** It costs 2.5ms of a 33.8ms recall, because the READ
-  path is what grows — `read-only` recall p95 runs ×11.02 from 1k→100k against `shipped`'s ×4.58, so the
-  share falls by the denominator rising rather than the numerator dropping (4.2 → 4.0 → 2.5ms).
-  <br>**The first run could not support that claim and said so**, which is the half worth keeping: at one
-  cell per arm the 100k comparison came out NEGATIVE — `read-only` measured slower, which it cannot be —
-  so the sweep printed "not readable" rather than an impossible percentage. Repeats fixed it. **The same
-  run also showed absolute latencies moving ~2.5× between a busy machine and a quiet one**, which is why
-  the growth factors are the thing to compare and the milliseconds are not.
+- **Scale beyond cost.** Recall QUALITY at scale, Postgres, and any model in the loop.
 - **Salience's admission priority** is inert in every test because no arm creates budget pressure.
 - **Real-world recall quality.** The corpus defines relevance lexically and is synthetic throughout.
 - **Parameter fitting.** Every `DsrOptions` constant is FSRS's published default, fitted against an external
@@ -917,8 +795,8 @@ passed to `UseGraph(...)` wins over both, for that engine only.
 | you want | read |
 |---|---|
 | the contract — interfaces, semantics, objectives | `docs/2026-07-17-lyntai-design.md` §5.7 |
-| why a choice was made | `docs/DECISIONS.md` D39–D62 and D83–D86 (and D13 for the *keyword* store's eviction bound, which is a different surface) |
-| upgrading from 2.5 | `CHANGELOG.md` 3.0.0, **Breaking** (the dedicated guide was untracked in **D149**) |
+| why a choice was made | `docs/DECISIONS.md` from **D39** on — its generated index names each (and D13 for the *keyword* store's eviction bound, which is a different surface) |
+| every measured figure, and whether it still holds | `docs/memory-measurements.md` §5 |
 | the consuming story | `README.md` |
 | which SHAPE of question each model-backed seam asks, and what is measured about each | `docs/model-tasks.md` |
 | traps that pass the build while being wrong | `.claude/knowledge/pitfalls.md` |

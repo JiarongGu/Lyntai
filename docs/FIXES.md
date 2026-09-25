@@ -1107,6 +1107,31 @@ sent, in raw or base64 form. On the unfixed tree it failed for ComfyUI alone —
 OpenAI, Automatic1111 and fal already honoured it and the fact isolates the defect rather than describing
 it. Plus two per-backend tests pinning the honest capability and the refusal. 35 passed after the fix.
 
+## 2026-08-26 — an authored `Headline` was replaced by a truncation on a re-remember that omitted it
+
+**Symptom.** Remember a fact with an authored headline (`"prod DB"`), then refresh the same content without
+restating one, and the store came back with a machine-made truncation of the content in its place. The
+application's own one-line summary was gone, with no error and no way back.
+
+**Root cause.** `MemoryWrite.Headline` is null-means-unstated. `GraphMemoryEngine` turns a null into a
+TRUNCATION of the content, and every backend's upsert then wrote the headline unconditionally — so "the
+caller said nothing" and "the caller said this truncation" reached the store as the same value. The third
+instance that day of one defect, after the grade and metadata entries below (**D91** names it as one).
+
+**Fix.** `GraphNodeWrite.HeadlineStated`, the shape of `GradeStated`: the engine passes
+`write.Headline is not null`, and every backend keeps the stored headline when it is false. Naming a
+headline still applies it.
+
+**Verification.** `MemoryGraphStoreContract.An_unstated_headline_keeps_the_stored_one_and_a_stated_one_overwrites`
+on every backend, asserting both directions — a store that simply never updated the headline would pass the
+keep-it half and break corrections. Confirmed failing on the unfixed tree before being claimed.
+
+**Introduced by.** The graph store's first upsert; `headline` was written unconditionally since the column
+existed. Found the same day by grepping the grade and metadata fixes for the other places the distinction
+applies; fixed in `34c743d2`.
+
+---
+
 ## 2026-08-26 — a corrected `Metadata` bag was silently ignored on a re-remember
 
 **Symptom.** Write a fact with `Metadata`, then write the same content again with a corrected bag — a fixed
@@ -1820,6 +1845,32 @@ still failing.
 **Verification.** `test-devtools` 326 → 329, `verify` 14/14, 2,932 passed / 2,953. Latent when found, both
 of them: no defect was live in the tree. That is the point at which a gate is cheapest to fix and the point
 at which it is easiest to leave alone.
+
+---
+
+## 2026-08-15 — a memory blend dropped the judge's abstention signal, and let every member spend the whole char budget
+
+**Symptom.** `MemoryRecall.Answered` came back `null` on every DI-registered engine, even when a judge had
+returned `false`, so `docs/memory.md`'s own "know when the memory has nothing useful" sample could never
+fire. Separately, an N-member blend returned up to N × `MemoryQuery.CharBudget` — a budget the caller set
+for a prompt.
+
+**Root cause.** `CompositeMemoryEngine`, which `MemoryEngineBuilder.Build` returns for every registration,
+built `new MemoryRecall(items, ran)` and dropped the third positional argument; and it passed `CharBudget` to
+every member unchanged and never reconciled it at the blend — the two-scopes shape the `Limit` cut beside it
+had been added for.
+
+**Fix.** `Answered` folds as a three-value lattice — any `true` wins; `false` if some member judged and none
+answered; `null` only when nothing judged — so the no-verifier default never synthesises `false`. The blend
+applies `GraphMemoryEngine`'s own char-budget rule verbatim, so a blend and a bare engine cannot answer one
+query differently (`docs/DECISIONS.md` **D63**).
+
+**Verification.** `CompositeMemoryEngineTests.A_blend_reports_the_abstention_signal_a_member_produced`,
+`A_blend_whose_only_judge_found_nothing_reports_false_not_null`, `A_blend_with_no_judge_anywhere_reports_null`
+and `A_blend_honours_the_query_char_budget`.
+
+**Introduced by.** The composite's recall path, which predates both fields' consumers; found by the pre-3.0
+review that produced D63.
 
 ---
 

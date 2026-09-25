@@ -1726,25 +1726,7 @@ export default {
    * out.
    */
   decisionLengthAllowances: {
-    D63: 39,
-    D64: 36,
-    D66: 49,
-    D67: 40,
-    D69: 36,
-    D70: 38,
-    D71: 38,
-    D72: 55,
-    D73: 52,
-    D74: 36,
-    D76: 42,
-    D77: 52,
-    D78: 38,
-    D85: 44,
-    D86: 42,
-    D89: 37,
-    D91: 55,
-    D93: 52,
-    D94: 41,
+    D66: 44,
   },
 
   /**
@@ -1767,7 +1749,6 @@ export default {
    * There is deliberately NO escape token — see `check-archive.mjs`.
    */
   archiveEntryLengthAllowances: {
-    'Part 106': 22,
     'Part 108': 24,
     'Part 110': 26,
     'Part 111': 24,
@@ -1776,10 +1757,6 @@ export default {
     'Part 117': 21,
     'Part 118': 22,
     'Part 120': 22,
-    'Part 121': 27,
-    'Part 122': 22,
-    'Part 123': 26,
-    'Part 127': 26,
     'Part 130': 26,
     'Part 131': 22,
     'Part 133': 23,

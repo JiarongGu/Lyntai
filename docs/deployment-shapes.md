@@ -5,8 +5,11 @@
 > DEPLOYMENT you are running in**. Same evidence, re-cut, because a consumer does not arrive asking "what is
 > a selective task" — they arrive saying *"this is a game"* or *"this is a shared server"*.
 >
-> **Every figure here is a pointer.** `docs/memory-measurements.md` §5 owns them all and carries the caveats;
-> nothing is re-derived here, because a second copy of a number is wrong the moment the first is retracted.
+> **Every figure here is a pointer**, and nothing is re-derived here, because a second copy of a number is
+> wrong the moment the first is retracted. Quality and contention figures are `docs/memory-measurements.md`
+> §5's, cited by result id; serving-layer ones — the router, the GPU offload table, the proxy — are
+> `.claude/knowledge/pitfalls.md` §Environment / tooling's; the four-server VRAM footprint is the
+> `tool-affordance` harness's own budget (`devtools/scripts/tool-affordance.mjs`).
 >
 > **It is advice over seams that already exist.** No shape below needs new API, and no default enables any
 > of it.
