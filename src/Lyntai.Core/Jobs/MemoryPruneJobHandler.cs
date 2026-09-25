@@ -1,7 +1,7 @@
-using System.Text;
 using System.Text.Json;
 using Lyntai.Memory;
 using Lyntai.Storage;
+using Lyntai.Text;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -12,18 +12,11 @@ namespace Lyntai.Jobs;
 /// stays AOT/trim-clean — no reflection serializer.</summary>
 internal sealed record MemoryPruneRequest(string? TaskKey = null, double? OlderThanSeconds = null)
 {
-    public string ToJson()
+    public string ToJson() => JsonExtract.WriteObject(w =>
     {
-        using var ms = new MemoryStream();
-        using (var w = new Utf8JsonWriter(ms))
-        {
-            w.WriteStartObject();
-            if (TaskKey is not null) w.WriteString("TaskKey", TaskKey);
-            if (OlderThanSeconds is { } s) w.WriteNumber("OlderThanSeconds", s);
-            w.WriteEndObject();
-        }
-        return Encoding.UTF8.GetString(ms.ToArray());
-    }
+        if (TaskKey is not null) w.WriteString("TaskKey", TaskKey);
+        if (OlderThanSeconds is { } s) w.WriteNumber("OlderThanSeconds", s);
+    });
 
     public static MemoryPruneRequest Parse(string? payload)
     {

@@ -125,7 +125,7 @@ public sealed class CliProviderEngine(
                     ? $"{backend.Id} exceeded max duration {maxDuration}"
                     : $"{backend.Id} stalled — no output for {timeout}");
 
-        var stderrTail = Tail(result.StdErr);
+        var stderrTail = result.StdErrTail();
 
         string text = "", contentText = "";
         TextUsage? usage = null;
@@ -283,7 +283,7 @@ public sealed class CliProviderEngine(
             return new ProviderProbeResult(false,
                 Detail: $"{backend.Id} reported no version within {backend.MaintenanceTimeout}");
         if (result.Process.ExitCode != 0)
-            return new ProviderProbeResult(false, Detail: $"exit {result.Process.ExitCode}: {Tail(result.Process.StdErr)}");
+            return new ProviderProbeResult(false, Detail: $"exit {result.Process.ExitCode}: {result.Process.StdErrTail()}");
 
         // some launchers print the banner on stderr; the first non-empty line is the version line
         var line = CliVersionLine.FirstLine(result.Process.StdOut);
@@ -322,13 +322,13 @@ public sealed class CliProviderEngine(
         var run = await RunMaintenanceAsync(maintenanceArgs, inactivity, Backstop(inactivity), ct).ConfigureAwait(false);
         if (run.Failure is { } failure) return Unchanged($"{label} failed: {failure}");
         if (run.Process!.TimedOut) return Unchanged($"{label} stalled — no output for {inactivity}");
-        if (run.Process.ExitCode != 0) return Unchanged($"exit {run.Process.ExitCode}: {Tail(run.Process.StdErr)}");
+        if (run.Process.ExitCode != 0) return Unchanged($"exit {run.Process.ExitCode}: {run.Process.StdErrTail()}");
 
         // the tool's own wording is the diagnostic; whether anything CHANGED is the version comparison
         var after = await ProbeAsync(ct).ConfigureAwait(false);
         var updated = before.Version is { } from && after.Version is { } to &&
             !string.Equals(from, to, StringComparison.OrdinalIgnoreCase);
-        var output = Tail(run.Process.StdOut.Length > 0 ? run.Process.StdOut : run.Process.StdErr);
+        var output = run.Process.OutputTail();
         return new ProviderUpdateResult(true, updated, before.Version, after.Version,
             output.Length > 0 ? output : null);
 
@@ -355,15 +355,15 @@ public sealed class CliProviderEngine(
             return new ProviderAuthStatus(false,
                 Detail: $"{backend.Id} reported no auth status within {backend.MaintenanceTimeout}");
 
-        // parse the WHOLE body (Tail() keeps the LAST N chars and would decapitate a document)
+        // parse the WHOLE body (OutputTail keeps the LAST N chars and would decapitate a document)
         var body = result.Process.StdOut.Length > 0 ? result.Process.StdOut : result.Process.StdErr;
         if (backend.ParseAuthStatus(body) is { } status)
-            return status with { Detail = Tail(body) };
+            return status with { Detail = result.Process.OutputTail() };
 
         if (result.Process.ExitCode != 0)
-            return new ProviderAuthStatus(false, Detail: $"exit {result.Process.ExitCode}: {Tail(result.Process.StdErr)}");
+            return new ProviderAuthStatus(false, Detail: $"exit {result.Process.ExitCode}: {result.Process.StdErrTail()}");
 
-        var tail = Tail(body);
+        var tail = result.Process.OutputTail();
         return new ProviderAuthStatus(false, Detail: tail.Length > 0
             ? $"unrecognized auth status output: {tail}"
             : $"{backend.Id} reported no auth status");
@@ -395,10 +395,10 @@ public sealed class CliProviderEngine(
         if (result.Process!.TimedOut)
             return new ProviderAuthResult(false, Detail: $"{label} did not complete within {maxDuration}");
         if (result.Process.ExitCode != 0)
-            return new ProviderAuthResult(false, Detail: $"exit {result.Process.ExitCode}: {Tail(result.Process.StdErr)}");
+            return new ProviderAuthResult(false, Detail: $"exit {result.Process.ExitCode}: {result.Process.StdErrTail()}");
 
         var status = await StatusAsync(ct).ConfigureAwait(false);
-        var output = Tail(result.Process.StdOut.Length > 0 ? result.Process.StdOut : result.Process.StdErr);
+        var output = result.Process.OutputTail();
         return new ProviderAuthResult(true, status, output.Length > 0 ? output : null);
     }
 
@@ -421,12 +421,6 @@ public sealed class CliProviderEngine(
         {
             return (null, ex.Message);
         }
-    }
-
-    private static string Tail(string text, int max = 500)
-    {
-        var trimmed = text.Trim();
-        return trimmed.Length <= max ? trimmed : trimmed[^max..];
     }
 
     /// <summary>A CLI that doesn't take request-level tool declarations must not drop them SILENTLY — a

@@ -8,18 +8,14 @@ namespace Lyntai.Memory.Verification;
 /// the candidates, and endorsing its best
 /// <see cref="ScoringVerificationOptions.EndorseCount"/>.
 ///
-/// <para><b>It knows no wire format, and that is the point.</b> This policy and the cross-encoder HTTP
-/// client were ONE class in a provider package until <c>docs/DECISIONS.md</c> <b>D140</b> — so the transport
-/// was reachable by nothing else, and a memory decision (which field of a candidate to send, how many to
-/// endorse) shipped inside an adapter. Any backend declaring <see cref="ProviderKinds.Score"/> serves this
-/// now, including a local one that never speaks HTTP.</para>
+/// <para><b>It knows no wire format</b>: any backend declaring <see cref="ProviderKinds.Score"/> serves it,
+/// including a local one that never speaks HTTP (<c>docs/DECISIONS.md</c> <b>D140</b>).</para>
 ///
-/// <para><b>It is FAIL-OPEN, and the provider is not.</b> A scoring backend throws rather than returning a
-/// degraded answer, because there is no score meaning "I could not". Here a missing opinion is a legitimate
-/// outcome — <see cref="MemoryVerification.NoOpinion"/> leaves the engine's own ranking untouched — so this
-/// catches and reports nothing rather than failing the recall. **The caller's own cancellation is
-/// re-thrown**, tested as <c>ct.IsCancellationRequested</c> and never by the exception's type, because a
-/// provider's own timeout arrives as the same type.</para></summary>
+/// <para><b>It is FAIL-OPEN.</b> A missing opinion is a legitimate outcome —
+/// <see cref="MemoryVerification.NoOpinion"/> leaves the engine's own ranking untouched — so a failed verdict,
+/// or a fault outside the backends, reports that rather than failing the recall. <b>The caller's own
+/// cancellation is re-thrown</b>, tested as <c>ct.IsCancellationRequested</c> and never by the exception's
+/// type, because a provider's own timeout arrives as the same type.</para></summary>
 public sealed class ScoringVerificationPolicy(
     IEnumerable<IModelProvider> providers,
     ScoringVerificationOptions config,
@@ -43,8 +39,7 @@ public sealed class ScoringVerificationPolicy(
         var all = providers.ToList();
         if (string.IsNullOrWhiteSpace(config.ProviderId)) return all;
 
-        var named = all.FirstOrDefault(
-            p => string.Equals(p.Id, config.ProviderId, StringComparison.OrdinalIgnoreCase));
+        var named = ProviderLookup.Find(all, config.ProviderId);
         if (named is null)
             throw new InvalidOperationException(
                 $"{nameof(ScoringVerificationOptions)}.{nameof(ScoringVerificationOptions.ProviderId)} names "
@@ -58,7 +53,7 @@ public sealed class ScoringVerificationPolicy(
             throw new InvalidOperationException(
                 $"{nameof(ScoringVerificationOptions)}.{nameof(ScoringVerificationOptions.ProviderId)} names "
                 + $"'{named.Id}', which does not declare {ProviderKinds.Score} — it produces "
-                + $"{(named.Capabilities.Produces.Count == 0 ? "nothing" : string.Join(", ", named.Capabilities.Produces))}. "
+                + $"{ClientCandidates.Produces(named)}. "
                 + "Name a reranker, or drop the setting to take the first backend that scores.");
 
         return [named];

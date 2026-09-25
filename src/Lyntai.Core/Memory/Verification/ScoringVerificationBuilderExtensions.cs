@@ -7,7 +7,7 @@ using Microsoft.Extensions.Logging;
 namespace Lyntai;
 
 /// <summary>Fills the memory verification seam with a SCORING backend rather than an instruct model.</summary>
-public static class ScoringVerificationRegistration
+public static class ScoringVerificationBuilderExtensions
 {
     /// <summary>
     /// Verify recalls with whatever backend produces <see cref="ProviderKinds.Score"/> — a cross-encoder

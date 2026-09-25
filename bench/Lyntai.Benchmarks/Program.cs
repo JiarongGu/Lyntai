@@ -8,16 +8,6 @@ using Lyntai.Benchmarks;
 if (args.Contains("--sweep"))
     return await MemoryPolicySweep.RunAsync();
 
-// `node devtools/dev.mjs memory-spacing` → --spacing, handled the same way and for the same reason: it is a
-// SENSITIVITY study over one DsrOptions constant, reporting recall quality rather than wall-clock time.
-if (args.Contains("--spacing"))
-    return await MemorySpacingSweep.RunAsync();
-
-// `node devtools/dev.mjs memory-reinforcement` → --reinforcement. Isolates the one question --spacing
-// structurally could not answer: reinforcement itself, or only law 3's r-dependence?
-if (args.Contains("--reinforcement"))
-    return await MemoryReinforcementSweep.RunAsync();
-
 // `node devtools/dev.mjs memory-bounded` → --bounded. Does limiting the compounding beat removing growth?
 // The question the other studies converge on, and the one that decides a shipped default.
 if (args.Contains("--bounded"))

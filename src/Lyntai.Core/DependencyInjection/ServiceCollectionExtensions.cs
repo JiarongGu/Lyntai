@@ -3,7 +3,10 @@ using Lyntai;
 using Lyntai.Agents;
 using Lyntai.Cortex;
 using Lyntai.Guards;
+using Lyntai.Inference.Budgeting;
+using Lyntai.Inference.RateLimiting;
 using Lyntai.Jobs;
+using Lyntai.Memory;
 using Lyntai.Processes;
 using Lyntai.Prompts;
 using Lyntai.Storage;
@@ -64,7 +67,7 @@ public static class LyntaiServiceCollectionExtensions
             throw new InvalidOperationException(
                 "AddSemanticMemory was called, but no registered backend produces vectors, so "
                 + "ISemanticMemory would never be wired and semantic recall would silently do nothing. "
-                + Lyntai.Inference.EmbeddingRouting.NothingEmbeds
+                + EmbeddingRouting.NothingEmbeds
                 + " Or drop the AddSemanticMemory call.");
 
         // same contradiction for refusal screening: it wraps Lyntai's OWN client inside the factory below,
@@ -108,33 +111,33 @@ public static class LyntaiServiceCollectionExtensions
     {
         // Open generic, so the pool serves any seam closed over it. Never a concrete backend type —
         // IProviderPool<SomeProvider> would be a different pool that no router consults.
-        services.TryAddSingleton(typeof(Lyntai.Inference.IProviderPool<>), typeof(Lyntai.Inference.BoundedProviderPool<>));
-        services.TryAddSingleton<Lyntai.Inference.ProviderPoolOptions>();
-        services.TryAddSingleton<Lyntai.Inference.ProviderAdmissionOptions>();
-        services.TryAddSingleton<Lyntai.Inference.ProviderAdmission>();
+        services.TryAddSingleton(typeof(IProviderPool<>), typeof(BoundedProviderPool<>));
+        services.TryAddSingleton<ProviderPoolOptions>();
+        services.TryAddSingleton<ProviderAdmissionOptions>();
+        services.TryAddSingleton<ProviderAdmission>();
         // The routers consume the SEAM, so a host coordinating admission across processes registers its own
         // IProviderAdmission before AddLyntai and this TryAdd stands down. The concrete type stays registered
         // either way — ConfigureProviderAdmission configures THAT one, and resolving it directly must keep
         // working — but the interface is what anything downstream asks for.
-        services.TryAddSingleton<Lyntai.Inference.IProviderAdmission>(
-            sp => sp.GetRequiredService<Lyntai.Inference.ProviderAdmission>());
+        services.TryAddSingleton<IProviderAdmission>(
+            sp => sp.GetRequiredService<ProviderAdmission>());
 
         // The generic counterpart of ITextRouterFactory / IMediaRouterFactory, for the kinds with no named
         // router of their own — vector, score, and whatever an application closes IProviderCall<,> over — so
         // their bookkeeping outlives a call. Resolved lazily: the DeadHostTracker it needs is registered by
         // the text front door, after this method runs.
-        services.TryAddSingleton<Lyntai.Inference.IProviderRouterFactory>(sp =>
-            new Lyntai.Inference.ProviderRouterFactory(
+        services.TryAddSingleton<IProviderRouterFactory>(sp =>
+            new ProviderRouterFactory(
                 sp.GetRequiredService<DeadHostTracker>(),
-                sp.GetService<Lyntai.Inference.IProviderPool<IModelProvider>>(),
-                sp.GetService<Lyntai.Inference.IProviderAdmission>(),
+                sp.GetService<IProviderPool<IModelProvider>>(),
+                sp.GetService<IProviderAdmission>(),
                 // the CONFIGURED routing policy (ConfigureRouting) reaches every kind through here —
                 // it used to reach chat alone, and an operator's retries were silently text-only
                 sp.GetService<LyntaiOptions>(),
                 // the one wallet (D163): present exactly when the host opted in via AddUsageBudget /
                 // AddRateLimit, so a deployment that did neither routes exactly as before
-                sp.GetService<Lyntai.Inference.Budgeting.IUsageTracker>(),
-                sp.GetService<Lyntai.Inference.RateLimiting.IRateLimiter>()));
+                sp.GetService<IUsageTracker>(),
+                sp.GetService<IRateLimiter>()));
     }
 
     /// <summary>Where the default candidate list is set, for a message telling someone to change it.</summary>
@@ -150,14 +153,14 @@ public static class LyntaiServiceCollectionExtensions
             options.DeadHostThreshold, options.DeadHostCooldown, logger: sp.GetService<ILogger<DeadHostTracker>>()));
         services.TryAddSingleton<ITextRouter>(sp => new TextRouter(
             sp.GetServices<IModelProvider>(), sp.GetRequiredService<DeadHostTracker>(), options,
-            sp.GetService<ILogger<TextRouter>>(), modelRouting: sp.GetService<Lyntai.Inference.IModelRoutingStore>()));
+            sp.GetService<ILogger<TextRouter>>(), modelRouting: sp.GetService<IModelRoutingStore>()));
         // The chat counterpart of IMediaRouterFactory: a router per CALLER's provider set, over the ONE
         // tracker and the ONE admission table registered above, so a caller's router keeps their bookkeeping.
         services.TryAddSingleton<ITextRouterFactory>(sp => new TextRouterFactory(
-            sp.GetRequiredService<Lyntai.Inference.IProviderPool<IModelProvider>>(),
+            sp.GetRequiredService<IProviderPool<IModelProvider>>(),
             sp.GetRequiredService<DeadHostTracker>(), options,
-            sp.GetService<ILoggerFactory>(), sp.GetService<Lyntai.Inference.IModelRoutingStore>(),
-            sp.GetService<Lyntai.Inference.IProviderAdmission>()));
+            sp.GetService<ILoggerFactory>(), sp.GetService<IModelRoutingStore>(),
+            sp.GetService<IProviderAdmission>()));
         // Default candidates internal. Any registered front-door decorators (response cache, usage budget, …)
         // are folded over the base client in ascending Order (the decorator's declared position — NOT raw
         // registration order), so they compose predictably instead of clobbering.
@@ -316,7 +319,7 @@ public static class LyntaiServiceCollectionExtensions
             sp.GetServices<IScorer>(), sp.GetService<IScoreStore>(), sp.GetService<ILogger<ScoringService>>()));
         services.TryAddSingleton<ITraceService>(sp => new TraceService(
             sp.GetService<ITraceStore>(), logger: sp.GetService<ILogger<TraceService>>()));
-        services.TryAddSingleton<IPromptComposer>(Lyntai.Memory.EngineBackedPromptComposer.ForContainer);
+        services.TryAddSingleton<IPromptComposer>(EngineBackedPromptComposer.ForContainer);
         services.TryAddSingleton<IPairwiseComparer>(sp => new LlmPairwiseComparer(sp.GetRequiredService<ITextClient>()));
     }
 
@@ -349,7 +352,7 @@ public static class LyntaiServiceCollectionExtensions
     /// <para>TWO routes, and they are not the same code. A factory cannot be inspected, so it STATES what it
     /// will produce through <c>AddProvider</c>'s <c>declares</c> argument (<c>docs/DECISIONS.md</c>
     /// <b>D152</b>). An instance registration needs no statement: the object is in the descriptor and
-    /// declares its own <see cref="Lyntai.Inference.ProviderCapabilities"/>. Reading it is what keeps a host
+    /// declares its own <see cref="ProviderCapabilities"/>. Reading it is what keeps a host
     /// registration made before <c>AddLyntai</c> working, and reading the CAPABILITY rather than counting
     /// providers is what keeps a chat-only deployment failing fast.</para>
     ///
@@ -358,17 +361,17 @@ public static class LyntaiServiceCollectionExtensions
     private static bool VectorBackendIsWired(IServiceCollection services, LyntaiBuilder builder) =>
         builder.DeclaredCapabilities.Any(Embeds)
         || services.Any(d => !d.IsKeyedService
-            && d.ServiceType == typeof(Lyntai.Inference.IModelProvider)
-            && d.ImplementationInstance is Lyntai.Inference.IModelProvider p
+            && d.ServiceType == typeof(IModelProvider)
+            && d.ImplementationInstance is IModelProvider p
             && Embeds(p.Capabilities));
 
     /// <summary>Text in, vectors out — asked identically of a declaration and of a built instance, and by the
     /// router that selects at run time, so none of the three can drift.</summary>
-    private static bool Embeds(Lyntai.Inference.ProviderCapabilities capabilities) =>
-        Lyntai.Inference.ProviderShapes.Embeds(capabilities);
+    private static bool Embeds(ProviderCapabilities capabilities) =>
+        ProviderShapes.Embeds(capabilities);
 
     /// <summary>Refuse a backend whose DECLARATION and IMPLEMENTATION disagree: it says it produces vectors
-    /// and does not implement <see cref="Lyntai.Inference.IVectorProvider"/>.
+    /// and does not implement <see cref="IVectorProvider"/>.
     ///
     /// <para><b>The failure it replaces is silent.</b> Routing selects on the type test, and
     /// <c>AddSemanticMemory</c>'s own check reads the declaration — so such a backend satisfies composition,
@@ -383,23 +386,23 @@ public static class LyntaiServiceCollectionExtensions
         foreach (var descriptor in services)
         {
             if (descriptor.IsKeyedService
-                || descriptor.ServiceType != typeof(Lyntai.Inference.IModelProvider)
-                || descriptor.ImplementationInstance is not Lyntai.Inference.IModelProvider provider)
+                || descriptor.ServiceType != typeof(IModelProvider)
+                || descriptor.ImplementationInstance is not IModelProvider provider)
                 continue;
 
             Refuse(provider, Embeds(provider.Capabilities),
-                provider is Lyntai.Inference.IVectorProvider,
-                nameof(Lyntai.Inference.ProviderKinds.Vector), nameof(Lyntai.Inference.IVectorProvider),
+                provider is IVectorProvider,
+                nameof(ProviderKinds.Vector), nameof(IVectorProvider),
                 "semantic recall would return nothing");
 
             Refuse(provider, Scores(provider.Capabilities),
-                provider is Lyntai.Inference.IScoreProvider,
-                nameof(Lyntai.Inference.ProviderKinds.Score), nameof(Lyntai.Inference.IScoreProvider),
+                provider is IScoreProvider,
+                nameof(ProviderKinds.Score), nameof(IScoreProvider),
                 "every recall would go unverified");
         }
 
         static void Refuse(
-            Lyntai.Inference.IModelProvider provider, bool declares, bool implements, string kind,
+            IModelProvider provider, bool declares, bool implements, string kind,
             string seam, string consequence)
         {
             if (!declares || implements) return;
@@ -411,11 +414,11 @@ public static class LyntaiServiceCollectionExtensions
     }
 
     /// <summary>Text in, scores out — the shape <c>AddMemoryScoringVerification</c> selects on.</summary>
-    private static bool Scores(Lyntai.Inference.ProviderCapabilities capabilities) =>
-        Lyntai.Inference.ProviderShapes.Scores(capabilities);
+    private static bool Scores(ProviderCapabilities capabilities) =>
+        ProviderShapes.Scores(capabilities);
 
     /// <summary>Semantic memory — wired ONLY when a backend producing
-    /// <see cref="Lyntai.Inference.ProviderKinds.Vector"/> is registered. Composes the registered providers
+    /// <see cref="ProviderKinds.Vector"/> is registered. Composes the registered providers
     /// with a vector store (in-memory default; register your own <c>IVectorStore</c> for pgvector/etc.).
     ///
     /// <para>Embedding is a capability (<c>docs/DECISIONS.md</c> <b>D151</b>), so <c>SemanticMemory</c> takes
@@ -428,11 +431,11 @@ public static class LyntaiServiceCollectionExtensions
     private static void RegisterSemanticMemory(IServiceCollection services, LyntaiBuilder builder)
     {
         if (!VectorBackendIsWired(services, builder)) return;
-        services.TryAddSingleton<Lyntai.Memory.IVectorStore, Lyntai.Memory.InMemoryVectorStore>();
-        services.TryAddSingleton<Lyntai.Memory.ISemanticMemory>(sp => new Lyntai.Memory.SemanticMemory(
-            sp.GetServices<Lyntai.Inference.IModelProvider>(), sp.GetRequiredService<Lyntai.Memory.IVectorStore>(),
-            sp.GetService<ILogger<Lyntai.Memory.SemanticMemory>>(),
-            sp.GetService<Lyntai.Inference.IProviderRouterFactory>()));
+        services.TryAddSingleton<IVectorStore, InMemoryVectorStore>();
+        services.TryAddSingleton<ISemanticMemory>(sp => new SemanticMemory(
+            sp.GetServices<IModelProvider>(), sp.GetRequiredService<IVectorStore>(),
+            sp.GetService<ILogger<SemanticMemory>>(),
+            sp.GetService<IProviderRouterFactory>()));
     }
 
     /// <summary>Agentic tool-calling: the registry gathers any registered ITools; the loop runs provider-
@@ -444,7 +447,7 @@ public static class LyntaiServiceCollectionExtensions
         // "show every tool", which is what the loop did before the seam existed.
         services.TryAddSingleton<IToolLoop>(sp => new ToolLoop(
             sp.GetRequiredService<ITextClient>(), sp.GetRequiredService<IToolRegistry>(), options,
-            sp.GetService<ILogger<ToolLoop>>(), guards: sp.GetService<Lyntai.Guards.IGuardRail>(),
+            sp.GetService<ILogger<ToolLoop>>(), guards: sp.GetService<IGuardRail>(),
             selector: sp.GetService<IToolSelector>()));
     }
 

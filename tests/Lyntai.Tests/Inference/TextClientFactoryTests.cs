@@ -118,7 +118,7 @@ public class TextClientFactoryTests
     }
 
     /// <summary><b>The other half of that promise, and the half nothing asserted.</b>
-    /// <c>TextClientRegistration</c>'s own doc says every named client carries "the same outermost refusal
+    /// <c>TextClientBuilderExtensions</c>'s own doc says every named client carries "the same outermost refusal
     /// screening as the default one" — and the fold was written TWICE, so deleting the screening from the
     /// named copy left the entire suite green. The budget fact above covers the decorator half; this covers
     /// the layer that sits outside them, which is the one a second copy loses first because it is added last.

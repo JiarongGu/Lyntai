@@ -1,7 +1,7 @@
-using System.Buffers;
 using System.Text;
 using System.Text.Json;
 using Lyntai.Agents;
+using Lyntai.Text;
 
 namespace Lyntai.Memory;
 
@@ -48,46 +48,35 @@ internal static class MemoryTools
             : new MemoryRef(text[..at], text[(at + RefSeparator.Length)..]);
     }
 
-    /// <summary>Render a recall as the observation fed back to the model. Hand-written with
-    /// <see cref="Utf8JsonWriter"/> — no reflection serialization, so this stays AOT-clean.</summary>
-    internal static string Render(MemoryRecall recall)
+    /// <summary>Render a recall as the observation fed back to the model.</summary>
+    internal static string Render(MemoryRecall recall) => JsonExtract.WriteObject(writer =>
     {
-        var buffer = new ArrayBufferWriter<byte>();
-        using (var writer = new Utf8JsonWriter(buffer))
+        writer.WriteString("ran", recall.Ran.ToString());
+        writer.WriteStartArray("items");
+        foreach (var item in recall.Items)
         {
             writer.WriteStartObject();
-            writer.WriteString("ran", recall.Ran.ToString());
-            writer.WriteStartArray("items");
-            foreach (var item in recall.Items)
-            {
-                writer.WriteStartObject();
-                writer.WriteString("ref", Format(item.Reference));
-                writer.WriteString("headline", item.Headline);
-                // ALWAYS written, null when withheld: an explicit null tells the model there is more text
-                // to fetch, which is the affordance that makes it call expand. Omitting the key is silent.
-                writer.WriteString("content", item.Content);
-                writer.WriteString("grade", item.Grade.ToString());
-                writer.WriteNumber("links", item.Degree);
-                writer.WriteNumber("retrievability", Math.Round(item.Retrievability, 3));
-                writer.WriteEndObject();
-            }
-            writer.WriteEndArray();
+            writer.WriteString("ref", Format(item.Reference));
+            writer.WriteString("headline", item.Headline);
+            // ALWAYS written, null when withheld: an explicit null tells the model there is more text
+            // to fetch, which is the affordance that makes it call expand. Omitting the key is silent.
+            writer.WriteString("content", item.Content);
+            writer.WriteString("grade", item.Grade.ToString());
+            writer.WriteNumber("links", item.Degree);
+            writer.WriteNumber("retrievability", Math.Round(item.Retrievability, 3));
             writer.WriteEndObject();
         }
-        return Encoding.UTF8.GetString(buffer.WrittenSpan);
-    }
+        writer.WriteEndArray();
+    });
 
     private static string? ReadString(string argumentsJson, string name)
     {
         if (string.IsNullOrWhiteSpace(argumentsJson)) return null;
         try
         {
+            // an empty string is absent: the model left the argument unset
             using var doc = JsonDocument.Parse(argumentsJson);
-            return doc.RootElement.ValueKind == JsonValueKind.Object &&
-                   doc.RootElement.TryGetProperty(name, out var value) &&
-                   value.ValueKind == JsonValueKind.String
-                ? value.GetString()
-                : null;
+            return JsonExtract.StringProperty(doc.RootElement, name);
         }
         catch (JsonException) { return null; }
     }

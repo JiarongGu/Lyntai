@@ -83,7 +83,7 @@ describe('decisions-index — reading the headings', () => {
     ]);
 
     assert.deepEqual(rows.filter((r) => r.supersededBy).map((r) => r.id), [],
-      'only the heading declares a stub');
+      'a body mention is not a declaration — only the heading or an opening banner is');
   });
 
   /**
@@ -108,6 +108,69 @@ describe('decisions-index — reading the headings', () => {
     assert.match(block, /\[D2\]\([^)]*\) \(reclassified\)/);
     assert.doesNotMatch(block.split('permanent identifier')[1], /\[D3\]/,
       'a live entry must not appear in the stub roster');
+  });
+
+  /**
+   * DECISIONS.md §How to read it says merges and reversals become stubs too, and the generator had only
+   * been taught `SUPERSEDED`/`RECLASSIFIED`: D80 (headed MERGED INTO), D134 (a REVERSED banner) and D145 (a
+   * SUPERSEDED banner) all read as live, so the roster claimed every entry was.
+   */
+  it('reads MERGED INTO and REVERSED by off the heading', () => {
+    const rows = decisionRows([
+      '## D80 — MERGED INTO D77 (2026-08-16, folded 2026-08-17)',
+      '## D134 — a registration names the BACKEND (REVERSED by D137)',
+      '## D135 — merged into nothing, reversed by no one',
+    ]);
+    assert.deepEqual(rows.map((r) => r.supersededBy), ['D77', 'D137', null],
+      'the stub keywords are the capitalised declarations, never the same words in prose');
+  });
+
+  it('reads a stub BANNER — a blockquote opening the body — as well as the heading', () => {
+    const rows = decisionRows([
+      '## D134 — a registration names the BACKEND (2026-09-14)',
+      '',
+      '> **REVERSED by D137.** The suffix is back on every named backend.',
+      '## D145 — the module is a BRIDGE (2026-09-15)',
+      '',
+      '> **SUPERSEDED by D146, which DELETED the bridge.** Everything below describes where they moved.',
+      '## D80 — the rest of the row types',
+      '> **MERGED INTO D77.**',
+      '## D129 — IEmbedder is the FRONT DOOR',
+      '',
+      '> **Public half REVERSED by D151:** the failover it bought stands.',
+      '## D140 — the routing ACTION',
+      '',
+      'The rule.',
+      '',
+      '> **SUPERSEDED by D180.** A later paragraph is not the banner.',
+    ]);
+    assert.deepEqual(rows.map((r) => [r.id, r.supersededBy]),
+      [['D134', 'D137'], ['D145', 'D146'], ['D80', 'D77'], ['D129', null], ['D140', null]],
+      'a partial reversal and a quote below the first paragraph leave the entry live');
+  });
+
+  /**
+   * D5's heading carries a `drift-ok` comment. The title cell showed the comment half-elided (an unclosed
+   * `<!--` renders as literal text) and the anchor was built from the comment's words, where GitHub slugs
+   * the heading's TEXT: the comment is gone and the space before it survives, as github-slugger never trims.
+   * The row still carries the comment WHOLE, after the elided title: it is the escape a gate reads, and the
+   * row names what the heading names.
+   */
+  it('strips an HTML comment from a heading before titling and slugging it', () => {
+    const [row] = decisionRows(['## D5 — `ILlmClient` is the front door <!-- drift-ok: the record names it -->']);
+    assert.equal(row.title, '`ILlmClient` is the front door');
+    assert.equal(slug(row), 'd5--illmclient-is-the-front-door-');
+    assert.match(indexBlock([row]),
+      /^\| \[D5\]\(#d5--illmclient-is-the-front-door-\) \| — \| `ILlmClient` is the front door <!-- drift-ok: the record names it --> \|$/m);
+
+    const [long] = decisionRows([`## D7 — ${'x'.repeat(120)} <!-- link-ok: why -->`]);
+    assert.match(indexBlock([long]), /x… <!-- link-ok: why --> \|$/m,
+      'eliding a long title never cuts into the comment');
+  });
+
+  it('keeps an underscore in an anchor, as github-slugger does', () => {
+    const [row] = decisionRows(['## D6 — every SQLite object is `lyntai_`-prefixed']);
+    assert.equal(slug(row), 'd6--every-sqlite-object-is-lyntai_-prefixed');
   });
 
   it('says so when every entry is live', () => {

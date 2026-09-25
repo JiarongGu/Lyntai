@@ -71,8 +71,9 @@ public sealed class LyntaiOptions
 
     /// <summary>How <see cref="Lyntai.Storage.IMemoryStore"/> bounds its size — the app's control over
     /// eviction: a per-scope count cap + <see cref="MemoryEvictionMode"/> (FIFO / LRU), a default TTL, and a
-    /// per-scope size (character) budget. See <see cref="MemoryEvictionPolicy"/> presets. Defaults reproduce
-    /// the historical 500-entry FIFO cap; tune via <c>ConfigureMemory(...)</c> or <c>LYNTAI_MEMORY_*</c>.</summary>
+    /// per-scope size (character) budget. See <see cref="MemoryEvictionPolicy"/> presets. Defaults to a
+    /// 500-entry FIFO cap per scope; tune via <c>ConfigureMemoryEviction(...)</c> or
+    /// <c>LYNTAI_MEMORY_*</c>.</summary>
     public MemoryEvictionPolicy MemoryEviction { get; set; } = MemoryEvictionPolicy.Default;
 
     /// <summary>Default max entries returned by a memory recall.</summary>

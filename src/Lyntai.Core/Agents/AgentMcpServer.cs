@@ -15,12 +15,10 @@ public enum McpTransport
 /// an embedded agent can act on the app's domain through the app's own tools.
 ///
 /// <para><b>Why this is neutral rather than per-backend.</b> Both shipped CLI backends accept app-provided
-/// MCP servers natively and both were measured doing it (2026-08-05): <c>claude</c> through
-/// <c>--mcp-config</c> (JSON files or strings, space-separated), <c>codex</c> through repeated
-/// <c>-c mcp_servers.&lt;name&gt;.…</c> config overrides whose values are parsed as TOML. The VOCABULARY
-/// differs; the NEED is identical — which is what an adapter absorbs. Without this, the two backends were
-/// interchangeable only for an agent that needs no app tools, which is the case the
-/// <see cref="IAgentSession"/> abstraction is least often reached for.</para>
+/// MCP servers natively: <c>claude</c> through <c>--mcp-config</c> (JSON files or strings,
+/// space-separated), <c>codex</c> through repeated <c>-c mcp_servers.&lt;name&gt;.…</c> config overrides
+/// whose values are parsed as TOML. The VOCABULARY differs; the NEED is identical — which is what an adapter
+/// absorbs, so the two backends stay interchangeable for an agent that needs the app's tools.</para>
 ///
 /// <para><b>Distinct from <see cref="McpEndpoint"/>, which is not a substitute.</b> That type describes the
 /// loopback host LYNTAI stands up to expose the app's in-process <see cref="ITool"/>s over

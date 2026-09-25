@@ -31,9 +31,15 @@ public sealed record ProcessResult(int ExitCode, string StdOut, string StdErr,
     /// message quotes without carrying a whole log. The END, because that is where a child says why it
     /// stopped; never use it on a document that must be parsed whole.</summary>
     /// <param name="max">The most characters kept.</param>
-    public string StdErrTail(int max = 500)
+    public string StdErrTail(int max = 500) => TailOf(StdErr, max);
+
+    /// <summary>The same tail of whichever stream the child spoke on: stdout when it wrote anything, else
+    /// stderr.</summary>
+    internal string OutputTail(int max = 500) => TailOf(StdOut.Length > 0 ? StdOut : StdErr, max);
+
+    private static string TailOf(string text, int max)
     {
-        var trimmed = StdErr.Trim();
+        var trimmed = text.Trim();
         return trimmed.Length <= max ? trimmed : trimmed[^max..];
     }
 }

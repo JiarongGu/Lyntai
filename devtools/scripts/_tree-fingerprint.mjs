@@ -12,8 +12,8 @@ import { repoFiles } from './_repo-files.mjs';
  *
  * **The rule: a gate's verdict is only about the bytes it read.** Edit a file mid-run and every line
  * `verify` printed describes a tree that no longer exists, the green summary included — a false PASS, which
- * is the direction this repository always treats as the dangerous one. The incident and why the three
- * obvious cheaper checks do not work are in `.claude/knowledge/pitfalls.md` §Environment / tooling.
+ * is the direction this repository always treats as the dangerous one. The incident and the two cheaper
+ * checks that were tried and refused are in `.claude/knowledge/pitfalls.md` §Environment / tooling.
  *
  * CONTENT-hashed, never mtime: mtime moves when nothing changed (a checkout, a byte-identical rewrite), and
  * a gate that cries wolf is the one people learn to ignore. Scope is `repoFiles`, so untracked-but-unignored

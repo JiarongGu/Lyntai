@@ -7,7 +7,7 @@ using Microsoft.Extensions.Logging;
 namespace Lyntai;
 
 /// <summary>Registers the model-backed <see cref="IMemoryVerificationPolicy"/>.</summary>
-public static class MemoryVerificationRegistration
+public static class MemoryVerificationBuilderExtensions
 {
     /// <summary>
     /// Let a model judge which of a recall's candidates actually ANSWERED the query — so an answer the

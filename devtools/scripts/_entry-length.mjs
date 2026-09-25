@@ -1,7 +1,8 @@
-// _entry-length — the RATCHET shared by `check-decisions` and `check-archive`.
+// _entry-length — the RATCHET shared by `check-decisions`, `check-archive` and `check-pitfalls`.
 //
-// Two records grew the same way and the growth was measured the same way, so the semantics live here once:
-// a limit, a per-entry allowance ledger, and three failure modes. The leading underscore keeps this out of
+// Three records grew the same way and the growth was measured the same way, so the semantics live here once:
+// a limit, a per-entry allowance ledger, and three failure modes. `check-pitfalls` measures bullets rather
+// than headings, so it brings its own entries to `judgeLedger` and `reportLedger`. The leading underscore keeps this out of
 // the test runner's discovery, the same trick `_fixtures.mjs` and `e2e/_e2e-common.mjs` use.
 //
 // THE SUBTLE PART IS THE LEDGER, which is why it is shared rather than mirrored. An allowance is a DEBT and
@@ -64,6 +65,25 @@ export function runRatchet({ repo, allowances, log, name, record, heading, limit
     return 1;
   }
 
+  const verdict = judgeLedger(entries, allowances, limit);
+  if (verdict.clean) {
+    log(`${name}: ${entries.length} entr(ies) — none over ${limit} non-blank lines ✓ `
+      + `(${verdict.budgeted} entr(ies) still on a recorded allowance, ${verdict.debt} lines of debt above the limit)`);
+    return 0;
+  }
+  reportLedger(verdict, { log, name, record, limit, advice });
+  return 1;
+}
+
+/**
+ * The LEDGER half, for a record whose entries are not `##` headings (`check-pitfalls` measures bullets):
+ * `{ over, slack, stale, clean, budgeted, debt }` for `entries` shaped `{ id, line, length, label? }`.
+ *
+ * @param {{ id: string, line: number, length: number, label?: string }[]} entries
+ * @param {object} allowances `{ [id]: length }`.
+ * @param {number} limit Non-blank lines an entry may reach.
+ */
+export function judgeLedger(entries, allowances, limit) {
   const byId = new Map(entries.map((e) => [e.id, e]));
   const over = [];
   const slack = [];
@@ -80,18 +100,20 @@ export function runRatchet({ repo, allowances, log, name, record, heading, limit
   }
 
   const stale = Object.keys(allowances).filter((id) => !byId.has(id));
+  return {
+    over, slack, stale,
+    clean: over.length === 0 && slack.length === 0 && stale.length === 0,
+    budgeted: Object.keys(allowances).length,
+    debt: Object.values(allowances).reduce((s, n) => s + Math.max(0, n - limit), 0),
+  };
+}
 
-  if (over.length === 0 && slack.length === 0 && stale.length === 0) {
-    const budgeted = Object.keys(allowances).length;
-    const debt = Object.values(allowances).reduce((s, n) => s + Math.max(0, n - limit), 0);
-    log(`${name}: ${entries.length} entr(ies) — none over ${limit} non-blank lines ✓ `
-      + `(${budgeted} entr(ies) still on a recorded allowance, ${debt} lines of debt above the limit)`);
-    return 0;
-  }
-
+/** Print a verdict's failures — over the limit, LOOSER than needed, and naming nothing. */
+export function reportLedger({ over, slack, stale }, { log, name, record, limit, advice }) {
   if (over.length > 0) {
     log(`${name}: ✗ ${over.length} entr(ies) over their limit\n`);
-    for (const o of over) log(`  ${record}:${o.line}  ${o.id} is ${o.length} non-blank lines (limit ${o.budget})`);
+    for (const o of over)
+      log(`  ${record}:${o.line}  ${o.label ?? o.id} is ${o.length} non-blank lines (limit ${o.budget})`);
     log('');
     for (const line of advice) log(`  ${line}`);
   }
@@ -106,6 +128,4 @@ export function runRatchet({ repo, allowances, log, name, record, heading, limit
     log(`\n${name}: ✗ ${stale.length} allowance(s) name an entry that does not exist — delete them`);
     for (const id of stale) log(`  ${id}`);
   }
-
-  return 1;
 }

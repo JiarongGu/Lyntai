@@ -326,7 +326,7 @@ public sealed class GraphMemorySeedRankTests : IDisposable
     }
 
     /// <summary>Pins WHERE the missing-dependency failure actually fires, corrected by
-    /// <see cref="MemorySeedRegistration.AddMemorySemanticSeeds"/>'s own doc: NOT at
+    /// <see cref="MemorySeedBuilderExtensions.AddMemorySemanticSeeds"/>'s own doc: NOT at
     /// <c>BuildServiceProvider</c> — nothing in this library validates on build — but on the first
     /// resolution of <see cref="IMemoryEngineFactory"/>, since that is what eagerly builds every registered
     /// <see cref="IMemoryEngine"/> and so first constructs <see cref="SemanticSeedSource"/>.</summary>

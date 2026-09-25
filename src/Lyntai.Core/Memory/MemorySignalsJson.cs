@@ -1,6 +1,5 @@
-using System.Buffers;
-using System.Text;
 using System.Text.Json;
+using Lyntai.Text;
 
 namespace Lyntai.Memory;
 
@@ -22,11 +21,9 @@ public static class MemorySignalsJson
     public static string? Serialize(MemorySignals signals)
     {
         if (signals.Count == 0) return null;
-        var buffer = new ArrayBufferWriter<byte>();
         var wrote = false;
-        using (var writer = new Utf8JsonWriter(buffer))
+        var json = JsonExtract.WriteObject(writer =>
         {
-            writer.WriteStartObject();
             foreach (var key in signals.Values.Keys.OrderBy(k => k, StringComparer.Ordinal))
             {
                 var value = signals.Values[key];
@@ -34,9 +31,8 @@ public static class MemorySignalsJson
                 writer.WriteNumber(key, value);
                 wrote = true;
             }
-            writer.WriteEndObject();
-        }
-        return wrote ? Encoding.UTF8.GetString(buffer.WrittenSpan) : null;
+        });
+        return wrote ? json : null;
     }
 
     /// <summary>Parse a stored JSON object back into a bag. Malformed, null, blank, or non-object JSON

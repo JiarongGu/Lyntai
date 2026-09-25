@@ -126,7 +126,7 @@ public static class LyntaiDiagnostics
     internal static readonly Meter AgentMeter = new(AgentMeterName);
 
     internal static readonly Counter<long> ToolInvocations =
-        AgentMeter.CreateCounter<long>("lyntai.tool.invocations", description: "Tool executions by the tool loop");
+        AgentMeter.CreateCounter<long>("lyntai.tool.invocations", description: "Tool executions");
     internal static readonly Counter<long> JobsProcessed =
         AgentMeter.CreateCounter<long>("lyntai.jobs.processed", description: "Jobs processed, tagged by lane + outcome");
     internal static readonly Histogram<double> JobDuration =

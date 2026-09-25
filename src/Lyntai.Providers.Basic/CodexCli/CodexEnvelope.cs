@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Lyntai.Inference;
 using Lyntai.Providers.Basic;
+using Lyntai.Text;
 
 namespace Lyntai.Providers.CodexCli;
 
@@ -86,9 +87,9 @@ internal static class CodexEnvelope
     /// empty failure message would classify as an unhelpful bare failure).</summary>
     public static string FailureMessage(JsonElement root)
     {
-        if (WireJson.Object(root, "error") is { } error && WireJson.String(error, "message") is { Length: > 0 } nested)
+        if (WireJson.Object(root, "error") is { } error && JsonExtract.StringProperty(error, "message") is { } nested)
             return nested;
-        if (WireJson.String(root, "message") is { Length: > 0 } flat)
+        if (JsonExtract.StringProperty(root, "message") is { } flat)
             return flat;
         return "codex reported the turn failed";
     }
