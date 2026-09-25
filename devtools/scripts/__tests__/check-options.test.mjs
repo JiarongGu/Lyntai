@@ -6,11 +6,11 @@
 // applying.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
-import { describe, it } from 'node:test';
+import { after, describe, it } from 'node:test';
 
 import { checkOptions, collectOptions } from '../check-options.mjs';
+import { makeTree, removeTree, repoRoot } from './_fixtures.mjs';
 
 const recorder = () => {
   const lines = [];
@@ -19,12 +19,19 @@ const recorder = () => {
   return log;
 };
 
-/** A throwaway tree with one src file, so collectOptions can be driven without the real repository. */
+const trees = [];
+after(() => trees.forEach(removeTree));
+
+/** A throwaway fixture tree (`_fixtures.mjs`, never OS temp), removed when the file's tests end. */
+function fixture(files = {}) {
+  const dir = makeTree(files);
+  trees.push(dir);
+  return dir;
+}
+
+/** A tree with one src file, so collectOptions can be driven without the real repository. */
 function tree(source, name = 'Thing.cs') {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lyntai-opts-'));
-  fs.mkdirSync(path.join(dir, 'src'), { recursive: true });
-  fs.writeFileSync(path.join(dir, 'src', name), source, 'utf8');
-  return { dir, files: [`src/${name}`] };
+  return { dir: fixture({ [`src/${name}`]: source }), files: [`src/${name}`] };
 }
 
 describe('collectOptions', () => {
@@ -104,11 +111,77 @@ public sealed class WidgetOptions
   });
 
   it('scans only src/ — a test or bench options type is an instrument, not a contract', () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lyntai-opts-'));
-    fs.mkdirSync(path.join(dir, 'tests'), { recursive: true });
-    fs.writeFileSync(path.join(dir, 'tests', 'T.cs'),
-      'public sealed class FakeOptions\n{\n    public int Count { get; set; }\n}', 'utf8');
+    const dir = fixture({ 'tests/T.cs': 'public sealed class FakeOptions\n{\n    public int Count { get; set; }\n}' });
     assert.deepEqual(collectOptions(dir, ['tests/T.cs']), []);
+  });
+
+  it('sees a property whose accessors span several lines — the D78-guarded shape', () => {
+    const { dir, files } = tree(`
+public sealed class WidgetOptions
+{
+    public double ReinforceGain
+    {
+        get => _gain;
+        init => _gain = Require(value);
+    }
+    private readonly double _gain;
+}`);
+    assert.deepEqual(collectOptions(dir, files).map((r) => [r.prop, r.docLines]), [['ReinforceGain', 0]]);
+  });
+
+  it('ignores a multi-line property a consumer cannot set — get-only, or a non-public setter', () => {
+    const { dir, files } = tree(`
+public sealed class WidgetOptions
+{
+    public int Derived
+    {
+        get { return 1; }
+    }
+    public int Counted { get; private set; }
+}`);
+    assert.deepEqual(collectOptions(dir, files), []);
+  });
+
+  it('stops attributing properties when the options type CLOSES — a later class is not the options type', () => {
+    const { dir, files } = tree(`
+public sealed class WidgetOptions
+{
+    /// <summary>Documented.</summary>
+    public int Count { get; set; }
+}
+
+public sealed class WidgetState
+{
+    public int Seen { get; set; }
+}`);
+    assert.deepEqual(collectOptions(dir, files).map((r) => r.prop), ['Count']);
+  });
+
+  it('does not attribute a NESTED non-options type\'s properties to the options type', () => {
+    const { dir, files } = tree(`
+public sealed class WidgetOptions
+{
+    public sealed class Detail
+    {
+        public int Inner { get; set; }
+    }
+    /// <summary>Documented.</summary>
+    public int Count { get; set; }
+}`);
+    assert.deepEqual(collectOptions(dir, files).map((r) => r.prop), ['Count']);
+  });
+
+  it('sees a POSITIONAL record parameter, documented by its <param>', () => {
+    const { dir, files } = tree(`
+/// <summary>Tuning.</summary>
+/// <param name="PollDelay">How long to wait
+/// between polls.</param>
+public sealed record WidgetOptions(TimeSpan? PollDelay = null, int Retries = 3)
+{
+    public TimeSpan Effective => PollDelay ?? TimeSpan.Zero;
+}`);
+    assert.deepEqual(collectOptions(dir, files).map((r) => [r.prop, r.docLines]),
+      [['PollDelay', 2], ['Retries', 0]]);
   });
 });
 
@@ -116,7 +189,7 @@ describe('checkOptions', () => {
   it('FAILS CLOSED when the scan finds nothing — an empty scan is a broken gate, not a clean tree', () => {
     // The rule GATES.md states outright, and the one this gate is most likely to break on later: a
     // pattern that stops matching prints the same tick as a clean repository unless this exists.
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lyntai-opts-empty-'));
+    const dir = fixture();
     const log = recorder();
     assert.equal(checkOptions(dir, {}, log, []), 1);
     assert.match(log.text(), /BROKEN GATE/);
@@ -179,7 +252,7 @@ public sealed class WidgetOptions
 });
 
 describe('the real tree', () => {
-  const repo = path.resolve(import.meta.dirname, '..', '..', '..');
+  const repo = repoRoot;
 
   it('is clean, and the counter actually computed something', async () => {
     const { default: config } = await import('../../project.config.mjs');
