@@ -8,7 +8,7 @@ public sealed class SqliteScoreStore(IDbConnectionFactory factory) : IScoreStore
     public async Task SaveAsync(string sessionId, IReadOnlyList<ScoredResult> results, CancellationToken ct = default)
     {
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
-        using var tx = conn.BeginTransaction();
+        await using var tx = await conn.BeginTransactionAsync(ct).ConfigureAwait(false);
         var now = DateTimeOffset.UtcNow;
         foreach (var r in results)
         {
@@ -21,7 +21,7 @@ public sealed class SqliteScoreStore(IDbConnectionFactory factory) : IScoreStore
                 """, new { sessionId, r.ScorerId, r.ScorerName, r.Group, r.IsLlm, r.Score, r.Reason, now },
                 tx, cancellationToken: ct)).ConfigureAwait(false);
         }
-        tx.Commit();
+        await tx.CommitAsync(ct).ConfigureAwait(false);
     }
 
     public async Task<IReadOnlyList<ScorerAggregate>> AggregateAsync(CancellationToken ct = default)
@@ -35,10 +35,10 @@ public sealed class SqliteScoreStore(IDbConnectionFactory factory) : IScoreStore
         return [.. rows.Select(r => r.ToRecord())];
     }
 
-    public async Task<IReadOnlyList<ScoreExportRow>> ExportAsync(CancellationToken ct = default)
+    public async Task<IReadOnlyList<ScoreExportEntry>> ExportAsync(CancellationToken ct = default)
     {
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
-        var rows = await conn.QueryAsync<ScoreExportEntryRow>(new CommandDefinition("""
+        var rows = await conn.QueryAsync<ScoreExportRow>(new CommandDefinition("""
             SELECT session_id AS SessionId, scorer_id AS ScorerId, CAST(score AS REAL) AS Score
             FROM lyntai_score_result ORDER BY session_id, scorer_id
             """, cancellationToken: ct)).ConfigureAwait(false);

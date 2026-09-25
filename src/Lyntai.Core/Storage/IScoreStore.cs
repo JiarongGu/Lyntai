@@ -12,13 +12,10 @@ public interface IScoreStore
     Task<IReadOnlyList<ScoredResult>> GetAsync(string sessionId, CancellationToken ct = default);
 
     /// <summary>Cross-session per-scorer aggregate — mean score + count grouped by scorer, for the eval
-    /// dashboard. Ordered by scorer id — byte-ordinal on SQLite/InMemory, under the database collation on
-    /// Postgres, so two ids that differ only in case or punctuation may come back in a different order
-    /// there.</summary>
+    /// dashboard. Ordered by scorer id, byte-ordinally on every backend.</summary>
     Task<IReadOnlyList<ScorerAggregate>> AggregateAsync(CancellationToken ct = default);
 
     /// <summary>Bulk export of every stored <c>(session, scorer, score)</c> — a flat dump for a tuning
-    /// dataset. Ordered by session then scorer, with the same backend-dependent text collation as
-    /// <see cref="AggregateAsync"/>.</summary>
-    Task<IReadOnlyList<ScoreExportRow>> ExportAsync(CancellationToken ct = default);
+    /// dataset. Ordered by session then scorer, byte-ordinally on every backend.</summary>
+    Task<IReadOnlyList<ScoreExportEntry>> ExportAsync(CancellationToken ct = default);
 }

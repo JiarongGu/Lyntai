@@ -22,16 +22,6 @@ public sealed class PostgresConversationStore(IDbConnectionFactory factory) : IC
             new { id }, cancellationToken: ct)).ConfigureAwait(false);
     }
 
-    public async Task<IReadOnlyList<ChatThread>> ListThreadsAsync(int limit = 100, CancellationToken ct = default)
-    {
-        if (limit <= 0) return []; // asks for nothing — never the dialect's opinion of a negative LIMIT
-        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
-        var rows = await conn.QueryAsync<ChatThread>(new CommandDefinition(
-            ConversationStoreSql.ListThreads,
-            new { limit }, cancellationToken: ct)).ConfigureAwait(false);
-        return [.. rows];
-    }
-
     public async Task<int> CountThreadsAsync(CancellationToken ct = default)
     {
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
@@ -39,9 +29,9 @@ public sealed class PostgresConversationStore(IDbConnectionFactory factory) : IC
             ConversationStoreSql.CountThreads, cancellationToken: ct)).ConfigureAwait(false);
     }
 
-    public async Task<IReadOnlyList<ChatThread>> ListThreadsPageAsync(int limit, ChatThread? after = null, CancellationToken ct = default)
+    public async Task<IReadOnlyList<ChatThread>> ListThreadsAsync(int limit = 100, ChatThread? after = null, CancellationToken ct = default)
     {
-        if (limit <= 0) return [];
+        if (limit <= 0) return []; // asks for nothing — never the dialect's opinion of a negative LIMIT
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         // keyset paging: the (created_at, id) cursor is compared with the SAME ordering ListThreads uses
         // (created_at DESC, id DESC) so same-timestamp threads are neither skipped nor duplicated.

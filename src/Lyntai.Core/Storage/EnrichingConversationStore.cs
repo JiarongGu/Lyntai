@@ -3,13 +3,7 @@ namespace Lyntai.Storage;
 /// <summary>Decorates an <see cref="IConversationStore"/> so registered <see cref="IConversationEnricher"/>s
 /// are invoked after each write — the "add your additional info" seam that composes over ANY backend store
 /// (SQLite / Postgres / InMemory / a BYO impl) without replacing it. Auto-wired by <c>AddLyntai</c> only when
-/// at least one enricher is registered (otherwise the plain backend store resolves unwrapped).
-///
-/// <para><b>Disposal is not forwarded.</b> This wrapper implements the store interface and nothing else, and
-/// wrapping replaces the container's <see cref="IConversationStore"/> registration — so a BYO inner store
-/// that implements <see cref="IDisposable"/>/<see cref="IAsyncDisposable"/> is no longer disposed by the
-/// container once an enricher is registered. Own that store's lifetime yourself. None of the three shipped
-/// stores is disposable, so this only bites a BYO one.</para></summary>
+/// at least one enricher is registered (otherwise the plain backend store resolves unwrapped).</summary>
 public sealed class EnrichingConversationStore(IConversationStore inner, IEnumerable<IConversationEnricher> enrichers)
     : IConversationStore
 {
@@ -31,11 +25,9 @@ public sealed class EnrichingConversationStore(IConversationStore inner, IEnumer
 
     public Task<ChatThread?> GetThreadAsync(string id, CancellationToken ct = default) => inner.GetThreadAsync(id, ct);
 
-    public Task<IReadOnlyList<ChatThread>> ListThreadsAsync(int limit = 100, CancellationToken ct = default) => inner.ListThreadsAsync(limit, ct);
+    public Task<IReadOnlyList<ChatThread>> ListThreadsAsync(int limit = 100, ChatThread? after = null, CancellationToken ct = default) => inner.ListThreadsAsync(limit, after, ct);
 
     public Task<int> CountThreadsAsync(CancellationToken ct = default) => inner.CountThreadsAsync(ct);
-
-    public Task<IReadOnlyList<ChatThread>> ListThreadsPageAsync(int limit, ChatThread? after = null, CancellationToken ct = default) => inner.ListThreadsPageAsync(limit, after, ct);
 
     public Task SetThreadMetadataAsync(string id, string? metadata, CancellationToken ct = default) => inner.SetThreadMetadataAsync(id, metadata, ct);
 

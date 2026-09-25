@@ -14,10 +14,6 @@ public class DecoratedInterfaceTests
     /// so the list only shrinks.</summary>
     private static readonly Dictionary<string, string> Allowances = new(StringComparer.Ordinal)
     {
-        ["Lyntai.Storage.IConversationStore.CountThreadsAsync(CancellationToken)"] =
-            "the fallback counts through ListThreadsAsync, which a decorator forwards: correct, only slower (O(n))",
-        ["Lyntai.Storage.IConversationStore.ListThreadsPageAsync(Int32, ChatThread, CancellationToken)"] =
-            "the fallback slices ListThreadsAsync, which a decorator forwards: correct, only slower (O(n))",
         ["Lyntai.Storage.IDbConnectionFactory.OpenAsync(CancellationToken)"] =
             "the fallback runs the decorator's own Open: correct, only loses the inner factory's async open",
     };

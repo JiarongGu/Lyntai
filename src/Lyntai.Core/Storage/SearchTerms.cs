@@ -39,27 +39,34 @@ public static class SearchTerms
     /// <summary>The terms <paramref name="raw"/> should match on, in order, de-duplicated
     /// (case-insensitively). Empty when nothing reaches the floor — the caller's signal to fall back to a
     /// whole-query substring scan.</summary>
-    public static IReadOnlyList<string> Extract(string? raw)
-    {
-        if (string.IsNullOrWhiteSpace(raw)) return [];
+    public static IReadOnlyList<string> Extract(string? raw) =>
+        Collect(raw, StringComparer.OrdinalIgnoreCase, p => p.IndexGramLength, keepWholeRuns: true);
 
+    /// <summary>The one walk behind <see cref="Extract"/> and <see cref="ShortGrams"/>: split on whitespace,
+    /// segment each token into single-script runs, and expand a spaceless run into grams of the length
+    /// <paramref name="gramLength"/> gives its profile — keeping a spaced run whole only when
+    /// <paramref name="keepWholeRuns"/>.</summary>
+    private static List<string> Collect(string? raw, IEqualityComparer<string> comparer,
+        Func<ScriptProfile, int> gramLength, bool keepWholeRuns)
+    {
         var terms = new List<string>();
-        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (string.IsNullOrWhiteSpace(raw)) return terms;
+
+        var seen = new HashSet<string>(comparer);
         foreach (var token in raw.Split((char[]?)null,
                      StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         {
             foreach (var (run, profile) in ScriptRuns(token))
-                if (profile.ExpandsIntoGrams) AddGrams(run, profile.IndexGramLength, terms, seen);
-                else if (run.Length >= MinimumTermLength && seen.Add(run)) terms.Add(run);
+                if (profile.ExpandsIntoGrams) AddGrams(run, gramLength(profile), terms, seen);
+                else if (keepWholeRuns && run.Length >= MinimumTermLength && seen.Add(run)) terms.Add(run);
         }
-
         return terms;
     }
 
     /// <summary>
     /// Splits one whitespace token into maximal runs of a single script, each carrying its own profile.
     ///
-    /// <para><b>Why (2026-08-13).</b> CJK text embeds Latin without spaces around it constantly —
+    /// <para><b>Why.</b> CJK text embeds Latin without spaces around it constantly —
     /// <c>我今天deploy了</c>, <c>部署key</c>. Sliding one window across the whole token shreds the Latin word
     /// into fragments that are words in no language (<c>dep</c>, <c>epl</c>, <c>plo</c>) while never emitting
     /// <c>deploy</c> itself, and those fragments then match arbitrary unrelated text. Segmenting first means
@@ -109,10 +116,8 @@ public static class SearchTerms
         return char.IsLetter(c) ? ScriptProfile.Spaced : null;
     }
 
-    /// <summary>Sliding n-grams of one script RUN, de-duplicated and capped.
-    /// <para>No boundary check is needed any more: a run is a single script by construction, so a gram
-    /// cannot straddle into another one. That check existed only because grams were taken across a whole
-    /// mixed token — see <see cref="ScriptRuns"/>.</para></summary>
+    /// <summary>Sliding n-grams of one script RUN, de-duplicated and capped. A run is one script by
+    /// construction, so a gram never straddles two. A non-positive <paramref name="length"/> adds none.</summary>
     private static void AddGrams(string run, int length, List<string> terms, HashSet<string> seen)
     {
         if (length < 1) return;
@@ -191,44 +196,20 @@ public static class SearchTerms
     /// Postgres these terms are matched by a sequential scan. Measured before adoption — see
     /// <c>docs/DECISIONS.md</c> D55.</para>
     /// </summary>
-    private static IReadOnlyList<string> ShortGrams(string? raw)
-    {
-        if (string.IsNullOrWhiteSpace(raw)) return [];
+    private static IReadOnlyList<string> ShortGrams(string? raw) =>
+        Collect(raw, StringComparer.Ordinal, p => p.SubstringGramLength, keepWholeRuns: false);
 
-        var grams = new List<string>();
-        var seen = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var token in raw.Split((char[]?)null,
-                     StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
-        {
-            foreach (var (run, profile) in ScriptRuns(token))
-                if (profile.ExpandsIntoGrams && profile.SubstringGramLength >= 1)
-                    AddGrams(run, profile.SubstringGramLength, grams, seen);
-        }
-
-        return grams;
-    }
-
-    /// <summary>The script ranges, MOST DEMANDING FIRST. Order is load-bearing: <see cref="ProfileOf"/>
-    /// returns the profile of the first matching script, so a mixed kanji/kana token — which is what ordinary
-    /// Japanese looks like — is analysed under kana's rules rather than Han's. Taking the laxer half of a
-    /// mixed token is how a script's own weakness gets hidden behind its neighbour.
-    ///
-    /// <para><b>Numeric code points, never character literals.</b> The literal form is how the previous
-    /// version was wrong: it wrote CJK Compatibility Ideographs as <c>'豈'..'﫿'</c>, but the ordinary 豈 is
-    /// U+8C48 rather than the U+F900 compatibility character it meant to name — so the range ran
-    /// U+8C48..U+FBFF and swallowed the entire Hangul block. That was invisible while the answer was one
-    /// boolean ("spaceless?", true either way) and became a MISROUTED PROFILE the moment scripts stopped
-    /// being interchangeable. On a machine whose console is not UTF-8 a literal is also the thing most
-    /// likely to be silently transcoded. Caught by
-    /// <c>SearchTermsTests.ProfileOf_returns_the_most_demanding_script_present</c>.</para></summary>
+    /// <summary>The script ranges. They must not overlap, since a character maps to exactly one profile —
+    /// and they are written as numeric code points, never character literals: a literal is easily the wrong
+    /// code point (a compatibility ideograph looks like its ordinary twin) and is what a non-UTF-8 console
+    /// transcodes.</summary>
     private static readonly (ScriptProfile Profile, Func<char, bool> Matches)[] Registry =
     [
         (ScriptProfile.Kana, c => In(c, 0x3040, 0x30FF)),       // Hiragana + Katakana
         (ScriptProfile.Hangul, c => In(c, 0xAC00, 0xD7AF)),     // Hangul Syllables
-        // The spaceless scripts that were missing entirely — each was handed back as ONE whitespace token and
-        // could only match an exact substring, the pre-3.0 defect D55 fixed for CJK. Added because they were
-        // ABSENT, not because they were measured; see ScriptProfile.Thai for the caveat that governs all of
-        // them. Tibetan belongs here despite its tsheg: that mark separates syllables, not words.
+        // Spaceless scripts beyond CJK, added because they were ABSENT rather than measured — see
+        // ScriptProfile.Thai for the caveat that governs all of them. Tibetan belongs here despite its tsheg:
+        // that mark separates syllables, not words.
         (ScriptProfile.Thai, c => In(c, 0x0E00, 0x0E7F)),
         (ScriptProfile.Lao, c => In(c, 0x0E80, 0x0EFF)),
         (ScriptProfile.Khmer, c => In(c, 0x1780, 0x17FF)),
@@ -260,13 +241,9 @@ public static class SearchTerms
     /// the IN-PROCESS twin of the <c>MatchCount</c> expression <see cref="LikeClause(string, string, string, string, bool)"/> builds for the SQL
     /// backends, so an in-memory store can order by match quality the same way they do.
     ///
-    /// <para><b>Why it lives here.</b> <c>IMemoryStore.RecallAsync</c> and <c>ICuratedMemoryStore.SearchAsync</c>
-    /// both document the ordering as "matched-term count, then recency" for Postgres AND in-process, and the
-    /// in-process stores ordered by recency alone — so with a LIMIT they returned different ENTRIES from
-    /// their SQL siblings for the same query, which is a different answer rather than a different order.
-    /// Putting the count beside the tokenization that produced the terms is what stops the two halves
-    /// drifting again: a store that splits a query with <see cref="SubstringTerms"/> and then counts matches
-    /// its own way is two rules for one question.</para></summary>
+    /// <para>An in-process store orders by it, as the SQL substring paths order by their count, so that under
+    /// a LIMIT both return the same ENTRIES. It lives beside the split that produced the terms because a store
+    /// that counts its own way is two rules for one question.</para></summary>
     /// <param name="text">The text to score.</param>
     /// <param name="terms">The query's terms, from <see cref="SubstringTerms"/> or <see cref="Extract"/>.</param>
     /// <param name="whole">The raw query, used when <paramref name="terms"/> is empty — the same
@@ -315,14 +292,10 @@ public static class SearchTerms
     /// <param name="op"><c>LIKE</c> (SQLite) or <c>ILIKE</c> (Postgres).</param>
     /// <param name="parameterPrefix">Prefix for the generated parameter names, unique within the statement.</param>
     /// <param name="includeShortTerms">Whether to carry the shorter grams of an expanded script (see
-    /// <see cref="SubstringTerms"/>). <b>Pass false for a first pass that must stay index-friendly.</b>
-    /// MEASURED on Postgres at 300k rows (2026-08-13): a two-character <c>ILIKE</c> pattern cannot use the
-    /// <c>pg_trgm</c> GIN index and degrades to a parallel sequential scan — <b>96.6 ms against 0.90 ms</b>
-    /// for the three-character pattern on the identical, equally selective data. So a backend that has an
-    /// index to lose should run the narrow clause FIRST and widen only when it returns nothing, which is the
-    /// same zero-rows-then-fall-back shape SQLite already uses between FTS and LIKE: the scan is then paid
-    /// only in the case the short terms exist to rescue. A backend that scans anyway (in-process, or
-    /// SQLite's own LIKE fallback) can widen immediately at no cost.</param>
+    /// <see cref="SubstringTerms"/>). <b>Pass false for a first pass that must stay index-friendly</b>: a
+    /// two-character <c>ILIKE</c> pattern cannot use <c>pg_trgm</c>'s GIN index and degrades to a sequential
+    /// scan (measured in <c>docs/DECISIONS.md</c> D55), so a backend with an index to lose runs the narrow
+    /// clause first and widens only when it returns nothing. A backend that scans anyway can widen at once.</param>
     public static LikeTermClause LikeClause(string? raw, string column,
         string op = "LIKE", string parameterPrefix = "kw", bool includeShortTerms = true) =>
         LikeClause(raw, [column], op, parameterPrefix, includeShortTerms);
@@ -333,9 +306,7 @@ public static class SearchTerms
     /// <para><b>Per-column disjuncts, deliberately, rather than one test over a concatenation.</b>
     /// <c>(content ILIKE @kw0 OR headline ILIKE @kw0)</c> leaves each column's own trigram index usable —
     /// Postgres can bitmap-OR two index scans — where <c>(content || ' ' || headline) ILIKE @kw0</c> would
-    /// need an expression index that does not exist and otherwise degrades to a sequential scan. The
-    /// measured cost of losing a trigram index on this table is in the <c>includeShortTerms</c> note above:
-    /// 96.6 ms against 0.90 ms on identical data.</para>
+    /// need an expression index that does not exist and otherwise degrades to a sequential scan (D55).</para>
     ///
     /// <para>One parameter per TERM, shared across the columns — the pattern is the same string whichever
     /// column is tested, so a per-column parameter would be the same value bound twice.</para></summary>

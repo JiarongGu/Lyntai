@@ -344,7 +344,7 @@ interface Lyntai.Cortex.IScoringService
     AggregateAsync(CancellationToken ct = default) : Task<IReadOnlyList<ScorerAggregate>>
     EvaluateAsync(ScoreContext ctx, Boolean persist, CancellationToken ct = default) : Task<IReadOnlyList<ScoredResult>>
     EvaluateAsync(ScoreContext ctx, CancellationToken ct = default) : Task<IReadOnlyList<ScoredResult>>
-    ExportAsync(CancellationToken ct = default) : Task<IReadOnlyList<ScoreExportRow>>
+    ExportAsync(CancellationToken ct = default) : Task<IReadOnlyList<ScoreExportEntry>>
     GetAsync(String sessionId, CancellationToken ct = default) : Task<IReadOnlyList<ScoredResult>>
 interface Lyntai.Cortex.ITraceRecorder
     CompleteAsync(CancellationToken ct = default) : Task
@@ -414,11 +414,11 @@ sealed class Lyntai.Cortex.ScoreContext
     Output : String
     SessionId : String required
     ToString() : String
-sealed class Lyntai.Cortex.ScoreExportRow
+sealed class Lyntai.Cortex.ScoreExportEntry
     .ctor(String SessionId, String ScorerId, Double Score)
     Deconstruct(String& SessionId, String& ScorerId, Double& Score) : Void
     Equals(Object obj) : Boolean
-    Equals(ScoreExportRow other) : Boolean
+    Equals(ScoreExportEntry other) : Boolean
     GetHashCode() : Int32
     Score : Double
     ScorerId : String
@@ -483,7 +483,7 @@ sealed class Lyntai.Cortex.ScoringService
     AggregateAsync(CancellationToken ct = default) : Task<IReadOnlyList<ScorerAggregate>>
     EvaluateAsync(ScoreContext ctx, Boolean persist, CancellationToken ct = default) : Task<IReadOnlyList<ScoredResult>>
     EvaluateAsync(ScoreContext ctx, CancellationToken ct = default) : Task<IReadOnlyList<ScoredResult>>
-    ExportAsync(CancellationToken ct = default) : Task<IReadOnlyList<ScoreExportRow>>
+    ExportAsync(CancellationToken ct = default) : Task<IReadOnlyList<ScoreExportEntry>>
     GetAsync(String sessionId, CancellationToken ct = default) : Task<IReadOnlyList<ScoredResult>>
 sealed class Lyntai.Cortex.TraceService
     .ctor(ITraceStore store = null, Func<DateTimeOffset> clock = null, ILogger<TraceService> logger = null)
@@ -2824,6 +2824,8 @@ sealed class Lyntai.Storage.ChatThread
     Metadata : String
     Title : String
     ToString() : String
+static class Lyntai.Storage.ChatThreads
+    static Page(IEnumerable<ChatThread> threads, Int32 limit, ChatThread after) : IReadOnlyList<ChatThread>
 static class Lyntai.Storage.ConversationStoreSql
     AppendMessage : String const
     CountThreads : String const
@@ -2876,12 +2878,10 @@ sealed class Lyntai.Storage.EnrichingConversationStore
     DeleteThreadAsync(String id, CancellationToken ct = default) : Task
     GetMessagesAsync(String threadId, CancellationToken ct = default) : Task<IReadOnlyList<ChatMessage>>
     GetThreadAsync(String id, CancellationToken ct = default) : Task<ChatThread>
-    ListThreadsAsync(Int32 limit = 100, CancellationToken ct = default) : Task<IReadOnlyList<ChatThread>>
-    ListThreadsPageAsync(Int32 limit, ChatThread after = null, CancellationToken ct = default) : Task<IReadOnlyList<ChatThread>>
+    ListThreadsAsync(Int32 limit = 100, ChatThread after = null, CancellationToken ct = default) : Task<IReadOnlyList<ChatThread>>
     SetThreadMetadataAsync(String id, String metadata, CancellationToken ct = default) : Task
 static class Lyntai.Storage.FtsQuery
     static Build(String raw) : String
-    static Build(String raw, String column) : String
 interface Lyntai.Storage.IConversationEnricher
     OnMessageAppendedAsync(ChatMessage message, CancellationToken ct = default) : Task
     OnThreadCreatedAsync(ChatThread thread, CancellationToken ct = default) : Task
@@ -2892,8 +2892,7 @@ interface Lyntai.Storage.IConversationStore
     DeleteThreadAsync(String id, CancellationToken ct = default) : Task
     GetMessagesAsync(String threadId, CancellationToken ct = default) : Task<IReadOnlyList<ChatMessage>>
     GetThreadAsync(String id, CancellationToken ct = default) : Task<ChatThread>
-    ListThreadsAsync(Int32 limit = 100, CancellationToken ct = default) : Task<IReadOnlyList<ChatThread>>
-    ListThreadsPageAsync(Int32 limit, ChatThread after = null, CancellationToken ct = default) : Task<IReadOnlyList<ChatThread>>
+    ListThreadsAsync(Int32 limit = 100, ChatThread after = null, CancellationToken ct = default) : Task<IReadOnlyList<ChatThread>>
     SetThreadMetadataAsync(String id, String metadata, CancellationToken ct = default) : Task
 interface Lyntai.Storage.ICuratedMemoryStore
     AddAsync(String kind, String content, Boolean enabled = true, String taskKey = null, String scope = null, Boolean dedup = false, IReadOnlyDictionary<String,String> metadata = null, CancellationToken ct = default) : Task<Int64>
@@ -2912,7 +2911,6 @@ interface Lyntai.Storage.IJobStore
     CancelRunningAsync(Guid id, String workerId, CancellationToken ct = default) : Task<Boolean>
     ClaimNextAsync(String lane, String workerId, TimeSpan lease, CancellationToken ct = default) : Task<JobRecord>
     CompleteAsync(Guid id, String workerId, CancellationToken ct = default) : Task<Boolean>
-    CountRunningAsync(String lane, CancellationToken ct = default) : Task<Int32>
     DeadLetterAsync(Guid id, String workerId, String error, CancellationToken ct = default) : Task<Boolean>
     EnqueueAsync(JobSpec spec, CancellationToken ct = default) : Task<Guid>
     FailAsync(Guid id, String workerId, String error, Nullable<DateTimeOffset> retryAt = null, CancellationToken ct = default) : Task<Boolean>
@@ -2946,7 +2944,7 @@ interface Lyntai.Storage.IPromptVersionStore
     SaveAsync(String name, String template, String author = null, CancellationToken ct = default) : Task<PromptVersion>
 interface Lyntai.Storage.IScoreStore
     AggregateAsync(CancellationToken ct = default) : Task<IReadOnlyList<ScorerAggregate>>
-    ExportAsync(CancellationToken ct = default) : Task<IReadOnlyList<ScoreExportRow>>
+    ExportAsync(CancellationToken ct = default) : Task<IReadOnlyList<ScoreExportEntry>>
     GetAsync(String sessionId, CancellationToken ct = default) : Task<IReadOnlyList<ScoredResult>>
     SaveAsync(String sessionId, IReadOnlyList<ScoredResult> results, CancellationToken ct = default) : Task
 interface Lyntai.Storage.ITraceStore
@@ -2978,10 +2976,9 @@ sealed class Lyntai.Storage.JobRow
     UpdatedAt : DateTimeOffset
 static class Lyntai.Storage.JobStoreSql
     ActiveLanes : String const
-    CancelPending : String const
+    CancelNotStarted : String const
     ClaimCandidateWhere : String const
     Cols : String const
-    CountRunning : String const
     FenceWhere : String const
     FreeSlotWhere : String const
     GetById : String const
@@ -3178,7 +3175,7 @@ sealed class Lyntai.Storage.PromptVersionRow
     IsActive : Boolean
     Name : String
     Template : String
-    ToEntity() : PromptVersion
+    ToRecord() : PromptVersion
     Version : Int32
 static class Lyntai.Storage.ResponseCacheSql
     DeleteExpired : String const
@@ -3197,12 +3194,12 @@ sealed class Lyntai.Storage.ScoreAggregateRow
     ScorerId : String
     ScorerName : String
     ToRecord() : ScorerAggregate
-sealed class Lyntai.Storage.ScoreExportEntryRow
+sealed class Lyntai.Storage.ScoreExportRow
     .ctor()
     Score : Double
     ScorerId : String
     SessionId : String
-    ToRecord() : ScoreExportRow
+    ToRecord() : ScoreExportEntry
 sealed class Lyntai.Storage.ScoreResultRow
     .ctor()
     IsLlm : Boolean
@@ -3260,7 +3257,6 @@ enum Lyntai.Storage.StorageFeature
 static class Lyntai.Storage.StorageFeatures
     AllTag : String const
     static TagPasses(StorageFeature features) : IEnumerable<String[]>
-    static TagsFor(StorageFeature features) : String[]
 static class Lyntai.Storage.TraceOrdinals
     static Stored(IReadOnlyList<TraceStep> steps) : IReadOnlyList<TraceStep>
 sealed class Lyntai.Storage.TraceSessionRow

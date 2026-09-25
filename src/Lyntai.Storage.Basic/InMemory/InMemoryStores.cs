@@ -61,39 +61,14 @@ public sealed class InMemoryConversationStore : IConversationStore
         return Task.CompletedTask;
     }
 
-    public Task<IReadOnlyList<ChatThread>> ListThreadsAsync(int limit = 100, CancellationToken ct = default)
+    public Task<IReadOnlyList<ChatThread>> ListThreadsAsync(int limit = 100, ChatThread? after = null, CancellationToken ct = default)
     {
-        lock (_lock)
-        {
-            IReadOnlyList<ChatThread> result =
-            [
-                .. _threads.Values
-                    .OrderByDescending(t => t.CreatedAt).ThenByDescending(t => t.Id, StringComparer.Ordinal)
-                    .Take(limit)
-            ];
-            return Task.FromResult(result);
-        }
+        lock (_lock) return Task.FromResult(ChatThreads.Page(_threads.Values, limit, after));
     }
 
     public Task<int> CountThreadsAsync(CancellationToken ct = default)
     {
         lock (_lock) return Task.FromResult(_threads.Count);
-    }
-
-    public Task<IReadOnlyList<ChatThread>> ListThreadsPageAsync(int limit, ChatThread? after = null, CancellationToken ct = default)
-    {
-        lock (_lock)
-        {
-            // keyset paging in the SAME order as ListThreadsAsync (created_at DESC, id DESC ordinal), starting
-            // strictly after the cursor — same-tick threads are tiebroken by id so none is skipped/duplicated.
-            IEnumerable<ChatThread> q = _threads.Values
-                .OrderByDescending(t => t.CreatedAt).ThenByDescending(t => t.Id, StringComparer.Ordinal);
-            if (after is not null)
-                q = q.Where(t => t.CreatedAt < after.CreatedAt
-                    || (t.CreatedAt == after.CreatedAt && string.CompareOrdinal(t.Id, after.Id) < 0));
-            IReadOnlyList<ChatThread> result = [.. q.Take(limit)];
-            return Task.FromResult(result);
-        }
     }
 
     public Task<ChatMessage> AppendMessageAsync(string threadId, string kind, string payload, string? metadata = null, CancellationToken ct = default)
@@ -179,14 +154,14 @@ public sealed class InMemoryScoreStore : IScoreStore
         }
     }
 
-    public Task<IReadOnlyList<ScoreExportRow>> ExportAsync(CancellationToken ct = default)
+    public Task<IReadOnlyList<ScoreExportEntry>> ExportAsync(CancellationToken ct = default)
     {
         lock (_lock)
         {
-            IReadOnlyList<ScoreExportRow> rows =
+            IReadOnlyList<ScoreExportEntry> rows =
             [
                 .. _bySession
-                    .SelectMany(kv => kv.Value.Select(r => new ScoreExportRow(kv.Key, r.ScorerId, r.Score)))
+                    .SelectMany(kv => kv.Value.Select(r => new ScoreExportEntry(kv.Key, r.ScorerId, r.Score)))
                     .OrderBy(r => r.SessionId, StringComparer.Ordinal).ThenBy(r => r.ScorerId, StringComparer.Ordinal),
             ];
             return Task.FromResult(rows);

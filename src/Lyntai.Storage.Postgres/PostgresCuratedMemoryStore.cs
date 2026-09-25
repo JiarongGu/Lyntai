@@ -165,10 +165,7 @@ public sealed class PostgresCuratedMemoryStore(IDbConnectionFactory factory,
             await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
 
             // Term-wise ILIKE over CONTENT, ranked by how many terms matched and then by recency — same
-            // semantics as PostgresMemoryStore.RecallAsync, including its TWO-PASS shape and for the same
-            // measured reason: pass 1 stays index-friendly (every pattern >= 3 chars, so the pg_trgm GIN
-            // index serves it) and only a MISS widens to the two-character terms of a spaceless script,
-            // which the index cannot serve (300k rows: 96.6 ms scan vs 0.90 ms indexed).
+            // semantics as PostgresMemoryStore.RecallAsync, including its TWO-PASS shape (D55).
             async Task<List<CuratedMemory>> MatchAsync(bool includeShortTerms)
             {
                 var kw = SearchTerms.LikeClause(query, "content", "ILIKE",

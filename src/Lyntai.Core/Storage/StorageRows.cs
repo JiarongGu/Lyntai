@@ -35,7 +35,7 @@ public sealed class PromptVersionRow
     public bool IsActive { get; set; }
 
     /// <summary>Project to the contract type.</summary>
-    public PromptVersion ToEntity() => new(Name, Version, Template, Author, CreatedAt, IsActive);
+    public PromptVersion ToRecord() => new(Name, Version, Template, Author, CreatedAt, IsActive);
 }
 
 /// <summary>One scorer's result within a session.</summary>
@@ -65,16 +65,16 @@ public sealed class ScoreAggregateRow
 }
 
 /// <summary>One (session, scorer, score) triple, for a flat export — the materialization of
-/// <see cref="Lyntai.Cortex.ScoreExportRow"/>, which is a positional record Dapper will not bind
+/// <see cref="ScoreExportEntry"/>, which is a positional record Dapper will not bind
 /// into.</summary>
-public sealed class ScoreExportEntryRow
+public sealed class ScoreExportRow
 {
     public string SessionId { get; set; } = "";
     public string ScorerId { get; set; } = "";
     public double Score { get; set; }
 
     /// <summary>Project to the contract type.</summary>
-    public Lyntai.Cortex.ScoreExportRow ToRecord() => new(SessionId, ScorerId, Score);
+    public ScoreExportEntry ToRecord() => new(SessionId, ScorerId, Score);
 }
 
 /// <summary>The session half of a trace read.</summary>

@@ -51,8 +51,6 @@ public sealed class ClaimThrowingJobStore(IJobStore inner) : IJobStore
     public Task<bool> CancelRunningAsync(Guid id, string workerId, CancellationToken ct = default) =>
         inner.CancelRunningAsync(id, workerId, ct);
 
-    public Task<int> CountRunningAsync(string lane, CancellationToken ct = default) => inner.CountRunningAsync(lane, ct);
-
     public Task<int?> TryAcquireSlotAsync(int cap, string workerId, TimeSpan lease, CancellationToken ct = default) =>
         inner.TryAcquireSlotAsync(cap, workerId, lease, ct);
 

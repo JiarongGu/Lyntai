@@ -24,11 +24,10 @@ public interface IMemoryStore
     /// space-separated script, character trigrams for one written without spaces (Chinese, Japanese,
     /// Korean), so the guarantee does not depend on the language. A query too short to yield a term falls
     /// back to matching the whole query as a substring.</para>
-    /// <para>BACKEND DIFFERENCE (by design — three different index engines) is now RANKING ONLY: SQLite ranks
-    /// matches by bm25 relevance through its FTS5 trigram index; Postgres (pg_trgm), InMemory and FileSystem
-    /// rank by how many terms matched, then by recency. WHICH entries are recalled is the same on every
-    /// backend. Before 3.0 it was not — only SQLite split a query, so a multi-word query whose words appeared
-    /// separately recalled there and nowhere else (<c>docs/DECISIONS.md</c> D55).</para></summary>
+    /// <para>BACKEND DIFFERENCE (by design — different index engines) is RANKING ONLY: SQLite ranks matches
+    /// by bm25 relevance through its FTS5 trigram index; Postgres (pg_trgm), InMemory and FileSystem rank by
+    /// how many terms matched, then by recency. WHICH entries are recalled is the same on every backend
+    /// (<c>docs/DECISIONS.md</c> D55).</para></summary>
     Task<IReadOnlyList<MemoryEntry>> RecallAsync(string taskKey, string? scope = null, string? query = null,
         int? limit = null, CancellationToken ct = default);
 

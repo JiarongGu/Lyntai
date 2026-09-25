@@ -14,7 +14,7 @@ public sealed class PostgresPromptVersionStore(IDbConnectionFactory factory) : I
         var row = await conn.QuerySingleOrDefaultAsync<PromptVersionRow>(new CommandDefinition(
             $"SELECT {SelectColumns} FROM lyntai_prompt_version WHERE name = @name AND is_active", new { name },
             cancellationToken: ct)).ConfigureAwait(false);
-        return row?.ToEntity();
+        return row?.ToRecord();
     }
 
     public async Task<PromptVersion> SaveAsync(string name, string template, string? author = null, CancellationToken ct = default)
@@ -47,7 +47,7 @@ public sealed class PostgresPromptVersionStore(IDbConnectionFactory factory) : I
         var rows = await conn.QueryAsync<PromptVersionRow>(new CommandDefinition(
             $"SELECT {SelectColumns} FROM lyntai_prompt_version WHERE name = @name ORDER BY version DESC",
             new { name }, cancellationToken: ct)).ConfigureAwait(false);
-        return [.. rows.Select(r => r.ToEntity())];
+        return [.. rows.Select(r => r.ToRecord())];
     }
 
     public async Task<PromptVersion?> RollbackAsync(string name, int version, CancellationToken ct = default)
@@ -69,7 +69,7 @@ public sealed class PostgresPromptVersionStore(IDbConnectionFactory factory) : I
             new { name, version }, tx, cancellationToken: ct)).ConfigureAwait(false);
 
         await tx.CommitAsync(ct).ConfigureAwait(false);
-        return target.ToEntity() with { IsActive = true };
+        return target.ToRecord() with { IsActive = true };
     }
 
     // Serializes every writer of ONE name until its transaction ends. Under READ COMMITTED a deactivating

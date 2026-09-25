@@ -196,8 +196,8 @@ public static class JobStoreContract
         var lanes = await store.ActiveLanesAsync();
         Assert.Contains("a", lanes);
         Assert.Contains("b", lanes);
-        Assert.Equal(1, await store.CountRunningAsync("a"));
-        Assert.Equal(0, await store.CountRunningAsync("b"));
+        Assert.Single(await store.ListAsync(JobStatus.Running, "a"));
+        Assert.Empty(await store.ListAsync(JobStatus.Running, "b"));
     }
 
     public static async Task Higher_priority_is_claimed_first(IJobStore store, MutableClock clock)
@@ -319,7 +319,7 @@ public static class JobStoreContract
     // A Paused job is Pending to nobody and Running to nobody, so BOTH halves of the queue's cancel
     // (CancelAsync || RequestCancelAsync) used to miss it and an operator had to ResumeAsync first — which
     // puts the job back in the CLAIMABLE set, so a polling runner could take it in the gap. The pending half
-    // now reaches Paused too (the shared JobStoreSql.CancelPending matches `status IN ('Pending','Paused')`);
+    // now reaches Paused too (the shared JobStoreSql.CancelNotStarted matches `status IN ('Pending','Paused')`);
     // the RUNNING half deliberately stays narrow, because cancelling a running job is a cooperative request
     // to a worker and a held job has no worker to ask.
     public static async Task Cancel_reaches_a_paused_job_without_resuming_it(IJobStore store, MutableClock clock)

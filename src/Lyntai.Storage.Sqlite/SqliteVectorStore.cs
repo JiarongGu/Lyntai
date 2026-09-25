@@ -31,12 +31,8 @@ public sealed class SqliteVectorStore(IDbConnectionFactory factory) : IListableV
             "SELECT vec_id, vector, payload FROM lyntai_vector WHERE collection = @collection",
             new { collection }, cancellationToken: ct)).ConfigureAwait(false);
 
-        // ThenBy is load-bearing, not tidiness: OrderByDescending is a STABLE sort, so without it tied scores
-        // keep whatever order the scan yielded and an arbitrary member of the tie drops out at the k boundary.
-        // The SELECT above has no ORDER BY, so that order is the query PLAN's — today it walks the
-        // (collection, vec_id) primary-key autoindex and happens to come back ascending, which is why the
-        // contract's tie facts passed here before this line existed. Nobody chose that; a rewrite, an ANALYZE
-        // or a different plan changes it silently. `VectorStoreContract.Equal_scores_are_ordered_by_id`.
+        // ThenBy is load-bearing: the SELECT has no ORDER BY, so without it tied scores keep the query PLAN's
+        // order and an arbitrary member of the tie drops out at the k boundary (VectorStoreContract).
         return [.. rows
             .Select(r => new VectorMatch(r.VecId, r.Payload, VectorMath.Cosine(query, ReflectionJson.Deserialize<float[]>(r.Vector) ?? [])))
             .OrderByDescending(m => m.Score)

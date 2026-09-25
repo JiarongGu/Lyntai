@@ -13,8 +13,7 @@ sealed class Lyntai.Storage.InMemory.InMemoryConversationStore
     DeleteThreadAsync(String id, CancellationToken ct = default) : Task
     GetMessagesAsync(String threadId, CancellationToken ct = default) : Task<IReadOnlyList<ChatMessage>>
     GetThreadAsync(String id, CancellationToken ct = default) : Task<ChatThread>
-    ListThreadsAsync(Int32 limit = 100, CancellationToken ct = default) : Task<IReadOnlyList<ChatThread>>
-    ListThreadsPageAsync(Int32 limit, ChatThread after = null, CancellationToken ct = default) : Task<IReadOnlyList<ChatThread>>
+    ListThreadsAsync(Int32 limit = 100, ChatThread after = null, CancellationToken ct = default) : Task<IReadOnlyList<ChatThread>>
     SetThreadMetadataAsync(String id, String metadata, CancellationToken ct = default) : Task
 sealed class Lyntai.Storage.InMemory.InMemoryCuratedMemoryStore
     .ctor(Func<DateTimeOffset> clock = null)
@@ -32,7 +31,6 @@ sealed class Lyntai.Storage.InMemory.InMemoryJobStore
     CancelRunningAsync(Guid id, String workerId, CancellationToken ct = default) : Task<Boolean>
     ClaimNextAsync(String lane, String workerId, TimeSpan lease, CancellationToken ct = default) : Task<JobRecord>
     CompleteAsync(Guid id, String workerId, CancellationToken ct = default) : Task<Boolean>
-    CountRunningAsync(String lane, CancellationToken ct = default) : Task<Int32>
     DeadLetterAsync(Guid id, String workerId, String error, CancellationToken ct = default) : Task<Boolean>
     EnqueueAsync(JobSpec spec, CancellationToken ct = default) : Task<Guid>
     FailAsync(Guid id, String workerId, String error, Nullable<DateTimeOffset> retryAt = null, CancellationToken ct = default) : Task<Boolean>
@@ -86,7 +84,7 @@ sealed class Lyntai.Storage.InMemory.InMemoryPromptVersionStore
 sealed class Lyntai.Storage.InMemory.InMemoryScoreStore
     .ctor()
     AggregateAsync(CancellationToken ct = default) : Task<IReadOnlyList<ScorerAggregate>>
-    ExportAsync(CancellationToken ct = default) : Task<IReadOnlyList<ScoreExportRow>>
+    ExportAsync(CancellationToken ct = default) : Task<IReadOnlyList<ScoreExportEntry>>
     GetAsync(String sessionId, CancellationToken ct = default) : Task<IReadOnlyList<ScoredResult>>
     SaveAsync(String sessionId, IReadOnlyList<ScoredResult> results, CancellationToken ct = default) : Task
 sealed class Lyntai.Storage.InMemory.InMemoryTraceStore

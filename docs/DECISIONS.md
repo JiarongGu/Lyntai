@@ -1844,7 +1844,7 @@ store, enforced by `lyntai_job_slot` — a row per execution slot, acquired by t
 the job table already uses. `0` is the default and means unbounded, which is the pre-3.0 behaviour with no
 extra round-trip.
 
-**Why not the obvious thing.** `IJobStore.CountRunningAsync` has carried a warning since it shipped: *"for
+**Why not the obvious thing.** `IJobStore.CountRunningAsync` has carried a warning since it shipped: *"for <!-- link-ok: the member was removed in the Part 293 review; this entry is why a count cannot gate a claim -->
 observability/tests only, NEVER a claim gate (a count-then-claim would race). The atomic claim is the real
 mutual exclusion."* That warning is correct, and it also rules out the next idea — folding the count INTO
 the claim statement. That works on SQLite, whose single writer makes one statement the whole exclusion. It

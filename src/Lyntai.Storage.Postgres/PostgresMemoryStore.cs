@@ -86,13 +86,8 @@ public sealed class PostgresMemoryStore(
                 // multi-word recall finds the same entries on both. The term COUNT leads the ordering: an OR
                 // match is otherwise unranked, and a one-term brush-past would outrank a near-exact hit
                 // whenever it happened to be newer.
-                // TWO PASSES, the same shape and for the same measured reason as PostgresMemoryGraphStore's
-                // SeedAsync: pass 1 keeps every ILIKE pattern at three characters or more so pg_trgm's GIN
-                // index can serve it, and only a pass-1 MISS widens to the two-character terms of a spaceless
-                // script, which the index cannot serve (measured at 300k rows: 96.6 ms scan against 0.90 ms
-                // indexed, ~108x). Most Chinese content words are exactly two characters, so the widening is
-                // not an edge case — but neither should an English recall, or a Chinese one that already
-                // matched, pay for it.
+                // TWO PASSES, as PostgresMemoryGraphStore.SeedAsync: pass 1 stays index-friendly and only a
+                // MISS widens to the two-character terms of a spaceless script, which pg_trgm cannot serve (D55).
                 async Task<List<MemoryEntry>> MatchAsync(bool includeShortTerms)
                 {
                     var kw = SearchTerms.LikeClause(query, "content", "ILIKE",
@@ -106,7 +101,7 @@ public sealed class PostgresMemoryStore(
                           AND {kw.Predicate}
                         ORDER BY {kw.MatchCount} DESC, created_at DESC, id DESC LIMIT @take
                         """, p, cancellationToken: ct)).ConfigureAwait(false))
-                        .Select(r => r.ToEntity()).ToList();
+                        .Select(r => r.ToRecord()).ToList();
                 }
 
                 var hits = await MatchAsync(includeShortTerms: false).ConfigureAwait(false);
@@ -121,7 +116,7 @@ public sealed class PostgresMemoryStore(
                   AND (expires_at IS NULL OR expires_at > @now)
                 ORDER BY created_at DESC, id DESC LIMIT @take
                 """, new { taskKey, scope, take, now }, cancellationToken: ct)).ConfigureAwait(false))
-                .Select(r => r.ToEntity()).ToList();
+                .Select(r => r.ToRecord()).ToList();
             return await TouchAsync(conn, recent, touch, now, ct).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
@@ -185,7 +180,7 @@ public sealed class PostgresMemoryStore(
         public string Content { get; set; } = "";
         public DateTimeOffset CreatedAt { get; set; }
 
-        public MemoryEntry ToEntity() => new(Id, TaskKey, Scope, Content, CreatedAt);
+        public MemoryEntry ToRecord() => new(Id, TaskKey, Scope, Content, CreatedAt);
     }
 
 }

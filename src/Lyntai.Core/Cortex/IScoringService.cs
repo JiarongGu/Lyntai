@@ -22,5 +22,5 @@ public interface IScoringService
 
     /// <summary>Flat bulk export of every persisted <c>(session, scorer, score)</c> — a tuning-dataset dump
     /// (empty when no store is wired).</summary>
-    Task<IReadOnlyList<ScoreExportRow>> ExportAsync(CancellationToken ct = default);
+    Task<IReadOnlyList<ScoreExportEntry>> ExportAsync(CancellationToken ct = default);
 }

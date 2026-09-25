@@ -10,10 +10,12 @@ namespace Lyntai.Storage;
 /// job whose lease has gone stale (claimed longer ago than <c>lease</c>) is re-claimable and resumes from
 /// its checkpoint.
 ///
-/// The mutating writes (<see cref="SaveCheckpointAsync"/>/<see cref="CompleteAsync"/>/<see cref="FailAsync"/>)
-/// are FENCED by <c>workerId</c> and return whether they took effect: a <c>false</c> means this worker
-/// lost the lease (another re-claimed the job), so the caller must abandon it — that's what makes a
-/// zombie worker harmless.
+/// Every write a worker makes to a job it holds — <see cref="SaveCheckpointAsync"/>,
+/// <see cref="ReportProgressAsync"/>, <see cref="ReportStepAsync"/>, <see cref="CompleteAsync"/>,
+/// <see cref="FailAsync"/>, <see cref="PollAgainAsync"/>, <see cref="DeadLetterAsync"/> and
+/// <see cref="CancelRunningAsync"/> — is FENCED by <c>workerId</c> and returns whether it took effect: a
+/// <c>false</c> means this worker lost the lease (another re-claimed the job), so the caller must abandon it —
+/// that's what makes a zombie worker harmless.
 /// </summary>
 public interface IJobStore
 {
@@ -57,9 +59,9 @@ public interface IJobStore
     /// its attempts — the store side of <see cref="Lyntai.Jobs.JobOutcome.Poll"/>. Fenced; false = lost the lease.
     /// <para>Implementations must UNDO the increment <see cref="ClaimNextAsync"/> applied, because a poll is
     /// not an attempt: the handler looked at an operation that is progressing normally and found it unfinished.
-    /// Without that, a long-running render is dead-lettered after <c>MaxAttempts</c> looks — measured
-    /// 2026-08-14 at roughly thirty seconds for a hosted render. It also clears <c>last_error</c>: nothing
-    /// failed, and leaving a stale error makes the next dead-letter report the wrong reason.</para>
+    /// Without that, a long-running render is dead-lettered after <c>MaxAttempts</c> looks. It also clears
+    /// <c>last_error</c>: nothing failed, and leaving a stale error makes the next dead-letter report the wrong
+    /// reason.</para>
     /// <para>The fence is load-bearing here in a way it is not for the terminal transitions: this is the one
     /// outcome that moves a job BACKWARDS, so an unfenced version would let a worker whose lease was already
     /// reclaimed keep resetting another worker's job indefinitely.</para></summary>
@@ -104,32 +106,19 @@ public interface IJobStore
     /// response to a cancel request. Fenced by <paramref name="workerId"/>; false = lost the lease.</summary>
     Task<bool> CancelRunningAsync(Guid id, string workerId, CancellationToken ct = default);
 
-    /// <summary>Count of Running jobs in a lane — for observability/tests only, NEVER a claim gate (a
-    /// count-then-claim would race). The atomic claim is the real mutual exclusion.</summary>
-    Task<int> CountRunningAsync(string lane, CancellationToken ct = default);
-
     /// <summary>Take one of at most <paramref name="cap"/> shared execution slots, returning its index, or
     /// null when every slot is held. The CROSS-PROCESS concurrency limit
     /// (<see cref="Lyntai.Jobs.JobOptions.GlobalMaxConcurrency"/>): every runner against this store draws
-    /// from the same set, so N processes together run at most <paramref name="cap"/> jobs.</summary>
+    /// from the same set, so N processes together run at most <paramref name="cap"/> jobs. A slot is a ROW
+    /// claimed atomically, never a count of Running jobs, which cannot gate a claim (<c>docs/DECISIONS.md</c>
+    /// D73).</summary>
     /// <param name="cap">How many slots exist. Pure CONFIGURATION, not schema — slots are created lazily up
     /// to it, and a slot at or above it is never selected, so lowering the cap needs no cleanup and raising
     /// it needs no migration.</param>
     /// <param name="workerId">Fences the release, exactly as a job's claim does.</param>
-    /// <param name="lease">How long a held slot stays valid WITHOUT a heartbeat
-    /// (<see cref="Lyntai.Jobs.JobOptions.SlotLease"/>). A live worker renews continuously via
-    /// <see cref="HeartbeatSlotsAsync"/>, so this is a liveness window rather than a job budget: it can be
-    /// short — seconds — without threatening a job that legitimately runs for hours.</param>
+    /// <param name="lease">How long a held slot stays valid WITHOUT a heartbeat — a liveness window, not a
+    /// job budget (<see cref="Lyntai.Jobs.JobOptions.SlotLease"/>).</param>
     /// <param name="ct">Cancellation, which is never swallowed.</param>
-    /// <remarks><b>Why a slot table rather than counting Running jobs.</b> Counting cannot gate a claim —
-    /// see <see cref="CountRunningAsync"/> — and putting the count inside the claim statement fixes that
-    /// only on a single-writer store. Postgres claims with <c>FOR UPDATE SKIP LOCKED</c> precisely so
-    /// workers do not block each other, so a count in the same statement reads an MVCC snapshot and two
-    /// claimers see the same headroom.
-    /// <para>A slot is a ROW, so the same atomic-claim pattern that already makes job claiming safe makes
-    /// this exact — and <c>SKIP LOCKED</c> now works FOR the cap instead of against it, because two workers
-    /// taking two DIFFERENT slot rows is the correct outcome. One mechanism, correct on every backend,
-    /// rather than exactness reached differently per dialect (<c>.claude/knowledge/sql-storage.md</c>).</para></remarks>
     Task<int?> TryAcquireSlotAsync(int cap, string workerId, TimeSpan lease, CancellationToken ct = default);
 
     /// <summary>Give back a slot taken by <see cref="TryAcquireSlotAsync"/>. Fenced by
@@ -138,18 +127,9 @@ public interface IJobStore
     Task ReleaseSlotAsync(int slotIndex, string workerId, CancellationToken ct = default);
 
     /// <summary>Renew EVERY slot <paramref name="workerId"/> currently holds, in one statement — the
-    /// liveness signal that lets the slot lease be short.</summary>
-    /// <remarks><b>Why renewal rather than a long lease.</b> A single expiry has to serve two
-    /// irreconcilable jobs: detecting a dead worker quickly, and letting a live one work for as long as the
-    /// work takes. Tuned long, a crash throttles the whole deployment until it expires; tuned short, a job
-    /// that legitimately runs for hours has its slot handed to somebody else while it is still running.
-    /// Heartbeating separates them — expiry becomes purely "how long since we last heard from you".
-    /// <para>Not a new idea in this subsystem: a job's own claim already works this way, since
-    /// <c>SaveCheckpointAsync</c> refreshes <c>claimed_at</c>. This makes the slot consistent with the claim
-    /// it accompanies rather than introducing a second model.</para>
-    /// <para>Renewing by WORKER rather than by slot index is what keeps it one round-trip however many jobs
-    /// a runner has in flight. Fenced the same way: it touches only rows this worker still holds, so a slot
-    /// already reclaimed from it stays with its new owner.</para></remarks>
+    /// liveness signal that lets the slot lease be short (<see cref="Lyntai.Jobs.JobOptions.SlotLease"/> says
+    /// why). By worker rather than by slot, so it is one round-trip however many jobs are in flight; fenced,
+    /// so a slot already reclaimed from this worker stays with its new owner.</summary>
     Task HeartbeatSlotsAsync(string workerId, CancellationToken ct = default);
 
     /// <summary>Distinct lanes that currently have a non-terminal (Pending or Running) job — so the runner
@@ -158,10 +138,8 @@ public interface IJobStore
 
     Task<JobRecord?> GetAsync(Guid id, CancellationToken ct = default);
 
-    /// <summary>List jobs, optionally filtered by status and/or lane, newest first.
-    /// <para><b>A non-positive <paramref name="limit"/> returns EMPTY on every backend</b> — it asks for
-    /// nothing. Left to the database the three disagreed: an in-process <c>.Take</c> gave empty, SQLite reads
-    /// a negative <c>LIMIT</c> as NO limit and returned the whole table, and Postgres threw. So each backend
-    /// guards it before the query rather than inheriting its dialect's opinion.</para></summary>
+    /// <summary>List jobs, optionally filtered by status and/or lane, newest first. A non-positive
+    /// <paramref name="limit"/> returns EMPTY on every backend — each guards it before the query rather than
+    /// inheriting its dialect's opinion of a negative <c>LIMIT</c>.</summary>
     Task<IReadOnlyList<JobRecord>> ListAsync(JobStatus? status = null, string? lane = null, int limit = 100, CancellationToken ct = default);
 }

@@ -77,11 +77,9 @@ public sealed class InMemoryMemoryStore(LyntaiOptions options, Func<DateTimeOffs
                         : candidates.Where(e => terms.Any(t => e.Content.Contains(t, StringComparison.OrdinalIgnoreCase)));
                 }
 
-                // MATCHED-TERM COUNT leads, then recency — the ordering IMemoryStore.RecallAsync documents
-                // for this backend and both SQL stores implement. Ordering by recency alone meant a LIMIT
-                // returned different ENTRIES here than on SQLite/Postgres for the same query: an entry
-                // matching one term could displace one matching every term simply by being newer. With no
-                // query every count is 0, so this collapses to the documented "most recent first".
+                // MATCHED-TERM COUNT leads, then recency, as IMemoryStore.RecallAsync documents — so under a
+                // LIMIT this returns the same ENTRIES as the SQL stores. With no query every count is 0, so this
+                // collapses to "most recent first".
                 var ordered = candidates
                     .OrderByDescending(e => SearchTerms.MatchCount(e.Content, terms, query))
                     .ThenByDescending(e => e.CreatedAt)

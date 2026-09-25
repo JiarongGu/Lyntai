@@ -15,14 +15,14 @@ public sealed class SqlitePromptVersionStore(IDbConnectionFactory factory) : IPr
         var row = await conn.QuerySingleOrDefaultAsync<PromptVersionRow>(new CommandDefinition(
             $"SELECT {SelectColumns} FROM lyntai_prompt_version WHERE name = @name AND is_active = 1",
             new { name }, cancellationToken: ct)).ConfigureAwait(false);
-        return row?.ToEntity();
+        return row?.ToRecord();
     }
 
     public async Task<PromptVersion> SaveAsync(string name, string template, string? author = null, CancellationToken ct = default)
     {
         var createdAt = DateTimeOffset.UtcNow;
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
-        using var tx = conn.BeginTransaction();
+        await using var tx = await conn.BeginTransactionAsync(ct).ConfigureAwait(false);
 
         var nextVersion = await conn.ExecuteScalarAsync<int>(new CommandDefinition(
             "SELECT COALESCE(MAX(version), 0) + 1 FROM lyntai_prompt_version WHERE name = @name",
@@ -37,7 +37,7 @@ public sealed class SqlitePromptVersionStore(IDbConnectionFactory factory) : IPr
             VALUES (@name, @nextVersion, @template, @author, @createdAt, 1)
             """, new { name, nextVersion, template, author, createdAt }, tx, cancellationToken: ct)).ConfigureAwait(false);
 
-        tx.Commit();
+        await tx.CommitAsync(ct).ConfigureAwait(false);
         return new PromptVersion(name, nextVersion, template, author, createdAt, IsActive: true);
     }
 
@@ -47,19 +47,19 @@ public sealed class SqlitePromptVersionStore(IDbConnectionFactory factory) : IPr
         var rows = await conn.QueryAsync<PromptVersionRow>(new CommandDefinition(
             $"SELECT {SelectColumns} FROM lyntai_prompt_version WHERE name = @name ORDER BY version DESC",
             new { name }, cancellationToken: ct)).ConfigureAwait(false);
-        return [.. rows.Select(r => r.ToEntity())];
+        return [.. rows.Select(r => r.ToRecord())];
     }
 
     public async Task<PromptVersion?> RollbackAsync(string name, int version, CancellationToken ct = default)
     {
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
-        using var tx = conn.BeginTransaction();
+        await using var tx = await conn.BeginTransactionAsync(ct).ConfigureAwait(false);
 
         // re-activate an existing revision — history is never rewritten or deleted
         var target = await conn.QuerySingleOrDefaultAsync<PromptVersionRow>(new CommandDefinition(
             $"SELECT {SelectColumns} FROM lyntai_prompt_version WHERE name = @name AND version = @version",
             new { name, version }, tx, cancellationToken: ct)).ConfigureAwait(false);
-        if (target is null) { tx.Rollback(); return null; }
+        if (target is null) { await tx.RollbackAsync(ct).ConfigureAwait(false); return null; }
 
         await conn.ExecuteAsync(new CommandDefinition(
             "UPDATE lyntai_prompt_version SET is_active = 0 WHERE name = @name AND is_active = 1",
@@ -68,8 +68,8 @@ public sealed class SqlitePromptVersionStore(IDbConnectionFactory factory) : IPr
             "UPDATE lyntai_prompt_version SET is_active = 1 WHERE name = @name AND version = @version",
             new { name, version }, tx, cancellationToken: ct)).ConfigureAwait(false);
 
-        tx.Commit();
-        return target.ToEntity() with { IsActive = true };
+        await tx.CommitAsync(ct).ConfigureAwait(false);
+        return target.ToRecord() with { IsActive = true };
     }
 
 }

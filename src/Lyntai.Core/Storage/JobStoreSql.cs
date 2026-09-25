@@ -7,8 +7,9 @@ namespace Lyntai.Storage;
 /// the job state machine (transitions, the <c>claimed_by</c> fence) lives HERE once, so the SQLite and
 /// Postgres stores can't drift on it (drift in fencing = a correctness bug, not a style nit). Booleans are
 /// bound as parameters (<c>@t</c>/<c>@f</c>), not dialect literals, which is what makes the statements
-/// identical across backends. Only the CLAIM statement stays per-dialect (single-writer UPDATE…RETURNING
-/// on SQLite vs FOR UPDATE SKIP LOCKED on Postgres) along with each dialect's null-probe list filter.
+/// identical across backends. Only the LOCKING frames of the job claim and the slot acquire stay per-dialect
+/// (single-writer UPDATE…RETURNING on SQLite vs FOR UPDATE SKIP LOCKED on Postgres), along with each
+/// dialect's null-probe list filter.
 /// A BYO relational backend can reuse these the same way.
 /// </summary>
 public static class JobStoreSql
@@ -99,15 +100,12 @@ public static class JobStoreSql
     public const string RequestCancel = "UPDATE lyntai_job SET cancel_requested=@t, updated_at=@now WHERE id=@id AND status='Running'";
 
     /// <summary>Cancel a job that has NOT STARTED — <see cref="Lyntai.Jobs.JobStatus.Pending"/> OR
-    /// <see cref="Lyntai.Jobs.JobStatus.Paused"/>. The name predates the Paused arm and is kept because it is
-    /// released surface; read it as "cancel the not-yet-running one". A held job belongs here rather than in
+    /// <see cref="Lyntai.Jobs.JobStatus.Paused"/>. A held job belongs here rather than in
     /// <see cref="RequestCancel"/> because <c>cancel_requested</c> is a message to the worker holding the
-    /// claim and a held job has none — so it is cancelled outright, never flagged and left held. Widening it
-    /// HERE (not in each backend) is what stops the two relational stores from drifting.</summary>
-    public const string CancelPending = "UPDATE lyntai_job SET status='Cancelled', updated_at=@now WHERE id=@id AND status IN ('Pending','Paused')";
+    /// claim and a held job has none — so it is cancelled outright, never flagged and left held.</summary>
+    public const string CancelNotStarted = "UPDATE lyntai_job SET status='Cancelled', updated_at=@now WHERE id=@id AND status IN ('Pending','Paused')";
 
     // ── reads ─────────────────────────────────────────────────────────────────────────────────────────
-    public const string CountRunning = "SELECT COUNT(*) FROM lyntai_job WHERE lane=@lane AND status='Running'";
     public const string ActiveLanes = "SELECT DISTINCT lane FROM lyntai_job WHERE status IN ('Pending','Running') ORDER BY lane";
     public const string GetById = $"SELECT {Cols} FROM lyntai_job WHERE id=@id";
 }

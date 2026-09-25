@@ -153,10 +153,11 @@ public static class ConversationStoreContract
     {
         await store.CreateThreadAsync(key + "-listed");
 
+        var first = (await store.ListThreadsAsync(1)).Single();
         foreach (var limit in new[] { 0, -1 })
         {
             Assert.Empty(await store.ListThreadsAsync(limit));
-            Assert.Empty(await store.ListThreadsPageAsync(limit));
+            Assert.Empty(await store.ListThreadsAsync(limit, after: first with { Id = first.Id + "~" }));
         }
     }
 
@@ -185,7 +186,7 @@ public static class ConversationStoreContract
         ChatThread? cursor = null;
         for (var page = 0; page < 500 && collected.Count(mine.Contains) < ids.Count; page++)
         {
-            var batch = await store.ListThreadsPageAsync(limit: 2, after: cursor);
+            var batch = await store.ListThreadsAsync(limit: 2, after: cursor);
             Assert.True(batch.Count <= 2);       // a page never exceeds its limit (not list-all-then-filter)
             if (batch.Count == 0) break;         // walked off the end
             collected.AddRange(batch.Select(t => t.Id));
@@ -220,17 +221,17 @@ public static class ConversationStoreContract
         var created = await store.CreateThreadAsync($"{key}-5");
 
         // same instant, HIGHER id — the row sorts after the cursor on the tiebreak, so it must come back
-        var lower = await store.ListThreadsPageAsync(limit: 50,
+        var lower = await store.ListThreadsAsync(limit: 50,
             after: new ChatThread($"{key}-9", null, created.CreatedAt));
         Assert.Contains($"{key}-5", lower.Select(t => t.Id));
 
         // same instant, LOWER id — the row sorts at or before the cursor, so it must NOT come back
-        var higher = await store.ListThreadsPageAsync(limit: 50,
+        var higher = await store.ListThreadsAsync(limit: 50,
             after: new ChatThread($"{key}-1", null, created.CreatedAt));
         Assert.DoesNotContain($"{key}-5", higher.Select(t => t.Id));
 
         // and the row is never its OWN successor — the boundary a `<=` would get wrong
-        var itself = await store.ListThreadsPageAsync(limit: 50, after: created);
+        var itself = await store.ListThreadsAsync(limit: 50, after: created);
         Assert.DoesNotContain($"{key}-5", itself.Select(t => t.Id));
     }
 }
