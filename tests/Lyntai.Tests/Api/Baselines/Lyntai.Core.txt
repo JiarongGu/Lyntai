@@ -603,41 +603,8 @@ sealed class Lyntai.Generation.Jobs.GenerationRenderJobHandler
     Type : String
 interface Lyntai.Generation.Jobs.IGenerationArtifactSink
     ReceiveAsync(GenerationArtifactDelivery delivery, CancellationToken ct = default) : Task
-sealed class Lyntai.Generation.Tools.GenerationBackendsTool
-    .ctor(IEnumerable<IModelProvider> providers, MediaOptions options = null)
-    Description : String
-    InvokeAsync(String argumentsJson, CancellationToken ct = default) : Task<String>
-    Name : String
-    ParametersJsonSchema : String
-sealed class Lyntai.Generation.Tools.GenerationFetchTool
-    .ctor(IEnumerable<IModelProvider> providers, IGenerationArtifactSink sink = null, IUsageTracker usage = null, String consumer = "agent")
-    Consumer : String
-    Description : String
-    InvokeAsync(String argumentsJson, CancellationToken ct = default) : Task<String>
-    Name : String
-    ParametersJsonSchema : String
-sealed class Lyntai.Generation.Tools.GenerationInlineTool
-    .ctor(IMediaRouter router, MediaOptions options, IGenerationArtifactSink sink = null, String consumer = "agent")
-    Consumer : String
-    Description : String
-    InvokeAsync(String argumentsJson, CancellationToken ct = default) : Task<String>
-    Name : String
-    ParametersJsonSchema : String
-sealed class Lyntai.Generation.Tools.GenerationStatusTool
-    .ctor(IEnumerable<IModelProvider> providers)
-    Description : String
-    InvokeAsync(String argumentsJson, CancellationToken ct = default) : Task<String>
-    Name : String
-    ParametersJsonSchema : String
-sealed class Lyntai.Generation.Tools.GenerationSubmitTool
-    .ctor(IMediaRouter router, MediaOptions options, String consumer = "agent")
-    Consumer : String
-    Description : String
-    InvokeAsync(String argumentsJson, CancellationToken ct = default) : Task<String>
-    Name : String
-    ParametersJsonSchema : String
 static class Lyntai.GenerationBuilderExtensions
-    static AddGenerationTools(LyntaiBuilder builder) : LyntaiBuilder
+    static AddGenerationTools(LyntaiBuilder builder, String consumer = "agent") : LyntaiBuilder
     static AddMediaRateLimit(LyntaiBuilder builder, Action<RateLimitOptions> configure = null, Func<IServiceProvider,IRateLimiter> limiter = null) : LyntaiBuilder
     static AddMediaRouting(LyntaiBuilder builder) : LyntaiBuilder
     static AddMediaUsageBudget(LyntaiBuilder builder, Action<BudgetOptions> configure = null) : LyntaiBuilder

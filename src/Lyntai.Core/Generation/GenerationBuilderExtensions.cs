@@ -190,24 +190,35 @@ public static class GenerationBuilderExtensions
     /// <remarks>Bytes are never returned in a tool observation (a base64 image would blow the context window for
     /// no benefit): if an <see cref="Lyntai.Generation.Jobs.IGenerationArtifactSink"/> is registered the artifacts are delivered to
     /// it and the observation says where they went, otherwise it reports their type/size/URI.</remarks>
-    public static LyntaiBuilder AddGenerationTools(this LyntaiBuilder builder)
+    /// <param name="builder">The builder.</param>
+    /// <param name="consumer">The spend/rate-limit tag every render these tools start or fetch bills to —
+    /// <c>"agent"</c> by default, NOT the platform's <c>"default"</c>. A tool loop is the runaway-spend case (a
+    /// model retrying a render in a loop), so it is capped separately out of the box: set
+    /// <c>Budget.PerConsumer["agent"]</c> and it binds every agent-driven render, whichever door produced it,
+    /// without touching what a user pressing a button may spend. A host running several agents registers each
+    /// one's tools under its own tag.</param>
+    public static LyntaiBuilder AddGenerationTools(this LyntaiBuilder builder, string consumer = ProviderConsumers.Agent)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(consumer);
         builder.Services.AddSingleton<Lyntai.Agents.ITool>(sp => new Lyntai.Generation.Tools.GenerationBackendsTool(
             sp.GetServices<IModelProvider>(),
             MediaOptionsFor(sp)));   // the listing's aggregate ProbeDeadline lives here
         builder.Services.AddSingleton<Lyntai.Agents.ITool>(sp => new Lyntai.Generation.Tools.GenerationInlineTool(
             sp.GetRequiredService<Lyntai.Inference.IMediaRouter>(),
             MediaOptionsFor(sp),
-            sp.GetService<Lyntai.Generation.Jobs.IGenerationArtifactSink>()));
+            sp.GetService<Lyntai.Generation.Jobs.IGenerationArtifactSink>(),
+            consumer));
         builder.Services.AddSingleton<Lyntai.Agents.ITool>(sp => new Lyntai.Generation.Tools.GenerationSubmitTool(
             sp.GetRequiredService<Lyntai.Inference.IMediaRouter>(),
-            MediaOptionsFor(sp)));
+            MediaOptionsFor(sp),
+            consumer));
         builder.Services.AddSingleton<Lyntai.Agents.ITool>(sp => new Lyntai.Generation.Tools.GenerationStatusTool(
             sp.GetServices<IModelProvider>()));
         builder.Services.AddSingleton<Lyntai.Agents.ITool>(sp => new Lyntai.Generation.Tools.GenerationFetchTool(
             sp.GetServices<IModelProvider>(),
             sp.GetService<Lyntai.Generation.Jobs.IGenerationArtifactSink>(),
-            sp.GetKeyedService<IUsageTracker>(MediaSpendKey)));
+            sp.GetKeyedService<IUsageTracker>(MediaSpendKey),
+            consumer));
         return builder;
     }
 

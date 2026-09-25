@@ -188,16 +188,9 @@ internal static class GenerationToolJson
 /// the model the backend does not exist, which is a different and worse answer than "it is not answering".</para></summary>
 /// <param name="providers">The registered backends.</param>
 /// <param name="options">Supplies the deadline; null takes the defaults.</param>
-/// <remarks><b>Why the bound is here and not on each backend.</b> A backend's own <c>Timeout</c> is a RENDER
-/// budget — <c>Automatic1111Options</c> and <c>OpenAiImageOptions</c> both default it to ten minutes, correctly,
-/// since a render routinely outlives <see cref="HttpClient"/>'s own default. Probing under that number is what
-/// made two stalled HTTP backends able to block this tool for twenty minutes: each disclosed its own timeout,
-/// and the COMPOSITION disclosed nothing. The aggregate is the number a caller actually needs bounded, so it
-/// is stated once, here.
-/// <para>Concurrency is not merely a speedup: serially, the deadline would have to be divided among backends
-/// whose count this type does not choose, so one slow backend would eat the budget of every backend after
-/// it — and which ones those are would depend on registration order.</para></remarks>
-public sealed class GenerationBackendsTool(
+/// <remarks>The bound is an AGGREGATE because a backend's own <c>Timeout</c> is a render budget, minutes long.
+/// Probes run concurrently so one slow backend cannot eat the budget of every backend registered after it.</remarks>
+internal sealed class GenerationBackendsTool(
     IEnumerable<IModelProvider> providers, MediaOptions? options = null) : ITool
 {
     private readonly MediaOptions _options = options ?? new MediaOptions();
@@ -294,16 +287,15 @@ public sealed class GenerationBackendsTool(
 /// <summary>Generates INLINE — one call, artifacts back. For a medium whose backends are asynchronous (video,
 /// batch music) an agent uses <see cref="GenerationSubmitTool"/> instead; this reports that rather than
 /// blocking.</summary>
-public sealed class GenerationInlineTool(
+internal sealed class GenerationInlineTool(
     IMediaRouter router,
-    MediaOptions options,
+    MediaOptions? options = null,
     IGenerationArtifactSink? sink = null,
     string consumer = ProviderConsumers.Agent) : ITool
 {
-    /// <summary>The spend/rate-limit tag renders from this tool bill to — <c>"agent"</c> by default, NOT the
-    /// platform's <c>"default"</c>. A tool loop is the runaway-spend case (a model retrying a render in a
-    /// loop), so it is capped separately out of the box: set <c>Budget.PerConsumer["agent"]</c> and it binds
-    /// agent-driven renders without touching what a user pressing a button may spend.</summary>
+    private readonly MediaOptions _options = options ?? new MediaOptions();
+
+    /// <summary>The spend/rate-limit tag renders from this tool bill to (<c>AddGenerationTools</c>' consumer).</summary>
     public string Consumer { get; } = consumer;
 
     /// <inheritdoc/>
@@ -339,7 +331,7 @@ public sealed class GenerationInlineTool(
             return GenerationToolJson.Error("a prompt (or an imageUrl to edit) is required");
 
         var result = await router.GenerateAsync(
-            GenerationToolJson.Candidates(named, options.DefaultCandidates), request, ct).ConfigureAwait(false);
+            GenerationToolJson.Candidates(named, _options.DefaultCandidates), request, ct).ConfigureAwait(false);
 
         if (!result.IsOk)
             return GenerationToolJson.Error($"{result.Verdict}: {result.Detail}");
@@ -363,11 +355,13 @@ public sealed class GenerationInlineTool(
 
 /// <summary>Submits an ASYNCHRONOUS generation and returns the handle to poll. The shape a video render
 /// actually has — an agent that tried to wait inline would block for minutes.</summary>
-public sealed class GenerationSubmitTool(
-    IMediaRouter router, MediaOptions options, string consumer = ProviderConsumers.Agent) : ITool
+internal sealed class GenerationSubmitTool(
+    IMediaRouter router, MediaOptions? options = null, string consumer = ProviderConsumers.Agent) : ITool
 {
-    /// <summary>The spend/rate-limit tag submissions from this tool bill to — see
-    /// <see cref="GenerationInlineTool.Consumer"/>.</summary>
+    private readonly MediaOptions _options = options ?? new MediaOptions();
+
+    /// <summary>The spend/rate-limit tag submissions from this tool bill to (<c>AddGenerationTools</c>'
+    /// consumer).</summary>
     public string Consumer { get; } = consumer;
 
     /// <inheritdoc/>
@@ -403,7 +397,7 @@ public sealed class GenerationSubmitTool(
             return GenerationToolJson.Error("a prompt (or an imageUrl) is required");
 
         var submission = await router.SubmitAsync(
-            GenerationToolJson.Candidates(named, options.DefaultCandidates), request, ct).ConfigureAwait(false);
+            GenerationToolJson.Candidates(named, _options.DefaultCandidates), request, ct).ConfigureAwait(false);
 
         if (submission.Operation.Status == QueuedOperationStatus.Failed)
             // An INCONCLUSIVE submission is the one failure a model must not react to in its usual way. Its
@@ -441,7 +435,7 @@ public sealed class GenerationSubmitTool(
 }
 
 /// <summary>Reports where a submitted generation is.</summary>
-public sealed class GenerationStatusTool(IEnumerable<IModelProvider> providers) : ITool
+internal sealed class GenerationStatusTool(IEnumerable<IModelProvider> providers) : ITool
 {
     /// <inheritdoc/>
     public string Name => "generate_status";
@@ -480,21 +474,15 @@ public sealed class GenerationStatusTool(IEnumerable<IModelProvider> providers) 
 /// <see cref="Lyntai.Inference.IMediaRouter"/> — there is nothing left to route once an
 /// operation id exists — so it must record usage itself. A queue backend prices at FETCH, because that is
 /// the only point the total is known, which makes this the one place a submitted render's cost can be
-/// observed at all.</para>
-/// <para>Skipping it did not merely under-report: <see cref="GenerationSubmitTool"/> re-checks the cap on
-/// every submit against a total that never grew, so a configured
-/// <c>Budget.PerConsumer</c> cap never fired and spend was unbounded beneath it — while the same tool set's
-/// inline <see cref="GenerationInlineTool"/> billed correctly. One registration, two delivery modes, one of
-/// them metered.</para></summary>
+/// observed at all; <see cref="GenerationSubmitTool"/>'s cap check reads the total this adds to.</para></summary>
 /// <param name="providers">The registered backends; the tool resolves the one named in its arguments.</param>
 /// <param name="sink">Where artifacts are delivered, if the app registered one.</param>
 /// <param name="usage">Usage ledger (<see cref="Lyntai.Inference.Budgeting.IUsageTracker"/>). Null means nothing is
 /// recorded; <c>AddGenerationTools</c> passes one only when <c>AddMediaUsageBudget()</c> is configured, the gate
 /// the router's own budgeting is under.</param>
-/// <param name="consumer">Whose spend this is, defaulting to the same <c>"agent"</c> tag its sibling tools
-/// use, so one <c>Budget.PerConsumer["agent"]</c> entry binds every agent-driven render regardless of which
-/// delivery mode produced it.</param>
-public sealed class GenerationFetchTool(
+/// <param name="consumer">Whose spend this is — the tag its sibling tools bill to (<c>AddGenerationTools</c>'
+/// consumer).</param>
+internal sealed class GenerationFetchTool(
     IEnumerable<IModelProvider> providers,
     IGenerationArtifactSink? sink = null,
     Lyntai.Inference.Budgeting.IUsageTracker? usage = null,
