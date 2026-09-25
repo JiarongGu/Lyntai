@@ -350,9 +350,8 @@ describe('check-counts — matching', () => {
 
 describe('check-counts — the registry cannot rot', () => {
   it('a registered claim matching NOTHING fails', () => {
-    // Same rule `staleReferenceAllowances` and `retiredApiNames` carry: an entry nobody can see expiring is
-    // one that silently stops protecting anything. Here it also catches a pattern narrowed until it no
-    // longer finds its own claim — the exact risk narrowing created on this gate's first run.
+    // Same rule `retiredApiNames` carries: an entry nobody can see expiring silently stops protecting
+    // anything. Here it also catches a pattern narrowed until it no longer finds its own claim.
     const { code, out } = run({ 'docs/a.md': 'Nothing here resembles the claim.\n' }, fixedClaim(12));
     assert.equal(code, 1);
     assert.match(out, /match nothing/);

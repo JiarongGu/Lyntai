@@ -7,7 +7,7 @@ import { MOJIBAKE, SCANNED, checkEncoding } from '../check-encoding.mjs';
 import { git, makeRepo, makeTree, removeTree, writeInto } from './_fixtures.mjs';
 
 /// A fixture tree, cleaned up whatever happens. No git needed: every fact here passes the file list to
-/// `checkEncoding` explicitly, so `trackedFiles` is out of scope.
+/// `checkEncoding` explicitly, so the repository listing is out of scope.
 function withRepo(files, body) {
   const dir = makeTree(files);
   try { return body(dir); } finally { removeTree(dir); }

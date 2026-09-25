@@ -2,9 +2,8 @@
 // Regenerates the index table at the top of docs/DECISIONS.md from the file's own `## D<n> — …` headings,
 // between the index:start / index:end markers.
 //
-// Why this is generated rather than hand-written: DECISIONS.md is ~1300 lines and 44 entries and still
-// growing, and a hand-maintained index of a growing file is a stale index — the exact defect class the
-// 2026-08-05 review spent its time on. Nothing here interprets a decision; it only lists them.
+// Generated rather than hand-written because a hand-maintained index of a growing file is a stale index.
+// Nothing here interprets a decision; it only lists them.
 //
 // The heading order in the file is deliberately NOT the index order: entries D1–D28 run oldest-first and
 // everything after runs newest-first, because the newest decision is the one a session usually wants. The
