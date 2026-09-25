@@ -3,7 +3,8 @@ using Lyntai.Inference;
 namespace Lyntai.Guards;
 
 /// <summary>A simple jail: blocks any request or reply that contains a denied term (case-insensitive
-/// substring). For requests it scans the user messages. Construct with your terms and register via
+/// substring). It scans every message of every role — content, tool-call names and arguments, attachment
+/// URIs — and a reply's text, error detail and tool calls. Construct with your terms and register via
 /// <c>AddGuard(_ =&gt; new DenylistGuard(["…"]))</c>.</summary>
 public sealed class DenylistGuard(IReadOnlyList<string> terms, string? name = null) : IGuard
 {

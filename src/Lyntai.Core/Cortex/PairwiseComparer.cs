@@ -22,15 +22,13 @@ public sealed record PairwiseResult(PairwiseWinner Winner, string? Reason = null
     /// two-pass run whose passes disagreed, are both true — the model spoke in both. Only the absence of a
     /// usable answer is false.</para>
     ///
-    /// <para>Defaults to TRUE so a comparer written before this existed keeps meaning what it meant. It is
-    /// a property rather than a positional parameter because adding one would change this record's
-    /// constructor and <c>Deconstruct</c>, which the frozen surface (<b>D70</b>) does not allow.</para>
+    /// <para>Defaults to TRUE, so a comparer that never sets it reports a judged result.</para>
     /// </summary>
     public bool Judged { get; init; } = true;
 
     /// <summary>No usable answer from the judge. <see cref="PairwiseWinner.Tie"/> is carried as the safe
-    /// neutral — a caller that ignores <see cref="Judged"/> behaves exactly as it did before this
-    /// existed — and <paramref name="reason"/> says which failure it was.</summary>
+    /// neutral, so a caller that ignores <see cref="Judged"/> reads a tie, and <paramref name="reason"/> says
+    /// which failure it was.</summary>
     public static PairwiseResult NoOpinion(string reason) =>
         new(PairwiseWinner.Tie, reason) { Judged = false };
 }

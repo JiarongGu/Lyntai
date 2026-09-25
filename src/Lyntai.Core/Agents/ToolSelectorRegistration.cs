@@ -13,18 +13,11 @@ public static class ToolSelectorRegistration
     /// Narrow the tool roster to the requests each tool is actually plausible for, by embedding the
     /// request against every tool's own name and description.
     ///
-    /// <para><b>Worth it when the registry holds a catalogue.</b> The loop otherwise shows every registered
-    /// tool on every iteration and the model supplies no bound of its own — measured, a 4B invokes a tool on
-    /// <b>90-95%</b> of requests nothing on the roster serves, and rewording the preamble moved that by
-    /// nothing (<c>docs/memory-measurements.md</c> §5). On a handful of tools there is nothing to narrow and
-    /// this only costs an embedding call.</para>
+    /// <para><b>Worth it when the registry holds a catalogue</b> — why is on <see cref="IToolSelector"/>. On a
+    /// handful of tools there is nothing to narrow and this only costs an embedding call.</para>
     ///
-    /// <para><b>Needs a backend that produces <see cref="ProviderKinds.Vector"/></b>, and it is the
-    /// cheapest thing in the loop:
-    /// model-free, and the arm measured furthest ahead of any generative one at this size class.</para>
-    ///
-    /// <para><b>Fail-open.</b> A selector that faults or returns nothing leaves the roster whole — dropping
-    /// the tool a request needed is the failure that matters, so it is the one the loop refuses to risk.</para>
+    /// <para><b>Needs a backend that produces <see cref="ProviderKinds.Vector"/></b>; see
+    /// <see cref="VectorToolSelector"/>.</para>
     /// </summary>
     /// <param name="builder">The Lyntai builder.</param>
     /// <param name="configure">Knobs; null takes the defaults.</param>

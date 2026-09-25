@@ -17,7 +17,8 @@ public enum JobStatus
     /// (the app may re-enqueue). Distinct from <see cref="Dead"/> — a Fail is "don't retry this".</summary>
     Failed,
 
-    /// <summary>Cancelled before it ran. Terminal.</summary>
+    /// <summary>Cancelled — before it ran, or while running once the handler honoured a cancel request.
+    /// Terminal.</summary>
     Cancelled,
 
     /// <summary>Exhausted its retries (transient failures ran out of attempts) → the dead-letter queue.
@@ -53,9 +54,9 @@ public sealed record JobSpec(
     string? PartitionKey = null)
 {
     /// <summary>The attempt budget applied to a spec whose <see cref="JobSpec.MaxAttempts"/> is null — the ONE home
-    /// for the number. Every <see cref="Storage.IJobStore"/> backend reads it (each used to carry its own
-    /// hand-copied literal, free to drift), and it seeds <see cref="JobOptions.DefaultMaxAttempts"/>, which
-    /// is what <see cref="IJobQueue"/> fills in and an app can configure. A BYO backend should read it too.</summary>
+    /// for the number. Every <see cref="Storage.IJobStore"/> backend reads it, and it seeds
+    /// <see cref="JobOptions.DefaultMaxAttempts"/>, which is what <see cref="IJobQueue"/> fills in and an app
+    /// can configure. A BYO backend should read it too.</summary>
     public const int DefaultMaxAttempts = 3;
 }
 

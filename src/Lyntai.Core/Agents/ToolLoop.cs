@@ -51,7 +51,7 @@ public sealed class ToolLoop(
         };
     }
 
-    /// <summary>Live door (TL2): the shared core's events, streamed as they happen.</summary>
+    /// <summary>Live door: the shared core's events, streamed as they happen.</summary>
     public IAsyncEnumerable<AgentStreamEvent> StreamAsync(TextRequest req, int? maxIterations = null, CancellationToken ct = default)
         => RunCoreAsync(req, maxIterations, [], new UsageSum(), new TransportChoice(), ct);
 
@@ -67,12 +67,8 @@ public sealed class ToolLoop(
     }
 
     /// <summary>The roster the model will actually see, narrowed by an <see cref="IToolSelector"/> when one
-    /// is registered.
-    ///
-    /// <para><b>FAIL-OPEN in three ways</b>, because the failure that matters is dropping the tool the
-    /// request needed: no selector, a selector that FAULTS, and a selector returning an EMPTY roster all
-    /// yield the full list. Only the caller's own cancellation propagates — a selector's own deadline is a
-    /// fault, and a fault here must cost tokens rather than the answer.</para></summary>
+    /// is registered — fail-open as that seam's contract says: no selector, a fault or an empty answer all
+    /// yield the full list.</summary>
     private async Task<IReadOnlyList<ITool>> NarrowAsync(
         TextRequest req, IReadOnlyList<ITool> tools, CancellationToken ct)
     {
@@ -94,9 +90,8 @@ public sealed class ToolLoop(
         }
     }
 
-    /// <summary>The diagnostics tag for a transport, DERIVED from the enum rather than written beside it —
-    /// the published span values are `none`/`native`/`prompt` and a second literal is a second chance to
-    /// drift, which is the argument <see cref="ToolObservations.ErrorPrefix"/> already makes one file over.</summary>
+    /// <summary>The diagnostics tag for a transport — the published span values are <c>none</c> /
+    /// <c>native</c> / <c>prompt</c>, so a new <see cref="ToolTransport"/> member must be added here.</summary>
     private static string Tag(ToolTransport transport) => transport switch
     {
         ToolTransport.None => "none",
@@ -379,7 +374,7 @@ public sealed class ToolLoop(
                 $"unknown tool \"{name}\". Available tools: {string.Join(", ", registry.Tools.Select(t => t.Name))}"),
             ct);
 
-    /// <summary>Folds each front-door reply's <see cref="TextUsage"/> into a running total (TL1). Stays null
+    /// <summary>Folds each front-door reply's <see cref="TextUsage"/> into a running total. Stays null
     /// until at least one reply reports usage, so a run over providers that surface no tokens yields a null
     /// <see cref="ToolLoopResult.Usage"/> rather than a misleading all-zero figure.</summary>
     private sealed class UsageSum

@@ -3,20 +3,16 @@ using Lyntai.Memory;
 
 namespace Lyntai.Agents;
 
-/// <summary>Narrows the tool roster BEFORE the model sees it.
+/// <summary>Narrows the tool roster BEFORE the model sees it. <see cref="IToolRegistry"/> hands the loop every
+/// registered tool on every iteration, and a model supplies no bound of its own — it calls a tool on most
+/// requests nothing on the roster serves, and the protocol's wording does not change that
+/// (<c>docs/memory-measurements.md</c> §5, <c>affordance-false-call-4b</c>).
 ///
-/// <para><b>Why the library needs a seam at all.</b> <see cref="IToolRegistry"/> hands the loop every
-/// registered tool on every iteration, and the model supplies no bound of its own: measured
-/// (<c>docs/memory-measurements.md</c> §5) a 4B invokes a tool on <b>90-95%</b> of requests nothing on the
-/// roster serves, and two preamble rewrites in opposite directions moved that by NOTHING. So wording is not
-/// the lever, and narrowing the roster is what is left. A deployment with a catalogue previously had no
-/// seam, no option and no way to narrow it.</para>
+/// <para><b>Fail-open.</b> A selector is an OPTIMISATION: <see cref="ToolLoop"/> shows the whole roster
+/// when this faults or returns nothing, so a broken, slow or empty one costs tokens and never the tool the
+/// request needed. Only the caller's own cancellation propagates.</para>
 ///
-/// <para><b>Fail-open, like every other model-backed seam here.</b> A selector is an OPTIMISATION; a
-/// broken, slow or empty one must cost tokens and never the tool the request actually needed, so
-/// <see cref="ToolLoop"/> falls back to the whole roster when this faults or returns nothing.</para>
-///
-/// <para>Unregistered by default, and the loop then behaves exactly as it did before this existed.</para>
+/// <para>Unregistered by default, and the loop then shows every tool.</para>
 /// </summary>
 public interface IToolSelector
 {
@@ -37,20 +33,17 @@ public sealed class ToolSelectorOptions
 {
     /// <summary>The most tools to show. <b>Zero or less narrows NOTHING</b> — a misconfiguration must not be
     /// able to blind the loop, and "show no tools" is already sayable by registering none.
-    /// <para>Unmeasured as a default. The evidence sizes the SELECTOR, not this number: a model-free
-    /// vector backend picks the right tool from 35 options 81.5% of the time (argmax, so recall at a cut of k is
-    /// higher), which says narrowing is feasible and says nothing about where to cut.</para></summary>
+    /// <para>Unmeasured as a default: the evidence sizes the selector's accuracy
+    /// (<c>docs/memory-measurements.md</c> §5, <c>affordance-roster-catalogue</c>), not where to cut.</para></summary>
     public int Limit { get; set; } = 8;
 }
 
 /// <summary>The shipped <see cref="IToolSelector"/>: cosine similarity between the request and each tool's
 /// own description, keeping the best <see cref="ToolSelectorOptions.Limit"/>.
 ///
-/// <para><b>Model-free and the cheapest arm measured.</b> A 333,590,944 B vector backend scoring tool
-/// descriptions reads 81.5% at 35 options where chance is 3% — ahead of every generative arm at or under
-/// that size class and far cheaper (<c>affordance-roster-catalogue</c>). The figure is an OPTIMISTIC bound:
-/// past the first handful the fixture's distractors are semantically distant, and a real catalogue is a
-/// mix.</para>
+/// <para><b>Model-free and the cheapest arm measured</b>, ahead of every generative arm at or under its size
+/// class (<c>docs/memory-measurements.md</c> §5, <c>affordance-roster-catalogue</c> — an optimistic bound,
+/// since that fixture's distractors are semantically distant).</para>
 ///
 /// <para><b>A tool's description is what gets embedded</b>, so a roster whose descriptions do not say what
 /// each tool is FOR cannot be narrowed well by this — which is a property of the descriptions rather than

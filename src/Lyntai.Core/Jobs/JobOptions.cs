@@ -7,12 +7,8 @@ public sealed class JobOptions
 {
     /// <summary>Max concurrent jobs per lane, per process. A lane not listed uses
     /// <see cref="DefaultLaneConcurrency"/>.
-    /// <para><b>Lane names are matched ORDINALLY, as they are everywhere else.</b> This lookup was
-    /// case-INSENSITIVE while every other treatment of a lane is byte-exact — the stores' <c>lane = @lane</c>
-    /// predicates, <c>ActiveLanesAsync</c>, and the runner's own per-pass budget. So <c>"render"</c> and
-    /// <c>"Render"</c> were two lanes in the store that both matched ONE limit here, and a cap meant as "one
-    /// render at a time" ran two. Making this ordinal does not merge them — nothing can, short of changing
-    /// what a lane IS — but it stops the option quietly promising a bound it cannot deliver.</para></summary>
+    /// <para><b>Lane names are matched ORDINALLY</b>, as the stores and the runner match them:
+    /// <c>"render"</c> and <c>"Render"</c> are two lanes, each with its own limit.</para></summary>
     public Dictionary<string, int> LaneConcurrency { get; } = new(StringComparer.Ordinal);
 
     /// <summary>What a lane absent from <see cref="LaneConcurrency"/> gets. <b>Defaults to 1 — serial</b>,
@@ -28,11 +24,11 @@ public sealed class JobOptions
     public int MaxConcurrency { get; set; }
 
     /// <summary>A cap on concurrent jobs across EVERY process sharing this store (0 = unbounded, the
-    /// default and the pre-3.0 behaviour). Where <see cref="MaxConcurrency"/> bounds one runner, this bounds
-    /// the deployment: three workers with a global cap of 5 run five jobs between them, not fifteen.</summary>
-    /// <remarks>Enforced by a shared slot table rather than by counting running jobs — a count cannot gate a
-    /// claim without racing (<see cref="Lyntai.Storage.IJobStore.TryAcquireSlotAsync"/> says why, and why a
-    /// row-per-slot is exact on every backend where a count is not).
+    /// default). Where <see cref="MaxConcurrency"/> bounds one runner, this bounds the deployment: three
+    /// workers with a global cap of 5 run five jobs between them, not fifteen.</summary>
+    /// <remarks>Enforced by a shared slot table (<see cref="Lyntai.Storage.IJobStore.TryAcquireSlotAsync"/>)
+    /// rather than by counting running jobs, because a count cannot gate a claim without racing
+    /// (<c>docs/DECISIONS.md</c> D73).
     /// <para>A slot is held for the job's execution and released when it ends; a crashed worker's slot is
     /// reclaimed after <see cref="SlotLease"/> — which a live worker keeps renewing, so it needs no relation
     /// to how long a job runs.</para>

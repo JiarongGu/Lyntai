@@ -56,17 +56,6 @@ public static class LyntaiServiceCollectionExtensions
                 "the configure callback, or on the collection after AddLyntai returns, drops every front-door " +
                 "decorator with no error at all — layer your own with AddFrontDoorDecorator instead.");
 
-        // AddSemanticMemory states an intent the wiring below can only honor when something can embed —
-        // otherwise ISemanticMemory is never registered and every recall path skips it in silence. The
-        // whole point of naming the feature is to turn that quiet degradation into a startup failure.
-        //
-        // TWO ROUTES, because capability is only knowable once a provider is BUILT and this must decide
-        // before that. A factory STATES it through `AddProvider`'s `declares` argument, which is the only
-        // thing a deferred registration can do. A host registering an INSTANCE before `AddLyntai` states
-        // nothing — but the instance is right there in the descriptor, so its declared `Capabilities` can be
-        // read without building anything. Dropping the second route is what made a BYO backend registered
-        // outside the builder invisible, while the error text told the consumer to do exactly that.
-
         // FIRST, so "you declared Vector but did not implement it" is reported as that rather than as the
         // downstream "nothing produces vectors", which names a symptom instead of the defect.
         RefuseCapabilityMismatch(services);
@@ -117,11 +106,8 @@ public static class LyntaiServiceCollectionExtensions
     /// would silently discard the configured threshold, cooldown and logger for BOTH domains.</para></summary>
     private static void RegisterProviderLifetime(IServiceCollection services)
     {
-        // Open generic over IProviderIdentity, not closed over IModelProvider: since D127 collapsed the
-        // domain seams there is one to close over, and the open form is what keeps the pool reusable for
-        // the next one rather than needing a second registration.
-        // Never a concrete backend type — IProviderPool<SomeProvider> would be a different pool that no
-        // router consults.
+        // Open generic, so the pool serves any seam closed over it. Never a concrete backend type —
+        // IProviderPool<SomeProvider> would be a different pool that no router consults.
         services.TryAddSingleton(typeof(Lyntai.Inference.IProviderPool<>), typeof(Lyntai.Inference.BoundedProviderPool<>));
         services.TryAddSingleton<Lyntai.Inference.ProviderPoolOptions>();
         services.TryAddSingleton<Lyntai.Inference.ProviderAdmissionOptions>();
@@ -134,11 +120,9 @@ public static class LyntaiServiceCollectionExtensions
             sp => sp.GetRequiredService<Lyntai.Inference.ProviderAdmission>());
 
         // The generic counterpart of ITextRouterFactory / IMediaRouterFactory, for the kinds with no named
-        // router of their own — vector, score, and whatever an application closes IProviderCall<,> over.
-        // Without it those kinds hand-build a router per call and rebuild the BOOKKEEPING with it, which is
-        // how a rate-limited embedding backend was asked again on the very next recall (ROUTE-1).
-        // Resolved lazily, so the DeadHostTracker the text front door registers below is in place by the
-        // time anything asks: this method runs first, and a TryAdd is about the registration, not the graph.
+        // router of their own — vector, score, and whatever an application closes IProviderCall<,> over — so
+        // their bookkeeping outlives a call. Resolved lazily: the DeadHostTracker it needs is registered by
+        // the text front door, after this method runs.
         services.TryAddSingleton<Lyntai.Inference.IProviderRouterFactory>(sp =>
             new Lyntai.Inference.ProviderRouterFactory(
                 sp.GetRequiredService<DeadHostTracker>(),
@@ -167,13 +151,8 @@ public static class LyntaiServiceCollectionExtensions
         services.TryAddSingleton<ITextRouter>(sp => new TextRouter(
             sp.GetServices<IModelProvider>(), sp.GetRequiredService<DeadHostTracker>(), options,
             sp.GetService<ILogger<TextRouter>>(), modelRouting: sp.GetService<Lyntai.Inference.IModelRoutingStore>()));
-        // The chat counterpart of IMediaRouterFactory: a router per CALLER's provider set, over the
-        // ONE tracker and the ONE admission table registered above — which is the bookkeeping a consumer
-        // hand-building a router per call inevitably rebuilds, and thereby throws away. Registered for the
-        // same reason the generation one is: without it half the feature is unreachable through DI.
-        // The container's own ITextRouter above is left exactly as it was — no governance composes here (chat
-        // spend/caching/throttling live on the ITextClient front door), so routing it through the factory
-        // would change the wiring of every existing app to no end.
+        // The chat counterpart of IMediaRouterFactory: a router per CALLER's provider set, over the ONE
+        // tracker and the ONE admission table registered above, so a caller's router keeps their bookkeeping.
         services.TryAddSingleton<ITextRouterFactory>(sp => new TextRouterFactory(
             sp.GetRequiredService<Lyntai.Inference.IProviderPool<IModelProvider>>(),
             sp.GetRequiredService<DeadHostTracker>(), options,
@@ -289,18 +268,9 @@ public static class LyntaiServiceCollectionExtensions
             throw new InvalidOperationException(message);
         }
 
-        // THE FRONT DOOR, built ONCE for every client this container hands out. Only the ROUTER differs
-        // between the default client and a named one — the default takes the container's own ITextRouter,
-        // a name takes one narrowed to its provider set — and that difference is the whole point of a name,
-        // so it is the parameter. Everything outside it is the governance promise and must not vary.
-        //
-        // It was written twice until 3.0, and the comment above the named registration ASSERTED the parity
-        // the two copies were supposed to maintain by hand. Nothing enforced it: deleting the refusal
-        // screening from the named copy left the whole suite green, and any new outermost layer added to the
-        // default would have been silently absent from every named client — which is what
-        // AddMemoryAnnotation and AddMemoryVerification resolve through. Same shape as MemoryEngineBuilder's
-        // two construction sites (docs/FIXES.md), where an optional argument added to one path and not the
-        // other left a documented knob unwired and the compiler could not see it.
+        // THE FRONT DOOR: one fold for the default client and every named one, and only the ROUTER varies.
+        // Everything outside it is the governance promise, so it must never be written twice
+        // (`.claude/knowledge/pitfalls.md` §DI / config, on two construction sites drifting).
         ITextClient Compose(IServiceProvider sp, ITextRouter router,
             IReadOnlyList<ProviderCandidate>? candidates = null)
         {
@@ -457,10 +427,9 @@ public static class LyntaiServiceCollectionExtensions
     /// <see cref="Lyntai.Inference.ProviderKinds.Vector"/> is registered. Composes the registered providers
     /// with a vector store (in-memory default; register your own <c>IVectorStore</c> for pgvector/etc.).
     ///
-    /// <para><b>There is no front door to seed any more</b> (<c>docs/DECISIONS.md</c> <b>D151</b>): embedding
-    /// is a capability, so <c>SemanticMemory</c> takes the providers themselves and routes over whichever
-    /// declare it. What used to be a <c>TryAdd</c> seeding an <c>ProviderKinds.Vector</c> backend is now nothing at all, and
-    /// bring-your-own is a provider registration like any other.</para>
+    /// <para>Embedding is a capability (<c>docs/DECISIONS.md</c> <b>D151</b>), so <c>SemanticMemory</c> takes
+    /// the providers themselves and routes over whichever declare it; bring-your-own is a provider
+    /// registration like any other.</para>
     ///
     /// <para>Absent one it is not registered, so the composer/orchestrator resolve null and skip it — no
     /// accidental throws on every turn. An app that MEANT to have it says so with <c>AddSemanticMemory</c>,
