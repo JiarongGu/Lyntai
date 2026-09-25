@@ -157,6 +157,30 @@ describe('check-backlog — the per-item state markers', () => {
     assert.match(out, /TASKS\.md:\d+/);
   });
 
+  it('tells a BROKEN marker (one holding `>`) from a MISSING one, so the author is not sent hunting', () => {
+    // `_markers.mjs`' pattern excludes `>`, so such a marker matches nothing; reporting it as "no marker"
+    // points the author at a marker that is already there.
+    const text = backlog().replace(/needs="[^"]*"|state=startable/, 'state=startable needs="x > 6"');
+    const { code, out } = run(text);
+    assert.equal(code, 1);
+    assert.match(out, /contains `>` and therefore matches NOTHING/);
+    assert.doesNotMatch(out, /carry no `item:` marker/);
+  });
+
+  it('does not read an open-item line inside a code FENCE as an item', () => {
+    const text = backlog().replace('## Part 1 — a thing\n',
+      '## Part 1 — a thing\n\n```\n- [ ] quoted in an example, not an item\n```\n');
+    const { items, unmarked } = parseItems(text.split('\n'));
+    assert.equal(unmarked.length, 0);
+    assert.equal(items.length, 1);
+  });
+
+  it('FAILS on an UNCLOSED fence rather than silently dropping every item below it', () => {
+    const text = backlog().replace('## Part 1 — a thing\n', '## Part 1 — a thing\n\n```\n');
+    const { problems } = parseItems(text.split('\n'));
+    assert.ok(problems.some((p) => /never closed/.test(p.why)), JSON.stringify(problems));
+  });
+
   it('FAILS on a state outside the closed vocabulary', () => {
     const { code, out } = run(backlog({ items: [{ state: 'maybe' }] }));
 

@@ -1,10 +1,10 @@
 // _markers — the shared half of every index GENERATED from markers a person authored.
 //
-// Two gates derive a block of prose from markers on the lines below it: `check-backlog`'s open-item roster
-// (D111) and `check-pitfalls`' facet index. What they share is the SUBTLE half, which is the reasoning
-// `_entry-length.mjs` already carries for `check-decisions` and `check-archive` — a second hand-written
-// copy would drift silently in the PERMISSIVE direction, and both of the pieces here are defects this
-// repository has already paid for once:
+// Four gates derive a block of prose from authored markers: `check-backlog`'s open-item roster (D111),
+// `check-pitfalls`' facet index, `check-measurements`' results index and `check-dev-loop`'s command table.
+// What they share is the SUBTLE half — a second hand-written copy would drift silently in the PERMISSIVE
+// direction, and every piece here is a defect this repository has already paid for once (`scanMarkers`
+// owns the fence, block-skip and broken-marker rules; `regenerate` the anchors-fixed-point-write step):
 //
 //   1. `parseAttributes` returns the RESIDUE as well as the matches. `matchAll` reports what it recognised
 //      and says nothing about what it skipped, so `needs=a real key` — quotes omitted — parsed as
@@ -94,6 +94,60 @@ export function anchorProblems(lines, begin, end) {
   if (begins === 1 && ends === 0) problems.push(`\`${begin}\` is never closed by \`${end}\``);
   if (begins === 0 && ends > 0) problems.push(`\`${end}\` appears with no \`${begin}\` above it`);
   return problems;
+}
+
+const FENCE = /^\s*```/;
+
+/**
+ * The lines of a marker-bearing record a parser may read, each with its marker of kind `name` — the three
+ * rules every such parser needs, owned once:
+ *
+ *   - the GENERATED block is skipped, located by `blockRange` (the splicer's own function, so the two can
+ *     never disagree about where it is) — its rows would otherwise be read back as source;
+ *   - a fenced code block is skipped, and a fence that never CLOSES is a problem, because a toggle nothing
+ *     asserts balanced silently drops everything below it;
+ *   - a marker that OPENS (`<!-- name:`) but does not match is `broken` and reported — a value holding `>`
+ *     matches nothing, and calling that "no marker" sends the author hunting for one that is there.
+ *
+ * @returns {{ visible: { i: number, raw: string, marker: RegExpExecArray | null, broken: boolean }[],
+ *   problems: { line: number, why: string }[] }}
+ */
+export function scanMarkers(lines, { name, begin = null, end = null, noun = 'entry' }) {
+  const pattern = markerPattern(name);
+  const opener = new RegExp(`<!--\\s*${name}:`);
+  const block = begin ? blockRange(lines, begin, end) : null;
+  const visible = [];
+  const problems = [];
+  let fenceOpenedAt = 0;
+  lines.forEach((raw, i) => {
+    if (block && i >= block.start && i <= block.end) return;
+    if (FENCE.test(raw)) { fenceOpenedAt = fenceOpenedAt ? 0 : i + 1; return; }
+    if (fenceOpenedAt) return;
+    const marker = pattern.exec(raw);
+    const broken = !marker && opener.test(raw);
+    if (broken)
+      problems.push({ line: i + 1, why: `this \`${name}:\` marker contains \`>\` and therefore matches NOTHING — `
+        + 'reword the value; `>` is what would let a marker run past its own `-->`' });
+    visible.push({ i, raw, marker, broken });
+  });
+  if (fenceOpenedAt)
+    problems.push({ line: fenceOpenedAt, why: `a code fence opened here is never closed, so every ${noun} below `
+      + 'it is invisible to this gate — the index would be written over a truncated read' });
+  return { visible, problems };
+}
+
+/**
+ * Regenerate a record's block to its fixed point: `'current'`, `'written'` (after `write(next)`),
+ * `'stale'` when a write was not asked for, or `'missing'` when the anchors are not both there.
+ */
+export function regenerate(text, render, begin, end, write = null) {
+  const normalized = text.split(/\r?\n/).join('\n');
+  const next = fixedPoint(normalized, render, begin, end);
+  if (next === null) return 'missing';
+  if (next === normalized) return 'current';
+  if (!write) return 'stale';
+  write(next);
+  return 'written';
 }
 
 /** The text with `body` spliced between the anchors, or `null` when they are not both there. */

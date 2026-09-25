@@ -128,6 +128,14 @@ describe('check-pitfalls — the per-trap markers', () => {
   });
 });
 
+describe('check-pitfalls — a marker too broken to match', () => {
+  it('is reported as BROKEN, never as missing — a `>` makes the pattern match nothing', () => {
+    const { unmarked, problems } = parseTraps(['## H', '- **a.** x <!-- trap: sub=gates shape=fail-open > -->'], VOCAB);
+    assert.equal(unmarked.length, 0, 'the marker is there; calling it missing sends the author hunting');
+    assert.ok(problems.some((p) => /contains `>` and therefore matches NOTHING/.test(p.why)));
+  });
+});
+
 describe('check-pitfalls — what is and is not a trap', () => {
   it('ignores an INDENTED bullet, which is a sub-point of the trap above it', () => {
     const { traps } = parseTraps([

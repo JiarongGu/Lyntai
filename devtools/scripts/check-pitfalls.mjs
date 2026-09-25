@@ -23,7 +23,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { anchorProblems, blockRange, cell, fixedPoint, markerPattern, parseAttributes } from './_markers.mjs';
+import {
+  anchorProblems, cell, fixedPoint, markerPattern, parseAttributes, regenerate, scanMarkers,
+} from './_markers.mjs';
 
 const here = fileURLToPath(import.meta.url);
 const repoDefault = path.resolve(path.dirname(here), '..', '..');
@@ -43,46 +45,28 @@ export const BLOCK_END = '<!-- facets:end -->';
 const TRAP = /^- /;
 const MARKER = markerPattern('trap');
 const HEADING = /^## (.+)$/;
-const FENCE = /^\s*```/;
 const LEAD = /^- \*\*(.+?)\*\*/;
 
 /**
  * Every trap, as the file declares it — `{ traps, unmarked, problems }`.
  *
- * A top-level `- ` bullet is a trap; an indented one is a sub-point of the trap above it, and a line inside
- * a fenced block is not prose at all. Fences are tracked rather than assumed absent: this file quotes
- * captured output, and a `- ` inside a capture would otherwise be given a marker requirement it can never
- * satisfy — a gate demanding a change that would corrupt the thing it guards.
- *
- * THE GENERATED BLOCK IS SKIPPED, and that is not tidiness: its own rows are `- ` bullets, so without this
- * the generator's output is read back as a page of unfiled traps and the gate fails on the file it just
- * wrote. `check-backlog` escapes the same trap only by accident — its rows happen to be table rows.
- *
- * The block is located by `blockRange` — the SAME function that splices it — never by a second scan. An
- * earlier cut armed on any line carrying the begin prefix while the splicer took the first, and the two
- * derivations of one boundary drifted in the permissive direction: an anchor quoted lower in the file
- * suppressed every trap below it and `--write` published the truncation at exit 0.
+ * A top-level `- ` bullet is a trap; an indented one is a sub-point of the trap above it. A line inside a
+ * fence is not prose (this file quotes captured output), and the generated block's own rows are `- `
+ * bullets, so both are skipped — by `scanMarkers`, which also fails an unclosed fence and a broken marker.
  */
 export function parseTraps(lines, vocab = {}) {
   const traps = [];
   const unmarked = [];
-  const problems = [];
-  const block = blockRange(lines, BLOCK_BEGIN, BLOCK_END);
+  const { visible, problems } = scanMarkers(lines, { name: 'trap', begin: BLOCK_BEGIN, end: BLOCK_END, noun: 'trap' });
   let heading = null;
-  let fenced = false;
-  let fenceOpenedAt = 0;
 
-  lines.forEach((raw, i) => {
-    if (block && i >= block.start && i <= block.end) return;
-    if (FENCE.test(raw)) { fenced = !fenced; fenceOpenedAt = fenced ? i + 1 : 0; return; }
-    if (fenced) return;
+  visible.forEach(({ i, raw, marker, broken }) => {
     const h = HEADING.exec(raw);
     if (h) { heading = h[1]; return; }
-    if (!TRAP.test(raw)) return;
+    if (!TRAP.test(raw) || broken) return;
 
     const line = i + 1;
     const at = (why) => problems.push({ line, why });
-    const marker = MARKER.exec(raw);
     if (!marker) { unmarked.push({ line, text: raw.trim().slice(0, 78) }); return; }
 
     const { attrs, residue } = parseAttributes(marker[1]);
@@ -113,18 +97,7 @@ export function parseTraps(lines, vocab = {}) {
     });
   });
 
-  // A fence toggle that never balances deletes every trap below it FROM THE PARSE, and the gate then
-  // passes over the truncated read and writes it. Measured 2026-09-10: one forgotten closing fence took
-  // 157 traps to 131, `--write` published `131 traps` and exited 0, the next run was green, and an UNFILED
-  // trap in the suppressed tail was never reported — three of this gate's four checks voided at once by a
-  // one-line prose edit. A toggle is only a boundary if something asserts it balanced.
-  if (fenced)
-    problems.push({
-      line: fenceOpenedAt,
-      why: 'a code fence opened here is never closed, so every trap below it is invisible to this gate — '
-        + 'the index would be written over a truncated read',
-    });
-
+  problems.sort((a, b) => a.line - b.line);
   return { traps, unmarked, problems };
 }
 
@@ -156,11 +129,8 @@ export function renderFacets(traps, vocab = {}) {
 }
 
 /** The file with its facet index regenerated until it stops moving, or `null` if the anchors are missing. */
-export const facetFixedPoint = (text, vocab) => fixedPoint(
-  text,
-  (t) => renderFacets(parseTraps(t.split('\n'), vocab).traps, vocab),
-  BLOCK_BEGIN, BLOCK_END,
-);
+export const facetFixedPoint = (text, vocab) =>
+  fixedPoint(text, (t) => renderFacets(parseTraps(t.split('\n'), vocab).traps, vocab), BLOCK_BEGIN, BLOCK_END);
 
 export function checkPitfalls(repo, config = {}, log = console.log, opts = {}) {
   const vocab = config.pitfallFacets ?? {};
@@ -199,15 +169,15 @@ export function checkPitfalls(repo, config = {}, log = console.log, opts = {}) {
     : [];
   if (unused.length > 0) failures.push(`${unused.length} vocabulary value(s) no trap uses`);
 
-  const fixed = failures.length === 0 ? facetFixedPoint(normalized, vocab) : normalized;
-  if (fixed === null) {
+  const write = opts.write ? (next) => fs.writeFileSync(path.join(repo, RECORD), next) : null;
+  const render = (t) => renderFacets(parseTraps(t.split('\n'), vocab).traps, vocab);
+  const outcome = failures.length === 0 ? regenerate(normalized, render, BLOCK_BEGIN, BLOCK_END, write) : 'current';
+  if (outcome === 'missing')
     failures.push(`the index anchors are missing — add \`${BLOCK_BEGIN} -->\` and \`${BLOCK_END}\``);
-  } else if (fixed !== normalized && opts.write) {
-    fs.writeFileSync(path.join(repo, RECORD), fixed);
+  else if (outcome === 'written')
     log(`check-pitfalls: regenerated the facet index in ${RECORD} — ${traps.length} trap(s)`);
-  } else if (fixed !== normalized) {
+  else if (outcome === 'stale')
     failures.push(`the facet index at the head of ${RECORD} is STALE`);
-  }
 
   if (failures.length === 0) {
     const used = (f) => new Set(traps.flatMap((t) => t[f] ?? [])).size;
