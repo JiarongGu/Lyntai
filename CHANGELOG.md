@@ -189,6 +189,25 @@ every addition.
   `GenerationStatusTool`, `GenerationFetchTool`) are internal.** **What to DO:** register them with
   `AddGenerationTools(consumer)`, which now takes the billing tag, instead of constructing one.
 
+- **A provider's default id is its backend's name, and every CLI registration takes one.** `AddLlamaSharpProvider`
+  defaults to `"llamasharp"` (was `"local"`) and `Model2VecProviderOptions.Id` to `"model2vec"` (was `"static"`).
+  `AddClaudeCliProvider`, `AddCodexCliProvider`, `AddClaudeCliAgentSession`, `AddCodexCliAgentSession` and the
+  `ClaudeCliProvider` / `CodexCliProvider` constructors gain a trailing `id`, so two installs of one CLI (two
+  accounts, two portable copies) are two candidates rather than one unreachable duplicate. **What to DO:** a
+  candidate list, `UseDefaultCandidates` or `ScoringVerificationOptions.ProviderId` that named `"local"` or
+  `"static"` names the new id, or passes the old one as `id`; a precompiled caller of the CLI builders recompiles.
+
+- **An unserved `Produces` is refused at composition, with one exception type across the three siblings.**
+  `AddHttpProvider` throws `ArgumentException` for anything but Text, Vector or Score; `AddOllamaProvider` for
+  anything but Text or Vector (was `NotSupportedException`); `OnnxProvider.FromDirectory` before loading anything
+  (was `InvalidOperationException`). A typo such as `"embedding"` used to register a backend that declared that
+  kind to every router and threw on every call. **What to DO:** set a `Produces` the backend serves, and catch
+  `ArgumentException` where you caught the old types.
+
+- **A wrong-kind call to `HttpModelProvider` or `OllamaProvider` returns an `Unsupported` verdict** (a stream ends
+  in one `Unsupported` error chunk) instead of throwing `NotSupportedException`, as the `IModelProvider` defaults
+  and ONNX already did. A router never sends one. **What to DO:** a direct caller reads the response's `Verdict`.
+
 ### Security
 
 - **Recalled memory can no longer forge a prompt section** (**D166**). Both composers rendered an item as
@@ -251,6 +270,10 @@ every addition.
   reported to reject it, and reads a `url` reply as well as `b64_json`. `OpenAiImageOptions.ResponseFormat`
   overrides the choice. Not measured against the service.
 
+- **The claude agent session tells "streamed, then died before its terminal" from "no output produced"**, as codex
+  already did: both sessions now run one turn loop. The package descriptions of `Lyntai.Providers.Basic`, `.Onnx`,
+  `.LlamaSharp` and the `Lyntai` bundle say what each serves (reranking, native Ollama, ONNX reranking included).
+
 ### Added
 
 - **`ToolInvocation.InvokeGatedAsync` and `GatedToolResult`** (`Lyntai.Agents`): the ONE guarded flow for invoking
@@ -265,6 +288,12 @@ every addition.
   `NotConfigured`), `QueuedOperation.FromThrownSubmit(ex, sent)` (a submit that may have reached the queue is
   `Inconclusive`, never a plain failure the router would buy again elsewhere), and the factories
   `QueuedOperation.Failure` / `MediaSubmission.Failure`. Also `ProcessResult.StdErrTail(max)`.
+
+- **The rules a BYO backend should share rather than re-derive**: `InputSegmentation.Spread<T>` and
+  `InputSegmentation.DocumentShare` (the piece cap and the document share), `CliCommand.Resolve(command, backend)`
+  and `CliFault.Classify` / `CliFault.Exited` (the CLI fault → verdict map, stated once),
+  `Lyntai.Processes.OwnerOnlyTempFile` (the owner-only file a spawned CLI's credential-bearing configuration is
+  written to), `ClaudeCliMcpConnector(string providerId)` and `LlamaSharpBuilderExtensions.DefaultId`.
 
 - **The generic router (embed, rerank, custom kinds) emits telemetry**: a span per attempt with
   `gen_ai.operation.name` `embeddings` / `rerank` / the kind's own name, `gen_ai.client.operation.duration` and
@@ -495,6 +524,21 @@ every addition.
 
 - **`LyntaiOptions.ResolveTimeout(int?)` honours `TimeoutByConsumer["default"]`**, as the two-argument overload
   does; the claude and codex agent sessions used to ignore a host's default timeout.
+
+- **The claude agent session refuses a flag-shaped `ResumeToken`**, as codex did. `claude --resume [value]` takes an
+  OPTIONAL value, so a token beginning with `-` was parsed as a flag of its own. A blank token, or one starting with
+  `-`, now ends the turn `Unsupported` / `resume-token-invalid` before anything is spawned.
+
+- **The provider wire readers no longer throw on well-formed JSON of the wrong shape** — `{"choices":[null]}`,
+  `{"type":"assistant","message":"x"}`, a rerank body of `[]`, an index of `1.5` — which escaped `CompleteAsync`, a
+  stream or an agent session.
+
+- **Streamed Ollama tool calls on separate lines no longer merge into one invalid call.** Measured on Ollama
+  0.34.2: each call arrives complete on its own line with its `index` inside `function`, and the positional
+  fallback put every line's call in slot 0.
+
+- **A transport failure on the HTTP vector and rerank paths is a `Failed` verdict**, as on the chat path, instead
+  of an exception escaping the provider. The MCP tool host compares its bearer token in constant time.
 
 - **A single-input media backend refuses an input it cannot place instead of dropping it.** OpenAI images,
   Automatic1111 and `sd-cli` take one init image (a roleless input reads as init); fal takes one URL input as init,

@@ -1408,13 +1408,13 @@ services.AddLyntai(cfg =>
         o.GpuLayerCount = 0;      // 0 = CPU; raise to offload layers to the GPU
         o.ContextSize = 4096;     // null = the model's own trained maximum
     });
-    cfg.UseDefaultCandidates("local");
+    cfg.UseDefaultCandidates("llamasharp");   // the registration default id
 });
 ```
 
 The model loads lazily on first use and generations are serialized (one local model, one at a time).
 It's just another `IModelProvider`, so it fits anywhere in a fallback candidate list — e.g. a hosted
-model first, `"local"` as an offline backstop.
+model first, `"llamasharp"` as an offline backstop.
 
 ### Tool-calling (`Lyntai.Agents`)
 
