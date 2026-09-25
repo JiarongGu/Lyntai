@@ -2683,6 +2683,9 @@ interface Lyntai.Processes.IProcessRunner
     RunAsync(String command, IReadOnlyList<String> args, String stdin = null, Nullable<TimeSpan> inactivityTimeout = null, Nullable<TimeSpan> maxDuration = null, String workingDirectory = null, IReadOnlyDictionary<String,String> environment = null, CancellationToken ct = default) : Task<ProcessResult>
     StreamBytesAsync(String command, IReadOnlyList<String> args, String stdin = null, Nullable<TimeSpan> inactivityTimeout = null, Nullable<TimeSpan> maxDuration = null, String workingDirectory = null, IReadOnlyDictionary<String,String> environment = null, CancellationToken ct = default) : IAsyncEnumerable<Byte[]>
     StreamLinesAsync(String command, IReadOnlyList<String> args, String stdin = null, Nullable<TimeSpan> inactivityTimeout = null, Nullable<TimeSpan> maxDuration = null, String workingDirectory = null, IReadOnlyDictionary<String,String> environment = null, CancellationToken ct = default) : IAsyncEnumerable<String>
+static class Lyntai.Processes.OwnerOnlyTempFile
+    static TryDelete(String path) : Void
+    static Write(String kind, String content) : String
 sealed class Lyntai.Processes.ProcessResult
     .ctor(Int32 ExitCode, String StdOut, String StdErr, ProcessTimeoutKind TimeoutKind = ProcessTimeoutKind.None)
     Deconstruct(Int32& ExitCode, String& StdOut, String& StdErr, ProcessTimeoutKind& TimeoutKind) : Void

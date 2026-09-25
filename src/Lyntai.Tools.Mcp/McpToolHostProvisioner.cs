@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using Lyntai.Agents;
+using Lyntai.Processes;
 
 namespace Lyntai.Tools.Mcp.Hosting;
 
@@ -33,7 +34,8 @@ internal sealed class McpToolHostProvisioner(
                 new McpEndpoint(host.Url, token, options.ServerName),
                 (kind, content) =>
                 {
-                    var path = WriteTemp(kind, content);
+                    // a connector file typically carries the loopback bearer token
+                    var path = OwnerOnlyTempFile.Write(kind, content);
                     tempFiles.Add(path);
                     return path;
                 });
@@ -43,38 +45,15 @@ internal sealed class McpToolHostProvisioner(
             return new CliToolSession(args, async () =>
             {
                 await host.DisposeAsync().ConfigureAwait(false);
-                foreach (var path in tempFiles) TryDelete(path);
+                foreach (var path in tempFiles) OwnerOnlyTempFile.TryDelete(path);
             });
         }
         catch
         {
             // never leak the started host (or a half-written temp file) if the connector throws
             await host.DisposeAsync().ConfigureAwait(false);
-            foreach (var path in tempFiles) TryDelete(path);
+            foreach (var path in tempFiles) OwnerOnlyTempFile.TryDelete(path);
             throw;
         }
-    }
-
-    private static string WriteTemp(string kind, string content)
-    {
-        var path = Path.Combine(Path.GetTempPath(), $"lyntai-{kind}-{Guid.NewGuid():N}.json");
-        // a CLI config file typically carries the loopback bearer token — create OWNER-ONLY on Unix so
-        // another local user can't read the token and drive the tool host during the CLI window (Windows
-        // %TEMP% is already per-user ACL'd; UnixCreateMode throws there)
-        //
-        // TWIN: `CliTempFile.Write` in Lyntai.Providers.Basic does the same for an agent session's
-        // --mcp-config document. It cannot be shared — a provider package must never reference this one
-        // (docs/DECISIONS.md D17) — so if the permission logic changes here, change it there too.
-        var options = new FileStreamOptions { Mode = FileMode.CreateNew, Access = FileAccess.Write };
-        if (!OperatingSystem.IsWindows())
-            options.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
-        using var writer = new StreamWriter(new FileStream(path, options));
-        writer.Write(content);
-        return path;
-    }
-
-    private static void TryDelete(string path)
-    {
-        try { File.Delete(path); } catch { /* temp file — OK if it lingers */ }
     }
 }

@@ -318,7 +318,7 @@ public class ClaudeAgentSessionTests
     public async Task The_rendered_config_file_is_DELETED_when_the_turn_ends()
     {
         // it carries whatever secrets the caller's servers need, so it must not outlive the turn — this is
-        // the real CliTempFile path (the session writes it), not the recording writer above
+        // the real OwnerOnlyTempFile path (the session writes it), not the recording writer above
         var runner = new FakeProcessRunner(FullTranscript);
         var session = new ClaudeAgentSession(runner, new LyntaiOptions(), command: "claude");
         var opts = new AgentSessionOptions { Prompt = "hi", McpServers = [Stdio()] };

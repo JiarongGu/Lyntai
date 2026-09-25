@@ -75,7 +75,7 @@ public sealed class ClaudeAgentSession : IAgentSession
         var tempFiles = new List<string>();
         string Write(string kind, string content)
         {
-            var path = CliTempFile.Write(kind, content);
+            var path = OwnerOnlyTempFile.Write(kind, content);
             tempFiles.Add(path);
             return path;
         }
@@ -98,7 +98,7 @@ public sealed class ClaudeAgentSession : IAgentSession
         }
         finally
         {
-            foreach (var path in tempFiles) CliTempFile.TryDelete(path);
+            foreach (var path in tempFiles) OwnerOnlyTempFile.TryDelete(path);
         }
     }
 }
