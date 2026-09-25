@@ -12,7 +12,7 @@ is what to do when you know the SHAPE of what you are worried about but not wher
 
 <!-- facets:begin — GENERATED. Edit the per-trap `trap:` markers, never this index. -->
 
-## Facets — 233 traps, indexed two ways
+## Facets — 227 traps, indexed two ways
 
 _Generated from the per-trap `<!-- trap: … -->` markers by `node devtools/dev.mjs check-pitfalls --write`. Edit a marker, never this index._
 _Line numbers only, on purpose: this is for JUMPING, not for reading. The facets are ORTHOGONAL to the headings below — a probe's nine relevant traps once spanned five of them, two of which nobody_
@@ -20,35 +20,35 @@ _looking for that task would have opened._
 
 **By AREA** — which part of the repository breaks.
 
-- **`gates`** (47) — 57 · 90 · 99 · 108 · 115 · 121 · 128 · 134 · 143 · 153 · 160 · 168 · 174 · 189 · 197 · 216 · 221 · 299 · 355 · 364 · 374 · 397 · 404 · 422 · 429 · 618 · 724 · 737 · 752 · 762 · 771 · 779 · 802 · 968 · 2059 · 2083 · 2093 · 2125 · 2136 · 2155 · 2171 · 2182 · 2209 · 2581 · 2630 · 2639 · 2652
-- **`encoding`** (6) — 65 · 85 · 88 · 381 · 513 · 2209
-- **`git`** (7) — 168 · 181 · 189 · 202 · 381 · 389 · 2059
-- **`build`** (14) — 88 · 355 · 364 · 374 · 397 · 610 · 762 · 771 · 968 · 2022 · 2043 · 2047 · 2068 · 2102
-- **`router`** (6) — 811 · 816 · 825 · 827 · 830 · 960
-- **`cli`** (19) — 65 · 435 · 513 · 811 · 832 · 840 · 849 · 853 · 865 · 869 · 876 · 880 · 887 · 891 · 924 · 943 · 947 · 952 · 1861
-- **`lifetime`** (6) — 991 · 1000 · 1005 · 1010 · 1023 · 1031
-- **`storage`** (21) — 794 · 903 · 1040 · 1144 · 1172 · 1174 · 1175 · 1177 · 1179 · 1197 · 1208 · 1456 · 1468 · 1485 · 1492 · 1501 · 1767 · 1891 · 2191 · 2373 · 2558
-- **`memory`** (47) — 233 · 250 · 277 · 344 · 653 · 698 · 903 · 1074 · 1093 · 1104 · 1130 · 1144 · 1159 · 1180 · 1197 · 1208 · 1247 · 1262 · 1269 · 1274 · 1293 · 1304 · 1322 · 1329 · 1342 · 1355 · 1369 · 1420 · 1475 · 1518 · 1554 · 1590 · 1608 · 1615 · 1660 · 1682 · 1710 · 1749 · 1788 · 1870 · 1891 · 1989 · 2013 · 2266 · 2425 · 2453 · 2537
-- **`generation`** (12) — 646 · 669 · 715 · 816 · 1023 · 1590 · 1646 · 1801 · 1813 · 1844 · 1951 · 1976
-- **`di`** (13) — 1010 · 1262 · 1269 · 1293 · 1510 · 1512 · 1515 · 1518 · 1536 · 1615 · 1660 · 1813 · 1870
-- **`measurement`** (71) — 108 · 227 · 233 · 242 · 250 · 258 · 269 · 277 · 291 · 306 · 314 · 322 · 334 · 344 · 411 · 435 · 442 · 447 · 456 · 462 · 475 · 483 · 490 · 498 · 506 · 518 · 522 · 530 · 541 · 560 · 576 · 582 · 590 · 603 · 610 · 636 · 646 · 653 · 663 · 669 · 676 · 684 · 691 · 698 · 707 · 715 · 840 · 1040 · 1059 · 1130 · 1304 · 1322 · 1342 · 1376 · 1387 · 1402 · 1420 · 1475 · 1554 · 2047 · 2125 · 2242 · 2293 · 2308 · 2332 · 2352 · 2373 · 2403 · 2440 · 2505 · 2537
-- **`docs`** (32) — 74 · 115 · 134 · 143 · 207 · 389 · 404 · 411 · 422 · 618 · 624 · 628 · 632 · 737 · 752 · 802 · 1104 · 1646 · 1682 · 1755 · 1926 · 1936 · 2043 · 2083 · 2093 · 2136 · 2155 · 2171 · 2182 · 2191 · 2463 · 2652
-- **`tests`** (28) — 74 · 779 · 787 · 794 · 924 · 1116 · 1159 · 1180 · 1247 · 1274 · 1456 · 1468 · 1767 · 2255 · 2266 · 2277 · 2453 · 2476 · 2558 · 2566 · 2574 · 2578 · 2581 · 2593 · 2604 · 2617 · 2621 · 2625
+- **`gates`** (47) — 57 · 90 · 99 · 108 · 115 · 121 · 128 · 134 · 143 · 153 · 160 · 168 · 174 · 189 · 197 · 216 · 221 · 299 · 355 · 364 · 374 · 397 · 404 · 422 · 429 · 618 · 724 · 737 · 752 · 762 · 771 · 779 · 802 · 936 · 1674 · 1698 · 1708 · 1740 · 1751 · 1770 · 1786 · 1797 · 1824 · 2196 · 2245 · 2254 · 2267
+- **`encoding`** (6) — 65 · 85 · 88 · 381 · 513 · 1824
+- **`git`** (7) — 168 · 181 · 189 · 202 · 381 · 389 · 1674
+- **`build`** (14) — 88 · 355 · 364 · 374 · 397 · 610 · 762 · 771 · 936 · 1637 · 1658 · 1662 · 1683 · 1717
+- **`router`** (6) — 811 · 815 · 824 · 826 · 829 · 928
+- **`cli`** (19) — 65 · 435 · 513 · 811 · 831 · 839 · 848 · 852 · 859 · 863 · 870 · 874 · 881 · 885 · 904 · 911 · 915 · 920 · 1476
+- **`lifetime`** (6) — 948 · 957 · 962 · 967 · 973 · 981
+- **`storage`** (17) — 794 · 894 · 990 · 1036 · 1050 · 1063 · 1071 · 1202 · 1205 · 1221 · 1228 · 1237 · 1395 · 1506 · 1806 · 1988 · 2173
+- **`memory`** (46) — 233 · 250 · 277 · 344 · 653 · 698 · 894 · 1000 · 1010 · 1016 · 1029 · 1036 · 1044 · 1055 · 1063 · 1071 · 1081 · 1088 · 1095 · 1100 · 1109 · 1112 · 1120 · 1127 · 1140 · 1147 · 1154 · 1189 · 1211 · 1244 · 1251 · 1267 · 1283 · 1293 · 1317 · 1326 · 1338 · 1377 · 1485 · 1506 · 1604 · 1628 · 1881 · 2040 · 2068 · 2152
+- **`generation`** (12) — 646 · 669 · 715 · 815 · 973 · 1293 · 1311 · 1416 · 1428 · 1459 · 1566 · 1591
+- **`di`** (13) — 967 · 1088 · 1095 · 1109 · 1251 · 1259 · 1261 · 1264 · 1267 · 1275 · 1317 · 1428 · 1485
+- **`measurement`** (70) — 108 · 227 · 233 · 242 · 250 · 258 · 269 · 277 · 291 · 306 · 314 · 322 · 334 · 344 · 411 · 435 · 442 · 447 · 456 · 462 · 475 · 483 · 490 · 498 · 506 · 518 · 522 · 530 · 541 · 560 · 576 · 582 · 590 · 603 · 610 · 636 · 646 · 653 · 663 · 669 · 676 · 684 · 691 · 698 · 707 · 715 · 839 · 990 · 1029 · 1112 · 1120 · 1140 · 1161 · 1172 · 1180 · 1189 · 1211 · 1283 · 1662 · 1740 · 1857 · 1908 · 1923 · 1947 · 1967 · 1988 · 2018 · 2055 · 2120 · 2152
+- **`docs`** (32) — 74 · 115 · 134 · 143 · 207 · 389 · 404 · 411 · 422 · 618 · 624 · 628 · 632 · 737 · 752 · 802 · 1016 · 1311 · 1326 · 1383 · 1541 · 1551 · 1658 · 1698 · 1708 · 1751 · 1770 · 1786 · 1797 · 1806 · 2078 · 2267
+- **`tests`** (28) — 74 · 779 · 787 · 794 · 904 · 1022 · 1044 · 1055 · 1081 · 1100 · 1202 · 1205 · 1395 · 1870 · 1881 · 1892 · 2068 · 2091 · 2173 · 2181 · 2189 · 2193 · 2196 · 2208 · 2219 · 2232 · 2236 · 2240
 
 **By SHAPE** — how the wrongness stays invisible. Orthogonal to the area, and usually the more useful
 of the two: most of these traps recur in a subsystem that had never met them.
 
-- **`fail-open`** (24) — 168 · 233 · 250 · 277 · 404 · 456 · 636 · 715 · 825 · 830 · 849 · 924 · 1005 · 1093 · 1355 · 1369 · 1518 · 1554 · 1801 · 1813 · 1870 · 1976 · 1989 · 2425
-- **`cancellation`** (5) — 811 · 816 · 1074 · 1093 · 1116
-- **`vacuous`** (51) — 108 · 153 · 160 · 227 · 258 · 269 · 291 · 306 · 364 · 462 · 483 · 498 · 530 · 646 · 653 · 663 · 669 · 684 · 724 · 737 · 771 · 787 · 880 · 943 · 960 · 1116 · 1159 · 1180 · 1247 · 1274 · 1322 · 1376 · 1387 · 1420 · 1554 · 1682 · 2191 · 2266 · 2277 · 2308 · 2440 · 2453 · 2476 · 2505 · 2558 · 2581 · 2593 · 2604 · 2621 · 2630 · 2639
-- **`scope-blind`** (46) — 90 · 121 · 128 · 134 · 143 · 153 · 168 · 174 · 189 · 216 · 221 · 381 · 422 · 429 · 691 · 737 · 762 · 802 · 968 · 1262 · 1269 · 1342 · 1456 · 1468 · 1646 · 1682 · 1710 · 1767 · 1891 · 2013 · 2083 · 2093 · 2102 · 2125 · 2136 · 2155 · 2171 · 2182 · 2191 · 2277 · 2440 · 2453 · 2578 · 2630 · 2639 · 2652
-- **`second-door`** (23) — 827 · 865 · 869 · 880 · 887 · 947 · 952 · 1031 · 1175 · 1197 · 1492 · 1518 · 1660 · 1749 · 1767 · 1788 · 1801 · 1813 · 1844 · 1891 · 1926 · 1951 · 2013
-- **`stale-claim`** (25) — 57 · 134 · 181 · 207 · 411 · 490 · 506 · 618 · 628 · 771 · 1104 · 1515 · 1646 · 1755 · 1788 · 1844 · 1926 · 2043 · 2047 · 2136 · 2155 · 2171 · 2463 · 2593 · 2652
-- **`silent-loss`** (68) — 65 · 74 · 85 · 88 · 115 · 197 · 202 · 216 · 221 · 242 · 250 · 334 · 381 · 397 · 404 · 435 · 447 · 483 · 513 · 522 · 541 · 560 · 603 · 636 · 669 · 676 · 715 · 752 · 762 · 779 · 853 · 869 · 903 · 991 · 1023 · 1059 · 1130 · 1172 · 1174 · 1175 · 1177 · 1197 · 1208 · 1247 · 1369 · 1402 · 1475 · 1485 · 1492 · 1501 · 1510 · 1515 · 1536 · 1608 · 1660 · 1710 · 1861 · 1951 · 1989 · 2022 · 2047 · 2068 · 2083 · 2093 · 2209 · 2293 · 2373 · 2505
-- **`wrong-subject`** (70) — 57 · 74 · 99 · 108 · 202 · 227 · 242 · 269 · 277 · 299 · 306 · 314 · 322 · 334 · 344 · 355 · 374 · 462 · 475 · 498 · 506 · 522 · 541 · 560 · 576 · 582 · 624 · 632 · 646 · 653 · 663 · 676 · 684 · 691 · 698 · 707 · 752 · 794 · 827 · 876 · 968 · 1000 · 1010 · 1040 · 1130 · 1180 · 1293 · 1304 · 1329 · 1342 · 1376 · 1387 · 1420 · 1590 · 1615 · 1976 · 2022 · 2059 · 2068 · 2242 · 2293 · 2308 · 2332 · 2352 · 2373 · 2476 · 2537 · 2581 · 2617 · 2621
-- **`unmeasured`** (17) — 314 · 344 · 389 · 411 · 422 · 442 · 590 · 610 · 832 · 840 · 849 · 891 · 943 · 1329 · 1590 · 1936 · 2463
-- **`ordering`** (11) — 374 · 853 · 952 · 1144 · 1179 · 1501 · 1536 · 1861 · 1870 · 2255 · 2403
-- **`resource`** (13) — 355 · 397 · 518 · 582 · 707 · 832 · 924 · 1031 · 1040 · 1512 · 2566 · 2574 · 2625
+- **`fail-open`** (24) — 168 · 233 · 250 · 277 · 404 · 456 · 636 · 715 · 824 · 829 · 848 · 904 · 962 · 1010 · 1147 · 1154 · 1267 · 1283 · 1416 · 1428 · 1485 · 1591 · 1604 · 2040
+- **`cancellation`** (5) — 811 · 815 · 1000 · 1010 · 1022
+- **`vacuous`** (51) — 108 · 153 · 160 · 227 · 258 · 269 · 291 · 306 · 364 · 462 · 483 · 498 · 530 · 646 · 653 · 663 · 669 · 684 · 724 · 737 · 771 · 787 · 874 · 911 · 928 · 1022 · 1044 · 1055 · 1081 · 1100 · 1120 · 1161 · 1172 · 1189 · 1283 · 1326 · 1806 · 1881 · 1892 · 1923 · 2055 · 2068 · 2091 · 2120 · 2173 · 2196 · 2208 · 2219 · 2236 · 2245 · 2254
+- **`scope-blind`** (46) — 90 · 121 · 128 · 134 · 143 · 153 · 168 · 174 · 189 · 216 · 221 · 381 · 422 · 429 · 691 · 737 · 762 · 802 · 936 · 1088 · 1095 · 1140 · 1202 · 1205 · 1311 · 1326 · 1338 · 1395 · 1506 · 1628 · 1698 · 1708 · 1717 · 1740 · 1751 · 1770 · 1786 · 1797 · 1806 · 1892 · 2055 · 2068 · 2193 · 2245 · 2254 · 2267
+- **`second-door`** (21) — 826 · 859 · 863 · 874 · 881 · 915 · 920 · 981 · 1063 · 1228 · 1267 · 1317 · 1377 · 1395 · 1416 · 1428 · 1459 · 1506 · 1541 · 1566 · 1628
+- **`stale-claim`** (24) — 57 · 134 · 181 · 207 · 411 · 490 · 506 · 618 · 628 · 771 · 1016 · 1264 · 1311 · 1383 · 1459 · 1541 · 1658 · 1662 · 1751 · 1770 · 1786 · 2078 · 2208 · 2267
+- **`silent-loss`** (64) — 65 · 74 · 85 · 88 · 115 · 197 · 202 · 216 · 221 · 242 · 250 · 334 · 381 · 397 · 404 · 435 · 447 · 483 · 513 · 522 · 541 · 560 · 603 · 636 · 669 · 676 · 715 · 752 · 762 · 779 · 852 · 863 · 894 · 948 · 973 · 1029 · 1050 · 1063 · 1071 · 1081 · 1154 · 1180 · 1211 · 1221 · 1228 · 1237 · 1244 · 1259 · 1264 · 1275 · 1317 · 1338 · 1476 · 1566 · 1604 · 1637 · 1662 · 1683 · 1698 · 1708 · 1824 · 1908 · 1988 · 2120
+- **`wrong-subject`** (70) — 57 · 74 · 99 · 108 · 202 · 227 · 242 · 269 · 277 · 299 · 306 · 314 · 322 · 334 · 344 · 355 · 374 · 462 · 475 · 498 · 506 · 522 · 541 · 560 · 576 · 582 · 624 · 632 · 646 · 653 · 663 · 676 · 684 · 691 · 698 · 707 · 752 · 794 · 826 · 870 · 936 · 957 · 967 · 990 · 1029 · 1055 · 1109 · 1112 · 1127 · 1140 · 1161 · 1172 · 1189 · 1251 · 1293 · 1591 · 1637 · 1674 · 1683 · 1857 · 1908 · 1923 · 1947 · 1967 · 1988 · 2091 · 2152 · 2196 · 2232 · 2236
+- **`unmeasured`** (17) — 314 · 344 · 389 · 411 · 422 · 442 · 590 · 610 · 831 · 839 · 848 · 885 · 911 · 1127 · 1293 · 1551 · 2078
+- **`ordering`** (11) — 374 · 852 · 920 · 1036 · 1050 · 1237 · 1275 · 1476 · 1485 · 1870 · 2018
+- **`resource`** (13) — 355 · 397 · 518 · 582 · 707 · 831 · 904 · 981 · 990 · 1261 · 2181 · 2189 · 2240
 
 <!-- facets:end -->
 
@@ -811,8 +811,7 @@ of the two: most of these traps recur in a subsystem that had never met them.
 - **A timeout as a single `CancelAfter` over a whole call** — a wall clock that kills a slow-but-alive <!-- trap: sub=router,cli shape=cancellation -->
   child (a long tool loop, a big prompt) exactly like a dead one. Both the STREAMING path and the BUFFERED
   `ProcessRunner.RunAsync` must use a per-chunk inactivity clock (re-armed on each read); the buffered path
-  adds an absolute `maxDuration` backstop and reports `ProcessResult.TimeoutKind`. (Streaming shipped the
-  bug in two providers; the buffered path shipped it too — both fixed.)
+  adds an absolute `maxDuration` backstop and reports `ProcessResult.TimeoutKind`.
 - **A non-positive resolved budget means the OPPOSITE thing in the two domains — don't "unify" the idiom <!-- trap: sub=router,generation shape=cancellation -->
   casually.** The LLM sites arm the clock unconditionally (`HttpModelProvider.CompleteAsync`,
   `HttpVectorTransport.EmbedBatchAsync` and `HttpRerankTransport.ScoreAsync` all `CancelAfter(timeout)`), and app-configured
@@ -852,16 +851,11 @@ of the two: most of these traps recur in a subsystem that had never met them.
   billing a turn to answer the sentence "auth status". Same reasoning as above, one step further out.
 - **Trusting the exit code over the machine-readable answer.** A signed-out `auth status` may report its <!-- trap: sub=cli shape=ordering,silent-loss -->
   state AND exit non-zero — that's an ANSWER, not a broken backend. Parse first, then fall back to the exit
-  code (`CliProviderEngine.StatusAsync`). And parse the WHOLE body: the `Tail()` helper keeps the LAST 500
-  chars, which would decapitate a JSON document.
-  **The COMPLETION path had the same defect and shipped with it** (fixed 2026-08-05, `docs/FIXES.md`):
-  `CompleteAsync` returned on a non-zero exit *before* parsing stdout, so a turn that reported its failure in
-  band AND exited non-zero was classified from whatever was on stderr — measured as `Failed` /
-  "exit 1: Reading prompt from stdin..." for a 401 that should have been `AuthFailed` (which benches the
-  host; `Failed` merely advances). **The generalisation, since one seam having this fixed did not stop the
-  next one shipping it: whenever a backend can answer in TWO channels, decide the precedence explicitly and
-  pin it with a test.** The backend's own words outrank the exit code every time; the exit code is context
-  for the detail, not the reason.
+  code (`CliProviderEngine.StatusAsync`), and parse the WHOLE body: the `Tail()` helper keeps the LAST 500
+  chars, which would decapitate a JSON document. **The completion path shipped the same defect** — a 401
+  reported in band with a non-zero exit was classified from stderr as `Failed` instead of `AuthFailed`
+  (`docs/FIXES.md`, 2026-08-05). **Whenever a backend can answer in TWO channels, decide the precedence
+  explicitly and pin it with a test**: the backend's own words outrank the exit code.
 - **Re-implementing the CLI rules for a new CLI backend.** Everything above lives in <!-- trap: sub=cli shape=second-door -->
   `CliProviderEngine` (Core, `Lyntai.Inference.Cli`); a new CLI is an `ICliBackend`, never a fresh
   `IModelProvider` (`docs/DECISIONS.md` D21). The reason these traps were fixable at all is that there is now
@@ -891,54 +885,28 @@ of the two: most of these traps recur in a subsystem that had never met them.
 - **Mapping a wire format you have not measured, name by name.** The codex agent session's tool-step half is <!-- trap: sub=cli shape=unmeasured -->
   INFERRED (the measured capture ran no tools). It is written **shape-driven**: any unknown item type becomes
   a tool step under the BACKEND's own name carrying the BACKEND's own payload, nothing renamed or normalised.
-  **Be precise about what that buys, because the first draft of this entry was not:** it guarantees *no
-  payload is invented or dropped* and *every uncertainty stays inside the tool-step half* — it does NOT
-  guarantee the right KIND of event. `CodexAgentReader.ReadItem` reaches the tool arm by **elimination**
-  against three names, one of which (`reasoning`) is itself a guess, so a renamed `reasoning` surfaces the
-  model's thought as a *fabricated* `ToolCall`. A tool step's **kind is provisional, its payload is
-  reliable** — tell consumers to switch on `ToolCall.Name`. Mark every inferred member as inferred in the
-  XML docs — and where a guess would COST something (codex reads an unrecognized subcommand as a prompt and
-  spends a turn), refuse instead of guessing, and refuse instead of silently ignoring. A safety claim that
-  overreaches is itself a documented-not-measured surface (`docs/DECISIONS.md` D35).
+  That guarantees *no payload is invented or dropped* and *every uncertainty stays inside the tool-step half*
+  — NOT the right KIND of event: `CodexAgentReader.ReadItem` reaches the tool arm by **elimination** against
+  three names, one itself a guess, so a renamed `reasoning` surfaces as a *fabricated* `ToolCall`. A tool
+  step's **kind is provisional, its payload is reliable** — tell consumers to switch on `ToolCall.Name`. Mark
+  every inferred member as inferred in the XML docs, and where a guess would COST something (codex spends a
+  turn on an unrecognized subcommand), refuse rather than guess (`docs/DECISIONS.md` D35).
 - **When one layer RESOLVES a caller's "not stated" into a concrete value, the next layer cannot tell it <!-- trap: sub=memory,storage shape=silent-loss -->
-  from a value the caller chose — and writing it back destroys their data silently.** Measured 2026-08-26,
-  **three times in one subsystem** (`docs/DECISIONS.md` **D91**, `docs/FIXES.md`).
-  `GraphMemoryEngine` turned `MemoryGrade.Inherit` into `Associative`, a null `Headline` into a truncation
-  of the content, and passed both to a store whose upsert overwrote unconditionally. So refreshing a fact
-  demoted it out of the authoritative grade, and replaced an authored headline with a machine-made one.
-  `Metadata` was the same family from the other side: the store simply ignored it, so a correction was
-  dropped.
-  <br>**Every one was silent, destroyed the caller's own data, and was undiscoverable without reading the
-  SQL** — and the fix in each case is to carry the DISTINCTION, not the resolved value: `GradeStated`,
-  `HeadlineStated`, `COALESCE(@metadata, stored)`.
-  <br>**The generalisation, and the reason this is one entry rather than three:** a default that means
-  "decide for me" is information, and resolving it early throws that information away. Ask of any field a
-  caller may omit — **does some layer turn the omission into a value, and does a later layer then persist
-  it as though it were chosen?**
-  <br>**Two of the three were found only by looking**, which is the part worth copying. The first was found
-  by asking what a re-remember overwrites; the second and third by this document's own §"Copying a rule
-  copies its assumptions" advice — *grep your own diff for the other places the distinction applies* — run
-  against the session that had just fixed the first. A rule articulated and not applied to its own author's
-  work is a rule that catches one instance.
+  from a value the caller chose — and writing it back destroys their data silently.** Three times in one
+  subsystem (**D91**; `docs/FIXES.md`, 2026-08-26): `GraphMemoryEngine` turned `MemoryGrade.Inherit` into
+  `Associative` and a null `Headline` into a truncation, and the store overwrote unconditionally; `Metadata`
+  was ignored from the other side. **Carry the DISTINCTION, not the resolved value** (`GradeStated`,
+  `HeadlineStated`, `COALESCE(@metadata, stored)`). Ask of any field a caller may omit: **does some layer turn
+  the omission into a value, and does a later layer persist it as chosen?** Two of the three were found only
+  by grepping the first fix's own diff for the other places the distinction applied — this file's
+  §"Copying a rule copies its assumptions" advice, run against its own author.
 
 - **A NEGATIVE result cached in a process-lifetime cache is permanent, and it is the one answer that had no <!-- trap: sub=cli,tests shape=resource,fail-open -->
-  business being remembered.** Measured 2026-08-26 (`docs/FIXES.md`).
-  `ProcessRunner.ResolveCommandPath` memoized `Locate(cmd) ?? cmd` into a static `ConcurrentDictionary` —
-  fallback included — so ONE transient `where.exe` failure pinned the unresolved bare name forever, and
-  `CommandExists` reads a name with no directory part as NOT FOUND. From that moment every provider's
-  `IsAvailable` reported an installed CLI as absent, silently, until the process restarted.
-  <br>**The asymmetry is the rule: a success is a fact, a failure is a MOMENT.** "node is at
-  C:\…\node.exe" stays true; "the locator did not answer just now" says nothing about the next call, and
-  the thing being cached is a process spawn under load — exactly the operation whose failures are
-  transient. Re-looking-up a genuinely missing command costs one spawn per call, which is the cheap side:
-  a command that is absent is absent once, a command wrongly believed absent is wrong until restart.
-  <br>**How it presented, because that is the part worth recognising:** as a TEST FLAKE. `verify`
-  intermittently failed exactly 9 tests while a standalone run never did — a constant count, because one
-  poisoned entry fails everything downstream of it at once. A varying count would have suggested load; a
-  constant one is a single cause. **When a flake's count is stable, look for one shared piece of state, not
-  for a race.**
-  <br>And when you fix a cache, **write the positive control**: a fact asserting the failure is not cached
-  passes on an implementation that caches nothing at all, which fixes the bug by deleting the optimization.
+  business being remembered.** `ProcessRunner.ResolveCommandPath` memoized a failed `where.exe` lookup, so
+  one transient failure made an installed CLI look absent until restart (`docs/FIXES.md`, 2026-08-26). **A
+  success is a fact, a failure is a MOMENT.** It presented as a TEST FLAKE of a constant 9 tests — **a stable
+  flake count points at one shared piece of state, not a race.** When you fix a cache, write the POSITIVE
+  control too: "the failure is not cached" passes on an implementation that caches nothing at all.
 
 - **Trusting an explicit command without checking it exists.** For a PORTABLE install (an app's own bundled <!-- trap: sub=cli shape=unmeasured,vacuous -->
   CLI copy) `IsAvailable` must verify presence — `ProcessRunner.CommandExists`, which also accepts an
@@ -967,27 +935,16 @@ benched tenant, an unbounded engine or a render nobody cancelled.
 
 - **Hoisting a member into a new BASE interface, and deleting it from the derived one, breaks every <!-- trap: sub=build,gates shape=scope-blind,wrong-subject -->
   pre-compiled caller.** Adding a base interface is binary-safe; removing the member from the interface that
-  used to declare it is not, and the refactor that does both in one step reads as pure cleanup. A consumer
-  compiled against the old surface emits `callvirt IModelProvider::get_Id`, and member resolution **does not
-  walk base interfaces** — so `provider.Id` throws `MissingMethodException` until that assembly is
-  *recompiled*, which upgrading a package reference does not do. Nothing in this repository catches it:
-  `check-warnings` is silent, the API baseline shows a line moving from one interface to another, and
-  **`consumer-smoke` cannot see it at all** because it rebuilds its consumer from source every run. To test a
-  binary-compatibility claim you must compile a probe against the OLD assembly and run it against the new one
-  (a `callvirt` on a `null` argument is enough — `NullReferenceException` means the member resolved,
-  `MissingMethodException` means it did not). `IModelProvider` therefore keeps its
-  own `new string Id { get; }` next to `IProviderIdentity`; the declaration is the compatibility, and a
-  test pins it. (It was TWO seams when this was written — **D127** collapsed them, and the `new`
-  declaration outlives the collapse because a caller compiled against either one still binds through it.) Implementors are unaffected either way — one implicit `public string Id` satisfies both
-  slots — so an implementor-only compatibility check proves nothing about callers.
-  **The next two places this can happen, named so nobody has to rediscover them:** `IScorer`
-  (`src/Lyntai.Core/Cortex/IScorer.cs`) and `ICliBackend`
-  (`src/Lyntai.Core/Inference/Cli/ICliBackend.cs`) each declare their own `string Id { get; }` with exactly
-  the shape `IProviderIdentity` supplies, so both look like leftovers a tidy-up should hoist. Neither derives
-  from `IProviderIdentity` today, and neither should be *changed to derive from it by deleting its own
-  declaration* — that is the same `MissingMethodException` for every pre-compiled caller of `scorer.Id` or
-  `backend.Id`. If either ever gains the base interface, it keeps its own `new string Id { get; }` too, and
-  gets a line in `ProviderIdentityTests` alongside `IModelProvider`.
+  used to declare it is not, and the refactor that does both reads as pure cleanup. A caller compiled against
+  the old surface emits `callvirt IModelProvider::get_Id`, and member resolution **does not walk base
+  interfaces**, so `provider.Id` throws `MissingMethodException` until that assembly is recompiled — which
+  upgrading a package does not do. Nothing here catches it: `check-warnings` is silent, the baseline shows a
+  line moving, and **`consumer-smoke` rebuilds its consumer from source**. To test such a claim, compile a
+  probe against the OLD assembly and run it against the new one. `IModelProvider` therefore keeps its own
+  `new string Id { get; }` beside `IProviderIdentity`, pinned by a test; an implementor-only check proves
+  nothing about callers. **The next two places:** `IScorer` and `ICliBackend` each declare `string Id { get; }`
+  with `IProviderIdentity`'s shape and look like leftovers to hoist — if either ever gains the base, it keeps
+  its own `new` declaration and a line in `ProviderIdentityTests`.
 - **Disposing a replaced instance aborts in-flight work.** Retiring an entry looks like it should clean up <!-- trap: sub=lifetime shape=silent-loss -->
   after itself, and "clean up" reads as `Dispose`. It isn't: retirement removes the entry and drops the
   pool's reference, and the runtime reclaims the instance once the last caller finishes. **Without leases a
@@ -1007,19 +964,12 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   `TransientProviderPool` and every call builds its own limiter with its own fresh permits, so the local
   engine the limit exists to protect thrashes exactly as it would with no limit configured. Keyed and shared
   (`ProviderAdmission`) is the only shape that survives both strategies.
-- **A key derived from the options object is right for some backends and silently wrong for others.** Four of <!-- trap: sub=lifetime,di shape=wrong-subject -->
-  the five generation options types are records with `init` members and compare structurally; but
-  `LocalDiffusionOptions` is a plain class and compares by **reference**, and `ComfyUiOptions.Produces` /
-  `FalQueueOptions.Produces` are `IReadOnlyList<string>` members that record equality also compares by reference
-  (both defaults are collection expressions evaluated per instance, so even two default-constructed options
-  compare unequal). So automatic derivation reuses correctly for **two** backends and rebuilds-or-reuses
-  arbitrarily for **three**. (The measured basis, so the next audit can re-check the tally without re-deriving
-  it: `Automatic1111Options` and `OpenAiImageOptions` are the two with no collection member at all — only
-  `string`/`int`/`double`/`TimeSpan`.) Name every contribution
-  (`ProviderKey.For(id).With("baseUrl", …).WithSecret("apiKey", …)`) so a forgotten member is visible in
-  review — and include values the backend resolves at **runtime** (a downloaded engine's binary/model paths
-  appear when the download completes; the saved configuration has not changed, yet a pooled instance holding
-  empty paths keeps failing forever).
+- **A key derived from the options OBJECT is wrong for every generation backend, and silently.** Every <!-- trap: sub=lifetime,di shape=wrong-subject -->
+  generation options type is a mutable `sealed class` compared by REFERENCE, and `ComfyUiOptions.Produces` /
+  `FalQueueOptions.Produces` are lists built per instance, so two identical configurations never compare
+  equal. Name every contribution (`ProviderKey.For(id).With("baseUrl", …).WithSecret("apiKey", …)`) so a
+  forgotten member is visible in review, and fold in values the backend resolves at RUNTIME —
+  `ProviderKeyBuilder`'s own doc says why.
 - **Decorating a provider erases its optional capability interfaces.** The generation seam expresses <!-- trap: sub=lifetime,generation shape=silent-loss -->
   long-running and streaming delivery as *additional* interfaces the router type-tests:
   `if (provider is not IMediaJobProvider job) continue;` (`MediaRouter.SubmitAsync`). Any wrapper
@@ -1038,227 +988,103 @@ benched tenant, an unbounded engine or a render nobody cancelled.
 ## Storage (details in `storage.md`)
 
 - **A single-threaded benchmark cannot see a PROCESS-GLOBAL ceiling, and SQLite ships one that is ON by <!-- trap: sub=storage,measurement shape=resource,wrong-subject -->
-  default.** SQLite collects memory-allocation statistics unless told not to, and maintaining them takes a
-  process-global mutex on every allocation and free — so concurrent readers serialise on a counter that has
-  nothing to do with the database. It cost **12–29×** here: read-only recalls peaked at TWO workers on a
-  22-core machine and fell to 216/s by sixteen, against 6,275/s with the statistics off (`docs/memory.md`
-  §7, **D107**). Every test in this repository passed throughout, because every one of them is
-  single-threaded.
-  <br>**The diagnostic lesson is worth more than the setting.** Six plausible causes were refuted before
-  the real one — the connection open, GC, exceptions, the WAL, journal mode, the measurement window — and
-  the two measurements that actually located it were both about SCOPE rather than about SQLite: a CPU-over-
-  wall column (the threads were burning 7.7 cores, so they were NOT waiting on a lock, which killed every
-  lock hypothesis at once), and an isolation ladder ending in **separate PROCESSES**. One engine, one store
-  and one database file per worker collapsed identically, while eight separate processes scaled fine.
-  **When per-object and per-file isolation change nothing and a second process fixes it, stop looking for
-  shared state in your own code** — something in the process is global, and a native dependency's
-  configuration is invisible to every grep you would think to run.
-  <br>**And a flattering refutation still needs repeats.** A 29× improvement is exactly the shape this
-  repository has twice published and retracted; it was re-run interleaved with its control three times
-  (on 330/320/317, off 3,154/4,056/4,060) before being believed.
-- **Two embedding servers disagree about an OVER-LONG input, and the quiet one is the dangerous one.** <!-- trap: sub=measurement shape=silent-loss -->
-  Ollama truncates silently and answers; `llama-server` returns `500 … input (N tokens) is too large`. So
-  moving a bench from one to the other turns an invisible behaviour into a crashed run — and the crash is
-  what revealed that the behaviour was there all along. Measured 2026-09-08: LongMemEval's texts reach
-  **76,560 characters against a median of 429**, so every figure on record was taken with that tail quietly
-  cut by whichever server happened to answer, at whatever limit it happened to be started with.
-  <br>**A CHARACTER budget cannot bound a TOKEN limit** — density varies by an order of magnitude across
-  scripts, and a constant picked against prose fails on dense text. The first attempt at 6,000 characters
-  cleared the corpus's LONGEST text at 1,290 tokens and still 500'd on a denser one. The fix is to shrink
-  and retry on the server's own complaint, with a floor so a pathological input fails loudly rather than
-  being cut to nothing and embedded as a meaningless vector.
-  <br>**And COUNT it.** A run that truncates and does not say so is claiming to have embedded text it did
-  not; the footer now reports `N input(s) truncated`. That is the same defect as a table naming the model
-  it REQUESTED rather than the one that answered — a silent difference between what was measured and what
-  was reported.
+  default.** SQLite's memory-allocation statistics take a process-global mutex on every allocation, so
+  concurrent readers serialise on a counter unrelated to the database (**D107**; `docs/memory-measurements.md`
+  §5, `scale-sqlite-statistics-off`) — while every test here passed, because every one is single-threaded.
+  **The diagnostic lesson is worth more than the setting**: six plausible causes were refuted first, and what
+  located it was SCOPE — a CPU-over-wall column (threads burning cores are not waiting on a lock) and an
+  isolation ladder ending in separate PROCESSES. **When per-object and per-file isolation change nothing and a
+  second process fixes it, stop looking for shared state in your own code**: something in the process is
+  global, and a native dependency's configuration is invisible to every grep. A flattering 29× still needed
+  repeats before it was believed.
 - **`catch (OperationCanceledException) { throw; }` makes a fail-open seam fail CLOSED the moment the work <!-- trap: sub=memory shape=cancellation -->
   it wraps is an HTTP call.** An `HttpClient` timeout surfaces as `TaskCanceledException`, which IS an
   `OperationCanceledException`, so a bare rethrow cannot tell "the caller cancelled" from "my own request
-  timed out" — and rethrowing the second one propagates out of a method whose whole contract is to degrade.
-  Measured 2026-09-09: a judge call exceeding its timeout took down a recall, and with it 40 minutes of
-  ingestion (`docs/FIXES.md`).
-  <br>**The fix is a filter, not a broader catch**: `when (ct.IsCancellationRequested)`. Swallowing every
-  cancellation is the wrong repair — it makes a cancelled operation look like a successful one — so pin BOTH
-  halves, which is what `MemoryVerificationTimeoutTests` does.
-  <br>**Why it survived**: the seam is opt-in and defaults to none, so the shipped path never exercises it.
-  **Whenever a fail-open catch wraps work that can be a network call, ask which exception the timeout
-  actually throws.** Census on 2026-09-09: `Lyntai.Core/Memory` held 21 such sites; every one is now
-  guarded and **0** bare.
-  <br>**The idiom was ALREADY drawn here, and that is the durable half.** `SemanticMemory.cs:50` has
-  carried `when (ct.IsCancellationRequested)` over an embedder since 2026-07-18 (`8a2cde6`), so this was
-  never a technique nobody had; it was one applied unevenly two directories away. **A repository that
-  already solved something in one place will solve it inconsistently unless something checks** — look for
-  your own prior art before concluding a defect is novel, because finding it changes the fix from "add a
-  guard" to "make the rule uniform".
+  timed out" — a judge call exceeding its timeout took down a recall and 40 minutes of ingestion
+  (`docs/FIXES.md`, 2026-09-09). **The fix is a filter, not a broader catch**: `when (ct.IsCancellationRequested)`,
+  with BOTH halves pinned (`MemoryVerificationTimeoutTests`). **Whenever a fail-open catch wraps work that can
+  be a network call, ask which exception the timeout actually throws.** Census on 2026-09-09:
+  `Lyntai.Core/Memory` held 21 such sites; every one is now
+  guarded and **0** bare. The idiom had been in `SemanticMemory`'s embed catch since 2026-07-18 — **look for
+  your own prior art before concluding a defect is novel**; it turns "add a guard" into "make the rule uniform".
 - **Fail-open handlers nest, so the promise is only as good as the WEAKEST link in the chain — and testing <!-- trap: sub=memory shape=fail-open,cancellation -->
-  a link in isolation cannot see that.** One timeout from a BYO embedder passes through the seed source,
-  the engine's gather, the composite, and then the walk or the composition: four nested handlers, each
-  documented fail-open, each individually looking correct. A bare rethrow at ANY of them breaks the promise
-  of ALL of them, and a per-layer test stays green while the chain leaks end to end. Measured 2026-09-09 in
-  `Lyntai.Core/Memory`, where the same defect sat at 16 sites at once.
-  <br>**So when a fail-open promise is made at more than one level, test it END TO END from the deepest
-  fault to the outermost caller**, not once per layer — and treat "each site needs its own answer" with
-  suspicion when every site carries the same promise. Here they did: "must not sink the blend", "returning
-  nothing", "stored unlinked", "must not sink the caller's prompt". The per-site framing was what made a
-  one-line-per-site fix look like an unjustified sweep.
+  a link in isolation cannot see that.** One timeout from a BYO embedder passes through the seed source, the
+  engine's gather, the composite and then the walk: four handlers, each documented fail-open, each looking
+  correct, and a bare rethrow at ANY of them breaks all of them (16 sites at once, 2026-09-09). **Test a
+  multi-level fail-open promise END TO END, from the deepest fault to the outermost caller**, and distrust
+  "each site needs its own answer" when every site carries the same promise.
 - **When a CONTRACT states the false premise, fixing the code alone ships a doc that contradicts it — and <!-- trap: sub=docs,memory shape=stale-claim -->
-  no gate can see that.** The cancellation defect above was not only in the catches: `IMemoryEngine`'s own
-  recall doc said *"Only `OperationCanceledException` propagates, because cancellation belongs to the
-  caller"*, and `IMemorySeedSource`'s said *"Cancellation is the exception and is always propagated"* in
-  the same paragraph as *"it must not throw for a transient fault"* — which an `HttpClient` timeout is
-  BOTH of. The seed sources' own docs went further and asserted the wrong behaviour as a feature
-  (*"that is the caller leaving, not an enrichment fault"*).
-  <br>**A contract that justifies itself is where a wrong premise hides best**, because the justifying
-  clause reads as reasoning rather than as a claim to check. Grep the seam docs for the RULE, not just the
-  code for the idiom — and prefer a promise phrased as a TEST the reader can apply
-  (`ct.IsCancellationRequested`) over one phrased as a type (`OperationCanceledException`), because the
-  type is what was ambiguous.
+  no gate can see that.** `IMemoryEngine`'s recall doc said *"Only `OperationCanceledException` propagates,
+  because cancellation belongs to the caller"*, and `IMemorySeedSource`'s said cancellation "is always
+  propagated" beside "must not throw for a transient fault" — which an `HttpClient` timeout is BOTH of. **A
+  contract that justifies itself is where a wrong premise hides best**: grep the seam docs for the RULE, and
+  phrase a promise as a TEST the reader can apply (`ct.IsCancellationRequested`) rather than a type.
 - **A caller-cancel test written as `ThrowsAnyAsync` on a PRE-cancelled token usually cannot fail, so the <!-- trap: sub=tests shape=vacuous,cancellation -->
-  control that was supposed to stop a bad fix certifies it instead.** The pair above is the standard shape:
-  one test says the seam's own timeout degrades, its twin says a real cancel still propagates. The twin is
-  what stops the lazy repair (`catch (OperationCanceledException) { return None; }`) — and on a pre-cancelled
-  token it is usually satisfied by something else entirely. Measured 2026-09-09 on both twins in this
-  repository: `RecallAsync` checks the token before anything else, so the verifier is **never reached**; and
-  on the write path the annotator's exception was swallowed by the wrong fix, the write continued, and
-  `store.UpsertAsync` — outside every `try` — threw an `OperationCanceledException` of its own. Both twins
-  passed under the wrong fix, and `docs/FIXES.md` claimed both halves were pinned.
-  <br>**Two fixes, and they are different because the two paths are.** MARK the exception the seam throws
-  and assert on the marker, so another component's cancellation cannot satisfy it; and reach the seam with
-  a token that is cancelled — which on a path with an entry check means cancelling MID-CALL, from inside the
-  policy, rather than before. **Then mutation-test it**: apply the wrong fix and watch the twin go red. A
-  control nobody has seen fail is not a control.
+  control that was supposed to stop a bad fix certifies it instead.** The twin of "the seam's own timeout
+  degrades" is "a real cancel still propagates", and on a pre-cancelled token something else satisfies it:
+  `RecallAsync` checks the token before reaching the verifier, and on the write path a store call outside
+  every `try` threw its own cancellation — both twins passed under the wrong fix (`docs/FIXES.md`,
+  2026-09-09). **MARK the exception the seam throws and assert on the marker, cancel MID-CALL from inside the
+  policy, then apply the wrong fix and watch the twin go red.** A control nobody has seen fail is not one.
 - **A seam that hands a model a TRUNCATION measures the truncation, and the model takes the blame.** <!-- trap: sub=memory,measurement shape=wrong-subject,silent-loss -->
-  `IMemoryVerificationPolicy` received `MemoryVerificationCandidate.Headline` and never `Content`, while
-  `GraphMemoryOptions.HeadlineChars` shipped at 120. **That premise is GONE — `Content` was added and
-  `ScoringVerificationPolicy` now passes `c.Content ?? c.Headline` (D108)** — and the entry stays because the
-  SHAPE is what recurs: a seam narrowing its input measures the narrowing. Measured 2026-09-08 on LoCoMo, whose turns have a median
-  of 133 characters: a purpose-built cross-encoder scored **78.0%** against its base's 85.5% and read as a
-  refutation of the whole design lead — until the same model on the same arm with headlines long enough to
-  hold the turn read **91.0%**. Headline length alone was worth **+13.0** to the reranked arm and +0.5 to
-  the base (`docs/memory-measurements.md` §5, **D107**'s neighbour).
-  <br>**The tell was that the audit was CLEAN.** 16,002 pairs scored, 15,958 distinct — the model
-  discriminated almost perfectly and still lost, which is the signature of a model being fed the wrong
-  input rather than of a model that cannot do the job. **Before concluding a model class does not transfer,
-  check what the seam actually passed it** — and prefer a control that varies the INPUT (a longer headline)
-  over one that varies the model.
-- **An admission guarantee must survive the LIMIT, not just the WHERE.** "Admitted unconditionally" that <!-- trap: sub=storage,memory shape=ordering -->
-  is implemented only as a predicate is still excluded by `ORDER BY … LIMIT` whenever the ordering key is
-  the axis the protected row is weakest on. All three `IMemoryGraphStore` backends filtered authoritative
-  material into every seed candidate set correctly, then ordered by recency alone and took a capped
-  count — so a long-quiet exact fact, which by definition has the lowest recency in its scope, sorted last
-  and was cut before ranking ever saw it. Grade now leads the seed ordering ahead of recency **on the paths
-  that HAVE one** — the in-process store's single ordering, and two of `SqliteMemoryGraphStore.SeedAsync`'s
-  three branches (the LIKE-fallback and no-query ones). Check both halves whenever a query claims to exempt
-  something.
-  <br>**Grade-first is not uniform across backends, found measuring the seed-source fusion plan
-  (2026-08-31).** SQLite's FTS/bm25 branch has NO grade term in its own `ORDER BY` at all — bm25 leads
-  because everything in that result already matched, so match quality outranks grade there by design; an
-  authoritative fact is instead fetched by a SEPARATE query and merged in afterwards. **A fixture written
-  against SQLite's FTS path alone passes a rule it never exercises.** Read the backend's actual query, never
-  generalise the ordering from one branch or from a sibling backend.
+  `IMemoryVerificationPolicy` once received only a candidate's 120-character `Headline`; on LoCoMo a
+  purpose-built cross-encoder then read as a refutation of the design, until the same model with headlines
+  long enough to hold the turn gained 13 points (`docs/memory-measurements.md` §5; `Content` is now passed,
+  **D108**). **The tell was a CLEAN audit** — the model discriminated almost perfectly and still lost, which is
+  the signature of the wrong input rather than a weak model. **Before concluding a model class does not
+  transfer, check what the seam passed it**, and prefer a control that varies the INPUT over the model.
+- **An admission guarantee must survive the LIMIT, not just the WHERE.** "Admitted unconditionally" that is <!-- trap: sub=storage,memory shape=ordering -->
+  implemented only as a predicate is still excluded by `ORDER BY … LIMIT` whenever the ordering key is the
+  axis the protected row is weakest on — a long-quiet exact fact sorted last by recency and was cut before
+  ranking saw it, on every backend (`docs/FIXES.md`, 2026-08-09). Grade now leads the seed ordering on the
+  paths that have one — the in-process store, Postgres, and two of SQLite's three branches. **SQLite's
+  FTS/bm25 branch has no grade term by design**; an authoritative fact is fetched separately and merged, so a
+  fixture on that path alone passes a rule it never exercises. Read each backend's actual query, and never
+  generalise an ordering from one branch or a sibling backend.
 - **A bound configured on one SCOPE and enforced on another is not a bound — and the tests will only ever <!-- trap: sub=memory,tests shape=vacuous -->
-  exercise the regime where the gap is invisible.** The sequel to the entry above, and it shipped inside the
-  fix for it. `GraphMemoryOptions.AuthoritativeReserve` is a per-ENGINE option that reserves recall slots;
-  `MemoryQuery.Limit` arrives per QUERY. Only the `null` DEFAULT was capped by the limit (`?? limit`), so an
-  explicit value larger than a caller's limit overran it outright — measured at reserve `5` / `Limit: 2`,
-  **three items came back for a limit of two, and not one ordinary hit**, against a promise written down in
-  three maintained documents. `5` is a sensible bound against the default limit of `10`; the trigger is
-  simply a caller passing something smaller, which is what a prompt budget does.
-  <br>**Both existing tests used a reserve BELOW the limit** (`1` against `3` and `4`) — the only regime where
-  the missing cap cannot be observed — and nothing anywhere asserted the flat property that a recall returns
-  at most `Limit` items. **Whenever two limits come from different scopes, write the fact that the narrower
-  one still binds**, and pick fixture values from the regime where they DISAGREE; a fixture in which the
-  configured bound is always the smaller one tests the reconciliation you did not write.
-- **Missing FTS `'delete'` trigger row on delete/update** — silent index corruption. Three triggers, <!-- trap: sub=storage shape=silent-loss -->
-  always.
-- **A double column read without `CAST(x AS REAL)`** — the SQLite integer-affinity trap. <!-- trap: sub=storage shape=silent-loss -->
-- **Opening a connection outside the factory** — loses per-connection `foreign_keys=ON`, so cascades <!-- trap: sub=storage shape=second-door,silent-loss -->
-  silently stop.
-- **Reusing a migration number** — silently skipped, so the migration never runs. Use <!-- trap: sub=storage shape=silent-loss -->
-  `dev.mjs new-migration`.
-- **`ORDER BY` on a non-unique column with no tiebreaker** — nondeterministic on ties. <!-- trap: sub=storage shape=ordering -->
+  exercise the regime where the gap is invisible.** `GraphMemoryOptions.AuthoritativeReserve` (per ENGINE)
+  was capped by `MemoryQuery.Limit` (per QUERY) only when null, so reserve `5` with `Limit: 2` returned three
+  items and no ordinary hit (`docs/FIXES.md`, 2026-08-14). Both tests used a reserve BELOW the limit — the one
+  regime where the missing cap is unobservable. **Whenever two limits come from different scopes, write the
+  fact that the narrower still binds, and pick fixture values from the regime where they DISAGREE.**
+- **The SQL traps that corrupt silently, each stated in `storage.md`**: a missing FTS `'delete'` trigger row <!-- trap: sub=storage shape=silent-loss,ordering -->
+  on delete/update (three triggers, always); a double read without `CAST(x AS REAL)` (integer affinity); a
+  connection opened outside the factory (it loses `foreign_keys=ON`, so cascades stop); a reused migration
+  number (silently skipped — use `dev.mjs new-migration`); an `ORDER BY` on a non-unique column with no
+  tiebreaker (nondeterministic on ties).
 - **A `Relevance` normalized by RANK POSITION, not by score margin, makes a bounded rank boost's effect <!-- trap: sub=memory,tests shape=wrong-subject,vacuous -->
-  CANDIDATE-COUNT DEPENDENT.** `SqliteMemoryGraphStore.SeedAsync` (and the other two backends' own
-  orderings) reports `Relevance = 1 - i / rows.Count` — with only two candidates that is *exactly* 1.0 and
-  0.5, a fixed 2× gap no matter how close the underlying `bm25` scores actually are; with ten candidates the
-  same 2nd-place gap shrinks to 10%. Found 2026-08-09 closing the memory-retention-model Plan 2
-  (`docs/DECISIONS.md` D45, `GraphMemoryRankingTests`): a first pass shipped a LOGARITHMIC rank boost
-  (then `GraphMemoryOptions.SalienceRankWeight`; the property moved to
-  `Lyntai.Memory.Ranking.MultiplicativeRankingOptions.SalienceRankWeight` when the ranking-policy seam landed,
-  same name, same default) defaulting ON, and the default value could not clear the 2× worst-case gap even at
-  the maximum salience a real appraiser can report — which is *why* the owner then ruled the boost OFF by
-  default in `docs/DECISIONS.md` **D45** (salience means "does not fade away", not "first priority"; store
-  admission, which is unconditional, already delivers the former). The reusable trap either way: **a test (or
-  a consumer's own expectation) for any rank-lifting signal over this store needs a result set large enough
-  that the position-based gap it is fighting is smaller than the boost it is proving** — two candidates is
-  the WORST case, not a representative one. `docs/task-archive.md` Part 53 item 1 (the ranking-policy seam
-  itself, shipped 2026-08-09) is where this was found; the salience-measurement residue is
-  `docs/task-archive.md` Part 216.
-- **One stored value read at N sites grows N coercion rules, and the divergence is silent.** Found <!-- trap: sub=memory,storage shape=second-door,silent-loss -->
-  2026-08-09 in the same work: `salience` was read at FOUR sites with THREE rules — both SQL stores coerced
-  `IsFinite ? Math.Max(1, x) : 1` into their promoted column, the in-process store ordered the raw bag value,
-  and the engine's rank boost used a bare `Math.Max(1, x)`. So `{salience: 0.5}` admitted level with
-  unappraised rows on SQL and BELOW them in-process — same data, same query, different backend — and a `NaN`
-  (reachable through the public appraiser seam) crashed the write on one backend, sorted to the TOP on
-  another, and made every candidate's rank `NaN` in the engine, which empties the recall entirely because
-  `NaN >= floor` is false. **Put the coercion in ONE public function on the value's own type and make every
-  reader call it** (`MemorySignals.Salience`), the same discipline
-  `ModulatedRetrievability.Declared` already applies within one file — and remember `Math.Max` PROPAGATES
-  `NaN` per IEEE 754, so a clamp is not a finiteness guard.
+  CANDIDATE-COUNT DEPENDENT.** The stores report `MemoryRelevance.ByRankPosition` (`1 - i / count`): with two
+  candidates that is exactly 1.0 and 0.5, a fixed 2× gap however close the underlying `bm25` scores are; with
+  ten the same 2nd-place gap is 10%. A logarithmic salience rank boost defaulting ON could not clear the
+  2-candidate gap at any real salience — part of why ranking by salience defaults OFF (**D45**). **A test (or
+  a consumer's expectation) for any rank-lifting signal needs a result set large enough that the position gap
+  it fights is smaller than the boost it proves** — two candidates is the WORST case, not a representative
+  one (`docs/task-archive.md` Part 53).
+- **One stored value read at N sites grows N coercion rules, and a helper whose doc says "EVERY read site <!-- trap: sub=memory,storage shape=second-door,silent-loss -->
+  calls this" is a claim nothing checks.** `salience` was read at FOUR sites with THREE rules (2026-08-09), so
+  `{salience: 0.5}` admitted differently per backend and a `NaN` crashed one write, sorted to the top on
+  another and emptied the recall in the engine. **Put the coercion in ONE public function on the value's own
+  type and make every reader call it** (`MemorySignals.Salience`) — and a FOURTH reader added later
+  (`SalienceRetentionPolicy`, 2026-08-17) spelled the read out itself and got `NaN` wrong. **Whenever you
+  extract a coercion, grep for the raw accessor it wraps** (here `Get(WellKnown.Salience`) and route every hit
+  through the helper; two correct copies is how three incorrect ones started.
 - **A clamp is not a finiteness guard — `Math.Max`/`Math.Min`/`Math.Clamp` PROPAGATE `NaN` (IEEE 754).** <!-- trap: sub=memory,storage shape=silent-loss -->
-  Promoted to its own entry because it landed **twice in four days in the same subsystem**, the second time
-  *in a file whose neighbour documents the identical fact*: `ModulatedRetrievability` already warns about
-  `Math.Max(1, NaN)`, and `DsrRetrievability.Reinforce` still shipped `Math.Max(0, increase)` as its safety
-  floor. Both authors read the clamp as "this can only make it safe". Being written down was not enough —
-  **route an implementer to this document in the dispatch**, because nothing surfaces it otherwise
-  (`.claude/rules/skills-workflow.md`).
-  Write `double.IsFinite(x) ? Math.Max(0, x) : fallback` wherever the input is derived arithmetic rather
-  than a literal. The consequence is never local: `GraphMemoryEngine` feeds `Reinforce` straight into
-  `TouchAsync`, so on the in-process store one `NaN` stability is **persisted permanently** — and `NaN`
-  compares false against every threshold, so the entry neither ranks, prunes, nor reports as broken.
-  <br>**Third occurrence, 2026-08-14, and it is the one that changes the prescription.** The two above were
-  authors reading a clamp as a safety guard. This one is different and worse: `DsrRetrievability.Reinforce`
-  had the guard, in that exact form, with a comment explaining that `Age` arrives per-call and therefore
-  cannot be validated at construction — and then the difficulty law was added as a **second reader of the
-  same `Retrievability(state)` value**, re-derived the finiteness question independently, and concluded the
-  opposite in writing ("every term feeding `D''` is provably finite"). A `NaN` age produced a `NaN` grade and
-  a persisted `NaN` difficulty, through `ExpandAsync`, which is the act this library's own docs recommend
-  reinforcing on. **So the rule is not "remember to guard" — it is that a guard belongs to the VALUE, not to
-  the call site.** When a second consumer of a already-guarded expression appears, it does not inherit the
-  reasoning, and the only two shapes that survive are pushing the guard down to where the value is produced
-  (here, `DerivedGrade` screening the retrievability once for both readers) or the `MemorySignals.Salience`
-  treatment — one public coercion function every reader calls. Two call sites reasoning separately about the
-  same double is the same defect as two call sites coercing it separately, which is the entry above this one.
-  <br>**Fourth occurrence, 2026-08-16, on the WRITE path — and the prescription two lines up is what missed
-  it.** `GraphMemoryEngine` shipped `_policy.InitialStability * Math.Max(0, tick.Encoding)` and
-  `Math.Max(0, tick.Position)`, both persisted, both fed from the public `IMemoryAgePolicy.Advance` seam. The
-  rule was already written HERE, in this entry, naming the exact replacement — and the search that would
-  have found it is not "where do we clamp a derived double" but "**what does this seam RETURN, and is any of
-  it stored**". `IMemoryAgePolicy.Age` carries a long paragraph promising a non-finite return "cannot corrupt
-  the store, the review log, or anyone else's recall" because everything downstream that would persist the
-  poison is defended. That was true of `Age`, which is never persisted, and false of `Advance` on the very
-  next member — so the doc's own confidence was what made the gap invisible. **A contract paragraph that
-  reasons about one member of a seam does not cover its siblings**, and the more thorough it is, the more it
-  reads as though it does.
-  <br>The two backends then disagreed about the poisoned write, which is worse than either answer: Postgres
-  added `NaN` into the engine's running position permanently (every LATER entry reports a non-finite age, so
-  nothing ranks and nothing prunes), while SQLite refused the bind and threw. Fixed by coercing to `1` —
-  taken from `MemoryTick.One`'s existing definition of an ordinary write, rather than inventing a neutral.
+  It landed FOUR times in one subsystem (`docs/FIXES.md`, 2026-08-14 and 2026-08-17), the last two with this
+  rule already written: `DsrRetrievability.Reinforce` had the guard and a second reader of the same value
+  re-derived finiteness and concluded the opposite; then `GraphMemoryEngine` persisted `Math.Max(0, tick…)`
+  from the public `IMemoryAgePolicy.Advance`, which a long contract paragraph about `Age` read as though it
+  covered. Write `double.IsFinite(x) ? Math.Max(0, x) : fallback` wherever the input is derived arithmetic; a
+  persisted `NaN` compares false against every threshold, so the entry neither ranks, prunes nor reports.
+  **A guard belongs to the VALUE, not the call site** — push it to where the value is produced, or make one
+  public coercion every reader calls — and **ask what a seam RETURNS and whether any of it is stored**: a
+  contract paragraph about one member does not cover its siblings. Route implementers here in the dispatch.
 - **A ceiling written as a bare `Math.Min(grown, max)` is a CUT, not a cap, for anything already above it — <!-- trap: sub=memory,tests shape=silent-loss,vacuous -->
-  and the value it cuts is usually persisted.** `DsrRetrievability.Reinforce` shipped that shape through
-  2.5.x, so recalling an entry whose STORED stability already exceeded `MaxStability` wrote the ceiling back:
-  a stored `100000` returned `2000`, a **50× shortening**, violating `IMemoryRetrievabilityPolicy.Reinforce`'s
-  own written "never smaller than the current one" guarantee — which the interface then *disclosed* for a
-  release rather than closing. Reachable by lowering the ceiling under an existing corpus, or by any value
-  written outside the policy. **The correct shape was already in the same file, one method away**:
-  `EffectiveStability` has always written `Math.Max(current, Math.Min(current * factor, max))`, where the
-  outer floor makes the bound cap GROWTH without ever acting as a CUT — an over-ceiling entry is *frozen*,
-  which is all a growth ceiling ever claims to do. Two things generalise. **(1) Ask what a bound means for an
-  input already past it**: "cannot grow beyond X" and "is never above X" are different promises, and `Math.Min`
-  alone silently implements the second. **(2) A monotonicity guarantee needs a fixture that can actually
-  violate it** — the contract fact that should have caught this (`Reinforcement_never_shortens_a_memory`) only
-  ever ran on a state at `InitialStability`, structurally far below any ceiling, so it passed for two years
-  while the guarantee was false. Fixed 2026-08-11 (`docs/task-archive.md` Part 54, DSR2).
+  and the value it cuts is usually persisted.** `DsrRetrievability.Reinforce` shipped that shape, so recalling
+  an entry stored above `MaxStability` wrote the ceiling back — a 50× shortening against its own "never
+  smaller" guarantee — while `EffectiveStability`, one method away, had the right shape:
+  `Math.Max(current, Math.Min(current * factor, max))`. **Ask what a bound means for an input already past
+  it** ("cannot grow beyond X" is not "is never above X"), and **give a monotonicity guarantee a fixture that
+  can violate it** — the contract fact had only ever run far below the ceiling (`docs/task-archive.md` Part 54).
 - **A record where ONE field is domain-guarded and its neighbours are not is more dangerous than one with no <!-- trap: sub=di,memory shape=scope-blind -->
   guards at all** — the guard reads as evidence the record was audited. `DsrOptions.Decay` got a validating
   `init` in 2026-08-09's Task 1 (after a review found `Decay = 0` made everything permanently unforgettable
@@ -1272,53 +1098,25 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   score and not to the guard — admits a configuration whose score is identically zero, so ordering falls to
   the id tiebreak. Check the same list the score sums, never a second copy of it.
 - **A test whose recall silently returns nothing exercises only the write path — and stays green.** Hit <!-- trap: sub=tests,memory shape=vacuous -->
-  twice, four days apart, both times while reaching for `InMemoryMemoryGraphStore` "for speed": 2026-08-09 a
-  recall-quality guard measured a **~93% miss rate** and switched to `SqliteMemoryGraphStore`; 2026-08-10 an
-  age-primitive identity test instrumented at **writes 25, queries 69, `TouchAsync` calls 0** — every recall
-  returned `MemoryRecall.Empty` *before* `ReinforceAsync`, so deleting the store's entire touch stamping left
-  the test green.
-  **The CAUSE was fixed in 3.0 and the LESSON was not.** The cause was that only SQLite's FTS path split a
-  query into terms; every other path matched the whole query as one contiguous substring, so
-  `"item topic0 repeat0"` could never match `"item topic0 covers <filler> ordinary material…"`.
-  `SearchTerms` now gives every backend the same split (`docs/DECISIONS.md` D55), so the old prescription —
-  *any test whose subject is the RECALL or TOUCH path must run on SQLite* — no longer holds **for that
-  reason**. Prefer SQLite anyway when the subject is RANKING, which the in-process store still has none of.
-  What survives unchanged is how both were caught, and neither was caught by reading: **mutate the behaviour
-  the test claims to cover and watch it stay green.** Note also that the second one shipped a guard
-  *intended* to catch this — `Assert.True(comparisons > ids.Count)` — which 25 writes alone satisfy at 325
-  comparisons, so it could never detect zero touches. **A guard that cannot observe the thing it guards is
-  worse than none: it reads as coverage.** And the wider one, which is why this entry keeps its history:
-  a cross-backend difference filed as *by design* had been quietly failing recall on two of three backends
-  for a year, defended by a test that asserted the divergence rather than questioning it.
-- **`EdgeHalfLife` exists on TWO options records, with the same name and the same default `100`, governing <!-- trap: sub=di,memory shape=wrong-subject -->
-  DIFFERENT things.** `GraphMemoryOptions.EdgeHalfLife` decays an **edge's weight** during traversal — it is
-  what stops the graph saturating, and it is read by the engine for every arm regardless of which
-  retrievability policy is installed. `DsrOptions.EdgeHalfLife` decays **connection strength** inside the
-  curve, feeding `EffectiveStability` and therefore retrievability. Found 2026-08-11 writing the 3.0
-  migration guide; a review three days earlier had already been wrong about this once in the other
-  direction, generalising "the shared one governs edge weight for every arm" into "nothing reads the
-  policy's own copy" — which was false and reached a decision record before it was caught.
-  **Both default to 100, so they agree by coincidence and nothing surfaces the confusion until someone tunes
-  one and expects the other's behaviour.** When you touch either, name which one in the same sentence;
-  "the edge half-life" is ambiguous in this subsystem and always has been.
+  twice reaching for `InMemoryMemoryGraphStore` "for speed" (2026-08-09, 2026-08-10): a recall-quality guard
+  measured a ~93% miss rate, and an identity test instrumented at 25 writes, 69 queries and **0** touches
+  stayed green with the store's touch stamping deleted. The cause — only SQLite's FTS path split a query into
+  terms — was fixed by `SearchTerms` (**D55**); prefer SQLite anyway when the subject is RANKING, which the
+  in-process store has none of. **The lesson outlived the cause: mutate the behaviour the test claims to
+  cover and watch it stay green.** Its guard `Assert.True(comparisons > ids.Count)` was met by writes alone —
+  **a guard that cannot observe the thing it guards reads as coverage** — and a divergence filed as *by
+  design* had been failing recall on two backends for a year, defended by a test that asserted it.
+- **`GraphMemoryOptions.EdgeHalfLife` and `DsrOptions.EdgeHalfLife` share a name and a default of 100 and <!-- trap: sub=di,memory shape=wrong-subject -->
+  govern different things** — an edge's weight during traversal, and connection strength inside the curve.
+  Name which one; the second's XML doc says how.
 - **A PERMANENT change driven by the system's own retrieval decisions is the dangerous shape — not merely an <!-- trap: sub=memory,measurement shape=wrong-subject -->
-  unbounded one.** Five studies on 2026-08-12 across `GraphMemoryEngine`'s three retrievability-raising
-  mechanisms, including two that refuted the investigator's own earlier framings, which is why the
-  qualifications below are part of the entry rather than trimmed out of it.
-  <br>**Measured:** salience (keyed on write-time content novelty) HELPS; the age reset a recall performs
-  (age → 0) HELPS; stability growth HURTS badly, and **in every form tested** — the shipped compounding rule,
-  a capped one, and one computed purely from the entry's recall COUNT so that it cannot compound by
-  construction. Not growing at all beat all three on every corpus shape.
-  <br>**Two framings this refuted, both plausible and both wrong.** "Reinforcement is net-harmful" was wrong
-  because every arm still had the age reset on — the harm is growth alone. "A bounded effect is safe, a
-  compounding one is not" was wrong because the non-compounding form still lost to not growing.
-  <br>**What fits all of it**: the age reset EXPIRES (the entry decays again at the same rate), while growth
-  PERSISTS (it decays slower forever), and salience persists but is keyed on content rather than on
-  retrieval. So the combination that does damage is *permanent* × *retrieval-conditioned* — the system banks
-  its own ranking error instead of letting it wash out. **The question to ask of any such mechanism: does its
-  effect expire, and if not, is it driven by something other than the system's own output?** Offered as the
-  hypothesis that survives, not as a proven law — it is the third framing in one day and has not been tested
-  on its own terms.
+  unbounded one.** Five studies on 2026-08-12: salience (keyed on write-time content) HELPS, the age reset a
+  recall performs HELPS, and stability growth HURTS in every form tested — compounding, capped, and computed
+  from the recall COUNT so it could not compound (**D54**). Two framings died on the way: "reinforcement is
+  harmful" (the age reset helps) and "bounded is safe" (the non-compounding form still lost). **What fits**:
+  the age reset EXPIRES while growth PERSISTS, so permanent × retrieval-conditioned banks the ranker's own
+  error. **Ask of any such mechanism whether its effect expires, and if not, whether it is driven by
+  something other than the system's own output** — offered as the surviving hypothesis, not a law.
 - **A `DsrOptions` sweep on the field benches reads FLAT by construction — the constants are invisible there, <!-- trap: sub=memory,measurement shape=vacuous -->
   not inert.** Under the shipped `ReciprocalRankFusionPolicy` retrievability votes by RANK, and
   `(1 + f·age/S)^Decay` orders entries by `age/S` whatever `Decay` is — so no curve constant reorders a recall
@@ -1340,32 +1138,19 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   a caller choosing to pay for full content, which this engine already produces and then weights identically
   to a guess.
 - **An English, space-separated test corpus measures the FRIENDLIEST tokenization a trigram-FTS store <!-- trap: sub=measurement,memory shape=wrong-subject,scope-blind -->
-  supports, and every number it produces is a best case.** Measured 2026-08-12: the same cluster-recall
-  question scores ~**0.47** miss with a cue whose only live token reaches the target, and ~**0.82** with a cue
-  carrying ordinary words that also appear elsewhere — a gap far larger than any policy effect measured that
-  day. **Cue quality dominated every knob in the subsystem.**
-  <br>The trap is the reflex, not the number: the overlapping cue was first dismissed as a stopword
-  "mistake" and deleted. That is wrong here, because this store tokenizes FTS as `trigram` precisely so
-  non-Latin text works, and **under trigram matching almost any two texts share trigrams — for CJK there is
-  no stopword to strip and the contention is unavoidable.** So the "contaminated" case was the representative
-  one for a large part of the audience, and the "clean" one was the artificial best case.
-  <br>**Before calling incidental match contamination, ask which tokenizer the store actually uses and which
-  languages it claims to support.** A repository named 灵台 with CJK storage tests does not get to measure
-  only English.
+  supports, and every number it produces is a best case.** The same cluster-recall question scored ~0.47 miss
+  with a cue whose only live token reaches the target and ~0.82 with ordinary overlapping words (2026-08-12)
+  — a gap larger than any policy effect that day. The overlapping cue was first dismissed as a stopword
+  "mistake"; under trigram matching almost any two texts share trigrams, and **for CJK there is no stopword to
+  strip**, so the "contaminated" case was the representative one. **Ask which tokenizer the store uses and
+  which languages it claims before calling incidental matching contamination.**
 - **A best-effort catch turns a BUG into "nothing matched", and you will debug the wrong layer for hours.** <!-- trap: sub=memory shape=fail-open -->
-  Measured 2026-08-13 adding query-time semantic seeding: `GraphMemoryEngine.RecallAsync` wraps
-  `GatherAsync` in `catch (Exception ex) { _logger.LogWarning(...); return MemoryRecall.Empty; }` — a
-  deliberate best-effort promise, so a storage outage degrades to "no memory" rather than a throw. The cost
-  is that **any** defect in the gather path produces an empty recall, which is indistinguishable from a
-  query that legitimately matched nothing. With no logger attached — the default in a hand-built engine —
-  there is no signal at all. Two implementations were debugged blind against a feature that was, on the
-  third attempt, correct all along.
-  <br>**Before concluding "the feature does not work", attach a logger and assert it stayed silent.** The
-  fix is not to remove the catch (the promise is right) but to make the silence assertable:
-  `SemanticSeedProbeTests` asserts an empty warning list, so a swallowed failure fails the test rather than
-  looking like a null result. The general rule: **wherever a catch converts an exception into a plausible
-  empty value, a test must be able to tell the two apart** — and that test is the one to write FIRST when a
-  new code path in that method appears to do nothing.
+  `GraphMemoryEngine.RecallAsync` wraps `GatherAsync` in a catch that logs and returns `MemoryRecall.Empty` —
+  a deliberate promise — so any defect in the gather path looks like a query that matched nothing, and with
+  no logger attached there is no signal at all (two implementations were debugged blind against a feature
+  that was correct, 2026-08-13). **Attach a logger and assert it stayed silent** (`SemanticSeedProbeTests`),
+  and wherever a catch converts an exception into a plausible empty value, **write first the test that can
+  tell the two apart.**
 - **One best-effort `try` around several steps turns the FIRST failure into the loss of all of them — and <!-- trap: sub=memory shape=fail-open,silent-loss -->
   its log line names the lesser loss.** Found twice in one method pair on 2026-09-24 (`docs/FIXES.md`,
   **D175**): the graph engine's link loop sat before the vector upsert in one `try`, and its embed shared one
@@ -1385,92 +1170,43 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   rather than by the run — a wrong control does not fail, it silently certifies.
 
 - **A benchmark class whose STORE is smaller than the PAGE cannot measure retrieval at all, and it looks <!-- trap: sub=measurement shape=vacuous,wrong-subject -->
-  like a perfect score rather than a broken instrument.** Measured 2026-09-04 over LongMemEval's oracle
-  variant, per class: `single-session-assistant` has a median of **8 turns**, and **63% of its questions have
-  a store that fits entirely inside `k = 10`** — the first recall returns the whole conversation, so any
-  shot curve over it is flat by construction and any recall metric reads ~100%. `single-session-user` is 11%
-  and `single-session-preference` 0%, against 0% for the multi-session classes.
-  <br>**This is Part 112's finding in its sharpest form** — there the oracle returned 40% of its store and
-  "barely tests retrieval"; here it returns ALL of it. **Before scoring a new class, divide its store size
-  by `k`.** If the answer is near or below 1, the class needs the haystack variant or a smaller `k`, and a
-  high score on it is a statement about the fixture.
-  <br>**And check for ZERO-EVIDENCE questions in the same pass**: 6 knowledge-update, 8 multi-session, 6
-  single-session-user and 1 temporal-reasoning question carry no flagged turn at all. They are unscorable by
-  any evidence metric, so a loader must drop them or the denominator silently lies — `Load` already does for
-  the two classes that run, and a new class needs the same guard rather than inheriting it by luck.
+  like a perfect score rather than a broken instrument.** On LongMemEval's oracle variant 63% of
+  `single-session-assistant` questions have a store that fits inside `k = 10`, so the first recall returns
+  the whole conversation and any shot curve is flat by construction (2026-09-04; `docs/task-archive.md` Part
+  112 met it in a milder form). **Before scoring a new class, divide its store size by `k`.** In the same pass,
+  drop the ZERO-EVIDENCE questions, or the denominator silently lies — a new class needs that guard rather
+  than inheriting it by luck.
 
 - **A sample size can hide a CRASH, not only a wrong number — so run the instrument once at the size you <!-- trap: sub=measurement shape=silent-loss -->
-  intend to draw conclusions at.** Measured 2026-09-02 (`docs/FIXES.md`): `memory-locomo --retrieval` had
-  only ever been run at `--n 200`, and its `+forget0+oracle` arm could not be CONSTRUCTED at `--n 1540` —
-  the oracle keys evidence by question text and LoCoMo repeats 11 QA rows verbatim inside `conv-48`, so
-  `ToDictionary` throws the moment the sample draws both copies. The arm whose 77.5% ceiling was quoted in
-  three maintained records had therefore never run on the whole benchmark. **The failure was in the
-  INSTRUMENT and reachable only at a size nobody had used**, which is why "it has always worked" says
-  nothing about a size you have not tried.
-  <br>**Its silent twin is the part to remember**: the QA path makes the same uniqueness assumption and
-  says nothing, because `dict[key] = value` OVERWRITES where `ToDictionary` throws. One shape fails loudly
-  at n = 1,540 and the other quietly returns a plausible table. **When a key turns out not to be unique,
-  audit every OTHER use of that key** — the throwing one is the lucky case.
-  <br>**And two facts about the LoCoMo instrument itself, so nobody re-derives them:** question text is not
-  unique within a conversation (11 exact duplicate rows, category 4, identical evidence and gold), and
-  **`dia_id` is conversation-scoped rather than global — 871 of 1,033 belong to more than one conversation**
-  (`D1:1` exists in all ten). An evidence index keyed globally on `dia_id` would silently endorse another
-  conversation's turn, and every arm would still look plausible.
+  intend to draw conclusions at.** `memory-locomo --retrieval`'s oracle arm could not be CONSTRUCTED at
+  `--n 1540`: it keyed evidence by question text, LoCoMo repeats 11 QA rows verbatim, and `ToDictionary`
+  threw — for an arm whose ceiling three records quoted (`docs/FIXES.md`, 2026-09-02). **Its silent twin is
+  the part to remember**: the QA path made the same assumption with `dict[key] = value`, which OVERWRITES.
+  When a key turns out not to be unique, audit every other use of it. And LoCoMo's `dia_id` is
+  conversation-scoped — 871 of 1,033 occur in more than one conversation — so a globally keyed evidence
+  index endorses the wrong turn.
 
 - **A measurement that cannot observe a change reports "nothing moved", which reads exactly like "no <!-- trap: sub=measurement,memory shape=vacuous,wrong-subject -->
-  regression".** Measured 2026-08-12 reconciling `GraphNode.Relevance` across the three backends: both
-  `MemoryDefaultRecallQualityTests`'s fixed-corpus pin and the 28-minute `memory-sweep` came back
-  bit-identical, which looks like strong evidence the change is safe. It is not evidence at all — `MemoryCorpus`
-  contains **zero `MemoryGrade` references**, so it holds no authoritative material, and the changed
-  behaviour (what an authoritative node the query did NOT match reports) is structurally unreachable on that
-  instrument. The right claim is "not exercised", and the change is carried by contract facts on all three
-  backends instead. This is the same shape as the guard-that-cannot-observe entry under Testing below, one
-  level up: **before citing an unchanged measurement as reassurance, ask whether that instrument can express
-  the thing you changed** — and prefer a corpus/fixture audit (`grep` for the feature) over inferring it from
-  a stable number.
-  <br>**Sequel, 2026-08-13, and it is the reason this entry is worth re-reading rather than filing away:**
-  the gap above was correctly identified, correctly written down here AND in `CLAUDE.md` — and then left
-  open, because documenting a blind instrument feels like handling it. Teaching the corpus to express the
-  promise (`CorpusShape.AuthoritativeCount`, opt-in and byte-identical when unset) took one afternoon and
-  immediately found the library's **highest-priority** promise broken in all five languages — objective (1),
-  the one with no acceptable failure rate, cut by `Take(limit)` for the whole life of the feature
-  (`DECISIONS.md` D56). **A documented blind spot is still blind.** If the instrument cannot express the
-  promise, the fix is the instrument, and the cost of not fixing it is bounded only by how important the
-  unmeasured promise happens to be.
-  <br>**Sequel, 2026-08-21, and it is the trap on the OTHER side of that advice.** "Build the instrument" was
-  about to be applied to `docs/task-archive.md` Part 216's `many-candidates` item by sweeping
-  `ReciprocalRankFusionOptions.SalienceWeight` — a knob that already exists, over a corpus that already
-  exists, mirroring `MemorySpacingSweep` almost line for line. It would have returned a **perfectly flat
-  curve**, and the flatness would have been an artifact end to end. Two facts compose, and neither is visible
-  from the sweep: `GraphMemoryEngine.Probe` returns `(Novelty 0, Comparables 0)` when there is no vector
-  search, so **without an embedder `StructuralSaliencePolicy` declines on every single write** and salience is
-  uniformly absent; and `ReciprocalRankFusionPolicy` ranks by COMPETITION (**D82**), so a signal on which
-  every candidate ties contributes the same constant term and **cannot move the ordering at any weight**. Arm
-  0 and arm 4 are then the same engine.
-  <br>The output would have read as a clean exoneration — flat, tight CIs, every control green, because every
-  control that exists checks that the arms carry their own *weights*, which they would have. **Ask not "does
-  each arm carry a different knob value?" but "does the SIGNAL that knob scales actually VARY on this
-  corpus?"** — and assert the second one in the study, as a distinct-value count, the same way
-  `MemoryCorpusGoldenTests` pins that a language arm genuinely differs. A knob that scales a constant is
-  unmeasurable, and nothing about the shape of the experiment says so.
-- **The guard that stops a contract fact being wired to one backend only counts the CONTRACT's declarations, <!-- trap: sub=tests,storage shape=scope-blind -->
-  not what each backend CALLS — so it is blind in exactly one direction.** Measured 2026-08-14: all 68
-  `MemoryGraphStoreContract` facts are wired on all three backends today (68/68/68), so this is latent, not
-  live. But `PostgresStorageTests`' `Assert.Equal(declared, covered)` compares a reflected count of the
-  contract's public statics against a hand-bumped literal — it catches a fact added and wired NOWHERE, and a
-  fact added and wired to InMemory/Sqlite but not Postgres, and it does **not** catch a fact added and wired
-  to **Postgres alone**: the author bumps `covered`, the assertion passes, and the invariant the entry above
-  exists to protect is enforced on one backend. **CLOSED SINCE**: `MemoryGraphStoreCoverageTests` drives every
-  backend on its roster from a reflection-fed source, so exhaustiveness is STRUCTURAL and the hand-bumped literal is
-  gone — its own summary calls itself *"the mechanism that replaced a hand-bumped literal"*. The entry
-  stays for the shape, which is general: **a COUNT is not exhaustiveness**, and a guard whose failure mode
-  is a false PASS cannot be validated by running it.
+  regression".** Reconciling `GraphNode.Relevance` across backends (2026-08-12), the fixed-corpus pin and a
+  28-minute sweep came back bit-identical — and `MemoryCorpus` held **zero** graded entries, so the changed
+  behaviour was unreachable on that instrument. **Before citing an unchanged measurement as reassurance, ask
+  whether that instrument can express the thing you changed**; the right claim was "not exercised".
+  <br>**A documented blind spot is still blind**: teaching the corpus to express the promise
+  (`CorpusShape.AuthoritativeCount`) took an afternoon and immediately found objective (1) broken in all five
+  languages (**D56**). If the instrument cannot express the promise, fix the instrument.
+  <br>**Its mirror: a knob that scales a CONSTANT is unmeasurable.** A `SalienceWeight` sweep would have
+  returned a perfectly flat curve, because without an embedder `StructuralSaliencePolicy` declines on every
+  write and RRF ranks by competition (**D82**), so a uniformly-tied signal cannot move the ordering at any
+  weight. **Ask not "does each arm carry a different knob value?" but "does the SIGNAL the knob scales vary on
+  this corpus?"** — and assert it in the study as a distinct-value count.
+- **A COUNT is not exhaustiveness.** A reflected count of a contract's facts compared against a hand-bumped <!-- trap: sub=tests,storage shape=scope-blind -->
+  literal passes whenever the author bumps it — including for a fact wired to one backend alone.
+  `MemoryGraphStoreCoverageTests` made coverage structural; carry that shape to any new cross-backend contract.
 - **A cross-backend invariant enforced on ONE backend's test class is not enforced.** The non-finite-salience <!-- trap: sub=tests,storage shape=scope-blind -->
-  guard above was pinned only in `SqliteMemoryGraphStoreTests`, so the in-process store's own divergence
-  survived a full review. If a fact is about the CONTRACT, it belongs in `MemoryGraphStoreContract` and must
-  be wired to every backend (`InMemory`, `Sqlite`, `Postgres`, `FileSystem`); coverage is reflection-fed now, so there
-  is no count to bump.) Keep a backend-specific assertion only where it genuinely cannot be
-  portable — reading a raw column, for instance.
+  guard was pinned only in `SqliteMemoryGraphStoreTests`, so the in-process store's own divergence survived a
+  full review. A fact about the CONTRACT belongs in `MemoryGraphStoreContract`, wired to every backend
+  (`InMemory`, `Sqlite`, `Postgres`, `FileSystem`) — coverage is reflection-fed, so there is no count to bump.
+  Keep a backend-specific assertion only where it cannot be portable, such as reading a raw column.
 
 - **An id that is unique WITHIN one engine is not unique across a composite, and keying on it alone works <!-- trap: sub=memory,measurement shape=silent-loss -->
   right up until there are two members.** Measured 2026-08-30 merging the two field harnesses onto
@@ -1505,106 +1241,6 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   `GraphJournalTests` pins every kind's round trip. **A new line kind re-asks the question**: check its
   discriminator against every other kind's DATA fields, not only against their discriminators.
 
-## DI / config
-
-- **Calling `AddLyntai` twice** — registers a second `LyntaiOptions` (shadows the first) while both <!-- trap: sub=di shape=silent-loss -->
-  calls' providers pile into the collections. It now throws; compose everything in one callback.
-- **A singleton capturing a scoped/transient dependency** (captive dependency). Providers/stores are <!-- trap: sub=di shape=resource -->
-  singletons; resolve per-call transients (like an `HttpClient` from `IHttpClientFactory`) inside the
-  method, not the constructor.
-- **A documented option/env-var that isn't wired** — the `LYNTAI_MODEL_<CONSUMER>` override and the OTel <!-- trap: sub=di shape=stale-claim,silent-loss -->
-  cost attribute were both documented but silently dropped, and no test caught it. When you add a
-  documented knob, add the test that exercises the documented path.
-- **TWO construction sites for one type, each with its own copy of a long optional-argument list, is how a <!-- trap: sub=di,memory shape=second-door,fail-open -->
-  documented knob stops being wired — and the compiler is structurally unable to notice.** Measured
-  2026-08-14 (`docs/FIXES.md`): `MemoryEngineBuilder` built `GraphMemoryEngine` in both `UseGraph` (the
-  configured path) and `UseBestAvailable` (what the one-line `AddMemory()` resolves to). `annotation:` and
-  `verification:` were added to the first when those seams shipped and never to the second, so
-  `AddMemory().AddMemoryVerification()` registered a policy that never ran, while the identical registration
-  behind `AddMemoryEngine(…, e => e.UseGraph())` worked.
-  **Three things had to line up, and they always will for this shape:** the parameters are OPTIONAL, so
-  omitting them compiles; the fallback is a real, documented behaviour ("the model-free floor"), so nothing
-  throws and no result is missing; and the only symptom is QUALITY, which a consumer enabling a feature for
-  the first time has no baseline for. `check-warnings` cannot see it, the API baseline is unchanged, and
-  every existing wiring test happened to exercise the other path.
-  **The fix is one call site, never a second copy kept in step by review** — an override-taking private
-  factory, with the zero-configuration caller passing nothing (null already means "take the container
-  registration"). And the test that catches it must assert the policy was **CONSULTED**, not that recall
-  still worked: a recording fake whose `Seen` list must be non-empty. This is the same family as the
-  documented-but-unwired entry below, arrived at from a different direction — there the knob was never read,
-  here it was read on one path of two.
-- **A `TryAddSingleton` reached during `configure(builder)` BEATS `AddLyntai`'s own options-built <!-- trap: sub=di shape=ordering,silent-loss -->
-  registration.** All of this is in `src/Lyntai.Core/DependencyInjection/ServiceCollectionExtensions.cs`:
-  `AddLyntai` invokes `configure(builder)` well before it calls `RegisterTextFrontDoor`, and that method is
-  where the `DeadHostTracker` built from `LyntaiOptions` is registered. **Names first, lines second** — these
-  numbers rot, and this very entry was made stale by a change inside the branch that added it; follow the
-  method names if a line disagrees. **It has now rotted TWICE** (a 2026-08-05 audit found all four numbers
-  pointing at a blank line, a doc comment and unrelated calls), so the numbers are gone: cite `AddLyntai`,
-  `RegisterTextFrontDoor` and `RegisterProviderLifetime` by name, which is the only form that cannot rot a
-  third time. So a `TryAddSingleton<DeadHostTracker>()` added inside a `Use*`/`Add*` extension reaches the
-  collection FIRST, and `TryAdd` keeps the first — silently swapping the configured `DeadHostThreshold`,
-  `DeadHostCooldown` and logger for the parameterless defaults, **for both domains**. Nothing in 1427 tests
-  noticed; it was found by mutation (adding the line failed exactly one new guard test and nothing else) and
-  confirmed twice. The rule:
-  inside a builder callback, resolve what `AddLyntai` registers later with `GetRequiredService<T>()` — never
-  seed it with a `TryAdd`, and if you need a service that must exist regardless, register it in the
-  Register* block that owns it. `RegisterProviderLifetime` is all `TryAdd` deliberately for the mirror-image
-  reason: everything it seeds is meant to lose to a host or a `Use*` call.
-
-- **A seam whose EMPTY registration means "take the default" has no off switch, and the arm you build to <!-- trap: sub=measurement,memory shape=vacuous,fail-open -->
-  turn it off is the shipped behaviour wearing an OFF label.** Measured 2026-08-30 (`docs/FIXES.md`).
-  `GraphMemoryEngine.NormalizeSaliencePolicies` substitutes a fresh `StructuralSaliencePolicy` for a null or
-  empty collection — deliberate, documented, and the reason `NeutralSaliencePolicy` exists at all.
-  `MemorySalienceSweep` nevertheless built its control arm as `saliencePolicies: null`, so **the arm labelled
-  `SalienceOff` ran the shipped policy at the shipped weight** for the whole life of the sweep. Its tables
-  compared retention-on against retention-off with salience's *admission* consumer live in both arms, while
-  the sweep's preamble, its class doc and `docs/memory.md` all described it as measuring both consumers.
-  <br>**Nothing in the harness could have caught it.** The build is green, every existing control is green,
-  the arms carry different options objects, and the numbers are plausible in both sign and magnitude.
-  <br>**And it is the SECOND time this exact trap bit, which is the part worth carrying.** The first was in
-  the test tier, and it is written up inside `MemorySalienceInversionTests`: *"The first three-arm run here
-  asserted the control judged nothing salient and got 255 — the 'control' was a second copy of the
-  treatment."* That incident is why `NeutralSaliencePolicy` exists at all; its own note says a trap that
-  costs a measurement its control belongs fixed in the library rather than in one file. By 2026-08-30 the
-  rule was written down in **four** places — that type, a test pinning it
-  (`An_empty_policy_collection_leaves_salience_ON_and_only_the_neutral_policy_turns_it_off`), `docs/task-archive.md` Part 216
-  verbatim ("registering an empty collection does NOT — that takes the shipped default"), and two sibling
-  sweeps doing it correctly — and a harness written afterwards still did it wrong.
-  <br>**What separated the two incidents was not knowledge, it was the CONTROL.** The test tier caught its
-  version in one run because it reports `SalientWrites` per arm and asserts the control's is zero; the bench
-  sweep counted salient writes only on its treatment arms, so its off arm contributed no row and there was
-  nothing to be non-zero. **Writing the rule down again is not the fix — porting the control is.**
-  <br>**What exposed it was widening the study, not checking it.** The confound was invisible on the two
-  corpus shapes the ladders ran; going to six put a provably-silent arm significantly *worse* than "off" on
-  two new shapes, by more than the entire spread of the arms being ranked. **A control arm that differs from
-  a treatment by more than the treatments differ from each other is reporting a confound, not a result** —
-  that comparison costs nothing and is worth making on any ladder.
-  <br>**The general rule: for any seam with a default-on fallback, the off arm must be an explicit neutral
-  IMPLEMENTATION, and a control must assert it was CONSULTED and DECLINED.** Asserting "the signal is
-  absent" is not enough — absence is exactly what a never-registered policy also produces, and it is what
-  the broken arm reported. This is the same shape as the `MemoryEngineBuilder` entry above ("assert the
-  policy was CONSULTED, not that recall still worked"), arrived at from the instrument side.
-
-## Copying a rule copies its assumptions
-
-- **A rule moved from where it was true to where it is not — the shape behind three of the four regressions <!-- trap: sub=generation,memory shape=unmeasured,wrong-subject -->
-  a single review round introduced (2026-08-15, `docs/FIXES.md`).** Each looked like careful reuse of an
-  existing, correct decision, and each carried an unstated premise that held only where it came from:
-  · `ComfyUiProvider`'s poll rule — *"a 4xx is terminal, a 5xx is transport"* — copied onto
-    `FalQueueProvider`. True for a loopback server that never rate-limits; on a hosted, paid, rate-limiting
-    API one `429` permanently dead-lettered a render that was still running and already billed. **The
-    premise "this backend does not rate-limit" was never written down, because where the rule was written
-    it was always true.**
-  · `IMemoryGraphStore.SeedAsync`'s portable guarantee — *"a node whose content contains a query token is
-    found on every backend"* — read as a CEILING and used to justify narrowing the one backend that matched
-    more. It is a FLOOR. **A minimum and a maximum are the same sentence in English**, and the difference
-    only shows when you ask what the sentence FORBIDS.
-  · `CompositeMemoryEngine`'s fan-out justification — *"removing one member and returning success leaves the
-    blend holding the data"* — applied to the members that could remove and silently not to the ones that
-    could not, which is the case it was written for.
-  <br>**The fourth is the same shape aimed inward**: the same round taught `FalQueueProvider` to distinguish
-  "never reached the backend" from "may have been delivered", and then wrote a `catch` in another file that
-  treated every throw as ambiguous — turning a connection-refused blip into a dead-lettered job.
 - **`Stability` has ONE meaning here and adopting the published convention would silently reinterpret every <!-- trap: sub=memory shape=silent-loss -->
   stored value.** It is the position delta at which retrievability is `0.5`; FSRS anchors at 90%. Nothing
   about the type says which, both are defensible, and a change would rewrite the meaning of every row
@@ -1617,93 +1253,85 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   alone says a policy can judge nothing else — and a sweep was designed around adding surface before anyone
   read the method signature, which already passes the whole `MemoryWrite`. **The seam is the signature, not
   the context type**; check what a policy is HANDED before concluding it needs more.
-  <br>**Fifth instance, 2026-08-17, found by review rather than by a consumer:** `MediaRouter.StreamAsync`
-  carried the SUBMIT door's `NeverReachedTheBackend` filter on its catch — a filter whose premise is "the
-  act of asking may have been billed", true of a queue submission and false of a stream open — so the one
-  failure class fallback most exists for (a refused connection before the first byte) was the one that
-  skipped fallback and escaped raw. The filter's own doc said "used ONLY on the submit path" the whole time.
-  <br>**Sixth instance, 2026-08-23, and it is the one that PROVES the closing advice below rather than
-  merely illustrating it — the violation was in the very same file, minutes later, by the hand that wrote the
-  fix.** `MemorySalienceWeightSweep.PrintVerdict` was corrected to report miss AND pollution, with a comment
-  saying in as many words that "reporting miss alone would have hidden the trade that decides it". The next
-  function added to that file, `PrintLanguageVerdict`, summarised five languages by counting **miss-better
-  shapes and nothing else**. It printed `5/5` for every language, which read as unanimous — and on that
-  reading a SHIPPED ranking default was changed. The pollution column, once looked at, showed Korean's
-  ordinary shapes trading a small miss gain for a larger pollution rise, which is the trade §5.7.0
-  explicitly refuses. The default was reverted.
-  <br>Two things sharpen the advice. **A per-item report and its SUMMARY are two sites, and the summary is
-  the one people act on** — fixing the detail view while the roll-up still hides the same column is worse
-  than fixing neither, because the roll-up now looks endorsed by the corrected detail beneath it. And
-  **"N/N better" is a count on ONE metric wearing the costume of a verdict**; if an objective is
-  lexicographic, the summary has to evaluate the objective, not tally the primary term.
-  <br>**What to actually do**, since "review harder" is not a technique: when you reuse a rule, write down
-  the premise that makes it true THERE and check it holds HERE. If you cannot name the premise, you are
-  copying a conclusion rather than reasoning. And when a rule you just wrote is about a distinction (this
-  versus that), grep your own diff for the other places that distinction applies — the round that
-  articulates a rule is the round most likely to violate it elsewhere, because attention is on the sentence
-  rather than on the code.
+
+## DI / config
+
+- **Calling `AddLyntai` twice** — registers a second `LyntaiOptions` (shadows the first) while both <!-- trap: sub=di shape=silent-loss -->
+  calls' providers pile into the collections. It now throws; compose everything in one callback.
+- **A singleton capturing a scoped/transient dependency** (captive dependency). Providers/stores are <!-- trap: sub=di shape=resource -->
+  singletons; resolve per-call transients (like an `HttpClient` from `IHttpClientFactory`) inside the
+  method, not the constructor.
+- **A documented option/env-var that isn't wired** — the `LYNTAI_MODEL_<CONSUMER>` override and the OTel <!-- trap: sub=di shape=stale-claim,silent-loss -->
+  cost attribute were both documented but silently dropped, and no test caught it. When you add a
+  documented knob, add the test that exercises the documented path.
+- **TWO construction sites for one type, each with its own copy of a long optional-argument list, is how a <!-- trap: sub=di,memory shape=second-door,fail-open -->
+  documented knob stops being wired — and the compiler is structurally unable to notice.**
+  `MemoryEngineBuilder` built `GraphMemoryEngine` in both `UseGraph` and `UseBestAvailable` (what `AddMemory()`
+  resolves to), and `annotation:`/`verification:` were added to only the first, so
+  `AddMemory().AddMemoryVerification()` registered a policy that never ran (`docs/FIXES.md`, 2026-08-14).
+  Optional parameters compile when omitted, the fallback is a real behaviour, and the only symptom is
+  quality. **The fix is one call site, never a second copy kept in step by review**, and the test asserts the
+  policy was CONSULTED (a recording fake), not that recall still worked.
+- **A `TryAddSingleton` reached during `configure(builder)` BEATS `AddLyntai`'s own options-built <!-- trap: sub=di shape=ordering,silent-loss -->
+  registration.** `AddLyntai` invokes `configure(builder)` before `RegisterTextFrontDoor`, where the
+  `DeadHostTracker` built from `LyntaiOptions` is registered, so a `TryAddSingleton<DeadHostTracker>()` inside
+  a `Use*`/`Add*` extension wins and silently swaps the configured threshold, cooldown and logger for
+  defaults, in both domains — found by mutation, with 1,427 tests green. **Inside a builder callback, resolve
+  what `AddLyntai` registers later with `GetRequiredService<T>()`, never seed it with a `TryAdd`**;
+  `RegisterProviderLifetime` is all `TryAdd` for the mirror reason — everything it seeds is meant to lose.
+
+- **A seam whose EMPTY registration means "take the default" has no off switch, and an arm built to turn <!-- trap: sub=measurement,memory shape=vacuous,fail-open -->
+  it off runs the shipped behaviour under an OFF label.** `GraphMemoryEngine` substitutes the shipped
+  `StructuralSaliencePolicy` for a null or empty collection, so `memory-salience`'s `SalienceOff` arm ran
+  salience at the shipped weight for its whole life (`docs/FIXES.md`, 2026-08-30). **The off arm must be an
+  explicit neutral IMPLEMENTATION (`NeutralSaliencePolicy`), and its control must assert it was CONSULTED and
+  DECLINED** — "the signal is absent" is also what a never-registered policy reports. A control arm that
+  differs from a treatment by more than the treatments differ from each other is reporting a confound.
+
+## Copying a rule copies its assumptions
+
+- **A rule moved from where it was true to where it is not looks like careful reuse, and carries a premise <!-- trap: sub=generation,memory shape=unmeasured,wrong-subject -->
+  that held only where it came from.** The instances (`docs/FIXES.md`, 2026-08-15 and 2026-08-17):
+  · `ComfyUiProvider`'s *"a 4xx is terminal"* copied onto `FalQueueProvider`, where one `429` dead-lettered a
+    running, billed render — the premise "this backend does not rate-limit" was never written down;
+  · `SeedAsync`'s portable guarantee read as a CEILING when it is a FLOOR — a minimum and a maximum are the
+    same sentence in English until you ask what it FORBIDS;
+  · the composite's fan-out justification applied to members that could remove, and not to those that could not;
+  · a "never reached the backend" distinction taught in one file, and a catch in another treating every throw
+    as ambiguous;
+  · the submit door's `NeverReachedTheBackend` filter carried onto `MediaRouter.StreamAsync`, where its
+    premise ("asking may have been billed") is false;
+  · a summary function tallying MISS alone beside a detail view corrected hours earlier to report pollution —
+    and on its "5/5" a shipped default was changed, then reverted.
+  <br>**What to do**: when you reuse a rule, write down the premise that makes it true THERE and check it
+  holds HERE. When a rule you just wrote is about a distinction, grep your own diff for the other places it
+  applies — the round that articulates a rule is the round most likely to violate it elsewhere. A SUMMARY is
+  a second site, and the one people act on; "N/N better" is a count on one metric wearing a verdict's costume.
 
 - **A work item named after its most EXPENSIVE instance hides the cheapest one, and every later reader <!-- trap: sub=docs,generation shape=scope-blind,stale-claim -->
-  inherits that framing — including the reader who SPLITS it.** Measured 2026-09-16. Three generation
-  backends carry a documented-not-measured caveat and their costs are nothing alike: ComfyUI needs a local
-  server, `sd-cli` two public downloads, fal an ACCOUNT. Filed as one item called GEN-VERIFY and summarised
-  as *"the `sd-cli` argv is ported-not-measured, and fal's wire format is documented-not-measured"*, the
-  middle one vanished — ComfyUI is not named in that sentence at all, though its own class header says no
-  instance was available to measure it.
-  <br>**The item's state is then set by its most expensive member**, so `blocked · env` on a fal key made
-  the whole thing unstartable, and "we are waiting on fal" came to stand in for "the platform is
-  unverified". A split made it worse rather than better: the split was performed along the axis the NAME
-  suggested — sd-cli versus fal — which reproduced the omission in two items instead of one.
-  <br>**Sort a multi-part item by what each part COSTS before splitting it**, never by the part that named
-  it. The tell is a summary sentence that enumerates fewer members than the code does: here, a `grep` for
-  the caveat's own words across `src/Lyntai.Generation` returns three backends and the prose named two.
-- **ADDING a second way to configure something that already has one is where double-application comes from — <!-- trap: sub=di,memory shape=second-door,silent-loss -->
-  not from decorators being decorators.** Measured 2026-08-31. `GraphMemoryEngine` gained
-  `retentionPolicies` so retention could arrive as its own registered collection (D48's shape); retention had
-  always arrived pre-wrapped in a hand-built `ModulatedRetrievability` passed as `retrievability:`. Supplying
-  BOTH then wrapped an already-wrapped curve and applied retention TWICE, multiplying stability twice over,
-  silently — and an entry outliving what any retention policy declared breaks `CandidateCutoff`'s superset
-  guarantee, whose only consumer DELETES.
-  <br>**The first proposed fix was to make `ModulatedRetrievability` internal**, which would have made the
-  combination unreachable and left the author believing an ambiguity had been tidied rather than a data-loss
-  path closed. It was rejected on the owner's rule — *a policy replaceable by injection belongs on the
-  surface so other services can route on it* — which is the same standard `DsrRetrievability`,
-  `SalienceRetentionPolicy` and `MultiplicativeRankingPolicy` already meet. **Hiding a type to remove an
-  ambiguity fixes the wrong thing**, and here it would have hidden the bug with it.
-  <br>**A sweep for siblings found none, and the NEGATIVE result is the useful half.** Nesting
-  `ModulatedRetrievability` is safe (`CandidateCutoff` composes multiplicatively, so it tracks the true
-  factor); the LLM front door is idempotent per decorator order and says why ("two rate limiters in series
-  would double-charge permits"); the generation routers are factory-composed and applied once; the two
-  `Composite*` types nest on purpose. **Every pre-existing decorator has exactly ONE application path.** So
-  the rule is not "audit decorators" — it is: **when you add a configuration route, ask what the existing
-  route was, and whether both can be supplied at once.** Report the collision at wiring time (**D85**) rather
-  than picking one silently; either silent choice is a value the caller never asked for.
+  inherits that framing — including the reader who SPLITS it.** GEN-VERIFY covered three unmeasured backends
+  at very different costs — ComfyUI a local server, `sd-cli` two downloads, fal an ACCOUNT — and its summary
+  named only two; the item then took the state of its most expensive member, and a split along the axis the
+  NAME suggested reproduced the omission in two items (2026-09-16). **Sort a multi-part item by what each part
+  COSTS before splitting it.** The tell is a summary enumerating fewer members than the code does.
+- **ADDING a second way to configure something that already has one is where double-application comes from <!-- trap: sub=di,memory shape=second-door,silent-loss -->
+  — not from decorators being decorators.** `GraphMemoryEngine` gained `retentionPolicies` while retention
+  still arrived pre-wrapped in a hand-built `ModulatedRetrievability`; supplying BOTH applied retention twice
+  and broke `CandidateCutoff`'s superset guarantee, whose only consumer DELETES (2026-08-31). Making the type
+  internal was proposed and REJECTED — hiding a type to remove an ambiguity would have hidden the data-loss
+  path with it. A sweep found every pre-existing decorator had exactly ONE application path, so the rule is:
+  **when you add a configuration route, ask what the existing route was and whether both can be supplied at
+  once** — and report the collision at wiring time (**D85**) rather than picking one silently.
 
 - **A doc that enumerates what a feature does NOT do, without ever stating what it DOES, is read as <!-- trap: sub=docs,memory shape=scope-blind,vacuous -->
-  "nothing" — and the reader who reaches that conclusion turns the feature off.** Measured 2026-08-22/23,
-  twice over the same sentence. `IMemoryVerificationPolicy`'s summary said a verifier *"only narrows what a
-  recall already found; it cannot add an entry, and by default removes none from the caller's answer
-  either"*. Every clause was true. What it never said is that with filtering OFF a verdict **promotes** every
-  endorsed candidate to the front, before the caller's limit is applied and over a candidate set
-  `VerificationDepth` deep — the effect the whole seam exists for. An adopter read the source, concluded a
-  verdict cannot reach the ranking at all, built an app-side promotion step on that belief, and reverted it
-  when four successive fixtures passed with the promotion disabled.
-  <br>**The second half is the part worth carrying.** Their CORRECTION was also wrong, in a way that looks
-  much more careful: it kept "no re-sort is written anywhere" and explained the movement it had now observed
-  as retention state updating underneath the ordering. There is an explicit promotion, ten lines above the
-  filter, in every release since 3.0.0 — and the retention story cannot be right for the same call, because
-  the ranking reads state gathered before `ReinforceAsync` runs. **A plausible mechanism invented to explain
-  a real observation is harder to dislodge than the original error**, because it arrives labelled as a
-  correction.
-  <br>What actually settled it was three deterministic facts, not a closer reading:
-  `MemoryVerificationOrderingTests` pins that an endorsed candidate leads the page, that one below the limit
-  is RESCUED onto it, and — the control that keeps the other two honest — that a judge endorsing what already
-  leads returns a byte-identical page. That last one is the adopter's own null result, and it is a fact about
-  the CORPUS rather than about the wiring.
-  <br>Two rules. **When you document a default posture, say what it DOES first and what it withholds second**
-  — "removes none" after "promotes" is a qualifier, before it is a denial. And **before writing a paragraph
-  about behaviour, write the fixture that would tell the two readings apart**; both readings here were
-  reachable from the source, so no amount of re-reading could have chosen between them.
+  "nothing" — and the reader who reaches that conclusion turns the feature off.** `IMemoryVerificationPolicy`'s
+  summary said a verifier "only narrows what a recall already found … and by default removes none", every
+  clause true, and never said a verdict PROMOTES every endorsed candidate before the limit; an adopter built
+  and reverted an app-side promotion on that reading, and their correction invented a plausible wrong
+  mechanism (2026-08-22/23). **A mechanism invented to explain a real observation is harder to dislodge than
+  the error, because it arrives labelled as a correction.** Say what a default DOES first and what it
+  withholds second, and **write the fixture that tells two readings apart before writing the paragraph**
+  (`MemoryVerificationOrderingTests`, whose null-result control is the adopter's own observation).
 
 ## Second doors
 
@@ -1785,19 +1413,6 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   plan happens to walk in `vec_id` order — an accident that a rewrite, an `ANALYZE`, or a different plan
   changes silently. When a contract fact passes on a backend you expected to fail, find out WHY before
   believing it.
-- **A shared helper whose doc says "EVERY read site calls this" is making a claim nothing checks — and the <!-- trap: sub=memory shape=second-door,stale-claim -->
-  site that does not call it is usually the newest one.** `MemorySignals.Salience` was extracted for exactly
-  this reason and says so, naming the three readers that once "normalized the same value three different
-  ways, which made identical data admit differently on different backends". Measured 2026-08-17:
-  `SalienceRetentionPolicy` was a FOURTH reader, added later, that spelled the read out itself — and got it
-  wrong in the one way the helper exists to prevent (`Math.Clamp` propagates `NaN` where the helper coerces
-  it), returning a factor outside the range its own interface promises.
-  <br>**The cheap detection, worth running whenever you extract a coercion:** grep for the raw accessor the
-  helper wraps (here `Get(WellKnown.Salience`) and check every hit is inside the helper. A helper's
-  usefulness is entirely in being universal, so the enumeration in its doc is load-bearing — and it is prose,
-  which means it was true when written and nothing has held it true since. Prefer routing the new caller
-  through the helper over adding a second correct copy of the guard: two correct copies is how the three
-  incorrect ones started.
 - **A SPEND cap is a capability too, and its second door is the one that moves the money.** Measured <!-- trap: sub=generation shape=second-door,fail-open -->
   2026-08-16. `GenerationFetchTool` and `GenerationRenderJobHandler` both fetch a finished render; only the
   handler recorded its cost. Because a queue backend prices at FETCH — the only point the total is known —
