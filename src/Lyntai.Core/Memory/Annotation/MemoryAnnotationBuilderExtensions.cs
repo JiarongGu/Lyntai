@@ -7,7 +7,7 @@ using Microsoft.Extensions.Logging;
 namespace Lyntai;
 
 /// <summary>Registers the model-backed <see cref="IMemoryAnnotationPolicy"/>.</summary>
-public static class MemoryAnnotationRegistration
+public static class MemoryAnnotationBuilderExtensions
 {
     /// <summary>
     /// Label each remembered fact with what it is ABOUT, using a model, so entries concerning the same

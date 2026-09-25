@@ -16,7 +16,7 @@ namespace Lyntai.Tests.Memory;
 /// <see cref="GraphMemoryEngine"/> wires them together by default, shows up here.
 /// <para><b>RE-BASELINED A SECOND TIME, 2026-08-11 (owner ruling; see <c>docs/DECISIONS.md</c>): the RANKING
 /// default changed, not the arithmetic.</b> <see cref="Lyntai.Memory.Ranking.ReciprocalRankFusionPolicy"/> is
-/// now the registered ranking policy (<c>MemoryEngineRegistration.AddMemoryEngine</c> TryAdds it), on the
+/// now the registered ranking policy (<c>MemoryEngineBuilderExtensions.AddMemoryEngine</c> TryAdds it), on the
 /// strength of this library's own measurement (<c>local/superpowers/records/2026-08-09-memory-policy-measurement.md</c>, fsrs-
 /// properly plan Task 4): RRF beat <see cref="Lyntai.Memory.Ranking.MultiplicativeRankingPolicy"/> on the
 /// corpus's `topical` class in all six measured shapes, reproduced across two independent runs. This is the

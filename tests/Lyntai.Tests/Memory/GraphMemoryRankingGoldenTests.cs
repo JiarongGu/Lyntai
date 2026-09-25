@@ -345,7 +345,7 @@ public sealed class GraphMemoryRankingGoldenTests
         // scope; see IMemoryRankingPolicy's own remarks.) This fake drops everything, which is the only way
         // to prove the engine enforces the guarantee rather than relying on the policy to honour it. Registered with a plain
         // AddSingleton BEFORE AddLyntai, which is also the proof that a consumer's own IMemoryRankingPolicy
-        // wins over AddMemoryEngine's TryAddSingleton default — see MemoryEngineRegistration.
+        // wins over AddMemoryEngine's TryAddSingleton default — see MemoryEngineBuilderExtensions.
         var services = new ServiceCollection();
         services.AddSingleton<IMemoryRankingPolicy>(new DropEverythingRankingPolicy());
         services.AddSingleton<IMemoryGraphStore>(new InMemoryMemoryGraphStore());

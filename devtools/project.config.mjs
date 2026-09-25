@@ -696,6 +696,18 @@ export default {
       use: '`ScoreExportEntry` (the contract record) / `ScoreExportRow` (the row); `PromptVersionRow.ToRecord`',
       why: 'dotnet-package-layout.md §Naming reserves `*Row` for a materialization type',
     },
+    {
+      // Part 293 review (CORE-24): seven of Core's `this LyntaiBuilder` extension classes carried a second
+      // suffix for the role every adapter package and three other Core classes name `*BuilderExtensions`.
+      names: [
+        'ToolSelectorRegistration', 'TextClientRegistration', 'MemoryAnnotationRegistration',
+        'MemoryEngineRegistration', 'MemorySeedRegistration', 'MemoryVerificationRegistration',
+        'ScoringVerificationRegistration',
+      ],
+      use: 'the same name with `BuilderExtensions` for `Registration` (`MemoryEngineBuilderExtensions`, …); '
+        + 'an extension-method call is unchanged',
+      why: 'two suffixes for one role: every other `this LyntaiBuilder` extension class is `*BuilderExtensions`',
+    },
   ],
 
   /**
@@ -1289,7 +1301,7 @@ export default {
         + '|HalfLifeRetrievability[^.\\n]{0,3}(?:ships|is available|remains available|one line away'
         + '|remains the (?:unchanged )?default)',
       use: '`DsrRetrievability` is the ONLY shipped forgetting curve as of 3.0 '
-        + '(`MemoryEngineRegistration.AddMemoryEngine`, and a bare-constructed `GraphMemoryEngine` now '
+        + '(`MemoryEngineBuilderExtensions.AddMemoryEngine`, and a bare-constructed `GraphMemoryEngine` now '
         + 'agrees); `HalfLifeRetrievability` and `HalfLifeOptions` are DELETED, with no restore path — a '
         + 'consumer who needs that shape implements `IMemoryRetrievabilityPolicy` themselves',
       why: 'docs/DECISIONS.md D49 (2026-08-10) first made DsrRetrievability the registered default, '
@@ -1403,7 +1415,7 @@ export default {
       // a regex exclusion has no self-correction: nothing would ever notice it swallowing a real
       // regression. The 7 lines were fixed at the source instead — see
       // `src/Lyntai.Core/Memory/Engines/GraphMemoryEngine.cs`,
-      // `src/Lyntai.Core/Memory/MemoryEngineRegistration.cs` and
+      // `src/Lyntai.Core/Memory/MemoryEngineBuilderExtensions.cs` and
       // `tests/Lyntai.Tests/Memory/GraphMemorySeedRankTests.cs` — because "do not touch src/tests/bench"
       // meant do not change LOGIC, and a comment is not logic.
       term: '\\b(?:SemanticSeedK|SubjectSeedK|SubjectSeedScan)\\b',
@@ -1474,6 +1486,14 @@ export default {
       term: '\\bListThreadsPageAsync\\b',
       use: '`IConversationStore.ListThreadsAsync(limit, after)`',
       why: 'one listing member with an optional keyset cursor replaced the list/page pair',
+    },
+    {
+      // The prose half of CORE-24. `\b` keeps the test classes named for what they test
+      // (`MemoryEngineRegistrationTests`) live: no word boundary falls inside `RegistrationTests`.
+      term: '\\b(?:ToolSelector|TextClient|MemoryAnnotation|MemoryEngine|MemorySeed|MemoryVerification'
+        + '|ScoringVerification)Registration\\b',
+      use: 'the same name with `BuilderExtensions` for `Registration` (`MemoryEngineBuilderExtensions`, …)',
+      why: 'a `this LyntaiBuilder` extension class is a `*BuilderExtensions`, the suffix every other one uses',
     },
   ],
 

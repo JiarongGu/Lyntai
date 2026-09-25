@@ -2664,17 +2664,17 @@ sealed class Lyntai.Memory.Verification.ScoringVerificationOptions
 sealed class Lyntai.Memory.Verification.ScoringVerificationPolicy
     .ctor(IEnumerable<IModelProvider> providers, ScoringVerificationOptions config, ILogger<ScoringVerificationPolicy> logger = null, IProviderRouterFactory routing = null)
     VerifyAsync(MemoryVerificationRequest request, CancellationToken ct = default) : Task<MemoryVerification>
-static class Lyntai.MemoryAnnotationRegistration
+static class Lyntai.MemoryAnnotationBuilderExtensions
     static AddMemoryAnnotation(LyntaiBuilder builder, Action<LlmAnnotationOptions> configure = null) : LyntaiBuilder
-static class Lyntai.MemoryEngineRegistration
+static class Lyntai.MemoryEngineBuilderExtensions
     static AddMemory(LyntaiBuilder builder, String name = "default") : LyntaiBuilder
     static AddMemoryEngine(LyntaiBuilder builder, String name, Action<MemoryEngineBuilder> configure = null) : LyntaiBuilder
     static AddMemoryTools(LyntaiBuilder builder, String name, String taskKey, String scope = null, String prefix = null) : LyntaiBuilder
     static UseMemoryComposer(LyntaiBuilder builder, String name) : LyntaiBuilder
-static class Lyntai.MemorySeedRegistration
+static class Lyntai.MemorySeedBuilderExtensions
     static AddMemorySemanticSeeds(LyntaiBuilder builder, SemanticSeedOptions options = null) : LyntaiBuilder
     static AddMemorySubjectSeeds(LyntaiBuilder builder, SubjectSeedOptions options = null) : LyntaiBuilder
-static class Lyntai.MemoryVerificationRegistration
+static class Lyntai.MemoryVerificationBuilderExtensions
     static AddMemoryVerification(LyntaiBuilder builder, Action<LlmVerificationOptions> configure = null) : LyntaiBuilder
 interface Lyntai.Processes.IProcessRunner
     RunAsync(String command, IReadOnlyList<String> args, String stdin = null, Nullable<TimeSpan> inactivityTimeout = null, Nullable<TimeSpan> maxDuration = null, String workingDirectory = null, IReadOnlyDictionary<String,String> environment = null, CancellationToken ct = default) : Task<ProcessResult>
@@ -2734,7 +2734,7 @@ sealed class Lyntai.RateLimitOptions
     MaxWait : TimeSpan
     PerConsumer : Dictionary<String,ConsumerRate>
     PermitsPerSecond : Double
-static class Lyntai.ScoringVerificationRegistration
+static class Lyntai.ScoringVerificationBuilderExtensions
     static AddMemoryScoringVerification(LyntaiBuilder builder, Action<ScoringVerificationOptions> configure = null) : LyntaiBuilder
 static class Lyntai.SecretVaultBuilderExtensions
     static AddEnvelopeSecretVault(LyntaiBuilder builder, ISecretProtector machineProtector, ISecretAccessPolicy accessPolicy = null) : LyntaiBuilder
@@ -3332,9 +3332,9 @@ sealed class Lyntai.TextClientBuilder
     Name : String
     UseCandidates(ProviderCandidate[] candidates) : TextClientBuilder
     UseProviders(String[] providerIds) : TextClientBuilder
-static class Lyntai.TextClientRegistration
+static class Lyntai.TextClientBuilderExtensions
     static AddTextClient(LyntaiBuilder builder, String name, Action<TextClientBuilder> configure = null) : LyntaiBuilder
-static class Lyntai.ToolSelectorRegistration
+static class Lyntai.ToolSelectorBuilderExtensions
     static AddVectorToolSelector(LyntaiBuilder builder, Action<ToolSelectorOptions> configure = null) : LyntaiBuilder
 static class Microsoft.Extensions.DependencyInjection.LyntaiServiceCollectionExtensions
     static AddLyntai(IServiceCollection services, Action<LyntaiBuilder> configure) : IServiceCollection

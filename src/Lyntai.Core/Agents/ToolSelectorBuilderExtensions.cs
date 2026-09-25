@@ -7,7 +7,7 @@ namespace Lyntai;
 
 /// <summary>Registers an <see cref="IToolSelector"/>, which bounds the tool roster before the model sees
 /// it.</summary>
-public static class ToolSelectorRegistration
+public static class ToolSelectorBuilderExtensions
 {
     /// <summary>
     /// Narrow the tool roster to the requests each tool is actually plausible for, by embedding the

@@ -7,7 +7,7 @@ namespace Lyntai;
 /// <summary>Registers the retrieval CHANNELS a graph recall gathers candidates from
 /// (<see cref="IMemorySeedSource"/>). <c>AddMemoryEngine</c> already registers the lexical and subject
 /// channels; these two calls add the vector one and re-configure either.</summary>
-public static class MemorySeedRegistration
+public static class MemorySeedBuilderExtensions
 {
     /// <summary>
     /// Let a recall reach an entry through MEANING — the query is embedded and its nearest entries join the

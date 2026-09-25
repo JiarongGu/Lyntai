@@ -69,7 +69,7 @@ public class ModulatedRetrievabilityTests
 
     // ---- the shared RetrievabilityPolicyContract, run against ModulatedRetrievability itself ----
     // (fix round 2, cheap minor) — the policy AddMemoryEngine actually installs via UseGraph/
-    // UseBestAvailable (MemoryEngineRegistration), never exercised by this fact set before this addition.
+    // UseBestAvailable (MemoryEngineBuilderExtensions), never exercised by this fact set before this addition.
     //
     // NEUTRAL, not empty: SalienceRetentionPolicy is the real, shipped default retention policy, not a
     // stand-in — With_no_retention_policies_it_is_the_inner_policy_exactly (above) already covers the

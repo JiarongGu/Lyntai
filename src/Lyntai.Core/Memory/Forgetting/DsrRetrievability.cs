@@ -390,7 +390,7 @@ public sealed record DsrOptions
 /// direction is safe: the cutoff bounds <c>PruneAsync</c>, which deletes rows ABOVE it, so wider deletes
 /// less.</para>
 /// <para><b>This is the only shipped forgetting curve, and the DI-registered default</b> —
-/// <c>MemoryEngineRegistration.AddMemoryEngine</c> <c>TryAdd</c>s it, and a bare-constructed
+/// <c>MemoryEngineBuilderExtensions.AddMemoryEngine</c> <c>TryAdd</c>s it, and a bare-constructed
 /// <see cref="Lyntai.Memory.Engines.GraphMemoryEngine"/> defaults to it too. FSRS's own external validation
 /// is the primary evidence for that default; see <c>docs/DECISIONS.md</c> D49.</para>
 /// <para><see cref="Reinforce"/> maintains <see cref="MemoryDecayState.Difficulty"/> on every review, derived

@@ -12,7 +12,7 @@ namespace Lyntai;
 
 /// <summary>Registers named memory engines inside <c>services.AddLyntai(cfg =&gt; …)</c>. Several coexist;
 /// address them through <see cref="IMemoryEngineFactory"/>.</summary>
-public static class MemoryEngineRegistration
+public static class MemoryEngineBuilderExtensions
 {
     /// <summary>Register one working engine with no further configuration, and back
     /// <see cref="IPromptComposer"/> with it.
@@ -167,8 +167,8 @@ public static class MemoryEngineRegistration
 }
 
 /// <summary>Carries a named engine's composition options into the container, so
-/// <see cref="MemoryEngineRegistration.UseMemoryComposer"/> can find them without a second builder pass —
-/// and so <see cref="MemoryEngineRegistration.AddMemoryEngine"/> can detect a duplicate name at configure
+/// <see cref="MemoryEngineBuilderExtensions.UseMemoryComposer"/> can find them without a second builder pass —
+/// and so <see cref="MemoryEngineBuilderExtensions.AddMemoryEngine"/> can detect a duplicate name at configure
 /// time.</summary>
 /// <param name="Name">The engine's name.</param>
 /// <param name="Options">Its composition options.</param>

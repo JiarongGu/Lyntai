@@ -77,7 +77,7 @@ public sealed class TextClientBuilder
 
 /// <summary>Registers named <see cref="ITextClient"/>s, resolvable through
 /// <see cref="ITextClientFactory"/>.</summary>
-public static class TextClientRegistration
+public static class TextClientBuilderExtensions
 {
     /// <summary>
     /// Register an LLM client under <paramref name="name"/>, routed over its own set of backends.
