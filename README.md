@@ -778,9 +778,10 @@ services.AddLyntai(b => b
 // var reply = await llm.CompleteAsync(...);  → the CLI calls get_weather and answers
 ```
 
-**Per call, by consumer.** A spawn hosts every registered tool unless its request's `Consumer` is mapped in
-`McpToolHostOptions.ToolsByConsumer`: an empty list hosts none and starts no host — the fast plain call — and
-names host only those tools. A provisioner of your own sees the call through
+**Per call, by consumer.** `McpToolHostOptions.ToolsByConsumer` says which tools a spawn hosts, resolved as
+`TimeoutByConsumer` is: the request's `Consumer` entry, then the `"default"` entry, then every registered tool. An
+empty list hosts none and starts no host — the fast plain call — and names host only those tools, so
+`ToolsByConsumer["default"] = []` denies by default. A provisioner of your own sees the call through
 `ProvisionAsync(CliToolRequest, ct)` (`docs/DECISIONS.md` D190).
 
 **Which** CLI connects and **how** it is told to is an `IMcpCliConnector` (flag names plus config-file

@@ -13,17 +13,25 @@ namespace Lyntai.Agents;
 /// </summary>
 public interface ICliToolProvisioner
 {
-    /// <summary>Stand up tool access for one CLI invocation without seeing the call — the member a request-blind
-    /// provisioner implements. Dispose the returned session after the process exits to release the host and
-    /// temp files.</summary>
+    /// <summary>Stand up tool access for one CLI invocation without seeing the call. The engine no longer calls
+    /// it; it stays because a provisioner written before the request-aware member implements only this one, and
+    /// that member's default forwards here — so a provisioner that overrides both answers here as if no call were
+    /// known, typically with every tool. Dispose the returned session after the process exits to release the host
+    /// and temp files.</summary>
     Task<CliToolSession> ProvisionAsync(CancellationToken ct = default);
 
     /// <summary>Stand up tool access for one CLI invocation, seeing the call it serves — what the engine calls.
     /// Defaults to <see cref="ProvisionAsync(CancellationToken)"/>, so a provisioner written before this member
     /// still runs; override this one to choose per call (the shipped MCP host reads the request's consumer).
-    /// <para>A literal <c>default</c> or <c>null</c> as the first argument is ambiguous between the two
-    /// overloads (CS0121); pass a token or nothing.</para></summary>
-    Task<CliToolSession> ProvisionAsync(CliToolRequest request, CancellationToken ct = default) => ProvisionAsync(ct);
+    /// <para><b>A decorator must forward BOTH members.</b> One that forwards only the request-blind member takes
+    /// this default, so every call reaches its inner provisioner request-blind and a per-call choice such as
+    /// <c>McpToolHostOptions.ToolsByConsumer</c> silently stops applying.</para></summary>
+    /// <exception cref="ArgumentNullException"><paramref name="request"/> is null.</exception>
+    Task<CliToolSession> ProvisionAsync(CliToolRequest request, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        return ProvisionAsync(ct);
+    }
 }
 
 /// <summary>The result of <see cref="ICliToolProvisioner.ProvisionAsync(CliToolRequest, CancellationToken)"/>:
@@ -43,8 +51,10 @@ public sealed class CliToolSession(IReadOnlyList<string> extraArgs, Func<ValueTa
 }
 
 /// <summary>What <see cref="ICliToolProvisioner.ProvisionAsync(CliToolRequest, CancellationToken)"/> is asked
-/// for: the call being served and the backend spawning for it — one unkeyed provisioner may serve several CLIs.
+/// for: the call being served and which CLI is spawning for it — one unkeyed provisioner may serve several CLIs.
 /// A record, so a later field is an additive property rather than another overload.</summary>
 /// <param name="Request">The call the spawn serves.</param>
-/// <param name="ProviderId">The id of the CLI backend spawning.</param>
-public sealed record CliToolRequest(TextRequest Request, string ProviderId);
+/// <param name="BackendId">Which CLI is spawning — <c>claude-cli</c>, <c>codex-cli</c> — the SAME for every
+/// registration of that CLI, so it is not the registration's id; a per-registration choice keys the provisioner
+/// itself.</param>
+public sealed record CliToolRequest(TextRequest Request, string BackendId);

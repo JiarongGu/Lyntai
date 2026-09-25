@@ -48,9 +48,10 @@ every addition.
   timed out, or the subject index refused the write — the entry is then stored without its subjects for good,
   so a rebuild that needs them retries the write. A recall reports it when an annotator is wired.
 - **A CLI spawn's tools can be chosen per call** (**D190**). `ICliToolProvisioner.ProvisionAsync(CliToolRequest, ct)`
-  sees the request and the spawning backend (a default body keeps every existing provisioner working), and
-  `McpToolHostOptions.ToolsByConsumer` maps a consumer to the tools its spawns host — none, and no host, for an
-  empty list. A literal `default`/`null` passed to `ProvisionAsync` is now ambiguous (CS0121); pass a token.
+  sees the request and which CLI is spawning (a default body keeps every existing provisioner working; a
+  decorator must forward both members), and `McpToolHostOptions.ToolsByConsumer` maps a consumer to the tools its
+  spawns host, resolved as `TimeoutByConsumer` is — the consumer's entry, then `"default"`, then every tool — so
+  `ToolsByConsumer["default"] = []` denies by default. An empty list hosts none, and starts no host.
 
 ### Fixed
 

@@ -25,7 +25,9 @@ internal sealed class McpToolHostProvisioner(
     public Task<CliToolSession> ProvisionAsync(CliToolRequest request, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(request);
+        // the tiering every *ByConsumer map here uses: the consumer's own entry, then "default", then every tool
         return HostAsync(options.ToolsByConsumer.TryGetValue(request.Request.Consumer, out var names)
+            || options.ToolsByConsumer.TryGetValue(Lyntai.Inference.ProviderConsumers.Default, out names)
             ? [.. _registered.Where(t => names.Contains(t.Name, StringComparer.Ordinal))]
             : _registered, ct);
     }

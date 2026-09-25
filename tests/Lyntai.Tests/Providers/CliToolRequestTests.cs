@@ -49,7 +49,7 @@ public class CliToolRequestTests
 
         var seen = Assert.Single(provisioner.Seen);
         Assert.Equal("study", seen.Request.Consumer);
-        Assert.Equal("fake-cli", seen.ProviderId);
+        Assert.Equal("fake-cli", seen.BackendId);
     }
 
     [Fact]
@@ -74,5 +74,14 @@ public class CliToolRequestTests
         await engine.CompleteAsync(Ask("study"));
 
         Assert.Equal(1, provisioner.Calls);
+    }
+
+    [Fact]
+    public async Task A_null_request_is_refused_by_the_default_member_as_by_the_host()
+    {
+        // the default must not silently run request-blind on a null the shipped host refuses
+        ICliToolProvisioner provisioner = new RequestBlind();
+
+        await Assert.ThrowsAsync<ArgumentNullException>(() => provisioner.ProvisionAsync((CliToolRequest)null!));
     }
 }

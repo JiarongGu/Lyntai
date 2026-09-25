@@ -5565,14 +5565,19 @@ reviewed code into host configuration nobody tests. Extracting now: see the trig
 ## D190 — a CLI spawn's tools are chosen per CONSUMER, by configuration (2026-09-26)
 
 `ICliToolProvisioner` gains `ProvisionAsync(CliToolRequest, ct)`, defaulting to the request-blind member, and
-`CliProviderEngine` calls it on both doors; the shipped MCP host reads `McpToolHostOptions.ToolsByConsumer` —
-absent means every tool, empty means none and no host, names mean that subset. An adopting app reached the same
-choice through ambient `AsyncLocal` state because the seam never saw the call.
+`CliProviderEngine` calls it on both doors; the shipped MCP host reads `McpToolHostOptions.ToolsByConsumer`,
+resolved as every `*ByConsumer` map is — the consumer's entry, then `"default"`, then every tool — where empty
+means none and no host and names mean that subset. So `"default"` set to empty denies by default; without that
+tier it would reach only untagged calls, and a least-privilege setup would grant every tagged consumer everything.
+An adopting app reached the same choice through ambient `AsyncLocal` state because the seam never saw the call.
 
-**The request is a record** (`CliToolRequest`: the call and the spawning backend), as every seam here takes its
-call, so a later field is additive rather than another overload.
+**The request is a record** (`CliToolRequest`: the call and `BackendId`, which CLI is spawning — the same for
+every registration of it, since a per-registration choice keys the provisioner itself), as every seam here takes
+its call, so a later field is additive rather than another overload.
 
 **Rejected.** `TextRequest.Tools` as a by-name filter on a CLI backend: on an HTTP backend the same field lists
 declarations the CALLER executes, so a request falling back across the two would change meaning mid-route.
-Seam only: every app wanting "no tools on this call" would write its own provisioner. Breaking the seam to make
-the request member the only abstract one: it gains nothing a default does not and costs every implementer an edit.
+Seam only: every app wanting "no tools on this call" would write its own provisioner. Making the request member
+the only abstract one: a decorator forwarding only the old member would become a compile error instead of a
+silent request-blind pass-through, at the cost of an edit for every implementer; the default was kept, and the
+XML doc says a decorator forwards both.

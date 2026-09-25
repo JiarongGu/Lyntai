@@ -20,9 +20,10 @@ public sealed class McpToolHostOptions
     public string BindAddress { get; set; } = DefaultBindAddress;
 
     /// <summary>Which registered tools a spawn hosts, by the request's <see cref="Lyntai.Inference.TextRequest.Consumer"/>
-    /// — the same per-consumer shape as <c>LyntaiOptions.TimeoutByConsumer</c>, keys ignoring case. A consumer
-    /// absent from it gets every registered tool; an EMPTY list gets none, and no host is started, which is the
-    /// fast plain call; names get only those tools, matched ordinally. Configuration rather than a request field,
+    /// — resolved as <c>LyntaiOptions.TimeoutByConsumer</c> is, keys ignoring case: the consumer's own entry, else
+    /// the <c>"default"</c> entry, else every registered tool. An EMPTY list gets none of the app's tools, and no
+    /// host is started, which is the fast plain call; names get only those tools, matched ordinally. So
+    /// <c>ToolsByConsumer["default"] = []</c> denies by default and each consumer that needs tools is listed. Configuration rather than a request field,
     /// so a call that falls back to an HTTP backend never carries a request whose meaning changed. A name no
     /// registered tool has is refused when the provisioner is built.</summary>
     public Dictionary<string, IReadOnlyList<string>> ToolsByConsumer { get; } = new(StringComparer.OrdinalIgnoreCase);

@@ -99,4 +99,30 @@ public class McpToolHostSelectionTests
         Assert.Contains("fecth", ex.Message);
         Assert.Contains("echo", ex.Message);                        // and names what IS registered
     }
+
+    [Fact]
+    public async Task A_default_entry_applies_to_every_consumer_not_mapped_itself()
+    {
+        // deny by default: the tiering TimeoutByConsumer uses — consumer entry, then "default", then every tool
+        var connector = new Connector();
+        var options = new McpToolHostOptions { ToolsByConsumer = { ["default"] = [] } };
+
+        await using var session = await new McpToolHostProvisioner([Echo, Fetch], connector, options)
+            .ProvisionAsync(For("study"));
+
+        Assert.Empty(session.ExtraArgs);
+        Assert.Null(connector.Seen);
+    }
+
+    [Fact]
+    public async Task A_consumer_entry_outranks_the_default_entry()
+    {
+        var connector = new Connector();
+        var options = new McpToolHostOptions { ToolsByConsumer = { ["default"] = [], ["study"] = ["fetch"] } };
+
+        await using var session = await new McpToolHostProvisioner([Echo, Fetch], connector, options)
+            .ProvisionAsync(For("study"));
+
+        Assert.Equal(["fetch"], await HostedNames(connector.Seen!));
+    }
 }

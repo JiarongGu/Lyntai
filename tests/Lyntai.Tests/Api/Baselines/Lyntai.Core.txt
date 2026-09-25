@@ -91,12 +91,12 @@ sealed class Lyntai.Agents.ChatTurn
     ToString() : String
     UseTools : Boolean { get; init; }
 sealed class Lyntai.Agents.CliToolRequest
-    .ctor(TextRequest Request, String ProviderId)
-    Deconstruct(TextRequest& Request, String& ProviderId) : Void
+    .ctor(TextRequest Request, String BackendId)
+    BackendId : String { get; init; }
+    Deconstruct(TextRequest& Request, String& BackendId) : Void
     Equals(CliToolRequest other) : Boolean
     Equals(Object obj) : Boolean
     GetHashCode() : Int32
-    ProviderId : String { get; init; }
     Request : TextRequest { get; init; }
     ToString() : String
 sealed class Lyntai.Agents.CliToolSession
