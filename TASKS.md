@@ -297,6 +297,14 @@ Start through the discovery skills (`skills-workflow.md`) and read `.claude/know
   **Breaking changes are allowed**, each under `CHANGELOG.md` `### Breaking` naming its action (**D161**).
   **fal STAYS**: document why it is unverified, and survey the other hosted generation vendors as fallback
   options beside it. Findings land in `devtools/_review/` (scratch) and are triaged here as they are fixed.
+  <br>**Progress (2026-09-25).** The review ran as 13 parallel read-only passes (one per area, plus a hosted
+  vendor survey) and returned about 340 verified findings. The fixes go in three WAVES, because the same file
+  is shared across areas: (1) seven per-package fix branches in parallel — Core inference, the rest of Core,
+  Core memory, storage, providers, generation, tooling — each owning its files and reporting the record edits
+  it needs rather than making them; (2) the cross-area adoptions wave 1 prepared (the Core helpers an adapter
+  now calls), the test-suite cleanup (vacuous facts first) and the renames that span areas; (3) the docs:
+  `CLAUDE.md`, `README.md`, `pitfalls.md`, the design record, `DECISIONS.md` lengths and supersessions, plus
+  every record edit waves 1–2 reported. The pre-change baseline is the one `CLAUDE.md` states, re-read green.
 
 ## Retired — five Parts that outlived their open work (2026-09-16)
 
