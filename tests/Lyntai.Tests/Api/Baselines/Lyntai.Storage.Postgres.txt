@@ -8,14 +8,14 @@ static class Lyntai.PostgresStorageBuilderExtensions
     static UsePostgresVectorStore(LyntaiBuilder builder) : LyntaiBuilder
 sealed class Lyntai.Storage.Postgres.Migrations.LyntaiVersionTable
     .ctor()
-    AppliedOnColumnName : String
-    ColumnName : String
-    CreateWithPrimaryKey : Boolean
-    DescriptionColumnName : String
-    OwnsSchema : Boolean
-    SchemaName : String
-    TableName : String
-    UniqueIndexName : String
+    AppliedOnColumnName : String { get; }
+    ColumnName : String { get; }
+    CreateWithPrimaryKey : Boolean { get; }
+    DescriptionColumnName : String { get; }
+    OwnsSchema : Boolean { get; }
+    SchemaName : String { get; }
+    TableName : String { get; }
+    UniqueIndexName : String { get; }
 static class Lyntai.Storage.Postgres.Migrations.MigrationRunnerService
     static MigrateUp(String connectionString) : Void
     static MigrateUp(String connectionString, StorageFeature features) : Void

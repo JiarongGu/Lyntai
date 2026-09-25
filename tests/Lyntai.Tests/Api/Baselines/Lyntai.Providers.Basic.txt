@@ -21,45 +21,45 @@ static class Lyntai.OllamaBuilderExtensions
     static AddOllamaProvider(LyntaiBuilder builder, String id, Action<OllamaOptions> configure, Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
 sealed class Lyntai.Providers.ClaudeCli.ClaudeAgentOptions
     .ctor()
-    AllowedTools : IReadOnlyList<String>
-    EqualityContract : Type
+    AllowedTools : IReadOnlyList<String> { get; init; }
+    EqualityContract : Type { protected get; }
     Equals(AgentSessionOptions other) : Boolean
     Equals(ClaudeAgentOptions other) : Boolean
     Equals(Object obj) : Boolean
     GetHashCode() : Int32
-    McpConfigPath : String
+    McpConfigPath : String { get; init; }
     PrintMembers(StringBuilder builder) : Boolean
-    SettingsPath : String
-    SkipAllPermissions : Boolean
+    SettingsPath : String { get; init; }
+    SkipAllPermissions : Boolean { get; init; }
     ToString() : String
 sealed class Lyntai.Providers.ClaudeCli.ClaudeAgentSession
     .ctor(IProcessRunner runner, LyntaiOptions options, ILogger<ClaudeAgentSession> logger = null, String command = null, IReadOnlyDictionary<String,String> environment = null)
     StreamAsync(AgentSessionOptions options, CancellationToken ct = default) : IAsyncEnumerable<AgentStreamEvent>
 sealed class Lyntai.Providers.ClaudeCli.ClaudeCliBackend
     .ctor()
-    AuthStatusArgs : IReadOnlyList<String>
+    AuthStatusArgs : IReadOnlyList<String> { get; }
     BuildCompletionArgs(TextRequest request, IReadOnlyList<String> toolHostArgs) : IReadOnlyList<String>
-    CommandEnvironmentVariables : IReadOnlyList<String>
-    DefaultCommand : String
-    Id : String
-    LogoutArgs : IReadOnlyList<String>
+    CommandEnvironmentVariables : IReadOnlyList<String> { get; }
+    DefaultCommand : String { get; }
+    Id : String { get; }
+    LogoutArgs : IReadOnlyList<String> { get; }
     ParseAuthStatus(String output) : ProviderAuthStatus
     ParseLine(String line) : CliOutputEvent
     TryBuildInstallArgs(ProviderInstallRequest request, IReadOnlyList`1& args, String& refusal) : Boolean
     TryBuildLoginArgs(ProviderLoginRequest request, IReadOnlyList`1& args, String& refusal) : Boolean
-    UpdateArgs : IReadOnlyList<String>
+    UpdateArgs : IReadOnlyList<String> { get; }
 sealed class Lyntai.Providers.ClaudeCli.ClaudeCliMcpConnector
     .ctor()
     .ctor(String providerId)
     BuildArgsAsync(McpCliContext context, CancellationToken ct = default) : ValueTask<IReadOnlyList<String>>
-    ProviderId : String
+    ProviderId : String { get; }
 sealed class Lyntai.Providers.ClaudeCli.ClaudeCliProvider
     .ctor(IProcessRunner runner, LyntaiOptions options, ILogger<ClaudeCliProvider> logger = null, String command = null, ICliToolProvisioner provisioner = null, IReadOnlyDictionary<String,String> environment = null, String id = "claude-cli")
-    Capabilities : ProviderCapabilities
+    Capabilities : ProviderCapabilities { get; }
     CompleteAsync(TextRequest req, CancellationToken ct = default) : Task<TextResponse>
-    Id : String
+    Id : String { get; }
     InstallAsync(ProviderInstallRequest request = null, CancellationToken ct = default) : Task<ProviderUpdateResult>
-    IsAvailable : Boolean
+    IsAvailable : Boolean { get; }
     LoginAsync(ProviderLoginRequest request = null, CancellationToken ct = default) : Task<ProviderAuthResult>
     LogoutAsync(CancellationToken ct = default) : Task<ProviderAuthResult>
     ProbeAsync(CancellationToken ct = default) : Task<ProviderProbeResult>
@@ -71,36 +71,36 @@ static class Lyntai.Providers.ClaudeCli.ClaudeToolCalls
     static FilePathOf(ToolCall call) : String
 sealed class Lyntai.Providers.CodexCli.CodexAgentOptions
     .ctor()
-    EqualityContract : Type
+    EqualityContract : Type { protected get; }
     Equals(AgentSessionOptions other) : Boolean
     Equals(CodexAgentOptions other) : Boolean
     Equals(Object obj) : Boolean
     GetHashCode() : Int32
     PrintMembers(StringBuilder builder) : Boolean
-    SandboxMode : String
+    SandboxMode : String { get; init; }
     ToString() : String
 sealed class Lyntai.Providers.CodexCli.CodexAgentSession
     .ctor(IProcessRunner runner, LyntaiOptions options, ILogger<CodexAgentSession> logger = null, String command = null, IReadOnlyDictionary<String,String> environment = null)
     StreamAsync(AgentSessionOptions options, CancellationToken ct = default) : IAsyncEnumerable<AgentStreamEvent>
 sealed class Lyntai.Providers.CodexCli.CodexCliBackend
     .ctor()
-    AuthStatusArgs : IReadOnlyList<String>
+    AuthStatusArgs : IReadOnlyList<String> { get; }
     BuildCompletionArgs(TextRequest request, IReadOnlyList<String> toolHostArgs) : IReadOnlyList<String>
-    CommandEnvironmentVariables : IReadOnlyList<String>
-    DefaultCommand : String
-    Id : String
-    LogoutArgs : IReadOnlyList<String>
+    CommandEnvironmentVariables : IReadOnlyList<String> { get; }
+    DefaultCommand : String { get; }
+    Id : String { get; }
+    LogoutArgs : IReadOnlyList<String> { get; }
     ParseAuthStatus(String output) : ProviderAuthStatus
     ParseLine(String line) : CliOutputEvent
-    SandboxMode : String
+    SandboxMode : String { get; init; }
     TryBuildLoginArgs(ProviderLoginRequest request, IReadOnlyList`1& args, String& refusal) : Boolean
-    UpdateArgs : IReadOnlyList<String>
+    UpdateArgs : IReadOnlyList<String> { get; }
 sealed class Lyntai.Providers.CodexCli.CodexCliProvider
     .ctor(IProcessRunner runner, LyntaiOptions options, ILogger<CodexCliProvider> logger = null, String command = null, ICliToolProvisioner provisioner = null, IReadOnlyDictionary<String,String> environment = null, CodexCliBackend backend = null, String id = "codex-cli")
-    Capabilities : ProviderCapabilities
+    Capabilities : ProviderCapabilities { get; }
     CompleteAsync(TextRequest req, CancellationToken ct = default) : Task<TextResponse>
-    Id : String
-    IsAvailable : Boolean
+    Id : String { get; }
+    IsAvailable : Boolean { get; }
     LoginAsync(ProviderLoginRequest request = null, CancellationToken ct = default) : Task<ProviderAuthResult>
     LogoutAsync(CancellationToken ct = default) : Task<ProviderAuthResult>
     ProbeAsync(CancellationToken ct = default) : Task<ProviderProbeResult>
@@ -110,54 +110,54 @@ sealed class Lyntai.Providers.CodexCli.CodexCliProvider
     UpdateAsync(CancellationToken ct = default) : Task<ProviderUpdateResult>
 sealed class Lyntai.Providers.Http.HttpModelOptions
     .ctor()
-    ApiKey : String
-    AzureConventions : Nullable<Boolean>
-    BaseUrl : String
-    BatchSize : Int32
-    DocumentPrefix : String
-    MaxInputChars : Nullable<Int32>
-    Model : String
-    Produces : String
-    QueryPrefix : String
-    Segmentation : InputSegmentation
-    SuppressReasoningFields : String
+    ApiKey : String { get; set; }
+    AzureConventions : Nullable<Boolean> { get; set; }
+    BaseUrl : String { get; set; }
+    BatchSize : Int32 { get; set; }
+    DocumentPrefix : String { get; set; }
+    MaxInputChars : Nullable<Int32> { get; set; }
+    Model : String { get; set; }
+    Produces : String { get; set; }
+    QueryPrefix : String { get; set; }
+    Segmentation : InputSegmentation { get; set; }
+    SuppressReasoningFields : String { get; set; }
 sealed class Lyntai.Providers.Http.HttpModelProvider
     .ctor(String id, HttpModelOptions config, Func<HttpClient> httpFactory, LyntaiOptions options, ILogger<HttpModelProvider> logger = null, Boolean disposeHttpClient = true)
     CallAsync(ScoreRequest request, CancellationToken ct = default) : Task<ScoreResponse>
     CallAsync(VectorRequest request, CancellationToken ct = default) : Task<VectorResponse>
-    Capabilities : ProviderCapabilities
+    Capabilities : ProviderCapabilities { get; }
     CompleteAsync(TextRequest req, CancellationToken ct = default) : Task<TextResponse>
-    Id : String
-    IsAvailable : Boolean
+    Id : String { get; }
+    IsAvailable : Boolean { get; }
     StreamAsync(TextRequest req, CancellationToken ct = default) : IAsyncEnumerable<TextChunk>
 sealed class Lyntai.Providers.Model2Vec.Model2VecProvider
     CallAsync(VectorRequest request, CancellationToken ct = default) : Task<VectorResponse>
-    Capabilities : ProviderCapabilities
-    Dimensions : Int32
-    Id : String
-    IsAvailable : Boolean
+    Capabilities : ProviderCapabilities { get; }
+    Dimensions : Int32 { get; }
+    Id : String { get; }
+    IsAvailable : Boolean { get; }
     static FromDirectory(String directory, Model2VecProviderOptions options = null) : Model2VecProvider
 sealed class Lyntai.Providers.Model2Vec.Model2VecProviderOptions
     .ctor()
-    Id : String
-    Normalize : Nullable<Boolean>
+    Id : String { get; set; }
+    Normalize : Nullable<Boolean> { get; set; }
 sealed class Lyntai.Providers.Ollama.OllamaOptions
     .ctor()
-    ApiKey : String
-    BaseUrl : String
-    BatchSize : Int32
-    ContextSize : Nullable<Int32>
-    DocumentPrefix : String
-    MaxInputChars : Nullable<Int32>
-    Model : String
-    Produces : String
-    QueryPrefix : String
-    Segmentation : InputSegmentation
+    ApiKey : String { get; set; }
+    BaseUrl : String { get; set; }
+    BatchSize : Int32 { get; set; }
+    ContextSize : Nullable<Int32> { get; set; }
+    DocumentPrefix : String { get; set; }
+    MaxInputChars : Nullable<Int32> { get; set; }
+    Model : String { get; set; }
+    Produces : String { get; set; }
+    QueryPrefix : String { get; set; }
+    Segmentation : InputSegmentation { get; set; }
 sealed class Lyntai.Providers.Ollama.OllamaProvider
     .ctor(String id, OllamaOptions config, Func<HttpClient> httpFactory, LyntaiOptions options, ILogger<OllamaProvider> logger = null, Boolean disposeHttpClient = true)
     CallAsync(VectorRequest request, CancellationToken ct = default) : Task<VectorResponse>
-    Capabilities : ProviderCapabilities
+    Capabilities : ProviderCapabilities { get; }
     CompleteAsync(TextRequest req, CancellationToken ct = default) : Task<TextResponse>
-    Id : String
-    IsAvailable : Boolean
+    Id : String { get; }
+    IsAvailable : Boolean { get; }
     StreamAsync(TextRequest req, CancellationToken ct = default) : IAsyncEnumerable<TextChunk>

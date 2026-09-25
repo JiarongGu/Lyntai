@@ -2,7 +2,7 @@ static class Lyntai.FileSystemStorageBuilderExtensions
     static UseFileSystemStorage(LyntaiBuilder builder, Action<FileSystemStorageOptions> configure) : LyntaiBuilder
 sealed class Lyntai.FileSystemStorageOptions
     .ctor()
-    Root : String
+    Root : String { get; set; }
 static class Lyntai.InMemoryStorageBuilderExtensions
     static UseInMemoryStorage(LyntaiBuilder builder) : LyntaiBuilder
 sealed class Lyntai.Storage.InMemory.InMemoryConversationStore

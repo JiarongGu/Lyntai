@@ -8,14 +8,14 @@ static class Lyntai.SqliteStorageBuilderExtensions
     static UseSqliteVectorStore(LyntaiBuilder builder) : LyntaiBuilder
 sealed class Lyntai.Storage.Sqlite.Migrations.LyntaiVersionTable
     .ctor()
-    AppliedOnColumnName : String
-    ColumnName : String
-    CreateWithPrimaryKey : Boolean
-    DescriptionColumnName : String
-    OwnsSchema : Boolean
-    SchemaName : String
-    TableName : String
-    UniqueIndexName : String
+    AppliedOnColumnName : String { get; }
+    ColumnName : String { get; }
+    CreateWithPrimaryKey : Boolean { get; }
+    DescriptionColumnName : String { get; }
+    OwnsSchema : Boolean { get; }
+    SchemaName : String { get; }
+    TableName : String { get; }
+    UniqueIndexName : String { get; }
 static class Lyntai.Storage.Sqlite.Migrations.MigrationRunnerService
     static MigrateUp(String dbPath) : Void
     static MigrateUp(String dbPath, StorageFeature features) : Void
@@ -23,7 +23,7 @@ static class Lyntai.Storage.Sqlite.Migrations.MigrationRunnerService
     static MigrateUpAsync(String dbPath, StorageFeature features, CancellationToken ct = default) : Task
 sealed class Lyntai.Storage.Sqlite.SqliteConnectionFactory
     .ctor(String dbPath)
-    DbPath : String
+    DbPath : String { get; }
     Open() : DbConnection
     OpenAsync(CancellationToken ct = default) : Task<DbConnection>
 sealed class Lyntai.Storage.Sqlite.SqliteConversationStore

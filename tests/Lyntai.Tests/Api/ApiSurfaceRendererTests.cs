@@ -63,6 +63,29 @@ public class ApiSurfaceRendererTests
     }
 
     [Fact]
+    public void A_property_renders_the_accessors_a_caller_can_use()
+    {
+        var lines = Lines(ApiSurface.Render(typeof(Accessors)));
+
+        Assert.Contains("Settable : Int32 { get; set; }", lines);
+        Assert.Contains("ReadOnly : Int32 { get; }", lines);
+        Assert.Contains("InitOnly : Int32 { get; init; }", lines);
+        Assert.Contains("PrivatelySet : Int32 { get; }", lines);
+        Assert.Contains("ProtectedSet : Int32 { get; protected set; }", lines);
+    }
+
+    /// <summary>The break a name-and-type rendering could not see: removing a public setter breaks every
+    /// <c>Configure(o =&gt; o.X = …)</c> caller while the property line stays byte-identical.</summary>
+    [Fact]
+    public void Removing_a_public_setter_changes_the_rendered_surface()
+    {
+        var before = Lines(ApiSurface.Render(typeof(Accessors))).Single(l => l.StartsWith("Settable", StringComparison.Ordinal));
+        var after = Lines(ApiSurface.Render(typeof(AccessorsMinusSetter))).Single(l => l.StartsWith("Settable", StringComparison.Ordinal));
+
+        Assert.NotEqual(before, after);
+    }
+
+    [Fact]
     public void Parameter_names_are_rendered()
     {
         var lines = Lines(ApiSurface.Render(typeof(Signatures)));
@@ -134,6 +157,21 @@ public class ApiSurfaceRendererTests
             TimeSpan? window = null,
             StringComparison how = StringComparison.Ordinal,
             CancellationToken token = default) { }
+    }
+
+    public class Accessors
+    {
+        public int Settable { get; set; }
+        public int ReadOnly { get; }
+        public int InitOnly { get; init; }
+        public int PrivatelySet { get; private set; }
+        public int ProtectedSet { get; protected set; }
+    }
+
+    /// <summary><see cref="Accessors"/> with the public setter removed — the break being simulated.</summary>
+    public class AccessorsMinusSetter
+    {
+        public int Settable { get; }
     }
 
     private sealed class Overloads
