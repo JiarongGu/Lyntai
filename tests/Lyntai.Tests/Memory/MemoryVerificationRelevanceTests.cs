@@ -23,20 +23,6 @@ namespace Lyntai.Tests.Memory;
 /// </summary>
 public class MemoryVerificationRelevanceTests
 {
-    /// <summary>Captures the request verbatim and judges nothing, so ordering is unchanged and the only thing
-    /// under test is what the engine handed over.</summary>
-    private sealed class CapturingVerification : IMemoryVerificationPolicy
-    {
-        public MemoryVerificationRequest? Last { get; private set; }
-
-        public Task<MemoryVerification> VerifyAsync(
-            MemoryVerificationRequest request, CancellationToken ct = default)
-        {
-            Last = request;
-            return Task.FromResult(MemoryVerification.NoOpinion);
-        }
-    }
-
     /// <summary>On SQLite, whose relevance is a rank position (<c>1 - i/n</c>), so two matches carry two
     /// DIFFERENT values. The in-process store reports <c>1</c> for every match, where a candidate wired to the
     /// literal <c>1</c> would pass both facts below.</summary>

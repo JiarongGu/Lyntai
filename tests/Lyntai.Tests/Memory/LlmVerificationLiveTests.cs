@@ -131,44 +131,9 @@ public class LlmVerificationLiveTests(Xunit.Abstractions.ITestOutputHelper outpu
     /// than whichever env var happened to be read.</summary>
     private static string ArmLabel => UsesClaude ? $"claude-cli/{ClaudeModel}" : Model;
 
-    /// <summary>A judge wired from the corpus's own ground truth: it promotes exactly the relevant entries
-    /// and nothing else.
-    ///
-    /// <para><b>This is a REFERENCE ARM, not a ceiling, and calling it one was wrong.</b> It was described
-    /// as an upper bound no model could exceed — then <c>gemma3:4b</c> beat it reproducibly (miss 0.2571 and
-    /// 0.2643 against its 0.2857; pollution 0.0492 and 0.0571 against its 0.1549). The error was treating
-    /// "maximally precise" as "optimal", and two mechanisms make it not:</para>
-    /// <list type="number">
-    /// <item><b>Promotion fills slots.</b> Promoting only the two or three strictly-relevant entries leaves
-    /// the remaining slots to the unchanged noisy ranking. A model with a broader notion of relevance
-    /// displaces noise from those slots — which is why its pollution is a third of this arm's.</item>
-    /// <item><b>Reinforcement follows the verdict.</b> This arm reinforces only strict ground truth, so
-    /// fewer entries get their age reset — and the age reset is what keeps material alive
-    /// (<c>docs/DECISIONS.md</c> <b>D57</b>/<b>D58</b>). Its stinginess costs it later recalls. It is
-    /// optimal for the CURRENT recall's ordering and not for the trajectory.</item>
-    /// </list>
-    ///
-    /// <para>It remains the right reference: it is deterministic, it is defined by the corpus rather than by
-    /// a model's taste, and the share-of-reference figure is still the most useful single number for
-    /// comparing judges. It just is not a bound, and a value above 100% is a real result rather than a
-    /// bug.</para></summary>
-    private sealed class OracleVerifier : IMemoryVerificationPolicy
-    {
-        private readonly Dictionary<string, HashSet<string>> _truth = new(StringComparer.Ordinal);
-
-        public void Teach(string queryText, IEnumerable<string> ids) => _truth[queryText] = [.. ids];
-
-        public Task<MemoryVerification> VerifyAsync(MemoryVerificationRequest request,
-            CancellationToken ct = default)
-        {
-            if (!_truth.TryGetValue(request.Query, out var relevant))
-                return Task.FromResult(MemoryVerification.NoOpinion);
-            var hits = request.Candidates.Select(c => c.Id).Where(relevant.Contains).ToList();
-            return Task.FromResult(hits.Count == 0
-                ? MemoryVerification.NothingRelevant
-                : new MemoryVerification(hits));
-        }
-    }
+    // The OracleVerifier arm is a REFERENCE, not a ceiling: promoting only strict ground truth leaves the
+    // other slots to the unchanged ranking and resets fewer ages, so a model with a broader notion of
+    // relevance can beat it — a share above 100% is a real result (docs/memory-measurements.md §5).
 
     private readonly record struct Arm(double Miss, double Pollution, int Judged, int NoOpinion);
 

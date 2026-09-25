@@ -10,13 +10,6 @@ namespace Lyntai.Tests.Memory;
 public class ModulatedRetrievabilityTests
 {
     /// <summary>A retention policy that lengthens by a fixed factor, optionally LYING about its own bound.</summary>
-    private sealed class FixedRetentionPolicy(double factor, double? declaredMax = null) : IMemoryRetentionPolicy
-    {
-        public string Name => "fixed";
-        public double MaxStabilityFactor => declaredMax ?? factor;
-        public double StabilityFactor(in MemoryDecayState state) => factor;
-    }
-
     /// <summary>A minimal, purpose-built curve for isolating <see cref="ModulatedRetrievability"/>'s own
     /// behaviour from any shipped curve's arithmetic. <c>HalfLifeRetrievability</c> is deleted; <!-- drift-ok: names the deleted curve deliberately -->
     /// substituting <see cref="DsrRetrievability"/> here would trade the clean,

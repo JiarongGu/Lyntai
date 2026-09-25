@@ -230,7 +230,7 @@ public class MemoryRemovalCompletenessTests
         // withdrawal that reported success over surviving content is the failure this exists to prevent.
         // What the caller gets is an exception and an unchanged store, which is retryable.
         var store = new InMemoryMemoryGraphStore();
-        var engine = Engine(new ThrowingVectorStore(), store: store);
+        var engine = Engine(new RemovalHostileVectorStore(), store: store);
         await engine.RememberAsync(new MemoryWrite("t", "s", "the recovery key is on the blue card"));
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => engine.ForgetAsync("t", "s"));
@@ -252,7 +252,7 @@ public class MemoryRemovalCompletenessTests
         // The ORDER was asymmetric from the start and the ERROR HANDLING was not, which is the defect this
         // fact was written to catch.
         var store = new InMemoryMemoryGraphStore();
-        var engine = Engine(new ThrowingVectorStore(), new GraphMemoryOptions { MinRetrievability = 0.9 },
+        var engine = Engine(new RemovalHostileVectorStore(), new GraphMemoryOptions { MinRetrievability = 0.9 },
             store);
         await engine.RememberAsync(new MemoryWrite("t", "s", "a faint associative entry about widgets"));
         await Crowd(engine, "t", 40);
@@ -265,7 +265,7 @@ public class MemoryRemovalCompletenessTests
 
     /// <summary>An <see cref="IVectorStore"/> whose every operation fails — a backend that is down, which is
     /// the condition both removal verbs have to answer for and neither had been asked about.</summary>
-    private sealed class ThrowingVectorStore : IVectorStore
+    private sealed class RemovalHostileVectorStore : IVectorStore
     {
         public Task UpsertAsync(string collection, string id, float[] vector, string payload,
             CancellationToken ct = default) => Task.CompletedTask;   // the WRITE succeeds; removal is the subject
@@ -278,25 +278,6 @@ public class MemoryRemovalCompletenessTests
 
         public Task RemoveCollectionAsync(string collection, CancellationToken ct = default) =>
             throw new InvalidOperationException("the vector store is unavailable");
-    }
-
-    /// <summary>An <see cref="IVectorStore"/> that is deliberately NOT an
-    /// <see cref="IListableVectorStore"/> — the BYO shape the fallback exists for.</summary>
-    private sealed class UnlistableVectorStore : IVectorStore
-    {
-        private readonly InMemoryVectorStore _inner = new();
-
-        public Task UpsertAsync(string collection, string id, float[] vector, string payload,
-            CancellationToken ct = default) => _inner.UpsertAsync(collection, id, vector, payload, ct);
-
-        public Task<IReadOnlyList<VectorMatch>> SearchAsync(string collection, float[] query, int k,
-            CancellationToken ct = default) => _inner.SearchAsync(collection, query, k, ct);
-
-        public Task DeleteAsync(string collection, string id, CancellationToken ct = default) =>
-            _inner.DeleteAsync(collection, id, ct);
-
-        public Task RemoveCollectionAsync(string collection, CancellationToken ct = default) =>
-            _inner.RemoveCollectionAsync(collection, ct);
     }
 
     /// <summary>A real in-process graph store that counts its <see cref="SeedAsync"/> reads, so the census a

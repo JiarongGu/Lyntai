@@ -104,7 +104,7 @@ public class MemoryWriteResultTests
     {
         var vectors = new InMemoryVectorStore();
         var log = new CapturingLogger();
-        var engine = Graph(new ThrowingVectorProvider(), vectors, logger: log);
+        var engine = Graph(new ThrowingVectorProvider(), vectors, logger: log.For<GraphMemoryEngine>());
 
         var result = await engine.RememberAsync(new MemoryWrite("t", "s", "still stored"));
 
@@ -124,7 +124,7 @@ public class MemoryWriteResultTests
         // logging a failed search on every write. The empty warning list is what pins "not asked".
         var vectors = new InMemoryVectorStore();
         var log = new CapturingLogger();
-        var engine = Graph(new UnavailableVectorProvider(), vectors, logger: log);
+        var engine = Graph(new UnavailableVectorProvider(), vectors, logger: log.For<GraphMemoryEngine>());
 
         var result = await engine.RememberAsync(new MemoryWrite("t", "s", "written while the embedder is down"));
 
@@ -270,18 +270,5 @@ public class MemoryWriteResultTests
 
         public Task RemoveCollectionAsync(string collection, CancellationToken ct = default) =>
             Index.RemoveCollectionAsync(collection, ct);
-    }
-
-    private sealed class CapturingLogger : ILogger<GraphMemoryEngine>
-    {
-        public List<string> Warnings { get; } = [];
-        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
-        public bool IsEnabled(LogLevel level) => true;
-
-        public void Log<TState>(LogLevel level, EventId id, TState state, Exception? ex,
-            Func<TState, Exception?, string> formatter)
-        {
-            if (level >= LogLevel.Warning) Warnings.Add(formatter(state, ex));
-        }
     }
 }

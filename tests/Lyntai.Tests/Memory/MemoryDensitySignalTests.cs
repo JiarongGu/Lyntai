@@ -14,32 +14,6 @@ namespace Lyntai.Tests.Memory;
 /// </summary>
 public class MemoryDensitySignalTests
 {
-    /// <summary>Exact cosine control. A bag-of-words fake cannot be used here: a correction shares nearly
-    /// every word with what it corrects, so word overlap rates it maximally similar and the fixture would
-    /// pass for the wrong reason.</summary>
-    private sealed class ScriptedVectorProvider(IReadOnlyDictionary<string, float[]> map) : FakeVectorProviderBase
-    {
-        public override Task<IReadOnlyList<float[]>> EmbedAsync(IReadOnlyList<string> texts,
-            CancellationToken ct = default) =>
-            Task.FromResult<IReadOnlyList<float[]>>(
-                [.. texts.Select(t => map.TryGetValue(t, out var v) ? v : new[] { 0f, 0f, 1f })]);
-    }
-
-    private sealed class CapturingSalience : IMemorySaliencePolicy
-    {
-        public List<SalienceContext> Seen { get; } = [];
-
-        // A running policy must declare its own bit; None means "nothing computed this" and the engine
-        // refuses the registration. 32-62 is the consumer range.
-        public MemorySalienceProvenance Provenance => (MemorySalienceProvenance)(1L << 32);
-
-        public MemorySignals Signals(MemoryWrite write, in SalienceContext context)
-        {
-            Seen.Add(context);
-            return MemorySignals.Empty;
-        }
-    }
-
     private const string Probe = "the write being judged";
 
     private static (GraphMemoryEngine Engine, CapturingSalience Salience) Build(
@@ -48,7 +22,9 @@ public class MemoryDensitySignalTests
         var salience = new CapturingSalience();
         var engine = new GraphMemoryEngine("e", new InMemoryMemoryGraphStore(), options: new GraphMemoryOptions { SimilarityK = 8, MinSimilarity = 0.6 }, seams: new GraphMemorySeams
             {
-                Providers = [new ScriptedVectorProvider(map)],
+                // exact cosine control: a bag-of-words fake rates a correction maximally similar to what it
+                // corrects, and the fixture would pass for the wrong reason
+                Providers = [new MapVectorProvider(map)],
                 Vectors = new InMemoryVectorStore(),
                 SaliencePolicies = [salience],
             });
@@ -71,11 +47,11 @@ public class MemoryDensitySignalTests
         var (engine, salience) = Build(map);
         foreach (var text in map.Keys.Where(k => k != Probe))
             await engine.RememberAsync(new MemoryWrite("t", "s", text));
-        salience.Seen.Clear();
+        salience.Contexts.Clear();
 
         await engine.RememberAsync(new MemoryWrite("t", "s", Probe));
 
-        var context = Assert.Single(salience.Seen);
+        var context = Assert.Single(salience.Contexts);
         Assert.Equal(3, context.SimilarCount);
         Assert.Equal(5, context.ComparableCount);
     }
@@ -99,13 +75,13 @@ public class MemoryDensitySignalTests
         foreach (var text in map.Keys.Where(k => k is not ("correction" or "recurrence")))
             await engine.RememberAsync(new MemoryWrite("t", "s", text));
 
-        salience.Seen.Clear();
+        salience.Contexts.Clear();
         await engine.RememberAsync(new MemoryWrite("t", "s", "correction"));
-        var correction = Assert.Single(salience.Seen);
+        var correction = Assert.Single(salience.Contexts);
 
-        salience.Seen.Clear();
+        salience.Contexts.Clear();
         await engine.RememberAsync(new MemoryWrite("t", "s", "recurrence"));
-        var recurrence = Assert.Single(salience.Seen);
+        var recurrence = Assert.Single(salience.Contexts);
 
         Assert.Equal(1, correction.SimilarCount);
         Assert.Equal(5, recurrence.SimilarCount);
@@ -127,11 +103,11 @@ public class MemoryDensitySignalTests
         var map = new Dictionary<string, float[]>(StringComparer.Ordinal) { [Probe] = [1f, 0f, 0f] };
         var (engine, salience) = Build(map);
         await engine.RememberAsync(new MemoryWrite("t", "s", Probe));
-        salience.Seen.Clear();
+        salience.Contexts.Clear();
 
         await engine.RememberAsync(new MemoryWrite("t", "s", Probe));
 
-        Assert.Equal(0, Assert.Single(salience.Seen).SimilarCount);
+        Assert.Equal(0, Assert.Single(salience.Contexts).SimilarCount);
     }
 
     [Fact]
@@ -149,11 +125,11 @@ public class MemoryDensitySignalTests
         var (engine, salience) = Build(map);
         await engine.RememberAsync(new MemoryWrite("t", "s", Probe));
         await engine.RememberAsync(new MemoryWrite("t", "s", "a similar neighbour"));
-        salience.Seen.Clear();
+        salience.Contexts.Clear();
 
         await engine.RememberAsync(new MemoryWrite("t", "s", Probe));
 
-        Assert.Equal(1, Assert.Single(salience.Seen).SimilarCount);
+        Assert.Equal(1, Assert.Single(salience.Contexts).SimilarCount);
     }
 
     [Fact]
@@ -170,11 +146,11 @@ public class MemoryDensitySignalTests
         };
         var (engine, salience) = Build(map);
         await engine.RememberAsync(new MemoryWrite("t", "s", "just above the configured floor"));
-        salience.Seen.Clear();
+        salience.Contexts.Clear();
 
         await engine.RememberAsync(new MemoryWrite("t", "s", Probe));
 
-        Assert.Equal(1, Assert.Single(salience.Seen).SimilarCount);
+        Assert.Equal(1, Assert.Single(salience.Contexts).SimilarCount);
     }
 
     [Fact]
@@ -190,11 +166,11 @@ public class MemoryDensitySignalTests
         var (engine, salience) = Build(map); // SimilarityK = 8
         foreach (var text in map.Keys.Where(k => k != Probe))
             await engine.RememberAsync(new MemoryWrite("t", "s", text));
-        salience.Seen.Clear();
+        salience.Contexts.Clear();
 
         await engine.RememberAsync(new MemoryWrite("t", "s", Probe));
 
-        Assert.Equal(9, Assert.Single(salience.Seen).SimilarCount);
+        Assert.Equal(9, Assert.Single(salience.Contexts).SimilarCount);
     }
 
     [Fact]
@@ -210,7 +186,7 @@ public class MemoryDensitySignalTests
 
         await engine.RememberAsync(new MemoryWrite("t", "s", "no vectors are wired here"));
 
-        Assert.Equal(0, Assert.Single(salience.Seen).SimilarCount);
+        Assert.Equal(0, Assert.Single(salience.Contexts).SimilarCount);
     }
 
     [Fact]

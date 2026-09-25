@@ -144,8 +144,8 @@ public sealed class GraphMemorySeedRankTests : IDisposable
         await gradedEngine.RecallAsync(query);
 
         // the premise, asserted rather than assumed — one store reports a gradient and the other does not
-        Assert.Equal(1, (await flat.SeedAsync("e", TaskKey, Scope, "beta gamma", 40))
-            .Select(n => n.Relevance).Distinct().Count());
+        Assert.Single((await flat.SeedAsync("e", TaskKey, Scope, "beta gamma", 40))
+            .Select(n => n.Relevance).Distinct());
         Assert.True((await graded.SeedAsync("e", TaskKey, Scope, "beta gamma", 40))
             .Select(n => n.Relevance).Distinct().Count() > 1);
 
@@ -193,7 +193,7 @@ public sealed class GraphMemorySeedRankTests : IDisposable
         var seeded = await store.SeedAsync("e", TaskKey, Scope, "beta", 40);
         Assert.Equal(IdOf(exact), seeded[0].Id);   // the dangerous placement, asserted not assumed
         Assert.False(seeded[0].Matched);           // admitted, never matched
-        Assert.Single(seeded.Where(n => n.Matched == true));
+        Assert.Single(seeded, n => n.Matched == true);
 
         Assert.True(CandidateFor(probe, IdOf(exact)).Ranks.IsEmpty,
             "the exact fact the query never matched claimed a rank — crediting it undoes D97");
@@ -229,7 +229,7 @@ public sealed class GraphMemorySeedRankTests : IDisposable
         var engine = new GraphMemoryEngine("e", store, seams: new GraphMemorySeams
             {
                 Ranking = probe,
-                Providers = vectorProvider is null ? null : [vectorProvider],
+                Providers = [vectorProvider],
                 Vectors = vectors,
                 SeedSources = [new LexicalSeedSource(), new SemanticSeedSource([vectorProvider], vectors)],
             });
@@ -422,15 +422,6 @@ public sealed class GraphMemorySeedRankTests : IDisposable
     }
 
     // ---- eligibility, and the tied-group skip ----------------------------------------------------------
-
-    /// <summary>Annotates from a fixed content→subjects table, so a failure here is the engine's.</summary>
-    private sealed class TableAnnotator(string content, string subject) : IMemoryAnnotationPolicy
-    {
-        public Task<MemoryAnnotation> AnnotateAsync(MemoryAnnotationRequest request, CancellationToken ct = default) =>
-            Task.FromResult(string.Equals(request.Write.Content, content, StringComparison.Ordinal)
-                ? new MemoryAnnotation([subject])
-                : MemoryAnnotation.None);
-    }
 
     /// <summary><b>The handle channel earns no rank even when exactly ONE handle resolves.</b> That is the
     /// cardinality where inferring unorderedness from a TIE cannot work — one sample carries no tie

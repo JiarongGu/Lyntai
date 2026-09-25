@@ -45,29 +45,13 @@ public class GraphSemanticScopeTests
                 [.. texts.Select(t => Map.TryGetValue(t, out var v) ? v : [0f, 0f, 1f])]);
     }
 
-    /// <summary>`RecallAsync` converts anything `GatherAsync` throws into an empty result, so a swallowed
-    /// defect is indistinguishable from "nothing matched" — the trap `SemanticSeedProbeTests` records having
-    /// been debugged blind twice. Asserting the warning list stayed empty is what keeps the NEGATIVE control
-    /// below from passing for the wrong reason.
-    /// <para>Wired to BOTH loggers, because the semantic channel's own best-effort catch now lives in
-    /// <see cref="SemanticSeedSource"/> and reports through that type's logger — listening only to the
-    /// engine's would leave exactly the fault this fixture exists to hear inaudible.</para></summary>
-    private sealed class CapturingLogger : ILogger<GraphMemoryEngine>, ILogger<SemanticSeedSource>
-    {
-        public List<string> Warnings { get; } = [];
-        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
-        public bool IsEnabled(LogLevel level) => true;
-
-        public void Log<TState>(LogLevel level, EventId id, TState state, Exception? ex,
-            Func<TState, Exception?, string> formatter)
-        {
-            if (level >= LogLevel.Warning) Warnings.Add(formatter(state, ex));
-        }
-    }
-
     /// <summary><paramref name="seedK"/> of 0 leaves the vector CHANNEL unregistered, which is now what
     /// "seeding off" means — the source's own <see cref="SemanticSeedOptions.K"/> refuses a non-positive
-    /// value, because a channel that can never search is indistinguishable from an outage.</summary>
+    /// value, because a channel that can never search is indistinguishable from an outage.
+    /// <para>The log listens to BOTH the engine and <see cref="SemanticSeedSource"/>: `RecallAsync` converts
+    /// anything `GatherAsync` throws into an empty result, and the semantic channel's own best-effort catch
+    /// reports through the SOURCE's logger — so an empty warning list is what keeps the NEGATIVE control below
+    /// from passing for the wrong reason.</para></summary>
     private static (GraphMemoryEngine Engine, CapturingLogger Log) Build(int seedK)
     {
         var log = new CapturingLogger();
@@ -75,13 +59,14 @@ public class GraphSemanticScopeTests
         var vectors = new InMemoryVectorStore();
         var engine = new GraphMemoryEngine("project/graph", new InMemoryMemoryGraphStore(), seams: new GraphMemorySeams
             {
-                Providers = vectorProvider is null ? null : [vectorProvider],
+                Providers = [vectorProvider],
                 Vectors = vectors,
                 SeedSources = seedK <= 0
                     ? [new LexicalSeedSource()]
                     : [new LexicalSeedSource(),
-                        new SemanticSeedSource([vectorProvider], vectors, new SemanticSeedOptions { K = seedK }, log)],
-            }, logger: log);
+                        new SemanticSeedSource([vectorProvider], vectors, new SemanticSeedOptions { K = seedK },
+                            log.For<SemanticSeedSource>())],
+            }, logger: log.For<GraphMemoryEngine>());
         return (engine, log);
     }
 
@@ -147,30 +132,17 @@ public class GraphSemanticScopeTests
         var vectors = new UnlistableVectorStore();
         var engine = new GraphMemoryEngine("project/graph", new InMemoryMemoryGraphStore(), seams: new GraphMemorySeams
             {
-                Providers = vectorProvider is null ? null : [vectorProvider],
+                Providers = [vectorProvider],
                 Vectors = vectors,
                 SeedSources = [new LexicalSeedSource(),
-                    new SemanticSeedSource([vectorProvider], vectors, new SemanticSeedOptions { K = 3 }, log)],
-            }, logger: log);
+                    new SemanticSeedSource([vectorProvider], vectors, new SemanticSeedOptions { K = 3 },
+                        log.For<SemanticSeedSource>())],
+            }, logger: log.For<GraphMemoryEngine>());
         await SeedAsync(engine);
 
         Assert.Empty((await engine.RecallAsync(new MemoryQuery("household", null, Query))).Items);
         Assert.Contains((await engine.RecallAsync(new MemoryQuery("household", "home", Query))).Items,
             i => i.Headline.Contains("plumbing"));
         Assert.Empty(log.Warnings);
-    }
-
-    /// <summary>A vector store with only the required half of the seam.</summary>
-    private sealed class UnlistableVectorStore : IVectorStore
-    {
-        private readonly InMemoryVectorStore _inner = new();
-        public Task UpsertAsync(string collection, string id, float[] vector, string payload, CancellationToken ct = default) =>
-            _inner.UpsertAsync(collection, id, vector, payload, ct);
-        public Task<IReadOnlyList<VectorMatch>> SearchAsync(string collection, float[] query, int k, CancellationToken ct = default) =>
-            _inner.SearchAsync(collection, query, k, ct);
-        public Task DeleteAsync(string collection, string id, CancellationToken ct = default) =>
-            _inner.DeleteAsync(collection, id, ct);
-        public Task RemoveCollectionAsync(string collection, CancellationToken ct = default) =>
-            _inner.RemoveCollectionAsync(collection, ct);
     }
 }

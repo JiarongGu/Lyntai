@@ -15,12 +15,10 @@ namespace Lyntai.Tests.Memory.Prototype;
 /// checks it against the shipped code, because the answer decides whether "delete the index and rebuild it"
 /// is a real recovery procedure or a hope.
 ///
-/// <para><b>The answer is yes, with one wrinkle worth reporting.</b> Everything a rebuild needs is public:
-/// the graph store enumerates its own nodes with full content, and the vector store takes upserts. But the
-/// COLLECTION ADDRESS is engine-private (<c>GraphMemoryEngine.VectorCollection</c>), so an application
-/// rebuilding the index has to hard-code a format string it was never told — and if that format ever
-/// changed, a rebuild would silently populate collections nothing reads. That is the one thing a
-/// first-class version would have to expose, and it is a smaller ask than the rebuild itself.</para>
+/// <para><b>The answer is yes.</b> Everything a rebuild needs is public: the graph store enumerates its own
+/// nodes with full content, the vector store takes upserts, and the collection address is asked of
+/// <see cref="MemoryVectorCollection.For"/> rather than hard-coded — a guessed format would populate
+/// collections nothing reads, and look like it worked.</para>
 ///
 /// <para>The last Phase-1 invariant of the proposal's own list; the rest were closed by the facts in
 /// <c>MemoryRemovalCompletenessTests</c>, <c>MemoryBurialNotDeletionTests</c> and
@@ -41,8 +39,7 @@ public class IndexRebuildTests
         foreach (var node in nodes)
         {
             var vector = (await vectorProvider.EmbedAsync([node.Content]))[0];
-            // THE WRINKLE: this format is GraphMemoryEngine's private convention. An application has no
-            // supported way to learn it, and a rebuild that guessed it wrongly would look like it worked.
+            // the engine's own address, asked for — a rebuild that guessed it would look like it worked
             await vectors.UpsertAsync(MemoryVectorCollection.For(Engine, node.TaskKey, node.Scope),
                 node.Id.ToString(CultureInfo.InvariantCulture), vector, node.Content);
         }
@@ -61,7 +58,7 @@ public class IndexRebuildTests
         var engine = new GraphMemoryEngine(Engine, store, seams: new GraphMemorySeams
             {
                 AgePolicies = [new PerWriteAgePolicy()],
-                Providers = vectorProvider is null ? null : [vectorProvider],
+                Providers = [vectorProvider],
                 Vectors = vectors,
             });
 
@@ -99,7 +96,7 @@ public class IndexRebuildTests
         var engine = new GraphMemoryEngine(Engine, store, seams: new GraphMemorySeams
             {
                 AgePolicies = [new PerWriteAgePolicy()],
-                Providers = vectorProvider is null ? null : [vectorProvider],
+                Providers = [vectorProvider],
                 Vectors = vectors,
             });
 

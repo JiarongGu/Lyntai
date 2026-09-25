@@ -1,6 +1,7 @@
 using Lyntai.Inference;
 using Lyntai.Memory;
 using Lyntai.Memory.Annotation;
+using Lyntai.Tests.Fakes;
 
 namespace Lyntai.Tests.Memory;
 
@@ -13,115 +14,45 @@ namespace Lyntai.Tests.Memory;
 /// </summary>
 public class LlmMemoryAnnotationPolicyTests
 {
-    private sealed class ScriptedClient(string text, ProviderVerdict verdict = ProviderVerdict.Ok) : ITextClient
-    {
-        public TextRequest? Last { get; private set; }
-
-        public Task<TextResponse> CompleteAsync(TextRequest req, CancellationToken ct = default)
-        {
-            Last = req;
-            return Task.FromResult(new TextResponse(text, verdict));
-        }
-
-        public IAsyncEnumerable<TextChunk> StreamAsync(TextRequest req, CancellationToken ct = default) =>
-            throw new NotSupportedException();
-
-        public ValueTask<ProviderCapabilities?> GetCapabilitiesAsync(TextRequest req, CancellationToken ct = default) =>
-            ValueTask.FromResult<ProviderCapabilities?>(null);
-    }
-
-    private sealed class ThrowingClient : ITextClient
-    {
-        public Task<TextResponse> CompleteAsync(TextRequest req, CancellationToken ct = default) =>
-            throw new HttpRequestException("the backend is unreachable");
-
-        public IAsyncEnumerable<TextChunk> StreamAsync(TextRequest req, CancellationToken ct = default) =>
-            throw new NotSupportedException();
-
-        public ValueTask<ProviderCapabilities?> GetCapabilitiesAsync(TextRequest req, CancellationToken ct = default) =>
-            ValueTask.FromResult<ProviderCapabilities?>(null);
-    }
-
-    /// <summary>Honours the token, which the shared <c>FakeTextClient</c> deliberately does not — the
-    /// cancellation fact is about the POLICY's catch ordering (<c>catch (OperationCanceledException) { throw; }</c>
-    /// ahead of the fail-open catch), and a client that ignored the token would make it pass vacuously.</summary>
-    private sealed class CancellingClient : ITextClient
-    {
-        public Task<TextResponse> CompleteAsync(TextRequest req, CancellationToken ct = default)
-        {
-            ct.ThrowIfCancellationRequested();
-            return Task.FromResult(new TextResponse("""{"subjects":["spouse"]}""", ProviderVerdict.Ok));
-        }
-
-        public IAsyncEnumerable<TextChunk> StreamAsync(TextRequest req, CancellationToken ct = default) =>
-            throw new NotSupportedException();
-
-        public ValueTask<ProviderCapabilities?> GetCapabilitiesAsync(TextRequest req, CancellationToken ct = default) =>
-            ValueTask.FromResult<ProviderCapabilities?>(null);
-    }
-
-    /// <summary>Throws exactly what <c>HttpClient</c> throws when its own timeout elapses — a cancellation
-    /// nobody asked for — while the caller's token stays uncancelled. That is what makes it a MODEL failure
-    /// rather than a cancel, and the pair with <see cref="CancellingClient"/> is what stops the fix for one
-    /// being "swallow every cancellation".</summary>
-    private sealed class TimingOutClient : ITextClient
-    {
-        public Task<TextResponse> CompleteAsync(TextRequest req, CancellationToken ct = default) =>
-            throw new TaskCanceledException(
-                "The request was canceled due to the configured HttpClient.Timeout of 300 seconds elapsing.");
-
-        public IAsyncEnumerable<TextChunk> StreamAsync(TextRequest req, CancellationToken ct = default) =>
-            throw new NotSupportedException();
-
-        public ValueTask<ProviderCapabilities?> GetCapabilitiesAsync(TextRequest req, CancellationToken ct = default) =>
-            ValueTask.FromResult<ProviderCapabilities?>(null);
-    }
-
-    private sealed class SingleClientFactory(ITextClient client) : ITextClientFactory
-    {
-        public ITextClient Get(string name) => client;
-        public ITextClient Get() => client;
-        public bool TryGet(string name, out ITextClient c) { c = client; return true; }
-        public IReadOnlyList<string> Names => [];
-    }
-
     // Spelled out rather than target-typed on purpose: PolicyContractCoverageTests proves coverage by
     // looking for `new <Implementation>(` in a file that also references the contract, so a `new(...)` here
     // would leave the seam reported as uncovered.
     private static LlmMemoryAnnotationPolicy Policy(ITextClient client) =>
-        new LlmMemoryAnnotationPolicy(new SingleClientFactory(client));
+        new LlmMemoryAnnotationPolicy(new SingleTextClientFactory(client));
 
     // ---- the seam's contract, on a working policy and on a broken one -------------------------------
 
     [Fact] public Task Never_null() => MemoryAnnotationPolicyContract.It_never_returns_null(
-        Policy(new ScriptedClient("""{"subjects":["spouse"]}""")));
+        Policy(new ScriptedTextClient("""{"subjects":["spouse"]}""")));
 
     [Fact] public Task Tolerates_no_context() =>
         MemoryAnnotationPolicyContract.It_tolerates_a_first_write_with_no_context_at_all(
-            Policy(new ScriptedClient("""{"subjects":["spouse"]}""")));
+            Policy(new ScriptedTextClient("""{"subjects":["spouse"]}""")));
 
+    // Fail-open: memory that stops accepting facts because a model is down is worse than memory with no
+    // model at all — the engine treats this exactly as having no annotator.
     [Fact] public Task Fails_open() =>
         MemoryAnnotationPolicyContract.A_failing_policy_yields_no_opinion_rather_than_throwing(
-            Policy(new ThrowingClient()));
+            Policy(new ThrowingTextClient()));
 
     [Fact] public Task Its_own_timeout_fails_open() =>
         MemoryAnnotationPolicyContract.A_policy_timing_out_on_its_own_yields_no_opinion(
-            Policy(new TimingOutClient()));
+            Policy(new TimingOutTextClient()));
 
     [Fact] public Task Cancellation_propagates() =>
         MemoryAnnotationPolicyContract.Cancellation_propagates_rather_than_becoming_no_opinion(
-            Policy(new CancellingClient()));
+            Policy(new TokenHonouringTextClient("""{"subjects":["spouse"]}""")));
 
     private static Task<MemoryAnnotation> AnnotateAsync(ITextClient client,
         LlmAnnotationOptions? options = null, IReadOnlyList<string>? recent = null) =>
-        new LlmMemoryAnnotationPolicy(new SingleClientFactory(client), options)
+        new LlmMemoryAnnotationPolicy(new SingleTextClientFactory(client), options)
             .AnnotateAsync(new MemoryAnnotationRequest(
                 new MemoryWrite("t", "s", "my spouse is Alice"), recent ?? []));
 
     [Fact]
     public async Task Subjects_are_read_from_the_reply()
     {
-        var annotation = await AnnotateAsync(new ScriptedClient("""{"subjects":["spouse","Alice"]}"""));
+        var annotation = await AnnotateAsync(new ScriptedTextClient("""{"subjects":["spouse","Alice"]}"""));
 
         Assert.Equal(["spouse", "Alice"], annotation.Subjects);
     }
@@ -134,7 +65,7 @@ public class LlmMemoryAnnotationPolicyTests
     [InlineData("""  {"subjects": [ "spouse" ] }  """)]
     public async Task Json_is_found_inside_whatever_the_model_wrapped_it_in(string reply)
     {
-        var annotation = await AnnotateAsync(new ScriptedClient(reply));
+        var annotation = await AnnotateAsync(new ScriptedTextClient(reply));
 
         Assert.Equal(["spouse"], annotation.Subjects);
     }
@@ -151,7 +82,7 @@ public class LlmMemoryAnnotationPolicyTests
     [InlineData("")]
     public async Task An_unparseable_reply_yields_no_opinion(string reply)
     {
-        var annotation = await AnnotateAsync(new ScriptedClient(reply));
+        var annotation = await AnnotateAsync(new ScriptedTextClient(reply));
 
         Assert.Empty(annotation.Subjects);
         Assert.Null(annotation.Grade);
@@ -163,17 +94,7 @@ public class LlmMemoryAnnotationPolicyTests
     public async Task A_refused_reply_yields_no_opinion()
     {
         var annotation = await AnnotateAsync(
-            new ScriptedClient("""{"subjects":["spouse"]}""", ProviderVerdict.Refused));
-
-        Assert.Empty(annotation.Subjects);
-    }
-
-    /// <summary><b>Fail-open.</b> Memory that stops accepting facts because a model is down is worse than
-    /// memory with no model at all — the engine treats this exactly as having no annotator.</summary>
-    [Fact]
-    public async Task A_throwing_client_yields_no_opinion()
-    {
-        var annotation = await AnnotateAsync(new ThrowingClient());
+            new ScriptedTextClient("""{"subjects":["spouse"]}""", ProviderVerdict.Refused));
 
         Assert.Empty(annotation.Subjects);
     }
@@ -183,7 +104,7 @@ public class LlmMemoryAnnotationPolicyTests
     public async Task Subjects_are_capped()
     {
         var annotation = await AnnotateAsync(
-            new ScriptedClient("""{"subjects":["a","b","c","d","e","f"]}"""),
+            new ScriptedTextClient("""{"subjects":["a","b","c","d","e","f"]}"""),
             new LlmAnnotationOptions { MaxSubjects = 2 });
 
         Assert.Equal(2, annotation.Subjects.Count);
@@ -198,7 +119,7 @@ public class LlmMemoryAnnotationPolicyTests
     public async Task A_grade_is_read_only_when_opted_into(bool suggest, MemoryGrade? expected)
     {
         var annotation = await AnnotateAsync(
-            new ScriptedClient("""{"subjects":["spouse"],"grade":"authoritative"}"""),
+            new ScriptedTextClient("""{"subjects":["spouse"],"grade":"authoritative"}"""),
             new LlmAnnotationOptions { SuggestGrade = suggest });
 
         Assert.Equal(expected, annotation.Grade);
@@ -215,14 +136,14 @@ public class LlmMemoryAnnotationPolicyTests
     [Fact]
     public async Task The_prompt_asks_for_a_grade_exactly_when_the_option_is_on()
     {
-        var on = new ScriptedClient("""{"subjects":["spouse"]}""");
+        var on = new ScriptedTextClient("""{"subjects":["spouse"]}""");
         await AnnotateAsync(on, new LlmAnnotationOptions { SuggestGrade = true });
         var withGrade = on.Last!.Messages[0].Content;
         Assert.Contains("grade", withGrade, StringComparison.OrdinalIgnoreCase);
         // and the exact token the parser compares against, so the model is told what value to send
         Assert.Contains("authoritative", withGrade, StringComparison.OrdinalIgnoreCase);
 
-        var off = new ScriptedClient("""{"subjects":["spouse"]}""");
+        var off = new ScriptedTextClient("""{"subjects":["spouse"]}""");
         await AnnotateAsync(off, new LlmAnnotationOptions { SuggestGrade = false });
         // off by default keeps the instruction lean — a prompt that asks for a field nobody reads is waste,
         // and invites the model to volunteer a grade this policy would then discard
@@ -234,7 +155,7 @@ public class LlmMemoryAnnotationPolicyTests
     [Fact]
     public async Task Recent_facts_reach_the_prompt_before_the_one_being_labelled()
     {
-        var client = new ScriptedClient("""{"subjects":["spouse"]}""");
+        var client = new ScriptedTextClient("""{"subjects":["spouse"]}""");
 
         await AnnotateAsync(client, recent: ["she works at a hospital"]);
 
@@ -251,7 +172,7 @@ public class LlmMemoryAnnotationPolicyTests
     [Fact]
     public async Task The_instruction_asks_for_subjects_in_the_facts_own_language()
     {
-        var client = new ScriptedClient("""{"subjects":["配偶"]}""");
+        var client = new ScriptedTextClient("""{"subjects":["配偶"]}""");
 
         await AnnotateAsync(client);
 

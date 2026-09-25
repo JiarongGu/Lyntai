@@ -28,34 +28,9 @@ namespace Lyntai.Tests.Memory;
 /// </summary>
 public class MemorySalienceContextTests
 {
-    private sealed class CapturingSalience : IMemorySaliencePolicy
-    {
-        public List<MemoryWrite> Writes { get; } = [];
-
-        public List<SalienceContext> Contexts { get; } = [];
-
-        // A running policy must declare its own bit — None means "nothing computed this", and the engine
-        // refuses the registration outright rather than letting provenance lie. 32-62 is the consumer range.
-        public MemorySalienceProvenance Provenance => (MemorySalienceProvenance)(1L << 32);
-
-        public MemorySignals Signals(MemoryWrite write, in SalienceContext context)
-        {
-            Writes.Add(write);
-            Contexts.Add(context);
-            return MemorySignals.Empty;
-        }
-    }
-
-    /// <summary>Exact cosine control. A bag-of-words fake would make novelty a function of word overlap, and
-    /// what is being pinned here is that the ENGINE's own measurement reaches the context — not that some
-    /// number does.</summary>
-    private sealed class ScriptedVectorProvider(IReadOnlyDictionary<string, float[]> map) : FakeVectorProviderBase
-    {
-        public override Task<IReadOnlyList<float[]>> EmbedAsync(IReadOnlyList<string> texts,
-            CancellationToken ct = default) =>
-            Task.FromResult<IReadOnlyList<float[]>>(
-                [.. texts.Select(t => map.TryGetValue(t, out var v) ? v : new[] { 0f, 0f, 1f })]);
-    }
+    // Vectors come from MapVectorProvider, an exact cosine control: a bag-of-words fake would make novelty a
+    // function of word overlap, and what is pinned here is that the ENGINE's own measurement reaches the
+    // context — not that some number does.
 
     private static async Task<CapturingSalience> WriteThrough(MemoryWrite write)
     {
@@ -119,7 +94,7 @@ public class MemorySalienceContextTests
         var policy = new CapturingSalience();
         var engine = new GraphMemoryEngine("e", new InMemoryMemoryGraphStore(), seams: new GraphMemorySeams
             {
-                Providers = [new ScriptedVectorProvider(new Dictionary<string, float[]>(StringComparer.Ordinal)
+                Providers = [new MapVectorProvider(new Dictionary<string, float[]>(StringComparer.Ordinal)
                 {
                     [prior] = [1f, 0f, 0f],
                     [novel] = [0f, 1f, 0f],

@@ -115,16 +115,6 @@ public sealed class GraphMemoryRankingGoldenTests
 
     /// <summary>Reports a fixed salience so a fact pins the RANK plumbing rather than the default
     /// salience policy's curve — mirrors <c>GraphMemoryRankingTests.FixedSaliencePolicy</c>.</summary>
-    private sealed class FixedSaliencePolicy(double salience) : IMemorySaliencePolicy
-    {
-        // a fake's own bit, from the consumer range (32-62) — never None: fix round 2's provenance
-        // validation rejects a policy declaring None, since every REAL, running policy has an identity.
-        public MemorySalienceProvenance Provenance => (MemorySalienceProvenance)(1L << 32);
-
-        public MemorySignals Signals(MemoryWrite write, in SalienceContext context) =>
-            MemorySignals.Empty.With(MemorySignals.WellKnown.Salience, salience);
-    }
-
     private static async Task<MemoryRef> Remember(GraphMemoryEngine engine, string content) =>
         (await engine.RememberAsync(new MemoryWrite("t", "s", content))).Reference;
 

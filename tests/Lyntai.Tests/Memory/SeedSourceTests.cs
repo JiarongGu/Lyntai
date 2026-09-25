@@ -57,29 +57,6 @@ public sealed class SeedSourceTests : IDisposable
             Task.FromResult<IReadOnlyList<float[]>>([.. texts.Select(_ => vector)]);
     }
 
-    /// <summary>Faults on every call, so the source's own catch is what a test observes rather than the
-    /// double's plumbing.</summary>
-    private sealed class ThrowingVectorProvider : FakeVectorProviderBase
-    {
-        public override Task<IReadOnlyList<float[]>> EmbedAsync(IReadOnlyList<string> texts, CancellationToken ct = default) =>
-            throw new InvalidOperationException("vector backend unavailable");
-    }
-
-    /// <summary>Mirrors <c>SemanticSeedProbeTests.CapturingLogger</c>: a swallowed fault reads as an empty
-    /// result unless something is listening, so the warning list is what tells the two apart.</summary>
-    private sealed class CapturingLogger : ILogger<SemanticSeedSource>
-    {
-        public List<string> Warnings { get; } = [];
-        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
-        public bool IsEnabled(LogLevel logLevel) => true;
-
-        public void Log<TState>(LogLevel level, EventId id, TState state, Exception? ex,
-            Func<TState, Exception?, string> formatter)
-        {
-            if (level >= LogLevel.Warning) Warnings.Add(formatter(state, ex));
-        }
-    }
-
     /// <summary>Returns exactly the matches it is given, in the CALLER'S order, regardless of score —
     /// <see cref="IVectorStore.SearchAsync"/>'s own contract leaves ties between backends unspecified and
     /// says a SQL-backed store need not break them, so this is a legitimate shape for a real backend to have.
@@ -116,22 +93,6 @@ public sealed class SeedSourceTests : IDisposable
             CancellationToken ct = default) => throw new NotSupportedException();
         public Task DeleteAsync(string collection, string id, CancellationToken ct = default) => Task.CompletedTask;
         public Task RemoveCollectionAsync(string collection, CancellationToken ct = default) => Task.CompletedTask;
-    }
-
-    /// <summary>The same capture as <see cref="CapturingLogger"/>, typed for <see cref="SubjectSeedSource"/> —
-    /// <see cref="ILogger{TCategoryName}"/>'s generic parameter is the category, so the two cannot share a
-    /// type.</summary>
-    private sealed class SubjectCapturingLogger : ILogger<SubjectSeedSource>
-    {
-        public List<string> Warnings { get; } = [];
-        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
-        public bool IsEnabled(LogLevel logLevel) => true;
-
-        public void Log<TState>(LogLevel level, EventId id, TState state, Exception? ex,
-            Func<TState, Exception?, string> formatter)
-        {
-            if (level >= LogLevel.Warning) Warnings.Add(formatter(state, ex));
-        }
     }
 
     [Fact]
@@ -204,7 +165,8 @@ public sealed class SeedSourceTests : IDisposable
     {
         var store = new SqliteMemoryGraphStore(_db.Factory);
         var log = new CapturingLogger();
-        var source = new SemanticSeedSource([new ThrowingVectorProvider()], new InMemoryVectorStore(), logger: log);
+        var source = new SemanticSeedSource([new ThrowingVectorProvider()], new InMemoryVectorStore(),
+            logger: log.For<SemanticSeedSource>());
         var request = new MemorySeedRequest("seedtest", store,
             new MemoryQuery(TaskKey: "task", Scope: "scope", Query: "anything"), Limit: 10);
 
@@ -314,8 +276,8 @@ public sealed class SeedSourceTests : IDisposable
     public async Task The_subject_source_returns_empty_rather_than_throwing_when_the_subject_index_faults()
     {
         var store = new SubjectIndexHostileGraphStore();
-        var log = new SubjectCapturingLogger();
-        var source = new SubjectSeedSource(logger: log);
+        var log = new CapturingLogger();
+        var source = new SubjectSeedSource(logger: log.For<SubjectSeedSource>());
         var request = new MemorySeedRequest("seedtest", store,
             new MemoryQuery("task", Scope: "scope", Query: "anything"), Limit: 10);
 

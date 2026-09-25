@@ -24,24 +24,8 @@ namespace Lyntai.Tests.Memory;
 /// </summary>
 public class MemorySubjectLinkingTests
 {
-    /// <summary>Annotates from a fixed content→subjects table. Stands in for a model that reads the write
-    /// and its context; the point is that the SAME subject comes back for facts about one entity, which is
-    /// the property the whole mechanism rests on.</summary>
-    private sealed class TableAnnotator(Dictionary<string, string[]> subjectsByContent,
-        MemoryGrade? grade = null) : IMemoryAnnotationPolicy
-    {
-        public int Calls { get; private set; }
-        public List<int> ContextSizes { get; } = [];
-
-        public Task<MemoryAnnotation> AnnotateAsync(MemoryAnnotationRequest request, CancellationToken ct = default)
-        {
-            Calls++;
-            ContextSizes.Add(request.Recent.Count);
-            return Task.FromResult(subjectsByContent.TryGetValue(request.Write.Content, out var subjects)
-                ? new MemoryAnnotation(subjects, grade)
-                : MemoryAnnotation.None);
-        }
-    }
+    // TableAnnotator stands in for a model that reads the write and its context; the point is that the SAME
+    // subject comes back for facts about one entity, which is the property the whole mechanism rests on.
 
     private sealed class ThrowingAnnotator : IMemoryAnnotationPolicy
     {

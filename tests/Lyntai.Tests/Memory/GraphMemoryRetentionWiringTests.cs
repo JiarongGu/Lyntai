@@ -27,13 +27,6 @@ namespace Lyntai.Tests.Memory;
 /// </summary>
 public class GraphMemoryRetentionWiringTests
 {
-    private sealed class FixedRetentionPolicy(double factor) : IMemoryRetentionPolicy
-    {
-        public string Name => "fixed";
-        public double MaxStabilityFactor => factor;
-        public double StabilityFactor(in MemoryDecayState state) => factor;
-    }
-
     /// <summary>A multiplier combination the library does not ship, so a test can tell which rule ran.</summary>
     private sealed class MaxRetentionComposition : IMemoryRetentionCompositionPolicy
     {

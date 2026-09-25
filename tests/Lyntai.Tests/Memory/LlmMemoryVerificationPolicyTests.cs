@@ -1,5 +1,6 @@
 using Lyntai.Inference;
 using Lyntai.Memory.Verification;
+using Lyntai.Tests.Fakes;
 using Microsoft.Extensions.Logging;
 
 namespace Lyntai.Tests.Memory;
@@ -22,78 +23,6 @@ namespace Lyntai.Tests.Memory;
 /// </summary>
 public class LlmMemoryVerificationPolicyTests
 {
-    private sealed class ScriptedClient(string text, ProviderVerdict verdict = ProviderVerdict.Ok) : ITextClient
-    {
-        public TextRequest? Last { get; private set; }
-
-        public Task<TextResponse> CompleteAsync(TextRequest req, CancellationToken ct = default)
-        {
-            Last = req;
-            return Task.FromResult(new TextResponse(text, verdict));
-        }
-
-        public IAsyncEnumerable<TextChunk> StreamAsync(TextRequest req, CancellationToken ct = default) =>
-            throw new NotSupportedException();
-
-        public ValueTask<ProviderCapabilities?> GetCapabilitiesAsync(TextRequest req, CancellationToken ct = default) =>
-            ValueTask.FromResult<ProviderCapabilities?>(null);
-    }
-
-    private sealed class ThrowingClient : ITextClient
-    {
-        public Task<TextResponse> CompleteAsync(TextRequest req, CancellationToken ct = default) =>
-            throw new HttpRequestException("the backend is unreachable");
-
-        public IAsyncEnumerable<TextChunk> StreamAsync(TextRequest req, CancellationToken ct = default) =>
-            throw new NotSupportedException();
-
-        public ValueTask<ProviderCapabilities?> GetCapabilitiesAsync(TextRequest req, CancellationToken ct = default) =>
-            ValueTask.FromResult<ProviderCapabilities?>(null);
-    }
-
-    /// <summary>Honours the token, which the shared <c>FakeTextClient</c> deliberately does not — the point of
-    /// the cancellation fact is the POLICY's catch ordering, and a client that ignored the token would make
-    /// it pass vacuously.</summary>
-    private sealed class CancellingClient : ITextClient
-    {
-        public Task<TextResponse> CompleteAsync(TextRequest req, CancellationToken ct = default)
-        {
-            ct.ThrowIfCancellationRequested();
-            return Task.FromResult(new TextResponse("""{"relevant":[1]}""", ProviderVerdict.Ok));
-        }
-
-        public IAsyncEnumerable<TextChunk> StreamAsync(TextRequest req, CancellationToken ct = default) =>
-            throw new NotSupportedException();
-
-        public ValueTask<ProviderCapabilities?> GetCapabilitiesAsync(TextRequest req, CancellationToken ct = default) =>
-            ValueTask.FromResult<ProviderCapabilities?>(null);
-    }
-
-    /// <summary>Throws exactly what <c>HttpClient</c> throws when its own timeout elapses — a cancellation
-    /// nobody asked for — while the caller's token stays uncancelled. That is what makes it a MODEL failure
-    /// rather than a cancel, and the pair with <see cref="CancellingClient"/> is what stops the fix for one
-    /// being "swallow every cancellation".</summary>
-    private sealed class TimingOutClient : ITextClient
-    {
-        public Task<TextResponse> CompleteAsync(TextRequest req, CancellationToken ct = default) =>
-            throw new TaskCanceledException(
-                "The request was canceled due to the configured HttpClient.Timeout of 300 seconds elapsing.");
-
-        public IAsyncEnumerable<TextChunk> StreamAsync(TextRequest req, CancellationToken ct = default) =>
-            throw new NotSupportedException();
-
-        public ValueTask<ProviderCapabilities?> GetCapabilitiesAsync(TextRequest req, CancellationToken ct = default) =>
-            ValueTask.FromResult<ProviderCapabilities?>(null);
-    }
-
-    private sealed class SingleClientFactory(ITextClient client) : ITextClientFactory
-    {
-        public ITextClient Get(string name) => client;
-        public ITextClient Get() => client;
-        public bool TryGet(string name, out ITextClient c) { c = client; return true; }
-        public IReadOnlyList<string> Names => [];
-    }
-
     private static readonly MemoryVerificationCandidate[] Notes =
     [
         new("n1", "the review will be held in the small meeting room"),
@@ -105,7 +34,7 @@ public class LlmMemoryVerificationPolicyTests
     // looking for `new <Implementation>(` in a file that also references the contract, so a `new(...)` here
     // would leave the seam reported as uncovered.
     private static LlmMemoryVerificationPolicy Policy(ITextClient client) =>
-        new LlmMemoryVerificationPolicy(new SingleClientFactory(client));
+        new LlmMemoryVerificationPolicy(new SingleTextClientFactory(client));
 
     private static Task<MemoryVerification> VerifyAsync(ITextClient client, string query = "where is the review?") =>
         Policy(client).VerifyAsync(new MemoryVerificationRequest(query, Notes));
@@ -113,34 +42,26 @@ public class LlmMemoryVerificationPolicyTests
     // ---- the contract, on a working policy and on a broken one --------------------------------------
 
     [Fact] public Task Never_null() => MemoryVerificationPolicyContract.It_never_returns_null(
-        Policy(new ScriptedClient("""{"relevant":[1]}""")));
+        Policy(new ScriptedTextClient("""{"relevant":[1]}""")));
 
     [Fact] public Task Ids_were_shown() => MemoryVerificationPolicyContract.Every_id_it_returns_was_one_it_was_shown(
-        Policy(new ScriptedClient("""{"relevant":[1,3]}""")));
+        Policy(new ScriptedTextClient("""{"relevant":[1,3]}""")));
 
     [Fact] public Task No_duplicates() => MemoryVerificationPolicyContract.It_returns_no_duplicates(
-        Policy(new ScriptedClient("""{"relevant":[1,1,2]}""")));
+        Policy(new ScriptedTextClient("""{"relevant":[1,1,2]}""")));
 
     [Fact] public Task Empty_candidates() => MemoryVerificationPolicyContract.An_empty_candidate_set_is_no_opinion(
-        Policy(new ScriptedClient("""{"relevant":[1]}""")));
+        Policy(new ScriptedTextClient("""{"relevant":[1]}""")));
 
     [Fact] public Task Fails_open() =>
         MemoryVerificationPolicyContract.A_failing_policy_yields_NoOpinion_and_not_NothingRelevant(
-            Policy(new ThrowingClient()));
+            Policy(new ThrowingTextClient()));
 
-    private sealed class CapturingLogger : ILogger<LlmMemoryVerificationPolicy>
-    {
-        public List<LogLevel> Levels { get; } = [];
-        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
-        public bool IsEnabled(LogLevel logLevel) => true;
-        public void Log<TState>(LogLevel level, EventId id, TState state, Exception? error,
-            Func<TState, Exception?, string> formatter) => Levels.Add(level);
-    }
-
-    private static async Task<List<LogLevel>> LevelsFor(ProviderVerdict verdict)
+    private static async Task<IReadOnlyList<LogLevel>> LevelsFor(ProviderVerdict verdict)
     {
         var logger = new CapturingLogger();
-        var policy = new LlmMemoryVerificationPolicy(new SingleClientFactory(new ScriptedClient("", verdict)), logger: logger);
+        var policy = new LlmMemoryVerificationPolicy(new SingleTextClientFactory(new ScriptedTextClient("", verdict)),
+            logger: logger.For<LlmMemoryVerificationPolicy>());
         await policy.VerifyAsync(new MemoryVerificationRequest("where is the review?", Notes));
         return logger.Levels;
     }
@@ -154,18 +75,18 @@ public class LlmMemoryVerificationPolicyTests
 
     [Fact] public Task Its_own_timeout_fails_open() =>
         MemoryVerificationPolicyContract.A_policy_timing_out_on_its_own_yields_NoOpinion(
-            Policy(new TimingOutClient()));
+            Policy(new TimingOutTextClient()));
 
     [Fact] public Task Cancellation_propagates() =>
         MemoryVerificationPolicyContract.Cancellation_propagates_rather_than_becoming_no_opinion(
-            Policy(new CancellingClient()));
+            Policy(new TokenHonouringTextClient("""{"relevant":[1]}""")));
 
     // ---- this implementation's own surface: turning a reply into a verdict --------------------------
 
     [Fact]
     public async Task Ordinals_are_mapped_back_to_the_ids_they_stand_for()
     {
-        var verdict = await VerifyAsync(new ScriptedClient("""{"relevant":[3,1]}"""));
+        var verdict = await VerifyAsync(new ScriptedTextClient("""{"relevant":[3,1]}"""));
 
         Assert.True(verdict.Judged);
         Assert.Equal(["n3", "n1"], verdict.RelevantIds);   // the model's order is the judgement, not the input's
@@ -179,7 +100,7 @@ public class LlmMemoryVerificationPolicyTests
     [InlineData("""  { "relevant": [ 1 ] }  """)]
     public async Task Json_is_found_inside_whatever_the_model_wrapped_it_in(string reply)
     {
-        var verdict = await VerifyAsync(new ScriptedClient(reply));
+        var verdict = await VerifyAsync(new ScriptedTextClient(reply));
 
         Assert.True(verdict.Judged);
         Assert.Equal(["n1"], verdict.RelevantIds);
@@ -191,7 +112,7 @@ public class LlmMemoryVerificationPolicyTests
     [Fact]
     public async Task An_empty_relevant_array_is_a_judgement_that_nothing_answered()
     {
-        var verdict = await VerifyAsync(new ScriptedClient("""{"relevant":[]}"""));
+        var verdict = await VerifyAsync(new ScriptedTextClient("""{"relevant":[]}"""));
 
         Assert.True(verdict.Judged);
         Assert.Empty(verdict.RelevantIds);
@@ -206,7 +127,7 @@ public class LlmMemoryVerificationPolicyTests
     [InlineData("""{"relevant":[1,"two"]}""")]  // wrong element type
     public async Task A_junk_ordinal_beside_a_good_one_is_dropped_rather_than_fatal(string reply)
     {
-        var verdict = await VerifyAsync(new ScriptedClient(reply));
+        var verdict = await VerifyAsync(new ScriptedTextClient(reply));
 
         Assert.True(verdict.Judged);
         Assert.Equal(["n1"], verdict.RelevantIds);
@@ -224,7 +145,7 @@ public class LlmMemoryVerificationPolicyTests
     [InlineData("")]
     public async Task An_unparseable_reply_is_no_opinion_rather_than_nothing_relevant(string reply)
     {
-        var verdict = await VerifyAsync(new ScriptedClient(reply));
+        var verdict = await VerifyAsync(new ScriptedTextClient(reply));
 
         Assert.False(verdict.Judged);
         Assert.Empty(verdict.RelevantIds);
@@ -235,7 +156,7 @@ public class LlmMemoryVerificationPolicyTests
     [Fact]
     public async Task A_refused_reply_is_no_opinion()
     {
-        var verdict = await VerifyAsync(new ScriptedClient("""{"relevant":[1]}""", ProviderVerdict.Refused));
+        var verdict = await VerifyAsync(new ScriptedTextClient("""{"relevant":[1]}""", ProviderVerdict.Refused));
 
         Assert.False(verdict.Judged);
     }
@@ -247,7 +168,7 @@ public class LlmMemoryVerificationPolicyTests
     [InlineData("   ")]
     public async Task A_blank_query_is_no_opinion_without_calling_the_model(string query)
     {
-        var client = new ScriptedClient("""{"relevant":[1]}""");
+        var client = new ScriptedTextClient("""{"relevant":[1]}""");
 
         var verdict = await VerifyAsync(client, query);
 
@@ -261,7 +182,7 @@ public class LlmMemoryVerificationPolicyTests
     [Fact]
     public async Task The_prompt_numbers_the_notes_and_asks_for_those_numbers()
     {
-        var client = new ScriptedClient("""{"relevant":[1]}""");
+        var client = new ScriptedTextClient("""{"relevant":[1]}""");
 
         await VerifyAsync(client);
 
@@ -282,7 +203,7 @@ public class LlmMemoryVerificationPolicyTests
     [Fact]
     public async Task The_instruction_is_language_neutral()
     {
-        var client = new ScriptedClient("""{"relevant":[1]}""");
+        var client = new ScriptedTextClient("""{"relevant":[1]}""");
 
         await VerifyAsync(client);
 
@@ -298,7 +219,7 @@ public class LlmMemoryVerificationPolicyTests
     [Fact]
     public async Task Every_call_is_tagged_to_the_memory_consumer_and_suppresses_reasoning()
     {
-        var client = new ScriptedClient("""{"relevant":[1]}""");
+        var client = new ScriptedTextClient("""{"relevant":[1]}""");
 
         await VerifyAsync(client);
 
@@ -319,8 +240,8 @@ public class LlmMemoryVerificationPolicyTests
     private static async Task<string> PromptAsync(LlmVerificationOptions? options,
         IReadOnlyList<MemoryVerificationCandidate> candidates)
     {
-        var client = new ScriptedClient("""{"relevant":[1]}""");
-        await new LlmMemoryVerificationPolicy(new SingleClientFactory(client), options)
+        var client = new ScriptedTextClient("""{"relevant":[1]}""");
+        await new LlmMemoryVerificationPolicy(new SingleTextClientFactory(client), options)
             .VerifyAsync(new MemoryVerificationRequest("when does the market open?", candidates));
         return client.Last!.Messages.Last().Content;
     }

@@ -26,16 +26,6 @@ namespace Lyntai.Tests.Memory;
 /// </summary>
 public class MemorySubjectRecallTests
 {
-    /// <summary>Annotates from a fixed content→subjects table — a model that answers perfectly by
-    /// construction, so a failure here is the engine's.</summary>
-    private sealed class TableAnnotator(Dictionary<string, string[]> subjectsByContent) : IMemoryAnnotationPolicy
-    {
-        public Task<MemoryAnnotation> AnnotateAsync(MemoryAnnotationRequest request, CancellationToken ct = default) =>
-            Task.FromResult(subjectsByContent.TryGetValue(request.Write.Content, out var subjects)
-                ? new MemoryAnnotation(subjects)
-                : MemoryAnnotation.None);
-    }
-
     /// <summary><paramref name="subjectSeedK"/> is the handle channel's own knob — <c>0</c> is its documented
     /// off-switch, and the source stays REGISTERED at it, which is what keeps the controls below the same
     /// wiring as the facts they control for rather than a different one.</summary>

@@ -128,7 +128,7 @@ public class MemoryWiringDiagnosticsTests
         var vectors = new InMemoryVectorStore();
         var graph = new GraphMemoryEngine("project/graph", new InMemoryMemoryGraphStore(), seams: new GraphMemorySeams
             {
-                Providers = vectorProvider is null ? null : [vectorProvider],
+                Providers = [vectorProvider],
                 Vectors = vectors,
                 SeedSources = [new LexicalSeedSource(), new SemanticSeedSource([vectorProvider], vectors)],
             });

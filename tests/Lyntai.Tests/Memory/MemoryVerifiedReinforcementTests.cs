@@ -32,29 +32,8 @@ public sealed class MemoryVerifiedReinforcementTests
     private const int Seed = 4242;
     private const int QueryLimit = 10;
 
-    /// <summary>A perfect verifier: it knows, per query, exactly which entries were the right answers.
-    /// <para>Wired from the corpus's own <c>RelevantIds</c>, mapped through the engine-assigned ids. The
-    /// query text is the key, which is safe here because the corpus's query texts are unique per
-    /// step.</para></summary>
-    private sealed class OracleVerifier : IMemoryVerificationPolicy
-    {
-        private readonly Dictionary<string, HashSet<string>> _truth = new(StringComparer.Ordinal);
-
-        public void Teach(string queryText, IEnumerable<string> relevantEngineIds) =>
-            _truth[queryText] = [.. relevantEngineIds];
-
-        public Task<MemoryVerification> VerifyAsync(MemoryVerificationRequest request,
-            CancellationToken ct = default)
-        {
-            if (!_truth.TryGetValue(request.Query, out var relevant))
-                return Task.FromResult(MemoryVerification.NoOpinion);
-
-            var hits = request.Candidates.Select(c => c.Id).Where(relevant.Contains).ToList();
-            return Task.FromResult(hits.Count == 0
-                ? MemoryVerification.NothingRelevant
-                : new MemoryVerification(hits));
-        }
-    }
+    // The OracleVerifier here is taught from the corpus's own RelevantIds, mapped through the engine-assigned
+    // ids. The query text is its key, which is safe because the corpus's query texts are unique per step.
 
     /// <summary><b>Abstention: the engine can say "a judge looked and none of this answered".</b>
     ///
