@@ -87,29 +87,21 @@ release** — do not advance it when the version moves. A session must not:
 - **pay a real cost for pre-3.0 binary compatibility** — an overload added so a pre-compiled caller of the
   old signature keeps resolving is paying for a caller that does not exist;
 - **maintain a pre-3.0 document as if it were current** — and when the last reason to keep one expires,
-  UNTRACK it rather than re-banner it. The 2.5→3.0 migration guide stayed on exactly that argument ("the
-  release pipeline links to it") after `release-notes.mjs` had already been repointed at `CHANGELOG.md`, so
-  1,161 lines of pre-3.0 prose sat in `docs/` on a reason that was no longer true. It is in
-  `local/superpowers/records/` and in git history (**D149**).
+  UNTRACK it rather than re-banner it (**D149**).
 
 **What survives is the FACT, never the diff.** The narrow exception: a fact about a RELEASED artifact stays
 sayable — "2.0.0 is burned on nuget.org" is a fact about the feed, not an analysis of an old release.
 
 ## Fix log — where it lives here
 
-The `fix-log` skill routes to "the repository's fix log"; here that is **`docs/FIXES.md`**, newest entry
-first under a dated heading. **The entry shape is the FILE's, not the skill's: read the newest existing
-entry and mirror it** — a skill is a general procedure, the file in front of you is this repository's
-actual convention. Route everything else by kind (`persist-working-state.md` §Route by KIND).
+The fix log is **`docs/FIXES.md`**, written through the `fix-log` skill, whose template is the file's own
+entry shape. Route everything else by kind (`persist-working-state.md` §Route by KIND).
 
 **A later fix that corrects an earlier entry writes the correction at that entry's HEAD, never its foot**,
 as a blockquote plus a `<!-- keeps: … -->` on the heading saying what still holds — because a reader
 arrives INSIDE an entry from a grep, and a superseded entry is usually still the ONLY home of its reusable
-half, so it must be readable rather than skippable. **Deliberately not gated**, and the reason is worth
-keeping so nobody builds it and finds out: both candidate signals were measured on 2026-09-10 and both are
-noise. A vocabulary scan for `CORRECT(ED|ION)|RETRACT|STALE|SUPERSED` is what `check-measurements` refused
-at 63 hits and zero defects, and the structural signal — content after the `**Verify.**` paragraph — is
-present in **42 of 50** entries, because `**Introduced by.**` is part of the entry shape.
+half. Deliberately not gated: both candidate signals were measured as noise (`docs/GATES.md` §The
+cold-start measurement).
 
 ## Package layout — the binding for the general rule
 
@@ -140,7 +132,7 @@ prescription. Suffix vocabulary: `dotnet-package-layout.md` §Naming.
 
 - **The command roster is the generated table in `CLAUDE.md` §Dev loop**; `node devtools/dev.mjs` with no
   argument prints the same list, and `docs/GATES.md` is what each gate is FOR. Do not keep a second copy
-  here — this section once went stale by omitting `verify`, the gate itself.
+  here.
 - e2e suites live in `devtools/scripts/e2e/` as `pN.mjs`, discovered by `^p\d+\.mjs$`; the guards' own tests are
   `devtools/scripts/__tests__/*.test.mjs`. **A leading underscore keeps a helper out of a runner's
   discovery** — `_e2e-common.mjs` and `_fixtures.mjs` both rely on it.

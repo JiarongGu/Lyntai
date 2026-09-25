@@ -34,10 +34,9 @@ someone else's build.** Each rule below was violated once and the cost landed do
 - Reach for the established suffix vocabulary: `*Options` (configuration), `*Request` / `*Response` (a
   call's in and out), `*Result` (an operation's outcome), `*Entry` / `*Record` (a stored item), `*Row` (a
   materialization type), `*Event`, `*Args`, `*Policy`.
-  <br>**`*Reply` was the pair's other half until 2026-09-17 and is retired**, because two spellings for one <!-- drift-ok: the rule quotes the suffix it bans -->
-  role is how the text and media sides came to name the same thing differently — one `*Reply`, one
-  `*Result` — and `*Result` was the wrong one of the two, since both come back from a CALL rather than from
-  a tracked operation.
+  <br>**`*Response`, never `*Reply`**: one suffix for what a CALL returns, because two spellings for one role <!-- drift-ok: the rule quotes the suffix it bans -->
+  is how the text and media sides came to name the same thing differently. `*Result` is an operation's
+  outcome, not a call's.
 - Otherwise standard conventions: interfaces prefixed `I`, awaitables suffixed `Async`, PascalCase
   members, underscore-prefixed camelCase private fields.
 

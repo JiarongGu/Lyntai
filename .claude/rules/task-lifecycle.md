@@ -29,11 +29,8 @@ left? The archive gains a per-task history the line never carried anyway.
 
 **The two files number independently, so a bare `Part 178` is ambiguous and resolves to the wrong document
 about half the time.** The backlog keeps a Part's original number until it closes; the archive allocates in
-landing order. RETIREMENT is where that bites: the four Parts retired on 2026-09-16 were all renumbered on
-the way in, and one of them could not have kept its number in any case — `docs/task-archive.md` Part 178 is
-an unrelated task that closed weeks earlier. The backlog's Part 178 is `docs/task-archive.md` Part 236 now,
-and while both existed three archive entries said "closing Part 178's Nth item" meaning the backlog's, in
-the file where that number meant something else.
+landing order, so retiring a backlog Part renumbers it on the way in — the backlog's Part 178 became
+`docs/task-archive.md` Part 236, while the archive's own Part 178 is an unrelated task.
 
 **Write `` `TASKS.md` Part N `` or `` `docs/task-archive.md` Part N ``, every time.** A cross-reference
 gate can only check that a Part N EXISTS, not that it is the one you meant — which is the same shape as a
@@ -105,15 +102,9 @@ Both cannot be right, and a cold reader called the inconsistency out before any 
 - **A named, freely available artifact is a STEP.** "Pull `all-MiniLM-L6-v2` Q8" is a first step with a
   known URL and a known size. Marking that blocked hides work that someone could start in the next minute.
 - **RE-CHECKING an `env` item asks whether the artifact is OBTAINABLE, never whether it is INSTALLED** —
-  and getting that backwards is how a step stays filed as a blocker indefinitely. Measured 2026-09-16:
-  two items sat `blocked · env` on a download, and two separate dated re-checks left them there by running
-  `where codex` / `where sd-cli`, finding nothing, and recording the absence. Every one of those runs was
-  honest and every one answered the machine's INVENTORY, which is the observation that filed the item in
-  the first place. Asked the other way, both were one public download away — `@openai/codex` 0.154.0 ships
-  a `win32-x64` binary, and `stable-diffusion.cpp`'s Windows CPU build is a 17.1 MB zip.
-  <br>**This is the SECOND time a READER caught this drift rather than a re-check**, which is why it is
-  written as a procedure and not as advice: the paragraph above already records the first. **A negative
-  re-check is evidence only of the question it asked.**
+  getting that backwards is how a step stays filed as a blocker indefinitely: `where codex` finding nothing
+  answers the machine's inventory, which is the observation that filed the item in the first place. **A
+  negative re-check is evidence only of the question it asked.**
 - **BLOCKED is for what a download cannot fix**: a vendor key or an account, an upstream patch that has not
   merged, a model class nobody has shown to exist, hardware that is absent. The test is whether the item
   could begin today if someone simply decided to.
