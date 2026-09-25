@@ -5074,3 +5074,16 @@ while ComfyUI and every HTTP text backend reported `Failed`; it now agrees, and 
 test now tells the two failures apart by their detail, since the verdict no longer does.
 
 - An unreachable LOCAL media server: `NotConfigured` or `Failed`?
+
+## Part 300 — the consuming-app survey, and what 3.4.0 shipped from it (2026-09-26)
+
+✅ done 2026-09-26 — **Outcome:** read the four applications that consume the library for what each works
+around, then shipped the needs with value in 3.4.0: an HTTP backend's `ProbeAsync` asks its server
+(`/v1/models`, `/api/tags`; `ProviderProbeResult.Models`), `MemorySources.Annotation` (D175's trigger met), and
+per-request CLI tools (**D190**: `CliToolRequest`, `McpToolHostOptions.ToolsByConsumer` with a `"default"` tier)
+— beside the bridge refusing a non-text `Produces` (D147, Breaking) and `docs/task-archive.md` Part 297. D190 went
+through a spec, a plan and a fresh final review, whose three Important findings were fixed before release.
+Filed rather than built: `TASKS.md` Part 298 (the apps' other needs) and Part 299 (D190's deferred minors).
+Also: `nuget-unlist`'s bare `--api-key` prompts with typing hidden, and `Lyntai.Storage.InMemory` is unlisted.
+
+- The consuming-app survey and the 3.4.0 additions

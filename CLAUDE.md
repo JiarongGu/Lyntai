@@ -22,7 +22,7 @@ says what that forbids.
 
 **The baseline a green run should match:** `4956 passed / 4997 total, 41 skipped` (every skip is a
 live-backend gate), e2e 3/3, guard-script tests 960/960, doc samples 54/54 — MEASURED with Docker up at
-`b022acd1` (2026-09-26). No gate holds the xUnit trio (`docs/GATES.md` §Which numbers a gate holds), so:
+`42069451` (2026-09-26). No gate holds the xUnit trio (`docs/GATES.md` §Which numbers a gate holds), so:
 
 - **Re-measure it by hand after `verify`, off that run's own output**, never from a diff, and re-attest the
   COMMIT with the figures whenever they move.
