@@ -121,3 +121,16 @@ public interface ICuratedMemoryStore
     Task<IReadOnlyList<CuratedMemory>> ForCompositionAsync(string taskKey, IEnumerable<string> scopes,
         bool enabledOnly = true, CancellationToken ct = default);
 }
+
+/// <summary>The one spelling of <see cref="ICuratedMemoryStore.UpdateAsync"/>'s re-scope sentinel, for every
+/// backend, a BYO one included.</summary>
+public static class CuratedMemoryUpdates
+{
+    /// <summary>The task key or scope an update leaves an entry with: <c>null</c> keeps
+    /// <paramref name="current"/>, the empty string clears it to null ("applies everywhere"), and anything
+    /// else replaces it. Resolve it before the collision check, so the check and the write agree.</summary>
+    /// <param name="argument">What the caller passed to the update.</param>
+    /// <param name="current">What the entry holds now.</param>
+    public static string? Rescope(string? argument, string? current) =>
+        argument is null ? current : argument.Length == 0 ? null : argument;
+}

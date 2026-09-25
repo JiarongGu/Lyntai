@@ -2867,6 +2867,8 @@ sealed class Lyntai.Storage.CuratedMemoryRow
     TaskKey : String
     ToRecord() : CuratedMemory
     UpdatedAt : DateTimeOffset
+static class Lyntai.Storage.CuratedMemoryUpdates
+    static Rescope(String argument, String current) : String
 static class Lyntai.Storage.CuratedMetadataJson
     static Deserialize(String json) : IReadOnlyDictionary<String,String>
     static Serialize(IReadOnlyDictionary<String,String> metadata) : String
