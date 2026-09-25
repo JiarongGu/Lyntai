@@ -6,10 +6,6 @@ static class Lyntai.SqliteStorageBuilderExtensions
     static UseSqliteStorage(LyntaiBuilder builder, String dbPath, StorageFeature features, SchemaMigration migration = SchemaMigration.OnStartup) : LyntaiBuilder
     static UseSqliteUsageTracking(LyntaiBuilder builder) : LyntaiBuilder
     static UseSqliteVectorStore(LyntaiBuilder builder) : LyntaiBuilder
-sealed class Lyntai.Storage.Sqlite.MigratingConnectionFactory
-    .ctor(String dbPath, StorageFeature features = StorageFeature.All)
-    Open() : DbConnection
-    OpenAsync(CancellationToken ct = default) : Task<DbConnection>
 sealed class Lyntai.Storage.Sqlite.Migrations.LyntaiVersionTable
     .ctor()
     AppliedOnColumnName : String

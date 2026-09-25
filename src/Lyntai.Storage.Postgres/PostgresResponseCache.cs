@@ -1,4 +1,5 @@
 using Dapper;
+using Lyntai.Storage.Relational;
 using Lyntai.Inference;
 using Lyntai.Inference.Caching;
 
@@ -20,7 +21,7 @@ public sealed class PostgresResponseCache(IDbConnectionFactory factory, LyntaiOp
         var json = await conn.QuerySingleOrDefaultAsync<string>(new CommandDefinition(
             "SELECT reply_json FROM lyntai_response_cache WHERE cache_key = @key AND expires_at > @now",
             new { key, now = _clock() }, cancellationToken: ct)).ConfigureAwait(false);
-        return json is null ? null : PostgresJson.Deserialize<TextResponse>(json);
+        return json is null ? null : ReflectionJson.Deserialize<TextResponse>(json);
     }
 
     public async Task SetAsync(string key, TextResponse reply, TimeSpan? ttl = null, CancellationToken ct = default)
@@ -33,7 +34,7 @@ public sealed class PostgresResponseCache(IDbConnectionFactory factory, LyntaiOp
             INSERT INTO lyntai_response_cache (cache_key, reply_json, expires_at, created_at)
             VALUES (@key, @json, @expiresAt, @now)
             ON CONFLICT (cache_key) DO UPDATE SET reply_json = @json, expires_at = @expiresAt, created_at = @now
-            """, new { key, json = PostgresJson.Serialize(reply), expiresAt = now + window, now }, cancellationToken: ct)).ConfigureAwait(false);
+            """, new { key, json = ReflectionJson.Serialize(reply), expiresAt = now + window, now }, cancellationToken: ct)).ConfigureAwait(false);
 
         // opportunistic eviction: drop expired, then trim the oldest beyond the size cap (OFFSET past the
         // newest @max rows → the surplus older ones)

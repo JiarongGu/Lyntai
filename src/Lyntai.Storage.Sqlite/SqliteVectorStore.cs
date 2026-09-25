@@ -1,4 +1,5 @@
 using Dapper;
+using Lyntai.Storage.Relational;
 using Lyntai.Memory;
 
 namespace Lyntai.Storage.Sqlite;
@@ -19,7 +20,7 @@ public sealed class SqliteVectorStore(IDbConnectionFactory factory) : IListableV
             INSERT INTO lyntai_vector (collection, vec_id, vector, payload)
             VALUES (@collection, @id, @vector, @payload)
             ON CONFLICT(collection, vec_id) DO UPDATE SET vector = @vector, payload = @payload
-            """, new { collection, id, vector = SqliteJson.Serialize(vector), payload }, cancellationToken: ct)).ConfigureAwait(false);
+            """, new { collection, id, vector = ReflectionJson.Serialize(vector), payload }, cancellationToken: ct)).ConfigureAwait(false);
     }
 
     public async Task<IReadOnlyList<VectorMatch>> SearchAsync(string collection, float[] query, int k, CancellationToken ct = default)
@@ -37,7 +38,7 @@ public sealed class SqliteVectorStore(IDbConnectionFactory factory) : IListableV
         // contract's tie facts passed here before this line existed. Nobody chose that; a rewrite, an ANALYZE
         // or a different plan changes it silently. `VectorStoreContract.Equal_scores_are_ordered_by_id`.
         return [.. rows
-            .Select(r => new VectorMatch(r.VecId, r.Payload, VectorMath.Cosine(query, SqliteJson.Deserialize<float[]>(r.Vector) ?? [])))
+            .Select(r => new VectorMatch(r.VecId, r.Payload, VectorMath.Cosine(query, ReflectionJson.Deserialize<float[]>(r.Vector) ?? [])))
             .OrderByDescending(m => m.Score)
             .ThenBy(m => m.Id, StringComparer.Ordinal)
             .Take(k)];

@@ -692,6 +692,15 @@ export default {
       why: 'a live override that swaps the model while the container chooses the provider moves half of the '
         + 'routing pair, so the model reaches a provider it was never written for (docs/DECISIONS.md D176)',
     },
+    {
+      // Part 293 review (STOR-13): one public shim per relational package, each binding a lambda over Core's
+      // LazyMigratingConnectionFactory. Whole-identifier matching leaves the Core type itself live.
+      names: ['MigratingConnectionFactory'],
+      use: '`SchemaMigration.OnFirstUse` on `UseSqliteStorage` / `UsePostgresStorage`, or for a BYO wiring '
+        + '`new LazyMigratingConnectionFactory(inner, () => MigrationRunnerService.MigrateUp(…))`',
+      why: 'each only bound a lambda over the Core type a BYO backend already uses, and the pair were two '
+        + 'public types sharing one simple name across two namespaces',
+    },
   ],
 
   /**
@@ -1478,6 +1487,13 @@ export default {
         + '`SupportsStreamingToolCalls` on the `ProviderCapabilities` it answers (null = no native tool calls)',
       why: 'the synchronous probes answered for the candidates a client was configured with, so a live route '
         + 'to a backend without tool calls still sent the tool loop down the native path (docs/DECISIONS.md D176)',
+    },
+    {
+      // The prose half of the relational MigratingConnectionFactory shims' removal. `\b` keeps Core's
+      // LazyMigratingConnectionFactory live: no word boundary falls between its `y` and `M`.
+      term: '\\bMigratingConnectionFactory\\b',
+      use: '`SchemaMigration.OnFirstUse`, or Core\'s `LazyMigratingConnectionFactory` for a BYO wiring',
+      why: 'the two relational shims over the Core type are removed; they only bound a lambda',
     },
   ],
 

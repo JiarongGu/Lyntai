@@ -15,9 +15,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- so the test suite can assert this backend's Dapper DateTimeOffsetHandler stays behaviorally
-         identical to the SQLite one (both share Dapper's process-global handler registry) -->
-    <InternalsVisibleTo Include="Lyntai.Tests" />
+    <!-- The dialect-free relational plumbing, compiled into BOTH relational adapters from one source as
+         internal types: shared without an adapter→adapter reference (docs/DECISIONS.md). -->
+    <Compile Include="..\Shared\Relational\*.cs" LinkBase="Shared\Relational" />
   </ItemGroup>
 
   <ItemGroup>

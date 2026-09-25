@@ -1,8 +1,8 @@
 using Lyntai.Storage;
+using Lyntai.Storage.Relational;
 using Lyntai.Storage.Sqlite;
 using Lyntai.Storage.Sqlite.Migrations;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 
 // Lives in the Lyntai namespace so `UseSqliteStorage` shows up right on the builder with no extra using.
@@ -10,6 +10,20 @@ namespace Lyntai;
 
 public static class SqliteStorageBuilderExtensions
 {
+    private static readonly RelationalBackend Sqlite = new(
+        nameof(UseSqliteStorage),
+        "the response-cache, usage and vector tables (lyntai_response_cache / lyntai_usage / lyntai_vector)",
+        KeyValue: f => new SqliteKeyValueStore(f),
+        PromptVersion: f => new SqlitePromptVersionStore(f),
+        Conversation: f => new SqliteConversationStore(f),
+        Memory: (f, sp) => new SqliteMemoryStore(f, sp.GetRequiredService<LyntaiOptions>(),
+            sp.GetService<ILogger<SqliteMemoryStore>>()),
+        MemoryGraph: (f, sp) => new SqliteMemoryGraphStore(f, sp.GetService<ILogger<SqliteMemoryGraphStore>>()),
+        Score: f => new SqliteScoreStore(f),
+        Trace: f => new SqliteTraceStore(f),
+        Jobs: (f, sp) => new SqliteJobStore(f, stepLogCap: sp.GetRequiredService<LyntaiOptions>().Jobs.MaxStepLog),
+        CuratedMemory: (f, sp) => new SqliteCuratedMemoryStore(f, sp.GetService<ILogger<SqliteCuratedMemoryStore>>()));
+
     /// <summary>Wire every storage domain to SQLite at <paramref name="dbPath"/>: registers the
     /// connection factory + all stores over Lyntai's own <c>lyntai_*</c> tables. Lyntai OWNS the LLM storage
     /// schema; an app attaches its own additional info via the record <c>metadata</c> fields rather than by
@@ -27,29 +41,20 @@ public static class SqliteStorageBuilderExtensions
     /// Migration is per-feature (each migration is tagged with its feature); registration is gated per
     /// feature too, so a disabled domain's store isn't resolvable (its null-tolerant consumers skip it; a
     /// direct <c>GetRequiredService</c> throws — the startup signal that a disabled feature is being used).
-    /// Default (<see cref="StorageFeature.All"/>) is the historical behavior.</summary>
+    /// Default (<see cref="StorageFeature.All"/>) is the historical behavior.
+    /// <para>Two wirings in one container — say memory in one file and the rest in another, or beside
+    /// <c>UsePostgresStorage</c> — each keep their stores over their own database.</para></summary>
     public static LyntaiBuilder UseSqliteStorage(this LyntaiBuilder builder, string dbPath, StorageFeature features,
         SchemaMigration migration = SchemaMigration.OnStartup)
     {
-        IDbConnectionFactory factory;
-        switch (migration)
-        {
-            case SchemaMigration.None:
-                factory = new SqliteConnectionFactory(dbPath); // app owns the schema — no migrations
-                break;
-            case SchemaMigration.OnFirstUse:
-                factory = new MigratingConnectionFactory(dbPath, features);
-                break;
-            default:
-                var dir = Path.GetDirectoryName(Path.GetFullPath(dbPath));
-                if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
-                MigrationRunnerService.MigrateUp(dbPath, features);
-                factory = new SqliteConnectionFactory(dbPath);
-                break;
-        }
+        IDbConnectionFactory factory = new SqliteConnectionFactory(dbPath);
+        if (migration == SchemaMigration.OnFirstUse)
+            factory = new LazyMigratingConnectionFactory(factory, () => MigrationRunnerService.MigrateUp(dbPath, features));
+        else if (migration == SchemaMigration.OnStartup)
+            MigrationRunnerService.MigrateUp(dbPath, features);
         // SchemaMigration.None means the APP owns the schema, so no feature toggle decides what exists —
-        // see the Governance note below for why that has to travel with the selection.
-        return WireStores(builder, factory, features, lyntaiMigrates: migration != SchemaMigration.None);
+        // which is why that has to travel with the selection the Governance guard reads.
+        return StoreWiring.Wire(builder, Sqlite, factory, features, lyntaiMigrates: migration != SchemaMigration.None);
     }
 
     /// <summary>Wire every storage domain to SQLite using an APP-SUPPLIED <see cref="IDbConnectionFactory"/> —
@@ -63,130 +68,43 @@ public static class SqliteStorageBuilderExtensions
     /// the SELECTED features' stores (feature toggles over an app-supplied factory).</summary>
     public static LyntaiBuilder UseSqliteStorage(this LyntaiBuilder builder, IDbConnectionFactory factory, StorageFeature features) =>
         // an app-supplied factory means Lyntai runs no migrations, so the Governance check does not apply
-        WireStores(builder, factory, features, lyntaiMigrates: false);
-
-    private static LyntaiBuilder WireStores(LyntaiBuilder builder, IDbConnectionFactory factory,
-        StorageFeature features, bool lyntaiMigrates)
-    {
-        var selection = new SqliteFeatureSelection(features, lyntaiMigrates, factory);
-        // a Use*Governance-backed helper called BEFORE this one is caught here (see RequireGovernance)
-        VerifyGovernanceBackedCalls(builder, selection);
-        builder.Services.AddSingleton(selection);
-        builder.Services.TryAddSingleton(factory);
-        // Register only the selected features. Domain stores use TryAdd so an app that registers its OWN
-        // impl (a BYO backend) wins — before OR after UseSqliteStorage — matching Lyntai.Storage.InMemory and
-        // the "anything you register wins" contract in the README. Each is built over THIS wiring's factory,
-        // never the container's: stores are first-wins, so a factory resolved at run time would hand them
-        // whichever wiring registered last.
-        if (features.HasFlag(StorageFeature.KeyValue)) builder.Services.TryAddSingleton<IKeyValueStore>(_ => new SqliteKeyValueStore(factory));
-        if (features.HasFlag(StorageFeature.PromptVersion)) builder.Services.TryAddSingleton<IPromptVersionStore>(_ => new SqlitePromptVersionStore(factory));
-        if (features.HasFlag(StorageFeature.Conversation)) builder.Services.TryAddSingleton<IConversationStore>(_ => new SqliteConversationStore(factory));
-        if (features.HasFlag(StorageFeature.Memory))
-        {
-            builder.Services.TryAddSingleton<IMemoryStore>(sp => new SqliteMemoryStore(
-                factory, sp.GetRequiredService<LyntaiOptions>(), sp.GetService<ILogger<SqliteMemoryStore>>()));
-            // the graph tables ship under the same feature tag as the keyword log
-            builder.Services.TryAddSingleton<Lyntai.Memory.IMemoryGraphStore>(sp => new SqliteMemoryGraphStore(
-                factory, sp.GetService<ILogger<SqliteMemoryGraphStore>>()));
-        }
-        if (features.HasFlag(StorageFeature.Score)) builder.Services.TryAddSingleton<IScoreStore>(_ => new SqliteScoreStore(factory));
-        if (features.HasFlag(StorageFeature.Trace)) builder.Services.TryAddSingleton<ITraceStore>(_ => new SqliteTraceStore(factory));
-        if (features.HasFlag(StorageFeature.Jobs))
-            builder.Services.TryAddSingleton<IJobStore>(sp => new SqliteJobStore(
-                factory, stepLogCap: sp.GetRequiredService<LyntaiOptions>().Jobs.MaxStepLog));
-        if (features.HasFlag(StorageFeature.CuratedMemory))
-            builder.Services.TryAddSingleton<ICuratedMemoryStore>(sp => new SqliteCuratedMemoryStore(
-                factory, sp.GetService<ILogger<SqliteCuratedMemoryStore>>()));
-        return builder;
-    }
-
-    // The factory of this backend's LAST wiring — the same one the Governance check reads — or, with no
-    // wiring at all, an app-registered factory.
-    private static IDbConnectionFactory Factory(IServiceProvider sp) =>
-        sp.GetService<SqliteFeatureSelection>()?.Factory ?? sp.GetRequiredService<IDbConnectionFactory>();
+        StoreWiring.Wire(builder, Sqlite, factory, features, lyntaiMigrates: false);
 
     // --- persistent backends for the front-door governance + semantic-memory seams --------------------
-    // These override the in-memory defaults that AddResponseCache/AddUsageBudget register in
-    // Core (plain AddSingleton wins over their TryAdd regardless of call order). Each needs the SQLite
-    // connection factory + schema from UseSqliteStorage, so call that first.
+    // These override the in-memory defaults that AddResponseCache/AddUsageBudget register in Core (plain
+    // AddSingleton wins over their TryAdd regardless of call order), over the LAST SQLite wiring's factory.
+    // Each needs StorageFeature.Governance whenever Lyntai is the one migrating (GovernanceGuard, D150).
 
     /// <summary>Back the response cache (<c>AddResponseCache</c>) with SQLite so it survives restarts.
     /// Requires <see cref="UseSqliteStorage(LyntaiBuilder, string, SchemaMigration)"/> for the factory +
-    /// schema, including <see cref="StorageFeature.Governance"/> whenever Lyntai is the one migrating
-    /// (see the Governance note below).</summary>
+    /// schema, including <see cref="StorageFeature.Governance"/> whenever Lyntai is the one migrating.</summary>
     public static LyntaiBuilder UseSqliteResponseCache(this LyntaiBuilder builder)
     {
-        RequireGovernance(builder, nameof(UseSqliteResponseCache));
+        GovernanceGuard.Require(builder, Sqlite, nameof(UseSqliteResponseCache));
         builder.Services.AddSingleton<Lyntai.Inference.Caching.IResponseCache>(sp => new SqliteResponseCache(
-            Factory(sp), sp.GetRequiredService<LyntaiOptions>()));
+            StoreWiring.Factory(sp), sp.GetRequiredService<LyntaiOptions>()));
         return builder;
     }
 
     /// <summary>Back usage accounting (<c>AddUsageBudget</c>) with SQLite so spend isn't reset every restart.
     /// Requires <see cref="UseSqliteStorage(LyntaiBuilder, string, SchemaMigration)"/> for the factory +
-    /// schema, including <see cref="StorageFeature.Governance"/> whenever Lyntai is the one migrating
-    /// (see the Governance note below).</summary>
+    /// schema, including <see cref="StorageFeature.Governance"/> whenever Lyntai is the one migrating.</summary>
     public static LyntaiBuilder UseSqliteUsageTracking(this LyntaiBuilder builder)
     {
-        RequireGovernance(builder, nameof(UseSqliteUsageTracking));
-        builder.Services.AddSingleton<Lyntai.Inference.Budgeting.IUsageTracker>(sp => new SqliteUsageTracker(
-            Factory(sp)));
+        GovernanceGuard.Require(builder, Sqlite, nameof(UseSqliteUsageTracking));
+        builder.Services.AddSingleton<Lyntai.Inference.Budgeting.IUsageTracker>(sp =>
+            new SqliteUsageTracker(StoreWiring.Factory(sp)));
         return builder;
     }
 
     /// <summary>Back semantic-memory vectors (<c>AddSemanticMemory</c> / <c>AddProvider</c>) with SQLite
     /// so they survive restarts. Requires <see cref="UseSqliteStorage(LyntaiBuilder, string, SchemaMigration)"/>
     /// for the factory + schema, including <see cref="StorageFeature.Governance"/> — the feature carrying
-    /// the <c>lyntai_vector</c> table — whenever Lyntai is the one migrating (see the Governance note
-    /// below).</summary>
+    /// the <c>lyntai_vector</c> table — whenever Lyntai is the one migrating.</summary>
     public static LyntaiBuilder UseSqliteVectorStore(this LyntaiBuilder builder)
     {
-        RequireGovernance(builder, nameof(UseSqliteVectorStore));
-        builder.Services.AddSingleton<Lyntai.Memory.IVectorStore>(sp => new SqliteVectorStore(
-            Factory(sp)));
+        GovernanceGuard.Require(builder, Sqlite, nameof(UseSqliteVectorStore));
+        builder.Services.AddSingleton<Lyntai.Memory.IVectorStore>(sp => new SqliteVectorStore(StoreWiring.Factory(sp)));
         return builder;
-    }
-
-    // --- the Governance prerequisite, enforced at WIRING time -----------------------------------------
-    // lyntai_response_cache, lyntai_usage and lyntai_vector all ship in the ONE Governance migration, so a
-    // feature subset omitting it leaves the three helpers above registering stores over tables that were
-    // never created. Why the check is EAGER, what a lazy one would have accepted, and the two scope rules
-    // (order-independent across the storage/helper PAIR only; applies only where Lyntai owns the schema) are
-    // docs/DECISIONS.md D150.
-
-    private sealed record SqliteFeatureSelection(StorageFeature Features, bool LyntaiMigrates, IDbConnectionFactory Factory);
-
-    private sealed record SqliteGovernanceBackedCall(string Method);
-
-    private static void RequireGovernance(LyntaiBuilder builder, string method)
-    {
-        builder.Services.AddSingleton(new SqliteGovernanceBackedCall(method));
-        if (Selection(builder) is { } selection) VerifyGovernance(selection, method);
-    }
-
-    private static void VerifyGovernanceBackedCalls(LyntaiBuilder builder, SqliteFeatureSelection selection)
-    {
-        foreach (var descriptor in builder.Services
-                     .Where(d => !d.IsKeyedService && d.ServiceType == typeof(SqliteGovernanceBackedCall))
-                     .ToList())
-            VerifyGovernance(selection, ((SqliteGovernanceBackedCall)descriptor.ImplementationInstance!).Method);
-    }
-
-    // The last selection registered SO FAR — the guard is EAGER, so this is not necessarily the selection
-    // the app finishes with. That difference is deliberate and priced in docs/DECISIONS.md D150.
-    private static SqliteFeatureSelection? Selection(LyntaiBuilder builder) =>
-        builder.Services.LastOrDefault(d => !d.IsKeyedService && d.ServiceType == typeof(SqliteFeatureSelection))
-            ?.ImplementationInstance as SqliteFeatureSelection;
-
-    private static void VerifyGovernance(SqliteFeatureSelection selection, string method)
-    {
-        if (!selection.LyntaiMigrates) return;   // the app owns the schema — no migration was going to run
-        if (selection.Features.HasFlag(StorageFeature.Governance)) return;
-        throw new InvalidOperationException(
-            $"{method} needs StorageFeature.Governance, but UseSqliteStorage was called with a feature set that " +
-            "omits it. Governance carries the response-cache, usage and vector tables (lyntai_response_cache / " +
-            "lyntai_usage / lyntai_vector), so the store would be registered over a table that was never created " +
-            $"and the failure would surface at the first call instead of here. Add StorageFeature.Governance to the " +
-            $"UseSqliteStorage feature set, or drop the {method} call.");
     }
 }

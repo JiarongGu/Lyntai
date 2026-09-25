@@ -1,7 +1,5 @@
-using System.Data;
 using System.Data.Common;
-using System.Globalization;
-using Dapper;
+using Lyntai.Storage.Relational;
 using Microsoft.Data.Sqlite;
 
 namespace Lyntai.Storage.Sqlite;
@@ -10,17 +8,7 @@ namespace Lyntai.Storage.Sqlite;
 /// WAL journal, 5s busy timeout, foreign keys ON.</summary>
 public sealed class SqliteConnectionFactory : IDbConnectionFactory
 {
-    static SqliteConnectionFactory()
-    {
-        // snake_case columns ↔ PascalCase properties (family convention)
-        DefaultTypeMap.MatchNamesWithUnderscores = true;
-        // DateTimeOffset ↔ UTC. Dapper's type-handler registry is PROCESS-GLOBAL and keyed by type, so
-        // this collides with Lyntai.Storage.Postgres's handler when both backends load — the two MUST be
-        // behaviorally IDENTICAL (this exact class body) so whichever static ctor wins, both providers
-        // round-trip correctly. SetValue=UtcDateTime is the one form that works for both (SQLite stores
-        // the DateTime as ISO TEXT; Npgsql binds it to timestamptz).
-        SqlMapper.AddTypeHandler(new DateTimeOffsetHandler());
-    }
+    static SqliteConnectionFactory() => DapperConventions.Register();
 
     private readonly string _connectionString;
 
@@ -78,23 +66,4 @@ public sealed class SqliteConnectionFactory : IDbConnectionFactory
     // busy/locked retry loop bounded by the command timeout (30s here, set rather than inherited so the
     // worst-case wait ceiling is a documented choice).
     private SqliteConnection New() => new(_connectionString) { DefaultTimeout = 30 };
-
-    // KEEP IDENTICAL to Lyntai.Storage.Postgres's DateTimeOffsetHandler: Dapper's registry is process-global,
-    // so whichever backend registers last wins for BOTH (sql-storage.md §Connections). `internal` rather than
-    // private is what lets DateTimeOffsetHandlerParityTests hold them to it — that test is the mechanism
-    // here, not this note.
-    internal sealed class DateTimeOffsetHandler : SqlMapper.TypeHandler<DateTimeOffset>
-    {
-        public override void SetValue(IDbDataParameter parameter, DateTimeOffset value) =>
-            parameter.Value = value.UtcDateTime;
-
-        public override DateTimeOffset Parse(object value) => value switch
-        {
-            DateTimeOffset offset => offset.ToUniversalTime(),
-            DateTime dt => new DateTimeOffset(DateTime.SpecifyKind(dt, DateTimeKind.Utc)),
-            string s => DateTimeOffset.Parse(s, CultureInfo.InvariantCulture,
-                DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal),
-            _ => throw new DataException($"cannot convert {value.GetType()} to DateTimeOffset"),
-        };
-    }
 }

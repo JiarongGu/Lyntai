@@ -6,10 +6,6 @@ static class Lyntai.PostgresStorageBuilderExtensions
     static UsePostgresStorage(LyntaiBuilder builder, String connectionString, StorageFeature features, SchemaMigration migration = SchemaMigration.OnStartup) : LyntaiBuilder
     static UsePostgresUsageTracking(LyntaiBuilder builder) : LyntaiBuilder
     static UsePostgresVectorStore(LyntaiBuilder builder) : LyntaiBuilder
-sealed class Lyntai.Storage.Postgres.MigratingConnectionFactory
-    .ctor(String connectionString, StorageFeature features = StorageFeature.All)
-    Open() : DbConnection
-    OpenAsync(CancellationToken ct = default) : Task<DbConnection>
 sealed class Lyntai.Storage.Postgres.Migrations.LyntaiVersionTable
     .ctor()
     AppliedOnColumnName : String
