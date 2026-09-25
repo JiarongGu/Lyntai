@@ -291,6 +291,12 @@ Start through the discovery skills (`skills-workflow.md`) and read `.claude/know
   D177 and D181 near `check-decisions`' length bound; the size of `README.md`, `.claude/knowledge/pitfalls.md`
   and CLAUDE.md's baseline narrative; and whether the never-called fal backend should stay (the owner holds no
   account). Scope, depth and what counts as done are the owner's to set at the start of that session.
+  <br>**SET 2026-09-25 by the owner, choosing among posed options:** scope is ALL FOUR areas — `src/`,
+  `tests/`, `devtools/` and the maintained docs (the append-only records are in scope for duplication and
+  length only, never for rewriting what they recorded). The session reviews, fixes and COMMITS autonomously.
+  **Breaking changes are allowed**, each under `CHANGELOG.md` `### Breaking` naming its action (**D161**).
+  **fal STAYS**: document why it is unverified, and survey the other hosted generation vendors as fallback
+  options beside it. Findings land in `devtools/_review/` (scratch) and are triaged here as they are fixed.
 
 ## Retired — five Parts that outlived their open work (2026-09-16)
 
