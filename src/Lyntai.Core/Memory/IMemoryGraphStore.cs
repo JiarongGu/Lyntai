@@ -375,35 +375,27 @@ public interface IMemoryGraphStore
 
     /// <summary>The candidate set for a recall: nodes in (<paramref name="engine"/>,
     /// <paramref name="taskKey"/>, <paramref name="scope"/>) matching <paramref name="query"/>, capped at
-    /// <paramref name="limit"/> — <b>authoritative material first, then most recently used</b>, so that what
-    /// the <paramref name="limit"/> cuts is the freshest ASSOCIATIVE material rather than the quietest exact
-    /// fact.
+    /// <paramref name="limit"/>; a <paramref name="limit"/> of zero or less returns nothing. <b>Authoritative
+    /// material first</b>, so what the limit cuts is associative material rather than the quietest exact fact;
+    /// then by how well the query matched (how many of its terms a node contains, or SQLite's full-text
+    /// score), then salience, then recency.
     /// <para><b>Faintness never excludes a candidate.</b> A decayed entry is returned like any other and is
-    /// hidden — if at all — by being OUTRANKED in the engine, which is the whole model: decay buries, it
-    /// does not cut. The only bound here is the count, so a faint memory alone in a quiet engine still
-    /// comes back. Deleting is <see cref="PruneAsync"/>'s job and is always explicit.</para>
-    /// <para>A null or whitespace <paramref name="query"/> takes the most recent. AUTHORITATIVE nodes are
-    /// admitted unconditionally — the query does not exclude them.</para>
-    /// <para><b>The bound on that.</b> "Admitted unconditionally" means the QUERY never excludes an
-    /// authoritative node — not that <paramref name="limit"/> can hold them all. A scope holding more
-    /// authoritative nodes than <paramref name="limit"/> still loses some, by recency, and which ones is
-    /// deliberately unspecified. Unlike the prompt layer, which reports what it omitted, the store drops
-    /// silently. Keep authoritative material in a scope small enough that this cannot bite.</para>
-    /// <para><b>How a SALIENT candidate is admitted is backend-specific, by the same carve-out.</b> Where
-    /// nothing has already ranked candidates by match quality — the no-query and substring-fallback paths —
-    /// salience leads recency, so a salient entry survives a limit recency alone would have cut. On a
-    /// MATCH-RANKED path (SQLite's FTS branch) the score leads and salience is only a tiebreak, or a salient
-    /// POOR match would displace a strong one. So "a salient entry is found even when it matches poorly" is
-    /// a guarantee of the recency-ordered paths, not of every path. Rank contribution proper belongs to the
-    /// ranking policy and is opt-in.</para>
+    /// hidden — if at all — by being OUTRANKED in the engine: decay buries, it does not cut. Deleting is
+    /// <see cref="PruneAsync"/>'s job and is always explicit.</para>
+    /// <para>A null or whitespace <paramref name="query"/> takes the most recent. The query never excludes an
+    /// AUTHORITATIVE node, but <paramref name="limit"/> still bounds them: a scope holding more loses some,
+    /// silently and in an unspecified order — keep authoritative material in a scope small enough that this
+    /// cannot bite.</para>
+    /// <para><b>Salience ranks below match quality and above recency</b>, so a salient entry survives a limit
+    /// recency alone would have cut but never displaces a better match. Rank contribution proper belongs to
+    /// the ranking policy and is opt-in.</para>
     /// <para><b>An authoritative node admitted by GRADE that <paramref name="query"/> never matched reports
-    /// <see cref="GraphNode.Relevance"/> exactly <c>0</c>, on every backend.</b> <c>0</c> is what "how well
-    /// it matched the query" honestly says about something the query did not match; a node that genuinely
-    /// matched keeps its match-derived position, and with no <paramref name="query"/> nothing is
-    /// grade-admitted so each backend's gradient is unchanged.</para>
+    /// <see cref="GraphNode.Relevance"/> exactly <c>0</c>, on every backend</b>; a node that matched keeps its
+    /// match-derived position.</para>
     /// <para>Portable guarantee, the same one <see cref="Lyntai.Storage.IMemoryStore.RecallAsync"/> states:
-    /// a node whose content contains a single ≥3-character query token as a substring is found on every
-    /// backend. Multi-token matching and same-match ordering diverge by design.</para></summary>
+    /// a node whose content contains any one ≥3-character query token as a substring is found on every
+    /// backend, since each matches a multi-token query term by term. Only the ORDER among matches diverges
+    /// by design.</para></summary>
     /// <param name="engine">The owning engine's name.</param>
     /// <param name="taskKey">Consumer/purpose scope.</param>
     /// <param name="scope">Variant scope, or null for every scope of the task.</param>
@@ -423,7 +415,7 @@ public interface IMemoryGraphStore
     /// carried a recall across with it and the boundary every other read enforces had a hole. A
     /// half-boundary is worse than none, because consumers reason about it as a whole one.</param>
     /// <param name="ids">The frontier to walk out from.</param>
-    /// <param name="limit">Maximum neighbours.</param>
+    /// <param name="limit">Maximum neighbours; zero or less returns nothing.</param>
     /// <param name="ct">Cancellation.</param>
     Task<IReadOnlyList<GraphNeighbour>> NeighboursAsync(string engine, string taskKey,
         IReadOnlyCollection<long> ids, int limit, CancellationToken ct = default);
@@ -449,7 +441,8 @@ public interface IMemoryGraphStore
     Task TouchAsync(string engine, IReadOnlyCollection<GraphTouch> touches, CancellationToken ct = default);
 
     /// <summary>Connect two nodes, strengthening the edge when it already exists and stamping the current
-    /// position. Directed unless <paramref name="symmetric"/>.
+    /// position. Directed unless <paramref name="symmetric"/>. An edge whose endpoint no longer exists — a node
+    /// deleted between the recall and its write-back — is skipped, never an error.
     /// <para>The stored weight only ever grows; decay is applied at READ time by whoever owns the curve, so
     /// the store holds no curve constant. That is what keeps a link which stopped recurring from propping a
     /// memory up forever: its effective weight falls to nothing however large the raw value.</para></summary>
@@ -616,7 +609,8 @@ public interface IMemoryGraphStore
     /// nothing would ever reveal it.</para>
     /// </summary>
     /// <param name="engine">The owning engine's name.</param>
-    /// <param name="nodeId">The node the subjects describe.</param>
+    /// <param name="nodeId">The node the subjects describe. A node <paramref name="engine"/> does not hold —
+    /// another engine's, or none — records nothing.</param>
     /// <param name="subjects">Its subjects; empty clears them. Normalized through
     /// <see cref="MemorySubject.Canonicalize"/> — trimmed, lowercased INVARIANTLY, de-duplicated — so an
     /// annotator that varies capitalization or padding still links. <b>A backend implements that rule by

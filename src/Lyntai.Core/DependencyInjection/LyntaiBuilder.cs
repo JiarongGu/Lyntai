@@ -325,13 +325,15 @@ public sealed class LyntaiBuilder
 
     /// <summary>Opt-in background GC for memory: register a recurring <b>memory-prune</b> job on a
     /// <paramref name="cron"/> schedule that removes expired (and, when <paramref name="olderThan"/> is set,
-    /// aged-out) entries via <c>IMemoryStore.PruneAsync</c> — reclaiming storage from cold/expired
-    /// <c>(taskKey, scope)</c>s that on-write eviction never revisits. Lyntai owns the prune WORK; the APP
-    /// owns the pump (drive <c>IJobScheduler.RunAsync</c>/<c>TickAsync</c> + <c>IJobRunner</c>). Needs a
-    /// memory store (e.g. <c>UseSqliteStorage</c>) wired. <paramref name="taskKey"/> null = all tasks. The
-    /// schedule is validated now, as <see cref="AddJobSchedule(JobSchedule)"/> says. Call more than once
-    /// with distinct <paramref name="name"/>s for several schedules — a repeated name throws, and the
-    /// handler is registered once.</summary>
+    /// aged-out) entries — reclaiming storage from cold/expired <c>(taskKey, scope)</c>s that on-write
+    /// eviction never revisits. It prunes the keyword <c>IMemoryStore</c> when one is wired and, for a job
+    /// naming a <paramref name="taskKey"/>, every registered <c>IPrunableMemory</c> engine too; an engine
+    /// prunes within one task, so an all-tasks job (<paramref name="taskKey"/> null) reaches the keyword
+    /// store only. Lyntai owns the prune WORK; the APP owns the pump (drive
+    /// <c>IJobScheduler.RunAsync</c>/<c>TickAsync</c> + <c>IJobRunner</c>). The schedule is validated now, as
+    /// <see cref="AddJobSchedule(JobSchedule)"/> says. Call more than once with distinct
+    /// <paramref name="name"/>s for several schedules — a repeated name throws, and the handler is registered
+    /// once.</summary>
     public LyntaiBuilder AddMemoryPruneJob(string cron, TimeSpan? olderThan = null, string? taskKey = null,
         string lane = "default", string name = "lyntai-memory-prune", int priority = 0)
     {

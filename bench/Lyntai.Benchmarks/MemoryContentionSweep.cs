@@ -57,8 +57,8 @@ internal static class MemoryContentionSweep
 
     /// <summary>The one HttpClient every seam shares.
     ///
-    /// <para><b>`UseProxy = false` is load-bearing, not hygiene.</b> Every other bench here builds a bare
-    /// <c>new HttpClient</c>, so proxy resolution runs per call: measured at ~9 ms mean and 34 ms max against
+    /// <para><b>`UseProxy = false` is load-bearing, not hygiene.</b> A bare <c>new HttpClient</c> — what most
+    /// benches here build — resolves the proxy per call: measured at ~9 ms mean and 34 ms max against
     /// <c>127.0.0.1</c>, and up to <b>2,051 ms</b> against <c>localhost</c>. This sweep reports p95 and p99 of
     /// model calls, and an occasional two-second spike from the CLIENT is indistinguishable from the tail
     /// latency the sweep exists to measure. Disabling it takes the overhead to 0.4 ms.</para></summary>

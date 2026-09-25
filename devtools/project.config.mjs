@@ -1783,13 +1783,10 @@ export default {
     "bench/Lyntai.Benchmarks/MemoryEnrichmentSweep.cs": [32],
     "bench/Lyntai.Benchmarks/MemoryLanguageSweep.cs": [41],
     "bench/Lyntai.Benchmarks/MemoryPolicySweep.cs": [79],
-    "bench/Lyntai.Benchmarks/MemoryReinforcementSweep.cs": [33],
     "bench/Lyntai.Benchmarks/MemorySalienceSweep.cs": [33],
-    "bench/Lyntai.Benchmarks/MemorySpacingSweep.cs": [38],
     "bench/Lyntai.Benchmarks/MemoryVerificationSweep.cs": [27],
     // A ratchet that keeps being raised by one is measuring something that should not exist: `dev.mjs`'s
     // entry climbed 31 → 35 on a hand-kept usage banner until the list was derived and the entry deleted.
-    "src/Lyntai.Core/Memory/IMemoryGraphStore.cs": [31],
     "tests/Lyntai.Tests/Memory/Corpus/MemoryCorpus.cs": [88, 35, 27],
     "tests/Lyntai.Tests/Memory/Corpus/RecallQuality.cs": [40],
     "tests/Lyntai.Tests/Memory/DsrPathologyTests.cs": [41],
