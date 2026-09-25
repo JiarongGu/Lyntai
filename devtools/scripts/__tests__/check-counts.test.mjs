@@ -1,6 +1,6 @@
 // check-counts — the counted-claim gate. See devtools/scripts/check-counts.mjs.
 //
-// TASKS.md Part 73's caveat is what this file exists for, quoted because it IS the requirement: "a counter
+// docs/task-archive.md Part 73's caveat is what this file exists for, quoted because it IS the requirement: "a counter
 // that is subtly wrong is worse than none — it fails a clean tree and the fix is to edit the counter, which
 // trains exactly the 'ignore this gate' reflex". So every counter is pinned against the REAL tree, not a
 // fixture, and where a runtime truth exists the counter is compared against that rather than a literal.

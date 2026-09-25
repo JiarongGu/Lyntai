@@ -66,7 +66,7 @@ describe('check-samples — finding the blocks', () => {
     // CommonMark: a closing fence must be at least as long as its opener. Matching a bare three read the
     // four-backtick opener's info string as "`markdown", failed to recognise the four-backtick CLOSER, and
     // left the scanner "inside" a block for the rest of the file — losing one real block and silently
-    // skipping every line after it. Measured on docs/2026-08-04-generation-platform-plan.md.
+    // skipping every line after it. Measured on the 2026-08-04 generation plan, since untracked (D149).
     // TWO quoted blocks, so the CLOSER's length is load-bearing as well as the opener's: accept any
     // three-backtick line as a closer and the first quoted block's `` ``` `` ends the markdown block,
     // after which the SECOND quoted block is extracted as a real, unfixable phantom sample.
@@ -270,7 +270,7 @@ describe('check-samples — what is deliberately NOT scanned', () => {
   });
 
   it('skips a CHANGELOG sample under a RELEASED heading — and REFUSES one under `## Unreleased`', () => {
-    // The mask boundary is shared with check-docs on purpose (TASKS.md Part 53): a sample under a released
+    // The mask boundary is shared with check-docs on purpose (docs/task-archive.md Part 53): a sample under a released
     // heading is the record of what that release said, so nothing below the boundary is compiled.
     //
     // **The other half INVERTED on 2026-09-19, and a real release run is why.** It asserted that a sample

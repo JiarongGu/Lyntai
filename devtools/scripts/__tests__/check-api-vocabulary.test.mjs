@@ -3,7 +3,7 @@
 // This gate exists because a stale PARAMETER NAME passed every check the repository had: `check-docs`
 // excludes `src/`, and the API baseline records parameter names without judging them. Three of them
 // (`ageClocks:`, `appraisers:`, `modulators:`) reached the eve of the 3.0 freeze and a human review, not a
-// gate, caught them — TASKS.md Part 61, docs/DECISIONS.md D47.
+// gate, caught them — docs/task-archive.md Part 61, docs/DECISIONS.md D47.
 //
 // Two properties carry the whole gate, and both are tested here rather than assumed:
 //   · a retired identifier IS caught, in a parameter position, which is where the measured defect lived;

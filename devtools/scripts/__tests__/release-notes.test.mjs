@@ -167,7 +167,7 @@ describe('release-notes — rendering', () => {
     assert.ok(order.every((i) => i > 0), 'every section is present');
     assert.deepEqual(order, [...order].sort((a, b) => a - b), 'and Breaking comes first');
 
-    // NOT a named migration guide. `docs/migration-2.5-to-3.0.md` was correct for exactly one release and
+    // NOT a named migration guide. `docs/migration-2.5-to-3.0.md` was correct for exactly one release and link-ok: names the untracked guide
     // wrong for every one after — it is 2.5-era history — and a hardcoded pointer inside a GENERATED,
     // published document rots silently, because nobody reads old release notes again.
     assert.match(md, /\*\*Breaking\*\* section of `CHANGELOG\.md`/);

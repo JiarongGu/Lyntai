@@ -1,7 +1,7 @@
 // Tests for check-decision-claims.
 //
 // The gate's failure mode is a FALSE PASS — a predicate that quietly stops discriminating reports a clean
-// repository forever, which is the whole reason `test-devtools` runs first in `verify` (TASKS.md Part 60,
+// repository forever, which is the whole reason `test-devtools` runs first in `verify` (docs/task-archive.md Part 60,
 // where three check-docs defects had passed every gate for their entire lifetime, all in the permissive
 // direction).
 //

@@ -7,7 +7,7 @@
 // dangles"; this file is what makes that step fail loudly instead of being remembered.
 //
 // A guard whose failure mode is a false PASS cannot be validated by running it, which is why the negative
-// cases below matter as much as the positive one (TASKS.md Part 60).
+// cases below matter as much as the positive one (docs/task-archive.md Part 60).
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import { describe, it } from 'node:test';
@@ -143,9 +143,9 @@ describe('check-links — allowances cannot rot', () => {
 
 describe('check-links — the file list', () => {
   it('reads tracked files NUL-separated, so a non-ASCII NAME is not C-quoted', () => {
-    // Without `-z`, `docs/灵台.md` arrives as `"docs/\347\201\265\345\217\260.md"` — a name matching no file
+    // Without `-z`, `docs/灵台.md` arrives as `"docs/\347\201\265\345\217\260.md"` — a name matching no file link-ok: a fixture name, quoted as data
     // on disk — so the gate would both fail to scan it AND report every reference TO it as dangling. Same
-    // root cause as check-sensitive's and check-docs' own (TASKS.md Part 60).
+    // root cause as check-sensitive's and check-docs' own (docs/task-archive.md Part 60).
     const dir = makeRepo({ 'docs/灵台.md': '# 灵台\n', 'README.md': 'see `docs/灵台.md`\n' });
     try {
       git(dir, ['add', '-A']);
@@ -239,7 +239,7 @@ describe('check-links — a reference naming the WRONG record for a Part', () =>
     //
     // These documents wrap at ~110 columns and a Part reference spans a backtick, a filename and a bold
     // marker, so it is among the likeliest claims to straddle a break — which is exactly what had happened
-    // to the design contract's own "TASKS.md\n**Part 40**", a Part that had long since been archived.
+    // to the design contract's own "TASKS.md\n**Part 40**", a Part that had long since been archived. link-ok: quotes the defect as it was written
     const { code, out } = run({
       ...records,
       'README.md': 'that rule is the open call — `TASKS.md`\n**Part 53** — and must not be revisited.\n',
@@ -433,10 +433,25 @@ describe('check-links — the CODE tiers (Part 72)', () => {
     assert.equal(code, 0, out);
   });
 
-  it('the guard-script fixture tree is skipped — its paths are synthetic by design', () => {
+  it('the guard tests are scanned — a fixture lives in a string literal, which no comment scan reads', () => {
+    // Excluding the whole directory once hid about ten misfiled `TASKS.md Part N` comments there.
+    const fixture = run({
+      'README.md': 'intro\n',
+      'devtools/scripts/__tests__/x.test.mjs': "const dir = makeTree({ 'docs/2026-08-09-gone.md': '' });\n",
+    });
+    assert.equal(fixture.code, 0, fixture.out);
+
+    const comment = run({
+      'README.md': 'intro\n',
+      'devtools/scripts/__tests__/x.test.mjs': '// measured on docs/2026-08-09-gone.md\n',
+    });
+    assert.equal(comment.code, 1, comment.out);
+  });
+
+  it('a `#` line is not a comment — a preprocessor directive, a shebang or a markdown fixture line', () => {
     const { code, out } = run({
       'README.md': 'intro\n',
-      'devtools/scripts/__tests__/x.test.mjs': "// makeTree({'docs/2026-08-09-gone.md': ''})\n",
+      'devtools/scripts/gen.mjs': "const md = `\n## the history is in docs/2026-08-09-gone.md\n`;\n",
     });
     assert.equal(code, 0, out);
   });
@@ -452,7 +467,7 @@ describe('check-links — the CODE tiers (Part 72)', () => {
 
 describe('check-links — a reference naming a SECTION that does not exist', () => {
   // The THIRD way an inbound reference rots, and neither half above can see it: the path resolves, the
-  // record is right, and the §N names a heading that is not there. Measured 2026-08-28 (TASKS.md Part 107):
+  // record is right, and the §N names a heading that is not there. Measured 2026-08-28 (docs/task-archive.md Part 107):
   // `docs/memory.md`'s `## 8. What is NOT measured` was folded into `## 7` and §9/§10 were left
   // un-renumbered, so SEVEN citations across six files pointed at a section that had stopped existing —
   // in CLAUDE.md, dev.mjs, the archive, the superpowers INDEX and two bench files. Every gate stayed green
@@ -528,7 +543,7 @@ describe('check-links — a reference naming a SECTION that does not exist', () 
   });
 
   it('a HISTORICAL record is exempt — its sections were right on its own day', () => {
-    // The archive holds four citations to `TASKS.md` §Startable, a heading removed when those items closed.
+    // The archive holds four citations to `TASKS.md` §Startable, a heading removed when those items closed. link-ok: quotes the dead citation
     // Rewriting them would falsify the record; check-docs grants the same exemption for the same reason.
     const { code, out } = run({
       'TASKS.md': '# backlog\n\n## Active backlog\n',

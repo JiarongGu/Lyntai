@@ -259,28 +259,12 @@ export function checkLinks(repo, config, log = console.log, files = null) {
     .filter(IN_SCOPE)
     .filter(IS_SCANNED);
 
-  // The CODE tiers, added 2026-08-15 (Part 72). Narrower than the prose scan on BOTH axes, and each
-  // narrowing is a measured decision rather than caution:
-  //
-  //   COMMENT LINES ONLY — a path in a string literal is data the program uses, not a reference a reader
-  //   follows.
-  //
-  //   `docs/` TARGETS ONLY — `pitfalls.md` records an existence check over prose returning ~45 hits and
-  //   zero defects, and that came from checking EVERY path: source files are renamed for legitimate
-  //   reasons and a comment describing the old shape is correct. Documents move, and a moved document is
-  //   the defect this gate was built for. `local/` stays skipped for the reason it always was — untracked
-  //   by design, so "not on disk" says nothing.
-  //
-  // Part 72 proposed a third narrowing — `///` XML docs only — and the measurement REFUSED it. Replaying
-  // the pre-repair tree: 9 genuine dead references lived in the code tiers, an XML-only rule catches 6, and
-  // all 3 it misses were in ordinary `//` comments and all 3 were real. The entry's hypothesis was that
-  // `//` comments would be where false positives live; every false positive was in fact a guard script
-  // naming a FIXTURE, which is what `link-ok` is for. So the line is drawn at the target, not the style.
+  // The CODE tiers: comment lines only, and `docs/` targets only for the path half — both measured, and
+  // why is `docs/GATES.md` §check-links. The guard tests are scanned too: their fixtures live in string
+  // literals, which no comment-line scan reads, and a comment NAMING a fixture takes `link-ok`.
   const code = tracked
     .filter((f) => /\.(cs|mjs)$/.test(f))
-    .filter((f) => /^(src|tests|bench|samples|devtools)\//.test(f))
-    // The guard fixtures are synthetic paths BY DESIGN — a tree built to be scanned, never to be followed.
-    .filter((f) => !f.includes('__tests__'));
+    .filter((f) => /^(src|tests|bench|samples|devtools)\//.test(f));
 
   // Fail-closed: a gate that scanned nothing must never print a tick (check-api-vocabulary's rule, which
   // this gate was missing). It shares check-docs' scope predicates, so a broken one disarms BOTH at once —
@@ -295,15 +279,8 @@ export function checkLinks(repo, config, log = console.log, files = null) {
     return 1;
   }
 
-  // NO fail-closed guard on the code half, and the reason is worth stating because the other scanners all
-  // have one. A fail-closed check needs a SOURCE the filtered set can be compared against, and this filter
-  // has DELIBERATE exclusions (`__tests__`, non-tier directories) — so "zero survivors" cannot be told
-  // apart from "legitimately nothing to scan" without duplicating the filter, which would then agree with
-  // itself by construction. Two attempts proved it empirically: guarding on `code.length === 0` failed the
-  // CJK-fixture test (a repository of two markdown files), and guarding on "the tree has code but none
-  // survived" failed the `__tests__`-skip test (a repository whose only code is deliberately excluded).
-  // Instead the green line REPORTS the count, so a filter that stopped matching shows up as `0 code
-  // file(s)` on a passing run, and a test pins the real tree's count above zero.
+  // NO fail-closed guard on the code half: a repository of markdown alone legitimately has no code to
+  // scan, so "zero survivors" proves nothing either way. The green line REPORTS the count instead.
 
   const allowed = new Map(allowances.map((a) => [a.file, { ...a, used: 0 }]));
   const hits = [];
@@ -415,15 +392,8 @@ export function checkLinks(repo, config, log = console.log, files = null) {
     scanWindowed(file, lines, windows, ANCHOR_PATTERN, checkAnchor);
   }
 
-  // The code tiers: comment lines only, `docs/` targets only.
-  //
-  // THE PART HALF IS HERE NOW, and its absence was a stale MEASUREMENT rather than a scope decision. This
-  // comment read "no Part half — a task-record reference is a prose convention, and the measurement found
-  // none in code"; re-run on 2026-09-16 it finds **150 across 73 files** — every bench sweep, and several
-  // gate scripts, name the thread they belong to. None was gated, so retiring four backlog Parts silently
-  // broke 28 of them and `check-links` reported the tree clean. A scope justified by a measurement needs
-  // that measurement re-run when the tree has grown around it, exactly as a blocked backlog item does.
-  const COMMENT = /^\s*(?:\/\/|\*|#)/;
+  // The code tiers: comment lines only (`//`, `///` and a block comment's `*`), `docs/` targets only.
+  const COMMENT = /^\s*(?:\/\/|\*)/;
   for (const file of code) {
     const text = readRepoText(repo, file);
     if (text === null) continue;

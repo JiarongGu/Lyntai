@@ -193,7 +193,7 @@ describe('check-version-bump — end to end over real staged changes', () => {
 });
 
 describe('check-version-bump — when GIT ITSELF fails, the guard fails CLOSED', () => {
-  // The defect this pins (TASKS.md Part 62, fixed 2026-08-11): `stagedDiff` caught EVERY exception and
+  // The defect this pins (docs/task-archive.md Part 62, fixed 2026-08-11): `stagedDiff` caught EVERY exception and
   // returned `''`, which the rules above read as "nothing staged" — so an unreadable index, a missing `git`
   // or a cwd with no repository anywhere above it all produced "no problems" and the guard passed. That is
   // the wrong direction for the ONE check standing between a hand-authored version and D19's lost release.

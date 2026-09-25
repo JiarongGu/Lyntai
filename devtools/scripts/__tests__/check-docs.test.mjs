@@ -2,7 +2,7 @@
 //
 // The first three tests are REGRESSION tests for three measured defects, all found in one sitting on
 // 2026-08-11 and all of which had passed every gate for their whole lifetime because each failed in the
-// PERMISSIVE direction (TASKS.md Part 60). Each was mutation-checked: revert that specific fix in
+// PERMISSIVE direction (docs/task-archive.md Part 60). Each was mutation-checked: revert that specific fix in
 // check-docs.mjs and that test fails. They are not coverage theatre — they are the reason this file exists.
 import assert from 'node:assert/strict';
 import path from 'node:path';
@@ -146,7 +146,7 @@ describe('check-docs — drift-ok, the honest annotation', () => {
 });
 
 describe('check-docs — CHANGELOG.md is historical only BELOW its first released heading', () => {
-  // TASKS.md Part 53, closed 2026-08-11. The wholesale exemption rested on records being "accurate BY using
+  // docs/task-archive.md Part 53, closed 2026-08-11. The wholesale exemption rested on records being "accurate BY using
   // the vocabulary of their day" — true of a released section, false of `## Unreleased`, which describes
   // behaviour that has not shipped and can still change under the words describing it. Measured 2026-08-09:
   // the RRF entry kept asserting the pre-fix tie behaviour AND its retired justification after the code

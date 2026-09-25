@@ -56,7 +56,7 @@ describe('check-warnings — which lines count as a warning', () => {
   });
 
   it('…and the two families the original pattern could not see (SYSLIB…, xUnit…)', () => {
-    // Was pinned here as a KNOWN LIMIT on 2026-08-11 and FIXED 2026-08-12 (TASKS.md Part 62). The old
+    // Was pinned here as a KNOWN LIMIT on 2026-08-11 and FIXED 2026-08-12 (docs/task-archive.md Part 62). The old
     // `[A-Z]{2,4}\d+` could match neither a six-letter prefix nor a lowercase-led one, so .NET's own
     // obsoletion warnings and the analyzer packages using camelCase ids were invisible — a published project
     // could carry one and this gate would report `src/` clean. Measured before widening: a full
