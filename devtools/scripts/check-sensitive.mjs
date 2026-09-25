@@ -24,10 +24,14 @@ const here = fileURLToPath(import.meta.url);
 const repo = path.resolve(path.dirname(here), '..', '..');
 
 // Structural, non-secret patterns — a Windows home/dev-root absolute path is always a leak here (docs and
-// code use repo-relative paths or neutral placeholders instead).
+// code use repo-relative paths or neutral placeholders instead). The root is a drive (`C:`) or a Git Bash
+// mount (`/c`), and the separator any run of `\` or `/`: an escaped string doubles the backslash, and Node,
+// .NET and git print forward slashes. The lookbehind keeps a URL's or a relative path's `/a/Users/` out.
+const ROOT = String.raw`(?:\b[A-Za-z]:|(?<![\w/.:])\/[A-Za-z])`;
+const SEP = String.raw`(?:\\+|\/+)`;
 export const builtins = [
-  { re: /[A-Za-z]:\\Users\\[A-Za-z0-9._-]+/i, why: 'Windows user-home absolute path' },
-  { re: /[A-Za-z]:\\Development\\/i, why: 'dev-machine project-root absolute path' },
+  { re: new RegExp(`${ROOT}${SEP}Users${SEP}[A-Za-z0-9._-]+`, 'i'), why: 'Windows user-home absolute path' },
+  { re: new RegExp(`${ROOT}${SEP}Development${SEP}`, 'i'), why: 'dev-machine project-root absolute path' },
 ];
 
 /**
