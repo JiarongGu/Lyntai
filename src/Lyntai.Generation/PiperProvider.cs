@@ -227,19 +227,22 @@ public sealed class PiperProvider(PiperOptions options, IProcessRunner runner) :
 
     /// <summary>The voice's declared sample rate: <see cref="PiperOptions.SampleRate"/> when set, else
     /// <c>audio.sample_rate</c> from the config beside the voice (<c>&lt;model&gt;.json</c>), else null —
-    /// a missing declaration is reported as absence, never replaced with a guess.</summary>
+    /// a missing declaration is reported as absence, never replaced with a guess. Only a POSITIVE integer is a
+    /// rate: anything else in either place reads as unset.</summary>
     internal int? ResolveSampleRate(string model)
     {
-        if (options.SampleRate is { } explicitRate) return explicitRate;
+        if (options.SampleRate is > 0 and var explicitRate) return explicitRate;
         try
         {
             var configPath = model + ".json";
             if (!File.Exists(configPath)) return null;
             using var doc = JsonDocument.Parse(File.ReadAllText(configPath));
             if (doc.RootElement.ValueKind != JsonValueKind.Object) return null;
+            // the Number check is load-bearing: TryGetInt32 THROWS on a string, past the catch below
             if (doc.RootElement.TryGetProperty("audio", out var audio) &&
                 audio.ValueKind == JsonValueKind.Object &&
-                audio.TryGetProperty("sample_rate", out var rate) && rate.TryGetInt32(out var hz))
+                audio.TryGetProperty("sample_rate", out var rate) && rate.ValueKind == JsonValueKind.Number &&
+                rate.TryGetInt32(out var hz) && hz > 0)
                 return hz;
             return null;
         }
