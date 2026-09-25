@@ -42,17 +42,7 @@ internal static class GenerationToolJson
     });
 
     /// <summary>Build a JSON observation.</summary>
-    public static string Write(Action<Utf8JsonWriter> body)
-    {
-        using var buffer = new MemoryStream();
-        using (var writer = new Utf8JsonWriter(buffer))
-        {
-            writer.WriteStartObject();
-            body(writer);
-            writer.WriteEndObject();
-        }
-        return Encoding.UTF8.GetString(buffer.ToArray());
-    }
+    public static string Write(Action<Utf8JsonWriter> body) => GenerationJson.WriteObject(body);
 
     /// <summary>Describe artifacts for a model: what they are and where, never the bytes. A base64 image in a
     /// tool observation would blow the context window for no benefit — the app's sink is where bytes go.</summary>
@@ -71,32 +61,57 @@ internal static class GenerationToolJson
         writer.WriteEndArray();
     }
 
-    /// <summary>Turn the request fields a model may supply into a <see cref="MediaRequest"/>. Unknown
-    /// members become pass-through <see cref="MediaRequest.Options"/>, so a model can use a backend's own
-    /// knobs (duration, aspect, voice) without Lyntai enumerating them.</summary>
-    public static MediaRequest ReadRequest(
-        JsonElement root, string consumer, out IReadOnlyList<string> candidates)
+    /// <summary>The roles an agent may give <c>imageUrl</c>, in the spelling the schemas offer.</summary>
+    private static readonly string[] ImageRoles =
+        [MediaInputRoles.Init, MediaInputRoles.FirstFrame, MediaInputRoles.Reference];
+
+    /// <summary>The schema member for <c>imageRole</c>, naming the tool's own default.</summary>
+    public static string ImageRoleSchema(string defaultRole) =>
+        $$"""
+          "imageRole":{"type":"string","enum":["init","first-frame","reference"],"description":"What imageUrl is to the render: init (an edit/img2img source), first-frame (a video's opening frame) or reference (a style/subject to follow). Default: {{defaultRole}}."}
+        """;
+
+    /// <summary>Turn the request fields a model may supply into a <see cref="MediaRequest"/>, or null with
+    /// <paramref name="error"/> set when an argument is invalid. Unknown members become pass-through
+    /// <see cref="MediaRequest.Options"/>, so a model can use a backend's own knobs (duration, aspect, voice)
+    /// without Lyntai enumerating them.</summary>
+    /// <param name="root">The tool's arguments object.</param>
+    /// <param name="consumer">The billing tag — the host's, never read from the arguments.</param>
+    /// <param name="defaultRole">The role <c>imageUrl</c> takes when the model names none — what the tool's
+    /// medium implies.</param>
+    /// <param name="candidates">The backends the model named, in order; empty for the host's default.</param>
+    /// <param name="error">Why the arguments are invalid, when the result is null.</param>
+    public static MediaRequest? ReadRequest(JsonElement root, string consumer, string defaultRole,
+        out IReadOnlyList<string> candidates, out string? error)
     {
-        var candidateList = new List<string>();
-        if (root.TryGetProperty("backends", out var backends) && backends.ValueKind == JsonValueKind.Array)
-            foreach (var backend in backends.EnumerateArray())
-                if (backend.ValueKind == JsonValueKind.String && backend.GetString() is { Length: > 0 } id)
-                    candidateList.Add(id);
-        candidates = candidateList;
+        candidates = GenerationJson.ReadCandidates(root, "backends");
+        error = null;
 
         var options = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var reserved = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
             // "consumer" is reserved and IGNORED, not read: the billing/cap tag is the host's to set, and a
             // model that could name it could route around a per-consumer cap
-            { "kind", "prompt", "model", "backends", "imageUrl", "consumer" };
+            { "kind", "prompt", "model", "backends", "imageUrl", "imageRole", "consumer" };
         if (root.ValueKind == JsonValueKind.Object)
             foreach (var property in root.EnumerateObject())
                 if (!reserved.Contains(property.Name) && property.Value.ValueKind is JsonValueKind.String or JsonValueKind.Number)
                     options[property.Name] = property.Value.ToString();
 
+        var role = defaultRole;
+        if (GenerationJson.Str(root, "imageRole") is { } named)
+        {
+            role = ImageRoles.FirstOrDefault(r => string.Equals(r, named, StringComparison.OrdinalIgnoreCase))!;
+            if (role is null)
+            {
+                error = $"imageRole must be one of {string.Join(" | ", ImageRoles)}, not '{named}'";
+                return null;
+            }
+        }
+
+        // the media type is left to the backend: "image/*" says what the agent knows, and no more
         var inputs = new List<MediaInput>();
         if (GenerationJson.Str(root, "imageUrl") is { } imageUrl)
-            inputs.Add(new MediaInput("image/*", Uri: imageUrl, Role: MediaInputRoles.Init));
+            inputs.Add(new MediaInput("image/*", Uri: imageUrl, Role: role));
 
         return new MediaRequest
         {
@@ -151,7 +166,7 @@ internal static class GenerationToolJson
             return false;
         }
 
-        if (GenerationToolRegistry.JobBackend(providers, id) is not { } resolved)
+        if (MediaJobBackends.Find(providers, id) is not { } resolved)
         {
             error = Error($"'{id}' is not a registered asynchronous backend");
             return false;
@@ -173,16 +188,9 @@ internal static class GenerationToolJson
 /// the model the backend does not exist, which is a different and worse answer than "it is not answering".</para></summary>
 /// <param name="providers">The registered backends.</param>
 /// <param name="options">Supplies the deadline; null takes the defaults.</param>
-/// <remarks><b>Why the bound is here and not on each backend.</b> A backend's own <c>Timeout</c> is a RENDER
-/// budget — <c>Automatic1111Options</c> and <c>OpenAiImageOptions</c> both default it to ten minutes, correctly,
-/// since a render routinely outlives <see cref="HttpClient"/>'s own default. Probing under that number is what
-/// made two stalled HTTP backends able to block this tool for twenty minutes: each disclosed its own timeout,
-/// and the COMPOSITION disclosed nothing. The aggregate is the number a caller actually needs bounded, so it
-/// is stated once, here.
-/// <para>Concurrency is not merely a speedup: serially, the deadline would have to be divided among backends
-/// whose count this type does not choose, so one slow backend would eat the budget of every backend after
-/// it — and which ones those are would depend on registration order.</para></remarks>
-public sealed class GenerationBackendsTool(
+/// <remarks>The bound is an AGGREGATE because a backend's own <c>Timeout</c> is a render budget, minutes long.
+/// Probes run concurrently so one slow backend cannot eat the budget of every backend registered after it.</remarks>
+internal sealed class GenerationBackendsTool(
     IEnumerable<IModelProvider> providers, MediaOptions? options = null) : ITool
 {
     private readonly MediaOptions _options = options ?? new MediaOptions();
@@ -279,16 +287,15 @@ public sealed class GenerationBackendsTool(
 /// <summary>Generates INLINE — one call, artifacts back. For a medium whose backends are asynchronous (video,
 /// batch music) an agent uses <see cref="GenerationSubmitTool"/> instead; this reports that rather than
 /// blocking.</summary>
-public sealed class GenerationInlineTool(
+internal sealed class GenerationInlineTool(
     IMediaRouter router,
-    MediaOptions options,
+    MediaOptions? options = null,
     IGenerationArtifactSink? sink = null,
     string consumer = ProviderConsumers.Agent) : ITool
 {
-    /// <summary>The spend/rate-limit tag renders from this tool bill to — <c>"agent"</c> by default, NOT the
-    /// platform's <c>"default"</c>. A tool loop is the runaway-spend case (a model retrying a render in a
-    /// loop), so it is capped separately out of the box: set <c>Budget.PerConsumer["agent"]</c> and it binds
-    /// agent-driven renders without touching what a user pressing a button may spend.</summary>
+    private readonly MediaOptions _options = options ?? new MediaOptions();
+
+    /// <summary>The spend/rate-limit tag renders from this tool bill to (<c>AddGenerationTools</c>' consumer).</summary>
     public string Consumer { get; } = consumer;
 
     /// <inheritdoc/>
@@ -301,13 +308,14 @@ public sealed class GenerationInlineTool(
         "generate_submit instead. Bytes are handed to the host application, not returned here.";
 
     /// <inheritdoc/>
-    public string? ParametersJsonSchema => """
+    public string? ParametersJsonSchema { get; } = $$$"""
         {"type":"object","properties":{
           "kind":{"type":"string","description":"image | video | audio | 3d (default: image)"},
           "prompt":{"type":"string","description":"What to generate."},
           "model":{"type":"string","description":"Optional model/endpoint id at the chosen backend."},
           "backends":{"type":"array","items":{"type":"string"},"description":"Backend ids in preference order; omit to use the host's default order."},
-          "imageUrl":{"type":"string","description":"Optional source image URL for an edit/img2img."},
+          "imageUrl":{"type":"string","description":"Optional source image URL; imageRole says what it is to the render."},
+        {{{GenerationToolJson.ImageRoleSchema(MediaInputRoles.Init)}}},
           "size":{"type":"string","description":"Optional pixel size, e.g. 1024x1024."}},
          "required":["prompt"]}
         """;
@@ -316,12 +324,14 @@ public sealed class GenerationInlineTool(
     public async Task<string> InvokeAsync(string argumentsJson, CancellationToken ct = default)
     {
         using var args = GenerationToolJson.Parse(argumentsJson);
-        var request = GenerationToolJson.ReadRequest(args.RootElement, Consumer, out var named);
+        if (GenerationToolJson.ReadRequest(args.RootElement, Consumer, MediaInputRoles.Init, out var named,
+                out var invalid) is not { } request)
+            return GenerationToolJson.Error(invalid!);
         if (request.Prompt is null && request.Inputs.Count == 0)
             return GenerationToolJson.Error("a prompt (or an imageUrl to edit) is required");
 
         var result = await router.GenerateAsync(
-            GenerationToolJson.Candidates(named, options.DefaultCandidates), request, ct).ConfigureAwait(false);
+            GenerationToolJson.Candidates(named, _options.DefaultCandidates), request, ct).ConfigureAwait(false);
 
         if (!result.IsOk)
             return GenerationToolJson.Error($"{result.Verdict}: {result.Detail}");
@@ -345,11 +355,13 @@ public sealed class GenerationInlineTool(
 
 /// <summary>Submits an ASYNCHRONOUS generation and returns the handle to poll. The shape a video render
 /// actually has — an agent that tried to wait inline would block for minutes.</summary>
-public sealed class GenerationSubmitTool(
-    IMediaRouter router, MediaOptions options, string consumer = ProviderConsumers.Agent) : ITool
+internal sealed class GenerationSubmitTool(
+    IMediaRouter router, MediaOptions? options = null, string consumer = ProviderConsumers.Agent) : ITool
 {
-    /// <summary>The spend/rate-limit tag submissions from this tool bill to — see
-    /// <see cref="GenerationInlineTool.Consumer"/>.</summary>
+    private readonly MediaOptions _options = options ?? new MediaOptions();
+
+    /// <summary>The spend/rate-limit tag submissions from this tool bill to (<c>AddGenerationTools</c>'
+    /// consumer).</summary>
     public string Consumer { get; } = consumer;
 
     /// <inheritdoc/>
@@ -362,13 +374,14 @@ public sealed class GenerationSubmitTool(
         "in between rather than polling in a tight loop.";
 
     /// <inheritdoc/>
-    public string? ParametersJsonSchema => """
+    public string? ParametersJsonSchema { get; } = $$$"""
         {"type":"object","properties":{
           "kind":{"type":"string","description":"video | audio | image | 3d (default: image)"},
           "prompt":{"type":"string","description":"What to generate."},
           "model":{"type":"string","description":"Optional model/endpoint id at the chosen backend."},
           "backends":{"type":"array","items":{"type":"string"},"description":"Backend ids in preference order."},
-          "imageUrl":{"type":"string","description":"Optional first-frame / reference image URL."},
+          "imageUrl":{"type":"string","description":"Optional source image URL; imageRole says what it is to the render."},
+        {{{GenerationToolJson.ImageRoleSchema(MediaInputRoles.FirstFrame)}}},
           "duration":{"type":"string","description":"Optional clip length in seconds, if the backend takes one."}},
          "required":["prompt"]}
         """;
@@ -377,12 +390,14 @@ public sealed class GenerationSubmitTool(
     public async Task<string> InvokeAsync(string argumentsJson, CancellationToken ct = default)
     {
         using var args = GenerationToolJson.Parse(argumentsJson);
-        var request = GenerationToolJson.ReadRequest(args.RootElement, Consumer, out var named);
+        if (GenerationToolJson.ReadRequest(args.RootElement, Consumer, MediaInputRoles.FirstFrame, out var named,
+                out var invalid) is not { } request)
+            return GenerationToolJson.Error(invalid!);
         if (request.Prompt is null && request.Inputs.Count == 0)
             return GenerationToolJson.Error("a prompt (or an imageUrl) is required");
 
         var submission = await router.SubmitAsync(
-            GenerationToolJson.Candidates(named, options.DefaultCandidates), request, ct).ConfigureAwait(false);
+            GenerationToolJson.Candidates(named, _options.DefaultCandidates), request, ct).ConfigureAwait(false);
 
         if (submission.Operation.Status == QueuedOperationStatus.Failed)
             // An INCONCLUSIVE submission is the one failure a model must not react to in its usual way. Its
@@ -420,7 +435,7 @@ public sealed class GenerationSubmitTool(
 }
 
 /// <summary>Reports where a submitted generation is.</summary>
-public sealed class GenerationStatusTool(IEnumerable<IModelProvider> providers) : ITool
+internal sealed class GenerationStatusTool(IEnumerable<IModelProvider> providers) : ITool
 {
     /// <inheritdoc/>
     public string Name => "generate_status";
@@ -459,20 +474,15 @@ public sealed class GenerationStatusTool(IEnumerable<IModelProvider> providers) 
 /// <see cref="Lyntai.Inference.IMediaRouter"/> — there is nothing left to route once an
 /// operation id exists — so it must record usage itself. A queue backend prices at FETCH, because that is
 /// the only point the total is known, which makes this the one place a submitted render's cost can be
-/// observed at all.</para>
-/// <para>Skipping it did not merely under-report: <see cref="GenerationSubmitTool"/> re-checks the cap on
-/// every submit against a total that never grew, so a configured
-/// <c>Budget.PerConsumer</c> cap never fired and spend was unbounded beneath it — while the same tool set's
-/// inline <see cref="GenerationInlineTool"/> billed correctly. One registration, two delivery modes, one of
-/// them metered.</para></summary>
+/// observed at all; <see cref="GenerationSubmitTool"/>'s cap check reads the total this adds to.</para></summary>
 /// <param name="providers">The registered backends; the tool resolves the one named in its arguments.</param>
 /// <param name="sink">Where artifacts are delivered, if the app registered one.</param>
-/// <param name="usage">Usage ledger (<see cref="Lyntai.Inference.Budgeting.IUsageTracker"/>). Null means no budget
-/// is configured and nothing is recorded — the same optionality the router's own budgeting has.</param>
-/// <param name="consumer">Whose spend this is, defaulting to the same <c>"agent"</c> tag its sibling tools
-/// use, so one <c>Budget.PerConsumer["agent"]</c> entry binds every agent-driven render regardless of which
-/// delivery mode produced it.</param>
-public sealed class GenerationFetchTool(
+/// <param name="usage">Usage ledger (<see cref="Lyntai.Inference.Budgeting.IUsageTracker"/>). Null means nothing is
+/// recorded; <c>AddGenerationTools</c> passes one only when <c>AddMediaUsageBudget()</c> is configured, the gate
+/// the router's own budgeting is under.</param>
+/// <param name="consumer">Whose spend this is — the tag its sibling tools bill to (<c>AddGenerationTools</c>'
+/// consumer).</param>
+internal sealed class GenerationFetchTool(
     IEnumerable<IModelProvider> providers,
     IGenerationArtifactSink? sink = null,
     Lyntai.Inference.Budgeting.IUsageTracker? usage = null,
@@ -503,8 +513,7 @@ public sealed class GenerationFetchTool(
         var result = await backend.FetchAsync(operationId, ct).ConfigureAwait(false);
         if (!result.IsOk) return GenerationToolJson.Error($"{result.Verdict}: {result.Detail}");
 
-        // Bill BEFORE delivery, for the reason GenerationRenderJobHandler states on its own fetch: the money
-        // is spent either way, and a sink that throws would lose the record.
+        // bill BEFORE delivery: the money is spent either way, and a sink that throws would lose the record
         if (usage is not null)
             await Lyntai.Inference.BudgetedMediaRouter
                 .RecordAsync(usage, Consumer, result.Usage, ct).ConfigureAwait(false);
@@ -523,14 +532,4 @@ public sealed class GenerationFetchTool(
             GenerationToolJson.WriteArtifacts(writer, result.Artifacts, delivered);
         });
     }
-}
-
-/// <summary>Shared backend lookup for the status/fetch tools.</summary>
-internal static class GenerationToolRegistry
-{
-    /// <summary>The registered backend with this id, IF it is asynchronous. Null covers both "no such backend"
-    /// and "that one is inline-only" — a model gets one clear message either way.</summary>
-    public static IMediaJobProvider? JobBackend(IEnumerable<IModelProvider> providers, string id) =>
-        providers.FirstOrDefault(p => string.Equals(p.Id, id, StringComparison.OrdinalIgnoreCase))
-            as IMediaJobProvider;
 }

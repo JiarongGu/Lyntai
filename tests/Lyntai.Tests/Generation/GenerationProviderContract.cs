@@ -125,7 +125,7 @@ public static class GenerationProviderContract
     /// missing key, and it tells a host nothing it can act on.
     /// <para>This is the fact the divergence that prompted this contract would have failed:
     /// <c>ComfyUiProvider.FetchCoreAsync</c> hardcoded <c>Failed</c> for every failed history read while
-    /// <c>FalQueueProvider</c> routed the same class through <c>ProviderVerdictClassifier</c>, so the same
+    /// <c>FalProvider</c> routed the same class through <c>ProviderVerdictClassifier</c>, so the same
     /// authenticating proxy in front of each produced different verdicts.</para></summary>
     public static void An_authentication_failure_is_classified_rather_than_flattened(
         string door, string providerId, ProviderVerdict verdict) =>
@@ -155,26 +155,32 @@ public static class GenerationProviderContract
     /// to the router that this backend reads <see cref="MediaRequest.Inputs"/>, so a backend that
     /// declares it and ignores them is handed the chained artifact and drops it in silence.
     /// <para>Two answers are acceptable and one is not. SENDING NOTHING is honest — that is a refusal, and
-    /// <c>FalQueueProvider</c> refuses a bytes-only input exactly this way. Sending a request that carries the
+    /// <c>FalProvider</c> refuses a bytes-only input exactly this way. Sending a request that carries the
     /// input is honest. Sending a request that does NOT carry it is the defect: the render is billed, the
     /// result comes back plausible, and nothing in it says the caller's image was discarded.</para>
     /// <para>A backend declaring <c>false</c> is out of scope here and guarded by <c>Supports</c> instead —
-    /// the router never routes it an input-carrying request in the first place.</para></summary>
+    /// the router never routes it an input-carrying request in the first place.</para>
+    /// <para>Handed SEVERAL inputs, every one must be sent or the call refused: a backend that sends the first
+    /// and drops the rest passes a one-input fact, which is how four backends did exactly that — and a
+    /// pipeline stage carrying its own input chains the previous stage's artifact in SECOND.</para></summary>
     public static void A_handed_input_is_consumed_or_refused(
-        string providerId, IReadOnlyCollection<string> sentBodies, byte[] marker)
+        string providerId, IReadOnlyCollection<string> sentBodies, params byte[][] markers)
     {
         if (sentBodies.Count == 0) return;   // refused before spending anything
 
-        var raw = Encoding.ASCII.GetString(marker);
-        var encoded = Convert.ToBase64String(marker);
+        foreach (var marker in markers)
+        {
+            var raw = Encoding.ASCII.GetString(marker);
+            var encoded = Convert.ToBase64String(marker);
 
-        Assert.True(
-            sentBodies.Any(body => body.Contains(raw, StringComparison.Ordinal)
-                || body.Contains(encoded, StringComparison.Ordinal)),
-            $"{providerId} declares SupportsInputs and SENT a request for one carrying an input, but neither "
-            + "the input's bytes nor their base64 appear in what it sent — the input was silently dropped. "
-            + "Either consume it or refuse before the call; dropping it bills a render the caller did not ask "
-            + "for and returns a plausible-looking wrong result.");
+            Assert.True(
+                sentBodies.Any(body => body.Contains(raw, StringComparison.Ordinal)
+                    || body.Contains(encoded, StringComparison.Ordinal)),
+                $"{providerId} declares SupportsInputs and SENT a request carrying {markers.Length} input(s), but "
+                + $"neither the bytes of '{raw}' nor their base64 appear in what it sent — that input was silently "
+                + "dropped. Either consume it or refuse before the call; dropping it bills a render the caller did "
+                + "not ask for and returns a plausible-looking wrong result.");
+        }
     }
 
     /// <summary>A 401 response, for the auth facts above.</summary>

@@ -133,9 +133,11 @@ public class LocalDiffusionProviderTests
     [InlineData(null, 512, 512)]
     public void The_size_clamp_matches_the_engines_constraints(string? size, int width, int height)
     {
+        const int CpuDefault = 768;   // what the DEFAULT options derive, pinned below
+
         // sd.cpp delivers only multiples of 64 (it rounds a non-multiple silently, measured 500->512);
         // a CPU render at 1024+ is minutes of pointless waiting
-        Assert.Equal((width, height), LocalDiffusionProvider.ClampSize(size));
+        Assert.Equal((width, height), LocalDiffusionProvider.ClampSize(size, CpuDefault));
     }
 
     // ---- the argv is CORRECTABLE without a library release ---------------------------------------------
@@ -330,10 +332,9 @@ public class LocalDiffusionProviderTests
         // The shipped default is byte-identical to the hard-coded behaviour it replaced. A knob that changes
         // what an unconfigured host gets is a silent behaviour change wearing a feature's clothes.
         var options = new LocalDiffusionOptions();
-        foreach (var size in new[] { "512x512", "1024x1024", "1280x720", "64x64", null })
-            Assert.Equal(
-                LocalDiffusionProvider.ClampSize(size),
-                LocalDiffusionProvider.ClampSize(size, options.EffectiveMaxDimension));
+        Assert.Equal(768, options.EffectiveMaxDimension);
+        foreach (var (size, expected) in new[] { ("1024x1024", (768, 768)), ("1280x720", (768, 448)) })
+            Assert.Equal(expected, LocalDiffusionProvider.ClampSize(size, options.EffectiveMaxDimension));
     }
 
     [Fact]

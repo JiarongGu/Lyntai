@@ -29,6 +29,13 @@ public sealed class OpenAiImageOptions
     /// <summary>Size used when the request doesn't ask for one.</summary>
     public string DefaultSize { get; set; } = "1024x1024";
 
+    /// <summary>The <c>response_format</c> sent with every render. Null, the default, is the shipped rule:
+    /// <c>b64_json</c>, except for a model in OpenAI's GPT-image family (<c>gpt-image-*</c>,
+    /// <c>chatgpt-image-*</c>), which is sent none — that family is reported to reject the parameter and always
+    /// answers base64. Empty sends none for any model; any other value is sent as given. Either reply shape is
+    /// read: <c>b64_json</c> as bytes, <c>url</c> as a URI artifact.</summary>
+    public string? ResponseFormat { get; set; }
+
     /// <summary>Ceiling for ONE call to this backend — the render, and the probe. Generous because an image
     /// render legitimately runs for minutes (which is why <c>AddOpenAiImageProvider</c> gives its client an
     /// infinite <see cref="HttpClient"/> timeout rather than the 100-second default), but bounded, because a
@@ -54,7 +61,11 @@ public sealed class OpenAiImageOptions
 /// artifact rather than downloaded (the platform never spends the caller's bandwidth uninvited).
 /// </summary>
 /// <remarks>The request/response shapes are ported from a sibling app's production implementation, which is
-/// why both response variants are covered rather than only the one a first test happens to hit.</remarks>
+/// why both response variants are covered rather than only the one a first test happens to hit.
+/// <para><b>Unmeasured against OpenAI's current models.</b> The GPT-image family — all OpenAI still serves for
+/// images — is REPORTED to reject <c>response_format</c>, so it is sent none by default
+/// (<see cref="OpenAiImageOptions.ResponseFormat"/>); no call from this library has confirmed either the
+/// rejection or the reply that follows.</para></remarks>
 /// <param name="options">Endpoint, credential and defaults.</param>
 /// <param name="httpFactory">Supplies the <see cref="HttpClient"/> — BYO, so the host owns pooling and
 /// lifetime (design §7).</param>
@@ -133,7 +144,8 @@ public sealed class OpenAiImageProvider(
         if (string.IsNullOrWhiteSpace(options.BaseUrl))
             return MediaResponse.Failure(ProviderVerdict.NotConfigured, "no BaseUrl configured");
 
-        var edit = request.Inputs.FirstOrDefault();
+        var edit = SingleInitInput.Read(request, "the images endpoint", out var refusal);
+        if (refusal is not null) return MediaResponse.Failure(ProviderVerdict.Unsupported, refusal);
         if (edit is not null && edit.Data is not { Length: > 0 })
             return MediaResponse.Failure(ProviderVerdict.Unsupported,
                 "this endpoint edits BYTES; supply MediaInput.Data (a URI-only input would mean the " +
@@ -180,6 +192,18 @@ public sealed class OpenAiImageProvider(
     private string? Model(MediaRequest request) =>
         request.Model is { Length: > 0 } model ? model : options.Model;
 
+    /// <summary>The <c>response_format</c> to send, or null to send none (<see cref="OpenAiImageOptions.ResponseFormat"/>).</summary>
+    private string? ResponseFormat(MediaRequest request) => options.ResponseFormat switch
+    {
+        { Length: 0 } => null,
+        { } configured => configured,
+        null => Model(request) is { } model &&
+                (model.StartsWith("gpt-image", StringComparison.OrdinalIgnoreCase) ||
+                 model.StartsWith("chatgpt-image", StringComparison.OrdinalIgnoreCase))
+            ? null
+            : "b64_json",
+    };
+
     private HttpRequestMessage Generation(MediaRequest request)
     {
         // JsonObject over an anonymous type — keeps the package's trim/AOT claim honest
@@ -189,11 +213,11 @@ public sealed class OpenAiImageProvider(
             ["prompt"] = request.Prompt ?? "",
             ["n"] = 1,
             ["size"] = Size(request),
-            ["response_format"] = "b64_json",
-        }.ToJsonString();
+        };
+        if (ResponseFormat(request) is { } format) payload["response_format"] = format;
         var message = new HttpRequestMessage(HttpMethod.Post, $"{Root}/images/generations")
         {
-            Content = new StringContent(payload, Encoding.UTF8, "application/json"),
+            Content = new StringContent(payload.ToJsonString(), Encoding.UTF8, "application/json"),
         };
         Authorize(message);
         return message;
@@ -208,7 +232,7 @@ public sealed class OpenAiImageProvider(
         form.Add(new StringContent(request.Prompt ?? ""), "prompt");
         if (Model(request) is { Length: > 0 } model) form.Add(new StringContent(model), "model");
         form.Add(new StringContent(Size(request)), "size");
-        form.Add(new StringContent("b64_json"), "response_format");
+        if (ResponseFormat(request) is { } format) form.Add(new StringContent(format), "response_format");
 
         var message = new HttpRequestMessage(HttpMethod.Post, $"{Root}/images/edits") { Content = form };
         Authorize(message);

@@ -20,6 +20,19 @@ internal static class GenerationJson
             ? text
             : null;
 
+    /// <summary>One JSON object as text, its members written by <paramref name="body"/>.</summary>
+    public static string WriteObject(Action<Utf8JsonWriter> body)
+    {
+        using var buffer = new MemoryStream();
+        using (var writer = new Utf8JsonWriter(buffer))
+        {
+            writer.WriteStartObject();
+            body(writer);
+            writer.WriteEndObject();
+        }
+        return System.Text.Encoding.UTF8.GetString(buffer.ToArray());
+    }
+
     /// <summary>Write <paramref name="candidates"/> as the <c>candidates</c> array of the object being written.</summary>
     public static void WriteCandidates(Utf8JsonWriter writer, IReadOnlyList<string> candidates)
     {
@@ -28,12 +41,13 @@ internal static class GenerationJson
         writer.WriteEndArray();
     }
 
-    /// <summary>The non-empty strings of the <c>candidates</c> array, in order; empty when there is none.</summary>
-    public static List<string> ReadCandidates(JsonElement element)
+    /// <summary>The non-empty strings of the <paramref name="key"/> array, in order; empty when there is
+    /// none.</summary>
+    public static List<string> ReadCandidates(JsonElement element, string key = "candidates")
     {
         var candidates = new List<string>();
         if (element.ValueKind == JsonValueKind.Object &&
-            element.TryGetProperty("candidates", out var array) && array.ValueKind == JsonValueKind.Array)
+            element.TryGetProperty(key, out var array) && array.ValueKind == JsonValueKind.Array)
             foreach (var candidate in array.EnumerateArray())
                 if (candidate.ValueKind == JsonValueKind.String && candidate.GetString() is { Length: > 0 } spec)
                     candidates.Add(spec);

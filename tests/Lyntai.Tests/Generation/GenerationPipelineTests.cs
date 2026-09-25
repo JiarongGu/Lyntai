@@ -287,6 +287,18 @@ public class GenerationPipelineTests
     }
 
     [Fact]
+    public async Task A_null_stage_is_refused_up_front_as_the_durable_job_refuses_it()
+    {
+        // it NRE'd mid-run, after the stages before it had already rendered and billed
+        var router = new ScriptedRouter(Produced(1));
+
+        await Assert.ThrowsAsync<ArgumentException>(() => router.RunPipelineAsync(
+            [new GenerationStage(Image, Order("sd")), null!]));
+
+        Assert.Equal(0, router.Calls);
+    }
+
+    [Fact]
     public async Task A_first_stage_that_declares_chaining_settings_throws_because_nothing_would_read_them()
     {
         // a setting nothing implements is the shape Part 125 fixed on ComfyUiProvider: the caller believes

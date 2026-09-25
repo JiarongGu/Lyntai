@@ -24,11 +24,9 @@ public sealed class MediaOptions
 
     /// <summary>How long <c>generate_backends</c> may take IN TOTAL to probe every registered backend.
     /// Zero or negative means no deadline. Default: 20 seconds.
-    /// <para>It is an AGGREGATE because that is the number a caller can act on. Each backend already bounds
-    /// its own call, but with its RENDER budget — ten minutes on two of the shipped ones, correctly, since a
-    /// render outlives <see cref="HttpClient"/>'s own default — so two backends that accept a connection and
-    /// stall made the tool an agent is told to call FIRST block for twenty. Every backend disclosed its
-    /// timeout and the composition disclosed nothing.</para>
+    /// <para>It is an AGGREGATE because that is the number a caller can act on: each backend bounds its own
+    /// call with its RENDER budget — ten minutes on two of the shipped ones — so stalled backends would add
+    /// up to many minutes on the tool an agent is told to call FIRST.</para>
     /// <para>Short by design: a probe is contractually free and must never generate, so a backend that cannot
     /// answer in seconds is not usable for the render that would follow. A backend that overruns is reported
     /// unusable WITH the reason, never dropped from the listing.</para>
@@ -52,7 +50,7 @@ public static class GenerationBuilderExtensions
     /// <para><b>Pair it with <c>AddProvider</c>, which is where a backend is registered</b> — media included
     /// (<c>docs/DECISIONS.md</c> <b>D156</b>). A BYO render backend is two lines: <c>AddProvider(sp =&gt; new
     /// MyBackend(…), declares: …)</c> registers it, and this makes the media router exist to route it. The
-    /// five shipped presets (<c>AddOpenAiImageProvider</c> and friends) do both for you.</para>
+    /// shipped presets (<c>AddOpenAiImageProvider</c> and friends) do both for you.</para>
     ///
     /// <para>Calling it with no media backend registered is harmless: the router resolves and reports that
     /// nothing serves the request, which is the same answer it gives when every backend is down.</para></summary>
@@ -77,10 +75,18 @@ public static class GenerationBuilderExtensions
     {
         configure?.Invoke(builder.Options.Budget);
         builder.Services.TryAddSingleton<IUsageTracker, InMemoryUsageTracker>();
-        builder.Services.TryAddSingleton<MediaBudgetGovernance>();
+        builder.Services.TryAddKeyedSingleton<IUsageTracker>(MediaSpendKey,
+            (sp, _) => sp.GetRequiredService<IUsageTracker>());
         EnsureRouter(builder);
         return builder;
     }
+
+    /// <summary>The key <see cref="AddMediaUsageBudget"/> registers the shared <see cref="IUsageTracker"/> under,
+    /// and the ONE gate every media door records through — the router's budget decorator, the durable job
+    /// handlers and <c>generate_fetch</c>. Absent, no door records a render: a text-only budget or a storage
+    /// package's usage tracking registers the tracker too, and must not bill queued renders while inline ones
+    /// go unbilled.</summary>
+    internal const string MediaSpendKey = "lyntai.media-spend";
 
     /// <summary>Throttle generation with a token-bucket limiter on its OWN rate
     /// (<see cref="MediaOptions.RateLimit"/> — not the chat one; see that property for why). Over the
@@ -131,14 +137,14 @@ public static class GenerationBuilderExtensions
 
         builder.Services.TryAddSingleton<IMediaRouterFactory>(sp =>
         {
-            var budgeted = sp.GetService<MediaBudgetGovernance>() is not null;
+            var spend = sp.GetKeyedService<IUsageTracker>(MediaSpendKey);
             return new MediaRouterFactory(
                 sp.GetRequiredService<IProviderPool<IModelProvider>>(),
                 sp.GetRequiredService<DeadHostTracker>(),
                 sp.GetService<MediaRoutingPolicy>(),
                 sp.GetService<MediaRateLimitGovernance>()?.Limiter,
-                budgeted ? sp.GetRequiredService<IUsageTracker>() : null,
-                budgeted ? sp.GetRequiredService<LyntaiOptions>() : null,
+                spend,
+                spend is null ? null : sp.GetRequiredService<LyntaiOptions>(),
                 sp.GetService<ILoggerFactory>(),
                 sp.GetService<IProviderAdmission>());
         });
@@ -182,24 +188,35 @@ public static class GenerationBuilderExtensions
     /// <remarks>Bytes are never returned in a tool observation (a base64 image would blow the context window for
     /// no benefit): if an <see cref="Lyntai.Generation.Jobs.IGenerationArtifactSink"/> is registered the artifacts are delivered to
     /// it and the observation says where they went, otherwise it reports their type/size/URI.</remarks>
-    public static LyntaiBuilder AddGenerationTools(this LyntaiBuilder builder)
+    /// <param name="builder">The builder.</param>
+    /// <param name="consumer">The spend/rate-limit tag every render these tools start or fetch bills to —
+    /// <c>"agent"</c> by default, NOT the platform's <c>"default"</c>. A tool loop is the runaway-spend case (a
+    /// model retrying a render in a loop), so it is capped separately out of the box: set
+    /// <c>Budget.PerConsumer["agent"]</c> and it binds every agent-driven render, whichever door produced it,
+    /// without touching what a user pressing a button may spend. A host running several agents registers each
+    /// one's tools under its own tag.</param>
+    public static LyntaiBuilder AddGenerationTools(this LyntaiBuilder builder, string consumer = ProviderConsumers.Agent)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(consumer);
         builder.Services.AddSingleton<Lyntai.Agents.ITool>(sp => new Lyntai.Generation.Tools.GenerationBackendsTool(
             sp.GetServices<IModelProvider>(),
             MediaOptionsFor(sp)));   // the listing's aggregate ProbeDeadline lives here
         builder.Services.AddSingleton<Lyntai.Agents.ITool>(sp => new Lyntai.Generation.Tools.GenerationInlineTool(
             sp.GetRequiredService<Lyntai.Inference.IMediaRouter>(),
             MediaOptionsFor(sp),
-            sp.GetService<Lyntai.Generation.Jobs.IGenerationArtifactSink>()));
+            sp.GetService<Lyntai.Generation.Jobs.IGenerationArtifactSink>(),
+            consumer));
         builder.Services.AddSingleton<Lyntai.Agents.ITool>(sp => new Lyntai.Generation.Tools.GenerationSubmitTool(
             sp.GetRequiredService<Lyntai.Inference.IMediaRouter>(),
-            MediaOptionsFor(sp)));
+            MediaOptionsFor(sp),
+            consumer));
         builder.Services.AddSingleton<Lyntai.Agents.ITool>(sp => new Lyntai.Generation.Tools.GenerationStatusTool(
             sp.GetServices<IModelProvider>()));
         builder.Services.AddSingleton<Lyntai.Agents.ITool>(sp => new Lyntai.Generation.Tools.GenerationFetchTool(
             sp.GetServices<IModelProvider>(),
             sp.GetService<Lyntai.Generation.Jobs.IGenerationArtifactSink>(),
-            sp.GetService<Lyntai.Inference.Budgeting.IUsageTracker>()));
+            sp.GetKeyedService<IUsageTracker>(MediaSpendKey),
+            consumer));
         return builder;
     }
 
@@ -219,10 +236,6 @@ public static class GenerationBuilderExtensions
     /// instance regardless of call order.</summary>
     private static MediaRoutingPolicy RoutingPolicyFor(LyntaiBuilder builder) =>
         InstanceFor(builder, () => new MediaRoutingPolicy());
-
-    /// <summary>Marker: spend governance is configured. INTERNAL — it is wiring state, not a knob, and the
-    /// public surface should not grow a type whose only job is to exist.</summary>
-    internal sealed class MediaBudgetGovernance;
 
     /// <summary>Marker carrying the generation limiter — carried rather than registered as
     /// <see cref="IRateLimiter"/> so it can never be mistaken for (or overwrite) the chat limiter.</summary>

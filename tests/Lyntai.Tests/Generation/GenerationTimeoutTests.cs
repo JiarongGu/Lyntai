@@ -58,7 +58,7 @@ public class GenerationTimeoutTests
             (nameof(OpenAiImageOptions), new OpenAiImageOptions { BaseUrl = "x" }.Timeout),
             (nameof(Automatic1111Options), new Automatic1111Options { BaseUrl = "x" }.Timeout),
             (nameof(ComfyUiOptions), new ComfyUiOptions { BaseUrl = "x" }.Timeout),
-            (nameof(FalQueueOptions), new FalQueueOptions().Timeout),
+            (nameof(FalOptions), new FalOptions().Timeout),
         ])
         {
             Assert.True(budget > TimeSpan.FromMinutes(1), $"{name}: not generous enough ({budget})");
@@ -141,8 +141,8 @@ public class GenerationTimeoutTests
     [Fact]
     public async Task A_stalled_submit_fails_rather_than_hanging_on_both_queue_backends()
     {
-        var fal = await new FalQueueProvider(
-            new FalQueueOptions { ApiKey = "k", Model = "fal-ai/wan-t2v", Timeout = Short }, Stalling())
+        var fal = await new FalProvider(
+            new FalOptions { ApiKey = "k", Model = "fal-ai/wan-t2v", Timeout = Short }, Stalling())
             .SubmitAsync(new MediaRequest { Kind = ProviderKinds.Video, Prompt = "a wave" });
         Assert.Equal(QueuedOperationStatus.Failed, fal.Status);
 
@@ -161,8 +161,8 @@ public class GenerationTimeoutTests
     {
         // a slow status call is NO ANSWER, not a failed render — reading it as terminal would abandon a
         // submitted (and billed) generation that is merely still going
-        var fal = await new FalQueueProvider(
-            new FalQueueOptions { ApiKey = "k", Timeout = Short }, Stalling())
+        var fal = await new FalProvider(
+            new FalOptions { ApiKey = "k", Timeout = Short }, Stalling())
             .PollAsync("fal-ai/wan-t2v#abc");
         Assert.Equal(QueuedOperationStatus.Running, fal.Status);
 
@@ -175,8 +175,8 @@ public class GenerationTimeoutTests
     [Fact]
     public async Task A_timed_out_FETCH_is_a_Timeout_verdict_on_both_queue_backends()
     {
-        var fal = await new FalQueueProvider(
-            new FalQueueOptions { ApiKey = "k", Timeout = Short }, Stalling())
+        var fal = await new FalProvider(
+            new FalOptions { ApiKey = "k", Timeout = Short }, Stalling())
             .FetchAsync("fal-ai/wan-t2v#abc");
         Assert.Equal(ProviderVerdict.Timeout, fal.Verdict);
 
@@ -205,8 +205,8 @@ public class GenerationTimeoutTests
 
     // ---- a submit with no answer must not become a SECOND paid submission ----
 
-    private static FalQueueProvider StalledFal() => new(
-        new FalQueueOptions { ApiKey = "k", Model = "fal-ai/wan-t2v", Timeout = Short }, Stalling());
+    private static FalProvider StalledFal() => new(
+        new FalOptions { ApiKey = "k", Model = "fal-ai/wan-t2v", Timeout = Short }, Stalling());
 
     private static MediaRequest Video() =>
         new() { Kind = ProviderKinds.Video, Prompt = "a wave" };
@@ -228,7 +228,7 @@ public class GenerationTimeoutTests
     public async Task A_plain_submit_failure_is_NOT_inconclusive_so_fallback_still_works()
     {
         // the counterweight: an answered rejection is conclusive, and must keep advancing to the next backend
-        var operation = await new FalQueueProvider(new FalQueueOptions { ApiKey = "k" }, Stalling())
+        var operation = await new FalProvider(new FalOptions { ApiKey = "k" }, Stalling())
             .SubmitAsync(Video());     // no model named anywhere: refused before any HTTP call
 
         Assert.Equal(QueuedOperationStatus.Failed, operation.Status);
@@ -303,8 +303,8 @@ public class GenerationTimeoutTests
             new Automatic1111Options { BaseUrl = "http://127.0.0.1:7860", Timeout = Unreachable }, Stalling())
             .GenerateAsync(Ask(), cts.Token));
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => new FalQueueProvider(
-            new FalQueueOptions { ApiKey = "k", Timeout = Unreachable }, Stalling())
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => new FalProvider(
+            new FalOptions { ApiKey = "k", Timeout = Unreachable }, Stalling())
             .PollAsync("fal-ai/wan-t2v#abc", cts.Token));
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => new ComfyUiProvider(

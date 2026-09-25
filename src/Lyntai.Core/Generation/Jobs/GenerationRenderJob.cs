@@ -14,18 +14,11 @@ namespace Lyntai.Generation.Jobs;
 public sealed record GenerationRenderJob(IReadOnlyList<string> Candidates, MediaRequest Request)
 {
     /// <summary>Serialize for <c>JobSpec.Payload</c>.</summary>
-    public string ToJson()
+    public string ToJson() => GenerationJson.WriteObject(writer =>
     {
-        using var buffer = new MemoryStream();
-        using (var writer = new Utf8JsonWriter(buffer))
-        {
-            writer.WriteStartObject();
-            GenerationJson.WriteCandidates(writer, Candidates);
-            GenerationJson.WriteRequest(writer, Request);
-            writer.WriteEndObject();
-        }
-        return System.Text.Encoding.UTF8.GetString(buffer.ToArray());
-    }
+        GenerationJson.WriteCandidates(writer, Candidates);
+        GenerationJson.WriteRequest(writer, Request);
+    });
 
     /// <summary>Read a payload back, or null when it isn't one. Null rather than throwing: a handler turns an
     /// unreadable payload into a FAILED job with a reason, which is more useful than an exception in a queue.</summary>

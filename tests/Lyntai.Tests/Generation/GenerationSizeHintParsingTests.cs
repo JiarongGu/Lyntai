@@ -14,9 +14,8 @@ namespace Lyntai.Tests.Generation;
 /// The half they share is that a size must be POSITIVE, not merely numeric. <c>"0x0"</c> parses, and forwarding
 /// it hands the backend a render it can only reject — so a bad hint falls back to the configured default, which
 /// is what both XML docs promise. They are pinned together, in one file, because the defect was precisely that
-/// one of them enforced the shared half and the other did not: a per-provider test would not have caught the
-/// divergence. No shared helper is extracted, deliberately — the two share two lines and diverge on the whole
-/// clamp policy.</summary>
+/// one of them enforced the shared half and the other did not. That half now lives once (<c>SizeHint.TryParse</c>),
+/// and the clamp policy — where the two genuinely diverge — stays each backend's own.</summary>
 public class GenerationSizeHintParsingTests
 {
     private const string OneByteBase64 = "iVBORw==";
@@ -62,7 +61,7 @@ public class GenerationSizeHintParsingTests
     [InlineData("-1x1")]
     public void The_local_engine_refuses_exactly_the_same_hints(string size)
     {
-        Assert.Equal((512, 512), LocalDiffusionProvider.ClampSize(size));
+        Assert.Equal((512, 512), LocalDiffusionProvider.ClampSize(size, new LocalDiffusionOptions().EffectiveMaxDimension));
     }
 
     [Fact]
@@ -76,6 +75,6 @@ public class GenerationSizeHintParsingTests
 
         Assert.Contains("\"width\":1280", http.Requests[0].Body);
         Assert.Contains("\"height\":720", http.Requests[0].Body);
-        Assert.Equal((768, 448), LocalDiffusionProvider.ClampSize("1280x720"));
+        Assert.Equal((768, 448), LocalDiffusionProvider.ClampSize("1280x720", new LocalDiffusionOptions().EffectiveMaxDimension));
     }
 }

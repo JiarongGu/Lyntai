@@ -56,8 +56,7 @@ public sealed class LocalDiffusionOptions
     /// <para><b><see cref="DiffusionAccelerator.Gpu"/> derives NO cap</b>, and that is a deliberate refusal
     /// to invent a number. The reason for the CPU cap is that each step is expensive enough to turn a render
     /// into a wait; with an accelerator that premise does not hold, and no measurement here justifies any
-    /// particular GPU ceiling. Picking one would be the documented-not-measured mistake <c>TASKS.md</c>
-    /// GEN-VERIFY exists to correct. A host that wants a ceiling sets one.</para>
+    /// particular GPU ceiling. A host that wants a ceiling sets one.</para>
     /// <para>The cap SCALES rather than crops: the longer side is brought to the cap and the other side
     /// moves with it, so the aspect ratio a caller asked for survives. A per-axis clamp would silently
     /// reshape a portrait request into something squarer.</para></remarks>
@@ -149,10 +148,9 @@ public enum DiffusionAccelerator
 /// matching, because a real release ships <c>sd-cli.exe</c> AND <c>sd-server.exe</c> side by side, and a loose
 /// <c>sd</c>-prefix match would launch the server, which starts and then waits forever: a hang, not an
 /// error.</para>
-/// <para>Unlike the app implementation this was ported from, the spawn goes through
-/// <see cref="IProcessRunner"/> — so it inherits the BYO-runner seam, kill-the-tree cancellation, and a
-/// per-chunk INACTIVITY clock with an absolute backstop instead of one wall clock that would kill a healthy
-/// slow render (the trap <c>.claude/knowledge/pitfalls.md</c> documents for the LLM side).</para>
+/// <para>The spawn goes through <see cref="IProcessRunner"/> — so it inherits the BYO-runner seam,
+/// kill-the-tree cancellation, and a per-chunk INACTIVITY clock with an absolute backstop rather than one wall
+/// clock that would kill a healthy slow render.</para>
 /// </remarks>
 /// <param name="options">Engine paths and sampling defaults.</param>
 /// <param name="runner">Process execution — BYO to sandbox or audit the spawn.</param>
@@ -162,15 +160,10 @@ public sealed class LocalDiffusionProvider(LocalDiffusionOptions options, IProce
     public string Id => options.Id;
 
     /// <inheritdoc/>
-    /// <remarks>The advertised ceiling is the CONFIGURED one, not a constant. It was hard-coded at 768
-    /// alongside the clamp, so once the ceiling became the host's
-    /// (<see cref="LocalDiffusionOptions.Accelerator"/>) this would have gone on telling callers 768 while
-    /// the backend accepted whatever a GPU host asked for — a limit a consumer reads and plans against, and
-    /// the third site the cap had to reach. <see cref="ProviderCapabilities.Limits"/> is informational, so
-    /// nothing would have failed; it would simply have been false.
-    /// <para>Derived PER ACCESS, never captured at construction: the registration doc advertises late
-    /// provisioning ("the next render reads the current values") and enforcement reads the options live, so
-    /// a captured advertisement is the same stale-limit defect one mutation later.</para></remarks>
+    /// <remarks>The advertised ceiling is the CONFIGURED one (<see cref="LocalDiffusionOptions.EffectiveMaxDimension"/>),
+    /// never a constant: <see cref="ProviderCapabilities.Limits"/> is informational, so a stale number fails
+    /// nothing and is simply false to a consumer planning against it. Derived PER ACCESS, so a host that changes
+    /// the options after registration advertises the new values.</remarks>
     public ProviderCapabilities Capabilities => new()
     {
         Accepts = [ProviderKinds.Text],
@@ -199,29 +192,22 @@ public sealed class LocalDiffusionProvider(LocalDiffusionOptions options, IProce
 
     /// <summary>Presence of the engine and its weights on disk — free, exact, and the only thing worth checking
     /// before a render that costs minutes of CPU.</summary>
-    public Task<ProviderProbeResult> ProbeAsync(CancellationToken ct = default)
-    {
-        if (options.BinaryPath is not { Length: > 0 } binary || !File.Exists(binary))
-            return Task.FromResult(new ProviderProbeResult(false,
-                $"not configured: no sd-cli binary at '{options.BinaryPath}' (the host provisions it — D20)"));
+    public Task<ProviderProbeResult> ProbeAsync(CancellationToken ct = default) =>
+        Task.FromResult(Missing() is { } missing
+            ? new ProviderProbeResult(false, missing)
+            : new ProviderProbeResult(true,
+                $"sd-cli at '{options.BinaryPath}' with model '{Path.GetFileName(options.ModelPath)}'"));
 
-        if (options.ModelPath is not { Length: > 0 } model || !File.Exists(model))
-            return Task.FromResult(new ProviderProbeResult(false,
-                $"not configured: the engine is present but its model file is missing at '{options.ModelPath}'"));
-
-        return Task.FromResult(new ProviderProbeResult(true,
-            $"sd-cli at '{binary}' with model '{Path.GetFileName(model)}'"));
-    }
+    private string? Missing() => LocalEngine.Missing(options.BinaryPath, options.ModelPath, "sd-cli", "model file");
 
     /// <inheritdoc/>
     public async Task<MediaResponse> GenerateAsync(MediaRequest request, CancellationToken ct = default)
     {
-        if (options.BinaryPath is not { Length: > 0 } binary || !File.Exists(binary) ||
-            options.ModelPath is not { Length: > 0 } model || !File.Exists(model))
-            return MediaResponse.Failure(ProviderVerdict.NotConfigured,
-                "the local engine or its model is not present on disk");
+        if (Missing() is { } missing) return MediaResponse.Failure(ProviderVerdict.NotConfigured, missing);
+        var (binary, model) = (options.BinaryPath!, options.ModelPath!);
 
-        var source = request.Inputs.FirstOrDefault();
+        var source = SingleInitInput.Read(request, "the engine", out var refusal);
+        if (refusal is not null) return MediaResponse.Failure(ProviderVerdict.Unsupported, refusal);
         if (source is not null && source.Data is not { Length: > 0 })
             return MediaResponse.Failure(ProviderVerdict.Unsupported,
                 "the engine reads its source image from DISK; supply MediaInput.Data rather than a URI");
@@ -242,10 +228,8 @@ public sealed class LocalDiffusionProvider(LocalDiffusionOptions options, IProce
             var (width, height) = ClampSize(request.Option("size"), options.EffectiveMaxDimension);
             var argv = BuildArgs(model, request.Prompt ?? "", output, width, height, initPath);
 
-            // never below the inactivity window: a caller who shortens the absolute budget shouldn't end up
-            // with a silence detector that can never fire
             var maxDuration = options.Timeout;
-            var inactivity = options.InactivityTimeout < maxDuration ? options.InactivityTimeout : maxDuration;
+            var inactivity = LocalEngine.Inactivity(maxDuration, options.InactivityTimeout);
 
             ProcessResult result;
             try
@@ -302,9 +286,7 @@ public sealed class LocalDiffusionProvider(LocalDiffusionOptions options, IProce
     /// (`docs/DECISIONS.md` D65 records what happens when a caller places argv it does not own).</remarks>
     internal List<string> BuildArgs(string model, string prompt, string output, int width, int height, string? initPath)
     {
-        var flag = (string name) => options.ArgvFlags.TryGetValue(name, out var f)
-            ? f
-            : LocalDiffusionOptions.DefaultArgvFlags[name];
+        var flag = (string name) => LocalEngine.Flag(options.ArgvFlags, LocalDiffusionOptions.DefaultArgvFlags, name);
 
         List<string> args =
         [
@@ -348,26 +330,12 @@ public sealed class LocalDiffusionProvider(LocalDiffusionOptions options, IProce
     /// <param name="size">The caller's <c>"WxH"</c> hint, or null.</param>
     /// <param name="maxDimension">Longest permitted side, or null for no ceiling —
     /// <see cref="LocalDiffusionOptions.EffectiveMaxDimension"/>, which derives it from the declared
-    /// accelerator unless the host set one.</param>
-    /// <remarks><b>The cap has to reach the ROUNDING as well as the scale, and for a while it did not.</b>
-    /// This method scaled against one hard-coded 768 and then rounded through a second, so raising the
-    /// ceiling would have moved the scale and left every result pinned at 768 by the rounder — a knob that
-    /// visibly does nothing beyond its old value. Both now take the same parameter, which is why there is
-    /// only one.</remarks>
-    internal static (int Width, int Height) ClampSize(string? size, int? maxDimension = 768)
+    /// accelerator unless the host set one. No default: the options are the one place the cap lives.</param>
+    /// <remarks>The cap reaches the ROUNDING as well as the scale — a second copy in the rounder would pin
+    /// every result at the old value however high the ceiling is raised.</remarks>
+    internal static (int Width, int Height) ClampSize(string? size, int? maxDimension)
     {
-        int width = 512, height = 512;
-        if (!string.IsNullOrWhiteSpace(size))
-        {
-            var parts = size.Split('x', 'X');
-            if (parts.Length == 2 &&
-                int.TryParse(parts[0], out var parsedWidth) && int.TryParse(parts[1], out var parsedHeight) &&
-                parsedWidth > 0 && parsedHeight > 0)
-            {
-                width = parsedWidth;
-                height = parsedHeight;
-            }
-        }
+        if (!SizeHint.TryParse(size, out var width, out var height)) (width, height) = (512, 512);
 
         // Scale BOTH sides by one factor rather than clamping each: a per-axis clamp turns a portrait
         // request into something squarer, which is a different picture from the one that was asked for.

@@ -6,27 +6,27 @@ using Lyntai.Tests.Fakes;
 namespace Lyntai.Tests.Generation;
 
 /// <summary>The fal.ai queue's CANCEL path — the one URL segment that used to be a hardcoded literal while
-/// <see cref="FalQueueOptions"/> promised that every segment was settable.
+/// <see cref="FalOptions"/> promised that every segment was settable.
 ///
 /// The promise is not decoration: this backend's wire format is documented rather than measured, so a host that
 /// discovers a segment has moved retargets it in options instead of waiting for a Lyntai release. A literal in
 /// the middle of that story leaves exactly one call — the one that stops a render already costing money — with
 /// no repair short of a release. These pin the default (so the retargeting seam cannot quietly change the URL a
 /// working host already calls) and the override (so the seam actually reaches the cancel path).</summary>
-public class FalQueueCancelSegmentTests
+public class FalCancelSegmentTests
 {
-    private static (FalQueueProvider Provider, StubHttpHandler Http) Provider(FalQueueOptions? options = null)
+    private static (FalProvider Provider, StubHttpHandler Http) Provider(FalOptions? options = null)
     {
         var handler = new StubHttpHandler();
-        return (new FalQueueProvider(
-            options ?? new FalQueueOptions { ApiKey = "k", Model = "fal-ai/wan-t2v" },
+        return (new FalProvider(
+            options ?? new FalOptions { ApiKey = "k", Model = "fal-ai/wan-t2v" },
             () => new HttpClient(handler, disposeHandler: false)), handler);
     }
 
     [Fact]
     public void The_cancel_segment_defaults_to_the_documented_literal()
     {
-        Assert.Equal("cancel", new FalQueueOptions().CancelSegment);
+        Assert.Equal("cancel", new FalOptions().CancelSegment);
     }
 
     [Fact]
@@ -47,7 +47,7 @@ public class FalQueueCancelSegmentTests
     public async Task A_host_can_retarget_the_cancel_segment_the_way_it_retargets_status_and_requests()
     {
         // the whole point of the settable segments: a moved path is repairable by the host, not by a release
-        var (provider, http) = Provider(new FalQueueOptions
+        var (provider, http) = Provider(new FalOptions
         {
             ApiKey = "k",
             Model = "fal-ai/wan-t2v",
@@ -75,6 +75,20 @@ public class FalQueueCancelSegmentTests
 
         Assert.Equal(QueuedOperationStatus.Running, operation.Status);
         Assert.Contains("409", operation.Detail);
+    }
+
+    [Fact]
+    public async Task A_202_cancellation_REQUEST_reports_the_render_still_running()
+    {
+        // fal documents its cancel as `202 {"status":"CANCELLATION_REQUESTED"}` — a request, not a confirmed
+        // stop: the render may still finish and be billed, so only polling says how it ended
+        var (provider, http) = Provider();
+        http.Enqueue(HttpStatusCode.Accepted, """{"status":"CANCELLATION_REQUESTED"}""");
+
+        var operation = await provider.CancelAsync("fal-ai/wan-t2v#req-123");
+
+        Assert.Equal(QueuedOperationStatus.Running, operation.Status);
+        Assert.Contains("CANCELLATION_REQUESTED", operation.Detail);
     }
 
     [Fact]

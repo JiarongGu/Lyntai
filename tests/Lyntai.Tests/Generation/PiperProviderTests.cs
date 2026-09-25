@@ -41,6 +41,24 @@ public class PiperProviderTests
         return chunks;
     }
 
+    [Theory]
+    [InlineData("""{"audio": {"sample_rate": "22050"}}""")]   // a hand-edited config: a string, not a number
+    [InlineData("""{"audio": {"sample_rate": 0}}""")]
+    [InlineData("""{"audio": {"sample_rate": -8000}}""")]
+    [InlineData("""{"audio": {"sample_rate": 22050.5}}""")]
+    public async Task A_sample_rate_that_is_not_a_positive_integer_is_unstated_rather_than_a_throw(string voiceJson)
+    {
+        // TryGetInt32 THROWS on a non-number, outside the JsonException catch — so the provider threw instead of
+        // yielding chunks; and a rate of 0 typed the chunks `rate=0` and divided the duration by zero
+        var (provider, _, _) = Provider(voiceJson: voiceJson);
+
+        var chunks = await Collect(provider, Ask());
+
+        Assert.All(chunks.Where(c => c.Data is { Length: > 0 }),
+            c => Assert.Equal(PiperProvider.PcmMediaType(null), c.MediaType));
+        Assert.Null(chunks[^1].Usage?.Seconds);
+    }
+
     [Fact]
     public void It_declares_a_local_streaming_audio_backend()
     {

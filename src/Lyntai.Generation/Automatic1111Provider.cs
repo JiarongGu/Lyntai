@@ -132,7 +132,8 @@ public sealed class Automatic1111Provider(
         if (string.IsNullOrWhiteSpace(options.BaseUrl))
             return MediaResponse.Failure(ProviderVerdict.NotConfigured, "no BaseUrl configured");
 
-        var source = request.Inputs.FirstOrDefault();
+        var source = SingleInitInput.Read(request, "img2img", out var refusal);
+        if (refusal is not null) return MediaResponse.Failure(ProviderVerdict.Unsupported, refusal);
         if (source is not null && source.Data is not { Length: > 0 })
             return MediaResponse.Failure(ProviderVerdict.Unsupported,
                 "img2img needs the source BYTES; supply MediaInput.Data rather than a URI");
@@ -164,15 +165,8 @@ public sealed class Automatic1111Provider(
             using var response = await http.PostAsync($"{Root}/sdapi/v1/{endpoint}", content, ct).ConfigureAwait(false);
             var body = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
 
-            // The 2-argument form ON PURPOSE, unlike OpenAiImageProvider's `(status, body, HasCredentials)`.
-            // The 3-arg overload's job is to demote AuthFailed to NotConfigured when the call carried no
-            // credentials — and A1111 has NO credential concept at all here: Automatic1111Options has no key,
-            // token or user/password member, and this provider never sets an Authorization header, because the
-            // server is the host's own. So there is no `hasCredentials` fact to pass. Hardcoding `false` would
-            // not be a tidy-up, it would be a BEHAVIOUR change: a 401 from a reverse proxy in front of the
-            // WebUI would stop benching the backend and start telling the user to configure an API key that
-            // does not exist. AuthFailed is the honest answer — the host's proxy rejected us. "Not set up yet"
-            // already has its own two routes here: no BaseUrl, and the not-reachable arm below.
+            // no credential surface, so the 2-arg overload: a 401 from a proxy in front of the WebUI is
+            // AuthFailed, never a NotConfigured asking for a key this backend has no way to send
             if (!response.IsSuccessStatusCode)
                 return MediaResponse.Failure(
                     ProviderVerdictClassifier.FromHttpFailure(response.StatusCode, body),
@@ -202,19 +196,10 @@ public sealed class Automatic1111Provider(
     /// <summary><c>"768x512"</c> → (768, 512); anything unparseable — or numeric but non-positive, such as
     /// <c>"0x0"</c> — falls back to the configured default rather than failing the call, because a bad size hint
     /// is not worth losing a generation over.</summary>
-    private (int Width, int Height) Size(MediaRequest request)
-    {
-        if (request.Option("size") is { Length: > 0 } size)
-        {
-            var parts = size.Split('x', 'X');
-            // w/h must be POSITIVE, not merely numeric: "0x0" parses, and forwarding it hands the WebUI a
-            // render it can only reject — the same guard LocalDiffusionProvider.ClampSize makes
-            if (parts.Length == 2 && int.TryParse(parts[0], out var w) && int.TryParse(parts[1], out var h) &&
-                w > 0 && h > 0)
-                return (w, h);
-        }
-        return (options.DefaultWidth, options.DefaultHeight);
-    }
+    private (int Width, int Height) Size(MediaRequest request) =>
+        SizeHint.TryParse(request.Option("size"), out var width, out var height)
+            ? (width, height)
+            : (options.DefaultWidth, options.DefaultHeight);
 
     /// <summary>The first checkpoint's name from <c>[{ "title": …, "model_name": … }]</c>, or null when the
     /// list is empty/unreadable.</summary>

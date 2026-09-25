@@ -66,6 +66,18 @@ public class ComfyUiProviderTests
             ProviderKinds.Model3d, ProviderOperation.Queued, ProviderKinds.Text, hasInputs: true));
     }
 
+    [Fact]
+    public void The_advertised_kinds_follow_the_options_after_construction()
+    {
+        // the registration keeps the options instance a host may change later; the router filters on this
+        var options = new ComfyUiOptions { BaseUrl = "http://127.0.0.1:8188" };
+        var (provider, _) = Provider(options);
+
+        options.Produces = [ProviderKinds.Image];
+
+        Assert.Equal([ProviderKinds.Image], provider.Capabilities.Produces);
+    }
+
     // ---- inputs: uploaded, then bound at the dotted path the caller names --------------------------------
 
     private const string MeshWorkflow = """
@@ -133,6 +145,21 @@ public class ComfyUiProviderTests
 
         Assert.Equal("http://127.0.0.1:8188/prompt", http.Requests[1].Uri?.ToString());
         Assert.Equal("3d/cube (1).glb", Posted(http.Requests[1].Body, "1", "model_file"));
+    }
+
+    [Fact]
+    public async Task An_input_whose_media_type_names_no_extension_is_named_from_its_URI()
+    {
+        // an agent's imageUrl arrives as "image/*", which the extension table cannot name, and a loader picks
+        // its parser by the extension — so the file is named from what the URI says it is
+        var (provider, comfy, foreign) = WithForeign();
+        foreign.Enqueue(HttpStatusCode.OK, "PNG-BYTES", "image/png");
+        comfy.Enqueue(HttpStatusCode.OK, Uploaded("a.png", "")).Enqueue(HttpStatusCode.OK, """{"prompt_id":"1"}""");
+
+        await provider.SubmitAsync(MeshAsk(Bound("input-path", "2.inputs.image"),
+            new MediaInput("image/*", Uri: "https://cdn.example.org/pics/a.png?sig=1")));
+
+        Assert.EndsWith(".png", UploadedFileName(comfy.Requests[0].Body));
     }
 
     [Fact]

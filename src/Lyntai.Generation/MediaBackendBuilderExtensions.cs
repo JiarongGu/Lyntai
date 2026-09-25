@@ -77,35 +77,32 @@ public static class MediaBackendBuilderExtensions
         ArgumentNullException.ThrowIfNull(configure);
         var options = new ComfyUiOptions();
         configure(options);
-        var registered = builder.AddProvider(HttpBackend(builder, options.Id, httpClient,
-            (client, dispose) => new ComfyUiProvider(options, client, dispose))).AddMediaRouting();
-
         // this client carries what a host configures FOR ComfyUI; following a redirect by itself would take that
         // to wherever the redirect points, so the provider follows a fetch's redirects and picks a client per hop
-        if (httpClient is null)
-            builder.Services.AddHttpClient(HttpClientName(options.Id))
-                .ConfigurePrimaryHttpMessageHandler((handler, _) =>
-                {
-                    if (handler is HttpClientHandler classic) classic.AllowAutoRedirect = false;
-                    else if (handler is SocketsHttpHandler sockets) sockets.AllowAutoRedirect = false;
-                });
-        return registered;
+        return builder.AddProvider(HttpBackend(builder, options.Id, httpClient,
+            (client, dispose) => new ComfyUiProvider(options, client, dispose),
+            handler =>
+            {
+                if (handler is HttpClientHandler classic) classic.AllowAutoRedirect = false;
+                else if (handler is SocketsHttpHandler sockets) sockets.AllowAutoRedirect = false;
+            })).AddMediaRouting();
     }
 
     /// <summary>The fal.ai queue — submit/poll/fetch, which is the shape a video render needs. Default id
-    /// <c>"fal"</c> (<see cref="FalQueueOptions.Id"/>). This backend's wire format is documented-not-measured
-    /// (TASKS.md GEN-VERIFY); every URL segment is an option so a host can retarget it.</summary>
+    /// <c>"fal"</c> (<see cref="FalOptions.Id"/>). Written from fal's public docs and never called against the
+    /// real service (see <see cref="FalProvider"/>'s remarks); its URL segments, status vocabulary, error, cost
+    /// and auth settings are options, so a host corrects a wrong one in configuration.</summary>
     /// <param name="builder">The builder.</param>
     /// <param name="configure">Endpoint, credential and declared kinds.</param>
     /// <param name="httpClient">BYO client — see the type summary. Null = Lyntai's own.</param>
     public static LyntaiBuilder AddFalProvider(this LyntaiBuilder builder,
-        Action<FalQueueOptions> configure, Func<IServiceProvider, HttpClient>? httpClient = null)
+        Action<FalOptions> configure, Func<IServiceProvider, HttpClient>? httpClient = null)
     {
         ArgumentNullException.ThrowIfNull(configure);
-        var options = new FalQueueOptions();
+        var options = new FalOptions();
         configure(options);
         return builder.AddProvider(HttpBackend(builder, options.Id, httpClient,
-            (client, dispose) => new FalQueueProvider(options, client, dispose))).AddMediaRouting();
+            (client, dispose) => new FalProvider(options, client, dispose))).AddMediaRouting();
     }
 
     /// <summary>A locally-installed <c>stable-diffusion.cpp</c> (<c>sd-cli</c>) — image generation with no key,
@@ -161,22 +158,22 @@ public static class MediaBackendBuilderExtensions
     /// <param name="id">The backend's candidate id.</param>
     public static string HttpClientName(string id) => $"lyntai.generation.{id}";
 
-    /// <summary>The shared BYO-or-ours decision, in one place: a host-supplied client is never disposed by us
-    /// (it outlives the call and is the host's to manage), while a client Lyntai created per call is. Getting
-    /// this wrong is not a leak but an <see cref="ObjectDisposedException"/> on the SECOND render — the first
-    /// one succeeds, which is what makes it worth centralising.</summary>
+    /// <summary>The BYO-or-ours decision: a host-supplied client is never disposed by Lyntai; one Lyntai creates
+    /// per call is, and is configured here (<paramref name="configureHandler"/> shapes its primary
+    /// handler).</summary>
     private static Func<IServiceProvider, IModelProvider> HttpBackend(
         LyntaiBuilder builder, string id, Func<IServiceProvider, HttpClient>? httpClient,
-        Func<Func<HttpClient>, bool, IModelProvider> create)
+        Func<Func<HttpClient>, bool, IModelProvider> create, Action<HttpMessageHandler>? configureHandler = null)
     {
         if (httpClient is not null)
             return sp => create(() => httpClient(sp), false);
 
-        // The per-call deadline owns timeouts, not HttpClient's default 100s — a render outlives it routinely.
-        // That deadline is real (GenerationDeadline, per-backend Timeout + MediaRequest.TimeoutSeconds);
-        // infinite here is only safe BECAUSE of it, so don't drop one without dropping the other.
-        builder.Services.AddHttpClient(HttpClientName(id))
+        // infinite is safe ONLY because every backend enforces its own per-call deadline (GenerationDeadline);
+        // HttpClient's 100-second default would abort a healthy render
+        var client = builder.Services.AddHttpClient(HttpClientName(id))
             .ConfigureHttpClient(c => c.Timeout = Timeout.InfiniteTimeSpan);
+        if (configureHandler is not null)
+            client.ConfigurePrimaryHttpMessageHandler((handler, _) => configureHandler(handler));
 
         return sp => create(
             () => sp.GetRequiredService<IHttpClientFactory>().CreateClient(HttpClientName(id)), true);
