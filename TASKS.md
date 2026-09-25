@@ -15,19 +15,27 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 6 across 4 Parts: 2 startable, 2 blocked, 2 watch
+## Open items — 14 across 5 Parts: 10 startable, 2 blocked, 2 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 107 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a free Hugging Face account (an hf_ token) — its router proxies fal's own q… |
-| 154 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 177 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 233 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
-| 263 | 294 | Give the vector-store, verification and annotation contracts an abstract Fa… | startable |  |
-| 266 | 294 | Sweep test comments for history narration that carries no tag or date | startable |  |
+| 115 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a free Hugging Face account (an hf_ token) — its router proxies fal's own q… |
+| 162 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 185 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 241 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 271 | 294 | Give the vector-store, verification and annotation contracts an abstract Fa… | startable |  |
+| 274 | 294 | Sweep test comments for history narration that carries no tag or date | startable |  |
+| 284 | 298 | SentencePiece tokenization for the ONNX provider — D122's trigger has fired | startable |  |
+| 288 | 298 | Change the embedder without rebuilding the graph | startable |  |
+| 290 | 298 | Read a stored vector back by id, or cache embeddings on the vector call | startable |  |
+| 292 | 298 | Filtered nearest-neighbour search | startable |  |
+| 294 | 298 | Edit the text provider set at run time | startable |  |
+| 297 | 298 | Schedules added at run time, persisted | startable |  |
+| 299 | 298 | Trace and score front-door calls without a wrapper | startable |  |
+| 302 | 298 | Job progress as a message code plus arguments | startable |  |
 
 <!-- open-items:end -->
 
@@ -266,6 +274,33 @@ found and deliberately not done in that pass; everything else it found is fixed 
 - [ ] **Sweep test comments for history narration that carries no tag or date.** The review cut every tagged or <!-- item: state=startable -->
   dated provenance line (74 hits to 1), but untagged narration ("this used to…", "until the fix…") needs a
   reading pass, not a regex — `code-commentary.md` applies to tests as it does to `src/`.
+
+## Part 298 — what the consuming apps work around (2026-09-26)
+
+_Filed from a read of the four applications that consume the library, for what each wraps, re-implements or
+compensates for. Each item is the general need and its evidence; each has one app behind it, so the design is
+part of the work._
+
+- [ ] **SentencePiece tokenization for the ONNX provider — D122's trigger has fired.** `Lyntai.Providers.Onnx` <!-- item: state=startable -->
+  tokenizes with WordPiece only, so a multilingual embedding or rerank export, usually SentencePiece, cannot
+  load; an adopting app hand-wrote an ONNX embedder for one. The choice is D122's: own the tokenizer, tested
+  id-for-id against a reference, or take a dependency.
+- [ ] **Change the embedder without rebuilding the graph.** A new embedding model means a destructive rebuild <!-- item: state=startable -->
+  that discards decay state and links; a re-embed pass over the stored nodes would keep both.
+- [ ] **Read a stored vector back by id, or cache embeddings on the vector call.** `IVectorStore` searches but <!-- item: state=startable -->
+  cannot return a stored vector, so an app re-embeds its corpus on every refresh or keeps its own memo.
+- [ ] **Filtered nearest-neighbour search.** `IVectorStore.SearchAsync` takes no filter, so an app over-fetches <!-- item: state=startable -->
+  and filters afterwards.
+- [ ] **Edit the text provider set at run time.** An app whose users add and edit endpoints rebuilds its whole <!-- item: state=startable -->
+  container to change them, losing in-memory state such as the usage budget; the media side has a provider
+  pool for exactly this (`docs/generation.md` §10).
+- [ ] **Schedules added at run time, persisted.** `JobScheduler` runs only the schedules registered at build <!-- item: state=startable -->
+  time, so an app with user-authored schedules runs its own cron ticker beside it.
+- [ ] **Trace and score front-door calls without a wrapper.** An app wraps `ITextClient` to write a run trace <!-- item: state=startable -->
+  and run the deterministic scorers on every call; nothing in the inference layer calls the trace or scoring
+  services.
+- [ ] **Job progress as a message code plus arguments.** `JobContext` progress takes a plain string, so an app <!-- item: state=startable -->
+  that localizes its status text keeps its own job system for that alone.
 
 ## Retired — five Parts that outlived their open work (2026-09-16)
 
