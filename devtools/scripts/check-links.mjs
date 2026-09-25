@@ -10,6 +10,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { HISTORICAL, IN_SCOPE, IS_SCANNED, LIVE_PREFIX, liveLinesOnly } from './check-docs.mjs';
+import { unreleasedHeading } from './doctors.mjs';
 import { readRepoText, repoFiles, twoLineWindows, windowHits } from './_repo-files.mjs';
 
 const here = fileURLToPath(import.meta.url);
@@ -262,6 +263,7 @@ export function checkLinks(repo, config = {}, log = console.log, files = null) {
   const hits = [];
   const misfiled = [];
   const deadAnchors = [];
+  const stampedAnchors = [];
   let anchorsChecked = 0;
 
   // A citation names a document, usually by BARE BASENAME (`` `pitfalls.md` §Storage ``). Resolving one to
@@ -285,11 +287,18 @@ export function checkLinks(repo, config = {}, log = console.log, files = null) {
   // Read each cited document once. An unreadable target yields `null` and is SKIPPED rather than reported:
   // we have no basis to call its sections missing, and failing there would report the citing file for a
   // fault in the cited one.
+  //
+  // `durable` omits the heading the release workflow stamps before `verify` (the stamper's own pattern), so
+  // a citation that resolves only through it fails on every run rather than only in the release.
   const anchorCache = new Map();
   const anchorsFor = (target) => {
     if (!anchorCache.has(target)) {
       let parsed = null;
-      try { parsed = declaredAnchors(readFileSync(join(repo, target), 'utf8')); } catch { parsed = null; }
+      try {
+        const text = readFileSync(join(repo, target), 'utf8');
+        const durable = text.split(/\r?\n/).map((l) => (unreleasedHeading.test(l) ? '' : l)).join('\n');
+        parsed = { all: declaredAnchors(text), durable: declaredAnchors(durable) };
+      } catch { parsed = null; }
       anchorCache.set(target, parsed);
     }
     return anchorCache.get(target);
@@ -301,8 +310,13 @@ export function checkLinks(repo, config = {}, log = console.log, files = null) {
     const anchors = anchorsFor(target);
     if (!anchors) return;
     anchorsChecked++;
-    const dead = unresolvedAnchor(anchors, token);
-    if (dead !== null) deadAnchors.push({ file, line: lineNo, target, anchor: dead, text: text.trim() });
+    const dead = unresolvedAnchor(anchors.all, token);
+    if (dead !== null) {
+      deadAnchors.push({ file, line: lineNo, target, anchor: dead, text: text.trim() });
+      return;
+    }
+    const transient = unresolvedAnchor(anchors.durable, token);
+    if (transient !== null) stampedAnchors.push({ file, line: lineNo, target, anchor: transient, text: text.trim() });
   };
 
   const checkPart = (file, lineNo, [, record, num], text) => {
@@ -392,7 +406,7 @@ export function checkLinks(repo, config = {}, log = console.log, files = null) {
   }
 
   if (hits.length === 0 && misfiled.length === 0 && deadAnchors.length === 0
-    && deadMembers.length === 0) {
+    && stampedAnchors.length === 0 && deadMembers.length === 0) {
     // Every count is reported, so a filter that silently stopped matching one tier is visible in the
     // GREEN line rather than only in a failure that never comes.
     log(`check-links: ${docs.length} maintained doc(s) + ${code.length} code file(s) — every in-repo `
@@ -447,6 +461,19 @@ export function checkLinks(repo, config = {}, log = console.log, files = null) {
     log('  quotes a citation as it was written, put `link-ok` on it.');
   }
 
+  if (stampedAnchors.length > 0) {
+    log(`\ncheck-links: ✗ ${stampedAnchors.length} citation(s) naming the heading the RELEASE STAMP renames\n`);
+    for (const a of stampedAnchors) {
+      const excerpt = a.text.length > 96 ? a.text.slice(0, 93) + '...' : a.text;
+      log(`  ${a.file}:${a.line}  says ${a.target} §${a.anchor} — the release workflow stamps it with a version`);
+      log(`      ${excerpt}`);
+    }
+    log('');
+    log('  It resolves today and dangles in the one run that cannot afford to fail: the release stamps');
+    log('  `## Unreleased` BEFORE it runs `verify`. Cite the file without a §, or the maintained record that');
+    log('  holds the text — never a version that has not shipped.');
+  }
+
   if (deadMembers.length > 0) {
     log(`\ncheck-links: ✗ ${deadMembers.length} citation(s) naming a MEMBER that does not exist\n`);
     for (const m of deadMembers) {
@@ -463,6 +490,9 @@ export function checkLinks(repo, config = {}, log = console.log, files = null) {
     log('  it, NOT `drift-ok`.');
   }
 
+  // The counts on the red path too: a reader of a failure still needs to know the tiers were scanned.
+  log(`\ncheck-links: ${docs.length} maintained doc(s) + ${code.length} code file(s) scanned `
+    + `(${anchorsChecked} §-citation(s) checked)`);
   return 1;
 }
 

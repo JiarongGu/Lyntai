@@ -681,7 +681,8 @@ every addition.
   share one harness and port registry; `memory-spacing` and `memory-reinforcement` are retired.
   The decisions index lists its superseded, reversed and merged stubs and its D5 and D6 links resolve;
   `check-pitfalls` ratchets each trap to 14 non-blank lines; the bench's retired spacing and reinforcement sweeps
-  are deleted.
+  are deleted. `check-links` refuses a section citation that resolves only through the `## Unreleased` heading,
+  which the release stamps before `verify`, and reports what it scanned on a failing run too.
 
 ## 3.2.0 — 2026-09-19
 

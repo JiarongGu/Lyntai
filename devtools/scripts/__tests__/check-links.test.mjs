@@ -575,6 +575,51 @@ describe('check-links — a reference naming a SECTION that does not exist', () 
   });
 });
 
+describe('check-links — a citation to the heading the RELEASE STAMP renames', () => {
+  // The release workflow stamps `## Unreleased` with a version BEFORE it runs `verify`, so a citation to it
+  // resolves on every ordinary run and dangles in the one run that cannot afford to fail. Measured on a real
+  // release (`docs/FIXES.md`, 2026-09-26): `docs/superpowers/INDEX.md` cited `CHANGELOG.md` §Unreleased, link-ok
+  // green locally and red in the pipeline, same commit. Refused now, so it fails where it can be fixed.
+  const changelog = (unreleased = '## Unreleased') => ({
+    'CHANGELOG.md': `# Changelog\n\n${unreleased}\n\n### Breaking\n\n- x\n\n## 3.2.0 — 2026-09-19\n\n### Added\n`,
+  });
+
+  it('catches the measured defect: `CHANGELOG.md` §Unreleased, which resolves until the release runs', () => {
+    const { code, out } = run({
+      ...changelog(),
+      'docs/superpowers/INDEX.md': '| x | `CHANGELOG.md` §Unreleased (the upgrade actions) |\n',
+    });
+
+    assert.equal(code, 1, 'a citation the release stamp dangles must fail BEFORE the release');
+    assert.match(out, /INDEX\.md:1/);
+    assert.match(out, /RELEASE STAMP/, 'the report names the stamp, not a missing section');
+  });
+
+  it('catches the TITLED form the stamper also rewrites', () => {
+    const { code, out } = run({
+      ...changelog('## Unreleased — The route release'),
+      'README.md': 'the upgrade actions are in `CHANGELOG.md` §Unreleased today.\n',
+    });
+    assert.equal(code, 1, out);
+  });
+
+  it('accepts a citation to a heading the stamp leaves alone — a released version, or a subsection', () => {
+    const { code, out } = run({
+      ...changelog(),
+      'README.md': 'see `CHANGELOG.md` §3.2.0, and every `CHANGELOG.md` §Breaking entry names its action.\n',
+    });
+    assert.equal(code, 0, out);
+  });
+
+  it('reads the replayed stamp, so the same citation fails locally and in the pipeline alike', () => {
+    // The pipeline's own transformation, replayed through the gate: after the stamp the heading is a
+    // version, and the citation is dead either way — the gate must not be green on one side only.
+    const { code: before } = run({ ...changelog(), 'README.md': '`CHANGELOG.md` §Unreleased.\n' });
+    const { code: after } = run({ ...changelog('## 3.2.1 — 2026-09-26'), 'README.md': '`CHANGELOG.md` §Unreleased.\n' });
+    assert.deepEqual([before, after], [1, 1]);
+  });
+});
+
 describe('check-links — declaredAnchors', () => {
   it('reads numeric labels, heading text and bold bullet leads', () => {
     const a = declaredAnchors('# T\n\n## 2b. Lifetime\n\n### 5.7.0 Contract\n\n- **Keep it honest.** rest\n');
@@ -593,7 +638,21 @@ describe('check-links — declaredAnchors', () => {
 });
 
 describe('check-links — the code tier is actually covered on the real tree', () => {
-  it('scans a substantial number of code files, and says so on a PASSING run', async () => {
+  it('reports what it scanned on a FAILING run too, so the pin below reads the tier, not the tree', () => {
+    // The counts used to print on the green line only, so a tree holding one dangling reference turned the
+    // pin below into `NaN` and a red GUARD suite — the harness blamed for a document's defect, which is the
+    // over-assertion that pin's own comment says it avoids. Measured on the 2026-09-26 release run.
+    const { code, out } = run({
+      'README.md': 'see `docs/gone.md`.\n',
+      'src/Lyntai.Core/Thing.cs': '// nothing cited here\npublic class Thing;\n',
+    });
+
+    assert.equal(code, 1, out);
+    assert.match(out, /1 maintained doc\(s\) \+ 1 code file\(s\)/);
+    assert.match(out, /0 §-citation\(s\) checked/);
+  });
+
+  it('scans a substantial number of code files, and says so whether the tree passes or not', async () => {
     // This stands in for the fail-closed guard the code half deliberately does not have (see the note in
     // check-links.mjs). The filter has intentional exclusions, so "zero survivors" cannot be distinguished
     // from "nothing to scan" inside the gate — but it can be pinned from outside, against the real tree.

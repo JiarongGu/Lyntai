@@ -7,6 +7,33 @@ to `.claude/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-09-26 — the release run failed `test-devtools` with "the run reported NaN", on a tree green locally
+
+**Symptom.** The release workflow's `verify` failed at its first gate: `check-links.test.mjs`' real-tree pin
+("scans a substantial number of code files") reported `NaN` code files, and `test-devtools` announced that the
+guard scripts themselves were broken. The same commit was green locally, gate and suite alike.
+
+**Root cause.** Two defects, one hiding the other. `docs/superpowers/INDEX.md` cited `CHANGELOG.md` §Unreleased — <!-- link-ok: quotes the dead citation -->
+and the release workflow stamps `## Unreleased` with a version BEFORE it runs `verify`, so the citation resolved
+on every ordinary run and dangled in the pipeline alone: the transient-region trap `check-samples` hit on
+2026-09-19, now in the section half of `check-links`. And `check-links` printed its scan counts on the GREEN line
+only, so the pin that reads them — whose own comment says it asserts the count, not the exit code, so that a
+dangling reference stays `check-links`' to report — read `NaN` on any red tree and blamed the harness.
+
+**Fix.** `check-links` resolves each citation twice, against every heading and against the headings the stamp
+leaves alone (keyed on the stamper's own `unreleasedHeading` in `doctors.mjs`), and refuses one that resolves only
+through the stamped heading — so it fails on every run, not only in the release. The counts now print on the red
+path too. The INDEX row points at `CHANGELOG.md`'s two **D176** Breaking entries instead of the heading.
+
+**Verify.** `check-links.test.mjs`: "a citation to the heading the RELEASE STAMP renames" (the measured citation,
+the titled form, and the pipeline's stamp replayed through the gate — each failed before; the counter-case of a
+released version and a surviving subsection passes on both sides) and "reports what it scanned on a FAILING run
+too" (failed before). Replayed end to end: the fixed tree with `changelog --fix` applied, in a scratch worktree,
+passes `test-devtools` and every prose gate.
+
+**Introduced by.** `d4a9a2ae` (2026-09-24), which archived Part 284 and wrote the citation; the NaN half by
+`9a52ece8` (2026-08-17), which added the pin while the counts printed only on the green line.
+
 ## 2026-09-25 — the `AddMemory()` chat never recalled anything it had said
 
 **Symptom.** Found by the 2026-09-25 full review; no adopter report. README's headline setup,

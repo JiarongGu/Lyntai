@@ -326,6 +326,13 @@ and the first probe written to measure it.
 **Repointing is the fix and renumbering is the trap** — renumbering makes an existing citation resolve
 silently to the WRONG section.
 
+**A citation that resolves only through `## Unreleased` is refused on every run** (added 2026-09-26). The
+release workflow stamps that heading with a version before it runs `verify`, so the citation resolves on
+every ordinary run and dangles in the release alone — measured that way on a real release run
+(`docs/FIXES.md`). Each citation is also resolved against the headings the stamp leaves alone, keyed on the
+stamper's own `unreleasedHeading`, so the gate and the stamper cannot disagree about which heading goes.
+It is the transient-region rule §check-samples states for a compiled fence, applied to a citation.
+
 **The member half** (added 2026-08-30) asks whether a `Type.Member` citation — or a `see cref` naming one —
 points at an identifier that EXISTS. The other three are structurally blind to it: the path resolves, the
 record is right, the § is there, and only the member name is invented. Measured the same way, and the

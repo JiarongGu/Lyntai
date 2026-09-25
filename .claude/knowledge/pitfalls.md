@@ -1855,7 +1855,8 @@ benched tenant, an unbounded engine or a render nobody cancelled.
 - **A gate whose subject includes a TRANSIENT region is green until the pipeline changes that region — and <!-- trap: sub=gates,docs shape=stale-claim,scope-blind -->
   the pipeline is the one run you cannot afford to fail.** `check-samples` compiled a fence under
   `CHANGELOG.md`'s `## Unreleased`, the release workflow stamps that heading before `verify`, and the census
-  dropped mid-pipeline — red in the release, green locally, same commit (`docs/FIXES.md`, 2026-09-19). **Ask
-  of any counted subject which part of it a scheduled process deletes**; reproduce a pipeline-only failure
-  by replaying the pipeline's transformation through the gate's seam; and an existing test may ENCODE the
-  defect — invert it with its reason rather than deleting it.
+  dropped mid-pipeline — red in the release, green locally, same commit (`docs/FIXES.md`, 2026-09-19). It
+  recurred a week later in `check-links`, as a CITATION resolved through that heading (2026-09-26). **Ask of
+  EVERY gate that reads the region, not only the one that burned, which part a scheduled process deletes**;
+  reproduce a pipeline-only failure by replaying the pipeline's transformation through the gate's seam; and
+  an existing test may ENCODE the defect — invert it with its reason rather than deleting it.
