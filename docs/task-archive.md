@@ -1182,19 +1182,11 @@ standing hazard to closed (`pitfalls.md` ×3, plus `windows-machine.md`, `repo-m
 `RULES_INDEX.md` ×2), a fourth `pitfalls.md` entry was added for the trap below, and the `archive-task`
 skill was corrected to the compressed-archive convention it still contradicted.
 
-**Four claims about git's behaviour were written into the records from inference and then refuted by
-running one command each** — believed first, measured second:
-
-| believed | measured |
-|---|---|
-| `git checkout-index -a -f` rewrites an up-to-date file | it is a silent **no-op**; delete the file first and it writes |
-| a stray CRLF working file is invisible to `git status` | it reports ` M` |
-| it never heals on `git checkout --` | it heals **while the stat cache is busted**; after a `git add` it is skipped and persists |
-| `eol=lf` is redundant with `text=auto` here | it is not — under `core.autocrlf=true` they check out CRLF and LF respectively, which is the decision's actual justification |
-
-**Every one was plausible, cheap to test, and wrong**, and three of the four were caught only by re-reading
-prose that had already been written. D95 carries the measured versions; the reusable form is in
-`pitfalls.md`.
+**Four claims about git's behaviour were written into the records from inference and each was refuted by
+running one command** — `checkout-index -a -f` on an up-to-date file, a stray CRLF file's visibility to
+`git status`, whether it heals on `git checkout --`, and whether `eol=lf` is redundant with `text=auto`. Three
+of the four were caught only by re-reading prose already written. D95 carries the measured versions; the
+reusable form is `pitfalls.md` §Environment / tooling.
 
 - **Decide the line-ending convention and commit it as `.gitattributes`.**
 
@@ -1529,100 +1521,60 @@ design §5.7, `pitfalls.md` and these two Parts.
 
 ## Part 121 — the walk's names, passed before the surface shipped (2026-08-30)
 
-✅ done 2026-08-30 — `docs/task-archive.md` Part 234's naming item, filed the previous day and **unblocked
-by Part 120 itself**: its blocker was the TREE (`MemoryWalk` did not exist, so there were no names to pass
-over), which is the kind of blocker a commit discharges. Five renames, against
-`.claude/rules/dotnet-package-layout.md` §Naming.
+✅ done 2026-08-30 — `docs/task-archive.md` Part 234's naming item, unblocked by Part 120 itself (its blocker
+was the TREE: `MemoryWalk` did not exist). Five renames, against `.claude/rules/dotnet-package-layout.md`
+§Naming:
 
 | was | now | why |
 |---|---|---|
 | `MemoryWalkStep.Ordinal` | `Number` | `Ordinal` reads as `StringComparison.Ordinal`, which is about comparison rather than position |
 | `MemoryWalkStep.Discovered` | `NewItems` | pairs with `Items`; "discovered" is walk-mechanics vocabulary, not a domain noun |
 | `MemoryWalkStep.Upgraded` | `UpgradedCount` | a past participle returning an `int` |
-| `MemoryWalkOptions.MaxEntries` | `MaxItems` | see below — this is the one with a real argument |
+| `MemoryWalkOptions.MaxEntries` | `MaxItems` | the word is already spent on STORE CAPACITY in five places (`CacheOptions`, `MemoryEvictionPolicy`, `BoundedProviderPool`, both response caches), and a walk's bound is a per-call context limit — the `AuthoritativeReserve` shape |
 | `MemoryWalkOptions.SelectSeeds` | `SeedSelector` | noun form for a delegate property, matching .NET's `*Selector`; **not** `*Policy`, which here means a DI seam |
 
-**`MaxEntries` is the interesting one, and the argument got STRONGER while checking it.** The rename was
-first proposed only for local consistency — it bounds `Items`, and nothing else on the surface said
-"entries". Grepping the tree then showed `MaxEntries` is already spent on STORE CAPACITY in five places
-(`CacheOptions`, `MemoryEvictionPolicy`, `BoundedProviderPool`, both response caches). A walk's bound is a
-per-call context limit, not a store's size, so reusing the word is the `AuthoritativeReserve` shape
-`MemoryCompositionOptions` documents having shipped once: one identifier, two meanings, both reachable from
-one options chain.
-
-**What did NOT move, each on a precedent rather than a preference:** `Items` and `Ran` mirror
-`MemoryRecall`; `Hops` mirrors `ExpandAsync(hops:)`; `SeedsPerStep` keeps "seed", already this library's
-word (`SemanticSeedK`, `SubjectSeedK`); `MemoryWalk`/`MemoryWalkOptions` mirror
-`MemoryComposition`/`MemoryCompositionOptions`.
-
-**The compiler is the site-list for C# and NOT for prose, which is where the rename could have rotted.**
-`StringComparison.Ordinal` appears in three of the four code files touched, so a blanket replace would have
-corrupted them — the renames were scoped to `step.Ordinal`/`s.Ordinal` per file. The prose sites (README
-sample, `CHANGELOG` Unreleased, D102, design contract §5.7, `pitfalls.md`) were found by grepping the
-identifiers, and the same grep correctly left the five pre-existing `MaxEntries` alone.
+**What did NOT move, each on a precedent:** `Items` and `Ran` mirror `MemoryRecall`; `Hops` mirrors
+`ExpandAsync(hops:)`; `SeedsPerStep` keeps "seed"; `MemoryWalk`/`MemoryWalkOptions` mirror
+`MemoryComposition`/`MemoryCompositionOptions`. The prose sites were found by grepping the identifiers,
+scoped so `StringComparison.Ordinal` survived (`.claude/knowledge/pitfalls.md` §Refactoring & namespace moves).
 
 ## Part 122 — the `K` sweep: a compromise, not a default nobody looked at (2026-08-30)
 
-✅ done 2026-08-30 — `docs/task-archive.md` Part 233's `K` sweep. Built
-`node devtools/dev.mjs memory-locomo --ranks`, the LoCoMo-side ladder that item asked for, and ran it beside
-a re-run of the LongMemEval haystack ladder at full sample. Tables in `docs/memory-measurements.md` §5.
-**No default moved, and the item's own premise is what the measurement overturned.**
+✅ done 2026-08-30 — `docs/task-archive.md` Part 233's `K` sweep: built `node devtools/dev.mjs memory-locomo
+--ranks` and re-ran the LongMemEval haystack ladder at full sample (`docs/memory-measurements.md` §5,
+`k-ladder-locomo-shipped-k60-n200`). **No default moved, and the item's own premise is what the measurement
+overturned.**
 
-**The premise was that K = 120 is free, and BOTH halves of it failed.** LoCoMo is a SEARCH workload, and
-60 → 120 costs it 4.5 points of evidence-hit monotonically; separately, re-running knowledge-update on all
-70 questions rather than 25 shows the same step costing 6.0 points of `current@k` where the small sample
-reported 0.0. So *"free"* was one workload wide AND one sample thin. **What replaces it: 60 is a priced
-compromise** — every step in either direction helps one metric and hurts another, which is exactly what
-"K selects a REGIME" predicts and nobody had measured on more than one regime.
+**The premise was that K = 120 is free, and BOTH halves of it failed**: 60 → 120 costs LoCoMo evidence-hit
+monotonically, and costs knowledge-update `current@k` at full sample where the small sample read nothing.
+**60 is a priced compromise** — "K selects a REGIME", measured on more than one regime.
 
-**The sharper result is that `K` is not where the LoCoMo gap is.** 32 of 200 questions had no evidence in
-the candidate pool at all, so the fusion loses 29.5 points of material it already HELD and the best K
-recovers 4.5 of them. `docs/task-archive.md` Part 233's residual gap is therefore not a fusion constant — it
-is seeding for a sixth of it and ranking SHAPE for the rest.
+**The sharper result is that `K` is not where the LoCoMo gap is**: a sixth of the questions had no evidence
+in the pool at all, so the residual gap is seeding for that sixth and ranking SHAPE for the rest.
 
-**One replica, not two, proven neutral before it was trusted.** The two ladders share
-`bench/Lyntai.Benchmarks/RankLadder.cs`, and the argument is sharper than for `WalkAsync`: a second copy
-could get the tiebreak or the competition-rank definition wrong in ONE ladder and still look right.
-Equivalence was shown by stash/run/restore/re-run, byte-identical on all eight rows.
-
-**Controls.** LoCoMo's replica reproduces the shipped policy's top-20 on **200/200** recalls and its K = 60
-row reads the `lyntai` arm's own published 54.5% to the decimal; the haystack ladder's control is 66/66.
-The first attempt at the harness died on a `KeyNotFoundException` rather than scoring nothing quietly — an
-early `continue` skipped a dictionary a later scoring path read — which is the loud direction.
+**One replica, proven neutral before it was trusted.** Both ladders share
+`bench/Lyntai.Benchmarks/RankLadder.cs`; equivalence was shown by stash/run/restore/re-run, and LoCoMo's
+replica reproduces the shipped policy's top-20 on 200/200 recalls and its K = 60 row to the decimal.
 
 ## Part 123 — the expansion floor, swept: a better deal than its own doc said (2026-08-30)
 
-✅ done 2026-08-30 — `docs/task-archive.md` Part 234's `ExpansionRetrievabilityFloor` sweep. `--expand-floor`
-was added to the LoCoMo harness so both workloads can be priced, and the knowledge-update arm re-run at 70
-questions. Tables in `docs/memory-measurements.md` §5. **The default did not move; the DOCUMENTATION did, and that is the finding.**
+✅ done 2026-08-30 — `docs/task-archive.md` Part 234's `ExpansionRetrievabilityFloor` sweep: `--expand-floor`
+added to the LoCoMo harness and the knowledge-update arm re-run at 70 questions
+(`docs/memory-measurements.md` §5, `floor-08-knowledge-update-70q`). **The default did not move; the
+DOCUMENTATION did, and that is the finding.**
 
-**It cannot be swept the cheap way, and saying why matters.** The `K` ladder one section earlier scores
-offline from a single ingestion because K only re-ranks a fixed pool. The floor changes which neighbours are
-FETCHED, and expansion reinforces what it walks, so each value needs its own run against its own store —
-three LoCoMo runs and one haystack run rather than one of each.
+**The shipped XML doc quoted a superseded sample** — the 25-question figures, which overstated the cost by
+2.7× at 70. `docs/memory.md` had carried the "not re-run at 70" caveat all along; the XML doc did not, and XML
+docs SHIP. It cannot be swept the cheap way: the floor changes which neighbours are FETCHED, and expansion
+reinforces what it walks, so each value needs its own run against its own store.
 
-**The shipped XML doc quoted a superseded sample.** `ExpansionRetrievabilityFloor` documented the trade as
-40.0% falling to 36.0% and held flat at 40.0%, costing 4 points of current-fact hit — the 25-question
-figures. At 70 it is **+2.8 points of `clean` for −1.5 of `current@k`**: both sides shrank, the cost by
-more, so the doc overstated it by **2.7×**. `docs/memory.md` carried the "not re-run at 70" caveat all
-along; the XML doc did not, and XML docs SHIP. Same tier as `MaxSalience` keeping *"Unmeasured — a starting
-point"* after the ladder that measured it, and as the README's stale gate count fixed the same day.
+**On a SEARCH workload the floor is close to free** — the opposite of what **D98** worried about. **0.5 is
+inert**, because LoCoMo is ingested fresh and nothing has decayed that far, while on knowledge-update 0.8
+sits between the current and the superseded fact's retrievability: the value that binds is a property of
+**how decayed a store is**, not of the questions, which is what makes "adopt 0.8" the wrong lesson.
 
-**On a SEARCH workload the floor is close to free**, which is the opposite of what D98 worried about. LoCoMo
-at 0.8 loses one question of 200 at shot 2 and none at shot 3, while cutting context 17% and 8% — hit per 1k
-characters goes 0.132 to 0.158. The knob was justified as buying precision with recall; on the workload
-where recall IS the metric, it barely charges.
-
-**0.5 is inert, and that is the transferable part.** Byte-identical to 0 on every column, because LoCoMo is
-ingested fresh and nothing has decayed that far. On knowledge-update the `--ranks` diagnostic puts the
-current fact at retrievability 0.8556 and the superseded one at 0.7206, so 0.8 sits BETWEEN them. The value
-that binds is therefore a property of **how decayed a store is**, not of the questions — which is what the
-backlog item predicted, and what makes "adopt 0.8" the wrong lesson to draw.
-
-**One control is exact and one is not, stated rather than blurred.** Two LoCoMo floor-0 runs reproduced
-byte-identically, which is what licenses reading a 0.5-point move there as one real question. No repeat was
-taken on the haystack arm, whose reproducibility this repository elsewhere puts at about one question — so
-its +2.8 is a shape, not a decimal.
+**One control is exact and one is not.** Two LoCoMo floor-0 runs reproduced byte-identically; no repeat was
+taken on the haystack arm, so its gain is a shape, not a decimal.
 
 ## Part 124 — the 3D survey: neither option was on the menu (2026-08-30)
 
@@ -1704,32 +1656,20 @@ claim, grep the CLAIM.
 
 ✅ done 2026-08-30 — `TASKS.md` Part 65's "two option defaults, and one makes the other inert". The owner
 was asked whether `SalienceOptions.MaxSalience` (4) and `NoveltyWeight` (1.5) should stay and answered
-**measure it**, so the question stopped being a decision and became a ladder. Tables in `docs/memory-measurements.md` §5.
-**Outcome: both defaults stay**, and the reason is that the two real embedders pick OPPOSITE ends of the
-ladder — `NW0.5` under `nomic-embed-text`, `NW3` under `embeddinggemma:300m` — so no best weight exists to
-adopt. That is `docs/DECISIONS.md` D89's own precedent holding a second time: it required a second embedder
-because the first reading did not survive one, and this one did not either.
+**measure it**, so the question stopped being a decision and became a ladder
+(`docs/memory-measurements.md` §5, `salience-novelty-nw15-true-off`). **Outcome: both defaults stay**,
+because the two real embedders pick OPPOSITE ends of the ladder — `NW0.5` under `nomic-embed-text`, `NW3`
+under `embeddinggemma:300m` — so no best weight exists to adopt: **D89**'s precedent holding a second time.
 
 **The instrument had to be repaired twice before it could answer, and the second repair is the finding.**
-The verdict reported Δ miss ALONE, which is the defect `pitfalls.md` records this file's sibling paying for
-with a reverted default; it now reports pollution beside it and evaluates §5.7.0's lexicographic order. And
-**the `SalienceOff` arm was never off** — it passed `saliencePolicies: null`, which
-`GraphMemoryEngine.NormalizeSaliencePolicies` turns back into the shipped policy, so every table this sweep
-ever published compared retention-on against retention-off with salience's ADMISSION consumer live in both
-arms. `docs/FIXES.md` carries the incident, `.claude/knowledge/pitfalls.md` the general rule.
+The verdict reported Δ miss ALONE and now reports pollution beside it under §5.7.0's lexicographic order;
+and **the `SalienceOff` arm was never off**, so every table this sweep had published kept salience's
+ADMISSION consumer live in both arms (`docs/FIXES.md` 2026-08-30 has the incident, `pitfalls.md` the rule).
+It was widening the study to six corpus shapes that exposed the confound, not checking it.
 
-**What the corrected run establishes, beyond the defaults question.** The harness is DETERMINISTIC — the
-clamp's own neutral rung reads exactly `0.0000` against the off arm on every cell of every shape, both
-metrics, zero-width intervals, on both embedders — so the run-to-run noise floor for an identical
-configuration is zero and no separate repeat was needed. `high-noise` is where salience pays (−0.09 to −0.12
-at every weight, significant under both), the shipped weight is not a net cost under either (+0.0018 against
-−0.0125), and `many-candidates` — the regression Part 65 exists for — is significant under one embedder and
-not the other. **Read the `high-noise` column against the templated-noise caveat**: the cell now carrying the
-result is the one most exposed to the corpus's known blind spot.
-
-**It was widening the study that exposed the confound, not checking it.** Both earlier ladders ran two corpus
-shapes; at six, a provably-silent arm came back significantly worse than "off" on two new shapes, by more
-than the spread of the arms being ranked.
+**The corrected run is DETERMINISTIC** — the clamp's neutral rung reads exactly `0.0000` against the off arm
+on every cell of both embedders — so no separate repeat was needed. `high-noise` is where salience pays, and
+it is the cell most exposed to the corpus's templated-noise blind spot.
 
 - Two option defaults, and one makes the other inert
 

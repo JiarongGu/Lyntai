@@ -1710,7 +1710,6 @@ export default {
    * There is deliberately NO escape token — see `check-archive.mjs`.
    */
   archiveEntryLengthAllowances: {
-    'Part 106': 22,
     'Part 108': 24,
     'Part 110': 26,
     'Part 111': 24,
@@ -1719,10 +1718,6 @@ export default {
     'Part 117': 21,
     'Part 118': 22,
     'Part 120': 22,
-    'Part 121': 27,
-    'Part 122': 22,
-    'Part 123': 26,
-    'Part 127': 26,
     'Part 130': 26,
     'Part 131': 22,
     'Part 133': 23,
