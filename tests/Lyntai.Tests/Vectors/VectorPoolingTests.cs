@@ -199,6 +199,24 @@ public class OnnxProviderLiveTests
 {
     private static string? ModelDirectory => Environment.GetEnvironmentVariable("LYNTAI_ONNX_MODEL_DIR");
 
+    private const string ReferenceModel = "all-MiniLM-L6-v2";
+
+    /// <summary>Whether the export IS the model the pinned figures belong to — named by
+    /// <c>LYNTAI_ONNX_MODEL_ID</c>, else by the export's directory, the name it is downloaded under. Width is
+    /// not identity: bge-small, e5-small and paraphrase-MiniLM are 384-wide too, and fail these figures. Nor is
+    /// <c>config.json</c>'s <c>_name_or_path</c>, which on this export names the BASE model it was tuned from.</summary>
+    private static bool IsTheReferenceModel()
+    {
+        var id = Environment.GetEnvironmentVariable("LYNTAI_ONNX_MODEL_ID") is { Length: > 0 } named
+            ? named
+            : Path.GetFileName(ModelDirectory?.TrimEnd('/', '\\'));
+        return id?.Contains(ReferenceModel, StringComparison.OrdinalIgnoreCase) == true;
+    }
+
+    private static void SkipUnlessTheReferenceModel() =>
+        Skip.IfNot(IsTheReferenceModel(),
+            $"these figures are {ReferenceModel}'s; set LYNTAI_ONNX_MODEL_ID if this export is it under another name");
+
     private static OnnxProvider Load(InputSegmentation? segmentation = null)
     {
         Skip.If(string.IsNullOrWhiteSpace(ModelDirectory), "set LYNTAI_ONNX_MODEL_DIR to an ONNX export");
@@ -250,7 +268,7 @@ public class OnnxProviderLiveTests
 
         // Pinned against all-MiniLM-L6-v2 specifically, so a different export skips rather than failing on
         // numbers that were never about it.
-        Skip.IfNot(vectors[0].Length == 384, "reference figures are all-MiniLM-L6-v2's (384 dimensions)");
+        SkipUnlessTheReferenceModel();
 
         Assert.Equal(0.979984, Cosine(vectors[0], vectors[2]), 4);
         Assert.Equal(0.146295, Cosine(vectors[0], vectors[1]), 4);
@@ -263,6 +281,7 @@ public class OnnxProviderLiveTests
         // Reading it wrong is invisible to cosine, which is scale-invariant — so nothing downstream would
         // report it, which is exactly why it is asserted here.
         using var vectorProvider = Load();
+        SkipUnlessTheReferenceModel();
 
         var vector = (await vectorProvider.EmbedAsync(["the weather forecast for tomorrow"]))[0];
 
@@ -292,8 +311,9 @@ public class OnnxProviderLiveTests
         var vectors = await vectorProvider.EmbedAsync(SharedHead());
 
         Assert.NotEqual(vectors[0], vectors[1]);
-        Assert.All(vectors, v => Assert.Equal(1.0, Math.Sqrt(v.Sum(c => (double)c * c)), 4));
         Assert.Equal(vectors[0].Length, vectors[2].Length);
+        if (IsTheReferenceModel())   // unit length is the reference model's declaration, not every export's
+            Assert.All(vectors, v => Assert.Equal(1.0, Math.Sqrt(v.Sum(c => (double)c * c)), 4));
     }
 
     [SkippableFact]
@@ -303,7 +323,8 @@ public class OnnxProviderLiveTests
 
         Assert.Equal("onnx", vectorProvider.Id);
         Assert.True(vectorProvider.IsAvailable);
-        Assert.Equal(512, vectorProvider.MaxTokens);
+        Assert.True(vectorProvider.MaxTokens > 0);
+        if (IsTheReferenceModel()) Assert.Equal(512, vectorProvider.MaxTokens);
         Assert.NotEmpty((await vectorProvider.EmbedAsync(["x"]))[0]);
     }
 

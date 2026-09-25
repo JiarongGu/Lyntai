@@ -1,6 +1,7 @@
 using Lyntai.Inference;
 using Lyntai;
 using Lyntai.Agents;
+using Lyntai.Processes;
 using Lyntai.Providers.ClaudeCli;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -23,6 +24,7 @@ public class ClaudeCliMcpLiveTests
     public async Task Real_claude_cli_calls_a_hosted_tool_and_surfaces_its_result()
     {
         Skip.IfNot(Live, "LYNTAI_LIVE_CLI_TOOLS not set");
+        Skip.IfNot(ProcessRunner.CommandExists("claude"), "no claude CLI on PATH");
 
         var called = 0;
         var services = new ServiceCollection();

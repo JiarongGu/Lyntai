@@ -78,7 +78,8 @@ public class OllamaLiveTests
     [SkippableFact]
     public async Task Embeddings_against_real_ollama_return_batched_vectors_of_one_dimension()
     {
-        Skip.IfNot(await LiveAsync(), Reason); // also requires `ollama pull nomic-embed-text`
+        Skip.IfNot(await LiveAsync(), Reason);
+        Skip.IfNot(await Lyntai.Tests.Live.OllamaLive.HasModelAsync(VectorModel), $"`ollama pull {VectorModel}` first");
 
         var vectorProvider = new OllamaProvider("ollama",
             new OllamaOptions { BaseUrl = BaseUrl, Model = VectorModel, Produces = ProviderKinds.Vector },

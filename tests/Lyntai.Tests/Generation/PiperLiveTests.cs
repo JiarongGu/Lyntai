@@ -22,6 +22,10 @@ public class PiperLiveTests
         Skip.If(string.IsNullOrWhiteSpace(Binary) || string.IsNullOrWhiteSpace(Voice),
             "set LYNTAI_PIPER_CLI to a real piper executable and LYNTAI_PIPER_MODEL to a voice .onnx");
 
+        // low and x_low voices declare 16 kHz, so the rate is read off the voice rather than assumed
+        using var voice = System.Text.Json.JsonDocument.Parse(File.ReadAllText(Voice + ".json"));
+        var rate = voice.RootElement.GetProperty("audio").GetProperty("sample_rate").GetInt32();
+
         var provider = new PiperProvider(
             new PiperOptions { BinaryPath = Binary, ModelPath = Voice },
             new ProcessRunner());
@@ -47,9 +51,9 @@ public class PiperLiveTests
         var totalBytes = content.Sum(c => (long)c.Data!.Length);
         Assert.Equal(0, totalBytes % 2);
         Assert.All(content, c =>
-            Assert.Equal("audio/pcm;rate=22050;bits=16;channels=1;endian=little", c.MediaType));
+            Assert.Equal($"audio/pcm;rate={rate};bits=16;channels=1;endian=little", c.MediaType));
         var seconds = terminal.Usage!.Seconds!.Value;
-        Assert.Equal(totalBytes / 44100.0, seconds, 6);
+        Assert.Equal(totalBytes / (rate * 2.0), seconds, 6);
         Assert.InRange(seconds, 1, 60);   // two spoken sentences are seconds of audio, not millis or minutes
     }
 }
