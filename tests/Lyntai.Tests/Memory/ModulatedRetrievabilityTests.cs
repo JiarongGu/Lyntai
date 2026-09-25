@@ -13,8 +13,7 @@ public class ModulatedRetrievabilityTests : RetrievabilityPolicyContractFacts
     /// behaviour from any shipped curve's arithmetic. <c>HalfLifeRetrievability</c> is deleted; <!-- drift-ok: names the deleted curve deliberately -->
     /// substituting <see cref="DsrRetrievability"/> here would trade the clean,
     /// hand-checkable expected values below (<c>0.25</c>, <c>0.5</c>, <c>Math.Pow(2, -0.5)</c>, …) for a
-    /// power-law formula with no equally simple closed form — exactly the "copy of the deleted curve" the
-    /// task brief warns against, wearing a different excuse. This keeps only the plain
+    /// power-law formula with no equally simple closed form. This keeps only the plain
     /// <c>r = 2^(-age/effectiveStability)</c> exponential shape the shipped curve's own connection-boost
     /// math already assumes, with no reinforcement growth and no unmeasured tuning constants — the minimum
     /// surface <see cref="IMemoryRetrievabilityPolicy"/> demands, nothing more. Every fact below leaves
@@ -36,7 +35,7 @@ public class ModulatedRetrievabilityTests : RetrievabilityPolicyContractFacts
         public MemoryDecayState Reinforce(in MemoryDecayState state) => state; // never reinforces — irrelevant here
 
         // a fixed, distinguishable value nothing else in this file could produce — proves DerivedGrade
-        // delegation (2026-08-11, fsrs-properly plan Task 3) rather than a coincidental agreement with the
+        // delegation rather than a coincidental agreement with the
         // interface's own default (null)
         public double? DerivedGrade(in MemoryDecayState state) => state.Age <= 0 ? null : 3.14;
 
@@ -123,8 +122,7 @@ public class ModulatedRetrievabilityTests : RetrievabilityPolicyContractFacts
         Assert.Equal(6, composition.StabilityFactor([2, 3]), 9);
     }
 
-    /// <summary>A composition policy nothing can vary is decoration (2026-08-10 memory-policy-seams plan,
-    /// Task 3, Step 3's mutation-check requirement) — this proves the seam is real by swapping in a
+    /// <summary>A composition policy nothing can vary is decoration — this proves the seam is real by swapping in a
     /// DIFFERENT combination rule (max instead of the shipped multiply) over the SAME two retention policies and
     /// showing the result changes. Multiply gives 2 × 3 = 6× the half-life; max gives 3× — different enough
     /// to be unmistakable, not a rounding difference.</summary>
@@ -219,7 +217,7 @@ public class ModulatedRetrievabilityTests : RetrievabilityPolicyContractFacts
         Assert.Equal(Inner().Reinforce(state), policy.Reinforce(state));
     }
 
-    /// <summary>DerivedGrade (2026-08-11, fsrs-properly plan Task 3) forwards to the wrapped policy
+    /// <summary>DerivedGrade forwards to the wrapped policy
     /// unchanged, on the SAME raw state <see cref="Reinforce"/> itself uses — never the modulated one — for
     /// the identical reason: whichever policy actually computed the grade is the one a review log must
     /// credit, on the state that produced it.</summary>

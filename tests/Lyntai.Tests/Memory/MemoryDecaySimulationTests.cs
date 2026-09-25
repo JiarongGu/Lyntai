@@ -108,10 +108,8 @@ public class MemoryDecaySimulationTests
         var targeted = await engine.RecallAsync(new MemoryQuery("t", "s", "noise0x0"));
 
         Assert.Single(targeted.Items);
-        // Threshold loosened for DsrRetrievability (2026-08-10, fsrs-properly plan Task 1): this corpus's own
-        // 210-write run only ages noise0x0 to age/InitialStability ~10, where DSR's heavier tail (the reason
-        // it was adopted) sits at r≈0.18 (MEASURED, fix round 1: 0.180041) — the deleted exponential curve
-        // fell under 0.05 at the same age. 0.3 still pins "faint" (well under a fresh recall's r=1, and with
+        // This corpus's 210-write run only ages noise0x0 to age/InitialStability ~10, where DSR's heavy
+        // tail sits at r≈0.18 (measured 0.180041). 0.3 still pins "faint" (well under a fresh recall's r=1, and with
         // real headroom over the measured 0.18) without asking this corpus's own constants, shared with
         // several other facts in this file, to change.
         Assert.True(targeted.Items[0].Retrievability < 0.3, "and it comes back faint, which is the point");
@@ -171,8 +169,7 @@ public class MemoryDecaySimulationTests
         for (var i = 0; i < DurableFacts; i++)
         {
             var hit = (await engine.RecallAsync(new MemoryQuery("t", "s", $"durable{i}"))).Items.Single();
-            // MEASURED (fix round 1, confirming this threshold is still correct for DsrRetrievability):
-            // durable0 reads 0.730903 here — comfortably above 0.25, and the pair below (the undamped
+            // MEASURED: durable0 reads 0.730903 here — comfortably above 0.25, and the pair below (the undamped
             // control) reads 0.113702 at the identical scenario, so the two thresholds still BRACKET rather
             // than having drifted together in the same direction.
             Assert.True(hit.Retrievability > 0.25,
@@ -196,11 +193,8 @@ public class MemoryDecaySimulationTests
         for (var i = 0; i < DurableFacts; i++)
         {
             var hit = (await engine.RecallAsync(new MemoryQuery("t", "s", $"durable{i}"))).Items.Single();
-            // Threshold loosened for DsrRetrievability (2026-08-10, fsrs-properly plan Task 1): the deleted
-            // exponential curve's 2^(-age/S) fell under 0.001 at this scenario's age/S≈25; DSR's heavier tail
-            // — the reason it was adopted — sits at r≈0.11 there instead (MEASURED, fix round 1: durable0
-            // reads 0.113702), so "washed out" can no longer mean "near zero." The fair, still-discriminating
-            // bar is the SAME 0.25 the damped control above clears comfortably (MEASURED: 0.730903 there):
+            // At this scenario's age/S≈25 DSR's heavy tail sits at r≈0.11 (measured: durable0 reads
+            // 0.113702), so "washed out" cannot mean "near zero." The fair, still-discriminating bar is the SAME 0.25 the damped control above clears comfortably (MEASURED: 0.730903 there):
             // this asserts the undamped case falls BELOW that bar, which is exactly the contrast this pair
             // of facts exists to show, from the other direction — the two thresholds bracket
             // (0.1137 < 0.25 < 0.7309), not two numbers that drifted together.

@@ -61,9 +61,9 @@ public class MemoryGraphStoreCoverageTests
     [Fact]
     public void Every_backend_drives_the_contract_from_the_shared_theory_source()
     {
-        // THE point of Part 70. Each backend must have a theory fed by MemoryGraphStoreFacts.Names, because
-        // that is what makes exhaustiveness hold by construction; a backend that drifted back to hand-wired
-        // [Fact]s would silently cover whatever someone remembered.
+        // Each backend must have a theory fed by MemoryGraphStoreFacts.Names, because that is what makes
+        // exhaustiveness hold by construction; a backend that drifted back to hand-wired [Fact]s would
+        // silently cover whatever someone remembered.
         foreach (var backend in Backends)
         {
             var fed = backend
@@ -76,7 +76,7 @@ public class MemoryGraphStoreCoverageTests
             Assert.True(fed,
                 $"{backend.Name} does not drive {nameof(MemoryGraphStoreContract)} from "
                 + $"{nameof(MemoryGraphStoreFacts)}.{nameof(MemoryGraphStoreFacts.Names)}, so its coverage is "
-                + "whatever was wired by hand — the hole Part 70 closed.");
+                + "whatever was wired by hand.");
         }
     }
 

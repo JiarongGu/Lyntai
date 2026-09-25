@@ -181,12 +181,8 @@ public readonly record struct CorpusShape(
 /// <summary>
 /// The 60-shape property grid this repository's corpus invariants are proved over, and the ONE definition of
 /// it.
-/// <para><b>It lived twice until 2026-08-28</b> — privately in <c>MemoryCorpusTests</c> and restated in
-/// <c>MemoryGistSupportSweep</c>, with nothing gating the two against each other. A sweep claiming to run
-/// "the grid the corpus invariants are proved over" therefore went silently false the day either copy moved.
-/// <c>MemoryCorpusTests</c> already records the same defect one level down — guards each picking their own
-/// subset, which "recurred twice in this file already" — so this is that argument applied across the
-/// assembly boundary rather than a new rule.</para>
+/// <para>ONE definition, because a sweep claiming to run "the grid the corpus invariants are proved over"
+/// goes silently false the day a second copy moves, and nothing gates two copies against each other.</para>
 /// <para>It lives HERE because <c>bench</c> links this file rather than referencing the test assembly, so
 /// this is the only place both consumers can reach.</para>
 /// </summary>
@@ -218,11 +214,10 @@ public static class CorpusGrid
 /// <summary>One step in a <see cref="MemoryCorpus"/>'s timeline — a <see cref="CorpusWrite"/>, a
 /// <see cref="CorpusQuery"/>, or a <see cref="CorpusExpand"/>. Sealed to exactly those three so a consumer's
 /// pattern match is exhaustive.
-/// <para><b><see cref="CorpusExpand"/> was added 2026-08-12 and is OPT-IN</b>
-/// (<see cref="CorpusShape.ExpandRatio"/> defaults to <c>0</c>), so every corpus generated before it existed
-/// is byte-identical and no published measurement moves. A pattern match that predates it therefore keeps
-/// working on every existing shape — but will silently skip expansions on a shape that has them, which is
-/// why the switches in the sweeps were made exhaustive rather than left with a two-case default.</para>
+/// <para><b><see cref="CorpusExpand"/> is OPT-IN</b> (<see cref="CorpusShape.ExpandRatio"/> defaults to
+/// <c>0</c>), so no published measurement moves. A two-case pattern match still works on every shape without
+/// expansions and silently skips them on a shape that has them, which is why the sweeps' switches are
+/// exhaustive.</para>
 /// </summary>
 public abstract record CorpusStep;
 
@@ -250,12 +245,11 @@ public sealed record CorpusQuery(string Text, IReadOnlyList<string> RelevantIds,
 /// <c>GraphMemoryEngine.ExpandAsync</c> represents, as opposed to the engine merely having returned a
 /// headline.
 ///
-/// <para><b>Why this class exists (2026-08-12, <c>docs/task-archive.md</c> Part 64).</b> This engine
-/// reinforces
+/// <para><b>Why this class exists (<c>docs/task-archive.md</c> Part 64).</b> This engine reinforces
 /// everything a recall returned, which is the ranker's own opinion rather than evidence of usefulness —
 /// measured as net-harmful to recall quality. The proposed fix is to reinforce on EXPANSION instead, and
-/// until this step existed the corpus could not express the act, so the fix was unmeasurable. Every
-/// measurement taken before this date exercised reinforcement-on-recall only.</para>
+/// without this step the corpus could not express the act. A measurement on a shape with
+/// <c>ExpandRatio = 0</c> exercises reinforcement-on-recall only.</para>
 ///
 /// <para><b><see cref="EntryId"/> is always an entry genuinely relevant to the query it follows, and that is
 /// deliberate: this is a perfect usefulness ORACLE.</b> A real consumer's expansions are noisier, so an arm
@@ -276,23 +270,12 @@ public sealed record CorpusExpand(string EntryId) : CorpusStep;
 /// A deterministic, seeded corpus of four declared classes — critical-rare, hot-ephemeral, topical, noise —
 /// each with a stated ground truth, so recall quality can be measured against a known answer instead of by
 /// inspection.
-/// <para><b>REFRAMED 2026-08-10 — this corpus is an INSTRUMENT, not a simulation.</b> An earlier version
-/// targeted plausible-looking timing and, as a result, compared the two shipped forgetting curves almost
-/// entirely where they AGREE: four of six sweep shapes sat at <c>age/S ≤ 1.2</c> (a ~7% difference, by
-/// construction), critical-rare — the deciding class — carried only 2-4 independent targets per cell, reuse
-/// repeats fired back-to-back with no interposed write (so a printed N of 159 was worth ~24 independent
-/// draws), and hot-ephemeral's in-window queries fired so close to their own write that no policy could ever
-/// register a miss there. A corpus that cannot express a difference measures nothing, however lifelike its
-/// timeline reads — so generation here is now deliberately tuned to the region the two curves shipped at the
-/// time (<c>DsrRetrievability</c> and <c>HalfLifeRetrievability</c>, the latter deleted in 3.0 —
-/// <c>docs/DECISIONS.md</c>) actually diverged in (<c>age/InitialStability</c> in <b>[1.5, 5]</b>, where they
-/// moved apart by 2x or more, rather than the ~7% they differed by near 1), never at the <c>age = 0</c>
-/// boundary (retrievability pinned at a perfect 1.0 for EITHER curve) nor so far out that both curves had
-/// collapsed to the same near-zero floor. The band remains useful for any FUTURE curve comparison this
-/// corpus is asked to discriminate (for instance <c>DsrRetrievability</c> variants), not only the one it was
-/// tuned for. A result measured on this corpus describes behaviour in that DISCRIMINATING regime —
-/// sensitivity, not realism — which is not the same claim as a result measured against a production corpus,
-/// and any report built on it must say so.</para>
+/// <para><b>This corpus is an INSTRUMENT, not a simulation.</b> A corpus that cannot express a difference
+/// measures nothing, however lifelike its timeline reads, so generation is tuned to the region where
+/// forgetting curves DIVERGE — <c>age/InitialStability</c> in <b>[1.5, 5]</b> — never the <c>age = 0</c>
+/// boundary, where every curve reads a perfect 1.0, nor so far out that every curve has collapsed to the same
+/// near-zero floor (<c>docs/task-archive.md</c> Part 55). A result measured here describes behaviour in that
+/// DISCRIMINATING regime — sensitivity, not realism — and any report built on it must say so.</para>
 /// <para><b>The ordering contract, which every consumer of <see cref="Steps"/> MUST honour:</b> replay the
 /// sequence IN ORDER, one step at a time, against a single live engine. Correct usage looks like this:
 /// <code>
@@ -326,33 +309,26 @@ public sealed record CorpusExpand(string EntryId) : CorpusStep;
 /// <para><b>A fifth entry class — FILLER (<c>"padding filler{n}"</c>) — deliberately does NOT share it, and
 /// that exception is load-bearing.</b> Filler exists purely to interpose real writes between a target's own
 /// write and its own reuse query when nothing else in the corpus would (see <see cref="TopUpTo"/>) — it is
-/// the instrument's own padding, not a member of the population being measured. It began life as
-/// <c>"item filler{n}"</c> and therefore did both jobs at once: <see cref="Lyntai.Storage.FtsQuery.Build"/>
-/// OR-joins a query's tokens, so a filler written moments earlier (retrievability ≈ 1) was a perfectly legal
-/// candidate for a query it has nothing to do with, and out-scored already-decayed but genuinely relevant
-/// targets under any ranking that rewards freshness. The measured consequence was that a handful of early
-/// <c>topic*</c>/<c>hot*</c> entries were never recalled for ANY of their own relevant queries — so
-/// <c>IMemoryRetrievabilityPolicy.Reinforce</c> was never even called for them, and every number taken over
-/// this corpus was partly a measurement of the padding. <b>A corpus whose own scaffolding competes with its
-/// subjects is measuring the scaffolding.</b> Pinned by
+/// the instrument's own padding, not a member of the population being measured. Were it matchable,
+/// <see cref="Lyntai.Storage.FtsQuery.Build"/> OR-joins a query's tokens, so a filler written moments earlier
+/// would out-score already-decayed but relevant targets under any ranking that rewards freshness
+/// (<c>docs/task-archive.md</c> Part 56). <b>A corpus whose own scaffolding competes with its subjects is
+/// measuring the scaffolding.</b> Pinned by
 /// <c>MemoryCorpusTests.No_filler_entry_can_match_any_query_in_the_corpus</c>, which checks SUBSTRING
 /// containment (the SQL backends use an FTS5 <b>trigram</b> tokenizer, so token-boundary equality would pass
 /// while the store still matched) over every query term of 3+ characters (<c>FtsQuery.Build</c>'s own floor).
-/// Filler is still never declared relevant to anything, the same guarantee the noise class carries — that
-/// was always true, and was never sufficient on its own.</para>
+/// Filler is never declared relevant to anything, which alone is not sufficient.</para>
 /// <para>Only entry CONTENT varies with the seed (via a small filler-word draw made once per entry, in a
 /// fixed generation order); entry COUNTS and the timeline's structure are pure functions of
 /// <see cref="CorpusShape"/>. That is deliberate: it keeps "same seed" and "same shape" independently
 /// verifiable, and it means a corpus's size never becomes a hidden function of the seed. (Padding WRITE
 /// COUNTS are also a pure function of shape — only the padding entries' filler WORDS draw from the seed.)
 /// </para>
-/// <para><b>LANGUAGE is an axis (2026-08-12).</b> <see cref="CorpusShape.Language"/> selects the
+/// <para><b>LANGUAGE is an axis.</b> <see cref="CorpusShape.Language"/> selects the
 /// <see cref="CorpusLexicon"/> every template and every reader comes from; it defaults to
-/// <see cref="CorpusLanguage.English"/> and is byte-identical when unset — proved by the goldens in
-/// <c>MemoryCorpusGoldenTests</c> that PREDATE this axis and did not move. It was added because the class
-/// doc above could describe this corpus as an instrument while every number it produced came from the
-/// friendliest tokenization the library supports — and looking at that directly found a real defect in CJK
-/// retrieval, not merely a favourable condition (<c>docs/DECISIONS.md</c> D55).
+/// <see cref="CorpusLanguage.English"/> and is byte-identical when unset (the goldens in
+/// <c>MemoryCorpusGoldenTests</c>). Without it every number would come from the friendliest tokenization the
+/// library supports (<c>docs/DECISIONS.md</c> D55).
 /// <para>Two properties make the two languages COMPARABLE rather than merely both present, and both are
 /// pinned: the timelines are structurally identical (same steps, ids and ground truth — the generator's
 /// control flow reads only the shape and the seed, and both filler lists are the same LENGTH so the PRNG
@@ -367,21 +343,18 @@ public sealed record MemoryCorpus(IReadOnlyList<CorpusStep> Steps)
     private const string TaskKey = "corpus";
     private const string Scope = "sim";
 
-    // DsrOptions.InitialStability defaults to 20 (as did the deleted HalfLifeOptions.InitialStability, at
-    // the time both existed) — the corpus does not import Lyntai.Memory.Forgetting (it stays pure data, no
-    // policy dependency), so this is a DOCUMENTED ASSUMPTION rather than a derived constant, exactly like
-    // every "age/InitialStability" ratio already quoted in this file's own history. Every delay constant below
-    // is defined as an explicit multiple of it so the multiple — the thing the falsification plan's Task 1
-    // brief specifies verbatim — is legible at the call site instead of buried in a bare integer.
+    // DsrOptions.InitialStability's default. The corpus does not import Lyntai.Memory.Forgetting (it stays
+    // pure data, no policy dependency), so this is a DOCUMENTED ASSUMPTION rather than a derived constant.
+    // Every delay constant below is an explicit multiple of it, so the age/S band it targets is legible at
+    // the call site instead of buried in a bare integer.
     private const int AssumedInitialStability = 20;
 
     // A fixed critical-entry budget that CriticalRarity DIVIDES. Rarity is a ratio, not a count in its own
-    // right, so the budget itself never moves — only how many entries share it. RAISED from 12 to 240
-    // (2026-08-10, docs/task-archive.md Part 55, Task 1 Step 2): critical-rare is the DECIDING class
-    // for the curve question and the previous budget gave it only 2-4 independent targets per cell, so a
-    // single entry flipping moved a cell by 0.25-0.5. 240 / 12 (CriticalRarity at its rarest named setting,
-    // "rare-critical" in bench/Lyntai.Benchmarks/MemoryPolicySweep.cs) = 20, clearing the "~20+ independent
-    // targets" floor the brief asks for; every LESS rare setting clears it by a wider margin. A future shape
+    // right, so the budget itself never moves — only how many entries share it. Critical-rare is the
+    // DECIDING class for the curve question, and with too few independent targets per cell a single entry
+    // flipping moves a cell by 0.25-0.5 (docs/task-archive.md Part 55). 240 / 12 (CriticalRarity at its
+    // rarest named setting, "rare-critical" in bench/Lyntai.Benchmarks/MemoryPolicySweep.cs) = 20, clearing
+    // a ~20 independent-target floor; every LESS rare setting clears it by a wider margin. A future shape
     // rarer than 12 must raise this further to keep the same guarantee — see
     // MemoryCorpusTests.Critical_rare_clears_its_independent_target_floor_at_its_rarest_named_setting.
     private const int CriticalBudget = 240;
@@ -392,38 +365,28 @@ public sealed record MemoryCorpus(IReadOnlyList<CorpusStep> Steps)
 
     // How many rounds must pass before an earlier round's hot entry is looked up again and found NOT
     // relevant. Fixed and smaller than HotRounds, so every shape gets at least one closed window. Paired
-    // with a due-count check in the force-drain block below (2026-08-10 fix) so it no longer BYPASSES
-    // HotReuseDelayWrites the way it used to — see that block's own comment.
+    // with a due-count check in the force-drain block below so it never BYPASSES HotReuseDelayWrites.
     private const int HotWindowRounds = 2;
 
-    // = 1.5 x AssumedInitialStability — the falsification plan's own DISCRIMINATING-BAND FLOOR, used
-    // verbatim. RAISED from 6 (2026-08-10, docs/task-archive.md Part 55, Task 1 Step 1/3): 6 was age/S=0.3,
-    // and even
-    // that was routinely BYPASSED by the force-drain block below reaching the queue before this many writes
-    // had actually interposed — measured (old code, old constant), every shape but "high-noise" fired its
-    // hot-ephemeral in-window queries at age 1-3, unmissable by either policy. GUARANTEED now, not merely
-    // scheduled: the force-drain block below tops up with filler writes (see TopUpTo) whenever a shape's own
-    // per-round write budget would otherwise reach this round before enough real writes have interposed, so
-    // every shape — not just the widest one — reaches this floor exactly, never less.
+    // = 1.5 x AssumedInitialStability — the DISCRIMINATING-BAND FLOOR (docs/task-archive.md Part 55): below
+    // it a query is unmissable by any curve. GUARANTEED, not merely scheduled: the force-drain block below
+    // tops up with filler writes (see TopUpTo) whenever a shape's own per-round write budget would reach
+    // this round before enough real writes have interposed, so every shape reaches this floor exactly.
     private const int HotReuseDelayWrites = 30;
 
-    // = 5 x AssumedInitialStability — the falsification plan's own DISCRIMINATING-BAND CEILING, used
-    // verbatim. REPLACES the previous `Math.Max(MinTopicalReuseDelayWrites, middleWriteBudget / 2)` formula
-    // (2026-08-10, Task 1 Step 1): that formula SCALED with shape size, which is exactly how four of the
-    // six sweep shapes ended up at age/S≤1.2 (a small shape's own middle-write-budget/2 rarely reached far
-    // into the band) — a corpus built to look proportionate to its own shape, not to discriminate. FIXED and
-    // GUARANTEED instead: every shape reaches this exact floor via natural interposition when the shape is
-    // wide enough, and via filler top-up (TopUpTo) when it is not, so "how big is this shape" no longer
-    // decides "how hard is this shape's own curve question."
+    // = 5 x AssumedInitialStability — the DISCRIMINATING-BAND CEILING. FIXED rather than scaled with shape
+    // size, because a delay proportionate to the shape leaves small shapes at age/S≤1.2, outside the band:
+    // every shape reaches it via natural interposition when wide enough and via filler top-up (TopUpTo)
+    // when not, so "how big is this shape" never decides "how hard is its curve question."
     private const int TopicalReuseDelayWrites = 100;
 
     // = 3 x AssumedInitialStability — the discriminating band's MIDPOINT, used as a FLOOR under
-    // critical-rare's own age (2026-08-10, Task 1 Step 1). Critical-rare's write happens early and its
+    // critical-rare's own age. Critical-rare's write happens early and its
     // ground-truth query is appended after every other write in the corpus, so its natural age is already
     // "the whole rest of the corpus" — usually well past this floor on its own once topical/hot-ephemeral's
     // own delays above have run (both exceed it).
     //
-    // HONESTLY DISCLOSED, not merely asserted (mutation-checked, 2026-08-10): on the CURRENT 60-shape grid,
+    // Mutation-checked: on the CURRENT 60-shape grid,
     // HotRounds' own 5 rounds are unconditional — never gated by CandidateCount — so their own
     // HotReuseDelayWrites top-up already clears this floor before this constant's own TopUpTo call ever
     // needs to add anything; removing that call does not fail
@@ -539,15 +502,12 @@ public sealed record MemoryCorpus(IReadOnlyList<CorpusStep> Steps)
             while (writesSoFar < targetWriteCount) WriteFiller();
         }
 
-        // Fires a repeated reuse batch, interposing ONE filler write between consecutive repeats
-        // (2026-08-10, docs/task-archive.md Part 55, Task 1 Step 2). Before this fix, a batch's `reuse`
-        // repeats fired
-        // back-to-back with nothing interposed, so they were CORRELATED draws of the same retrieval decision
-        // rather than independent ones — a printed N of, say, 40 carried the granularity of 40/ReuseRatio
-        // independent targets, not 40. Interposing a real write between repeats means the corpus state
-        // genuinely differs from one repeat to the next, so N means N. The FIRST repeat (k=0) gets no filler
+        // Fires a repeated reuse batch, interposing ONE filler write between consecutive repeats: repeats
+        // fired back-to-back are CORRELATED draws of the same retrieval decision, so a printed N of 40 would
+        // carry the granularity of 40/ReuseRatio independent targets. With a real write between repeats the
+        // corpus state differs from one repeat to the next, so N means N. The FIRST repeat (k=0) gets no filler
         // before it — it fires at exactly the batch's own scheduled age, unchanged.
-        // ExpandRatio (2026-08-12): one expansion every N reuse queries, counted ACROSS batches rather than
+        // ExpandRatio: one expansion every N reuse queries, counted ACROSS batches rather than
         // within one, so a shape whose ReuseRatio is smaller than ExpandRatio still produces expansions
         // instead of silently producing none. Emitted AFTER the query it follows, which is the real order —
         // a consumer opens an entry it has just seen listed.
@@ -693,14 +653,13 @@ public sealed record MemoryCorpus(IReadOnlyList<CorpusStep> Steps)
         var pendingTopical = new Queue<(int DueWriteCount, string Id)>();
         var pendingHot = new Queue<(int DueWriteCount, string Id)>();
 
-        // Per-unit order is DELIBERATE (fix round 4): a FORCE-DRAIN of the round about to go stale FIRST —
+        // Per-unit order is DELIBERATE: a FORCE-DRAIN of the round about to go stale FIRST —
         // before this unit's own writes — then topic write, hot write, noise chunk, THEN the STALE QUERY
         // ITSELF (after this unit's writes), THEN the normal due-count drain. Three consequences, all
         // load-bearing:
-        //  (F1) noise now lands AFTER this unit's own topic/hot writes rather than before, so a unit's own
-        //       noise can interpose for that SAME unit's hot write. The original order had noise first,
-        //       which is exactly how CandidateCount<=HotRounds shapes reached age 0 on their last round
-        //       despite a nonzero NoiseDensity.
+        //  (F1) noise lands AFTER this unit's own topic/hot writes, so a unit's own noise can interpose for
+        //       that SAME unit's hot write. Noise first leaves CandidateCount<=HotRounds shapes at age 0 on
+        //       their last round despite a nonzero NoiseDensity.
         //  (F2) force-draining a round's in-window queries BEFORE this unit's writes, then emitting that
         //       round's stale query AFTER them, means this unit's own topic+hot(+noise) writes sit BETWEEN
         //       the two — a real, measured gap. Force-draining immediately before the stale query (tried
@@ -769,14 +728,10 @@ public sealed record MemoryCorpus(IReadOnlyList<CorpusStep> Steps)
             // are monotonically non-decreasing in enqueue order — if this round's entry is still pending,
             // nothing enqueued after it can have drained either, so it MUST still be at the front.
             //
-            // TOP UP TO THE DUE COUNT BEFORE FIRING (2026-08-10, docs/task-archive.md Part 55, Task 1
-            // Step 3): the
-            // ORIGINAL block dequeued and fired UNCONDITIONALLY the instant a round reached the front of the
-            // queue, without checking DueWriteCount at all — bypassing HotReuseDelayWrites on every shape
-            // whose own per-round write budget was thinner than the delay (measured: every shape but
-            // "high-noise"). TopUpTo pads with filler writes when natural writes have not reached the due
-            // count yet, so this now reaches AT LEAST HotReuseDelayWrites on every shape, not just the
-            // widest one.
+            // TOP UP TO THE DUE COUNT BEFORE FIRING: firing the instant a round reaches the front of the
+            // queue would bypass HotReuseDelayWrites on every shape whose per-round write budget is thinner
+            // than the delay. TopUpTo pads with filler writes until the due count, so this reaches AT LEAST
+            // HotReuseDelayWrites on every shape, not just the widest one.
             if (staleId is not null && pendingHot.Count > 0 && pendingHot.Peek().Id == staleId)
             {
                 var (dueWriteCount, staleQueueId) = pendingHot.Dequeue();
@@ -837,11 +792,9 @@ public sealed record MemoryCorpus(IReadOnlyList<CorpusStep> Steps)
         }
 
         // Flush anything whose delay never elapsed within the loop (the shape ran out of room) — TOP UP to
-        // the scheduled due count (2026-08-10 fix, Task 1 Step 1/3) rather than firing at whatever partial
-        // age happened to accrue. The ORIGINAL flush fired unconditionally with whatever age the loop above
-        // had managed to accumulate, which is exactly how the smallest shapes in the property grid (for
-        // example CandidateCount=0) ended up with topical/hot-ephemeral queries far short of the
-        // discriminating band. These entries still get the LARGEST age of all once topped up, on par with
+        // the scheduled due count rather than firing at whatever partial age accrued, which would leave the
+        // smallest shapes in the property grid (for example CandidateCount=0) with topical/hot-ephemeral
+        // queries far short of the discriminating band. These entries still get the LARGEST age of all once topped up, on par with
         // critical-rare's own placement — a reasonable fate for a reuse query the shape was too small to
         // schedule mid-timeline.
         while (pendingTopical.Count > 0)
@@ -859,8 +812,8 @@ public sealed record MemoryCorpus(IReadOnlyList<CorpusStep> Steps)
         }
 
         // Critical-rare's own ground-truth queries, placed at the very END — after every topical,
-        // hot-ephemeral and noise write above. TOP UP to CriticalRareFloorWrites first (2026-08-10, Task 1
-        // Step 1) — see that constant's own comment for why this is a direct, independent guarantee rather
+        // hot-ephemeral and noise write above. TOP UP to CriticalRareFloorWrites first — see that constant's
+        // own comment for why this is a direct, independent guarantee rather
         // than one this grid's shapes currently need (hot-ephemeral's own unconditional rounds already
         // clear it today).
         TopUpTo(criticalCount + CriticalRareFloorWrites);

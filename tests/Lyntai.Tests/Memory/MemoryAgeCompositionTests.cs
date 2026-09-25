@@ -7,8 +7,7 @@ namespace Lyntai.Tests.Memory;
 
 /// <summary>
 /// <see cref="IMemoryAgeCompositionPolicy"/> — the seam that combines several coexisting
-/// <see cref="IMemoryAgePolicy"/>s' own ticks and ages into ONE (2026-08-10 memory-policy-seams plan, Task 3,
-/// Steps 1-3). <see cref="SummedAgeCompositionPolicy"/> is pinned in isolation, and a mutation-check proves the
+/// <see cref="IMemoryAgePolicy"/>s' own ticks and ages into ONE. <see cref="SummedAgeCompositionPolicy"/> is pinned in isolation, and a mutation-check proves the
 /// seam is genuinely load-bearing by swapping it for a different combination rule and showing the result
 /// changes end to end, through a real <see cref="GraphMemoryEngine"/> — a seam nothing can vary is
 /// decoration.
@@ -95,8 +94,8 @@ public class MemoryAgeCompositionTests
     {
         public double InitialStability => 20;
 
-        // a fake's own bit, from the consumer range (32-62) — never None: fix round 2's provenance
-        // validation rejects a policy declaring None, since every REAL, running policy has an identity.
+        // a fake's own bit, from the consumer range (32-62) — never None: provenance validation rejects a
+        // policy declaring None, since every REAL, running policy has an identity.
         public Lyntai.Memory.Forgetting.MemoryRetrievabilityProvenance Provenance =>
             (Lyntai.Memory.Forgetting.MemoryRetrievabilityProvenance)(1L << 32);
         public double Retrievability(in MemoryDecayState state) => state.Age;
@@ -105,12 +104,10 @@ public class MemoryAgeCompositionTests
         public double? DerivedGrade(in MemoryDecayState state) => null;
     }
 
-    /// <summary>Fix round 1, C-1 — reproduces the review's own measured scenario EXACTLY: seed, +10 days,
-    /// filler, +10 days, filler, with <see cref="BurstDampenedAgePolicy"/> (Accumulating) and
-    /// <see cref="ElapsedAgePolicy"/> (Derivable) registered together. Before the fix, the accumulator was
-    /// inflated to 22 by ALSO summing in Elapsed's own tick at write time, and the composed READ age then
-    /// added Elapsed's 20-day projection a SECOND time on top of that already-inflated 22, reading 42. The
-    /// correct, unit-clean composed age is 22: the accumulator holds ONLY the Accumulating (burst) share (2 —
+    /// <summary>Seed, +10 days, filler, +10 days, filler, with <see cref="BurstDampenedAgePolicy"/>
+    /// (Accumulating) and <see cref="ElapsedAgePolicy"/> (Derivable) registered together. Summing Elapsed's
+    /// tick into the accumulator at write time AND adding its projection at read time counts it twice
+    /// (42). The correct, unit-clean composed age is 22: the accumulator holds ONLY the Accumulating (burst) share (2 —
     /// exactly the ordinal primitive, since 10-day gaps never trigger actual bursting) and Elapsed's own
     /// projection (20) is added ONCE, not twice.</summary>
     [Fact]
@@ -153,7 +150,7 @@ public class MemoryAgeCompositionTests
     [Fact]
     public void Registering_two_Accumulating_policies_throws_at_construction()
     {
-        // fix round 1, C-1, rule 3: the store's position accumulator is a single number and cannot hold two
+        // The store's position accumulator is a single number and cannot hold two
         // path-dependent quantities distinguishably — a silent sum would be exactly the quiet wrongness this
         // domain rejects everywhere else, so this must fail loudly rather than blend two burst histories.
         var ex = Assert.Throws<ArgumentException>(() => new GraphMemoryEngine("e", new InMemoryMemoryGraphStore(), seams: new GraphMemorySeams

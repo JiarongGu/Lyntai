@@ -48,7 +48,7 @@ public class GraphMemoryReviewLogTests
         Assert.NotEmpty(await store.ReviewsAsync("e"));
     }
 
-    /// <summary>Opt-out, not opt-in (design spec §3): setting <see cref="GraphMemoryOptions.LogReviews"/> to
+    /// <summary>Opt-out, not opt-in: setting <see cref="GraphMemoryOptions.LogReviews"/> to
     /// false must skip the write entirely, not merely discard it afterward.</summary>
     [Fact]
     public async Task No_reviews_are_logged_when_opted_out()

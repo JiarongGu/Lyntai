@@ -1770,19 +1770,13 @@ export default {
     // A ratchet that keeps being raised by one is measuring something that should not exist: `dev.mjs`'s
     // entry climbed 31 → 35 on a hand-kept usage banner until the list was derived and the entry deleted.
     "src/Lyntai.Core/Memory/IMemoryGraphStore.cs": [31],
-    "tests/Lyntai.Tests/Memory/Corpus/MemoryCorpus.cs": [88, 35, 27],
+    "tests/Lyntai.Tests/Memory/Corpus/MemoryCorpus.cs": [70, 35, 27],
     "tests/Lyntai.Tests/Memory/Corpus/RecallQuality.cs": [40],
-    "tests/Lyntai.Tests/Memory/DsrPathologyTests.cs": [41],
-    "tests/Lyntai.Tests/Memory/GraphMemoryEngineTests.cs": [30, 26],
-    "tests/Lyntai.Tests/Memory/GraphMemoryRankingGoldenTests.cs": [63],
-    "tests/Lyntai.Tests/Memory/GraphMemoryReviewLogTests.cs": [27],
-    "tests/Lyntai.Tests/Memory/GraphMemoryWiringTests.cs": [46],
+    "tests/Lyntai.Tests/Memory/GraphMemoryEngineTests.cs": [26],
     "tests/Lyntai.Tests/Memory/LlmSemanticRecallLiveTests.cs": [31],
     "tests/Lyntai.Tests/Memory/LlmVerificationLiveTests.cs": [33, 28],
-    "tests/Lyntai.Tests/Memory/MemoryAgePrimitiveIdentityTests.cs": [26],
     "tests/Lyntai.Tests/Memory/MemoryCjkRecallTests.cs": [38],
     "tests/Lyntai.Tests/Memory/MemoryClusterEdgeFormationTests.cs": [26],
-    "tests/Lyntai.Tests/Memory/MemoryDefaultRecallQualityTests.cs": [76, 47],
     "tests/Lyntai.Tests/Memory/MemorySalienceInversionTests.cs": [31],
   },
 };

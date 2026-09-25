@@ -24,18 +24,15 @@ namespace Lyntai.Tests.Memory;
 /// replayed states, not a synthetic grid.</item>
 /// <item>Reinforcement that never fires across a realistic session — the exact pathology
 /// (<c>docs/task-archive.md</c> Part 55) that made a PREDECESSOR sweep meaningless.</item>
-/// <item><b>Own probe, aimed at a ranking-competition finding measured while HalfLife still shipped</b>: does
-/// DSR remain internally correct (contract-compliant, never a broken probability) under the exact reuse
-/// pattern that a since-deleted comparison showed starves its reinforcement? The two facts that measured the
-/// COMPARISON itself (DSR vs the deleted curve's numbers) are gone; the one auxiliary check that verifies DSR
-/// stays correct under that same adversarial pattern survives, because it is a genuine DSR-only property, not
-/// a comparison.</item>
+/// <item><b>Own probe</b>: DSR stays internally correct — contract-compliant, never a broken probability —
+/// under a reuse pattern that starves its reinforcement.</item>
 /// </list>
 /// <para><b>Every item runs against whatever curve(s) <see cref="Curves"/> yields</b> — today just
 /// <see cref="DsrRetrievability"/>, but the shape is deliberately kept extensible: a future curve variant
 /// (for instance a difficulty-live vs. difficulty-inert DSR pairing) adds a row rather than a new file.</para>
 /// <para><b>SQLite by default</b>: the replayed-corpus items depend on which entries a recall RANKS into its
-/// top ten, and only a relational store ranks (<c>.claude/knowledge/pitfalls.md</c>).</para>
+/// top ten, and the in-process store reports a flat relevance of <c>1</c> for every match, so only the
+/// full-text path's bm25 separates them.</para>
 /// </summary>
 public class DsrPathologyTests
 {
@@ -145,8 +142,8 @@ public class DsrPathologyTests
             $"[{label}] stability is not finite after 100 reinforcements: {node.Stability}");
         Assert.True(node.Stability >= policy.InitialStability - 1e-9,
             $"[{label}] stability COLLAPSED below its own initial value {policy.InitialStability}: {node.Stability}");
-        // MaxStability is 2000 on DsrOptions (and was, on the deleted HalfLifeOptions) — hardcoded here
-        // deliberately, so a change to the default breaks this assertion rather than silently tracking it.
+        // DsrOptions.MaxStability's default, hardcoded deliberately so a change to the default breaks this
+        // assertion rather than silently tracking it.
         Assert.True(node.Stability <= 2000 + 1e-6,
             $"[{label}] stability EXPLODED past the documented ceiling of 2000: {node.Stability}");
     }
@@ -155,7 +152,7 @@ public class DsrPathologyTests
     /// ceiling caps GROWTH and never CUTS (<c>docs/task-archive.md</c> Part 54, DSR2). Reachable by
     /// reconfiguration alone, which is why it belongs in item 2.
     /// <para>An ENGINE + SQLite round trip rather than a direct call, because the engine PERSISTS
-    /// <c>Reinforce</c>'s return — that is what made the old 50× cut permanent. The equality is two-sided:
+    /// <c>Reinforce</c>'s return, which is what would make a cut permanent. The equality is two-sided:
     /// growth is on and the entry is aged, so a bare <c>Math.Min</c> CUTS it to 2000 and a missing
     /// <c>Math.Min</c> lets it COMPOUND past 3000.</para></summary>
     [Fact]
@@ -309,21 +306,14 @@ public class DsrPathologyTests
     // ---------------------------------------------------------------------------------------------------
 
     /// <summary>
-    /// <b>Found while writing this, and precise about what it does and does not check.</b> A first cut of
-    /// this fact treated "declared relevant to a query" and "actually recalled by that query" as the same
-    /// thing — they are not. Replaying <see cref="CorpusShape.Default"/> shows a handful of ids (mostly
-    /// early <c>topic*</c>/<c>hot*</c> entries) whose stored stability never moves off
-    /// <see cref="IMemoryRetrievabilityPolicy.InitialStability"/>, but reading back <em>what each recall
-    /// actually returned</em> shows they were NEVER RECALLED AT ALL for any of their own relevant queries —
-    /// outranked by the fresh <c>WriteFiller</c> padding <c>MemoryCorpus</c> itself emits to reach the
-    /// discriminating age band (verified directly: their own recall's top 10 is filled with unrelated,
-    /// just-written filler entries whose high retrievability beats their own decayed-but-relevant score).
-    /// <see cref="IMemoryRetrievabilityPolicy.Reinforce"/> is never even CALLED for these — there is nothing
-    /// for a reinforcement-formula bug to have broken. That is a real, shared, curve-symmetric corpus/ranking
-    /// interaction (measured against both curves while HalfLife still shipped), not the r=1-always pathology
-    /// Part 55 named. So THIS fact is scoped precisely to what Part 55 actually was: among ids the engine
-    /// actually RETURNED for their own relevant query at least once, is stability ever left frozen at its
-    /// initial value regardless? It is not.
+    /// Among ids the engine actually RETURNED for one of their own relevant queries, no stability is left
+    /// frozen at <see cref="IMemoryRetrievabilityPolicy.InitialStability"/> — the r=1-always pathology of
+    /// <c>docs/task-archive.md</c> Part 55.
+    /// <para><b>"Declared relevant" and "recalled" are not the same set.</b> In <see cref="CorpusShape.Default"/>
+    /// a handful of relevant ids (mostly early <c>topic*</c>/<c>hot*</c> entries) are never recalled at all,
+    /// outranked by the fresh <c>WriteFiller</c> padding <c>MemoryCorpus</c> emits to reach the discriminating
+    /// age band, so <see cref="IMemoryRetrievabilityPolicy.Reinforce"/> is never called for them. That is a
+    /// corpus/ranking interaction rather than a reinforcement defect, so it is bounded separately below.</para>
     /// </summary>
     [Theory]
     [MemberData(nameof(Curves))]
@@ -399,20 +389,15 @@ public class DsrPathologyTests
     }
 
     // ---------------------------------------------------------------------------------------------------
-    // 6. Own probe: DSR's internal correctness under the exact reuse pattern that a since-deleted comparison
-    //    showed starves its reinforcement after the first touch.
+    // 6. Own probe: DSR's internal correctness under a reuse pattern that starves its reinforcement.
     // ---------------------------------------------------------------------------------------------------
 
     /// <summary>Distinguishes "DSR correctly declines to over-strengthen a freshly-recalled entry" from "DSR
-    /// is wrong": under the exact reuse pattern (a write aged past the discriminating band's own ceiling,
-    /// then repeat queries with exactly ONE filler write interposed between them, never zero) that a
-    /// now-deleted comparison against <c>HalfLifeRetrievability</c> showed starves DSR's reinforcement after
-    /// the first touch, DSR's own contract facts are re-checked against the REAL per-touch trace this pattern
-    /// produces (not a synthetic grid) — reinforcement never shortening, retrievability staying a valid
-    /// probability. Every one holds; if any of them had failed HERE, that would be the defect this whole
-    /// battery is looking for. It is not — the loss the deleted comparison measured was a ranking-competition
-    /// side effect of what <see cref="MultiplicativeRankingPolicy"/> rewards, not a violation of what DSR
-    /// promises.
+    /// is wrong". The pattern — a write aged past the discriminating band's own ceiling, then repeat queries
+    /// with exactly ONE filler write between them, never zero — starves reinforcement after the first touch,
+    /// and DSR's own contract is re-checked on the REAL per-touch trace it produces: reinforcement never
+    /// shortens, retrievability stays a probability. Starvation alone is a ranking-competition effect of what
+    /// <see cref="MultiplicativeRankingPolicy"/> rewards; a failure HERE would be a DSR defect.
     /// <para>Every recall is asserted to RETURN the target, and the target's stability to have grown past
     /// its initial value by the end: without both, "stability never shrinks" holds for an entry nothing ever
     /// reinforced.</para></summary>
@@ -458,28 +443,17 @@ public class DsrPathologyTests
             "never-shrinks check above had nothing to observe");
     }
 
-    /// <summary><b>Item 8 — a non-finite <see cref="MemoryDecayState.Age"/> must not reach
-    /// <see cref="MemoryDecayState.Difficulty"/>.</b> <see cref="DsrRetrievability.Reinforce"/> has always
-    /// guarded the STABILITY half against this, and says why in its own comment: the increase term depends on
-    /// <c>Age</c>/<c>Strength</c>/<c>StrengthAge</c>, which arrive per-call in the caller's own state and so
-    /// cannot be validated at construction the way <see cref="DsrOptions"/> validates its constants.
-    /// <para>The DIFFICULTY half, added later, took the opposite view — its own doc asserted that "every term
-    /// feeding <c>D''</c> is provably finite before the clamp runs" — and both halves cannot be right, because
-    /// the derived grade is a function of <see cref="DsrRetrievability.Retrievability"/>, which is a function
-    /// of exactly the <c>Age</c> the stability half declines to trust. <c>Math.Clamp</c> propagates
-    /// <c>NaN</c> (IEEE-754 — the fact <c>.claude/knowledge/pitfalls.md</c> promoted to its own entry after it
-    /// landed twice in four days), so a <c>NaN</c> age produced a <c>NaN</c> grade, a <c>NaN</c> difficulty,
-    /// and a <c>NaN</c> row in the review log — the artifact that exists to make parameter fitting possible
-    /// at all.</para>
-    /// <para>The fix reports NO JUDGEMENT rather than a poisoned one, reusing the meaning <c>null</c> already
-    /// carries for the Δt=0 bypass: nothing computable happened, so nothing should move.</para>
-    /// <para><b>The three non-finite ages are not one case, and saying which is which is the point.</b>
-    /// <c>NaN</c> is the uncomputable one and the only one that produced the defect: it survives
-    /// <c>state.Age &lt;= 0</c> (every comparison against <c>NaN</c> is false) and then survives
-    /// <c>Math.Clamp</c>, so it reaches the grade. <c>-Infinity</c> was always caught by the Δt=0 branch.
-    /// <c>+Infinity</c> is genuinely COMPUTABLE — <c>Math.Pow(+Infinity, decay)</c> with a negative exponent
-    /// is exactly <c>0</c>, so it means "fully forgotten" and derives a real Hard grade. Asserting <c>null</c>
-    /// for all three would have been a stronger claim than the code should make.</para></summary>
+    /// <summary><b>A non-finite <see cref="MemoryDecayState.Age"/> must not reach
+    /// <see cref="MemoryDecayState.Difficulty"/>.</b> <c>Age</c> arrives per-call in the caller's own state, so
+    /// it cannot be validated at construction the way <see cref="DsrOptions"/> validates its constants, and
+    /// <c>Math.Clamp</c> propagates <c>NaN</c> (<c>.claude/knowledge/pitfalls.md</c>) — so an unguarded
+    /// <c>NaN</c> age becomes a <c>NaN</c> grade, difficulty and review-log row. The guard reports NO judgement:
+    /// <c>null</c>, the meaning the Δt=0 bypass already carries.
+    /// <para><b>The three non-finite ages are not one case.</b> <c>NaN</c> survives <c>state.Age &lt;= 0</c>
+    /// and <c>Math.Clamp</c>, so it is the one that reaches the grade and the only one asserted <c>null</c>.
+    /// <c>-Infinity</c> is caught by the Δt=0 branch. <c>+Infinity</c> is COMPUTABLE —
+    /// <c>Math.Pow(+Infinity, decay)</c> with a negative exponent is exactly <c>0</c>, "fully forgotten" — and
+    /// derives a real Hard grade.</para></summary>
     [Fact]
     public void A_non_finite_age_never_produces_a_non_finite_grade_or_difficulty()
     {
@@ -511,7 +485,7 @@ public class DsrPathologyTests
     /// reinforcement. <see cref="GraphMemoryEngine.ExpandAsync"/> reinforces a single node the caller named,
     /// with no ranking in between, so nothing filters it.
     /// <para><b>That is the endorsed path, which is what makes this worth a fact rather than a note.</b>
-    /// <c>docs/memory.md</c> and this release's own changelog both recommend
+    /// <c>docs/memory.md</c> recommends
     /// <c>ReinforceOn = MemoryReinforcementActs.Expansion</c> as the measurably better setting, so the
     /// unguarded route is the one a consumer following the documentation takes.</para>
     /// <para><b>InMemory deliberately, not SQLite.</b> On a SQL backend the poisoned write throws and

@@ -6,7 +6,7 @@ using Lyntai.Memory.Salience;
 namespace Lyntai.Tests.Memory;
 
 /// <summary><see cref="MemoryProvenance"/> — the one type that owns a provenance column's bit layout
-/// (design doc §5.7, Task 4) — plus the two facts C# will not give for free over the two shipped flags
+/// (design doc §5.7) — plus the two facts C# will not give for free over the two shipped flags
 /// enums: uniqueness across every REGISTERED policy, and single-bit-ness of every named member. Neither is
 /// enforced by the compiler: <c>HalfLife = 0x1, Dsr = 0x1</c> compiles silently, and so does
 /// <c>HalfLife = 0x3</c> (two bits) — both would make a fitness check wrong with nothing reporting it.</summary>
@@ -38,7 +38,7 @@ public class MemoryProvenanceTests
         Assert.Equal(0b101, MemoryProvenance.Pack(0b001, 0b100)); // the params overload
     }
 
-    /// <summary>Step 4 of the brief: structural, not a runtime check that a caller could bypass — the mask
+    /// <summary>Structural, not a runtime check that a caller could bypass — the mask
     /// excludes bit 63 unconditionally, so even an input that sets EVERY bit still comes out non-negative.
     /// Both backends' integer columns are signed, so a negative packed value would round-trip wrong: a
     /// fitness check would still look correct (bitwise AND does not care about sign) while ordering, range
@@ -66,8 +66,8 @@ public class MemoryProvenanceTests
     public void Every_shipped_retrievability_policy_declares_exactly_one_bit() =>
         Assert.All(RetrievabilityPolicies, p => Assert.True(IsSingleBit((long)p.Provenance)));
 
-    /// <summary>Step 2 of the fsrs-properly plan's Task 1: <see cref="MemoryRetrievabilityProvenance.HalfLife"/>
-    /// is RETIRED, not freed for reuse — every row a 2.5.x deployment wrote under the deleted
+    /// <summary><see cref="MemoryRetrievabilityProvenance.HalfLife"/> is RETIRED, not freed for reuse — every
+    /// row written under the deleted
     /// <c>HalfLifeRetrievability</c> curve still carries that bit, and handing it to a future policy would
     /// silently misattribute those rows' state to whichever policy claimed it next.</summary>
     [Fact]
@@ -99,7 +99,7 @@ public class MemoryProvenanceTests
         }
     }
 
-    /// <summary>Pins the trap the brief names directly: a member written <c>0x0000_0003</c> compiles, is
+    /// <summary>Pins the trap directly: a member written <c>0x0000_0003</c> compiles, is
     /// unique, and would still make a fitness check report a policy as present when it never
     /// ran.</summary>
     [Fact]
@@ -113,7 +113,7 @@ public class MemoryProvenanceTests
     public void Every_shipped_salience_policys_provenance_is_unique() =>
         Assert.True(IsUnique(SaliencePolicies.Select(p => (long)p.Provenance)));
 
-    /// <summary>The other half of the brief's "catches both" claim: a consumer's own policy occupying a bit
+    /// <summary>The other half of "catches both": a consumer's own policy occupying a bit
     /// a shipped one already uses. <see cref="MemoryRetrievabilityProvenance.Dsr"/> stands in for the
     /// consumer's bit — the point is that TWO policies sharing a value is what breaks, whichever declared it
     /// first. (Not <see cref="MemoryRetrievabilityProvenance.HalfLife"/>: that bit is RETIRED and nothing in
@@ -137,7 +137,7 @@ public class MemoryProvenanceTests
         return list.Count == list.Distinct().Count();
     }
 
-    // ---- MemoryProvenance.ValidateProvenanceBits (fix round 2, cheap minor) ----
+    // ---- MemoryProvenance.ValidateProvenanceBits ----
     // The facts above test HAND-LISTED arrays; these test the PRODUCTION validation itself — the one that
     // actually runs where policies are resolved (GraphMemoryEngine's constructor), so a third policy joining
     // the registered set is caught without anyone remembering to grow a test array.
@@ -171,7 +171,7 @@ public class MemoryProvenanceTests
         Assert.Contains("single bit", ex.Message, StringComparison.Ordinal);
     }
 
-    /// <summary>The other half of the brief's "catches both" claim, run against the PRODUCTION check: a
+    /// <summary>The other half of "catches both", run against the PRODUCTION check: a
     /// consumer's own policy occupying a bit a shipped one already uses, this time with a name that
     /// genuinely differs from the shipped policy's own.</summary>
     [Fact]

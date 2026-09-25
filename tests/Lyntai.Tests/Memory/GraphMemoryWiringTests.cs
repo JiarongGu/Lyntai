@@ -24,8 +24,8 @@ public class GraphMemoryWiringTests
     /// default salience policy's novelty curve (already covered by <see cref="SalienceTests"/>).</summary>
     private sealed class MarksContentSalient(string marker, double salience) : IMemorySaliencePolicy
     {
-        // a fake's own bit, from the consumer range (32-62) — never None: fix round 2's provenance
-        // validation rejects a policy declaring None, since every REAL, running policy has an identity.
+        // a fake's own bit, from the consumer range (32-62) — never None: provenance validation rejects a
+        // policy declaring None, since every REAL, running policy has an identity.
         public MemorySalienceProvenance Provenance => (MemorySalienceProvenance)(1L << 32);
 
         public MemorySignals Signals(MemoryWrite write, in SalienceContext context) =>
@@ -195,17 +195,11 @@ public class GraphMemoryWiringTests
     [Fact]
     public void UseGraph_a_consumer_registered_salience_policy_added_AFTER_AddLyntai_coexists_with_the_default_instead_of_replacing_it()
     {
-        // The mirror of the fact above, and a DELIBERATE, tested asymmetry (fix round 1, I-2). Before Task 3,
-        // IMemorySaliencePolicy was resolved with GetService (single) — which returns the LAST registration
-        // regardless of ordering, so registering after AddLyntai used to WIN just as cleanly as registering
-        // before it. Now that salience policies are plural (GetServices), that is no longer true: TryAddSingleton
-        // only skips its OWN registration when one ALREADY EXISTS at the moment it runs. Registered before
-        // AddLyntai (the fact above), the consumer's own salience policy wins outright — TryAddSingleton sees an
-        // existing registration and never adds the default at all. Registered AFTER, TryAddSingleton has
-        // ALREADY seeded the default, so this is a genuine SECOND registration into the collection —
-        // GetServices returns BOTH, and the engine's own default composition (MaximalSalienceCompositionPolicy)
-        // combines them per signal name rather than either replacing the other. A consumer who wants a pure
-        // replacement, whichever way they register, registers BEFORE AddLyntai.
+        // The mirror of the fact above, and a DELIBERATE, tested asymmetry. Salience policies are plural
+        // (GetServices), and TryAddSingleton only skips its OWN registration when one ALREADY EXISTS when it
+        // runs: registered before AddLyntai the consumer's policy replaces the default, registered AFTER it is
+        // a SECOND member, and MaximalSalienceCompositionPolicy combines the two per signal name. A consumer
+        // who wants a pure replacement registers BEFORE AddLyntai.
         var services = new ServiceCollection();
         services.AddSingleton<IMemoryStore>(new FakeMemoryStore());
         services.AddSingleton<IMemoryGraphStore>(new InMemoryMemoryGraphStore());
@@ -225,14 +219,10 @@ public class GraphMemoryWiringTests
     [Fact]
     public void UseGraph_lets_a_consumer_registered_ranking_policy_win_over_the_default()
     {
-        // The same TryAdd promise as the salience-policy fact above, for the newer ranking seam: a
-        // consumer's own IMemoryRankingPolicy must win over AddMemoryEngine's TryAddSingleton default
-        // (ReciprocalRankFusionPolicy as of 3.0, owner ruling 2026-08-11 — was MultiplicativeRankingPolicy;
-        // see MemoryEngineRegistration) — proven here by registering the OTHER policy, which discriminates
-        // regardless of which one is currently the default: Assert.Same below checks object IDENTITY, so
-        // this fact is unaffected by a future default change either way. Registered exactly ONE policy is
-        // ever consulted (GetService, not GetServices), so — unlike the salience and retention policy collections
-        // — there is nothing to pile up on a second AddMemoryEngine call to check here.
+        // The same TryAdd promise as the salience-policy fact above, for the ranking seam: a consumer's own
+        // IMemoryRankingPolicy wins over AddMemoryEngine's TryAddSingleton default. Assert.Same checks object
+        // IDENTITY, so this holds whichever policy is the default. Ranking is SINGULAR (GetService), so unlike
+        // the salience and retention collections nothing can pile up on a second AddMemoryEngine call.
         var services = new ServiceCollection();
         services.AddSingleton<IMemoryStore>(new FakeMemoryStore());
         services.AddSingleton<IMemoryGraphStore>(new InMemoryMemoryGraphStore());
@@ -276,23 +266,12 @@ public class GraphMemoryWiringTests
     [Fact]
     public void UseGraph_registers_a_default_ranking_policy_in_the_container()
     {
-        // GraphMemoryEngine's OWN "ranking ?? new ReciprocalRankFusionPolicy()" constructor fallback (was
-        // MultiplicativeRankingPolicy before the 2026-08-11 owner ruling — see MemoryEngineRegistration's own
-        // remarks) would mask either of two regressions from ever showing up in a RECALL-BEHAVIOUR test:
-        // deleting MemoryEngineRegistration's TryAddSingleton<IMemoryRankingPolicy>, or deleting the
-        // `ranking:` argument MemoryEngineBuilder.UseGraph passes the engine — either way RecallAsync's
-        // OUTPUT looks identical (the engine just builds its own fallback instance instead of the
-        // container's). The only way to catch the FIRST of those two is to check the CONTAINER directly,
-        // with nothing else in this test registering an IMemoryRankingPolicy of its own — GetRequiredService
-        // throws if TryAddSingleton is gone and nothing else filled the slot. The SECOND is caught by
-        // An_authoritative_entry_the_policy_buried_is_still_returned (GraphMemoryRankingGoldenTests): its
-        // hostile DropEverythingRankingPolicy only reaches the engine's OUTPUT through the `ranking:` wire,
-        // so deleting that argument makes the ordinary fact reappear and fails its second assertion.
-        //
-        // A type check only, deliberately cheap and narrow — see
-        // The_zero_configuration_default_is_ReciprocalRankFusionPolicy below for the stronger, mutation-
-        // checked, recall-BEHAVIOUR proof that the resolved type is actually what the engine uses, not merely
-        // what the container hands back.
+        // The engine's own "ranking ?? new ReciprocalRankFusionPolicy()" fallback hides two regressions from
+        // any RECALL-behaviour test: deleting MemoryEngineRegistration's TryAddSingleton, or deleting the
+        // `ranking:` argument UseGraph passes. Only the CONTAINER shows the first — GetRequiredService throws
+        // when nothing filled the slot. The second is caught by GraphMemoryRankingGoldenTests'
+        // An_authoritative_entry_the_policy_buried_is_still_returned, whose hostile policy reaches the output
+        // only through that argument. The recall-order proof is the zero-configuration fact below.
         var services = new ServiceCollection();
         services.AddSingleton<IMemoryStore>(new FakeMemoryStore());
         services.AddSingleton<IMemoryGraphStore>(new InMemoryMemoryGraphStore());
@@ -307,61 +286,22 @@ public class GraphMemoryWiringTests
     [Fact]
     public async Task The_zero_configuration_default_is_ReciprocalRankFusionPolicy()
     {
-        // The same trap the forgetting-curve default fell into once already (fix round, 2026-08-10):
-        // registering the NOW-default policy and asserting the engine uses it proves nothing once that
-        // policy IS the default — every fact above that registers Multiplicative now discriminates AGAINST
-        // the default (a genuine restore-path test), and the type-check above is a narrow, cheap proxy for
-        // "was TryAdd deleted." This is the one fact that registers NOTHING for IMemoryRankingPolicy and
-        // checks, by ACTUAL RECALL ORDER (not merely a resolved type), what a consumer who configures
-        // nothing gets — and that it genuinely differs from what Multiplicative would have produced on the
-        // identical input, not merely that "a policy" ran.
+        // Registering the default policy and asserting the engine uses it proves nothing once that policy IS
+        // the default, so this registers NOTHING for IMemoryRankingPolicy and checks what a consumer who
+        // configures nothing gets, by RECALL ORDER. GraphMemoryRankingGoldenTests' Fact C corpus is the one
+        // on which the two shipped rankers pick DIFFERENT winners: relevance and retrievability ranks are
+        // mirror images, so under RRF's equal default weights the two sum to a tie that the tiebreak (id
+        // DESCENDING) gives to the later write, while Multiplicative's product keeps the aged-but-relevant one.
         //
-        // Reuses GraphMemoryRankingGoldenTests's own Fact C corpus verbatim (two candidates whose RELEVANCE
-        // and RETRIEVABILITY orders point opposite ways: "gizmo gizmo gizmo..." has the stronger bm25 match
-        // but is aged; "the firmware calibration team..." is the weaker match but freshest) — chosen there to
-        // prove Multiplicative's PRODUCT needs both factors; it turns out to ALSO be exactly the shape that
-        // makes Multiplicative and RRF genuinely DISAGREE on the winner, not just on the score. Under
-        // Multiplicative's product, the older-but-more-relevant entry wins (Fact C, unchanged, still true).
-        // Under RRF at the shipped default weights (all equal), the two candidates' relevance-rank and
-        // retrievability-rank terms are EXACT MIRROR IMAGES of each other (rank 1 vs 2, swapped) — so the two
-        // signals' contributions sum to a byte-identical TIE, decided by the tiebreak (Node.Id DESCENDING),
-        // which favours the LATER write instead. MEASURED: Multiplicative orders
-        // [aged-but-relevant, fresh-but-weaker] (Fact C); RRF orders [fresh-but-weaker, aged-but-relevant] —
-        // genuinely different winners from the SAME corpus, which is what makes this proof rather than
-        // coincidence.
-        //
-        // MUTATION-CHECKED, TWO WAYS — the first attempt's OWN result corrected the doc comment rather than
-        // being smoothed over to match what was expected going in.
-        //
-        // Attempt 1 (task brief's own suggestion): commented out MemoryEngineRegistration's own
-        // `TryAddSingleton<IMemoryRankingPolicy>` line entirely. This fact did NOT fail —
-        // `UseGraph`'s own `sp.GetService<IMemoryRankingPolicy>()` call (GetService, not
-        // GetRequiredService — it returns null rather than throwing) hands `ranking: null` to
-        // `GraphMemoryEngine`'s constructor, whose OWN bare-constructor fallback (`ranking ?? new
-        // ReciprocalRankFusionPolicy()`, changed to match the very same task) silently supplies RRF anyway —
-        // masking the missing DI registration from a RECALL-BEHAVIOUR check by construction, the exact
-        // failure mode `UseGraph_registers_a_default_ranking_policy_in_the_container`'s own doc already
-        // names as the reason THAT test has to check the CONTAINER directly (`GetRequiredService`, which DOES
-        // throw). The two tests are complementary for exactly this reason, not redundant: that one proves the
-        // DI REGISTRATION exists; this one proves what it produces is recall-distinguishable from
-        // Multiplicative — neither can prove what the other does.
-        //
-        // Attempt 2 (the one that actually discriminates this fact from a tautology): kept the
-        // `TryAddSingleton` registration in place but changed WHAT it supplies —
-        // `new MultiplicativeRankingPolicy(sp.GetService<MultiplicativeRankingOptions>())` instead of
-        // RRF. This fact FAILED exactly as expected: the observed order flipped to Multiplicative's own
-        // (`[aged-but-relevant, fresh-but-weaker]`), proving the assertion is genuinely sensitive to what the
-        // DI default supplies, not passing by coincidence of the bare-constructor fallback agreeing with it.
-        // Reverted; re-ran; passes again.
+        // Mutation: TryAddSingleton supplying MultiplicativeRankingPolicy instead fails this. Deleting the
+        // registration outright does NOT — the engine's own RRF fallback fills the gap — which is why
+        // UseGraph_registers_a_default_ranking_policy_in_the_container checks the container directly.
         using var db = new TempDb();
         var services = new ServiceCollection();
         services.AddSingleton<IMemoryStore>(new FakeMemoryStore());
         services.AddSingleton<IMemoryGraphStore>(new SqliteMemoryGraphStore(db.Factory));
-        // An undamped age policy, exactly like Fact C's own direct construction — without it, UseGraph's DEFAULT
-        // IMemoryAgePolicy (BurstDampenedAgePolicy) would flatten this fast in-process replay's whole age
-        // signal inside one wall-clock burst window, degenerating the very retrievability-rank disagreement
-        // this fact depends on (the identical substitution MemoryDefaultRecallQualityTests's own class doc
-        // gives the same reasoning for).
+        // undamped, as in Fact C: BurstDampenedAgePolicy would flatten this fast replay's ages inside one
+        // wall-clock burst window and erase the retrievability-rank disagreement this depends on
         services.AddSingleton<IMemoryAgePolicy>(new PerWriteAgePolicy());
         services.AddLyntai(b => b
             .AddProvider(_ => new FakeTextProvider("p"))

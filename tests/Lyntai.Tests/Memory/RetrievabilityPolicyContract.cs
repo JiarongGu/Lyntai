@@ -90,7 +90,7 @@ public static class RetrievabilityPolicyContract
         }
     }
 
-    /// <summary>THE unit contract (2026-08-10 memory-policy-seams plan, Task 5, Step 1).
+    /// <summary>THE unit contract.
     /// <c>Stability</c> means exactly one thing across every implementation: the position delta at which
     /// retrievability is 0.5. <see cref="DsrRetrievability"/> anchors FSRS's 90%-retention convention back
     /// onto this one by deriving its curve factor from it (<c>F = 0.5^(1/decay) - 1</c>), precisely so this
@@ -100,7 +100,7 @@ public static class RetrievabilityPolicyContract
     /// All of it existed to let two conventions coexist; one enforced fact here makes a second convention
     /// impossible to ship, so nothing ever needs converting between two.</para>
     /// <para><b>A claim about the CURVE's own unit, not about a decorator that reads other state too</b>
-    /// (fix round 2, cheap minor). <c>ModulatedRetrievability</c> satisfies this only when every registered
+    /// — <c>ModulatedRetrievability</c> satisfies this only when every registered
     /// retention policy reports its NEUTRAL factor for the state given — the model-free default, no signals
     /// judged (<c>ModulatedRetrievabilityTests.NeutralDefault</c> runs this fact against it under exactly
     /// that condition). A NON-neutral retention policy moving where retrievability crosses 0.5 for an entry is
@@ -115,9 +115,7 @@ public static class RetrievabilityPolicyContract
     }
 
     /// <summary>The other half of the contract a state-returning <see cref="IMemoryRetrievabilityPolicy.Reinforce"/>
-    /// makes possible (2026-08-10 memory-policy-seams plan, Task 5, Step 2 — widened Task 2 of the
-    /// fsrs-properly plan, when <see cref="DsrRetrievability"/> became the first policy to claim a SECOND
-    /// field): a policy may grow <see cref="MemoryDecayState.Stability"/> (see
+    /// makes possible: a policy may grow <see cref="MemoryDecayState.Stability"/> (see
     /// <see cref="Reinforcement_never_shortens_a_memory"/> above) and may move
     /// <see cref="MemoryDecayState.Difficulty"/>, but must leave every field it does not own EXACTLY as
     /// given. Nothing today claims anything beyond those two, so this is what makes it safe for a caller to

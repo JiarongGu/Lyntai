@@ -1,17 +1,17 @@
 namespace Lyntai.Tests.Memory.Corpus;
 
 /// <summary>
-/// Proves the routine class (<see cref="CorpusShape.RoutineCount"/>) means what Task 2 claims BEFORE any
+/// Proves the routine class (<see cref="CorpusShape.RoutineCount"/>) means what it claims BEFORE any
 /// number is measured against it: the final frequency query's correct answer is phase B alone, even though
 /// phase A carries more mass, and returning the bigger group scores as pollution rather than as a pass.
-/// <para><b>Three of the five facts this plan asked for are already pinned, more strongly, in
-/// <c>MemoryCorpusTests</c></b> and are not repeated here: "off by default"
+/// <para><b>Three of its properties are already pinned, more strongly, in <c>MemoryCorpusTests</c></b> and
+/// are not repeated here: "off by default"
 /// (<c>RoutineCount_defaults_to_zero_and_changes_nothing</c>, which also checks byte-identity with the
 /// pre-axis shape), "phase A is the larger regime"
 /// (<c>Phase_A_is_the_larger_regime_for_every_legal_RoutineCount</c>, property-based over 28 counts rather
 /// than one), and "the final query names phase B alone"
 /// (<c>The_final_routine_query_names_phase_B_only_and_never_phase_A</c>, which also pins the first query's
-/// own answer). This file adds the two facts that were genuinely missing: the SCORED consequence of
+/// own answer). This file adds the other two: the SCORED consequence of
 /// ignoring recency, and the query's independence from either regime's own wording.</para>
 /// </summary>
 public class MemoryRoutineClassTests

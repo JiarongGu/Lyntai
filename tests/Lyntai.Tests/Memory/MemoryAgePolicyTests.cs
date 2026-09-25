@@ -53,11 +53,9 @@ public class MemoryAgePolicyTests
     [Fact]
     public void Elapsed_tracks_each_engine_separately_when_one_instance_is_shared()
     {
-        // Task 3's settling of the defect Task 2 recorded and deferred: Advance's _previous used to be
-        // scoped to the POLICY INSTANCE, so sharing one across engines (the ordinary DI-singleton shape)
-        // tracked the last write across ALL of them — one engine's write would reset another engine's own
-        // "since last write" reading. Advance now keys its bookkeeping on the engine name, so a shared
-        // instance measures each engine independently: writing to "b" between two writes to "a" must not
+        // Advance keys its bookkeeping on the engine name: scoped to the POLICY INSTANCE, a DI-singleton
+        // shared across engines would let one engine's write reset another's "since last write" reading. A
+        // shared instance measures each engine independently: writing to "b" between two writes to "a" must not
         // shrink "a"'s own elapsed reading.
         var now = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
         var policy = new ElapsedAgePolicy(() => now);
@@ -146,9 +144,7 @@ public class MemoryAgePolicyTests
         Assert.Equal(0.5, secondA, precision: 6);
     }
 
-    // --- Age(MemoryAgeSample) — the read-time, DERIVED counterpart of Advance (fix round 1, I2: previously
-    // only PerWriteAgePolicy's was exercised by any test, via the identity test's own use of it; the other
-    // three shipped with zero direct coverage). ---
+    // --- Age(MemoryAgeSample) — the read-time, DERIVED counterpart of Advance, for every shipped policy ---
 
     [Fact]
     public void Per_write_age_projects_the_ordinal_primitive_unchanged()
@@ -197,9 +193,9 @@ public class MemoryAgePolicyTests
     [InlineData(double.NegativeInfinity)]
     public void Content_size_refuses_a_non_finite_or_non_positive_perUnit(double perUnit)
     {
-        // fix round 1, I2: a silent fallback here previously let Advance (1 per write) and Age (raw,
-        // unscaled character count) DISAGREE on what perUnit<=0 means — refusing it at construction is
-        // safer than trying to keep two independent formulas' degenerate branches in lockstep forever.
+        // A silent fallback would let Advance (1 per write) and Age (raw, unscaled character count)
+        // DISAGREE on what perUnit<=0 means — refusing it at construction is safer than keeping two
+        // independent formulas' degenerate branches in lockstep forever.
         Assert.Throws<ArgumentOutOfRangeException>(() => new ContentSizeAgePolicy(perUnit));
     }
 }

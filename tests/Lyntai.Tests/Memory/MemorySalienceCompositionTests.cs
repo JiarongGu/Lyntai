@@ -8,8 +8,7 @@ namespace Lyntai.Tests.Memory;
 
 /// <summary>
 /// <see cref="IMemorySalienceCompositionPolicy"/> — the seam that combines several coexisting
-/// <see cref="IMemorySaliencePolicy"/>s' own bags into ONE (2026-08-10 memory-policy-seams plan, Task 3,
-/// Steps 1-3). <see cref="MaximalSalienceCompositionPolicy"/> is pinned in isolation, and a mutation-check proves
+/// <see cref="IMemorySaliencePolicy"/>s' own bags into ONE. <see cref="MaximalSalienceCompositionPolicy"/> is pinned in isolation, and a mutation-check proves
 /// the seam is genuinely load-bearing by swapping it for a different combination rule and showing the stored
 /// signal changes end to end, through a real <see cref="GraphMemoryEngine"/>.
 /// </summary>

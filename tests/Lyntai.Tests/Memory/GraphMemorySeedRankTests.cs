@@ -26,7 +26,7 @@ namespace Lyntai.Tests.Memory;
 /// relevance value is UNORDERED and earns no ranks either — that is D97 in a new costume, a candidate nobody
 /// ordered by relevance reporting a relevance rank.</para>
 ///
-/// <para><b>The gradient facts run on SQLite</b>, per the design spec and <c>pitfalls.md</c> §Storage:
+/// <para><b>The gradient facts run on SQLite</b> (<c>pitfalls.md</c> §Storage):
 /// <see cref="InMemoryMemoryGraphStore"/> reports a flat <c>1</c> for every match and orders by recency, so
 /// it is the very store that has no gradient to observe. It is used only where the fixture's subject is
 /// something else.</para>
