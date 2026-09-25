@@ -328,7 +328,7 @@ public class ClaudeCliAuthTests
     [SkippableFact]
     public async Task Status_works_against_a_windows_npm_shim_install()
     {
-        // same CLI2 exposure as the probe/update seams: an npm/nvm `claude` resolves to an EXTENSIONLESS
+        // the same exposure as the probe/update seams: an npm/nvm `claude` resolves to an EXTENSIONLESS
         // POSIX launcher next to its `.cmd` sibling, which CreateProcess refuses. Every maintenance spawn
         // must go through the runner's shim handling, not just completions.
         Skip.IfNot(OperatingSystem.IsWindows(), "an npm shim is spawnable as-is off Windows");

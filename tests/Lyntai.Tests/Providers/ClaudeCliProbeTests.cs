@@ -31,7 +31,7 @@ public class ClaudeCliProbeTests
         Assert.IsAssignableFrom<IProviderUpdater>(provider);
     }
 
-    // ── CLI2: the probe ──────────────────────────────────────────────────────
+    // ── the probe ────────────────────────────────────────────────────────────
 
     [Fact]
     public async Task Probe_reports_the_version_the_cli_prints()
@@ -130,7 +130,7 @@ public class ClaudeCliProbeTests
         Assert.Equal(expected, CliVersionLine.Parse(line).Version);
     }
 
-    // ── CLI3: the self-update seam ───────────────────────────────────────────
+    // ── the self-update seam ─────────────────────────────────────────────────
 
     [Fact]
     public async Task Update_runs_the_cli_updater_and_reports_the_version_change()
@@ -205,7 +205,7 @@ public class ClaudeCliProbeTests
         Assert.Null(result.FromVersion);
     }
 
-    // ── CLI4: the PINNED install (a named version of the backend) ────────────
+    // ── the PINNED install (a named version of the backend) ──────────────────
 
     [Fact]
     public void The_pinned_install_capability_is_discoverable_through_the_core_seam()
@@ -354,11 +354,11 @@ public class ClaudeCliProbeTests
     [SkippableFact]
     public async Task Probe_and_update_work_against_a_windows_npm_shim_install()
     {
-        // CLI2 (found consuming 1.2.0 on Windows): a `claude` installed by npm/nvm resolves to an
-        // EXTENSIONLESS launcher script sitting next to its `claude.cmd`. Spawning that raw file throws
-        // "The specified executable is not a valid application for this OS platform", so the turn-free
-        // maintenance seams reported Available=false / Succeeded=false on a perfectly working install.
-        // Both must spawn it the way a COMPLETION does — through the runner's Windows shim handling.
+        // A `claude` installed by npm/nvm resolves to an EXTENSIONLESS launcher script next to its
+        // `claude.cmd`. Spawning that raw file throws "The specified executable is not a valid application
+        // for this OS platform", so a maintenance seam spawning it directly reports Available=false /
+        // Succeeded=false on a working install. Both must spawn it the way a COMPLETION does — through the
+        // runner's Windows shim handling.
         Skip.IfNot(OperatingSystem.IsWindows(), "an npm shim is spawnable as-is off Windows");
 
         using var scratch = new ScratchDir("claude-shim");

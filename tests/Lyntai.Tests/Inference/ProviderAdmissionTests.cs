@@ -108,8 +108,8 @@ public class ProviderAdmissionTests
         held.Dispose();
     }
 
-    // Coverage added in fix round 1: the table must be bounded by calls in flight, not by every
-    // configuration ever seen (a ConcurrentDictionary that never removed entries was the finding).
+    // The gate table is bounded by calls in flight, not by every configuration ever seen: a dictionary that
+    // never removes an entry grows with every distinct slot.
 
     [Fact]
     public async Task A_gate_is_removed_once_its_last_holder_disposes()

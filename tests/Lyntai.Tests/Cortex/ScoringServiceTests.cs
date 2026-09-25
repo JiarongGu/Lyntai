@@ -164,7 +164,7 @@ public class ScoringServiceTests
         Assert.Single(await store.GetAsync("s1"));
     }
 
-    // R17 — a dashboard reads/aggregates/exports through the SERVICE seam, not by reaching past it into the store.
+    // A dashboard reads/aggregates/exports through the SERVICE seam, not by reaching past it into the store.
     [Fact]
     public async Task Service_surfaces_read_aggregate_and_export_over_the_store()
     {

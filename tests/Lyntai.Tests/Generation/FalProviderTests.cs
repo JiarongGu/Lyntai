@@ -294,11 +294,10 @@ public class FalProviderTests
     [InlineData(HttpStatusCode.RequestTimeout)]
     public async Task A_retryable_status_while_polling_keeps_an_already_paid_render_alive(HttpStatusCode status)
     {
-        // Round 2 of this review caught the first version classifying "terminal unless 5xx", copied from
-        // ComfyUiProvider — where it is right, because ComfyUI is a loopback server that never rate-limits.
-        // fal is a hosted, paid, rate-limiting API: under that rule ONE 429 dead-lettered a render that was
-        // still running and already billed, because the job handler turns Failed into JobOutcome.Fail.
-        // Only a 404 (this id will never resolve) and the unconfigured pre-check are terminal now.
+        // Not "terminal unless 5xx", which is right for ComfyUiProvider (a loopback server that never
+        // rate-limits) and wrong here: fal is a hosted, paid, rate-limiting API, and the job handler turns
+        // Failed into JobOutcome.Fail, so ONE 429 would dead-letter a render still running and already billed.
+        // Only a 404 (this id will never resolve) and the unconfigured pre-check are terminal.
         var (provider, http) = Provider();
         http.Enqueue(status, "{\"detail\":\"slow down\"}");
 

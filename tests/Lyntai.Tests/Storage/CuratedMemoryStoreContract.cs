@@ -46,7 +46,7 @@ public static class CuratedMemoryStoreContract
         Assert.False(await store.UpdateAsync(-1, content: "x")); // missing → false (ids are positive)
     }
 
-    /// <summary>CMEM5 — <see cref="ICuratedMemoryStore.UpdateAsync"/>'s optional <c>kind</c> RE-CATEGORISES an
+    /// <summary><see cref="ICuratedMemoryStore.UpdateAsync"/>'s optional <c>kind</c> RE-CATEGORISES an
     /// entry between kinds IN PLACE — keeping its id, created_at, and metadata — instead of remove+re-add.
     /// Kind-parameterized so the Postgres shared container can run it isolated.</summary>
     public static async Task Update_can_recategorise_kind_in_place(ICuratedMemoryStore store,
@@ -73,7 +73,7 @@ public static class CuratedMemoryStoreContract
         Assert.DoesNotContain(id, (await store.ListAsync(kind: fromKind)).Select(e => e.Id));
     }
 
-    /// <summary>CMEM7 — <see cref="ICuratedMemoryStore.UpdateAsync"/>'s optional <c>taskKey</c>/<c>scope</c>
+    /// <summary><see cref="ICuratedMemoryStore.UpdateAsync"/>'s optional <c>taskKey</c>/<c>scope</c>
     /// RE-SCOPE an entry IN PLACE (same id, same created_at), the half of "move it" that <c>kind</c> already
     /// had: null leaves the field alone, the EMPTY STRING clears it back to null ("applies everywhere").
     /// Task-parameterized so the Postgres shared container can run it isolated.</summary>
@@ -124,7 +124,7 @@ public static class CuratedMemoryStoreContract
         Assert.DoesNotContain(id, (await store.ListAsync(taskKey: toTask)).Select(e => e.Id)); // strict admin filter
     }
 
-    /// <summary>CMEM7 — the semantics that made re-scoping wait: <c>(kind, content, taskKey, scope)</c> is the
+    /// <summary>The semantics that made re-scoping wait: <c>(kind, content, taskKey, scope)</c> is the
     /// dedup identity, so an update that would move an entry ONTO an identity another entry already holds is
     /// REFUSED (returns false, writes nothing) instead of silently minting the duplicate
     /// <c>AddAsync(dedup: true)</c> promises not to create. All FOUR identity fields are pinned — <c>kind</c>
@@ -197,7 +197,7 @@ public static class CuratedMemoryStoreContract
         Assert.DoesNotContain("term B", enabledAll.Where(e => e.Kind == kindA).Select(e => e.Content)); // …and drops disabled rows
     }
 
-    /// <summary>CM1 — opt-in dedup on add: identical (kind, content, task, scope) returns the existing id
+    /// <summary>Opt-in dedup on add: identical (kind, content, task, scope) returns the existing id
     /// (idempotent) instead of a second row; the default (dedup:false) keeps the deliberate-catalog behavior
     /// of always inserting. Parameterized task/scope so the Postgres shared container can run it isolated.</summary>
     public static async Task Dedup_add_is_idempotent(ICuratedMemoryStore store, string task = "source-study", string scope = "site:1")
@@ -223,7 +223,7 @@ public static class CuratedMemoryStoreContract
         Assert.Equal(2, (await store.ListAsync(kind: "confirmed", taskKey: task, scope: scope)).Count);
     }
 
-    /// <summary>CM2 — <see cref="ICuratedMemoryStore.ListAsync"/> gains a strict-equality <c>scope</c> filter
+    /// <summary><see cref="ICuratedMemoryStore.ListAsync"/> gains a strict-equality <c>scope</c> filter
     /// (the admin/optimize pass: "all notes for ONE scope, incl. disabled"). Null scope = no filter (unchanged).</summary>
     public static async Task List_filters_by_scope(ICuratedMemoryStore store, string task = "opt")
     {
@@ -248,7 +248,7 @@ public static class CuratedMemoryStoreContract
         Assert.Equal(4, (await store.ListAsync(taskKey: task)).Count);
     }
 
-    /// <summary>T10: the dedup identity is case-SENSITIVE on every backend (SQLite <c>IS</c>/BINARY,
+    /// <summary>The dedup identity is case-SENSITIVE on every backend (SQLite <c>IS</c>/BINARY,
     /// Postgres <c>IS NOT DISTINCT FROM</c>, InMemory ordinal <c>==</c>) — a casing variant of kind,
     /// content, or task is a DIFFERENT identity and inserts a new row even with dedup.</summary>
     public static async Task Dedup_identity_is_case_sensitive(ICuratedMemoryStore store, string task = "dedup-case")
@@ -265,7 +265,7 @@ public static class CuratedMemoryStoreContract
         Assert.Equal(exact, await store.AddAsync("confirmed", "the selector is .price", taskKey: task, dedup: true));
     }
 
-    /// <summary>T10: dedup under CONCURRENT writers of the same identity is BEST-EFFORT by contract (a
+    /// <summary>Dedup under CONCURRENT writers of the same identity is BEST-EFFORT by contract (a
     /// rare racing duplicate row is benign) — pin what DOES hold: every racing add succeeds, the row count
     /// never exceeds the racer count, and dedup adds AFTER the race keep returning one stable id (the
     /// first row's, by the lowest-id tiebreak).</summary>
@@ -283,7 +283,7 @@ public static class CuratedMemoryStoreContract
         Assert.InRange(rows.Count, 1, ids.Length); // usually 1; the benign race bound is the racer count
     }
 
-    /// <summary>CMEM6 — arbitrary <c>string→string</c> <see cref="CuratedMemory.Metadata"/>: round-trips on add
+    /// <summary>Arbitrary <c>string→string</c> <see cref="CuratedMemory.Metadata"/>: round-trips on add
     /// (incl. a value with quotes + CJK, exercising the JSON codec); a null map on update leaves it unchanged,
     /// a non-null map REPLACES the whole set, an empty map clears it; and it stays OUT of the dedup identity.</summary>
     public static async Task Metadata_round_trips_updates_and_clears(ICuratedMemoryStore store, string kind = "meta")
@@ -323,7 +323,7 @@ public static class CuratedMemoryStoreContract
         Assert.Equal("1", (await store.GetAsync(f1))!.Metadata?["a"]);   // dedup does not mutate the matched row
     }
 
-    /// <summary>CMEM6 — the queryable side of metadata: <c>metadataMatch</c> on <see cref="ICuratedMemoryStore.ListAsync"/>
+    /// <summary>The queryable side of metadata: <c>metadataMatch</c> on <see cref="ICuratedMemoryStore.ListAsync"/>
     /// and <see cref="ICuratedMemoryStore.SearchAsync"/> requires EVERY given key/value pair exactly (AND), composes
     /// with the other strict filters, and a null/empty map is no filter. Task-parameterized for the shared container.</summary>
     public static async Task Metadata_filter_matches_all_pairs(ICuratedMemoryStore store, string task = "mfilter")
@@ -424,7 +424,7 @@ public static class CuratedMemoryStoreContract
         Assert.Equal([spouse], hits);
     }
 
-    /// <summary>CMEM4 — the CJK-substring recall the per-backend index machinery exists for: a ≥3-char
+    /// <summary>The CJK-substring recall the per-backend index machinery exists for: a ≥3-char
     /// token contained as a substring hits on every backend, and a 2-char CJK token still hits via each
     /// backend's substring fallback (a trigram index can't serve it; LIKE/ILIKE/Contains can).</summary>
     public static async Task Search_recalls_cjk_substrings(ICuratedMemoryStore store, string task = "search-cjk")

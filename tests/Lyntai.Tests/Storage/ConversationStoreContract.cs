@@ -34,8 +34,8 @@ public static class ConversationStoreContract
         Assert.Null(await store.GetThreadAsync(key + "-missing")); // unknown → null
     }
 
-    /// <summary>S6 — a duplicate thread id THROWS on every backend (the SQL backends' PK violation);
-    /// InMemory used to silently overwrite while keeping the old thread's messages — the classic
+    /// <summary>A duplicate thread id THROWS on every backend (the SQL backends' PK violation). An in-process
+    /// store that silently overwrote, keeping the old thread's messages, would be the classic
     /// test-on-InMemory / deploy-on-SQL divergence.</summary>
     public static async Task Duplicate_thread_id_throws_and_preserves_the_original(IConversationStore store, string key)
     {

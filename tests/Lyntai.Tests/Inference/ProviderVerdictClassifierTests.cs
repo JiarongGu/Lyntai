@@ -107,7 +107,7 @@ public class ProviderVerdictClassifierTests
             ProviderVerdictClassifier.FromException(new OperationCanceledException()));
     }
 
-    // R8 — a typed provider exception often wraps the real "too long" detail in an INNER exception; scanning
+    // A typed provider exception often wraps the real "too long" detail in an INNER exception; scanning
     // only the outer ex.Message misses it → Failed instead of ContextWindowExceeded, defeating the
     // big-context fallback.
     [Fact]
@@ -119,7 +119,7 @@ public class ProviderVerdictClassifierTests
         Assert.Equal(ProviderVerdict.ContextWindowExceeded, ProviderVerdictClassifier.FromException(ex));
     }
 
-    // R8 — the built-in patterns are English-only; an app can add its own matcher (e.g. a non-English
+    // The built-in patterns are English-only; an app can add its own matcher (e.g. a non-English
     // provider) via a scoped seam, consulted BEFORE the built-ins.
     [Fact]
     public void Custom_matcher_extends_classification_and_is_scoped()

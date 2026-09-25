@@ -33,7 +33,7 @@ public class MemoryStoreTests : IDisposable
         Assert.Contains("alpha ab beta", hits[0].Content);
     }
 
-    [Fact] // R6: dedup must be enforced by the schema, not just a UPDATE-then-INSERT that two concurrent
+    [Fact] // Dedup must be enforced by the schema, not just a UPDATE-then-INSERT that two concurrent
            // Remembers could both fall through — a raw duplicate row is rejected by the unique index.
     public async Task Duplicate_fact_is_rejected_by_a_unique_constraint()
     {

@@ -83,7 +83,7 @@ public class RateLimitTests
     [Fact]
     public void Global_limit_enabled_after_construction_is_honored_live()
     {
-        // L10: HasEffectiveLimit documents live options (LYNTAI_RATELIMIT_* env overrides / admin retune
+        // HasEffectiveLimit documents live options (LYNTAI_RATELIMIT_* env overrides / admin retune
         // after construction) — the BUCKETS must be live too, not frozen at construction
         var options = new LyntaiOptions(); // no limit at construction
         var limiter = new TokenBucketRateLimiter(options, () => T0);
@@ -131,7 +131,7 @@ public class RateLimitTests
         Assert.Null(limiter.TryReserve("blocked", T0));                 // never refills → refuse
     }
 
-    [Fact] // L3: the bucket map must share the options map's case-insensitivity — else "Chat"/"chat" each get a full rate
+    [Fact] // The bucket map must share the options map's case-insensitivity — else "Chat"/"chat" each get a full rate
     public void Per_consumer_bucket_is_shared_across_consumer_casings()
     {
         var limiter = Limiter(o =>
@@ -223,7 +223,7 @@ public class RateLimitTests
 
     // ---- DI + composition with the cache -------------------------------------------------------------
 
-    [Fact] // L7: caller cancel is NOT a rate refusal — it propagates (no synthetic RateLimited downstream)
+    [Fact] // Caller cancel is NOT a rate refusal — it propagates (no synthetic RateLimited downstream)
     public async Task A_cancelled_wait_refunds_its_permit_and_propagates_the_cancellation()
     {
         // rate 1/s, burst 1, generous MaxWait so the 2nd acquire WAITS rather than refuses

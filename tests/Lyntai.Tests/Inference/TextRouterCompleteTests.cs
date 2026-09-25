@@ -40,7 +40,7 @@ public class TextRouterCompleteTests
         Assert.Single(p2.Calls);
     }
 
-    [Fact] // L1: a THROWING provider is classified through ProviderVerdictClassifier, not flattened to Failed
+    [Fact] // A THROWING provider is classified through ProviderVerdictClassifier, not flattened to Failed
     public async Task A_thrown_429_is_classified_RateLimited_and_cools_the_host()
     {
         var tracker = new DeadHostTracker();
@@ -56,7 +56,7 @@ public class TextRouterCompleteTests
         Assert.True(tracker.IsDead("p1"));
     }
 
-    [Fact] // R4: a THROWN exception whose text matches refusal keywords is a transport fault — never terminal Refused
+    [Fact] // A THROWN exception whose text matches refusal keywords is a transport fault — never terminal Refused
     public async Task A_thrown_error_with_refusal_keywords_still_falls_over()
     {
         // an error page from a proxy/CDN mentioning "content filter" — the MODEL never declined anything

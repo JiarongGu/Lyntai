@@ -107,7 +107,7 @@ public class LyntaiOptionsTests
         Assert.Equal("base-x", options.ResolveModel("chat", null));     // falls through to "default"
     }
 
-    [Fact] // I1: env numbers parse INVARIANT — a comma-decimal locale must not read "1.5" as 15
+    [Fact] // Env numbers parse INVARIANT — a comma-decimal locale must not read "1.5" as 15
     public void Numeric_env_overrides_parse_invariant_regardless_of_culture()
     {
         var original = Thread.CurrentThread.CurrentCulture;

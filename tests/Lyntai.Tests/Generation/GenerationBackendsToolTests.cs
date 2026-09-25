@@ -10,12 +10,12 @@ namespace Lyntai.Tests.Generation;
 /// <c>generate_backends</c> — the tool an agent is told to call FIRST, which is what makes its worst case
 /// everyone's worst case.
 ///
-/// <para><b>What it did until 2026-08-17 (archive Part 86).</b> It awaited <c>ProbeAsync</c> on every
-/// registered provider in SEQUENCE, with no aggregate bound and no <c>try</c>. Each probe was capped only by
-/// that backend's own <c>Timeout</c> — and the same option governs a render, so
-/// <c>Automatic1111Options</c> and <c>OpenAiImageOptions</c> both default it to TEN MINUTES. Two HTTP
-/// backends that accept a connection and stall therefore blocked the tool for about twenty. Every backend
-/// disclosed its own timeout honestly; the COMPOSITION disclosed nothing.</para>
+/// <para><b>Why the whole call is bounded.</b> Each probe is capped only by that backend's own
+/// <c>Timeout</c>, and the same option governs a render, so <c>Automatic1111Options</c> and
+/// <c>OpenAiImageOptions</c> both default it to TEN MINUTES: probed in sequence with no aggregate bound, two
+/// HTTP backends that accept a connection and stall block the tool for about twenty
+/// (<c>docs/task-archive.md</c> Part 86). Each backend discloses its own timeout; only the COMPOSITION can
+/// bound the total.</para>
 /// </summary>
 public class GenerationBackendsToolTests
 {
@@ -102,17 +102,10 @@ public class GenerationBackendsToolTests
         Assert.Contains("boom", broken.GetProperty("detail").GetString()!, StringComparison.Ordinal);
     }
 
-    /// <summary>Probes run CONCURRENTLY — asserted by OBSERVING overlap rather than by timing it.
-    ///
-    /// <para><b>The first draft timed it and was flaky, which is the point worth keeping.</b> It ran three
-    /// stalled probes under a 400ms deadline and asserted the total stayed under a second: true when run
-    /// alone, and it failed inside a full-suite run on a loaded machine. `pitfalls.md` already records that
-    /// exact shape from `ElapsedAgePolicy` — a test that depends on machine load reads as coverage and is
-    /// not — and this is the same mistake made by the same hand an hour after writing it down.</para>
-    ///
-    /// <para>Overlap is the property anyway. Serial execution cannot produce a concurrency above 1 however
-    /// fast or slow the machine is, so counting it is both deterministic AND a stronger statement than any
-    /// elapsed bound.</para></summary>
+    /// <summary>Probes run CONCURRENTLY — asserted by OBSERVING overlap rather than by timing it. An elapsed
+    /// bound depends on machine load and fails inside a full-suite run (`pitfalls.md` records the shape);
+    /// serial execution cannot produce a concurrency above 1 however fast or slow the machine is, so counting
+    /// it is both deterministic AND the stronger statement.</summary>
     [Fact]
     public async Task Probes_run_concurrently_so_one_slow_backend_does_not_serialize_the_rest()
     {

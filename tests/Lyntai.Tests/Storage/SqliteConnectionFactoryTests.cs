@@ -29,7 +29,7 @@ public class SqliteConnectionFactoryTests : IDisposable
         Assert.Equal(42L, await conn.ExecuteScalarAsync<long>("SELECT 42"));
     }
 
-    // R12 — a factory that implements only the sync Open() still gets a working OpenAsync via the interface
+    // A factory that implements only the sync Open() still gets a working OpenAsync via the interface
     // default method (so adding OpenAsync is non-breaking for existing implementers).
     [Fact]
     public async Task Default_OpenAsync_delegates_to_the_sync_Open()

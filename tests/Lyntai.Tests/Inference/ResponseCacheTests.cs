@@ -46,7 +46,7 @@ public class ResponseCacheTests
         Assert.NotEqual(key, ResponseCacheKey.For(baseReq with { Reasoning = TextReasoning.Suppress })); // reasoning
     }
 
-    // R21b — guard against a NEW TextRequest field being added but not folded into the cache key (a silent
+    // Guard against a NEW TextRequest field being added but not folded into the cache key (a silent
     // collision: two requests differing only in the new field would share a cached hit). Every field must be
     // either hashed by ResponseCacheKey.For or consciously listed here as excluded (with a reason).
     [Fact]

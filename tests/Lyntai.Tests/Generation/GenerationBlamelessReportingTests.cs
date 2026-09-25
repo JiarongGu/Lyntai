@@ -5,22 +5,17 @@ using static Lyntai.Tests.Fakes.CandidateLists;
 
 namespace Lyntai.Tests.Generation;
 
-/// <summary>A media verdict has to be able to be BLAMELESS and REPORTABLE at once, and until 2026-08-05 the
-/// router forced a choice between them (<c>docs/task-archive.md</c> Part 40, opened by
+/// <summary>A media verdict can be BLAMELESS and REPORTABLE at once (<c>docs/task-archive.md</c> Part 40,
 /// <c>docs/DECISIONS.md</c> D36).
 ///
-/// <para>The rule that forced it is right and stays: a blameless verdict must never MASK a real failure, or
-/// <c>[downHost → Failed, neverConfigured → NotConfigured]</c> sends the caller off to set up a key while the
-/// backend they HAD configured is the one that is down (D31). What was missing is the OTHER half — when
-/// nothing substantive failed at all, the blameless backend's own words are the honest answer, and the
-/// synthetic "every capable backend reported it is not configured" was not even accurate for a run in which
-/// every candidate said <see cref="ProviderVerdict.Unsupported"/>.</para>
-///
-/// <para>So the router keeps a second slot, exactly as <c>TextRouter.CompleteAsync</c> already did
-/// (<c>last ?? lastBlameless ?? synthetic</c>) — and only once that was in place could
-/// <see cref="ProviderVerdict.ContextWindowExceeded"/> become <see cref="ProviderVerdict.Unsupported"/>, which is
-/// what stops repeated oversized prompts from benching a healthy backend. Doing the mapping first would just
-/// have swapped one cost for the other.</para></summary>
+/// <para>A blameless verdict never MASKS a real failure, or <c>[downHost → Failed, neverConfigured →
+/// NotConfigured]</c> sends the caller off to set up a key while the backend they HAD configured is the one
+/// that is down (D31). When nothing substantive failed, the blameless backend's own words are the honest
+/// answer — a synthetic "every capable backend reported it is not configured" is not even accurate when every
+/// candidate said <see cref="ProviderVerdict.Unsupported"/>. So the router keeps a second slot, as
+/// <c>TextRouter.CompleteAsync</c> does (<c>last ?? lastBlameless ?? synthetic</c>), and that slot is what
+/// lets <see cref="ProviderVerdict.ContextWindowExceeded"/> map to <see cref="ProviderVerdict.Unsupported"/>
+/// without repeated oversized prompts benching a healthy backend.</para></summary>
 public class GenerationBlamelessReportingTests
 {
     private static MediaRequest Image() => new() { Kind = ProviderKinds.Image, Prompt = "a red square" };

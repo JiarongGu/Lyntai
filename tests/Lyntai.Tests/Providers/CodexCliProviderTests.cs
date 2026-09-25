@@ -22,14 +22,10 @@ public class CodexCliProviderTests
     [Fact]
     public void Tool_host_args_land_before_the_stdin_positional_not_after_it()
     {
-        // Found 2026-08-15. CodexExecArgs has always taken an `extraOptions` parameter SPECIFICALLY so
-        // options land before the `-`, and says why in its own words: "an option landing after the `-` would
-        // be read as part of the [PROMPT] positional, and on this CLI a swallowed flag is a SPENT TURN
-        // rather than an error." The AGENT path honoured that (CodexAgentArgs passes mcpArgs through it);
-        // the COMPLETION path structurally could not, because ICliBackend.BuildCompletionArgs took
-        // only the request — so CliProviderEngine appended the tool-host args AFTER the dialect's argv, i.e.
-        // after the `-`. It never bit only because claude is the sole CLI that has driven that path and its
-        // argv happens to end in an option.
+        // CodexExecArgs takes `extraOptions` so options land before the `-`: an option after it is read as
+        // part of the [PROMPT] positional, and on this CLI a swallowed flag is a SPENT TURN rather than an
+        // error. The completion path must route the tool-host args through it too, not append them after the
+        // dialect's argv (claude's argv happens to end in an option, which is why only codex can show this).
         var dialect = new CodexCliBackend();
 
         var argv = dialect.BuildCompletionArgs(
@@ -80,9 +76,8 @@ public class CodexCliProviderTests
     {
         IModelProvider provider = Provider(new FakeProcessRunner());
 
-        // Probing is no longer a TYPE question — ProbeAsync is on IModelProvider with a default (D127), so
-        // assignability would pass for every backend and prove nothing. What this family actually
-        // claims is that the probe is OVERRIDDEN, which the version test below asserts by behaviour.
+        // the probe is not a TYPE question (D127; see ClaudeCliProbeTests) — the version test below shows it
+        // is overridden
         Assert.IsAssignableFrom<IProviderUpdater>(provider);        // codex update
         Assert.IsAssignableFrom<IProviderAuth>(provider);           // codex login status / login / logout
 
@@ -211,8 +206,7 @@ public class CodexCliProviderTests
     [Fact]
     public async Task An_in_band_failure_is_classified_even_when_the_process_ALSO_exits_nonzero()
     {
-        // MEASURED 2026-08-05 against an account whose login had EXPIRED (CLI15, filed by a consuming app):
-        // one turn prints BOTH error-ish events — which do not share a shape — and then exits non-zero with
+        // MEASURED against an account whose login had EXPIRED: one turn prints BOTH error-ish events — which do not share a shape — and then exits non-zero with
         // codex's ordinary startup chatter on stderr. The 401 lives only in the in-band message, so reading
         // the exit code first reports a bare Failed whose detail is "Reading prompt from stdin...": the
         // router advances instead of cooling the host, and the owner is sent to check their PATH rather

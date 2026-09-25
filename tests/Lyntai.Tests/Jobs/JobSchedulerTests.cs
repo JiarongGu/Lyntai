@@ -53,7 +53,7 @@ public class JobSchedulerTests
         Assert.Equal(3, (await jobs.ListAsync()).Count); // one per elapsed interval
     }
 
-    [Fact] // I4: a corrupt persisted next-run self-heals (re-anchor + overwrite) instead of freezing the schedule
+    [Fact] // A corrupt persisted next-run self-heals (re-anchor + overwrite) instead of freezing the schedule
     public async Task Corrupt_persisted_next_run_re_anchors_instead_of_freezing_the_schedule()
     {
         var (sched, jobs, clock, kv) = Build(Every(TimeSpan.FromMinutes(10)));

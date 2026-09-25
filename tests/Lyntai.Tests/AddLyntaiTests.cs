@@ -118,7 +118,7 @@ public class AddLyntaiTests
             Task.FromResult<ScoreResult?>(null);
     }
 
-    // R11 — a custom cross-cutting decorator folds over the front door via the public seam, without the app
+    // A custom cross-cutting decorator folds over the front door via the public seam, without the app
     // pre-registering a whole ITextClient (which would trip the governance guard).
     [Fact]
     public async Task Custom_front_door_decorator_wraps_the_client()

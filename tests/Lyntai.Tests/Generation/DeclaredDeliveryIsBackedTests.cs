@@ -6,12 +6,9 @@ namespace Lyntai.Tests.Generation;
 
 /// <summary>The contract fact that asks whether a declared delivery is BACKED, driven both ways.
 ///
-/// <para>It exists because the assertion it replaces could not fail. Until 2026-09-16 the Stream arm read
-/// <c>Assert.True(provider is IModelProvider, …)</c> against a parameter already typed
-/// <see cref="IModelProvider"/> — always true. It was a real type test before <b>D127</b> collapsed the
-/// domain seams and turned <c>StreamAsync(MediaRequest, …)</c> into a default interface member; the
-/// rename made every backend "implement" it, and the fact went vacuous in the same release, silently. A
-/// test that cannot fail reports coverage it does not have, which is worse than no test.</para></summary>
+/// <para>A type test cannot answer it: <c>StreamAsync(MediaRequest, …)</c> is a default interface member
+/// (<b>D127</b>), so every backend "implements" it and <c>provider is IModelProvider</c> is always true. The
+/// fact asks whether the declared delivery is SERVED instead, and both tests here drive it.</para></summary>
 public class DeclaredDeliveryIsBackedTests
 {
     [Fact]

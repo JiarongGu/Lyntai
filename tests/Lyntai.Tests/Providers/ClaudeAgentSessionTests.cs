@@ -60,9 +60,9 @@ public class ClaudeAgentSessionTests
 
         var dtIdx = argv.IndexOf("--disallowed-tools");
         Assert.True(dtIdx >= 0, "--disallowed-tools flag expected");
-        // Split on the comma and compare whole NAMES. Asserting `Contains("Edit", dtVal)` against the joined
-        // string is satisfied by "NotebookEdit", so dropping "Edit" from ReadOnlyDenied left this test green
-        // while a ReadOnly agent could edit the caller's disk (found 2026-08-14 by the whole-codebase review).
+        // Split on the comma and compare whole NAMES: a substring check on the joined string is satisfied by
+        // "NotebookEdit", so dropping "Edit" from ReadOnlyDenied would pass while a ReadOnly agent could edit
+        // the caller's disk.
         var denied = argv[dtIdx + 1].Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         Assert.Contains("Edit", denied);
         Assert.Contains("Write", denied);
@@ -197,7 +197,7 @@ public class ClaudeAgentSessionTests
         Assert.Equal(1, bashCount);
     }
 
-    // ── CLI14: the host application's own MCP servers ─────────────────────────
+    // ── the host application's own MCP servers ────────────────────────────────
 
     /// <summary>MEASURED turn-free against the installed claude CLI (2026-08-05): `claude --help` documents
     /// `--mcp-config &lt;configs...&gt;` as "Load MCP servers from JSON files or strings (space-separated)",
@@ -335,7 +335,7 @@ public class ClaudeAgentSessionTests
         Assert.False(File.Exists(path), $"the config file should have been deleted: {path}");
     }
 
-    // ── CLI1: headless skip-all-permissions ───────────────────────────────────
+    // ── headless skip-all-permissions ─────────────────────────────────────────
 
     [Fact]
     public void Build_skip_all_permissions_suppresses_permission_mode_even_for_write_policy()
@@ -551,7 +551,7 @@ public class ClaudeAgentSessionTests
         Assert.False(terminals[0].IsError);
     }
 
-    [Fact] // T5: CALLER cancellation MID-stream propagates — no fabricated terminal after the committed events
+    [Fact] // CALLER cancellation MID-stream propagates — no fabricated terminal after the committed events
     public async Task StreamAsync_mid_stream_caller_cancellation_propagates_without_a_bogus_terminal()
     {
         using var cts = new CancellationTokenSource();

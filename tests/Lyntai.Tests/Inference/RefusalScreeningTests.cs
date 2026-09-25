@@ -131,7 +131,7 @@ public class RefusalScreeningTests
         Assert.Equal(ProviderVerdict.Ok, reply.Verdict); // matcher blew up → reply passes through unchanged
     }
 
-    [Fact] // I3: a matcher registered against a PRE-REGISTERED ITextClient would be silently ignored — guard it
+    [Fact] // A matcher registered against a PRE-REGISTERED ITextClient would be silently ignored — guard it
     public void A_pre_registered_front_door_with_a_refusal_matcher_throws()
     {
         var services = new ServiceCollection();

@@ -52,12 +52,10 @@ public class McpToolHostTests
     [Fact]
     public async Task A_guard_blocks_a_hosted_tool_call_the_same_way_it_blocks_one_in_the_tool_loop()
     {
-        // THE JAIL, found 2026-08-15. The archive records "Guards don't cover the agent tool loop" being
-        // closed for ToolLoop in 2026-07; MCP hosting arrived later and reopened it from the other side. The
-        // SAME ITool instances (sp.GetServices<ITool>()) are reachable both ways, so a consumer who
-        // registered a guard had it enforced through IToolLoop and silently not through the hosted endpoint
-        // the CLI's own agent calls. Neither ChatOrchestrator gate can see it either: gate 1 saw the user
-        // message, gate 2 sees only the final answer.
+        // THE JAIL. The SAME ITool instances (sp.GetServices<ITool>()) are reachable through IToolLoop and
+        // through the hosted endpoint the CLI's own agent calls, so a guard enforced on one path and not the
+        // other is silently absent there. Neither ChatOrchestrator gate can see a hosted call either: gate 1
+        // sees the user message, gate 2 only the final answer.
         var ran = false;
         ITool secret = new FunctionTool("read_secret",
             (_, _) => { ran = true; return Task.FromResult("SECRET_KEY=hunter2"); },

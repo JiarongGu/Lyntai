@@ -146,7 +146,7 @@ public class ToolLoopTests
         Assert.Empty(result.Steps);
     }
 
-    // ---- TL1: per-run token usage aggregated onto the result ----------------------------------------
+    // ---- per-run token usage aggregated onto the result ---------------------------------------------
 
     [Fact]
     public async Task Aggregates_token_usage_across_every_call_prompt_path()
@@ -377,7 +377,7 @@ public class ToolLoopTests
         Assert.DoesNotContain(client.Calls[0].Messages, m => m.Role == "system"); // no protocol prompt injected
     }
 
-    // ---- TL2: live-progress StreamAsync ------------------------------------------------------------
+    // ---- live-progress StreamAsync -----------------------------------------------------------------
 
     [Fact]
     public async Task StreamAsync_prompt_path_yields_toolcall_result_text_then_terminal_in_order()
@@ -492,7 +492,7 @@ public class ToolLoopTests
             => Task.FromResult(new ToolLoopResult("answer", ProviderVerdict.Ok, [new ToolStep("t", "{}", "obs")]));
     }
 
-    // R2 — guards cover the tool loop: a denied term in tool ARGS or in a tool OBSERVATION is a jail
+    // Guards cover the tool loop: a denied term in tool ARGS or in a tool OBSERVATION is a jail
     // violation, not something that bypasses the rail because it never touched the initial/final gate.
     [Fact]
     public async Task Blocks_a_tool_call_whose_args_contain_a_denied_term()

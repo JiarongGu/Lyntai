@@ -24,11 +24,9 @@ public class MigrationSchemaSnapshotTests : IDisposable
         Directory.CreateDirectory(SnapshotDir);
         var goldenPath = Path.Combine(SnapshotDir, "sqlite-schema.sql");
 
-        // Regeneration FAILS the run on purpose. The write happened before the compare, so with this variable
-        // set the assertion below read actual == actual and could not fail — silently, with no output saying
-        // the golden had been rewritten. A stray export (a shell profile, a CI variable, a leftover from a
-        // deliberate regeneration) turned both schema guards into permanent no-ops, which is the worst shape
-        // a guard can have: it reads as coverage. Found 2026-08-14 by the whole-codebase review.
+        // Regeneration FAILS the run on purpose: the write happens before the compare, so a passing run here
+        // would read actual == actual. A stray export (a shell profile, a CI variable, a leftover from a
+        // deliberate regeneration) would turn both schema guards into no-ops that read as coverage.
         if (Environment.GetEnvironmentVariable("LYNTAI_UPDATE_SCHEMA_SNAPSHOT") == "1")
         {
             File.WriteAllText(goldenPath, actual);

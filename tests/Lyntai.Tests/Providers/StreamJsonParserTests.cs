@@ -52,15 +52,12 @@ public class StreamJsonParserTests
     }
 
     /// <summary>A terminal result carrying <c>is_error</c> is a FAILURE, not an answer.
-    /// <para>Present in the released 2.5.0 and every version before it: <c>StreamJsonEventKind</c> had no
-    /// failure member at all, so no claude line could ever produce <c>CliOutputEventKind.Failure</c> and the
-    /// engine's whole in-band-failure precedence was dead code for this backend — only codex reached it.
-    /// A run that printed partial assistant text and then failed returned <c>ProviderVerdict.Ok</c> with a
-    /// truncated answer labelled complete; with error prose in <c>result</c>, that prose WAS the answer. Even
-    /// on a non-zero exit the verdict came from the stderr tail instead of the backend's own words, so
-    /// <c>AuthFailed</c>/<c>RateLimited</c> degraded to bare <c>Failed</c> — advance instead of cool, the
-    /// exact regression <c>pitfalls.md</c> records as fixed for codex on 2026-08-05. The sibling reader of
-    /// the same wire format has always read <c>is_error</c>. Found 2026-08-14.</para></summary>
+    /// <para>Without it no claude line can produce <c>CliOutputEventKind.Failure</c>, and the engine's
+    /// in-band-failure precedence never runs for this backend: a run that printed partial text and then failed
+    /// returns <c>ProviderVerdict.Ok</c> with a truncated answer labelled complete, and a non-zero exit takes
+    /// its verdict from the stderr tail instead of the backend's own words, so <c>AuthFailed</c> and
+    /// <c>RateLimited</c> degrade to <c>Failed</c> — advance instead of cool, the shape <c>pitfalls.md</c>
+    /// records for codex.</para></summary>
     [Theory]
     [InlineData("""{"type":"result","is_error":true,"subtype":"error_max_turns","result":"ran out of turns"}""")]
     [InlineData("""{"type":"result","is_error":true,"result":"401 Unauthorized"}""")]

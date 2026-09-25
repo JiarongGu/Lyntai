@@ -119,13 +119,9 @@ public class JobRunnerTests
     [Fact]
     public async Task Poll_requeues_without_spending_an_attempt_so_a_long_operation_is_never_dead_lettered()
     {
-        // Found 2026-08-14 by the whole-codebase review. GenerationRenderJobHandler expressed "the render is
-        // still running, come back later" as JobOutcome.Retry — and a retry SPENDS an attempt, so at the
-        // default MaxAttempts of 3 the third poll dead-lettered the job. At a 15s poll delay that meant any
-        // render over ~30 seconds died, against a class doc promising to "poll to completion across as many
-        // process lifetimes as it takes", and the operator was told "retries exhausted" while a PAID render
-        // carried on unwatched. Polling and retrying are different things; Retry keeps its meaning (a failed
-        // attempt worth repeating) and Poll is the word that was missing.
+        // Polling is not retrying. A retry SPENDS an attempt, so "still running, come back later" expressed as
+        // Retry dead-letters a long render at MaxAttempts and tells the operator "retries exhausted" while a
+        // PAID render carries on unwatched. Retry is a failed attempt worth repeating; Poll spends nothing.
         var polls = 0;
         var handler = new FakeJobHandler("render",
             _ => Task.FromResult(++polls < 5 ? JobOutcome.Poll(TimeSpan.FromSeconds(1)) : JobOutcome.Complete));

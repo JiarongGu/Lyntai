@@ -84,7 +84,7 @@ public class TextRouterStreamTests
         Assert.Equal(ProviderVerdict.NotConfigured, error.Verdict); // not swallowed into a generic "no live candidate"
     }
 
-    [Fact] // T8: a PROVIDER's own OperationCanceledException (caller ct not cancelled) falls over, not aborts
+    [Fact] // A PROVIDER's own OperationCanceledException (caller ct not cancelled) falls over, not aborts
     public async Task Provider_side_cancellation_pre_content_falls_over_to_next_candidate()
     {
         var p1 = new FakeTextProvider("p1") { StreamThrow = new OperationCanceledException("provider gave up") };
@@ -117,7 +117,7 @@ public class TextRouterStreamTests
         Assert.Equal(1, p2.StreamCalls); // the empty chunk didn't commit, so it fell over — and did not leak
     }
 
-    [Fact] // L4: zero chunks = a contract-violating empty stream → Failed + fall over (not a silent end)
+    [Fact] // Zero chunks = a contract-violating empty stream → Failed + fall over (not a silent end)
     public async Task Zero_chunk_stream_falls_over_to_the_next_candidate()
     {
         var p1 = new FakeTextProvider("p1") { StreamScript = _ => [] };
@@ -129,7 +129,7 @@ public class TextRouterStreamTests
         Assert.Equal(1, p2.StreamCalls);
     }
 
-    [Fact] // L4: with no fallback left, the empty stream still ends with a terminal Error chunk (never silence)
+    [Fact] // With no fallback left, the empty stream still ends with a terminal Error chunk (never silence)
     public async Task Zero_chunk_stream_with_no_fallback_yields_a_terminal_error()
     {
         var p1 = new FakeTextProvider("p1") { StreamScript = _ => [] };
@@ -141,7 +141,7 @@ public class TextRouterStreamTests
         Assert.Equal(ProviderVerdict.Failed, only.Verdict);
     }
 
-    [Fact] // L4: a Final with NO preceding content is the empty-reply trap at the trust boundary → falls over
+    [Fact] // A Final with NO preceding content is the empty-reply trap at the trust boundary → falls over
     public async Task Pre_content_final_falls_over_instead_of_passing_an_empty_end_through()
     {
         var p1 = new FakeTextProvider("p1") { StreamScript = _ => [TextChunk.Final()] };
@@ -170,7 +170,7 @@ public class TextRouterStreamTests
         Assert.Equal(0, p2.StreamCalls);                    // never falls back after the first token
     }
 
-    [Fact] // T5: CALLER cancellation after the first committed chunk PROPAGATES — no fallback, no bogus terminal
+    [Fact] // CALLER cancellation after the first committed chunk PROPAGATES — no fallback, no bogus terminal
     public async Task Caller_cancellation_mid_stream_propagates_without_fallback_or_a_fabricated_terminal()
     {
         using var cts = new CancellationTokenSource();

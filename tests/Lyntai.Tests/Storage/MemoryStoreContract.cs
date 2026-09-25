@@ -135,7 +135,7 @@ public static class MemoryStoreContract
         Assert.Single(await store.RecallAsync(key));
     }
 
-    /// <summary>T9: a re-remembered (deduped) fact refreshes its recall RECENCY — bare (no-query) recall is
+    /// <summary>A re-remembered (deduped) fact refreshes its recall RECENCY — bare (no-query) recall is
     /// recency-ordered on every backend, so the reinforced fact must come back first.</summary>
     public static async Task Re_remembering_refreshes_recall_recency(IMemoryStore store, string key, Action<TimeSpan> advance)
     {
@@ -149,7 +149,7 @@ public static class MemoryStoreContract
         Assert.Equal("important", hits[0].Content); // most recently reinforced ⇒ first in recall
     }
 
-    /// <summary>T9: <c>PruneAsync(olderThan:)</c> removes by AGE regardless of TTL. Task-scoped so it is
+    /// <summary><c>PruneAsync(olderThan:)</c> removes by AGE regardless of TTL. Task-scoped so it is
     /// safe on the shared Postgres container (an unscoped age prune would remove other tests' rows).</summary>
     public static async Task Prune_older_than_removes_by_age_within_a_task(IMemoryStore store, string key, Action<TimeSpan> advance)
     {
@@ -165,7 +165,7 @@ public static class MemoryStoreContract
         Assert.Equal("new fact", hits[0].Content);
     }
 
-    /// <summary>T9: a task-scoped prune removes only that task — the sibling task's expired row survives
+    /// <summary>A task-scoped prune removes only that task — the sibling task's expired row survives
     /// (proved by its own scoped prune still finding it, so no cross-backend table peeking).</summary>
     public static async Task Prune_scoped_to_one_task_leaves_the_sibling(IMemoryStore store, string key, Action<TimeSpan> advance)
     {

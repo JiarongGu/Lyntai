@@ -291,7 +291,7 @@ public class CliProviderEngineTests
     public void A_portable_extensionless_shim_is_available_through_its_spawnable_sibling()
     {
         // an npm/nvm-shaped portable layout: `mycli` (POSIX script) next to `mycli.cmd`. CreateProcess
-        // can't exec the former, so presence must be judged the way the spawn resolves it (CLI2).
+        // can't exec the former, so presence must be judged the way the spawn resolves it.
         Skip.IfNot(OperatingSystem.IsWindows(), "an npm shim is spawnable as-is off Windows");
 
         using var scratch = new ScratchDir("portable-shim");

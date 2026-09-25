@@ -256,7 +256,7 @@ public class ProcessRunnerTests
         Assert.True(sw.Elapsed < TimeSpan.FromSeconds(30), $"took {sw.Elapsed} — kill didn't work");
     }
 
-    [Fact] // R3: a child actively DRAINING a large stdin is ALIVE — each drained slice re-arms the clock
+    [Fact] // A child actively DRAINING a large stdin is ALIVE — each drained slice re-arms the clock
     public async Task Child_actively_draining_stdin_past_the_window_is_not_killed()
     {
         // stdout closes instantly; the child then SIPS stdin (take one pipe-buffer's worth, nap 150ms,
@@ -265,14 +265,9 @@ public class ProcessRunnerTests
         // slice write completes, and that progress re-arms the clock. Pre-fix, the single fixed post-EOF
         // window killed this healthy child mid-drain.
         //
-        // THE WINDOW IS 5s, NOT 2s, AND THAT IS A FLAKE FIX (2026-08-16). At 2s the margin over a 150ms sip
-        // was 13x, which a loaded machine eats: this failed once inside a full ~3,000-test run and passed
-        // 3/3 in isolation, because a stalled Node process going quiet for 2s is indistinguishable from a
-        // wedged one. The property under test is unchanged — total drain still far exceeds the window — and
-        // the margin is now 33x. Widening costs no coverage: the OPPOSITE direction, that the post-EOF
-        // observe is bounded and cannot hang forever, is pinned by its own test below.
-        // A timing test whose failure mode is "the product looks broken" has to be robust to load, or it
-        // teaches the next reader to re-run the suite instead of reading the failure.
+        // The window is 5s, 33x the 150ms sip, because a loaded machine eats a thinner margin (at 2s a stalled
+        // Node process is indistinguishable from a wedged one). Total drain still far exceeds the window, and
+        // the opposite direction — the post-EOF observe is bounded — is pinned by its own test below.
         const string script = """
             process.stdout.end();
             process.stdin.on('end', () => process.exit(0));
@@ -289,7 +284,7 @@ public class ProcessRunnerTests
         Assert.False(result.TimedOut); // drain progress counted as activity — the healthy child finished
     }
 
-    [Fact] // I2: the stdin observe after stdout EOF is bounded by the inactivity clock (no unbounded hang)
+    [Fact] // The stdin observe after stdout EOF is bounded by the inactivity clock (no unbounded hang)
     public async Task Child_that_closes_stdout_but_never_drains_stdin_is_killed_by_the_inactivity_clock()
     {
         // stdout ends immediately (EOF for the read loop), stdin is never read, and the child lingers —
@@ -455,7 +450,7 @@ public class ProcessRunnerTests
     [SkippableFact]
     public async Task Runs_an_extensionless_npm_shim_through_its_cmd_sibling()
     {
-        // CLI2: an npm/nvm global install drops THREE launchers side by side — an extensionless `tool`
+        // An npm/nvm global install drops THREE launchers side by side — an extensionless `tool`
         // (a POSIX sh script, for Git Bash), `tool.cmd`, and `tool.ps1`. CreateProcess can't exec the
         // extensionless one ("The specified executable is not a valid application for this OS platform"),
         // and it's exactly what a caller-supplied path (or a where.exe hit list without the .cmd) can

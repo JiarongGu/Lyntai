@@ -127,7 +127,7 @@ public class SecretKeyEnvelopeTests
 
     // ---- EnvelopeSecretVault ----
 
-    [Fact] // I7: a BYO ISecretVault must not make EnvelopeSecretVault resolution explode with an InvalidCastException
+    [Fact] // A BYO ISecretVault must not make EnvelopeSecretVault resolution explode with an InvalidCastException
     public void Byo_vault_plus_AddEnvelopeSecretVault_still_resolves_the_concrete_envelope_vault()
     {
         var byo = new InMemorySecretVault(new NullSecretProtector());

@@ -5,16 +5,15 @@ namespace Lyntai.Tests.Api;
 /// drops has no place in the baseline at all, so a break in it does not weaken the gate — it deletes the
 /// gate for that shape, silently.
 ///
-/// <para>Three details were dropped until 2026-08-05, each hiding a real break:</para>
+/// <para>Three details a rendering can drop, each hiding a real break when it does:</para>
 /// <list type="bullet">
-/// <item><b>type parameters</b> — <c>AddSemanticMemory()</c> and <c>AddSemanticMemory&lt;TVectorProvider&gt;()</c>
-/// rendered as the identical line, so the baseline literally held it twice; deleting either overload left a
-/// baseline the gate still accepted, because the diff read as an ordinary removal of something the surviving
-/// duplicate covered. Removing a public overload from a frozen surface is exactly what the gate is for;</item>
-/// <item><b>parameter names</b> — only types were rendered, so a rename passed silently even though it is a
-/// source break for every named-argument caller, which the README actively teaches;</item>
-/// <item><b>default values</b> — a bare <c>=</c> marker recorded only that a default EXISTED, so flipping
-/// one passed silently.</item>
+/// <item><b>type parameters</b> — without them <c>AddSemanticMemory()</c> and
+/// <c>AddSemanticMemory&lt;TVectorProvider&gt;()</c> render as one line, so deleting either overload reads as
+/// the removal of something the surviving duplicate covers;</item>
+/// <item><b>parameter names</b> — a rename is a source break for every named-argument caller, which the
+/// README actively teaches;</item>
+/// <item><b>default values</b> — a bare <c>=</c> marker records only that a default EXISTS, so flipping one
+/// passes.</item>
 /// </list>
 ///
 /// <para>The fixtures below are local on purpose: pinning a real signature here would duplicate what the
@@ -23,10 +22,9 @@ namespace Lyntai.Tests.Api;
 public class ApiSurfaceRendererTests
 {
 
-    /// <summary>The deletion the gate could not see, performed: two overloads render, one is dropped, and
-    /// the rendering must be poorer by exactly the dropped one. Before the fix the two overloads rendered
-    /// identically, so the "after" set was covered by the surviving duplicate and this difference was
-    /// empty — the removal of public surface simply did not reach the baseline.</summary>
+    /// <summary>The deletion the gate must see, performed: two overloads render, one is dropped, and the
+    /// rendering must be poorer by exactly the dropped one. Rendered without type parameters the two are one
+    /// line, the difference is empty, and the removal never reaches the baseline.</summary>
     [Fact]
     public void Dropping_a_generic_overload_changes_the_rendered_surface()
     {
@@ -37,9 +35,7 @@ public class ApiSurfaceRendererTests
         Assert.Equal(new[] { "Overloaded() : Void", "Overloaded<TItem>() : Void" }, before);
         Assert.Equal(new[] { "Overloaded() : Void" }, after);
 
-        // the punchline: the rendering is poorer by EXACTLY the deleted overload. Before the fix both lines
-        // of `before` read "Overloaded() : Void", so this difference was empty — the deletion of public
-        // surface reached the baseline as nothing at all.
+        // the rendering is poorer by EXACTLY the deleted overload
         Assert.Equal(new[] { "Overloaded<TItem>() : Void" }, before.Except(after, StringComparer.Ordinal));
 
         static List<string> Overloaded(Type t) =>

@@ -131,11 +131,9 @@ public static class JobStoreContract
     }
 
     /// <summary>A poll returns the job to Pending WITHOUT spending an attempt, and is fenced like every other
-    /// write. Found 2026-08-14: expressing "still running, look again" as a Retry dead-lettered a healthy
-    /// render after MaxAttempts looks, so the un-counting is the whole point of the member and is asserted
-    /// here rather than on one backend's own test class — the SQL does it with `attempts=attempts-1` and the
-    /// in-process store with a floored subtraction, which is exactly the kind of divergence a contract fact
-    /// exists to pin.</summary>
+    /// write. The un-counting is the whole point of the member (a Retry would dead-letter a healthy render
+    /// after MaxAttempts looks), and it is asserted here rather than per backend because the SQL does it with
+    /// `attempts=attempts-1` and the in-process store with a floored subtraction.</summary>
     public static async Task Poll_requeues_without_spending_an_attempt_and_is_fenced(
         IJobStore store, MutableClock clock, string lane = "default")
     {
@@ -452,11 +450,10 @@ public static class JobStoreContract
     }
 
     // ---- cross-process concurrency slots (D73) ------------------------------------------------------
-    // These pin the three properties `InMemoryJobStore.TryAcquireSlotAsync` names as "the semantics the SQL
-    // stores must match": lowest free index wins, an index at or above the cap is never handed out, and a
-    // slot older than the lease is reclaimable. Until 2026-08-17 they were asserted ONLY against the
-    // in-process store -- the one backend where a cross-PROCESS cap is meaningless by definition -- so the
-    // two that ship the feature ran neither SQL statement anywhere in the suite.
+    // These pin the properties `InMemoryJobStore.TryAcquireSlotAsync` names as "the semantics the SQL stores
+    // must match": lowest free index wins, an index at or above the cap is never handed out, and a slot older
+    // than the lease is reclaimable. They run on every backend because the in-process store is the one where a
+    // cross-PROCESS cap is meaningless; the SQL stores are the ones that ship it.
 
     /// <summary>The cap is a real ceiling, and a released slot is reused rather than leaked.</summary>
     public static async Task Slots_are_handed_out_up_to_the_cap_and_reused_after_release(
