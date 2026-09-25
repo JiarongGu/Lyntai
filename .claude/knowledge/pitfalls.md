@@ -12,7 +12,7 @@ is what to do when you know the SHAPE of what you are worried about but not wher
 
 <!-- facets:begin — GENERATED. Edit the per-trap `trap:` markers, never this index. -->
 
-## Facets — 239 traps, indexed two ways
+## Facets — 234 traps, indexed two ways
 
 _Generated from the per-trap `<!-- trap: … -->` markers by `node devtools/dev.mjs check-pitfalls --write`. Edit a marker, never this index._
 _Line numbers only, on purpose: this is for JUMPING, not for reading. The facets are ORTHOGONAL to the headings below — a probe's nine relevant traps once spanned five of them, two of which nobody_
@@ -20,105 +20,71 @@ _looking for that task would have opened._
 
 **By AREA** — which part of the repository breaks.
 
-- **`gates`** (48) — 57 · 124 · 133 · 153 · 166 · 175 · 188 · 194 · 217 · 227 · 234 · 249 · 259 · 305 · 325 · 371 · 389 · 555 · 645 · 654 · 664 · 718 · 732 · 802 · 816 · 1138 · 1272 · 1377 · 1390 · 1417 · 1438 · 1455 · 1472 · 1514 · 1687 · 2778 · 2802 · 2812 · 2844 · 2855 · 2874 · 2890 · 2901 · 2928 · 3300 · 3349 · 3358 · 3371
-- **`encoding`** (7) — 75 · 117 · 122 · 671 · 679 · 961 · 2928
-- **`git`** (8) — 249 · 274 · 305 · 330 · 679 · 701 · 966 · 2778
-- **`build`** (14) — 122 · 645 · 654 · 664 · 718 · 1130 · 1438 · 1455 · 1687 · 2741 · 2762 · 2766 · 2787 · 2821
-- **`router`** (6) — 1530 · 1535 · 1544 · 1546 · 1549 · 1679
-- **`cli`** (19) — 75 · 831 · 961 · 1530 · 1551 · 1559 · 1568 · 1572 · 1584 · 1588 · 1595 · 1599 · 1606 · 1610 · 1643 · 1662 · 1666 · 1671 · 2580
-- **`lifetime`** (6) — 1710 · 1719 · 1724 · 1729 · 1742 · 1750
-- **`storage`** (21) — 1500 · 1622 · 1759 · 1863 · 1891 · 1893 · 1894 · 1896 · 1898 · 1916 · 1927 · 2175 · 2187 · 2204 · 2211 · 2220 · 2486 · 2610 · 2910 · 3092 · 3277
-- **`memory`** (47) — 429 · 462 · 498 · 626 · 1220 · 1330 · 1622 · 1793 · 1812 · 1823 · 1849 · 1863 · 1878 · 1899 · 1916 · 1927 · 1966 · 1981 · 1988 · 1993 · 2012 · 2023 · 2041 · 2048 · 2061 · 2074 · 2088 · 2139 · 2194 · 2237 · 2273 · 2309 · 2327 · 2334 · 2379 · 2401 · 2429 · 2468 · 2507 · 2589 · 2610 · 2708 · 2732 · 2985 · 3144 · 3172 · 3256
-- **`generation`** (12) — 1205 · 1265 · 1357 · 1535 · 1742 · 2309 · 2365 · 2520 · 2532 · 2563 · 2670 · 2695
-- **`di`** (13) — 1729 · 1981 · 1988 · 2012 · 2229 · 2231 · 2234 · 2237 · 2255 · 2334 · 2379 · 2532 · 2589
-- **`measurement`** (72) — 153 · 414 · 429 · 447 · 462 · 470 · 481 · 498 · 539 · 569 · 585 · 604 · 616 · 626 · 752 · 831 · 838 · 843 · 852 · 858 · 892 · 905 · 916 · 924 · 940 · 947 · 984 · 994 · 1014 · 1025 · 1059 · 1086 · 1092 · 1108 · 1125 · 1130 · 1176 · 1205 · 1220 · 1250 · 1265 · 1280 · 1298 · 1313 · 1330 · 1339 · 1357 · 1559 · 1759 · 1778 · 1849 · 2023 · 2041 · 2061 · 2095 · 2106 · 2121 · 2139 · 2194 · 2273 · 2766 · 2844 · 2961 · 3012 · 3027 · 3051 · 3071 · 3092 · 3122 · 3159 · 3224 · 3256
-- **`docs`** (35) — 95 · 166 · 194 · 217 · 338 · 701 · 732 · 752 · 802 · 1138 · 1149 · 1154 · 1161 · 1168 · 1172 · 1272 · 1390 · 1417 · 1514 · 1823 · 2365 · 2401 · 2474 · 2645 · 2655 · 2762 · 2802 · 2812 · 2855 · 2874 · 2890 · 2901 · 2910 · 3182 · 3371
-- **`tests`** (28) — 95 · 1472 · 1486 · 1500 · 1643 · 1835 · 1878 · 1899 · 1966 · 1993 · 2175 · 2187 · 2486 · 2974 · 2985 · 2996 · 3172 · 3195 · 3277 · 3285 · 3293 · 3297 · 3300 · 3312 · 3323 · 3336 · 3340 · 3344
+- **`gates`** (48) — 57 · 90 · 99 · 108 · 115 · 121 · 128 · 134 · 143 · 153 · 160 · 168 · 174 · 189 · 197 · 216 · 221 · 299 · 355 · 364 · 374 · 397 · 404 · 422 · 429 · 618 · 732 · 837 · 850 · 877 · 898 · 915 · 932 · 974 · 1147 · 2238 · 2262 · 2272 · 2304 · 2315 · 2334 · 2350 · 2361 · 2388 · 2760 · 2809 · 2818 · 2831
+- **`encoding`** (6) — 65 · 85 · 88 · 381 · 513 · 2388
+- **`git`** (7) — 168 · 181 · 189 · 202 · 381 · 389 · 2238
+- **`build`** (14) — 88 · 355 · 364 · 374 · 397 · 610 · 898 · 915 · 1147 · 2201 · 2222 · 2226 · 2247 · 2281
+- **`router`** (6) — 990 · 995 · 1004 · 1006 · 1009 · 1139
+- **`cli`** (19) — 65 · 435 · 513 · 990 · 1011 · 1019 · 1028 · 1032 · 1044 · 1048 · 1055 · 1059 · 1066 · 1070 · 1103 · 1122 · 1126 · 1131 · 2040
+- **`lifetime`** (6) — 1170 · 1179 · 1184 · 1189 · 1202 · 1210
+- **`storage`** (21) — 960 · 1082 · 1219 · 1323 · 1351 · 1353 · 1354 · 1356 · 1358 · 1376 · 1387 · 1635 · 1647 · 1664 · 1671 · 1680 · 1946 · 2070 · 2370 · 2552 · 2737
+- **`memory`** (47) — 233 · 250 · 277 · 344 · 680 · 790 · 1082 · 1253 · 1272 · 1283 · 1309 · 1323 · 1338 · 1359 · 1376 · 1387 · 1426 · 1441 · 1448 · 1453 · 1472 · 1483 · 1501 · 1508 · 1521 · 1534 · 1548 · 1599 · 1654 · 1697 · 1733 · 1769 · 1787 · 1794 · 1839 · 1861 · 1889 · 1928 · 1967 · 2049 · 2070 · 2168 · 2192 · 2445 · 2604 · 2632 · 2716
+- **`generation`** (12) — 665 · 725 · 817 · 995 · 1202 · 1769 · 1825 · 1980 · 1992 · 2023 · 2130 · 2155
+- **`di`** (13) — 1189 · 1441 · 1448 · 1472 · 1689 · 1691 · 1694 · 1697 · 1715 · 1794 · 1839 · 1992 · 2049
+- **`measurement`** (71) — 108 · 227 · 233 · 242 · 250 · 258 · 269 · 277 · 291 · 306 · 314 · 322 · 334 · 344 · 411 · 435 · 442 · 447 · 456 · 462 · 475 · 483 · 490 · 498 · 506 · 518 · 522 · 530 · 541 · 560 · 576 · 582 · 590 · 603 · 610 · 636 · 665 · 680 · 710 · 725 · 740 · 758 · 773 · 790 · 799 · 817 · 1019 · 1219 · 1238 · 1309 · 1483 · 1501 · 1521 · 1555 · 1566 · 1581 · 1599 · 1654 · 1733 · 2226 · 2304 · 2421 · 2472 · 2487 · 2511 · 2531 · 2552 · 2582 · 2619 · 2684 · 2716
+- **`docs`** (33) — 74 · 115 · 134 · 143 · 207 · 389 · 404 · 411 · 422 · 618 · 624 · 628 · 632 · 732 · 850 · 877 · 974 · 1283 · 1825 · 1861 · 1934 · 2105 · 2115 · 2222 · 2262 · 2272 · 2315 · 2334 · 2350 · 2361 · 2370 · 2642 · 2831
+- **`tests`** (28) — 74 · 932 · 946 · 960 · 1103 · 1295 · 1338 · 1359 · 1426 · 1453 · 1635 · 1647 · 1946 · 2434 · 2445 · 2456 · 2632 · 2655 · 2737 · 2745 · 2753 · 2757 · 2760 · 2772 · 2783 · 2796 · 2800 · 2804
 
 **By SHAPE** — how the wrongness stays invisible. Orthogonal to the area, and usually the more useful
 of the two: most of these traps recur in a subsystem that had never met them.
 
-- **`fail-open`** (24) — 249 · 429 · 462 · 498 · 732 · 852 · 1176 · 1357 · 1544 · 1549 · 1568 · 1643 · 1724 · 1812 · 2074 · 2088 · 2237 · 2273 · 2520 · 2532 · 2589 · 2695 · 2708 · 3144
-- **`cancellation`** (5) — 1530 · 1535 · 1793 · 1812 · 1835
-- **`vacuous`** (51) — 153 · 227 · 234 · 414 · 470 · 481 · 539 · 569 · 654 · 858 · 905 · 924 · 1014 · 1205 · 1220 · 1250 · 1265 · 1298 · 1377 · 1390 · 1455 · 1486 · 1599 · 1662 · 1679 · 1835 · 1878 · 1899 · 1966 · 1993 · 2041 · 2095 · 2106 · 2139 · 2273 · 2401 · 2910 · 2985 · 2996 · 3027 · 3159 · 3172 · 3195 · 3224 · 3277 · 3300 · 3312 · 3323 · 3340 · 3349 · 3358
-- **`scope-blind`** (46) — 124 · 175 · 188 · 194 · 217 · 227 · 249 · 259 · 305 · 371 · 389 · 679 · 802 · 816 · 1313 · 1390 · 1438 · 1514 · 1687 · 1981 · 1988 · 2061 · 2175 · 2187 · 2365 · 2401 · 2429 · 2486 · 2610 · 2732 · 2802 · 2812 · 2821 · 2844 · 2855 · 2874 · 2890 · 2901 · 2910 · 2996 · 3159 · 3172 · 3297 · 3349 · 3358 · 3371
-- **`second-door`** (23) — 1546 · 1584 · 1588 · 1599 · 1606 · 1666 · 1671 · 1750 · 1894 · 1916 · 2211 · 2237 · 2379 · 2468 · 2486 · 2507 · 2520 · 2532 · 2563 · 2610 · 2645 · 2670 · 2732
-- **`stale-claim`** (27) — 57 · 194 · 274 · 338 · 752 · 916 · 947 · 966 · 1138 · 1154 · 1168 · 1455 · 1823 · 2234 · 2365 · 2474 · 2507 · 2563 · 2645 · 2762 · 2766 · 2855 · 2874 · 2890 · 3182 · 3312 · 3371
-- **`silent-loss`** (69) — 75 · 95 · 117 · 122 · 166 · 325 · 330 · 371 · 389 · 447 · 462 · 616 · 671 · 718 · 732 · 831 · 843 · 905 · 961 · 994 · 1025 · 1059 · 1125 · 1176 · 1265 · 1272 · 1280 · 1357 · 1417 · 1438 · 1472 · 1572 · 1588 · 1622 · 1710 · 1742 · 1778 · 1849 · 1891 · 1893 · 1894 · 1896 · 1916 · 1927 · 1966 · 2088 · 2121 · 2194 · 2204 · 2211 · 2220 · 2229 · 2234 · 2255 · 2327 · 2379 · 2429 · 2580 · 2670 · 2708 · 2741 · 2766 · 2787 · 2802 · 2812 · 2928 · 3012 · 3092 · 3224
-- **`wrong-subject`** (72) — 57 · 95 · 133 · 153 · 330 · 414 · 447 · 481 · 498 · 555 · 569 · 585 · 604 · 616 · 626 · 645 · 664 · 858 · 892 · 924 · 940 · 947 · 994 · 1025 · 1059 · 1086 · 1092 · 1149 · 1161 · 1172 · 1205 · 1220 · 1250 · 1280 · 1298 · 1313 · 1330 · 1339 · 1417 · 1500 · 1546 · 1595 · 1687 · 1719 · 1729 · 1759 · 1849 · 1899 · 2012 · 2023 · 2048 · 2061 · 2095 · 2106 · 2139 · 2309 · 2334 · 2695 · 2741 · 2778 · 2787 · 2961 · 3012 · 3027 · 3051 · 3071 · 3092 · 3195 · 3256 · 3300 · 3336 · 3340
-- **`unmeasured`** (17) — 585 · 626 · 701 · 752 · 802 · 838 · 1108 · 1130 · 1551 · 1559 · 1568 · 1610 · 1662 · 2048 · 2309 · 2655 · 3182
-- **`ordering`** (11) — 664 · 1572 · 1671 · 1863 · 1898 · 2220 · 2255 · 2580 · 2589 · 2974 · 3122
-- **`resource`** (14) — 645 · 679 · 718 · 984 · 1092 · 1339 · 1551 · 1643 · 1750 · 1759 · 2231 · 3285 · 3293 · 3344
+- **`fail-open`** (24) — 168 · 233 · 250 · 277 · 404 · 456 · 636 · 817 · 1004 · 1009 · 1028 · 1103 · 1184 · 1272 · 1534 · 1548 · 1697 · 1733 · 1980 · 1992 · 2049 · 2155 · 2168 · 2604
+- **`cancellation`** (5) — 990 · 995 · 1253 · 1272 · 1295
+- **`vacuous`** (51) — 108 · 153 · 160 · 227 · 258 · 269 · 291 · 306 · 364 · 462 · 483 · 498 · 530 · 665 · 680 · 710 · 725 · 758 · 837 · 850 · 915 · 946 · 1059 · 1122 · 1139 · 1295 · 1338 · 1359 · 1426 · 1453 · 1501 · 1555 · 1566 · 1599 · 1733 · 1861 · 2370 · 2445 · 2456 · 2487 · 2619 · 2632 · 2655 · 2684 · 2737 · 2760 · 2772 · 2783 · 2800 · 2809 · 2818
+- **`scope-blind`** (46) — 90 · 121 · 128 · 134 · 143 · 153 · 168 · 174 · 189 · 216 · 221 · 381 · 422 · 429 · 773 · 850 · 898 · 974 · 1147 · 1441 · 1448 · 1521 · 1635 · 1647 · 1825 · 1861 · 1889 · 1946 · 2070 · 2192 · 2262 · 2272 · 2281 · 2304 · 2315 · 2334 · 2350 · 2361 · 2370 · 2456 · 2619 · 2632 · 2757 · 2809 · 2818 · 2831
+- **`second-door`** (23) — 1006 · 1044 · 1048 · 1059 · 1066 · 1126 · 1131 · 1210 · 1354 · 1376 · 1671 · 1697 · 1839 · 1928 · 1946 · 1967 · 1980 · 1992 · 2023 · 2070 · 2105 · 2130 · 2192
+- **`stale-claim`** (25) — 57 · 134 · 181 · 207 · 411 · 490 · 506 · 618 · 628 · 915 · 1283 · 1694 · 1825 · 1934 · 1967 · 2023 · 2105 · 2222 · 2226 · 2315 · 2334 · 2350 · 2642 · 2772 · 2831
+- **`silent-loss`** (69) — 65 · 74 · 85 · 88 · 115 · 197 · 202 · 216 · 221 · 242 · 250 · 334 · 381 · 397 · 404 · 435 · 447 · 483 · 513 · 522 · 541 · 560 · 603 · 636 · 725 · 732 · 740 · 817 · 877 · 898 · 932 · 1032 · 1048 · 1082 · 1170 · 1202 · 1238 · 1309 · 1351 · 1353 · 1354 · 1356 · 1376 · 1387 · 1426 · 1548 · 1581 · 1654 · 1664 · 1671 · 1680 · 1689 · 1694 · 1715 · 1787 · 1839 · 1889 · 2040 · 2130 · 2168 · 2201 · 2226 · 2247 · 2262 · 2272 · 2388 · 2472 · 2552 · 2684
+- **`wrong-subject`** (70) — 57 · 74 · 99 · 108 · 202 · 227 · 242 · 269 · 277 · 299 · 306 · 314 · 322 · 334 · 344 · 355 · 374 · 462 · 475 · 498 · 506 · 522 · 541 · 560 · 576 · 582 · 624 · 632 · 665 · 680 · 710 · 740 · 758 · 773 · 790 · 799 · 877 · 960 · 1006 · 1055 · 1147 · 1179 · 1189 · 1219 · 1309 · 1359 · 1472 · 1483 · 1508 · 1521 · 1555 · 1566 · 1599 · 1769 · 1794 · 2155 · 2201 · 2238 · 2247 · 2421 · 2472 · 2487 · 2511 · 2531 · 2552 · 2655 · 2716 · 2760 · 2796 · 2800
+- **`unmeasured`** (17) — 314 · 344 · 389 · 411 · 422 · 442 · 590 · 610 · 1011 · 1019 · 1028 · 1070 · 1122 · 1508 · 1769 · 2115 · 2642
+- **`ordering`** (11) — 374 · 1032 · 1131 · 1323 · 1358 · 1680 · 1715 · 2040 · 2049 · 2434 · 2582
+- **`resource`** (13) — 355 · 397 · 518 · 582 · 799 · 1011 · 1103 · 1210 · 1219 · 1691 · 2745 · 2753 · 2804
 
 <!-- facets:end -->
 
 ## Environment / tooling
 
-- **`verify` answers a question about the bytes it READ, so editing anything while it runs makes its whole <!-- trap: sub=gates shape=wrong-subject,stale-claim -->
-  report — the green summary included — describe a tree that no longer exists.** Measured 2026-08-30, twice
-  in one session: docs were edited during two separate runs, so the prose gates' verdicts covered an
-  indeterminate mix of before and after, and one of those runs also predated six new tests it therefore
-  never executed. Both times the only thing that noticed was the author remembering, which is not a
-  mechanism. **This is a false PASS**, the direction everything else here is built to avoid.
-  <br>**Gated since**: `verify` content-hashes the tree before and after (`scripts/_tree-fingerprint.mjs`),
-  names every file that moved, suppresses the green line and exits non-zero. Proven on the red path, not
-  just written — an induced mid-run edit produced the failure and exit code 1.
-  <br>**The habit the gate does not replace: start `verify` and then keep your hands off the tree.** If you
-  need to keep working, work somewhere else and re-run it at the end — a re-run is five minutes, and a green
-  line you have to reason about is worth nothing. Two cheaper checks that do NOT work: an mtime comparison
-  (fires on a byte-identical rewrite, so it cries wolf and gets ignored) and `git status` (blind to a change
-  within an already-dirty file, which is the normal state of a tree being verified).
-  <br>**And never read an exit code through a pipe.** `node dev.mjs verify | tail -20` reports *tail's*
-  status, so a failing verify looks like a clean one — the notification for the very run that proved this
-  gate said `exit code 0` while the output said `✗`. Redirect to a file and echo `$?`, or check `PIPESTATUS`.
+- **`verify` answers a question about the bytes it READ, so an edit during the run voids its green line.** <!-- trap: sub=gates shape=wrong-subject,stale-claim -->
+  Gated: `verify` content-hashes the tree before and after (`scripts/_tree-fingerprint.mjs`) and exits
+  non-zero naming what moved. The habit the gate does not replace: start it and keep your hands off the
+  tree; to keep working, work elsewhere and re-run. Two cheaper checks were tried and REFUSED — an mtime
+  comparison (fires on a byte-identical rewrite) and `git status` (blind to a change inside an
+  already-dirty file). **And never read its exit code through a pipe**: `verify | tail` reports tail's
+  status (`.claude/rules/windows-machine.md` §Scripts and exit codes).
 
 - **An unescaped BACKTICK inside `node -e "…"` under bash is command substitution, and it silently EATS <!-- trap: sub=encoding,cli shape=silent-loss -->
-  the text it swallows — the edit lands, mangled, and reports success.** Hit three times in one session
-  (2026-09-13) editing prose that is full of backticked identifiers, which is most prose in this
-  repository. `` `tool-affordance` `` became empty, `` `stale@k` `` became empty, and a sentence that read
-  *"measured on \`tool-affordance\` it moves…"* was written to the file as *"measured on  it moves…"*. The
-  script exits 0 and the file is valid — only the meaning is gone.
-  <br>**Two worse variants, both real here.** Bash also tries to RUN the swallowed words, so
-  `` `docs/model-tasks.md` `` printed *"command not found"* and, where a redirection was in play, CREATED
-  FILES named after them — three empty files called `seams`, `the` and a mojibake third reached a commit.
-  And a `\n` inside a double-quoted `node -e` becomes a literal newline, so a generated string literal is
-  written across two lines and the file no longer parses.
-  <br>**The rule is the one this repository already states for a different reason: use the file-writing
-  tools.** `no-tmp-for-repo-files.md` says compose in place because OS temp is invisible; this says it
-  because the SHELL is a second parser between you and the bytes. A `node -e` that writes a file is only
-  safe with a single-quoted program and no backticks in the payload — and for repository prose there is no
-  reason to reach for one at all.
-  <br>**And never clean up with `find . -maxdepth 1 -delete`**: the same session used it to remove those
-  three files and took `LICENSE` and `Lyntai.slnx` with them. Both were tracked, so `git checkout --`
-  restored them and `verify` proved the tree intact — but a delete whose predicate is "not the extensions
-  I happened to list" is a whitelist nobody reviewed. Remove named paths, or `git clean -n` first.
+  the text it swallows — the edit lands, mangled, and reports success.** Hit three times on 2026-09-13
+  editing backticked prose: `` `tool-affordance` `` was written to the file as nothing. Worse variants: bash
+  also RUNS the swallowed words, creating files named after them (three reached a commit), and a `\n` inside
+  a double-quoted `node -e` becomes a literal newline that splits a generated string literal. **The SHELL is a
+  second parser between you and the bytes, so use the file-writing tools**; a `node -e` that writes a file is
+  safe only with a single-quoted program and no backticks in the payload.
+  <br>**And never clean up with `find . -maxdepth 1 -delete`**: it took `LICENSE` and `Lyntai.slnx` with the
+  stray files it was meant for. Remove named paths, or `git clean -n` first.
 - **A whole-token rename sweep rewrites PROSE and STRING LITERALS too, and both stay green.** Measured <!-- trap: sub=docs,tests shape=silent-loss,wrong-subject -->
-  2026-09-17 renaming `embedder` → `vectorProvider` across 86 files (**D152**): comments became *"an
-  vectorProvider's graph"*, and a user-facing error in `MemoryWiring` told a consumer to *"drop the
-  vectorProvider registration"*. The build was clean at every step, because none of it is code.
-  <br>**Three passes, in this order, and the order is the point**: identifiers; then comment prose, with
-  `cref=`/`name=` attribute values MASKED so a real type name survives; then string literals, with `{…}`
-  interpolation holes masked so `{vectorProvider.Misses}` is not "fixed" into a compile error. A single
-  pass cannot do it — the same token is an identifier in one place and a noun in another.
-  <br>**And check whether the token appears in someone else's WIRE before sweeping it.** `embedder` does
-  not, so it was safe; `embedding` does — `/embeddings`, `/api/embed`, the `"embedding"` JSON field,
-  `max_position_embeddings`, `token_embeddings` — so it was excluded and repointed by hand. A vendor's
-  route is not yours to rename, and a model file's key least of all.
-  <br>**The SCOPE of a rename comes from your own model, and getting that from convention instead cost two
-  extra passes here.** **D152** replaced a word in three rounds — first everywhere, then pulled back to
-  "the vendors put it on the operation", then corrected again — and only the third reading held, because
-  only it was derived from the code: `Produces` is the axis a router selects on, so the NOUN is the kind
-  (`Vector`) and the VERB is the call that yields one (`Embed`). The vendors happen to agree, which is
-  corroboration and not a reason.
-  <br>**Ask what the word IS in your model — a kind, an operation, a backend — before replacing any of
-  it.** "What does everyone else call this" produces a rule that is right in the cases you sampled and
-  silently wrong everywhere else, and after a sweep every occurrence looks equally wrong, so there is
-  nothing left to check it against.
-- **This machine's console is GBK/CP936.** Writing UTF-8 through it (PowerShell `Set-Content`/`Out-File` <!-- trap: sub=encoding shape=silent-loss -->
-  without `-Encoding utf8`, `echo >`, a shell heredoc) **double-encodes and lossily corrupts** non-ASCII
-  content — it once mangled every `灵台`/`—`/`§` in `TASKS.md` irreversibly. **Always write files with
-  the Write/Edit tools** (they emit UTF-8 directly) or, in scripts, `fs.writeFileSync`/`-Encoding utf8`.
-  Verify with an ASCII-safe check (codepoints), not by eyeballing console output (which re-mangles it).
+  2026-09-17 renaming `embedder` → `vectorProvider` across 86 files (**D152**): comments read *"an
+  vectorProvider's graph"*, and a user-facing error told a consumer to *"drop the vectorProvider
+  registration"* — the build clean at every step, because none of it is code.
+  <br>**Three passes, in this order**: identifiers; then comment prose, with `cref=`/`name=` values MASKED so a
+  real type name survives; then string literals, with `{…}` interpolation holes masked. A single pass cannot
+  do it — the same token is an identifier in one place and a noun in another. **And check whether the token
+  appears in someone else's WIRE first** — `embedding` does (`/embeddings`, the `"embedding"` field,
+  `max_position_embeddings`), so it was excluded: a vendor's route or a model file's key is not yours to
+  rename. The SCOPE of a rename comes from what the word IS in your own model (**D152**), never from what
+  everyone else calls it.
+- **This machine's console is GBK/CP936, so UTF-8 written THROUGH it is corrupted irreversibly** — it once <!-- trap: sub=encoding shape=silent-loss -->
+  mangled every `灵台`/`—`/`§` in `TASKS.md`. Write with the file tools and verify by codepoint, never by
+  eyeballing console output (`.claude/rules/windows-machine.md` §Text and encoding).
 - Sources are BOM-less UTF-8 + `<CodePage>65001</CodePage>` (in `Directory.Build.props`) — without it <!-- trap: sub=encoding,build shape=silent-loss -->
   csc reads CJK string literals as ANSI mojibake on a CJK-locale machine.
 - **A prose gate that matches line-by-line is blind to any claim that WRAPS**, and it reports the file <!-- trap: sub=gates shape=scope-blind -->
@@ -131,60 +97,34 @@ of the two: most of these traps recur in a subsystem that had never met them.
   shape is worth carrying to any future text gate: **the unit you match must be the unit the claim is
   written in.** Line-oriented matching is a property of the scanner, never of the prose.
 - **A doc gate built on "does this identifier EXIST in the tree?" is the wrong shape, and the reason is <!-- trap: sub=gates shape=wrong-subject -->
-  worth knowing before someone builds it.** Tried 2026-08-14 as the prose counterpart to `check-samples`
-  (which compiles fenced C# but says nothing about a type named in a SENTENCE): scan maintained docs for
-  backticked PascalCase names absent from the whole tree's vocabulary. It produced **~45 hits and zero
-  defects**, because naming something that does not exist is frequently the CORRECT thing for this
-  repository's prose to do:
-  · `pitfalls.md` cites `LlmRouterTests` precisely because that class does not exist — it is the example in
-    the "a filter matching nothing passes vacuously" entry;
-  · `generic-library.md` says `AgentStreamEvent.ToolCall` "deliberately has *no* `FilePath` property";
-  · `storage.md`'s backend-pair table writes `TraceStore`/`KeyValueStore` as shorthand for the Sqlite+Postgres
-    PAIR, neither of which is a type name;
-  · `DECISIONS.md` names test fakes (`FixedAppraiser`, `EmptyAppraiser`) that were real on the day of that
-    decision and are history now, and the design record's §1 names SIBLING projects' types on purpose.
-  **The general shape: a gate whose false positives are legitimate authorial choices cannot be tightened
-  into usefulness — it can only be given an exclusion list, and an exclusion list nobody can see rot is the
-  hole `check-api-vocabulary`'s "an allowance that matches nothing FAILS" rule exists to avoid.** This is
-  why `check-docs` is a curated `retiredTerms` registry (a decision retired this word, say that instead)
-  rather than an existence check: the registry only ever contains claims someone deliberately settled, so a
-  hit is a defect by construction. Reach for a registry, not a corpus scan, whenever "wrong" depends on
-  intent rather than on the text.
+  worth knowing before someone builds it.** Tried 2026-08-14 as the prose counterpart to `check-samples`:
+  **~45 hits and zero defects**, because naming something that does not exist is often CORRECT here — this
+  file cites `LlmRouterTests` precisely because it does not exist, `generic-library.md` names a property a
+  type deliberately lacks, and the decision record names the fakes and sibling types of its day.
+  **A gate whose false positives are legitimate authorial choices cannot be tightened into usefulness** —
+  only given an exclusion list nobody can see rot. That is why `check-docs` is a curated `retiredTerms`
+  registry, where a hit is a defect by construction: reach for a registry, not a corpus scan, whenever
+  "wrong" depends on intent rather than on the text.
 - **A record's own SUBJECT MATTER is the vocabulary a gate over it wants to scan for — so the scan reads <!-- trap: sub=gates,measurement shape=vacuous,wrong-subject -->
-  as full of defects and holds none.** The second measured instance of the entry above, and the sharper
-  one, because here the words genuinely belong. `check-measurements` was specified to fail a result reading
-  CURRENT whose body matched `CORRECT(ED|ION)|RETRACT|STALE|SUPERSED`. Built and run over the real record
-  (2026-09-10): **63 hits across 18 results, ZERO defects.** `stale@k` and `current@k` are METRIC NAMES
-  there, "the superseded fact" is the PHENOMENON the knowledge-update workload measures, and `correction`
-  is a corpus class in `memory-density` — a document about supersession is made of the word. Restricting
-  the match to CAPITALS did not rescue it: the survivors were a table row reading `| the SUPERSEDED fact |`
-  and a heading asking *"Does a CORRECTION separate from a RECURRENCE?"*. **What worked was narrowing the
-  SUBJECT, not the pattern** — the same vocabulary over section HEADINGS only, which are short authored
-  claims rather than prose: 5 of 57 flagged, 4 genuine. **Before writing a vocabulary gate, run it and
-  COUNT the defects**, because a scan with a 0% hit rate is indistinguishable from a strict one until
-  somebody looks, and shipping it teaches the next maintainer to reach for the escape token.
-- **A `<!-- marker: … -->` whose value contains `>` matches NOTHING — the row does not fail, it VANISHES.** <!-- trap: sub=gates,docs shape=silent-loss -->
-  `_markers.mjs`' pattern excludes `>` on purpose, so it cannot run past its own `-->`; the cost is that a
-  value like `arm="best threshold >= 6"` makes the whole marker unmatched rather than malformed, and every
-  check that iterates markers simply never sees it. Measured on `check-measurements`' first real run: one
-  result disappeared from a generated index, and the ONLY thing that noticed was the closed-vocabulary rule
-  reporting its metric as unused — had the metric been a common one, the row would have been silently
-  absent from the index that is the whole point of the file. Any gate on this seam must tell "no marker
-  here" from "a marker too broken to match": test for the OPENER (`<!-- name:`) as well as the full
-  pattern, and report the difference.
-- **A gate weakened by a regex LOOKAHEAD has no expiry — worse than the `drift-ok` it was built to <!-- trap: sub=gates shape=scope-blind -->
-  avoid.** Found 2026-08-31 narrowing `retiredTerms` to silence seven accurate past-tense code comments
-  (`` `SubjectSeedK`'s default of 5 ``, `` `SemanticSeedK` defaulted to 0 ``): <!-- drift-ok: names the two retired identifiers the withdrawn lookahead actually excluded --> a trailing negative lookahead
-  excluded any hit followed by a VALUE-STATEMENT shape (`default of N`, `defaulted to N`, `= N`) within 20
-  characters. That also silently excluded `SemanticSeedK = 30` and `defaulted to 5` — <!-- drift-ok: the reintroduction shape the withdrawn lookahead let through --> the exact shape a
-  REINTRODUCED stale doc takes — in every file the gate scans, permanently, not just the seven lines it was
-  written for. **It is worse than an explicit escape because `retiredApiNames`' allowances FAIL the moment
-  they stop matching (self-correcting), while a lookahead has nothing to expire** — documenting the
-  trade-off inline described the hole without closing it. Withdrawn the same day: reworded the seven
-  comments instead (none needed an escape) and restored the plain alternation. **The general shape: when a
-  gate's false positives all share one CONCRETE textual pattern, exclude those exact LINES (an allowance,
-  self-expiring) rather than the pattern that makes them false positives (a lookahead, permanent)** — the
-  choice `check-api-vocabulary`'s allowance list already made correctly.
+  as full of defects and holds none.** `check-measurements`' planned body scan for
+  `CORRECT(ED|ION)|RETRACT|STALE|SUPERSED` found **63 hits across 18 results and ZERO defects** (2026-09-10):
+  `stale@k` is a METRIC NAME there and "the superseded fact" the PHENOMENON measured, and CAPITALS did not
+  rescue it. **Narrowing the SUBJECT, not the pattern, worked** — the same vocabulary over section HEADINGS
+  flagged 5 of 57, 4 genuine. **Before writing a vocabulary gate, run it and COUNT the defects**: a scan with a
+  0% hit rate is indistinguishable from a strict one until somebody looks.
+- **A marker value is not a string literal: a `>` or a `"` inside one truncates or deletes the row silently.** <!-- trap: sub=gates,docs shape=silent-loss -->
+  `_markers.mjs` excludes `>` so a pattern cannot run past its own `-->`, which makes `arm="best threshold
+  >= 6"` an UNMATCHED marker that every check skips (a result vanished from a generated index); a `\"` ends
+  the attribute at the quote and strands the rest. Keep both characters out and reword rather than escape,
+  and let any gate on this seam tell "no marker" from "a marker too broken to match" — test for the OPENER
+  (`<!-- name:`) as well as the full pattern.
+- **A gate weakened by a regex LOOKAHEAD has no expiry — worse than the escape it was built to avoid.** <!-- trap: sub=gates shape=scope-blind -->
+  Found 2026-08-31 narrowing `retiredTerms` to silence seven accurate past-tense comments: a trailing
+  negative lookahead excluded any hit followed by a VALUE-STATEMENT shape (`default of N`, `= N`), which is
+  also the exact shape a REINTRODUCED stale doc takes — excluded everywhere, permanently. An allowance FAILS
+  the moment it stops matching; a lookahead has nothing to expire. Withdrawn the same day, the seven comments
+  reworded instead. **When a gate's false positives share one concrete pattern, exclude those exact LINES (a
+  self-expiring allowance), never the pattern that makes them false positives.**
 - **Scope a doc gate by "is this maintained state?", not by directory.** The same gate omitted the two <!-- trap: sub=gates shape=scope-blind -->
   repo-root files, `CLAUDE.md` and `TASKS.md`, purely because the scope test was three `startsWith` calls.
   Both are maintained state and `CLAUDE.md` is the highest-leverage document in the repo — a stale claim
@@ -192,28 +132,14 @@ of the two: most of these traps recur in a subsystem that had never met them.
   first run. `docs/task-archive.md` stays excluded on purpose: it is accurate BY using the vocabulary of its
   day. **`CHANGELOG.md` is only HALF that**, and the split cost real drift — see the next entry.
 - **Two pieces of prose SHIP to consumers and no gate reads either: the packaged `README.md` and every <!-- trap: sub=docs,gates shape=scope-blind,stale-claim -->
-  csproj `<Description>`.** Found 2026-08-17, auditing 3.0 before the stamp. `PackageReadmeFile` in
-  `src/Directory.Build.props` packs the repo README into **every** package, so it is what nuget.org renders
-  on every package's page — and it named an untracked `local/superpowers/records/…` path three times,
-  a link no consumer can follow, because `check-links` skips `local/**` by design (correctly: those records
-  are untracked). The `<Description>`s are worse off still — `check-packages` asserts one EXISTS and never
-  reads it, and `check-docs`' `CODE_IN_SCOPE` is `.cs`/`.mjs` only — so `Lyntai.Bundle`'s blurb was still
-  justifying its exclusions with "an unverified surface", the reason **D69/D70 retired** for
-  `Lyntai.Generation` a release earlier.
-  <br>**The general shape, and it is the reason this is filed rather than just fixed:** a gate's scope is
-  drawn around *what the repository maintains*, and these two live outside that line while being the most
-  widely READ prose the project publishes. **Before a release, re-read the README as a consumer who has only
-  the package** — no clone, no `local/`, no git history — and read every `<Description>` against the
-  decisions since the last release. Both are cheap; neither is automatic.
-  <br>**A third member of that family, measured 2026-08-21: a FORWARD version reference in an XML doc is a
-  prediction, and it ships.** Two sentences said a fix arrives in "3.1" — reasonable, since the change was
-  additive public surface; the release was cut as **3.0.1**, so the published package's IntelliSense named a
-  version that does not exist. **The interesting half is that no gate can see it**: `check-docs` gates retired
-  VOCABULARY, `check-counts` gates counted CLAIMS, and a version number is neither — nor can a corpus scan
-  become one, because `net10.0`, `llama3.1` and every historical `## 3.0.0` heading are the same token shape.
-  The rule is `repo-mechanics.md` §"never NAME a version that has not shipped"; what belongs *here* is that
-  the correction repeated the mistake in a different costume an hour later, in the ROADMAP row recording the
-  release — so treat "is this number a record or a prediction?" as a review question, not a thing you fix once.
+  csproj `<Description>`.** `PackageReadmeFile` packs the README into every package — it is what nuget.org
+  renders — and on 2026-08-17 it named an untracked `local/…` path no consumer can follow, because
+  `check-links` skips `local/**` by design; `check-packages` asserts a `<Description>` EXISTS and never reads
+  it, so one still justified an exclusion with a reason **D69/D70** had retired. A gate's scope is drawn
+  around what the repository MAINTAINS, and these are the most widely READ prose it publishes. **Before a
+  release, re-read the README as a consumer who has only the package, and every `<Description>` against the
+  decisions since the last one.** A forward version number in an XML doc is the third member: it ships as a
+  prediction (`repo-mechanics.md` §"never NAME a version that has not shipped").
 - **"Historical record" can be true of part of a file and false of the rest. `## Unreleased` is not <!-- trap: sub=gates,docs shape=scope-blind -->
   history.** `check-docs` exempted `CHANGELOG.md` wholesale on the rationale that a record is accurate by
   using the vocabulary of its day — true of a RELEASED section, false of `## Unreleased`, which describes
@@ -232,233 +158,95 @@ of the two: most of these traps recur in a subsystem that had never met them.
   reading its exit code. **For any filter chain, a clean run proves nothing about the stage you edited;
   assert on the intermediate (the file list, the line count), or write the positive control that must fail.**
 - **A text predicate that checks a flag's CALL SITES is defeated by editing the flag's DEFINITION, and it <!-- trap: sub=gates shape=vacuous -->
-  reports green while the defect it was written for is live.** Measured 2026-09-10, designing a predicate
-  for **D29** ("Lyntai disposes only what Lyntai created"). The proposal asserted the literals the wiring
-  passes — `disposeHttpClient: !byo` at each registration. Mutating `var byo = httpClient is not null;` to
-  `is null`, one token and twenty lines away, leaves **every asserted literal intact**: the gate stays
-  green while every host-supplied client is disposed on its way out of the first call and every
-  Lyntai-created one leaks — precisely the "cannot access a disposed object on the SECOND call" the
-  decision exists to prevent. **The predicate was checking spelling, not polarity.**
-  <br>**Two rules, and the second is the general one.** Assert the polarity at its SOURCE, not at the call
-  sites that read it. And **a claim about BEHAVIOUR wants a behavioural test, not a text scan** — register a
-  BYO client, drive two calls, assert the second does not throw. That is decidable and rename-proof, where
-  a regex over call sites is neither.
-  <br>**Frozen counts are the same failure wearing a different hat**: "all 11 lease sites" turns red when a
-  twelfth correct backend arrives, so a predicate must be UNIVERSALLY QUANTIFIED over whatever it finds
-  ("every lease site passes the flag"), never an equality on how many it found today.
+  reports green while the defect it was written for is live.** Measured 2026-09-10 designing a predicate for
+  **D29**: asserting `disposeHttpClient: !byo` at each registration survives mutating `var byo = httpClient
+  is not null;` to `is null` — every literal intact, every host-supplied client disposed after its first
+  call. **The predicate was checking spelling, not polarity.** Assert the polarity at its SOURCE, and prefer a
+  BEHAVIOURAL test for a claim about behaviour (register a BYO client, drive two calls, assert the second does
+  not throw). **Frozen counts are the same failure**: "all 11 lease sites" turns red when a correct twelfth
+  arrives, so quantify over what is found, never over how many.
 - **`git ls-files` (and `diff --name-only`) C-QUOTE any path containing a non-ASCII byte** — `docs/灵台.md` <!-- link-ok: a guard FIXTURE's name, never a file here --> <!-- trap: sub=gates,git shape=fail-open,scope-blind -->
-  comes back as the literal 8-character-escaped string `"docs/\347\201\265\345\217\260.md"`, which matches no
-  file on disk. **Always pass `-z` and split on NUL.** Measured 2026-08-11 in `check-sensitive`, where the
-  failure was silent AND permissive: the quoted name failed `readFileSync` with `ENOENT`, the ENOENT branch
-  classifies that as "a tracked file deleted from the working tree" (a legitimate mid-refactor state), so the
-  file was skipped, the leak inside it was never scanned, and the run printed `clean`. `check-docs` had the
-  identical bug with an even quieter ending — a bare `catch { continue; }`. This repository is named 灵台, so
-  a CJK-named document is not a hypothetical. The general shape: **a scanner that gets its file list from one
-  tool and its bytes from another must agree with both about how a name is spelled**, and the disagreement
-  shows up first in the paths nobody tests with.
+  comes back as an escaped string matching no file on disk. **Always pass `-z` and split on NUL.** In
+  `check-sensitive` the failure was silent AND permissive: the quoted name failed `readFileSync` with
+  `ENOENT`, read as "deleted mid-refactor", so the file was skipped and the run printed `clean`
+  (`docs/FIXES.md`, 2026-08-11). **A scanner that gets its file list from one tool and its bytes from another
+  must agree with both about how a name is spelled** — and this repository is named 灵台.
 - **A doc gate scoped by FILE TYPE leaves the identical defect alive in every other tier, and its own <!-- trap: sub=gates shape=scope-blind -->
-  exclusion rationale is where to look for the hole.** `check-links` was added 2026-08-14 because six
-  references to an archived document survived in maintained markdown. It scans `.md` and nothing else — so on
-  the day it went green, **seven more of the same dead references were alive in `src/` and `tests/`**, two of
-  them inside XML documentation that ships to consumers, plus a second archived document nobody had swept at
-  all. The gate's own header defends excluding `src/` on the grounds that "the compiler already gates their
-  crefs", and that is the tell: **the compiler resolves `<see cref>` and NOTHING else.** A type name in a
-  `<c>` tag, a file path in a `<c>` tag, a test name in a `//` comment — all prose, all unchecked, and all
-  places this repository's XML docs habitually put load-bearing references (`MemoryLanguageSweep` cited a test
-  that had been renamed away, twice, while calling five corpus arms "the two arms").
-  <br>Two things generalise. **(1) When a gate's scope is narrower than the defect, say which tiers are
-  UNCOVERED in its header** — "maintained markdown" reads like "everywhere that matters" until someone counts.
-  **(2) An exclusion justified by "another mechanism already covers it" is a claim about that other mechanism,
-  and it should name exactly what it covers.** "The compiler gates crefs" was true and load-bearing in the
-  half nobody checked.
+  exclusion rationale is where to look for the hole.** `check-links` went green on `.md` on 2026-08-14 while
+  seven more of the same dead references lived in `src/` and `tests/`, two inside shipped XML docs —
+  excluded because "the compiler already gates their crefs", when **the compiler resolves `<see cref>` and
+  NOTHING else**. **(1) When a gate's scope is narrower than the defect, name the UNCOVERED tiers in its
+  header. (2) An exclusion justified by "another mechanism covers it" is a claim about that mechanism — name
+  exactly what it covers.**
 - **`.gitignore` does not untrack an ALREADY-TRACKED file, so `git mv`-ing a document into an ignored <!-- trap: sub=git shape=stale-claim -->
   directory leaves it tracked — and every downstream claim that it is untracked silently becomes false.**
-  Measured 2026-08-14 while squashing: of **29** files under `local/`, exactly **one** is tracked —
-  `local/superpowers/records/2026-08-09-memory-policy-measurement.md`, the record D43 archived out of `docs/`.
-  It was moved rather than removed-and-recreated, and `.gitignore`'s `local/` has no effect on a path git
-  already has in the index. Nothing failed, and no gate could notice: the file is out of `check-docs`' scope
-  because `IN_SCOPE` never lists `local/`, not because it is untracked.
-  <br>**The cost is the three claims it falsifies**, all in `docs/superpowers/INDEX.md` and all load-bearing
-  for how people treat that directory: "a fresh clone does not carry these files" (it does), "`check-docs` no
-  longer gates them (it scans tracked files only)" — the right conclusion via a mechanism that is not the one
-  operating — and "nothing was destroyed, only untracked" (it was not untracked). A reader who believes
-  `local/` is unpublished is one `git mv` away from publishing something they wrote there on that belief;
-  `local/sensitive-patterns.txt` lives in the same directory, and its whole premise is that the directory
-  does not ship.
-  <br>**It stayed tracked for two days after this entry was written, and the entry said otherwise.** It had
-  closed with "Verified clean today — that file is untracked" while `git ls-files local/` returned it. So the
-  entry describing the trap had itself fallen into the half it warns about: the escape was recorded, the
-  remedy was not applied, and the closing sentence asserted it had been. **A "verified" claim with no gate
-  behind it decays exactly like any other counted claim** — which is the argument for `check-counts`, one
-  tier up, applied to a boolean. That is the durable half of this incident, and it is why the fix below is
-  reported as an assertion rather than as a claim.
-  <br>**Resolved 2026-08-16** on the owner's call: `git rm --cached` (never a path change), and
-  `git ls-files local/` is now empty — which is the assertion, not "verified clean". The three claims in
-  `docs/superpowers/INDEX.md` are true again. The content is not destroyed, only untracked, and the INDEX
-  records how to retrieve it from history; that it leaves every other clone is D43's intended trade-off
-  ("a fresh clone does not carry these files"), which is exactly why it was the owner's call and not a
-  tidy-up. The TRAP is permanent regardless — `.gitignore` still has no effect on a path already in the
-  index, so the next `git mv` into an ignored directory repeats it.
-  <br>The general shape, and it applies to any "move it out of the way" procedure: **untracking is an
-  explicit `git rm --cached`, never a side effect of a path change.** Assert it (`git ls-files <dir>` should
-  be empty) rather than inferring it from the ignore rule, because the ignore rule is not what decides.
+  Measured 2026-08-14: of 29 files under `local/`, the one D43 had archived out of `docs/` by `git mv` was
+  still tracked, falsifying three claims in `docs/superpowers/INDEX.md` — in the directory whose premise, for
+  `local/sensitive-patterns.txt`, is that it does not ship. **Untracking is an explicit `git rm --cached`,
+  never a side effect of a path change — and ASSERT it (`git ls-files <dir>` is empty)** rather than
+  inferring it from the ignore rule, which is not what decides. A "verified" claim with no gate behind it
+  decays like any counted claim.
 - **A gate scoped by `git ls-files` is blind to the code most likely to need it — the file you just wrote — <!-- trap: sub=gates,git shape=scope-blind -->
-  and it reports clean while doing so.** `git ls-files` lists the INDEX, so a file that is neither committed
-  nor `git add`ed does not appear. The ordinary workflow is *write → `verify` → commit*, which means `verify`
-  scans everything EXCEPT the new work. Measured 2026-08-23: a 36-line comment block in a brand-new bench file
-  passed two full `verify` runs and the individual gate twice, then failed the moment its file was committed,
-  **byte-identical**. The first instinct was that the gate was non-deterministic, which is the wrong and much
-  more alarming conclusion.
-  <br>Ignored paths (`local/`, `devtools/_*`, `bin`/`obj`) stay out on their own via
-  `--others --exclude-standard`, which is exactly what makes index-only look sufficient: the reason to scan
-  untracked files is new SOURCE, and the reason not to is scratch — and git already distinguishes them.
-  <br>**The wider finding:** the scope rule was written FIVE times privately (`check-comments`,
-  `check-counts`, `check-docs`, `check-encoding`, `check-links`) plus `check-sensitive`'s own two-mode
-  `sources()`, so the blind spot was six-fold and fixing one fixed one. That is the same "one rule, N copies"
-  shape this document records for `salience` coercion, applied to gate SCOPE — where the divergence is
-  invisible because every copy reports the same green line. Closed by hoisting to one
-  `devtools/scripts/_repo-files.mjs`; see `docs/task-archive.md` Part 96, including the miscount worth
-  knowing (`check-samples` looked like a seventh copy and was an IMPORTER of `check-docs`').
-  <br>**When you write a gate, ask what its file list EXCLUDES and whether that set contains the thing it
-  exists to catch.** Then prove it with an untracked probe rather than by reading the glob — this one was
-  confirmed by dropping a 30-line comment block into an unstaged file and watching the gate fail.
+  and it reports clean while doing so.** `git ls-files` lists the INDEX, and the workflow is *write →
+  `verify` → commit*: a 36-line comment block in a new bench file passed two `verify` runs and failed the
+  moment it was committed, byte-identical (2026-08-23). `--others --exclude-standard` adds new SOURCE while
+  ignored scratch stays out. The rule had been written five times privately, so the blind spot was
+  six-fold; it is now one `devtools/scripts/_repo-files.mjs` (`docs/task-archive.md` Part 96). **Ask what a
+  gate's file list EXCLUDES and whether that set holds the thing it exists to catch — then prove it with an
+  untracked probe**, not by reading the glob.
 - **A gate that enumerates a directory must tolerate the directory being absent.** `check-packages` threw a <!-- trap: sub=gates shape=silent-loss -->
   raw `ENOENT` stack trace from `readdirSync(Baselines/)` when the last baseline was deleted, instead of
-  reporting the per-package "no API baseline" problems it had already collected. It failed CLOSED, so nothing
-  shipped wrongly — but the operator is shown a stack trace naming no package, which is the report they
-  needed. Found 2026-08-11 by the test that deletes the last baseline.
+  reporting the per-package "no API baseline" problems it had already collected (`docs/FIXES.md`,
+  2026-08-11). It failed CLOSED, but showed the operator a stack trace naming no package — which was the
+  report they needed.
 - **The release workflow builds from the REMOTE, so "finished" and "shipped" are different states and only <!-- trap: sub=git shape=wrong-subject,silent-loss -->
   one of them is pushed.** Measured 2026-08-05: **v2.2.0 was cut without the whole-library review that had
-  been finished for it** — three commits were sitting locally, the workflow built what the remote had, and
-  the release reported complete success. Nothing failed, nothing warned, and the missing work was invisible
-  until someone compared the tag against the local branch. **Push before triggering a release**, and treat
-  "the work is done" and "the work is on the remote" as two separate claims — the second is the only one a
-  release can act on. (Recorded as a decision until 2026-08-14, which was the wrong home: nobody CHOSE this
-  behaviour, it was discovered — so it lives here rather than in the decision record.)
+  been finished for it** — three commits sat locally, the workflow built what the remote had, and the
+  release reported complete success. **Push before triggering a release**, and treat "the work is done" and
+  "the work is on the remote" as two separate claims — the second is the only one a release can act on.
 - **A backlog item amended IN PLACE does not amend the summary that points at it, and the amendment is <!-- trap: sub=docs shape=stale-claim -->
-  exactly when the summary goes stale.** `TASKS.md`'s startable-set banner has now advertised finished work
-  **four** times (2026-08-26, 2026-08-28, and twice on 2026-08-29). The mechanism is the same every time and
-  it is not carelessness: a session runs a sweep, writes the result into the item's own prose, and the item
-  is where the banner's claim came from — so the banner is stale the moment the item improves, and re-reading
-  the item is exactly the check that fails, because the item is what changed.
-  <br>**The 2026-08-29 pair is the proof, because the second was a CORRECTION of the first and repeated it.**
-  The banner named a `many-candidates` paired sweep that had run the day before; the fix re-read Part 65's
-  prose, found the sentence "the remaining one-factor sweep is `NoveltyWeight`", and advertised that instead
-  — and `NoveltyWeight` had also already run, in the very commit that added the sentence. It was committed
-  and every gate was green. **So the check is not "re-read the entry", it is "ask the INSTRUMENT"**:
-  `docs/memory-measurements.md` §5 and `docs/task-archive.md` record what has actually run, and neither is written by the
-  person amending the backlog.
-  <br>**Do not build the obvious gate — this one is the shape that cannot be tightened.** Three forms were
-  considered against the four real instances. Scanning open `- [ ]` items for a self-closing phrase
-  ("CLOSED as", "LANDED", "RAN on") catches one of four and fires on legitimate prose, because items here
-  correctly report a closed HALF of themselves (*"the OVERFLOW half of this item is closed"*, *"the BLOCKING
-  half is gone"*). Requiring every Part named in the banner to own an open, unblocked `- [ ]` also catches
-  one of four. Deriving the banner mechanically loses the judgement it exists to carry (*"Part 99 is a WATCH
-  item and not startable work"* is not computable from a checkbox). That is the *"false positives are
-  legitimate authorial choices"* shape recorded above for the existence-check gate: **reach for a registry or
-  a habit, not a corpus scan, when "wrong" depends on intent.**
-  <br>**The REGISTRY was built on 2026-09-10 (`docs/DECISIONS.md` D111), and all three refuted forms above
-  stay refuted** — they are the same mistake, which is INFERRING a state from a checkbox. What changed is
-  that the judgement is now supplied as data: each open `- [ ]` carries
-  `<!-- item: state=… kind=… needs="…" -->`, `check-backlog` generates the roster from those markers, and an
-  unmarked item FAILS rather than being given a default. So *"Part 99 is a WATCH item"* is still not
-  computable — it is now written down, once, on the item, where amending the item amends it.
-  <br>**The general shape, and it is the reusable half: when a summary keeps going stale, ask whether the
-  thing it summarizes can be made to CARRY the answer.** Deriving is impossible and habits lose; a field on
-  the source is neither. The cost is that the field is another thing to get right — which is why the gate
-  rejects an unknown state, a blocker with no kind, and a startable item that names one anyway.
+  exactly when the summary goes stale.** `TASKS.md`'s startable-set banner advertised finished work four
+  times (2026-08-26 to 08-29), the last a CORRECTION of the one before that repeated it — re-reading the item
+  is the check that fails, because the item is what changed. Three gates were considered and REFUSED, each
+  catching one of four: a self-closing-phrase scan, a banner-to-open-item check, and deriving the banner from
+  the checkboxes (a WATCH item is not computable from a `- [ ]`). **What worked was making the source CARRY
+  the answer**: a per-item state marker and a GENERATED roster (`check-backlog`, **D111**). When a summary
+  keeps going stale, ask whether the thing it summarizes can carry the answer as a field.
 
-- **A parser that SCRAPES validates what it matched and is structurally blind to what it skipped, so the <!-- trap: sub=gates shape=silent-loss,scope-blind -->
-  half it dropped is unreportable.** Measured 2026-09-10 by an adversarial review of the item markers in
-  the entry above, hours after that gate went green. It collected `matchAll` of a `key=value` pattern into
-  a map and then validated the MAP — unknown key, unknown value, a blocker missing its kind, a startable
-  item carrying one. Omit the quotes on one value (`needs=a real key and a download`, an easy slip in a
-  hand-written HTML comment) and it parses as `needs="a"`, satisfies every one of those rules, and the
-  generator publishes a one-word blocker while printing a green line. **The check that looks like it should
-  have caught it cannot**: the residue contains no `=`, so it is not an unknown attribute either.
-  <br>**The general shape: when a parser scrapes rather than consumes, assert that the matches COVER the
-  input.** A tokenizer that must account for every byte fails on garbage; a `matchAll` that harvests the
-  interesting spans reports success over any input holding at least one of them. The fix is four lines —
-  accumulate the gaps between matches, fail on a non-blank residue — and it is worth reaching for before
-  the first time a value legitimately contains a space.
-  <br>**The tell that this class is dangerous rather than merely wrong is that the damage READS AS DATA.**
-  A truncation to `codex-cli` looks like a terse complete answer, not like loss, so nothing downstream —
-  human or gate — has a reason to doubt it. Compare the noisier failures this file usually records, which
-  announce themselves as soon as anybody looks.
+- **A parser that SCRAPES validates what it matched and cannot see what it skipped.** A `matchAll` of <!-- trap: sub=gates shape=silent-loss,scope-blind -->
+  `key=value` parsed `needs=a real key` as `needs="a"` and passed every rule — the residue has no `=`. Assert
+  the matches COVER the input: accumulate the gaps and fail on a non-blank residue (`_markers.mjs`
+  `parseAttributes`). The damage READS AS DATA, which is what makes the class dangerous.
 
-- **A TOGGLE is not a boundary until something asserts it balanced, and a scanner that skips to the end of <!-- trap: sub=gates shape=scope-blind,silent-loss -->
-  the file reports a clean run over the part it stopped reading.** Measured 2026-09-10 on this very
-  document, by an adversarial review of the gate that indexes it. `check-pitfalls` flipped a `fenced` flag
-  on each ```` ``` ```` line so a captured block would not be mistaken for prose, and never checked the
-  flag at EOF. **One forgotten closing fence took 157 traps to 131**; the gate's only complaint was that
-  the index was "STALE", the remedy its own help text prescribes is `--write`, and that published
-  `131 traps` and exited 0. Every run after it was green — **including one with an unfiled trap sitting in
-  the suppressed tail**. Three of the gate's four checks were voided by a one-line prose edit to the file
-  it guards.
-  <br>**The same review found the twin defect, and it is the more general one: TWO derivations of one
-  boundary drift, and they drift permissively.** The parser decided where the generated block was by its
-  own scan while the splicer used `blockRange`, so they disagreed about what counted as an anchor — the
-  scan armed on ANY line carrying the begin prefix, the splicer took the FIRST. An anchor quoted lower in
-  the file therefore suppressed everything below it, and a duplicate ABOVE the real one made `--write`
-  delete the document's intro paragraph and exit 0. Fixed by deleting the second derivation: the parser
-  now calls the same `blockRange` the splicer does, so they cannot disagree.
-  <br>**Two rules, and the first is the cheap one.** *Assert the toggle balanced where the scan ends* — a
-  four-line check that turns a silent truncation into a named line number. And *never let a delimiter be
-  computed twice*: this repository already records that shape for gate SCOPE (six copies of one rule, every
-  copy reporting the same green line), and it is the same defect one layer down.
-  <br>**What makes this class nastier than an ordinary scanner bug: the gate WRITES.** A read-only check
-  that under-scans merely fails to catch something. One that regenerates an index publishes the truncated
-  read as the authoritative answer, so the next reader is told there are 131 traps by the mechanism whose
-  entire job is to know there are 157. **A generator must fail closed on anything that could have narrowed
-  its input**, which is a stronger bar than a checker needs.
+- **A generator must fail closed on anything that could have narrowed its input: a TOGGLE is not a boundary <!-- trap: sub=gates shape=scope-blind,silent-loss -->
+  until something asserts it balanced, and a delimiter computed twice drifts permissively.** An unclosed
+  fence once took this file's index from 157 traps to 131 and `--write` published it at exit 0; a second
+  derivation of the block's anchor let a quoted anchor suppress everything below it. Both are fixed in
+  `check-pitfalls.mjs` (one `blockRange`, a balance check at EOF), whose header keeps the story. Carry both
+  rules to any scanner that WRITES.
 - **Before optimizing against a latency number, measure the INSTRUMENT's noise — a p50 that moves less than <!-- trap: sub=measurement shape=vacuous,wrong-subject -->
-  its own run-to-run spread has told you nothing.** Measured 2026-08-29 on `memory-scale`: a recall's
-  co-activation write went from ten store round-trips to one (**D99**), the 10k p50 read `11.0ms` before and
-  `8.9ms` after, and a second run of the *identical post-change code* read `11.2ms`. The "19% improvement"
-  was noise, and it would have been published as a result by anyone who ran the before/after pair once —
-  which is the normal way to run a before/after pair.
-  <br>**The cheap defence is a repeat of the AFTER arm, not a bigger sample.** One extra run costs the same
-  as the one already planned and bounds the noise directly; chasing significance with more repetitions costs
-  far more and answers a question nobody asked. This repository already uses that move elsewhere and for the
-  same reason — the LoCoMo isolation fix was confirmed by two byte-identical runs rather than by reasoning
-  that the stores were now separate.
-  <br>**Then convert the claim to something countable if you can.** The change here really did replace ten
-  round-trips with one; that is a fact about the code, checkable by a test that counts calls, and it stays
-  true on a machine whose milliseconds differ. A COUNT is gate-able where a millisecond is not — which is
-  the same reasoning `check-counts` rests on, applied to a benchmark instead of to prose.
+  its own run-to-run spread has told you nothing.** Measured 2026-08-29 on `memory-scale` (**D99**): the 10k
+  p50 read `11.0ms` before a change and `8.9ms` after, and a second run of the identical post-change code
+  read `11.2ms` — a "19% improvement" that was noise. **The cheap defence is a repeat of the AFTER arm**, not
+  a bigger sample; then convert the claim to something COUNTABLE if you can (ten round-trips became one — a
+  test can count calls, and a count is gate-able where a millisecond is not).
 - **A FAIL-OPEN seam is indistinguishable from one that agreed with you, so an arm measuring it must count <!-- trap: sub=measurement,memory shape=fail-open -->
   how often it actually FIRED.** `IMemoryVerificationPolicy` returns `NoOpinion` on every failure — refusal,
-  timeout, unparseable reply, an invented id — and `NoOpinion` leaves the ranking untouched. So a judge arm
-  that scores its own base has two readings that no score column can separate: *the judge endorsed what
-  already led* (a result about the corpus) and *the judge never answered once* (a broken arm), and the
-  second is the one that gets published as "the seam is not worth it". Measured 2026-09-03 on the LoCoMo
-  judge arm, where the counter was added BEFORE the number was believed: 0 of 200 calls declined, which is
-  what makes "the model answered and was wrong" a claim rather than a hope.
-  <br>**The rule generalises past this seam to every best-effort one this library ships** — an annotator, a
-  verifier, anything whose contract says *degrade to the model-free floor*. The floor is a correct
-  behaviour and a terrible observable: it is silent, it is the same shape as success, and the arm still
-  produces a full table. **Count the fires, not just the outcome**, and put the count in the output beside
-  the score.
-  <br>**The lucky direction here was that the arm moved.** It scored 10.5 points BELOW its base, which is
-  unreachable by a judge that declined — so the wiring was provable after the fact. Had the model been
-  mediocre instead of wrong, the arm would have landed on its base and the honest reading would have been
-  unavailable, permanently, from that run's data.
+  timeout, unparseable reply — and that leaves the ranking untouched, so "the judge endorsed what already
+  led" and "the judge never answered once" produce the same table, and the second gets published as "the
+  seam is not worth it". **The model-free floor is a correct behaviour and a terrible observable.** Count the
+  fires, not just the outcome, and print the count beside the score, for every best-effort seam. The LoCoMo
+  judge arm was readable only because it scored BELOW its base (2026-09-03); a mediocre model would have
+  landed on it and been unreadable.
 
 - **A harness that ASSEMBLES a model's input must assemble the one the ENGINE assembles — and when it does <!-- trap: sub=measurement shape=wrong-subject,silent-loss -->
   not, the distortion is UNEQUAL across models, so it inverts a ranking rather than shifting a level.**
-  Measured 2026-09-15, and it cost a published headline the same day. `memory-annotation-drift` built the
-  annotator's `MemoryAnnotationRequest` itself: it scoped `Recent` per CLUSTER and left it unbounded, where
-  `GraphMemoryEngine.AnnotateAsync` passes the 8 most recent entries in the task and scope GLOBALLY
-  (`GraphMemoryOptions.AnnotationContext`), and it showed every accumulated handle where the engine shows
-  24 (`AnnotationKnownSubjects`). Both hand the model a cleaner problem than a deployment ever will.
-  <br>**The correction moved five of six cells the wrong way and reversed the conclusion.** Drift rose
-  62.5% → 87.0% on the smallest model and FELL 87.5% → 83.3% on the largest, so *"size is not the lever"*
-  and *"the best English model is the worst Chinese one"* both had to be retracted
-  (`docs/memory-measurements.md` §5, `annotation-drift-corrected-context`). A uniform bias would have been
-  survivable; this one was worth 24.5 points to one arm and −4.2 to another.
-  <br>**The check is one read, and nothing fails without it**: open the engine's own call site and compare
-  every field it fills. A fixture that fills them differently is measuring a deployment that does not exist,
-  and every number it produces is internally consistent.
+  `memory-annotation-drift` built the annotator's request itself — `Recent` per cluster and unbounded where
+  the engine passes 8 per task and scope, every handle where it shows 24 — handing the model a cleaner problem
+  than any deployment. Corrected, five of six cells moved the wrong way and the headline was retracted
+  (`docs/memory-measurements.md` §5, `annotation-drift-corrected-context`). **Open the engine's own call site
+  and compare every field it fills**; a fixture that fills them differently measures a deployment that does
+  not exist.
 - **A SELECTIVE seam must bootstrap GENERATIVELY, or its empty state is ABSORBING.** Measured 2026-09-15 <!-- trap: sub=measurement,memory shape=fail-open,silent-loss -->
   building a `select-from-list` annotator: with nothing in use yet the prompt still offered the list, the
   model answered `{"pick": 1}` against zero options, the out-of-range pick was dropped as malformed — so no
@@ -479,127 +267,57 @@ of the two: most of these traps recur in a subsystem that had never met them.
   2026-09-23 before `memory-consolidation` was built on it (`docs/task-archive.md` Part 271). Before
   scoring a linking rule, ask what the cluster's members share besides the relation being tested.
 - **A control counter is contaminated by any SETUP that exercises the thing it counts, and the <!-- trap: sub=measurement shape=vacuous,wrong-subject -->
-  contamination is invisible because the number stays PLAUSIBLE.** Two instances in one bench
-  (`MemoryContentionSweep`). `CountingAnnotation`'s `SubjectsPerWrite` counted `SeedAsync`'s own untimed
-  writes until a `Reset()` call after seeding fixed it — without it, the TIMED region's control read the
-  union of setup plus work, not either alone. The identical shape recurred one control over:
-  `CrossEncoderReranker.ReachableAsync()` scores two fixed probe sentences on the SAME instance that becomes
-  `Rig.Reranker`, so `DistinctRerankScores` read **2 under the `judge` backend** — which never calls the
-  reranker at all — confirmed empirically against the real `bge-reranker-v2-m3` (`3.6249` and `-11.0215`,
-  both distinct). A reader trusting the count would have concluded the reranker discriminated under an arm
-  that never invoked it once.
-  <br>**The rule: reset the audit after setup, or the control measures setup plus work and can no longer
-  refute either.** A contaminated count rarely looks wrong — 2 distinct scores reads exactly like a
-  reranker doing a little bit of discriminating, not like a probe leaking through, which is what makes this
-  shape survive review. Whenever a counter and the code under test share ONE instance across a setup phase
-  and a measured phase, reset the counter at the setup/measured boundary, the same way a stopwatch is
-  zeroed before the timed region starts rather than at process start.
+  contamination is invisible because the number stays PLAUSIBLE.** Twice in `MemoryContentionSweep`:
+  `SubjectsPerWrite` counted `SeedAsync`'s own untimed writes, and `CrossEncoderReranker.ReachableAsync()`
+  scored two probe sentences on the SAME instance that became `Rig.Reranker`, so `DistinctRerankScores` read
+  **2 under the `judge` backend**, which never calls the reranker at all. **Reset the audit at the
+  setup/measured boundary**, the way a stopwatch is zeroed before the timed region: whenever a counter and
+  the code under test share ONE instance across both phases, the control otherwise measures setup plus work.
 
 - **A model given an UNBOUNDED task stops discriminating, and it reads as the model being too small.** <!-- trap: sub=memory,measurement shape=wrong-subject,fail-open -->
-  Measured twice in one session (2026-09-03/04), on two different seams, with the same 4B model:
-  · the verification judge endorsed **17% of a 20-item list, 19% of a 40-item one, and 36% of an 80-item
-    one**, its lift over chance falling from ~3.2× to 1.74× — so the SHIPPED depth of 4× the recall limit
-    is where it stopped judging and started waving things through, costing 10.5 points of evidence-hit;
-  · the fact extractor, asked for "the facts" in a turn with no budget, produced **7.1 facts per turn** and
-    inflated the corpus 7.1×, which cost 14 points of `current@k` through near-duplicate dilution.
-  <br>**Neither is a capability failure.** The judge RANKS well — 34.5% precision at its own top pick
-  against a 1.49% base rate — it simply cannot tell where to stop. **The tell is a prompt that asks for a
-  SELECTION and states no budget**: "be selective" is not a number, and a model will not invent one.
-  <br>**Before concluding a seam needs a bigger model, check what the seam HANDS it** — how many items, how
-  long, and whether the instruction bounds the answer. Here the library could not even supply the bound:
-  `MemoryVerificationRequest` carries the query and the candidates and NOT the caller's limit, so the policy
-  cannot say "at most 20" for a page of 20. **A knob that shapes the input is usually cheaper than a bigger
-  model, and it is testable on the model you already have.**
-  <br>**TESTED on the extractor 2026-09-04 (`docs/memory-measurements.md` §5), and the prediction held: the inflation was
-  the PROMPT.** Adding one line — *at most 2 facts* — took 7.1 facts/turn to 2.1 on the same 4B model, cost
-  no evidence (survival stayed 142/142) and recovered 11.4 of the 14.3 points of `current@k` the unbounded
-  prompt had lost. **Two rules came out of doing it**, and both generalise to any prompt-level bound:
-  **state the budget in the PROMPT and never truncate the reply in code** — a code truncation measures
-  truncation, not the model discriminating — and **count how often the model EXCEEDS it**, because "the
-  bound did not help" and "the model ignored the bound" are the same score. Here it was 8.3%, which is what
-  made "a bounded corpus" a claim rather than an assumption.
-  <br>**And the honest other half: a better-shaped input fixed what it was aimed at and nothing else.** The
-  same run's `stale@k` ROSE 40.0% → 57.1% — a smaller corpus lets both the current and the superseded fact
-  compete — so input shaping bought back the DILUTION and moved the underlying judgement not at all. **Fix
-  the input before buying a bigger model; do not expect it to buy a capability the seam never had.**
-  <br>**Then the SAME budget was put to the JUDGE and did not bind at all, so this is two cases and not one
-  rule** (2026-09-04, `docs/memory-measurements.md` §5). Asked for at most 20 of 80 the model endorsed **34.9 — MORE than
-  the 29.1 it endorsed unbudgeted**; asked for at most 5 it endorsed 27.4. **A GENERATIVE task takes a count
-  naturally; a SELECTIVE task over a list the model can SEE does not**, because every candidate looks locally
-  defensible and a stated number reads as an expectation rather than a cap. **A budget that RAISES the output
-  is the tell**, and it is only visible if the counter is there — which is the rule two bullets up, earning
-  itself a second time.
-  <br>**The expensive half of that is a design consequence, not a curiosity.** The plan was to add the
-  caller's limit to `MemoryVerificationRequest` so a policy could say "at most 20" for a page of 20.
-  Measured, that exact number is worth **+0.5 points**, while 5 — a number the recall limit would never
-  supply — is worth +4.0. **The API change would have shipped the useless arm.** Price the number BEFORE
-  building the surface that carries it; "the library cannot even express this" is an argument for measuring
-  it bench-side first, never for assuming the expressible value is the valuable one.
+  Measured twice (2026-09-03/04) with one 4B model: the verification judge's endorsements grew with the list
+  until it stopped judging and waved things through, and a fact extractor asked for "the facts" inflated the
+  corpus sevenfold. **Neither is a capability failure** — the judge RANKS well and cannot tell where to stop.
+  **The tell is a prompt that asks for a SELECTION and states no budget.** Before concluding a seam needs a
+  bigger model, check what it HANDS the model: how many items, how long, whether the instruction bounds the
+  answer.
+  <br>**A stated budget binds a GENERATIVE task and not a SELECTIVE one over a visible list** — there it
+  RAISED the output, visible only because the fires were counted. State the budget in the PROMPT, never
+  truncate the reply in code, and count how often the model EXCEEDS it. **Price a number before building the
+  surface that carries it**: the bound the library could express (the caller's limit) measured +0.5, an
+  inexpressible one +4.0. Figures: `docs/memory-measurements.md` §5; the task-shape reading:
+  `docs/model-tasks.md` §2.
 
 - **An arm that is SUPPOSED to move needs a control proving it CAN — the mirror of the arm that cannot.** <!-- trap: sub=measurement shape=vacuous -->
-  This repository already requires a structural null control before believing a delta. The other half went
-  unwritten until 2026-09-03, and cost two runs. A bench arm replacing the engine's endorsed-first PARTITION
-  with a rank FUSION returned scores identical to the partition in every cell, which reads as *"fusing does
-  not help"* — and was arithmetically the partition: at the shipped `K = 60` with weight 1, the worst
-  endorsed candidate still outscored the best unendorsed one, so the two orderings could never differ. A
-  second arm (truncating the verdict to its top 5) was inert for a different reason and looked the same.
-  <br>**Both were caught by ONE cheap control: compare the arm's output against the output of the thing it
-  replaces, and say so in the report** — here, same-page rate and mean overlap, with an explicit
-  `! DEGENERATE` line when they never differ. A score is not evidence that an arm did anything.
-  <br>**The modelling error underneath is worth its own sentence, because the fix was in a doc already
-  written:** unendorsed candidates were given a judge term of ZERO — treated as *unranked* — when
-  `MemoryVerification.RelevantIds` says an unlisted id "is judged NOT to have answered, which is the half
-  that carries new information". A "no" is a low RANK, not an absence, and modelling it as absence is what
-  made the fusion degenerate.
+  A bench arm replacing the engine's endorsed-first PARTITION with a rank FUSION scored identically to the
+  partition in every cell (2026-09-03), reading as "fusing does not help" — and was arithmetically the
+  partition: at `K = 60` the worst endorsed candidate still outscored the best unendorsed one. **Compare the
+  arm's output against the thing it replaces, and say so** (same-page rate, mean overlap, a `! DEGENERATE`
+  line). The error underneath: unendorsed candidates were scored as ABSENT, when an unlisted id "is judged
+  NOT to have answered" — a "no" is a low RANK, not an absence.
 
 - **A gate that scans SOURCE must blank comments first, and the false positive is always the code that most <!-- trap: sub=gates shape=wrong-subject -->
-  explicitly obeys the rule.** Measured twice in one session (2026-09-04), on two unrelated predicates:
-  · a check for reflection `JsonSerializer` in the wire paths (**D14**) flagged the two files whose comments
-    read *"JsonDocument.Parse (not JsonSerializer) so the package stays trim/AOT-clean"*;
-  · a check for a silent `IsAotCompatible=false` (**D7**) flagged `Lyntai.Generation.csproj`, which does not
-    opt out at all — it carries a commented-out TEMPLATE showing what to write if it ever needed to.
-  <br>**The mechanism is that prose about a rule quotes the rule's own vocabulary**, so a text scan hits the
-  documentation of compliance and the example of violation before it hits any real one. `check-links`
-  records the mirror image — an index built from prose lets a citation AUTHORIZE ITSELF — and the fix is the
-  same in both directions: **read the code, not what it says about itself.**
-  <br>**Blank comment BODIES rather than dropping the lines**, so reported line numbers still point at the
-  real file. And the tell that you have this bug is not a red gate — it is a red gate naming a file you
-  believe is correct; check whether the hit is inside a comment before you doubt the file.
+  explicitly obeys the rule.** Twice on 2026-09-04: a check for reflection `JsonSerializer` (**D14**) flagged
+  the files whose comments say *"not JsonSerializer"*, and a check for a silent `IsAotCompatible=false`
+  (**D7**) flagged a commented-out TEMPLATE. Prose about a rule quotes the rule's vocabulary — the mirror of
+  a citation AUTHORIZING ITSELF in `check-links`. **Read the code, not what it says about itself**, and blank
+  comment BODIES rather than dropping lines so reported line numbers stay true.
 
 - **A benchmark arm whose CANDIDATE POOL reaches the size of its store has stopped measuring retrieval, and <!-- trap: sub=measurement shape=wrong-subject,vacuous -->
-  the tell is a score too good to distrust.** Measured twice, in two benches, and the second time is the
-  point: the LongMemEval bench grew a counter after a `fill` arm scored 90% by returning most of a 25-turn
-  store — that counter fired and saved the run. The LoCoMo bench had none, so an oracle arm at
-  `CandidateMultiplier = 32` (640 candidates against conversations of 369–689 turns, larger than the whole
-  store for six of ten) printed **100.0% in every one of four categories** and looked like a breakthrough.
-  A perfect judge handed an entire conversation cannot score anything else.
-  <br>**A counter that lives in one bench does not protect the other.** Both benches build arms from the same
-  `FieldArms` registry and share the same failure mode, and the fix had to be written twice because it was
+  the tell is a score too good to distrust.** An oracle arm at `CandidateMultiplier = 32` pooled 640
+  candidates from conversations of 369–689 turns and printed **100.0% in every one of four categories**. The
+  LongMemEval bench already had the counter that catches it; the LoCoMo bench did not, because it had been
   filed as one bench's instrument rather than as a property of pooled retrieval. **When a guard catches
-  something structural, ask which other harness has the same structure.**
-  <br>**The tell is not implausibility, it is UNIFORMITY** — four independent categories reading exactly
-  100.0% is not what retrieval does, and a refuted prediction landing on *too good* deserves more suspicion
-  than one landing on *too bad*. Compare the pool against the store and print it; `pool >= store` is a
-  one-line check that no score column can express.
+  something structural, ask which other harness has the same structure** — and read UNIFORMITY, not
+  implausibility, as the tell: `pool >= store` is a one-line check no score column can express.
 
 - **An offline REPLICA of a shipped algorithm must be proven to reproduce it, and the difference that breaks <!-- trap: sub=measurement shape=wrong-subject,unmeasured -->
-  it is never the interesting part of the algorithm.** Measured 2026-08-29 (`docs/task-archive.md` Part 114):
-  a ladder scoring RRF outside the engine got the ranking right and the TIE-BREAK wrong —
-  `MemoryRankingContract.Finish` breaks score ties by DESCENDING id, so the newer entry wins, and a replica
-  breaking them ascending **moved the shipped row by 4 points while looking entirely plausible.**
-  <br>**So the control is "reproduce the shipped policy's own output", not "look right"**: agreement on the
-  real top-k, per sample, printed. A replica exists precisely where instrumenting the real path is
-  inconvenient, which is also where nobody notices it has drifted — and a wrong replica does not fail, it
-  publishes a table.
-  <br>**Second instance, 2026-09-06 (`docs/task-archive.md` Part 157), and it cost 30 points on a smoke
-  sample.** A bench-side character budget cut the body by stopping at the first item that did not fit;
-  `GraphMemoryEngine`'s own `MemoryQuery.CharBudget` **skips** that item and keeps filling, and never returns
-  empty. On the walk's second step the head of the list is the same entries upgraded from headline to full
-  content, so a prefix rule threw away every cheap headline behind them and the arm read **0.0%** where the
-  shipped rule reads 30.0%. **Both rules are one loop over a list with a running total** — which is exactly
-  why nobody re-reads the shipped one. The tell was an arm scoring zero, and it could as easily have been a
-  plausible number. **Open the shipped implementation and diff the loop, even when the rule fits in a
-  sentence**; "whole items until the budget runs out" describes both.
+  it is never the interesting part of the algorithm.** A ladder scoring RRF outside the engine broke score
+  ties ASCENDING where `MemoryRankingContract.Finish` breaks them descending, moving the shipped row 4 points
+  while looking plausible (`docs/task-archive.md` Part 114); a bench-side character budget STOPPED at the
+  first item that did not fit where `MemoryQuery.CharBudget` skips it and keeps filling, reading 0.0% where
+  the shipped rule reads 30.0% (`docs/task-archive.md` Part 157). **The control is "reproduce the shipped
+  policy's own output", not "look right" — and diff the shipped loop even when the rule fits in a sentence.**
 
 - **Measure a component against the calls it could POSSIBLY change, not against every call.** Same day, and <!-- trap: sub=measurement shape=wrong-subject -->
   it reframed three runs at once. Every judge column here was scored over all 200 questions — but a verifier
@@ -624,23 +342,15 @@ of the two: most of these traps recur in a subsystem that had never met them.
   non-outcome column that must move is what tells a real run from a plausible one.
 
 - **A constant tuned against a PERFECT component inherits that component's assumptions, and can be actively <!-- trap: sub=measurement,memory shape=unmeasured,wrong-subject -->
-  harmful for the real one.** This repository prices model-in-the-loop seams against an ideal first — a
-  perfect annotator, a perfect judge — which is a good habit for deciding whether to spend a model run, and
-  a trap for anything you tune while you are there. Measured 2026-09-03:
-  `GraphMemoryOptions.DefaultVerificationDepthFactor` sits at 4 because rescue depth SATURATES, which is
-  true and was measured with an ORACLE — and an oracle never endorses junk, so for it depth is free and the
-  only question is how far down an answer can be rescued from. For a real judge depth is a PRECISION trade,
-  and the same 4B model that was level with no judge at 2× cost **10.5 points** at the shipped 4×.
-  <br>**The tell is a doc sentence naming the measurement without naming the instrument** — *"the MEASURED
-  saturation point, not a round number"* was accurate and omitted the one word (*oracle*) that bounds it.
-  So: **when a default is justified by a measurement, record what stood in for the missing component**, and
-  treat every constant fitted beside an ideal as unmeasured for the real one. The ideal run is a ceiling on
-  the MECHANISM; it is not a fit for the KNOB.
-  <br>**…and a HEADROOM measured beside the ideal is zero by construction.** The offline-consolidation plan
-  gated its whole measurement on "headroom left by the PERFECT annotator" — which links every same-subject
-  pair at write time, so the gate would have refuted the idea without measuring anything, while a real
-  annotator drifts 58–90% (`docs/task-archive.md` Part 271). **Run the ideal as the SELF-CHECK — it must
-  read zero — and take the verdict from the arm a deployment actually has.**
+  harmful for the real one.** `GraphMemoryOptions.DefaultVerificationDepthFactor` sits at 4 because rescue
+  depth SATURATES — measured with an ORACLE, which never endorses junk, so depth was free; for a real 4B judge
+  depth is a PRECISION trade, level with no judge at 2× and 10.5 points worse at the shipped 4×. **The tell is
+  a doc naming the measurement without naming the instrument.** Record what stood in for the missing
+  component, and treat every constant fitted beside an ideal as unmeasured for the real one.
+  <br>**…and a HEADROOM measured beside the ideal is zero by construction**: a perfect annotator links every
+  same-subject pair at write time, so gating offline consolidation on its headroom would have refuted the
+  idea without measuring anything (`docs/task-archive.md` Part 271). Run the ideal as the SELF-CHECK — it
+  must read zero — and take the verdict from the arm a deployment actually has.
 
 - **NuGet never re-extracts a package version it already has in the global cache**, so packing under a FIXED <!-- trap: sub=build,gates shape=resource,wrong-subject -->
   throwaway version (`consumer-smoke`'s `9.9.9-smoke`) tests the packages only ONCE — every later run restores
@@ -668,166 +378,60 @@ of the two: most of these traps recur in a subsystem that had never met them.
   and meaningless. `check-samples` compiles any block declaring a namespace under the library root in its
   OWN compilation for this reason. The shape to remember: **whenever you compile untrusted-ish source
   beside real references, ask what that source is allowed to SHADOW.**
-- **Splicing lines into a CRLF file with `lines.join('\n')` leaves the inserted lines lone-LF**, because <!-- trap: sub=encoding shape=silent-loss -->
-  splitting on `'\n'` leaves each original line's `\r` attached to its own end. `git` says only
-  *"LF will be replaced by CRLF the next time Git touches it"* — a warning that reads like routine
-  autocrlf noise — and the content diff looks perfect. Measured 2026-08-11 inserting 28 `compile-skip`
-  markers. Detect and repair with a codepoint check (`s.replace(/(?<!\r)\n/g, '\r\n')`), never by eye.
-  <br>**Unreachable on a tracked file here since 2026-08-28**: the working tree is LF (`docs/DECISIONS.md`
-  D95), so there is no `\r` left to strand. It still applies to an untracked file, to one a tool has written
-  as CRLF since the last checkout, and in any repository that has not declared a convention.
-- **A working tree that is CRLF against an LF index inflates every diff, and git's stat cache hides it until <!-- trap: sub=encoding,git shape=scope-blind,resource -->
-  a file is touched.** **CLOSED here on 2026-08-28** by a tracked `.gitattributes` (`* text=auto eol=lf`,
-  `docs/DECISIONS.md` D95): checkin normalization means a CRLF or mixed working file can no longer reach the
-  index, and `git ls-files --eol` now reads `i/lf w/lf` on every tracked file. The entry stays because the
-  trap is invisible by construction and recurs in any repository that has not declared a convention.
-  <br>**What it looked like here.** About four in five tracked files read `i/lf w/crlf`, plus a handful of
-  `i/lf w/mixed`, and nothing reported it — git compares size and mtime before content, so the state
-  surfaced only when a file was touched, and then the WHOLE file surfaced as changed. `core.autocrlf` was
-  `false` at REPO scope, overriding `true` at both system and global scope, so the index took the tree
-  verbatim and a flipped file COMMITTED as CRLF. It bit twice on one branch: a **1267 / 1063** diff for a
-  real 204-line change, and a **100-line** diff for a 6-line csproj addition, both caught by a person after
-  the fact.
-  <br>**The figure above is a ratio because the count was wrong once.** An earlier version of this entry
-  published absolute numbers measured before that same session's own repairs, and they did not reproduce —
-  the count is a property of the WORKING TREE at a moment and drops by one every time somebody repairs a
-  file.
-  <br>**Where no convention is declared, the check is `git diff --stat` against
-  `git diff --ignore-cr-at-eol --stat` after every edit**, then `git ls-files --eol` to confirm `w/lf`.
-  Repair with a bytes replace (`b.replace(b'\r\n', b'\n')`), never with a PowerShell round-trip
-  (`windows-machine.md` §Text and encoding). A TOOL can flip a file you did not hand-edit — `dev.mjs
-  decisions-index` rewrote `docs/DECISIONS.md` as CRLF in one session — which under a declared convention
-  costs a locally-mixed file rather than a bad commit.
+- **Line endings: the tracked `.gitattributes` (`* text=auto eol=lf`, **D95**) makes the COMMIT safe, never <!-- trap: sub=encoding,git shape=scope-blind,silent-loss -->
+  the working tree.** Before it, a CRLF working tree against an LF index inflated a 131-line change to
+  2055/1931 and git's stat cache hid the state until a file was touched, because this clone's
+  `core.autocrlf=false` stored the tree verbatim. Three things still hold: a tool can write CRLF into the
+  working tree (`dev.mjs decisions-index` did); splicing `lines.join('\n')` into a CRLF file leaves the
+  inserted lines lone-LF; and in any repository with no declared attribute, never ASSERT a `core.autocrlf`
+  value as a fact — `.git/config` is untracked, and even `true` keeps a blob already stored as CRLF. Check
+  per file with `git ls-files --eol`, repair with a bytes replace (`windows-machine.md` §Text and encoding).
 - **A claim about what a COMMAND does is testable in seconds, and guessing it is how four wrong sentences <!-- trap: sub=docs,git shape=unmeasured -->
-  reached a decision record in one sitting.** Measured 2026-08-28 while declaring the line-ending convention
-  (`docs/task-archive.md` Part 106, `docs/DECISIONS.md` D95). All four were plausible, all four were about
-  git's own behaviour, and each fell to a single command: `checkout-index -a -f` does **not** rewrite an
-  up-to-date file; a stray CRLF file **is** reported by `git status`; it **does** survive `git checkout --`,
-  but only once a `git add` has refreshed the stat cache, and not before; and `eol=lf` is **not** redundant
-  with `text=auto` — under `core.autocrlf=true` they check out CRLF and LF respectively, which turned out to
-  be the decision's actual justification rather than a detail.
-  <br>**The tell is the sentence shape**: *"`-f` forces …"*, *"git would see it as unchanged"*, *"so it
-  heals on the next checkout"* — a claim about observable behaviour, in the present tense, that no command
-  in the transcript produced. Three of the four were caught by re-reading prose already written, not by any
-  gate. **Reading the manual is not the fix**: two of the four are consistent with a fast reading of
-  `gitattributes(5)` and still wrong in context, because the behaviour depends on state the page does not
-  know about (here, a per-clone config and the stat cache). Run the command against the state you actually
-  have. This is the mechanism-shaped sibling of the numeric-provenance entry below, and it is filed
-  separately because the remedy differs: that one says *name where the number came from*, this one says
-  *the claim is an experiment, so run it*.
+  reached a decision record in one sitting.** Declaring the line-ending convention (**D95**,
+  `docs/task-archive.md` Part 106), four plausible claims about git's own behaviour each fell to one command.
+  **The tell is the sentence shape** — *"`-f` forces …"*, *"so it heals on the next checkout"*: observable
+  behaviour, present tense, produced by no command in the transcript. **Reading the manual is not the fix**:
+  two of the four fit a fast reading of `gitattributes(5)` and were still wrong, because the behaviour
+  depended on a per-clone config and the stat cache. The claim is an experiment, so run it against the state
+  you have.
 - **`check-warnings` reports "build FAILED" for a build that SUCCEEDED once the build log outgrows Node's <!-- trap: sub=gates,build shape=resource,silent-loss -->
-  1 MiB `spawnSync` buffer.** Measured 2026-08-09 adding the memory policy sweep: a single
-  `ProjectReference` from `bench/Lyntai.Benchmarks` to `Lyntai.Tests` dragged Postgres, Testcontainers, MCP,
-  ExtensionsAi, Generation and xunit into the bench build, and the full-solution `-v normal` log hit
-  **1,049,602 bytes** — just over the cap. Node returns `ENOBUFS`, the script sees no output, and the gate
-  announces a failure that did not happen.
-  **This is the worst class of defect this repo has** — not a gate that misses something, but a gate that
-  LIES, in the direction that trains a reader to ignore it. It is the `windows-machine.md` §Scripts and
-  exit codes trap wearing a different hat, and it will recur for *any* future change that grows the build log,
-  with a message pointing nowhere near the cause.
-  Two takeaways: **a `ProjectReference` to the test project pulls its ENTIRE dependency graph** into
-  whatever references it — prefer `<Compile Include>` links for the handful of files you actually need; and
-  when a gate reports a failure whose detail is empty or truncated, **suspect the harness before the build**.
-  A `--verbosity` reduction or an explicit `maxBuffer` on the spawn would close it at the root.
+  1 MiB `spawnSync` buffer.** Measured 2026-08-09: one `ProjectReference` from the bench project to
+  `Lyntai.Tests` dragged the test project's whole dependency graph into the build, the `-v normal` log hit
+  1,049,602 bytes, Node returned `ENOBUFS`, and the gate announced a failure that did not happen. **This is
+  the worst class of defect here — a gate that LIES, in the direction that trains a reader to ignore it.**
+  Prefer `<Compile Include>` links over a `ProjectReference` to the test project, and when a gate's failure
+  detail is empty or truncated, **suspect the harness before the build**.
 - **A classifier written from a vocabulary list is blind to MODIFIERS on that vocabulary, and it fails <!-- trap: sub=gates,docs shape=fail-open,silent-loss -->
-  silently because every item still lands somewhere.** Measured 2026-08-16, in the release workflow's
-  notes generator. It matched `^feat(scope)?:` and `^fix(scope)?:` and dropped
-  `^(chore|docs|refactor|…)(scope)?:` — a complete-looking vocabulary that omits conventional commits'
-  one modifier, the BREAKING `!`. So `feat(memory)!:` matched no rule and fell to the catch-all bucket,
-  titled "Other changes": **29 commits of history, and 11 of 11 in the v2.5.0..3.0 range.** A major release
-  whose entire story is breaking changes was one run away from publishing "New features: 1".
-  <br>**The tell is a catch-all that never looks wrong.** Nothing errored, nothing was dropped, no count
-  disagreed — every commit appeared in the output, under a heading a reader would skim. Contrast a
-  classifier that throws on an unrecognized token, where the same defect is a build failure. **When a
-  classifier has an "everything else" branch, the question is not "does it run?" but "what is landing in
-  the catch-all, and does that list look like the name on it?"**
-  <br>Its sharpest form here: plain `refactor:` is *dropped* as non-user-facing, so a breaking refactor —
-  the single most important line a consumer can read — was one regex away from being deleted rather than
-  merely misfiled. The only reason it survived is that the drop pattern *also* failed to match the `!`.
-  **Correctness rested on a second rule failing**, which is not a property anybody can maintain.
-  <br>The fix is the shape this repo already uses for gates: a pure function in
-  `devtools/scripts/release-notes.mjs`, tested by `test-devtools`, with the workflow a thin caller — and
-  the rule pinned by a test over the REAL commit log, as a property ("no breaking commit lands in Other")
-  rather than a count, since a count there fails on the next commit.
+  silently because every item still lands somewhere.** The release-notes generator matched `^feat(scope)?:`
+  and missed conventional commits' one modifier, the BREAKING `!`, so every `feat(memory)!:` fell to "Other
+  changes" — 11 of 11 in the v2.5.0..3.0 range (`docs/FIXES.md`, 2026-08-16). **The tell is a catch-all that
+  never looks wrong**: ask what is landing in it and whether that list looks like its name. Its sharpest
+  form: plain `refactor:` is DROPPED, so a breaking refactor survived only because the drop pattern also
+  missed the `!` — correctness resting on a second rule failing. Pin the rule as a PROPERTY over the real log.
 - **The defects in a measurement write-up are almost never in the MEASUREMENT — they are in the prose about <!-- trap: sub=docs,measurement shape=unmeasured,stale-claim -->
-  it, and every text gate is structurally blind to them.** Measured 2026-08-28 over one sweep's report, which
-  took **five review rounds**. The code was correct throughout: all 44 result rows byte-identical across four
-  independent executions, including captures taken BEFORE the first fix round. What kept failing was the
-  sentences around the numbers. They fail in **three distinguishable kinds** — two in that report, and a third
-  found while writing this entry — and collapsing them into one is itself a mistake this write-up made twice.
-  <br>**Kind 1, provenance: asserting where a number came from instead of checking.** Four instances, and the
-  object moved every time while the failure did not.
-  · `CLAUDE.md`'s test trio quoted from the session's **auto-loaded context** rather than read from the file —
-    auto-loaded context is a snapshot taken before the branch's base commit, not live state, and the number on
-    disk was already correct.
-  · A retrievability band row **copied from its neighbouring row**, with a false interpretation then built on
-    it — the sentence it supported claimed a band "does not move" when it moves *more* than the one cited as
-    proof.
-  · *"12.7 s on a cold build"* — an in-process figure taken on a **warm** build; nothing in the exercise ever
-    measured a cold one.
-  · An independent reviewer's own figures **attributed to the wrong clock** (wall clock, when they were
-    in-process readings), which also manufactured an agreement that does not hold — against the correct row
-    they sit outside the range, so the sentence read as corroboration while being the opposite.
-  <br>**Kind 2, summary statistic: reporting an extremum as a central value.** One instance: 6.8 s published as
-  the run time when it was the **minimum** of a distribution spanning 6.8–12.7 s on the same host.
-  <br>**Kind 3, restatement: a paraphrase of a number is a NEW number, and here the arithmetic was simply
-  never done.** One instance, from the round that wrote this entry: `37 ms → 8 905 ms` (an adopting
-  application's own reported per-query figures, not reproducible here) was de-quantified into *"three orders
-  of magnitude"*, read off the figures' SHAPE rather than divided — it is 240×, so just over **two**.
-  Provenance was never in doubt; the source was correct and on the page. **The aggravating condition
-  is what generalises: de-quantifying a passage removes the reader's ability to check whatever quantitative
-  token SURVIVES it**, so the survivor needs more scrutiny than the figures taken out, not less.
-  <br>**Three rules, and they are not the same rule.** (1) *If a number appears, name the command AND the
-  conditions that produced it — and if you cannot, do not write it.* Naming the command alone is necessary and
-  insufficient: a number can be genuinely produced by a command and still be attributed to the wrong one.
-  (2) *Never report an extremum as a central value — give the spread*, and say which instrument produced it
-  when more than one is in play (an in-process stopwatch and a wall clock differ here by a startup cost that is
-  a property of the host, not of the tooling). (3) *A paraphrase, a rounding or an order-of-magnitude
-  restatement is a new number — do the arithmetic rather than reading the figures' shape.*
-  <br>**`check-docs`, `check-counts` and `check-links` cannot see any of this**, and not because they are weak:
-  the document lived outside the tree they scan, and a count going stale retires no vocabulary and dangles no
-  path, so the sentence stays grammatical, plausible and wrong. **Review was the only gate**, which is why the
-  finding is filed here rather than as a gate request.
-  <br>**The strongest evidence that the trap is real is that writing it up kept producing fresh instances —
-  first in the write-up, then in the rounds correcting the write-up.** The same session asserted *"zero code
-  defects"* — contradicted by a genuine latent crash its own record documents being fixed in round 2 — and
-  twice collapsed that report's five defects into a single kind; a later round asserted a GATE'S SCOPE without
-  reading the gate; the CRLF counts in the entry above were published from a measurement taken before that
-  same session's own repairs; and Kind 3 above was introduced by the very round that removed the figures it
-  misparaphrased. **No running total is given, deliberately**: it moved every round, and a stale count is what
-  teaches a reader to stop comparing. A subagent declined to publish the controller's figures because it could
-  not source them, **and was right**; that refusal is the behaviour to copy. If you are about to write a
-  number you did not just produce, the correct move is to say you cannot source it.
+  it, and every text gate is blind to them.** One sweep's report (2026-08-28) took five review rounds while
+  its 44 result rows stayed byte-identical across four runs. Three kinds, and three different rules:
+  **(1) provenance** — name the command AND the conditions that produced a number, or do not write it (a
+  trio quoted from auto-loaded context, a row copied from its neighbour, a warm build called cold);
+  **(2) summary statistic** — never report an extremum as a central value; give the spread and name the
+  instrument; **(3) restatement** — a paraphrase, rounding or "orders of magnitude" is a NEW number, so do
+  the arithmetic (37 ms → 8,905 ms is 240×: two orders, not three). `check-docs`, `check-counts` and
+  `check-links` cannot see any of it. **About to write a number you did not just produce? Say you cannot
+  source it** — a subagent that refused to was right.
 
 - **A defect filed from a PARTIAL SCAN under-scopes its own fix, and the filing reads as authoritative.** <!-- trap: sub=docs,gates shape=scope-blind,unmeasured -->
-  Measured 2026-08-28 (archive Part 107). A backlog entry recorded that `docs/memory.md` §8 had been folded  link-ok
-  away and that **four** places still cited it, naming all four with `file:line` precision. The real number
-  was **seven across six files**: the entry's `§8` scan missed the RANGE form (`§7–8` — the token is there,
-  the string is not), a second hit on a line it had already counted, and both bench-tier files. Acting on
-  the entry as written would have left three live dead citations behind a task marked done.
-  <br>**The tell is precision without provenance.** Four exact `file:line` references look like the output
-  of a tool and were in fact the hits a reader happened to see; nothing in the entry said which command
-  produced them, so nothing invited re-running it. **Record the query beside the count** — a count whose
-  scan is written down can be re-run and disagreed with, and one that is not can only be believed.
-  <br>The generalisation is the one this file already carries from the other direction: a written-down
-  finding is not a verified one. Here the finding was true and its SCOPE was wrong, which is worse, because
-  a wrong scope survives the fix that was supposed to close it.
+  A backlog entry recorded that a folded `docs/memory.md` section was still cited in **four** places, with
+  `file:line` precision; the real number was **seven across six files** (2026-08-28, `docs/task-archive.md`
+  Part 107) — the scan missed the RANGE form, a second hit on a counted line, and the bench tier. **The tell
+  is precision without provenance**: exact `file:line` references look like a tool's output and were the
+  hits a reader happened to see. **Record the query beside the count**, so it can be re-run and disagreed with.
 
 - **Verify a guarantee by IMPORTING the authoritative function, never by reimplementing it in the checker.** <!-- trap: sub=gates shape=scope-blind -->
-  Same day, while compressing `docs/task-archive.md`. The compression had to preserve every Part number the
-  rest of the repository cites, because `check-links` resolves each inbound `` `docs/task-archive.md` Part N ``
-  against that file and eliding one turns the reference into "in NEITHER record" — silently, for every
-  reference at once. The verification reimplemented "which Parts does this file declare" as
-  `/^#{2,3} Part (\d+)/` and reported **two Parts lost**. Both were fine: `declaredParts` in
-  `check-links.mjs` also accepts a bullet declaration (`- [x] **Part 41 — …**`), which is how Part 40 is
-  written, and Part 64 is a `### Part 64` sub-entry. **The checker was wrong, not the output.**
-  <br>Importing the real function turned 19/21 into 21/21 with no change to the data. A reimplementation is
-  a second definition of the same rule, and it drifts in whichever direction its author forgot — here
-  toward a FALSE ALARM, which is the lucky direction; the same mistake in a permissive direction passes a
-  broken compression as safe. `check-links` itself already carries this lesson for scope predicates
-  ("imported rather than restated… two copies of that question drift the moment a document is archived").
-  <br>**Both mistakes above are the same shape** — a scan that answers a narrower question than the one
-  being asked, while reading as though it answered the whole one.
+  Compressing `docs/task-archive.md`, a check reimplemented "which Parts does this file declare" as
+  `/^#{2,3} Part (\d+)/` and reported two Parts lost; both were fine, because `check-links`' `declaredParts`
+  also accepts a bullet declaration. Importing the real function turned 19/21 into 21/21 with no change to
+  the data. A reimplementation is a second definition of one rule and drifts in whichever direction its
+  author forgot — here toward a false alarm, the lucky direction.
 - **`curl -sSL` exits 0 on a TRUNCATED download, so verify the byte count or you are measuring a partial <!-- trap: sub=measurement,cli shape=silent-loss -->
   file.** Measured 2026-09-10 pulling two GGUFs: one arrived at 203 MB of 468, the other at 95 MB of 636,
   and `curl` reported success for both. A truncated model either fails to load — the lucky direction — or
@@ -856,63 +460,33 @@ of the two: most of these traps recur in a subsystem that had never met them.
   distractors and assert the ordering AND that the scores are distinct. A flat or shuffled scorer reads as
   a clean null result, which is the shape `CrossEncoderRerank`'s own `DistinctScores` audit exists to catch.
 - **ORDERING plus DISTINCTNESS is NOT enough — an easy fixture passes a reranker that ranks BACKWARDS, and <!-- trap: sub=measurement shape=vacuous,wrong-subject -->
-  a published REFERENCE PAIR is what separates them.** The entry above prescribes "a known answer against
-  known distractors"; measured 2026-09-12, that is too weak, and the screen built from it certified a
-  broken model. With one answer plus three unrelated distractors, `ms-marco-MiniLM-L6-v2` Q8_0 passed —
-  distinct scores, answer first. Given its OWN model card's pair (*"How many people live in Berlin?"* against
-  the population figure and *"Berlin is well known for its museums"*, published `[8.607138, -4.320078]`) it
-  scores **−0.093 / −0.078** and ranks the museums sentence FIRST. **Both documents on topic is what makes
-  it discriminating**: lexical overlap separates the easy fixture, so a degraded head coasts on it.
-  <br>**The magnitude is the second signal and it is free.** A healthy cross-encoder separates that pair by
-  UNITS — the control reproduces it at 13.861 against 12.927, a 0.9× ratio. A model returning hundredths is
-  not emitting logits any more: `jina-reranker-v1-tiny-en` orders it correctly at **137.8× too little
-  spread**, which is degraded-but-not-inverted and must not report the same verdict as either neighbour.
-  <br>**DISTINCTNESS IS NOT DISCRIMINATION, and the near-flat case is the dangerous one — not the flat
-  one.** Worth stating because the intuition runs the wrong way. A PERFECTLY flat scorer is harmless here:
-  `MemoryVerificationRequest.Candidates` arrives *in rank order* (its own XML doc says so), `OrderByDescending`
-  is a STABLE sort, so equal scores preserve that order, the endorsed set is the engine's own top-k, and
-  under `Partition` promoting it reproduces the engine's ranking. It is a no-op. **A noise-scaled scorer is
-  not**: its scores are distinct, so they genuinely REORDER — by noise — and every audit passes them.
-  `CrossEncoderRerank`'s `DistinctScores` counts 4 of 4 on a model whose whole spread is 0.094. **Audit the
-  SEPARATION against a known pair, never the cardinality of the score set.**
-  <br>**The cause is upstream and no reconversion fixes it.** llama.cpp PR **#21729** is `state: open`,
-  `merged: false` (opened 2026-04-10): *"token_type_ids were hardcoded to zero and pooling layers were
-  discarded during conversion"*. So a BERT cross-encoder loses its pooler in the FILE and its segment
-  signal in the RUNTIME — and a cross-encoder needs segments to tell the query from the document. Check
-  `tokenizer.ggml.token_type_count`: **2 means the model wants a signal it will not get; 1 means the
-  RoBERTa/XLM-R family, which never had segment embeddings and is therefore immune.** That single field
-  predicts every result in this row.
-  <br>**…and the reference pair is not enough EITHER — both its documents mention Berlin, so a model
-  ranking by word overlap passes it.** An adopting application caught one on 2026-09-24: `xVITA-300M`
-  (modern-bert) passes the pair at 1.44× and scores a distractor that ECHOES the query 10.02 against the
-  answer's 7.42 (`docs/memory-measurements.md` §5, `rerank-screen-adopter-b10549`). `rerank-screen` now
-  asserts the order on an English and a Chinese overlap trap. And its spread check reads a pair in [0, 1]
-  that straddles one half as PROBABILITIES (Qwen3-Reranker answers 0.998 / 0.0015) — without the straddle
-  condition, collapsed logits in [0, 1] like jina's would pass as probabilities.
+  a published REFERENCE PAIR is what separates them.** With one answer and three unrelated distractors,
+  `ms-marco-MiniLM-L6-v2` Q8_0 passed; on its OWN model card's pair (two on-topic documents, published
+  `[8.607138, -4.320078]`) it scored **−0.093 / −0.078** and ranked the wrong one first (2026-09-12).
+  Lexical overlap separates the easy fixture, so a degraded head coasts on it.
+  <br>**The MAGNITUDE is a free second signal**: a healthy cross-encoder separates that pair by UNITS, and a
+  model returning hundredths is not emitting logits. **DISTINCTNESS IS NOT DISCRIMINATION, and the near-flat
+  case is the dangerous one**: a perfectly flat scorer is a no-op (a stable sort keeps the engine's order),
+  while a noise-scaled one REORDERS by noise and passes every cardinality audit. Audit the SEPARATION against
+  a known pair. Why the broken GGUFs break is upstream (`docs/model-tasks.md` §3: read `token_type_count`).
+  <br>**…and the reference pair is not enough EITHER**: both its documents share the query's words, so a model
+  ranking by overlap passes it (`xVITA-300M`, 2026-09-24, `rerank-screen-adopter-b10549`). Include a
+  distractor that ECHOES the query more than the answer does — `rerank-screen` asserts one in two languages.
 - **…and the tensor-NAME check that looks like the cheap version of that smoke test is ARCHITECTURE-BOUND, <!-- trap: sub=measurement shape=wrong-subject -->
-  so it condemns working models.** Measured 2026-09-12, having made the mistake: `cls.output.weight` is the
-  head name the **`bert`** rerank path uses, and a remote header read (`node devtools/dev.mjs rerank-screen
-  --inspect <url>`, an HTTP range request with no download) reported it **ABSENT** on all three independent
-  conversions of `jina-reranker-v1-tiny-en`. Three uploaders agreeing is what made it look systematic. It is
-  not a defect: **`jina-bert-v2` names its head `cls.weight`/`cls.bias`**, and the model scores 8/8 when
-  actually served. **So tensor presence is a POSITIVE signal only — its absence is evidence about your
-  vocabulary, not about the file.** The same read did earn its keep in the other direction, flagging two
-  conversions that carried `classifier.weight`/`classifier.bias` plus a `bert.pooling_type` override; both
-  turned out to be broken, **but not for the predicted reason** — they fail
-  `error loading model: bert model needs to define token type count`, a missing metadata KEY, and never
-  reach the scoring path at all. Predicting the failure MODE from a header is a third claim on top of the
-  other two. **Serve it; that is the experiment, and it costs a 30 MB download.**
+  so it condemns working models.** `cls.output.weight` is the `bert` rerank path's head name, and a header
+  read (`rerank-screen --inspect`) reported it ABSENT on three independent conversions of
+  `jina-reranker-v1-tiny-en` — which names its head `cls.weight`/`cls.bias` and scores 8/8 when served.
+  **Tensor presence is a POSITIVE signal only; its absence is evidence about your vocabulary, not the file.**
+  Across ROLES too: a bi-encoder has no head by design, so `rerank-screen --inspect` reports `head: MISSING`
+  for a healthy embedder — `embed-screen --inspect` prints the fields that decide one. Predicting a failure
+  MODE from a header is a third claim on top; **serve it — that is the experiment.**
 - **A BERT-family reranker SILENTLY IGNORES `--ctx-size` above its trained maximum, and the rejection <!-- trap: sub=measurement shape=vacuous,silent-loss -->
-  arrives at REQUEST time on a server that started clean.** Measured 2026-09-12 on
-  `ms-marco-MiniLM-L6-v2` Q8_0 (25,281,216 B): launched with `--ctx-size 4096`, it loads, reports healthy,
-  answers `/v1/models`, ranks a short fixture correctly — and returns
-  `400 … input (1221 tokens) is larger than the max context size (512 tokens). skipping` on the first real
-  document, because BERT's learned positional embeddings stop at 512 and no flag moves them. **The size
-  column cannot see this**: the disqualified model is the SMALLER file. This is the
-  *"probe the EXTREME, never the typical"* entry above with the failure moved from the serving
-  configuration into the model's own architecture, so re-sizing the server is not a fix and the only
-  signal is a long-input probe. Ask a candidate's `max_position_embeddings` before its byte count, and
-  prefer an ALiBi/RoPE-based reranker where the candidates are whole entries (**D108**).
+  arrives at REQUEST time on a server that started clean.** `ms-marco-MiniLM-L6-v2` launched at
+  `--ctx-size 4096` loads, reports healthy and ranks a short fixture — then returns `400 … larger than the max
+  context size (512 tokens)` on the first real document, because learned positional embeddings stop at 512
+  and no flag moves them (2026-09-12). The size column cannot see it: the disqualified model is the SMALLER
+  file. **Ask a candidate's `max_position_embeddings` before its byte count**, probe with a long input, and
+  prefer an ALiBi/RoPE reranker where candidates are whole entries (**D108**).
 - **`general.name` in a community GGUF is a stale template field, and the TENSOR COUNT is the identity <!-- trap: sub=measurement shape=stale-claim -->
   check.** Every `ms-marco-MiniLM` conversion surveyed 2026-09-12 — five uploaders, four different layer
   depths — reports `general.name : Ms Marco MiniLM L 12 v2`, including the L2 and L6 files. Reading it as
@@ -922,95 +496,37 @@ of the two: most of these traps recur in a subsystem that had never met them.
   in the FILE rather than at the endpoint — and the same rule closes both: **verify identity by something
   the file computes, never by something it is labelled.**
 - **A screen fixture can be too HARD, and that fails WORKING models — the same defect as one too easy, <!-- trap: sub=measurement shape=wrong-subject,vacuous -->
-  pointed the other way and much easier to be proud of.** Measured 2026-09-12 building `embed-screen`.
-  The reranker lesson above ("an easy fixture certifies a broken model") was applied enthusiastically: four
-  topic pairs whose within-pair sentences share NO content word while two different pairs share `Moon` and
-  `Earth`, asserted as pass/fail. The 333,590,944 B control separated it (+0.1634); **all four sub-100 MB
-  candidates conflated it (−0.06 to −0.13) while being demonstrably healthy** — stable vectors, full cosine
-  range, correct dimensions, every easy comparison right. Shipped as written, the screen would have
-  published *"no sub-100 MB embedder works"*, which is the retracted reranker row's mistake inverted.
-  <br>**The rule is that a screen asserts HEALTH and reports SHARPNESS, and they are different questions.**
-  A health check must pass any working model — its job is to catch a dead conversion — so it gets the EASY
-  pair and a generous threshold. Sharpness is a number, printed beside a known-good control, never a
-  verdict. The tell that you have merged them: your check fails a model you cannot otherwise fault.
-  <br>**The reranker screen could assert a hard case only because it had a PUBLISHED reference score.** An
-  external ground truth licenses a threshold; a fixture you authored does not, and an absolute cosine
-  threshold is not portable across embedding families anyway. **With no published number, run a control and
-  report the difference** — which is also why `embed-screen` takes `--control`.
-- **`rerank-screen --inspect` reporting `head: MISSING` says NOTHING about an embedder, and the word <!-- trap: sub=measurement shape=wrong-subject -->
-  reads like a defect.** A cross-encoder has a classification head; a bi-encoder has none BY DESIGN. The
-  same field that is evidence in one role is vacuous in the other, and `all-MiniLM-L6-v2` — which screens
-  healthy — reports MISSING. This is the architecture-bound entry above with the ROLE varying instead of
-  the architecture, so the same correction applies twice over: **tensor presence is a positive signal
-  only.** `embed-screen --inspect` prints the fields that do decide an embedder — `embedding_length`,
-  `context_length`, `pooling_type`, `token_type_count` — and says so inline.
+  pointed the other way and much easier to be proud of.** Building `embed-screen` (2026-09-12), topic pairs
+  sharing no content word were asserted as pass/fail; the control separated them and **all four sub-100 MB
+  candidates conflated them while demonstrably healthy** — the screen would have published *"no sub-100 MB
+  embedder works"*. **A screen asserts HEALTH and reports SHARPNESS**: health gets the EASY pair and a
+  generous threshold, sharpness is a number printed beside a known-good control. The tell of merging them:
+  your check fails a model you cannot otherwise fault. Only a PUBLISHED reference score licenses a hard
+  threshold; otherwise run a control and report the difference (`embed-screen --control`).
 - **A size floor attributed to a ROLE can belong to the TOKENIZER, and the arithmetic settles it in one <!-- trap: sub=measurement shape=wrong-subject,stale-claim -->
-  line.** The reranker survey concluded that sub-100 MB is dead because a cross-encoder needs a segment
-  signal and a pooler, so only the RoBERTa/XLM-R family works and that family is too big. The second half
-  is true and the reason given is not: measured one role over, `multilingual-e5-small` Q8_0 is
-  **132,439,008 B** against the reranker survey's **132,584,000 B** — **0.11% apart**, same architecture,
-  completely different role. The wall is the vocabulary: 250,002 × 384 = 96,000,768 embedding parameters,
-  **102,000,816 B at Q8_0's 8.5 bits per weight — over 100,000,000 B before a single transformer layer.**
-  <br>**So quantisation is not a lever and MONOLINGUAL is the escape**, which the role-based explanation
-  hides: `bge-small-zh-v1.5` carries a 21,128-token vocabulary and fits the whole model in 47,886,240 B.
-  **Compute `vocab × hidden` before believing any story about why a family is too large** — it is one
-  multiplication, and it distinguishes a structural limit from a re-survey worth running.
-  <br>**And a mismatched vocabulary costs TOKENS, not just quality**: that Chinese model spends **2,170**
-  tokens on the same 6,263-character English text `all-MiniLM-L6-v2` covers in **1,207**, so it hits a
-  context or batch ceiling at 55% of the text — a second, quieter cost of the wrong tokenizer.
+  line.** The reranker survey blamed sub-100 MB's failure on the cross-encoder role; an EMBEDDER of the same
+  architecture measured 0.11% apart in size, because the wall is the vocabulary — 250,002 × 384 embedding
+  parameters exceed 100 MB at Q8_0 before a single transformer layer. **Compute `vocab × hidden` before
+  believing any story about why a family is too large**: quantisation is not a lever, MONOLINGUAL is the
+  escape, and a mismatched vocabulary costs TOKENS too (a Chinese model spends 2,170 on text an English one
+  covers in 1,207). Figures: `docs/model-tasks.md` §3.
 - **CJK passed to a command-line argument goes through the console encoding and arrives mangled.** A <!-- trap: sub=encoding,cli shape=silent-loss -->
   `curl -d '{"documents":["评审会…"]}'` on this machine produced
   `parse error … ill-formed UTF-8 byte` from the server, because the GBK console rewrote the payload before
   `curl` ever saw it. **Write the payload to a UTF-8 file and pass `-d @file`** — the same rule
   `windows-machine.md` states for building file content, applied to arguments.
-- **Where no `.gitattributes` declares a convention, `core.autocrlf`'s two values mean nearly opposite <!-- trap: sub=git shape=stale-claim -->
-  things — and a rule that ASSERTS one of them as a fact about the repository is the trap.**
-  `.claude/rules/windows-machine.md` asserted `true` (index gets LF, so a `w/mixed` tree is cosmetic) and
-  this repository was `false` (**the index gets the tree verbatim, so it commits**). A tool wrote CRLF, git
-  faithfully stored CRLF, and `git show --stat` read **2055 insertions / 1931 deletions** for a change whose
-  real size was **131 / 7**. `--ignore-cr-at-eol` and `git ls-files --eol` named it in seconds; the written
-  rule sent the reader the other way first.
-  <br>**`true` is not unconditional either.** It is defined as `text=auto`, and gitattributes(5) says of
-  that: a blob already stored with CRLF stays CRLF on re-add, and binary-detected content (`i/-text`) is
-  never converted at all. So under EITHER setting a `w/mixed` tree can be real and can still commit — which
-  is why the per-file `git ls-files --eol` check is the thing to trust, never the config value.
-  <br>**State the rule, never the value — and better, DECLARE it so there is no value to state.**
-  `.git/config` is untracked, so no document can say what a given clone holds. A tracked `.gitattributes`
-  is the only line-ending declaration that travels; **this repository has one** (`* text=auto eol=lf`,
-  `docs/DECISIONS.md` **D95**), which turns the whole investigation above into a property you can assert.
-  <br>**What declaring it buys, and what it does not.** It makes the COMMIT safe unconditionally — a CRLF
-  or mixed working file is normalized on checkin, so it can no longer reach the index or inflate a diff. It
-  does **not** stop a tool writing CRLF into the working tree (`dev.mjs decisions-index` did exactly that).
 - **A shared runtime killed by IMAGE name takes down tenants that were never yours — and killing strictly <!-- trap: sub=measurement shape=resource -->
-  by PID is still not evidence that it did not.** Written down in `windows-machine.md` and violated anyway:
-  on 2026-08-28 a measurement run finished with `taskkill //F //IM llama-server.exe` and took down a
-  *second* instance on another port, a sibling tool's embedding server that nothing in the run had started.
-  Then on 2026-09-10 a cleanup killed five servers strictly by PID, none of them the sibling's, and the
-  sibling was down at the end of it anyway; whether the kills caused it was never established, and that is
-  the point — *"I only killed my own PIDs"* is an argument, not evidence. **Query the neighbour's health
-  after you clean up** and restart it if it is gone. Note also that `taskkill //F //PID` reported SUCCESS
-  for a process still listening seconds later, so its exit code does not prove the port is free; re-read
-  `netstat` rather than trusting it.
+  by PID is still not evidence that it did not.** The rule is `windows-machine.md` §Processes; the incidents:
+  on 2026-08-28 `taskkill //F //IM llama-server.exe` took down a sibling tool's embedding server on another
+  port, and on 2026-09-10 a strictly-by-PID cleanup still ended with the sibling down, cause never established.
 - **A port you did not CHECK is a port you do not own, and binding a busy one fails UPWARD: your requests <!-- trap: sub=measurement shape=wrong-subject,silent-loss -->
-  are answered by the incumbent.** Measured 2026-09-11 starting an embedder for a ladder. An earlier sweep
-  had checked 8080/8081/8082/11434 and found nothing, so 8090 was assumed free; a neighbour's server had
-  held it since the afternoon, serving a DIFFERENT embedding model. The launch printed no bind error, the
-  endpoint answered, and the smoke test — *is the vector 768-dimensional?* — **passed, because both models
-  are 768-dimensional.** Every number would have been taken on the wrong embedder, which on this axis is
-  known to pick the opposite end of a ladder.
-  <br>**Three rules, and the third is the one that saved it.** Check the SPECIFIC port immediately before
-  binding, never a range you checked earlier. Prefer a port nothing conventionally uses, since a default is
-  exactly what a neighbour also chose. And **verify identity, not plausibility**: read the served model back
-  (`/v1/models`) and compare the actual vectors against the other candidate — a shape check cannot separate
-  two models that share a shape, and the failure it misses is silent.
-  <br>**The SAME neighbour was still holding 8090 on 2026-09-11**, invisible to a fresh sweep of
-  8080/8081/8082/11434/1234 that reported "no model server ports listening". It survived a design session's
-  spawn-and-teardown only because it was looked for. **A sweep of the ports you were going to use is not a
-  census of the machine** — enumerate `llama-server` processes and their parents, not a port list you wrote.
-  <br>**And the check must test `LISTENING`, which is the same trap's other direction.** Matching the port
-  alone (`netstat | grep ':8137 '`) also matches the `TIME_WAIT` sockets a server you just tore down leaves
-  behind, so it reports BUSY on a free port — a false ABORT where the entry above is a false PROCEED. One is
-  merely annoying and the other is silent, which is exactly why the loose check survives review.
+  are answered by the incumbent.** 2026-09-11: 8090 was assumed free from an earlier sweep, a neighbour's
+  server held it with a DIFFERENT embedding model, the launch printed no bind error, and the smoke test — *is
+  the vector 768-dimensional?* — passed because both models are. **Check the SPECIFIC port immediately
+  before binding; prefer one nothing conventionally uses; and verify IDENTITY, not plausibility** — read the
+  served model back (`/v1/models`) and compare real vectors. A sweep of the ports you meant to use is not a
+  census (enumerate `llama-server` processes), and the check must test `LISTENING`: matching the port alone
+  also matches `TIME_WAIT` sockets and reports BUSY on a free port.
 - **A smoke test on a TYPICAL input certifies a server that fails on the inputs the run actually sends.** <!-- trap: sub=measurement shape=vacuous -->
   Twice on 2026-09-11, and the second cost an hour of ingestion. A `llama-server` embedder answered a
   four-word probe perfectly and returned **HTTP 500 — *"input (1442 tokens) is too large… current batch
@@ -1024,42 +540,26 @@ of the two: most of these traps recur in a subsystem that had never met them.
   identity check that it is still the same model.
 - **GPU CONTENTION inverts the offload decision, and it hits GENERATION hundreds of times harder than <!-- trap: sub=measurement shape=wrong-subject,silent-loss -->
   encoding — so the same flag is right and then catastrophically wrong on one box within an hour.**
-  Measured 2026-09-11 with `llama-bench`, 11.2 GiB of VRAM free in every cell. Only the neighbour changed:
-  a game-streaming host was rendering for the "busy" column and idle for the "quiet" one.
+  Measured 2026-09-11 with `llama-bench`, 11.2 GiB of VRAM free in every cell; only the neighbour changed (a
+  game-streaming host rendering for "busy", idle for "quiet").
 
   | model, test | `-ngl 0` busy | offloaded busy | `-ngl 0` quiet | offloaded quiet |
   |---|---|---|---|---|
   | `gemma-3-4b-it`, generation | 9.22 | **0.10** | 6.08 | **73.77** |
   | `nomic-embed-text`, encode | 175 | 839 | 9,901 | **53,295** |
 
-  **Offloading is right by DEFAULT — 12× on generation and 5.4× on encoding when the device is free.** What
-  contention does is not slow it evenly: generation swings from **12.1× faster** (73.77 against 6.08) to
-  **92× slower** (0.10 against 9.22), a **~1,100× reversal**, while encoding barely moves — 5.4× faster
-  quiet against 4.8× faster busy. **Encode-only work is ROBUST to a busy GPU and generation is not**, which
-  is a second, independent reason a cross-encoder beats an instruct model beside a game — its cost survives
-  the neighbour.
-  <br>_Arithmetic corrected 2026-09-13. This paragraph read **"26× slower, roughly a 300× reversal"** and
-  the heading said **"about sixty times harder than encoding"**; none of the three divides out of the table
-  directly above it. They were read off the figures' SHAPE rather than computed — which is the
-  de-quantification trap this file records two entries up, committed in the entry's own summary line. The
-  table itself was never in doubt; only the sentence derived from it._
-  <br>**The tell that you are in the bad regime is a NON-MONOTONE offload curve** (0.45 / 2.49 / 0.33 /
-  0.10 across `-ngl` 8/16/24/34): a setting that is genuinely wrong degrades smoothly, and contention does
-  not. Prompt processing also moves the OPPOSITE way to generation under contention, so a run judged on
-  prompt speed alone picks the configuration that destroys generation.
-  <br>**Correcting what this entry said first**, because it shipped for a few hours as guidance: *"the
-  SHAPE of the task decides the offload level — generative wants `-ngl 0`"*. It does not. **Contention
-  decides it**; the shape only decides how badly you are punished for guessing. Every figure in the busy
-  column was taken while a game rendered, and reading any of them as a hardware ceiling was the mistake.
-  <br>**So: always pass `-ngl` explicitly** — the default is not neutral and the log prints no offload line
-  — and **measure the serving configuration before measuring the model**, which is **D107**'s warning in a
-  second form: a number that looks like a property of the model is a property of the serving layer. Vectors
-  are byte-identical across devices, so for encode-only work switching is a free speed choice, and a run
-  may be compared across it.
+  **Offloading is right by DEFAULT** — 12× on generation and 5.4× on encoding when the device is free. Under
+  contention generation swings from **12.1× faster** to **92× slower**, a **~1,100× reversal**, while encoding
+  barely moves (5.4× quiet, 4.8× busy): **encode-only work is ROBUST to a busy GPU and generation is not.**
+  **Contention decides the offload level; the task's shape only decides how badly a guess is punished.**
+  <br>**The tell is a NON-MONOTONE offload curve** (0.45 / 2.49 / 0.33 / 0.10 across `-ngl` 8/16/24/34): a wrong
+  setting degrades smoothly, contention does not, and prompt processing moves the OPPOSITE way to generation.
+  **Always pass `-ngl` explicitly** — the default is not neutral and logs nothing — and **measure the serving
+  configuration before the model**: a number that looks like a property of the model is one of the serving
+  layer (**D107**'s warning in a second form).
 - **A bare `new HttpClient` leaves PROXY RESOLUTION on, which costs up to 2 SECONDS per local call — and it <!-- trap: sub=measurement shape=wrong-subject,silent-loss -->
-  is BIMODAL, so it reads as the model's tail latency rather than as an offset.** Measured 2026-09-11. The
-  same entry one layer further out than the one above: a number that looks like a property of the model is
-  a property of the CLIENT.
+  is BIMODAL, so it reads as the model's tail latency rather than as an offset.** Measured 2026-09-11: a
+  number that looks like a property of the model is a property of the CLIENT.
 
   | client | mean | max |
   |---|---|---|
@@ -1067,22 +567,12 @@ of the two: most of these traps recur in a subsystem that had never met them.
   | `127.0.0.1`, proxy on | 8.9 ms | 34 ms |
   | either, `UseProxy = false` | **0.4 ms** | 1.0 ms |
 
-  <br>**This CORRECTS a widely-repeated explanation, and the correction is the useful half.** The delay was
-  attributed to Windows resolving `localhost` to `::1` first and an IPv4-only listener paying a failed
-  connect. **Nothing at the TCP layer is slow here**: a raw connect to `[::1]` on a port with no IPv6
-  listener refuses in **5.8 ms**, and to a dead `::1` port in **0.4 ms**. Disabling the proxy collapses
-  BOTH spellings, which address-family selection cannot explain.
-  <br>**So `127.0.0.1` only mitigates** — still 15× the direct path — and `UseProxy = false` on the handler
-  is the actual fix. **Every bench in `bench/Lyntai.Benchmarks` builds a bare
-  `new HttpClient { Timeout = … }`**, so any new one that reports latency must set it — **except
-  `MemoryContentionSweep`**, which already does (`new HttpClientHandler { UseProxy = false }`).
-  `memory-scale` and `memory-contention` are the two published latency sweeps: the former has no HTTP
-  client at all, the latter disables the proxy.
-  <br>**And the verification lesson generalises past networking.** The superseded claim shipped with a
-  check asserting *"localhost never faster"* — an ORDERING, which passes cleanly while the stated mechanism
-  is wrong, because `localhost` really is slower just not for that reason. **A check aimed at the symptom
-  confirms the symptom and certifies whatever story is attached to it**; aim it at the mechanism (here,
-  proxy-on against proxy-off) or it cannot fail in the direction that matters.
+  <br>**The widely-repeated explanation — `localhost` resolving to `::1` first — is wrong here**: nothing at
+  the TCP layer is slow, and disabling the proxy collapses BOTH spellings. **So `127.0.0.1` only mitigates** —
+  still 15× the direct path — and `UseProxy = false` on the handler is the fix. **Any bench that reports
+  latency must set it**; most still build a bare `new HttpClient`, which is harmless only where latency is not
+  published. The check that shipped with the wrong story asserted an ORDERING, which passes while the
+  mechanism is wrong: **aim a check at the mechanism (proxy on against off), never at the symptom.**
 - **A model NAME means different things on the two local servers, and a wrong one is not an error.** <!-- trap: sub=measurement shape=wrong-subject -->
   Ollama routes by it; a `llama-server` started with `--model` serves ONE model and answers to its
   `--alias`, so the name is a label and you get the loaded model whatever you ask for. It selects only on a
@@ -1090,43 +580,33 @@ of the two: most of these traps recur in a subsystem that had never met them.
   answered** — and run your OWN server on its own port rather than borrowing one that happens to be up,
   because a server is started with a context and a batch size and those decide what it will accept.
 - **`llama-server`'s ROUTER mode is a process SUPERVISOR, not one process holding several models — so <!-- trap: sub=measurement shape=wrong-subject,resource -->
-  consolidating seams onto a router saves no memory at all.** Measured 2026-09-11 on build 10603. The
-  router builds a full `llama-server.exe` command line per model and spawns it as a CHILD: the argv is
-  readable in `/v1/models` (`status.args`), and three loaded models showed as three children of the router
-  PID, each on its own ephemeral port, each with a grandchild of its own. **Weights, KV cache and compute
-  are separate in both topologies** — three dedicated servers and one router with three models are the same
-  process count plus a ~115 MB supervisor. What a router actually buys is ONE endpoint, on-demand loading
-  and an eviction policy (`--models-max`, default **4**, so a router holding three models never swaps).
-  <br>**Two consequences worth having before you plan a run.** "Several resident servers, or one router
-  which swaps" is a false binary — residency and routing are independent axes, and a router is only a
-  swapping one when `--models-max` binds. And **two seams contend only when they want the SAME model**,
-  because anything else is a different process; an annotator and a judge sharing one instruct model contend
-  for that child's `--parallel` slots, while an embedder and a reranker beside them cannot contend at all.
-  <br>**Tree-kill reaches three levels** (router → child → grandchild) and `/T` was observed clearing all
-  of them — but assert every PID gone afterwards rather than trusting the exit code, per the image-name
-  entry above.
+  consolidating seams onto a router saves no memory at all.** Measured 2026-09-11 on build 10603: the router
+  spawns a full `llama-server.exe` CHILD per model (argv readable in `/v1/models` `status.args`), so weights,
+  KV cache and compute are separate in both topologies — three dedicated servers and one router with three
+  models cost the same, plus a ~115 MB supervisor. A router buys ONE endpoint, on-demand loading and an
+  eviction policy (`--models-max`, default **4**). **Residency and routing are independent axes**, and two
+  seams contend only when they want the SAME model. Tree-kill reaches all three levels (router → child →
+  grandchild), but assert every PID gone rather than trusting the exit code.
 - **`--embedding` and `--reranking` are PROCESS-WIDE, so a plain `--models-dir` router serves chat and <!-- trap: sub=measurement shape=unmeasured -->
-  nothing else — while still LISTING every model it found.** Measured 2026-09-11. `--embedding` is
-  documented as *"restrict to only support embedding use case"*; neither flag is per-request. A router
-  started without them answered `/v1/chat/completions` normally and returned
-  **`501 … This server does not support embeddings. Start it with --embeddings`** (and the same for
-  reranking) — after spawning the child models anyway, so the model list and the process table both look
-  correct. **Per-model roles need `--models-preset`**, an INI whose section is the served id and whose keys
-  are long-form flags without the `--`; the format is recoverable from the router's own `status.preset`
-  field. This serves all three roles on one port, verified end to end:
+  nothing else — while still LISTING every model it found.** A router started without them answers chat and
+  returns `501 … This server does not support embeddings` after spawning the children anyway, so the model
+  list and the process table both look right (2026-09-11). **Per-model roles need `--models-preset`**, an
+  INI whose section is the served id and whose keys are long-form flags without the `--` (recoverable from
+  the router's own `status.preset`):
   ```ini
   [embed]
   model = <dir>/embeddinggemma-300M-Q8_0.gguf
   n-gpu-layers = 99
   embeddings = true
   ```
-  <br>**Check this before scoping any run around a router**, because the failure arrives after the servers
-  are up and the model list reads fine — the shape the Ollama-GGUF entry below has in a different costume.
-- **The two local servers disagree about an over-long input, and the disagreement is silent on one side.** <!-- trap: sub=measurement shape=silent-loss -->
-  Ollama truncates and answers; `llama-server` returns `500 … input is too large`. So a run that "worked"
-  on Ollama can crash on llama.cpp, and what that proves is that the truncation was always happening and
-  nothing reported it. The benches now truncate explicitly and COUNT it in the footer. Related and easy to
-  get wrong in the fix: a character budget cannot bound a token limit — **D177** takes one anyway, with margin.
+  Check this before scoping a run around a router: the failure arrives after the model list reads fine.
+- **The two local servers disagree about an over-long input, and the quiet one is the dangerous one.** <!-- trap: sub=measurement shape=silent-loss -->
+  Ollama truncates and answers; `llama-server` returns `500 … input (N tokens) is too large`. Moving a
+  bench across them turns an invisible truncation into a crash — LongMemEval reaches 76,560 characters
+  against a median of 429, so every earlier figure was cut by whichever server answered. A CHARACTER budget
+  cannot bound a TOKEN limit (density varies tenfold across scripts; **D177** takes one anyway, with
+  margin): shrink and retry on the server's own complaint, floor it so a pathological input fails loudly,
+  and COUNT the truncations in the output.
 - **An Ollama model IS a GGUF on disk, and stock `llama-server` still may not load it.** The blobs under <!-- trap: sub=build,measurement shape=unmeasured -->
   `~/.ollama/models/blobs/sha256-*` carry the `GGUF` magic and Ollama runs them through its own bundled
   llama.cpp, so pointing your own `llama-server --model <blob>` at one looks like a free way to serve an
@@ -1135,36 +615,16 @@ of the two: most of these traps recur in a subsystem that had never met them.
   Ollama's conversion omits a key upstream requires and its own runner supplies. **Read the manifest to find
   the blob** (`manifests/registry.ollama.ai/library/<model>/<tag>`, the `application/vnd.ollama.image.model`
   layer) — but expect to need the model's own GGUF from its source, and check before planning a run around it.
-- **A gate anchored in PROSE dies when the prose moves, and the failure blames the wrong thing.** <!-- trap: sub=gates,docs shape=stale-claim -->
-  `check-counts` requires every registered claim to match at least once, so a pattern too narrow to find its
-  own claim fails rather than passing silently — which is the right design and also means **deleting or
-  rewording the only sentence a claim matches turns the gate red with a message about a stale number.**
-  Six of the registered claims were anchored in exactly one sentence each, all in `CLAUDE.md`. **Move such a
-  sentence VERBATIM and run the gate between the copy and the delete**, so both copies match at the moment
+- **A gate anchored in PROSE dies when the prose moves, and the failure blames the wrong thing.** Rewording <!-- trap: sub=gates,docs shape=stale-claim -->
+  the only sentence a `check-counts` claim matches turns the gate red with a message about a stale number.
+  Move such a sentence VERBATIM and run the gate between the copy and the delete, so both copies match at the moment
   of the move. The narrow forms that bite: a trailing semicolon (`Twelve packages;`), bold markers and an <!-- count-ok: the package count is quoted as a FORM, not as a claim about how many packages ship -->
   em-dash (`**FIVE arms —`), digits rather than a number word (`573/573`), and an en-dash in a range
   (`D1–D112`). And `parseCount` has no hyphenated compounds, so past twenty write digits. <!-- count-ok: the en-dash range is quoted as a FORM, not as a claim about how far the log goes -->
-  <br>This entry's own range example turned the gate red the moment the next decision landed, which is the
-  trap demonstrating itself — the escape is `count-ok` on that line, never a silent edit to the number.
-- **A skill's template is a general procedure; the FILE in front of you is the convention.** Following <!-- trap: sub=docs shape=wrong-subject -->
-  `fix-log`'s bulleted template literally in 2026-08-30 produced a `**Commit:** pending` field in
-  `docs/FIXES.md` that matched nothing else in the file and that nobody would ever have gone back to fill —
-  the file's own entries are bolded prose paragraphs with no `Commit:` field at all. **Read the newest
-  existing entry and mirror it**: the same `pattern-finder` rule that applies to code applies to records.
-- **A version number written before the release exists SHIPS.** Measured twice on 2026-08-21 in one day's <!-- trap: sub=docs shape=stale-claim -->
-  work: additive surface was written up as arriving in "3.1" on the reasonable assumption that SemVer makes
-  additions a minor, and **one of those sentences was inside an XML doc**, so the published package's
-  IntelliSense named a version that does not exist. The correction then repeated the mistake in a different
-  costume — a ROADMAP row closing with "the next additive release is 3.1.0", the same promise with more
-  confidence. Deliberately NOT gated: a scan for version-shaped tokens drowns in legitimate ones (`net10.0`,
-  a model tag, a vendor's `0.3.40`, every historical heading).
-- **A blocked item is refuted by looking where its BLOCKER lives, and a careful re-check can read the <!-- trap: sub=docs shape=wrong-subject -->
-  wrong place and still be thorough.** Measured 2026-08-23: an item sat labelled blocked on "a real
-  embedding model" while one was pulled on the machine the whole time. The previous re-check had been
-  careful — and it read the **tree**, because that is what the other five blockers needed, and never asked
-  the **machine**. The sweep was honest about what it checked and still wrong about the conclusion, which is
-  why the fix is procedural: **record the blocker's KIND** (tree / environment / decision / data) and
-  re-check against that kind.
+- **A blocked item is refuted by looking where its BLOCKER lives.** The rule is <!-- trap: sub=docs shape=wrong-subject -->
+  `.claude/rules/task-lifecycle.md`; the incident: on 2026-08-23 an item sat blocked on "a real embedding
+  model" while one was pulled on the machine, because a careful re-check read the TREE, as the other five
+  blockers needed, and never the MACHINE.
 - **A decision written AHEAD of its code reads exactly like one describing the tree, and no gate can tell <!-- trap: sub=docs shape=stale-claim -->
   them apart.** `check-decision-claims` reads the tree for a claim, so a claim the tree has not caught up
   with is invisible to it. Carry a "not yet implemented" banner on the entry until the change lands, as
