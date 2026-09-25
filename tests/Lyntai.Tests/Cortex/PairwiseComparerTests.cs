@@ -265,6 +265,7 @@ public class PairwiseComparerTests
         using var provider = services.BuildServiceProvider();
         await provider.GetRequiredService<IPairwiseComparer>().CompareAsync("q", "a", "b");
 
-        Assert.All(asked, id => Assert.Equal("big", id));
+        // exact, not All(): All passes on an EMPTY list, which is the comparer never judging at all
+        Assert.Equal(["big", "big"], asked);   // both orders of the pair, on the default backend
     }
 }

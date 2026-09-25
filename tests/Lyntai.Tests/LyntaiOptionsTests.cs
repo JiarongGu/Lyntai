@@ -130,10 +130,17 @@ public class LyntaiOptionsTests
     [Fact]
     public void Injected_env_getter_without_allEnv_does_not_scan_the_real_machine()
     {
-        // a test passing only getEnv must be deterministic — the real machine env is NOT enumerated
-        var options = new LyntaiOptions();
-        options.ApplyEnvOverrides(_ => null);
-        Assert.Empty(options.DefaultModelByConsumer);
+        // a test passing only getEnv must be deterministic — the real machine env is NOT enumerated. A probe
+        // variable is set on the real process, so this fails on a machine that has none of its own.
+        const string probe = "LYNTAI_MODEL_AUDITPROBE";
+        Environment.SetEnvironmentVariable(probe, "leaked-model");
+        try
+        {
+            var options = new LyntaiOptions();
+            options.ApplyEnvOverrides(_ => null);
+            Assert.Empty(options.DefaultModelByConsumer);
+        }
+        finally { Environment.SetEnvironmentVariable(probe, null); }
     }
 
     [Fact]
