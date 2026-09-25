@@ -128,9 +128,10 @@ public enum MemorySources
 /// this is the member's hierarchical name, never the composite's, which is what makes expansion and
 /// linking route unambiguously.</para>
 /// <para><see cref="Id"/> is store-defined where the store has one. An engine over a store whose write
-/// returns no identifier (<see cref="Lyntai.Storage.IMemoryStore"/>, <see cref="ISemanticMemory"/>) keys by
-/// the SHA-256 hex of the content — which is also how those stores define identity, since re-remembering
-/// identical content refreshes rather than duplicates.</para></summary>
+/// returns no identifier (<see cref="Lyntai.Storage.IMemoryStore"/>, <see cref="ISemanticMemory"/>) keys by a
+/// SHA-256 over the length-framed (task, scope, content) triple — the same entry under another task or scope
+/// is another entry, while re-remembering identical content in one place refreshes rather than
+/// duplicates.</para></summary>
 /// <param name="Engine">The owning engine's <see cref="IMemoryEngine.Name"/>.</param>
 /// <param name="Id">Opaque, and stable within that engine.</param>
 public readonly record struct MemoryRef(string Engine, string Id);

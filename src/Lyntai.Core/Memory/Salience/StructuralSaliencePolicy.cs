@@ -7,12 +7,8 @@ namespace Lyntai.Memory.Salience;
 /// <para>It deliberately reports the neutral 1 until an engine holds
 /// <see cref="SalienceOptions.MinimumComparables"/> entries: in a nearly-empty memory everything is novel, so
 /// scoring novelty there would mark a whole first session as maximally important.</para>
-/// <para>What this policy reports feeds decay resistance and store admission priority — "does not fade
-/// away" — always, and rank priority only if a consumer has opted into
-/// <see cref="Lyntai.Memory.Ranking.MultiplicativeRankingOptions.SalienceRankWeight"/> (off by default; per
-/// <c>docs/DECISIONS.md</c> D45).
-/// This type has no opinion of its own on any of that; it only judges how strongly the write should be
-/// encoded.</para>
+/// <para>It only judges how strongly the write is encoded; what that does downstream is stated on
+/// <see cref="MemorySignals.WellKnown.Salience"/>.</para>
 /// </summary>
 /// <param name="options">Constants; null takes the defaults.</param>
 public sealed class StructuralSaliencePolicy(SalienceOptions? options = null) : IMemorySaliencePolicy

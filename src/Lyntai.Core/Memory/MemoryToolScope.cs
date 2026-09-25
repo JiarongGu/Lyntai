@@ -1,7 +1,7 @@
 namespace Lyntai.Memory;
 
 /// <summary>
-/// Which task and scope the memory tools read and write, for the current asynchronous flow.
+/// Which task and scope the memory tools read, for the current asynchronous flow.
 /// <para>A tool is a singleton, but the task a conversation belongs to is not — a chat application has one
 /// task per conversation. Registration binds a DEFAULT, and this overrides it for the duration of a turn,
 /// so both shapes work without anyone implementing <see cref="Lyntai.Agents.ITool"/> themselves.</para>

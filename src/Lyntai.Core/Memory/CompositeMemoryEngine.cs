@@ -300,10 +300,10 @@ public sealed class CompositeMemoryEngine
     /// before anything is removed unless every one of them has it.</summary>
     /// <remarks>All-or-nothing, and the check runs FIRST. Removing from some members and returning success
     /// leaves the blend holding the very data the caller asked to remove — and a mid-fan-out refusal would be
-    /// worse still, a partial remove AND an exception. Only <c>GraphMemoryEngine</c> implements
-    /// <see cref="IForgettableMemory"/> today, so a mixed blend refuses loudly and names the members that
-    /// cannot serve the call, rather than clearing what it can. For the call an application makes when a user
-    /// withdraws consent, a partial success that reports nothing is the worst available answer.</remarks>
+    /// worse still, a partial remove AND an exception. A blend holding a member that cannot serve the verb (a
+    /// BYO engine; a semantic member asked to prune) refuses loudly and names it, rather than clearing what it
+    /// can. For the call an application makes when a user withdraws consent, a partial success that reports
+    /// nothing is the worst available answer.</remarks>
     private List<T> RemovableMembers<T>(string verb, MemoryRemovalKind kind) where T : class
     {
         // A member the POLICY excludes is OUT OF SCOPE, not a gap. It is skipped, and the skip is LOGGED

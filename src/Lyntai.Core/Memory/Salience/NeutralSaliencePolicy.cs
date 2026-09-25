@@ -5,14 +5,8 @@ namespace Lyntai.Memory.Salience;
 ///
 /// <para><b>Why this type has to exist.</b> Registering an empty collection does NOT disable salience — the
 /// engine treats null-or-empty as "take the shipped default" and installs
-/// <see cref="StructuralSaliencePolicy"/>, exactly as the age seam does. That is a reasonable convention and
-/// a bad trap: "register nothing" is precisely what a consumer who wants nothing would try, and it silently
-/// yields the opposite. Registering this policy is unambiguous.</para>
-///
-/// <para><b>Measured cost of not having it.</b> A study comparing salience ON against OFF built its control
-/// by passing an empty collection, so the control was a second copy of the treatment — caught only by an
-/// assertion added for a different reason. A control silently identical to its treatment reports agreement,
-/// which reads exactly like a null result (<c>docs/task-archive.md</c> Part 71).</para>
+/// <see cref="StructuralSaliencePolicy"/>, exactly as the age seam does. "Register nothing" is what a consumer
+/// wanting nothing would try, and it silently yields the opposite; registering this policy is unambiguous.</para>
 ///
 /// <para><b>What switching salience off actually costs</b>, so the choice is informed: decay resistance and
 /// store-admission priority, both default-on (<b>D45</b>). Measured on this library's corpus, salience

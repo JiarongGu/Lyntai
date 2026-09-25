@@ -199,9 +199,8 @@ public sealed record ReciprocalRankFusionOptions
 /// Reciprocal rank fusion — this ranking domain's second implementation, given a name and a swap point
 /// beside <see cref="MultiplicativeRankingPolicy"/> rather than replacing it (implementations of a domain's
 /// seam accumulate; which one is the DEFAULT is a separate, versioned decision).
-/// <b>This is the registered default as of 3.0</b> (<c>docs/DECISIONS.md</c> D49);
-/// <see cref="MultiplicativeRankingPolicy"/> stays shipped, unchanged and registerable in one line. See
-/// <c>MemoryEngineRegistration.AddMemoryEngine</c>'s own remarks for the full reasoning.
+/// <b>This is the registered default</b> (<c>docs/DECISIONS.md</c> D49 has the reasoning and the
+/// measurements); <see cref="MultiplicativeRankingPolicy"/> stays shipped and registerable in one line.
 /// <c>Score = Σₛ wₛ / (K + rankₛ)</c>, summed over retrievability, salience, hop and diagnosticity by rank
 /// POSITION within the whole candidate set — see <see cref="ReciprocalRankFusionOptions"/>'s own remarks for
 /// why that is the point of fusing by rank at all, and for hop's deliberate ascending direction, the one

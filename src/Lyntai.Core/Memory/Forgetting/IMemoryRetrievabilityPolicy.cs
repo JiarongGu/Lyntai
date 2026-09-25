@@ -9,15 +9,12 @@ namespace Lyntai.Memory.Forgetting;
 /// distinction load-bearing rather than hypothetical — an entry whose difficulty reads <c>5</c> (the neutral
 /// value — see <see cref="DsrOptions.NeutralDifficulty"/>) might be a row this policy
 /// judged genuinely average, or a row that has simply never been touched since it was written with no
-/// explicit signal, and a bare number cannot tell the two apart. (A row whose difficulty reads <c>1</c>,
-/// the OLD neutral, is most likely a row written or last reinforced before this correction — see
-/// <see cref="MemoryDecayState.Difficulty"/>'s own remarks — though a genuinely judged-easiest row also
-/// reads that way, the same ambiguity one level down.) Provenance is what makes the FIRST distinction
+/// explicit signal, and a bare number cannot tell the two apart. Provenance is what makes the distinction
 /// possible: <c>None</c> means no retrievability policy ever touched this row, full stop.
-/// <see cref="DsrRetrievability"/> is still a PARTIAL, UNFITTED FSRS in other ways it discloses on its own
+/// <see cref="DsrRetrievability"/> is still a PARTIAL, UNFITTED FSRS in the ways it discloses on its own
 /// class doc — no per-grade rating (a derived grade stands in, see its own
-/// <see cref="DsrRetrievability.Reinforce"/> remarks), no mean-reversion term, and every constant is FSRS's
-/// own published default rather than fitted against this library's own review history.
+/// <see cref="DsrRetrievability.Reinforce"/> remarks), and every constant is FSRS's own published default
+/// rather than fitted against this library's own review history.
 /// <para><b>Bits 0-31 are reserved for this library; never allocate above bit 31 here.</b> Bits 32-62 are a
 /// consumer's own range — <see cref="IMemoryRetrievabilityPolicy"/> is public and a third-party
 /// implementation must be able to carry provenance too, so this enum stays open to an unnamed member: cast

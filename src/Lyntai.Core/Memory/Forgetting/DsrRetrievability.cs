@@ -2,10 +2,8 @@ using System.Globalization;
 
 namespace Lyntai.Memory.Forgetting;
 
-/// <summary>Constants of the power-law curve — the only shipped forgetting curve as of 3.0. The exponential
-/// curve this once shared the domain with, <c>HalfLifeRetrievability</c>, was deleted the same release
-/// (<c>docs/DECISIONS.md</c> D49 made this curve the registered default on FSRS's own external validation;
-/// see <c>CHANGELOG.md</c>'s <c>## Unreleased</c> for the deletion itself).</summary>
+/// <summary>Constants of the power-law curve — the only shipped forgetting curve, the registered default on
+/// FSRS's own external validation (<c>docs/DECISIONS.md</c> D49).</summary>
 public sealed record DsrOptions
 {
     private readonly double _decay = -0.5;
@@ -725,9 +723,9 @@ public sealed class DsrRetrievability(DsrOptions? options = null) : IMemoryRetri
     public double CandidateCutoff(double minRetrievability) =>
         minRetrievability is <= 0 or > 1
             ? double.PositiveInfinity
-            // the curve inverted, widened by the boost ceiling for the same reason the exponential curve
-            // widens: a store filters against the STORED stability while a connected entry's effective
-            // half-life is up to MaxConnectionBoost times that, then nudged up — see the <remarks> above
+            // the curve inverted, widened by the boost ceiling: a store filters against the STORED stability
+            // while a connected entry's effective half-life is up to MaxConnectionBoost times that, then
+            // nudged up — see the <remarks> above
             : (Math.Pow(minRetrievability, 1 / _options.Decay) - 1) / _factor
               * Math.Max(1, _options.MaxConnectionBoost)
               * (1 + 1e-9);

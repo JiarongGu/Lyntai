@@ -61,10 +61,10 @@ public enum MemoryVerdictCombination
 
 /// <summary>What a verifier is shown.</summary>
 /// <param name="Query">The query text, verbatim and in its own language.</param>
-/// <param name="Candidates">What the recall is about to return, in rank order — id and headline only.
-/// <para>Headlines rather than full content on purpose: a recall is the cheap index (design §5.7), and a
-/// verifier that needed every entry's body would cost more than the recall it is judging. An
-/// implementation wanting more can open an entry itself.</para></param>
+/// <param name="Candidates">What the recall is about to return, in rank order — each with its id, its
+/// headline and its full <see cref="MemoryVerificationCandidate.Content"/>, which the engine supplies at no
+/// extra read. Which of the two to judge is the policy's choice: a judge paying by the token reads the
+/// headline.</param>
 public sealed record MemoryVerificationRequest(
     string Query,
     IReadOnlyList<MemoryVerificationCandidate> Candidates);
@@ -76,9 +76,10 @@ public sealed record MemoryVerificationRequest(
 /// will report it to the caller — so a policy can look at the SCORE DISTRIBUTION without reading the text.
 /// <para><b>Its scale and shape are SOURCE- and backend-specific, and a policy may not assume otherwise.</b>
 /// One request mixes values from different generators: a graph store's normalized rank POSITION for a lexical
-/// hit, a real cosine for a semantic seed, a flat <c>1</c> for a graph-walk or subject seed, and the <c>0</c>
-/// below. They are ordered, not measured — comparable within one request and no further, and not even
-/// commensurable across the sources inside it.</para>
+/// hit, a real cosine for a semantic seed, and <c>0</c> for everything no relevance question was asked of —
+/// a graph-walk neighbour, a subject seed, and the grade-admitted row below. They are ordered, not measured —
+/// comparable within one request and no further, and not even commensurable across the sources inside
+/// it.</para>
 /// <para><b>A top score of <c>1</c> is not evidence of a good match.</b> Rank position puts the best row at
 /// exactly <c>1</c> whatever the query, and a single-row result at <c>1</c> because there is no gradient to
 /// place it on — the same output for a query answered perfectly and one answered not at all. <b>An absolute
@@ -132,6 +133,10 @@ public sealed record MemoryVerification(IReadOnlyList<string> RelevantIds, bool 
     /// or <see langword="null"/> when the policy reported none. Covers EVERY candidate it scored, not only
     /// the endorsed ones — the rejected scores are the half a margin needs, since an endorsement says
     /// nothing about how far ahead it was.
+    ///
+    /// <para><b>For a caller of the POLICY</b> — one using a scoring backend as a standalone reranker. The
+    /// graph engine acts on <see cref="RelevantIds"/> alone and does not carry these onto
+    /// <see cref="MemoryRecall"/>.</para>
     ///
     /// <para><b>Null is not an empty map.</b> Null means the policy said nothing; a populated map of zeros
     /// is a real judgement that nothing resembled the query. That is <see cref="Judged"/>'s distinction one

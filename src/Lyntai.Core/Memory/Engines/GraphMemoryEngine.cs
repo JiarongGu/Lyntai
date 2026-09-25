@@ -61,17 +61,9 @@ namespace Lyntai.Memory.Engines;
 /// takes <see cref="MaximalSalienceCompositionPolicy"/>. Irrelevant when only one salience policy is
 /// registered.</param>
 /// <param name="ranking">Turns seeded, spread candidates into a scored, best-first order; null takes
-/// <see cref="ReciprocalRankFusionPolicy"/> — the registered default as of 3.0 (owner ruling, 2026-08-11;
-/// this library's own measurement found it beating <see cref="MultiplicativeRankingPolicy"/> on the corpus's
-/// `topical` class in every shape tested — see <c>MemoryEngineRegistration.AddMemoryEngine</c>'s own remarks
-/// for the full reasoning and the floor's own disclosed measurement gap). <see cref="MultiplicativeRankingPolicy"/>
-/// stays shipped and registerable in one line; it is not the case a comparison found it wrong, only that it
-/// lost this one measured comparison. Swappable so a
-/// consumer can fuse signals differently without editing this engine; see <see cref="IMemoryRankingPolicy"/>
-/// for the contract, including what it may NOT do (drop authoritative material — this engine re-admits that
-/// itself, so the exemption holds against a policy that DROPS one, though not against one that SUBSTITUTES a
-/// fabricated entry under the same id — see <see cref="RecallAsync"/>'s own remarks for the precise
-/// shape).</param>
+/// <see cref="ReciprocalRankFusionPolicy"/>, the registered default (<c>docs/DECISIONS.md</c> D49). See
+/// <see cref="IMemoryRankingPolicy"/> for the contract, including what a policy may NOT do: this engine
+/// re-admits authoritative material a policy DROPS, though not one it SUBSTITUTES under the same id.</param>
 /// <param name="namedRankingPolicies">Alternate ranking policies THIS engine exposes for a per-call override
 /// (<see cref="MemoryQuery.RankingPolicyName"/>) — null or empty exposes none, so every call uses
 /// <paramref name="ranking"/> (or its own default) unless a name is registered here. Compared by ordinal
@@ -1550,9 +1542,8 @@ public sealed class GraphMemoryEngine(
     /// <see cref="IMemoryRetrievabilityPolicy.Reinforce"/>, never re-derived afterward.</para>
     /// <para>One <see cref="Guid"/> per call, shared across every node it touches, so a fitter can tell a
     /// group of rows came from the SAME recall.</para>
-    /// <para><b>Logging gets its OWN try/catch, nested inside the one below</b> — the outer is this method's
-    /// best-effort promise, the inner makes logging best-effort at a stricter grain, so a failed log write
-    /// does not cost the touches that already succeeded.</para></summary>
+    /// <para><b>A failed log write cannot cost the touches or the edges</b> — not because of a nested catch,
+    /// but because <see cref="IMemoryGraphStore.WriteBackAsync"/> writes the review log LAST (D101).</para></summary>
     /// <param name="nodes">What gets REINFORCED — touched and co-activated.</param>
     /// <param name="act">Which call this is, for <see cref="GraphMemoryOptions.ReinforceOn"/>.</param>
     /// <param name="ct">Cancellation.</param>
