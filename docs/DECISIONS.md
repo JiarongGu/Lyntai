@@ -257,6 +257,11 @@ _All 181 entries are live decisions._
 <!-- index:end -->
 
 ## D1 — the LLM seam is Lyntai's own `IModelProvider`, with a `Microsoft.Extensions.AI` bridge
+
+> **The bridge half is superseded by D146 and D147.** `Lyntai.ExtensionsAi` is deleted; a backend that <!-- drift-ok: names the package D146 deleted -->
+> already answers is bridged by `AddBridgeProvider`, a delegate that costs no dependency. The SEAM stands:
+> `IModelProvider` is Lyntai's own contract, because MEAI cannot express a CLI's process lifetime or D3's verdicts.
+
 Consuming applications are split between spawning a vendor CLI and calling an HTTP or local API, so the
 seam has to span both. `IModelProvider` is Lyntai's own contract; `Lyntai.ExtensionsAi` bridges any
 `Microsoft.Extensions.AI` `IChatClient` into it, in both directions. Adopting MEAI *as* the seam was
@@ -354,6 +359,10 @@ every migration, index and FTS trigger parameterised on a name Lyntai does not c
 `lyntai_` prefix (D6) already prevents.
 
 ## D11 — direction: a platform kit — framework in Lyntai, domain in the application
+
+> **The `IEmbedder` example is superseded by D151:** that seam is removed, and a BYO embedder is a provider
+> implementing `IVectorProvider` and declaring `Produces: Vector` (**D153**). The direction stands.
+
 Lyntai grows into a LangChain-shaped kit with opinionated defaults: Lyntai owns the framework (routing,
 storage, prompts, scoring, traces, memory, jobs, guards, agents), the application owns its domain. This
 reversed the library's original scope — "brain + persistence core only" — which is now history.
@@ -532,6 +541,11 @@ location. Driving someone else's provisioning is not provisioning.
   reading your value as an option.
 
 ## D21 — a CLI-backed provider is `CliProviderEngine` + a DIALECT, never a second copy of the rules (2026-08-04)
+
+> (2026-09-19, **D159**: the seam is `ICliBackend` and the doctrine sentence "a new CLI backend is a DIALECT,
+> never a new provider" is retired — a new CLI backend is an `ICliBackend` plus a thin provider composing the
+> one engine. The CONTENT here is unchanged: the rules live once in the engine.)
+
 Driving a command-line agent involves a dozen invariants that have nothing to do with *which* CLI it is:
 spawn hygiene, the inactivity clock, exit-code-versus-in-band precedence, verdict classification, argument
 refusal. Those live once in `CliProviderEngine`; a new CLI is an `ICliProviderDialect`. The traps in <!-- drift-ok: the record names the seam of its day; a later decision renamed it -->
@@ -547,10 +561,6 @@ instead of inheriting a claim it will fail at runtime.
 
 **Validated by a second implementer immediately**: the codex backend was built on the seam the claude one
 produced, which is the only real evidence that a seam generalises rather than describing its first case.
-
-*(2026-09-19, **D159**: the seam is `ICliBackend` and the doctrine sentence "a new CLI backend is a DIALECT,
-never a new provider" is retired — a new CLI backend is an `ICliBackend` plus a thin provider composing the
-one engine. The CONTENT here is unchanged: the rules live once in the engine.)*
 
 ## D22 — a CLI backend may be PORTABLE (application-bundled), not just a global install (2026-08-04)
 A host may ship or side-load its own copy of a CLI rather than depend on a machine-wide install. For a
@@ -602,6 +612,12 @@ core was still uncommitted to consumers.
 the same shape the LLM side uses (D3).
 
 ## D25 — packages are split by DEPENDENCY FOOTPRINT, not by vendor or by size (2026-08-04)
+
+> **The RELEASE-CADENCE reason below is withdrawn by D70**, with the carve-out it served. The `Lyntai.Generation`
+> boundary stands on footprint alone, in a form this entry did not spell out: the package sits outside the
+> `Lyntai` bundle (**D26**), so a one-line install does not drag the media backends. The MCP paragraph's
+> "our own bridge" is gone too (**D146**).
+
 Lyntai had one package per backend, which read as "a package per vendor". The test is instead: *which
 dependency does this isolate?* Backends needing nothing extra share `Lyntai.Providers.Basic`; one earns
 its own package the moment it drags a native runtime, a platform-specific API, or a dependency a consumer
@@ -637,10 +653,6 @@ install.
 
 **Namespaces did not change when packages merged, and that is the rule, not a courtesy.** Consolidating
 packages must cost a consumer one `PackageReference` edit, never a sweep of `using` directives.
-
-**The cost, stated plainly rather than buried:** three published ids were abandoned at 1.2.2, one of them
-with twenty published versions. That was permitted in a minor only because every consumer was first-party
-(D18), and an abandoned id must never be resurrected for a different purpose (D23).
 
 ## D26 — what goes IN the `Lyntai` bundle is a DEPENDENCY BUDGET, enforced by a gate (2026-08-04)
 The bundle forces every dependency it carries onto every one-line-install consumer, because an untrimmed
@@ -817,6 +829,11 @@ go**, which is dropped rather than folded into a neighbouring field where it wou
 not. The fourth — a tool step whose shape was inferred — closed with CLI12.
 
 ## D36 — a translation between two verdict taxonomies gets one arm per member, gated by a TEST (2026-08-05)
+
+> **SUPERSEDED by D136, which deleted the translation layer**: one `ProviderVerdict` serves every domain, so
+> nothing is translated any more. What stands is the rule under it — a shared MEANING is not a shared
+> ACTION — which D136 keeps as "meaning shared, action per domain".
+
 Translating between the LLM and media verdict enums — two taxonomies then, one `ProviderVerdict` since
 **D136** — by falling back to a default silently mapped a
 meaningful verdict onto `Failed`. Every member gets an explicit arm, and because the compiler cannot force
@@ -830,17 +847,8 @@ changes what the router DOES while looking like a rename.
 **`ContextWindowExceeded` maps to `Unsupported`.** It is the one member with no media counterpart, and it is
 genuinely reachable — the shared corpus matches "prompt is too long", which image backends do say. Too big
 for THIS backend is a capability gap rather than ill health, so it must ADVANCE without counting toward the
-dead-host threshold.
-
-**Amended 2026-08-16 — this paragraph said the opposite, and was stale rather than wrong.** As first
-written it recorded a TRADE: `Unsupported` describes and routes it better, but a blameless verdict must
-never outrank a real failure while the router has only ONE reporting slot, so the member stayed at `Failed`
-(and therefore at `PenalizeAndAdvance`, penalising a backend for refusing an oversized prompt). It closed
-with *"the real remedy is a router change, not a mapping change, which is why it is filed rather than
-patched here"* — and that router change LANDED, as the second reporting slot in **D31**. The mapping moved
-with it; the decision record did not, so the log asserted a behaviour the code had not had for some time.
-Nothing could see it: `check-docs` gates retired VOCABULARY, and a decision going stale retires no word.
-Found while relocating a comment that cited this entry.
+dead-host threshold — which needed **D31**'s second reporting slot, so a blameless verdict never outranks a
+real failure.
 
 ## D37 — refuse an identity collision; and a Core exception may carry a verdict (2026-08-05)
 **Two rules, from items that stayed open until each got a decision.** An identity collision — two
@@ -1077,6 +1085,10 @@ are the SAME class of seam — singular, one installed at a time. Leaving one se
 was an accident of when each was written.
 
 ## D51 — what 3.0 ships WITHOUT, and why each is a decision rather than a gap (2026-08-11)
+
+> **Two of the three rows are closed.** GEN6 shipped (`docs/task-archive.md` Part 266), and GEN-VERIFY's
+> `sd-cli` half was measured (**D69**), leaving GEN-VERIFY-FAL in `TASKS.md`. The FSRS-B refusal stands.
+
 Written on the owner's instruction that anything not done should carry a proper reason.
 
 **Three different things get called "deferred", and they are not equivalent — read the KIND first.**
@@ -1705,15 +1717,8 @@ major. D69 states that residual risk precisely and it is bounded: every VALUE is
 remains is a shape, not a spelling. 3.0 is the right moment to accept it, because it is the release where
 such a reshape would have been free anyway.
 
-**A dependent claim this withdraws, stated so it is not rediscovered later.** **D25** gave two reasons for
-the `Lyntai.Generation` package boundary: the dependency-footprint test, which it admits these backends
-answer "weakly", and RELEASE CADENCE — *"they need to ship EXPERIMENTAL and be reshaped in a minor while the
-rest of the library holds a frozen surface."* That second reason is now gone with the carve-out. **The
-boundary survives on the first after all, but on a form of it D25 did not spell out:** the package is
-deliberately outside the `Lyntai` bundle (**D26**), so a one-line-install consumer does not drag the media
-backends and their surface for a feature most applications never use. Merging it into `Providers.Default`
-would force exactly that. So the split stands — for footprint, not for cadence, and a future reader
-comparing D25's wording against a frozen package should find this paragraph rather than a contradiction.
+**A dependent claim this withdraws:** **D25**'s RELEASE-CADENCE reason for the `Lyntai.Generation` boundary.
+The split stands on footprint, and D25's head says in what form.
 
 **Mechanically**, this is prose plus a registry entry: `experimental` and `carve-out` join `retiredTerms`, so
 `check-docs` fails any maintained document that reintroduces the claim. Historical `CHANGELOG.md` entries and
@@ -2736,6 +2741,9 @@ nothing else, which is exactly why the third projection survived a fix that name
 
 ## D94 — "support" is TWO quantities under one name, so the gist tier ships no support seam (2026-08-28)
 
+> **The tier itself is refused by D106** — no gist tier ships — so nothing here constrains shipped code. What
+> stands is the finding: "support" names two quantities, and neither needs a seam.
+
 **The gist tier reports how much SUPPORT a generalisation over recurring entries has, and that word was
 carrying two different questions.** Separating them removes the configuration point the design was built
 around: `IMemorySupportPolicy` is not written, and neither half needs one.
@@ -2757,32 +2765,18 @@ let a deployment pick. It is rejected because the split serves both hosts withou
 `library-api-design`'s *every public type earns its keep* then retires the type rather than choosing its
 default.
 
-**Why the measurement could not settle that alternative, which is the part worth carrying.** The obvious
-reading of the instrument is that raw is refuted: `rawA = 8 > rawB = 4` under both pacings while the corpus
-declares the newer, smaller regime correct, so raw picks the wrong regime with no pacing dependence at all.
-**That pacing-independence is real and it reappears in the sweep below as `count@0.1`**, which is the same
-quantity on this grid — see the threshold bullet, which is where the two readings are reconciled.
-That does not license retiring the seam, because **`generic-library` rule 7 is an ARGUMENT test — *could two
-honest applications answer this differently* — and no measurement taken on a fixture that ENCODES one of those
-applications can decide it.** The routine corpus is exactly that fixture: its query is *"what do I usually
-have for lunch"* and it declares the recent regime correct, which is the assistant host. The audit host would
-call the older regime correct on the same bytes, and this corpus cannot say otherwise. So the honest reading
-is narrower and stronger: raw is the wrong DEFAULT for one deployment model, and the seam dissolves on the
-argument rather than on the number.
+**Why the measurement could not settle that alternative, which is the part worth carrying.**
+**`generic-library` rule 7 is an ARGUMENT test — *could two honest applications answer this differently* —
+and no measurement taken on a fixture that ENCODES one of those applications can decide it.** The routine
+corpus is exactly that fixture: its query is *"what do I usually have for lunch"* and it declares the recent
+regime correct, which is the assistant host. The audit host would call the older regime correct on the same
+bytes, and this corpus cannot say otherwise. So the honest reading is narrower and stronger: raw is the
+wrong DEFAULT for one deployment model, and the seam dissolves on the argument rather than on the number.
 
-**What the sweep measured is `docs/memory-measurements.md` §5** — tables, retrievability bands and the full reading, from
-`node devtools/dev.mjs memory-support`. **Every combining form over member retrievability inverts on some
-axis a deployment does not control**: `sum` and every DISCRIMINATING `count@θ` on write pacing,
-`count@0.8`/`count@0.9` on cardinality, and `mean` on how long ago the newer regime was written. The only
-threshold invariant on all of them is `count@0.1`, which on this grid IS the raw count — where this meets the
-raw reading above, and wrong for the assistant host. A model in the loop bought nothing, and the scope is the
-reason: the prompt NAMES the recency ordering, so a model merely obeying the label scores the same.
-<br>`mean` was the last candidate and was untestable until 2026-08-30 — phase B sat at the retrievability
-ceiling, making `mean(B) ≥ mean(A)` a theorem about the fixture rather than a result — until
-`CorpusShape.RoutineSettleWrites` aged it off.
-
-**So no combining form is adopted and no default is set** — a measured negative, not an open question. The
-tier has no seam to build and no constant to adopt; what that leaves it able to report was `docs/task-archive.md` Part 153 — which closed it unbuilt (**D106**).
+**So no combining form is adopted and no default is set** — a measured negative, not an open question:
+every combining form over member retrievability inverts on some axis a deployment does not control, and a
+model in the loop bought nothing (`docs/memory-measurements.md` §5, from `node devtools/dev.mjs
+memory-support`). The tier closed unbuilt (`docs/task-archive.md` Part 153).
 
 ## D95 — the repository is LF, declared in a tracked `.gitattributes` (2026-08-28)
 
@@ -2854,8 +2848,8 @@ shorter, such as a table. No entry here has that shape, and an allowance is a vi
 an escape removes the subject from measurement entirely.
 
 **The obvious second check is deliberately absent.** Meta-commentary is what makes these entries long, and
-`code-commentary.md` calls it always-wrong — for a COMMENT. Here an amendment is often the point: D51's is
-what `CLAUDE.md` routes a reader to. No regex separates "this entry said two lines for a day" from "amended
+`code-commentary.md` calls it always-wrong — for a COMMENT. Here an amendment is often the point: D51's
+closing of FSRS-B is that entry's live answer. No regex separates "this entry said two lines for a day" from "amended
 2026-08-12: the observable now exists", so length is the honest instrument and the author chooses the cut.
 
 **Paying an entry down** moves MEASUREMENT narrative to the design record that owns it and AMENDMENT
@@ -3525,6 +3519,9 @@ than companions.
 
 ## D116 — the embedding seam carries a ROLE, because an asymmetric model cannot infer it (2026-09-12)
 
+> **The seam it amended is gone (D151, D153):** `IEmbedder` is removed, and the role rides the request —
+> `VectorRequest.Role`, defaulting to `Document`. Everything else below stands.
+
 `IEmbedder` gains a role-aware overload with a DEFAULT BODY forwarding to the role-less one, and every
 Lyntai call site passes `EmbeddingRole.Document` when storing and `Query` when searching. The library <!-- drift-ok: the entry RECORDS this spelling (D152 retired it) -->
 supplies no prefix and names no model; `HttpModelOptions.DocumentPrefix`/`QueryPrefix` let a
@@ -3785,6 +3782,9 @@ is not.
 
 ## D123 — a package boundary must isolate a dependency the consumer can REFUSE; the MEAI bridge folds into Providers.Default (2026-09-14)
 
+> **The fold is moot: D146 deleted the bridge, and `Providers.Default` is now `Providers.Basic` (D144).** The
+> RULE stands — a boundary must isolate a dependency the consumer can refuse — and **D142** applies it.
+
 `Lyntai.ExtensionsAi` is gone. `ExtensionsAiProvider`, `LyntaiChatClient`, <!-- drift-ok: the bridge as it stood when this entry was written; D146 deleted it -->
 `LyntaiToolDeclaration` and `AddExtensionsAiProvider` are in `Lyntai.Providers.Basic` under their <!-- drift-ok: the bridge as it stood when this entry was written; D146 deleted it -->
 existing namespaces, so the migration is one `PackageReference` and no `using`. The old id is unlisted
@@ -3818,6 +3818,9 @@ is small too, and its native binary is refusable, so it stays.
 
 ## D124 — the TRANSFORMER embedder ships as Lyntai.Providers.Onnx, managed-half only, and embedders join the provider family (2026-09-14)
 
+> **The embedder-family half is superseded (D128, then D151):** `IEmbeddingProvider` and `IEmbedder` are both
+> gone, and an embedder is a provider declaring `Produces: Vector`. The package, factory and model-reading halves stand.
+
 `AddOnnxProvider(modelDirectory)` runs a sentence-transformer in process through ONNX Runtime — no server,
 no port. It completes the CPU column of `docs/deployment-shapes.md`'s 2×2, whose static half is **D121**.
 
@@ -3834,8 +3837,7 @@ referenced the failure is at load, and `AddOnnxProvider`'s doc names the three p
 effect worth stating — the same package serves the GPU cell, which was listed as unbuilt.
 
 **Embedders become PROVIDERS, additively.** `IEmbeddingProvider : IProviderIdentity, IEmbedder` gives an
-embedding backend the `Id` + `IsAvailable` that the chat and media provider seams already have (two seams
-then; **D127** has since collapsed them into `IModelProvider`).
+embedding backend the `Id` + `IsAvailable` that the chat and media provider seams already had.
 **Changing `IEmbedder` itself was refused**: those two could adopt `IProviderIdentity` as a base because
 they already declared `Id`, and `IEmbedder` does not — adding it would introduce a REQUIRED member and
 break every bring-your-own embedder at compile. This is the optional-capability pattern Core already uses
@@ -3893,6 +3895,9 @@ every generation backend already lives under exactly that contract. A declared c
 how a provider says "not mine", and the vocabulary for it shipped long ago.
 
 ## D126 — capability is DATA: ProviderCapabilities generalizes the model the generation domain already had (2026-09-14)
+
+> **`Operations: [Embed]` is superseded by D130:** embedding is an output KIND, so an embedder declares
+> `Produces: Vector` over the ordinary `Complete`. Capability-as-DATA, and both defaults, stand.
 
 `Lyntai.Lifecycle.ProviderCapabilities` replaces `GenerationCapabilities`, and `ProviderOperation` replaces <!-- drift-ok: the record names where the type went AT THE TIME; D154 renamed it after -->
 `GenerationDelivery`. A backend declares which content `Kinds` it serves, which `Operations`, and which
@@ -3963,6 +3968,9 @@ contract the caller can actually check.
 
 ## D128 — an embedder is a provider: IEmbeddingProvider is deleted and embedding is a declared OPERATION (2026-09-14)
 
+> **`IEmbedder` did not survive (D151)**, and embedding is a declared KIND rather than an operation (**D130**).
+> What stands is the mistake this entry names: a third provider family was the wrong split.
+
 `Model2VecProvider` and `OnnxProvider` implement `IModelProvider` declaring
 `Kinds: ["text"], Operations: [Embed]`, and register into the provider collection as well as the
 `IEmbedder` slot. `IEmbeddingProvider` — added earlier the same day — is gone.
@@ -3990,6 +3998,9 @@ router already owns candidates, cooldown and admission — the remaining step is
 second router, and that is exactly what minting a third family would have made impossible.
 
 ## D129 — IEmbedder is the FRONT DOOR, not a backend contract: embeddings get routing and fallback (2026-09-14)
+
+> **Public half REVERSED by D151:** `IEmbedder` is removed. The failover it bought stands, through the
+> routing helper every embedding consumer shares.
 
 `IEmbedder` is now implemented by `RoutedEmbedder` alone — a router over every `IModelProvider` declaring
 `ProviderOperation.Embed`. `Model2VecProvider`, `OnnxProvider` and `HttpEmbeddingsTransport` stop implementing it and are <!-- drift-ok: the entry RECORDS this spelling (D152 retired it) -->
@@ -4060,6 +4071,11 @@ sit under the old model and needed nothing new under this one — which is how i
 
 ## D131 — a backend's `Produces` is DERIVED from its configuration, so a modality is a field (2026-09-14)
 
+> **SUPERSEDED by D133.** The premise below — that a host answering both routes is ONE backend — is wrong: <!-- drift-ok: the amendment naming what it corrects -->
+> those are two services sharing a hostname, and merging them cost the id that says which one answered. What
+> survives is `Produces` being a list, which means one CALL returning several kinds. D132's single
+> registration METHOD stands; only this entry's bundling of two backends into one options object does not.
+
 `HttpModelOptions.Embeddings` is a nullable section. Set it and the provider declares
 `Produces: [text, vector]` and serves `/embeddings` from the same registration that serves
 `/chat/completions` — one id, one configuration, one `HttpClient`, one entry in the provider collection.
@@ -4083,11 +4099,6 @@ because declaring embeddings *there* says they live on the same server. Setting 
 the split-port deployment this repository's own benches use (chat on 8080, embeddings on 8081). **`Model`
 is the deliberate exception and does not inherit `DefaultModel`**: a chat model is not an embedding model,
 and defaulting one to the other posts a plausible request that returns nonsense rather than failing.
-
-> **SUPERSEDED by D133.** The premise below — that a host answering both routes is ONE backend — is wrong: <!-- drift-ok: the amendment naming what it corrects -->
-> those are two services sharing a hostname, and merging them cost the id that says which one answered. What
-> survives is `Produces` being a list, which means one CALL returning several kinds. D132's single
-> registration METHOD stands; only this entry's bundling of two backends into one options object does not.
 
 **Registration routes on the same fact:** a configured section makes it `AddEmbeddingProvider`, which is the <!-- drift-ok: the entry RECORDS this spelling (D152 retired it) -->
 same collection plus the statement that something can embed — the flag `AddSemanticMemory` and the routed
@@ -4193,6 +4204,9 @@ allowance, which is the test that the distinction is real rather than convenient
 copied forward. `check-api-vocabulary` and `check-docs` hold the seventeen retired names.
 
 ## D135 — the HTTP family is named for the TRANSPORT and its dialects, not for OpenAI (2026-09-14)
+
+> **The DIALECT half is superseded:** **D159** retired the word as public vocabulary and **D160** deleted
+> `HttpDialect`, so each wire is its own provider. The TRANSPORT naming stands, and **D158** finishes it. <!-- drift-ok: names the enum D160 deleted -->
 
 `AddHttpProvider` / `HttpModelProvider` / `HttpModelOptions` / `HttpDialect`, in `Lyntai.Providers.Http`. <!-- drift-ok: the record names the seam of its day; a later decision renamed it -->
 `OpenAiFlavor.Flavor` becomes `HttpDialect.Dialect`. <!-- drift-ok: this entry RETIRES both names, so it has to say them -->
@@ -4475,6 +4489,12 @@ one**, so the retirement registries cannot see them; the check is a scan of base
 
 ## D144 — `Lyntai.Providers.Basic`, and a provider module owns its own registration (2026-09-15)
 
+> **"What stays at the root" is superseded by D154 (2026-09-18), and its checkable claim is why.** Nobody
+> checked it: `WireJson` is read by `HttpModelProvider`, so the root's meaning was never "CLI helpers" in the
+> first place. All four moved to `Lyntai.Providers.Basic` — the package that owns them, which is the one true
+> thing about all four — leaving `Lyntai.Providers.*` meaning ADAPTERS and nothing else. Internal types, so no
+> surface moved.
+
 `Lyntai.Providers.Default` becomes `Lyntai.Providers.Basic`, and each backend's `Add*` extension moves into <!-- drift-ok: this entry RETIRES the package id, so it has to say it -->
 that backend's folder. Namespaces are unchanged; the old id joins the retirement roster.
 
@@ -4495,10 +4515,6 @@ root the only folder a reader had to scan to answer "what is in here".
 **What stays at the root is what is genuinely SHARED** — `AgentMcpServers`, `CliAgentTerminal`,
 `CliTempFile`, `WireJson`, in namespace `Lyntai.Providers`. That is now the root's whole meaning, so a file
 arriving there is making a claim a reviewer can check: every CLI backend in this package uses it.
-<br>**Superseded by D154 (2026-09-18), and the checkable claim above is why.** Nobody checked it: `WireJson`
-is read by `HttpModelProvider`, so the root's meaning was never "CLI helpers" in the first place. All four
-moved to `Lyntai.Providers.Basic` — the package that owns them, which is the one true thing about all four
-— leaving `Lyntai.Providers.*` meaning ADAPTERS and nothing else. Internal types, so no surface moved.
 
 **The package id is burned** (**D23**) and registered in `nuget-unlist.mjs`'s `RETIRED` array (**D44**) —
 the fourth entry added this session, and the array itself had to be repaired first: two of its published
@@ -4740,23 +4756,14 @@ would make BYO a lambda, but it re-answers what the shipped backends answer; add
 embedding. "Bridge an embedder as a CLI dialect, it is only a calling path and args" describes work that
 does not exist yet, and it is a LARGER change than the delegate above, not a smaller one.
 
-**Breaking, and this release is the window** — the public API is frozen under SemVer with no carve-out
-(**D70**), so it goes in the major now shipping or it waits for the next one.
-
-**Recorded ahead of the code and SHIPPED the same day.** The paper-first step was worth taking — the
-removal touched four public constructors, twelve surface entries and 33 test files — and the entry carried
-a "not yet implemented" banner until the change landed, because a decision written ahead of its code reads
-exactly like one describing the tree and `check-decision-claims` cannot catch that.
-
 ## D152 — a PROVIDER is named for its backend; the NOUN is `Vector`, the VERB is `Embed` (2026-09-17)
 
 **The decision.** A provider type, its namespace and its registration are named for the BACKEND they reach
 — `OnnxProvider`, `Model2VecProvider`, `HttpModelProvider` — because what a backend produces is declared in
 `ProviderCapabilities.Produces`, never encoded in a name. So `AddEmbeddingProvider` is deleted, <!-- drift-ok: the entry RECORDS the name it retires -->
 `EmbeddingToolSelector` is `VectorToolSelector`, and `Lyntai.Embeddings.Model2Vec` is <!-- drift-ok: as above -->
-`Lyntai.Providers.Model2Vec` — closing what the backlog carried as Part 101 (NS1) alongside Part 102's
-REL4 (`docs/task-archive.md` Part 246). The tree had already voted: every other registration named a
-backend and that one named a role.
+`Lyntai.Providers.Model2Vec` (`docs/task-archive.md` Part 246). The tree had already voted: every other
+registration named a backend and that one named a role.
 
 **But `EmbedAsync` and `EmbeddingRole` STAY, on this library's model rather than anyone else's
 convention.** The axis a router selects on is `Produces`, whose noun here is `ProviderKinds.Vector`;
@@ -4787,9 +4794,6 @@ but moves a startup failure to a lazily-resolved one for no gain once `declares`
 `token_embeddings` in a model's own config. And `Model2VecProvider` keeps its name for the reason
 `StaticEmbedder` lost its (**D130**/**D132**): `model2vec` is an upstream FORMAT, exactly as ONNX is, and a <!-- drift-ok: the entry RECORDS this spelling (D152 retired it) -->
 backend is named for what it reads. `StaticEmbeddingProvider` was considered and refused on that ground.
-
-**Breaking, and this release is the window** — the public surface is frozen under SemVer with no carve-out
-(**D70**), so it goes in the major now shipping or it waits for the next one.
 
 ## D153 — a seam per SIGNATURE, over a generic routed base (2026-09-17)
 
@@ -4938,6 +4942,11 @@ reports that nothing serves the request, which is what it already says when ever
 
 ## D157 — a provider is the ENGINE and stays pure; a DIALECT decides what it produces (2026-09-18)
 
+> *(Correction, 2026-09-19: the worked example below misdescribed the shipped knob from the day it was written
+> — `OnnxProviderOptions` never had a `Dialect` member; the knob is `o.Produces` and the strategy is INTERNAL,
+> derived from it. **D159** then retired "dialect" entirely (`IOnnxHead`, `ICliBackend`), leaving this entry's
+> substance intact: the provider is the engine and stays pure, and a kind never forks the class.)*
+
 **The decision.** A provider class is the backend and nothing else: it opens the session, tokenizes, feeds
 and runs. What a call means at each END — how a request becomes tensors, how a tensor becomes an answer —
 is an `IOnnxProviderDialect`, set on the provider's own options. The dialect states what it `Produces`, the
@@ -4974,12 +4983,11 @@ of a shared engine — *"a dialect is a stateless description; the engine holds 
 `HttpModelOptions.Dialect` already carries one as an option. The ONNX seam is the same idea in the same <!-- link-ok: the record names the member as it stood that day; D160 deleted it -->
 words. A provider package may expose its own dialect seam; Core does not know it exists.
 
-*(Correction, 2026-09-19: the worked example above misdescribed the shipped knob from the day it was written
-— `OnnxProviderOptions` never had a `Dialect` member; the knob is `o.Produces` and the strategy is INTERNAL,
-derived from it. **D159** then retired "dialect" entirely (`IOnnxHead`, `ICliBackend`), leaving this entry's
-substance intact: the provider is the engine and stays pure, and a kind never forks the class.)*
-
 ## D158 — the HTTP family is named for its TRANSPORT; membership is a DIALECT, not a vendor's compatibility claim (2026-09-19)
+
+> *(2026-09-19: the naming half stands — the family is the TRANSPORT — and the membership half moved under
+> **D159**/**D160**: membership is now which WIRES the library ships as providers, `HttpDialect` itself being <!-- drift-ok: the record names the seam of its day; a later decision renamed it -->
+> deleted the same day this entry landed.)*
 
 **The decision.** "OpenAI-compatible" is retired from live prose. The question a consumer asks is *"is my
 backend reachable over HTTP in a dialect Lyntai speaks?"*, and the answer is `HttpDialect` — four members, <!-- drift-ok: the record names the seam of its day; a later decision renamed it -->
@@ -5010,10 +5018,6 @@ it, beside the rule this library actually applies.
 a false positive in `AOT.md` where "compatible" means AOT-compatible. A rule collecting twelve `drift-ok`s
 and one wrong hit is the shape this repository already refused for `Providers.Default` — fix by hand,
 record the refusal, do not ship a rule that will rot.
-
-*(2026-09-19: the naming half stands — the family is the TRANSPORT — and the membership half moved under
-**D159**/**D160**: membership is now which WIRES the library ships as providers, `HttpDialect` itself being <!-- drift-ok: the record names the seam of its day; a later decision renamed it -->
-deleted the same day this entry landed.)*
 
 ## D159 — "dialect" is not public vocabulary; the extension point is always a PROVIDER (2026-09-19)
 
