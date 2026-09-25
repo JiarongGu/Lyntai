@@ -8,6 +8,9 @@ namespace Lyntai.Tests.Jobs;
 /// Backend-agnostic <see cref="IJobStore"/> contract, run by the InMemory, SQLite, and Postgres test
 /// classes against a store built over a shared <see cref="MutableClock"/> — so claim/lease/fencing/retry
 /// semantics are pinned identically for every backend.
+/// <para>Every lane-scoped fact takes its <c>lane</c>, so the Postgres leg runs it on the shared container
+/// under a unique one; InMemory and SQLite pass the default. The slot facts are table-wide by design and
+/// clear the slot table instead.</para>
 /// </summary>
 public static class JobStoreContract
 {
@@ -16,10 +19,10 @@ public static class JobStoreContract
     private static JobSpec Spec(string lane = "default", string type = "t", string payload = "{}") =>
         new(lane, type, payload);
 
-    public static async Task Claim_flips_to_running_and_increments_attempts(IJobStore store, MutableClock clock)
+    public static async Task Claim_flips_to_running_and_increments_attempts(IJobStore store, MutableClock clock, string lane = "default")
     {
-        var id = await store.EnqueueAsync(Spec());
-        var job = await store.ClaimNextAsync("default", "w1", Lease);
+        var id = await store.EnqueueAsync(Spec(lane));
+        var job = await store.ClaimNextAsync(lane, "w1", Lease);
 
         Assert.NotNull(job);
         Assert.Equal(id, job!.Id);
@@ -28,19 +31,19 @@ public static class JobStoreContract
         Assert.Equal("w1", job.ClaimedBy);
     }
 
-    public static async Task Empty_lane_claims_null(IJobStore store, MutableClock clock)
+    public static async Task Empty_lane_claims_null(IJobStore store, MutableClock clock, string lane = "default")
     {
-        Assert.Null(await store.ClaimNextAsync("nothing-here", "w1", Lease));
+        Assert.Null(await store.ClaimNextAsync(lane + "-nothing-here", "w1", Lease));
     }
 
-    public static async Task Two_claims_never_return_the_same_job(IJobStore store, MutableClock clock)
+    public static async Task Two_claims_never_return_the_same_job(IJobStore store, MutableClock clock, string lane = "default")
     {
-        await store.EnqueueAsync(Spec());
-        await store.EnqueueAsync(Spec());
+        await store.EnqueueAsync(Spec(lane));
+        await store.EnqueueAsync(Spec(lane));
 
-        var a = await store.ClaimNextAsync("default", "w1", Lease);
-        var b = await store.ClaimNextAsync("default", "w1", Lease);
-        var c = await store.ClaimNextAsync("default", "w1", Lease);
+        var a = await store.ClaimNextAsync(lane, "w1", Lease);
+        var b = await store.ClaimNextAsync(lane, "w1", Lease);
+        var c = await store.ClaimNextAsync(lane, "w1", Lease);
 
         Assert.NotNull(a);
         Assert.NotNull(b);
@@ -48,18 +51,16 @@ public static class JobStoreContract
         Assert.Null(c); // only two enqueued
     }
 
-    public static async Task Complete_is_terminal(IJobStore store, MutableClock clock)
+    public static async Task Complete_is_terminal(IJobStore store, MutableClock clock, string lane = "default")
     {
-        var id = await store.EnqueueAsync(Spec());
-        await store.ClaimNextAsync("default", "w1", Lease);
+        var id = await store.EnqueueAsync(Spec(lane));
+        await store.ClaimNextAsync(lane, "w1", Lease);
 
         Assert.True(await store.CompleteAsync(id, "w1"));
         Assert.Equal(JobStatus.Succeeded, (await store.GetAsync(id))!.Status);
-        Assert.Null(await store.ClaimNextAsync("default", "w1", Lease)); // not re-runnable
+        Assert.Null(await store.ClaimNextAsync(lane, "w1", Lease)); // not re-runnable
     }
 
-    /// <summary>Lane-parameterized so the Postgres leg can run it on the shared container (a unique lane
-    /// isolates the claim path from other tests' rows); InMemory/SQLite pass the default.</summary>
     public static async Task Fail_with_retry_requeues_available_later(IJobStore store, MutableClock clock, string lane = "default")
     {
         var id = await store.EnqueueAsync(Spec(lane));
@@ -77,20 +78,20 @@ public static class JobStoreContract
         Assert.Equal("boom", again.LastError);
     }
 
-    public static async Task Fail_without_retry_is_terminal(IJobStore store, MutableClock clock)
+    public static async Task Fail_without_retry_is_terminal(IJobStore store, MutableClock clock, string lane = "default")
     {
-        var id = await store.EnqueueAsync(Spec());
-        await store.ClaimNextAsync("default", "w1", Lease);
+        var id = await store.EnqueueAsync(Spec(lane));
+        await store.ClaimNextAsync(lane, "w1", Lease);
 
         Assert.True(await store.FailAsync(id, "w1", "fatal"));
         Assert.Equal(JobStatus.Failed, (await store.GetAsync(id))!.Status);
-        Assert.Null(await store.ClaimNextAsync("default", "w1", Lease));
+        Assert.Null(await store.ClaimNextAsync(lane, "w1", Lease));
     }
 
-    public static async Task Checkpoint_round_trips_and_renews_the_lease(IJobStore store, MutableClock clock)
+    public static async Task Checkpoint_round_trips_and_renews_the_lease(IJobStore store, MutableClock clock, string lane = "default")
     {
-        var id = await store.EnqueueAsync(Spec());
-        await store.ClaimNextAsync("default", "w1", Lease);
+        var id = await store.EnqueueAsync(Spec(lane));
+        await store.ClaimNextAsync(lane, "w1", Lease);
 
         clock.Advance(TimeSpan.FromSeconds(50));                 // within the 60s lease
         Assert.True(await store.SaveCheckpointAsync(id, "w1", """{"step":2}"""));
@@ -98,17 +99,17 @@ public static class JobStoreContract
 
         // the checkpoint renewed the lease at t+50s, so at t+80s (30s after) it's NOT yet stale
         clock.Advance(TimeSpan.FromSeconds(30));
-        Assert.Null(await store.ClaimNextAsync("default", "w2", Lease)); // still owned by w1
+        Assert.Null(await store.ClaimNextAsync(lane, "w2", Lease)); // still owned by w1
     }
 
-    public static async Task Stale_lease_is_reclaimed_with_the_checkpoint(IJobStore store, MutableClock clock)
+    public static async Task Stale_lease_is_reclaimed_with_the_checkpoint(IJobStore store, MutableClock clock, string lane = "default")
     {
-        var id = await store.EnqueueAsync(Spec());
-        await store.ClaimNextAsync("default", "w1", Lease);
+        var id = await store.EnqueueAsync(Spec(lane));
+        await store.ClaimNextAsync(lane, "w1", Lease);
         await store.SaveCheckpointAsync(id, "w1", """{"step":1}""");
 
         clock.Advance(TimeSpan.FromMinutes(2)); // > lease → w1 presumed dead
-        var reclaimed = await store.ClaimNextAsync("default", "w2", Lease);
+        var reclaimed = await store.ClaimNextAsync(lane, "w2", Lease);
 
         Assert.NotNull(reclaimed);
         Assert.Equal(id, reclaimed!.Id);
@@ -117,10 +118,10 @@ public static class JobStoreContract
         Assert.Equal(2, reclaimed.Attempts);
     }
 
-    public static async Task Writes_are_fenced_by_worker_id(IJobStore store, MutableClock clock)
+    public static async Task Writes_are_fenced_by_worker_id(IJobStore store, MutableClock clock, string lane = "default")
     {
-        var id = await store.EnqueueAsync(Spec());
-        await store.ClaimNextAsync("default", "w1", Lease);
+        var id = await store.EnqueueAsync(Spec(lane));
+        await store.ClaimNextAsync(lane, "w1", Lease);
 
         // a different worker (a zombie / re-claimer) cannot mutate w1's job
         Assert.False(await store.SaveCheckpointAsync(id, "intruder", "x"));
@@ -164,56 +165,56 @@ public static class JobStoreContract
     // CancelAsync takes a job that has NOT STARTED (Pending here, Paused in
     // Cancel_reaches_a_paused_job_without_resuming_it) and never a Running one — a running job is cancelled
     // cooperatively through RequestCancelAsync, which is the other half of IJobQueue.CancelAsync.
-    public static async Task Cancel_takes_a_pending_job_but_not_a_running_one(IJobStore store, MutableClock clock)
+    public static async Task Cancel_takes_a_pending_job_but_not_a_running_one(IJobStore store, MutableClock clock, string lane = "default")
     {
-        var pending = await store.EnqueueAsync(Spec());
+        var pending = await store.EnqueueAsync(Spec(lane));
         Assert.True(await store.CancelAsync(pending));
         Assert.Equal(JobStatus.Cancelled, (await store.GetAsync(pending))!.Status);
 
-        var running = await store.EnqueueAsync(Spec());
-        await store.ClaimNextAsync("default", "w1", Lease);
+        var running = await store.EnqueueAsync(Spec(lane));
+        await store.ClaimNextAsync(lane, "w1", Lease);
         Assert.False(await store.CancelAsync(running)); // can't cancel a running job
     }
 
     // A spec that names no attempt budget gets the ONE shared default (JobSpec.DefaultMaxAttempts) — the
     // number used to be a bare `3` hand-copied into each store's enqueue, so a change to one drifted from
     // the other two silently. Pinned here so every backend answers with the same budget.
-    public static async Task Enqueue_without_max_attempts_uses_the_shared_default(IJobStore store, MutableClock clock)
+    public static async Task Enqueue_without_max_attempts_uses_the_shared_default(IJobStore store, MutableClock clock, string lane = "default")
     {
-        var id = await store.EnqueueAsync(Spec()); // JobSpec.MaxAttempts is null — the store fills it in
+        var id = await store.EnqueueAsync(Spec(lane)); // JobSpec.MaxAttempts is null — the store fills it in
         Assert.Equal(JobSpec.DefaultMaxAttempts, (await store.GetAsync(id))!.MaxAttempts);
 
-        var pinned = await store.EnqueueAsync(Spec() with { MaxAttempts = 7 }); // an explicit budget still wins
+        var pinned = await store.EnqueueAsync(Spec(lane) with { MaxAttempts = 7 }); // an explicit budget still wins
         Assert.Equal(7, (await store.GetAsync(pinned))!.MaxAttempts);
     }
 
-    public static async Task Active_lanes_and_running_count(IJobStore store, MutableClock clock)
+    public static async Task Active_lanes_and_running_count(IJobStore store, MutableClock clock, string lane = "default")
     {
-        await store.EnqueueAsync(Spec(lane: "a"));
-        await store.EnqueueAsync(Spec(lane: "b"));
-        await store.ClaimNextAsync("a", "w1", Lease);
+        await store.EnqueueAsync(Spec(lane + "-a"));
+        await store.EnqueueAsync(Spec(lane + "-b"));
+        await store.ClaimNextAsync(lane + "-a", "w1", Lease);
 
         var lanes = await store.ActiveLanesAsync();
-        Assert.Contains("a", lanes);
-        Assert.Contains("b", lanes);
-        Assert.Single(await store.ListAsync(JobStatus.Running, "a"));
-        Assert.Empty(await store.ListAsync(JobStatus.Running, "b"));
+        Assert.Contains(lane + "-a", lanes);
+        Assert.Contains(lane + "-b", lanes);
+        Assert.Single(await store.ListAsync(JobStatus.Running, lane + "-a"));
+        Assert.Empty(await store.ListAsync(JobStatus.Running, lane + "-b"));
     }
 
-    public static async Task Higher_priority_is_claimed_first(IJobStore store, MutableClock clock)
+    public static async Task Higher_priority_is_claimed_first(IJobStore store, MutableClock clock, string lane = "default")
     {
-        await store.EnqueueAsync(Spec() with { Priority = 1 });          // low, enqueued FIRST
-        var hi = await store.EnqueueAsync(Spec() with { Priority = 5 }); // high, enqueued second
+        await store.EnqueueAsync(Spec(lane) with { Priority = 1 });          // low, enqueued FIRST
+        var hi = await store.EnqueueAsync(Spec(lane) with { Priority = 5 }); // high, enqueued second
 
-        var claimed = await store.ClaimNextAsync("default", "w1", Lease);
+        var claimed = await store.ClaimNextAsync(lane, "w1", Lease);
         Assert.Equal(hi, claimed!.Id); // priority beats FIFO within the lane
         Assert.Equal(5, claimed.Priority);
     }
 
-    public static async Task Dead_letter_is_terminal_inspectable_and_fenced(IJobStore store, MutableClock clock)
+    public static async Task Dead_letter_is_terminal_inspectable_and_fenced(IJobStore store, MutableClock clock, string lane = "default")
     {
-        var id = await store.EnqueueAsync(Spec());
-        await store.ClaimNextAsync("default", "w1", Lease);
+        var id = await store.EnqueueAsync(Spec(lane));
+        await store.ClaimNextAsync(lane, "w1", Lease);
 
         Assert.False(await store.DeadLetterAsync(id, "intruder", "nope")); // fenced by worker
         Assert.True(await store.DeadLetterAsync(id, "w1", "exhausted"));
@@ -221,14 +222,14 @@ public static class JobStoreContract
         var job = await store.GetAsync(id);
         Assert.Equal(JobStatus.Dead, job!.Status);
         Assert.Equal("exhausted", job.LastError);
-        Assert.Contains(await store.ListAsync(JobStatus.Dead), j => j.Id == id); // shows in the DLQ
-        Assert.Null(await store.ClaimNextAsync("default", "w1", Lease));         // terminal, not reclaimable
+        Assert.Contains(await store.ListAsync(JobStatus.Dead, lane), j => j.Id == id); // shows in the DLQ
+        Assert.Null(await store.ClaimNextAsync(lane, "w1", Lease));         // terminal, not reclaimable
     }
 
-    public static async Task Replay_requeues_a_dead_job(IJobStore store, MutableClock clock)
+    public static async Task Replay_requeues_a_dead_job(IJobStore store, MutableClock clock, string lane = "default")
     {
-        var id = await store.EnqueueAsync(Spec());
-        await store.ClaimNextAsync("default", "w1", Lease);
+        var id = await store.EnqueueAsync(Spec(lane));
+        await store.ClaimNextAsync(lane, "w1", Lease);
         await store.DeadLetterAsync(id, "w1", "exhausted");
 
         Assert.True(await store.ReplayAsync(id));
@@ -237,43 +238,43 @@ public static class JobStoreContract
         Assert.Equal(0, job.Attempts);   // attempts reset
         Assert.Null(job.LastError);      // error cleared
 
-        var reclaimed = await store.ClaimNextAsync("default", "w1", Lease); // runnable again
+        var reclaimed = await store.ClaimNextAsync(lane, "w1", Lease); // runnable again
         Assert.Equal(id, reclaimed!.Id);
         Assert.Equal(1, reclaimed.Attempts);
         Assert.False(await store.ReplayAsync(id)); // now Running (not Dead/Failed) → no-op
     }
 
-    public static async Task Same_tick_same_priority_claims_in_id_order(IJobStore store, MutableClock clock)
+    public static async Task Same_tick_same_priority_claims_in_id_order(IJobStore store, MutableClock clock, string lane = "default")
     {
         // two jobs, identical lane/priority/available_at (clock not advanced) → the tiebreak is the id,
         // consistently on every backend (SQL: ORDER BY …, id; InMemory now matches via the id string)
-        var id1 = await store.EnqueueAsync(Spec());
-        var id2 = await store.EnqueueAsync(Spec());
+        var id1 = await store.EnqueueAsync(Spec(lane));
+        var id2 = await store.EnqueueAsync(Spec(lane));
         var expectedFirst = string.CompareOrdinal(id1.ToString(), id2.ToString()) < 0 ? id1 : id2;
 
-        var first = await store.ClaimNextAsync("default", "w1", Lease);
+        var first = await store.ClaimNextAsync(lane, "w1", Lease);
         Assert.Equal(expectedFirst, first!.Id);
     }
 
-    public static async Task Pause_holds_a_pending_job_out_of_claims_then_resume_restores_it(IJobStore store, MutableClock clock)
+    public static async Task Pause_holds_a_pending_job_out_of_claims_then_resume_restores_it(IJobStore store, MutableClock clock, string lane = "default")
     {
-        var id = await store.EnqueueAsync(Spec());
+        var id = await store.EnqueueAsync(Spec(lane));
 
         Assert.True(await store.PauseAsync(id));                            // Pending → Paused
         Assert.Equal(JobStatus.Paused, (await store.GetAsync(id))!.Status);
-        Assert.Null(await store.ClaimNextAsync("default", "w1", Lease));    // a Paused job is not claimable
+        Assert.Null(await store.ClaimNextAsync(lane, "w1", Lease));    // a Paused job is not claimable
         Assert.False(await store.PauseAsync(id));                           // already Paused → no-op
 
         Assert.True(await store.ResumeAsync(id));                           // Paused → Pending
         Assert.Equal(JobStatus.Pending, (await store.GetAsync(id))!.Status);
         Assert.False(await store.ResumeAsync(id));                          // not Paused → no-op
-        Assert.Equal(id, (await store.ClaimNextAsync("default", "w1", Lease))!.Id); // runnable again
+        Assert.Equal(id, (await store.ClaimNextAsync(lane, "w1", Lease))!.Id); // runnable again
     }
 
-    public static async Task Progress_and_steps_are_readable_while_running_and_fenced(IJobStore store, MutableClock clock)
+    public static async Task Progress_and_steps_are_readable_while_running_and_fenced(IJobStore store, MutableClock clock, string lane = "default")
     {
-        var id = await store.EnqueueAsync(Spec());
-        await store.ClaimNextAsync("default", "w1", Lease);
+        var id = await store.EnqueueAsync(Spec(lane));
+        await store.ClaimNextAsync(lane, "w1", Lease);
 
         Assert.True(await store.ReportProgressAsync(id, "w1", 3, 10, "phase-1"));
         Assert.True(await store.ReportStepAsync(id, "w1", "started"));
@@ -293,10 +294,10 @@ public static class JobStoreContract
         Assert.Equal(3, (await store.GetAsync(id))!.Progress); // unchanged
     }
 
-    public static async Task Concurrent_step_reports_all_land(IJobStore store, MutableClock clock)
+    public static async Task Concurrent_step_reports_all_land(IJobStore store, MutableClock clock, string lane = "default")
     {
-        var id = await store.EnqueueAsync(Spec());
-        await store.ClaimNextAsync("default", "w1", Lease);
+        var id = await store.EnqueueAsync(Spec(lane));
+        await store.ClaimNextAsync(lane, "w1", Lease);
 
         // Many concurrent reports from the "handler" — none may be lost to a read-modify-write race. Each on
         // its own thread: a store whose async completes synchronously would otherwise run them in sequence.
@@ -311,10 +312,10 @@ public static class JobStoreContract
             messages.OrderBy(m => m)); // every step present, exactly once
     }
 
-    public static async Task Pause_only_affects_a_pending_job(IJobStore store, MutableClock clock)
+    public static async Task Pause_only_affects_a_pending_job(IJobStore store, MutableClock clock, string lane = "default")
     {
-        var running = await store.EnqueueAsync(Spec());
-        await store.ClaimNextAsync("default", "w1", Lease);
+        var running = await store.EnqueueAsync(Spec(lane));
+        await store.ClaimNextAsync(lane, "w1", Lease);
         Assert.False(await store.PauseAsync(running)); // can't pause a Running job (use cancel/admission control)
         Assert.Equal(JobStatus.Running, (await store.GetAsync(running))!.Status);
     }
@@ -325,9 +326,9 @@ public static class JobStoreContract
     // now reaches Paused too (the shared JobStoreSql.CancelNotStarted matches `status IN ('Pending','Paused')`);
     // the RUNNING half deliberately stays narrow, because cancelling a running job is a cooperative request
     // to a worker and a held job has no worker to ask.
-    public static async Task Cancel_reaches_a_paused_job_without_resuming_it(IJobStore store, MutableClock clock)
+    public static async Task Cancel_reaches_a_paused_job_without_resuming_it(IJobStore store, MutableClock clock, string lane = "default")
     {
-        var id = await store.EnqueueAsync(Spec());
+        var id = await store.EnqueueAsync(Spec(lane));
         Assert.True(await store.PauseAsync(id));
 
         Assert.False(await store.RequestCancelAsync(id));  // not Running → the running half still misses it
@@ -335,17 +336,17 @@ public static class JobStoreContract
         Assert.Equal(JobStatus.Cancelled, (await store.GetAsync(id))!.Status);
 
         // terminal, exactly like a cancelled Pending job: never claimable, not resumable, not cancelled twice
-        Assert.Null(await store.ClaimNextAsync("default", "w1", Lease));
+        Assert.Null(await store.ClaimNextAsync(lane, "w1", Lease));
         Assert.False(await store.ResumeAsync(id));
         Assert.False(await store.CancelAsync(id));
     }
 
-    public static async Task Request_cancel_flags_a_running_job_then_cancel_running_finalizes(IJobStore store, MutableClock clock)
+    public static async Task Request_cancel_flags_a_running_job_then_cancel_running_finalizes(IJobStore store, MutableClock clock, string lane = "default")
     {
-        var id = await store.EnqueueAsync(Spec());
+        var id = await store.EnqueueAsync(Spec(lane));
         Assert.False(await store.RequestCancelAsync(id)); // still Pending → no-op (Pending uses CancelAsync)
 
-        await store.ClaimNextAsync("default", "w1", Lease);
+        await store.ClaimNextAsync(lane, "w1", Lease);
         Assert.True(await store.RequestCancelAsync(id));  // Running → flag set
         Assert.True((await store.GetAsync(id))!.CancelRequested);
 
@@ -355,8 +356,7 @@ public static class JobStoreContract
     }
 
     // ---- partition keys (actor-mailbox: same key serial+FIFO, different keys parallel) ----------------
-    // Parameterized by `lane` so the Postgres backend can namespace each run to a unique lane on its shared
-    // container (partition keys are also namespaced off the lane string for the same reason). FIFO within a
+    // Partition keys are namespaced off the lane string, as the lanes are. FIFO within a
     // partition is `ORDER BY available_at, id` — so these tests advance the clock a tick between enqueues to
     // make each job's available_at strictly earlier than the next (a real, order-independent FIFO), matching
     // how the store defines "earliest" (see Same_tick_same_priority_claims_in_id_order for the same-tick case).

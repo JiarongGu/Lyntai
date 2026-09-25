@@ -14,7 +14,7 @@ namespace Lyntai.Tests.Storage;
 
 /// <summary>Integration tests for the PostgreSQL backend against a real container (Testcontainers).
 /// Every test scopes to a unique key/task/session so they can share the one migrated database.
-/// The whole class skips (early-return) when Docker is unavailable — see <see cref="PostgresFixture"/>.</summary>
+/// Every test SKIPS (visibly, never a pass) when Docker is unavailable — see <see cref="PostgresFixture"/>.</summary>
 [Collection("postgres")]
 public sealed class PostgresStorageTests(PostgresFixture pg)
 {
@@ -174,10 +174,8 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
 
     // ---- cross-backend contracts, run against Postgres over the shared container ----------------------
     // Each is namespaced by a unique key (Uid()) so it coexists with the other tests on the one shared,
-    // migrated database. Table-wide contract methods (ScoreStoreContract Aggregate/Export;
-    // CuratedMemoryStoreContract / JobStoreContract full suites) are NOT routed here — they read across the
-    // whole table and would see other tests' rows on the shared container, so they stay InMemory+SQLite
-    // (see those backends' *ContractTests). The session/task/id-scoped contract methods are safe here.
+    // migrated database. The few table-wide facts that cannot be isolated that way are listed, with their
+    // reasons, in PostgresContractCoverageTests.NotOnPostgres.
 
     [SkippableFact] public Task KeyValue_round_trip() => Pg(() => KeyValueStoreContract.Set_get_delete_round_trip(new PostgresKeyValueStore(pg.Factory), Uid()));
     [SkippableFact] public Task KeyValue_missing() => Pg(() => KeyValueStoreContract.Missing_key_returns_null(new PostgresKeyValueStore(pg.Factory), Uid()));
@@ -310,132 +308,6 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
         Assert.Equal(1.0, results[1].Score);
     }
 
-    // ---- durable jobs (each test uses a UNIQUE lane so they don't collide on the shared db) -----------
-    // JobStoreContract is table-wide (fixed "default" lane + ActiveLanesAsync / ListAsync(status)) so it is
-    // NOT routed against the shared container — the InMemory + SQLite JobStore*Tests run the full contract.
-    // These ad-hoc tests use a UNIQUE Uid() lane, covering the Postgres-specific SKIP-LOCKED claim path.
-
-    [SkippableFact]
-    public async Task Job_claim_checkpoint_complete_lifecycle()
-    {
-        Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
-        var store = new PostgresJobStore(pg.Factory);
-        var lane = Uid();
-        var id = await store.EnqueueAsync(new JobSpec(lane, "t", """{"x":1}"""));
-
-        var job = await store.ClaimNextAsync(lane, "w1", TimeSpan.FromMinutes(5));
-        Assert.Equal(id, job!.Id);
-        Assert.Equal(JobStatus.Running, job.Status);
-        Assert.Equal(1, job.Attempts);
-
-        Assert.True(await store.SaveCheckpointAsync(id, "w1", """{"step":2}"""));
-        Assert.Equal("""{"step":2}""", (await store.GetAsync(id))!.Checkpoint);
-        Assert.False(await store.CompleteAsync(id, "intruder")); // fenced
-        Assert.True(await store.CompleteAsync(id, "w1"));
-        Assert.Equal(JobStatus.Succeeded, (await store.GetAsync(id))!.Status);
-    }
-
-    [SkippableFact]
-    public async Task Job_skip_locked_never_double_claims_under_concurrency()
-    {
-        Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
-        var store = new PostgresJobStore(pg.Factory);
-        var lane = Uid();
-        const int n = 20;
-        for (var i = 0; i < n; i++) await store.EnqueueAsync(new JobSpec(lane, "t", "{}"));
-
-        var claims = await Task.WhenAll(Enumerable.Range(0, n * 2)
-            .Select(i => store.ClaimNextAsync(lane, $"w{i}", TimeSpan.FromMinutes(5))));
-
-        var ids = claims.Where(j => j is not null).Select(j => j!.Id).ToList();
-        Assert.Equal(n, ids.Count);              // FOR UPDATE SKIP LOCKED gave each job to exactly one
-        Assert.Equal(n, ids.Distinct().Count());
-    }
-
-    [SkippableFact]
-    public async Task Job_stale_lease_is_reclaimed()
-    {
-        Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
-        var clock = new MutableClock();
-        var store = new PostgresJobStore(pg.Factory, clock.Get);
-        var lane = Uid();
-        var lease = TimeSpan.FromMinutes(1);
-        var id = await store.EnqueueAsync(new JobSpec(lane, "t", "{}"));
-        await store.ClaimNextAsync(lane, "w1", lease);
-
-        clock.Advance(lease + TimeSpan.FromSeconds(1)); // w1 presumed dead
-        var reclaimed = await store.ClaimNextAsync(lane, "w2", lease);
-
-        Assert.Equal(id, reclaimed!.Id);
-        Assert.Equal("w2", reclaimed.ClaimedBy);
-        Assert.Equal(2, reclaimed.Attempts);
-    }
-
-    [SkippableFact]
-    public async Task Job_higher_priority_is_claimed_first()
-    {
-        Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
-        var store = new PostgresJobStore(pg.Factory);
-        var lane = Uid();
-        await store.EnqueueAsync(new JobSpec(lane, "t", "{}", Priority: 1));
-        var hi = await store.EnqueueAsync(new JobSpec(lane, "t", "{}", Priority: 5));
-
-        var claimed = await store.ClaimNextAsync(lane, "w1", TimeSpan.FromMinutes(1));
-        Assert.Equal(hi, claimed!.Id);
-        Assert.Equal(5, claimed.Priority);
-    }
-
-    [SkippableFact]
-    public async Task Job_dead_letters_and_replays()
-    {
-        Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
-        var store = new PostgresJobStore(pg.Factory);
-        var lane = Uid();
-        var id = await store.EnqueueAsync(new JobSpec(lane, "t", "{}"));
-        await store.ClaimNextAsync(lane, "w1", TimeSpan.FromMinutes(1));
-
-        Assert.True(await store.DeadLetterAsync(id, "w1", "exhausted"));
-        Assert.Equal(JobStatus.Dead, (await store.GetAsync(id))!.Status);
-        Assert.Contains(await store.ListAsync(JobStatus.Dead, lane), j => j.Id == id);
-
-        Assert.True(await store.ReplayAsync(id));
-        var job = await store.GetAsync(id);
-        Assert.Equal(JobStatus.Pending, job!.Status);
-        Assert.Equal(0, job.Attempts);
-    }
-
-    [SkippableFact]
-    public async Task Job_request_cancel_flags_running_then_cancel_running_finalizes()
-    {
-        Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
-        var store = new PostgresJobStore(pg.Factory);
-        var lane = Uid();
-        var id = await store.EnqueueAsync(new JobSpec(lane, "t", "{}"));
-        await store.ClaimNextAsync(lane, "w1", TimeSpan.FromMinutes(1));
-
-        Assert.True(await store.RequestCancelAsync(id));
-        Assert.True((await store.GetAsync(id))!.CancelRequested);
-        Assert.False(await store.CancelRunningAsync(id, "intruder")); // fenced
-        Assert.True(await store.CancelRunningAsync(id, "w1"));
-        Assert.Equal(JobStatus.Cancelled, (await store.GetAsync(id))!.Status);
-    }
-
-    [SkippableFact]
-    public async Task Job_pause_holds_out_of_claims_then_resume_restores()
-    {
-        Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
-        var store = new PostgresJobStore(pg.Factory);
-        var lane = Uid();
-        var id = await store.EnqueueAsync(new JobSpec(lane, "t", "{}"));
-
-        Assert.True(await store.PauseAsync(id));                              // Pending → Paused
-        Assert.Equal(JobStatus.Paused, (await store.GetAsync(id))!.Status);
-        Assert.Null(await store.ClaimNextAsync(lane, "w1", TimeSpan.FromMinutes(1))); // not claimable
-
-        Assert.True(await store.ResumeAsync(id));                            // Paused → Pending
-        Assert.Equal(id, (await store.ClaimNextAsync(lane, "w1", TimeSpan.FromMinutes(1)))!.Id);
-    }
-
     [SkippableFact]
     public async Task Curated_memory_crud_and_filters()
     {
@@ -502,61 +374,59 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
         await CuratedMemoryStoreContract.Search_matches_a_chinese_query_without_spaces(store, Uid() + "-zh");
     }
 
-    [SkippableFact]
-    public async Task Job_progress_and_steps_are_readable_while_running()
-    {
-        Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
-        var store = new PostgresJobStore(pg.Factory);
-        var lane = Uid();
-        var id = await store.EnqueueAsync(new JobSpec(lane, "t", "{}"));
-        await store.ClaimNextAsync(lane, "w1", TimeSpan.FromMinutes(1));
+    // ---- durable jobs: every JobStoreContract fact, each under a UNIQUE lane on the shared container ------
+    // PostgresContractCoverageTests fails if a fact is missing here.
 
-        Assert.True(await store.ReportProgressAsync(id, "w1", 3, 10, "phase-1"));
-        Assert.True(await store.ReportStepAsync(id, "w1", "started"));
-        Assert.True(await store.ReportStepAsync(id, "w1", "halfway"));
-
-        var job = await store.GetAsync(id);
-        Assert.Equal(JobStatus.Running, job!.Status);
-        Assert.Equal(3, job.Progress);
-        Assert.Equal(10, job.Total);
-        Assert.Equal("phase-1", job.Stage);
-        Assert.Equal(["started", "halfway"], JobStepLog.Parse(job.StepLog).Select(s => s.Message));
-
-        Assert.False(await store.ReportProgressAsync(id, "intruder", 9, 10, "x")); // fenced
-    }
-
-    [SkippableFact]
-    public async Task Job_concurrent_step_reports_all_land()
-    {
-        Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
-        var store = new PostgresJobStore(pg.Factory);
-        var lane = Uid();
-        var id = await store.EnqueueAsync(new JobSpec(lane, "t", "{}"));
-        await store.ClaimNextAsync(lane, "w1", TimeSpan.FromMinutes(1));
-
-        const int n = 25; // concurrent reports must not clobber each other (the read-modify-write race)
-        await Task.WhenAll(Enumerable.Range(0, n).Select(i => store.ReportStepAsync(id, "w1", $"step-{i}")));
-
-        var messages = JobStepLog.Parse((await store.GetAsync(id))!.StepLog).Select(s => s.Message).ToList();
-        Assert.Equal(n, messages.Count);
-    }
-
-    // ---- partition keys (actor-mailbox) — run the shared JobStoreContract methods against Postgres over
-    // the shared container, each namespaced to a UNIQUE lane (Uid()) so the FIFO/one-at-a-time guard is
-    // exercised on the SKIP-LOCKED claim path in isolation from the other tests' rows.
-
+    [SkippableFact] public Task Job_claim_flips_running() => JobPg(JobStoreContract.Claim_flips_to_running_and_increments_attempts);
+    [SkippableFact] public Task Job_empty_lane_null() => JobPg(JobStoreContract.Empty_lane_claims_null);
+    [SkippableFact] public Task Job_two_claims_distinct() => JobPg(JobStoreContract.Two_claims_never_return_the_same_job);
+    [SkippableFact] public Task Job_complete_terminal() => JobPg(JobStoreContract.Complete_is_terminal);
     [SkippableFact] public Task Job_fail_retry_requeue() => JobPg(JobStoreContract.Fail_with_retry_requeues_available_later); // retry-requeue timestamp math on timestamptz
-    // per-JOB, not table-wide, so it is safe on the shared container — and the `attempts=attempts-1` decrement
-    // is SQL that only this backend's dialect can prove correct here
+    [SkippableFact] public Task Job_fail_terminal() => JobPg(JobStoreContract.Fail_without_retry_is_terminal);
+    [SkippableFact] public Task Job_checkpoint_renews_lease() => JobPg(JobStoreContract.Checkpoint_round_trips_and_renews_the_lease);
+    [SkippableFact] public Task Job_stale_reclaim() => JobPg(JobStoreContract.Stale_lease_is_reclaimed_with_the_checkpoint);
+    [SkippableFact] public Task Job_fenced_by_worker() => JobPg(JobStoreContract.Writes_are_fenced_by_worker_id);
+    // the `attempts=attempts-1` decrement is SQL only this backend's dialect can prove correct here
     [SkippableFact] public Task Job_poll_does_not_spend_an_attempt() => JobPg(JobStoreContract.Poll_requeues_without_spending_an_attempt_and_is_fenced);
+    [SkippableFact] public Task Job_cancel_pending_not_running() => JobPg(JobStoreContract.Cancel_takes_a_pending_job_but_not_a_running_one);
+    [SkippableFact] public Task Job_enqueue_default_max_attempts() => JobPg(JobStoreContract.Enqueue_without_max_attempts_uses_the_shared_default);
+    [SkippableFact] public Task Job_active_lanes_and_count() => JobPg(JobStoreContract.Active_lanes_and_running_count);
+    [SkippableFact] public Task Job_priority_first() => JobPg(JobStoreContract.Higher_priority_is_claimed_first);
+    [SkippableFact] public Task Job_dead_letter() => JobPg(JobStoreContract.Dead_letter_is_terminal_inspectable_and_fenced);
+    [SkippableFact] public Task Job_replay_dead() => JobPg(JobStoreContract.Replay_requeues_a_dead_job);
+    [SkippableFact] public Task Job_request_cancel() => JobPg(JobStoreContract.Request_cancel_flags_a_running_job_then_cancel_running_finalizes);
+    [SkippableFact] public Task Job_tiebreak_by_id() => JobPg(JobStoreContract.Same_tick_same_priority_claims_in_id_order); // a TEXT id under the database collation
+    [SkippableFact] public Task Job_pause_resume() => JobPg(JobStoreContract.Pause_holds_a_pending_job_out_of_claims_then_resume_restores_it);
+    [SkippableFact] public Task Job_pause_pending_only() => JobPg(JobStoreContract.Pause_only_affects_a_pending_job);
+    [SkippableFact] public Task Job_cancel_reaches_paused() => JobPg(JobStoreContract.Cancel_reaches_a_paused_job_without_resuming_it);
+    [SkippableFact] public Task Job_progress_and_steps() => JobPg(JobStoreContract.Progress_and_steps_are_readable_while_running_and_fenced);
+    [SkippableFact] public Task Job_concurrent_steps() => JobPg(JobStoreContract.Concurrent_step_reports_all_land);
     [SkippableFact] public Task Job_partition_serial_fifo() => JobPg(JobStoreContract.Same_partition_serializes_and_is_fifo);
     [SkippableFact] public Task Job_partitions_parallel() => JobPg(JobStoreContract.Different_partitions_run_in_parallel);
     [SkippableFact] public Task Job_partition_priority_ignored_within() => JobPg(JobStoreContract.Priority_is_ignored_within_a_partition_but_honored_across);
     [SkippableFact] public Task Job_partition_stale_reclaim_keeps_position() => JobPg(JobStoreContract.Stale_partition_running_is_reclaimed_before_later_pending);
 
-    /// <summary>Skip-guarded runner for a partition contract method — builds the store over a shared
-    /// MutableClock (the FIFO scenarios advance it between enqueues, the reclaim scenario advances past the
-    /// lease) and passes a UNIQUE lane (Uid()) so it coexists with the other tests on the shared container.</summary>
+    /// <summary>The one real concurrency test on this backend: 40 claimers over real async Npgsql
+    /// connections, so <c>FOR UPDATE SKIP LOCKED</c> is what keeps two of them off one row.</summary>
+    [SkippableFact]
+    public async Task Job_skip_locked_never_double_claims_under_concurrency()
+    {
+        Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
+        var store = new PostgresJobStore(pg.Factory);
+        var lane = Uid();
+        const int n = 20;
+        for (var i = 0; i < n; i++) await store.EnqueueAsync(new JobSpec(lane, "t", "{}"));
+
+        var claims = await Task.WhenAll(Enumerable.Range(0, n * 2)
+            .Select(i => store.ClaimNextAsync(lane, $"w{i}", TimeSpan.FromMinutes(5))));
+
+        var ids = claims.Where(j => j is not null).Select(j => j!.Id).ToList();
+        Assert.Equal(n, ids.Count);              // FOR UPDATE SKIP LOCKED gave each job to exactly one
+        Assert.Equal(n, ids.Distinct().Count());
+    }
+
+    /// <summary>Skip-guarded runner for a lane-scoped contract fact: the store over a fresh MutableClock,
+    /// and a UNIQUE lane (Uid()) so it coexists with the other tests on the shared container.</summary>
     private async Task JobPg(Func<IJobStore, MutableClock, string, Task> body)
     {
         Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
@@ -582,11 +452,7 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
     /// <summary>Runner for a SLOT contract fact, which cannot use <see cref="JobPg"/>'s unique-lane trick:
     /// slot state is TABLE-WIDE by design — a cross-process cap that a lane could partition would not be
     /// one — so the table is cleared first instead. Safe because every Postgres suite shares the
-    /// <c>postgres</c> collection and therefore runs serially.
-    /// <para>These four ran on the in-process store ONLY until 2026-08-17, which is the backend where a
-    /// cross-PROCESS cap is meaningless by definition. Both SQL statements behind them — including the
-    /// <c>ON CONFLICT (slot_index)</c> that actually enforces the cap — had never executed in the
-    /// suite.</para></summary>
+    /// <c>postgres</c> collection and therefore runs serially.</summary>
     private async Task SlotPg(Func<IJobStore, MutableClock, Task> body)
     {
         Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
