@@ -33,7 +33,7 @@ public class CrossEncoderLogitsTests
     [Fact]
     public void REFUSES_a_MULTI_LABEL_head_rather_than_taking_column_zero()
     {
-        // The silent failure this guards is Part 177's own shape: an NLI-style head puts relevance in a
+        // The silent failure this guards (`docs/task-archive.md` Part 215): an NLI-style head puts relevance in a
         // column that is not the first, so reading column 0 returns well-formed numbers in the WRONG order.
         // There is no score meaning "wrong class of model", so this throws — the rule ScoreAsync states.
         var error = Assert.Throws<InvalidOperationException>(

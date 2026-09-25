@@ -143,7 +143,7 @@ public class WordPieceTokenizerTests
 
     /// <summary>Inputs where <c>Microsoft.ML.Tokenizers</c> departs from the reference BERT pipeline, so
     /// matching it would mean reproducing a defect. Each is asserted in
-    /// <see cref="Corrects_the_two_rules_the_previous_tokenizer_got_wrong"/> rather than merely skipped —
+    /// <see cref="Corrects_the_four_rules_the_previous_tokenizer_got_wrong"/> rather than merely skipped —
     /// an unexplained exclusion list is how a real disagreement gets filed as a known difference.</summary>
     private static readonly string[] WhereTheReferenceImplementationIsWrong =
         ["alpha\tbeta", "alpha\nbeta", "alpha\rbeta"];

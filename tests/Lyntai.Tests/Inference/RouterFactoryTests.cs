@@ -182,10 +182,9 @@ public class RouterFactoryTests
         Assert.Equal(0, second.GenerateCalls);
     }
 
-    // The same guard on the LLM side, and here it is STRICTER than the router it feeds rather than an echo
-    // of it: TextRouter._byId is an ORDINAL dictionary, so "openai" and "OpenAI" would both be stored and both
-    // be reachable — no first-wins collapse to lean on. The factory rejects the pair up front because the
-    // router downstream would not notice it.
+    // The same guard on the text side. The router's id lookup is case-insensitive and first-wins, so "openai"
+    // and "OpenAI" would collapse to one entry and the second would be silently unreachable; the factory
+    // rejects the pair up front so the shadowing is loud.
     [Fact]
     public void The_text_factory_rejects_two_registrations_sharing_a_slot()
     {

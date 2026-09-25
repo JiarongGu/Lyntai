@@ -7,7 +7,7 @@ using Lyntai.Tests.Fakes;
 namespace Lyntai.Tests.Providers;
 
 /// <summary>Vision/multimodal: attachments on a message render as image content parts on the OpenAI HTTP
-/// payload and map to MEAI image content through the bridge.</summary>
+/// payload.</summary>
 public class MultimodalTests
 {
     private static readonly byte[] Png = Encoding.UTF8.GetBytes("fake-png-bytes");

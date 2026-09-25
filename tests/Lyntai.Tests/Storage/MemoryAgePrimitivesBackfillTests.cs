@@ -9,9 +9,9 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Lyntai.Tests.Storage;
 
 /// <summary>
-/// I1 (fix round 1): every OTHER migration test runs on a fresh database, where
-/// <c>M202608100900_MemoryAgePrimitives</c>'s two <c>UPDATE ... FROM</c> statements affect ZERO rows — the
-/// suite proved the columns exist and proved nothing about their VALUES. This pauses the migration run
+/// Every OTHER migration test runs on a fresh database, where the age-primitive backfill in
+/// <c>M202608121100_MemoryRetentionModel</c> (its <c>UPDATE ... FROM</c> statements) affects ZERO rows — those
+/// prove the columns exist and nothing about their VALUES. This pauses the migration run
 /// mid-history, inserts legacy rows whose id-INSERTION order deliberately disagrees with their
 /// <c>created_at</c> order, then finishes migrating and asserts the backfilled values — so a regression that
 /// dropped the <c>id</c> tiebreaker, swapped the <c>ORDER BY</c> for insertion order, or broke the
@@ -19,8 +19,8 @@ namespace Lyntai.Tests.Storage;
 /// </summary>
 public sealed class MemoryAgePrimitivesBackfillTests : IDisposable
 {
-    // everything up to and including MemorySignals — the schema this migration's Up() actually reads from
-    private const long BeforeMemoryAgePrimitives = 202608090822;
+    // everything up to and including the released MemoryGraph baseline — the schema the backfill reads from
+    private const long BeforeMemoryRetentionModel = 202608081215;
     private readonly TempDbPath _path = new("backfill");
 
     public void Dispose() => _path.Dispose();
@@ -30,7 +30,7 @@ public sealed class MemoryAgePrimitivesBackfillTests : IDisposable
     {
         var connectionString = new SqliteConnectionStringBuilder { DataSource = _path.Path }.ToString();
         SeedPragmas(connectionString);
-        RunTo(connectionString, BeforeMemoryAgePrimitives);
+        RunTo(connectionString, BeforeMemoryRetentionModel);
 
         using (var conn = new SqliteConnection(connectionString))
         {
@@ -60,7 +60,7 @@ public sealed class MemoryAgePrimitivesBackfillTests : IDisposable
             conn.Execute("DELETE FROM lyntai_memory_node WHERE engine = 'empty'");
         }
 
-        RunTo(connectionString, null); // finish the migration set, including MemoryAgePrimitives
+        RunTo(connectionString, null); // finish the migration set, including MemoryRetentionModel
 
         using var check = new SqliteConnection(connectionString);
         check.Open();
