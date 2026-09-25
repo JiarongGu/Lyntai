@@ -33,6 +33,10 @@ internal static class HttpEndpoint
         return new Uri(b + path);
     }
 
+    /// <summary>Whether a call carries credentials — what separates NotConfigured from AuthFailed on a
+    /// 401/403.</summary>
+    internal static bool HasCredentials(string? apiKey) => !string.IsNullOrWhiteSpace(apiKey);
+
     /// <summary>Apply the request's auth headers. No key configured → no headers (a local llama-server or
     /// LM-Studio endpoint needs none). Azure key auth conventionally travels in the <c>api-key</c> header,
     /// and its v1 surface accepts either — so sending BOTH keeps the key path and a BYO Entra-token Bearer

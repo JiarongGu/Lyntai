@@ -20,17 +20,13 @@ internal sealed class OllamaChatWire(OllamaOptions config, ILogger logger) : IHt
 
     public string? DefaultModel => config.Model;
 
-    public bool HasCredentials => !string.IsNullOrWhiteSpace(config.ApiKey);
+    public string? ApiKey => config.ApiKey;
+
+    public bool AzureConventions => false;
 
     /// <summary>NDJSON's <c>done:true</c> line is the last one — usage rides on it, so there is nothing
     /// after it to wait for.</summary>
     public bool EndsStreamOnFinal => true;
-
-    public void ApplyAuth(HttpRequestMessage request)
-    {
-        if (!string.IsNullOrEmpty(config.ApiKey))
-            request.Headers.Authorization = new("Bearer", config.ApiKey);
-    }
 
     public JsonObject BuildPayload(TextRequest req, string model, bool stream) =>
         OllamaPayload.Build(req, model, stream, config.ContextSize, logger);
@@ -77,11 +73,12 @@ internal sealed class OllamaChatWire(OllamaOptions config, ILogger logger) : IHt
         {
             using var doc = JsonDocument.Parse(payload);
             var root = doc.RootElement;
-            if (WireJson.Object(root, "message") is not { } message) return default;
+            var inBand = HttpBody.InBandError(root);
+            if (WireJson.Object(root, "message") is not { } message) return new HttpStreamLine { InBandError = inBand };
 
             var final = root.TryGetProperty("done", out var d) && d.ValueKind == JsonValueKind.True;
             return new HttpStreamLine(WireJson.String(message, "content"), final ? ExtractUsage(root) : null,
-                final, null, StreamingToolCalls.Read(message, complete: true));
+                final, null, StreamingToolCalls.Read(message, complete: true)) { InBandError = inBand };
         }
         catch (Exception ex) when (WireJson.IsShapeFault(ex))
         {

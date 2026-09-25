@@ -58,7 +58,7 @@ public sealed class HttpModelProvider : IModelProvider, IVectorProvider, IScoreP
             ? new HttpVectorTransport(id, VectorSettings(config), httpFactory, options, log, disposeHttpClient)
             : null;
         _rerank = ServesScores(config)
-            ? new HttpRerankTransport(id, config, httpFactory, options, log, disposeHttpClient)
+            ? new HttpRerankTransport(id, RerankSettings(config), httpFactory, options, log, disposeHttpClient)
             : null;
     }
 
@@ -103,6 +103,16 @@ public sealed class HttpModelProvider : IModelProvider, IVectorProvider, IScoreP
         BatchSize: c.BatchSize,
         DocumentPrefix: c.DocumentPrefix,
         QueryPrefix: c.QueryPrefix,
+        MaxInputChars: c.MaxInputChars,
+        Segmentation: c.Segmentation);
+
+    /// <summary>The Cohere-shaped <c>rerank</c> route under the <c>/v1</c> convention — there is no Ollama
+    /// arm, since Ollama serves no rerank surface and its provider refuses a Score registration.</summary>
+    private static HttpRerankTransport.Settings RerankSettings(HttpModelOptions c) => new(
+        Endpoint: HttpEndpoint.Build(c.BaseUrl, HttpEndpoint.AzureFor(c), "rerank"),
+        ApiKey: c.ApiKey,
+        AzureConventions: HttpEndpoint.AzureFor(c),
+        Model: c.Model,
         MaxInputChars: c.MaxInputChars,
         Segmentation: c.Segmentation);
 

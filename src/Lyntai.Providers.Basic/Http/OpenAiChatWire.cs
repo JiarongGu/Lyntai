@@ -21,13 +21,13 @@ internal sealed class OpenAiChatWire(HttpModelOptions config) : IHttpChatWire
 
     public string? DefaultModel => config.Model;
 
-    public bool HasCredentials => !string.IsNullOrWhiteSpace(config.ApiKey);
+    public string? ApiKey => config.ApiKey;
+
+    public bool AzureConventions => _azure;
 
     /// <summary>SSE runs on to its <c>[DONE]</c> sentinel so the trailing usage chunk — sent AFTER the
     /// finish reason, with an EMPTY choices array — is still read.</summary>
     public bool EndsStreamOnFinal => false;
-
-    public void ApplyAuth(HttpRequestMessage request) => HttpEndpoint.ApplyAuth(request, config.ApiKey, _azure);
 
     public JsonObject BuildPayload(TextRequest req, string model, bool stream) =>
         OpenAiPayload.Build(req, model, stream, _suppressReasoningFields);
@@ -90,7 +90,7 @@ internal sealed class OpenAiChatWire(HttpModelOptions config) : IHttpChatWire
         {
             using var doc = JsonDocument.Parse(payload);
             var root = doc.RootElement;
-            if (root.ValueKind != JsonValueKind.Object) return default;
+            var inBand = HttpBody.InBandError(root);
 
             // choices[0].delta.content, finish_reason set on the last data line
             if (FirstChoice(root) is { } choice)
@@ -103,16 +103,17 @@ internal sealed class OpenAiChatWire(HttpModelOptions config) : IHttpChatWire
                     toolCalls = StreamingToolCalls.Read(delta);
                 }
                 var finishReason = WireJson.String(choice, "finish_reason");
-                return new HttpStreamLine(text, ExtractUsage(root), finishReason is not null, finishReason, toolCalls);
+                return new HttpStreamLine(text, ExtractUsage(root), finishReason is not null, finishReason, toolCalls)
+                    { InBandError = inBand };
             }
 
             // the stream_options usage chunk: the trailing data line AFTER finish_reason carries usage
             // with an EMPTY choices array (the branch above requires a non-empty one) — usage only, not a
             // terminator ([DONE] follows it)
             if (ExtractUsage(root) is { } trailing)
-                return new HttpStreamLine(null, trailing, false, null, null);
+                return new HttpStreamLine(null, trailing, false, null, null) { InBandError = inBand };
 
-            return default;
+            return new HttpStreamLine { InBandError = inBand };
         }
         catch (Exception ex) when (WireJson.IsShapeFault(ex))
         {
