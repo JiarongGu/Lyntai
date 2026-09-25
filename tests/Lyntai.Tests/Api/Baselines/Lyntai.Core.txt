@@ -2689,6 +2689,7 @@ sealed class Lyntai.Processes.ProcessResult
     ExitCode : Int32
     GetHashCode() : Int32
     StdErr : String
+    StdErrTail(Int32 max = 500) : String
     StdOut : String
     Success : Boolean
     TimedOut : Boolean

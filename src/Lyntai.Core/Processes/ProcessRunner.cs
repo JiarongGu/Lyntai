@@ -26,6 +26,16 @@ public sealed record ProcessResult(int ExitCode, string StdOut, string StdErr,
     /// <summary>Whether a clock killed the run — COMPUTED from <see cref="TimeoutKind"/> (the two can't
     /// contradict; which clock fired is the kind).</summary>
     public bool TimedOut => TimeoutKind != ProcessTimeoutKind.None;
+
+    /// <summary>The last <paramref name="max"/> characters of <see cref="StdErr"/>, trimmed — what a failure
+    /// message quotes without carrying a whole log. The END, because that is where a child says why it
+    /// stopped; never use it on a document that must be parsed whole.</summary>
+    /// <param name="max">The most characters kept.</param>
+    public string StdErrTail(int max = 500)
+    {
+        var trimmed = StdErr.Trim();
+        return trimmed.Length <= max ? trimmed : trimmed[^max..];
+    }
 }
 
 /// <summary>A streamed process exited nonzero; carries the stderr tail for diagnostics.</summary>
@@ -572,10 +582,8 @@ public sealed class ProcessRunner : IProcessRunner
 
     private const int StdErrTailChars = 500;
 
-    // Its one caller (StreamLinesAsync) passes ReadTailAsync's output, already bounded to StdErrTailChars, so
-    // the slice branch never runs today — it stays for any future caller handing in an unbounded string.
-    private static string Tail(string text, int max = StdErrTailChars) =>
-        text.Length <= max ? text.Trim() : text[^max..].Trim();
+    // its one caller passes ReadTailAsync's output, already bounded to StdErrTailChars
+    private static string Tail(string text) => text.Trim();
 
     /// <summary>Drain a diagnostic stream to EOF keeping only the last <paramref name="max"/> chars — a
     /// rolling window, so the capture is bounded no matter how much the child writes. Completes when the
