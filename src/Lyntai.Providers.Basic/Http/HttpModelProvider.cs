@@ -24,6 +24,9 @@ public sealed class HttpModelProvider : IModelProvider, IVectorProvider, IScoreP
     private readonly string _id;
     private readonly HttpModelOptions _config;
     private readonly HttpChatEngine? _chat;
+    private readonly Func<HttpClient> _httpFactory;
+    private readonly bool _disposeHttpClient;
+    private readonly TimeSpan _timeout;
 
     /// <param name="id">The router-facing provider id.</param>
     /// <param name="config">The registration's options; see <see cref="HttpModelOptions"/>.</param>
@@ -49,6 +52,9 @@ public sealed class HttpModelProvider : IModelProvider, IVectorProvider, IScoreP
         Validate(config);
         _id = id;
         _config = config;
+        _httpFactory = httpFactory;
+        _disposeHttpClient = disposeHttpClient;
+        _timeout = options.ProviderTimeout;
         Capabilities = CapabilitiesFor(config);
         ILogger log = logger ?? NullLogger<HttpModelProvider>.Instance;
         _chat = ServesText(config)
@@ -143,6 +149,22 @@ public sealed class HttpModelProvider : IModelProvider, IVectorProvider, IScoreP
     private readonly HttpRerankTransport? _rerank;
 
     public bool IsAvailable => !string.IsNullOrWhiteSpace(_config.BaseUrl);
+
+    /// <summary>Asks the server: one GET of its <c>models</c> listing under this registration's URL and auth rules,
+    /// which generates nothing. Unavailable when it is unreachable, refuses the key or errors; available when it
+    /// lists, or has no listing route (a 404). <see cref="ProviderProbeResult.Models"/> carries the listing, and
+    /// <see cref="ProviderProbeResult.Model"/> the configured model when the server lists it.</summary>
+    public Task<ProviderProbeResult> ProbeAsync(CancellationToken ct = default)
+    {
+        if (!IsAvailable) return Task.FromResult(new ProviderProbeResult(false, "not configured: no BaseUrl"));
+        var azure = HttpEndpoint.AzureFor(_config);
+        return HttpProbe.RunAsync(_httpFactory, _disposeHttpClient, _timeout,
+            HttpEndpoint.Build(_config.BaseUrl, azure, "models"),
+            request => HttpEndpoint.ApplyAuth(request, _config.ApiKey, azure),
+            HttpEndpoint.HasCredentials(_config.ApiKey), _config.Model,
+            root => root.GetProperty("data").EnumerateArray().Select(m => m.GetProperty("id").GetString()).OfType<string>(),
+            (listed, configured) => string.Equals(listed, configured, StringComparison.OrdinalIgnoreCase), ct);
+    }
 
     /// <inheritdoc/>
     /// <remarks>A registration that does not produce vectors answers <see cref="ProviderVerdict.Unsupported"/>

@@ -23,6 +23,9 @@ public sealed class OllamaProvider : IModelProvider, IVectorProvider
     private readonly OllamaOptions _config;
     private readonly HttpChatEngine? _chat;
     private readonly HttpVectorTransport? _embed;
+    private readonly Func<HttpClient> _httpFactory;
+    private readonly bool _disposeHttpClient;
+    private readonly TimeSpan _timeout;
 
     /// <param name="id">The router-facing provider id.</param>
     /// <param name="config">The registration's options; see <see cref="OllamaOptions"/>.</param>
@@ -49,6 +52,9 @@ public sealed class OllamaProvider : IModelProvider, IVectorProvider
         ValidateInputBound(config);
         _id = id;
         _config = config;
+        _httpFactory = httpFactory;
+        _disposeHttpClient = disposeHttpClient;
+        _timeout = options.ProviderTimeout;
         ILogger log = logger ?? NullLogger<OllamaProvider>.Instance;
         _chat = ServesText(config)
             ? new HttpChatEngine(id, new OllamaChatWire(config, log), httpFactory, options, log, disposeHttpClient)
@@ -121,6 +127,27 @@ public sealed class OllamaProvider : IModelProvider, IVectorProvider
     }
 
     public bool IsAvailable => !string.IsNullOrWhiteSpace(_config.BaseUrl);
+
+    /// <summary>Asks the server: one GET of <c>/api/tags</c>, which generates nothing. Unavailable when it is
+    /// unreachable, refuses the key or errors. <see cref="ProviderProbeResult.Models"/> carries the pulled models,
+    /// and <see cref="ProviderProbeResult.Model"/> the configured one when it is pulled — an untagged name matches
+    /// its <c>:latest</c>, as Ollama resolves it.</summary>
+    public Task<ProviderProbeResult> ProbeAsync(CancellationToken ct = default)
+    {
+        if (!IsAvailable) return Task.FromResult(new ProviderProbeResult(false, "not configured: no BaseUrl"));
+        return HttpProbe.RunAsync(_httpFactory, _disposeHttpClient, _timeout,
+            new Uri(_config.BaseUrl.TrimEnd('/') + "/api/tags"),
+            request => HttpEndpoint.ApplyAuth(request, _config.ApiKey, azureConventions: false),
+            HttpEndpoint.HasCredentials(_config.ApiKey), _config.Model,
+            root => root.GetProperty("models").EnumerateArray().Select(m => m.GetProperty("name").GetString()).OfType<string>(),
+            Pulled, ct);
+    }
+
+    /// <summary>Whether a pulled name is the configured model: exact, or its <c>:latest</c> when the configured
+    /// name carries no tag.</summary>
+    private static bool Pulled(string listed, string configured) =>
+        string.Equals(listed, configured, StringComparison.OrdinalIgnoreCase)
+        || (!configured.Contains(':') && string.Equals(listed, configured + ":latest", StringComparison.OrdinalIgnoreCase));
 
     /// <inheritdoc/>
     /// <remarks>A registration that does not produce text answers <see cref="ProviderVerdict.Unsupported"/>.</remarks>

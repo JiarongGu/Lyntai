@@ -5161,12 +5161,12 @@ fields, so two references to one entry would compare unequal.
 
 **Known limits.** A union can hide one GRAPH member's miss behind another's; the remedy is writing through
 the member. `SimilarityK <= 0` embeds nothing, so such an engine never reports `Similarity` on a write while
-its recalls still do. And four best-effort steps of the graph write are logged, never flagged: the annotator
-(whose failure also drops the write's subjects and stores an unstated grade as `Associative`), the
-subject-index write, the similarity links, and salience (the node's `ProvenanceSalience` names who produced
-its STORED signals, not what this write did).
-**The trigger** for flagging one is a consumer whose rebuild must be sure of it — one that rebuilds with an
-annotator wired and needs the subjects recorded; the flag set grows additively.
+its recalls still do. Two best-effort steps of the graph write are logged, never flagged: the similarity
+links, and salience (the node's `ProvenanceSalience` names who produced its STORED signals, not what this write
+did). **The annotator and the subject-index write are flagged together as `Annotation`** (2026-09-26): an
+adopting app rebuilds with an annotator wired and guarded every cause of a write losing its subjects for good,
+which was this entry's trigger; a failed annotator still stores an unstated grade as `Associative`. The flag
+set grows the same way, one flag per consumer that must be sure of a step.
 
 **Deferred: a readiness probe** — "can the engine embed right now?". `Ran` serves the rebuild, and a public
 probe would publish the internal embedding route's filter for a need nobody has shown. **The trigger** is a

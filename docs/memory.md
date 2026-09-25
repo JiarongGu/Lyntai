@@ -705,7 +705,7 @@ foreach (var item in recall.Items)
 `TaskKey` and `Scope` are the two-level namespace: everything is stored and recalled within a
 `(taskKey, scope)` pair, and a `null` scope means "the task's default".
 
-### Know whether a write kept its vector
+### Know whether a write kept its vector — and its subjects
 
 A write's `Ran` is the write side of a recall's `Ran` (**D175**): each flag says a tier of that kind took THIS
 write, so an entry stored without its vector — the embedder down, the vector store refusing it — is visible
@@ -714,7 +714,10 @@ with `HasFlag`, since flags may be added:
 
 - **Graph** — `Similarity` when this write's vector was indexed, even if its neighbour search failed and
   nothing was linked. With `GraphMemoryOptions.SimilarityK` at zero nothing is embedded, so no write
-  carries it, while a recall still reports it (there it means enrichment is wired).
+  carries it, while a recall still reports it (there it means enrichment is wired). **`Annotation`** when the
+  annotator answered for this write — with subjects or with none — and what it answered was recorded; absent
+  when no annotator is wired, when it failed or timed out, or when the subject index refused the write, since
+  the entry is then stored without its subjects for good. A recall reports it when an annotator is wired.
 - **Semantic** — `Semantic`, which already means the vector exists (the store throws on a failed embed), and
   never `Similarity`. Over the shipped `SemanticMemory`, a BLANK write stores nothing and reports `None`, so a
   rebuild skips it rather than waiting on it.
@@ -723,9 +726,9 @@ with `HasFlag`, since flags may be added:
   still reads `Similarity`. Write through the member (`"<engine>/<member>"`, which `IMemoryEngineFactory`
   resolves by hierarchical name) to see its own result.
 
-`Ran` covers the storage tiers and the vector index and nothing else; a storage tier that fails throws rather
-than going missing. The graph engine's annotation, subject index, similarity links and salience are
-best-effort, logged, and not reported — the stored node's `GraphNode.ProvenanceSalience` names the policies
+`Ran` covers the storage tiers, the vector index and the annotation and nothing else; a storage tier that fails
+throws rather than going missing. The graph engine's similarity links and salience are best-effort, logged,
+and not reported — the stored node's `GraphNode.ProvenanceSalience` names the policies
 behind its STORED signals, which a later write whose policies all decline leaves as they were.
 
 ### Keep a fact exactly, forever

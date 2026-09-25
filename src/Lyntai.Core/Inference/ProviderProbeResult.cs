@@ -12,4 +12,10 @@ namespace Lyntai.Inference;
 /// <param name="Version">The backend's own version, where it reports one.</param>
 /// <param name="Model">The model the backend reports it is serving, where it names one.</param>
 public sealed record ProviderProbeResult(
-    bool Available, string? Detail = null, string? Version = null, string? Model = null);
+    bool Available, string? Detail = null, string? Version = null, string? Model = null)
+{
+    /// <summary>The models the backend lists, in its own order; empty where it lists none or was not asked.
+    /// <b>Compared by reference</b> in the record's equality, as a list property is — compare the contents
+    /// yourself.</summary>
+    public IReadOnlyList<string> Models { get; init; } = [];
+}

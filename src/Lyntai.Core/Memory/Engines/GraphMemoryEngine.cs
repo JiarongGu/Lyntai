@@ -197,6 +197,12 @@ public sealed class GraphMemoryEngine(
 
     private bool Enriches => _vectors.Enriches;
 
+    /// <summary>What a non-empty recall reports: the graph, plus the WRITE-side tiers as configuration.</summary>
+    private MemorySources RecallSources =>
+        MemorySources.Graph
+        | (Enriches ? MemorySources.Similarity : MemorySources.None)
+        | (_annotation is not null ? MemorySources.Annotation : MemorySources.None);
+
     /// <summary>This engine embeds every write and no recall reads those vectors — a vector backend and a vector
     /// store are wired, so novelty and similarity linking run on the WRITE path, while no
     /// <see cref="SemanticSeedSource"/> is registered so the READ path consults none of it. Still the shipped
@@ -235,7 +241,7 @@ public sealed class GraphMemoryEngine(
         // BEFORE the upsert, because a suggested grade has to reach the row being written — grade is not
         // something a later update can fix up without a second write and a window where the fact is stored
         // at the wrong one.
-        var annotated = await AnnotateAsync(write, ct).ConfigureAwait(false);
+        var (annotated, answered) = await AnnotateAsync(write, ct).ConfigureAwait(false);
 
         // An explicit grade always wins: a model may advise what matters, never overrule the application.
         // `stated` carries that same rule ACROSS TIME — only a caller-named grade may overwrite what is
@@ -272,17 +278,20 @@ public sealed class GraphMemoryEngine(
             ct).ConfigureAwait(false);
 
         var indexed = await EnrichAsync(id, write, search, ct).ConfigureAwait(false);
-        await LinkBySubjectAsync(id, write, annotated, ct).ConfigureAwait(false);
+        var recorded = await LinkBySubjectAsync(id, write, annotated, ct).ConfigureAwait(false);
         return new MemoryWriteResult(new MemoryRef(Name, id.ToString(CultureInfo.InvariantCulture)),
-            MemorySources.Graph | (indexed ? MemorySources.Similarity : MemorySources.None));
+            MemorySources.Graph
+            | (indexed ? MemorySources.Similarity : MemorySources.None)
+            | (answered && recorded ? MemorySources.Annotation : MemorySources.None));
     }
 
     /// <summary>Ask the annotator what this fact is about, showing it recent entries so a pronoun is
     /// resolvable. BEST-EFFORT: no annotator, or a failing one, yields <see cref="MemoryAnnotation.None"/>
-    /// and the write proceeds exactly as it would have — the model-free floor is not negotiable.</summary>
-    private async Task<MemoryAnnotation> AnnotateAsync(MemoryWrite write, CancellationToken ct)
+    /// and the write proceeds exactly as it would have — the model-free floor is not negotiable. <c>Answered</c>
+    /// is false for both, which is what <see cref="MemorySources.Annotation"/> reports.</summary>
+    private async Task<(MemoryAnnotation Annotation, bool Answered)> AnnotateAsync(MemoryWrite write, CancellationToken ct)
     {
-        if (_annotation is null) return MemoryAnnotation.None;
+        if (_annotation is null) return (MemoryAnnotation.None, false);
         try
         {
             // Recent entries, newest first — the no-query seed path, which is enumeration rather than
@@ -302,8 +311,8 @@ public sealed class GraphMemoryEngine(
                 : await store.KnownSubjectsAsync(Name, write.TaskKey, write.Scope,
                     _options.AnnotationKnownSubjects, ct).ConfigureAwait(false);
 
-            return await _annotation.AnnotateAsync(new MemoryAnnotationRequest(write, recent, known), ct)
-                .ConfigureAwait(false) ?? MemoryAnnotation.None;
+            return ((await _annotation.AnnotateAsync(new MemoryAnnotationRequest(write, recent, known), ct)
+                .ConfigureAwait(false)) ?? MemoryAnnotation.None, true);
         }
         // Only the CALLER's cancellation propagates, as on VerifyAsync and for the same reason: an
         // annotator's own timeout arrives as a TaskCanceledException — which IS an
@@ -313,7 +322,7 @@ public sealed class GraphMemoryEngine(
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "memory annotation failed for {Engine}; storing without it", Name);
-            return MemoryAnnotation.None;
+            return (MemoryAnnotation.None, false);
         }
     }
 
@@ -335,17 +344,17 @@ public sealed class GraphMemoryEngine(
     /// self-links are skipped — a node propping up its own Degree and Strength would prop up its own
     /// retrievability forever.</para>
     /// </summary>
-    private async Task LinkBySubjectAsync(long id, MemoryWrite write, MemoryAnnotation annotated,
+    private async Task<bool> LinkBySubjectAsync(long id, MemoryWrite write, MemoryAnnotation annotated,
         CancellationToken ct)
     {
         // canonical first: the store records "Alice" and " alice " as one handle, so looking both up would link
         // the same pair twice — and duplicate links ADD weight
         var subjects = MemorySubject.Canonicalize(annotated.Subjects);
-        if (subjects.Count == 0) return;
+        if (subjects.Count == 0) return true;
         try
         {
             await store.RecordSubjectsAsync(Name, id, subjects, ct).ConfigureAwait(false);
-            if (_options.AnnotationLinkK <= 0) return;
+            if (_options.AnnotationLinkK <= 0) return true;
 
             // one batch for the write: the edges come from one event, so one position stamps them all
             var edges = new List<GraphEdgeWrite>();
@@ -360,11 +369,13 @@ public sealed class GraphMemoryEngine(
                     if (other != id) edges.Add(new GraphEdgeWrite(id, other, "subject", 1, Symmetric: true));
             }
             if (edges.Count > 0) await store.LinkManyAsync(Name, edges, ct).ConfigureAwait(false);
+            return true;
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "subject linking failed for {Engine}; the entry is stored unlinked", Name);
+            return false;
         }
     }
 
@@ -547,7 +558,7 @@ public sealed class GraphMemoryEngine(
         // consumer abstaining on `false` does not abstain on everything.
         var answered = verdict.Judged ? verdict.RelevantIds.Count > 0 : (bool?)null;
 
-        return new MemoryRecall(items, MemorySources.Graph | (Enriches ? MemorySources.Similarity : 0), answered);
+        return new MemoryRecall(items, RecallSources, answered);
     }
 
     /// <summary>The candidate set, or <c>null</c> where <see cref="RecallAsync"/>'s fail-open promise fired.
@@ -726,7 +737,7 @@ public sealed class GraphMemoryEngine(
         // The budget bounds the NEIGHBOURS, never the entry itself — the cut keeps its first item whatever it
         // costs. Null takes the engine's configured budget, itself null (unbounded) unless a host sets one.
         var result = (charBudget ?? _options.ExpandCharBudget) is { } budget ? MemoryBudget.Cut(items, budget) : items;
-        return new MemoryRecall(result, MemorySources.Graph | (Enriches ? MemorySources.Similarity : 0));
+        return new MemoryRecall(result, RecallSources);
     }
 
     /// <inheritdoc />

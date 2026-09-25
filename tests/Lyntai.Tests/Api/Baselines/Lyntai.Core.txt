@@ -1164,6 +1164,7 @@ sealed class Lyntai.Inference.ProviderProbeResult
     Equals(ProviderProbeResult other) : Boolean
     GetHashCode() : Int32
     Model : String { get; init; }
+    Models : IReadOnlyList<String> { get; init; }
     ToString() : String
     Version : String { get; init; }
 struct Lyntai.Inference.ProviderRegistration`1
@@ -2314,6 +2315,7 @@ static class Lyntai.Memory.MemorySignalsJson
     static Deserialize(String json) : MemorySignals
     static Serialize(MemorySignals signals) : String
 enum Lyntai.Memory.MemorySources
+    Annotation : MemorySources const
     Curated : MemorySources const
     Graph : MemorySources const
     Lexical : MemorySources const

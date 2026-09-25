@@ -35,6 +35,19 @@ every addition.
   the WebUI is benched, so one started later is asked again once its cooldown ends rather than on the next call.
   A missing `BaseUrl` is still `NotConfigured`.
 
+### Added
+
+- **An HTTP text backend's `ProbeAsync` asks its server**: one GET of its model listing (`/v1/models` under the
+  registration's URL and auth rules, Ollama's `/api/tags`), which generates nothing. It is unavailable when the
+  server is unreachable, refuses the key or errors, and available when it lists or has no listing route. Until
+  now it reported available whenever a `BaseUrl` was set. `ProviderProbeResult.Models` carries the listing, and
+  `Model` the configured model when it is listed; one the listing omits is noted in `Detail`, not reported as
+  down, since llama-server serves whatever is loaded.
+- **A graph write reports whether it kept its subjects: `MemorySources.Annotation`** (**D175**). Set when the
+  annotator answered for the write and what it answered was recorded; absent when none is wired, it failed or
+  timed out, or the subject index refused the write — the entry is then stored without its subjects for good,
+  so a rebuild that needs them retries the write. A recall reports it when an annotator is wired.
+
 ### Fixed
 
 - **Documentation that described what 3.3.0 does not do.** A bridge answers text only — README and the

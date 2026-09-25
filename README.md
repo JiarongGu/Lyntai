@@ -495,7 +495,11 @@ decorated interface fails the tests until it is listed here, and so does a row n
 `ProbeAsync` is on `IModelProvider` itself (**D127**), so *every* backend answers "is this usable right now?"
 without running a completion. Three **optional** capabilities — `IProviderUpdater`,
 `IProviderVersionInstaller`, `IProviderAuth` — are discovered by pattern-matching, and all **fail safe**: an
-absent, stalled or erroring backend is reported, never thrown.
+absent, stalled or erroring backend is reported, never thrown. An HTTP backend answers by ASKING its server
+— one GET of its model listing (`/v1/models`, Ollama's `/api/tags`), which generates nothing — so a setup
+screen's "test connection" learns whether the server is reachable, whether it accepts the key, and what it
+serves (`probe.Models`). A server with no listing route is reachable, and a configured model it does not list
+is reported in `probe.Detail` rather than as down, since llama-server serves whatever is loaded.
 
 ```csharp
 foreach (var provider in serviceProvider.GetServices<IModelProvider>())

@@ -119,6 +119,13 @@ public enum MemorySources
     /// seeing no linked material can tell "nothing similar was ever found" from "similarity is not configured
     /// here".</para></summary>
     Similarity = 16,
+    /// <summary>The annotation tier, which records what an entry is about. <b>On a write it reports
+    /// CONTRIBUTION</b>: the annotator answered for this write — with subjects or with none — and what it
+    /// answered was recorded. Absent when no annotator is wired, when it failed or timed out, or when recording
+    /// its subjects failed, since the entry is then stored without them for good: a rebuild that needs them
+    /// retries the write. <b>On a recall it reports CONFIGURATION</b>: an annotator is wired, as
+    /// <see cref="Similarity"/> does, and for the same reason — its edges are indistinguishable by then.</summary>
+    Annotation = 32,
 }
 
 /// <summary>An entry's address.
