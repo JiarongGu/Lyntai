@@ -55,7 +55,7 @@ public sealed class ProviderRouter<TRequest, TResponse>(
 {
     private readonly ILogger _logger = logger ?? NullLogger.Instance;
     private readonly RoutingPolicy _policy = policy ?? new RoutingPolicy();
-    private readonly Func<IModelProvider, ProviderKey?> _configuration = configuration ?? (_ => null);
+    private readonly RouterBookkeeping _bookkeeping = new(deadHosts, admission, configuration, cooldownScope);
 
     /// <summary>The registered backends that serve this call shape AND report themselves usable, in
     /// registration order.
@@ -100,12 +100,10 @@ public sealed class ProviderRouter<TRequest, TResponse>(
                     gov.Options.Budget, gate, consumer, includeTokens: true, _logger, ct).ConfigureAwait(false)
                 is { } reason)
                 return synthesize(ProviderVerdict.Refused, reason);
-            if (gov.Limiter is { } limiter && !await limiter.AcquireAsync(consumer, ct).ConfigureAwait(false))
-            {
-                _logger.LogInformation("client-side rate limit exceeded for consumer {Consumer}", consumer);
-                Diagnostics.LyntaiDiagnostics.RecordRateLimitRefusal(consumer);
-                return synthesize(ProviderVerdict.RateLimited, "client-side rate limit exceeded");
-            }
+            if (gov.Limiter is { } limiter && await RateLimiting.RateGate.RefuseAsync(
+                    limiter, consumer, RateLimiting.RateGate.Exceeded, _logger, ct).ConfigureAwait(false)
+                is { } throttled)
+                return synthesize(ProviderVerdict.RateLimited, throttled);
         }
 
         var response = await RouteAsync(request, ct).ConfigureAwait(false);
@@ -124,48 +122,19 @@ public sealed class ProviderRouter<TRequest, TResponse>(
         var sole = capable.Count == 1;
         foreach (var provider in capable)
         {
-            var key = CooldownKey(provider);
-            if (!(sole && _policy.ExemptSoleCandidate) && deadHosts?.IsDead(key) == true)
+            var key = _bookkeeping.Key(provider);
+            if (_bookkeeping.IsBenched(key, sole, _policy.ExemptSoleCandidate))
             {
                 _logger.LogDebug("router: skipping {Provider} — dead-host cooldown", provider.Id);
                 benched++;
                 continue;
             }
 
-            var retries = 0;
-            while (true)
-            {
-                var response = await AttemptAsync(provider, request, ct).ConfigureAwait(false);
-                if (response.Verdict == ProviderVerdict.Ok)
-                {
-                    deadHosts?.RecordSuccess(key);
-                    return response;
-                }
-
-                var action = _policy.ActionFor(response.Verdict);
-                if (action == FallbackAction.Surface) return response;
-
-                if (response.Verdict.IsBlameless()) lastBlameless = response; else last = response;
-
-                if (action == FallbackAction.CooldownAndAdvance)
-                {
-                    deadHosts?.MarkDead(key);
-                    break;
-                }
-                if (action == FallbackAction.PenalizeAndAdvance)
-                {
-                    if (_policy.ShouldRetrySameCandidate(response.Verdict, ++retries))
-                    {
-                        if (_policy.RetryBackoff > TimeSpan.Zero)
-                            await Task.Delay(_policy.RetryBackoff, ct).ConfigureAwait(false);
-                        continue; // retries are part of ONE attempt — no failure recorded yet
-                    }
-                    // exactly ONE failure per request, never one per retry: recording per retry would cross
-                    // the dead-host threshold inside a single call
-                    deadHosts?.RecordFailure(key);
-                }
-                break;
-            }
+            var returned = await CandidateAttempt.RunAsync(
+                () => AttemptAsync(provider, request, ct),
+                response => { if (response.Verdict.IsBlameless()) lastBlameless = response; else last = response; },
+                _policy, deadHosts, key, onRetry: null, ct).ConfigureAwait(false);
+            if (returned is not null) return returned;
         }
 
         // every attempted backend filled a slot or returned, so reaching the synthetic reply means none was tried:
@@ -184,9 +153,7 @@ public sealed class ProviderRouter<TRequest, TResponse>(
     private async Task<TResponse> AttemptAsync(
         IProviderCall<TRequest, TResponse> provider, TRequest request, CancellationToken ct)
     {
-        using var permit = admission is not null && _configuration(provider) is { } key
-            ? await admission.EnterAsync(key, ct).ConfigureAwait(false)
-            : null;
+        using var permit = await _bookkeeping.EnterAsync(provider, ct).ConfigureAwait(false);
         try
         {
             return await provider.CallAsync(request, ct).ConfigureAwait(false);
@@ -201,7 +168,4 @@ public sealed class ProviderRouter<TRequest, TResponse>(
             return synthesize(ProviderVerdictClassifier.FromThrown(ex), $"{provider.Id}: {ex.Message}");
         }
     }
-
-    private string CooldownKey(IModelProvider provider) =>
-        cooldownScope + (_configuration(provider)?.ToString() ?? provider.Id);
 }

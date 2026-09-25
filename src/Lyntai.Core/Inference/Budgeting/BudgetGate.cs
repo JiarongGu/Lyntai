@@ -6,8 +6,7 @@ namespace Lyntai.Inference.Budgeting;
 
 /// <summary>The one budget check: the applicable accumulated totals against the configured caps, global
 /// then per-consumer, reading a total only when a cap needs it. Shared by the text door, the media router
-/// and the generic router's governance — it was two private copies once, and the third consumer is what
-/// forced the extraction (the D77 rule: share the engine-independent correctness logic).</summary>
+/// and the generic router's governance (the D77 rule: share the engine-independent correctness logic).</summary>
 internal static class BudgetGate
 {
     /// <summary>The refusal reason when a cap that applies to <paramref name="consumer"/> has been reached,
@@ -45,6 +44,15 @@ internal static class BudgetGate
 
         return null;
     }
+
+    /// <summary>Record what a render reported costing into the ledger, as a cost-only entry
+    /// (<see cref="MediaUsage.ToProviderUsage"/>) — the one place generation spend maps onto the ledger. A render
+    /// that reported no positive cost records nothing.</summary>
+    internal static ValueTask RecordCostAsync(
+        IUsageTracker tracker, string consumer, MediaUsage? usage, CancellationToken ct = default) =>
+        usage is { CostUsd: > 0 }
+            ? tracker.RecordAsync(consumer, usage.ToProviderUsage(), ct)
+            : ValueTask.CompletedTask;
 
     private static string Refuse(string label, double cap, ILogger logger)
     {

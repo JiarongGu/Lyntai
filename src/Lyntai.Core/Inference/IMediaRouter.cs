@@ -73,4 +73,10 @@ public interface IMediaRouter
 /// is meaningless without knowing who issued it.</summary>
 /// <param name="ProviderId">The backend holding the operation; empty when no candidate accepted the job.</param>
 /// <param name="Operation">The operation handle.</param>
-public sealed record MediaSubmission(string ProviderId, QueuedOperation Operation);
+public sealed record MediaSubmission(string ProviderId, QueuedOperation Operation)
+{
+    /// <summary>A submission no candidate accepted — an empty <see cref="ProviderId"/>, which
+    /// <see cref="IMediaRouter.SubmitAsync"/> documents as exactly that — with its verdict and reason.</summary>
+    public static MediaSubmission Failure(ProviderVerdict verdict, string? detail) =>
+        new("", QueuedOperation.Failure(detail, verdict));
+}

@@ -60,11 +60,7 @@ public sealed class BudgetedMediaRouter(
         IReadOnlyList<ProviderCandidate> candidates, MediaRequest request, CancellationToken ct = default)
     {
         if (await OverBudgetAsync(request.Consumer, ct).ConfigureAwait(false) is { } reason)
-            return new MediaSubmission("",   // the inline door's verdict, so both doors refuse alike
-                new QueuedOperation("", QueuedOperationStatus.Failed, Detail: reason)
-                {
-                    Verdict = ProviderVerdict.Refused,
-                });
+            return MediaSubmission.Failure(ProviderVerdict.Refused, reason); // the inline door's verdict
 
         return await inner.SubmitAsync(candidates, request, ct).ConfigureAwait(false);
     }
@@ -98,23 +94,14 @@ public sealed class BudgetedMediaRouter(
         }
     }
 
-    /// <summary>Record a reported cost into the shared ledger as a cost-only entry — one place
-    /// that knows how generation spend maps onto the ledger, in the ledger's own currency
-    /// (<see cref="ProviderUsage"/> — it used to fabricate a zero-token <see cref="TextUsage"/>, the
-    /// shape-named type D162 retyped the ledger away from).
-    /// <para><b>Internal.</b> Its previous doc said "public so the durable-render handler can record …", and
-    /// that handler is <c>GenerationRenderJobHandler</c>, in THIS assembly — so the stated reason was
-    /// satisfied by <c>internal</c> and the surface was a permanent promise nothing outside had asked for.
-    /// Recording generation spend is something the library's own components do on a caller's behalf; if it
-    /// ever becomes a consumer capability it belongs on <see cref="IUsageTracker"/>, not on a router decorator.</para></summary>
+    /// <summary>Forwards to <see cref="Budgeting.BudgetGate.RecordCostAsync"/>, where generation spend is mapped
+    /// onto the ledger; kept for the durable job handlers that record a finished render's cost.</summary>
     internal static ValueTask RecordAsync(
         IUsageTracker tracker, string consumer, MediaUsage? usage, CancellationToken ct = default) =>
-        usage?.CostUsd is { } cost && cost > 0
-            ? tracker.RecordAsync(consumer, new ProviderUsage(CostUsd: cost), ct)
-            : ValueTask.CompletedTask;
+        Budgeting.BudgetGate.RecordCostAsync(tracker, consumer, usage, ct);
 
     private ValueTask RecordAsync(string consumer, MediaUsage? usage, CancellationToken ct) =>
-        RecordAsync(tracker, consumer, usage, ct);
+        Budgeting.BudgetGate.RecordCostAsync(tracker, consumer, usage, ct);
 
     /// <summary>The refusal reason when a COST cap that applies to <paramref name="consumer"/> has been
     /// reached — delegated to the ONE <see cref="Budgeting.BudgetGate"/> the text door and the generic

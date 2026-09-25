@@ -27,20 +27,15 @@ namespace Lyntai.Inference;
 /// single-configuration deployment. Supply one when several configurations of a backend id are live at once,
 /// or one tenant's rate limit benches every other tenant sharing that backend.
 /// <see cref="IProviderPool{TProvider}.TryGetKey"/> is the intended source; composes with
-/// <see cref="CooldownScope.ProviderAndModel"/>, which still appends the model.
-///
-/// <para><b>Must return a STABLE key for a given instance.</b> One routing attempt invokes it more than once
-/// — cooldown key, admission, and the record that follows — so a varying answer records cooldown under a key
-/// different from the one checked, producing a bench that silently never takes effect. Look the key up (as a
-/// pool does); never recompute it from live state.</para></param>
+/// <see cref="CooldownScope.ProviderAndModel"/>, which still appends the model. <b>Must return a STABLE key
+/// for a given instance</b>: one attempt asks it more than once, so a varying answer benches a key nobody
+/// checks. Look the key up (as a pool does); never recompute it from live state.</param>
 /// <param name="admission">Bounds concurrent completions per configuration — for a locally-run engine where
 /// simultaneous calls contend for one CPU or GPU. Null = unbounded. Applied HERE rather than by wrapping a
 /// provider, so no optional capability interface a caller type-tests for is erased by a decorator.
-///
-/// <para><b>Completions only — <see cref="StreamAsync"/> is deliberately NOT gated.</b> A stream holds its
-/// permit for the whole response, and paired with the no-fallback-after-the-first-token rule that means a
-/// consumer which simply stops enumerating would hold a permit until its enumerator is finally disposed.
-/// Bounding a long-lived stream needs a lease the consumer cannot forget, which this is not.</para></param>
+/// <b>Completions only — <see cref="StreamAsync"/> is deliberately NOT gated</b>: a stream holds its permit
+/// for the whole response, so a consumer that simply stops enumerating would pin it until its enumerator is
+/// disposed.</param>
 public sealed class TextRouter(
     IEnumerable<IModelProvider> providers,
     DeadHostTracker deadHosts,
@@ -52,10 +47,7 @@ public sealed class TextRouter(
 {
     private readonly ILogger _logger = logger ?? NullLogger<TextRouter>.Instance;
     private RoutingPolicy Policy => options.Routing;
-
-    // resolved once: the no-delegate case must cost nothing per candidate, and a null-returning delegate must
-    // be indistinguishable from no delegate at all
-    private readonly Func<IModelProvider, ProviderKey?> _configuration = configuration ?? (_ => null);
+    private readonly RouterBookkeeping _bookkeeping = new(deadHosts, admission, configuration);
 
     // built once — O(1) per candidate/retry. Case-insensitive, as ProviderPoolGuard accepts a pool slot cased
     // differently from the provider's own Id: an ordinal table left such a backend poolable and never tried.
@@ -71,48 +63,20 @@ public sealed class TextRouter(
         foreach (var (provider, effectiveModel, key) in LiveCandidates(routing, req, ProviderOperation.Complete, skipped))
         {
             WarnIfToolsUnsupported(provider, req, streaming: false);
-            // retry-then-advance: the same candidate may be retried on transient faults before advancing
-            var retries = 0;
-            while (true)
-            {
-                var reply = await TryCompleteAsync(provider, effectiveModel, req, ct).ConfigureAwait(false);
-                _logger.LogInformation("router: {Provider} (model {Model}) → {Verdict}{Detail}",
-                    provider.Id, effectiveModel ?? "(default)", reply.Verdict,
-                    reply.Verdict == ProviderVerdict.Ok ? "" : $" — {reply.Detail}");
-
-                if (reply.Verdict == ProviderVerdict.Ok)
+            var returned = await CandidateAttempt.RunAsync(
+                async () =>
                 {
-                    deadHosts.RecordSuccess(key);
+                    var reply = await TryCompleteAsync(provider, effectiveModel, req, ct).ConfigureAwait(false);
+                    _logger.LogInformation("router: {Provider} (model {Model}) → {Verdict}{Detail}",
+                        provider.Id, effectiveModel ?? "(default)", reply.Verdict,
+                        reply.Verdict == ProviderVerdict.Ok ? "" : $" — {reply.Detail}");
                     return reply;
-                }
-
-                var action = Policy.ActionFor(reply.Verdict);
-                if (action == FallbackAction.Surface)
-                    return reply; // content policy follows the prompt, not the host — surface as-is
-
+                },
                 // a blameless verdict must never MASK a real one — see IsBlameless
-                if (reply.Verdict.IsBlameless()) lastBlameless = reply; else last = reply;
-                if (action == FallbackAction.CooldownAndAdvance)
-                {
-                    deadHosts.MarkDead(key); // §6 amended: terminal for this host, advance to the next
-                    break;
-                }
-                if (action == FallbackAction.PenalizeAndAdvance)
-                {
-                    if (Policy.ShouldRetrySameCandidate(reply.Verdict, ++retries))
-                    {
-                        _logger.LogDebug("router: retrying {Provider} ({Retry}/{Budget}) after {Verdict}",
-                            provider.Id, retries, Policy.RetriesFor(reply.Verdict), reply.Verdict);
-                        if (Policy.RetryBackoff > TimeSpan.Zero) await Task.Delay(Policy.RetryBackoff, ct).ConfigureAwait(false);
-                        continue; // retries are part of ONE attempt at this candidate — no failure recorded yet
-                    }
-                    // retries exhausted: record exactly ONE failure for this request (not one per retry —
-                    // that would cross the dead-host threshold within a single call)
-                    deadHosts.RecordFailure(key);
-                }
-                // Advance (no host penalty) or exhausted retries → next candidate
-                break;
-            }
+                reply => { if (reply.Verdict.IsBlameless()) lastBlameless = reply; else last = reply; },
+                Policy, deadHosts, key, (verdict, retry) => LogRetry("", provider, verdict, retry), ct)
+                .ConfigureAwait(false);
+            if (returned is not null) return returned;
         }
 
         // a real failure outranks a blameless one; with no real failure the blameless verdict is still the
@@ -137,9 +101,7 @@ public sealed class TextRouter(
 
             // pre-content retry-then-advance: streaming can only retry BEFORE the first token (after
             // it, no fallback at all). Each pass is a fresh stream attempt on the same candidate.
-            var advance = false;
-            var retries = 0;
-            while (!advance)
+            for (var retries = 1; ; retries++)
             {
                 var attempt = new StreamAttempt();
                 await foreach (var chunk in StreamOnceAsync(provider, effective, key, failures, attempt, ct)
@@ -147,23 +109,18 @@ public sealed class TextRouter(
                     yield return chunk;
                 if (attempt.Done) yield break;
 
-                // pre-content failure: retry the same candidate if the policy allows, else advance
-                if (Policy.ShouldRetrySameCandidate(attempt.RetryVerdict, ++retries))
-                {
-                    _logger.LogDebug("router: retrying stream {Provider} ({Retry}/{Budget}) after {Verdict}",
-                        provider.Id, retries, Policy.RetriesFor(attempt.RetryVerdict), attempt.RetryVerdict);
-                    if (Policy.RetryBackoff > TimeSpan.Zero) await Task.Delay(Policy.RetryBackoff, ct).ConfigureAwait(false);
-                    continue; // retries are part of ONE attempt — no failure recorded yet
-                }
-                // retries exhausted: record exactly ONE failure for a penalize verdict (not one per retry)
-                if (Policy.ActionFor(attempt.RetryVerdict) == FallbackAction.PenalizeAndAdvance)
-                    deadHosts.RecordFailure(key);
-                advance = true;
+                if (!await CandidateAttempt.RetryAsync(Policy, deadHosts, key, attempt.RetryVerdict, retries,
+                        (verdict, retry) => LogRetry("stream ", provider, verdict, retry), ct).ConfigureAwait(false))
+                    break;
             }
         }
 
         yield return failures.Closing(skipped);
     }
+
+    private void LogRetry(string door, IModelProvider provider, ProviderVerdict verdict, int retry) =>
+        _logger.LogDebug("router: retrying {Door}{Provider} ({Retry}/{Budget}) after {Verdict}",
+            door, provider.Id, retry, Policy.RetriesFor(verdict), verdict);
 
     /// <summary>ONE stream attempt at one candidate, under its own span: read the provider's chunks, apply
     /// the two streaming invariants, and leave <paramref name="attempt"/> saying what the caller should do
@@ -429,7 +386,7 @@ public sealed class TextRouter(
         // the permit is taken BEFORE the span opens, so a queued call's wait never inflates the backend's
         // reported latency. Scoped with `using`, so the verdict return, the rethrown caller cancel and the
         // classified provider throw below all release it — a permit that escapes pins its gate forever.
-        using var permit = await EnterAdmissionAsync(provider, ct).ConfigureAwait(false);
+        using var permit = await _bookkeeping.EnterAsync(provider, ct).ConfigureAwait(false);
 
         var effective = req with { Model = effectiveModel };
         using var activity = LyntaiDiagnostics.StartChat(provider.Id, effective.Model);
@@ -522,22 +479,11 @@ public sealed class TextRouter(
                 provider.Id, streaming ? " on its stream" : "", tools.Count);
     }
 
-    /// <summary>Take a concurrency permit for this provider's CONFIGURATION, or nothing at all when no
-    /// admission is wired or the configuration is unknown. Never returns a handle the caller may skip
-    /// disposing: a permit that is not returned pins its gate for the life of the process, so the call site
-    /// scopes the result with <c>using</c> and lets success, failure, a throw and cancellation all release it
-    /// the same way.</summary>
-    private async ValueTask<IDisposable?> EnterAdmissionAsync(IModelProvider provider, CancellationToken ct) =>
-        admission is not null && _configuration(provider) is { } key
-            ? await admission.EnterAsync(key, ct).ConfigureAwait(false)
-            : null;
-
-    /// <summary>The dead-host key for a candidate: its CONFIGURATION when one is known, else its provider id
-    /// — so two configurations of one backend bench independently while two consumers of one downed host
-    /// share a bench — at the configured cooldown granularity, which composes on top either way.</summary>
+    /// <summary>The dead-host key for a candidate: the bookkeeping's BARE identity (configuration, else id) at
+    /// the configured cooldown granularity, which composes on top either way.</summary>
     private string CooldownKey(IModelProvider provider, string? effectiveModel)
     {
-        var identity = _configuration(provider)?.ToString() ?? provider.Id;
+        var identity = _bookkeeping.Key(provider);
         return Policy.CooldownScope == CooldownScope.ProviderAndModel
             ? $"{identity}::{effectiveModel ?? "(default)"}"
             : identity;
@@ -566,10 +512,7 @@ public sealed class TextRouter(
         }
         if (!provider.IsAvailable) { skipReason = "provider reports unavailable"; return null; }
 
-        // sole-candidate exemption: benching the only option just guarantees a synthetic failure —
-        // try it and let it fail with a real error / maybe succeed if the cooldown was stale
-        var exempt = soleCandidate && Policy.ExemptSoleCandidate;
-        if (!exempt && deadHosts.IsDead(CooldownKey(provider, effectiveModel)))
+        if (_bookkeeping.IsBenched(CooldownKey(provider, effectiveModel), soleCandidate, Policy.ExemptSoleCandidate))
         {
             skipReason = "dead-host cooldown";
             return null;

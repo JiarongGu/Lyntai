@@ -1042,6 +1042,7 @@ sealed class Lyntai.Inference.MediaSubmission
     Operation : QueuedOperation
     ProviderId : String
     ToString() : String
+    static Failure(ProviderVerdict verdict, String detail) : MediaSubmission
 sealed class Lyntai.Inference.MediaUsage
     .ctor(Nullable<Int32> Count = null, Nullable<Double> Seconds = null, Nullable<Double> CostUsd = null)
     CostUsd : Nullable<Double>
@@ -1238,10 +1239,12 @@ enum Lyntai.Inference.ProviderVerdict
     value__ : Int32
 static class Lyntai.Inference.ProviderVerdictClassifier
     static AddErrorTextMatcher(Func<String,Nullable<ProviderVerdict>> matcher) : IDisposable
+    static FromErrorText(String text, Boolean hasCredentials) : ProviderVerdict
     static FromErrorText(String text, ProviderVerdict fallback = ProviderVerdict.Failed) : ProviderVerdict
     static FromException(Exception ex) : ProviderVerdict
     static FromHttpFailure(HttpStatusCode status, String body) : ProviderVerdict
     static FromHttpFailure(HttpStatusCode status, String body, Boolean hasCredentials) : ProviderVerdict
+    static FromThrown(Exception ex) : ProviderVerdict
 static class Lyntai.Inference.ProviderVerdictExtensions
     static IsBlameless(ProviderVerdict verdict) : Boolean
     static IsOk(ProviderVerdict verdict) : Boolean
@@ -1260,6 +1263,8 @@ sealed class Lyntai.Inference.QueuedOperation
     Status : QueuedOperationStatus
     ToString() : String
     Verdict : Nullable<ProviderVerdict>
+    static Failure(String detail, Nullable<ProviderVerdict> verdict = null) : QueuedOperation
+    static FromThrownSubmit(Exception error, Boolean sent = true, String detail = null) : QueuedOperation
 enum Lyntai.Inference.QueuedOperationStatus
     Cancelled : QueuedOperationStatus const
     Failed : QueuedOperationStatus const

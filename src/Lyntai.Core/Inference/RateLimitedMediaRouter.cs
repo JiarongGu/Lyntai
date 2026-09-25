@@ -1,5 +1,4 @@
 using System.Runtime.CompilerServices;
-using Lyntai.Diagnostics;
 using Lyntai.Inference.RateLimiting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -35,11 +34,8 @@ public sealed class RateLimitedMediaRouter(
     public async Task<MediaResponse> GenerateAsync(
         IReadOnlyList<ProviderCandidate> candidates, MediaRequest request, CancellationToken ct = default)
     {
-        if (!await limiter.AcquireAsync(request.Consumer, ct).ConfigureAwait(false))
-        {
-            Throttled(request.Consumer);
-            return MediaResponse.Failure(ProviderVerdict.RateLimited, Reason);
-        }
+        if (await RefuseAsync(request.Consumer, ct).ConfigureAwait(false) is { } reason)
+            return MediaResponse.Failure(ProviderVerdict.RateLimited, reason);
         return await inner.GenerateAsync(candidates, request, ct).ConfigureAwait(false);
     }
 
@@ -47,15 +43,8 @@ public sealed class RateLimitedMediaRouter(
     public async Task<MediaSubmission> SubmitAsync(
         IReadOnlyList<ProviderCandidate> candidates, MediaRequest request, CancellationToken ct = default)
     {
-        if (!await limiter.AcquireAsync(request.Consumer, ct).ConfigureAwait(false))
-        {
-            Throttled(request.Consumer);
-            return new MediaSubmission("",   // the inline door's verdict, so both doors refuse alike
-                new QueuedOperation("", QueuedOperationStatus.Failed, Detail: Reason)
-                {
-                    Verdict = ProviderVerdict.RateLimited,
-                });
-        }
+        if (await RefuseAsync(request.Consumer, ct).ConfigureAwait(false) is { } reason)
+            return MediaSubmission.Failure(ProviderVerdict.RateLimited, reason); // the inline door's verdict
         return await inner.SubmitAsync(candidates, request, ct).ConfigureAwait(false);
     }
 
@@ -69,10 +58,9 @@ public sealed class RateLimitedMediaRouter(
         IReadOnlyList<ProviderCandidate> candidates, MediaRequest request,
         [EnumeratorCancellation] CancellationToken ct = default)
     {
-        if (!await limiter.AcquireAsync(request.Consumer, ct).ConfigureAwait(false))
+        if (await RefuseAsync(request.Consumer, ct).ConfigureAwait(false) is { } reason)
         {
-            Throttled(request.Consumer);
-            yield return MediaChunk.Failure(ProviderVerdict.RateLimited, Reason);
+            yield return MediaChunk.Failure(ProviderVerdict.RateLimited, reason);
             yield break;
         }
 
@@ -80,9 +68,6 @@ public sealed class RateLimitedMediaRouter(
             yield return chunk;
     }
 
-    private void Throttled(string consumer)
-    {
-        _logger.LogInformation("{Reason} for consumer {Consumer}", Reason, consumer);
-        LyntaiDiagnostics.RecordRateLimitRefusal(consumer);
-    }
+    private ValueTask<string?> RefuseAsync(string consumer, CancellationToken ct) =>
+        RateGate.RefuseAsync(limiter, consumer, Reason, _logger, ct);
 }
