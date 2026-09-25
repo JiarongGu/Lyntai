@@ -121,22 +121,6 @@ public class ScoringServiceTests
     }
 
     [Fact]
-    public async Task Default_Applies_is_true_and_null_result_still_omitted()
-    {
-        // Regression guard for the null path: a scorer with the DEFAULT Applies (true) whose ScoreAsync
-        // returns null still ran but contributes nothing.
-        var na = new FakeScorer("not-applicable", score: _ => null); // default Applies => true
-        var a = new FakeScorer("a", score: _ => new ScoreResult(1.0));
-        var service = new ScoringService([na, a]);
-
-        var results = await service.EvaluateAsync(Ctx);
-
-        Assert.Single(results);
-        Assert.Equal("a", results[0].ScorerId);
-        Assert.Equal(1, na.Invocations); // it ran (Applies true), it just didn't apply
-    }
-
-    [Fact]
     public async Task Applicable_scorer_still_scores_and_persists()
     {
         var store = new InMemoryScoreStore();

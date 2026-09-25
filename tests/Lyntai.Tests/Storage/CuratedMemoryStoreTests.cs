@@ -14,6 +14,8 @@ public abstract class CuratedMemoryStoreContractFacts
     [Fact] public Task Add_get_list() => CuratedMemoryStoreContract.Add_get_list_round_trips(NewStore());
     [Fact] public Task Update_partial() => CuratedMemoryStoreContract.Update_changes_only_the_provided_fields(NewStore());
     [Fact] public Task Recategorise_kind() => CuratedMemoryStoreContract.Update_can_recategorise_kind_in_place(NewStore());
+    [Fact] public Task Rescope_in_place() => CuratedMemoryStoreContract.Update_can_rescope_task_and_scope_in_place(NewStore());
+    [Fact] public Task Refuse_collision() => CuratedMemoryStoreContract.Update_refuses_an_identity_collision(NewStore());
     [Fact] public Task List_filters() => CuratedMemoryStoreContract.List_filters_by_kind_and_enabled(NewStore());
     [Fact] public Task List_by_scope() => CuratedMemoryStoreContract.List_filters_by_scope(NewStore());
     [Fact] public Task Dedup_add() => CuratedMemoryStoreContract.Dedup_add_is_idempotent(NewStore());

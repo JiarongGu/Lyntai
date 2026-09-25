@@ -440,6 +440,12 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
         SlotPg(JobStoreContract.A_slot_past_its_lease_is_reclaimed_and_a_heartbeat_prevents_it);
     [SkippableFact] public Task Job_slot_release_fenced() =>
         SlotPg(JobStoreContract.Releasing_a_slot_is_fenced_by_worker_id);
+    [SkippableFact] public Task Job_slot_heartbeat_spans_leases() =>
+        SlotPg(JobStoreContract.A_heartbeating_holder_keeps_its_slot_across_many_leases);
+    [SkippableFact] public Task Job_slot_heartbeat_no_revive() =>
+        SlotPg(JobStoreContract.A_heartbeat_does_not_revive_a_slot_already_reclaimed);
+    [SkippableFact] public Task Job_slot_cap_is_configuration() =>
+        SlotPg(JobStoreContract.Lowering_the_cap_needs_no_cleanup);
     [SkippableFact] public Task Job_slot_cap_non_positive() =>
         SlotPg(JobStoreContract.A_non_positive_cap_hands_out_no_slot);
 

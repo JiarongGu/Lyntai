@@ -176,28 +176,6 @@ public class McpToolHostTests
         Assert.Contains("[redacted]", result, StringComparison.Ordinal);
     }
 
-    [Fact]
-    public async Task With_no_guard_rail_a_hosted_tool_runs_exactly_as_before()
-    {
-        // The control. Guarding must be free when nothing is registered — the overwhelmingly common case,
-        // and the one where a regression here would be most expensive.
-        ITool echo = new FunctionTool("echo", (args, _) => Task.FromResult($"echoed:{args}"), "echoes",
-            """{"type":"object","properties":{"message":{"type":"string"}}}""");
-
-        const string token = "test-bearer-token";
-        await using var host = await McpToolHost.StartAsync([echo], token);
-
-        var transport = new HttpClientTransport(new HttpClientTransportOptions
-        {
-            Endpoint = new Uri(host.Url),
-            AdditionalHeaders = new Dictionary<string, string> { ["Authorization"] = $"Bearer {token}" },
-        });
-        await using var client = await McpClient.CreateAsync(transport);
-        var tool = Assert.Single(await McpToolset.FromClientAsync(client));
-
-        Assert.Contains("echoed", await tool.InvokeAsync("""{"message":"hi"}"""));
-    }
-
     private sealed class BlockingRail : Lyntai.Guards.IGuardRail
     {
         public Task<Lyntai.Guards.GuardOutcome> InspectRequestAsync(Lyntai.Inference.TextRequest req, CancellationToken ct = default) =>

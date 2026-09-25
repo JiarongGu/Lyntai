@@ -41,6 +41,9 @@ public abstract class JobStoreContractFacts
     [Fact] public Task Slots_cap_and_reuse() => Run(JobStoreContract.Slots_are_handed_out_up_to_the_cap_and_reused_after_release);
     [Fact] public Task Slot_lease_reclaim() => Run(JobStoreContract.A_slot_past_its_lease_is_reclaimed_and_a_heartbeat_prevents_it);
     [Fact] public Task Slot_release_fenced() => Run(JobStoreContract.Releasing_a_slot_is_fenced_by_worker_id);
+    [Fact] public Task Slot_heartbeat_spans_leases() => Run(JobStoreContract.A_heartbeating_holder_keeps_its_slot_across_many_leases);
+    [Fact] public Task Slot_heartbeat_no_revive() => Run(JobStoreContract.A_heartbeat_does_not_revive_a_slot_already_reclaimed);
+    [Fact] public Task Slot_cap_is_configuration() => Run(JobStoreContract.Lowering_the_cap_needs_no_cleanup);
     [Fact] public Task Slot_cap_non_positive() => Run(JobStoreContract.A_non_positive_cap_hands_out_no_slot);
     [Fact] public Task List_limit_non_positive() => Run(JobStoreContract.A_non_positive_list_limit_returns_nothing);
     [Fact] public Task Replay_dead() => Run(JobStoreContract.Replay_requeues_a_dead_job);

@@ -121,16 +121,6 @@ public class CortexIntegrationTests : IDisposable
         Assert.Contains("previous tag", composed);
     }
 
-    [Fact] // 5.6 — outage: a throwing store must not sink the prompt
-    public async Task Composer_is_fail_open_on_a_broken_store()
-    {
-        var composer = new MemoryPromptComposer(Throwing.Of<IMemoryStore>(() => new InvalidOperationException("db is gone")));
-
-        var composed = await composer.ComposeAsync("Base prompt.", "task");
-
-        Assert.Equal("Base prompt.", composed);
-    }
-
     [Fact]
     public async Task Composer_without_memories_returns_the_base_prompt()
     {

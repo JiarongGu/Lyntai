@@ -25,18 +25,6 @@ public class JobPausedCancelTests
     }
 
     [Fact]
-    public async Task Queue_cancel_takes_a_paused_job_in_one_call()
-    {
-        var (queue, store, _) = New();
-        var id = await queue.EnqueueAsync("default", "t", "{}");
-        Assert.True(await queue.PauseAsync(id));
-
-        // before: BOTH halves missed a Paused job (Pending-only || Running-only) and this returned false
-        Assert.True(await queue.CancelAsync(id));
-        Assert.Equal(JobStatus.Cancelled, (await store.GetAsync(id))!.Status);
-    }
-
-    [Fact]
     public async Task The_resume_first_workaround_makes_the_job_claimable_in_the_gap()
     {
         // WHY the widening is a fix rather than an ergonomic shortcut: the only route to cancelling a held

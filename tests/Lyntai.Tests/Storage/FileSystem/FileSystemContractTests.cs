@@ -44,11 +44,3 @@ public class FileSystemCuratedMemoryStoreContractTests : CuratedMemoryStoreContr
     protected override ICuratedMemoryStore NewStore() => new FileSystemCuratedMemoryStore(_root.Root);
     public void Dispose() => _root.Dispose();
 }
-
-/// <summary>The curated re-scope and collision facts against the file-system backend.</summary>
-public class FileSystemCuratedMemoryRescopeTests : CuratedMemoryRescopeFacts, IDisposable
-{
-    private readonly TempRoot _root = new();
-    protected override ICuratedMemoryStore NewStore() => new FileSystemCuratedMemoryStore(_root.Root);
-    public void Dispose() => _root.Dispose();
-}

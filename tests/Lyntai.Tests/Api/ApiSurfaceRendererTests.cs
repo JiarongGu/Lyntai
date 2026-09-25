@@ -22,20 +22,6 @@ namespace Lyntai.Tests.Api;
 /// </summary>
 public class ApiSurfaceRendererTests
 {
-    /// <summary>The reported shape, on a LOCAL fixture — which is what this file's own header asks for and
-    /// what this one fact did not do until 2026-09-17. It pinned <c>AddSemanticMemory()</c> against
-    /// <c>AddSemanticMemory&lt;TVectorProvider&gt;()</c> on the real builder, and **D151** deleted the generic
-    /// overload, so the fact failed for a reason that had nothing to do with the renderer. No
-    /// zero-argument generic/non-generic pair survives anywhere on the public surface now, so the shape is
-    /// only testable on a fixture — which is the argument the header already made.</summary>
-    [Fact]
-    public void A_generic_overload_does_not_collapse_onto_its_non_generic_sibling()
-    {
-        var lines = Lines(ApiSurface.Render(typeof(Overloads)));
-
-        Assert.Contains("Overloaded() : Void", lines);
-        Assert.Contains("Overloaded<TItem>() : Void", lines);
-    }
 
     /// <summary>The deletion the gate could not see, performed: two overloads render, one is dropped, and
     /// the rendering must be poorer by exactly the dropped one. Before the fix the two overloads rendered

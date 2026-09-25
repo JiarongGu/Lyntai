@@ -496,6 +496,55 @@ public static class JobStoreContract
         Assert.Null(await store.TryAcquireSlotAsync(1, "w3", lease));
     }
 
+    /// <summary>The property the heartbeat buys: a holder that keeps beating keeps its slot however many leases
+    /// it runs for, and one that stops is reclaimable a lease later. A single expiry cannot serve both — long
+    /// enough for an hours-long job lets a crash throttle the fleet for hours.</summary>
+    public static async Task A_heartbeating_holder_keeps_its_slot_across_many_leases(IJobStore store, MutableClock clock)
+    {
+        var lease = TimeSpan.FromSeconds(30);
+        Assert.NotNull(await store.TryAcquireSlotAsync(1, "long-runner", lease));
+
+        for (var beat = 0; beat < 10; beat++)
+        {
+            clock.Advance(TimeSpan.FromSeconds(10));
+            await store.HeartbeatSlotsAsync("long-runner");
+        }
+        Assert.Null(await store.TryAcquireSlotAsync(1, "someone-else", lease));    // still held, 100s in
+
+        clock.Advance(lease + TimeSpan.FromSeconds(1));                            // the beats stop: it died
+        Assert.NotNull(await store.TryAcquireSlotAsync(1, "someone-else", lease));
+    }
+
+    /// <summary>A stalled holder that wakes and beats must not steal back the slot its successor now holds:
+    /// the heartbeat is fenced by worker id exactly as the release is.</summary>
+    public static async Task A_heartbeat_does_not_revive_a_slot_already_reclaimed(IJobStore store, MutableClock clock)
+    {
+        var lease = TimeSpan.FromSeconds(30);
+        var slot = await store.TryAcquireSlotAsync(1, "stalled", lease);
+        Assert.NotNull(slot);
+
+        clock.Advance(lease + TimeSpan.FromSeconds(1));
+        Assert.Equal(slot, await store.TryAcquireSlotAsync(1, "successor", lease));   // taken over
+        await store.HeartbeatSlotsAsync("stalled");                                   // too late
+
+        // the successor still OWNS it: its fenced release frees the slot, which a stolen-back one would refuse
+        await store.ReleaseSlotAsync(slot!.Value, "successor");
+        Assert.Equal(slot, await store.TryAcquireSlotAsync(1, "third", lease));
+    }
+
+    /// <summary>The cap is CONFIGURATION, not schema: slots are created lazily and taken only below the cap, so
+    /// lowering it strands nothing and needs no migration.</summary>
+    public static async Task Lowering_the_cap_needs_no_cleanup(IJobStore store, MutableClock clock)
+    {
+        var lease = TimeSpan.FromMinutes(5);
+        Assert.Equal(0, await store.TryAcquireSlotAsync(3, "w", lease));
+        Assert.Equal(1, await store.TryAcquireSlotAsync(3, "w", lease));
+        Assert.Equal(2, await store.TryAcquireSlotAsync(3, "w", lease));
+
+        await store.ReleaseSlotAsync(2, "w");
+        Assert.Null(await store.TryAcquireSlotAsync(2, "w", lease));   // index 2 exists but is above the cap
+    }
+
     /// <summary>Release is FENCED by worker id, so a worker whose slot was already reclaimed cannot free
     /// the slot its successor now holds — the same fencing every other write on this store carries.</summary>
     public static async Task Releasing_a_slot_is_fenced_by_worker_id(IJobStore store, MutableClock clock)
