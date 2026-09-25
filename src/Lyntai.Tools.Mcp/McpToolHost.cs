@@ -1,5 +1,7 @@
 using System.Net;
 using System.Net.Sockets;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using Lyntai.Agents;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -16,11 +18,11 @@ namespace Lyntai.Tools.Mcp.Hosting;
 /// <see cref="IMcpCliConnector"/>'s business.
 /// </summary>
 /// <remarks>
-/// <para>Hosted on <see cref="HttpListener"/> (BCL) rather than ASP.NET Core, deliberately. The MCP protocol
-/// itself lives in <c>ModelContextProtocol.Core</c> — <see cref="StreamableHttpServerTransport"/> works on
-/// plain <see cref="Stream"/>s — so the ASP.NET package only ever supplied Kestrel routing glue. Dropping it
-/// removes a framework reference on <c>Microsoft.AspNetCore.App</c>, which a console or desktop consumer has no
-/// reason to acquire just to let a CLI call its tools (<c>docs/DECISIONS.md</c> D25).</para>
+/// <para>Hosted on <see cref="HttpListener"/> (BCL) rather than ASP.NET Core, deliberately: the MCP protocol
+/// lives in <c>ModelContextProtocol.Core</c>, whose <see cref="StreamableHttpServerTransport"/> works on plain
+/// <see cref="Stream"/>s, so ASP.NET would add only routing glue and a framework reference on
+/// <c>Microsoft.AspNetCore.App</c> that a console or desktop consumer has no reason to take
+/// (<c>docs/DECISIONS.md</c> D25).</para>
 /// <para><see cref="HttpListener"/> is the right tool for exactly this shape: a loopback-only, short-lived
 /// endpoint. It needs no URL ACL (and no elevation) for <c>127.0.0.1</c>, and is implemented in managed code on
 /// non-Windows platforms. It would be the wrong choice for an internet-facing server — which this never is.</para>
@@ -154,7 +156,7 @@ internal sealed class McpToolHost : IAsyncDisposable
 
     private async Task AcceptLoopAsync(string authToken, CancellationToken ct)
     {
-        var expected = $"Bearer {authToken}";
+        var expected = Encoding.UTF8.GetBytes($"Bearer {authToken}");
         while (!ct.IsCancellationRequested)
         {
             HttpListenerContext context;
@@ -186,12 +188,14 @@ internal sealed class McpToolHost : IAsyncDisposable
         }
     }
 
-    private async Task HandleAsync(HttpListenerContext context, string expectedAuthorization, CancellationToken ct)
+    private async Task HandleAsync(HttpListenerContext context, byte[] expectedAuthorization, CancellationToken ct)
     {
         var request = context.Request;
         var response = context.Response;
 
-        if (!string.Equals(request.Headers["Authorization"], expectedAuthorization, StringComparison.Ordinal))
+        // constant-time: the endpoint executes the app's tools, so the compare must not leak the token
+        if (request.Headers["Authorization"] is not { } presented ||
+            !CryptographicOperations.FixedTimeEquals(Encoding.UTF8.GetBytes(presented), expectedAuthorization))
         {
             response.StatusCode = (int)HttpStatusCode.Unauthorized;
             response.Close();
