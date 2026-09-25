@@ -1,123 +1,37 @@
 # Lyntai — Roadmap
 
-> The design contract is `2026-07-17-lyntai-design.md`; §9 lists what was deliberately deferred.
-> This file sequences how the deferred and newly-identified work lands. Dates are intentions,
-> not promises. **From 1.0 the public API is frozen under SemVer 2.0** — no break without a major bump,
-> gated by `ApiSurfaceTests` — **amended by D18 while every consumer is first-party**: a *documented* break
-> may ship in a MINOR, but the `ApiSurfaceTests` gate is unchanged and strict D16 resumes the moment a third
-> party depends on Lyntai. See `CHANGELOG.md` and `DECISIONS.md` **D16**/**D18**. **No package is exempt** —
-> the `Lyntai.Generation` PACKAGE held the only carve-out, from 2.0.1, and 3.0 withdrew it (**D70**) once each
-> of its three named reasons closed (**D67**, **D69**). The distinction that outlives it: the generation
-> CONTRACTS live in the `Lyntai.Generation` NAMESPACE inside `Lyntai.Core`, while the BACKENDS are the
-> separate package — a split that now rests on dependency footprint alone (it stays outside the `Lyntai`
-> bundle, **D26**), since D25's other reason for it was the cadence the carve-out bought. Released detail lives in
-> `CHANGELOG.md`; the reasoning in `DECISIONS.md`.
+> One line per shipped version, then what is still open. The detail is `CHANGELOG.md`, the reasoning
+> `docs/DECISIONS.md`; versioning and its one relaxation are **D16**, **D18** and **D70**. A per-version
+> design record, where one exists, is indexed in `docs/superpowers/INDEX.md`.
 
 ## Shipped
 
-One line per release. **The detail is `CHANGELOG.md`** (per-release, breaking changes called out) and the
-reasoning is `docs/DECISIONS.md` — this list exists so the sequence is scannable, not to repeat them. A
-per-version design record, where one exists, is indexed in `docs/superpowers/INDEX.md`.
-
 | Version | What it added |
 |---|---|
-| v0.1–v0.30 | **the pre-1.0 line, collapsed to one row on 2026-08-15.** The substrate and fallback router; three storage backends; the §9 platform kit (in-process local inference, the agentic tool loop, native tool-calling across HTTP/MEAI/CLI, MCP, durable jobs with priorities/cron/cancellation, guards); observability, response caching, usage budgeting, rate limiting; semantic + curated memory; recoverable secrets and app-owned storage. **Every 0.x version is unlisted on nuget.org (D44)**, so none is resolvable by a consumer and none carries the SemVer promise, which begins at 1.0 — thirty scannable rows for a line nobody can install was the opposite of what this table is for. Per-release detail is `CHANGELOG.md`. |
+| v0.1–v0.30 | **the pre-1.0 line.** The substrate and fallback router; three storage backends; the §9 platform kit (in-process local inference, the agentic tool loop, native tool-calling, MCP, durable jobs with priorities/cron/cancellation, guards); observability, response caching, usage budgeting, rate limiting; semantic + curated memory; recoverable secrets and app-owned storage. **Every 0.x version is unlisted on nuget.org (D44)**, so none is resolvable by a consumer and none carries the SemVer promise, which begins at 1.0. |
 | **v1.0.0** (2026-07-28) | **the API freeze** — SemVer 2.0 from here, gated by `ApiSurfaceTests` (D16, amended by D18) |
 | v1.1–v1.2.2 | CLI tool-hosting generalized; turn-free backend probe/auth + pinned self-install |
 | v2.0.1 (2026-08-04) | the generation platform + a coherent package graph (D24–D25; 2.0.0 is burned — D23) |
-| v2.1.0 (2026-08-04) | the generation backends registerable in one line each, and named factories where a constructor could be silently transposed (D28; `task-archive.md` Part 36) |
+| v2.1.0 (2026-08-04) | the generation backends registerable in one line each, and named factories where a constructor could be silently transposed (D28; `docs/task-archive.md` Part 36) |
 | v2.2.0 (2026-08-05) | the provider-lifetime seam (D30) and a second agent-session backend (D35) |
 | v2.3.0 (2026-08-05) | the pre-release whole-library review — shipped separately only because 2.2.0 was cut from the pushed branch without it (D18, D37; the push-before-release lesson is in pitfalls.md) |
 | v2.4.0 (2026-08-05) | app-owned MCP servers on either CLI agent session (D38) |
 | **v2.5.0** (2026-08-08) | **long-term memory** — named engines, decay measured in interference, burial rather than deletion (D39–D41) |
 | **v3.0.0** (2026-08-17) | **the memory retention model, then the pre-freeze sweep that followed it.** Memory (D45–D66): seven `IMemory*Policy` domains, FSRS as the only shipped curve, RRF the ranking default, a recall that no longer lengthens a half-life, an authoritative fact that takes a slot within the limit, six pre-release migrations folded into one. Everything else (D67–D82): the generation stream door, streaming tool calls, the cross-process job cap, the forget/prune split, the generation router as a trust boundary, every generation backend registered by configure callback, the naming sweep — and `Lyntai.Generation`'s SemVer exemption **withdrawn**, so no package is exempt |
 | v3.0.1 (2026-08-21) | **five memory seams two adopting applications had to work around**, all one shape — a registration that resolves and can never run (D83–D86): the composition renderer reachable without an engine, per-entry grades for a curated catalog that mixes provenance, fan-out writes so a blend's second member is not silently empty, a wiring check for a member or policy nothing can reach, and a scope-optional semantic recall. Additive throughout |
+| v3.0.2 (2026-08-21) | the adopting applications' next round, same shape as 3.0.1 — a seam that resolves and cannot run |
+| v3.1.0 (2026-08-23) | three more adopter reports (D87, D88): a named client that states its own candidates, subject seeding readable at recall, and salience no longer voting on ranking by default |
+| **v3.2.0** (2026-09-19) | **the design-closure window** (D159–D165): the wire is a provider and "dialect" leaves the vocabulary, one wallet reaching every attributable kind, the design record's gate exemption narrowed to its seeds, and a BINARY process stream. The generation backends stopped being documented-not-measured — `sd-cli`, ComfyUI (image and video) and a streaming piper TTS backend all measured against real engines — leaving fal's wire the only unmeasured one |
 
-| v3.0.2 (2026-08-22) | the adopting applications' next round, same shape as 3.0.1 — a seam that resolves and cannot run (see `CHANGELOG.md`) |
-| v3.1.0 (2026-08-23) | see `CHANGELOG.md`; this table is one line per version, deliberately |
-| **v3.2.0** (2026-09-19) | **the current release** — the design-closure window (D159–D165): the wire is a provider and "dialect" leaves the vocabulary, one wallet reaching every attributable kind, the design record's gate exemption narrowed to its seeds, and a BINARY process stream. The generation backends stopped being documented-not-measured — `sd-cli`, ComfyUI (image and video) and a streaming piper TTS backend all measured against real engines — leaving fal's wire the only unmeasured one. Detail is `CHANGELOG.md` |
+## Open
 
-## Planned
-
-### The platform kit (design §9) — SHIPPED pre-1.0, final deferrals closed before the freeze
-Delivered additively on the existing seams: `Lyntai.Providers.LlamaSharp` · the agentic tool loop + native
-tool-calling (HTTP/MEAI/CLI) + MCP-client tool source · durable jobs · guards · two-gate chat orchestration
-· secret vault · vision/multimodal. The job deferrals subsequently shipped too — priorities + dead-letter
-queue, recurring scheduling, cron expressions, running-job cancellation. **After 3.0 exactly ONE item below
-is still open**; the rest are kept with what closed them, because a deferral's *reasoning* is worth reading
-back once the thing deferred turns out to be cheaper, load-bearing, or misframed:
-- **Server/host/launcher + auto-update** — permanently out of scope (an application concern; Lyntai is
-  host-free — the one standing §9 exclusion, and after D73 the only open item in this list).
-- **Cross-process GLOBAL concurrency limits — SHIPPED in 3.0** (`DECISIONS.md` **D73**), which closes the
-  last durable-jobs deferral. `JobOptions.GlobalMaxConcurrency` bounds concurrent jobs across every process
-  sharing one store, and `0` (the default) is the pre-3.0 unbounded behaviour with no extra round-trip. The
-  premise this entry carried — "needs a distributed counter" — is precisely what D73 refused: a count
-  cannot gate a claim, so a slot TABLE reuses the atomic claim both backends already prove correct, and
-  Postgres's `SKIP LOCKED` starts working FOR the cap instead of against it. It costs `IJobStore` three
-  required members, so a hand-written store is affected (`CHANGELOG.md` 3.0.0, **Breaking**).
-- **Streaming tool-calls — SHIPPED in 3.0** (`DECISIONS.md` **D71**). It sat here as "low value, revisit on
-  demand", and that judgement was wrong in an instructive way: it priced the missing FEATURE and not the
-  defect underneath it. A turn that streamed prose alongside a tool call had the call silently dropped, and
-  no agentic turn could stream at all. **A deferral is a claim about cost — worth re-reading when the thing
-  deferred turns out to be load-bearing.**
-- **Native tool-calling for the ClaudeCli/Local providers — RETIRED, not deferred** (2026-08-16,
-  `DECISIONS.md` **D74**). Acting on it showed the request was misframed and would have made things worse.
-  `SupportsToolCalls` means "I hand the model's calls back for YOUR loop to run"; the claude CLI structurally
-  cannot — its whole tool surface is `--allowedTools`/`--mcp-config`, ways to GIVE it tools — and the real
-  need is already met by `ICliToolProvisioner`'s in-process MCP host (1.1). For a local GGUF, "native" is not
-  one format but one per model family, so the model-agnostic prompt protocol is the correct mechanism rather
-  than a fallback. Pinned by `NativeToolCallPostureTests`, because flipping the flag would leave every
-  agentic turn silently answering in prose with no tool ever running.
-
-### Next — generation, what a real run still confirms
-**None of this gates a release any more** — 3.0 withdrew the carve-out (**D70**), so the package ships under
-the full promise and these are confirmations rather than repairs. In priority order:
-1. **GEN-VERIFY** — run `sd-cli` and fal.ai for real and confirm the argv/clamp and the wire format. **A
-   mismatch in any VALUE is now a host's configuration edit, not a release** (**D69**): the status vocabulary,
-   the cost fields, ComfyUI's response field names and the whole `sd-cli` argv are options. What a real run
-   uniquely settles is whether a format differs STRUCTURALLY, which no per-field option can absorb. (The
-   `sd-cli` half is DONE — the working dir was confirmed by a consuming app in 2026-08, and the argv and size
-   clamp were measured 2026-09-19 against a real engine, correcting the retired `img2img` mode value on the
-   way. ComfyUI followed the same day in full, image and video workflows both confirmed against a live
-   0.36.0 — so fal's wire format is all that's left, and it waits on an account.)
-2. **Streaming TTS — DONE 2026-09-19.** The PLATFORM half shipped in 3.0
-   (**D67**); the backend half is `PiperProvider` (local piper over the new
-   `IProcessRunner.StreamBytesAsync`, **D165**), and the question only a real backend could settle is
-   MEASURED: data-then-terminal fits a real TTS stream — a live synthesis arrived as several PCM chunks
-   before one terminal, the per-chunk `MediaType` carrying the metadata a raw wire cannot. A hosted
-   vendor's wire stays worth measuring when an account exists (the owner's 2026-09-19 ruling sequences
-   local first; it does not exclude). TTS before music, still.
-3. **Pipelines — the 3D stage and the mesh → image edge are DONE (2026-09-25, D180).** The runner shipped
-   2026-08-30 (`RunPipelineAsync`); the ComfyUI provider now takes a mesh input and produces `Model3d`, and a
-   ComfyUI render graph is the mesh → image edge, measured with no 3D model. **Queued stages are reachable
-   (2026-09-25, D181)**: a pipeline runs as a durable job, `GenerationPipelineJobHandler`, each stage submitted
-   and polled where its first capable candidate queues it — the mesh → mesh → image chain ran through it on a
-   live ComfyUI. A mesh-GENERATING stage is measured from real use, not by a download here.
-
-_Generation wiring helpers (`AddOpenAiImageProvider()` and friends) were item 4 here and **shipped in 2.1.0**
-— see `docs/task-archive.md` Part 36. Every remaining item above needs a real
-service or a vendor key, which is why none of them is codeable from the repository alone._
-
-One more item of the same kind CLOSED on 2026-09-19 (`docs/task-archive.md` Part 260):
-- **CLI backends: measure the codex agent-session surface** (CLI12). codex-cli 0.155.1 was captured running
-  real shell, file-edit, MCP and web-search tools, and every inference in `CodexAgentReader` held — the
-  shape-driven tool-step mapping was CONFIRMED rather than corrected (`DECISIONS.md` **D35**). The shell item
-  is `command_execution`; failure is the top-level `status`/`exit_code` the reader already read.
-
-_This section previously listed three "design calls still open" — blameless-vs-reportable, the curated-memory
-`taskKey`/`scope` move, and renaming `HttpModelOptions.ContextSize`. **All three were settled and
-shipped in 2.3.0** (`docs/DECISIONS.md` D37 for the blameless half; the rename landed as `OllamaContextSize`), <!-- drift-ok: the record names the option of its day; D160 moved it to OllamaOptions -->
-and the section simply outlived them. Removed 2026-08-12 — `docs/task-archive.md` Part 43/44 carries each
-one's outcome. The `major-bump-or-never` framing on the third was also wrong on its own terms, as its archive
-entry records._
+- **fal's wire format** is the one generation mapping never called against the real service (`TASKS.md`).
+- **Server/host/launcher + auto-update** stays out of scope for good: a host is an application's concern,
+  and the library stays host-free (design §9).
 
 ## Standing maintenance policies
-- ~~**MEAI churn watch**~~ — **RETIRED 2026-09-15: there is nothing left to watch.** **D146** deleted the
-  Microsoft.Extensions.AI bridge and its package reference, so this library no longer tracks that release
-  cadence at all. Reaching such a backend is now `AddBridgeProvider`, a lambda the CONSUMER owns (**D147**),
-  which is precisely what moves the churn to their side of the seam.
+
 - **OTel GenAI semconv watch**: the conventions are experimental and moved to a standalone repo, so pin
-  nothing and follow the spec. _This read "match whatever MEAI's `OpenTelemetryChatClient` currently emits"
-  until 2026-09-15 — a reasonable reference while the bridge existed, and a dangling one after D146._
-- **Dependency refresh**: quarterly `Directory.Packages.props` review; provider-stub keeps every
-  test/e2e run at zero real tokens.
+  nothing and follow the spec.
+- **Dependency refresh**: quarterly `Directory.Packages.props` review; the provider-stub keeps every test and
+  e2e run at zero real tokens.

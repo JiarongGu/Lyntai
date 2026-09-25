@@ -112,10 +112,17 @@ disposed.
 |---|---|---|
 | a store the application reads and writes directly | `AddMemoryEngine(...)` | per call, in `MemoryQuery` |
 | memory the MODEL searches during a turn | `AddMemoryEngine(...)` + `AddMemoryTools(...)` | `MemoryToolScope.Use` per turn |
-| both, in one process | the same registrations | both, independently |
+| memory the CHAT composes its prompt from | `AddMemoryEngine(...)` + `UseMemoryComposer(...)` | per turn, by the orchestrator |
+| any of these, in one process | the same registrations | each independently |
 
-There is no third design and no scoped variant to choose, which is deliberate: a scoped engine would mean a
-per-request store handle, and the store is the thing that must NOT be per-request.
+There is no scoped variant to choose, which is deliberate: a scoped engine would mean a per-request store
+handle, and the store is the thing that must NOT be per-request.
+
+**The chat's binding is ONE seam with a read half and a write half.** `IPromptComposer.ComposeAsync` builds
+the prompt from memory and `RememberAsync` writes each exchange back to where `ComposeAsync` will read it, so
+a chat can never recall from one store while remembering into another. `UseMemoryComposer("x")` backs both
+halves with the named engine; without it the default composer is an engine blending the keyword store and
+semantic memory, keyword first, every write fanned out to both. The memory TOOLS only read.
 
 ## 3. What the engine is FOR
 
@@ -834,7 +841,7 @@ passed to `UseGraph(...)` wins over both, for that engine only.
 
 | you want | read |
 |---|---|
-| the contract — interfaces, semantics, objectives | `docs/2026-07-17-lyntai-design.md` §5.7 |
+| the seed this contract grew from, and its original argument | `docs/2026-07-17-lyntai-design.md` §5.7.0 and §5.7 |
 | why a choice was made | `docs/DECISIONS.md` from **D39** on — its generated index names each (and D13 for the *keyword* store's eviction bound, which is a different surface) |
 | every measured figure, and whether it still holds | `docs/memory-measurements.md` §5 |
 | the consuming story | `README.md` |

@@ -13,7 +13,7 @@ packable project, which turns on the trim, single-file, and AOT analyzers. Per-p
 | `Lyntai.Storage.Postgres` | ⚠️ **opts out** | Same as Sqlite — Npgsql + Dapper + FluentMigrator reflection. Analyzer on for our code. |
 | `Lyntai.Providers.LlamaSharp` | ⚠️ **opts out** | Same stance — LLamaSharp loads the native llama.cpp backend dynamically and materializes options via reflection; a native-interop package can't honestly claim AOT/trim compatibility. Analyzer on for our code. |
 | `Lyntai.Tools.Mcp` | ⚠️ **opts out** | MCP argument/result marshaling is dynamic JSON (reflection), in both directions — consuming a server's tools and hosting ours through the SDK's server transport. Analyzer on for our code. |
-| `Lyntai.Generation` | ✅ compatible | The media backends: `HttpClient` + `JsonDocument`/`JsonObject`, and one subprocess through `IProcessRunner`. Its only dependency is managed `Microsoft.Extensions.Http` (for the per-backend `Add*` shims' named clients) — it is split from `Providers.Basic` on dependency footprint alone, since **D70** withdrew the release-cadence carve-out that was D25's other reason (`docs/DECISIONS.md` D25/D26/D70). |
+| `Lyntai.Generation` | ✅ compatible | The media backends: `HttpClient` + `JsonDocument`/`JsonObject`, and one subprocess through `IProcessRunner`. Its only dependency is managed `Microsoft.Extensions.Http` (for the per-backend `Add*` shims' named clients). |
 | `Lyntai.Providers.Onnx` | ⚠️ **opts out** | `IsAotCompatible=false; IsTrimmable=false; EnableTrimAnalyzer=true`. ONNX Runtime loads a native library dynamically and resolves its execution provider by name; a native-interop package cannot honestly claim trim/AOT compatibility. Analyzer on for our code. **It references the MANAGED half only** — the app adds `Microsoft.ML.OnnxRuntime` (CPU), `.DirectML` or `.Gpu`, so this row is about our assembly and the app's backend choice governs the rest. |
 | `Lyntai` (the bundle) | n/a | Ships no assembly (`IncludeBuildOutput=false`) — its status is whatever its references are. |
 
@@ -43,10 +43,11 @@ you actually AOT-publish an app that uses `Lyntai.Storage.Sqlite`.
 
 - Using only the packages **the table above marks `✅ compatible`** publishes clean under `PublishAot=true` /
   `PublishTrimmed=true`. Read the table, not a second list here: `check-packages` fails if a package has no row
-  in it, so the table cannot silently omit one — a hand-kept enumeration in this sentence can, and did (it
-  named three of the six).
-- **What trimming actually buys, measured** on a console app that references the `Lyntai` bundle but calls only
-  `AddLyntai` + `ITextClient`:
+  in it, so the table cannot silently omit one — a hand-kept enumeration in this sentence can.
+- **What trimming actually buys, measured 2026-08-04** on a console app that references the `Lyntai` bundle
+  but calls only `AddLyntai` and the text front door. The rows name that day's package set — before the MCP
+  SDK's major (**D172**) and before `Storage.InMemory` folded into `Lyntai.Storage.Basic` (**D173**) — so read
+  the SHAPE of the result, not the kilobytes:
 
   | | Plain `publish` | `PublishTrimmed=true` |
   |---|---|---|
