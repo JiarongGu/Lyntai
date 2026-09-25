@@ -67,16 +67,17 @@ public class GenerationGovernanceTests
     public async Task A_success_clears_the_penalty_so_an_occasional_blip_never_accumulates()
     {
         var blippy = new FakeGenerationProvider { Id = "blippy" };
-        blippy.Verdicts.Enqueue(ProviderVerdict.Failed);
-        blippy.Verdicts.Enqueue(ProviderVerdict.Ok);
+        foreach (var verdict in new[] { ProviderVerdict.Failed, ProviderVerdict.Ok, ProviderVerdict.Failed, ProviderVerdict.Ok })
+            blippy.Verdicts.Enqueue(verdict);
         var router = Router([blippy, new FakeGenerationProvider { Id = "local" }],
             new DeadHostTracker(threshold: 2, cooldown: TimeSpan.FromMinutes(5)));
 
         await router.GenerateAsync(Order("blippy", "local"), Image);   // fail  → 1 strike
         await router.GenerateAsync(Order("blippy", "local"), Image);   // ok    → cleared
-        await router.GenerateAsync(Order("blippy", "local"), Image);   // ok
+        await router.GenerateAsync(Order("blippy", "local"), Image);   // fail  → 1 strike, not 2
+        await router.GenerateAsync(Order("blippy", "local"), Image);   // still asked
 
-        Assert.Equal(3, blippy.GenerateCalls);
+        Assert.Equal(4, blippy.GenerateCalls);   // without the reset the third run benches it: 3
     }
 
     [Fact]

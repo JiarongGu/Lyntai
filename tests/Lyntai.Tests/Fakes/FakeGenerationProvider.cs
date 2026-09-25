@@ -29,6 +29,9 @@ public sealed class FakeGenerationProvider : IModelProvider
     public int GenerateCalls { get; private set; }
     public int ProbeCalls { get; private set; }
 
+    /// <summary>Every request <see cref="GenerateAsync"/> was handed, in order.</summary>
+    public List<MediaRequest> Requests { get; } = [];
+
     public Task<ProviderProbeResult> ProbeAsync(CancellationToken ct = default)
     {
         ProbeCalls++;
@@ -44,6 +47,7 @@ public sealed class FakeGenerationProvider : IModelProvider
     public Task<MediaResponse> GenerateAsync(MediaRequest request, CancellationToken ct = default)
     {
         GenerateCalls++;
+        Requests.Add(request);
         if (Throws is not null) throw Throws;
         var verdict = Verdicts.Count > 1 ? Verdicts.Dequeue()
             : Verdicts.Count == 1 ? Verdicts.Peek()

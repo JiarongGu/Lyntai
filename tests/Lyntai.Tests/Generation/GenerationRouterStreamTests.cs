@@ -57,15 +57,21 @@ public class GenerationRouterStreamTests
     [Fact]
     public async Task A_backend_that_is_not_stream_capable_is_never_offered_the_request()
     {
-        // The capability pre-filter is the whole reason media routing is separate from LLM routing. An
-        // inline-only image backend must not be asked to stream, whatever the candidate list says.
-        var image = new FakeGenerationProvider { Id = "image" };
+        // The capability pre-filter is the whole reason media routing is separate from LLM routing. A backend
+        // that does not DECLARE Stream must not be asked to stream, whatever the candidate list says — even one
+        // whose type could answer, so only the declaration keeps it out.
+        var inlineOnly = new ScriptedStreamProvider
+        {
+            Id = "inline-only",
+            Capabilities = new() { Accepts = [ProviderKinds.Text], Produces = [ProviderKinds.Audio], Operations = [ProviderOperation.Complete] },
+            Script = [MediaChunk.Content([7]), MediaChunk.Completed()],
+        };
         var tts = new FakeGenerationStreamProvider { Id = "tts" };
 
-        var chunks = await Collect(Router(image, tts).StreamAsync(Candidates(image, tts), Speech()));
+        var chunks = await Collect(Router(inlineOnly, tts).StreamAsync(Candidates(inlineOnly, tts), Speech()));
 
         Assert.True(AssertOneTerminal(chunks).Final);
-        Assert.Equal(0, image.GenerateCalls);
+        Assert.Equal(0, inlineOnly.StreamCalls);
     }
 
     // ---- invariant 1: no fallback after commit -------------------------------------------------------
@@ -270,7 +276,9 @@ public class GenerationRouterStreamTests
 
         var terminal = AssertOneTerminal(chunks);
         Assert.Equal(ProviderVerdict.Unsupported, terminal.Error);
-        Assert.Contains("Stream", terminal.Detail);
+        // the ROUTER's synthesized answer — never the declined backend's own "does not serve" default
+        Assert.StartsWith("no capable media backend", terminal.Detail);
+        Assert.Contains("via Stream", terminal.Detail);
     }
 
     // ---- the trust boundary --------------------------------------------------------------------------

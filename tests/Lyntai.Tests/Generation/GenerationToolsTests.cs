@@ -239,17 +239,18 @@ public class GenerationToolsTests
     [Fact]
     public async Task A_model_can_name_the_backends_it_wants_in_preference_order()
     {
-        var first = new FakeGenerationProvider { Id = "a" };
-        first.Verdicts.Enqueue(ProviderVerdict.Failed);
-        var second = new FakeGenerationProvider { Id = "b" };
-        using var sp = Host(null, first, second);
+        // the host's default order is a, b; the model asks for b FIRST, and b fails over to a
+        var a = new FakeGenerationProvider { Id = "a" };
+        var b = new FakeGenerationProvider { Id = "b" };
+        b.Verdicts.Enqueue(ProviderVerdict.Failed);
+        using var sp = Host(null, a, b);
 
         var observation = Json(await Tool(sp, "generate")
-            .InvokeAsync("""{"prompt":"x","backends":["a","b"]}"""));
+            .InvokeAsync("""{"prompt":"x","backends":["b","a"]}"""));
 
         Assert.True(observation.GetProperty("ok").GetBoolean());
-        Assert.Equal(1, first.GenerateCalls);
-        Assert.Equal(1, second.GenerateCalls);
+        Assert.Equal(1, b.GenerateCalls);   // the default order would have stopped at a, never asking b
+        Assert.Equal(1, a.GenerateCalls);
     }
 
     [Fact]
@@ -260,9 +261,16 @@ public class GenerationToolsTests
         using var sp = Host(null, backend);
 
         var observation = Json(await Tool(sp, "generate")
-            .InvokeAsync("""{"prompt":"x","size":"1024x1024","steps":"30"}"""));
+            .InvokeAsync("""{"prompt":"x","size":"1024x1024","steps":30,"consumer":"model-chosen"}"""));
 
         Assert.True(observation.GetProperty("ok").GetBoolean());
+        var sent = Assert.Single(backend.Requests);
+        Assert.Equal("1024x1024", sent.Options["size"]);
+        Assert.Equal("30", sent.Options["steps"]);
+        // a reserved name is never an option, and the billing tag is the host's, not the model's
+        Assert.False(sent.Options.ContainsKey("prompt"));
+        Assert.False(sent.Options.ContainsKey("consumer"));
+        Assert.NotEqual("model-chosen", sent.Consumer);
     }
 
     [Fact]
