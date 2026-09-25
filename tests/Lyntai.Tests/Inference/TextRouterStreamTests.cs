@@ -215,7 +215,9 @@ public class TextRouterStreamTests
     [Fact]
     public async Task Pre_content_rate_limit_cools_the_host_and_falls_over()
     {
-        // amended §6: RateLimited advances like Failed/Timeout (the host cools, the fleet serves)
+        // amended §6: RateLimited advances like Failed/Timeout (the host cools, the fleet serves). The
+        // threshold is high on purpose: only an immediate cooldown, never a counted strike, benches p1.
+        var tracker = new DeadHostTracker(threshold: 5, TimeSpan.FromMinutes(5), () => DateTimeOffset.UtcNow);
         var p1 = new FakeTextProvider("p1")
         {
             StreamScript = _ => [TextChunk.Error(ProviderVerdict.RateLimited, "429")],
@@ -225,11 +227,40 @@ public class TextRouterStreamTests
             StreamScript = _ => [TextChunk.Content("fallback stream"), TextChunk.Final()],
         };
 
-        var chunks = await Router(p1, p2).StreamAsync([new("p1"), new("p2")], Req).ToListAsync();
+        var chunks = await new TextRouter([p1, p2], tracker, new LyntaiOptions())
+            .StreamAsync([new("p1"), new("p2")], Req).ToListAsync();
 
         Assert.Equal("fallback stream",
             string.Concat(chunks.Where(c => c.Kind == TextChunkKind.Content).Select(c => c.Text)));
         Assert.Equal(1, p2.StreamCalls);
+        Assert.True(tracker.IsDead("p1"));
+        Assert.False(tracker.IsDead("p2"));
+    }
+
+    [Fact]
+    public async Task A_pre_content_failure_records_a_strike_against_the_host()
+    {
+        var tracker = new DeadHostTracker(threshold: 1, TimeSpan.FromMinutes(5), () => DateTimeOffset.UtcNow);
+        var p1 = new FakeTextProvider("p1") { StreamScript = _ => [TextChunk.Error(ProviderVerdict.Failed, "500")] };
+        var p2 = new FakeTextProvider("p2");
+
+        await new TextRouter([p1, p2], tracker, new LyntaiOptions())
+            .StreamAsync([new("p1"), new("p2")], Req).ToListAsync();
+
+        Assert.True(tracker.IsDead("p1")); // threshold 1: the one strike the advance records benches it
+    }
+
+    [Fact]
+    public async Task A_committed_stream_clears_the_hosts_earlier_strikes()
+    {
+        var tracker = new DeadHostTracker(threshold: 2, TimeSpan.FromMinutes(5), () => DateTimeOffset.UtcNow);
+        tracker.RecordFailure("p1");
+        var p1 = new FakeTextProvider("p1");
+
+        await new TextRouter([p1], tracker, new LyntaiOptions()).StreamAsync([new("p1")], Req).ToListAsync();
+        tracker.RecordFailure("p1");
+
+        Assert.False(tracker.IsDead("p1")); // without the reset the two strikes reach the threshold
     }
 
     [Fact]

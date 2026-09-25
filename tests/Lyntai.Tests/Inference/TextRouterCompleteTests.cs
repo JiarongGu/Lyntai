@@ -270,7 +270,7 @@ public class TextRouterCompleteTests
     [Fact]
     public async Task Provider_exception_is_mapped_to_failed_and_advances()
     {
-        var p1 = new ThrowingProvider("p1");
+        var p1 = new FakeTextProvider("p1") { CompleteThrow = new InvalidOperationException("kaboom") };
         var p2 = new FakeTextProvider("p2");
         p2.Replies.Enqueue(new TextResponse("from p2", ProviderVerdict.Ok));
 
@@ -287,22 +287,5 @@ public class TextRouterCompleteTests
 
         Assert.Equal(ProviderVerdict.Failed, reply.Verdict);
         Assert.Contains("no live candidate", reply.Detail);
-    }
-
-    private sealed class ThrowingProvider(string id) : IModelProvider
-    {
-        public string Id => id;
-
-        public ProviderCapabilities Capabilities { get; set; } = new()
-        {
-            Accepts = [ProviderKinds.Text],
-            Produces = [ProviderKinds.Text],
-            Operations = [ProviderOperation.Complete, ProviderOperation.Stream],
-        };
-        public bool IsAvailable => true;
-        public Task<TextResponse> CompleteAsync(TextRequest req, CancellationToken ct = default) =>
-            throw new InvalidOperationException("kaboom");
-        public IAsyncEnumerable<TextChunk> StreamAsync(TextRequest req, CancellationToken ct = default) =>
-            throw new InvalidOperationException("kaboom");
     }
 }
