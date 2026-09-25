@@ -298,8 +298,11 @@ public static class JobStoreContract
         var id = await store.EnqueueAsync(Spec());
         await store.ClaimNextAsync("default", "w1", Lease);
 
-        const int n = 25; // fire many concurrent reports from the "handler" — none may be lost to a RMW race
-        var oks = await Task.WhenAll(Enumerable.Range(0, n).Select(i => store.ReportStepAsync(id, "w1", $"step-{i}")));
+        // Many concurrent reports from the "handler" — none may be lost to a read-modify-write race. Each on
+        // its own thread: a store whose async completes synchronously would otherwise run them in sequence.
+        const int n = 25;
+        var oks = await Task.WhenAll(Enumerable.Range(0, n)
+            .Select(i => Task.Run(() => store.ReportStepAsync(id, "w1", $"step-{i}"))));
         Assert.All(oks, Assert.True);
 
         var messages = JobStepLog.Parse((await store.GetAsync(id))!.StepLog).Select(s => s.Message).ToList();
