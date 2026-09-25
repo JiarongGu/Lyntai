@@ -3,6 +3,7 @@ using Lyntai.Inference;
 using Lyntai.Inference.Cli;
 using Lyntai.Processes;
 using Microsoft.Extensions.Logging;
+using Lyntai.Providers.Basic;
 
 namespace Lyntai.Providers.ClaudeCli;
 
@@ -42,19 +43,19 @@ public sealed class ClaudeCliProvider : IModelProvider, IProviderUpdater,
         string? command = null,
         ICliToolProvisioner? provisioner = null,
         IReadOnlyDictionary<string, string>? environment = null)
-        => _engine = new CliProviderEngine(new ClaudeCliBackend(), runner, options, logger, command, provisioner, environment);
+    {
+        var backend = new ClaudeCliBackend();
+        _engine = new CliProviderEngine(backend, runner, options, logger, command, provisioner, environment);
+        Capabilities = CliComposition.Capabilities(backend);
+    }
 
     /// <inheritdoc/>
     public string Id => ProviderId;
 
-    /// <summary>What this backend serves — the spawned claude CLI: text in, text out, buffered or streamed. Tool calls go through the
-    /// prompt protocol rather than a native tool API, so neither tool flag is declared.</summary>
-    public ProviderCapabilities Capabilities { get; } = new()
-    {
-        Accepts = [ProviderKinds.Text],
-        Produces = [ProviderKinds.Text],
-        Operations = [ProviderOperation.Complete, ProviderOperation.Stream],
-    };
+    /// <summary>What this backend serves — the spawned claude CLI: text in, text out, buffered or streamed.
+    /// Tool calls go through the prompt protocol rather than a native tool API, so the backend declares no
+    /// request-level tools and neither tool flag is set.</summary>
+    public ProviderCapabilities Capabilities { get; }
 
     /// <summary>Whether the <c>claude</c> CLI looks callable — the resolved command on the local PATH for the
     /// built-in runner, optimistically true for a BYO <see cref="IProcessRunner"/> (which resolves commands in

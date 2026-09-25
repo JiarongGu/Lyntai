@@ -3,6 +3,7 @@ using Lyntai.Inference;
 using Lyntai.Inference.Cli;
 using Lyntai.Processes;
 using Microsoft.Extensions.Logging;
+using Lyntai.Providers.Basic;
 
 namespace Lyntai.Providers.CodexCli;
 
@@ -44,20 +45,19 @@ public sealed class CodexCliProvider : IModelProvider, IProviderUpdater, IProvid
         ICliToolProvisioner? provisioner = null,
         IReadOnlyDictionary<string, string>? environment = null,
         CodexCliBackend? backend = null)
-        => _engine = new CliProviderEngine(backend ?? new CodexCliBackend(), runner, options, logger, command,
-            provisioner, environment);
+    {
+        backend ??= new CodexCliBackend();
+        _engine = new CliProviderEngine(backend, runner, options, logger, command, provisioner, environment);
+        Capabilities = CliComposition.Capabilities(backend);
+    }
 
     /// <inheritdoc/>
     public string Id => ProviderId;
 
-    /// <summary>What this backend serves — the spawned codex CLI: text in, text out, buffered or streamed. Its tool steps are surfaced by
-    /// the agent session rather than by this seam, so neither tool flag is declared.</summary>
-    public ProviderCapabilities Capabilities { get; } = new()
-    {
-        Accepts = [ProviderKinds.Text],
-        Produces = [ProviderKinds.Text],
-        Operations = [ProviderOperation.Complete, ProviderOperation.Stream],
-    };
+    /// <summary>What this backend serves — the spawned codex CLI: text in, text out, buffered or streamed.
+    /// Its tool steps are surfaced by the agent session rather than by this seam, so the backend declares no
+    /// request-level tools and neither tool flag is set.</summary>
+    public ProviderCapabilities Capabilities { get; }
 
     /// <summary>Whether the <c>codex</c> CLI looks callable — see <see cref="CliProviderEngine.IsAvailable"/>
     /// (a portable copy is checked for presence; a BYO runner is trusted).</summary>
