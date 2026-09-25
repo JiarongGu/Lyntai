@@ -60,7 +60,7 @@ internal static class GenerationJson
         writer.WriteString("kind", request.Kind);
         // the consumer tag rides along so a job RESUMED in another process still bills to whoever asked for
         // it — a durable job outlives the request that created it
-        if (request.Consumer != "default") writer.WriteString("consumer", request.Consumer);
+        if (request.Consumer != ProviderConsumers.Default) writer.WriteString("consumer", request.Consumer);
         if (request.Prompt is { } prompt) writer.WriteString("prompt", prompt);
         if (request.Model is { } model) writer.WriteString("model", model);
         if (request.TimeoutSeconds is { } timeout) writer.WriteNumber("timeoutSeconds", timeout);
@@ -112,7 +112,7 @@ internal static class GenerationJson
         return new MediaRequest
         {
             Kind = kind,
-            Consumer = Str(element, "consumer") ?? "default",
+            Consumer = Str(element, "consumer") ?? ProviderConsumers.Default,
             Prompt = Str(element, "prompt"),
             Model = Str(element, "model"),
             Options = options,

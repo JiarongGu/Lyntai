@@ -31,7 +31,7 @@ public sealed record MediaRequest
     /// <summary>Per-request budget in seconds, applied by the SELECTED BACKEND where it supports one: the HTTP
     /// backends resolve it against their own configured <c>Timeout</c> option (a positive value here wins; a
     /// non-positive one is not a budget and is ignored), while a backend that owns its own clocks may ignore it
-    /// entirely — the local engine does today. Unlike <c>TextRequest.TimeoutSeconds</c> there is no
+    /// entirely — the local engines (<c>sd-cli</c>, piper) do. Unlike <c>TextRequest.TimeoutSeconds</c> there is no
     /// platform-level default and no ceiling for generation: nothing clamps this to
     /// <c>LyntaiOptions.MaxProviderTimeout</c>, which governs the LLM domain only.</summary>
     public int? TimeoutSeconds { get; init; }

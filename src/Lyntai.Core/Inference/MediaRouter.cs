@@ -115,7 +115,7 @@ public sealed class MediaRouter(
 
         foreach (var (provider, resolved) in capable)
         {
-            if (provider is not IMediaJobProvider job) continue;   // capability says Job; the type must agree
+            var job = (IMediaJobProvider)provider;   // Capable admits a Queued backend only when the type agrees
             if (IsBenched(provider, capable.Count)) { benched++; continue; }
             attempted++;
 
@@ -421,9 +421,9 @@ public sealed class MediaRouter(
         _bookkeeping.IsBenched(_bookkeeping.Key(provider), capableCount == 1, _policy.ExemptSoleCandidate);
 
     /// <summary>Candidates that exist, are registered, report themselves available, are DISTINCT, and DECLARE
-    /// they can serve this request/delivery — with the candidate's model applied to the request when it pins
-    /// one. Materialized because the sole-candidate cooldown exemption needs to know how many there are before
-    /// trying the first.
+    /// they can serve this request/delivery — a queued one also implementing <see cref="IMediaJobProvider"/> —
+    /// with the candidate's model applied to the request when it pins one. Materialized because the
+    /// sole-candidate cooldown exemption needs to know how many there are before trying the first.
     ///
     /// <para><b>Dedup happens on the RESOLVED pair, and it happens HERE.</b> Resolved, because that is the
     /// pair that decides what is actually called: <c>"fal"</c> and <c>"FAL"</c> select one provider (ids match
@@ -469,7 +469,9 @@ public sealed class MediaRouter(
                     entry.Request.Kind, delivery,
                     accepts: ProviderKinds.Text,
                     model: entry.Request.Model,
-                    hasInputs: entry.Request.Inputs.Count > 0))
+                    hasInputs: entry.Request.Inputs.Count > 0) &&
+                // a declared queue the type cannot serve is not capable — nor counted toward the exemption
+                (delivery != ProviderOperation.Queued || entry.Provider is IMediaJobProvider))
                 capable.Add(entry);
         }
         return capable;

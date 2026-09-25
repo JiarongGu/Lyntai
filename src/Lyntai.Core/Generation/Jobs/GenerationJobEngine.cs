@@ -69,7 +69,7 @@ internal sealed class GenerationJobEngine(
                 // bill before anything else: the money is spent either way. Only a queued stage — the router
                 // that ran an inline one recorded it, when the budget decorator wraps it.
                 if (produced.Queued && usage is not null)
-                    await BudgetedMediaRouter.RecordAsync(usage, stage.Request.Consumer, produced.Response.Usage, ct)
+                    await BudgetGate.RecordCostAsync(usage, stage.Request.Consumer, produced.Response.Usage, ct)
                         .ConfigureAwait(false);
 
                 // the result is checkpointed BEFORE delivery, so a sink that throws gets it again without a second
@@ -184,10 +184,9 @@ internal sealed class GenerationJobEngine(
         : null;
 
     /// <summary>The router's own capability filter, for one door.</summary>
-    private bool Serves(IReadOnlyList<ProviderCandidate> candidates, MediaRequest request, bool queued) => queued
-        ? MediaRouter.Capable(_providers, candidates, request, ProviderOperation.Queued)
-            .Any(capable => capable.Provider is IMediaJobProvider)
-        : MediaRouter.Capable(_providers, candidates, request, ProviderOperation.Complete).Count > 0;
+    private bool Serves(IReadOnlyList<ProviderCandidate> candidates, MediaRequest request, bool queued) =>
+        MediaRouter.Capable(_providers, candidates, request,
+            queued ? ProviderOperation.Queued : ProviderOperation.Complete).Count > 0;
 
     private async Task<JobOutcome> CheckpointSubmissionAsync(JobContext ctx, PipelineCheckpoint at, string name,
         int stages, MediaSubmission submission, Mode mode, CancellationToken ct)
@@ -432,6 +431,5 @@ internal static class MediaJobBackends
     /// <summary>The registered backend with this id, IF it is asynchronous. Null covers both "no such backend"
     /// and "that one is inline-only".</summary>
     public static IMediaJobProvider? Find(IEnumerable<IModelProvider> providers, string id) =>
-        providers.FirstOrDefault(p => string.Equals(p.Id, id, StringComparison.OrdinalIgnoreCase))
-            as IMediaJobProvider;
+        ProviderLookup.Find(providers, id) as IMediaJobProvider;
 }

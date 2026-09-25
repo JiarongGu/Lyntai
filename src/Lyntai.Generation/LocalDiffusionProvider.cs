@@ -253,7 +253,7 @@ public sealed class LocalDiffusionProvider(LocalDiffusionOptions options, IProce
 
             if (!File.Exists(output))
             {
-                var stderr = Tail(result.StdErr);
+                var stderr = result.StdErrTail(400);
                 return MediaResponse.Failure(ProviderVerdict.Failed,
                     result.ExitCode != 0
                         ? $"exit {result.ExitCode}: {stderr}"
@@ -368,10 +368,4 @@ public sealed class LocalDiffusionProvider(LocalDiffusionOptions options, IProce
 
     /// <summary>The engine's practical floor. Not a policy — below this the model produces noise.</summary>
     private const int MinDimension = 256;
-
-    private static string Tail(string text, int max = 400)
-    {
-        var trimmed = text.Trim();
-        return trimmed.Length <= max ? trimmed : trimmed[^max..];
-    }
 }

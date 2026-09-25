@@ -1,4 +1,5 @@
 using Lyntai.Inference;
+using Lyntai.Inference.Budgeting;
 using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using System.Text.Json;
@@ -477,7 +478,7 @@ internal sealed class GenerationStatusTool(IEnumerable<IModelProvider> providers
 /// observed at all; <see cref="GenerationSubmitTool"/>'s cap check reads the total this adds to.</para></summary>
 /// <param name="providers">The registered backends; the tool resolves the one named in its arguments.</param>
 /// <param name="sink">Where artifacts are delivered, if the app registered one.</param>
-/// <param name="usage">Usage ledger (<see cref="Lyntai.Inference.Budgeting.IUsageTracker"/>). Null means nothing is
+/// <param name="usage">Usage ledger (<see cref="IUsageTracker"/>). Null means nothing is
 /// recorded; <c>AddGenerationTools</c> passes one only when <c>AddMediaUsageBudget()</c> is configured, the gate
 /// the router's own budgeting is under.</param>
 /// <param name="consumer">Whose spend this is — the tag its sibling tools bill to (<c>AddGenerationTools</c>'
@@ -485,7 +486,7 @@ internal sealed class GenerationStatusTool(IEnumerable<IModelProvider> providers
 internal sealed class GenerationFetchTool(
     IEnumerable<IModelProvider> providers,
     IGenerationArtifactSink? sink = null,
-    Lyntai.Inference.Budgeting.IUsageTracker? usage = null,
+    IUsageTracker? usage = null,
     string consumer = ProviderConsumers.Agent) : ITool
 {
     /// <summary>Whose spend a fetched render is billed to.</summary>
@@ -515,8 +516,7 @@ internal sealed class GenerationFetchTool(
 
         // bill BEFORE delivery: the money is spent either way, and a sink that throws would lose the record
         if (usage is not null)
-            await Lyntai.Inference.BudgetedMediaRouter
-                .RecordAsync(usage, Consumer, result.Usage, ct).ConfigureAwait(false);
+            await BudgetGate.RecordCostAsync(usage, Consumer, result.Usage, ct).ConfigureAwait(false);
 
         var delivered = false;
         if (sink is not null)
