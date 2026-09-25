@@ -1,4 +1,5 @@
 using Lyntai.Inference;
+using Lyntai.Memory;
 
 namespace Lyntai.Agents;
 
@@ -91,7 +92,7 @@ public sealed class VectorToolSelector(
         // Ordered by score, then by ORIGINAL POSITION so a tie is broken the way the registry listed them
         // rather than arbitrarily — two tools with identical descriptions must not reorder run to run.
         return [.. tools
-            .Select((tool, index) => (tool, index, score: Cosine(queryVector, toolVectors[index])))
+            .Select((tool, index) => (tool, index, score: VectorMath.Cosine(queryVector, toolVectors[index])))
             .OrderByDescending(x => x.score).ThenBy(x => x.index)
             .Take(limit)
             .OrderBy(x => x.index)          // shown in registration order, as an un-narrowed roster is
@@ -101,11 +102,4 @@ public sealed class VectorToolSelector(
     /// <summary>Name AND description, because a name alone is often the only thing that says what a
     /// sparsely-described tool does.</summary>
     private static string Describe(ITool tool) => $"{tool.Name} {tool.Description}";
-
-    private static double Cosine(float[] a, float[] b)
-    {
-        double dot = 0, na = 0, nb = 0;
-        for (var i = 0; i < Math.Min(a.Length, b.Length); i++) { dot += a[i] * b[i]; na += a[i] * a[i]; nb += b[i] * b[i]; }
-        return na == 0 || nb == 0 ? 0 : dot / (Math.Sqrt(na) * Math.Sqrt(nb));
-    }
 }
