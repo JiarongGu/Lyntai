@@ -41,29 +41,18 @@ namespace Lyntai.Inference;
 /// id. Null disables cooldown entirely (a hand-built router in a test).</param>
 /// <param name="configuration">Which CONFIGURATION a provider is running under, used to key dead-host
 /// cooldown and admission. Null (or a null return) = key cooldown on
-/// <see cref="Lyntai.Inference.IProviderIdentity.Id"/> and apply no admission, which is the historical
-/// behaviour and correct for a single-configuration deployment. Supply one when several configurations of a
-/// backend id are live at once — otherwise one tenant's rate limit benches every other tenant sharing that
-/// backend, and two consumers of one downed self-hosted host fail to share a bench that would have spared
-/// them both. <see cref="IProviderPool{TProvider}.TryGetKey"/> is the intended source.
-///
-/// <para><b>Must return a STABLE key for a given instance.</b> One routing attempt invokes it more than once
-/// — for the bench check, for admission, and for the record that follows — so a delegate whose answer varies
-/// between those calls would record cooldown under a key different from the one checked, producing a bench
-/// that silently never takes effect. Look the key up (as a pool does); never recompute it from live
-/// state.</para></param>
+/// <see cref="Lyntai.Inference.IProviderIdentity.Id"/> and apply no admission — correct for a
+/// single-configuration deployment. Supply one when several configurations of a backend id are live at once,
+/// or one tenant's rate limit benches every other tenant sharing that backend.
+/// <see cref="IProviderPool{TProvider}.TryGetKey"/> is the intended source. <b>Must return a STABLE key for a
+/// given instance</b>, as <see cref="TextRouter"/>'s does.</param>
 /// <param name="admission">Bounds concurrent attempts per configuration — for a locally-run engine where
 /// simultaneous renders contend for one CPU or GPU. Null = unbounded. Applied HERE rather than by
 /// wrapping a provider, because a wrapper implementing only <see cref="IModelProvider"/> erases the
 /// optional capability interfaces (<see cref="IMediaJobProvider"/>) this router type-tests, which
-/// would silently stop every queued render from routing.
-///
-/// <para><b><see cref="GenerateAsync"/> and <see cref="SubmitAsync"/> only —
-/// <see cref="StreamAsync"/> is deliberately NOT gated</b>, the same carve-out
-/// <c>TextRouter</c> states for its own streaming path and for the same reason: a stream holds its permit
-/// for the whole response, so a consumer that simply stops enumerating would pin it until the enumerator is
-/// finally disposed. Bounding a long-lived stream needs a lease the consumer cannot forget, which this is
-/// not.</para></param>
+/// would silently stop every queued render from routing. <see cref="GenerateAsync"/> and
+/// <see cref="SubmitAsync"/> only — <see cref="StreamAsync"/> is deliberately NOT gated, for
+/// <see cref="TextRouter"/>'s reason.</param>
 public sealed class MediaRouter(
     IEnumerable<IModelProvider> providers,
     MediaRoutingPolicy? policy = null,
@@ -74,17 +63,16 @@ public sealed class MediaRouter(
     private readonly IReadOnlyList<IModelProvider> _providers = [.. providers];
     private readonly MediaRoutingPolicy _policy = policy ?? new MediaRoutingPolicy();
 
-    // resolved once: the no-delegate case must cost nothing per attempt, and a null-returning delegate must
-    // be indistinguishable from no delegate at all
-    private readonly Func<IModelProvider, ProviderKey?> _configuration = configuration ?? (_ => null);
+    // the tracker is shared with TextRouter, so keys carry their domain: a chat provider and an image backend
+    // both called "openai" must not bench each other
+    private readonly RouterBookkeeping _bookkeeping = new(deadHosts, admission, configuration, "generation::");
 
     /// <inheritdoc/>
     public async Task<MediaResponse> GenerateAsync(
         IReadOnlyList<ProviderCandidate> candidates, MediaRequest request, CancellationToken ct = default)
     {
         var capable = Capable(candidates, request, ProviderOperation.Complete);
-        MediaResponse? firstFailure = null;     // the first SUBSTANTIVE failure — what the caller is told
-        MediaResponse? firstBlameless = null;   // …kept apart, so it answers only when nothing really failed
+        var failures = new FirstFailures<MediaResponse>();
         var tried = 0;
         var benched = 0;
 
@@ -96,50 +84,21 @@ public sealed class MediaRouter(
             var result = await AttemptAsync(provider, resolved, ct).ConfigureAwait(false);
             if (result.IsOk)
             {
-                deadHosts?.RecordSuccess(CooldownKey(provider));
+                deadHosts?.RecordSuccess(_bookkeeping.Key(provider));
                 return result;
             }
 
-            // not-configured / unsupported aren't faults worth reporting over a real failure — but every
-            // other verdict is remembered BEFORE the surface check, so advancing past one (a host that
-            // configured Refused -> Advance) still reports it when nothing else succeeds
-            if (!result.Verdict.IsBlameless())
-                firstFailure ??= result;
-            // …and a blameless backend that EXPLAINED itself goes in the other slot. It can never mask a real
-            // failure (the return below settles that), but "your prompt is too long for me" beats a synthetic
-            // "nothing is configured" when it is the only thing that happened. A blameless result with an
-            // EMPTY detail is skipped deliberately: the synthetic sentence says strictly more than it does.
-            else if (!string.IsNullOrWhiteSpace(result.Detail))
-                firstBlameless ??= result;
-
-            switch (_policy.ActionFor(result.Verdict))
-            {
-                case FallbackAction.Surface:
-                    return result;
-                case FallbackAction.CooldownAndAdvance:
-                    deadHosts?.MarkDead(CooldownKey(provider));
-                    break;
-                case FallbackAction.PenalizeAndAdvance:
-                    deadHosts?.RecordFailure(CooldownKey(provider));
-                    break;
-            }
+            // filed BEFORE the surface check, so advancing past one (a host that configured Refused -> Advance)
+            // still reports it when nothing else succeeds
+            failures.File(result, result.Verdict, result.Detail);
+            var action = _policy.ActionFor(result.Verdict);
+            if (action == FallbackAction.Surface) return result;
+            _bookkeeping.Penalize(_bookkeeping.Key(provider), action);
         }
 
-        if (tried == 0)
-            return MediaResponse.Failure(
-                benched > 0 ? ProviderVerdict.RateLimited : ProviderVerdict.Unsupported,
-                benched > 0
-                    ? $"every capable media backend for kind '{request.Kind}' is on dead-host cooldown " +
-                      $"({benched} of [{string.Join(", ", candidates.Select(c => c.ProviderId))}])"
-                    : $"no capable media backend for kind '{request.Kind}' via {ProviderOperation.Complete} " +
-                      $"among [{string.Join(", ", candidates.Select(c => c.ProviderId))}]");
-
-        // a real failure outranks a blameless reason; with no real failure the blameless backend's own words
-        // are the honest answer (a host turns "not configured" into a setup prompt, and "too long" into a
-        // shorter prompt), and only a run in which nothing said anything at all falls through to the
-        // synthetic reply. Same three-slot rule as TextRouter.CompleteAsync's last ?? lastBlameless ?? …
-        return firstFailure ?? firstBlameless ?? MediaResponse.Failure(ProviderVerdict.NotConfigured,
-            "every capable backend reported it is not configured");
+        if (failures.Reported is { } reported) return reported;
+        var (verdict, detail) = NothingServed(candidates, request, ProviderOperation.Complete, tried, benched);
+        return MediaResponse.Failure(verdict, detail);
     }
 
     /// <inheritdoc/>
@@ -149,17 +108,9 @@ public sealed class MediaRouter(
         var capable = Capable(candidates, request, ProviderOperation.Queued);
         var benched = 0;
 
-        // the FIRST substantive rejection, kept the way GenerateAsync keeps its firstFailure: the backend
-        // that explained why is the only thing in this run a caller can act on, and the synthesized message
-        // below is otherwise a list of ids that says nothing about what went wrong
-        (string ProviderId, string? Detail, ProviderVerdict Verdict)? firstFailure = null;
-
-        // …and the first BLAMELESS rejection that still gave a reason, in the second slot GenerateAsync keeps
-        // for the same purpose: reported ONLY when no substantive rejection happened, so "nothing is set up"
-        // never masks "the one you configured refused the job". Without it, every reason a blameless verdict
-        // carries — a queue saying the prompt is too long, one saying which key it wants — is dropped and the
-        // job handler fails the job with a bare list of candidate ids.
-        (string ProviderId, string? Detail, ProviderVerdict Verdict)? firstBlameless = null;
+        // the two slots GenerateAsync keeps: the backend that explained why is the only thing in this run a
+        // caller can act on, and the synthesized message is otherwise a list of ids
+        var failures = new FirstFailures<Rejection>();
         var attempted = 0;
 
         foreach (var (provider, resolved) in capable)
@@ -171,7 +122,7 @@ public sealed class MediaRouter(
             // submitting is what commits the money, so it respects the same bound as an inline render. The
             // permit is scoped to THIS iteration: a submission that fails releases it before the next
             // candidate is tried.
-            using (await EnterAdmissionAsync(provider, ct).ConfigureAwait(false))
+            using (await _bookkeeping.EnterAsync(provider, ct).ConfigureAwait(false))
             {
                 var started = Stopwatch.GetTimestamp();
                 using var span = LyntaiDiagnostics.StartGeneration("submit", provider.Id, resolved.Kind, resolved.Model);
@@ -184,24 +135,21 @@ public sealed class MediaRouter(
                 {
                     throw; // caller-initiated cancel is not a backend failure
                 }
-                catch (Exception ex) when (!NeverReachedTheBackend(ex))
+                catch (Exception ex) when (!ProviderVerdictClassifier.NeverReachedTheBackend(ex))
                 {
                     // A throw during SUBMIT that MAY have been delivered is INCONCLUSIVE — the backend may
                     // already hold a billable render, so advancing to the next candidate would buy the same
-                    // generation twice.
-                    //
-                    // A throw that provably never left this process is NOT caught here (see the filter): it
-                    // committed nothing, so it propagates and the durable-job runner applies its ordinary
-                    // retry.
-                    operation = new QueuedOperation("", QueuedOperationStatus.Failed,
-                        Detail: $"{provider.Id}: {ex.Message}") { Inconclusive = true };
+                    // generation twice. One that provably never left this process is NOT caught (the filter):
+                    // it committed nothing, so it propagates and the durable-job runner applies its ordinary
+                    // retry — treating it as ambiguous would dead-letter a transient blip instead.
+                    operation = QueuedOperation.FromThrownSubmit(ex, detail: $"{provider.Id}: {ex.Message}");
                 }
                 LyntaiDiagnostics.RecordSubmission(span, provider.Id, resolved.Kind, operation.Id, operation.Status,
                     Stopwatch.GetElapsedTime(started).TotalSeconds, operation.Inconclusive);
 
                 if (operation.Status != QueuedOperationStatus.Failed)
                 {
-                    deadHosts?.RecordSuccess(CooldownKey(provider));
+                    deadHosts?.RecordSuccess(_bookkeeping.Key(provider));
                     return new MediaSubmission(provider.Id, operation);
                 }
 
@@ -221,48 +169,28 @@ public sealed class MediaRouter(
                 // one; otherwise it comes from classifying the backend's words through the shared corpus, and
                 // an unclassifiable rejection still lands on Failed, which is what it did before.
                 var verdict = operation.Verdict ?? ProviderVerdictClassifier.FromErrorText(operation.Detail);
+                failures.File(new Rejection(provider.Id, operation.Detail, verdict), verdict, operation.Detail);
 
-                // blameless verdicts do not outrank reasons — remembered apart, exactly as GenerateAsync does,
-                // so "nothing is set up" never masks "the one you configured refused the job", while a
-                // blameless rejection that explained itself is still better than a list of ids
-                if (!verdict.IsBlameless())
-                    firstFailure ??= (provider.Id, operation.Detail, verdict);
-                else if (!string.IsNullOrWhiteSpace(operation.Detail))
-                    firstBlameless ??= (provider.Id, operation.Detail, verdict);
-
-                switch (_policy.ActionFor(verdict))
-                {
-                    case FallbackAction.Surface:
-                        // a content refusal is the backend judging the PROMPT, and re-submitting it to the
-                        // next vendor is not a library's decision — the same rule the inline path follows,
-                        // and overridable the same way (On(Refused, Advance)). ProviderId stays empty: it
-                        // means "no candidate accepted", and a refusal is a refusal, not an acceptance.
-                        return new MediaSubmission("", operation with { Verdict = verdict });
-                    case FallbackAction.CooldownAndAdvance:
-                        deadHosts?.MarkDead(CooldownKey(provider));
-                        break;
-                    case FallbackAction.PenalizeAndAdvance:
-                        // a queue that won't take the job is exactly the dead-host case the LLM side benches
-                        // for: the next submission a second later has no reason to fare better
-                        deadHosts?.RecordFailure(CooldownKey(provider));
-                        break;
-                }
+                var action = _policy.ActionFor(verdict);
+                // a content refusal is the backend judging the PROMPT, and re-submitting it to the next vendor is
+                // not a library's decision — the inline rule, overridable the same way (On(Refused, Advance)).
+                // ProviderId stays empty: it means "no candidate accepted", and a refusal is not an acceptance.
+                if (action == FallbackAction.Surface) return new MediaSubmission("", operation with { Verdict = verdict });
+                _bookkeeping.Penalize(_bookkeeping.Key(provider), action);
             }
         }
 
         // the verdict is chosen as GenerateAsync chooses the one it reports, so "nobody could serve it" says why
-        var reported = firstFailure ?? firstBlameless;
-        return new MediaSubmission("", new QueuedOperation("", QueuedOperationStatus.Failed,
-            Detail: (benched > 0
-                ? $"every capable media backend for a '{request.Kind}' job is on dead-host cooldown"
-                : $"no capable media backend accepted a '{request.Kind}' job among " +
-                  $"[{string.Join(", ", candidates.Select(c => c.ProviderId))}]") +
-                Because(reported is { } r ? (r.ProviderId, r.Detail) : null))
-        {
-            Verdict = reported?.Verdict ?? (attempted > 0 ? ProviderVerdict.NotConfigured
-                : benched > 0 ? ProviderVerdict.RateLimited : ProviderVerdict.Unsupported),
-        });
+        var reported = failures.Reported;
+        var (synthesized, roster) = attempted > 0
+            ? (ProviderVerdict.NotConfigured,
+                $"no capable media backend accepted a '{request.Kind}' job among [{Ids(candidates)}]")
+            : NothingServed(candidates, request, ProviderOperation.Queued, tried: 0, benched);
+        return MediaSubmission.Failure(reported?.Verdict ?? synthesized, roster + Because(reported));
     }
+
+    /// <summary>A rejected submission, as the reporting slots keep it.</summary>
+    private sealed record Rejection(string ProviderId, string? Detail, ProviderVerdict Verdict);
 
     /// <inheritdoc/>
     public async IAsyncEnumerable<MediaChunk> StreamAsync(
@@ -270,8 +198,7 @@ public sealed class MediaRouter(
         [EnumeratorCancellation] CancellationToken ct = default)
     {
         var capable = Capable(candidates, request, ProviderOperation.Stream);
-        MediaChunk? firstFailure = null;     // the first SUBSTANTIVE failure — the same two-slot rule
-        MediaChunk? firstBlameless = null;   // …GenerateAsync follows, so all three doors answer alike
+        var failures = new FirstFailures<MediaChunk>();
         var tried = 0;
         var benched = 0;
 
@@ -279,14 +206,10 @@ public sealed class MediaRouter(
         {
             if (IsBenched(provider, capable.Count)) { benched++; continue; }
 
-            // A backend that DECLARES Stream and does not serve it is still a configuration fault — the
-            // router is the trust boundary for what a third-party backend claims about itself — but it is no
-            // longer one this door can see before calling. Until D127 there was a separate streaming
-            // interface and a type test here; the collapse made `StreamAsync(MediaRequest, …)` a
-            // DEFAULT interface member answering Unsupported, so such a backend is now indistinguishable
-            // from a capable one until it answers, and it lands in the ordinary pre-commit failure path
-            // below carrying its own `NotServed` detail. The declaration is checked where it can be:
-            // `GenerationProviderContract.Its_declared_deliveries_are_backed_by_the_interfaces_it_implements`.
+            // A backend that DECLARES Stream and does not serve it answers from IModelProvider's defaulted
+            // member, so it is indistinguishable from a capable one until it answers; it lands in the ordinary
+            // pre-commit failure path with its own NotServed detail. The declaration is checked where it can be:
+            // GenerationProviderContract.Its_declared_deliveries_are_backed_by_the_interfaces_it_implements.
             tried++;
             var attempt = new StreamAttempt();
             await foreach (var chunk in StreamAttemptAsync(provider, resolved, attempt, ct).ConfigureAwait(false))
@@ -295,30 +218,25 @@ public sealed class MediaRouter(
 
             var failure = attempt.Failure!;
             var verdict = failure.Error ?? ProviderVerdict.Failed;
-            if (!verdict.IsBlameless()) firstFailure ??= failure;
-            else if (!string.IsNullOrWhiteSpace(failure.Detail)) firstBlameless ??= failure;
-
-            switch (_policy.ActionFor(verdict))
+            failures.File(failure, verdict, failure.Detail);
+            var action = _policy.ActionFor(verdict);
+            if (action == FallbackAction.Surface)
             {
-                case FallbackAction.Surface:
-                    yield return failure;
-                    yield break;
-                case FallbackAction.CooldownAndAdvance:
-                    deadHosts?.MarkDead(CooldownKey(provider));
-                    break;
-                case FallbackAction.PenalizeAndAdvance:
-                    deadHosts?.RecordFailure(CooldownKey(provider));
-                    break;
+                yield return failure;
+                yield break;
             }
+            _bookkeeping.Penalize(_bookkeeping.Key(provider), action);
         }
 
-        // Nothing produced a stream — still exactly one terminal chunk, so a consumer's loop shape is the
-        // same whether five backends were tried or none existed.
-        //
-        // A REASON SOMEBODY GAVE OUTRANKS A SYNTHESIZED ONE. Checking the two slots first keeps a backend's
-        // own words — the only sentence in the run that names the actual problem — from being replaced by
-        // "no capable media backend for kind …", which describes the roster rather than the failure.
-        yield return firstFailure ?? firstBlameless ?? NothingStreamed(candidates, request, tried, benched);
+        // Nothing produced a stream — still exactly one terminal chunk, so a consumer's loop shape is the same
+        // whether five backends were tried or none existed; a reason somebody gave outranks a synthesized one
+        if (failures.Reported is { } reported)
+        {
+            yield return reported;
+            yield break;
+        }
+        var (synthesized, detail) = NothingServed(candidates, request, ProviderOperation.Stream, tried, benched);
+        yield return MediaChunk.Failure(synthesized, detail);
     }
 
     /// <summary>ONE backend's stream, pumped to a terminal chunk. Sets <see cref="StreamAttempt.Done"/> where
@@ -333,7 +251,7 @@ public sealed class MediaRouter(
         var closed = false;                // did the backend send a terminal chunk of its own?
         MediaChunk? failure = null;
 
-        await using var chunks = streamer.StreamAsync(resolved, ct).GetAsyncEnumerator(ct);
+        await using var chunks = StreamOpening.Deferred(() => streamer.StreamAsync(resolved, ct), ct).GetAsyncEnumerator(ct);
         while (true)
         {
             bool moved;
@@ -368,7 +286,7 @@ public sealed class MediaRouter(
             if (chunk.Final)
             {
                 closed = true;
-                deadHosts?.RecordSuccess(CooldownKey(streamer));
+                deadHosts?.RecordSuccess(_bookkeeping.Key(streamer));
                 attempt.Done = true;
                 yield return chunk;
                 yield break;
@@ -384,7 +302,7 @@ public sealed class MediaRouter(
         {
             if (committed)
             {
-                deadHosts?.RecordSuccess(CooldownKey(streamer));
+                deadHosts?.RecordSuccess(_bookkeeping.Key(streamer));
                 attempt.Done = true;
                 yield return MediaChunk.Completed();
                 yield break;
@@ -412,42 +330,53 @@ public sealed class MediaRouter(
         public MediaChunk? Failure { get; set; }
     }
 
-    /// <summary>The synthesized terminal for a run in which no backend produced a stream. Reached only when
-    /// nobody said anything of their own, which is why the caller consults its two slots first.</summary>
-    private static MediaChunk NothingStreamed(
-        IReadOnlyList<ProviderCandidate> candidates, MediaRequest request, int tried, int benched) =>
-        tried == 0
-            ? MediaChunk.Failure(
-                benched > 0 ? ProviderVerdict.RateLimited : ProviderVerdict.Unsupported,
-                benched > 0
-                    ? $"every capable media backend for kind '{request.Kind}' is on dead-host cooldown " +
-                      $"({benched} of [{string.Join(", ", candidates.Select(c => c.ProviderId))}])"
-                    : $"no capable media backend for kind '{request.Kind}' via {ProviderOperation.Stream} " +
-                      $"among [{string.Join(", ", candidates.Select(c => c.ProviderId))}]")
-            : MediaChunk.Failure(ProviderVerdict.NotConfigured,
-                "every capable backend reported it is not configured");
+    /// <summary>The verdict and sentence for a run in which no backend answered for itself — reached only when
+    /// nobody said anything of their own, which is why every door consults its two slots first. Nothing tried
+    /// describes the roster: all benched is <see cref="ProviderVerdict.RateLimited"/>, none capable
+    /// <see cref="ProviderVerdict.Unsupported"/>; something tried and silent is
+    /// <see cref="ProviderVerdict.NotConfigured"/>.</summary>
+    private static (ProviderVerdict Verdict, string Detail) NothingServed(
+        IReadOnlyList<ProviderCandidate> candidates, MediaRequest request, ProviderOperation door, int tried,
+        int benched) =>
+        tried > 0 ? (ProviderVerdict.NotConfigured, "every capable backend reported it is not configured")
+        : benched > 0 ? (ProviderVerdict.RateLimited,
+            $"every capable media backend for kind '{request.Kind}' is on dead-host cooldown ({benched} of [{Ids(candidates)}])")
+        : (ProviderVerdict.Unsupported,
+            $"no capable media backend for kind '{request.Kind}' via {door} among [{Ids(candidates)}]");
 
-    /// <summary>The first rejecting backend's own words, folded onto the synthesized "nobody took it" message
-    /// — the first SUBSTANTIVE rejection where there was one, otherwise the first blameless rejection that
-    /// still gave a reason. Without it the only thing that survives a failed submission is a list of candidate
-    /// ids — and that is what <c>GenerationRenderJobHandler</c> fails the job with and what
-    /// <c>GenerationSubmitTool</c> hands a model, neither of which can act on "these three didn't work".
-    /// <para>The reasonless branch below is therefore reached only by a SUBSTANTIVE rejection that said
-    /// nothing: a blameless one with an empty detail is never remembered at all, because naming a backend
-    /// that was merely skipped blamelessly would read as an accusation.</para>
-    /// <para><see cref="MediaSubmission.ProviderId"/> stays EMPTY regardless: <see cref="IMediaRouter"/>
-    /// documents empty as "no candidate accepted", and both callers branch on it. The id belongs in the
-    /// sentence, not in that field.</para></summary>
-    private static string Because((string ProviderId, string? Detail)? failure)
+    private static string Ids(IReadOnlyList<ProviderCandidate> candidates) =>
+        string.Join(", ", candidates.Select(c => c.ProviderId));
+
+    /// <summary>The first rejecting backend's own words, folded onto the synthesized "nobody took it" message,
+    /// because that message is what <c>GenerationRenderJobHandler</c> fails the job with and what
+    /// <c>GenerationSubmitTool</c> hands a model. A rejection with no reason still names WHO; a blameless one with
+    /// none is never kept, since naming a backend merely skipped blamelessly would read as an accusation.
+    /// <see cref="MediaSubmission.ProviderId"/> stays EMPTY regardless — "no candidate accepted".</summary>
+    private static string Because(Rejection? rejection) => rejection switch
     {
-        // nothing was even attempted (every entry was incapable, not job-capable, or benched)
-        if (!failure.HasValue) return "";
+        null => "",
+        { Detail: var detail } when string.IsNullOrWhiteSpace(detail) =>
+            $" — '{rejection.ProviderId}' rejected it without giving a reason",
+        _ => $" — '{rejection.ProviderId}' said: {rejection.Detail}",
+    };
 
-        var (providerId, detail) = failure.Value;
-        // a rejection with no reason still names WHO, which is more than the id list says
-        return string.IsNullOrWhiteSpace(detail)
-            ? $" — '{providerId}' rejected it without giving a reason"
-            : $" — '{providerId}' said: {detail}";
+    /// <summary>The two reporting slots every door keeps: the first SUBSTANTIVE failure — what the caller is
+    /// told — and, apart from it, the first BLAMELESS one that still gave a reason, which answers only when nothing
+    /// really failed (<c>docs/DECISIONS.md</c> D31). A blameless failure with an empty detail is not kept: the
+    /// synthesized sentence says strictly more than it does.</summary>
+    private sealed class FirstFailures<T> where T : class
+    {
+        private T? _substantive;
+        private T? _blameless;
+
+        /// <summary>What to report: the substantive failure, else the blameless one, else null.</summary>
+        public T? Reported => _substantive ?? _blameless;
+
+        public void File(T failure, ProviderVerdict verdict, string? detail)
+        {
+            if (!verdict.IsBlameless()) _substantive ??= failure;
+            else if (!string.IsNullOrWhiteSpace(detail)) _blameless ??= failure;
+        }
     }
 
     /// <summary>One backend attempt, wrapped in a span + duration/cost metrics. Per ATTEMPT, not per request:
@@ -457,7 +386,7 @@ public sealed class MediaRouter(
     {
         // the permit is taken BEFORE the clock starts, so a queued render's wait never inflates the
         // backend's reported latency
-        using var permit = await EnterAdmissionAsync(provider, ct).ConfigureAwait(false);
+        using var permit = await _bookkeeping.EnterAsync(provider, ct).ConfigureAwait(false);
 
         var started = Stopwatch.GetTimestamp();
         using var span = LyntaiDiagnostics.StartGeneration("generate", provider.Id, request.Kind, request.Model);
@@ -490,58 +419,15 @@ public sealed class MediaRouter(
         return result;
     }
 
-    /// <summary>Whether a thrown exception proves the request never left this process — a refused
-    /// connection, a name that would not resolve, a TLS handshake that never completed. Nothing was
-    /// submitted, so nothing was charged.
-    ///
-    /// <para>Used ONLY on the submit path, and only to decide whether to swallow the throw at all. A submit
-    /// that may have been delivered becomes an <c>Inconclusive</c> result this router surfaces rather than
-    /// advancing past; one that provably was not propagates untouched, so the durable-job runner applies its
-    /// ordinary retry. Getting this wrong in the safe-looking direction — treating everything as ambiguous —
-    /// converts a transient blip into a dead-lettered job, which is what the first version of this catch
-    /// did. The inline <see cref="GenerateAsync"/> path needs none of this: nothing there is billed by the
-    /// act of asking.</para></summary>
-    private static bool NeverReachedTheBackend(Exception ex) => ex switch
-    {
-        HttpRequestException { HttpRequestError: HttpRequestError.ConnectionError
-                                              or HttpRequestError.NameResolutionError
-                                              or HttpRequestError.SecureConnectionError } => true,
-        System.Net.Sockets.SocketException => true,
-        // Deliberately NOT a catch-all: a timeout, a protocol error mid-response, or anything unrecognised
-        // may have been delivered, and the expensive mistake is assuming it was not.
-        _ => false,
-    };
-
-    /// <summary>Take a concurrency permit for this provider's CONFIGURATION, or nothing at all when no
-    /// admission is wired or the configuration is unknown. Never returns a handle the caller may skip
-    /// disposing: a permit that is not returned pins its gate for the life of the process, so every call site
-    /// scopes the result with <c>using</c> and lets success, failure, a throw and cancellation all release
-    /// it the same way.</summary>
-    private async ValueTask<IDisposable?> EnterAdmissionAsync(IModelProvider provider, CancellationToken ct) =>
-        admission is not null && _configuration(provider) is { } key
-            ? await admission.EnterAsync(key, ct).ConfigureAwait(false)
-            : null;
-
     /// <summary>Whether this backend is benched — honouring the sole-candidate exemption, so the only capable
     /// backend is always tried.</summary>
     private bool IsBenched(IModelProvider provider, int capableCount) =>
-        deadHosts is not null &&
-        !(capableCount == 1 && _policy.ExemptSoleCandidate) &&
-        deadHosts.IsDead(CooldownKey(provider));
+        _bookkeeping.IsBenched(_bookkeeping.Key(provider), capableCount == 1, _policy.ExemptSoleCandidate);
 
-    /// <summary>The tracker is shared with <see cref="TextRouter"/>, so keys carry their domain: a host with a chat
-    /// provider and an image backend both called "openai" must not have one bench the other.
-    ///
-    /// <para>Within the domain the key is the CONFIGURATION when one is known, falling back to the backend id
-    /// otherwise — the two configurations of one backend id that a pool keeps live must bench independently,
-    /// while two consumers of one downed self-hosted host must share a bench.</para></summary>
-    private string CooldownKey(IModelProvider provider) =>
-        $"generation::{_configuration(provider)?.ToString() ?? provider.Id}";
-
-    /// <summary>Candidates that exist, are registered, are DISTINCT, and DECLARE they can serve this
-    /// request/delivery — with the candidate's model applied to the request when it pins one. Materialized
-    /// because the sole-candidate cooldown exemption needs to know how many there are before trying the
-    /// first.
+    /// <summary>Candidates that exist, are registered, report themselves available, are DISTINCT, and DECLARE
+    /// they can serve this request/delivery — with the candidate's model applied to the request when it pins
+    /// one. Materialized because the sole-candidate cooldown exemption needs to know how many there are before
+    /// trying the first.
     ///
     /// <para><b>Dedup happens on the RESOLVED pair, and it happens HERE.</b> Resolved, because that is the
     /// pair that decides what is actually called: <c>"fal"</c> and <c>"FAL"</c> select one provider (ids match
@@ -567,9 +453,10 @@ public sealed class MediaRouter(
         var resolved = new List<(IModelProvider Provider, MediaRequest Request)>();
         foreach (var candidate in candidates)
         {
-            var provider = providers.FirstOrDefault(p =>
-                string.Equals(p.Id, candidate.ProviderId, StringComparison.OrdinalIgnoreCase));
+            var provider = ProviderLookup.Find(providers, candidate.ProviderId);
             if (provider is null) continue;   // an unknown id is a config typo, not a crash
+            // before the count, so an unavailable backend never withdraws the sole-candidate exemption
+            if (!provider.IsAvailable) continue;
 
             resolved.Add((provider,
                 candidate.Model is { Length: > 0 } model ? request with { Model = model } : request));

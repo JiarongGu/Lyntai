@@ -10,9 +10,6 @@ namespace Lyntai.Inference;
 /// </summary>
 public static partial class ProviderVerdictClassifier
 {
-    /// <summary>Classify an error message / stderr tail. Conservative on purpose: "429" alone is NOT
-    /// enough (a stack frame like <c>cli.js:429</c> must stay Failed) — it needs rate-limit phrasing,
-    /// or an HTTP-ish context word immediately before the number.</summary>
     // consumer-registered matchers, consulted BEFORE the built-in (English) patterns — so an app can teach
     // the classifier a non-English provider's phrasing, or a bespoke error code, without editing Core. A
     // process-wide extension point (set at startup); AddErrorTextMatcher returns an IDisposable so a test
@@ -42,6 +39,11 @@ public static partial class ProviderVerdictClassifier
         return new MatcherRegistration(matcher);
     }
 
+    /// <summary>Classify an error message / stderr tail. Conservative on purpose: "429" alone is NOT
+    /// enough (a stack frame like <c>cli.js:429</c> must stay Failed) — it needs rate-limit phrasing,
+    /// or an HTTP-ish context word immediately before the number.</summary>
+    /// <param name="text">The backend's words.</param>
+    /// <param name="fallback">What unrecognized text classifies as.</param>
     public static ProviderVerdict FromErrorText(string? text, ProviderVerdict fallback = ProviderVerdict.Failed)
     {
         if (string.IsNullOrWhiteSpace(text)) return fallback;
@@ -104,21 +106,23 @@ public static partial class ProviderVerdictClassifier
     /// consumer merely listed without configuring would otherwise be penalised on every first attempt.
     /// <para>Why not simply require a key up front: an OpenAI-shaped endpoint run locally (LM Studio,
     /// vLLM, Ollama) legitimately needs none, so "no key" cannot mean unconfigured on its own — only "no key
-    /// AND the server demanded one" does.</para>
-    /// <para>The generation domain states the SAME rule over its own vocabulary
-    /// (<c>Lyntai.Inference.ProviderVerdictClassifier.FromHttpFailure</c>). The two are deliberately
-    /// stated separately rather than shared: the pattern CORPUS ("what does a 429 look like") is single-sourced
-    /// here, but this two-term promotion reaches different populations — every LLM backend that authenticates
-    /// by login SESSION rather than a supplied key (the CLI dialects) classifies from error text and has no
-    /// <paramref name="hasCredentials"/> fact at all. Change one and check the other.</para></summary>
+    /// AND the server demanded one" does.</para></summary>
     /// <param name="status">The failed response's status.</param>
     /// <param name="body">The response body, for text-based classification.</param>
     /// <param name="hasCredentials">Whether this call actually carried credentials.</param>
-    public static ProviderVerdict FromHttpFailure(HttpStatusCode status, string? body, bool hasCredentials)
-    {
-        var verdict = FromHttpFailure(status, body);
-        return verdict == ProviderVerdict.AuthFailed && !hasCredentials ? ProviderVerdict.NotConfigured : verdict;
-    }
+    public static ProviderVerdict FromHttpFailure(HttpStatusCode status, string? body, bool hasCredentials) =>
+        Credentialed(FromHttpFailure(status, body), hasCredentials);
+
+    /// <summary>Classify an error a backend reported IN BAND — under a 2xx, where the status says nothing — with
+    /// the same credentials rule as <see cref="FromHttpFailure(HttpStatusCode, string, bool)"/>: an auth failure
+    /// on a call that carried no credentials is <see cref="ProviderVerdict.NotConfigured"/>.</summary>
+    /// <param name="text">The backend's words.</param>
+    /// <param name="hasCredentials">Whether this call actually carried credentials.</param>
+    public static ProviderVerdict FromErrorText(string? text, bool hasCredentials) =>
+        Credentialed(FromErrorText(text), hasCredentials);
+
+    private static ProviderVerdict Credentialed(ProviderVerdict verdict, bool hasCredentials) =>
+        verdict == ProviderVerdict.AuthFailed && !hasCredentials ? ProviderVerdict.NotConfigured : verdict;
 
     [GeneratedRegex(@"rate[\s_-]?limit|too\s+many\s+requests|quota\s+exceeded|resource[\s_-]?exhausted|(?:http|status(?:\s+code)?|error|code)\s*[:=]?\s*429\b", RegexOptions.IgnoreCase)]
     private static partial Regex RateLimitPattern();
@@ -135,17 +139,29 @@ public static partial class ProviderVerdictClassifier
     [GeneratedRegex(@"content[\s_-]?(?:filter|policy)|policy\s+violation", RegexOptions.IgnoreCase)]
     private static partial Regex RefusalPattern();
 
-    /// <summary>Classify a THROWN exception for a router, which is <see cref="FromException"/> with one
-    /// extra rule: never <see cref="ProviderVerdict.Refused"/>.
-    ///
-    /// <para>A refusal is a judgement the backend made about the CONTENT and returned in a reply; an
-    /// exception is the transport failing. Letting a thrown exception classify as Refused would surface it
-    /// with no fallback, so a transport fault that happens to carry policy-shaped words would end the whole
-    /// run. Both routers applied this rule from their own private copies until <b>D136</b> merged the
-    /// taxonomy that had kept them apart.</para></summary>
-    internal static ProviderVerdict FromThrown(Exception ex)
+    /// <summary>Classify a THROWN exception the way every router does, which is <see cref="FromException"/> with
+    /// one extra rule: never <see cref="ProviderVerdict.Refused"/>. A refusal is a judgement the backend made
+    /// about the CONTENT and returned in a reply; an exception is the transport failing, and classifying one as
+    /// Refused would surface it with no fallback — so a proxy page that happens to mention a content policy
+    /// would end the whole run. A backend catching its own exceptions classifies them with this.</summary>
+    /// <param name="ex">What was thrown.</param>
+    public static ProviderVerdict FromThrown(Exception ex)
     {
         var verdict = FromException(ex);
         return verdict == ProviderVerdict.Refused ? ProviderVerdict.Failed : verdict;
     }
+
+    /// <summary>Whether a thrown exception proves the request never left this process — a refused connection, a
+    /// name that would not resolve, a TLS handshake that never completed — so nothing was submitted and nothing
+    /// charged. Deliberately NOT a catch-all: a timeout, a protocol error mid-response, or anything unrecognised
+    /// may have been delivered, and the expensive mistake is assuming it was not. Read only for a SUBMIT, where
+    /// asking is what commits the money (<see cref="QueuedOperation.FromThrownSubmit"/>).</summary>
+    internal static bool NeverReachedTheBackend(Exception ex) => ex switch
+    {
+        HttpRequestException { HttpRequestError: HttpRequestError.ConnectionError
+                                              or HttpRequestError.NameResolutionError
+                                              or HttpRequestError.SecureConnectionError } => true,
+        System.Net.Sockets.SocketException => true,
+        _ => false,
+    };
 }

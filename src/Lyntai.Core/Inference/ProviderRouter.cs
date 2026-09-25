@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using Lyntai.Diagnostics;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -55,14 +57,12 @@ public sealed class ProviderRouter<TRequest, TResponse>(
 {
     private readonly ILogger _logger = logger ?? NullLogger.Instance;
     private readonly RoutingPolicy _policy = policy ?? new RoutingPolicy();
-    private readonly Func<IModelProvider, ProviderKey?> _configuration = configuration ?? (_ => null);
+    private readonly RouterBookkeeping _bookkeeping = new(deadHosts, admission, configuration, cooldownScope);
 
     /// <summary>The registered backends that serve this call shape AND report themselves usable, in
-    /// registration order.
-    ///
-    /// <para>Availability is read per call rather than cached: a backend can become usable between one call
-    /// and the next, and a cached "unavailable" would outlive the outage that caused it.</para></summary>
-    public IReadOnlyList<IProviderCall<TRequest, TResponse>> Capable() =>
+    /// registration order. Availability is read per call rather than cached: a cached "unavailable" would
+    /// outlive the outage that caused it.</summary>
+    private List<IProviderCall<TRequest, TResponse>> Capable() =>
         [.. providers.OfType<IProviderCall<TRequest, TResponse>>().Where(Serves)];
 
     /// <summary>The two questions a candidate must answer yes to, asked in one place so the list and the
@@ -100,12 +100,10 @@ public sealed class ProviderRouter<TRequest, TResponse>(
                     gov.Options.Budget, gate, consumer, includeTokens: true, _logger, ct).ConfigureAwait(false)
                 is { } reason)
                 return synthesize(ProviderVerdict.Refused, reason);
-            if (gov.Limiter is { } limiter && !await limiter.AcquireAsync(consumer, ct).ConfigureAwait(false))
-            {
-                _logger.LogInformation("client-side rate limit exceeded for consumer {Consumer}", consumer);
-                Diagnostics.LyntaiDiagnostics.RecordRateLimitRefusal(consumer);
-                return synthesize(ProviderVerdict.RateLimited, "client-side rate limit exceeded");
-            }
+            if (gov.Limiter is { } limiter && await RateLimiting.RateGate.RefuseAsync(
+                    limiter, consumer, RateLimiting.RateGate.Exceeded, _logger, ct).ConfigureAwait(false)
+                is { } throttled)
+                return synthesize(ProviderVerdict.RateLimited, throttled);
         }
 
         var response = await RouteAsync(request, ct).ConfigureAwait(false);
@@ -118,63 +116,33 @@ public sealed class ProviderRouter<TRequest, TResponse>(
     {
         TResponse? last = default;          // the last SUBSTANTIVE failure — what the caller is told
         TResponse? lastBlameless = default; // …kept apart, so it answers only when nothing really failed
-        var tried = 0;
+        var benched = 0;
 
         var capable = Capable();
         var sole = capable.Count == 1;
         foreach (var provider in capable)
         {
-            var key = CooldownKey(provider);
-            if (!(sole && _policy.ExemptSoleCandidate) && deadHosts?.IsDead(key) == true)
+            var key = _bookkeeping.Key(provider);
+            if (_bookkeeping.IsBenched(key, sole, _policy.ExemptSoleCandidate))
             {
                 _logger.LogDebug("router: skipping {Provider} — dead-host cooldown", provider.Id);
+                benched++;
                 continue;
             }
 
-            tried++;
-            var retries = 0;
-            while (true)
-            {
-                var response = await AttemptAsync(provider, request, ct).ConfigureAwait(false);
-                if (response.Verdict == ProviderVerdict.Ok)
-                {
-                    deadHosts?.RecordSuccess(key);
-                    return response;
-                }
-
-                var action = _policy.ActionFor(response.Verdict);
-                if (action == FallbackAction.Surface) return response;
-
-                if (response.Verdict.IsBlameless()) lastBlameless = response; else last = response;
-
-                if (action == FallbackAction.CooldownAndAdvance)
-                {
-                    deadHosts?.MarkDead(key);
-                    break;
-                }
-                if (action == FallbackAction.PenalizeAndAdvance)
-                {
-                    if (_policy.ShouldRetrySameCandidate(response.Verdict, ++retries))
-                    {
-                        if (_policy.RetryBackoff > TimeSpan.Zero)
-                            await Task.Delay(_policy.RetryBackoff, ct).ConfigureAwait(false);
-                        continue; // retries are part of ONE attempt — no failure recorded yet
-                    }
-                    // exactly ONE failure per request, never one per retry: recording per retry would cross
-                    // the dead-host threshold inside a single call
-                    deadHosts?.RecordFailure(key);
-                }
-                break;
-            }
+            var returned = await CandidateAttempt.RunAsync(
+                () => AttemptAsync(provider, request, ct),
+                response => { if (response.Verdict.IsBlameless()) lastBlameless = response; else last = response; },
+                _policy, deadHosts, key, onRetry: null, ct).ConfigureAwait(false);
+            if (returned is not null) return returned;
         }
 
-        if (last is not null) return last;
-        if (lastBlameless is not null) return lastBlameless;
-        return synthesize(
-            tried == 0 ? ProviderVerdict.NotConfigured : ProviderVerdict.Failed,
-            tried == 0
-                ? "no registered backend serves this call (none capable, or every one is on cooldown)"
-                : $"every capable backend failed ({tried} tried)");
+        // every attempted backend filled a slot or returned, so reaching the synthetic reply means none was tried:
+        // benched is a fault (the backend they configured is down), only "nothing capable" is blameless
+        if ((last ?? lastBlameless) is { } answer) return answer;
+        return benched > 0
+            ? synthesize(ProviderVerdict.Failed, $"every capable backend is on dead-host cooldown ({benched} benched)")
+            : synthesize(ProviderVerdict.NotConfigured, "no registered backend serves this call");
     }
 
     /// <summary>One attempt at one backend: take an admission permit, call it, and turn a throw into a
@@ -185,12 +153,14 @@ public sealed class ProviderRouter<TRequest, TResponse>(
     private async Task<TResponse> AttemptAsync(
         IProviderCall<TRequest, TResponse> provider, TRequest request, CancellationToken ct)
     {
-        using var permit = admission is not null && _configuration(provider) is { } key
-            ? await admission.EnterAsync(key, ct).ConfigureAwait(false)
-            : null;
+        // the permit is taken BEFORE the span opens, so a queued call's wait never inflates the reported latency
+        using var permit = await _bookkeeping.EnterAsync(provider, ct).ConfigureAwait(false);
+        using var span = LyntaiDiagnostics.StartCall(Operation, provider.Id);
+        var started = Stopwatch.GetTimestamp();
+        TResponse response;
         try
         {
-            return await provider.CallAsync(request, ct).ConfigureAwait(false);
+            response = await provider.CallAsync(request, ct).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
@@ -199,10 +169,19 @@ public sealed class ProviderRouter<TRequest, TResponse>(
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "router: {Provider} threw; classifying and advancing", provider.Id);
-            return synthesize(ProviderVerdictClassifier.FromThrown(ex), $"{provider.Id}: {ex.Message}");
+            response = synthesize(ProviderVerdictClassifier.FromThrown(ex), $"{provider.Id}: {ex.Message}");
         }
+        LyntaiDiagnostics.RecordCallOutcome(span, Operation, provider.Id, model: null, response.Verdict,
+            response.Usage, cacheReadTokens: 0, Stopwatch.GetElapsedTime(started).TotalSeconds, response.Detail);
+        return response;
     }
 
-    private string CooldownKey(IModelProvider provider) =>
-        cooldownScope + (_configuration(provider)?.ToString() ?? provider.Id);
+    /// <summary>The span's <c>gen_ai.operation.name</c>: the GenAI convention's <c>embeddings</c> for the vector
+    /// shape, <c>rerank</c> for the score shape, and an application kind's own name otherwise.</summary>
+    private static readonly string Operation = ProviderRouterFactory.KindOf(typeof(TRequest)) switch
+    {
+        "vector" => "embeddings",
+        "score" => "rerank",
+        var kind => kind,
+    };
 }

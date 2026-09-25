@@ -13,9 +13,7 @@ public interface IMediaRouter
     /// never masks a real one, or a caller would be sent off to set up a key while the backend they HAD
     /// configured is the one that is down. Failing that, it is the first blameless result that gave a REASON:
     /// "this backend cannot take an input image" and "your prompt is too long for me" are answers a caller can
-    /// act on, and they used to be replaced by a synthetic "every capable backend reported it is not
-    /// configured" that was not even accurate. Only a run in which nothing said anything reports that
-    /// sentence.</remarks>
+    /// act on. Only a run in which nothing said anything reports a synthesized sentence.</remarks>
     Task<MediaResponse> GenerateAsync(
         IReadOnlyList<ProviderCandidate> candidates, MediaRequest request, CancellationToken ct = default);
 
@@ -43,9 +41,7 @@ public interface IMediaRouter
         IReadOnlyList<ProviderCandidate> candidates, MediaRequest request, CancellationToken ct = default);
 
     /// <summary>Stream through the first capable <see cref="ProviderOperation.Stream"/> candidate, emitting
-    /// media as it is produced. The third door, added in 3.0 — before it, a backend advertising
-    /// <see cref="ProviderOperation.Stream"/> was unreachable through the platform and had to be driven
-    /// directly, which made <see cref="IModelProvider"/> a seam nothing could use.</summary>
+    /// media as it is produced.</summary>
     /// <remarks><b>Fallback stops at the first byte, and that is the whole contract.</b> This path inherits
     /// the two invariants `TextRouter` measured rather than inventing its own
     /// (<c>.claude/knowledge/llm-and-router.md</c> § Streaming):
@@ -73,4 +69,10 @@ public interface IMediaRouter
 /// is meaningless without knowing who issued it.</summary>
 /// <param name="ProviderId">The backend holding the operation; empty when no candidate accepted the job.</param>
 /// <param name="Operation">The operation handle.</param>
-public sealed record MediaSubmission(string ProviderId, QueuedOperation Operation);
+public sealed record MediaSubmission(string ProviderId, QueuedOperation Operation)
+{
+    /// <summary>A submission no candidate accepted — an empty <see cref="ProviderId"/>, which
+    /// <see cref="IMediaRouter.SubmitAsync"/> documents as exactly that — with its verdict and reason.</summary>
+    public static MediaSubmission Failure(ProviderVerdict verdict, string? detail) =>
+        new("", QueuedOperation.Failure(detail, verdict));
+}

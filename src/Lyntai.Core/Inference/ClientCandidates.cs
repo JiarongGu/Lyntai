@@ -81,6 +81,11 @@ internal static class ClientCandidates
     internal static bool ServesText(IModelProvider provider) =>
         provider.Capabilities.Produces.Contains(ProviderKinds.Text, StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>Whether a backend serves a text call on <paramref name="door"/>: it produces text AND declares
+    /// that operation. What the router asks per door, so a Complete-only backend is never asked to stream.</summary>
+    internal static bool Serves(IModelProvider provider, ProviderOperation door) =>
+        ServesText(provider) && provider.Capabilities.Operations.Contains(door);
+
     /// <summary>What a backend declares it produces, for a message: "nothing" when it declares no kind at all.</summary>
     internal static string Produces(IModelProvider provider) =>
         provider.Capabilities.Produces.Count == 0 ? "nothing" : string.Join(" and ", provider.Capabilities.Produces);
@@ -95,8 +100,7 @@ internal static class ClientCandidates
     internal static IReadOnlyList<(string Candidate, string Produces, bool DeclaresNothing)> ServingNoText(
         IReadOnlyList<ProviderCandidate> candidates, IEnumerable<IModelProvider> providers)
     {
-        var byId = new Dictionary<string, IModelProvider>(StringComparer.OrdinalIgnoreCase);
-        foreach (var p in providers) byId.TryAdd(p.Id, p);
+        var byId = ProviderLookup.ById(providers);
         return [.. CandidateDedup.Dedup(candidates)
             .Select(c => (Candidate: c, Provider: byId.GetValueOrDefault(c.ProviderId)))
             .Where(x => x.Provider is not null && !ServesText(x.Provider))

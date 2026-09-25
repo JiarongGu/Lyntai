@@ -1,4 +1,5 @@
 using Lyntai;
+using Lyntai.Storage;
 using Lyntai.Storage.InMemory;
 
 namespace Lyntai.Tests.Storage;
@@ -14,7 +15,7 @@ public class InMemoryStorageTests
     [Fact]
     public async Task Memory_cap_trims_oldest_in_recency_order()
     {
-        var store = new InMemoryMemoryStore(new LyntaiOptions { MemoryCapPerScope = 3, MemoryRecallLimit = 100 }, clock: () => _now);
+        var store = new InMemoryMemoryStore(new LyntaiOptions { MemoryEviction = MemoryEvictionPolicy.CountCap(3), MemoryRecallLimit = 100 }, clock: () => _now);
         for (var i = 1; i <= 5; i++) await store.RememberAsync("t", "s", $"entry {i}");
 
         var hits = await store.RecallAsync("t");

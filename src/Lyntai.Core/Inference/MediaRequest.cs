@@ -40,7 +40,7 @@ public sealed record MediaRequest
     /// LLM side (<c>TextRequest.Consumer</c>), and matched case-insensitively by both. Governance is why this
     /// exists: without it every render in a process bills to one bucket, and the runaway-spend case (an agent
     /// loop rendering in a retry) can't be capped separately from a user pressing a button.</summary>
-    public string Consumer { get; init; } = "default";
+    public string Consumer { get; init; } = ProviderConsumers.Default;
 
     /// <summary>Read an option, or null when absent. Case-insensitive when the caller supplied the default
     /// dictionary; a caller passing its own dictionary decides its own comparer.</summary>

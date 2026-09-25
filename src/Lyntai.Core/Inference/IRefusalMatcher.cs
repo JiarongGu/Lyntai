@@ -3,7 +3,7 @@ namespace Lyntai.Inference;
 
 /// <summary>A typed, app-registered check that decides whether an otherwise-<see cref="ProviderVerdict.Ok"/>
 /// reply is actually a refusal. Registered into a DI collection (<c>AddRefusalMatcher</c>); the
-/// refusal-screening front door runs every matcher — after the central patterns and the per-request
+/// refusal-screening front door runs every matcher — after the per-request
 /// <see cref="TextRequest.RefusalPattern"/> — and surfaces the reply as <see cref="ProviderVerdict.Refused"/>
 /// (no fallback) if any returns true. This is the structured alternative to the stringly-typed
 /// <see cref="TextRequest.RefusalPattern"/> regex: a matcher can key off the request (consumer, model,

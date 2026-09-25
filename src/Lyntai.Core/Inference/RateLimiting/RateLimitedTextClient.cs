@@ -1,6 +1,5 @@
 using Lyntai.Inference;
 using System.Runtime.CompilerServices;
-using Lyntai.Diagnostics;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -17,34 +16,28 @@ public sealed class RateLimitedTextClient(
     ITextClient inner, IRateLimiter limiter, ILogger<RateLimitedTextClient>? logger = null) : DelegatingTextClient(inner)
 {
     private readonly ILogger _logger = logger ?? NullLogger<RateLimitedTextClient>.Instance;
-    private const string Reason = "client-side rate limit exceeded";
 
     public override async Task<TextResponse> CompleteAsync(TextRequest req, CancellationToken ct = default)
     {
-        if (!await limiter.AcquireAsync(req.Consumer, ct).ConfigureAwait(false))
-            return Throttled(req.Consumer);
+        if (await RefuseAsync(req.Consumer, ct).ConfigureAwait(false) is { } reason)
+            return new TextResponse("", ProviderVerdict.RateLimited, Detail: reason);
         return await Inner.CompleteAsync(req, ct).ConfigureAwait(false);
     }
 
     public override async IAsyncEnumerable<TextChunk> StreamAsync(
         TextRequest req, [EnumeratorCancellation] CancellationToken ct = default)
     {
-        if (!await limiter.AcquireAsync(req.Consumer, ct).ConfigureAwait(false))
+        if (await RefuseAsync(req.Consumer, ct).ConfigureAwait(false) is { } reason)
         {
-            // Build the refusal through the same helper the buffered door uses: a hand-rolled chunk here
-            // would neither log nor count, so lyntai.ratelimit.refusals would miss a streamed workload.
-            var refusal = Throttled(req.Consumer);
-            yield return TextChunk.Error(refusal.Verdict, refusal.Detail!);
+            yield return TextChunk.Error(ProviderVerdict.RateLimited, reason);
             yield break;
         }
         await foreach (var chunk in Inner.StreamAsync(req, ct).ConfigureAwait(false))
             yield return chunk;
     }
 
-    private TextResponse Throttled(string consumer)
-    {
-        _logger.LogInformation("{Reason} for consumer {Consumer}", Reason, consumer);
-        LyntaiDiagnostics.RecordRateLimitRefusal(consumer);
-        return new TextResponse("", ProviderVerdict.RateLimited, Detail: Reason);
-    }
+    // every door refuses through the one gate, which logs and counts — a hand-rolled refusal would miss
+    // lyntai.ratelimit.refusals
+    private ValueTask<string?> RefuseAsync(string consumer, CancellationToken ct) =>
+        RateGate.RefuseAsync(limiter, consumer, RateGate.Exceeded, _logger, ct);
 }

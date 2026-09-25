@@ -7,10 +7,12 @@ namespace Lyntai.Inference;
 /// each hand-copying the pass-throughs — and from silently dropping one when the interface grows.
 /// A BYO decorator registered via <c>AddFrontDoorDecorator</c> can derive from it the same way.
 /// </summary>
-public abstract class DelegatingTextClient(ITextClient inner) : ITextClient
+public abstract class DelegatingTextClient(ITextClient inner) : ITextClient, IRoutedCandidates
 {
     /// <summary>The wrapped client the pass-throughs delegate to.</summary>
     protected ITextClient Inner { get; } = inner;
+
+    IReadOnlyList<ProviderCandidate>? IRoutedCandidates.RoutedCandidates => (Inner as IRoutedCandidates)?.RoutedCandidates;
 
     public virtual Task<TextResponse> CompleteAsync(TextRequest req, CancellationToken ct = default) =>
         Inner.CompleteAsync(req, ct);

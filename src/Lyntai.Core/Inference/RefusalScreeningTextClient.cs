@@ -8,8 +8,9 @@ namespace Lyntai.Inference;
 /// Front-door decorator that screens an otherwise-<c>Ok</c> completion for a refusal — surfacing it as
 /// <see cref="ProviderVerdict.Refused"/> — via two layers: the request's optional
 /// <see cref="TextRequest.RefusalPattern"/> regex, then every registered <see cref="IRefusalMatcher"/> (the
-/// typed seam an app registers with <c>AddRefusalMatcher</c>). These are the caller-supplied refusal checks
-/// (e.g. an app's own per-language "I can't help" phrasing) layered on the central patterns. It sits OUTERMOST
+/// typed seam an app registers with <c>AddRefusalMatcher</c>). These are the only checks an Ok reply meets —
+/// the central patterns classify ERROR text, never a reply (e.g. an app's own per-language "I can't help"
+/// phrasing belongs here). It sits OUTERMOST
 /// (above the response cache), so even a cached hit is re-screened. A malformed pattern or a matcher that
 /// throws is logged and ignored (fail-open — the reply passes through unchanged). Streaming is passed
 /// through unscreened (the reply text isn't assembled here, and streaming never falls back after the first

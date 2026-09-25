@@ -149,10 +149,7 @@ public sealed class WordPieceTokenizer
     public WordPieceEncoding Encode(string text, int maxTokens = 512)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(maxTokens, 3);
-        if (_classificationId is not { } cls || _separatorId is not { } sep)
-            throw new InvalidOperationException(
-                "This vocabulary carries no classification/separator token, so it cannot be encoded for a "
-                + "transformer. A model2vec table is the usual reason — use EncodeToIds for that class.");
+        var (cls, sep) = SpecialIds();
 
         var content = EncodeToIds(text ?? string.Empty);
         var kept = Math.Min(content.Count, maxTokens - 2);
@@ -162,9 +159,7 @@ public sealed class WordPieceTokenizer
         for (var i = 0; i < kept; i++) ids[i + 1] = content[i];
         ids[^1] = sep;
 
-        var mask = new int[ids.Length];
-        Array.Fill(mask, 1);
-        return new WordPieceEncoding(ids, mask, new int[ids.Length]);
+        return new WordPieceEncoding(ids, AllOnes(ids.Length), new int[ids.Length]);
     }
 
     /// <summary>Encode a PAIR as <c>[CLS] a [SEP] b [SEP]</c> — the shape a cross-encoder scores, where the
@@ -191,10 +186,7 @@ public sealed class WordPieceTokenizer
     public WordPieceEncoding Encode(string a, string b, int maxTokens = 512)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(maxTokens, 4);
-        if (_classificationId is not { } cls || _separatorId is not { } sep)
-            throw new InvalidOperationException(
-                "This vocabulary carries no classification/separator token, so it cannot be encoded for a "
-                + "transformer. A model2vec table is the usual reason — use EncodeToIds for that class.");
+        var (cls, sep) = SpecialIds();
 
         var first = EncodeToIds(a ?? string.Empty);
         var second = EncodeToIds(b ?? string.Empty);
@@ -215,9 +207,24 @@ public sealed class WordPieceTokenizer
         ids[at] = sep;
         for (var i = secondStarts; i < ids.Length; i++) types[i] = 1;
 
-        var mask = new int[ids.Length];
+        return new WordPieceEncoding(ids, AllOnes(ids.Length), types);
+    }
+
+    /// <summary>The classification and separator ids a transformer encoding brackets content with.</summary>
+    /// <exception cref="InvalidOperationException">The vocabulary carries neither.</exception>
+    private (int Cls, int Sep) SpecialIds() =>
+        _classificationId is { } cls && _separatorId is { } sep
+            ? (cls, sep)
+            : throw new InvalidOperationException(
+                "This vocabulary carries no classification/separator token, so it cannot be encoded for a "
+                + "transformer. A model2vec table is the usual reason — use EncodeToIds for that class.");
+
+    /// <summary>An attention mask with every position live — nothing here pads.</summary>
+    private static int[] AllOnes(int length)
+    {
+        var mask = new int[length];
         Array.Fill(mask, 1);
-        return new WordPieceEncoding(ids, mask, types);
+        return mask;
     }
 
     /// <summary>Clean, pad CJK, split on whitespace, normalize each word, then split off punctuation —

@@ -48,7 +48,9 @@ public static class ResponseCacheKey
     /// <see cref="Lyntai.Inference.ITextClientFactory"/>: a name selects backends, never permissions, so it is not a
     /// tenancy boundary and cross-serving between names is not a leak. The backend cannot be in the key at
     /// all: this cache sits IN FRONT of the router, which is free to pick any candidate and to fall back
-    /// across them mid-request, so there is no backend to key on when the lookup happens.</para>
+    /// across them mid-request, so there is no backend to key on when the lookup happens. A MODEL a client's
+    /// candidates pin is different — it decides the output — so <c>CachingTextClient</c> folds such a list
+    /// into <paramref name="effectiveModel"/>.</para>
     /// <para>If you need entries isolated per tenant, the isolating field is
     /// <see cref="TextRequest.Consumer"/> and the seam is your own <see cref="IResponseCache"/> — not this
     /// key.</para></summary>

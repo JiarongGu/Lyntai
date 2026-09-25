@@ -179,11 +179,8 @@ public sealed class BoundedProviderPool<TProvider>(
 
         while (_entries.Count > max)
         {
-            // `found` rather than a long.MaxValue sentinel, deliberately: an entry whose Ticket happened to BE
-            // long.MaxValue could never beat that sentinel, so no victim would be selected, Remove would
-            // return false, and this loop would spin forever. It takes 2^63 GetOrAdd calls to reach and the
-            // OrderBy version this replaced could not fail that way at all — but an unreachable hang is still
-            // the worst shape a library bug can take, and the flag costs one predictable branch.
+            // `found` rather than a long.MaxValue sentinel: an entry whose Ticket IS long.MaxValue could never
+            // beat the sentinel, so no victim would be chosen and this loop would spin forever.
             ProviderKey oldest = default;
             var oldestTicket = 0L;
             var found = false;

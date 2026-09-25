@@ -4,10 +4,10 @@ namespace Lyntai.Inference;
 
 /// <summary>
 /// Call-site predicates over <see cref="ProviderVerdict"/>, so the common branches read as questions rather
-/// than as a chain of enum comparisons. They hang off the ENUM, not off <see cref="TextResponse"/>, because
-/// five released types carry a verdict (<see cref="TextResponse"/>, <see cref="TextChunk"/>,
-/// <see cref="Agents.SessionEnded"/>, <see cref="Agents.AgentSessionResult"/>,
-/// <see cref="Agents.ToolLoopResult"/>) and one definition should serve all of them.
+/// than as a chain of enum comparisons. They hang off the ENUM, not off any one response type, because every
+/// call shape carries a verdict — the text, vector, score and media responses, <see cref="TextChunk"/>,
+/// <see cref="QueuedOperation"/>, <see cref="Agents.SessionEnded"/>, <see cref="Agents.AgentSessionResult"/>,
+/// <see cref="Agents.ToolLoopResult"/> — and one definition should serve all of them.
 /// <para><b>Why categories and not one method per verdict.</b> <see cref="ProviderVerdict"/> grows —
 /// <see cref="ProviderVerdict.NotConfigured"/> was appended after the 1.0 freeze (<c>docs/DECISIONS.md</c> D31)
 /// — so an <c>IsRateLimited</c>/<c>IsRefused</c>/… set would make every future member a public-surface
@@ -35,11 +35,7 @@ public static class ProviderVerdictExtensions
     ///
     /// <para><b>It decides ELIGIBILITY only, never which failure wins.</b> The two routers differ there on
     /// purpose — <c>TextRouter</c> keeps the LAST substantive failure, <c>MediaRouter</c> the FIRST,
-    /// because the first backend's error explains a media run better. That difference is untouched.</para>
-    ///
-    /// <para>It is ONE function since <b>D136</b>. Both routers carried a private copy, each docblock
-    /// pointing at the other for parity, because the two domains had separate verdict enums — which is
-    /// exactly the cost a duplicated taxonomy imposes on everything downstream of it.</para></summary>
+    /// because the first backend's error explains a media run better. That difference is untouched.</para></summary>
     public static bool IsBlameless(this ProviderVerdict verdict) =>
         verdict is ProviderVerdict.NotConfigured or ProviderVerdict.Unsupported;
 

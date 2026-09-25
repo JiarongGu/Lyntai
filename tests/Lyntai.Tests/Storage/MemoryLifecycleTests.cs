@@ -1,4 +1,5 @@
 using Lyntai;
+using Lyntai.Storage;
 using Lyntai.Storage.Sqlite;
 
 namespace Lyntai.Tests.Storage;
@@ -17,7 +18,7 @@ public class MemoryLifecycleTests : IDisposable
 
     public MemoryLifecycleTests() =>
         _store = new SqliteMemoryStore(_db.Factory,
-            new LyntaiOptions { MemoryCapPerScope = 100, MemoryRecallLimit = 100 }, clock: () => _now);
+            new LyntaiOptions { MemoryEviction = MemoryEvictionPolicy.CountCap(100), MemoryRecallLimit = 100 }, clock: () => _now);
 
     public void Dispose() => _db.Dispose();
 
@@ -50,7 +51,7 @@ public class MemoryLifecycleTests : IDisposable
         // regression: the cap-trim used to keep the newest @cap by id, so an expired-but-unpruned entry
         // with a higher id would be kept while a live older entry got deleted — silently losing a fact.
         var store = new SqliteMemoryStore(_db.Factory,
-            new LyntaiOptions { MemoryCapPerScope = 2, MemoryRecallLimit = 100 }, clock: () => _now);
+            new LyntaiOptions { MemoryEviction = MemoryEvictionPolicy.CountCap(2), MemoryRecallLimit = 100 }, clock: () => _now);
         await store.RememberAsync("t", "s", "keep-me");                            // id1, no TTL — always live
         await store.RememberAsync("t", "s", "expiring", ttl: TimeSpan.FromMinutes(5)); // id2 (cap not yet exceeded)
         _now += TimeSpan.FromMinutes(6);                                          // "expiring" now expired

@@ -96,13 +96,32 @@ public sealed class ProviderRouterFactory(
             _configuration, _governance, Scope<TRequest>(), logger);
     }
 
+    /// <summary>A factory carrying NO bookkeeping — no tracker, no admission, no governance — for a caller that
+    /// was handed no factory and composes by hand: <c>(routing ?? ProviderRouterFactory.Bare).For(…)</c>.</summary>
+    internal static IProviderRouterFactory Bare { get; } = new BareFactory();
+
+    private sealed class BareFactory : IProviderRouterFactory
+    {
+        public ProviderRouter<TRequest, TResponse> For<TRequest, TResponse>(
+            IEnumerable<IModelProvider>? providers,
+            Func<ProviderVerdict, string, TResponse> synthesize,
+            Func<ProviderCapabilities, bool>? serves = null,
+            RoutingPolicy? policy = null,
+            ILogger? logger = null)
+            where TResponse : class, IProviderOutcome =>
+            new(providers ?? [], synthesize, serves, policy, logger: logger);
+    }
+
     /// <summary>The cooldown namespace for one closed shape — <c>VectorRequest</c> → <c>vector::</c> —
     /// derived from the request type so an application's own kind gets its own namespace without telling
     /// this factory anything. Stable per closed type, which is what a cooldown key must be.</summary>
-    private static string Scope<TRequest>()
+    private static string Scope<TRequest>() => KindOf(typeof(TRequest)) + "::";
+
+    /// <summary>A closed shape's kind, from its request type: <c>VectorRequest</c> → <c>vector</c>.</summary>
+    internal static string KindOf(Type requestType)
     {
-        var name = typeof(TRequest).Name;
+        var name = requestType.Name;
         if (name.EndsWith("Request", StringComparison.Ordinal)) name = name[..^"Request".Length];
-        return name.ToLowerInvariant() + "::";
+        return name.ToLowerInvariant();
     }
 }

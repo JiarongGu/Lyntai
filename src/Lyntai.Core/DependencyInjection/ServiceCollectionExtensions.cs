@@ -212,7 +212,7 @@ public static class LyntaiServiceCollectionExtensions
                 throw new InvalidOperationException(
                     $"{seam} pins Model '{model}', but every candidate {where} routes over pins a model of " +
                     $"its own and none is '{model}' " +
-                    $"({string.Join(", ", candidates.Select(c => $"{c.ProviderId}:{c.Model}"))}). " +
+                    $"({string.Join(", ", candidates.Select(ProviderCandidateSpec.Format))}). " +
                     "The router resolves `candidate.Model ?? request.Model`, so this setting can never take " +
                     "effect and the seam would silently run on another model. Name a client whose candidates " +
                     "pin the model you want (ClientName), or drop the Model.");
@@ -294,7 +294,7 @@ public static class LyntaiServiceCollectionExtensions
             var all = sp.GetServices<IModelProvider>().ToList();
             if (ids.Count == 0) return all;
 
-            var byId = all.ToDictionary(p => p.Id, StringComparer.OrdinalIgnoreCase);
+            var byId = ProviderLookup.ById(all);
             var missing = ids.Where(id => !byId.ContainsKey(id)).ToList();
             if (missing.Count > 0)
                 throw new InvalidOperationException(
@@ -364,13 +364,10 @@ public static class LyntaiServiceCollectionExtensions
             && d.ImplementationInstance is Lyntai.Inference.IModelProvider p
             && Embeds(p.Capabilities));
 
-    /// <summary>Text in, vectors out — the one shape <c>AddSemanticMemory</c> needs, asked identically of a
-    /// declaration and of a built instance so the two arms cannot drift.</summary>
+    /// <summary>Text in, vectors out — asked identically of a declaration and of a built instance, and by the
+    /// router that selects at run time, so none of the three can drift.</summary>
     private static bool Embeds(Lyntai.Inference.ProviderCapabilities capabilities) =>
-        capabilities.Supports(
-            Lyntai.Inference.ProviderKinds.Vector,
-            Lyntai.Inference.ProviderOperation.Complete,
-            accepts: Lyntai.Inference.ProviderKinds.Text);
+        Lyntai.Inference.ProviderShapes.Embeds(capabilities);
 
     /// <summary>Refuse a backend whose DECLARATION and IMPLEMENTATION disagree: it says it produces vectors
     /// and does not implement <see cref="Lyntai.Inference.IVectorProvider"/>.
@@ -417,10 +414,7 @@ public static class LyntaiServiceCollectionExtensions
 
     /// <summary>Text in, scores out — the shape <c>AddMemoryScoringVerification</c> selects on.</summary>
     private static bool Scores(Lyntai.Inference.ProviderCapabilities capabilities) =>
-        capabilities.Supports(
-            Lyntai.Inference.ProviderKinds.Score,
-            Lyntai.Inference.ProviderOperation.Complete,
-            accepts: Lyntai.Inference.ProviderKinds.Text);
+        Lyntai.Inference.ProviderShapes.Scores(capabilities);
 
     /// <summary>Semantic memory — wired ONLY when a backend producing
     /// <see cref="Lyntai.Inference.ProviderKinds.Vector"/> is registered. Composes the registered providers

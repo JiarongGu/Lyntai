@@ -18,9 +18,7 @@ public static class ProviderConsumers
     /// embedding and rerank traffic: enrichment on write, semantic seeds and semantic recall, scoring
     /// verification.
     /// <para>Verification fires on EVERY recall, so this is the tag an operator most often wants to cap or
-    /// watch on its own. The annotation/verification seams billed to <see cref="Default"/> until 3.0 —
-    /// and the embedding traffic was unattributed until D163 — which made memory spend inseparable from
-    /// the application's.</para></summary>
+    /// watch on its own, separate from the application's spend.</para></summary>
     public const string Memory = "memory";
 
     /// <summary>A tool the model drives itself — what <see cref="Lyntai.Generation.Tools"/>' tools bill to

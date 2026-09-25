@@ -9,7 +9,9 @@ namespace Lyntai.Inference;
 /// the same limitation, but kept a distinct verdict so telemetry doesn't read it as a policy refusal.
 /// Streaming never falls back after the first content token; dead hosts are skipped for a cooldown
 /// window. A candidate whose backend produces no text (an embedder, a reranker, a media backend) is never
-/// called; when every candidate is such a backend the reply is Unsupported, naming them.</summary>
+/// called, nor is one on a door its <see cref="ProviderCapabilities.Operations"/> do not declare (a Complete-only
+/// backend is never asked to stream); when every candidate is skipped for such a capability gap the reply is
+/// Unsupported, naming them.</summary>
 public interface ITextRouter
 {
     Task<TextResponse> CompleteAsync(IReadOnlyList<ProviderCandidate> candidates, TextRequest req, CancellationToken ct = default);
@@ -17,8 +19,9 @@ public interface ITextRouter
     IAsyncEnumerable<TextChunk> StreamAsync(IReadOnlyList<ProviderCandidate> candidates, TextRequest req, CancellationToken ct = default);
 
     /// <summary>The capabilities of the backend that would serve <paramref name="req"/> over
-    /// <paramref name="candidates"/> now: the first live (registered + serving text + available + not on
-    /// cooldown) candidate, selected exactly as <see cref="CompleteAsync"/> selects it — the same effective model
+    /// <paramref name="candidates"/> now: the first live (registered + serving text + declaring
+    /// <see cref="ProviderOperation.Complete"/> + available + not on cooldown) candidate, selected exactly as
+    /// <see cref="CompleteAsync"/> selects it — the same effective model
     /// and cooldown key, and the consumer's live <c>IModelRoutingStore</c> route in place of
     /// <paramref name="candidates"/> when one is set. A fallback the call would never reach does not change the
     /// answer.

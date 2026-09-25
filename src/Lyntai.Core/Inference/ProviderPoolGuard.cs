@@ -29,15 +29,10 @@ internal static class ProviderPoolGuard
     ///
     /// <para>Compared case-insensitively, matching EVERY id lookup in the tree — both routers, the pool, the
     /// tool registry and the job-handler registry. It is also the stricter of the two possible schemes: it
-    /// rejects a pair an ordinal comparison would wave through.
-    /// <para><b>This paragraph asserted the opposite until 2026-08-16</b>, claiming <c>TextRouter</c> keyed
-    /// its provider table ordinally so a candidate id had to match the provider's own case. It does not, and
-    /// the comment above <c>TextRouter._byId</c> records WHY: an ordinal table made a pool slot cased
-    /// differently from the provider's <see cref="IProviderIdentity.Id"/> — which
-    /// <see cref="EnsureIdMatchesSlot"/> deliberately ACCEPTS — reachable by this guard, poolable, and then
-    /// never selected, so the backend was simply never tried with no error and one debug line. Both hunks
-    /// shipped in one commit; the claim was wrong on arrival. Do not "restore" an ordinal lookup on the
-    /// strength of it.</para></para></summary>
+    /// rejects a pair an ordinal comparison would wave through. Never make a router's lookup ordinal to match
+    /// a slot's case: <see cref="EnsureIdMatchesSlot"/> accepts a slot cased differently from the provider's
+    /// <see cref="IProviderIdentity.Id"/>, and an ordinal lookup would leave that backend poolable and never
+    /// tried.</para></summary>
     internal static void EnsureDistinctSlots<TProvider>(
         IReadOnlyList<ProviderRegistration<TProvider>> registrations, string paramName)
         where TProvider : class, IProviderIdentity

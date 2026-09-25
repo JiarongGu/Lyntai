@@ -14,13 +14,10 @@ namespace Lyntai.Inference;
 /// reasons anyway is not a defect in this seam. Treat it as "prefer", never as "the reply will not contain
 /// reasoning" — a caller that must have clean output still has to parse defensively.</para>
 ///
-/// <para><b>Why it exists, measured.</b> Building the verification judge ladder (<c>docs/DECISIONS.md</c>
-/// <b>D59</b>): <c>gemma3:4b</c> judged a 145-query corpus in <b>3.5 minutes</b>, while <c>qwen3:4b</c> —
-/// same size class, same task — was abandoned after <b>62 minutes</b>, spending roughly 25 s per judgement
-/// on reasoning tokens before emitting its JSON. An abliterated qwen3.5 showed the same profile, so it is
-/// the family and not the fine-tune. For a seam that sits in the latency path of every recall, a 15×
-/// penalty is disqualifying whatever the accuracy — and before this option there was no way to ask for the
-/// cheap behaviour except by avoiding a whole class of models.</para>
+/// <para><b>Why it exists:</b> a reasoning model family can spend an order of magnitude longer on a short
+/// structured verdict than a non-reasoning one of the same size, which disqualifies it from a seam in the
+/// latency path of every recall (measured for the verification judge ladder, <c>docs/DECISIONS.md</c>
+/// <b>D59</b>).</para>
 /// </summary>
 public enum TextReasoning
 {

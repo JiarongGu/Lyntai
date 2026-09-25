@@ -7,8 +7,8 @@ namespace Lyntai.Inference;
 /// are trained with a distinct instruction per side and score materially worse when both sides are embedded
 /// identically; a symmetric model ignores it.</param>
 /// <param name="Consumer">Who is asking — the same attribution tag <see cref="TextRequest.Consumer"/>
-/// carries, so an embed call is not structurally invisible to budgeting and telemetry (D162). The slot is
-/// the frozen part; governance wiring reads it as it lands.</param>
+/// carries: budget caps, the rate limiter and the spend ledger read it through the router's governance
+/// (D162, D163). Null bills to the default bucket.</param>
 /// <param name="TimeoutSeconds">Per-call deadline override, clamped to
 /// <see cref="LyntaiOptions.MaxProviderTimeout"/> exactly as on the text shape; null takes the configured
 /// default.</param>

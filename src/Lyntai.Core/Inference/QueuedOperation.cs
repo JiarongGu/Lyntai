@@ -39,6 +39,34 @@ public sealed record QueuedOperation(
     public bool IsTerminal => Status is QueuedOperationStatus.Succeeded or QueuedOperationStatus.Failed
         or QueuedOperationStatus.Cancelled;
 
+    /// <summary>A FAILED submission, with no operation id: the backend's words and, where it knows it, the
+    /// <see cref="Verdict"/>. The one shape a rejected submission takes.</summary>
+    /// <param name="detail">Why it failed.</param>
+    /// <param name="verdict">The verdict, when known; null leaves the router classifying
+    /// <paramref name="detail"/>.</param>
+    public static QueuedOperation Failure(string? detail, ProviderVerdict? verdict = null) =>
+        new("", QueuedOperationStatus.Failed, Detail: detail) { Verdict = verdict };
+
+    /// <summary>The submission to report for a submit that THREW, by the rule the router applies to a throw it
+    /// catches: <see cref="Inconclusive"/> — the backend may already hold a billable render, so the router
+    /// surfaces it rather than buying the render again elsewhere — unless the request provably never reached the
+    /// backend (a refused connection, a name that did not resolve, a TLS handshake that never completed, or
+    /// <paramref name="sent"/> false), when it is a plain failure with the throw's classified verdict, which the
+    /// router may advance past. A backend that catches its own exceptions reports this rather than a conclusive
+    /// failure.</summary>
+    /// <param name="error">What was thrown.</param>
+    /// <param name="sent">Whether the request may have left this process: false while the submission was still
+    /// being built, true once sending began.</param>
+    /// <param name="detail">The failure's words; null takes the exception's message.</param>
+    public static QueuedOperation FromThrownSubmit(Exception error, bool sent = true, string? detail = null)
+    {
+        ArgumentNullException.ThrowIfNull(error);
+        var reason = detail ?? error.Message;
+        return sent && !ProviderVerdictClassifier.NeverReachedTheBackend(error)
+            ? Failure(reason) with { Inconclusive = true }
+            : Failure(reason, ProviderVerdictClassifier.FromThrown(error));
+    }
+
     /// <summary>Set on a <see cref="QueuedOperationStatus.Failed"/> submission whose outcome is
     /// <b>not known</b> — no answer arrived, so the backend may or may not have accepted the work.
     ///

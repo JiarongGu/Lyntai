@@ -35,12 +35,16 @@ public static class LyntaiDiagnostics
         Meter.CreateHistogram<long>("gen_ai.client.token.usage", unit: "{token}",
             description: "Tokens used per LLM call");
 
-    internal static Activity? StartChat(string providerId, string? model)
+    internal static Activity? StartChat(string providerId, string? model) => StartCall("chat", providerId, model);
+
+    /// <summary>Start a span for one provider attempt of <paramref name="operation"/> — <c>chat</c> for the text
+    /// router, <c>embeddings</c> / <c>rerank</c> / an application kind's own name for the generic one.</summary>
+    internal static Activity? StartCall(string operation, string providerId, string? model = null)
     {
-        var activity = Source.StartActivity($"chat {model ?? "dynamic"}", ActivityKind.Client);
+        var activity = Source.StartActivity($"{operation} {model ?? "dynamic"}", ActivityKind.Client);
         if (activity is not null)
         {
-            activity.SetTag("gen_ai.operation.name", "chat");
+            activity.SetTag("gen_ai.operation.name", operation);
             activity.SetTag("gen_ai.system", providerId);
             if (model is not null) activity.SetTag("gen_ai.request.model", model);
         }
@@ -48,7 +52,15 @@ public static class LyntaiDiagnostics
     }
 
     internal static void RecordOutcome(Activity? activity, string providerId, string? model,
-        ProviderVerdict verdict, TextUsage? usage, double elapsedSeconds, string? detail = null)
+        ProviderVerdict verdict, TextUsage? usage, double elapsedSeconds, string? detail = null) =>
+        RecordCallOutcome(activity, "chat", providerId, model, verdict, usage?.ToProviderUsage(),
+            usage?.CacheReadTokens ?? 0, elapsedSeconds, detail);
+
+    /// <summary>Close one attempt's span and record its duration and tokens, tagged with its verdict when it
+    /// failed.</summary>
+    internal static void RecordCallOutcome(Activity? activity, string operation, string providerId, string? model,
+        ProviderVerdict verdict, ProviderUsage? usage, long cacheReadTokens, double elapsedSeconds,
+        string? detail = null)
     {
         var errorType = verdict == ProviderVerdict.Ok ? null : verdict.ToString();
 
@@ -63,7 +75,7 @@ public static class LyntaiDiagnostics
             {
                 activity.SetTag("gen_ai.usage.input_tokens", usage.InputTokens);
                 activity.SetTag("gen_ai.usage.output_tokens", usage.OutputTokens);
-                if (usage.CacheReadTokens > 0) activity.SetTag("gen_ai.usage.cache_read_tokens", usage.CacheReadTokens);
+                if (cacheReadTokens > 0) activity.SetTag("gen_ai.usage.cache_read_tokens", cacheReadTokens);
                 // cost isn't a standard GenAI attribute yet, but a consumer wiring OTel to track spend
                 // has no other hook on the router path — the trace layer's CostUsd is separate.
                 if (usage.CostUsd is not null) activity.SetTag("gen_ai.usage.cost", usage.CostUsd);
@@ -73,7 +85,7 @@ public static class LyntaiDiagnostics
         if (OperationDuration.Enabled)
         {
             var tags = GenAiTags(providerId, model);
-            tags.Add("gen_ai.operation.name", "chat");
+            tags.Add("gen_ai.operation.name", operation);
             if (errorType is not null) tags.Add("error.type", errorType);
             OperationDuration.Record(elapsedSeconds, tags);
         }

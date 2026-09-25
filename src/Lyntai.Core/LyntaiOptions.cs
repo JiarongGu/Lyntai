@@ -75,15 +75,6 @@ public sealed class LyntaiOptions
     /// the historical 500-entry FIFO cap; tune via <c>ConfigureMemory(...)</c> or <c>LYNTAI_MEMORY_*</c>.</summary>
     public MemoryEvictionPolicy MemoryEviction { get; set; } = MemoryEvictionPolicy.Default;
 
-    /// <summary>[Shortcut] Max entries kept per (task, scope) — proxies
-    /// <see cref="MemoryEvictionPolicy.MaxEntriesPerScope"/> on <see cref="MemoryEviction"/> (0 = uncapped).
-    /// Prefer configuring <see cref="MemoryEviction"/> directly.</summary>
-    public int MemoryCapPerScope
-    {
-        get => MemoryEviction.MaxEntriesPerScope ?? 0;
-        set => MemoryEviction.MaxEntriesPerScope = value > 0 ? value : null;
-    }
-
     /// <summary>Default max entries returned by a memory recall.</summary>
     public int MemoryRecallLimit { get; set; } = 20;
 
@@ -124,7 +115,7 @@ public sealed class LyntaiOptions
     {
         if (!string.IsNullOrEmpty(requestModel)) return requestModel;
         if (DefaultModelByConsumer.TryGetValue(consumer, out var m)) return m;
-        return DefaultModelByConsumer.TryGetValue("default", out var d) ? d : null;
+        return DefaultModelByConsumer.TryGetValue(ProviderConsumers.Default, out var d) ? d : null;
     }
 
     /// <summary>Resolve the provider timeout for a request: an explicit <see cref="TextRequest.TimeoutSeconds"/>
@@ -146,21 +137,12 @@ public sealed class LyntaiOptions
             return requested > MaxProviderTimeout ? MaxProviderTimeout : requested;
         }
         if (consumer is not null && TimeoutByConsumer.TryGetValue(consumer, out var t)) return t;
-        return TimeoutByConsumer.TryGetValue("default", out var d) ? d : ProviderTimeout;
+        return TimeoutByConsumer.TryGetValue(ProviderConsumers.Default, out var d) ? d : ProviderTimeout;
     }
 
-    /// <summary>Resolve a provider timeout from an explicit per-call seconds value alone: the value wins
-    /// (clamped to <see cref="MaxProviderTimeout"/>), else the global <see cref="ProviderTimeout"/> — no
-    /// consumer tier, for a caller that has no consumer to name.</summary>
-    public TimeSpan ResolveTimeout(int? seconds)
-    {
-        if (seconds is { } s && s > 0)
-        {
-            var requested = TimeSpan.FromSeconds(s);
-            return requested > MaxProviderTimeout ? MaxProviderTimeout : requested;
-        }
-        return ProviderTimeout;
-    }
+    /// <summary>Resolve a provider timeout for a caller with no consumer to name — exactly
+    /// <see cref="ResolveTimeout(int?, string?)"/> with none, so the "default" consumer entry still applies.</summary>
+    public TimeSpan ResolveTimeout(int? seconds) => ResolveTimeout(seconds, consumer: null);
 
     /// <summary>Apply <c>LYNTAI_*</c> environment overrides. The env getter is injectable so tests
     /// are deterministic; production uses <see cref="Environment.GetEnvironmentVariable(string)"/>.</summary>
@@ -254,7 +236,7 @@ public sealed class LyntaiOptions
 
         var defaultModel = getEnv("LYNTAI_MODEL_DEFAULT") ?? getEnv("LYNTAI_DEFAULT_MODEL");
         if (!string.IsNullOrWhiteSpace(defaultModel))
-            DefaultModelByConsumer["default"] = defaultModel;
+            DefaultModelByConsumer[ProviderConsumers.Default] = defaultModel;
 
         // LYNTAI_MODEL_<CONSUMER> → per-consumer model (the dictionary is case-insensitive, so an
         // upper-cased env suffix resolves a lower-cased consumer tag like "scoring"). DEFAULT handled above.
