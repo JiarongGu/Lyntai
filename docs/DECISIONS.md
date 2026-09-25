@@ -4326,8 +4326,11 @@ Two members were required (`Id`, `Capabilities`) and eight defaulted — cheap, 
 
 **Nothing is inferred, and the default is the only inference.** A bridge declares exactly the operations it
 was handed a delegate for, so one with no stream function reports no `ProviderOperation.Stream` and a router
-never offers it one. The optional `capabilities` is how a caller says anything else — a score-producing
-bridge, tool calls, a model list — and text-in/text-out is a default rather than a constraint.
+never offers it one. The optional `capabilities` is how a caller says anything else — tool calls, an input
+kind, a model list. **Text OUT is a constraint, not a default**: the delegates return a `TextResponse`, so
+`AddBridgeProvider` refuses a `Produces` naming any other kind at the call — **D153**'s check, which a factory
+registration escapes. A warning was the alternative that kept the change out of `### Breaking`, refused because
+**D153** already throws for the same mismatch, and two answers to one question drift.
 
 **The delegate returns a VERDICT rather than throwing**, because the router can only advance on something it
 can read. That is what makes a bridge a first-class candidate — it cools down, it falls over, it is admitted

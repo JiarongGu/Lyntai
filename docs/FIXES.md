@@ -7,6 +7,28 @@ to `.claude/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-09-26 — a bridge declaring `Vector` or `Score` registered, and no router ever selected it
+
+**Symptom.** Found by the post-3.3.0 documentation sweep, not by an adopter: README and `AddBridgeProvider`'s
+XML doc said a `Produces: [ProviderKinds.Vector]` bridge is an embedder and `[Score]` a reranker. Such a
+bridge registered cleanly and served nothing; `BridgeProviderTests` asserted the declaration and never a call.
+
+**Root cause.** `BridgeProvider` implements only `IModelProvider` — its delegates take and return text — while
+the embed and score routers select on `IVectorProvider` / `IScoreProvider`. **D153**'s composition check
+refuses exactly that mismatch, but reads INSTANCE registrations only, since a factory cannot be inspected
+before it runs; `AddBridgeProvider` registers through a factory, so every bridge escaped it.
+
+**Fix.** `AddBridgeProvider` applies the rule at the call, where its capabilities are known: a `Produces`
+kind other than Text throws `ArgumentException` naming it (**D147** amended; Breaking under **D161**). A
+warning was refused, since D153 already throws for the same mismatch.
+
+**Verify.** `BridgeProviderTests.A_kind_its_delegates_cannot_produce_is_REFUSED_at_the_call` (Vector, Score,
+Image — each failed before), and the two tests that encoded the defect were inverted: the field-merge case
+now declares an image INPUT, a real declaration for a bridge.
+
+**Introduced by.** `90877b09` (2026-09-15), which added the bridge with the capability premise; the check it
+escaped arrived with `5c45c84c` (2026-09-18) and was never applied to it.
+
 ## 2026-09-26 — the release run failed `test-devtools` with "the run reported NaN", on a tree green locally
 
 **Symptom.** The release workflow's `verify` failed at its first gate: `check-links.test.mjs`' real-tree pin

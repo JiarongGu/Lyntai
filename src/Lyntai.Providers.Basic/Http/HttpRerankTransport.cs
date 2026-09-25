@@ -82,7 +82,7 @@ internal sealed class HttpRerankTransport(
         // the same resolution ladder the text shape has always had — explicit seconds (clamped), the
         // consumer's TimeoutByConsumer tier, the default tier, the global timeout (D162/D163)
         var timeout = options.ResolveTimeout(request.TimeoutSeconds, request.Consumer);
-        HttpJsonReply reply;
+        HttpJsonResponse reply;
         using (var owned = OwnedClient())       // disposed only when Lyntai owns it
         {
             var http = owned ?? httpFactory();  // BYO client: fetched, not disposed

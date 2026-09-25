@@ -174,18 +174,19 @@ Two properties of that pipeline are easy to get wrong and are worth stating:
 - **Candidate seeding is LEXICAL by default.** Without `AddMemorySemanticSeeds` registered, the vector store
   is consulted at *write* time only — novelty for salience, and similarity linking — so an embedder cannot
   reach a fact whose wording shares nothing with the query. Measured with a real embedding model against
-  paraphrase cues: **0 of 3**, identical to no embedder. Registering the semantic seed source
+  paraphrase cues: **0 of 3**, identical to no embedder — pinned by `LlmSemanticRecallLiveTests`, which runs
+  whenever a live model is configured. Registering the semantic seed source
   (`SemanticSeedOptions.K`) embeds the query and joins its nearest entries to the candidate set, carrying
   their cosine as `Relevance`; the paraphrases then become reachable. **Reachable is not the same as
   returned** — see below.
 - **Registering an embedder changes recall even with the semantic seed unregistered, and it is a TRADE
   rather than a cost.** Both write-time mechanisms were measured separately (`node devtools/dev.mjs memory-enrichment`,
   a real model), and they behave differently enough that a single verdict would mislead:
-  **similarity linking is a redistribution** — it roughly halves misses on entries that cluster with
-  others (topical material, an attribute cluster reached by its subject) and it badly hurts the
-  rare-but-critical entry that clusters with nothing, because the edges it adds pull traversal toward the
-  crowd: `topical` **−0.30**, `attribute` **−0.28**, `critical-rare` **+0.68**, an aggregate that looks
-  small only because those cancel. **Novelty feeding salience is a broad, shallow cost** that only turns
+  **similarity linking is a redistribution** — it cuts misses on entries that cluster with others
+  (topical material, an attribute cluster reached by its subject) and it badly hurts the rare-but-critical
+  entry that clusters with nothing, because the edges it adds pull traversal toward the crowd, so an aggregate
+  looks small only because the two cancel. The per-category figures of that 2026-08-15 run were never recorded
+  with their model and sample size, so none is quoted here; re-run `memory-enrichment` for numbers. **Novelty feeding salience is a broad, shallow cost** that only turns
   positive when there is a lot of noise to discriminate against.
   <br>So the question to ask of your own corpus is not "is an embedder worth it" but **"is my important
   material clustered or isolated?"** If the facts that matter most are the ones nothing else resembles, the

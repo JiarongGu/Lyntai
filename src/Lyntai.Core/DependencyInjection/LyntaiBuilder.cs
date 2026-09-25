@@ -147,6 +147,9 @@ public sealed class LyntaiBuilder
     /// an image, a model list, declared limits; an <c>Accepts</c>, <c>Produces</c> or <c>Operations</c> it
     /// leaves empty takes that default. A bridge answers TEXT: an embedder or reranker implements
     /// <see cref="IVectorProvider"/> or <see cref="IScoreProvider"/>, which no delegate here supplies.</param>
+    /// <exception cref="ArgumentException"><paramref name="id"/> is blank, or <paramref name="capabilities"/>
+    /// declares a <c>Produces</c> kind other than <see cref="ProviderKinds.Text"/> — no router would ever
+    /// select the bridge for it (<c>docs/DECISIONS.md</c> D147).</exception>
     public LyntaiBuilder AddBridgeProvider(
         string id,
         Func<TextRequest, CancellationToken, Task<TextResponse>> complete,
@@ -171,6 +174,13 @@ public sealed class LyntaiBuilder
             Produces = capabilities.Produces.Count > 0 ? capabilities.Produces : defaults.Produces,
             Operations = capabilities.Operations.Count > 0 ? capabilities.Operations : defaults.Operations,
         };
+        // D153's declaration/implementation check, applied here because a factory registration escapes it
+        foreach (var kind in declared.Produces)
+            if (!string.Equals(kind, ProviderKinds.Text, StringComparison.OrdinalIgnoreCase))
+                throw new ArgumentException(
+                    $"Bridge '{id}' declares ProviderKinds '{kind}', but its delegates answer text, so no router would "
+                    + "ever select it for that. An embedder or reranker implements IVectorProvider or IScoreProvider "
+                    + "and registers with AddProvider; drop the kind from Produces.", nameof(capabilities));
         return AddProvider(_ => new BridgeProvider(id, declared, complete, stream));
     }
 

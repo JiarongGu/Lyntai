@@ -8,7 +8,7 @@ namespace Lyntai.Providers.Http;
 /// <param name="Body">The response body; null when the call failed.</param>
 /// <param name="Verdict"><see cref="ProviderVerdict.Ok"/> with a body, else why there is none.</param>
 /// <param name="Detail">The failure's detail; null on success.</param>
-internal readonly record struct HttpJsonReply(string? Body, ProviderVerdict Verdict, string? Detail);
+internal readonly record struct HttpJsonResponse(string? Body, ProviderVerdict Verdict, string? Detail);
 
 /// <summary>The buffered JSON POST every HTTP surface in this package makes — the chat engine, the vector
 /// transport and the rerank transport — with ONE policy for how it fails:
@@ -43,7 +43,7 @@ internal static class HttpJsonCall
     /// <param name="id">The provider id, leading every detail.</param>
     /// <param name="what">The surface, for the detail (<c>embeddings</c>, <c>rerank</c>); null for chat.</param>
     /// <param name="ct">The caller's cancellation, which propagates.</param>
-    public static async Task<HttpJsonReply> SendAsync(HttpClient http, HttpRequestMessage request,
+    public static async Task<HttpJsonResponse> SendAsync(HttpClient http, HttpRequestMessage request,
         TimeSpan timeout, bool hasCredentials, string id, string? what, CancellationToken ct)
     {
         var surface = what is null ? "" : what + " ";

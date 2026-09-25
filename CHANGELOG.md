@@ -19,6 +19,15 @@ every addition.
 
 ## Unreleased
 
+### Breaking
+
+- **`AddBridgeProvider` refuses a `Produces` kind other than Text** (**D147**, **D153**). Its delegates answer
+  text, so a bridge declaring `ProviderKinds.Vector`, `.Score` or a media kind registered and was never selected:
+  the embed and score routers select on `IVectorProvider` / `IScoreProvider`, the check an instance registration
+  already met. It now throws `ArgumentException` naming the kind. **What to DO:** drop the kind from
+  `capabilities.Produces`; an embedder or reranker implements `IVectorProvider` or `IScoreProvider` and registers
+  with `AddProvider`.
+
 ### Fixed
 
 - **Documentation that described what 3.3.0 does not do.** A bridge answers text only — README and the

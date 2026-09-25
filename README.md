@@ -687,9 +687,9 @@ From there it is a backend like any other. **Return a verdict rather than throwi
 conservatively, while a verdict says what happened (`ProviderVerdictClassifier.FromHttpFailure(status, body,
 hasCredentials)` maps a response for you). **A bridge declares only what you hand it a delegate for**: omit
 `stream` and no router asks it to stream, and pass `capabilities` to declare more than the defaults — tool
-calls, a model list, declared limits. **A bridge answers text only**: an embedder or reranker of your own is an
-`IModelProvider` that implements `IVectorProvider` or `IScoreProvider`, registered with
-`AddProvider(_ => backend, declares)`.
+calls, a model list, declared limits. **A bridge answers text only**, and refuses any other `Produces` at the
+call: an embedder or reranker of your own is an `IModelProvider` that implements `IVectorProvider` or
+`IScoreProvider`, registered with `AddProvider(_ => backend, declares)`.
 
 ### Local in-process inference (`Lyntai.Providers.LlamaSharp`)
 

@@ -81,24 +81,31 @@ public class BridgeProviderTests
         Assert.Equal("served", reply.Text);
     }
 
-    [Fact]
-    public void Declared_capabilities_are_the_callers_to_state_not_the_librarys_to_infer()
+    [Theory]
+    [InlineData(ProviderKinds.Vector)]
+    [InlineData(ProviderKinds.Score)]
+    [InlineData(ProviderKinds.Image)]
+    public void A_kind_its_delegates_cannot_produce_is_REFUSED_at_the_call(string kind)
     {
-        // A bridge over an embedding SDK is the same mechanism with a different declaration — nothing here
-        // is text-specific except the default.
-        using var sp = Build(b => b.AddBridgeProvider("scorer",
-            (_, _) => Task.FromResult(new TextResponse("", ProviderVerdict.Unsupported)),
-            capabilities: new ProviderCapabilities
-            {
-                Accepts = [ProviderKinds.Text],
-                Produces = [ProviderKinds.Score],
-                Operations = [ProviderOperation.Complete],
-            }));
+        // This used to register: a Score or Vector declaration made the bridge look like a reranker or an
+        // embedder, which no router ever selected — those select on IScoreProvider / IVectorProvider, and the
+        // delegates only answer text. D153 throws for the same mismatch on an instance; a bridge's factory
+        // escaped it, so the call applies it.
+        var ex = Assert.Throws<ArgumentException>(() => new ServiceCollection().AddLyntai(b => b.AddBridgeProvider(
+            "vendor", (_, _) => Task.FromResult(new TextResponse("", ProviderVerdict.Ok)),
+            capabilities: new ProviderCapabilities { Produces = [ProviderKinds.Text, kind] })));
 
-        var caps = Assert.Single(sp.GetServices<IModelProvider>()).Capabilities;
+        Assert.Contains(kind, ex.Message);
+    }
 
-        Assert.Equal([ProviderKinds.Score], caps.Produces);
-        Assert.False(caps.Supports(ProviderKinds.Text, ProviderOperation.Complete));
+    [Fact]
+    public void Text_is_accepted_in_any_case_as_the_routers_match_it()
+    {
+        using var sp = Build(b => b.AddBridgeProvider("vendor",
+            (_, _) => Task.FromResult(new TextResponse("x", ProviderVerdict.Ok)),
+            capabilities: new ProviderCapabilities { Produces = ["TEXT"] }));
+
+        Assert.Single(sp.GetServices<IModelProvider>());
     }
 
     [Fact]
@@ -124,15 +131,17 @@ public class BridgeProviderTests
     [Fact]
     public void A_field_the_caller_set_is_kept_while_an_empty_one_takes_the_default()
     {
-        using var sp = Build(b => b.AddBridgeProvider("scorer",
+        // an image INPUT is a real declaration for a bridge (a vision model answering in text); an output
+        // kind other than text is not, and is refused above
+        using var sp = Build(b => b.AddBridgeProvider("vision",
             (_, _) => Task.FromResult(new TextResponse("", ProviderVerdict.Unsupported)),
             (_, _) => Chunks(),
-            capabilities: new ProviderCapabilities { Produces = [ProviderKinds.Score] }));
+            capabilities: new ProviderCapabilities { Accepts = [ProviderKinds.Text, ProviderKinds.Image] }));
 
         var caps = Assert.Single(sp.GetServices<IModelProvider>()).Capabilities;
 
-        Assert.Equal([ProviderKinds.Score], caps.Produces);
-        Assert.Equal([ProviderKinds.Text], caps.Accepts);
+        Assert.Equal([ProviderKinds.Text, ProviderKinds.Image], caps.Accepts);
+        Assert.Equal([ProviderKinds.Text], caps.Produces);
         Assert.Equal([ProviderOperation.Complete, ProviderOperation.Stream], caps.Operations);
 
         static async IAsyncEnumerable<TextChunk> Chunks()
