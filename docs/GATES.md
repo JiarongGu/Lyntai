@@ -6,7 +6,7 @@
 > failure is spurious.
 
 `node devtools/dev.mjs` with no argument prints the authoritative command list; it is derived from the
-switch in `devtools/dev.mjs`, so it cannot be a subset. `verify` runs 23 checks, stopping at the first
+roster in `devtools/commands.mjs`, so it cannot be a subset. `verify` runs 23 checks, stopping at the first
 failure. **Digits, not a number word** — `parseCount` has no hyphenated compounds, so `twenty-one` would be
 skipped rather than compared and the claim it anchors would match nothing.
 
@@ -18,8 +18,10 @@ the wrong thing — twice in one day, caught both times only by a person reading
 built after a defect of that shape, and each section records the measured cost of not having had it.
 
 **The argument that produced most of them: a rule that is written down and still violated is a missing
-gate, not a knowledge problem.** `check-encoding`, `check-links`, `check-archive` and `check-backlog` were
-all built after their rule had already been written, published, and broken anyway.
+gate, not a knowledge problem.** `check-encoding`, `check-links`, `check-archive`, `check-backlog` and
+`check-tautology` were all built after their rule had already been written, published, and broken anyway.
+**And when a gate's SCOPE rests on a measurement, that measurement expires**: `check-links` skipped the code
+tier on "found none in code" and re-measured at 150, 88 of them dead (§check-links).
 
 **And a guard whose failure mode is a false PASS cannot be validated by running it.** That is why every
 guard script has its own test (`test-devtools`, and it runs FIRST in `verify`), why every counted claim's
@@ -56,8 +58,11 @@ indistinguishable from a strict one until it teaches a maintainer to reach for t
 
 ## `verify` — the roster, and what it does not hold
 
-The step list in `devtools/dev.mjs` IS the roster; `verify`'s own summary line is derived from it, so
-running the command prints the current list and no prose copy can be more current than that.
+`VERIFY_STEPS` in `devtools/commands.mjs` IS the roster; `verify`'s own summary line is derived from it, so
+running the command prints the current list and no prose copy can be more current than that. There is no
+separate build step: `check-warnings` is the one solution build (`--no-incremental`, which it needs to see
+every warning, and it prints the compiler's errors when the build fails), and `check-samples` compiles
+incrementally on top of it.
 
 **It also fails if the TREE CHANGED while it ran** — content-hashed before and after
 (`devtools/scripts/_tree-fingerprint.mjs`), every moved file named, the green summary suppressed and a
@@ -75,9 +80,15 @@ Not all of them, and the difference decides what has to be re-measured by hand.
 
 | number | held by |
 |---|---|
-| guard-script tests, e2e suites, the migration counts | `check-counts` (derivable from the tree) |
-| documented C# samples | `check-samples` asserts it directly — a run-derived number is checked by the gate that PRODUCES it, never by a static counter that would have to reimplement the filtering |
+| guard-script tests | `test-devtools`, against its own run |
+| documented C# samples | `check-samples`, against its own run |
+| e2e suites, the migration count | `check-counts` (derivable from the tree) |
 | the xUnit trio (passed / total / skipped) | **NOTHING** |
+
+**A run-derived number is checked by the gate that PRODUCES it**, never by a static counter that would have
+to reimplement the filtering: both baselines `CLAUDE.md` quotes are compared by `_baseline.mjs` on a green
+run, and an ABSENT claim fails, because a check that passes when its sentence is reworded away disarms
+silently.
 
 Only `dotnet test` knows the xUnit trio, and capturing that output is the shape `check-warnings` already
 hit ENOBUFS on. **So those three are the ones to re-measure by hand after `verify`** — do not extrapolate
@@ -85,9 +96,28 @@ them from a diff, which is exactly how `3266/3287` was once written against a tr
 stale baseline is worse than none: the whole point is that a reader can compare, and a count that no longer
 matches a green run teaches them to stop comparing.
 
-**A skip count WELL above the recorded baseline means Docker is down and the whole Postgres leg is silently
-unexercised** — start it and re-run before believing a green suite. Archive Part 58 caught a missing table
-exactly that way, and it happened again on 2026-08-12.
+**A skip count in the low HUNDREDS means Docker is down and the whole Postgres leg is silently
+unexercised** — start it and re-run before believing a green suite. `docs/task-archive.md` Part 58 caught a
+missing table exactly that way, and it has recurred since, green on every gate each time. **Derive the leg
+from the pair of runs, never carry its size forward**: skipped(down) − skipped(up) = passed(up) −
+passed(down), the same quantity from both sides, and it grows with the tree. A figure that reconciles by
+that arithmetic is still not a measurement; attest only the Docker-up run.
+
+**Every other skip is a live-backend gate**, so a skip count BELOW the baseline is the live suites running,
+never a defect. The suites gated on something a download or a local install provides, and what un-skips
+each:
+
+| suite | un-skipped by |
+|---|---|
+| `OnnxProviderLiveTests` | `LYNTAI_ONNX_MODEL_DIR` (a sentence-transformers ONNX export) |
+| `OnnxCrossEncoderLiveTests` | `LYNTAI_ONNX_RERANK_MODEL_DIR` (a cross-encoder export) |
+| `Model2VecProviderLiveTests`, `WordPieceTokenizerLiveTests` | `LYNTAI_STATIC_MODEL_DIR` (a model2vec directory) |
+| `LocalDiffusionLiveTests` | `LYNTAI_SD_CLI` + `LYNTAI_SD_MODEL` |
+| `ComfyUiLiveTests` | `LYNTAI_COMFYUI_URL` + `LYNTAI_COMFYUI_CHECKPOINT` |
+| `PiperLiveTests` | `LYNTAI_PIPER_CLI` + `LYNTAI_PIPER_MODEL` |
+
+The rest ride a running server, CLI or MCP endpoint (`LYNTAI_LIVE_*`, the Ollama and MCP variables); each
+suite's `Skip` message names what it needs.
 
 ## Escape tokens and allowances
 
@@ -101,12 +131,12 @@ nobody can see opening.
 | `check-counts` | `count-ok` | a sentence quoting a HISTORICAL count ("the list said seven and had eleven") |
 | `check-comments` | `comment-ok` | on a block's first line; reserve it for a block no reader would want shorter — a table, a wire-format capture |
 | `check-measurements` | `measure-ok` | a line discussing ANOTHER result's retraction; naming what this row supersedes is the better fix, and it is also the bookkeeping the index needs |
-| `check-decisions`, `check-archive`, `check-backlog` | **none** | an allowance is a visible ratcheted number and is the only way out |
+| `check-decisions`, `check-archive`, `check-backlog`, `check-pitfalls`' length ratchet | **none** | an allowance is a visible ratcheted number and is the only way out |
 
 **An allowance that stops matching FAILS, and one looser than the subject needs FAILS**, so exclusions
-cannot rot and the numbers only ever come down. That rule applies to `staleReferenceAllowances`,
-`retiredApiNames`' allow-list, `commentBlockAllowances`, `decisionLengthAllowances`,
-`archiveEntryLengthAllowances` and `backlogPreambleAllowance` alike.
+cannot rot and the numbers only ever come down. That rule applies to `retiredApiNames`' allow-list,
+`commentBlockAllowances`, `decisionLengthAllowances`, `archiveEntryLengthAllowances`,
+`pitfallLengthAllowances`, `optionDocAllowances` and `backlogPreambleAllowance` alike.
 
 **Paying a ratchet down means RELOCATING, not deleting** — several long entries are the only maintained
 home for a trap. Move the rule to the record that owns it, keep a pointer, then cut.
@@ -143,13 +173,15 @@ silently skipped any file with a non-ASCII NAME — in this repository, `docs/�
 leak past a "clean" run. The three measured defects are pinned as regression tests and each was
 mutation-checked against the old behaviour.
 
-**Every guard script now has a test.** What is left untested is the three deterministic stubs
+**Every guard script now has a test.** What is left untested is the two deterministic stubs
 (`provider-stub`, `codex-stub`) and the live pack/restore/build/run of `consumer-smoke` itself — a seam
 that stubbed the pack would test the bookkeeping and none of the risk.
 
-Two traps already paid for: `node --test <dir>` does NOT work on Node 24 (a bare directory is loaded as a
-module — it needs a glob), and a fixture must never contain a literal the leak scanner would flag, so
-synthesize values from concatenated parts.
+**It also holds a baseline**: on a green run it compares its own counts against `CLAUDE.md`'s
+`guard-script tests N/N` and fails on a mismatch or an absent sentence (§Which numbers a gate holds).
+
+The two traps already paid for — `node --test <dir>` on Node 24, and a fixture carrying a literal the leak
+scanner flags — are `.claude/rules/windows-machine.md` §Node and `.claude/rules/repo-mechanics.md` §Dev loop.
 
 ### `check-warnings` — a warning in a published project is a defect
 
@@ -189,7 +221,13 @@ than quoted, because writing them from memory produced the wrong characters thre
 the guard catches. That also means neither the guard nor its test contains the sequences it hunts, so **the
 exclusion list is empty**: an exclusion is a hole, and the fix was to stop needing one.
 
-It runs in `verify` AND in the pre-commit hook.
+**It also fails a C0 control character** other than tab, LF and CR. Authored text never holds one, and a
+literal backspace written through an escape had corrupted a trap's own text where no other gate could see
+it.
+
+It runs in `verify` over the tree AND in the pre-commit hook over the STAGED blobs (`--staged`) — what the
+commit will record, not the working tree, so a file repaired after staging cannot smuggle its corrupt blob
+in, and an unrelated dirty file cannot block the commit.
 
 ### `check-docs` — vocabulary a decision retired
 
@@ -218,8 +256,12 @@ sliced out, so `file:line` stays true and a two-line window can never join live 
 prefix is transient and the regions are not**, which is why `check-samples` refuses a compiled sample in
 the former: the release stamp deletes that region on its way past.
 
-**It also scans code COMMENTS** in `src/`, `tests/` and `bench/` — the compiler resolves `<see cref>` and
-nothing else, so a retired CLAIM in a `<c>` tag or a `//` comment was checked by no one.
+**It also scans code COMMENTS** in `src/`, `tests/`, `bench/` and `devtools/` — the compiler resolves
+`<see cref>` and nothing else, so a retired CLAIM in a `<c>` tag or a `//` comment was checked by no one.
+Three `devtools/` files are out because quoting retired vocabulary is their job: the registry itself
+(`project.config.mjs`), the roster of published package ids (`nuget-unlist.mjs`) and the guards' own tests,
+whose fixtures are the terms. Excluding the whole tier once hid a stale embedder name in a sweep script.
+**An empty `retiredTerms` registry FAILS** rather than reporting a clean tree it never checked.
 
 **It matches on a TWO-LINE WINDOW**, because these documents wrap at ~110 columns and the sentence the gate
 most needs to catch is the one most likely to straddle a break. A consequence worth knowing when moving
@@ -260,7 +302,14 @@ which argues for dropping the restriction. Measured, dropping it yields **21 hit
 `check-links.test.mjs`'s own fixtures**: synthetic `## Part 70 — still open` content the test builds to
 drive the gate. A gate that fires on its own test's inputs is the cry-wolf shape, and it is exactly the
 case `check-docs` states the rule for — *a term inside a string literal is data the program uses, not a
-claim a reader believes*. The ten were fixed by hand; the narrowing stays.
+claim a reader believes*. The ten were fixed by hand; the narrowing stays. A comment line is `//`, `///` or
+a block comment's `*` — never `#`, which in a `.cs` or `.mjs` file is code — and the guards' own tests are
+scanned like any other file: their fixtures sit in string literals, and a comment NAMING a fixture takes
+`link-ok`.
+
+**`link-ok` excuses the line it sits on.** On the NEXT line it excuses only a match that straddles the
+join, one neither line shows whole; a match the line alone can see needs its own line's token. The member
+half reads the raw line, so a neighbouring token never reaches it.
 
 **The section half** (added 2026-08-28) asks whether a `§`-citation names a heading that is there.
 **Renumbering or FOLDING a section is what breaks these**: `docs/memory.md`'s `## 8. What is NOT measured`
@@ -356,26 +405,23 @@ enforces is `.claude/rules/code-commentary.md`.
 **It fails three other things besides length**, each added because a real defect walked past it: a doc run
 carrying more than one `<summary>` (eight found — a long block describing member A sitting above member B's
 own summary, so B has two and A has none; the compiler does not warn and it SHIPS), punctuation a deleted
-clause left stranded (two shipped in public XML docs), and an allowance that no longer matches.
+clause left stranded (two shipped in public XML docs), and an allowance that no longer matches. A `/* … */`
+block is measured like a run of `//` lines, and two JSDoc blocks stacked over one declaration fail as the
+`.mjs` twin of the doubled `<summary>`.
 
 **It is a RATCHET, not a threshold.** 49 files were already over the 25-line limit when it landed (1,879
 lines), so a plain threshold would have been switched off on day one. Every over-limit block in a file is
 recorded in `commentBlockAllowances`, as the MULTISET rather than just the file's worst — one number per
 file left 279 lines of debt invisible and let a budgeted file grow new long blocks behind it.
 
-**25 lines is a PROXY for the real rule, and exactly ONE block in `src/` has earned an exception to it.**
-`IMemoryGraphStore.SeedAsync` documents seven distinct guarantees at once, at 2–11 lines each, each a
-promise a BYO store must honour. At 31 lines that is *smaller than what it explains*, which is the actual
-rule.
-
-**Be very slow to conclude your block is the second one.** The sweep that introduced the rule declared 19
-files irreducible — "contract, not fat" — and an adversarial re-check the same day found that honest for
-**two** of them. Fourteen came under 25 by relocating exactly what the rule's always-wrong list names, and
-the most common single offender was a paragraph that points at a record and then restates it anyway.
-
-**And do not trust the measurement of your own paydown.** That same claim was made from having done the
-work rather than from counting what was left, and it cited a number taken from the LEDGER rather than the
-tree — which is how 279 lines of debt stayed invisible. Re-run the gate and read what it says.
+**The 25-line proxy, its one exception (`IMemoryGraphStore.SeedAsync`, seven guarantees stated once each)
+and the rule to be slow about claiming a second are `.claude/rules/code-commentary.md`.** What this gate
+measured behind that rule: the sweep that introduced it declared 19 files irreducible — "contract, not
+fat" — and an adversarial re-check the same day found that honest for **two**. Fourteen came under 25 by
+relocating exactly what the rule's always-wrong list names, and the most common single offender was a
+paragraph that points at a record and then restates it anyway. The same claim was made from having done
+the work rather than from counting what was left, citing a number from the LEDGER rather than the tree —
+which is how 279 lines of debt stayed invisible.
 
 ### `check-decisions` — whether a decision entry outgrew the decision
 
@@ -399,9 +445,9 @@ Limit **35** non-blank lines (median 16, p75 35); 21 entries were already over i
 
 ### `check-archive` — whether an archive entry outgrew the OUTCOME
 
-The THIRD length ratchet. It shares its whole body with `check-decisions` (`devtools/scripts/_entry-length.mjs`)
-— the ledger semantics are the subtle half and a second hand-written copy would drift silently in the
-permissive direction.
+The THIRD length ratchet. It shares its whole body with `check-decisions` (`devtools/scripts/_entry-length.mjs`),
+as `check-pitfalls`' per-trap ratchet does — the ledger semantics are the subtle half and a second
+hand-written copy would drift silently in the permissive direction.
 
 **What it gates is different from its sibling's**, which is the point: a decision's reasoning IS its
 payload, while an archive entry's detail belongs to whichever record owns it, so what this removes is
@@ -479,6 +525,14 @@ helped LOCATING cost (~66 lines read against ~117), so an index sized for READIN
 Adding or moving a trap means re-running `check-pitfalls --write`, because the trap count sits inside the
 generated block.
 
+**Its fifth check is the FIFTH length ratchet: no trap may outgrow `MAX_TRAP` = 14 non-blank lines.**
+Measured 2026-09-25 over 224 traps — median 7, p95 12, p99 14, max 19 — and set at twice the median, the
+rule `check-decisions` uses. The file is read "before extending anything" and nothing had bounded what it
+asks a reader to hold. The ledger is `_entry-length.mjs`'s, shared with `check-decisions` and
+`check-archive`; an allowance (`pitfallLengthAllowances`) is keyed by the start of the trap's lead with
+markup stripped, because a trap has no id and its line moves with every edit above it, and a key matching
+no trap or two FAILS. No escape token.
+
 ### `check-options` — whether a shipped option says what it is FOR
 
 **The obligation this enforces is the owner's, stated 2026-09-12:** which model to run and which option to
@@ -497,6 +551,10 @@ measured at a **0% defect rate**, and withdrew; a hit here is a defect by constr
 vocabulary gate has to clear before it ships. The one-line count is REPORTED on a passing run so the softer
 tier stays visible without being enforced.
 
+**What counts as an option was widened once, on a measured miss**: an accessor block on the line after the
+property's name, an expression-bodied accessor and a positional record's parameters were all invisible to
+the first pattern — 41 options nothing checked — so it reads each of those shapes.
+
 **It fails closed on an empty scan** — a scan finding no options has proved the pattern stopped matching,
 not that the tree is clean — and `optionDocAllowances` (`devtools/project.config.mjs`) excuses a single
 option with a reason, where **a dead allowance FAILS** the moment its option is documented, renamed or
@@ -510,9 +568,10 @@ options a decision governs.
 
 The THIRD gate on the `devtools/scripts/_markers.mjs` seam, beside `check-backlog` (**D111**) and
 `check-pitfalls` (**D112**), and the one whose subject is the roster itself: the `## Dev loop` table in
-`CLAUDE.md`. The command NAMES and the `verify` column are read out of `dev.mjs`'s own source, so only each
-description is authored — `node devtools/dev.mjs check-dev-loop --write` rebuilds the table and `verify`
-fails while the two disagree.
+`CLAUDE.md`. The command NAMES and the `verify` column are IMPORTED from `devtools/commands.mjs`, the
+side-effect-free roster `dev.mjs` dispatches over, so only each description is authored
+(`devLoopCommands`) — `node devtools/dev.mjs check-dev-loop --write` rebuilds the table and `verify` fails
+while the two disagree.
 
 **It exists because the same drift already happened one layer down.** `dev.mjs`'s usage string was once a
 hand-kept literal and slid to 24 of 30 commands — every memory sweep but one, plus a gate on the day it was
@@ -578,8 +637,8 @@ predicate over the tree. **Every registered predicate was verified BY HAND befor
 each is driven RED by a synthesized tree in its own test: a predicate nobody checked is a second unverified
 claim, not a gate.
 
-**Widened 2026-09-17 from ten claims to thirteen, over the D125–D147 band** (twelve after the retirement below) — nine decisions landed in a
-day, reshaped the whole provider layer, and not one of them was re-checked by anything. The three added are
+**Widened 2026-09-17 from ten claims to thirteen, over the D125–D147 band** (eleven after the two
+retirements below) — nine decisions landed in a day, reshaped the whole provider layer, and not one of them was re-checked by anything. The three added are
 the ones whose violation is SILENT rather than loud: **D25** (a third-party dependency in `Lyntai.Core`,
 which every consumer is forced to take, and which is one line that compiles and passes every test — D146
 deleted a 654 KB reference that had arrived exactly that way); **D127** (only `Id` and `Capabilities` are
@@ -597,6 +656,13 @@ when a later decision removes the subject, retire the claim rather than enjoy th
 invariant — no embedder-shaped front door comes back — is vocabulary, so it is `retiredApiNames` against
 the frozen surface, where a second copy here would add nothing.
 
+**The D46 claim was retired for the opposite reason: it could not fail on the drift it was written for.**
+It matched `DOMAINS are SEVEN` in `CLAUDE.md` with the word hard-coded as an alternative, so an eighth domain
+folder still read HELD. `check-counts` already gates that sentence against the tree, so the claim went and
+D47 now reads `check-counts`' root-level exemption registry rather than restating it — one registry for
+both gates. No predicate here reads `CLAUDE.md` any more. A registered root that is missing (D14's)
+FAILS, like every absent input this repository's gates read.
+
 **Its first version of the D127 predicate could not fail, and that is worth keeping.** Blanking `{ get; }`
 to a placeholder without its terminator merged each property into the NEXT member's chunk, so the first
 `=>` in the run made everything look defaulted: it reported ZERO required members on an interface that has
@@ -607,9 +673,6 @@ proves the gate was looking.**
 
 **Its honest limit**: it covers claims somebody registered, so it is a gate against recurrence rather than
 a proof that every decision is true — and prose claims with no extractable shape are invisible to it.
-
-**Two of its predicates read `CLAUDE.md` BY PATH**, so a paydown of that file can turn `verify` red at the
-FIRST gate with a message that blames a decision. Grep the registry before rewording anything there.
 
 ### `check-api-vocabulary` — whether the frozen SURFACE reintroduced a retired name
 
@@ -702,17 +765,17 @@ compilation carrying a syntax error (so 11 samples naming nonexistent types were
 and a type declared in a sample OUTRANKS the same type from a referenced assembly compilation-wide
 (`CS0436` is only a warning).
 
-**Its sample-count check reads `CLAUDE.md` BY PATH and FAILS OPEN on an absent claim** — deliberately, so
-the gate is not dictating prose. That makes it the one silent disarm in the repository: delete the baseline
-sentence and a real `verify` check stops running with no failure and no output.
+**Its sample-count check reads `CLAUDE.md` BY PATH and FAILS on an absent claim**, as `test-devtools`' does
+(§Which numbers a gate holds). It once failed open, so as not to dictate prose — which made deleting the
+baseline sentence a way to stop a real `verify` check with no failure and no output.
 
 ### `check-sensitive` — the leak scan
 
-Runs in `verify` and, on staged changes, in `devtools/hooks/pre-commit`. Install the hook once per clone
-with `node devtools/dev.mjs install-hooks`; nothing warns you it is missing. Real private tokens go in the
-gitignored `local/sensitive-patterns.txt`, one JavaScript regex per line. Scan the whole tree at any time
-with `check-sensitive --tree`. A committed leak is a HISTORY problem — an edit only hides it from the
-current checkout.
+Runs in `verify` over the whole tree (`--tree`) and, on the staged blobs, in `devtools/hooks/pre-commit`;
+the hook, the private pattern file and why a committed leak is a history rewrite are
+`.claude/rules/repo-mechanics.md` §Sensitive info. A machine path is caught in every spelling it gets
+written in — a backslash, a doubled one, a forward slash, the `/c/…` form — and a `--tree` run over an
+EMPTY listing fails rather than reporting a clean tree it never read.
 
 ## Outside `verify`, and why
 
@@ -761,20 +824,17 @@ Run by hand. It blocks a hand-edited `<VersionPrefix>` and a hand-stamped `## Un
 
 ### `nuget-unlist` — hiding a superseded version from the feed
 
-`node devtools/nuget-unlist.mjs [--below <version>] [--only <id>]`, **dry run by default**; add `--apply`
-to act. Key from `NUGET_API_KEY` or `--api-key <key>`, minted on nuget.org scoped `Unlist` + glob
+`node devtools/dev.mjs nuget-unlist [--below <version>] [--only <id>]`, **dry run by default**; add
+`--apply` to act. Key from `NUGET_API_KEY` or `--api-key <key>`, minted on nuget.org scoped `Unlist` + glob
 `Lyntai.*`. Prefer the environment variable — `--api-key` puts the key in shell history — and never commit
 one; the tool redacts the key from its own error output.
 
 Unlisting hides a version from search and from *range* resolution but never breaks a pinned consumer, and
 never frees the number. Everything below 2.0.1 is unlisted (`docs/DECISIONS.md` D44), so
-`Lyntai.Providers.ClaudeCli`, `.CodexCli` and `.OpenAiCompatible` have no listed version at all — they were
-folded into `Lyntai.Providers.Basic` at 2.0.1.
+`Lyntai.Providers.ClaudeCli`, `.CodexCli` and `.OpenAiCompatible` have no listed version at all.
 
-**The roster is derived from `src/*/*.csproj`**, not hand-listed — only retired ids are hand-kept, in the
-script's `RETIRED` array. Add an id there whenever a package is removed or folded, because that is the one
-thing the tree stops remembering: a hand-maintained roster already went stale once and would have skipped a
-live package while reporting a clean run.
+**The roster is derived from `src/*/*.csproj`**; only retired ids are hand-kept, in the script's `RETIRED`
+array — the rule for adding one is `.claude/rules/repo-mechanics.md` §Package layout.
 
 Deprecation, as opposed to unlisting, is **web-UI only** — no API, so it is not scriptable.
 
@@ -782,7 +842,9 @@ Deprecation, as opposed to unlisting, is **web-UI only** — no API, so it is no
 
 Every `memory-*` command is a measurement rather than a gate, all out of `verify` for the same cost reason
 (tens of minutes each, and several need a live model server). What each one measures is in the command
-table in `CLAUDE.md`; what each one FOUND is in `docs/memory-measurements.md` §5.
+table in `CLAUDE.md`; what each one FOUND is in `docs/memory-measurements.md` §5. Two are retired from the
+roster — `memory-spacing` and `memory-reinforcement` answered their questions (**D53**, **D54**); the results
+stand in that record and the instruments are in git history.
 
 Four of them are not one-factor sweeps and each is exceptional differently: `memory-sweep` is the
 {ranking × forgetting} 2×2; **`memory-scale`'s subject is COST**, so it generates plain entries and reports

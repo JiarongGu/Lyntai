@@ -9,11 +9,10 @@ applies_when: writing or reviewing any comment — an XML doc on a public member
 **An XML doc states the contract a consumer reads. A `//` comment annotates the code it sits on. The design
 argument behind either belongs in a record. A comment longer than what it explains has stopped being one.**
 
-**A long comment is an unindexed, ungated, unreviewed document in the worst possible location.** Five gates
-keep this repository's maintained prose from rotting and none of them can read a code comment for anything
-but retired vocabulary — so the longest and least-read prose in the tree was also the only prose nothing
-checked, and it rotted exactly as you would expect. `check-comments` now bounds the LENGTH
-(`docs/GATES.md` §check-comments). **And the same argument in a comment AND in a record is duplication** —
+**A long comment is an unindexed, unreviewed document in the worst possible location.** The prose gates
+read a code comment only for retired vocabulary and dead references, never for whether it is still true —
+so the longest and least-read prose in the tree rotted exactly as you would expect. `check-comments` bounds
+the LENGTH (`docs/GATES.md` §check-comments). **And the same argument in a comment AND in a record is duplication** —
 two copies drift, and the comment is the copy nobody reviews.
 
 ## Pick the tier by asking who reads it

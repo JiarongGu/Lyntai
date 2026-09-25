@@ -17,9 +17,8 @@ separate enums with the same members plus a translation layer between them, and 
 reported a capability gap as a hard failure for a whole release. **What a verdict MEANS is shared; what a
 router DOES about it is not** — `RoutingPolicy` is the default table `TextRouter` and every
 `ProviderRouter<,>` start from (it surfaces `Unsupported`), and the media domain overrides it with
-`MediaRoutingPolicy`, which advances on it instead. **`RoutingPolicy` is NOT the text one**, which is
-why NS-4 left its name alone while renaming the router that reads it; three sites called it
-`LlmRoutingPolicy`, a type that has never existed.
+`MediaRoutingPolicy`, which advances on it instead. **`RoutingPolicy` is NOT the text one** — it is the
+shared default, whatever router reads it.
 
 One enum drives all router behavior. Classify through the **one** `ProviderVerdictClassifier` (typed HTTP
 status wins over text; text heuristics are deliberately conservative — "429" in a stack frame stays
@@ -36,17 +35,16 @@ host).
 | `Refused` | content policy follows the prompt, not the host — **surface as-is, never fall back** |
 | `Unsupported` | a capability/transport gap — **surfaces like `Refused`** (no fallback, no cooldown; another candidate has the same limitation, so advancing just churns), but stays a DISTINCT verdict so telemetry/scorers don't conflate a capability gap with a policy refusal |
 
-`NotConfigured` and `Unsupported` are also the two **blameless** verdicts (`TextRouter.IsBlameless`) — they are
-not faults, so they are remembered apart from real failures when the router decides what to REPORT. The table
+`NotConfigured` and `Unsupported` are also the two **blameless** verdicts (`ProviderVerdict.IsBlameless()`, in
+`ProviderVerdictExtensions`) — they are not faults, so they are remembered apart from real failures when the
+router decides what to REPORT. The table
 above is per-verdict ACTION; the reporting half is under Fallback below, and a reader who stops at the table
 sees only one of the pair (`Unsupported` reaches the blameless slot only where a host has overridden its
 default `Surface` action, since Surface returns first).
 
-The §6 amendment: `RateLimited` used to circuit-break the whole request; it now cools-and-advances.
-`AuthFailed`/`ContextWindowExceeded` are the finer taxonomy added before 1.0. If you touch this table, update
-every downstream site — there are four, and **they are not four copies of the same thing**, which matters
-because treating them alike leads to either bloating a consuming story or wrongly reading it as stale
-(checked 2026-08-14, all four correct):
+If you touch this table, update every downstream site — there are four, and **they are not four copies of the
+same thing**, which matters because treating them alike leads to either bloating a consuming story or
+wrongly reading it as stale:
 
 | Site | What it is | Obligation when a verdict is added |
 |---|---|---|
@@ -69,16 +67,18 @@ report it.
 Dedup candidates by `(providerId, model)` (first wins — a mis-ordered list that re-prepends the primary
 won't retry it), then try in order, skipping providers that are unregistered / serving no text
 (`ClientCandidates.ServesText`, the one predicate; a CONFIGURED list naming one fails at composition, **D178**) /
+not declaring the door this call uses (`ClientCandidates.Serves(provider, door)` — an undeclared door would
+answer `Unsupported`, which surfaces with no fallback, so it is never asked) /
 `!IsAvailable` / in dead-host cooldown. Log every attempt with provider + verdict + detail. A candidate may be
 RETRIED before the router advances (`RoutingPolicy.Retry`), and the retries are part of ONE attempt at that
 candidate: exactly one failure is recorded when they are exhausted, never one per retry — recording per retry
 would cross the dead-host threshold inside a single call. When all candidates are exhausted the router returns the last
 SUBSTANTIVE failure; if none were even eligible, a reply naming each skipped candidate and why — `Unsupported`
-when every one serves no text, else `Failed` "no live candidate".
+when every one is a capability gap (serves no text, or not on this door), else `Failed` "no live candidate".
 
 **"The last reply" is not the rule — a blameless verdict is kept apart from a real failure.** `CompleteAsync`
 holds two slots, `last` (the last substantive failure — what the caller is told) and `lastBlameless`, and
-returns `last ?? lastBlameless ?? synthetic`. `TextRouter.IsBlameless` is `NotConfigured or Unsupported`.
+returns `last ?? lastBlameless ?? synthetic`. `ProviderVerdict.IsBlameless()` is `NotConfigured or Unsupported`.
 Without the split, `[downHost → Failed, neverConfigured → NotConfigured]` would tell the caller "not
 configured" and send them off to set up a key, while the backend they HAD configured is the one that is down.
 `StreamAsync` mirrors it exactly (`lastError ?? lastBlameless ?? synthetic`, on pre-content errors only).
@@ -90,9 +90,9 @@ Three properties of that split are load-bearing:
 - **Only ELIGIBILITY is decided there.** Which substantive failure wins is untouched and the two domains
   differ on purpose: this router keeps the LAST (`last = reply` each time), `MediaRouter` keeps the FIRST
   (`firstFailure ??= result`) — the first backend's error explains a media run better than the last one's.
-- **It is ONE function since D136** — `ProviderVerdict.IsBlameless()` in `Lyntai.Inference`, called by both
-  routers. Each carried a private copy whose docblock pointed at the other for parity, because the two domains
-  had separate verdict enums; that is precisely the cost a duplicated taxonomy imposes downstream.
+- **It is ONE function** (**D136**) — `ProviderVerdict.IsBlameless()` in `ProviderVerdictExtensions`, called
+  by every router (`TextRouter`, `MediaRouter`, `ProviderRouter<,>`). A private copy per router is how a
+  duplicated taxonomy drifts.
 
 ## Routing recipes
 
@@ -180,11 +180,14 @@ behind its closed shape (`vector::`, `score::`, an app kind's own) — so a chat
 generation backend that shares its id, nor a failing reranker the embedder beside it (`AddOnnxProvider`
 defaults both ids to `"onnx"`, so the unprefixed version of this claim was false and reachable).
 
-**The bench key is no longer necessarily the provider id.** Both routers take an optional
-`Func<TProvider, ProviderKey?> configuration` delegate; the key for a candidate is
-`_configuration(provider)?.ToString() ?? provider.Id`. Passing nothing (the default, and the whole
-container-composed path) is the historical behaviour — `p => p.Id`, one bench per backend — and is correct
-for a deployment that configures each backend once.
+**The bench key is not necessarily the provider id.** Every router takes an optional
+`Func<IModelProvider, ProviderKey?> configuration` delegate; the key for a candidate is the delegate's answer,
+else `provider.Id`. Passing nothing (the default, and the whole container-composed path) keys one bench per
+backend, which is correct for a deployment that configures each backend once. **The key, the admission permit
+and the bench test are ONE internal class, `RouterBookkeeping`**, which every router holds with its own
+domain prefix — shared bookkeeping, which is not the router merge **D153** refused. The generic
+`ProviderRouter<,>` also emits the call span and outcome metrics (`LyntaiDiagnostics`) the two named routers
+do.
 
 **The generic kinds get all of this through `IProviderRouterFactory`** (**D155**) — vector, score, and
 whatever an application closes `IProviderCall<,>` over. It is the counterpart of the two named factories and

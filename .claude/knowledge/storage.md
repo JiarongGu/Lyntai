@@ -6,15 +6,20 @@ enforces: alias every SELECT and CAST affinity-typed columns; open connections o
 
 # Storage internals
 
-The load-bearing rules for `Lyntai.Storage.Sqlite` (and any future backend). Each is a place where the
-code passes tests while being subtly wrong. Reference: design §7, and `Lyntai.Storage.Sqlite` as the
+The load-bearing rules for the relational backends (`Lyntai.Storage.Sqlite`, `Lyntai.Storage.Postgres`)
+and any future one — the ONE statement of each; `sql-storage.md` only indexes them. Each is a place where
+the code passes tests while being subtly wrong. Reference: design §7, and `Lyntai.Storage.Sqlite` as the
 worked example.
 
 ## Dapper + snake_case
 
-`Dapper.DefaultTypeMap.MatchNamesWithUnderscores = true` maps `snake_case` columns ↔ PascalCase
-properties. It's a **process-global** switch (set once in `SqliteConnectionFactory`'s static ctor) —
-note this in any doc aimed at a consumer whose own app also uses Dapper. A column/property name mismatch
+`DapperConventions.Register()` (`src/Shared/Relational/`, called from each connection factory's static
+ctor) sets `DefaultTypeMap.MatchNamesWithUnderscores = true` — `snake_case` columns ↔ PascalCase properties
+— and the `DateTimeOffset` ↔ UTC type handler. **Both are PROCESS-GLOBAL**: whichever adapter registers last
+wins for every connection of every backend, so two adapters with handlers that differed at all would give
+one backend the other's round-trip behaviour, with nothing to see at the registration site. That is why the
+conventions are ONE source compiled into each adapter, never two copies kept in step by a comment — and
+worth saying in any doc aimed at a consumer whose own app also uses Dapper. A column/property name mismatch
 yields a **silent null**, not an error — always alias explicitly in SELECTs (`SELECT id AS Id, …`).
 
 ## The integer-affinity trap — `CAST(x AS REAL)`
@@ -27,11 +32,11 @@ durations) are fine uncast. `ScoreStoreTests.Doubles_round_trip_exactly_the_affi
 **Bool from INTEGER + a positional record:** Dapper will NOT bind a SQLite `INTEGER` (0/1) column to a
 `bool` parameter of a **positional record constructor** — it fails with "no matching constructor". Bind
 into a settable-property **row type** (Dapper converts INTEGER→bool for a property setter) and project to
-the record — see `SqliteCuratedMemoryStore.Row`, or the shared `Lyntai.Storage.JobRow` that both
-relational job stores read through. (The Postgres stores use row types too, even though native `BOOLEAN`
-would bind: a property-mapped row sidesteps Dapper's record-ctor **exact-type** matching regardless of the
-boolean question — the comment at `PostgresScoreStore.GetAsync` says so.) Name it `Row` / `<Thing>Row` — **never
-`*Dto`**, per the naming rule in `.claude/rules/repo-mechanics.md` §Naming.
+the record — see the shared row types in `Core/Storage/StorageRows.cs` (`CuratedMemoryRow`, …) or
+`Lyntai.Storage.JobRow`, which both relational backends read through. (The Postgres stores use row types too,
+even though native `BOOLEAN` would bind: a property-mapped row sidesteps Dapper's record-ctor **exact-type**
+matching regardless of the boolean question — the comment at `PostgresScoreStore.GetAsync` says so.) Name it
+`Row` / `<Thing>Row` — **never `*Dto`**, per the naming rule in `.claude/rules/repo-mechanics.md` §Naming.
 
 ## An open bag column, and when a signal instead earns its own column
 
@@ -77,7 +82,7 @@ sub-query omits the grade term; its `WHERE` already restricts to `grade = author
 ties on it). **SQLite's bm25-matched branch is the one exception, and deliberately so**: everything there
 already matched the query, so match quality leads and salience is only a TIEBREAK —
 `ORDER BY bm25(…), salience DESC, id DESC`. Letting salience outrank bm25 would let a salient POOR match
-displace a strong one; that distortion is Task 6's engine-side rank contribution to own (bounded and
+displace a strong one; that distortion is the engine-side rank contribution's to own (bounded and
 logarithmic there), not the store's to reproduce unbounded on a query that already discriminates by
 relevance.
 
@@ -85,7 +90,7 @@ relevance.
 salience policy may decline to judge a re-remembered write for any reason (too few comparables, a novelty probe
 that found only the entry's own prior vector, a caught failure) and reports that as `MemorySignals.Empty` —
 which must never be read as "this entry is no longer salient," or the very write meant to REINFORCE an
-entry would instead erase an earlier judgement. `InMemoryMemoryGraphStore` has had this since Task 4; the
+entry would instead erase an earlier judgement. `InMemoryMemoryGraphStore` already honours this; the
 SQL backends resolve it in the `DO UPDATE SET`/`ON CONFLICT` clause itself:
 `signals = COALESCE(@signals, <table>.signals)`, `salience = CASE WHEN @signals IS NULL THEN
 <table>.salience ELSE @salience END` — an empty incoming bag serializes to SQL `NULL`, which is also the
@@ -135,81 +140,64 @@ caller **falls back to LIKE** (with `ESCAPE`-guarded `% _ \`). Rank matches with
 ever sourced from `FtsQuery.Build`, never raw user text. The LIKE/ILIKE side uses `SearchTerms.LikeClause`,
 which returns the OR predicate, a matched-term COUNT expression for ranking, and the parameters.
 
-**WHICH entries a query finds is now the same on every backend; only RANKING differs** (`D55`). SQLite
-ranks by **bm25**; Postgres (pg_trgm), InMemory and FileSystem by **matched-term count, then recency**.
-
-**The trap this replaced, because it is the shape of trap to watch for.** Only `FtsQuery` knew how to split a
-query, so only SQLite's FTS path did — every other path (both LIKE fallbacks, all three Postgres queries,
-both InMemory stores) passed the whole query to `LikePattern.Contains` and matched it as one contiguous
-substring. `foo bar` recalled `xxfooxx` on SQLite and nothing on the other two, and a realistic cue like
-`"what is the spouse called"` is contiguous in no entry at all, so keyword seeding was effectively dead on
-two backends. **It was written down as a by-design divergence and defended as one for a year.** The test that
-should have caught it asserted the divergence, and the shared contract's every conformance fact used a
-one-word query. The rule that falls out: *an ORDERING difference between backends is a divergence; a
-different answer to "is the fact found" is a defect* — and a "documented divergence" nobody measured is just
-an undiagnosed bug with a citation. Same root cause gave CJK exact-phrase-or-nothing while English got
-OR-over-words. Converging ranking is still out of scope (reimplementing bm25 in-app); converging **admission**
-was not optional.
+**WHICH entries a query finds is the same on every backend; only RANKING differs.** SQLite ranks by
+**bm25**; Postgres (pg_trgm), InMemory and FileSystem by **matched-term count, then recency**. *An ORDERING
+difference between backends is a divergence; a different answer to "is the fact found" is a defect*
+(**D55**): every backend splits a query through `SearchTerms`, and a conformance fact that uses only a
+one-word query cannot tell the two apart.
 
 ## Don't "dedup" the Sqlite/Postgres stores — the parallelism is intentional
 
-The two relational backends mirror each other file-for-file, and a normalized diff makes most pairs look
-90%+ identical (82.6% of all normalized lines, re-measured 2026-09-16). **Most of that is not duplication
-waiting to be extracted.** A 2026-07-29 review checked every pair and found the divergence below is
-*dialect necessity*, not drift — and it stays true of the expressions in the table even where the
-STATEMENTS around them have since been hoisted:
+The two relational backends mirror each other file-for-file, and what still differs between a pair is
+*dialect necessity*, not drift:
 
-| Pair | Why it differs — and the dialect part can't be shared |
+| Pair | What stays per backend, and why it cannot be shared |
 |---|---|
 | `ConversationStore` | Postgres needs a **bounded retry loop** around the `MAX(seq)+1` insert; SQLite serializes writers and doesn't. A concurrency strategy, not a spelling. |
-| `KeyValueStore` | SQLite's `LIKE` is case-INsensitive → `substr()` prefix match; Postgres's `LIKE` is case-sensitive but its ORDER BY is locale-dependent → `LIKE … ESCAPE` + `COLLATE "C"`. Opposite problems, opposite fixes, same contract. |
-| `UsageTracker` | `COLLATE NOCASE` vs `lower()`; SQLite's bare `col` in `ON CONFLICT DO UPDATE` vs Postgres's required `lyntai_usage.col`. |
+| `KeyValueStore` | the prefix listing: SQLite's `LIKE` is case-INsensitive → `substr()` prefix match; Postgres's `LIKE` is case-sensitive but its ORDER BY is locale-dependent → `LIKE … ESCAPE` + `COLLATE "C"`. Opposite problems, opposite fixes, same contract. |
+| `UsageTracker` | the totals read and the per-consumer delete: `COLLATE NOCASE` vs `lower()`. |
 | `PromptVersionStore` | SQLite has no boolean type: `is_active = 1` vs `is_active` / `TRUE` / `FALSE`. |
-| `ResponseCache` | SQLite requires `LIMIT -1 OFFSET @max`; Postgres takes a bare `OFFSET @max`. |
-| `Score`/`Trace` | Only the `CAST(x AS REAL)` affinity trap above — genuinely near-identical, but see below. |
+| `ResponseCache` | the size-cap trim: SQLite requires `LIMIT -1 OFFSET @max`; Postgres takes a bare `OFFSET @max`. |
+| `ScoreStore` | SQLite's `CAST(score AS REAL)` (the affinity trap above) against Postgres's `COLLATE "C"` ordering. |
 
-Sharing these would mean parameterizing booleans, case-collation, LIMIT/OFFSET, upsert-reference syntax
-**and** the concurrency strategy. That isn't a dialect seam, it's a small ORM — and it would make both
-backends harder to read and to fork. They have also **not drifted** across 30+ releases, because the
-`*StoreContract` facts run every domain against InMemory + Sqlite + Postgres and hold them to one contract.
-**The contract tests are the dedup mechanism here, not a shared base class.**
+Sharing these would mean parameterizing booleans, case-collation, LIMIT/OFFSET **and** the concurrency
+strategy. That isn't a dialect seam, it's a small ORM — and it would make both backends harder to read and to
+fork. The `*StoreContract` facts run every domain against InMemory + Sqlite + Postgres and hold them to one
+contract: **the contract tests are the dedup mechanism here, not a shared base class.**
 
-**What IS shared, and the rule it sets.** `Core/Storage/JobStoreSql.cs` was the first and states the case:
-it hoists the job **state machine** (transition statements, the `claimed_by` write fence, the
-claim-candidate predicate) plus the `JobRow` mapping, because drift there is a *correctness* bug — two
-backends disagreeing on fencing corrupts jobs — and because the text is genuinely engine-independent
-(booleans are bound as `@t`/`@f` parameters precisely so the statements stay identical). Only the locking
-frame stays per-dialect.
+**What IS shared: every statement with a PORTABLE spelling.** The engine-independent statements live in Core
+as text — `JobStoreSql` (the job state machine: transition statements, the `claimed_by` write fence, the
+claim-candidate predicate, bound booleans `@t`/`@f`), `ConversationStoreSql`, `TraceStoreSql`,
+`KeyValueStoreSql`, `UsageTrackerSql`, `ResponseCacheSql`, `MemoryGraphSql` (**D77**) and
+`MemoryEviction.CapEvictSql` — with their row types (`StorageRows.cs`, `MemoryGraphRows.cs`). **Try the
+portable spelling before writing a second copy**: `CAST(… AS DOUBLE PRECISION)`, a table-qualified
+`DO UPDATE SET`, `ON CONFLICT … DO NOTHING`, unquoted aliases all run on both. A second copy is for genuine
+dialect only — FTS5, `IN @ids` vs `= ANY`, `MAX` vs `GREATEST`, `::jsonb`/`::text`, `COLLATE "C"`,
+`LIMIT -1 OFFSET`. **Never share a dialect EXPRESSION**: an extraction that needs a `bool isSqlite` or a
+`Real(col)` helper to work is the signal to stop — Core carries no database driver, so shared SQL there is
+text and nothing more.
 
-**It is no longer the only one, and a reader who takes it as such will re-derive an extraction that already
-exists.** `ConversationStoreSql` and `TraceStoreSql` (`StorageSql.cs`), `MemoryGraphSql` (**D77**) and
-`MemoryEviction.CapEvictSql` hoist statements the same way, and the row types go with them —
-`StorageRows.cs`, `MemoryGraphRows.cs`. So the pairs in the table above differ by the dialect expression and
-the concurrency strategy, NOT by whole statements: `TraceStore` is 70 lines a side now, holding one SQL
-literal between them.
+**Dialect-free CODE is one linked source, not a package.** `src/Shared/Relational/*.cs` (`DapperConventions`,
+`GovernanceGuard`, `StoreWiring`) is compiled into each relational adapter through
+`<Compile Include="..\Shared\Relational\*.cs" LinkBase="Shared\Relational" />`, never referenced: an
+adapter→adapter reference breaks the package rule, Core has no Dapper, and a package would be a published id
+and nine registries for under two hundred internal lines.
+Everything there is `internal`, so each adapter gets its own copy of every type — the SQLite and Postgres
+`FeatureSelection` services are distinct for exactly that reason — and nothing public may go there, since two
+adapters in one app would then collide on it. `check-packages` counts only `src/*/*.csproj`.
 
-So the rule: **share engine-independent, correctness-critical logic; never share dialect expressions.** If
-an extraction needs a `bool isSqlite` or a `Real(col)` helper to work, that's the signal to stop — Core
-carries no database driver (`Lyntai.Core.csproj` has only DI + Logging abstractions, and "no heavy
-dependencies" is a stated selling point), so shared SQL there can never be more than text anyway.
-
-**The rule reaches the PROSE, which is where the parallelism actually costs something.** Measured
-2026-09-16: of 431 substantive comment lines in the SQLite adapter, **119 were byte-identical** in the
-Postgres twin and **96 more said the same thing in different words** — already two wordings of one rule,
-which is drift by the definition this section uses for code. An engine-independent RULE gets stated once,
-next to the shared thing it governs (`MemoryNodeRow` for what an age mark means, `MemoryEviction` for the
-eviction statement) or in the record that owns it; each backend keeps its DIALECT note and a pointer.
-`check-comments` bounds a block's length and can see none of this.
+**The rule reaches the PROSE.** An engine-independent RULE gets stated once, next to the shared thing it
+governs (`MemoryNodeRow` for what an age mark means, `MemoryEviction` for the eviction statement) or in the
+record that owns it; each backend keeps its DIALECT note and a pointer. Two wordings of one rule in the two
+adapters are drift by the definition this section uses for code, and `check-comments` bounds only a
+block's length.
 
 ## Migrations
 
-The canonical statement of the traps behind this section is `.claude/knowledge/sql-storage.md` — never reuse a
-number, declare constraints inline, backfill in the same migration, trigram FTS with insert/delete/update
-triggers, explicit per-connection pragmas. This section is the Lyntai BINDING of those rules (the `lyntai_`
-prefix, the `StorageFeature` tags, the Sqlite/Postgres parallelism); read both.
-
 FluentMigrator, numbered `yyyyMMddHHmm`, **never reused** (an unapplied duplicate number is silently
-skipped). Use `dev.mjs new-migration` to get a unique monotonic number.
+skipped). Use `dev.mjs new-migration` to get a unique monotonic number. **Backfill in the same migration that
+adds a structure** — a structure correct only for rows written after it shipped is a bug waiting for the
+first old row.
 
 **A fresh database applies 12 migrations on SQLite and 13 on POSTGRES, and the asymmetry is deliberate:**
 `M202608152310_MemoryHeadlineSearch` adds a trigram index on `headline` so a recall can match an authored
@@ -217,16 +205,11 @@ one without a sequential scan, and SQLite needs no counterpart because its FTS5 
 `headline, content` since the graph store shipped. Migrations are per-backend projects; forcing the numbers
 to match would mean shipping a SQLite migration that does nothing. `check-counts` holds the first number.
 
-> **Convention changed 2026-08-08, from `YYYYMMDDNNNN` to `yyyyMMddHHmm`.** <!-- drift-ok --> The timestamp is
-> self-describing where a per-day `NNNN` sequence is not, and two people adding a migration on the same day
-> without coordinating now collide only within the same MINUTE — still resolved by the generator's
-> strictly-greater-than-max loop. Both forms are 12 digits, so they sort together and the nine baseline
-> migrations keep their original numbers. **Never renumber an applied migration**: the number is recorded
-> in `lyntai_version_info`, so changing it re-runs the migration against a database that already has its
-> tables. Renumbering is free only before a migration has shipped. Composite PKs and FKs go
-**inline at `Create.Table`** (SQLite has no `ALTER ADD CONSTRAINT`). Raw SQL (`Execute.Sql`) is fine for
-the things FluentMigrator's fluent API can't express (FTS virtual tables, triggers, `ON DELETE CASCADE`).
-The runner is idempotent.
+**Never renumber a shipped migration**: the number is recorded in `lyntai_version_info`, so a new one re-runs
+it against tables that already exist. Composite PKs and FKs go **inline at `Create.Table`** (SQLite has no
+`ALTER ADD CONSTRAINT`); raw `Execute.Sql` covers what the fluent API cannot (FTS tables, triggers,
+`ON DELETE CASCADE`). The runner applies migrations under WAL + `busy_timeout` (`MigrationRunnerService`) and
+is idempotent.
 
 **Every migration carries `[Tags(nameof(StorageFeature.<Feature>), StorageFeatures.AllTag)]` — both tags,
 always.** The feature tag is what a SUBSET pass requests; `AllTag` is what the default `StorageFeature.All`
@@ -253,7 +236,8 @@ scoped to **schema OWNERSHIP**: the selection carries a `LyntaiMigrates` flag an
 under `SchemaMigration.None` or an app-supplied `IDbConnectionFactory`, because there Lyntai runs no
 migration, the feature set decides nothing, and "add `StorageFeature.Governance`" would create no table —
 the guard's whole premise is that Lyntai was going to create the table and the feature set stopped it. Add a
-fourth Governance-backed helper and it must call `RequireGovernance`. `UsePostgresVectorStore` is **exempt**:
+fourth Governance-backed helper and it must call `GovernanceGuard.Require` (`src/Shared/Relational/`), and
+**D150** is why the check is eager and scoped this way. `UsePostgresVectorStore` is **exempt**:
 `PostgresVectorStore` creates its `vector` extension and table lazily, deliberately outside the migration, so
 pgvector is not forced on consumers who never use semantic memory.
 
@@ -271,5 +255,4 @@ pgvector is not forced on consumers who never use semantic memory.
   never throws on a short/unmatchable query). **Re-throw only the CALLER's cancellation, tested as
   `ct.IsCancellationRequested` — never by the exception's TYPE.** A bare
   `catch (OperationCanceledException) { throw; }` makes a fail-open seam fail CLOSED, because a network
-  deadline arrives as `TaskCanceledException` and that IS an `OperationCanceledException`. Fixed at 21
-  sites on 2026-09-09/10 (`docs/FIXES.md`); this line taught the defect until 2026-09-10.
+  deadline arrives as `TaskCanceledException` and that IS an `OperationCanceledException`.

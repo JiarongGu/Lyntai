@@ -47,5 +47,4 @@ recorded a real one.
 - `.claude/rules/persist-working-state.md` — checkpoint it when it happens; this note is about the *status*
   it gets checkpointed with.
 - `.claude/rules/no-global-memory.md` — why this lives in the repository at all.
-- `.claude/rules/repo-mechanics.md` — this repository's own bindings, and the same deletion
-  exposure as every other local document.
+- `.claude/rules/repo-mechanics.md` — this repository's own bindings.

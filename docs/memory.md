@@ -1,10 +1,32 @@
-# Long-term memory — how it works, and how to configure it
+# Long-term memory — the contract, and how to configure it
 
-> **Maintained state.** This is the guide to the memory subsystem as it is TODAY. The contract (interfaces,
-> semantics, objectives) is `docs/2026-07-17-lyntai-design.md` §5.7; the reasoning behind each choice is
+> **Maintained state, and the memory CONTRACT** (`docs/DECISIONS.md` **D164**): the semantics a change must
+> keep, stated as the code is TODAY. `docs/2026-07-17-lyntai-design.md` §5.7 is the seed this grew from and
+> is history; where the two disagree, this page is right. The reasoning behind each choice is
 > `docs/DECISIONS.md` from **D39** on — its generated index names each; the evidence is
-> `docs/memory-measurements.md` §5; the per-task history is `docs/task-archive.md`. When this page and the
-> contract disagree, **the contract wins** and this page is wrong.
+> `docs/memory-measurements.md` §5; the per-task history is `docs/task-archive.md`.
+
+## The invariants no gate holds
+
+Each is a rule a change can break silently. A gate or a test holds the rest of this page's promises; these
+five nothing checks, so read them before touching `Lyntai.Memory*`, an `IMemory*Policy` or a store's graph
+members.
+
+1. **A seam is SINGULAR or PLURAL by whether its implementations read the same aspect** (**D48**) — age,
+   salience and retention are plural and each owns a **composition policy**; the engine composes nothing.
+2. **Age is DERIVED, not stored** — nodes carry primitives (encoding ordinal, cumulative characters,
+   timestamp) and each policy projects its own view. **Except `BurstDampenedAgePolicy`**
+   (`MemoryAgeKind.Accumulating`), the shipped default — the only `Accumulating` policy, whose AGE itself is
+   path-dependent. (`ElapsedAgePolicy` also keeps per-engine write-time state, but its age is a pure
+   projection, which is what `Derivable` actually claims.)
+3. **Each entry records WHICH policy computed its state** (`MemoryProvenance` flags), so "never computed"
+   is distinguishable from "zero".
+4. **All three age axes speak one unit** (**D52**) — an edge carries the same primitives a node does, so
+   `StrengthAge` is swap-safe and `GraphMemoryOptions.EdgeHalfLife` is denominated in whatever the policies
+   count, never in time.
+5. **`IMemoryGraphStore` is the largest contract in the library.** A BYO store reads
+   `.claude/knowledge/extending-lyntai.md` §Add a storage backend before starting one — which members take
+   no default body, which two do and what each default silently costs, and `WriteBackAsync`'s ORDER.
 
 ## 1. What it is
 
@@ -71,7 +93,7 @@ application has one task per conversation. `AddMemoryTools` binds a DEFAULT at r
 
 <!-- compile-given: string conversationId = null!; System.Threading.Tasks.Task<string> RunTurnAsync() => null!; -->
 ```csharp
-// the tools registered by AddMemoryTools now read and write this conversation's task,
+// the tools registered by AddMemoryTools now read this conversation's task,
 // for this turn only — restored on dispose, so nesting behaves
 using (MemoryToolScope.Use(taskKey: $"chat/{conversationId}"))
 {
@@ -90,14 +112,22 @@ disposed.
 |---|---|---|
 | a store the application reads and writes directly | `AddMemoryEngine(...)` | per call, in `MemoryQuery` |
 | memory the MODEL searches during a turn | `AddMemoryEngine(...)` + `AddMemoryTools(...)` | `MemoryToolScope.Use` per turn |
-| both, in one process | the same registrations | both, independently |
+| memory the CHAT composes its prompt from | `AddMemoryEngine(...)` + `UseMemoryComposer(...)` | per turn, by the orchestrator |
+| any of these, in one process | the same registrations | each independently |
 
-There is no third design and no scoped variant to choose, which is deliberate: a scoped engine would mean a
-per-request store handle, and the store is the thing that must NOT be per-request.
+There is no scoped variant to choose, which is deliberate: a scoped engine would mean a per-request store
+handle, and the store is the thing that must NOT be per-request.
+
+**The chat's binding is ONE seam with a read half and a write half.** `IPromptComposer.ComposeAsync` builds
+the prompt from memory and `RememberAsync` writes each exchange back to where `ComposeAsync` will read it, so
+a chat can never recall from one store while remembering into another. `UseMemoryComposer("x")` backs both
+halves with the named engine; without it the default composer is an engine blending the keyword store and
+semantic memory, keyword first, every write fanned out to both. The memory TOOLS only read.
 
 ## 3. What the engine is FOR
 
-Design §5.7.0 states the objectives **lexicographically** — earlier lines are not traded for later ones:
+The objectives are **lexicographic** — earlier lines are never traded for later ones (the seed, and the
+argument for each line: `docs/2026-07-17-lyntai-design.md` §5.7.0):
 
 1. **Never lose an authoritative fact.** The only objective with *no acceptable failure rate*.
 2. **Return the relevant material** (miss rate).
@@ -107,6 +137,20 @@ Design §5.7.0 states the objectives **lexicographically** — earlier lines are
    improved anything — which is why §4's "headlines, then expand" shape is a constraint and not a style.
 
 Objective (1) is why `MemoryGrade.Authoritative` exists, and why it behaves the way §6 describes.
+
+**Four absolutes sit above the list** (**D90**) — pass/fail conditions on a change, not lines to trade: an
+explicit deletion COMPLETES, reaching every projection; decay buries, and only an explicit caller act
+deletes; nothing is silently overwritten and no conflict is hidden; current and historical facts resolve by
+time in any feature offering a temporal answer. The last two bind what is built ON the engine: a
+`MemoryWrite` carries no valid-time and nothing supersedes anything, so they are vacuous here by
+construction.
+
+**What an optimization may not spend:** a sweeper or background job (decay is computed when read); more
+than one embed and one bounded candidate query per recall; a deletion no caller asked for (`ForgetAsync` is
+a withdrawal that must be complete, `PruneAsync` best-effort capacity management, **D72**); `Stability`'s
+unit, the position delta at which retrievability is `0.5`; and any PERMANENT change driven by the engine's
+own retrieval decisions, which banks the ranker's errors (**D54**; the effects are separable through
+`GraphMemoryOptions.Reinforcement`, **D57**).
 
 ## 4. How a recall actually works
 
@@ -121,6 +165,9 @@ query
   ↓  Take(limit)
   ↓  reinforcement        age reset and/or stability growth on what survived
 ```
+
+That is ONE step. What it returns is an index of headlines, and the intended read is a walk that expands
+from them (§9, Walk outward from a recall), so a one-shot metric measures the wrong mode.
 
 Two properties of that pipeline are easy to get wrong and are worth stating:
 
@@ -459,6 +506,62 @@ Plural domains coexist and are combined by a **composition policy**; the engine 
 (**D48**). To turn salience OFF, register `NeutralSaliencePolicy` — **registering nothing takes the shipped
 default instead**, which is the one trap in this table.
 
+#### Age: what counts as time passing
+
+An entry ages by INTERFERENCE — what happened since it was last used — and the age policy says what counts:
+
+| policy | an entry ages by | choose it when |
+|---|---|---|
+| `PerWriteAgePolicy` | one per write to the engine | every write is roughly one fact |
+| `ContentSizeAgePolicy` | the characters written (200 to a unit by default) | a long document should crowd harder than a note |
+| `ElapsedAgePolicy` | real days | "untouched for three months" is meaningful — a project memory. It gives up rarely-used-decays-slowly: an idle memory still ages |
+| `BurstDampenedAgePolicy` (the default) | a wrapped policy, damped inside a burst | always, around a count or volume clock |
+
+**The default is `BurstDampenedAgePolicy` over `PerWriteAgePolicy`**, and the damping is what makes ingest
+safe: the n-th write inside a five-second window crowds by `1/n` and is encoded at `1/√n` of the usual
+half-life, so 200 rapid writes advance the position by about 6 rather than 200, and a skimmed document fades
+faster than a note written in a quiet moment. **Registering any `IMemoryAgePolicy` replaces the default
+outright**, so wrap a count or volume clock yourself; `ElapsedAgePolicy` needs no wrapper, because elapsed
+time is self-limiting:
+
+```csharp
+services.AddSingleton<IMemoryAgePolicy>(new BurstDampenedAgePolicy(new ContentSizeAgePolicy()));
+```
+
+Age is plural: several registered policies are summed by `SummedAgeCompositionPolicy`, and at most one may be
+`Accumulating` (only `BurstDampenedAgePolicy` is), or composition throws. Summing policies of different units
+is well-defined but only meaningful if `Stability` and `EdgeHalfLife` are chosen against the combined scale.
+
+#### Ranking: one policy per engine, and a per-call override
+
+**The default, `ReciprocalRankFusionPolicy`, fuses by RANK POSITION** — `Σ w / (K + rank)` over
+retrievability, salience, hop, diagnosticity and each matching source's relevance — so no signal's raw scale
+can drown another (**D49**, **D82**). `MultiplicativeRankingPolicy`, a product of the same factors, ships
+beside it and is one line away: `UseGraph(ranking: new MultiplicativeRankingPolicy())` for one engine, or
+`services.AddSingleton<IMemoryRankingPolicy>(new MultiplicativeRankingPolicy())` for every engine that names
+none. **`CompositeRankingPolicy(primary, secondary)` blends two whole policies the same way** — by each one's
+rank position, never its raw score, because a score means nothing outside the policy that produced it; a
+candidate one member drops ranks worst for that member rather than disappearing.
+
+An engine can also expose alternates by NAME, for one call to pick:
+
+```csharp
+services.AddLyntai(cfg => cfg
+    .UseSqliteStorage("Data Source=app.db")
+    .AddMemoryEngine("project", e => e.UseGraph(namedRankingPolicies: new Dictionary<string, IMemoryRankingPolicy>
+    {
+        ["multiplicative"] = new MultiplicativeRankingPolicy(),
+        ["blend"] = new CompositeRankingPolicy(new ReciprocalRankFusionPolicy(), new MultiplicativeRankingPolicy()),
+    })));
+
+var recall = await engine.RecallAsync(
+    new MemoryQuery("project", Query: "deploy pipeline", RankingPolicyName: "blend"));
+```
+
+The name is scoped to the engine that registered it, and **an unknown name throws `KeyNotFoundException`**
+rather than falling back, so a typo fails where it was made. Engines with no ranking concept (lexical,
+semantic, curated) ignore the field.
+
 ## 7. Things that will surprise you
 
 Each of these cost a real measurement to find.
@@ -552,6 +655,9 @@ Each of these cost a real measurement to find.
   an edge between two tasks, and traversal is scoped to the task besides — so an edge a pre-D92
   database already holds is never walked either. If you were relying on cross-task links, keep the
   association in your own data; two facts that belong together belong in one task.
+- **A `MemoryRef` names ONE engine.** Expanding a reference another engine issued returns nothing, and
+  linking across engines throws `ArgumentException`: an id means a node only in the store that wrote it, so
+  honouring a foreign one would expand or link whichever local node happens to share the number.
 - **Scale is measured, and a default recall is WRITER-BOUND.** `memory-scale` (1k / 10k / 100k, SQLite):
   write throughput does not degrade with size, recall grows sub-linearly, and concurrency buys a default
   recall nothing because it ends in a write-back — read `ReinforceOn = None` as a concurrency knob, and
@@ -642,6 +748,28 @@ var neighbours = expanded.Items.Skip(1);          // what it is connected to, as
 ```
 
 `hops` is clamped to the engine's configured `Hops`; `charBudget` bounds the neighbours and never the entry.
+
+### Walk outward from a recall
+
+A recall returns HEADLINES, a cheap index, and the mode the graph engine is built for is an n-shot WALK over
+them rather than one top-k read (**D100**, **D102**): `MemoryWalk.WalkAsync` recalls, then expands outward
+from what each step newly turned up.
+
+```csharp
+await foreach (var step in engine.WalkAsync(new MemoryQuery("project", Query: "deploy pipeline")))
+{
+    if (step.Items.Any(i => i.Headline.Contains("rollback"))) break;   // the question is answered
+}
+```
+
+Step 1 is the recall; each later step expands up to `MemoryWalkOptions.SeedsPerStep` (3) of the previous
+step's new arrivals, `Hops` deep. **Your `break` is the stop condition**, because the useful depth belongs to
+the question (**D100**); the walk also ends on its own when a step discovers and upgrades nothing, or once it
+holds `MaxItems` entries (by default twice what step 1 returned). `UpgradedCount` says how many held
+headlines a step turned into full content — ask for `MemoryDetail.Full` and every entry arrives whole, leaving
+the walk only discovery. It fails open: a step that faults ends the walk with the last good one. **It
+MUTATES once per step** — reinforcing what it returns and walks — so an A/B over it is paired as §7 says. An
+engine that cannot expand yields exactly one step.
 
 ### Let a model search its own memory
 
@@ -794,7 +922,7 @@ passed to `UseGraph(...)` wins over both, for that engine only.
 
 | you want | read |
 |---|---|
-| the contract — interfaces, semantics, objectives | `docs/2026-07-17-lyntai-design.md` §5.7 |
+| the seed this contract grew from, and its original argument | `docs/2026-07-17-lyntai-design.md` §5.7.0 and §5.7 |
 | why a choice was made | `docs/DECISIONS.md` from **D39** on — its generated index names each (and D13 for the *keyword* store's eviction bound, which is a different surface) |
 | every measured figure, and whether it still holds | `docs/memory-measurements.md` §5 |
 | the consuming story | `README.md` |
