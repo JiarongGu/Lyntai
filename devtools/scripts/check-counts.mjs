@@ -180,7 +180,7 @@ export function countDecisions(repo) {
 export const ROOT_MEMORY_POLICY_EXEMPTIONS = {
   IMemoryRemovalPolicy:
     'a BLEND concern — consulted by CompositeMemoryEngine to decide which MEMBERS a forget or prune visits '
-    + '(D75) — rather than a stage of the graph engine\'s decay pipeline, which is what the seven domains '
+    + '(D72) — rather than a stage of the graph engine\'s decay pipeline, which is what the seven domains '
     + 'describe. Its namespace is public and frozen (D70), so it cannot move even if that changed.',
 };
 

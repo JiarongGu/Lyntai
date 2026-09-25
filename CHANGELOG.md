@@ -151,8 +151,8 @@ every addition.
   `AddFrontDoorDecorator(10, …)` plus `AddUsageBudget()` registered a budget that never enforced. Repeating the
   SAME registration is still a no-op. **What to DO:** give each custom decorator an order no other uses.
 
-- **`LyntaiBuilder.ConfigureMemory` is `ConfigureMemoryEviction`.** It only ever set `LyntaiOptions.MemoryEviction`,
-  the size bound on `IMemoryStore`, never the graph memory engine. **What to DO:** rename the call. <!-- link-ok: the entry ANNOUNCING the rename has to name it -->
+- **`LyntaiBuilder.ConfigureMemory` is `ConfigureMemoryEviction`.** It only ever set `LyntaiOptions.MemoryEviction`, <!-- link-ok: the entry ANNOUNCING the rename has to name it -->
+  the size bound on `IMemoryStore`, never the graph memory engine. **What to DO:** rename the call.
 
 - **`IJobHandlerRegistry.Handlers` is removed** (and `JobHandlerRegistry.Handlers`); nothing read it. **What to DO:** <!-- link-ok: the entry ANNOUNCING the removal has to name it -->
   a BYO registry deletes the member; a caller resolves `IEnumerable<IJobHandler>` instead.
