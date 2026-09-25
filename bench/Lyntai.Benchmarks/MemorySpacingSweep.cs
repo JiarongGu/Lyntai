@@ -117,13 +117,12 @@ internal static class MemorySpacingSweep
             var declaredOrder = corpus.Steps.Select(MemoryPolicySweep.CorpusStepMarker).ToList();
 
             using var db = new MemoryPolicySweep.SweepDb();
-            var engine = new GraphMemoryEngine(
-                "spacing",
-                new SqliteMemoryGraphStore(db.Factory),
-                options: graphOptions,
-                retrievability: arm.Retrieval,
-                agePolicies: [agePolicy],
-                ranking: rrf);
+            var engine = new GraphMemoryEngine("spacing", new SqliteMemoryGraphStore(db.Factory), options: graphOptions, seams: new GraphMemorySeams
+                {
+                    Retrievability = arm.Retrieval,
+                    AgePolicies = [agePolicy],
+                    Ranking = rrf,
+                });
 
             readBacks.Add(ReadBack(arm, engine));
 

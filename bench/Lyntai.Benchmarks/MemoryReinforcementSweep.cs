@@ -102,13 +102,12 @@ internal static class MemoryReinforcementSweep
             var declaredOrder = corpus.Steps.Select(MemoryPolicySweep.CorpusStepMarker).ToList();
 
             using var db = new MemoryPolicySweep.SweepDb();
-            var engine = new GraphMemoryEngine(
-                "reinforcement",
-                new SqliteMemoryGraphStore(db.Factory),
-                options: graphOptions,
-                retrievability: new ModulatedRetrievability(arm.Curve, retentionPolicies),
-                agePolicies: [agePolicy],
-                ranking: rrf);
+            var engine = new GraphMemoryEngine("reinforcement", new SqliteMemoryGraphStore(db.Factory), options: graphOptions, seams: new GraphMemorySeams
+                {
+                    Retrievability = new ModulatedRetrievability(arm.Curve, retentionPolicies),
+                    AgePolicies = [agePolicy],
+                    Ranking = rrf,
+                });
 
             var replay = await MemoryPolicySweep.ReplayAsync(corpus, engine, QueryLimit);
             foreach (var (cls, quality) in replay.ByClass)

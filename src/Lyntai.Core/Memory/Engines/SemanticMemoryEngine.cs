@@ -93,8 +93,8 @@ public sealed class SemanticMemoryEngine(
     /// embeddings remain, and forgetting some arbitrary scope would delete the wrong data. A consent
     /// withdrawal that silently does less than it says is the failure this surface exists to prevent, so it
     /// fails LOUDLY and names the fix.
-    /// <para>This engine deliberately does NOT implement <see cref="IPrunableMemory"/> — see the class
-    /// remarks. Before 3.0 split the two capabilities it could not have made that distinction.</para></remarks>
+    /// <para>This engine deliberately does NOT implement <see cref="IPrunableMemory"/>: a vector store has no
+    /// age or retrievability to prune by, so it can forget a scope exactly and cannot prune at all.</para></remarks>
     public Task ForgetAsync(string taskKey, string? scope = null, CancellationToken ct = default)
     {
         if (scope is null)

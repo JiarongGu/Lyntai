@@ -50,12 +50,13 @@ public readonly record struct MemorySignals
     {
         /// <summary>How strongly this entry was encoded, written by an <see cref="Lyntai.Memory.Salience.IMemorySaliencePolicy"/>.
         /// <b>Means "this memory does not fade away" — decay resistance AND store admission priority — NOT
-        /// "first priority"</b> (<c>docs/DECISIONS.md</c> D45): it lengthens a half-life and orders admission
-        /// in the store when a candidate set overflows its budget, both on by default. It can ALSO lift rank
-        /// in <see cref="Lyntai.Memory.Engines.GraphMemoryEngine"/> — bounded logarithmically
-        /// (<see cref="Lyntai.Memory.Ranking.MultiplicativeRankingOptions.SalienceRankWeight"/>) so it lifts
-        /// without dominating — but that is a stronger, separate claim (a salient entry outranking a better
-        /// textual match) and is NOT the default; a consumer opts in explicitly.</summary>
+        /// "first priority"</b> (<c>docs/DECISIONS.md</c> D45): <see cref="Lyntai.Memory.Modulation.SalienceRetentionPolicy"/>
+        /// lengthens its half-life, and the store orders admission by it when a candidate set overflows its
+        /// budget, both on by default. It can ALSO vote on rank — a stronger, separate claim (a salient entry
+        /// outranking a better textual match) that is OFF by default in both ranking policies:
+        /// <see cref="Lyntai.Memory.Ranking.ReciprocalRankFusionOptions.SalienceWeight"/> for the registered
+        /// default (<c>docs/DECISIONS.md</c> D89 measured it costing recall) and
+        /// <see cref="Lyntai.Memory.Ranking.MultiplicativeRankingOptions.SalienceRankWeight"/>.</summary>
         public const string Salience = "salience";
 
         /// <summary>How hard this material is to retain, on FSRS's 1–10 scale where 1 is EASIEST and 10 is
@@ -126,10 +127,12 @@ public readonly record struct MemorySignals
     /// Npgsql binds it without complaint into a NOT NULL column every seed query orders on — and Postgres
     /// sorts NaN ABOVE every real number, so there the corruption is silent and it ranks first.</para>
     /// <para>Both values are reachable through the public <see cref="Lyntai.Memory.Salience.IMemorySaliencePolicy"/> seam, so neither
-    /// is hypothetical. <b>Every read site calls this</b> — the two SQL stores' promoted <c>salience</c>
-    /// column, the in-process store's admission ordering, and <see cref="Lyntai.Memory.Engines.GraphMemoryEngine"/>'s rank boost. They
-    /// once normalized the same value three different ways, which made identical data admit differently on
-    /// different backends.</para></summary>
+    /// is hypothetical. <b>Every read site calls this</b> — the stores' salience ordering and promoted
+    /// <c>salience</c> column, the two ranking policies that read salience
+    /// (<see cref="Lyntai.Memory.Ranking.ReciprocalRankFusionPolicy"/>,
+    /// <see cref="Lyntai.Memory.Ranking.MultiplicativeRankingPolicy"/>), and
+    /// <see cref="Lyntai.Memory.Modulation.SalienceRetentionPolicy"/>. A new reader calls it too: one value
+    /// normalized several ways made identical data admit differently on different backends.</para></summary>
     /// <param name="signals">The bag; an empty one reports the neutral 1.</param>
     public static double Salience(in MemorySignals signals)
     {

@@ -56,18 +56,9 @@ public enum MemorySalienceProvenance : long
 }
 
 /// <summary>
-/// Decides how strongly a write is encoded. <b>Salience means "this memory does not fade away" — decay
-/// resistance AND store admission priority — NOT "first priority"</b> (2026-08-09 —
-/// <c>docs/DECISIONS.md</c> D45, corrected same day by D45): it lengthens a half-life, and orders admission
-/// in the store when a candidate set overflows its budget, so a salient memory is always found even when it
-/// matches a query poorly — both on by default. It can ALSO lift rank in
-/// <see cref="Lyntai.Memory.Engines.GraphMemoryEngine"/> by a bounded logarithm
-/// (<see cref="Lyntai.Memory.Ranking.MultiplicativeRankingOptions.SalienceRankWeight"/>), letting a salient
-/// memory jump the queue ahead of a
-/// better textual match — but that is a stronger, separate claim admission does not already make, and it
-/// defaults OFF; a consumer opts in explicitly. This interface itself only reports a signal — it decides
-/// none of that; see <see cref="SalienceRetentionPolicy"/> for the decay half and
-/// <c>GraphMemoryEngine.RecallAsync</c> for the (opt-in) ranking half.
+/// Decides how strongly a write is encoded. <b>Salience means "this memory does not fade away", NOT "first
+/// priority"</b> — what the signal does downstream is stated once, on
+/// <see cref="MemorySignals.WellKnown.Salience"/>. This interface only reports it.
 /// <para>A registered default ships (<see cref="StructuralSaliencePolicy"/>), so nothing has to be
 /// implemented to get the model. An application wanting real judgement — affect, self-relevance — registers
 /// its own, which is where a model belongs; the memory path itself stays model-free.</para>
@@ -120,18 +111,16 @@ public sealed record SalienceOptions
     /// shipped weight it is therefore a SWITCH rather than a dial: <c>1</c> makes the policy report nothing
     /// while it stays registered, and anything from 2.5 up behaves as 4. Raising
     /// <see cref="NoveltyWeight"/> makes it bind; that is the knob which scales magnitude.</para>
-    /// <para>Must be at least 1: a bound below the neutral value is not a smaller ceiling, it is a
-    /// contradiction, and it would otherwise surface as an <c>ArgumentException</c> from a clamp deep in the
-    /// recall path rather than at the line that configured it.</para></summary>
-    /// <exception cref="ArgumentOutOfRangeException">Set below 1.</exception>
+    /// <para>Must be FINITE and at least 1: a bound below the neutral value is not a smaller ceiling, it is a
+    /// contradiction, and an infinite one leaves the retention bound undeclared, which switches salience's
+    /// decay resistance off.</para></summary>
+    /// <exception cref="ArgumentOutOfRangeException">Set below 1, or to a non-finite value.</exception>
     public double MaxSalience
     {
         get => _maxSalience;
-        init
-        {
-            ArgumentOutOfRangeException.ThrowIfLessThan(value, 1);
-            _maxSalience = value;
-        }
+        init => _maxSalience = MemoryOption.Require(value, MemoryOptionRange.AtLeast(1), nameof(SalienceOptions),
+            "a ceiling below the neutral value contradicts itself, and an infinite one leaves the retention " +
+            "policy no declared bound, so every salience factor clamps to 1 and decay resistance is off.");
     }
 
     /// <summary>How steeply novelty raises salience, as <c>1 + factor × novelty</c>. It is the only knob
@@ -140,17 +129,10 @@ public sealed record SalienceOptions
     /// <para><b>A negative weight is INERT, not inverting.</b> <c>StructuralSaliencePolicy</c> computes
     /// <c>Math.Clamp(1 + factor × novelty, 1, MaxSalience)</c>, and that lower bound is 1 — so for any
     /// novelty above zero a negative factor floors to the neutral value and the policy returns no signal at
-    /// all. This paragraph claimed the opposite ("a negative weight legitimately inverts the effect") until
-    /// 2026-08-29, when an arm of <c>memory-salience --novelty</c> came back byte-identical to the
-    /// weight-zero arm and to salience-off. Inverting the SIGN of the preference needs a different policy,
-    /// not a negative weight here.</para>
-    /// <para>The guard is finiteness only, and it rejects just
-    /// <see cref="double.NaN"/> and the infinities. It was the ONE unguarded field of this record while both
-    /// its siblings validated: <c>StructuralSaliencePolicy</c> feeds it to
-    /// <see cref="Math.Clamp(double,double,double)"/>, which PROPAGATES <c>NaN</c> rather than clamping it,
-    /// so a non-finite weight put a <c>NaN</c> salience into the signals bag. Three downstream readers
-    /// happened to coerce it back, which is the shape <c>pitfalls.md</c> warns about — the guard belongs to
-    /// the VALUE, not to whoever reads it last.</para></summary>
+    /// all. Inverting the SIGN of the preference needs a different policy, not a negative weight here.</para>
+    /// <para>The guard is finiteness only: the policy feeds this to <see cref="Math.Clamp(double,double,double)"/>,
+    /// which PROPAGATES <c>NaN</c> into the stored signal (<c>.claude/knowledge/pitfalls.md</c>, "a clamp is not
+    /// a finiteness guard").</para></summary>
     /// <exception cref="ArgumentOutOfRangeException">Set to a non-finite value.</exception>
     public double NoveltyWeight
     {
@@ -175,10 +157,8 @@ public sealed record SalienceOptions
     public int MinimumComparables
     {
         get => _minimumComparables;
-        init
-        {
-            ArgumentOutOfRangeException.ThrowIfLessThan(value, 1);
-            _minimumComparables = value;
-        }
+        init => _minimumComparables = MemoryOption.Require(value, 1, nameof(SalienceOptions),
+            "zero cannot express \"wait for comparables\", and reads as a disabled guard while admitting the " +
+            "empty-engine case it exists to prevent.");
     }
 }

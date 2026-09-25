@@ -158,15 +158,17 @@ public class LlmSemanticRecallLiveTests(Xunit.Abstractions.ITestOutputHelper out
         var lex = CorpusLexicon.For(CorpusLanguage.English);
         var store = new InMemoryMemoryGraphStore();
         var vectors = EmbeddingRouting.CanEmbed(providers) ? new InMemoryVectorStore() : null;
-        var engine = new GraphMemoryEngine("e", store,
-            retrievability: new DsrRetrievability(),
-            agePolicies: [new PerWriteAgePolicy()],
-            providers: providers,
-            vectors: vectors,
-            seedSources: semanticSeedK <= 0 || vectors is null
-                ? [new LexicalSeedSource()]
-                : [new LexicalSeedSource(),
-                    new SemanticSeedSource(providers, vectors, new SemanticSeedOptions { K = semanticSeedK })]);
+        var engine = new GraphMemoryEngine("e", store, seams: new GraphMemorySeams
+            {
+                Retrievability = new DsrRetrievability(),
+                AgePolicies = [new PerWriteAgePolicy()],
+                Providers = providers,
+                Vectors = vectors,
+                SeedSources = semanticSeedK <= 0 || vectors is null
+                    ? [new LexicalSeedSource()]
+                    : [new LexicalSeedSource(),
+                        new SemanticSeedSource(providers, vectors, new SemanticSeedOptions { K = semanticSeedK })],
+            });
 
         // the statements under test, plus unrelated filler so a recall has something to get wrong
         var targets = new List<string>();

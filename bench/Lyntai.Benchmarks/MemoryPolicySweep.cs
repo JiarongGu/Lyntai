@@ -251,13 +251,12 @@ internal static class MemoryPolicySweep
 
             using var db = new SweepDb();
             var store = new SqliteMemoryGraphStore(db.Factory);
-            var engine = new GraphMemoryEngine(
-                "sweep",
-                store,
-                options: graphOptions,
-                retrievability: arm.Retrieval,
-                agePolicies: [agePolicy],
-                ranking: arm.Ranking);
+            var engine = new GraphMemoryEngine("sweep", store, options: graphOptions, seams: new GraphMemorySeams
+                {
+                    Retrievability = arm.Retrieval,
+                    AgePolicies = [agePolicy],
+                    Ranking = arm.Ranking,
+                });
 
             // F1 (carried forward): read back what THIS engine actually holds before it is used for
             // anything — never the ingredient variables this method built.

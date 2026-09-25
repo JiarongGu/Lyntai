@@ -174,11 +174,17 @@ public class MemoryEngineRegistrationTests
     }
 
     [Fact]
-    public void Registering_no_engine_leaves_the_existing_composer_in_place()
+    public async Task Adding_an_engine_without_UseMemoryComposer_leaves_the_default_composer_in_place()
     {
-        using var sp = Build(_ => { });
+        // "x" cannot even be BUILT (no ICuratedMemoryStore), so a composer that had moved to it would throw on
+        // resolve; the default one never touches the engine factory
+        using var sp = Build(cfg => cfg.AddMemoryEngine("x", e => e.UseCurated()));
+        var composer = sp.GetRequiredService<IPromptComposer>();
+        await composer.RememberAsync("t", "s", "the default composer still backs the prompt");
 
-        Assert.IsType<MemoryPromptComposer>(sp.GetRequiredService<IPromptComposer>());
+        var composed = await composer.ComposeAsync("BASE", "t", "s", "default");
+
+        Assert.Contains("the default composer still backs the prompt", composed, StringComparison.Ordinal);
     }
 
     [Fact]

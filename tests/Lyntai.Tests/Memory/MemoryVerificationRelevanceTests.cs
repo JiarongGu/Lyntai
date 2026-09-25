@@ -39,7 +39,10 @@ public class MemoryVerificationRelevanceTests
     private static async Task<(CapturingVerification Judge, MemoryRecall Recall)> RecallWithJudge()
     {
         var judge = new CapturingVerification();
-        var engine = new GraphMemoryEngine("graph", new InMemoryMemoryGraphStore(), verification: judge);
+        var engine = new GraphMemoryEngine("graph", new InMemoryMemoryGraphStore(), seams: new GraphMemorySeams
+            {
+                Verification = judge,
+            });
 
         foreach (var text in new[]
         {

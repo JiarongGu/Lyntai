@@ -1,4 +1,5 @@
 using Lyntai.Inference;
+using Lyntai.Text;
 using System.Globalization;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
@@ -66,11 +67,8 @@ public sealed class LlmVerificationOptions
     public int ContentChars
     {
         get;
-        set
-        {
-            ArgumentOutOfRangeException.ThrowIfNegative(value);
-            field = value;
-        }
+        set => field = MemoryOption.Require(value, 0, nameof(LlmVerificationOptions),
+            "zero already shows the headline instead.");
     }
 }
 
@@ -138,26 +136,8 @@ public sealed class LlmMemoryVerificationPolicy(
 
         try
         {
-            var client = _options.ClientName is { } name ? clients.Get(name) : clients.Get();
-            var reply = await client.CompleteAsync(new TextRequest
-            {
-                Messages =
-                [
-                    new TextMessage("system", System),
-                    new TextMessage("user", Compose(request)),
-                ],
-                Model = _options.Model,
-                // Tagged for the same reason the annotator is: this one fires on EVERY recall, and
-                // `docs/memory.md` prices a hosted judge in dollars per thousand recalls, so it is precisely
-                // the spend an operator needs to see and cap on its own.
-                Consumer = ProviderConsumers.Memory,
-                // This call's value is a short structured verdict, and it sits in the latency path of every
-                // recall — so it asks for no intermediate reasoning. Advisory: a backend that cannot
-                // express it ignores it, and Parse below still tolerates a reply that reasons anyway.
-                // Measured stakes: a thinking model spent ~25 s per judgement against ~1.5 s for one that
-                // answers directly (docs/DECISIONS.md D59).
-                Reasoning = TextReasoning.Suppress,
-            }, ct).ConfigureAwait(false);
+            var reply = await MemoryModelCall.AskAsync(clients, _options.ClientName, _options.Model,
+                System, Compose(request), ct).ConfigureAwait(false);
 
             if (reply.Verdict != ProviderVerdict.Ok || string.IsNullOrWhiteSpace(reply.Text))
             {
@@ -170,10 +150,8 @@ public sealed class LlmMemoryVerificationPolicy(
 
             return Parse(reply.Text, request);
         }
-        // Only the CALLER's cancellation propagates — the same rule the engine's own VerifyAsync now draws.
-        // This client's timeout arrives as a TaskCanceledException, which IS an OperationCanceledException,
-        // so a bare rethrow left the promise below unreachable for any caller without an outer fail-open
-        // catch of its own (found 2026-09-09, `docs/FIXES.md`; the engine was fixed then, this was not).
+        // Only the CALLER's cancellation propagates: this client's own timeout arrives as a
+        // TaskCanceledException, which IS an OperationCanceledException.
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (Exception ex)
         {
@@ -208,14 +186,15 @@ public sealed class LlmMemoryVerificationPolicy(
     /// rather than an empty judgement — unparseable is not the same as "none were relevant".</para></summary>
     private MemoryVerification Parse(string text, MemoryVerificationRequest request)
     {
-        var start = text.IndexOf('{');
-        var end = text.LastIndexOf('}');
-        if (start < 0 || end <= start) return MemoryVerification.NoOpinion;
-
-        int[]? ordinals;
-        try
+        if (!JsonExtract.TryParseObject(text, out var doc))
         {
-            using var doc = JsonDocument.Parse(text.AsSpan(start, end - start + 1).ToString());
+            _logger.LogDebug("verification reply held no JSON object; leaving the ranking alone");
+            return MemoryVerification.NoOpinion;
+        }
+
+        int[] ordinals;
+        using (doc)
+        {
             if (!doc.RootElement.TryGetProperty("relevant", out var array)
                 || array.ValueKind != JsonValueKind.Array)
                 return MemoryVerification.NoOpinion;
@@ -223,11 +202,6 @@ public sealed class LlmMemoryVerificationPolicy(
             ordinals = [.. array.EnumerateArray()
                 .Where(e => e.ValueKind == JsonValueKind.Number)
                 .Select(e => e.TryGetInt32(out var n) ? n : -1)];
-        }
-        catch (JsonException)
-        {
-            _logger.LogDebug("verification reply was not JSON; leaving the ranking alone");
-            return MemoryVerification.NoOpinion;
         }
 
         // An EMPTY well-formed array is a real verdict: "none of these answered it". That is the

@@ -2,10 +2,8 @@ using System.Globalization;
 
 namespace Lyntai.Memory.Forgetting;
 
-/// <summary>Constants of the power-law curve — the only shipped forgetting curve as of 3.0. The exponential
-/// curve this once shared the domain with, <c>HalfLifeRetrievability</c>, was deleted the same release
-/// (<c>docs/DECISIONS.md</c> D49 made this curve the registered default on FSRS's own external validation;
-/// see <c>CHANGELOG.md</c>'s <c>## Unreleased</c> for the deletion itself).</summary>
+/// <summary>Constants of the power-law curve — the only shipped forgetting curve, the registered default on
+/// FSRS's own external validation (<c>docs/DECISIONS.md</c> D49).</summary>
 public sealed record DsrOptions
 {
     private readonly double _decay = -0.5;
@@ -25,13 +23,8 @@ public sealed record DsrOptions
 
     /// <summary>Half-life of a brand-new entry, in the engine's units. <b>Unmeasured.</b>
     /// <para><b>Must be a FINITE positive number.</b> <see cref="DsrRetrievability.Reinforce"/> substitutes
-    /// this value whenever a stored <see cref="MemoryDecayState.Stability"/> is non-positive, so a bad value
-    /// here reaches <c>Math.Pow(stability, -StabilizationDecay)</c> as the base. At zero that is
-    /// <c>+Infinity</c> (a negative exponent on zero), and the substituted stability is itself zero, so the
-    /// final <c>stability × (1 + increase)</c> is <c>0 × Infinity</c> — <c>NaN</c> by IEEE-754's own rule,
-    /// the same failure shape <see cref="Decay"/>'s guard exists to prevent, and a NaN stability written
-    /// back to a store is PERMANENT. A negative value reaches the same power with a negative base and a
-    /// non-integer exponent, which is <c>NaN</c> directly.</para></summary>
+    /// it for a non-positive stored stability, and zero or a negative value there makes the reinforced
+    /// stability <c>NaN</c> — which, written back to a store, is PERMANENT.</para></summary>
     /// <exception cref="ArgumentOutOfRangeException">Set to zero, a negative value, or a non-finite value
     /// (<c>NaN</c>, <c>+Infinity</c>, or <c>-Infinity</c>).</exception>
     public double InitialStability
@@ -45,25 +38,12 @@ public sealed record DsrOptions
     /// <summary>The power-law exponent. FSRS fits this against real review logs and lands near −0.5; that is
     /// the default here.
     /// <para>A less negative value is a heavier tail — older memories resisting forgetting more.</para>
-    /// <para><b>Must be a FINITE negative number — this is the first policy whose option domain is
-    /// load-bearing.</b> At <c>Decay = 0</c>, <c>Math.Pow(x, 0)</c> is 1 for every <c>x</c>, so
-    /// <see cref="DsrRetrievability.Retrievability"/> would return 1 forever — nothing would ever be
-    /// forgotten — while <see cref="IMemoryRetrievabilityPolicy.CandidateCutoff"/> still reports a FINITE bound
-    /// from the same formula, so <c>PruneAsync</c> would delete every row past that bound that the curve
-    /// itself still rates fully retrievable: the superset guarantee failing at full scale, not by a rounding
-    /// error. At any positive <c>Decay</c> the derived <c>F</c> falls below −1, so the curve's base goes
-    /// negative once age is large enough and <c>Math.Pow</c> of a negative base to a non-integer exponent is
-    /// <c>NaN</c> — which <c>Math.Clamp</c> propagates straight through into a stored retrievability and
-    /// poisons ranking wherever it is read.</para>
-    /// <para><c>double.NegativeInfinity</c> is REJECTED TOO, and not for symmetry: it reproduces the
-    /// <c>Decay = 0</c> failure by another route — the derived <c>F</c> collapses to <c>0</c>, the curve's
-    /// base collapses to <c>1</c>, and <c>r ≡ 1</c> forever — while <c>CandidateCutoff</c> comes out
-    /// <c>NaN</c>, and a <c>NaN</c> bound compares false against every candidate, so <c>PruneAsync</c>
-    /// silently stops pruning entirely: the opposite failure, from the same option. A guard reading only
-    /// "less than zero" misses it (<c>NegativeInfinity &lt; 0</c> is true), and a bare <c>&gt;= 0</c> guard
-    /// misses <c>NaN</c> because every comparison against <c>NaN</c> is false;
-    /// <see cref="double.IsFinite(double)"/> is what excludes both — at the line that configured the policy,
-    /// rather than as a wrong answer surfacing deep in the recall path with no error at all.</para></summary>
+    /// <para><b>Must be a FINITE negative number, and every other value corrupts.</b> Zero makes
+    /// <c>r ≡ 1</c> forever while <see cref="IMemoryRetrievabilityPolicy.CandidateCutoff"/> stays finite, so
+    /// <c>PruneAsync</c> deletes rows the curve itself rates fully retrievable. A positive value drives the
+    /// curve's base negative at large ages, which is <c>NaN</c>. <c>-Infinity</c> also makes <c>r ≡ 1</c> and
+    /// turns the cutoff <c>NaN</c>, so pruning silently stops — the opposite failure from the same option
+    /// (<c>.claude/knowledge/pitfalls.md</c>, "a clamp is not a finiteness guard").</para></summary>
     /// <exception cref="ArgumentOutOfRangeException">Set to zero, a positive value, a non-finite value
     /// (<c>NaN</c>, <c>+Infinity</c>, or <c>-Infinity</c>).</exception>
     public double Decay
@@ -76,26 +56,12 @@ public sealed record DsrOptions
 
     /// <summary>The ceiling reinforcement cannot grow stability past. Unbounded compounding would let an
     /// ASSOCIATIVE entry become permanently retrievable while still labelled associative. <b>Unmeasured.</b>
-    /// <para><b>Must be a FINITE positive number — the one option on this record whose bad values reach
-    /// PERSISTED state.</b> <see cref="Lyntai.Memory.Engines.GraphMemoryEngine"/> feeds
-    /// <see cref="DsrRetrievability.Reinforce"/>'s return straight into the store's <c>TouchAsync</c>, so
-    /// whatever this produces is WRITTEN BACK. <c>NaN</c> propagates through <c>Math.Min</c> AND the
-    /// <c>Math.Max</c> floor outside it by IEEE-754's own rule — a clamp is not a finiteness guard, and
-    /// neither is a floor — and a <c>NaN</c> stability compares false against every threshold, so the entry
-    /// then neither ranks, nor prunes, nor reports as broken: silent, PERMANENT corruption reachable from a
-    /// public option rather than only from a BYO policy.</para>
-    /// <para>Zero or a negative ceiling is not merely degenerate either: it would clamp EVERY reinforcement
-    /// down to itself, breaking <see cref="IMemoryRetrievabilityPolicy.Reinforce"/>'s own written guarantee
-    /// that the result "must never be smaller than the current one"
-    /// (<c>RetrievabilityPolicyContract.Reinforcement_never_shortens_a_memory</c>) — which is why this guard
-    /// is not something a later change may relax. A stability already stored ABOVE a legitimately-configured
-    /// ceiling is the other route to that same break, and it is closed separately:
-    /// <see cref="DsrRetrievability.Reinforce"/> floors its clamp at the entry's own stability, so this
-    /// ceiling caps GROWTH and never CUTS — an over-ceiling entry is FROZEN rather than truncated.</para>
-    /// <para><c>+Infinity</c> is REJECTED TOO, and not for symmetry: <c>Math.Min(x, +Infinity)</c> is
-    /// <c>x</c>, so it removes the ceiling entirely — precisely the unbounded compounding this property's
-    /// own first sentence exists to prevent. A deployment that genuinely wants an effectively unreachable
-    /// ceiling writes <see cref="double.MaxValue"/>, which says so at the configuring line.</para></summary>
+    /// <para><b>Must be a FINITE positive number — the one option here whose bad values reach PERSISTED
+    /// state</b>, since <see cref="DsrRetrievability.Reinforce"/>'s result is written back. <c>NaN</c> passes
+    /// the clamp and its floor (<c>.claude/knowledge/pitfalls.md</c>, "a clamp is not a finiteness guard") and stores a stability that neither ranks nor prunes; a non-positive
+    /// ceiling would shorten every memory, breaking <see cref="IMemoryRetrievabilityPolicy.Reinforce"/>'s
+    /// never-shorter guarantee; <c>+Infinity</c> removes the ceiling — write <see cref="double.MaxValue"/> to
+    /// mean that. An entry already stored above the ceiling is FROZEN, never cut.</para></summary>
     /// <exception cref="ArgumentOutOfRangeException">Set to zero, a negative value, or a non-finite value
     /// (<c>NaN</c>, <c>+Infinity</c>, or <c>-Infinity</c>).</exception>
     public double MaxStability
@@ -109,26 +75,12 @@ public sealed record DsrOptions
 
     /// <summary>How steeply connectedness lengthens a half-life, as <c>1 + factor · ln(1 + strength)</c>, and
     /// the ceiling that keeps <see cref="IMemoryRetrievabilityPolicy.CandidateCutoff"/> finite.
-    /// <para><b>Must be FINITE and at or above zero.</b> A negative factor does NOT make connectedness
-    /// SHORTEN a half-life: <see cref="DsrRetrievability.EffectiveStability"/>'s outer
-    /// <c>Math.Max(stability, …)</c> floors the boosted value at the stored one precisely so that cannot
-    /// happen, and the contract fact that says so
-    /// (<c>RetrievabilityPolicyContract.Connectedness_never_lowers_retrievability</c>) keeps passing. The
-    /// failure is quieter than an inversion and therefore worse: connectedness becomes a silent NO-OP for
-    /// every entry that has any strength at all, while <see cref="MaxConnectionBoost"/> still widens
-    /// <see cref="DsrRetrievability.CandidateCutoff"/> for a protection that is no longer happening — the
-    /// mechanism reads as configured at every call site and is structurally off, the same shape
-    /// <see cref="SpacingWeight"/>'s own negative branch describes one law further in. Zero is ALLOWED and
-    /// means exactly that, deliberately (<c>1 + 0 · ln(…) = 1</c>), and it reads that way at the
-    /// configuring line where a sign error does not.</para>
-    /// <para>Non-finite is the end that corrupts, and <c>+Infinity</c> is the sharp case rather than the
-    /// symmetric one: at <see cref="MemoryDecayState.Strength"/> zero — the ordinary state of most entries —
-    /// the term is <c>Infinity × ln(1) = Infinity × 0</c>, which is <c>NaN</c> by IEEE-754's own rule.
-    /// <c>Math.Min</c> and <c>Math.Max</c> then propagate that through
-    /// <see cref="DsrRetrievability.EffectiveStability"/> into a <c>NaN</c> retrievability, which compares
-    /// false against every threshold (so the entry silently stops ranking) and, through the derived grade
-    /// <see cref="DsrRetrievability.Reinforce"/> computes from it, reaches the
-    /// <see cref="MemoryDecayState.Difficulty"/> that same call WRITES BACK.</para></summary>
+    /// <para><b>Must be FINITE and at or above zero.</b> A negative factor does not shorten a half-life
+    /// (<see cref="DsrRetrievability.EffectiveStability"/> floors at the stored stability) — it makes
+    /// connectedness a silent NO-OP while <see cref="MaxConnectionBoost"/> still widens the cutoff for it.
+    /// <c>+Infinity</c> is <c>Infinity × ln(1) = NaN</c> at strength zero, the commonest state, and reaches
+    /// the difficulty <see cref="DsrRetrievability.Reinforce"/> writes back (<c>.claude/knowledge/pitfalls.md</c>, "a clamp is not a finiteness guard"). Zero turns connectedness
+    /// off, deliberately.</para></summary>
     /// <exception cref="ArgumentOutOfRangeException">Set to a negative value or a non-finite value
     /// (<c>NaN</c>, <c>+Infinity</c>, or <c>-Infinity</c>).</exception>
     public double ConnectionBoost
@@ -145,21 +97,10 @@ public sealed record DsrOptions
     /// this multiple of it, so without a finite bound no cutoff could cover a well-connected entry and
     /// <c>PruneAsync</c> would remove memories the curve still rates perfectly retrievable — the ones
     /// connectedness exists to protect. <b>Unmeasured.</b>
-    /// <para><b>Must be FINITE and at or above 1.</b> Both readers already floor it —
-    /// <see cref="DsrRetrievability.EffectiveStability"/> and <see cref="DsrRetrievability.CandidateCutoff"/>
-    /// each take <c>Math.Max(1, MaxConnectionBoost)</c> — so a value below 1 never actually reduces a
-    /// half-life; it is a configured number that silently means a DIFFERENT number, which is harder to
-    /// diagnose than either a reduction or a throw. The floors stay, because the paragraph above depends on
-    /// them; the guard is what makes the option reject at the line that configured it instead of quietly
-    /// substituting 1 and carrying on.</para>
-    /// <para>Non-finite is the end that corrupts, and it corrupts BOTH readers at once, because
-    /// <c>Math.Max(1, NaN)</c> is <c>NaN</c> (IEEE-754 — a clamp is not a finiteness guard):
-    /// <see cref="DsrRetrievability.Retrievability"/> goes <c>NaN</c>, and so does
-    /// <see cref="DsrRetrievability.CandidateCutoff"/>, where a <c>NaN</c> bound compares false against
-    /// every candidate and <c>PruneAsync</c> silently stops pruning entirely. <c>+Infinity</c> is rejected as
-    /// well: it turns the cutoff into <see cref="double.PositiveInfinity"/> for every floor, which
-    /// <see cref="IMemoryRetrievabilityPolicy.CandidateCutoff"/> documents as correct at the cost of a full
-    /// in-scope scan — a cost that should be asked for, not inherited from a boost ceiling.</para></summary>
+    /// <para><b>Must be FINITE and at or above 1.</b> Both readers floor it at 1, so a smaller value
+    /// silently means a DIFFERENT number. <c>NaN</c> turns both retrievability and
+    /// <see cref="DsrRetrievability.CandidateCutoff"/> <c>NaN</c>, so <c>PruneAsync</c> stops pruning (<c>.claude/knowledge/pitfalls.md</c>, "a clamp is not a finiteness guard");
+    /// <c>+Infinity</c> makes every prune a full in-scope scan.</para></summary>
     /// <exception cref="ArgumentOutOfRangeException">Set to a value below 1 or a non-finite value
     /// (<c>NaN</c>, <c>+Infinity</c>, or <c>-Infinity</c>).</exception>
     public double MaxConnectionBoost
@@ -180,18 +121,10 @@ public sealed record DsrOptions
     /// during traversal, which is what stops the graph saturating, and the engine reads it for every arm
     /// regardless of which retrievability policy is installed. They agree by coincidence, not by design, so
     /// name which one you mean whenever you tune either (`.claude/knowledge/pitfalls.md`).</para>
-    /// <para><b>Must be a FINITE positive number.</b> A half-life is positive by definition, and
-    /// <see cref="DsrRetrievability.EffectiveStrength"/> reads a non-positive one as "no decay at all" —
-    /// its <c>state.StrengthAge &lt;= 0 || EdgeHalfLife &lt;= 0</c> branch returns the raw stored strength —
-    /// so zero or a negative value does not tune this mechanism, it silently switches it OFF, and a
-    /// neighbourhood last touched a corpus ago keeps propping the memory up at full strength forever. That
-    /// branch stays as belt and braces (its <see cref="MemoryDecayState.StrengthAge"/> half is still live),
-    /// but the option can no longer reach it. <c>+Infinity</c> arrives at the same "off" by another route
-    /// (<c>Math.Pow(2, -age/Infinity)</c> is <c>Math.Pow(2, -0)</c>, exactly <c>1</c>), and <c>NaN</c> is not
-    /// caught by that branch at all — <c>NaN &lt;= 0</c> is false — so it reaches
-    /// <c>Math.Pow(2, -age/NaN)</c>, the strength goes <c>NaN</c>, and
-    /// <see cref="DsrRetrievability.EffectiveStability"/>'s <c>Math.Min</c>/<c>Math.Max</c> propagate it into
-    /// a <c>NaN</c> retrievability. <see cref="double.IsFinite(double)"/> is what excludes both.</para></summary>
+    /// <para><b>Must be a FINITE positive number.</b> Zero, a negative value or <c>+Infinity</c> switch
+    /// connection-strength decay OFF, so a neighbourhood that went quiet props the memory up forever; a
+    /// <c>NaN</c> slips past <see cref="DsrRetrievability.EffectiveStrength"/>'s <c>&lt;= 0</c> branch into a
+    /// <c>NaN</c> retrievability (<c>.claude/knowledge/pitfalls.md</c>, "a clamp is not a finiteness guard").</para></summary>
     /// <exception cref="ArgumentOutOfRangeException">Set to zero, a negative value, or a non-finite value
     /// (<c>NaN</c>, <c>+Infinity</c>, or <c>-Infinity</c>).</exception>
     public double EdgeHalfLife
@@ -206,7 +139,7 @@ public sealed record DsrOptions
     /// <summary>The overall scale of a reinforcement's stability gain — FSRS's <c>w[3]</c>-shaped knob.
     /// Multiplies the whole increase term in <see cref="DsrRetrievability.Reinforce"/>, so it does not
     /// express any one law on its own; it sets how strong the combined effect of all three is.
-    /// <para><b>Defaults to ZERO as of 3.0, and that is a MEASURED default rather than a cautious one</b> —
+    /// <para><b>Defaults to ZERO, and that is a MEASURED default rather than a cautious one</b> —
     /// <c>docs/DECISIONS.md</c> D54. A recall still RESETS an entry's age; it no longer lengthens the
     /// half-life. Durability comes instead from the two sources that measure well: an entry is long-lived
     /// here because it was NOVEL when written
@@ -214,17 +147,12 @@ public sealed record DsrOptions
     /// (<see cref="ConnectionBoost"/>) — properties of the material and of the graph, not of how often this
     /// engine's own ranker chose to return it.</para>
     /// <para><b>The three FSRS laws are kept, not deleted, and raising this turns them back on in one
-    /// line</b>, proportionally, at any value above zero; <c>2.0</c> is what 2.5.x shipped. A deployment with
+    /// line</b>, proportionally, at any value above zero. A deployment with
     /// real review data may well find its own value here, which is what
     /// <see cref="Lyntai.Memory.MemoryReviewLogPacing"/>'s log exists to make possible.</para>
-    /// <para><b>Must be FINITE and at or above zero.</b> A negative gain does not SHRINK a memory —
-    /// <see cref="DsrRetrievability.Reinforce"/>'s finiteness floor turns the whole negative increase into
-    /// zero, so the "never smaller than the current one" guarantee holds. What it produces is a silent
-    /// NO-OP: every entry returns its stability unchanged and the whole corpus decays to prunable with no
-    /// error anywhere. Because this multiplies the COMBINED term it zeroes all three laws at once, where
-    /// <see cref="SpacingWeight"/> zeroes only law 3. Zero is ALLOWED and means exactly that deliberately;
-    /// a sign error does not read that way at the configuring line. Non-finite reaches the same no-op by a
-    /// different route (<c>Math.Max(0, NaN)</c> is <c>NaN</c>) and is rejected for the same reason.</para></summary>
+    /// <para><b>Must be FINITE and at or above zero.</b> A negative or non-finite gain does not shrink a
+    /// memory — it is a silent NO-OP across all three laws at once, and the corpus decays to prunable with no
+    /// error. Zero means exactly that, deliberately.</para></summary>
     /// <exception cref="ArgumentOutOfRangeException">Set to a negative value or a non-finite value
     /// (<c>NaN</c>, <c>+Infinity</c>, or <c>-Infinity</c>).</exception>
     public double ReinforceGain
@@ -329,13 +257,11 @@ public sealed record DsrOptions
     /// on a derived-easy one; the ceiling/floor clamp bounds it regardless of this weight's magnitude, which
     /// is why (unlike <see cref="SpacingWeight"/>) there is no upper bound to guard against an overflow this
     /// formula cannot produce.
-    /// <para><b>FSRS-6's own published default, not an invented placeholder</b> (an earlier review: an earlier
-    /// draft shipped <c>0.5</c> here with no real provenance — <c>w6</c> has moved release to release: FSRS
-    /// v4 <c>0.86</c>, v4.5 <c>0.8975</c>, v5 <c>1.4604</c>, v6 <c>3.0194</c>. This adopts v6's number because
-    /// <see cref="DifficultyReversionWeight"/>/<see cref="DifficultyReversionTarget"/> below adopt v6's
-    /// numbers too, and mixing versions inside one triple would itself be an invented combination FSRS never
-    /// shipped. <b>Still not "measured for this library"</b> — it is FSRS-6's own fit against ITS review
-    /// corpus, not this one's; real fitting is deferred to design spec §4.</para>
+    /// <para><b>FSRS-6's own published default</b> — <c>w6</c> moves release to release (v5 <c>1.4604</c>, v6
+    /// <c>3.0194</c>), and v6's is taken because <see cref="DifficultyReversionWeight"/> and
+    /// <see cref="DifficultyReversionTarget"/> take v6's too: mixing versions inside one triple would be a
+    /// combination FSRS never shipped. It is FSRS-6's fit against ITS review corpus, not this library's; real
+    /// fitting is design spec §4.</para>
     /// <para><b>Must be FINITE and at or above zero.</b> A negative weight flips the sign of the derived
     /// delta, so a HARD recall would LOWER difficulty and an EASY one would RAISE it — the update inverted,
     /// silently, because the result stays finite and in range throughout. Zero is allowed and means THIS LAW
@@ -392,8 +318,8 @@ public sealed record DsrOptions
     /// FSRS's own reversion target, which real FSRS computes internally from a per-grade initial-difficulty
     /// sub-formula (<c>D0(Easy)</c>, itself derived from <c>w4</c>/<c>w5</c>). This library has no <c>w4</c>/
     /// <c>w5</c> pair and no per-grade write-time rating to seed one from, so this exposes the RESULT of that
-    /// computation directly as one settable number rather than reproducing the sub-formula that produces it
-    /// — the adaptation an earlier review asked for, in the shape it asked for.
+    /// computation directly as one settable number rather than reproducing the sub-formula that produces
+    /// it.
     /// <para><b>FSRS-6's own default, approximately <c>-4.77</c> — a genuinely negative number, not a typo.</b>
     /// FSRS-6's <c>D0</c> sub-formula went exponential (from v5's linear form) and, evaluated at its own
     /// published <c>w4</c>/<c>w5</c> for the Easy grade, lands FAR below the <c>[1, 10]</c> difficulty range
@@ -460,10 +386,10 @@ public sealed record DsrOptions
 /// every existing value the moment an application swapped policies. <c>F</c> is therefore DERIVED from
 /// <see cref="DsrOptions.Decay"/> — <c>F = 0.5^(1/decay) − 1</c> — so the half-life anchor holds whatever
 /// exponent is chosen. Exposing F as a second knob would let the two drift into a curve that is neither.</para>
-/// <para><b>Pruning is generous.</b> The heavy tail makes <see cref="CandidateCutoff"/> wide, so a deployment
-/// upgrading from 2.5.x will see pruning become noticeably less aggressive. The direction is safe regardless:
-/// the cutoff bounds <c>PruneAsync</c>, which deletes rows ABOVE it, so wider deletes less.</para>
-/// <para><b>This is the only shipped forgetting curve, and the DI-registered default, as of 3.0</b> —
+/// <para><b>Pruning is generous.</b> The heavy tail makes <see cref="CandidateCutoff"/> wide, and the
+/// direction is safe: the cutoff bounds <c>PruneAsync</c>, which deletes rows ABOVE it, so wider deletes
+/// less.</para>
+/// <para><b>This is the only shipped forgetting curve, and the DI-registered default</b> —
 /// <c>MemoryEngineRegistration.AddMemoryEngine</c> <c>TryAdd</c>s it, and a bare-constructed
 /// <see cref="Lyntai.Memory.Engines.GraphMemoryEngine"/> defaults to it too. FSRS's own external validation
 /// is the primary evidence for that default; see <c>docs/DECISIONS.md</c> D49.</para>
@@ -725,9 +651,9 @@ public sealed class DsrRetrievability(DsrOptions? options = null) : IMemoryRetri
     public double CandidateCutoff(double minRetrievability) =>
         minRetrievability is <= 0 or > 1
             ? double.PositiveInfinity
-            // the curve inverted, widened by the boost ceiling for the same reason the exponential curve
-            // widens: a store filters against the STORED stability while a connected entry's effective
-            // half-life is up to MaxConnectionBoost times that, then nudged up — see the <remarks> above
+            // the curve inverted, widened by the boost ceiling: a store filters against the STORED stability
+            // while a connected entry's effective half-life is up to MaxConnectionBoost times that, then
+            // nudged up — see the <remarks> above
             : (Math.Pow(minRetrievability, 1 / _options.Decay) - 1) / _factor
               * Math.Max(1, _options.MaxConnectionBoost)
               * (1 + 1e-9);

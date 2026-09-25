@@ -107,13 +107,12 @@ internal static class MemoryBoundedGrowthSweep
             var declaredOrder = corpus.Steps.Select(MemoryPolicySweep.CorpusStepMarker).ToList();
 
             using var db = new MemoryPolicySweep.SweepDb();
-            var engine = new GraphMemoryEngine(
-                "bounded",
-                new SqliteMemoryGraphStore(db.Factory),
-                options: graphOptions,
-                retrievability: new ModulatedRetrievability(arm.Curve, retention),
-                agePolicies: [agePolicy],
-                ranking: rrf);
+            var engine = new GraphMemoryEngine("bounded", new SqliteMemoryGraphStore(db.Factory), options: graphOptions, seams: new GraphMemorySeams
+                {
+                    Retrievability = new ModulatedRetrievability(arm.Curve, retention),
+                    AgePolicies = [agePolicy],
+                    Ranking = rrf,
+                });
 
             var replay = await MemoryPolicySweep.ReplayAsync(corpus, engine, QueryLimit);
             foreach (var (cls, quality) in replay.ByClass)

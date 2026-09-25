@@ -35,9 +35,11 @@ public class GraphMemoryRetentionWiringTests
     }
 
     private static GraphMemoryEngine Engine(IMemoryRetentionPolicy[]? retention) =>
-        new("e", new InMemoryMemoryGraphStore(),
-            agePolicies: [new PerWriteAgePolicy()],
-            retentionPolicies: retention);
+        new("e", new InMemoryMemoryGraphStore(), seams: new GraphMemorySeams
+            {
+                AgePolicies = [new PerWriteAgePolicy()],
+                RetentionPolicies = retention,
+            });
 
     /// <summary>A hand-built engine handed retention policies APPLIES them, with no decorator in sight.
     /// <para>Before this, the only way to get retention into a hand-built engine was to know that
@@ -91,10 +93,11 @@ public class GraphMemoryRetentionWiringTests
         var preWrapped = new ModulatedRetrievability(
             new Lyntai.Memory.Forgetting.DsrRetrievability(), [new FixedRetentionPolicy(2)]);
 
-        var ex = Assert.Throws<ArgumentException>(() => new GraphMemoryEngine("e",
-            new InMemoryMemoryGraphStore(),
-            retrievability: preWrapped,
-            retentionPolicies: [new FixedRetentionPolicy(3)]));
+        var ex = Assert.Throws<ArgumentException>(() => new GraphMemoryEngine("e", new InMemoryMemoryGraphStore(), seams: new GraphMemorySeams
+            {
+                Retrievability = preWrapped,
+                RetentionPolicies = [new FixedRetentionPolicy(3)],
+            }));
 
         Assert.Contains("twice", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
@@ -103,17 +106,21 @@ public class GraphMemoryRetentionWiringTests
     /// publicness exists for, and only the double-application is refused.</summary>
     [Fact]
     public void A_pre_modulated_curve_on_its_own_is_still_accepted() =>
-        Assert.NotNull(new GraphMemoryEngine("e", new InMemoryMemoryGraphStore(),
-            retrievability: new ModulatedRetrievability(
-                new Lyntai.Memory.Forgetting.DsrRetrievability(), [new FixedRetentionPolicy(2)])));
+        Assert.NotNull(new GraphMemoryEngine("e", new InMemoryMemoryGraphStore(), seams: new GraphMemorySeams
+            {
+                Retrievability = new ModulatedRetrievability(
+                    new Lyntai.Memory.Forgetting.DsrRetrievability(), [new FixedRetentionPolicy(2)]),
+            }));
 
     /// <summary>The composition policy is the engine's too, so several coexisting retention dimensions
     /// combine by a rule the caller can replace — the second half of what D48 calls a plural domain, and the
     /// half a decorator-only path made reachable exclusively through a constructor overload.</summary>
     [Fact]
     public void An_engine_accepts_a_retention_COMPOSITION_alongside_the_policies() =>
-        Assert.NotNull(new GraphMemoryEngine("e", new InMemoryMemoryGraphStore(),
-            agePolicies: [new PerWriteAgePolicy()],
-            retentionPolicies: [new FixedRetentionPolicy(2), new FixedRetentionPolicy(3)],
-            retentionComposition: new MultiplicativeRetentionCompositionPolicy()));
+        Assert.NotNull(new GraphMemoryEngine("e", new InMemoryMemoryGraphStore(), seams: new GraphMemorySeams
+            {
+                AgePolicies = [new PerWriteAgePolicy()],
+                RetentionPolicies = [new FixedRetentionPolicy(2), new FixedRetentionPolicy(3)],
+                RetentionComposition = new MultiplicativeRetentionCompositionPolicy(),
+            }));
 }

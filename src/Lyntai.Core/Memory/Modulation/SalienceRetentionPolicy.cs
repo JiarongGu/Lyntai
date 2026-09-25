@@ -6,16 +6,8 @@ namespace Lyntai.Memory.Modulation;
 /// The first retention dimension: a salient entry decays more slowly. <b>This POLICY itself only scales
 /// stability</b> — it never touches seeding and never touches rank directly; <see cref="StabilityFactor"/>
 /// is the whole of what it does.
-/// <para>Salience as a WHOLE is no longer decay-only (2026-08-09 — <c>docs/DECISIONS.md</c> D45, corrected
-/// same day by D45): the same
-/// signal this policy reads also orders admission in the store when a candidate set overflows its budget
-/// (on by default, together with this policy's own lengthening — that pair is the whole of "does not
-/// fade away"), and CAN lift rank in <see cref="Lyntai.Memory.Engines.GraphMemoryEngine"/> by a bounded
-/// logarithm (<see cref="Lyntai.Memory.Ranking.MultiplicativeRankingOptions.SalienceRankWeight"/>, off by
-/// default — a consumer opts in) —
-/// both live OUTSIDE this type, at the store and the engine respectively. Read this class's own behaviour as
-/// decay resistance only; read <see cref="MemorySignals.WellKnown.Salience"/> for what the signal means end
-/// to end.</para>
+/// <para>The signal's other consumers — store admission, and the opt-in rank vote — live outside this type;
+/// <see cref="MemorySignals.WellKnown.Salience"/> states what it means end to end.</para>
 /// </summary>
 /// <param name="options">Constants; null takes the defaults. Shares
 /// <see cref="SalienceOptions.MaxSalience"/> with the salience policy so the reported ceiling and the
@@ -32,12 +24,8 @@ public sealed class SalienceRetentionPolicy(SalienceOptions? options = null) : I
 
     /// <inheritdoc />
     /// <remarks>Reads the signal through <see cref="MemorySignals.Salience"/> — the ONE coercion every read
-    /// site shares — and then applies only this policy's own ceiling. It did neither until 2026-08-17: it
-    /// spelled the read out itself as a bare <see cref="Math.Clamp(double,double,double)"/>, which
-    /// PROPAGATES <see cref="double.NaN"/> rather than clamping it, so a non-finite stored signal produced a
-    /// factor that was neither at least 1 nor within <see cref="MaxStabilityFactor"/> — the two things this
-    /// member promises. That helper's own summary already said "every read site calls this", and this was
-    /// the site that did not.</remarks>
+    /// site shares, which turns a non-finite stored value into the neutral 1 — and then applies only this
+    /// policy's own ceiling, so the factor is always in [1, <see cref="MaxStabilityFactor"/>].</remarks>
     public double StabilityFactor(in MemoryDecayState state) =>
         Math.Min(MemorySignals.Salience(state.Signals), _options.MaxSalience);
 }

@@ -134,19 +134,11 @@ public sealed class ContentSizeAgePolicy : IMemoryAgePolicy
     /// <param name="perUnit">Scales characters into positions — the default treats 200 characters as one
     /// unit, so stability constants stay in the same range as <see cref="PerWriteAgePolicy"/>.</param>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="perUnit"/> is zero, negative, or
-    /// non-finite (<c>NaN</c>, <c>+Infinity</c>, <c>-Infinity</c>). A silent fallback here
-    /// previously let <see cref="Advance"/> and <see cref="Age"/> DISAGREE on what a degenerate
-    /// configuration means (one per write vs. the raw, unscaled character count), and once <see cref="Age"/>
-    /// feeds real decay the disagreement is a ~200× age jump, not a cosmetic inconsistency — so the invalid
-    /// value is refused at construction instead, the same guard this subsystem's options records
-    /// (<c>MultiplicativeRankingOptions</c>) already apply to their own constants.</exception>
-    public ContentSizeAgePolicy(double perUnit = 200)
-    {
-        if (!double.IsFinite(perUnit) || perUnit <= 0)
-            throw new ArgumentOutOfRangeException(nameof(perUnit), perUnit,
-                "ContentSizeAgePolicy.perUnit must be a finite, positive number.");
-        _perUnit = perUnit;
-    }
+    /// non-finite (<c>NaN</c>, <c>+Infinity</c>, <c>-Infinity</c>).</exception>
+    public ContentSizeAgePolicy(double perUnit = 200) =>
+        _perUnit = MemoryOption.Require(perUnit, MemoryOptionRange.Positive, nameof(ContentSizeAgePolicy),
+            "it divides every write's length, and a degenerate scale would make Advance and Age disagree " +
+            "about what a write weighs.", nameof(perUnit));
 
     /// <inheritdoc />
     public MemoryAgeKind Kind => MemoryAgeKind.Derivable;
@@ -171,17 +163,10 @@ public sealed class ContentSizeAgePolicy : IMemoryAgePolicy
 /// because almost no time passed. Elapsed time is self-limiting in a way a count is not.</para>
 /// <para>The first write of a process advances by zero — there is no previous write to measure from, and
 /// inventing one would age a fresh memory by however long the process had been up.</para>
-/// <para><b>RESOLVED: <see cref="Advance"/> is keyed per the write's OWNING ENGINE, not per policy
-/// instance.</b> An earlier review recorded that
-/// <see cref="Advance"/>'s <c>_previous</c> was scoped to the POLICY INSTANCE — sharing one (the ordinary
-/// DI-singleton shape, one <see cref="IMemoryAgePolicy"/> resolved for every engine) tracked the last write
-/// across ALL of them, not per engine, while <see cref="Age"/> reads <see cref="MemoryAgeSample.ElapsedDays"/>,
-/// which a store derives PER ENGINE by construction (§5.7) — so a shared instance's crowding and its own age
-/// projection measured two different things whenever 2+ engines shared it. <see cref="IMemoryAgePolicy.Advance"/>
-/// now carries the engine's own name for exactly this reason: <see cref="_previous"/> is a dictionary keyed on
-/// it, so one shared instance tracks each engine's "since last write" independently and <see cref="Advance"/>'s
-/// crowding agrees with <see cref="Age"/>'s projection again, even when many engines share one
-/// instance.</para></summary>
+/// <para><b><see cref="Advance"/> is keyed per the write's OWNING ENGINE, not per policy instance.</b>
+/// <see cref="Age"/> reads <see cref="MemoryAgeSample.ElapsedDays"/>, which a store derives PER ENGINE, so one
+/// instance shared across engines (the ordinary DI-singleton shape) must track each engine's "since last
+/// write" separately, or its crowding and its own age projection would measure two different things.</para></summary>
 /// <param name="clock">Time source; null takes the system clock.</param>
 public sealed class ElapsedAgePolicy(Func<DateTimeOffset>? clock = null) : IMemoryAgePolicy
 {
@@ -229,7 +214,7 @@ public sealed class ElapsedAgePolicy(Func<DateTimeOffset>? clock = null) : IMemo
 /// <param name="inner">The clock being damped; null takes <see cref="PerWriteAgePolicy"/>.</param>
 /// <param name="window">A gap longer than this ends the burst. Null takes five seconds.</param>
 /// <param name="clock">Time source for burst detection; null takes the system clock.</param>
-/// <remarks>Burst state is keyed per engine, the same fix <see cref="ElapsedAgePolicy"/> carries (Task 3): one
+/// <remarks>Burst state is keyed per engine, as <see cref="ElapsedAgePolicy"/>'s is: one
 /// instance shared across several engines (the ordinary DI-singleton shape) tracks each engine's OWN burst
 /// independently, rather than one engine's writes resetting — or extending — another's window.</remarks>
 public sealed class BurstDampenedAgePolicy(

@@ -93,8 +93,11 @@ public sealed class GraphMemoryRankingGoldenTests
     /// knob lives moved") — applied to the one remaining implicit fact, for the identical reason: what a
     /// characterization test is FOR should not drift just because a DEFAULT moved.</para></summary>
     private static GraphMemoryEngine BuildEngine() =>
-        new("project/graph", new InMemoryMemoryGraphStore(), agePolicies: [new PerWriteAgePolicy()],
-            ranking: new MultiplicativeRankingPolicy());
+        new("project/graph", new InMemoryMemoryGraphStore(), seams: new GraphMemorySeams
+            {
+                AgePolicies = [new PerWriteAgePolicy()],
+                Ranking = new MultiplicativeRankingPolicy(),
+            });
 
     /// <summary>A second (or third) view of the SAME store and engine name, differing only in the
     /// salience policy bound to it — the device <c>GraphMemoryRankingTests</c> already uses to give distinct
@@ -103,7 +106,12 @@ public sealed class GraphMemoryRankingGoldenTests
     /// not a retrievability modulation.</summary>
     private static GraphMemoryEngine EngineWithSaliencePolicy(IMemoryGraphStore store, IMemorySaliencePolicy saliencePolicy,
         IMemoryRankingPolicy? ranking = null) =>
-        new("project/graph", store, agePolicies: [new PerWriteAgePolicy()], saliencePolicies: [saliencePolicy], ranking: ranking);
+        new("project/graph", store, seams: new GraphMemorySeams
+            {
+                AgePolicies = [new PerWriteAgePolicy()],
+                SaliencePolicies = [saliencePolicy],
+                Ranking = ranking,
+            });
 
     /// <summary>Reports a fixed salience so a fact pins the RANK plumbing rather than the default
     /// salience policy's curve — mirrors <c>GraphMemoryRankingTests.FixedSaliencePolicy</c>.</summary>
@@ -194,8 +202,11 @@ public sealed class GraphMemoryRankingGoldenTests
         // from the result while the three survivors keep their relative order — the only way the later
         // refactor's floor handling gets checked at all.
         var ranking = new MultiplicativeRankingPolicy(new MultiplicativeRankingOptions { RelativeFloor = 0.1 });
-        var engine = new GraphMemoryEngine("project/graph", new InMemoryMemoryGraphStore(),
-            agePolicies: [new PerWriteAgePolicy()], ranking: ranking);
+        var engine = new GraphMemoryEngine("project/graph", new InMemoryMemoryGraphStore(), seams: new GraphMemorySeams
+            {
+                AgePolicies = [new PerWriteAgePolicy()],
+                Ranking = ranking,
+            });
 
         await Remember(engine, "floor probe delta fades far in the back"); // ages past the floor
         // 2000, not 100 (2026-08-10, fsrs-properly plan Task 1): the deleted exponential curve fell under
@@ -245,8 +256,11 @@ public sealed class GraphMemoryRankingGoldenTests
         // formula, which did not move.
         using var db = new TempDb();
         var store = new SqliteMemoryGraphStore(db.Factory);
-        var engine = new GraphMemoryEngine("project/graph", store, agePolicies: [new PerWriteAgePolicy()],
-            ranking: new MultiplicativeRankingPolicy());
+        var engine = new GraphMemoryEngine("project/graph", store, seams: new GraphMemorySeams
+            {
+                AgePolicies = [new PerWriteAgePolicy()],
+                Ranking = new MultiplicativeRankingPolicy(),
+            });
 
         // stronger bm25 match (the term repeats), but aged
         await Remember(engine, "gizmo gizmo gizmo firmware calibration record");
@@ -286,8 +300,11 @@ public sealed class GraphMemoryRankingGoldenTests
         // an assertion that would otherwise have failed.
         var options = new GraphMemoryOptions { Hops = 0 }; // no expansion: keep the link targets out of recall
         var store = new InMemoryMemoryGraphStore();
-        var engine = new GraphMemoryEngine("project/graph", store, options, agePolicies: [new PerWriteAgePolicy()],
-            ranking: new MultiplicativeRankingPolicy());
+        var engine = new GraphMemoryEngine("project/graph", store, options, seams: new GraphMemorySeams
+            {
+                AgePolicies = [new PerWriteAgePolicy()],
+                Ranking = new MultiplicativeRankingPolicy(),
+            });
 
         var anchor = await Remember(engine, "pulse reading from the anchor node");
         var spoke1 = await Remember(engine, "support beam one");
@@ -388,8 +405,11 @@ public sealed class GraphMemoryRankingGoldenTests
         // Limit = 4 is now spent on the THREE exact facts plus ONE ordinary hit, where it used to be spent
         // on both ordinary hits plus two exact facts.
         var store = new InMemoryMemoryGraphStore();
-        var engine = new GraphMemoryEngine("project/graph", store, agePolicies: [new PerWriteAgePolicy()],
-            ranking: new DropsAuthoritativeRankingPolicy());
+        var engine = new GraphMemoryEngine("project/graph", store, seams: new GraphMemorySeams
+            {
+                AgePolicies = [new PerWriteAgePolicy()],
+                Ranking = new DropsAuthoritativeRankingPolicy(),
+            });
 
         // authoritative material is admitted regardless of query match, so its content need not mention
         // "gadget" at all — proving inclusion is about the GRADE, not about these facts winning on relevance
@@ -418,10 +438,11 @@ public sealed class GraphMemoryRankingGoldenTests
     [Fact]
     public async Task The_authoritative_reserve_bounds_how_much_ordinary_material_is_displaced()
     {
-        var engine = new GraphMemoryEngine("project/graph", new InMemoryMemoryGraphStore(),
-            options: new GraphMemoryOptions { AuthoritativeReserve = 1 },
-            agePolicies: [new PerWriteAgePolicy()],
-            ranking: new DropsAuthoritativeRankingPolicy());
+        var engine = new GraphMemoryEngine("project/graph", new InMemoryMemoryGraphStore(), options: new GraphMemoryOptions { AuthoritativeReserve = 1 }, seams: new GraphMemorySeams
+            {
+                AgePolicies = [new PerWriteAgePolicy()],
+                Ranking = new DropsAuthoritativeRankingPolicy(),
+            });
 
         await engine.RememberAsync(new MemoryWrite("t", "s", "oldest exact fact",
             Grade: MemoryGrade.Authoritative));
@@ -458,10 +479,11 @@ public sealed class GraphMemoryRankingGoldenTests
     public async Task A_reserve_larger_than_the_query_limit_still_returns_at_most_the_limit()
     {
         // 5 is a sensible bound against the DEFAULT limit of 10; the caller then asks for 2.
-        var engine = new GraphMemoryEngine("project/graph", new InMemoryMemoryGraphStore(),
-            options: new GraphMemoryOptions { AuthoritativeReserve = 5 },
-            agePolicies: [new PerWriteAgePolicy()],
-            ranking: new DropsAuthoritativeRankingPolicy());
+        var engine = new GraphMemoryEngine("project/graph", new InMemoryMemoryGraphStore(), options: new GraphMemoryOptions { AuthoritativeReserve = 5 }, seams: new GraphMemorySeams
+            {
+                AgePolicies = [new PerWriteAgePolicy()],
+                Ranking = new DropsAuthoritativeRankingPolicy(),
+            });
 
         await engine.RememberAsync(new MemoryWrite("t", "s", "oldest exact fact",
             Grade: MemoryGrade.Authoritative));

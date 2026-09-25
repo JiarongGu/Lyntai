@@ -107,8 +107,12 @@ internal static class MemoryDensitySweep
         {
             var salience = new CapturingSalience();
             using var db = new MemoryPolicySweep.SweepDb();
-            var engine = new GraphMemoryEngine("density", new SqliteMemoryGraphStore(db.Factory),
-                providers: [vectorProvider], vectors: new InMemoryVectorStore(), saliencePolicies: [salience]);
+            var engine = new GraphMemoryEngine("density", new SqliteMemoryGraphStore(db.Factory), seams: new GraphMemorySeams
+                {
+                    Providers = [vectorProvider],
+                    Vectors = new InMemoryVectorStore(),
+                    SaliencePolicies = [salience],
+                });
 
             foreach (var prior in fixture.Prior)
                 await engine.RememberAsync(new MemoryWrite("t", "s", prior));

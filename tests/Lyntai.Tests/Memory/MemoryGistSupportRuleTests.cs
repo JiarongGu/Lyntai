@@ -124,8 +124,11 @@ public class MemoryGistSupportRuleTests
         Func<DateTimeOffset> clock = () => now;
         var store = new InMemoryMemoryGraphStore(clock);
         const string engineName = "gist-support";
-        var engine = new GraphMemoryEngine(engineName, store,
-            agePolicies: [new BurstDampenedAgePolicy(clock: clock)], clock: clock);
+        var engine = new GraphMemoryEngine(engineName, store, seams: new GraphMemorySeams
+            {
+                AgePolicies = [new BurstDampenedAgePolicy(clock: clock)],
+                Clock = clock,
+            });
         RegimeSnapshot? beforeFinalQuery = null;
 
         // IN TIMELINE ORDER - writes and queries interleaved, exactly as MemoryCorpus's own ordering

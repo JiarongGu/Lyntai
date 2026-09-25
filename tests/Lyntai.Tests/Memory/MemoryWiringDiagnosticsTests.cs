@@ -107,8 +107,11 @@ public class MemoryWiringDiagnosticsTests
     [Fact]
     public void A_graph_member_that_embeds_every_write_and_seeds_no_recall_is_reported()
     {
-        var graph = new GraphMemoryEngine("project/graph", new InMemoryMemoryGraphStore(),
-            providers: [new FakeVectorProvider()], vectors: new InMemoryVectorStore());
+        var graph = new GraphMemoryEngine("project/graph", new InMemoryMemoryGraphStore(), seams: new GraphMemorySeams
+            {
+                Providers = [new FakeVectorProvider()],
+                Vectors = new InMemoryVectorStore(),
+            });
 
         var found = Assert.Single(MemoryWiring.Inspect([Blend(MemoryWriteRouting.FirstCapable, graph)],
             verification: false, annotation: false));
@@ -123,9 +126,12 @@ public class MemoryWiringDiagnosticsTests
     {
         var vectorProvider = new FakeVectorProvider();
         var vectors = new InMemoryVectorStore();
-        var graph = new GraphMemoryEngine("project/graph", new InMemoryMemoryGraphStore(),
-            providers: vectorProvider is null ? null : [vectorProvider], vectors: vectors,
-            seedSources: [new LexicalSeedSource(), new SemanticSeedSource([vectorProvider], vectors)]);
+        var graph = new GraphMemoryEngine("project/graph", new InMemoryMemoryGraphStore(), seams: new GraphMemorySeams
+            {
+                Providers = vectorProvider is null ? null : [vectorProvider],
+                Vectors = vectors,
+                SeedSources = [new LexicalSeedSource(), new SemanticSeedSource([vectorProvider], vectors)],
+            });
 
         Assert.Empty(MemoryWiring.Inspect([Blend(MemoryWriteRouting.FirstCapable, graph)],
             verification: false, annotation: false));
@@ -148,9 +154,11 @@ public class MemoryWiringDiagnosticsTests
     [Fact]
     public void A_graph_member_that_records_subjects_and_seeds_no_recall_is_reported()
     {
-        var graph = new GraphMemoryEngine("project/graph", new InMemoryMemoryGraphStore(),
-            annotation: new FakeAnnotator(),
-            seedSources: [new LexicalSeedSource()]);
+        var graph = new GraphMemoryEngine("project/graph", new InMemoryMemoryGraphStore(), seams: new GraphMemorySeams
+            {
+                Annotation = new FakeAnnotator(),
+                SeedSources = [new LexicalSeedSource()],
+            });
 
         var found = Assert.Single(MemoryWiring.Inspect([Blend(MemoryWriteRouting.FirstCapable, graph)],
             verification: false, annotation: false));
@@ -163,8 +171,10 @@ public class MemoryWiringDiagnosticsTests
     [Fact]
     public void An_annotated_member_on_the_default_options_reports_nothing()
     {
-        var graph = new GraphMemoryEngine("project/graph", new InMemoryMemoryGraphStore(),
-            annotation: new FakeAnnotator());
+        var graph = new GraphMemoryEngine("project/graph", new InMemoryMemoryGraphStore(), seams: new GraphMemorySeams
+            {
+                Annotation = new FakeAnnotator(),
+            });
 
         Assert.Empty(MemoryWiring.Inspect([Blend(MemoryWriteRouting.FirstCapable, graph)],
             verification: false, annotation: false));
@@ -175,8 +185,10 @@ public class MemoryWiringDiagnosticsTests
     [Fact]
     public void A_member_with_no_annotator_and_no_subject_seed_reports_nothing()
     {
-        var graph = new GraphMemoryEngine("project/graph", new InMemoryMemoryGraphStore(),
-            seedSources: [new LexicalSeedSource()]);
+        var graph = new GraphMemoryEngine("project/graph", new InMemoryMemoryGraphStore(), seams: new GraphMemorySeams
+            {
+                SeedSources = [new LexicalSeedSource()],
+            });
 
         Assert.Empty(MemoryWiring.Inspect([Blend(MemoryWriteRouting.FirstCapable, graph)],
             verification: false, annotation: false));
@@ -292,9 +304,12 @@ public class MemoryWiringDiagnosticsTests
     [Fact]
     public void A_BYO_semantic_channel_under_its_own_name_is_not_reported_as_missing()
     {
-        var engine = new GraphMemoryEngine("project/graph", new InMemoryMemoryGraphStore(),
-            providers: [new FakeVectorProvider()], vectors: new InMemoryVectorStore(),
-            seedSources: [new LexicalSeedSource(), new AcmeVectorChannel()]);
+        var engine = new GraphMemoryEngine("project/graph", new InMemoryMemoryGraphStore(), seams: new GraphMemorySeams
+            {
+                Providers = [new FakeVectorProvider()],
+                Vectors = new InMemoryVectorStore(),
+                SeedSources = [new LexicalSeedSource(), new AcmeVectorChannel()],
+            });
 
         Assert.Empty(MemoryWiring.Inspect([engine], verification: false, annotation: false));
     }
@@ -304,9 +319,12 @@ public class MemoryWiringDiagnosticsTests
     [Fact]
     public void A_vector_backend_with_no_semantic_channel_at_all_is_still_reported()
     {
-        var engine = new GraphMemoryEngine("project/graph", new InMemoryMemoryGraphStore(),
-            providers: [new FakeVectorProvider()], vectors: new InMemoryVectorStore(),
-            seedSources: [new LexicalSeedSource()]);
+        var engine = new GraphMemoryEngine("project/graph", new InMemoryMemoryGraphStore(), seams: new GraphMemorySeams
+            {
+                Providers = [new FakeVectorProvider()],
+                Vectors = new InMemoryVectorStore(),
+                SeedSources = [new LexicalSeedSource()],
+            });
 
         var found = Assert.Single(MemoryWiring.Inspect([engine], verification: false, annotation: false));
         Assert.Contains("AddMemorySemanticSeeds()", found, StringComparison.Ordinal);
@@ -319,9 +337,12 @@ public class MemoryWiringDiagnosticsTests
     [Fact]
     public void An_undeclared_channel_silences_the_finding_rather_than_triggering_a_false_one()
     {
-        var engine = new GraphMemoryEngine("project/graph", new InMemoryMemoryGraphStore(),
-            providers: [new FakeVectorProvider()], vectors: new InMemoryVectorStore(),
-            seedSources: [new LexicalSeedSource(), new UndeclaredChannel()]);
+        var engine = new GraphMemoryEngine("project/graph", new InMemoryMemoryGraphStore(), seams: new GraphMemorySeams
+            {
+                Providers = [new FakeVectorProvider()],
+                Vectors = new InMemoryVectorStore(),
+                SeedSources = [new LexicalSeedSource(), new UndeclaredChannel()],
+            });
 
         Assert.Empty(MemoryWiring.Inspect([engine], verification: false, annotation: false));
     }

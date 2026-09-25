@@ -86,9 +86,13 @@ internal static class MemoryAnnotationSweep
             var corpus = MemoryCorpus.Generate(shape.Value with { Language = language }, seed);
 
             using var db = new MemoryPolicySweep.SweepDb();
-            var engine = new GraphMemoryEngine("annotation", new SqliteMemoryGraphStore(db.Factory),
-                retrievability: new DsrRetrievability(), agePolicies: [new PerWriteAgePolicy()], ranking: rrf,
-                annotation: arm.Annotated ? new PerfectAnnotator() : null);
+            var engine = new GraphMemoryEngine("annotation", new SqliteMemoryGraphStore(db.Factory), seams: new GraphMemorySeams
+                {
+                    Retrievability = new DsrRetrievability(),
+                    AgePolicies = [new PerWriteAgePolicy()],
+                    Ranking = rrf,
+                    Annotation = arm.Annotated ? new PerfectAnnotator() : null,
+                });
 
             var replay = await MemoryPolicySweep.ReplayAsync(corpus, engine, QueryLimit);
             foreach (var (cls, quality) in replay.ByClass)

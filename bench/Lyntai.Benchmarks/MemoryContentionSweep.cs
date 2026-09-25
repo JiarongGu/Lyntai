@@ -106,10 +106,15 @@ internal static class MemoryContentionSweep
             : new LlmMemoryVerificationPolicy(clients);
 
         var db = new MemoryPolicySweep.SweepDb();
-        var engine = new GraphMemoryEngine("contention", new SqliteMemoryGraphStore(db.Factory),
-            new GraphMemoryOptions(), retrievability: new DsrRetrievability(),
-            agePolicies: [new PerWriteAgePolicy()], providers: [vectorProvider], vectors: new InMemoryVectorStore(),
-            annotation: annotation, verification: verification);
+        var engine = new GraphMemoryEngine("contention", new SqliteMemoryGraphStore(db.Factory), new GraphMemoryOptions(), seams: new GraphMemorySeams
+            {
+                Retrievability = new DsrRetrievability(),
+                AgePolicies = [new PerWriteAgePolicy()],
+                Providers = [vectorProvider],
+                Vectors = new InMemoryVectorStore(),
+                Annotation = annotation,
+                Verification = verification,
+            });
 
         return new Rig(engine, reranker, annotation, db);
     }

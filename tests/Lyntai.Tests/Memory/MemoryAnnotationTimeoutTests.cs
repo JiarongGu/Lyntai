@@ -52,7 +52,10 @@ public class MemoryAnnotationTimeoutTests
 
     private static async Task<MemoryRef> RememberWithTimingOutAnnotator(CancellationToken ct = default)
     {
-        var engine = new GraphMemoryEngine("graph", new InMemoryMemoryGraphStore(), annotation: new TimesOut());
+        var engine = new GraphMemoryEngine("graph", new InMemoryMemoryGraphStore(), seams: new GraphMemorySeams
+            {
+                Annotation = new TimesOut(),
+            });
         return (await engine.RememberAsync(new MemoryWrite("t", "s", "marker11 the deployment checklist"), ct))
             .Reference;
     }
@@ -72,7 +75,10 @@ public class MemoryAnnotationTimeoutTests
     public async Task The_fact_it_stored_is_recallable()
     {
         // The premise of the test above: an id proves the write path ran, not that the entry is findable.
-        var engine = new GraphMemoryEngine("graph", new InMemoryMemoryGraphStore(), annotation: new TimesOut());
+        var engine = new GraphMemoryEngine("graph", new InMemoryMemoryGraphStore(), seams: new GraphMemorySeams
+            {
+                Annotation = new TimesOut(),
+            });
         await engine.RememberAsync(new MemoryWrite("t", "s", "marker11 the deployment checklist"));
 
         var recall = await engine.RecallAsync(new MemoryQuery("t", "s", "marker11", 10));
@@ -86,8 +92,10 @@ public class MemoryAnnotationTimeoutTests
         // The other half, or the fix would be "swallow every cancellation" — which would let a cancelled
         // write complete. The marker is load-bearing: see CancelsWithMarker for why a bare ThrowsAnyAsync
         // cannot fail here.
-        var engine = new GraphMemoryEngine("graph", new InMemoryMemoryGraphStore(),
-            NoContextReads(), annotation: new CancelsWithMarker());
+        var engine = new GraphMemoryEngine("graph", new InMemoryMemoryGraphStore(), NoContextReads(), seams: new GraphMemorySeams
+            {
+                Annotation = new CancelsWithMarker(),
+            });
         using var cts = new CancellationTokenSource();
         await cts.CancelAsync();
 

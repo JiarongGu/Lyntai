@@ -41,12 +41,15 @@ public class MemorySubjectRecallTests
     /// wiring as the facts they control for rather than a different one.</summary>
     private static GraphMemoryEngine NewEngine(TempDb db, IMemoryAnnotationPolicy? annotator,
         int subjectSeedK = 5) =>
-        new("subjects", new SqliteMemoryGraphStore(db.Factory),
-            agePolicies: [new PerWriteAgePolicy()],
-            retrievability: new DsrRetrievability(), ranking: new ReciprocalRankFusionPolicy(),
-            annotation: annotator,
-            seedSources: [new LexicalSeedSource(),
-                new SubjectSeedSource(new SubjectSeedOptions { K = subjectSeedK })]);
+        new("subjects", new SqliteMemoryGraphStore(db.Factory), seams: new GraphMemorySeams
+            {
+                AgePolicies = [new PerWriteAgePolicy()],
+                Retrievability = new DsrRetrievability(),
+                Ranking = new ReciprocalRankFusionPolicy(),
+                Annotation = annotator,
+                SeedSources = [new LexicalSeedSource(),
+                    new SubjectSeedSource(new SubjectSeedOptions { K = subjectSeedK })],
+            });
 
     private static IReadOnlyList<string> TextsOf(MemoryRecall recall) =>
         [.. recall.Items.Select(i => i.Content ?? i.Headline ?? string.Empty)];

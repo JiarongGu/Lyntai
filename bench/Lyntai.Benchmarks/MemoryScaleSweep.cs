@@ -155,8 +155,11 @@ internal static class MemoryScaleSweep
         Size size, Arm arm, int workers, int queries, int warmup)
     {
         using var db = new MemoryPolicySweep.SweepDb();
-        var engine = new GraphMemoryEngine("scale", new SqliteMemoryGraphStore(db.Factory), arm.Options,
-            retrievability: new DsrRetrievability(), agePolicies: [new PerWriteAgePolicy()]);
+        var engine = new GraphMemoryEngine("scale", new SqliteMemoryGraphStore(db.Factory), arm.Options, seams: new GraphMemorySeams
+            {
+                Retrievability = new DsrRetrievability(),
+                AgePolicies = [new PerWriteAgePolicy()],
+            });
 
         for (var i = 0; i < size.Entries; i++)
             await engine.RememberAsync(new MemoryWrite("scale", Scope(i), Content(i)));
@@ -272,8 +275,11 @@ internal static class MemoryScaleSweep
         using var db = new MemoryPolicySweep.SweepDb();
 
         GraphMemoryEngine NewEngine() =>
-            new("scale", new SqliteMemoryGraphStore(db.Factory), arm.Options,
-                retrievability: new DsrRetrievability(), agePolicies: [new PerWriteAgePolicy()]);
+            new("scale", new SqliteMemoryGraphStore(db.Factory), arm.Options, seams: new GraphMemorySeams
+                {
+                    Retrievability = new DsrRetrievability(),
+                    AgePolicies = [new PerWriteAgePolicy()],
+                });
 
         var engine = NewEngine();
 

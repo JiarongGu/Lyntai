@@ -57,19 +57,20 @@ public static class MemoryProvenance
     public static long Unpack(long stored) => stored & ValidBits;
 
     /// <summary>Whether <paramref name="stored"/> covers every bit <paramref name="required"/> asks for —
-    /// "this memory's stored state was computed by (at least) these policies." This is the fitness
-    /// predicate design doc §5.7 exists for: it turns "is this entry fit for the current policy set" from
-    /// guessed into answerable, including the case a unit convention alone cannot cover — a policy needing
-    /// state nobody has computed yet, rather than state that merely happens to read as zero.</summary>
+    /// "this memory's stored state was computed by (at least) these policies." The fitness predicate design
+    /// §5.7 describes, for a CONSUMER reading <see cref="GraphNode.ProvenanceRetrievability"/> or
+    /// <see cref="GraphNode.ProvenanceSalience"/> off a store — auditing a corpus after a policy swap, say. The
+    /// engine itself never reads a provenance column. It answers the case a unit convention cannot: a policy
+    /// needing state nobody has computed yet, rather than state that merely reads as zero.</summary>
     /// <param name="stored">The column's current value.</param>
     /// <param name="required">The bit(s) the caller needs present.</param>
     public static bool Fits(long stored, long required) => (Unpack(stored) & required) == required;
 
     /// <summary>Validates the two facts a <c>[Flags] : long</c> enum's own compiler never checks — a single,
     /// non-zero bit per policy, unique among DIFFERENT policy TYPES — against whatever is actually
-    /// REGISTERED, not a hand-listed test array a third policy could join unnoticed (cheap
-    /// minor). <c>HalfLife = 0x1, Dsr = 0x1</c> compiles silently, and so does <c>HalfLife = 0x3</c> (two
-    /// bits); either would make <see cref="Fits"/> wrong with nothing reporting it.
+    /// REGISTERED, not a hand-listed test array a third policy could join unnoticed. <c>A = 0x1, B = 0x1</c>
+    /// compiles silently, and so does <c>A = 0x3</c> (two bits); either would make <see cref="Fits"/> wrong
+    /// with nothing reporting it.
     /// <para>Called where policies are actually resolved — a plural seam's whole registered collection at
     /// once (several salience policies can coexist and genuinely collide), or a singular seam's one active
     /// policy (nothing to collide WITH, but still checked for being real and single) — never against a

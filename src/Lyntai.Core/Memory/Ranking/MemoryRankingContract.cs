@@ -59,6 +59,52 @@ internal static class MemoryRankingContract
         if (double.IsFinite(score)) scored.Add(new RankedMemory(candidate, score));
     }
 
+    /// <summary>Each value's 1-based COMPETITION rank: a tied group shares one rank and the next distinct
+    /// value skips by the group's width — "1, 1, 3", never "1, 1, 2". Higher values rank better unless
+    /// <paramref name="ascending"/>.
+    /// <para><b>A signal on which every value ties therefore cannot move a fused ordering</b>: every entry
+    /// takes rank 1 and the signal contributes one constant term to every score, as if its weight were 0.
+    /// Ranks depend only on the values, never on how the unstable sort orders a tied group.</para></summary>
+    /// <param name="values">The signal, one value per entry.</param>
+    /// <param name="ascending">True where smaller is better (a distance, a count).</param>
+    internal static int[] CompetitionRanks(double[] values, bool ascending)
+    {
+        var n = values.Length;
+        var order = new int[n];
+        for (var i = 0; i < n; i++) order[i] = i;
+        Array.Sort(order, (x, y) => ascending ? values[x].CompareTo(values[y]) : values[y].CompareTo(values[x]));
+
+        var rank = new int[n];
+        var currentRank = 1;
+        for (var i = 0; i < n; i++)
+        {
+            if (i > 0 && values[order[i]].CompareTo(values[order[i - 1]]) != 0) currentRank = i + 1;
+            rank[order[i]] = currentRank;
+        }
+        return rank;
+    }
+
+    /// <summary>Refuses a weight set that is ALL zero: every candidate would score exactly 0 and ordering
+    /// would fall to the id tiebreak — a ranking that silently stopped reading any signal. Checked against the
+    /// constructed options rather than inside one property's <c>init</c>, which would depend on initializer
+    /// ORDER.</summary>
+    /// <param name="options">The options type's name, for the message.</param>
+    /// <param name="weights">Every weight the score reads — a weight the score adds and this list omits
+    /// makes the guard pass over a score that is still identically zero.</param>
+    /// <exception cref="ArgumentException">Every weight is zero.</exception>
+    internal static void RequireAnyWeight(string options, params ReadOnlySpan<(string Name, double Value)> weights)
+    {
+        foreach (var (_, value) in weights)
+            if (value > 0) return;
+
+        var names = new string[weights.Length];
+        for (var i = 0; i < weights.Length; i++) names[i] = weights[i].Name;
+        throw new ArgumentException(
+            $"{options} must set at least one of {string.Join(", ", names)} above zero — with all of them at " +
+            "zero every candidate scores exactly 0 and ordering falls entirely to the id tiebreak, a silent " +
+            "failure rather than a loud one.", nameof(options));
+    }
+
     /// <summary>Put a scored set into its final, contractual order and apply the policy's relative floor.
     ///
     /// <para><b>The id tiebreak is mandatory, not decorative.</b> <see cref="List{T}.Sort(Comparison{T})"/>

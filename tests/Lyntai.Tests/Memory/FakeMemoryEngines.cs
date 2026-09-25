@@ -452,6 +452,10 @@ internal sealed class TouchHostileGraphStore : IMemoryGraphStore
     public Task<IReadOnlyList<long>> NodesBySubjectAsync(string engine, string taskKey, string? scope,
         string subject, int limit, CancellationToken ct = default) =>
         _inner.NodesBySubjectAsync(engine, taskKey, scope, subject, limit, ct);
+
+    public Task<IReadOnlyList<string>> KnownSubjectsAsync(string engine, string taskKey, string? scope,
+        int limit, CancellationToken ct = default) =>
+        _inner.KnownSubjectsAsync(engine, taskKey, scope, limit, ct);
 }
 
 /// <summary>A graph store that fails ONLY when logging a review — the Task 3 best-effort proof at a
@@ -511,6 +515,10 @@ internal sealed class ReviewLogHostileGraphStore : IMemoryGraphStore
     public Task<IReadOnlyList<long>> NodesBySubjectAsync(string engine, string taskKey, string? scope,
         string subject, int limit, CancellationToken ct = default) =>
         _inner.NodesBySubjectAsync(engine, taskKey, scope, subject, limit, ct);
+
+    public Task<IReadOnlyList<string>> KnownSubjectsAsync(string engine, string taskKey, string? scope,
+        int limit, CancellationToken ct = default) =>
+        _inner.KnownSubjectsAsync(engine, taskKey, scope, limit, ct);
 }
 
 /// <summary>A graph store that fails ONLY when recording SUBJECTS — the third member of this family, and
@@ -565,6 +573,10 @@ internal sealed class SubjectHostileGraphStore : IMemoryGraphStore
     public Task<IReadOnlyList<long>> NodesBySubjectAsync(string engine, string taskKey, string? scope,
         string subject, int limit, CancellationToken ct = default) =>
         _inner.NodesBySubjectAsync(engine, taskKey, scope, subject, limit, ct);
+
+    public Task<IReadOnlyList<string>> KnownSubjectsAsync(string engine, string taskKey, string? scope,
+        int limit, CancellationToken ct = default) =>
+        _inner.KnownSubjectsAsync(engine, taskKey, scope, limit, ct);
 }
 
 /// <summary>In-process <see cref="ISemanticMemory"/> whose "similarity" is substring containment, so a
@@ -779,6 +791,10 @@ internal sealed class WriteBackCountingGraphStore : IMemoryGraphStore
     public Task<IReadOnlyList<long>> NodesBySubjectAsync(string engine, string taskKey, string? scope,
         string subject, int limit, CancellationToken ct = default) =>
         _inner.NodesBySubjectAsync(engine, taskKey, scope, subject, limit, ct);
+
+    public Task<IReadOnlyList<string>> KnownSubjectsAsync(string engine, string taskKey, string? scope,
+        int limit, CancellationToken ct = default) =>
+        _inner.KnownSubjectsAsync(engine, taskKey, scope, limit, ct);
 }
 
 /// <summary>Counts how a recall's co-activation reaches the store: as ONE batched call or as N single ones.
@@ -855,4 +871,8 @@ internal sealed class LinkCountingGraphStore : IMemoryGraphStore
     public Task<IReadOnlyList<long>> NodesBySubjectAsync(string engine, string taskKey, string? scope,
         string subject, int limit, CancellationToken ct = default) =>
         _inner.NodesBySubjectAsync(engine, taskKey, scope, subject, limit, ct);
+
+    public Task<IReadOnlyList<string>> KnownSubjectsAsync(string engine, string taskKey, string? scope,
+        int limit, CancellationToken ct = default) =>
+        _inner.KnownSubjectsAsync(engine, taskKey, scope, limit, ct);
 }

@@ -45,7 +45,10 @@ public class MemoryVerificationContentTests
     private static async Task<CapturingVerification> RecallWithJudge()
     {
         var judge = new CapturingVerification();
-        var engine = new GraphMemoryEngine("graph", new InMemoryMemoryGraphStore(), verification: judge);
+        var engine = new GraphMemoryEngine("graph", new InMemoryMemoryGraphStore(), seams: new GraphMemorySeams
+            {
+                Verification = judge,
+            });
         await engine.RememberAsync(new MemoryWrite("t", "s", LongContent("marker7")));
 
         await engine.RecallAsync(new MemoryQuery("t", "s", "marker7", 10));
@@ -125,8 +128,10 @@ public class MemoryVerificationTimeoutTests
 
     private static async Task<MemoryRecall> RecallWithTimingOutJudge(CancellationToken ct = default)
     {
-        var engine = new GraphMemoryEngine("graph", new InMemoryMemoryGraphStore(),
-            verification: new TimesOut());
+        var engine = new GraphMemoryEngine("graph", new InMemoryMemoryGraphStore(), seams: new GraphMemorySeams
+            {
+                Verification = new TimesOut(),
+            });
         await engine.RememberAsync(new MemoryWrite("t", "s", "marker9 the deployment checklist"), ct);
         return await engine.RecallAsync(new MemoryQuery("t", "s", "marker9", 10), ct);
     }
@@ -145,8 +150,10 @@ public class MemoryVerificationTimeoutTests
         // The other half, or the fix would be "swallow every cancellation" — which would make a cancelled
         // recall look like a successful one.
         using var cts = new CancellationTokenSource();
-        var engine = new GraphMemoryEngine("graph", new InMemoryMemoryGraphStore(),
-            verification: new CancelsWithMarker(cts));
+        var engine = new GraphMemoryEngine("graph", new InMemoryMemoryGraphStore(), seams: new GraphMemorySeams
+            {
+                Verification = new CancelsWithMarker(cts),
+            });
         await engine.RememberAsync(new MemoryWrite("t", "s", "marker9 the deployment checklist"));
 
         var thrown = await Assert.ThrowsAnyAsync<OperationCanceledException>(

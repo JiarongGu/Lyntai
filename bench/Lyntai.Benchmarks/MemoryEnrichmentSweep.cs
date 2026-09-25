@@ -120,18 +120,17 @@ internal static class MemoryEnrichmentSweep
             using var db = new MemoryPolicySweep.SweepDb();
             var store = new SqliteMemoryGraphStore(db.Factory);
 
-            var engine = new GraphMemoryEngine(
-                "enrichment",
-                store,
-                options: options,
-                retrievability: new ModulatedRetrievability(new DsrRetrievability(), [new SalienceRetentionPolicy()]),
-                agePolicies: [agePolicy],
-                providers: enriched ? [vectorProvider] : null,
-                vectors: enriched ? new InMemoryVectorStore() : null,
-                // Novelty is what salience READS, so dropping salience is how the novelty arm is switched
-                // off without touching the embed at all.
-                saliencePolicies: novelty ? [counting] : [new NeutralSaliencePolicy()],
-                ranking: rrf);
+            var engine = new GraphMemoryEngine("enrichment", store, options: options, seams: new GraphMemorySeams
+                {
+                    Retrievability = new ModulatedRetrievability(new DsrRetrievability(), [new SalienceRetentionPolicy()]),
+                    AgePolicies = [agePolicy],
+                    Providers = enriched ? [vectorProvider] : null,
+                    Vectors = enriched ? new InMemoryVectorStore() : null,
+                    // Novelty is what salience READS, so dropping salience is how the novelty arm is switched
+                    // off without touching the embed at all.
+                    SaliencePolicies = novelty ? [counting] : [new NeutralSaliencePolicy()],
+                    Ranking = rrf,
+                });
 
             var replay = await MemoryPolicySweep.ReplayAsync(corpus, engine, QueryLimit);
             foreach (var (cls, quality) in replay.ByClass)

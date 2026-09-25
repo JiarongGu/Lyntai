@@ -92,7 +92,7 @@ public sealed record MultiplicativeRankingOptions
 /// Relevance × Retrievability × boost × HopAttenuation^Hop</c>, where <c>boost</c> is <c>1</c> unless
 /// <see cref="MultiplicativeRankingOptions.SalienceRankWeight"/> is opted above its shipped 0, then floored
 /// against its own best score.
-/// <para><b>No longer the registered default as of 3.0</b> —
+/// <para><b>Not the registered default</b> —
 /// <see cref="Lyntai.Memory.Ranking.ReciprocalRankFusionPolicy"/> is (<c>docs/DECISIONS.md</c> D49). It ships
 /// unchanged and is one line to restore:
 /// <c>services.AddSingleton&lt;IMemoryRankingPolicy&gt;(new MultiplicativeRankingPolicy())</c>, before or
@@ -108,8 +108,8 @@ public sealed record MultiplicativeRankingOptions
 /// input filter closes only the poisoned-INPUT class: a score overflows from wholly FINITE inputs too
 /// (<c>1e308 × 1e308</c>, or an unbounded <see cref="MultiplicativeRankingOptions.SalienceRankWeight"/>, which
 /// comes from no candidate at all), so a non-finite SCORE drops its own candidate and nobody else's. BYO-only
-/// exposure: every shipped store reports <see cref="GraphNode.Relevance"/> in <c>(0,1]</c> and every shipped
-/// policy clamps to <c>[0,1]</c>.</para>
+/// exposure: every shipped store reports <see cref="GraphNode.Relevance"/> in <c>[0,1]</c> — <c>0</c> for a
+/// grade-admitted non-match or a walk neighbour — and every shipped policy clamps to <c>[0,1]</c>.</para>
 /// </summary>
 /// <param name="options">Constants; null takes the defaults.</param>
 public sealed class MultiplicativeRankingPolicy(MultiplicativeRankingOptions? options = null) : IMemoryRankingPolicy

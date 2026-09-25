@@ -212,7 +212,7 @@ public sealed record GraphNodeWrite(
 /// <summary>A reinforcement to record against one node. The store stamps the current position — a recall
 /// does not advance it, so "now" is simply wherever the engine already is.
 /// <para>This is the seam <see cref="Lyntai.Memory.Forgetting.IMemoryRetrievabilityPolicy.Reinforce"/>'s
-/// full-<see cref="MemoryDecayState"/> return exists to feed (design doc §5.7, Task 5): a caller extracts
+/// full-<see cref="MemoryDecayState"/> return exists to feed (design doc §5.7): a caller extracts
 /// whatever the active policy actually claims from that return and hands it here — <see cref="Difficulty"/>
 /// is the first field besides <see cref="Stability"/> a shipped policy uses it for
 /// (<see cref="Lyntai.Memory.Forgetting.DsrRetrievability"/>).</para></summary>
@@ -257,8 +257,8 @@ public sealed record GraphNeighbour(GraphNode Node, double EdgeWeight, double Ed
 }
 
 /// <summary>One reinforcement to log — the pre-review state, the derived grade, and the post-review state
-/// (design spec §3). What FSRS parameter fitting needs and what this
-/// library persisted none of before this task; see <see cref="IMemoryGraphStore.RecordReviewsAsync"/>.
+/// (design spec §3) — what FSRS parameter fitting needs; see
+/// <see cref="IMemoryGraphStore.RecordReviewsAsync"/>.
 /// <para><b>Only <see cref="MemoryDecayState.Stability"/> and <see cref="MemoryDecayState.Difficulty"/> get a
 /// POST column.</b> Every other field of the pre-state (<see cref="PreAge"/>/<see cref="PreStrength"/>/
 /// <see cref="PreStrengthAge"/>) is, by <see cref="Lyntai.Memory.Forgetting.IMemoryRetrievabilityPolicy.Reinforce"/>'s
@@ -284,13 +284,10 @@ public sealed record GraphNeighbour(GraphNode Node, double EdgeWeight, double Ed
 /// never re-derived from the state alone. Null when no grade-driven update happened at all (that member's
 /// own remarks explain both reasons null can mean), which is why this column is the one deliberate exception
 /// to this schema's usual <c>NOT NULL</c> convention — see the migration's own doc comment.
-/// <para><b>Named <c>ReviewGrade</c> rather than <c>Grade</c> since 2026-08-31, and the qualifier is
-/// load-bearing.</b> <see cref="MemoryWrite.Grade"/>, <see cref="GraphNode.Grade"/> and
-/// <see cref="MemoryItem.Grade"/> all carry <see cref="MemoryGrade"/> — associative or authoritative — in
-/// this same namespace. One identifier meaning two unrelated things is the shape <b>D66</b> records costing
-/// real data (<c>AuthoritativeReserve</c> read as slots when it meant characters). The type system separates
-/// them at a call site; prose, the API surface and anyone fitting <c>DsrOptions</c> against this log had
-/// nothing to go on.</para></param>
+/// <para><b>Named <c>ReviewGrade</c>, not <c>Grade</c>, and the qualifier is load-bearing:</b>
+/// <see cref="MemoryWrite.Grade"/>, <see cref="GraphNode.Grade"/> and <see cref="MemoryItem.Grade"/> carry
+/// <see cref="MemoryGrade"/> in this same namespace, and one identifier meaning two unrelated things is the
+/// shape <b>D66</b> records costing real data.</para></param>
 /// <param name="PostStability">Its stability immediately after this reinforcement.</param>
 /// <param name="PostDifficulty">Its difficulty immediately after this reinforcement.</param>
 /// <param name="ProvenanceRetrievability">The policy that computed this reinforcement — the same value
@@ -589,7 +586,7 @@ public interface IMemoryGraphStore
         CancellationToken ct = default);
 
     /// <summary>Every review currently retained for <paramref name="engine"/>, oldest first — for a fitter
-    /// (design spec §4, not this task) or a test to inspect what <see cref="RecordReviewsAsync"/> actually
+    /// (design spec §4) or a test to inspect what <see cref="RecordReviewsAsync"/> actually
     /// recorded. Always bounded by whatever cap <see cref="RecordReviewsAsync"/> has been enforcing, so
     /// reading everything for one engine is always cheap.</summary>
     /// <param name="engine">The owning engine's name.</param>
@@ -650,13 +647,10 @@ public interface IMemoryGraphStore
     /// links. Showing it the handles already in use is what anchors it, exactly as showing it recent facts is
     /// what makes a pronoun resolvable.</para>
     ///
-    /// <para><b>It has a DEFAULT BODY on purpose — one of THREE on this interface, and the only one whose
-    /// default costs QUALITY rather than speed.</b> Ignoring <see cref="LinkManyAsync"/> or
-    /// <see cref="WriteBackAsync"/> leaves a store correct and merely slower; ignoring this one leaves it
-    /// correct and less CONSISTENT, because an annotator with no reuse candidates invents a fresh handle
-    /// where it could have matched an existing one. Every other member is required. Forcing a BYO store to
-    /// implement this for a feature it may never enable would be a cost with no matching guarantee — but
-    /// implement it if you enable annotation, because nothing reports the difference.</para>
+    /// <para><b>It is also the SUBJECT recall channel's only way in</b>: <c>SubjectSeedSource</c>, registered by
+    /// every <c>AddMemoryEngine</c>, matches a query against exactly these handles, so a store answering
+    /// nothing here silently turns that channel off while every write still pays its annotator. That is why it
+    /// takes no default body.</para>
     /// </summary>
     /// <param name="engine">The owning engine's name.</param>
     /// <param name="taskKey">The task to read within.</param>
@@ -664,6 +658,5 @@ public interface IMemoryGraphStore
     /// <param name="limit">The most subjects to return.</param>
     /// <param name="ct">Cancellation.</param>
     Task<IReadOnlyList<string>> KnownSubjectsAsync(string engine, string taskKey, string? scope,
-        int limit, CancellationToken ct = default) =>
-        Task.FromResult<IReadOnlyList<string>>([]);
+        int limit, CancellationToken ct = default);
 }

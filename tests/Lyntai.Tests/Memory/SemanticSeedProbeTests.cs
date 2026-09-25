@@ -83,13 +83,14 @@ public class SemanticSeedProbeTests(Xunit.Abstractions.ITestOutputHelper output)
         var store = new InMemoryMemoryGraphStore();
         var providers = sp.GetServices<IModelProvider>();
         var vectors = new InMemoryVectorStore();
-        var engine = new GraphMemoryEngine("e", store,
-            agePolicies: [new PerWriteAgePolicy()],
-            logger: logger,
-            providers: providers,
-            vectors: vectors,
-            seedSources: [new LexicalSeedSource(),
-                new SemanticSeedSource(providers, vectors, new SemanticSeedOptions { K = 5 }, logger)]);
+        var engine = new GraphMemoryEngine("e", store, seams: new GraphMemorySeams
+            {
+                AgePolicies = [new PerWriteAgePolicy()],
+                Providers = providers,
+                Vectors = vectors,
+                SeedSources = [new LexicalSeedSource(),
+                    new SemanticSeedSource(providers, vectors, new SemanticSeedOptions { K = 5 }, logger)],
+            }, logger: logger);
 
         var target = (await engine.RememberAsync(
             new MemoryWrite("t", "s", "the meeting was postponed until next week"))).Reference;
@@ -183,11 +184,15 @@ public class SemanticSeedProbeTests(Xunit.Abstractions.ITestOutputHelper output)
     {
         var store = new InMemoryMemoryGraphStore();
         var vectors = new InMemoryVectorStore();
-        var engine = new GraphMemoryEngine("e", store,
-            agePolicies: [new PerWriteAgePolicy()],
-            providers: providers, vectors: vectors, ranking: ranking,
-            seedSources: [new LexicalSeedSource(),
-                new SemanticSeedSource(providers, vectors, new SemanticSeedOptions { K = 5 })]);
+        var engine = new GraphMemoryEngine("e", store, seams: new GraphMemorySeams
+            {
+                AgePolicies = [new PerWriteAgePolicy()],
+                Providers = providers,
+                Vectors = vectors,
+                Ranking = ranking,
+                SeedSources = [new LexicalSeedSource(),
+                    new SemanticSeedSource(providers, vectors, new SemanticSeedOptions { K = 5 })],
+            });
 
         var target = (await engine.RememberAsync(
             new MemoryWrite("t", "s", "the meeting was postponed until next week"))).Reference;

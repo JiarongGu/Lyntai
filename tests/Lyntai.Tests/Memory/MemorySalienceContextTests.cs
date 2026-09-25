@@ -60,7 +60,10 @@ public class MemorySalienceContextTests
     private static async Task<CapturingSalience> WriteThrough(MemoryWrite write)
     {
         var policy = new CapturingSalience();
-        var engine = new GraphMemoryEngine("e", new InMemoryMemoryGraphStore(), saliencePolicies: [policy]);
+        var engine = new GraphMemoryEngine("e", new InMemoryMemoryGraphStore(), seams: new GraphMemorySeams
+            {
+                SaliencePolicies = [policy],
+            });
 
         await engine.RememberAsync(write);
 
@@ -114,15 +117,17 @@ public class MemorySalienceContextTests
         const string novel = "a violin string snapped during the second movement";
         const string familiar = "certificate rotation is a ninety day cycle";
         var policy = new CapturingSalience();
-        var engine = new GraphMemoryEngine("e", new InMemoryMemoryGraphStore(),
-            providers: [new ScriptedVectorProvider(new Dictionary<string, float[]>(StringComparer.Ordinal)
+        var engine = new GraphMemoryEngine("e", new InMemoryMemoryGraphStore(), seams: new GraphMemorySeams
             {
-                [prior] = [1f, 0f, 0f],
-                [novel] = [0f, 1f, 0f],
-                [familiar] = [1f, 0f, 0f],
-            })],
-            vectors: new InMemoryVectorStore(),
-            saliencePolicies: [policy]);
+                Providers = [new ScriptedVectorProvider(new Dictionary<string, float[]>(StringComparer.Ordinal)
+                {
+                    [prior] = [1f, 0f, 0f],
+                    [novel] = [0f, 1f, 0f],
+                    [familiar] = [1f, 0f, 0f],
+                })],
+                Vectors = new InMemoryVectorStore(),
+                SaliencePolicies = [policy],
+            });
 
         await engine.RememberAsync(new MemoryWrite("t", "s", prior));
         policy.Writes.Clear();

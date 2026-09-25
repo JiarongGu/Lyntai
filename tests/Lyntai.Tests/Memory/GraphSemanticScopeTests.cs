@@ -73,12 +73,15 @@ public class GraphSemanticScopeTests
         var log = new CapturingLogger();
         var vectorProvider = new ScriptedVectorProvider();
         var vectors = new InMemoryVectorStore();
-        var engine = new GraphMemoryEngine("project/graph", new InMemoryMemoryGraphStore(),
-            logger: log, providers: vectorProvider is null ? null : [vectorProvider], vectors: vectors,
-            seedSources: seedK <= 0
-                ? [new LexicalSeedSource()]
-                : [new LexicalSeedSource(),
-                    new SemanticSeedSource([vectorProvider], vectors, new SemanticSeedOptions { K = seedK }, log)]);
+        var engine = new GraphMemoryEngine("project/graph", new InMemoryMemoryGraphStore(), seams: new GraphMemorySeams
+            {
+                Providers = vectorProvider is null ? null : [vectorProvider],
+                Vectors = vectors,
+                SeedSources = seedK <= 0
+                    ? [new LexicalSeedSource()]
+                    : [new LexicalSeedSource(),
+                        new SemanticSeedSource([vectorProvider], vectors, new SemanticSeedOptions { K = seedK }, log)],
+            }, logger: log);
         return (engine, log);
     }
 
@@ -142,10 +145,13 @@ public class GraphSemanticScopeTests
         var log = new CapturingLogger();
         var vectorProvider = new ScriptedVectorProvider();
         var vectors = new UnlistableVectorStore();
-        var engine = new GraphMemoryEngine("project/graph", new InMemoryMemoryGraphStore(),
-            logger: log, providers: vectorProvider is null ? null : [vectorProvider], vectors: vectors,
-            seedSources: [new LexicalSeedSource(),
-                new SemanticSeedSource([vectorProvider], vectors, new SemanticSeedOptions { K = 3 }, log)]);
+        var engine = new GraphMemoryEngine("project/graph", new InMemoryMemoryGraphStore(), seams: new GraphMemorySeams
+            {
+                Providers = vectorProvider is null ? null : [vectorProvider],
+                Vectors = vectors,
+                SeedSources = [new LexicalSeedSource(),
+                    new SemanticSeedSource([vectorProvider], vectors, new SemanticSeedOptions { K = 3 }, log)],
+            }, logger: log);
         await SeedAsync(engine);
 
         Assert.Empty((await engine.RecallAsync(new MemoryQuery("household", null, Query))).Items);

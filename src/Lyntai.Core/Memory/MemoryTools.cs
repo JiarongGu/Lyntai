@@ -21,6 +21,11 @@ internal static class MemoryTools
     /// unambiguous whatever the engine is called.</summary>
     internal const string RefSeparator = "::";
 
+    /// <summary>The most items one recall-tool call may ask for. The model picks <c>limit</c>, so it is bounded
+    /// the way <c>ExpandAsync</c> bounds <c>hops</c>: a model asking for a huge page must not scan the store,
+    /// or ship every candidate to a verifier in one prompt.</summary>
+    internal const int MaxRecallLimit = 50;
+
     /// <summary>Sanitize an engine name into something a tool name may contain — hierarchical member names
     /// carry <c>/</c>, which no provider accepts.</summary>
     internal static string ToolPrefix(string engineName)
@@ -113,7 +118,8 @@ internal static class MemoryTools
                     task,
                     ReadString(argumentsJson, "scope") ?? defaultScope,
                     ReadString(argumentsJson, "query"),
-                    ReadInt(argumentsJson, "limit")), ct).ConfigureAwait(false);
+                    ReadInt(argumentsJson, "limit") is { } asked ? Math.Clamp(asked, 1, MaxRecallLimit) : null),
+                    ct).ConfigureAwait(false);
                 return Render(recall);
             },
             $"Search remembered context in '{engine.Name}'. Returns short headlines with a 'ref' for each — " +
@@ -123,7 +129,7 @@ internal static class MemoryTools
             {"type":"object","properties":{
               "query":{"type":"string","description":"What to look for. Omit for the most recently used."},
               "scope":{"type":"string","description":"Optional variant to search within."},
-              "limit":{"type":"integer","description":"Maximum items to return."}
+              "limit":{"type":"integer","description":"Maximum items to return, at most 50."}
             }}
             """);
 

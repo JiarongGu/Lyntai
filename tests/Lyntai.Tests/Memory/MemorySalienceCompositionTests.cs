@@ -68,11 +68,13 @@ public class MemorySalienceCompositionTests
     }
 
     private static GraphMemoryEngine Build(IMemorySalienceCompositionPolicy composition) =>
-        new("e", new InMemoryMemoryGraphStore(),
-            saliencePolicies: [new FixedSaliencePolicy(2), new FixedSaliencePolicy(5)],
-            salienceComposition: composition,
-            retrievability: new ModulatedRetrievability(
-                new Lyntai.Memory.Forgetting.DsrRetrievability(), [new SalienceRetentionPolicy()]));
+        new("e", new InMemoryMemoryGraphStore(), seams: new GraphMemorySeams
+            {
+                SaliencePolicies = [new FixedSaliencePolicy(2), new FixedSaliencePolicy(5)],
+                SalienceComposition = composition,
+                Retrievability = new ModulatedRetrievability(
+                    new Lyntai.Memory.Forgetting.DsrRetrievability(), [new SalienceRetentionPolicy()]),
+            });
 
     [Fact]
     public async Task Swapping_the_salience_composition_policy_changes_the_stored_signal()

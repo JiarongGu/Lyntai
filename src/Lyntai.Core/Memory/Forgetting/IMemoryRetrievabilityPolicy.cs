@@ -9,15 +9,12 @@ namespace Lyntai.Memory.Forgetting;
 /// distinction load-bearing rather than hypothetical — an entry whose difficulty reads <c>5</c> (the neutral
 /// value — see <see cref="DsrOptions.NeutralDifficulty"/>) might be a row this policy
 /// judged genuinely average, or a row that has simply never been touched since it was written with no
-/// explicit signal, and a bare number cannot tell the two apart. (A row whose difficulty reads <c>1</c>,
-/// the OLD neutral, is most likely a row written or last reinforced before this correction — see
-/// <see cref="MemoryDecayState.Difficulty"/>'s own remarks — though a genuinely judged-easiest row also
-/// reads that way, the same ambiguity one level down.) Provenance is what makes the FIRST distinction
+/// explicit signal, and a bare number cannot tell the two apart. Provenance is what makes the distinction
 /// possible: <c>None</c> means no retrievability policy ever touched this row, full stop.
-/// <see cref="DsrRetrievability"/> is still a PARTIAL, UNFITTED FSRS in other ways it discloses on its own
+/// <see cref="DsrRetrievability"/> is still a PARTIAL, UNFITTED FSRS in the ways it discloses on its own
 /// class doc — no per-grade rating (a derived grade stands in, see its own
-/// <see cref="DsrRetrievability.Reinforce"/> remarks), no mean-reversion term, and every constant is FSRS's
-/// own published default rather than fitted against this library's own review history.
+/// <see cref="DsrRetrievability.Reinforce"/> remarks), and every constant is FSRS's own published default
+/// rather than fitted against this library's own review history.
 /// <para><b>Bits 0-31 are reserved for this library; never allocate above bit 31 here.</b> Bits 32-62 are a
 /// consumer's own range — <see cref="IMemoryRetrievabilityPolicy"/> is public and a third-party
 /// implementation must be able to carry provenance too, so this enum stays open to an unnamed member: cast
@@ -30,12 +27,10 @@ public enum MemoryRetrievabilityProvenance : long
     /// existed, and nothing else.</summary>
     None = 0x0000_0000,
 
-    /// <summary><b>RETIRED — the policy that declared this bit, <c>HalfLifeRetrievability</c>, was deleted in
-    /// 3.0 (<c>docs/DECISIONS.md</c>).</b> The member and its value stay exactly as they were: every row a
-    /// 2.5.x deployment wrote under that curve still carries this bit in <c>GraphNode.ProvenanceRetrievability</c>,
-    /// and freeing the value for reuse would let a future policy silently claim credit for computing a
-    /// 2.5.x row's stability that it never touched — precisely the misattribution provenance exists to
-    /// prevent. <b>No policy this library ships, or that a consumer registers, may declare this bit again.</b>
+    /// <summary><b>RETIRED — the policy that declared this bit no longer ships.</b> The member and its value
+    /// stay: freeing a retired bit for reuse would let a later policy claim credit for rows it never computed —
+    /// precisely the misattribution provenance exists to prevent. <b>No policy this library ships, or that a
+    /// consumer registers, may declare this bit again.</b>
     /// <c>MemoryProvenanceTests</c> (<c>tests/Lyntai.Tests/Memory/MemoryProvenanceTests.cs</c>) pins that no
     /// shipped policy does; a consumer's own policy declaring bit <c>32</c> or above is unaffected, since this
     /// bit is in the library's own 0-31 range.</summary>
@@ -77,13 +72,10 @@ public interface IMemoryRetrievabilityPolicy
     /// <para><b><see cref="MemoryDecayState.Stability"/> itself must never be smaller than the current one —
     /// unconditionally, including above any ceiling the policy imposes.</b> A policy that bounds growth caps
     /// it with a FLOOR under the clamp (<c>Math.Max(current, Math.Min(grown, ceiling))</c>), so an entry
-    /// already stored past the ceiling is FROZEN — it can no longer grow — rather than truncated down to it.
-    /// The distinction is not academic: <see cref="DsrRetrievability"/> shipped the bare
-    /// <c>Math.Min(grown, MaxStability)</c> through 2.5.x and a stored 100000 came back as 2000, a 50×
-    /// SHORTENING, reachable by lowering the ceiling under an existing corpus or by any stability written
-    /// outside the policy (fixed 2026-08-11, <c>docs/task-archive.md</c> Part 54 DSR2; pinned by
-    /// <c>RetrievabilityPolicyContract.Reinforcement_never_shortens_a_memory</c>, which exercises an
-    /// over-ceiling stability precisely because the ordinary fixture cannot).</para></summary>
+    /// already stored past the ceiling is FROZEN — it can no longer grow — rather than truncated down to it; a
+    /// bare <c>Math.Min(grown, ceiling)</c> SHORTENS an over-ceiling entry, which lowering the ceiling under an
+    /// existing corpus makes reachable. Pinned by
+    /// <c>RetrievabilityPolicyContract.Reinforcement_never_shortens_a_memory</c>.</para></summary>
     /// <param name="state">The entry's decay bookkeeping.</param>
     MemoryDecayState Reinforce(in MemoryDecayState state);
 

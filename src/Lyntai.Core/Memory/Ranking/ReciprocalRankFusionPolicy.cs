@@ -199,9 +199,8 @@ public sealed record ReciprocalRankFusionOptions
 /// Reciprocal rank fusion — this ranking domain's second implementation, given a name and a swap point
 /// beside <see cref="MultiplicativeRankingPolicy"/> rather than replacing it (implementations of a domain's
 /// seam accumulate; which one is the DEFAULT is a separate, versioned decision).
-/// <b>This is the registered default as of 3.0</b> (<c>docs/DECISIONS.md</c> D49);
-/// <see cref="MultiplicativeRankingPolicy"/> stays shipped, unchanged and registerable in one line. See
-/// <c>MemoryEngineRegistration.AddMemoryEngine</c>'s own remarks for the full reasoning.
+/// <b>This is the registered default</b> (<c>docs/DECISIONS.md</c> D49 has the reasoning and the
+/// measurements); <see cref="MultiplicativeRankingPolicy"/> stays shipped and registerable in one line.
 /// <c>Score = Σₛ wₛ / (K + rankₛ)</c>, summed over retrievability, salience, hop and diagnosticity by rank
 /// POSITION within the whole candidate set — see <see cref="ReciprocalRankFusionOptions"/>'s own remarks for
 /// why that is the point of fusing by rank at all, and for hop's deliberate ascending direction, the one
@@ -225,14 +224,9 @@ public sealed class ReciprocalRankFusionPolicy(ReciprocalRankFusionOptions? opti
 {
     private readonly ReciprocalRankFusionOptions _options = Validated(options ?? new ReciprocalRankFusionOptions());
 
-    /// <summary>Guards the one invariant no single property's own <c>init</c> can enforce, because it spans
-    /// all four: at least one weight must be above zero. All four at zero would score EVERY candidate exactly
-    /// <c>0</c> and hand ordering entirely to the id tiebreak — not an error, not an empty result, just a
-    /// ranking that silently stopped reading any signal at all. Checked here, once, against the fully
-    /// constructed options object, rather than in any one property's <c>init</c> — a cross-property
-    /// invariant checked from inside a single property's own accessor would depend on C# object-initializer
-    /// ORDER, which is exactly the kind of guard that passes by accident depending on how a caller happens to
-    /// list the properties.</summary>
+    /// <summary>At least one of the five weights must be above zero — the cross-property invariant no single
+    /// <c>init</c> can enforce (<see cref="MemoryRankingContract.RequireAnyWeight"/>). A weight added to the
+    /// score must be added here too.</summary>
     /// <exception cref="ArgumentException">Every one of <see cref="ReciprocalRankFusionOptions.RelevanceWeight"/>,
     /// <see cref="ReciprocalRankFusionOptions.RetrievabilityWeight"/>,
     /// <see cref="ReciprocalRankFusionOptions.SalienceWeight"/>,
@@ -240,18 +234,12 @@ public sealed class ReciprocalRankFusionPolicy(ReciprocalRankFusionOptions? opti
     /// <see cref="ReciprocalRankFusionOptions.DiagnosticityWeight"/> is zero.</exception>
     private static ReciprocalRankFusionOptions Validated(ReciprocalRankFusionOptions options)
     {
-        // DiagnosticityWeight joined this list when it was added (2026-08-15). The guard's subject is "does
-        // ANY signal contribute", so a new signal that is not listed makes the guard WRONG in the refusing
-        // direction — it would reject a perfectly coherent diagnosticity-only configuration. A weight added
-        // to the score without being added here is the mirror defect, and just as silent: the guard would
-        // pass while the score was still identically zero.
-        if (options.RelevanceWeight <= 0 && options.RetrievabilityWeight <= 0 &&
-            options.SalienceWeight <= 0 && options.HopWeight <= 0 && options.DiagnosticityWeight <= 0)
-            throw new ArgumentException(
-                "ReciprocalRankFusionOptions must set at least one of RelevanceWeight, RetrievabilityWeight, " +
-                "SalienceWeight, HopWeight or DiagnosticityWeight above zero — with all five at zero every " +
-                "candidate scores exactly 0 and ordering falls entirely to the id tiebreak, a silent failure " +
-                "rather than a loud one.", nameof(options));
+        MemoryRankingContract.RequireAnyWeight(nameof(ReciprocalRankFusionOptions),
+            (nameof(options.RelevanceWeight), options.RelevanceWeight),
+            (nameof(options.RetrievabilityWeight), options.RetrievabilityWeight),
+            (nameof(options.SalienceWeight), options.SalienceWeight),
+            (nameof(options.HopWeight), options.HopWeight),
+            (nameof(options.DiagnosticityWeight), options.DiagnosticityWeight));
         return options;
     }
 
@@ -276,9 +264,8 @@ public sealed class ReciprocalRankFusionPolicy(ReciprocalRankFusionOptions? opti
         // answer decides which relevance term the whole set is scored by and a per-candidate test
         // would silently mix two scales — the very defect this change removes.
         //
-        // FALSE is the compatibility path: a hand-built engine, a BYO gather, or any caller
-        // constructing MemoryCandidate directly never populates Ranks, and must rank exactly as it
-        // did before this member existed.
+        // FALSE is the ranks-free path: a BYO gather, or any caller constructing MemoryCandidate directly,
+        // never populates Ranks and ranks relevance by position.
         //
         // The MIXED case is normal, not a fallback trigger: hop neighbours carry no ranks and sit
         // beside seeds that do. They contribute no relevance term, which is what Matched null/false
@@ -342,43 +329,15 @@ public sealed class ReciprocalRankFusionPolicy(ReciprocalRankFusionOptions? opti
         return MemoryRankingContract.Finish(scored, _options.RelativeFloor);
     }
 
-    /// <summary>Each candidate's 1-based RANK POSITION on one signal — COMPETITION ranking: a tied group
-    /// shares one rank number, and the next distinct value skips ahead by the width of that group (two
-    /// candidates tied for best both score rank 1, and the next candidate is rank 3, never rank 2 — "1, 1,
-    /// 3", never "1, 1, 2" and never "1, 2, 3").
-    /// <para><b>A signal on which EVERY candidate ties therefore cannot move the ordering at all</b>: every
-    /// candidate takes the same rank, so the signal contributes the same constant term to every score —
-    /// equivalent to setting its weight to 0, without a consumer having to notice its discriminating power
-    /// vanished and disable it by hand. That case is ordinary here rather than exotic, because this policy
-    /// fuses SIGNALS rather than already-total ranked lists: <see cref="MemorySignals.Salience"/> reports the
-    /// identical neutral value for every candidate whenever nothing has judged any of them (no vector backend, no
-    /// vector store — the library's own default deployment), and every direct hit shares hop 0 on a fresh
-    /// graph or with <c>Hops = 0</c>. A PARTIALLY tied signal degrades proportionally rather than totally:
-    /// only the tied subset shares a rank, and everyone past them still pays for the width of the group they
-    /// skipped over.</para>
-    /// <para><b>Determinism is unaffected.</b> Equal values always produce equal ranks regardless of how the
-    /// (unstable) sort below happens to order a tied group internally — the loop only advances
-    /// <c>currentRank</c> when the value actually changes, never based on position — and the caller's own
-    /// final sort still breaks ties in the FUSED score by <c>Node.Id</c> descending, so the overall result
-    /// remains a total order.</para></summary>
+    /// <summary>Each candidate's COMPETITION rank on one signal (<see cref="MemoryRankingContract.CompetitionRanks"/>).
+    /// A fully tied signal is ordinary here, not exotic: <see cref="MemorySignals.Salience"/> is the same neutral
+    /// value for every candidate nothing judged (the default deployment has no vector backend), and every
+    /// direct hit shares hop 0 on a fresh graph — so such a signal drops out rather than ranking by position.</summary>
     private static int[] RankPositions(IReadOnlyList<MemoryCandidate> candidates,
         Func<MemoryCandidate, double> key, bool ascending)
     {
-        var n = candidates.Count;
-        var values = new double[n];
-        for (var i = 0; i < n; i++) values[i] = key(candidates[i]);
-
-        var order = new int[n];
-        for (var i = 0; i < n; i++) order[i] = i;
-        Array.Sort(order, (x, y) => ascending ? values[x].CompareTo(values[y]) : values[y].CompareTo(values[x]));
-
-        var rank = new int[n];
-        var currentRank = 1;
-        for (var i = 0; i < n; i++)
-        {
-            if (i > 0 && values[order[i]].CompareTo(values[order[i - 1]]) != 0) currentRank = i + 1;
-            rank[order[i]] = currentRank;
-        }
-        return rank;
+        var values = new double[candidates.Count];
+        for (var i = 0; i < values.Length; i++) values[i] = key(candidates[i]);
+        return MemoryRankingContract.CompetitionRanks(values, ascending);
     }
 }

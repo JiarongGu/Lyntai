@@ -53,8 +53,7 @@ public sealed record MemoryAnnotationRequest(
     IReadOnlyList<string> Recent,
     IReadOnlyList<string> Known)
 {
-    /// <summary>Without reuse candidates — for a caller that has none, and for the tests that predate
-    /// them.</summary>
+    /// <summary>Without reuse candidates, for a caller that has none.</summary>
     public MemoryAnnotationRequest(MemoryWrite write, IReadOnlyList<string> recent)
         : this(write, recent, []) { }
 }

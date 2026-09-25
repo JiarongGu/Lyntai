@@ -1,4 +1,5 @@
 using System.Text;
+using Lyntai.Memory;
 using Lyntai.Storage;
 
 namespace Lyntai.Cortex;
@@ -14,7 +15,8 @@ public static class CuratedMemorySections
     /// <summary>Render <paramref name="entries"/> as per-kind sections. Only <c>Enabled</c> entries are
     /// included; empty input (or all-disabled) yields an empty string. <paramref name="header"/> formats a
     /// kind into its section heading (default <c>"## {kind}"</c>); <paramref name="bullet"/> prefixes each
-    /// entry (default <c>"- "</c>). When <paramref name="taskKey"/> is non-null the entries are additionally
+    /// entry (default <c>"- "</c>). Each entry renders as ONE line — content carrying newlines is flattened
+    /// (<c>docs/DECISIONS.md</c> D166), so catalog text cannot open a section of its own. When <paramref name="taskKey"/> is non-null the entries are additionally
     /// filtered by <see cref="AppliesTo"/> (task + scope), mirroring <c>ICuratedMemoryStore.ForCompositionAsync</c>
     /// — for callers that fetch a broad list and filter in-app; pass an empty <paramref name="scopes"/> to
     /// disable scope filtering.</summary>
@@ -40,8 +42,7 @@ public static class CuratedMemorySections
             sb.Append(header(group.Key)).Append('\n');
             foreach (var entry in group.OrderBy(e => e.CreatedAt).ThenBy(e => e.Id))
             {
-                sb.Append(bullet);
-                sb.Append(entry.Content).Append('\n');
+                sb.Append(bullet).Append(MemoryLine.Flatten(entry.Content)).Append('\n');
             }
         }
         return sb.ToString().TrimEnd('\n');

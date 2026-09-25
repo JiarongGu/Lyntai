@@ -316,9 +316,7 @@ public static class LyntaiServiceCollectionExtensions
             sp.GetServices<IScorer>(), sp.GetService<IScoreStore>(), sp.GetService<ILogger<ScoringService>>()));
         services.TryAddSingleton<ITraceService>(sp => new TraceService(
             sp.GetService<ITraceStore>(), logger: sp.GetService<ILogger<TraceService>>()));
-        services.TryAddSingleton<IPromptComposer>(sp => new MemoryPromptComposer(
-            sp.GetService<IMemoryStore>(), sp.GetService<Lyntai.Memory.ISemanticMemory>(),
-            sp.GetService<ILogger<MemoryPromptComposer>>()));
+        services.TryAddSingleton<IPromptComposer>(Lyntai.Memory.EngineBackedPromptComposer.ForContainer);
         services.TryAddSingleton<IPairwiseComparer>(sp => new LlmPairwiseComparer(sp.GetRequiredService<ITextClient>()));
     }
 
@@ -477,7 +475,6 @@ public static class LyntaiServiceCollectionExtensions
         services.TryAddSingleton<IChatOrchestrator>(sp => new ChatOrchestrator(
             sp.GetRequiredService<ITextClient>(), sp.GetRequiredService<IToolLoop>(), sp.GetRequiredService<IToolRegistry>(),
             sp.GetRequiredService<IGuardRail>(), sp.GetRequiredService<IPromptComposer>(),
-            sp.GetService<IMemoryStore>(), sp.GetService<Lyntai.Memory.ISemanticMemory>(),
             sp.GetService<ILogger<ChatOrchestrator>>()));
     }
 }

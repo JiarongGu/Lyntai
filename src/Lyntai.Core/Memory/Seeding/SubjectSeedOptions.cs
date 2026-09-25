@@ -8,7 +8,7 @@ namespace Lyntai.Memory.Seeding;
 /// <para><b>Zero is legal here, unlike <see cref="SemanticSeedOptions.K"/>.</b> A subject exists only
 /// because an annotator was already registered and paid for, so this source is registered unconditionally
 /// (<c>AddMemoryEngine</c>) and switched off by its OWN knob rather than by omission — the asymmetry with the
-/// vector channel, which is opt-in. Only a negative or non-finite value is rejected.</para></summary>
+/// vector channel, which is opt-in. Only a negative value is rejected.</para></summary>
 public sealed record SubjectSeedOptions
 {
     private readonly int _k = 5;
@@ -22,11 +22,11 @@ public sealed record SubjectSeedOptions
     /// coupling <see cref="SemanticSeedOptions.K"/>'s own remarks already refuse.
     /// <para><c>0</c> stops this source from ever fetching, which — together with <see cref="Scan"/> — is
     /// this source's own "off" switch, for a deployment that wants handles for LINKING alone.</para></summary>
-    /// <exception cref="ArgumentOutOfRangeException">Set to a negative or non-finite value.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Set to a negative value.</exception>
     public int K
     {
         get => _k;
-        init => _k = (int)MemoryOption.Require(value, MemoryOptionRange.NonNegative, nameof(SubjectSeedOptions),
+        init => _k = MemoryOption.Require(value, 0, nameof(SubjectSeedOptions),
             "a negative bound cannot fetch anything, which is what zero already means — see this member's " +
             "own remarks on how to switch this source off.");
     }
@@ -39,11 +39,11 @@ public sealed record SubjectSeedOptions
     /// silently makes a rare handle unfindable.</para>
     /// <para><c>0</c> is this source's other "off" switch: no handles are read, so nothing can ever
     /// match.</para></summary>
-    /// <exception cref="ArgumentOutOfRangeException">Set to a negative or non-finite value.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Set to a negative value.</exception>
     public int Scan
     {
         get => _scan;
-        init => _scan = (int)MemoryOption.Require(value, MemoryOptionRange.NonNegative,
+        init => _scan = MemoryOption.Require(value, 0,
             nameof(SubjectSeedOptions),
             "a negative bound cannot scan anything, which is what zero already means — see this member's " +
             "own remarks on how to switch this source off.");

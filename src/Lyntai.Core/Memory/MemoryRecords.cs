@@ -56,7 +56,7 @@ public enum MemoryDetail
 /// where it was made. An engine with no ranking concept (lexical, semantic, curated) simply ignores this
 /// field — only <c>GraphMemoryEngine</c> consults it today.</para></param>
 /// <param name="Detail">How much of each matched entry to return. Defaults to
-/// <see cref="MemoryDetail.Headline"/>, which is what every engine did before this parameter existed.
+/// <see cref="MemoryDetail.Headline"/>.
 /// <para><b>Per CALL rather than per deployment, because one application wants both.</b> A cheap index of
 /// what is related wants headlines; a reader that must answer from the excerpts wants the whole entry, and
 /// the same host does both at different call sites. Measured on LoCoMo: returning full content for the SAME

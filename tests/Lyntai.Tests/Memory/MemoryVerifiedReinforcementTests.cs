@@ -79,8 +79,12 @@ public sealed class MemoryVerifiedReinforcementTests
     {
         var store = new InMemoryMemoryGraphStore();
         var oracle = new OracleVerifier();
-        var engine = new GraphMemoryEngine("e", store,
-            retrievability: new DsrRetrievability(), agePolicies: [new PerWriteAgePolicy()], verification: oracle);
+        var engine = new GraphMemoryEngine("e", store, seams: new GraphMemorySeams
+            {
+                Retrievability = new DsrRetrievability(),
+                AgePolicies = [new PerWriteAgePolicy()],
+                Verification = oracle,
+            });
 
         var reference = (await engine.RememberAsync(
             new MemoryWrite("t", "s", "the deploy pipeline needs approval"))).Reference;
@@ -98,8 +102,11 @@ public sealed class MemoryVerifiedReinforcementTests
         Assert.False(abstained.Answered);
 
         // 3. no judgement at all is NULL, never false — the shipped default with no verifier registered
-        var unjudged = await new GraphMemoryEngine("e", store,
-                retrievability: new DsrRetrievability(), agePolicies: [new PerWriteAgePolicy()])
+        var unjudged = await new GraphMemoryEngine("e", store, seams: new GraphMemorySeams
+            {
+                Retrievability = new DsrRetrievability(),
+                AgePolicies = [new PerWriteAgePolicy()],
+            })
             .RecallAsync(new MemoryQuery("t", "s", "deploy"));
         Assert.NotEmpty(unjudged.Items);
         Assert.Null(unjudged.Answered);
@@ -112,11 +119,12 @@ public sealed class MemoryVerifiedReinforcementTests
         var corpus = MemoryCorpus.Generate(CorpusShape.Default, Seed);
         var store = new InMemoryMemoryGraphStore();
         var oracle = verified ? new OracleVerifier() : null;
-        var engine = new GraphMemoryEngine("e", store,
-            retrievability: new DsrRetrievability(new DsrOptions { ReinforceGain = gain }),
-            agePolicies: [new PerWriteAgePolicy()],
-            options: new GraphMemoryOptions { VerificationDepth = depth },
-            verification: oracle);
+        var engine = new GraphMemoryEngine("e", store, options: new GraphMemoryOptions { VerificationDepth = depth }, seams: new GraphMemorySeams
+            {
+                Retrievability = new DsrRetrievability(new DsrOptions { ReinforceGain = gain }),
+                AgePolicies = [new PerWriteAgePolicy()],
+                Verification = oracle,
+            });
 
         var first = corpus.Steps.OfType<CorpusWrite>().First().Write;
         var byCorpusId = new Dictionary<string, string>(StringComparer.Ordinal);
@@ -267,10 +275,12 @@ public sealed class MemoryVerifiedReinforcementTests
         {
             var corpus = MemoryCorpus.Generate(CorpusShape.Default, Seed);
             var store = new InMemoryMemoryGraphStore();
-            var engine = new GraphMemoryEngine("e", store,
-                retrievability: new DsrRetrievability(new DsrOptions { ReinforceGain = 0 }),
-                agePolicies: [new PerWriteAgePolicy()],
-                ranking: ranking);
+            var engine = new GraphMemoryEngine("e", store, seams: new GraphMemorySeams
+                {
+                    Retrievability = new DsrRetrievability(new DsrOptions { ReinforceGain = 0 }),
+                    AgePolicies = [new PerWriteAgePolicy()],
+                    Ranking = ranking,
+                });
             var first = corpus.Steps.OfType<CorpusWrite>().First().Write;
             var byRef = new Dictionary<string, string>(StringComparer.Ordinal);
             long returned = 0, noise = 0, wanted = 0, missed = 0;
@@ -323,10 +333,12 @@ public sealed class MemoryVerifiedReinforcementTests
     {
         var store = new InMemoryMemoryGraphStore();
         var oracle = new OracleVerifier();
-        var engine = new GraphMemoryEngine("e", store,
-            retrievability: new DsrRetrievability(new DsrOptions { ReinforceGain = 2.0 }),
-            agePolicies: [new PerWriteAgePolicy()],
-            verification: oracle);
+        var engine = new GraphMemoryEngine("e", store, seams: new GraphMemorySeams
+            {
+                Retrievability = new DsrRetrievability(new DsrOptions { ReinforceGain = 2.0 }),
+                AgePolicies = [new PerWriteAgePolicy()],
+                Verification = oracle,
+            });
 
         var keep = (await engine.RememberAsync(
             new MemoryWrite("t", "s", "the deploy pipeline needs approval"))).Reference;
@@ -366,9 +378,11 @@ public sealed class MemoryVerifiedReinforcementTests
     public async Task Without_a_verifier_every_logged_row_is_unjudged_rather_than_failed()
     {
         var store = new InMemoryMemoryGraphStore();
-        var engine = new GraphMemoryEngine("e", store,
-            retrievability: new DsrRetrievability(new DsrOptions { ReinforceGain = 2.0 }),
-            agePolicies: [new PerWriteAgePolicy()]);
+        var engine = new GraphMemoryEngine("e", store, seams: new GraphMemorySeams
+            {
+                Retrievability = new DsrRetrievability(new DsrOptions { ReinforceGain = 2.0 }),
+                AgePolicies = [new PerWriteAgePolicy()],
+            });
 
         await engine.RememberAsync(new MemoryWrite("t", "s", "the deploy pipeline needs approval"));
         Assert.NotEmpty((await engine.RecallAsync(new MemoryQuery("t", "s", "deploy", Limit: 10))).Items);
@@ -399,9 +413,11 @@ public sealed class MemoryVerifiedReinforcementTests
     {
         var corpus = MemoryCorpus.Generate(CorpusShape.Default, Seed);
         var store = new InMemoryMemoryGraphStore();
-        var engine = new GraphMemoryEngine("e", store,
-            retrievability: new DsrRetrievability(new DsrOptions { ReinforceGain = 0 }),
-            agePolicies: [new PerWriteAgePolicy()]);
+        var engine = new GraphMemoryEngine("e", store, seams: new GraphMemorySeams
+            {
+                Retrievability = new DsrRetrievability(new DsrOptions { ReinforceGain = 0 }),
+                AgePolicies = [new PerWriteAgePolicy()],
+            });
 
         var first = corpus.Steps.OfType<CorpusWrite>().First().Write;
         var byRef = new Dictionary<string, string>(StringComparer.Ordinal);

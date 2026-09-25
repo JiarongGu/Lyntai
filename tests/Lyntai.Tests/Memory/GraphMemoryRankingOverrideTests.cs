@@ -43,8 +43,11 @@ public sealed class GraphMemoryRankingOverrideTests : IDisposable
 
     private GraphMemoryEngine Engine(IMemoryRankingPolicy? ranking = null,
         IReadOnlyDictionary<string, IMemoryRankingPolicy>? namedRankingPolicies = null) =>
-        new("e", new SqliteMemoryGraphStore(_db.Factory), ranking: ranking,
-            namedRankingPolicies: namedRankingPolicies);
+        new("e", new SqliteMemoryGraphStore(_db.Factory), seams: new GraphMemorySeams
+            {
+                Ranking = ranking,
+                NamedRankingPolicies = namedRankingPolicies,
+            });
 
     [Fact]
     public async Task An_engines_own_ranking_policy_is_used_for_every_ordinary_call()

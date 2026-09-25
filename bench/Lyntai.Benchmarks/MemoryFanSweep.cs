@@ -80,8 +80,12 @@ internal static class MemoryFanSweep
             });
 
             using var db = new MemoryPolicySweep.SweepDb();
-            var engine = new GraphMemoryEngine("fan", new SqliteMemoryGraphStore(db.Factory),
-                retrievability: new DsrRetrievability(), agePolicies: [new PerWriteAgePolicy()], ranking: ranking);
+            var engine = new GraphMemoryEngine("fan", new SqliteMemoryGraphStore(db.Factory), seams: new GraphMemorySeams
+                {
+                    Retrievability = new DsrRetrievability(),
+                    AgePolicies = [new PerWriteAgePolicy()],
+                    Ranking = ranking,
+                });
 
             var replay = await MemoryPolicySweep.ReplayAsync(corpus, engine, QueryLimit);
             foreach (var (cls, quality) in replay.ByClass)

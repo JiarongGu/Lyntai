@@ -18,9 +18,12 @@ public class MemoryWriteResultTests
     private static GraphMemoryEngine Graph(IModelProvider? provider, IVectorStore? vectors,
         IMemoryGraphStore? store = null, GraphMemoryOptions? options = null,
         ILogger<GraphMemoryEngine>? logger = null) =>
-        new(GraphName, store ?? new InMemoryMemoryGraphStore(), options,
-            agePolicies: [new PerWriteAgePolicy()], providers: provider is null ? null : [provider],
-            vectors: vectors, logger: logger);
+        new(GraphName, store ?? new InMemoryMemoryGraphStore(), options, seams: new GraphMemorySeams
+            {
+                AgePolicies = [new PerWriteAgePolicy()],
+                Providers = provider is null ? null : [provider],
+                Vectors = vectors,
+            }, logger: logger);
 
     /// <summary>Every id indexed in the graph engine's collection. A zero vector is a legal probe and a search
     /// returns the collection's top-k whatever the scores, so this reads what is THERE.</summary>
@@ -135,7 +138,7 @@ public class MemoryWriteResultTests
     {
         // the vector is indexed BEFORE the links, each best-effort on its own — a link failure costs links only
         var vectors = new InMemoryVectorStore();
-        var store = new TimingOutGraphStore(nameof(IMemoryGraphStore.LinkAsync));
+        var store = new TimingOutGraphStore(nameof(IMemoryGraphStore.LinkManyAsync));
         var engine = Graph(new FakeVectorProvider(), vectors, store,
             options: new GraphMemoryOptions { MinSimilarity = 0.1 });
         await engine.RememberAsync(new MemoryWrite("t", "s", "you can cancel your subscription anytime"));

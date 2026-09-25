@@ -18,12 +18,11 @@ public sealed record SemanticSeedOptions
     /// <para><b>Must be positive.</b> Zero or negative stops this source from ever searching, which is
     /// indistinguishable from an outage — the seam already has a way to opt out of this source entirely:
     /// simply do not register it (see <see cref="Lyntai.LyntaiBuilder"/>'s <c>AddMemorySemanticSeeds</c>).</para></summary>
-    /// <exception cref="ArgumentOutOfRangeException">Set to zero, a negative value, or a non-finite
-    /// value.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Set to zero or a negative value.</exception>
     public int K
     {
         get => _k;
-        init => _k = (int)MemoryOption.Require(value, MemoryOptionRange.Positive, nameof(SemanticSeedOptions),
+        init => _k = MemoryOption.Require(value, 1, nameof(SemanticSeedOptions),
             "a non-positive bound stops this source from ever searching, which is indistinguishable from an "
             + "outage; the way to opt out is to not register the source at all.");
     }

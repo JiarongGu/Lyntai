@@ -38,8 +38,9 @@ public interface IMemoryRemovalPolicy
     bool Includes(IMemoryEngine member, MemoryRemovalKind kind);
 }
 
-/// <summary>The shipped default: a member that can hold ONLY authoritative material is out of scope for
-/// both kinds of remove; everything else is in scope.
+/// <summary>The shipped default: a member that cannot hold associative material — authoritative-only, or
+/// read-only (<see cref="MemoryGrades.None"/>) — is out of scope for both kinds of remove; everything else is
+/// in scope.
 ///
 /// <para><b>Why that test rather than the engine's type.</b> <see cref="MemoryGrades"/> is a property an
 /// engine already declares, and the grade split exists precisely to separate operator-maintained exact facts
@@ -58,6 +59,6 @@ public sealed class DefaultMemoryRemovalPolicy : IMemoryRemovalPolicy
     public bool Includes(IMemoryEngine member, MemoryRemovalKind kind)
     {
         ArgumentNullException.ThrowIfNull(member);
-        return member.Supported != MemoryGrades.Authoritative;
+        return member.Supported.HasFlag(MemoryGrades.Associative);
     }
 }

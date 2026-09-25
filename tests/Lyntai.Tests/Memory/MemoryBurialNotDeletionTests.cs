@@ -33,8 +33,11 @@ public class MemoryBurialNotDeletionTests
     private const int Noise = 600;
 
     private static GraphMemoryEngine NewEngine(TempDb db) =>
-        new(Engine, new SqliteMemoryGraphStore(db.Factory),
-            agePolicies: [new PerWriteAgePolicy()], retrievability: new DsrRetrievability());
+        new(Engine, new SqliteMemoryGraphStore(db.Factory), seams: new GraphMemorySeams
+            {
+                AgePolicies = [new PerWriteAgePolicy()],
+                Retrievability = new DsrRetrievability(),
+            });
 
     /// <summary>A second engine over the SAME store that reads without mutating — the vacuity guards use it
     /// instead of the writing engine.
@@ -43,14 +46,16 @@ public class MemoryBurialNotDeletionTests
     /// un-fade the very entry being checked and leave the fact proving less than it claims. Reinforcement
     /// and co-activation are both off here, which makes the read a pure observation.</para></summary>
     private static GraphMemoryEngine Probe(TempDb db) =>
-        new(Engine, new SqliteMemoryGraphStore(db.Factory),
-            new GraphMemoryOptions
+        new(Engine, new SqliteMemoryGraphStore(db.Factory), new GraphMemoryOptions
             {
                 ReinforceOn = MemoryReinforcementActs.None,
                 CoActivationCap = 0,
                 LogReviews = false,
-            },
-            agePolicies: [new PerWriteAgePolicy()], retrievability: new DsrRetrievability());
+            }, seams: new GraphMemorySeams
+            {
+                AgePolicies = [new PerWriteAgePolicy()],
+                Retrievability = new DsrRetrievability(),
+            });
 
     private static async Task CrowdAsync(GraphMemoryEngine engine, int writes)
     {

@@ -21,7 +21,10 @@ public class GraphMemoryReviewLogTests
     /// <summary>An undamped per-write age policy, matching every other recall-quality fact in this tree, so
     /// ages advance deterministically by counting rather than by wall-clock burst damping.</summary>
     private static GraphMemoryEngine Engine(IMemoryGraphStore store, GraphMemoryOptions? options = null) =>
-        new("e", store, options, agePolicies: [new PerWriteAgePolicy()]);
+        new("e", store, options, seams: new GraphMemorySeams
+            {
+                AgePolicies = [new PerWriteAgePolicy()],
+            });
 
     /// <summary>Make everything already stored older by writing unrelated material — the only thing that
     /// ages a memory in this model.</summary>
@@ -260,8 +263,10 @@ public class GraphMemoryReviewLogTests
     [Fact]
     public async Task A_broken_review_log_costs_neither_the_hits_the_learning_nor_co_activation()
     {
-        var engine = new GraphMemoryEngine("project/graph", new ReviewLogHostileGraphStore(),
-            agePolicies: [new PerWriteAgePolicy()]);
+        var engine = new GraphMemoryEngine("project/graph", new ReviewLogHostileGraphStore(), seams: new GraphMemorySeams
+            {
+                AgePolicies = [new PerWriteAgePolicy()],
+            });
         await engine.RememberAsync(new MemoryWrite("t", "s", "reinforced despite a broken log alpha"));
         await engine.RememberAsync(new MemoryWrite("t", "s", "reinforced despite a broken log beta"));
 

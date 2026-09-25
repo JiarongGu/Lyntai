@@ -1,5 +1,3 @@
-using System.Security.Cryptography;
-using System.Text;
 using Lyntai.Inference;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -15,10 +13,6 @@ public sealed class SemanticMemory(
     ILogger<SemanticMemory>? logger = null,
     IProviderRouterFactory? routing = null) : ISemanticMemory
 {
-    // U+001F unit separator between task + scope so ("ab","c") and ("a","bc") can't collide onto one
-    // collection. Built from (char)0x1f so the source stays plain-ASCII (no inline control byte / escape).
-    private const char CollectionSeparator = (char)0x1f;
-
     private readonly ILogger _logger = logger ?? NullLogger<SemanticMemory>.Instance;
 
     private int _warnedUnlistable;
@@ -91,15 +85,16 @@ public sealed class SemanticMemory(
             return [];
         }
 
-        var prefix = $"{taskKey}{CollectionSeparator}";
+        var prefix = MemoryVectorCollection.SemanticPrefixFor(taskKey);
         var collections = await listable.ListCollectionsAsync(prefix, ct).ConfigureAwait(false);
 
         var merged = new List<SemanticHit>();
         foreach (var collection in collections)
         {
+            // a graph engine named like this task shares the prefix; its collections are another task's
+            if (MemoryVectorCollection.SemanticScopeOf(collection, prefix) is not { } scope) continue;
             ct.ThrowIfCancellationRequested();
             var matches = await vectors.SearchAsync(collection, qv, k, ct).ConfigureAwait(false);
-            var scope = collection[prefix.Length..];
             merged.AddRange(matches
                 .Where(m => m.Score >= minScore)
                 .Select(m => new SemanticHit(m.Payload, m.Score) { Scope = scope }));
@@ -115,9 +110,8 @@ public sealed class SemanticMemory(
     public Task ForgetAsync(string taskKey, string scope, CancellationToken ct = default) =>
         vectors.RemoveCollectionAsync(Collection(taskKey, scope), ct);
 
-    private static string Collection(string taskKey, string scope) => $"{taskKey}{CollectionSeparator}{scope}";
+    private static string Collection(string taskKey, string scope) => MemoryVectorCollection.ForSemantic(taskKey, scope);
 
-    // stable content hash → the vector id, so re-remembering identical content overwrites (dedup)
-    private static string IdFor(string content) =>
-        Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(content)));
+    // the content key is the vector id, so re-remembering identical content overwrites (dedup)
+    private static string IdFor(string content) => MemoryContentKey.Of(content);
 }

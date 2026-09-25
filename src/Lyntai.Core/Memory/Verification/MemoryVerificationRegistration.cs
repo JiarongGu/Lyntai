@@ -29,10 +29,13 @@ public static class MemoryVerificationRegistration
     /// </summary>
     /// <param name="builder">The Lyntai builder.</param>
     /// <param name="configure">Knobs; null takes the defaults.</param>
+    /// <exception cref="InvalidOperationException">A shipped verifier — this one or
+    /// <c>AddMemoryScoringVerification</c> — is already registered; the seam holds one.</exception>
     public static LyntaiBuilder AddMemoryVerification(this LyntaiBuilder builder,
         Action<LlmVerificationOptions>? configure = null)
     {
         ArgumentNullException.ThrowIfNull(builder);
+        MemoryVerificationClaim.Take(builder.Services, nameof(AddMemoryVerification));
 
         var options = new LlmVerificationOptions();
         configure?.Invoke(options);

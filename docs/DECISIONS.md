@@ -1935,7 +1935,7 @@ because the spelling IS the dialect.
 
 **The decision.** One function guards every option domain in the memory subsystem:
 `MemoryOption.Require(value, MemoryOptionRange, owner, why)` is the sole `ArgumentOutOfRangeException` guard
-at all 36 sites across eight files. It replaced 31 hand-rolled copies across five when it landed —
+at all 54 sites across ten files. It replaced 31 hand-rolled copies across five when it landed —
 `DsrOptions`, `GraphMemoryOptions` and the three ranking options records — and every option guarded since has
 gone through it, `SalienceOptions.NoveltyWeight` first. `MemoryOptionRange` both TESTS the value and DESCRIBES itself, so the message's domain phrase and
 the comparison that rejected the caller come from one place. Both types are `internal`.

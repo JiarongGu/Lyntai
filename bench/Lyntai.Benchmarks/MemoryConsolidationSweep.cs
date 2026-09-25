@@ -166,8 +166,12 @@ internal static class MemoryConsolidationSweep
     {
         using var db = new MemoryPolicySweep.SweepDb();
         var store = new SqliteMemoryGraphStore(db.Factory);
-        var engine = new GraphMemoryEngine(Engine, store, providers: [vectorProvider],
-            vectors: new InMemoryVectorStore(), annotation: annotation);
+        var engine = new GraphMemoryEngine(Engine, store, seams: new GraphMemorySeams
+            {
+                Providers = [vectorProvider],
+                Vectors = new InMemoryVectorStore(),
+                Annotation = annotation,
+            });
 
         var ids = new List<long>(facts.Count);
         foreach (var fact in facts)

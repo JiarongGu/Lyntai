@@ -50,8 +50,11 @@ public class GraphMemorySalienceTests
     }
 
     private static GraphMemoryEngine Engine(IMemoryGraphStore store, IMemorySaliencePolicy? saliencePolicy) =>
-        new("e", store, saliencePolicies: saliencePolicy is null ? null : [saliencePolicy],
-            retrievability: new ModulatedRetrievability(new DsrRetrievability(), [new SalienceRetentionPolicy()]));
+        new("e", store, seams: new GraphMemorySeams
+            {
+                SaliencePolicies = saliencePolicy is null ? null : [saliencePolicy],
+                Retrievability = new ModulatedRetrievability(new DsrRetrievability(), [new SalienceRetentionPolicy()]),
+            });
 
     [Fact]
     public async Task A_judged_salience_is_stored_with_the_node_and_read_back()
@@ -158,8 +161,11 @@ public class GraphMemorySalienceTests
         // SAME way it already does for enrichment: the write still succeeds, and with no comparables the
         // (default) salience policy records nothing rather than the caller ever seeing the exception
         var store = new InMemoryMemoryGraphStore();
-        var engine = new GraphMemoryEngine("e", store,
-            providers: [new ThrowingVectorProvider()], vectors: new InMemoryVectorStore());
+        var engine = new GraphMemoryEngine("e", store, seams: new GraphMemorySeams
+            {
+                Providers = [new ThrowingVectorProvider()],
+                Vectors = new InMemoryVectorStore(),
+            });
 
         var reference = (await engine.RememberAsync(new MemoryWrite("t", "s", "still stored"))).Reference;
 
@@ -181,11 +187,13 @@ public class GraphMemorySalienceTests
         // backends drop a non-finite member in MemorySignalsJson.Serialize, so the engine would never see one
         // there and the test would pass for the wrong reason.
         var store = new InMemoryMemoryGraphStore();
-        var engine = new GraphMemoryEngine("e", store,
-            saliencePolicies: [new FixedSaliencePolicy(double.NaN)],
-            retrievability: new ModulatedRetrievability(new DsrRetrievability(), [new SalienceRetentionPolicy()]),
-            ranking: new MultiplicativeRankingPolicy(
-                new MultiplicativeRankingOptions { SalienceRankWeight = 1.0 }));
+        var engine = new GraphMemoryEngine("e", store, seams: new GraphMemorySeams
+            {
+                SaliencePolicies = [new FixedSaliencePolicy(double.NaN)],
+                Retrievability = new ModulatedRetrievability(new DsrRetrievability(), [new SalienceRetentionPolicy()]),
+                Ranking = new MultiplicativeRankingPolicy(
+                    new MultiplicativeRankingOptions { SalienceRankWeight = 1.0 }),
+            });
 
         await engine.RememberAsync(new MemoryWrite("t", "s", "a fact worth keeping"));
         await engine.RememberAsync(new MemoryWrite("t", "s", "another fact worth keeping"));

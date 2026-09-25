@@ -28,16 +28,10 @@ public enum MemoryWriteRouting
 /// stay ONE concept rather than four. Members carry hierarchical names ("project/graph"), and every
 /// <see cref="MemoryRef"/> records its owning member, which is what makes routing unambiguous.
 /// <para><b>It never guesses about capabilities.</b> It always implements <see cref="IExpandableMemory"/>,
-/// <see cref="ILinkableMemory"/> and <see cref="IForgettableMemory"/>, and routes strictly by
-/// <see cref="MemoryRef.Engine"/>. A wrapper implementing only the base interface would make a capable
-/// member invisible — the exact regression that shipped once in the generation router, where wrapping a
-/// provider silently stopped every queue-backed render from routing while inline renders kept working and
-/// every inline test stayed green.
-/// <br/><b>That paragraph was true of two capabilities and false of the third until 3.0</b>, which is why it
-/// now names all three. <see cref="IForgettableMemory"/> was omitted, so <c>engine is IForgettableMemory</c>
-/// was FALSE for every <c>AddMemoryEngine</c> registration — this class is what
-/// <c>MemoryEngineBuilder.Build</c> returns for ALL of them — and a consumer of the shipped memory subsystem
-/// had no supported way to delete anything. A comment asserting an invariant is not the invariant.</para>
+/// <see cref="ILinkableMemory"/>, <see cref="IForgettableMemory"/> and <see cref="IPrunableMemory"/>, and
+/// routes strictly by <see cref="MemoryRef.Engine"/>. A wrapper implementing only the base interface would
+/// make a capable member invisible — and this class is what <c>MemoryEngineBuilder.Build</c> returns for
+/// EVERY registration, so a capability it omits is one no consumer can reach.</para>
 ///
 /// <para><b>Removal fans OUT; expansion and linking ROUTE.</b> The difference is the argument:
 /// <see cref="ExpandAsync"/> and <see cref="LinkAsync"/> take a <see cref="MemoryRef"/>, which names exactly
@@ -124,12 +118,12 @@ public sealed class CompositeMemoryEngine
             _ => MemoryGrades.None,
         };
 
-        // Inherit is every member's business — the grade is unresolved, so each one stores it at its own
-        // role. An explicit grade is ROUTED to the members that can hold it, and never downgraded: accepting
-        // an authoritative write and storing it as associative is precisely the failure the grade split
-        // exists to prevent, and it would be undetectable afterwards.
+        // Inherit is every WRITABLE member's business — the grade is unresolved, so each one stores it at its
+        // own role; a read-only member (Supported None) is never a target. An explicit grade is ROUTED to the
+        // members that can hold it, and never downgraded: accepting an authoritative write and storing it as
+        // associative is precisely the failure the grade split exists to prevent.
         IReadOnlyList<IMemoryEngine> capable = wanted == MemoryGrades.None
-            ? _members
+            ? [.. _members.Where(m => m.Supported != MemoryGrades.None)]
             : [.. _members.Where(m => m.Supported.HasFlag(wanted))];
 
         IReadOnlyList<IMemoryEngine> targets = WriteRouting == MemoryWriteRouting.EveryCapable
@@ -159,17 +153,10 @@ public sealed class CompositeMemoryEngine
         var items = new List<MemoryItem>();
         var ran = MemorySources.None;
 
-        // THE ABSTENTION SIGNAL, folded rather than dropped. Through 2.5.x this method returned
-        // `new MemoryRecall(items, ran)` — the third positional argument defaulted to null — so
-        // MemoryRecall.Answered was ALWAYS null on every DI-registered engine, because
-        // MemoryEngineBuilder.Build is documented "ALWAYS a composite, even for one member". A judge that
-        // ran and abstained was indistinguishable from no judge at all, which is the one distinction the
-        // field exists to make.
-        //
-        // The fold is a three-value lattice, not a boolean: TRUE if any member's judge found an answer,
-        // FALSE if at least one judged and none did, and NULL only when nothing judged anywhere. The last
-        // clause is what keeps the shipped default (no verifier) from ever synthesising `false` — a
-        // consumer abstaining on `false` would otherwise abstain on everything.
+        // THE ABSTENTION SIGNAL, folded rather than dropped — every DI-registered engine is a composite, so
+        // a dropped fold would make a judge that abstained indistinguishable from no judge. Three values, not
+        // a boolean: TRUE if any member's judge found an answer, FALSE if at least one judged and none did,
+        // NULL only when nothing judged — which keeps the no-verifier default from ever reporting `false`.
         bool? answered = null;
 
         foreach (var member in _members)
@@ -220,30 +207,11 @@ public sealed class CompositeMemoryEngine
                 .ThenByDescending(i => i.Relevance)
                 .Take(limit)];
 
-        // THE SECOND CUT, and it is the same defect as the first one field over. `CharBudget` travelled to
-        // every member unchanged and was reconciled by NOTHING, so an N-member blend could spend N x the
-        // budget a caller set — and a caller sets it precisely because it is a prompt budget. Same class as
-        // the AuthoritativeReserve incident pitfalls.md records: a bound configured on one scope (the query)
-        // and enforced on another (none).
-        //
-        // The rule is GraphMemoryEngine's own, deliberately identical so a blend and a bare engine cannot
-        // answer the same query differently: applied AFTER the limit so the budget cuts the weakest tail
-        // rather than changing what wins, an authoritative item is never dropped by it (objective (1) has no
-        // acceptable failure rate), and a budget too small even for one item still yields one — a caller
-        // asking for less than one fact gets one fact, not nothing.
+        // THE SECOND CUT: each member spent up to the whole `CharBudget`, so a blend reconciles it too — AFTER
+        // the limit, so the budget cuts the weakest tail rather than changing what wins, by the rule a bare
+        // engine applies (MemoryBudget.Cut).
         if (query.CharBudget is { } budget && budget > 0)
-        {
-            var spent = 0;
-            var kept = new List<MemoryItem>(items.Count);
-            foreach (var item in items)
-            {
-                var cost = item.Content?.Length ?? item.Headline.Length;
-                if (item.Grade != MemoryGrade.Authoritative && kept.Count > 0 && spent + cost > budget) continue;
-                spent += cost;
-                kept.Add(item);
-            }
-            items = kept;
-        }
+            items = MemoryBudget.Cut(items, budget);
 
         return new MemoryRecall(items, ran, answered);
     }
@@ -319,10 +287,10 @@ public sealed class CompositeMemoryEngine
     /// before anything is removed unless every one of them has it.</summary>
     /// <remarks>All-or-nothing, and the check runs FIRST. Removing from some members and returning success
     /// leaves the blend holding the very data the caller asked to remove — and a mid-fan-out refusal would be
-    /// worse still, a partial remove AND an exception. Only <c>GraphMemoryEngine</c> implements
-    /// <see cref="IForgettableMemory"/> today, so a mixed blend refuses loudly and names the members that
-    /// cannot serve the call, rather than clearing what it can. For the call an application makes when a user
-    /// withdraws consent, a partial success that reports nothing is the worst available answer.</remarks>
+    /// worse still, a partial remove AND an exception. A blend holding a member that cannot serve the verb (a
+    /// BYO engine; a semantic member asked to prune) refuses loudly and names it, rather than clearing what it
+    /// can. For the call an application makes when a user withdraws consent, a partial success that reports
+    /// nothing is the worst available answer.</remarks>
     private List<T> RemovableMembers<T>(string verb, MemoryRemovalKind kind) where T : class
     {
         // A member the POLICY excludes is OUT OF SCOPE, not a gap. It is skipped, and the skip is LOGGED

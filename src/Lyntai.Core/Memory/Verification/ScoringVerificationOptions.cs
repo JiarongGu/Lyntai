@@ -22,7 +22,8 @@ public sealed class ScoringVerificationOptions
     /// for a tool selector or a ranking policy silently becomes the memory verifier too. The two
     /// model-backed sibling seams say it with
     /// <see cref="LlmVerificationOptions.ClientName"/>; this is the same lever over a provider id rather
-    /// than a client name, because a scoring backend is selected by what it PRODUCES and never routed.</para>
+    /// than a client name, because a scoring backend is selected by what it PRODUCES. Naming one narrows
+    /// the candidates the score call is ROUTED over to that backend.</para>
     ///
     /// <para>An id naming no registered backend — or one that does not declare
     /// <see cref="Lyntai.Inference.ProviderKinds.Score"/> — THROWS when the policy is composed, rather than reporting

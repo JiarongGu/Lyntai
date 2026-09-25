@@ -14,7 +14,10 @@ public class GraphMemoryEngineTests
     /// <summary>An undamped per-write age policy, so these facts age deterministically by counting: every write
     /// crowds by exactly one, and nothing depends on how fast the test happens to run.</summary>
     private static GraphMemoryEngine Engine(GraphMemoryOptions? options = null) =>
-        new("project/graph", new InMemoryMemoryGraphStore(), options, agePolicies: [new PerWriteAgePolicy()]);
+        new("project/graph", new InMemoryMemoryGraphStore(), options, seams: new GraphMemorySeams
+            {
+                AgePolicies = [new PerWriteAgePolicy()],
+            });
 
     /// <summary>Make everything already stored older by writing unrelated material — which is what ages a
     /// memory now: newer material competing with it.</summary>
@@ -206,8 +209,11 @@ public class GraphMemoryEngineTests
         // same "something stronger buries something faint" claim this fact has always made, without
         // resurrecting the write count HalfLifeRetrievability's much faster decay used to need.
         var ranking = new MultiplicativeRankingPolicy(new MultiplicativeRankingOptions { RelativeFloor = 0.5 });
-        var engine = new GraphMemoryEngine("project/graph", new InMemoryMemoryGraphStore(),
-            agePolicies: [new PerWriteAgePolicy()], ranking: ranking);
+        var engine = new GraphMemoryEngine("project/graph", new InMemoryMemoryGraphStore(), seams: new GraphMemorySeams
+            {
+                AgePolicies = [new PerWriteAgePolicy()],
+                Ranking = ranking,
+            });
         await engine.RememberAsync(new MemoryWrite("t", "s", "an old note about widgets"));
         await Crowd(engine, 200);
         await engine.RememberAsync(new MemoryWrite("t", "s", "a fresh note about widgets"));
@@ -283,7 +289,10 @@ public class GraphMemoryEngineTests
         // than a latency, because `memory-scale` cannot resolve the change above its own noise: its 10k p50
         // spans 8.9-11.2ms across runs of identical code. What is checkable here is that ten calls became one.
         var store = new LinkCountingGraphStore();
-        var engine = new GraphMemoryEngine("project/graph", store, agePolicies: [new PerWriteAgePolicy()]);
+        var engine = new GraphMemoryEngine("project/graph", store, seams: new GraphMemorySeams
+            {
+                AgePolicies = [new PerWriteAgePolicy()],
+            });
         for (var i = 0; i < 6; i++)
             await engine.RememberAsync(new MemoryWrite("t", "s", $"the deploy gate runs check number {i}"));
 
@@ -303,7 +312,10 @@ public class GraphMemoryEngineTests
         // up: `memory-scale` cannot resolve what this buys above its own run-to-run spread, so what is
         // checkable is that three calls became one.
         var store = new WriteBackCountingGraphStore();
-        var engine = new GraphMemoryEngine("project/graph", store, agePolicies: [new PerWriteAgePolicy()]);
+        var engine = new GraphMemoryEngine("project/graph", store, seams: new GraphMemorySeams
+            {
+                AgePolicies = [new PerWriteAgePolicy()],
+            });
         for (var i = 0; i < 6; i++)
             await engine.RememberAsync(new MemoryWrite("t", "s", $"the deploy gate runs check number {i}"));
 
@@ -581,8 +593,10 @@ public class GraphMemoryEngineTests
     public async Task A_failing_touch_still_returns_the_hits()
     {
         // a read-only database must degrade to "no learning", never to "no memory"
-        var engine = new GraphMemoryEngine("project/graph", new TouchHostileGraphStore(),
-            agePolicies: [new PerWriteAgePolicy()]);
+        var engine = new GraphMemoryEngine("project/graph", new TouchHostileGraphStore(), seams: new GraphMemorySeams
+            {
+                AgePolicies = [new PerWriteAgePolicy()],
+            });
         await engine.RememberAsync(new MemoryWrite("t", "s", "still recalled"));
 
         var recall = await engine.RecallAsync(new MemoryQuery("t", "s", "still"));
@@ -646,7 +660,10 @@ public class GraphMemoryEngineTests
     public async Task Prune_agrees_with_recall_after_a_policy_swap_rather_than_removing_the_stale_accumulator()
     {
         var store = new InMemoryMemoryGraphStore();
-        var underContentSize = new GraphMemoryEngine("e", store, agePolicies: [new ContentSizeAgePolicy(perUnit: 1)]);
+        var underContentSize = new GraphMemoryEngine("e", store, seams: new GraphMemorySeams
+            {
+                AgePolicies = [new ContentSizeAgePolicy(perUnit: 1)],
+            });
 
         await underContentSize.RememberAsync(new MemoryWrite("t", "s", "the seed fact"));
 
@@ -663,7 +680,10 @@ public class GraphMemoryEngineTests
             await underContentSize.RememberAsync(new MemoryWrite("t", "s", $"{filler} {i}"));
 
         // SWAP: a fresh engine instance over the SAME store, now governed by PerWriteAgePolicy alone.
-        var underPerWrite = new GraphMemoryEngine("e", store, agePolicies: [new PerWriteAgePolicy()]);
+        var underPerWrite = new GraphMemoryEngine("e", store, seams: new GraphMemorySeams
+            {
+                AgePolicies = [new PerWriteAgePolicy()],
+            });
 
         // 50 ordinal writes at InitialStability 20 clears a modest floor easily (2^(-50/20) ~ 0.177). The
         // SAME fact under the STALE chars-based accumulator (~50*200=10000 over the same stability) reads
@@ -726,7 +746,10 @@ public class GraphMemoryEngineTests
     public async Task Prune_removes_a_connected_entry_on_its_re_derived_strength_age_instead_of_refusing_outright()
     {
         var store = new InMemoryMemoryGraphStore();
-        var underContentSize = new GraphMemoryEngine("e", store, agePolicies: [new ContentSizeAgePolicy(perUnit: 1)]);
+        var underContentSize = new GraphMemoryEngine("e", store, seams: new GraphMemorySeams
+            {
+                AgePolicies = [new ContentSizeAgePolicy(perUnit: 1)],
+            });
 
         var linked = (await underContentSize.RememberAsync(new MemoryWrite("t", "s", "the linked fact"))).Reference;
         var neighbour = (await underContentSize.RememberAsync(
@@ -737,7 +760,10 @@ public class GraphMemoryEngineTests
         for (var i = 0; i < 50; i++)
             await underContentSize.RememberAsync(new MemoryWrite("t", "s", $"{filler} {i}"));
 
-        var underPerWrite = new GraphMemoryEngine("e", store, agePolicies: [new PerWriteAgePolicy()]);
+        var underPerWrite = new GraphMemoryEngine("e", store, seams: new GraphMemorySeams
+            {
+                AgePolicies = [new PerWriteAgePolicy()],
+            });
         var id = long.Parse(linked.Id, CultureInfo.InvariantCulture);
 
         // the rightful connection boost clears 0.40 — reading the raw chars-unit StrengthAge does not
@@ -774,7 +800,10 @@ public class GraphMemoryEngineTests
     public async Task Expansion_ranks_an_edge_by_its_re_derived_age_not_the_raw_position_accumulator()
     {
         var store = new InMemoryMemoryGraphStore();
-        var underContentSize = new GraphMemoryEngine("e", store, agePolicies: [new ContentSizeAgePolicy(perUnit: 1)]);
+        var underContentSize = new GraphMemoryEngine("e", store, seams: new GraphMemorySeams
+            {
+                AgePolicies = [new ContentSizeAgePolicy(perUnit: 1)],
+            });
 
         var hub = (await underContentSize.RememberAsync(new MemoryWrite("t", "s", "the hub fact"))).Reference;
         var far = (await underContentSize.RememberAsync(new MemoryWrite("t", "s", "the far neighbour"))).Reference;
@@ -788,7 +817,10 @@ public class GraphMemoryEngineTests
         var near = (await underContentSize.RememberAsync(new MemoryWrite("t", "s", "the near neighbour"))).Reference;
         await underContentSize.LinkAsync(hub, near, weight: 10);
 
-        var underPerWrite = new GraphMemoryEngine("e", store, agePolicies: [new PerWriteAgePolicy()]);
+        var underPerWrite = new GraphMemoryEngine("e", store, seams: new GraphMemorySeams
+            {
+                AgePolicies = [new PerWriteAgePolicy()],
+            });
         var expanded = await underPerWrite.ExpandAsync(hub);
 
         // items[0] is the expanded node itself; the neighbours follow, ordered by DECAYED edge weight
@@ -830,9 +862,11 @@ public class GraphMemoryEngineTests
         const string query = "deploy pipeline";   // contiguous in the content, so the match needs nothing clever
 
         var store = new InMemoryMemoryGraphStore();
-        var engine = new GraphMemoryEngine("e", store,
-            retrievability: new DsrRetrievability(new DsrOptions { ReinforceGain = 2.0 }),
-            agePolicies: [new PerWriteAgePolicy()]);
+        var engine = new GraphMemoryEngine("e", store, seams: new GraphMemorySeams
+            {
+                Retrievability = new DsrRetrievability(new DsrOptions { ReinforceGain = 2.0 }),
+                AgePolicies = [new PerWriteAgePolicy()],
+            });
         var reference = (await engine.RememberAsync(new MemoryWrite("t", "s", content))).Reference;
         var id = long.Parse(reference.Id, CultureInfo.InvariantCulture);
 
@@ -869,12 +903,13 @@ public class GraphMemoryEngineTests
         const string query = "deploy pipeline";
 
         var store = new InMemoryMemoryGraphStore();
-        var engine = new GraphMemoryEngine("e", store,
-            retrievability: new DsrRetrievability(new DsrOptions { ReinforceGain = 2.0 }),
-            agePolicies: [new PerWriteAgePolicy()],
-            options: new GraphMemoryOptions
+        var engine = new GraphMemoryEngine("e", store, options: new GraphMemoryOptions
             {
                 Reinforcement = MemoryReinforcementEffects.AgeReset,
+            }, seams: new GraphMemorySeams
+            {
+                Retrievability = new DsrRetrievability(new DsrOptions { ReinforceGain = 2.0 }),
+                AgePolicies = [new PerWriteAgePolicy()],
             });
         var reference = (await engine.RememberAsync(new MemoryWrite("t", "s", content))).Reference;
         var id = long.Parse(reference.Id, CultureInfo.InvariantCulture);
@@ -902,9 +937,11 @@ public class GraphMemoryEngineTests
         const string query = "deploy pipeline";
 
         var store = new InMemoryMemoryGraphStore();
-        var engine = new GraphMemoryEngine("e", store,
-            retrievability: new DsrRetrievability(new DsrOptions { ReinforceGain = 2.0 }),
-            agePolicies: [new PerWriteAgePolicy()]);
+        var engine = new GraphMemoryEngine("e", store, seams: new GraphMemorySeams
+            {
+                Retrievability = new DsrRetrievability(new DsrOptions { ReinforceGain = 2.0 }),
+                AgePolicies = [new PerWriteAgePolicy()],
+            });
         var reference = (await engine.RememberAsync(new MemoryWrite("t", "s", content))).Reference;
         var id = long.Parse(reference.Id, CultureInfo.InvariantCulture);
 
@@ -930,10 +967,11 @@ public class GraphMemoryEngineTests
         const string query = "deploy pipeline";
 
         var store = new InMemoryMemoryGraphStore();
-        var engine = new GraphMemoryEngine("e", store,
-            retrievability: new DsrRetrievability(new DsrOptions { ReinforceGain = 2.0 }),
-            agePolicies: [new PerWriteAgePolicy()],
-            options: new GraphMemoryOptions { Reinforcement = MemoryReinforcementEffects.None });
+        var engine = new GraphMemoryEngine("e", store, options: new GraphMemoryOptions { Reinforcement = MemoryReinforcementEffects.None }, seams: new GraphMemorySeams
+            {
+                Retrievability = new DsrRetrievability(new DsrOptions { ReinforceGain = 2.0 }),
+                AgePolicies = [new PerWriteAgePolicy()],
+            });
         var reference = (await engine.RememberAsync(new MemoryWrite("t", "s", content))).Reference;
         var id = long.Parse(reference.Id, CultureInfo.InvariantCulture);
 
@@ -1047,8 +1085,10 @@ public class GraphMemoryEngineTests
     {
         var bit = (MemorySalienceProvenance)(1L << 40);
 
-        var ex = Assert.Throws<ArgumentException>(() => new GraphMemoryEngine("e", new InMemoryMemoryGraphStore(),
-            saliencePolicies: [new FixedProvenanceSaliencePolicy(bit), new AnotherFixedProvenanceSaliencePolicy(bit)]));
+        var ex = Assert.Throws<ArgumentException>(() => new GraphMemoryEngine("e", new InMemoryMemoryGraphStore(), seams: new GraphMemorySeams
+            {
+                SaliencePolicies = [new FixedProvenanceSaliencePolicy(bit), new AnotherFixedProvenanceSaliencePolicy(bit)],
+            }));
 
         Assert.Contains("Provenance", ex.Message, StringComparison.Ordinal);
     }
@@ -1056,8 +1096,10 @@ public class GraphMemoryEngineTests
     [Fact]
     public void A_salience_policy_declaring_None_is_rejected_at_construction()
     {
-        var ex = Assert.Throws<ArgumentException>(() => new GraphMemoryEngine("e", new InMemoryMemoryGraphStore(),
-            saliencePolicies: [new FixedProvenanceSaliencePolicy(MemorySalienceProvenance.None)]));
+        var ex = Assert.Throws<ArgumentException>(() => new GraphMemoryEngine("e", new InMemoryMemoryGraphStore(), seams: new GraphMemorySeams
+            {
+                SaliencePolicies = [new FixedProvenanceSaliencePolicy(MemorySalienceProvenance.None)],
+            }));
 
         Assert.Contains("None", ex.Message, StringComparison.Ordinal);
     }
@@ -1065,8 +1107,10 @@ public class GraphMemoryEngineTests
     [Fact]
     public void A_retrievability_policy_declaring_None_is_rejected_at_construction()
     {
-        var ex = Assert.Throws<ArgumentException>(() => new GraphMemoryEngine("e", new InMemoryMemoryGraphStore(),
-            retrievability: new FixedProvenanceRetrievability(MemoryRetrievabilityProvenance.None)));
+        var ex = Assert.Throws<ArgumentException>(() => new GraphMemoryEngine("e", new InMemoryMemoryGraphStore(), seams: new GraphMemorySeams
+            {
+                Retrievability = new FixedProvenanceRetrievability(MemoryRetrievabilityProvenance.None),
+            }));
 
         Assert.Contains("None", ex.Message, StringComparison.Ordinal);
     }
@@ -1078,8 +1122,10 @@ public class GraphMemoryEngineTests
         // same bit, no collision — only a DIFFERENT type sharing a bit (above) is rejected. Constructing
         // without throwing is the whole assertion.
         var bit = (MemorySalienceProvenance)(1L << 41);
-        _ = new GraphMemoryEngine("e", new InMemoryMemoryGraphStore(),
-            saliencePolicies: [new FixedProvenanceSaliencePolicy(bit), new FixedProvenanceSaliencePolicy(bit)]);
+        _ = new GraphMemoryEngine("e", new InMemoryMemoryGraphStore(), seams: new GraphMemorySeams
+            {
+                SaliencePolicies = [new FixedProvenanceSaliencePolicy(bit), new FixedProvenanceSaliencePolicy(bit)],
+            });
     }
 
     // ---- the engine's own injectable clock (fix round 2, cheap minor) ----
@@ -1096,8 +1142,11 @@ public class GraphMemoryEngineTests
         // to the real clock would leave `removed == 0`).
         var fixedNow = new DateTimeOffset(2999, 1, 1, 0, 0, 0, TimeSpan.Zero);
         var store = new InMemoryMemoryGraphStore();
-        var engine = new GraphMemoryEngine("e", store, agePolicies: [new PerWriteAgePolicy()],
-            clock: () => fixedNow);
+        var engine = new GraphMemoryEngine("e", store, seams: new GraphMemorySeams
+            {
+                AgePolicies = [new PerWriteAgePolicy()],
+                Clock = () => fixedNow,
+            });
 
         await engine.RememberAsync(new MemoryWrite("t", "s", "long since written"));
 

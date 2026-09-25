@@ -28,8 +28,8 @@ namespace Lyntai.Memory.Seeding;
 ///
 /// <para><b>Two bounds on two different things.</b> <see cref="SemanticSeedOptions.K"/> is the SEARCH width;
 /// <see cref="MemorySeedRequest.Limit"/> additionally caps what is RETURNED. Coupling them would narrow the
-/// search itself whenever a recall's limit is smaller. The cap is deterministic because this source sorts by
-/// score then id ordinally first — <see cref="IVectorStore.SearchAsync"/> leaves ties UNSPECIFIED.</para></summary>
+/// search itself whenever a recall's limit is smaller. The cap is deterministic because this source sorts a
+/// scope-less merge by score then id, the order one collection's search already has.</para></summary>
 public sealed class SemanticSeedSource(
     IEnumerable<IModelProvider> providers,
     IVectorStore vectors,

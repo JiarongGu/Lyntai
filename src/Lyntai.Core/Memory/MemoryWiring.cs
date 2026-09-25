@@ -98,12 +98,11 @@ internal static class MemoryWiring
 
         var claimed = MemoryGrades.None;
         var first = true;
-        foreach (var member in engine.Members)
+        // a read-only member (Supported None) is never a write target, so it neither claims nor is inert
+        foreach (var member in engine.Members.Where(m => m.Supported != MemoryGrades.None))
         {
-            // The first member takes an Inherit write whatever it supports, so it is never inert; a member
-            // supporting NOTHING makes no claim this check can reason about.
-            var inert = !first && member.Supported != MemoryGrades.None &&
-                        (member.Supported & ~claimed) == MemoryGrades.None;
+            // the first WRITABLE member takes every Inherit write, so it is never inert
+            var inert = !first && (member.Supported & ~claimed) == MemoryGrades.None;
             if (inert)
                 yield return
                     $"member '{member.Name}' of engine '{engine.Name}' can never receive a write: every " +
