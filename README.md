@@ -1228,10 +1228,11 @@ through `Options["input-path"]` and it returns a view of the object.
 
 **A queued backend (ComfyUI, fal) is not reachable from `RunPipelineAsync`**, which drives the inline door — the
 `fal` stage in the example above included — **so run such a pipeline as a durable job.**
-`GenerationPipelineJobHandler` takes each stage through the door its candidates can serve: submitted, checkpointed
-and polled like a render job when any of them can queue it, inline otherwise. It delivers every stage to your
-`IGenerationArtifactSink` as the stage finishes, tagged `StageIndex` (and `IsFinal` on the last), and a restart
-resumes it without paying for any stage twice:
+`GenerationPipelineJobHandler` takes each stage through the door of its FIRST capable candidate, in your order —
+submitted, checkpointed and polled like a render job when that candidate can queue it, rendered inline otherwise
+— and through the other door's candidates when the first runs out of them without committing anything. It
+delivers every stage to your `IGenerationArtifactSink` as the stage finishes, tagged `StageIndex` (and `IsFinal`
+on the last):
 
 <!-- compile-given: IJobQueue jobs; MediaRequest image; MediaRequest video; -->
 ```csharp
@@ -1245,10 +1246,16 @@ var pipeline = new GenerationPipelineJob(
 await jobs.EnqueueAsync(new JobSpec("render", GenerationPipelineJobHandler.JobType, pipeline.ToJson()));
 ```
 
+**What a restart or a failing sink costs.** A queued stage is never submitted twice, and a stage's result is
+checkpointed before it is delivered, so a sink that throws gets the same artifacts again with no second render,
+fetch or charge. Two cases are paid for again: a result carrying more inline bytes than
+`GenerationPipelineJobOptions.MaxCheckpointBytes` (4 MiB), which is delivered without that checkpoint, and a
+crash in the instant between a render returning and its checkpoint. So store deliveries keyed on the job id AND
+`StageIndex`, a redelivery replacing what that key holds: the latest is the one the next stage chained.
+
 A stage says which artifact it chains with `InputMediaType` (`"model/*"` picks a mesh out of its textures)
-where `RunPipelineAsync` takes a delegate, because a delegate does not survive a restart. An intermediate that
-carries bytes is checkpointed up to `GenerationPipelineJobOptions.MaxCheckpointBytes` (4 MiB); past it the job
-fails and names the stage to move to a backend that returns a URI.
+where `RunPipelineAsync` takes a delegate, because a delegate does not survive a restart. That artifact must fit
+`MaxCheckpointBytes` too; past it the job fails and names the stage to move to a backend that returns a URI.
 
 Every backend answers **"are you usable?"** without generating anything (`ProbeAsync`), so a setup screen
 never has to pay for a test image. The `generate_backends` tool asks all of them **concurrently, under one

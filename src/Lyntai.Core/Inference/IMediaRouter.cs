@@ -6,7 +6,8 @@ namespace Lyntai.Inference;
 /// always takes text, whereas a video backend simply cannot serve an image request.</summary>
 public interface IMediaRouter
 {
-    /// <summary>Generate inline through the first capable candidate, advancing on a fallible verdict.</summary>
+    /// <summary>Generate inline through the first capable candidate, advancing on a fallible verdict. The
+    /// response names the backend it came from in <see cref="MediaResponse.ProviderId"/>.</summary>
     /// <remarks>When no candidate succeeds, the reported result is the first SUBSTANTIVE failure — a blameless
     /// verdict (<see cref="ProviderVerdict.NotConfigured"/>, <see cref="ProviderVerdict.Unsupported"/>)
     /// never masks a real one, or a caller would be sent off to set up a key while the backend they HAD
@@ -34,7 +35,10 @@ public interface IMediaRouter
     /// <see cref="MediaSubmission.ProviderId"/> is EMPTY; the first rejecting backend and its reason are
     /// folded into the operation's detail instead, so the id field keeps meaning exactly one thing — the first
     /// SUBSTANTIVE rejection where there was one, otherwise a blameless rejection that still explained itself,
-    /// on the same rule <see cref="GenerateAsync"/> follows.</para></remarks>
+    /// on the same rule <see cref="GenerateAsync"/> follows.</para>
+    /// <para>Every failed submission that is not Inconclusive carries a <see cref="QueuedOperation.Verdict"/>: a
+    /// refusal the policy surfaced, the verdict it was surfaced for; one no candidate accepted, the verdict
+    /// <see cref="GenerateAsync"/> would report for the same run. So a caller can tell the two apart.</para></remarks>
     Task<MediaSubmission> SubmitAsync(
         IReadOnlyList<ProviderCandidate> candidates, MediaRequest request, CancellationToken ct = default);
 

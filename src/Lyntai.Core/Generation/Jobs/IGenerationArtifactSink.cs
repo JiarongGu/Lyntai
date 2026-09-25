@@ -12,20 +12,21 @@ public interface IGenerationArtifactSink
     /// <summary>Take delivery of a completed render. Throwing marks the job for retry — so an implementation
     /// that cannot store the artifacts right now should throw rather than swallow, and one that CAN must be
     /// safe to call twice (a retry after a failed store re-delivers).
-    /// <para><b>Implementing it:</b> a pipeline job delivers once PER STAGE under one
-    /// <see cref="GenerationArtifactDelivery.JobId"/>, so a sink that makes a redelivery a no-op keys it on
-    /// the job id AND <see cref="GenerationArtifactDelivery.StageIndex"/> — keyed on the job id alone, every
-    /// stage after the first is discarded as a duplicate.</para></summary>
+    /// <para><b>Implementing it:</b> key what you store on <see cref="GenerationArtifactDelivery.JobId"/> AND
+    /// <see cref="GenerationArtifactDelivery.StageIndex"/> — a pipeline job delivers once PER STAGE under one job
+    /// id — and let a redelivery REPLACE what that key holds, the last one winning. A queued stage's redelivery is
+    /// the same artifacts; an inline stage's may be a NEW render, and the latest is the one the next stage
+    /// chained. Ignoring a redelivery keeps a render nothing downstream used.</para></summary>
     Task ReceiveAsync(GenerationArtifactDelivery delivery, CancellationToken ct = default);
 }
 
 /// <summary>A completed render, handed to the app.</summary>
 /// <param name="JobId">The durable job that produced it — the app's correlation handle.</param>
-/// <param name="ProviderId">Which backend produced it (an operation id only means something to its issuer).
-/// Empty for a pipeline stage that ran inline, because the inline door does not report which candidate served
-/// it.</param>
-/// <param name="OperationId">The backend's operation id, kept so the app can re-fetch or audit. Empty for a
-/// pipeline stage that ran inline, which has none.</param>
+/// <param name="ProviderId">Which backend produced it (an operation id only means something to its issuer). For an
+/// INLINE render it is the backend <see cref="MediaResponse.ProviderId"/> names, empty when a custom
+/// <see cref="IMediaRouter"/> names none.</param>
+/// <param name="OperationId">The backend's operation id, kept so the app can re-fetch or audit. Empty for an inline
+/// render, which has no operation.</param>
 /// <param name="Artifacts">What was produced. Remember these may carry a URI rather than bytes — the platform
 /// never downloads on the caller's behalf.</param>
 /// <param name="Usage">What the backend said it cost, where it says.</param>

@@ -31,7 +31,7 @@ public sealed record GenerationPipelineJob
             throw new ArgumentException(
                 "the first stage chains from nothing, so InputRole and InputMediaType are never read there",
                 nameof(stages));
-        Stages = stages;
+        Stages = [.. stages];   // a copy: the caller's list may change after the payload is built
     }
 
     /// <summary>The stages, in order.</summary>

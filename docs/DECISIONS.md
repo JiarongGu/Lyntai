@@ -250,7 +250,7 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D178](#d178--a-text-candidate-naming-a-backend-that-produces-no-text-is-refused-at-composition-and-skipped-per-call-2026-09-24) | 2026-09-24 | a text candidate naming a backend that produces no text is refused at composition and skipped per… |
 | [D179](#d179--the-openai-shaped-wire-expresses-textreasoningsuppress-through-configured-fields-2026-09-24) | 2026-09-24 | the OpenAI-shaped wire expresses `TextReasoning.Suppress` through CONFIGURED fields |
 | [D180](#d180--comfyui-binds-each-input-at-a-graph-field-the-caller-names-and-produces-model3d-2026-09-25) | 2026-09-25 | ComfyUI binds each input at a graph field the CALLER names, and produces `Model3d` |
-| [D181](#d181--a-generation-pipeline-runs-as-a-durable-job-each-stage-taking-the-door-its-candidates-can-serve-2026-09-25) | 2026-09-25 | a generation pipeline runs as a durable JOB, each stage taking the door its candidates can serve |
+| [D181](#d181--a-generation-pipeline-runs-as-a-durable-job-each-stage-through-the-door-its-first-capable-candidate-serves-2026-09-25) | 2026-09-25 | a generation pipeline runs as a durable JOB, each stage through the door its first capable candid… |
 
 _All 181 entries are live decisions._
 
@@ -5614,34 +5614,36 @@ jobs would load each other's file. A role falling back to the roleless key: an i
 feed another. Refusing a URI input, as the byte-taking siblings do: no chain could cross servers. Fetching every
 URI through the ComfyUI client: the host's ComfyUI credentials would go wherever a URI or a redirect pointed.
 
-## D181 — a generation pipeline runs as a durable JOB, each stage taking the door its candidates can serve (2026-09-25)
+## D181 — a generation pipeline runs as a durable JOB, each stage through the door its first capable candidate serves (2026-09-25)
 
 **The decision.** `GenerationPipelineJobHandler` (`lyntai.generation.pipeline`) runs a `GenerationPipelineJob` —
 ordered stages, each candidate specs, a `MediaRequest`, `InputRole` and `InputMediaType` — with the render job's
-durability. A QUEUED stage is submitted through `IMediaRouter.SubmitAsync`, its operation checkpointed before the
-first poll and never re-submitted, polled with `JobOutcome.Poll` and fetched; an INLINE stage runs in the step
-through `GenerateAsync`. `RunPipelineAsync` stays as the in-memory form, inline only.
+durability; `RunPipelineAsync` stays the in-memory, inline-only form. A QUEUED stage is submitted, its operation
+checkpointed before the first poll and never re-submitted; an INLINE stage renders in the step.
 
-**The candidates choose the door, queued first.** A stage is queued when any candidate is registered, implements
-`IMediaJobProvider` and declares `Queued` for the request — `MediaRouter.Capable`, the router's own filter, read
-rather than copied — even behind an inline candidate; otherwise it is inline. Queued first because a queued stage
-is the one a restart resumes: an inline stage has no handle, so a crash, a lost lease or a throwing sink between
-its render and the next checkpoint renders it again. One door per stage: a rejected submission is not retried inline.
+**The caller's order picks the door.** The first candidate able to serve the stage decides: queued when it
+implements `IMediaJobProvider` and declares `Queued` for the request (the router's own `MediaRouter.Capable`), so a
+backend declaring both goes queued; inline otherwise. A door exhausted WITHOUT committing anything falls back to the
+other door's candidates; an Inconclusive submission, or a refusal the policy surfaced, never does. The handler tells
+the two apart by asking `MediaRoutingPolicy` about the verdict, and every failed submission `MediaRouter` returns
+now carries one — the verdict it surfaced, or, when nobody accepted, the one `GenerateAsync` would report.
 
-**A finished stage is billed, delivered, then checkpointed.** Spend is recorded for a queued stage after its fetch,
-which the router never sees, and never for an inline one, which its router already recorded. Every stage reaches
-`IGenerationArtifactSink` tagged `StageIndex` and `IsFinal` — init properties, so `GenerationArtifactDelivery`'s
-constructor is unchanged (**D70**), and `IsFinal` defaults true so a render job's delivery still reads as its
-job's output. Only then is the artifact the next stage chains checkpointed, picked as that stage finishes: the one
-matching the next stage's `InputMediaType` (a type or `type/*`), or the single artifact produced, zero or several
-failing the job. Its inline bytes travel as base64 up to `GenerationPipelineJobOptions.MaxCheckpointBytes`
-(4 MiB), past which the job fails naming the stage and a URI-returning backend as the fix. An unreadable
-checkpoint fails the job rather than restarting it from stage 1.
+**A result is billed, checkpointed, then delivered.** A queued stage is billed after its fetch; an inline one by the
+router, and only when `AddMediaUsageBudget` wraps it. The result is checkpointed BEFORE delivery when its inline
+bytes fit `GenerationPipelineJobOptions.MaxCheckpointBytes` (4 MiB), so a sink that throws gets it again with no
+second render, fetch or bill; an over-cap result, and a crash between a render returning and that save, stay
+at-least-once. Every stage reaches `IGenerationArtifactSink` tagged `StageIndex` and `IsFinal` (default true, so a
+render job's delivery still reads as output) under the `ProviderId` the router names: the new
+`MediaResponse.ProviderId`, which `MediaRouter` stamps on every backend's answer. An inline `OperationId` is empty.
+Then the ONE artifact the next stage chains — its `InputMediaType`'s match, or the single one — is checkpointed,
+failing the job past the cap. An unreadable checkpoint fails rather than restarting from stage 1.
 
-**Rejected.** Polling inside `RunPipelineAsync`: the loop `IMediaJobProvider` exists not to hide — no progress, no
-cancellation, nothing to resume. Documentation only: every consumer would re-implement the checkpoint-before-poll
-ordering that keeps a render paid for once. A stage declaring its door: the declaration drifts from what its
-backends declare. Persisting `GenerationStage.SelectInput`: a delegate does not survive a restart, so the pick is
-data. URIs-only intermediates: an inline image backend returns bytes, which would bar most image → video chains.
-Checkpointing every artifact of a stage: a mesh's texture atlases would spend the cap on bytes nothing chains.
-Final-only delivery: a failure at stage 3 would lose stages 1 and 2, already paid for.
+**Rejected.** Queued first whatever the order: the order is the caller's stated preference, and an inline backend
+listed first is usually a cost choice the library has no standing to overrule. Delivering, then checkpointing: a
+throwing sink re-rendered an inline stage and re-fetched and re-billed a queued one. Polling inside
+`RunPipelineAsync`: the loop `IMediaJobProvider` exists not to hide. Documentation only: every consumer re-implements
+checkpoint-before-poll. A stage declaring its door: it drifts from what its backends declare. Persisting
+`SelectInput`: a delegate does not survive a restart. URIs-only intermediates: inline image backends return bytes.
+Carrying every artifact into the next stage's checkpoint: a mesh's atlases would spend the cap on bytes nothing
+chains. Final-only delivery: a failure at stage 3 would lose stages 1 and 2. A `Surfaced` flag on
+`MediaSubmission`: the verdict and the policy already answer it, with no new member.

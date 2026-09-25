@@ -1,4 +1,6 @@
 using Lyntai.Inference;
+using Lyntai.Inference.Budgeting;
+using Lyntai.Inference.RateLimiting;
 using Lyntai.Tests.Fakes;
 
 namespace Lyntai.Tests.Generation;
@@ -259,6 +261,44 @@ public class GenerationRouterTests
         var result = await Router(aggregator).GenerateAsync([new ProviderCandidate("aggregator", "sdxl")], Image());
 
         Assert.True(result.IsOk);
+    }
+
+    [Fact]
+    public async Task A_response_names_the_backend_that_produced_it_even_after_a_fallback()
+    {
+        var down = new FakeGenerationProvider { Id = "down" };
+        down.Verdicts.Enqueue(ProviderVerdict.Failed);
+        var up = new FakeGenerationProvider { Id = "up" };
+
+        var result = await Router(down, up).GenerateAsync([new("down"), new("up")], Image());
+
+        Assert.True(result.IsOk);
+        Assert.Equal("up", result.ProviderId);
+    }
+
+    [Fact]
+    public async Task A_failure_names_the_backend_it_came_from_and_a_synthesized_one_names_none()
+    {
+        var refusing = new FakeGenerationProvider { Id = "hosted" };
+        refusing.Verdicts.Enqueue(ProviderVerdict.Refused);
+
+        var refused = await Router(refusing).GenerateAsync([new("hosted")], Image());
+        var nothing = await Router(refusing).GenerateAsync([new("hosted")], Video());   // nothing capable
+
+        Assert.Equal("hosted", refused.ProviderId);
+        Assert.Null(nothing.ProviderId);
+    }
+
+    [Fact]
+    public async Task The_governance_decorators_pass_the_backend_name_through()
+    {
+        var backend = new FakeGenerationProvider { Id = "sd" };
+        IMediaRouter throttled = new RateLimitedMediaRouter(Router(backend),
+            new TokenBucketRateLimiter(new RateLimitOptions { PermitsPerSecond = 100, Burst = 10 }));
+        IMediaRouter budgeted = new BudgetedMediaRouter(Router(backend), new InMemoryUsageTracker(), new LyntaiOptions());
+
+        Assert.Equal("sd", (await throttled.GenerateAsync([new("sd")], Image())).ProviderId);
+        Assert.Equal("sd", (await budgeted.GenerateAsync([new("sd")], Image())).ProviderId);
     }
 
     [Fact]

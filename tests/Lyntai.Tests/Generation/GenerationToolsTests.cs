@@ -152,6 +152,18 @@ public class GenerationToolsTests
     }
 
     [Fact]
+    public async Task Generate_delivers_under_the_name_of_the_backend_that_rendered_it()
+    {
+        var sink = new CollectingSink();
+        using var sp = Host(sink, new FakeGenerationProvider { Id = "image" });
+
+        await Tool(sp, "generate").InvokeAsync("""{"prompt":"a red square"}""");
+
+        var delivery = Assert.Single(sink.Received);
+        Assert.Equal(("image", ""), (delivery.ProviderId, delivery.OperationId));   // inline: no operation
+    }
+
+    [Fact]
     public async Task Generate_without_a_prompt_returns_a_readable_error_rather_than_throwing()
     {
         // the model should be able to read what it got wrong and retry

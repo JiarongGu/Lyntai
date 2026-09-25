@@ -60,6 +60,8 @@ public sealed record QueuedOperation(
     /// it. A request the backend cannot serve AS POSED is <see cref="ProviderVerdict.Unsupported"/>, which
     /// <c>MediaRouter.SubmitAsync</c> advances past without counting it against the backend — the request is
     /// at fault, not the backend's health. Null, the default, leaves the router classifying
-    /// <see cref="Detail"/> as before. <see cref="Inconclusive"/> is decided first, whatever this says.</summary>
+    /// <see cref="Detail"/> as before. <see cref="Inconclusive"/> is decided first, whatever this says.
+    /// <para>On a failed submission <c>MediaRouter.SubmitAsync</c> RETURNS it is always set, Inconclusive aside:
+    /// the verdict the router acted on (see <see cref="IMediaRouter.SubmitAsync"/>).</para></summary>
     public ProviderVerdict? Verdict { get; init; }
 }

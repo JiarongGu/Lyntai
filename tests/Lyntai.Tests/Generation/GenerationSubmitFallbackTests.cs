@@ -141,6 +141,48 @@ public class GenerationSubmitFallbackTests
         Assert.Equal(1, permissive.SubmitCalls);
     }
 
+    [Fact]
+    public async Task A_submission_no_candidate_accepted_carries_the_verdict_of_its_most_telling_rejection()
+    {
+        // the synthesized "nobody took it" must say WHY, or a caller cannot tell it from a surfaced refusal
+        var unsupported = new RejectingJobProvider { Id = "comfy", Detail = "no workflow", Verdict = ProviderVerdict.Unsupported };
+        var broken = new RejectingJobProvider { Id = "broken", Detail = "queue is full" };
+
+        var blameless = await new MediaRouter([unsupported]).SubmitAsync(Order("comfy"), Video());
+        var mixed = await new MediaRouter([unsupported, broken]).SubmitAsync(Order("comfy", "broken"), Video());
+
+        Assert.Equal(("", ProviderVerdict.Unsupported), (blameless.ProviderId, blameless.Operation.Verdict));
+        Assert.Equal(ProviderVerdict.Failed, mixed.Operation.Verdict);   // a real failure outranks a blameless one
+    }
+
+    [Fact]
+    public async Task A_submission_nothing_could_even_attempt_says_why_in_its_verdict()
+    {
+        var image = new FakeGenerationProvider { Id = "image" };   // not job-capable: a capability gap
+        var tracker = new DeadHostTracker(threshold: 5, cooldown: TimeSpan.FromMinutes(5));
+        tracker.MarkDead("generation::a");
+        tracker.MarkDead("generation::b");
+        var benched = new MediaRouter(
+            [new FakeGenerationJobProvider { Id = "a" }, new FakeGenerationJobProvider { Id = "b" }], deadHosts: tracker);
+
+        var gap = await new MediaRouter([image]).SubmitAsync(Order("image"), Video());
+        var cooling = await benched.SubmitAsync(Order("a", "b"), Video());
+
+        Assert.Equal(ProviderVerdict.Unsupported, gap.Operation.Verdict);
+        Assert.Equal(ProviderVerdict.RateLimited, cooling.Operation.Verdict);
+    }
+
+    [Fact]
+    public async Task A_surfaced_refusal_carries_the_verdict_it_was_surfaced_for()
+    {
+        // classified from the text, so the backend set none: the router says what it acted on
+        var refusing = new RejectingJobProvider { Id = "hosted", Detail = "content policy violation" };
+
+        var submission = await new MediaRouter([refusing]).SubmitAsync(Order("hosted"), Video());
+
+        Assert.Equal(ProviderVerdict.Refused, submission.Operation.Verdict);
+    }
+
     // ---- the reason ----------------------------------------------------------------------------------
 
     [Fact]

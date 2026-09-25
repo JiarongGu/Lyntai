@@ -20,13 +20,21 @@ public class GenerationPipelineJobHandlerTests
         /// <summary>What the ledger held when each delivery ARRIVED — how "billed before delivery" is seen.</summary>
         public List<double> SpentAtDelivery { get; } = [];
 
+        /// <summary>The 1-based calls that THROW instead of storing — a store that is momentarily down.</summary>
+        public HashSet<int> ThrowOn { get; init; } = [];
+
+        public int Calls { get; private set; }
+
         public Task ReceiveAsync(GenerationArtifactDelivery delivery, CancellationToken ct = default)
         {
+            if (ThrowOn.Contains(++Calls)) throw new SinkDown();
             Received.Add(delivery);
             if (spent is not null) SpentAtDelivery.Add(spent());
             return Task.CompletedTask;
         }
     }
+
+    private sealed class SinkDown : Exception;
 
     /// <summary>Persists every checkpoint the handler saves and answers the lease question as a store would;
     /// <see cref="LeaseHeldFor"/> loses the lease on a chosen save (its argument is the save's 0-based number).</summary>
@@ -81,6 +89,9 @@ public class GenerationPipelineJobHandlerTests
         public bool Inconclusive { get; init; }
         public double? CostUsd { get; init; }
 
+        /// <summary>Refuse every submission with this verdict — answered, so nothing was committed.</summary>
+        public ProviderVerdict? RefuseWith { get; init; }
+
         public Func<string, IReadOnlyList<MediaArtifact>> Fetch { get; init; } =
             op => [new MediaArtifact("video/mp4", Uri: $"https://example.invalid/{op}.mp4")];
 
@@ -96,6 +107,9 @@ public class GenerationPipelineJobHandlerTests
         public Task<QueuedOperation> SubmitAsync(MediaRequest request, CancellationToken ct = default)
         {
             Submitted.Add(request);
+            if (RefuseWith is { } verdict)
+                return Task.FromResult(new QueuedOperation("", QueuedOperationStatus.Failed, Detail: $"{Id} says {verdict}")
+                    { Verdict = verdict });
             return Task.FromResult(Inconclusive
                 ? new QueuedOperation("", QueuedOperationStatus.Failed, Detail: $"{Id}: the connection dropped")
                     { Inconclusive = true }
@@ -151,6 +165,26 @@ public class GenerationPipelineJobHandlerTests
         GenerationPipelineJobOptions? options = null, IUsageTracker? usage = null, IMediaRouter? router = null) =>
         new(router ?? new MediaRouter(providers), providers, sink,
             options ?? new GenerationPipelineJobOptions { PollDelay = PollDelay }, usage);
+
+    /// <summary>Drive the job as <see cref="RunAsync"/> does, standing in for the runner's retry when the sink
+    /// throws: the exception leaves the step, and the next step resumes from whatever was checkpointed.</summary>
+    private static async Task<JobOutcome> RunThroughSinkFailuresAsync(
+        Func<GenerationPipelineJobHandler> handler, RecordingContext ctx, string payload)
+    {
+        for (var step = 1; step <= 20; step++)
+        {
+            try
+            {
+                var outcome = await handler().HandleAsync(ctx.Build(payload, ctx.Checkpoint));
+                if (outcome.Result != JobOutcome.Kind.Poll) return outcome;
+            }
+            catch (SinkDown)
+            {
+                // the runner schedules a retry; the checkpoint is whatever the step saved before it threw
+            }
+        }
+        throw new InvalidOperationException("the job was still running after the step budget");
+    }
 
     private static MediaRequest Request(string kind) => new() { Kind = kind, Prompt = "a cat" };
 
@@ -293,8 +327,11 @@ public class GenerationPipelineJobHandlerTests
         // run stage 1, and keep the checkpoint saved BETWEEN the stages — before stage 2 was submitted
         var first = new RecordingContext();
         Assert.Equal(JobOutcome.Kind.Poll, (await Handler(providers, new CollectingSink()).HandleAsync(first.Build(payload))).Result);
-        var between = Assert.Single(first.Saved, s => !s.Contains("fal-op"));
+        var between = Assert.Single(first.Saved, s => s.StartsWith("""{"stage":1,"artifacts""", StringComparison.Ordinal));
         Assert.Contains(Convert.ToBase64String(still), between);   // the bytes travel in the checkpoint
+        // once the operation id is saved nothing reads the chained artifact, so its bytes are dropped
+        Assert.DoesNotContain(Convert.ToBase64String(still), first.Checkpoint);
+        Assert.Contains("fal-op-1", first.Checkpoint);
         video.Submitted.Clear();
 
         // a new process resumes from it, as if the first died the moment it was saved
@@ -335,25 +372,123 @@ public class GenerationPipelineJobHandlerTests
         Assert.Equal("https://example.invalid/fal-op-1.png", Assert.Single(upscale.Requests[0].Inputs).Uri);
         Assert.Equal([0, 1, 2], sink.Received.Select(d => d.StageIndex!.Value));
         Assert.Equal([false, false, true], sink.Received.Select(d => d.IsFinal));
-        // the inline door does not say which candidate served it, so an inline stage's ids are empty
-        Assert.Equal(("", ""), (sink.Received[0].ProviderId, sink.Received[0].OperationId));
+        // the router names the backend that rendered an inline stage; there is no operation to name
+        Assert.Equal(("sd", ""), (sink.Received[0].ProviderId, sink.Received[0].OperationId));
+        Assert.Equal(("upscale", ""), (sink.Received[2].ProviderId, sink.Received[2].OperationId));
         Assert.Equal(("fal", "fal-op-1"), (sink.Received[1].ProviderId, sink.Received[1].OperationId));
     }
 
-    [Fact]
-    public async Task A_candidate_that_can_queue_takes_the_queued_door_even_behind_an_inline_one()
+    [Theory]
+    [InlineData("sd-local", "fal", JobOutcome.Kind.Complete)]   // inline first: rendered in the step
+    [InlineData("fal", "sd-local", JobOutcome.Kind.Poll)]       // queued first: submitted and checkpointed
+    public async Task The_first_capable_candidate_in_the_callers_order_chooses_the_door(
+        string first, string second, JobOutcome.Kind expected)
     {
-        // THE door rule: decided by what the candidates declare, queued first, whatever their order
-        var inline = new InlineBackend { Id = "inline" };
-        var queued = new QueuedBackend { Id = "queued", Produces = ProviderKinds.Image };
-        IModelProvider[] providers = [inline, queued];
+        var sd = new InlineBackend { Id = "sd-local" };
+        var fal = new QueuedBackend { Id = "fal", Produces = ProviderKinds.Image };
+        IModelProvider[] providers = [sd, fal];
 
         var outcome = await Handler(providers, new CollectingSink())
-            .HandleAsync(new RecordingContext().Build(Payload(Stage(ProviderKinds.Image, "inline", "queued"))));
+            .HandleAsync(new RecordingContext().Build(Payload(Stage(ProviderKinds.Image, first, second))));
+
+        Assert.Equal(expected, outcome.Result);
+        Assert.Equal(first == "sd-local" ? (1, 0) : (0, 1), (sd.Requests.Count, fal.Submitted.Count));
+    }
+
+    [Fact]
+    public async Task A_queued_candidate_refusing_the_request_as_Unsupported_falls_back_to_the_inline_door()
+    {
+        // answered "not as posed": nothing was committed, so the stage's other door may serve it
+        var fal = new QueuedBackend { Id = "fal", Produces = ProviderKinds.Image, RefuseWith = ProviderVerdict.Unsupported };
+        var sd = new InlineBackend { Id = "sd" };
+        IModelProvider[] providers = [fal, sd];
+        var sink = new CollectingSink();
+
+        var outcome = await Handler(providers, sink)
+            .HandleAsync(new RecordingContext().Build(Payload(Stage(ProviderKinds.Image, "fal", "sd"))));
+
+        Assert.Equal(JobOutcome.Kind.Complete, outcome.Result);
+        Assert.Equal((1, 1), (fal.Submitted.Count, sd.Requests.Count));
+        Assert.Equal("sd", Assert.Single(sink.Received).ProviderId);
+    }
+
+    [Fact]
+    public async Task Queued_candidates_all_on_cooldown_fall_back_to_the_inline_door()
+    {
+        var tracker = new DeadHostTracker(threshold: 5, cooldown: TimeSpan.FromMinutes(5));
+        tracker.MarkDead("generation::fal");
+        tracker.MarkDead("generation::comfy");
+        var fal = new QueuedBackend { Id = "fal", Produces = ProviderKinds.Image };
+        var comfy = new QueuedBackend { Id = "comfy", Produces = ProviderKinds.Image };
+        var sd = new InlineBackend { Id = "sd" };
+        IModelProvider[] providers = [fal, comfy, sd];
+
+        var outcome = await Handler(providers, new CollectingSink(), router: new MediaRouter(providers, deadHosts: tracker))
+            .HandleAsync(new RecordingContext().Build(Payload(Stage(ProviderKinds.Image, "fal", "comfy", "sd"))));
+
+        Assert.Equal(JobOutcome.Kind.Complete, outcome.Result);
+        Assert.Equal((0, 0, 1), (fal.Submitted.Count, comfy.Submitted.Count, sd.Requests.Count));
+    }
+
+    [Fact]
+    public async Task An_exhausted_inline_door_falls_back_to_the_queued_one()
+    {
+        var sd = new InlineBackend { Id = "sd", Answer = _ => MediaResponse.Failure(ProviderVerdict.NotConfigured, "no model file") };
+        var fal = new QueuedBackend { Id = "fal", Produces = ProviderKinds.Image };
+        IModelProvider[] providers = [sd, fal];
+        var ctx = new RecordingContext();
+
+        var outcome = await Handler(providers, new CollectingSink())
+            .HandleAsync(ctx.Build(Payload(Stage(ProviderKinds.Image, "sd", "fal"))));
 
         Assert.Equal(JobOutcome.Kind.Poll, outcome.Result);
-        Assert.Single(queued.Submitted);
-        Assert.Empty(inline.Requests);
+        Assert.Equal((1, 1), (sd.Requests.Count, fal.Submitted.Count));
+        Assert.Contains("fal-op-1", ctx.Checkpoint);
+    }
+
+    [Fact]
+    public async Task An_inconclusive_submission_never_falls_back_to_the_inline_door()
+    {
+        // the backend may already hold the render: rendering it again elsewhere is the duplicate charge
+        var fal = new QueuedBackend { Id = "fal", Produces = ProviderKinds.Image, Inconclusive = true };
+        var sd = new InlineBackend { Id = "sd" };
+        IModelProvider[] providers = [fal, sd];
+
+        var outcome = await Handler(providers, new CollectingSink())
+            .HandleAsync(new RecordingContext().Build(Payload(Stage(ProviderKinds.Image, "fal", "sd"))));
+
+        Assert.Equal(JobOutcome.Kind.Fail, outcome.Result);
+        Assert.Contains("'fal'", outcome.Error);
+        Assert.Empty(sd.Requests);
+    }
+
+    [Fact]
+    public async Task A_refusal_the_policy_surfaces_is_not_accepted_and_never_falls_back()
+    {
+        var fal = new QueuedBackend { Id = "fal", Produces = ProviderKinds.Image, RefuseWith = ProviderVerdict.Refused };
+        var sd = new InlineBackend { Id = "sd" };
+        IModelProvider[] providers = [fal, sd];
+
+        var outcome = await Handler(providers, new CollectingSink())
+            .HandleAsync(new RecordingContext().Build(Payload(Stage(ProviderKinds.Image, "fal", "sd"))));
+
+        Assert.Equal(JobOutcome.Kind.Fail, outcome.Result);
+        Assert.StartsWith("stage 1 of 1 was not accepted: fal says Refused", outcome.Error);
+        Assert.Empty(sd.Requests);                                 // the prompt is not shopped to the other door
+    }
+
+    [Fact]
+    public async Task An_exhausted_queued_door_with_no_inline_candidate_is_not_accepted()
+    {
+        var fal = new QueuedBackend { Id = "fal", RefuseWith = ProviderVerdict.Unsupported };
+        IModelProvider[] providers = [fal];
+
+        var outcome = await Handler(providers, new CollectingSink())
+            .HandleAsync(new RecordingContext().Build(Payload(Stage(ProviderKinds.Video, "fal"))));
+
+        Assert.Equal(JobOutcome.Kind.Fail, outcome.Result);
+        Assert.StartsWith("stage 1 of 1 was not accepted:", outcome.Error);
+        Assert.Contains("fal says Unsupported", outcome.Error);
     }
 
     [Fact]
@@ -496,14 +631,69 @@ public class GenerationPipelineJobHandlerTests
         var fal = new QueuedBackend { Id = "fal" };
         IModelProvider[] providers = [sd, fal];
         var sink = new CollectingSink();
-        var ctx = new RecordingContext { LeaseHeldFor = _ => false };
+        var ctx = new RecordingContext { LeaseHeldFor = save => save == 0 };   // held for stage 1's result only
 
         var outcome = await Handler(providers, sink).HandleAsync(ctx.Build(
             Payload(Stage(ProviderKinds.Image, "sd"), Stage(ProviderKinds.Video, "fal"))));
 
         Assert.Equal(JobOutcome.Kind.Fail, outcome.Result);
-        Assert.Contains("lease lost", outcome.Error);
+        Assert.Contains("lease lost after stage 1 of 2 was delivered", outcome.Error);
         Assert.Empty(fal.Submitted);                               // another worker owns stage 2 now
+        Assert.Single(sink.Received);
+    }
+
+    [Fact]
+    public async Task A_lost_lease_on_the_result_checkpoint_stops_before_delivering_it()
+    {
+        var sd = new InlineBackend { Id = "sd" };
+        IModelProvider[] providers = [sd];
+        var sink = new CollectingSink();
+        var ctx = new RecordingContext { LeaseHeldFor = _ => false };
+
+        var outcome = await Handler(providers, sink).HandleAsync(ctx.Build(Payload(Stage(ProviderKinds.Image, "sd"))));
+
+        Assert.Equal(JobOutcome.Kind.Fail, outcome.Result);
+        Assert.Contains("lease lost after stage 1 of 1 produced", outcome.Error);
+        Assert.Empty(sink.Received);                               // the worker that reclaimed it delivers
+    }
+
+    [Fact]
+    public async Task A_sink_that_throws_gets_the_checkpointed_result_without_a_second_render_fetch_or_bill()
+    {
+        var tracker = new InMemoryUsageTracker();
+        var sd = new InlineBackend { Id = "sd" };
+        var fal = new QueuedBackend { Id = "fal", CostUsd = 0.25 };
+        IModelProvider[] providers = [sd, fal];
+        var sink = new CollectingSink { ThrowOn = [1, 3] };        // each stage's first delivery fails
+        var ctx = new RecordingContext();
+
+        var outcome = await RunThroughSinkFailuresAsync(() => Handler(providers, sink, usage: tracker), ctx,
+            Payload(Stage(ProviderKinds.Image, "sd"), Stage(ProviderKinds.Video, "fal") with { InputRole = MediaInputRoles.FirstFrame }));
+
+        Assert.Equal(JobOutcome.Kind.Complete, outcome.Result);
+        Assert.Single(sd.Requests);                                // the inline stage rendered ONCE
+        Assert.Equal((1, 1), (fal.Submitted.Count, fal.Fetches));  // the queued stage fetched ONCE
+        Assert.Equal(0.25, (await tracker.TotalAsync()).CostUsd, 6);   // …and was billed once
+        Assert.Equal([0, 1], sink.Received.Select(d => d.StageIndex!.Value));
+        Assert.Equal(("fal", "fal-op-1"), (sink.Received[1].ProviderId, sink.Received[1].OperationId));
+    }
+
+    [Fact]
+    public async Task An_over_cap_result_is_delivered_unprotected_so_a_throwing_sink_renders_it_again()
+    {
+        // the documented at-least-once remainder: a result too big to checkpoint is not checkpointed
+        var sd = new InlineBackend { Id = "sd", Answer = _ => Produced(new MediaArtifact("image/png", Data: new byte[101])) };
+        IModelProvider[] providers = [sd];
+        var sink = new CollectingSink { ThrowOn = [1] };
+        var ctx = new RecordingContext();
+        var options = new GenerationPipelineJobOptions { PollDelay = PollDelay, MaxCheckpointBytes = 100 };
+
+        var outcome = await RunThroughSinkFailuresAsync(() => Handler(providers, sink, options), ctx,
+            Payload(Stage(ProviderKinds.Image, "sd")));
+
+        Assert.Equal(JobOutcome.Kind.Complete, outcome.Result);   // the LAST stage's size never fails the job
+        Assert.Equal(2, sd.Requests.Count);
+        Assert.Empty(ctx.Saved);
         Assert.Single(sink.Received);
     }
 
@@ -556,7 +746,7 @@ public class GenerationPipelineJobHandlerTests
         Assert.Contains("'fal'", outcome.Error);
         Assert.Contains("not retried", outcome.Error);
         Assert.Single(fal.Submitted);
-        Assert.DoesNotContain(ctx.Saved, s => s.Contains("operationId"));
+        Assert.DoesNotContain(ctx.Saved, s => s.Contains("operationId"));   // no operation was ever checkpointed
     }
 
     [Fact]
@@ -592,12 +782,14 @@ public class GenerationPipelineJobHandlerTests
         };
         IModelProvider[] providers = [sd];
         var router = new BudgetedMediaRouter(new MediaRouter(providers), tracker, new LyntaiOptions());
+        var sink = new CollectingSink();
 
-        var outcome = await Handler(providers, new CollectingSink(), usage: tracker, router: router)
+        var outcome = await Handler(providers, sink, usage: tracker, router: router)
             .HandleAsync(new RecordingContext().Build(Payload(Stage(ProviderKinds.Image, "sd"))));
 
         Assert.Equal(JobOutcome.Kind.Complete, outcome.Result);
         Assert.Equal(0.40, (await tracker.TotalAsync()).CostUsd, 6);       // once, by the router — not 0.80
+        Assert.Equal("sd", Assert.Single(sink.Received).ProviderId);       // named through the decorator
     }
 
     [Fact]
@@ -636,7 +828,7 @@ public class GenerationPipelineJobHandlerTests
     }
 
     [Fact]
-    public async Task A_submission_no_candidate_accepts_fails_rather_than_polling_forever()
+    public async Task A_stage_no_candidate_is_capable_of_fails_naming_the_stage()
     {
         IModelProvider[] providers = [new QueuedBackend { Id = "fal", Produces = ProviderKinds.Video }];
 
@@ -659,7 +851,17 @@ public class GenerationPipelineJobHandlerTests
         Assert.Contains("payload", badPayload.Error);
 
         // restarting from stage 1 would re-run every stage already paid for
-        foreach (var checkpoint in new[] { "{not json", """{"stage":7}""", """{"stage":0,"providerId":"sd"}""" })
+        string[] unreadable =
+        [
+            "{not json",
+            """{"stage":7}""",                                                     // out of range
+            """{"stage":0,"providerId":"sd"}""",                                   // an operation with no id
+            """{"stage":0}""",                                                     // nothing this handler writes
+            """{"stage":0,"providerId":"sd","operationId":"op","artifacts":[{"mediaType":"image/png"}]}""",
+            """{"stage":0,"providerId":"sd","operationId":"op","pending":{"artifacts":[]}}""",
+            """{"stage":0,"pending":{"artifacts":[{"mediaType":"image/png","data":"not base64!"}]}}""",
+        ];
+        foreach (var checkpoint in unreadable)
         {
             var outcome = await Handler(providers, new CollectingSink()).HandleAsync(new RecordingContext().Build(payload, checkpoint));
             Assert.Equal(JobOutcome.Kind.Fail, outcome.Result);

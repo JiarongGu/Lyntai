@@ -562,7 +562,7 @@ sealed class Lyntai.Generation.Jobs.GenerationPipelineJob
     ToString() : String
     static Parse(String payload) : GenerationPipelineJob
 sealed class Lyntai.Generation.Jobs.GenerationPipelineJobHandler
-    .ctor(IMediaRouter router, IEnumerable<IModelProvider> providers, IGenerationArtifactSink sink, GenerationPipelineJobOptions options = null, IUsageTracker usage = null)
+    .ctor(IMediaRouter router, IEnumerable<IModelProvider> providers, IGenerationArtifactSink sink, GenerationPipelineJobOptions options = null, IUsageTracker usage = null, MediaRoutingPolicy policy = null)
     HandleAsync(JobContext ctx, CancellationToken ct = default) : Task<JobOutcome>
     JobType : String const
     Type : String
@@ -1013,6 +1013,7 @@ sealed class Lyntai.Inference.MediaResponse
     Equals(Object obj) : Boolean
     GetHashCode() : Int32
     IsOk : Boolean
+    ProviderId : String
     ToString() : String
     Usage : MediaUsage
     Verdict : ProviderVerdict

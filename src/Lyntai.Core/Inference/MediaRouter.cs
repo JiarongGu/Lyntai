@@ -152,19 +152,21 @@ public sealed class MediaRouter(
         // the FIRST substantive rejection, kept the way GenerateAsync keeps its firstFailure: the backend
         // that explained why is the only thing in this run a caller can act on, and the synthesized message
         // below is otherwise a list of ids that says nothing about what went wrong
-        (string ProviderId, string? Detail)? firstFailure = null;
+        (string ProviderId, string? Detail, ProviderVerdict Verdict)? firstFailure = null;
 
         // …and the first BLAMELESS rejection that still gave a reason, in the second slot GenerateAsync keeps
         // for the same purpose: reported ONLY when no substantive rejection happened, so "nothing is set up"
         // never masks "the one you configured refused the job". Without it, every reason a blameless verdict
         // carries — a queue saying the prompt is too long, one saying which key it wants — is dropped and the
         // job handler fails the job with a bare list of candidate ids.
-        (string ProviderId, string? Detail)? firstBlameless = null;
+        (string ProviderId, string? Detail, ProviderVerdict Verdict)? firstBlameless = null;
+        var attempted = 0;
 
         foreach (var (provider, resolved) in capable)
         {
             if (provider is not IMediaJobProvider job) continue;   // capability says Job; the type must agree
             if (IsBenched(provider, capable.Count)) { benched++; continue; }
+            attempted++;
 
             // submitting is what commits the money, so it respects the same bound as an inline render. The
             // permit is scoped to THIS iteration: a submission that fails releases it before the next
@@ -224,9 +226,9 @@ public sealed class MediaRouter(
                 // so "nothing is set up" never masks "the one you configured refused the job", while a
                 // blameless rejection that explained itself is still better than a list of ids
                 if (!verdict.IsBlameless())
-                    firstFailure ??= (provider.Id, operation.Detail);
+                    firstFailure ??= (provider.Id, operation.Detail, verdict);
                 else if (!string.IsNullOrWhiteSpace(operation.Detail))
-                    firstBlameless ??= (provider.Id, operation.Detail);
+                    firstBlameless ??= (provider.Id, operation.Detail, verdict);
 
                 switch (_policy.ActionFor(verdict))
                 {
@@ -235,7 +237,7 @@ public sealed class MediaRouter(
                         // next vendor is not a library's decision — the same rule the inline path follows,
                         // and overridable the same way (On(Refused, Advance)). ProviderId stays empty: it
                         // means "no candidate accepted", and a refusal is a refusal, not an acceptance.
-                        return new MediaSubmission("", operation);
+                        return new MediaSubmission("", operation with { Verdict = verdict });
                     case FallbackAction.CooldownAndAdvance:
                         deadHosts?.MarkDead(CooldownKey(provider));
                         break;
@@ -248,12 +250,18 @@ public sealed class MediaRouter(
             }
         }
 
+        // the verdict is chosen as GenerateAsync chooses the one it reports, so "nobody could serve it" says why
+        var reported = firstFailure ?? firstBlameless;
         return new MediaSubmission("", new QueuedOperation("", QueuedOperationStatus.Failed,
             Detail: (benched > 0
                 ? $"every capable media backend for a '{request.Kind}' job is on dead-host cooldown"
                 : $"no capable media backend accepted a '{request.Kind}' job among " +
                   $"[{string.Join(", ", candidates.Select(c => c.ProviderId))}]") +
-                Because(firstFailure ?? firstBlameless)));
+                Because(reported is { } r ? (r.ProviderId, r.Detail) : null))
+        {
+            Verdict = reported?.Verdict ?? (attempted > 0 ? ProviderVerdict.NotConfigured
+                : benched > 0 ? ProviderVerdict.RateLimited : ProviderVerdict.Unsupported),
+        });
     }
 
     /// <inheritdoc/>
@@ -473,6 +481,7 @@ public sealed class MediaRouter(
             // Failed here would hammer a rate-limited host instead of cooling it.
             result = MediaResponse.Failure(ProviderVerdictClassifier.FromThrown(ex), $"{provider.Id}: {ex.Message}");
         }
+        result = result with { ProviderId = provider.Id };   // the router's word, whatever the backend set
         LyntaiDiagnostics.RecordGeneration(span, provider.Id, request.Kind, result.Verdict,
             // an Ok result always has artifacts (MediaResponse.Success enforces it), so the count is
             // reported even by a backend that returns no usage of its own

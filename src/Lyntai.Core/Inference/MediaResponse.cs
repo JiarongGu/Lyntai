@@ -15,6 +15,14 @@ public sealed record MediaResponse(
     string? Detail = null)
     : IProviderOutcome
 {
+    /// <summary>Which registered backend this response came from, as the ROUTER that chose it reports:
+    /// <see cref="MediaRouter"/> stamps the answering backend's id on every response a backend gave it, success or
+    /// failure, and leaves it null on a failure it synthesized itself (nothing capable, everything benched).
+    /// <para>A backend need not set it, and one that does is overwritten by the router. A custom
+    /// <see cref="IMediaRouter"/> that does not stamp it leaves it null — and a durable job's delivery then names
+    /// no backend. It takes part in record equality, like every other member.</para></summary>
+    public string? ProviderId { get; init; }
+
     /// <summary>Whether the call produced media.</summary>
     public bool IsOk => Verdict == ProviderVerdict.Ok;
 

@@ -160,6 +160,12 @@ every addition.
   the two composers into line rather than inventing a convention.
   <br>**What to DO:** a consumer asserting on the old heading updates the string.
 
+- **The `generate` tool's sink delivery names the backend that rendered it** (**D181**) — its
+  `GenerationArtifactDelivery.ProviderId` said `"inline"`, and now carries `MediaResponse.ProviderId`, empty
+  when the router names none. `OperationId` stays empty, as for every inline render.
+  <br>**What to DO:** a sink that recognised the tool's render by the `"inline"` literal tests for an empty
+  `OperationId` instead.
+
 ### Added
 
 - **`LlmVerificationOptions.ContentChars` lets the LLM memory judge read an entry's CONTENT** (**D170**).
@@ -288,15 +294,30 @@ every addition.
 - **A generation pipeline runs as a durable job, so a queued stage is reachable** (**D181**).
   `GenerationPipelineJobHandler` (job type `lyntai.generation.pipeline`) runs a `GenerationPipelineJob` — ordered
   `GenerationPipelineJobStage`s, each candidate specs, a `MediaRequest`, `InputRole` and `InputMediaType` — the way
-  `GenerationRenderJobHandler` runs one render. A stage any of whose candidates can queue it is submitted, its
-  operation checkpointed before the first poll and polled across restarts, never re-submitted; any other stage
-  runs inline in the step. Every stage's artifacts reach your `IGenerationArtifactSink` as the stage finishes, so a
-  later failure loses nothing already paid for, tagged with the new `GenerationArtifactDelivery.StageIndex` and
-  `IsFinal` — true, the default, on a render job's delivery. A stage chains its predecessor's single artifact, or
-  the one its `InputMediaType` names (`image/png`, `model/*`); zero or several fail the job. That artifact's inline
-  bytes are checkpointed up to `GenerationPipelineJobOptions.MaxCheckpointBytes` (4 MiB), past which the job fails
-  naming the stage. Register it with `AddJobHandler<GenerationPipelineJobHandler>()`; the README's generation
-  section has the recipe. `RunPipelineAsync` is unchanged, and still inline only.
+  `GenerationRenderJobHandler` runs one render. A stage's first capable candidate, in your order, picks its door:
+  one that can queue it is submitted, its operation checkpointed before the first poll and polled across restarts,
+  never re-submitted; otherwise the stage renders inline in the step. A door that runs out of candidates without
+  committing anything falls back to the other door's; an Inconclusive submission or a surfaced refusal does not.
+  Each stage's result is checkpointed, then delivered to your `IGenerationArtifactSink` as the stage finishes, so a
+  later failure loses nothing already paid for and a sink that throws gets it again with no second render, fetch
+  or charge — except a result over `GenerationPipelineJobOptions.MaxCheckpointBytes` (4 MiB), or a crash in the
+  instant before that checkpoint. Deliveries carry the new `GenerationArtifactDelivery.StageIndex` and `IsFinal` —
+  true, the default, on a render job's delivery. A stage chains its predecessor's single artifact, or the one its
+  `InputMediaType` names (`image/png`, `model/*`); zero or several fail the job, and so does a chained artifact
+  over the cap. Register it with `AddJobHandler<GenerationPipelineJobHandler>()`; the README's generation section
+  has the recipe. `RunPipelineAsync` is unchanged, and still inline only.
+
+- **`MediaResponse.ProviderId` names the backend a response came from** (**D181**). `MediaRouter` stamps it on
+  every answer a backend gave, success or failure and after any fallback, and leaves it null on a failure it
+  synthesized; the budget and rate-limit decorators pass it through, and a custom `IMediaRouter` may set it or
+  not. It takes part in the record's equality. A pipeline job's inline delivery carries it as its `ProviderId`,
+  with an empty `OperationId`.
+
+- **A failed submission `MediaRouter` returns carries a `QueuedOperation.Verdict`** (**D181**), Inconclusive aside,
+  where both kinds carried none: a refusal the routing policy surfaced carries the verdict it was surfaced for, and
+  one no candidate accepted carries the verdict `GenerateAsync` would report for the same run — the first
+  substantive rejection's, else the first blameless one's, else `RateLimited` when every candidate was on cooldown
+  and `Unsupported` when none could take it. `MediaSubmission.ProviderId` stays empty on both.
 
 ### Fixed
 

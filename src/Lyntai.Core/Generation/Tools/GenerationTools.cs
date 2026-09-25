@@ -329,8 +329,9 @@ public sealed class GenerationInlineTool(
         var delivered = false;
         if (sink is not null)
         {
+            // an inline render has no operation; the router names the backend that rendered it
             await sink.ReceiveAsync(new GenerationArtifactDelivery(
-                Guid.NewGuid(), "inline", "", result.Artifacts, result.Usage), ct).ConfigureAwait(false);
+                Guid.NewGuid(), result.ProviderId ?? "", "", result.Artifacts, result.Usage), ct).ConfigureAwait(false);
             delivered = true;
         }
 

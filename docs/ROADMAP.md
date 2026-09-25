@@ -91,8 +91,8 @@ the full promise and these are confirmations rather than repairs. In priority or
    2026-08-30 (`RunPipelineAsync`); the ComfyUI provider now takes a mesh input and produces `Model3d`, and a
    ComfyUI render graph is the mesh → image edge, measured with no 3D model. **Queued stages are reachable
    (2026-09-25, D181)**: a pipeline runs as a durable job, `GenerationPipelineJobHandler`, each stage submitted
-   and polled where its candidates can queue it — the mesh → mesh → image chain ran through it on a live
-   ComfyUI. A mesh-GENERATING stage is measured from real use, not by a download here.
+   and polled where its first capable candidate queues it — the mesh → mesh → image chain ran through it on a
+   live ComfyUI. A mesh-GENERATING stage is measured from real use, not by a download here.
 
 _Generation wiring helpers (`AddOpenAiImageProvider()` and friends) were item 4 here and **shipped in 2.1.0**
 — see `docs/task-archive.md` Part 36. Every remaining item above needs a real
