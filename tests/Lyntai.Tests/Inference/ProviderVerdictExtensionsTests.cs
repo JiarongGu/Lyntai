@@ -1,6 +1,6 @@
 using Lyntai.Inference;
 
-namespace Lyntai.Tests.Lifecycle;
+namespace Lyntai.Tests.Inference;
 
 /// <summary>The call-site verdict helpers. They are deliberately CATEGORY predicates rather than one
 /// method per enum member: <see cref="ProviderVerdict"/> grows (<see cref="ProviderVerdict.NotConfigured"/> was

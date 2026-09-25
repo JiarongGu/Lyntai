@@ -2,7 +2,7 @@ using Lyntai.Inference;
 using Lyntai.Tests.Fakes;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Lyntai.Tests.Lifecycle;
+namespace Lyntai.Tests.Inference;
 
 /// <summary>The router factories: a router is built PER CALL over the provider set the caller chose, while
 /// the bookkeeping it routes against — the dead-host tracker, the limiter, the ledger, the admission table —
@@ -187,7 +187,7 @@ public class RouterFactoryTests
     // be reachable — no first-wins collapse to lean on. The factory rejects the pair up front because the
     // router downstream would not notice it.
     [Fact]
-    public void The_llm_factory_rejects_two_registrations_sharing_a_slot()
+    public void The_text_factory_rejects_two_registrations_sharing_a_slot()
     {
         var pool = new BoundedProviderPool<IModelProvider>();
         var factory = LlmFactory(pool, new DeadHostTracker());
@@ -262,7 +262,7 @@ public class RouterFactoryTests
     private static TextRequest Prompt() => new() { Messages = [TextMessage.User("hi")] };
 
     [Fact]
-    public async Task The_llm_pooled_overload_routes_over_the_pooled_instance_and_benches_its_configuration()
+    public async Task The_text_pooled_overload_routes_over_the_pooled_instance_and_benches_its_configuration()
     {
         var pool = new BoundedProviderPool<IModelProvider>();
         var tracker = new DeadHostTracker(threshold: 1);
@@ -281,7 +281,7 @@ public class RouterFactoryTests
     }
 
     [Fact]
-    public async Task The_llm_instance_overload_keys_cooldown_on_the_provider_id()
+    public async Task The_text_instance_overload_keys_cooldown_on_the_provider_id()
     {
         var pool = new BoundedProviderPool<IModelProvider>();
         var tracker = new DeadHostTracker(threshold: 1);

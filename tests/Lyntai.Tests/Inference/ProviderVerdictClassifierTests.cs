@@ -1,7 +1,7 @@
 using Lyntai.Inference;
 using System.Net;
 
-namespace Lyntai.Tests.Lifecycle;
+namespace Lyntai.Tests.Inference;
 
 // serialized with every other class that registers one: AddErrorTextMatcher mutates a PROCESS-WIDE list, so
 // two of these running in parallel would see each other's matchers (today they are only disjoint by luck)

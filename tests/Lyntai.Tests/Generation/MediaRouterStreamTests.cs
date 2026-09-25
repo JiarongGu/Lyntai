@@ -14,7 +14,7 @@ namespace Lyntai.Tests.Generation;
 /// output in exactly the same way whether the bytes are tokens or audio. The third, the terminal-chunk
 /// guarantee, is this door's own: a consumer's <c>await foreach</c> must never have to ask whether the loop
 /// ended because the media finished or because the backend died.</para></summary>
-public class GenerationRouterStreamTests
+public class MediaRouterStreamTests
 {
     private static MediaRouter Router(params IModelProvider[] providers) => new(providers);
 

@@ -3,7 +3,7 @@ using Lyntai.Tests.Fakes;
 using Microsoft.Extensions.DependencyInjection;
 using static Lyntai.Tests.Fakes.TestTimeouts;
 
-namespace Lyntai.Tests.Lifecycle;
+namespace Lyntai.Tests.Inference;
 
 /// <summary>The DI wiring: the pool, its two strategies and the admission table reach the container, and the
 /// router factories that consume them resolve for BOTH domains.
@@ -282,7 +282,7 @@ public class ProviderPoolWiringTests
     // Resolving the host's instance is not enough — the factory has to hand it to the router it builds, and
     // the router has to enter it on the CONFIGURATION rather than on the provider id.
     [Fact]
-    public async Task The_llm_factory_routes_through_a_host_registered_admission()
+    public async Task The_text_factory_routes_through_a_host_registered_admission()
     {
         var admission = new RecordingAdmission();
         using var sp = ProviderWithHostAdmission(admission, _ => { });
@@ -318,7 +318,7 @@ public class ProviderPoolWiringTests
 
     // The chat factory is registered even for an app with no generation domain at all.
     [Fact]
-    public async Task The_llm_factory_routes_over_a_pooled_configuration()
+    public async Task The_text_factory_routes_over_a_pooled_configuration()
     {
         using var sp = Provider(_ => { });
         var provider = new FakeTextProvider("openai");

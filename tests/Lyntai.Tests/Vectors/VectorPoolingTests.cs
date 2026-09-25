@@ -4,7 +4,7 @@ using Lyntai.Providers.Onnx;
 using Microsoft.Extensions.DependencyInjection;
 using static Lyntai.Tests.Fakes.VectorMath;
 
-namespace Lyntai.Tests.Embeddings;
+namespace Lyntai.Tests.Vectors;
 
 /// <summary>The pooling half — the part that can be WRONG without failing, and the only part of an ONNX
 /// vector backend a test can reach without a 90 MB model on disk.</summary>

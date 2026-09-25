@@ -3745,7 +3745,7 @@ sit under the old model and needed nothing new under this one — which is how i
 > survives is `Produces` being a list, which means one CALL returning several kinds. D132's single
 > registration METHOD stands; only this entry's bundling of two backends into one options object does not.
 
-`HttpModelOptions.Embeddings` is a nullable section. Set it and the provider declares
+`HttpModelOptions.Embeddings` is a nullable section. Set it and the provider declares <!-- link-ok: the section D133 retired -->
 `Produces: [text, vector]` and serves `/embeddings` from the same registration that serves
 `/chat/completions` — one id, one configuration, one `HttpClient`, one entry in the provider collection.
 

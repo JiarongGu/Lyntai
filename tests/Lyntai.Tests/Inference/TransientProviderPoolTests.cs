@@ -1,7 +1,7 @@
 using Lyntai.Inference;
 using Lyntai.Tests.Fakes;
 
-namespace Lyntai.Tests.Lifecycle;
+namespace Lyntai.Tests.Inference;
 
 public class TransientProviderPoolTests
 {

@@ -2,7 +2,7 @@ using Lyntai.Inference;
 using Lyntai.Tests.Fakes;
 using static Lyntai.Tests.Fakes.TestTimeouts;
 
-namespace Lyntai.Tests.Lifecycle;
+namespace Lyntai.Tests.Inference;
 
 /// <summary>Both routers key dead-host cooldown — and, for the generation side, concurrency admission — on the
 /// CONFIGURATION a provider is running under rather than on its id, so that several configurations of one

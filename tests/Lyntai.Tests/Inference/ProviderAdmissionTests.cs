@@ -2,7 +2,7 @@ using Lyntai.Inference;
 using Lyntai.Tests.Fakes;
 using static Lyntai.Tests.Fakes.TestTimeouts;
 
-namespace Lyntai.Tests.Lifecycle;
+namespace Lyntai.Tests.Inference;
 
 public class ProviderAdmissionTests
 {

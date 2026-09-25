@@ -9,7 +9,7 @@ namespace Lyntai.Tests.Generation;
 /// <c>docs/DECISIONS.md</c> D3. The motivating case is real: a cloud backend refuses content that a
 /// permissive local backend will happily produce, and the host — not the library — decides whether a refusal
 /// ends the run or moves to the next candidate.</summary>
-public class GenerationRoutingPolicyTests
+public class MediaRoutingPolicyTests
 {
     private static MediaRequest Image() => new() { Kind = ProviderKinds.Image, Prompt = "x" };
 

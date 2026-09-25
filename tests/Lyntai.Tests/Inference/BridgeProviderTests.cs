@@ -1,7 +1,7 @@
 using Lyntai.Inference;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Lyntai.Tests.Lifecycle;
+namespace Lyntai.Tests.Inference;
 
 /// <summary>A backend built from a FUNCTION — the general form of bridging something that already answers.
 ///

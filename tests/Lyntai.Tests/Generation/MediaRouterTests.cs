@@ -8,7 +8,7 @@ namespace Lyntai.Tests.Generation;
 /// <summary>Media routing differs from LLM routing in one decisive way: a candidate that CANNOT serve the
 /// request (wrong medium, wrong delivery, needs inputs it doesn't take) must be skipped BEFORE anything is
 /// spent — capability first, verdict-driven fallback second.</summary>
-public class GenerationRouterTests
+public class MediaRouterTests
 {
     private static MediaRouter Router(params IModelProvider[] providers) => new(providers);
 

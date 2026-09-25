@@ -6,7 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Lyntai.Tests.Fakes;
 using static Lyntai.Tests.Fakes.VectorMath;
 
-namespace Lyntai.Tests.Embeddings;
+namespace Lyntai.Tests.Vectors;
 
 /// <summary>The in-process, server-free vector backend.
 ///

@@ -12,7 +12,7 @@ namespace Lyntai.Tests.Providers;
 /// resolve to a Failed verdict, which is exactly the router-fallback contract we want to pin. Real
 /// inference is covered by the opt-in <see cref="LlamaSharpProviderLiveTests"/>.
 /// </summary>
-public class AddLlamaSharpTests : IDisposable
+public class AddLlamaSharpProviderTests : IDisposable
 {
     private readonly ScratchDir _scratch = new("llamasharp");
 
