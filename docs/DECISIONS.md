@@ -1826,11 +1826,8 @@ a world that may no longer exist, or may never have existed.
 terminal one. That asymmetry is documented as intended. What is fixed is the SIGNAL: `ToolFunction` now logs
 a block the way `ToolLoop` already did.
 
-**The backlog item was half right, and finding out which half is the point.** It read: *"`ToolLoop` ends the
-turn with `ProviderVerdict.Refused`; `ToolFunction` returns a refusal string, so the model may retry with
-perturbed arguments, unbounded, and the host gets no signal (that path has no logger) … Needs a decision
-about what a hosted refusal should DO."* Investigating it split the complaint in two, and the halves have
-opposite answers.
+**The complaint split in two, and the halves have opposite answers** (the backlog item it closed is
+`docs/task-archive.md` Part 81).
 
 **FORCE: the difference is imposed, not chosen.** `ToolLoop` OWNS the turn, so ending it is a thing it can
 do. `ToolFunction` is one MCP function invocation inside a loop the CLIENT owns, and the protocol has no
@@ -2038,12 +2035,8 @@ the same rank, contributes the same constant term, and cannot move the ordering 
 signal's weight to `0`, without a consumer having to notice the discriminating power vanished and disable it
 by hand. A PARTIALLY tied signal degrades proportionally rather than totally.
 
-**Why it is a decision and not a comment.** It was written only as a rejected-alternative argument inside
-the policy's own remarks, which is where `.claude/rules/code-commentary.md` says such an argument must not
-live — and the 2026-08-16 comment paydown deleted it correctly, at which point the reasoning had no home and
-the measured 25% would have been lost. The tell that it belonged here rather than in the comment: it names a
-real alternative, states what that alternative costs, and constrains anyone who later "fixes" the duplicate
-ranks.
+**It is a decision rather than a comment** because it names a real alternative, states what that
+alternative costs, and constrains anyone who later "fixes" the duplicate ranks.
 
 ## D83 — composition's RENDERER is reachable without an engine (2026-08-21)
 
@@ -2225,7 +2218,7 @@ nothing in the library can detect it.
 `IMemoryAnnotationPolicy` produces subject handles at a model call per write, `RecordSubjectsAsync` stores
 them, and through 3.0.2 exactly two things ever read one — the write path's own linking and the annotator's
 reuse list, **both at write time**. So the handle `配偶` recorded against a fact whose text says `太太` was an
-index only its writer could use. Reported by an adopter who had paid for it and closed it app-side.
+index only its writer could use.
 
 `SubjectSeedOptions.K` (`AddMemoryEngine` registers this channel unconditionally; `AddMemorySubjectSeeds`
 only CONFIGURES it) puts the entries recorded under whichever subjects a query NAMES into the candidate set
@@ -2259,11 +2252,6 @@ non-ASCII) and Thai (spaceless, non-ASCII) in opposite directions.
 **`KnownSubjectsAsync` is the one member of `IMemoryGraphStore` with a default body**, so a BYO store that
 does not implement it seeds nothing here and behaves exactly as before — already its documented posture as
 an accuracy hint, now also a recall path worth knowing before writing one.
-
-**An adopter running the app-side workaround should DELETE it**, not leave it: engine-side matches arrive as
-ordinary ranked hits carrying real retrievability and degree, which the app-side ones never had, and a
-dedup-by-ref workaround will simply skip them — two implementations of one feature in one call path, each
-looking necessary to whoever reads only one.
 
 ## D89 — salience does not vote on RANKING: `ReciprocalRankFusionOptions.SalienceWeight` ships at 0 (2026-08-23)
 
@@ -2411,9 +2399,8 @@ as a real loss and is close to incoherent on inspection: two facts that belong t
 and "related but isolated" is not a thing this model can mean. A caller that wants it keeps the association
 in its own data, which is `library-api-design`'s standing answer to an app-specific need.
 
-**Pinned from both sides** — the refusal, and a fact that writes a cross-task edge *through the store*
-(bypassing the engine) to prove the walk still will not follow it. That second one is what would catch a
-future change that relaxed the scoping while leaving the refusal in place.
+**Pinned from both sides** — the refusal, and a cross-task edge written *through the store* that the walk
+still will not follow, which is what catches a change relaxing the scoping while leaving the refusal.
 
 ## D93 — what a recall RETURNS is widened twice: metadata comes back, and a verifier is shown scores (2026-08-27)
 
@@ -2579,19 +2566,10 @@ null`, and `MultiplicativeRankingPolicy` then omits the relevance factor rather 
 
 **The defect it fixes was a literal.** Both row projections materialized every node with `Relevance = 1`,
 the MAXIMUM, and only `SeedAsync` overwrote it — so every walked or by-id candidate outranked everything
-that had actually been scored. Measured on LoCoMo (`docs/memory-measurements.md` §5), evidence-hit@20:
-
-| | shipped | fixed |
-|---|---|---|
-| defaults | 11.0% | **31.0%** |
-| `SemanticSeedOptions.K = 20` | 11.0% | **36.0%** |
-| + `RetrievabilityWeight = 0` | 22.5% | **63.5%** |
-
-`SemanticSeedOptions.K` becomes worth **+5.0 points** where it was worth exactly 0.0 — a real 0.785 cosine could
-never beat a fabricated 1.000, so the option was unreachable rather than weak.
-<br>_Both columns predate the per-question isolation fix (`docs/task-archive.md` **Part 118**), which moved
-every LoCoMo engine arm up 20–25 points; isolated, `defaults` reads 54.5% rather than 31.0%. The DELTA this
-table argues is a within-regime comparison and is unaffected — the defect and its size stand._
+that had actually been scored. On LoCoMo the fix roughly tripled evidence-hit at the defaults, and
+`SemanticSeedOptions.K` went from worth exactly 0.0 to +5.0 points — a real 0.785 cosine could never beat a
+fabricated 1.000, so the option was unreachable rather than weak (`docs/memory-measurements.md` §5,
+`locomo-lyntai-first-11pct-n200`, read for the DELTA).
 
 **The rejected alternatives, and the first one was tried and measured.** Reporting `0` alone gets the same
 retrieval numbers and **deletes graph traversal**: a multiplicative policy scores a product, so a zero
@@ -2616,18 +2594,16 @@ walked to. Default `0`, which admits everything and is what every release throug
 
 **The gap it closes.** `EdgeHalfLife` decays the EDGE; nothing consulted the ENTRY on the traversal path. So
 a recall would correctly bury a superseded fact and an expansion of its neighbour handed that fact straight
-back — forgetting governed recall and had no vote in the walk. Measured on LongMemEval's knowledge-update
-class (`docs/memory-measurements.md` §5): a context holding the current value and NOT the superseded one fell 40.0% →
-36.0% as the walk went deeper, while `stale@k` climbed 56.0% → 60.0%.
-<br>_Every figure in this entry is the **25-question** sample. Re-measured on all 70 (2026-08-29) the same
-fall reads 31.4% → 28.6% with `stale@k` 62.9% → 65.7%: the defect is the same shape and about a third
-smaller. The floor's own cells have not been re-run at 70._
+back — forgetting governed recall and had no vote in the walk. On LongMemEval's knowledge-update class a
+context holding the current value and NOT the superseded one FELL as the walk went deeper while `stale@k`
+climbed; the floor's current reading is `docs/memory-measurements.md` §5, `floor-08-knowledge-update-70q`
+(the 25-question figures this entry was decided on are retracted there).
 
 **An ORDERING weight was implemented first, measured, and withdrawn.** Scaling the walk order by
 retrievability moved every cell by exactly zero, because ordering can only matter when the caller's budget
 binds and in the measured case it did not — 15.9 items against a budget of 20, so everything the walk found
-fitted and the position it was found in was irrelevant. The floor holds the curve flat at 40.0% through all
-three shots. A knob whose measured effect on the case that motivated it is zero has not earned public
+fitted and the position it was found in was irrelevant. The floor holds the curve flat through all three
+shots. A knob whose measured effect on the case that motivated it is zero has not earned public
 surface, so the weight did not ship.
 
 **It excludes rather than deletes, and never hides the entry the caller NAMED.** A floored neighbour stays
@@ -2822,10 +2798,9 @@ headlines, and a reader that must ANSWER from the excerpts wants the whole entry
 different call sites, which is why this is a per-CALL parameter rather than a deployment option or a seam —
 there is no policy to inject, only a size the caller already knows.
 
-**It is not a preference; it was priced.** Full content for the same twenty items is worth **+11.7
-token-F1** on LoCoMo, closing essentially the whole gap to plain cosine and cutting the reader's refusals
-from 29 to 13 (`docs/task-archive.md` Part 136). Before this it took N calls of
-`ExpandAsync(reference, hops: 0)`, one per returned item.
+**It is not a preference; it was priced.** Full content for the same twenty items closes essentially the
+whole token-F1 gap to plain cosine on LoCoMo (`docs/memory-measurements.md` §5,
+`locomo-rehydrate-full-n200`). Before this it took N calls of `ExpandAsync(reference, hops: 0)`.
 
 **D100 is unchanged and is the reason for the DEFAULT.** A recall returning headlines is what makes the first
 load cheap, and the n-shot walk is built on it. This decision does not retract that — it stops the cheapness
@@ -2837,7 +2812,7 @@ the caller is stating a size, not supplying behaviour, and `library-api-design.m
 disagreements about BEHAVIOUR. Ingesting as `MemoryGrade.Authoritative` to get full content: that grade also
 engages the carve-out and re-admission, so it moves ranking at the same time.
 
-**It takes TWO seams, and the second was found by a benchmark arm that lied.** `MemoryQuery.Detail` alone
+**It takes TWO seams.** `MemoryQuery.Detail` alone
 covers the recall; `IExpandableMemory.ExpandAsync` projects a discovered NEIGHBOUR exactly as a recall does,
 so a walk asked for whole entries got them for step 1 and headlines for everything found afterwards.
 `ExpandAsync` therefore takes the same parameter and a walk passes its query's value through — a caller
@@ -2845,8 +2820,8 @@ states it once. The named entry was always whole; only its neighbours moved.
 
 **It does NOT follow that the model-facing tool should change.** `MemoryTools.Recall` returns headlines and
 tells the model to call `expand` on what it wants — the right economics for an agent that pays per turn and
-can choose. The 11.7 points were measured on a ONE-SHOT reader with no second call available, which is a
-different consumer; do not carry the number across to one that can ask again.
+can choose. The gain was measured on a ONE-SHOT reader with no second call available, which is a
+different consumer; do not carry it across to one that can ask again.
 
 **Scope.** Only `GraphMemoryEngine` changes: the lexical, semantic and curated engines have no separate short
 form and already returned content under either value. The promise is stated as a cross-engine contract fact
@@ -2865,15 +2840,12 @@ combined (**D82**, **D103**).
 **The partition was the only signal in this engine combined by partition rather than by competition**, and
 that asymmetry is the harm. Its cost scales with how MANY candidates a judge endorses: a set larger than the
 caller's limit replaces the page instead of refining it, since everything unendorsed is pushed off however
-well it was ranked. Measured on LoCoMo with a real 4B judge at the shipped depth, the partition cost **10.5
-points** of evidence-hit on one embedder and **12.0** on a second, and it is that harm — not the size of the
-cure — that replicated (`docs/memory-measurements.md` §5).
+well it was ranked. On LoCoMo with a real 4B judge at the shipped depth that harm replicated across two
+embedders (`docs/memory-measurements.md` §5, `locomo-judge-fuse-depth80-n200`).
 
 **Fuse removes MOST of that loss and never beats the base, so it is insurance rather than an improvement.**
-It recovered all of the loss on the first embedder and 9.5 of 12.0 on the second, landing 2.5 short — so
-"removes a loss and adds nothing" was one embedder's phrasing, corrected on 2026-09-04 when the replication
-ran, here and in the shipped XML doc. The rescue a verdict exists for survives either way: an endorsed
-candidate below the limit still reaches the page, but an endorsement no longer entitles a candidate to lead.
+The rescue a verdict exists for survives either way: an endorsed candidate below the limit still reaches the
+page, but an endorsement no longer entitles a candidate to lead.
 
 **Why the default did NOT move**, which is the decision rather than the code. Changing it would be a silent
 reordering no consumer can detect at compile time (**D18**'s major-bump shape), bought on ONE model and ONE
@@ -2893,10 +2865,10 @@ reproducing the partition. The bench made exactly that error first, and
 `MemoryVerdictFusionTests.Fused_a_poorly_ranked_endorsement_does_not_displace_the_leader` is the control that
 fails if it recurs.
 
-**What `Fuse` costs a GOOD judge — measured 2026-09-07, and missing when this was decided.** 2.0 points at
-perfect judgement (92.5% → 90.5%, LoCoMo n = 200), so the partition has a real justification and the default
-is a **bet on judge quality**: +2.0 when it is right against −10.5 when the judge is a 4B model, ~5:1 against.
-It stays until that pair is measured on a second workload (`docs/memory-measurements.md` §5).
+**What `Fuse` costs a GOOD judge**, measured after this was decided: a little at perfect judgement
+(`locomo-oracle-partition-vs-fuse`), so the partition has a real justification and the default is a **bet on
+judge quality** — worth about a fifth of what a 4B judge loses to it. It stays until that pair is measured
+on a second workload.
 
 ## D106 — the gist tier is REFUTED AS SCOPED: abstraction belongs at encoding, not at retrieval (2026-09-04)
 

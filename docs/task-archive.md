@@ -971,6 +971,12 @@ _Closes `TASKS.md` Part 75's "widen the memory corpus to author headlines disjoi
 
 _Closes the last startable item in `TASKS.md` Part 75. `docs/DECISIONS.md` **D75**._
 
+**Outcome.** The item read: *"`ToolLoop` ends the turn with `ProviderVerdict.Refused`; `ToolFunction`
+returns a refusal string, so the model may retry with perturbed arguments, unbounded, and the host gets no
+signal … Needs a decision about what a hosted refusal should DO."* It was half right: the difference in
+FORCE is imposed by MCP and stays, documented; the difference in SIGNAL was an accident, and `ToolFunction`
+now logs a block as `ToolLoop` does.
+
 ## Part 82 — a whole-library review: dedup, then the comment problem it exposed (2026-08-16)
 
 **Outcome.** Storage-pair identical code lines 867 → 730 and private row types 23 → 5 across the two
