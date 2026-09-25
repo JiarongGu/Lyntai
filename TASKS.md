@@ -15,20 +15,19 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 7 across 4 Parts: 2 startable, 2 blocked, 2 watch, 1 decision-only
+## Open items — 6 across 4 Parts: 2 startable, 2 blocked, 2 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 108 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a free Hugging Face account (an hf_ token) — its router proxies fal's own q… |
-| 155 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 178 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 234 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
-| 264 | 294 | An unreachable LOCAL media server: `NotConfigured` or `Failed`? | decision-only · decision | an owner ruling on whether a local server that is not listening is unconfig… |
-| 270 | 294 | Give the vector-store, verification and annotation contracts an abstract Fa… | startable |  |
-| 273 | 294 | Sweep test comments for history narration that carries no tag or date | startable |  |
+| 107 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a free Hugging Face account (an hf_ token) — its router proxies fal's own q… |
+| 154 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 177 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 233 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 263 | 294 | Give the vector-store, verification and annotation contracts an abstract Fa… | startable |  |
+| 266 | 294 | Sweep test comments for history narration that carries no tag or date | startable |  |
 
 <!-- open-items:end -->
 
@@ -261,12 +260,6 @@ there is nothing here to code: what remains is evidence only recurrence can supp
 _Opened by `docs/task-archive.md` **Part 295**, the full review of code, tests, tooling and docs. Each was
 found and deliberately not done in that pass; everything else it found is fixed and archived._
 
-- [ ] **An unreachable LOCAL media server: `NotConfigured` or `Failed`?** Automatic1111 reports a refused <!-- item: state=decision-only kind=decision needs="an owner ruling on whether a local server that is not listening is unconfigured or down" -->
-  connection as `NotConfigured` (blameless — no dead-host strike, so every call retries a fast refusal);
-  ComfyUI reports the same refusal as `Failed` (benched after the threshold), which is what **D31**'s
-  `downHost → Failed` reads as. Both are defensible; the two local backends should agree, and whichever rule
-  wins belongs in D31. `ComfyUiProviderTests.An_unreachable_local_server_fails_the_submit_and_the_probe_saying_so`
-  and `Automatic1111ProviderTests` pin today's split.
 - [ ] **Give the vector-store, verification and annotation contracts an abstract Facts base**, as the engine, <!-- item: state=startable -->
   ranking and retrievability contracts now have (`tests/Lyntai.Tests/Memory/`), so no fact can be wired to one
   implementation and silently skipped on another. The vector-store one spans `tests/Lyntai.Tests/Storage/`.

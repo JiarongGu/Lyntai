@@ -189,10 +189,10 @@ public class GenerationBackendThrowTests
     }
 
     [Fact]
-    public async Task Automatic1111_a_WebUI_that_drops_the_connection_mid_render_is_Failed_not_NotConfigured()
+    public async Task Automatic1111_a_WebUI_that_drops_the_connection_mid_render_is_Failed_and_says_so()
     {
-        // only a server that is not LISTENING is an unconfigured candidate; one that crashed mid-render is a
-        // fault, and NotConfigured would keep it out of the dead-host count forever
+        // a server that is not listening and one that crashed mid-render are both down hosts (D31), counted
+        // toward the dead-host bench; only the detail tells a reader which one happened
         var http = new StubHttpHandler().Enqueue(_ => throw DroppedMidResponse());
         var a1111 = new Automatic1111Provider(new Automatic1111Options { BaseUrl = "http://127.0.0.1:7860" }, Client(http));
 
@@ -204,7 +204,9 @@ public class GenerationBackendThrowTests
             .GenerateAsync(new MediaRequest { Kind = ProviderKinds.Image, Prompt = "a cat" });
 
         Assert.Equal(ProviderVerdict.Failed, dropped.Verdict);
-        Assert.Equal(ProviderVerdict.NotConfigured, down.Verdict);
+        Assert.Equal(ProviderVerdict.Failed, down.Verdict);
+        Assert.Contains("not reachable", down.Detail);
+        Assert.DoesNotContain("not reachable", dropped.Detail);
     }
 
     [Fact]

@@ -28,6 +28,13 @@ every addition.
   `capabilities.Produces`; an embedder or reranker implements `IVectorProvider` or `IScoreProvider` and registers
   with `AddProvider`.
 
+### Changed
+
+- **An Automatic1111 WebUI that is not running is `Failed`, not `NotConfigured`** (**D31**): a down host, as
+  ComfyUI and every HTTP text backend already reported one. Routing still advances; past the dead-host threshold
+  the WebUI is benched, so one started later is asked again once its cooldown ends rather than on the next call.
+  A missing `BaseUrl` is still `NotConfigured`.
+
 ### Fixed
 
 - **Documentation that described what 3.3.0 does not do.** A bridge answers text only — README and the

@@ -115,10 +115,11 @@ public class Automatic1111ProviderTests
     }
 
     [Fact]
-    public async Task An_unreachable_local_server_is_NOT_CONFIGURED_not_a_hard_failure()
+    public async Task An_unreachable_local_server_is_FAILED_like_every_other_down_host()
     {
-        // a local WebUI that simply isn't running is the normal case on a fresh machine: routing should skip
-        // to the next candidate, and a host should be told to start it — not shown a stack trace
+        // a WebUI that isn't running is a DOWN host (D31), as ComfyUI and every HTTP text backend report it:
+        // benched after the threshold rather than retried on every call. Routing still advances, and the
+        // detail says where it looked.
         var handler = new StubHttpHandler().Enqueue(_ =>
             throw new HttpRequestException(HttpRequestError.ConnectionError, "connection refused"));
         var provider = new Automatic1111Provider(
@@ -127,7 +128,8 @@ public class Automatic1111ProviderTests
 
         var result = await provider.GenerateAsync(Ask());
 
-        Assert.Equal(ProviderVerdict.NotConfigured, result.Verdict);
+        Assert.Equal(ProviderVerdict.Failed, result.Verdict);
+        Assert.Contains("not reachable", result.Detail);
         Assert.Contains("connection refused", result.Detail);
     }
 

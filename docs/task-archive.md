@@ -5063,3 +5063,14 @@ Declined: a `retiredTerms` rule for `Lyntai.Storage.InMemory`, which is still a 
 Left for a ruling: `AddBridgeProvider` accepts a `Produces` it can never serve, silently.
 
 - A deep doc cleanup/update after the 3.3.0 release
+
+## Part 297 — an unreachable local media server is a DOWN host (2026-09-26)
+
+✅ done 2026-09-26 — **Outcome:** closes `TASKS.md` Part 294's decision-only item on the owner's ruling:
+`Failed`. `Automatic1111Provider` reported a refused connection `NotConfigured` (blameless, never benched)
+while ComfyUI and every HTTP text backend reported `Failed`; it now agrees, and only a missing `BaseUrl` is
+`NotConfigured`. The rule and the refused blameless alternative are in **D31**; the consumer-visible change is
+`CHANGELOG.md`'s Changed entry. The two tests that pinned the split were inverted — the dropped-mid-render
+test now tells the two failures apart by their detail, since the verdict no longer does.
+
+- An unreachable LOCAL media server: `NotConfigured` or `Failed`?

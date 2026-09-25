@@ -621,7 +621,7 @@ checkpoint, or a result over `GenerationPipelineJobOptions.MaxCheckpointBytes` (
 | Backend | Delivery | Standing |
 |---|---|---|
 | `OpenAiImageProvider` | Inline | Ported from a production implementation; not yet measured against OpenAI's current GPT-image models |
-| `Automatic1111Provider` | Inline | Ported from a production implementation. Not running (nothing listening) reports **NotConfigured**; a WebUI that drops a render mid-response is **Failed** |
+| `Automatic1111Provider` | Inline | Ported from a production implementation. Not running (nothing listening) is **Failed**, a down host like any other, and so is a WebUI that drops a render mid-response |
 | `ComfyUiProvider` | **Job** | Measured against a live server: image, video and mesh workflows |
 | `LocalDiffusionProvider` | Inline | A local `sd-cli` subprocess, measured end to end (txt2img and img2img) |
 | `FalProvider` | **Job** | *Never called: written from fal.ai's public docs; no maintainer holds an account* |

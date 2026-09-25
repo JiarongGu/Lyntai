@@ -763,6 +763,12 @@ comment.
 `[downHost → Failed, neverConfigured → NotConfigured]` reports the outage rather than sending the caller to
 set up a key. `NotConfigured` and `Unsupported` are the blameless pair in both domains.
 
+**A local server that is not LISTENING is a down host, not an unconfigured one** (ruled 2026-09-26): Automatic1111
+reports a refused connection `Failed`, as ComfyUI and every HTTP text backend do, and only a missing `BaseUrl`
+is `NotConfigured`. The alternative — blameless, since a stopped server is a fresh machine's normal state — was
+refused: never benched, it pays a refusal on every call, and two local backends answering one question two ways
+is the drift this entry exists to prevent.
+
 **The defect it fixed**: a 401/403 answered to a call that carried no credentials was classified
 `AuthFailed`, which *cools the host* — so a backend nobody had configured benched itself and took a healthy
 candidate's turn with it. No existing member described "never set up", which is why this is a new one rather

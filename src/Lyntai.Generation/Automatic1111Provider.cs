@@ -57,9 +57,10 @@ public sealed class Automatic1111Options
 /// host that needs a specific one switches it in the WebUI. Every local backend answers "what decides the
 /// model?" differently: ComfyUI's is the workflow, the local engine's its model path, this one's the server.
 /// </summary>
-/// <remarks>Wire shapes ported from a sibling app's production implementation. A server that simply isn't
-/// running reports <see cref="ProviderVerdict.NotConfigured"/> rather than a failure — on a fresh machine
-/// that is the normal state, and routing should skip it without penalising it.</remarks>
+/// <remarks>Wire shapes ported from a sibling app's production implementation. A server that isn't running
+/// reports <see cref="ProviderVerdict.Failed"/> — a down host, as for every other HTTP backend — so routing
+/// advances and, past the dead-host threshold, stops asking until the cooldown ends. No <c>BaseUrl</c> is
+/// <see cref="ProviderVerdict.NotConfigured"/>.</remarks>
 /// <param name="options">Endpoint and sampling defaults.</param>
 /// <param name="httpFactory">Supplies the <see cref="HttpClient"/> — BYO (design §7).</param>
 /// <param name="disposeHttpClient">Whether this provider disposes what <paramref name="httpFactory"/> returns.
@@ -181,9 +182,9 @@ public sealed class Automatic1111Provider(
         catch (OperationCanceledException) { throw; }
         catch (HttpRequestException ex) when (ex.HttpRequestError == HttpRequestError.ConnectionError)
         {
-            // nothing listening is an unconfigured candidate, not a fault to penalise; one that dropped a
-            // render mid-response is a fault, and falls through
-            return MediaResponse.Failure(ProviderVerdict.NotConfigured,
+            // nothing listening is a DOWN host (D31), as ComfyUI reports it — only the detail differs from the
+            // fall-through, which a render dropped mid-response takes
+            return MediaResponse.Failure(ProviderVerdict.Failed,
                 $"the WebUI at {Root} is not reachable: {ex.Message}");
         }
         catch (Exception ex)
