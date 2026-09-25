@@ -149,18 +149,9 @@ public sealed class LyntaiOptions
         return TimeoutByConsumer.TryGetValue("default", out var d) ? d : ProviderTimeout;
     }
 
-    /// <summary>Resolve a provider timeout from an explicit per-call seconds value alone: the value wins
-    /// (clamped to <see cref="MaxProviderTimeout"/>), else the global <see cref="ProviderTimeout"/> — no
-    /// consumer tier, for a caller that has no consumer to name.</summary>
-    public TimeSpan ResolveTimeout(int? seconds)
-    {
-        if (seconds is { } s && s > 0)
-        {
-            var requested = TimeSpan.FromSeconds(s);
-            return requested > MaxProviderTimeout ? MaxProviderTimeout : requested;
-        }
-        return ProviderTimeout;
-    }
+    /// <summary>Resolve a provider timeout for a caller with no consumer to name — exactly
+    /// <see cref="ResolveTimeout(int?, string?)"/> with none, so the "default" consumer entry still applies.</summary>
+    public TimeSpan ResolveTimeout(int? seconds) => ResolveTimeout(seconds, consumer: null);
 
     /// <summary>Apply <c>LYNTAI_*</c> environment overrides. The env getter is injectable so tests
     /// are deterministic; production uses <see cref="Environment.GetEnvironmentVariable(string)"/>.</summary>
