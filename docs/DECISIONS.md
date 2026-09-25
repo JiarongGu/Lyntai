@@ -270,8 +270,9 @@ the backend at all.
 ## D2 — storage is per-domain interfaces, and a backend implements as many as it wants
 Each storage domain has its own interface in Core, free of cross-domain coupling **on purpose**, so a
 composite deployment can route each domain to a different backend without breaking consumers. There are
-thirteen such interfaces today and three shipped backends (SQLite, Postgres, InMemory) — the "one SQLite
-package" this entry originally described was the starting point, not the constraint. Don't couple domains.
+thirteen such interfaces today and four shipped backends in three packages (SQLite, Postgres, and
+`Lyntai.Storage.Basic`'s in-memory and file-system stores) — the "one SQLite package" this entry originally
+described was the starting point, not the constraint. Don't couple domains.
 
 ## D3 — fallback is verdict-driven, through one shared classifier, and the policy is REPLACEABLE
 One `ProviderVerdict` enum drives router behaviour, and every provider routes through the shared
@@ -1296,7 +1297,7 @@ entry exists, since nothing else in the repository would say so.
 The reviewing pass argued against: 51 of the commits were already public, the release workflow builds from
 the remote (`pitfalls.md`), and the sequence that looks noisiest — fifteen `docs(decisions)` repair commits —
 is the honest record of one bulk rewrite that hollowed out entries and needed nine passes to find them all,
-which is the evidence behind Part 73. The counter-argument is that `CHANGELOG.md` already carries the
+which is the evidence behind `docs/task-archive.md` Part 73. The counter-argument is that `CHANGELOG.md` already carries the
 release narrative a reader actually needs, and per-commit archaeology of an unreleased development window is
 not what this repository's history is for. Both are true; the second is the one the owner weighed heavier.
 
@@ -1483,7 +1484,7 @@ a sibling.
 |---|---|---|
 | `MemoryCompositionOptions.AuthoritativeReserve` | `AuthoritativeCharacters` | the SAME identifier as `GraphMemoryOptions.AuthoritativeReserve`, same namespace, different UNITS — recall SLOTS there, prompt CHARACTERS here — and both reachable from one builder chain. Reading "reserve 2" as slots silently truncated every exact fact to two characters. |
 | `MemoryEngineBuilder.Reserve` | `ReserveCharacters` | the verb carried no unit at all, on the call that sets the above |
-| `IProviderInstallation` | `IModelProvider` | declares one `ProbeAsync` and installs NOTHING, one word from `IProviderVersionInstaller`, which does. The documented use is a capability type-test, so the name IS the API for a reader choosing between them. |   <!-- drift-ok: a rename record NAMES the retired spelling -->
+| `IProviderInstallation` | `IProviderProbe` | declares one `ProbeAsync` and installs NOTHING, one word from `IProviderVersionInstaller`, which does. The documented use is a capability type-test, so the name IS the API for a reader choosing between them. |   <!-- drift-ok: a rename record NAMES both retired spellings; D127 later folded IProviderProbe into IModelProvider -->
 | `GraphMemoryEngine(policy:)`, `UseGraph(policy:)` | `retrievability:` | the one parameter of sixteen not named for its domain, surrounded by `agePolicies`, `saliencePolicies`, `ranking`, `annotation`, `verification` — and it is the forgetting curve, the subsystem's most consequential seam |
 | `CuratedMemorySections(task:)` | `taskKey:` | the only place on the whole surface that said `task`, against `taskKey` on twelve interfaces — and `CLAUDE.md` already records a README sample passing `task:` where the parameter was `taskKey` |
 | `EnsureEachBitIsSingleRealAndUnique` | `ValidateProvenanceBits` | an assertion-shaped, ungrammatical name beside siblings called `Fits`/`Pack`/`Unpack` |   <!-- drift-ok: a rename record NAMES the retired spelling -->
@@ -1534,7 +1535,7 @@ was the only way to SET the characters one.
 
 **The decision.** `IGenerationRouter` gains a third door, `StreamAsync`, and 3.0 ships the streaming path <!-- drift-ok: the record names the type AS IT WAS; D154 renamed it after -->
 wired: capability pre-filter, verdict-driven fallback, dead-host cooldown, budget and rate limiting, all on
-the same terms as the inline and submit doors. `IModelProvider` stays in `Lyntai.Core` under the
+the same terms as the inline and submit doors. `IGenerationStreamProvider` stays in `Lyntai.Core` under the <!-- drift-ok: the record names the seam of its day; D127 folded it into IModelProvider -->
 full SemVer promise.
 
 **The alternative, and why it lost.** The seam was heading into the freeze in the worst possible state: its
@@ -1683,7 +1684,7 @@ closed.** `README.md` stated three, and they are checkable one by one —
 |---|---|
 | "two of its backends were written from vendor documentation with no key to call" | **D69** — every mapping those backends could have got wrong is now a host option, so a mismatch is a configuration edit rather than a library release |
 | "a third's argv is ported rather than measured" | **D69** — `LocalDiffusionOptions.ArgvFlags` makes the whole `sd-cli` argv the host's, keyed by meaning rather than spelling |
-| "`IModelProvider` has no implementation at all yet" | **D67** — the router's stream door, with fifteen tests over the handling |
+| "`IGenerationStreamProvider` has no implementation at all yet" | **D67** — the router's stream door, with fifteen tests over the handling | <!-- drift-ok: quotes the README of its day; D127 folded the seam into IModelProvider -->
 
 **That is the argument for writing a reason clause into an exemption in the first place.** An exemption
 justified by "this is new" can only ever be retired by taste. One justified by three specific facts is
@@ -2266,7 +2267,7 @@ authoritative, and the `kind` axis is already spent on the catalog's own section
 
 **A delegate, not a reserved metadata key.** `CuratedMemory.Metadata` is app-owned. Which key carries
 provenance, and which of its values mean "exact", is a convention only the deployment has — the same rule
-that made `IMemoryRemovalPolicy` a seam rather than a boolean (D75).
+that made `IMemoryRemovalPolicy` a seam rather than a boolean (D72).
 
 **`Supported` stays `Authoritative`, and that is the load-bearing half.** Widening it would make a composite
 route associative writes to the CATALOG instead of to the engine that can decay them, and the store still
@@ -2701,7 +2702,7 @@ been one too. The engine computed each candidate's relevance and threw it away o
 normalized rank position through and `IMemoryGraphStore.SeedAsync` makes that position explicitly
 backend-specific, so the number's scale belongs to the deployment's embedder and corpus. A library-chosen
 threshold would be the library answering a question only the host can — the shape **D68** records for the
-diffusion accelerator and **D75** for `HoldsUserContent`.
+diffusion accelerator and **D72** for `HoldsUserContent`.
 
 **And no model-free ANSWER may be claimed from the value either**, by a shipped implementation or a doc.
 `MemoryRelevance.ByRankPosition` is `1 - index/count`: the top row is **always exactly `1.0`** and the rest
@@ -2979,7 +2980,7 @@ optimistic while the RATIO it argues went 2.5× → 3.1×.)_
 **AMENDED 2026-08-29 — the LoCoMo half of the original evidence was a harness artefact and is withdrawn.**
 This entry read *"on LoCoMo, a SEARCH workload, shot 2 is worth +6.0 points where shot 3 is worth +0.5, so
 the useful shot count is a property of the QUESTION — resolution wants one, search wants two"*. LoCoMo
-questions within a conversation shared a store, and isolating them (**Part 118**) flattens that curve to
+questions within a conversation shared a store, and isolating them (`docs/task-archive.md` **Part 118**) flattens that curve to
 **+1.5 and +1.0** on a shot 1 that was itself 24.5 points too low. *Search wants two shots* is therefore
 unsupported, and no measurement here now shows expansion buying much on a search workload.
 <br>**The decision stands on its other leg**, which is why it is amended rather than reversed: the engine
@@ -3228,7 +3229,8 @@ the more durable trace — so an abstraction that outlives its members, which a 
 free, is confabulation by construction. **D41** keeping members reachable is the countermeasure.
 
 **What would unblock it, stated so nobody re-derives it: valid-time on the write.** That is a new axis on
-`MemoryWrite` and on all three store backends, not a tier — a much larger change than Part 105, and the one
+`MemoryWrite` and on every store backend, not a tier — a much larger change than the tier
+`docs/task-archive.md` Part 153 closed, and the one
 every working system in the field actually made.
 
 **Alternatives rejected.** A SUPPORT surface that groups, counts, cites and flags the conflict without
@@ -3292,8 +3294,8 @@ able to tell that from a genuinely empty entry — the same distinction `MemoryV
 opinion and an empty endorsement.
 
 **What this does NOT settle.** Whether a cross-encoder should be a shipped default: it buys RECALL and
-discriminates no better between a fact and its replacement (`stale@k` +51.4 on knowledge-update, **D107**'s
-neighbour in `docs/task-archive.md` Part 169). This decision gives a policy the text; it recommends no
+discriminates no better between a fact and its replacement (`stale@k` +51.4 on knowledge-update,
+`docs/task-archive.md` Part 169). This decision gives a policy the text; it recommends no
 policy.
 
 ## D109 — no competitor penalty: RIF is refused, and the "contradicted" gap is a WRITE-time one (2026-09-08)
@@ -3369,7 +3371,7 @@ model's own top-k well above base rate, on the workload being served.
 session amends an item in place, and the banner is where that item's claim came from, so re-reading the item
 is exactly the check that fails. `.claude/knowledge/pitfalls.md` records three candidate gates measured
 against those four instances, and refuses all three — each catches at most one of four, and all three
-INFER a state from a `- [ ]`, which cannot express *"Part 99 is something to watch for recurrence"* or
+INFER a state from a `- [ ]`, which cannot express *"`TASKS.md` Part 99 is something to watch for recurrence"* or
 *"this one is not startable as a code change"*. Its conclusion was to reach for a registry.
 
 **This is that registry, and the choice is where the judgement LIVES.** Each open checkbox carries
@@ -4238,9 +4240,9 @@ through it: `Unsupported` was reported as `Failed` for a whole release. As `Fail
 `PenalizeAndAdvance`, so repeated capability gaps benched a healthy backend. That failure needs a
 translation table to exist at all.
 
-**D21 rejected this once, and its reason was sound at the time**: media should not adopt LLM-named types,
-because it is a separate domain. That argument is answered by a name belonging to NEITHER domain — the same <!-- drift-ok: D21's argument, named by the entry that answers it -->
-move **D127**/**D128** made for `ILlmProvider`/`IGenerationProvider` → `IModelProvider`. The third option <!-- drift-ok: D21's argument, named by the entry that answers it -->
+**D24 rejected this once, and its reason was sound at the time**: media should not adopt LLM-named types,
+because it is a separate domain. That argument is answered by a name belonging to NEITHER domain — the same <!-- drift-ok: D24's argument, named by the entry that answers it -->
+move **D127**/**D128** made for `ILlmProvider`/`IGenerationProvider` → `IModelProvider`. The third option <!-- drift-ok: D24's argument, named by the entry that answers it -->
 was not visible then because the shared provider vocabulary did not exist yet.
 
 **What a verdict MEANS is now shared; what a router DOES about it is still per-domain, and that is the
@@ -5037,7 +5039,8 @@ enum read by if/switches across a package boundary) and is not — its two membe
 transports (stdio, streamable-HTTP), a discriminator on the `AgentMcpServer` data record; it grows when the
 SPEC grows, not when a backend is added. **Gating**: the identifiers went into `retiredApiNames` (the
 surface registry); a prose `retiredTerms` rule was measured and REFUSED — the identifiers appear ~30 times
-in records that must keep their day's wording, the cry-wolf ratio D144/D158 already refused twice.
+in records that must keep their day's wording, the cry-wolf ratio already refused twice (for
+`Providers.Default`, and in **D158**).
 
 ## D160 — a wire is a PROVIDER: Ollama-native is its own class, and the wire enum is deleted (2026-09-19)
 
@@ -5150,7 +5153,8 @@ copy goes unnoticed.
 **The `> **Amendment (…)**` blockquotes stay exempt, on a measurement.** The amendments turned out to be
 two tiers: eleven inline units (65 lines) of present-tense contract, and seven blockquotes (157 lines) of
 period record — shipping summaries, superseded policy statements — carrying 49 retired-vocabulary hits
-that are each accurate for their day. Gating those is the cry-wolf ratio D144/D158 refuse twice over; the
+that are each accurate for their day. Gating those is the cry-wolf ratio refused twice over (for
+`Providers.Default`, and in **D158**); the
 reading note now states the convention (current contract inline, period record blockquote), so the split
 is a rule a writer can follow rather than a fact a reader must infer.
 
@@ -5226,7 +5230,8 @@ CURRENT answer 64% of the time. Two detectors, three thresholds each, both corpu
 (`IMemoryVerificationPolicy`), the judge it would replace is already measured as firing BACKWARDS on this
 workload (**D109**), and "count witnesses" is the obvious next thing every reader of that result reaches
 for. This entry is what stops it being built on intuition: a conversational corpus re-asserts facts too
-rarely to count, which is Part 166's supersession-density finding arriving by a second route.
+rarely to count, which is `docs/task-archive.md` Part 166's supersession-density finding arriving by a
+second route.
 
 **The trigger to revisit** is a corpus with MEASURED re-assertion density — several writers, or a feed
 with genuine repetition — not another threshold or another detector on this one.

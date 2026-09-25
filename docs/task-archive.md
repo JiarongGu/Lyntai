@@ -4030,7 +4030,7 @@ own reason for existing is that "two public seams sat outside the documented dom
 3.0 freeze" — it was built for this defect class and was blind to this variant.
 
 **No namespace moved, and could not have.** Removal is a BLEND concern — which members a forget or prune
-visits (**D75**) — rather than a stage of the decay pipeline the seven describe, and the namespace is public
+visits (**D72**) — rather than a stage of the decay pipeline the seven describe, and the namespace is public
 and frozen (**D70**) either way. `CLAUDE.md` now says that where the SEVEN claim is made, so the seam stops
 reading as a missing eighth domain.
 

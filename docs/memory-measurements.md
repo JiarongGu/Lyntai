@@ -1478,11 +1478,11 @@ multiplying an honest relevance into the product.
 **No default moved.** Clearing the bar earns the seam; whether semantic seeding ships ON is a separate
 decision on separate evidence, and `SemanticSeedOptions` is still not registered by default.
 
-**83.0% is a SQLite number, and one of three shipped backends never reaches this path.**
+**83.0% is a SQLite number, and two of four shipped backends never reach this path.**
 `InMemoryMemoryGraphStore` reports a flat `Relevance` for every lexical match and `Matched null` for every
-subject fetch, so under the shipped default registration (lexical + subject, no semantic) no candidate
-carries a rank and the recall runs the pre-branch pooled fallback — this measurement never touches that
-store. `MultiplicativeRankingPolicy` still ranks on the pooled `GraphNode.Relevance` field, so the
+subject fetch, and the file graph store shares its core (`docs/DECISIONS.md` D174), so under the shipped
+default registration (lexical + subject, no semantic) no candidate carries a rank and the recall runs the
+pre-branch pooled fallback — this measurement never touches either store. `MultiplicativeRankingPolicy` still ranks on the pooled `GraphNode.Relevance` field, so the
 mixed-scale defect this fusion removes survives unchanged in the second shipped ranking policy; see
 `docs/DECISIONS.md` D103.
 
