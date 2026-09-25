@@ -67,8 +67,7 @@ public class OllamaProviderTests
             """;
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, ndjson, "application/x-ndjson");
 
-        var chunks = new List<TextChunk>();
-        await foreach (var c in Provider(handler).StreamAsync(Req)) chunks.Add(c);
+        var chunks = await Provider(handler).StreamAsync(Req).ToListAsync();
 
         Assert.Equal(["a", "b"], chunks.Where(c => c.Kind == TextChunkKind.Content).Select(c => c.Text));
         Assert.Equal(TextChunkKind.Final, chunks[^1].Kind);

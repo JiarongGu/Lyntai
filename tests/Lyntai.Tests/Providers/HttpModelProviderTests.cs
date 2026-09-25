@@ -6,6 +6,7 @@ using Lyntai.Providers.Http;
 using Lyntai.Providers.Http.Payloads;
 using Lyntai.Tests.Fakes;
 using Microsoft.Extensions.DependencyInjection;
+using static Lyntai.Tests.Fakes.HttpProviders;
 
 namespace Lyntai.Tests.Providers;
 
@@ -90,8 +91,7 @@ public class HttpModelProviderTests
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.Unauthorized, "unauthorized");
         var provider = Provider(handler, c => c.ApiKey = null);
 
-        var chunks = new List<TextChunk>();
-        await foreach (var c in provider.StreamAsync(Req)) chunks.Add(c);
+        var chunks = await provider.StreamAsync(Req).ToListAsync();
 
         var error = chunks.Single(c => c.Kind == TextChunkKind.Error);
         Assert.Equal(ProviderVerdict.NotConfigured, error.Verdict);
@@ -101,14 +101,6 @@ public class HttpModelProviderTests
         {"choices":[{"message":{"role":"assistant","content":"hello from http"},"finish_reason":"stop"}],
          "usage":{"prompt_tokens":10,"completion_tokens":4}}
         """;
-
-    private static HttpModelProvider Provider(StubHttpHandler handler, Action<HttpModelOptions>? configure = null)
-    {
-        var config = new HttpModelOptions { BaseUrl = "https://api.openai.com", ApiKey = "test-key" };
-        configure?.Invoke(config);
-        return new HttpModelProvider("openai", config, () => new HttpClient(handler, disposeHandler: false),
-            new LyntaiOptions { ProviderTimeout = TimeSpan.FromSeconds(30) });
-    }
 
     private static TextRequest Req => new() { Messages = [TextMessage.User("hi")], Model = "gpt-x" };
 
@@ -257,8 +249,7 @@ public class HttpModelProviderTests
             """;
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, sse, "text/event-stream");
 
-        var chunks = new List<TextChunk>();
-        await foreach (var c in Provider(handler).StreamAsync(Req)) chunks.Add(c);
+        var chunks = await Provider(handler).StreamAsync(Req).ToListAsync();
 
         var terminal = chunks[^1];
         Assert.Equal(TextChunkKind.Error, terminal.Kind);
@@ -281,8 +272,7 @@ public class HttpModelProviderTests
             """;
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, sse, "text/event-stream");
 
-        var chunks = new List<TextChunk>();
-        await foreach (var c in Provider(handler).StreamAsync(Req)) chunks.Add(c);
+        var chunks = await Provider(handler).StreamAsync(Req).ToListAsync();
 
         Assert.Equal(["hi"], chunks.Where(c => c.Kind == TextChunkKind.Content).Select(c => c.Text));
         Assert.Equal(TextChunkKind.Final, chunks[^1].Kind);
@@ -316,8 +306,7 @@ public class HttpModelProviderTests
             """;
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, sse, "text/event-stream");
 
-        var chunks = new List<TextChunk>();
-        await foreach (var c in Provider(handler).StreamAsync(Req)) chunks.Add(c);
+        var chunks = await Provider(handler).StreamAsync(Req).ToListAsync();
 
         Assert.Equal(["hel", "lo"], chunks.Where(c => c.Kind == TextChunkKind.Content).Select(c => c.Text));
         Assert.Equal(TextChunkKind.Final, chunks[^1].Kind);
@@ -338,8 +327,7 @@ public class HttpModelProviderTests
             """;
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, sse, "text/event-stream");
 
-        var chunks = new List<TextChunk>();
-        await foreach (var c in Provider(handler).StreamAsync(Req)) chunks.Add(c);
+        var chunks = await Provider(handler).StreamAsync(Req).ToListAsync();
 
         var final = chunks[^1];
         Assert.Equal(TextChunkKind.Final, final.Kind);
@@ -367,8 +355,7 @@ public class HttpModelProviderTests
             """;
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, sse, "text/event-stream");
 
-        var chunks = new List<TextChunk>();
-        await foreach (var c in Provider(handler).StreamAsync(Req)) chunks.Add(c);
+        var chunks = await Provider(handler).StreamAsync(Req).ToListAsync();
 
         var call = Assert.Single(chunks, c => c.Kind == TextChunkKind.ToolCall).ToolCall;
         Assert.NotNull(call);
@@ -400,8 +387,7 @@ public class HttpModelProviderTests
             """;
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, sse, "text/event-stream");
 
-        var chunks = new List<TextChunk>();
-        await foreach (var c in Provider(handler).StreamAsync(Req)) chunks.Add(c);
+        var chunks = await Provider(handler).StreamAsync(Req).ToListAsync();
 
         var calls = chunks.Where(c => c.Kind == TextChunkKind.ToolCall).Select(c => c.ToolCall!).ToList();
         Assert.Equal(2, calls.Count);
@@ -424,8 +410,7 @@ public class HttpModelProviderTests
             """;
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, sse, "text/event-stream");
 
-        var chunks = new List<TextChunk>();
-        await foreach (var c in Provider(handler).StreamAsync(Req)) chunks.Add(c);
+        var chunks = await Provider(handler).StreamAsync(Req).ToListAsync();
 
         var only = Assert.Single(chunks);
         Assert.Equal(TextChunkKind.Error, only.Kind);
@@ -452,8 +437,7 @@ public class HttpModelProviderTests
             """;
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, sse, "text/event-stream");
 
-        var chunks = new List<TextChunk>();
-        await foreach (var c in Provider(handler).StreamAsync(Req)) chunks.Add(c);
+        var chunks = await Provider(handler).StreamAsync(Req).ToListAsync();
 
         Assert.Equal(["let me check"], chunks.Where(c => c.Kind == TextChunkKind.Content).Select(c => c.Text));
         Assert.Equal("lookup", Assert.Single(chunks, c => c.Kind == TextChunkKind.ToolCall).ToolCall!.Name);
@@ -481,8 +465,7 @@ public class HttpModelProviderTests
             """;
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, sse, "text/event-stream");
 
-        var chunks = new List<TextChunk>();
-        await foreach (var c in Provider(handler).StreamAsync(Req)) chunks.Add(c);
+        var chunks = await Provider(handler).StreamAsync(Req).ToListAsync();
 
         Assert.Equal(["let me check"], chunks.Where(c => c.Kind == TextChunkKind.Content).Select(c => c.Text));
         Assert.Equal(TextChunkKind.Error, chunks[^1].Kind);
@@ -494,8 +477,7 @@ public class HttpModelProviderTests
     {
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.InternalServerError, "boom");
 
-        var chunks = new List<TextChunk>();
-        await foreach (var c in Provider(handler).StreamAsync(Req)) chunks.Add(c);
+        var chunks = await Provider(handler).StreamAsync(Req).ToListAsync();
 
         Assert.Single(chunks);
         Assert.Equal(TextChunkKind.Error, chunks[0].Kind);
@@ -530,8 +512,7 @@ public class HttpModelProviderTests
             """;
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, sse, "text/event-stream");
 
-        var chunks = new List<TextChunk>();
-        await foreach (var c in Provider(handler).StreamAsync(Req)) chunks.Add(c);
+        var chunks = await Provider(handler).StreamAsync(Req).ToListAsync();
 
         Assert.Equal(TextChunkKind.Error, chunks[^1].Kind);
         Assert.Equal(ProviderVerdict.Refused, chunks[^1].Verdict); // same verdict the non-streaming path gives
@@ -544,8 +525,7 @@ public class HttpModelProviderTests
         // CompleteAsync's empty→Failed, instead of a clean empty Final that blocks fallback
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, "data: [DONE]\n\n", "text/event-stream");
 
-        var chunks = new List<TextChunk>();
-        await foreach (var c in Provider(handler).StreamAsync(Req)) chunks.Add(c);
+        var chunks = await Provider(handler).StreamAsync(Req).ToListAsync();
 
         Assert.Single(chunks);
         Assert.Equal(TextChunkKind.Error, chunks[0].Kind);

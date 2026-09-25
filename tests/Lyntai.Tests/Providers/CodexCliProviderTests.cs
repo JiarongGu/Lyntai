@@ -5,6 +5,7 @@ using Lyntai.Processes;
 using Lyntai.Providers.CodexCli;
 using Lyntai.Tests.Fakes;
 using Microsoft.Extensions.DependencyInjection;
+using static Lyntai.Tests.Fakes.FakeProcessRunner;
 
 namespace Lyntai.Tests.Providers;
 
@@ -71,8 +72,6 @@ public class CodexCliProviderTests
 
     private static TextRequest Ask(string prompt = "hello", string? model = null) =>
         new() { Messages = [TextMessage.User(prompt)], Model = model };
-
-    private static ProcessResult Ok(string stdout) => new(0, stdout, "");
 
     // ── capabilities: what this backend has, and what it deliberately hasn't ──
 

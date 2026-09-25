@@ -1,5 +1,6 @@
 using Lyntai.Inference;
 using Lyntai.Tests.Fakes;
+using static Lyntai.Tests.Fakes.TestTimeouts;
 
 namespace Lyntai.Tests.Lifecycle;
 
@@ -17,17 +18,6 @@ public class RouterCooldownKeyTests
 
     private static List<ProviderCandidate> Candidates(params string[] ids) =>
         [.. ids.Select(id => new ProviderCandidate(id))];
-
-    /// <summary>How long a bounded await waits before failing the test outright. Generous enough never to
-    /// fire on a loaded machine, short enough that the failure is legible.
-    ///
-    /// <para>Every await on a gated call in this class is bounded by it, because the regression these tests
-    /// exist to catch — a permit that is never returned — makes the waiting caller wait FOREVER. An
-    /// unbounded await would turn that regression into an indefinite hang: <c>verify</c> stops producing
-    /// output at all and no test names the problem, which destroys the signal for every other test in the
-    /// run. A <see cref="TimeoutException"/> at the assertion that matters is the difference between a red
-    /// test and a dead run.</para></summary>
-    private static readonly TimeSpan GateWait = TimeSpan.FromSeconds(5);
 
     // Default behaviour must be untouched: an app that never supplies a delegate benches by provider id,
     // exactly as it does today.
@@ -88,7 +78,7 @@ public class RouterCooldownKeyTests
         var admission = new ProviderAdmission(options);
         var key = ProviderKey.For("a1111").With("v", "a").Build();
 
-        var backend = new BlockingGenerationProvider { Id = "a1111" };
+        var backend = new GatedGenerationProvider { Id = "a1111" };
         var router = new MediaRouter([backend], null, new DeadHostTracker(), _ => key, admission);
 
         var first = router.GenerateAsync(Candidates("a1111"), Request());
@@ -317,38 +307,6 @@ public class RouterCooldownKeyTests
         Assert.NotEmpty(chunks);
         Assert.Empty(recording.Entered);   // never entered, rather than entered and released
         Assert.Equal(0, admission.GateCount);
-    }
-
-    /// <summary>Blocks inside GenerateAsync so a second caller can be observed queueing at the gate.</summary>
-    private sealed class BlockingGenerationProvider : IModelProvider
-    {
-        private readonly TaskCompletionSource _gate = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        private int _concurrent;
-
-        public string Id { get; init; } = "a1111";
-        public TaskCompletionSource Entered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        public int Concurrent => Volatile.Read(ref _concurrent);
-
-        public ProviderCapabilities Capabilities { get; } = new()
-        {
-            Accepts = [ProviderKinds.Text],
-            Produces = [ProviderKinds.Image],
-            Operations = [ProviderOperation.Complete],
-        };
-
-        public Task<ProviderProbeResult> ProbeAsync(CancellationToken ct = default) =>
-            Task.FromResult(new ProviderProbeResult(true, "ready"));
-
-        public async Task<MediaResponse> GenerateAsync(MediaRequest request, CancellationToken ct = default)
-        {
-            Interlocked.Increment(ref _concurrent);
-            Entered.TrySetResult();
-            await _gate.Task.ConfigureAwait(false);
-            Interlocked.Decrement(ref _concurrent);
-            return MediaResponse.Success([new MediaArtifact("image/png", Data: [0x89])]);
-        }
-
-        public void Release() => _gate.TrySetResult();
     }
 
 }

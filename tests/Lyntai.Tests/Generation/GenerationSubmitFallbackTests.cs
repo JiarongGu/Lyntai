@@ -2,6 +2,7 @@ using Lyntai.Generation;
 using Lyntai.Inference;
 using Lyntai.Tests.Fakes;
 using static Lyntai.Tests.Fakes.CandidateLists;
+using static Lyntai.Tests.Fakes.TestTimeouts;
 
 namespace Lyntai.Tests.Generation;
 
@@ -20,11 +21,6 @@ namespace Lyntai.Tests.Generation;
 public class GenerationSubmitFallbackTests
 {
     private static MediaRequest Video() => new() { Kind = ProviderKinds.Video, Prompt = "a cat surfing" };
-
-    /// <summary>How long a bounded await waits before failing outright — see the note in
-    /// <c>RouterCooldownKeyTests</c>: a leaked permit makes the waiting caller wait FOREVER, and an unbounded
-    /// await would turn a red test into a dead run.</summary>
-    private static readonly TimeSpan GateWait = TimeSpan.FromSeconds(5);
 
     // ---- the verdict ---------------------------------------------------------------------------------
 

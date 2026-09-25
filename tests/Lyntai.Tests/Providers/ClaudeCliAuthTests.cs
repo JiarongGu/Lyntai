@@ -4,6 +4,7 @@ using Lyntai.Inference.Cli;
 using Lyntai.Processes;
 using Lyntai.Providers.ClaudeCli;
 using Lyntai.Tests.Fakes;
+using static Lyntai.Tests.Fakes.FakeProcessRunner;
 
 namespace Lyntai.Tests.Providers;
 
@@ -15,8 +16,6 @@ public class ClaudeCliAuthTests
 {
     private static ClaudeCliProvider Provider(FakeProcessRunner runner, string command = "claude") =>
         new(runner, new LyntaiOptions(), command: command);
-
-    private static ProcessResult Ok(string stdout) => new(0, stdout, "");
 
     /// <summary>The real <c>claude auth status --json</c> shape (measured against CLI v2.1.220).</summary>
     private const string SignedInJson = """

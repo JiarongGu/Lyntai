@@ -1,6 +1,7 @@
 using Lyntai.Inference;
 using Lyntai.Tests.Fakes;
 using Microsoft.Extensions.DependencyInjection;
+using static Lyntai.Tests.Fakes.TestTimeouts;
 
 namespace Lyntai.Tests.Lifecycle;
 
@@ -14,16 +15,6 @@ namespace Lyntai.Tests.Lifecycle;
 public class ProviderPoolWiringTests
 {
     private static ProviderKey Key(string value) => ProviderKey.For("a1111").With("v", value).Build();
-
-    /// <summary>How long an await on a GATED permit waits before failing the test outright. Generous enough
-    /// never to fire on a loaded machine, short enough that the failure is legible.
-    ///
-    /// <para>The regression the admission tests below exist to catch — a permit that is never returned —
-    /// makes the waiting caller wait FOREVER, so an unbounded await turns a red test into an indefinite hang:
-    /// <c>verify</c> stops producing output at all and no test names the problem, destroying the signal for
-    /// every other test in the run. Same constant, same reason, as
-    /// <c>RouterCooldownKeyTests.GateWait</c>.</para></summary>
-    private static readonly TimeSpan GateWait = TimeSpan.FromSeconds(5);
 
     private static ServiceProvider Provider(Action<LyntaiBuilder> configure)
     {
@@ -246,37 +237,6 @@ public class ProviderPoolWiringTests
         Assert.True(second.IsCompleted);
         first.Dispose();
         (await second).Dispose();
-    }
-
-    /// <summary>Blocks inside GenerateAsync until released, and signals the moment TWO calls are inside at
-    /// once — the observation an admission limit of one would make impossible.</summary>
-    private sealed class GatedGenerationProvider : IModelProvider
-    {
-        private readonly TaskCompletionSource _gate = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        private int _concurrent;
-
-        public string Id { get; init; } = "a1111";
-        public TaskCompletionSource BothInside { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
-
-        public ProviderCapabilities Capabilities { get; } = new()
-        {
-            Accepts = [ProviderKinds.Text],
-            Produces = [ProviderKinds.Image],
-            Operations = [ProviderOperation.Complete],
-        };
-
-        public Task<ProviderProbeResult> ProbeAsync(CancellationToken ct = default) =>
-            Task.FromResult(new ProviderProbeResult(true, "ready"));
-
-        public async Task<MediaResponse> GenerateAsync(MediaRequest request, CancellationToken ct = default)
-        {
-            if (Interlocked.Increment(ref _concurrent) == 2) BothInside.TrySetResult();
-            await _gate.Task.ConfigureAwait(false);
-            Interlocked.Decrement(ref _concurrent);
-            return MediaResponse.Success([new MediaArtifact("image/png", Data: [0x89])]);
-        }
-
-        public void Release() => _gate.TrySetResult();
     }
 
     // Admission binds to the router factories' POOLED overloads only; the CONTAINER-composed IMediaRouter

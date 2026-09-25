@@ -4,6 +4,7 @@ using Lyntai.Providers.Model2Vec;
 using Lyntai.Inference;
 using Microsoft.Extensions.DependencyInjection;
 using Lyntai.Tests.Fakes;
+using static Lyntai.Tests.Fakes.VectorMath;
 
 namespace Lyntai.Tests.Embeddings;
 
@@ -213,10 +214,4 @@ public class Model2VecProviderLiveTests
             $"related {related:F4} should outrank unrelated {unrelated:F4} — a wrong row mapping looks like this");
     }
 
-    private static double Cosine(float[] a, float[] b)
-    {
-        double dot = 0, na = 0, nb = 0;
-        for (var i = 0; i < a.Length; i++) { dot += a[i] * b[i]; na += a[i] * a[i]; nb += b[i] * b[i]; }
-        return na == 0 || nb == 0 ? 0 : dot / (Math.Sqrt(na) * Math.Sqrt(nb));
-    }
 }

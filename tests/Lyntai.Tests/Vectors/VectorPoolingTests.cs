@@ -2,6 +2,7 @@ using Lyntai.Inference;
 using Lyntai.Tests.Fakes;
 using Lyntai.Providers.Onnx;
 using Microsoft.Extensions.DependencyInjection;
+using static Lyntai.Tests.Fakes.VectorMath;
 
 namespace Lyntai.Tests.Embeddings;
 
@@ -328,12 +329,6 @@ public class OnnxProviderLiveTests
         Assert.NotEmpty((await vectorProvider.EmbedAsync(["x"]))[0]);
     }
 
-    private static double Cosine(float[] a, float[] b)
-    {
-        double dot = 0, na = 0, nb = 0;
-        for (var i = 0; i < a.Length; i++) { dot += a[i] * b[i]; na += a[i] * a[i]; nb += b[i] * b[i]; }
-        return na == 0 || nb == 0 ? 0 : dot / (Math.Sqrt(na) * Math.Sqrt(nb));
-    }
 }
 
 /// <summary>How the adapter REGISTERS, which is a resource question rather than a wiring one.</summary>

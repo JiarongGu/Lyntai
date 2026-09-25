@@ -3,6 +3,7 @@ using Lyntai;
 using Lyntai.Inference.Cli;
 using Lyntai.Processes;
 using Lyntai.Tests.Fakes;
+using static Lyntai.Tests.Fakes.FakeProcessRunner;
 
 namespace Lyntai.Tests.Providers;
 
@@ -21,8 +22,6 @@ public class CliProviderEngineTests
 
     private static TextRequest Ask(string prompt = "hello", string? model = null) =>
         new() { Messages = [TextMessage.User(prompt)], Model = model };
-
-    private static ProcessResult Ok(string stdout) => new(0, stdout, "");
 
     // ── command resolution (pure, so no process env is mutated) ──────────────
 

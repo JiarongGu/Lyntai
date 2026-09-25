@@ -1,4 +1,6 @@
 using Lyntai.Inference;
+using Lyntai.Tests.Fakes;
+using static Lyntai.Tests.Fakes.TestTimeouts;
 
 namespace Lyntai.Tests.Lifecycle;
 
@@ -6,15 +8,6 @@ public class ProviderAdmissionTests
 {
     private static ProviderKey Key(string value, string slot = "local-diffusion") =>
         ProviderKey.For(slot).With("v", value).Build();
-
-    /// <summary>How long an await on a GATED permit waits before failing the test outright. Generous enough
-    /// never to fire on a loaded machine, short enough that the failure is legible.
-    ///
-    /// <para>The regression these tests exist to catch — a permit that is never returned — makes the waiting
-    /// caller wait FOREVER, so an unbounded await turns a red test into an indefinite hang: <c>verify</c>
-    /// stops producing output at all and no test names the problem, destroying the signal for every other
-    /// test in the run. Same constant, same reason, as <c>RouterCooldownKeyTests.GateWait</c>.</para></summary>
-    private static readonly TimeSpan GateWait = TimeSpan.FromSeconds(5);
 
     [Fact]
     public async Task With_no_limit_configured_everything_is_admitted_immediately()

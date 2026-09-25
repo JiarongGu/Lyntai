@@ -4,6 +4,7 @@ using Lyntai.Inference.Cli;
 using Lyntai.Processes;
 using Lyntai.Providers.ClaudeCli;
 using Lyntai.Tests.Fakes;
+using static Lyntai.Tests.Fakes.FakeProcessRunner;
 
 namespace Lyntai.Tests.Providers;
 
@@ -15,8 +16,6 @@ public class ClaudeCliProbeTests
 {
     private static ClaudeCliProvider Provider(FakeProcessRunner runner, string command = "claude") =>
         new(runner, new LyntaiOptions(), command: command);
-
-    private static ProcessResult Ok(string stdout) => new(0, stdout, "");
 
     [Fact]
     public void The_capabilities_are_discoverable_through_the_core_seams()
