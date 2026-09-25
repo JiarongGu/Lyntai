@@ -23,6 +23,8 @@ namespace Lyntai.Providers.CodexCli;
 /// </summary>
 public sealed class CodexCliProvider : IModelProvider, IProviderUpdater, IProviderAuth
 {
+    /// <summary>The DEFAULT router-facing id — the backend's name, which <see cref="Id"/> reports unless a
+    /// registration names another.</summary>
     public const string ProviderId = "codex-cli";
 
     private readonly CliProviderEngine _engine;
@@ -37,6 +39,8 @@ public sealed class CodexCliProvider : IModelProvider, IProviderUpdater, IProvid
     /// wants its own <c>CODEX_HOME</c> so it neither reads nor mutates the machine-wide install's state.</param>
     /// <param name="backend">A pre-configured backend, to change codex-specific behaviour such as
     /// <see cref="CodexCliBackend.SandboxMode"/>. Defaults to a read-only sandbox.</param>
+    /// <param name="id">The router-facing id; <see cref="ProviderId"/> by default. Give a second registration
+    /// — a second portable install, a second account — its own, or the first-wins router never reaches it.</param>
     public CodexCliProvider(
         IProcessRunner runner,
         LyntaiOptions options,
@@ -44,15 +48,18 @@ public sealed class CodexCliProvider : IModelProvider, IProviderUpdater, IProvid
         string? command = null,
         ICliToolProvisioner? provisioner = null,
         IReadOnlyDictionary<string, string>? environment = null,
-        CodexCliBackend? backend = null)
+        CodexCliBackend? backend = null,
+        string id = ProviderId)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(id);
         backend ??= new CodexCliBackend();
         _engine = new CliProviderEngine(backend, runner, options, logger, command, provisioner, environment);
         Capabilities = CliComposition.Capabilities(backend);
+        Id = id;
     }
 
     /// <inheritdoc/>
-    public string Id => ProviderId;
+    public string Id { get; }
 
     /// <summary>What this backend serves — the spawned codex CLI: text in, text out, buffered or streamed.
     /// Its tool steps are surfaced by the agent session rather than by this seam, so the backend declares no
