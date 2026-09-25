@@ -125,9 +125,14 @@ public class JobSchedulerTests
     [Fact]
     public async Task A_non_positive_interval_is_skipped_not_spun()
     {
+        // several ticks with time passing between them: a first tick never fires anything, so one tick alone
+        // cannot tell a skipped schedule from one that fires every tick
         var (sched, jobs, clock, _) = Build(new JobSchedule("bad", "l", "t", "{}", TimeSpan.Zero));
-        clock.Advance(TimeSpan.FromMinutes(10));
-        Assert.Equal(0, await sched.TickAsync()); // no enqueue, no infinite advance loop
+        for (var tick = 0; tick < 3; tick++)
+        {
+            Assert.Equal(0, await sched.TickAsync()); // no enqueue, no infinite advance loop
+            clock.Advance(TimeSpan.FromMinutes(10));
+        }
         Assert.Empty(await jobs.ListAsync());
     }
 
@@ -164,10 +169,22 @@ public class JobSchedulerTests
     [Fact]
     public async Task An_invalid_cron_schedule_is_skipped_not_thrown_at_tick()
     {
-        var (sched, jobs, clock, _) = Build(new JobSchedule("bad", "l", "t", "{}", Cron: "not a cron"));
-        clock.Advance(TimeSpan.FromHours(2));
-        Assert.Equal(0, await sched.TickAsync()); // skipped, no throw
+        // skipped by validation, which says so ONCE — not left to the per-tick catch, which would warn every poll
+        var clock = new MutableClock();
+        var jobs = new InMemoryJobStore(clock.Get);
+        var options = new LyntaiOptions();
+        var logger = new CapturingLogger<JobScheduler>();
+        var sched = new JobScheduler(new JobQueue(jobs, options),
+            [new JobSchedule("bad", "l", "t", "{}", Cron: "not a cron")], options, new FakeKvStore(), logger, clock.Get);
+
+        for (var tick = 0; tick < 3; tick++)
+        {
+            Assert.Equal(0, await sched.TickAsync()); // skipped, no throw
+            clock.Advance(TimeSpan.FromHours(2));
+        }
+
         Assert.Empty(await jobs.ListAsync());
+        Assert.Contains("invalid cron", Assert.Single(logger.Messages), StringComparison.Ordinal);
     }
 
     [Fact]

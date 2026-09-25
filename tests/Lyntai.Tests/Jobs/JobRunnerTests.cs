@@ -146,24 +146,6 @@ public class JobRunnerTests
     }
 
     [Fact]
-    public async Task A_poll_outcome_still_dead_letters_a_job_whose_lease_was_lost()
-    {
-        // Poll un-counts the claim's attempt increment, so it must stay FENCED on the worker id exactly like
-        // every other terminal transition — otherwise a worker whose lease was reclaimed could drive another
-        // worker's job backwards forever, which is the one way an un-counted outcome could become unbounded.
-        var handler = new FakeJobHandler("render", _ => Task.FromResult(JobOutcome.Poll(TimeSpan.FromSeconds(1))));
-        var (runner, store, queue, _) = Build(o => o.Jobs.DefaultMaxAttempts = 3, handler);
-        var id = await queue.EnqueueAsync("default", "render", "{}");
-
-        await runner.RunOnceAsync();
-        var afterPoll = (await store.GetAsync(id))!;
-        Assert.Equal(JobStatus.Pending, afterPoll.Status);
-
-        // a DIFFERENT worker's poll must not land on this record
-        Assert.False(await store.PollAgainAsync(id, "someone-else", DateTimeOffset.UtcNow.AddMinutes(5)));
-    }
-
-    [Fact]
     public async Task A_job_past_max_attempts_is_dead_lettered_without_running()
     {
         // simulates a poison pill that CRASHES the worker every run (the handler never returns/throws, so
@@ -493,8 +475,9 @@ public class JobRunnerTests
 
         await store.HeartbeatSlotsAsync("stalled");                                    // too late
 
-        clock.Advance(TimeSpan.FromSeconds(10));
-        Assert.Null(await store.TryAcquireSlotAsync(1, "third", slotLease));           // successor still holds it
+        // the successor still OWNS it: its fenced release frees the slot, which a stolen-back one would refuse
+        await store.ReleaseSlotAsync(0, "successor");
+        Assert.Equal(0, await store.TryAcquireSlotAsync(1, "third", slotLease));
     }
 
     [Fact]

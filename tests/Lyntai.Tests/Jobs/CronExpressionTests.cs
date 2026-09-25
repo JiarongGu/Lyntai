@@ -69,29 +69,24 @@ public class CronExpressionTests
     [Fact]
     public void Weekly_lands_on_the_named_weekday_at_midnight()
     {
-        var next = Next("0 0 * * 1"); // Mondays 00:00
-        Assert.Equal(DayOfWeek.Monday, next.DayOfWeek);
-        Assert.Equal(0, next.Hour);
-        Assert.Equal(0, next.Minute);
-        Assert.True(next > At);
+        // from Saturday 2026-07-18, the next Monday midnight is two days on
+        Assert.Equal(new DateTimeOffset(2026, 7, 20, 0, 0, 0, TimeSpan.Zero), Next("0 0 * * 1"));
     }
 
     [Fact]
     public void Dom_and_dow_both_restricted_is_an_OR()
     {
-        // classic cron: "13th OR any Friday" — the result's day is 13 OR it's a Friday
-        var next = Next("0 0 13 * 5");
-        Assert.True(next.Day == 13 || next.DayOfWeek == DayOfWeek.Friday, $"got {next:o}");
-        Assert.True(next > At);
+        // classic cron: "13th OR any Friday". The next Friday (07-24) comes before the next 13th (08-13); an
+        // AND would wait for a Friday the 13th (2026-11-13), which the old containment check also accepted.
+        Assert.Equal(new DateTimeOffset(2026, 7, 24, 0, 0, 0, TimeSpan.Zero), Next("0 0 13 * 5"));
     }
 
     [Fact]
     public void Sunday_is_zero_or_seven()
     {
-        var byZero = Next("0 0 * * 0");
-        var bySeven = Next("0 0 * * 7");
-        Assert.Equal(DayOfWeek.Sunday, byZero.DayOfWeek);
-        Assert.Equal(byZero, bySeven);
+        var sunday = new DateTimeOffset(2026, 7, 19, 0, 0, 0, TimeSpan.Zero);
+        Assert.Equal(sunday, Next("0 0 * * 0"));
+        Assert.Equal(sunday, Next("0 0 * * 7"));
     }
 
     [Theory]

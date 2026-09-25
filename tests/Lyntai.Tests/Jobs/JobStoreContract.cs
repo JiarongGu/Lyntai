@@ -488,9 +488,11 @@ public static class JobStoreContract
         clock.Advance(TimeSpan.FromMinutes(2));
         Assert.Equal(mine, await store.TryAcquireSlotAsync(1, "w2", lease));   // stale, so reclaimed
 
-        // …and a live holder keeps it: heartbeat, advance less than the lease, and it is still not free.
+        // …and a live holder keeps it PAST the lease: 90s after w2 took it, but 45s after its heartbeat. Without
+        // the heartbeat the slot would be 30s stale here and w3 would take it.
+        clock.Advance(TimeSpan.FromSeconds(45));
         await store.HeartbeatSlotsAsync("w2");
-        clock.Advance(TimeSpan.FromSeconds(30));
+        clock.Advance(TimeSpan.FromSeconds(45));
         Assert.Null(await store.TryAcquireSlotAsync(1, "w3", lease));
     }
 
