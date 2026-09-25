@@ -285,7 +285,10 @@ _Found while building the ComfyUI mesh stage (**D180**); the owner ruled on it o
   bridge each stage by hand. **Owner ruling: a durable pipeline JOB** — each stage runs as the render job does
   (submit → poll → fetch, checkpointed), its artifact feeding the next through `MediaArtifact.ToInput`, so a
   pipeline survives a restart, reports progress and cancels cleanly; `RunPipelineAsync` stays as the inline
-  form. Needs a design pass before code.
+  form. **Design rulings 2026-09-25:** a stage's input is the previous stage's single artifact, or the ONE
+  matching an optional `InputMediaType` filter (refusing zero or several); stages may be inline or queued, mixed;
+  the checkpoint carries the previous artifacts, inline bytes included up to a cap that fails loudly; and every
+  stage's artifacts are delivered to the sink tagged with their stage. Every render-job invariant carries over.
 
 ## Retired — five Parts that outlived their open work (2026-09-16)
 
