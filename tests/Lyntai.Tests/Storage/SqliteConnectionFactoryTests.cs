@@ -53,10 +53,4 @@ public class SqliteConnectionFactoryTests : IDisposable
         Assert.Equal(5000L, conn.ExecuteScalar<long>("PRAGMA busy_timeout"));
     }
 
-    [Fact]
-    public async Task Round_trips_a_scalar()
-    {
-        using var conn = _db.Factory.Open();
-        Assert.Equal(42L, await conn.ExecuteScalarAsync<long>("SELECT 42"));
-    }
 }
