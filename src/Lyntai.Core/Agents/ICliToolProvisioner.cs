@@ -13,9 +13,17 @@ namespace Lyntai.Agents;
 /// </summary>
 public interface ICliToolProvisioner
 {
-    /// <summary>Stand up tool access for one CLI invocation. Dispose the returned session after the
-    /// process exits to release the host and temp files.</summary>
+    /// <summary>Stand up tool access for one CLI invocation without seeing the call — the member a request-blind
+    /// provisioner implements. Dispose the returned session after the process exits to release the host and
+    /// temp files.</summary>
     Task<CliToolSession> ProvisionAsync(CancellationToken ct = default);
+
+    /// <summary>Stand up tool access for one CLI invocation, seeing the call it serves — what the engine calls.
+    /// Defaults to <see cref="ProvisionAsync(CancellationToken)"/>, so a provisioner written before this member
+    /// still runs; override this one to choose per call (the shipped MCP host reads the request's consumer).
+    /// <para>A literal <c>default</c> or <c>null</c> as the first argument is ambiguous between the two
+    /// overloads (CS0121); pass a token or nothing.</para></summary>
+    Task<CliToolSession> ProvisionAsync(CliToolRequest request, CancellationToken ct = default) => ProvisionAsync(ct);
 }
 
 /// <summary>The result of <see cref="ICliToolProvisioner.ProvisionAsync"/>: the extra CLI args the spawn
@@ -33,3 +41,10 @@ public sealed class CliToolSession(IReadOnlyList<string> extraArgs, Func<ValueTa
 
     public ValueTask DisposeAsync() => dispose?.Invoke() ?? ValueTask.CompletedTask;
 }
+
+/// <summary>What <see cref="ICliToolProvisioner.ProvisionAsync(CliToolRequest, CancellationToken)"/> is asked
+/// for: the call being served and the backend spawning for it — one unkeyed provisioner may serve several CLIs.
+/// A record, so a later field is an additive property rather than another overload.</summary>
+/// <param name="Request">The call the spawn serves.</param>
+/// <param name="ProviderId">The id of the CLI backend spawning.</param>
+public sealed record CliToolRequest(TextRequest Request, string ProviderId);

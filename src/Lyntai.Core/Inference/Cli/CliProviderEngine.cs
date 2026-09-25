@@ -100,7 +100,9 @@ public sealed class CliProviderEngine(
         WarnIfRequestToolsIgnored(req);
         // when a provisioner is registered, it stands up a tool host and hands back the CLI args; the
         // session is torn down after the process exits
-        await using var session = provisioner is null ? null : await provisioner.ProvisionAsync(ct).ConfigureAwait(false);
+        await using var session = provisioner is null
+            ? null
+            : await provisioner.ProvisionAsync(new CliToolRequest(req, backend.Id), ct).ConfigureAwait(false);
         var (exe, prefixArgs) = ResolveCommand();
         var (argv, stdin) = BuildInvocation(req, prefixArgs, session?.ExtraArgs);
 
@@ -183,7 +185,9 @@ public sealed class CliProviderEngine(
         WarnIfRequestToolsIgnored(req);
         // the host lives for the whole stream (the CLI calls tools throughout); torn down when this iterator
         // is disposed
-        await using var session = provisioner is null ? null : await provisioner.ProvisionAsync(ct).ConfigureAwait(false);
+        await using var session = provisioner is null
+            ? null
+            : await provisioner.ProvisionAsync(new CliToolRequest(req, backend.Id), ct).ConfigureAwait(false);
         var (exe, prefixArgs) = ResolveCommand();
         var (argv, stdin) = BuildInvocation(req, prefixArgs, session?.ExtraArgs);
 

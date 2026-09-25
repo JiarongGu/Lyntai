@@ -90,6 +90,15 @@ sealed class Lyntai.Agents.ChatTurn
     TaskKey : String { get; init; }
     ToString() : String
     UseTools : Boolean { get; init; }
+sealed class Lyntai.Agents.CliToolRequest
+    .ctor(TextRequest Request, String ProviderId)
+    Deconstruct(TextRequest& Request, String& ProviderId) : Void
+    Equals(CliToolRequest other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    ProviderId : String { get; init; }
+    Request : TextRequest { get; init; }
+    ToString() : String
 sealed class Lyntai.Agents.CliToolSession
     .ctor(IReadOnlyList<String> extraArgs, Func<ValueTask> dispose = null)
     DisposeAsync() : ValueTask
@@ -117,6 +126,7 @@ interface Lyntai.Agents.IChatOrchestrator
     ChatAsync(ChatTurn turn, CancellationToken ct = default) : Task<ChatResult>
 interface Lyntai.Agents.ICliToolProvisioner
     ProvisionAsync(CancellationToken ct = default) : Task<CliToolSession>
+    ProvisionAsync(CliToolRequest request, CancellationToken ct = default) : Task<CliToolSession>
 interface Lyntai.Agents.IMcpCliConnector
     BuildArgsAsync(McpCliContext context, CancellationToken ct = default) : ValueTask<IReadOnlyList<String>>
     ProviderId : String { get; }
