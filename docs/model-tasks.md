@@ -122,6 +122,24 @@ and none of them routes through the prompt registry. So on the two memory seams 
 you have; replacing the whole policy is. What you *can* shape from configuration is the input — depth,
 candidate count, how much text each candidate carries.
 
+### An input LONGER than the window: segment it, and how (**D177**)
+
+A provider with a window can segment an over-long input instead of losing what lies past it — a capability
+the deployment configures through `InputSegmentation`, never a default (**D177** has the decision and its
+known limits; each option's XML doc has its own rule). The mechanism:
+
+A window ends at the last boundary in its latter half — paragraph, line, sentence or word over
+characters; a sentence-end token, else a word start, over tokens — else hard, never inside a text element, and
+the next restarts inside the last `Overlap` of it. A reranker scores a document as its BEST window (MaxP); an
+embedder takes the length-weighted mean of its windows' unit vectors, re-normalised, through one public
+`VectorMath.WeightedMeanDirection`, so two packages cannot drift. A reranker's window holds the PAIR, on ONNX
+(counting tokens) and over HTTP (`MaxInputChars` on a Score registration), so the query, never segmented,
+keeps at most (1 − `MinDocumentShare`) of it, cut ONCE per call so every document meets the same question.
+HTTP counts characters after NFKC — a linear upper bound — because a tokenizer normalises before it counts,
+and cuts between text elements, else at a code point, so only a lone code point can outgrow it; pieces are sent as
+the original text. `MaxPiecesPerInput` keeps that many windows, spread from the first to the last. Otherwise,
+an input that fits is answered exactly as without segmenting.
+
 ## 3. What survives under 500 MB — one measured row, and the rest blank
 
 > **WHY 500 MB, and the status of that number — a WORKING POSITION, not a rule (2026-09-12).** The owner's

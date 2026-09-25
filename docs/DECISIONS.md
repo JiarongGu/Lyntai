@@ -973,18 +973,14 @@ sub-namespace holding one seam, its implementations **and its options**. Placeme
 consumption: a type a sibling domain merely depends on stays with its owner, and `MemoryDecayState` — the
 one type no domain owns, being the state they all read — is the only DOMAIN-shaped type left at the root.
 
-**Scoped to domain-owned types, and this sentence said "the only thing that belongs at the root" until
-2026-08-31.** Read literally that is false: ~40 types sit at the root and most correctly do, because they
+**Scoped to domain-owned types.** ~40 types sit at the root and most correctly do, because they
 are the subsystem's CONTRACT rather than any domain's — `IMemoryEngine`, `MemoryWrite`, `MemoryQuery`,
 `MemoryRecall`, `IMemoryGraphStore`, the engines, the vector store. What the rule forbids at the root is a
 *policy domain's* seam, implementations or options. Stated precisely because the loose form invites a
 reviewer to file everything at the root as a violation.
 
-**The RULE is what this decision fixes, never the count.** It said "four DOMAINS" in its own title until
-2026-08-31; there were seven by then, and `decisions-index` renders titles, so the stale number appeared in
-the index table too. `CLAUDE.md`'s namespace map is where the live roster belongs — it had already drifted
-once itself ("this list said five until 2026-08-15"), which is the argument for keeping a count in exactly
-one place rather than restating it in a title nothing gates.
+**The RULE is what this decision fixes, never the count.** `CLAUDE.md`'s namespace map holds the live
+roster, where `check-counts` gates it; a count restated in a title nothing gates goes stale.
 
 **It is a pure rename and nothing else.** No method body, constant, signature or documentation word changed
 meaning; the whole change is where the types live. That is what made it safe to take in one pass, and it is
@@ -1012,11 +1008,7 @@ says what it DOES, "retrievability that has been modulated", and stays accurate 
 name) and `DsrRetrievability` (its suffix is `Retrievability`, which the rename KEEPS — only the leading
 `I` form changed). Renaming either "for consistency" would be undoing this decision, not applying it.
 
-**This rename created one collision, and D13's type is the side that moved.** `IMemoryRetentionPolicy` landed
-one `I` away from a long-shipped storage type doing the opposite job. That was resolved in 3.0 by renaming
-the *storage* type, not this seam: the seam's name is the whole point of D47's one shape, while the storage
-type already lived among `MemoryEvictionMode` and `MemoryEviction.Survivors` and was the one using the wrong
-word. See D13.
+**This rename created one collision, and D13's type is the side that moved** — D13 says why.
 
 ## D48 — a seam is SINGULAR or PLURAL depending on whether its implementations read the same aspect (2026-08-10)
 D46 said implementations "accumulate rather than replace", which is right for some seams and wrong for
@@ -1073,12 +1065,10 @@ optional parameter is *source*-compatible — existing code compiles untouched �
 because the method signature changes and a pre-compiled caller does not re-bind. Under STRICT SemVer the
 same change costs a whole major version afterwards, so the window is the cheap moment.
 
-**Amended 2026-08-21 — that last sentence was read as a prohibition, and it is not one.** **D18** defers
-SemVer strictness while every consumer is first-party: a *documented* break may ship in a minor. So the
-right question after the window closes is not "may I?" but "do I need to?" — and usually not, because a new
-overload or an `init` property adds the same capability, breaks nobody and needs no disclosure at all. That
-is the shape D83–D86 took for exactly this reason, after first talking themselves out of it by citing the
-sentence above without its neighbour.
+**That is not a prohibition after the window.** **D18** lets a *documented* break ship in a minor while
+every consumer is first-party, so the question becomes "do I need to?" rather than "may I?" — and usually
+not, because a new overload or an `init` property adds the same capability and breaks nobody, the shape
+D83–D86 took.
 
 **Symmetry is the argument**: `ranking` was already per-engine and the curve was not, yet under D48 the two
 are the SAME class of seam — singular, one installed at a time. Leaving one selectable and the other not
@@ -1157,8 +1147,8 @@ the candidates is.
 Five studies agree, and every alternative to changing the default was tested first. A recall still resets an
 entry's age; it no longer lengthens its half-life.
 
-**It wins on every corpus shape and on BOTH metrics** — the fixed-corpus pin moves miss `0.234 → 0.103`,
-roughly a 56% relative improvement, without paying for it in pollution. **Every alternative lost**: not
+**It wins on every corpus shape and on BOTH metrics** (`docs/memory-measurements.md` §5,
+`reinforce-gain-zero-fixed-pin`), without paying for it in pollution. **Every alternative lost**: not
 only the shipped compounding rule, but a CAPPED variant and one computed from the entry's recall COUNT so
 it could not compound by construction. Not growing at all beat all three, which is what rules out
 "compounding is the problem" as the explanation.
@@ -1180,11 +1170,10 @@ two-character terms a spaceless script needs; `Extract` does not, because a trig
 them. Most Chinese content words are exactly two characters, so a substring backend must carry what the
 index cannot.
 
-**The cost of that was measured before adoption: ~108×.** On Postgres at 300k rows a two-character `ILIKE`
-cannot use the `pg_trgm` GIN index and degrades to a parallel sequential scan — 96.6 ms against 0.90 ms for
-a three-character pattern on identical, equally selective data. That number is why the widened clause runs
-only after the index-friendly pass returns nothing, and why removing that staging would be a silent
-performance regression rather than a simplification.
+**The cost of that was measured before adoption: ~108×** on Postgres, because a two-character `ILIKE`
+cannot use the `pg_trgm` GIN index (`docs/memory-measurements.md` §5, `postgres-bigram-ilike-seqscan`). That
+is why the widened clause runs only after the index-friendly pass returns nothing, and why removing that
+staging would be a silent performance regression rather than a simplification.
 
 **Scope, stated because the aggregate hides it:** this makes keyword recall work in Chinese. It does not
 make the graph's spreading activation work there — that is a separate mechanism with its own measurement.
@@ -1205,12 +1194,8 @@ that was documented rather than closed. It was documented in the belief that let
 every ordinary hit was the worse trade. Bounding the reserve is what makes both answers available, which is
 why the earlier scoping is now only history.
 
-**The durable lesson is about the CORPUS, not the engine.** A measurement harness that cannot express a
-promise reports "nothing moved" — which reads exactly like "no regression" — for as long as nobody notices
-it is blind. This promise went unmeasured for the whole life of the feature because the corpus contained no
-graded material at all, and documenting that blind spot was mistaken for handling it. Teaching the
-instrument to express the promise took an afternoon and immediately found the highest-priority guarantee
-broken in every language.
+**The durable lesson is about the CORPUS, not the engine**: a harness that cannot express a promise reports
+"nothing moved", which reads exactly like "no regression" (`.claude/knowledge/pitfalls.md` §Storage).
 
 ## D57 — the reinforcement seam is cut at the two EFFECTS, not the two ACTS (2026-08-13)
 A recall's age reset and its stability growth are separable, and they are what a consumer actually wants to
@@ -1246,17 +1231,15 @@ and rules out a better formula as the fix: every constant this subsystem tuned m
 so a buried answer is promoted rather than merely observed. Advisory by contract, and `VerificationDepth`
 bounds what a judgement costs.
 
-**The depth default is the measured SATURATION point, not a round number** — recorded here 2026-08-17
-because it had lived only in that property's own remarks, where the rule says a measurement must not. With a
-perfect-oracle judge over a full corpus replay at limit 10: depth 10 (observe-only) recovered `-0.0857` of
-the miss rate, depth 20 `-0.2214`, depth 40 `-0.2500` — and 80, 160 and 5000 all returned exactly what 40
-did. Four times the limit is where rescuing stops paying, which is what `DefaultVerificationDepthFactor`
-encodes. The shape matters more than the constant: rescue depth has a knee, so raising it past the knee buys
-nothing while costing per-recall tokens linearly.
+**The depth default is the measured SATURATION point, not a round number**: with a perfect-oracle judge,
+rescue stops paying at four times the limit, which is what `DefaultVerificationDepthFactor` encodes
+(`docs/memory-measurements.md` §5, `judge-oracle-depth-saturation`). The shape matters more than the
+constant: past the knee depth buys nothing and costs per-recall tokens linearly — and an ORACLE's knee is a
+ceiling on the mechanism, not a fit for a real judge, for which depth is a precision trade.
 
-**A hosted judge cut the miss rate by 65% relative** (`0.5357 → 0.1857`), past the ground-truth reference.
-**But ranking judges on miss alone is wrong** — the second metric is pollution, and on it a small local
-model (`gemma3:4b`) beat the ground-truth judge reproducibly on BOTH, at a third the pollution. Which model
+**A hosted judge finds the most answers, and ranking judges on miss alone is wrong** — the second metric is
+pollution, and on it a small local model (`gemma3:4b`) beat the ground-truth judge reproducibly on BOTH, at a
+third the pollution (`judge-gemma3-4b-miss-lever`). Which model
 to run is a deployment choice, and the measurement says a small one can be the right one rather than a
 compromise.
 
@@ -1321,20 +1304,16 @@ citation sweep BEFORE the rewrite, not after — the sweep is only possible whil
 `ReciprocalRankFusionOptions.DiagnosticityWeight` ships at `0`. It exists, it works, and the measurement
 that would have justified turning it on refused it.
 
-**Where the idea came from, and why it looked strong.** A research review of the memory subsystem
-(2026-08-15) found this engine is an **ACT-R-shaped** system that nobody had noticed was one: base-level
-activation ≈ `Retrievability`, spreading activation ≈ the graph walk, retrieval threshold ≈ `RelativeFloor`.
-FSRS is cited 116 times in `src/`; ACT-R zero. One component of Anderson's model was missing entirely — the
-**fan effect**, where a cue's association strength falls as it gains associates. Nothing anywhere consulted
-`GraphNode.Degree`, so a node with fifty neighbours spread exactly as much as one with a single edge, while
-subject annotation exists *precisely to build hubs* (`AnnotationKnownSubjects` offers 24 by default). The
-supporting argument is information-theoretic rather than biomimetic, which is the form this library should
-be judged on: **a node adjacent to everything discriminates nothing.**
+**Where the idea came from, and why it looked strong.** A research review (2026-08-15) found this engine is
+ACT-R-shaped — base-level activation ≈ `Retrievability`, spreading activation ≈ the graph walk, retrieval
+threshold ≈ `RelativeFloor` — and missing the **fan effect**, where a cue's association strength falls as it
+gains associates: nothing consulted `GraphNode.Degree`, while subject annotation exists *precisely to build
+hubs*. The argument is information-theoretic rather than biomimetic: **a node adjacent to everything
+discriminates nothing.**
 
-**The measurement said no.** `node devtools/dev.mjs memory-fan`, 20 seeds × 4 shapes, weights 0/0.5/1/2:
-
-- `topical` miss `0.059 → 0.064 → 0.131 → 0.320` — cleanly monotonic in the WRONG direction;
-- `critical-rare` miss `0.275 → 0.536 → 0.190 → 0.509` — non-monotonic, which reads as noise, not signal.
+**The measurement said no** (`node devtools/dev.mjs memory-fan`; `docs/memory-measurements.md` §5,
+`fan-diagnosticity-weight-ladder`): on `topical` miss rises cleanly with the weight, in the WRONG direction,
+and `critical-rare` moves as noise.
 
 **Why it fails HERE, which is the part worth keeping.** The fan effect assumes degree measures how
 INDISCRIMINATE a node is. In this engine most edges come from **co-activation** — the engine links whatever a
@@ -1352,13 +1331,6 @@ thing ACT-R actually describes. That is an annotation-on versus annotation-off m
 **What this constrains.** Do not re-propose a degree penalty for this engine on the strength of the
 literature alone; the literature has already been consulted and the measurement is on record. Re-propose it
 with an annotation-dominated graph and a measurement, or not at all.
-
-**A guard the change exposed, recorded because it is the more general lesson.** RRF's "at least one signal
-above zero" validation listed four weights by name. Adding a fifth signal without adding it there made the
-guard wrong in the REFUSING direction — a coherent diagnosticity-only configuration was rejected. The mirror
-defect is worse and just as silent: a weight added to the score and not to the guard would let a
-configuration through whose score is identically zero, where ordering falls entirely to the id tiebreak.
-**A validation that enumerates its subjects by name is a maintenance obligation every time the set grows.**
 
 ## D63 — a wrapper's capability set is a contract with a test per capability, not a comment (2026-08-15)
 
@@ -1445,17 +1417,10 @@ must be able to tell their own cancellation from a backend's failure.
 (`BuildCompletionArgs(LlmRequest request, IReadOnlyList<string> toolHostArgs)`), and `CliProviderEngine` no <!-- drift-ok: the record names the type AS IT WAS; D154 renamed it after -->
 longer appends them itself. Breaking for a BYO dialect; the in-tree implementors are two.
 
-**The defect this closes was documented in one file and committed in another.** `CodexExecArgs` takes an
-`extraOptions` parameter *specifically* so options land before the `-` stdin positional, and states why in
-its own words: *"an option landing after the `-` would be read as part of the [PROMPT] positional, and on
-this CLI a swallowed flag is a SPENT TURN rather than an error."* The AGENT path honoured that.
-`CodexCliDialect.BuildCompletionArgs` could not — the seam handed it only the request — so <!-- drift-ok: the record names the seam of its day; a later decision renamed it -->
-`CliProviderEngine` appended the provisioner's args after the dialect's argv, i.e. after the `-`. MCP
-tool-host args on codex therefore landed in the prompt slot.
-
-**Why it never bit:** `claude` is the only CLI that has driven the tool-hosting path, and its argv ends in
-options, so appending is correct *there*. **A rule that is right for the only implementation that exercises
-it is not a rule, it is a coincidence** — and the second implementation is where that shows.
+**The defect it closes**: the engine appended the provisioner's args after the backend's argv, so on codex —
+whose argv ends in the `-` stdin positional — MCP tool-host args landed in the PROMPT slot, a spent turn
+rather than an error. It never bit on `claude`, whose argv ends in options (`docs/FIXES.md` 2026-08-15).
+**A rule that is right for the only implementation that exercises it is a coincidence.**
 
 **The alternative, and why it lost.** The engine could have kept appending and special-cased the positional
 CLIs — a `PromptDelivery`-style flag, or "insert before the last element if it is a positional". That puts
@@ -1590,24 +1555,11 @@ documented-not-measured mistake GEN-VERIFY exists to correct, in the very backen
 which build of the engine was installed, which the host knows and this code cannot — and probing would make
 the same option behave differently on two machines with the same configuration.
 
-**The ceiling lived in THREE places, and each was found a different way.** That is the whole lesson of this
-entry: a constant does not sit in one place just because it was written once.
-
-1. **The scale.** `ClampSize` brought the longer side down to a hard-coded 768. The obvious one.
-2. **The rounding.** `Round64` then re-clamped through a *second* hard-coded 768, so raising the cap would
-   have moved the scale and left every result pinned at 768 by the rounder — a knob that appears to work and
-   cannot exceed its old value. Found by writing the test at 1024 *because* that is above the old constant;
-   mutation-checked by restoring the second constant.
-3. **The ADVERTISEMENT.** `Capabilities.Limits` published `max-width: 768` from a property initializer, so a
-   `Gpu` host would have accepted any size while still telling callers its ceiling was 768. Found by the
-   owner reading the diff and asking where the number came from — not by a test, and not by a gate.
-
-The third is the one worth generalizing. `GenerationCapabilities.Limits` is documented as informational — <!-- drift-ok: a dated entry naming the type AS IT WAS; D125 renamed it afterwards -->
-*"the platform does not enforce them"* — so nothing would have failed, no test would have reddened, and the
-backend would simply have been **lying to consumers who plan against a published ceiling**. A limit nobody
-enforces is exactly the kind of value that goes stale silently, because the only thing that reads it is a
-human. With no ceiling the keys are now **omitted** rather than set to a large number: an absent key already
-means "not enumerated", while any number would be the invented GPU ceiling this decision refuses to invent.
+**The ceiling had lived in THREE places** — the scale, a second clamp inside the rounding, and the
+ADVERTISED `Limits` — each found a different way (`docs/FIXES.md` 2026-08-17; the trap, a constant nothing
+enforces going stale silently, is `.claude/knowledge/pitfalls.md` §Second doors). With no ceiling the
+`Limits` keys are **omitted** rather than set to a large number: an absent key already means "not
+enumerated", while any number would be the invented GPU ceiling this decision refuses to invent.
 
 **The shipped default is byte-identical** to the hard-coded behaviour it replaces, pinned by its own test. A
 configuration knob that changes what an unconfigured host gets is a behaviour change wearing a feature's
@@ -2028,24 +1980,13 @@ type earns its keep", and nobody has asked for this one. Reachable from the test
 
 ## D79 — the FSRS adaptation spec and the salience×spacing interaction live in the record, not in a method's remarks (2026-08-16)
 
-**The decision.** `DsrRetrievability.Reinforce`'s `<remarks>` keeps the three laws, the drift guard, the
-Δt=0 branch and the coercion rule — what a caller must know. The two DESIGN arguments it carried move here:
-how the difficulty law is adapted from FSRS, and what the salience×spacing interaction costs. The method
-keeps the rule and a pointer. First paydown under `.claude/rules/code-commentary.md` and
-`check-comments`' ratchet.
+> **RELOCATED.** The FSRS adaptation spec and the salience×spacing interaction live in **`docs/memory.md` §6
+> → Learning**, beside the `DsrOptions` table a reader consults when deciding something; the method's
+> `<remarks>` keep the three laws, the drift guard, the Δt=0 branch and the coercion rule, plus a pointer.
 
-**Why these two and not the rest.** Both answer "why is the code shaped this way", which is this record's
-job; the rest answer "what happens when I call this", which is the doc's. The block was 120 lines before
-the sweep and 107 after — past what anyone reads in place, which makes the invariants inside it invisible,
-which is the same outcome as not writing them down.
-
-**Amended 2026-08-17: the spec moved AGAIN, and the second move is the one this entry was always arguing
-for.** The two arguments landed HERE, which made this entry 76 lines — the longest in the file, and reference
-material rather than a choice between alternatives. That is the same defect one level up: a decision log is
-not a specification's home either. Both now live in **`docs/memory.md` §6 → Learning**, beside the
-`DsrOptions` table a reader consults when they are actually deciding something, and this entry keeps only
-what it decided. **The rule survives the move: an argument about why the code is shaped this way belongs in
-a record, and a SPEC belongs with the configuration it explains.**
+**The rule it decided: an argument about why the code is shaped this way belongs in a record, and a SPEC
+belongs with the configuration it explains** — not in a method's remarks, where 120 lines hid the
+invariants inside them, and not in this log, which is not a specification's home either.
 
 ## D80 — MERGED INTO D77 (2026-08-16, folded 2026-08-17)
 
@@ -2584,11 +2525,6 @@ fact, because git's stat cache hides the state until a file is touched.
 reports only routine-looking `autocrlf` noise (`.claude/knowledge/pitfalls.md`). That needs a CRLF working
 tree, so `eol=lf` closes it on every clone rather than only where the config happens to agree.
 
-**There was no renormalize commit, and that overturned the task's premise.** It had been deferred because a
-renormalize *"rewrites most of the tree"* and buries anything landing beside it. Measured: every tracked file
-already read `i/lf` and none is binary, so `git add --renormalize .` staged **zero** files. Only the working
-tree needed refreshing, and that is not a commit.
-
 **Deliberately NOT gated — the exception to *a rule that is still violated is a missing gate*.** Git itself
 enforces the half that matters: a CRLF or mixed working file is normalized on checkin, so it cannot reach the
 index, inflate a diff, or differ between clones. The residual is a tool writing CRLF into the working tree,
@@ -2741,27 +2677,22 @@ anyone measured it: a recall returns HEADLINES because *"associative content is 
 that is what makes the first load cheap"*, and `ExpandAsync` reinforces what it walks because *"digging in
 one direction is exactly what should make that direction more retrievable next time"*. A one-shot metric is
 structurally blind to both halves. The design intent is a small first load that says what is RELATED,
-with detail bought per-entry by expanding — not a big context assembled up front.
-<br>**Amended 2026-09-02: this is now the DEFAULT, not the only behaviour.** **D104**'s `MemoryQuery.Detail`
-lets a caller whose workload is ANSWERING ask for whole entries; the reason for the default is unchanged.
+with detail bought per-entry by expanding — not a big context assembled up front. **It is the DEFAULT, not
+the only behaviour**: **D104**'s `MemoryQuery.Detail` lets a caller whose workload is ANSWERING ask for whole
+entries.
 
-**What measurement settled** (`docs/memory-measurements.md` §5). On LongMemEval knowledge-update, shot 1 returns a clean
-context — the current fact and not the superseded one — **31.4%** of the time on 1,169 characters, against
-cosine's **10.0%** on 10,387: **3.1× the precision on a ninth of the context**. _(Re-measured 2026-08-29 on
-all 70 questions; the 25-question sample this entry first quoted read 40.0% against 16.0%, so the LEVEL was
-optimistic while the RATIO it argues went 2.5× → 3.1×.)_
+**What measurement settled** (`docs/memory-measurements.md` §5). On LongMemEval knowledge-update, shot 1
+returns a clean context — the current fact and not the superseded one — at 3.1× cosine's rate on a ninth of
+the context, and at **2.2×** once both are held to the same characters (`lme-shots-clean-shot1-n70`,
+`longmemeval-ku-shot1-b1200-n70`): the claim narrows under equal spend and does not close. What it does NOT
+settle is that the walk is the best BODY — a deeper first recall beats it at that budget
+(`longmemeval-ku-fill-k80-b1200-n70`).
 
-**AMENDED 2026-08-29 — the LoCoMo half of the original evidence was a harness artefact and is withdrawn.**
-This entry read *"on LoCoMo, a SEARCH workload, shot 2 is worth +6.0 points where shot 3 is worth +0.5, so
-the useful shot count is a property of the QUESTION — resolution wants one, search wants two"*. LoCoMo
-questions within a conversation shared a store, and isolating them (`docs/task-archive.md` **Part 118**) flattens that curve to
-**+1.5 and +1.0** on a shot 1 that was itself 24.5 points too low. *Search wants two shots* is therefore
-unsupported, and no measurement here now shows expansion buying much on a search workload.
-<br>**The decision stands on its other leg**, which is why it is amended rather than reversed: the engine
-withholds associative content until an expansion asks for it, so a one-shot metric cannot see the mode it is
-built for whatever the curve turns out to be. Evaluating as a walk is what makes the shot curve VISIBLE —
-and a visible flat curve is a result, not a reason to stop looking. That the shot count is not a constant is
-now carried by knowledge-update alone.
+**The LoCoMo half of the original evidence was a harness artefact** — questions shared a store
+(`docs/task-archive.md` **Part 118**) — so nothing here shows expansion buying much on a search workload.
+**The decision stands on its other leg**: the engine withholds associative content until an expansion asks
+for it, so a one-shot metric cannot see the mode it is built for, and evaluating as a walk is what makes
+the shot curve VISIBLE. That the shot count is not a constant is carried by knowledge-update alone.
 
 **What stays OPEN, deliberately.** That 2-shot is the expected shape for most adopting applications is the
 owner's working position, not a measured default: it holds on search and does not on resolution, and no
@@ -2841,13 +2772,8 @@ be exposed as a second half because it is pure; an accumulator is mutable state,
 covers the variation that exists. Exposing it later is additive; removing it later is not.
 
 **What reversing would cost.** Nothing depends on it — deleting the file restores the previous surface
-exactly, since no existing type changed.
-
-**The naming pass ran before anything shipped**, which is the only window in which it is free (**D70**):
-`Ordinal` → `Number`, `Discovered` → `NewItems`, `Upgraded` → `UpgradedCount`, `SelectSeeds` →
-`SeedSelector`, and `MaxEntries` → `MaxItems` — that last because this repository already spends
-`MaxEntries` on STORE capacity (`CacheOptions`, `MemoryEvictionPolicy`, `BoundedProviderPool`) while a walk
-bounds a returned context, which is the `AuthoritativeReserve` collision again.
+exactly, since no existing type changed. Its member names were settled before it shipped
+(`docs/task-archive.md` Part 121).
 
 ## D103 — seed retrieval is a plural PRODUCER seam, and RRF fuses the ranked lists it was named for (2026-08-31)
 
@@ -2870,24 +2796,19 @@ nodes all report ONE value carries no relevance evidence and earns no ranks at a
 which would hand every one of them that source's best fusion term and promote an uninformative channel
 instead of silencing it, the outcome **D82**'s competition argument already rules out.
 
-**Why position-ranking was tried and withdrawn.** An earlier cut ranked each source by list POSITION, which
-assumes every source already returns a relevance-ordered list. `InMemoryMemoryGraphStore` reports a flat
-`Relevance = 1` on every match and orders by grade, salience and recency — so position-ranking turned a
-RECENCY ordering into a fabricated relevance gradient, **D97** in a new costume: there a candidate nobody
-scored reported the maximum relevance; here a candidate nobody ordered by relevance reported a relevance
-RANK. It broke five corpus tests and reversed three recorded findings before the measurement caught it. The
-fix reads each source's own `Relevance` gradient instead of where it sat in the returned list.
+**Rejected: ranking each source by list POSITION**, tried first and withdrawn. It assumes every source
+returns a relevance-ordered list, and `InMemoryMemoryGraphStore` orders by grade, salience and recency under
+a flat `Relevance = 1` — so position turned a RECENCY ordering into a fabricated relevance RANK, **D97** in a
+new costume. It broke five corpus tests and reversed three recorded findings before the measurement caught it.
 
 **`SubjectSeedOptions.K = 0` remains a legitimate off-switch** — the one registered route to "no subject
 seeding" today. If a second, non-registration off-route is ever added on top of it, **D85** applies: report
 the collision at wiring time rather than let the two silently disagree about whether the channel runs.
 
-**Two scope limits of 83.0%, unstated until this fix.** It is a SQLITE result: `InMemoryMemoryGraphStore`
-reports a flat `Relevance` for every lexical match and `Matched null` for every subject fetch, so under the
-shipped default registration (lexical + subject, no semantic) no candidate carries a rank and the recall
-runs the pre-branch pooled fallback — one of three shipped backends is unaffected by this decision.
-`MultiplicativeRankingPolicy` still ranks on the pooled `GraphNode.Relevance` field, so the mixed-scale
-defect this decision removes survives unchanged in the second shipped ranking policy.
+**Its scope is stated where it was measured** (`docs/memory-measurements.md` §5,
+`locomo-fusion-sem-rel-only`): only a store reporting a relevance gradient is reached, so at the shipped
+registration the in-process core, and the file graph store sharing it (**D174**), run the pooled fallback;
+and `MultiplicativeRankingPolicy` still ranks on the pooled field.
 
 ## D104 — how much of an entry a recall returns is the CALLER's choice, per call (2026-09-02)
 
@@ -3018,12 +2939,12 @@ times the cost.
 
 ## D107 — SQLite's memory statistics are the read-concurrency ceiling, and turning them off is the HOST's call (2026-09-08)
 
-Concurrent read-only recalls over SQLite peak at TWO workers on a 22-core machine and fall thereafter
-(`docs/memory.md` §7). The cause is not a lock: it is SQLite's collection of memory-allocation
-**statistics**, which takes a process-global mutex on every allocation and free. SQLite allocates heavily
-inside an FTS5 query, so concurrent readers serialise on the counter. Disabling it takes eight concurrent
-recalls from 340/s to 4,665/s and sixteen from 216/s to 6,275/s, and leaves single-threaded throughput
-alone — it buys concurrency, not speed.
+Concurrent read-only recalls over SQLite peak at TWO workers on a 22-core machine and fall thereafter. The
+cause is not a lock: it is SQLite's collection of memory-allocation **statistics**, which takes a
+process-global mutex on every allocation and free. SQLite allocates heavily inside an FTS5 query, so
+concurrent readers serialise on the counter. Disabling it multiplies eight- and sixteen-worker throughput
+by 14× and 29× and leaves single-threaded throughput alone — it buys concurrency, not speed
+(`docs/memory-measurements.md` §5, `scale-sqlite-statistics-off`).
 
 **`SqliteRuntime.DisableMemoryStatistics()` ships it as an opt-in startup call, and Lyntai never calls it.**
 `sqlite3_config` configures the native library the whole PROCESS shares, and it disables
@@ -3230,10 +3151,6 @@ it costs something you cannot cheaply undo* — deletes almost every gate paragr
 alone. The destination is `docs/` so it stays `IN_SCOPE` and `IS_SCANNED`, which is load-bearing: **six
 registered `check-counts` claims were anchored in exactly one sentence each, all in `CLAUDE.md`**, and a
 claim matching nothing fails the gate.
-
-**The refuted saving, recorded so it is not re-attempted:** deleting the rules tier's YAML frontmatter
-takes 2,857 bytes off disk and **zero** off the context, because the harness strips it before injection.
-Measure the BODY when measuring this tier.
 
 ## D114 — a measurement is a ROW, and a figure's currency is DERIVED, never authored twice (2026-09-10)
 
@@ -4296,9 +4213,8 @@ root the only folder a reader had to scan to answer "what is in here".
 `CliTempFile`, `WireJson`, in namespace `Lyntai.Providers`. That is now the root's whole meaning, so a file
 arriving there is making a claim a reviewer can check: every CLI backend in this package uses it.
 
-**The package id is burned** (**D23**) and registered in `nuget-unlist.mjs`'s `RETIRED` array (**D44**) —
-the fourth entry added this session, and the array itself had to be repaired first: two of its published
-ids had been silently rewritten by rename sweeps (**D142**).
+**The package id is burned** (**D23**) and registered in `nuget-unlist.mjs`'s `RETIRED` array (**D44**),
+whose repair after the rename sweeps is **D142**'s.
 
 ## D145 — the Microsoft.Extensions.AI module is a BRIDGE, not a provider (2026-09-15)
 
@@ -4656,8 +4572,7 @@ stopped.** `AddMediaUsageBudget` and its three siblings configure the router, so
 `AddGenerationProvider` did not follow, because a registration named for what a provider PRODUCES is the <!-- drift-ok: the record names the registration D156 deleted, which is this paragraph's subject -->
 shape **D152** retired `AddEmbeddingProvider` for — `AddMediaProvider` would be the same defect respelt. <!-- drift-ok: the record names the registration D152 retired, which is the comparison being drawn -->
 It was left visibly odd among five renamed siblings rather than settled by momentum; **D156** then answered
-it by DELETING the method. **A sweep that renames a name it never examined has decided something, and the
-decision is invisible precisely because everything around it moved too.**
+it by DELETING the method.
 
 ## D155 — the generic router gets a FACTORY, because what must not be rebuilt is the bookkeeping (2026-09-18)
 
@@ -5273,22 +5188,13 @@ whether that is worth a window's cost is the deployment's call. **One record in 
 provider**: `InputSegmentation` — `Overflow` (Segment or Truncate), `Overlap` (0.15), `MaxPiecesPerInput`
 (none) and, for a reranker pair, `MinDocumentShare` (0.5) — taken as `Segmentation` beside each provider's own
 WINDOW setting (`MaxInputChars` on `HttpModelOptions` and `OllamaOptions`, `MaxTokens` on `OnnxProviderOptions`).
+A reranker takes a document's BEST window (MaxP), an embedder the re-normalised length-weighted mean of its
+windows through one public `VectorMath.WeightedMeanDirection`, so two packages cannot drift. The mechanism
+is `docs/model-tasks.md` §2 and each option's XML doc.
 
 **Every default is the prior behaviour.** ONNX truncates at its window unless told to segment. HTTP and Ollama
 do nothing until `MaxInputChars` is set, then segment unless told to truncate; Ollama's own silent cut stands
 until then, and once the bound is set, unless the record truncates, every request carries `truncate: false`.
-
-**How.** A window ends at the last boundary in its latter half — paragraph, line, sentence or word over
-characters; a sentence-end token, else a word start, over tokens — else hard, never inside a text element, and
-the next restarts inside the last `Overlap` of it. A reranker scores a document as its BEST window (MaxP); an
-embedder takes the length-weighted mean of its windows' unit vectors, re-normalised, through one public
-`VectorMath.WeightedMeanDirection`, so two packages cannot drift. A reranker's window holds the PAIR, on ONNX
-(counting tokens) and over HTTP (`MaxInputChars` on a Score registration), so the query, never segmented,
-keeps at most (1 − `MinDocumentShare`) of it, cut ONCE per call so every document meets the same question.
-HTTP counts characters after NFKC — a linear upper bound — because a tokenizer normalises before it counts,
-and cuts between text elements, else at a code point, so only a lone code point can outgrow it; pieces are sent as
-the original text. `MaxPiecesPerInput` keeps that many windows, spread from the first to the last. Otherwise,
-an input that fits is answered exactly as without segmenting.
 
 **Rejected.** Forcing it: a processing judgement the deployment owns, and it changes what an unchanged
 configuration returns. Per-provider knobs: three copies that drift. Cutting only: it loses the text past the
@@ -5418,16 +5324,13 @@ the two apart by asking `MediaRoutingPolicy` about the verdict, and every failed
 Inconclusive aside, now carries one — the verdict it surfaced, or, when nobody accepted, the one `GenerateAsync`
 would report; its budget and rate-limit decorators refuse a submission with their inline door's verdict.
 
-**A result is billed, checkpointed, then delivered.** A queued stage is billed after its fetch; an inline one by the
-router, and only when `AddMediaUsageBudget` wraps it. The result is checkpointed BEFORE delivery when its inline
-bytes fit `GenerationPipelineJobOptions.MaxCheckpointBytes` (4 MiB), so a sink that throws gets it again with no
-second render, fetch or bill; an over-cap result, and a crash between a backend answering (a render, or a
-submission's id) and the save that records it, stay at-least-once. Every stage reaches `IGenerationArtifactSink`
-tagged `StageIndex` and `IsFinal` (default true, so a render job's delivery still reads as output) under the
-`ProviderId` the router names: the new
-`MediaResponse.ProviderId`, which `MediaRouter` stamps on every backend's answer. An inline `OperationId` is empty.
-Then the ONE artifact the next stage chains — its `InputMediaType`'s match, or the single one — is checkpointed,
-failing the job past the cap. An unreadable checkpoint fails rather than restarting from stage 1.
+**Checkpoint, then deliver.** A stage's result is checkpointed BEFORE it reaches `IGenerationArtifactSink`
+whenever it fits `GenerationPipelineJobOptions.MaxCheckpointBytes`, so a sink that throws is re-delivered
+with no second render, fetch or bill; only an over-cap result, or a crash between a backend answering and
+the save that records it, stays at-least-once. Every stage is delivered; only the ONE artifact the next
+stage chains is carried forward, and an unreadable checkpoint fails rather than restarting from stage 1.
+The delivery's fields (`StageIndex`, `IsFinal`, `MediaResponse.ProviderId`) and where each door bills are
+the handler's XML doc.
 
 **Rejected.** Queued first whatever the order: the order is the caller's stated preference, and an inline backend
 listed first is usually a cost choice the library has no standing to overrule. Delivering, then checkpointing: a
