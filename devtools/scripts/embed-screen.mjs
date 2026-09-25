@@ -25,17 +25,15 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
-  neighbourReport, ownedPids, resolveServerExe, startServers, stopServers, vanishedNeighbours,
-} from './memory-contention.mjs';
+  HARNESS_PORTS, neighbourReport, ownedPids, resolveServerExe, sleep, startServers, stopServers, tearDownOnSigint,
+  vanishedNeighbours,
+} from './_llama-harness.mjs';
 import { inspectRemote } from './rerank-screen.mjs';
 
 const here = fileURLToPath(import.meta.url);
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-/** Port this harness owns. DELIBERATELY outside `memory-contention`'s 8140-8144, `rerank-screen`'s 8147,
- *  `memory-decision`'s 8150-8153 and `tool-affordance`'s 8160-8163 — and nowhere near 8090, which a
- *  sibling tool's embedding server has held across several sessions. */
-export const DEFAULT_PORT = 8167;
+/** Port this harness owns — `_llama-harness.mjs`' registry, which keeps every harness disjoint. */
+export const DEFAULT_PORT = HARNESS_PORTS['embed-screen'].screen;
 
 /** The discriminating fixture: four topics, two sentences each, chosen so that MEANING and SURFACE
  *  disagree. Within a pair the two sentences share no content word; ACROSS the first two pairs they
@@ -525,10 +523,6 @@ async function main() {
 }
 
 if (import.meta.main ?? (process.argv[1] && path.resolve(process.argv[1]) === here)) {
-  process.on('SIGINT', async () => {
-    console.error('\nSIGINT — tearing down owned servers before exiting.');
-    try { await stopServers(ownedPids(), [DEFAULT_PORT]); } catch { /* best effort on the way out */ }
-    process.exit(130);
-  });
+  tearDownOnSigint([DEFAULT_PORT]);
   await main().catch((err) => { console.error(err); process.exitCode = 1; });
 }
