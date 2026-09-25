@@ -71,3 +71,43 @@ export const twoLineWindows = (lines) =>
   lines.map((line, i) => (i + 1 < lines.length
     ? `${line} ${lines[i + 1].replace(/^\s+/, '').replace(/^(?:>\s*)+/, '')}`
     : line));
+
+/**
+ * Every match of `re` in a file, each reported ONCE at the line it begins on — the rule every prose gate
+ * shares, so no gate can get one half of it wrong alone.
+ *
+ * A match is read from the line alone, or from the two-line window when it straddles the join (a match
+ * that extends past the line, such as a range whose second end wrapped, is taken whole). A window match
+ * lying wholly on the NEXT line is dropped: that line reports it. A match the line alone can see is
+ * `escaped` only by that line's own `escape` token — even when the window extends it — and one only the
+ * window can see by the token on either line. Escaped hits are returned flagged, so a caller that counts
+ * matches still counts them.
+ *
+ * @param {string[]} lines prose, line numbers preserved (blank a line to take it out of scope)
+ * @param {RegExp} re the pattern; a non-global one is made global
+ * @param {{ escape?: string | null, windows?: string[] }} options `windows` defaults to `twoLineWindows`
+ * @returns {{ at: number, match: RegExpMatchArray, straddles: boolean, escaped: boolean }[]} `at` is the
+ *   0-based line index.
+ */
+export function windowHits(lines, re, { escape = null, windows = twoLineWindows(lines) } = {}) {
+  const g = re.global ? re : new RegExp(re.source, `${re.flags}g`);
+  const hits = [];
+  for (let at = 0; at < lines.length; at++) {
+    const line = lines[at];
+    const byStart = new Map();
+    for (const match of line.matchAll(g)) byStart.set(match.index, { match, straddles: false, alone: true });
+    if (at + 1 < lines.length) {
+      for (const match of windows[at].matchAll(g)) {
+        if (match.index > line.length) continue;
+        const alone = byStart.has(match.index);
+        if (alone && match.index + match[0].length <= line.length) continue;
+        byStart.set(match.index, { match, straddles: true, alone });
+      }
+    }
+    const selfOk = escape !== null && line.includes(escape);
+    const nextOk = escape !== null && (lines[at + 1] ?? '').includes(escape);
+    for (const [, { match, straddles, alone }] of [...byStart].sort((a, b) => a[0] - b[0]))
+      hits.push({ at, match, straddles, escaped: selfOk || (!alone && nextOk) });
+  }
+  return hits;
+}

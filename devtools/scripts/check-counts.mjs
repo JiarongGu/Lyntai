@@ -24,9 +24,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { parseItems } from './check-backlog.mjs';
-import { IN_SCOPE, IS_SCANNED, SUPERSEDED_BANNER, liveLineCount } from './check-docs.mjs';
+import { IN_SCOPE, IS_SCANNED, SUPERSEDED_BANNER, liveLinesOnly } from './check-docs.mjs';
 import { packableProjects } from './check-packages.mjs';
-import { repoFiles, twoLineWindows } from './_repo-files.mjs';
+import { repoFiles, twoLineWindows, windowHits } from './_repo-files.mjs';
 
 const here = fileURLToPath(import.meta.url);
 const repo = path.resolve(path.dirname(here), '..', '..');
@@ -535,39 +535,24 @@ export function checkCounts(repo, claims = COUNTED_CLAIMS, log = console.log, fi
     try { text = fs.readFileSync(path.join(repo, file), 'utf8'); } catch { continue; }
     if (SUPERSEDED_BANNER.test(text)) continue;
 
-    const all = text.split(/\r?\n/);
-    const lines = all.slice(0, liveLineCount(file, all));
-    // Same window builder check-docs uses, and for the same measured reason: these documents wrap at ~110
-    // columns, so a claim can straddle a break and a line-only matcher would never see it.
+    // Historical lines BLANKED (`liveLinesOnly`), so a frozen seed is never asked to agree with today's tree.
+    const lines = liveLinesOnly(file, text.split(/\r?\n/));
     const windows = twoLineWindows(lines);
 
     for (const claim of claims) {
       if (truths.get(claim) < 0) continue;   // broken counter: reported once, not per occurrence
-      lines.forEach((line, i) => {
-        claim.pattern.lastIndex = 0;
-        const subject = claim.pattern.test(line) ? line : windows[i];
-        claim.pattern.lastIndex = 0;
-
-        // An ESCAPED occurrence still counts as a MATCH, so `count-ok` excuses the claim without making the
-        // registry entry look dead. Conflating the two meant the only annotated occurrence of a claim
-        // tripped the dead-entry rule instead of passing — a gate failing on correctly-annotated prose.
-        const escaped = line.includes(ESCAPE)
-          || (subject === windows[i] && (lines[i + 1] ?? '').includes(ESCAPE));
-        for (const m of subject.matchAll(claim.pattern)) {
-          // A match lying WHOLLY in the window's second half belongs to line i+1, which reports it on its
-          // own pass. Without this the same claim is reported at two line numbers — once from the window
-          // that straddles it and once from the line that contains it — and the second number is the
-          // useful one. The window's job is only to catch a claim broken ACROSS the wrap.
-          if (subject === windows[i] && m.index >= line.length + 1) continue;
-          // The FIRST non-empty group, not `m[1]`: a claim written two ways in two documents is one entry
-          // with an alternation, and only one branch's group is populated per match.
-          const said = parseCount(m.slice(1).find((g) => g != null));
-          if (said === null) continue;        // "many packages" — a word, not a claim
-          seen.set(claim, seen.get(claim) + 1);
-          if (!escaped && said !== truths.get(claim))
-            hits.push({ file, line: i + 1, claim, said, actual: truths.get(claim), text: subject.trim() });
+      for (const h of windowHits(lines, claim.pattern, { escape: ESCAPE, windows })) {
+        // The FIRST non-empty group, not `m[1]`: a claim written two ways in two documents is one entry
+        // with an alternation, and only one branch's group is populated per match.
+        const said = parseCount(h.match.slice(1).find((g) => g != null));
+        if (said === null) continue;        // "many packages" — a word, not a claim
+        // An ESCAPED occurrence still counts as a match, so `count-ok` never makes an entry look dead.
+        seen.set(claim, seen.get(claim) + 1);
+        if (!h.escaped && said !== truths.get(claim)) {
+          const text = (h.straddles ? windows[h.at] : lines[h.at]).trim();
+          hits.push({ file, line: h.at + 1, claim, said, actual: truths.get(claim), text });
         }
-      });
+      }
     }
   }
 

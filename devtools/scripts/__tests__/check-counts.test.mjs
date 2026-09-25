@@ -404,6 +404,16 @@ describe('check-counts — matching', () => {
     assert.equal(code, 0, out);
   });
 
+  it('a frozen SEED line of the design record is never compared — only its dated amendments are live', () => {
+    // check-docs' `liveLineMask` is the one answer to "which lines are live"; this gate used to scan the
+    // whole design record and would have pushed an author to edit a v0.1 seed.
+    const { code, out } = run({
+      'docs/2026-07-17-lyntai-design.md': '# design\n\nThe v0.1 seed ships seven widgets; frozen.\n'
+        + '*(2026-09-19: it ships twelve widgets; today.)*\n',
+    }, fixedClaim(12));
+    assert.equal(code, 0, out);
+  });
+
   it('a non-numeric word is not treated as a claim', () => {
     const { code, out } = run({ 'docs/a.md': 'The library ships many widgets; more each year.\n' }, fixedClaim(12));
     // Not a claim at all, so the entry matched nothing and the DEAD-ENTRY rule fires instead — which is the

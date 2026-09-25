@@ -23,7 +23,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { HISTORICAL, IN_SCOPE, IS_SCANNED, LIVE_PREFIX, liveLinesOnly } from './check-docs.mjs';
-import { repoFiles, twoLineWindows } from './_repo-files.mjs';
+import { repoFiles, twoLineWindows, windowHits } from './_repo-files.mjs';
 
 const here = fileURLToPath(import.meta.url);
 const repo = join(dirname(here), '..', '..');
@@ -342,20 +342,37 @@ export function checkLinks(repo, config, log = console.log, files = null) {
     return anchorCache.get(target);
   };
 
-  // `beginsWithin` carries the two-line window's rule: a match starting in the CONTINUATION is seen again
-  // when that line is the window's own first line, so counting it from both would double-report it.
-  const scanAnchors = (file, lineNo, text, beginsWithin = Infinity) => {
-    for (const match of text.matchAll(ANCHOR_PATTERN)) {
-      if (match.index > beginsWithin) continue;
-      const [, name, token] = match;
-      const target = resolveDoc(name);
-      if (!target) continue;
-      const anchors = anchorsFor(target);
-      if (!anchors) continue;
-      anchorsChecked++;
-      const dead = unresolvedAnchor(anchors, token);
-      if (dead === null) continue;
-      deadAnchors.push({ file, line: lineNo, target, anchor: dead, text: text.trim() });
+  const checkAnchor = (file, lineNo, [, name, token], text) => {
+    const target = resolveDoc(name);
+    if (!target) return;
+    const anchors = anchorsFor(target);
+    if (!anchors) return;
+    anchorsChecked++;
+    const dead = unresolvedAnchor(anchors, token);
+    if (dead !== null) deadAnchors.push({ file, line: lineNo, target, anchor: dead, text: text.trim() });
+  };
+
+  const checkPart = (file, lineNo, [, record, num], text) => {
+    const n = Number(num);
+    const claimsBacklog = record === 'TASKS.md';
+    if (claimsBacklog ? openParts.has(n) : archivedParts.has(n)) return;
+    const elsewhere = claimsBacklog ? archivedParts.has(n) : openParts.has(n);
+    misfiled.push({
+      file,
+      line: lineNo,
+      record,
+      part: n,
+      actually: elsewhere ? (claimsBacklog ? 'in the ARCHIVE' : 'still OPEN in TASKS.md') : 'in NEITHER record',
+      text: text.trim(),
+    });
+  };
+
+  // The Part and section halves read the two-line window (`windowHits`): a reference spans a backtick, a
+  // filename and a number or `§`, so it straddles a wrap readily. `link-ok` on the next line excuses only
+  // a match that straddles the join; the path and member halves read the raw line and its own token.
+  const scanWindowed = (file, lines, windows, re, check) => {
+    for (const h of windowHits(lines, re, { escape: 'link-ok', windows })) {
+      if (!h.escaped) check(file, h.at + 1, h.match, h.straddles ? windows[h.at] : lines[h.at]);
     }
   };
 
@@ -381,14 +398,8 @@ export function checkLinks(repo, config, log = console.log, files = null) {
     const windows = twoLineWindows(lines);
 
     for (const [i, line] of lines.entries()) {
-      // `link-ok` — its OWN annotation, deliberately not check-docs' `drift-ok`.
-      //
-      // The two silence unrelated gates, and sharing one token means a line annotated for a path reason
-      // silently stops being checked for retired VOCABULARY too (and the reverse). That is a hole nobody
-      // can see opening, on a line somebody already had a reason to annotate. The measured need is real
-      // rather than theoretical: `docs/FIXES.md` and `pitfalls.md` describe the leak-scanner incident by
-      // NAMING its fixtures (`docs/灵台.md`, `docs/plain.md`) — paths that never existed in this repository  link-ok
-      // and never should. Those are prose about data, not links, and no pattern can tell the difference.
+      // `link-ok` is this gate's OWN token, never check-docs' `drift-ok`: a line naming a path as DATA (a
+      // guard fixture's name) must not also stop being checked for retired vocabulary.
       if (line.includes('link-ok')) continue;
       for (const [, target] of line.matchAll(PATH_PATTERN)) {
         if (target.startsWith('local/')) continue;   // untracked by design
@@ -397,60 +408,11 @@ export function checkLinks(repo, config, log = console.log, files = null) {
         if (allowance) { allowance.used++; continue; }
         hits.push({ file, line: i + 1, target, text: line.trim() });
       }
-
-      // The Part half. A reference is wrong when the record it NAMES does not declare that Part — whether
-      // the other record does (mis-filed) or neither does (gone).
-      //
-      // Matched over `twoLineWindows` (`_repo-files.mjs`), the same window builder check-docs and
-      // check-counts use, not the raw line. These documents wrap at ~110 columns and a Part reference spans
-      // a backtick, a filename and a bold marker, so it is among the likeliest claims to straddle a break —
-      // and the one live defect this gate existed for had done exactly that: the design contract's
-      // "`TASKS.md`\n**Part 40**", naming the backlog for a Part archived long ago (link-ok: quotes the
-      // defect as it was written). `line` alone stays the
-      // unit for the PATH half above, where a target is a single token and cannot wrap mid-name.
-      //
-      // A match is kept only when it BEGINS in this line: one that begins in the next is seen again when
-      // that line is the window's own first line, and reporting it from both would double-count every
-      // reference in the file. Anchoring on the start index is exact, where deduplicating by file+part
-      // would silently collapse two genuinely distinct references into one report — and it stays exact
-      // because `twoLineWindows` never trims the first line, only the continuation (see its own doc for why
-      // that asymmetry is load-bearing).
-      //
-      // `link-ok` on EITHER line silences the pair, because the ESCAPE unit has to match the MATCH unit.
-      // With a two-line window and a one-line escape, an annotation on line i+1 — the line where a reader
-      // actually SEES "Part 53" — is invisible here, so the gate fires on prose somebody deliberately
-      // annotated and the fix a maintainer reaches for is duplicating the token.
-      const next = i + 1 < lines.length ? lines[i + 1] : '';
-      if (next.includes('link-ok')) continue;
-
-      const window = windows[i];
-      for (const match of window.matchAll(PART_PATTERN)) {
-        if (match.index > line.length) continue;
-        const [, record, num] = match;
-        const n = Number(num);
-        const claimsBacklog = record === 'TASKS.md';
-        if (claimsBacklog ? openParts.has(n) : archivedParts.has(n)) continue;
-        const elsewhere = claimsBacklog ? archivedParts.has(n) : openParts.has(n);
-        misfiled.push({
-          file,
-          line: i + 1,
-          record,
-          part: n,
-          actually: elsewhere ? (claimsBacklog ? 'in the ARCHIVE' : 'still OPEN in TASKS.md') : 'in NEITHER record',
-          text: line.trim(),
-        });
-      }
-
-      // The SECTION half, over the same window and by the same rules — these documents wrap at ~110
-      // columns and a citation spans a backtick, a filename and a `§`, so it straddles a break as readily
-      // as a Part reference does.
-      scanAnchors(file, i + 1, window, line.length);
-
-      // The MEMBER half reads the RAW line, not the window: a citation lives inside backticks or a cref
-      // attribute, neither of which an author breaks across a wrap (it would stop rendering as code), and
-      // scanning the join would report every hit on the following line a second time.
+      // The raw line: a citation lives inside backticks or a cref, which an author never breaks across a wrap.
       scanMembers(file, i + 1, line);
     }
+    scanWindowed(file, lines, windows, PART_PATTERN, checkPart);
+    scanWindowed(file, lines, windows, ANCHOR_PATTERN, checkAnchor);
   }
 
   // The code tiers: comment lines only, `docs/` targets only.
@@ -466,53 +428,23 @@ export function checkLinks(repo, config, log = console.log, files = null) {
     let text;
     try { text = readFileSync(join(repo, file), 'utf8'); } catch { continue; }
 
-    const lines = text.split(/\r?\n/);
+    // Non-comment lines blanked, so no half reads code and a window never joins a comment to it.
+    const lines = text.split(/\r?\n/).map((l) => (COMMENT.test(l) ? l : ''));
     for (const [i, line] of lines.entries()) {
-      if (!COMMENT.test(line)) continue;
-      if (line.includes('link-ok')) continue;
+      if (!line || line.includes('link-ok')) continue;
       for (const [, target] of line.matchAll(PATH_PATTERN)) {
         if (!target.startsWith('docs/')) continue;
         if (onDisk.has(target)) continue;
         hits.push({ file, line: i + 1, target, text: line.trim() });
       }
-
-      // A two-line window, unlike this tier's other halves — a Part reference spans a backtick, a filename
-      // and a number, so it straddles a wrap for the same reason it does in prose, and 2 of the 150 do.
-      // The continuation's own comment marker is stripped first, the way check-docs' `commentLinesOnly`
-      // does, or the `//` sits between the two halves of the claim. `match.index > line.length` is the same
-      // no-double-report anchor the prose tier uses.
-      const continuation = (lines[i + 1] ?? '').replace(/^\s*(?:\/\/+|\*)\s*/, '');
-      if (!continuation.includes('link-ok')) {
-        for (const match of `${line} ${continuation}`.matchAll(PART_PATTERN)) {
-          if (match.index > line.length) continue;
-          const [, record, num] = match;
-          const n = Number(num);
-          const claimsBacklog = record === 'TASKS.md';
-          if (claimsBacklog ? openParts.has(n) : archivedParts.has(n)) continue;
-          const elsewhere = claimsBacklog ? archivedParts.has(n) : openParts.has(n);
-          misfiled.push({
-            file,
-            line: i + 1,
-            record,
-            part: n,
-            actually: elsewhere
-              ? (claimsBacklog ? 'in the ARCHIVE' : 'still OPEN in TASKS.md')
-              : 'in NEITHER record',
-            text: line.trim(),
-          });
-        }
-      }
-
-      // The SECTION half is NOT narrowed to `docs/` the way the path half is. That narrowing exists
-      // because source files are renamed for legitimate reasons and a comment describing the old shape is
-      // correct — an argument that cannot apply here, since an anchor citation names a `.md` by
-      // construction. Three of the seven measured dead citations lived in this tier.
-      scanAnchors(file, i + 1, line);
-
-      // The MEMBER half runs on the code tier too, and unlike the path half it is NOT narrowed further:
-      // measured at 485 citations and ZERO false positives there, so the tier is free to include.
+      // The section half is not narrowed to `docs/`: an anchor citation names a `.md` by construction.
+      for (const match of line.matchAll(ANCHOR_PATTERN)) checkAnchor(file, i + 1, match, line);
       scanMembers(file, i + 1, line);
     }
+    // The Part half wraps here as in prose, once the continuation's own comment marker is stripped.
+    const windows = lines.map((l, i) => (i + 1 < lines.length
+      ? `${l} ${lines[i + 1].replace(/^\s*(?:\/\/+|\*)\s*/, '')}` : l));
+    scanWindowed(file, lines, windows, PART_PATTERN, checkPart);
   }
 
   // An allowance that matches NOTHING fails, the same rule check-api-vocabulary's own escapes carry: an

@@ -9,7 +9,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { repoFiles, twoLineWindows } from './_repo-files.mjs';
+import { repoFiles, twoLineWindows, windowHits } from './_repo-files.mjs';
 
 const here = fileURLToPath(import.meta.url);
 const repo = join(dirname(here), '..', '..');
@@ -337,38 +337,17 @@ export function checkDocs(repo, config, log = console.log, files = null) {
     const all = text.split(/\r?\n/);
     const lines = isCode ? commentLinesOnly(all) : liveLinesOnly(file, all);
 
-    // Each line is tested BOTH alone and soft-joined to the one after it. Line-only matching was a blind
-    // spot that hid every rule in the registry from any claim spanning a wrap: these documents wrap at ~110
-    // columns, so a sentence like "…`ReciprocalRankFusionPolicy`, available\nbut not the default" reads as
-    // one claim and matched nothing. Found 2026-08-11 when a whole-branch review caught that exact sentence
-    // in CLAUDE.md, stale, while this gate reported the file clean. A two-line window is enough by
-    // construction — a wrap inserts one break, and the claims these rules describe are far shorter than a
-    // line. Rules are authored against prose, so the join is a SPACE: a pattern written with `[^.\n]{0,60}`
-    // still cannot run past a sentence, only past a wrap. See `twoLineWindows` for why the continuation is
-    // trimmed and the first line is not.
+    // A claim is matched on its line or across the wrap into the next (`windowHits`: one report per hit,
+    // at the line it begins on, and `drift-ok` on either line excuses only a hit straddling the join).
     const windows = twoLineWindows(lines);
 
     for (const rule of rules) {
-      const re = new RegExp(rule.term, 'g');
-      lines.forEach((line, i) => {
-        // `drift-ok` is the honest annotation for a passage that deliberately NAMES the retired thing.
-        //
-        // The two matches take DIFFERENT escapes, and conflating them was a hole (found 2026-08-15). A hit on
-        // the line ALONE is excused only by that line's own annotation. A hit on the joined window spans a
-        // wrap, so either line may carry it — which is the whole reason the window reads N+1. Applying the
-        // N+1 escape to both meant an ordinary line inherited the exemption of whatever followed it, and two
-        // unrelated adjacent paragraphs were enough to silence a genuine stale claim.
-        const selfOk = line.includes('drift-ok');
-        const nextOk = (lines[i + 1] ?? '').includes('drift-ok');
-        re.lastIndex = 0;
-        if (re.test(line)) {
-          if (!selfOk) hits.push({ file, line: i + 1, rule, text: line.trim() });
-          return;
-        }
-        if (selfOk || nextOk) return;
-        re.lastIndex = 0;
-        if (re.test(windows[i])) hits.push({ file, line: i + 1, rule, text: windows[i].trim() });
-      });
+      const reported = new Set();
+      for (const h of windowHits(lines, new RegExp(rule.term, 'g'), { escape: 'drift-ok', windows })) {
+        if (h.escaped || reported.has(h.at)) continue;
+        reported.add(h.at);
+        hits.push({ file, line: h.at + 1, rule, text: (h.straddles ? windows[h.at] : lines[h.at]).trim() });
+      }
     }
   }
 

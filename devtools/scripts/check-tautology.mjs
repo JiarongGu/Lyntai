@@ -10,7 +10,7 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { repoFiles, twoLineWindows } from './_repo-files.mjs';
+import { repoFiles, twoLineWindows, windowHits } from './_repo-files.mjs';
 
 const here = fileURLToPath(import.meta.url);
 const repo = join(dirname(here), '..', '..');
@@ -111,40 +111,14 @@ export function checkTautology(repo, log = console.log, files = null) {
     const lines = proseOf(file, text);
     const windows = twoLineWindows(lines);
 
+    // `tautology-ok` is this gate's OWN escape; `windowHits` reports each hit once, at its own line.
     for (const pattern of COLLAPSED) {
-      lines.forEach((line, i) => {
-        if (!line) return;
-        // `tautology-ok` is this gate's OWN escape and silences no other — the rule `CLAUDE.md` §Dev loop
-        // states for every gate here. The honest use is a passage that deliberately quotes the defect.
-        //
-        // The two matches take different escapes, the hole `check-docs` records from 2026-08-15: a hit on
-        // the line ALONE is excused only by that line's own annotation, while a hit spanning the wrap may
-        // be annotated on either line.
-        const selfOk = line.includes('tautology-ok');
-        const nextOk = (lines[i + 1] ?? '').includes('tautology-ok');
-        pattern.lastIndex = 0;
-        if (pattern.test(line)) {
-          if (!selfOk) hits.push({ file, line: i + 1, text: line.trim() });
-          return;
-        }
-        if (selfOk || nextOk) return;
-
-        // THE DUPLICATE-REPORT GUARD, and it is load-bearing in the direction the obvious one is not.
-        // Returning early after a self-line hit stops line i being reported twice; it does nothing about
-        // line i - 1, whose WINDOW also contains a defect lying wholly on line i. Without this, every
-        // tautology that wraps onto the line after a heading is reported at BOTH numbers and reads as two
-        // defects — measured on the real pre-fix tree, where six defects reported as ten.
-        //
-        // `line.length + 1` is the join boundary: `twoLineWindows` emits `line + ' ' + continuation`, so a
-        // match starting at or past that index lies entirely in the continuation and line i + 1's own pass
-        // will find it. This is `check-counts`' guard, at the same anchor and for the same reason.
-        pattern.lastIndex = 0;
-        for (const m of windows[i].matchAll(pattern)) {
-          if (m.index >= line.length + 1) continue;
-          hits.push({ file, line: i + 1, text: windows[i].trim() });
-          break;
-        }
-      });
+      const reported = new Set();
+      for (const h of windowHits(lines, pattern, { escape: 'tautology-ok', windows })) {
+        if (h.escaped || reported.has(h.at)) continue;
+        reported.add(h.at);
+        hits.push({ file, line: h.at + 1, text: (h.straddles ? windows[h.at] : lines[h.at]).trim() });
+      }
     }
   }
 

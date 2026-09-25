@@ -55,6 +55,14 @@ describe('check-docs — regression: the three measured defects', () => {
     assert.equal((out.match(/docs\/a\.md:/g) ?? []).length, 1, 'one hit, not one per window');
   });
 
+  it('defect 1d: a claim lying wholly on one line is reported ONCE, at that line — not from the window above', () => {
+    // Measured over README: three real occurrences reported as six, half at the wrong line, because line
+    // N-1's window holds a hit lying wholly on line N.
+    const { code, out } = run({ 'docs/a.md': 'an intro line\nthe seam is available but not default here\n' });
+    assert.equal(code, 1);
+    assert.deepEqual(out.match(/docs\/a\.md:\d+/g), ['docs/a.md:2']);
+  });
+
   it('defect 1c: a claim wrapped onto an INDENTED continuation is still caught (regression)', () => {
     // Demonstrated failure: the join kept the continuation's own leading indentation, so
     // "available," + " " + "      not the default" carried extra spaces between "available," and "not"

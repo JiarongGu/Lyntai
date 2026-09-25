@@ -327,6 +327,36 @@ describe('check-links — a reference naming the WRONG record for a Part', () =>
     const { code } = run({ ...records, 'README.md': 'was `TASKS.md` Part 53 <!-- link-ok: quoting the entry as written -->\n' });
     assert.equal(code, 0);
   });
+
+  it('an UNRELATED `link-ok` on the next line does not excuse a reference lying wholly on this one', () => {
+    // check-docs' 2026-08-15 rule: a following line's escape excuses only a match that straddles the join.
+    const { code, out } = run({
+      ...records,
+      'README.md': 'tracked in `TASKS.md` Part 53 today.\nthe fixture `docs/gone.md` <!-- link-ok: data -->\n',
+    });
+    assert.equal(code, 1, out);
+    assert.match(out, /README\.md:1\s+says TASKS\.md Part 53/);
+  });
+});
+
+describe('check-links — a following line\'s escape never reaches this line\'s own citations', () => {
+  it('a dead member on line N is reported despite a `link-ok` on line N+1', () => {
+    const { code, out } = run({
+      'src/Thing.cs': 'public sealed class GenerationCapabilities { public bool Supports() => true; }\n',
+      'TASKS.md': '`GenerationCapabilities.CanServe` admits it.\nthe fixture `docs/gone.md` <!-- link-ok -->\n',
+    });
+    assert.equal(code, 1, out);
+    assert.match(out, /GenerationCapabilities\.CanServe/);
+  });
+
+  it('a dead section wholly on line N is reported despite a `link-ok` on line N+1', () => {
+    const { code, out } = run({
+      'docs/memory.md': '# memory\n\n## 7. Things\n',
+      'CLAUDE.md': 'the blind spot `docs/memory.md` §8 concedes.\nthe fixture `docs/gone.md` <!-- link-ok -->\n',
+    });
+    assert.equal(code, 1, out);
+    assert.match(out, /CLAUDE\.md:1\s+says docs\/memory\.md §8/);
+  });
 });
 
 describe('check-links — fail-closed on an empty scan', () => {
