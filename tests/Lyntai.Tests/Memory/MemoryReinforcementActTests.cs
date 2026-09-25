@@ -50,65 +50,11 @@ public sealed class MemoryReinforcementActTests
     /// is a question about stability at all.</summary>
     private const double GrowthOnGain = 2.0;
 
-    private readonly record struct Arm(double Miss, double Pollution, int Expansions);
-
-    private static async Task<Arm> RunAsync(MemoryReinforcementActs acts, double gain)
-    {
-        // ExpandRatio > 0 is what makes the expansion act reachable at all — before CorpusExpand existed,
-        // every measurement ever taken against this engine exercised reinforcement-on-recall ONLY.
-        var shape = CorpusShape.Default with { ExpandRatio = 3 };
-        var corpus = MemoryCorpus.Generate(shape, Seed);
-        var store = new InMemoryMemoryGraphStore();
-        var engine = NewEngine(store, acts, gain);
-        var first = corpus.Steps.OfType<CorpusWrite>().First().Write;
-
-        var byCorpusId = new Dictionary<string, string>(StringComparer.Ordinal);
-        var byRef = new Dictionary<string, string>(StringComparer.Ordinal);
-        long returned = 0, noise = 0, wanted = 0, missed = 0;
-        var expansions = 0;
-
-        foreach (var step in corpus.Steps)
-            switch (step)
-            {
-                case CorpusWrite w:
-                    var memRef = (await engine.RememberAsync(w.Write)).Reference;
-                    var corpusId = MemoryCorpusTestAccess.IdOf(w.Write.Content);
-                    byCorpusId[corpusId] = memRef.Id;
-                    byRef[memRef.Id] = corpusId;
-                    break;
-
-                case CorpusQuery q:
-                    var recall = await engine.RecallAsync(
-                        new MemoryQuery(first.TaskKey, first.Scope, q.Text, Limit: QueryLimit));
-                    var got = new HashSet<string>(StringComparer.Ordinal);
-                    foreach (var item in recall.Items)
-                    {
-                        returned++;
-                        if (!byRef.TryGetValue(item.Reference.Id, out var id)) continue;
-                        got.Add(id);
-                        if (id.StartsWith("noise", StringComparison.Ordinal)) noise++;
-                    }
-                    foreach (var want in q.RelevantIds)
-                    {
-                        wanted++;
-                        if (!got.Contains(want)) missed++;
-                    }
-                    break;
-
-                case CorpusExpand e:
-                    if (byCorpusId.TryGetValue(e.EntryId, out var refId))
-                    {
-                        await engine.ExpandAsync(new MemoryRef("e", refId));
-                        expansions++;
-                    }
-                    break;
-            }
-
-        return new Arm(
-            wanted == 0 ? 0 : (double)missed / wanted,
-            returned == 0 ? 0 : (double)noise / returned,
-            expansions);
-    }
+    // ExpandRatio > 0 is what makes the expansion act reachable at all — before CorpusExpand existed, every
+    // measurement ever taken against this engine exercised reinforcement-on-recall ONLY.
+    private static Task<NoiseShare> RunAsync(MemoryReinforcementActs acts, double gain) =>
+        CorpusReplay.RunAsync(NewEngine(new InMemoryMemoryGraphStore(), acts, gain),
+            MemoryCorpus.Generate(CorpusShape.Default with { ExpandRatio = 3 }, Seed), QueryLimit);
 
     /// <summary><b>THE MEASUREMENT.</b> Four arms over the same corpus and seed, differing only in which act
     /// reinforces.
@@ -249,44 +195,6 @@ public sealed class MemoryReinforcementActTests
              """);
     }
 
-    private static async Task<Arm> RunNoExpandAsync(MemoryReinforcementActs acts, MemoryCorpus corpus)
-    {
-        var store = new InMemoryMemoryGraphStore();
-        var engine = NewEngine(store, acts, ShippedGain);
-        var first = corpus.Steps.OfType<CorpusWrite>().First().Write;
-        var byRef = new Dictionary<string, string>(StringComparer.Ordinal);
-        long returned = 0, noise = 0, wanted = 0, missed = 0;
-
-        foreach (var step in corpus.Steps)
-            switch (step)
-            {
-                case CorpusWrite w:
-                    var memRef = (await engine.RememberAsync(w.Write)).Reference;
-                    byRef[memRef.Id] = MemoryCorpusTestAccess.IdOf(w.Write.Content);
-                    break;
-
-                case CorpusQuery q:
-                    var recall = await engine.RecallAsync(
-                        new MemoryQuery(first.TaskKey, first.Scope, q.Text, Limit: QueryLimit));
-                    var got = new HashSet<string>(StringComparer.Ordinal);
-                    foreach (var item in recall.Items)
-                    {
-                        returned++;
-                        if (!byRef.TryGetValue(item.Reference.Id, out var id)) continue;
-                        got.Add(id);
-                        if (id.StartsWith("noise", StringComparison.Ordinal)) noise++;
-                    }
-                    foreach (var want in q.RelevantIds)
-                    {
-                        wanted++;
-                        if (!got.Contains(want)) missed++;
-                    }
-                    break;
-            }
-
-        return new Arm(
-            wanted == 0 ? 0 : (double)missed / wanted,
-            returned == 0 ? 0 : (double)noise / returned,
-            0);
-    }
+    private static Task<NoiseShare> RunNoExpandAsync(MemoryReinforcementActs acts, MemoryCorpus corpus) =>
+        CorpusReplay.RunAsync(NewEngine(new InMemoryMemoryGraphStore(), acts, ShippedGain), corpus, QueryLimit);
 }

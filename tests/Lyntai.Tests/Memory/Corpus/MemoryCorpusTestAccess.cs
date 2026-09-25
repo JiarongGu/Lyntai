@@ -7,8 +7,8 @@ namespace Lyntai.Tests.Memory.Corpus;
 /// <para><b>The convention does NOT cover <see cref="CorpusNoiseKind.Diverse"/>.</b>
 /// <c>CorpusLexicon.DiverseNoise</c> is deliberately near-skeletonless: it writes the id FIRST, and with no
 /// separator at all in a spaceless language. So this reader is defined over templated content only and
-/// THROWS rather than handing back a junk word. A test whose corpus can contain diverse noise needs a
-/// position-independent rule instead — <c>MemorySalienceInversionTests</c> carries one.</para>
+/// THROWS rather than handing back a junk word. A corpus that can contain diverse noise in a space-writing
+/// language reads ids with <see cref="IdAnywhereIn"/> instead.</para>
 /// <para>Two readers elsewhere are deliberately not routed here.
 /// <c>MemoryPolicySweep.ExtractCorpusId</c> reads the same convention independently in the bench project,
 /// which links this project's source files rather than referencing its assembly and so cannot reach this
@@ -30,6 +30,14 @@ internal static class MemoryCorpusTestAccess
             + "second token is not an id. Diverse noise is the case this catches: it writes the id first, "
             + "and unseparated in a spaceless language.", nameof(content));
     }
+
+    /// <summary>The first id-shaped token anywhere in <paramref name="content"/> — templated content AND
+    /// diverse noise in a space-writing language, which puts the id first.</summary>
+    /// <exception cref="ArgumentException">No whitespace-delimited token has the id shape — diverse noise in a
+    /// spaceless language, which no position rule can read.</exception>
+    internal static string IdAnywhereIn(string content) =>
+        content.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault(IsCorpusId)
+        ?? throw new ArgumentException($"'{content}' carries no id-shaped token.", nameof(content));
 
     // Shape-checked rather than taken on trust, so content this reader cannot parse fails loudly instead of
     // yielding a plausible-looking word. Every corpus id is ASCII letters followed by an index digit

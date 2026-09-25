@@ -91,62 +91,18 @@ public sealed class MemoryVerifiedReinforcementTests
         Assert.Null(unjudged.Answered);
     }
 
-    private readonly record struct Arm(double Miss, double Pollution);
-
-    private static async Task<Arm> RunAsync(bool verified, double gain, int? depth = null)
+    private static Task<NoiseShare> RunAsync(bool verified, double gain, int? depth = null)
     {
-        var corpus = MemoryCorpus.Generate(CorpusShape.Default, Seed);
-        var store = new InMemoryMemoryGraphStore();
         var oracle = verified ? new OracleVerifier() : null;
-        var engine = new GraphMemoryEngine("e", store, options: new GraphMemoryOptions { VerificationDepth = depth }, seams: new GraphMemorySeams
+        var engine = new GraphMemoryEngine("e", new InMemoryMemoryGraphStore(), options: new GraphMemoryOptions { VerificationDepth = depth }, seams: new GraphMemorySeams
             {
                 Retrievability = new DsrRetrievability(new DsrOptions { ReinforceGain = gain }),
                 AgePolicies = [new PerWriteAgePolicy()],
                 Verification = oracle,
             });
 
-        var first = corpus.Steps.OfType<CorpusWrite>().First().Write;
-        var byCorpusId = new Dictionary<string, string>(StringComparer.Ordinal);
-        var byRef = new Dictionary<string, string>(StringComparer.Ordinal);
-        long returned = 0, noise = 0, wanted = 0, missed = 0;
-
-        foreach (var step in corpus.Steps)
-            switch (step)
-            {
-                case CorpusWrite w:
-                    var memRef = (await engine.RememberAsync(w.Write)).Reference;
-                    var corpusId = MemoryCorpusTestAccess.IdOf(w.Write.Content);
-                    byCorpusId[corpusId] = memRef.Id;
-                    byRef[memRef.Id] = corpusId;
-                    break;
-
-                case CorpusQuery q:
-                    // teach the oracle THIS query's truth, translated into engine ids, immediately before
-                    // the recall — the entries exist by now, which is what makes the mapping possible
-                    oracle?.Teach(q.Text,
-                        q.RelevantIds.Where(byCorpusId.ContainsKey).Select(id => byCorpusId[id]));
-
-                    var recall = await engine.RecallAsync(
-                        new MemoryQuery(first.TaskKey, first.Scope, q.Text, Limit: QueryLimit));
-                    var got = new HashSet<string>(StringComparer.Ordinal);
-                    foreach (var item in recall.Items)
-                    {
-                        returned++;
-                        if (!byRef.TryGetValue(item.Reference.Id, out var id)) continue;
-                        got.Add(id);
-                        if (id.StartsWith("noise", StringComparison.Ordinal)) noise++;
-                    }
-                    foreach (var want in q.RelevantIds)
-                    {
-                        wanted++;
-                        if (!got.Contains(want)) missed++;
-                    }
-                    break;
-            }
-
-        return new Arm(
-            wanted == 0 ? 0 : (double)missed / wanted,
-            returned == 0 ? 0 : (double)noise / returned);
+        return CorpusReplay.RunAsync(engine, MemoryCorpus.Generate(CorpusShape.Default, Seed), QueryLimit,
+            beforeQuery: oracle is null ? null : CorpusReplay.Teach(oracle));
     }
 
     /// <summary><b>THE CEILING MEASUREMENT.</b> Unverified against oracle-verified reinforcement, in both
@@ -186,7 +142,7 @@ public sealed class MemoryVerifiedReinforcementTests
     public async Task Verification_depth_sweep_shows_what_rescuing_an_outranked_answer_is_worth()
     {
         var plain = await RunAsync(verified: false, gain: 0);
-        var arms = new Dictionary<int, Arm>();
+        var arms = new Dictionary<int, NoiseShare>();
         var rows = new List<string>();
         foreach (var depth in (int[])[10, 20, 40, 80, 5000])
         {
@@ -250,49 +206,13 @@ public sealed class MemoryVerifiedReinforcementTests
         Assert.Equal(rrf.Pollution, mult.Pollution, precision: 10);
         Assert.True(rrf.Miss > 0.4, $"if this ever drops, the premise for verification changed:\n{table}");
 
-        async Task<Arm> RankingArm(Lyntai.Memory.Ranking.IMemoryRankingPolicy ranking)
-        {
-            var corpus = MemoryCorpus.Generate(CorpusShape.Default, Seed);
-            var store = new InMemoryMemoryGraphStore();
-            var engine = new GraphMemoryEngine("e", store, seams: new GraphMemorySeams
+        Task<NoiseShare> RankingArm(Lyntai.Memory.Ranking.IMemoryRankingPolicy ranking) =>
+            CorpusReplay.RunAsync(new GraphMemoryEngine("e", new InMemoryMemoryGraphStore(), seams: new GraphMemorySeams
                 {
                     Retrievability = new DsrRetrievability(new DsrOptions { ReinforceGain = 0 }),
                     AgePolicies = [new PerWriteAgePolicy()],
                     Ranking = ranking,
-                });
-            var first = corpus.Steps.OfType<CorpusWrite>().First().Write;
-            var byRef = new Dictionary<string, string>(StringComparer.Ordinal);
-            long returned = 0, noise = 0, wanted = 0, missed = 0;
-
-            foreach (var step in corpus.Steps)
-                switch (step)
-                {
-                    case CorpusWrite w:
-                        var memRef = (await engine.RememberAsync(w.Write)).Reference;
-                        byRef[memRef.Id] = MemoryCorpusTestAccess.IdOf(w.Write.Content);
-                        break;
-                    case CorpusQuery q:
-                        var recall = await engine.RecallAsync(
-                            new MemoryQuery(first.TaskKey, first.Scope, q.Text, Limit: QueryLimit));
-                        var got = new HashSet<string>(StringComparer.Ordinal);
-                        foreach (var item in recall.Items)
-                        {
-                            returned++;
-                            if (!byRef.TryGetValue(item.Reference.Id, out var id)) continue;
-                            got.Add(id);
-                            if (id.StartsWith("noise", StringComparison.Ordinal)) noise++;
-                        }
-                        foreach (var want in q.RelevantIds)
-                        {
-                            wanted++;
-                            if (!got.Contains(want)) missed++;
-                        }
-                        break;
-                }
-
-            return new Arm(wanted == 0 ? 0 : (double)missed / wanted,
-                returned == 0 ? 0 : (double)noise / returned);
-        }
+                }), MemoryCorpus.Generate(CorpusShape.Default, Seed), QueryLimit);
     }
 
     /// <summary><b>The review log can now contain a FAILURE, which is what `docs/DECISIONS.md` D51 called

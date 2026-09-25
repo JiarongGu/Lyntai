@@ -142,58 +142,18 @@ public class LlmVerificationLiveTests(Xunit.Abstractions.ITestOutputHelper outpu
     /// rather than only in aggregate.</summary>
     private static async Task<Arm> RunAsync(IMemoryVerificationPolicy? verifier, OracleVerifier? oracle)
     {
-        var corpus = MemoryCorpus.Generate(CorpusShape.Default, Seed);
-        var store = new InMemoryMemoryGraphStore();
         var counting = verifier is null ? null : new CountingVerifier(verifier);
-        var engine = new GraphMemoryEngine("e", store, seams: new GraphMemorySeams
+        var engine = new GraphMemoryEngine("e", new InMemoryMemoryGraphStore(), seams: new GraphMemorySeams
             {
                 Retrievability = new DsrRetrievability(new DsrOptions { ReinforceGain = 0 }),
                 AgePolicies = [new PerWriteAgePolicy()],
                 Verification = counting,
             });
 
-        var first = corpus.Steps.OfType<CorpusWrite>().First().Write;
-        var byCorpusId = new Dictionary<string, string>(StringComparer.Ordinal);
-        var byRef = new Dictionary<string, string>(StringComparer.Ordinal);
-        long returned = 0, noise = 0, wanted = 0, missed = 0;
+        var share = await CorpusReplay.RunAsync(engine, MemoryCorpus.Generate(CorpusShape.Default, Seed),
+            QueryLimit, beforeQuery: oracle is null ? null : CorpusReplay.Teach(oracle));
 
-        foreach (var step in corpus.Steps)
-            switch (step)
-            {
-                case CorpusWrite w:
-                    var memRef = (await engine.RememberAsync(w.Write)).Reference;
-                    var corpusId = MemoryCorpusTestAccess.IdOf(w.Write.Content);
-                    byCorpusId[corpusId] = memRef.Id;
-                    byRef[memRef.Id] = corpusId;
-                    break;
-
-                case CorpusQuery q:
-                    oracle?.Teach(q.Text,
-                        q.RelevantIds.Where(byCorpusId.ContainsKey).Select(id => byCorpusId[id]));
-
-                    var recall = await engine.RecallAsync(
-                        new MemoryQuery(first.TaskKey, first.Scope, q.Text, Limit: QueryLimit));
-                    var got = new HashSet<string>(StringComparer.Ordinal);
-                    foreach (var item in recall.Items)
-                    {
-                        returned++;
-                        if (!byRef.TryGetValue(item.Reference.Id, out var id)) continue;
-                        got.Add(id);
-                        if (id.StartsWith("noise", StringComparison.Ordinal)) noise++;
-                    }
-                    foreach (var want in q.RelevantIds)
-                    {
-                        wanted++;
-                        if (!got.Contains(want)) missed++;
-                    }
-                    break;
-            }
-
-        return new Arm(
-            wanted == 0 ? 0 : (double)missed / wanted,
-            returned == 0 ? 0 : (double)noise / returned,
-            counting?.Judged ?? 0,
-            counting?.NoOpinion ?? 0);
+        return new Arm(share.Miss, share.Pollution, counting?.Judged ?? 0, counting?.NoOpinion ?? 0);
     }
 
     /// <summary>Wraps a verifier to count how many calls produced a real verdict versus fell through to
