@@ -95,6 +95,22 @@ public class GenerationGovernanceTests
     }
 
     [Fact]
+    public async Task An_UNSUPPORTED_answer_never_counts_against_a_backend_either()
+    {
+        // the backend knows the request is the problem, not its health: a repeated capability gap must leave it
+        // in rotation, exactly as "not configured" does above
+        var gap = new FakeGenerationProvider { Id = "a" };
+        gap.Verdicts.Enqueue(ProviderVerdict.Unsupported);
+        var router = Router([gap, new FakeGenerationProvider { Id = "b" }],
+            new DeadHostTracker(threshold: 1, cooldown: TimeSpan.FromMinutes(5)));
+
+        await router.GenerateAsync(Order("a", "b"), Image);
+        await router.GenerateAsync(Order("a", "b"), Image);
+
+        Assert.Equal(2, gap.GenerateCalls);
+    }
+
+    [Fact]
     public async Task The_only_capable_backend_is_never_benched()
     {
         // benching the sole option just converts a real error into a synthetic one, and the host can't act
@@ -157,23 +173,6 @@ public class GenerationGovernanceTests
         await router.GenerateAsync(Order("hosted", "local"), Image);
 
         Assert.Equal(2, limited.GenerateCalls);
-    }
-
-    [Fact]
-    public async Task A_submission_also_benches_a_backend_that_refuses_to_take_the_job()
-    {
-        // a paid render's submit path needs the same protection as the inline one
-        var deadHosts = new DeadHostTracker(threshold: 1, cooldown: TimeSpan.FromMinutes(5));
-        var broken = FakeGenerationJobProvider.Rejecting("broken", "queue down");
-        var working = new FakeGenerationJobProvider { Id = "working" };
-        var router = Router([broken, working], deadHosts);
-
-        var first = await router.SubmitAsync(Order("broken", "working"), Video);
-        var second = await router.SubmitAsync(Order("broken", "working"), Video);
-
-        Assert.Equal("working", first.ProviderId);
-        Assert.Equal("working", second.ProviderId);
-        Assert.Equal(1, broken.SubmitCalls);
     }
 
     // ---- spend caps ----------------------------------------------------------------------------------

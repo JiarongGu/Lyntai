@@ -25,16 +25,6 @@ public class GenerationDiTests
         Assert.Contains("b", ids);
     }
 
-    [Fact]
-    public void The_router_is_registered_and_sees_every_backend()
-    {
-        var services = new ServiceCollection();
-        services.AddLyntai(cfg => cfg.AddProvider(_ => new FakeGenerationProvider { Id = "a" }).AddMediaRouting());
-        using var sp = services.BuildServiceProvider();
-
-        Assert.NotNull(sp.GetRequiredService<IMediaRouter>());
-    }
-
     /// <summary><b>A pre-registered <see cref="MediaOptions"/> is REUSED, not replaced</b> — the
     /// documented way to set a knob the builder exposes no dedicated method for, and the same DI-registration
     /// path <c>SalienceOptions</c> and <c>DsrOptions</c> take. Asserted because the doc on

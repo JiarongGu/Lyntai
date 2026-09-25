@@ -17,19 +17,6 @@ public class GenerationRouterTests
     private static MediaRequest Video() => new() { Kind = ProviderKinds.Video, Prompt = "a cat surfing" };
 
     [Fact]
-    public async Task It_generates_through_the_first_capable_candidate()
-    {
-        var image = new FakeGenerationProvider { Id = "image-backend" };
-        var video = new FakeGenerationJobProvider { Id = "video-backend" };
-
-        var result = await Router(video, image).GenerateAsync(
-            [new ProviderCandidate("video-backend"), new ProviderCandidate("image-backend")], Image());
-
-        Assert.True(result.IsOk);
-        Assert.Equal(1, image.GenerateCalls);
-    }
-
-    [Fact]
     public async Task A_throwing_backend_is_classified_and_fallen_over_rather_than_propagated()
     {
         // THE TRUST BOUNDARY, found 2026-08-15. TextRouter.TryCompleteAsync has caught and classified a

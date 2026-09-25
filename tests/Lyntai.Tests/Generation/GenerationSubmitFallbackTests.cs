@@ -72,9 +72,11 @@ public class GenerationSubmitFallbackTests
         var working = new FakeGenerationJobProvider { Id = "local" };
         var router = new MediaRouter([broken, working], deadHosts: tracker);
 
-        await router.SubmitAsync(Order("broken", "local"), Video());
-        await router.SubmitAsync(Order("broken", "local"), Video());
+        var first = await router.SubmitAsync(Order("broken", "local"), Video());
+        var second = await router.SubmitAsync(Order("broken", "local"), Video());
 
+        Assert.Equal("local", first.ProviderId);
+        Assert.Equal("local", second.ProviderId);
         Assert.Equal(1, broken.SubmitCalls);
         Assert.True(tracker.IsDead("generation::broken"));
     }

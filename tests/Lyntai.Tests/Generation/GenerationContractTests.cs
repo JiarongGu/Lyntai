@@ -86,4 +86,12 @@ public class GenerationContractTests
         Assert.Null(input.Data);
         Assert.Equal("https://example.invalid/a.mp4", input.Uri);
     }
+
+    [Fact]
+    public void An_operation_is_terminal_exactly_when_it_has_stopped_changing()
+    {
+        var terminal = Enum.GetValues<QueuedOperationStatus>().Where(s => new QueuedOperation("op", s).IsTerminal);
+
+        Assert.Equal([QueuedOperationStatus.Succeeded, QueuedOperationStatus.Failed, QueuedOperationStatus.Cancelled], terminal);
+    }
 }

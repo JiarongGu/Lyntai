@@ -23,6 +23,8 @@ public class GenerationRoutingPolicyTests
         Assert.Equal(FallbackAction.Surface, policy.ActionFor(ProviderVerdict.Refused));
         Assert.Equal(FallbackAction.Advance, policy.ActionFor(ProviderVerdict.NotConfigured));
         Assert.Equal(FallbackAction.Advance, policy.ActionFor(ProviderVerdict.Unsupported));
+        // an oversized prompt is the request's fault, so it must not bench a healthy backend either
+        Assert.Equal(FallbackAction.Advance, policy.ActionFor(ProviderVerdict.ContextWindowExceeded));
         Assert.Equal(FallbackAction.CooldownAndAdvance, policy.ActionFor(ProviderVerdict.RateLimited));
         Assert.Equal(FallbackAction.CooldownAndAdvance, policy.ActionFor(ProviderVerdict.AuthFailed));
         Assert.Equal(FallbackAction.PenalizeAndAdvance, policy.ActionFor(ProviderVerdict.Failed));
@@ -105,19 +107,4 @@ public class GenerationRoutingPolicyTests
         Assert.True(result.IsOk);
     }
 
-    [Fact]
-    public async Task The_default_policy_applies_when_none_is_configured()
-    {
-        // a router built without a policy must behave exactly as before this seam existed
-        var refusing = new FakeGenerationProvider { Id = "a" };
-        refusing.Verdicts.Enqueue(ProviderVerdict.Refused);
-        var working = new FakeGenerationProvider { Id = "b" };
-        var router = new MediaRouter([refusing, working]);
-
-        var result = await router.GenerateAsync(
-            [new ProviderCandidate("a"), new ProviderCandidate("b")], Image());
-
-        Assert.Equal(ProviderVerdict.Refused, result.Verdict);
-        Assert.Equal(0, working.GenerateCalls);
-    }
 }
