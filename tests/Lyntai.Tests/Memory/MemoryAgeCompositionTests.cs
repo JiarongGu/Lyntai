@@ -53,12 +53,14 @@ public class MemoryAgeCompositionTests
     }
 
     private static GraphMemoryEngine Build(IMemoryAgeCompositionPolicy composition) =>
-        new(Engine, new InMemoryMemoryGraphStore(),
-            // two coexisting Derivable dimensions with genuinely different scales: PerWrite counts writes,
-            // ContentSize (perUnit: 1) counts raw characters — a long write crowds far more on the volume
-            // axis than on the ordinal one, which is exactly what makes Sum and Max disagree
-            agePolicies: [new PerWriteAgePolicy(), new ContentSizeAgePolicy(perUnit: 1)],
-            ageComposition: composition);
+        new(Engine, new InMemoryMemoryGraphStore(), seams: new GraphMemorySeams
+            {
+                // two coexisting Derivable dimensions with genuinely different scales: PerWrite counts writes,
+                // ContentSize (perUnit: 1) counts raw characters — a long write crowds far more on the volume
+                // axis than on the ordinal one, which is exactly what makes Sum and Max disagree
+                AgePolicies = [new PerWriteAgePolicy(), new ContentSizeAgePolicy(perUnit: 1)],
+                AgeComposition = composition,
+            });
 
     [Fact]
     public async Task Swapping_the_age_composition_policy_changes_retrievability()
@@ -121,8 +123,11 @@ public class MemoryAgeCompositionTests
         // the STORE's own clock (for EncodingAt / the ElapsedAge primitive) must be the SAME simulated one,
         // or the primitive advances by real wall-clock microseconds instead of the simulated 10-day gaps
         var store = new InMemoryMemoryGraphStore(Clock);
-        var engine = new GraphMemoryEngine("mixed", store, agePolicies: [burst, elapsed],
-            retrievability: new AgeEchoRetrievability());
+        var engine = new GraphMemoryEngine("mixed", store, seams: new GraphMemorySeams
+            {
+                AgePolicies = [burst, elapsed],
+                Retrievability = new AgeEchoRetrievability(),
+            });
 
         var seed = (await engine.RememberAsync(new MemoryWrite("t", "s", "the seed fact"))).Reference;
         now = now.AddDays(10);
@@ -151,9 +156,10 @@ public class MemoryAgeCompositionTests
         // fix round 1, C-1, rule 3: the store's position accumulator is a single number and cannot hold two
         // path-dependent quantities distinguishably — a silent sum would be exactly the quiet wrongness this
         // domain rejects everywhere else, so this must fail loudly rather than blend two burst histories.
-        var ex = Assert.Throws<ArgumentException>(() => new GraphMemoryEngine(
-            "e", new InMemoryMemoryGraphStore(),
-            agePolicies: [new BurstDampenedAgePolicy(), new BurstDampenedAgePolicy()]));
+        var ex = Assert.Throws<ArgumentException>(() => new GraphMemoryEngine("e", new InMemoryMemoryGraphStore(), seams: new GraphMemorySeams
+            {
+                AgePolicies = [new BurstDampenedAgePolicy(), new BurstDampenedAgePolicy()],
+            }));
         Assert.Contains("Accumulating", ex.Message, StringComparison.Ordinal);
     }
 
@@ -162,8 +168,10 @@ public class MemoryAgeCompositionTests
     {
         // the rejection is specifically about TWO OR MORE Accumulating policies — mixing one Accumulating
         // with several coexisting Derivable ones (the whole point of Steps 1-2) must not be swept up in it
-        var engine = new GraphMemoryEngine("e", new InMemoryMemoryGraphStore(),
-            agePolicies: [new BurstDampenedAgePolicy(), new PerWriteAgePolicy(), new ElapsedAgePolicy()]);
+        var engine = new GraphMemoryEngine("e", new InMemoryMemoryGraphStore(), seams: new GraphMemorySeams
+            {
+                AgePolicies = [new BurstDampenedAgePolicy(), new PerWriteAgePolicy(), new ElapsedAgePolicy()],
+            });
         Assert.NotNull(engine);
     }
 }

@@ -42,7 +42,10 @@ public class MemoryAgePrimitiveIdentityTests
         var store = new SqliteMemoryGraphStore(db.Factory);
         // undamped, matching the policy under test — BurstDampenedAgePolicy is explicitly NOT part of this
         // identity (see IMemoryAgePolicy.Age's own remarks on it being the documented exception)
-        var engine = new GraphMemoryEngine("identity", store, agePolicies: [new PerWriteAgePolicy()]);
+        var engine = new GraphMemoryEngine("identity", store, seams: new GraphMemorySeams
+            {
+                AgePolicies = [new PerWriteAgePolicy()],
+            });
         var policy = new PerWriteAgePolicy();
 
         var corpus = MemoryCorpus.Generate(CorpusShape.Default, seed: 20260810);

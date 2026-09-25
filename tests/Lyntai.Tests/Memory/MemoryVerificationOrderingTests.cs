@@ -57,10 +57,13 @@ public class MemoryVerificationOrderingTests
     private static async Task<IReadOnlyList<string>> RecallAsync(
         TempDb db, IMemoryVerificationPolicy? verifier, int limit)
     {
-        var engine = new GraphMemoryEngine("verify", new SqliteMemoryGraphStore(db.Factory),
-            agePolicies: [new PerWriteAgePolicy()],
-            retrievability: new DsrRetrievability(), ranking: new ReciprocalRankFusionPolicy(),
-            verification: verifier);
+        var engine = new GraphMemoryEngine("verify", new SqliteMemoryGraphStore(db.Factory), seams: new GraphMemorySeams
+            {
+                AgePolicies = [new PerWriteAgePolicy()],
+                Retrievability = new DsrRetrievability(),
+                Ranking = new ReciprocalRankFusionPolicy(),
+                Verification = verifier,
+            });
 
         foreach (var fact in Facts) await engine.RememberAsync(new MemoryWrite("t", "s", fact));
 

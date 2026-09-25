@@ -18,9 +18,12 @@ public class MemoryWriteResultTests
     private static GraphMemoryEngine Graph(IModelProvider? provider, IVectorStore? vectors,
         IMemoryGraphStore? store = null, GraphMemoryOptions? options = null,
         ILogger<GraphMemoryEngine>? logger = null) =>
-        new(GraphName, store ?? new InMemoryMemoryGraphStore(), options,
-            agePolicies: [new PerWriteAgePolicy()], providers: provider is null ? null : [provider],
-            vectors: vectors, logger: logger);
+        new(GraphName, store ?? new InMemoryMemoryGraphStore(), options, seams: new GraphMemorySeams
+            {
+                AgePolicies = [new PerWriteAgePolicy()],
+                Providers = provider is null ? null : [provider],
+                Vectors = vectors,
+            }, logger: logger);
 
     /// <summary>Every id indexed in the graph engine's collection. A zero vector is a legal probe and a search
     /// returns the collection's top-k whatever the scores, so this reads what is THERE.</summary>

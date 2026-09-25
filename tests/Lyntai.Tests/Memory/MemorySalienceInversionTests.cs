@@ -81,13 +81,15 @@ public sealed class MemorySalienceInversionTests
     /// for exactly this purpose — a trap that cost a measurement its control is a trap a consumer will hit
     /// too, so the fix belongs in the library rather than in this file.</para></summary>
     private static GraphMemoryEngine NewEngine(InMemoryMemoryGraphStore store, ArmKind arm) =>
-        new("e", store,
-            agePolicies: [new PerWriteAgePolicy()],
-            providers: arm == ArmKind.Off ? null : [new FakeVectorProvider()],
-            vectors: arm == ArmKind.Off ? null : new InMemoryVectorStore(),
-            saliencePolicies: arm == ArmKind.Salience
-                ? [new StructuralSaliencePolicy()]
-                : [new NeutralSaliencePolicy()]);
+        new("e", store, seams: new GraphMemorySeams
+            {
+                AgePolicies = [new PerWriteAgePolicy()],
+                Providers = arm == ArmKind.Off ? null : [new FakeVectorProvider()],
+                Vectors = arm == ArmKind.Off ? null : new InMemoryVectorStore(),
+                SaliencePolicies = arm == ArmKind.Salience
+                    ? [new StructuralSaliencePolicy()]
+                    : [new NeutralSaliencePolicy()],
+            });
 
     /// <summary>One arm's outcome.</summary>
     /// <param name="Pollution">Share of everything recalls returned that was noise. Measured over the
@@ -315,11 +317,13 @@ public sealed class MemorySalienceInversionTests
         {
             var corpus = MemoryCorpus.Generate(shape, Seed);
             var store = new InMemoryMemoryGraphStore();
-            var engine = new GraphMemoryEngine("e", store,
-                agePolicies: [new PerWriteAgePolicy()],
-                providers: [new FakeVectorProvider()],
-                vectors: new InMemoryVectorStore(),
-                saliencePolicies: policies);
+            var engine = new GraphMemoryEngine("e", store, seams: new GraphMemorySeams
+                {
+                    AgePolicies = [new PerWriteAgePolicy()],
+                    Providers = [new FakeVectorProvider()],
+                    Vectors = new InMemoryVectorStore(),
+                    SaliencePolicies = policies,
+                });
 
             var judged = 0;
             foreach (var w in corpus.Steps.OfType<CorpusWrite>())

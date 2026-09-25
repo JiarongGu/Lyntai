@@ -79,7 +79,10 @@ public class MemoryToolLimitTests
     public async Task A_non_positive_limit_asks_no_channel_for_candidates(int limit)
     {
         var source = new RecordingSeedSource();
-        var engine = new GraphMemoryEngine("g", new InMemoryMemoryGraphStore(), seedSources: [source]);
+        var engine = new GraphMemoryEngine("g", new InMemoryMemoryGraphStore(), seams: new GraphMemorySeams
+            {
+                SeedSources = [source],
+            });
 
         var recall = await engine.RecallAsync(new MemoryQuery("t", "s", "ferry", Limit: limit));
 

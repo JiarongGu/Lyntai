@@ -64,10 +64,13 @@ public class MemorySubjectLinkingTests
 
     private static GraphMemoryEngine NewEngine(TempDb db, IMemoryAnnotationPolicy? annotator,
         GraphMemoryOptions? options = null) =>
-        new("subjects", new SqliteMemoryGraphStore(db.Factory), options: options,
-            agePolicies: [new PerWriteAgePolicy()],
-            retrievability: new DsrRetrievability(), ranking: new ReciprocalRankFusionPolicy(),
-            annotation: annotator);
+        new("subjects", new SqliteMemoryGraphStore(db.Factory), options: options, seams: new GraphMemorySeams
+            {
+                AgePolicies = [new PerWriteAgePolicy()],
+                Retrievability = new DsrRetrievability(),
+                Ranking = new ReciprocalRankFusionPolicy(),
+                Annotation = annotator,
+            });
 
     private static async Task WriteClusterAsync(GraphMemoryEngine engine)
     {
@@ -155,9 +158,12 @@ public class MemorySubjectLinkingTests
     [Fact]
     public async Task A_failing_subject_index_costs_links_not_the_entry()
     {
-        var engine = new GraphMemoryEngine("subjects", new SubjectHostileGraphStore(),
-            agePolicies: [new PerWriteAgePolicy()], retrievability: new DsrRetrievability(),
-            annotation: new TableAnnotator(SpouseCluster()));
+        var engine = new GraphMemoryEngine("subjects", new SubjectHostileGraphStore(), seams: new GraphMemorySeams
+            {
+                AgePolicies = [new PerWriteAgePolicy()],
+                Retrievability = new DsrRetrievability(),
+                Annotation = new TableAnnotator(SpouseCluster()),
+            });
 
         await engine.RememberAsync(new MemoryWrite("t", "s", Introduces));
 

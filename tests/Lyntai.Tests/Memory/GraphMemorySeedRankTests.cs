@@ -72,7 +72,10 @@ public sealed class GraphMemorySeedRankTests : IDisposable
     {
         var store = new SqliteMemoryGraphStore(_db.Factory);
         var probe = new CandidateProbe(new ReciprocalRankFusionPolicy());
-        var engine = new GraphMemoryEngine("e", store, ranking: probe);
+        var engine = new GraphMemoryEngine("e", store, seams: new GraphMemorySeams
+            {
+                Ranking = probe,
+            });
 
         await engine.RememberAsync(new MemoryWrite(TaskKey, Scope, "beta gamma delta epsilon"));
         await engine.RememberAsync(new MemoryWrite(TaskKey, Scope, "beta gamma"));
@@ -117,11 +120,17 @@ public sealed class GraphMemorySeedRankTests : IDisposable
     {
         var flat = new InMemoryMemoryGraphStore();
         var flatProbe = new CandidateProbe(new ReciprocalRankFusionPolicy());
-        var flatEngine = new GraphMemoryEngine("e", flat, ranking: flatProbe);
+        var flatEngine = new GraphMemoryEngine("e", flat, seams: new GraphMemorySeams
+            {
+                Ranking = flatProbe,
+            });
 
         var graded = new SqliteMemoryGraphStore(_db.Factory);
         var gradedProbe = new CandidateProbe(new ReciprocalRankFusionPolicy());
-        var gradedEngine = new GraphMemoryEngine("e", graded, ranking: gradedProbe);
+        var gradedEngine = new GraphMemoryEngine("e", graded, seams: new GraphMemorySeams
+            {
+                Ranking = gradedProbe,
+            });
 
         foreach (var engine in new[] { flatEngine, gradedEngine })
         {
@@ -168,7 +177,10 @@ public sealed class GraphMemorySeedRankTests : IDisposable
     {
         var store = new InMemoryMemoryGraphStore();
         var probe = new CandidateProbe(new ReciprocalRankFusionPolicy());
-        var engine = new GraphMemoryEngine("e", store, ranking: probe);
+        var engine = new GraphMemoryEngine("e", store, seams: new GraphMemorySeams
+            {
+                Ranking = probe,
+            });
 
         // shares no term with the query, and is admitted purely by grade
         var exact = (await engine.RememberAsync(new MemoryWrite(TaskKey, Scope,
@@ -214,9 +226,13 @@ public sealed class GraphMemorySeedRankTests : IDisposable
         var vectorProvider = new ScriptedVectorProvider(target);
         var probe = new CandidateProbe(new ReciprocalRankFusionPolicy());
 
-        var engine = new GraphMemoryEngine("e", store, ranking: probe,
-            providers: vectorProvider is null ? null : [vectorProvider], vectors: vectors,
-            seedSources: [new LexicalSeedSource(), new SemanticSeedSource([vectorProvider], vectors)]);
+        var engine = new GraphMemoryEngine("e", store, seams: new GraphMemorySeams
+            {
+                Ranking = probe,
+                Providers = vectorProvider is null ? null : [vectorProvider],
+                Vectors = vectors,
+                SeedSources = [new LexicalSeedSource(), new SemanticSeedSource([vectorProvider], vectors)],
+            });
 
         var both = (await engine.RememberAsync(new MemoryWrite(TaskKey, Scope, target))).Reference;
         await engine.RememberAsync(new MemoryWrite(TaskKey, Scope, "unrelated kitchen roster note"));
@@ -243,8 +259,10 @@ public sealed class GraphMemorySeedRankTests : IDisposable
     {
         var store = new InMemoryMemoryGraphStore();
         var probe = new CandidateProbe(new ReciprocalRankFusionPolicy());
-        var engine = new GraphMemoryEngine("e", store, options: new GraphMemoryOptions { Hops = 1 },
-            ranking: probe);
+        var engine = new GraphMemoryEngine("e", store, options: new GraphMemoryOptions { Hops = 1 }, seams: new GraphMemorySeams
+            {
+                Ranking = probe,
+            });
 
         await engine.RememberAsync(new MemoryWrite(TaskKey, Scope, "beta rollout begins monday"));
         await engine.RememberAsync(new MemoryWrite(TaskKey, Scope, "unrelated kitchen roster note"));
@@ -354,9 +372,10 @@ public sealed class GraphMemorySeedRankTests : IDisposable
     [Fact]
     public void Two_sources_sharing_a_name_are_refused_rather_than_double_counted()
     {
-        var ex = Assert.Throws<ArgumentException>(() => new GraphMemoryEngine("e",
-            new InMemoryMemoryGraphStore(),
-            seedSources: [new LexicalSeedSource(), new LexicalSeedSource()]));
+        var ex = Assert.Throws<ArgumentException>(() => new GraphMemoryEngine("e", new InMemoryMemoryGraphStore(), seams: new GraphMemorySeams
+            {
+                SeedSources = [new LexicalSeedSource(), new LexicalSeedSource()],
+            }));
 
         Assert.Contains("lexical", ex.Message, StringComparison.Ordinal);
     }
@@ -389,7 +408,11 @@ public sealed class GraphMemorySeedRankTests : IDisposable
             new MemoryWrite(TaskKey, Scope, "beta rollout begins monday"))).Reference;
         var id = long.Parse(only.Id, System.Globalization.CultureInfo.InvariantCulture);
 
-        var engine = new GraphMemoryEngine("e", store, ranking: probe, seedSources: [new RepeatingSource(id)]);
+        var engine = new GraphMemoryEngine("e", store, seams: new GraphMemorySeams
+            {
+                Ranking = probe,
+                SeedSources = [new RepeatingSource(id)],
+            });
         await engine.RecallAsync(new MemoryQuery(TaskKey, Scope: Scope, Query: "beta", Limit: 10));
 
         var candidate = CandidateFor(probe, id);
@@ -429,9 +452,12 @@ public sealed class GraphMemorySeedRankTests : IDisposable
         var probe = new CandidateProbe(new ReciprocalRankFusionPolicy());
 
         // the subject channel ALONE, so nothing else can contribute a rank or a candidate
-        var engine = new GraphMemoryEngine("e", store, ranking: probe,
-            annotation: new TableAnnotator(fact, "spouse"),
-            seedSources: [new SubjectSeedSource()]);
+        var engine = new GraphMemoryEngine("e", store, seams: new GraphMemorySeams
+            {
+                Ranking = probe,
+                Annotation = new TableAnnotator(fact, "spouse"),
+                SeedSources = [new SubjectSeedSource()],
+            });
 
         var only = (await engine.RememberAsync(new MemoryWrite(TaskKey, Scope, fact))).Reference;
 
@@ -480,8 +506,11 @@ public sealed class GraphMemorySeedRankTests : IDisposable
 
         // WORST FIRST, so list position and relevance gradient disagree
         var probe = new CandidateProbe(new ReciprocalRankFusionPolicy());
-        var engine = new GraphMemoryEngine("e", store, ranking: probe,
-            seedSources: [new ScoredSource([Scored(c, 0.4), Scored(a, 0.9), Scored(b, 0.9)])]);
+        var engine = new GraphMemoryEngine("e", store, seams: new GraphMemorySeams
+            {
+                Ranking = probe,
+                SeedSources = [new ScoredSource([Scored(c, 0.4), Scored(a, 0.9), Scored(b, 0.9)])],
+            });
 
         await engine.RecallAsync(new MemoryQuery(TaskKey, Scope: Scope, Query: "anything", Limit: 10));
 

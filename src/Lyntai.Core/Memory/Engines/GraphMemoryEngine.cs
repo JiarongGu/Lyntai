@@ -27,111 +27,39 @@ namespace Lyntai.Memory.Engines;
 /// <param name="name">This engine's name, hierarchical when it is a member of a composite.</param>
 /// <param name="store">Node and edge storage.</param>
 /// <param name="options">Retrieval knobs; null takes the defaults.</param>
-/// <param name="retrievability">The decay curve; null builds a <see cref="Lyntai.Memory.Forgetting.DsrRetrievability"/>
-/// with default options — the same curve a DI-built engine takes (<c>docs/DECISIONS.md</c> D49).</param>
-/// <param name="agePolicies">What one write does to this memory — the coexisting age dimensions in play; null
-/// or empty takes a single burst-damped per-write age policy. <b>The damping is not optional garnish</b> — an
-/// undamped count-based policy lets a bulk ingest wipe everything stored before it. Each policy declares its
-/// own <see cref="IMemoryAgePolicy.Kind"/>, and this engine honours it: a <see cref="MemoryAgeKind.Derivable"/>
-/// policy's retrievability-facing age is projected from the primitives (<see cref="GraphNode.AgeSample"/>);
-/// an <see cref="MemoryAgeKind.Accumulating"/> one's comes from the store's own <c>Advance</c>-driven
-/// accumulator (<see cref="GraphNode.Age"/>).</param>
-/// <param name="ageComposition">How several coexisting age policies combine into one tick and one age; null
-/// takes <see cref="SummedAgeCompositionPolicy"/>. Irrelevant when only one policy is registered — composing a
-/// singleton is the identity.</param>
+/// <param name="seams">The policies, similarity index and backends this engine is built from; null, or any
+/// member left null, takes the engine's own default (see <see cref="GraphMemorySeams"/>).</param>
 /// <param name="logger">Optional; reinforcement and recall failures are logged rather than thrown.</param>
-/// <param name="providers">Optional. With a <paramref name="vectors"/> store, a backend declaring
-/// <see cref="ProviderKinds.Vector"/> enables similarity
-/// enrichment — a new entry is linked to its nearest existing neighbours. Pure enrichment on top of the
-/// model-free floor: without it the graph still forms from co-activation and explicit links.</param>
-/// <param name="vectors">Optional; see <paramref name="providers"/>.</param>
-/// <param name="saliencePolicies">Judge how strongly a write is encoded — the coexisting salience dimensions
-/// in play; null or empty takes a single <see cref="StructuralSaliencePolicy"/>. Without a vector backend there is
-/// no novelty to judge and it reports nothing.</param>
-/// <param name="salienceComposition">How several coexisting salience policies' bags combine into one; null
-/// takes <see cref="MaximalSalienceCompositionPolicy"/>. Irrelevant when only one salience policy is
-/// registered.</param>
-/// <param name="ranking">Turns seeded, spread candidates into a scored, best-first order; null takes
-/// <see cref="ReciprocalRankFusionPolicy"/>, the registered default (<c>docs/DECISIONS.md</c> D49). See
-/// <see cref="IMemoryRankingPolicy"/> for the contract, including what a policy may NOT do: this engine
-/// re-admits authoritative material a policy DROPS, though not one it SUBSTITUTES under the same id.</param>
-/// <param name="namedRankingPolicies">Alternate ranking policies THIS engine exposes for a per-call override
-/// (<see cref="MemoryQuery.RankingPolicyName"/>) — null or empty exposes none, so every call uses
-/// <paramref name="ranking"/> (or its own default) unless a name is registered here. Compared by ordinal
-/// string equality, the same comparison <see cref="IMemoryEngineFactory"/> uses for engine names. A query
-/// naming anything not in this set throws <see cref="KeyNotFoundException"/> rather than silently falling
-/// back — see <see cref="MemoryQuery.RankingPolicyName"/>'s own remarks.</param>
-/// <param name="clock">Reads "now" for <see cref="PruneAsync"/>'s <c>olderThan</c> criterion, on the
-/// derivable path only; null takes <see cref="DateTimeOffset.UtcNow"/>. Mirrors the injectable clock every
-/// <see cref="IMemoryGraphStore"/> implementation already takes, so a test that fakes the store's clock can
-/// fake this engine's too.</param>
-/// <param name="annotation">Judges what each written fact is ABOUT, so entries concerning the same entity
-/// become connected — the only mechanism that reaches a cluster whose members share no distinguishing word
-/// (see <see cref="Lyntai.Memory.Annotation.IMemoryAnnotationPolicy"/>). Null is the model-free floor: no
-/// annotation, no subject links, and every other behaviour identical.</param>
-/// <param name="verification">Judges which of a recall's candidates actually ANSWERED the query, so
-/// reinforcement follows evidence rather than the ranker's own prior and an outranked answer can be promoted
-/// past the limit (see <see cref="Lyntai.Memory.Verification.IMemoryVerificationPolicy"/>). Null is the
-/// model-free floor: the ranking policy's order stands and everything a recall returns is reinforced.</param>
-/// <param name="retentionPolicies">The coexisting retention dimensions — a DI collection, like
-/// <paramref name="agePolicies"/> and <paramref name="saliencePolicies"/>, because retention is a PLURAL
-/// domain (<c>docs/DECISIONS.md</c> <b>D48</b>). The engine composes them over
-/// <paramref name="retrievability"/> itself; null or empty leaves the curve exactly as supplied.
-/// <para><b>Supplying these AND an already-modulated curve throws</b>, because it would apply retention
-/// twice — see the guard's own remarks. Composing a
-/// <see cref="Lyntai.Memory.Modulation.ModulatedRetrievability"/> yourself and passing it as
-/// <paramref name="retrievability"/> ALONE stays supported.</para></param>
-/// <param name="retentionComposition">How several coexisting retention dimensions combine into one factor;
-/// null takes the multiplicative default. Irrelevant when fewer than two are registered.</param>
-/// <param name="seedSources">The retrieval CHANNELS a recall gathers candidates from — a DI collection, like
-/// <paramref name="agePolicies"/>, because seeding is a PLURAL domain (<c>docs/DECISIONS.md</c> <b>D48</b>):
-/// lexical reads text, semantic reads a vector space, subject reads handles, and all three are true at once.
-/// Null or empty takes <see cref="LexicalSeedSource"/> and <see cref="SubjectSeedSource"/>, the two a
-/// DI-built engine registers. Two sources sharing a <see cref="IMemorySeedSource.Name"/> throws.</param>
-/// <param name="routing">Supplies the SHARED dead-host cooldown and admission for the embedding calls
-/// similarity enrichment makes. Null routes over <paramref name="providers"/> with neither, so a vector
-/// backend that rate-limited is asked again on the very next write.</param>
-/// <exception cref="ArgumentException">Two <paramref name="seedSources"/> share a name.</exception>
+/// <exception cref="ArgumentException">Two seed sources share a name, more than one age policy is
+/// Accumulating, retention is supplied beside an already-modulated curve, or
+/// <see cref="NeutralSaliencePolicy"/> is combined with another salience policy.</exception>
 public sealed class GraphMemoryEngine(
     string name,
     IMemoryGraphStore store,
     GraphMemoryOptions? options = null,
-    IMemoryRetrievabilityPolicy? retrievability = null,
-    IEnumerable<IMemoryAgePolicy>? agePolicies = null,
-    ILogger<GraphMemoryEngine>? logger = null,
-    IEnumerable<IModelProvider>? providers = null,
-    IVectorStore? vectors = null,
-    IEnumerable<IMemorySaliencePolicy>? saliencePolicies = null,
-    IMemoryRankingPolicy? ranking = null,
-    IMemoryAgeCompositionPolicy? ageComposition = null,
-    IMemorySalienceCompositionPolicy? salienceComposition = null,
-    IReadOnlyDictionary<string, IMemoryRankingPolicy>? namedRankingPolicies = null,
-    Func<DateTimeOffset>? clock = null,
-    IMemoryAnnotationPolicy? annotation = null,
-    IMemoryVerificationPolicy? verification = null,
-    IEnumerable<IMemoryRetentionPolicy>? retentionPolicies = null,
-    IMemoryRetentionCompositionPolicy? retentionComposition = null,
-    IEnumerable<IMemorySeedSource>? seedSources = null,
-    IProviderRouterFactory? routing = null)
+    GraphMemorySeams? seams = null,
+    ILogger<GraphMemoryEngine>? logger = null)
     : IMemoryEngine, IExpandableMemory, ILinkableMemory, IForgettableMemory, IPrunableMemory
 {
     private readonly GraphMemoryOptions _options = options ?? new GraphMemoryOptions();
     private readonly IMemoryRetrievabilityPolicy _policy =
-        ValidatedRetrievability(Modulate(retrievability ?? new DsrRetrievability(),
-            retentionPolicies, retentionComposition));
-    private readonly MemoryAgeResolver _age = new(agePolicies, ageComposition);
+        ValidatedRetrievability(Modulate(seams?.Retrievability ?? new DsrRetrievability(),
+            seams?.RetentionPolicies, seams?.RetentionComposition));
+    private readonly MemoryAgeResolver _age = new(seams?.AgePolicies, seams?.AgeComposition);
     private readonly ILogger _logger = logger ?? NullLogger<GraphMemoryEngine>.Instance;
-    private readonly GraphVectorProjection _vectors = new(name, providers, vectors, routing,
+    private readonly GraphVectorProjection _vectors = new(name, seams?.Providers, seams?.Vectors, seams?.Routing,
         logger ?? (ILogger)NullLogger<GraphMemoryEngine>.Instance);
     private readonly IReadOnlyList<IMemorySaliencePolicy> _saliencePolicies =
-        NormalizeSaliencePolicies(saliencePolicies);
+        NormalizeSaliencePolicies(seams?.SaliencePolicies);
     private readonly IMemorySalienceCompositionPolicy _salienceComposition =
-        salienceComposition ?? new MaximalSalienceCompositionPolicy();
-    private readonly IMemoryRankingPolicy _ranking = ranking ?? new ReciprocalRankFusionPolicy();
+        seams?.SalienceComposition ?? new MaximalSalienceCompositionPolicy();
+    private readonly IMemoryRankingPolicy _ranking = seams?.Ranking ?? new ReciprocalRankFusionPolicy();
     private readonly IReadOnlyDictionary<string, IMemoryRankingPolicy> _namedRanking =
-        NormalizeNamedRanking(namedRankingPolicies);
-    private readonly Func<DateTimeOffset> _clock = clock ?? (() => DateTimeOffset.UtcNow);
-    private readonly IReadOnlyList<IMemorySeedSource> _seedSources = NormalizeSeedSources(seedSources);
+        NormalizeNamedRanking(seams?.NamedRankingPolicies);
+    private readonly Func<DateTimeOffset> _clock = seams?.Clock ?? (() => DateTimeOffset.UtcNow);
+    private readonly IReadOnlyList<IMemorySeedSource> _seedSources = NormalizeSeedSources(seams?.SeedSources);
+    private readonly IMemoryAnnotationPolicy? _annotation = seams?.Annotation;
+    private readonly IMemoryVerificationPolicy? _verification = seams?.Verification;
 
     /// <summary>Copies into a fresh, ORDINAL-compared dictionary regardless of what comparer the caller's own
     /// dictionary used — the same comparison <see cref="MemoryEngineFactory"/> uses for engine names, so a
@@ -177,10 +105,10 @@ public sealed class GraphMemoryEngine(
 
         if (inner is ModulatedRetrievability)
             throw new ArgumentException(
-                $"'{nameof(retrievability)}' is already a {nameof(ModulatedRetrievability)} and "
-                + $"'{nameof(retentionPolicies)}' was also supplied, which would apply retention TWICE and "
-                + "multiply stability twice over. Pass the inner curve with the policies, or the wrapped "
-                + "curve alone.", nameof(retentionPolicies));
+                $"'{nameof(GraphMemorySeams.Retrievability)}' is already a {nameof(ModulatedRetrievability)} "
+                + $"and '{nameof(GraphMemorySeams.RetentionPolicies)}' was also supplied, which would apply "
+                + "retention TWICE and multiply stability twice over. Pass the inner curve with the policies, or "
+                + "the wrapped curve alone.", nameof(retentionPolicies));
 
         return new ModulatedRetrievability(inner, list, composition);
     }
@@ -291,7 +219,7 @@ public sealed class GraphMemoryEngine(
     /// — and says nothing about one that is present and turned down.</para>
     /// <para>Internal and read only by <see cref="MemoryWiring"/>, exactly like
     /// <see cref="EmbedsWithoutSeeding"/> — the same defect on the other index.</para></summary>
-    internal bool RecordsSubjectsWithoutSeeding => annotation is not null && !MightSeed(MemorySeedKind.Subject);
+    internal bool RecordsSubjectsWithoutSeeding => _annotation is not null && !MightSeed(MemorySeedKind.Subject);
 
     /// <inheritdoc />
     public string Name { get; } = name;
@@ -354,7 +282,7 @@ public sealed class GraphMemoryEngine(
     /// and the write proceeds exactly as it would have — the model-free floor is not negotiable.</summary>
     private async Task<MemoryAnnotation> AnnotateAsync(MemoryWrite write, CancellationToken ct)
     {
-        if (annotation is null) return MemoryAnnotation.None;
+        if (_annotation is null) return MemoryAnnotation.None;
         try
         {
             // Recent entries, newest first — the no-query seed path, which is enumeration rather than
@@ -374,7 +302,7 @@ public sealed class GraphMemoryEngine(
                 : await store.KnownSubjectsAsync(Name, write.TaskKey, write.Scope,
                     _options.AnnotationKnownSubjects, ct).ConfigureAwait(false);
 
-            return await annotation.AnnotateAsync(new MemoryAnnotationRequest(write, recent, known), ct)
+            return await _annotation.AnnotateAsync(new MemoryAnnotationRequest(write, recent, known), ct)
                 .ConfigureAwait(false) ?? MemoryAnnotation.None;
         }
         // Only the CALLER's cancellation propagates, as on VerifyAsync and for the same reason: an
@@ -1151,7 +1079,7 @@ public sealed class GraphMemoryEngine(
     /// (<see cref="MemoryVerdicts.AskAsync"/>).</summary>
     private Task<MemoryVerification> VerifyAsync(string queryText, IReadOnlyList<RankedMemory> scored,
         CancellationToken ct) =>
-        MemoryVerdicts.AskAsync(verification, queryText, scored, _logger, Name, ct);
+        MemoryVerdicts.AskAsync(_verification, queryText, scored, _logger, Name, ct);
 
     /// <summary>Record reinforcement and co-activation for what a recall actually returned.
     /// <para>BEST-EFFORT by design: a failure logs and the caller keeps its hits, so a read-only database

@@ -1804,7 +1804,7 @@ sealed class Lyntai.Memory.Engines.CuratedMemoryEngine
     RememberAsync(MemoryWrite write, CancellationToken ct = default) : Task<MemoryWriteResult>
     Supported : MemoryGrades
 sealed class Lyntai.Memory.Engines.GraphMemoryEngine
-    .ctor(String name, IMemoryGraphStore store, GraphMemoryOptions options = null, IMemoryRetrievabilityPolicy retrievability = null, IEnumerable<IMemoryAgePolicy> agePolicies = null, ILogger<GraphMemoryEngine> logger = null, IEnumerable<IModelProvider> providers = null, IVectorStore vectors = null, IEnumerable<IMemorySaliencePolicy> saliencePolicies = null, IMemoryRankingPolicy ranking = null, IMemoryAgeCompositionPolicy ageComposition = null, IMemorySalienceCompositionPolicy salienceComposition = null, IReadOnlyDictionary<String,IMemoryRankingPolicy> namedRankingPolicies = null, Func<DateTimeOffset> clock = null, IMemoryAnnotationPolicy annotation = null, IMemoryVerificationPolicy verification = null, IEnumerable<IMemoryRetentionPolicy> retentionPolicies = null, IMemoryRetentionCompositionPolicy retentionComposition = null, IEnumerable<IMemorySeedSource> seedSources = null, IProviderRouterFactory routing = null)
+    .ctor(String name, IMemoryGraphStore store, GraphMemoryOptions options = null, GraphMemorySeams seams = null, ILogger<GraphMemoryEngine> logger = null)
     ExpandAsync(MemoryRef reference, Int32 hops = 1, Nullable<Int32> charBudget = null, MemoryDetail detail = MemoryDetail.Headline, CancellationToken ct = default) : Task<MemoryRecall>
     ForgetAsync(String taskKey, String scope = null, CancellationToken ct = default) : Task
     LinkAsync(MemoryRef from, MemoryRef to, String kind = null, Double weight = 1, Boolean symmetric = false, CancellationToken ct = default) : Task
@@ -1813,6 +1813,28 @@ sealed class Lyntai.Memory.Engines.GraphMemoryEngine
     RecallAsync(MemoryQuery query, CancellationToken ct = default) : Task<MemoryRecall>
     RememberAsync(MemoryWrite write, CancellationToken ct = default) : Task<MemoryWriteResult>
     Supported : MemoryGrades
+sealed class Lyntai.Memory.Engines.GraphMemorySeams
+    .ctor()
+    AgeComposition : IMemoryAgeCompositionPolicy
+    AgePolicies : IEnumerable<IMemoryAgePolicy>
+    Annotation : IMemoryAnnotationPolicy
+    Clock : Func<DateTimeOffset>
+    Equals(GraphMemorySeams other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    NamedRankingPolicies : IReadOnlyDictionary<String,IMemoryRankingPolicy>
+    Providers : IEnumerable<IModelProvider>
+    Ranking : IMemoryRankingPolicy
+    RetentionComposition : IMemoryRetentionCompositionPolicy
+    RetentionPolicies : IEnumerable<IMemoryRetentionPolicy>
+    Retrievability : IMemoryRetrievabilityPolicy
+    Routing : IProviderRouterFactory
+    SalienceComposition : IMemorySalienceCompositionPolicy
+    SaliencePolicies : IEnumerable<IMemorySaliencePolicy>
+    SeedSources : IEnumerable<IMemorySeedSource>
+    ToString() : String
+    Vectors : IVectorStore
+    Verification : IMemoryVerificationPolicy
 sealed class Lyntai.Memory.Engines.LexicalMemoryEngine
     .ctor(String name, IMemoryStore store, ILogger<LexicalMemoryEngine> logger = null)
     ForgetAsync(String taskKey, String scope = null, CancellationToken ct = default) : Task

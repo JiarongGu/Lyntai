@@ -20,9 +20,13 @@ public class WritePathLinkBatchingTests
     public async Task A_write_links_its_neighbours_in_one_call_per_kind_of_link()
     {
         var store = new LinkCountingGraphStore();
-        var engine = new GraphMemoryEngine("g", store, new GraphMemoryOptions { MinSimilarity = 0.1 },
-            agePolicies: [new PerWriteAgePolicy()], providers: [new FakeVectorProvider()],
-            vectors: new InMemoryVectorStore(), annotation: new OneSubject());
+        var engine = new GraphMemoryEngine("g", store, new GraphMemoryOptions { MinSimilarity = 0.1 }, seams: new GraphMemorySeams
+            {
+                AgePolicies = [new PerWriteAgePolicy()],
+                Providers = [new FakeVectorProvider()],
+                Vectors = new InMemoryVectorStore(),
+                Annotation = new OneSubject(),
+            });
         for (var i = 0; i < 3; i++)
             await engine.RememberAsync(new MemoryWrite("t", "s", $"cancel your subscription option {i}"));
         var before = (store.SingleLinks, store.BatchedLinks, store.EdgesWritten);

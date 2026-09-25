@@ -140,9 +140,17 @@ public sealed class MemoryEngineBuilder
         IEnumerable<Lyntai.Memory.Seeding.IMemorySeedSource>? seedSources = null)
     {
         var resolved = options ?? new GraphMemoryOptions();
-        _members.Add(new MemberSpec(label, (sp, full) => BuildGraph(
-            sp, full, Required<IMemoryGraphStore>(sp), resolved,
-            ranking, namedRankingPolicies, retrievability, annotation, verification, seedSources)));
+        var chosen = new GraphMemorySeams
+        {
+            Ranking = ranking,
+            NamedRankingPolicies = namedRankingPolicies,
+            Retrievability = retrievability,
+            Annotation = annotation,
+            Verification = verification,
+            SeedSources = seedSources,
+        };
+        _members.Add(new MemberSpec(label, (sp, full) =>
+            BuildGraph(sp, full, Required<IMemoryGraphStore>(sp), resolved, chosen)));
         return this;
     }
 
@@ -151,45 +159,37 @@ public sealed class MemoryEngineBuilder
     /// to the engine reaches <see cref="UseGraph"/> and <see cref="UseBestAvailable"/> alike — two copies of
     /// this list drifted once (<c>.claude/knowledge/pitfalls.md</c>, "TWO construction sites"; pinned by
     /// <c>GraphMemoryWiringTests.The_one_line_AddMemory_path_honours_a_registered_annotation_and_verification_policy</c>).
-    /// <para>Every DI collection is read unconditionally; the override parameters are the per-engine
-    /// selections <see cref="UseGraph"/> exposes, and null means "take the container registration".</para>
+    /// <para>Every seam is filled from the container unless <paramref name="chosen"/> — the per-engine
+    /// selections <see cref="UseGraph"/> exposes — names it.</para>
     /// </summary>
     private static GraphMemoryEngine BuildGraph(IServiceProvider sp, string full, IMemoryGraphStore store,
-        GraphMemoryOptions? options = null,
-        IMemoryRankingPolicy? ranking = null,
-        IReadOnlyDictionary<string, IMemoryRankingPolicy>? namedRankingPolicies = null,
-        IMemoryRetrievabilityPolicy? retrievability = null,
-        Lyntai.Memory.Annotation.IMemoryAnnotationPolicy? annotation = null,
-        Lyntai.Memory.Verification.IMemoryVerificationPolicy? verification = null,
-        IEnumerable<Lyntai.Memory.Seeding.IMemorySeedSource>? seedSources = null) =>
-        new(
-            full, store,
-            options,
-            // Required, not defaulted: AddMemoryEngine TryAdds a curve before any engine is built. An
-            // explicit per-engine curve (D50) wins, and retention still applies over it.
-            retrievability: retrievability ?? sp.GetRequiredService<IMemoryRetrievabilityPolicy>(),
-            retentionPolicies: sp.GetServices<IMemoryRetentionPolicy>(),
-            retentionComposition: sp.GetService<IMemoryRetentionCompositionPolicy>(),
+        GraphMemoryOptions? options = null, GraphMemorySeams? chosen = null) =>
+        new(full, store, options, new GraphMemorySeams
+        {
+            // Required, not defaulted: AddMemoryEngine TryAdds a curve before any engine is built. An explicit
+            // per-engine curve (D50) wins, and retention still applies over it.
+            Retrievability = chosen?.Retrievability ?? sp.GetRequiredService<IMemoryRetrievabilityPolicy>(),
+            RetentionPolicies = sp.GetServices<IMemoryRetentionPolicy>(),
+            RetentionComposition = sp.GetService<IMemoryRetentionCompositionPolicy>(),
             // empty when nothing is registered, which the engine reads as its own burst-damped default
-            agePolicies: sp.GetServices<IMemoryAgePolicy>(),
-            ageComposition: sp.GetService<IMemoryAgeCompositionPolicy>(),
-            logger: sp.GetService<ILogger<GraphMemoryEngine>>(),
+            AgePolicies = sp.GetServices<IMemoryAgePolicy>(),
+            AgeComposition = sp.GetService<IMemoryAgeCompositionPolicy>(),
             // similarity enrichment turns itself on when both are present, and is simply absent otherwise
-            providers: sp.GetServices<Lyntai.Inference.IModelProvider>(),
-            vectors: sp.GetService<IVectorStore>(),
-            saliencePolicies: sp.GetServices<IMemorySaliencePolicy>(),
-            salienceComposition: sp.GetService<IMemorySalienceCompositionPolicy>(),
-            ranking: ranking ?? sp.GetService<IMemoryRankingPolicy>(),
-            namedRankingPolicies: namedRankingPolicies,
+            Providers = sp.GetServices<Lyntai.Inference.IModelProvider>(),
+            Vectors = sp.GetService<IVectorStore>(),
+            SaliencePolicies = sp.GetServices<IMemorySaliencePolicy>(),
+            SalienceComposition = sp.GetService<IMemorySalienceCompositionPolicy>(),
+            Ranking = chosen?.Ranking ?? sp.GetService<IMemoryRankingPolicy>(),
+            NamedRankingPolicies = chosen?.NamedRankingPolicies,
             // absent from the container AND unnamed here: no annotation, no subject links (the model-free floor)
-            annotation: annotation ?? sp.GetService<Lyntai.Memory.Annotation.IMemoryAnnotationPolicy>(),
-            verification: verification
-                ?? sp.GetService<Lyntai.Memory.Verification.IMemoryVerificationPolicy>(),
-            // the one collection with a per-engine override: which channels a recall pays for is a property
-            // of the ENGINE, where a retention or age dimension is one of the deployment
-            seedSources: seedSources ?? sp.GetServices<Lyntai.Memory.Seeding.IMemorySeedSource>(),
+            Annotation = chosen?.Annotation ?? sp.GetService<Lyntai.Memory.Annotation.IMemoryAnnotationPolicy>(),
+            Verification = chosen?.Verification ?? sp.GetService<Lyntai.Memory.Verification.IMemoryVerificationPolicy>(),
+            // the one collection with a per-engine override: which channels a recall pays for is a property of
+            // the ENGINE, where a retention or age dimension is one of the deployment
+            SeedSources = chosen?.SeedSources ?? sp.GetServices<Lyntai.Memory.Seeding.IMemorySeedSource>(),
             // the shared cooldown and admission for enrichment's embedding calls; absent means bare routing
-            routing: sp.GetService<Lyntai.Inference.IProviderRouterFactory>());
+            Routing = sp.GetService<Lyntai.Inference.IProviderRouterFactory>(),
+        }, sp.GetService<ILogger<GraphMemoryEngine>>());
 
     /// <summary>The zero-configuration member: the graph engine when an <see cref="IMemoryGraphStore"/>
     /// reached the container, the keyword store otherwise. Resolved when the container is BUILT, not when

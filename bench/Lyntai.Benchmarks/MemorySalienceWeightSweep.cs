@@ -119,17 +119,17 @@ internal static class MemorySalienceWeightSweep
 
             var counting = new SweepDoubles.CountingSaliencePolicy();
             using var db = new MemoryPolicySweep.SweepDb();
-            var engine = new GraphMemoryEngine(
-                "salience-weight",
-                new SqliteMemoryGraphStore(db.Factory),
-                // Retention is IDENTICAL in every arm: salience's other two consumers are held constant, so
-                // the only thing the ladder moves is how loudly salience speaks in the ranking.
-                retrievability: new ModulatedRetrievability(new DsrRetrievability(), [new SalienceRetentionPolicy()]),
-                agePolicies: [agePolicy],
-                providers: [vectorProvider],
-                vectors: new InMemoryVectorStore(),
-                saliencePolicies: [counting],
-                ranking: ranking);
+            var engine = new GraphMemoryEngine("salience-weight", new SqliteMemoryGraphStore(db.Factory), seams: new GraphMemorySeams
+                {
+                    // Retention is IDENTICAL in every arm: salience's other two consumers are held constant, so
+                    // the only thing the ladder moves is how loudly salience speaks in the ranking.
+                    Retrievability = new ModulatedRetrievability(new DsrRetrievability(), [new SalienceRetentionPolicy()]),
+                    AgePolicies = [agePolicy],
+                    Providers = [vectorProvider],
+                    Vectors = new InMemoryVectorStore(),
+                    SaliencePolicies = [counting],
+                    Ranking = ranking,
+                });
 
             var replay = await MemoryPolicySweep.ReplayAsync(corpus, engine, QueryLimit);
             foreach (var (cls, quality) in replay.ByClass)

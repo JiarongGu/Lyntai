@@ -38,7 +38,10 @@ public class TemporalResolutionTests
     {
         var corpus = TemporalCorpus.Generate(seed);
         var store = new InMemoryMemoryGraphStore();
-        var engine = new GraphMemoryEngine(Engine, store, agePolicies: [new PerWriteAgePolicy()]);
+        var engine = new GraphMemoryEngine(Engine, store, seams: new GraphMemorySeams
+            {
+                AgePolicies = [new PerWriteAgePolicy()],
+            });
 
         foreach (var claim in corpus.Claims)
             await engine.RememberAsync(TemporalCorpus.ToWrite(claim));

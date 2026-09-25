@@ -58,8 +58,12 @@ public class IndexRebuildTests
         var store = new InMemoryMemoryGraphStore();
         var vectors = new InMemoryVectorStore();
         var vectorProvider = new FakeVectorProvider();
-        var engine = new GraphMemoryEngine(Engine, store, agePolicies: [new PerWriteAgePolicy()],
-            providers: vectorProvider is null ? null : [vectorProvider], vectors: vectors);
+        var engine = new GraphMemoryEngine(Engine, store, seams: new GraphMemorySeams
+            {
+                AgePolicies = [new PerWriteAgePolicy()],
+                Providers = vectorProvider is null ? null : [vectorProvider],
+                Vectors = vectors,
+            });
 
         for (var i = 0; i < 12; i++)
             await engine.RememberAsync(new MemoryWrite("t", "s", $"fact number {i} about the deployment"));
@@ -92,8 +96,12 @@ public class IndexRebuildTests
         var store = new InMemoryMemoryGraphStore();
         var vectors = new InMemoryVectorStore();
         var vectorProvider = new FakeVectorProvider();
-        var engine = new GraphMemoryEngine(Engine, store, agePolicies: [new PerWriteAgePolicy()],
-            providers: vectorProvider is null ? null : [vectorProvider], vectors: vectors);
+        var engine = new GraphMemoryEngine(Engine, store, seams: new GraphMemorySeams
+            {
+                AgePolicies = [new PerWriteAgePolicy()],
+                Providers = vectorProvider is null ? null : [vectorProvider],
+                Vectors = vectors,
+            });
 
         await engine.RememberAsync(new MemoryWrite("t", "s", "the production database runs on postgres"));
         await engine.RememberAsync(new MemoryWrite("t", "s", "kittens are small and unrelated"));

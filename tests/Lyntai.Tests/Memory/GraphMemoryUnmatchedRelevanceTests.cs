@@ -37,7 +37,10 @@ public sealed class GraphMemoryUnmatchedRelevanceTests
         LinkedPairAsync(IMemoryRankingPolicy? ranking = null)
     {
         var store = new InMemoryMemoryGraphStore();
-        var engine = new GraphMemoryEngine("e", store, ranking: ranking);
+        var engine = new GraphMemoryEngine("e", store, seams: new GraphMemorySeams
+            {
+                Ranking = ranking,
+            });
 
         await engine.RememberAsync(new MemoryWrite(Task, Scope, "alpha migration rollout begins"));
         await engine.RememberAsync(new MemoryWrite(Task, Scope, "unrelated note about the kitchen roster"));

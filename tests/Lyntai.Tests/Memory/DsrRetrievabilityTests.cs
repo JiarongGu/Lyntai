@@ -1204,7 +1204,10 @@ public class DsrRetrievabilityTests
         // Age it through the ENGINE, the 3.0 way — a bare constructor with no `policy:` argument, exactly as
         // a consumer who never touched IMemoryRetrievabilityPolicy would build one, so nothing about this
         // path "knows" the row predates DSR.
-        var engine = new GraphMemoryEngine("legacy", store, agePolicies: [new PerWriteAgePolicy()]);
+        var engine = new GraphMemoryEngine("legacy", store, seams: new GraphMemorySeams
+            {
+                AgePolicies = [new PerWriteAgePolicy()],
+            });
         for (var i = 0; i < stability; i++)
             await engine.RememberAsync(new MemoryWrite("t", "s", $"filler{i} advances the position"));
 

@@ -40,9 +40,12 @@ public class MemoryClusterEdgeFormationTests
             CorpusShape.Default with { AttributeCount = 3, Language = language }, Seed);
 
         using var db = new TempDb();
-        var engine = new GraphMemoryEngine("edge-census", new SqliteMemoryGraphStore(db.Factory),
-            agePolicies: [new PerWriteAgePolicy()],
-            retrievability: new DsrRetrievability(), ranking: new ReciprocalRankFusionPolicy());
+        var engine = new GraphMemoryEngine("edge-census", new SqliteMemoryGraphStore(db.Factory), seams: new GraphMemorySeams
+            {
+                AgePolicies = [new PerWriteAgePolicy()],
+                Retrievability = new DsrRetrievability(),
+                Ranking = new ReciprocalRankFusionPolicy(),
+            });
 
         var firstWrite = corpus.Steps.OfType<CorpusWrite>().First().Write;
         var clusterNodeIds = new HashSet<long>();

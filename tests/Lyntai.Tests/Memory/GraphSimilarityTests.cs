@@ -15,8 +15,12 @@ public class GraphSimilarityTests
 {
     private static GraphMemoryEngine Engine(IModelProvider? provider, IVectorStore? vectors,
         GraphMemoryOptions? options = null) =>
-        new("project/graph", new InMemoryMemoryGraphStore(), options,
-            agePolicies: [new PerWriteAgePolicy()], providers: provider is null ? null : [provider], vectors: vectors);
+        new("project/graph", new InMemoryMemoryGraphStore(), options, seams: new GraphMemorySeams
+            {
+                AgePolicies = [new PerWriteAgePolicy()],
+                Providers = provider is null ? null : [provider],
+                Vectors = vectors,
+            });
 
     [Fact]
     public async Task A_new_entry_is_linked_to_a_similar_existing_one()
@@ -86,18 +90,24 @@ public class GraphSimilarityTests
         var store = new InMemoryMemoryGraphStore();
         var writingVectorProvider = new FakeVectorProvider();
         var writingVectors = new InMemoryVectorStore();
-        var writing = new GraphMemoryEngine("e", store,
-            providers: writingVectorProvider is null ? null : [writingVectorProvider], vectors: writingVectors,
-            seedSources: [new LexicalSeedSource(),
-                new SemanticSeedSource([writingVectorProvider], writingVectors, new SemanticSeedOptions { K = 5 })]);
+        var writing = new GraphMemoryEngine("e", store, seams: new GraphMemorySeams
+            {
+                Providers = writingVectorProvider is null ? null : [writingVectorProvider],
+                Vectors = writingVectors,
+                SeedSources = [new LexicalSeedSource(),
+                    new SemanticSeedSource([writingVectorProvider], writingVectors, new SemanticSeedOptions { K = 5 })],
+            });
         await writing.RememberAsync(new MemoryWrite("t", "s", "the deploy pipeline needs approval"));
 
         var throwing = new ThrowingVectorProvider();
         var readingVectors = new InMemoryVectorStore();
-        var reading = new GraphMemoryEngine("e", store,
-            providers: throwing is null ? null : [throwing], vectors: readingVectors,
-            seedSources: [new LexicalSeedSource(),
-                new SemanticSeedSource([throwing], readingVectors, new SemanticSeedOptions { K = 5 })]);
+        var reading = new GraphMemoryEngine("e", store, seams: new GraphMemorySeams
+            {
+                Providers = throwing is null ? null : [throwing],
+                Vectors = readingVectors,
+                SeedSources = [new LexicalSeedSource(),
+                    new SemanticSeedSource([throwing], readingVectors, new SemanticSeedOptions { K = 5 })],
+            });
 
         var recall = await reading.RecallAsync(new MemoryQuery("t", "s", "deploy pipeline"));
 

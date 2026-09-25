@@ -150,20 +150,20 @@ internal static class MemoryImportanceSweep
 
             var counting = new SweepDoubles.CountingSaliencePolicy(arm.Policy());
             using var db = new MemoryPolicySweep.SweepDb();
-            var engine = new GraphMemoryEngine(
-                "importance",
-                new SqliteMemoryGraphStore(db.Factory),
-                retrievability: new ModulatedRetrievability(new DsrRetrievability(), [new SalienceRetentionPolicy()]),
-                agePolicies: [agePolicy],
-                providers: [vectorProvider],
-                vectors: new InMemoryVectorStore(),
-                saliencePolicies: [counting],
-                // The SHIPPED ranking configuration: SalienceWeight is 0, so salience speaks through decay
-                // resistance and store admission only. Changing it here would price two things at once.
-                ranking: new ReciprocalRankFusionPolicy(new ReciprocalRankFusionOptions
+            var engine = new GraphMemoryEngine("importance", new SqliteMemoryGraphStore(db.Factory), seams: new GraphMemorySeams
                 {
-                    RelativeFloor = new MultiplicativeRankingOptions().RelativeFloor,
-                }));
+                    Retrievability = new ModulatedRetrievability(new DsrRetrievability(), [new SalienceRetentionPolicy()]),
+                    AgePolicies = [agePolicy],
+                    Providers = [vectorProvider],
+                    Vectors = new InMemoryVectorStore(),
+                    SaliencePolicies = [counting],
+                    // The SHIPPED ranking configuration: SalienceWeight is 0, so salience speaks through decay
+                    // resistance and store admission only. Changing it here would price two things at once.
+                    Ranking = new ReciprocalRankFusionPolicy(new ReciprocalRankFusionOptions
+                    {
+                        RelativeFloor = new MultiplicativeRankingOptions().RelativeFloor,
+                    }),
+                });
 
             var replay = await MemoryPolicySweep.ReplayAsync(corpus, engine, QueryLimit);
             foreach (var (cls, quality) in replay.ByClass)

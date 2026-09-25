@@ -32,7 +32,10 @@ public class MemoryDecaySimulationTests
     private const int DurableFacts = 10;
 
     private static GraphMemoryEngine Engine(GraphMemoryOptions? options = null) =>
-        new("sim", new InMemoryMemoryGraphStore(), options, agePolicies: [new PerWriteAgePolicy()]);
+        new("sim", new InMemoryMemoryGraphStore(), options, seams: new GraphMemorySeams
+            {
+                AgePolicies = [new PerWriteAgePolicy()],
+            });
 
     // every entry carries "item" so a BROAD recall makes them compete — which is where burial shows up
     private static string Durable(int i) => $"item durable{i} is a fact worth keeping about the system";

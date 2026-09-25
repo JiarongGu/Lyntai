@@ -63,7 +63,12 @@ public class DsrPathologyTests
     /// the curve under test.</summary>
     private static GraphMemoryEngine BuildEngine(IMemoryGraphStore store, IMemoryRetrievabilityPolicy policy,
         IMemoryRankingPolicy? ranking = null) =>
-        new(EngineName, store, retrievability: policy, agePolicies: [new PerWriteAgePolicy()], ranking: ranking);
+        new(EngineName, store, seams: new GraphMemorySeams
+            {
+                Retrievability = policy,
+                AgePolicies = [new PerWriteAgePolicy()],
+                Ranking = ranking,
+            });
 
     /// <summary>The curve(s) every fact in this file runs against.
     /// <para><b>Reinforcement is switched ON here, and that is deliberate as of 3.0.</b>
@@ -535,7 +540,10 @@ public class DsrPathologyTests
     public async Task Expanding_under_a_non_finite_age_policy_never_persists_a_non_finite_difficulty()
     {
         var store = new Lyntai.Storage.InMemory.InMemoryMemoryGraphStore();
-        var engine = new GraphMemoryEngine("project/graph", store, agePolicies: [new NonFiniteAgePolicy()]);
+        var engine = new GraphMemoryEngine("project/graph", store, seams: new GraphMemorySeams
+            {
+                AgePolicies = [new NonFiniteAgePolicy()],
+            });
 
         var reference = (await engine.RememberAsync(new MemoryWrite("t", "s", "gadget ordinary one"))).Reference;
         await engine.ExpandAsync(reference);

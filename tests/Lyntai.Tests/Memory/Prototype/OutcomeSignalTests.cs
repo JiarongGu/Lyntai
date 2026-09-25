@@ -31,7 +31,10 @@ public class OutcomeSignalTests
     private static (GraphMemoryEngine Engine, IMemoryGraphStore Store) Build()
     {
         var store = new InMemoryMemoryGraphStore();
-        return (new GraphMemoryEngine(Engine, store, agePolicies: [new PerWriteAgePolicy()]), store);
+        return (new GraphMemoryEngine(Engine, store, seams: new GraphMemorySeams
+            {
+                AgePolicies = [new PerWriteAgePolicy()],
+            }), store);
     }
 
     [Fact]

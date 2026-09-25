@@ -180,10 +180,12 @@ public class LlmVerificationLiveTests(Xunit.Abstractions.ITestOutputHelper outpu
         var corpus = MemoryCorpus.Generate(CorpusShape.Default, Seed);
         var store = new InMemoryMemoryGraphStore();
         var counting = verifier is null ? null : new CountingVerifier(verifier);
-        var engine = new GraphMemoryEngine("e", store,
-            retrievability: new DsrRetrievability(new DsrOptions { ReinforceGain = 0 }),
-            agePolicies: [new PerWriteAgePolicy()],
-            verification: counting);
+        var engine = new GraphMemoryEngine("e", store, seams: new GraphMemorySeams
+            {
+                Retrievability = new DsrRetrievability(new DsrOptions { ReinforceGain = 0 }),
+                AgePolicies = [new PerWriteAgePolicy()],
+                Verification = counting,
+            });
 
         var first = corpus.Steps.OfType<CorpusWrite>().First().Write;
         var byCorpusId = new Dictionary<string, string>(StringComparer.Ordinal);

@@ -30,9 +30,12 @@ public class MemoryAuthoritativeSurvivalTests
     private const int QueryLimit = 10;
 
     private static GraphMemoryEngine NewEngine(TempDb db) =>
-        new("authoritative", new SqliteMemoryGraphStore(db.Factory),
-            agePolicies: [new PerWriteAgePolicy()],
-            retrievability: new DsrRetrievability(), ranking: new ReciprocalRankFusionPolicy());
+        new("authoritative", new SqliteMemoryGraphStore(db.Factory), seams: new GraphMemorySeams
+            {
+                AgePolicies = [new PerWriteAgePolicy()],
+                Retrievability = new DsrRetrievability(),
+                Ranking = new ReciprocalRankFusionPolicy(),
+            });
 
     /// <summary><b>Every authoritative fact comes back, in every language, from a query that singles out
     /// none of them.</b>

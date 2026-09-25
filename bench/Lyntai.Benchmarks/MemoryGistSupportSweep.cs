@@ -348,8 +348,11 @@ internal static class MemoryGistSupportSweep
 
         const string engineName = "gist-support";
         var store = new InMemoryMemoryGraphStore(StoreClock);
-        var engine = new GraphMemoryEngine(engineName, store,
-            agePolicies: [new BurstDampenedAgePolicy(clock: PolicyClock)], clock: EngineClock);
+        var engine = new GraphMemoryEngine(engineName, store, seams: new GraphMemorySeams
+            {
+                AgePolicies = [new BurstDampenedAgePolicy(clock: PolicyClock)],
+                Clock = EngineClock,
+            });
 
         var observed = new StringBuilder();
         StateSnapshot? before = null;

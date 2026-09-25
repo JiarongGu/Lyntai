@@ -31,8 +31,12 @@ public class MemoryRemovalCompletenessTests
 {
     private static GraphMemoryEngine Engine(IVectorStore vectors, GraphMemoryOptions? options = null,
         IMemoryGraphStore? store = null) =>
-        new("project/graph", store ?? new InMemoryMemoryGraphStore(), options,
-            agePolicies: [new PerWriteAgePolicy()], providers: [new FakeVectorProvider()], vectors: vectors);
+        new("project/graph", store ?? new InMemoryMemoryGraphStore(), options, seams: new GraphMemorySeams
+            {
+                AgePolicies = [new PerWriteAgePolicy()],
+                Providers = [new FakeVectorProvider()],
+                Vectors = vectors,
+            });
 
     // The engine's own address, asked for rather than restated — a second spelling here is how these
     // assertions would keep passing against a collection the engine no longer writes.
@@ -172,9 +176,12 @@ public class MemoryRemovalCompletenessTests
         // orphaning vectors while the suite went green. A rule enforced on one path is not enforced.
         var vectors = new InMemoryVectorStore();
         var store = new InMemoryMemoryGraphStore();
-        var engine = new GraphMemoryEngine("project/graph", store,
-            new GraphMemoryOptions { MinRetrievability = 0.9 },
-            agePolicies: [Accumulating()], providers: [new FakeVectorProvider()], vectors: vectors);
+        var engine = new GraphMemoryEngine("project/graph", store, new GraphMemoryOptions { MinRetrievability = 0.9 }, seams: new GraphMemorySeams
+            {
+                AgePolicies = [Accumulating()],
+                Providers = [new FakeVectorProvider()],
+                Vectors = vectors,
+            });
 
         await engine.RememberAsync(new MemoryWrite("t", "s", "a faint associative entry about widgets"));
         await Crowd(engine, "t", 200);
@@ -193,8 +200,10 @@ public class MemoryRemovalCompletenessTests
         // nothing to keep in step, so it must not pay for one. Counting the reads is the only way to tell
         // "the census was skipped" from "the census happened to find nothing".
         var store = new CountingGraphStore();
-        var engine = new GraphMemoryEngine("project/graph", store,
-            new GraphMemoryOptions { MinRetrievability = 0.9 }, agePolicies: [Accumulating()]);
+        var engine = new GraphMemoryEngine("project/graph", store, new GraphMemoryOptions { MinRetrievability = 0.9 }, seams: new GraphMemorySeams
+            {
+                AgePolicies = [Accumulating()],
+            });
 
         await engine.RememberAsync(new MemoryWrite("t", "s", "a faint associative entry about widgets"));
         await Crowd(engine, "t", 200);

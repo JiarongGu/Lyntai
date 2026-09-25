@@ -69,8 +69,12 @@ public class MemoryDefaultRecallQualityTests
         var corpus = MemoryCorpus.Generate(CorpusShape.Default, Seed);
         using var db = new TempDb();
         var store = new SqliteMemoryGraphStore(db.Factory);
-        var engine = new GraphMemoryEngine("default-guard", store, agePolicies: [new PerWriteAgePolicy()],
-            retrievability: new DsrRetrievability(), ranking: new ReciprocalRankFusionPolicy());
+        var engine = new GraphMemoryEngine("default-guard", store, seams: new GraphMemorySeams
+            {
+                AgePolicies = [new PerWriteAgePolicy()],
+                Retrievability = new DsrRetrievability(),
+                Ranking = new ReciprocalRankFusionPolicy(),
+            });
         // ranking: ReciprocalRankFusionPolicy, the DI-REGISTERED default as of 3.0 (owner ruling, 2026-08-11)
         // — also the bare constructor's own default now, but passed explicitly anyway to pin INTENT.
         // retrievability: DsrRetrievability, the DI-REGISTERED default as of 3.0 (D49) — also the bare constructor's

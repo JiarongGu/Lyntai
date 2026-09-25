@@ -182,8 +182,12 @@ public class MemoryCjkRecallTests
     };
 
     private static GraphMemoryEngine NewEngine(TempDb db, string name) =>
-        new(name, new SqliteMemoryGraphStore(db.Factory), agePolicies: [new PerWriteAgePolicy()],
-            retrievability: new DsrRetrievability(), ranking: new ReciprocalRankFusionPolicy());
+        new(name, new SqliteMemoryGraphStore(db.Factory), seams: new GraphMemorySeams
+            {
+                AgePolicies = [new PerWriteAgePolicy()],
+                Retrievability = new DsrRetrievability(),
+                Ranking = new ReciprocalRankFusionPolicy(),
+            });
 
     /// <summary>Writes the cluster and the decoys, then buries them under <see cref="ChatterRounds"/> rounds
     /// of unrelated material in the SAME language — so the trigram expansion competes against text that

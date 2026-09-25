@@ -973,10 +973,14 @@ internal static class MemoryLocomoBench
                             new SemanticSeedSource([vectorProvider], vectors, new SemanticSeedOptions { K = k })]
                         : null;
 
-                var ingest = new GraphMemoryEngine("locomo",
-                    new SqliteMemoryGraphStore(template.Factory), options: options,
-                    providers: [vectorProvider], vectors: vectors, ranking: ranking, verification: verification,
-                    seedSources: seeds);
+                var ingest = new GraphMemoryEngine("locomo", new SqliteMemoryGraphStore(template.Factory), options: options, seams: new GraphMemorySeams
+                    {
+                        Providers = [vectorProvider],
+                        Vectors = vectors,
+                        Ranking = ranking,
+                        Verification = verification,
+                        SeedSources = seeds,
+                    });
 
                 foreach (var text in texts)
                     await ingest.RememberAsync(new MemoryWrite(convId, "session", text));
@@ -986,9 +990,14 @@ internal static class MemoryLocomoBench
                 // would cost more than the rest of the study. The graph store is the one that mutates on
                 // READ, and it is the one being cloned.
                 GraphMemoryEngine Fresh(MemoryPolicySweep.SweepDb clone) =>
-                    new("locomo", new SqliteMemoryGraphStore(clone.Factory), options: options,
-                        providers: [vectorProvider], vectors: vectors, ranking: ranking, verification: verification,
-                        seedSources: seeds);
+                    new("locomo", new SqliteMemoryGraphStore(clone.Factory), options: options, seams: new GraphMemorySeams
+                        {
+                            Providers = [vectorProvider],
+                            Vectors = vectors,
+                            Ranking = ranking,
+                            Verification = verification,
+                            SeedSources = seeds,
+                        });
 
                 // CONTROL, added for docs/task-archive.md Part 233: a semantic width of 20 moved
                 // evidence-hit by 0.0 points and the read path looks correct on inspection, so the question

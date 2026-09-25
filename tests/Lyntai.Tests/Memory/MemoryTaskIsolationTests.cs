@@ -22,8 +22,12 @@ public class MemoryTaskIsolationTests
 
     private static GraphMemoryEngine NewEngine(IMemoryGraphStore store,
         IModelProvider? vectorProvider = null, IVectorStore? vectors = null, GraphMemoryOptions? options = null) =>
-        new(Engine, store, options, agePolicies: [new PerWriteAgePolicy()],
-            providers: vectorProvider is null ? null : [vectorProvider], vectors: vectors);
+        new(Engine, store, options, seams: new GraphMemorySeams
+            {
+                AgePolicies = [new PerWriteAgePolicy()],
+                Providers = vectorProvider is null ? null : [vectorProvider],
+                Vectors = vectors,
+            });
 
     [Fact]
     public async Task A_recall_never_returns_another_task_s_material()

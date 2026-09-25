@@ -885,9 +885,14 @@ internal static class MemoryLongMemEvalBench
                 new SemanticSeedSource([vectorProvider], vectors, new SemanticSeedOptions { K = k })]
             : null;
 
-        return new GraphMemoryEngine(Task, new SqliteMemoryGraphStore(db.Factory), options: arm.Options,
-            providers: [vectorProvider], vectors: vectors, ranking: arm.Ranking, verification: arm.Verification,
-            seedSources: seeds);
+        return new GraphMemoryEngine(Task, new SqliteMemoryGraphStore(db.Factory), options: arm.Options, seams: new GraphMemorySeams
+            {
+                Providers = [vectorProvider],
+                Vectors = vectors,
+                Ranking = arm.Ranking,
+                Verification = arm.Verification,
+                SeedSources = seeds,
+            });
     }
 
     private sealed record Turn(int Session, int Index, string Role, string Content, bool HasAnswer)
@@ -1572,8 +1577,11 @@ internal static class MemoryLongMemEvalBench
         using var db = new MemoryPolicySweep.SweepDb();
         var options = new GraphMemoryOptions { ExpansionRetrievabilityFloor = expandFloor };
         if (multiplier is { } m) options = options with { CandidateMultiplier = m };
-        var engine = new GraphMemoryEngine("lme", new SqliteMemoryGraphStore(db.Factory),
-            options: options, providers: [vectorProvider], vectors: new InMemoryVectorStore());
+        var engine = new GraphMemoryEngine("lme", new SqliteMemoryGraphStore(db.Factory), options: options, seams: new GraphMemorySeams
+            {
+                Providers = [vectorProvider],
+                Vectors = new InMemoryVectorStore(),
+            });
 
         foreach (var t in q.Turns)
             await engine.RememberAsync(new MemoryWrite(Task, Scope, $"{t.Tag} {t.Text}"));
@@ -1693,9 +1701,11 @@ internal static class MemoryLongMemEvalBench
             Progress(++done, sampled.Count);
             using var db = new MemoryPolicySweep.SweepDb();
             var store = new SqliteMemoryGraphStore(db.Factory);
-            var engine = new GraphMemoryEngine("lme", store,
-                options: new GraphMemoryOptions { ExpansionRetrievabilityFloor = expandFloor },
-                providers: [vectorProvider], vectors: new InMemoryVectorStore());
+            var engine = new GraphMemoryEngine("lme", store, options: new GraphMemoryOptions { ExpansionRetrievabilityFloor = expandFloor }, seams: new GraphMemorySeams
+                {
+                    Providers = [vectorProvider],
+                    Vectors = new InMemoryVectorStore(),
+                });
 
             var index = new List<(string Text, float[] Vector)>();
             foreach (var t in q.Turns)
@@ -1864,9 +1874,11 @@ internal static class MemoryLongMemEvalBench
             Progress(++done, sampled.Count);
             using var db = new MemoryPolicySweep.SweepDb();
             var store = new SqliteMemoryGraphStore(db.Factory);
-            var engine = new GraphMemoryEngine("lme", store,
-                options: new GraphMemoryOptions { ExpansionRetrievabilityFloor = expandFloor },
-                providers: [vectorProvider], vectors: new InMemoryVectorStore());
+            var engine = new GraphMemoryEngine("lme", store, options: new GraphMemoryOptions { ExpansionRetrievabilityFloor = expandFloor }, seams: new GraphMemorySeams
+                {
+                    Providers = [vectorProvider],
+                    Vectors = new InMemoryVectorStore(),
+                });
 
             var index = new List<(string Text, float[] Vector)>();
             foreach (var t in q.Turns)
@@ -1979,8 +1991,12 @@ internal static class MemoryLongMemEvalBench
             using var db = new MemoryPolicySweep.SweepDb();
             var store = new SqliteMemoryGraphStore(db.Factory);
             var probe = new RankProbe(new ReciprocalRankFusionPolicy()) { Current = q.Current, Stale = q.Stale };
-            var engine = new GraphMemoryEngine("lme", store, providers: [vectorProvider],
-                vectors: new InMemoryVectorStore(), ranking: probe);
+            var engine = new GraphMemoryEngine("lme", store, seams: new GraphMemorySeams
+                {
+                    Providers = [vectorProvider],
+                    Vectors = new InMemoryVectorStore(),
+                    Ranking = probe,
+                });
 
             foreach (var t in q.Turns)
                 await engine.RememberAsync(new MemoryWrite(Task, Scope, $"{t.Tag} {t.Text}"));

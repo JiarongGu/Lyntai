@@ -193,16 +193,15 @@ internal static class MemorySalienceSweep
 
             using var db = new MemoryPolicySweep.SweepDb();
             var store = new SqliteMemoryGraphStore(db.Factory);
-            var engine = new GraphMemoryEngine(
-                "salience",
-                store,
-                options: graphOptions,
-                retrievability: new ModulatedRetrievability(new DsrRetrievability(), retention),
-                agePolicies: [agePolicy],
-                providers: [vectorProvider],
-                vectors: vectors,
-                saliencePolicies: [counting],
-                ranking: rrf);
+            var engine = new GraphMemoryEngine("salience", store, options: graphOptions, seams: new GraphMemorySeams
+                {
+                    Retrievability = new ModulatedRetrievability(new DsrRetrievability(), retention),
+                    AgePolicies = [agePolicy],
+                    Providers = [vectorProvider],
+                    Vectors = vectors,
+                    SaliencePolicies = [counting],
+                    Ranking = rrf,
+                });
 
             retentionCounts.Add((arm, retention.Count));
 

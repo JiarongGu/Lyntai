@@ -67,8 +67,11 @@ public class MemoryVectorCollectionTests
     public async Task Forgetting_one_TASK_leaves_a_neighbouring_task_its_vectors()
     {
         var vectors = new InMemoryVectorStore();
-        var engine = new GraphMemoryEngine("E", new InMemoryMemoryGraphStore(),
-            providers: [new OneVectorProvider()], vectors: vectors);
+        var engine = new GraphMemoryEngine("E", new InMemoryMemoryGraphStore(), seams: new GraphMemorySeams
+            {
+                Providers = [new OneVectorProvider()],
+                Vectors = vectors,
+            });
 
         // the two triples that composed to one address under the old separator
         await engine.RememberAsync(new MemoryWrite("a", "b|c", "kept"));

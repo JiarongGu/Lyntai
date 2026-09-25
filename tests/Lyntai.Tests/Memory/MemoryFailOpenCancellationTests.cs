@@ -71,7 +71,10 @@ public class MemoryFailOpenCancellationTests
     public async Task A_graph_write_lands_when_the_subject_index_times_out()
     {
         var store = new TimingOutGraphStore(nameof(IMemoryGraphStore.RecordSubjectsAsync));
-        var engine = new GraphMemoryEngine("graph", store, annotation: new AlwaysOneSubject());
+        var engine = new GraphMemoryEngine("graph", store, seams: new GraphMemorySeams
+            {
+                Annotation = new AlwaysOneSubject(),
+            });
 
         await engine.RememberAsync(Write());
 

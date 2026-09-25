@@ -138,10 +138,13 @@ internal static class MemoryVerificationSweep
             }
 
             using var db = new MemoryPolicySweep.SweepDb();
-            var engine = new GraphMemoryEngine("verification", new SqliteMemoryGraphStore(db.Factory),
-                options: new GraphMemoryOptions { VerificationFilters = arm.Filters },
-                retrievability: new DsrRetrievability(), agePolicies: [new PerWriteAgePolicy()], ranking: rrf,
-                verification: arm.Verified ? new PerfectVerifier(relevantByQuery) : null);
+            var engine = new GraphMemoryEngine("verification", new SqliteMemoryGraphStore(db.Factory), options: new GraphMemoryOptions { VerificationFilters = arm.Filters }, seams: new GraphMemorySeams
+                {
+                    Retrievability = new DsrRetrievability(),
+                    AgePolicies = [new PerWriteAgePolicy()],
+                    Ranking = rrf,
+                    Verification = arm.Verified ? new PerfectVerifier(relevantByQuery) : null,
+                });
 
             var replay = await MemoryPolicySweep.ReplayAsync(corpus, engine, QueryLimit);
             foreach (var (cls, quality) in replay.ByClass)

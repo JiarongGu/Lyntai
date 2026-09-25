@@ -54,11 +54,13 @@ public class MemoryVerdictFusionTests
     private static async Task<IReadOnlyList<string>> RecallAsync(
         TempDb db, IMemoryVerificationPolicy? verifier, int limit, GraphMemoryOptions? options = null)
     {
-        var engine = new GraphMemoryEngine("verify", new SqliteMemoryGraphStore(db.Factory),
-            options: options,
-            agePolicies: [new PerWriteAgePolicy()],
-            retrievability: new DsrRetrievability(), ranking: new ReciprocalRankFusionPolicy(),
-            verification: verifier);
+        var engine = new GraphMemoryEngine("verify", new SqliteMemoryGraphStore(db.Factory), options: options, seams: new GraphMemorySeams
+            {
+                AgePolicies = [new PerWriteAgePolicy()],
+                Retrievability = new DsrRetrievability(),
+                Ranking = new ReciprocalRankFusionPolicy(),
+                Verification = verifier,
+            });
 
         foreach (var fact in Facts) await engine.RememberAsync(new MemoryWrite("t", "s", fact));
 

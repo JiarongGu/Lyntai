@@ -49,9 +49,12 @@ public sealed class GraphMemoryRankingTests : IDisposable
 
     private GraphMemoryEngine Engine(IMemoryGraphStore store, IMemorySaliencePolicy saliencePolicy,
         IMemoryRankingPolicy? ranking = null) =>
-        new("e", store, saliencePolicies: [saliencePolicy],
-            retrievability: new ModulatedRetrievability(new DsrRetrievability(), [new SalienceRetentionPolicy()]),
-            ranking: ranking);
+        new("e", store, seams: new GraphMemorySeams
+            {
+                SaliencePolicies = [saliencePolicy],
+                Retrievability = new ModulatedRetrievability(new DsrRetrievability(), [new SalienceRetentionPolicy()]),
+                Ranking = ranking,
+            });
 
     [Fact]
     public async Task An_explicitly_configured_rank_weight_can_outrank_a_better_textual_match()

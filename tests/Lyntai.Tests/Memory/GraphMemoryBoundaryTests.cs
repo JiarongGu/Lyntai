@@ -50,7 +50,10 @@ public class GraphMemoryBoundaryTests
     public async Task Case_and_padding_variants_of_one_subject_link_once()
     {
         var store = new InMemoryMemoryGraphStore();
-        var engine = new GraphMemoryEngine("g", store, annotation: new SpellingAnnotator());
+        var engine = new GraphMemoryEngine("g", store, seams: new GraphMemorySeams
+            {
+                Annotation = new SpellingAnnotator(),
+            });
         var first = await engine.RememberAsync(new MemoryWrite("t", "s", "my spouse is Alice"));
         var second = await engine.RememberAsync(new MemoryWrite("t", "s", "she is an anaesthetist"));
 
@@ -65,8 +68,10 @@ public class GraphMemoryBoundaryTests
     [Fact]
     public void Neutral_salience_beside_another_policy_is_refused_by_name()
     {
-        var ex = Assert.Throws<ArgumentException>(() => new GraphMemoryEngine("g", new InMemoryMemoryGraphStore(),
-            saliencePolicies: [new StructuralSaliencePolicy(), new NeutralSaliencePolicy()]));
+        var ex = Assert.Throws<ArgumentException>(() => new GraphMemoryEngine("g", new InMemoryMemoryGraphStore(), seams: new GraphMemorySeams
+            {
+                SaliencePolicies = [new StructuralSaliencePolicy(), new NeutralSaliencePolicy()],
+            }));
 
         Assert.Contains(nameof(NeutralSaliencePolicy), ex.Message, StringComparison.Ordinal);
         Assert.DoesNotContain("Provenance", ex.Message, StringComparison.Ordinal);
@@ -89,7 +94,10 @@ public class GraphMemoryBoundaryTests
     [Fact]
     public void Neutral_salience_alone_still_builds()
     {
-        _ = new GraphMemoryEngine("g", new InMemoryMemoryGraphStore(), saliencePolicies: [new NeutralSaliencePolicy()]);
+        _ = new GraphMemoryEngine("g", new InMemoryMemoryGraphStore(), seams: new GraphMemorySeams
+            {
+                SaliencePolicies = [new NeutralSaliencePolicy()],
+            });
     }
 
     // ---- an unscoped forget erases an ORPHANED collection too ---------------------------------------------
@@ -98,7 +106,10 @@ public class GraphMemoryBoundaryTests
     public async Task An_unscoped_forget_drops_a_vector_collection_whose_nodes_are_already_gone()
     {
         var vectors = new InMemoryVectorStore();
-        var engine = new GraphMemoryEngine("g", new InMemoryMemoryGraphStore(), vectors: vectors);
+        var engine = new GraphMemoryEngine("g", new InMemoryMemoryGraphStore(), seams: new GraphMemorySeams
+            {
+                Vectors = vectors,
+            });
         var orphan = MemoryVectorCollection.For("g", "t", "ghost");
         var neighbour = MemoryVectorCollection.For("g", "tx", "ghost");
         await vectors.UpsertAsync(orphan, "1", [1f, 0f], "a withdrawn user's words");

@@ -34,10 +34,11 @@ public sealed class MemoryReinforcementActTests
 
     private static GraphMemoryEngine NewEngine(InMemoryMemoryGraphStore store, MemoryReinforcementActs acts,
         double gain) =>
-        new("e", store,
-            retrievability: new DsrRetrievability(new DsrOptions { ReinforceGain = gain }),
-            agePolicies: [new PerWriteAgePolicy()],
-            options: new GraphMemoryOptions { ReinforceOn = acts });
+        new("e", store, options: new GraphMemoryOptions { ReinforceOn = acts }, seams: new GraphMemorySeams
+            {
+                Retrievability = new DsrRetrievability(new DsrOptions { ReinforceGain = gain }),
+                AgePolicies = [new PerWriteAgePolicy()],
+            });
 
     /// <summary>3.0's shipped growth setting (<b>D54</b>): retrieval grows no stability. Under it the act
     /// gate still governs the AGE RESET and co-activation, so the question remains live — it just has a

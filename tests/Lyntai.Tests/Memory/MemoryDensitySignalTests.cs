@@ -46,11 +46,12 @@ public class MemoryDensitySignalTests
         IReadOnlyDictionary<string, float[]> map)
     {
         var salience = new CapturingSalience();
-        var engine = new GraphMemoryEngine("e", new InMemoryMemoryGraphStore(),
-            options: new GraphMemoryOptions { SimilarityK = 8, MinSimilarity = 0.6 },
-            providers: [new ScriptedVectorProvider(map)],
-            vectors: new InMemoryVectorStore(),
-            saliencePolicies: [salience]);
+        var engine = new GraphMemoryEngine("e", new InMemoryMemoryGraphStore(), options: new GraphMemoryOptions { SimilarityK = 8, MinSimilarity = 0.6 }, seams: new GraphMemorySeams
+            {
+                Providers = [new ScriptedVectorProvider(map)],
+                Vectors = new InMemoryVectorStore(),
+                SaliencePolicies = [salience],
+            });
         return (engine, salience);
     }
 
@@ -202,7 +203,10 @@ public class MemoryDensitySignalTests
         // No search means no information. Zero is the same answer Novelty and ComparableCount already give,
         // and a policy reading a nonzero count from a store it never searched would be reading a fiction.
         var salience = new CapturingSalience();
-        var engine = new GraphMemoryEngine("e", new InMemoryMemoryGraphStore(), saliencePolicies: [salience]);
+        var engine = new GraphMemoryEngine("e", new InMemoryMemoryGraphStore(), seams: new GraphMemorySeams
+            {
+                SaliencePolicies = [salience],
+            });
 
         await engine.RememberAsync(new MemoryWrite("t", "s", "no vectors are wired here"));
 

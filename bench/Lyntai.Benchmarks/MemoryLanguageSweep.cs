@@ -128,13 +128,12 @@ internal static class MemoryLanguageSweep
                 .SequenceEqual(Skeleton(CorpusFor(seed, shape, arms[0]))));
 
             using var db = new MemoryPolicySweep.SweepDb();
-            var engine = new GraphMemoryEngine(
-                "language",
-                new SqliteMemoryGraphStore(db.Factory),
-                options: graphOptions,
-                retrievability: curve,
-                agePolicies: [agePolicy],
-                ranking: rrf);
+            var engine = new GraphMemoryEngine("language", new SqliteMemoryGraphStore(db.Factory), options: graphOptions, seams: new GraphMemorySeams
+                {
+                    Retrievability = curve,
+                    AgePolicies = [agePolicy],
+                    Ranking = rrf,
+                });
 
             var replay = await MemoryPolicySweep.ReplayAsync(corpus, engine, QueryLimit);
             foreach (var (cls, quality) in replay.ByClass)
