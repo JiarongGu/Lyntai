@@ -84,8 +84,13 @@ public sealed class CliProviderEngine(
     public bool IsAvailable => runner is not ProcessRunner || ProcessRunner.CommandExists(ResolveCommand().Exe);
 
     /// <summary>Resolve the command override / environment seams into exe + prefix args.</summary>
-    public (string Exe, IReadOnlyList<string> PrefixArgs) ResolveCommand() =>
-        CliCommand.Resolve(command, backend.DefaultCommand, backend.CommandEnvironmentVariables);
+    public (string Exe, IReadOnlyList<string> PrefixArgs) ResolveCommand() => CliCommand.Resolve(command, backend);
+
+    /// <summary>The absolute backstop over an inactivity <paramref name="window"/>:
+    /// <see cref="LyntaiOptions.MaxProviderTimeout"/>, but never below the window — a consumer budget above
+    /// the ceiling raises it, not the reverse.</summary>
+    private TimeSpan Backstop(TimeSpan window) =>
+        options.MaxProviderTimeout < window ? window : options.MaxProviderTimeout;
 
     // ── completion ───────────────────────────────────────────────────────────
 
@@ -99,22 +104,19 @@ public sealed class CliProviderEngine(
         var (exe, prefixArgs) = ResolveCommand();
         var (argv, stdin) = BuildInvocation(req, prefixArgs, session?.ExtraArgs);
 
-        // The buffered path treats `timeout` as an INACTIVITY window (a slow-but-alive turn — a big prompt,
-        // a long tool loop — keeps re-arming it), with `maxDuration` an absolute backstop so a chatty child
-        // that never stalls is still bounded. The backstop is MaxProviderTimeout, but never below the
-        // inactivity window (a consumer budget above the ceiling raises it, not the reverse).
+        // `timeout` is an INACTIVITY window (a slow-but-alive turn keeps re-arming it); the backstop bounds a
+        // chatty child that never stalls
         var timeout = options.ResolveTimeout(req);
-        var maxDuration = options.MaxProviderTimeout < timeout ? timeout : options.MaxProviderTimeout;
+        var maxDuration = Backstop(timeout);
         ProcessResult result;
         try
         {
             result = await runner.RunAsync(exe, argv, stdin: stdin, inactivityTimeout: timeout, maxDuration: maxDuration,
                 workingDirectory: NeutralWorkingDirectory, environment: environment, ct: ct).ConfigureAwait(false);
         }
-        catch (OperationCanceledException) { throw; }
-        catch (Exception ex)
+        catch (Exception ex) when (CliFault.Classify(ex) is { } fault)
         {
-            return new TextResponse("", ProviderVerdict.Failed, Detail: $"spawn failed: {ex.Message}");
+            return new TextResponse("", fault.Verdict, Detail: fault.Detail);
         }
 
         if (result.TimedOut)
@@ -146,28 +148,21 @@ public sealed class CliProviderEngine(
         }
         if (text.Length == 0) text = contentText; // result-less streams still carry content
 
-        // A backend that reported its OWN failure is authoritative, even at exit 0 and even over partial
-        // content: half an answer plus "the turn failed" is not an answer, and returning Ok would be the
-        // empty-Ok mistake in a different costume (the router would never retry). The backend's wording is
-        // classified so the verdict is actionable (401 → AuthFailed cools the host; 429 → RateLimited).
-        //
-        // It is authoritative over a NON-ZERO EXIT too, which is why this is read before the exit code below
-        // — the same "parse first, then fall back to the exit code" ordering StatusAsync already uses, and
-        // for the same reason. MEASURED on codex-cli 0.146.0 (2026-08-05, an expired login): a turn can
-        // print {"type":"turn.failed","error":{"message":"… 401 …"}} AND exit non-zero, with nothing but
-        // ordinary startup chatter ("Reading prompt from stdin...") on stderr. Classifying the chatter loses
-        // the only account of what went wrong AND downgrades AuthFailed to a bare Failed, so the router
-        // advances instead of cooling the host and the caller is told the CLI is broken when the remedy is
-        // to log in again. The exit code is kept in the detail — it is context, not the reason.
+        // The backend's OWN failure outranks partial content AND a non-zero exit, so it is read first: a
+        // codex turn can print turn.failed(401) and exit non-zero with only startup chatter on stderr, and
+        // classifying the chatter would turn AuthFailed into a bare Failed (pitfalls.md, "Trusting the exit
+        // code over the machine-readable answer"). The exit code stays in the detail as context.
         if (failure is { Length: > 0 })
             return new TextResponse("", ProviderVerdictClassifier.FromErrorText(failure),
                 Detail: result.ExitCode != 0 ? $"exit {result.ExitCode}: {failure}" : failure);
 
-        // No in-band account of the failure: the exit code and stderr are all there is. (A backend that
-        // exits non-zero after printing a complete answer is still a failed run — a truncated answer
-        // labelled complete is the outcome this prevents.)
+        // no in-band account: exit code and stderr are all there is — and a complete-looking answer from a
+        // run that exited non-zero is still a failed run
         if (result.ExitCode != 0)
-            return new TextResponse("", ProviderVerdictClassifier.FromErrorText(stderrTail), Detail: $"exit {result.ExitCode}: {stderrTail}");
+        {
+            var exited = CliFault.Exited(result.ExitCode, stderrTail);
+            return new TextResponse("", exited.Verdict, Detail: exited.Detail);
+        }
 
         if (text.Length == 0)
         {
@@ -196,37 +191,19 @@ public sealed class CliProviderEngine(
         string resultText = "";
         TextUsage? usage = null;
 
-        // Two clocks, the same pair the buffered path uses. `timeout` is the INACTIVITY window, so a
-        // slow-but-alive turn (a long tool loop, a big prompt) re-arms it and finishes; `maxDuration` is the
-        // absolute backstop, because inactivity ALONE cannot see the other failure — a CHATTY child that
-        // never stalls and never finishes re-arms the window on every line and would stream forever. The
-        // backstop is MaxProviderTimeout, but never below the inactivity window (a consumer budget above the
-        // ceiling raises it, not the reverse). Caller cancellation still wins, and abandoning the enumerator
-        // still kills the process tree.
-        //
-        // This is a COMPLETION's ceiling, and it belongs only here: the long-running agent turns
-        // (ClaudeAgentSession / CodexAgentSession) drive IProcessRunner directly rather than this engine,
-        // and must keep NO wall clock — an hour-long healthy session is exactly what one would kill.
+        // The same two clocks as the buffered path: inactivity ALONE cannot see a chatty child that never
+        // stalls and never finishes. This ceiling is a COMPLETION's — the agent sessions drive IProcessRunner
+        // directly and keep no wall clock, since an hour-long healthy session is what one would kill.
         var timeout = options.ResolveTimeout(req);
-        var maxDuration = options.MaxProviderTimeout < timeout ? timeout : options.MaxProviderTimeout;
-        var lines = runner.StreamLinesAsync(exe, argv, stdin: stdin, inactivityTimeout: timeout, maxDuration: maxDuration,
-            workingDirectory: NeutralWorkingDirectory, environment: environment, ct: ct);
+        var lines = runner.StreamLinesAsync(exe, argv, stdin: stdin, inactivityTimeout: timeout,
+            maxDuration: Backstop(timeout), workingDirectory: NeutralWorkingDirectory, environment: environment, ct: ct);
         var enumerator = lines.GetAsyncEnumerator(ct);
         await using (enumerator.ConfigureAwait(false))
         {
-            // the guarded loop lives once in Core. No clock here — the inactivity window is the RUNNER's
-            // (its timeout arrives as ProcessTimeoutException), so ANY OperationCanceledException is
-            // cancellation and PROPAGATES: onFault returns null for it (the router decides — T8).
+            // no clock here: the inactivity window is the RUNNER's, so a cancellation propagates (CliFault)
             var guarded = GuardedStream.ReadAll<string, TextChunk>(
                 async () => await enumerator.MoveNextAsync().ConfigureAwait(false) ? enumerator.Current : null,
-                ex => ex switch
-                {
-                    OperationCanceledException => null,
-                    ProcessTimeoutException => TextChunk.Error(ProviderVerdict.Timeout, ex.Message),
-                    ProcessRunException pre => TextChunk.Error(
-                        ProviderVerdictClassifier.FromErrorText(pre.StdErrTail), $"exit {pre.ExitCode}: {pre.StdErrTail}"),
-                    _ => TextChunk.Error(ProviderVerdict.Failed, $"spawn failed: {ex.Message}"),
-                },
+                ex => CliFault.Classify(ex) is { } fault ? TextChunk.Error(fault.Verdict, fault.Detail) : null,
                 ct);
             await foreach (var (line, terminal) in guarded.ConfigureAwait(false))
             {
@@ -237,15 +214,9 @@ public sealed class CliProviderEngine(
                 }
 
                 var evt = backend.ParseLine(line!);
-                // The commit gate is the ROUTER's, to the letter: Kind == Content AND Text.Length > 0. An
-                // EMPTY content event is not delivered content, so it falls through as if the backend had
-                // reported Ignored — which is what a line carrying no content is supposed to be. Counting it
-                // did three wrong things at once: it disabled fallback for a zero-content FIRST chunk (the
-                // one case the router's gate exists for), it ended a no-output stream as `Final` — a fully
-                // successful empty answer — and it suppressed the result-only delivery below, dropping the
-                // answer of a stream whose text arrived on the terminal result line. A backend is asked to
-                // report an empty line as Ignored, but a backend is third-party code, so the engine holds
-                // whether it does or not.
+                // the ROUTER's commit gate, to the letter: an EMPTY content event is not delivered content,
+                // so it reads as Ignored — counting it would disable fallback on a zero-content first chunk
+                // and end a no-output stream as a successful empty Final (pitfalls.md)
                 if (evt.Kind == CliOutputEventKind.Content && evt.Text.Length > 0)
                 {
                     sawContent = true;
@@ -347,9 +318,8 @@ public sealed class CliProviderEngine(
     {
         var before = await ProbeAsync(ct).ConfigureAwait(false);
         var inactivity = options.ProviderTimeout;
-        var maxDuration = options.MaxProviderTimeout < inactivity ? inactivity : options.MaxProviderTimeout;
 
-        var run = await RunMaintenanceAsync(maintenanceArgs, inactivity, maxDuration, ct).ConfigureAwait(false);
+        var run = await RunMaintenanceAsync(maintenanceArgs, inactivity, Backstop(inactivity), ct).ConfigureAwait(false);
         if (run.Failure is { } failure) return Unchanged($"{label} failed: {failure}");
         if (run.Process!.TimedOut) return Unchanged($"{label} stalled — no output for {inactivity}");
         if (run.Process.ExitCode != 0) return Unchanged($"exit {run.Process.ExitCode}: {Tail(run.Process.StdErr)}");

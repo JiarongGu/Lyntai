@@ -1,7 +1,7 @@
 using Lyntai.Inference;
 using System.Runtime.CompilerServices;
 using Lyntai.Agents;
-using Lyntai.Inference.Streaming;
+using Lyntai.Inference.Cli;
 using Lyntai.Processes;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -34,6 +34,9 @@ namespace Lyntai.Providers.CodexCli;
 /// </remarks>
 public sealed class CodexAgentSession : IAgentSession
 {
+    // the backend is the single declaration of this CLI's default command and env seams, shared with the provider
+    private static readonly CodexCliBackend Backend = new();
+
     private readonly IProcessRunner _runner;
     private readonly LyntaiOptions _options;
     private readonly ILogger _logger;
@@ -81,13 +84,13 @@ public sealed class CodexAgentSession : IAgentSession
     {
         if (!AgentMcpServers.TryValidate(options.McpServers, out var mcpRefusal))
         {
-            yield return new SessionEnded(ProviderVerdict.Unsupported, true, "mcp-server-invalid", null, null, mcpRefusal);
+            yield return CliAgentLoop.Refused(AgentMcpServers.RefusedSubtype, mcpRefusal);
             yield break;
         }
 
         if (!CodexAgentArgs.TryBuild(options, out var agentArgs, out var mcpEnvironment, out var refusal))
         {
-            yield return new SessionEnded(ProviderVerdict.Unsupported, true, AgentResumeToken.RefusedSubtype, null, null, refusal);
+            yield return CliAgentLoop.Refused(AgentResumeToken.RefusedSubtype, refusal);
             yield break;
         }
 
@@ -99,71 +102,13 @@ public sealed class CodexAgentSession : IAgentSession
                 "CodexAgentOptions.SandboxMode).", options.DisallowedTools.Count);
         }
 
-        var (exe, prefixArgs) = CodexCommand.Resolve(_command);
-        var argv = prefixArgs.Concat(agentArgs).ToList();
-        var timeout = _options.ResolveTimeout(options.TimeoutSeconds);
-
+        var (exe, prefixArgs) = CliCommand.Resolve(_command, Backend);
         var reader = new CodexAgentReader();
-        var sawTerminal = false;
-        var sawContent = false;
-
-        var lines = _runner.StreamLinesAsync(exe, argv, stdin: CodexAgentArgs.BuildPrompt(options),
-            inactivityTimeout: timeout, workingDirectory: options.WorkingDirectory,
-            environment: MergeEnvironment(_environment, mcpEnvironment), ct: ct);
-        var e = lines.GetAsyncEnumerator(ct);
-        await using (e.ConfigureAwait(false))
-        {
-            // the guarded loop lives once in Core; the fault→terminal translation lives once in this package
-            // (CliAgentTerminal.FromFault), so the claude session answers the same exceptions the same way.
-            // No clock here — the inactivity window is the RUNNER's (its timeout arrives as
-            // ProcessTimeoutException), so ANY OperationCanceledException is cancellation and PROPAGATES:
-            // FromFault returns null for it. The fault terminal reads the reader's thread id at FAULT time.
-            var guarded = GuardedStream.ReadAll<string, SessionEnded>(
-                async () => await e.MoveNextAsync().ConfigureAwait(false) ? e.Current : null,
-                ex => CliAgentTerminal.FromFault(ex, reader.ThreadId),
-                ct);
-            await foreach (var (line, terminal) in guarded.ConfigureAwait(false))
-            {
-                if (terminal is not null)
-                {
-                    // codex reports failure IN BAND and exits 0, so the reader's terminal is authoritative;
-                    // a later non-zero exit must not add a second one.
-                    if (!sawTerminal) yield return terminal;
-                    yield break;
-                }
-
-                foreach (var evt in reader.Read(line!))
-                {
-                    // SessionEnded is THE single terminal: the first one wins and anything the CLI prints
-                    // after it can add events but never a second ending.
-                    if (evt is SessionEnded)
-                    {
-                        if (sawTerminal) continue;
-                        sawTerminal = true;
-                    }
-                    else if (evt is TextDelta or ToolCall or ToolResult or Thinking)
-                    {
-                        sawContent = true;
-                    }
-                    yield return evt;
-                }
-            }
-        }
-
-        if (!sawTerminal)
-        {
-            // Two different problems, so two different diagnostics: a CLI that printed nothing at all (a bad
-            // invocation, a missing binary behind a BYO runner) versus one that answered and then died before
-            // turn.completed (a crash or a kill mid-turn). Collapsing both into "no output produced" sends
-            // whoever is debugging to look in the wrong place.
-            var diagnostic = sawContent
-                ? "the turn never terminated: codex streamed output but no turn.completed/turn.failed arrived " +
-                  "before the process ended"
-                : "no output produced (no terminal result)";
-            _logger.LogWarning("CodexAgentSession produced no terminal event ({Diagnostic}); session={SessionId}",
-                diagnostic, reader.ThreadId);
-            yield return new SessionEnded(ProviderVerdict.Failed, true, null, reader.ThreadId, null, diagnostic);
-        }
+        var turn = CliAgentLoop.RunAsync(_runner, exe, [.. prefixArgs, .. agentArgs], CodexAgentArgs.BuildPrompt(options),
+            _options.ResolveTimeout(options.TimeoutSeconds), options, MergeEnvironment(_environment, mcpEnvironment),
+            reader.Read, _logger, "codex", ct);
+        await foreach (var evt in turn.ConfigureAwait(false))
+            yield return evt;
     }
 
     /// <summary>The ctor's environment (a portable install's <c>CODEX_HOME</c>, say) plus anything this TURN

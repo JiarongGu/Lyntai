@@ -765,8 +765,12 @@ abstract class Lyntai.Inference.Cli.CliBackendBase
     VersionArgs : IReadOnlyList<String>
     static FlagShaped(String value) : Boolean
 static class Lyntai.Inference.Cli.CliCommand
+    static Resolve(String command, ICliBackend backend) : ValueTuple<String,IReadOnlyList<String>>
     static Resolve(String command, String defaultCommand, IReadOnlyList<String> environmentVariables, Func<String,String> environmentLookup = null) : ValueTuple<String,IReadOnlyList<String>>
     static Tokenize(String commandLine) : List<String>
+static class Lyntai.Inference.Cli.CliFault
+    static Classify(Exception fault) : Nullable<ValueTuple<ProviderVerdict,String>>
+    static Exited(Int32 exitCode, String stdErrTail) : ValueTuple<ProviderVerdict,String>
 sealed class Lyntai.Inference.Cli.CliOutputEvent
     .ctor(CliOutputEventKind Kind, String Text = "", TextUsage Usage = null)
     Deconstruct(CliOutputEventKind& Kind, String& Text, TextUsage& Usage) : Void
