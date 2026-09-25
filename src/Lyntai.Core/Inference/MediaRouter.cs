@@ -253,7 +253,7 @@ public sealed class MediaRouter(
         // the verdict is chosen as GenerateAsync chooses the one it reports, so "nobody could serve it" says why
         var reported = firstFailure ?? firstBlameless;
         return new MediaSubmission("", new QueuedOperation("", QueuedOperationStatus.Failed,
-            Detail: (benched > 0
+            Detail: (attempted == 0 && benched > 0
                 ? $"every capable media backend for a '{request.Kind}' job is on dead-host cooldown"
                 : $"no capable media backend accepted a '{request.Kind}' job among " +
                   $"[{string.Join(", ", candidates.Select(c => c.ProviderId))}]") +
