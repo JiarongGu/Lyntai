@@ -3,8 +3,8 @@
 > 灵台 (língtái, "the numinous platform") — a classical Chinese name for the seat of the mind.
 > Lyntai is the shared **cortex + persistence** substrate the sibling apps plug into.
 
-Status: **approved design — SHIPPED and amended** (see the dated amendments in §6/§9; the 2026-07-26 one
-reconciles the later pre-1.0 line) · Date: 2026-07-17 · Scope: *Brain + persistence core → platform kit (D11)*
+Status: **approved design — SHIPPED and amended** (see the dated amendments in §6/§9) · Date: 2026-07-17 ·
+Scope: *Brain + persistence core → platform kit (D11)*
 
 > **How to read this doc post-1.0-track:** it governs *semantics* (the rules code must follow); the
 > public-API baselines (`tests/Lyntai.Tests/Api/Baselines/`, D8) govern *shape*. Where a §5 snippet
@@ -89,25 +89,9 @@ Lyntai/
 *(2026-07 note: shipped in v0.8.0. It earns its own package by the rule below — LLamaSharp drags a native
 runtime, which is exactly the footprint a consumer might refuse.)*
 
-> **Amendment (2026-08-05): the tree above is the v0.1 cut; `src/` now holds TWELVE packable projects.**
-> The RULE it illustrates is unchanged and still verified — every adapter references `Lyntai.Core` only, never
-> another adapter — but two of the names are gone. `Lyntai.Providers.ClaudeCli` and
-> `Lyntai.Providers.OpenAiCompatible` merged into **`Lyntai.Providers.Default`** at 2.0.1, because a boundary
-> has to answer *which dependency does this isolate?* and those two isolated nothing: process spawn plus
-> `HttpClient`, both dependency-free, and the CLIs share one `CliProviderEngine` (`docs/DECISIONS.md` **D25**;
-> a new CLI backend is an `ICliProviderDialect` in that package, D21/D22). Today: `Lyntai.Core`,
-> `Lyntai.Providers.Default`, `Lyntai.Providers.ExtensionsAi`, `Lyntai.Providers.Local`,
-> `Lyntai.Storage.Sqlite`, `Lyntai.Storage.Postgres`, `Lyntai.Storage.InMemory`, `Lyntai.Secrets.Dpapi`,
-> `Lyntai.Tools.Mcp`, `Lyntai.Tools.Mcp.Hosting`, `Lyntai.Generation`, and the `Lyntai` starting bundle
-> (`src/Lyntai.Bundle/`, which ships no assembly).
-> `Lyntai.Generation` — the media BACKENDS — was split from `Providers.Default` for release CADENCE
-> (**D25**), and that reason lapsed in 3.0 when the carve-out it depended on was withdrawn (**D70**). The
-> boundary stands on dependency isolation after all: the package sits outside the `Lyntai` bundle, so a
-> one-line install does not drag the media backends for a feature most applications never use.
-> Its contracts stay in `Lyntai.Core` under the `Lyntai.Generation` namespace and carry the full
-> promise; see §5.6. Bundle membership is a DEPENDENCY BUDGET, not a preference (**D26**), and many small
-> packages is the intended shape, paid for in tooling rather than in merging (**D27** —
-> `node devtools/dev.mjs check-packages` gates the nine registries a package must enter).
+> **Amendment (2026-08-05): the tree above is the v0.1 cut.** The RULE it illustrates is unchanged and still
+> verified — every adapter references `Lyntai.Core` only, never another adapter — while the package names have
+> moved on (`docs/DECISIONS.md` **D25**–**D27**, **D70**).
 
 ### Dependency graph
 ```
@@ -116,10 +100,9 @@ Lyntai.Core
 Storage.Sqlite  Providers.ClaudeCli  Providers.OpenAiCompatible  Providers.ExtensionsAi
 ```
 No adapter references another adapter. Consumers compose via DI.
-*(2026-08-05: same shape, today's names — each of the TEN adapter packages listed in the amendment above
-project-references `Lyntai.Core` and nothing else, `Lyntai.Generation` included. The `Lyntai` bundle is the
-only project that references several, which is what makes its membership a budget. Verified against the
-`src/*/*.csproj` files.)*
+*(2026-09-25: same shape, today's names — every adapter in `src/` project-references `Lyntai.Core` and
+nothing else, `Lyntai.Generation` included, and the `Lyntai` bundle is the only project that references
+several, which is what makes its membership a budget. The `src/*/*.csproj` files are the roster.)*
 
 ## 4. Fork decisions (locked)
 
@@ -173,7 +156,7 @@ public sealed record LlmCandidate(string ProviderId, string? Model = null);
 ```
 *(2026-08-05: `LlmVerdict` now has **nine** members — the five above plus `ContextWindowExceeded`, <!-- drift-ok: the record names the enum of its day; the 2026-09-15 amendment below supersedes it -->
 `AuthFailed`, `Unsupported` and `NotConfigured`. **`src/Lyntai.Core/Llm/LlmVerdict.cs` is the canonical <!-- drift-ok: as above --><!-- link-ok: the canonical path as it stood that day; the 2026-09-15 amendment below repoints it -->
-statement**; §9's 2026-07-26 amendment lists the additions and §6 gives each one's routing action. The block
+statement**, and §6 gives each one's routing action. The block
 above is the v0.1 seed, kept for its semantic commentary per the reading note at the top of this doc.)*
 
 *(2026-09-15: the enum is `Lyntai.Inference.ProviderVerdict` and **`src/Lyntai.Core/Inference/ProviderVerdict.cs`
@@ -280,7 +263,7 @@ selective migration; default `All`). Lyntai still OWNS the tables it creates —
 it only forward-references it in §6. This is the routing entry, not a restatement: the reasoning is
 `docs/DECISIONS.md` **D24** (generation is a platform in its own domain, coupled to the LLM side only through
 tools), **D31** (a verdict for "never set up", in both domains) and **D36** (the translation between the two
-verdict taxonomies). The plan of record is `docs/2026-08-04-generation-platform-plan.md`.*
+verdict taxonomies). The plan of record is untracked (`docs/superpowers/INDEX.md`).*
 
 ```csharp
 public interface IGenerationProvider : Lyntai.Inference.IProviderIdentity {
@@ -338,7 +321,17 @@ holds what RUNS a generation (`.Jobs`, `.Tools`). The three delivery modes survi
 translation was deleted with the second taxonomy (**D136**). A BYO backend registers with
 `AddProvider(factory, declares)` + `AddMediaRouting()` (**D156**).)*
 
+*(2026-09-25: `Inconclusive` covers every submit whose outcome is UNKNOWN, not only an expired deadline — a
+connection dropped after the request may have left the process, or a 2xx answer carrying no operation id,
+is one too. A backend that catches its own submit exception reports it through
+`QueuedOperation.FromThrownSubmit`, so the router never buys a render twice (`docs/DECISIONS.md` **D64**).)*
+
 ### 5.7.0 What the memory engine is FOR — the objective optimization work is allowed to move (added 2026-08-12)
+
+*(2026-09-25: the maintained statement of this objective — its four lines, the absolutes above them and the
+constraints — is `docs/memory.md` §3, part of the memory contract (`docs/DECISIONS.md` **D164**). What
+follows is the seed and its argument, kept as history; every figure in it is owned by
+`docs/memory-measurements.md` §5.)*
 
 *Written after five measurement studies in one day produced numbers nobody could act on, because the target
 was never stated. Every study reported `MissRate` and `PollutionRate` with no recorded priority between them,
@@ -525,6 +518,10 @@ consumer-supplied rating, or an observation of material the application expected
 turns the rest of this list from argument into measurement (**D51** amended, **D54**).
 
 ### 5.7 Long-term memory — named engines over a decaying graph (added 2026-08-08, not in the v0.1 design)
+
+*(2026-09-25: this section is the SEED of the memory contract and is no longer maintained. The contract is
+`docs/memory.md` (`docs/DECISIONS.md` **D164**), headed by the invariants no gate holds; where the two
+disagree, that page is right. Read what follows, amendments included, as the design of its day.)*
 
 *Added for the same reason as §5.6: this document is read first, and §5.4 otherwise leaves `IMemoryStore` — a
 bounded, task-scoped fact store — looking like the whole of memory. It is not; it is one of four surfaces, and
@@ -1052,74 +1049,14 @@ checkpoint/resume) · security/access-gate + secret vault · server/host/launche
 vision/multimodal · `Lyntai.Providers.Local` (LLamaSharp). The domain interfaces are shaped to admit
 these later without breaking changes.
 
-> **Amendment (2026-07-18): the platform kit is now SHIPPED** (v0.8–v0.15), exactly as §9 promised —
-> additively, no breaking changes to the substrate. `Lyntai.Providers.Local` (v0.8); the tool/MCP
-> registry as the agentic tool loop + native tool-calling + an MCP-client tool source + CLI tool-hosting
-> (v0.9–v0.13, `Lyntai.Agents` / `Lyntai.Tools.Mcp` / `Lyntai.Tools.Mcp.Hosting`); durable jobs
-> (v0.14, `Lyntai.Jobs` + `IJobStore`); then guards (`Lyntai.Guards`), two-gate `IChatOrchestrator`,
-> the secret vault (`Lyntai.Secrets`), and vision/multimodal (`TextMessage.Attachments`) in v0.15. See
-> `CHANGELOG.md` / `ROADMAP.md`. The **only** §9 item still deliberately out of scope is the
-> **server/host/launcher + auto-update** — that's an application concern, not a library's (Lyntai stays
-> host-free; the one scoped exception is the ephemeral, opt-in localhost MCP listener the
-> `Lyntai.Tools.Mcp.Hosting` add-on runs during a CLI call).
-
-> **Amendment (2026-07-26): reconciled against v0.30.0** *(and extended in place since — the newest clauses
-> in this block are dated 2026-08-05; counts stated inside it are as-of their own date)*. The header's "pre-implementation" status is
-> historical; shape is snapshot-tested (D8) and this doc governs semantics. Since the 2026-07-18
-> amendment, v0.16–v0.30 added — each per D11's "framework in Lyntai, domain in the app", detail in
-> `CHANGELOG.md`/`ROADMAP.md`, rationale in `docs/DECISIONS.md` D5–D14:
-> **`ILlmClient` front door + `AsChatClient()`** (inject the front door, not `ILlmRouter` — D5) ·
-> **OTel telemetry** (`LyntaiDiagnostics`: `Lyntai.Llm` + `Lyntai.Agents` sources/meters, `RunTrace.TraceId`) ·
-> **native tool-calling contract** (`TextToolCall`, `TextResponse.ToolCalls`, tool/assistant turns,
-> `SupportsToolCalls` on provider/router/client) · **governance decorators** (response cache / usage
-> budget / rate limit behind `IResponseCache`/`IUsageTracker`/`IRateLimiter`; deterministic fold, cache
-> outermost; SQLite/PG persistence) · **semantic memory** (BYO `IEmbedder` *(today: any backend declaring
-> `ProviderKinds.Vector` — the interface was deleted, D151/D153)*, `ISemanticMemory`,
-> `IVectorStore` incl. pgvector; hybrid composer + dual-write) · **durable-jobs expansion** (priorities,
-> DLQ, interval+cron schedules, cooperative cancellation, admission control, `Paused`, live progress,
-> actor/mailbox `PartitionKey`; the last deferral, cross-process global limits, shipped in 3.0 as a slot
-> table — see the 3.0 amendment below) · **secrets expansion**
-> (DEK-envelope vault + recovery key; `Lyntai.Secrets.Dpapi`) · **refusal screening**
-> (`TextRequest.RefusalPattern` + `IRefusalMatcher`) · **curated memory** (`ICuratedMemoryStore`) ·
-> **conversation event store v2** (GUID id + per-thread seq + kind/payload/metadata,
-> `IConversationEnricher`, keyset paging — D10; dates the in-body §5.4 edit) · **`StorageFeature`
-> toggles** (tag-driven selective registration + migration — D12; dates the in-body §5.5 edit) ·
-> **memory eviction policy** (`MemoryEvictionPolicy` FIFO/LRU/TTL/size + opt-in prune cron — D13) ·
-> **agent session + streaming loop** (`IAgentSession`/`AgentStreamEvent`, `IToolLoop.StreamAsync`,
-> `ToolLoopResult.Usage`) · **BYO resources** (v0.7: `IProcessRunner`, BYO `HttpClient`, BYO
-> `IDbConnectionFactory` + `migrate:false`, provider presets).
-> **§5 additive shape drift** (current shape = the baselines): `LlmVerdict` +`ContextWindowExceeded`/
-> `AuthFailed`/`Unsupported`/`NotConfigured`; `TextRequest` +`TimeoutSeconds`/`RefusalPattern`; `TextResponse` +`ToolCalls`;
-> `TextMessage` tool turns + `Attachments`; `IPromptRegistry.ValidateOverride`; `IScoringService`
-> read/aggregate/export members; new storage domains `IJobStore`/`IPromptVersionStore`/`ICuratedMemoryStore`;
-> three storage backends, 11 packages **as of v0.30** (adapter→Core-only rule unchanged and verified; twelve
-> today — see the §3 amendment).
-> **§6 semantic additions:** AuthFailed = cool + advance; ContextWindowExceeded = advance, no penalty;
-> Unsupported = surface (D3); NotConfigured = advance, no penalty (2026-08-05 — a backend that was never set
-> up is skipped blamelessly, matching the generation router; the same rule in both domains) · streaming
-> timeouts are INACTIVITY clocks + the empty-content commit gate
-> (D4) · front-door decorators fold deterministically, cache outermost (D11) · `RefusalPattern` screening
-> re-screens even cached hits · usage-tracker totals are async by contract and case-insensitive per
-> consumer identity (v0.30).
-> **Provider LIFETIME is a seam this design did not have** (2026-08-05, `Lyntai.Inference`, D30). §4 assumed
-> configuration is owned by the DEPLOYMENT, so a provider could be registered once at `AddLyntai` time. Where
-> it is owned EXTERNALLY — an end user, or a store the process polls — several configurations of one backend
-> are live at once and the set changes while the process runs. `IProviderPool<TProvider>` owns those
-> instances (`Bounded` reuses, `Transient` never does; pooling is a registered strategy, not a behaviour),
-> `ProviderKey` identifies a configuration, and **dead-host cooldown and concurrency admission key on that
-> key rather than on the provider id** — otherwise one tenant's rate limit benches another's. Retiring an
-> entry never disposes it: without leases a pool cannot know when the last caller finished, and a render
-> outlives the configuration that started it. The routers take both as OPTIONAL parameters, so a
-> deployment-configured app is unaffected.
-> **§7:** pre-release migration changes fold into the owning unreleased migration; released migrations
-> are frozen (D9); selective migration is FluentMigrator-tag-driven per `StorageFeature` (D12).
-> **v0.30 pre-1.0 breaks:** `ChatResult.BlockReason`→`Detail`; `IRateLimiter` cancellation propagates; <!-- link-ok: a rename record NAMES the retired member -->
-> `IUsageTracker` fully async; tracker totals aggregate across consumer casings.
+*(2026-09-25: every item above except the server/host/launcher has shipped, additively; `CHANGELOG.md`
+records when. That one stays out of scope for good — a host is an application's concern, and the library
+stays host-free. The one scoped exception is the ephemeral, opt-in localhost MCP listener `Lyntai.Tools.Mcp`
+runs for the duration of a CLI call.)*
 
 > **Amendment (2026-08-17): the 3.0 contract changes, and where each is stated in full.** The memory ones are
 > in §5.7 and the generation ones in §5.6, both edited in place — this block carries only what those sections
-> do not own, plus the index. The ordered upgrade path for a consumer is `docs/migration-2.5-to-3.0.md`; the
-> reasoning is `docs/DECISIONS.md`.
+> do not own, plus the index. The reasoning is `docs/DECISIONS.md`.
 >
 > **`IJobStore` gains three required members** — `TryAcquireSlotAsync`, `ReleaseSlotAsync`,
 > `HeartbeatSlotsAsync` (**D73**) — closing §9's last durable-jobs deferral. `JobOptions.GlobalMaxConcurrency`

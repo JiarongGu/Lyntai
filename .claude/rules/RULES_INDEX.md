@@ -5,8 +5,7 @@ route off the **applies when** column, so a document missing from this table is 
 to — add a row when you add one.
 
 **Core rules: all twelve of `.claude/rules/*.md` are auto-loaded IN FULL every session.** Read them; do not
-look them up here. A table summarizing documents already in context is a second, worse copy — and it had
-gone out of step with three of its own files before it was deleted.
+look them up here. A table summarizing documents already in context is a second, worse copy.
 
 ## Knowledge (read on demand — NOT auto-loaded)
 
@@ -19,6 +18,7 @@ gone out of step with three of its own files before it was deleted.
 | [sql-storage](../knowledge/sql-storage.md) | a query, a migration, or full-text search — the traps that return wrong data rather than failing |
 | [library-api-design](../knowledge/library-api-design.md) | designing or changing any public API, or when a consumer asks for a feature |
 | [generic-library](../knowledge/generic-library.md) | a task arrives as "app X needs Y" — any consumer-requested feature or new public surface |
+| [memory](../../docs/memory.md) | touching `Lyntai.Memory*`, an `IMemory*Policy`, a memory engine's wiring, or a store's graph members — the memory CONTRACT, headed by the five invariants no gate holds |
 | [model-decoupling](../knowledge/model-decoupling.md) | any feature that uses — or could use — a language model, an embedder, or any AI service |
 | [input-is-thinking-not-doctrine](../knowledge/input-is-thinking-not-doctrine.md) | recording something the owner said into a spec, a decision, a schema, or a commit |
 
