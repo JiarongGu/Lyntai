@@ -34,8 +34,9 @@ public static class OllamaBuilderExtensions
     /// <c>AddHttpProvider</c> takes one: pass <paramref name="httpClient"/> and own its lifetime; when null,
     /// Lyntai registers a named client with an infinite timeout so the per-call
     /// <see cref="LyntaiOptions.ProviderTimeout"/> owns deadlines.</summary>
-    /// <exception cref="NotSupportedException"><c>o.Produces</c> is <c>ProviderKinds.Score</c> — Ollama
-    /// serves no rerank surface; register an OpenAI-shaped reranker with <c>AddHttpProvider</c>.</exception>
+    /// <exception cref="ArgumentException"><c>o.Produces</c> is neither <c>ProviderKinds.Text</c> nor
+    /// <c>ProviderKinds.Vector</c> — Ollama serves no rerank surface; register an OpenAI-shaped reranker with
+    /// <c>AddHttpProvider</c>.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><c>o.MaxInputChars</c> is not positive, or leaves an
     /// embedding prefix no room for text.</exception>
     public static LyntaiBuilder AddOllamaProvider(this LyntaiBuilder builder, string id,
@@ -51,7 +52,7 @@ public static class OllamaBuilderExtensions
     internal static LyntaiBuilder AddOllamaProvider(this LyntaiBuilder builder, string id,
         OllamaOptions config, Func<IServiceProvider, HttpClient>? httpClient)
     {
-        // throws on Produces = Score, or a bound that cannot hold a piece, BEFORE anything registers
+        // throws on an unserved Produces, or a bound that cannot hold a piece, BEFORE anything registers
         var declared = OllamaProvider.CapabilitiesFor(config);
         OllamaProvider.ValidateInputBound(config);
         var resolveClient = HttpProviderBuilderExtensions.ResolveClient(builder, id, httpClient);

@@ -34,8 +34,10 @@ public sealed class HttpModelProvider : IModelProvider, IVectorProvider, IScoreP
     /// APP-supplied client, whose lifetime the app owns.</param>
     /// <exception cref="ArgumentOutOfRangeException"><see cref="HttpModelOptions.MaxInputChars"/> is not
     /// positive, or leaves an embedding prefix no room for text.</exception>
-    /// <exception cref="ArgumentException"><see cref="HttpModelOptions.SuppressReasoningFields"/> is not one
-    /// JSON object, or names a member the request sets itself.</exception>
+    /// <exception cref="ArgumentException"><see cref="HttpModelOptions.Produces"/> is not
+    /// <see cref="ProviderKinds.Text"/>, <see cref="ProviderKinds.Vector"/> or <see cref="ProviderKinds.Score"/>;
+    /// or <see cref="HttpModelOptions.SuppressReasoningFields"/> is not one JSON object, or names a member the
+    /// request sets itself.</exception>
     public HttpModelProvider(
         string id,
         HttpModelOptions config,
@@ -104,11 +106,18 @@ public sealed class HttpModelProvider : IModelProvider, IVectorProvider, IScoreP
         MaxInputChars: c.MaxInputChars,
         Segmentation: c.Segmentation);
 
-    /// <summary>Throws when <see cref="HttpModelOptions.MaxInputChars"/> cannot bound a piece, or
+    /// <summary>Throws when <see cref="HttpModelOptions.Produces"/> is a kind this wire does not serve,
+    /// <see cref="HttpModelOptions.MaxInputChars"/> cannot bound a piece, or
     /// <see cref="HttpModelOptions.SuppressReasoningFields"/> is not a usable object — run at registration as
     /// well as here, so a bad value fails composition rather than a first call.</summary>
     internal static void Validate(HttpModelOptions c)
     {
+        if (!ServesText(c) && !ServesVectors(c) && !ServesScores(c))
+            throw new ArgumentException(
+                $"{nameof(HttpModelOptions)}.{nameof(HttpModelOptions.Produces)} is '{c.Produces}', which this "
+                + $"backend does not serve. An OpenAI-shaped endpoint produces {ProviderKinds.Text} "
+                + $"(chat/completions), {ProviderKinds.Vector} (embeddings) or {ProviderKinds.Score} (rerank).",
+                nameof(c));
         if (ServesVectors(c) || ServesScores(c))
             InputSegmenter.ValidateBound(c.MaxInputChars, ServesVectors(c), c.DocumentPrefix, c.QueryPrefix);
         if (ServesText(c))

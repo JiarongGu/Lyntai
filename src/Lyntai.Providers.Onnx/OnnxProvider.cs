@@ -71,6 +71,9 @@ public sealed class OnnxProvider : IVectorProvider, IScoreProvider, IDisposable
     /// <c>config.json</c>, <c>1_Pooling/config.json</c> and <c>modules.json</c>.</summary>
     /// <param name="directory">The model directory.</param>
     /// <param name="options">Knobs; null takes the model's own configuration throughout and embeds.</param>
+    /// <exception cref="ArgumentException"><see cref="OnnxProviderOptions.Produces"/> is neither
+    /// <see cref="ProviderKinds.Vector"/> nor <see cref="ProviderKinds.Score"/> — judged before anything is
+    /// loaded.</exception>
     /// <exception cref="DirectoryNotFoundException">No such directory.</exception>
     /// <exception cref="FileNotFoundException">No ONNX graph, or no <c>vocab.txt</c> — named individually,
     /// because a partial download is the common case and its unguarded symptom is far away.</exception>
@@ -79,9 +82,10 @@ public sealed class OnnxProvider : IVectorProvider, IScoreProvider, IDisposable
     public static OnnxProvider FromDirectory(string directory, OnnxProviderOptions? options = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(directory);
+        options ??= new OnnxProviderOptions();
+        var scores = ProducesScores(options);
         if (!Directory.Exists(directory)) throw new DirectoryNotFoundException($"No model directory at '{directory}'.");
 
-        options ??= new OnnxProviderOptions();
         var model = OnnxGraph.Resolve(directory, options.ModelFile,
             $"{nameof(OnnxProviderOptions)}.{nameof(OnnxProviderOptions.ModelFile)}");
         var tokenizer = WordPieceTokenizer.FromModelDirectory(directory);
@@ -94,25 +98,26 @@ public sealed class OnnxProvider : IVectorProvider, IScoreProvider, IDisposable
 
         var windows = new WindowedTokenizer(
             tokenizer, boundaries, options.MaxTokens ?? config.MaxTokens, options.Segmentation);
-        return new OnnxProvider(new InferenceSession(model), windows, HeadFor(options, config), options.Id);
+        IOnnxHead head = scores
+            ? new OnnxCrossEncoderHead()
+            : new OnnxPoolingHead(options.Pooling ?? config.Pooling, options.Normalize ?? config.Normalize);
+        return new OnnxProvider(new InferenceSession(model), windows, head, options.Id);
     }
 
-    /// <summary>Which head serves the declared kind. An unknown one is refused HERE rather than
-    /// defaulted: silently embedding for a consumer who asked to rerank is the failure this whole shape
-    /// exists to avoid, and a typo in an open vocabulary is the likely way to reach it.</summary>
-    private static IOnnxHead HeadFor(OnnxProviderOptions options, SentenceTransformerConfig config)
+    /// <summary>Whether the declared kind is <see cref="ProviderKinds.Score"/> (else it is
+    /// <see cref="ProviderKinds.Vector"/>). An unknown one is refused rather than defaulted: silently
+    /// embedding for a consumer who asked to rerank is the failure this whole shape exists to avoid, and a
+    /// typo in an open vocabulary is the likely way to reach it.</summary>
+    private static bool ProducesScores(OnnxProviderOptions options)
     {
-        if (string.Equals(options.Produces, ProviderKinds.Vector, StringComparison.OrdinalIgnoreCase))
-            return new OnnxPoolingHead(options.Pooling ?? config.Pooling, options.Normalize ?? config.Normalize);
+        if (string.Equals(options.Produces, ProviderKinds.Vector, StringComparison.OrdinalIgnoreCase)) return false;
+        if (string.Equals(options.Produces, ProviderKinds.Score, StringComparison.OrdinalIgnoreCase)) return true;
 
-        if (string.Equals(options.Produces, ProviderKinds.Score, StringComparison.OrdinalIgnoreCase))
-            return new OnnxCrossEncoderHead();
-
-        throw new InvalidOperationException(
+        throw new ArgumentException(
             $"{nameof(OnnxProviderOptions)}.{nameof(OnnxProviderOptions.Produces)} is '{options.Produces}', "
             + $"which this backend does not serve. In process it runs a transformer, so it produces "
             + $"{ProviderKinds.Vector} (the model's own pooling) or {ProviderKinds.Score} (a cross-encoder "
-            + $"over query/document pairs).");
+            + $"over query/document pairs).", nameof(options));
     }
 
     /// <inheritdoc />

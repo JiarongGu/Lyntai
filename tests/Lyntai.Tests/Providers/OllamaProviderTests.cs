@@ -326,7 +326,7 @@ public class OllamaProviderTests
         // Ollama serves no rerank surface, so a Score registration is a composition error heard while a
         // human is watching — not a /v1/rerank guess that 404s on the first call, which is what the old
         // dialect arm did
-        var ex = Assert.Throws<NotSupportedException>(() => Provider(new StubHttpHandler(),
+        var ex = Assert.Throws<ArgumentException>(() => Provider(new StubHttpHandler(),
             o => o.Produces = ProviderKinds.Score));
         Assert.Contains("rerank", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
