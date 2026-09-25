@@ -124,6 +124,7 @@ public class MemoryBurialNotDeletionTests
         // what "buried, not cut" describes -- and if nothing faded, this fact is counting a corpus that
         // never decayed.
         var recall = await Probe(db).RecallAsync(new MemoryQuery("t", "s", "deployment", Limit: facts));
+        Assert.NotEmpty(recall.Items);   // a probe returning nothing would satisfy the guard below
         Assert.All(recall.Items, i => Assert.True(i.Retrievability < 1.0,
             $"nothing decayed, so the count above is vacuous; retrievability was {i.Retrievability}"));
     }

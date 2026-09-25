@@ -8,21 +8,21 @@ using Lyntai.Tests.Storage;
 
 namespace Lyntai.Tests.Memory;
 
-/// <summary>The review log (2026-08-11, fsrs-properly plan Task 3) end to end through
-/// <see cref="GraphMemoryEngine"/>: one row per reinforcement, bounded by default, opt-out rather than
-/// opt-in, best-effort at a STRICTER grain than the reinforcement it logs, and — the property this file
-/// argues hardest for — provably inert data.
-/// <para><b>SQLite, never <c>InMemoryMemoryGraphStore</c></b> (<c>.claude/knowledge/pitfalls.md</c>): every
-/// fact whose subject is recall or touch runs here over a real per-test SQLite database. The one exception
-/// is the best-effort fact below, which uses a literal-substring query by construction — the documented
-/// carve-out for the in-process store's own contiguous-substring matching.</para></summary>
+/// <summary>The review log end to end through <see cref="GraphMemoryEngine"/>: one row per reinforcement,
+/// bounded by default, opt-out rather than opt-in, best-effort at a STRICTER grain than the reinforcement it
+/// logs, and — the property this file argues hardest for — provably inert data.
+/// <para>SQLite by default, because the no-feedback fact compares RANKED results and only a relational store
+/// ranks (<c>.claude/knowledge/pitfalls.md</c>); the best-effort fact needs a hostile in-process double and a
+/// query-less recall.</para></summary>
 public class GraphMemoryReviewLogTests
 {
     /// <summary>An undamped per-write age policy, matching every other recall-quality fact in this tree, so
     /// ages advance deterministically by counting rather than by wall-clock burst damping.</summary>
-    private static GraphMemoryEngine Engine(IMemoryGraphStore store, GraphMemoryOptions? options = null) =>
+    private static GraphMemoryEngine Engine(IMemoryGraphStore store, GraphMemoryOptions? options = null,
+        IMemoryRetrievabilityPolicy? retrievability = null) =>
         new("e", store, options, seams: new GraphMemorySeams
             {
+                Retrievability = retrievability,
                 AgePolicies = [new PerWriteAgePolicy()],
             });
 
@@ -64,21 +64,20 @@ public class GraphMemoryReviewLogTests
         Assert.Empty(await store.ReviewsAsync("e"));
     }
 
-    /// <summary>THE fact requirement 1 of the task brief asks for hardest: the grade recorded is the one
-    /// Reinforce ACTUALLY used, computed independently here from the raw formula
-    /// (<c>g = 2 + 2·r</c>, documented on <see cref="DsrRetrievability"/>'s own class doc) against the pre-
-    /// reinforcement state — never by calling <see cref="IMemoryRetrievabilityPolicy.DerivedGrade"/> itself,
-    /// so this test does not just check that production code agrees with itself.
-    /// <para><b>Mutation-checked live</b>: temporarily made <c>GraphMemoryEngine.ReinforceAsync</c> log
-    /// <c>_policy.DerivedGrade(reinforced)</c> — the POST-reinforcement state — instead of <c>pre</c>. This
-    /// fact failed (logged grade no longer matched the independently-computed pre-state expectation).
-    /// Reverted; re-ran; passes again. See the task report for the exact numbers.</para></summary>
+    /// <summary>The grade recorded is the one Reinforce ACTUALLY used, computed independently here from the
+    /// raw formula (<c>g = 2 + 2·r</c>, documented on <see cref="DsrRetrievability"/>'s own class doc) against
+    /// the pre-reinforcement state — never by calling <see cref="IMemoryRetrievabilityPolicy.DerivedGrade"/>
+    /// itself, so this test does not just check that production code agrees with itself.
+    /// <para><b>Growth is switched on</b> (<c>ReinforceGain = 2.0</c>): at the shipped gain of 0 the reinforced
+    /// state differs from <c>pre</c> only in difficulty, which the grade does not read, so logging
+    /// <c>DerivedGrade(reinforced)</c> instead of <c>DerivedGrade(pre)</c> would be undetectable.</para></summary>
     [Fact]
     public async Task Recall_logs_the_grade_Reinforce_actually_used_from_the_pre_reinforcement_state()
     {
         using var db = new TempDb();
         var store = new SqliteMemoryGraphStore(db.Factory);
-        var engine = Engine(store);
+        var policy = new DsrRetrievability(new DsrOptions { ReinforceGain = 2.0 });
+        var engine = Engine(store, retrievability: policy);
         var reference = (await engine.RememberAsync(new MemoryWrite("t", "s", "graded on recall"))).Reference;
         const int crowd = 12;
         await Crowd(engine, crowd);
@@ -90,26 +89,26 @@ public class GraphMemoryReviewLogTests
         Assert.Equal(id, row.NodeId);
         Assert.Equal(crowd, row.PreAge, precision: 6);
         Assert.Equal(20, row.PreStability, precision: 6); // DsrOptions.InitialStability's own default
-        Assert.Equal(5, row.PreDifficulty, precision: 6); // neutral (mid-point, corrected 2026-08-11) — never judged
+        Assert.Equal(5, row.PreDifficulty, precision: 6); // neutral mid-point — never judged
 
         // independently: retrievability at the PRE-reinforcement state, then the documented g = 2 + 2r
-        var policy = new DsrRetrievability();
         var preState = new MemoryDecayState(Age: crowd, RecallCount: 0, Stability: 20);
         var expectedGrade = 2 + 2 * policy.Retrievability(preState);
 
         Assert.NotNull(row.ReviewGrade);
         Assert.Equal(expectedGrade, row.ReviewGrade!.Value, precision: 6);
 
-        // and the post columns are the state Reinforce actually returned, never shortened
+        // and the post columns are the state Reinforce actually returned — grown, so the two states differ
         var expectedPost = policy.Reinforce(preState);
+        Assert.True(expectedPost.Stability > preState.Stability, "growth must be on, or pre and post coincide");
         Assert.Equal(expectedPost.Stability, row.PostStability, precision: 6);
         Assert.Equal(expectedPost.Difficulty, row.PostDifficulty, precision: 6);
     }
 
     /// <summary>A same-position review (no intervening write — an immediate re-recall) is the one case
-    /// <see cref="DsrRetrievability.Reinforce"/> itself skips the grade-driven update for (the Δt=0 branch,
-    /// fix round 1 I1). The log must say so honestly: <c>ReviewGrade</c> null, not a synthetic "Easy" value a
-    /// naive re-derivation from <c>r=1</c> would produce.</summary>
+    /// <see cref="DsrRetrievability.Reinforce"/> itself skips the grade-driven update for (the Δt=0 branch).
+    /// The log must say so honestly: <c>ReviewGrade</c> null, not a synthetic "Easy" value a naive
+    /// re-derivation from <c>r=1</c> would produce.</summary>
     [Fact]
     public async Task A_session_burst_with_no_intervening_write_logs_a_null_grade()
     {
@@ -127,33 +126,15 @@ public class GraphMemoryReviewLogTests
         Assert.All(rows, r => Assert.Null(r.ReviewGrade));
     }
 
-    /// <summary>Requirement 3 of the task brief, and the one to prove hardest: DATA, not a decision. Two
-    /// otherwise-identical databases, one with wildly divergent rows sitting in <c>lyntai_memory_review</c>
-    /// before anything that matters runs — if anything in <see cref="GraphMemoryEngine"/>'s recall, ranking,
-    /// retrievability OR PRUNING path read that table, these numbers would have to move the result. They
-    /// cannot move it: nothing reads it.
-    /// <para><b>Pruning gets its own target and its own comparison, not a re-use of the recall one (fix
-    /// round 1, reviewer I1).</b> <c>PruneAsync</c>'s derivable-age branch happens to call the SAME private
-    /// <c>Retrievability(GraphNode)</c> helper <c>RecallAsync</c> uses for candidate scoring, so a leak
-    /// written into THAT shared helper is already caught by the recall half above — but a defect written
-    /// directly into <c>PruneAsync</c>'s own body (its <c>Where</c> predicate, its
-    /// <c>HasUnknownStrengthUnit</c> guard, its doomed-id selection) would not be, and pruning is the one
-    /// path here that DELETES. <b>"a fact worth pruning" is a SEPARATE entry from "a stable fact", never
-    /// recalled</b> — <c>RecallAsync</c> reinforces whatever it returns, which would reset an entry's age to
-    /// zero and make it un-prunable if the recall proof and the prune proof shared one target.
-    /// <c>Crowd(200)</c> pushes "a fact worth pruning" comfortably below a 0.3 floor while "a fact just
-    /// written", written afterward at age 0, stays comfortably above it, so exactly one of the three entries
-    /// in scope is doomed in both runs — a trivial "nothing ever gets pruned" outcome would not actually
-    /// exercise the comparison.</para>
-    /// <para><b>Mutation-checked live, inside <c>PruneAsync</c>'s own body specifically</b> (not the shared
-    /// helper, which the recall half already covers): added a private <c>PruneReviewFactor(GraphNode)</c>
-    /// called ONLY from <c>PruneAsync</c>'s doomed-selection predicate, doubling a polluted node's effective
-    /// retrievability there. This fact failed —
-    /// <c>Assert.Equal() Failure: Expected: 1, Actual: 0</c> on <c>Pruned</c> (the polluted run's inflated
-    /// retrievability pulled "a fact worth pruning" back above the floor, so nothing was removed) — while
-    /// the pre-existing recall assertions above it kept passing throughout, confirming the mutation was
-    /// confined to the prune path and not merely a re-trip of the already-covered shared helper. Reverted;
-    /// re-ran; passes again. See the task report for the exact numbers.</para></summary>
+    /// <summary>The review log is DATA, not a decision. Two otherwise-identical databases, one with wildly
+    /// divergent rows sitting in <c>lyntai_memory_review</c> before anything that matters runs — if anything
+    /// in <see cref="GraphMemoryEngine"/>'s recall, ranking, retrievability OR PRUNING path read that table,
+    /// these numbers would have to move the result. They cannot move it: nothing reads it.
+    /// <para><b>Pruning gets its own target and its own comparison.</b> A defect written into
+    /// <c>PruneAsync</c>'s own body (its predicate, its doomed-id selection) would not reach the recall
+    /// half, and pruning is the one path here that DELETES. "a fact worth pruning" is never recalled, because
+    /// a recall resets the age of what it returns and would make it un-prunable. Exactly one of the three
+    /// entries is doomed in both runs, so "nothing ever gets pruned" cannot pass.</para></summary>
     [Fact]
     public async Task The_review_log_never_feeds_recall_ranking_or_pruning()
     {
@@ -239,27 +220,13 @@ public class GraphMemoryReviewLogTests
         Assert.Equal(rows[0].BatchId, rows[1].BatchId);
     }
 
-    /// <summary>Best-effort at a STRICTER grain than reinforcement itself (Task 3): a broken review log must
-    /// cost neither the caller's hits nor the learning that already succeeded above it in
-    /// <c>ReinforceAsync</c>. A literal-substring query by construction, so the in-process store's own
-    /// contiguous-substring matching — the reason every OTHER fact in this file runs on SQLite — is not the
-    /// carve-out this test is exploiting; it is exactly the documented exception
-    /// (<c>.claude/knowledge/pitfalls.md</c>: "InMemory is fine ... when the query is a literal substring by
-    /// construction").
-    /// <para><b>Mutation-checked live, and the first attempt taught something worth recording.</b> Removing
-    /// the inner <c>try/catch</c> around <c>store.RecordReviewsAsync</c> in <c>GraphMemoryEngine.ReinforceAsync</c>
-    /// (leaving only the outer one) did NOT fail a version of this fact that asserted only stability growth:
-    /// <c>TouchAsync</c> is <c>await</c>ed and fully committed BEFORE the log write ever runs, so by the time
-    /// the log throws, the touch has already landed — the outer catch alone was enough to save that
-    /// particular effect, and the hits, from that specific mutation. What the missing inner catch ACTUALLY
-    /// costs is the CO-ACTIVATION loop, which sits AFTER the log write inside the SAME try block: with no
-    /// inner catch, the log's exception skips straight past it to the outer catch, so two nodes reinforced
-    /// together in the same recall never get linked. This fact was rewritten to reinforce TWO nodes at once
-    /// and assert the resulting edge, which the mutation DOES fail:
-    /// <c>Assert.True(afterItems[0].Degree &gt; 0, ...)</c> — under the mutation, <c>Degree</c> read <c>0</c>
-    /// for both entries (no edge formed); with the inner catch restored, it reads <c>1</c>. Reverted; re-ran;
-    /// passes again. See the task report for the exact numbers.</para>
-    /// </summary>
+    /// <summary>Best-effort at a STRICTER grain than reinforcement itself: a broken review log must cost
+    /// neither the caller's hits, nor the touch, nor the co-activation edges. It holds because
+    /// <see cref="IMemoryGraphStore.WriteBackAsync"/> writes the review log LAST (D101), so a reordering that
+    /// logged first fails the age and degree assertions below. A query-less recall, so the in-process store
+    /// needs no term matching.
+    /// <para>The entries are crowded BEFORE the first recall: at the shipped gain of 0 the touch's whole effect
+    /// is the age reset, and a just-written entry has no age to reset.</para></summary>
     [Fact]
     public async Task A_broken_review_log_costs_neither_the_hits_the_learning_nor_co_activation()
     {
@@ -269,23 +236,23 @@ public class GraphMemoryReviewLogTests
             });
         await engine.RememberAsync(new MemoryWrite("t", "s", "reinforced despite a broken log alpha"));
         await engine.RememberAsync(new MemoryWrite("t", "s", "reinforced despite a broken log beta"));
+        await Crowd(engine, 30);
 
         // no query text: both come back together, so the co-activation loop actually has a pair to link
         var first = await engine.RecallAsync(new MemoryQuery("t", "s", null, Limit: 10));
         Assert.Equal(2, first.Items.Count); // the hits, despite a log write that always throws
+        Assert.All(first.Items, item => Assert.True(item.Retrievability < 0.5,
+            $"the entries must have aged before the touch, or the reset below proves nothing (r={item.Retrievability})"));
 
-        await Crowd(engine, 30);
         var afterItems = (await engine.RecallAsync(new MemoryQuery("t", "s", null, Limit: 10))).Items;
+        Assert.Equal(2, afterItems.Count);
 
-        // the learning: the same bound GraphMemoryEngineTests.Recall_reinforces_what_it_returned pins for a
-        // healthy log — 30 events against a 20-event half-life is r≈0.35 unreinforced; the first recall's
-        // touch, which must have succeeded despite its log write failing, pushes both back above that
-        Assert.All(afterItems, item => Assert.True(item.Retrievability > 0.4,
-            $"reinforcement did not extend the half-life despite the broken log (r={item.Retrievability})"));
+        // the learning: the first recall's touch landed despite its log write failing, so both are fresh again
+        Assert.All(afterItems, item => Assert.Equal(1.0, item.Retrievability, precision: 9));
 
-        // co-activation: the two entries reinforced together in the FIRST recall must have linked, despite
-        // the broken log sitting between the touch and the co-activation loop in ReinforceAsync's try block
-        Assert.True(afterItems[0].Degree > 0, "co-activation did not link the two entries despite the broken log");
+        // co-activation: the two entries reinforced together in the FIRST recall must have linked
+        Assert.All(afterItems, item => Assert.True(item.Degree > 0,
+            "co-activation did not link the two entries despite the broken log"));
     }
 
     /// <summary>The eviction cap, wired end to end through the engine's own options rather than called

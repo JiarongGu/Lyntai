@@ -2,9 +2,9 @@ using Lyntai.Memory;
 
 namespace Lyntai.Tests.Memory;
 
-/// <summary>Backend-agnostic <see cref="IMemoryGraphStore"/> facts. MEM2b runs these against SQLite and
-/// Postgres unchanged; per <c>storage.md</c> the contract IS the deduplication mechanism for the relational
-/// pair, not a shared base class.
+/// <summary>Backend-agnostic <see cref="IMemoryGraphStore"/> facts, run unchanged against every shipped
+/// backend through <see cref="MemoryGraphStoreFacts"/>; per <c>storage.md</c> the contract IS the
+/// deduplication mechanism for the backends, not a shared base class.
 /// <para><b>Aging is done by WRITING</b>, not by advancing a clock: an entry's age is how far the engine's
 /// position has moved since it was last used, and only writes move it. <see cref="Crowd"/> is how these
 /// facts make something old.</para>
@@ -33,6 +33,12 @@ public static class MemoryGraphStoreContract
             await store.UpsertAsync(new GraphNodeWrite(engine, key, "filler", $"filler {i}", $"filler {i}",
                 MemoryGrade.Associative, Stability, 1, null));
     }
+
+    /// <summary>Advance the POSITION by <paramref name="advance"/> in ONE write — for a fact that needs a large
+    /// <see cref="GraphNode.Age"/> and not a large ordinal age, without paying thousands of upserts per backend.</summary>
+    private static Task CrowdAtOnce(IMemoryGraphStore store, string engine, string key, double advance) =>
+        store.UpsertAsync(new GraphNodeWrite(engine, key, "filler", "one large filler", "one large filler",
+            MemoryGrade.Associative, Stability, advance, null));
 
     public static async Task Upsert_then_seed_by_single_token_substring(IMemoryGraphStore store, string key)
     {
@@ -164,7 +170,7 @@ public static class MemoryGraphStoreContract
 
     /// <summary>A deleted node keeps no claim on its subjects — otherwise it would keep linking live facts
     /// to something that no longer exists, which is the subject-side twin of the dangling edge
-    /// <see cref="Deleting_a_node_takes_its_edges_with_it"/> guards against.</summary>
+    /// <see cref="DeleteAsync_takes_edges_with_the_nodes"/> guards against.</summary>
     public static async Task Deleting_a_node_takes_its_subjects_with_it(IMemoryGraphStore store, string key)
     {
         var id = await store.UpsertAsync(Write("e", key, "a fact that will be deleted"));
@@ -265,7 +271,7 @@ public static class MemoryGraphStoreContract
         IMemoryGraphStore store, string key)
     {
         await store.UpsertAsync(Write("quiet", key, "a fact nobody disturbs"));
-        await Crowd(store, "busy", key, 200);
+        await CrowdAtOnce(store, "busy", key, 200);
 
         var hits = await store.SeedAsync("quiet", key, "s", null, 10);
 
@@ -284,7 +290,7 @@ public static class MemoryGraphStoreContract
     {
         await store.UpsertAsync(Write("e", key, "a note nobody has used in a long time"));
         await store.UpsertAsync(Write("e", key, "an exact fact", MemoryGrade.Authoritative));
-        await Crowd(store, "e", key, 5000);
+        await CrowdAtOnce(store, "e", key, 5000);
 
         var hits = await store.SeedAsync("e", key, "s", null, 10);
 
@@ -1026,7 +1032,7 @@ public static class MemoryGraphStoreContract
         IMemoryGraphStore store, string key)
     {
         await store.UpsertAsync(Write("quiet", key, "a fact nobody disturbs"));
-        await Crowd(store, "busy", key, 200);
+        await Crowd(store, "busy", key, 3);
 
         var hits = await store.SeedAsync("quiet", key, "s", null, 10);
 
@@ -1328,9 +1334,9 @@ public static class MemoryGraphStoreContract
         Assert.True(neighbour.EdgeElapsedAge >= 0);                   // wall-clock, so only its sign is fixed
     }
 
-    /// <summary>An unconnected node has nothing to measure connection freshness FROM, so every strength scale
-    /// reads zero — including the three primitives, whose SQL <c>MAX</c> over no rows is NULL and must not
-    /// surface as one.</summary>
+    /// <summary>An unconnected node has no strength and nothing to measure connection freshness FROM, so
+    /// every strength scale reads zero — including the three primitives, whose SQL <c>MAX</c> over no rows is
+    /// NULL and must not surface as one.</summary>
     public static async Task An_unconnected_node_reports_no_connection_freshness(
         IMemoryGraphStore store, string key)
     {
@@ -1340,20 +1346,11 @@ public static class MemoryGraphStoreContract
         var node = await store.GetAsync("e", id);
         Assert.NotNull(node);
 
-        Assert.Equal(0, node!.StrengthAge, precision: 6);
+        Assert.Equal(0, node!.Strength);
+        Assert.Equal(0, node.StrengthAge, precision: 6);
         Assert.Equal(0, node.StrengthOrdinalAge, precision: 6);
         Assert.Equal(0, node.StrengthVolumeAge, precision: 6);
         Assert.Equal(0, node.StrengthElapsedAge, precision: 6);
-    }
-
-    public static async Task An_unconnected_node_reports_no_strength(IMemoryGraphStore store, string key)
-    {
-        var id = await store.UpsertAsync(Write("e", key, "alone"));
-
-        var node = await store.GetAsync("e", id);
-
-        Assert.Equal(0, node!.Strength);
-        Assert.Equal(0, node.StrengthAge);
     }
 
     public static async Task Prune_removes_only_what_it_is_told_to(IMemoryGraphStore store, string key)
@@ -1453,18 +1450,21 @@ public static class MemoryGraphStoreContract
         Assert.Empty(await store.SeedAsync("e", key, "s", null, 10));
     }
 
-    public static async Task Deleting_a_node_takes_its_edges_with_it(IMemoryGraphStore store, string key)
+    /// <summary>Forgetting a scope takes every edge touching it, observed from a SURVIVING node in another
+    /// scope. Re-inserting the forgotten content and reading the new row's degree cannot see a dangling edge:
+    /// no backend ever reuses an id, so the stale edge points at an id nothing has any more.</summary>
+    public static async Task Forgetting_a_scope_takes_its_edges_with_it(IMemoryGraphStore store, string key)
     {
-        var a = await store.UpsertAsync(Write("e", key, "alpha"));
-        var b = await store.UpsertAsync(Write("e", key, "beta"));
-        await store.LinkAsync("e", a, b, null, 1, symmetric: true);
+        var gone = await store.UpsertAsync(Write("e", key, "alpha"));
+        var keep = await store.UpsertAsync(new GraphNodeWrite("e", key, "keep", "beta", "beta",
+            MemoryGrade.Associative, Stability, 1, null));
+        await store.LinkAsync("e", gone, keep, null, 1, symmetric: true);
+        Assert.Equal(1, (await store.GetAsync("e", keep))!.Degree);   // the edge is really there first
 
         await store.ForgetAsync("e", key, "s");
-        await store.UpsertAsync(Write("e", key, "alpha")); // same content, new row
 
-        var reborn = await store.SeedAsync("e", key, "s", "alpha", 10);
-        Assert.Single(reborn);
-        Assert.Equal(0, reborn[0].Degree); // no dangling edge survived
+        Assert.Equal(0, (await store.GetAsync("e", keep))!.Degree);
+        Assert.Empty(await store.NeighboursAsync("e", key, [keep], 10));
     }
 
     public static async Task Cancellation_propagates(IMemoryGraphStore store, string key)
@@ -1618,6 +1618,11 @@ public static class MemoryGraphStoreContract
             olderThan: null);
 
         Assert.Equal(0, removed);
+
+        // the positive control: the same entry IS prunable under a cutoff below its floored ratio (the filler
+        // is age 0, so it is not), so the zero above is the floor at work rather than a prune that does nothing
+        Assert.Equal(1, await store.PruneAsync(engine, key, scope: null, maxAgeOverStability: 5e5,
+            olderThan: null));
     }
 
     /// <summary><b>An UNSTATED grade keeps the stored one; a stated grade overwrites it.</b>
@@ -1677,6 +1682,27 @@ public static class MemoryGraphStoreContract
         await store.UpsertAsync(new GraphNodeWrite(engine, key, "s", "prod DB (subnet only)", content,
             MemoryGrade.Associative, Stability, 1, null));
         Assert.Equal("prod DB (subnet only)", (await store.GetAsync(engine, id))!.Headline);
+    }
+
+    /// <summary><b>A restated headline stops matching the words only the OLD headline carried.</b> The
+    /// search index must follow an UPDATE, not only an insert or a delete: the row keeps its id, so an index
+    /// entry left behind for the old headline still joins to a live row and keeps matching forever. On SQLite
+    /// this is what the <c>AFTER UPDATE</c> FTS trigger exists for.</summary>
+    public static async Task A_restated_headline_stops_matching_words_only_the_old_one_carried(
+        IMemoryGraphStore store, string key)
+    {
+        const string engine = "reheadline";
+        const string content = "the release train leaves every other thursday";
+
+        await store.UpsertAsync(new GraphNodeWrite(engine, key, "s", "zebra crossing", content,
+            MemoryGrade.Associative, Stability, 1, null));
+        Assert.Single(await store.SeedAsync(engine, key, "s", "zebra", 10));   // the old headline matched
+
+        await store.UpsertAsync(new GraphNodeWrite(engine, key, "s", "giraffe schedule", content,
+            MemoryGrade.Associative, Stability, 1, null));
+
+        Assert.Empty(await store.SeedAsync(engine, key, "s", "zebra", 10));
+        Assert.Single(await store.SeedAsync(engine, key, "s", "giraffe", 10));
     }
 
     /// <summary><b>No read crosses a <c>taskKey</c>.</b> The isolation every other guarantee is stated

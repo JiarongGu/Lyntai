@@ -12,22 +12,10 @@ namespace Lyntai.Tests.Memory;
 
 /// <summary>
 /// A pathology battery for <see cref="DsrRetrievability"/> — the standing evidence that the curve this
-/// library ships as its ONLY forgetting model does not do anything unacceptable.
-/// <para><b>Retargeted 2026-08-10 (fsrs-properly plan, Task 1) from a two-curve falsification pass to a
-/// single-curve pathology battery.</b> This file was originally Task 3 of the DSR-default falsification plan:
-/// it ran every item below against BOTH <see cref="DsrRetrievability"/> and the exponential curve it shared
-/// the domain with, <c>HalfLifeRetrievability</c> — deleted in 3.0 (<c>docs/DECISIONS.md</c>). Two facts that
-/// existed only to COMPARE the two curves' numbers against each other are gone with the curve they compared
-/// against (a mechanism-isolation probe pinning the deleted curve's own flat `× 1.5`, and a single-seed
-/// corpus-scale reproduction of a `topical` miss-rate gap between the two — both superseded findings, whose
-/// prose git history keeps from FSRS-C). <b>The other seven do not compare against anything
-/// — they are falsification checks on DSR itself</b>, and deleting the file wholesale would have discarded
-/// that evidence rather than the two comparisons that no longer apply. With no alternative curve left to fall
-/// back to, this coverage matters MORE now, not less.</para>
-/// <para><b>The battery, enumerated before any of it ran</b> (Task 3 of
-/// <c>local/superpowers/plans/2026-08-10-dsr-default-falsification-plan-6.md</c> carries the same list
-/// written down before this file existed — preserved here because an enumerated-in-advance list is what makes
-/// a "did not falsify" claim credible rather than a search for facts that happened to pass):</para>
+/// library ships as its ONLY forgetting model does not do anything unacceptable. Every item is a
+/// falsification check on DSR itself, not a comparison against another curve.
+/// <para><b>The battery, enumerated before any of it ran</b> — an enumerated-in-advance list is what makes a
+/// "did not falsify" claim credible rather than a search for facts that happened to pass:</para>
 /// <list type="number">
 /// <item>A memory becoming permanently UNREACHABLE. Burial is fine; unreachability is not.</item>
 /// <item>Stability COLLAPSING or EXPLODING under a reachable sequence of writes and recalls.</item>
@@ -46,10 +34,8 @@ namespace Lyntai.Tests.Memory;
 /// <para><b>Every item runs against whatever curve(s) <see cref="Curves"/> yields</b> — today just
 /// <see cref="DsrRetrievability"/>, but the shape is deliberately kept extensible: a future curve variant
 /// (for instance a difficulty-live vs. difficulty-inert DSR pairing) adds a row rather than a new file.</para>
-/// <para><b>SQLite, never <c>InMemoryMemoryGraphStore</c></b> (<c>.claude/knowledge/pitfalls.md</c>): every
-/// fact here has recall or touch as its subject, and the in-process store matches a query as a contiguous
-/// substring, so a realistic query built from the corpus's own vocabulary would silently exercise only the
-/// write path there.</para>
+/// <para><b>SQLite by default</b>: the replayed-corpus items depend on which entries a recall RANKS into its
+/// top ten, and only a relational store ranks (<c>.claude/knowledge/pitfalls.md</c>).</para>
 /// </summary>
 public class DsrPathologyTests
 {
@@ -165,52 +151,39 @@ public class DsrPathologyTests
             $"[{label}] stability EXPLODED past the documented ceiling of 2000: {node.Stability}");
     }
 
-    /// <summary>THE Part-54 DSR2 fix, on the LIVE path (fixed 2026-08-11 — this fact previously existed here
-    /// as the REPRODUCTION of the defect, asserting the 100000 → 2000 shortening it now asserts cannot
-    /// happen). <c>Reinforce</c> used to end in a bare <c>Math.Min(grown, MaxStability)</c>, so a stability
-    /// already stored past a LOWERED ceiling was SHORTENED rather than left alone — reachable by
-    /// reconfiguring <c>MaxStability</c> under an existing corpus, a real deployment action rather than a
-    /// hand-edit of storage, which is why it belongs in this battery's item 2 ("stability collapsing under
-    /// ANY reachable sequence"). The clamp is now floored at the entry's own stability, so the ceiling caps
-    /// GROWTH and never CUTS: an over-ceiling entry is FROZEN.
-    /// <para>Kept as an ENGINE + SQLite round trip rather than folded into
-    /// <c>DsrRetrievabilityTests</c>'s own direct-call fact, because the defect's reach was never about the
-    /// arithmetic alone: <see cref="Lyntai.Memory.Engines.GraphMemoryEngine"/> feeds <c>Reinforce</c>'s return
-    /// straight into <c>TouchAsync</c>, so the shortened value was PERSISTED — that is what made a 50× cut
-    /// permanent rather than momentary.</para></summary>
-    [Theory]
-    [MemberData(nameof(Curves))]
-    public async Task Lowering_MaxStability_under_an_existing_corpus_FREEZES_a_memory_rather_than_shortening_it(
-        string label, Func<IMemoryRetrievabilityPolicy> _)
+    /// <summary>Lowering <c>MaxStability</c> under an existing corpus FREEZES an entry already above it: the
+    /// ceiling caps GROWTH and never CUTS (<c>docs/task-archive.md</c> Part 54, DSR2). Reachable by
+    /// reconfiguration alone, which is why it belongs in item 2.
+    /// <para>An ENGINE + SQLite round trip rather than a direct call, because the engine PERSISTS
+    /// <c>Reinforce</c>'s return — that is what made the old 50× cut permanent. The equality is two-sided:
+    /// growth is on and the entry is aged, so a bare <c>Math.Min</c> CUTS it to 2000 and a missing
+    /// <c>Math.Min</c> lets it COMPOUND past 3000.</para></summary>
+    [Fact]
+    public async Task Lowering_MaxStability_under_an_existing_corpus_FREEZES_a_memory_rather_than_shortening_it()
     {
         using var db = new TempDb();
         var store = new SqliteMemoryGraphStore(db.Factory);
 
         // seed a stability already past a ceiling we are ABOUT to configure lower than it
         var write = new GraphNodeWrite(EngineName, "t", "s", "h", "item ceiling0 already durable",
-            MemoryGrade.Associative, InitialStability: 100_000, Advance: 1, Metadata: null);
+            MemoryGrade.Associative, InitialStability: 3000, Advance: 1, Metadata: null);
         var id = await store.UpsertAsync(write);
 
-        var lowCeiling = new DsrRetrievability(new DsrOptions { MaxStability = 2000 });
+        var lowCeiling = new DsrRetrievability(new DsrOptions { MaxStability = 2000, ReinforceGain = 2.0 });
         var engine = BuildEngine(store, lowCeiling);
+        // aged, so law 3's spacing term is non-zero and an uncapped reinforcement would really grow it
+        for (var i = 0; i < 20; i++)
+            await engine.RememberAsync(new MemoryWrite("t", "s", $"item filler{i} was written only to interpose age"));
 
         var recalled = await engine.RecallAsync(new MemoryQuery("t", "s", "ceiling0"));
 
         var node = await store.GetAsync(EngineName, id);
         Assert.NotNull(node);
-        // A guard that cannot observe the thing it guards is worse than none
-        // (`.claude/knowledge/pitfalls.md`): "the stability did not move" passes just as happily on a run
-        // where the recall never returned this entry and Reinforce was therefore never called at all. The
-        // provenance bit is what tells those apart — the row above was written with NONE, and only a touch
-        // can set it.
-        Assert.NotEmpty(recalled.Items);
+        // the provenance bit proves Reinforce ran: the row was written with NONE, and only a touch sets it
+        Assert.Contains(recalled.Items, i => i.Headline == "h");
         Assert.Equal((long)MemoryRetrievabilityProvenance.Dsr, node!.ProvenanceRetrievability);
 
-        Assert.Equal(100_000, node.Stability, precision: 6);
-        Assert.True(node.Stability >= 100_000 - 1e-6,
-            $"[{label}] the Part-54 DSR2 defect is back: a stored stability of 100000 was shortened to " +
-            $"{node.Stability} by a recall under a ceiling of 2000. A ceiling caps GROWTH; it must never CUT " +
-            "what is already stored (IMemoryRetrievabilityPolicy.Reinforce's own written guarantee).");
+        Assert.Equal(3000, node.Stability, precision: 6);
     }
 
     // ---------------------------------------------------------------------------------------------------
@@ -439,11 +412,16 @@ public class DsrPathologyTests
     /// probability. Every one holds; if any of them had failed HERE, that would be the defect this whole
     /// battery is looking for. It is not — the loss the deleted comparison measured was a ranking-competition
     /// side effect of what <see cref="MultiplicativeRankingPolicy"/> rewards, not a violation of what DSR
-    /// promises.</summary>
-    [Fact]
-    public async Task Own_probe_Dsr_stays_internally_correct_under_the_exact_pattern_that_starves_it()
+    /// promises.
+    /// <para>Every recall is asserted to RETURN the target, and the target's stability to have grown past
+    /// its initial value by the end: without both, "stability never shrinks" holds for an entry nothing ever
+    /// reinforced.</para></summary>
+    [Theory]
+    [MemberData(nameof(Curves))]
+    public async Task Own_probe_Dsr_stays_internally_correct_under_the_exact_pattern_that_starves_it(
+        string label, Func<IMemoryRetrievabilityPolicy> factory)
     {
-        var policy = new DsrRetrievability();
+        var policy = factory();
         using var db = new TempDb();
         var store = new SqliteMemoryGraphStore(db.Factory);
         var engine = BuildEngine(store, policy);
@@ -459,13 +437,14 @@ public class DsrPathologyTests
             if (k > 0)
                 await engine.RememberAsync(
                     new MemoryWrite("t", "s", $"item betweenfiller{k} was written only to interpose age"));
-            await engine.RecallAsync(new MemoryQuery("t", "s", $"target0 repeat{k}", Limit: 10));
+            var recall = await engine.RecallAsync(new MemoryQuery("t", "s", $"target0 repeat{k}", Limit: 10));
+            Assert.Contains(recall.Items, i => i.Reference.Id == reference.Id);
             var node = await store.GetAsync(EngineName, long.Parse(reference.Id, CultureInfo.InvariantCulture));
             Assert.NotNull(node);
 
             if (previousStability is double prev)
                 Assert.True(node!.Stability >= prev - 1e-9,
-                    $"touch {k}: stability SHRANK from {prev:F4} to {node.Stability:F4} — violates " +
+                    $"[{label}] touch {k}: stability SHRANK from {prev:F4} to {node.Stability:F4} — violates " +
                     "IMemoryRetrievabilityPolicy.Reinforce's own documented contract " +
                     "(Reinforcement_never_shortens_a_memory).");
             previousStability = node!.Stability;
@@ -473,6 +452,10 @@ public class DsrPathologyTests
             var r = policy.Retrievability(node.DecayState);
             Assert.InRange(r, 0, 1);
         }
+
+        Assert.True(previousStability > policy.InitialStability,
+            $"[{label}] the target never grew past InitialStability ({previousStability}), so the " +
+            "never-shrinks check above had nothing to observe");
     }
 
     /// <summary><b>Item 8 — a non-finite <see cref="MemoryDecayState.Age"/> must not reach
@@ -488,16 +471,15 @@ public class DsrPathologyTests
     /// landed twice in four days), so a <c>NaN</c> age produced a <c>NaN</c> grade, a <c>NaN</c> difficulty,
     /// and a <c>NaN</c> row in the review log — the artifact that exists to make parameter fitting possible
     /// at all.</para>
-    /// <para>Found by the 2026-08-14 review. The fix reports NO JUDGEMENT rather than a poisoned one, reusing
-    /// the meaning <c>null</c> already carries for the Δt=0 bypass: nothing computable happened, so nothing
-    /// should move.</para></summary>
+    /// <para>The fix reports NO JUDGEMENT rather than a poisoned one, reusing the meaning <c>null</c> already
+    /// carries for the Δt=0 bypass: nothing computable happened, so nothing should move.</para>
     /// <para><b>The three non-finite ages are not one case, and saying which is which is the point.</b>
     /// <c>NaN</c> is the uncomputable one and the only one that produced the defect: it survives
     /// <c>state.Age &lt;= 0</c> (every comparison against <c>NaN</c> is false) and then survives
     /// <c>Math.Clamp</c>, so it reaches the grade. <c>-Infinity</c> was always caught by the Δt=0 branch.
     /// <c>+Infinity</c> is genuinely COMPUTABLE — <c>Math.Pow(+Infinity, decay)</c> with a negative exponent
     /// is exactly <c>0</c>, so it means "fully forgotten" and derives a real Hard grade. Asserting <c>null</c>
-    /// for all three would have been a stronger claim than the code should make.</para>
+    /// for all three would have been a stronger claim than the code should make.</para></summary>
     [Fact]
     public void A_non_finite_age_never_produces_a_non_finite_grade_or_difficulty()
     {
@@ -548,9 +530,8 @@ public class DsrPathologyTests
         var reference = (await engine.RememberAsync(new MemoryWrite("t", "s", "gadget ordinary one"))).Reference;
         await engine.ExpandAsync(reference);
 
-        var nodes = await store.SeedAsync("project/graph", "t", "s", null, 10, CancellationToken.None);
-        Assert.All(nodes, n => Assert.True(double.IsFinite(n.DecayState.Difficulty),
-            $"persisted Difficulty is {n.DecayState.Difficulty}"));
+        var node = Assert.Single(await store.SeedAsync("project/graph", "t", "s", null, 10, CancellationToken.None));
+        Assert.True(double.IsFinite(node.DecayState.Difficulty), $"persisted Difficulty is {node.DecayState.Difficulty}");
     }
 
     /// <summary>A BYO age policy reporting a non-finite age — the public seam that makes the two facts above

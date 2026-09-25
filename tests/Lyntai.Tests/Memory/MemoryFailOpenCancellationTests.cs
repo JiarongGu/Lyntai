@@ -189,6 +189,11 @@ public class MemoryFailOpenCancellationTests
 
     // ---- the controls: the caller's cancellation is still never swallowed ----------------------------
 
+    /// <summary>The other half of every fact above. Without it the whole suite is satisfied by "swallow every
+    /// cancellation", which would make a cancelled recall look like a successful empty one.
+    /// <para>The caller cancels MID-CALL, from inside the store, and the exception is MARKED: every engine
+    /// checks the token on entry, so a pre-cancelled one never reaches a fail-open catch at all and would
+    /// pass whatever that catch does.</para></summary>
     [Theory]
     [InlineData("graph")]
     [InlineData("lexical")]
@@ -196,32 +201,37 @@ public class MemoryFailOpenCancellationTests
     [InlineData("semantic")]
     public async Task A_CALLER_cancelling_still_propagates_from_every_engine(string kind)
     {
-        // The other half of every fact above. Without it the whole suite is satisfied by "swallow every
-        // cancellation", which would make a cancelled recall look like a successful empty one.
+        using var cts = new CancellationTokenSource();
         IMemoryEngine engine = kind switch
         {
-            "graph" => new GraphMemoryEngine("graph", new InMemoryMemoryGraphStore()),
-            "lexical" => new LexicalMemoryEngine("lex", new FakeMemoryStore()),
-            "curated" => new CuratedMemoryEngine("curated", new FakeCuratedStore()),
-            _ => new SemanticMemoryEngine("sem", new FakeSemanticMemory()),
+            "graph" => new GraphMemoryEngine("graph", new TimingOutGraphStore(nameof(IMemoryGraphStore.SeedAsync))
+                { Caller = cts }),
+            "lexical" => new LexicalMemoryEngine("lex", new TimingOutMemoryStore { Caller = cts }),
+            "curated" => new CuratedMemoryEngine("curated", new TimingOutCuratedStore { Caller = cts }),
+            _ => new SemanticMemoryEngine("sem", new TimingOutSemanticMemory { Caller = cts }),
         };
-        using var cts = new CancellationTokenSource();
-        await cts.CancelAsync();
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+        var thrown = await Assert.ThrowsAnyAsync<OperationCanceledException>(
             () => engine.RecallAsync(Query(), cts.Token));
+
+        Assert.Equal(StoreFault.CallerMarker, thrown.Message);
     }
 
+    /// <summary>The same control END TO END: the caller cancels inside a graph member's store, four layers
+    /// below a walk over a composite — every fail-open handler in between must let it through.</summary>
     [Fact]
     public async Task A_CALLER_cancelling_still_propagates_from_a_walk()
     {
-        var engine = new TimingOutEngine("slow", onRecall: false, onExpand: false);
         using var cts = new CancellationTokenSource();
-        await cts.CancelAsync();
+        var graph = new GraphMemoryEngine("graph", new TimingOutGraphStore(nameof(IMemoryGraphStore.SeedAsync))
+            { Caller = cts });
+        var composite = new CompositeMemoryEngine("blend", [graph]);
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+        var thrown = await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
         {
-            await foreach (var _ in engine.WalkAsync(Query(), ct: cts.Token)) { }
+            await foreach (var _ in composite.WalkAsync(Query(), ct: cts.Token)) { }
         });
+
+        Assert.Equal(StoreFault.CallerMarker, thrown.Message);
     }
 }

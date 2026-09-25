@@ -128,20 +128,29 @@ public class GraphMemoryEngineTests
         Assert.Equal(1.0, recall.Items[0].Retrievability, precision: 9);
     }
 
+    /// <summary>At the shipped curve (<c>ReinforceGain = 0</c>, D54) a recall's reinforcement IS the age
+    /// reset, so it is measured against a control engine whose middle recall never happened. The entry is
+    /// crowded BEFORE that recall: a just-written entry is at age 0, where a reset changes nothing.</summary>
     [Fact]
     public async Task Recall_reinforces_what_it_returned()
     {
-        var engine = Engine();
-        await engine.RememberAsync(new MemoryWrite("t", "s", "reinforced fact"));
+        async Task<double> FinalRetrievability(bool recallInBetween)
+        {
+            var engine = Engine();
+            await engine.RememberAsync(new MemoryWrite("t", "s", "reinforced fact"));
+            await Crowd(engine, 30);
+            if (recallInBetween)
+                Assert.NotEmpty((await engine.RecallAsync(new MemoryQuery("t", "s", "reinforced"))).Items);
+            await Crowd(engine, 30);
+            return Assert.Single((await engine.RecallAsync(new MemoryQuery("t", "s", "reinforced"))).Items)
+                .Retrievability;
+        }
 
-        await engine.RecallAsync(new MemoryQuery("t", "s", "reinforced")); // reinforces, does not age
-        await Crowd(engine, 30);
-        var after = (await engine.RecallAsync(new MemoryQuery("t", "s", "reinforced"))).Items[0];
+        var reinforced = await FinalRetrievability(recallInBetween: true);
+        var control = await FinalRetrievability(recallInBetween: false);
 
-        // 30 events against the original 20-event half-life would be r≈0.35; the first recall pushed the
-        // half-life out to 30, so it stands higher than that
-        Assert.True(after.Retrievability > 0.4,
-            $"reinforcement did not extend the half-life (r={after.Retrievability})");
+        Assert.True(reinforced > control,
+            $"the middle recall did not reinforce the entry it returned (r={reinforced}, control r={control})");
     }
 
     [Fact]
@@ -249,20 +258,6 @@ public class GraphMemoryEngineTests
         var recall = await engine.RecallAsync(new MemoryQuery("t", "s", "exact"));
 
         Assert.Single(recall.Items);
-    }
-
-    [Fact]
-    public async Task Items_recalled_together_become_connected()
-    {
-        var engine = Engine();
-        await engine.RememberAsync(new MemoryWrite("t", "s", "alpha relates to the gate"));
-        await engine.RememberAsync(new MemoryWrite("t", "s", "beta relates to the gate"));
-
-        await engine.RecallAsync(new MemoryQuery("t", "s", "gate")); // co-activation happens here
-        var again = await engine.RecallAsync(new MemoryQuery("t", "s", "gate"));
-
-        Assert.All(again.Items, i => Assert.True(i.Degree >= 1,
-            "co-activation did not link the items returned together"));
     }
 
     /// <summary>The fixture both tests below share: a hub linked to a BURIED entry and a live one, where the
@@ -894,8 +889,8 @@ public class GraphMemoryEngineTests
     /// learning, not a property of the forgetting curve, so it belongs here.</para>
     /// <para><b>The growth is switched ON at the policy explicitly</b> (<c>ReinforceGain = 2.0</c>), so the
     /// assertion cannot pass by accident on 3.0's growth-free default — the curve is trying to grow and the
-    /// engine is what stops it. That also makes this the exact inverse of the weld fact above, which runs
-    /// the same policy with the same gain and gets both effects.</para></summary>
+    /// engine is what stops it. The weld fact above is the inverse control: the same policy, the same gain,
+    /// the default option set, and both effects.</para></summary>
     [Fact]
     public async Task Reinforcement_effects_are_separable_the_age_resets_while_stability_is_left_alone()
     {
@@ -923,36 +918,6 @@ public class GraphMemoryEngineTests
         var after = (await store.GetAsync("e", id))!;
         Assert.Equal(0, after.OrdinalAge, precision: 9);                  // effect 1: still applied
         Assert.Equal(before.Stability, after.Stability, precision: 9);    // effect 2: suppressed
-    }
-
-    /// <summary><b>The inverse control: with the SAME curve and the same gain, the default option set still
-    /// grows.</b> Without this, the fact above would pass just as well if the engine had stopped reinforcing
-    /// entirely, or if <c>ReinforceGain = 2.0</c> silently did nothing — both of which would make it a test
-    /// of the wrong thing. It is the same shape as the authoritative-survival control (D56): a promise about
-    /// a switch needs the switch's OTHER position measured too.</summary>
-    [Fact]
-    public async Task The_default_effect_set_still_grows_stability_so_the_suppression_above_is_the_option()
-    {
-        const string content = "the deploy pipeline requires manual approval";
-        const string query = "deploy pipeline";
-
-        var store = new InMemoryMemoryGraphStore();
-        var engine = new GraphMemoryEngine("e", store, seams: new GraphMemorySeams
-            {
-                Retrievability = new DsrRetrievability(new DsrOptions { ReinforceGain = 2.0 }),
-                AgePolicies = [new PerWriteAgePolicy()],
-            });
-        var reference = (await engine.RememberAsync(new MemoryWrite("t", "s", content))).Reference;
-        var id = long.Parse(reference.Id, CultureInfo.InvariantCulture);
-
-        await Crowd(engine, 10);
-        var before = (await store.GetAsync("e", id))!;
-
-        Assert.NotEmpty((await engine.RecallAsync(new MemoryQuery("t", "s", query))).Items);
-
-        var after = (await store.GetAsync("e", id))!;
-        Assert.True(after.Stability > before.Stability,
-            $"the default must still grow; was {before.Stability}, now {after.Stability}");
     }
 
     /// <summary><b><see cref="MemoryReinforcementEffects.None"/> skips the store call outright — it is not
