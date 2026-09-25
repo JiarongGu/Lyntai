@@ -10,16 +10,6 @@ namespace Lyntai.Tests.Generation;
 /// a process restart resumes polling instead of paying for the same render twice.</summary>
 public class GenerationRenderJobHandlerTests
 {
-    private sealed class CollectingSink : IGenerationArtifactSink
-    {
-        public List<GenerationArtifactDelivery> Received { get; } = [];
-
-        public Task ReceiveAsync(GenerationArtifactDelivery delivery, CancellationToken ct = default)
-        {
-            Received.Add(delivery);
-            return Task.CompletedTask;
-        }
-    }
 
     /// <summary>A job context that records what the handler checkpointed / reported, the way the runner would
     /// persist it.</summary>

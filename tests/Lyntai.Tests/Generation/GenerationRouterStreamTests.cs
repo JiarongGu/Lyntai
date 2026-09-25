@@ -24,13 +24,6 @@ public class GenerationRouterStreamTests
     private static ProviderCandidate[] Candidates(params IModelProvider[] providers) =>
         [.. providers.Select(p => new ProviderCandidate(p.Id))];
 
-    private static async Task<List<MediaChunk>> Collect(IAsyncEnumerable<MediaChunk> stream)
-    {
-        var chunks = new List<MediaChunk>();
-        await foreach (var chunk in stream) chunks.Add(chunk);
-        return chunks;
-    }
-
     /// <summary>Exactly one terminal chunk, and it is LAST — asserted on every path, because "the stream
     /// ended" and "the stream ended well" are the two things a raw enumerable cannot distinguish.</summary>
     private static MediaChunk AssertOneTerminal(List<MediaChunk> chunks)
@@ -46,7 +39,7 @@ public class GenerationRouterStreamTests
     {
         var tts = new FakeGenerationStreamProvider { Id = "tts" };
 
-        var chunks = await Collect(Router(tts).StreamAsync(Candidates(tts), Speech()));
+        var chunks = await Router(tts).StreamAsync(Candidates(tts), Speech()).ToListAsync();
 
         var terminal = AssertOneTerminal(chunks);
         Assert.True(terminal.Final);
@@ -68,7 +61,7 @@ public class GenerationRouterStreamTests
         };
         var tts = new FakeGenerationStreamProvider { Id = "tts" };
 
-        var chunks = await Collect(Router(inlineOnly, tts).StreamAsync(Candidates(inlineOnly, tts), Speech()));
+        var chunks = await Router(inlineOnly, tts).StreamAsync(Candidates(inlineOnly, tts), Speech()).ToListAsync();
 
         Assert.True(AssertOneTerminal(chunks).Final);
         Assert.Equal(0, inlineOnly.StreamCalls);
@@ -90,7 +83,7 @@ public class GenerationRouterStreamTests
             Script = [MediaChunk.Content([9]), MediaChunk.Completed()],
         };
 
-        var chunks = await Collect(Router(broken, healthy).StreamAsync(Candidates(broken, healthy), Speech()));
+        var chunks = await Router(broken, healthy).StreamAsync(Candidates(broken, healthy), Speech()).ToListAsync();
 
         Assert.True(AssertOneTerminal(chunks).Final);
         Assert.Equal(1, healthy.StreamCalls);
@@ -116,7 +109,7 @@ public class GenerationRouterStreamTests
             Script = [MediaChunk.Content([9]), MediaChunk.Completed()],
         };
 
-        var chunks = await Collect(Router(half, healthy).StreamAsync(Candidates(half, healthy), Speech()));
+        var chunks = await Router(half, healthy).StreamAsync(Candidates(half, healthy), Speech()).ToListAsync();
 
         var terminal = AssertOneTerminal(chunks);
         Assert.Equal(ProviderVerdict.Failed, terminal.Error);
@@ -140,7 +133,7 @@ public class GenerationRouterStreamTests
             Script = [MediaChunk.Content([9]), MediaChunk.Completed()],
         };
 
-        var chunks = await Collect(Router(half, healthy).StreamAsync(Candidates(half, healthy), Speech()));
+        var chunks = await Router(half, healthy).StreamAsync(Candidates(half, healthy), Speech()).ToListAsync();
 
         Assert.NotNull(AssertOneTerminal(chunks).Error);
         Assert.Equal(0, healthy.StreamCalls);
@@ -164,8 +157,8 @@ public class GenerationRouterStreamTests
             Script = [MediaChunk.Content([9]), MediaChunk.Completed()],
         };
 
-        var chunks = await Collect(Router(unreachable, healthy).StreamAsync(
-            Candidates(unreachable, healthy), Speech()));
+        var chunks = await Router(unreachable, healthy).StreamAsync(
+            Candidates(unreachable, healthy), Speech()).ToListAsync();
 
         Assert.True(AssertOneTerminal(chunks).Final);
         Assert.Equal(1, healthy.StreamCalls);
@@ -194,8 +187,8 @@ public class GenerationRouterStreamTests
             Script = [MediaChunk.Content([9]), MediaChunk.Completed()],
         };
 
-        var chunks = await Collect(Router(announcer, healthy).StreamAsync(
-            Candidates(announcer, healthy), Speech()));
+        var chunks = await Router(announcer, healthy).StreamAsync(
+            Candidates(announcer, healthy), Speech()).ToListAsync();
 
         Assert.True(AssertOneTerminal(chunks).Final);
         Assert.Equal(1, healthy.StreamCalls);
@@ -215,7 +208,7 @@ public class GenerationRouterStreamTests
             Script = [MediaChunk.Content([9]), MediaChunk.Completed()],
         };
 
-        var chunks = await Collect(Router(empty, healthy).StreamAsync(Candidates(empty, healthy), Speech()));
+        var chunks = await Router(empty, healthy).StreamAsync(Candidates(empty, healthy), Speech()).ToListAsync();
 
         Assert.True(AssertOneTerminal(chunks).Final);
         Assert.Equal(1, healthy.StreamCalls);
@@ -232,7 +225,7 @@ public class GenerationRouterStreamTests
             Script = [MediaChunk.Content([1, 2])],   // no Final, no Error — it simply ends
         };
 
-        var chunks = await Collect(Router(truncated).StreamAsync(Candidates(truncated), Speech()));
+        var chunks = await Router(truncated).StreamAsync(Candidates(truncated), Speech()).ToListAsync();
 
         Assert.True(AssertOneTerminal(chunks).Final);
         Assert.Equal([1, 2], chunks[0].Data);
@@ -248,7 +241,7 @@ public class GenerationRouterStreamTests
             Script = [MediaChunk.Content([9]), MediaChunk.Completed()],
         };
 
-        var chunks = await Collect(Router(silent, healthy).StreamAsync(Candidates(silent, healthy), Speech()));
+        var chunks = await Router(silent, healthy).StreamAsync(Candidates(silent, healthy), Speech()).ToListAsync();
 
         Assert.True(AssertOneTerminal(chunks).Final);
         Assert.Equal(1, healthy.StreamCalls);
@@ -260,7 +253,7 @@ public class GenerationRouterStreamTests
         var a = new ScriptedStreamProvider { Id = "a", Script = [MediaChunk.Failure(ProviderVerdict.Failed, "a died")] };
         var b = new ScriptedStreamProvider { Id = "b", Script = [MediaChunk.Failure(ProviderVerdict.Failed, "b died")] };
 
-        var chunks = await Collect(Router(a, b).StreamAsync(Candidates(a, b), Speech()));
+        var chunks = await Router(a, b).StreamAsync(Candidates(a, b), Speech()).ToListAsync();
 
         var terminal = AssertOneTerminal(chunks);
         Assert.Equal(ProviderVerdict.Failed, terminal.Error);
@@ -272,7 +265,7 @@ public class GenerationRouterStreamTests
     {
         var image = new FakeGenerationProvider { Id = "image" };
 
-        var chunks = await Collect(Router(image).StreamAsync(Candidates(image), Speech()));
+        var chunks = await Router(image).StreamAsync(Candidates(image), Speech()).ToListAsync();
 
         var terminal = AssertOneTerminal(chunks);
         Assert.Equal(ProviderVerdict.Unsupported, terminal.Error);
@@ -295,7 +288,7 @@ public class GenerationRouterStreamTests
             Script = [MediaChunk.Content([9]), MediaChunk.Completed()],
         };
 
-        var chunks = await Collect(Router(liar, healthy).StreamAsync(Candidates(liar, healthy), Speech()));
+        var chunks = await Router(liar, healthy).StreamAsync(Candidates(liar, healthy), Speech()).ToListAsync();
 
         Assert.True(AssertOneTerminal(chunks).Final);
         Assert.Equal(1, healthy.StreamCalls);
@@ -306,7 +299,7 @@ public class GenerationRouterStreamTests
     {
         var liar = new LyingStreamProvider { Id = "liar" };
 
-        var chunks = await Collect(Router(liar).StreamAsync(Candidates(liar), Speech()));
+        var chunks = await Router(liar).StreamAsync(Candidates(liar), Speech()).ToListAsync();
 
         var terminal = AssertOneTerminal(chunks);
         Assert.Equal(ProviderVerdict.Unsupported, terminal.Error);
@@ -335,8 +328,8 @@ public class GenerationRouterStreamTests
             Script = [MediaChunk.Content([9]), MediaChunk.Completed()],
         };
 
-        var chunks = await Collect(Router(refuser, healthy).StreamAsync(
-            Candidates(refuser, healthy), Speech()));
+        var chunks = await Router(refuser, healthy).StreamAsync(
+            Candidates(refuser, healthy), Speech()).ToListAsync();
 
         Assert.Equal(ProviderVerdict.Refused, AssertOneTerminal(chunks).Error);
         Assert.Equal(0, healthy.StreamCalls);

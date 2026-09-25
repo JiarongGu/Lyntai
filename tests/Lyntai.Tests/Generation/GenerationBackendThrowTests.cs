@@ -2,6 +2,7 @@ using System.Net;
 using Lyntai.Generation.Providers;
 using Lyntai.Inference;
 using Lyntai.Tests.Fakes;
+using static Lyntai.Tests.Fakes.CandidateLists;
 
 namespace Lyntai.Tests.Generation;
 
@@ -27,8 +28,6 @@ public class GenerationBackendThrowTests
 
     private static Func<HttpClient> Client(StubHttpHandler handler) =>
         () => new HttpClient(handler, disposeHandler: false);
-
-    private static ProviderCandidate[] Order(params string[] ids) => [.. ids.Select(id => new ProviderCandidate(id))];
 
     // ---- fal -----------------------------------------------------------------------------------------
 

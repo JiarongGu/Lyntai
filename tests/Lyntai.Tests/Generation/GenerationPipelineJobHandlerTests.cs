@@ -3,6 +3,7 @@ using Lyntai.Inference;
 using Lyntai.Inference.Budgeting;
 using Lyntai.Jobs;
 using Microsoft.Extensions.DependencyInjection;
+using Lyntai.Tests.Fakes;
 
 namespace Lyntai.Tests.Generation;
 
@@ -12,29 +13,6 @@ namespace Lyntai.Tests.Generation;
 public class GenerationPipelineJobHandlerTests
 {
     private static readonly TimeSpan PollDelay = TimeSpan.FromSeconds(3);
-
-    private sealed class CollectingSink(Func<double>? spent = null) : IGenerationArtifactSink
-    {
-        public List<GenerationArtifactDelivery> Received { get; } = [];
-
-        /// <summary>What the ledger held when each delivery ARRIVED — how "billed before delivery" is seen.</summary>
-        public List<double> SpentAtDelivery { get; } = [];
-
-        /// <summary>The 1-based calls that THROW instead of storing — a store that is momentarily down.</summary>
-        public HashSet<int> ThrowOn { get; init; } = [];
-
-        public int Calls { get; private set; }
-
-        public Task ReceiveAsync(GenerationArtifactDelivery delivery, CancellationToken ct = default)
-        {
-            if (ThrowOn.Contains(++Calls)) throw new SinkDown();
-            Received.Add(delivery);
-            if (spent is not null) SpentAtDelivery.Add(spent());
-            return Task.CompletedTask;
-        }
-    }
-
-    private sealed class SinkDown : Exception;
 
     /// <summary>Persists every checkpoint the handler saves and answers the lease question as a store would;
     /// <see cref="LeaseHeldFor"/> loses the lease on a chosen save (its argument is the save's 0-based number).</summary>
@@ -178,7 +156,7 @@ public class GenerationPipelineJobHandlerTests
                 var outcome = await handler().HandleAsync(ctx.Build(payload, ctx.Checkpoint));
                 if (outcome.Result != JobOutcome.Kind.Poll) return outcome;
             }
-            catch (SinkDown)
+            catch (CollectingSink.Down)
             {
                 // the runner schedules a retry; the checkpoint is whatever the step saved before it threw
             }

@@ -13,16 +13,6 @@ namespace Lyntai.Tests.Generation;
 /// these work in the in-process tool loop and, via the MCP host, for a CLI agent too.</summary>
 public class GenerationToolsTests
 {
-    private sealed class CollectingSink : IGenerationArtifactSink
-    {
-        public List<GenerationArtifactDelivery> Received { get; } = [];
-
-        public Task ReceiveAsync(GenerationArtifactDelivery delivery, CancellationToken ct = default)
-        {
-            Received.Add(delivery);
-            return Task.CompletedTask;
-        }
-    }
 
     private static ServiceProvider Host(CollectingSink? sink = null, params IModelProvider[] backends)
     {

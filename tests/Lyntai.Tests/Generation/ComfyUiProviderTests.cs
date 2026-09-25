@@ -664,18 +664,6 @@ public class ComfyUiProviderTests
 
     // ---- a timed-out submit is inconclusive only once the queue call has been sent -----------------------
 
-    private sealed class StallingHandler : HttpMessageHandler
-    {
-        public List<Uri?> Seen { get; } = [];
-
-        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
-        {
-            Seen.Add(request.RequestUri);
-            await Task.Delay(Timeout.InfiniteTimeSpan, ct);
-            throw new InvalidOperationException("unreachable");
-        }
-    }
-
     private static (ComfyUiProvider Provider, StallingHandler Http) Stalled()
     {
         var stalling = new StallingHandler();

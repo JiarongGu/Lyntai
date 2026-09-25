@@ -17,16 +17,6 @@ namespace Lyntai.Tests.Generation;
 /// implementation reports one as the other.</para></summary>
 public class GenerationTimeoutTests
 {
-    /// <summary>A backend that accepts the connection and then never answers — the exact failure the deadline
-    /// exists for. It honours the token it is given, so only a clock can end the call.</summary>
-    private sealed class StallingHandler : HttpMessageHandler
-    {
-        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
-        {
-            await Task.Delay(Timeout.InfiniteTimeSpan, ct);
-            throw new InvalidOperationException("unreachable");
-        }
-    }
 
     /// <summary>A short BACKSTOP on the fixture client, so a regression in this area fails rather than
     /// stalls. Left at <see cref="HttpClient"/>'s 100-second default, a test whose own clock stopped working

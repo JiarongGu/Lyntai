@@ -2,6 +2,7 @@ using Lyntai.Inference;
 using Lyntai.Inference.Budgeting;
 using Lyntai.Tests.Fakes;
 using Lyntai.Generation;
+using static Lyntai.Tests.Fakes.CandidateLists;
 
 namespace Lyntai.Tests.Generation;
 
@@ -16,9 +17,6 @@ public class GenerationPipelineTests
 
     private static readonly MediaRequest Video =
         new() { Kind = ProviderKinds.Video, Prompt = "pan across it" };
-
-    private static IReadOnlyList<ProviderCandidate> Order(params string[] ids) =>
-        [.. ids.Select(id => new ProviderCandidate(id))];
 
     /// <summary>An Ok carrying <paramref name="artifacts"/> artifacts. Built through the CONSTRUCTOR rather
     /// than <see cref="MediaResponse.Success"/> so zero is expressible — that shape is what a BYO router

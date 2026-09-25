@@ -83,6 +83,16 @@ public sealed class FakeGenerationJobProvider : IModelProvider, IMediaJobProvide
     /// surfaces instead of advancing (see <see cref="QueuedOperation.Inconclusive"/>).</summary>
     public bool SubmitInconclusive { get; set; }
 
+    /// <summary>What a Failed submission reports as its reason; null = none at all.</summary>
+    public string? SubmitDetail { get; set; }
+
+    /// <summary>The verdict a Failed submission carries; null = none, so the router classifies the detail.</summary>
+    public ProviderVerdict? SubmitVerdict { get; set; }
+
+    /// <summary>A backend that REJECTS every submission — answered, so nothing was committed.</summary>
+    public static FakeGenerationJobProvider Rejecting(string id, string? detail, ProviderVerdict? verdict = null) =>
+        new() { Id = id, SubmitStatus = QueuedOperationStatus.Failed, SubmitDetail = detail, SubmitVerdict = verdict };
+
     /// <summary>What the next poll reports — Succeeded by default, so a job test reaches delivery in one hop.</summary>
     public QueuedOperationStatus PollStatus { get; set; } = QueuedOperationStatus.Succeeded;
 
@@ -103,7 +113,12 @@ public sealed class FakeGenerationJobProvider : IModelProvider, IMediaJobProvide
     public Task<QueuedOperation> SubmitAsync(MediaRequest request, CancellationToken ct = default)
     {
         if (SubmitThrows is not null) throw SubmitThrows;
-        return Task.FromResult(new QueuedOperation($"op-{++_submits}", SubmitStatus) { Inconclusive = SubmitInconclusive });
+        ++_submits;
+        // a failed submission carries no operation id, as QueuedOperation.Failure's does
+        return Task.FromResult(SubmitStatus == QueuedOperationStatus.Failed
+            ? new QueuedOperation("", SubmitStatus, Detail: SubmitDetail)
+                { Verdict = SubmitVerdict, Inconclusive = SubmitInconclusive }
+            : new QueuedOperation($"op-{_submits}", SubmitStatus) { Inconclusive = SubmitInconclusive });
     }
 
     public Task<QueuedOperation> PollAsync(string operationId, CancellationToken ct = default) =>
