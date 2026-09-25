@@ -152,9 +152,9 @@ every addition.
   SAME registration is still a no-op. **What to DO:** give each custom decorator an order no other uses.
 
 - **`LyntaiBuilder.ConfigureMemory` is `ConfigureMemoryEviction`.** It only ever set `LyntaiOptions.MemoryEviction`,
-  the size bound on `IMemoryStore`, never the graph memory engine. **What to DO:** rename the call.
+  the size bound on `IMemoryStore`, never the graph memory engine. **What to DO:** rename the call. <!-- link-ok: the entry ANNOUNCING the rename has to name it -->
 
-- **`IJobHandlerRegistry.Handlers` is removed** (and `JobHandlerRegistry.Handlers`); nothing read it. **What to DO:**
+- **`IJobHandlerRegistry.Handlers` is removed** (and `JobHandlerRegistry.Handlers`); nothing read it. **What to DO:** <!-- link-ok: the entry ANNOUNCING the removal has to name it -->
   a BYO registry deletes the member; a caller resolves `IEnumerable<IJobHandler>` instead.
 
 - **`Lyntai.Text.JsonArgs` left `Lyntai.Core`**; it is internal to `Lyntai.Tools.Mcp`, its only user. **What to DO:**
@@ -167,7 +167,7 @@ every addition.
   every candidate behind it. **What to DO:** a BYO text backend that serves both doors declares both
   `ProviderOperation.Complete` and `ProviderOperation.Stream`, or it is no longer asked to stream.
 
-- **`LyntaiOptions.MemoryCapPerScope` is removed**: a second spelling of `MemoryEviction.MaxEntriesPerScope` with its
+- **`LyntaiOptions.MemoryCapPerScope` is removed**: a second spelling of `MemoryEviction.MaxEntriesPerScope` with its <!-- link-ok: the entry ANNOUNCING the removal has to name it -->
   own "0 means uncapped" rule. **What to DO:** `MemoryEviction = MemoryEvictionPolicy.CountCap(n)`.
 
 - **`ProviderRouter<TRequest,TResponse>.Capable()` is private**; it was public only for an internal helper with no
@@ -178,11 +178,11 @@ every addition.
   `AddFalProvider` are unchanged. **What to DO:** rename the two types where you construct the provider or name the
   options type; an `AddFalProvider(o => …)` lambda needs no change.
 
-- **`GenerationRenderJobHandler` runs on the pipeline job's machine and takes `GenerationPipelineJobOptions`;
-  `GenerationRenderJobOptions` is deleted.** It still serves `lyntai.generation.render` and resumes a job
+- **`GenerationRenderJobHandler` runs on the pipeline job's machine and takes `GenerationPipelineJobOptions`; <!-- drift-ok: the entry ANNOUNCING the deletion has to name it -->
+  `GenerationRenderJobOptions` is deleted.** It still serves `lyntai.generation.render` and resumes a job <!-- drift-ok: as above -->
   checkpointed as `{providerId, operationId}`. A fetched render is now billed and checkpointed BEFORE delivery, so a
-  throwing sink no longer re-fetches and re-bills it; its progress and failure messages are worded as the
-  pipeline's. **What to DO:** replace `new GenerationRenderJobOptions(PollDelay: x)` with
+  throwing sink no longer re-fetches and re-bills it; its progress and failure messages are worded as the <!-- drift-ok: as above -->
+  pipeline's. **What to DO:** replace `new GenerationRenderJobOptions(PollDelay: x)` with <!-- drift-ok: as above -->
   `new GenerationPipelineJobOptions { PollDelay = x }` and register that type.
 
 - **The generation tools (`GenerationBackendsTool`, `GenerationInlineTool`, `GenerationSubmitTool`,

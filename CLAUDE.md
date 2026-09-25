@@ -126,7 +126,7 @@ options — `.Seeding` has that shape and is NOT one, because `IMemorySeedSource
 than deciding about them, and the count is derived from the seam's name —
 placement is by OWNERSHIP, not consumption, so only a type no domain owns (`MemoryDecayState`) sits at the
 root. **`IMemoryRemovalPolicy` is the ONE seam that reads as a missing eighth domain and is not**: it is a
-BLEND concern, asked by `CompositeMemoryEngine` which MEMBERS a forget or prune visits (**D75**), never a
+BLEND concern, asked by `CompositeMemoryEngine` which MEMBERS a forget or prune visits (**D72**), never a
 stage of the decay pipeline the seven describe — and its namespace is frozen
 either way. A root-level `IMemory*Policy` without a recorded reason now RAISES the count and fails
 `check-counts`, which it previously could not see at all) / `Lyntai.Prompts` / `Lyntai.Cortex` (+ `.Scorers`) / `Lyntai.Agents` / `Lyntai.Jobs` /
