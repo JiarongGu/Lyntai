@@ -326,31 +326,20 @@ public class ClaudeCliAuthTests
         Assert.Equal("provider-stub", status.Method);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task Status_works_against_a_windows_npm_shim_install()
     {
         // same CLI2 exposure as the probe/update seams: an npm/nvm `claude` resolves to an EXTENSIONLESS
         // POSIX launcher next to its `.cmd` sibling, which CreateProcess refuses. Every maintenance spawn
         // must go through the runner's shim handling, not just completions.
-        if (!OperatingSystem.IsWindows()) return;
+        Skip.IfNot(OperatingSystem.IsWindows(), "an npm shim is spawnable as-is off Windows");
 
-        var dir = Path.Combine(TestPaths.TestScratchDir, $"claude-auth-shim-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(dir);
-        var shim = Path.Combine(dir, "claude");
-        var stub = Path.Combine(TestPaths.DevtoolsDir("scripts"), "provider-stub.mjs");
-        await File.WriteAllTextAsync(shim, "#!/bin/sh\nexec node \"$0.mjs\" \"$@\"\n");
-        await File.WriteAllTextAsync(shim + ".cmd", $"@echo off\r\nnode \"{stub}\" %*\r\n");
-        try
-        {
-            var provider = new ClaudeCliProvider(new ProcessRunner(), new LyntaiOptions(), command: $"\"{shim}\"");
+        using var scratch = new ScratchDir("claude-auth-shim");
+        var shim = WindowsShim.Write(scratch, "claude", WindowsShim.CmdRunningTheProviderStub());
+        var provider = new ClaudeCliProvider(new ProcessRunner(), new LyntaiOptions(), command: $"\"{shim}\"");
 
-            var status = await provider.StatusAsync();
+        var status = await provider.StatusAsync();
 
-            Assert.True(status.Authenticated, $"auth status failed: {status.Detail}");
-        }
-        finally
-        {
-            try { Directory.Delete(dir, recursive: true); } catch { }
-        }
+        Assert.True(status.Authenticated, $"auth status failed: {status.Detail}");
     }
 }

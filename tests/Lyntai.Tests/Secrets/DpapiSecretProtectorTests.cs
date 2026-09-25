@@ -5,23 +5,20 @@ using Lyntai.Tests.Fakes;
 using Microsoft.Extensions.DependencyInjection;
 using InMemoryKeyValueStore = Lyntai.Storage.InMemory.InMemoryKeyValueStore;
 
-// Every test guards at runtime with OperatingSystem.IsWindows() and returns early off Windows; the CA1416
-// analyzer recognizes that guard for direct calls but not for the DPAPI calls nested inside ThrowsAny(...)
-// lambdas — disable it file-wide here rather than sprinkle per-line suppressions.
+// Every test skips off Windows through Skip.IfNot, which the CA1416 platform analyzer cannot see as a guard —
+// so it is disabled file-wide here rather than sprinkled per line.
 #pragma warning disable CA1416
 
 namespace Lyntai.Tests.Secrets;
 
 /// <summary>The Windows-DPAPI protector + the DPAPI-backed envelope vault. Windows-only: off Windows each
-/// test is a no-op pass (xUnit v2 has no dynamic Assert.Skip) — this machine is Windows, so it runs here.
-/// The <c>OperatingSystem.IsWindows()</c> guard is inline (not a wrapper property) so the CA1416 platform
-/// analyzer recognizes it and doesn't flag the DPAPI calls that follow.</summary>
+/// test SKIPS, visibly, rather than passing as a no-op.</summary>
 public class DpapiSecretProtectorTests
 {
-    [Fact]
+    [SkippableFact]
     public void Round_trips_and_seals_at_rest()
     {
-        if (!OperatingSystem.IsWindows()) return;
+        Skip.IfNot(OperatingSystem.IsWindows(), "DPAPI is Windows-only");
         var p = new DpapiSecretProtector();
 
         var sealed1 = p.Protect("super-secret-token");
@@ -29,10 +26,10 @@ public class DpapiSecretProtectorTests
         Assert.Equal("super-secret-token", p.Unprotect(sealed1));
     }
 
-    [Fact]
+    [SkippableFact]
     public void Entropy_is_required_to_unseal()
     {
-        if (!OperatingSystem.IsWindows()) return;
+        Skip.IfNot(OperatingSystem.IsWindows(), "DPAPI is Windows-only");
         var withEntropy = new DpapiSecretProtector(entropy: "app-pepper");
         var sealed1 = withEntropy.Protect("value");
 
@@ -42,19 +39,19 @@ public class DpapiSecretProtectorTests
         Assert.Equal("value", withEntropy.Unprotect(sealed1)); // with the entropy it round-trips
     }
 
-    [Fact]
+    [SkippableFact]
     public void Corrupt_blob_fails_as_a_cryptographic_exception()
     {
-        if (!OperatingSystem.IsWindows()) return;
+        Skip.IfNot(OperatingSystem.IsWindows(), "DPAPI is Windows-only");
         var p = new DpapiSecretProtector();
         Assert.ThrowsAny<CryptographicException>(() => p.Unprotect("!!! not base64 !!!"));
         Assert.ThrowsAny<CryptographicException>(() => p.Unprotect(Convert.ToBase64String(new byte[32]))); // valid base64, not a DPAPI blob
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task Dpapi_envelope_vault_round_trips_with_a_recovery_key()
     {
-        if (!OperatingSystem.IsWindows()) return;
+        Skip.IfNot(OperatingSystem.IsWindows(), "DPAPI is Windows-only");
         var kv = new InMemoryKeyValueStore();
         var vault = new EnvelopeSecretVault(kv, new DpapiSecretProtector());
 
@@ -69,10 +66,10 @@ public class DpapiSecretProtectorTests
         Assert.Equal("sk-dpapi-sealed", await reopened.GetAsync("api-key"));
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task AddDpapiSecretVault_wires_the_vault_and_exposes_generate_recover()
     {
-        if (!OperatingSystem.IsWindows()) return;
+        Skip.IfNot(OperatingSystem.IsWindows(), "DPAPI is Windows-only");
         var services = new ServiceCollection();
         services.AddLyntai(b => b
             .AddProvider(_ => new FakeTextProvider("p"))

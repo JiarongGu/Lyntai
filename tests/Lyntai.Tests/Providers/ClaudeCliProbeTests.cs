@@ -352,7 +352,7 @@ public class ClaudeCliProbeTests
         Assert.Equal(result.FromVersion, result.ToVersion);   // the stub installs nothing
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task Probe_and_update_work_against_a_windows_npm_shim_install()
     {
         // CLI2 (found consuming 1.2.0 on Windows): a `claude` installed by npm/nvm resolves to an
@@ -360,29 +360,17 @@ public class ClaudeCliProbeTests
         // "The specified executable is not a valid application for this OS platform", so the turn-free
         // maintenance seams reported Available=false / Succeeded=false on a perfectly working install.
         // Both must spawn it the way a COMPLETION does — through the runner's Windows shim handling.
-        if (!OperatingSystem.IsWindows()) return;
+        Skip.IfNot(OperatingSystem.IsWindows(), "an npm shim is spawnable as-is off Windows");
 
-        var dir = Path.Combine(TestPaths.TestScratchDir, $"claude-shim-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(dir);
-        var shim = Path.Combine(dir, "claude");
-        var stub = Path.Combine(TestPaths.DevtoolsDir("scripts"), "provider-stub.mjs");
-        await File.WriteAllTextAsync(shim, "#!/bin/sh\nexec node \"$0.mjs\" \"$@\"\n"); // the POSIX sibling
-        await File.WriteAllTextAsync(shim + ".cmd", $"@echo off\r\nnode \"{stub}\" %*\r\n");
-        try
-        {
-            var provider = new ClaudeCliProvider(new ProcessRunner(), new LyntaiOptions(),
-                command: $"\"{shim}\"");
+        using var scratch = new ScratchDir("claude-shim");
+        var shim = WindowsShim.Write(scratch, "claude", WindowsShim.CmdRunningTheProviderStub());
+        var provider = new ClaudeCliProvider(new ProcessRunner(), new LyntaiOptions(), command: $"\"{shim}\"");
 
-            var probe = await provider.ProbeAsync();
-            Assert.True(probe.Available, $"probe failed: {probe.Detail}");
-            Assert.StartsWith("0.0.0", probe.Version);
+        var probe = await provider.ProbeAsync();
+        Assert.True(probe.Available, $"probe failed: {probe.Detail}");
+        Assert.StartsWith("0.0.0", probe.Version);
 
-            var update = await provider.UpdateAsync();
-            Assert.True(update.Succeeded, $"update failed: {update.Detail}");
-        }
-        finally
-        {
-            try { Directory.Delete(dir, recursive: true); } catch { }
-        }
+        var update = await provider.UpdateAsync();
+        Assert.True(update.Succeeded, $"update failed: {update.Detail}");
     }
 }

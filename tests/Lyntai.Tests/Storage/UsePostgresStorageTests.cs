@@ -12,10 +12,10 @@ namespace Lyntai.Tests.Storage;
 [Collection("postgres")]
 public sealed class UsePostgresStorageTests(PostgresFixture pg)
 {
-    [Fact]
+    [SkippableFact]
     public async Task Every_store_resolves_and_round_trips()
     {
-        if (!pg.Available) return;
+        Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
 
         var services = new ServiceCollection();
         services.AddLyntai(b => b

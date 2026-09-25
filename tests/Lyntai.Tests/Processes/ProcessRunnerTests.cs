@@ -429,33 +429,27 @@ public class ProcessRunnerTests
         Assert.Equal(expected, result.StdOut.Trim().TrimEnd(Path.DirectorySeparatorChar), ignoreCase: true);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task Runs_a_powershell_ps1_launcher_shim()
     {
         // PR1: a .ps1 launcher shim (some Windows CLIs ship one) can't be exec'd directly by CreateProcess —
         // the runner must host it in PowerShell rather than fail with a Win32Exception. ASCII output only:
         // the UTF-8-no-BOM round-trip is locked separately by Stdin_passes_through_including_utf8_cjk (a real
         // shim's child .exe writes its own bytes through the inherited pipe; PS 5.1 doesn't re-encode them).
-        if (!OperatingSystem.IsWindows()) return; // .ps1 hosting via powershell.exe is a Windows concern
+        Skip.IfNot(OperatingSystem.IsWindows(), ".ps1 hosting via powershell.exe is a Windows concern");
 
-        var ps1 = Path.Combine(TestPaths.TestScratchDir, $"shim-{Guid.NewGuid():N}.ps1");
-        await File.WriteAllTextAsync(ps1, "param($arg) Write-Output \"ps1-shim-ran:$arg\"\n");
-        try
-        {
-            // passing the .ps1 path directly (as a BYO command would); the runner wraps it in powershell.
-            var result = await _runner.RunAsync(ps1, ["ok"]);
+        using var scratch = new ScratchDir("ps1-shim");
+        var ps1 = scratch.File("shim.ps1", "param($arg) Write-Output \"ps1-shim-ran:$arg\"\n");
 
-            Assert.Equal(0, result.ExitCode);
-            Assert.False(result.TimedOut);
-            Assert.Contains("ps1-shim-ran:ok", result.StdOut);
-        }
-        finally
-        {
-            try { File.Delete(ps1); } catch { }
-        }
+        // passing the .ps1 path directly (as a BYO command would); the runner wraps it in powershell.
+        var result = await _runner.RunAsync(ps1, ["ok"]);
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.False(result.TimedOut);
+        Assert.Contains("ps1-shim-ran:ok", result.StdOut);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task Runs_an_extensionless_npm_shim_through_its_cmd_sibling()
     {
         // CLI2: an npm/nvm global install drops THREE launchers side by side — an extensionless `tool`
@@ -463,59 +457,32 @@ public class ProcessRunnerTests
         // extensionless one ("The specified executable is not a valid application for this OS platform"),
         // and it's exactly what a caller-supplied path (or a where.exe hit list without the .cmd) can
         // resolve to — so the runner must launch the spawnable SIBLING instead of failing.
-        if (!OperatingSystem.IsWindows()) return; // an extensionless shim is executable as-is elsewhere
+        Skip.IfNot(OperatingSystem.IsWindows(), "an extensionless shim is executable as-is elsewhere");
 
-        var (dir, shim) = await WriteShimAsync("cmdsib",
-            (".cmd", "@echo off\r\necho cmd-sibling-ran:%1\r\n"));
-        try
-        {
-            var result = await _runner.RunAsync(shim, ["ok"]);
+        using var scratch = new ScratchDir("shim-cmdsib");
+        var shim = WindowsShim.Write(scratch, "mytool", (".cmd", "@echo off\r\necho cmd-sibling-ran:%1\r\n"));
 
-            Assert.Equal(0, result.ExitCode);
-            Assert.False(result.TimedOut);
-            Assert.Contains("cmd-sibling-ran:ok", result.StdOut);
-        }
-        finally
-        {
-            try { Directory.Delete(dir, recursive: true); } catch { }
-        }
+        var result = await _runner.RunAsync(shim, ["ok"]);
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.False(result.TimedOut);
+        Assert.Contains("cmd-sibling-ran:ok", result.StdOut);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task Runs_an_extensionless_shim_through_its_ps1_sibling_when_there_is_no_cmd()
     {
         // Same shape with only a PowerShell sibling present: the shim resolves to the .ps1, which is
         // itself un-exec'able and gets the powershell.exe host (the existing .ps1 launcher path).
-        if (!OperatingSystem.IsWindows()) return;
+        Skip.IfNot(OperatingSystem.IsWindows(), "an extensionless shim is executable as-is elsewhere");
 
-        var (dir, shim) = await WriteShimAsync("ps1sib",
-            (".ps1", "param($arg) Write-Output \"ps1-sibling-ran:$arg\"\n"));
-        try
-        {
-            var result = await _runner.RunAsync(shim, ["ok"]);
+        using var scratch = new ScratchDir("shim-ps1sib");
+        var shim = WindowsShim.Write(scratch, "mytool", (".ps1", "param($arg) Write-Output \"ps1-sibling-ran:$arg\"\n"));
 
-            Assert.Equal(0, result.ExitCode);
-            Assert.Contains("ps1-sibling-ran:ok", result.StdOut);
-        }
-        finally
-        {
-            try { Directory.Delete(dir, recursive: true); } catch { }
-        }
-    }
+        var result = await _runner.RunAsync(shim, ["ok"]);
 
-    /// <summary>Write an npm-style launcher trio into a fresh scratch dir: the extensionless POSIX shim
-    /// (what CreateProcess chokes on) plus the given Windows sibling(s). Returns the dir + the
-    /// extensionless shim path.</summary>
-    private static async Task<(string Dir, string Shim)> WriteShimAsync(
-        string name, params (string Extension, string Content)[] siblings)
-    {
-        var dir = Path.Combine(TestPaths.TestScratchDir, $"shim-{name}-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(dir);
-        var shim = Path.Combine(dir, "mytool");
-        await File.WriteAllTextAsync(shim, "#!/bin/sh\nexec node \"$0.mjs\" \"$@\"\n"); // a real npm shim: sh, not PE
-        foreach (var (extension, content) in siblings)
-            await File.WriteAllTextAsync(shim + extension, content);
-        return (dir, shim);
+        Assert.Equal(0, result.ExitCode);
+        Assert.Contains("ps1-sibling-ran:ok", result.StdOut);
     }
 
     // The kill-versus-clean-exit decision, as a truth table. It was written TWICE — StreamLinesAsync tested

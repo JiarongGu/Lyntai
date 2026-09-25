@@ -267,21 +267,12 @@ public class CliProviderEngineTests
     public void A_portable_binary_is_available_when_the_file_is_actually_there()
     {
         // an app shipping its own CLI copy points the provider at a PATH, not a PATH-installed name
-        var dir = Path.Combine(TestPaths.TestScratchDir, $"portable-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(dir);
-        var exe = Path.Combine(dir, OperatingSystem.IsWindows() ? "mycli.cmd" : "mycli");
-        File.WriteAllText(exe, "");
-        try
-        {
-            var engine = new CliProviderEngine(new FakeCliBackend(), new ProcessRunner(), new LyntaiOptions(),
-                command: $"\"{exe}\"");
+        using var scratch = new ScratchDir("portable");
+        var exe = scratch.File(OperatingSystem.IsWindows() ? "mycli.cmd" : "mycli");
+        var engine = new CliProviderEngine(new FakeCliBackend(), new ProcessRunner(), new LyntaiOptions(),
+            command: $"\"{exe}\"");
 
-            Assert.True(engine.IsAvailable);
-        }
-        finally
-        {
-            try { Directory.Delete(dir, recursive: true); } catch { }
-        }
+        Assert.True(engine.IsAvailable);
     }
 
     [Fact]
@@ -297,29 +288,19 @@ public class CliProviderEngineTests
         Assert.False(engine.IsAvailable);
     }
 
-    [Fact]
+    [SkippableFact]
     public void A_portable_extensionless_shim_is_available_through_its_spawnable_sibling()
     {
         // an npm/nvm-shaped portable layout: `mycli` (POSIX script) next to `mycli.cmd`. CreateProcess
         // can't exec the former, so presence must be judged the way the spawn resolves it (CLI2).
-        if (!OperatingSystem.IsWindows()) return;
+        Skip.IfNot(OperatingSystem.IsWindows(), "an npm shim is spawnable as-is off Windows");
 
-        var dir = Path.Combine(TestPaths.TestScratchDir, $"portable-shim-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(dir);
-        var shim = Path.Combine(dir, "mycli");
-        File.WriteAllText(shim, "#!/bin/sh\n");
-        File.WriteAllText(shim + ".cmd", "@echo off\r\n");
-        try
-        {
-            var engine = new CliProviderEngine(new FakeCliBackend(), new ProcessRunner(), new LyntaiOptions(),
-                command: $"\"{shim}\"");
+        using var scratch = new ScratchDir("portable-shim");
+        var shim = WindowsShim.Write(scratch, "mycli", (".cmd", "@echo off\r\n"));
+        var engine = new CliProviderEngine(new FakeCliBackend(), new ProcessRunner(), new LyntaiOptions(),
+            command: $"\"{shim}\"");
 
-            Assert.True(engine.IsAvailable);
-        }
-        finally
-        {
-            try { Directory.Delete(dir, recursive: true); } catch { }
-        }
+        Assert.True(engine.IsAvailable);
     }
 
     [Fact]

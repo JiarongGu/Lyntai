@@ -8,8 +8,8 @@ namespace Lyntai.Tests.Storage;
 
 /// <summary>Spins up one PostgreSQL container for the whole Postgres test collection, migrates it
 /// once, and exposes a connection factory. If Docker isn't available the fixture reports
-/// <see cref="Available"/> = false and every test early-returns (skips) — so the suite stays green on
-/// a box without Docker (CI, a fresh checkout) while running for real where Docker is up.</summary>
+/// <see cref="Available"/> = false and every test SKIPS (<c>Skip.IfNot</c>, never an early return, which
+/// would count as a pass) — so a box without Docker reports the leg as skipped rather than green.</summary>
 public sealed class PostgresFixture : IAsyncLifetime
 {
     private PostgreSqlContainer? _container;
