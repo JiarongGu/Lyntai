@@ -390,11 +390,13 @@ public class ProcessRunnerTests
         using var scratch = new ScratchDir("heartbeat");
         var heartbeat = scratch.Combine("heartbeat.txt");
         {
-            // child appends a heartbeat every 100ms forever; the enumerator is abandoned after
-            // the first line — the child must die with it, not keep generating in the background
+            // child appends a heartbeat every 100ms; the enumerator is abandoned after the first line — the
+            // child must die with it, not keep generating in the background. It still exits on its own after
+            // a minute, so a regression orphans nothing that could wedge the runner (pitfalls.md).
             const string script = """
                 const fs = require('fs');
-                setInterval(() => { try { fs.appendFileSync(process.argv[1], 'x'); } catch {} console.log('beat'); }, 100);
+                setTimeout(() => process.exit(0), 60000);
+                setInterval(() => { fs.appendFileSync(process.argv[1], 'x'); console.log('beat'); }, 100);
                 """;
             await foreach (var _ in _runner.StreamLinesAsync("node", ["-e", script, heartbeat]))
                 break; // abandon immediately
@@ -414,6 +416,7 @@ public class ProcessRunnerTests
                 stableWindows = size == last ? stableWindows + 1 : 0;
                 last = size;
             }
+            Assert.True(last > 0, "the child never beat at all, so its silence proves nothing about the kill");
         }
     }
 

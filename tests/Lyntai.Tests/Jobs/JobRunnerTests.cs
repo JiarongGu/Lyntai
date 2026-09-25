@@ -257,9 +257,12 @@ public class JobRunnerTests
         // tight timeout there is a false negative, not a real failure. Big enough to never flake, small
         // enough to still fail fast if cross-lane concurrency is genuinely broken (then it never releases).
         var runTask = runner.RunOnceAsync();
-        Assert.True(await arrived.WaitAsync(TimeSpan.FromSeconds(30)), "lane a's job did not start"); // in flight
-        Assert.True(await arrived.WaitAsync(TimeSpan.FromSeconds(30)), "lane b's job did not start concurrently");
-        release.SetResult();
+        try
+        {
+            Assert.True(await arrived.WaitAsync(TimeSpan.FromSeconds(30)), "lane a's job did not start"); // in flight
+            Assert.True(await arrived.WaitAsync(TimeSpan.FromSeconds(30)), "lane b's job did not start concurrently");
+        }
+        finally { release.TrySetResult(); }
 
         Assert.Equal(2, await runTask);
     }
@@ -337,11 +340,14 @@ public class JobRunnerTests
         // MaxConcurrency of 2 and four handlers would be inside the gate at once.
         var runA = a.RunOnceAsync();
         var runB = b.RunOnceAsync();
-        Assert.True(await gate.WaitAsync(TimeSpan.FromSeconds(30)), "no job started");
-        Assert.True(await gate.WaitAsync(TimeSpan.FromSeconds(30)), "a second job did not start");
-        // A third entrant would have to arrive while the first two are blocked; give it a real chance to.
-        Assert.False(await gate.WaitAsync(TimeSpan.FromSeconds(2)), "a THIRD job ran past the global cap of 2");
-        release.SetResult();
+        try
+        {
+            Assert.True(await gate.WaitAsync(TimeSpan.FromSeconds(30)), "no job started");
+            Assert.True(await gate.WaitAsync(TimeSpan.FromSeconds(30)), "a second job did not start");
+            // A third entrant would have to arrive while the first two are blocked; give it a real chance to.
+            Assert.False(await gate.WaitAsync(TimeSpan.FromSeconds(2)), "a THIRD job ran past the global cap of 2");
+        }
+        finally { release.TrySetResult(); }
         await Task.WhenAll(runA, runB);
 
         Assert.Equal(2, peak);

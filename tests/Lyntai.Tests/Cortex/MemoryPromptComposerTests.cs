@@ -9,10 +9,10 @@ public class MemoryPromptComposerTests
 {
     // ---- hybrid recall (lexical + semantic) ----------------------------------------------------------
 
-    private static SemanticMemory SemanticWith(params string[] facts)
+    private static async Task<SemanticMemory> SemanticWith(params string[] facts)
     {
         var mem = new SemanticMemory([new FakeVectorProvider()], new InMemoryVectorStore());
-        foreach (var f in facts) mem.RememberAsync("trip", "s", f).GetAwaiter().GetResult();
+        foreach (var f in facts) await mem.RememberAsync("trip", "s", f);
         return mem;
     }
 
@@ -38,7 +38,7 @@ public class MemoryPromptComposerTests
     [Fact]
     public async Task A_lexical_stores_OWN_timeout_leaves_the_semantic_half_intact()
     {
-        var composer = new MemoryPromptComposer(new TimingOutMemoryStore(), SemanticWith("embed me"));
+        var composer = new MemoryPromptComposer(new TimingOutMemoryStore(), await SemanticWith("embed me"));
 
         var composed = await composer.ComposeAsync("base", "trip", scope: "s", query: "embed me");
 
@@ -70,7 +70,7 @@ public class MemoryPromptComposerTests
     [Fact]
     public async Task Hybrid_leads_with_semantic_hits_and_dedups_against_lexical()
     {
-        var semantic = SemanticWith("cancel anytime");
+        var semantic = await SemanticWith("cancel anytime");
         var store = new FakeMemoryStore([Fact("cancel anytime"), Fact("lexical only fact")]);
         var composer = new MemoryPromptComposer(store, semantic);
 
@@ -87,7 +87,7 @@ public class MemoryPromptComposerTests
     [Fact]
     public async Task Semantic_only_composer_appends_recalled_hits()
     {
-        var composer = new MemoryPromptComposer(memory: null, semantic: SemanticWith("embed me"));
+        var composer = new MemoryPromptComposer(memory: null, semantic: await SemanticWith("embed me"));
         var composed = await composer.ComposeAsync("base", "trip", scope: "s", query: "embed me");
         Assert.Contains("- embed me", composed);
     }
