@@ -30,6 +30,8 @@ public class FileSystemConversationStoreContractTests : ConversationStoreContrac
 /// <summary>The <see cref="MemoryStoreContract"/> against the file-system backend, on the shared clock.</summary>
 public class FileSystemMemoryStoreContractTests : MemoryStoreContractFacts, IDisposable
 {
+    [Fact] public Task Match_count_ranking() => MemoryStoreContract.More_matched_terms_outrank_a_newer_weaker_match(New(), "k", by => Now += by);
+
     private readonly TempRoot _root = new();
     protected override IMemoryStore New() => new FileSystemMemoryStore(_root.Root, Options, clock: () => Now);
     protected override IMemoryStore NewWith(MemoryEvictionPolicy p) =>

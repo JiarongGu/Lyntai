@@ -235,6 +235,8 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
     [SkippableFact] public Task Memory_prune_by_age() { var mc = new MutableClock(); return Pg(() => MemoryStoreContract.Prune_older_than_removes_by_age_within_a_task(PgMemory(mc), Uid(), mc.Advance)); }
     [SkippableFact] public Task Memory_prune_scoped() { var mc = new MutableClock(); return Pg(() => MemoryStoreContract.Prune_scoped_to_one_task_leaves_the_sibling(PgMemory(mc), Uid(), mc.Advance)); }
     [SkippableFact] public Task Memory_cap() => Pg(() => MemoryStoreContract.Cap_trims_to_the_newest_entries(PgMemory(), Uid()));
+    [SkippableFact] public Task Memory_separated_words() => Pg(() => MemoryStoreContract.Separated_words_recall_on_every_backend(PgMemory(), Uid()));
+    [SkippableFact] public Task Memory_match_count_ranking() { var mc = new MutableClock(); return Pg(() => MemoryStoreContract.More_matched_terms_outrank_a_newer_weaker_match(PgMemory(mc), Uid(), mc.Advance)); } // pg_trgm has no bm25
     [SkippableFact] public Task Memory_limit_scope() => Pg(() => MemoryStoreContract.Limit_caps_results_and_composes_with_scope(PgMemory(), Uid()));
     [SkippableFact] public Task Memory_non_positive_limit() => Pg(() => MemoryStoreContract.A_non_positive_limit_recalls_nothing(PgMemory(), Uid()));
     [SkippableFact] public Task Memory_forget() => Pg(() => MemoryStoreContract.Forget_clears_a_task(PgMemory(), Uid()));
@@ -245,30 +247,6 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
     [SkippableFact] public Task Memory_default_ttl() { var mc = new MutableClock(); return Pg(() => MemoryStoreContract.Default_ttl_expires_entries_without_per_call_ttl(PgMemoryWith(MemoryEvictionPolicy.TimeToLive(TimeSpan.FromMinutes(5)), mc), Uid(), mc.Advance)); }
     [SkippableFact] public Task Memory_size_budget() => Pg(() => MemoryStoreContract.Size_budget_evicts_to_fit(PgMemoryWith(MemoryEvictionPolicy.SizeBudget(25), new MutableClock()), Uid()));
 
-    /// <summary><b>A row matching MORE of the query outranks one matching less, even when the weaker match is
-    /// newer.</b> Postgres-specific because this backend is where the claim lives: it has no <c>bm25</c>, so
-    /// 3.0 gave its substring path an <c>ORDER BY</c> led by the COUNT of matched terms
-    /// (<c>docs/DECISIONS.md</c> D55). That ordering is the entire bound on the pollution the change bought —
-    /// term-wise matching finds strictly more than a contiguous substring did, and without a rank among the
-    /// extra hits a one-term brush-past displaces a near-exact hit purely by being newer.
-    /// <para>Written so RECENCY POINTS THE WRONG WAY: the two-term entry is written FIRST, so a recency-only
-    /// order returns the one-term entry first and this test fails. Deleting the count expression from the
-    /// ORDER BY is exactly that mutation.</para></summary>
-    [SkippableFact]
-    public async Task Memory_recall_ranks_by_how_many_query_terms_matched()
-    {
-        Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
-        var store = PgMemory();
-        var key = Uid();
-
-        await store.RememberAsync(key, "s", "the deploy pipeline requires manual approval");  // both terms
-        await store.RememberAsync(key, "s", "the pipeline is unrelated to this");             // one term, NEWER
-
-        var hits = await store.RecallAsync(key, "s", "deploy pipeline");
-
-        Assert.Equal(2, hits.Count);   // term-wise matching finds both — that is the 3.0 behaviour
-        Assert.Contains("manual approval", hits[0].Content, StringComparison.Ordinal);
-    }
     [SkippableFact] public Task Memory_size_budget_runes() => Pg(() => MemoryStoreContract.Size_budget_counts_code_points_not_utf16_units(PgMemoryWith(MemoryEvictionPolicy.SizeBudget(2), new MutableClock()), Uid()));
     [SkippableFact] public Task Memory_both_bounds() => Pg(() => MemoryStoreContract.Both_count_cap_and_size_budget_apply(PgMemoryWith(new MemoryEvictionPolicy { MaxEntriesPerScope = 3, MaxCharsPerScope = 25 }, new MutableClock()), Uid()));
     [SkippableFact] public Task Memory_lru_tie() => Pg(() => MemoryStoreContract.Lru_recency_tie_broken_by_id(PgMemoryWith(MemoryEvictionPolicy.CountCap(2, MemoryEvictionMode.Lru), new MutableClock()), Uid()));

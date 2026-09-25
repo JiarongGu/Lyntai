@@ -180,15 +180,40 @@ public static class MemoryStoreContract
 
     public static async Task Cap_trims_to_the_newest_entries(IMemoryStore store, string key)
     {
-        // The store must be built with a count cap of 3. Assert the COUNT and SET membership only —
-        // NOT the sequence (no-query recall recency-orders, but we don't pin the exact order here to stay
-        // strictly backend-agnostic).
+        // The store must be built with a count cap of 3. No query → most recent first, on EVERY backend (the
+        // IMemoryStore promise): the backends differ only in how they rank MATCHES of a query.
         for (var i = 1; i <= 5; i++) await store.RememberAsync(key, "s", $"entry {i}");
 
         var hits = await store.RecallAsync(key);
-        var contents = hits.Select(h => h.Content).ToHashSet();
-        Assert.Equal(3, hits.Count);                                 // capped to 3
-        Assert.Equal(["entry 3", "entry 4", "entry 5"], contents.OrderBy(c => c)); // newest 3 kept
+        Assert.Equal(["entry 5", "entry 4", "entry 3"], hits.Select(h => h.Content));   // newest 3, newest first
+    }
+
+    /// <summary>The GUARANTEE every backend makes: an entry containing ANY term of the query is recalled —
+    /// including words that appear SEPARATELY, nowhere contiguous — and a query sharing no term misses.</summary>
+    public static async Task Separated_words_recall_on_every_backend(IMemoryStore store, string key)
+    {
+        await store.RememberAsync(key, "s", "You can cancel your subscription anytime.");
+
+        Assert.Single(await store.RecallAsync(key, "s", "subscription"));
+        Assert.Single(await store.RecallAsync(key, "s", "cancel plan"));        // "cancel plan" is not contiguous
+        Assert.Empty(await store.RecallAsync(key, "s", "refund shipping"));    // not "match everything"
+    }
+
+    /// <summary><b>A row matching MORE of the query outranks one matching less, even when the weaker match is
+    /// newer</b> — the ranking of every backend except SQLite's bm25 (<c>docs/DECISIONS.md</c> D55), and the
+    /// bound on the pollution term-wise matching bought: without it a one-term brush-past displaces a
+    /// near-exact hit purely by being newer. Written so recency points the WRONG way.</summary>
+    public static async Task More_matched_terms_outrank_a_newer_weaker_match(
+        IMemoryStore store, string key, Action<TimeSpan> advance)
+    {
+        await store.RememberAsync(key, "s", "the deploy pipeline requires manual approval");  // both terms
+        advance(TimeSpan.FromMinutes(1));
+        await store.RememberAsync(key, "s", "the pipeline is unrelated to this");             // one term, NEWER
+
+        var hits = await store.RecallAsync(key, "s", "deploy pipeline");
+
+        Assert.Equal(2, hits.Count);
+        Assert.Contains("manual approval", hits[0].Content, StringComparison.Ordinal);
     }
 
     /// <summary>Store built with <c>CountCap(3, Lru)</c> + a controllable clock: a recalled entry survives
