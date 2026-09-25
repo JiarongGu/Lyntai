@@ -5033,3 +5033,19 @@ and remove its copy.**
 - Measure a piece's length after NFKC normalisation
 - A per-input piece cap on `InputSegmentation`
 - Record the adopter's cut-vs-segmented measurements
+
+## Part 291 — GEN7's mesh stage: the ComfyUI provider takes a mesh and produces Model3d (2026-09-25)
+
+✅ done 2026-09-25 — **Outcome:** closes `TASKS.md` Part 33's GEN7 item (the Part stays open for its fal
+item). MEASURED first against the local ComfyUI 0.36.0 with a hand-written cube GLB and no 3D model: a GLB
+uploads into `input/3d`, `Load3DAdvanced` runs headless, a mesh output is filed under the history collection
+`3d`, and `RenderMesh` rasterises it server-side. Then built (**D180**): an `input-path` option binds an input
+into the caller's graph (uploaded; refused, never dropped, when it has no field); `SupportsInputs` is declared
+again; `Model3d` joined the default `Produces`; the shared media-type table learned `glb`/`gltf`/`obj`/`stl`. A
+URI input is fetched from any server but hardened — ComfyUI's credentials never leave its own origin, redirects
+included, and the fetch is size- and time-capped — and a refusal of the request itself carries the new
+`QueuedOperation.Verdict` (`Unsupported`), so routing advances without benching a healthy server. The live
+two-stage chain (mesh → mesh → rendered image) is `ComfyUiLiveTests`' durable instrument; that the in-memory
+runner cannot drive a queued stage is `TASKS.md` Part 290.
+
+- GEN7 — pipelines (3d → image → video): the mesh stage
