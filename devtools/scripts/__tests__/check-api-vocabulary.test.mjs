@@ -1,7 +1,7 @@
 // check-api-vocabulary — the SURFACE gate (retired identifiers). See devtools/scripts/check-api-vocabulary.mjs.
 //
 // This gate exists because a stale PARAMETER NAME passed every check the repository had: `check-docs`
-// excludes `src/`, and the API baseline records parameter names without judging them. Three of them
+// reads prose, and the API baseline records parameter names without judging them. Three of them
 // (`ageClocks:`, `appraisers:`, `modulators:`) reached the eve of the 3.0 freeze and a human review, not a
 // gate, caught them — docs/task-archive.md Part 61, docs/DECISIONS.md D47.
 //

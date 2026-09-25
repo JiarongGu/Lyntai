@@ -67,53 +67,19 @@ export default {
   },
 
   /**
-   * RETIRED PUBLIC-API NAMES — identifiers a deliberate decision replaced, which must not reappear in the
-   * frozen public surface. Enforced by `dev.mjs check-api-vocabulary` against the committed API baselines
-   * (`tests/Lyntai.Tests/Api/Baselines/*.txt`), and part of `verify`.
+   * RETIRED PUBLIC-API NAMES — identifiers a decision replaced, which must not reappear on the frozen public
+   * surface. Enforced by `check-api-vocabulary` against the committed API baselines; why a second registry
+   * beside `retiredTerms` and what it cost is `docs/GATES.md` §check-api-vocabulary.
    *
-   * The gap this closes sits BETWEEN two gates that each work correctly: `check-docs` deliberately excludes
-   * `src/`, so it never reads a parameter name, and the API-surface baseline RECORDS parameter names
-   * without judging them — it reports THAT a name changed, never THAT a name should have. So a stale name
-   * round-trips cleanly through the one gate whose entire job is noticing API changes. Measured cost
-   * (docs/task-archive.md Part 61, docs/DECISIONS.md D47): `GraphMemoryEngine(ageClocks:)`, `(appraisers:)`
-   * and
-   * `ModulatedRetrievability(modulators:)` kept the three words that decision retired all the way to the
-   * eve of the 3.0 freeze. A human review caught all three; no gate did. Named arguments are
-   * source-compatible public surface, so after a freeze each costs a major version.
+   * Each entry: `names` (whole identifiers — set membership) or `pattern` (a regex anchored to the WHOLE
+   * token, an identifier SHAPE), plus `use` and `why`. Matching is never substring, so a retired name inside
+   * a live one does not fire.
    *
-   * WHY THIS IS ITS OWN REGISTRY AND NOT `retiredTerms`. That one is written for PROSE — its entries are
-   * claim shapes (`available,? (?:but )?not (?:the )?default`) and qualified namespace paths, both of which
-   * are meaningless against a baseline, which is identifiers and signatures only. The two registries also
-   * want opposite matching: prose needs loose, sentence-spanning regexes; a baseline needs the strictest
-   * possible whole-identifier equality.
+   * ESCAPE: `allow: [{ signature, why }]` names the EXACT baseline line it permits — a generated baseline
+   * cannot carry `drift-ok` — so it expires when that signature changes; an allowance matching nothing FAILS.
    *
-   * MATCHING IS WHOLE-IDENTIFIER, NEVER SUBSTRING. Each baseline line is tokenized into identifiers:
-   * `names` is set membership, `pattern` is a regex anchored to the WHOLE token (an identifier SHAPE).
-   * This is what lets `modulators`/`IRetentionModulator` be retired while `Lyntai.Memory.Modulation` and
-   * `ModulatedRetrievability` stay live, and `IMemoryClock` be retired while `InactivityClock` and every
-   * genuine `Func<DateTimeOffset> clock` parameter stay live. A substring rule would fire on all of them,
-   * and a gate that cries wolf on a deliberate decision gets an exclusion added and then rots.
-   *
-   * Each entry: the retired identifiers, what to use instead, and why — the same teach-don't-just-refuse
-   * shape `retiredTerms` uses. Add one whenever a decision renames something on the public surface.
-   *
-   * ESCAPE HATCH: a baseline is GENERATED, so `drift-ok` cannot live in it — the next regeneration would
-   * erase it. An escape is instead an `allow: [{ signature, why }]` on the rule it silences: the EXACT
-   * baseline line, so it expires by itself when that signature changes, and a `why`, so it is never a
-   * silent exclusion. An allowance that matches nothing is a FAILURE — a rotting exclusion hides the next
-   * occurrence of the same mistake.
-   *
-   * THE PROSE HALF IS AUDITED, NOT ASSUMED (check-docs' pairing audit, 2026-09-19). Every `names` entry
-   * must either be matched, name for name, by some hand-written `retiredTerms` rule, or carry
-   * `proseExempt: '<why>'` — the reason prose cannot ban the word (an ordinary word, a parameter spelling,
-   * an identifier retired on one seam and live on others). The reason is REQUIRED, and an exemption whose
-   * names are all hand-covered FAILS as dead. D157's renames entered this registry alone and README
-   * recommended the deleted registration for a day; auto-deriving prose rules instead was measured at
-   * 1,861 hits and refused — the audit forces the decision at rename time, a human writes the narrow rule.
-   *
-   * The limit, stated rather than oversold: this catches the reintroduction of an exact retired
-   * identifier, not every descendant of a retired word. A method named for the verb form of a retired type
-   * is not that type's name, and no rule here would flag it.
+   * THE PROSE HALF IS AUDITED (check-docs' pairing audit): every `names` entry is matched by a hand-written
+   * `retiredTerms` rule, or carries `proseExempt: '<why>'`; an exemption whose names are all covered FAILS.
    */
   retiredApiNames: [
     {
@@ -664,36 +630,14 @@ export default {
   ],
 
   /**
-   * RETIRED VOCABULARY — words a deliberate decision replaced, which must not reappear in the docs.
+   * RETIRED VOCABULARY — words a deliberate decision replaced, which must not reappear in maintained prose
+   * or in a code comment. Enforced by `check-docs`; its scope is `IN_SCOPE`, `HISTORICAL`, `LIVE_PREFIX`
+   * and `CODE_IN_SCOPE` in `check-docs.mjs` (read it there — `docs/GATES.md` §check-docs has the why).
    *
-   * The problem this closes: the CODE is gated from every side (check-warnings, the API-surface baselines,
-   * the storage contracts) while the PROSE is gated from none. A spec paragraph that quietly stops being
-   * true survives every check, and the next session reads it and implements the wrong thing. That happened
-   * twice on 2026-08-08 and both times a human reading it was the only thing that caught it.
-   *
-   * Each entry is a term a decision retired, what to say instead, and why — so the failure message teaches
-   * rather than merely refusing. Add one whenever a decision renames or re-dimensions something.
-   *
-   * Scope, and READ IT FROM `check-docs.mjs` RATHER THAN FROM HERE — `IN_SCOPE`, `HISTORICAL` and
-   * `LIVE_PREFIX` are the authority, this paragraph is a summary of them:
-   *   - IN: `docs/`, `.claude/`, `README.md`, `CLAUDE.md`, `TASKS.md`.
-   *   - IN, but only down to its first RELEASED heading: `CHANGELOG.md`. The historical exemption rests on a
-   *     record being accurate BY using the vocabulary of its day, which is true of a released section and
-   *     false of `## Unreleased` — that describes behaviour that has not shipped and can still change under
-   *     the words describing it. (This paragraph said `CHANGELOG.md` was out of scope entirely until
-   *     2026-08-14, which stopped being true on 2026-08-11 when the live prefix was added; three of the
-   *     rules below already cite pointing this gate at that prefix.)
-   *   - OUT wholly: `docs/task-archive.md` (a record, by the same rationale), and any file declaring itself
-   *     superseded in its status banner.
-   *   - OUT: `src/`. The usual justification — "the compiler already gates their crefs" — is only PART true
-   *     and worth stating precisely, because the gap is where real drift has landed: the compiler resolves
-   *     `<see cref>` and nothing else, so a type or file named in a `<c>` tag or a `//` comment is checked by
-   *     no one. `check-api-vocabulary` covers retired IDENTIFIERS on the frozen surface; nothing covers a
-   *     retired CLAIM in an XML doc, which is how `GraphMemoryOptions.AuthoritativeReserve` shipped a
-   *     paragraph describing an implementation the measurement had already rejected (2026-08-14 review).
-   *
-   * Escape hatch: put `drift-ok` on the line. That is the honest annotation for a passage that deliberately
-   * NAMES the retired thing — an amendment explaining what changed, or a rule quoting the word it bans.
+   * Each entry: the `term` (a regex, written with `\\b` — a single backslash is JS's backspace escape),
+   * what to `use` instead, and `why`, so the failure teaches rather than merely refuses. Add one whenever a
+   * decision renames or re-dimensions something. A line that deliberately NAMES the retired thing takes
+   * `drift-ok`.
    */
   retiredTerms: [
     {
@@ -1179,10 +1123,8 @@ export default {
         + 'and prose seeds the name back in on the next change (repo-mechanics.md §Naming)',
     },
     {
-      // Two phrasings of the same retired claim — see the "why" for the reversal. Neither hits today: the
-      // claim currently only survives in src/ XML docs and CHANGELOG.md, both out of this gate's scope (see
-      // the module doc above), plus tests/, which was never in scope either. This entry exists so nothing
-      // NEW repeats the claim in a gated document.
+      // Two phrasings of the same retired claim — see the "why" for the reversal. Neither hits today; this
+      // entry exists so nothing NEW repeats the claim in a scanned document or comment.
       //
       // NOTE for a future editor: "salience does not reorder a seed" reads as TRUE again once you know the
       // rank half is off by default (D45, corrected 2026-08-09) — that is not a reason to remove this entry.
@@ -1262,10 +1204,7 @@ export default {
       // Zero current hits, same as the precedent above (`never reorders a seed`) — added so nothing
       // REINTRODUCES the claim, not because it fires today. A fix-round review (2026-08-10) found three
       // markdown hits of this exact shape (README.md twice, docs/2026-07-17-lyntai-design.md once) and they
-      // were fixed by hand; this entry is what stops a fourth. Deliberately does NOT try to catch the same
-      // claim in src/ XML docs (three sites: IMemoryRetrievabilityPolicy.cs x2, DsrRetrievability.cs,
-      // GraphMemoryOptions.cs, all fixed by hand the same review) — see the module doc above for why `src/`
-      // is out of this gate's scope; those four sites need their own eyes on the next touch.
+      // were fixed by hand; this entry is what stops a fourth, in prose and in code comments alike.
       term: 'DsrRetrievability[^.]{0,80}available,? (?:but )?not (?:the )?default'
         // wildcard gaps, not literal spaces — this rule fences a DELETED type, so a form it cannot match is
         // worse than for a merely-demoted one: there is no forward name to migrate to. Dead since written,

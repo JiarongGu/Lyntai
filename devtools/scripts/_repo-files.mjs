@@ -2,30 +2,17 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+// The shared halves of every scanning gate: the file list, the read rule and the two-line window. The
+// leading underscore keeps this out of the gate roster. Each rule here was once copied per gate, and a
+// copied scope rule diverges silently — every copy prints the same green line whatever it scanned.
+
 /**
  * The ONE file list every full-tree gate scans: tracked files PLUS new files that are not ignored.
  *
- * The leading underscore keeps this out of the gate roster the way `_fixtures.mjs` keeps its helper out of
- * test discovery — `devtools/scripts/` is a list of executable gates, and this is not one.
- *
- * ## Why untracked files are included
- *
- * `git ls-files` lists the INDEX. The ordinary workflow is *write → `verify` → commit*, so a file that is
- * neither committed nor `git add`ed is absent from every gate's scope — meaning `verify` scans everything
- * EXCEPT the work being verified, and prints the same green line it prints when there is genuinely nothing
- * wrong. Measured 2026-08-23: a 36-line comment block in a new bench file passed two full `verify` runs and
- * the individual gate twice, then failed the moment its file was committed, byte-identical. The first
- * hypothesis was a non-deterministic gate, which would have been far worse than the truth.
- *
- * `--others --exclude-standard` adds exactly the new SOURCE and none of the scratch: `local/`,
- * `devtools/_*`, `bin` and `obj` are ignored and stay out on their own. That is what made index-only look
- * sufficient — the two reasons pull in opposite directions and git already tells them apart.
- *
- * ## Why it is shared
- *
- * Five gates carried their own copy of this rule and the blind spot was five-fold, because a scope rule
- * diverges silently: every copy prints the same green line whatever it scanned. Same shape as the `salience`
- * coercion `pitfalls.md` records, applied to gate SCOPE.
+ * `git ls-files` alone lists the INDEX, so `verify` would scan everything EXCEPT the work being verified —
+ * a new file passes every gate until it is committed (`.claude/knowledge/pitfalls.md` §Environment /
+ * tooling). `--others --exclude-standard` adds the new SOURCE and none of the scratch: `local/`,
+ * `devtools/_*`, `bin` and `obj` are ignored and stay out on their own.
  *
  * @param {string} repo Repository root.
  * @param {string[]} tiers Optional pathspecs to narrow to (e.g. `['src', 'tests']`); empty = whole repo.
@@ -76,27 +63,13 @@ export function readRepoText(repo, f) {
 }
 
 /**
- * The two-line window three gates share: `check-counts` and `check-docs` join a claim across a wrap this
- * way, and `check-links` joins its own Part-reference check the same way. A claim broken by this
- * repository's ~110-column wrap reads as one continuous span — provided the caller hands it PROSE; a
- * comment line's own marker is the caller's job to strip first (`check-docs`' `commentLinesOnly` does this
- * for its code tier), because this function only knows about whitespace.
+ * Each line joined to the next, so a claim broken by this repository's ~110-column wrap reads as one span.
+ * The caller hands it PROSE — a comment's own marker is the caller's to strip (`check-docs`'
+ * `commentLinesOnly`), since this knows only whitespace and blockquotes.
  *
- * The CONTINUATION's leading indentation is stripped before the join; the first line is never touched. That
- * asymmetry is load-bearing, not a style choice: `check-counts`'s duplicate-report guard
- * (`m.index >= line.length + 1`) and `check-links`' own (`match.index > line.length`) anchor the join
- * boundary at the same place — the raw, untrimmed first line's own length — so trimming the continuation
- * leaves it exactly where each guard expects it, while trimming the first line's tail would move it and
- * mis-fire both silently. Without the trim at all, an indented continuation (a wrap into a nested or
- * bulleted block) joins as `"…proved by" + " " + "      seven"`, and a pattern anchored on single-space
- * adjacency never crosses the extra whitespace — the claim is invisible.
- *
- * A BLOCKQUOTE marker on the continuation is stripped for the same reason and was missed for the same
- * reason. Found 2026-09-12: a retired claim wrapping inside a `>` block joined as `"…never a" + " " +
- * "> generator asked to choose"`, and the `>` sat exactly where the pattern expected a space — so the one
- * place this repository puts its standing working positions was the one place the gate could not read a
- * wrapped claim. It is the same defect the indentation trim already fixed, wearing markdown's syntax
- * instead of whitespace; `check-docs`' `commentLinesOnly` is the third instance, for `//`.
+ * The CONTINUATION is trimmed of indentation and of a leading `>` blockquote marker — either one otherwise
+ * sits where a pattern expects a single space, and a wrap into a nested block or a quote goes unseen. The
+ * FIRST line is never touched: `windowHits` anchors the join at its raw length.
  *
  * @param {string[]} lines
  * @returns {string[]} one window per input line: `lines[i]` joined to `lines[i + 1]`'s trimmed text, or

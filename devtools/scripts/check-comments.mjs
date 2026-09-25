@@ -88,6 +88,15 @@ export function blocksIn(text) {
   const flush = () => { if (run > 0) out.push({ line: start, length: run, escaped }); run = 0; };
   for (let i = 0; i <= lines.length; i++) {
     const t = (lines[i] ?? '').trim();
+    // A `/* … */` span (JSDoc, the main doc form in `.mjs`) is ONE block, measured start to end.
+    if (t.startsWith('/*')) {
+      flush();
+      let end = i;
+      while (end < lines.length - 1 && !lines[end].includes('*/')) end++;
+      out.push({ line: i + 1, length: end - i + 1, escaped: t.includes(ESCAPE) });
+      i = end;
+      continue;
+    }
     if (!t.startsWith('//')) { flush(); continue; }
     if (NEW_SUBJECT.test(t)) flush();
     if (run === 0) { start = i + 1; escaped = t.includes(ESCAPE); }
@@ -118,8 +127,8 @@ export const asAllowanceList = (v) => (Array.isArray(v) ? [...v] : [v]).sort((a,
  *
  * Both shapes were produced by this repository's own comment sweep and SHIPPED, inside `///` docs on public
  * members, so they reached consumers' IntelliSense as "…reads as the neutral 5 instead (" and "…field
- * instead . This exists so…". Every gate was green: `check-comments` measures block LENGTH, `check-docs`
- * scans prose files not `src/`, and the compiler has no opinion about a sentence. A person found them.
+ * instead . This exists so…". Every gate was green: `check-comments` measured block LENGTH, `check-docs`
+ * reads vocabulary, and the compiler has no opinion about a sentence. A person found them.
  *
  * The two rules are narrow ON PURPOSE, because the obvious broad versions are all false positives here:
  * "a comment line starting with punctuation" hits `.cmd, then .exe` and a wrapped `: 1e-6</c>)`, and "a line
@@ -168,6 +177,24 @@ export function stackedSummaries(text) {
   return out;
 }
 
+/**
+ * JSDoc blocks with no member between them and the next JSDoc block — the `.mjs` form of a stacked
+ * `<summary>`: the first documents a member that is not there, and the member below it reads the second.
+ */
+export function stackedDocBlocks(text) {
+  const lines = text.split(/\r?\n/);
+  const out = [];
+  for (let i = 0; i < lines.length; i++) {
+    if (!lines[i].trim().startsWith('/**')) continue;
+    const start = i;
+    while (i < lines.length - 1 && !lines[i].includes('*/')) i++;
+    let j = i + 1;
+    while (j < lines.length && (lines[j].trim() === '' || lines[j].trim().startsWith('//'))) j++;
+    if (j < lines.length && lines[j].trim().startsWith('/**')) out.push({ line: start + 1, jsdoc: true });
+  }
+  return out;
+}
+
 /** Comment lines whose punctuation says an edit removed the text around it. */
 export function strandedIn(text) {
   const out = [];
@@ -207,7 +234,7 @@ export function checkComments(repo, cfg, log = console.log, files = null) {
     seen.add(f);
 
     for (const s of strandedIn(text)) stranded.push({ file: f, ...s });
-    for (const s of stackedSummaries(text)) stacked.push({ file: f, ...s });
+    for (const s of [...stackedSummaries(text), ...stackedDocBlocks(text)]) stacked.push({ file: f, ...s });
 
     const blocks = overLimitBlocks(text);
     const actual = blocks.map((b) => b.length);
@@ -266,8 +293,11 @@ export function checkComments(repo, cfg, log = console.log, files = null) {
   }
 
   if (stacked.length > 0) {
-    log(`\ncheck-comments: ✗ ${stacked.length} doc run(s) carry more than one <summary>`);
-    for (const s of stacked) log(`  ${s.file}:${s.line}  ${s.count} summaries in one run`);
+    log(`\ncheck-comments: ✗ ${stacked.length} doc block(s) documenting a member that is not beneath them`);
+    for (const s of stacked) {
+      log(`  ${s.file}:${s.line}  ${s.jsdoc ? 'a doc block with no member between it and the next'
+        : `${s.count} summaries in one run`}`);
+    }
     log('  Two members\' docs are fused: one member has two summaries and another has none.');
     log('  Move the displaced block onto the member it describes, or make it a <remarks>.');
   }

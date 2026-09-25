@@ -141,12 +141,6 @@ export const declaredParts = (text) => {
 };
 
 /**
- * The tracked file list, `-z` so git does not C-QUOTE a non-ASCII path — `docs/灵台.md` would otherwise  link-ok
- * arrive as an 8-escape string matching no file on disk, and this gate would both fail to scan it AND
- * report every reference to it as dangling. Same root cause as check-sensitive's and check-docs' own,
- * measured 2026-08-11 (docs/task-archive.md Part 60).
- */
-/**
  * A citation naming a SECTION of a document: `` `docs/memory.md` §7 ``, `<c>pitfalls.md</c> §Storage`,
  * `docs/d.md` §5–7 (an ILLUSTRATION of the range shape, never a file here). link-ok
  *

@@ -199,6 +199,38 @@ describe('check-comments — punctuation an edit left behind', () => {
 
 });
 
+describe('check-comments — JSDoc, the main doc form in `.mjs`', () => {
+  const jsdoc = (n, first = '/**') => [first, ...Array.from({ length: n - 2 }, (_, i) => ` * body ${i}`), ' */'];
+
+  it('measures a `/** … */` span as ONE block, start to end', () => {
+    const b = blocksIn([...jsdoc(6), 'export const x = 1;'].join('\n'));
+    assert.deepEqual(b.map((x) => [x.line, x.length]), [[1, 6]]);
+  });
+
+  it('fails a JSDoc block over the limit — the tier the gate used to skip', () => {
+    const { code, out } = run({ 'devtools/x.mjs': [...jsdoc(MAX_BLOCK + 3), 'export const x = 1;'].join('\n') }, {});
+    assert.equal(code, 1);
+    assert.match(out, /devtools\/x\.mjs:1 {2}28 lines/);
+  });
+
+  it('honours the escape on a JSDoc block\'s first line', () => {
+    const text = [...jsdoc(MAX_BLOCK + 3, `/** ${ESCAPE}: a table`), 'export const x = 1;'].join('\n');
+    assert.equal(run({ 'devtools/x.mjs': text }, {}).code, 0);
+  });
+
+  it('FAILS two JSDoc blocks with no code between them — the first documents the wrong member', () => {
+    const text = ['/** A. */', '', '// a note', '/** B. */', 'export const b = 1;'].join('\n');
+    const { code, out } = run({ 'devtools/x.mjs': text }, {});
+    assert.equal(code, 1);
+    assert.match(out, /devtools\/x\.mjs:1 {2}a doc block with no member between it and the next/);
+  });
+
+  it('does NOT fire on two JSDoc blocks each above its own member', () => {
+    const text = ['/** A. */', 'export const a = 1;', '', '/** B. */', 'export const b = 1;'].join('\n');
+    assert.equal(run({ 'devtools/x.mjs': text }, {}).code, 0);
+  });
+});
+
 describe('check-comments — fail-closed', () => {
   it('an EMPTY source list is a broken listing, not a clean tree', () => {
     const dir = makeTree({});
