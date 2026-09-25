@@ -22,23 +22,13 @@ public class MemoryPromptComposerTests
     // cancel does, so a bare rethrow made that promise false for exactly the implementations it was
     // written to protect.
 
-    private sealed class TimingOutMemoryStore : IMemoryStore
-    {
-        public Task RememberAsync(string taskKey, string scope, string content, TimeSpan? ttl = null,
-            CancellationToken ct = default) => throw new OperationCanceledException("the store's own deadline");
-        public Task<IReadOnlyList<MemoryEntry>> RecallAsync(string taskKey, string? scope = null,
-            string? query = null, int? limit = null, CancellationToken ct = default) =>
-            throw new OperationCanceledException("the store's own deadline");
-        public Task ForgetAsync(string taskKey, string? scope = null, CancellationToken ct = default) =>
-            throw new OperationCanceledException("the store's own deadline");
-        public Task<int> PruneAsync(string? taskKey = null, TimeSpan? olderThan = null,
-            CancellationToken ct = default) => throw new OperationCanceledException("the store's own deadline");
-    }
+    private static T TimingOut<T>() where T : class =>
+        Throwing.Of<T>(() => new OperationCanceledException("the store's own deadline"));
 
     [Fact]
     public async Task A_lexical_stores_OWN_timeout_leaves_the_semantic_half_intact()
     {
-        var composer = new MemoryPromptComposer(new TimingOutMemoryStore(), await SemanticWith("embed me"));
+        var composer = new MemoryPromptComposer(TimingOut<IMemoryStore>(), await SemanticWith("embed me"));
 
         var composed = await composer.ComposeAsync("base", "trip", scope: "s", query: "embed me");
 
@@ -48,7 +38,7 @@ public class MemoryPromptComposerTests
     [Fact]
     public async Task A_lexical_stores_OWN_timeout_with_no_other_source_yields_the_BASE_prompt()
     {
-        var composer = new MemoryPromptComposer(new TimingOutMemoryStore());
+        var composer = new MemoryPromptComposer(TimingOut<IMemoryStore>());
 
         var composed = await composer.ComposeAsync("base", "trip", scope: "s", query: "anything");
 
@@ -61,7 +51,7 @@ public class MemoryPromptComposerTests
         // The control: without it, "swallow every OperationCanceledException" passes both tests above.
         using var cts = new CancellationTokenSource();
         cts.Cancel();
-        var composer = new MemoryPromptComposer(new TimingOutMemoryStore());
+        var composer = new MemoryPromptComposer(TimingOut<IMemoryStore>());
 
         await Assert.ThrowsAsync<OperationCanceledException>(
             async () => await composer.ComposeAsync("base", "trip", scope: "s", query: "q", ct: cts.Token));
@@ -96,18 +86,9 @@ public class MemoryPromptComposerTests
     public async Task A_throwing_semantic_source_falls_through_to_lexical()
     {
         var store = new FakeMemoryStore([Fact("lexical fact")]);
-        var composer = new MemoryPromptComposer(store, new ThrowingSemanticMemory());
+        var composer = new MemoryPromptComposer(store, Throwing.Of<ISemanticMemory>(() => new InvalidOperationException("vector backend down")));
         var composed = await composer.ComposeAsync("base", "trip", scope: "s", query: "q");
         Assert.Contains("- lexical fact", composed); // semantic failure didn't sink the lexical facts
-    }
-
-    private sealed class ThrowingSemanticMemory : ISemanticMemory
-    {
-        public Task RememberAsync(string taskKey, string scope, string content, CancellationToken ct = default) =>
-            Task.CompletedTask;
-        public Task<IReadOnlyList<SemanticHit>> RecallAsync(string taskKey, string? scope, string query,
-            int k = 5, double minScore = 0, CancellationToken ct = default) => throw new InvalidOperationException("vector backend down");
-        public Task ForgetAsync(string taskKey, string scope, CancellationToken ct = default) => Task.CompletedTask;
     }
 
     [Fact]
@@ -168,7 +149,7 @@ public class MemoryPromptComposerTests
     [Fact]
     public async Task A_throwing_store_fails_open_to_the_base_prompt()
     {
-        var composer = new MemoryPromptComposer(new ThrowingMemoryStore());
+        var composer = new MemoryPromptComposer(Throwing.Of<IMemoryStore>(() => new InvalidOperationException("store down")));
         Assert.Equal("base", await composer.ComposeAsync("base", "task"));
     }
 
@@ -182,21 +163,6 @@ public class MemoryPromptComposerTests
 
         public Task<IReadOnlyList<MemoryEntry>> RecallAsync(string taskKey, string? scope = null, string? query = null,
             int? limit = null, CancellationToken ct = default) => Task.FromResult(entries);
-
-        public Task ForgetAsync(string taskKey, string? scope = null, CancellationToken ct = default) =>
-            Task.CompletedTask;
-
-        public Task<int> PruneAsync(string? taskKey = null, TimeSpan? olderThan = null, CancellationToken ct = default) =>
-            Task.FromResult(0);
-    }
-
-    private sealed class ThrowingMemoryStore : IMemoryStore
-    {
-        public Task RememberAsync(string taskKey, string scope, string content, TimeSpan? ttl = null, CancellationToken ct = default) =>
-            Task.CompletedTask;
-
-        public Task<IReadOnlyList<MemoryEntry>> RecallAsync(string taskKey, string? scope = null, string? query = null,
-            int? limit = null, CancellationToken ct = default) => throw new InvalidOperationException("store down");
 
         public Task ForgetAsync(string taskKey, string? scope = null, CancellationToken ct = default) =>
             Task.CompletedTask;

@@ -4,6 +4,7 @@ using Lyntai.Tools.Mcp.Hosting;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Client;
 using Lyntai.Inference;
+using Lyntai.Tests.Fakes;
 
 namespace Lyntai.Tests.Tools;
 
@@ -97,7 +98,7 @@ public class McpToolHostTests
 
         const string token = "test-bearer-token";
         await using var host = await McpToolHost.StartAsync(
-            [secret], token, guards: new BlockingRail(), logger: new CapturingLogger(logs));
+            [secret], token, guards: new BlockingRail(), logger: new CapturingLogger(logs, LogLevel.Trace));
 
         var transport = new HttpClientTransport(new HttpClientTransportOptions
         {
@@ -131,7 +132,7 @@ public class McpToolHostTests
 
         const string token = "test-bearer-token";
         await using var host = await McpToolHost.StartAsync(
-            [boom], token, logger: new CapturingLogger(logs));
+            [boom], token, logger: new CapturingLogger(logs, LogLevel.Trace));
 
         var transport = new HttpClientTransport(new HttpClientTransportOptions
         {
@@ -146,17 +147,6 @@ public class McpToolHostTests
         Assert.Contains("error:", result, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("no such record", result, StringComparison.Ordinal);
         Assert.Contains(logs, l => l.Contains("boom", StringComparison.Ordinal));
-    }
-
-    private sealed class CapturingLogger(List<string> sink) : ILogger
-    {
-        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
-        public bool IsEnabled(LogLevel logLevel) => true;
-        public void Log<TState>(LogLevel level, EventId id, TState state, Exception? ex,
-            Func<TState, Exception?, string> fmt)
-        {
-            lock (sink) sink.Add(fmt(state, ex));
-        }
     }
 
     [Fact]

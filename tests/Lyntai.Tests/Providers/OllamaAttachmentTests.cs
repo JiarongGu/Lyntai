@@ -176,19 +176,4 @@ public class OllamaAttachmentTests
         Assert.Contains("\"images\"", handler.Requests[0].Body, StringComparison.Ordinal);
         Assert.Contains(Base64, handler.Requests[0].Body, StringComparison.Ordinal);
     }
-
-    /// <summary>Warning-and-above sink, so a test can assert a capability was REPORTED rather than dropped.
-    /// The twin in <c>CodexAgentSessionTests</c> is private to that class, so it is not shareable.</summary>
-    private sealed class CapturingLogger(List<string> sink) : ILogger
-    {
-        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
-
-        public bool IsEnabled(LogLevel logLevel) => true;
-
-        public void Log<TState>(LogLevel level, EventId id, TState state, Exception? ex,
-            Func<TState, Exception?, string> fmt)
-        {
-            if (level >= LogLevel.Warning) sink.Add(fmt(state, ex));
-        }
-    }
 }

@@ -6,6 +6,7 @@ using Lyntai.Prompts;
 using Lyntai.Storage;
 using Lyntai.Tests.Storage;
 using Microsoft.Extensions.DependencyInjection;
+using Lyntai.Tests.Fakes;
 
 namespace Lyntai.Tests.Cortex;
 
@@ -123,7 +124,7 @@ public class CortexIntegrationTests : IDisposable
     [Fact] // 5.6 — outage: a throwing store must not sink the prompt
     public async Task Composer_is_fail_open_on_a_broken_store()
     {
-        var composer = new MemoryPromptComposer(new ThrowingMemoryStore());
+        var composer = new MemoryPromptComposer(Throwing.Of<IMemoryStore>(() => new InvalidOperationException("db is gone")));
 
         var composed = await composer.ComposeAsync("Base prompt.", "task");
 
@@ -136,18 +137,5 @@ public class CortexIntegrationTests : IDisposable
         var composer = _sp.GetRequiredService<IPromptComposer>();
 
         Assert.Equal("Plain.", await composer.ComposeAsync("Plain.", "task-with-no-memories"));
-    }
-
-    private sealed class ThrowingMemoryStore : IMemoryStore
-    {
-        public Task RememberAsync(string taskKey, string scope, string content, TimeSpan? ttl = null, CancellationToken ct = default) =>
-            throw new InvalidOperationException("db is gone");
-        public Task<IReadOnlyList<MemoryEntry>> RecallAsync(string taskKey, string? scope = null,
-            string? query = null, int? limit = null, CancellationToken ct = default) =>
-            throw new InvalidOperationException("db is gone");
-        public Task ForgetAsync(string taskKey, string? scope = null, CancellationToken ct = default) =>
-            throw new InvalidOperationException("db is gone");
-        public Task<int> PruneAsync(string? taskKey = null, TimeSpan? olderThan = null, CancellationToken ct = default) =>
-            throw new InvalidOperationException("db is gone");
     }
 }

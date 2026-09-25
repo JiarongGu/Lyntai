@@ -887,15 +887,4 @@ public class CodexAgentSessionTests
     }
 
     // ── helpers ──────────────────────────────────────────────────────────────
-
-    private sealed class CapturingLogger<T>(List<string> sink) : ILogger<T>
-    {
-        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
-        public bool IsEnabled(LogLevel logLevel) => true;
-        public void Log<TState>(LogLevel level, EventId id, TState state, Exception? ex,
-            Func<TState, Exception?, string> fmt)
-        {
-            if (level >= LogLevel.Warning) sink.Add(fmt(state, ex));
-        }
-    }
 }

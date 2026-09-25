@@ -62,23 +62,11 @@ public class ScoringServiceTests
     {
         // Same shape one layer down, and its own log line already promised "results still returned".
         var scorer = new FakeScorer("a", score: _ => new ScoreResult(0.7));
-        var service = new ScoringService([scorer], new TimingOutScoreStore());
+        var service = new ScoringService([scorer], Throwing.Of<Lyntai.Storage.IScoreStore>(() => new OperationCanceledException("the store's own deadline")));
 
         var results = await service.EvaluateAsync(Ctx);
 
         Assert.Single(results);
-    }
-
-    private sealed class TimingOutScoreStore : Lyntai.Storage.IScoreStore
-    {
-        public Task SaveAsync(string sessionId, IReadOnlyList<ScoredResult> results, CancellationToken ct = default) =>
-            throw new OperationCanceledException("the store's own deadline");
-        public Task<IReadOnlyList<ScoredResult>> GetAsync(string sessionId, CancellationToken ct = default) =>
-            Task.FromResult<IReadOnlyList<ScoredResult>>([]);
-        public Task<IReadOnlyList<ScorerAggregate>> AggregateAsync(CancellationToken ct = default) =>
-            Task.FromResult<IReadOnlyList<ScorerAggregate>>([]);
-        public Task<IReadOnlyList<ScoreExportEntry>> ExportAsync(CancellationToken ct = default) =>
-            Task.FromResult<IReadOnlyList<ScoreExportEntry>>([]);
     }
 
     [Fact]

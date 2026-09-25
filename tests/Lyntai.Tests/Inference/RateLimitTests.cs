@@ -291,7 +291,7 @@ public class RateLimitTests
         var logs = new List<string>();
         var provider = new FakeTextProvider("p"); // default Ok replies
         var services = new ServiceCollection();
-        services.AddLogging(b => b.AddProvider(new CapturingLoggerProvider(logs)));
+        services.AddLogging(b => b.AddProvider(new CapturingLogger(logs)));
         services.AddLyntai(b => b
             .AddProvider(_ => provider)
             .AddRateLimit() // all defaults → PermitsPerSecond 0, no per-consumer → nothing throttled
@@ -311,7 +311,7 @@ public class RateLimitTests
         var logs = new List<string>();
         var provider = new FakeTextProvider("p");
         var services = new ServiceCollection();
-        services.AddLogging(b => b.AddProvider(new CapturingLoggerProvider(logs)));
+        services.AddLogging(b => b.AddProvider(new CapturingLogger(logs)));
         services.AddLyntai(b => b
             .AddProvider(_ => provider)
             .AddRateLimit(o => o.PermitsPerSecond = 10)
@@ -320,22 +320,6 @@ public class RateLimitTests
 
         _ = sp.GetRequiredService<ITextClient>();
         Assert.DoesNotContain(logs, l => l.Contains("no effective limit", StringComparison.OrdinalIgnoreCase));
-    }
-
-    private sealed class CapturingLoggerProvider(List<string> sink) : ILoggerProvider
-    {
-        public ILogger CreateLogger(string categoryName) => new Cap(sink);
-        public void Dispose() { }
-
-        private sealed class Cap(List<string> sink) : ILogger
-        {
-            public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
-            public bool IsEnabled(LogLevel logLevel) => true;
-            public void Log<TState>(LogLevel level, EventId id, TState state, Exception? ex, Func<TState, Exception?, string> fmt)
-            {
-                if (level >= LogLevel.Warning) lock (sink) sink.Add(fmt(state, ex));
-            }
-        }
     }
 
     [Fact]
