@@ -1,18 +1,14 @@
-// check-dev-loop — the `## Dev loop` command table in `CLAUDE.md`, GENERATED from `dev.mjs`.
+// check-dev-loop — the `## Dev loop` command table in `CLAUDE.md`, GENERATED from the command roster.
 //
-// The third authored-marker/generated-index gate, sharing `_markers.mjs` with `check-backlog` (D111) and
-// `check-pitfalls` (D112). Here the "markers" are `devLoopCommands` in `devtools/project.config.mjs`: the
-// NAMES and the `verify` column are derived from `dev.mjs`, so only the description is authored.
-//
-// Why derived and not hand-listed: `dev.mjs`'s own usage string was once a literal, and it drifted to 24 of
-// 30 commands — every memory sweep except one, plus a gate the day it was added — so the thing CLAUDE.md
-// called "the authoritative list" silently stopped being one. A prose table in the file every session reads
-// first is the same defect with a wider blast radius.
-
+// The names and the `verify` column come from `devtools/commands.mjs` (imported, never parsed out of a
+// source file); only each description is authored, in `devLoopCommands` in `devtools/project.config.mjs`.
+// Why the table is derived, and what drifted when it was not: `docs/GATES.md` §check-dev-loop.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { anchorProblems, cell, fixedPoint } from './_markers.mjs';
+
+import { COMMANDS, VERIFY_STEPS } from '../commands.mjs';
+import { anchorProblems, cell, regenerate } from './_markers.mjs';
 
 const here = fileURLToPath(import.meta.url);
 const repoDefault = path.resolve(path.dirname(here), '..', '..');
@@ -23,100 +19,93 @@ export const END = '<!-- dev-loop:end -->';
 /** The file the table lives in. Its own constant so a test can point the gate at a fixture. */
 export const TARGET = 'CLAUDE.md';
 
-/**
- * Every command `dev.mjs` dispatches, and which of them `verify` runs — both read out of its SOURCE.
- *
- * Read as text, never imported: `dev.mjs` executes its switch at module scope, so importing it to ask what
- * it contains would run a command. `check-counts` reads the same two shapes for the same reason.
- */
-export function commandRoster(repo) {
-  const src = fs.readFileSync(path.join(repo, 'devtools', 'dev.mjs'), 'utf8');
-  const names = [...new Set([...src.matchAll(/^\s*case '([a-z][a-z0-9-]*)':/gm)].map((m) => m[1]))];
-  const steps = src.match(/const steps = \[([\s\S]*?)\];/);
-  const inVerify = new Set(steps ? [...steps[1].matchAll(/\['([a-z0-9-]+)',\s*\[/g)].map((m) => m[1]) : []);
-  return { names, inVerify };
+/** The shipped roster; a test passes its own. */
+export const ROSTER = { commands: COMMANDS, steps: VERIFY_STEPS };
+
+/** Every command name, in roster order, and the set `verify` runs. */
+export function commandRoster({ commands, steps } = ROSTER) {
+  return { names: [...new Set(commands.map((c) => c.name))], inVerify: new Set(steps.map(([name]) => name)) };
 }
 
-/** The table body, in `dev.mjs`'s own declaration order so the roster reads as the switch reads. */
-export function renderTable(repo, commands) {
-  const { names, inVerify } = commandRoster(repo);
+/** The table body, in roster order. */
+export function renderTable(roster, descriptions) {
+  const { names, inVerify } = commandRoster(roster);
   return [
     '| command | `verify` | what it does |',
     '| --- | :---: | --- |',
-    ...names.map((n) => `| \`${n}\` | ${inVerify.has(n) ? '✓' : ''} | ${cell(commands[n] ?? '', 104)} |`),
+    ...names.map((n) => `| \`${n}\` | ${inVerify.has(n) ? '✓' : ''} | ${cell(descriptions[n] ?? '', 104)} |`),
   ];
 }
 
 /**
  * Problems with the REGISTRY itself, as message strings — empty when every command has exactly one entry.
  *
- * Both directions fail. An undocumented command would render a blank cell that reads like a command doing
- * nothing; an entry naming no command is the dead-registry-entry shape every registry here carries, and
- * without it the table quietly stops covering what it was written for.
+ * Both directions fail: an undocumented command renders a blank cell that reads like a command doing
+ * nothing, and an entry naming no command is a dead registry entry that cannot expire. A `verify` step
+ * naming no command would run nothing and fail only at run time, so it fails here.
  */
-export function registryProblems(names, commands) {
+export function registryProblems(names, descriptions, inVerify = new Set()) {
   const known = new Set(names);
-  const missing = names.filter((n) => !commands[n]?.trim());
-  const dead = Object.keys(commands).filter((k) => !known.has(k));
+  const missing = names.filter((n) => !descriptions[n]?.trim());
+  const dead = Object.keys(descriptions).filter((k) => !known.has(k));
+  const unknownSteps = [...inVerify].filter((s) => !known.has(s));
   const problems = [];
   if (missing.length) problems.push(`${missing.length} command(s) with no \`devLoopCommands\` entry: ${missing.join(', ')}`);
   if (dead.length) problems.push(`${dead.length} \`devLoopCommands\` entr(ies) naming no command: ${dead.join(', ')}`);
+  if (unknownSteps.length) problems.push(`\`verify\` runs ${unknownSteps.length} step(s) naming no command: ${unknownSteps.join(', ')}`);
   return problems;
 }
 
-export function checkDevLoop(repo, config, log = console.log, write = false) {
-  const commands = config.devLoopCommands ?? {};
+export function checkDevLoop(repo, config, log = console.log, write = false, roster = ROSTER) {
+  const descriptions = config.devLoopCommands ?? {};
   const file = path.join(repo, TARGET);
   if (!fs.existsSync(file)) {
     log(`check-dev-loop: ✗ ${TARGET} is missing — nothing was checked, so this gate proves nothing`);
     return 1;
   }
 
-  const { names } = commandRoster(repo);
+  const { names, inVerify } = commandRoster(roster);
   if (names.length === 0) {
-    log('check-dev-loop: ✗ read no commands out of devtools/dev.mjs — check the `case` convention');
+    log('check-dev-loop: ✗ the command roster is empty — check devtools/commands.mjs');
     return 1;
   }
 
-  const problems = registryProblems(names, commands);
+  const problems = registryProblems(names, descriptions, inVerify);
   if (problems.length) {
-    log('check-dev-loop: ✗ the command registry disagrees with `dev.mjs`');
+    log('check-dev-loop: ✗ the command registry disagrees with the roster');
     for (const p of problems) log(`  ${p}`);
     log('');
     log('  `devLoopCommands` in devtools/project.config.mjs is the only authored half — the names and the');
-    log('  `verify` column are derived. Add the missing line, or delete the entry for a command that is gone.');
+    log('  `verify` column come from devtools/commands.mjs. Add the missing line, or delete the entry for a');
+    log('  command that is gone.');
     return 1;
   }
 
   const text = fs.readFileSync(file, 'utf8');
-  const lines = text.split(/\r?\n/);
-  const anchors = anchorProblems(lines, BEGIN, END);
+  const anchors = anchorProblems(text.split(/\r?\n/), BEGIN, END);
   if (anchors.length) {
     log(`check-dev-loop: ✗ ${TARGET}'s generated block is not a clean single anchor pair`);
     for (const p of anchors) log(`  ${p}`);
     return 1;
   }
 
-  const next = fixedPoint(text, () => renderTable(repo, commands), BEGIN, END);
-  if (next === null) {
+  const outcome = regenerate(text, () => renderTable(roster, descriptions), BEGIN, END,
+    write ? (next) => fs.writeFileSync(file, next, 'utf8') : null);
+  if (outcome === 'missing') {
     log(`check-dev-loop: ✗ ${TARGET} has no \`${BEGIN} … ${END}\` block to generate into`);
     return 1;
   }
-
-  if (write) {
-    if (next !== text) fs.writeFileSync(file, next, 'utf8');
-    log(`check-dev-loop: regenerated the command table in ${TARGET} — ${names.length} command(s)`);
-  } else if (next !== text.split(/\r?\n/).join('\n')) {
+  if (outcome === 'stale') {
     log(`check-dev-loop: ✗ ${TARGET}'s command table is stale`);
     log('');
-    log('  It is GENERATED from `dev.mjs` plus `devLoopCommands`. Run `node devtools/dev.mjs');
+    log('  It is GENERATED from devtools/commands.mjs plus `devLoopCommands`. Run `node devtools/dev.mjs');
     log('  check-dev-loop --write` rather than editing the table — a hand-edit is what this gate exists to');
     log('  catch, and it fails again on the next run.');
     return 1;
   }
+  if (write) log(`check-dev-loop: regenerated the command table in ${TARGET} — ${names.length} command(s)`);
 
-  const gated = commandRoster(repo).inVerify.size;
-  log(`check-dev-loop: ${names.length} command(s) documented, ${gated} of them in \`verify\` ✓`);
+  log(`check-dev-loop: ${names.length} command(s) documented, ${inVerify.size} of them in \`verify\` ✓`);
   return 0;
 }
 

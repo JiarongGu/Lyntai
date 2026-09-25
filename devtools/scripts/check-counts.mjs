@@ -18,12 +18,11 @@
 // WHY THE REGISTRY IS CODE AND NOT `project.config.mjs`. Every other registry there (`retiredTerms`,
 // `retiredApiNames`, `staleReferenceAllowances`) is pure data. An entry here is a regex plus a FUNCTION over
 // the tree, so it lives beside the gate that runs it and keeps the config a data file.
-import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { parseItems } from './check-backlog.mjs';
+import { VERIFY_STEPS } from '../commands.mjs';
 import { IN_SCOPE, IS_SCANNED, SUPERSEDED_BANNER, liveLinesOnly } from './check-docs.mjs';
 import { packableProjects } from './check-packages.mjs';
 import { readRepoText, repoFiles, twoLineWindows, windowHits } from './_repo-files.mjs';
@@ -66,21 +65,8 @@ export function parseCount(token) {
 /** Packable library projects. Reuses check-packages' own reader rather than re-deriving the rule. */
 export const countPackages = (repo) => packableProjects(repo).length;
 
-/**
- * Gates in `verify`, read from the `steps` array that `verify`'s own summary line is derived from.
- *
- * Matches an OUTER entry — `['name', [` — rather than any quoted word in the array. The first version used
- * `\['[a-z-]+'` and was wrong TWICE in cancelling directions: the character class excludes digits so it
- * never matched `e2e`, and it DID match the inner argument array in `['check-sensitive', ['--tree']]`. Both
- * errors together produced exactly the right total, so the gate agreed with the documentation for the wrong
- * reason. Caught by this counter's own test, which compares the parsed NAMES and not just the count — the
- * literal illustration of Part 73's "a counter that is subtly wrong is worse than none".
- */
-export function countVerifyGates(repo) {
-  const dev = fs.readFileSync(path.join(repo, 'devtools', 'dev.mjs'), 'utf8');
-  const m = dev.match(/const steps = \[([\s\S]*?)\];/);
-  return m ? [...m[1].matchAll(/\['([a-z0-9-]+)',\s*\[/g)].length : -1;
-}
+/** Gates in `verify` — the roster `verify` runs, imported rather than parsed out of the dispatcher. */
+export const countVerifyGates = () => VERIFY_STEPS.length;
 
 /**
  * FluentMigrator migrations.
@@ -142,22 +128,6 @@ export function countBareCancellationCatches(repo) {
 }
 
 /**
- * Guard-script tests.
- *
- * Counted STATICALLY from the declarations, which is exact here and was verified to be: on 2026-08-15 the
- * static count matched `node --test`'s reported total on all sixteen files individually AND in aggregate.
- * That equality is a property of how these files are written (no test is generated in a loop), so the test
- * pinning this counter compares it against a real run rather than against a hard-coded number.
- */
-export function countGuardTests(repo) {
-  const dir = path.join(repo, 'devtools', 'scripts', '__tests__');
-  if (!fs.existsSync(dir)) return -1;
-  return fs.readdirSync(dir)
-    .filter((f) => f.endsWith('.test.mjs'))
-    .reduce((n, f) => n + (fs.readFileSync(path.join(dir, f), 'utf8').match(/^\s*(?:it|test)\(/gm) ?? []).length, 0);
-}
-
-/**
  * e2e suites — the `pN.mjs` files the runner discovers.
  *
  * Registered 2026-08-23 with the two below, after a session in which EIGHT maintained claims went stale and
@@ -172,22 +142,6 @@ export function countE2eSuites(repo) {
   if (!fs.existsSync(dir)) return -1;
   return fs.readdirSync(dir).filter((f) => /^p\d+\.mjs$/.test(f)).length;
 }
-
-/**
- * A number this gate deliberately does NOT count, recorded so nobody re-attempts it: `doc samples 78/78`.
- *
- * Tried 2026-08-23 by reusing `check-samples`' own `extractBlocks`, and it returned **121** against a claim
- * of 78 — because 78 is the COMPILED subset (121 blocks, less 19 with a skip reason and 23 in a
- * wholesale-opted-out document), which is a property of a RUN rather than of the tree. Reproducing it here
- * means reproducing the gate's whole filtering, and two copies of "what counts as a sample?" would drift the
- * moment an annotation is added.
- *
- * **The rule that follows, and it is the general one: a run-derived number is checked by the GATE THAT
- * PRODUCES IT, never by a static counter.** `check-samples` already holds `78/78` in hand and already reads
- * the docs, so it asserts the prose itself. The same reasoning applies to the xUnit totals, which only
- * `dotnet test` knows — see `CLAUDE.md`'s test line, which now says which of its numbers are gated and by
- * what.
- */
 
 /**
  * Arms of the corpus language axis — the members of `CorpusLanguage`.
@@ -310,25 +264,6 @@ export function countGoldenShapes(repo) {
 }
 
 /**
- * Open backlog items an author has marked `state=startable`.
- *
- * Reuses `check-backlog`'s own parser rather than grepping for the marker, the same way `countPackages`
- * reuses `check-packages`' reader: two definitions of "what counts as an open item" would drift, and this
- * one already encodes that an unmarked or malformed item is not silently given a state.
- *
- * The claim it gates is the oldest recurring defect in this repository's prose — `TASKS.md`'s startable-set
- * banner has advertised finished work FOUR times, always because an item was amended in place and the
- * banner was not amended with it (`.claude/knowledge/pitfalls.md`). The generated manifest above the banner
- * cannot disagree with the markers; this is what stops the SENTENCE from disagreeing with both.
- */
-export function countStartableItems(repo) {
-  const file = path.join(repo, 'TASKS.md');
-  if (!fs.existsSync(file)) return -1;
-  const { items } = parseItems(fs.readFileSync(file, 'utf8').split(/\r?\n/));
-  return items.filter((i) => i.state === 'startable').length;
-}
-
-/**
  * The registry. One entry per counted claim: a pattern whose first capture group is the number, the
  * function that computes the truth, and why the claim is worth gating.
  *
@@ -387,12 +322,6 @@ export const COUNTED_CLAIMS = [
     why: 'its predecessor shipped wrong in THREE maintained documents at once, derived by subtraction from a grep',
   },
   {
-    what: 'guard-script tests',
-    pattern: /guard-script tests\s+([\d]+)\s*\/\s*\d+/gi,
-    count: countGuardTests,
-    why: 'CLAUDE.md instructs the reader to COMPARE against this baseline — a stale one teaches them to stop comparing',
-  },
-  {
     what: 'memory policy domains',
     // Registered 2026-08-15, the day the claim was found stale in BOTH the design contract ("the five
     // domains so far") and CLAUDE.md's namespace map, while the tree held seven. The two that were missing
@@ -435,26 +364,6 @@ export const COUNTED_CLAIMS = [
     count: countDecisions,
     why: 'CLAUDE.md routes a reader to the decision log by RANGE, so a short range reads as "nothing landed after this"',
   },
-  /*
-   * `startable backlog items` was registered here until 2026-09-17, anchored on the banner sentence
-   * "the startable set is N items".
-   *
-   * IT WENT BECAUSE THE SENTENCE DID, and the sentence went because **D111** had already made it
-   * redundant: the roster at the head of `TASKS.md` is GENERATED from the per-item `item:` markers, and
-   * `check-backlog` fails while the manifest and the markers disagree. So the count is derived and gated
-   * either way, and the banner was a second, hand-maintained copy of it sitting thirty lines above the
-   * generated one.
-   *
-   * The history is the argument. This pattern was widened twice to chase the prose — `items?` when the
-   * count reached ONE, then an optional noun when it reached ZERO and the banner read "is EMPTY" — and it
-   * broke three more times in one session, every time because a human edited a number a table already
-   * owned. A counter that keeps needing a wider pattern is measuring a sentence that should not exist;
-   * the same reasoning retired `dev.mjs`'s usage banner (see `commentBlockAllowances`' own note).
-   *
-   * What the claim protected against was a banner ADVERTISING FINISHED WORK, four times. That risk lives
-   * in the prose being hand-written at all, which is what was removed — the preamble now names no number
-   * and points at the table instead.
-   */
   {
     what: 'golden corpus shapes',
     // Anchored on "pins N golden shapes" — the TOTAL, which is what the counter computes. Deliberately not

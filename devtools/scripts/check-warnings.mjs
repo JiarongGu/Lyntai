@@ -52,6 +52,9 @@ const repoDefault = join(dirname(here), '..', '..');
  */
 export const WARNING_CODE = /warning [A-Za-z]{2,10}\d+/;
 
+/** A compiler ERROR line, shown when the build fails — anywhere, since an error in a test fails the build too. */
+export const ERROR_CODE = /: error [A-Za-z]{2,10}\d+/;
+
 /** …and only in a PUBLISHED project. Both separators, because the log's paths are the platform's. */
 export const IN_SRC = /[\\/]src[\\/]/;
 
@@ -96,6 +99,10 @@ export function checkWarnings({
   if (r.status !== 0) {
     error(`${label}: build FAILED — fix the build first`);
     if (r.error) error(`  ${r.error.code ?? r.error.message}`);
+    // This is `verify`'s only build, so it shows what failed rather than only that something did.
+    const errors = [...new Set((r.stdout || '').split(/\r?\n/).filter((l) => ERROR_CODE.test(l)))];
+    for (const l of errors.slice(0, 20)) error(`  ${l.replace(repo, '.').trim()}`);
+    if (errors.length > 20) error(`  … ${errors.length - 20} more`);
     return r.status ?? 1;
   }
   if (!lines.length) {

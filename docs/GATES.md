@@ -6,7 +6,7 @@
 > failure is spurious.
 
 `node devtools/dev.mjs` with no argument prints the authoritative command list; it is derived from the
-switch in `devtools/dev.mjs`, so it cannot be a subset. `verify` runs 24 checks, stopping at the first
+switch in `devtools/dev.mjs`, so it cannot be a subset. `verify` runs 23 checks, stopping at the first
 failure. **Digits, not a number word** — `parseCount` has no hyphenated compounds, so `twenty-one` would be
 skipped rather than compared and the claim it anchors would match nothing.
 

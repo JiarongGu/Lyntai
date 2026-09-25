@@ -1,76 +1,51 @@
 // check-dev-loop's own tests.
 //
-// The gate's claim is that `CLAUDE.md`'s command table cannot disagree with `dev.mjs`. Every way it could
-// fail permissively has to be caught: an undocumented command renders a blank cell that reads like a
+// The gate's claim is that `CLAUDE.md`'s command table cannot disagree with the command roster. Every way it
+// could fail permissively has to be caught: an undocumented command renders a blank cell that reads like a
 // command doing nothing, a dead registry entry silently stops covering what it was written for, and a
 // hand-edited table is exactly the drift this replaces. Each of those looks like a complete table.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { describe, it } from 'node:test';
 
 import {
-  BEGIN, END, TARGET, checkDevLoop, commandRoster, registryProblems, renderTable,
+  BEGIN, END, ROSTER, TARGET, checkDevLoop, commandRoster, registryProblems, renderTable,
 } from '../check-dev-loop.mjs';
 import { makeTree, recorder, removeTree } from './_fixtures.mjs';
 
-const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
+const DESCRIPTIONS = { verify: 'the gate', build: 'build it', bench: 'measure it' };
 
-const COMMANDS = { verify: 'the gate', build: 'build it', bench: 'measure it' };
+/** A roster of the shape `devtools/commands.mjs` exports. */
+const roster = ({ names = ['verify', 'build', 'bench'], steps = ['build'] } = {}) => ({
+  commands: names.map((name) => ({ name, builtin: true })),
+  steps: steps.map((s) => [s, []]),
+});
 
-/** A `dev.mjs` with the two shapes the gate reads: `case` labels, and `verify`'s `steps` array. */
-const devSource = ({ cases = ['verify', 'build', 'bench'], steps = ['build'] } = {}) => [
-  'switch (cmd) {',
-  ...cases.map((c) => `  case '${c}': {\n    break;\n  }`),
-  '}',
-  `const steps = [${steps.map((s) => `['${s}', []]`).join(', ')}];`,
-].join('\n');
-
-/** A target document carrying the anchor pair, optionally with a stale or hand-edited body. */
+/** A target document carrying the anchor pair. */
 const target = ({ body = [], anchors = true } = {}) =>
   ['# Doc', '', '## Dev loop', '', ...(anchors ? [`${BEGIN} -->`, '', ...body, '', END] : []), ''].join('\n');
 
-function run(files, config = { devLoopCommands: COMMANDS }, write = false) {
-  const dir = makeTree(files);
+function run(doc = target(), { descriptions = DESCRIPTIONS, r = roster(), write = false } = {}) {
+  const dir = makeTree(doc === null ? {} : { [TARGET]: doc });
   const log = recorder();
   try {
-    return { code: checkDevLoop(dir, config, log, write), out: log.text(), dir };
+    return { code: checkDevLoop(dir, { devLoopCommands: descriptions }, log, write, r), out: log.text(), dir };
   } finally { removeTree(dir); }
 }
 
-const tree = (opts = {}, doc = {}) => ({
-  'devtools/dev.mjs': devSource(opts),
-  [TARGET]: target(doc),
-});
-
-describe('check-dev-loop — the roster read out of dev.mjs', () => {
-  it('reads the case labels and the verify steps, de-duplicating fall-through', () => {
-    const dir = makeTree({ 'devtools/dev.mjs': devSource({ cases: ['verify', 'build', 'build'] }) });
-    try {
-      const { names, inVerify } = commandRoster(dir);
-      assert.deepEqual(names, ['verify', 'build']);
-      assert.deepEqual([...inVerify], ['build']);
-    } finally { removeTree(dir); }
+describe('check-dev-loop — the roster', () => {
+  it('reads the names and the verify steps, de-duplicating', () => {
+    const { names, inVerify } = commandRoster(roster({ names: ['verify', 'build', 'build'] }));
+    assert.deepEqual(names, ['verify', 'build']);
+    assert.deepEqual([...inVerify], ['build']);
   });
 
-  it('matches an OUTER steps entry, never an inner argument array', () => {
-    const dir = makeTree({
-      'devtools/dev.mjs': "switch (cmd) {}\nconst steps = [['check-sensitive', ['--tree']], ['e2e', []]];",
-    });
-    try {
-      assert.deepEqual([...commandRoster(dir).inVerify], ['check-sensitive', 'e2e']);
-    } finally { removeTree(dir); }
-  });
-
-  it('renders one row per command, in declaration order, ticking the verify column', () => {
-    const dir = makeTree({ 'devtools/dev.mjs': devSource() });
-    try {
-      const rows = renderTable(dir, COMMANDS);
-      assert.match(rows[2], /^\| `verify` \|  \| the gate \|$/);
-      assert.match(rows[3], /^\| `build` \| ✓ \| build it \|$/);
-      assert.equal(rows.length, 5);
-    } finally { removeTree(dir); }
+  it('renders one row per command, in roster order, ticking the verify column', () => {
+    const rows = renderTable(roster(), DESCRIPTIONS);
+    assert.match(rows[2], /^\| `verify` \|  \| the gate \|$/);
+    assert.match(rows[3], /^\| `build` \| ✓ \| build it \|$/);
+    assert.equal(rows.length, 5);
   });
 });
 
@@ -91,77 +66,73 @@ describe('check-dev-loop — the registry has to fail in BOTH directions', () =>
     assert.match(registryProblems(['verify'], { verify: '   ' })[0], /no `devLoopCommands` entry: verify/);
   });
 
+  it('FAILS on a `verify` step naming no command — it would run nothing', () => {
+    const problems = registryProblems(['verify'], { verify: 'x' }, new Set(['check-gone']));
+    assert.match(problems[0], /naming no command: check-gone/);
+  });
+
   it('reports the registry problem through the gate itself, without touching the table', () => {
-    const { code, out } = run(tree(), { devLoopCommands: { verify: 'the gate' } });
+    const { code, out } = run(target(), { descriptions: { verify: 'the gate' } });
     assert.equal(code, 1);
-    assert.match(out, /the command registry disagrees with `dev.mjs`/);
+    assert.match(out, /the command registry disagrees with the roster/);
     assert.match(out, /build, bench/);
   });
 });
 
 describe('check-dev-loop — the generated block', () => {
-  it('passes when the table is what the source renders', () => {
-    const dir = makeTree(tree());
+  it('passes when the table is what the roster renders', () => {
+    const dir = makeTree({ [TARGET]: target() });
     const log = recorder();
     try {
-      assert.equal(checkDevLoop(dir, { devLoopCommands: COMMANDS }, log, true), 0);
-      assert.equal(checkDevLoop(dir, { devLoopCommands: COMMANDS }, log), 0);
+      assert.equal(checkDevLoop(dir, { devLoopCommands: DESCRIPTIONS }, log, true, roster()), 0);
+      assert.equal(checkDevLoop(dir, { devLoopCommands: DESCRIPTIONS }, log, false, roster()), 0);
       assert.match(log.text(), /3 command\(s\) documented, 1 of them in `verify`/);
     } finally { removeTree(dir); }
   });
 
   it('FAILS on a hand-edited table rather than accepting it', () => {
-    const dir = makeTree(tree());
-    const log = recorder();
+    const dir = makeTree({ [TARGET]: target() });
     try {
-      checkDevLoop(dir, { devLoopCommands: COMMANDS }, log, true);
+      checkDevLoop(dir, { devLoopCommands: DESCRIPTIONS }, recorder(), true, roster());
       const doc = path.join(dir, TARGET);
       fs.writeFileSync(doc, fs.readFileSync(doc, 'utf8').replace('build it', 'builds it, honest'), 'utf8');
 
-      const log2 = recorder();
-      assert.equal(checkDevLoop(dir, { devLoopCommands: COMMANDS }, log2), 1);
-      assert.match(log2.text(), /command table is stale/);
+      const log = recorder();
+      assert.equal(checkDevLoop(dir, { devLoopCommands: DESCRIPTIONS }, log, false, roster()), 1);
+      assert.match(log.text(), /command table is stale/);
     } finally { removeTree(dir); }
   });
 
   it('FAILS when the anchor pair is missing, as a STRUCTURE problem', () => {
-    const { code, out } = run(tree({}, { anchors: false }));
+    const { code, out } = run(target({ anchors: false }));
     assert.equal(code, 1);
     assert.match(out, /no `<!-- dev-loop:begin … <!-- dev-loop:end -->` block/);
   });
 
   it('FAILS on a duplicated begin anchor, which would splice over the text between them', () => {
-    const doc = target().replace(`${BEGIN} -->`, `${BEGIN} -->\nintro\n${BEGIN} -->`);
-    const { code, out } = run({ 'devtools/dev.mjs': devSource(), [TARGET]: doc });
+    const { code, out } = run(target().replace(`${BEGIN} -->`, `${BEGIN} -->\nintro\n${BEGIN} -->`));
     assert.equal(code, 1);
     assert.match(out, /not a clean single anchor pair/);
   });
 
   it('FAILS CLOSED when the target is missing, rather than reporting a clean run', () => {
-    const { code, out } = run({ 'devtools/dev.mjs': devSource() });
+    const { code, out } = run(null);
     assert.equal(code, 1);
     assert.match(out, /is missing — nothing was checked/);
   });
 
-  it('FAILS CLOSED when dev.mjs declares no commands at all', () => {
-    const { code, out } = run({ 'devtools/dev.mjs': '// nothing here', [TARGET]: target() });
+  it('FAILS CLOSED on an empty roster', () => {
+    const { code, out } = run(target(), { r: roster({ names: [], steps: [] }) });
     assert.equal(code, 1);
-    assert.match(out, /read no commands out of devtools\/dev\.mjs/);
+    assert.match(out, /the command roster is empty/);
   });
 });
 
-describe('check-dev-loop — against the real tree', () => {
-  it('is green, and every real command carries a description', async () => {
+describe('check-dev-loop — the shipped roster', () => {
+  it('every command carries a description, and `verify` is among them', async () => {
     const config = (await import('../../project.config.mjs')).default;
-    const log = recorder();
-
-    assert.equal(checkDevLoop(repo, config, log), 0, log.text());
-    assert.deepEqual(registryProblems(commandRoster(repo).names, config.devLoopCommands), []);
-  });
-
-  it('documents `verify` itself, which is the command the table exists to route to', async () => {
-    const config = (await import('../../project.config.mjs')).default;
-    assert.ok(commandRoster(repo).names.includes('verify'));
-    assert.ok(config.devLoopCommands.verify?.trim());
+    const { names, inVerify } = commandRoster(ROSTER);
+    assert.deepEqual(registryProblems(names, config.devLoopCommands, inVerify), []);
+    assert.ok(names.includes('verify'));
   });
 });

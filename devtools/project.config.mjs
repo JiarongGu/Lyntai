@@ -1516,13 +1516,14 @@ export default {
     'check-api-vocabulary': 'a retired name back on the frozen public surface',
     'check-tautology': 'a rename that collapsed a CONTRAST — prose naming one thing twice',
     'check-samples': 'a fenced `csharp` block that does not COMPILE — default ON',
-    'check-dev-loop': 'this table drifting from `dev.mjs`; `--write` rebuilds it',
+    'check-dev-loop': 'this table drifting from `devtools/commands.mjs`; `--write` rebuilds it',
     'check-sensitive': 'leak scan; `--tree` for everything, not just staged',
     'consumer-smoke': 'the release gate — a fresh app against the PACKAGES. Minutes',
     doctor: 'three version checks. NOT in `verify` — run before a release',
     'check-version': 'the pre-commit version-authorship guard, by hand',
     'install-hooks': 'set `core.hooksPath` — once per clone, nothing warns you',
     pack: '→ `publish/packages/`',
+    'nuget-unlist': 'hide superseded versions on nuget.org — a DRY RUN unless `--apply`',
     changelog: 'stamp `## Unreleased` at release time — never by hand',
     'release-notes': 'render the notes for a tagged version',
     'decisions-index': 'rebuild `DECISIONS.md`\'s index after adding a `D<n>`',
@@ -1532,8 +1533,6 @@ export default {
     bench: 'BenchmarkDotNet router/FTS benchmarks',
     'memory-sweep': 'the {ranking × forgetting} 2×2 — miss and pollution rates',
     'memory-language': 'one factor: `CorpusLanguage`, structurally identical corpora',
-    'memory-spacing': 'is `topical` responsive to `DsrOptions.SpacingWeight`?',
-    'memory-reinforcement': "law 3's `r`-dependence, isolated from reinforcement MAGNITUDE",
     'memory-bounded': 'the FORM of the growth rule, not its constants — set `ReinforceGain`',
     'memory-salience': 'enrichment held constant so only salience varies',
     'memory-salience-weight': 'how LOUD salience is. Needs a real embedder or the curve is an ARTIFACT',
@@ -1795,14 +1794,8 @@ export default {
     "bench/Lyntai.Benchmarks/MemorySalienceSweep.cs": [33],
     "bench/Lyntai.Benchmarks/MemorySpacingSweep.cs": [38],
     "bench/Lyntai.Benchmarks/MemoryVerificationSweep.cs": [27],
-    // `devtools/dev.mjs`'s entry is DELETED, 2026-09-10, and the way it went is the useful part. It had
-    // climbed 31 → 32 → 33 → 34 because the block was a USAGE BANNER, one line per command, so registering
-    // a gate grew it by exactly one and each bump was waved through as deliberate. Adding
-    // `check-measurements` made it 35 and the ratchet fired again — at which point the right question was
-    // finally asked: the banner named 30 of 52 commands, the FOURTH hand-maintained copy of a list D113 had
-    // already made derived twice. It is now a pointer, and the block is under the limit with no allowance.
-    // **A ratchet that keeps being raised by one is measuring something that should not exist.**
-    "devtools/nuget-unlist.mjs": [28],
+    // A ratchet that keeps being raised by one is measuring something that should not exist: `dev.mjs`'s
+    // entry climbed 31 → 35 on a hand-kept usage banner until the list was derived and the entry deleted.
     "devtools/scripts/check-api-vocabulary.mjs": [34],
     "devtools/scripts/check-comments.mjs": [41],
     "devtools/scripts/check-samples.mjs": [55],

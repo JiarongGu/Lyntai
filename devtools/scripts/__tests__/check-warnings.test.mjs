@@ -134,6 +134,14 @@ describe('check-warnings — a log it cannot trust is never a green light', () =
     assert.doesNotMatch(out, /warning\(s\) in src\//, 'a failed build\'s warning list is noise, not the problem');
   });
 
+  it('shows the compiler ERRORS of a failed build, deduplicated — it is the only build `verify` runs', () => {
+    const err = '  D:\\repo\\src\\Lyntai.Core\\D.cs(1,1): error CS0103: The name x does not exist [D:\\repo\\src\\X.csproj]';
+    const { code, out } = run(() => ({ status: 1, stdout: `${err}\n${err}\n  Build FAILED.\n` }));
+    assert.equal(code, 1);
+    assert.equal((out.match(/error CS0103/g) ?? []).length, 1, out);
+    assert.match(out, /\.\\src\\Lyntai\.Core\\D\.cs\(1,1\): error CS0103/);
+  });
+
   it('never reports "warning-free" for a build that did not complete (the ENOBUFS shape)', () => {
     // The measured lie: spawnSync throws ENOBUFS when the log outgrows maxBuffer, `status` comes back null,
     // and stdout is truncated — so the parse finds no warnings. Whatever this prints, it must not be green.
