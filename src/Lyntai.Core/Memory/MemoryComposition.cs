@@ -84,6 +84,8 @@ public static class MemoryComposition
     /// <para>Every item renders as exactly ONE line: content carrying newlines is flattened first, so
     /// recalled text cannot forge a heading and claim a grade. Line breaks become spaces; nothing else is
     /// dropped.</para>
+    /// <para>An identical line renders once, authoritative first: a blend that fans one write out to several
+    /// members returns it from each.</para>
     /// <para>Pure and total: it performs no I/O, throws only on a null argument, and returns
     /// <paramref name="basePrompt"/> unchanged when nothing fits.</para>
     /// <para><b>Both uses are first-class</b>, which is why an empty <paramref name="basePrompt"/> is not a
@@ -105,8 +107,9 @@ public static class MemoryComposition
         var recalled = items.Where(i => i.Grade != MemoryGrade.Authoritative).ToList();
 
         // authoritative out of its own reserve FIRST, then associative from whatever of the total is left
-        var (exactText, omitted) = Fill(exact, Math.Min(opts.AuthoritativeCharacters, opts.Budget), verbatim: true);
-        var (recalledText, _) = Fill(recalled, Math.Max(0, opts.Budget - exactText.Length), verbatim: false);
+        var rendered = new HashSet<string>(StringComparer.Ordinal);
+        var (exactText, omitted) = Fill(exact, Math.Min(opts.AuthoritativeCharacters, opts.Budget), verbatim: true, rendered);
+        var (recalledText, _) = Fill(recalled, Math.Max(0, opts.Budget - exactText.Length), verbatim: false, rendered);
 
         if (exactText.Length == 0 && recalledText.Length == 0) return basePrompt;
 
@@ -136,7 +139,8 @@ public static class MemoryComposition
 
         return sb.ToString().TrimEnd();
 
-        static (string Text, int Omitted) Fill(List<MemoryItem> items, int budget, bool verbatim)
+        static (string Text, int Omitted) Fill(List<MemoryItem> items, int budget, bool verbatim,
+            HashSet<string> rendered)
         {
             var sb = new StringBuilder();
             var omitted = 0;
@@ -149,9 +153,12 @@ public static class MemoryComposition
                 // character is dropped, so the verbatim promise above survives it.
                 var text = MemoryLine.Flatten(verbatim ? item.Content ?? item.Headline : item.Headline);
                 var line = $"- {text}\n";
+                // a duplicate is neither rendered nor counted as omitted — the model already has it
+                if (rendered.Contains(line)) continue;
                 // `continue`, not `break` — one oversized item must not hide every shorter one behind it,
                 // and every skipped authoritative item has to be counted so the omission line is truthful
                 if (line.Length > budget) { omitted++; continue; }
+                rendered.Add(line);
                 sb.Append(line);
                 budget -= line.Length;
             }

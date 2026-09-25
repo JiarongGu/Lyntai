@@ -136,7 +136,7 @@ public sealed class GraphMemoryEngine(
     IMemoryRetentionCompositionPolicy? retentionComposition = null,
     IEnumerable<IMemorySeedSource>? seedSources = null,
     IProviderRouterFactory? routing = null)
-    : IMemoryEngine, IExpandableMemory, ILinkableMemory, IForgettableMemory
+    : IMemoryEngine, IExpandableMemory, ILinkableMemory, IForgettableMemory, IPrunableMemory
 {
     private readonly GraphMemoryOptions _options = options ?? new GraphMemoryOptions();
     private readonly IMemoryRetrievabilityPolicy _policy =

@@ -115,7 +115,7 @@ public class CortexIntegrationTests : IDisposable
         var composed = await composer.ComposeAsync("Do the deploy.", "deploy", scope: "prod");
 
         Assert.StartsWith("Do the deploy.", composed);
-        Assert.Contains("## Recalled facts (deploy — may be stale or partial)", composed);
+        Assert.Contains(new Lyntai.Memory.MemoryCompositionOptions().AssociativeHeading, composed);
         Assert.Contains("smoke suite", composed);
         Assert.Contains("previous tag", composed);
     }
@@ -123,7 +123,8 @@ public class CortexIntegrationTests : IDisposable
     [Fact] // 5.6 — outage: a throwing store must not sink the prompt
     public async Task Composer_is_fail_open_on_a_broken_store()
     {
-        var composer = new MemoryPromptComposer(new ThrowingMemoryStore());
+        var composer = Lyntai.Memory.EngineBackedPromptComposer.ForContainer(
+            new ServiceCollection().AddSingleton<IMemoryStore>(new ThrowingMemoryStore()).BuildServiceProvider());
 
         var composed = await composer.ComposeAsync("Base prompt.", "task");
 

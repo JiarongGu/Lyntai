@@ -194,12 +194,12 @@ public static class MemoryEngineRegistration
         return builder;
     }
 
-    /// <summary>Back <see cref="IPromptComposer"/> — what <c>ChatOrchestrator</c> composes with — using the
-    /// named engine.
-    /// <para>Without this call the existing flat composer stays in place, so adding an engine never changes
-    /// an application's prompts by itself. This registers plainly rather than with <c>TryAdd</c>, which is
-    /// what lets it win over the <c>TryAdd</c>-registered default that <c>AddLyntai</c> applies
-    /// afterwards.</para></summary>
+    /// <summary>Back <see cref="IPromptComposer"/> — what <c>ChatOrchestrator</c> composes with AND remembers
+    /// each exchange through — using the named engine, so the chat writes into the engine it reads from.
+    /// <para>Without this call the default composer (over the keyword and semantic stores) stays in place, so
+    /// adding an engine never changes an application's prompts by itself. This registers plainly rather than
+    /// with <c>TryAdd</c>, which is what lets it win over the <c>TryAdd</c>-registered default that
+    /// <c>AddLyntai</c> applies afterwards.</para></summary>
     /// <param name="builder">The Lyntai builder.</param>
     /// <param name="name">The engine to compose from.</param>
     public static LyntaiBuilder UseMemoryComposer(this LyntaiBuilder builder, string name)

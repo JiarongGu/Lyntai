@@ -61,7 +61,7 @@ enum Lyntai.Agents.AgentToolPolicy
     Write : AgentToolPolicy const
     value__ : Int32
 sealed class Lyntai.Agents.ChatOrchestrator
-    .ctor(ITextClient llm, IToolLoop toolLoop, IToolRegistry tools, IGuardRail guards, IPromptComposer composer, IMemoryStore memory = null, ISemanticMemory semantic = null, ILogger<ChatOrchestrator> logger = null)
+    .ctor(ITextClient llm, IToolLoop toolLoop, IToolRegistry tools, IGuardRail guards, IPromptComposer composer, ILogger<ChatOrchestrator> logger = null)
     ChatAsync(ChatTurn turn, CancellationToken ct = default) : Task<ChatResult>
 sealed class Lyntai.Agents.ChatResult
     .ctor(String Answer, ProviderVerdict Verdict, Boolean Blocked, String Detail, IReadOnlyList<ToolStep> ToolSteps)
@@ -332,6 +332,7 @@ interface Lyntai.Cortex.IPairwiseComparer
     CompareAsync(String input, String outputA, String outputB, CancellationToken ct = default) : Task<PairwiseResult>
 interface Lyntai.Cortex.IPromptComposer
     ComposeAsync(String basePrompt, String taskKey, String scope = null, String query = null, Nullable<Int32> limit = null, CancellationToken ct = default) : Task<String>
+    RememberAsync(String taskKey, String scope, String content, CancellationToken ct = default) : Task
 interface Lyntai.Cortex.IScorer
     Applies(ScoreContext ctx) : Boolean
     Description : String
@@ -370,9 +371,6 @@ abstract class Lyntai.Cortex.LlmScorerBase
     Model : String
     Name : String
     ScoreAsync(ScoreContext ctx, CancellationToken ct = default) : Task<ScoreResult>
-sealed class Lyntai.Cortex.MemoryPromptComposer
-    .ctor(IMemoryStore memory = null, ISemanticMemory semantic = null, ILogger<MemoryPromptComposer> logger = null, Int32 maxChars = 4000)
-    ComposeAsync(String basePrompt, String taskKey, String scope = null, String query = null, Nullable<Int32> limit = null, CancellationToken ct = default) : Task<String>
 sealed class Lyntai.Cortex.PairwiseResult
     .ctor(PairwiseWinner Winner, String Reason = null)
     Deconstruct(PairwiseWinner& Winner, String& Reason) : Void
@@ -1797,6 +1795,7 @@ sealed class Lyntai.Memory.DefaultMemoryRemovalPolicy
 sealed class Lyntai.Memory.EngineBackedPromptComposer
     .ctor(IMemoryEngine engine, MemoryCompositionOptions options)
     ComposeAsync(String basePrompt, String taskKey, String scope = null, String query = null, Nullable<Int32> limit = null, CancellationToken ct = default) : Task<String>
+    RememberAsync(String taskKey, String scope, String content, CancellationToken ct = default) : Task
 sealed class Lyntai.Memory.Engines.CuratedMemoryEngine
     .ctor(String name, ICuratedMemoryStore store, String kind = "memory", ILogger<CuratedMemoryEngine> logger = null)
     Grade : Func<CuratedMemory,MemoryGrade>

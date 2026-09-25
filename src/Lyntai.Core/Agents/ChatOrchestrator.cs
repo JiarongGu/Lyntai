@@ -1,22 +1,25 @@
 using Lyntai.Inference;
 using Lyntai.Cortex;
 using Lyntai.Guards;
-using Lyntai.Memory;
-using Lyntai.Storage;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Lyntai.Agents;
 
 /// <inheritdoc cref="IChatOrchestrator"/>
+/// <param name="llm">The front door a plain turn completes through.</param>
+/// <param name="toolLoop">Runs a turn that may call tools.</param>
+/// <param name="tools">The registered tools; with none, a turn is a plain completion.</param>
+/// <param name="guards">Both gates.</param>
+/// <param name="composer">Recalls memory into the prompt AND remembers each exchange, so a turn reads back
+/// what an earlier one wrote.</param>
+/// <param name="logger">Optional; a failed memory write is logged rather than thrown.</param>
 public sealed class ChatOrchestrator(
     ITextClient llm,
     IToolLoop toolLoop,
     IToolRegistry tools,
     IGuardRail guards,
     IPromptComposer composer,
-    IMemoryStore? memory = null,
-    ISemanticMemory? semantic = null,
     ILogger<ChatOrchestrator>? logger = null) : IChatOrchestrator
 {
     private readonly ILogger _logger = logger ?? NullLogger<ChatOrchestrator>.Instance;
@@ -24,7 +27,7 @@ public sealed class ChatOrchestrator(
     public async Task<ChatResult> ChatAsync(ChatTurn turn, CancellationToken ct = default)
     {
         // GATE 1a — input, on the RAW user message (BEFORE memory composition): a Replace then maps 1:1 to
-        // the text we run AND remember. Gating only the composed prompt used to persist the whole redacted
+        // the text we run AND remember. Gating only the composed prompt would persist the whole redacted
         // COMPOSED text — re-storing the recalled facts as a new record every Replace turn (compounding growth).
         var messages = new List<TextMessage>();
         if (!string.IsNullOrEmpty(turn.System)) messages.Add(TextMessage.System(turn.System));
@@ -50,7 +53,7 @@ public sealed class ChatOrchestrator(
         // through the PUBLIC memory seams (or before a guard existed) were never input-gated, so the full
         // outbound prompt must pass the gate too. A Block refuses the turn; a Replace redacts what the
         // MODEL sees — the remembered question stays the 1a result (recalled facts are never re-persisted).
-        if (!ReferenceEquals(userText, rememberedQuestion) && userText != rememberedQuestion)
+        if (userText != rememberedQuestion)
         {
             var preComposed = await guards.InspectRequestAsync(req, ct).ConfigureAwait(false);
             if (preComposed.Result == GuardOutcome.Kind.Block)
@@ -60,9 +63,7 @@ public sealed class ChatOrchestrator(
         }
 
         // run: the tool loop (model can call tools) or a plain completion. `usage` is carried out of BOTH
-        // arms and onto every remaining exit: the tokens were spent whatever the turn then does with them,
-        // and the loop already summed its own — dropping it made a chat consumer wrap ITextClient in a
-        // front-door decorator to recompute a figure the loop had handed us.
+        // arms and onto every remaining exit: the tokens were spent whatever the turn then does with them.
         string answer;
         ProviderVerdict verdict;
         string? detail;
@@ -88,21 +89,17 @@ public sealed class ChatOrchestrator(
         if (post.Result == GuardOutcome.Kind.Replace)
             answer = post.Replacement!;
 
-        // remember the exchange into BOTH memory sources that are wired (fail-open — a memory outage never
-        // breaks the chat; the composer reads them back as a hybrid recall on the next turn)
+        // remember the exchange through the composer, so the next turn's compose reads it back. Fail-open: a
+        // memory outage never breaks the chat — but the CALLER's cancellation is not an outage.
         if (turn.Remember && turn.TaskKey is not null)
         {
-            var record = $"Q: {rememberedQuestion}\nA: {answer}";
-            if (memory is not null)
+            try
             {
-                try { await memory.RememberAsync(turn.TaskKey, turn.MemoryScope, record, ct: ct).ConfigureAwait(false); }
-                catch (Exception ex) { _logger.LogWarning(ex, "chat: lexical memory write failed (non-fatal)"); }
+                await composer.RememberAsync(turn.TaskKey, turn.MemoryScope,
+                    $"Q: {rememberedQuestion}\nA: {answer}", ct).ConfigureAwait(false);
             }
-            if (semantic is not null)
-            {
-                try { await semantic.RememberAsync(turn.TaskKey, turn.MemoryScope, record, ct).ConfigureAwait(false); }
-                catch (Exception ex) { _logger.LogWarning(ex, "chat: semantic memory write failed (non-fatal)"); }
-            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+            catch (Exception ex) { _logger.LogWarning(ex, "chat: memory write failed (non-fatal)"); }
         }
 
         return new ChatResult(answer, ProviderVerdict.Ok, Blocked: false, null, steps) { Usage = usage };
