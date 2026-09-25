@@ -58,9 +58,9 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { IN_SCOPE, IS_SCANNED, LIVE_PREFIX, SUPERSEDED_BANNER, liveLineMask, trackedFiles } from './check-docs.mjs';
+import { IN_SCOPE, IS_SCANNED, LIVE_PREFIX, SUPERSEDED_BANNER, liveLineMask } from './check-docs.mjs';
 import { checkQuotedBaseline } from './_baseline.mjs';
-import { readRepoText } from './_repo-files.mjs';
+import { readRepoText, repoFiles } from './_repo-files.mjs';
 
 const here = fileURLToPath(import.meta.url);
 const repoDefault = join(dirname(here), '..', '..');
@@ -482,7 +482,7 @@ export function checkSamples(repo, {
   baseline = (passed, total) => checkQuotedBaseline(repo, { gate: 'check-samples', label: 'doc samples', passed, total }, log),
 } = {}) {
   const readFile = read ?? ((f) => readRepoText(repo, f));
-  const source = files ?? trackedFiles(repo);
+  const source = files ?? repoFiles(repo);
   const tracked = source
     .filter((f) => f.endsWith('.md'))
     .filter(IN_SCOPE)

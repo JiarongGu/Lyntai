@@ -4,9 +4,8 @@ import { test } from 'node:test';
 import { checkTautology } from '../check-tautology.mjs';
 import { makeTree, removeTree } from './_fixtures.mjs';
 
-/// A fixture tree, cleaned up whatever happens. No git needed: every fact passes the file list explicitly,
-/// so `trackedFiles` is out of scope — and `devtools/` is outside the gate's own scan, so the literals
-/// below cannot reach it either.
+/// A fixture tree, cleaned up whatever happens. No git needed: every fact passes the file list explicitly.
+/// The guards' own tests are outside the gate's scan, so the literals below cannot reach it.
 function withRepo(files, body) {
   const dir = makeTree(files);
   try { return body(dir); } finally { removeTree(dir); }
@@ -123,9 +122,11 @@ test('HISTORICAL records ARE scanned — the difference from check-docs', () => 
   }
 });
 
-test('devtools/ is out of scope, so the gate and its own test cannot trip it', () => {
-  withRepo({ 'devtools/scripts/x.mjs': `// \`${NAME}\` and \`${NAME}\`\n` }, (repo) => {
-    assert.equal(run(repo, ['devtools/scripts/x.mjs']), 0, 'devtools/ must stay out of scope');
+test('a devtools script is scanned, and the guards\' own tests are not — their fixtures ARE the defect', () => {
+  const text = `// \`${NAME}\` and \`${NAME}\`\n`;
+  withRepo({ 'devtools/scripts/x.mjs': text, 'devtools/scripts/__tests__/x.test.mjs': text }, (repo) => {
+    assert.equal(run(repo, ['devtools/scripts/x.mjs']), 1, 'a devtools script is prose like any other code tier');
+    assert.equal(run(repo, ['devtools/scripts/__tests__/x.test.mjs']), 0, 'a guard test quotes the defect by design');
   });
 });
 

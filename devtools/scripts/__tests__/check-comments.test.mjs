@@ -12,7 +12,6 @@ import { describe, it } from 'node:test';
 
 import {
   ESCAPE, MAX_BLOCK, asAllowanceList, blocksIn, checkComments, overLimitBlocks, stackedSummaries, strandedIn,
-  trackedFiles, worstBlock,
 } from '../check-comments.mjs';
 import { makeTree, recorder, removeTree } from './_fixtures.mjs';
 
@@ -66,9 +65,9 @@ describe('check-comments — finding the blocks', () => {
     assert.deepEqual(blocksIn(text).map((x) => x.length), [2]);
   });
 
-  it('worstBlock ignores an escaped block entirely', () => {
-    const text = `// ${ESCAPE} this one earns it\n// b\n// c\n// d\nvar x = 1;\n`;
-    assert.equal(worstBlock(text), 0, 'the escape must remove the block from the measurement');
+  it('an escaped block is removed from the measurement entirely', () => {
+    const text = `// ${ESCAPE} this one earns it\n${'// more\n'.repeat(MAX_BLOCK + 3)}var x = 1;\n`;
+    assert.deepEqual(overLimitBlocks(text), [], 'the escape must remove the block from the measurement');
   });
 });
 
@@ -198,17 +197,6 @@ describe('check-comments — punctuation an edit left behind', () => {
     assert.equal(run({ 'src/A.cs': ok }, {}).code, 0);
   });
 
-  it('the real tree is clean of stacked summaries', () => {
-    const fused = trackedFiles(repo).filter((f) => (f.endsWith('.cs') || f.endsWith('.mjs')))
-      .flatMap((f) => stackedSummaries(fs.readFileSync(path.join(repo, f), 'utf8')).map((s) => `${f}:${s.line}`));
-    assert.deepEqual(fused, []);
-  });
-
-  it('the real tree is clean of both shapes', () => {
-    const dirty = trackedFiles(repo).filter((f) => (f.endsWith('.cs') || f.endsWith('.mjs')))
-      .flatMap((f) => strandedIn(fs.readFileSync(path.join(repo, f), 'utf8')).map((s) => `${f}:${s.line}`));
-    assert.deepEqual(dirty, []);
-  });
 });
 
 describe('check-comments — fail-closed', () => {
@@ -226,33 +214,3 @@ describe('check-comments — fail-closed', () => {
   });
 });
 
-describe('check-comments — against the real tree', () => {
-  it('every recorded allowance names a file that still exists and is still over the limit', () => {
-    // Pins the registry against the tree rather than against a fixture: an entry for a deleted or
-    // already-cleaned file is exactly the rot the slack/stale rules exist to catch, and this fact fails
-    // the moment one appears.
-    const cfgPromise = import('../../project.config.mjs');
-    return cfgPromise.then(({ default: config }) => {
-      const allowances = config.commentBlockAllowances ?? {};
-      assert.ok(Object.keys(allowances).length > 0, 'the registry should not be silently empty');
-      const scanned = new Set(trackedFiles(repo).filter((f) => (f.endsWith('.cs') || f.endsWith('.mjs'))).map((f) => f.split('\\').join('/')));
-      for (const [file, budget] of Object.entries(allowances)) {
-        assert.ok(scanned.has(file), `${file} is in the registry but is not scanned`);
-        const allowed = asAllowanceList(budget);
-        for (const n of allowed)
-          assert.ok(n > MAX_BLOCK, `${file}: an allowance at or below ${MAX_BLOCK} does nothing — delete it`);
-        // The registry records EVERY over-limit block, not just the worst: that is what stops a budgeted
-        // file growing new long blocks behind its recorded number.
-        const actual = overLimitBlocks(fs.readFileSync(path.join(repo, file), 'utf8')).map((b) => b.length);
-        assert.deepEqual(allowed, actual,
-          `${file}: recorded ${JSON.stringify(allowed)} but the tree has ${JSON.stringify(actual)}`);
-      }
-    });
-  });
-
-  it('and the gate is green on this tree', async () => {
-    const { default: config } = await import('../../project.config.mjs');
-    const log = recorder();
-    assert.equal(checkComments(repo, config, log), 0, log.text());
-  });
-});

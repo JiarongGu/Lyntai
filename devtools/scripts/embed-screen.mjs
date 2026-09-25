@@ -381,7 +381,7 @@ async function screenOne({ model, pooling, opts, serverExe, scratchDir, isContro
     row.longOk = extreme.vector !== null;
     // ROLE FIT, and it is a real disqualification for one role and irrelevant to another — so it is
     // reported with its consequence rather than folded into a single verdict. A 512-position model
-    // cannot serve `IEmbedder`, which is called per WRITE and per RECALL over ~6,000-character entries.
+    // cannot serve the memory engine's vectors, embedded per WRITE and per RECALL over ~6,000-character entries.
     console.log(`  ROLE FIT  : ${long.length} chars -> HTTP ${extreme.status}`
       + (extreme.vector
         ? ` — accepts the longest input the benches emit (dim ${extreme.vector.length})`

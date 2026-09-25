@@ -56,8 +56,6 @@ export const ESCAPE = 'comment-ok';
 /** The tiers scanned. `src/` ships to consumers; the other three rot the same way and were unscanned. */
 export const TIERS = ['src', 'tests', 'devtools', 'bench'];
 
-export const trackedFiles = (repo) => repoFiles(repo, TIERS);
-
 /**
  * Every comment block in one file, as `{ line, length, escaped }`.
  *
@@ -97,10 +95,6 @@ export function blocksIn(text) {
   }
   return out;
 }
-
-/** The worst block in a file, ignoring escaped ones. 0 when the file has none. */
-export const worstBlock = (text) =>
-  blocksIn(text).filter((b) => !b.escaped).reduce((n, b) => Math.max(n, b.length), 0);
 
 /** Every unescaped block over the limit, worst first — the unit the ledger records. */
 export const overLimitBlocks = (text) =>
@@ -187,7 +181,7 @@ export function strandedIn(text) {
 }
 
 export function checkComments(repo, cfg, log = console.log, files = null) {
-  const source = files ?? trackedFiles(repo);
+  const source = files ?? repoFiles(repo, TIERS);
   // `.mjs` too — the guard scripts and the dev loop are the `devtools/` tier, and a gate that exempted its
   // own author's prose would be the least defensible scope of all.
   const scanned = source.filter((f) => f.endsWith('.cs') || f.endsWith('.mjs'));

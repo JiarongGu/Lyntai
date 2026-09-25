@@ -40,10 +40,6 @@ const HEADING = /^## (D\d+)(?![0-9])/;
 /** Every decision entry, as `{ id, line, length, title }`. See `_entry-length.mjs`. */
 export const entriesIn = (text) => entriesUnder(text, HEADING);
 
-/** Every entry past the limit, worst first — the unit the ledger records. */
-export const overLimitEntries = (text) =>
-  entriesIn(text).filter((e) => e.length > MAX_ENTRY).sort((a, b) => b.length - a.length);
-
 export function checkDecisions(repo, cfg, log = console.log) {
   return runRatchet({
     repo,

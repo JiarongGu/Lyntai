@@ -18,7 +18,6 @@
 //   - The SAME "is this maintained state?" predicates as check-docs, imported rather than restated. Two
 //     copies of that question drift the moment a document is archived, and silently, in the permissive
 //     direction, on whichever copy was forgotten — check-samples already imports them for this reason.
-import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -224,8 +223,6 @@ export const unresolvedAnchor = (anchors, token) => {
   return t;
 };
 
-export const trackedFiles = (repo) => repoFiles(repo);
-
 /**
  * Check every maintained doc's in-repo references resolve.
  *
@@ -233,10 +230,9 @@ export const trackedFiles = (repo) => repoFiles(repo);
  * supplies one list and gets both halves — a reference is dangling exactly when it names something the
  * tracked list does not contain.
  */
-export function checkLinks(repo, config, log = console.log, files = null) {
-  const tracked = files ?? trackedFiles(repo);
+export function checkLinks(repo, config = {}, log = console.log, files = null) {
+  const tracked = files ?? repoFiles(repo);
   const onDisk = new Set(tracked);
-  const allowances = config.staleReferenceAllowances ?? [];
 
   // The MEMBER half's vocabulary, read from the same tracked listing everything else uses.
   const { known: knownIdents, types: knownTypes } = csharpVocabulary(
@@ -282,7 +278,6 @@ export function checkLinks(repo, config, log = console.log, files = null) {
   // NO fail-closed guard on the code half: a repository of markdown alone legitimately has no code to
   // scan, so "zero survivors" proves nothing either way. The green line REPORTS the count instead.
 
-  const allowed = new Map(allowances.map((a) => [a.file, { ...a, used: 0 }]));
   const hits = [];
   const misfiled = [];
   const deadAnchors = [];
@@ -381,8 +376,6 @@ export function checkLinks(repo, config, log = console.log, files = null) {
       for (const [, target] of line.matchAll(PATH_PATTERN)) {
         if (target.startsWith('local/')) continue;   // untracked by design
         if (onDisk.has(target)) continue;
-        const allowance = allowed.get(file);
-        if (allowance) { allowance.used++; continue; }
         hits.push({ file, line: i + 1, target, text: line.trim() });
       }
       // The raw line: a citation lives inside backticks or a cref, which an author never breaks across a wrap.
@@ -417,17 +410,12 @@ export function checkLinks(repo, config, log = console.log, files = null) {
     scanWindowed(file, lines, windows, PART_PATTERN, checkPart);
   }
 
-  // An allowance that matches NOTHING fails, the same rule check-api-vocabulary's own escapes carry: an
-  // exclusion nobody can see expiring is an exclusion that rots into a permanent hole.
-  const dead = [...allowed.values()].filter((a) => a.used === 0);
-
-  if (hits.length === 0 && dead.length === 0 && misfiled.length === 0 && deadAnchors.length === 0
+  if (hits.length === 0 && misfiled.length === 0 && deadAnchors.length === 0
     && deadMembers.length === 0) {
     // Every count is reported, so a filter that silently stopped matching one tier is visible in the
     // GREEN line rather than only in a failure that never comes.
     log(`check-links: ${docs.length} maintained doc(s) + ${code.length} code file(s) — every in-repo `
-      + `reference resolves ✓ (${anchorsChecked} §-citation(s) checked)`
-      + (allowances.length ? ` (${allowances.length} allowance(s), all still needed)` : ''));
+      + `reference resolves ✓ (${anchorsChecked} §-citation(s) checked)`);
     return 0;
   }
 
@@ -443,9 +431,8 @@ export function checkLinks(repo, config, log = console.log, files = null) {
     log('  `docs/superpowers/INDEX.md` § "Archiving one that is still in `docs/`", and skipping it is what');
     log('  this gate exists to catch. If a passage deliberately names a path that is gone (a guard FIXTURE,');
     log('  a changelog entry about the move itself), put `link-ok` on that line — NOT `drift-ok`, which is');
-    log('  check-docs\' annotation and must not silence this gate too. If a whole document is a record whose');
-    log('  paths were right on its own day, give it an entry in `staleReferenceAllowances`');
-    log('  (devtools/project.config.mjs) with the reason.');
+    log('  check-docs\' annotation and must not silence this gate too. A whole record whose paths were');
+    log('  right on its own day belongs in check-docs\' HISTORICAL list.');
   }
 
   if (misfiled.length > 0) {
@@ -493,11 +480,6 @@ export function checkLinks(repo, config, log = console.log, files = null) {
     log('  DECLARATION instead. If a line deliberately names a member that never existed — a REJECTED');
     log('  alternative, which `persist-working-state.md` explicitly asks you to record — put `link-ok` on');
     log('  it, NOT `drift-ok`.');
-  }
-
-  if (dead.length > 0) {
-    log(`\ncheck-links: ✗ ${dead.length} stale-reference allowance(s) no longer match anything:\n`);
-    for (const a of dead) log(`  ${a.file} — every reference in it now resolves; delete this allowance.`);
   }
 
   return 1;

@@ -9,6 +9,7 @@
 // Escape token: `tautology-ok`, this gate's own and no other's.
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { CODE_IN_SCOPE, commentLinesOnly } from './check-docs.mjs';
 import { readRepoText, repoFiles, twoLineWindows, windowHits } from './_repo-files.mjs';
 
 const here = fileURLToPath(import.meta.url);
@@ -49,47 +50,30 @@ export const COLLAPSED = [
 ];
 
 /**
- * The code tiers scanned, comment lines only — `check-docs`' rule and for its reason: a repeated
- * identifier inside a string literal or an expression is DATA the program uses, not a claim a reader
- * believes. `Compare(scores, scores)` and `new SemaphoreSlim(limit, limit)` are correct code, and both
- * appear in this tree.
+ * Prose only, with line numbers preserved: a markdown file whole, a code file reduced to its comment text by
+ * `check-docs`' own `commentLinesOnly` over `check-docs`' own `CODE_IN_SCOPE` — one answer to "which code
+ * is prose", never a copy of it. A repeated identifier in a string literal or an expression is data the
+ * program uses (`Compare(scores, scores)` is correct code).
  *
- * `devtools/` is excluded structurally, as in `check-docs`: this gate and its test both discuss the defect.
- */
-export const CODE_IN_SCOPE = (path) =>
-  (path.endsWith('.cs') || path.endsWith('.mjs'))
-  && (path.startsWith('src/') || path.startsWith('tests/') || path.startsWith('bench/'));
-
-/**
- * Prose only, with line numbers preserved. A markdown file is prose whole. A code file is reduced to its
- * comment text — the `//` marker stripped so `twoLineWindows`' join reads as continuous prose, exactly as
- * `check-docs`' `commentLinesOnly` does.
- *
- * A `<see cref>` is dropped rather than scanned: a cref names an OVERLOAD by its parameter types, so
- * `Math.Max(double,double)` is a SIGNATURE and matches the parenthesised rule above. Three such crefs are
- * in this tree and all three are correct.
+ * A `<see cref>` line is dropped rather than scanned: a cref names an OVERLOAD by its parameter types, so
+ * `Math.Max(double,double)` is a SIGNATURE and matches the parenthesised rule above.
  */
 export const proseOf = (file, text) => {
   const lines = text.split(/\r?\n/);
   if (file.endsWith('.md')) return lines;
-  return lines.map((l) => {
-    const t = l.trim();
-    if (!t.startsWith('//')) return '';
-    const comment = t.replace(/^\/{2,3}\s*/, '');
-    return comment.includes('cref=') ? '' : comment;
-  });
+  return commentLinesOnly(lines).map((l) => (l.includes('cref=') ? '' : l));
 };
 
 export const IN_SCOPE = (path) => path.endsWith('.md') || CODE_IN_SCOPE(path);
 
-export const trackedFiles = (repo) => repoFiles(repo);
+export { CODE_IN_SCOPE };
 
 /**
  * `files` is the raw candidate list (a `git ls-files` shape), filtered here — so a test that injects one
  * still exercises the scope filter rather than bypassing it.
  */
 export function checkTautology(repo, log = console.log, files = null) {
-  const source = files ?? trackedFiles(repo);
+  const source = files ?? repoFiles(repo);
   const scanned = source.filter(IN_SCOPE);
 
   // Fail-closed, the rule `check-docs` and `check-api-vocabulary` already carry: a gate that scanned

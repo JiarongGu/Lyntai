@@ -117,35 +117,6 @@ export default {
    * identifier, not every descendant of a retired word. A method named for the verb form of a retired type
    * is not that type's name, and no rule here would flag it.
    */
-  /**
-   * Documents `check-links` may not hold to "every in-repo reference resolves", and WHY.
-   *
-   * The gate exists because untracking the ranking × forgetting measurement record under D43 left six
-   * dangling references in maintained state — README, the design contract, DECISIONS — and every gate
-   * stayed green while a reader found them. `docs/superpowers/INDEX.md` already ENDS its archiving
-   * procedure with "check nothing dangles"; this makes that step enforceable rather than remembered.
-   *
-   * An allowance is per-FILE and never per-path: the case it covers is a whole document whose paths were
-   * correct on the day it was written, which is the same rationale `HISTORICAL` carries in check-docs. A
-   * single deliberate mention inside an otherwise-maintained document gets `drift-ok` on its line instead.
-   *
-   * AN ALLOWANCE THAT MATCHES NOTHING IS A FAILURE, exactly as in `retiredApiNames`: once a document's
-   * last stale reference is repaired the allowance is a hole nobody can see expiring, and the next
-   * genuine dangling reference in that file would go unreported forever.
-   */
-  // EMPTY on purpose, and the reason is worth keeping so the next dangling reference is not waved through
-  // as "there used to be an allowance". The one entry here covered the 2026-08-04 generation plan, whose
-  // paths below its status banner were the layout AS FIRST WRITTEN. D125 moved that file into `check-docs`'
-  // HISTORICAL list, `check-links` reads HISTORICAL from there, and the allowance then matched nothing —
-  // which this registry treats as a failure by design.
-  //
-  // The COST that comment recorded ("outside both gates until it moves to local/") is DISCHARGED: it moved
-  // on 2026-09-16 (**D149**), and the re-check that settled it is worth keeping — nothing still executed
-  // from it. Its Plan 6 named a streaming interface D127 had deleted and its Plan 7 predated both the 3D
-  // survey and GEN7a shipping, so `TASKS.md`'s own item bodies were the current framing and had been for
-  // weeks. A document kept alive for a live half should be re-read for whether that half is still live.
-  staleReferenceAllowances: [],
-
   retiredApiNames: [
     {
       // D154 NS-3a, NS-3b and NS-4, the SURFACE half of all three. Every one of these was a public type on
@@ -1796,7 +1767,6 @@ export default {
     "bench/Lyntai.Benchmarks/MemoryVerificationSweep.cs": [27],
     // A ratchet that keeps being raised by one is measuring something that should not exist: `dev.mjs`'s
     // entry climbed 31 → 35 on a hand-kept usage banner until the list was derived and the entry deleted.
-    "devtools/scripts/check-api-vocabulary.mjs": [34],
     "devtools/scripts/check-comments.mjs": [41],
     "devtools/scripts/check-samples.mjs": [55],
     "devtools/scripts/check-version-bump.mjs": [30],

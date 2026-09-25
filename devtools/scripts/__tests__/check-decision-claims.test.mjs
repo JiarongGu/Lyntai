@@ -309,11 +309,6 @@ describe('checkDecisionClaims', () => {
     assert.match(lines.join('\n'), /nothing to check/);
   });
 
-  it('every registered claim holds against the REAL tree', () => {
-    // Pinned last, deliberately: it is the weakest assertion here, because it passes on a predicate that can
-    // never go red. The fixtures above are what prove these can.
-    assert.equal(checkDecisionClaims(repo, DECISION_CLAIMS, () => {}), 0);
-  });
 });
 
 describe('coreThirdPartyRefs (D25)', () => {

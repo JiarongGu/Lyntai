@@ -16,7 +16,7 @@
 // documentation is right.
 //
 // WHY THE REGISTRY IS CODE AND NOT `project.config.mjs`. Every other registry there (`retiredTerms`,
-// `retiredApiNames`, `staleReferenceAllowances`) is pure data. An entry here is a regex plus a FUNCTION over
+// `retiredApiNames`) is pure data. An entry here is a regex plus a FUNCTION over
 // the tree, so it lives beside the gate that runs it and keeps the config a data file.
 import fs from 'node:fs';
 import path from 'node:path';
@@ -376,8 +376,6 @@ export const COUNTED_CLAIMS = [
   },
 ];
 
-export const trackedFiles = (repo) => repoFiles(repo);
-
 /**
  * `count-ok` is the escape, deliberately NOT `drift-ok`.
  *
@@ -393,7 +391,7 @@ export function checkCounts(repo, claims = COUNTED_CLAIMS, log = console.log, fi
     return 0;
   }
 
-  const source = files ?? trackedFiles(repo);
+  const source = files ?? repoFiles(repo);
   const docs = source.filter((f) => f.endsWith('.md')).filter(IN_SCOPE).filter(IS_SCANNED);
 
   // Fail-closed, the rule every scanner here carries: a gate that scanned nothing must never print a tick.
@@ -443,7 +441,7 @@ export function checkCounts(repo, claims = COUNTED_CLAIMS, log = console.log, fi
   }
 
   // A registered claim that matches NOTHING is dead weight that cannot expire — the same rule
-  // `staleReferenceAllowances` and `retiredApiNames` carry, for the same reason: an entry nobody can see
+  // `retiredApiNames` and every allowance here carry, for the same reason: an entry nobody can see
   // rotting is one that silently stops protecting anything.
   const dead = claims.filter((c) => truths.get(c) >= 0 && seen.get(c) === 0);
 

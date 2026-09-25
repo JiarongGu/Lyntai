@@ -1,4 +1,4 @@
-"""Reference cross-check for OnnxEmbedder: does the C# pipeline agree with Python's?
+"""Reference cross-check for OnnxProvider's vectors: does the C# pipeline agree with Python's?
 
 The C# live test proves the vectors are PLAUSIBLE — right width, unit length, related pair ranks first.
 None of that catches a wrong pooling mode, an attention mask that includes padding, or a token_type_ids

@@ -13,10 +13,11 @@ import path from 'node:path';
 import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { PATH_PATTERN, checkLinks, declaredAnchors, trackedFiles } from '../check-links.mjs';
+import { PATH_PATTERN, checkLinks, declaredAnchors } from '../check-links.mjs';
+import { repoFiles } from '../_repo-files.mjs';
 import { git, makeRepo, makeTree, recorder, removeTree } from './_fixtures.mjs';
 
-const noAllowances = { staleReferenceAllowances: [] };
+const noAllowances = {};
 
 /**
  * Run the gate over a fixture tree with an INJECTED file list, which doubles as the on-disk set — a
@@ -114,33 +115,6 @@ describe('check-links — what it does NOT flag', () => {
   });
 });
 
-describe('check-links — allowances cannot rot', () => {
-  const allowed = {
-    staleReferenceAllowances: [{ file: 'docs/plan.md', why: 'its layout is superseded; paths are as-written' }],
-  };
-
-  it('an allowance suppresses that document, and only that document', () => {
-    const { code, out } = run({
-      'docs/plan.md': 'built into `src/Lyntai.Generation/ProviderKinds.cs`\n',
-      'docs/live.md': 'built into `src/Lyntai.Generation/ProviderKinds.cs`\n',
-    }, allowed);
-
-    assert.equal(code, 1);
-    assert.match(out, /docs\/live\.md:1/);
-    assert.doesNotMatch(out, /docs\/plan\.md:1/);
-  });
-
-  it('an allowance that matches NOTHING is itself a failure', () => {
-    // The same rule retiredApiNames' escapes carry: once a document's last stale reference is repaired the
-    // allowance is a hole nobody can see expiring, and the next genuine one in that file goes unreported.
-    const { code, out } = run({ 'docs/plan.md': 'nothing stale here\n' }, allowed);
-
-    assert.equal(code, 1);
-    assert.match(out, /no longer match anything/);
-    assert.match(out, /docs\/plan\.md — every reference in it now resolves/);
-  });
-});
-
 describe('check-links — the file list', () => {
   it('reads tracked files NUL-separated, so a non-ASCII NAME is not C-quoted', () => {
     // Without `-z`, `docs/灵台.md` arrives as `"docs/\347\201\265\345\217\260.md"` — a name matching no file link-ok: a fixture name, quoted as data
@@ -149,7 +123,7 @@ describe('check-links — the file list', () => {
     const dir = makeRepo({ 'docs/灵台.md': '# 灵台\n', 'README.md': 'see `docs/灵台.md`\n' });
     try {
       git(dir, ['add', '-A']);
-      const files = trackedFiles(dir);
+      const files = repoFiles(dir);
 
       assert.ok(files.includes('docs/灵台.md'), `expected the raw path; got ${JSON.stringify(files)}`);
 
