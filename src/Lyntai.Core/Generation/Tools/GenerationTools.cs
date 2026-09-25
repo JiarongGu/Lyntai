@@ -71,32 +71,53 @@ internal static class GenerationToolJson
         writer.WriteEndArray();
     }
 
-    /// <summary>Turn the request fields a model may supply into a <see cref="MediaRequest"/>. Unknown
-    /// members become pass-through <see cref="MediaRequest.Options"/>, so a model can use a backend's own
-    /// knobs (duration, aspect, voice) without Lyntai enumerating them.</summary>
-    public static MediaRequest ReadRequest(
-        JsonElement root, string consumer, out IReadOnlyList<string> candidates)
+    /// <summary>The roles an agent may give <c>imageUrl</c>, in the spelling the schemas offer.</summary>
+    private static readonly string[] ImageRoles =
+        [MediaInputRoles.Init, MediaInputRoles.FirstFrame, MediaInputRoles.Reference];
+
+    /// <summary>The schema member for <c>imageRole</c>, naming the tool's own default.</summary>
+    public static string ImageRoleSchema(string defaultRole) =>
+        $$"""
+          "imageRole":{"type":"string","enum":["init","first-frame","reference"],"description":"What imageUrl is to the render: init (an edit/img2img source), first-frame (a video's opening frame) or reference (a style/subject to follow). Default: {{defaultRole}}."}
+        """;
+
+    /// <summary>Turn the request fields a model may supply into a <see cref="MediaRequest"/>, or null with
+    /// <paramref name="error"/> set when an argument is invalid. Unknown members become pass-through
+    /// <see cref="MediaRequest.Options"/>, so a model can use a backend's own knobs (duration, aspect, voice)
+    /// without Lyntai enumerating them.</summary>
+    /// <param name="defaultRole">The role <c>imageUrl</c> takes when the model names none — what the tool's
+    /// medium implies.</param>
+    public static MediaRequest? ReadRequest(JsonElement root, string consumer, string defaultRole,
+        out IReadOnlyList<string> candidates, out string? error)
     {
-        var candidateList = new List<string>();
-        if (root.TryGetProperty("backends", out var backends) && backends.ValueKind == JsonValueKind.Array)
-            foreach (var backend in backends.EnumerateArray())
-                if (backend.ValueKind == JsonValueKind.String && backend.GetString() is { Length: > 0 } id)
-                    candidateList.Add(id);
-        candidates = candidateList;
+        candidates = GenerationJson.ReadCandidates(root, "backends");
+        error = null;
 
         var options = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var reserved = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
             // "consumer" is reserved and IGNORED, not read: the billing/cap tag is the host's to set, and a
             // model that could name it could route around a per-consumer cap
-            { "kind", "prompt", "model", "backends", "imageUrl", "consumer" };
+            { "kind", "prompt", "model", "backends", "imageUrl", "imageRole", "consumer" };
         if (root.ValueKind == JsonValueKind.Object)
             foreach (var property in root.EnumerateObject())
                 if (!reserved.Contains(property.Name) && property.Value.ValueKind is JsonValueKind.String or JsonValueKind.Number)
                     options[property.Name] = property.Value.ToString();
 
+        var role = defaultRole;
+        if (GenerationJson.Str(root, "imageRole") is { } named)
+        {
+            role = ImageRoles.FirstOrDefault(r => string.Equals(r, named, StringComparison.OrdinalIgnoreCase))!;
+            if (role is null)
+            {
+                error = $"imageRole must be one of {string.Join(" | ", ImageRoles)}, not '{named}'";
+                return null;
+            }
+        }
+
+        // the media type is left to the backend: "image/*" says what the agent knows, and no more
         var inputs = new List<MediaInput>();
         if (GenerationJson.Str(root, "imageUrl") is { } imageUrl)
-            inputs.Add(new MediaInput("image/*", Uri: imageUrl, Role: MediaInputRoles.Init));
+            inputs.Add(new MediaInput("image/*", Uri: imageUrl, Role: role));
 
         return new MediaRequest
         {
@@ -301,13 +322,14 @@ public sealed class GenerationInlineTool(
         "generate_submit instead. Bytes are handed to the host application, not returned here.";
 
     /// <inheritdoc/>
-    public string? ParametersJsonSchema => """
+    public string? ParametersJsonSchema { get; } = $$$"""
         {"type":"object","properties":{
           "kind":{"type":"string","description":"image | video | audio | 3d (default: image)"},
           "prompt":{"type":"string","description":"What to generate."},
           "model":{"type":"string","description":"Optional model/endpoint id at the chosen backend."},
           "backends":{"type":"array","items":{"type":"string"},"description":"Backend ids in preference order; omit to use the host's default order."},
-          "imageUrl":{"type":"string","description":"Optional source image URL for an edit/img2img."},
+          "imageUrl":{"type":"string","description":"Optional source image URL; imageRole says what it is to the render."},
+        {{{GenerationToolJson.ImageRoleSchema(MediaInputRoles.Init)}}},
           "size":{"type":"string","description":"Optional pixel size, e.g. 1024x1024."}},
          "required":["prompt"]}
         """;
@@ -316,7 +338,9 @@ public sealed class GenerationInlineTool(
     public async Task<string> InvokeAsync(string argumentsJson, CancellationToken ct = default)
     {
         using var args = GenerationToolJson.Parse(argumentsJson);
-        var request = GenerationToolJson.ReadRequest(args.RootElement, Consumer, out var named);
+        if (GenerationToolJson.ReadRequest(args.RootElement, Consumer, MediaInputRoles.Init, out var named,
+                out var invalid) is not { } request)
+            return GenerationToolJson.Error(invalid!);
         if (request.Prompt is null && request.Inputs.Count == 0)
             return GenerationToolJson.Error("a prompt (or an imageUrl to edit) is required");
 
@@ -362,13 +386,14 @@ public sealed class GenerationSubmitTool(
         "in between rather than polling in a tight loop.";
 
     /// <inheritdoc/>
-    public string? ParametersJsonSchema => """
+    public string? ParametersJsonSchema { get; } = $$$"""
         {"type":"object","properties":{
           "kind":{"type":"string","description":"video | audio | image | 3d (default: image)"},
           "prompt":{"type":"string","description":"What to generate."},
           "model":{"type":"string","description":"Optional model/endpoint id at the chosen backend."},
           "backends":{"type":"array","items":{"type":"string"},"description":"Backend ids in preference order."},
-          "imageUrl":{"type":"string","description":"Optional first-frame / reference image URL."},
+          "imageUrl":{"type":"string","description":"Optional source image URL; imageRole says what it is to the render."},
+        {{{GenerationToolJson.ImageRoleSchema(MediaInputRoles.FirstFrame)}}},
           "duration":{"type":"string","description":"Optional clip length in seconds, if the backend takes one."}},
          "required":["prompt"]}
         """;
@@ -377,7 +402,9 @@ public sealed class GenerationSubmitTool(
     public async Task<string> InvokeAsync(string argumentsJson, CancellationToken ct = default)
     {
         using var args = GenerationToolJson.Parse(argumentsJson);
-        var request = GenerationToolJson.ReadRequest(args.RootElement, Consumer, out var named);
+        if (GenerationToolJson.ReadRequest(args.RootElement, Consumer, MediaInputRoles.FirstFrame, out var named,
+                out var invalid) is not { } request)
+            return GenerationToolJson.Error(invalid!);
         if (request.Prompt is null && request.Inputs.Count == 0)
             return GenerationToolJson.Error("a prompt (or an imageUrl) is required");
 

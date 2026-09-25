@@ -148,6 +148,21 @@ public class ComfyUiProviderTests
     }
 
     [Fact]
+    public async Task An_input_whose_media_type_names_no_extension_is_named_from_its_URI()
+    {
+        // an agent's imageUrl arrives as "image/*", which the extension table cannot name, and a loader picks
+        // its parser by the extension — so the file is named from what the URI says it is
+        var (provider, comfy, foreign) = WithForeign();
+        foreign.Enqueue(HttpStatusCode.OK, "PNG-BYTES", "image/png");
+        comfy.Enqueue(HttpStatusCode.OK, Uploaded("a.png", "")).Enqueue(HttpStatusCode.OK, """{"prompt_id":"1"}""");
+
+        await provider.SubmitAsync(MeshAsk(Bound("input-path", "2.inputs.image"),
+            new MediaInput("image/*", Uri: "https://cdn.example.org/pics/a.png?sig=1")));
+
+        Assert.EndsWith(".png", UploadedFileName(comfy.Requests[0].Body));
+    }
+
+    [Fact]
     public async Task A_URI_input_is_fetched_then_uploaded()
     {
         // a chained artifact arrives as a view URI; the loader reads the server's input folder, not a URL

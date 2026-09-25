@@ -28,12 +28,13 @@ internal static class GenerationJson
         writer.WriteEndArray();
     }
 
-    /// <summary>The non-empty strings of the <c>candidates</c> array, in order; empty when there is none.</summary>
-    public static List<string> ReadCandidates(JsonElement element)
+    /// <summary>The non-empty strings of the <paramref name="key"/> array, in order; empty when there is
+    /// none.</summary>
+    public static List<string> ReadCandidates(JsonElement element, string key = "candidates")
     {
         var candidates = new List<string>();
         if (element.ValueKind == JsonValueKind.Object &&
-            element.TryGetProperty("candidates", out var array) && array.ValueKind == JsonValueKind.Array)
+            element.TryGetProperty(key, out var array) && array.ValueKind == JsonValueKind.Array)
             foreach (var candidate in array.EnumerateArray())
                 if (candidate.ValueKind == JsonValueKind.String && candidate.GetString() is { Length: > 0 } spec)
                     candidates.Add(spec);

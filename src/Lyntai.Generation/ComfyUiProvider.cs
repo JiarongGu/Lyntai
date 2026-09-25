@@ -579,8 +579,12 @@ public sealed class ComfyUiProvider(
             bytes = fetched;
         }
 
-        // a fresh name per upload: a shared one would let two concurrent jobs load each other's file
-        var name = $"lyntai-{Guid.NewGuid():N}{HttpArtifacts.ExtensionForMediaType(input.MediaType)}";
+        // a fresh name per upload: a shared one would let two concurrent jobs load each other's file. A loader
+        // picks its parser by the extension, so a type the table cannot name ("image/*") takes the URI's
+        var extension = HttpArtifacts.ExtensionForMediaType(input.MediaType) is { Length: > 0 } known
+            ? known
+            : UriExtension(input.Uri);
+        var name = $"lyntai-{Guid.NewGuid():N}{extension}";
         var file = new ByteArrayContent(bytes);
         if (MediaTypeHeaderValue.TryParse(input.MediaType, out var contentType))
             file.Headers.ContentType = contentType;
@@ -803,6 +807,15 @@ public sealed class ComfyUiProvider(
             }
         }
         return artifacts;
+    }
+
+    /// <summary>The extension, with its dot, of the file a URI names when the shared table knows it — else
+    /// empty, as for no URI at all.</summary>
+    private static string UriExtension(string? uri)
+    {
+        if (uri is null) return "";
+        var extension = Path.GetExtension(uri.Split('?', '#')[0]);
+        return HttpArtifacts.MediaTypeForExtension(extension) == "application/octet-stream" ? "" : extension.ToLowerInvariant();
     }
 
     /// <summary>MIME from the produced file's extension — the only signal ComfyUI gives about what a workflow
