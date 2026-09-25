@@ -1,5 +1,4 @@
 using Lyntai.Inference;
-using System.Net;
 using System.Runtime.CompilerServices;
 using System.Text;
 using Lyntai.Inference.Streaming;
@@ -261,19 +260,9 @@ internal sealed class HttpChatEngine(
     private HttpRequestMessage BuildRequest(TextRequest req, string model, bool stream) =>
         HttpJsonCall.Post(wire.Endpoint, wire.BuildPayload(req, model, stream), wire.ApiKey, wire.AzureConventions);
 
-    /// <summary>Classify an error the backend reported IN BAND under a 2xx status. The status carries no
-    /// information here — it said success — so the verdict comes from the backend's own words through the
-    /// ONE shared corpus, never a local heuristic.
-    /// <para>The <see cref="ProviderVerdict.AuthFailed"/> → <see cref="ProviderVerdict.NotConfigured"/> promotion is
-    /// the same two-term rule <see cref="ProviderVerdictClassifier.FromHttpFailure(HttpStatusCode, string, bool)"/>
-    /// applies on the status path, restated here because that overload needs a FAILED status to key on and
-    /// this path has none. Keeping the two in step matters: NotConfigured skips a candidate blamelessly and
-    /// lets a host offer setup, while AuthFailed benches it for the cooldown window.</para></summary>
-    private TextResponse InBandFailure(string error)
-    {
-        var verdict = ProviderVerdictClassifier.FromErrorText(error);
-        if (verdict == ProviderVerdict.AuthFailed && !_hasCredentials) verdict = ProviderVerdict.NotConfigured;
-        return new TextResponse("", verdict, Detail: $"{id}: {HttpBody.Head(error)}");
-    }
+    /// <summary>Classify an error the backend reported IN BAND under a 2xx status, from the backend's own
+    /// words and whether this call carried credentials.</summary>
+    private TextResponse InBandFailure(string error) =>
+        new("", ProviderVerdictClassifier.FromErrorText(error, _hasCredentials), Detail: $"{id}: {HttpBody.Head(error)}");
 
 }
