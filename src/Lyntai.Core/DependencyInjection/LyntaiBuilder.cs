@@ -284,26 +284,42 @@ public sealed class LyntaiBuilder
 
     /// <summary>Register a recurring job: every <paramref name="every"/>, the <see cref="IJobScheduler"/>
     /// enqueues a <paramref name="type"/> job on <paramref name="lane"/> with <paramref name="payload"/>.
-    /// <paramref name="name"/> must be stable + unique (it keys the persisted next-run). The app drives the
-    /// scheduler's pump (TickAsync/RunAsync).
-    /// <para><paramref name="every"/> must be POSITIVE, and that is not checked here: a zero or negative
-    /// interval registers fine and is then skipped by the scheduler on every tick with a warning. Unlike
-    /// <see cref="AddCronSchedule"/>, which parses the expression now and throws on a bad one.</para></summary>
+    /// Validated as <see cref="AddJobSchedule(JobSchedule)"/> says. The app drives the scheduler's pump
+    /// (TickAsync/RunAsync).</summary>
     public LyntaiBuilder AddJobSchedule(string name, string lane, string type, string payload, TimeSpan every, int priority = 0) =>
         AddJobSchedule(new JobSchedule(name, lane, type, payload, every, priority));
 
     /// <summary>Register a recurring job on a <b>cron</b> schedule (5-field <c>min hour dom month dow</c>, or
-    /// a macro like <c>@daily</c>; evaluated in UTC). The expression is validated now — a bad one throws
-    /// here rather than being silently skipped at tick time. The app drives the scheduler pump.</summary>
-    public LyntaiBuilder AddCronSchedule(string name, string lane, string type, string payload, string cron, int priority = 0)
-    {
-        _ = CronExpression.Parse(cron); // fail fast on a malformed expression
-        return AddJobSchedule(new JobSchedule(name, lane, type, payload, Cron: cron, Priority: priority));
-    }
+    /// a macro like <c>@daily</c>; evaluated in UTC). Validated as <see cref="AddJobSchedule(JobSchedule)"/>
+    /// says. The app drives the scheduler pump.</summary>
+    public LyntaiBuilder AddCronSchedule(string name, string lane, string type, string payload, string cron, int priority = 0) =>
+        AddJobSchedule(new JobSchedule(name, lane, type, payload, Cron: cron, Priority: priority));
 
-    /// <summary>Register a recurring <see cref="JobSchedule"/>.</summary>
+    /// <summary>Register a recurring <see cref="JobSchedule"/> — the door every schedule registration comes
+    /// through, so each is validated HERE, at composition, rather than skipped at tick time.</summary>
+    /// <exception cref="ArgumentException">The name is blank, or the schedule sets both triggers or
+    /// neither.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">The interval is not positive.</exception>
+    /// <exception cref="FormatException">The cron does not parse.</exception>
+    /// <exception cref="InvalidOperationException">A schedule of the same name is already registered: the
+    /// name keys the persisted next-run, so only one of the two would ever fire.</exception>
     public LyntaiBuilder AddJobSchedule(JobSchedule schedule)
     {
+        ArgumentNullException.ThrowIfNull(schedule);
+        ArgumentException.ThrowIfNullOrWhiteSpace(schedule.Name, nameof(schedule));
+        if ((schedule.Interval is null) == (schedule.Cron is null))
+            throw new ArgumentException(
+                $"Schedule '{schedule.Name}' must set exactly one of Interval or Cron.", nameof(schedule));
+        if (schedule.Cron is { } cron) _ = CronExpression.Parse(cron);
+        else if (schedule.Interval <= TimeSpan.Zero)
+            throw new ArgumentOutOfRangeException(nameof(schedule), schedule.Interval,
+                $"Schedule '{schedule.Name}' needs a positive Interval.");
+        if (Services.Any(d => d.ServiceType == typeof(JobSchedule) && !d.IsKeyedService
+                && d.ImplementationInstance is JobSchedule other
+                && string.Equals(other.Name, schedule.Name, StringComparison.Ordinal)))
+            throw new InvalidOperationException(
+                $"A job schedule named '{schedule.Name}' is already registered. The name keys the persisted " +
+                "next-run, so only one of the two would ever fire; give each schedule its own name.");
         Services.AddSingleton(schedule);
         return this;
     }
@@ -314,8 +330,9 @@ public sealed class LyntaiBuilder
     /// <c>(taskKey, scope)</c>s that on-write eviction never revisits. Lyntai owns the prune WORK; the APP
     /// owns the pump (drive <c>IJobScheduler.RunAsync</c>/<c>TickAsync</c> + <c>IJobRunner</c>). Needs a
     /// memory store (e.g. <c>UseSqliteStorage</c>) wired. <paramref name="taskKey"/> null = all tasks. The
-    /// cron is validated now (a bad one throws here). Call more than once with distinct
-    /// <paramref name="name"/>s for several schedules — the handler is registered once.</summary>
+    /// schedule is validated now, as <see cref="AddJobSchedule(JobSchedule)"/> says. Call more than once
+    /// with distinct <paramref name="name"/>s for several schedules — a repeated name throws, and the
+    /// handler is registered once.</summary>
     public LyntaiBuilder AddMemoryPruneJob(string cron, TimeSpan? olderThan = null, string? taskKey = null,
         string lane = "default", string name = "lyntai-memory-prune", int priority = 0)
     {
