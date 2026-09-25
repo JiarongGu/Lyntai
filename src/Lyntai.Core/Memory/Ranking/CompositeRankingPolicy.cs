@@ -17,7 +17,7 @@ public sealed record CompositeRankingOptions
 
     /// <summary>The fusion constant, added to every rank before it is inverted — identical role and default to
     /// <see cref="ReciprocalRankFusionOptions.K"/>, so the same "how much rank 1 dominates" reasoning applies
-    /// here with two signals instead of four.
+    /// here with two signals instead of five.
     /// <para><b>Must be FINITE and <c>&gt; 0</c>.</b> Zero abandons the deliberate flattening the constant
     /// exists for; a negative value flips the sign of a term's denominator once a rank exceeds <c>-K</c>, so a
     /// candidate ranked FARTHER down one member can score HIGHER on it than one ranked near the top — the
@@ -129,21 +129,15 @@ public sealed class CompositeRankingPolicy(
         secondary ?? throw new ArgumentNullException(nameof(secondary));
     private readonly CompositeRankingOptions _options = Validated(options ?? new CompositeRankingOptions());
 
-    /// <summary>Guards the one invariant no single property's own <c>init</c> can enforce, because it spans
-    /// both: at least one weight must be above zero. Both at zero would score every candidate exactly
-    /// <c>0</c> and hand ordering entirely to the id tiebreak — not an error, not an empty result, just a
-    /// ranking that silently stopped reading either member at all. The same reasoning, and the same
-    /// construction-time (not property-level) placement, as
-    /// <see cref="ReciprocalRankFusionPolicy"/>'s own four-weight guard.</summary>
+    /// <summary>At least one of the two weights must be above zero
+    /// (<see cref="MemoryRankingContract.RequireAnyWeight"/>).</summary>
     /// <exception cref="ArgumentException">Both <see cref="CompositeRankingOptions.PrimaryWeight"/> and
     /// <see cref="CompositeRankingOptions.SecondaryWeight"/> are zero.</exception>
     private static CompositeRankingOptions Validated(CompositeRankingOptions options)
     {
-        if (options.PrimaryWeight <= 0 && options.SecondaryWeight <= 0)
-            throw new ArgumentException(
-                "CompositeRankingOptions must set PrimaryWeight or SecondaryWeight above zero — with both " +
-                "at zero every candidate scores exactly 0 and ordering falls entirely to the id tiebreak, a " +
-                "silent failure rather than a loud one.", nameof(options));
+        MemoryRankingContract.RequireAnyWeight(nameof(CompositeRankingOptions),
+            (nameof(options.PrimaryWeight), options.PrimaryWeight),
+            (nameof(options.SecondaryWeight), options.SecondaryWeight));
         return options;
     }
 
@@ -206,13 +200,12 @@ public sealed class CompositeRankingPolicy(
     /// </summary>
     private static Dictionary<long, int> CompetitionRanks(IReadOnlyList<RankedMemory> ranked)
     {
+        var scores = new double[ranked.Count];
+        for (var i = 0; i < scores.Length; i++) scores[i] = ranked[i].Score;
+        var positions = MemoryRankingContract.CompetitionRanks(scores, ascending: false);
+
         var ranks = new Dictionary<long, int>(ranked.Count);
-        var currentRank = 1;
-        for (var i = 0; i < ranked.Count; i++)
-        {
-            if (i > 0 && ranked[i].Score.CompareTo(ranked[i - 1].Score) != 0) currentRank = i + 1;
-            ranks[ranked[i].Candidate.Node.Id] = currentRank;
-        }
+        for (var i = 0; i < ranked.Count; i++) ranks[ranked[i].Candidate.Node.Id] = positions[i];
         return ranks;
     }
 }

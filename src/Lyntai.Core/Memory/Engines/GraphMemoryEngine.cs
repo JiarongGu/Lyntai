@@ -877,40 +877,20 @@ public sealed class GraphMemoryEngine(
         var items = scored
             .Select(x => new MemoryItem(
                 new MemoryRef(Name, x.Candidate.Node.Id.ToString(CultureInfo.InvariantCulture)),
-                x.Candidate.Node.Headline,
-                // associative content is withheld until expansion — that is what makes the first load
-                // cheap; authoritative content is always present, because it is never returned truncated.
-                // MemoryDetail.Full opts out of the withholding for callers that must ANSWER from a recall
-                // rather than index it: worth +11.7 token-F1 on LoCoMo for the same items (Part 136).
-                x.Candidate.Node.Grade == MemoryGrade.Authoritative || query.Detail == MemoryDetail.Full
-                    ? x.Candidate.Node.Content
-                    : null,
+                x.Candidate.Node.Headline, ProjectContent(x.Candidate.Node, query.Detail),
                 x.Candidate.Node.Grade, x.Candidate.Node.Relevance, x.Candidate.Retrievability,
                 x.Candidate.Node.Degree, x.Candidate.Node.Metadata))
             .ToList();
 
-        // MemoryQuery.CharBudget, honoured — it shipped in 2.5.0 documented as "maximum characters the caller
-        // intends to spend" and was read by NOTHING, the same class as ExpandAsync's own charBudget and
-        // GraphMemoryOptions.MinRetrievability. Applied AFTER ranking so the budget cuts the weakest tail
-        // rather than changing what wins, and an authoritative item is never dropped by it: objective (1) has
-        // no acceptable failure rate, and its content is the one thing this engine never returns truncated.
-        // A budget too small even for the reserved material still yields that material — a caller asking for
-        // less than one fact gets one fact, not nothing.
-        if (query.CharBudget is { } budget && budget > 0)
-        {
-            var spent = 0;
-            var kept = new List<MemoryItem>(items.Count);
-            foreach (var item in items)
-            {
-                var cost = item.Content?.Length ?? item.Headline.Length;
-                if (item.Grade != MemoryGrade.Authoritative && kept.Count > 0 && spent + cost > budget) continue;
-                spent += cost;
-                kept.Add(item);
-            }
-            items = kept;
-        }
-        return items;
+        // applied AFTER ranking, so the budget cuts the weakest tail rather than changing what wins
+        return query.CharBudget is { } budget && budget > 0 ? MemoryBudget.Cut(items, budget) : items;
     }
+
+    /// <summary>What of a node's content a read returns: associative content is withheld until expansion —
+    /// what makes the first load cheap — unless the caller asked for <see cref="MemoryDetail.Full"/>, and
+    /// authoritative content is always present, because it is never returned truncated.</summary>
+    private static string? ProjectContent(GraphNode node, MemoryDetail detail) =>
+        node.Grade == MemoryGrade.Authoritative || detail == MemoryDetail.Full ? node.Content : null;
 
     /// <inheritdoc />
     public async Task<MemoryRecall> ExpandAsync(MemoryRef reference, int hops = 1, int? charBudget = null,
@@ -961,30 +941,16 @@ public sealed class GraphMemoryEngine(
             new(reference, node.Headline, node.Content, node.Grade, 1, Retrievability(node), node.Degree,
                 node.Metadata),
         };
+        // neighbours take the recall projection's rule: the caller's stated detail decides
+        items.AddRange(walked.Select(w => new MemoryItem(
+            new MemoryRef(Name, w.Node.Id.ToString(CultureInfo.InvariantCulture)),
+            w.Node.Headline, ProjectContent(w.Node, detail), w.Node.Grade, w.Node.Relevance,
+            Retrievability(w.Node), w.Node.Degree, w.Node.Metadata)));
 
-        // The budget bounds the NEIGHBOURS, never the entry itself: returning that entry's full content is
-        // what expansion means, so a budget smaller than it trims the walk rather than refusing the request.
-        // Null takes the engine's configured budget, which is itself null (unbounded) unless a host sets one.
-        var budget = charBudget ?? _options.ExpandCharBudget;
-        var spent = node.Content?.Length ?? node.Headline.Length;
-
-        foreach (var neighbour in walked)
-        {
-            var n = neighbour.Node;
-            // the recall projection's rule, one seam out: the caller's stated detail decides, and an
-            // authoritative neighbour comes back whole either way
-            var content = n.Grade == MemoryGrade.Authoritative || detail == MemoryDetail.Full
-                ? n.Content
-                : null;
-            var cost = content?.Length ?? n.Headline.Length;
-            if (budget is { } cap && spent + cost > cap) break;
-            spent += cost;
-            items.Add(new MemoryItem(
-                new MemoryRef(Name, n.Id.ToString(CultureInfo.InvariantCulture)),
-                n.Headline, content, n.Grade, n.Relevance, Retrievability(n), n.Degree, n.Metadata));
-        }
-
-        return new MemoryRecall(items, MemorySources.Graph | (Enriches ? MemorySources.Similarity : 0));
+        // The budget bounds the NEIGHBOURS, never the entry itself — the cut keeps its first item whatever it
+        // costs. Null takes the engine's configured budget, itself null (unbounded) unless a host sets one.
+        var result = (charBudget ?? _options.ExpandCharBudget) is { } budget ? MemoryBudget.Cut(items, budget) : items;
+        return new MemoryRecall(result, MemorySources.Graph | (Enriches ? MemorySources.Similarity : 0));
     }
 
     /// <inheritdoc />
@@ -1372,8 +1338,7 @@ public sealed class GraphMemoryEngine(
     /// exception: there is no gradient to place it on and it is that source's top hit, so it takes rank
     /// 1.</para>
     ///
-    /// <para>Ties among several values share a rank and the next distinct value skips by the width of the
-    /// tied group — "1, 1, 3", never "1, 1, 2" — the same COMPETITION ranking
+    /// <para>Otherwise COMPETITION ranking (<see cref="MemoryRankingContract.CompetitionRanks"/>), the rule
     /// <see cref="Lyntai.Memory.Ranking.ReciprocalRankFusionPolicy"/> applies to its other signals.</para>
     ///
     /// <para>Comparing <see cref="GraphNode.Relevance"/> here does NOT put a score across the seam: the
@@ -1389,21 +1354,9 @@ public sealed class GraphMemoryEngine(
         var values = new double[n];
         for (var i = 0; i < n; i++) values[i] = eligible[i].Relevance;
 
-        var distinct = new HashSet<double>(values);
-        if (distinct.Count == 1) return new int[n];   // unordered — every slot stays 0
-
-        var order = new int[n];
-        for (var i = 0; i < n; i++) order[i] = i;
-        Array.Sort(order, (x, y) => values[y].CompareTo(values[x]));   // higher relevance is better
-
-        var rank = new int[n];
-        var currentRank = 1;
-        for (var i = 0; i < n; i++)
-        {
-            if (i > 0 && values[order[i]].CompareTo(values[order[i - 1]]) != 0) currentRank = i + 1;
-            rank[order[i]] = currentRank;
-        }
-        return rank;
+        return new HashSet<double>(values).Count == 1
+            ? new int[n]   // unordered — every slot stays 0
+            : MemoryRankingContract.CompetitionRanks(values, ascending: false);
     }
 
     /// <summary>Gather the candidate set: every registered <see cref="IMemorySeedSource"/> in turn, then the

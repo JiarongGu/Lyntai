@@ -1,4 +1,5 @@
 using Lyntai.Inference;
+using Lyntai.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -20,15 +21,9 @@ public sealed class LlmAnnotationOptions
     /// <para><b>Whatever is chosen must be MULTILINGUAL if the application stores non-Latin text.</b> This
     /// library detects no language and passes content through verbatim, so an English-only model silently
     /// becomes the thing that decides whether Chinese facts get linked.</para>
-    /// <para><b>A CANDIDATE that pins a model OUTRANKS this, so setting it is not a guarantee.</b> The
-    /// router resolves <c>candidate.Model ?? request.Model</c>, and <c>docs/DECISIONS.md</c> <b>D87</b>
-    /// derives a named client's candidates from <c>LyntaiOptions.DefaultCandidates</c>, keeping any model
-    /// pinned there. <b>To pin the annotator's model with certainty, name a client whose candidates pin
-    /// it</b> (<see cref="ClientName"/>) rather than setting this.</para>
-    /// <para><b>The provably-inert case now FAILS AT COMPOSITION rather than silently</b> (<b>D119</b>):
-    /// when every candidate the chosen client routes over pins a model of its own and none is this one,
-    /// composition throws. A PARTLY pinned list still composes, since the request is reachable through any
-    /// candidate pinning nothing — so this stays a preference rather than a guarantee.</para></summary>
+    /// <para><b>A candidate that pins a model OUTRANKS this</b>, exactly as on
+    /// <see cref="Lyntai.Memory.Verification.LlmVerificationOptions.Model"/>: to pin the annotator's model with
+    /// certainty, name a client whose candidates pin it (<see cref="ClientName"/>).</para></summary>
     public string? Model { get; set; }
 
     /// <summary>The most subjects to accept from one reply. Bounds how many edges one write can create when
@@ -123,28 +118,9 @@ public sealed class LlmMemoryAnnotationPolicy(
         ArgumentNullException.ThrowIfNull(request);
         try
         {
-            var client = _options.ClientName is { } name ? clients.Get(name) : clients.Get();
-            var reply = await client.CompleteAsync(new TextRequest
-            {
-                Messages =
-                [
-                    new TextMessage("system", _options.SuggestGrade ? System + GradeInstruction : System),
-                    new TextMessage("user", Compose(request)),
-                ],
-                Model = _options.Model,
-                // Tagged so memory's spend is separable in the ledger. It was the library's only untagged
-                // internal caller besides the verifier — scoring and chat both tag — so memory billed to
-                // "default" and could not be capped or observed apart from the app's own traffic.
-                Consumer = ProviderConsumers.Memory,
-                // Same reasoning, and the same measured stakes, as LlmMemoryVerificationPolicy's own
-                // Suppress: this call's value is a short structured label, and it sits in the latency path
-                // of every WRITE — the higher-traffic seam of the two, since a store takes many more writes
-                // than a caller takes recalls. It was missing here while verification had it (found
-                // 2026-08-15); a thinking model spent ~25s per judgement against ~1.5s for one that answers
-                // directly (docs/memory-measurements.md §5). Advisory: a backend that cannot express it ignores it, and
-                // the parser below still tolerates a reply that reasons anyway.
-                Reasoning = TextReasoning.Suppress,
-            }, ct).ConfigureAwait(false);
+            var reply = await MemoryModelCall.AskAsync(clients, _options.ClientName, _options.Model,
+                _options.SuggestGrade ? System + GradeInstruction : System, Compose(request), ct)
+                .ConfigureAwait(false);
 
             if (reply.Verdict != ProviderVerdict.Ok || string.IsNullOrWhiteSpace(reply.Text))
             {
@@ -196,13 +172,14 @@ public sealed class LlmMemoryAnnotationPolicy(
     /// </summary>
     private MemoryAnnotation Parse(string text)
     {
-        var start = text.IndexOf('{');
-        var end = text.LastIndexOf('}');
-        if (start < 0 || end <= start) return MemoryAnnotation.None;
-
-        try
+        if (!JsonExtract.TryParseObject(text, out var json))
         {
-            using var json = JsonDocument.Parse(text[start..(end + 1)]);
+            _logger.LogDebug("annotation reply held no JSON object; storing without subjects");
+            return MemoryAnnotation.None;
+        }
+
+        using (json)
+        {
             if (!json.RootElement.TryGetProperty("subjects", out var subjects)
                 || subjects.ValueKind != JsonValueKind.Array)
                 return MemoryAnnotation.None;
@@ -224,11 +201,6 @@ public sealed class LlmMemoryAnnotationPolicy(
 
             return handles.Count == 0 && grade is null ? MemoryAnnotation.None
                 : new MemoryAnnotation(handles, grade);
-        }
-        catch (JsonException)
-        {
-            _logger.LogDebug("annotation reply was not JSON; storing without subjects");
-            return MemoryAnnotation.None;
         }
     }
 }

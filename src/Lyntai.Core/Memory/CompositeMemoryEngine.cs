@@ -220,30 +220,11 @@ public sealed class CompositeMemoryEngine
                 .ThenByDescending(i => i.Relevance)
                 .Take(limit)];
 
-        // THE SECOND CUT, and it is the same defect as the first one field over. `CharBudget` travelled to
-        // every member unchanged and was reconciled by NOTHING, so an N-member blend could spend N x the
-        // budget a caller set — and a caller sets it precisely because it is a prompt budget. Same class as
-        // the AuthoritativeReserve incident pitfalls.md records: a bound configured on one scope (the query)
-        // and enforced on another (none).
-        //
-        // The rule is GraphMemoryEngine's own, deliberately identical so a blend and a bare engine cannot
-        // answer the same query differently: applied AFTER the limit so the budget cuts the weakest tail
-        // rather than changing what wins, an authoritative item is never dropped by it (objective (1) has no
-        // acceptable failure rate), and a budget too small even for one item still yields one — a caller
-        // asking for less than one fact gets one fact, not nothing.
+        // THE SECOND CUT: each member spent up to the whole `CharBudget`, so a blend reconciles it too — AFTER
+        // the limit, so the budget cuts the weakest tail rather than changing what wins, by the rule a bare
+        // engine applies (MemoryBudget.Cut).
         if (query.CharBudget is { } budget && budget > 0)
-        {
-            var spent = 0;
-            var kept = new List<MemoryItem>(items.Count);
-            foreach (var item in items)
-            {
-                var cost = item.Content?.Length ?? item.Headline.Length;
-                if (item.Grade != MemoryGrade.Authoritative && kept.Count > 0 && spent + cost > budget) continue;
-                spent += cost;
-                kept.Add(item);
-            }
-            items = kept;
-        }
+            items = MemoryBudget.Cut(items, budget);
 
         return new MemoryRecall(items, ran, answered);
     }
