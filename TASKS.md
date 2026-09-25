@@ -305,6 +305,11 @@ Start through the discovery skills (`skills-workflow.md`) and read `.claude/know
   now calls), the test-suite cleanup (vacuous facts first) and the renames that span areas; (3) the docs:
   `CLAUDE.md`, `README.md`, `pitfalls.md`, the design record, `DECISIONS.md` lengths and supersessions, plus
   every record edit waves 1–2 reported. The pre-change baseline is the one `CLAUDE.md` states, re-read green.
+  <br>**State at `81a52571`:** wave 1 merged for inference, the rest of Core, generation, providers, storage, tooling
+  and the records, plus wave 2's generation follow-up; `verify` green on 23 gates at 4924 / 4965 / 41 (each step
+  reconciled to the tests its branch added). Still open: the memory branch, the test-suite cleanup (non-memory
+  running; memory after the memory branch), one cross-area pass, and wave 3. Each branch's unapplied record edits
+  are in `devtools/_review/notes/` until wave 3 lands them.
 
 ## Retired — five Parts that outlived their open work (2026-09-16)
 
