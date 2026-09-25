@@ -13,7 +13,7 @@ scoring/eval, run traces, long-term memory — all wired by `AddLyntai(...)`.
 
 ## Current state
 
-**Released: v3.3.0 (2026-09-25).** Eleven packages. The public API is frozen under
+**Released: v3.4.0 (2026-09-25).** Eleven packages. The public API is frozen under
 SemVer 2.0 since 1.0 for every package (**D70**), but while every consumer is first-party a documented break
 may ship in a minor under `### Breaking` (**D18**, **D161**); storage and migration breaks stay major-only.
 The reasoning is `docs/DECISIONS.md`, **D1–D190** — read its generated index table rather than any list of
