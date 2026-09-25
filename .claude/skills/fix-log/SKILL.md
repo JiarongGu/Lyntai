@@ -19,16 +19,28 @@ regression's origin is traceable and the same bug is not reintroduced.
 
 ## How
 
-Append to the repository's fix log — newest entry first, under a dated heading — in this shape:
+The fix log is `docs/FIXES.md`. Add the entry at the TOP, below the file's preamble — newest first — as a
+dated heading and five bold-lead paragraphs:
 
 ```
-### <area>: <one-line symptom>
-- **Symptom:** what was actually observed
-- **Root cause:** the real mechanism, and the commit that introduced it if this is a regression
-- **Fix:** what changed, and where
-- **Verify:** the command or observation that confirmed it
-- **Commit:** <hash>   (fill in after committing; leave pending until then)
+## <YYYY-MM-DD> — <the symptom, in one line a reader would recognise>
+
+**Symptom.** What was actually observed, and where it was found.
+
+**Root cause.** The real mechanism — the line or rule that let it happen.
+
+**Fix.** What changed, and where; the decision it follows, if one governs it.
+
+**Verify.** The tests that pin it (named), and whether each failed before the change.
+
+**Introduced by.** `<short-sha>` (<date>), the commit that introduced it and what it did — or why it is
+not a regression.
 ```
+
+**A later fix that corrects an earlier entry writes the correction at that entry's HEAD, never its foot**:
+a blockquote under the heading, plus a `<!-- keeps: … -->` on the heading saying what still holds. A reader
+arrives INSIDE an entry from a grep, and a superseded entry is often still the only home of its reusable
+half, so it must stay readable rather than skippable.
 
 ## Rules
 

@@ -18,32 +18,27 @@ verify` is green. (If it's not actually done, leave it `- [ ]` in `TASKS.md`.)
 
 1. **Confirm done.** The work is committed and `dev.mjs verify` (or at least build + test + relevant e2e)
    is green. Don't archive unverified work.
-2. **Cut from `TASKS.md`.** Remove the task's entry. If its whole `## Part N` group is now empty, remove the
-   group heading too. Then fix the `## Active backlog` section — set it to `_None …_` if nothing is open,
-   and make sure no stale banner claims "all done" over remaining open items (or vice-versa).
-3. **Write a COMPRESSED entry into `docs/task-archive.md`** — a `## Part N — <theme>` heading, then
-   `✅ done <YYYY-MM-DD> — <Outcome>`: what shipped and where (files/API/migration), plus anything the task
+2. **Cut the item from `TASKS.md`.** If its `## Part N` now holds no open `- [ ]`, delete the heading
+   (`check-backlog` fails an empty Part), then run `node devtools/dev.mjs check-backlog --write` — the roster
+   at the head of the file is GENERATED from the item markers (**D111**), never edited by hand.
+3. **Write a COMPRESSED entry into `docs/task-archive.md`** — a `## Part N — <theme> (<date>)` heading, then
+   `✅ done <YYYY-MM-DD> — **Outcome:**` what shipped and where (files/API/migration), plus anything the task
    got WRONG that the next reader needs. Then the task's item titles as bullets. Use the real date (today's
    date from the session context), not a relative one.
-   - **Keep the heading and the outcome, NOT the original text.** This step said "append the ORIGINAL task
-     text verbatim" until 2026-08-28, when the archive was compressed 84% (7280 lines to ~1150) precisely
-     because the full entries were unread. The full text of every one stays in git history, which is where
-     the reasoning narrative belongs. **A conclusion that must outlive its Part does not belong here at
-     all** — route it to `docs/DECISIONS.md`, `.claude/knowledge/pitfalls.md` or the design contract. This
-     convention is what makes ignoring that routing visibly lossy.
-   - **Part numbers are allocated across BOTH files.** An open `## Part N` in `TASKS.md` and an archived
-     `## Part N` must never be the same N, or every cross-reference to "Part N" is ambiguous. This
-     happened on 2026-08-05 and the open part was renumbered 39→41. Take the next free number across both
-     files. The ARCHIVE never renumbers — it is history, and history does not get renumbered.
+   - **Keep the heading and the outcome, not the original text**; git history holds it. A conclusion that
+     must outlive the Part goes to `docs/DECISIONS.md`, `.claude/knowledge/pitfalls.md` or the design
+     contract, and `check-archive` bounds the entry's length.
+   - **Take the next number above the highest in EITHER file; the archive never renumbers.** The two files
+     number independently, so cite `` `TASKS.md` Part N `` or `` `docs/task-archive.md` Part N ``, never a
+     bare Part (`task-lifecycle.md`).
    - **Where a NEW Part goes: at the end of the file.** Parts are appended in COMPLETION order, not numeric
-     order, so a lower number arriving after a higher one is correct and must not be re-sorted. (This bullet
-     used to route around a closing `## Notes for the implementer` section; the compression removed it.)
+     order, so a lower number arriving after a higher one is correct and must not be re-sorted.
    - **Then check nothing dangles**: `node devtools/dev.mjs check-links` reads a `Part N` reference against
      whichever record actually declares it, and archiving is the move that breaks those.
 4. **Don't duplicate.** The user-facing summary belongs in `CHANGELOG.md` (release log); the archive is the
    per-task why/how. Don't restate release notes — link if useful.
-5. **Verify the docs still read straight.** Both files parse as Markdown; `TASKS.md` shows only open work;
-   the archive entry is under the right Part with a date + Outcome.
+5. **Verify the docs still read straight.** `TASKS.md` shows only open work and its generated roster agrees
+   (`check-backlog`); the archive entry has a date and an Outcome.
 
 ## Don't
 

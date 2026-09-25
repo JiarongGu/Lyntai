@@ -6,9 +6,6 @@ enforces: ship the general need, never the consumer's shape; neutral need in Cor
 
 # Generic-library discipline — generalize the consumer request, never ship its shape
 
-The PRINCIPLE is `.claude/knowledge/library-api-design.md`; this document is how it is satisfied
-here — the same rule with Lyntai's own types, red flags and worked consumer asks.
-
 **Lyntai is a reusable, publishable library. Every change must be an app-agnostic improvement behind the
 `ITextClient` front door or a BYO seam — NEVER app-specific code, and never a consumer's domain concept
 leaked into the surface.** Most tasks arrive as "app X needs Y"; your job is to ship the *general Y*, not
@@ -21,9 +18,9 @@ requests are the best signal we have for real gaps — but each is phrased in th
 ship the consumer's shape (its tool names, its file-path argument, its domain vocabulary, its one-off
 posture) the library rots into a private fork with public packaging: the next adopter can't use the
 feature, the `ApiSurface` baseline accumulates app-specific noise, and Core stops being neutral. The whole
-value proposition — "a new project gets this without rebuilding it" — depends on refusing that. This is the
-standing rule stated in `TASKS.md` ("**This is a generic library** — every task must be a reusable,
-app-agnostic improvement behind the `ITextClient` front door / a BYO seam"); this doc is *how* to satisfy it.
+value proposition — "a new project gets this without rebuilding it" — depends on refusing that. The rules
+that hold for ANY public API — seams over flags, options over magic values, every public type earns its keep
+— are `library-api-design.md`'s; this document is what to do when the request comes from a consumer.
 
 ## How to apply
 
@@ -51,17 +48,17 @@ When a task says "app X wants Y," run it through this before writing code:
    `Usage`). A "dangerous"/opt-in posture is off by default and documented as such in the XML-doc.
 5. **Vary via seams, never `if (appName)`.** The extension model is DI collections + BYO interfaces
    (`IProcessRunner`, `IModelProvider`, `IDbConnectionFactory`, `IToolLoop`). If a consumer needs different
-   behavior, the answer is "register your own implementation," not a branch in Core. (See
-   `dotnet-package-layout.md` §Variation points — a pluggable set is a DI collection, never a conditional.)
+   behavior, the answer is "register your own implementation," not a branch in Core
+   (`dotnet-package-layout.md` §Variation points).
 6. **Pin the generality with tests + baseline.** The contract test (e.g. `CuratedMemoryStoreContract`)
    runs across *all* backends so a new param behaves identically on every one of them. Update the
    `ApiSurface` baseline deliberately — it's the review gate that makes an app-specific leak visible.
 7. **A value only the DEPLOYMENT can know is a policy or an option — never a property of a type.** Ask of
    any new member: *could two honest applications answer this differently?* If yes, the library must not
    answer it. A default is fine — an unconfigurable answer is not.
-   <br>**This is the rule that catches the SELF-INFLICTED case, which is why it is separate from the five
-   above.** Every one of those starts "a consumer asked for X"; this one fires when nobody asked and the
-   shape was invented while designing. Measured 2026-08-16 (`docs/DECISIONS.md` **D72**):
+   <br>**This is the rule that catches the SELF-INFLICTED case, which is why it is separate from the rules
+   above.** They start from "a consumer asked for X"; this one fires when nobody asked and the shape was
+   invented while designing (`docs/DECISIONS.md` **D72**): a proposed
    `IMemoryEngine.HoldsUserContent` was a `bool` on the engine declaring whether its content was the user's <!-- link-ok: a REJECTED alternative; it never existed -->
    to withdraw — and one application's curated glossary is operator boilerplate while another's holds
    preferences the user typed. The property stated a fact about the HOST inside a type the host did not
@@ -106,9 +103,9 @@ notice, because there is no outside voice to disagree with.
 
 ## Related
 
-- `CLAUDE.md` / `TASKS.md` (the standing "this is a generic library" rule this doc expands).
-- `.claude/knowledge/library-api-design.md` — the canonical principle behind this document, and the one rule
-  with no local counterpart: **every public type earns its keep**.
+- `TASKS.md` (the standing "this is a generic library" rule this doc expands).
+- `.claude/knowledge/library-api-design.md` — the rules for ANY public API, request or not: seams over flags,
+  options over magic values, and **every public type earns its keep**.
 - `.claude/rules/dotnet-package-layout.md` — package layout (contract in Core, impl in an adapter, never
   adapter→adapter), variation points = DI collections; `.claude/rules/repo-mechanics.md` binds it to this
   repo's package names and entry points.

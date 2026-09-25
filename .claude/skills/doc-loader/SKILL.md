@@ -11,16 +11,13 @@ already paid to learn.
 
 ## Steps
 
-1. **The repository's own documents.** Find its documentation router — the table or index that maps a
-   task to the one or two documents worth reading — and read only the entries that match. Bulk-loading
-   defeats the purpose of a router.
-2. **The generated index.** Open the always-loaded rules index. The rules tier is already in context;
-   scan the **knowledge** table's *applies when* column against the task and read every matched
-   document. This index is generated from what is actually on disk, so it is the exhaustive list — any
-   shortcut table elsewhere is a convenience, not the registry.
-3. **Private context.** If the task touches machine specifics, real paths, or another repository by
+1. **The routing table.** Read `.claude/rules/RULES_INDEX.md`'s knowledge table and load every document
+   whose *applies when* matches the task — and only those; bulk-loading defeats the purpose of a router.
+   The table is hand-maintained, so a document missing from it routes nothing: add its row when you add
+   one. The rules tier is already in context.
+2. **Private context.** If the task touches machine specifics, real paths, or another repository by
    name, read the untracked local notes rather than guessing.
-4. **Report** in two to four lines: what you loaded, and the constraints it imposes here. If nothing
+3. **Report** in two to four lines: what you loaded, and the constraints it imposes here. If nothing
    matched, say so and proceed.
 
 ## Why

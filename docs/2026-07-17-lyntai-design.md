@@ -1020,12 +1020,9 @@ below names is now two calls: `AddProvider(factory, declares)` + `AddMediaRoutin
 - BOM-less UTF-8 sources + `<CodePage>65001</CodePage>` so csc on a CJK-locale machine doesn't mojibake
   string literals.
 
-*(2026-08-15: re-checked clause by clause. The FTS clause was restated — it named `FtsQuery` as the owner of
-the tokenization, which D55 moved to `SearchTerms` three days after this attestation last said "still
-current"; the rest holds. The maintained deep dives cite this section
-rather than competing with it — `.claude/knowledge/storage.md` is this repo's binding (the `lyntai_` prefix,
-the SQLite/Postgres parallels of the same number, `StorageFeature` tags) and canonical
-`.claude/knowledge/sql-storage.md` states the traps themselves.)*
+*(2026-09-25: this list is the seed. The maintained statement of each clause, and of the traps behind them,
+is `.claude/knowledge/storage.md`, each stated once; `.claude/knowledge/sql-storage.md` indexes the ones that
+return wrong data rather than failing.)*
 
 ## 8. Testing
 

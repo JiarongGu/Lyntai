@@ -26,8 +26,8 @@ Read `.claude/knowledge/extending-lyntai.md` (§Add an LLM provider) and `.claud
 **A package boundary must answer "which dependency does this isolate?"** A CLI backend or a native provider
 that needs nothing beyond Core/BCL — or only managed `Microsoft.Extensions.Http` — is **a class in
 `src/Lyntai.Providers.Basic/`**, next to `ClaudeCliBackend`, `CodexCliBackend` and
-`HttpModelProvider`, which is where 2.0.1 merged them. Namespaces stay `Lyntai.Providers.<Name>`
-inside that one assembly (D25: consolidating packages must not force a consumer to edit a `using`).
+`HttpModelProvider`. Namespaces stay `Lyntai.Providers.<Name>` inside that one assembly (D25:
+consolidating packages must not force a consumer to edit a `using`).
 
 It earns its own `src/Lyntai.Providers.<Name>/` package (project-ref `Lyntai.Core` only, never
 adapter→adapter) **the moment it drags a native runtime, a platform-specific API, or a dependency a
@@ -50,14 +50,17 @@ the csproj.
       `AuthStatusArgs` + `ParseAuthStatus`, `LogoutArgs`, `TryBuildLoginArgs`, `TryBuildInstallArgs`.
       Refuse unknown free-form values (`FlagShaped`) instead of forwarding them into argv.
 - [ ] `<Name>CliProvider` — forwards to `CliProviderEngine` and implements exactly the capability interfaces
-      that backend supports. Copy `ClaudeCliProvider` (pure forwarding, no logic).
-- [ ] `Add<Name>CliProvider(this LyntaiBuilder)` extension; keyed `ICliToolProvisioner` lookup by provider
-      id. A builder method names what it REGISTERS, with the vendor qualifying it (**D137**).
+      that backend supports; its `Capabilities` come from `CliComposition.Capabilities(backend)`, so the
+      tool-call declaration cannot disagree with the backend's. Copy `ClaudeCliProvider` (pure forwarding).
+- [ ] `Add<Name>CliProvider(this LyntaiBuilder, …, string id = <backend name>)` extension: the id defaults
+      to the BACKEND's name, never a role, and a second registration (a second portable install) passes its
+      own. Resolve the tool provisioner through `CliComposition.Provisioner(sp, id, defaultId)`. A builder
+      method names what it REGISTERS, with the vendor qualifying it (**D137**).
 - [ ] Tests: the parsing/argv-building unit-tested through `FakeProcessRunner` (never a real binary — and
       NEVER `login`/`logout`/`install` against one, which mutate a developer's machine), plus a real-spawn
       test against `provider-stub.mjs`. Add the CLI's shapes to the stub as needed.
 - [ ] Baselines: confirm Core's own baseline is untouched. A class added to `Lyntai.Providers.Basic`
-      needs only Core's and Default's baselines reviewed. **Only if the backend earns its own package**
+      needs only Core's and `Lyntai.Providers.Basic`'s baselines reviewed. **Only if the backend earns its own package**
       (footprint test above): scaffold with `node devtools/dev.mjs new-package Lyntai.Providers.<Name>` —
       it registers all NINE registries `check-packages` gates (`packableProjects`, the solution,
       `<Description>`, `ApiSurfaceTests.Assemblies()`, the SEPARATE `Loaded` anchor map, the baseline file,
@@ -74,20 +77,14 @@ the csproj.
       capability serves nothing and would make the backend permanently invisible). Everything else is
       defaulted to an `Unsupported` verdict, so override only what you serve: `CompleteAsync`,
       `StreamAsync`, and `IsAvailable`/`ProbeAsync` where a real check exists.
-- [ ] Failures classified via `ProviderVerdictClassifier` (429→RateLimited, 401/403→AuthFailed, filter→Refused,
-      too-big→ContextWindowExceeded, deadline→Timeout, else Failed). No local heuristics.
-- [ ] An HTTP backend classifies through the **three-argument** `FromHttpFailure(status, body,
-      hasCredentials)` — copy `HttpModelProvider`. A 401/403 answered to a call that carried NO
-      credentials is `NotConfigured`, not `AuthFailed`: AuthFailed BENCHES the provider for the cooldown
-      window, so a backend the consumer merely listed without configuring is penalised on every first
-      attempt (`docs/DECISIONS.md` D31). Not "a key is required" — a local OpenAI-shaped endpoint (LM
-      Studio, vLLM, Ollama) legitimately needs none, so only "no key AND the server demanded one" counts.
-      A CLI/session-authenticated backend has no `hasCredentials` fact and correctly stays on the
-      two-argument overload.
+- [ ] Failures classified via `ProviderVerdictClassifier` — no local heuristics.
+- [ ] An HTTP backend classifies through the THREE-argument `FromHttpFailure(status, body, hasCredentials)`
+      (copy `HttpModelProvider`): an uncredentialed 401/403 is `NotConfigured`, not `AuthFailed`
+      (`llm-and-router.md` §Verdict taxonomy, D31).
 - [ ] Empty/no output → `Failed` (and a terminal `Error` chunk when streaming), never `Ok`.
-- [ ] Streaming timeout is an **inactivity clock** (re-arm per read, `CancelAfter(InfiniteTimeSpan)` after)
-      — copy `HttpModelProvider.StreamAsync`. Yield `Content` only for non-empty text; end with one
-      `Final`(usage) or `Error`.
+- [ ] Streaming iterates `GuardedStream.ReadAll` — its inactivity clock is the timeout
+      (`llm-and-router.md` §Provider streaming timeout). Yield `Content` only for non-empty text; end with
+      one `Final`(usage) or `Error`.
 - [ ] Spawning a CLI → go through `ProcessRunner` (never shell out directly).
 - [ ] `Add<Name>Provider(this LyntaiBuilder, …)` extension in the adapter package — a builder method names
       what it REGISTERS, with the vendor qualifying it (**D137**); register into the

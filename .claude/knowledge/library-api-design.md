@@ -1,6 +1,6 @@
 ---
 name: library-api-design
-applies_when: designing or changing any public API, or a consumer asks for a feature
+applies_when: designing or changing any public API
 enforces: generalize the request, never ship its shape; no consumer vocabulary in the library; seams over flags; every public type earns its keep
 ---
 
@@ -22,12 +22,10 @@ that — usually a seam the consumer fills in, rather than behaviour the consume
 
 ## How to apply
 
-- **Translate the request before implementing it.** "Our app needs X to do Y" becomes: what is the
-  capability, and what part of it is the caller's policy? Ship the capability; let the caller supply the
-  policy.
-- **No consumer vocabulary in the library.** If a type, member, or option is named after one consumer's
-  domain, the abstraction has not been found yet. The library's names should read sensibly to someone who
-  has never seen that consumer.
+- **Translate the request before implementing it, and keep the caller's vocabulary out.** "Our app needs X
+  to do Y" becomes: what is the capability, and what part of it is the caller's policy? Ship the
+  capability, let the caller supply the policy, and name it so it reads sensibly to someone who has never
+  seen that consumer. `generic-library.md` works this through with this library's own cases (rules 1 and 3).
 - **Prefer a seam to a flag.** A boolean that selects between two behaviours is usually two consumers
   disagreeing; an interface they each implement resolves it permanently and costs the library nothing.
   Flags multiply: two become four combinations, and only some of them are ever tested.
