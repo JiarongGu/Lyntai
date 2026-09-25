@@ -69,7 +69,9 @@ public class FileSystemRestartTests : IDisposable
         Assert.Equal([(1L, "user", "hello", (string?)null), (2L, "tool-call", """{"name":"x"}""", """{"model":"m"}""")],
             messages.Select(m => (m.Seq, m.Kind, m.Payload, m.Metadata)));
         Assert.Equal(3, (await after.AppendMessageAsync("t1", "assistant", "hi")).Seq);
-        await Assert.ThrowsAnyAsync<Exception>(() => after.CreateThreadAsync("t1"));
+        // "already exists", not the unreadable-directory refusal: the reopened store LOADED the thread
+        var duplicate = await Assert.ThrowsAsync<InvalidOperationException>(() => after.CreateThreadAsync("t1"));
+        Assert.Contains("already exists", duplicate.Message, StringComparison.Ordinal);
     }
 
     [Fact]

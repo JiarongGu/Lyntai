@@ -1,3 +1,4 @@
+using System.Data.Common;
 using Lyntai.Storage;
 
 namespace Lyntai.Tests.Storage;
@@ -8,6 +9,17 @@ namespace Lyntai.Tests.Storage;
 /// shared Postgres container (InMemory/SQLite get a fresh store per test).</summary>
 public static class ConversationStoreContract
 {
+    /// <summary>A refusal is a backend's own conflict signal: a SQL constraint violation, or the in-process
+    /// stores' ArgumentException/InvalidOperationException. The types differ by backend, so this names the
+    /// set rather than one of them; what it excludes is an incidental NullReferenceException that happens to
+    /// leave the data untouched.</summary>
+    private static async Task AssertRefused(Func<Task> call)
+    {
+        var error = await Record.ExceptionAsync(call);
+        Assert.True(error is DbException or ArgumentException or InvalidOperationException,
+            $"expected a refusal, got {error?.GetType().Name ?? "no exception"}");
+    }
+
     public static async Task Create_and_get_thread(IConversationStore store, string key)
     {
         var t = key + "-t1";
@@ -30,7 +42,7 @@ public static class ConversationStoreContract
         var t = key + "-dup";
         await store.CreateThreadAsync(t, "first");
 
-        await Assert.ThrowsAnyAsync<Exception>(() => store.CreateThreadAsync(t, "second"));
+        await AssertRefused(() => store.CreateThreadAsync(t, "second"));
         Assert.Equal("first", (await store.GetThreadAsync(t))!.Title); // the original survives untouched
     }
 
@@ -105,7 +117,7 @@ public static class ConversationStoreContract
     {
         var t = key + "-never-created";
 
-        await Assert.ThrowsAnyAsync<Exception>(() => store.AppendMessageAsync(t, "user", "orphan"));
+        await AssertRefused(() => store.AppendMessageAsync(t, "user", "orphan"));
         Assert.Empty(await store.GetMessagesAsync(t)); // and nothing was stored
     }
 

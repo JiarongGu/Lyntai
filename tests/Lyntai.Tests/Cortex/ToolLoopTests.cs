@@ -109,7 +109,6 @@ public class ToolLoopTests
     {
         var client = new FakeTextClient();
         // never emits a "final" — always calls the tool again
-        client.StreamScript = null;
         for (var i = 0; i < 10; i++)
             client.Replies.Enqueue(new TextResponse("""{"tool":"echo","arguments":{}}""", ProviderVerdict.Ok));
 

@@ -333,8 +333,9 @@ public class ProviderRouterFactoryTests
         var tracker = new Lyntai.Inference.Budgeting.InMemoryUsageTracker();
         await tracker.RecordAsync("x", new ProviderUsage(CostUsd: 99.0));
         var provider = new AppProvider();
+        var limiter = new StubLimiter(clears: false);
         var factory = new ProviderRouterFactory(new DeadHostTracker(),
-            options: CappedOptions(costCap: 1.0), tracker: tracker, limiter: new StubLimiter(clears: false));
+            options: CappedOptions(costCap: 1.0), tracker: tracker, limiter: limiter);
 
         var router = factory.For<AppRequest, AppResponse>([provider],
             (v, d) => new AppResponse(v, d));
@@ -342,6 +343,7 @@ public class ProviderRouterFactoryTests
 
         Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
         Assert.Equal(1, provider.Calls);
+        Assert.Equal(0, limiter.Asked); // not asked and overruled: never asked
     }
 
     [Fact]

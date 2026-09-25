@@ -190,10 +190,7 @@ public class WordPieceTokenizerTests
             "123",
             "the quick brown fox",
             "  alpha   beta  ",
-            "alpha\tbeta",
-            "alpha\nbeta",
-            "alpha\rbeta",
-            "alpha beta",
+            "alpha\u00A0beta", // a NO-BREAK space: escaped, because written raw it reads as the first row
             "zzzz alpha",
             "-alpha-",
             "ALPHA中文beta",
@@ -202,14 +199,14 @@ public class WordPieceTokenizerTests
         // Every mismatch at once, not the first: a tokenizer diverging on one rule usually diverges on
         // several, and finding them one run at a time hides how big the disagreement is.
         var divergences = new List<string>();
-        foreach (var text in corpus.Except(WhereTheReferenceImplementationIsWrong))
+        // (the whitespace separators the reference gets wrong are not here: the next test asserts them)
+        foreach (var text in corpus)
         {
             var expected = theirs.EncodeToIds(text);
             var actual = ours.EncodeToIds(text);
             if (!expected.SequenceEqual(actual))
                 divergences.Add(
-                    $"'{text.Replace("\t", "\\t").Replace("\n", "\\n").Replace("\r", "\\r")}' -> "
-                    + $"reference [{string.Join(',', expected)}], ours [{string.Join(',', actual)}]");
+                    $"'{text}' -> reference [{string.Join(',', expected)}], ours [{string.Join(',', actual)}]");
         }
 
         Assert.True(divergences.Count == 0, string.Join(Environment.NewLine, divergences));

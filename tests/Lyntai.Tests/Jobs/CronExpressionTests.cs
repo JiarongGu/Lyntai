@@ -100,7 +100,7 @@ public class CronExpressionTests
     [InlineData("* * 10-40 * *")]  // range upper bound out of [1,31]
     public void Malformed_expressions_throw(string bad)
     {
-        Assert.ThrowsAny<Exception>(() => CronExpression.Parse(bad));
+        Assert.Throws<FormatException>(() => CronExpression.Parse(bad));
     }
 
     [Fact] // I11: the impossible-cron error names the EXPRESSION (the thing to fix), not the search timestamp

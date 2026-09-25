@@ -191,7 +191,7 @@ public class JobSchedulerTests
     public void AddCronSchedule_validates_the_expression_eagerly()
     {
         var services = new ServiceCollection();
-        Assert.ThrowsAny<Exception>(() => services.AddLyntai(b => b
+        Assert.Throws<FormatException>(() => services.AddLyntai(b => b
             .AddProvider(_ => new FakeTextProvider("p"))
             .UseInMemoryStorage()
             .AddCronSchedule("bad", "l", "t", "{}", "not a cron"))); // throws at composition, not at tick

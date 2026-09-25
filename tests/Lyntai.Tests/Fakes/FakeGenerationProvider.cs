@@ -21,23 +21,16 @@ public sealed class FakeGenerationProvider : IModelProvider
     /// <summary>Verdicts to return, in order; the last one repeats. Ok produces a 1-byte PNG artifact.</summary>
     public Queue<ProviderVerdict> Verdicts { get; } = new();
 
-    public bool ProbeAvailable { get; set; } = true;
-
     /// <summary>What each successful render REPORTS costing — for the spend-governance tests.</summary>
     public double? CostUsd { get; set; }
 
     public int GenerateCalls { get; private set; }
-    public int ProbeCalls { get; private set; }
 
     /// <summary>Every request <see cref="GenerateAsync"/> was handed, in order.</summary>
     public List<MediaRequest> Requests { get; } = [];
 
-    public Task<ProviderProbeResult> ProbeAsync(CancellationToken ct = default)
-    {
-        ProbeCalls++;
-        return Task.FromResult(new ProviderProbeResult(ProbeAvailable,
-            ProbeAvailable ? "fake ready" : "fake not configured"));
-    }
+    public Task<ProviderProbeResult> ProbeAsync(CancellationToken ct = default) =>
+        Task.FromResult(new ProviderProbeResult(true, "fake ready"));
 
     /// <summary>When set, <see cref="GenerateAsync"/> THROWS it instead of returning a verdict — a backend
     /// that violates the fail-safe contract on purpose. The router is the trust boundary, so a BYO backend's

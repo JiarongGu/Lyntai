@@ -97,7 +97,7 @@ public class MemoryPruneJobTests
     public void AddMemoryPruneJob_rejects_a_bad_cron()
     {
         var services = new ServiceCollection();
-        Assert.ThrowsAny<Exception>(() => services.AddLyntai(b => b
+        Assert.Throws<FormatException>(() => services.AddLyntai(b => b
             .AddProvider(_ => new FakeTextProvider("p"))
             .UseInMemoryStorage()
             .AddMemoryPruneJob(cron: "not a cron")));

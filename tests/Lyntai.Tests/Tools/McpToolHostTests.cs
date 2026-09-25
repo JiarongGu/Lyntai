@@ -194,19 +194,31 @@ public class McpToolHostTests
             Task.FromResult(Lyntai.Guards.GuardOutcome.Replace("[redacted]"));
     }
 
-    [Fact]
-    public async Task Host_rejects_requests_without_the_bearer_token()
+    [Theory]
+    [InlineData(null)]                       // no Authorization header
+    [InlineData("Bearer the-wrong-token")]   // a token, but not this host's
+    [InlineData("the-real-token")]           // the right secret without its scheme
+    public async Task Host_rejects_a_request_without_its_exact_bearer_token(string? authorization)
     {
-        ITool echo = new FunctionTool("echo", (a, _) => Task.FromResult(a));
+        var ran = false;
+        ITool echo = new FunctionTool("echo", (a, _) => { ran = true; return Task.FromResult(a); });
         await using var host = await McpToolHost.StartAsync([echo], "the-real-token");
 
-        // no Authorization header → the MCP handshake must fail (401)
-        var transport = new HttpClientTransport(new HttpClientTransportOptions { Endpoint = new Uri(host.Url) });
-        await Assert.ThrowsAnyAsync<Exception>(async () =>
+        // raw HTTP rather than an MCP client, so the assertion is the host's 401 and not whatever a client
+        // happens to throw on a failed handshake
+        using var http = new HttpClient();
+        using var request = new HttpRequestMessage(HttpMethod.Post, host.Url)
         {
-            await using var client = await McpClient.CreateAsync(transport);
-            await McpToolset.FromClientAsync(client);
-        });
+            Content = new StringContent(
+                """{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"echo","arguments":{}}}""",
+                System.Text.Encoding.UTF8, "application/json"),
+        };
+        if (authorization is not null) request.Headers.TryAddWithoutValidation("Authorization", authorization);
+
+        using var response = await http.SendAsync(request);
+
+        Assert.Equal(System.Net.HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.False(ran);
     }
 
     [Fact]
