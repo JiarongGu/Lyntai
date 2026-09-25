@@ -395,13 +395,10 @@ public static class LyntaiServiceCollectionExtensions
             && d.ImplementationInstance is Lyntai.Inference.IModelProvider p
             && Embeds(p.Capabilities));
 
-    /// <summary>Text in, vectors out — the one shape <c>AddSemanticMemory</c> needs, asked identically of a
-    /// declaration and of a built instance so the two arms cannot drift.</summary>
+    /// <summary>Text in, vectors out — asked identically of a declaration and of a built instance, and by the
+    /// router that selects at run time, so none of the three can drift.</summary>
     private static bool Embeds(Lyntai.Inference.ProviderCapabilities capabilities) =>
-        capabilities.Supports(
-            Lyntai.Inference.ProviderKinds.Vector,
-            Lyntai.Inference.ProviderOperation.Complete,
-            accepts: Lyntai.Inference.ProviderKinds.Text);
+        Lyntai.Inference.ProviderShapes.Embeds(capabilities);
 
     /// <summary>Refuse a backend whose DECLARATION and IMPLEMENTATION disagree: it says it produces vectors
     /// and does not implement <see cref="Lyntai.Inference.IVectorProvider"/>.
@@ -448,10 +445,7 @@ public static class LyntaiServiceCollectionExtensions
 
     /// <summary>Text in, scores out — the shape <c>AddMemoryScoringVerification</c> selects on.</summary>
     private static bool Scores(Lyntai.Inference.ProviderCapabilities capabilities) =>
-        capabilities.Supports(
-            Lyntai.Inference.ProviderKinds.Score,
-            Lyntai.Inference.ProviderOperation.Complete,
-            accepts: Lyntai.Inference.ProviderKinds.Text);
+        Lyntai.Inference.ProviderShapes.Scores(capabilities);
 
     /// <summary>Semantic memory — wired ONLY when a backend producing
     /// <see cref="Lyntai.Inference.ProviderKinds.Vector"/> is registered. Composes the registered providers

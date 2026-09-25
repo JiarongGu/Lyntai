@@ -3,56 +3,32 @@ using Microsoft.Extensions.Logging;
 namespace Lyntai.Inference;
 
 /// <summary>Embedding for consumers that hold a provider COLLECTION rather than an injected router — the
-/// memory seams, the tool selector.
-///
-/// <para><b>It no longer routes; it builds a <see cref="ProviderRouter{TRequest,TResponse}"/> and asks
-/// that</b> (<c>docs/DECISIONS.md</c> <b>D153</b>). What used to be here was a second, weaker routing
-/// implementation: a try/catch loop with no cooldown, no admission and no verdict — so an embedding backend
-/// returning 429 was retried on the next recall exactly as if it had not, where the chat path would have
-/// benched it.</para>
-///
-/// <para><b>The bookkeeping arrives through <see cref="IProviderRouterFactory"/></b>, which is the half
-/// D153 left open: a router built here used to carry no <c>DeadHostTracker</c> and no admission, so a
-/// backend that returned 429 was asked again on the very next recall. Passing no factory still works and
-/// still routes — it is the bare behaviour, for a caller composing by hand.</para>
-///
-/// <para>Availability is read per call rather than cached: a backend can become usable between one recall
-/// and the next, and a cached "unavailable" would outlive the outage that caused it.</para></summary>
+/// memory seams, the tool selector. It builds a <see cref="ProviderRouter{TRequest,TResponse}"/> and asks that
+/// (<c>docs/DECISIONS.md</c> <b>D153</b>), with the shared bookkeeping when handed an
+/// <see cref="IProviderRouterFactory"/> and bare otherwise, for a caller composing by hand. Availability is read
+/// per call rather than cached: a cached "unavailable" would outlive the outage that caused it.</summary>
 internal static class EmbeddingRouting
 {
-    /// <summary>A backend serves this when it IMPLEMENTS the vector call and DECLARES the capability. Both,
-    /// because one class can do the first and be configured against the second — an HTTP backend implements
-    /// the shape whatever its <c>Produces</c> says, so the type test alone would hand a chat-only endpoint
-    /// an embed call.</summary>
-    private static bool Embeds(ProviderCapabilities capabilities) => capabilities.Supports(
-        ProviderKinds.Vector, ProviderOperation.Complete, accepts: ProviderKinds.Text);
-
+    /// <summary>A backend serves this when it IMPLEMENTS the vector call (the router's type test) and DECLARES
+    /// the capability (<see cref="ProviderShapes.Embeds"/>). Both, because one class can do the first and be
+    /// configured against the second — an HTTP backend implements the shape whatever its <c>Produces</c> says,
+    /// so the type test alone would hand a chat-only endpoint an embed call.</summary>
     private static ProviderRouter<VectorRequest, VectorResponse> Router(
         IEnumerable<IModelProvider>? providers, ILogger? logger, IProviderRouterFactory? routing) =>
-        routing?.For<VectorRequest, VectorResponse>(providers, VectorResponse.Failure, Embeds, logger: logger)
-        ?? new ProviderRouter<VectorRequest, VectorResponse>(
-            providers ?? [], VectorResponse.Failure, Embeds, logger: logger);
+        (routing ?? ProviderRouterFactory.Bare)
+            .For<VectorRequest, VectorResponse>(providers, VectorResponse.Failure, ProviderShapes.Embeds, logger: logger);
 
-    /// <summary>The registered backends that turn text into vectors, in registration order.</summary>
-    public static IReadOnlyList<IModelProvider> Capable(IEnumerable<IModelProvider>? providers) =>
-        [.. Router(providers, null, null).Capable().Cast<IModelProvider>()];
-
-    /// <summary>Whether anything can embed at all — what a consumer asks instead of null-checking a seam.
-    ///
-    /// <para>This REPLACES "is a vector backend registered?": the answer is derived from what the registered
-    /// backends IMPLEMENT, so a deployment cannot claim an embedding capability it has no backend for.</para>
+    /// <summary>Whether anything can embed at all — what a consumer asks instead of null-checking a seam. The
+    /// answer is derived from what the registered backends IMPLEMENT, so a deployment cannot claim an embedding
+    /// capability it has no backend for.
     ///
     /// <para><b>It SHORT-CIRCUITS and allocates nothing</b>, because callers sit on hot paths —
-    /// <c>GraphMemoryEngine.Enriches</c> is read on every write and every recall. It therefore asks the two
-    /// questions DIRECTLY rather than through <see cref="Router"/>: building a router to answer a yes/no
-    /// would allocate one per call, which is the regression a review caught here. <see cref="Capable"/> and
-    /// <see cref="EmbedAsync"/> go through the router, because they were already allocating.</para>
-    ///
-    /// <para><see cref="IModelProvider.IsAvailable"/> is asked LAST and is not always free — a CLI backend's
-    /// resolves a command on PATH — so the two cheap checks come first.</para></summary>
+    /// <c>GraphMemoryEngine.Enriches</c> is read on every write and every recall — so it asks the two questions
+    /// directly rather than building a router for a yes/no. <see cref="IModelProvider.IsAvailable"/> is asked
+    /// LAST and is not always free — a CLI backend's resolves a command on PATH.</para></summary>
     public static bool CanEmbed(IEnumerable<IModelProvider>? providers) =>
         providers is not null
-        && providers.Any(p => p is IVectorProvider && Embeds(p.Capabilities) && p.IsAvailable);
+        && providers.Any(p => p is IVectorProvider && ProviderShapes.Embeds(p.Capabilities) && p.IsAvailable);
 
     /// <summary>Embed a batch, falling over to the next capable backend when one fails.</summary>
     /// <exception cref="InvalidOperationException">Nothing can embed, or every backend failed. <b>Thrown

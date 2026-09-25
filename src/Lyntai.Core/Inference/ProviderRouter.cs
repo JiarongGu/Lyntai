@@ -58,11 +58,9 @@ public sealed class ProviderRouter<TRequest, TResponse>(
     private readonly RouterBookkeeping _bookkeeping = new(deadHosts, admission, configuration, cooldownScope);
 
     /// <summary>The registered backends that serve this call shape AND report themselves usable, in
-    /// registration order.
-    ///
-    /// <para>Availability is read per call rather than cached: a backend can become usable between one call
-    /// and the next, and a cached "unavailable" would outlive the outage that caused it.</para></summary>
-    public IReadOnlyList<IProviderCall<TRequest, TResponse>> Capable() =>
+    /// registration order. Availability is read per call rather than cached: a cached "unavailable" would
+    /// outlive the outage that caused it.</summary>
+    private List<IProviderCall<TRequest, TResponse>> Capable() =>
         [.. providers.OfType<IProviderCall<TRequest, TResponse>>().Where(Serves)];
 
     /// <summary>The two questions a candidate must answer yes to, asked in one place so the list and the

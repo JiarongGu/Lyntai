@@ -1203,7 +1203,6 @@ sealed class Lyntai.Inference.ProviderRouter`2
     .ctor(IEnumerable<IModelProvider> providers, Func<ProviderVerdict,String,TResponse> synthesize, Func<ProviderCapabilities,Boolean> serves = null, RoutingPolicy policy = null, DeadHostTracker deadHosts = null, IProviderAdmission admission = null, Func<IModelProvider,Nullable<ProviderKey>> configuration = null, RouterGovernance governance = null, String cooldownScope = null, ILogger logger = null)
     CallAsync(TRequest request, CancellationToken ct = default) : Task<TResponse>
     CanServe() : Boolean
-    Capable() : IReadOnlyList<IProviderCall<TRequest,TResponse>>
 sealed class Lyntai.Inference.ProviderUpdateResult
     .ctor(Boolean Succeeded, Boolean Updated, String FromVersion = null, String ToVersion = null, String Detail = null)
     Deconstruct(Boolean& Succeeded, Boolean& Updated, String& FromVersion, String& ToVersion, String& Detail) : Void
