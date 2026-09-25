@@ -7,6 +7,198 @@ to `.claude/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-09-25 — the `AddMemory()` chat never recalled anything it had said
+
+**Symptom.** Found by the 2026-09-25 full review; no adopter report. README's headline setup,
+`UseSqliteStorage("app.db").AddMemory()`, produced a chat that recalled nothing it had said: every turn composed
+its prompt with an empty memory section, silently, because recall fails open.
+
+**Root cause.** The chat's memory had two halves wired to different stores. `AddMemory()` backs `IPromptComposer`
+with a `UseBestAvailable()` engine, which is a GRAPH engine whenever an `IMemoryGraphStore` is registered — and
+SQLite's Memory feature registers one — so the READ came from the graph store. `ChatOrchestrator` still took
+`IMemoryStore` and `ISemanticMemory` and WROTE each exchange only there; nothing wrote the graph. It worked only
+where an engine's members were exactly those two stores (`UseLexical().UseSemantic()`), and no test drove a chat
+end to end through `AddMemory()`. The two write `catch` blocks also swallowed the caller's cancellation.
+
+**Fix.** One seam carries both halves (**D188**): `IPromptComposer.RememberAsync` writes where `ComposeAsync`
+reads, `EngineBackedPromptComposer` writes into its own engine, and `ChatOrchestrator` writes only through the
+composer. `MemoryPromptComposer` is removed; the default composer is an engine-backed blend over the keyword store
+and semantic memory, every write fanned out to both. The write rethrows the caller's cancellation and logs a
+store's own failure without failing the turn.
+
+**Verify.** `ChatMemoryRoundTripTests` runs two chat turns and asserts the second prompt carries the first:
+`The_README_headline_chat_over_SQLite_recalls_its_own_earlier_turn`,
+`An_in_process_AddMemory_chat_recalls_its_own_earlier_turn`,
+`A_chat_with_no_engine_registered_still_recalls_its_own_earlier_turn` and
+`The_engine_UseMemoryComposer_names_is_the_one_the_chat_writes_into`;
+`The_callers_cancellation_during_the_memory_write_propagates` and
+`A_stores_OWN_deadline_during_the_memory_write_leaves_the_turn_Ok` pin the cancellation split.
+
+**Introduced by.** `aaa1eb67` (2026-08-08), the one-line `AddMemory`: its composer read an engine while
+`ChatOrchestrator` kept writing the two older stores, which agreed only while the engine sat on exactly those.
+
+## 2026-09-25 — two SQL storage wirings in one container ran each other's stores over the wrong database
+
+**Symptom.** Found by the 2026-09-25 full review. `UseSqliteStorage("a.db", StorageFeature.Memory)` followed by
+`UseSqliteStorage("b.db")` gave the container a memory store writing to b.db, and where b.db lacked the table,
+`IMemoryStore.RecallAsync` failed open to nothing. `UseSqliteStorage(…)` plus `UsePostgresStorage(…)` was worse:
+SQLite SQL over an Npgsql connection. The Governance helpers (`UseSqliteVectorStore` and its siblings) bound to
+whichever wiring registered last, the other backend's included.
+
+**Root cause.** Two registration rules disagreed. Every domain store registered first-wins, so an app's own store
+wins, but was built over the `IDbConnectionFactory` it resolved from the container at run time — and every wiring
+registered its factory last-wins. The FIRST wiring's stores ran over the LAST wiring's factory. The file backend
+was right, since its root is a keyed singleton per path, and no test put two SQL wirings in one container. The
+wiring was copied into both adapters, so both carried it.
+
+**Fix.** Each store is built over its own wiring's captured factory, and the factory's own registration is
+first-wins. Each wiring's feature-selection sentinel carries its factory, so a Governance helper binds to its own
+backend's last wiring — the one its guard reads. The wiring lives once, in `src/Shared/Relational/StoreWiring.cs`
+(**D186**).
+
+**Verify.** `SplitStorageWiringTests.Two_sqlite_files_split_by_feature_each_keep_their_own_rows` writes memory,
+graph and key-value rows and asserts each lands in its own file, and
+`A_governance_helper_binds_to_its_own_backends_wiring` asserts the vector row lands in the governance wiring's
+file; `SplitStorageAcrossBackendsTests.Sqlite_and_postgres_split_by_feature_each_run_their_own_sql` runs the
+SQLite/Postgres split on the Postgres leg, so it needs Docker up.
+
+## 2026-09-25 — a queue backend's failed submit bought the render again from the next backend
+
+**Symptom.** Found by the 2026-09-25 full review. When a fal or ComfyUI submit threw after the request had left the
+process — a connection dropped after sending, a body that failed to read — or answered 2xx with no `request_id` /
+`prompt_id`, the router took it as a conclusive failure and submitted the same render to the next queued
+candidate, while the first queue might already hold a billable render.
+
+**Root cause.** `MediaRouter` turns a THROWN submit into `Inconclusive` unless it provably never left the process
+(**D64**), but both shipped queue backends caught every exception themselves first and returned a plain `Failed`,
+so the router's rule never ran for a shipped backend; only their timeout arms were marked Inconclusive. The same
+pre-emption hit the `Refused` clamp: OpenAI images and Automatic1111 classified their own caught exceptions with a
+classifier that can return `Refused`, and Automatic1111 read every `HttpRequestException` — a WebUI crashing
+mid-render included — as `NotConfigured`.
+
+**Fix.** The router's throw rules are public in Core, and every backend applies them to what it catches: a caught
+submit throw is `QueuedOperation.FromThrownSubmit(ex, sent)` — fal passes `sent` once sending starts, ComfyUI once
+the queue call is out — and a 2xx submit with no operation id is `Inconclusive`. OpenAI images and Automatic1111
+classify with `ProviderVerdictClassifier.FromThrown`, never `Refused`; Automatic1111's `NotConfigured` is narrowed
+to a refused connection; an unconfigured fal submit is `NotConfigured` (**D31**).
+
+**Verify.** `GenerationBackendThrowTests.Fal_a_submit_that_throws_after_sending_is_Inconclusive_and_no_second_backend_is_asked`
+and `ComfyUi_a_submit_that_throws_after_the_workflow_is_sent_is_Inconclusive_and_no_second_backend_is_asked` throw
+after sending and assert the second candidate is never asked;
+`Fal_a_submit_whose_connection_was_refused_is_a_plain_failure_the_router_advances_past` and
+`ComfyUi_a_throw_while_UPLOADING_an_input_is_a_plain_failure_because_no_workflow_was_queued` keep the advance where
+nothing was queued; the id-less 2xx, proxy-page and dropped-render facts in the same class cover the rest.
+
+**Introduced by.** No single commit: the router's rule (**D64**) was written for a throw that escapes a backend,
+and both queue backends already caught their own, so it never fired for a shipped one.
+
+## 2026-09-25 — the claude agent session let a flag-shaped resume token reach the CLI as a flag
+
+**Symptom.** Found by the 2026-09-25 full review; none observed. `ClaudeAgentSession` forwarded
+`AgentSessionOptions.ResumeToken` straight after `--resume`, which takes an OPTIONAL value (measured,
+`claude --help` 2.1.281), so a token such as `--dangerously-skip-permissions` was parsed as that flag — bypassing
+every permission prompt — rather than as a session id.
+
+**Root cause.** The token is free-form data in a data slot, and `ArgumentList` stops shell injection, not the
+CLI's own parser reading a value as an option (`.claude/knowledge/pitfalls.md`, "Forwarding a free-form option
+value straight into argv"). The codex session refused a blank or `-`-leading token for exactly that reason, since
+its `--last` would resume the wrong thread; the claude twin never had the check.
+
+**Fix.** The check lives once, in `AgentResumeToken`, and both sessions refuse a blank or `-`-leading token with a
+single `SessionEnded` (`Unsupported`, subtype `resume-token-invalid`) before anything is spawned. An empty token
+still starts a fresh session.
+
+**Verify.** `AgentResumeTokenTests.A_resume_token_the_cli_would_read_as_an_option_is_refused_without_spawning`
+runs eight tokens over both backends and asserts one refusal and no spawn;
+`A_session_id_is_forwarded_as_the_resume_value` is the positive control, and
+`An_empty_token_starts_a_fresh_session` keeps the empty token's meaning.
+
+**Introduced by.** `212560c9` (2026-07-19), which added `ClaudeAgentSession` and its argument builder.
+
+## 2026-09-25 — Postgres left two active prompt revisions when a save and a rollback raced
+
+**Symptom.** Found by the 2026-09-25 full review. A `SaveAsync` racing a `RollbackAsync` on one prompt name — or
+two rollbacks — could leave TWO active revisions on Postgres, and `GetActiveAsync` then threw "Sequence contains
+more than one element" until the next save repaired it. The SQLite, in-memory and file stores serialise their
+writers and were right.
+
+**Root cause.** Under READ COMMITTED the rollback's `UPDATE … SET is_active = FALSE WHERE name = @name AND
+is_active` blocks on the row the save is deactivating. When the save commits, the rollback re-checks that one row,
+now inactive, and skips it — the save's newly inserted active row is not in its statement's snapshot — then
+activates its own version. The active index is not unique, and the retry loop covered only save against save,
+where the version index rejects the loser.
+
+**Fix.** Both transactions first take `pg_advisory_xact_lock(hashtext('lyntai_prompt:' || name))`, which
+serialises a name's writers; the loser's `MAX(version)` then reads the winner's commit, so the retry loop is gone.
+
+**Verify.** `PromptVersionStoreContract.Racing_saves_and_rollbacks_leave_exactly_one_active_revision` races saves
+and rollbacks and asserts exactly one active revision on every backend; its Postgres run,
+`PostgresStorageTests.PromptVersion_raced_rollbacks`, is the one that proves the fix, so it needs Docker up.
+
+**Introduced by.** `5adc547a` (2026-07-17), the Postgres prompt store as first written.
+
+## 2026-09-25 — pgvector failed a whole search over a vector of another dimension, and scored a zero vector NaN
+
+**Symptom.** Found by the 2026-09-25 full review. A Postgres vector collection holding a row of another
+dimension — which the dimension-agnostic column allows, and which a collection that outlives an embedder swap
+holds — made every search of it throw `different vector dimensions`, and `SemanticMemory`, failing open, returned
+nothing until the collection was re-embedded. A zero-norm vector scored NaN. The SQLite and in-memory stores score
+both 0 and rank them last, as `VectorMath.Cosine` promises.
+
+**Root cause.** `PostgresVectorStore` scored with pgvector's `<=>` directly, which checks dimensions for the WHOLE
+statement and divides by a zero norm. The rule was an invariant documented in one implementation, and the shared
+contract mentioned both cases without pinning either (`.claude/knowledge/pitfalls.md`, "An invariant DOCUMENTED
+in one implementation is not a contract").
+
+**Fix.** The score is a `CASE` applying `VectorMath.Cosine`'s rule: a row whose dimension differs from the
+query's, or either vector with a zero norm, scores 0. The order stays score descending, then `vec_id COLLATE "C"`.
+
+**Verify.** `VectorStoreContract.A_vector_of_another_dimension_scores_zero_and_ranks_last` and
+`A_zero_vector_scores_zero_and_ranks_last` run on every backend; the Postgres run
+(`PostgresGovernanceStoreTests.Contract_other_dimension` and its zero-vector twin) is the one that proves the fix.
+
+**Introduced by.** `1f38ae52` (2026-07-18), the pgvector store.
+
+## 2026-09-25 — the file store's atomic replace failed on a transient Windows refusal
+
+**Symptom.** Found while adding the prompt-store race fact above: `FileSystemPromptVersionStoreContractTests`
+failed it on every run, a record's replace-rename throwing `UnauthorizedAccessException` or `IOException`, so the
+write it belonged to failed.
+
+**Root cause.** `FileSystemRoot` writes a record to a temporary file and moves it over the target. Windows refuses
+a replace-rename while another process holds the target open — an indexer, or a scan of the file just written —
+and a burst of rewrites to one file provokes it reliably. The move was attempted once.
+
+**Fix.** The replace retries a refusal briefly and boundedly — eight attempts with a growing pause, about 140 ms
+in all — and a refusal that outlasts that is reported.
+
+**Verify.** The race fact passes on the file backend on every run. No fact provokes a refusal on demand, because
+the holder has to be another process.
+
+**Introduced by.** `500c4a74` (2026-09-23), the file-system backend.
+
+## 2026-09-25 — streamed Ollama tool calls on separate lines merged into one invalid call
+
+**Symptom.** Found by the 2026-09-25 full review as an unmeasured risk, then measured on Ollama 0.34.2 (qwen3:4b,
+a two-tool prompt): each call streams COMPLETE on its own NDJSON line with its `index` inside `function`, and the
+streamed chat turned two calls into one — the first name kept, the arguments appended into
+`{"city":"Paris"}{"city":"Tokyo"}`, the second call lost. The buffered path was right, and it was the only one a
+live test ran.
+
+**Root cause.** The streaming assembler took a call's slot from a TOP-LEVEL `index`, else its position within the
+line. Ollama nests the index inside `function`, so each line's call landed in slot 0 and joined the one before;
+the wire's "calls arrive complete on one line" had been inferred, never measured on the streamed path.
+
+**Fix.** A wire whose calls arrive whole marks its deltas `ToolCallDelta.Complete`, and a complete delta always
+takes a fresh slot, whatever index it carries, so slots never join across lines. The assembler moved into
+`Lyntai.Providers.Http`, the one adapter type that had sat in Core's namespace.
+
+**Verify.** `OllamaStreamedToolCallTests.Two_calls_on_two_lines_stream_as_two_calls` replays the measured stream
+and asserts both ids, names and argument objects; `Unnumbered_calls_on_two_lines_still_stream_as_two_calls` covers
+a build that sends no index at all.
+
+**Introduced by.** `e327ba67` (2026-08-17), which added streamed tool calls.
+
 ## 2026-09-25 — a ComfyUI run that failed while executing polled as "still running" until the caller gave up
 
 **Symptom.** Found building GEN7's mesh stage (**D180**), filed beside the queued-pipeline gap **D181** closed: a
