@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using Lyntai.Providers.Basic;
 
 namespace Lyntai.Inference;
 
@@ -79,8 +80,7 @@ internal sealed class StreamingToolCalls
     /// does not fail loudly.</remarks>
     public static IReadOnlyList<ToolCallDelta>? Read(JsonElement container)
     {
-        if (!container.TryGetProperty("tool_calls", out var calls) ||
-            calls.ValueKind != JsonValueKind.Array || calls.GetArrayLength() == 0)
+        if (WireJson.Array(container, "tool_calls") is not { } calls || calls.GetArrayLength() == 0)
             return null;
 
         var deltas = new List<ToolCallDelta>();
@@ -89,21 +89,13 @@ internal sealed class StreamingToolCalls
         {
             if (call.ValueKind != JsonValueKind.Object) { position++; continue; }
 
-            var index = call.TryGetProperty("index", out var indexElement) &&
-                        indexElement.ValueKind == JsonValueKind.Number &&
-                        indexElement.TryGetInt32(out var parsed)
-                ? parsed
-                : position;
-
-            string? id = call.TryGetProperty("id", out var idElement) && idElement.ValueKind == JsonValueKind.String
-                ? idElement.GetString()
-                : null;
+            var index = WireJson.Int32(call, "index") ?? position;
+            var id = WireJson.String(call, "id");
 
             string? name = null, arguments = null;
-            if (call.TryGetProperty("function", out var fn) && fn.ValueKind == JsonValueKind.Object)
+            if (WireJson.Object(call, "function") is { } fn)
             {
-                if (fn.TryGetProperty("name", out var nameElement) && nameElement.ValueKind == JsonValueKind.String)
-                    name = nameElement.GetString();
+                name = WireJson.String(fn, "name");
                 if (fn.TryGetProperty("arguments", out var argumentsElement))
                     arguments = argumentsElement.ValueKind switch
                     {

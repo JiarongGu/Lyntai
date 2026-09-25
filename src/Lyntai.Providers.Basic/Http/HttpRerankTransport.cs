@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Lyntai.Providers.Basic;
 
 namespace Lyntai.Providers.Http;
 
@@ -145,27 +146,25 @@ internal sealed class HttpRerankTransport(
         try
         {
             using var doc = JsonDocument.Parse(body);
-            if (!doc.RootElement.TryGetProperty("results", out var results)
-                || results.ValueKind != JsonValueKind.Array) return null;
+            if (WireJson.Array(doc.RootElement, "results") is not { } results) return null;
 
             var scores = new double[count];
             var seen = new bool[count];
             foreach (var r in results.EnumerateArray())
             {
                 if (r.ValueKind != JsonValueKind.Object) return null;
-                if (!r.TryGetProperty("index", out var i) || i.ValueKind != JsonValueKind.Number) return null;
+                if (WireJson.Int32(r, "index") is not { } index) return null;
                 if ((!r.TryGetProperty("relevance_score", out var s) || s.ValueKind != JsonValueKind.Number)
                     && (!r.TryGetProperty("score", out s) || s.ValueKind != JsonValueKind.Number)) return null;
                 var value = s.GetDouble();
                 if (double.IsNaN(value) || double.IsInfinity(value)) return null;
-                var index = i.GetInt32();
                 if (index < 0 || index >= count) return null;   // an index we did not send is unusable
                 scores[index] = value;
                 seen[index] = true;
             }
             return Array.TrueForAll(seen, x => x) ? scores : null;
         }
-        catch (JsonException)
+        catch (Exception ex) when (WireJson.IsShapeFault(ex))
         {
             return null;
         }

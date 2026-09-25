@@ -6,6 +6,7 @@ using Lyntai.Inference;
 using Lyntai.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Lyntai.Providers.Basic;
 
 namespace Lyntai.Providers.Http;
 
@@ -224,12 +225,12 @@ internal sealed class HttpVectorTransport(
             var root = doc.RootElement;
             if (root.ValueKind != JsonValueKind.Object) return null;
             if (root.TryGetProperty("usage", out var u) && u.ValueKind == JsonValueKind.Object)
-                return new ProviderUsage(Lyntai.Providers.Basic.WireJson.Long(u, "prompt_tokens"));
+                return new ProviderUsage(WireJson.Long(u, "prompt_tokens"));
             if (root.TryGetProperty("prompt_eval_count", out _))
-                return new ProviderUsage(Lyntai.Providers.Basic.WireJson.Long(root, "prompt_eval_count"));
+                return new ProviderUsage(WireJson.Long(root, "prompt_eval_count"));
             return null;
         }
-        catch (JsonException)
+        catch (Exception ex) when (WireJson.IsShapeFault(ex))
         {
             return null;
         }
@@ -278,8 +279,11 @@ internal sealed class HttpVectorTransport(
                         // a bad element fails the WHOLE response: dropping just this vector would trip the
                         // count check with a message about arity, pointing away from the real defect
                         if (TryToFloats(emb) is not { } vector) return null;
-                        var index = el.TryGetProperty("index", out var ix) && ix.ValueKind == JsonValueKind.Number
-                            ? ix.GetInt32() : i;
+                        // an index present but not an int is malformed, not a reason to fall back on position
+                        int index;
+                        if (!el.TryGetProperty("index", out var ix)) index = i;
+                        else if (WireJson.Int32(el, "index") is { } read) index = read;
+                        else return null;
                         items.Add((index, vector));
                     }
                     i++;
@@ -306,7 +310,7 @@ internal sealed class HttpVectorTransport(
 
             return null;
         }
-        catch (JsonException)
+        catch (Exception ex) when (WireJson.IsShapeFault(ex))
         {
             return null;
         }

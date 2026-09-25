@@ -52,25 +52,10 @@ internal static class CodexEnvelope
     // ── field reads ──────────────────────────────────────────────────────────
 
     /// <summary>The line's <c>type</c> discriminator, or null when the line is not a typed object.</summary>
-    public static string? Type(JsonElement root) =>
-        root.ValueKind == JsonValueKind.Object &&
-        root.TryGetProperty("type", out var el) && el.ValueKind == JsonValueKind.String
-            ? el.GetString()
-            : null;
-
-    /// <summary>A string-valued property, or null when absent or not a string.</summary>
-    public static string? StringField(JsonElement parent, string name) =>
-        parent.ValueKind == JsonValueKind.Object &&
-        parent.TryGetProperty(name, out var el) && el.ValueKind == JsonValueKind.String
-            ? el.GetString()
-            : null;
+    public static string? Type(JsonElement root) => WireJson.String(root, "type");
 
     /// <summary>The <c>item</c> object of an <c>item.started</c>/<c>item.completed</c> line, or null.</summary>
-    public static JsonElement? Item(JsonElement root) =>
-        root.ValueKind == JsonValueKind.Object &&
-        root.TryGetProperty("item", out var item) && item.ValueKind == JsonValueKind.Object
-            ? item
-            : null;
+    public static JsonElement? Item(JsonElement root) => WireJson.Object(root, "item");
 
     /// <summary>MEASURED token counts from a <c>turn.completed</c> line.</summary>
     /// <param name="Input">codex's <c>input_tokens</c>.</param>
@@ -87,9 +72,7 @@ internal static class CodexEnvelope
     /// none is ever invented from a token price.</summary>
     public static Usage? ReadUsage(JsonElement root)
     {
-        if (root.ValueKind != JsonValueKind.Object ||
-            !root.TryGetProperty("usage", out var usage) || usage.ValueKind != JsonValueKind.Object)
-            return null;
+        if (WireJson.Object(root, "usage") is not { } usage) return null;
 
         return new Usage(
             WireJson.Long(usage, "input_tokens"),
@@ -103,11 +86,9 @@ internal static class CodexEnvelope
     /// empty failure message would classify as an unhelpful bare failure).</summary>
     public static string FailureMessage(JsonElement root)
     {
-        if (root.ValueKind == JsonValueKind.Object &&
-            root.TryGetProperty("error", out var error) && error.ValueKind == JsonValueKind.Object &&
-            StringField(error, "message") is { Length: > 0 } nested)
+        if (WireJson.Object(root, "error") is { } error && WireJson.String(error, "message") is { Length: > 0 } nested)
             return nested;
-        if (StringField(root, "message") is { Length: > 0 } flat)
+        if (WireJson.String(root, "message") is { Length: > 0 } flat)
             return flat;
         return "codex reported the turn failed";
     }

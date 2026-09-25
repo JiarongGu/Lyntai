@@ -18,51 +18,32 @@ internal sealed class StreamJsonAgentReader
     private string? _lastAssistantText;
 
     /// <summary>Translates one stream-json line into 0..N events. Never throws.</summary>
-    public IEnumerable<AgentStreamEvent> Read(string line)
+    public IReadOnlyList<AgentStreamEvent> Read(string line)
     {
-        if (string.IsNullOrWhiteSpace(line)) yield break;
-
-        JsonDocument? doc = null;
+        if (string.IsNullOrWhiteSpace(line)) return [];
         try
         {
-            doc = JsonDocument.Parse(line);
+            // materialized inside the using: every element read belongs to the document
+            using var doc = JsonDocument.Parse(line);
+            return [.. ReadLine(doc.RootElement)];
         }
-        catch (JsonException)
+        catch (Exception ex) when (WireJson.IsShapeFault(ex))
         {
-            yield break;
-        }
-
-        using (doc)
-        {
-            var root = doc.RootElement;
-            if (root.ValueKind != JsonValueKind.Object ||
-                !root.TryGetProperty("type", out var typeEl) ||
-                typeEl.ValueKind != JsonValueKind.String)
-                yield break;
-
-            var type = typeEl.GetString();
-            switch (type)
-            {
-                case "system":
-                    foreach (var e in ReadSystem(root)) yield return e;
-                    break;
-                case "stream_event":
-                    foreach (var e in ReadStreamEvent(root)) yield return e;
-                    break;
-                case "assistant":
-                    foreach (var e in ReadAssistant(root)) yield return e;
-                    break;
-                case "user":
-                    foreach (var e in ReadUser(root)) yield return e;
-                    break;
-                case "result":
-                    foreach (var e in ReadResult(root)) yield return e;
-                    break;
-                // Any other type → yield nothing. That includes `rate_limit_event`, whose `rate_limit_info`
-                // is not surfaced: no AgentStreamEvent carries it, and adding one is a public-surface decision.
-            }
+            return [];
         }
     }
+
+    private IEnumerable<AgentStreamEvent> ReadLine(JsonElement root) => WireJson.String(root, "type") switch
+    {
+        "system" => ReadSystem(root),
+        "stream_event" => ReadStreamEvent(root),
+        "assistant" => ReadAssistant(root),
+        "user" => ReadUser(root),
+        "result" => ReadResult(root),
+        // Any other type → nothing. That includes `rate_limit_event`, whose `rate_limit_info` is not
+        // surfaced: no AgentStreamEvent carries it, and adding one is a public-surface decision.
+        _ => [],
+    };
 
     // ── system/init ──────────────────────────────────────────────────────────
 
@@ -134,10 +115,8 @@ internal sealed class StreamJsonAgentReader
         {
             foreach (var block in content.EnumerateArray())
             {
-                if (!block.TryGetProperty("type", out var blockTypeEl) || blockTypeEl.ValueKind != JsonValueKind.String)
-                    continue;
-
-                if (blockTypeEl.ValueEquals("text"))
+                var blockType = WireJson.String(block, "type");
+                if (blockType == "text")
                 {
                     // text blocks are NOT re-emitted (already streamed via stream_event deltas), but the
                     // last assistant turn's text is retained so a terminal result that ends empty
@@ -145,7 +124,7 @@ internal sealed class StreamJsonAgentReader
                     if (block.TryGetProperty("text", out var textEl) && textEl.ValueKind == JsonValueKind.String)
                         (text ??= new StringBuilder()).Append(textEl.GetString());
                 }
-                else if (blockTypeEl.ValueEquals("tool_use"))
+                else if (blockType == "tool_use")
                 {
                     var name = block.TryGetProperty("name", out var nameEl) && nameEl.ValueKind == JsonValueKind.String
                         ? nameEl.GetString()!
@@ -190,7 +169,7 @@ internal sealed class StreamJsonAgentReader
 
         foreach (var block in content.EnumerateArray())
         {
-            if (!block.TryGetProperty("type", out var blockTypeEl) || !blockTypeEl.ValueEquals("tool_result"))
+            if (WireJson.String(block, "type") != "tool_result")
                 continue;
 
             var callId = block.TryGetProperty("tool_use_id", out var idEl) && idEl.ValueKind == JsonValueKind.String
@@ -227,16 +206,9 @@ internal sealed class StreamJsonAgentReader
             ? resultEl.GetString()
             : null;
 
-        // Robustness fallback: a run that ended with assistant text but an empty/absent terminal result
-        // string leaves consumers (one-shot extract, kb-merge, validate, dry-plan preview) that treat
-        // empty FinalText as failure spuriously failing — fall back to the last assistant text instead.
-        //
-        // GATED ON !isError, and that gate was missing through 2.5.0. The fold one layer up applies the
-        // identical condition and says why (IAgentSession: "a terminal that IS an error must NOT be dressed
-        // up as a partial success … those callers would then consume garbage instead of retrying") — but
-        // because this reader had already filled FinalText, that guard could never fire for claude. The codex
-        // twin does the opposite deliberately: `FinalText: null, // a failed turn's partial text is not an
-        // answer`. Two readers of one contract had drifted, and the weaker side was the one that shipped.
+        // A run that ended with assistant text but an empty terminal result falls back to that text, so a
+        // consumer treating empty FinalText as failure does not fail spuriously. Gated on !isError: a failed
+        // turn's partial text is not an answer (IAgentSession's fold states the same rule; so does codex).
         if (!isError && string.IsNullOrWhiteSpace(finalText) && !string.IsNullOrEmpty(_lastAssistantText))
             finalText = _lastAssistantText;
 
@@ -246,11 +218,8 @@ internal sealed class StreamJsonAgentReader
             yield return new UsageFinal(w.Input, w.Output, w.CacheRead, w.CacheCreate, _model);
 
         yield return new SessionEnded(
-            // Classified, never hand-rolled: this was the only in-band failure path in either agent session
-            // that skipped ProviderVerdictClassifier, so an expired login or a 429 reported a bare Failed and a
-            // host switching on Verdict retried immediately instead of prompting to re-authenticate or
-            // backing off. The codex twin has always classified. Falls back to Failed when the CLI gives no
-            // words to read, which is what the bare value used to assume unconditionally.
+            // classified, never hand-rolled, so an expired login is AuthFailed and a 429 RateLimited; Failed
+            // only when the CLI gives no words to read
             Verdict: isError
                 ? (string.IsNullOrWhiteSpace(finalText ?? subtype)
                     ? ProviderVerdict.Failed

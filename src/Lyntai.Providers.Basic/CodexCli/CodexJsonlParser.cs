@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Lyntai.Inference;
 using Lyntai.Inference.Cli;
+using Lyntai.Providers.Basic;
 
 namespace Lyntai.Providers.CodexCli;
 
@@ -49,7 +50,7 @@ internal static class CodexJsonlParser
                 _ => CliOutputEvent.Ignored,
             };
         }
-        catch (JsonException)
+        catch (Exception ex) when (WireJson.IsShapeFault(ex))
         {
             return CliOutputEvent.Ignored; // codex interleaves plain-text tracing lines with the JSONL
         }
@@ -61,10 +62,10 @@ internal static class CodexJsonlParser
     private static CliOutputEvent ParseItem(JsonElement root)
     {
         if (CodexEnvelope.Item(root) is not { } item ||
-            CodexEnvelope.StringField(item, "type") != CodexEnvelope.AgentMessageItem)
+            WireJson.String(item, "type") != CodexEnvelope.AgentMessageItem)
             return CliOutputEvent.Ignored;
 
-        var text = CodexEnvelope.StringField(item, "text") ?? "";
+        var text = WireJson.String(item, "text") ?? "";
         return text.Length == 0 ? CliOutputEvent.Ignored : CliOutputEvent.Content(text);
     }
 

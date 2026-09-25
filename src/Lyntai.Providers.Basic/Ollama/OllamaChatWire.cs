@@ -49,31 +49,23 @@ internal sealed class OllamaChatWire(OllamaOptions config, ILogger logger) : IHt
         {
             using var doc = JsonDocument.Parse(body);
             var root = doc.RootElement;
-            if (root.ValueKind != JsonValueKind.Object) return false;
-            if (!root.TryGetProperty("message", out var message) || message.ValueKind != JsonValueKind.Object)
-                return false;
+            if (WireJson.Object(doc.RootElement, "message") is not { } message) return false;
 
-            if (message.TryGetProperty("content", out var content) && content.ValueKind == JsonValueKind.String)
-                text = content.GetString() ?? "";
+            text = WireJson.String(message, "content") ?? "";
             toolCalls = WireToolCalls.Read(message);
-            usage = ExtractUsage(root);
+            usage = ExtractUsage(doc.RootElement);
             return true;
         }
-        catch (JsonException)
+        catch (Exception ex) when (WireJson.IsShapeFault(ex))
         {
             return false;
         }
     }
 
-    private static TextUsage? ExtractUsage(JsonElement root)
-    {
-        // WireJson.Long tolerates a count that is not an integral long (a fractional count from a proxy,
-        // an exponent form) — nothing here catches a FormatException, so a strict read would throw out of
-        // an otherwise good reply
-        if (root.TryGetProperty("prompt_eval_count", out _) || root.TryGetProperty("eval_count", out _))
-            return new TextUsage(WireJson.Long(root, "prompt_eval_count"), WireJson.Long(root, "eval_count"));
-        return null;
-    }
+    private static TextUsage? ExtractUsage(JsonElement root) =>
+        root.TryGetProperty("prompt_eval_count", out _) || root.TryGetProperty("eval_count", out _)
+            ? new TextUsage(WireJson.Long(root, "prompt_eval_count"), WireJson.Long(root, "eval_count"))
+            : null;
 
     /// <summary>One NDJSON line → delta text, <c>done:true</c> as the final marker (with the eval counts on
     /// that same line). Tool calls arrive COMPLETE on one line, which the shared assembler handles as a
@@ -84,17 +76,13 @@ internal sealed class OllamaChatWire(OllamaOptions config, ILogger logger) : IHt
         {
             using var doc = JsonDocument.Parse(payload);
             var root = doc.RootElement;
-            if (root.ValueKind != JsonValueKind.Object) return default;
-            if (!root.TryGetProperty("message", out var message)) return default;
+            if (WireJson.Object(root, "message") is not { } message) return default;
 
-            string? text = null;
-            if (message.TryGetProperty("content", out var c) && c.ValueKind == JsonValueKind.String)
-                text = c.GetString();
             var final = root.TryGetProperty("done", out var d) && d.ValueKind == JsonValueKind.True;
-            return new HttpStreamLine(text, final ? ExtractUsage(root) : null, final, null,
-                StreamingToolCalls.Read(message));
+            return new HttpStreamLine(WireJson.String(message, "content"), final ? ExtractUsage(root) : null,
+                final, null, StreamingToolCalls.Read(message));
         }
-        catch (JsonException)
+        catch (Exception ex) when (WireJson.IsShapeFault(ex))
         {
             return default; // malformed stream line — skip it
         }
