@@ -62,18 +62,25 @@ public sealed class CachingTextClient(
     }
 
     /// <summary>The key's model component. The cache sits in front of the router and cannot know which
-    /// candidate will serve, so a live route joins it whole, in fallback order, as <c>|route=</c> plus its
-    /// entries (the provider id lower-cased, as the router matches it) — appended ONLY when there is one, so a
-    /// consumer with no live route keeps its key. With a route, the request's OWN model joins it as
-    /// <c>|model=</c>: a route entry resolves against it and never against the consumer default, which stays
-    /// in the key for the given candidates a route naming no usable provider falls back to.</summary>
+    /// candidate will serve, so a candidate list that decides the model joins it whole, in fallback order (the
+    /// provider id lower-cased, as the router matches it). A live route does, as <c>|route=</c>, with the
+    /// request's OWN model as <c>|model=</c> — a route entry resolves against it and never against the consumer
+    /// default, which stays in the key for the given candidates a route naming no usable provider falls back to.
+    /// Without a route, the client's configured candidates do as <c>|candidates=</c> when any PINS a model, since
+    /// the router resolves <c>candidate.Model ?? request.Model</c>: two named clients pinning different models
+    /// must not share an entry. A list pinning nothing leaves the key alone, so such clients still share.</summary>
     private string? EffectiveModel(TextRequest req, IReadOnlyList<ProviderCandidate> route)
     {
         var model = options.ResolveModel(req.Consumer, req.Model);
-        if (route is not { Count: > 0 }) return model;
-        return model + "|model=" + req.Model + "|route=" + string.Join(",", route.Select(c =>
-            ProviderCandidateSpec.Format(c with { ProviderId = c.ProviderId.ToLowerInvariant() })));
+        if (route is { Count: > 0 }) return model + "|model=" + req.Model + "|route=" + Spec(route);
+        return (Inner as IRoutedCandidates)?.RoutedCandidates is { } candidates
+            && candidates.Any(c => !string.IsNullOrEmpty(c.Model))
+            ? model + "|candidates=" + Spec(candidates)
+            : model;
     }
+
+    private static string Spec(IEnumerable<ProviderCandidate> candidates) => string.Join(",", candidates.Select(c =>
+        ProviderCandidateSpec.Format(c with { ProviderId = c.ProviderId.ToLowerInvariant() })));
 
     // StreamAsync/GetCapabilitiesAsync: base pass-through (streaming is delivered live; not a cache unit).
 

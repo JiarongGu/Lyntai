@@ -2,7 +2,7 @@
 namespace Lyntai.Inference;
 
 /// <summary>Default <see cref="ITextClient"/>: the router over a fallback list.</summary>
-public sealed class TextClient : ITextClient
+public sealed class TextClient : ITextClient, IRoutedCandidates
 {
     private readonly ITextRouter _router;
     private readonly LyntaiOptions _options;
@@ -27,6 +27,8 @@ public sealed class TextClient : ITextClient
 
     private IReadOnlyList<ProviderCandidate> Candidates => _candidates ?? _options.DefaultCandidates;
 
+    IReadOnlyList<ProviderCandidate>? IRoutedCandidates.RoutedCandidates => Candidates;
+
     public Task<TextResponse> CompleteAsync(TextRequest req, CancellationToken ct = default) =>
         _router.CompleteAsync(Candidates, req, ct);
 
@@ -35,4 +37,13 @@ public sealed class TextClient : ITextClient
 
     public ValueTask<ProviderCapabilities?> GetCapabilitiesAsync(TextRequest req, CancellationToken ct = default) =>
         _router.GetCapabilitiesAsync(Candidates, req, ct);
+}
+
+/// <summary>A front door that can say which candidates its calls route over — read by the response cache, which
+/// must key on a candidate's PINNED model (<see cref="Caching.CachingTextClient"/>). A decorator forwards its
+/// inner client's answer; null means it cannot say.</summary>
+internal interface IRoutedCandidates
+{
+    /// <summary>The candidates the next call routes over, or null when unknown.</summary>
+    IReadOnlyList<ProviderCandidate>? RoutedCandidates { get; }
 }
