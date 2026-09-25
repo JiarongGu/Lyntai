@@ -18,14 +18,10 @@ public sealed class SqliteTraceStore(IDbConnectionFactory factory) : ITraceStore
         await conn.ExecuteAsync(new CommandDefinition(TraceStoreSql.InsertTrace, new { trace.SessionId, trace.Mode, trace.StartedAt, trace.EndedAt, trace.TraceId },
             tx, cancellationToken: ct)).ConfigureAwait(false);
 
-        for (var i = 0; i < trace.Steps.Count; i++)
-        {
-            var s = trace.Steps[i];
-            // ITraceStore's ordinal rule.
-            var seq = s.Sequence != 0 ? s.Sequence : i;
-            await conn.ExecuteAsync(new CommandDefinition(TraceStoreSql.InsertStep, new { trace.SessionId, seq, s.OffsetMs, s.Kind, s.Label, s.InputTokens, s.OutputTokens, s.CostUsd, s.DurationMs, s.Detail },
+        // inserted in STORED order, so the id tiebreak of the read's ORDER BY seq, id agrees with it
+        foreach (var s in TraceOrdinals.Stored(trace.Steps))
+            await conn.ExecuteAsync(new CommandDefinition(TraceStoreSql.InsertStep, new { trace.SessionId, seq = s.Sequence, s.OffsetMs, s.Kind, s.Label, s.InputTokens, s.OutputTokens, s.CostUsd, s.DurationMs, s.Detail },
                 tx, cancellationToken: ct)).ConfigureAwait(false);
-        }
         tx.Commit();
     }
 

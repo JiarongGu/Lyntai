@@ -30,6 +30,7 @@ public sealed class SqliteConversationStore(IDbConnectionFactory factory) : ICon
 
     public async Task<IReadOnlyList<ChatThread>> ListThreadsAsync(int limit = 100, CancellationToken ct = default)
     {
+        if (limit <= 0) return []; // asks for nothing — never the dialect's opinion of a negative LIMIT
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         var rows = await conn.QueryAsync<ChatThread>(new CommandDefinition(
             // id DESC is the deterministic tiebreaker when two threads share a created_at tick
@@ -47,6 +48,7 @@ public sealed class SqliteConversationStore(IDbConnectionFactory factory) : ICon
 
     public async Task<IReadOnlyList<ChatThread>> ListThreadsPageAsync(int limit, ChatThread? after = null, CancellationToken ct = default)
     {
+        if (limit <= 0) return [];
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         // keyset paging: the cursor's (created_at, id) is compared with the SAME ordering ListThreads uses,
         // so same-tick threads (tiebroken by id DESC) are neither skipped nor duplicated across pages.

@@ -39,9 +39,11 @@ public sealed class PostgresVectorStore(IDbConnectionFactory factory) : IListabl
     /// <summary>Return the <paramref name="k"/> nearest vectors in <paramref name="collection"/> to
     /// <paramref name="query"/>, most-similar first. Each match's score is COSINE SIMILARITY in
     /// <c>[-1, 1]</c> (computed as <c>1 - cosine_distance</c>, so 1 = identical direction) — matching the
-    /// other <see cref="IVectorStore"/> implementations. The search is an EXACT (brute-force) scan: the
-    /// column is unindexed, so pgvector compares the query against every row in the collection (no ANN
-    /// approximation). <paramref name="k"/> &lt;= 0 returns an empty list without touching the database.</summary>
+    /// other <see cref="IVectorStore"/> implementations, including their rule that a stored vector of another
+    /// dimension, or a zero vector, scores 0 and ranks last rather than failing the search. The search is an
+    /// EXACT (brute-force) scan: the column is unindexed, so pgvector compares the query against every row in
+    /// the collection (no ANN approximation). <paramref name="k"/> &lt;= 0 returns an empty list without
+    /// touching the database.</summary>
     /// <returns>Up to <paramref name="k"/> matches ordered by descending similarity; empty when the
     /// collection has no rows or <paramref name="k"/> &lt;= 0.</returns>
     public async Task<IReadOnlyList<VectorMatch>> SearchAsync(string collection, float[] query, int k, CancellationToken ct = default)
@@ -50,17 +52,22 @@ public sealed class PostgresVectorStore(IDbConnectionFactory factory) : IListabl
         await EnsureSchemaAsync().ConfigureAwait(false);
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         // <=> is cosine DISTANCE (0 = identical); score = 1 - distance = cosine similarity, matching the
-        // other IVectorStore impls. ORDER BY distance ASC + LIMIT does the top-k in the DB.
+        // other IVectorStore impls, and the top-k is taken in the DB.
         //
-        // vec_id breaks ties — `ORDER BY … LIMIT` on a non-unique key is the defect `sql-storage.md` records,
-        // and here it decides WHICH of two equally-scoring rows survives the LIMIT. COLLATE "C" because the
-        // contract is byte order (`StringComparer.Ordinal` in process): under the database's own collation
-        // this would tiebreak, but not in the same ORDER as the other two backends, so a differently-collated
-        // deployment would quietly disagree with them.
+        // The CASE is VectorMath.Cosine's rule: a row of another dimension or a zero vector scores 0. Left to
+        // pgvector, a mismatch raises for the WHOLE statement and a zero norm scores NaN — and the column is
+        // dimension-agnostic on purpose, so a collection that outlives an embedder swap holds both.
+        //
+        // vec_id breaks ties, COLLATE "C" so the order is byte order, as every other backend's is.
         var rows = await conn.QueryAsync<Row>(new CommandDefinition("""
-            SELECT vec_id, payload, (1 - (embedding <=> CAST(@query AS vector)))::double precision AS score
-            FROM lyntai_vector WHERE collection = @collection
-            ORDER BY embedding <=> CAST(@query AS vector), vec_id COLLATE "C" LIMIT @k
+            SELECT vec_id, payload,
+                   CASE WHEN vector_dims(embedding) = vector_dims(q.v)
+                             AND vector_norm(embedding) > 0 AND vector_norm(q.v) > 0
+                        THEN (1 - (embedding <=> q.v))::double precision
+                        ELSE 0 END AS score
+            FROM lyntai_vector, (SELECT CAST(@query AS vector) AS v) q
+            WHERE collection = @collection
+            ORDER BY score DESC, vec_id COLLATE "C" LIMIT @k
             """, new { collection, query = Literal(query), k }, cancellationToken: ct)).ConfigureAwait(false);
         return [.. rows.Select(r => new VectorMatch(r.VecId, r.Payload, r.Score))];
     }

@@ -128,6 +128,22 @@ public class FileSystemRestartTests : IDisposable
     }
 
     [Fact]
+    public async Task A_prompt_whose_active_pointer_does_not_parse_is_refused_rather_than_written_over()
+    {
+        await new FileSystemPromptVersionStore(_temp.Root).SaveAsync("greet", "v1");
+        var pointer = Only("prompts", "active.md");
+        _temp.Root.Dispose();
+        File.WriteAllText(pointer, Broken);
+
+        var after = new FileSystemPromptVersionStore(_temp.Reopen());
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => after.SaveAsync("greet", "v2"));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => after.RollbackAsync("greet", 1));
+        Assert.Equal(Broken, File.ReadAllText(pointer));
+        Assert.Single(Directory.GetFiles(Path.GetDirectoryName(pointer)!, "v*.md")); // no revision written either
+    }
+
+    [Fact]
     public async Task A_thread_whose_file_does_not_parse_is_refused_rather_than_recreated_over_it()
     {
         var before = new FileSystemConversationStore(_temp.Root);

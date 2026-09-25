@@ -138,6 +138,7 @@ public sealed class PostgresCuratedMemoryStore(IDbConnectionFactory factory,
         string? taskKey = null, string? scope = null, int? limit = null,
         IReadOnlyDictionary<string, string>? metadataMatch = null, CancellationToken ct = default)
     {
+        if (limit <= 0) return []; // asks for nothing — never the dialect's opinion of a negative LIMIT
         var p = new DynamicParameters(new { kind, enabledOnly, task = taskKey, scope, limit });
         var meta = BuildMetaClause(metadataMatch, "lyntai_curated_memory.id", p);
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
@@ -158,7 +159,7 @@ public sealed class PostgresCuratedMemoryStore(IDbConnectionFactory factory,
         string? scope = null, bool enabledOnly = false, int? limit = null,
         IReadOnlyDictionary<string, string>? metadataMatch = null, CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(query)) return [];
+        if (string.IsNullOrWhiteSpace(query) || limit <= 0) return [];
         try
         {
             await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
@@ -191,7 +192,7 @@ public sealed class PostgresCuratedMemoryStore(IDbConnectionFactory factory,
                 hits = await MatchAsync(includeShortTerms: true).ConfigureAwait(false);
             return hits;
         }
-        catch (OperationCanceledException) { throw; }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "curated search failed; returning empty (fail-open)");

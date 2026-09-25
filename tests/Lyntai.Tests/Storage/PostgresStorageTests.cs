@@ -193,9 +193,11 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
     [SkippableFact] public Task Conversation_mixed_events() => Pg(() => ConversationStoreContract.Appends_mixed_kind_events_with_json_payloads_in_seq_order(new PostgresConversationStore(pg.Factory), Uid()));
     [SkippableFact] public Task Conversation_cjk() => Pg(() => ConversationStoreContract.Cjk_payload_round_trips(new PostgresConversationStore(pg.Factory), Uid()));
     [SkippableFact] public Task Conversation_seq_metadata() => Pg(() => ConversationStoreContract.Seq_is_1_based_and_restarts_per_thread_with_guid_ids_and_per_message_metadata(new PostgresConversationStore(pg.Factory), Uid()));
+    [SkippableFact] public Task Conversation_unknown_thread_append() => Pg(() => ConversationStoreContract.Appending_to_an_unknown_thread_throws(new PostgresConversationStore(pg.Factory), Uid()));
     [SkippableFact] public Task Conversation_aliases() => Pg(() => ConversationStoreContract.Role_content_aliases_map_to_kind_payload(new PostgresConversationStore(pg.Factory), Uid()));
     [SkippableFact] public Task Conversation_cascade() => Pg(() => ConversationStoreContract.Delete_thread_cascades_to_messages(new PostgresConversationStore(pg.Factory), Uid())); // FK cascade
     [SkippableFact] public Task Conversation_list_newest_first() => Pg(() => ConversationStoreContract.List_threads_returns_newest_first(new PostgresConversationStore(pg.Factory), Uid()));
+    [SkippableFact] public Task Conversation_non_positive_limit() => Pg(() => ConversationStoreContract.A_non_positive_limit_lists_no_threads(new PostgresConversationStore(pg.Factory), Uid()));
     [SkippableFact] public Task Conversation_count() => Pg(() => ConversationStoreContract.Count_reflects_inserted_and_deleted_threads(new PostgresConversationStore(pg.Factory), Uid()));
     [SkippableFact] public Task Conversation_paged() => Pg(() => ConversationStoreContract.Paged_cursor_walks_every_thread_exactly_once(new PostgresConversationStore(pg.Factory), Uid()));
     [SkippableFact] public Task Conversation_paged_tiebreak() => Pg(() => ConversationStoreContract.A_cursor_at_the_same_instant_falls_back_to_the_id(new PostgresConversationStore(pg.Factory), Uid()));
@@ -204,6 +206,8 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
     [SkippableFact] public Task Trace_resave_replaces() => Pg(() => TraceStoreContract.Saving_the_same_session_replaces_the_trace(new PostgresTraceStore(pg.Factory), Uid()));
     [SkippableFact] public Task Trace_unknown() => Pg(() => TraceStoreContract.Unknown_session_returns_null(new PostgresTraceStore(pg.Factory), Uid()));
     [SkippableFact] public Task Trace_seq_offset() => Pg(() => TraceStoreContract.Step_sequence_and_offset_round_trip(new PostgresTraceStore(pg.Factory), Uid()));
+    [SkippableFact] public Task Trace_unset_seq() => Pg(() => TraceStoreContract.Unset_sequences_store_the_list_position(new PostgresTraceStore(pg.Factory), Uid()));
+    [SkippableFact] public Task Trace_seq_order() => Pg(() => TraceStoreContract.Steps_read_back_in_sequence_order(new PostgresTraceStore(pg.Factory), Uid()));
 
     [SkippableFact] public Task PromptVersion_none() => Pg(() => PromptVersionStoreContract.No_version_yet_returns_null_active_and_empty_history(new PostgresPromptVersionStore(pg.Factory), Uid()));
     [SkippableFact] public Task PromptVersion_monotonic() => Pg(() => PromptVersionStoreContract.Save_creates_monotonic_versions_and_the_latest_is_active(new PostgresPromptVersionStore(pg.Factory), Uid()));
@@ -212,6 +216,7 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
     [SkippableFact] public Task PromptVersion_rollback_missing() => Pg(() => PromptVersionStoreContract.Rollback_to_a_missing_version_returns_null_and_changes_nothing(new PostgresPromptVersionStore(pg.Factory), Uid()));
     [SkippableFact] public Task PromptVersion_isolation() => Pg(() => PromptVersionStoreContract.Names_are_isolated(new PostgresPromptVersionStore(pg.Factory), Uid()));
     [SkippableFact] public Task PromptVersion_raced() => Pg(() => PromptVersionStoreContract.Concurrent_saves_of_one_name_get_distinct_consecutive_versions(new PostgresPromptVersionStore(pg.Factory), Uid()));
+    [SkippableFact] public Task PromptVersion_raced_rollbacks() => Pg(() => PromptVersionStoreContract.Racing_saves_and_rollbacks_leave_exactly_one_active_revision(new PostgresPromptVersionStore(pg.Factory), Uid()));
 
     // ScoreStoreContract: only the session-scoped Rescore is table-safe on the shared container (Aggregate
     // and Export are table-wide → InMemory + SQLite only, as noted above).
@@ -233,6 +238,7 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
     [SkippableFact] public Task Memory_prune_scoped() { var mc = new MutableClock(); return Pg(() => MemoryStoreContract.Prune_scoped_to_one_task_leaves_the_sibling(PgMemory(mc), Uid(), mc.Advance)); }
     [SkippableFact] public Task Memory_cap() => Pg(() => MemoryStoreContract.Cap_trims_to_the_newest_entries(PgMemory(), Uid()));
     [SkippableFact] public Task Memory_limit_scope() => Pg(() => MemoryStoreContract.Limit_caps_results_and_composes_with_scope(PgMemory(), Uid()));
+    [SkippableFact] public Task Memory_non_positive_limit() => Pg(() => MemoryStoreContract.A_non_positive_limit_recalls_nothing(PgMemory(), Uid()));
     [SkippableFact] public Task Memory_forget() => Pg(() => MemoryStoreContract.Forget_clears_a_task(PgMemory(), Uid()));
     [SkippableFact] public Task Memory_forget_scoped() => Pg(() => MemoryStoreContract.Forget_scoped_clears_only_that_scope(PgMemory(), Uid()));
     [SkippableFact] public Task Memory_fail_open() => Pg(() => MemoryStoreContract.Recall_is_fail_open_on_empty_query(PgMemory(), Uid()));
@@ -449,6 +455,9 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
         await CuratedMemoryStoreContract.Update_refuses_an_identity_collision(
             store, Uid() + "-collide", Uid() + "-k1", Uid() + "-k2");
     }
+
+    [SkippableFact] public Task Curated_memory_non_positive_limit() => Pg(() =>
+        CuratedMemoryStoreContract.A_non_positive_limit_returns_nothing(new PostgresCuratedMemoryStore(pg.Factory), Uid() + "-lim"));
 
     [SkippableFact]
     public async Task Curated_memory_task_scope_composition()

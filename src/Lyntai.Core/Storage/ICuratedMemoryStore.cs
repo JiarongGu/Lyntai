@@ -87,7 +87,8 @@ public interface ICuratedMemoryStore
     /// semantics — the optimize/admin pass uses <paramref name="scope"/> to pull "all notes for ONE scope, incl.
     /// disabled"), <paramref name="enabledOnly"/>, and <paramref name="metadataMatch"/> (an entry matches when it
     /// has EVERY given key/value pair exactly — AND; null/empty = no metadata filter). Ordered by kind
-    /// (byte-ordinal on every backend — Postgres orders <c>COLLATE "C"</c> to match SQLite/InMemory) then creation.</summary>
+    /// (byte-ordinal on every backend — Postgres orders <c>COLLATE "C"</c> to match SQLite/InMemory) then creation.
+    /// A null <paramref name="limit"/> is no cap; a non-positive one returns none, on every backend.</summary>
     Task<IReadOnlyList<CuratedMemory>> ListAsync(string? kind = null, bool enabledOnly = false,
         string? taskKey = null, string? scope = null, int? limit = null,
         IReadOnlyDictionary<string, string>? metadataMatch = null, CancellationToken ct = default);
@@ -98,7 +99,7 @@ public interface ICuratedMemoryStore
     /// The filters mirror <see cref="ListAsync"/>: strict-equality
     /// <paramref name="kind"/>/<paramref name="taskKey"/>/<paramref name="scope"/>, <paramref name="enabledOnly"/>
     /// default false (admin/catalog view — pass true for the recall path), the AND-of-pairs
-    /// <paramref name="metadataMatch"/>; null <paramref name="limit"/> = no cap.
+    /// <paramref name="metadataMatch"/>; null <paramref name="limit"/> = no cap, a non-positive one returns none.
     /// <para>Matching is the same as <see cref="IMemoryStore.RecallAsync"/>: an entry whose content contains
     /// ANY ≥3-char term of the query (<see cref="SearchTerms"/> — words for a space-separated script,
     /// character trigrams for one written without spaces) as an ASCII-case-insensitive substring is found on

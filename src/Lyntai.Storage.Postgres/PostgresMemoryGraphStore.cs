@@ -184,6 +184,7 @@ public sealed class PostgresMemoryGraphStore(
         string? query, int limit, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
+        if (limit <= 0) return []; // asks for nothing — never the dialect's opinion of a negative LIMIT
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         var totals = await TotalsAsync(conn, engine, ct).ConfigureAwait(false);
         var position = totals.Position;
@@ -277,7 +278,7 @@ public sealed class PostgresMemoryGraphStore(
     {
         ArgumentNullException.ThrowIfNull(ids);
         ct.ThrowIfCancellationRequested();
-        if (ids.Count == 0) return [];
+        if (ids.Count == 0 || limit <= 0) return [];
 
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         var totals = await TotalsAsync(conn, engine, ct).ConfigureAwait(false);
@@ -320,11 +321,12 @@ public sealed class PostgresMemoryGraphStore(
         ct.ThrowIfCancellationRequested();
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         var totals = await TotalsAsync(conn, engine, ct).ConfigureAwait(false);
-        var hits = await QueryAsync(conn,
+        // projected, never scored: a fetch by id asked no relevance question (D97)
+        var row = await conn.QuerySingleOrDefaultAsync<MemoryNodeRow>(new CommandDefinition(
             $"SELECT {NodeColumns} FROM lyntai_memory_node n WHERE n.id = @id AND n.engine = @engine",
             new { id, engine, position = totals.Position, ordinal = totals.Ordinal, chars = totals.Chars },
-            totals.EncodedAt, ct).ConfigureAwait(false);
-        return hits.Count == 0 ? null : hits[0];
+            cancellationToken: ct)).ConfigureAwait(false);
+        return row?.ToNode(totals.EncodedAt);
     }
 
     /// <inheritdoc />
@@ -369,9 +371,8 @@ public sealed class PostgresMemoryGraphStore(
 
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         var totals = await TotalsAsync(conn, engine, ct).ConfigureAwait(false);
-        await StrengthenAsync(conn, from, to, kind ?? "", weight, totals, ct).ConfigureAwait(false);
-        if (symmetric)
-            await StrengthenAsync(conn, to, from, kind ?? "", weight, totals, ct).ConfigureAwait(false);
+        await LinkManyAsync(conn, [new GraphEdgeWrite(from, to, kind, weight, symmetric)], totals, ct)
+            .ConfigureAwait(false);
     }
 
     /// <summary>The batched form: ONE connection and ONE position-totals read for every edge, where the
@@ -405,22 +406,9 @@ public sealed class PostgresMemoryGraphStore(
         }
     }
 
-    // Postgres requires the table reference in the DO UPDATE SET expression, where SQLite takes a bare
-    // column — one of the dialect differences that make sharing this text impossible.
-    // Stamps all FOUR strengthening marks from one totals snapshot, exactly as the SQLite twin does.
-    private static Task StrengthenAsync(IDbConnection conn, long from, long to, string kind, double weight,
-        MemoryPositionRow totals, CancellationToken ct) =>
-        conn.ExecuteAsync(new CommandDefinition("""
-            INSERT INTO lyntai_memory_edge (from_id, to_id, kind, weight, strengthened_position,
-                strengthened_ordinal, strengthened_chars, strengthened_at)
-            VALUES (@from, @to, @kind, @weight, @position, @ordinal, @chars, @at)
-            ON CONFLICT (from_id, to_id, kind)
-                DO UPDATE SET weight = lyntai_memory_edge.weight + @weight,
-                              strengthened_position = @position,
-                              strengthened_ordinal = @ordinal,
-                              strengthened_chars = @chars,
-                              strengthened_at = @at
-            """,
+    private static Task StrengthenAsync(IDbConnection conn, long from, long to, string kind,
+        double weight, MemoryPositionRow totals, CancellationToken ct) =>
+        conn.ExecuteAsync(new CommandDefinition(MemoryGraphSql.StrengthenEdge,
             new
             {
                 from, to, kind, weight, position = totals.Position, ordinal = totals.Ordinal,
@@ -631,14 +619,8 @@ public sealed class PostgresMemoryGraphStore(
     {
         var rows = (await conn.QueryAsync<MemoryNodeRow>(
             new CommandDefinition(sql, parameters, cancellationToken: ct)).ConfigureAwait(false)).AsList();
-        // MemoryRelevance.ByRankPosition is the ONE rule, shared with the SQLite twin, including its contract
-        // clause: a row admitted by GRADE that the query never matched reports 0. Only the substring query
-        // selects `Matched`; elsewhere it is null ("not asked") and the plain gradient applies.
-        // Matched is set here and only here, for the same reason Relevance is: reaching this helper MEANS a
-        // relevance gradient was computed, so this read asked the question. `row.Matched ?? true` keeps the
-        // substring query's explicit false and treats every other scored read as a match — including a
-        // query-less enumeration, where everything matches by definition. Every path that does NOT score
-        // keeps ToNode's null, which is what a ranking policy reads as "no relevance evidence" (D97).
+        // Every caller is a SEED, which asked: the substring query selects `Matched` per row, and a query that
+        // does not select it matched everything it returned (D97).
         return [.. rows.Select((row, i) => row.ToNode(encodedAt) with
         {
             Relevance = MemoryRelevance.ByRankPosition(i, rows.Count, row.Matched),

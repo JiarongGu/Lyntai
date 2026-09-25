@@ -15,6 +15,8 @@ public abstract class TraceStoreContractFacts
     [Fact] public Task Resave_replaces() => TraceStoreContract.Saving_the_same_session_replaces_the_trace(NewStore(), "k");
     [Fact] public Task Unknown() => TraceStoreContract.Unknown_session_returns_null(NewStore(), "k");
     [Fact] public Task Seq_offset() => TraceStoreContract.Step_sequence_and_offset_round_trip(NewStore(), "k");
+    [Fact] public Task Unset_seq() => TraceStoreContract.Unset_sequences_store_the_list_position(NewStore(), "k");
+    [Fact] public Task Seq_order() => TraceStoreContract.Steps_read_back_in_sequence_order(NewStore(), "k");
 }
 
 /// <summary>The <see cref="TraceStoreContract"/> against the InMemory backend.</summary>

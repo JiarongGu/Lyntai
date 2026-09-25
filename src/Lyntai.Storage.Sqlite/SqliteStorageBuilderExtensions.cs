@@ -68,38 +68,42 @@ public static class SqliteStorageBuilderExtensions
     private static LyntaiBuilder WireStores(LyntaiBuilder builder, IDbConnectionFactory factory,
         StorageFeature features, bool lyntaiMigrates)
     {
-        var selection = new SqliteFeatureSelection(features, lyntaiMigrates);
+        var selection = new SqliteFeatureSelection(features, lyntaiMigrates, factory);
         // a Use*Governance-backed helper called BEFORE this one is caught here (see RequireGovernance)
         VerifyGovernanceBackedCalls(builder, selection);
         builder.Services.AddSingleton(selection);
-        builder.Services.AddSingleton(factory);
+        builder.Services.TryAddSingleton(factory);
         // Register only the selected features. Domain stores use TryAdd so an app that registers its OWN
         // impl (a BYO backend) wins — before OR after UseSqliteStorage — matching Lyntai.Storage.InMemory and
-        // the "anything you register wins" contract in the README.
-        if (features.HasFlag(StorageFeature.KeyValue)) builder.Services.TryAddSingleton<IKeyValueStore, SqliteKeyValueStore>();
-        if (features.HasFlag(StorageFeature.PromptVersion)) builder.Services.TryAddSingleton<IPromptVersionStore, SqlitePromptVersionStore>();
-        if (features.HasFlag(StorageFeature.Conversation)) builder.Services.TryAddSingleton<IConversationStore, SqliteConversationStore>();
+        // the "anything you register wins" contract in the README. Each is built over THIS wiring's factory,
+        // never the container's: stores are first-wins, so a factory resolved at run time would hand them
+        // whichever wiring registered last.
+        if (features.HasFlag(StorageFeature.KeyValue)) builder.Services.TryAddSingleton<IKeyValueStore>(_ => new SqliteKeyValueStore(factory));
+        if (features.HasFlag(StorageFeature.PromptVersion)) builder.Services.TryAddSingleton<IPromptVersionStore>(_ => new SqlitePromptVersionStore(factory));
+        if (features.HasFlag(StorageFeature.Conversation)) builder.Services.TryAddSingleton<IConversationStore>(_ => new SqliteConversationStore(factory));
         if (features.HasFlag(StorageFeature.Memory))
         {
             builder.Services.TryAddSingleton<IMemoryStore>(sp => new SqliteMemoryStore(
-                sp.GetRequiredService<IDbConnectionFactory>(),
-                sp.GetRequiredService<LyntaiOptions>(),
-                sp.GetService<ILogger<SqliteMemoryStore>>()));
+                factory, sp.GetRequiredService<LyntaiOptions>(), sp.GetService<ILogger<SqliteMemoryStore>>()));
             // the graph tables ship under the same feature tag as the keyword log
             builder.Services.TryAddSingleton<Lyntai.Memory.IMemoryGraphStore>(sp => new SqliteMemoryGraphStore(
-                sp.GetRequiredService<IDbConnectionFactory>(),
-                sp.GetService<ILogger<SqliteMemoryGraphStore>>()));
+                factory, sp.GetService<ILogger<SqliteMemoryGraphStore>>()));
         }
-        if (features.HasFlag(StorageFeature.Score)) builder.Services.TryAddSingleton<IScoreStore, SqliteScoreStore>();
-        if (features.HasFlag(StorageFeature.Trace)) builder.Services.TryAddSingleton<ITraceStore, SqliteTraceStore>();
+        if (features.HasFlag(StorageFeature.Score)) builder.Services.TryAddSingleton<IScoreStore>(_ => new SqliteScoreStore(factory));
+        if (features.HasFlag(StorageFeature.Trace)) builder.Services.TryAddSingleton<ITraceStore>(_ => new SqliteTraceStore(factory));
         if (features.HasFlag(StorageFeature.Jobs))
             builder.Services.TryAddSingleton<IJobStore>(sp => new SqliteJobStore(
-                sp.GetRequiredService<IDbConnectionFactory>(), stepLogCap: sp.GetRequiredService<LyntaiOptions>().Jobs.MaxStepLog));
+                factory, stepLogCap: sp.GetRequiredService<LyntaiOptions>().Jobs.MaxStepLog));
         if (features.HasFlag(StorageFeature.CuratedMemory))
             builder.Services.TryAddSingleton<ICuratedMemoryStore>(sp => new SqliteCuratedMemoryStore(
-                sp.GetRequiredService<IDbConnectionFactory>(), sp.GetService<ILogger<SqliteCuratedMemoryStore>>()));
+                factory, sp.GetService<ILogger<SqliteCuratedMemoryStore>>()));
         return builder;
     }
+
+    // The factory of this backend's LAST wiring — the same one the Governance check reads — or, with no
+    // wiring at all, an app-registered factory.
+    private static IDbConnectionFactory Factory(IServiceProvider sp) =>
+        sp.GetService<SqliteFeatureSelection>()?.Factory ?? sp.GetRequiredService<IDbConnectionFactory>();
 
     // --- persistent backends for the front-door governance + semantic-memory seams --------------------
     // These override the in-memory defaults that AddResponseCache/AddUsageBudget register in
@@ -114,7 +118,7 @@ public static class SqliteStorageBuilderExtensions
     {
         RequireGovernance(builder, nameof(UseSqliteResponseCache));
         builder.Services.AddSingleton<Lyntai.Inference.Caching.IResponseCache>(sp => new SqliteResponseCache(
-            sp.GetRequiredService<IDbConnectionFactory>(), sp.GetRequiredService<LyntaiOptions>()));
+            Factory(sp), sp.GetRequiredService<LyntaiOptions>()));
         return builder;
     }
 
@@ -126,7 +130,7 @@ public static class SqliteStorageBuilderExtensions
     {
         RequireGovernance(builder, nameof(UseSqliteUsageTracking));
         builder.Services.AddSingleton<Lyntai.Inference.Budgeting.IUsageTracker>(sp => new SqliteUsageTracker(
-            sp.GetRequiredService<IDbConnectionFactory>()));
+            Factory(sp)));
         return builder;
     }
 
@@ -139,7 +143,7 @@ public static class SqliteStorageBuilderExtensions
     {
         RequireGovernance(builder, nameof(UseSqliteVectorStore));
         builder.Services.AddSingleton<Lyntai.Memory.IVectorStore>(sp => new SqliteVectorStore(
-            sp.GetRequiredService<IDbConnectionFactory>()));
+            Factory(sp)));
         return builder;
     }
 
@@ -150,7 +154,7 @@ public static class SqliteStorageBuilderExtensions
     // (order-independent across the storage/helper PAIR only; applies only where Lyntai owns the schema) are
     // docs/DECISIONS.md D150.
 
-    private sealed record SqliteFeatureSelection(StorageFeature Features, bool LyntaiMigrates);
+    private sealed record SqliteFeatureSelection(StorageFeature Features, bool LyntaiMigrates, IDbConnectionFactory Factory);
 
     private sealed record SqliteGovernanceBackedCall(string Method);
 

@@ -98,6 +98,17 @@ public static class ConversationStoreContract
         Assert.Null((await store.GetMessagesAsync(a))[0].Metadata);     // metadata is optional
     }
 
+    /// <summary>An event needs its thread on every backend — the SQL backends' foreign key refuses an orphan,
+    /// and a store that accepted one would hand it back from <c>GetMessagesAsync</c> for a thread that does
+    /// not exist.</summary>
+    public static async Task Appending_to_an_unknown_thread_throws(IConversationStore store, string key)
+    {
+        var t = key + "-never-created";
+
+        await Assert.ThrowsAnyAsync<Exception>(() => store.AppendMessageAsync(t, "user", "orphan"));
+        Assert.Empty(await store.GetMessagesAsync(t)); // and nothing was stored
+    }
+
     public static async Task Role_content_aliases_map_to_kind_payload(IConversationStore store, string key)
     {
         var t = key + "-alias";
@@ -134,6 +145,19 @@ public static class ConversationStoreContract
 
         var mine = (await store.ListThreadsAsync(limit: 1000)).Where(t => t.Id == older || t.Id == newer).ToList();
         Assert.Equal([newer, older], mine.Select(t => t.Id)); // newest first
+    }
+
+    /// <summary>A non-positive limit asks for nothing and gets nothing on every backend — left to the
+    /// database, SQLite reads a negative LIMIT as no limit and Postgres rejects it.</summary>
+    public static async Task A_non_positive_limit_lists_no_threads(IConversationStore store, string key)
+    {
+        await store.CreateThreadAsync(key + "-listed");
+
+        foreach (var limit in new[] { 0, -1 })
+        {
+            Assert.Empty(await store.ListThreadsAsync(limit));
+            Assert.Empty(await store.ListThreadsPageAsync(limit));
+        }
     }
 
     public static async Task Count_reflects_inserted_and_deleted_threads(IConversationStore store, string key)

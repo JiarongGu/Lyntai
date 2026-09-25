@@ -71,6 +71,22 @@ public static class MemoryGraphSql
                     OR (@createdBefore IS NOT NULL AND n.created_at < @createdBefore) ))
         """;
 
+    /// <summary>Strengthen one directed edge, stamping all four strengthening marks from one totals snapshot
+    /// so they never disagree about when it was last strengthened. <b>An endpoint that no longer exists —
+    /// deleted while a write-back was in flight — writes nothing</b>, on every backend, rather than a
+    /// foreign-key violation part-way through a batch.</summary>
+    public const string StrengthenEdge = """
+        INSERT INTO lyntai_memory_edge (from_id, to_id, kind, weight, strengthened_position,
+            strengthened_ordinal, strengthened_chars, strengthened_at)
+        SELECT @from, @to, @kind, @weight, @position, @ordinal, @chars, @at
+        WHERE EXISTS (SELECT 1 FROM lyntai_memory_node WHERE id = @from)
+          AND EXISTS (SELECT 1 FROM lyntai_memory_node WHERE id = @to)
+        ON CONFLICT (from_id, to_id, kind)
+            DO UPDATE SET weight = lyntai_memory_edge.weight + @weight,
+                          strengthened_position = @position, strengthened_ordinal = @ordinal,
+                          strengthened_chars = @chars, strengthened_at = @at
+        """;
+
     /// <summary>Drop a whole task/scope. Edges follow by cascade, as in <see cref="Prune"/>.</summary>
     public const string Forget = """
         DELETE FROM lyntai_memory_node

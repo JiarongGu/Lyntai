@@ -20,6 +20,7 @@ public abstract class UsageTrackerContractFacts
     [Fact] public Task Accumulates() => UsageTrackerContract.Records_accumulate_per_consumer(NewTracker(), "c");
     [Fact] public Task Unrecorded() => UsageTrackerContract.An_unrecorded_consumer_is_Empty(NewTracker(), "c");
     [Fact] public Task Casings() => UsageTrackerContract.Consumer_identity_aggregates_across_casings(NewTracker(), "c");
+    [Fact] public Task Non_ascii_casings() => UsageTrackerContract.Consumer_identity_aggregates_across_non_ASCII_casings(NewTracker(), "c");
     [Fact] public Task Reset_one() => UsageTrackerContract.Resetting_a_consumer_clears_it(NewTracker(), "c");
     [Fact] public Task Reset_scoped() => UsageTrackerContract.Resetting_ONE_consumer_leaves_the_others_intact(NewTracker(), "c");
     [Fact] public Task Reset_casing() => UsageTrackerContract.Resetting_is_case_insensitive_like_the_totals(NewTracker(), "c");

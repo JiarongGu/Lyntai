@@ -165,6 +165,33 @@ public static class VectorStoreContract
         Assert.True(hits[0].Score > hits[1].Score);
     }
 
+    /// <summary>A stored vector of ANOTHER dimension — a collection that outlived an embedder swap — never
+    /// fails the search: it scores 0 and ranks after every real match, on every backend.</summary>
+    public static async Task A_vector_of_another_dimension_scores_zero_and_ranks_last(IVectorStore store, string c)
+    {
+        await store.UpsertAsync(c, "stale", [1f, 0f], "STALE");          // 2-dim, from a previous embedder
+        await store.UpsertAsync(c, "match", [1f, 0f, 0f], "MATCH");
+        await store.UpsertAsync(c, "near", [1f, 1f, 0f], "NEAR");
+
+        var hits = await store.SearchAsync(c, [1f, 0f, 0f], k: 5);
+
+        Assert.Equal(["MATCH", "NEAR", "STALE"], hits.Select(h => h.Payload));
+        Assert.Equal(0, hits[^1].Score);
+    }
+
+    /// <summary>A zero vector has no direction, so it scores exactly 0 — never NaN, which compares false
+    /// against every threshold — and ranks after a real match.</summary>
+    public static async Task A_zero_vector_scores_zero_and_ranks_last(IVectorStore store, string c)
+    {
+        await store.UpsertAsync(c, "zero", [0f, 0f, 0f], "ZERO");
+        await store.UpsertAsync(c, "match", [1f, 0f, 0f], "MATCH");
+
+        var hits = await store.SearchAsync(c, [1f, 0f, 0f], k: 5);
+
+        Assert.Equal(["MATCH", "ZERO"], hits.Select(h => h.Payload));
+        Assert.Equal(0, hits[^1].Score);
+    }
+
     /// <summary>Collections are isolated: a search never reaches another collection's vectors. Semantic
     /// memory uses one collection per task+scope, so a leak here is a cross-task memory leak.</summary>
     public static async Task Collections_are_isolated(IVectorStore store, string c)

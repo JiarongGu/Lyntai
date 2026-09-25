@@ -37,7 +37,8 @@ public interface IConversationStore
 
     Task<ChatThread?> GetThreadAsync(string id, CancellationToken ct = default);
 
-    /// <summary>Threads newest first (created_at DESC, id DESC), at most <paramref name="limit"/> of them.
+    /// <summary>Threads newest first (created_at DESC, id DESC), at most <paramref name="limit"/> of them — a
+    /// non-positive <paramref name="limit"/> returns none, on every backend.
     /// <para>The id tiebreak between two threads sharing a timestamp is byte-ordinal on SQLite/InMemory and
     /// follows the database collation on Postgres, so their relative order may differ between backends.</para></summary>
     Task<IReadOnlyList<ChatThread>> ListThreadsAsync(int limit = 100, CancellationToken ct = default);
@@ -76,7 +77,8 @@ public interface IConversationStore
     /// <summary>Append an event to a thread. <paramref name="kind"/> is the event type (a role for a plain
     /// chat turn); <paramref name="payload"/> is the body (text, or JSON for a richer event);
     /// <paramref name="metadata"/> is optional per-event JSON. The store assigns a GUID <c>Id</c> and the
-    /// next per-thread <c>Seq</c>.</summary>
+    /// next per-thread <c>Seq</c>. Appending to a thread that does not exist THROWS on every backend and
+    /// stores nothing.</summary>
     Task<ChatMessage> AppendMessageAsync(string threadId, string kind, string payload, string? metadata = null, CancellationToken ct = default);
 
     /// <summary>Events of a thread in append (sequence) order.</summary>

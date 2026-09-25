@@ -435,6 +435,22 @@ public static class CuratedMemoryStoreContract
         Assert.Contains(id, (await store.SearchAsync("平台", taskKey: task)).Select(e => e.Id));
     }
 
+    /// <summary>A non-positive limit asks for nothing and gets nothing on every backend, from both the list
+    /// and the search path — left to the database, SQLite reads a negative LIMIT as no limit and Postgres
+    /// rejects it. A null limit still means no cap.</summary>
+    public static async Task A_non_positive_limit_returns_nothing(ICuratedMemoryStore store, string task = "limit")
+    {
+        await store.AddAsync("glossary", "an ab entry worth finding", taskKey: task);
+
+        foreach (var limit in new[] { 0, -1 })
+        {
+            Assert.Empty(await store.ListAsync(taskKey: task, limit: limit));
+            Assert.Empty(await store.SearchAsync("finding", taskKey: task, limit: limit));
+            Assert.Empty(await store.SearchAsync("ab", taskKey: task, limit: limit));
+        }
+        Assert.Single(await store.ListAsync(taskKey: task, limit: null));
+    }
+
     public static async Task Remove_deletes(ICuratedMemoryStore store)
     {
         var id = await store.AddAsync("k", "gone soon", metadata: Meta(("a", "1")));

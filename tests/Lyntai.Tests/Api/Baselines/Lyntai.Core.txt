@@ -3089,6 +3089,7 @@ static class Lyntai.Storage.MemoryGraphSql
     Forget : String const
     InsertReview : String const
     MinimumStability : String const
+    StrengthenEdge : String const
     TrimReviews : String const
     static MinimumStabilityValue : Double
     static Prune(String ageOverStability) : String
@@ -3220,6 +3221,7 @@ static class Lyntai.Storage.SearchTerms
     static HasShortSpacelessTerms(String raw) : Boolean
     static LikeClause(String raw, IReadOnlyList<String> columns, String op = "LIKE", String parameterPrefix = "kw", Boolean includeShortTerms = true) : LikeTermClause
     static LikeClause(String raw, String column, String op = "LIKE", String parameterPrefix = "kw", Boolean includeShortTerms = true) : LikeTermClause
+    static MatchCount(IReadOnlyList<String> texts, IReadOnlyList<String> terms, String whole = null) : Int32
     static MatchCount(String text, IReadOnlyList<String> terms, String whole = null) : Int32
     static ProfileOf(String token) : ScriptProfile
     static Profiles : IReadOnlyList<ScriptProfile>
@@ -3241,6 +3243,8 @@ static class Lyntai.Storage.StorageFeatures
     AllTag : String const
     static TagPasses(StorageFeature features) : IEnumerable<String[]>
     static TagsFor(StorageFeature features) : String[]
+static class Lyntai.Storage.TraceOrdinals
+    static Stored(IReadOnlyList<TraceStep> steps) : IReadOnlyList<TraceStep>
 sealed class Lyntai.Storage.TraceSessionRow
     .ctor()
     EndedAt : Nullable<DateTimeOffset>
@@ -3270,6 +3274,10 @@ sealed class Lyntai.Storage.UsageTotalsRow
     CostUsd : Double
     InputTokens : Int64
     OutputTokens : Int64
+static class Lyntai.Storage.UsageTrackerSql
+    Record : String const
+    ResetAll : String const
+    static Consumer(String consumer) : String
 static class Lyntai.Text.JsonArgs
     static Parse(String argumentsJson) : IDictionary<String,Object>
     static Serialize(IEnumerable<KeyValuePair<String,Object>> args) : String

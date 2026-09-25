@@ -205,6 +205,39 @@ public static class MemoryGraphStoreContract
         Assert.Equal(["zeta"], await store.KnownSubjectsAsync("e", key, "s", 1)); // truncation follows the order
     }
 
+    /// <summary>Subjects recorded through one engine on a node ANOTHER engine owns are not stored — the SQL
+    /// backends' insert joins the node on its engine, so the in-process store must not offer them back.</summary>
+    public static async Task Subjects_on_another_engines_node_are_not_recorded(IMemoryGraphStore store, string key)
+    {
+        var theirs = await store.UpsertAsync(Write("e1", key, "a fact owned by e1"));
+
+        await store.RecordSubjectsAsync("e2", theirs, ["owner"]);
+
+        Assert.Empty(await store.KnownSubjectsAsync("e2", key, "s", 10));
+        Assert.Empty(await store.NodesBySubjectAsync("e2", key, "s", "owner", 10));
+    }
+
+    /// <summary>An edge to a node that no longer exists — pruned while a write-back was in flight — is skipped
+    /// on every backend, rather than dangling in process (and counting toward <c>Degree</c>) while SQL throws a
+    /// foreign-key violation part-way through the batch. The rest of the batch still lands.</summary>
+    public static async Task An_edge_to_a_deleted_node_is_skipped(IMemoryGraphStore store, string key)
+    {
+        var a = await store.UpsertAsync(Write("e", key, "the node that stays"));
+        var b = await store.UpsertAsync(Write("e", key, "its live neighbour"));
+        var gone = await store.UpsertAsync(Write("e", key, "a node pruned mid-write"));
+        await store.DeleteAsync("e", [gone]);
+
+        await store.LinkAsync("e", a, gone, "k", 1, symmetric: true);
+        await store.LinkManyAsync("e",
+        [
+            new GraphEdgeWrite(gone, a, "k", 1, Symmetric: false),
+            new GraphEdgeWrite(a, b, "k", 1, Symmetric: false),
+        ]);
+
+        Assert.Equal(1, (await store.GetAsync("e", a))!.Degree);           // only a→b
+        Assert.Equal([b], (await store.NeighboursAsync("e", key, [a], 10)).Select(n => n.Node.Id));
+    }
+
     public static async Task Upserting_identical_content_refreshes_rather_than_duplicating(
         IMemoryGraphStore store, string key)
     {
@@ -364,6 +397,79 @@ public static class MemoryGraphStoreContract
         var matched = Assert.Single(hits, h => h.Content == "ab testing notes");
         Assert.True(matched.Relevance > 0,
             $"the row the query DID match must keep a positive relevance; got {matched.Relevance}");
+    }
+
+    /// <summary>A fetch by id asks no relevance question, so it reports <c>Relevance 0</c> with
+    /// <c>Matched null</c> on every backend (D97) — a subject or semantic seed builds its candidates from this
+    /// read and relies on the null to earn no rank it never competed for.</summary>
+    public static async Task A_fetch_by_id_reports_that_nobody_asked(IMemoryGraphStore store, string key)
+    {
+        var id = await store.UpsertAsync(Write("e", key, "a fact fetched by its id"));
+
+        var node = await store.GetAsync("e", id);
+
+        Assert.NotNull(node);
+        Assert.Equal(0, node!.Relevance);
+        Assert.Null(node.Matched);
+    }
+
+    /// <summary>A seed with no query matches everything by definition, so every node it returns reports
+    /// <c>Matched true</c> — the same answer on every backend, whatever gradient each reports beside it.</summary>
+    public static async Task A_query_less_seed_reports_every_node_matched(IMemoryGraphStore store, string key)
+    {
+        await store.UpsertAsync(Write("e", key, "the first note"));
+        await store.UpsertAsync(Write("e", key, "the second note", MemoryGrade.Authoritative));
+
+        var hits = await store.SeedAsync("e", key, "s", null, 10);
+
+        Assert.Equal(2, hits.Count);
+        Assert.All(hits, h => Assert.True(h.Matched, $"'{h.Content}' reported Matched={h.Matched}"));
+    }
+
+    /// <summary>A seed WITH a query answers <c>Matched</c> per node: true for what it matched, false for an
+    /// exact fact admitted by grade alone — through both the full-text and the short-query paths.</summary>
+    public static async Task A_seed_reports_which_nodes_the_query_matched(IMemoryGraphStore store, string key)
+    {
+        await store.UpsertAsync(Write("e", key, "the user is vegetarian", MemoryGrade.Authoritative));
+        await store.UpsertAsync(Write("e", key, "restaurant ab bookings need confirming"));
+
+        foreach (var query in new[] { "restaurant", "ab" })
+        {
+            var hits = await store.SeedAsync("e", key, "s", query, 10);
+
+            Assert.False(Assert.Single(hits, h => h.Content == "the user is vegetarian").Matched, query);
+            Assert.True(Assert.Single(hits, h => h.Content.StartsWith("restaurant", StringComparison.Ordinal)).Matched, query);
+        }
+    }
+
+    /// <summary>A non-positive limit asks for nothing and gets nothing on every backend, from every seed path
+    /// and from a walk — left to the database, SQLite reads a negative LIMIT as no limit and Postgres
+    /// rejects it.</summary>
+    public static async Task A_non_positive_limit_returns_nothing(IMemoryGraphStore store, string key)
+    {
+        var a = await store.UpsertAsync(Write("e", key, "an ab note about recall"));
+        var b = await store.UpsertAsync(Write("e", key, "its neighbour", MemoryGrade.Authoritative));
+        await store.LinkAsync("e", a, b, "k", 1, symmetric: true);
+
+        foreach (var limit in new[] { 0, -1 })
+        {
+            foreach (var query in new[] { null, "recall", "ab" })
+                Assert.Empty(await store.SeedAsync("e", key, "s", query, limit));
+            Assert.Empty(await store.NeighboursAsync("e", key, [a], limit));
+        }
+    }
+
+    /// <summary>Under the candidate LIMIT, a node matching MORE of the query outranks a newer one matching
+    /// less, on every backend — otherwise the limit hands the engine different ENTRIES per backend, which
+    /// is a different answer rather than a different order.</summary>
+    public static async Task Under_the_limit_more_matched_terms_beat_recency(IMemoryGraphStore store, string key)
+    {
+        await store.UpsertAsync(Write("e", key, "the deploy pipeline requires manual approval")); // both terms
+        await store.UpsertAsync(Write("e", key, "the pipeline is unrelated to this"));            // one term, NEWER
+
+        var hits = await store.SeedAsync("e", key, "s", "deploy pipeline", 1);
+
+        Assert.Contains("manual approval", Assert.Single(hits).Content, StringComparison.Ordinal);
     }
 
     /// <summary>Admission must survive the candidate LIMIT, not merely the WHERE clause.

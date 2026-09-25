@@ -139,6 +139,7 @@ public sealed class SqliteCuratedMemoryStore(IDbConnectionFactory factory,
         string? taskKey = null, string? scope = null, int? limit = null,
         IReadOnlyDictionary<string, string>? metadataMatch = null, CancellationToken ct = default)
     {
+        if (limit <= 0) return []; // asks for nothing; the -1 below is this dialect's own spelling of "no cap"
         var p = new DynamicParameters(new { kind, task = taskKey, scope, enabledOnly, limit = limit ?? -1 });
         var meta = BuildMetaClause(metadataMatch, "lyntai_curated_memory.id", p);
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
@@ -156,7 +157,7 @@ public sealed class SqliteCuratedMemoryStore(IDbConnectionFactory factory,
         string? scope = null, bool enabledOnly = false, int? limit = null,
         IReadOnlyDictionary<string, string>? metadataMatch = null, CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(query)) return [];
+        if (string.IsNullOrWhiteSpace(query) || limit <= 0) return [];
         try
         {
             await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
@@ -200,7 +201,7 @@ public sealed class SqliteCuratedMemoryStore(IDbConnectionFactory factory,
                 """, pl, cancellationToken: ct)).ConfigureAwait(false);
             return [.. likeHits.Select(r => r.ToRecord())];
         }
-        catch (OperationCanceledException) { throw; }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "curated search failed; returning empty (fail-open)");

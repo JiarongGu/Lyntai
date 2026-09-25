@@ -100,6 +100,9 @@ public sealed class InMemoryConversationStore : IConversationStore
     {
         lock (_lock)
         {
+            // an event needs its thread, as the SQL backends' foreign key and the file store require
+            if (!_threads.ContainsKey(threadId))
+                throw new InvalidOperationException($"there is no thread '{threadId}' to append to");
             // Id is a GUID handle; Seq is the 1-based per-thread order = MAX(seq)+1 (mirrors the SQL backends'
             // COALESCE(MAX(seq),0)+1 — NOT Count+1, which would reuse a seq if a message were ever deleted).
             var seq = _messages.Where(m => m.ThreadId == threadId).Select(m => m.Seq).DefaultIfEmpty(0L).Max() + 1;
@@ -198,7 +201,7 @@ public sealed class InMemoryTraceStore : ITraceStore
 
     public Task SaveAsync(RunTrace trace, CancellationToken ct = default)
     {
-        _bySession[trace.SessionId] = trace;
+        _bySession[trace.SessionId] = trace with { Steps = TraceOrdinals.Stored(trace.Steps) };
         return Task.CompletedTask;
     }
 

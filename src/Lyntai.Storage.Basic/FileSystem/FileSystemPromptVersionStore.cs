@@ -65,6 +65,7 @@ internal sealed class FileSystemPromptVersionStore(FileSystemRoot root, Func<Dat
             var prompts = Prompts();
             if (!prompts.TryGetValue(name, out var p))
                 p = new Prompt(Path.Combine(_directory, RecordName.For(name)));
+            RefuseUnreadPointer(p);
 
             // past every revision FILE too — one that did not parse still holds its number
             var next = Math.Max(p.Versions.Select(v => v.Version).DefaultIfEmpty(0).Max(),
@@ -99,9 +100,19 @@ internal sealed class FileSystemPromptVersionStore(FileSystemRoot root, Func<Dat
             if (!Prompts().TryGetValue(name, out var p)) return Task.FromResult<PromptVersion?>(null);
             var hit = p.Versions.FirstOrDefault(v => v.Version == version);
             if (hit is null) return Task.FromResult<PromptVersion?>(null);
+            RefuseUnreadPointer(p);
             WriteActive(p, name, version);
             return Task.FromResult<PromptVersion?>(Mark(p, hit));
         }
+    }
+
+    // An active.md that exists but did not load is a person's edit (D171): never written over.
+    private static void RefuseUnreadPointer(Prompt p)
+    {
+        var pointer = Path.Combine(p.Directory, ActiveFile);
+        if (p.Active is null && File.Exists(pointer))
+            throw new InvalidOperationException(
+                $"'{pointer}' exists but names no readable active revision — repair or remove it");
     }
 
     private void WriteActive(Prompt p, string name, int version)

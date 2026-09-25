@@ -328,6 +328,17 @@ public static class MemoryStoreContract
         Assert.All(hits, h => Assert.Equal("a", h.Scope)); // ...and composes with the scope filter
     }
 
+    /// <summary>A non-positive limit asks for nothing and gets nothing on every backend, through every recall
+    /// path — left to the database, SQLite reads a negative LIMIT as no limit and Postgres rejects it.</summary>
+    public static async Task A_non_positive_limit_recalls_nothing(IMemoryStore store, string key)
+    {
+        await store.RememberAsync(key, "s", "an ab fact worth recalling");
+
+        foreach (var limit in new[] { 0, -1 })
+        foreach (var query in new[] { null, "recalling", "ab" })
+            Assert.Empty(await store.RecallAsync(key, query: query, limit: limit));
+    }
+
     public static async Task Forget_clears_a_task(IMemoryStore store, string key)
     {
         await store.RememberAsync(key, "s", "x");

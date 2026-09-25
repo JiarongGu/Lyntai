@@ -72,6 +72,7 @@ public sealed class PostgresMemoryStore(
         string? query = null, int? limit = null, CancellationToken ct = default)
     {
         var take = limit ?? options.MemoryRecallLimit;
+        if (take <= 0) return []; // asks for nothing — never the dialect's opinion of a negative LIMIT
         var now = _clock();
         // Queried-only, per MemoryEvictionPolicy.TracksAccess.
         var touch = options.MemoryEviction.TracksAccess && !string.IsNullOrWhiteSpace(query);
@@ -123,7 +124,7 @@ public sealed class PostgresMemoryStore(
                 .Select(r => r.ToEntity()).ToList();
             return await TouchAsync(conn, recent, touch, now, ct).ConfigureAwait(false);
         }
-        catch (OperationCanceledException) { throw; }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "memory recall failed for {Task}; returning empty (fail-open)", taskKey);
@@ -146,7 +147,7 @@ public sealed class PostgresMemoryStore(
                     "UPDATE lyntai_memory_entry SET last_accessed_at = @now WHERE id = ANY(@ids)",
                     new { now, ids }, cancellationToken: ct)).ConfigureAwait(false);
             }
-            catch (OperationCanceledException) { throw; }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "LRU last-access refresh failed for {Count} entries; recall result kept", hits.Count);

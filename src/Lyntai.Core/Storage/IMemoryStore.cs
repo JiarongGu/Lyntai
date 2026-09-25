@@ -17,7 +17,8 @@ public interface IMemoryStore
     Task RememberAsync(string taskKey, string scope, string content, TimeSpan? ttl = null, CancellationToken ct = default);
 
     /// <summary>Recall entries for a task, optionally filtered by scope and matched against a query; no
-    /// query → most recent first. Expired entries are never returned.
+    /// query → most recent first. Expired entries are never returned. A non-positive <paramref name="limit"/>
+    /// returns none, on every backend; null takes the configured recall limit.
     /// <para>GUARANTEE (consistent across backends): an entry whose content contains ANY term of the query
     /// (≥3 chars) as a substring is recalled. Terms come from <see cref="SearchTerms"/> — words for a
     /// space-separated script, character trigrams for one written without spaces (Chinese, Japanese,

@@ -63,38 +63,42 @@ public static class PostgresStorageBuilderExtensions
     private static LyntaiBuilder WireStores(LyntaiBuilder builder, IDbConnectionFactory factory,
         StorageFeature features, bool lyntaiMigrates)
     {
-        var selection = new PostgresFeatureSelection(features, lyntaiMigrates);
+        var selection = new PostgresFeatureSelection(features, lyntaiMigrates, factory);
         // a Governance-backed helper called BEFORE this one is caught here (see RequireGovernance)
         VerifyGovernanceBackedCalls(builder, selection);
         builder.Services.AddSingleton(selection);
-        builder.Services.AddSingleton(factory);
+        builder.Services.TryAddSingleton(factory);
         // Register only the selected features. Domain stores use TryAdd so an app that registers its OWN
         // impl (a BYO backend) wins — before OR after UsePostgresStorage — matching Lyntai.Storage.Sqlite /
-        // InMemory and the "anything you register wins" contract in the README.
-        if (features.HasFlag(StorageFeature.KeyValue)) builder.Services.TryAddSingleton<IKeyValueStore, PostgresKeyValueStore>();
-        if (features.HasFlag(StorageFeature.PromptVersion)) builder.Services.TryAddSingleton<IPromptVersionStore, PostgresPromptVersionStore>();
-        if (features.HasFlag(StorageFeature.Conversation)) builder.Services.TryAddSingleton<IConversationStore, PostgresConversationStore>();
+        // InMemory and the "anything you register wins" contract in the README. Each is built over THIS
+        // wiring's factory, never the container's: stores are first-wins, so a factory resolved at run time
+        // would hand them whichever wiring registered last.
+        if (features.HasFlag(StorageFeature.KeyValue)) builder.Services.TryAddSingleton<IKeyValueStore>(_ => new PostgresKeyValueStore(factory));
+        if (features.HasFlag(StorageFeature.PromptVersion)) builder.Services.TryAddSingleton<IPromptVersionStore>(_ => new PostgresPromptVersionStore(factory));
+        if (features.HasFlag(StorageFeature.Conversation)) builder.Services.TryAddSingleton<IConversationStore>(_ => new PostgresConversationStore(factory));
         if (features.HasFlag(StorageFeature.Memory))
         {
             builder.Services.TryAddSingleton<IMemoryStore>(sp => new PostgresMemoryStore(
-                sp.GetRequiredService<IDbConnectionFactory>(),
-                sp.GetRequiredService<LyntaiOptions>(),
-                sp.GetService<ILogger<PostgresMemoryStore>>()));
+                factory, sp.GetRequiredService<LyntaiOptions>(), sp.GetService<ILogger<PostgresMemoryStore>>()));
             // the graph tables ship under the same feature tag as the keyword log
             builder.Services.TryAddSingleton<Lyntai.Memory.IMemoryGraphStore>(sp => new PostgresMemoryGraphStore(
-                sp.GetRequiredService<IDbConnectionFactory>(),
-                sp.GetService<ILogger<PostgresMemoryGraphStore>>()));
+                factory, sp.GetService<ILogger<PostgresMemoryGraphStore>>()));
         }
-        if (features.HasFlag(StorageFeature.Score)) builder.Services.TryAddSingleton<IScoreStore, PostgresScoreStore>();
-        if (features.HasFlag(StorageFeature.Trace)) builder.Services.TryAddSingleton<ITraceStore, PostgresTraceStore>();
+        if (features.HasFlag(StorageFeature.Score)) builder.Services.TryAddSingleton<IScoreStore>(_ => new PostgresScoreStore(factory));
+        if (features.HasFlag(StorageFeature.Trace)) builder.Services.TryAddSingleton<ITraceStore>(_ => new PostgresTraceStore(factory));
         if (features.HasFlag(StorageFeature.Jobs))
             builder.Services.TryAddSingleton<IJobStore>(sp => new PostgresJobStore(
-                sp.GetRequiredService<IDbConnectionFactory>(), stepLogCap: sp.GetRequiredService<LyntaiOptions>().Jobs.MaxStepLog));
+                factory, stepLogCap: sp.GetRequiredService<LyntaiOptions>().Jobs.MaxStepLog));
         if (features.HasFlag(StorageFeature.CuratedMemory))
             builder.Services.TryAddSingleton<ICuratedMemoryStore>(sp => new PostgresCuratedMemoryStore(
-                sp.GetRequiredService<IDbConnectionFactory>(), sp.GetService<ILogger<PostgresCuratedMemoryStore>>()));
+                factory, sp.GetService<ILogger<PostgresCuratedMemoryStore>>()));
         return builder;
     }
+
+    // The factory of this backend's LAST wiring — the same one the Governance check reads — or, with no
+    // wiring at all, an app-registered factory.
+    private static IDbConnectionFactory Factory(IServiceProvider sp) =>
+        sp.GetService<PostgresFeatureSelection>()?.Factory ?? sp.GetRequiredService<IDbConnectionFactory>();
 
     // --- persistent backends for the front-door governance + semantic-memory seams --------------------
     // Mirror the SQLite ones: AddSingleton over the Core in-memory TryAdd defaults (win regardless of call
@@ -108,7 +112,7 @@ public static class PostgresStorageBuilderExtensions
     {
         RequireGovernance(builder, nameof(UsePostgresResponseCache));
         builder.Services.AddSingleton<Lyntai.Inference.Caching.IResponseCache>(sp => new PostgresResponseCache(
-            sp.GetRequiredService<IDbConnectionFactory>(), sp.GetRequiredService<LyntaiOptions>()));
+            Factory(sp), sp.GetRequiredService<LyntaiOptions>()));
         return builder;
     }
 
@@ -120,7 +124,7 @@ public static class PostgresStorageBuilderExtensions
     {
         RequireGovernance(builder, nameof(UsePostgresUsageTracking));
         builder.Services.AddSingleton<Lyntai.Inference.Budgeting.IUsageTracker>(sp => new PostgresUsageTracker(
-            sp.GetRequiredService<IDbConnectionFactory>()));
+            Factory(sp)));
         return builder;
     }
 
@@ -135,7 +139,7 @@ public static class PostgresStorageBuilderExtensions
     public static LyntaiBuilder UsePostgresVectorStore(this LyntaiBuilder builder)
     {
         builder.Services.AddSingleton<Lyntai.Memory.IVectorStore>(sp => new PostgresVectorStore(
-            sp.GetRequiredService<IDbConnectionFactory>()));
+            Factory(sp)));
         return builder;
     }
 
@@ -146,7 +150,7 @@ public static class PostgresStorageBuilderExtensions
     // (order-independent across the storage/helper PAIR only; applies only where Lyntai owns the schema) are
     // docs/DECISIONS.md D150.
 
-    private sealed record PostgresFeatureSelection(StorageFeature Features, bool LyntaiMigrates);
+    private sealed record PostgresFeatureSelection(StorageFeature Features, bool LyntaiMigrates, IDbConnectionFactory Factory);
 
     private sealed record PostgresGovernanceBackedCall(string Method);
 

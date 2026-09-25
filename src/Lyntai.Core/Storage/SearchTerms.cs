@@ -285,6 +285,23 @@ public static class SearchTerms
         return matched;
     }
 
+    /// <summary>As above, over SEVERAL texts: a term counts once when ANY of them contains it — the in-process
+    /// twin of the several-column <see cref="LikeClause(string, IReadOnlyList{string}, string, string, bool)"/>.</summary>
+    /// <param name="texts">The texts to score together, e.g. an entry's content and its headline.</param>
+    /// <param name="terms">As above.</param>
+    /// <param name="whole">As above.</param>
+    public static int MatchCount(IReadOnlyList<string?> texts, IReadOnlyList<string> terms, string? whole = null)
+    {
+        ArgumentNullException.ThrowIfNull(texts);
+        ArgumentNullException.ThrowIfNull(terms);
+        if (terms.Count == 0) return texts.Any(t => MatchCount(t, terms, whole) > 0) ? 1 : 0;
+
+        var matched = 0;
+        foreach (var term in terms)
+            if (texts.Any(t => t is not null && t.Contains(term, StringComparison.OrdinalIgnoreCase))) matched++;
+        return matched;
+    }
+
 
     /// <summary>Builds the SQL for matching <paramref name="column"/> against every term of
     /// <paramref name="raw"/>, for the backends that search with <c>LIKE</c>/<c>ILIKE</c> rather than a
