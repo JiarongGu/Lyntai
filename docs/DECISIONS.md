@@ -5166,8 +5166,13 @@ its recalls still do. Two best-effort steps of the graph write are logged, never
 links, and salience (the node's `ProvenanceSalience` names who produced its STORED signals, not what this write
 did). **The annotator and the subject-index write are flagged together as `Annotation`** (2026-09-26): an
 adopting app rebuilds with an annotator wired and guarded every cause of a write losing its subjects for good,
-which was this entry's trigger; a failed annotator still stores an unstated grade as `Associative`. The flag
-set grows the same way, one flag per consumer that must be sure of a step.
+which was this entry's trigger; a failed annotator still stores an unstated grade as `Associative`. **An
+annotator that fails without throwing says so** with `MemoryAnnotation.Unanswered` (`Answered: false`), apart
+from `None`, an answer about nothing — verification's `NoOpinion`/`NothingRelevant` split. The shipped one
+returns it on every failure path, an unparseable reply included, since a reply outside the shape asked for is
+no answer. Rejected: redefining `None` as unanswered, which would leave a BYO annotator that answers "about
+nothing" with it retried by every rebuild, forever. The flag set grows the same way, one flag per consumer
+that must be sure of a step.
 
 **Deferred: a readiness probe** — "can the engine embed right now?". `Ran` serves the rebuild, and a public
 probe would publish the internal embedding route's filter for a need nobody has shown. **The trigger** is a

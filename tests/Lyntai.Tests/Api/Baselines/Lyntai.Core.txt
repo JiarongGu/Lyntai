@@ -1751,6 +1751,7 @@ sealed class Lyntai.Memory.Annotation.LlmMemoryAnnotationPolicy
     AnnotateAsync(MemoryAnnotationRequest request, CancellationToken ct = default) : Task<MemoryAnnotation>
 sealed class Lyntai.Memory.Annotation.MemoryAnnotation
     .ctor(IReadOnlyList<String> Subjects, Nullable<MemoryGrade> Grade = null)
+    Answered : Boolean { get; init; }
     Deconstruct(IReadOnlyList`1& Subjects, Nullable`1& Grade) : Void
     Equals(MemoryAnnotation other) : Boolean
     Equals(Object obj) : Boolean
@@ -1759,6 +1760,7 @@ sealed class Lyntai.Memory.Annotation.MemoryAnnotation
     Subjects : IReadOnlyList<String> { get; init; }
     ToString() : String
     static None : MemoryAnnotation { get; }
+    static Unanswered : MemoryAnnotation { get; }
 sealed class Lyntai.Memory.Annotation.MemoryAnnotationRequest
     .ctor(MemoryWrite Write, IReadOnlyList<String> Recent, IReadOnlyList<String> Known)
     .ctor(MemoryWrite write, IReadOnlyList<String> recent)

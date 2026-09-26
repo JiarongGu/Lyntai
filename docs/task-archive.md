@@ -5098,3 +5098,14 @@ collapse to a leading date. The mechanism is `docs/FIXES.md` 2026-09-26; the con
 refusal to split on sentences stands.
 
 - Cut a derived headline or a judge note where the text allows, not at its last space however early
+
+## Part 303 — an annotator that did not answer leaves `MemorySources.Annotation` off (2026-09-26)
+
+✅ done 2026-09-26 — **Outcome:** closes the second item of `TASKS.md` Part 301. `MemoryAnnotation.Unanswered`
+(`Answered: false`) is apart from `None`, an answer about nothing; `LlmMemoryAnnotationPolicy` returns it on
+every failure path, an unparseable reply included, and the graph engine records nothing it carries and leaves
+the flag off. The choice, and the rejected redefinition of `None`, are **D175**'s amendment; the mechanism is
+`docs/FIXES.md` 2026-09-26; `docs/memory.md` §Know whether a write kept its vector and the enum's own doc now
+say what a BYO annotator must return on a failure.
+
+- Let the shipped LLM annotator say it did not answer, so `MemorySources.Annotation` sees a failure

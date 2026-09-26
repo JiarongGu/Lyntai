@@ -716,8 +716,11 @@ with `HasFlag`, since flags may be added:
   nothing was linked. With `GraphMemoryOptions.SimilarityK` at zero nothing is embedded, so no write
   carries it, while a recall still reports it (there it means enrichment is wired). **`Annotation`** when the
   annotator answered for this write — with subjects or with none — and what it answered was recorded; absent
-  when no annotator is wired, when it failed or timed out, or when the subject index refused the write, since
-  the entry is then stored without its subjects for good. A recall reports it when an annotator is wired.
+  when no annotator is wired, when it threw or answered `MemoryAnnotation.Unanswered` (the shipped one does on
+  a refused call, an empty or unparseable reply and a timeout), or when the subject index refused the write,
+  since the entry is then stored without its subjects for good. An annotator of your own returns
+  `MemoryAnnotation.None` only for a fact about nothing: returned on a failure, it sets the flag. A recall
+  reports it when an annotator is wired.
 - **Semantic** — `Semantic`, which already means the vector exists (the store throws on a failed embed), and
   never `Similarity`. Over the shipped `SemanticMemory`, a BLANK write stores nothing and reports `None`, so a
   rebuild skips it rather than waiting on it.

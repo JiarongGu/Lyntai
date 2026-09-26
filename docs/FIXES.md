@@ -7,6 +7,28 @@ to `.claude/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-09-26 — a graph write reported `Annotation` when the shipped annotator never answered
+
+**Symptom.** Reported by an adopting application planning its 3.2.0 → 3.4.0 upgrade (`TASKS.md` Part 301): with
+a signed-out CLI, a refused call or a timeout, every write still carried `MemorySources.Annotation`, which
+`CHANGELOG.md` 3.4.0 and `docs/memory.md` say is absent when the annotator "failed or timed out". Its rebuild,
+the flag's reason to exist, would have counted each of those writes as annotated.
+
+**Root cause.** `LlmMemoryAnnotationPolicy` fails open inside itself: every failure path returned
+`MemoryAnnotation.None`, the value an answer "about nothing" parses to, and the engine counts any return as an
+answer. Only a policy that THREW reached the engine's own catch, and that was the one failure
+`GraphAnnotationRanTests` drove — so the flag detected only a refused subject-index write.
+
+**Fix.** `MemoryAnnotation.Answered` (an init property, so `Deconstruct` keeps its arity) and
+`MemoryAnnotation.Unanswered`; the shipped policy returns it on a non-Ok verdict, an empty or unparseable reply
+and a throw, and the engine records nothing an unanswered annotation carries (**D175**, amended).
+
+**Verify.** `GraphAnnotationRanTests`' three new facts — a policy failing without throwing, the shipped one
+refused, and an unanswered annotation's subjects and grade left unrecorded — failed before (the member did
+not exist); the annotation contract's fail-open and own-timeout facts now assert `Answered` false.
+
+**Introduced by.** `9bb72aca` (2026-09-26), which added the flag and tested it only with a throwing annotator.
+
 ## 2026-09-26 — a Chinese memory's derived headline showed only its leading date
 
 **Symptom.** Reported by an adopting application planning its 3.2.0 → 3.4.0 upgrade (`TASKS.md` Part 301): a

@@ -55,9 +55,10 @@ public sealed class LlmAnnotationOptions
 /// reusable handles rather than descriptions: two facts link because their subjects MATCH, and a model that
 /// phrases the same entity differently each time links nothing while looking like it worked.</para>
 ///
-/// <para><b>Fail-open, always.</b> Any failure yields <see cref="MemoryAnnotation.None"/>, which the engine
-/// treats exactly as having no annotator — memory that stops accepting facts because a model is down is
-/// worse than memory with no model.</para>
+/// <para><b>Fail-open, always.</b> Any failure — a non-Ok verdict, an empty or unparseable reply, a timeout, a
+/// throw — yields <see cref="MemoryAnnotation.Unanswered"/>, which the engine treats as having no annotator
+/// but does not report as annotated: memory that stops accepting facts because a model is down is worse
+/// than memory with no model.</para>
 /// </summary>
 /// <param name="clients">Resolves the configured client by name.</param>
 /// <param name="options">Knobs; null takes the defaults.</param>
@@ -125,7 +126,7 @@ public sealed class LlmMemoryAnnotationPolicy(
             if (reply.Verdict != ProviderVerdict.Ok || string.IsNullOrWhiteSpace(reply.Text))
             {
                 _logger.LogDebug("annotation returned {Verdict}; storing without subjects", reply.Verdict);
-                return MemoryAnnotation.None;
+                return MemoryAnnotation.Unanswered;
             }
 
             return Parse(reply.Text);
@@ -138,7 +139,7 @@ public sealed class LlmMemoryAnnotationPolicy(
         {
             // FAIL-OPEN: the engine treats this exactly as having no annotator
             _logger.LogWarning(ex, "annotation failed; storing without subjects");
-            return MemoryAnnotation.None;
+            return MemoryAnnotation.Unanswered;
         }
     }
 
@@ -165,7 +166,7 @@ public sealed class LlmMemoryAnnotationPolicy(
     /// <summary>
     /// Reads the subjects out of a reply, tolerating the wrappers a model adds around JSON.
     ///
-    /// <para><b>Anything unparseable is NO OPINION, never a guess.</b> Salvaging a malformed reply — taking
+    /// <para><b>Anything unparseable is UNANSWERED, never a guess.</b> Salvaging a malformed reply — taking
     /// the first line, splitting on commas — would invent subjects the model did not commit to, and a wrong
     /// subject links two unrelated facts PERMANENTLY. A missed link costs one recall; a wrong one corrupts
     /// the graph, so the asymmetry decides the behaviour.</para>
@@ -175,14 +176,14 @@ public sealed class LlmMemoryAnnotationPolicy(
         if (!JsonExtract.TryParseObject(text, out var json))
         {
             _logger.LogDebug("annotation reply held no JSON object; storing without subjects");
-            return MemoryAnnotation.None;
+            return MemoryAnnotation.Unanswered;
         }
 
         using (json)
         {
             if (!json.RootElement.TryGetProperty("subjects", out var subjects)
                 || subjects.ValueKind != JsonValueKind.Array)
-                return MemoryAnnotation.None;
+                return MemoryAnnotation.Unanswered;
 
             var handles = subjects.EnumerateArray()
                 .Where(s => s.ValueKind == JsonValueKind.String)

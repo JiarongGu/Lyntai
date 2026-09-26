@@ -121,9 +121,12 @@ public enum MemorySources
     Similarity = 16,
     /// <summary>The annotation tier, which records what an entry is about. <b>On a write it reports
     /// CONTRIBUTION</b>: the annotator answered for this write — with subjects or with none — and what it
-    /// answered was recorded. Absent when no annotator is wired, when it failed or timed out, or when recording
-    /// its subjects failed, since the entry is then stored without them for good: a rebuild that needs them
-    /// retries the write. <b>On a recall it reports CONFIGURATION</b>: an annotator is wired, as
+    /// answered was recorded. Absent when no annotator is wired, when it threw or answered
+    /// <see cref="Lyntai.Memory.Annotation.MemoryAnnotation.Unanswered"/> — the shipped one does on a refused
+    /// call, an empty or unparseable reply and a timeout — or when recording its subjects failed, since the entry
+    /// is then stored without them for good: a rebuild that needs them retries the write. An annotator
+    /// answering <see cref="Lyntai.Memory.Annotation.MemoryAnnotation.None"/> on a failure sets it.
+    /// <b>On a recall it reports CONFIGURATION</b>: an annotator is wired, as
     /// <see cref="Similarity"/> does, and for the same reason — its edges are indistinguishable by then.</summary>
     Annotation = 32,
 }

@@ -30,8 +30,9 @@ public interface IMemoryAnnotationPolicy
     /// <summary>Judge what <paramref name="request"/>'s write is about.</summary>
     /// <param name="request">The write, plus the recent entries that make a pronoun resolvable.</param>
     /// <param name="ct">Cancellation.</param>
-    /// <returns>The subjects it concerns, and optionally a grade. Never null; an implementation with no
-    /// opinion returns <see cref="MemoryAnnotation.None"/>.</returns>
+    /// <returns>The subjects it concerns, and optionally a grade. Never null. An implementation that judged
+    /// the fact about nothing returns <see cref="MemoryAnnotation.None"/>; one that could not judge — its model
+    /// failed, refused or timed out — returns <see cref="MemoryAnnotation.Unanswered"/>.</returns>
     Task<MemoryAnnotation> AnnotateAsync(MemoryAnnotationRequest request, CancellationToken ct = default);
 }
 
@@ -62,13 +63,24 @@ public sealed record MemoryAnnotationRequest(
 /// <param name="Subjects">The entities or topics it concerns, as stable handles a later fact about the same
 /// entity would produce again ("spouse", "配偶", "deploy-key"). <b>Stability across writes is the whole
 /// mechanism</b>: two facts link because their subjects MATCH, so an annotator that phrases the same entity
-/// differently each time connects nothing. Empty means "no opinion" and links nothing.</param>
+/// differently each time connects nothing. Empty links nothing.</param>
 /// <param name="Grade">A suggested grade, applied ONLY when the write did not state one
 /// (<see cref="MemoryGrade.Inherit"/>). An explicit grade from the caller always wins — a model may advise
 /// what matters, never overrule what the application already decided.</param>
 public sealed record MemoryAnnotation(IReadOnlyList<string> Subjects, MemoryGrade? Grade = null)
 {
-    /// <summary>No opinion: no subjects, no grade. What an implementation returns when it cannot judge, and
-    /// what the engine behaves identically to having no annotator at all for.</summary>
+    /// <summary>An answer that the fact is about nothing worth connecting: no subjects, no grade. The engine
+    /// links nothing, and reports <see cref="MemorySources.Annotation"/> — the write was annotated.</summary>
     public static MemoryAnnotation None { get; } = new([]);
+
+    /// <summary>No answer: the annotator could not judge. The engine links nothing and does not report
+    /// <see cref="MemorySources.Annotation"/>, so a rebuild can retry the write.</summary>
+    public static MemoryAnnotation Unanswered { get; } = new([]) { Answered = false };
+
+    /// <summary>Whether the annotator judged the fact. <b>False is not the same as empty
+    /// <see cref="Subjects"/></b> — "could not judge" is not "about nothing" — which is
+    /// <see cref="Lyntai.Memory.Verification.MemoryVerification.Judged"/>'s distinction on the annotation seam.
+    /// When false the engine ignores <see cref="Subjects"/> and <see cref="Grade"/>. An init property rather
+    /// than a positional parameter, so the record's <c>Deconstruct</c> keeps its arity.</summary>
+    public bool Answered { get; init; } = true;
 }

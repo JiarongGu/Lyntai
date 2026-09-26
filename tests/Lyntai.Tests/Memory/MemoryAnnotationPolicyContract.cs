@@ -48,7 +48,9 @@ public static class MemoryAnnotationPolicyContract
         Assert.NotNull(annotation.Subjects);
     }
 
-    /// <summary><b>FAIL-OPEN: a broken policy yields no opinion, never an exception.</b> The one fact here
+    /// <summary><b>FAIL-OPEN: a broken policy yields no opinion, never an exception</b> — and says it did not
+    /// answer, or the engine reports <see cref="MemorySources.Annotation"/> for a write stored without its
+    /// subjects (<c>docs/DECISIONS.md</c> D175). The one fact here
     /// that a live test cannot produce on demand and the one whose violation is worst — memory that stops
     /// accepting facts because a model is down is worse than memory with no model at all.
     /// <para>The driver supplies a policy it has broken however its implementation can be broken (for the
@@ -62,6 +64,7 @@ public static class MemoryAnnotationPolicyContract
         Assert.NotNull(annotation);
         Assert.Empty(annotation.Subjects);
         Assert.Null(annotation.Grade);
+        Assert.False(annotation.Answered);
     }
 
     /// <summary><b>A policy's OWN timeout is a MODEL failure, not a cancellation.</b> The case that falls
@@ -80,6 +83,7 @@ public static class MemoryAnnotationPolicyContract
         Assert.NotNull(annotation);
         Assert.Empty(annotation.Subjects);
         Assert.Null(annotation.Grade);
+        Assert.False(annotation.Answered);
     }
 
     /// <summary>Cancellation is never swallowed. A remember runs inside the caller's own token, and an

@@ -19,7 +19,21 @@ every addition.
 
 ## Unreleased
 
+### Added
+
+- **`MemoryAnnotation.Unanswered` and `MemoryAnnotation.Answered`** (**D175**): an annotator that could not
+  judge says so, apart from `MemoryAnnotation.None`, an answer that the fact is about nothing. The graph engine
+  records nothing an unanswered annotation carries and leaves `MemorySources.Annotation` off the write, as for
+  one that throws. A BYO annotator returning `None` on a failure keeps setting the flag until it returns
+  `Unanswered` there instead.
+
 ### Fixed
+
+- **`MemorySources.Annotation` is absent when the shipped annotator did not answer.** `LlmMemoryAnnotationPolicy`
+  returned `MemoryAnnotation.None` on a refused or non-Ok call, an empty or unparseable reply and its own
+  timeout — the value an answer "about nothing" parses to — so a write stored without its subjects was
+  reported as annotated, and a rebuild keying on the flag missed every one. It now returns
+  `MemoryAnnotation.Unanswered` on each of them.
 
 - **A derived headline, and a judge's content note, are cut near their cap in a spaceless script.** Both cut at
   the last space within `GraphMemoryOptions.HeadlineChars` / `LlmVerificationOptions.ContentChars` wherever it

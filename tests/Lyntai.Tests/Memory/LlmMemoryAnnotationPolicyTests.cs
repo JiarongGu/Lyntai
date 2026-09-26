@@ -86,6 +86,7 @@ public class LlmMemoryAnnotationPolicyTests
 
         Assert.Empty(annotation.Subjects);
         Assert.Null(annotation.Grade);
+        Assert.False(annotation.Answered);
     }
 
     /// <summary>A non-Ok verdict — a refusal, a rate limit, a budget stop — is not an annotation. Reading
@@ -97,6 +98,18 @@ public class LlmMemoryAnnotationPolicyTests
             new ScriptedTextClient("""{"subjects":["spouse"]}""", ProviderVerdict.Refused));
 
         Assert.Empty(annotation.Subjects);
+        Assert.False(annotation.Answered);
+    }
+
+    /// <summary>An empty list in the shape asked for IS an answer — the fact is about nothing worth connecting
+    /// — and must not read as a failure a rebuild would retry forever.</summary>
+    [Fact]
+    public async Task An_empty_subject_list_is_an_answer()
+    {
+        var annotation = await AnnotateAsync(new ScriptedTextClient("""{"subjects":[]}"""));
+
+        Assert.Empty(annotation.Subjects);
+        Assert.True(annotation.Answered);
     }
 
     /// <summary>Bounded: an over-eager list cannot turn one write into an unbounded number of edges.</summary>

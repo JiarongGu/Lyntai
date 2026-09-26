@@ -1,7 +1,10 @@
+using System.Globalization;
+using Lyntai.Inference;
 using Lyntai.Memory;
 using Lyntai.Memory.Annotation;
 using Lyntai.Memory.Engines;
 using Lyntai.Storage.InMemory;
+using Lyntai.Tests.Fakes;
 
 namespace Lyntai.Tests.Memory;
 
@@ -53,6 +56,48 @@ public class GraphAnnotationRanTests
 
         Assert.False(result.Ran.HasFlag(MemorySources.Annotation));
         Assert.NotEmpty(result.Reference.Id);                    // the fact itself is kept
+    }
+
+    private sealed class DoesNotAnswer(MemoryAnnotation unanswered) : IMemoryAnnotationPolicy
+    {
+        public Task<MemoryAnnotation> AnnotateAsync(MemoryAnnotationRequest request, CancellationToken ct = default) =>
+            Task.FromResult(unanswered);
+    }
+
+    [Fact]
+    public async Task An_annotator_that_fails_WITHOUT_throwing_leaves_the_flag_off()
+    {
+        var result = await Write(Engine(new DoesNotAnswer(MemoryAnnotation.Unanswered)));
+
+        Assert.False(result.Ran.HasFlag(MemorySources.Annotation));
+        Assert.NotEmpty(result.Reference.Id);
+    }
+
+    /// <summary>The shipped annotator answers a refused call by saying it did not answer, not with an empty
+    /// answer — the case the flag existed for and did not see.</summary>
+    [Fact]
+    public async Task The_shipped_annotator_refused_by_its_model_leaves_the_flag_off()
+    {
+        var refused = new ScriptedTextClient("""{"subjects":["deploy key"]}""", ProviderVerdict.Refused);
+        var annotator = new LlmMemoryAnnotationPolicy(new SingleTextClientFactory(refused));
+
+        var result = await Write(Engine(annotator));
+
+        Assert.False(result.Ran.HasFlag(MemorySources.Annotation));
+    }
+
+    [Fact]
+    public async Task What_an_unanswered_annotation_carries_is_not_recorded()
+    {
+        var store = new InMemoryMemoryGraphStore();
+        var unanswered = new MemoryAnnotation(["deploy key"], MemoryGrade.Authoritative) { Answered = false };
+
+        var result = await Write(Engine(new DoesNotAnswer(unanswered), store));
+
+        Assert.False(result.Ran.HasFlag(MemorySources.Annotation));
+        Assert.Empty(await store.KnownSubjectsAsync("graph", "t", "s", 10));
+        var node = await store.GetAsync("graph", long.Parse(result.Reference.Id, CultureInfo.InvariantCulture));
+        Assert.Equal(MemoryGrade.Associative, node!.Grade);
     }
 
     [Fact]

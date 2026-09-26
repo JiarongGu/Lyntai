@@ -286,9 +286,10 @@ public sealed class GraphMemoryEngine(
     }
 
     /// <summary>Ask the annotator what this fact is about, showing it recent entries so a pronoun is
-    /// resolvable. BEST-EFFORT: no annotator, or a failing one, yields <see cref="MemoryAnnotation.None"/>
-    /// and the write proceeds exactly as it would have — the model-free floor is not negotiable. <c>Answered</c>
-    /// is false for both, which is what <see cref="MemorySources.Annotation"/> reports.</summary>
+    /// resolvable. BEST-EFFORT: no annotator, a failing one, or one answering
+    /// <see cref="MemoryAnnotation.Answered"/> false yields <see cref="MemoryAnnotation.None"/> and the write
+    /// proceeds exactly as it would have — the model-free floor is not negotiable. <c>Answered</c> is false for
+    /// all three, which is what <see cref="MemorySources.Annotation"/> reports.</summary>
     private async Task<(MemoryAnnotation Annotation, bool Answered)> AnnotateAsync(MemoryWrite write, CancellationToken ct)
     {
         if (_annotation is null) return (MemoryAnnotation.None, false);
@@ -311,8 +312,10 @@ public sealed class GraphMemoryEngine(
                 : await store.KnownSubjectsAsync(Name, write.TaskKey, write.Scope,
                     _options.AnnotationKnownSubjects, ct).ConfigureAwait(false);
 
-            return ((await _annotation.AnnotateAsync(new MemoryAnnotationRequest(write, recent, known), ct)
-                .ConfigureAwait(false)) ?? MemoryAnnotation.None, true);
+            var annotation = await _annotation.AnnotateAsync(new MemoryAnnotationRequest(write, recent, known), ct)
+                .ConfigureAwait(false);
+            // what an unanswered annotation carries is not an answer, so none of it is recorded
+            return annotation is { Answered: true } ? (annotation, true) : (MemoryAnnotation.None, false);
         }
         // Only the CALLER's cancellation propagates, as on VerifyAsync and for the same reason: an
         // annotator's own timeout arrives as a TaskCanceledException — which IS an
