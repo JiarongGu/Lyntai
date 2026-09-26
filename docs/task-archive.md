@@ -5266,3 +5266,17 @@ deliberately left undone — closed: the A1111 down-host ruling (Part 297), the 
 the test comment sweep (Part 317).
 
 - What the full review left open
+
+## Part 319 — SentencePiece tokenization for the ONNX provider (2026-09-26)
+
+✅ done 2026-09-26 — **Outcome:** `TASKS.md` Part 298's first item. D122's trigger fired and **D191** decided it:
+an owned, public `Lyntai.Text.SentencePieceTokenizer` reads the Unigram pipeline a `tokenizer.json` declares and
+refuses any other component by name; `OnnxProvider` loads it when a directory has no `vocab.txt`, framing rows in
+the model's own layout (XLM-R's `<s> q </s></s> d </s>`, every segment 0). `WordPieceEncoding` became
+`TokenEncoding` (`### Breaking`). Pinned against HF `tokenizers` and C++ `sentencepiece` by the committed fixture
+`devtools/onnx/spm-fixture.py` generates, and live against the C++ port and both multilingual exports. It also
+fixed a latent window two positions past a RoBERTa-family position table (`docs/FIXES.md`). The ruling it did NOT
+take is `TASKS.md` Part 320; a quantized graph's figures moving between runtimes is a `pitfalls.md` trap. Spec:
+`local/superpowers/specs/2026-09-26-sentencepiece-tokenizer-design.md`.
+
+- SentencePiece tokenization for the ONNX provider — D122's trigger has fired

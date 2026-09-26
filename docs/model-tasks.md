@@ -262,7 +262,9 @@ for basic literacy and 7,000 for general text, so Chinese tokenizes STRUCTURALLY
 its own token, pinned by a live test against this vocabulary) and then misses the table constantly; Korean
 cannot work at all. **This is the same floor §3 records for the reranker role, arriving by the same
 route** — a multilingual vocabulary is most of a small model's parameters. A CJK-first deployment needs a
-multilingual export, and the caveat in D122 is that those are usually SentencePiece rather than WordPiece.
+multilingual export, and those are usually SentencePiece rather than WordPiece — which the ONNX provider now
+loads from `tokenizer.json` (**D191**): `paraphrase-multilingual-MiniLM-L12-v2` and the `mmarco-mMiniLMv2`
+reranker run end to end. Loading is not fitting: the vocabulary floor above still decides what is small.
 
 **Three things the reranker row does not say, and each one matters more than the number.**
 

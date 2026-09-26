@@ -260,8 +260,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D188](#d188--a-chats-memory-binding-is-one-seam-with-a-read-half-and-a-write-half-2026-09-25) | 2026-09-25 | a chat's memory binding is ONE seam with a read half and a write half |
 | [D189](#d189--a-second-hosted-queue-vendor-is-its-own-provider-over-a-shared-internal-queue-engine-extracted-when-that-vendor-is-written-2026-09-25) | 2026-09-25 | a second hosted queue vendor is its OWN provider over a shared internal queue engine, extracted w… |
 | [D190](#d190--a-cli-spawns-tools-are-chosen-per-consumer-by-configuration-2026-09-26) | 2026-09-26 | a CLI spawn's tools are chosen per CONSUMER, by configuration |
+| [D191](#d191--the-sentencepiece-tokenizer-is-owned-and-reads-tokenizerjson-the-dependency-cannot-load-the-exports-2026-09-26) | 2026-09-26 | the SentencePiece tokenizer is OWNED and reads tokenizer.json: the dependency cannot load the exp… |
 
-**185 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**186 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -3450,6 +3451,8 @@ a related pair above an unrelated one on a real model and is skipped without one
 
 ## D122 — a dependency you use 5% of is written, not isolated: the static embedder owns its tokenizer and needs no package (2026-09-14)
 
+> **The trigger below fired: D191** owns a SentencePiece tokenizer; the dependency lost on substance. The rule stands.
+
 `Lyntai.Embeddings.Model2Vec` is gone, its contents split by KIND: the adapter (`Model2VecProvider`, <!-- drift-ok: the entry RECORDS this spelling (D152 retired it) -->
 `SafetensorsTable`, `AddModel2VecProvider`) is in **`Lyntai.Providers.Basic`** under its existing namespace;
 the logic it needed, `WordPieceTokenizer`, is public in **`Lyntai.Core`** (`Lyntai.Text`) and replaces
@@ -3488,9 +3491,7 @@ LOST rather than mis-split, all corrected here (`docs/FIXES.md`).
 **The TRIGGER that reopens this: a model that is not WordPiece.** The rule holds because WordPiece over a
 `vocab.txt` is ~250 lines; SentencePiece is not, and is what `Google.Protobuf` was in that 812 KB for. The
 shipped vocabulary is English (`docs/model-tasks.md` §3 has the composition), so a CJK-first deployment
-needs a multilingual export — and those are usually SentencePiece. **Do not read this entry as having
-answered that**; the algorithm is language-agnostic and pinned on CJK by a live test, only the vocabulary
-is not.
+needs a multilingual export — and those are usually SentencePiece.
 
 ## D123 — a package boundary must isolate a dependency the consumer can REFUSE; the MEAI bridge folds into Providers.Default (2026-09-14)
 
@@ -5598,3 +5599,25 @@ Seam only: every app wanting "no tools on this call" would write its own provisi
 the only abstract one: a decorator forwarding only the old member would become a compile error instead of a
 silent request-blind pass-through, at the cost of an edit for every implementer; the default was kept, and the
 XML doc says a decorator forwards both.
+
+## D191 — the SentencePiece tokenizer is OWNED and reads tokenizer.json: the dependency cannot load the exports (2026-09-26)
+
+`Lyntai.Text.SentencePieceTokenizer` (Core, public) runs the Unigram pipeline a `tokenizer.json` declares — the
+precompiled normalizer, `WhitespaceSplit` + `Metaspace`, Unigram, a template post-processor — and refuses any other
+component by name. `OnnxProvider` takes it when a model directory has no `vocab.txt`, which is how the XLM-R family
+of multilingual embedders and rerankers loads. `WordPieceEncoding` became `TokenEncoding`, since both return it. <!-- drift-ok: the entry records the rename -->
+
+**D122's trigger fired, and the dependency lost on SUBSTANCE before its 812 KB was priced.** `Microsoft.ML.Tokenizers`
+reads only the protobuf `.model`; gte-multilingual and jina-v3 ship none, and XLM-R's graph ids are the `.model`'s
+shifted by one (fairseq), a mapping only `tokenizer.json` carries. **`tokenizer.json` for the same reason**: it is the
+one file every candidate ships, and it states the ids the graph was trained on.
+
+**Owning is safe because it is testable twice**: a committed golden from HF `tokenizers` (the reference for the file)
+cross-checked against C++ `sentencepiece` by `devtools/onnx/spm-fixture.py`, and the C++ port live over the real model.
+**Reproduce HF where the two part, never fix it**: the precompiled normalizer replaces a short grapheme cluster whole
+by its SHORTEST key, which splits them on stacked combining marks; a fix would disagree with every model tuned through HF.
+
+**Special tokens typed in text stay TEXT** — C++ SentencePiece's and WordPiece's behaviour, not HF's, which parses
+`<s>` as a control token. The alternative lets a document's content change the structure of the sequence it is
+embedded as. **Trigger to reopen**: an export declaring a component outside the supported set (BPE, ByteLevel,
+byte fallback) — add it with a golden, never approximate it.
