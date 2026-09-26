@@ -15,25 +15,23 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 12 across 5 Parts: 7 startable, 2 blocked, 2 watch, 1 decision-only
+## Open items — 10 across 5 Parts: 5 startable, 2 blocked, 2 watch, 1 decision-only
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 113 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a free Hugging Face account (an hf_ token) — its router proxies fal's own q… |
-| 160 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 183 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 239 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
-| 270 | 298 | Change the embedder without rebuilding the graph | startable |  |
-| 272 | 298 | Read a stored vector back by id, or cache embeddings on the vector call | startable |  |
-| 274 | 298 | Filtered nearest-neighbour search | startable |  |
-| 276 | 298 | Edit the text provider set at run time | startable |  |
-| 279 | 298 | Schedules added at run time, persisted | startable |  |
-| 281 | 298 | Trace and score front-door calls without a wrapper | startable |  |
-| 284 | 298 | Job progress as a message code plus arguments | startable |  |
-| 291 | 320 | Honour `sentence_bert_config.json`'s `max_seq_length`? | decision-only · decision | a ruling: honouring it changes existing vectors — all-MiniLM-L6-v2 declares… |
+| 111 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a free Hugging Face account (an hf_ token) — its router proxies fal's own q… |
+| 158 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 181 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 237 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 268 | 298 | Change the embedder without rebuilding the graph | startable |  |
+| 270 | 298 | Read a stored vector back by id, or cache embeddings on the vector call | startable |  |
+| 272 | 298 | Filtered nearest-neighbour search | startable |  |
+| 274 | 298 | Edit the text provider set at run time | startable |  |
+| 277 | 298 | Trace and score front-door calls without a wrapper | startable |  |
+| 285 | 320 | Honour `sentence_bert_config.json`'s `max_seq_length`? | decision-only · decision | a ruling: honouring it changes existing vectors — all-MiniLM-L6-v2 declares… |
 
 <!-- open-items:end -->
 
@@ -276,13 +274,9 @@ part of the work._
 - [ ] **Edit the text provider set at run time.** An app whose users add and edit endpoints rebuilds its whole <!-- item: state=startable -->
   container to change them, losing in-memory state such as the usage budget; the media side has a provider
   pool for exactly this (`docs/generation.md` §10).
-- [ ] **Schedules added at run time, persisted.** `JobScheduler` runs only the schedules registered at build <!-- item: state=startable -->
-  time, so an app with user-authored schedules runs its own cron ticker beside it.
 - [ ] **Trace and score front-door calls without a wrapper.** An app wraps `ITextClient` to write a run trace <!-- item: state=startable -->
   and run the deterministic scorers on every call; nothing in the inference layer calls the trace or scoring
   services.
-- [ ] **Job progress as a message code plus arguments.** `JobContext` progress takes a plain string, so an app <!-- item: state=startable -->
-  that localizes its status text keeps its own job system for that alone.
 
 ## Part 320 — found while loading a SentencePiece export (2026-09-26)
 

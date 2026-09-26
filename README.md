@@ -905,6 +905,26 @@ cfg.AddCronSchedule("weekday-9am", lane: "reports", type: "report", payload: "{}
 await scheduler.RunAsync(ct);   // in your IHostedService, alongside runner.RunAsync
 ```
 
+**Schedules your users author** go in an `IJobScheduleStore`, which the scheduler lists on every tick after the
+registered ones; a changed cron or interval re-anchors rather than firing at the old slot. **Status a UI
+localizes** is a `JobMessage`: its `Text` is what any reader shows, and its `Code` and `Arguments` are what a
+translation looks up and fills in — the generation job engine reports its stages this way
+(`GenerationJobMessages`):
+
+<!-- compile-given: IJobScheduleStore schedules;
+     JobContext ctx; -->
+```csharp
+cfg.AddJobScheduleStore();   // kept in the key-value store — any storage backend
+await schedules.SetAsync(new JobSchedule("user-42-digest", "reports", "digest", "{}", Cron: "0 18 * * *"));
+await schedules.RemoveAsync("user-42-digest");
+
+await ctx.ReportStageAsync(3, 10, new JobMessage("Copying 3 of 10")
+{
+    Code = "copy.progress",
+    Arguments = new Dictionary<string, string> { ["done"] = "3", ["total"] = "10" },
+});
+```
+
 ### Guards, orchestration, secrets, vision
 
 - **Guards** (`Lyntai.Guards`) — `IGuard`s inspect requests/replies and Allow/Block/Replace; `AddGuard<T>()`

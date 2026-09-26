@@ -5280,3 +5280,18 @@ take is `TASKS.md` Part 320; a quantized graph's figures moving between runtimes
 `local/superpowers/specs/2026-09-26-sentencepiece-tokenizer-design.md`.
 
 - SentencePiece tokenization for the ONNX provider — D122's trigger has fired
+
+## Part 321 — run-time job schedules, and job progress as a message code (2026-09-26)
+
+✅ done 2026-09-26 — **Outcome:** two of `TASKS.md` Part 298's items, decided in **D192**. `IJobScheduleStore`
+(list/get/set/remove) holds schedules added at run time; `JobScheduler` lists it every tick after the build-time
+ones, and `KeyValueJobScheduleStore` (`AddJobScheduleStore()`) ships it over the key-value store. The scheduler now
+records each schedule's trigger and re-anchors one whose cron or interval changed. `JobMessage` carries a status
+line's `Text` with a `Code` and `Arguments`, reported through `JobContext.ReportStageAsync`/`ReportStepAsync(JobMessage)`
+and two REQUIRED `IJobStore` members (`### Breaking`), the stage's detail in the new `stage_detail` column
+(`M202609262244`); the generation job engine reports `GenerationJobMessages` codes. The design review collapsed a
+planned read-only `*Source` seam into the one store interface. Spec:
+`local/superpowers/specs/2026-09-26-job-schedules-and-messages-design.md`.
+
+- Schedules added at run time, persisted
+- Job progress as a message code plus arguments

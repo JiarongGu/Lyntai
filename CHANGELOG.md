@@ -30,11 +30,23 @@ every addition.
 
 ### Changed
 
+- **A schedule whose cron or interval changed is re-anchored** rather than fired once more at the slot the old
+  trigger computed — a build-time schedule edited between deployments included. A schedule with no recorded
+  trigger, which is every schedule on the first tick after upgrading, is recorded and left alone.
 - **A graph write embeds before it annotates**, where it annotated first. Both still precede the upsert, and
   neither reads the other, so what is stored is unchanged; an annotator now sees its call after the embed's.
 
 ### Added
 
+- **Schedules added at run time** (**D192**): `IJobScheduleStore` — list, get, set, remove — holds them, and
+  `JobScheduler` lists it on every tick after the build-time schedules, which win a name clash; a store that fails
+  is skipped for that tick and warned about once per failure run. `KeyValueJobScheduleStore`, registered by
+  `AddJobScheduleStore()`, keeps them in the key-value store, one key per schedule; `AddJobScheduleStore<TStore>()`
+  registers a store of your own.
+- **Job status a reader can localize** (**D192**): `JobMessage` carries a line's `Text` with a `Code` and
+  `Arguments`. `JobContext.ReportStageAsync` and `ReportStepAsync(JobMessage)` report one; `JobRecord.StageMessage`,
+  `JobContext.StageMessage` and `JobStep.Code`/`Arguments` read it back. The generation job engine reports its
+  stages under `GenerationJobMessages` codes, with the same English text.
 - **`SentencePieceTokenizer`** (**D191**): SentencePiece Unigram tokenization read from a model's `tokenizer.json`
   — what the XLM-R family of multilingual embedders and rerankers ships — pinned id for id against HF
   `tokenizers` and C++ SentencePiece. It runs the precompiled normalizer and `Replace` rules, `WhitespaceSplit` +

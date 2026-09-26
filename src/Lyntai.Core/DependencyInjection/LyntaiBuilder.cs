@@ -340,7 +340,8 @@ public sealed class LyntaiBuilder
 
     /// <summary>Keep schedules added at run time in a store of the app's own — its database, its UI's records. The
     /// first schedule store registered wins.</summary>
-    public LyntaiBuilder AddJobScheduleStore<TStore>() where TStore : class, IJobScheduleStore
+    public LyntaiBuilder AddJobScheduleStore<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TStore>()
+        where TStore : class, IJobScheduleStore
     {
         Services.TryAddSingleton<IJobScheduleStore, TStore>();
         return this;

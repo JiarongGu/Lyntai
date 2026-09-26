@@ -261,8 +261,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D189](#d189--a-second-hosted-queue-vendor-is-its-own-provider-over-a-shared-internal-queue-engine-extracted-when-that-vendor-is-written-2026-09-25) | 2026-09-25 | a second hosted queue vendor is its OWN provider over a shared internal queue engine, extracted w… |
 | [D190](#d190--a-cli-spawns-tools-are-chosen-per-consumer-by-configuration-2026-09-26) | 2026-09-26 | a CLI spawn's tools are chosen per CONSUMER, by configuration |
 | [D191](#d191--the-sentencepiece-tokenizer-is-owned-and-reads-tokenizerjson-the-dependency-cannot-load-the-exports-2026-09-26) | 2026-09-26 | the SentencePiece tokenizer is OWNED and reads tokenizer.json: the dependency cannot load the exp… |
+| [D192](#d192--run-time-job-schedules-are-a-seam-over-the-key-value-store-and-a-coded-job-message-takes-required-store-members-2026-09-26) | 2026-09-26 | run-time job schedules are a seam over the key-value store, and a coded job message takes require… |
 
-**186 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**187 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -5621,3 +5622,29 @@ by its SHORTEST key, which splits them on stacked combining marks; a fix would d
 `<s>` as a control token. The alternative lets a document's content change the structure of the sequence it is
 embedded as. **Trigger to reopen**: an export declaring a component outside the supported set (BPE, ByteLevel,
 byte fallback) — add it with a golden, never approximate it.
+
+## D192 — run-time job schedules are a seam over the key-value store, and a coded job message takes required store members (2026-09-26)
+
+`IJobScheduleStore` (list, get, set, remove) holds the schedules an app adds at run time; `JobScheduler` lists it on
+every tick after the build-time schedules, which win a name clash, and `KeyValueJobScheduleStore` ships it over
+`IKeyValueStore`, one key per schedule. A stage or step reported as a `JobMessage` keeps a code and arguments a
+reader can localize, through `JobContext.ReportStageAsync`/`ReportStepAsync(JobMessage)` and two new `IJobStore`
+members, the stage's detail in one additive nullable column.
+
+**A seam over KV, not a storage domain.** A table per backend would buy one thing: a conditional next-run update,
+so two scheduler processes could share a store. The scheduler is single-instance by contract today, so that is
+the **trigger to reopen**: a deployment needing two schedulers. Until then KV reaches every backend, FileSystem
+included, with no migration. **One interface, the whole read/write store**, as the repo's other stores are, so app
+code writes schedules the same way whichever store is registered; the rejected split — a read-only `*Source`
+the scheduler reads and a writable store beside it — named one concept twice.
+
+**A changed trigger re-anchors.** The scheduler records each schedule's cron or interval beside its next run; a
+different one re-anchors instead of firing once more at the old slot. None recorded — every schedule on upgrade —
+is recorded and left alone, so no due job is delayed.
+
+**The store members are REQUIRED.** A default forwarding the text would let a store of the app's own drop every
+code without a word — the silent hole **D99** takes a default only to avoid when it costs speed. So it is a
+`### Breaking` entry. **`ReportStageAsync` is a distinct name**, not a `ReportProgressAsync` overload: a
+`ReportProgressAsync(i, n, null, ct)` would turn ambiguous. And `JobContext`'s public constructor stays as it
+is — a second with differently typed reporter delegates would make every lambda argument ambiguous — so the
+runner uses an internal factory, and a context over string reporters receives each message's text.
