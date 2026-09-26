@@ -33,9 +33,10 @@ every addition.
 
 - **`SentencePieceTokenizer`** (**D191**): SentencePiece Unigram tokenization read from a model's `tokenizer.json`
   — what the XLM-R family of multilingual embedders and rerankers ships — pinned id for id against HF
-  `tokenizers` and C++ SentencePiece. It runs the precompiled normalizer, `WhitespaceSplit` + `Metaspace`,
-  Unigram, and the declared layout of special tokens; any other component is refused at load, by name. Special
-  tokens typed in text stay text.
+  `tokenizers` and C++ SentencePiece. It runs the precompiled normalizer and `Replace` rules, `WhitespaceSplit` +
+  `Metaspace`, Unigram, and the declared layout of special tokens; any other component is refused at load, by
+  name. Special tokens typed in text stay text. Checked against HF on paraphrase-multilingual-MiniLM,
+  multilingual-e5, bge-m3, jina-embeddings-v3 and gte-multilingual.
 - **`WordPieceTokenizer.Frame`** wraps content ids that are already tokenized in `[CLS]`/`[SEP]`, with no
   truncation — what `Encode` does after cutting to the window, for a caller that windows the ids itself.
 - **`MemoryAnnotation.Unanswered` and `MemoryAnnotation.Answered`** (**D175**): an annotator that could not
@@ -71,7 +72,8 @@ every addition.
 - **An XLM-R or MPNet ONNX export no longer takes a window past its position table.** The window read
   `max_position_embeddings` (514) alone, and those families hold two fewer tokens than they declare; it is now
   narrowed to the tokenizer's declared `model_max_length` (512) where that is smaller, so a long input is cut at
-  a length the graph can take. No BERT export's window moves.
+  a length the graph can take. A BERT export's window moves only where its `tokenizer_config.json` declares a
+  `model_max_length` below `max_position_embeddings` — where HF truncates too; all-MiniLM-L6-v2 declares both 512.
 - **`McpToolHostOptions.ToolsByConsumer` is read as it was checked** (**D190**). The map was validated when the
   provisioner was built but read on every spawn, so a list the caller still held could gain a name the check
   never saw, and a null list threw a bare `NullReferenceException`. It is now copied then; a null list is refused

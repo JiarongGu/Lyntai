@@ -5603,8 +5603,8 @@ XML doc says a decorator forwards both.
 ## D191 — the SentencePiece tokenizer is OWNED and reads tokenizer.json: the dependency cannot load the exports (2026-09-26)
 
 `Lyntai.Text.SentencePieceTokenizer` (Core, public) runs the Unigram pipeline a `tokenizer.json` declares — the
-precompiled normalizer, `WhitespaceSplit` + `Metaspace`, Unigram, a template post-processor — and refuses any other
-component by name. `OnnxProvider` takes it when a model directory has no `vocab.txt`, which is how the XLM-R family
+precompiled normalizer and `Replace` rules, `WhitespaceSplit` + `Metaspace`, Unigram, a template post-processor — and
+refuses any other component, and any non-special added token, by name. `OnnxProvider` takes it when a model directory has no `vocab.txt`, which is how the XLM-R family
 of multilingual embedders and rerankers loads. `WordPieceEncoding` became `TokenEncoding`, since both return it. <!-- drift-ok: the entry records the rename -->
 
 **D122's trigger fired, and the dependency lost on SUBSTANCE before its 812 KB was priced.** `Microsoft.ML.Tokenizers`

@@ -34,7 +34,9 @@ public sealed class SentencePieceTokenizer
     /// <summary>The piece each id stands for, in id order — the model's whole vocabulary.</summary>
     public IReadOnlyList<string> Pieces { get; }
 
-    /// <summary>Load the <c>tokenizer.json</c> in a model directory.</summary>
+    /// <summary>Load the <c>tokenizer.json</c> in a model directory. <b>Loading is the expensive step, and it is
+    /// once</b>: an XLM-R file (17 MB, 250,002 pieces) takes about a third of a second and keeps about 20 MB; a
+    /// loaded tokenizer is immutable and safe to share across threads.</summary>
     /// <param name="directory">A directory holding <c>tokenizer.json</c>.</param>
     /// <exception cref="FileNotFoundException">No <c>tokenizer.json</c> in the directory.</exception>
     /// <exception cref="InvalidDataException">The file is not a SentencePiece Unigram pipeline this runs.</exception>

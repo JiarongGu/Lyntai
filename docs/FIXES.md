@@ -19,7 +19,8 @@ tokenizer declares that 512 as `model_max_length`, and nothing read it.
 
 **Fix.** The window is `max_position_embeddings`, narrowed to `tokenizer_config.json`'s `model_max_length`
 where that is smaller. A larger declaration (potion writes 1,000,000; HF writes `int(1e30)` for "unset") never
-widens it, so no BERT export's window moves.
+widens it. A BERT export's window moves only where it declares a `model_max_length` below its positions, which is
+where HF's own truncation cuts; all-MiniLM-L6-v2 declares both 512.
 
 **Verify.** `SentenceTransformerConfigTests.The_window_is_the_position_limit_NARROWED_to_a_smaller_declared_model_max_length`
 (514 → 512 and 8194 → 8192 failed before; the sentinel and the larger declaration pin that nothing widens), and
