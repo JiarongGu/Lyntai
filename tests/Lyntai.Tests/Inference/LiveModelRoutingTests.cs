@@ -223,6 +223,83 @@ public class LiveModelRoutingTests
         Assert.Contains("lyntai.model.", Assert.Single(warnings));
     }
 
+    // ---- a model-key prefix of the app's OWN, retired with lyntai.model. ------------------------------------
+
+    /// <summary>3.2's model-key prefix option could point at an app's own namespace, so its overrides go inert
+    /// under routes just as <c>lyntai.model.</c> keys do — and were the ones left silent.</summary>
+    [Fact]
+    public async Task A_key_left_under_a_model_only_prefix_of_the_apps_own_is_warned_of_once()
+    {
+        var warnings = new List<string>();
+        var kv = new InMemoryKeyValueStore();
+        await kv.SetAsync("app.model.scoring", "haiku");
+        var store = new KeyValueModelRoutingStore(kv, Logger<KeyValueModelRoutingStore>(warnings))
+        {
+            ModelOnlyKeyPrefixes = ["lyntai.model.", "app.model."],
+        };
+
+        for (var call = 0; call < 3; call++)
+            Assert.Empty(await store.GetRouteAsync("scoring"));
+
+        var warning = Assert.Single(warnings);
+        Assert.Contains("app.model.", warning);
+        Assert.DoesNotContain("lyntai.model.", warning);   // it names only a prefix still holding keys
+    }
+
+    [Fact]
+    public async Task Every_model_only_prefix_still_holding_keys_is_named_in_the_one_warning()
+    {
+        var warnings = new List<string>();
+        var kv = new InMemoryKeyValueStore();
+        await kv.SetAsync("lyntai.model.memory", "haiku");
+        await kv.SetAsync("app.model.scoring", "haiku");
+        var store = new KeyValueModelRoutingStore(kv, Logger<KeyValueModelRoutingStore>(warnings))
+        {
+            ModelOnlyKeyPrefixes = ["lyntai.model.", "app.model."],
+        };
+
+        await store.GetRouteAsync("memory");
+
+        var warning = Assert.Single(warnings);
+        Assert.Contains("lyntai.model.", warning);
+        Assert.Contains("app.model.", warning);
+    }
+
+    [Fact]
+    public async Task A_model_only_prefix_that_IS_the_route_prefix_reads_its_keys_as_routes_without_a_warning()
+    {
+        // the deployment kept its namespace and rewrote the values as routes
+        var warnings = new List<string>();
+        var kv = new InMemoryKeyValueStore();
+        await kv.SetAsync("app.model.scoring", "claude:haiku");
+        var store = new KeyValueModelRoutingStore(kv, Logger<KeyValueModelRoutingStore>(warnings), keyPrefix: "app.model.")
+        {
+            ModelOnlyKeyPrefixes = ["lyntai.model.", "app.model."],
+        };
+
+        Assert.Equal("claude|haiku", Render(await store.GetRouteAsync("scoring")));
+        Assert.Empty(warnings);
+    }
+
+    [Fact]
+    public void The_store_checks_lyntai_model_by_default() =>
+        Assert.Equal(["lyntai.model."], new KeyValueModelRoutingStore().ModelOnlyKeyPrefixes);
+
+    [Fact]
+    public async Task The_builder_passes_the_configured_model_only_prefixes_to_the_store()
+    {
+        var services = new ServiceCollection();
+        services.AddSingleton<IKeyValueStore>(new InMemoryKeyValueStore());
+        services.AddLyntai(b => b
+            .AddProvider(_ => new FakeTextProvider("fake"))
+            .Configure(o => o.ModelOnlyKeyPrefixes.Add("app.model."))
+            .AddLiveModelRouting());
+        using var sp = services.BuildServiceProvider();
+
+        var store = Assert.IsType<KeyValueModelRoutingStore>(sp.GetRequiredService<IModelRoutingStore>());
+        Assert.Equal(["lyntai.model.", "app.model."], store.ModelOnlyKeyPrefixes);
+    }
+
     // ---- the router, on both doors ----------------------------------------------------------------------
 
     [Theory, InlineData(false), InlineData(true)]

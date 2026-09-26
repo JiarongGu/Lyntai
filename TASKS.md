@@ -15,33 +15,32 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 20 across 7 Parts: 16 startable, 2 blocked, 2 watch
+## Open items — 19 across 7 Parts: 15 startable, 2 blocked, 2 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 121 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a free Hugging Face account (an hf_ token) — its router proxies fal's own q… |
-| 168 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 191 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 247 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
-| 277 | 294 | Give the vector-store, verification and annotation contracts an abstract Fa… | startable |  |
-| 280 | 294 | Sweep test comments for history narration that carries no tag or date | startable |  |
-| 290 | 298 | SentencePiece tokenization for the ONNX provider — D122's trigger has fired | startable |  |
-| 294 | 298 | Change the embedder without rebuilding the graph | startable |  |
-| 296 | 298 | Read a stored vector back by id, or cache embeddings on the vector call | startable |  |
-| 298 | 298 | Filtered nearest-neighbour search | startable |  |
-| 300 | 298 | Edit the text provider set at run time | startable |  |
-| 303 | 298 | Schedules added at run time, persisted | startable |  |
-| 305 | 298 | Trace and score front-door calls without a wrapper | startable |  |
-| 308 | 298 | Job progress as a message code plus arguments | startable |  |
-| 315 | 299 | Snapshot `ToolsByConsumer` when the provisioner is built, and name the cons… | startable |  |
-| 319 | 299 | Pin the refusal through the builder, and say when it fires | startable |  |
-| 322 | 299 | Two test gaps in the CLI tool seam | startable |  |
-| 324 | 299 | A one-line `ToolsByConsumer` recipe in README's MCP section | startable |  |
-| 341 | 301 | Warn about leftover keys under a model-key prefix of the app's own | startable |  |
-| 352 | 301 | Say when a server refuses the configured `SuppressReasoningFields` | startable |  |
+| 120 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a free Hugging Face account (an hf_ token) — its router proxies fal's own q… |
+| 167 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 190 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 246 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 276 | 294 | Give the vector-store, verification and annotation contracts an abstract Fa… | startable |  |
+| 279 | 294 | Sweep test comments for history narration that carries no tag or date | startable |  |
+| 289 | 298 | SentencePiece tokenization for the ONNX provider — D122's trigger has fired | startable |  |
+| 293 | 298 | Change the embedder without rebuilding the graph | startable |  |
+| 295 | 298 | Read a stored vector back by id, or cache embeddings on the vector call | startable |  |
+| 297 | 298 | Filtered nearest-neighbour search | startable |  |
+| 299 | 298 | Edit the text provider set at run time | startable |  |
+| 302 | 298 | Schedules added at run time, persisted | startable |  |
+| 304 | 298 | Trace and score front-door calls without a wrapper | startable |  |
+| 307 | 298 | Job progress as a message code plus arguments | startable |  |
+| 314 | 299 | Snapshot `ToolsByConsumer` when the provisioner is built, and name the cons… | startable |  |
+| 318 | 299 | Pin the refusal through the builder, and say when it fires | startable |  |
+| 321 | 299 | Two test gaps in the CLI tool seam | startable |  |
+| 323 | 299 | A one-line `ToolsByConsumer` recipe in README's MCP section | startable |  |
+| 340 | 301 | Say when a server refuses the configured `SuppressReasoningFields` | startable |  |
 
 <!-- open-items:end -->
 
@@ -337,17 +336,6 @@ _Reported by an adopting application planning its upgrade from 3.2.0 to 3.4.0. T
 of its workarounds shipped in 3.3.0; these are what the upgrade found beside them, each checked against the tree
 at `v3.4.0` (HEAD changes nothing under `src/` since) when it was filed. Its evidence about the CLI tool host
 went into `TASKS.md` Part 299's recipe item instead._
-
-- [ ] **Warn about leftover keys under a model-key prefix of the app's own.** **D176**'s warn-once lists <!-- item: state=startable -->
-  only the library's retired `lyntai.model.` namespace, a private constant
-  (`src/Lyntai.Core/Inference/IModelRoutingStore.cs:53`, the check at `:101-113`). A deployment that had pointed
-  3.2's model-key prefix option — the one `LyntaiOptions.RouteKeyPrefix` replaced — at a namespace of its own,
-  which that option documented for exactly this, has overrides that go inert after the rename with no warning at
-  all, and `CHANGELOG.md` 3.3.0's upgrade note tells it to "move to a new prefix so the old keys go inert". An
-  adopting app found its live scorer and memory model overrides would silently return to their defaults, and had
-  to write its own migration. Suggested: let the warn-once list the retired prefixes a deployment names, e.g. a
-  `LyntaiOptions` list defaulting to `lyntai.model.` and passed to `KeyValueModelRoutingStore`, skipping any
-  prefix the current `RouteKeyPrefix` sits under as the check already does for its own.
 
 - [ ] **Say when a server refuses the configured `SuppressReasoningFields`.** **D179** adds the members only to <!-- item: state=startable -->
   calls asking `Suppress` (`src/Lyntai.Providers.Basic/Http/Payloads/OpenAiPayload.cs:92`), and a server that

@@ -403,7 +403,10 @@ public sealed class LyntaiBuilder
             new KeyValueModelRoutingStore(
                 sp.GetService<IKeyValueStore>(),
                 sp.GetService<ILogger<KeyValueModelRoutingStore>>(),
-                Options.RouteKeyPrefix));
+                Options.RouteKeyPrefix)
+            {
+                ModelOnlyKeyPrefixes = [.. Options.ModelOnlyKeyPrefixes],
+            });
         return this;
     }
 

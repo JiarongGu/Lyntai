@@ -927,6 +927,7 @@ sealed class Lyntai.Inference.KeyValueModelRoutingStore
     DefaultKeyPrefix : String const
     GetRouteAsync(String consumer, CancellationToken ct = default) : Task<IReadOnlyList<ProviderCandidate>>
     KeyPrefix : String { get; }
+    ModelOnlyKeyPrefixes : IReadOnlyList<String> { get; init; }
 sealed class Lyntai.Inference.MediaArtifact
     .ctor(String MediaType, Byte[] Data = null, String Uri = null, IReadOnlyDictionary<String,String> Metadata = null)
     Data : Byte[] { get; init; }
@@ -1724,6 +1725,7 @@ sealed class Lyntai.LyntaiOptions
     MaxProviderTimeout : TimeSpan { get; set; }
     MemoryEviction : MemoryEvictionPolicy { get; set; }
     MemoryRecallLimit : Int32 { get; set; }
+    ModelOnlyKeyPrefixes : List<String> { get; }
     PromptKeyPrefix : String { get; set; }
     ProviderTimeout : TimeSpan { get; set; }
     RateLimit : RateLimitOptions { get; }

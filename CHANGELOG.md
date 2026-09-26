@@ -44,6 +44,11 @@ every addition.
   in the provider's window unit (characters over HTTP, tokens on ONNX). A piece takes the smaller of it and what
   the window leaves beside the query, so a piece length chosen by measurement no longer moves with the question.
   Null, the default, keeps today's rule; truncating, it is where a document is cut.
+- **`LyntaiOptions.ModelOnlyKeyPrefixes`** (**D176**): the key namespaces whose keys overrode a consumer's model
+  alone, which live routing never reads — `lyntai.model.` by default. The routing store's warn-once now lists
+  each and names every one still holding a key, so a deployment that had pointed 3.2's model-key prefix option
+  at a namespace of its own adds it here and learns its overrides went inert, rather than finding them back at
+  their defaults. `KeyValueModelRoutingStore.ModelOnlyKeyPrefixes` carries it for a store built by hand.
 
 ### Fixed
 

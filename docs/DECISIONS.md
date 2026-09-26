@@ -5198,9 +5198,9 @@ caller on the binding the admin just moved.
 candidates serve; a partly-unusable route is used without those entries, one warning naming them; a store that
 throws is a warning and the given candidates, only the caller's cancellation propagating. A request model the
 route can never serve — **D119**'s predicate, every entry pinning another — warns per call, or a fail-open
-seam's pin loses silently. Keys under the retired `lyntai.model.` prefix are inert, and the shipped store warns
-once that they exist. The cache key is unchanged unless a route exists; then the route, in order, and the
-request's own model join it, so no reply is served across a rebind; a throwing store skips the cache that call.
+seam's pin loses silently. Keys under `LyntaiOptions.ModelOnlyKeyPrefixes` (`lyntai.model.`) are inert, warned
+of once. The cache key is unchanged unless a route exists; then the route, in order, and the request's own
+model join it, so no reply is served across a rebind; a throwing store skips the cache that call.
 
 **The capability probe follows the route.** One async `GetCapabilitiesAsync` on `ITextClient` and
 `ITextRouter` replaces the two synchronous tool probes and answers for the backend that would serve, read

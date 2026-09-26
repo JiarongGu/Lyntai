@@ -69,6 +69,13 @@ public sealed class LyntaiOptions
     /// <see cref="KeyValueModelRoutingStore"/>).</summary>
     public string RouteKeyPrefix { get; set; } = KeyValueModelRoutingStore.DefaultKeyPrefix;
 
+    /// <summary>KV key namespaces whose keys once overrode a consumer's MODEL alone — <c>lyntai.model.</c> by
+    /// default — which live routing never reads. The first route read lists each once and logs one warning
+    /// naming every namespace that still holds a key outside <see cref="RouteKeyPrefix"/>. Add the namespace
+    /// 3.2's model-key prefix option pointed at, if it was an app's own, so its overrides do not go inert
+    /// unannounced (see <see cref="KeyValueModelRoutingStore.ModelOnlyKeyPrefixes"/>).</summary>
+    public List<string> ModelOnlyKeyPrefixes { get; } = [KeyValueModelRoutingStore.DefaultModelOnlyKeyPrefix];
+
     /// <summary>How <see cref="Lyntai.Storage.IMemoryStore"/> bounds its size — the app's control over
     /// eviction: a per-scope count cap + <see cref="MemoryEvictionMode"/> (FIFO / LRU), a default TTL, and a
     /// per-scope size (character) budget. See <see cref="MemoryEvictionPolicy"/> presets. Defaults to a

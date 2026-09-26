@@ -5152,3 +5152,13 @@ alone was left unmatched on purpose. The mechanism is `docs/FIXES.md` 2026-09-26
 `CHANGELOG.md`'s Fixed entry.
 
 - Classify llama.cpp's physical-batch refusal as `ContextWindowExceeded`
+
+## Part 308 — leftover keys under an app's own model-only prefix are warned of (2026-09-26)
+
+✅ done 2026-09-26 — **Outcome:** closes the seventh item of `TASKS.md` Part 301. `LyntaiOptions.ModelOnlyKeyPrefixes`
+(default `lyntai.model.`) reaches `KeyValueModelRoutingStore.ModelOnlyKeyPrefixes`, and **D176**'s warn-once lists
+each namespace and names, in one warning, every one still holding a key outside the route prefix — so overrides
+under a namespace an app's 3.2 prefix option pointed at no longer go inert unannounced. A retry after a failed
+listing repeats no warning, since it warns only once every listing succeeded.
+
+- Warn about leftover keys under a model-key prefix of the app's own

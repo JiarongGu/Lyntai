@@ -115,7 +115,9 @@ Three properties of that split are load-bearing:
   media under the same consumer do not move (`"memory"` also names its embeds and reranks). The router's own
   text providers bound it: unknown or non-text entries are skipped with a warning, a route naming none is
   ignored, and a request model every entry pins away from warns — each on every call. Delete the key to go
-  back; `LyntaiOptions.RouteKeyPrefix` moves the prefix.
+  back; `LyntaiOptions.RouteKeyPrefix` moves the prefix. Keys that named a model alone are never read, and
+  the store warns once of each `LyntaiOptions.ModelOnlyKeyPrefixes` namespace still holding one — add an app's
+  own there if its old overrides lived outside `lyntai.model.`.
 - **Rerank or embed OUTSIDE the memory seams** — the score kind deliberately has no front door, so a
   consumer composes the factory (and gets cooldown, admission, the configured policy and D163's governance
   with it):
