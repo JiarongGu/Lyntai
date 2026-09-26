@@ -2,6 +2,43 @@ using Lyntai.Memory.Verification;
 
 namespace Lyntai.Tests.Memory;
 
+/// <summary>Every <see cref="MemoryVerificationPolicyContract"/> fact, inherited, so each shipped verifier runs the
+/// whole contract BY CONSTRUCTION — the shape <see cref="RetrievabilityPolicyContractFacts"/> uses. A driver
+/// supplies a working policy and the ways its implementation can be broken; the defaulted factories are for a
+/// fact that wants its own pressure (a judge naming an id past the list, or one twice).</summary>
+public abstract class MemoryVerificationPolicyContractFacts
+{
+    /// <summary>A policy that judges.</summary>
+    protected abstract IMemoryVerificationPolicy Working();
+
+    /// <summary>A working policy pushed to return an id it was not shown.</summary>
+    protected virtual IMemoryVerificationPolicy PushedPastTheCandidates() => Working();
+
+    /// <summary>A working policy pushed to return an id twice.</summary>
+    protected virtual IMemoryVerificationPolicy PushedToRepeat() => Working();
+
+    /// <summary>A policy broken however its implementation can be broken.</summary>
+    protected abstract IMemoryVerificationPolicy Failing();
+
+    /// <summary>A policy whose dependency times out while nobody cancelled.</summary>
+    protected abstract IMemoryVerificationPolicy TimingOut();
+
+    /// <summary>A working policy whose dependency honours the caller's token.</summary>
+    protected virtual IMemoryVerificationPolicy HonouringCancellation() => Working();
+
+    [Fact] public Task Never_null() => MemoryVerificationPolicyContract.It_never_returns_null(Working());
+    [Fact] public Task Ids_were_shown() =>
+        MemoryVerificationPolicyContract.Every_id_it_returns_was_one_it_was_shown(PushedPastTheCandidates());
+    [Fact] public Task No_duplicates() => MemoryVerificationPolicyContract.It_returns_no_duplicates(PushedToRepeat());
+    [Fact] public Task Empty_candidates() => MemoryVerificationPolicyContract.An_empty_candidate_set_is_no_opinion(Working());
+    [Fact] public Task Fails_open() =>
+        MemoryVerificationPolicyContract.A_failing_policy_yields_NoOpinion_and_not_NothingRelevant(Failing());
+    [Fact] public Task Its_own_timeout_fails_open() =>
+        MemoryVerificationPolicyContract.A_policy_timing_out_on_its_own_yields_NoOpinion(TimingOut());
+    [Fact] public Task Cancellation_propagates() =>
+        MemoryVerificationPolicyContract.Cancellation_propagates_rather_than_becoming_no_opinion(HonouringCancellation());
+}
+
 /// <summary>Policy-agnostic facts every <see cref="IMemoryVerificationPolicy"/> satisfies.
 ///
 /// <para><b>The sharpest promise in the memory subsystem, and the one with the quietest failure.</b> A

@@ -10,7 +10,8 @@ namespace Lyntai.Tests.Storage;
 
 /// <summary>The persistent SQLite backends for the front-door governance + semantic-memory seams (response
 /// cache, usage tracker, vector store) against a real migrated temp db: what the contracts do not pin —
-/// survival across a fresh store instance, size eviction — plus the vector contract's wiring.</summary>
+/// survival across a fresh store instance, size eviction. The vector contract is
+/// <see cref="SqliteVectorStoreContractTests"/>.</summary>
 public class SqliteGovernanceStoreTests : IDisposable
 {
     private readonly TempDb _db = new();
@@ -54,25 +55,6 @@ public class SqliteGovernanceStoreTests : IDisposable
 
     // ---- vector store --------------------------------------------------------------------------------
 
-    // The cross-backend VectorStoreContract, wired here because this class owns the database lifetime. Its
-    // fixtures are deliberately NOT unit basis vectors, under which cosine and a raw dot product agree.
-    [Fact] public Task Contract_cosine_not_dot() => VectorStoreContract.Ranking_is_by_cosine_so_magnitude_does_not_win(new SqliteVectorStore(_db.Factory), "vc1");
-    [Fact] public Task Contract_score_in_range() => VectorStoreContract.A_score_is_a_cosine_in_the_documented_range(new SqliteVectorStore(_db.Factory), "vc2");
-    [Fact] public Task Contract_upsert_replaces() => VectorStoreContract.Upserting_the_same_id_replaces_rather_than_duplicating(new SqliteVectorStore(_db.Factory), "vc3");
-    [Fact] public Task Contract_bounded_by_k() => VectorStoreContract.Search_returns_at_most_k(new SqliteVectorStore(_db.Factory), "vc4");
-    [Fact] public Task Contract_delete_one() => VectorStoreContract.Delete_removes_one_entry_and_leaves_the_others(new SqliteVectorStore(_db.Factory), "vc5");
-    [Fact] public Task Contract_remove_collection() => VectorStoreContract.Removing_a_collection_clears_it_and_absent_deletes_are_no_ops(new SqliteVectorStore(_db.Factory), "vc6");
-    [Fact] public Task Contract_isolated() => VectorStoreContract.Collections_are_isolated(new SqliteVectorStore(_db.Factory), "vc7");
-    [Fact] public Task Contract_tie_by_id() => VectorStoreContract.Equal_scores_are_ordered_by_id(new SqliteVectorStore(_db.Factory), "vc8");
-    [Fact] public Task Contract_tie_at_k() => VectorStoreContract.The_k_boundary_keeps_the_same_tied_entries(new SqliteVectorStore(_db.Factory), "vc9");
-    [Fact] public Task Contract_tie_loses_to_score() => VectorStoreContract.The_tiebreak_never_outranks_the_score(new SqliteVectorStore(_db.Factory), "vc10");
-    [Fact] public Task Contract_other_dimension() => VectorStoreContract.A_vector_of_another_dimension_scores_zero_and_ranks_last(new SqliteVectorStore(_db.Factory), "vc14");
-    [Fact] public Task Contract_zero_vector() => VectorStoreContract.A_zero_vector_scores_zero_and_ranks_last(new SqliteVectorStore(_db.Factory), "vc15");
-    [Fact] public void Contract_can_list() => VectorStoreContract.Every_shipped_store_can_list_its_collections(new SqliteVectorStore(_db.Factory));
-    [Fact] public Task Contract_list_prefix() => VectorStoreContract.Listing_matches_a_prefix_ordinally(new SqliteVectorStore(_db.Factory), "vc11");
-    [Fact] public Task Contract_list_literal() => VectorStoreContract.A_listing_prefix_is_never_read_as_a_pattern(new SqliteVectorStore(_db.Factory), "vc12");
-    [Fact] public Task Contract_list_empty() => VectorStoreContract.Listing_omits_emptied_collections_and_never_throws(new SqliteVectorStore(_db.Factory), "vc13");
-
     [Fact]
     public async Task VectorStore_ranks_by_cosine_and_persists()
     {
@@ -97,4 +79,13 @@ public class SqliteGovernanceStoreTests : IDisposable
         Assert.Contains("cancel", hits[0].Content);
         Assert.DoesNotContain(hits, h => h.Content.Contains("pizza"));
     }
+}
+
+/// <summary>The <see cref="VectorStoreContract"/> against SQLite over a per-test temp db. Its fixtures are
+/// deliberately NOT unit basis vectors, under which cosine and a raw dot product agree.</summary>
+public class SqliteVectorStoreContractTests : VectorStoreContractFacts, IDisposable
+{
+    private readonly TempDb _db = new();
+    protected override IVectorStore New() => new SqliteVectorStore(_db.Factory);
+    public void Dispose() => _db.Dispose();
 }

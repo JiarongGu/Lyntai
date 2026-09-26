@@ -3,6 +3,34 @@ using Lyntai.Memory.Annotation;
 
 namespace Lyntai.Tests.Memory;
 
+/// <summary>Every <see cref="MemoryAnnotationPolicyContract"/> fact, inherited, so each shipped annotator runs the
+/// whole contract BY CONSTRUCTION — the shape <see cref="RetrievabilityPolicyContractFacts"/> uses. A driver
+/// supplies a working policy and the ways its implementation can be broken.</summary>
+public abstract class MemoryAnnotationPolicyContractFacts
+{
+    /// <summary>A policy that annotates.</summary>
+    protected abstract IMemoryAnnotationPolicy Working();
+
+    /// <summary>A policy broken however its implementation can be broken.</summary>
+    protected abstract IMemoryAnnotationPolicy Failing();
+
+    /// <summary>A policy whose dependency times out while nobody cancelled.</summary>
+    protected abstract IMemoryAnnotationPolicy TimingOut();
+
+    /// <summary>A working policy whose dependency honours the caller's token.</summary>
+    protected virtual IMemoryAnnotationPolicy HonouringCancellation() => Working();
+
+    [Fact] public Task Never_null() => MemoryAnnotationPolicyContract.It_never_returns_null(Working());
+    [Fact] public Task Tolerates_no_context() =>
+        MemoryAnnotationPolicyContract.It_tolerates_a_first_write_with_no_context_at_all(Working());
+    [Fact] public Task Fails_open() =>
+        MemoryAnnotationPolicyContract.A_failing_policy_yields_no_opinion_rather_than_throwing(Failing());
+    [Fact] public Task Its_own_timeout_fails_open() =>
+        MemoryAnnotationPolicyContract.A_policy_timing_out_on_its_own_yields_no_opinion(TimingOut());
+    [Fact] public Task Cancellation_propagates() =>
+        MemoryAnnotationPolicyContract.Cancellation_propagates_rather_than_becoming_no_opinion(HonouringCancellation());
+}
+
 /// <summary>Policy-agnostic facts every <see cref="IMemoryAnnotationPolicy"/> satisfies.
 ///
 /// <para><b>Why a contract, when the shipped implementation calls a model.</b> Every promise below is about

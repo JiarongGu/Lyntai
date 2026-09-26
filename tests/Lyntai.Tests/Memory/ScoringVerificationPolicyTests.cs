@@ -17,7 +17,7 @@ namespace Lyntai.Tests.Memory;
 /// and a backend that agreed with the ranking are indistinguishable from the endorsement alone
 /// (<c>pitfalls.md</c>). So the null cases assert <c>Judged == false</c> rather than only an empty
 /// list.</para></summary>
-public class ScoringVerificationPolicyTests
+public class ScoringVerificationPolicyTests : MemoryVerificationPolicyContractFacts
 {
     /// <summary>A backend that produces scores and records what it was asked to score.</summary>
     private sealed class FakeScorer(
@@ -282,32 +282,14 @@ public class ScoringVerificationPolicyTests
     }
 
     // ---- the seam's policy-agnostic contract ---------------------------------------------------------
-    // PolicyContractCoverageTests fails until every shipped IMemoryVerificationPolicy is run through these,
-    // which is what caught this policy the moment it became a second shipped implementation. A component's
-    // own timeout (NoOpinion) and the CALLER's cancel (propagates) arrive as the same exception type, so the
-    // two rows below that pin them are told apart only by ct.IsCancellationRequested.
+    // MemoryVerificationPolicyContractFacts runs every fact; PolicyContractCoverageTests fails until each shipped
+    // IMemoryVerificationPolicy derives from it. A component's own timeout (NoOpinion) and the CALLER's cancel
+    // (propagates) arrive as the same exception type, told apart only by ct.IsCancellationRequested.
 
-    private static ScoringVerificationPolicy Working() =>
+    protected override IMemoryVerificationPolicy Working() =>
         Policy(new FakeScorer(d => [.. d.Select((_, i) => (double)d.Count - i)]), endorse: 2);
-
-    [Fact] public Task Never_null() => MemoryVerificationPolicyContract.It_never_returns_null(Working());
-
-    [Fact] public Task Ids_were_shown() =>
-        MemoryVerificationPolicyContract.Every_id_it_returns_was_one_it_was_shown(Working());
-
-    [Fact] public Task No_duplicates() => MemoryVerificationPolicyContract.It_returns_no_duplicates(Working());
-
-    [Fact] public Task Empty_candidates() =>
-        MemoryVerificationPolicyContract.An_empty_candidate_set_is_no_opinion(Working());
-
-    [Fact] public Task Fails_open() =>
-        MemoryVerificationPolicyContract.A_failing_policy_yields_NoOpinion_and_not_NothingRelevant(
-            Policy(new FakeScorer(_ => throw new InvalidOperationException("backend down"))));
-
-    [Fact] public Task Its_own_timeout_fails_open() =>
-        MemoryVerificationPolicyContract.A_policy_timing_out_on_its_own_yields_NoOpinion(
-            Policy(new FakeScorer(_ => throw new TaskCanceledException())));
-
-    [Fact] public Task Cancellation_propagates() =>
-        MemoryVerificationPolicyContract.Cancellation_propagates_rather_than_becoming_no_opinion(Working());
+    protected override IMemoryVerificationPolicy Failing() =>
+        Policy(new FakeScorer(_ => throw new InvalidOperationException("backend down")));
+    protected override IMemoryVerificationPolicy TimingOut() =>
+        Policy(new FakeScorer(_ => throw new TaskCanceledException()));
 }

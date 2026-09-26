@@ -5233,3 +5233,15 @@ review (**D190**) — closed as four commits: 311 (the map read as it was checke
 the builder, and where it fires stated), 313 (two test gaps) and 314 (the README recipe).
 
 - What D190's review deferred
+
+## Part 316 — the vector-store, verification and annotation contracts get an abstract Facts base (2026-09-26)
+
+✅ done 2026-09-26 — **Outcome:** closes the first item of `TASKS.md` Part 294, tests only.
+`VectorStoreContractFacts`, `MemoryVerificationPolicyContractFacts` and `MemoryAnnotationPolicyContractFacts` sit
+beside their contracts, one `[Fact]` per contract method, so a fact added to a contract runs on every derived
+implementation by construction. InMemory and SQLite vector stores (`SqliteVectorStoreContractTests`, split out of
+`SqliteGovernanceStoreTests`), both shipped verifiers and the shipped annotator derive; Postgres keeps its named
+`[SkippableFact]` delegators, which `PostgresContractCoverageTests` already holds. The test count is unchanged;
+the verifier's "ids were shown" fixture now names an ordinal past the list, so that fact exerts pressure.
+
+- Give the vector-store, verification and annotation contracts an abstract Facts base

@@ -21,7 +21,7 @@ namespace Lyntai.Tests.Memory;
 /// equivalent surface (a <c>SuggestGrade</c> that was inert against any real model because the prompt never
 /// asked for a grade) — caught by asserting on the REQUEST, which no reply-scripted test could see.</para>
 /// </summary>
-public class LlmMemoryVerificationPolicyTests
+public class LlmMemoryVerificationPolicyTests : MemoryVerificationPolicyContractFacts
 {
     private static readonly MemoryVerificationCandidate[] Notes =
     [
@@ -39,23 +39,17 @@ public class LlmMemoryVerificationPolicyTests
     private static Task<MemoryVerification> VerifyAsync(ITextClient client, string query = "where is the review?") =>
         Policy(client).VerifyAsync(new MemoryVerificationRequest(query, Notes));
 
-    // ---- the contract, on a working policy and on a broken one --------------------------------------
+    // ---- the contract, on a working policy and on a broken one (MemoryVerificationPolicyContractFacts) ----
 
-    [Fact] public Task Never_null() => MemoryVerificationPolicyContract.It_never_returns_null(
-        Policy(new ScriptedTextClient("""{"relevant":[1]}""")));
-
-    [Fact] public Task Ids_were_shown() => MemoryVerificationPolicyContract.Every_id_it_returns_was_one_it_was_shown(
-        Policy(new ScriptedTextClient("""{"relevant":[1,3]}""")));
-
-    [Fact] public Task No_duplicates() => MemoryVerificationPolicyContract.It_returns_no_duplicates(
-        Policy(new ScriptedTextClient("""{"relevant":[1,1,2]}""")));
-
-    [Fact] public Task Empty_candidates() => MemoryVerificationPolicyContract.An_empty_candidate_set_is_no_opinion(
-        Policy(new ScriptedTextClient("""{"relevant":[1]}""")));
-
-    [Fact] public Task Fails_open() =>
-        MemoryVerificationPolicyContract.A_failing_policy_yields_NoOpinion_and_not_NothingRelevant(
-            Policy(new ThrowingTextClient()));
+    protected override IMemoryVerificationPolicy Working() => Policy(new ScriptedTextClient("""{"relevant":[1]}"""));
+    protected override IMemoryVerificationPolicy PushedPastTheCandidates() =>
+        Policy(new ScriptedTextClient("""{"relevant":[1,3,7]}"""));   // 7 is past the three shown
+    protected override IMemoryVerificationPolicy PushedToRepeat() =>
+        Policy(new ScriptedTextClient("""{"relevant":[1,1,2]}"""));
+    protected override IMemoryVerificationPolicy Failing() => Policy(new ThrowingTextClient());
+    protected override IMemoryVerificationPolicy TimingOut() => Policy(new TimingOutTextClient());
+    protected override IMemoryVerificationPolicy HonouringCancellation() =>
+        Policy(new TokenHonouringTextClient("""{"relevant":[1]}"""));
 
     private static async Task<IReadOnlyList<LogLevel>> LevelsFor(ProviderVerdict verdict)
     {
@@ -72,14 +66,6 @@ public class LlmMemoryVerificationPolicyTests
         Assert.Contains(LogLevel.Warning, await LevelsFor(ProviderVerdict.ContextWindowExceeded));
         Assert.DoesNotContain(LogLevel.Warning, await LevelsFor(ProviderVerdict.Timeout));
     }
-
-    [Fact] public Task Its_own_timeout_fails_open() =>
-        MemoryVerificationPolicyContract.A_policy_timing_out_on_its_own_yields_NoOpinion(
-            Policy(new TimingOutTextClient()));
-
-    [Fact] public Task Cancellation_propagates() =>
-        MemoryVerificationPolicyContract.Cancellation_propagates_rather_than_becoming_no_opinion(
-            Policy(new TokenHonouringTextClient("""{"relevant":[1]}""")));
 
     // ---- this implementation's own surface: turning a reply into a verdict --------------------------
 

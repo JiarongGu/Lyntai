@@ -12,7 +12,7 @@ namespace Lyntai.Tests.Memory;
 /// which is where a model's output meets code and therefore where malformed input has to be handled rather
 /// than assumed away.</para>
 /// </summary>
-public class LlmMemoryAnnotationPolicyTests
+public class LlmMemoryAnnotationPolicyTests : MemoryAnnotationPolicyContractFacts
 {
     // Spelled out rather than target-typed on purpose: PolicyContractCoverageTests proves coverage by
     // looking for `new <Implementation>(` in a file that also references the contract, so a `new(...)` here
@@ -20,28 +20,13 @@ public class LlmMemoryAnnotationPolicyTests
     private static LlmMemoryAnnotationPolicy Policy(ITextClient client) =>
         new LlmMemoryAnnotationPolicy(new SingleTextClientFactory(client));
 
-    // ---- the seam's contract, on a working policy and on a broken one -------------------------------
+    // ---- the seam's contract, on a working policy and on a broken one (MemoryAnnotationPolicyContractFacts) ----
 
-    [Fact] public Task Never_null() => MemoryAnnotationPolicyContract.It_never_returns_null(
-        Policy(new ScriptedTextClient("""{"subjects":["spouse"]}""")));
-
-    [Fact] public Task Tolerates_no_context() =>
-        MemoryAnnotationPolicyContract.It_tolerates_a_first_write_with_no_context_at_all(
-            Policy(new ScriptedTextClient("""{"subjects":["spouse"]}""")));
-
-    // Fail-open: memory that stops accepting facts because a model is down is worse than memory with no
-    // model at all — the engine treats this exactly as having no annotator.
-    [Fact] public Task Fails_open() =>
-        MemoryAnnotationPolicyContract.A_failing_policy_yields_no_opinion_rather_than_throwing(
-            Policy(new ThrowingTextClient()));
-
-    [Fact] public Task Its_own_timeout_fails_open() =>
-        MemoryAnnotationPolicyContract.A_policy_timing_out_on_its_own_yields_no_opinion(
-            Policy(new TimingOutTextClient()));
-
-    [Fact] public Task Cancellation_propagates() =>
-        MemoryAnnotationPolicyContract.Cancellation_propagates_rather_than_becoming_no_opinion(
-            Policy(new TokenHonouringTextClient("""{"subjects":["spouse"]}""")));
+    protected override IMemoryAnnotationPolicy Working() => Policy(new ScriptedTextClient("""{"subjects":["spouse"]}"""));
+    protected override IMemoryAnnotationPolicy Failing() => Policy(new ThrowingTextClient());
+    protected override IMemoryAnnotationPolicy TimingOut() => Policy(new TimingOutTextClient());
+    protected override IMemoryAnnotationPolicy HonouringCancellation() =>
+        Policy(new TokenHonouringTextClient("""{"subjects":["spouse"]}"""));
 
     private static Task<MemoryAnnotation> AnnotateAsync(ITextClient client,
         LlmAnnotationOptions? options = null, IReadOnlyList<string>? recent = null) =>

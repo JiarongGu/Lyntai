@@ -2,28 +2,10 @@ using Lyntai.Memory;
 
 namespace Lyntai.Tests.Memory;
 
-/// <summary>Every <see cref="VectorStoreContract"/> fact against the in-process store. The SQLite and
-/// Postgres wirings live beside their own fixtures (<c>SqliteGovernanceStoreTests</c>,
-/// <c>PostgresGovernanceStoreTests</c>) because those own the database lifetime — the same split
-/// <c>MemoryGraphStoreContract</c> already uses.</summary>
-public class InMemoryVectorStoreContractTests
+/// <summary>Every <see cref="VectorStoreContract"/> fact against the in-process store; SQLite derives beside its
+/// fixture (<c>SqliteVectorStoreContractTests</c>), and Postgres wires each fact by name
+/// (<c>PostgresGovernanceStoreTests</c>).</summary>
+public class InMemoryVectorStoreContractTests : VectorStoreContractFacts
 {
-    private static IVectorStore New() => new InMemoryVectorStore();
-
-    [Fact] public Task Cosine_not_dot() => VectorStoreContract.Ranking_is_by_cosine_so_magnitude_does_not_win(New(), "c1");
-    [Fact] public Task Score_in_range() => VectorStoreContract.A_score_is_a_cosine_in_the_documented_range(New(), "c2");
-    [Fact] public Task Upsert_replaces() => VectorStoreContract.Upserting_the_same_id_replaces_rather_than_duplicating(New(), "c3");
-    [Fact] public Task Bounded_by_k() => VectorStoreContract.Search_returns_at_most_k(New(), "c4");
-    [Fact] public Task Delete_one() => VectorStoreContract.Delete_removes_one_entry_and_leaves_the_others(New(), "c5");
-    [Fact] public Task Remove_collection() => VectorStoreContract.Removing_a_collection_clears_it_and_absent_deletes_are_no_ops(New(), "c6");
-    [Fact] public Task Isolated() => VectorStoreContract.Collections_are_isolated(New(), "c7");
-    [Fact] public Task Tie_by_id() => VectorStoreContract.Equal_scores_are_ordered_by_id(New(), "c8");
-    [Fact] public Task Tie_at_k() => VectorStoreContract.The_k_boundary_keeps_the_same_tied_entries(New(), "c9");
-    [Fact] public Task Tie_loses_to_score() => VectorStoreContract.The_tiebreak_never_outranks_the_score(New(), "c10");
-    [Fact] public Task Other_dimension() => VectorStoreContract.A_vector_of_another_dimension_scores_zero_and_ranks_last(New(), "c14");
-    [Fact] public Task Zero_vector() => VectorStoreContract.A_zero_vector_scores_zero_and_ranks_last(New(), "c15");
-    [Fact] public void Can_list() => VectorStoreContract.Every_shipped_store_can_list_its_collections(New());
-    [Fact] public Task List_prefix() => VectorStoreContract.Listing_matches_a_prefix_ordinally(New(), "c11");
-    [Fact] public Task List_literal() => VectorStoreContract.A_listing_prefix_is_never_read_as_a_pattern(New(), "c12");
-    [Fact] public Task List_empty() => VectorStoreContract.Listing_omits_emptied_collections_and_never_throws(New(), "c13");
+    protected override IVectorStore New() => new InMemoryVectorStore();
 }

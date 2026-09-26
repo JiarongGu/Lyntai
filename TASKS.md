@@ -15,27 +15,26 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 14 across 5 Parts: 10 startable, 2 blocked, 2 watch
+## Open items — 13 across 5 Parts: 9 startable, 2 blocked, 2 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 115 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a free Hugging Face account (an hf_ token) — its router proxies fal's own q… |
-| 162 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 185 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 241 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
-| 271 | 294 | Give the vector-store, verification and annotation contracts an abstract Fa… | startable |  |
-| 274 | 294 | Sweep test comments for history narration that carries no tag or date | startable |  |
-| 284 | 298 | SentencePiece tokenization for the ONNX provider — D122's trigger has fired | startable |  |
-| 288 | 298 | Change the embedder without rebuilding the graph | startable |  |
-| 290 | 298 | Read a stored vector back by id, or cache embeddings on the vector call | startable |  |
-| 292 | 298 | Filtered nearest-neighbour search | startable |  |
-| 294 | 298 | Edit the text provider set at run time | startable |  |
-| 297 | 298 | Schedules added at run time, persisted | startable |  |
-| 299 | 298 | Trace and score front-door calls without a wrapper | startable |  |
-| 302 | 298 | Job progress as a message code plus arguments | startable |  |
+| 114 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a free Hugging Face account (an hf_ token) — its router proxies fal's own q… |
+| 161 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 184 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 240 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 270 | 294 | Sweep test comments for history narration that carries no tag or date | startable |  |
+| 280 | 298 | SentencePiece tokenization for the ONNX provider — D122's trigger has fired | startable |  |
+| 284 | 298 | Change the embedder without rebuilding the graph | startable |  |
+| 286 | 298 | Read a stored vector back by id, or cache embeddings on the vector call | startable |  |
+| 288 | 298 | Filtered nearest-neighbour search | startable |  |
+| 290 | 298 | Edit the text provider set at run time | startable |  |
+| 293 | 298 | Schedules added at run time, persisted | startable |  |
+| 295 | 298 | Trace and score front-door calls without a wrapper | startable |  |
+| 298 | 298 | Job progress as a message code plus arguments | startable |  |
 
 <!-- open-items:end -->
 
@@ -268,9 +267,6 @@ there is nothing here to code: what remains is evidence only recurrence can supp
 _Opened by `docs/task-archive.md` **Part 295**, the full review of code, tests, tooling and docs. Each was
 found and deliberately not done in that pass; everything else it found is fixed and archived._
 
-- [ ] **Give the vector-store, verification and annotation contracts an abstract Facts base**, as the engine, <!-- item: state=startable -->
-  ranking and retrievability contracts now have (`tests/Lyntai.Tests/Memory/`), so no fact can be wired to one
-  implementation and silently skipped on another. The vector-store one spans `tests/Lyntai.Tests/Storage/`.
 - [ ] **Sweep test comments for history narration that carries no tag or date.** The review cut every tagged or <!-- item: state=startable -->
   dated provenance line (74 hits to 1), but untagged narration ("this used to…", "until the fix…") needs a
   reading pass, not a regex — `code-commentary.md` applies to tests as it does to `src/`.
