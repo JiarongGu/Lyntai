@@ -132,4 +132,5 @@ sealed class Lyntai.Storage.Postgres.PostgresVectorStore
     ListCollectionsAsync(String prefix, CancellationToken ct = default) : Task<IReadOnlyList<String>>
     RemoveCollectionAsync(String collection, CancellationToken ct = default) : Task
     SearchAsync(String collection, Single[] query, Int32 k, CancellationToken ct = default) : Task<IReadOnlyList<VectorMatch>>
+    SearchAsync(String collection, Single[] query, Int32 k, VectorSearchFilter filter, CancellationToken ct = default) : Task<IReadOnlyList<VectorMatch>>
     UpsertAsync(String collection, String id, Single[] vector, String payload, CancellationToken ct = default) : Task

@@ -20,6 +20,26 @@ public interface IVectorStore
     /// hash-table or row-arrival order varies between runs.</summary>
     Task<IReadOnlyList<VectorMatch>> SearchAsync(string collection, float[] query, int k, CancellationToken ct = default);
 
+    /// <summary>The <paramref name="k"/> nearest entries <paramref name="filter"/> admits, ranked and tie-broken as
+    /// the unfiltered search is — the filter applies BEFORE the <paramref name="k"/> boundary, so a narrowed search
+    /// still returns up to <paramref name="k"/> results.
+    /// <para><b>The default body is correct and only slower</b>: it ranks the whole collection, keeps what the
+    /// filter admits and takes <paramref name="k"/>, so a store of your own serves this unchanged. The shipped stores
+    /// override it to filter inside their query.</para></summary>
+    /// <param name="collection">The collection to search.</param>
+    /// <param name="query">The query vector.</param>
+    /// <param name="k">How many results at most; zero or less returns nothing.</param>
+    /// <param name="filter">Which ids may come back.</param>
+    /// <param name="ct">Cancellation.</param>
+    async Task<IReadOnlyList<VectorMatch>> SearchAsync(string collection, float[] query, int k, VectorSearchFilter filter,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(filter);
+        if (k <= 0) return [];
+        var ranked = await SearchAsync(collection, query, int.MaxValue, ct).ConfigureAwait(false);
+        return [.. ranked.Where(m => filter.Admits(m.Id)).Take(k)];
+    }
+
     /// <summary>Remove the single vector stored under <paramref name="id"/> in <paramref name="collection"/>.
     /// No-op if absent. (Whole-collection drop is <see cref="RemoveCollectionAsync"/>.)</summary>
     Task DeleteAsync(string collection, string id, CancellationToken ct = default);
@@ -77,6 +97,24 @@ public interface IReadableVectorStore : IVectorStore
 /// <summary>A search result: the stored <paramref name="Payload"/> and its cosine <paramref name="Score"/>
 /// (in [-1, 1]; higher is more similar).</summary>
 public sealed record VectorMatch(string Id, string Payload, double Score);
+
+/// <summary>Narrows a nearest-neighbour search to ids the caller keeps elsewhere: an attribute it filters on lives
+/// in its own data, and it passes the ids that match.</summary>
+public sealed record VectorSearchFilter
+{
+    /// <summary>Only these ids may come back. Null places no restriction; an EMPTY set admits nothing.</summary>
+    public IReadOnlyCollection<string>? Ids { get; init; }
+
+    /// <summary>These ids never come back, whether or not <see cref="Ids"/> names them.</summary>
+    public IReadOnlyCollection<string>? ExcludeIds { get; init; }
+
+    /// <summary>Whether <paramref name="id"/> may come back (ids compare ordinally) — what a store that filters in
+    /// process asks of each candidate.</summary>
+    /// <param name="id">A stored entry's id.</param>
+    public bool Admits(string id) =>
+        (Ids is null || Ids.Contains(id, StringComparer.Ordinal))
+        && (ExcludeIds is null || !ExcludeIds.Contains(id, StringComparer.Ordinal));
+}
 
 /// <summary>A stored entry read back by <see cref="IReadableVectorStore.GetAsync"/>: its id, the
 /// <paramref name="Vector"/> exactly as upserted, and its <paramref name="Payload"/>.</summary>

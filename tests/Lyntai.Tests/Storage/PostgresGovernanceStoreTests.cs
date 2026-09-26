@@ -136,6 +136,11 @@ public sealed class PostgresGovernanceStoreTests(PostgresFixture pg)
     [SkippableFact] public Task Contract_read_exact() => VecPg(VectorStoreContract.A_read_vector_is_bit_identical);
     [SkippableFact] public Task Contract_read_copy() => VecPg(VectorStoreContract.A_read_vector_cannot_change_what_is_stored);
     [SkippableFact] public Task Contract_read_many_ids() => VecPg(VectorStoreContract.A_large_id_list_reads_without_failing);
+    [SkippableFact] public Task Contract_filter_admits() => VecPg(VectorStoreContract.A_filter_admits_only_its_ids);
+    [SkippableFact] public Task Contract_filter_exclusion_wins() => VecPg(VectorStoreContract.An_exclusion_wins_over_an_inclusion);
+    [SkippableFact] public Task Contract_filter_empty() => VecPg(VectorStoreContract.An_empty_inclusion_returns_nothing);
+    [SkippableFact] public Task Contract_filter_tie() => VecPg(VectorStoreContract.The_tiebreak_holds_within_the_admitted_set);
+    [SkippableFact] public Task Contract_filter_many_ids() => VecPg(VectorStoreContract.A_large_filter_searches_without_failing);
 
     [SkippableFact]
     public void Contract_can_list()

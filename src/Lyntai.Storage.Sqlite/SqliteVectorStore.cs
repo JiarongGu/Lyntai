@@ -23,13 +23,34 @@ public sealed class SqliteVectorStore(IDbConnectionFactory factory) : IListableV
             """, new { collection, id, vector = ReflectionJson.Serialize(vector), payload }, cancellationToken: ct)).ConfigureAwait(false);
     }
 
-    public async Task<IReadOnlyList<VectorMatch>> SearchAsync(string collection, float[] query, int k, CancellationToken ct = default)
+    public Task<IReadOnlyList<VectorMatch>> SearchAsync(string collection, float[] query, int k, CancellationToken ct = default) =>
+        SearchCoreAsync(collection, query, k, filter: null, ct);
+
+    /// <inheritdoc />
+    /// <remarks>Filters in the query, so an excluded row is never parsed; the id sets travel as JSON arrays through
+    /// <c>json_each</c>, as <see cref="GetAsync"/>'s do, for the same bound-parameter reason.</remarks>
+    public Task<IReadOnlyList<VectorMatch>> SearchAsync(string collection, float[] query, int k, VectorSearchFilter filter,
+        CancellationToken ct = default)
     {
-        if (k <= 0) return [];
+        ArgumentNullException.ThrowIfNull(filter);
+        return SearchCoreAsync(collection, query, k, filter, ct);
+    }
+
+    private async Task<IReadOnlyList<VectorMatch>> SearchCoreAsync(string collection, float[] query, int k,
+        VectorSearchFilter? filter, CancellationToken ct)
+    {
+        if (k <= 0 || filter?.Ids is { Count: 0 }) return [];
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
-        var rows = await conn.QueryAsync<Row>(new CommandDefinition(
-            "SELECT vec_id, vector, payload FROM lyntai_vector WHERE collection = @collection",
-            new { collection }, cancellationToken: ct)).ConfigureAwait(false);
+        // the fragments are compile-time constants; every value is a parameter
+        var sql = "SELECT vec_id, vector, payload FROM lyntai_vector WHERE collection = @collection"
+            + (filter?.Ids is null ? "" : " AND vec_id IN (SELECT value FROM json_each(@ids))")
+            + (filter?.ExcludeIds is null ? "" : " AND vec_id NOT IN (SELECT value FROM json_each(@exclude))");
+        var rows = await conn.QueryAsync<Row>(new CommandDefinition(sql, new
+        {
+            collection,
+            ids = filter?.Ids is { } ids ? ReflectionJson.Serialize(ids.ToArray()) : null,
+            exclude = filter?.ExcludeIds is { } exclude ? ReflectionJson.Serialize(exclude.ToArray()) : null,
+        }, cancellationToken: ct)).ConfigureAwait(false);
 
         // ThenBy is load-bearing: the SELECT has no ORDER BY, so without it tied scores keep the query PLAN's
         // order and an arbitrary member of the tie drops out at the k boundary (VectorStoreContract).

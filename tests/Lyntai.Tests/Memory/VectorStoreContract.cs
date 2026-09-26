@@ -32,6 +32,11 @@ public abstract class VectorStoreContractFacts
     [Fact] public Task Read_exact() => VectorStoreContract.A_read_vector_is_bit_identical(New(), "c17");
     [Fact] public Task Read_copy() => VectorStoreContract.A_read_vector_cannot_change_what_is_stored(New(), "c18");
     [Fact] public Task Read_many_ids() => VectorStoreContract.A_large_id_list_reads_without_failing(New(), "c19");
+    [Fact] public Task Filter_admits() => VectorStoreContract.A_filter_admits_only_its_ids(New(), "c20");
+    [Fact] public Task Filter_exclusion_wins() => VectorStoreContract.An_exclusion_wins_over_an_inclusion(New(), "c21");
+    [Fact] public Task Filter_empty() => VectorStoreContract.An_empty_inclusion_returns_nothing(New(), "c22");
+    [Fact] public Task Filter_tie() => VectorStoreContract.The_tiebreak_holds_within_the_admitted_set(New(), "c23");
+    [Fact] public Task Filter_many_ids() => VectorStoreContract.A_large_filter_searches_without_failing(New(), "c24");
 }
 
 /// <summary>Backend-agnostic facts every <see cref="IVectorStore"/> satisfies, held to by all three
@@ -346,5 +351,69 @@ public static class VectorStoreContract
         var read = await ((IReadableVectorStore)store).GetAsync(c, ids);
 
         Assert.Equal(["id-4000", "id-4999", "id-7"], read.Select(e => e.Id));
+    }
+
+    private static readonly float[] Query = [1f, 0f];
+
+    // five entries at strictly decreasing cosines to Query: a > b > c > d > e
+    private static async Task SeedGradedAsync(IVectorStore store, string c)
+    {
+        await store.UpsertAsync(c, "a", [1f, 0f], "A");
+        await store.UpsertAsync(c, "b", [0.9f, 0.1f], "B");
+        await store.UpsertAsync(c, "c", [0.7f, 0.3f], "C");
+        await store.UpsertAsync(c, "d", [0.5f, 0.5f], "D");
+        await store.UpsertAsync(c, "e", [0.1f, 0.9f], "E");
+    }
+
+    private static async Task<IReadOnlyList<string>> FilteredAsync(IVectorStore store, string c, int k,
+        VectorSearchFilter filter) =>
+        [.. (await store.SearchAsync(c, Query, k, filter)).Select(m => m.Id)];
+
+    /// <summary>Only the ids the filter names come back, in score order, the k boundary applied AFTER the
+    /// filter — and an id it names that is not stored is simply absent.</summary>
+    public static async Task A_filter_admits_only_its_ids(IVectorStore store, string c)
+    {
+        await SeedGradedAsync(store, c);
+        var filter = new VectorSearchFilter { Ids = ["d", "b", "x"] };
+
+        Assert.Equal(["b", "d"], await FilteredAsync(store, c, 10, filter));
+        Assert.Equal(["b"], await FilteredAsync(store, c, 1, filter));
+    }
+
+    /// <summary>An exclusion wins over an inclusion, and an exclusion alone narrows the whole collection.</summary>
+    public static async Task An_exclusion_wins_over_an_inclusion(IVectorStore store, string c)
+    {
+        await SeedGradedAsync(store, c);
+
+        Assert.Equal(["b"], await FilteredAsync(store, c, 10, new() { Ids = ["b", "d"], ExcludeIds = ["d"] }));
+        Assert.Equal(["b", "c"], await FilteredAsync(store, c, 2, new() { ExcludeIds = ["a"] }));
+    }
+
+    /// <summary>An EMPTY inclusion admits nothing (null is "no restriction"), and k of zero returns nothing.</summary>
+    public static async Task An_empty_inclusion_returns_nothing(IVectorStore store, string c)
+    {
+        await SeedGradedAsync(store, c);
+
+        Assert.Empty(await FilteredAsync(store, c, 10, new() { Ids = [] }));
+        Assert.Empty(await FilteredAsync(store, c, 0, new()));
+        Assert.Equal(["a", "b", "c", "d", "e"], await FilteredAsync(store, c, 10, new()));
+    }
+
+    /// <summary>The contract's tie-break (equal scores by id) holds within the admitted set.</summary>
+    public static async Task The_tiebreak_holds_within_the_admitted_set(IVectorStore store, string c)
+    {
+        foreach (var id in new[] { "t1", "t2", "t3" }) await store.UpsertAsync(c, id, [1f, 0f], id);
+
+        Assert.Equal(["t2"], await FilteredAsync(store, c, 1, new() { Ids = ["t3", "t2"] }));
+    }
+
+    /// <summary>Large id lists filter without meeting a bound-parameter limit.</summary>
+    public static async Task A_large_filter_searches_without_failing(IVectorStore store, string c)
+    {
+        await SeedGradedAsync(store, c);
+        var many = Enumerable.Range(0, 5000).Select(i => $"id-{i}").ToList();
+
+        Assert.Equal(["b", "d"], await FilteredAsync(store, c, 10, new() { Ids = [.. many, "b", "d"] }));
+        Assert.Equal(["a", "b", "c", "d", "e"], await FilteredAsync(store, c, 10, new() { ExcludeIds = many }));
     }
 }

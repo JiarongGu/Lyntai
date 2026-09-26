@@ -7,7 +7,7 @@ namespace Lyntai.Memory;
 /// (exact cosine over every entry in the collection). The zero-dependency default for semantic memory —
 /// fine up to some thousands of entries per collection; for larger corpora or persistence across restarts,
 /// register a real vector backend (pgvector, sqlite-vec, …) instead. Thread-safe, and its top-k is
-/// DETERMINISTIC: equal scores are broken by id (see <see cref="SearchAsync"/>).
+/// DETERMINISTIC: equal scores are broken by id (see <see cref="SearchAsync(string, float[], int, CancellationToken)"/>).
 /// </summary>
 public sealed class InMemoryVectorStore : IListableVectorStore, IReadableVectorStore
 {
@@ -31,12 +31,25 @@ public sealed class InMemoryVectorStore : IListableVectorStore, IReadableVectorS
     /// drops out of the result altogether (the same defect <c>storage.md</c> records for an
     /// <c>ORDER BY</c> on a non-unique column). Ids are unique within a collection, so this is a total
     /// order.</summary>
-    public Task<IReadOnlyList<VectorMatch>> SearchAsync(string collection, float[] query, int k, CancellationToken ct = default)
+    public Task<IReadOnlyList<VectorMatch>> SearchAsync(string collection, float[] query, int k, CancellationToken ct = default) =>
+        Search(collection, query, k, filter: null);
+
+    /// <inheritdoc />
+    /// <remarks>Filters BEFORE ranking, so an excluded entry costs no cosine.</remarks>
+    public Task<IReadOnlyList<VectorMatch>> SearchAsync(string collection, float[] query, int k, VectorSearchFilter filter,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(filter);
+        return Search(collection, query, k, filter);
+    }
+
+    private Task<IReadOnlyList<VectorMatch>> Search(string collection, float[] query, int k, VectorSearchFilter? filter)
     {
         if (k <= 0 || !_collections.TryGetValue(collection, out var col) || col.IsEmpty)
             return Task.FromResult<IReadOnlyList<VectorMatch>>([]);
 
         var ranked = col
+            .Where(kv => filter is null || filter.Admits(kv.Key))
             .Select(kv => new VectorMatch(kv.Key, kv.Value.Payload, VectorMath.Cosine(query, kv.Value.Vector)))
             .OrderByDescending(m => m.Score)
             .ThenBy(m => m.Id, StringComparer.Ordinal)

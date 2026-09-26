@@ -2130,6 +2130,7 @@ interface Lyntai.Memory.IVectorStore
     DeleteAsync(String collection, String id, CancellationToken ct = default) : Task
     RemoveCollectionAsync(String collection, CancellationToken ct = default) : Task
     SearchAsync(String collection, Single[] query, Int32 k, CancellationToken ct = default) : Task<IReadOnlyList<VectorMatch>>
+    SearchAsync(String collection, Single[] query, Int32 k, VectorSearchFilter filter, CancellationToken ct = default) : Task<IReadOnlyList<VectorMatch>>
     UpsertAsync(String collection, String id, Single[] vector, String payload, CancellationToken ct = default) : Task
 sealed class Lyntai.Memory.InMemoryVectorStore
     .ctor()
@@ -2138,6 +2139,7 @@ sealed class Lyntai.Memory.InMemoryVectorStore
     ListCollectionsAsync(String prefix, CancellationToken ct = default) : Task<IReadOnlyList<String>>
     RemoveCollectionAsync(String collection, CancellationToken ct = default) : Task
     SearchAsync(String collection, Single[] query, Int32 k, CancellationToken ct = default) : Task<IReadOnlyList<VectorMatch>>
+    SearchAsync(String collection, Single[] query, Int32 k, VectorSearchFilter filter, CancellationToken ct = default) : Task<IReadOnlyList<VectorMatch>>
     UpsertAsync(String collection, String id, Single[] vector, String payload, CancellationToken ct = default) : Task
 sealed class Lyntai.Memory.Interference.BurstDampenedAgePolicy
     .ctor(IMemoryAgePolicy inner = null, Nullable<TimeSpan> window = null, Func<DateTimeOffset> clock = null)
@@ -2698,6 +2700,15 @@ static class Lyntai.Memory.VectorMath
     static Cosine(Single[] a, Single[] b) : Double
     static NormalizeInPlace(Single[] vector) : Void
     static WeightedMeanDirection(IReadOnlyList<Single[]> vectors, IReadOnlyList<Double> weights) : Single[]
+sealed class Lyntai.Memory.VectorSearchFilter
+    .ctor()
+    Admits(String id) : Boolean
+    Equals(Object obj) : Boolean
+    Equals(VectorSearchFilter other) : Boolean
+    ExcludeIds : IReadOnlyCollection<String> { get; init; }
+    GetHashCode() : Int32
+    Ids : IReadOnlyCollection<String> { get; init; }
+    ToString() : String
 interface Lyntai.Memory.Verification.IMemoryVerificationPolicy
     VerifyAsync(MemoryVerificationRequest request, CancellationToken ct = default) : Task<MemoryVerification>
 sealed class Lyntai.Memory.Verification.LlmMemoryVerificationPolicy

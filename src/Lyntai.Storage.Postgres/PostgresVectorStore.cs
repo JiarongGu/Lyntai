@@ -46,9 +46,23 @@ public sealed class PostgresVectorStore(IDbConnectionFactory factory) : IListabl
     /// touching the database.</summary>
     /// <returns>Up to <paramref name="k"/> matches ordered by descending similarity; empty when the
     /// collection has no rows or <paramref name="k"/> &lt;= 0.</returns>
-    public async Task<IReadOnlyList<VectorMatch>> SearchAsync(string collection, float[] query, int k, CancellationToken ct = default)
+    public Task<IReadOnlyList<VectorMatch>> SearchAsync(string collection, float[] query, int k, CancellationToken ct = default) =>
+        SearchCoreAsync(collection, query, k, filter: null, ct);
+
+    /// <inheritdoc />
+    /// <remarks>Filters in SQL (<c>= ANY</c> / <c>&lt;&gt; ALL</c>), so the top-k is still taken in the
+    /// database.</remarks>
+    public Task<IReadOnlyList<VectorMatch>> SearchAsync(string collection, float[] query, int k, VectorSearchFilter filter,
+        CancellationToken ct = default)
     {
-        if (k <= 0) return [];
+        ArgumentNullException.ThrowIfNull(filter);
+        return SearchCoreAsync(collection, query, k, filter, ct);
+    }
+
+    private async Task<IReadOnlyList<VectorMatch>> SearchCoreAsync(string collection, float[] query, int k,
+        VectorSearchFilter? filter, CancellationToken ct)
+    {
+        if (k <= 0 || filter?.Ids is { Count: 0 }) return [];
         await EnsureSchemaAsync().ConfigureAwait(false);
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         // <=> is cosine DISTANCE (0 = identical); score = 1 - distance = cosine similarity, matching the
@@ -58,17 +72,24 @@ public sealed class PostgresVectorStore(IDbConnectionFactory factory) : IListabl
         // pgvector, a mismatch raises for the WHOLE statement and a zero norm scores NaN — and the column is
         // dimension-agnostic on purpose, so a collection that outlives an embedder swap holds both.
         //
-        // vec_id breaks ties, COLLATE "C" so the order is byte order, as every other backend's is.
-        var rows = await conn.QueryAsync<Row>(new CommandDefinition("""
+        // vec_id breaks ties, COLLATE "C" so the order is byte order, as every other backend's is. The filter
+        // fragments are compile-time constants; every value is a parameter.
+        var filters = (filter?.Ids is null ? "" : " AND vec_id = ANY(@ids)")
+            + (filter?.ExcludeIds is null ? "" : " AND vec_id <> ALL(@exclude)");
+        var rows = await conn.QueryAsync<Row>(new CommandDefinition($"""
             SELECT vec_id, payload,
                    CASE WHEN vector_dims(embedding) = vector_dims(q.v)
                              AND vector_norm(embedding) > 0 AND vector_norm(q.v) > 0
                         THEN (1 - (embedding <=> q.v))::double precision
                         ELSE 0 END AS score
             FROM lyntai_vector, (SELECT CAST(@query AS vector) AS v) q
-            WHERE collection = @collection
+            WHERE collection = @collection{filters}
             ORDER BY score DESC, vec_id COLLATE "C" LIMIT @k
-            """, new { collection, query = Literal(query), k }, cancellationToken: ct)).ConfigureAwait(false);
+            """, new
+            {
+                collection, query = Literal(query), k,
+                ids = filter?.Ids?.ToArray(), exclude = filter?.ExcludeIds?.ToArray(),
+            }, cancellationToken: ct)).ConfigureAwait(false);
         return [.. rows.Select(r => new VectorMatch(r.VecId, r.Payload, r.Score))];
     }
 
@@ -119,7 +140,7 @@ public sealed class PostgresVectorStore(IDbConnectionFactory factory) : IListabl
     /// <remarks><c>substr(...) = @prefix</c> rather than <c>LIKE</c>, so a <c>%</c> or <c>_</c> inside a
     /// caller's prefix stays data — the contract says the prefix is never a pattern. <c>COLLATE "C"</c> makes
     /// the comparison byte-exact, which is the ORDINAL rule the contract promises and the same reasoning
-    /// <see cref="SearchAsync"/>'s tiebreak carries: a differently-collated deployment would otherwise
+    /// <see cref="SearchAsync(string, float[], int, CancellationToken)"/>'s tiebreak carries: a differently-collated deployment would otherwise
     /// disagree with the other two backends.</remarks>
     public async Task<IReadOnlyList<string>> ListCollectionsAsync(string prefix, CancellationToken ct = default)
     {
