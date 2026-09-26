@@ -7,6 +7,40 @@ to `.claude/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-09-27 — a forget racing a graph write left the write's vector, and its full content, in the index
+
+**Symptom.** Found by the final review of the re-embed work (**D194**); closed as `docs/task-archive.md` Part 325: a
+`ForgetAsync` completing while a `RememberAsync` was in flight could leave that write's vector behind, its payload
+the entry's full content, after the forget had reported success. That breaks the removal completeness **D90** holds
+the engine to.
+
+**Root cause.** `GraphMemoryEngine.RememberAsync` upserts the node, then `EnrichAsync` indexes its vector, and
+nothing held the two together. A forget landing in between dropped the collection and deleted the node, and the
+index write then re-created the collection holding the forgotten content. The store's own rows were never at risk:
+every shipped store writes nothing for a link or subject whose node is gone (the SQL inserts are guarded by an
+`EXISTS` or a join, and `MemoryGraphState` follows the same rule). The vector lives outside the store's contract,
+which is the second-door shape in `.claude/knowledge/pitfalls.md` ("A projection the OWNING STORE does not hold").
+
+**Fix.** `IndexUnlessRemovedAsync` takes the removal lock D194 added for the re-embed's write step, re-reads the
+node, and indexes only if it still exists. Both halves are needed: the re-read alone still races a forget landing
+between it and the index. The re-read is fail-open like the index itself, and a failure costs only the vector,
+behind the `when (ct.IsCancellationRequested)` filter every memory catch uses. The guarantee is per engine
+instance, as the re-embed's is. The alternative was a reader-writer lock, so that concurrent writes would not
+queue behind one another's index steps; it was not built, because it is a hand-rolled async primitive and no
+instrument measures concurrent writes with a vector index (`memory-scale` writes sequentially and embeds
+nothing). The embed call stays outside the lock.
+
+**Verify.** Four tests, all red before the change:
+`MemoryRemovalCompletenessTests.A_forget_landing_between_a_write_s_upsert_and_its_index_leaves_no_vector` (the
+re-read), `…A_forget_arriving_while_a_write_indexes_waits_for_it_and_leaves_no_vector` (the lock), and
+`MemoryFailOpenCancellationTests.A_graph_write_lands_unindexed_when_the_re_read_guarding_its_index_times_out` with
+its caller-cancel twin. Four mutations, each caught by exactly one test: the lock without the re-read, the re-read
+without the lock, a bare `catch (OperationCanceledException)`, and a catch that swallows every cancellation.
+
+**Introduced by.** Not a regression. `c458ace2` (2026-08-26) made both removal verbs clear the similarity index,
+where before they cleared none of it, and left the write's upsert-then-index unguarded. The lock it needed arrived
+with `87c56be9` (2026-09-27).
+
 ## 2026-09-26 — an XLM-R or MPNet ONNX export took a window two positions past its table
 
 **Symptom.** Found while bringing up the multilingual reranker mmarco-mMiniLMv2 (**D191**): its `config.json`

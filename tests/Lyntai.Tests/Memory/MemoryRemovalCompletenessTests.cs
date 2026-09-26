@@ -261,6 +261,62 @@ public class MemoryRemovalCompletenessTests
         Assert.Empty(await store.SeedAsync("project/graph", "t", "s", "faint", 10));
     }
 
+    [Fact]
+    public async Task A_forget_landing_between_a_write_s_upsert_and_its_index_leaves_no_vector()
+    {
+        // A write stores its node and only THEN indexes the vector, so a forget completing in that gap has
+        // already cleared the index — indexing afterwards would leave the forgotten content readable in it.
+        var vectors = new InMemoryVectorStore();
+        var store = new UpsertParkingGraphStore();
+        var engine = Engine(vectors, store: store);
+
+        var write = engine.RememberAsync(new MemoryWrite("t", "s", "the recovery key is written on the blue card"));
+        await store.Parked.Task.WaitAsync(TestTimeouts.GateWait);
+        await engine.ForgetAsync("t", "s");
+        store.Release.SetResult();
+
+        var written = await write.WaitAsync(TestTimeouts.GateWait);
+        Assert.Empty(await PayloadsAsync(vectors, Collection("t", "s")));
+        Assert.False(written.Ran.HasFlag(MemorySources.Similarity));   // reported unindexed, which it is
+    }
+
+    [Fact]
+    public async Task A_forget_arriving_while_a_write_indexes_waits_for_it_and_leaves_no_vector()
+    {
+        // The other half: a re-read alone still races, because the forget could land between the re-read and
+        // the index. A forget arriving mid-index therefore waits, and then clears what the write indexed.
+        var vectors = new ParkingVectorStore();
+        var engine = Engine(vectors);
+        vectors.ParkNextUpsert();
+
+        var write = engine.RememberAsync(new MemoryWrite("t", "s", "the recovery key is written on the blue card"));
+        await vectors.Parked.Task.WaitAsync(TestTimeouts.GateWait);
+        var forget = engine.ForgetAsync("t", "s");
+        Assert.False(forget.IsCompleted);                        // it waits for the index step to let go
+        vectors.Release.SetResult();
+
+        await write.WaitAsync(TestTimeouts.GateWait);
+        await forget.WaitAsync(TestTimeouts.GateWait);
+        Assert.Empty(await PayloadsAsync(vectors, Collection("t", "s")));
+    }
+
+    /// <summary>A real in-process graph store whose next upsert parks AFTER the node is stored — a write held
+    /// between its upsert and its index.</summary>
+    private sealed class UpsertParkingGraphStore : DelegatingGraphStore
+    {
+        public TaskCompletionSource Parked { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public override async Task<long> UpsertAsync(GraphNodeWrite write, CancellationToken ct = default)
+        {
+            var id = await base.UpsertAsync(write, ct);
+            Parked.TrySetResult();
+            await Release.Task;
+            return id;
+        }
+    }
+
     /// <summary>An <see cref="IVectorStore"/> whose every operation fails — a backend that is down, which is
     /// the condition both removal verbs have to answer for.</summary>
     private sealed class RemovalHostileVectorStore : IVectorStore

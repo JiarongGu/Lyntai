@@ -5323,3 +5323,15 @@ chose an id set over metadata and read-by-id over an embed cache. Spec:
 - Change the embedder without rebuilding the graph
 - Read a stored vector back by id, or cache embeddings on the vector call
 - Filtered nearest-neighbour search
+
+## Part 325 — a forget racing a graph write (2026-09-27)
+
+✅ done 2026-09-27 — **Outcome:** `TASKS.md` Part 324's one item, which surfaced from the review of
+`docs/task-archive.md` Part 323. A graph write now indexes its vector under the removal lock D194 added, after
+re-reading that its node survived (`GraphMemoryEngine.IndexUnlessRemovedAsync`), so a `ForgetAsync` landing
+between the upsert and the index no longer leaves the forgotten content in the similarity index (**D90**). The
+guarantee is per engine instance, and a write's index step now queues behind removals and behind other writes.
+Mechanism, the reader-writer alternative that was declined, and the four mutation checks: `docs/FIXES.md`,
+2026-09-27. The contract sentence is in `docs/memory.md` §9, "Delete things, deliberately".
+
+- A forget racing a write can leave the write's vector behind

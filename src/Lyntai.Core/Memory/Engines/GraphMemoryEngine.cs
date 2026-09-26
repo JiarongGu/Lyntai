@@ -57,8 +57,8 @@ public sealed class GraphMemoryEngine(
     private readonly IReadOnlyDictionary<string, IMemoryRankingPolicy> _namedRanking =
         NormalizeNamedRanking(seams?.NamedRankingPolicies);
     private readonly Func<DateTimeOffset> _clock = seams?.Clock ?? (() => DateTimeOffset.UtcNow);
-    // held by the removal verbs and by each re-embed WRITE step, so a pass never writes a vector back for an entry a
-    // forget or prune removed — the content would outlive a consent withdrawal in the index
+    // held by the removal verbs, by each re-embed WRITE step and by each write's index step, so no vector is written
+    // for an entry a forget or prune removed — the content would outlive a consent withdrawal in the index
     private readonly SemaphoreSlim _removals = new(1, 1);
     private readonly IReadOnlyList<IMemorySeedSource> _seedSources = NormalizeSeedSources(seams?.SeedSources);
     private readonly IMemoryAnnotationPolicy? _annotation = seams?.Annotation;
@@ -459,15 +459,15 @@ public sealed class GraphMemoryEngine(
     /// <para>BEST-EFFORT, deliberately: enrichment sits on top of a model-free floor, so a failing vector backend
     /// or vector store must not fail the write. The entry is already stored by the time this runs — it
     /// simply has fewer connections than it might have had (none when the shared search failed), and no
-    /// vector only when the embed or the upsert itself failed. The index and the links are separate blocks,
-    /// so a failed link costs links and never the vector.</para></summary>
+    /// vector only when the embed or the upsert itself failed, or a removal took the entry first. The index and
+    /// the links are separate blocks, so a failed link costs links and never the vector.</para></summary>
     private async Task<bool> EnrichAsync(long id, MemoryWrite write,
         (float[] Vector, IReadOnlyList<VectorMatch> Near)? search, CancellationToken ct)
     {
         if (search is null) return false;
         var (vector, near) = search.Value;
         // the index first, in its own block: a failed link must cost links, never the vector (D175)
-        var indexed = await _vectors.IndexAsync(id, write, vector, ct).ConfigureAwait(false);
+        var indexed = await IndexUnlessRemovedAsync(id, write, vector, ct).ConfigureAwait(false);
 
         try
         {
@@ -498,6 +498,25 @@ public sealed class GraphMemoryEngine(
         }
 
         return indexed;
+    }
+
+    /// <summary>Index the node's vector under the removal lock, and only while the node still exists: a forget
+    /// that landed since the upsert has already cleared the index, so indexing after it would leave the forgotten
+    /// content readable there (<b>D90</b>). Best-effort like the index itself — a failed re-read costs the vector.</summary>
+    private async Task<bool> IndexUnlessRemovedAsync(long id, MemoryWrite write, float[] vector, CancellationToken ct)
+    {
+        using var removals = await RemovalsAsync(ct).ConfigureAwait(false);
+        try
+        {
+            if (await store.GetAsync(Name, id, ct).ConfigureAwait(false) is null) return false;
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "re-reading a new entry failed for {Engine}; it is stored without its vector", Name);
+            return false;
+        }
+        return await _vectors.IndexAsync(id, write, vector, ct).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
@@ -882,7 +901,9 @@ public sealed class GraphMemoryEngine(
     /// <b>D72</b> requires to be COMPLETE. Vectors first means a failure here leaves the nodes intact and the
     /// call retryable; the reverse order would report success over surviving content. <c>PruneAsync</c>
     /// deliberately orders the other way, because there the cheap failure is an orphan rather than a
-    /// residue.</para></summary>
+    /// residue.</para>
+    /// <para>A write in flight on this instance never outlives it in the index: the two exclude each other around
+    /// the write's index step, which indexes only an entry that survived.</para></summary>
     /// <param name="taskKey">The task to clear.</param>
     /// <param name="scope">The scope, or null for every scope of the task.</param>
     /// <param name="ct">Cancellation.</param>

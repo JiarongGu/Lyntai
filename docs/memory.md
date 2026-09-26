@@ -882,6 +882,13 @@ the index *before* the nodes, so a vector-store outage fails the call with the n
 half-forgetting; and pruning through the store's own path pays a scope read before and, when anything was removed, one after,
 to learn which ids it removed, which a deployment with no vector store does not pay.
 
+**A write racing a removal never leaves its vector behind** when both go through the same engine instance, which
+the DI-registered singleton is: a write indexes its vector under the lock the removal verbs hold, after re-reading
+that its entry survived, so a forget landing between the write's entry and its vector wins, and the write reports no
+`MemorySources.Similarity`. The price is that a write's index step waits for a running forget or prune, and
+concurrent writes to one engine take that step one at a time; the embed call, the slow part, stays outside. Two
+instances over one store, two processes say, are not serialized, and there the window remains.
+
 ### Re-embed after changing the embedding model
 
 A new embedder leaves every stored vector on the old model. Re-embed in place — entries keep their ids, links and

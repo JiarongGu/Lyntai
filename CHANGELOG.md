@@ -17,6 +17,17 @@ and every Breaking entry ends by naming that action. A pure addition goes under 
 moves the `ApiSurfaceTests` baseline: the baseline gates DELIBERATENESS (D8), not breakage, and it moves for
 every addition.
 
+## Unreleased
+
+### Fixed
+
+- **A forget racing a graph write no longer leaves the write's vector behind.** A write stored its entry and only
+  then indexed the vector, with the entry's full content as its payload, so a `ForgetAsync` completing between the
+  two left that content readable in the similarity index. The write now indexes under the lock the removal verbs
+  hold, after re-reading that its entry survived; one a removal took first reports no `MemorySources.Similarity`.
+  Through the same engine instance only, as for a re-embed: a write's index step waits for a running forget or
+  prune, and concurrent writes to one engine take that step one at a time.
+
 ## 3.5.0 — 2026-09-26
 
 ### Breaking

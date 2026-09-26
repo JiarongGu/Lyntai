@@ -3,6 +3,7 @@ using Lyntai.Memory.Annotation;
 using Lyntai.Memory.Engines;
 using Lyntai.Memory.Seeding;
 using Lyntai.Storage.InMemory;
+using Lyntai.Tests.Fakes;
 
 namespace Lyntai.Tests.Memory;
 
@@ -77,6 +78,28 @@ public class MemoryFailOpenCancellationTests
 
         await engine.RememberAsync(Write());
 
+        Assert.NotEmpty((await engine.RecallAsync(Query())).Items);
+    }
+
+    private static GraphMemoryEngine Indexing(IMemoryGraphStore store) =>
+        new("graph", store, seams: new GraphMemorySeams
+            {
+                Providers = [new FakeVectorProvider()],
+                Vectors = new InMemoryVectorStore(),
+            });
+
+    [Fact]
+    public async Task A_graph_write_lands_unindexed_when_the_re_read_guarding_its_index_times_out()
+    {
+        // The re-read that keeps a forget's gap closed runs after the node landed, so its deadline costs the
+        // vector — never indexed over an entry that may be gone — and never the write.
+        var store = new TimingOutGraphStore(nameof(IMemoryGraphStore.GetAsync));
+        var engine = Indexing(store);
+
+        var written = await engine.RememberAsync(Write());
+
+        Assert.Equal(1, store.TimedOut);
+        Assert.False(written.Ran.HasFlag(MemorySources.Similarity));
         Assert.NotEmpty((await engine.RecallAsync(Query())).Items);
     }
 
@@ -212,6 +235,19 @@ public class MemoryFailOpenCancellationTests
 
         var thrown = await Assert.ThrowsAnyAsync<OperationCanceledException>(
             () => engine.RecallAsync(Query(), cts.Token));
+
+        Assert.Equal(StoreFault.CallerMarker, thrown.Message);
+    }
+
+    /// <summary>The write path's twin: the caller cancelling inside the re-read that guards a write's index.</summary>
+    [Fact]
+    public async Task A_CALLER_cancelling_still_propagates_from_the_re_read_guarding_a_write_s_index()
+    {
+        using var cts = new CancellationTokenSource();
+        var engine = Indexing(new TimingOutGraphStore(nameof(IMemoryGraphStore.GetAsync)) { Caller = cts });
+
+        var thrown = await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => engine.RememberAsync(Write(), cts.Token));
 
         Assert.Equal(StoreFault.CallerMarker, thrown.Message);
     }
