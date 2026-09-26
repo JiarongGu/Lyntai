@@ -62,19 +62,27 @@ public sealed class InMemoryJobStore(Func<DateTimeOffset>? clock = null, int ste
         }
     }
 
-    public Task<bool> ReportProgressAsync(Guid id, string workerId, int done, int total, string? stage, CancellationToken ct = default)
+    public Task<bool> ReportProgressAsync(Guid id, string workerId, int done, int total, string? stage, CancellationToken ct = default) =>
+        ReportStageAsync(id, workerId, done, total, stage is null ? null : new JobMessage(stage), ct);
+
+    public Task<bool> ReportStageAsync(Guid id, string workerId, int done, int total, JobMessage? stage, CancellationToken ct = default)
     {
         var now = _clock();
         lock (_lock)
         {
             if (!Owned(id, workerId, out var j)) return Task.FromResult(false);
-            _jobs[id] = j with { Progress = done, Total = total, Stage = stage, UpdatedAt = now }; // NOT a lease renewal
+            // StageMessage is set with Stage: a `with` copies it rather than re-deriving it
+            _jobs[id] = j with { Progress = done, Total = total, Stage = stage?.Text, StageMessage = stage, UpdatedAt = now }; // NOT a lease renewal
             return Task.FromResult(true);
         }
     }
 
-    public Task<bool> ReportStepAsync(Guid id, string workerId, string message, CancellationToken ct = default)
+    public Task<bool> ReportStepAsync(Guid id, string workerId, string message, CancellationToken ct = default) =>
+        ReportStepAsync(id, workerId, new JobMessage(message), ct);
+
+    public Task<bool> ReportStepAsync(Guid id, string workerId, JobMessage message, CancellationToken ct = default)
     {
+        ArgumentNullException.ThrowIfNull(message);
         var now = _clock();
         lock (_lock)
         {

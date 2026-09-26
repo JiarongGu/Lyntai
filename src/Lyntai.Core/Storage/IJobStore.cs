@@ -11,7 +11,8 @@ namespace Lyntai.Storage;
 /// its checkpoint.
 ///
 /// Every write a worker makes to a job it holds — <see cref="SaveCheckpointAsync"/>,
-/// <see cref="ReportProgressAsync"/>, <see cref="ReportStepAsync"/>, <see cref="CompleteAsync"/>,
+/// <see cref="ReportProgressAsync"/>, <see cref="ReportStageAsync"/>, both <c>ReportStepAsync</c> overloads,
+/// <see cref="CompleteAsync"/>,
 /// <see cref="FailAsync"/>, <see cref="PollAgainAsync"/>, <see cref="DeadLetterAsync"/> and
 /// <see cref="CancelRunningAsync"/> — is FENCED by <c>workerId</c> and returns whether it took effect: a
 /// <c>false</c> means this worker lost the lease (another re-claimed the job), so the caller must abandon it —
@@ -47,6 +48,19 @@ public interface IJobStore
     /// bottleneck. Unserialized, two reports racing the same log clobber each other and the loss is silent,
     /// because a step log nobody is watching live is exactly where that goes unnoticed.</para></summary>
     Task<bool> ReportStepAsync(Guid id, string workerId, string message, CancellationToken ct = default);
+
+    /// <summary>Record a live progress snapshot whose <paramref name="stage"/> carries a code and arguments a reader
+    /// can localize: its text lands where <see cref="ReportProgressAsync"/>'s would, and
+    /// <see cref="JobRecord.StageMessage"/> reads the whole message back. Null clears the stage. Fenced as
+    /// <see cref="ReportProgressAsync"/> is.
+    /// <para><b>Required, with no default body</b>, because a default forwarding only the text would drop every
+    /// code without a word (<c>docs/DECISIONS.md</c> <b>D192</b>).</para></summary>
+    Task<bool> ReportStageAsync(Guid id, string workerId, int done, int total, JobMessage? stage, CancellationToken ct = default);
+
+    /// <summary>Append a step whose code and arguments land in the step log beside its text, where
+    /// <see cref="JobStep.Code"/>/<see cref="JobStep.Arguments"/> read them back. Serialized per job and fenced as
+    /// the string overload is, and required for the same reason as <see cref="ReportStageAsync"/>.</summary>
+    Task<bool> ReportStepAsync(Guid id, string workerId, JobMessage message, CancellationToken ct = default);
 
     /// <summary>Mark the job Succeeded (terminal). Fenced; false = lost the lease.</summary>
     Task<bool> CompleteAsync(Guid id, string workerId, CancellationToken ct = default);

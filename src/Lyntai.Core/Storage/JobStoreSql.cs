@@ -1,3 +1,5 @@
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using Lyntai.Jobs;
 
 namespace Lyntai.Storage;
@@ -18,12 +20,12 @@ public static class JobStoreSql
     public const string Cols =
         "id, lane, type, payload, status, checkpoint, attempts, max_attempts, last_error, " +
         "available_at, claimed_at, claimed_by, created_at, updated_at, priority, cancel_requested, " +
-        "progress, total, stage, step_log, partition_key";
+        "progress, total, stage, step_log, partition_key, stage_detail";
 
     /// <summary>Enqueue (binds <c>@f</c> = false for <c>cancel_requested</c>).</summary>
     public const string Insert =
         $"INSERT INTO lyntai_job ({Cols}) VALUES " +
-        "(@id, @lane, @type, @payload, 'Pending', NULL, 0, @maxAttempts, NULL, @availableAt, NULL, NULL, @now, @now, @priority, @f, 0, 0, NULL, NULL, @partitionKey)";
+        "(@id, @lane, @type, @payload, 'Pending', NULL, 0, @maxAttempts, NULL, @availableAt, NULL, NULL, @now, @now, @priority, @f, 0, 0, NULL, NULL, @partitionKey, NULL)";
 
     /// <summary>The write fence: a mutating statement lands only while THIS worker holds the Running claim.</summary>
     public const string FenceWhere = "WHERE id=@id AND claimed_by=@workerId AND status='Running'";
@@ -78,7 +80,11 @@ public static class JobStoreSql
 
     // ── fenced SET clauses (compose as $"UPDATE lyntai_job {SetX} {FenceWhere}") ─────────────────────
     public const string SetCheckpoint = "SET checkpoint=@checkpoint, claimed_at=@now, updated_at=@now";
-    public const string SetProgress = "SET progress=@done, total=@total, stage=@stage, updated_at=@now";
+    public const string SetProgress = "SET progress=@done, total=@total, stage=@stage, stage_detail=@detail, updated_at=@now";
+
+    /// <summary>What <see cref="SetProgress"/> binds as <c>@detail</c>: a coded stage's <c>{"code","args"}</c>, or
+    /// null for a plain one — so a plain stage clears an earlier code.</summary>
+    public static string? StageDetail(JobMessage? stage) => JobMessageJson.Write(stage)?.ToJsonString();
     public const string SetStepLog = "SET step_log=@stepLog, updated_at=@now";
     public const string SetSucceeded = "SET status='Succeeded', updated_at=@now";
     public const string SetFailedRetry = "SET status='Pending', available_at=@retryAt, last_error=@error, claimed_by=NULL, claimed_at=NULL, updated_at=@now";
@@ -136,8 +142,20 @@ public sealed class JobRow
     public string? Stage { get; set; }
     public string? StepLog { get; set; }
     public string? PartitionKey { get; set; }
+    public string? StageDetail { get; set; }
 
     public JobRecord ToRecord() => new(Guid.Parse(Id), Lane, Type, Payload, Enum.Parse<JobStatus>(Status),
         Checkpoint, (int)Attempts, (int)MaxAttempts, LastError, AvailableAt, ClaimedAt, ClaimedBy, CreatedAt,
-        UpdatedAt, (int)Priority, CancelRequested, (int)Progress, (int)Total, Stage, StepLog, PartitionKey);
+        UpdatedAt, (int)Priority, CancelRequested, (int)Progress, (int)Total, Stage, StepLog, PartitionKey)
+    {
+        StageMessage = Stage is null ? null : JobMessageJson.Read(Stage, ParseDetail(StageDetail)),
+    };
+
+    // an unreadable detail degrades to the plain text rather than failing the read of the whole job
+    private static JsonNode? ParseDetail(string? detail)
+    {
+        if (detail is null) return null;
+        try { return JsonNode.Parse(detail); }
+        catch (JsonException) { return null; }
+    }
 }

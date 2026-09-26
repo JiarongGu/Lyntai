@@ -112,10 +112,18 @@ public sealed class PostgresJobStore(IDbConnectionFactory factory, Func<DateTime
         Fenced(JobStoreSql.SetCheckpoint, id, workerId, ct, new { checkpoint });
 
     public Task<bool> ReportProgressAsync(Guid id, string workerId, int done, int total, string? stage, CancellationToken ct = default) =>
-        Fenced(JobStoreSql.SetProgress, id, workerId, ct, new { done, total, stage });
+        ReportStageAsync(id, workerId, done, total, stage is null ? null : new JobMessage(stage), ct);
 
-    public async Task<bool> ReportStepAsync(Guid id, string workerId, string message, CancellationToken ct = default)
+    public Task<bool> ReportStageAsync(Guid id, string workerId, int done, int total, JobMessage? stage, CancellationToken ct = default) =>
+        Fenced(JobStoreSql.SetProgress, id, workerId, ct,
+            new { done, total, stage = stage?.Text, detail = JobStoreSql.StageDetail(stage) });
+
+    public Task<bool> ReportStepAsync(Guid id, string workerId, string message, CancellationToken ct = default) =>
+        ReportStepAsync(id, workerId, new JobMessage(message), ct);
+
+    public async Task<bool> ReportStepAsync(Guid id, string workerId, JobMessage message, CancellationToken ct = default)
     {
+        ArgumentNullException.ThrowIfNull(message);
         // The job's own gate, per IJobStore.ReportStepAsync; the fenced write drops it if the lease was lost.
         using var held = await _stepLocks.AcquireAsync(id, ct).ConfigureAwait(false);
         var current = await GetAsync(id, ct).ConfigureAwait(false);

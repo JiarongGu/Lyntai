@@ -117,7 +117,7 @@ CREATE TABLE lyntai_job (
     stage TEXT NULL,
     step_log TEXT NULL,
     partition_key TEXT NULL
-);
+, stage_detail TEXT NULL);
 
 -- table lyntai_job_slot
 CREATE TABLE lyntai_job_slot (

@@ -11,11 +11,11 @@ namespace Lyntai.Tests.Storage;
 internal static class SchemaFacts
 {
     /// <summary>The SQLite set, in order: the nine 1.0 baselines, MemoryGraph, MemoryRetentionModel,
-    /// JobSlots.</summary>
+    /// JobSlots, JobStageDetail.</summary>
     public static readonly long[] SqliteVersions =
     [
         202607280001, 202607280002, 202607280003, 202607280004, 202607280005, 202607280006, 202607280007,
-        202607280008, 202607280009, 202608081215, 202608121100, 202608161159,
+        202607280008, 202607280009, 202608081215, 202608121100, 202608161159, 202609262244,
     ];
 
     /// <summary>Postgres carries one more, MemoryHeadlineSearch: a trigram index on <c>headline</c> that

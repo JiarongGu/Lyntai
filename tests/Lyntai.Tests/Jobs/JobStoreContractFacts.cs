@@ -53,6 +53,8 @@ public abstract class JobStoreContractFacts
     [Fact] public Task Pause_pending_only() => Run(JobStoreContract.Pause_only_affects_a_pending_job);
     [Fact] public Task Cancel_reaches_paused() => Run(JobStoreContract.Cancel_reaches_a_paused_job_without_resuming_it);
     [Fact] public Task Progress_and_steps() => Run(JobStoreContract.Progress_and_steps_are_readable_while_running_and_fenced);
+    [Fact] public Task Coded_stage_and_steps() => Run(JobStoreContract.Coded_stage_and_steps_round_trip_and_are_fenced);
+    [Fact] public Task Text_stage_reads_as_message() => Run(JobStoreContract.A_stage_written_as_text_reads_as_a_plain_message);
     [Fact] public Task Concurrent_steps() => Run(JobStoreContract.Concurrent_step_reports_all_land);
     [Fact] public Task Partition_serial_fifo() => Run(JobStoreContract.Same_partition_serializes_and_is_fifo);
     [Fact] public Task Partitions_parallel() => Run(JobStoreContract.Different_partitions_run_in_parallel);

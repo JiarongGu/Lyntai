@@ -1623,6 +1623,7 @@ sealed class Lyntai.Jobs.JobRecord
     Priority : Int32 { get; init; }
     Progress : Int32 { get; init; }
     Stage : String { get; init; }
+    StageMessage : JobMessage { get; init; }
     Status : JobStatus { get; init; }
     StepLog : String { get; init; }
     ToString() : String
@@ -2978,6 +2979,8 @@ interface Lyntai.Storage.IJobStore
     ReleaseSlotAsync(Int32 slotIndex, String workerId, CancellationToken ct = default) : Task
     ReplayAsync(Guid id, CancellationToken ct = default) : Task<Boolean>
     ReportProgressAsync(Guid id, String workerId, Int32 done, Int32 total, String stage, CancellationToken ct = default) : Task<Boolean>
+    ReportStageAsync(Guid id, String workerId, Int32 done, Int32 total, JobMessage stage, CancellationToken ct = default) : Task<Boolean>
+    ReportStepAsync(Guid id, String workerId, JobMessage message, CancellationToken ct = default) : Task<Boolean>
     ReportStepAsync(Guid id, String workerId, String message, CancellationToken ct = default) : Task<Boolean>
     RequestCancelAsync(Guid id, CancellationToken ct = default) : Task<Boolean>
     ResumeAsync(Guid id, CancellationToken ct = default) : Task<Boolean>
@@ -3024,6 +3027,7 @@ sealed class Lyntai.Storage.JobRow
     Priority : Int64 { get; set; }
     Progress : Int64 { get; set; }
     Stage : String { get; set; }
+    StageDetail : String { get; set; }
     Status : String { get; set; }
     StepLog : String { get; set; }
     ToRecord() : JobRecord
@@ -3054,6 +3058,7 @@ static class Lyntai.Storage.JobStoreSql
     SetProgress : String const
     SetStepLog : String const
     SetSucceeded : String const
+    static StageDetail(JobMessage stage) : String
 static class Lyntai.Storage.KeyValueStoreSql
     Delete : String const
     Get : String const

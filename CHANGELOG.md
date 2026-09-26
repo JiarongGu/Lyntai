@@ -21,6 +21,10 @@ every addition.
 
 ### Breaking
 
+- **`IJobStore` gains `ReportStageAsync` and `ReportStepAsync(JobMessage)`** (**D192**), which carry a job's stage
+  and steps as a coded `JobMessage` a reader can localize. They have no default bodies: a default forwarding only
+  the text would drop every code without a word. **What to DO:** a job store of your own implements both — its
+  text goes where the string members' did; the shipped InMemory, SQLite and Postgres stores already do.
 - **`WordPieceEncoding` is `TokenEncoding`** (**D191**), with the same three members, because <!-- drift-ok: the entry announcing the rename names the old type -->
   `SentencePieceTokenizer` returns it too. **What to DO:** rename the type where you use it.
 

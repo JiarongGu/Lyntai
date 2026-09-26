@@ -361,6 +361,8 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
     [SkippableFact] public Task Job_pause_pending_only() => JobPg(JobStoreContract.Pause_only_affects_a_pending_job);
     [SkippableFact] public Task Job_cancel_reaches_paused() => JobPg(JobStoreContract.Cancel_reaches_a_paused_job_without_resuming_it);
     [SkippableFact] public Task Job_progress_and_steps() => JobPg(JobStoreContract.Progress_and_steps_are_readable_while_running_and_fenced);
+    [SkippableFact] public Task Job_coded_stage_and_steps() => JobPg(JobStoreContract.Coded_stage_and_steps_round_trip_and_are_fenced);
+    [SkippableFact] public Task Job_text_stage_reads_as_message() => JobPg(JobStoreContract.A_stage_written_as_text_reads_as_a_plain_message);
     [SkippableFact] public Task Job_concurrent_steps() => JobPg(JobStoreContract.Concurrent_step_reports_all_land);
     [SkippableFact] public Task Job_partition_serial_fifo() => JobPg(JobStoreContract.Same_partition_serializes_and_is_fifo);
     [SkippableFact] public Task Job_partitions_parallel() => JobPg(JobStoreContract.Different_partitions_run_in_parallel);

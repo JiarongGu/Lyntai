@@ -292,6 +292,53 @@ public static class JobStoreContract
         Assert.Equal(3, (await store.GetAsync(id))!.Progress); // unchanged
     }
 
+    public static async Task Coded_stage_and_steps_round_trip_and_are_fenced(IJobStore store, MutableClock clock, string lane = "default")
+    {
+        var id = await store.EnqueueAsync(Spec(lane));
+        await store.ClaimNextAsync(lane, "w1", Lease);
+        var stage = new JobMessage("Copying 3 of 10")
+        {
+            Code = "copy.stage",
+            Arguments = new Dictionary<string, string> { ["done"] = "3", ["total"] = "10" },
+        };
+        var step = new JobMessage("Copied a file")
+        {
+            Code = "copy.file",
+            Arguments = new Dictionary<string, string> { ["name"] = "a \"b\"\n复制.txt" },
+        };
+
+        Assert.True(await store.ReportStageAsync(id, "w1", 3, 10, stage));
+        Assert.True(await store.ReportStepAsync(id, "w1", step));
+
+        var job = (await store.GetAsync(id))!;
+        Assert.Equal("Copying 3 of 10", job.Stage);                         // a string reader still reads the text
+        Assert.Equal(stage, job.StageMessage);
+        var logged = Assert.Single(JobStepLog.Parse(job.StepLog));
+        Assert.Equal("copy.file", logged.Code);
+        Assert.Equal(step.Arguments, logged.Arguments);
+
+        Assert.True(await store.ReportProgressAsync(id, "w1", 4, 10, "plain"));
+        Assert.Equal(new JobMessage("plain"), (await store.GetAsync(id))!.StageMessage);   // a plain stage clears the code
+        Assert.True(await store.ReportStageAsync(id, "w1", 5, 10, null));
+        Assert.Null((await store.GetAsync(id))!.StageMessage);
+
+        Assert.False(await store.ReportStageAsync(id, "intruder", 9, 10, stage));
+        Assert.False(await store.ReportStepAsync(id, "intruder", step));
+    }
+
+    public static async Task A_stage_written_as_text_reads_as_a_plain_message(IJobStore store, MutableClock clock, string lane = "default")
+    {
+        // every row written before stage_detail existed looks like this
+        var id = await store.EnqueueAsync(Spec(lane));
+        await store.ClaimNextAsync(lane, "w1", Lease);
+
+        Assert.True(await store.ReportProgressAsync(id, "w1", 1, 2, "an old stage"));
+
+        var message = (await store.GetAsync(id))!.StageMessage;
+        Assert.Equal("an old stage", message!.Text);
+        Assert.Null(message.Code);
+    }
+
     public static async Task Concurrent_step_reports_all_land(IJobStore store, MutableClock clock, string lane = "default")
     {
         var id = await store.EnqueueAsync(Spec(lane));

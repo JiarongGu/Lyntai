@@ -27,6 +27,7 @@ lyntai_job|payload|text|NO|
 lyntai_job|priority|integer|NO|0
 lyntai_job|progress|integer|NO|0
 lyntai_job|stage|text|YES|
+lyntai_job|stage_detail|text|YES|
 lyntai_job|status|text|NO|
 lyntai_job|step_log|text|YES|
 lyntai_job|total|integer|NO|0

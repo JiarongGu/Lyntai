@@ -86,4 +86,9 @@ public sealed record JobRecord(
     int Total = 0,
     string? Stage = null,
     string? StepLog = null,
-    string? PartitionKey = null);
+    string? PartitionKey = null)
+{
+    /// <summary>The live stage as a <see cref="JobMessage"/> — with its code and arguments when it was reported as
+    /// one, else <see cref="Stage"/>'s text alone. Null exactly when <see cref="Stage"/> is.</summary>
+    public JobMessage? StageMessage { get; init; } = Stage is null ? null : new JobMessage(Stage);
+}

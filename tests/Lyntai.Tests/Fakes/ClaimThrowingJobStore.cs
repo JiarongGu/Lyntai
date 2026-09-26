@@ -27,6 +27,12 @@ public sealed class ClaimThrowingJobStore(IJobStore inner) : IJobStore
     public Task<bool> ReportStepAsync(Guid id, string workerId, string message, CancellationToken ct = default) =>
         inner.ReportStepAsync(id, workerId, message, ct);
 
+    public Task<bool> ReportStageAsync(Guid id, string workerId, int done, int total, JobMessage? stage, CancellationToken ct = default) =>
+        inner.ReportStageAsync(id, workerId, done, total, stage, ct);
+
+    public Task<bool> ReportStepAsync(Guid id, string workerId, JobMessage message, CancellationToken ct = default) =>
+        inner.ReportStepAsync(id, workerId, message, ct);
+
     public Task<bool> CompleteAsync(Guid id, string workerId, CancellationToken ct = default) => inner.CompleteAsync(id, workerId, ct);
 
     public Task<bool> FailAsync(Guid id, string workerId, string error, DateTimeOffset? retryAt = null, CancellationToken ct = default) =>

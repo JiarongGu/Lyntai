@@ -42,6 +42,8 @@ sealed class Lyntai.Storage.InMemory.InMemoryJobStore
     ReleaseSlotAsync(Int32 slotIndex, String workerId, CancellationToken ct = default) : Task
     ReplayAsync(Guid id, CancellationToken ct = default) : Task<Boolean>
     ReportProgressAsync(Guid id, String workerId, Int32 done, Int32 total, String stage, CancellationToken ct = default) : Task<Boolean>
+    ReportStageAsync(Guid id, String workerId, Int32 done, Int32 total, JobMessage stage, CancellationToken ct = default) : Task<Boolean>
+    ReportStepAsync(Guid id, String workerId, JobMessage message, CancellationToken ct = default) : Task<Boolean>
     ReportStepAsync(Guid id, String workerId, String message, CancellationToken ct = default) : Task<Boolean>
     RequestCancelAsync(Guid id, CancellationToken ct = default) : Task<Boolean>
     ResumeAsync(Guid id, CancellationToken ct = default) : Task<Boolean>
