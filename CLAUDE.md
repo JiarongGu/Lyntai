@@ -20,9 +20,9 @@ The reasoning is `docs/DECISIONS.md`, **D1–D193** — read its generated index
 decisions kept here. **Everything before 3.0 is HISTORY, not context**: `.claude/rules/repo-mechanics.md`
 says what that forbids.
 
-**The baseline a green run should match:** `5172 passed / 5219 total, 47 skipped` (every skip is a
+**The baseline a green run should match:** `5175 passed / 5222 total, 47 skipped` (every skip is a
 live-backend gate), e2e 3/3, guard-script tests 960/960, doc samples 56/56 — MEASURED with Docker up at
-`9d53d6b9` (2026-09-27). No gate holds the xUnit trio (`docs/GATES.md` §Which numbers a gate holds), so:
+`b3ded0fd` (2026-09-27). No gate holds the xUnit trio (`docs/GATES.md` §Which numbers a gate holds), so:
 
 - **Re-measure it by hand after `verify`, off that run's own output**, never from a diff, and re-attest the
   COMMIT with the figures whenever they move.
