@@ -904,6 +904,12 @@ interface Lyntai.Inference.ITextClientFactory
     Get(String name) : ITextClient
     Names : IReadOnlyList<String> { get; }
     TryGet(String name, ITextClient& client) : Boolean
+interface Lyntai.Inference.ITextProviderRegistry
+    DefaultCandidates : IReadOnlyList<ProviderCandidate> { get; }
+    Register(ProviderRegistration<IModelProvider> registration) : Void
+    Registered : IReadOnlyList<ProviderKey> { get; }
+    SetDefaultCandidates(IReadOnlyList<ProviderCandidate> candidates) : Void
+    Unregister(String providerId) : Boolean
 interface Lyntai.Inference.ITextRouter
     CompleteAsync(IReadOnlyList<ProviderCandidate> candidates, TextRequest req, CancellationToken ct = default) : Task<TextResponse>
     GetCapabilitiesAsync(IReadOnlyList<ProviderCandidate> candidates, TextRequest req, CancellationToken ct = default) : ValueTask<ProviderCapabilities>
@@ -1748,6 +1754,7 @@ sealed class Lyntai.LyntaiBuilder
     Services : IServiceCollection { get; }
     UseDefaultCandidates(ProviderCandidate[] candidates) : LyntaiBuilder
     UseDefaultCandidates(String[] providerIds) : LyntaiBuilder
+    UseTextProviderRegistry() : LyntaiBuilder
 sealed class Lyntai.LyntaiOptions
     .ctor()
     ApplyEnvOverrides(Func<String,String> getEnv = null, IEnumerable<KeyValuePair<String,String>> allEnv = null) : Void

@@ -151,9 +151,16 @@ public static class LyntaiServiceCollectionExtensions
         services.TryAddSingleton<IProcessRunner, ProcessRunner>(); // BYO: register your own IProcessRunner first to override spawning
         services.TryAddSingleton(sp => new DeadHostTracker(
             options.DeadHostThreshold, options.DeadHostCooldown, logger: sp.GetService<ILogger<DeadHostTracker>>()));
-        services.TryAddSingleton<ITextRouter>(sp => new TextRouter(
-            sp.GetServices<IModelProvider>(), sp.GetRequiredService<DeadHostTracker>(), options,
-            sp.GetService<ILogger<TextRouter>>(), modelRouting: sp.GetService<IModelRoutingStore>()));
+        services.TryAddSingleton<ITextRouter>(sp => sp.GetService<TextProviderRegistry>() is { } registry
+            // run-time providers: one snapshot per call, and a registered provider benched by its configuration
+            ? new TextRouter(registry.Lookup, sp.GetRequiredService<DeadHostTracker>(), options,
+                sp.GetService<ILogger<TextRouter>>(), modelRouting: sp.GetService<IModelRoutingStore>(),
+                configuration: sp.GetRequiredService<IProviderPool<IModelProvider>>() is var pool
+                    ? p => pool.TryGetKey(p, out var key) ? key : null
+                    : null)
+            : new TextRouter(
+                sp.GetServices<IModelProvider>(), sp.GetRequiredService<DeadHostTracker>(), options,
+                sp.GetService<ILogger<TextRouter>>(), modelRouting: sp.GetService<IModelRoutingStore>()));
         // The chat counterpart of IMediaRouterFactory: a router per CALLER's provider set, over the ONE
         // tracker and the ONE admission table registered above, so a caller's router keeps their bookkeeping.
         services.TryAddSingleton<ITextRouterFactory>(sp => new TextRouterFactory(
@@ -168,7 +175,8 @@ public static class LyntaiServiceCollectionExtensions
         {
             RefuseCandidatesServingNoText("the default client", DefaultListFix, options.DefaultCandidates,
                 sp.GetServices<IModelProvider>());
-            return Compose(sp, sp.GetRequiredService<ITextRouter>());
+            return Compose(sp, sp.GetRequiredService<ITextRouter>(),
+                defaults: sp.GetService<TextProviderRegistry>() is { } registry ? () => registry.DefaultCandidates : null);
         });
 
         // Named clients (AddTextClient) — the chat counterpart of the memory engine registry. Each is the
@@ -275,9 +283,11 @@ public static class LyntaiServiceCollectionExtensions
         // Everything outside it is the governance promise, so it must never be written twice
         // (`.claude/knowledge/pitfalls.md` §DI / config, on two construction sites drifting).
         ITextClient Compose(IServiceProvider sp, ITextRouter router,
-            IReadOnlyList<ProviderCandidate>? candidates = null)
+            IReadOnlyList<ProviderCandidate>? candidates = null, Func<IReadOnlyList<ProviderCandidate>?>? defaults = null)
         {
-            ITextClient client = new TextClient(router, options, candidates);
+            ITextClient client = defaults is null
+                ? new TextClient(router, options, candidates)
+                : new TextClient(router, options, defaults);
             foreach (var (_, decorate) in builder.FrontDoorDecorators.OrderBy(d => d.Order))
                 client = decorate(sp, client);
             // refusal screening (per-request TextRequest.RefusalPattern + any registered IRefusalMatcher) is

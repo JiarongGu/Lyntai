@@ -7,6 +7,7 @@ public sealed class TextClient : ITextClient, IRoutedCandidates
     private readonly ITextRouter _router;
     private readonly LyntaiOptions _options;
     private readonly IReadOnlyList<ProviderCandidate>? _candidates;
+    private readonly Func<IReadOnlyList<ProviderCandidate>?>? _defaults;
 
     /// <summary>Route over <paramref name="candidates"/>, or over
     /// <see cref="LyntaiOptions.DefaultCandidates"/> when none are given.</summary>
@@ -25,7 +26,14 @@ public sealed class TextClient : ITextClient, IRoutedCandidates
         _candidates = candidates is null ? null : [.. candidates];
     }
 
-    private IReadOnlyList<ProviderCandidate> Candidates => _candidates ?? _options.DefaultCandidates;
+    /// <summary>The default client when a run-time registry is in use: its fallback order is whatever
+    /// <paramref name="defaults"/> answers per call, else <see cref="LyntaiOptions.DefaultCandidates"/>.</summary>
+    internal TextClient(ITextRouter router, LyntaiOptions options, Func<IReadOnlyList<ProviderCandidate>?> defaults)
+        : this(router, options) =>
+        _defaults = defaults;
+
+
+    private IReadOnlyList<ProviderCandidate> Candidates => _candidates ?? _defaults?.Invoke() ?? _options.DefaultCandidates;
 
     IReadOnlyList<ProviderCandidate>? IRoutedCandidates.RoutedCandidates => Candidates;
 

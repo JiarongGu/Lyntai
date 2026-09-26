@@ -556,6 +556,18 @@ public sealed class LyntaiBuilder
         return this;
     }
 
+    /// <summary>Let the app register, replace and unregister text providers while it runs, through
+    /// <see cref="ITextProviderRegistry"/> — the endpoints its users add and edit — without rebuilding the container.
+    /// The default <see cref="ITextClient"/> serves them with every governance decorator it carries; a named client
+    /// (<c>AddTextClient</c>) does not see them.</summary>
+    public LyntaiBuilder UseTextProviderRegistry()
+    {
+        Services.TryAddSingleton(sp => new TextProviderRegistry(
+            sp.GetServices<IModelProvider>(), sp.GetRequiredService<IProviderPool<IModelProvider>>()));
+        Services.TryAddSingleton<ITextProviderRegistry>(sp => sp.GetRequiredService<TextProviderRegistry>());
+        return this;
+    }
+
     /// <summary>Mutate the <see cref="LyntaiOptions"/> in code (timeouts, retries, prompt key prefix,
     /// job/memory knobs, …). Runs immediately, inside the <c>AddLyntai</c> configure callback; the
     /// <c>LYNTAI_*</c> environment overrides are applied AFTER that callback returns, so an env var beats
