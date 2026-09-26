@@ -19,6 +19,11 @@ every addition.
 
 ## Unreleased
 
+### Breaking
+
+- **`WordPieceEncoding` is `TokenEncoding`** (**D191**), with the same three members, because <!-- drift-ok: the entry announcing the rename names the old type -->
+  `SentencePieceTokenizer` returns it too. **What to DO:** rename the type where you use it.
+
 ### Changed
 
 - **A graph write embeds before it annotates**, where it annotated first. Both still precede the upsert, and
@@ -26,6 +31,8 @@ every addition.
 
 ### Added
 
+- **`WordPieceTokenizer.Frame`** wraps content ids that are already tokenized in `[CLS]`/`[SEP]`, with no
+  truncation — what `Encode` does after cutting to the window, for a caller that windows the ids itself.
 - **`MemoryAnnotation.Unanswered` and `MemoryAnnotation.Answered`** (**D175**): an annotator that could not
   judge says so, apart from `MemoryAnnotation.None`, an answer that the fact is about nothing. The graph engine
   records nothing an unanswered annotation carries and leaves `MemorySources.Annotation` off the write, as for

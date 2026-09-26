@@ -3,17 +3,6 @@ using System.Text;
 
 namespace Lyntai.Text;
 
-/// <summary>One text encoded for a transformer — the three tensors a BERT-family graph takes, in the order
-/// it takes them.
-///
-/// <para><b>All three are load-bearing and none fails loudly.</b> A missing mask attends to padding, a
-/// missing segment id costs a cross-encoder the signal that tells its query from its document, and either
-/// returns a plausible, wrong vector.</para></summary>
-/// <param name="Ids">Vocabulary ids, bracketed by the classification and separator tokens.</param>
-/// <param name="AttentionMask">1 for a real token, 0 for padding. All ones until a batch adds padding.</param>
-/// <param name="TokenTypeIds">Which segment each token belongs to; all zero for a single text.</param>
-public readonly record struct WordPieceEncoding(int[] Ids, int[] AttentionMask, int[] TokenTypeIds);
-
 /// <summary>BERT's WordPiece tokenizer — text to vocabulary ids, owned rather than depended on.
 ///
 /// <para><b>Why the library owns one.</b> Buying this from <c>Microsoft.ML.Tokenizers</c> costs 812 KB of
@@ -146,26 +135,16 @@ public sealed class WordPieceTokenizer
     /// <exception cref="ArgumentOutOfRangeException">Under 3 — no room for content.</exception>
     /// <exception cref="InvalidOperationException">The vocabulary has no classification or separator
     /// token, so this model cannot be encoded for a transformer at all.</exception>
-    public WordPieceEncoding Encode(string text, int maxTokens = 512)
+    public TokenEncoding Encode(string text, int maxTokens = 512)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(maxTokens, 3);
-        var (cls, sep) = SpecialIds();
-
-        var content = EncodeToIds(text ?? string.Empty);
-        var kept = Math.Min(content.Count, maxTokens - 2);
-
-        var ids = new int[kept + 2];
-        ids[0] = cls;
-        for (var i = 0; i < kept; i++) ids[i + 1] = content[i];
-        ids[^1] = sep;
-
-        return new WordPieceEncoding(ids, AllOnes(ids.Length), new int[ids.Length]);
+        return Frame(Prefix(EncodeToIds(text ?? string.Empty), maxTokens - 2));
     }
 
     /// <summary>Encode a PAIR as <c>[CLS] a [SEP] b [SEP]</c> — the shape a cross-encoder scores, where the
     /// whole signal is that the two sides are distinguishable.
     ///
-    /// <para><b><see cref="WordPieceEncoding.TokenTypeIds"/> is the point of this overload.</b> Segment 0
+    /// <para><b><see cref="TokenEncoding.TokenTypeIds"/> is the point of this overload.</b> Segment 0
     /// covers <c>[CLS] a [SEP]</c> and segment 1 covers <c>b [SEP]</c>, which is what a cross-encoder's
     /// segment embedding reads to tell a query from a document. A runtime that zeroes them scores the pair
     /// as one undifferentiated string, which is how a reranker can return well-formed numbers in the WRONG
@@ -183,10 +162,9 @@ public sealed class WordPieceTokenizer
     /// model takes 509 content tokens across both sides.</param>
     /// <exception cref="ArgumentOutOfRangeException">Under 4 — no room for content on either side.</exception>
     /// <exception cref="InvalidOperationException">The vocabulary has no classification or separator token.</exception>
-    public WordPieceEncoding Encode(string a, string b, int maxTokens = 512)
+    public TokenEncoding Encode(string a, string b, int maxTokens = 512)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(maxTokens, 4);
-        var (cls, sep) = SpecialIds();
 
         var first = EncodeToIds(a ?? string.Empty);
         var second = EncodeToIds(b ?? string.Empty);
@@ -195,20 +173,54 @@ public sealed class WordPieceTokenizer
         // b yields first; a is shortened only when it cannot fit on its own.
         var keptA = Math.Min(first.Count, budget);
         var keptB = Math.Min(second.Count, budget - keptA);
+        return Frame(Prefix(first, keptA), Prefix(second, keptB));
+    }
 
-        var ids = new int[keptA + keptB + 3];
-        var types = new int[ids.Length];
+    /// <summary>Frame content ids that are already tokenized as <c>[CLS] content [SEP]</c>, with the attention
+    /// mask and segment ids the graph takes. <b>No truncation</b>: the caller has already fit the ids to its
+    /// window, which is what <see cref="Encode(string,int)"/> does before calling this.</summary>
+    /// <param name="content">Content ids, as <see cref="EncodeToIds"/> returns them.</param>
+    /// <exception cref="InvalidOperationException">The vocabulary has no classification or separator token.</exception>
+    public TokenEncoding Frame(IReadOnlyList<int> content)
+    {
+        ArgumentNullException.ThrowIfNull(content);
+        var (cls, sep) = SpecialIds();
+
+        var ids = new int[content.Count + 2];
+        ids[0] = cls;
+        for (var i = 0; i < content.Count; i++) ids[i + 1] = content[i];
+        ids[^1] = sep;
+
+        return new TokenEncoding(ids, AllOnes(ids.Length), new int[ids.Length]);
+    }
+
+    /// <summary>Frame a PAIR as <c>[CLS] first [SEP] second [SEP]</c>: segment 0 covers <c>[CLS] first [SEP]</c>
+    /// and segment 1 the rest, as in <see cref="Encode(string,string,int)"/>. <b>No truncation</b>.</summary>
+    /// <param name="first">The query's content ids.</param>
+    /// <param name="second">The document's content ids.</param>
+    /// <exception cref="InvalidOperationException">The vocabulary has no classification or separator token.</exception>
+    public TokenEncoding Frame(IReadOnlyList<int> first, IReadOnlyList<int> second)
+    {
+        ArgumentNullException.ThrowIfNull(first);
+        ArgumentNullException.ThrowIfNull(second);
+        var (cls, sep) = SpecialIds();
+
+        var ids = new int[first.Count + second.Count + 3];
         var at = 0;
         ids[at++] = cls;
-        for (var i = 0; i < keptA; i++) ids[at++] = first[i];
+        for (var i = 0; i < first.Count; i++) ids[at++] = first[i];
         ids[at++] = sep;
         var secondStarts = at;                            // segment 1 begins AFTER the first separator
-        for (var i = 0; i < keptB; i++) ids[at++] = second[i];
+        for (var i = 0; i < second.Count; i++) ids[at++] = second[i];
         ids[at] = sep;
-        for (var i = secondStarts; i < ids.Length; i++) types[i] = 1;
 
-        return new WordPieceEncoding(ids, AllOnes(ids.Length), types);
+        var types = new int[ids.Length];
+        Array.Fill(types, 1, secondStarts, ids.Length - secondStarts);
+        return new TokenEncoding(ids, AllOnes(ids.Length), types);
     }
+
+    private static IReadOnlyList<int> Prefix(IReadOnlyList<int> ids, int count) =>
+        count >= ids.Count ? ids : [.. ids.Take(count)];
 
     /// <summary>The classification and separator ids a transformer encoding brackets content with.</summary>
     /// <exception cref="InvalidOperationException">The vocabulary carries neither.</exception>

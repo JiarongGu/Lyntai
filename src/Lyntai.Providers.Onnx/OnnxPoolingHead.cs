@@ -38,7 +38,7 @@ internal sealed class OnnxPoolingHead(OnnxPooling pooling, bool normalize) : IOn
     /// <param name="texts">The texts, in the order their vectors are returned.</param>
     /// <param name="forward">The graph plus the reduction: one vector per row it is fed.</param>
     internal static float[][] Embed(WindowedTokenizer windows, IReadOnlyList<string> texts,
-        Func<WordPieceEncoding[], float[][]> forward)
+        Func<TokenEncoding[], float[][]> forward)
     {
         ArgumentNullException.ThrowIfNull(texts);
         var batch = windows.EncodeTexts(texts);
@@ -58,7 +58,7 @@ internal sealed class OnnxPoolingHead(OnnxPooling pooling, bool normalize) : IOn
     }
 
     /// <summary>The graph's per-token output for each row, reduced to one vector per row.</summary>
-    private float[][] Reduce(InferenceSession session, string outputName, WordPieceEncoding[] rows)
+    private float[][] Reduce(InferenceSession session, string outputName, TokenEncoding[] rows)
     {
         var width = rows.Max(e => e.Ids.Length);
         using var results = session.Run(OnnxGraph.Feed(session, rows, width), [outputName]);
@@ -80,7 +80,7 @@ internal sealed class OnnxPoolingHead(OnnxPooling pooling, bool normalize) : IOn
 
     /// <summary>The attention mask widened to the batch, zero over the padding — which is what tells
     /// <see cref="VectorPooling"/> not to average the padded rows in.</summary>
-    private static int[] PaddedMask(WordPieceEncoding encoding, int width)
+    private static int[] PaddedMask(TokenEncoding encoding, int width)
     {
         var mask = new int[width];
         encoding.AttentionMask.CopyTo(mask, 0);

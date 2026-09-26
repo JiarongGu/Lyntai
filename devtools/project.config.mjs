@@ -702,6 +702,13 @@ export default {
         + 'an extension-method call is unchanged',
       why: 'two suffixes for one role: every other `this LyntaiBuilder` extension class is `*BuilderExtensions`',
     },
+    {
+      // D191. Two tokenizers return the three tensors a transformer takes, so the type is named for what it IS.
+      names: ['WordPieceEncoding'],
+      use: '`TokenEncoding`, the same three members',
+      why: 'SentencePieceTokenizer returns it too, and a WordPiece name on a SentencePiece result names the '
+        + 'wrong tokenizer',
+    },
   ],
 
   /**
@@ -1503,6 +1510,12 @@ export default {
       use: '`FalProvider` / `FalOptions`, registered by `AddFalProvider` as before',
       why: 'a provider is named for its BACKEND; "Queue" is the delivery shape `ProviderCapabilities.Operations` '
         + 'declares, never part of the type name',
+    },
+    {
+      // The prose half of D191's rename.
+      term: '\\bWordPieceEncoding\\b',
+      use: '`TokenEncoding`',
+      why: 'the encoding both tokenizers return is named for what it is, not for the first tokenizer to produce it',
     },
   ],
 

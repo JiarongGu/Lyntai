@@ -43,7 +43,7 @@ internal static class OnnxGraph
     /// graph DECLARES — a distilled export may drop <c>token_type_ids</c>, and passing an input it does not
     /// declare is an error rather than a no-op.</summary>
     public static List<NamedOnnxValue> Feed(
-        InferenceSession session, WordPieceEncoding[] encodings, int width)
+        InferenceSession session, TokenEncoding[] encodings, int width)
     {
         var inputs = new List<NamedOnnxValue>(TensorSources.Length);
         foreach (var (name, select) in TensorSources)
@@ -56,7 +56,7 @@ internal static class OnnxGraph
     }
 
     /// <summary>The three tensors a BERT graph takes, and how to read each from an encoding.</summary>
-    private static readonly (string Name, Func<WordPieceEncoding, int[]> Select)[] TensorSources =
+    private static readonly (string Name, Func<TokenEncoding, int[]> Select)[] TensorSources =
     [
         ("input_ids", e => e.Ids),
         ("attention_mask", e => e.AttentionMask),
@@ -66,7 +66,7 @@ internal static class OnnxGraph
     /// <summary>Zero-padded to the widest row, which is what every tensor here wants: id 0 is
     /// <c>[PAD]</c>, mask 0 excludes the row, and segment 0 is what padding belongs to.</summary>
     private static DenseTensor<long> Pad(
-        WordPieceEncoding[] encodings, Func<WordPieceEncoding, int[]> select, int width)
+        TokenEncoding[] encodings, Func<TokenEncoding, int[]> select, int width)
     {
         var tensor = new DenseTensor<long>([encodings.Length, width]);
         for (var i = 0; i < encodings.Length; i++)

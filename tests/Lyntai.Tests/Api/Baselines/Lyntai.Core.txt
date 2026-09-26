@@ -3332,20 +3332,22 @@ static class Lyntai.Text.JsonExtract
     static TryParseObject(String text, JsonDocument& doc) : Boolean
     static TryReadObject(String text, String& json) : Boolean
     static WriteObject(Action<Utf8JsonWriter> members) : String
-struct Lyntai.Text.WordPieceEncoding
+struct Lyntai.Text.TokenEncoding
     .ctor(Int32[] Ids, Int32[] AttentionMask, Int32[] TokenTypeIds)
     AttentionMask : Int32[] { get; init; }
     Deconstruct(Int32[]& Ids, Int32[]& AttentionMask, Int32[]& TokenTypeIds) : Void
     Equals(Object obj) : Boolean
-    Equals(WordPieceEncoding other) : Boolean
+    Equals(TokenEncoding other) : Boolean
     GetHashCode() : Int32
     Ids : Int32[] { get; init; }
     ToString() : String
     TokenTypeIds : Int32[] { get; init; }
 sealed class Lyntai.Text.WordPieceTokenizer
-    Encode(String a, String b, Int32 maxTokens = 512) : WordPieceEncoding
-    Encode(String text, Int32 maxTokens = 512) : WordPieceEncoding
+    Encode(String a, String b, Int32 maxTokens = 512) : TokenEncoding
+    Encode(String text, Int32 maxTokens = 512) : TokenEncoding
     EncodeToIds(String text) : IReadOnlyList<Int32>
+    Frame(IReadOnlyList<Int32> content) : TokenEncoding
+    Frame(IReadOnlyList<Int32> first, IReadOnlyList<Int32> second) : TokenEncoding
     static FromModelDirectory(String directory) : WordPieceTokenizer
     static FromVocabulary(IReadOnlyList<String> vocabulary, String unknownToken = "[UNK]", Boolean lowercase = true, Nullable<Boolean> stripAccents = null, Boolean tokenizeChineseCharacters = true, String classificationToken = "[CLS]", String separatorToken = "[SEP]") : WordPieceTokenizer
 sealed class Lyntai.TextClientBuilder

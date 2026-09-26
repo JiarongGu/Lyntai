@@ -8,7 +8,7 @@ namespace Lyntai.Providers.Onnx;
 /// <param name="First">Input <c>i</c>'s rows are <c>Rows[First[i]..First[i + 1]]</c>.</param>
 /// <param name="Weights">Each row's own content tokens — the tokens of its window, not the specials or a
 /// query — and 0 where an input took a single row, which is never pooled.</param>
-internal sealed record WindowedBatch(WordPieceEncoding[] Rows, int[] First, int[] Weights)
+internal sealed record WindowedBatch(TokenEncoding[] Rows, int[] First, int[] Weights)
 {
     /// <summary>The most rows a forward pass holds when a call has fewer inputs than this.</summary>
     public const int MinPassRows = 8;
@@ -21,7 +21,7 @@ internal sealed record WindowedBatch(WordPieceEncoding[] Rows, int[] First, int[
     /// no segmented input is therefore ONE pass, the one it would be unsegmented, and segmenting never makes a
     /// pass larger than that bound.</summary>
     /// <param name="forward">The graph: one answer per row it is fed, in order.</param>
-    public T[] Forward<T>(Func<WordPieceEncoding[], T[]> forward)
+    public T[] Forward<T>(Func<TokenEncoding[], T[]> forward)
     {
         var size = Math.Max(MinPassRows, First.Length - 1);
         if (Rows.Length <= size) return forward(Rows);
@@ -111,7 +111,7 @@ internal sealed class WindowedTokenizer(
         return batch.Build();
     }
 
-    private static WindowedBatch OneRowEach(IReadOnlyList<string> inputs, Func<string, WordPieceEncoding> encode)
+    private static WindowedBatch OneRowEach(IReadOnlyList<string> inputs, Func<string, TokenEncoding> encode)
     {
         var batch = new Builder(inputs.Count);
         for (var i = 0; i < inputs.Count; i++)
@@ -125,7 +125,7 @@ internal sealed class WindowedTokenizer(
     /// <summary><c>[CLS] query [SEP] window [SEP]</c> with the window in segment 1 — the layout
     /// <see cref="WordPieceTokenizer.Encode(string,string,int)"/> builds — or <c>[CLS] window [SEP]</c>, all
     /// segment 0, when there is no query.</summary>
-    private static WordPieceEncoding Row(
+    private static TokenEncoding Row(
         int[] shell, IReadOnlyList<int>? query, IReadOnlyList<int> ids, int start, int end)
     {
         var (cls, sep) = (shell[0], shell[1]);
@@ -143,18 +143,18 @@ internal sealed class WindowedTokenizer(
         if (query is not null) Array.Fill(types, 1, windowStarts, types.Length - windowStarts);
         var mask = new int[row.Count];
         Array.Fill(mask, 1);
-        return new WordPieceEncoding([.. row], mask, types);
+        return new TokenEncoding([.. row], mask, types);
     }
 
     private sealed class Builder(int inputs)
     {
-        private readonly List<WordPieceEncoding> _rows = new(inputs);
+        private readonly List<TokenEncoding> _rows = new(inputs);
         private readonly List<int> _weights = new(inputs);
         private readonly int[] _first = new int[inputs + 1];
 
         public void Begin(int input) => _first[input] = _rows.Count;
 
-        public void Add(WordPieceEncoding row, int weight)
+        public void Add(TokenEncoding row, int weight)
         {
             _rows.Add(row);
             _weights.Add(weight);

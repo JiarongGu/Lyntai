@@ -230,13 +230,13 @@ public class WindowedTokenizerTests
     private static string Berlins(int tokens) => string.Join(' ', Enumerable.Repeat("berlin", tokens));
 
     /// <summary>A pair row's query tokens and document tokens: <c>[CLS] query [SEP] document [SEP]</c>.</summary>
-    private static (int[] Query, int[] Document) Sides(WordPieceEncoding row)
+    private static (int[] Query, int[] Document) Sides(TokenEncoding row)
     {
         var separator = Array.IndexOf(row.Ids, 3);
         return (row.Ids[1..separator], row.Ids[(separator + 1)..^1]);
     }
 
-    internal static void AssertSame(WordPieceEncoding expected, WordPieceEncoding actual)
+    internal static void AssertSame(TokenEncoding expected, TokenEncoding actual)
     {
         Assert.Equal(expected.Ids, actual.Ids);
         Assert.Equal(expected.AttentionMask, actual.AttentionMask);
@@ -502,12 +502,12 @@ public class OnnxWindowedHeadTests
     private static readonly int Berlin = WindowedTokenizerTests.Vocabulary.IndexOf("berlin");
 
     /// <summary>A stand-in cross-encoder: a row scores the number of times the DOCUMENT side says "berlin".</summary>
-    private static double[] CountBerlin(WordPieceEncoding[] rows) =>
+    private static double[] CountBerlin(TokenEncoding[] rows) =>
         [.. rows.Select(r => (double)r.Ids.Where((id, t) => r.TokenTypeIds[t] == 1 && id == Berlin).Count())];
 
     /// <summary>A stand-in embedder whose vector depends only on the row's own content, never on where the
     /// row sits in a pass.</summary>
-    private static float[][] ByContent(WordPieceEncoding[] rows) =>
+    private static float[][] ByContent(TokenEncoding[] rows) =>
         [.. rows.Select(r => new float[] { r.Ids[1], r.Ids.Length, 1f })];
 
     [Fact]
@@ -515,7 +515,7 @@ public class OnnxWindowedHeadTests
     {
         // the one relevant sentence sits in a MIDDLE window: neither the first nor the last mentions berlin
         var document = $"{WindowedTokenizerTests.River(8)} berlin is old. {WindowedTokenizerTests.River(8)}";
-        var fed = new List<WordPieceEncoding[]>();
+        var fed = new List<TokenEncoding[]>();
 
         var scores = OnnxCrossEncoderHead.Score(
             WindowedTokenizerTests.Windows(32, WindowedTokenizerTests.Segment), WindowedTokenizerTests.Query,
@@ -532,7 +532,7 @@ public class OnnxWindowedHeadTests
     public void A_requests_piece_cap_reaches_the_rows_the_graph_is_fed()
     {
         var document = $"{WindowedTokenizerTests.River(8)} berlin is old. {WindowedTokenizerTests.River(8)}";
-        var fed = new List<WordPieceEncoding[]>();
+        var fed = new List<TokenEncoding[]>();
 
         var scores = OnnxCrossEncoderHead.Score(
             WindowedTokenizerTests.Windows(32, WindowedTokenizerTests.Segment), WindowedTokenizerTests.Query,
@@ -560,7 +560,7 @@ public class OnnxWindowedHeadTests
         bool segment)
     {
         string[] documents = ["the city is old.", WindowedTokenizerTests.River(4), ""];
-        WordPieceEncoding[]? fed = null;
+        TokenEncoding[]? fed = null;
 
         OnnxCrossEncoderHead.Score(
             WindowedTokenizerTests.Windows(32, segment ? WindowedTokenizerTests.Segment : null),
@@ -576,7 +576,7 @@ public class OnnxWindowedHeadTests
     [Fact]
     public void A_text_past_the_window_embeds_as_the_TOKEN_weighted_mean_of_its_windows_unit_vectors()
     {
-        WordPieceEncoding[]? fed = null;
+        TokenEncoding[]? fed = null;
 
         var vectors = OnnxPoolingHead.Embed(WindowedTokenizerTests.Windows(16, WindowedTokenizerTests.Segment),
             [WindowedTokenizerTests.River(9)],
@@ -613,7 +613,7 @@ public class OnnxWindowedHeadTests
     public void An_in_window_embed_feeds_the_graph_EXACTLY_what_the_tokenizer_alone_would(bool segment)
     {
         string[] texts = ["the city is old.", WindowedTokenizerTests.River(2), ""];
-        WordPieceEncoding[]? fed = null;
+        TokenEncoding[]? fed = null;
 
         OnnxPoolingHead.Embed(WindowedTokenizerTests.Windows(16, segment ? WindowedTokenizerTests.Segment : null), texts,
             rows => { fed = rows; return [.. rows.Select(_ => new float[] { 1f })]; });

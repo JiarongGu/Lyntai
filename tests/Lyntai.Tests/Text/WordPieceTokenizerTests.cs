@@ -6,6 +6,7 @@ using Lyntai.Tests.Fakes;
 // than imported. BertTokenizer, not that type, is the reference: it runs the FULL pipeline (clean, CJK,
 // lowercase, strip accents, punctuation, then WordPiece).
 using WordPieceTokenizer = Lyntai.Text.WordPieceTokenizer;
+using TokenEncoding = Lyntai.Text.TokenEncoding;
 
 namespace Lyntai.Tests.Text;
 
@@ -387,6 +388,44 @@ public class WordPieceEncodeTests
     public void A_budget_with_no_room_for_content_is_refused()
     {
         Assert.Throws<ArgumentOutOfRangeException>(() => Tokenizer("red").Encode("a", "b", maxTokens: 3));
+    }
+
+    [Fact]
+    public void Frame_brackets_given_ids_exactly_as_Encode_brackets_its_own()
+    {
+        var tokenizer = Tokenizer("alpha", "beta", "gamma");
+        const string a = "alpha beta", b = "gamma alpha";
+
+        AssertSame(tokenizer.Encode(a, 64), tokenizer.Frame(tokenizer.EncodeToIds(a)));
+        AssertSame(tokenizer.Encode(a, b, 64), tokenizer.Frame(tokenizer.EncodeToIds(a), tokenizer.EncodeToIds(b)));
+    }
+
+    [Fact]
+    public void Frame_never_truncates_because_the_caller_already_fit_the_window()
+    {
+        int[] content = [.. Enumerable.Repeat(5, 600)];
+
+        var framed = Tokenizer("alpha").Frame(content);
+
+        Assert.Equal([2, .. content, 3], framed.Ids);
+        Assert.All(framed.AttentionMask, m => Assert.Equal(1, m));
+        Assert.All(framed.TokenTypeIds, t => Assert.Equal(0, t));
+    }
+
+    [Fact]
+    public void A_framed_pair_puts_the_second_side_and_its_separator_in_segment_1()
+    {
+        var framed = Tokenizer("alpha", "beta").Frame([5], [6, 6]);
+
+        Assert.Equal([2, 5, 3, 6, 6, 3], framed.Ids);
+        Assert.Equal([0, 0, 0, 1, 1, 1], framed.TokenTypeIds);
+    }
+
+    private static void AssertSame(TokenEncoding expected, TokenEncoding actual)
+    {
+        Assert.Equal(expected.Ids, actual.Ids);
+        Assert.Equal(expected.AttentionMask, actual.AttentionMask);
+        Assert.Equal(expected.TokenTypeIds, actual.TokenTypeIds);
     }
 }
 

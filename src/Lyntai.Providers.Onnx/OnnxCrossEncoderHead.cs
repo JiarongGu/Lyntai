@@ -52,7 +52,7 @@ internal sealed class OnnxCrossEncoderHead : IOnnxScoreHead
     /// <param name="forward">The graph: one score per row it is fed.</param>
     /// <param name="maxPiecesPerInput">The request's own piece cap, narrowing the record's.</param>
     internal static double[] Score(WindowedTokenizer windows, string query, IReadOnlyList<string> documents,
-        Func<WordPieceEncoding[], double[]> forward, int? maxPiecesPerInput = null)
+        Func<TokenEncoding[], double[]> forward, int? maxPiecesPerInput = null)
     {
         ArgumentNullException.ThrowIfNull(documents);
         var batch = windows.EncodePairs(query, documents, maxPiecesPerInput);
