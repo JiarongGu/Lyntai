@@ -3332,6 +3332,15 @@ static class Lyntai.Text.JsonExtract
     static TryParseObject(String text, JsonDocument& doc) : Boolean
     static TryReadObject(String text, String& json) : Boolean
     static WriteObject(Action<Utf8JsonWriter> members) : String
+sealed class Lyntai.Text.SentencePieceTokenizer
+    Encode(String a, String b, Int32 maxTokens = 512) : TokenEncoding
+    Encode(String text, Int32 maxTokens = 512) : TokenEncoding
+    EncodeToIds(String text) : IReadOnlyList<Int32>
+    Frame(IReadOnlyList<Int32> content) : TokenEncoding
+    Frame(IReadOnlyList<Int32> first, IReadOnlyList<Int32> second) : TokenEncoding
+    Pieces : IReadOnlyList<String> { get; }
+    static FromModelDirectory(String directory) : SentencePieceTokenizer
+    static FromTokenizerJson(Stream json) : SentencePieceTokenizer
 struct Lyntai.Text.TokenEncoding
     .ctor(Int32[] Ids, Int32[] AttentionMask, Int32[] TokenTypeIds)
     AttentionMask : Int32[] { get; init; }

@@ -1,6 +1,7 @@
 namespace Lyntai.Text;
 
 /// <summary>One text encoded for a transformer — the three tensors the graph takes, in the order it takes them.
+/// Both <see cref="WordPieceTokenizer"/> and <see cref="SentencePieceTokenizer"/> produce it.
 ///
 /// <para><b>All three are load-bearing and none fails loudly.</b> A missing mask attends to padding, a
 /// missing segment id costs a cross-encoder the signal that tells its query from its document, and either

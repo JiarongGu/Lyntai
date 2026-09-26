@@ -31,6 +31,11 @@ every addition.
 
 ### Added
 
+- **`SentencePieceTokenizer`** (**D191**): SentencePiece Unigram tokenization read from a model's `tokenizer.json`
+  — what the XLM-R family of multilingual embedders and rerankers ships — pinned id for id against HF
+  `tokenizers` and C++ SentencePiece. It runs the precompiled normalizer, `WhitespaceSplit` + `Metaspace`,
+  Unigram, and the declared layout of special tokens; any other component is refused at load, by name. Special
+  tokens typed in text stay text.
 - **`WordPieceTokenizer.Frame`** wraps content ids that are already tokenized in `[CLS]`/`[SEP]`, with no
   truncation — what `Encode` does after cutting to the window, for a caller that windows the ids itself.
 - **`MemoryAnnotation.Unanswered` and `MemoryAnnotation.Answered`** (**D175**): an annotator that could not
