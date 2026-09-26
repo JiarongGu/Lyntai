@@ -1,3 +1,5 @@
+using System.Buffers;
+using System.Text;
 using Lyntai.Inference;
 
 namespace Lyntai.Providers.Onnx;
@@ -33,9 +35,9 @@ internal sealed class TokenBoundaries
     }
 
     /// <summary>Read a SentencePiece vocabulary, id = position: a piece WITHOUT a leading <c>▁</c> continues a
-    /// word, and a sentence-ending punctuation piece — <c>▁</c> or not — ends a sentence, which wins. CJK text
-    /// has no spaces, so no <c>▁</c> after its first piece: a window there ends after <c>。</c>-class punctuation,
-    /// else hard at the budget.</summary>
+    /// word, and a sentence-ending punctuation piece — <c>▁</c> or not — ends a sentence, which wins. <b>A Han or
+    /// Kana piece starts a word wherever it falls</b>: unspaced text carries no <c>▁</c> after its first piece,
+    /// and read as continuations its windows could never end after <c>。</c> nor overlap.</summary>
     public static TokenBoundaries FromPieces(IReadOnlyList<string> pieces)
     {
         ArgumentNullException.ThrowIfNull(pieces);
@@ -44,10 +46,21 @@ internal sealed class TokenBoundaries
         {
             var bare = pieces[id].TrimStart(MetaSpace);
             kinds[id] = SentenceEnds.Contains(bare) ? SentenceEnd
-                : pieces[id].StartsWith(MetaSpace) ? (byte)0
+                : pieces[id].StartsWith(MetaSpace) || StartsUnspacedWord(bare) ? (byte)0
                 : Continuation;
         }
         return new TokenBoundaries(kinds);
+    }
+
+    /// <summary>Whether a piece opens with Han or Kana — scripts written without spaces, where every character
+    /// boundary is a word boundary. Hangul is spaced, so it is not here.</summary>
+    private static bool StartsUnspacedWord(string piece)
+    {
+        if (piece.Length == 0 || Rune.DecodeFromUtf16(piece, out var first, out _) != OperationStatus.Done) return false;
+        return first.Value is (>= 0x4E00 and <= 0x9FFF) or (>= 0x3400 and <= 0x4DBF) or (>= 0xF900 and <= 0xFAFF)
+            or (>= 0x20000 and <= 0x2FA1F)                                   // Han, the supplementary planes
+            or (>= 0x3040 and <= 0x30FF) or (>= 0x31F0 and <= 0x31FF)        // Hiragana, Katakana
+            or (>= 0xFF66 and <= 0xFF9F);                                    // halfwidth Katakana
     }
 
     /// <summary>Whether <paramref name="id"/> continues a word, never its first piece.</summary>

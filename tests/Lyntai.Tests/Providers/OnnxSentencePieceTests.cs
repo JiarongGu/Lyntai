@@ -134,6 +134,35 @@ public class OnnxSentencePieceTests : IDisposable
     }
 
     [Fact]
+    public void A_Han_or_Kana_piece_starts_a_word_wherever_it_falls_because_unspaced_scripts_have_no_meta_space()
+    {
+        var boundaries = TokenBoundaries.FromPieces(["▁今天", "天气", "カタカナ", "ひらがな", "ing", "。"]);
+
+        Assert.False(boundaries.IsContinuation(1));   // Han
+        Assert.False(boundaries.IsContinuation(2));   // Katakana
+        Assert.False(boundaries.IsContinuation(3));   // Hiragana
+        Assert.True(boundaries.IsContinuation(4));    // a Latin piece with no meta space still continues its word
+        Assert.True(boundaries.EndsSentence(5));
+    }
+
+    [Fact]
+    public void Unspaced_CJK_windows_end_after_a_sentence_end_and_overlap()
+    {
+        // ▁今天 天气 很好 。 then 明天 下雨 ！ and 明天 天气 很好 。 repeated — text with no spaces at all
+        string[] pieces = ["▁今天", "天气", "很好", "。", "明天", "下雨", "！"];
+        var boundaries = TokenBoundaries.FromPieces(pieces);
+        int[] ids = [0, 1, 2, 3, .. Enumerable.Range(0, 8).SelectMany(_ => new[] { 4, 5, 6, 4, 1, 2, 3 })];
+
+        // 20 tokens, so the 15% overlap reaches past the sentence end a window stops on
+        var windows = TokenSegmenter.Windows(ids, 20, boundaries);
+
+        Assert.True(windows.Count > 2);
+        Assert.All(windows.Take(windows.Count - 1),
+            w => Assert.True(boundaries.EndsSentence(ids[w.End - 1]), $"window {w} should end after 。 or ！"));
+        Assert.Contains(windows.Skip(1).Zip(windows), pair => pair.First.Start < pair.Second.End);
+    }
+
+    [Fact]
     public void SentencePiece_boundaries_a_leading_meta_space_starts_a_word_and_a_sentence_end_wins()
     {
         var boundaries = TokenBoundaries.FromPieces(["<s>", "▁the", "re", ".", "▁.", "。", "▁", "!"]);
