@@ -60,6 +60,48 @@ public class SentencePieceTokenizerTests
     }
 
     [Fact]
+    public void The_Sequence_pipeline_multilingual_e5_declares_encodes_to_the_reference_ids()
+    {
+        // the same model under Sequence[Precompiled, Replace(" {2,}" -> " ")] and Metaspace with no WhitespaceSplit
+        var tokenizer = FromFile(Path.Combine(SentencePieceFixture.Directory, "spm-tiny-sequence.tokenizer.json"));
+        var golden = Load("spm-tiny-sequence.golden.json");
+
+        var misses = golden.Cases.Concat(golden.HfOnly)
+            .Select(c => (c.Text, c.Ids, Actual: tokenizer.EncodeToIds(c.Text).ToArray()))
+            .Where(r => !r.Ids.SequenceEqual(r.Actual))
+            .Select(r => $"{Escape(r.Text)} -> expected [{string.Join(',', r.Ids)}], got [{string.Join(',', r.Actual)}]")
+            .ToList();
+
+        Assert.True(misses.Count == 0, string.Join(Environment.NewLine, misses));
+    }
+
+    [Theory]
+    [InlineData("""{"Regex":"b{2,}"}""", "b", "abbb", new[] { 4, 6 })]      // a run collapses: unreplaced, [4,6,6,6]
+    [InlineData("""{"String":"b"}""", "a", "b", new[] { 4 })]               // a literal: unreplaced, [5]
+    [InlineData("""{"String":"b"}""", "", "ab", new[] { 4 })]               // an empty content deletes: unreplaced, [4,6]
+    public void A_Replace_normalizer_rewrites_every_match_before_pre_tokenizing(
+        string pattern, string content, string text, int[] expected)
+    {
+        var json = Synthetic();
+        json["normalizer"] = JsonNode.Parse($$"""{"type":"Replace","pattern":{{pattern}},"content":"{{content}}"}""");
+
+        Assert.Equal(expected, LoadJson(json).EncodeToIds(text));
+    }
+
+    [Fact]
+    public void A_Sequence_normalizer_applies_its_members_in_order()
+    {
+        // "b" -> "a" then "a" -> "b": in order, every "b" comes back as "b"; reversed, both would end as "a"
+        var json = Synthetic();
+        json["normalizer"] = JsonNode.Parse("""
+            {"type":"Sequence","normalizers":[{"type":"Replace","pattern":{"String":"b"},"content":"a"},
+             {"type":"Replace","pattern":{"String":"a"},"content":"b"}]}
+            """);
+
+        Assert.Equal([5, 5], LoadJson(json).EncodeToIds("a b"));
+    }
+
+    [Fact]
     public void Typed_special_tokens_stay_TEXT_where_the_reference_would_parse_them()
     {
         Assert.NotEmpty(Tiny.TypedSpecials);
@@ -219,7 +261,8 @@ public class SentencePieceTokenizerTests
     [InlineData("model", """{"type":"Unigram","vocab":[["a",-1.0]]}""", "unk_id")]
     [InlineData("model", """{"type":"Unigram","unk_id":9,"vocab":[["a",-1.0]]}""", "unk_id")]
     [InlineData("normalizer", """{"type":"NFKC"}""", "NFKC")]
-    [InlineData("normalizer", """{"type":"Sequence","normalizers":[]}""", "Sequence")]
+    [InlineData("normalizer", """{"type":"Sequence","normalizers":[{"type":"NFKC"}]}""", "NFKC")]
+    [InlineData("normalizer", """{"type":"Replace","pattern":{"Glob":"*"},"content":""}""", "Glob")]
     [InlineData("normalizer", """{"type":"Precompiled","precompiled_charsmap":"%%%"}""", "precompiled_charsmap")]
     [InlineData("pre_tokenizer", """{"type":"ByteLevel","add_prefix_space":false}""", "ByteLevel")]
     [InlineData("pre_tokenizer", """{"type":"Metaspace","replacement":"▁","prepend_scheme":"first"}""", "first")]

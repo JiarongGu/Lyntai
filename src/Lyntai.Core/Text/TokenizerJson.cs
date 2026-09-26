@@ -1,11 +1,12 @@
 using System.Text.Json;
+using System.Text.RegularExpressions;
 
 namespace Lyntai.Text;
 
 /// <summary>The parts of a SentencePiece Unigram pipeline, read from a <c>tokenizer.json</c>.
 ///
 /// <para><b>Only what is supported is read, and anything else is refused BY NAME</b> — normalizer
-/// <c>Precompiled</c> or none; pre-tokenizer <c>WhitespaceSplit</c>, <c>Metaspace</c>, a <c>Sequence</c> of them,
+/// <c>Precompiled</c>, <c>Replace</c>, a <c>Sequence</c> of them, or none; pre-tokenizer <c>WhitespaceSplit</c>, <c>Metaspace</c>, a <c>Sequence</c> of them,
 /// or none; model <c>Unigram</c>; post-processor <c>TemplateProcessing</c>, <c>RobertaProcessing</c>,
 /// <c>BertProcessing</c> or none. A tokenizer that approximated a rule it does not run would return finite,
 /// plausible, wrong ids. The <c>truncation</c> and <c>padding</c> sections are ignored: the caller owns the
@@ -14,7 +15,7 @@ internal static class TokenizerJson
 {
     /// <summary>What a pipeline is made of. <see cref="Pieces"/> is the vocabulary in id order.</summary>
     internal sealed record Parts(
-        PrecompiledCharsMap? Normalizer, SentencePiecePreTokenizer PreTokenizer, UnigramModel Model,
+        Func<string, string>? Normalizer, SentencePiecePreTokenizer PreTokenizer, UnigramModel Model,
         SequenceTemplate Template, string[] Pieces);
 
     /// <exception cref="InvalidDataException">Not JSON, not a tokenizer.json's shape, or a component this does not
@@ -85,23 +86,65 @@ internal static class TokenizerJson
         return (new UnigramModel(entries, unknownId, specials), [.. entries.Select(e => e.Piece)]);
     }
 
-    private static PrecompiledCharsMap? Normalizer(JsonElement? node)
-    {
-        if (node is not { } normalizer) return null;
-        var type = TypeOf(normalizer);
-        if (type != "Precompiled") throw Unsupported($"a {type} normalizer", "runs Precompiled (SentencePiece's own) or none");
+    private static Func<string, string>? Normalizer(JsonElement? node) => node is { } normalizer ? Normalize(normalizer) : null;
 
-        byte[] blob;
+    /// <summary>One normalizer as a function: <c>Precompiled</c>, a literal or regex <c>Replace</c>, or a
+    /// <c>Sequence</c> of them applied in order — what multilingual-e5 and bge-m3 declare.</summary>
+    private static Func<string, string> Normalize(JsonElement node)
+    {
+        switch (TypeOf(node))
+        {
+            case "Precompiled":
+                return PrecompiledCharsMap.Parse(Charsmap(node)).Normalize;
+            case "Replace":
+                return Replace(node);
+            case "Sequence":
+                var steps = node.GetProperty("normalizers").EnumerateArray().Select(Normalize).ToArray();
+                return text => steps.Aggregate(text, (current, step) => step(current));
+            default:
+                throw Unsupported($"a {TypeOf(node)} normalizer", "runs Precompiled, Replace, a Sequence of them, or none");
+        }
+    }
+
+    private static byte[] Charsmap(JsonElement node)
+    {
         try
         {
-            blob = Convert.FromBase64String(normalizer.GetProperty("precompiled_charsmap").GetString()!);
+            return Convert.FromBase64String(RequiredString(node, "precompiled_charsmap"));
         }
         catch (FormatException e)
         {
             throw new InvalidDataException("The tokenizer.json's precompiled_charsmap is not base64.", e);
         }
-        return PrecompiledCharsMap.Parse(blob);
     }
+
+    /// <summary>Every match of a <c>String</c> (literal) or <c>Regex</c> pattern, replaced by <c>content</c> taken
+    /// LITERALLY, as the reference does. A regex runs in .NET's engine, which reads the patterns converters emit
+    /// (<c>" {2,}"</c>) as the reference's does.</summary>
+    private static Func<string, string> Replace(JsonElement node)
+    {
+        var content = RequiredString(node, "content");
+        var pattern = node.GetProperty("pattern");
+        if (pattern.TryGetProperty("String", out var literal))
+        {
+            var find = literal.GetString();
+            if (string.IsNullOrEmpty(find)) throw new InvalidDataException("The tokenizer.json's Replace has an empty String pattern.");
+            return text => text.Replace(find, content, StringComparison.Ordinal);
+        }
+        if (pattern.TryGetProperty("Regex", out var expression))
+        {
+            var regex = new Regex(RequiredString(pattern, "Regex"), RegexOptions.CultureInvariant);
+            return text => regex.Replace(text, _ => content);
+        }
+        throw Unsupported($"a Replace pattern of kind {string.Join(", ", pattern.EnumerateObject().Select(p => p.Name))}",
+            "runs String and Regex patterns");
+    }
+
+    /// <summary>A string member, refusing absence and JSON <c>null</c> alike as the file's shape.</summary>
+    private static string RequiredString(JsonElement node, string name) =>
+        node.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String
+            ? value.GetString()!
+            : throw new InvalidDataException($"The tokenizer.json has no string '{name}' where one is required.");
 
     private static SentencePiecePreTokenizer PreTokenizer(JsonElement? node) =>
         node is { } pre ? SentencePiecePreTokenizer.Of(Steps(pre)) : SentencePiecePreTokenizer.None;

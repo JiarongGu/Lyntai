@@ -165,6 +165,17 @@ EXPECTED_HF_ONLY = {
     "a literal ▁ meta space": UNMAPPED,
 }
 
+# The same model in the pipeline multilingual-e5 and bge-m3 declare: a Sequence normalizer (the charsmap, then
+# runs of spaces collapsed) and Metaspace with no WhitespaceSplit before it.
+TRAILING = ("Metaspace with no WhitespaceSplit keeps a trailing space as a lone meta space; C++ strips trailing "
+            "whitespace before it segments")
+EXPECTED_HF_ONLY_SEQUENCE = {
+    "é́ stacked": GRAPHEME,
+    "é́́ stacked more": GRAPHEME,
+    "  leading and   inner   spaces  ": TRAILING,
+    "   ": TRAILING,
+}
+
 
 def varint(buf, i):
     value = shift = 0
@@ -249,7 +260,7 @@ def xlmr_tokenizer_json(sp, charsmap):
     }
 
 
-def classify(hf, sp, inputs, with_normalized):
+def classify(hf, sp, inputs, with_normalized, expected=EXPECTED_HF_ONLY):
     golden = {"cases": [], "hf_only": [], "typed_specials": [], "pairs": []}
     unexpected = []
     for text in inputs:
@@ -260,8 +271,8 @@ def classify(hf, sp, inputs, with_normalized):
             case["normalized"] = hf.normalizer.normalize_str(text)
         if ids == spm_ids:
             golden["cases"].append(case)
-        elif text in EXPECTED_HF_ONLY:
-            golden["hf_only"].append({**case, "spm_ids": spm_ids, "why": EXPECTED_HF_ONLY[text]})
+        elif text in expected:
+            golden["hf_only"].append({**case, "spm_ids": spm_ids, "why": expected[text]})
         else:
             unexpected.append(f"{text!r}\n  hf  {ids}\n  spm {spm_ids}")
     for text in TYPED_SPECIALS:
@@ -310,8 +321,21 @@ def tiny():
     golden, unexpected = classify(hf, sp, INPUTS_TINY, with_normalized=True)
     if report("spm-tiny", golden, unexpected):
         return 1
+
+    sequence = json.loads(json.dumps(tokenizer))
+    sequence["normalizer"] = {"type": "Sequence", "normalizers": [
+        tokenizer["normalizer"], {"type": "Replace", "pattern": {"Regex": " {2,}"}, "content": " "}]}
+    sequence["pre_tokenizer"] = {"type": "Metaspace", "replacement": META, "add_prefix_space": True}
+    hf_sequence = Tokenizer.from_str(json.dumps(sequence))
+    golden_sequence, unexpected = classify(
+        hf_sequence, sp, INPUTS_TINY, with_normalized=True, expected=EXPECTED_HF_ONLY_SEQUENCE)
+    if report("spm-tiny-sequence", golden_sequence, unexpected):
+        return 1
+
     write(FIXTURES / "spm-tiny.tokenizer.json", tokenizer)
     write(FIXTURES / "spm-tiny.golden.json", {"reference": "tokenizers + sentencepiece", **golden})
+    write(FIXTURES / "spm-tiny-sequence.tokenizer.json", sequence)
+    write(FIXTURES / "spm-tiny-sequence.golden.json", {"reference": "tokenizers + sentencepiece", **golden_sequence})
     return 0
 
 

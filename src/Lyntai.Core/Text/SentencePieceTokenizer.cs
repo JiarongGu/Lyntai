@@ -5,7 +5,7 @@ namespace Lyntai.Text;
 /// XLM-R family of multilingual embedders and rerankers ships.
 ///
 /// <para><b>It runs the pipeline the file declares, as HF <c>tokenizers</c> runs it</b>: SentencePiece's
-/// precompiled normalizer, <c>WhitespaceSplit</c> and <c>Metaspace</c>, best-scoring Unigram segmentation, and
+/// precompiled normalizer and <c>Replace</c> rules, <c>WhitespaceSplit</c> and <c>Metaspace</c>, best-scoring Unigram segmentation, and
 /// the post-processor's layout of special tokens. Any other component — a BPE model, a byte-level
 /// pre-tokenizer, byte fallback — is refused at load, naming it, never approximated.
 /// <c>SentencePieceTokenizerTests</c> asserts id-for-id equality with HF <c>tokenizers</c> and C++
@@ -17,7 +17,7 @@ namespace Lyntai.Text;
 /// part, deliberately.</para></summary>
 public sealed class SentencePieceTokenizer
 {
-    private readonly PrecompiledCharsMap? _normalizer;
+    private readonly Func<string, string>? _normalizer;
     private readonly SentencePiecePreTokenizer _preTokenizer;
     private readonly UnigramModel _model;
     private readonly SequenceTemplate _template;
@@ -60,7 +60,7 @@ public sealed class SentencePieceTokenizer
         var ids = new List<int>();
         if (string.IsNullOrEmpty(text)) return ids;
 
-        var normalized = _normalizer?.Normalize(text) ?? text;
+        var normalized = _normalizer?.Invoke(text) ?? text;
         foreach (var word in _preTokenizer.Words(normalized)) _model.Segment(word, ids);
         return ids;
     }
