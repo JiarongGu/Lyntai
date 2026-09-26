@@ -279,3 +279,16 @@ reached with `AddHttpProvider`.
 **A front-door decorator slot has ONE owner** (**D182**). A decorator registers at an ORDER with an owner
 token: the same owner again re-applies its options without stacking a second layer, and a different owner on
 a held order throws, since the second would be dropped while its options still read as wired.
+
+**The built-in slots are 5 (rate limit), 10 (budget), 20 (cache) and 30 (call tracing)**; refusal screening is
+outermost and outside the list, so tracing records a reply's verdict BEFORE screening. The tracer
+(`AddTextCallTracing`, **D193**) holds three things that look deletable and are not: an `AsyncLocal` flag set while
+its scorers run — without it an LLM scorer's own call recurses through the traced client until the stack
+overflows; resolving its sinks on FIRST USE, never in the decorator factory — an LLM scorer needs the `ITextClient`
+that factory is building; and a catch around everything after the reply, late cancellation included.
+
+**Run-time text providers go through the DEFAULT router, not a factory router** (`UseTextProviderRegistry`,
+**D193**). The registry publishes an immutable snapshot per edit, and the default `TextRouter` reads it once per
+call through its internal lookup constructor — so a call never routes over half an edit, and every decorator on
+the default client governs a registered provider. A registered provider's cooldown and admission key on its
+`ProviderKey` (`IProviderPool.TryGetKey`), a container one's on its id. Named clients never see the registry.

@@ -5295,3 +5295,17 @@ planned read-only `*Source` seam into the one store interface. Spec:
 
 - Schedules added at run time, persisted
 - Job progress as a message code plus arguments
+
+## Part 322 — run-time text providers, and tracing every front-door call (2026-09-27)
+
+✅ done 2026-09-27 — **Outcome:** two of `TASKS.md` Part 298's items, decided in **D193**.
+`UseTextProviderRegistry()` registers `ITextProviderRegistry` (`Register`/`Unregister`/`SetDefaultCandidates`),
+whose immutable snapshot the DEFAULT `TextRouter` reads once per call through a new internal lookup constructor,
+so the governance on the default client covers a registered provider; providers are built through the provider
+pool at `Register` and benched on their `ProviderKey`. `AddTextCallTracing()` folds a decorator at slot 30 that
+records one `"llm"` trace step per call and runs the deterministic scorers after the reply, fail-open;
+`TextCallTracing.Into(recorder)` groups a run of calls. The design review renamed a planned `ITextProviderSet`.
+Spec: `local/superpowers/specs/2026-09-26-text-provider-set-and-call-tracing-design.md`.
+
+- Edit the text provider set at run time
+- Trace and score front-door calls without a wrapper

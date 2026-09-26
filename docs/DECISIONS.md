@@ -262,8 +262,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D190](#d190--a-cli-spawns-tools-are-chosen-per-consumer-by-configuration-2026-09-26) | 2026-09-26 | a CLI spawn's tools are chosen per CONSUMER, by configuration |
 | [D191](#d191--the-sentencepiece-tokenizer-is-owned-and-reads-tokenizerjson-the-dependency-cannot-load-the-exports-2026-09-26) | 2026-09-26 | the SentencePiece tokenizer is OWNED and reads tokenizer.json: the dependency cannot load the exp… |
 | [D192](#d192--run-time-job-schedules-are-a-seam-over-the-key-value-store-and-a-coded-job-message-takes-required-store-members-2026-09-26) | 2026-09-26 | run-time job schedules are a seam over the key-value store, and a coded job message takes require… |
+| [D193](#d193--run-time-text-providers-are-a-snapshot-the-default-router-reads-and-call-tracing-is-a-front-door-decorator-2026-09-27) | 2026-09-27 | run-time text providers are a snapshot the DEFAULT router reads, and call tracing is a front-door… |
 
-**187 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**188 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -5648,3 +5649,31 @@ silent hole. So it is a `### Breaking` entry. **`ReportStageAsync` is a distinct
 `ReportProgressAsync(i, n, null, ct)` would turn ambiguous. And `JobContext`'s public constructor stays as it
 is — a second with differently typed reporter delegates would make every lambda argument ambiguous — so the
 runner uses an internal factory, and a context over string reporters receives each message's text.
+
+## D193 — run-time text providers are a snapshot the DEFAULT router reads, and call tracing is a front-door decorator (2026-09-27)
+
+`ITextProviderRegistry` (opted into by `UseTextProviderRegistry()`) registers, replaces and unregisters text
+providers while the app runs. Every edit publishes an immutable snapshot — the container's providers plus the
+registered ones, built through `IProviderPool<IModelProvider>`, and the default candidates — and the default
+`TextRouter` reads ONE snapshot per call. `AddTextCallTracing` folds a decorator at `TracingDecoratorOrder` (30)
+that records one trace step per front-door call and runs the selected scorers after the reply.
+
+**The default client, not a governed client per edit.** Budget, cache, rate limit and refusal screening are folded
+onto the composed `ITextClient`, never onto a router, so the rejected shape — composing a governed client around
+an `ITextRouterFactory` router per edit — re-composes every decorator on each call, and the library's own callers,
+which resolve the default client, would never see the edit. Reading the registry inside the default router keeps
+one governance chain for every caller. **A call reads one snapshot**, so an edit never lands half-way through a
+fallback; a registered provider is benched on its `ProviderKey`, so a replaced configuration starts fresh.
+
+**Named clients do not see it.** **D87** binds a named client's providers and candidates together at composition;
+a registry edit reaching one would split them. **The response cache keys on the model, not the backend**, so an
+endpoint edited under the same id and model can serve replies cached before the edit until they expire —
+documented, not engineered around.
+
+**Tracing sits outside the cache**, so a hit is traced, and inside refusal screening, so it records the reply's
+verdict before screening. **Scorers default to the deterministic ones**: an LLM scorer adds a model call to every
+traced call, so it is opted into through `TextCallTracingOptions.Scorers`, and an `AsyncLocal` guard keeps that
+scorer's own call untraced — without it the scorer recurses through the traced client. The sinks resolve on
+first use, because an LLM scorer needs the `ITextClient` the decorator is being built into. **Fail-open**: a
+throwing store, scorer or late cancellation is logged and the reply returned. A call that THROWS is not traced;
+the OpenTelemetry span records it.

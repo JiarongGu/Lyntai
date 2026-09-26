@@ -263,7 +263,7 @@ fences memory spend, and a reached cap degrades a recall through its fail-open p
 
 **A layer of your own goes on the same chain:** `AddFrontDoorDecorator(order, (sp, inner) => …)` folds PII
 redaction, request logging or a bespoke cache in beside the built-ins — higher `order` = further out, with
-the built-ins at 5 (rate limit) / 10 (budget) / 20 (cache). Reach for it *instead of* pre-registering an
+the built-ins at 5 (rate limit) / 10 (budget) / 20 (cache) / 30 (call tracing). Reach for it *instead of* pre-registering an
 `ITextClient`, which discards every front-door decorator with no error at all. Taking an order another
 decorator already holds — a built-in's included — throws at composition, naming the slot and both
 registrations. **Derive the layer from `DelegatingTextClient`**, which forwards `GetCapabilitiesAsync`; a
@@ -432,6 +432,13 @@ meterProviderBuilder.AddMeter(LyntaiDiagnostics.AgentMeterName);              //
 `error.type` (the verdict); a `tool_loop` span nests one `execute_tool {name}` span per call. `ITraceService`
 is separate and **app-driven**: a durable, queryable run history you record yourself (`Begin(sessionId, mode)`,
 `recorder.Record(step)`) into the wired `ITraceStore`.
+
+**`AddTextCallTracing()` records one for you**: a step per front-door call — consumer, usage, duration, verdict,
+model — then the registered scorers `TextCallTracingOptions.Scorers` selects, the deterministic ones by default,
+saved under the trace's session id (`docs/DECISIONS.md` **D193**). Each call is a trace of its own unless it runs
+inside `using (TextCallTracing.Into(recorder))`, which puts a run of calls on your recorder. Cached and streamed
+calls are traced, a scorer's own model call never is, and the reply's text is stored only with `RecordText`.
+Tracing runs after the reply and never fails it.
 
 ### Bring your own resources
 
@@ -661,6 +668,13 @@ configuration and a way to build each backend. `UseProviderPool()` (the default)
 key is unchanged, `UseTransientProviders()` builds one per call, and **cooldown and admission are keyed on the
 configuration, not the backend id**, so one tenant's rate limit never benches another's (`docs/DECISIONS.md`
 D30). A worked example: `docs/generation.md` §10.
+
+**Those routers carry no governance** — the budget, cache, rate limit and refusal screening live on the composed
+`ITextClient`. When the text providers themselves are what users edit, `UseTextProviderRegistry()` instead lets
+the DEFAULT client route over them: `ITextProviderRegistry.Register(new(key, create))`, `Unregister(id)` and
+`SetDefaultCandidates(…)` take effect on the next call, and everything folded onto that client governs them. The
+provider is built at `Register`, so a mistake fails there. A named client keeps the providers it was composed
+with (`docs/DECISIONS.md` **D193**).
 
 ### Bridging a backend Lyntai has no provider for (`AddBridgeProvider`)
 
