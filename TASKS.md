@@ -15,31 +15,38 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 18 across 6 Parts: 14 startable, 2 blocked, 2 watch
+## Open items — 25 across 7 Parts: 21 startable, 2 blocked, 2 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 119 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a free Hugging Face account (an hf_ token) — its router proxies fal's own q… |
-| 166 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 189 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 245 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
-| 275 | 294 | Give the vector-store, verification and annotation contracts an abstract Fa… | startable |  |
-| 278 | 294 | Sweep test comments for history narration that carries no tag or date | startable |  |
-| 288 | 298 | SentencePiece tokenization for the ONNX provider — D122's trigger has fired | startable |  |
-| 292 | 298 | Change the embedder without rebuilding the graph | startable |  |
-| 294 | 298 | Read a stored vector back by id, or cache embeddings on the vector call | startable |  |
-| 296 | 298 | Filtered nearest-neighbour search | startable |  |
-| 298 | 298 | Edit the text provider set at run time | startable |  |
-| 301 | 298 | Schedules added at run time, persisted | startable |  |
-| 303 | 298 | Trace and score front-door calls without a wrapper | startable |  |
-| 306 | 298 | Job progress as a message code plus arguments | startable |  |
-| 313 | 299 | Snapshot `ToolsByConsumer` when the provisioner is built, and name the cons… | startable |  |
-| 317 | 299 | Pin the refusal through the builder, and say when it fires | startable |  |
-| 320 | 299 | Two test gaps in the CLI tool seam | startable |  |
-| 322 | 299 | A one-line `ToolsByConsumer` recipe in README's MCP section | startable |  |
+| 126 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a free Hugging Face account (an hf_ token) — its router proxies fal's own q… |
+| 173 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 196 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 252 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 282 | 294 | Give the vector-store, verification and annotation contracts an abstract Fa… | startable |  |
+| 285 | 294 | Sweep test comments for history narration that carries no tag or date | startable |  |
+| 295 | 298 | SentencePiece tokenization for the ONNX provider — D122's trigger has fired | startable |  |
+| 299 | 298 | Change the embedder without rebuilding the graph | startable |  |
+| 301 | 298 | Read a stored vector back by id, or cache embeddings on the vector call | startable |  |
+| 303 | 298 | Filtered nearest-neighbour search | startable |  |
+| 305 | 298 | Edit the text provider set at run time | startable |  |
+| 308 | 298 | Schedules added at run time, persisted | startable |  |
+| 310 | 298 | Trace and score front-door calls without a wrapper | startable |  |
+| 313 | 298 | Job progress as a message code plus arguments | startable |  |
+| 320 | 299 | Snapshot `ToolsByConsumer` when the provisioner is built, and name the cons… | startable |  |
+| 324 | 299 | Pin the refusal through the builder, and say when it fires | startable |  |
+| 327 | 299 | Two test gaps in the CLI tool seam | startable |  |
+| 329 | 299 | A one-line `ToolsByConsumer` recipe in README's MCP section | startable |  |
+| 346 | 301 | Let the shipped LLM annotator say it did not answer, so `MemorySources.Anno… | startable |  |
+| 363 | 301 | Let a graph write skip its annotation when its vector fails — D175's deferr… | startable |  |
+| 381 | 301 | Let a deployment choose a segmented rerank call's pieces per REQUEST | startable |  |
+| 400 | 301 | Bound a reranker document's pieces independently of the query | startable |  |
+| 411 | 301 | Classify llama.cpp's physical-batch refusal as `ContextWindowExceeded` | startable |  |
+| 426 | 301 | Warn about leftover keys under a model-key prefix of the app's own | startable |  |
+| 437 | 301 | Say when a server refuses the configured `SuppressReasoningFields` | startable |  |
 
 <!-- open-items:end -->
 
@@ -320,7 +327,126 @@ _The final review of the per-request CLI tools work (**D190**) graded these Mino
 - [ ] **Two test gaps in the CLI tool seam.** A provisioner implementing only the request-blind member is tested <!-- item: state=startable -->
   on `CompleteAsync` but not `StreamAsync`, and no case has every mapped name unknown.
 - [ ] **A one-line `ToolsByConsumer` recipe in README's MCP section**, compiled by `check-samples`, where it <!-- item: state=startable -->
-  describes the map in prose today.
+  describes the map in prose today. Make it the deny-by-default one, and say why a map matters even to an app
+  that registers tools only for its own calls: the library's model seams spawn the CLI under THEIR consumers —
+  `memory` for annotation and verification (`src/Lyntai.Core/Memory/MemoryModelCall.cs:29`), `scoring` for the
+  LLM scorers (`src/Lyntai.Core/Cortex/LlmScorerBase.cs:26`) — so with no map each of those calls hosts every
+  registered tool and starts a host (`src/Lyntai.Tools.Mcp/McpToolHostProvisioner.cs:28-31`). README states the
+  fallback to every tool but not that the library's own calls reach it. An adopting app upgrading from 3.2.0
+  found its memory calls hosting, on every call, file-reading tools only its scorers use, while an annotation
+  prompt carries stored, consumer-authored content.
+
+## Part 301 — what an adopter's 3.2.0 → 3.4.0 upgrade found (2026-09-26)
+
+_Reported by an adopting application planning its upgrade from 3.2.0 to 3.4.0. The upstream fixes for all six
+of its workarounds shipped in 3.3.0; these are what the upgrade found beside them, each checked against the tree
+at `v3.4.0` (HEAD changes nothing under `src/` since) when it was filed. Its evidence about the CLI tool host
+went into `TASKS.md` Part 299's recipe item instead._
+
+- [ ] **Let the shipped LLM annotator say it did not answer, so `MemorySources.Annotation` sees a failure.** <!-- item: state=startable -->
+  `LlmMemoryAnnotationPolicy.AnnotateAsync` returns `MemoryAnnotation.None` on a non-Ok verdict or an empty
+  reply, on its own timeout or any exception, and on a reply holding no JSON
+  (`src/Lyntai.Core/Memory/Annotation/LlmMemoryAnnotationPolicy.cs:125-128`, `:137-141`, `:176-178`) — the same
+  value a real "about nothing" answer parses to. The engine counts any return as answered
+  (`src/Lyntai.Core/Memory/Engines/GraphMemoryEngine.cs:314-315`), so the flag **D175**'s 2026-09-26 addendum
+  added is SET for a signed-out CLI, a refused call or a timeout, while `CHANGELOG.md` 3.4.0 and `docs/memory.md`
+  §Know whether a write kept its vector say it is absent when the annotator "failed or timed out". That holds
+  only for an annotator that throws, the one failure `GraphAnnotationRanTests` drives
+  (`tests/Lyntai.Tests/Memory/GraphAnnotationRanTests.cs:20`); for the adopter whose rebuild triggered the
+  addendum, the flag detects only a refused subject-index write. Suggested: the distinction verification already
+  has — `MemoryVerification.NoOpinion` is `Judged: false`, apart from `NothingRelevant`
+  (`src/Lyntai.Core/Memory/Verification/IMemoryVerificationPolicy.cs:125-130`) — as an unanswered
+  `MemoryAnnotation` the engine reads as not answered and the shipped policy returns on each failure path
+  (whether an unparseable reply is one is part of the design); failing that, correct both documents. A test with
+  a policy that fails WITHOUT throwing.
+
+- [ ] **Let a graph write skip its annotation when its vector fails — D175's deferred trigger, with its cost.** <!-- item: state=startable -->
+  `GraphMemoryEngine.RememberAsync` annotates first and embeds after, best-effort
+  (`src/Lyntai.Core/Memory/Engines/GraphMemoryEngine.cs:244`, `:268`). A consumer that retries every write whose
+  `Ran` lacks `Similarity` — **D175**'s intended use — pays an annotation call per write per attempt while its
+  embedder is down, and again on the retry that keeps the vector: an adopting app with a CLI annotator,
+  re-indexing pending facts at each start, spends account quota per pending fact per start through an outage.
+  Stopping a batch at its first vector-less write bounds a back-fill to one wasted call per attempt; every
+  ordinary write made during the outage is still annotated twice. D175 deferred a readiness probe until "a
+  consumer that must decide BEFORE writing anything"; this one must decide whether a write is worth its
+  annotation. Suggested, as the smaller surface: embed BEFORE annotating — the embed reads only `write.Content`
+  (`src/Lyntai.Core/Memory/Engines/GraphVectorProjection.cs:42-59`) and the annotator need only precede the
+  upsert, for its suggested grade — plus an opt-in on `GraphMemoryOptions` that skips annotation when an embedder
+  is wired and this write's embed failed, so `Ran` carries neither flag and the retry annotates once. One option
+  and no new type, where the probe would publish the internal route filter D175 declined to and can pass a moment
+  before the write fails. An engine option, not a `MemoryWrite` field, which D175 rejected as `RequireVector`
+  because a fanned-out write carries it to members that cannot honour it. The grade caveat D175 records for a
+  failed annotator applies.
+
+- [ ] **Let a deployment choose a segmented rerank call's pieces per REQUEST.** <!-- item: state=startable -->
+  `InputSegmentation.MaxPiecesPerInput` is fixed at registration: the HTTP transport reads it from the
+  registration's record and the request carries none
+  (`src/Lyntai.Providers.Basic/Http/HttpRerankTransport.cs:67-79`). **D177** rejected a per-CALL cap because "a
+  call's pieces are already its inputs × `MaxPiecesPerInput`, and fitting a latency budget is the deployment's
+  policy", which assumes the deployment can choose that cap per call. It cannot, and one registration's calls
+  vary widely: few long candidates or many, a GPU or a CPU. The adopter measured a 480-window call at ~20 s on
+  one GPU and its reranker at ~3.1 s per 1,000 pair tokens on a CPU, where a call sized for the GPU waits out a
+  60 s verification deadline for no verdict. It sizes each call by measured time, down to one piece per input,
+  and keeps its own segmenting score decorator — a second segmenter beside D177's — for that alone. Suggested:
+  an optional per-request override on `ScoreRequest`, e.g. `int? MaxPiecesPerInput`, honoured when set and never
+  above the registration's own cap, as `ScoreRequest.TimeoutSeconds` already overrides a registration's deadline
+  per call, clamped to `LyntaiOptions.MaxProviderTimeout` (`src/Lyntai.Core/Inference/IScoreProvider.cs:12-19`),
+  on every provider that honours `Segmentation`. The library still sets no budget and measures nothing: the
+  number, and how it is chosen, stay the deployment's. Unlike the rejected cap it bounds each input, the quantity
+  D177 names. A deployment sizing by time also predicts a call before sending it, and `InputSegmentation.Spread`
+  is public while the segmenter producing the pieces is not; a way to count an input's pieces would keep that
+  prediction from drifting.
+
+- [ ] **Bound a reranker document's pieces independently of the query.** On a Score registration <!-- item: state=startable -->
+  `MaxInputChars` is the PAIR window, and a document keeps what the query leaves, `window − Measure(query)`
+  (`src/Lyntai.Providers.Basic/Http/HttpRerankTransport.cs:70-71`), so piece length moves with the question. A
+  deployment that chose its piece length by measurement cannot keep it: a window sized for 1,000-character pieces
+  beside a short query cuts a long query and shortens the pieces beside it. An adopting app segments for a
+  reranker that declares no window into pieces of at most 1,000 characters whatever the query (the windows behind
+  the two such rows of `rerank-segmented-adopter-long-notes`) and caps the query separately; D177 cannot express
+  that, so a within-run comparison of the two segmenters would compare piece lengths too. Suggested: an optional
+  per-piece bound on `InputSegmentation`, in the provider's window unit, a document piece taking the smaller of it
+  and `window − query`; null keeps today's rule.
+
+- [ ] **Classify llama.cpp's physical-batch refusal as `ContextWindowExceeded`.** An input longer than <!-- item: state=startable -->
+  llama-server's physical batch, a rerank pair or an embedding input, is refused with HTTP 500:
+  `input (5218 tokens) is too large to process. increase the physical batch size (current batch size: 4096)`
+  measured by an adopting app on b10549, and the same at 512 on a small-window reranker;
+  `.claude/knowledge/pitfalls.md` records it for an embedder. `ProviderVerdictClassifier`'s context pattern
+  (`src/Lyntai.Core/Inference/ProviderVerdictClassifier.cs:130`) has matched the 400 "larger than the max context
+  size" since `docs/FIXES.md` 2026-09-24, not this, and `FromHttpFailure` reads a 500 by its body alone
+  (`:94-99`), so the rerank and vector transports (`src/Lyntai.Providers.Basic/Http/HttpJsonCall.cs:57-62`)
+  report `Failed`: counted toward benching the host (`LyntaiOptions.DeadHostThreshold`) and, from a reranker
+  judge, logged at Debug as transient — the two outcomes that fix removed for the 400. A **D177** bound avoids it
+  where it is set right, but it counts characters and the batch counts tokens. Suggested: match it narrowly, on
+  "physical batch size" or "too large to process" beside it, since "too large to process" alone could be an
+  upload refused for its size; the captured body in `ProviderVerdictClassifierTests`, and an HTTP 500 case beside
+  `HttpRerankTransportTests.An_input_over_the_models_window_is_CONTEXT_WINDOW_EXCEEDED_not_a_host_fault`.
+
+- [ ] **Warn about leftover keys under a model-key prefix of the app's own.** **D176**'s warn-once lists <!-- item: state=startable -->
+  only the library's retired `lyntai.model.` namespace, a private constant
+  (`src/Lyntai.Core/Inference/IModelRoutingStore.cs:53`, the check at `:101-113`). A deployment that had pointed
+  3.2's model-key prefix option — the one `LyntaiOptions.RouteKeyPrefix` replaced — at a namespace of its own,
+  which that option documented for exactly this, has overrides that go inert after the rename with no warning at
+  all, and `CHANGELOG.md` 3.3.0's upgrade note tells it to "move to a new prefix so the old keys go inert". An
+  adopting app found its live scorer and memory model overrides would silently return to their defaults, and had
+  to write its own migration. Suggested: let the warn-once list the retired prefixes a deployment names, e.g. a
+  `LyntaiOptions` list defaulting to `lyntai.model.` and passed to `KeyValueModelRoutingStore`, skipping any
+  prefix the current `RouteKeyPrefix` sits under as the check already does for its own.
+
+- [ ] **Say when a server refuses the configured `SuppressReasoningFields`.** **D179** adds the members only to <!-- item: state=startable -->
+  calls asking `Suppress` (`src/Lyntai.Providers.Basic/Http/Payloads/OpenAiPayload.cs:92`), and a server that
+  rejects one answers a client error that classifies `Failed`
+  (`src/Lyntai.Providers.Basic/Http/HttpChatEngine.cs:51-52`, `ProviderVerdictClassifier.FromHttpFailure`): the
+  router logs it at Information, the LLM judge at Debug as transient
+  (`src/Lyntai.Core/Memory/Verification/LlmMemoryVerificationPolicy.cs:145`), the LLM annotator at Debug
+  (`src/Lyntai.Core/Memory/Annotation/LlmMemoryAnnotationPolicy.cs:127`). `docs/memory.md`'s recipe says exactly
+  this — a rejected value "looks like no judge at all everywhere but the router's log" — and asks the deployment
+  to try the value first; nothing in the code says it. The HTTP provider is the one place that knows the failed
+  call carried the fields. Suggested: one Warning per registration when a call carrying them fails with a 4xx the
+  classifier leaves `Failed`, naming the option and quoting the server; a probe at startup would cost a
+  generation on every start. An adopting app replacing a server-side "reasoning off" preset with this option has
+  to prove per model that verdicts still ARRIVE, since a wrong spelling would otherwise show only as worse recall.
 
 ## Retired — five Parts that outlived their open work (2026-09-16)
 

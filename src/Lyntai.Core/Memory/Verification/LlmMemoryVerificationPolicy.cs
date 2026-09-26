@@ -61,8 +61,9 @@ public sealed class LlmVerificationOptions
     /// <see cref="GraphMemoryOptions.VerificationDepth"/> long grows by up to this many characters. The depth
     /// and endorsement figures on <see cref="ClientName"/> were measured on headline-length notes, so a longer
     /// list is unmeasured for this policy.</para>
-    /// <para>Content longer than this is cut at a word and ends in an ellipsis. Either way every candidate
-    /// renders as ONE line, so a newline inside an entry cannot start a note of its own.</para></summary>
+    /// <para>Content longer than this is cut at a space in its latter half, else between characters, and ends
+    /// in an ellipsis. Either way every candidate renders as ONE line, so a newline inside an entry cannot
+    /// start a note of its own.</para></summary>
     /// <exception cref="ArgumentOutOfRangeException">The value is negative.</exception>
     public int ContentChars
     {

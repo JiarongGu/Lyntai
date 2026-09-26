@@ -288,6 +288,19 @@ public class LlmMemoryVerificationPolicyTests
         Assert.True(note.Length <= "1. ".Length + 40 + 1, $"note was {note.Length} chars: {note}");
     }
 
+    /// <summary>A leading date's space is no place to cut a spaceless script, and the astral 𠀀 straddling
+    /// index 40 must not be split.</summary>
+    [Fact]
+    public async Task Content_in_a_spaceless_script_is_cut_near_ContentChars_not_at_an_early_space()
+    {
+        var content = "2026-09-26 " + new string('记', 28) + "𠀀" + new string('录', 200);
+        MemoryVerificationCandidate[] candidates = [new("x", "long") { Content = content }];
+
+        var note = Assert.Single(NoteLines(await PromptAsync(new LlmVerificationOptions { ContentChars = 40 }, candidates)));
+
+        Assert.Equal("1. " + content[..39] + "…", note);
+    }
+
     /// <summary>The composer rule <b>D166</b> applies to recalled memory, applied to the judge's list: an entry
     /// is ONE numbered line, or a newline inside it starts a line the model reads as a note of its own.</summary>
     [Theory]

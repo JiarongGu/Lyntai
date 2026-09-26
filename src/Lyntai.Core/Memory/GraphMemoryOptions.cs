@@ -31,7 +31,8 @@ public sealed record GraphMemoryOptions
     } = 0.05;
 
     /// <summary>Length cap for a DERIVED headline; an authored one is used as given, and authoritative
-    /// content is never shortened at all. <b>A starting point, not a tuned value.</b></summary>
+    /// content is never shortened at all. A derived one is cut at a space in the cap's latter half, else
+    /// between characters, and ends in <c>…</c>. <b>A starting point, not a tuned value.</b></summary>
     /// <exception cref="ArgumentOutOfRangeException">Set below one.</exception>
     public int HeadlineChars
     {

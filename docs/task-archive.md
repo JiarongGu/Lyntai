@@ -5087,3 +5087,14 @@ Filed rather than built: `TASKS.md` Part 298 (the apps' other needs) and Part 29
 Also: `nuget-unlist`'s bare `--api-key` prompts with typing hidden, and `Lyntai.Storage.InMemory` is unlisted.
 
 - The consuming-app survey and the 3.4.0 additions
+
+## Part 302 — a derived headline is cut near its cap in a spaceless script (2026-09-26)
+
+✅ done 2026-09-26 — **Outcome:** closes the first item of `TASKS.md` Part 301. `MemoryHeadline.Derive` takes a
+space only in the cap's latter half, else cuts at the last text-element boundary, never inside a surrogate
+pair — so the graph engine's derived headline and the judge's `ContentChars` note of a Chinese entry no longer
+collapse to a leading date. The mechanism is `docs/FIXES.md` 2026-09-26; the consumer-visible line is
+`CHANGELOG.md`'s Fixed entry. Sentence ends were deliberately not added as boundaries: the headline's
+refusal to split on sentences stands.
+
+- Cut a derived headline or a judge note where the text allows, not at its last space however early

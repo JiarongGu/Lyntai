@@ -102,6 +102,20 @@ public class GraphMemoryEngineTests
         Assert.DoesNotContain("dev.…", headline, StringComparison.Ordinal);
     }
 
+    /// <summary>In a spaceless script the one space is often near the start, after a date, so a cut at the
+    /// last space shows the date alone. The astral 𠀀 straddles index 40, where a hard cut would split it.</summary>
+    [Fact]
+    public async Task A_derived_headline_in_a_spaceless_script_is_cut_near_the_budget_not_at_an_early_space()
+    {
+        var content = "2026-09-26 " + new string('记', 28) + "𠀀" + new string('录', 200);
+        var engine = Engine(new GraphMemoryOptions { HeadlineChars = 40 });
+        await engine.RememberAsync(new MemoryWrite("t", "s", content));
+
+        var headline = (await engine.RecallAsync(new MemoryQuery("t", "s", "2026"))).Items[0].Headline;
+
+        Assert.Equal(content[..39] + "…", headline);
+    }
+
     [Fact]
     public async Task An_authored_headline_is_used_as_given()
     {

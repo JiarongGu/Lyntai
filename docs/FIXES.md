@@ -7,6 +7,30 @@ to `.claude/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-09-26 — a Chinese memory's derived headline showed only its leading date
+
+**Symptom.** Reported by an adopting application planning its 3.2.0 → 3.4.0 upgrade (`TASKS.md` Part 301): a
+500-character Chinese note whose only space followed a leading date was headlined as the date and `…`, and the
+judge's `ContentChars` note of it read the same.
+
+**Root cause.** `MemoryHeadline.Derive` cut at the LAST U+0020 within the cap wherever it fell. That is a word
+boundary in a spaced script; in a spaceless one the one space is usually early — after a date, a Latin term,
+a product name — so the cut kept almost nothing. The fallback for no space at all was a hard cut at the cap,
+which can split a surrogate pair. Both tests cut spaced English, so neither could see either case.
+
+**Fix.** A space counts only in the cap's latter half — the rule `InputSegmenter.Cut` already applies —
+else the cut falls at the last text-element boundary within the cap, and a first element that alone outruns
+it is cut at a code point, never inside a pair. One function, so the graph headline and the judge's content
+note both take it.
+
+**Verify.** `GraphMemoryEngineTests.A_derived_headline_in_a_spaceless_script_is_cut_near_the_budget_not_at_an_early_space`
+and `LlmMemoryVerificationPolicyTests.Content_in_a_spaceless_script_is_cut_near_ContentChars_not_at_an_early_space`
+(CJK after a dated space, an astral character straddling the cap) failed before; `MemoryHeadlineTests` pins
+the edges no caller's text reaches.
+
+**Introduced by.** `e98e44c9` (2026-08-08), the graph engine's first commit, which cut at the last space;
+`511d884b` (2026-09-23) routed the judge's content through the same function (**D170**).
+
 ## 2026-09-26 — a bridge declaring `Vector` or `Score` registered, and no router ever selected it
 
 **Symptom.** Found by the post-3.3.0 documentation sweep, not by an adopter: README and `AddBridgeProvider`'s

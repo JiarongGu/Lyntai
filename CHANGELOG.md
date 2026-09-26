@@ -17,6 +17,16 @@ and every Breaking entry ends by naming that action. A pure addition goes under 
 moves the `ApiSurfaceTests` baseline: the baseline gates DELIBERATENESS (D8), not breakage, and it moves for
 every addition.
 
+## Unreleased
+
+### Fixed
+
+- **A derived headline, and a judge's content note, are cut near their cap in a spaceless script.** Both cut at
+  the last space within `GraphMemoryOptions.HeadlineChars` / `LlmVerificationOptions.ContentChars` wherever it
+  fell, so a Chinese note whose one space followed a leading date showed the date alone, and the hard cut
+  when there was no space could split a surrogate pair. A space now counts only in the cap's latter half;
+  otherwise the cut falls between characters, never inside a pair. Headlines already stored keep their text.
+
 ## 3.4.0 — 2026-09-25
 
 ### Breaking
