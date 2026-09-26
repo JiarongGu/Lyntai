@@ -5083,7 +5083,8 @@ around, then shipped the needs with value in 3.4.0: an HTTP backend's `ProbeAsyn
 per-request CLI tools (**D190**: `CliToolRequest`, `McpToolHostOptions.ToolsByConsumer` with a `"default"` tier)
 — beside the bridge refusing a non-text `Produces` (D147, Breaking) and `docs/task-archive.md` Part 297. D190 went
 through a spec, a plan and a fresh final review, whose three Important findings were fixed before release.
-Filed rather than built: `TASKS.md` Part 298 (the apps' other needs) and Part 299 (D190's deferred minors).
+Filed rather than built: `TASKS.md` Part 298 (the apps' other needs) and what became `docs/task-archive.md`
+Part 315 (D190's deferred minors).
 Also: `nuget-unlist`'s bare `--api-key` prompts with typing hidden, and `Lyntai.Storage.InMemory` is unlisted.
 
 - The consuming-app survey and the 3.4.0 additions
@@ -5181,13 +5182,13 @@ Part each: 302 (headline cut in a spaceless script), 303 (`MemoryAnnotation.Unan
 (`SkipAnnotationWithoutVector`), 305 (`ScoreRequest.MaxPiecesPerInput`), 306 (`MaxDocumentPiece`), 307 (the
 physical-batch refusal), 308 (`ModelOnlyKeyPrefixes`) and 309 (the refused-fields warning). Reported by an
 adopting application planning its upgrade; the upstream fixes for all six of its earlier workarounds had shipped
-in 3.3.0. Its evidence about the CLI tool host went into `TASKS.md` Part 299's recipe item instead.
+in 3.3.0. Its evidence about the CLI tool host went into `docs/task-archive.md` Part 314's recipe instead.
 
 - What an adopter's 3.2.0 → 3.4.0 upgrade found
 
 ## Part 311 — `ToolsByConsumer` is read as it was checked (2026-09-26)
 
-✅ done 2026-09-26 — **Outcome:** closes the first item of `TASKS.md` Part 299. `McpToolHostProvisioner` copies
+✅ done 2026-09-26 — **Outcome:** closes the first item of `docs/task-archive.md` Part 315. `McpToolHostProvisioner` copies
 the map when it is built, so every spawn reads what the construction check saw; a null list is refused beside an
 unknown name, and each refusal names the consumer key that held it. The option's XML doc says so, and
 `CHANGELOG.md`'s Fixed entry is the consumer-visible line.
@@ -5196,7 +5197,7 @@ unknown name, and each refusal names the consumer key that held it. The option's
 
 ## Part 312 — the `ToolsByConsumer` refusal is pinned through the builder (2026-09-26)
 
-✅ done 2026-09-26 — **Outcome:** closes the second item of `TASKS.md` Part 299.
+✅ done 2026-09-26 — **Outcome:** closes the second item of `docs/task-archive.md` Part 315.
 `CliToolProvisionerResolutionTests.A_bad_ToolsByConsumer_name_fails_the_provider_set_when_first_built_not_the_container`
 drives `AddMcpToolHost(connector, o => o.ToolsByConsumer[…])` with a CLI provider and pins where the refusal
 lands: the first enumeration of the providers, not `BuildServiceProvider`. It passed on arrival — the behaviour
@@ -5206,10 +5207,29 @@ was right and unstated — so the change is the statement, in `AddMcpToolHost`'s
 
 ## Part 313 — two test gaps in the CLI tool seam (2026-09-26)
 
-✅ done 2026-09-26 — **Outcome:** closes the third item of `TASKS.md` Part 299, tests only.
+✅ done 2026-09-26 — **Outcome:** closes the third item of `docs/task-archive.md` Part 315, tests only.
 `CliToolRequestTests.A_provisioner_that_predates_the_request_still_runs_on_a_stream` drives the request-blind
 member through `StreamAsync` as its twin already did through `CompleteAsync`, and
 `McpToolHostSelectionTests.A_list_whose_every_name_is_unknown_is_refused_rather_than_read_as_empty` pins that a
 list naming no registered tool is refused rather than hosting nothing. Both passed on arrival.
 
 - Two test gaps in the CLI tool seam
+
+## Part 314 — a compiled deny-by-default `ToolsByConsumer` recipe in README (2026-09-26)
+
+✅ done 2026-09-26 — **Outcome:** closes the fourth item of `docs/task-archive.md` Part 315. README's MCP section
+carries a compiled recipe — `ToolsByConsumer["default"] = []` and one consumer listed — and says why a map matters
+even to an app whose own calls alone use tools: the library's model seams spawn the CLI under `"memory"`
+(annotation, verification) and `"scoring"` (the LLM scorers), so with no map each hosts every registered tool.
+The evidence was an adopter's upgrade from 3.2.0 (`docs/task-archive.md` Part 310). `CLAUDE.md`'s sample
+baseline moves to 55/55.
+
+- A one-line `ToolsByConsumer` recipe in README's MCP section
+
+## Part 315 — what D190's review deferred (2026-09-26)
+
+✅ done 2026-09-26 — **Outcome:** the backlog's Part 299 — four Minor findings of the per-request CLI tools
+review (**D190**) — closed as four commits: 311 (the map read as it was checked), 312 (the refusal pinned through
+the builder, and where it fires stated), 313 (two test gaps) and 314 (the README recipe).
+
+- What D190's review deferred

@@ -15,28 +15,27 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 15 across 6 Parts: 11 startable, 2 blocked, 2 watch
+## Open items — 14 across 5 Parts: 10 startable, 2 blocked, 2 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 116 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a free Hugging Face account (an hf_ token) — its router proxies fal's own q… |
-| 163 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 186 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 242 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
-| 272 | 294 | Give the vector-store, verification and annotation contracts an abstract Fa… | startable |  |
-| 275 | 294 | Sweep test comments for history narration that carries no tag or date | startable |  |
-| 285 | 298 | SentencePiece tokenization for the ONNX provider — D122's trigger has fired | startable |  |
-| 289 | 298 | Change the embedder without rebuilding the graph | startable |  |
-| 291 | 298 | Read a stored vector back by id, or cache embeddings on the vector call | startable |  |
-| 293 | 298 | Filtered nearest-neighbour search | startable |  |
-| 295 | 298 | Edit the text provider set at run time | startable |  |
-| 298 | 298 | Schedules added at run time, persisted | startable |  |
-| 300 | 298 | Trace and score front-door calls without a wrapper | startable |  |
-| 303 | 298 | Job progress as a message code plus arguments | startable |  |
-| 310 | 299 | A one-line `ToolsByConsumer` recipe in README's MCP section | startable |  |
+| 115 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a free Hugging Face account (an hf_ token) — its router proxies fal's own q… |
+| 162 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 185 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 241 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 271 | 294 | Give the vector-store, verification and annotation contracts an abstract Fa… | startable |  |
+| 274 | 294 | Sweep test comments for history narration that carries no tag or date | startable |  |
+| 284 | 298 | SentencePiece tokenization for the ONNX provider — D122's trigger has fired | startable |  |
+| 288 | 298 | Change the embedder without rebuilding the graph | startable |  |
+| 290 | 298 | Read a stored vector back by id, or cache embeddings on the vector call | startable |  |
+| 292 | 298 | Filtered nearest-neighbour search | startable |  |
+| 294 | 298 | Edit the text provider set at run time | startable |  |
+| 297 | 298 | Schedules added at run time, persisted | startable |  |
+| 299 | 298 | Trace and score front-door calls without a wrapper | startable |  |
+| 302 | 298 | Job progress as a message code plus arguments | startable |  |
 
 <!-- open-items:end -->
 
@@ -302,20 +301,6 @@ part of the work._
   services.
 - [ ] **Job progress as a message code plus arguments.** `JobContext` progress takes a plain string, so an app <!-- item: state=startable -->
   that localizes its status text keeps its own job system for that alone.
-
-## Part 299 — what D190's review deferred (2026-09-26)
-
-_The final review of the per-request CLI tools work (**D190**) graded these Minor; each is small and startable._
-
-- [ ] **A one-line `ToolsByConsumer` recipe in README's MCP section**, compiled by `check-samples`, where it <!-- item: state=startable -->
-  describes the map in prose today. Make it the deny-by-default one, and say why a map matters even to an app
-  that registers tools only for its own calls: the library's model seams spawn the CLI under THEIR consumers —
-  `memory` for annotation and verification (`src/Lyntai.Core/Memory/MemoryModelCall.cs:29`), `scoring` for the
-  LLM scorers (`src/Lyntai.Core/Cortex/LlmScorerBase.cs:26`) — so with no map each of those calls hosts every
-  registered tool and starts a host (`src/Lyntai.Tools.Mcp/McpToolHostProvisioner.cs:28-31`). README states the
-  fallback to every tool but not that the library's own calls reach it. An adopting app upgrading from 3.2.0
-  found its memory calls hosting, on every call, file-reading tools only its scorers use, while an annotation
-  prompt carries stored, consumer-authored content.
 
 ## Retired — five Parts that outlived their open work (2026-09-16)
 

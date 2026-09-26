@@ -780,9 +780,24 @@ services.AddLyntai(b => b
 
 **Per call, by consumer.** `McpToolHostOptions.ToolsByConsumer` says which tools a spawn hosts, resolved as
 `TimeoutByConsumer` is: the request's `Consumer` entry, then the `"default"` entry, then every registered tool. An
-empty list hosts none and starts no host — the fast plain call — and names host only those tools, so
-`ToolsByConsumer["default"] = []` denies by default. A provisioner of your own sees the call through
-`ProvisionAsync(CliToolRequest, ct)` (`docs/DECISIONS.md` D190).
+empty list hosts none and starts no host — the fast plain call — and names host only those tools. **Set a map
+even if only your own calls use tools:** the library's model seams spawn the CLI under THEIR consumers —
+`"memory"` for memory annotation and verification, `"scoring"` for the LLM scorers — so with no map each of those
+calls hosts every registered tool and starts a host for it, while an annotation prompt carries stored content
+your users wrote. Deny by default, and list the consumers that need tools:
+
+```csharp
+services.AddLyntai(b => b
+    .AddClaudeCliProvider()
+    .AddTool(_ => new FunctionTool("read_file", (a, ct) => Task.FromResult("…"), "Read a project file"))
+    .AddMcpToolHost(new ClaudeCliMcpConnector(), o =>
+    {
+        o.ToolsByConsumer["default"] = [];            // memory, scoring and every unlisted consumer: no tools, no host
+        o.ToolsByConsumer["study"] = ["read_file"];   // only this consumer's calls host read_file
+    }));
+```
+
+A provisioner of your own sees the call through `ProvisionAsync(CliToolRequest, ct)` (`docs/DECISIONS.md` D190).
 
 **Which** CLI connects and **how** it is told to is an `IMcpCliConnector` (flag names plus config-file
 shapes), so another CLI is one small class (`.claude/knowledge/extending-lyntai.md` §Add a CLI tool-hosting
