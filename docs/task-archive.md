@@ -5347,3 +5347,16 @@ the 19 ONNX live tests pass against the local models. The local all-MiniLM-L6-v2
 published export ships it.
 
 - Honour `sentence_bert_config.json`'s `max_seq_length`?
+
+## Part 328 — a real video model through the ComfyUI backend (2026-09-27)
+
+✅ done 2026-09-27 — **Outcome:** `TASKS.md` Part 327's one item, the owner's request; a YES, with no library
+change. Wan 2.2 TI2V-5B, run through `ComfyUiProvider` against a local server on the 12 GB laptop GPU, landed a
+`video/mp4` view URI from text (131 s cold, weights loading) and from a PNG uploaded through the `first-frame`
+role's `input-path` (50 s warm), each 25 frames at 24 fps. The decoded first frame of the image run IS the
+uploaded start frame, which the assertions alone could not show. Pinned as
+`ComfyUiLiveTests.A_real_video_model_renders_through_the_provider_from_text_and_from_a_first_frame`, gated on
+`LYNTAI_COMFYUI_WAN_MODEL`; the workflow is ComfyUI's own `video_wan2_2_5B_ti2v` template, shrunk.
+`docs/generation.md` §2 says so. `TASKS.md` Part 33's fal item is untouched: its subject is fal's wire.
+
+- Run Wan 2.2 TI2V-5B through `ComfyUiProvider`, text-to-video and image-to-video

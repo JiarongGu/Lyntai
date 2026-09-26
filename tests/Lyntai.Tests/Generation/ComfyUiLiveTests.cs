@@ -20,8 +20,9 @@ namespace Lyntai.Tests.Generation;
 ///
 /// <para>Skipped without <c>LYNTAI_COMFYUI_URL</c> (e.g. <c>http://127.0.0.1:8188</c>) and
 /// <c>LYNTAI_COMFYUI_CHECKPOINT</c> (a checkpoint filename the server's <c>models/checkpoints</c> holds,
-/// e.g. an SD 1.5) — except the mesh journey, which needs no model and only the URL. A CPU render is
-/// minutes, not seconds — this suite is a measurement, not a regression gate.</para></summary>
+/// e.g. an SD 1.5) — except the mesh journey, which needs no model and only the URL, and the Wan journeys, which
+/// need <c>LYNTAI_COMFYUI_WAN_MODEL</c> instead. A CPU render is minutes, not seconds — this suite is a
+/// measurement, not a regression gate.</para></summary>
 public class ComfyUiLiveTests(ITestOutputHelper output)
 {
     private static string? BaseUrl => Environment.GetEnvironmentVariable("LYNTAI_COMFYUI_URL");
@@ -169,6 +170,167 @@ public class ComfyUiLiveTests(ITestOutputHelper output)
         var bytes = await http.GetByteArrayAsync(artifact.Uri);
         Assert.True(bytes.Length > 12 && bytes[4] == 'f' && bytes[5] == 't' && bytes[6] == 'y' && bytes[7] == 'p',
             "the view URI did not serve an MP4 container");
+    }
+
+    private static string? WanModel => Environment.GetEnvironmentVariable("LYNTAI_COMFYUI_WAN_MODEL");
+
+    /// <summary>Wan 2.2 TI2V-5B in API format, from ComfyUI's own <c>video_wan2_2_5B_ti2v</c> template — its sampler
+    /// (20 <c>uni_pc</c> steps, cfg 5, shift 8) and 24 fps — shrunk to 640×352 and 25 frames (Wan takes 4n + 1) so a
+    /// 12 GB laptop GPU answers in minutes. The text encoder and VAE are Comfy-Org's repackaged names. With a start
+    /// image, node 56 loads the uploaded frame into the latent's <c>start_image</c>.</summary>
+    private static string WanWorkflow(string model, bool startImage) => """
+        {
+          "37": {"class_type": "UNETLoader", "inputs": {"unet_name": "UNET_NAME", "weight_dtype": "default"}},
+          "38": {"class_type": "CLIPLoader", "inputs": {"clip_name": "umt5_xxl_fp8_e4m3fn_scaled.safetensors",
+                 "type": "wan", "device": "default"}},
+          "39": {"class_type": "VAELoader", "inputs": {"vae_name": "wan2.2_vae.safetensors"}},
+          "48": {"class_type": "ModelSamplingSD3", "inputs": {"model": ["37", 0], "shift": 8}},
+          "6": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["38", 0], "text": "PLACEHOLDER"}},
+          "7": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["38", 0], "text": "static, blurry, low quality"}},
+          LOAD_IMAGE
+          "55": {"class_type": "Wan22ImageToVideoLatent", "inputs": {"vae": ["39", 0], "width": 640, "height": 352,
+                 "length": 25, "batch_size": 1 START_IMAGE}},
+          "3": {"class_type": "KSampler", "inputs": {"model": ["48", 0], "positive": ["6", 0], "negative": ["7", 0],
+                "latent_image": ["55", 0], "seed": 42, "steps": 20, "cfg": 5, "sampler_name": "uni_pc",
+                "scheduler": "simple", "denoise": 1}},
+          "8": {"class_type": "VAEDecode", "inputs": {"samples": ["3", 0], "vae": ["39", 0]}},
+          "57": {"class_type": "CreateVideo", "inputs": {"images": ["8", 0], "fps": 24}},
+          "58": {"class_type": "SaveVideo", "inputs": {"video": ["57", 0], "filename_prefix": "video/lyntai-live-wan",
+                 "format": "auto", "codec": "auto"}}
+        }
+        """
+        .Replace("UNET_NAME", model)
+        .Replace("LOAD_IMAGE", startImage ? "\"56\": {\"class_type\": \"LoadImage\", \"inputs\": {\"image\": \"none\"}}," : "")
+        .Replace("START_IMAGE", startImage ? ", \"start_image\": [\"56\", 0]" : "");
+
+    /// <summary>A real video MODEL through the backend, where <see
+    /// cref="A_video_producing_workflow_comes_back_as_a_view_URI_with_a_video_media_type"/> needed none: text to
+    /// video, then image to video with the start frame uploaded through the <c>first-frame</c> role's
+    /// <c>input-path</c>. Skipped without <c>LYNTAI_COMFYUI_WAN_MODEL</c>, the server's Wan 2.2 TI2V-5B file.</summary>
+    [SkippableTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task A_real_video_model_renders_through_the_provider_from_text_and_from_a_first_frame(bool fromImage)
+    {
+        Skip.If(string.IsNullOrWhiteSpace(BaseUrl) || string.IsNullOrWhiteSpace(WanModel),
+            "set LYNTAI_COMFYUI_URL to a running ComfyUI and LYNTAI_COMFYUI_WAN_MODEL to its Wan 2.2 TI2V-5B file");
+
+        var provider = new ComfyUiProvider(new ComfyUiOptions { BaseUrl = BaseUrl! }, () => new HttpClient());
+        var options = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["workflow"] = WanWorkflow(WanModel!, fromImage),
+            ["prompt-path"] = "6.inputs.text",
+        };
+        if (fromImage) options[$"input-path:{MediaInputRoles.FirstFrame}"] = "56.inputs.image";
+        var clock = Stopwatch.StartNew();
+
+        var submitted = await provider.SubmitAsync(new MediaRequest
+        {
+            Kind = ProviderKinds.Video,
+            Prompt = "a red ball rolls slowly across a wooden table, soft daylight",
+            Inputs = fromImage ? [new MediaInput("image/png", Data: StartFrame(640, 352), Role: MediaInputRoles.FirstFrame)] : [],
+            Options = options,
+        });
+        Assert.True(submitted.Status == QueuedOperationStatus.Queued, submitted.Detail);
+
+        var deadline = DateTime.UtcNow + TimeSpan.FromMinutes(30);   // a cold first run loads ~18 GB of weights
+        QueuedOperation polled;
+        do
+        {
+            await Task.Delay(TimeSpan.FromSeconds(5));
+            polled = await provider.PollAsync(submitted.Id);
+            Assert.True(polled.Status != QueuedOperationStatus.Failed, polled.Detail);
+        }
+        while (polled.Status != QueuedOperationStatus.Succeeded && DateTime.UtcNow < deadline);
+        Assert.True(polled.Status == QueuedOperationStatus.Succeeded,
+            $"the render did not finish inside the budget — last: {polled.Status} {polled.Detail}");
+        output.WriteLine($"{(fromImage ? "image" : "text")}-to-video rendered in {clock.Elapsed.TotalSeconds:F0} s");
+
+        var fetched = await provider.FetchAsync(submitted.Id);
+        Assert.True(fetched.IsOk, fetched.Detail);
+        var artifact = Assert.Single(fetched.Artifacts);
+        Assert.Equal("video/mp4", artifact.MediaType);
+
+        using var http = new HttpClient();
+        var mp4 = await http.GetByteArrayAsync(artifact.Uri);
+        Assert.Equal("ftyp"u8.ToArray(), mp4[4..8]);
+        // 25 frames at 24 fps: a one-frame or a wrong-rate fallback would still be a valid MP4
+        Assert.InRange(Mp4Seconds(mp4), 25 / 24.0 - 0.2, 25 / 24.0 + 0.2);
+    }
+
+    /// <summary>The movie header's duration over its timescale — <c>mvhd</c> version 0 or 1.</summary>
+    private static double Mp4Seconds(byte[] mp4)
+    {
+        var at = mp4.AsSpan().IndexOf("mvhd"u8);
+        Assert.True(at > 0, "no mvhd box: not a playable MP4");
+        return mp4[at + 4] == 1
+            ? (double)ReadBigEndian64(mp4, at + 28) / (uint)ReadBigEndian(mp4, at + 24)
+            : (double)(uint)ReadBigEndian(mp4, at + 20) / (uint)ReadBigEndian(mp4, at + 16);
+    }
+
+    private static long ReadBigEndian64(byte[] bytes, int at) =>
+        ((long)(uint)ReadBigEndian(bytes, at) << 32) | (uint)ReadBigEndian(bytes, at + 4);
+
+    /// <summary>An 8-bit RGB PNG — a red disc on a light gradient — built by hand, as <see cref="Cube"/> is.</summary>
+    private static byte[] StartFrame(int width, int height)
+    {
+        var rows = new byte[height * (1 + width * 3)];
+        for (var y = 0; y < height; y++)
+        {
+            var row = y * (1 + width * 3);   // filter byte 0: none
+            for (var x = 0; x < width; x++)
+            {
+                var (dx, dy) = (x - width / 4, y - height / 2);
+                var disc = dx * dx + dy * dy < 50 * 50;
+                rows[row + 1 + x * 3] = disc ? (byte)220 : (byte)(180 + y * 60 / height);
+                rows[row + 2 + x * 3] = disc ? (byte)30 : (byte)(150 + y * 60 / height);
+                rows[row + 3 + x * 3] = disc ? (byte)30 : (byte)(110 + y * 60 / height);
+            }
+        }
+        using var compressed = new MemoryStream();
+        using (var z = new ZLibStream(compressed, CompressionLevel.Fastest)) z.Write(rows);
+
+        using var png = new MemoryStream();
+        png.Write([0x89, (byte)'P', (byte)'N', (byte)'G', 0x0D, 0x0A, 0x1A, 0x0A]);
+        var header = new byte[13];
+        WriteBigEndian(header, 0, width);
+        WriteBigEndian(header, 4, height);
+        header[8] = 8; header[9] = 2;   // 8-bit RGB; compression, filter and interlace all 0
+        Chunk(png, "IHDR", header);
+        Chunk(png, "IDAT", compressed.ToArray());
+        Chunk(png, "IEND", []);
+        return png.ToArray();
+
+        static void Chunk(Stream to, string type, byte[] data)
+        {
+            var body = new byte[4 + data.Length];
+            Encoding.ASCII.GetBytes(type, body);
+            data.CopyTo(body, 4);
+            var word = new byte[4];
+            WriteBigEndian(word, 0, data.Length);
+            to.Write(word);
+            to.Write(body);
+            WriteBigEndian(word, 0, (int)Crc32(body));
+            to.Write(word);
+        }
+    }
+
+    // PNG's chunk checksum; the loader ComfyUI uses verifies it
+    private static uint Crc32(ReadOnlySpan<byte> data)
+    {
+        var crc = 0xFFFFFFFFu;
+        foreach (var b in data)
+        {
+            crc ^= b;
+            for (var k = 0; k < 8; k++) crc = (crc >> 1) ^ (0xEDB88320u & (0u - (crc & 1)));
+        }
+        return ~crc;
+    }
+
+    private static void WriteBigEndian(byte[] bytes, int at, int value)
+    {
+        bytes[at] = (byte)(value >> 24); bytes[at + 1] = (byte)(value >> 16);
+        bytes[at + 2] = (byte)(value >> 8); bytes[at + 3] = (byte)value;
     }
 
     /// <summary>Stage 1: load the uploaded GLB headlessly (<c>Load3DAdvanced</c>; the browser-bound
