@@ -10,9 +10,9 @@ using ModelContextProtocol.Client;
 
 namespace Lyntai.Tests.Tools;
 
-/// <summary>The ONE gated-invocation flow both doors onto the app's tools share. The MCP door used to copy
-/// the tool loop's gate and could not reach its telemetry; through <see cref="ToolInvocation"/> it records
-/// the same span and counter. Tool names are unique per test: the listeners are process-global.</summary>
+/// <summary>The ONE gated-invocation flow both doors onto the app's tools share: through
+/// <see cref="ToolInvocation"/> the MCP door records the same span and counter as the tool loop. Tool names
+/// are unique per test: the listeners are process-global.</summary>
 public sealed class ToolInvocationTests
 {
     [Fact]

@@ -467,8 +467,7 @@ public class GenerationGovernanceTests
 
     // ---- the THIRD door: governance has to reach streaming too ----------------------------------------
     //
-    // The stream door landed in 3.0, and the compiler only forced the decorators to HAVE a StreamAsync — it
-    // cannot tell a governed implementation from one that forwards straight through. That is precisely the
+    // The compiler only forces the decorators to HAVE a StreamAsync — it cannot tell a governed implementation from one that forwards straight through. That is precisely the
     // `pitfalls.md` § "Second doors" shape: a capability enforced at one entry point is not enforced when a
     // second entry point reaches the same objects, and adding a door is the cheapest way to lose one. So the
     // behaviour is pinned per door rather than assumed from the signature.

@@ -287,7 +287,7 @@ public class GenerationPipelineTests
     [Fact]
     public async Task A_null_stage_is_refused_up_front_as_the_durable_job_refuses_it()
     {
-        // it NRE'd mid-run, after the stages before it had already rendered and billed
+        // found mid-run, it NREs after the stages before it have already rendered and billed
         var router = new ScriptedRouter(Produced(1));
 
         await Assert.ThrowsAsync<ArgumentException>(() => router.RunPipelineAsync(

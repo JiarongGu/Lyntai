@@ -16,8 +16,8 @@ namespace Lyntai.Tests.Memory;
 /// of B against max of A, rather than described. That is what makes the SUM's verdict a question about
 /// CARDINALITY alone: it flips to B only once mean(rB)/mean(rA) clears |A|/|B|, which is NOT a constant -
 /// phase B is <c>max(1, RoutineCount/3)</c>, so the ratio is 2 only at multiples of 3 and reaches 4.0 at
-/// RoutineCount=5. This shape IS a multiple of 3, the value where RoutineCount=9 once hid the routine
-/// split's own defect, so do not generalise a constant off it.</para>
+/// RoutineCount=5. This shape IS a multiple of 3, where the ratio happens to be exactly 2, so do not
+/// generalise a constant off it.</para>
 /// <para><b>Scope: ONE shape, ONE seed</b> - <c>ReuseRatio 4</c>, outside the 60-shape grid the routine
 /// class's preconditions are proved over, and the co-activation clique differs BETWEEN arms at the same
 /// seed. That grid is swept by <c>node devtools/dev.mjs memory-support</c>; what it measured, and what it
@@ -43,9 +43,7 @@ public class MemoryGistSupportRuleTests
     /// (<c>.claude/knowledge/pitfalls.md</c> §Testing). Both drive the SHIPPED
     /// <see cref="BurstDampenedAgePolicy"/>: <c>bulk</c> steps 100ms per write, inside that policy's own
     /// 5-second window, so the whole import arbitrates within ONE burst; <c>spaced</c> steps 10s per write,
-    /// outside it, so every write starts its own burst and the damping degenerates to per-write ticks. The
-    /// bulk arm replaced one driven by the real clock and reproduces it to six decimal places, so the
-    /// substitution fixed the figure's PROVENANCE without moving the figure.</para>
+    /// outside it, so every write starts its own burst and the damping degenerates to per-write ticks.</para>
     /// <para>rawA=8 &gt; rawB=4 in BOTH arms, so raw selects phase A either way - the regime the corpus
     /// declares wrong. Weighted AGREES with raw under bulk and DISAGREES under spaced, selecting phase B.
     /// Every weighted figure is read the instant BEFORE the corpus's final query, which would otherwise
@@ -98,7 +96,7 @@ public class MemoryGistSupportRuleTests
             $"spaced weighted: A={s.WeightedA:F6} (n={s.RawA}, range={RangeText(s.PhaseA)}) "
             + $"B={s.WeightedB:F6} (n={s.RawB}, range={RangeText(s.PhaseB)})");
 
-        // Asserted rather than described: "phase B outranks phase A per-member" was prose, and prose rots.
+        // Asserted rather than described, because prose rots.
         // Min of B against max of A is the strong form - no member of either regime overlaps - and it is
         // what makes the sum's flip a question about CARDINALITY alone rather than about which regime is
         // better remembered. It holds under both pacings; only the sum's verdict moves between them.

@@ -6,11 +6,6 @@ namespace Lyntai.Tests.Storage;
 /// <summary>Backend-agnostic <see cref="IResponseCache"/> contract — run by the InMemory, SQLite and
 /// Postgres suites so hit/miss, TTL and eviction semantics are pinned identically.
 ///
-/// <para><b>Unlike <see cref="UsageTrackerContract"/>, this found no asymmetry to fix.</b> All three
-/// backends already covered the same four behaviours; what was missing was only the MECHANISM that keeps
-/// them covering the same ones, which is the argument `storage.md` makes for the contract facts existing at
-/// all. Recorded so nobody reads this file as evidence the cache had drifted.</para>
-///
 /// <para><b>The size-cap trim is deliberately NOT here</b>, and the reason is a boundary worth keeping: it
 /// is set at CONSTRUCTION (<c>CacheOptions.MaxEntries</c>) rather than exercised on a built cache, and on
 /// the shared Postgres container it needs a far-future clock so this test's rows outrank every other

@@ -51,7 +51,7 @@ public class MemoryCompositionTests
     public async Task Associative_noise_cannot_crowd_out_an_authoritative_fact()
     {
         // THE ACCURACY TEST. 200 high-relevance associative items against a tiny budget: the one exact
-        // fact must survive, verbatim, or this design is worse than the flat dump it replaced.
+        // fact must survive, verbatim, or this design is worse than a flat dump.
         var items = new List<MemoryItem> { Item("the build gate is dev.mjs verify", MemoryGrade.Authoritative) };
         for (var i = 0; i < 200; i++)
             items.Add(Item($"noise item number {i} which is quite wordy indeed", MemoryGrade.Associative));
@@ -138,9 +138,9 @@ public class MemoryCompositionTests
 
     // ---- Render: the formatting half, reachable without an engine -------------------------------------
 
-    /// <summary>The door an adopter with its OWN retrieval needs. Reported on 3.0.0: reaching this rendering
-    /// meant implementing <see cref="IMemoryEngine"/> whose recall returned material the caller had already
-    /// chosen — an engine written only to reach a formatter.</summary>
+    /// <summary>The door an adopter with its OWN retrieval needs: without it, reaching this rendering means
+    /// implementing <see cref="IMemoryEngine"/> whose recall returns material the caller already chose — an
+    /// engine written only to reach a formatter.</summary>
     [Fact]
     public void Render_composes_material_a_caller_selected_itself_with_no_engine_involved()
     {
@@ -182,9 +182,9 @@ public class MemoryCompositionTests
 
     /// <summary>"Append to a prompt" and "produce a block I will place myself" are both natural uses of a
     /// formatting-only entry point, and <c>Render</c> exists FOR callers doing their own retrieval — so an
-    /// empty base prompt must not lead with the separator. Reported against 3.0.1: both heading sites
-    /// appended <c>"\n\n"</c> unconditionally and the return only <c>TrimEnd</c>s, so a standalone block
-    /// arrived with two leading newlines the caller had to strip.</summary>
+    /// empty base prompt must not lead with the separator. The return only <c>TrimEnd</c>s, so a heading site
+    /// that appends <c>"\n\n"</c> unconditionally hands a standalone block two leading newlines the caller
+    /// has to strip.</summary>
     [Fact]
     public void Render_with_no_base_prompt_yields_a_standalone_block_with_no_leading_separator()
     {
@@ -203,8 +203,8 @@ public class MemoryCompositionTests
         Assert.StartsWith("## Recalled context", composed, StringComparison.Ordinal);
     }
 
-    /// <summary>The regression half: a non-empty base prompt keeps its blank-line separator exactly as
-    /// before. The fix is "nothing to separate FROM", never "drop the separator".</summary>
+    /// <summary>The other half: a non-empty base prompt keeps its blank-line separator. The rule is "nothing
+    /// to separate FROM", never "drop the separator".</summary>
     [Fact]
     public void A_non_empty_base_prompt_keeps_its_separator()
     {
@@ -226,8 +226,7 @@ public class MemoryCompositionTests
     }
 
     /// <summary>The reserve still bounds exact material when a caller supplies its own — and it is the
-    /// BUDGET it protects against, never the caller's selection. That distinction is what the adopter had to
-    /// find by test.</summary>
+    /// BUDGET it protects against, never the caller's selection.</summary>
     [Fact]
     public void Render_reserves_for_exact_material_out_of_the_callers_own_selection()
     {

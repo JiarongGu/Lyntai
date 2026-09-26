@@ -226,7 +226,7 @@ public class LiveModelRoutingTests
     // ---- a model-key prefix of the app's OWN, retired with lyntai.model. ------------------------------------
 
     /// <summary>3.2's model-key prefix option could point at an app's own namespace, so its overrides go inert
-    /// under routes just as <c>lyntai.model.</c> keys do — and were the ones left silent.</summary>
+    /// under routes just as <c>lyntai.model.</c> keys do — so they are warned of too.</summary>
     [Fact]
     public async Task A_key_left_under_a_model_only_prefix_of_the_apps_own_is_warned_of_once()
     {

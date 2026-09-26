@@ -33,10 +33,10 @@ public class GenerationToolsTests
 
     /// <summary>A tool-driven async render is BILLED, exactly as the job-handler path is.
     ///
-    /// <para>The defect: <c>GenerationFetchTool</c> called <c>backend.FetchAsync</c> directly, bypassing the
-    /// router, and handed <c>result.Usage</c> to the artifact sink without ever reaching
-    /// <see cref="Lyntai.Inference.Budgeting.IUsageTracker"/>. A queue backend prices at FETCH — that is the only
-    /// point the total is known — so the entire cost of every tool-driven async render was invisible.</para>
+    /// <para>A queue backend prices at FETCH, the only point the total is known. A fetch tool calling
+    /// <c>backend.FetchAsync</c> directly, bypassing the router, hands <c>result.Usage</c> to the artifact sink
+    /// without ever reaching <see cref="Lyntai.Inference.Budgeting.IUsageTracker"/>, so the entire cost of
+    /// every tool-driven async render is invisible.</para>
     ///
     /// <para>Why that breaks a promise rather than merely under-reporting. <c>GenerationInlineTool.Consumer</c>
     /// tells the reader to "set <c>Budget.PerConsumer["agent"]</c> and it binds agent-driven renders", and

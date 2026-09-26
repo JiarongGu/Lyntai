@@ -59,14 +59,12 @@ public static class RetrievabilityPolicyContract
 
     /// <summary>The seam's own written guarantee: a reinforcement may grow a memory and may leave it alone,
     /// but may never hand back a stability SMALLER than the one it was given.
-    /// <para><b>The second half is the whole point (<c>docs/task-archive.md</c> Part 54, DSR2, closed
-    /// 2026-08-11).</b>
+    /// <para><b>The second half is the whole point (<c>docs/task-archive.md</c> Part 54).</b>
     /// The ordinary fixture below starts at <see cref="IMemoryRetrievabilityPolicy.InitialStability"/>, which
     /// sits far under any ceiling a policy would impose, so it can never exercise what a ceiling does to a
-    /// stability that is ALREADY past it — and for two years that was exactly where the guarantee failed:
-    /// <see cref="DsrRetrievability"/> ended in a bare <c>Math.Min(grown, MaxStability)</c>, so a stored
-    /// <c>100000</c> came back as <c>2000</c>, a 50× SHORTENING, and the interface documented the exception
-    /// rather than closing it. A ceiling must cap GROWTH, never act as a CUT — an over-ceiling entry is
+    /// stability that is ALREADY past it — which is exactly where the guarantee breaks: a curve ending in a
+    /// bare <c>Math.Min(grown, MaxStability)</c> turns a stored <c>100000</c> into <c>2000</c>, a 50×
+    /// SHORTENING. A ceiling must cap GROWTH, never act as a CUT — an over-ceiling entry is
     /// FROZEN (it can no longer grow), not truncated. Reachable by lowering a ceiling under an existing
     /// corpus, or by any stability written outside the policy, so it is a contract fact rather than a
     /// DSR-only one: any future curve with a ceiling has the identical trap available.</para></summary>
@@ -95,10 +93,9 @@ public static class RetrievabilityPolicyContract
     /// retrievability is 0.5. <see cref="DsrRetrievability"/> anchors FSRS's 90%-retention convention back
     /// onto this one by deriving its curve factor from it (<c>F = 0.5^(1/decay) - 1</c>), precisely so this
     /// holds — so this fact PINS existing behaviour rather than changing it.
-    /// <para>This is what let the first draft of the design (~200 lines: policies declaring stability
-    /// conventions, reconstructing foreign state, error bounds, a three-step fallback) be deleted entirely.
-    /// All of it existed to let two conventions coexist; one enforced fact here makes a second convention
-    /// impossible to ship, so nothing ever needs converting between two.</para>
+    /// <para>One enforced unit makes a second stability convention impossible to ship, so nothing ever needs
+    /// converting between two — no policy declares a convention, reconstructs foreign state or carries error
+    /// bounds.</para>
     /// <para><b>A claim about the CURVE's own unit, not about a decorator that reads other state too</b>
     /// — <c>ModulatedRetrievability</c> satisfies this only when every registered
     /// retention policy reports its NEUTRAL factor for the state given — the model-free default, no signals

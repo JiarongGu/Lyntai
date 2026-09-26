@@ -18,9 +18,9 @@ public class ReciprocalRankFusionPolicyTests : MemoryRankingPolicyContractFacts
 
     protected override IMemoryRankingPolicy New() => new ReciprocalRankFusionPolicy();
 
-    /// <summary><b>This policy's own "finite by construction" claim was FALSE, and this fact is what makes it
-    /// true.</b> <c>Rank</c>'s own comment argued that a sum of positive, bounded reciprocal terms can never
-    /// turn non-finite — sound for the shipped weights, and wrong in general: every weight is validated finite
+    /// <summary><b>A sum of positive, bounded reciprocal terms is NOT finite by construction, and this fact is
+    /// what makes the score finite anyway.</b> The argument is sound for the shipped weights and wrong in
+    /// general: every weight is validated finite
     /// and <c>&gt;= 0</c> with no upper bound, and <see cref="ReciprocalRankFusionOptions.K"/> may be any
     /// finite positive number, so two terms of <c>double.MaxValue / 1.5</c> overflow their own SUM. The
     /// consequence here is worse than <see cref="MultiplicativeRankingPolicy"/>'s, because this policy's
@@ -124,8 +124,8 @@ public class ReciprocalRankFusionPolicyTests : MemoryRankingPolicyContractFacts
     public void Hop_ranks_ascending_so_the_nearer_candidate_outranks_the_farther_one()
     {
         // Isolates hop from the other three signals (their weight is 0, so their values cannot affect the
-        // outcome) — the only fact in this file that discriminates purely on hop direction. THE target of
-        // mutation #1: ranking hop DESCENDING instead of ASCENDING must flip this outcome, or hop is not
+        // outcome) — the only fact in this file that discriminates purely on hop direction. The mutation
+        // target: ranking hop DESCENDING instead of ASCENDING must flip this outcome, or hop is not
         // actually doing any work in the fixture.
         var options = new ReciprocalRankFusionOptions
         {
@@ -337,9 +337,9 @@ public class ReciprocalRankFusionPolicyTests : MemoryRankingPolicyContractFacts
 
     // ── the fan effect (DiagnosticityWeight) ────────────────────────────────────────────────────────────
 
-    /// <summary><b>OFF by default, and byte-identical when unset.</b> The whole reason this can be added to a
-    /// registered default policy without a measurement first: at weight 0 the new term contributes exactly
-    /// zero and every existing arm is unchanged. Asserted rather than assumed, because "additive and
+    /// <summary><b>OFF by default, and byte-identical when unset.</b> The whole reason this term can sit in a
+    /// registered default policy without a measurement first: at weight 0 it contributes exactly zero and
+    /// every other arm is unchanged. Asserted rather than assumed, because "additive and
     /// defaulted" is a claim about arithmetic, not an intention.</summary>
     [Fact]
     public void Diagnosticity_is_off_by_default_and_changes_nothing_when_unset()
@@ -359,8 +359,8 @@ public class ReciprocalRankFusionPolicyTests : MemoryRankingPolicyContractFacts
 
     /// <summary>ACT-R's FAN EFFECT: a node associated with many things is less diagnostic of any one cue, so
     /// it should spread less. Lyntai builds hubs deliberately (subject annotation exists to produce shared
-    /// handles), and nothing anywhere consulted <see cref="GraphNode.Degree"/> — a node with fifty
-    /// neighbours contributed exactly as much as a node with one.
+    /// handles), and without this term nothing consults <see cref="GraphNode.Degree"/> — a node with fifty
+    /// neighbours contributes exactly as much as a node with one.
     /// <para>The argument for adopting it is information-theoretic rather than biomimetic: a node adjacent to
     /// everything discriminates nothing. That is why it is worth having even though this library is not
     /// trying to be a cognitive model.</para></summary>

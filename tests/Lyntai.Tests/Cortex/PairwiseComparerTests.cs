@@ -53,7 +53,7 @@ public class PairwiseComparerTests
     [Fact]
     public async Task A_judge_asked_about_identical_outputs_can_pick_a_WINNER_which_is_simply_wrong()
     {
-        // The reason this is a correctness fix and not only a saving. Position bias is a documented failure
+        // Why the short-circuit is correctness and not only a saving. Position bias is a documented failure
         // mode, and on identical text there is no signal to overcome it: a judge that answers "a" has
         // returned a false verdict, and the two-pass check cannot catch it because BOTH passes see the same
         // two strings. Wired through the single-pass path so the fake's scripted "a" would be believed.
@@ -138,9 +138,8 @@ public class PairwiseComparerTests
     }
 
     // ---- "the judge said tie" vs "the judge never answered" --------------------------------------------
-    // Both were PairwiseWinner.Tie and nothing typed told them apart, which is the conflation
-    // MemoryVerification.Judged exists to prevent one subsystem over: a model outage read as a substantive
-    // verdict. Winner is unchanged in every case below — only Judged is new.
+    // Both are PairwiseWinner.Tie, so only Judged tells them apart — the conflation MemoryVerification.Judged
+    // prevents one subsystem over: a model outage read as a substantive verdict.
 
     [Fact]
     public async Task An_unparseable_reply_is_NOT_a_judgement_even_though_the_call_succeeded()
@@ -203,9 +202,9 @@ public class PairwiseComparerTests
         Assert.False(result.Judged);
     }
 
-    /// <summary>A BYO <see cref="IPairwiseComparer"/> written before this existed constructs the record
-    /// positionally and must keep meaning "I judged" — which is why the property defaults to true and is
-    /// not a positional parameter (that would have changed the ctor and Deconstruct, breaking D70).</summary>
+    /// <summary>A BYO <see cref="IPairwiseComparer"/> that constructs the record positionally means "I judged"
+    /// — which is why the property defaults to true and is not a positional parameter (that would change the
+    /// ctor and Deconstruct, breaking D70).</summary>
     [Fact]
     public void A_result_constructed_the_old_way_still_means_JUDGED()
     {
@@ -215,7 +214,7 @@ public class PairwiseComparerTests
 
     /// <summary>The COMPOSITION-ROOT route to a cheap judge, end to end.
     ///
-    /// <para><b>It exists to pin a claim `docs/model-tasks.md` §5 makes and nothing tested.</b> This seam
+    /// <para><b>It pins a claim `docs/model-tasks.md` §5 makes.</b> This seam
     /// has no `ClientName` option — unlike the two memory seams, which have one because they also suppress
     /// reasoning on the request — and §5 says that is deliberate rather than a gap: "the shipped scorer,
     /// comparer and tool loop each take a client on a public constructor, and the container registrations

@@ -8,12 +8,11 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Lyntai.Tests.Agents;
 
-/// <summary>What a chat turn cost. <see cref="ToolLoopResult.Usage"/> has always carried the loop's summed
-/// token/cost figure, but <see cref="ChatResult"/> had nowhere to put it — so <see cref="ChatOrchestrator"/>
-/// dropped it (and the plain-completion path's <see cref="TextResponse.Usage"/> with it), and a chat consumer had
-/// to wrap <see cref="ITextClient"/> in its own front-door decorator to learn the number the loop had already
-/// computed. These pin <see cref="ChatResult.Usage"/> on every exit that reached a provider — and pin it null
-/// on the one that never did.</summary>
+/// <summary>What a chat turn cost. <see cref="ChatOrchestrator"/> carries the loop's summed
+/// <see cref="ToolLoopResult.Usage"/> (and the plain-completion path's <see cref="TextResponse.Usage"/>) onto
+/// <see cref="ChatResult"/>, so a chat consumer need not wrap <see cref="ITextClient"/> in its own front-door
+/// decorator to learn it. These pin <see cref="ChatResult.Usage"/> on every exit that reached a provider — and
+/// pin it null on the one that never did.</summary>
 public class ChatResultUsageTests
 {
     private static ServiceProvider Build(FakeTextProvider provider, Action<LyntaiBuilder>? extra = null)
@@ -39,14 +38,14 @@ public class ChatResultUsageTests
             .ChatAsync(new ChatTurn { Message = "shout hi", UseTools = true });
 
         Assert.True(result.Ok);
-        Assert.NotNull(result.Usage);                       // was null: the orchestrator discarded it
+        Assert.NotNull(result.Usage);
         Assert.Equal(17, result.Usage!.InputTokens);        // BOTH loop turns, summed — not just the last
         Assert.Equal(8, result.Usage.OutputTokens);
         Assert.Equal(2, result.Usage.CacheReadTokens);
         Assert.Equal(0.25, result.Usage.CostUsd!.Value, 6); // summed when any turn reported a cost
     }
 
-    [Fact] // the no-tools path discarded the reply's usage the same way
+    [Fact] // the no-tools path surfaces the reply's usage too
     public async Task Plain_completion_usage_is_surfaced_on_the_chat_result()
     {
         var provider = new FakeTextProvider("p");

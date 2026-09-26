@@ -13,11 +13,10 @@ namespace Lyntai.Tests.Memory;
 /// <summary>
 /// <b>Can a recall reach an entry through the SUBJECT it was indexed under?</b>
 ///
-/// <para>Through 3.0.2 it could not, and nothing said so. <c>IMemoryAnnotationPolicy</c> produced handles at
-/// a model call per write, <c>RecordSubjectsAsync</c> stored them, and exactly two things ever read one —
-/// the write path's own linking and the annotator's reuse list, both at WRITE time. So the handle 配偶
-/// recorded against a fact whose text says 太太 was an index only its writer could use. Reported by an
-/// adopter who had paid for it.</para>
+/// <para>Without a subject SEED, the handles <c>IMemoryAnnotationPolicy</c> produces at a model call per
+/// write, and <c>RecordSubjectsAsync</c> stores, are read only at WRITE time — by the write path's own
+/// linking and the annotator's reuse list. The handle 配偶 recorded against a fact whose text says 太太 is
+/// then an index only its writer can use.</para>
 ///
 /// <para>The pairs below are written so the target is <b>lexically unreachable</b>: a query sharing a word
 /// with the content would prove nothing about subjects. Each headline fact therefore carries its own
@@ -96,10 +95,9 @@ public class MemorySubjectRecallTests
 
     /// <summary>Its control, and it is not redundant with the CJK one: the boundary branch could match on a
     /// substring and this corpus would still pass the fact above.
-    /// <para>The query is deliberately <c>"espouse a plan"</c> rather than <c>"espouse the idea"</c>, which
-    /// is what it said first and which passed for the wrong reason: <c>"the"</c> is a substring of
-    /// <c>"anaesthetist"</c>, so the LEXICAL seed found the entry and the control could never have
-    /// distinguished a boundary bug from a working one.</para></summary>
+    /// <para>The query is deliberately <c>"espouse a plan"</c> rather than <c>"espouse the idea"</c>:
+    /// <c>"the"</c> is a substring of <c>"anaesthetist"</c>, so the LEXICAL seed would find the entry and the
+    /// control could not distinguish a boundary bug from a working one.</para></summary>
     [Fact]
     public async Task A_query_that_only_contains_a_handle_inside_a_longer_word_reaches_nothing()
     {
@@ -113,9 +111,8 @@ public class MemorySubjectRecallTests
     }
 
     /// <summary><b>A subject match is a SEED, not an appended extra.</b> It enters the candidate set and is
-    /// cut by the caller's limit like anything else — an adopter's app-side workaround appended past the
-    /// page, and an engine-side version that did the same would return more items than were asked for.
-    /// </summary>
+    /// cut by the caller's limit like anything else — appending subject matches past the page would return
+    /// more items than were asked for.</summary>
     [Fact]
     public async Task Subject_matches_stay_within_the_callers_limit()
     {

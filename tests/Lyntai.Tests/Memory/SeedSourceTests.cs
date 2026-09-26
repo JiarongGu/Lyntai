@@ -17,10 +17,9 @@ namespace Lyntai.Tests.Memory;
 /// position.
 ///
 /// <para><see cref="SemanticSeedSource"/>'s tests below pin the same "own order" contract for the vector
-/// channel, plus the two behaviours moved verbatim out of <c>GraphMemoryEngine.SemanticScoresAsync</c> /
-/// <c>AcrossScopesAsync</c>: the best-effort catch (<see cref="SemanticSeedProbeTests"/> records two
-/// implementations debugged blind because a swallowed fault reads as an empty result) and the null-scope
-/// span across collections (<see cref="GraphSemanticScopeTests"/>).</para></summary>
+/// channel, plus two behaviours of its own: the best-effort catch, which must LOG because a swallowed fault
+/// reads as an empty result (<see cref="SemanticSeedProbeTests"/>), and the null-scope span across
+/// collections (<see cref="GraphSemanticScopeTests"/>).</para></summary>
 public sealed class SeedSourceTests : IDisposable
 {
     private readonly TempDb _db = new();

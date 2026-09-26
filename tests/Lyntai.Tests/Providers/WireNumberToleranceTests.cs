@@ -10,16 +10,15 @@ using static Lyntai.Tests.Fakes.HttpProviders;
 
 namespace Lyntai.Tests.Providers;
 
-/// <summary>"Read a long off a backend's wire object" had THREE implementations in this package, and two of
-/// them ended <c>el.GetInt64()</c> — which throws <see cref="FormatException"/> on a JSON number that is not
-/// an integral long (a fractional count, anything past <c>long.MaxValue</c>). Every one of
-/// those reads is a <c>usage</c> read on an otherwise GOOD reply, and every guard around them catches only
-/// <see cref="JsonException"/>, so the throw escaped: out of <c>CompleteAsync</c>, out of the streaming
+/// <summary>A wire count that is not an integral long (a fractional count, anything past
+/// <c>long.MaxValue</c>) reads as 0, and the reply still arrives, on every backend's wire reader.
+/// <c>el.GetInt64()</c> throws <see cref="FormatException"/> on such a number; every one of these reads is a
+/// <c>usage</c> read on an otherwise GOOD reply, and every guard around them catches only
+/// <see cref="JsonException"/>, so the throw would escape: out of <c>CompleteAsync</c>, out of the streaming
 /// enumerator, and through both <c>claude</c> stream-json readers whose contract says they never throw.
 ///
-/// <para>These pin the ONE surviving behaviour — the tolerant one the codex reader always had: the field
-/// reads as 0, the reply still arrives. A token count is telemetry; losing a budget line beats failing an
-/// answer the caller has already paid for.</para></summary>
+/// <para>A token count is telemetry; losing a budget line beats failing an answer the caller has already
+/// paid for.</para></summary>
 public class WireNumberToleranceTests
 {
     // ── the OpenAI-shaped HTTP provider (buffered) ────────────────────────
@@ -34,7 +33,7 @@ public class WireNumberToleranceTests
 
         var reply = await Provider(handler).CompleteAsync(Req);
 
-        Assert.Equal(ProviderVerdict.Ok, reply.Verdict);   // was: FormatException thrown out of CompleteAsync
+        Assert.Equal(ProviderVerdict.Ok, reply.Verdict);   // not a FormatException out of CompleteAsync
         Assert.Equal("hello", reply.Text);
         Assert.Equal(0, reply.Usage!.InputTokens);    // unreadable → 0, never a guess
         Assert.Equal(4, reply.Usage.OutputTokens);    // the sibling field is unaffected
@@ -58,7 +57,7 @@ public class WireNumberToleranceTests
     public async Task An_ollama_eval_count_that_is_not_an_integer_still_returns_the_reply()
     {
         // the same tolerant read on the Ollama-native wire: root-level counts, no `usage` object (its own
-        // provider since D160, so this constructs it rather than pointing the OpenAI-shaped one at 11434)
+        // provider, D160, so this constructs it rather than pointing the OpenAI-shaped one at 11434)
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK,
             """{"message":{"role":"assistant","content":"from ollama"},"done":true,"prompt_eval_count":7,"eval_count":3.5}""");
         var provider = new Lyntai.Providers.Ollama.OllamaProvider("ollama", new Lyntai.Providers.Ollama.OllamaOptions(),
@@ -77,8 +76,8 @@ public class WireNumberToleranceTests
     [Fact]
     public async Task A_fractional_count_on_the_trailing_usage_chunk_does_not_break_the_stream()
     {
-        // the sharpest one: ParseStreamLine runs INSIDE the enumerator body, outside every try, so the
-        // throw tore down a stream whose content had already been delivered
+        // the sharpest one: ParseStreamLine runs INSIDE the enumerator body, outside every try, so a
+        // throw would tear down a stream whose content has already been delivered
         const string sse = """
             data: {"choices":[{"delta":{"content":"hi"}}]}
 
@@ -95,7 +94,7 @@ public class WireNumberToleranceTests
 
         Assert.Equal(["hi"], chunks.Where(c => c.Kind == TextChunkKind.Content).Select(c => c.Text));
         var final = chunks[^1];
-        Assert.Equal(TextChunkKind.Final, final.Kind);   // was: FormatException out of the enumerator
+        Assert.Equal(TextChunkKind.Final, final.Kind);   // not a FormatException out of the enumerator
         Assert.Equal(0, final.Usage!.InputTokens);
         Assert.Equal(3, final.Usage.OutputTokens);
     }
@@ -149,7 +148,7 @@ public class WireNumberToleranceTests
         Assert.Single(events.OfType<SessionEnded>());   // and the terminal still arrives
     }
 
-    // ── the codex envelope: the copy that was already right, kept right ───────
+    // ── the codex envelope ───────────────────────────────────────────────────
 
     [Fact]
     public void The_codex_envelope_still_reads_an_unreadable_count_as_zero()

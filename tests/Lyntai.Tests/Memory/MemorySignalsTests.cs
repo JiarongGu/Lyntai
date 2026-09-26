@@ -137,8 +137,8 @@ public class MemorySignalsTests
     [InlineData(1e9, 1e9)]                       // no ceiling here: bounding is SalienceRetentionPolicy's job
     public void Salience_coerces_the_values_that_would_poison_a_reader(double stored, double expected)
     {
-        // ONE definition of the coercion, because four read sites once had three different rules — the two
-        // SQL stores' promoted column, the in-process store's admission ordering, and the engine's rank
+        // ONE definition of the coercion, because separate copies at the four read sites drift apart — the
+        // two SQL stores' promoted column, the in-process store's admission ordering, the engine's rank
         // boost. Both coerced inputs are reachable through the public IMemorySaliencePolicy seam.
         Assert.Equal(expected,
             MemorySignals.Salience(MemorySignals.Empty.With(MemorySignals.WellKnown.Salience, stored)));
@@ -155,14 +155,14 @@ public class MemorySignalsTests
 
     [Theory]
     // Non-finite is NOT an explicit judgement — it means no real information was supplied, so it reads as
-    // the NEUTRAL value (5, the mid-point — corrected 2026-08-11 from the floor 1; see
-    // DsrOptions.NeutralDifficulty's own remarks for why "no information" and "known to be trivial" must
-    // not share a value). Math.Clamp PROPAGATES NaN, which is why the finiteness check has to come first.
+    // the NEUTRAL value (5, the mid-point, not the floor 1; see DsrOptions.NeutralDifficulty's own
+    // remarks for why "no information" and "known to be trivial" must not share a value). Math.Clamp
+    // PROPAGATES NaN, which is why the finiteness check has to come first.
     [InlineData(double.NaN, 5)]
     [InlineData(double.PositiveInfinity, 5)]
     [InlineData(double.NegativeInfinity, 5)]
-    // These four ARE explicit, finite judgements, clamped into the scale's own bounds exactly as before —
-    // unaffected by the neutral correction above, which only changes what "no information" means.
+    // These four ARE explicit, finite judgements, clamped into the scale's own bounds — the neutral value
+    // above only answers "no information".
     [InlineData(0, 1)]                           // below the scale clamps to the floor (trivial), not neutral
     [InlineData(-5, 1)]
     [InlineData(1, 1)]
@@ -171,8 +171,8 @@ public class MemorySignalsTests
     public void Difficulty_coerces_onto_the_documented_one_to_ten_scale(double stored, double expected)
     {
         // WellKnown.Difficulty states this rule as a property of the SIGNAL, so it must live on the signal's
-        // own type — the exact discipline MemorySignals.Salience exists to enforce after the same value was
-        // once normalized three different ways at three read sites.
+        // own type — the discipline MemorySignals.Salience enforces, so one value is never normalized
+        // differently at different read sites.
         Assert.Equal(expected,
             MemorySignals.Difficulty(MemorySignals.Empty.With(MemorySignals.WellKnown.Difficulty, stored)));
     }
@@ -181,9 +181,8 @@ public class MemorySignalsTests
     public void Difficulty_of_an_unjudged_bag_is_the_neutral_value()
     {
         // nothing judges difficulty yet, so the overwhelmingly common bag is one that never mentions it.
-        // The neutral value is 5 (the mid-point), not 1 (the floor) — corrected 2026-08-11; see
-        // DsrOptions.NeutralDifficulty's own remarks for why "absent" and "known to be trivial" must not
-        // share a value.
+        // The neutral value is 5 (the mid-point), not 1 (the floor); see DsrOptions.NeutralDifficulty's own
+        // remarks for why "absent" and "known to be trivial" must not share a value.
         Assert.Equal(5, MemorySignals.Difficulty(MemorySignals.Empty));
         Assert.Equal(5, MemorySignals.Difficulty(default));
         Assert.Equal(5, MemorySignals.Difficulty(MemorySignals.Empty.With("some.other.signal", 9)));

@@ -6,7 +6,7 @@ namespace Lyntai.Tests.Storage;
 
 /// <summary>Every <see cref="KeyValueStoreContract"/> method as a [Fact] — derive with a store factory
 /// and the WHOLE contract runs; a new contract method wired here runs on every derived backend
-/// automatically, so a backend can no longer silently skip one (T11). Postgres deliberately does NOT
+/// automatically, so a backend cannot silently skip one. Postgres deliberately does NOT
 /// derive: it runs the Uid-namespaced subset on the shared container (see <c>PostgresStorageTests</c>).</summary>
 public abstract class KeyValueStoreContractFacts
 {

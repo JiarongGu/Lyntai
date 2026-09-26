@@ -19,10 +19,10 @@ namespace Lyntai.Tests.Memory;
 /// silently see nothing. <b>D91</b> is the entry about a caller's silence being written as though they had
 /// spoken; this is the same concern one seam over.</para>
 ///
-/// <para><b>It also records the fact that made a library change unnecessary.</b> <see cref="SalienceContext"/>
+/// <para><b>It also records why no library change is needed.</b> <see cref="SalienceContext"/>
 /// carries only what the ENGINE measured — the engine name, novelty, comparables and
 /// <see cref="SalienceContext.SimilarCount"/> — and reading that record alone suggests a policy can judge
-/// nothing else, which is wrong and was briefly acted on. The write is the second parameter. An importance
+/// nothing else, which is wrong: the write is the second parameter. An importance
 /// policy needs no new surface; whether importance should VOTE is a separate, open measurement
 /// (<c>memory-importance</c>), and no such policy ships.</para>
 /// </summary>

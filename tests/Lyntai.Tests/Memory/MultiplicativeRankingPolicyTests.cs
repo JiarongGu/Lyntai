@@ -100,8 +100,8 @@ public class MultiplicativeRankingPolicyTests : MemoryRankingPolicyContractFacts
     [Fact]
     public void The_relative_floor_buries_what_falls_far_enough_below_the_best()
     {
-        // THE target of mutation #3 (returning the unfloored list): "weak" scores 1% of "strong", well
-        // below a 10% floor.
+        // The mutation target is returning the unfloored list: "weak" scores 1% of "strong", well below a
+        // 10% floor.
         var policy = new MultiplicativeRankingPolicy(new MultiplicativeRankingOptions { RelativeFloor = 0.1 });
         var strong = Candidate(1, retrievability: 1.0);
         var weak = Candidate(2, retrievability: 0.01);

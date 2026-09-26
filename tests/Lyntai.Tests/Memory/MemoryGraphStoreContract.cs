@@ -50,9 +50,8 @@ public static class MemoryGraphStoreContract
 
     /// <summary><b>A multi-word cue matches an entry carrying ANY of its terms, on every backend.</b> This is
     /// the shape a real recall has — a model asking "what is the user's spouse called" rather than a bare
-    /// keyword — and before 3.0 it worked only on SQLite's FTS path. Everywhere else the whole cue had to
-    /// appear verbatim in the content, which it never does, so keyword seeding was effectively dead on
-    /// Postgres and InMemory.</summary>
+    /// keyword — and that cue never appears verbatim in the content, so a backend requiring the whole cue
+    /// leaves keyword seeding effectively dead.</summary>
     public static async Task Seeding_matches_any_term_of_a_multi_word_query(IMemoryGraphStore store, string key)
     {
         await store.UpsertAsync(Write("e", key, "the user's spouse is Alice"));
@@ -65,11 +64,11 @@ public static class MemoryGraphStoreContract
     }
 
     /// <summary><b>The same guarantee in Chinese — a script that writes no spaces at all.</b> Whitespace
-    /// splitting hands back a Chinese sentence as ONE token, so before 3.0 a Chinese cue could only ever be
-    /// an exact-substring match; the language decided the recall semantics. Both backends index trigrams
+    /// splitting hands back a Chinese sentence as ONE token, which would make a Chinese cue an
+    /// exact-substring match only — the language deciding the recall semantics. Both backends index trigrams
     /// (SQLite <c>tokenize='trigram'</c>, Postgres <c>pg_trgm</c>), so
     /// <see cref="Lyntai.Storage.SearchTerms"/> expands a spaceless run into character trigrams and the two
-    /// sentences below — neither a substring of the other — now match on the shared name.</summary>
+    /// sentences below — neither a substring of the other — match on the shared name.</summary>
     public static async Task Seeding_matches_a_chinese_query_without_spaces(IMemoryGraphStore store, string key)
     {
         await store.UpsertAsync(Write("e", key, "用户的配偶是爱丽丝"));       // "the user's spouse is Alice"
@@ -87,10 +86,9 @@ public static class MemoryGraphStoreContract
     /// <para>A trigram index cannot match a two-character term — glue it to anything and the trigrams
     /// straddle the boundary and appear in no text containing the word. The two sentences below share only
     /// 配偶: every trigram of one is absent from the other, so the full-text path finds nothing, and the
-    /// whole-query fallback fails too because neither sentence contains the other. Before 3.0 that was a
-    /// miss.</para>
-    /// <para><c>SearchTerms.LikeClause</c> now carries two-character terms for spaceless scripts on the
-    /// SUBSTRING path, which has no index-imposed minimum. The fix is deliberately not in the FTS path,
+    /// whole-query fallback fails too because neither sentence contains the other.</para>
+    /// <para><c>SearchTerms.LikeClause</c> carries two-character terms for spaceless scripts on the
+    /// SUBSTRING path, which has no index-imposed minimum. They are deliberately not in the FTS path,
     /// which structurally cannot use them.</para></summary>
     public static async Task Seeding_matches_a_two_character_chinese_word(IMemoryGraphStore store, string key)
     {
@@ -139,10 +137,10 @@ public static class MemoryGraphStoreContract
     /// AND ignoring surrounding whitespace — so an annotator that varies either between writes still links
     /// them. The mechanism rests entirely on the same entity producing the same handle, and those two are
     /// the likeliest ways for a model to break that without meaning to.
-    /// <para><b>Padding is asserted in both directions, and that is the half nothing used to cover.</b> Only
-    /// case was pinned here, so deleting the <c>Trim()</c> from any backend's own copy of the rule left this
-    /// fact green — the shape <c>pitfalls.md</c> §Testing names (mutate the behaviour and watch the test
-    /// stay green). Recorded padded / looked up clean, and recorded clean / looked up padded, because a
+    /// <para><b>Padding is asserted in both directions.</b> Pinning case alone leaves this fact green with
+    /// the <c>Trim()</c> deleted from any backend's own copy of the rule — the shape <c>pitfalls.md</c>
+    /// §Testing names (mutate the behaviour and watch the test stay green). Recorded padded / looked up
+    /// clean, and recorded clean / looked up padded, because a
     /// backend that trimmed on only ONE side would still satisfy either direction alone.</para>
     /// <para>De-duplication, the rule's third clause, is deliberately NOT asserted here: it is
     /// unobservable through this contract on every shipped backend (both SQL stores collapse a repeat on
@@ -179,14 +177,13 @@ public static class MemoryGraphStoreContract
         Assert.Empty(await store.NodesBySubjectAsync("e", key, "s", "owner", 10));
 
         // ...AND through the reader that does NOT join. NodesBySubjectAsync's JOIN against the node table
-        // hides an orphaned subject row — asserted through it alone, this passed on every backend while
-        // neither SQL backend deleted the row at all (no foreign key, no cascade,
-        // and DeleteAsync/PruneAsync/ForgetAsync touched only the node table). KnownSubjectsAsync does not
+        // hides an orphaned subject row, so asserted through it alone this passes on a backend that never
+        // deletes the row. KnownSubjectsAsync does not
         // join, so it is the reader that can see the leak, and it is the one the annotator actually consumes:
         // GraphMemoryEngine feeds its top-N to the model as reuse candidates ordered by COUNT(*), so a fully
         // dead subject with many orphans outranks a live one and pushes real handles out of a bounded list.
-        // The table also grew without bound, and ForgetAsync -- the user-facing erase -- left model-derived
-        // subject strings in the database.
+        // A leak also grows the table without bound, and leaves ForgetAsync -- the user-facing erase --
+        // keeping model-derived subject strings in the database.
         Assert.DoesNotContain("owner", await store.KnownSubjectsAsync("e", key, "s", 50));
     }
 
@@ -280,9 +277,8 @@ public static class MemoryGraphStoreContract
     /// still comes back from a seed — being faint is not grounds for a store to withhold it. Hiding is the
     /// engine's job and it hides by RANK, so a faint memory alone in a quiet engine still surfaces and one
     /// under fresher material does not.
-    /// <para>Also catches the silent failure the old faintness bound could hide: if a backend's age
-    /// arithmetic yielded NULL, a predicate over it would have excluded every row while every other fact
-    /// still passed.</para></summary>
+    /// <para>Also catches the silent failure a faintness bound can hide: if a backend's age arithmetic
+    /// yields NULL, a predicate over it excludes every row while every other fact still passes.</para></summary>
     public static async Task Seeding_never_excludes_a_faint_entry(IMemoryGraphStore store, string key)
     {
         await store.UpsertAsync(Write("e", key, "a note nobody has used in a long time"));
@@ -298,9 +294,9 @@ public static class MemoryGraphStoreContract
     }
 
     /// <summary><b>A word only in the HEADLINE is found, on every backend.</b>
-    /// <c>lyntai_memory_node_fts</c> declares <c>headline, content</c> so SQLite matched one, while
-    /// Postgres's trigram index and the in-process store read content alone — the same call answering
-    /// differently per backend, which <c>storage.md</c> calls a defect rather than a difference.
+    /// <c>lyntai_memory_node_fts</c> declares <c>headline, content</c>, so SQLite matches one; a backend
+    /// reading content alone answers the same call differently, which <c>storage.md</c> calls a defect
+    /// rather than a difference.
     /// <para><b>Converged by WIDENING, never by narrowing.</b> Confining SQLite's expression to
     /// <c>content</c> would read this interface's portable guarantee as content-only.
     /// That guarantee states a MINIMUM ("is found on every backend"), not a ceiling — so matching the headline
@@ -340,9 +336,9 @@ public static class MemoryGraphStoreContract
     /// material is admitted whatever the query matched.
     /// <para>The QUERY path specifically — <see cref="Seeding_never_excludes_a_faint_entry"/> passes
     /// <c>query: null</c>, which takes the no-query branch on every backend and so cannot exercise the
-    /// carve-out. The defect this guards: SQLite's FTS branch filtered on engine/task/scope only and
-    /// returned early on any hit, so an exact fact sharing no trigram with the query was silently not
-    /// seeded — ask about "restaurant" and the dietary constraint never reaches the prompt.</para></summary>
+    /// carve-out. The defect this guards: an FTS branch that filters on engine/task/scope only and returns
+    /// early on any hit silently never seeds an exact fact sharing no trigram with the query — ask about
+    /// "restaurant" and the dietary constraint never reaches the prompt.</para></summary>
     public static async Task Seeding_admits_authoritative_material_the_query_does_not_match(
         IMemoryGraphStore store, string key)
     {
@@ -357,14 +353,14 @@ public static class MemoryGraphStoreContract
     }
 
     /// <summary>A grade-admitted node the query never matched reports <c>Relevance</c> exactly 0 — the same
-    /// number on every backend (3.0). Before this, the three disagreed and SQLite disagreed with itself: its
-    /// full-text path put such a row at the TAIL of the gradient, its substring-fallback path at the HEAD
-    /// (grade leads that ORDER BY), Postgres at the head, and the in-process store reported a flat 1.
+    /// number on every backend and on both of SQLite's paths, which can otherwise disagree with each other:
+    /// the full-text path puts such a row at the TAIL of the gradient, the substring fallback at the HEAD
+    /// (grade leads that ORDER BY).
     /// <para><b>Two assertions, because only the pair is discriminating.</b> Asserting 0 alone would pass
     /// against a backend that reported 0 for EVERYTHING; the matching note must still carry a positive
     /// relevance, which is what makes this a fact about grade-admission rather than about zeroing.</para>
     /// <para>The query is one token of three or more characters, so SQLite takes its full-text path here and
-    /// its substring fallback is covered by the short-query fact below — the two paths that used to answer
+    /// its substring fallback is covered by the short-query fact below — the two paths that can answer
     /// this oppositely.</para></summary>
     public static async Task An_admitted_but_non_matching_exact_fact_reports_zero_relevance(
         IMemoryGraphStore store, string key)
@@ -383,7 +379,7 @@ public static class MemoryGraphStoreContract
     }
 
     /// <summary>The same fact through the SHORT-query path — under three characters, which is below SQLite's
-    /// trigram threshold and so takes its substring fallback, the path whose grade-first ordering used to
+    /// trigram threshold and so takes its substring fallback, the path whose grade-first ordering can
     /// report a non-matching exact fact at the HEAD of the gradient (relevance 1) rather than the tail.</summary>
     public static async Task An_admitted_but_non_matching_exact_fact_reports_zero_on_the_short_query_path(
         IMemoryGraphStore store, string key)
@@ -576,14 +572,14 @@ public static class MemoryGraphStoreContract
         Assert.Contains(hits, h => h.Content == "a salient note nobody has used in a long time");
     }
 
-    /// <summary>A NON-FINITE salience is the neutral value everywhere — the shared leg of a fact that used to
-    /// be enforced on ONE store of three, which is the exact shape of defect this branch already hit once.
-    /// <para>Reachable through the public <see cref="IMemorySaliencePolicy"/> seam, and it failed differently on
-    /// every backend: SQLite refused to bind <c>NaN</c> and the whole WRITE threw;
-    /// <see cref="Lyntai.Storage.InMemory.InMemoryMemoryGraphStore"/> ordered the raw bag value, where
-    /// <c>Comparer&lt;double&gt;</c> ranks <c>NaN</c> under every real number, so the entry sorted DEAD LAST
-    /// and the limit cut it; Postgres bound it happily into the promoted column, where SQL sorts <c>NaN</c>
-    /// ABOVE every real number, so it silently outranked a genuinely salient entry. The two assertions below
+    /// <summary>A NON-FINITE salience is the neutral value everywhere — the shared leg of the fact, so it is
+    /// enforced on every store rather than one.
+    /// <para>Reachable through the public <see cref="IMemorySaliencePolicy"/> seam, and uncoerced it fails
+    /// differently on every backend: SQLite refuses to bind <c>NaN</c> and the whole WRITE throws;
+    /// <see cref="Lyntai.Storage.InMemory.InMemoryMemoryGraphStore"/> orders the raw bag value, where
+    /// <c>Comparer&lt;double&gt;</c> ranks <c>NaN</c> under every real number, so the entry sorts DEAD LAST
+    /// and the limit cuts it; Postgres binds it happily into the promoted column, where SQL sorts <c>NaN</c>
+    /// ABOVE every real number, so it silently outranks a genuinely salient entry. The two assertions below
     /// catch all three.</para>
     /// <para>Deliberately behavioural, not a column read: the two SQL backends additionally pin the coerced
     /// COLUMN content in their own test classes, which no portable fact can reach — and this store's own bag
@@ -617,10 +613,9 @@ public static class MemoryGraphStoreContract
     /// <summary>A salience BELOW the neutral 1 is the neutral value too. Nothing in the model means "less
     /// findable than an entry nobody ever judged", so a half-judged entry must order LEVEL with an
     /// unjudged one — never beneath it.
-    /// <para>The SQL backends coerced this into their promoted column from the start while the in-process
-    /// store ordered the raw bag, so <c>{salience: 0.5}</c> admitted differently on the same data, same
-    /// query, different backend. <see cref="MemorySignals.Salience"/> is now the one rule all three read
-    /// through.</para></summary>
+    /// <para>The SQL backends coerce this into their promoted column; a store that orders the raw bag
+    /// instead admits <c>{salience: 0.5}</c> differently on the same data, same query, different backend.
+    /// <see cref="MemorySignals.Salience"/> is the one rule every backend reads through.</para></summary>
     public static async Task Seeding_treats_a_below_neutral_salience_as_the_neutral_value(
         IMemoryGraphStore store, string key)
     {
@@ -829,14 +824,14 @@ public static class MemoryGraphStoreContract
         Assert.Equal(3.5, node.Difficulty, 9);
     }
 
-    /// <summary>THE fix-round-1 C1 fact — the bug the two facts either side of this one could not catch,
-    /// because both only ever exercise an EMPTY incoming bag. Difficulty has a SECOND writer salience does
+    /// <summary>The fact the two either side of this one cannot replace, because both only ever exercise an
+    /// EMPTY incoming bag. Difficulty has a SECOND writer salience does
     /// not (the retrievability policy, via <see cref="IMemoryGraphStore.TouchAsync"/>), so its precedence
     /// must key on whether THIS write's bag actually NAMES a difficulty signal — not on whether the bag is
     /// merely non-empty, which is <c>salience</c>'s own rule. A write that judges something else entirely
     /// (salience alone, here) must leave whatever <c>Reinforce</c> has since tracked exactly as it was.
     /// <para><b>Mutation target.</b> An implementation keyed on "the bag is non-empty" (matching
-    /// <c>salience</c>'s own promoted-column rule exactly, which is what a first draft of this shipped) fails
+    /// <c>salience</c>'s own promoted-column rule exactly) fails
     /// this fact: the salience-only re-remember below would silently reset difficulty toward the write-time
     /// judgement (8) or the neutral default, not leave the tracked value (3.5) alone.</para></summary>
     public static async Task Re_remembering_with_an_unrelated_signal_does_not_touch_the_tracked_difficulty(
@@ -941,7 +936,7 @@ public static class MemoryGraphStoreContract
     /// <see cref="GraphNodeWrite.Advance"/> a caller's currently-installed
     /// <see cref="Lyntai.Memory.Interference.IMemoryAgePolicy"/> happened to compute (contrast
     /// <see cref="A_bigger_write_ages_more"/>, which pins that <see cref="GraphNode.Age"/> — the OLDER,
-    /// coexisting mechanism this task does not touch — still reads that scaled value).</summary>
+    /// coexisting mechanism — still reads that scaled value).</summary>
     public static async Task Ordinal_age_counts_writes_since_last_use(IMemoryGraphStore store, string key)
     {
         await store.UpsertAsync(Write("e", key, "the entry being crowded"));
@@ -988,19 +983,16 @@ public static class MemoryGraphStoreContract
         Assert.Equal(3, hits.Single().ElapsedAge, precision: 6);
     }
 
-    /// <summary>The STRENGTH-side twin of <see cref="Elapsed_age_advances_by_real_time_between_writes"/>,
-    /// and it was missing.
-    /// <para><b>Why that mattered.</b> The only assertions on <see cref="GraphNode.StrengthElapsedAge"/> and
-    /// <see cref="GraphNeighbour.EdgeElapsedAge"/> anywhere were <c>&gt;= 0</c>, plus one that positively
-    /// REQUIRES <c>0</c> for an unconnected node — so a store hard-coding <c>0</c> for both satisfied every
-    /// one of them. The encoding axis had this discriminating fact; the strength and edge axes got only the
-    /// weak shape, which is the "a guard that cannot observe the thing it guards" trap.</para>
+    /// <summary>The STRENGTH-side twin of <see cref="Elapsed_age_advances_by_real_time_between_writes"/>.
+    /// <para><b>Why it is needed.</b> Assertions of <c>&gt;= 0</c> on <see cref="GraphNode.StrengthElapsedAge"/>
+    /// and <see cref="GraphNeighbour.EdgeElapsedAge"/>, plus one that positively REQUIRES <c>0</c> for an
+    /// unconnected node, are all satisfied by a store hard-coding <c>0</c> for both — the "a guard that
+    /// cannot observe the thing it guards" trap.</para>
     /// <para><b>The consequence, which is why this is a contract fact and not a per-backend test.</b>
     /// <c>GraphMemoryEngine</c> projects these through whichever age policy is installed, and
     /// <c>ElapsedAgePolicy</c> is shipped. Under it, a constant zero means every edge reads as freshly
     /// strengthened forever: <c>GraphMemoryOptions.EdgeHalfLife</c> decays nothing and a connection boost
-    /// never fades. That is <c>CLAUDE.md</c>'s own headline claim — "all THREE age axes now speak one unit"
-    /// — resting on two axes nothing could observe.</para></summary>
+    /// never fades.</para></summary>
     public static async Task Strength_elapsed_age_advances_by_real_time_between_strengthenings(
         IMemoryGraphStore store, string key, Action<TimeSpan> advance)
     {
@@ -1266,14 +1258,14 @@ public static class MemoryGraphStoreContract
         Assert.Equal(2, node.StrengthAge, precision: 6);
     }
 
-    /// <summary>The strength-side age primitives (design doc §5.7, 3.0 pre-freeze): a node reports how long
+    /// <summary>The strength-side age primitives (design doc §5.7): a node reports how long
     /// since its freshest edge was strengthened on ALL THREE policy-independent scales, not only on the
     /// store's own <c>Advance</c>-driven position — the exact counterpart of
     /// <c>OrdinalAge</c>/<c>VolumeAge</c>/<c>ElapsedAge</c> for the encoding side.
     /// <para>The crowding writes below carry <c>advance: 40</c> precisely so the four scales cannot be
     /// confused for one another: three writes move the POSITION by 120 and the ORDINAL by 3. A backend that
-    /// reported the position accumulator for the ordinal primitive — the whole defect this closes — reads 120
-    /// where 3 is correct, so this fact fails rather than passing by coincidence.</para></summary>
+    /// reports the position accumulator for the ordinal primitive reads 120 where 3 is correct, so this fact
+    /// fails rather than passing by coincidence.</para></summary>
     public static async Task A_node_reports_its_connection_freshness_on_every_age_scale(
         IMemoryGraphStore store, string key)
     {
@@ -1301,8 +1293,7 @@ public static class MemoryGraphStoreContract
     }
 
     /// <summary>A NEIGHBOUR reports the connecting edge's own age on all three policy-independent scales too,
-    /// not only on the store's <c>Advance</c>-driven position — the third and last age axis to stop reading
-    /// the raw accumulator (3.0).
+    /// not only on the store's <c>Advance</c>-driven position.
     /// <para>Same <c>advance: 40</c> construction as the node-side fact above, and for the same reason: three
     /// writes move the POSITION by 120 and the ORDINAL by 3, so a backend reporting the accumulator for the
     /// ordinal primitive reads 120 where 3 is correct.</para></summary>
@@ -1588,14 +1579,14 @@ public static class MemoryGraphStoreContract
     /// <summary>A stability UNDER the divide-by-zero floor is FLOORED, never substituted — on every backend.
     ///
     /// <para>The distinction is invisible at stability <c>0</c>, where both spellings give the same answer,
-    /// and that is why it survived: <c>MAX(stability, 1e-6)</c> and <c>stability > 0 ? stability : 1e-6</c>
+    /// and that is why it hides: <c>MAX(stability, 1e-6)</c> and <c>stability > 0 ? stability : 1e-6</c>
     /// agree on the value the guard was written for and disagree on every value strictly between zero and the
-    /// floor. The relational backends floored; the in-process one substituted.</para>
+    /// floor.</para>
     ///
     /// <para>Set up so the two answers differ in the OUTCOME rather than in a ratio nobody sees: stability
     /// <c>1e-7</c> at age 1 floors to <c>1/1e-6 = 1e6</c> (under the cutoff, kept) and substitutes to
-    /// <c>1/1e-7 = 1e7</c> (over it, deleted). One <c>PruneAsync</c> call, same arguments, same data — and
-    /// before this fact, the in-process store destroyed the entry the other two kept.</para>
+    /// <c>1/1e-7 = 1e7</c> (over it, deleted). One <c>PruneAsync</c> call, same arguments, same data — and a
+    /// store that substitutes destroys the entry a flooring store keeps.</para>
     ///
     /// <para>A prune is a DELETE, so the two behaviours are not merely different: one of them loses a memory
     /// that no later call can bring back.</para></summary>
@@ -1623,8 +1614,8 @@ public static class MemoryGraphStoreContract
     /// <summary><b>An UNSTATED grade keeps the stored one; a stated grade overwrites it.</b>
     /// <para><see cref="GraphNodeWrite.GradeStated"/> exists because <c>MemoryGrade.Inherit</c> resolves to
     /// the engine's role before it ever reaches a store, so "the caller said nothing" and "the caller said
-    /// Associative" used to arrive as the same value — and a re-remember that did not restate the grade
-    /// silently demoted an authoritative fact, against design §5.7.0's objective (1).</para>
+    /// Associative" would otherwise arrive as the same value — and a re-remember that did not restate the
+    /// grade would silently demote an authoritative fact, against design §5.7.0's objective (1).</para>
     /// <para><b>Both directions in one fact, because the rule is a distinction and not a prohibition.</b> A
     /// store that simply never updated the grade would pass the first half and break promotion, which is the
     /// capability the overwrite exists for.</para></summary>
@@ -1654,9 +1645,9 @@ public static class MemoryGraphStoreContract
     }
 
     /// <summary><b>An UNSTATED headline keeps the stored one; a stated headline overwrites it.</b> The same
-    /// rule as <see cref="GraphNodeWrite.GradeStated"/>, on the same grounds and found the same way: the
-    /// engine DERIVES a headline when the caller supplies none, so overwriting unconditionally replaced an
-    /// author's own one-line summary with a truncation of the content.
+    /// rule as <see cref="GraphNodeWrite.GradeStated"/>, on the same grounds: the engine DERIVES a headline
+    /// when the caller supplies none, so overwriting unconditionally replaces an author's own one-line
+    /// summary with a truncation of the content.
     /// <para>Both directions, because correcting a headline has to keep working — a store that simply never
     /// updated it would pass the first half.</para></summary>
     public static async Task An_unstated_headline_keeps_the_stored_one_and_a_stated_one_overwrites(
@@ -1783,21 +1774,20 @@ public static class MemoryGraphStoreContract
     /// <summary><b><see cref="GraphNodeWrite.Metadata"/> follows <see cref="GraphNodeWrite.Signals"/>' rule:
     /// an ABSENT bag keeps what is stored, a SUPPLIED bag replaces it.</b>
     ///
-    /// <para>The two are the record's only open-ended, caller-owned dictionaries, and they now answer the
-    /// same question the same way — <c>COALESCE(@incoming, stored)</c>, which was already written one line
-    /// above for signals in every backend's upsert.</para>
+    /// <para>The two are the record's only open-ended, caller-owned dictionaries, and they answer the same
+    /// question the same way — <c>COALESCE(@incoming, stored)</c> in every backend's upsert.</para>
     ///
-    /// <para><b>Through 3.1.0 metadata was WRITE-ONCE</b>, and by omission rather than by design: it sat in
-    /// the INSERT column list and was absent from <c>DO UPDATE SET</c>, where the neighbours that are
-    /// deliberately absent (<c>stability</c>, <c>provenance_retrievability</c>) each carry a comment saying
-    /// so and this one did not. The cost was silent — a caller correcting a mistyped source, or attaching
-    /// anything it learned later, was ignored with no error and no way to tell, and the only route to a
-    /// correction was delete-and-rewrite, which discards the node's id, its edges, its decay state and its
-    /// subject links. <c>docs/DECISIONS.md</c> <b>D91</b>.</para>
+    /// <para><b>A column in the INSERT list but absent from <c>DO UPDATE SET</c> is silently
+    /// WRITE-ONCE</b> — which is why the neighbours that are deliberately absent (<c>stability</c>,
+    /// <c>provenance_retrievability</c>) each carry a comment saying so. Write-once metadata costs silently: a
+    /// caller correcting a mistyped source, or attaching anything it learned later, is ignored with no error
+    /// and no way to tell, and the only route to a correction is delete-and-rewrite, which discards the
+    /// node's id, its edges, its decay state and its subject links. <c>docs/DECISIONS.md</c>
+    /// <b>D91</b>.</para>
     ///
     /// <para><b>REPLACE, not merge</b>, exactly as signals does: a supplied bag is the caller's whole
     /// opinion, so keys it does not restate are gone. Merging would make removing a key impossible, which is
-    /// the mirror of the defect this fixes.</para></summary>
+    /// the mirror of write-once.</para></summary>
     public static async Task Metadata_keeps_the_stored_bag_when_none_is_supplied_and_replaces_it_when_one_is(
         IMemoryGraphStore store, string key)
     {

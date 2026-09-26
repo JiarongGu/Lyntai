@@ -11,9 +11,8 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Lyntai.Tests.Memory;
 
-/// <summary>A memory wiring that compiles, registers, resolves — and can never run. Both shapes were
-/// reported by adopters on 3.0.0, and both are silent by construction: nothing throws, no result is missing,
-/// and the only symptom is recall quality.</summary>
+/// <summary>A memory wiring that compiles, registers, resolves — and can never run. Both shapes are silent
+/// by construction: nothing throws, no result is missing, and the only symptom is recall quality.</summary>
 public class MemoryWiringDiagnosticsTests
 {
     private static CompositeMemoryEngine Blend(MemoryWriteRouting routing, params IMemoryEngine[] members) =>
@@ -59,7 +58,7 @@ public class MemoryWiringDiagnosticsTests
         Assert.Empty(MemoryWiring.Inspect([blend], verification: false, annotation: false));
     }
 
-    /// <summary>Part 89C: <c>IMemoryVerificationPolicy</c> — "the single largest recall-quality lever the
+    /// <summary><c>IMemoryVerificationPolicy</c> — "the single largest recall-quality lever the
     /// subsystem has" by its own registration doc — is consulted only by a graph member. Registered onto a
     /// blend with none, it never runs and the recall reports <c>Answered = null</c>, which is exactly what it
     /// reports with no judge registered at all.</summary>
@@ -100,10 +99,10 @@ public class MemoryWiringDiagnosticsTests
             f => f.Contains("IMemory", StringComparison.Ordinal));
     }
 
-    /// <summary>Part 92: a vector backend plus a vector store turns enrichment on, so every write is embedded for
+    /// <summary>A vector backend plus a vector store turns enrichment on, so every write is embedded for
     /// novelty and similarity linking — while the vector CHANNEL is opt-in, so no recall reads any of it. The
-    /// consumer pays an embedding per write, gets vectors on disk, and sees no change in what recall returns;
-    /// it cost an adopter most of a session to find, with every check green.</summary>
+    /// consumer pays an embedding per write, gets vectors on disk, and sees no change in what recall returns,
+    /// with every check green.</summary>
     [Fact]
     public void A_graph_member_that_embeds_every_write_and_seeds_no_recall_is_reported()
     {
@@ -148,9 +147,9 @@ public class MemoryWiringDiagnosticsTests
             verification: false, annotation: false));
     }
 
-    /// <summary>Part 94, the same defect on the other index: an annotator pays a model call per write to
+    /// <summary>The same defect on the other index: an annotator pays a model call per write to
     /// record what a fact is ABOUT, and with the subject seed switched off nothing but the write path can
-    /// read a handle. Reported by an adopter who had built the index and could not query it.</summary>
+    /// read a handle.</summary>
     [Fact]
     public void A_graph_member_that_records_subjects_and_seeds_no_recall_is_reported()
     {
@@ -202,9 +201,9 @@ public class MemoryWiringDiagnosticsTests
 
     // ---- through a real container --------------------------------------------------------------------
 
-    /// <summary>The end-to-end shape an adopter hit: <c>AddMemoryVerification()</c> on an engine with no
-    /// graph member. Strict turns the warning into a startup failure, which is what makes it assertable
-    /// without a log — the whole complaint was that the failure is silent.</summary>
+    /// <summary>The end-to-end shape: <c>AddMemoryVerification()</c> on an engine with no graph member.
+    /// Strict turns the warning into a startup failure, which is what makes it assertable without a log —
+    /// otherwise the failure is silent.</summary>
     [Fact]
     public void Strict_wiring_turns_an_unconsultable_policy_into_a_startup_failure()
     {
@@ -294,12 +293,11 @@ public class MemoryWiringDiagnosticsTests
     }
 
     /// <summary>A BYO semantic channel under its OWN name must not be accused of not existing.
-    /// <para>The diagnostic used to ask whether a source was NAMED "semantic", so a consumer's own vector
-    /// channel produced a finding recommending <c>AddMemorySemanticSeeds()</c> on wiring that was already
-    /// correct — and under <c>StrictWiring</c> that false finding THROWS at startup. `MemoryWiring`'s own
-    /// class doc says a finding that is usually wrong is worse than no check; this was that failure mode.
-    /// </para>
-    /// <para>It now asks the channel what ROLE it plays. A source declaring
+    /// <para>A diagnostic asking whether a source is NAMED "semantic" hands a consumer's own vector channel a
+    /// finding recommending <c>AddMemorySemanticSeeds()</c> on wiring that is already correct — and under
+    /// <c>StrictWiring</c> that false finding THROWS at startup. `MemoryWiring`'s own class doc says a finding
+    /// that is usually wrong is worse than no check.</para>
+    /// <para>So it asks the channel what ROLE it plays. A source declaring
     /// <see cref="MemorySeedKind.Semantic"/> answers the question whatever it is called.</para></summary>
     [Fact]
     public void A_BYO_semantic_channel_under_its_own_name_is_not_reported_as_missing()

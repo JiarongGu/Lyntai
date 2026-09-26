@@ -9,7 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Lyntai.Tests.Storage;
 
-/// <summary>F1 (feature toggles): a DISABLED storage feature lands no table. Selective migration is
+/// <summary>Feature toggles: a DISABLED storage feature lands no table. Selective migration is
 /// driven by per-migration <c>[Tags(nameof(StorageFeature.X))]</c> + the runner's active tag set.</summary>
 public class FeatureToggleTests : IDisposable
 {
@@ -130,8 +130,7 @@ public class FeatureToggleTests : IDisposable
 
     /// <summary>…but under <see cref="SchemaMigration.None"/> Lyntai runs NO migration, so the feature set
     /// never decided which tables exist and the guard's premise is simply false. An app that created
-    /// <c>lyntai_vector</c> itself and passed a narrow feature set worked before the guard and must keep
-    /// working — and "add StorageFeature.Governance" would create no table here anyway. Pinned in both call
+    /// <c>lyntai_vector</c> itself and passed a narrow feature set must work — and "add StorageFeature.Governance" would create no table here anyway. Pinned in both call
     /// orders, because the skip has to be as order-independent as the throw.</summary>
     [Fact]
     public void The_guard_is_silent_when_the_APP_owns_the_schema()
@@ -230,7 +229,7 @@ public class FeatureToggleTests : IDisposable
         Assert.Contains("cancel", hits[0].Content);
     }
 
-    /// <summary>The default (<see cref="StorageFeature.All"/>) always includes Governance, so the historical
+    /// <summary>The default (<see cref="StorageFeature.All"/>) always includes Governance, so the default
     /// wiring is untouched by the guard.</summary>
     [Fact]
     public void The_default_feature_set_is_unaffected()

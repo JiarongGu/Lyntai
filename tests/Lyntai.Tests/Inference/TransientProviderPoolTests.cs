@@ -66,8 +66,8 @@ public class TransientProviderPoolTests
     }
 
     // Swapping which strategy is registered must change REUSE and nothing else. RetireSlot("") is a caller
-    // bug either way, and it threw under Bounded while returning 0 here — so the same call was a loud failure
-    // or a silent no-op depending on a startup line the call site cannot see.
+    // bug either way, so both throw — otherwise the same call is a loud failure or a silent no-op depending on
+    // a startup line the call site cannot see.
     [Fact]
     public void A_blank_slot_is_rejected_exactly_as_the_reusing_strategy_rejects_it()
     {

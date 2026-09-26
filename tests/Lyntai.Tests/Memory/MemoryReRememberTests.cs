@@ -50,15 +50,15 @@ public class MemoryReRememberTests
     [Fact]
     public async Task A_re_remember_that_does_not_restate_the_grade_KEEPS_the_stored_one()
     {
-        // THE FIX (2026-08-26). `MemoryGrade.Inherit` is the DEFAULT on MemoryWrite, and it used to resolve
-        // to Associative and then OVERWRITE the stored grade -- so an application refreshing a fact it had
-        // marked authoritative, without restating the grade, silently lost it. That cost is not cosmetic:
+        // `MemoryGrade.Inherit` is the DEFAULT on MemoryWrite, so resolving it to Associative and then
+        // OVERWRITING the stored grade would make an application refreshing a fact it had marked
+        // authoritative, without restating the grade, silently lose it. That cost is not cosmetic:
         // an authoritative entry never decays, is never truncated to a headline, holds a reserved recall
         // slot and is exempt from PruneAsync, and design section 5.7.0's objective (1) is about exactly
         // that entry.
         //
-        // `Inherit` now means what it says on a re-remember: inherit what this entry already is. The
-        // engine's role still decides on a genuine FIRST write, where there is nothing to inherit from.
+        // `Inherit` means what it says on a re-remember: inherit what this entry already is. The
+        // engine's role decides only on a genuine FIRST write, where there is nothing to inherit from.
         var (engine, store) = Build();
 
         await engine.RememberAsync(new MemoryWrite("t", "s", Fact, Grade: MemoryGrade.Authoritative));
@@ -81,9 +81,9 @@ public class MemoryReRememberTests
     [Fact]
     public async Task An_EXPLICIT_associative_re_remember_still_demotes_because_the_caller_said_so()
     {
-        // The other half of the fix, and the reason it is a distinction rather than a blanket "never touch
+        // The other half of the rule, and the reason it is a distinction rather than a blanket "never touch
         // the grade": an application that deliberately writes Associative is DEMOTING, and that has to keep
-        // working. What changed is only that "not stated" stopped meaning "stated as ordinary".
+        // working. Only "not stated" is kept from meaning "stated as ordinary".
         var (engine, store) = Build();
 
         await engine.RememberAsync(new MemoryWrite("t", "s", Fact, Grade: MemoryGrade.Authoritative));
@@ -95,8 +95,8 @@ public class MemoryReRememberTests
     [Fact]
     public async Task A_re_remember_can_PROMOTE_an_ordinary_fact_which_is_why_the_grade_is_writable()
     {
-        // The capability the overwrite exists for, asserted so that any fix for the downgrade above has to
-        // keep it. A rule that simply ignored the incoming grade on a re-remember would break this.
+        // The capability the overwrite exists for, asserted so that the downgrade guard above cannot be met
+        // by dropping it. A rule that simply ignored the incoming grade on a re-remember would break this.
         var (engine, store) = Build();
 
         await engine.RememberAsync(new MemoryWrite("t", "s", Fact));
@@ -108,12 +108,11 @@ public class MemoryReRememberTests
     [Fact]
     public async Task A_re_remember_updates_BOTH_the_headline_and_the_metadata_a_caller_supplies()
     {
-        // TWO CALLER-SUPPLIED FIELDS ON ONE WRITE, and as of D91 they finally agree. Until then a corrected
-        // headline stuck and a corrected metadata bag was silently ignored -- two plain caller-owned fields,
-        // adjacent on the same record, behaving oppositely for no stated reason.
+        // TWO CALLER-SUPPLIED FIELDS ON ONE WRITE, and they agree (D91): a corrected headline and a
+        // corrected metadata bag both land.
         //
         // Asserted together, in one fact, on purpose: apart they read as two unrelated details, and side by
-        // side they were the asymmetry. Keeping them together is what makes a future divergence visible.
+        // side a divergence between them is visible.
         var (engine, store) = Build();
 
         await engine.RememberAsync(new MemoryWrite("t", "s", Fact, Headline: "db is prod-1",
@@ -130,14 +129,10 @@ public class MemoryReRememberTests
     [Fact]
     public async Task A_re_remember_that_supplies_NO_headline_keeps_the_AUTHORED_one()
     {
-        // THE THIRD INSTANCE OF ONE DEFECT, found by applying to this session's own work the rule
-        // pitfalls.md states: the round that articulates a distinction is the round most likely to violate
-        // it elsewhere. `Headline` is null-means-unstated exactly as Grade and Metadata were -- the engine
-        // DERIVES one when the caller supplies none, and the store then overwrites unconditionally.
-        //
-        // So an application that authored a headline, and later refreshes the fact without restating it,
-        // had that headline replaced by a machine-derived truncation of the content. Silently, and with no
-        // way back: the authored text is gone from the row.
+        // `Headline` is null-means-unstated exactly as Grade and Metadata are -- the engine DERIVES one when
+        // the caller supplies none, so a store that overwrites unconditionally replaces an authored headline,
+        // on a refresh that does not restate it, with a machine-derived truncation of the content. Silently,
+        // and with no way back: the authored text is gone from the row.
         var (engine, store) = Build();
         const string authored = "prod DB: db-prod-1";
         const string long_ = "the production database for the phoenix project is db-prod-1 and it is "
@@ -152,8 +147,8 @@ public class MemoryReRememberTests
     [Fact]
     public async Task A_re_remember_that_DOES_supply_a_headline_replaces_it()
     {
-        // The control that keeps the fix a distinction rather than a prohibition — correcting a headline
-        // has to keep working, exactly as promotion had to survive the grade fix.
+        // The control that keeps the rule a distinction rather than a prohibition — correcting a headline
+        // has to keep working, exactly as promotion does for the grade.
         var (engine, store) = Build();
         const string long_ = "the production database for the phoenix project is db-prod-1 and it is "
             + "reachable only from the deployment subnet after the august migration completed";
@@ -167,9 +162,9 @@ public class MemoryReRememberTests
     [Fact]
     public async Task A_re_remember_that_supplies_NO_metadata_keeps_what_is_stored()
     {
-        // The other half of D91's rule, and the half that keeps the fix from being a new silent loss: a
-        // write that says nothing about metadata must not blank it. Otherwise every ordinary refresh --
-        // which supplies none -- would erase whatever an earlier annotated write had attached.
+        // The other half of D91's rule, and the half that keeps replace-on-supply from being a new silent
+        // loss: a write that says nothing about metadata must not blank it. Otherwise every ordinary
+        // refresh -- which supplies none -- would erase whatever an earlier annotated write had attached.
         var (engine, store) = Build();
 
         await engine.RememberAsync(new MemoryWrite("t", "s", Fact,

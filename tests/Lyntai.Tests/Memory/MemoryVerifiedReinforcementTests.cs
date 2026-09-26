@@ -21,8 +21,7 @@ namespace Lyntai.Tests.Memory;
 /// the corpus's own ground truth, so it is a perfect verifier — better than any model can be. That makes
 /// this an <b>upper bound</b>: it says what verified reinforcement is worth if the judgement is free and
 /// flawless. A real model lands somewhere below it. Measuring the ceiling first is what stops a subsystem
-/// being built on a mechanism that could not have paid off even in principle — the mistake three earlier
-/// rounds of constant-tuning made.</para>
+/// being built on a mechanism that could not have paid off even in principle.</para>
 ///
 /// <para><b>It is deliberately NOT a claim about any model.</b> Nothing here says an LLM can reach this;
 /// what it establishes is whether the headroom exists at all, and how much of the shipped miss rate is
@@ -37,16 +36,16 @@ public sealed class MemoryVerifiedReinforcementTests
 
     /// <summary><b>Abstention: the engine can say "a judge looked and none of this answered".</b>
     ///
-    /// <para>Nothing in the memory subsystem expressed insufficiency before 2026-08-15. A recall returned its
-    /// best candidates whatever their absolute quality, so a caller could not tell "here are the three
-    /// relevant facts" from "here are the three least-irrelevant things I hold" — and a confidently-returned
-    /// irrelevant fact is worse than an empty result, because the model treats it as context.</para>
+    /// <para>Without it, a recall returns its best candidates whatever their absolute quality, so a caller
+    /// cannot tell "here are the three relevant facts" from "here are the three least-irrelevant things I
+    /// hold" — and a confidently-returned irrelevant fact is worse than an empty result, because the model
+    /// treats it as context.</para>
     ///
     /// <para><b>This is NOT <c>RelativeFloor</c>.</b> That floor is relative to the best candidate in the
     /// set, so a page of uniformly-irrelevant material still has a perfectly good internal ranking and
     /// survives it. Abstention needs an ABSOLUTE signal, and the verification verdict is the only one this
-    /// engine has: <c>MemoryVerification.NothingRelevant</c> already existed and already meant exactly this,
-    /// it simply stopped at the policy boundary and never reached the caller.</para>
+    /// engine has: <c>MemoryVerification.NothingRelevant</c> means exactly this, and it has to cross the
+    /// policy boundary to reach the caller.</para>
     ///
     /// <para><b>Nullable for the same reason <c>MemoryReviewWrite.Verified</c> is</b> — "false is an observed
     /// failure, null is no judgement, and they are not interchangeable". With no verifier registered (the
@@ -215,14 +214,14 @@ public sealed class MemoryVerifiedReinforcementTests
                 }), MemoryCorpus.Generate(CorpusShape.Default, Seed), QueryLimit);
     }
 
-    /// <summary><b>The review log can now contain a FAILURE, which is what `docs/DECISIONS.md` D51 called
-    /// structurally impossible.</b>
+    /// <summary><b>The review log can contain a FAILURE, which `docs/DECISIONS.md` D51 calls structurally
+    /// impossible without a verifier.</b>
     ///
-    /// <para>D51 gave two reasons parameter fitting could never work here: the grade is a deterministic
-    /// function of the model's own prediction, and <i>the log can only ever contain successes</i> — because
-    /// a row was written only where a touch happened, and only reinforced entries are touched. A verifier
-    /// defeats the first by judging from outside the curve. The second needed a code change, not a policy:
-    /// the log write is now decoupled from the touch, so an entry the judge REJECTED is recorded with
+    /// <para>D51 gives two reasons parameter fitting cannot work here: the grade is a deterministic
+    /// function of the model's own prediction, and <i>the log can only ever contain successes</i> — if a row
+    /// is written only where a touch happens, and only reinforced entries are touched. A verifier defeats
+    /// the first by judging from outside the curve. The second is a code property, not a policy: the log
+    /// write is decoupled from the touch, so an entry the judge REJECTED is recorded with
     /// <c>Verified = false</c> while never being reinforced.</para>
     ///
     /// <para>Asserted on all three counts, because any one alone is satisfiable the wrong way: a rejected
@@ -357,7 +356,7 @@ public sealed class MemoryVerifiedReinforcementTests
 
         // THE LOAD-BEARING FACT OF THIS FILE. Every miss is a ranking failure; none is a retrieval or
         // tokenization failure. That is what makes a reranking judge the right lever and rules out the
-        // things a session would otherwise reach for first — a better tokenizer, more n-grams, a semantic
+        // things one would otherwise reach for first — a better tokenizer, more n-grams, a semantic
         // index — none of which can help with an answer that was already in the candidate set.
         Assert.True(missedAtLimit > 0, $"nothing was missed, so this decomposes nothing:\n{table}");
         Assert.Equal(0, unreachable);

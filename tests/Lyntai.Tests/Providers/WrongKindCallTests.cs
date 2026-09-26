@@ -6,8 +6,8 @@ using Lyntai.Tests.Fakes;
 namespace Lyntai.Tests.Providers;
 
 /// <summary>A call of a kind the registration does not produce is answered with an
-/// <see cref="ProviderVerdict.Unsupported"/> VERDICT on every sibling — the seam's own default, and what
-/// ONNX already did — never a throw on HTTP and Ollama alone. A router never sends one (it selects on
+/// <see cref="ProviderVerdict.Unsupported"/> VERDICT on every sibling — the seam's own default — never a
+/// throw. A router never sends one (it selects on
 /// capabilities); a direct caller that does gets the same shape from every backend, naming what to register
 /// instead.</summary>
 public class WrongKindCallTests

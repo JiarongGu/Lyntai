@@ -10,11 +10,10 @@ namespace Lyntai.Tests.Memory;
 
 /// <summary>The graph's SEMANTIC half must agree with its LEXICAL half about what an unscoped recall means.
 ///
-/// <para>It did not. A write always names a scope, so the literal collection <c>{Name}|{task}|</c> that a
-/// null <see cref="MemoryQuery.Scope"/> produced could never exist — while the store's own seed spans scopes
-/// normally (<c>@scope IS NULL OR n.scope = @scope</c>). An adopter measured the consequence on 3.0.1: the
-/// same query answered when a scope was named and returned nothing when it was not, which is the COMMON
-/// case.</para>
+/// <para>A write always names a scope, so a literal collection <c>{Name}|{task}|</c> built from a null
+/// <see cref="MemoryQuery.Scope"/> can never exist — while the store's own seed spans scopes normally
+/// (<c>@scope IS NULL OR n.scope = @scope</c>). Searched literally, the same query answers when a scope is
+/// named and returns nothing when it is not, which is the COMMON case.</para>
 ///
 /// <para><b>The vector backend is scripted, not fuzzy</b>, because the subject is the collection the search runs
 /// against and not similarity quality. A word-overlap double could not tell "found semantically" apart from
@@ -45,7 +44,7 @@ public class GraphSemanticScopeTests
                 [.. texts.Select(t => Map.TryGetValue(t, out var v) ? v : [0f, 0f, 1f])]);
     }
 
-    /// <summary><paramref name="seedK"/> of 0 leaves the vector CHANNEL unregistered, which is now what
+    /// <summary><paramref name="seedK"/> of 0 leaves the vector CHANNEL unregistered, which is what
     /// "seeding off" means — the source's own <see cref="SemanticSeedOptions.K"/> refuses a non-positive
     /// value, because a channel that can never search is indistinguishable from an outage.
     /// <para>The log listens to BOTH the engine and <see cref="SemanticSeedSource"/>: `RecallAsync` converts
@@ -76,8 +75,8 @@ public class GraphSemanticScopeTests
         await engine.RememberAsync(new MemoryWrite("household", "garden", Other));
     }
 
-    /// <summary>The reported defect: scope omitted, so the semantic half searched a collection no write can
-    /// create and contributed nothing.</summary>
+    /// <summary>Scope omitted: a semantic half searching a collection no write can create would contribute
+    /// nothing.</summary>
     [Fact]
     public async Task An_unscoped_recall_reaches_a_semantically_near_entry_in_some_scope()
     {
@@ -90,8 +89,8 @@ public class GraphSemanticScopeTests
         Assert.Empty(log.Warnings);
     }
 
-    /// <summary>The control that makes the fixture trustworthy: naming the scope already worked before the
-    /// fix, so the null-scope case above is the only thing that changed.</summary>
+    /// <summary>The control that makes the fixture trustworthy: the scoped query reaches the same entry, so
+    /// the null scope is the only variable in the case above.</summary>
     [Fact]
     public async Task Naming_the_scope_reaches_the_same_entry()
     {
@@ -122,8 +121,7 @@ public class GraphSemanticScopeTests
     }
 
     /// <summary>Spanning needs <see cref="IListableVectorStore"/>. A BYO store without it yields nothing on
-    /// the unscoped path — exactly what that path did before — rather than throwing, and the scoped path is
-    /// untouched.</summary>
+    /// the unscoped path rather than throwing, and the scoped path is untouched.</summary>
     [Fact]
     public async Task A_store_that_cannot_list_leaves_the_unscoped_path_empty_and_the_scoped_path_working()
     {

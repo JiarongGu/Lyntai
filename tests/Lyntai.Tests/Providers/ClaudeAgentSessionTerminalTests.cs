@@ -5,16 +5,14 @@ using Lyntai.Tests.Fakes;
 
 namespace Lyntai.Tests.Providers;
 
-/// <summary>The single-terminal rule on the claude agent session — the one its codex twin already enforced
-/// (<c>CodexAgentSessionTests.A_second_in_band_terminal_never_adds_a_second_ending</c>) and it did not.
+/// <summary>The single-terminal rule on the claude agent session — the one its codex twin enforces
+/// (<c>CodexAgentSessionTests.A_second_in_band_terminal_never_adds_a_second_ending</c>).
 ///
-/// <para><see cref="SessionEnded"/> is documented as "the single terminal event", and the session already
-/// suppressed a duplicate from the PROCESS side (a non-zero exit after the reader had ended the turn). What
-/// it did not suppress was a duplicate from the STREAM side: a second <c>result</c> line made
-/// <see cref="StreamJsonAgentReader"/> emit a second <see cref="SessionEnded"/> and the session forwarded
-/// it. The damage is not the extra event — it is that
-/// <see cref="AgentSessionExtensions.RunAsync"/>'s fold is last-one-wins, so a finished Ok turn followed by
-/// one stray error line folded to a FAILURE.</para></summary>
+/// <para><see cref="SessionEnded"/> is documented as "the single terminal event". A duplicate can come from
+/// the PROCESS side (a non-zero exit after the reader has ended the turn) or from the STREAM side: a second
+/// <c>result</c> line makes <see cref="StreamJsonAgentReader"/> emit a second <see cref="SessionEnded"/>.
+/// The damage is not the extra event — it is that <see cref="AgentSessionExtensions.RunAsync"/>'s fold is
+/// last-one-wins, so a finished Ok turn followed by one stray error line would fold to a FAILURE.</para></summary>
 public class ClaudeAgentSessionTerminalTests
 {
     private const string SystemLine =
@@ -23,7 +21,7 @@ public class ClaudeAgentSessionTerminalTests
     private const string OkResultLine =
         """{"type":"result","result":"Done","session_id":"sess-1","is_error":false,"usage":{"input_tokens":20,"output_tokens":8,"cache_read_input_tokens":0,"cache_creation_input_tokens":0}}""";
 
-    // a SECOND terminal on the same stream, failing — what the fold used to report
+    // a SECOND terminal on the same stream, failing — what a forwarded duplicate would fold to
     private const string LaterErrorResultLine =
         """{"type":"result","result":"","session_id":"sess-1","is_error":true,"subtype":"error_during_execution"}""";
 
@@ -48,8 +46,8 @@ public class ClaudeAgentSessionTerminalTests
     [Fact]
     public async Task The_fold_reports_the_first_terminal_not_the_last()
     {
-        // the consumer-visible half: RunAsync keeps the LAST SessionEnded it sees, so a stray trailing
-        // result line used to turn a completed turn into a reported failure with no final text
+        // the consumer-visible half: RunAsync keeps the LAST SessionEnded it sees, so a forwarded stray
+        // trailing result line would turn a completed turn into a reported failure with no final text
         var runner = new FakeProcessRunner([SystemLine, OkResultLine, LaterErrorResultLine]);
 
         var result = await Session(runner).RunAsync(Ask());

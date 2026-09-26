@@ -1810,11 +1810,9 @@ export default {
     // entry climbed 31 → 35 on a hand-kept usage banner until the list was derived and the entry deleted.
     "tests/Lyntai.Tests/Memory/Corpus/MemoryCorpus.cs": [70, 35, 27],
     "tests/Lyntai.Tests/Memory/Corpus/RecallQuality.cs": [40],
-    "tests/Lyntai.Tests/Memory/GraphMemoryEngineTests.cs": [26],
-    "tests/Lyntai.Tests/Memory/LlmSemanticRecallLiveTests.cs": [31],
-    "tests/Lyntai.Tests/Memory/LlmVerificationLiveTests.cs": [33, 28],
-    "tests/Lyntai.Tests/Memory/MemoryCjkRecallTests.cs": [38],
+    "tests/Lyntai.Tests/Memory/LlmVerificationLiveTests.cs": [33],
+    "tests/Lyntai.Tests/Memory/MemoryCjkRecallTests.cs": [36],
     "tests/Lyntai.Tests/Memory/MemoryClusterEdgeFormationTests.cs": [26],
-    "tests/Lyntai.Tests/Memory/MemorySalienceInversionTests.cs": [31],
+    "tests/Lyntai.Tests/Memory/MemorySalienceInversionTests.cs": [28],
   },
 };

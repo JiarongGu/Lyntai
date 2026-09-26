@@ -54,8 +54,8 @@ public class ProviderVerdictClassifierTests
     [Fact]
     public void A_429_in_a_stack_frame_is_not_a_rate_limit()
     {
-        // the drifting-heuristics bug: a CLI crash printing a line number must stay Failed,
-        // or the router benches a healthy provider on a phantom 429
+        // a CLI crash printing a line number must stay Failed, or the router benches a healthy provider on
+        // a phantom 429
         Assert.Equal(ProviderVerdict.Failed,
             ProviderVerdictClassifier.FromErrorText("TypeError: x is undefined\n    at file:///app/cli.js:429:17"));
         Assert.Equal(ProviderVerdict.Failed, ProviderVerdictClassifier.FromErrorText("processed 429 records"));

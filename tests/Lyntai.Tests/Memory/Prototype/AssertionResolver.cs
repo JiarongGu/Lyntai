@@ -19,13 +19,10 @@ namespace Lyntai.Tests.Memory.Prototype;
 /// (<b>D93</b>). This reads the STORE, so it sees every assertion for a key rather than only what one recall
 /// happened to return.</para>
 ///
-/// <para><b><c>ValidTo</c> is DERIVED, and as of <b>D91</b> that is CHOSEN rather than forced.</b> An
-/// interval ends where the next assertion for the same <c>canonical_key</c> begins. This prototype
-/// originally reported the derivation as forced — metadata was write-once, so an assertion could not be
-/// closed off in place — and D91 made metadata revisable, which removes the constraint and leaves the
-/// design. **Deriving is still right**: a stored <c>ValidTo</c> is a second copy of a fact the successor
-/// already carries, and two copies drift. A design that survives losing its excuse is a better one than a
-/// design that needed it.</para>
+/// <para><b><c>ValidTo</c> is DERIVED, by choice rather than by constraint</b> — metadata is revisable
+/// (<b>D91</b>). An interval ends where the next assertion for the same <c>canonical_key</c> begins; a
+/// stored <c>ValidTo</c> would be a second copy of a fact the successor already carries, and two copies
+/// drift.</para>
 /// </summary>
 internal static class AssertionResolver
 {
@@ -52,8 +49,7 @@ internal static class AssertionResolver
         /// <summary>Not in force YET as of the instant asked about — its validity starts later.
         /// <para>Distinct from <see cref="Superseded"/> rather than folded into it, because they are
         /// opposite ends of the same interval and calling a future claim "superseded" is simply false. The
-        /// distinction is not cosmetic: it was collapsed in the first version of this resolver and the
-        /// generated corpus caught the consequence immediately.</para></summary>
+        /// distinction is not cosmetic: collapsing the two fails the generated corpus at once.</para></summary>
         Pending,
 
         /// <summary>Two or more assertions claim the same key over the same instant, from different sources.
@@ -148,11 +144,11 @@ internal static class AssertionResolver
                 && Read(c.Node, Keys.SourceRef) != Read(node, Keys.SourceRef));
 
             // IN FORCE FIRST, CONTESTED SECOND — and that order is the whole of this expression.
-            // The first version asked `contested` first and unconditionally, so a disputed pair was
-            // reported as the current answer at EVERY instant, including before it had taken effect and
-            // after a later version superseded it. Every hand-written fact probed an instant where the pair
-            // happened to be live, so all of them passed; the generated corpus failed on its first run.
-            // A conflict is a property OF an interval, never a property that outranks one.
+            // Asking `contested` first and unconditionally reports a disputed pair as the current answer at
+            // EVERY instant, including before it takes effect and after a later version supersedes it — and
+            // hand-written facts that probe an instant where the pair happens to be live all still pass; only
+            // the generated corpus catches it. A conflict is a property OF an interval, never a property that
+            // outranks one.
             var inForce = from!.Value <= asOf && (until is null || asOf < until.Value);
 
             var state = !inForce ? (from.Value > asOf ? Status.Pending : Status.Superseded)

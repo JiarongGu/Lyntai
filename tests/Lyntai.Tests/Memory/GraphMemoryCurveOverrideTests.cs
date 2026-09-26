@@ -8,16 +8,13 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Lyntai.Tests.Memory;
 
-/// <summary><c>docs/DECISIONS.md</c> D50 (<c>docs/task-archive.md</c> Part 54, DSR5): a named engine can pick its OWN
-/// forgetting curve through <c>UseGraph</c>'s <c>policy</c> parameter, so two graph engines in one process
-/// can run two curves. Until 3.0 the curve was resolved from the global container alone, making it a
-/// per-PROCESS choice while <c>ranking</c> — the subsystem's only other SINGULAR seam (D48) — was already
-/// per-engine.
+/// <summary><c>docs/DECISIONS.md</c> D50: a named engine can pick its OWN forgetting curve through
+/// <c>UseGraph</c>'s <c>retrievability</c> parameter, so two graph engines in one process can run two curves
+/// — per-engine, like <c>ranking</c>, the subsystem's only other SINGULAR seam (D48).
 /// <para><b>The load-bearing half is the NULL path</b>, not the override: <c>retrievability: null</c> must resolve
-/// exactly as it did before this parameter existed — the container's registration, else
-/// <see cref="DsrRetrievability"/> (<c>AddMemoryEngine</c>'s own <c>TryAdd</c>, D49). A consumer passing
-/// nothing seeing no behavioural difference is the whole promise of an appended optional parameter, so both
-/// null cases are pinned below alongside the two-curve case.</para>
+/// to the container's registration, else <see cref="DsrRetrievability"/> (<c>AddMemoryEngine</c>'s own
+/// <c>TryAdd</c>, D49). A consumer passing nothing seeing no behavioural difference is the whole promise of
+/// an optional parameter, so both null cases are pinned below alongside the two-curve case.</para>
 /// <para>Every fact observes WHICH curve ran through
 /// <see cref="GraphNode.ProvenanceRetrievability"/> and the stability the write actually stored, read back
 /// from a real <see cref="SqliteMemoryGraphStore"/> — not through a recall's ordering, which would make the
@@ -82,8 +79,7 @@ public sealed class GraphMemoryCurveOverrideTests : IDisposable
     [Fact]
     public async Task Two_engines_in_one_process_can_run_two_different_curves()
     {
-        // THE feature. Before D50 both engines resolved the same IMemoryRetrievabilityPolicy from the
-        // container and this was inexpressible.
+        // THE feature (D50): two named engines, two curves, one container.
         using var sp = Build(b => b
             .AddMemoryEngine("alpha", e => e.UseGraph(retrievability: new MarkedCurve(11, 40)))
             .AddMemoryEngine("beta", e => e.UseGraph(retrievability: new MarkedCurve(77, 41))));
@@ -127,7 +123,7 @@ public sealed class GraphMemoryCurveOverrideTests : IDisposable
     public async Task A_null_curve_still_resolves_the_containers_registration()
     {
         // HALF ONE of the non-negotiable: with a curve registered container-wide, an engine that names
-        // nothing must get THAT one — exactly as before the parameter existed.
+        // nothing must get THAT one.
         var services = new ServiceCollection();
         services.AddSingleton<IMemoryGraphStore>(new SqliteMemoryGraphStore(_db.Factory));
         services.AddSingleton<IMemoryRetrievabilityPolicy>(new MarkedCurve(63, 41));

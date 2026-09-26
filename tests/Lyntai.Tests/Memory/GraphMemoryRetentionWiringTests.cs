@@ -10,14 +10,13 @@ namespace Lyntai.Tests.Memory;
 /// Retention reaches the engine the way every other plural domain does — as a registered, composed
 /// collection the ENGINE owns, not pre-wrapped inside somebody else's constructor.
 ///
-/// <para><b>The defect this closes.</b> <c>docs/DECISIONS.md</c> D48 declares age, salience and retention
-/// plural, each owning a composition policy. Age and salience were engine constructor parameters; retention
-/// was not, and arrived only inside a hand-built <see cref="ModulatedRetrievability"/>. So a DI-built engine
-/// applied retention and a hand-built one silently did not — and every bench sweep hand-builds. A divergence
-/// of exactly that class produced a measurement defect on 2026-08-30 that published wrong figures for
-/// days.</para>
+/// <para><b>The failure this prevents.</b> <c>docs/DECISIONS.md</c> D48 declares age, salience and retention
+/// plural, each owning a composition policy. Retention that arrives only inside a hand-built
+/// <see cref="ModulatedRetrievability"/> is applied by a DI-built engine and silently skipped by a hand-built
+/// one — and every bench sweep hand-builds (<c>docs/FIXES.md</c> 2026-08-30, <c>memory-salience</c>, is a
+/// divergence of that class that published wrong figures).</para>
 ///
-/// <para><b>Why it is a modelling fix rather than a convenience.</b> A domain reaching the engine through
+/// <para><b>Why it is a modelling rule rather than a convenience.</b> A domain reaching the engine through
 /// ANOTHER domain's constructor is a modelling error whatever it costs to use. Making the engine the single
 /// composition root also puts the <see cref="ModulatedRetrievability"/> invariant somewhere it cannot be
 /// reached wrongly: the composed maximum and the per-entry clamp must be computed from the same enumeration,
@@ -48,10 +47,7 @@ public class GraphMemoryRetentionWiringTests
             .Retrievability;
     }
 
-    /// <summary>A hand-built engine handed retention policies APPLIES them, with no decorator in sight.
-    /// <para>Before this, the only way to get retention into a hand-built engine was to know that
-    /// <c>retrievability:</c> secretly wanted a <c>ModulatedRetrievability</c> — knowledge nothing on the
-    /// constructor hinted at.</para></summary>
+    /// <summary>A hand-built engine handed retention policies APPLIES them, with no decorator in sight.</summary>
     [Fact]
     public async Task Retention_passed_to_the_ENGINE_lengthens_retrievability_without_a_decorator()
     {

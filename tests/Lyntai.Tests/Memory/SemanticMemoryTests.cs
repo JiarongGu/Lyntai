@@ -68,7 +68,7 @@ public class SemanticMemoryTests
         Assert.Empty(await mem.RecallAsync("t", "s", "   ", k: 5));
     }
 
-    [Fact] // T7: recall is fail-open when the vector backend throws (e.g. pgvector on a dimension mismatch)
+    [Fact] // recall is fail-open when the vector backend throws (e.g. pgvector on a dimension mismatch)
     public async Task Recall_is_fail_open_when_the_vector_store_throws()
     {
         var mem = new SemanticMemory([new FakeVectorProvider()], new ThrowingVectorStore());
@@ -87,10 +87,10 @@ public class SemanticMemoryTests
 
     // ---- a scope-OPTIONAL recall ---------------------------------------------------------------------
 
-    /// <summary>The adopter's shape: scope is a FILTER, so the ordinary path passes none. Through 3.0.0 that
-    /// searched the collection <c>task + separator + ""</c>, which never exists — and an absent collection and
-    /// one holding no match are the same empty list, so the semantic member contributed exactly zero and
-    /// nothing said so.</summary>
+    /// <summary>Scope is a FILTER, so the ordinary path passes none. Read as the collection
+    /// <c>task + separator + ""</c>, that names a collection which never exists — and an absent collection
+    /// and one holding no match are the same empty list, so the semantic member would contribute exactly
+    /// zero and nothing would say so.</summary>
     [Fact]
     public async Task A_null_scope_searches_every_scope_of_the_task()
     {
@@ -128,8 +128,8 @@ public class SemanticMemoryTests
         Assert.Equal(2, (await mem.RecallAsync("t", scope: null, "shared subject", k: 2)).Count);
     }
 
-    /// <summary>A store that cannot enumerate its collections yields nothing — exactly what this path did
-    /// before the capability existed — rather than throwing. Fail-open, like every other recall here.</summary>
+    /// <summary>A store that cannot enumerate its collections yields nothing rather than throwing. Fail-open,
+    /// like every other recall here.</summary>
     [Fact]
     public async Task A_store_that_cannot_list_its_collections_yields_nothing_rather_than_throwing()
     {
@@ -148,8 +148,8 @@ public class SemanticMemoryTests
 
     // ---- the engine over it --------------------------------------------------------------------------
 
-    /// <summary>The engine used to early-return on a null scope, so a composite whose graph member is scoped
-    /// by kind and whose semantic member should search everything could not be expressed at all — one
+    /// <summary>An engine that returned early on a null scope would make a composite whose graph member is
+    /// scoped by kind and whose semantic member should search everything inexpressible — one
     /// <see cref="MemoryQuery"/> travels to every member, so the consumer could not work around it either.</summary>
     [Fact]
     public async Task The_engine_passes_a_null_scope_through_instead_of_returning_early()

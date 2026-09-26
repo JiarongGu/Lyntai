@@ -4,8 +4,8 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Lyntai.Tests.Memory;
 
-/// <summary>The verifier seam is SINGULAR, so a second shipped registration used to be dropped silently by
-/// <c>TryAdd</c> — whichever came first verified memory, and nothing said so.</summary>
+/// <summary>The verifier seam is SINGULAR, so a second shipped registration is refused: dropped silently by
+/// <c>TryAdd</c>, whichever came first would verify memory and nothing would say so.</summary>
 public class VerificationRegistrationTests
 {
     [Fact]

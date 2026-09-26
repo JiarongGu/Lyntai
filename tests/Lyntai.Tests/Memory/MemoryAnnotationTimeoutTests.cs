@@ -7,14 +7,13 @@ namespace Lyntai.Tests.Memory;
 
 /// <summary>
 /// An annotator's own TIMEOUT must not fail the WRITE. The seam is documented best-effort — the engine logs
-/// and stores without subjects — but it rethrew <see cref="OperationCanceledException"/> first, and an
-/// <see cref="HttpClient"/> timeout surfaces as <see cref="TaskCanceledException"/>, which IS one. So the
-/// likeliest failure a model-backed policy has took the whole <c>RememberAsync</c> down with it.
+/// and stores without subjects — so rethrowing <see cref="OperationCanceledException"/> ahead of that is
+/// wrong: an <see cref="HttpClient"/> timeout surfaces as <see cref="TaskCanceledException"/>, which IS one,
+/// and the likeliest failure a model-backed policy has would take the whole <c>RememberAsync</c> down.
 ///
-/// <para>The twin of <c>MemoryVerificationTimeoutTests</c>, which pins the same rule on the READ path after
-/// a bench run lost 40 minutes of ingestion to it (2026-09-09, <c>docs/FIXES.md</c>). This half was filed
-/// rather than assumed, because the two seams differ in what a failure costs: a recall that degrades returns
-/// the same items, while a write that degrades stores the entry with no subject edges — a permanent
+/// <para>The twin of <c>MemoryVerificationTimeoutTests</c>, which pins the same rule on the READ path
+/// (<c>docs/FIXES.md</c>, 2026-09-09). The two seams differ in what a failure costs: a recall that degrades
+/// returns the same items, while a write that degrades stores the entry with no subject edges — a permanent
 /// deficiency for that one entry, and still cheaper than losing the fact.</para>
 /// </summary>
 public class MemoryAnnotationTimeoutTests

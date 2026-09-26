@@ -18,8 +18,8 @@ public class ProviderConsumerTagTests
     public void A_chat_turns_default_tag_is_the_declared_constant_not_a_loose_literal()
     {
         // ChatOrchestrator puts this straight onto the TextRequest it builds, so it reaches the usage
-        // tracker and the budget layer. Before the constant existed, `chat` was a fifth library-emitted
-        // tag with nothing to key a cap on.
+        // tracker and the budget layer. A loose literal would be a library-emitted tag with nothing to key
+        // a cap on.
         Assert.Equal(ProviderConsumers.Chat, new ChatTurn { Message = "hi" }.Consumer);
     }
 

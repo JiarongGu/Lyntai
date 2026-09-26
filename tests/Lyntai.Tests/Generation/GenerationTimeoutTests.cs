@@ -6,7 +6,7 @@ using Lyntai.Tests.Fakes;
 
 namespace Lyntai.Tests.Generation;
 
-/// <summary>The per-call deadline the HTTP generation backends were missing (GEN11). The shims configure their
+/// <summary>The per-call deadline of the HTTP generation backends. The shims configure their
 /// named client with <see cref="Timeout.InfiniteTimeSpan"/> on the grounds that "the per-call deadline owns
 /// cancellation" — so a deadline has to exist, or a backend that accepts the connection and then stalls hangs
 /// until the caller's token fires, and a background render with no cancel waits forever.
@@ -42,13 +42,13 @@ public class GenerationTimeoutTests
     // reach it, Stalling()'s Backstop ends the call in seconds rather than letting the suite hang
     private static readonly TimeSpan Unreachable = TimeSpan.FromMinutes(30);
 
-    // ---- there IS a bounded default (the bug: none at all) ----
+    // ---- there IS a bounded default ----
 
     [Fact]
     public void Every_http_backend_defaults_to_a_generous_but_FINITE_budget()
     {
-        // "no deadline" is the defect; an infinite default would reintroduce it silently. Generous because a
-        // render legitimately runs for minutes — the 100s HttpClient default is what the shims rightly dropped.
+        // "no deadline" is the defect, and an infinite default is it, silently. Generous because a render
+        // legitimately runs for minutes — which is why the shims drop the 100s HttpClient default.
         foreach (var (name, budget) in ((string, TimeSpan)[])
         [
             (nameof(OpenAiImageOptions), new OpenAiImageOptions { BaseUrl = "x" }.Timeout),
@@ -195,10 +195,10 @@ public class GenerationTimeoutTests
     [Fact]
     public async Task A_BYO_clients_OWN_timeout_also_surfaces_as_a_verdict_rather_than_escaping()
     {
-        // the shape the consumer who filed this is running today: their own client with an explicit finite
-        // Timeout (180s there, 150ms here) instead of the shim's infinite one. HttpClient raises that as a
-        // TaskCanceledException with the caller's token untouched — which used to escape GenerateAsync
-        // uncaught, breaking the fail-safe contract for precisely the people who bounded their own client.
+        // a host's own client with an explicit finite Timeout instead of the shim's infinite one. HttpClient
+        // raises that as a TaskCanceledException with the caller's token untouched — which must not escape
+        // GenerateAsync uncaught, or the fail-safe contract breaks for precisely the people who bounded their
+        // own client.
         var provider = new OpenAiImageProvider(
             new OpenAiImageOptions { BaseUrl = "https://example.invalid/v1", Timeout = Unreachable },
             () => new HttpClient(new StallingHandler()) { Timeout = Short });

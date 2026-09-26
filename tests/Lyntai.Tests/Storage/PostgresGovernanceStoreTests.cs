@@ -80,11 +80,8 @@ public sealed class PostgresGovernanceStoreTests(PostgresFixture pg)
         await cache.RemoveAsync(c);
     }
 
-    // The cross-backend UsageTrackerContract. It replaces two hand-written facts that asserted a STRICT
-    // SUBSET of the SQLite suite's — the global total, an unrecorded consumer, and a scoped reset leaving
-    // the other consumers intact were all missing, so a ResetAsync(consumer) that dropped the whole table
-    // would have passed here. The two TABLE-WIDE facts still cannot run on a shared container and are
-    // excluded by name in PostgresContractCoverageTests, which fails if an exclusion stops matching.
+    // The cross-backend UsageTrackerContract. The two TABLE-WIDE facts cannot run on a shared container and
+    // are excluded by name in PostgresContractCoverageTests, which fails if an exclusion stops matching.
     private async Task UsagePg(Func<IUsageTracker, string, Task> body)
     {
         Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
@@ -99,9 +96,8 @@ public sealed class PostgresGovernanceStoreTests(PostgresFixture pg)
     [SkippableFact] public Task Usage_reset_scoped() => UsagePg(UsageTrackerContract.Resetting_ONE_consumer_leaves_the_others_intact);
     [SkippableFact] public Task Usage_reset_casing() => UsagePg(UsageTrackerContract.Resetting_is_case_insensitive_like_the_totals);
 
-    /// <summary>Totals survive the instance that recorded them — the property the replaced fact carried
-    /// inline ("fresh instance reads persisted totals") and the one thing a shared contract cannot express,
-    /// since only a persistent backend has two handles over one store.</summary>
+    /// <summary>Totals survive the instance that recorded them — the one thing a shared contract cannot
+    /// express, since only a persistent backend has two handles over one store.</summary>
     [SkippableFact]
     public async Task UsageTracker_totals_are_read_back_by_a_FRESH_handle_over_the_same_store()
     {

@@ -27,8 +27,8 @@ public class StreamJsonAgentReaderTests
     public void Progress_system_events_do_not_restart_the_session()
     {
         // The shape claude 2.1.280 emits: `system/init`, then `system/thinking_tokens` PROGRESS events
-        // carrying the same session_id. Each one used to yield another SessionStarted, so a consumer that
-        // persists the stream stored one "session started" per progress tick.
+        // carrying the same session_id. A SessionStarted per event would make a consumer that persists the
+        // stream store one "session started" per progress tick.
         var reader = new StreamJsonAgentReader();
         string[] lines =
         [
@@ -246,14 +246,14 @@ public class StreamJsonAgentReaderTests
     }
 
     /// <summary>A FAILED turn does not hand back its pre-error partial text as the answer.
-    /// <para>Present in the released 2.5.0. The fallback that substitutes the last assistant text for an
-    /// empty terminal result was not gated on <c>is_error</c>, so a run that streamed some text and then
-    /// failed returned that text as <c>FinalText</c>. The fold one layer up applies the identical gate and
-    /// explains it — "a terminal that IS an error must NOT be dressed up as a partial success … those
-    /// callers would then consume garbage instead of retrying" — but it could never fire, because this
-    /// reader had already filled the field. The codex twin has always returned null here.</para>
-    /// <para>The pre-existing error fact could not catch this: it feeds no assistant text before the
-    /// failure, so the fallback had nothing to substitute and <c>FinalText</c> was null either way.</para>
+    /// <para>The fallback that substitutes the last assistant text for an empty terminal result is gated on
+    /// <c>is_error</c>; ungated, a run that streamed some text and then failed returns that text as
+    /// <c>FinalText</c>. The fold one layer up applies the identical gate — "a terminal that IS an error must
+    /// NOT be dressed up as a partial success … those callers would then consume garbage instead of
+    /// retrying" — but cannot fire once this reader has filled the field. The codex twin returns null here
+    /// too.</para>
+    /// <para>An error fact that feeds no assistant text before the failure cannot catch this: the fallback
+    /// has nothing to substitute, and <c>FinalText</c> is null either way.</para>
     /// </summary>
     [Fact]
     public void A_failed_turn_does_not_return_its_partial_text_as_the_answer()
@@ -270,9 +270,8 @@ public class StreamJsonAgentReaderTests
     }
 
     /// <summary>A failed turn's verdict is CLASSIFIED from the backend's own words, not hard-coded.
-    /// <para>Through 2.5.0 this was a bare <c>isError ? Failed : Ok</c> — the only in-band failure path in
-    /// either agent session that skipped <c>ProviderVerdictClassifier</c>, so an expired login reported
-    /// <c>Failed</c> and a host switching on the verdict retried immediately instead of prompting to
+    /// <para>A bare <c>isError ? Failed : Ok</c> skips <c>ProviderVerdictClassifier</c>, so an expired login
+    /// reports <c>Failed</c> and a host switching on the verdict retries immediately instead of prompting to
     /// re-authenticate. <c>AuthFailed</c> cools the host; <c>Failed</c> merely advances.</para></summary>
     [Fact]
     public void A_failed_turn_classifies_an_auth_error_rather_than_reporting_a_bare_failure()

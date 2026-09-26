@@ -9,12 +9,11 @@ using Xunit;
 namespace Lyntai.Tests.Memory;
 
 /// <summary>
-/// <b>A <c>taskKey</c> is the isolation boundary every other guarantee is stated inside</b>, and until
-/// 2026-08-26 nothing asserted it as a property — only as a control inside one removal fact.
+/// <b>A <c>taskKey</c> is the isolation boundary every other guarantee is stated inside</b>, asserted here
+/// as a property of the engine.
 ///
 /// <para><c>MemoryGraphStoreContract.No_read_crosses_a_task_key</c> holds the STORE to it on every
-/// backend. These are the ENGINE's own paths, which compose several store reads and one traversal that
-/// the store deliberately does not scope.</para>
+/// backend. These are the ENGINE's own paths, which compose several store reads and a traversal.</para>
 /// </summary>
 public class MemoryTaskIsolationTests
 {
@@ -49,9 +48,8 @@ public class MemoryTaskIsolationTests
     [Fact]
     public async Task The_engine_never_links_across_tasks_BY_ITSELF()
     {
-        // Traversal is the one read the store does NOT scope -- NeighboursAsync takes ids and an engine, and
-        // follows edges wherever they lead. That is only safe while no edge crosses a task, so the property
-        // that actually protects isolation is about the WRITERS of edges, not the reader.
+        // Traversal follows edges wherever they lead, so the walk's own task predicate is only half the
+        // protection; the other half is about the WRITERS of edges, not the reader.
         //
         // All three engine-internal linkers are task-scoped by construction: co-activation links what ONE
         // recall returned (and a recall is task-scoped), similarity links within the vector collection
@@ -73,9 +71,9 @@ public class MemoryTaskIsolationTests
         // own recall is task-scoped and would hide a cross-task edge rather than reveal one.
         //
         // ONE node at a time, not the whole set: NeighboursAsync EXCLUDES the ids it is given, so asking for
-        // the neighbours of every node in a task excludes the entire cluster and comes back empty. The first
-        // draft did exactly that and was caught only by the vacuity guard below — which is the argument for
-        // writing one, since the fact would otherwise have passed while observing nothing at all.
+        // the neighbours of every node in a task excludes the entire cluster and comes back empty. Only the
+        // vacuity guard below catches that — which is the argument for writing one, since the fact would
+        // otherwise pass while observing nothing at all.
         var mine = await store.SeedAsync(Engine, "mine", "s", null, 50);
         var mineIds = mine.Select(n => n.Id).ToHashSet();
 
@@ -93,13 +91,12 @@ public class MemoryTaskIsolationTests
     [Fact]
     public async Task A_cross_task_link_is_REFUSED_at_the_call_that_makes_the_mistake()
     {
-        // THE ONE WAY ACROSS, closed. Until 2026-08-26 `LinkAsync` validated nothing about the two refs'
-        // tasks and `NeighboursAsync` applied no task predicate, so an application that linked across tasks
-        // made those entries reachable from each other's recalls -- `taskKey` was a boundary for every read
-        // except traversal, and a half-boundary is worse than none because consumers reason about it as a
-        // whole one.
+        // THE ONE WAY ACROSS, closed. Were `LinkAsync` to validate nothing about the two refs' tasks, and the
+        // walk to apply no task predicate, an application that linked across tasks would make those entries
+        // reachable from each other's recalls -- `taskKey` a boundary for every read except traversal, and a
+        // half-boundary is worse than none because consumers reason about it as a whole one.
         //
-        // Refused HERE rather than ignored later, and that placement is the decision. Traversal is now
+        // Refused HERE rather than ignored later, and that placement is the decision. Traversal is
         // task-scoped, so a cross-task edge could be written and would simply never be walked -- a thing a
         // caller can create that can never work, which is the shape D83-D86 are all about. The error names
         // both tasks, because the caller cannot see them from the two opaque MemoryRefs it holds.
@@ -126,7 +123,7 @@ public class MemoryTaskIsolationTests
     public async Task Traversal_stays_inside_the_task_even_when_an_edge_ALREADY_crosses_one()
     {
         // DEFENCE IN DEPTH, and the reason the refusal above is not sufficient on its own: a database
-        // written before this release can already hold cross-task edges, and refusing NEW ones does not
+        // written before the refusal existed can already hold cross-task edges, and refusing NEW ones does not
         // clean up old ones. Scoping the walk is what makes the boundary true of existing data rather than
         // only of future writes.
         //

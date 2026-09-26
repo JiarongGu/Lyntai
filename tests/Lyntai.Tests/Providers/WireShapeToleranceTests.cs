@@ -11,7 +11,7 @@ namespace Lyntai.Tests.Providers;
 /// <summary>Valid JSON of the WRONG SHAPE never throws out of a wire reader. <c>TryGetProperty</c> throws
 /// <see cref="InvalidOperationException"/> on an element that is not an object, and <c>GetInt32</c>
 /// throws <see cref="FormatException"/> on <c>1.5</c>, while every reader here catches only
-/// <c>JsonException</c> — so a line such as <c>{"message":"x"}</c> escaped a "never throws" reader, out of
+/// <c>JsonException</c> — so a line such as <c>{"message":"x"}</c> would escape a "never throws" reader, out of
 /// <c>CompleteAsync</c> or straight to an agent session's consumer.</summary>
 public class WireShapeToleranceTests
 {

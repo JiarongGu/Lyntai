@@ -124,10 +124,9 @@ public class LlmMemoryAnnotationPolicyTests : MemoryAnnotationPolicyContractFact
     }
 
     /// <summary><b>The prompt must ASK for every field the parser reads.</b> The fact above scripts a reply
-    /// containing a grade, so it exercises the parser and is structurally unable to notice that nothing ever
-    /// requested one — and nothing did: the system prompt was a <c>const</c>, used unconditionally, that
-    /// mentioned only <c>subjects</c>. So <c>SuggestGrade = true</c> was inert against any real model, while
-    /// every offline test passed. Found 2026-08-14 by the whole-codebase review.
+    /// containing a grade, so it exercises the parser and is structurally unable to notice whether anything
+    /// requested one: a constant system prompt mentioning only <c>subjects</c> leaves
+    /// <c>SuggestGrade = true</c> inert against any real model while every offline test passes.
     /// <para>This is the shape of defect that only a LIVE model reveals and no fake can — unless the
     /// assertion is made on the REQUEST rather than on the reply, which is what this fact does.</para>
     /// </summary>
@@ -164,7 +163,7 @@ public class LlmMemoryAnnotationPolicyTests : MemoryAnnotationPolicyContractFact
     }
 
     /// <summary><b>The prompt names no language and gives no examples in one.</b> An English-shaped
-    /// instruction would quietly reintroduce the bias this subsystem spent a release removing: a Chinese fact
+    /// instruction would quietly bias subjects toward English: a Chinese fact
     /// would get an English subject, a later Chinese fact might get a Chinese one, and the two would not
     /// link. Asserted on the instruction itself because it is library surface, not a caller's concern.</summary>
     [Fact]

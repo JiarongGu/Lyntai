@@ -1,8 +1,8 @@
 namespace Lyntai.Tests.Fakes;
 
 /// <summary>A per-test directory under <c>devtools/_test-scratch</c> (never OS temp), created on construction
-/// and deleted on dispose. Own it for the test's lifetime — a fixture that creates one and never disposes it is
-/// how that directory came to hold tens of thousands of leftovers.</summary>
+/// and deleted on dispose. Own it for the test's lifetime — a fixture that creates one and never disposes it
+/// leaves a directory behind on every run.</summary>
 public sealed class ScratchDir : IDisposable
 {
     /// <param name="prefix">Names the directory for whoever finds one a crashed run left behind.</param>

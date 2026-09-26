@@ -4,7 +4,7 @@ using Lyntai.Tests.Fakes;
 
 namespace Lyntai.Tests.Inference;
 
-/// <summary>The v0.3 routing-policy behaviors on top of the router: retry-then-advance,
+/// <summary>The routing-policy behaviors on top of the router: retry-then-advance,
 /// per-(provider, model) cooldown granularity, and the sole-candidate exemption.</summary>
 public class RouterPolicyBehaviorTests
 {

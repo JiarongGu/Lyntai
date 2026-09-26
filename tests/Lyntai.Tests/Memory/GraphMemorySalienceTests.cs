@@ -77,7 +77,7 @@ public class GraphMemorySalienceTests
     [Fact]
     public async Task With_no_vector_backend_the_default_salience_policy_records_nothing()
     {
-        // the default path must be byte-identical to 2.5.0 decay behaviour for anyone who wires nothing —
+        // the default path records no salience for anyone who wires nothing —
         // a salience policy IS registered (the default), but with no vector backend there is no novelty to judge
         var store = new InMemoryMemoryGraphStore();
         var engine = new GraphMemoryEngine("e", store);
@@ -138,8 +138,8 @@ public class GraphMemorySalienceTests
     [Fact]
     public async Task A_throwing_vector_backend_degrades_to_no_signals_rather_than_losing_the_write()
     {
-        // the shared similarity search now feeds salience judgement too, so a broken vector backend must degrade the
-        // SAME way it already does for enrichment: the write still succeeds, and with no comparables the
+        // the shared similarity search feeds salience judgement too, so a broken vector backend must degrade the
+        // SAME way it does for enrichment: the write still succeeds, and with no comparables the
         // (default) salience policy records nothing rather than the caller ever seeing the exception
         var store = new InMemoryMemoryGraphStore();
         var engine = new GraphMemoryEngine("e", store, seams: new GraphMemorySeams

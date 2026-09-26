@@ -226,10 +226,9 @@ public class LocalDiffusionProviderTests : IDisposable
     [Fact]
     public void A_raised_ceiling_moves_the_ROUNDING_too_not_just_the_scale()
     {
-        // THE DEFECT THIS PINS. The clamp scaled against one hard-coded 768 and then rounded through a
-        // SECOND, so a raised ceiling moved the scale and left every result pinned at 768 by the rounder —
-        // a knob that appears to work and cannot exceed its old value. Both halves now take the same cap,
-        // and 1024 is chosen here precisely because it is above the old constant.
+        // Both halves of the clamp take the same cap: scaling against it and then rounding through a SECOND,
+        // hard-coded 768 would leave every result pinned at 768 by the rounder — a knob that appears to work
+        // and cannot exceed 768. 1024 is chosen here precisely because it is above 768.
         Assert.Equal((1024, 1024), LocalDiffusionProvider.ClampSize("1024x1024", 1024));
         Assert.Equal((1024, 576), LocalDiffusionProvider.ClampSize("1280x720", 1024));
     }
@@ -289,7 +288,7 @@ public class LocalDiffusionProviderTests : IDisposable
     [Fact]
     public void The_ADVERTISED_ceiling_follows_the_configured_one_rather_than_a_constant()
     {
-        // The third site the cap had to reach, and the easiest to miss: Limits is informational, so a stale
+        // The third site the cap must reach, and the easiest to miss: Limits is informational, so a stale
         // number here fails nothing — it just tells a consumer a ceiling the backend does not have.
         static LocalDiffusionProvider Provider(Action<LocalDiffusionOptions> configure)
         {
@@ -337,8 +336,8 @@ public class LocalDiffusionProviderTests : IDisposable
     [Fact]
     public void The_default_options_render_exactly_as_they_did_before_the_ceiling_became_configurable()
     {
-        // The shipped default is byte-identical to the hard-coded behaviour it replaced. A knob that changes
-        // what an unconfigured host gets is a silent behaviour change wearing a feature's clothes.
+        // The shipped default keeps the fixed 768 ceiling: a knob that changes what an unconfigured host gets
+        // is a silent behaviour change wearing a feature's clothes.
         var options = new LocalDiffusionOptions();
         Assert.Equal(768, options.EffectiveMaxDimension);
         foreach (var (size, expected) in new[] { ("1024x1024", (768, 768)), ("1280x720", (768, 448)) })

@@ -109,10 +109,10 @@ public class CuratedEngineContractTests : MemoryEngineContractFacts
     [Fact]
     public async Task A_query_less_recall_returns_only_this_engines_kind_and_honours_the_limit()
     {
-        // Found 2026-08-14. The query-less branch calls ForCompositionAsync, which takes NEITHER kind NOR
-        // limit — while the SearchAsync branch one line below passes both. So a blend of two curated engines
-        // over one catalog had each member return the WHOLE catalog, every section, unbounded, and every item
-        // graded Authoritative: each fact came back once per member, and the duplicates consumed the
+        // The query-less branch calls ForCompositionAsync, which takes NEITHER kind NOR limit — while the
+        // SearchAsync branch passes both. Unfiltered, a blend of two curated engines over one catalog has
+        // each member return the WHOLE catalog, every section, unbounded, and every item graded
+        // Authoritative: each fact comes back once per member, and the duplicates consume the
         // authoritative reserve that objective (1) exists to protect.
         var store = new FakeCuratedStore();
         var glossary = new CuratedMemoryEngine("cur/glossary", store, kind: "glossary");

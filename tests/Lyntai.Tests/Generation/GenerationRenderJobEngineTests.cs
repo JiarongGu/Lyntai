@@ -61,7 +61,7 @@ public class GenerationRenderJobEngineTests
     [Fact]
     public async Task A_job_checkpointed_as_providerId_and_operationId_resumes_polling_that_operation()
     {
-        // the shape the render handler checkpointed before it ran on the pipeline's machine
+        // the render handler's own older checkpoint shape
         var backend = new FakeGenerationJobProvider { Id = "video" };
         IModelProvider[] providers = [backend];
         var sink = new Sink();
@@ -78,7 +78,7 @@ public class GenerationRenderJobEngineTests
     [Fact]
     public async Task A_checkpoint_whose_fields_are_not_strings_fails_as_unreadable_rather_than_throwing()
     {
-        // GetString() on an unchecked element threw InvalidOperationException past the JsonException catch
+        // GetString() on an unchecked element throws InvalidOperationException past the JsonException catch
         var backend = new FakeGenerationJobProvider { Id = "video" };
         IModelProvider[] providers = [backend];
         var handler = new GenerationRenderJobHandler(new MediaRouter(providers), providers, new Sink());

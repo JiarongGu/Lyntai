@@ -6,8 +6,8 @@ namespace Lyntai.Tests.Inference;
 ///
 /// <para>A router is cheap to rebuild and is rebuilt per call on these paths. The tracker is not — a
 /// consumer that rebuilds it along with the router can never bench a failing backend, because the knowledge
-/// that it is failing is thrown away in between. That was the state of the vector and score kinds after
-/// <b>D153</b> gave them the mechanism: a backend answering 429 was asked again on the very next recall.</para>
+/// that it is failing is thrown away in between: for the vector and score kinds (<b>D153</b>), a backend
+/// answering 429 would be asked again on the very next recall.</para>
 ///
 /// <para>The pair of tests below is deliberately a BEFORE and an AFTER over the same scenario, because the
 /// only thing that distinguishes them is where the tracker lives.</para></summary>
@@ -55,8 +55,8 @@ public class ProviderRouterFactoryTests
     [Fact]
     public async Task A_router_rebuilt_per_call_with_its_own_tracker_asks_the_failing_backend_every_time()
     {
-        // The defect this closes, pinned so it cannot come back as an "optimisation": rebuilding the
-        // bookkeeping with the router is indistinguishable from having none.
+        // Pinned so it cannot come back as an "optimisation": rebuilding the bookkeeping with the router is
+        // indistinguishable from having none.
         var (bad, good, all) = Backends();
 
         for (var i = 0; i < 3; i++) Assert.True((await CallAsync(Bare(all))).IsOk);
@@ -122,9 +122,9 @@ public class ProviderRouterFactoryTests
     [Fact]
     public async Task The_CONFIGURED_routing_policy_reaches_a_factory_built_router()
     {
-        // ConfigureRouting used to reach chat alone: the factory never passed the configured policy, so
-        // vector and score always routed on RoutingPolicy's defaults and an operator's retries were
-        // silently ignored for those kinds.
+        // ConfigureRouting must reach vector and score, not chat alone: a factory that did not pass the
+        // configured policy would route those kinds on RoutingPolicy's defaults, silently ignoring an
+        // operator's retries.
         var flaky = new FlakyVectorProvider("flaky");
         var options = new LyntaiOptions();
         options.Routing.Retry(ProviderVerdict.Failed, 1);
@@ -159,9 +159,9 @@ public class ProviderRouterFactoryTests
     public async Task A_score_failure_never_benches_a_vector_backend_sharing_the_same_id()
     {
         // Reachable in a default configuration: AddOnnxProvider defaults Id = "onnx", so an embedder and a
-        // reranker both keyed on the bare id shared one bench — a failing reranker silenced recalls. The
-        // factory now scopes cooldown keys per closed shape ("vector::onnx" / "score::onnx"), the same rule
-        // MediaRouter already applies with its "generation::" prefix.
+        // reranker keyed on the bare id would share one bench — a failing reranker silencing recalls. The
+        // factory scopes cooldown keys per closed shape ("vector::onnx" / "score::onnx"), the same rule
+        // MediaRouter applies with its "generation::" prefix.
         var tracker = new DeadHostTracker(threshold: 1);
         var factory = new ProviderRouterFactory(tracker);
         var vector = new StubVectorProvider("onnx");

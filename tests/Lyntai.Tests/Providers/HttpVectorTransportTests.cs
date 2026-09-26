@@ -76,9 +76,8 @@ public class HttpVectorTransportTests
 
     // A 401 answered to a call carrying NO key is NotConfigured, not AuthFailed — full parity with the chat
     // path, and the difference is not cosmetic: AuthFailed BENCHES this host for the cooldown window, while
-    // NotConfigured advances blamelessly and lets a host offer setup. Until D153 an embed call had no verdict
-    // to put that in and said it in the message instead; this asserts the verdict, and that the status still
-    // reaches a human for diagnosis.
+    // NotConfigured advances blamelessly and lets a host offer setup. This asserts the verdict (D153), and
+    // that the status still reaches a human for diagnosis.
     [Fact]
     public async Task A_401_with_no_api_key_supplied_is_NOT_CONFIGURED_rather_than_a_benched_host()
     {
@@ -109,8 +108,8 @@ public class HttpVectorTransportTests
     [Fact]
     public async Task Usage_reported_by_the_wire_reaches_the_response()
     {
-        // the embeddings endpoint reports prompt tokens; since D162 the response carries them in the
-        // ledger's shape-neutral currency instead of dropping them on the floor
+        // the embeddings endpoint reports prompt tokens; the response carries them in the ledger's
+        // shape-neutral currency (D162)
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, OpenAiBodyOne);
 
         var response = await VectorProvider(handler).CallAsync(new VectorRequest(["a"]));
@@ -151,8 +150,8 @@ public class HttpVectorTransportTests
     [Fact]
     public async Task A_429_is_RATE_LIMITED_so_the_router_can_cool_this_host()
     {
-        // The gain D153 actually buys here: before, this threw and the embedding path retried the same
-        // exhausted host on the very next recall, because it had no cooldown to reach.
+        // A verdict, not a throw (D153): a throw leaves the embedding path retrying the same exhausted host
+        // on the very next recall, with no cooldown to reach.
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.TooManyRequests, "slow down");
 
         var response = await VectorProvider(handler).CallAsync(new VectorRequest(["a"]));
@@ -173,11 +172,11 @@ public class HttpVectorTransportTests
     }
 
     // ---- a corrupt vector must FAIL, not arrive ------------------------------------------------------
-    // Every element used to be coerced with `n.ValueKind == Number ? (float)n.GetDouble() : 0f`, so a null,
-    // a string or a non-finite element became a silent 0 in an otherwise plausible vector — which then got
-    // stored, or compared by cosine, with nothing anywhere reporting it. Since D153 a malformed body is a
-    // Failed VERDICT rather than a throw, which is what lets the router advance to the next backend instead
-    // of the call dying — these route the corrupt cases into it.
+    // Coercing each element with `n.ValueKind == Number ? (float)n.GetDouble() : 0f` turns a null, a string
+    // or a non-finite element into a silent 0 in an otherwise plausible vector — which then gets stored, or
+    // compared by cosine, with nothing anywhere reporting it. A malformed body is a Failed VERDICT rather than
+    // a throw (D153), which lets the router advance to the next backend instead of the call dying — these
+    // route the corrupt cases into it.
 
     [Theory]
     [InlineData("null", "a JSON null")]
@@ -212,8 +211,8 @@ public class HttpVectorTransportTests
     [Fact]
     public async Task A_legitimate_ZERO_is_still_a_perfectly_good_component()
     {
-        // The positive control: the fix must reject non-NUMBERS, never the number zero — which is common in
-        // a real embedding and was indistinguishable from the coerced failure value.
+        // The positive control: the check rejects non-NUMBERS, never the number zero — which is common in a
+        // real embedding and indistinguishable from a coerced failure value.
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK,
             """{"data":[{"index":0,"embedding":[1.0,0.0,3.0]}]}""");
 
@@ -246,8 +245,7 @@ public class HttpVectorTransportTests
     [Fact]
     public async Task With_NO_prefixes_configured_the_text_is_sent_verbatim_whatever_the_role()
     {
-        // The default must be a symmetric model, because that is what the library shipped before roles
-        // existed and what most endpoints serve.
+        // The default must be a symmetric model, because that is what most endpoints serve.
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, OpenAiBodyOne);
         var vectorProvider = VectorProvider(handler);
 

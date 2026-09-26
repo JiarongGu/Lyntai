@@ -9,23 +9,21 @@ using Lyntai.Tests.Memory.Corpus;
 namespace Lyntai.Tests.Memory;
 
 /// <summary><b>Does reinforcing only what a caller PAID for beat reinforcing whatever the ranker
-/// returned?</b> `docs/task-archive.md` Part 64's design-audit item, and the half of reinforcement the
-/// effect seam
-/// (<b>D57</b>) deliberately did not answer.
+/// returned?</b> The half of reinforcement the effect seam (<b>D57</b>) deliberately does not answer.
 ///
 /// <para><b>The premise error being tested.</b> The README promises that <i>material you keep coming back
-/// to</i> becomes durable; the implementation reinforces whatever the ranker RETURNED. Those were treated as
-/// the same thing for the subsystem's whole life and are not. FSRS's "retrieval strengthens memory" comes
+/// to</i> becomes durable; the default reinforces whatever the ranker RETURNED, and those are not the same
+/// thing. FSRS's "retrieval strengthens memory" comes
 /// from a domain where retrieval is VERIFIED — the learner knows whether they got it right. Here it is
 /// asserted by the same ranker being reinforced, so the loop upvotes its own prior, mistakes included.</para>
 ///
 /// <para><b>Why this engine can even ask.</b> <c>RecallAsync</c> returns speculative headlines;
-/// <c>ExpandAsync</c> is a caller choosing to pay for full content — literally "coming back to it". Both
-/// reinforced with identical weight, so the discriminating signal was produced and discarded.</para>
+/// <c>ExpandAsync</c> is a caller choosing to pay for full content — literally "coming back to it". By
+/// default both reinforce alike, so the discriminating signal is produced and discarded.</para>
 ///
-/// <para><b>Growth is switched ON at the policy for every arm here</b> (<c>ReinforceGain = 2.0</c>). 3.0
-/// ships growth-free (<b>D54</b>), under which every arm below would be identical by construction and the
-/// comparison would measure nothing. This asks what the act gate is worth to a deployment that has
+/// <para><b>Growth is switched ON at the policy for every arm here</b> (<c>ReinforceGain = 2.0</c>). The
+/// library ships growth-free (<b>D54</b>), under which every arm below would be identical by construction
+/// and the comparison would measure nothing. This asks what the act gate is worth to a deployment that has
 /// deliberately turned growth back on — the only deployment for which the question exists.</para></summary>
 public sealed class MemoryReinforcementActTests
 {
@@ -40,7 +38,7 @@ public sealed class MemoryReinforcementActTests
                 AgePolicies = [new PerWriteAgePolicy()],
             });
 
-    /// <summary>3.0's shipped growth setting (<b>D54</b>): retrieval grows no stability. Under it the act
+    /// <summary>The shipped growth setting (<b>D54</b>): retrieval grows no stability. Under it the act
     /// gate still governs the AGE RESET and co-activation, so the question remains live — it just has a
     /// different answer, which is why both are measured rather than one being assumed to stand in for the
     /// other.</summary>
@@ -50,8 +48,8 @@ public sealed class MemoryReinforcementActTests
     /// is a question about stability at all.</summary>
     private const double GrowthOnGain = 2.0;
 
-    // ExpandRatio > 0 is what makes the expansion act reachable at all — before CorpusExpand existed, every
-    // measurement ever taken against this engine exercised reinforcement-on-recall ONLY.
+    // ExpandRatio > 0 is what makes the expansion act reachable at all — a corpus with no expansions
+    // exercises reinforcement-on-recall ONLY.
     private static Task<NoiseShare> RunAsync(MemoryReinforcementActs acts, double gain) =>
         CorpusReplay.RunAsync(NewEngine(new InMemoryMemoryGraphStore(), acts, gain),
             MemoryCorpus.Generate(CorpusShape.Default with { ExpandRatio = 3 }, Seed), QueryLimit);
@@ -177,7 +175,7 @@ public sealed class MemoryReinforcementActTests
     /// consumers do expand; a consumer calling <c>RecallAsync</c> directly may never.</para>
     ///
     /// <para>This test pins that trade rather than describing it: it asserts the non-expanding case is worse
-    /// under an expansion-only setting, which is the entire reason the default did not move.</para></summary>
+    /// under an expansion-only setting, which is the entire reason the default stays.</para></summary>
     [Fact]
     public async Task Expansion_only_would_silently_degrade_an_application_that_never_expands()
     {

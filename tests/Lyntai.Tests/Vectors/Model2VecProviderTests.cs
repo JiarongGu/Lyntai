@@ -59,7 +59,7 @@ public class Model2VecProviderTests : IDisposable
     [Fact]
     public void Declares_EMBED_and_nothing_else_so_a_router_never_sends_it_a_chat()
     {
-        // A vector backend is a provider like any other now (D128) — what makes it a vector backend is the DECLARATION,
+        // A vector backend is a provider like any other (D128) — what makes it a vector backend is the DECLARATION,
         // not a separate interface. Asserting the absences is the half that matters: it is what stops the
         // router dispatching a completion here and getting the default Unsupported back.
         var vectorProvider = Model2VecProvider.FromDirectory(WriteModel(Vocabulary("alpha")));
@@ -74,7 +74,7 @@ public class Model2VecProviderTests : IDisposable
     [Fact]
     public void AddModel2Vec_registers_it_as_a_PROVIDER_as_well_as_the_vector_backend_slot()
     {
-        // Both halves are load-bearing: the slot keeps the one-vector backend deployment working untouched, and
+        // Both halves are load-bearing: the slot serves the one-vector-backend deployment, and
         // the provider collection is what lets a second vector backend be registered and told apart by id.
         var services = new ServiceCollection();
         services.AddLyntai(cfg => cfg.AddModel2VecProvider(WriteModel(Vocabulary("alpha"))));

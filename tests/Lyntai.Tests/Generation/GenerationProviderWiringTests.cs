@@ -8,9 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Lyntai.Tests.Generation;
 
 /// <summary>Per-backend <c>Add*</c> shims, the generation counterpart of <c>AddOpenAiProvider()</c> /
-/// <c>AddOllamaProvider()</c>. Before these, every media backend had to be hand-constructed WITH its
-/// <c>Func&lt;HttpClient&gt;</c> — an asymmetry the pre-2.0.1 consumer smoke surfaced
-/// (docs/task-archive.md Part 34).
+/// <c>AddOllamaProvider()</c>.
 ///
 /// What they must preserve: the BYO-HttpClient seam (design §7), and the rule that a Lyntai-created client has
 /// an INFINITE HttpClient timeout so the per-call deadline owns cancellation — a 100-second default would kill
@@ -80,10 +78,10 @@ public class GenerationProviderWiringTests
     [Fact]
     public async Task A_BYO_client_survives_a_second_render_because_Lyntai_never_disposes_it()
     {
-        // the backends take a Func<HttpClient> and disposed whatever it returned, which is right for a factory
-        // that MAKES a client per call and wrong for the natural BYO lambda `_ => _myClient`: the first render
+        // the backends take a Func<HttpClient>; disposing whatever it returns is right for a factory that
+        // MAKES a client per call and wrong for the natural BYO lambda `_ => _myClient`: the first render
         // succeeds and the second throws ObjectDisposedException. BYO means the host owns the lifecycle — the
-        // same rule the LLM side has always followed (`disposeHttpClient: !byo`).
+        // same rule the LLM side follows (`disposeHttpClient: !byo`).
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, OneImage).Enqueue(HttpStatusCode.OK, OneImage);
         using var mine = new HttpClient(handler);
         var services = new ServiceCollection();
@@ -105,8 +103,8 @@ public class GenerationProviderWiringTests
         // `() => new HttpClient(...)` must not leak one client per render
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, OneImage);
         HttpClient? made = null;
-        // The PROVIDER constructor still takes an options instance — only the Add* registration shims moved
-        // to a configure callback, because a callback is a registration idiom and this is direct construction.
+        // The PROVIDER constructor takes an options instance — only the Add* registration shims take a
+        // configure callback, because a callback is a registration idiom and this is direct construction.
         var provider = new OpenAiImageProvider(
             new OpenAiImageOptions { BaseUrl = "https://example.invalid/v1", ApiKey = "k" },
             () => made = new HttpClient(handler, disposeHandler: false));

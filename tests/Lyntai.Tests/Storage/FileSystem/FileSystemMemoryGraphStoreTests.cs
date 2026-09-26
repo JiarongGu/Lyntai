@@ -55,7 +55,7 @@ public class FileSystemMemoryGraphStoreTests : IDisposable
         await store.UpsertAsync(Note("zeta", "other"));
         _root.Root.Dispose();
         // a stray line for the same id in an engine directory that sorts AFTER the memory's own — what a failed
-        // write elsewhere once left behind
+        // write elsewhere can leave behind
         File.AppendAllText(Path.Combine(EngineDirectory("zeta"), "state", "journal.jsonl"), GraphLines.Node(own,
             new GraphNodeState(99, 42, 0, MemorySignals.Empty, 0, 0, DateTimeOffset.UnixEpoch, 0, 0, 5)) + "\n");
 

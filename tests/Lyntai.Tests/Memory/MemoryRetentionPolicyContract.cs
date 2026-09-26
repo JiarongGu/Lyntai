@@ -5,10 +5,6 @@ namespace Lyntai.Tests.Memory;
 
 /// <summary>Policy-agnostic facts every <see cref="IMemoryRetentionPolicy"/> satisfies.
 ///
-/// <para><b>Why this file exists.</b> Retention was one of four seams with no contract while
-/// <c>PolicyContractCoverageTests</c> made coverage structural for three others. Added 2026-08-17 by the
-/// pre-3.0 sweep (archive Part 86).</para>
-///
 /// <para><b>What a violation costs is DELETION, not a short recall.</b> <c>CandidateCutoff</c> is expressed
 /// against the STORED stability, which modulation does not change, so the cutoff widens by the product of
 /// every registered policy's declared maximum. Seeding applies no faintness bound at all, so that cutoff's

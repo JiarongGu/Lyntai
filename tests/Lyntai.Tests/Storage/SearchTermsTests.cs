@@ -3,7 +3,7 @@ using Lyntai.Storage;
 namespace Lyntai.Tests.Storage;
 
 /// <summary>
-/// <see cref="SearchTerms"/>'s own facts, separate from <see cref="FtsQueryTests"/> because the split is now
+/// <see cref="SearchTerms"/>'s own facts, separate from <see cref="FtsQueryTests"/> because the split is
 /// shared by every backend rather than owned by the FTS path — so a defect here is a defect in all six
 /// callers at once, not in one query builder.
 /// <para>Covers the claims made in <c>docs/DECISIONS.md</c> D55 that nothing else exercises: that all three
@@ -33,9 +33,9 @@ public class SearchTermsTests
 
     /// <summary><b>Ordinary Japanese mixes kanji and kana, and segmenting on that boundary is a cheap
     /// approximation of word segmentation</b> — kanji runs carry the content words, kana runs carry grammar.
-    /// <c>日本語の文章です</c> yields <c>日本語</c> and nothing else: the sliding windows that used to span the
-    /// boundary (<c>語の文</c>, <c>の文章</c>) were never words, and they are the kind of low-information term
-    /// that made Japanese pollute more than any other language measured.
+    /// <c>日本語の文章です</c> yields <c>日本語</c> and nothing else: sliding windows spanning the
+    /// boundary (<c>語の文</c>, <c>の文章</c>) are not words, and they are the kind of low-information term
+    /// that makes Japanese pollute more than any other language measured.
     /// <para><b>The cost is real and stated:</b> <c>文章</c> is a genuine two-character word and is lost from
     /// the INDEX path, because two characters are below what a trigram index can match. The substring path
     /// still carries it as a short gram. Whether that trade is worth it is a measurement, not an argument —
@@ -51,22 +51,18 @@ public class SearchTermsTests
 
     /// <summary><b>A query whose tokens are ALL below the index floor still yields its short grams.</b>
     ///
-    /// <para>The regression this pins: <see cref="SearchTerms.SubstringTerms"/> short-circuited on
-    /// <c>Extract</c> returning empty and never consulted the short grams at all, so a multi-word CJK query
-    /// like <c>"配偶 客户"</c> — two ordinary two-character words, which this file's own docs call the COMMON
-    /// case for Chinese — produced NO terms. Every substring backend then fell back to matching the whole
-    /// trimmed query as one literal (<c>LikeClause</c>'s own <c>terms.Count == 0</c> fallback), i.e.
-    /// <c>%配偶 客户%</c>, which requires that exact phrase INCLUDING the space and so matches nothing that
+    /// <para><see cref="SearchTerms.SubstringTerms"/> must not short-circuit on <c>Extract</c> returning
+    /// empty. If it does, a multi-word CJK query like <c>"配偶 客户"</c> — two ordinary two-character words,
+    /// the COMMON case for Chinese — produces NO terms, and every substring backend falls back to matching
+    /// the whole trimmed query as one literal (<c>LikeClause</c>'s own <c>terms.Count == 0</c> fallback),
+    /// i.e. <c>%配偶 客户%</c>, which requires that exact phrase INCLUDING the space and so matches nothing
     /// ordinary prose contains.</para>
     ///
-    /// <para><b>The tell was the asymmetry, not the empty list.</b> The identical token <c>配偶</c> DID
-    /// survive when a longer word accompanied it (<c>"配偶 叫什么名字"</c>), because the long token made
-    /// <c>Extract</c> non-empty and the short grams were appended. So the same word was kept or dropped
-    /// depending on its NEIGHBOURS — which no design would choose.</para>
-    ///
-    /// <para>The single-token case (<c>"配偶"</c> alone) was never broken and stays covered below: it
-    /// produced no terms and fell through to the whole-query scan, which for one token is the SAME pattern
-    /// (<c>%配偶%</c>). That coincidence is precisely why this went unnoticed.</para></summary>
+    /// <para><b>The tell is the asymmetry, not the empty list.</b> A longer neighbour
+    /// (<c>"配偶 叫什么名字"</c>) makes <c>Extract</c> non-empty, so a short-circuit keeps <c>配偶</c> there
+    /// and drops it alone — the same word kept or dropped depending on its NEIGHBOURS. The single-token case
+    /// (<c>"配偶"</c> alone) hides the defect: its whole-query fallback is the SAME pattern
+    /// (<c>%配偶%</c>).</para></summary>
     [Fact]
     public void Short_grams_survive_when_every_token_is_below_the_index_floor()
     {
@@ -76,14 +72,13 @@ public class SearchTermsTests
 
         Assert.Equal(["配偶", "客户"], SearchTerms.SubstringTerms("配偶 客户"));
 
-        // and the asymmetry is gone: the same token survives with or without a long neighbour
+        // and the same token survives with or without a long neighbour
         Assert.Contains("配偶", SearchTerms.SubstringTerms("配偶 叫什么名字"));
         Assert.Contains("配偶", SearchTerms.SubstringTerms("配偶 客户"));
     }
 
-    /// <summary>The single-token case, unchanged — kept beside the fact above so the two cannot drift apart.
-    /// One short token yields exactly itself, which matches what the whole-query fallback would have
-    /// produced anyway.</summary>
+    /// <summary>The single-token case, kept beside the fact above so the two cannot drift apart. One short
+    /// token yields exactly itself, which is also what the whole-query fallback produces.</summary>
     [Fact]
     public void A_single_below_floor_token_yields_itself()
     {
@@ -91,10 +86,9 @@ public class SearchTermsTests
         Assert.Empty(SearchTerms.Extract("配偶"));
     }
 
-    /// <summary>An all-ASCII query is untouched by the fix: <see cref="ScriptProfile.Spaced"/> does not
-    /// expand, so there are no short grams to add and a two-letter word stays out (it would match almost
-    /// every row). Pinned because the obvious over-broad fix — always unioning — must not start emitting
-    /// ASCII fragments.</summary>
+    /// <summary>An all-ASCII query gains no short grams: <see cref="ScriptProfile.Spaced"/> does not
+    /// expand, so a two-letter word stays out (it would match almost every row). Pinned because the obvious
+    /// over-broad rule — always unioning — would start emitting ASCII fragments.</summary>
     [Fact]
     public void An_ascii_query_gains_no_short_grams()
     {
@@ -150,9 +144,7 @@ public class SearchTermsTests
     /// <summary>The profile of a token's FIRST script run — which for a single-script token is simply its
     /// profile, and that is the case a consumer asks about.
     /// <para>A mixed token deliberately has no single answer: analysis segments it into runs and treats each
-    /// under its own rules, which is strictly better than picking one set of rules for both halves. An
-    /// earlier version returned "the most demanding script present" precisely because it had to choose;
-    /// segmentation removed the need to.</para></summary>
+    /// under its own rules, which is strictly better than picking one set of rules for both halves.</para></summary>
     [Theory]
     [InlineData("deploy", "spaced")]
     [InlineData("配偶是爱丽丝", "han")]
@@ -189,9 +181,8 @@ public class SearchTermsTests
     }
 
     /// <summary>Digits and punctuation are script-NEUTRAL and must never split a run. Without this,
-    /// <c>第3轮</c> and <c>重复0</c> break into single characters and yield NO terms at all — a regression on
-    /// perfectly ordinary CJK, and the reason run segmentation needed a refinement rather than being applied
-    /// naively.</summary>
+    /// <c>第3轮</c> and <c>重复0</c> break into single characters and yield NO terms at all, on perfectly
+    /// ordinary CJK.</summary>
     [Fact]
     public void A_digit_does_not_split_a_run()
     {
@@ -241,9 +232,8 @@ public class SearchTermsTests
     /// <summary>The expansion is bounded: the input is raw user text and the output sizes a SQL expression.
     /// Asserted against the constant rather than a literal, so raising the cap cannot leave this passing for
     /// the wrong reason.
-    /// <para>The run is built from DISTINCT characters on purpose. A first draft used repeated ones and
-    /// yielded 7 terms rather than the cap — because de-duplication collapsed them long before the bound was
-    /// reached, so the test would have passed the day the cap was deleted.</para></summary>
+    /// <para>The run is built from DISTINCT characters on purpose: repeated ones de-duplicate to a handful
+    /// of terms long before the bound is reached, so the test would pass with the cap deleted.</para></summary>
     [Fact]
     public void A_long_spaceless_run_is_capped()
     {
@@ -257,7 +247,7 @@ public class SearchTermsTests
     }
 
     /// <summary>Repeats collapse — a doubled word or a repeated character sequence must not inflate the
-    /// expression, and on the substring backends it would otherwise inflate the matched-term COUNT that now
+    /// expression, and on the substring backends it would otherwise inflate the matched-term COUNT that
     /// leads their ordering, letting a query outrank itself by repeating a word.</summary>
     [Fact]
     public void Terms_are_de_duplicated_case_insensitively()
@@ -281,7 +271,7 @@ public class SearchTermsTests
     // ---- LikeClause: what the substring backends actually run ----
 
     /// <summary>One predicate and one score term per extracted term, with the values parameterized. The
-    /// COUNT expression is what the non-FTS backends now order by, so a query matching more of the user's
+    /// COUNT expression is what the non-FTS backends order by, so a query matching more of the user's
     /// words outranks one matching less — the coarse stand-in for the bm25 SQLite gets for free.</summary>
     [Fact]
     public void LikeClause_emits_one_predicate_and_one_score_per_term()
@@ -321,8 +311,7 @@ public class SearchTermsTests
     }
 
     /// <summary>A query too short to yield a term falls back to matching the WHOLE query as one substring —
-    /// the behaviour a short query always had, and what makes a two-character CJK word findable at all.
-    /// </summary>
+    /// what makes a two-character CJK word findable at all.</summary>
     [Fact]
     public void LikeClause_falls_back_to_the_whole_query_when_nothing_clears_the_floor()
     {
@@ -368,14 +357,13 @@ public class SearchTermsTests
         Assert.Equal(["%deploy%", "%pipeline%"], patterns);
     }
 
-    // ---- does a 3-gram DISCRIMINATE in an abugida? (`docs/task-archive.md` Part 71) --------------------
+    // ---- does a 3-gram DISCRIMINATE in an abugida? ----------------------------------------------------
 
     /// <summary>Distinct everyday words per script, chosen to share no meaning and, as far as possible, no
     /// characters — so any measured overlap is the TOKENIZER's, not the vocabulary's.
-    /// <para><b>Long enough to produce grams at all.</b> A first draft used two-character Han words and
-    /// measured nothing: below <see cref="SearchTerms.MinimumTermLength"/> the extractor deliberately
-    /// returns EMPTY, which is its documented signal for the caller to fall back to a whole-query substring
-    /// scan. Comparing scripts on words that all tokenize to nothing would have compared nothing.</para></summary>
+    /// <para><b>Long enough to produce grams at all:</b> below <see cref="SearchTerms.MinimumTermLength"/>
+    /// the extractor deliberately returns EMPTY (its signal for the whole-query substring fallback), so
+    /// words that all tokenize to nothing compare nothing.</para></summary>
     public static TheoryData<string, string[]> ScriptWords() => new()
     {
         // Han — the arm with a corpus behind it, so it is the reference the others are read against.
@@ -398,15 +386,13 @@ public class SearchTermsTests
         { "tibetan", ["དཔེ་ཆ", "སློབ་གྲྭ", "མེ་འཁོར", "ཁ་ལག", "སྨན་ཁང", "གཙང་པོ", "རི་བོ", "ཚོང་ཁང"] },
     };
 
-    /// <summary><b>Whether a 3-gram discriminates at all in an abugida — Part 65's standing doubt, measured
-    /// for the first time.</b>
+    /// <summary><b>Whether a 3-gram discriminates at all in an abugida.</b>
     ///
-    /// <para><b>The doubt, precisely.</b> Thai, Lao, Khmer, Burmese and Tibetan were given Han's profile
-    /// because it was the safe default, not because anything measured them. In these scripts a written
-    /// syllable is a base consonant plus stacked vowel and tone marks, each its own code point — so three
-    /// UTF-16 chars can be LESS than one syllable, and the grams may be sub-syllabic fragments that many
-    /// unrelated words share. That is the same mismatch that made kana trigrams weak discriminators, and
-    /// kana's numbers were asserted to behave like Chinese while being half a metric wrong.</para>
+    /// <para><b>The doubt, precisely.</b> Thai, Lao, Khmer, Burmese and Tibetan take Han's profile as the
+    /// safe default, not because anything measured them. In these scripts a written syllable is a base
+    /// consonant plus stacked vowel and tone marks, each its own code point — so three UTF-16 chars can be
+    /// LESS than one syllable, and the grams may be sub-syllabic fragments that many unrelated words share:
+    /// the same mismatch that makes kana trigrams weak discriminators.</para>
     ///
     /// <para><b>What this measures, and what it does not.</b> It measures the tokenizer's DISCRIMINATION on
     /// isolated, unrelated words: the share of word PAIRS that share any term at all. That is the property
@@ -447,6 +433,6 @@ public class SearchTermsTests
         // at which the profile would need a different gram length rather than Han's.
         Assert.True(collisionRate <= 0.5,
             $"[{script}] {colliding}/{pairs} unrelated word pairs share a term ({collisionRate:P0}) — a " +
-            "3-gram is not discriminating in this script, which is what Part 65 doubted");
+            "3-gram is not discriminating in this script");
     }
 }

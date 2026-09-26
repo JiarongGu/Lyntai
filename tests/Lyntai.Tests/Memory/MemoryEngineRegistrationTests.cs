@@ -49,9 +49,9 @@ public class MemoryEngineRegistrationTests
     public void A_single_engine_under_any_name_is_the_default_the_parameterless_Get_returns()
     {
         // The interface doc: "the one named 'default', or the ONLY one when exactly one is registered."
-        // The only-one fallback counted index ENTRIES, which include a composite's members — so the one
+        // An only-one fallback that counts index ENTRIES counts a composite's members too — so the one
         // path that reaches it through the public API (a sole engine not named "default", whose lexical
-        // member makes the index 2) threw "2 are registered" at the consumer who registered exactly one.
+        // member makes the index 2) throws "2 are registered" at the consumer who registered exactly one.
         using var sp = Build(cfg => cfg.AddMemoryEngine("project", e => e.UseLexical()));
 
         var engine = sp.GetRequiredService<IMemoryEngineFactory>().Get();

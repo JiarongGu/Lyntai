@@ -275,7 +275,7 @@ public class OnnxCrossEncoderReachabilityTests
 /// <para><b>`OnnxRegistrationTests` proves the DI premise and cannot prove this.</b> It shows that MS.DI
 /// disposes a factory-registered singleton and not an instance-registered one, against a hand-rolled fake —
 /// so rewriting either builder call to <c>AddSingleton(instance)</c>, the "tidy-up" its comment warns about,
-/// left the whole suite green. Pinning a RULE while the CALL SITE stays unreachable is the shape this
+/// would leave that suite green. Pinning a RULE while the CALL SITE stays unreachable is the shape this
 /// repository records in `pitfalls.md`; the fix it prescribes for two copies of one decision is ONE call
 /// site, which is also what makes it reachable here.</para></summary>
 public class OnnxOwnershipTests
@@ -312,9 +312,8 @@ public class OnnxOwnershipTests
         Assert.True(provider.WasDisposed, "the container disposed nothing — it was handed an instance");
     }
 
-    /// <summary>Since <b>D152</b> the registration READS the provider's own capabilities rather than being
-    /// told which kind it is, so this now pins that the reading is right — where before it pinned that one
-    /// call site passed the correct <c>embeds</c> literal.</summary>
+    /// <summary>The registration READS the provider's own capabilities rather than being told which kind it
+    /// is (<b>D152</b>), so this pins that the reading is right.</summary>
     [Fact]
     public void Registering_the_CROSS_ENCODER_does_not_claim_the_deployment_can_embed()
     {

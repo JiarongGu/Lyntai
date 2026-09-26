@@ -7,7 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Lyntai.Tests.Jobs;
 
-/// <summary>The opt-in memory-prune job (Part 15): a durable-job handler that calls
+/// <summary>The opt-in memory-prune job: a durable-job handler that calls
 /// <see cref="IMemoryStore.PruneAsync"/>, plus the <c>AddMemoryPruneJob</c> cron registration. Lyntai owns
 /// the prune WORK; the app owns the pump (drives <c>IJobScheduler</c>/<c>IJobRunner</c>).</summary>
 public class MemoryPruneJobTests

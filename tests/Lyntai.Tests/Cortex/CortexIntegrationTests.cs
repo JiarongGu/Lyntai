@@ -10,7 +10,7 @@ using Lyntai.Tests.Fakes;
 
 namespace Lyntai.Tests.Cortex;
 
-/// <summary>Phase 5 acceptance: the whole LLM-ops loop — prompt override → run → score (incl. an LLM
+/// <summary>The whole LLM-ops loop — prompt override → run → score (incl. an LLM
 /// judge through the router) → trace → remember/compose — against real SQLite + the provider stub.</summary>
 [Collection("provider-cmd-env")] // uses LYNTAI_PROVIDER_CMD for the judge's claude-cli call
 public class CortexIntegrationTests : IDisposable
@@ -39,7 +39,7 @@ public class CortexIntegrationTests : IDisposable
         _db.Dispose();
     }
 
-    [Fact] // 5.1 — prompt override persisted in SQLite KV changes the rendered prompt
+    [Fact]
     public async Task Prompt_override_in_sqlite_kv_changes_the_render()
     {
         var kv = _sp.GetRequiredService<IKeyValueStore>();
@@ -53,7 +53,7 @@ public class CortexIntegrationTests : IDisposable
             new Dictionary<string, string> { ["v"] = "x" }));
     }
 
-    [Fact] // 5.3 — the LLM judge runs through the router against the stub's SCORING TASK path
+    [Fact] // the LLM judge runs through the router against the stub's SCORING TASK path
     public async Task Llm_judge_scorer_returns_the_stub_verdict()
     {
         var judge = new RelevancyScorer(_sp.GetRequiredService<ITextClient>());
@@ -66,7 +66,7 @@ public class CortexIntegrationTests : IDisposable
         Assert.Equal("stub judge verdict", result.Reason);
     }
 
-    [Fact] // 5.4 — evaluate persists results readable from the score store
+    [Fact]
     public async Task Evaluate_persists_results_to_the_score_store()
     {
         var scoring = _sp.GetRequiredService<IScoringService>();
@@ -86,7 +86,7 @@ public class CortexIntegrationTests : IDisposable
         Assert.Contains(persisted, r => r.ScorerId == "relevancy" && r.Score == 0.8 && r.IsLlm);
     }
 
-    [Fact] // 5.5 — trace recorder persists steps + totals through the trace store
+    [Fact] // trace recorder persists steps + totals through the trace store
     public async Task Trace_recorder_persists_and_reads_back()
     {
         var traces = _sp.GetRequiredService<ITraceService>();
@@ -105,7 +105,7 @@ public class CortexIntegrationTests : IDisposable
         Assert.NotNull(loaded.EndedAt);
     }
 
-    [Fact] // 5.6 — remembered facts surface in a composed prompt
+    [Fact]
     public async Task Composer_appends_recalled_facts()
     {
         var memory = _sp.GetRequiredService<IMemoryStore>();

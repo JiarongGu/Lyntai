@@ -4,7 +4,7 @@ using Lyntai.Storage.InMemory;
 namespace Lyntai.Tests.Storage;
 
 /// <summary>Every <see cref="ScoreStoreContract"/> method as a [Fact] — derive with a store factory and
-/// the whole contract runs on that backend automatically (T11: no silent skips). Postgres deliberately
+/// the whole contract runs on that backend automatically (no silent skips). Postgres deliberately
 /// does NOT derive: its table-wide Aggregate/Export methods can't run on the shared container, so it
 /// keeps a session-scoped subset (see <c>PostgresStorageTests</c>).</summary>
 public abstract class ScoreStoreContractFacts

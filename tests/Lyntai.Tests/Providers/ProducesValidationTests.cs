@@ -7,8 +7,8 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Lyntai.Tests.Providers;
 
 /// <summary>A <c>Produces</c> the backend cannot serve is refused at COMPOSITION, by all three siblings that
-/// take one, with ONE exception type naming the option and the kinds it does serve. Accepting it registered
-/// a backend that declared the kind to every router and answered every call by throwing — a typo in an open
+/// take one, with ONE exception type naming the option and the kinds it does serve. Accepting it would register
+/// a backend that declares the kind to every router and answers every call by throwing — a typo in an open
 /// vocabulary (<c>"embedding"</c>, <c>"vectors"</c>) is the likely way to reach it.</summary>
 public class ProducesValidationTests
 {

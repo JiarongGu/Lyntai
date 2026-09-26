@@ -152,7 +152,7 @@ public class RecallQualityNOfTests
     [Fact]
     public void A_single_member_alone_is_credited_but_never_scores_as_a_complete_answer()
     {
-        // The owner's objection, as a fact: "on Tuesday I had noodles" is not "I usually have noodles". This
+        // "On Tuesday I had noodles" is not "I usually have noodles". This
         // pins the BOUNDARY rather than repeating the exact fraction — that number
         // (Below_the_threshold_misses_in_PROPORTION_to_what_is_missing computes it as (3 - 1) / 3) belongs to
         // the sibling test, which is where a reader goes to see the arithmetic. What this test alone asserts:

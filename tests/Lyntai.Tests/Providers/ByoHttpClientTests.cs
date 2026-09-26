@@ -18,9 +18,8 @@ public class ByoHttpClientTests
     [Fact]
     public async Task App_supplied_httpclient_is_used_and_survives_repeated_calls()
     {
-        // two responses + two calls on ONE shared client — before the ownership fix, the 1st call
-        // disposed the app's client and the 2nd threw ObjectDisposedException (the old single-call
-        // test masked this)
+        // two responses + two calls on ONE shared client: a provider that disposes the app's client after
+        // the 1st call makes the 2nd throw ObjectDisposedException, which a single-call test cannot see
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, OkBody).Enqueue(HttpStatusCode.OK, OkBody);
         using var appClient = new HttpClient(handler); // the app's own client + handler pipeline; app owns disposal
 

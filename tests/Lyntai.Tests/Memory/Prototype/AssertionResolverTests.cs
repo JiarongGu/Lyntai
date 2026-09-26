@@ -16,8 +16,8 @@ namespace Lyntai.Tests.Memory.Prototype;
 /// half is not.</para>
 ///
 /// <para><b>The in-process store on purpose.</b> The subject here is RESOLUTION LOGIC, and the store
-/// behaviour it depends on — that metadata round-trips, and that it is write-once — is pinned across every
-/// backend by <c>MemoryGraphStoreContract</c> rather than re-asserted here. Running these on one
+/// behaviour it depends on — that metadata round-trips, and what a re-remember does to it — is pinned
+/// across every backend by <c>MemoryGraphStoreContract</c> rather than re-asserted here. Running these on one
 /// backend is therefore a choice about speed, not a gap.</para>
 /// </summary>
 public class AssertionResolverTests
@@ -156,10 +156,9 @@ public class AssertionResolverTests
     [Fact]
     public async Task The_interval_is_DERIVED_because_metadata_cannot_be_revised_in_place()
     {
-        // Pins the constraint that shaped the resolver rather than leaving it in prose. Metadata is
-        // write-once across a re-remember (MemoryGraphStoreContract), so an assertion cannot be closed off
-        // once a successor arrives — its end has to come from the successor's start. If metadata ever
-        // becomes revisable, this is the test that should make someone re-read the design.
+        // Pins the derivation rather than leaving it in prose: an assertion's end comes from its
+        // successor's start, never from a stored ValidTo. Metadata is revisable (D91), so despite this
+        // test's name the derivation is a CHOICE — AssertionResolver's remarks say why it stands.
         var (engine, store) = Build();
         await engine.RememberAsync(Assert_("the production database is db-prod-1",
             "2026-07-01T00:00:00Z", "2026-07-01T00:00:00Z", "runbook"));

@@ -6,8 +6,8 @@ namespace Lyntai.Tests.Fakes;
 ///
 /// <para><b>It deliberately DROPS the verdict</b>, which is exactly right for the tests that use it — they
 /// assert on the vectors and would otherwise repeat the same unwrap on every line. A test that cares how a
-/// call FAILED calls <c>CallAsync</c> directly and reads <see cref="VectorResponse.Verdict"/>; that is the
-/// behaviour D153 added, so hiding it behind this shim in those tests would test the shim.</para></summary>
+/// call FAILED calls <c>CallAsync</c> directly and reads <see cref="VectorResponse.Verdict"/>; that
+/// behaviour is D153's, so hiding it behind this shim in those tests would test the shim.</para></summary>
 internal static class ProviderCallExtensions
 {
     public static async Task<IReadOnlyList<float[]>> EmbedAsync(

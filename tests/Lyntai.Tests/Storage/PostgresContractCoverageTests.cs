@@ -9,18 +9,13 @@ namespace Lyntai.Tests.Storage;
 /// Every storage contract fact runs on POSTGRES too — checked structurally rather than remembered.
 /// </summary>
 /// <remarks>
-/// <para>The gap this closes. <c>MemoryGraphStoreCoverageTests</c> makes graph-store coverage structural by
+/// <para><c>MemoryGraphStoreCoverageTests</c> makes graph-store coverage structural by
 /// driving every backend from one <c>[MemberData]</c> source, so a new fact cannot be added to one
 /// backend only. Every OTHER storage contract is wired to Postgres by a hand-maintained list of
 /// <c>[SkippableFact]</c> delegators — so a fact added to a contract runs automatically on InMemory and
 /// SQLite (they derive from a shared base) and silently does not run on Postgres. Nothing reports that, and
 /// on a machine with Docker down the whole leg degrades to a SKIP rather than a failure, so the miss is
 /// invisible twice over.</para>
-///
-/// <para>Measured while writing this file: adding
-/// <c>ConversationStoreContract.A_cursor_at_the_same_instant_falls_back_to_the_id</c> required a hand edit to
-/// <c>PostgresStorageTests</c> that nothing would have demanded. That fact turned out to fail on Postgres
-/// under mutation, so the backend it would have skipped is the one it catches defects on.</para>
 ///
 /// <para>This is a SOURCE-TEXT check, deliberately. A delegator's body cannot be read by reflection, and the
 /// alternative — restructuring six suites onto member-data theories — is a much larger change than the

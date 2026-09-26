@@ -136,7 +136,7 @@ public class MemoryAgeCompositionTests
         var node = await store.GetAsync("mixed", id);
         Assert.NotNull(node);
 
-        // the WRITE-side fix, checked directly: the accumulator holds ONLY the accumulating share
+        // the WRITE side, checked directly: the accumulator holds ONLY the accumulating share
         Assert.Equal(2, node!.Age, precision: 9);
         Assert.Equal(2, node.AgeSample.Ordinal, precision: 9); // unconditional primitive, unaffected either way
         Assert.Equal(20, node.AgeSample.ElapsedDays, precision: 9); // unconditional primitive, unaffected either way
@@ -164,7 +164,7 @@ public class MemoryAgeCompositionTests
     public void A_single_Accumulating_policy_alongside_any_number_of_Derivable_ones_is_still_allowed()
     {
         // the rejection is specifically about TWO OR MORE Accumulating policies — mixing one Accumulating
-        // with several coexisting Derivable ones (the whole point of Steps 1-2) must not be swept up in it
+        // with several coexisting Derivable ones must not be swept up in it
         var engine = new GraphMemoryEngine("e", new InMemoryMemoryGraphStore(), seams: new GraphMemorySeams
             {
                 AgePolicies = [new BurstDampenedAgePolicy(), new PerWriteAgePolicy(), new ElapsedAgePolicy()],

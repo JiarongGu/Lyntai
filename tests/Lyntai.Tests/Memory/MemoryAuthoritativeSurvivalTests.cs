@@ -10,12 +10,12 @@ using Lyntai.Tests.Storage;
 namespace Lyntai.Tests.Memory;
 
 /// <summary>
-/// <b>Objective (1): never lose an authoritative fact — measured end to end for the first time.</b>
+/// <b>Objective (1): never lose an authoritative fact — measured end to end.</b>
 ///
 /// <para>Design §5.7.0 orders the memory engine's goals lexicographically, and objective (1) is the only one
-/// with NO acceptable failure rate. Until <see cref="CorpusShape.AuthoritativeCount"/> existed the corpus
-/// held zero <see cref="MemoryGrade"/> references, so every number this project has ever published was about
-/// objectives (2) and (3): a null result on (1) meant "not exercised", never "kept". The store-level contract
+/// with NO acceptable failure rate. A corpus without <see cref="CorpusShape.AuthoritativeCount"/> holds zero
+/// <see cref="MemoryGrade"/> references, so it measures only objectives (2) and (3): a null result on (1)
+/// means "not exercised", never "kept". The store-level contract
 /// facts cover ADMISSION — that <c>SeedAsync</c>'s grade carve-out puts an exact fact into the candidate set
 /// — and say nothing about whether it survives ranking, the limit, and a corpus-long interference gap.</para>
 ///

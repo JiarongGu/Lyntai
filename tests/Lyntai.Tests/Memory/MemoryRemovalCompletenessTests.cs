@@ -9,15 +9,15 @@ namespace Lyntai.Tests.Memory;
 /// <summary>
 /// Removal reaches the SIMILARITY INDEX, not only the graph store.
 ///
-/// <para><b>What was wrong.</b> <c>EnrichAsync</c> indexes every write as
+/// <para><b>Why it matters.</b> <c>EnrichAsync</c> indexes every write as
 /// <c>vectors.UpsertAsync(collection, id, vector, write.Content)</c> — the payload is the entry's full
-/// content, verbatim — and neither <c>ForgetAsync</c> nor <c>PruneAsync</c> touched that store. So the
+/// content, verbatim — so a <c>ForgetAsync</c> or <c>PruneAsync</c> that does not touch that store leaves the
 /// consent-withdrawal path (<see cref="IForgettableMemory"/>: "the deletion path an application uses when a
-/// user withdraws consent") left the content readable in the projection, and pruning left an orphan that
+/// user withdraws consent") with the content readable in the projection, and pruning with an orphan that
 /// still costs a semantic-seed slot and a <c>GetAsync</c> round trip on every later recall.</para>
 ///
-/// <para><b>Why the graph store's own contract could not catch it.</b> The identical defect was found for
-/// SUBJECT rows and fixed inside <c>IMemoryGraphStore</c>, where a contract fact can see it. Vectors live in
+/// <para><b>Why the graph store's own contract cannot catch it.</b> The same defect for SUBJECT rows lives
+/// inside <c>IMemoryGraphStore</c>, where a contract fact can see it. Vectors live in
 /// a store the graph store does not own, so the removal verbs are a SECOND DOOR onto shared state — the
 /// shape <c>.claude/knowledge/pitfalls.md</c> §Second doors records, where the question is not "is this code
 /// correct" but "what else can reach these objects, and does it apply the same rules".</para>
@@ -246,11 +246,9 @@ public class MemoryRemovalCompletenessTests
         // by its own contract -- "removing fewer entries than hoped is a deferred cost rather than a
         // defect" -- and it clears the index AFTER the store, so by the time the index fails the nodes are
         // already gone. Throwing there would lose the COUNT and leave the caller unable to tell that the
-        // prune had in fact succeeded; the honest degradation is an orphaned vector, which is exactly the
-        // state the whole store was in before any of this existed.
+        // prune had in fact succeeded; the honest degradation is an orphaned vector.
         //
-        // The ORDER was asymmetric from the start and the ERROR HANDLING was not, which is the defect this
-        // fact was written to catch.
+        // An asymmetric ORDER with symmetric ERROR HANDLING is the defect this fact catches.
         var store = new InMemoryMemoryGraphStore();
         var engine = Engine(new RemovalHostileVectorStore(), new GraphMemoryOptions { MinRetrievability = 0.9 },
             store);
@@ -264,7 +262,7 @@ public class MemoryRemovalCompletenessTests
     }
 
     /// <summary>An <see cref="IVectorStore"/> whose every operation fails — a backend that is down, which is
-    /// the condition both removal verbs have to answer for and neither had been asked about.</summary>
+    /// the condition both removal verbs have to answer for.</summary>
     private sealed class RemovalHostileVectorStore : IVectorStore
     {
         public Task UpsertAsync(string collection, string id, float[] vector, string payload,

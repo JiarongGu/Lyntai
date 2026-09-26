@@ -5,11 +5,9 @@ namespace Lyntai.Tests.Memory;
 
 /// <summary>Policy-agnostic facts every <see cref="IMemoryAgePolicy"/> satisfies.
 ///
-/// <para><b>Why this file exists.</b> The age family had FOUR shipped implementations and NO contract — each
-/// was covered only by whatever its own tests happened to assert. That is the family <c>CLAUDE.md</c>'s
-/// headline claim is about ("all THREE age axes now speak one unit"), and it feeds
-/// <c>IMemoryRetrievabilityPolicy</c> directly, so a divergence here changes what every recall ranks and what
-/// <c>PruneAsync</c> deletes. Added 2026-08-14 by the whole-codebase review.</para>
+/// <para><b>Why this file exists.</b> Without a contract each shipped age policy is covered only by whatever
+/// its own tests happen to assert, and the family feeds <c>IMemoryRetrievabilityPolicy</c> directly, so a
+/// divergence here changes what every recall ranks and what <c>PruneAsync</c> deletes.</para>
 ///
 /// <para>The obligations below are the interface's OWN written promises, not invented ones: a finite,
 /// non-negative age; <c>Kind</c> declared rather than inferred; a <c>Derivable</c> policy being a pure
@@ -27,8 +25,7 @@ public static class MemoryAgePolicyContract
 
     /// <summary>The obligation the interface states in bold: a finite, non-negative number. Written as a
     /// contract fact because it is stated on somebody else's type and there is nowhere in the library to
-    /// validate it — the review that added that paragraph found a <c>NaN</c> had already got through once.
-    /// </summary>
+    /// validate it.</summary>
     public static void Age_is_finite_and_non_negative(IMemoryAgePolicy policy)
     {
         foreach (var sample in Samples)
@@ -84,9 +81,8 @@ public static class MemoryAgePolicyContract
     /// without one engine's traffic ageing another's memories. Stated explicitly in the member's own summary;
     /// asserted here because a policy that ignored the parameter would look correct in every single-engine
     /// test and corrupt every multi-engine deployment.
-    /// <para><b>Compares two INSTANCES rather than asserting a direction on one</b>, and the first draft of
-    /// this fact got that wrong in an instructive way. It asserted that engine-a's second tick was not
-    /// smaller than its first, and <c>BurstDampenedAgePolicy</c> failed it — correctly. <c>MemoryTick.Position</c>
+    /// <para><b>Compares two INSTANCES rather than asserting a direction on one.</b> "Engine-a's second tick is
+    /// not smaller than its first" fails <c>BurstDampenedAgePolicy</c>, correctly: <c>MemoryTick.Position</c>
     /// is the INCREMENT one write contributes, not a running total, and burst damping divides it by the burst
     /// size on purpose so a bulk ingest ages the store less. A shrinking increment is the feature. What the
     /// per-engine promise actually says is that the OTHER engine's writes are invisible here, which is a

@@ -53,8 +53,8 @@ public class PiperProviderTests : IDisposable
     [InlineData("""{"audio": {"sample_rate": 22050.5}}""")]
     public async Task A_sample_rate_that_is_not_a_positive_integer_is_unstated_rather_than_a_throw(string voiceJson)
     {
-        // TryGetInt32 THROWS on a non-number, outside the JsonException catch — so the provider threw instead of
-        // yielding chunks; and a rate of 0 typed the chunks `rate=0` and divided the duration by zero
+        // TryGetInt32 THROWS on a non-number, outside the JsonException catch, so relying on it yields no
+        // chunks; and a rate of 0 types the chunks `rate=0` and divides the duration by zero
         var (provider, _, _) = Provider(voiceJson: voiceJson);
 
         var chunks = await Collect(provider, Ask());

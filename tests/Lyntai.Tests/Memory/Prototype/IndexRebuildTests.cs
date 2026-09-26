@@ -20,7 +20,7 @@ namespace Lyntai.Tests.Memory.Prototype;
 /// <see cref="MemoryVectorCollection.For"/> rather than hard-coded — a guessed format would populate
 /// collections nothing reads, and look like it worked.</para>
 ///
-/// <para>The last Phase-1 invariant of the proposal's own list; the rest were closed by the facts in
+/// <para>One Phase-1 invariant of the proposal's own list; the rest are pinned by the facts in
 /// <c>MemoryRemovalCompletenessTests</c>, <c>MemoryBurialNotDeletionTests</c> and
 /// <c>MemoryAuthoritativeSurvivalTests</c>.</para>
 /// </summary>

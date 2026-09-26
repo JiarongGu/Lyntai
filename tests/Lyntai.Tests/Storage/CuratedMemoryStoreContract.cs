@@ -124,11 +124,10 @@ public static class CuratedMemoryStoreContract
         Assert.DoesNotContain(id, (await store.ListAsync(taskKey: toTask)).Select(e => e.Id)); // strict admin filter
     }
 
-    /// <summary>The semantics that made re-scoping wait: <c>(kind, content, taskKey, scope)</c> is the
-    /// dedup identity, so an update that would move an entry ONTO an identity another entry already holds is
-    /// REFUSED (returns false, writes nothing) instead of silently minting the duplicate
-    /// <c>AddAsync(dedup: true)</c> promises not to create. All FOUR identity fields are pinned — <c>kind</c>
-    /// had the hole before <c>taskKey</c>/<c>scope</c> existed. Parameterized for the shared container.</summary>
+    /// <summary><c>(kind, content, taskKey, scope)</c> is the dedup identity, so an update that would move an
+    /// entry ONTO an identity another entry already holds is REFUSED (returns false, writes nothing) instead
+    /// of silently minting the duplicate <c>AddAsync(dedup: true)</c> promises not to create. All FOUR
+    /// identity fields are pinned. Parameterized for the shared container.</summary>
     public static async Task Update_refuses_an_identity_collision(ICuratedMemoryStore store,
         string task = "collide", string kind = "confirmed", string otherKind = "pitfall")
     {
@@ -147,7 +146,7 @@ public static class CuratedMemoryStoreContract
         Assert.Equal(otherTask, (await store.GetAsync(elsewhere))!.TaskKey);
 
         var miscategorised = await store.AddAsync(otherKind, "the selector is .price", taskKey: task, scope: "site:zh");
-        Assert.False(await store.UpdateAsync(miscategorised, kind: kind));         // kind collision (the older hole)
+        Assert.False(await store.UpdateAsync(miscategorised, kind: kind));         // kind collision
         Assert.Equal(otherKind, (await store.GetAsync(miscategorised))!.Kind);
 
         var otherBody = await store.AddAsync(kind, "the selector is .sku", taskKey: task, scope: "site:zh");
@@ -223,8 +222,8 @@ public static class CuratedMemoryStoreContract
         Assert.Equal(2, (await store.ListAsync(kind: "confirmed", taskKey: task, scope: scope)).Count);
     }
 
-    /// <summary><see cref="ICuratedMemoryStore.ListAsync"/> gains a strict-equality <c>scope</c> filter
-    /// (the admin/optimize pass: "all notes for ONE scope, incl. disabled"). Null scope = no filter (unchanged).</summary>
+    /// <summary><see cref="ICuratedMemoryStore.ListAsync"/>'s strict-equality <c>scope</c> filter
+    /// (the admin/optimize pass: "all notes for ONE scope, incl. disabled"). Null scope = no filter.</summary>
     public static async Task List_filters_by_scope(ICuratedMemoryStore store, string task = "opt")
     {
         var zh      = await store.AddAsync("glossary", "zh term",  taskKey: task, scope: "site:zh");
@@ -352,8 +351,7 @@ public static class CuratedMemoryStoreContract
         Assert.Equal(4, (await store.ListAsync(taskKey: task, metadataMatch: new Dictionary<string, string>())).Count);
     }
 
-    /// <summary>CMEM4 (content-only after CMEM6) — keyword <see cref="ICuratedMemoryStore.SearchAsync"/> matches
-    /// CONTENT, composes with the ListAsync-family strict filters (kind/taskKey/scope, enabledOnly default false),
+    /// <summary>Keyword <see cref="ICuratedMemoryStore.SearchAsync"/> matches CONTENT, composes with the ListAsync-family strict filters (kind/taskKey/scope, enabledOnly default false),
     /// caps via limit, and returns empty on a whitespace or unmatched query. Sticks to single ≥3-char lowercase
     /// tokens — the portable cross-backend guarantee (FTS5-trigram / ILIKE / Contains).</summary>
     public static async Task Search_matches_content_with_filters(ICuratedMemoryStore store, string task = "search")
@@ -387,11 +385,9 @@ public static class CuratedMemoryStoreContract
     }
 
     /// <summary><b>A multi-word query matches an entry carrying ANY of its terms, on every backend.</b>
-    /// <para>The fact above deliberately sticks to single tokens because that WAS the portable guarantee —
-    /// only SQLite's FTS path split a query, and Postgres and InMemory matched the whole thing as one
-    /// contiguous substring. As of 3.0 every backend uses the same split
-    /// (<see cref="Lyntai.Storage.SearchTerms"/>, <c>docs/DECISIONS.md</c> D55), so multi-word matching is
-    /// portable and belongs in the contract rather than in a per-backend test.</para>
+    /// <para>Every backend uses the same split (<see cref="Lyntai.Storage.SearchTerms"/>,
+    /// <c>docs/DECISIONS.md</c> D55), so multi-word matching is portable and belongs in the contract rather
+    /// than in a per-backend test.</para>
     /// <para>Both halves matter: the query must find an entry sharing ONE term, and must still miss an entry
     /// sharing none — a split that matched everything would satisfy the first alone.</para></summary>
     public static async Task Search_matches_any_term_of_a_multi_word_query(
@@ -409,9 +405,8 @@ public static class CuratedMemoryStoreContract
     }
 
     /// <summary><b>The same guarantee in a script that writes no spaces.</b> Whitespace splitting returns a
-    /// Chinese sentence as ONE token, so before 3.0 a CJK query here could only be an exact-substring match
-    /// while the equivalent English query got OR-over-words — the language decided the semantics.
-    /// <see cref="Lyntai.Storage.SearchTerms"/> expands a spaceless run into character trigrams, the unit
+    /// Chinese sentence as ONE token, which would make a CJK query an exact-substring match while the
+    /// equivalent English query gets OR-over-words. <see cref="Lyntai.Storage.SearchTerms"/> expands a spaceless run into character trigrams, the unit
     /// both relational backends already index.</summary>
     public static async Task Search_matches_a_chinese_query_without_spaces(
         ICuratedMemoryStore store, string task = "search-zh")

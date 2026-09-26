@@ -72,10 +72,9 @@ public class ScorersTests
     [Fact]
     public async Task Deterministic_scorers_publish_the_Extra_keys_they_read()
     {
-        // Part 43: StructureScorer's key was a bare literal inside ScoreAsync, so a caller populating Extra
-        // could only learn it by reading the source — while its sibling already published ErrorKey. Both are
-        // pinned to their WIRE values here: the const exists so callers stop guessing, and changing the
-        // string it holds would silently stop every existing declaration from being seen.
+        // Both keys are pinned to their WIRE values: the const is published so a caller populating Extra need
+        // not read the source, and changing the string it holds would silently stop every existing
+        // declaration from being seen.
         Assert.Equal("format", StructureScorer.FormatKey);
         Assert.Equal("error", OutcomeScorer.ErrorKey);
 

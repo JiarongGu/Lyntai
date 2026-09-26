@@ -8,16 +8,14 @@ using Xunit;
 
 namespace Lyntai.Tests.Storage;
 
-/// <summary>The load-bearing gate for the 1.0 Postgres migration-baseline squash — the parallel of
-/// <see cref="MigrationSchemaSnapshotTests"/> for the SQLite backend. Postgres stores no raw CREATE text,
+/// <summary>The Postgres parallel of <see cref="MigrationSchemaSnapshotTests"/>. Postgres stores no raw CREATE text,
 /// so this is a NORMALIZED CATALOG snapshot: the column SET (name/type/nullability/default, ordered by
 /// <c>table_name, column_name</c> — POSITION-AGNOSTIC, so cosmetic <c>ordinal_position</c> gaps left by
-/// historically dropped columns don't matter) + indexes (canonical <c>indexdef</c>, incl. PK/unique)
+/// dropped columns don't matter) + indexes (canonical <c>indexdef</c>, incl. PK/unique)
 /// + foreign keys (with ON DELETE), all filtered to <c>lyntai_</c> objects and ordered deterministically.
 /// Nothing in Lyntai depends on physical column order (all access is by name via Dapper). The canonical
-/// catalog is identical whether a column arrived via CREATE or a later ALTER, so collapsing the accreted
-/// migrations into per-domain baselines that are semantically equal must still MATCH the golden captured
-/// from the pre-squash set. Runs against a THROWAWAY, migrations-only container — NOT the
+/// catalog is identical whether a column arrived via CREATE or a later ALTER, so a semantically equal
+/// rewrite of the migrations still MATCHES the golden. Runs against a THROWAWAY, migrations-only container — NOT the
 /// shared fixture db, whose <c>PostgresVectorStore</c> tests lazily create <c>lyntai_vector</c> (leaking it
 /// into the dump under some test orderings). A fresh migrate-only db has no <c>lyntai_vector</c> (pgvector
 /// stays lazy) and no <c>lyntai_version_info</c> (excluded), exactly as the golden intends. Skips when
@@ -48,9 +46,8 @@ public sealed class PgMigrationSchemaSnapshotTests(PostgresFixture pg)
         Directory.CreateDirectory(SnapshotDir);
         var goldenPath = Path.Combine(SnapshotDir, "pg-schema.txt");
 
-        // Regeneration FAILS the run, for the reason spelled out in MigrationSchemaSnapshotTests' twin: the
-        // write preceded the compare, so with this variable set the assertion read actual == actual and could
-        // not fail. Both schema guards had that shape, so a stray export disarmed BOTH at once.
+        // Regeneration FAILS the run, for the reason MigrationSchemaSnapshotTests' twin gives: the write
+        // precedes the compare, so a passing run here would read actual == actual.
         if (Environment.GetEnvironmentVariable("LYNTAI_UPDATE_SCHEMA_SNAPSHOT") == "1")
         {
             File.WriteAllText(goldenPath, actual);

@@ -86,7 +86,7 @@ public class RefusalScreeningTests
         Assert.Equal(ProviderVerdict.Refused, reply.Verdict);
     }
 
-    // --- typed IRefusalMatcher seam (R21b) -------------------------------------------------------
+    // --- typed IRefusalMatcher seam -------------------------------------------------------------
 
     private sealed class ContainsMatcher(string needle) : IRefusalMatcher
     {

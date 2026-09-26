@@ -5,7 +5,7 @@ using Microsoft.Data.Sqlite;
 namespace Lyntai.Tests.Storage;
 
 /// <summary>The app-owned-schema recipe — <c>MigrateUp(path)</c> before <c>SchemaMigration.None</c> — works
-/// on a path whose directory does not exist yet, exactly as <c>UseSqliteStorage(path)</c> always did.</summary>
+/// on a path whose directory does not exist yet, exactly as <c>UseSqliteStorage(path)</c> does.</summary>
 public sealed class MigrateUpDirectoryTests : IDisposable
 {
     private readonly string _root = Path.Combine(TestPaths.TestDbsDir, $"nested-{Guid.NewGuid():N}");

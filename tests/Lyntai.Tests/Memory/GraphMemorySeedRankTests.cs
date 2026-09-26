@@ -17,7 +17,7 @@ namespace Lyntai.Tests.Memory;
 /// each source's OWN <see cref="GraphNode.Relevance"/> gradient.</b>
 ///
 /// <para>Ranking per source is what keeps the scales apart — a lexical hit's rank ramp and a semantic hit's
-/// cosine are never compared, and pooling them into one field is what made a semantic top hit outrankable by
+/// cosine are never compared, and pooling them into one field makes a semantic top hit outrankable by
 /// construction.</para>
 ///
 /// <para><b>Two rules with teeth.</b> A node the source did not MATCH earns no rank at all: store seeds
@@ -155,13 +155,13 @@ public sealed class GraphMemorySeedRankTests : IDisposable
         Assert.Contains(gradedProbe.Captured, c => c.Ranks.TryGet("lexical", out _));
     }
 
-    // ---- D97, the regression this change can most easily introduce -------------------------------------
+    // ---- D97, the regression most easily introduced here ---------------------------------------------
 
     /// <summary><b>An authoritative entry the query never matched earns NO lexical rank, and is not counted
     /// as a second value in the source's gradient.</b>
     ///
     /// <para><see cref="InMemoryMemoryGraphStore"/> deliberately, and the fixture asserts why: it sorts an
-    /// exact fact to position <b>0</b>, which is the placement that made rank-by-position dangerous. The two
+    /// exact fact to position <b>0</b>, which is the placement that makes rank-by-position dangerous. The two
     /// shipped SQL backends put a grade-admitted non-match at the LOW end instead, so a fixture built on one
     /// of those would pass on a rule this one refutes.</para>
     ///
@@ -285,7 +285,7 @@ public sealed class GraphMemorySeedRankTests : IDisposable
     /// <summary>The default registration wires the unconditional store read (<c>lexical</c>) and the handle
     /// channel, on by default at <c>SubjectSeedOptions.K = 5</c> / <c>SubjectSeedOptions.Scan = 256</c>
     /// (<c>subject</c>) — and NOT the vector channel, which stays unregistered by default.
-    /// <para>The VALUES are half the reproduction claim, so they are asserted too: nothing registers a
+    /// <para>The VALUES are asserted too: nothing registers a
     /// <see cref="SubjectSeedOptions"/>, which is what makes the registered source take its own defaults, and
     /// those defaults are the two numbers below.</para></summary>
     [Fact]
@@ -301,9 +301,9 @@ public sealed class GraphMemorySeedRankTests : IDisposable
         Assert.Equal(["lexical", "subject"],
             sp.GetServices<IMemorySeedSource>().Select(s => s.Name).Order(StringComparer.Ordinal));
 
-        Assert.Null(sp.GetService<SubjectSeedOptions>());   // so the source constructed with its own
-        Assert.Equal(5, new SubjectSeedOptions().K);        // = the removed SubjectSeedK
-        Assert.Equal(256, new SubjectSeedOptions().Scan);   // = the removed SubjectSeedScan
+        Assert.Null(sp.GetService<SubjectSeedOptions>());   // so the source takes its own defaults
+        Assert.Equal(5, new SubjectSeedOptions().K);
+        Assert.Equal(256, new SubjectSeedOptions().Scan);
     }
 
     /// <summary>Registering the vector channel is one call, and it ADDS rather than replaces — the seam is
@@ -325,8 +325,8 @@ public sealed class GraphMemorySeedRankTests : IDisposable
             sp.GetServices<IMemorySeedSource>().Select(s => s.Name).Order(StringComparer.Ordinal));
     }
 
-    /// <summary>Pins WHERE the missing-dependency failure actually fires, corrected by
-    /// <see cref="MemorySeedBuilderExtensions.AddMemorySemanticSeeds"/>'s own doc: NOT at
+    /// <summary>Pins WHERE the missing-dependency failure actually fires, as
+    /// <see cref="MemorySeedBuilderExtensions.AddMemorySemanticSeeds"/>'s own doc states: NOT at
     /// <c>BuildServiceProvider</c> — nothing in this library validates on build — but on the first
     /// resolution of <see cref="IMemoryEngineFactory"/>, since that is what eagerly builds every registered
     /// <see cref="IMemoryEngine"/> and so first constructs <see cref="SemanticSeedSource"/>.</summary>
@@ -338,7 +338,7 @@ public sealed class GraphMemorySeedRankTests : IDisposable
             .AddProvider(_ => new FakeTextProvider("p"))
             .UseInMemoryStorage()
             .AddMemory()
-            .AddMemorySemanticSeeds());   // no a vector backend / IVectorStore registered
+            .AddMemorySemanticSeeds());   // no vector backend / IVectorStore registered
         using var sp = services.BuildServiceProvider();   // does NOT throw
 
         Assert.Throws<InvalidOperationException>(() => sp.GetRequiredService<IMemoryEngineFactory>());
@@ -481,7 +481,7 @@ public sealed class GraphMemorySeedRankTests : IDisposable
     ///
     /// <para>The source hands its nodes back in an order that DISAGREES with the gradient — worst first — so
     /// this one fixture separates three rules at once: <c>1, 1, 3</c> is competition ranking, <c>1, 1, 2</c>
-    /// is dense ranking, and <c>1, 2, 3</c> is the withdrawn rank-by-POSITION.</para></summary>
+    /// is dense ranking, and <c>1, 2, 3</c> is the rejected rank-by-POSITION.</para></summary>
     [Fact]
     public async Task A_tied_group_shares_a_rank_and_the_next_value_skips_its_width()
     {

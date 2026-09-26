@@ -13,9 +13,8 @@ namespace Lyntai.Tests.Generation;
 ///
 /// The half they share is that a size must be POSITIVE, not merely numeric. <c>"0x0"</c> parses, and forwarding
 /// it hands the backend a render it can only reject — so a bad hint falls back to the configured default, which
-/// is what both XML docs promise. They are pinned together, in one file, because the defect was precisely that
-/// one of them enforced the shared half and the other did not. That half now lives once (<c>SizeHint.TryParse</c>),
-/// and the clamp policy — where the two genuinely diverge — stays each backend's own.</summary>
+/// is what both XML docs promise. They are pinned together, in one file, so neither can enforce the shared half
+/// while the other does not. That half lives once (<c>SizeHint.TryParse</c>), and the clamp policy — where the two genuinely diverge — stays each backend's own.</summary>
 public class GenerationSizeHintParsingTests
 {
     private const string OneByteBase64 = "iVBORw==";

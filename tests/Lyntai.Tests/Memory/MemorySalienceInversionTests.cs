@@ -10,7 +10,7 @@ using Lyntai.Tests.Memory.Corpus;
 namespace Lyntai.Tests.Memory;
 
 /// <summary><b>Does the shipped salience policy preferentially preserve JUNK?</b>
-/// `docs/task-archive.md` Part 53's open concern, and the one memory question 3.0 had no instrument for.
+/// `docs/task-archive.md` Part 53's open concern.
 ///
 /// <para><b>The concern, stated precisely.</b> <see cref="StructuralSaliencePolicy"/> is
 /// <c>clamp(1 + NoveltyWeight * novelty, 1, MaxSalience)</c> — monotone in "how unlike anything already
@@ -19,21 +19,18 @@ namespace Lyntai.Tests.Memory;
 /// priority, which is <c>PollutionRate</c> by definition. <see cref="SalienceOptions.MinimumComparables"/>
 /// guards only the empty-engine case, not this one.</para>
 ///
-/// <para><b>Why it was unfalsifiable until now, and it was not the reason first recorded.</b> The blocker
-/// was written down as "needs a vector backend" — half wrong. <see cref="FakeVectorProvider"/> has existed all along.
-/// The real blocker was the CORPUS: its noise shared one fixed skeleton, differing only by an id token and a
-/// filler word, so under bag-of-words novelty the second noise entry onward reads as FAMILIAR. The corpus
-/// modelled noise as <i>semantically irrelevant</i>; the hypothesis is about <i>textually diverse</i>. Those
-/// are different properties and only one of them was expressible.
-/// <see cref="CorpusNoiseKind.Diverse"/> is what closed that gap.</para>
+/// <para><b>Why it needs DIVERSE noise, not only a vector backend.</b> Templated noise shares one fixed
+/// skeleton, differing only by an id token and a filler word, so under bag-of-words novelty the second noise
+/// entry onward reads as FAMILIAR. That models noise as <i>semantically irrelevant</i>; the hypothesis is
+/// about <i>textually diverse</i>. Those are different properties, and
+/// <see cref="CorpusNoiseKind.Diverse"/> is what expresses the second.</para>
 ///
-/// <para><b>Salience was absent from EVERY measurement this repository has ever taken.</b> Not by oversight
-/// in these tests — by assertion in the sweep's own control, which reflects over each constructed engine to
-/// confirm the retention collection is empty. It is doubly invisible: novelty needs an
-/// <c>ProviderKinds.Vector</c> backend and no harness registered one. Meanwhile it ships ON: decay
-/// resistance and admission priority are both default-on (only the rank boost is opt-in, <b>D45</b>). A
-/// live retention dimension that no measurement exercised is exactly the shape of blind spot
-/// <c>pitfalls.md</c> now warns about.</para>
+/// <para><b>Salience is invisible to a harness that registers no vector backend.</b> Novelty needs a
+/// <c>ProviderKinds.Vector</c> backend, and the policy sweep's own control reflects over each constructed
+/// engine to confirm the retention collection is empty. Meanwhile it ships ON: decay resistance and
+/// admission priority are both default-on (only the rank boost is opt-in, <b>D45</b>). A live retention
+/// dimension that no measurement exercises is exactly the shape of blind spot <c>pitfalls.md</c> warns
+/// about.</para>
 ///
 /// <para><b>English only, and that is a real limit rather than an oversight.</b>
 /// <see cref="FakeVectorProvider"/> is a feature-hashed bag of WHITESPACE-SPLIT words, so on a spaceless script
@@ -54,15 +51,13 @@ public sealed class MemorySalienceInversionTests
     /// <see cref="Off"/> against <see cref="Salience"/> therefore measures <i>vector backend + salience</i> and
     /// attributes all of it to salience.</para>
     ///
-    /// <para><b>The first version of this file had exactly that defect and reported the inversion as
-    /// reproduced</b> (+0.1857 misses on diverse noise). <see cref="VectorProvider"/> is the arm that separates
-    /// them: same vector backend, same vector store, no salience policy — so <c>VectorProvider to Salience</c> isolates
-    /// the one factor under test, the same one-factor-at-a-time discipline the language sweep is built on
-    /// (<b>D55</b>).</para>
+    /// <para><see cref="VectorProvider"/> is the arm that separates them: same vector backend, same vector
+    /// store, no salience policy — so <c>VectorProvider to Salience</c> isolates the one factor under test, the
+    /// same one-factor-at-a-time discipline the language sweep is built on (<b>D55</b>).</para>
     /// </summary>
     private enum ArmKind
     {
-        /// <summary>No vector backend, no vector store, no salience — what every prior measurement here ran.</summary>
+        /// <summary>No vector backend, no vector store, no salience — the lexical-only baseline.</summary>
         Off,
 
         /// <summary>VectorProvider and vector store, no salience policy. The control.</summary>
@@ -74,12 +69,11 @@ public sealed class MemorySalienceInversionTests
 
     /// <summary><b>Salience cannot be switched off by registering nothing</b> — <c>NormalizeSaliencePolicies</c>
     /// treats null-or-empty as "take the shipped default", exactly as the age seam does, so an empty list
-    /// yields a live <see cref="StructuralSaliencePolicy"/>. The first three-arm run here asserted the
-    /// control judged nothing salient and got <b>255</b>, which is how this was found: the "control" was a
-    /// second copy of the treatment.
-    /// <para>The control used a private no-op policy until <see cref="NeutralSaliencePolicy"/> was shipped
-    /// for exactly this purpose — a trap that cost a measurement its control is a trap a consumer will hit
-    /// too, so the fix belongs in the library rather than in this file.</para></summary>
+    /// yields a live <see cref="StructuralSaliencePolicy"/> and a "control" built that way is a second copy of
+    /// the treatment.
+    /// <para><see cref="NeutralSaliencePolicy"/> ships for exactly this purpose — a trap that can cost a
+    /// measurement its control is a trap a consumer will hit too, so the fix belongs in the library rather
+    /// than in this file.</para></summary>
     private static GraphMemoryEngine NewEngine(InMemoryMemoryGraphStore store, ArmKind arm) =>
         new("e", store, seams: new GraphMemorySeams
             {
@@ -165,15 +159,13 @@ public sealed class MemorySalienceInversionTests
         Assert.True(dSal.Pollution - dEmb.Pollution <= InversionTolerance,
             $"salience raised the junk share of recalls past tolerance:\n{table}");
 
-        // On TEMPLATED noise — the junk that can actually reach a recall — salience RAISES the junk share,
-        // and the direction here reversed with D89.
+        // On TEMPLATED noise — the junk that can actually reach a recall — salience RAISES the junk share.
+        // With `SalienceWeight` at 0 (D89) salience acts through retention and store admission alone, and
+        // those two preserve junk alongside everything else with nothing offsetting them.
         //
-        // It used to LOWER it, which read as salience refuting the inversion concern outright. That was the
-        // RANKING vote doing the work: with `SalienceWeight` at 1, promoting salient entries also promoted
-        // the relevant ones among them, and the junk share fell as a side effect. D89 measured that vote
-        // across two embedding models and five writing systems, found it costing MISS in every cell, and
-        // shipped it at 0 — so salience now acts through retention and store admission alone, and those two
-        // preserve junk alongside everything else with nothing offsetting them.
+        // A nonzero weight reverses the direction, and that reads as salience refuting the inversion concern
+        // when it is the RANKING vote doing the work: promoting salient entries also promotes the relevant
+        // ones among them, and the junk share falls as a side effect.
         //
         // Pinned at the SAME tolerance rather than a looser one on purpose: this is the concern's own claim
         // reproducing on the channel that remains, and it belongs recorded as a cost of the D89 trade rather
@@ -189,21 +181,21 @@ public sealed class MemorySalienceInversionTests
              """);
     }
 
-    /// <summary><b>The finding this study did not go looking for, and the bigger of the two: enabling the
-    /// EMBEDDER costs recall quality badly on this corpus, and salience was being blamed for it.</b>
+    /// <summary><b>The bigger effect of the two: enabling the EMBEDDER costs recall quality badly on this
+    /// corpus, and it is easily blamed on salience.</b>
     ///
     /// <para>Turning the vector path on raises the miss rate from <c>0.5357</c> to <c>0.8357</c> on templated
     /// noise — an order of magnitude more movement than anything salience does — because semantic neighbours
     /// compete for the same bounded slots as lexical hits, and on a corpus whose ground truth is lexical they
-    /// displace correct answers. The first version of this file compared no-vector backend against
-    /// vector backend-plus-salience and reported the whole gap as the salience inversion reproducing at
-    /// <c>+0.1857</c>. It was the vector backend.</para>
+    /// displace correct answers. Comparing no-vector against vector-plus-salience reports that gap as the
+    /// salience inversion reproducing (<c>+0.1857</c> misses on diverse noise); it is the vector
+    /// backend.</para>
     ///
     /// <para><b>Pinned rather than fixed.</b> The number is a property of THIS corpus, whose relevance is
     /// defined lexically — a corpus with semantically-related ground truth would likely reverse it, and this
-    /// harness cannot say which is more like a real consumer. What it can do is stop the next session from
-    /// attributing this cost to whatever policy happens to be switched on beside it. Recorded in
-    /// `TASKS.md` as open, with the instrument named.</para></summary>
+    /// harness cannot say which is more like a real consumer. What it can do is stop a reader attributing
+    /// this cost to whatever policy happens to be switched on beside it. The instrument that measures it
+    /// with a real embedder is <c>node devtools/dev.mjs memory-enrichment</c>.</para></summary>
     [Fact]
     public async Task The_vector_backend_not_salience_is_what_moves_recall_quality_on_this_corpus()
     {
@@ -290,14 +282,14 @@ public sealed class MemorySalienceInversionTests
         }
     }
 
-    /// <summary><b>The `many-candidates` regression — the one measured cost of a shipped default — is
-    /// re-checked here against the 3.0 engine rather than left at its 2026-08-12 value.</b>
+    /// <summary><b>The `many-candidates` cost — the one measured cost of a shipped default — is re-checked
+    /// here against the current engine rather than left at its recorded value.</b>
     ///
-    /// <para>`docs/task-archive.md` Part 98 recorded salience making that shape's combined miss rate WORSE by
+    /// <para>A paired sweep measured salience making that shape's combined miss rate WORSE by
     /// <c>+0.0169</c> (significant) while improving every other shape: with 40 competitors, admitting salient
-    /// entries displaces relevant ones. It was named the obvious first target for a bounded-admission rule.
-    /// Two things have changed since, and both could move it — the ranking policy default (RRF) and the
-    /// arrival of a verification seam that reorders before the cut.</para>
+    /// entries displaces relevant ones (the item's closure is <c>docs/task-archive.md</c> Part 98). The
+    /// ranking policy default (RRF) and a verification seam that reorders before the cut can both move
+    /// it.</para>
     ///
     /// <para><b>This asserts the DIRECTION, not the constant.</b> The original figure came from a 30-seed
     /// paired sweep; a single-seed replay cannot reproduce it to four places and pretending otherwise would
@@ -323,22 +315,22 @@ public sealed class MemorySalienceInversionTests
         Assert.True(on.SalientWrites > 0, $"the salience arm judged nothing, so this measures nothing:\n{table}");
         Assert.Equal(0, off.SalientWrites);
 
-        // MEASURED 2026-08-13, single seed: miss +0.0808, pollution +0.1532. The Part 65 figure (+0.0169
-        // combined) came from a 30-seed PAIRED sweep and is a different statistic — a mean of paired
+        // MEASURED 2026-08-13, single seed: miss +0.0808, pollution +0.1532. The +0.0169 combined figure
+        // came from a 30-seed PAIRED sweep and is a different statistic — a mean of paired
         // differences against one draw — so these are not the same number measured twice and the larger
         // value here is not evidence of a regression against it. What both agree on is the DIRECTION and
         // the mechanism: with 40 competitors, admitting salient entries displaces relevant ones, and the
         // pollution column shows why (salience is admitting substantially more junk into the same slots).
         //
         // Bounds are regression guards on the shipped default at its measured value, not targets. A
-        // dense-candidate deployment that does not want this trade now has a supported lever —
-        // NeutralSaliencePolicy — which did not exist when the cost was first recorded.
+        // dense-candidate deployment that does not want this trade has a supported lever —
+        // NeutralSaliencePolicy.
         //
-        // SUPERSEDED AS A MEASUREMENT (not as a guard) 2026-08-28: `memory-salience` now runs 30 paired
-        // seeds through two REAL vector backends, and docs/memory.md section 5 carries both. The figures above
+        // SUPERSEDED AS A MEASUREMENT (not as a guard): `memory-salience` runs 30 paired seeds through two
+        // REAL vector backends, and docs/memory-measurements.md §5 carries both readings. The figures above
         // predate D89, so they were taken while SalienceWeight was 1 and the ranking voice was still in
-        // play. This assertion stays an UPPER BOUND and both new readings sit well inside it — which is
-        // also why it could not have detected that the value moved.
+        // play. This assertion stays an UPPER BOUND and both paired readings sit well inside it — which is
+        // also why it cannot detect that the value moved.
         Assert.True(on.Miss - off.Miss <= 0.15,
             $"the many-candidates miss cost of salience has grown past its measured +0.0808:\n{table}");
         Assert.True(on.Pollution - off.Pollution <= 0.25,

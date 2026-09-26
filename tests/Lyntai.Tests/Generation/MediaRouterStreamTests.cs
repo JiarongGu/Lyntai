@@ -3,11 +3,10 @@ using Lyntai.Tests.Fakes;
 
 namespace Lyntai.Tests.Generation;
 
-/// <summary>The stream door, added in 3.0. Before it, <c>IModelProvider</c> was a seam the
-/// platform could not reach: the capability pre-filter was only ever asked about
-/// <see cref="ProviderOperation.Complete"/> and <see cref="ProviderOperation.Queued"/>, so a backend
-/// advertising <see cref="ProviderOperation.Stream"/> had to be driven directly and the contract shipped
-/// unexercised.
+/// <summary>The stream door: the capability pre-filter is asked about
+/// <see cref="ProviderOperation.Stream"/> as it is about <see cref="ProviderOperation.Complete"/> and
+/// <see cref="ProviderOperation.Queued"/>, so a streaming backend is reached through the router rather than
+/// driven directly.
 ///
 /// <para>The invariants under test are NOT invented here — they are the two the LLM router measured
 /// (<c>.claude/knowledge/llm-and-router.md</c> § Streaming), because falling back mid-stream duplicates
@@ -303,9 +302,8 @@ public class MediaRouterStreamTests
 
         var terminal = AssertOneTerminal(chunks);
         Assert.Equal(ProviderVerdict.Unsupported, terminal.Error);
-        // The reason now comes from the BACKEND's own default body rather than a router-synthesized
-        // sentence, and it names the contract a consumer can actually check (D127). Strictly better: the
-        // old text named an interface the caller had never heard of.
+        // The reason comes from the BACKEND's own default body rather than a router-synthesized sentence,
+        // and it names the contract a consumer can actually check (D127).
         Assert.Contains("does not serve", terminal.Detail);
         Assert.Contains("ProviderCapabilities", terminal.Detail);
     }

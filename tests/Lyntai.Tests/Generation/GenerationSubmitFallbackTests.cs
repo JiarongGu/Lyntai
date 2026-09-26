@@ -8,12 +8,11 @@ namespace Lyntai.Tests.Generation;
 
 /// <summary>The SUBMIT path answers a rejection with the routing policy, and reports the reason it was given.
 ///
-/// <para>Both halves were missing for the same reason: a <see cref="QueuedOperation"/> carries a
-/// <see cref="QueuedOperationStatus"/>, not a verdict, so there was nothing for
-/// <see cref="MediaRoutingPolicy.ActionFor"/> to switch on and nothing but candidate ids left to report.
-/// Every rejection therefore advanced AND took a dead-host strike — including one from a backend that answered
-/// "not configured" before it opened a socket, which is exactly the penalty-for-a-known-fact that
-/// <c>NotConfigured</c> was introduced to prevent (<c>docs/DECISIONS.md</c> D31).</para></summary>
+/// <para>A <see cref="QueuedOperation"/> carries a <see cref="QueuedOperationStatus"/>, not a verdict, so
+/// without one there is nothing for <see cref="MediaRoutingPolicy.ActionFor"/> to switch on and nothing but
+/// candidate ids to report: every rejection would advance AND take a dead-host strike — including one from a
+/// backend that answered "not configured" before it opened a socket, exactly the penalty-for-a-known-fact
+/// <c>NotConfigured</c> exists to prevent (<c>docs/DECISIONS.md</c> D31).</para></summary>
 // serialized with every other class that registers a matcher: ProviderVerdictClassifier.AddErrorTextMatcher mutates
 // a PROCESS-WIDE list. It does NOT protect the rest of the suite, so the matcher below answers for its own
 // probe token and nothing else.
@@ -221,7 +220,7 @@ public class GenerationSubmitFallbackTests
     [Fact]
     public async Task A_SURFACED_refusal_still_releases_its_admission_permit()
     {
-        // Surface is a NEW return from the middle of the submit `using` — precisely where a hand-rolled
+        // Surface returns from the middle of the submit `using` — precisely where a hand-rolled
         // release goes missing, and a permit that never comes back pins its gate for the life of the process
         var options = new ProviderAdmissionOptions();
         options.BySlot["hosted"] = 1;

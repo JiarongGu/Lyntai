@@ -5,9 +5,8 @@ using Lyntai.Tests.Fakes;
 namespace Lyntai.Tests.Providers;
 
 /// <summary>ONE policy for a transport throw (socket reset, DNS, TLS) on every HTTP surface: a
-/// <see cref="ProviderVerdict.Failed"/> verdict carrying the message. The chat path always answered so; the
-/// vector and rerank transports let the exception escape the provider, so a direct caller got a verdict from
-/// one kind and an exception from the next.</summary>
+/// <see cref="ProviderVerdict.Failed"/> verdict carrying the message, so a direct caller never gets a verdict
+/// from one kind and an exception from the next.</summary>
 public class HttpTransportFailureTests
 {
     private static HttpModelProvider Provider(string produces) =>

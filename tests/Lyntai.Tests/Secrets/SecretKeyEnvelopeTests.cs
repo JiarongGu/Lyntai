@@ -50,8 +50,8 @@ public class SecretKeyEnvelopeTests
 
         // Derived from the original rather than a FIXED "AA": the wrap is random per run, so a constant
         // replacement silently tampers with NOTHING on the runs where the value already ended that way —
-        // the test then asserts that an untouched envelope throws, and fails. Observed intermittently
-        // (TASKS.md Part 99). Flipping the last character guarantees a different string every time.
+        // the test then asserts that an untouched envelope throws, and fails intermittently. Flipping the
+        // last character guarantees a different string every time.
         var last = envelope.RecoveryWrappedDek[^1];
         var tampered = envelope with
         {
@@ -140,7 +140,7 @@ public class SecretKeyEnvelopeTests
 
         // the BYO registration wins the interface …
         Assert.Same(byo, sp.GetRequiredService<ISecretVault>());
-        // … and the concrete type still resolves coherently (was: InvalidCastException from (EnvelopeSecretVault)byo)
+        // … and the concrete type still resolves coherently, not as a cast of the BYO instance
         Assert.IsType<EnvelopeSecretVault>(sp.GetRequiredService<EnvelopeSecretVault>());
     }
 

@@ -58,7 +58,7 @@ public class ResponseCacheTests
             // Reasoning is output-determining: the same prompt asked with and without intermediate
             // reasoning can return different text, and on a thinking model that difference is the whole
             // reply. Serving a suppressed-reasoning caller a cached reasoning-laden hit is precisely the
-            // silent collision this guard exists to catch — and it did catch it.
+            // silent collision this guard exists to catch.
             "Reasoning",
         };
         var excluded = new HashSet<string>

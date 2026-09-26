@@ -32,13 +32,11 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
     /// <summary>Every <see cref="Lyntai.Tests.Memory.MemoryGraphStoreContract"/> fact against a real
     /// Postgres, driven from the shared theory source so coverage is STRUCTURAL rather than counted.</summary>
     /// <remarks>
-    /// <para>This replaced one long method that awaited all sixty-nine facts in sequence and then asserted
-    /// a hand-bumped <c>covered</c> literal against the reflected <c>declared</c> count. That assertion
-    /// could not see the case it most needed to: a fact wired to Postgres ALONE passes once the author
-    /// bumps the literal, while InMemory and SQLite silently never run it.</para>
-    /// <para>Still one container: the fixture is shared across the whole <c>postgres</c> collection, and
-    /// xUnit runs a class's cases sequentially, so startup is paid once exactly as before. Each case takes a
-    /// fresh <see cref="Uid"/> because the database is shared.</para>
+    /// <para>A counted <c>covered</c> literal cannot see the case that matters most: a fact wired to
+    /// Postgres ALONE passes once the literal is bumped, while InMemory and SQLite silently never run it.</para>
+    /// <para>One container: the fixture is shared across the whole <c>postgres</c> collection, and xUnit
+    /// runs a class's cases sequentially, so startup is paid once. Each case takes a fresh
+    /// <see cref="Uid"/> because the database is shared.</para>
     /// </remarks>
     [SkippableTheory]
     [MemberData(nameof(Lyntai.Tests.Memory.MemoryGraphStoreFacts.Names),
@@ -76,8 +74,7 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
         Assert.Equal(1, salience);
     }
 
-    /// <summary>The write path's own finiteness guard for <c>difficulty</c> (2026-08-10, fsrs-properly plan
-    /// Task 2), pinned as ACTUAL COLUMN CONTENT — the same shape
+    /// <summary>The write path's own finiteness guard for <c>difficulty</c>, pinned as ACTUAL COLUMN CONTENT — the same shape
     /// <see cref="A_non_finite_judged_salience_writes_the_neutral_column_value_not_NaN"/> pins for
     /// <c>salience</c>, and for the identical reason: Npgsql binds a NaN <c>double</c> without complaint.</summary>
     [SkippableFact]
@@ -95,8 +92,8 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
         var difficulty = await Dapper.SqlMapper.ExecuteScalarAsync<double>(conn,
             "SELECT difficulty FROM lyntai_memory_node WHERE task_key = @key", new { key });
         Assert.False(double.IsNaN(difficulty), $"the difficulty column holds {difficulty}, not the neutral value");
-        Assert.Equal(5, difficulty); // the neutral mid-point, corrected 2026-08-11 from the floor 1 (SAME fix
-                                     // as the SQLite twin — same code path, MemorySignals.Difficulty)
+        Assert.Equal(5, difficulty); // the neutral mid-point, not the floor 1 — the SQLite twin's code path,
+                                     // MemorySignals.Difficulty
     }
 
     [SkippableFact]
@@ -116,7 +113,7 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
         Assert.Empty(stray);
     }
 
-    /// <summary>F1 (feature toggles): a DISABLED storage feature lands no table on Postgres. Selective
+    /// <summary>Feature toggles: a DISABLED storage feature lands no table on Postgres. Selective
     /// migration is driven by per-migration <c>[Tags(nameof(StorageFeature.X), StorageFeatures.AllTag)]</c>
     /// + the runner's active tag set, exactly as SQLite. Uses a THROWAWAY container (not the shared,
     /// already-all-migrated fixture db) so the subset migration is observed in isolation.</summary>
@@ -279,15 +276,13 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
     {
         Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
         var store = new PostgresCuratedMemoryStore(pg.Factory);
-        // the CRUD contract methods proper (no longer a hand-copied approximation that could drift) —
-        // unique kinds isolate the shared container; the id-scoped methods need no namespacing
+        // the CRUD contract methods proper — unique kinds isolate the shared container; the id-scoped methods need no namespacing
         await CuratedMemoryStoreContract.Add_get_list_round_trips(store, Uid() + "-k");
         await CuratedMemoryStoreContract.Update_changes_only_the_provided_fields(store);
         await CuratedMemoryStoreContract.Update_can_recategorise_kind_in_place(store, Uid() + "-from", Uid() + "-to");
         await CuratedMemoryStoreContract.List_filters_by_kind_and_enabled(store, Uid() + "-a", Uid() + "-b");
         await CuratedMemoryStoreContract.Remove_deletes(store);
-        // These two ran on InMemory and SQLite only until PostgresContractCoverageTests said so. Both drive
-        // the UPDATE path that moves a row's identity, which is exactly where a dialect can differ.
+        // Both drive the UPDATE path that moves a row's identity, which is exactly where a dialect can differ.
         await CuratedMemoryStoreContract.Update_can_rescope_task_and_scope_in_place(
             store, Uid() + "-rs-from", Uid() + "-rs-to");
         await CuratedMemoryStoreContract.Update_refuses_an_identity_collision(

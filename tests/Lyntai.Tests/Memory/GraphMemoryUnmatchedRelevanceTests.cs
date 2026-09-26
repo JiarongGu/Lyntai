@@ -9,24 +9,23 @@ namespace Lyntai.Tests.Memory;
 
 /// <summary>
 /// <b>A candidate the query never matched must not claim a relevance it did not earn, and must not be
-/// annihilated for lacking one.</b> Both halves are needed, and each one alone is a defect this repository
-/// has actually shipped or nearly shipped.
+/// annihilated for lacking one.</b> Both halves are needed, and each one alone is a measured defect.
 ///
-/// <para><b>Half one, the shipped defect.</b> The row projections materialized every node with
-/// <c>Relevance = 1</c> — the MAXIMUM — and only <c>SeedAsync</c> overwrote it. So a graph-walk neighbour,
-/// or any node fetched by id for a semantic or subject seed, outranked every candidate that had actually
-/// been scored. Measured on LoCoMo (<c>docs/memory-measurements.md</c> §5): evidence-hit@20 of 11.0% against 80.5% for
-/// plain cosine, and semantic seeding worth exactly 0.0 points because a real 0.785 cosine could never
-/// beat a fabricated 1.000.</para>
+/// <para><b>Half one, an unearned maximum.</b> A row projection that materializes every node with
+/// <c>Relevance = 1</c>, overwritten only by <c>SeedAsync</c>, lets a graph-walk neighbour — or any node
+/// fetched by id for a semantic or subject seed — outrank every candidate that was actually scored. Measured
+/// on LoCoMo (<c>docs/memory-measurements.md</c> §5): evidence-hit@20 of 11.0% against 80.5% for plain
+/// cosine, and semantic seeding worth exactly 0.0 points because a real 0.785 cosine never beats a
+/// fabricated 1.000.</para>
 ///
-/// <para><b>Half two, the fix that was tried and refused.</b> Setting the literal to <c>0</c> nearly tripled
-/// the LoCoMo figure and broke traversal instead: <see cref="MultiplicativeRankingPolicy"/> scores a PRODUCT,
-/// so a zero annihilates a candidate rather than ranking it low, and the walked entries VANISHED from the
-/// result. That is why <see cref="GraphNode.Matched"/> exists — a policy has to be able to tell "scored
-/// zero" from "never asked", which no single <see cref="double"/> can express.</para>
+/// <para><b>Half two, the refused alternative.</b> A literal <c>0</c> nearly triples the LoCoMo figure and
+/// breaks traversal instead: <see cref="MultiplicativeRankingPolicy"/> scores a PRODUCT, so a zero
+/// annihilates a candidate rather than ranking it low, and the walked entries VANISH from the result. That
+/// is why <see cref="GraphNode.Matched"/> exists — a policy has to be able to tell "scored zero" from "never
+/// asked", which no single <see cref="double"/> can express.</para>
 ///
-/// <para>Runs against <see cref="InMemoryMemoryGraphStore"/> deliberately: the defect was identical in both
-/// row projections, and the store contract holds the SQL twin to the same rule.</para>
+/// <para>Runs against <see cref="InMemoryMemoryGraphStore"/> deliberately: both row projections carry the
+/// rule, and the store contract holds the SQL twin to it.</para>
 /// </summary>
 public sealed class GraphMemoryUnmatchedRelevanceTests
 {
@@ -70,8 +69,8 @@ public sealed class GraphMemoryUnmatchedRelevanceTests
         Assert.Equal(0, node.Relevance);
     }
 
-    /// <summary>A matched candidate outranks an unmatched one. This is the half that was broken: the walked
-    /// entry claimed <c>1</c> and won.</summary>
+    /// <summary>A matched candidate outranks an unmatched one — the half a walked entry claiming <c>1</c>
+    /// breaks.</summary>
     [Fact]
     public async Task A_matched_entry_outranks_one_the_query_never_matched()
     {
@@ -86,7 +85,7 @@ public sealed class GraphMemoryUnmatchedRelevanceTests
             "the entry the query never matched came back FIRST — it is claiming a relevance it did not earn");
     }
 
-    /// <summary><b>The regression that the obvious fix would have introduced.</b> Under a multiplicative
+    /// <summary><b>The regression the obvious fix introduces.</b> Under a multiplicative
     /// policy a relevance of 0 zeroes the whole product, so an unmatched candidate is not ranked low, it is
     /// deleted. Traversal is the feature that dies, and no ranking assertion would notice — only its
     /// ABSENCE from the result does.</summary>

@@ -16,7 +16,7 @@ public class ReciprocalRankFusionSourceTests
 
     private static readonly MemoryRankingContext Ctx = new(20, "test");
 
-    // THE HEADLINE FACT — the one that would have caught this bug.
+    // THE HEADLINE FACT: ranking on the pooled field, not per source, is what it catches.
     // Same evidence reachable both ways. Node 2 is a semantic top hit carrying a COSINE of 0.74;
     // node 1 is a mediocre lexical hit carrying a RANK POSITION of 0.90. On the pooled field the
     // rank position wins on scale alone, whatever the semantics say. Per source, the semantic
@@ -92,8 +92,8 @@ public class ReciprocalRankFusionSourceTests
         Assert.Equal(1, ranked[1].Candidate.Node.Id);
     }
 
-    // THE COMPATIBILITY CONTROL. Mutation-checked in step 4 — a guard that cannot observe the
-    // thing it guards reads as coverage (pitfalls.md §Testing).
+    // THE COMPATIBILITY CONTROL, and mutation-checked — a guard that cannot observe the thing it
+    // guards reads as coverage (pitfalls.md §Testing).
     [Fact]
     public void With_no_candidate_carrying_ranks_the_ordering_is_the_pooled_relevance_one()
     {

@@ -9,14 +9,14 @@ namespace Lyntai.Tests.Live;
 /// <para><b>Deliberately NOT merged with <see cref="OllamaLive"/>, which answers a different question.</b>
 /// That one gates suites that are ABOUT Ollama — they exercise <c>OllamaProvider</c>'s NATIVE
 /// routes, so "is Ollama up" is exactly the right probe and a llama.cpp endpoint should skip them. This one
-/// gates suites that merely need something to embed or judge with, where pinning the vendor is what stopped
+/// gates suites that merely need something to embed or judge with, where pinning the vendor would stop
 /// the harness running on a different backend at all. Two questions, two gates; collapsing them would either
 /// make vendor tests pass against a vendor that is not there, or make model tests skip on a perfectly good
 /// endpoint.</para>
 ///
 /// <para><b>Every legacy variable still works, and that is not politeness.</b> A machine already set up with
 /// <c>LYNTAI_LIVE_OLLAMA</c> must not start silently SKIPPING because a variable was renamed — a skip reads
-/// as a pass in every summary, which is the failure <see cref="OllamaLive"/>'s own doc was written about.
+/// as a pass in every summary, the failure <see cref="OllamaLive"/>'s own doc describes.
 /// The new names are additive.</para>
 ///
 /// <para><b>The trap when pointing this at llama.cpp: two suites need a CHAT model and an EMBEDDING model at
@@ -34,7 +34,7 @@ public static class LiveModel
     /// <summary>Endpoint override; falls back to the legacy <c>LYNTAI_OLLAMA_URL</c>.</summary>
     public const string UrlVariable = "LYNTAI_LIVE_MODEL_URL";
 
-    /// <summary>Which wire the endpoint speaks — <c>ollama</c> (the default, unchanged) for the native
+    /// <summary>Which wire the endpoint speaks — <c>ollama</c> (the default) for the native
     /// provider, or <c>openai</c> for anything serving the OpenAI-shaped routes, llama-server included.</summary>
     public const string FlavorVariable = "LYNTAI_LIVE_MODEL_FLAVOR";
 
@@ -47,8 +47,7 @@ public static class LiveModel
     /// <c>LocalDiffusionOptions.Accelerator</c> takes (<c>docs/DECISIONS.md</c> D68): guessing from a port or
     /// a banner is a rule that is right until someone runs llama-server on 11434, and then it is wrong in a
     /// way that presents as a 404 rather than as a bad guess.
-    /// <para>Defaults to the Ollama-native provider, which is what every one of these suites did before this
-    /// type existed, so an unset variable changes nothing.</para>
+    /// <para>Defaults to the Ollama-native provider.</para>
     /// </summary>
     private static bool OpenAiShaped =>
         Read(FlavorVariable)?.ToLowerInvariant() is "openai" or "llamacpp" or "llama.cpp" or "llama-server";
@@ -61,9 +60,9 @@ public static class LiveModel
     /// Whether a live-model test may run: opted in AND something answers.
     ///
     /// <para><b>Probed through <c>/v1/models</c> first, then Ollama's native <c>/api/tags</c>.</b> Both
-    /// backends serve the former; only Ollama serves the latter. Probing <c>/api/tags</c> ALONE is what made
-    /// every one of these suites skip silently against llama-server — the endpoint was up, the model was
-    /// loaded, and the gate said "not available".</para>
+    /// backends serve the former; only Ollama serves the latter. Probing <c>/api/tags</c> ALONE would skip
+    /// every one of these suites silently against llama-server — the endpoint up, the model loaded, and the
+    /// gate saying "not available".</para>
     /// </summary>
     public static async Task<bool> IsAvailableAsync()
     {
@@ -87,7 +86,7 @@ public static class LiveModel
     /// serve the OpenAI-shaped routes under <c>/v1</c> either way.</para></summary>
     /// <param name="builder">The builder to register into.</param>
     /// <param name="model">The model to default to.</param>
-    /// <param name="id">The provider id; the default matches what these suites already used.</param>
+    /// <param name="id">The provider id; the default matches what these suites use.</param>
     public static LyntaiBuilder AddLiveProvider(this LyntaiBuilder builder, string model, string id = "ollama") =>
         OpenAiShaped
             ? builder.AddHttpProvider(id, o =>

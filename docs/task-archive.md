@@ -5046,7 +5046,7 @@ way:** agent worktrees start at a stale commit and must be fast-forwarded first;
 branches mid-run (resumed from their worktrees); merges interacted — an ambiguous cref, an escape token that
 had to move to its own line, two branches each writing a shared fake — and only `verify` on master caught them.
 Declined: memory policy options stay `Action<T>` (the library-wide `Add*` shape); `sql-storage.md` became an
-index rather than deleted. Left open: `TASKS.md` Part 294.
+index rather than deleted. Left open: what became `docs/task-archive.md` Part 318.
 
 - A full review of code AND docs, and fix what it finds
 
@@ -5066,7 +5066,7 @@ Left for a ruling: `AddBridgeProvider` accepts a `Produces` it can never serve, 
 
 ## Part 297 — an unreachable local media server is a DOWN host (2026-09-26)
 
-✅ done 2026-09-26 — **Outcome:** closes `TASKS.md` Part 294's decision-only item on the owner's ruling:
+✅ done 2026-09-26 — **Outcome:** closes `docs/task-archive.md` Part 318's decision-only item on the owner's ruling:
 `Failed`. `Automatic1111Provider` reported a refused connection `NotConfigured` (blameless, never benched)
 while ComfyUI and every HTTP text backend reported `Failed`; it now agrees, and only a missing `BaseUrl` is
 `NotConfigured`. The rule and the refused blameless alternative are in **D31**; the consumer-visible change is
@@ -5236,7 +5236,7 @@ the builder, and where it fires stated), 313 (two test gaps) and 314 (the README
 
 ## Part 316 — the vector-store, verification and annotation contracts get an abstract Facts base (2026-09-26)
 
-✅ done 2026-09-26 — **Outcome:** closes the first item of `TASKS.md` Part 294, tests only.
+✅ done 2026-09-26 — **Outcome:** closes the first item of `docs/task-archive.md` Part 318, tests only.
 `VectorStoreContractFacts`, `MemoryVerificationPolicyContractFacts` and `MemoryAnnotationPolicyContractFacts` sit
 beside their contracts, one `[Fact]` per contract method, so a fact added to a contract runs on every derived
 implementation by construction. InMemory and SQLite vector stores (`SqliteVectorStoreContractTests`, split out of
@@ -5245,3 +5245,24 @@ implementation by construction. InMemory and SQLite vector stores (`SqliteVector
 the verifier's "ids were shown" fixture now names an ordinal past the list, so that fact exerts pressure.
 
 - Give the vector-store, verification and annotation contracts an abstract Facts base
+
+## Part 317 — test comments state the rule, not the history (2026-09-26)
+
+✅ done 2026-09-26 — **Outcome:** closes the second item of `docs/task-archive.md` Part 318, comments only. A
+reading pass over every test file (four parallel passes, one rubric) cut work-log provenance — finding dates,
+review and plan tags, "archive Part N" birth certificates, pre-3.0 version framing — and restated what a
+narration explained as the present-tense rule and mechanism it pins; about 230 files, code byte-identical. It
+also corrected comments that had gone stale (a traversal "not task-scoped", write-once metadata, a renamed
+class). Five comment allowances ratcheted down; the one lesson that was cut, a seam deletion orphaning its
+fixture, is now a `pitfalls.md` trap. Left in place: measurements that live only in a comment
+(`MemoryClusterEdgeFormationTests`, `MemorySalienceInversionTests`) and a few traps stated only in their tests.
+
+- Sweep test comments for history narration that carries no tag or date
+
+## Part 318 — what the full review left open (2026-09-25)
+
+✅ done 2026-09-26 — **Outcome:** the backlog's Part 294 — what the full review (`docs/task-archive.md` Part 295)
+deliberately left undone — closed: the A1111 down-host ruling (Part 297), the contract Facts bases (Part 316) and
+the test comment sweep (Part 317).
+
+- What the full review left open

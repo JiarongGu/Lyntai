@@ -8,8 +8,8 @@ namespace Lyntai.Tests.Api;
 /// <summary>
 /// Approval test for the public API surface of every packable Lyntai assembly. A checked-in baseline
 /// (<c>ApiSurface/&lt;Assembly&gt;.txt</c>) is the source of truth: any add/remove/rename of public or
-/// protected surface fails this test until the baseline is updated deliberately — so pre-1.0 breaks
-/// are visible in review and, post-1.0, gate a major bump.
+/// protected surface fails this test until the baseline is updated deliberately — so every break is
+/// visible in review.
 ///
 /// To update a baseline after an intentional change: copy the emitted <c>.actual</c> file over it. A
 /// MISSING baseline is written and the test still FAILS, so a seed is reviewed and committed on purpose
@@ -46,9 +46,7 @@ public class ApiSurfaceTests
         ["Lyntai.Storage.Sqlite"] = typeof(SqliteConnectionFactory).Assembly,
         ["Lyntai.Storage.Basic"] = typeof(InMemoryKeyValueStore).Assembly,
         ["Lyntai.Storage.Postgres"] = typeof(PostgresConnectionFactory).Assembly,
-        // Namespace and package agree again since D138. It had been left as `Lyntai.Providers.Local` when  // drift-ok: the note names the namespace D138 retired
-        // only the PACKAGE was renamed, so that no consumer edited a `using` — right for a rename that was
-        // collateral, wrong once "Local" was the defect. The key is the ASSEMBLY name, which follows the project.
+        // Namespace and package agree (D138). The key is the ASSEMBLY name, which follows the project.
         ["Lyntai.Providers.LlamaSharp"] = typeof(Lyntai.Providers.LlamaSharp.LlamaSharpProvider).Assembly,
         ["Lyntai.Tools.Mcp"] = typeof(Lyntai.Tools.Mcp.McpToolset).Assembly,
         ["Lyntai.Secrets.Dpapi"] = typeof(Lyntai.Secrets.DpapiSecretProtector).Assembly,

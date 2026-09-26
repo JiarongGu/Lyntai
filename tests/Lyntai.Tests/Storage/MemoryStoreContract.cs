@@ -6,9 +6,9 @@ namespace Lyntai.Tests.Storage;
 /// Postgres test classes so remember/recall/dedup/TTL/cap/prune/forget semantics are pinned identically.
 /// <para>DELIBERATELY OMITTED (backend-divergent by design — see <see cref="IMemoryStore"/> docs, kept as
 /// backend-SPECIFIC tests instead): same-match ORDERING — SQLite ranks by bm25 relevance while
-/// Postgres/InMemory rank by matched-term count then recency. <b>MULTI-WORD matching used to be on this
-/// list and is not any more</b> (3.0, <c>docs/DECISIONS.md</c> D55): every backend splits a query the same
-/// way, so which entries are found is portable and only the ranking among them is not. The cross-backend
+/// Postgres/InMemory rank by matched-term count then recency. <b>MULTI-WORD matching is not on this
+/// list</b> (<c>docs/DECISIONS.md</c> D55): every backend splits a query the same way, so which entries are
+/// found is portable and only the ranking among them is not. The cross-backend
 /// assertion lives in <c>MemoryStoreTests.Recall_matching_is_consistent_for_single_tokens_and_for_separated_words</c>.
 /// This contract asserts backend-agnostic facts: a ≥3-char term substring recalls; scope/task filtering;
 /// dedup; TTL expiry; cap COUNT + set membership (NOT the sequence); prune; forget.</para>
@@ -97,8 +97,7 @@ public static class MemoryStoreContract
         Assert.True(await store.PruneAsync() >= 1);       // removed by prune
     }
 
-    /// <summary>T9 (promoted from the SQLite-only lifecycle tests): re-remembering an identical fact
-    /// dedups AND resets its TTL clock — the refresh keeps it alive past the original expiry.</summary>
+    /// <summary>Re-remembering an identical fact dedups AND resets its TTL clock — the refresh keeps it alive past the original expiry.</summary>
     public static async Task Refreshing_a_fact_extends_its_ttl(IMemoryStore store, string key, Action<TimeSpan> advance)
     {
         await store.RememberAsync(key, "s", "keep me", ttl: TimeSpan.FromMinutes(5));
@@ -112,13 +111,10 @@ public static class MemoryStoreContract
     /// <summary><b>Re-remembering WITHOUT a ttl replaces an explicitly-set one</b> — the mixed case the
     /// refresh fact above does not reach, since that one passes the same ttl twice.
     ///
-    /// <para><b>Asserted because it is the shape <c>docs/DECISIONS.md</c> D91 is about</b>, checked here and
-    /// found DEFENSIBLE rather than defective — which is worth pinning precisely because the neighbouring
-    /// three were not. In the graph engine a caller's omission was resolved into a value and then written as
-    /// though they had chosen it, three times, destroying their data. Here the omission also resolves (to
-    /// the store's own default TTL, or to no expiry) and is also written — but a TTL is not the caller's
-    /// data, nothing is destroyed, and a deployment's retention default legitimately applies to every write.
-    /// The distinction between the two cases is what makes D91 a rule rather than a reflex.</para>
+    /// <para><b>It is the shape <c>docs/DECISIONS.md</c> D91 is about, and here it is DEFENSIBLE:</b> the
+    /// omission resolves (to the store's own default TTL, or to no expiry) and is written as though chosen —
+    /// but a TTL is not the caller's data, nothing is destroyed, and a deployment's retention default
+    /// legitimately applies to every write.</para>
     ///
     /// <para>The consequence is still worth knowing: refreshing a long-lived fact with a bare
     /// <c>RememberAsync</c> does not preserve the longer expiry.</para></summary>

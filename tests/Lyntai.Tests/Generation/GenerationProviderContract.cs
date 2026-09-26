@@ -34,12 +34,11 @@ public static class GenerationProviderContract
     /// serve is a configuration fault that surfaces at the worst moment — after a candidate has been
     /// selected and every alternative discarded.
     ///
-    /// <para><b>The two modes are checked DIFFERENTLY, and that asymmetry is the contract.</b> Job is still
-    /// its own interface, so a type test is the question. Stream is not: <b>D127</b> collapsed the domain
-    /// seams and made <c>StreamAsync(MediaRequest, …)</c> a DEFAULT interface member returning
-    /// <see cref="ProviderVerdict.Unsupported"/> — so every backend "implements" it and the type test that
-    /// used to ask this went vacuous, silently, in the release that unified the seams. What has to be asked
-    /// now is whether the concrete type OVERRIDES the default.</para></summary>
+    /// <para><b>The two modes are checked DIFFERENTLY, and that asymmetry is the contract.</b> Job is its
+    /// own interface, so a type test is the question. Stream is not: <c>StreamAsync(MediaRequest, …)</c> is a
+    /// DEFAULT interface member returning <see cref="ProviderVerdict.Unsupported"/> (<b>D127</b>) — so every
+    /// backend "implements" it and a type test is silently vacuous. What has to be asked is whether the
+    /// concrete type OVERRIDES the default.</para></summary>
     public static void Its_declared_deliveries_are_backed_by_the_interfaces_it_implements(
         IModelProvider provider)
     {
@@ -120,10 +119,10 @@ public static class GenerationProviderContract
     /// must not be penalised on every attempt for a fact known before the call). <c>Failed</c> is neither: it
     /// makes the router advance AND take a dead-host strike, benching a backend whose only problem is a
     /// missing key, and it tells a host nothing it can act on.
-    /// <para>This is the fact the divergence that prompted this contract would have failed:
-    /// <c>ComfyUiProvider.FetchCoreAsync</c> hardcoded <c>Failed</c> for every failed history read while
-    /// <c>FalProvider</c> routed the same class through <c>ProviderVerdictClassifier</c>, so the same
-    /// authenticating proxy in front of each produced different verdicts.</para></summary>
+    /// <para>One contract, because two backends can classify the same class differently — one hardcoding
+    /// <c>Failed</c> for every failed history read, one routing it through
+    /// <c>ProviderVerdictClassifier</c> — and the same authenticating proxy in front of each then produces
+    /// different verdicts.</para></summary>
     public static void An_authentication_failure_is_classified_rather_than_flattened(
         string door, string providerId, ProviderVerdict verdict) =>
         Assert.True(
@@ -158,8 +157,7 @@ public static class GenerationProviderContract
     /// <para>A backend declaring <c>false</c> is out of scope here and guarded by <c>Supports</c> instead —
     /// the router never routes it an input-carrying request in the first place.</para>
     /// <para>Handed SEVERAL inputs, every one must be sent or the call refused: a backend that sends the first
-    /// and drops the rest passes a one-input fact, which is how four backends did exactly that — and a
-    /// pipeline stage carrying its own input chains the previous stage's artifact in SECOND.</para></summary>
+    /// and drops the rest passes a one-input fact — and a pipeline stage carrying its own input chains the previous stage's artifact in SECOND.</para></summary>
     public static void A_handed_input_is_consumed_or_refused(
         string providerId, IReadOnlyCollection<string> sentBodies, params byte[][] markers)
     {

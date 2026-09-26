@@ -4,12 +4,12 @@ using Lyntai.Storage.Sqlite;
 
 namespace Lyntai.Tests.Storage;
 
-/// <summary>The v0.4 memory lifecycle against SQLite. Time is driven by an injected clock so expiry is
+/// <summary>The memory lifecycle against SQLite. Time is driven by an injected clock so expiry is
 /// deterministic (no wall-clock races). The contract-covered behaviors (dedup on remember, scope
 /// isolation, TTL expiry/refresh, recency refresh, scoped/olderThan prune) live in
 /// <see cref="MemoryStoreContract"/> (<see cref="SqliteMemoryStoreContractTests"/> + the InMemory/Postgres
-/// classes — T9 promoted the lifecycle semantics there); this file keeps only the SQLite-specific
-/// regressions (FTS-path expiry filtering, prune count accounting, cap-vs-expired eviction).</summary>
+/// classes); this file keeps only the SQLite-specific regressions (FTS-path expiry filtering, prune count
+/// accounting, cap-vs-expired eviction).</summary>
 public class MemoryLifecycleTests : IDisposable
 {
     private readonly TempDb _db = new();
@@ -48,8 +48,8 @@ public class MemoryLifecycleTests : IDisposable
     [Fact]
     public async Task Cap_does_not_evict_live_entries_in_favor_of_expired_ones()
     {
-        // regression: the cap-trim used to keep the newest @cap by id, so an expired-but-unpruned entry
-        // with a higher id would be kept while a live older entry got deleted — silently losing a fact.
+        // A cap-trim that keeps the newest @cap by id keeps an expired-but-unpruned entry with a higher id
+        // and deletes a live older one — silently losing a fact. The expired entry must sort last.
         var store = new SqliteMemoryStore(_db.Factory,
             new LyntaiOptions { MemoryEviction = MemoryEvictionPolicy.CountCap(2), MemoryRecallLimit = 100 }, clock: () => _now);
         await store.RememberAsync("t", "s", "keep-me");                            // id1, no TTL — always live
@@ -57,8 +57,7 @@ public class MemoryLifecycleTests : IDisposable
         _now += TimeSpan.FromMinutes(6);                                          // "expiring" now expired
         await store.RememberAsync("t", "s", "newer");                            // id3 — triggers the cap trim (3 > 2)
 
-        // old behavior kept the newest 2 by id (newer + expired), deleting the LIVE keep-me; the fix
-        // sorts the expired entry last so IT is evicted and keep-me survives
+        // newest-2-by-id would keep newer + expired; the expired entry sorts last, so IT is evicted
         var live = await store.RecallAsync("t");
         Assert.Contains(live, h => h.Content == "keep-me");
         Assert.Contains(live, h => h.Content == "newer");

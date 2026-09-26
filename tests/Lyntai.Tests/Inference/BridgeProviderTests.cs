@@ -5,10 +5,9 @@ namespace Lyntai.Tests.Inference;
 
 /// <summary>A backend built from a FUNCTION — the general form of bridging something that already answers.
 ///
-/// <para><b>It replaced a 473-line adapter for one ecosystem</b> that cost every consumer a 654 KB
-/// dependency and was called by nothing (<c>docs/DECISIONS.md</c> D146, D147). What matters here is that a
-/// bridge is a backend like any other: it routes, it falls over, and it declares only what it was given a
-/// delegate for.</para></summary>
+/// <para><b>Bridging costs the library no dependency</b> (<c>docs/DECISIONS.md</c> D146, D147). What matters
+/// here is that a bridge is a backend like any other: it routes, it falls over, and it declares only what it
+/// was given a delegate for.</para></summary>
 public class BridgeProviderTests
 {
     private static TextRequest Ask(string text = "hello") => new() { Messages = [TextMessage.User(text)] };
@@ -87,10 +86,10 @@ public class BridgeProviderTests
     [InlineData(ProviderKinds.Image)]
     public void A_kind_its_delegates_cannot_produce_is_REFUSED_at_the_call(string kind)
     {
-        // This used to register: a Score or Vector declaration made the bridge look like a reranker or an
-        // embedder, which no router ever selected — those select on IScoreProvider / IVectorProvider, and the
-        // delegates only answer text. D153 throws for the same mismatch on an instance; a bridge's factory
-        // escaped it, so the call applies it.
+        // A Score or Vector declaration would make the bridge look like a reranker or an embedder, which no
+        // router selects — those select on IScoreProvider / IVectorProvider, and the delegates only answer
+        // text. D153 throws for the same mismatch on an instance; a bridge's factory would escape that check,
+        // so the call applies it.
         var ex = Assert.Throws<ArgumentException>(() => new ServiceCollection().AddLyntai(b => b.AddBridgeProvider(
             "vendor", (_, _) => Task.FromResult(new TextResponse("", ProviderVerdict.Ok)),
             capabilities: new ProviderCapabilities { Produces = [ProviderKinds.Text, kind] })));

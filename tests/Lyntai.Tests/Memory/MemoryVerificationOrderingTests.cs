@@ -73,9 +73,9 @@ internal static class VerdictOrderingFixture
 /// <b>What a verdict does to the RESULT when <c>VerificationFilters</c> is false</b> — which is the default,
 /// and the setting that option's own docs recommend.
 ///
-/// <para>Filed by an adopter who benchmarked a judge, saw no change, and read the code as saying a verdict
-/// cannot reach the ranking at all. Both readings that report went through are reachable from the source and
-/// both are wrong, which is why these are FACTS rather than a paragraph: a verdict promotes every endorsed
+/// <para>A benchmarked judge that changes nothing invites reading the code as saying a verdict cannot reach
+/// the ranking at all. That reading is reachable from the source and wrong, which is why these are FACTS
+/// rather than a paragraph: a verdict promotes every endorsed
 /// candidate to the front of the ordinary set BEFORE the caller's limit is applied, so it can move a result
 /// and can rescue one that never fitted on the page. What <c>VerificationFilters</c> adds on top is
 /// REMOVAL.</para>
@@ -121,10 +121,10 @@ public class MemoryVerificationOrderingTests
         Assert.Equal(baseline[3], judged[0]);
     }
 
-    /// <summary><b>The adopter's null result, reproduced deterministically.</b> A judge that endorses what
+    /// <summary><b>A benchmark's null result, reproduced deterministically.</b> A judge that endorses what
     /// already leads changes nothing at all — which is what a good judge does on a corpus the lexical ranker
     /// already answers, and is NOT evidence that a verdict cannot move a result. Without this fact the two
-    /// above read as "verification always reorders", which would be the third wrong reading.</summary>
+    /// above read as "verification always reorders", which would be another wrong reading.</summary>
     [Fact]
     public async Task A_judge_that_endorses_what_already_leads_returns_an_identical_page()
     {

@@ -2,7 +2,7 @@ namespace Lyntai.Tests.Inference;
 
 /// <summary>A call with no consumer to name still sits under the host's <c>"default"</c> timeout tier, which
 /// <see cref="LyntaiOptions.TimeoutByConsumer"/> documents as applying whenever a tag has no entry — the
-/// one-argument overload skipped it, so the two CLI agent sessions ignored a host's default timeout.</summary>
+/// one-argument overload included, or the two CLI agent sessions ignore a host's default timeout.</summary>
 public class ConsumerlessTimeoutTests
 {
     [Fact]

@@ -4,8 +4,8 @@ namespace Lyntai.Tests.Memory.Corpus;
 
 /// <summary>How DISCRIMINATIVE a subject-cued attribute query is — whether its tokens reach only the cluster
 /// or also incidental unrelated material.
-/// <para><b>Both are real conditions and neither is the "correct" one.</b> An early draft treated the
-/// overlapping form as a mistake to be fixed away, which was wrong: this store tokenizes FTS as
+/// <para><b>Both are real conditions and neither is the "correct" one.</b> The overlapping form is not a
+/// mistake to be fixed away: this store tokenizes FTS as
 /// <c>trigram</c>, chosen so non-Latin text works at all, and under trigram matching almost any two texts
 /// share trigrams. For CJK content there is no stopword to strip and incidental overlap is UNAVOIDABLE — so
 /// the overlapping form is closer to normal usage for a large part of this library's audience, while the
@@ -95,8 +95,8 @@ public enum CorpusNoiseKind
 /// a turn that surfaces one facet must keep the rest reachable.</para>
 /// <para><b>That makes this the only class here that prices the GRAPH.</b> Every other entry in this corpus
 /// is independent, so co-activation edges form between things with no declared relationship and nothing ever
-/// checks whether spreading activation reached material the query never lexically matched — the graph's
-/// entire reason for existing has gone unmeasured. A store with no graph can score at most
+/// checks whether spreading activation reached material the query never lexically matched — without this
+/// class the graph's entire reason for existing goes unmeasured. A store with no graph can score at most
 /// <c>1/AttributeCount</c> on this class by construction.</para>
 /// <para><b>And it is the class that can price salience.</b> `critical-rare` tests SURVIVAL under
 /// interference from a full cue asked once at the end. This tests whether a fact stays ATTACHED across a
@@ -396,7 +396,7 @@ public sealed record MemoryCorpus(IReadOnlyList<CorpusStep> Steps)
     // than leaving critical-rare's own floor to depend silently on a neighbour class's constants.
     private const int CriticalRareFloorWrites = 60;
 
-    // The filler-word list moved to CorpusLexicon with every other template — it is drawn once per entry
+    // The filler-word list lives in CorpusLexicon with every other template — it is drawn once per entry
     // from the seeded PRNG and is the ONLY seed-dependent part of an entry's content, in either language.
 
     /// <summary>Generates a corpus for <paramref name="shape"/> using an explicitly seeded PRNG — never
@@ -450,8 +450,8 @@ public sealed record MemoryCorpus(IReadOnlyList<CorpusStep> Steps)
                 $"{nameof(CorpusShape.RoutineSettleWrites)} is a gap in writes and cannot be negative (was "
                 + $"{routineSettleWrites}).", nameof(shape));
         // Derive B and FLOOR it, rather than deriving A directly: A = count - B keeps A the larger share for
-        // EVERY legal count, including 4 — `count * 2 / 3` (the formula this replaces) gave 4 an even 2/2
-        // split, a silent tie a hand-picked golden shape (9, an exact multiple of 3) never exercised.
+        // EVERY legal count, including 4, where `count * 2 / 3` gives an even 2/2 split — a silent tie a
+        // golden shape at 9 (an exact multiple of 3) never exercises.
         var (routineACount, routineBCount) = CorpusShape.RoutineRegimes(routineCount);
         var attributeCue = shape.AttributeCue;
         // every template AND every reader for this corpus's own invariants — see CorpusLexicon. Hoisted out
@@ -482,10 +482,9 @@ public sealed record MemoryCorpus(IReadOnlyList<CorpusStep> Steps)
         // relevant to anything (MemoryCorpusTests.Filler_entries_are_never_declared_relevant_to_any_query).
         // NOT "item …", unlike every other write class here, and that difference is the whole point — see
         // this type's own class doc. Filler exists to interpose writes, never to compete for a ranked slot,
-        // and while it began with the shared "item" token it did BOTH: FtsQuery.Build OR-joins a query's
-        // tokens, so every freshly-written filler was a live candidate (retrievability ≈ 1) for every query
-        // in the corpus. The leading token is the ONLY thing that changed; the id stays the second token, so
-        // every consumer's `content.Split(' ')[1]` still reads it.
+        // and with the shared "item" token it would do BOTH: FtsQuery.Build OR-joins a query's tokens, so
+        // every freshly-written filler would be a live candidate (retrievability ≈ 1) for every query in the
+        // corpus. The id stays the second token, so every consumer's `content.Split(' ')[1]` reads it.
         void WriteFiller()
         {
             Write(lex.Padding($"filler{fillerEmitted}", Filler(lex, rng)));
@@ -493,10 +492,10 @@ public sealed record MemoryCorpus(IReadOnlyList<CorpusStep> Steps)
         }
 
         // GUARANTEES a target write count is reached — by padding with filler writes — rather than merely
-        // scheduling it and hoping the rest of the corpus gets there first. This is what turns
-        // HotReuseDelayWrites/TopicalReuseDelayWrites/CriticalRareFloorWrites from ASPIRATIONS (what the old
-        // formula scaled toward) into GUARANTEES (what every shape, including the property grid's smallest,
-        // actually reaches) — a no-op whenever natural interference already cleared the target.
+        // scheduling it and hoping the rest of the corpus gets there first. This is what makes
+        // HotReuseDelayWrites/TopicalReuseDelayWrites/CriticalRareFloorWrites GUARANTEES (what every shape,
+        // including the property grid's smallest, actually reaches) rather than ASPIRATIONS — a no-op whenever
+        // natural interference already cleared the target.
         void TopUpTo(int targetWriteCount)
         {
             while (writesSoFar < targetWriteCount) WriteFiller();
@@ -548,9 +547,9 @@ public sealed record MemoryCorpus(IReadOnlyList<CorpusStep> Steps)
         // AUTHORITATIVE: the corpus's only material written at a GRADE, and the only class whose ground truth
         // has no acceptable failure rate — design §5.7.0's objective (1), "never lose an authoritative fact".
         //
-        // Until this existed the corpus held ZERO MemoryGrade references, so the engine's highest-priority
-        // promise was structurally unmeasurable here: every number this instrument ever produced was about
-        // objectives (2) and (3). A null result on objective (1) meant "not exercised", never "kept".
+        // Without it the corpus holds ZERO MemoryGrade references, so the engine's highest-priority promise
+        // is structurally unmeasurable: every number is about objectives (2) and (3), and a null result on
+        // objective (1) means "not exercised", never "kept".
         //
         // Written FIRST so they are the oldest material in the timeline — an entry that never decays must be
         // shown not decaying, and the way to show that is to bury it under everything else. Their probe query
@@ -567,8 +566,8 @@ public sealed record MemoryCorpus(IReadOnlyList<CorpusStep> Steps)
         // HEADLINE-ONLY: the marker lives in the AUTHORED headline and appears nowhere in the content, so
         // the probe at the end of this method can only be answered by searching headlines. Every other class
         // lets the engine derive its headline from the content, which makes headline words a subset of
-        // content words — and therefore makes headline search unobservable. The 3.0 review narrowed it and
-        // widened it back and `memory-sweep` saw neither direction.
+        // content words — and therefore makes headline search unobservable: `memory-sweep` sees neither a
+        // narrowing nor a widening of it.
         //
         // Opt-in and 0 by default, exactly as AuthoritativeCount is, so every existing corpus is
         // byte-identical and no published measurement moves.
@@ -590,8 +589,7 @@ public sealed record MemoryCorpus(IReadOnlyList<CorpusStep> Steps)
         // rather than RECENCY answers that second query the wrong way. See CorpusShape.RoutineCount's own doc
         // for the full argument.
         //
-        // Split across two places in this method — rather than one contained block, as the first version of
-        // this class was — because its two queries need very different ages. This one only needs to clear
+        // Split across two places in this method because its two queries need very different ages. This one only needs to clear
         // the discriminating band's own FLOOR (HotReuseDelayWrites) so it is never the age-zero lookup
         // MemoryCorpusTests.No_reuse_query_occurs_at_age_zero forbids; the FINAL query needs phase A aged deep
         // into the band while phase B stays fresh, which is a property of WHERE in the timeline phase B's
@@ -640,14 +638,13 @@ public sealed record MemoryCorpus(IReadOnlyList<CorpusStep> Steps)
         //
         // REUSE QUERIES ARE DEFERRED, never emitted in the same unit as their target's own write. A query
         // fired immediately has age EXACTLY 0, and DsrRetrievability.Retrievability short-circuits
-        // `Age <= 0` to a perfect 1.0 (as did the deleted HalfLifeRetrievability.Retrievability) — a target
+        // `Age <= 0` to a perfect 1.0 — a target
         // at that retrievability is simultaneously the best textual match (its token is unique) and
         // unmissable by construction, so the query measures nothing.
         //
-        // Both delays are now FIXED, band-targeted constants (TopicalReuseDelayWrites, HotReuseDelayWrites —
-        // see their own comments), GUARANTEED by TopUpTo rather than merely scheduled — replacing the
-        // previous shape-scaled formula that put most shapes near where the two curves agree instead of
-        // where they diverge.
+        // Both delays are FIXED, band-targeted constants (TopicalReuseDelayWrites, HotReuseDelayWrites — see
+        // their own comments), GUARANTEED by TopUpTo rather than merely scheduled: a shape-scaled delay puts
+        // most shapes near where the two curves agree instead of where they diverge.
         var totalUnits = Math.Max(candidateCount, HotRounds);
 
         var pendingTopical = new Queue<(int DueWriteCount, string Id)>();
@@ -662,10 +659,10 @@ public sealed record MemoryCorpus(IReadOnlyList<CorpusStep> Steps)
         //       their last round despite a nonzero NoiseDensity.
         //  (F2) force-draining a round's in-window queries BEFORE this unit's writes, then emitting that
         //       round's stale query AFTER them, means this unit's own topic+hot(+noise) writes sit BETWEEN
-        //       the two — a real, measured gap. Force-draining immediately before the stale query (tried
-        //       first) satisfies ordering but puts nothing between them, so
+        //       the two — a real, measured gap. Force-draining immediately before the stale query satisfies
+        //       ordering but puts nothing between them, leaving
         //       A_hot_ephemeral_entrys_window_closes_only_after_real_interference — precisely the fact that
-        //       exists to guard a real gap — had nothing to measure.
+        //       exists to guard a real gap — nothing to measure.
         //  Splitting the stale CHECK (top of the unit) from the stale QUERY (after this unit's writes) means
         //  staleRound is computed once but used twice across the unit's body, which is why it is captured up
         //  front rather than recomputed.
@@ -701,8 +698,8 @@ public sealed record MemoryCorpus(IReadOnlyList<CorpusStep> Steps)
             //
             // SharesCommonTokens: "remind me about the {subject} recallcue". FtsQuery OR-joins every token of
             // three characters or more, so "the" is a live search term that also matches unrelated entries
-            // and the cluster competes against incidental hits. An earlier pass treated this as a wording
-            // MISTAKE and deleted it; that was wrong. This store tokenizes FTS as trigram precisely so
+            // and the cluster competes against incidental hits. That is not a wording MISTAKE: this store
+            // tokenizes FTS as trigram precisely so
             // non-Latin text works, and under trigram matching almost any two texts share trigrams — for CJK
             // content there is no stopword to strip and this contention is UNAVOIDABLE. The discriminative
             // form is the best case; this one is closer to normal usage for much of this library's audience.
@@ -875,7 +872,7 @@ public sealed record MemoryCorpus(IReadOnlyList<CorpusStep> Steps)
         // The headline probe, emitted LAST for the same reason the critical-rare one is: the gap between the
         // write and the query is the whole rest of the corpus, so a hit is retrieval rather than freshness.
         // The marker appears in no content anywhere, so the ONLY thing that can answer this is a search that
-        // reads headlines — which is exactly the dimension the instrument was blind to.
+        // reads headlines — exactly the dimension the instrument is otherwise blind to.
         if (headlineOnlyIds.Count > 0) Query(lex.HeadlineMarker, [.. headlineOnlyIds]);
 
         return new MemoryCorpus(steps);
@@ -890,9 +887,9 @@ public sealed record MemoryCorpus(IReadOnlyList<CorpusStep> Steps)
     /// silently keeps writing templated junk in a diverse-noise run, which would dilute the very contrast
     /// being measured without failing anything.</para>
     ///
-    /// <para><b>The <see cref="CorpusNoiseKind.Templated"/> path draws from <paramref name="rng"/> EXACTLY as
-    /// it did before this method existed</b> — one <c>Filler</c> call, nothing else — so a corpus that does
-    /// not ask for diverse noise is byte-identical, goldens included. The diverse path draws a different
+    /// <para><b>The <see cref="CorpusNoiseKind.Templated"/> path draws from <paramref name="rng"/> EXACTLY
+    /// once</b> — one <c>Filler</c> call, nothing else — so a corpus that does not ask for diverse noise is
+    /// byte-identical, goldens included. The diverse path draws a different
     /// number of values, which is fine because it is a different corpus; what must not change is the
     /// default.</para></summary>
     private static string NoiseEntry(CorpusLexicon lex, CorpusNoiseKind kind, string id, Random rng)

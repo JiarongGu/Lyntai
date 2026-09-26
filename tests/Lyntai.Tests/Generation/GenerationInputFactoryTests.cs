@@ -6,7 +6,7 @@ namespace Lyntai.Tests.Generation;
 /// <c>MediaInput(string MediaType, byte[]? Data, string? Uri, string? Role)</c>'s four slots are strings
 /// and <c>Role</c> is last, so <c>new MediaInput(MediaInputRoles.Init, bytes, "image/png")</c>
 /// compiles clean, binds <c>"init"</c> to the media type and leaves the role NULL — an img2img request that
-/// degrades to text-to-image with no error anywhere (`docs/task-archive.md` Part 36, GEN10).
+/// degrades to text-to-image with no error anywhere (`docs/task-archive.md` Part 36).
 ///
 /// These tests pin the property the factories buy: the role is baked in by construction and cannot be
 /// omitted.</summary>

@@ -4,8 +4,8 @@ namespace Lyntai.Tests.Fakes;
 
 /// <summary>A stand-in for any interface whose EVERY member throws — the store that is down, the backend
 /// whose own deadline fired. <c>Throwing.Of&lt;IMemoryStore&gt;(() =&gt; new OperationCanceledException(…))</c>
-/// replaces a hand-written class per interface, each of which had to be edited whenever the interface grew.
-/// The throw is synchronous, as an expression-bodied <c>=&gt; throw</c> member's is.</summary>
+/// needs no hand-written class per interface, so nothing is edited when the interface grows. The throw is
+/// synchronous, as an expression-bodied <c>=&gt; throw</c> member's is.</summary>
 public class Throwing : DispatchProxy
 {
     private Func<Exception> _error = () => new InvalidOperationException("no error configured");

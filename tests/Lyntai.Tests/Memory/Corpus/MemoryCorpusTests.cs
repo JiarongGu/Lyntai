@@ -36,7 +36,7 @@ public class MemoryCorpusTests
     // since it cannot reach this assembly's helper at all (see MemoryCorpusTestAccess's own doc).
     private static string ExtractId(string content) => MemoryCorpusTestAccess.IdOf(content);
 
-    // ---- AttributeCount: the subject-cued attribute cluster (2026-08-12) ----
+    // ---- AttributeCount: the subject-cued attribute cluster ----
 
     /// <summary>Every language, ENUMERATED rather than listed — so adding one automatically inherits every
     /// invariant below instead of silently shipping unguarded. A hardcoded list is how a new arm gets
@@ -148,9 +148,9 @@ public class MemoryCorpusTests
         Assert.DoesNotContain(corpus.Steps.OfType<CorpusWrite>(), w => w.Write.Headline is not null);
     }
 
-    /// <summary>Authoritative entries really are written at the GRADE — the corpus held zero
-    /// <see cref="MemoryGrade"/> references before this class existed, so objective (1) was structurally
-    /// unmeasurable. A class that wrote them as ordinary material would measure nothing while looking
+    /// <summary>Authoritative entries really are written at the GRADE — without this class the corpus holds
+    /// zero <see cref="MemoryGrade"/> references, so objective (1) is structurally unmeasurable. A class that
+    /// wrote them as ordinary material would measure nothing while looking
     /// identical.</summary>
     [Fact]
     public void Authoritative_entries_are_written_at_the_authoritative_grade()
@@ -252,11 +252,11 @@ public class MemoryCorpusTests
     /// compete — in every language.</b>
     /// <para>This is the corpus's central design property ("without that shared term nothing here would be
     /// measuring anything, because nothing would be fighting for the same ranked slots" — see
-    /// <see cref="MemoryCorpus"/>) and it was silently broken the first time Chinese was added: the token was
-    /// 条目, TWO characters, below <see cref="Lyntai.Storage.SearchTerms.MinimumTermLength"/>, so it yielded
-    /// no trigram and was dropped from every query. Nothing failed. The measurement simply became easier —
-    /// the first Chinese sweep reported <c>topical</c> miss AND pollution of exactly 0.0000 on almost every
-    /// shape, which reads like a language finding and is an instrument that stopped measuring.</para>
+    /// <see cref="MemoryCorpus"/>), and a token too short breaks it silently: a two-character token such as
+    /// 条目 is below <see cref="Lyntai.Storage.SearchTerms.MinimumTermLength"/>, yields no trigram and is
+    /// dropped from every query. Nothing fails; the measurement simply becomes easier — <c>topical</c> miss
+    /// AND pollution of exactly 0.0000 on almost every shape, which reads like a language finding and is an
+    /// instrument that has stopped measuring.</para>
     /// <para>Asserted through <c>SearchTerms</c> on BOTH sides, because that is the split the store performs:
     /// a term of the leading token must survive in a query AND be present in unrelated content. Checking the
     /// literal token instead would pass on a two-character token that never reaches the index.</para></summary>
@@ -355,9 +355,9 @@ public class MemoryCorpusTests
     /// subject</b> — which is what makes miss = <c>1 - 1/AttributeCount</c> a clean no-graph floor and the
     /// number interpretable.
     /// <para>Pinned as "no query token appears in any NON-cluster entry's content", the property rather than
-    /// the wording, because the first draft violated it while reading perfectly reasonable ("remind me about
-    /// the {subject}" — <c>"the"</c> is a live token under <c>FtsQuery</c>'s three-character rule). A test
-    /// checking the text would not have caught it.</para>
+    /// the wording, because a perfectly reasonable wording violates it ("remind me about the {subject}" —
+    /// <c>"the"</c> is a live token under <c>FtsQuery</c>'s three-character rule), which a test checking the
+    /// text would not catch.</para>
     /// <para><b>The overlapping form is NOT a bug and has its own fact below.</b> It measures the same
     /// question under the contention non-Latin content faces by construction, since this store tokenizes FTS
     /// as trigram and almost any two texts share trigrams.</para></summary>
@@ -388,13 +388,12 @@ public class MemoryCorpusTests
     }
 
     /// <summary><b>A discriminative cue must reach EXACTLY ONE cluster member — not zero, not all three.</b>
-    /// <para>The existing facts pin the upper bound (it shares no term with material OUTSIDE the cluster) and
-    /// nothing pinned the lower one, so a cue that matched NOTHING passed every check. That is what happened
-    /// to the first Chinese lexicon: the subject 配偶 is TWO characters, below the trigram floor, and gluing
-    /// it to the marker produced trigrams (配偶回, 偶回忆, …) that straddle the boundary and appear in no
-    /// entry at all. The arm dutifully reported <c>attribute</c> miss ≈ 0.889 with pollution 0.000 — a cue
-    /// returning almost nothing — against English's 0.299, and that gap reads as a language finding when it
-    /// is two different experiments.</para>
+    /// <para>The other facts pin the upper bound (it shares no term with material OUTSIDE the cluster), which a
+    /// cue matching NOTHING passes. A two-character CJK subject such as 配偶 is below the trigram floor, and
+    /// glued to the marker it yields trigrams (配偶回, 偶回忆, …) that straddle the boundary and appear in no
+    /// entry at all: <c>attribute</c> miss ≈ 0.889 with pollution 0.000 — a cue returning almost nothing —
+    /// against English's 0.299, a gap that reads as a language finding when it is two different
+    /// experiments.</para>
     /// <para>Exactly one is what makes <c>miss = 1 - 1/AttributeCount</c> the no-graph floor and the number
     /// interpretable: the other members can arrive ONLY through the graph. Zero makes the floor 1.0 and
     /// measures nothing; more than one lowers the floor silently and flatters the graph.</para></summary>
@@ -532,12 +531,12 @@ public class MemoryCorpusTests
                 q.RelevantIds.OrderBy(x => x, StringComparer.Ordinal));
     }
 
-    // ---- ExpandRatio: the opt-in expansion axis (2026-08-12, docs/task-archive.md Part 64) ----
+    // ---- ExpandRatio: the opt-in expansion axis (docs/task-archive.md Part 64) ----
 
     /// <summary><b>The guarantee the whole axis rests on: at the default <c>ExpandRatio = 0</c>, a corpus is
-    /// byte-identical to one generated before the axis existed.</b> Asserted as the WRITE-AND-QUERY SEQUENCE
-    /// rather than as "no expansions", because the weaker claim would still pass if adding the axis had
-    /// perturbed the rng draw or the filler count — which would move every published measurement at once
+    /// byte-identical to one whose shape never names the axis.</b> Asserted as the WRITE-AND-QUERY SEQUENCE
+    /// rather than as "no expansions", because the weaker claim would still pass if the axis perturbed the
+    /// rng draw or the filler count — which would move every published measurement at once
     /// while each individual pin merely looked freshly re-baselined.</summary>
     [Fact]
     public void ExpandRatio_defaults_to_zero_and_changes_nothing()
@@ -547,7 +546,7 @@ public class MemoryCorpusTests
         Assert.Equal(0, CorpusShape.Default.ExpandRatio);
         Assert.DoesNotContain(corpus.Steps, s => s is CorpusExpand);
 
-        // the identical shape written out longhand, i.e. what a caller before this axis existed produced
+        // the identical shape written out longhand, never naming the axis
         var explicitly = MemoryCorpus.Generate(
             new CorpusShape(ReuseRatio: 4, NoiseDensity: 8, CriticalRarity: 6, CandidateCount: 10), seed: 4242);
 
@@ -626,8 +625,8 @@ public class MemoryCorpusTests
         // it cannot ever register a miss, so it measures nothing.
         //
         // PROPERTY-BASED over the grid, not the sweep's six named shapes: those never exercise NoiseDensity=0
-        // or CandidateCount<=HotRounds, the two legal shapes the generator's flush path once failed on while
-        // every shape-pinned fact stayed green — a guard whose coverage is pinned to today's callers is not a
+        // or CandidateCount<=HotRounds, two legal shapes on which the generator's flush path can fail while
+        // every shape-pinned fact stays green — a guard whose coverage is pinned to today's callers is not a
         // guard. NoiseDensity spans 0 (a legal shape with no noise class at
         // all) through well above the sweep's own high-noise value; CandidateCount spans 0 through
         // HotRounds(5) — where hot-ephemeral, not topical, becomes the corpus's structurally last-written
@@ -848,10 +847,9 @@ public class MemoryCorpusTests
         Assert.Equal(Describe(MemoryCorpus.Generate(CorpusShape.Default, seed: 4242).Steps), Describe(off.Steps));
     }
 
-    /// <summary>PROPERTY-BASED over a range of counts, not one hand-picked value — this file's own class doc
-    /// records this exact defect class recurring twice already from a hand-picked shape. The golden shape
-    /// used to be RoutineCount=9, an exact multiple of 3, where the OLD <c>count * 2 / 3</c> formula happened
-    /// to agree with the fixed <c>Math.Max(1, count / 3)</c> one; RoutineCount=4 did not (2/2, a tie).</summary>
+    /// <summary>PROPERTY-BASED over a range of counts, not one hand-picked value: at RoutineCount=9, an exact
+    /// multiple of 3, a <c>count * 2 / 3</c> split agrees with <c>Math.Max(1, count / 3)</c>; at
+    /// RoutineCount=4 it does not (2/2, a tie).</summary>
     [Fact]
     public void Phase_A_is_the_larger_regime_for_every_legal_RoutineCount()
     {
@@ -980,9 +978,9 @@ public class MemoryCorpusTests
     /// <para><b>The measurement (seed 12345, <c>RoutineCount=12</c>, DSR's default curve, over the full
     /// 60-shape <see cref="Grid"/>):</b> phase A's retrievability at the final query ranges <b>0.1021
     /// (age 633, the grid's widest shape) to 0.1959 (age 167, its narrowest)</b>. <c>age@r=0.05</c> — the
-    /// value this bound previously borrowed from <c>GraphMemoryOptions.MinRetrievability</c>, the engine's
-    /// hard-DELETE floor that recall never reads — is <b>2660</b>, ~4.2x past the grid's own worst case: a
-    /// regression could age phase A more than four-fold past everything this grid exercises today and this
+    /// value a bound borrowed from <c>GraphMemoryOptions.MinRetrievability</c>, the engine's hard-DELETE
+    /// floor that recall never reads, would allow — is <b>2660</b>, ~4.2x past the grid's own worst case: a
+    /// regression could age phase A more than four-fold past everything this grid exercises today and such a
     /// guard would still say nothing.</para>
     ///
     /// <para><b>The bound.</b> <c>0.07</c> sits below the observed minimum (0.1021) by a ~31% margin and
@@ -993,9 +991,9 @@ public class MemoryCorpusTests
     /// does.</para></summary>
     private const double MinObservedPhaseARetrievability = 0.07;
 
-    // ---- RoutineAnswer: the inverted-answer arm (2026-08-28) ----
+    // ---- RoutineAnswer: the inverted-answer arm ----
 
-    /// <summary>The default arm is unchanged, and the new one is genuinely DIFFERENT — both halves, because
+    /// <summary>The default arm is unchanged, and the Standing one is genuinely DIFFERENT — both halves, because
     /// an arm that silently fell back to the default would pass the first alone.</summary>
     [Fact]
     public void RoutineAnswer_Standing_names_phase_A_at_the_final_query()
@@ -1079,13 +1077,12 @@ public class MemoryCorpusTests
     }
 
     /// <summary><b>Filler must not be able to COMPETE, which is a strictly stronger property than "is never
-    /// declared relevant" — the fact below — and the corpus failed it for its whole life.</b> Every filler
-    /// write used to begin <c>"item filler{n} …"</c>, sharing the token <c>item</c> with every real entry AND
-    /// with almost every query; <see cref="Lyntai.Storage.FtsQuery.Build"/> OR-joins a query's tokens, so a
-    /// filler written moments ago (retrievability ≈ 1) was a legitimate candidate for a query it has nothing
-    /// to do with, and could out-score an already-decayed but genuinely relevant target. Measured
-    /// consequence: a handful of early <c>topic*</c>/<c>hot*</c> entries were never recalled for ANY of their
-    /// own relevant queries, so <c>Reinforce</c> was never even CALLED for them.
+    /// declared relevant" — the fact below.</b> A filler sharing the token <c>item</c> with every real entry
+    /// AND with almost every query is, because <see cref="Lyntai.Storage.FtsQuery.Build"/> OR-joins a query's
+    /// tokens, a legitimate candidate (retrievability ≈ 1 when fresh) for a query it has nothing to do with,
+    /// and can out-score an already-decayed but genuinely relevant target. Measured consequence: a handful of
+    /// early <c>topic*</c>/<c>hot*</c> entries are never recalled for ANY of their own relevant queries, so
+    /// <c>Reinforce</c> is never even CALLED for them.
     /// <para>That is a defect in the MEASURING INSTRUMENT, not in any policy — filler exists purely to
     /// interpose writes and advance interference (<see cref="MemoryCorpus"/>'s <c>TopUpTo</c>), and a
     /// padding class that quietly enters the ranked competition it was added to stand outside of makes every
@@ -1102,8 +1099,8 @@ public class MemoryCorpusTests
 
     /// <summary><b>The same guarantee in every non-English language, and it is HARDER to hold there.</b> Under
     /// trigram matching almost any two CJK texts share trigrams, so padding that competes is far easier to
-    /// write by accident than in English — and this corpus already paid once for padding that competed (see
-    /// <see cref="MemoryCorpus"/>'s note on filler that began "item filler{n}"). A variant without this check
+    /// write by accident than in English — see the fact above for what competing padding costs. A variant
+    /// without this check
     /// would be measuring its own scaffolding and reporting it as recall quality.
     /// <para><b>Japanese is the sharpest case</b>: kana words are frequently two characters and hiragana's
     /// inventory is small, so three common kana can appear in unrelated sentences by chance far more readily
@@ -1299,7 +1296,7 @@ public class MemoryCorpusTests
     [Fact]
     public void The_timeline_genuinely_interleaves_writes_and_queries()
     {
-        // Guards the defect this whole redesign exists to fix: a generator that silently collapsed back
+        // Guards the failure the interleaved timeline exists to prevent: a generator that silently collapsed
         // into write-everything-then-query-everything would still satisfy every OTHER fact in this file
         // (each query's declared relevant set would just be evaluated against the final state) while making
         // the hot-ephemeral window and the critical-rare "late lookup" both meaningless — the corpus would
@@ -1500,9 +1497,9 @@ public class MemoryCorpusTests
 
     /// <summary><b>The axis is byte-identical when unset, in every language.</b> Same rule every other
     /// corpus axis carries: a new dial that perturbs the default corpus would silently invalidate every
-    /// number this repository has published. The <c>Templated</c> path draws from the RNG exactly as it did
-    /// before the branch existed, which is the part that actually has to be checked — an identical template
-    /// with a shifted draw sequence still changes the corpus downstream.</summary>
+    /// number this repository has published. The <c>Templated</c> path's RNG draw sequence is the part that
+    /// actually has to be checked — an identical template with a shifted draw sequence still changes the
+    /// corpus downstream.</summary>
     [Theory]
     [MemberData(nameof(Languages))]
     public void Diverse_noise_is_byte_identical_when_unset(CorpusLanguage language)

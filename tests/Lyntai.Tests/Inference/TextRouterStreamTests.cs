@@ -214,7 +214,7 @@ public class TextRouterStreamTests
     [Fact]
     public async Task Pre_content_rate_limit_cools_the_host_and_falls_over()
     {
-        // amended §6: RateLimited advances like Failed/Timeout (the host cools, the fleet serves). The
+        // design §6: RateLimited advances like Failed/Timeout (the host cools, the fleet serves). The
         // threshold is high on purpose: only an immediate cooldown, never a counted strike, benches p1.
         var tracker = new DeadHostTracker(threshold: 5, TimeSpan.FromMinutes(5), () => DateTimeOffset.UtcNow);
         var p1 = new FakeTextProvider("p1")

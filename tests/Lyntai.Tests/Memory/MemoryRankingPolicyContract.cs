@@ -174,16 +174,13 @@ public static class MemoryRankingPolicyContract
     /// <c>1</c>, so it SURVIVES ordering as the undisputed best. A policy whose exclusion mechanism relies on
     /// "a poisoned score sorts to the bottom and fails its own floor" — true of NaN, false of Infinity — is
     /// defeated outright: the poisoned candidate becomes <c>best</c>, and every HEALTHY candidate's own floor
-    /// check is then measured against an infinite <c>best</c> and fails. <b>Neither policy shipped in this
-    /// library was actually safe against this until it was found</b> — <see cref="ReciprocalRankFusionPolicy"/>
-    /// never multiplies a raw signal into its score, so this was academic there, but
+    /// check is then measured against an infinite <c>best</c> and fails. <see cref="ReciprocalRankFusionPolicy"/>
+    /// never multiplies a raw signal into its score, so this is academic there, but
     /// <see cref="MultiplicativeRankingPolicy"/>'s product propagates <c>+Infinity</c> exactly as described,
-    /// and its own NaN-shaped exclusion (relying on the product turning NaN) does nothing for a value that
+    /// and a NaN-shaped exclusion (relying on the product turning NaN) does nothing for a value that
     /// stays a well-formed, orderable <c>+Infinity</c> the whole way through.
-    /// <para><b>This fact covers the poisoned-INPUT class ONLY, and saying so is the correction that matters:
-    /// as written it read as though it had closed the whole "a score can be non-finite" question, and it had
-    /// not.</b> A score can overflow from inputs that are every one of them finite, which no filter over the
-    /// inputs can see. That is
+    /// <para><b>This fact covers the poisoned-INPUT class ONLY.</b> A score can overflow from inputs that are
+    /// every one of them finite, which no filter over the inputs can see. That is
     /// <see cref="A_finite_input_whose_score_overflows_does_not_empty_a_healthy_recall"/>, below — and it
     /// is not academic for reciprocal rank fusion either.</para></summary>
     public static void A_non_finite_relevance_that_would_otherwise_be_best_does_not_empty_a_healthy_recall(

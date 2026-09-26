@@ -9,13 +9,13 @@ namespace Lyntai.Tests.Memory;
 /// A verifier is shown each candidate's full <see cref="MemoryVerificationCandidate.Content"/> beside its
 /// headline, so a policy that needs to READ the entry is not judging a truncation.
 ///
-/// <para><b>Why the seam was insufficient, measured.</b> A candidate carried the headline alone, and
-/// <see cref="GraphMemoryOptions.HeadlineChars"/> derives that as a 120-character cut of the content. A
-/// cross-encoder reranker — whose whole job is scoring the pair — therefore read the first 120 characters
-/// of most candidates and SPENT 7.5 points where a perfect judge offers +7.0; given whole turns instead it
-/// gained 5.0 (<c>docs/memory-measurements.md</c> §5). The engine had the text the entire time:
-/// <c>SeedAsync</c> already selects the content column and <c>GraphNode.Content</c> carries it, so passing
-/// it costs no extra read.</para>
+/// <para><b>Why the headline alone is insufficient, measured.</b>
+/// <see cref="GraphMemoryOptions.HeadlineChars"/> derives the headline as a 120-character cut of the
+/// content, so a cross-encoder reranker — whose whole job is scoring the pair — shown only headlines reads
+/// the first 120 characters of most candidates and SPENDS 7.5 points where a perfect judge offers +7.0;
+/// given whole turns it gains 5.0 (<c>docs/memory-measurements.md</c> §5). Passing the content costs no
+/// extra read: <c>SeedAsync</c> already selects the content column and <c>GraphNode.Content</c> carries
+/// it.</para>
 ///
 /// <para>These pin the DATA, not a policy. Which text to read stays the policy's choice — a judge paying by
 /// the token keeps using the headline, and nothing about the shipped one changes.</para>
@@ -54,7 +54,7 @@ public class MemoryVerificationContentTests
     public async Task The_headline_it_is_shown_beside_really_is_a_truncation()
     {
         // The premise of the test above: without this, "content equals the write" would also pass on an
-        // engine that never truncated, and the seam's defect would be untestable.
+        // engine that never truncated, and the reason for the seam would be untestable.
         var judge = await RecallWithJudge();
 
         var candidate = Assert.Single(judge.Last!.Candidates);
@@ -75,14 +75,13 @@ public class MemoryVerificationContentTests
 
 /// <summary>
 /// A verifier's own TIMEOUT must not fail the recall. The seam is documented fail-open — the engine logs and
-/// returns <c>NoOpinion</c> — but it rethrows <see cref="OperationCanceledException"/> first, correctly, so a
-/// caller's cancellation propagates. An <see cref="HttpClient"/> timeout surfaces as
-/// <see cref="TaskCanceledException"/>, which IS an <see cref="OperationCanceledException"/>, so the single
-/// most likely failure of a model-backed policy — a slow model — took the whole recall down with it.
+/// returns <c>NoOpinion</c> — and it must still let a caller's cancellation propagate. An
+/// <see cref="HttpClient"/> timeout surfaces as <see cref="TaskCanceledException"/>, which IS an
+/// <see cref="OperationCanceledException"/>, so rethrowing every one turns the single most likely failure of
+/// a model-backed policy — a slow model — into a failed recall.
 ///
-/// <para>Found 2026-09-09 by a bench run losing 40 minutes of ingestion to one judge call exceeding its HTTP
-/// timeout. The distinction the engine now draws is the standard one: rethrow only when the CALLER's token is
-/// actually cancelled.</para>
+/// <para>The distinction the engine draws is the standard one: rethrow only when the CALLER's token is
+/// actually cancelled (<c>docs/FIXES.md</c>, 2026-09-09).</para>
 /// </summary>
 public class MemoryVerificationTimeoutTests
 {
@@ -97,9 +96,7 @@ public class MemoryVerificationTimeoutTests
     /// <summary>The caller stops MID-RECALL, and the exception is MARKED. Both halves are what make the
     /// caller-cancel test able to discriminate: <c>RecallAsync</c> checks the token before anything else, so
     /// a PRE-cancelled one never reaches this seam at all and the store throws on its own — a bare
-    /// <c>ThrowsAnyAsync</c> therefore passes whatever the seam does, including under the wrong fix.
-    /// <para>Found 2026-09-09 by the annotation twin: this file's original version of the test could not
-    /// fail, while <c>docs/FIXES.md</c> claimed both halves pinned the fix.</para></summary>
+    /// <c>ThrowsAnyAsync</c> therefore passes whatever the seam does, including under the wrong fix.</summary>
     private sealed class CancelsWithMarker(CancellationTokenSource cts) : IMemoryVerificationPolicy
     {
         public const string Marker = "the verifier saw the caller's cancellation";

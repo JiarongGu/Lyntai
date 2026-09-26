@@ -22,8 +22,8 @@ internal static class ApiSurface
         var sb = new StringBuilder();
         foreach (var type in assembly.GetExportedTypes().OrderBy(t => t.FullName, StringComparer.Ordinal))
         {
-            // FluentMigrator migration classes are impl detail the 1.0 squash will rewrite — consumers
-            // never name them, so they don't belong in the frozen surface. Detect the attribute by name
+            // FluentMigrator migration classes are impl detail consumers never name, so they don't
+            // belong in the frozen surface. Detect the attribute by name
             // (mirrors IsRequired) so this test project needs no FluentMigrator reference. This drops only
             // the M<digits>_* migration classes; MigrationRunnerService / LyntaiVersionTable carry no
             // [Migration] attribute and stay in the baseline.
@@ -48,8 +48,8 @@ internal static class ApiSurface
         return sb.ToString();
     }
 
-    // sealed/abstract are rendered because REMOVING them is non-breaking but ADDING them post-1.0 is a
-    // break (a consumer may derive from an unsealed class) — the gate must see the modifier flip.
+    // sealed/abstract are rendered because REMOVING them is non-breaking but ADDING them is a break (a
+    // consumer may derive from an unsealed class) — the gate must see the modifier flip.
     private static string Kind(Type t) =>
         t.IsInterface ? "interface"
         : t.IsEnum ? "enum"
@@ -72,7 +72,7 @@ internal static class ApiSurface
             if (m.Name.StartsWith('<')) continue; // backing fields etc.
 
             // `static` is rendered on members (an instance→static flip is a binary/source break the gate
-            // must see); `required` on properties (adding it post-1.0 breaks every object initializer).
+            // must see); `required` on properties (adding it breaks every object initializer).
             switch (m)
             {
                 case MethodInfo method:
@@ -132,9 +132,9 @@ internal static class ApiSurface
         m.IsGenericMethod ? $"<{string.Join(",", m.GetGenericArguments().Select(Simple))}>" : "";
 
     // Parameter NAMES are frozen surface, not decoration: the README teaches named arguments, so renaming
-    // one is a source break for every caller using it — and a types-only rendering never saw it. The DEFAULT
-    // is rendered as its VALUE rather than the old bare `=` marker for the same reason: flipping a default
-    // is a behaviour change no consumer can detect at compile time, and `=` recorded only that one existed.
+    // one is a source break for every caller using it. The DEFAULT is rendered as its VALUE, not a bare `=`
+    // marker, for the same reason: flipping a default is a behaviour change no consumer can detect at
+    // compile time, and `=` records only that one exists.
     private static string Params(ParameterInfo[] ps) =>
         string.Join(", ", ps.Select(p =>
             $"{Simple(p.ParameterType)} {p.Name}{(p.IsOptional ? $" = {Default(p)}" : "")}"));

@@ -6,9 +6,9 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Lyntai.Tests.Memory;
 
-/// <summary>The two seams a real curated catalog needed, both reported by an adopter on 3.0.0: a catalog
-/// MIXES provenance (the owner types facts, the assistant saves what it inferred) and had no way to say so,
-/// and a catalog of several sections had no single-engine read.</summary>
+/// <summary>The two seams a real curated catalog needs: a catalog MIXES provenance (the owner types facts,
+/// the assistant saves what it inferred) and must be able to say so, and a catalog of several sections needs
+/// a single-engine read.</summary>
 public class CuratedMemoryEngineTests
 {
     private static async Task<FakeCuratedStore> SeededAsync()
@@ -39,7 +39,7 @@ public class CuratedMemoryEngineTests
         Assert.All(recall.Items, i => Assert.Equal(MemoryGrade.Authoritative, i.Grade));
     }
 
-    /// <summary>The ask: an assistant's inference must not be presented as an exact fact, and the two live in
+    /// <summary>An assistant's inference must not be presented as an exact fact, and the two live in
     /// ONE catalog under one kind — so the `kind` axis, already spent on the catalog's own sections, cannot
     /// carry the distinction and a composite of two curated engines cannot either (both would be
     /// authoritative).</summary>
@@ -111,9 +111,8 @@ public class CuratedMemoryEngineTests
 
     // ---- kind: null ----------------------------------------------------------------------------------
 
-    /// <summary>A catalog with several sections had no single-engine read: one engine binds one kind, so N
-    /// sections meant a composite of N members. Null reads them all, still bounded by the query's limit —
-    /// which is the bound the whole-catalog read was narrowed to fix in the first place.</summary>
+    /// <summary>One engine binds one kind, so without a null kind a catalog of N sections needs a composite
+    /// of N members. Null reads them all, still bounded by the query's limit.</summary>
     [Fact]
     public async Task A_null_kind_reads_every_section_of_the_catalog()
     {

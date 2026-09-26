@@ -6,12 +6,11 @@ namespace Lyntai.Tests.Inference;
 
 /// <summary>A candidate id is matched CASE-INSENSITIVELY, in the LLM router as everywhere else.
 ///
-/// <para>Every other id lookup in the tree already worked this way — <c>MediaRouter</c>,
-/// <c>ProviderPoolGuard</c>, <c>IToolRegistry</c>, <c>IJobHandlerRegistry</c>, <c>BoundedProviderPool</c> — and
-/// <c>TextRouter</c> alone did not. The gap was REACHABLE rather than theoretical: <c>ProviderPoolGuard</c>
-/// deliberately accepts a pool slot whose case differs from the provider's own <c>Id</c>, so such an instance
-/// was validated, built and pooled, and then never selected — the backend was simply never tried, with no error
-/// and one debug line.</para>
+/// <para>Every other id lookup in the tree works this way — <c>MediaRouter</c>, <c>ProviderPoolGuard</c>,
+/// <c>IToolRegistry</c>, <c>IJobHandlerRegistry</c>, <c>BoundedProviderPool</c>. An ordinal <c>TextRouter</c>
+/// would be a REACHABLE gap, not a theoretical one: <c>ProviderPoolGuard</c> deliberately accepts a pool slot
+/// whose case differs from the provider's own <c>Id</c>, so such an instance would be validated, built and
+/// pooled, and then never selected — the backend never tried, with no error and one debug line.</para>
 ///
 /// <para>The MODEL half of a candidate stays ordinal, which the last test pins: a model id is a vendor's
 /// opaque string this library does not own, and two casings of one are not reliably the same
@@ -39,8 +38,8 @@ public class RouterCandidateIdCaseTests
     [Fact]
     public async Task A_case_differing_candidate_does_not_fall_through_to_the_no_live_candidate_reply()
     {
-        // the failure mode the fix removes: the ONLY registered backend was skipped as "not registered", and
-        // the caller got a synthetic reply naming no provider at all
+        // the failure mode: the ONLY registered backend skipped as "not registered", and the caller handed a
+        // synthetic reply naming no provider at all
         var provider = new FakeTextProvider("Ollama");
 
         var reply = await Router(provider).CompleteAsync([new ProviderCandidate("ollama")], Req);
@@ -52,7 +51,7 @@ public class RouterCandidateIdCaseTests
     [Fact]
     public async Task The_streaming_door_matches_ids_the_same_way()
     {
-        // LiveCandidates is shared, so this is a guard against the two doors drifting apart again
+        // LiveCandidates is shared, so this is a guard against the two doors drifting apart
         var provider = new FakeTextProvider("openai");
 
         var chunks = new List<TextChunk>();

@@ -9,9 +9,9 @@ namespace Lyntai.Tests.Jobs;
 /// <summary>
 /// The FRONT-DOOR half of "a held job can be cancelled": <see cref="JobStoreContract"/> pins the store
 /// transition on every backend it runs, this pins what a consumer calling <see cref="IJobQueue.CancelAsync"/>
-/// observes — plus the two invariants that keep the widening from being over-applied (the Running half stays
-/// a cooperative REQUEST, and the third backend cannot drift because the statement is shared), and the one
-/// home the default attempt budget now has.
+/// observes — plus the two invariants that keep the Paused case from being over-applied (the Running half
+/// stays a cooperative REQUEST, and the third backend cannot drift because the statement is shared), and the
+/// one home of the default attempt budget.
 /// </summary>
 public class JobPausedCancelTests
 {
@@ -27,9 +27,9 @@ public class JobPausedCancelTests
     [Fact]
     public async Task The_resume_first_workaround_makes_the_job_claimable_in_the_gap()
     {
-        // WHY the widening is a fix rather than an ergonomic shortcut: the only route to cancelling a held
-        // job used to be Resume-then-Cancel, and a resumed job is Pending — i.e. back in the claimable set.
-        // A runner polling that lane between the two calls takes it, and the cancel that follows degrades
+        // WHY cancel reaches a held job directly: Resume-then-Cancel puts it back in the claimable set, since
+        // a resumed job is Pending. A runner polling that lane between the two calls takes it, and the cancel
+        // that follows degrades
         // from "this job never runs" to "please stop, if the handler honours its token".
         var (queue, store, _) = New();
         var id = await queue.EnqueueAsync("default", "t", "{}");
@@ -48,7 +48,7 @@ public class JobPausedCancelTests
     public async Task Cancelling_a_paused_job_does_not_flag_it_for_a_worker_that_does_not_exist()
     {
         // the Running half stays narrow on purpose: cancel_requested is a message to the worker holding the
-        // claim, and a held job has none. Widening BOTH halves would leave a Paused job flagged and still held.
+        // claim, and a held job has none. Extending BOTH halves to Paused would leave it flagged and still held.
         var (queue, store, _) = New();
         var id = await queue.EnqueueAsync("default", "t", "{}");
         await queue.PauseAsync(id);
@@ -65,7 +65,7 @@ public class JobPausedCancelTests
     {
         // SQLite and Postgres both route CancelAsync through this ONE statement, and the Postgres contract leg
         // only runs against a live container — so this is what keeps the third backend from diverging on a
-        // machine with no container. RequestCancel is asserted too: it must NOT have been widened alongside.
+        // machine with no container. RequestCancel is asserted too: it must NOT reach Paused.
         Assert.Contains("status IN ('Pending','Paused')", JobStoreSql.CancelNotStarted, StringComparison.Ordinal);
         Assert.Contains("status='Running'", JobStoreSql.RequestCancel, StringComparison.Ordinal);
         Assert.DoesNotContain("Paused", JobStoreSql.RequestCancel, StringComparison.Ordinal);
@@ -76,7 +76,6 @@ public class JobPausedCancelTests
     {
         // JobOptions.DefaultMaxAttempts is the CONFIGURABLE queue-level default; JobSpec.DefaultMaxAttempts is
         // the constant it starts from and the fallback a store applies to a spec that reached it directly.
-        // They were three hand-copied `3`s plus this property's initializer, free to drift apart in silence.
         Assert.Equal(JobSpec.DefaultMaxAttempts, new JobOptions().DefaultMaxAttempts);
     }
 

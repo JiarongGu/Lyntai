@@ -7,8 +7,8 @@ namespace Lyntai.Tests.Fakes;
 /// exercise ranking without a model). Uses a stable hash (not <c>string.GetHashCode</c>, which is
 /// per-process randomized) so results are reproducible across runs.
 ///
-/// <para><b>An <see cref="IModelProvider"/> declaring <see cref="ProviderKinds.Vector"/>, since D151</b> —
-/// there is no vector backend seam to fake any more. It is the same shape a real in-process backend has, which
+/// <para><b>An <see cref="IModelProvider"/> declaring <see cref="ProviderKinds.Vector"/> (D151)</b> —
+/// there is no separate vector backend seam to fake. It is the same shape a real in-process backend has, which
 /// is the point: a test that passes this exercises the capability filter and the routing the production
 /// path uses, rather than a seam only tests implement.</para></summary>
 public sealed class FakeVectorProvider(int dim = 64) : FakeVectorProviderBase

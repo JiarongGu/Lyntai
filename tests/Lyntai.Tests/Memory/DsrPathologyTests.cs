@@ -22,8 +22,8 @@ namespace Lyntai.Tests.Memory;
 /// <item>A well-connected entry decaying FASTER than an isolated one, over a REPLAYED corpus.</item>
 /// <item><see cref="IMemoryRetrievabilityPolicy.CandidateCutoff"/> failing its superset property over REAL
 /// replayed states, not a synthetic grid.</item>
-/// <item>Reinforcement that never fires across a realistic session — the exact pathology
-/// (<c>docs/task-archive.md</c> Part 55) that made a PREDECESSOR sweep meaningless.</item>
+/// <item>Reinforcement that never fires across a realistic session — the r=1-always pathology
+/// (<c>docs/task-archive.md</c> Part 55), which makes a sweep meaningless.</item>
 /// <item><b>Own probe</b>: DSR stays internally correct — contract-compliant, never a broken probability —
 /// under a reuse pattern that starves its reinforcement.</item>
 /// </list>
@@ -40,8 +40,8 @@ public class DsrPathologyTests
     private const int Seed = 12345;
 
     /// <summary>An undamped per-write age policy, matching the substitution
-    /// <see cref="MemoryDecaySimulationTests"/>, <c>MemoryDefaultRecallQualityTests</c> and the historical
-    /// sweep all make, for the same reason: a fast in-process replay lands entirely inside
+    /// <see cref="MemoryDecaySimulationTests"/> and <c>MemoryDefaultRecallQualityTests</c> make, for the
+    /// same reason: a fast in-process replay lands entirely inside
     /// <see cref="BurstDampenedAgePolicy"/>'s wall-clock burst window and would measure the damping instead of
     /// the curve under test.</summary>
     private static GraphMemoryEngine BuildEngine(IMemoryGraphStore store, IMemoryRetrievabilityPolicy policy,
@@ -54,13 +54,13 @@ public class DsrPathologyTests
             });
 
     /// <summary>The curve(s) every fact in this file runs against.
-    /// <para><b>Reinforcement is switched ON here, and that is deliberate as of 3.0.</b>
-    /// <c>DsrOptions.ReinforceGain</c> now defaults to <c>0</c> (<c>docs/DECISIONS.md</c> D54), so a
+    /// <para><b>Reinforcement is switched ON here, deliberately.</b>
+    /// <c>DsrOptions.ReinforceGain</c> defaults to <c>0</c> (<c>docs/DECISIONS.md</c> D54), so a
     /// default-constructed curve never grows a stability at all — and every pathology in this file is about
     /// what the growth arithmetic does under an adversarial pattern. Run against the bare default they would
     /// all pass trivially, for the same reason a calculator that returns zero never overflows: the subject
     /// would have been removed rather than tested.</para>
-    /// <para>Pathologies of the 3.0 DEFAULT configuration are covered elsewhere and deliberately not
+    /// <para>Pathologies of the DEFAULT configuration are covered elsewhere and deliberately not
     /// duplicated here — <c>MemoryDefaultRecallQualityTests</c> pins its recall quality end to end, and
     /// <c>DsrRetrievabilityTests.Reinforcement_is_OFF_by_default_as_of_3_0</c> pins the default itself.</para></summary>
     public static IEnumerable<object[]> Curves()
@@ -302,7 +302,7 @@ public class DsrPathologyTests
 
     // ---------------------------------------------------------------------------------------------------
     // 5. Reinforcement that never fires across a realistic session — the r=1-always pathology, checked as
-    //    a property of THIS corpus rather than assumed fixed by an earlier retarget.
+    //    a property of THIS corpus rather than assumed.
     // ---------------------------------------------------------------------------------------------------
 
     /// <summary>
@@ -490,7 +490,7 @@ public class DsrPathologyTests
     /// unguarded route is the one a consumer following the documentation takes.</para>
     /// <para><b>InMemory deliberately, not SQLite.</b> On a SQL backend the poisoned write throws and
     /// <c>ReinforceAsync</c>'s catch-all swallows it, so the damage is a silently-lost reinforcement and the
-    /// stored value stays finite — this fact would pass while the defect was live. The in-process store
+    /// stored value stays finite — this fact would pass with the guard deleted. The in-process store
     /// persists the <c>NaN</c>, which is what makes it observable.</para></summary>
     [Fact]
     public async Task Expanding_under_a_non_finite_age_policy_never_persists_a_non_finite_difficulty()

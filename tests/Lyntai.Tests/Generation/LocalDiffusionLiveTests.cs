@@ -6,8 +6,8 @@ namespace Lyntai.Tests.Generation;
 
 /// <summary>The local diffusion backend against a REAL <c>sd-cli</c>, which nothing in
 /// <see cref="LocalDiffusionProviderTests"/> can stand in for: those pin the argv this backend BUILDS, and
-/// only a real engine can say whether that argv is the one it ACCEPTS — the two diverged once (the retired
-/// <c>img2img</c> mode value), which is exactly the divergence this test exists to catch.
+/// only a real engine can say whether that argv is the one it ACCEPTS — an upstream retirement such as the
+/// <c>img2img</c> mode value is exactly the divergence this test exists to catch.
 ///
 /// <para>Skipped without <c>LYNTAI_SD_CLI</c> (the full path to <c>sd-cli.exe</c> — NEVER a prefix match,
 /// the same release ships <c>sd-server.exe</c> beside it, which starts and waits forever) and
@@ -40,8 +40,8 @@ public class LocalDiffusionLiveTests
         var png = rendered.Artifacts[0].Data!;
         Assert.Equal((256, 256), PngDimensions(png));
 
-        // img2img is the half the unit tests could not defend: the engine reads the init flag's PRESENCE as
-        // the switch, and the explicit mode pair the argv used to carry is an argv ERROR on this build.
+        // img2img is the half the unit tests cannot defend: the engine reads the init flag's PRESENCE as the
+        // switch, and an explicit img2img mode pair is an argv ERROR on this build.
         var edited = await provider.GenerateAsync(Ask("the same square, blue", png));
 
         Assert.True(edited.IsOk, edited.Detail);

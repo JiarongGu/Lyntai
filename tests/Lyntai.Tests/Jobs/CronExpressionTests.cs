@@ -77,7 +77,7 @@ public class CronExpressionTests
     public void Dom_and_dow_both_restricted_is_an_OR()
     {
         // classic cron: "13th OR any Friday". The next Friday (07-24) comes before the next 13th (08-13); an
-        // AND would wait for a Friday the 13th (2026-11-13), which the old containment check also accepted.
+        // AND would wait for a Friday the 13th (2026-11-13), which a containment check would also accept.
         Assert.Equal(new DateTimeOffset(2026, 7, 24, 0, 0, 0, TimeSpan.Zero), Next("0 0 13 * 5"));
     }
 

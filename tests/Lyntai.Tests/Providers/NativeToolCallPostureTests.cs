@@ -10,9 +10,7 @@ namespace Lyntai.Tests.Providers;
 
 /// <summary>Which providers declare NATIVE tool-calling, and — more usefully — which deliberately do not.
 ///
-/// <para><b>This exists because the roadmap asked for the opposite.</b> "Native tool-calling for the
-/// ClaudeCli/Local providers (both stay on the prompt fallback)" sat under §9 as a low-value deferral until
-/// 2026-08-16, when acting on it showed the request was misframed and would have made things WORSE.
+/// <para><b>Declaring it where the backend cannot honour it makes things WORSE.</b>
 /// <c>IModelProvider.Capabilities.SupportsToolCalls</c> means "I return the model's calls on <c>TextResponse.ToolCalls</c> for
 /// YOUR loop to execute". Flipping it true on a provider that cannot do that makes <c>ToolLoop</c> take the
 /// native path, send tool declarations the backend ignores, and then wait for calls that never arrive — so
@@ -29,7 +27,7 @@ public class NativeToolCallPostureTests
         // tools, not to receive its calls. stream-json reports the tool_use blocks it already ran.
         //
         // The real need — an app's own ITools reachable by the CLI — is met by ICliToolProvisioner, which
-        // stands up an in-process MCP server and passes --mcp-config (shipped 1.1). So the tools do run in
+        // stands up an in-process MCP server and passes --mcp-config. So the tools do run in
         // this process, with the host's guards applied; they simply are not shaped as TextResponse.ToolCalls.
         // the router reads the PROVIDER's declaration, so that is what is asserted — not the backend's flag
         Assert.False(new ClaudeCliProvider(new FakeProcessRunner(), new LyntaiOptions()).Capabilities.SupportsToolCalls);
@@ -58,7 +56,7 @@ public class NativeToolCallPostureTests
     [Fact]
     public void Nor_does_either_declare_STREAMING_tool_calls_which_would_be_a_stronger_claim_still()
     {
-        // The 3.0 streaming capability (D71) is separate and defaults false. A provider that cannot deliver
+        // The streaming capability (D71) is separate and defaults false. A provider that cannot deliver
         // calls at all certainly cannot deliver them mid-stream, and answering yes here would send ToolLoop
         // down its streaming native path to wait for chunks that never come.
         var local = new LlamaSharpProvider("local", new LlamaSharpOptions { ModelPath = "x.gguf" }, new LyntaiOptions());

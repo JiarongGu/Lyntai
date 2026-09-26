@@ -8,8 +8,8 @@ namespace Lyntai.Tests.Inference;
 /// CONFIGURATION a provider is running under rather than on its id, so that several configurations of one
 /// backend can be live at once without one tenant's rate limit benching every other tenant.
 ///
-/// <para>The default (no delegate) path is asserted first and deliberately: an app that never opts in must
-/// behave exactly as it did before this seam existed.</para></summary>
+/// <para>The default (no delegate) path is asserted first and deliberately: an app that never opts in
+/// benches by provider id.</para></summary>
 public class RouterCooldownKeyTests
 {
     private static MediaRequest Request() => new() { Kind = ProviderKinds.Image, Prompt = "a cat" };
@@ -19,8 +19,7 @@ public class RouterCooldownKeyTests
     private static List<ProviderCandidate> Candidates(params string[] ids) =>
         [.. ids.Select(id => new ProviderCandidate(id))];
 
-    // Default behaviour must be untouched: an app that never supplies a delegate benches by provider id,
-    // exactly as it does today.
+    // The default: an app that never supplies a delegate benches by provider id.
     [Fact]
     public async Task Without_a_delegate_the_cooldown_key_is_still_the_provider_id()
     {
@@ -55,7 +54,7 @@ public class RouterCooldownKeyTests
         Assert.False(tracker.IsDead("generation::openai-images"));
     }
 
-    // A null return is what a container-composed provider yields, and must mean "behave as before".
+    // A null return is what a container-composed provider yields, and must mean the default.
     [Fact]
     public async Task A_delegate_returning_null_falls_back_to_the_provider_id()
     {
@@ -69,7 +68,7 @@ public class RouterCooldownKeyTests
         Assert.True(tracker.IsDead("generation::a1111"));
     }
 
-    // The rev-2 regression: the limit must bound calls even though instances may be per-call.
+    // The limit must bound calls even though instances may be per-call.
     [Fact]
     public async Task Admission_bounds_concurrent_attempts_for_one_configuration()
     {
@@ -121,12 +120,9 @@ public class RouterCooldownKeyTests
         (await next).Dispose();
     }
 
-    // A provider that THROWS is the other path a `using` has to cover. Until 3.0 the router let the throw
-    // out of GenerateAsync and this test asserted that — but the escape was never this test's SUBJECT, it
-    // was the behaviour that happened to exist while the subject was permit release. The router is now the
-    // trust boundary (docs/DECISIONS.md D64), so the throw is classified into a verdict, and the permit must
-    // come back on THAT path too — which is the stronger claim, because the release now has to survive a
-    // catch block rather than an unwinding stack.
+    // A provider that THROWS is the other path a `using` has to cover. The router is the trust boundary
+    // (docs/DECISIONS.md D64), so the throw is classified into a verdict, and the permit must come back on
+    // THAT path too — the release has to survive a catch block rather than an unwinding stack.
     [Fact]
     public async Task A_throwing_backend_still_releases_its_permit()
     {
@@ -230,9 +226,9 @@ public class RouterCooldownKeyTests
     // Identity by configuration and granularity by model are ORTHOGONAL, so they compose rather than one
     // replacing the other. The full table the two knobs produce:
     //   no delegate + Provider          -> "openai"
-    //   no delegate + ProviderAndModel  -> "openai::gpt-5"        (covered by the existing router tests)
+    //   no delegate + ProviderAndModel  -> "openai::gpt-5"        (covered by the router tests)
     //   delegate    + Provider          -> "openai#<fp12>"        (covered above)
-    //   delegate    + ProviderAndModel  -> "openai#<fp12>::gpt-5" (this test — the only untested cell)
+    //   delegate    + ProviderAndModel  -> "openai#<fp12>::gpt-5" (this test)
     [Fact]
     public async Task The_delegate_composes_with_the_ProviderAndModel_cooldown_scope()
     {

@@ -42,9 +42,9 @@ public class GenerationBackendsToolTests
 
         Assert.Equal(2, Backends(observation).GetArrayLength());
         Assert.True(Backend(observation, "images").GetProperty("usable").GetBoolean());
-        // "queued", not "job": the delivery mode is named for what it does, and `Job` collided with the
+        // "queued", not "job": the delivery mode is named for what it does, and `Job` would collide with the
         // durable job queue an APP runs (Lyntai.Jobs). The tool payload is derived from the enum name, so
-        // a model reading this field sees the rename — which is why the assertion is on the literal.
+        // a model reading this field sees any rename — which is why the assertion is on the literal.
         Assert.Equal("queued", Backend(observation, "video").GetProperty("delivery")[0].GetString());
     }
 
@@ -85,8 +85,8 @@ public class GenerationBackendsToolTests
     /// <summary><b>One backend's defect does not discard the listing of every other.</b>
     /// <c>MediaRouter</c> names itself the trust boundary for a BYO backend that throws instead of
     /// returning a verdict (<c>docs/DECISIONS.md</c> D64); this is a SECOND reader of the same registered
-    /// collection, and it applied none of that — so a single throwing provider took the whole tool down with
-    /// an exception the agent could do nothing with.</summary>
+    /// collection, and must apply the same — or a single throwing provider takes the whole tool down with an
+    /// exception the agent can do nothing with.</summary>
     [Fact]
     public async Task A_throwing_probe_becomes_an_observation_rather_than_failing_the_whole_tool()
     {

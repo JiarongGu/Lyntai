@@ -137,8 +137,8 @@ public class HttpRerankTransportTests
     [Fact]
     public async Task A_429_is_RATE_LIMITED_so_a_second_reranker_can_take_over()
     {
-        // Before D153 a rate-limited reranker threw, the verification seam reported NoOpinion, and the very
-        // next recall asked the same exhausted host again -- there was no cooldown for it to reach.
+        // A verdict, not a throw (D153): a throw reads as NoOpinion at the verification seam, and the very
+        // next recall asks the same exhausted host again -- there is no cooldown for it to reach.
         var scorer = Scorer(new StubHttpHandler().Enqueue(HttpStatusCode.TooManyRequests, "slow down"));
 
         var response = await scorer.CallAsync(new ScoreRequest("q", ["a"]));

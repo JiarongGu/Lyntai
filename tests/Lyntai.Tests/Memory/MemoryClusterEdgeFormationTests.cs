@@ -101,7 +101,7 @@ public class MemoryClusterEdgeFormationTests
     /// write time (needs a vector backend and a vector store — neither is supplied here, and a deterministic fake
     /// cannot stand in, since "similar" would then mean something different from what it means in
     /// production), and <see cref="MemoryGrade.Authoritative"/>, which
-    /// <c>MemoryChineseRecallTests</c> shows returning the whole cluster in both languages because grade
+    /// <c>MemoryCjkRecallTests</c> shows returning the whole cluster in every language because grade
     /// admission never consults the tokenizer. See <c>TASKS.md</c>.</para>
     /// <para>This asserts the floor rather than the goal deliberately: pinning <c>withinCluster == 2</c> for
     /// English would make a defect the expected behaviour and fail the day it is fixed.</para></summary>

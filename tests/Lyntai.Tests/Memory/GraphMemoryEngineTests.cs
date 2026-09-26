@@ -20,7 +20,7 @@ public class GraphMemoryEngineTests
             });
 
     /// <summary>Make everything already stored older by writing unrelated material — which is what ages a
-    /// memory now: newer material competing with it.</summary>
+    /// memory: newer material competing with it.</summary>
     private static async Task Crowd(GraphMemoryEngine engine, int writes)
     {
         for (var i = 0; i < writes; i++)
@@ -288,7 +288,7 @@ public class GraphMemoryEngineTests
         // At CoActivationCap = 5 a recall links C(5,2) = 10 pairs, and each LinkAsync on a relational store
         // opens its own connection AND re-reads the position totals. This pins the round-trip COUNT rather
         // than a latency, because `memory-scale` cannot resolve the change above its own noise: its 10k p50
-        // spans 8.9-11.2ms across runs of identical code. What is checkable here is that ten calls became one.
+        // spans 8.9-11.2ms across runs of identical code. What is checkable here is one call instead of ten.
         var store = new LinkCountingGraphStore();
         var engine = new GraphMemoryEngine("project/graph", store, seams: new GraphMemorySeams
             {
@@ -308,10 +308,10 @@ public class GraphMemoryEngineTests
     [Fact]
     public async Task A_recalls_whole_write_back_reaches_the_store_as_ONE_call_not_three()
     {
-        // The touch, the co-activation edges and the review-log rows were three calls, and on a relational
-        // store each opened its own connection. Same countable-claim reasoning as the fact above, one level
-        // up: `memory-scale` cannot resolve what this buys above its own run-to-run spread, so what is
-        // checkable is that three calls became one.
+        // The touch, the co-activation edges and the review-log rows as three calls would each open their own
+        // connection on a relational store. Same countable-claim reasoning as the fact above, one level up:
+        // `memory-scale` cannot resolve what this buys above its own run-to-run spread, so what is checkable
+        // is one call instead of three.
         var store = new WriteBackCountingGraphStore();
         var engine = new GraphMemoryEngine("project/graph", store, seams: new GraphMemorySeams
             {
@@ -328,17 +328,16 @@ public class GraphMemoryEngineTests
         Assert.Equal(0, store.DirectBatchedLinks);
         Assert.Equal(0, store.DirectReviewWrites);
 
-        // and the review log LAST, which is what keeps a broken one from costing the other two — the
-        // isolation ReinforceAsync used to buy with a second catch around the log write
+        // and the review log LAST, which is what keeps a broken one from costing the other two
         Assert.Equal(["touch", "edges", "reviews"], store.Order);
     }
 
     [Fact]
     public async Task Expansion_walks_to_a_BURIED_neighbour_by_default_so_forgetting_has_no_vote_in_traversal()
     {
-        // The control, and the defect it describes is measured: EdgeHalfLife decays the EDGE and nothing
-        // consulted the ENTRY, so a recall buries a superseded fact and an expansion hands it straight back.
-        // On LongMemEval's knowledge-update class that cost 4 points of clean context per extra shot.
+        // The control, and the cost it describes is measured: EdgeHalfLife decays the EDGE and nothing
+        // consults the ENTRY, so a recall buries a superseded fact and an expansion hands it straight back —
+        // on LongMemEval's knowledge-update class, 4 points of clean context per extra shot.
         var engine = Engine();
 
         var walked = (await engine.ExpandAsync(await Superseded(engine))).Items.Skip(1).ToList();
@@ -391,9 +390,9 @@ public class GraphMemoryEngineTests
     [Fact]
     public async Task A_recall_honours_the_query_char_budget_without_dropping_an_exact_fact()
     {
-        // MemoryQuery.CharBudget shipped in 2.5.0 documented as "maximum characters the caller intends to
-        // spend" and was read by NOTHING for a whole released version — the same class as ExpandAsync's own
-        // charBudget and GraphMemoryOptions.MinRetrievability. Found 2026-08-14.
+        // MemoryQuery.CharBudget is documented as "maximum characters the caller intends to spend", and a
+        // field that is declared, documented and read by NOTHING fails no other test — the same class as
+        // ExpandAsync's own charBudget and GraphMemoryOptions.MinRetrievability below.
         var engine = Engine();
         await engine.RememberAsync(new MemoryWrite("t", "s",
             "the deployment gate is the verify command", Grade: MemoryGrade.Authoritative));
@@ -427,10 +426,9 @@ public class GraphMemoryEngineTests
     [Fact]
     public async Task Prune_uses_the_configured_MinRetrievability_when_the_caller_names_no_floor()
     {
-        // Found 2026-08-14: GraphMemoryOptions.MinRetrievability occurred ONLY in its own declaration and its
-        // own validation guard. PruneAsync took an independent parameter and never consulted the option, so
-        // with both criteria null `doomed` was empty and `engine.PruneAsync("t")` — the documented shape —
-        // deleted NOTHING while design §5.7 and the option's own summary both said it governs pruning.
+        // GraphMemoryOptions.MinRetrievability governs pruning (design §5.7, and the option's own summary). A
+        // PruneAsync that consults only its own parameter leaves `doomed` empty with both criteria null, so
+        // `engine.PruneAsync("t")` — the documented shape — deletes NOTHING.
         // The entry must actually BE faint — a fresh one is fully retrievable, so no floor would reach it and
         // the test would pass for the wrong reason. Crowd() is how this subsystem ages something: newer
         // material competing with it.
@@ -448,8 +446,8 @@ public class GraphMemoryEngineTests
     public async Task A_zero_MinRetrievability_removes_nothing_which_is_the_opt_out()
     {
         // The escape hatch, asserted rather than assumed: retrievability is never below zero, so a floor of 0
-        // means "never remove on this criterion" and restores the pre-fix behaviour for a deployment that wants
-        // deletion to happen only when a caller names a floor explicitly.
+        // means "never remove on this criterion", for a deployment that wants deletion to happen only when a
+        // caller names a floor explicitly.
         var engine = Engine(new GraphMemoryOptions { MinRetrievability = 0 });
         await engine.RememberAsync(new MemoryWrite("t", "s", "a faint associative entry"));
         await Crowd(engine, 40);
@@ -462,7 +460,7 @@ public class GraphMemoryEngineTests
     public async Task Prune_never_removes_an_authoritative_fact_however_low_the_floor()
     {
         // Objective (1) again: an exact fact is not eligible for removing at any floor. Guarded here because
-        // wiring the option turned PruneAsync from a no-op into something that actually deletes.
+        // the configured floor is what makes a bare PruneAsync actually delete.
         var engine = Engine(new GraphMemoryOptions { MinRetrievability = 0.99 });
         await engine.RememberAsync(new MemoryWrite("t", "s", "the exact fact", Grade: MemoryGrade.Authoritative));
 
@@ -472,9 +470,9 @@ public class GraphMemoryEngineTests
     [Fact]
     public async Task Expansion_walks_the_requested_number_of_hops()
     {
-        // Found 2026-08-14: `hops` appeared ONLY in ExpandAsync's signature — never in its body, which
-        // hard-coded a single hop. MemoryTools forwards a model-supplied value AND advertises it in the tool
-        // JSON schema, so an agent asking for hops:2 silently got one hop with no error and no signal.
+        // MemoryTools forwards a model-supplied `hops` AND advertises it in the tool JSON schema, so an
+        // ExpandAsync that hard-codes a single hop gives an agent asking for hops:2 one hop with no error and
+        // no signal.
         var engine = Engine(new GraphMemoryOptions { Hops = 3 });
         var a = (await engine.RememberAsync(new MemoryWrite("t", "s", "alpha fact"))).Reference;
         var b = (await engine.RememberAsync(new MemoryWrite("t", "s", "beta fact"))).Reference;
@@ -493,8 +491,8 @@ public class GraphMemoryEngineTests
     [Fact]
     public async Task Expansion_with_zero_hops_returns_only_the_entry_itself()
     {
-        // GraphMemoryWiringTests documents `hops: 0` as "nothing but the entry itself returns" and reads
-        // Items[0] — so it passed while neighbours were returned anyway. Now the claim is the behaviour.
+        // GraphMemoryWiringTests documents `hops: 0` as "nothing but the entry itself returns" but reads only
+        // Items[0], which passes with neighbours returned anyway — so the claim is pinned here.
         var engine = Engine();
         var a = (await engine.RememberAsync(new MemoryWrite("t", "s", "alpha fact"))).Reference;
         var b = (await engine.RememberAsync(new MemoryWrite("t", "s", "beta fact"))).Reference;
@@ -509,7 +507,7 @@ public class GraphMemoryEngineTests
     [Fact]
     public async Task Expansion_stops_adding_neighbours_once_the_char_budget_is_spent()
     {
-        // charBudget had the same defect as hops — accepted, documented, never read. The expanded entry is
+        // charBudget is the same shape as hops: accepted, documented, silent if never read. The expanded entry is
         // ALWAYS returned whatever the budget: returning its full content is what expansion IS, so a budget
         // smaller than that entry bounds the NEIGHBOURS rather than refusing the request.
         var engine = Engine();
@@ -663,7 +661,7 @@ public class GraphMemoryEngineTests
     /// so pruning is EXACT for it rather than merely conservative</b> — never refusing outright, which would
     /// leave a genuinely unretrievable connected entry unremovable forever.
     /// <para><b>Both halves are load-bearing, and they fail in OPPOSITE directions</b> — which is what makes
-    /// this discriminate the real fix from either mistake. The scenario is the swap
+    /// this discriminate the right rule from either mistake. The scenario is the swap
     /// <see cref="Prune_agrees_with_recall_after_a_policy_swap_rather_than_removing_the_stale_accumulator"/>
     /// already establishes: writes governed by <see cref="ContentSizeAgePolicy"/> (position counts CHARS,
     /// reaching ~10,150 by the end), then a second engine over the same store governed by
@@ -677,8 +675,8 @@ public class GraphMemoryEngineTests
     /// <c>r = (1 + 3·51/20)^-0.5 = 0.340</c> — below the floor, so the entry is wrongly removed and this half
     /// reddens.</item>
     /// <item><b>Floor 0.60 — the same entry must be REMOVED.</b> Its true <c>r</c> is 0.486, genuinely below
-    /// 0.60. The old blanket guard (<c>never delete an entry with Strength &gt; 0 &amp;&amp; StrengthAge &gt;
-    /// 0</c>) retains it unconditionally, so this half is what reddens against the pre-fix code.</item>
+    /// 0.60. A blanket guard (<c>never delete an entry with Strength &gt; 0 &amp;&amp; StrengthAge &gt;
+    /// 0</c>) retains it unconditionally, so this half is what reddens against that guard.</item>
     /// </list>
     /// Ordered survive-then-remove on ONE store deliberately: the 0.40 prune leaves both endpoints (and so the
     /// edge) intact, which is what makes the 0.60 prune a test of the same connected state rather than of an
@@ -711,20 +709,17 @@ public class GraphMemoryEngineTests
         await underPerWrite.PruneAsync("t", "s", minRetrievability: 0.40);
         Assert.NotNull(await store.GetAsync("e", id));
 
-        // ...and it is genuinely below 0.60, so it is now removable rather than guarded forever
+        // ...and it is genuinely below 0.60, so it is removable rather than guarded forever
         await underPerWrite.PruneAsync("t", "s", minRetrievability: 0.60);
         Assert.Null(await store.GetAsync("e", id));
     }
 
     /// <summary><b>The THIRD age axis — an edge's own traversal age — is projected through the installed age
-    /// policies too, so all three axes finally speak one unit.</b> `Age` and `StrengthAge` were made
-    /// swap-safe first; `GraphNeighbour.EdgeAge` was the last one still read as the raw
-    /// <c>position - strengthened_position</c> accumulator, which after a policy swap mixes pre- and
-    /// post-swap units WITHIN ITSELF.
-    /// <para>Unlike the other two this one never deleted anything — it only orders a traversal — which is why
-    /// it is a coherence fix rather than a measured data-loss bug. It is taken inside the 3.0 window for the
-    /// same reason D50 and D52's own item were: adding a member to the <c>GraphNeighbour</c> record is
-    /// binary-breaking, so it is free today and a whole major afterwards.</para>
+    /// policies too, so all three axes speak one unit.</b> Read as the raw
+    /// <c>position - strengthened_position</c> accumulator, <c>GraphNeighbour.EdgeAge</c> mixes pre- and
+    /// post-swap units WITHIN ITSELF after a policy swap.
+    /// <para>Unlike the other two this one never deletes anything — it only orders a traversal — so it is a
+    /// coherence rule rather than a data-loss guard.</para>
     /// <para><b>The scenario makes the two units disagree by construction.</b> Under
     /// <see cref="ContentSizeAgePolicy"/> the position counts CHARS, so the far edge — linked early, then
     /// buried under ~10,150 characters of filler — reads an edge age of ~10,168 positions but only 51 WRITES.
@@ -771,28 +766,21 @@ public class GraphMemoryEngineTests
     }
 
     /// <summary><b>A recall does TWO separable things to every entry it returns — it RESETS the entry's age
-    /// and (when the curve is configured to) GROWS the entry's stability — and they are welded into one
-    /// call.</b> Pinned because the decomposition is the load-bearing finding of `docs/task-archive.md`
-    /// Part 64, and nothing else in the suite states it.
-    /// <para><b>The growth half is switched on explicitly here, because as of 3.0 it is OFF by default</b>
+    /// and (when the curve is configured to) GROWS the entry's stability — and under the default option set
+    /// one call applies both.</b> Pinned because the decomposition is the load-bearing finding of
+    /// `docs/task-archive.md` Part 64.
+    /// <para><b>The growth half is switched on explicitly here, because it is OFF by default</b>
     /// (<c>DsrOptions.ReinforceGain = 0</c>, <c>docs/DECISIONS.md</c> D54 — retrieval-driven growth measured
-    /// as harmful, and capped and non-compounding variants both lost to not growing). The WELD is what this
-    /// fact is about and the weld is still there: one call, two effects, no way to ask for the reset without
-    /// the growth. That is precisely why the option gating them TOGETHER was reverted rather than
-    /// shipped.</para>
-    /// <para><b>Why it matters that these are separable in EFFECT but not in API.</b> Measured across four
-    /// studies on 2026-08-12, the two pull in OPPOSITE directions: the age reset is what keeps a
-    /// rarely-queried fact alive (removing it collapses recall quality on every shape), while the stability
-    /// growth is what entrenches whatever the ranking policy already favoured (it is what wrecks the
-    /// `topical` class). A `ReinforceOn` option that gated both together was written and REVERTED the same
-    /// day for exactly this reason — it could not express "reset age, do not grow", which is the
-    /// best-measured configuration and is reachable today only through
-    /// <c>DsrOptions.ReinforceGain = 0</c>.</para>
+    /// as harmful, and capped and non-compounding variants both lost to not growing).</para>
+    /// <para><b>Why it matters that these are separable.</b> The two pull in OPPOSITE directions: the age
+    /// reset is what keeps a rarely-queried fact alive (removing it collapses recall quality on every shape),
+    /// while the stability growth is what entrenches whatever the ranking policy already favoured (it is what
+    /// wrecks the `topical` class). An option gating both TOGETHER cannot express "reset age, do not grow",
+    /// the best-measured configuration.</para>
     /// <para>Both assertions are POSITIVE. A test asserting only that something did not change would pass
     /// just as well if the recall returned nothing at all (<c>pitfalls.md</c>), so the query here is a
-    /// literal contiguous substring of the content — belt and braces since 3.0, when
-    /// <see cref="Lyntai.Storage.SearchTerms"/> gave this store term-wise matching and a shared term would
-    /// have sufficed — and the recall is asserted non-empty before either effect is checked.</para>
+    /// literal contiguous substring of the content and the recall is asserted non-empty before either effect
+    /// is checked.</para>
     /// <para>Crowding first is load-bearing rather than scene-setting: a just-written entry recalls at
     /// <c>r = 1</c>, where law 3's term is <c>e^0 - 1 = 0</c>, so an immediate re-recall grows NOTHING by
     /// design. Without ageing it, the stability half of this fact would pass vacuously.</para></summary>
@@ -823,18 +811,18 @@ public class GraphMemoryEngineTests
             $"stability must grow on recall; was {before.Stability}, now {after.Stability}");
     }
 
-    /// <summary><b>The two effects are separable in the API now, not only in principle — "reset the age, do
+    /// <summary><b>The two effects are separable in the API, not only in principle — "reset the age, do
     /// not grow the stability" is expressible without the curve's cooperation.</b> This is the configuration
     /// four studies converged on (`docs/task-archive.md` Part 64): the age reset is what keeps a
     /// rarely-queried critical
     /// fact alive, the stability growth is what entrenches whatever the ranker already favoured.
-    /// <para><b>Why an ENGINE option and not the curve's own knob.</b> It is reachable today only through
-    /// <c>DsrOptions.ReinforceGain = 0</c> — one shipped curve's private constant. A consumer who writes
+    /// <para><b>Why an ENGINE option and not the curve's own knob.</b> Through the curve it is reachable only
+    /// via <c>DsrOptions.ReinforceGain = 0</c> — one shipped curve's private constant. A consumer who writes
     /// their own <see cref="IMemoryRetrievabilityPolicy"/>, or registers a future one, has no such knob and
     /// no way to ask for this at all. Which effects a recall applies is the ENGINE's decision about
     /// learning, not a property of the forgetting curve, so it belongs here.</para>
     /// <para><b>The growth is switched ON at the policy explicitly</b> (<c>ReinforceGain = 2.0</c>), so the
-    /// assertion cannot pass by accident on 3.0's growth-free default — the curve is trying to grow and the
+    /// assertion cannot pass by accident on the growth-free default — the curve is trying to grow and the
     /// engine is what stops it. The weld fact above is the inverse control: the same policy, the same gain,
     /// the default option set, and both effects.</para></summary>
     [Fact]
@@ -919,14 +907,11 @@ public class GraphMemoryEngineTests
         => Assert.Throws<ArgumentOutOfRangeException>(() =>
             new GraphMemoryOptions { Reinforcement = (MemoryReinforcementEffects)8 });
 
-    /// <summary><b>A non-finite value is refused at the line that configured it, because this engine has
-    /// already been bitten by exactly this once.</b>
+    /// <summary><b>A non-finite value is refused at the line that configured it.</b>
     ///
-    /// <para><c>DsrOptions.MaxStability</c> accepted <c>NaN</c> until 3.0; it propagated through
-    /// <c>Math.Min</c>, was written back to the store, and a <c>NaN</c> stability compares false against
-    /// every threshold — so the entry neither ranked, nor pruned, nor reported as broken. The fix there was
-    /// a throw at construction, and `GraphMemoryOptions` kept plain accessors that take anything a
-    /// <c>double</c> can hold.</para>
+    /// <para>A <c>NaN</c> written back to the store is permanent: a <c>NaN</c> stability compares false
+    /// against every threshold, so the entry neither ranks, nor prunes, nor reports as broken — which is why
+    /// <c>DsrOptions.MaxStability</c> throws at construction too.</para>
     ///
     /// <para><b>The live one is <see cref="GraphMemoryOptions.EdgeHalfLife"/>.</b> <c>EffectiveEdgeWeight</c>
     /// guards it with <c>halfLife &lt;= 0</c>, which is FALSE for <c>NaN</c> — so a NaN falls straight
@@ -1044,9 +1029,8 @@ public class GraphMemoryEngineTests
     [Fact]
     public async Task PruneAsync_olderThan_reads_the_engines_own_injected_clock_on_the_derivable_path()
     {
-        // before this fix, the derivable branch always read DateTimeOffset.UtcNow directly — no seam on the
-        // engine at all, disagreeing with a test that fakes the STORE's own clock (every IMemoryGraphStore
-        // already takes one). The entry below is written under the REAL clock (an ordinary `CreatedAt`,
+        // A derivable branch reading DateTimeOffset.UtcNow directly disagrees with a test that fakes the
+        // STORE's own clock (every IMemoryGraphStore takes one). The entry below is written under the REAL clock (an ordinary `CreatedAt`,
         // "now"); only the ENGINE's clock is faked, to far in the future — `olderThan` becomes trivially
         // satisfied for anything already written ONLY if the engine actually consulted the injected clock
         // rather than the real one (which cannot be in the year 2999 in a fast-running test, so a fallback

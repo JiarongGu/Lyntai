@@ -5,10 +5,10 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Lyntai.Tests.Generation;
 
-/// <summary>What an agent's <c>imageUrl</c> IS to the render. Both tools used to tag it
-/// <see cref="MediaInputRoles.Init"/> whatever their schema promised, so an image→video submit reached a video
-/// backend as an img2img source — fal sends only a first frame as <c>image_url</c>. The model now says which
-/// role it means, and each tool defaults to the one its medium implies.</summary>
+/// <summary>What an agent's <c>imageUrl</c> IS to the render: the model says which role it means, and each
+/// tool defaults to the one its medium implies. Tagged <see cref="MediaInputRoles.Init"/> whatever the schema
+/// promises, an image→video submit would reach a video backend as an img2img source — fal sends only a first
+/// frame as <c>image_url</c>.</summary>
 public class GenerationToolImageRoleTests
 {
     /// <summary>Serves both doors and remembers what it was asked.</summary>

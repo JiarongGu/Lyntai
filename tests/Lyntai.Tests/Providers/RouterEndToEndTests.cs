@@ -117,9 +117,9 @@ public class RouterEndToEndTests : IDisposable
         _http.Enqueue(HttpStatusCode.InternalServerError, "boom");   // call 1: kills the host
         _http.Enqueue(HttpStatusCode.OK, HttpOkBody);                // call 3 (after cooldown): recovers
 
-        // Deterministic clock — no wall-clock dependence. (Previously flaky: under a saturated parallel
-        // runner, call 1's node-subprocess spawn could outlast a real-time cooldown before call 2 ran,
-        // so the host was wrongly back in rotation.) Pre-registering the tracker wins over AddLyntai's
+        // Deterministic clock — no wall-clock dependence: under a saturated parallel runner, call 1's
+        // node-subprocess spawn can outlast a real-time cooldown before call 2 runs, putting the host
+        // wrongly back in rotation. Pre-registering the tracker wins over AddLyntai's
         // TryAddSingleton, so the router uses this controllable clock.
         var now = DateTimeOffset.UtcNow;
         var cooldown = TimeSpan.FromSeconds(30);

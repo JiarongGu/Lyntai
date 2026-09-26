@@ -120,8 +120,8 @@ internal sealed class RecordingEngine(string name, MemoryGrades grades) : IMemor
 
     public List<MemoryWrite> Writes { get; } = [];
 
-    /// <summary>What this member returns from a recall. Empty by default, so every existing test is
-    /// unaffected; a blending test seeds it to give the composite something to cut.</summary>
+    /// <summary>What this member returns from a recall. Empty by default; a blending test seeds it to give
+    /// the composite something to cut.</summary>
     public List<MemoryItem> Items { get; } = [];
 
     public string Name { get; } = name;
@@ -178,8 +178,8 @@ internal sealed class ExpandableEngine(string name) : IMemoryEngine, IExpandable
 }
 
 /// <summary>An engine that can forget a scope but CANNOT prune a subset — the shape a vector store really
-/// has, and the reason 3.0 split <see cref="IForgettableMemory"/> from <see cref="IPrunableMemory"/>. Under
-/// one combined interface this engine had to claim both or neither.</summary>
+/// has, and the reason <see cref="IForgettableMemory"/> and <see cref="IPrunableMemory"/> are separate: one
+/// combined interface would force this engine to claim both or neither.</summary>
 internal sealed class ForgetOnlyEngine(string name) : IMemoryEngine, IForgettableMemory
 {
     public string Name { get; } = name;
@@ -205,7 +205,7 @@ internal sealed class ForgetOnlyEngine(string name) : IMemoryEngine, IForgettabl
 }
 
 /// <summary>An engine that implements the optional REMOVAL capability — the twin of
-/// <see cref="ExpandableEngine"/>, and the capability a composite hid behind itself until 3.0. Records what
+/// <see cref="ExpandableEngine"/>, and another capability a composite must not hide behind itself. Records what
 /// it was asked to remove so a forwarding test can assert the member was actually reached, not merely that the
 /// call returned.</summary>
 internal sealed class ForgettableEngine(string name, int pruneCount = 0)
@@ -632,8 +632,8 @@ internal sealed class FakeCuratedStore : ICuratedMemoryStore
     }
 }
 
-/// <summary>Counts how a recall's whole write-back reaches the store: as ONE combined call, or as the three
-/// separate ones it replaced. The same countable-claim reasoning as <see cref="LinkCountingGraphStore"/> one
+/// <summary>Counts how a recall's whole write-back reaches the store: as ONE combined call, or as three
+/// separate ones. The same countable-claim reasoning as <see cref="LinkCountingGraphStore"/> one
 /// level up — a round-trip count is checkable where the latency it buys sits inside the instrument's noise.
 /// <para>It records the ORDER too, because the review log going LAST is contract (a broken log must cost
 /// neither the touch nor the edges) and nothing else would catch a reordering.</para></summary>
@@ -646,8 +646,8 @@ internal sealed class WriteBackCountingGraphStore : DelegatingGraphStore, IMemor
     public List<string> Order { get; } = [];
 
     // Declared rather than left to the interface's default body, which would call the three members below
-    // and make the combined path indistinguishable from the three calls it replaced — so it reaches the
-    // INNER store directly.
+    // and make the combined path indistinguishable from three separate calls — so it reaches the INNER
+    // store directly.
     public async Task WriteBackAsync(string engine, GraphWriteBack work, CancellationToken ct = default)
     {
         WriteBacks++;
@@ -685,8 +685,8 @@ internal sealed class WriteBackCountingGraphStore : DelegatingGraphStore, IMemor
 }
 
 /// <summary>Counts how a recall's co-activation reaches the store: as ONE batched call or as N single ones.
-/// <para>It exists because the change it guards is a ROUND-TRIP count, and the repository's own latency
-/// instrument could not resolve that change above its run-to-run noise — <c>memory-scale</c>'s 10k p50 spans
+/// <para>It guards a ROUND-TRIP count, which the repository's own latency instrument cannot resolve above
+/// its run-to-run noise — <c>memory-scale</c>'s 10k p50 spans
 /// 8.9–11.2ms across runs of identical code. A countable claim is checkable where a timing one is not.</para>
 /// </summary>
 internal sealed class LinkCountingGraphStore : DelegatingGraphStore, IMemoryGraphStore

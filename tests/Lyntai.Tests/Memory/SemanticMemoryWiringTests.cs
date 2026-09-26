@@ -14,7 +14,7 @@ namespace Lyntai.Tests.Memory;
 ///
 /// <para><b>There is ONE registration door</b> (<c>docs/DECISIONS.md</c> <b>D152</b>): a backend is
 /// registered with <c>AddProvider</c> whatever it produces, and a FACTORY declares its capability through
-/// the same call. The role-named second registration it replaced is gone.</para></summary>
+/// the same call.</para></summary>
 public sealed class SemanticMemoryWiringTests : IDisposable
 {
     private readonly TempDbPath _db = new("semantic-wiring");
@@ -59,9 +59,8 @@ public sealed class SemanticMemoryWiringTests : IDisposable
     /// its capability through <c>AddProvider</c>'s <c>declares</c> argument, and a host registration made
     /// before <c>AddLyntai</c>, which states nothing and must be INSPECTED.
     ///
-    /// <para>The second arm was a duplicate of the first between D151 and its follow-up, so it could not
-    /// fail — and the route it was supposed to cover was broken the whole time. The arms must stay
-    /// genuinely different; if they ever read alike again, one of them is testing nothing.</para></summary>
+    /// <para>The arms must stay genuinely different: if they read alike, one of them cannot fail and the
+    /// route it claims to cover goes unverified.</para></summary>
     [Fact]
     public void A_vector_backend_registered_by_any_route_satisfies_the_intent()
     {
@@ -83,9 +82,8 @@ public sealed class SemanticMemoryWiringTests : IDisposable
     /// "improves" it into a silent pass: a factory that declares NOTHING is treated as not embedding, so
     /// <c>AddSemanticMemory</c> still fails fast rather than wiring a recall that cannot run.
     ///
-    /// <para>This is the same outcome the deleted role-named registration produced for a caller who reached
-    /// for <c>AddProvider</c> instead — the difference is that the fix is now to say what the backend
-    /// produces, rather than to find the other method (<c>docs/DECISIONS.md</c> <b>D152</b>).</para></summary>
+    /// <para>The fix for a caller who hits it is to say what the backend produces
+    /// (<c>docs/DECISIONS.md</c> <b>D152</b>).</para></summary>
     [Fact]
     public void A_factory_that_declares_nothing_still_fails_fast()
     {
@@ -103,8 +101,7 @@ public sealed class SemanticMemoryWiringTests : IDisposable
     ///
     /// <para><b>Without this the failure is silent and total.</b> Routing selects on the type test while the
     /// wiring check reads the declaration, so such a backend satisfies startup, is never selected, and every
-    /// semantic recall returns nothing with no error anywhere. It cost the Playground exactly that on the day
-    /// the seam landed — the e2e caught it, which is the only reason it was not shipped.</para></summary>
+    /// semantic recall returns nothing with no error anywhere.</para></summary>
     [Fact]
     public void A_backend_that_DECLARES_vectors_without_implementing_the_seam_is_refused()
     {
@@ -152,10 +149,9 @@ public sealed class SemanticMemoryWiringTests : IDisposable
     /// <summary>BOTH <c>AddProvider</c> overloads carry <c>declares</c>, and the two arms here have to call
     /// genuinely different ones — a FACTORY and the GENERIC, which the container constructs.
     ///
-    /// <para><b>Written this way because the arms had collapsed once already.</b> Between D151 and its
-    /// follow-up the two routes above were the same call, so neither could fail; this test was then
-    /// reintroduced with both arms on the factory overload, leaving <c>AddProvider&lt;T&gt;(declares)</c> —
-    /// new public surface — with no coverage at all while its name claimed otherwise.</para></summary>
+    /// <para><b>Two arms on the same overload cannot fail</b>, and both on the factory one leave
+    /// <c>AddProvider&lt;T&gt;(declares)</c> with no coverage at all while this test's name claims
+    /// otherwise.</para></summary>
     [Fact]
     public async Task Both_AddProvider_overloads_carry_the_declaration()
     {

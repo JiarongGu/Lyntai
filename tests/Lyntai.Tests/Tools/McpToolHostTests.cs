@@ -83,12 +83,11 @@ public class McpToolHostTests
     [Fact]
     public async Task A_hosted_block_is_LOGGED_the_way_the_tool_loop_logs_its_own()
     {
-        // The signal half of the two-doors problem. Both doors always emitted the guard-decision COUNTER —
-        // IGuardRail records it, so a block was never invisible in telemetry — but ToolLoop logged both of
-        // its block paths at Information while this one had no logger at all. An operator reading logs saw a
-        // refusal from one door and silence from the other, purely because one class had been given a logger
-        // and the other had not. The difference in FORCE between the doors is deliberate (ToolFunction's own
-        // remarks say why); this difference in SIGNAL was an accident. `docs/DECISIONS.md` D75.
+        // The signal half of the two-doors problem. Both doors emit the guard-decision COUNTER (IGuardRail
+        // records it), and ToolLoop also LOGS both of its block paths at Information — so this door must too,
+        // or an operator reading logs sees a refusal from one door and silence from the other. The difference
+        // in FORCE between the doors is deliberate (ToolFunction's own remarks say why); a difference in
+        // SIGNAL is not. `docs/DECISIONS.md` D75.
         var logs = new List<string>();
         ITool secret = new FunctionTool("read_secret",
             (_, _) => Task.FromResult("SECRET_KEY=hunter2"), "reads a secret",
@@ -119,10 +118,10 @@ public class McpToolHostTests
         // `ITool.InvokeAsync` promises every implementer: "Throwing is tolerated — the loop turns a thrown
         // message into an error observation so the model can recover". That is a promise about the TOOL
         // seam, not about one caller, and this endpoint executes the same ITool instances the in-process
-        // loop does. Left bare, a BYO tool throwing HttpRequestException or KeyNotFoundException escaped
-        // Lyntai entirely: whatever the model saw was the MCP SDK's choice, with no Lyntai log and no
+        // loop does. Left bare, a BYO tool throwing HttpRequestException or KeyNotFoundException escapes
+        // Lyntai entirely: whatever the model sees is the MCP SDK's choice, with no Lyntai log and no
         // `error:` prefix that ToolObservations.IsError recognises. Same second-door argument this class's
-        // own remarks already make for guards.
+        // own remarks make for guards.
         var logs = new List<string>();
         ITool boom = new FunctionTool("boom",
             (_, _) => throw new KeyNotFoundException("no such record"), "throws",

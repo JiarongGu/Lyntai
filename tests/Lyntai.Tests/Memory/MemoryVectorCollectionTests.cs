@@ -11,8 +11,8 @@ namespace Lyntai.Tests.Memory;
 /// address composes three caller-supplied strings, so the separator decides whether two different triples
 /// can name one collection. A printable one cannot promise they do not: with <c>|</c>, engine <c>E</c> +
 /// task <c>a</c> + scope <c>b|c</c> and engine <c>E</c> + task <c>a|b</c> + scope <c>c</c> both compose to
-/// <c>E|a|b|c</c>, so forgetting either erased the other across the boundary — and the unscoped seed swept a
-/// prefix that reached a neighbouring task (<c>docs/FIXES.md</c>, 2026-09-15).</para></summary>
+/// <c>E|a|b|c</c>, so forgetting either erases the other across the boundary — and an unscoped seed's prefix
+/// sweep reaches a neighbouring task (<c>docs/FIXES.md</c>, 2026-09-15).</para></summary>
 public class MemoryVectorCollectionTests
 {
     // The exact pair that collided. Written as a theory so a THIRD ambiguous shape is one row, not one test.
@@ -30,7 +30,7 @@ public class MemoryVectorCollectionTests
     }
 
     // The read side. A prefix sweep is only safe if it cannot reach a task whose key merely STARTS with
-    // another's — the failure the unscoped semantic seed had.
+    // another's — the failure an unscoped semantic seed has.
     [Fact]
     public void A_task_prefix_matches_its_own_scopes_and_NOTHING_under_a_neighbour()
     {
@@ -43,7 +43,7 @@ public class MemoryVectorCollectionTests
     }
 
     // The engine WRITES the address and SemanticSeedSource REBUILDS it; two spellings is how a removal
-    // misses the collection a write created, which is why both now call the same function.
+    // misses the collection a write created, which is why both call the same function.
     [Fact]
     public void The_write_side_and_the_read_side_compose_the_SAME_address()
     {

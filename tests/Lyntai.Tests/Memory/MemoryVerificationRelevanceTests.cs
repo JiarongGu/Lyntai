@@ -10,12 +10,12 @@ namespace Lyntai.Tests.Memory;
 /// A verifier is shown each candidate's <see cref="MemoryVerificationCandidate.Relevance"/>, so abstention can
 /// be decided WITHOUT a model.
 ///
-/// <para><b>Why the seam was insufficient.</b> <see cref="IMemoryVerificationPolicy"/>'s own doc promises
-/// "best-effort over a model-free floor", and a candidate carried an id and a headline — from which the only
-/// route to "did anything answer this" is reading the text, which means an LLM. The single shipped
-/// implementation is <see cref="LlmMemoryVerificationPolicy"/>, and an adopter measuring that route recorded a
-/// judge promoting the right answer 0 of 6 times at 5.4 s cold. Score distribution answers the same question
-/// with arithmetic; the engine had the numbers and did not pass them.</para>
+/// <para><b>Why an id and a headline are insufficient.</b> <see cref="IMemoryVerificationPolicy"/>'s own doc
+/// promises "best-effort over a model-free floor", and from an id and a headline the only route to "did
+/// anything answer this" is reading the text, which means an LLM such as
+/// <see cref="LlmMemoryVerificationPolicy"/> — measured on that route promoting the right answer 0 of 6 times
+/// at 5.4 s cold. Score distribution answers the same question with arithmetic, and the engine has the
+/// numbers.</para>
 ///
 /// <para>These pin the DATA, not a policy. The library ships no score-floor verifier, because the floor is a
 /// property of the deployment's vector backend and corpus — `generic-library` rule 7: a value only the deployment

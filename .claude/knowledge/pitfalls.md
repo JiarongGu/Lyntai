@@ -12,7 +12,7 @@ is what to do when you know the SHAPE of what you are worried about but not wher
 
 <!-- facets:begin — GENERATED. Edit the per-trap `trap:` markers, never this index. -->
 
-## Facets — 230 traps, indexed two ways
+## Facets — 231 traps, indexed two ways
 
 _Generated from the per-trap `<!-- trap: … -->` markers by `node devtools/dev.mjs check-pitfalls --write`. Edit a marker, never this index._
 _Line numbers only, on purpose: this is for JUMPING, not for reading. The facets are ORTHOGONAL to the headings below — a probe's nine relevant traps once spanned five of them, two of which nobody_
@@ -33,18 +33,18 @@ _looking for that task would have opened._
 - **`di`** (14) — 993 · 1122 · 1129 · 1143 · 1285 · 1293 · 1295 · 1298 · 1301 · 1310 · 1318 · 1360 · 1429 · 1455
 - **`measurement`** (70) — 108 · 227 · 233 · 242 · 250 · 258 · 269 · 277 · 291 · 306 · 314 · 322 · 334 · 344 · 411 · 435 · 442 · 447 · 456 · 462 · 475 · 483 · 490 · 498 · 506 · 518 · 522 · 530 · 541 · 562 · 578 · 584 · 592 · 605 · 612 · 638 · 648 · 655 · 665 · 671 · 678 · 686 · 693 · 700 · 709 · 717 · 859 · 1016 · 1057 · 1146 · 1154 · 1174 · 1195 · 1206 · 1214 · 1223 · 1245 · 1326 · 1538 · 1581 · 1637 · 1677 · 1684 · 1693 · 1701 · 1708 · 1718 · 1733 · 1767 · 1778
 - **`docs`** (31) — 74 · 115 · 134 · 143 · 207 · 389 · 404 · 411 · 422 · 620 · 626 · 630 · 634 · 739 · 754 · 804 · 1044 · 1354 · 1369 · 1408 · 1476 · 1486 · 1534 · 1566 · 1592 · 1600 · 1607 · 1611 · 1620 · 1749 · 1857
-- **`tests`** (26) — 74 · 781 · 789 · 796 · 928 · 1050 · 1072 · 1089 · 1115 · 1134 · 1236 · 1239 · 1413 · 1648 · 1659 · 1670 · 1739 · 1755 · 1785 · 1793 · 1799 · 1811 · 1822 · 1828 · 1832 · 1836
+- **`tests`** (27) — 74 · 781 · 789 · 796 · 928 · 1050 · 1072 · 1089 · 1115 · 1134 · 1236 · 1239 · 1413 · 1648 · 1659 · 1670 · 1739 · 1755 · 1785 · 1793 · 1799 · 1811 · 1822 · 1828 · 1832 · 1836 · 1865
 
 **By SHAPE** — how the wrongness stays invisible. Orthogonal to the area, and usually the more useful
 of the two: most of these traps recur in a subsystem that had never met them.
 
 - **`fail-open`** (25) — 168 · 233 · 250 · 277 · 404 · 456 · 638 · 717 · 828 · 833 · 841 · 868 · 928 · 988 · 1038 · 1181 · 1188 · 1301 · 1326 · 1421 · 1429 · 1455 · 1502 · 1509 · 1726
 - **`cancellation`** (5) — 815 · 819 · 1026 · 1038 · 1050
-- **`vacuous`** (53) — 108 · 153 · 160 · 227 · 258 · 269 · 291 · 306 · 364 · 462 · 483 · 498 · 530 · 648 · 655 · 665 · 671 · 686 · 726 · 739 · 773 · 789 · 835 · 894 · 935 · 954 · 1050 · 1072 · 1089 · 1115 · 1134 · 1154 · 1195 · 1206 · 1223 · 1326 · 1369 · 1381 · 1620 · 1659 · 1670 · 1684 · 1733 · 1739 · 1755 · 1767 · 1785 · 1799 · 1811 · 1822 · 1832 · 1841 · 1850
+- **`vacuous`** (54) — 108 · 153 · 160 · 227 · 258 · 269 · 291 · 306 · 364 · 462 · 483 · 498 · 530 · 648 · 655 · 665 · 671 · 686 · 726 · 739 · 773 · 789 · 835 · 894 · 935 · 954 · 1050 · 1072 · 1089 · 1115 · 1134 · 1154 · 1195 · 1206 · 1223 · 1326 · 1369 · 1381 · 1620 · 1659 · 1670 · 1684 · 1733 · 1739 · 1755 · 1767 · 1785 · 1799 · 1811 · 1822 · 1832 · 1841 · 1850 · 1865
 - **`scope-blind`** (44) — 90 · 121 · 128 · 134 · 143 · 153 · 168 · 174 · 189 · 216 · 221 · 381 · 422 · 429 · 693 · 739 · 764 · 804 · 962 · 1122 · 1129 · 1174 · 1236 · 1239 · 1354 · 1369 · 1389 · 1413 · 1463 · 1518 · 1566 · 1571 · 1581 · 1592 · 1600 · 1607 · 1611 · 1620 · 1670 · 1733 · 1739 · 1841 · 1850 · 1857
 - **`second-door`** (23) — 830 · 835 · 879 · 883 · 894 · 901 · 939 · 946 · 1007 · 1097 · 1262 · 1301 · 1360 · 1381 · 1402 · 1413 · 1421 · 1429 · 1440 · 1463 · 1476 · 1492 · 1518
 - **`stale-claim`** (24) — 57 · 134 · 181 · 207 · 411 · 490 · 506 · 620 · 630 · 773 · 1044 · 1298 · 1354 · 1408 · 1440 · 1476 · 1534 · 1538 · 1592 · 1600 · 1607 · 1749 · 1811 · 1857
-- **`silent-loss`** (65) — 65 · 74 · 85 · 88 · 115 · 197 · 202 · 216 · 221 · 242 · 250 · 334 · 381 · 397 · 404 · 435 · 447 · 483 · 513 · 522 · 541 · 562 · 605 · 638 · 671 · 678 · 717 · 754 · 764 · 781 · 846 · 872 · 883 · 918 · 974 · 999 · 1057 · 1078 · 1097 · 1105 · 1115 · 1188 · 1214 · 1245 · 1255 · 1262 · 1271 · 1278 · 1293 · 1298 · 1310 · 1318 · 1360 · 1389 · 1446 · 1492 · 1509 · 1527 · 1538 · 1559 · 1566 · 1627 · 1677 · 1708 · 1767
+- **`silent-loss`** (66) — 65 · 74 · 85 · 88 · 115 · 197 · 202 · 216 · 221 · 242 · 250 · 334 · 381 · 397 · 404 · 435 · 447 · 483 · 513 · 522 · 541 · 562 · 605 · 638 · 671 · 678 · 717 · 754 · 764 · 781 · 846 · 872 · 883 · 918 · 974 · 999 · 1057 · 1078 · 1097 · 1105 · 1115 · 1188 · 1214 · 1245 · 1255 · 1262 · 1271 · 1278 · 1293 · 1298 · 1310 · 1318 · 1360 · 1389 · 1446 · 1492 · 1509 · 1527 · 1538 · 1559 · 1566 · 1627 · 1677 · 1708 · 1767 · 1865
 - **`wrong-subject`** (70) — 57 · 74 · 99 · 108 · 202 · 227 · 242 · 269 · 277 · 299 · 306 · 314 · 322 · 334 · 344 · 355 · 374 · 462 · 475 · 498 · 506 · 522 · 541 · 562 · 578 · 584 · 626 · 634 · 648 · 655 · 665 · 678 · 686 · 693 · 700 · 709 · 754 · 796 · 830 · 890 · 962 · 983 · 993 · 1016 · 1057 · 1089 · 1143 · 1146 · 1161 · 1174 · 1195 · 1206 · 1223 · 1285 · 1336 · 1502 · 1527 · 1550 · 1559 · 1637 · 1677 · 1684 · 1693 · 1701 · 1708 · 1755 · 1778 · 1799 · 1828 · 1832
 - **`unmeasured`** (18) — 314 · 344 · 389 · 411 · 422 · 442 · 592 · 612 · 846 · 851 · 859 · 868 · 905 · 935 · 1161 · 1336 · 1486 · 1749
 - **`ordering`** (13) — 374 · 872 · 946 · 1064 · 1078 · 1083 · 1271 · 1310 · 1318 · 1446 · 1455 · 1648 · 1718
@@ -1862,3 +1862,9 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   EVERY gate that reads the region, not only the one that burned, which part a scheduled process deletes**;
   reproduce a pipeline-only failure by replaying the pipeline's transformation through the gate's seam; and
   an existing test may ENCODE the defect — invert it with its reason rather than deleting it.
+- **Deleting a seam can ORPHAN the fixture built for it, and nothing turns red.** When **D127** folded the <!-- trap: sub=tests shape=vacuous,silent-loss -->
+  separate media-streaming interface into `IModelProvider`, the router branch that type-tested it became
+  unreachable and `LyingStreamProvider` — the fake that exercised the branch — was constructed by no test for
+  a release, while the build and the suite stayed green. A fixture no test constructs proves nothing and reads
+  as coverage. **When a seam goes, grep for every fake that implemented it**, and give each a new job (it is
+  now the negative fixture for `GenerationProviderContract.ServesMediaStream`) or delete it.

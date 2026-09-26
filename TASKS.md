@@ -15,26 +15,25 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 13 across 5 Parts: 9 startable, 2 blocked, 2 watch
+## Open items — 12 across 4 Parts: 8 startable, 2 blocked, 2 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 114 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a free Hugging Face account (an hf_ token) — its router proxies fal's own q… |
-| 161 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 184 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 240 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
-| 270 | 294 | Sweep test comments for history narration that carries no tag or date | startable |  |
-| 280 | 298 | SentencePiece tokenization for the ONNX provider — D122's trigger has fired | startable |  |
-| 284 | 298 | Change the embedder without rebuilding the graph | startable |  |
-| 286 | 298 | Read a stored vector back by id, or cache embeddings on the vector call | startable |  |
-| 288 | 298 | Filtered nearest-neighbour search | startable |  |
-| 290 | 298 | Edit the text provider set at run time | startable |  |
-| 293 | 298 | Schedules added at run time, persisted | startable |  |
-| 295 | 298 | Trace and score front-door calls without a wrapper | startable |  |
-| 298 | 298 | Job progress as a message code plus arguments | startable |  |
+| 113 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a free Hugging Face account (an hf_ token) — its router proxies fal's own q… |
+| 160 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 183 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 239 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 270 | 298 | SentencePiece tokenization for the ONNX provider — D122's trigger has fired | startable |  |
+| 274 | 298 | Change the embedder without rebuilding the graph | startable |  |
+| 276 | 298 | Read a stored vector back by id, or cache embeddings on the vector call | startable |  |
+| 278 | 298 | Filtered nearest-neighbour search | startable |  |
+| 280 | 298 | Edit the text provider set at run time | startable |  |
+| 283 | 298 | Schedules added at run time, persisted | startable |  |
+| 285 | 298 | Trace and score front-door calls without a wrapper | startable |  |
+| 288 | 298 | Job progress as a message code plus arguments | startable |  |
 
 <!-- open-items:end -->
 
@@ -261,15 +260,6 @@ there is nothing here to code: what remains is evidence only recurrence can supp
   <br>**So it is `watch · data` rather than startable**: what it needs is a recurrence carrying the frame
   BELOW `OpenAsync`, because the three causes a reading can reach are gone and the remaining ones are all
   in the runner's resource behaviour — the same shape as Part 99 above, by a different mechanism.
-
-## Part 294 — what the full review left open (2026-09-25)
-
-_Opened by `docs/task-archive.md` **Part 295**, the full review of code, tests, tooling and docs. Each was
-found and deliberately not done in that pass; everything else it found is fixed and archived._
-
-- [ ] **Sweep test comments for history narration that carries no tag or date.** The review cut every tagged or <!-- item: state=startable -->
-  dated provenance line (74 hits to 1), but untagged narration ("this used to…", "until the fix…") needs a
-  reading pass, not a regex — `code-commentary.md` applies to tests as it does to `src/`.
 
 ## Part 298 — what the consuming apps work around (2026-09-26)
 

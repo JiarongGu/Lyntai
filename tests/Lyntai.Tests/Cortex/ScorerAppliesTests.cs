@@ -6,10 +6,10 @@ using Lyntai.Tests.Fakes;
 namespace Lyntai.Tests.Cortex;
 
 /// <summary>
-/// <c>docs/task-archive.md</c> Part 43, SCORER-APPLIES. <see cref="LlmScorerBase.Applies"/> is PROTECTED, and a protected member cannot
-/// implicitly implement an interface member — so before the explicit
-/// <c>bool IScorer.Applies(…) =&gt; Applies(…)</c> forwarder, every judge answered the INTERFACE-level call
-/// with <see cref="IScorer"/>'s default implementation (always true), whatever the subclass said.
+/// <see cref="LlmScorerBase.Applies"/> is PROTECTED, and a protected member cannot implicitly implement an
+/// interface member — so without the explicit <c>bool IScorer.Applies(…) =&gt; Applies(…)</c> forwarder, every
+/// judge answers the INTERFACE-level call with <see cref="IScorer"/>'s default implementation (always true),
+/// whatever the subclass says.
 /// </summary>
 public class ScorerAppliesTests
 {
@@ -36,8 +36,7 @@ public class ScorerAppliesTests
     [Fact]
     public void Interface_level_Applies_answers_with_the_subclass_predicate()
     {
-        // The consumer-visible defect: a caller running its own scorer loop asks the INTERFACE, and used to
-        // be told "applies" by every judge that had opted out.
+        // A caller running its own scorer loop asks the INTERFACE, so that is where an opt-out must be heard.
         IScorer gated = new Judge(new FakeTextClient(), applies: false);
         IScorer open = new Judge(new FakeTextClient(), applies: true);
 
@@ -48,9 +47,8 @@ public class ScorerAppliesTests
     [Fact]
     public async Task A_gated_judge_still_spends_nothing_and_records_nothing()
     {
-        // True before AND after — ScoreAsync re-checks the gate as its first line, which is why no judge ever
-        // spent a token and why the persisted results are unchanged by this fix. Pinned so the CHANGELOG's
-        // "no scoring output moves" claim has a test behind it.
+        // ScoreAsync re-checks the gate as its first line, so an opted-out judge spends no token and records
+        // no result whichever gate a caller asks.
         var llm = new FakeTextClient();
         var service = new ScoringService([new Judge(llm, applies: false)]);
 
@@ -63,10 +61,9 @@ public class ScorerAppliesTests
     [Fact]
     public async Task A_throwing_gate_surfaces_out_of_EvaluateAsync_instead_of_being_swallowed()
     {
-        // Before: the interface gate said "applies", so ScoreAsync ran and its own re-check threw INSIDE
-        // ScoringService's per-scorer try — logged and skipped fail-open, indistinguishable from a dimension
-        // that legitimately did not apply. Now the gate runs where ScoringService deliberately puts it,
-        // outside the try, so a buggy predicate is a bug rather than a silently dropped dimension.
+        // The gate runs where ScoringService deliberately puts it, outside the per-scorer try, so a buggy
+        // predicate is a bug. Thrown from ScoreAsync's own re-check INSIDE the try, it would be logged and
+        // skipped fail-open, indistinguishable from a dimension that legitimately did not apply.
         var service = new ScoringService([new ThrowingGateJudge(new FakeTextClient())]);
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(
@@ -78,10 +75,9 @@ public class ScorerAppliesTests
     [Fact]
     public void The_forwarder_is_explicit_so_Applies_stays_protected()
     {
-        // The tempting alternative fix — promoting the protected member to public — is a compile break for
-        // every existing `protected override bool Applies(…)` in a consumer's judge. Pin that it did not
-        // happen; the same assertion pins that the forwarder adds nothing to the public API surface (an
-        // explicit interface implementation is private, so the baseline does not move).
+        // Promoting the protected member to public would be a compile break for every
+        // `protected override bool Applies(…)` in a consumer's judge. The same assertion pins that the
+        // forwarder adds nothing to the public API surface (an explicit interface implementation is private).
         Assert.Null(typeof(LlmScorerBase).GetMethod("Applies", BindingFlags.Public | BindingFlags.Instance));
 
         var gate = typeof(LlmScorerBase).GetMethod("Applies", BindingFlags.NonPublic | BindingFlags.Instance);

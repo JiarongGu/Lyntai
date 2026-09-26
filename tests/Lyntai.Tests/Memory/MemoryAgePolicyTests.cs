@@ -130,9 +130,8 @@ public class MemoryAgePolicyTests
     [Fact]
     public void Burst_damping_tracks_each_engine_separately_when_one_instance_is_shared()
     {
-        // The same per-engine fix as ElapsedAgePolicy above, for BurstDampenedAgePolicy's own burst state —
-        // freed for the same reason, since threading the engine name through Advance touches every
-        // implementation. A write to "b" mid-burst must not extend (or reset) "a"'s own burst count.
+        // The same per-engine keying as ElapsedAgePolicy above, for BurstDampenedAgePolicy's own burst
+        // state. A write to "b" mid-burst must not extend (or reset) "a"'s own burst count.
         var now = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
         var policy = new BurstDampenedAgePolicy(new PerWriteAgePolicy(), TimeSpan.FromSeconds(5), () => now);
 

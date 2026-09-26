@@ -49,10 +49,10 @@ public class MemorySignalsJsonTests
         Assert.Equal(1, back.Get("good"));
     }
 
-    /// <summary>The regression this file exists to pin: before this fix, a NaN/Infinity signal made
-    /// <c>Utf8JsonWriter.WriteNumber</c> throw <see cref="ArgumentException"/> — uncaught, that failed the
-    /// ENTIRE write (the whole memory, not just the one signal), which is exactly backwards for a value the
-    /// codec is supposed to treat as recoverable.</summary>
+    /// <summary>What this file exists to pin: <c>Utf8JsonWriter.WriteNumber</c> throws
+    /// <see cref="ArgumentException"/> on a NaN/Infinity signal — uncaught, that fails the ENTIRE write (the
+    /// whole memory, not just the one signal), which is exactly backwards for a value the codec is supposed
+    /// to treat as recoverable.</summary>
     [Fact]
     public void A_non_finite_value_is_skipped_rather_than_throwing()
     {

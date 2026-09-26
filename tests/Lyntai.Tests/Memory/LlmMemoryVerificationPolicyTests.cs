@@ -8,18 +8,14 @@ namespace Lyntai.Tests.Memory;
 /// <summary>
 /// The model-backed verifier's own facts — parsing, bounds, and the fail-open promise.
 ///
-/// <para><b>Why this file did not exist until 2026-08-17, and why that mattered.</b>
-/// <see cref="LlmMemoryVerificationPolicy"/> was constructed by NO offline test: its only coverage was
-/// <see cref="LlmVerificationLiveTests"/>, which skips without a real model, so every run on every machine
-/// and in CI exercised none of it. The whole surface where a model's output meets code — the JSON parse, the
-/// ordinal-to-id mapping, the fail-open catch, the non-Ok verdict path — had never executed in the suite.
-/// Found by pointing the coverage question at the four policy seams that had no contract (archive
-/// Part 86).</para>
+/// <para><b>Why an offline suite.</b> <see cref="LlmVerificationLiveTests"/> skips without a real model, so
+/// without this file no run on any machine or in CI exercises
+/// <see cref="LlmMemoryVerificationPolicy"/>'s surface where a model's output meets code — the JSON parse, the
+/// ordinal-to-id mapping, the fail-open catch, the non-Ok verdict path.</para>
 ///
-/// <para>Its sibling <see cref="LlmMemoryAnnotationPolicyTests"/> is the shape this follows, and the
-/// precedent for why it is worth having: the whole-codebase review found a real defect in the ANNOTATOR's
-/// equivalent surface (a <c>SuggestGrade</c> that was inert against any real model because the prompt never
-/// asked for a grade) — caught by asserting on the REQUEST, which no reply-scripted test could see.</para>
+/// <para>Its sibling <see cref="LlmMemoryAnnotationPolicyTests"/> is the shape this follows, including the
+/// assertion on the REQUEST, which no reply-scripted test can make: a prompt that never asks for a field
+/// leaves the option reading it inert against any real model.</para>
 /// </summary>
 public class LlmMemoryVerificationPolicyTests : MemoryVerificationPolicyContractFacts
 {
@@ -93,7 +89,7 @@ public class LlmMemoryVerificationPolicyTests : MemoryVerificationPolicyContract
     }
 
     /// <summary><b>An empty well-formed array is a REAL verdict.</b> "None of these answered it" is the
-    /// observation the review log could never previously contain — it is the whole reason the seam exists —
+    /// observation the review log cannot otherwise contain — it is the whole reason the seam exists —
     /// so it must survive parsing as <c>Judged: true</c> rather than collapsing into no-opinion.</summary>
     [Fact]
     public async Task An_empty_relevant_array_is_a_judgement_that_nothing_answered()
@@ -162,9 +158,9 @@ public class LlmMemoryVerificationPolicyTests : MemoryVerificationPolicyContract
         Assert.Null(client.Last);   // and no call was made — this is the latency path of every recall
     }
 
-    /// <summary><b>The prompt must ASK for what the parser reads</b> — the defect class the annotator's own
-    /// suite found the hard way, where every offline test passed while the feature was inert against a real
-    /// model. Asserted on the REQUEST, which is the only place it is visible.</summary>
+    /// <summary><b>The prompt must ASK for what the parser reads</b> — otherwise every offline test passes
+    /// while the feature is inert against a real model. Asserted on the REQUEST, which is the only place it
+    /// is visible.</summary>
     [Fact]
     public async Task The_prompt_numbers_the_notes_and_asks_for_those_numbers()
     {
@@ -185,7 +181,7 @@ public class LlmMemoryVerificationPolicyTests : MemoryVerificationPolicyContract
 
     /// <summary>The instruction names no language and gives no examples in one — the same promise the
     /// annotator carries. "It is a JUDGEMENT, not a tokenizer, so it is language-neutral by construction";
-    /// an English-shaped instruction would reintroduce the bias this subsystem spent a release removing.</summary>
+    /// an English-shaped instruction would bias the judgement toward English.</summary>
     [Fact]
     public async Task The_instruction_is_language_neutral()
     {

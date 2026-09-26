@@ -5,10 +5,9 @@ namespace Lyntai.Tests.Vectors;
 
 /// <summary>Routing for the Vector capability: the capability filter, and the failover.
 ///
-/// <para>Before D129 the vector backend a consumer resolved WAS a backend, so a failing one took the whole
-/// recall path with it and a second registration silently replaced the first. These tests are the
-/// behaviour that split bought. <b>D151 removed the interface and kept every one of them</b>: the routing
-/// is a helper over the providers now, which is the point — the behaviour was never the type's.</para>
+/// <para>Routing, not one resolved backend, is what keeps a failing backend from taking the whole recall
+/// path with it and a second registration from silently replacing the first (D129). The routing is a
+/// helper over the providers (D151): the behaviour belongs to routing, not to a type.</para>
 /// </summary>
 public class EmbeddingRoutingTests
 {
@@ -70,8 +69,7 @@ public class EmbeddingRoutingTests
     [Fact]
     public async Task FALLS_OVER_to_the_next_vector_backend_when_one_fails()
     {
-        // This is the capability the single IModelProvider slot could not have — its own doc admitted
-        // "there is one vector backend slot, so a later registration wins".
+        // A single vector backend slot cannot do this: a later registration would simply win.
         var broken = new StubVectorProvider("broken") { Throws = new HttpRequestException("socket died") };
         var healthy = new StubVectorProvider("healthy");
 
@@ -118,8 +116,8 @@ public class EmbeddingRoutingTests
     [Fact]
     public async Task Reports_the_LAST_reason_when_every_backend_failed_rather_than_a_bare_message()
     {
-        // A failure list that loses every cause is unactionable. Since D153 the cause survives as a
-        // CLASSIFIED VERDICT plus the backend's own words rather than as an inner exception — which is
+        // A failure list that loses every cause is unactionable. The cause survives as a CLASSIFIED
+        // VERDICT plus the backend's own words rather than as an inner exception (D153) — which is
         // strictly more usable, because a verdict is what routing and a host can act on where an exception
         // type is only something to read.
         var a = new StubVectorProvider("a") { Throws = new HttpRequestException("a died") };

@@ -194,11 +194,9 @@ public class MemoryWalkExpansionTests
 
     /// <summary>A walk asked for <see cref="MemoryDetail.Full"/> returns whole entries at EVERY step, not
     /// only at the recall.
-    /// <para>Found by a benchmark arm that did not do what it claimed. <c>lyntai-fused-3shot-full</c> spent
-    /// 6,053 chars over 39.7 items where 40 whole turns cost ~7,000: shot 1 honoured the query at 179.2
-    /// chars/item and everything DISCOVERED afterwards arrived at 125.4, which is headline range.
-    /// <c>ExpandAsync</c> gives full content to the entry it is NAMED and projects its neighbours exactly as
-    /// a recall does, so the caller's stated intent stopped at that seam.</para>
+    /// <para><c>ExpandAsync</c> gives full content to the entry it is NAMED and projects its neighbours
+    /// exactly as a recall does, so unless the walk passes the detail on, the caller's stated intent stops
+    /// at that seam and everything DISCOVERED after the recall arrives at headline length.</para>
     /// <para>Entries are longer than the headline cap deliberately — with a short one the two projections are
     /// the same string and this cannot fail.</para></summary>
     [Fact]
@@ -221,8 +219,7 @@ public class MemoryWalkExpansionTests
 
         // Asserted on NewItems AT THE STEP THAT DISCOVERED THEM, never on the last step's held set. The walk
         // SELF-HEALS — an entry that arrives as a headline is upgraded once a later step seeds it — so a
-        // last-step assertion passes whether or not expansion honoured the request. That version of this
-        // test passed with the fix reverted, and only the mutation check said so.
+        // last-step assertion passes whether or not expansion honoured the request.
         var discoveries = steps.Skip(1).SelectMany(s => s.NewItems).ToList();
         Assert.NotEmpty(discoveries);
         Assert.All(discoveries, i => Assert.NotNull(i.Content));

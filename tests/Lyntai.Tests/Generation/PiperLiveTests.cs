@@ -4,7 +4,7 @@ using Lyntai.Processes;
 
 namespace Lyntai.Tests.Generation;
 
-/// <summary>The piper backend against a REAL engine — the measurement GEN6 exists for: whether
+/// <summary>The piper backend against a REAL engine — the measurement this backend needs: whether
 /// data-then-terminal is the decomposition a real TTS stream wants, which no fake can answer. The claim
 /// under test is STREAMING itself — a real synthesis must arrive as several chunks before the terminal,
 /// because one buffered blob would mean the "stream" door is a courtesy wrapper over a wait.

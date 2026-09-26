@@ -20,8 +20,8 @@ public class SqliteMemoryGraphStoreTests : IDisposable
 
     /// <summary>Every contract fact, driven from the shared theory source so coverage is structural.</summary>
     /// <remarks>
-    /// A fresh <c>TempDb</c> per case, exactly as the hand-wired facts had: xUnit constructs the class once
-    /// per test case, so the field initializer runs per case and <see cref="Dispose"/> tears it down.
+    /// A fresh <c>TempDb</c> per case: xUnit constructs the class once per test case, so the field
+    /// initializer runs per case and <see cref="Dispose"/> tears it down.
     /// </remarks>
     [Theory]
     [MemberData(nameof(MemoryGraphStoreFacts.Names), MemberType = typeof(MemoryGraphStoreFacts))]
@@ -29,7 +29,7 @@ public class SqliteMemoryGraphStoreTests : IDisposable
         MemoryGraphStoreFacts.RunAsync(fact, clock => new SqliteMemoryGraphStore(_db.Factory, clock: clock), fact);
 
     /// <summary>The write-back's whole point, stated as the thing it is: a COUNT of connection opens. Three
-    /// separate calls opened three connections and read the position totals twice; the combined path opens
+    /// separate calls open three connections and read the position totals twice; the combined path opens
     /// one and reads them once.
     /// <para>Countable rather than timed on purpose — <c>memory-scale</c>'s 10k p50 spans 8.9–11.2ms across
     /// runs of identical code, so a before/after latency pair here would report noise
@@ -91,7 +91,7 @@ public class SqliteMemoryGraphStoreTests : IDisposable
     /// <summary>SQLite-specific because it pins the INDEX choice: the trigram tokenizer gives indexed CJK
     /// substring recall, which unicode61 would silently return nothing for. (The portable half — that a CJK
     /// query matches on every backend at all — is
-    /// <c>MemoryGraphStoreContract.Seeding_matches_a_chinese_query_without_spaces</c>, added in 3.0 with
+    /// <c>MemoryGraphStoreContract.Seeding_matches_a_chinese_query_without_spaces</c>, through
     /// <see cref="Lyntai.Storage.SearchTerms"/>.)</summary>
     [Fact]
     public async Task Cjk_substring_recall()
@@ -196,7 +196,7 @@ public class SqliteMemoryGraphStoreTests : IDisposable
     /// <summary>Grade priority on the LIKE branch, which every other fact here misses: they all take the FTS
     /// or the no-query branch. <see cref="Lyntai.Storage.FtsQuery.Build"/> returns null only when every token
     /// is ≤2 characters, so a SHORT query is what reaches the fallback — and the fallback carries its own
-    /// <c>ORDER BY</c>, which the grade-first fix had to change separately.
+    /// <c>ORDER BY</c>, which grade-first ordering has to reach separately.
     /// <para>The exact fact here is written FIRST and never touched again, so it holds the lowest
     /// <c>last_recalled_position</c> in the scope: under a recency-only ordering the limit cuts it before the
     /// engine ranks anything.</para></summary>
@@ -291,8 +291,8 @@ public class SqliteMemoryGraphStoreTests : IDisposable
     /// unguarded, <c>NaN</c> binds as literal <c>NaN</c> into a column every seed query orders on
     /// (<c>ORDER BY … n.salience DESC …</c>) — undermining the "no row silently mis-sorts" invariant the
     /// migration's own comment argues for. <c>Math.Max(1, NaN)</c> does NOT fix this on its own: .NET's
-    /// <c>Math.Max</c> propagates NaN per IEEE 754:2019 (confirmed on this runtime before writing this fix),
-    /// so the guard has to test <see cref="double.IsFinite(double)"/> explicitly, the same shape
+    /// <c>Math.Max</c> propagates NaN per IEEE 754:2019, so the guard has to test
+    /// <see cref="double.IsFinite(double)"/> explicitly, the same shape
     /// <see cref="StructuralSaliencePolicy"/> already uses for its own novelty input.</summary>
     [Fact]
     public async Task A_non_finite_judged_salience_writes_the_neutral_column_value_not_NaN()

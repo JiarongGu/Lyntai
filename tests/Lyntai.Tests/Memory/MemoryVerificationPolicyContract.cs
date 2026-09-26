@@ -49,8 +49,7 @@ public abstract class MemoryVerificationPolicyContractFacts
 /// rewriting the graph.</para>
 ///
 /// <para>As with the annotation seam, the facts are about what happens when the model answers badly, so the
-/// contract is model-free even though its implementation is not. Added 2026-08-17 by the pre-3.0 sweep
-/// (archive Part 86).</para></summary>
+/// contract is model-free even though its implementation is not.</para></summary>
 public static class MemoryVerificationPolicyContract
 {
     private static readonly MemoryVerificationCandidate[] Candidates =
@@ -132,9 +131,8 @@ public static class MemoryVerificationPolicyContract
     /// surfaces as <see cref="TaskCanceledException"/>, which IS an <see cref="OperationCanceledException"/>,
     /// so a <c>catch (OperationCanceledException) { throw; }</c> ahead of the fail-open handler fails CLOSED
     /// on a slow model — which is the failure this seam has most often.
-    /// <para>Measured 2026-09-09: one judge call exceeding its HTTP timeout took down a bench run 40 minutes
-    /// and 34,242 ingested turns in (<c>docs/FIXES.md</c>). The engine was fixed then; the promise belongs
-    /// here, where every implementation of the seam is held to it.</para></summary>
+    /// <para>The engine-side fix is <c>docs/FIXES.md</c>, 2026-09-09; the promise belongs here, where every
+    /// implementation of the seam is held to it.</para></summary>
     public static async Task A_policy_timing_out_on_its_own_yields_NoOpinion(
         IMemoryVerificationPolicy timingOut)
     {

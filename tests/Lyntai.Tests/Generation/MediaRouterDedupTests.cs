@@ -3,7 +3,7 @@ using Lyntai.Tests.Fakes;
 
 namespace Lyntai.Tests.Generation;
 
-/// <summary>The generation router deduplicates its candidate list, the way the LLM router always has — and it
+/// <summary>The generation router deduplicates its candidate list, as the LLM router does — and it
 /// does it on the RESOLVED (backend, model) pair, before the count that
 /// <see cref="MediaRoutingPolicy.ExemptSoleCandidate"/> reads is taken.
 ///

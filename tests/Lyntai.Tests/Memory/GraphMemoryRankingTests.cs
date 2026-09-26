@@ -9,8 +9,8 @@ using Lyntai.Tests.Storage;
 
 namespace Lyntai.Tests.Memory;
 
-/// <summary>Salience's contribution to RANK — the owner's ruling in <c>docs/DECISIONS.md</c> D45, correcting
-/// D45's first round: salience means "this memory does not fade away" (decay resistance, plus
+/// <summary>Salience's contribution to RANK (<c>docs/DECISIONS.md</c> D45): salience means "this memory does
+/// not fade away" (decay resistance, plus
 /// store ADMISSION priority — a salient candidate survives the candidate <c>LIMIT</c>, so it is there to be
 /// found), not "first priority". Reordering a candidate ahead of a better textual match is a stronger,
 /// separate claim, so <see cref="MultiplicativeRankingOptions.SalienceRankWeight"/> defaults to 0 — off —

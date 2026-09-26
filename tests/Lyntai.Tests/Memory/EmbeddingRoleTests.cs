@@ -9,13 +9,13 @@ namespace Lyntai.Tests.Memory;
 ///
 /// <para><b>Why it exists.</b> Asymmetric embedding models — the E5, BGE, nomic and Arctic families — are
 /// trained with distinct instructions for the text being STORED and the text being SEARCHED WITH, and score
-/// materially worse when both sides are embedded identically. Before this seam the engine called one
-/// role-less method from both paths, so such a model could not be driven correctly through Lyntai by ANY
-/// implementation: a BYO vector backend had no way to learn which side it was serving.</para>
+/// materially worse when both sides are embedded identically. With one role-less method called from both
+/// paths, a BYO vector backend has no way to learn which side it is serving, so no implementation can drive
+/// such a model correctly.</para>
 ///
 /// <para><b>The compatibility half is what these tests mostly pin.</b> A symmetric model must be unaffected
-/// and an existing implementation must keep working untouched, which is what the interface's default body
-/// buys — so the tests that matter most here are the ones asserting nothing changed.</para></summary>
+/// and a role-unaware implementation must keep working untouched, which is what the interface's default body
+/// buys.</para></summary>
 public class EmbeddingRoleTests
 {
     /// <summary>Records the role each call carried. Implements BOTH overloads, which is what a genuinely
@@ -58,7 +58,7 @@ public class EmbeddingRoleTests
 
     /// <summary>The compatibility guarantee, and the reason the seam is a default-implemented member rather
     /// than a new required one: <see cref="FakeVectorProvider"/> implements ONLY the role-less method — exactly
-    /// what every vector backend written before this seam existed looks like — and must keep working.</summary>
+    /// what a role-unaware vector backend looks like — and must keep working.</summary>
     [Fact]
     public async Task A_vector_backend_implementing_only_the_ROLE_LESS_method_keeps_working_unchanged()
     {

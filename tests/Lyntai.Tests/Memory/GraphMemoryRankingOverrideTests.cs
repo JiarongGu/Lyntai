@@ -136,8 +136,8 @@ public sealed class GraphMemoryRankingOverrideTests : IDisposable
     [Fact]
     public async Task UseGraph_with_no_explicit_ranking_still_uses_the_container_default()
     {
-        // The mirror image of the fact above: an engine that names nothing here behaves exactly as before
-        // this parameter existed — the container registration is still consulted.
+        // The mirror image of the fact above: an engine that names nothing here still consults the
+        // container registration.
         var services = new ServiceCollection();
         services.AddSingleton<IMemoryGraphStore>(new SqliteMemoryGraphStore(_db.Factory));
         services.AddSingleton<IMemoryRankingPolicy>(new OrderById(ascending: false)); // container default

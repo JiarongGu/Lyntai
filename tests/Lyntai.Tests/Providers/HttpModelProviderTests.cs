@@ -60,8 +60,8 @@ public class HttpModelProviderTests
     }
 
     // A backend the consumer LISTED but never configured must be skipped blamelessly, not benched: AuthFailed
-    // cools the host for the cooldown window, so every first attempt paid a penalty for a fact the provider
-    // already knew. Not simply "require a key up front" — a locally-run OpenAI-shaped server (LM Studio,
+    // cools the host for the cooldown window, so every first attempt would pay a penalty for a fact the
+    // provider already knows. Not simply "require a key up front" — a locally-run OpenAI-shaped server (LM Studio,
     // vLLM, Ollama) legitimately has none, so only the server DEMANDING one makes a missing key a config gap.
     [Fact]
     public async Task A_401_with_no_api_key_supplied_is_NotConfigured()
@@ -194,11 +194,10 @@ public class HttpModelProviderTests
     [Fact]
     public async Task A_rate_limit_reported_in_band_at_http_200_classifies_and_does_not_resend()
     {
-        // THE TWO-ANSWER-CHANNEL RULE, third instance (2026-08-15). The CLI sites were fixed twice — codex,
-        // then claude — and the HTTP provider read its failure channel only when the STATUS was non-2xx. A
-        // gateway that answers 200 with an error body therefore fell through to "malformed or empty", which
-        // (a) re-sent the identical request to a host that had just said it was rate-limited, and (b)
-        // classified as Failed, which ADVANCES and takes a dead-host strike, where RateLimited COOLS.
+        // THE TWO-ANSWER-CHANNEL RULE, which the codex and claude sites hold too: the failure channel is read
+        // whatever the STATUS. A gateway answering 200 with an error body must not fall through to "malformed
+        // or empty", which (a) re-sends the identical request to a host that has just said it is rate-limited,
+        // and (b) classifies as Failed, which ADVANCES and takes a dead-host strike, where RateLimited COOLS.
         var handler = new StubHttpHandler()
             .Enqueue(HttpStatusCode.OK, """{"error":{"code":429,"message":"Rate limit exceeded"}}""");
 
@@ -239,8 +238,8 @@ public class HttpModelProviderTests
     [Fact]
     public async Task A_streamed_in_band_error_classifies_instead_of_reporting_no_output()
     {
-        // The streaming twin. ParseStreamLine yields nothing for an error-only line, so the stream ended
-        // "no output produced" (Failed) — right verdict CLASS, no reason, wrong routing.
+        // The streaming twin. ParseStreamLine yields nothing for an error-only line, so unread, the stream
+        // ends "no output produced" (Failed) — right verdict CLASS, no reason, wrong routing.
         const string sse = """
             data: {"error":{"code":429,"message":"Rate limit exceeded"}}
 
@@ -331,7 +330,7 @@ public class HttpModelProviderTests
 
         var final = chunks[^1];
         Assert.Equal(TextChunkKind.Final, final.Kind);
-        Assert.Equal(12, final.Usage!.InputTokens);   // streamed calls now feed budget/telemetry
+        Assert.Equal(12, final.Usage!.InputTokens);   // streamed calls feed budget/telemetry
         Assert.Equal(3, final.Usage.OutputTokens);
     }
 
@@ -341,8 +340,6 @@ public class HttpModelProviderTests
         // THE SHAPE THAT MATTERS: a vendor sends one call across several lines — id and name first, then
         // arguments a few characters at a time. TextChunk.ToolCall promises a COMPLETE call, so the joining
         // is the provider's job and no consumer ever sees partial JSON.
-        // This test replaced one asserting Unsupported ("streaming can't carry it"), which pinned the
-        // deferral 3.0 removed.
         const string sse = """
             data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_a","function":{"name":"get_weather","arguments":"{\"ci"}}]}}]}
 
@@ -420,11 +417,9 @@ public class HttpModelProviderTests
     [Fact]
     public async Task Sse_content_AND_a_tool_call_delivers_BOTH()
     {
-        // REGRESSION for a silent data loss. This turn — prose alongside a call — used to fall through to a
-        // benign Final with the call DROPPED, and the code said so in a comment: "if content ALSO streamed,
-        // don't clobber it — fall through to a benign Final (tool call dropped)". Nothing errored; the model
-        // asked for a tool and the caller was handed prose. That is why 3.0 treats this as a fix and not
-        // only as a feature.
+        // A silent data loss otherwise: this turn — prose alongside a call — must not fall through to a
+        // benign Final with the call DROPPED. Nothing would error; the model asked for a tool and the caller
+        // would be handed prose.
         const string sse = """
             data: {"choices":[{"delta":{"content":"let me check"}}]}
 
@@ -448,10 +443,10 @@ public class HttpModelProviderTests
     [Fact]
     public async Task Content_AND_a_finish_for_tool_calls_that_assembles_NONE_is_still_a_failure()
     {
-        // The fourth cell of the 2×2, and the one the D71 fix left open: the "none could be assembled"
-        // failure fired only when NO content had streamed, so prose + an unassemblable call (a delta whose
-        // function.name never arrives) fell through to a benign Final — the model asked for a tool and the
-        // caller was handed prose as the final answer, the exact silent discard D71 exists to eliminate.
+        // The fourth cell of the 2×2: the "none could be assembled" failure fires even when content has
+        // streamed. Gated on NO content, prose + an unassemblable call (a delta whose function.name never
+        // arrives) falls through to a benign Final — the model asked for a tool and the caller is handed prose
+        // as the final answer, the exact silent discard D71 exists to eliminate.
         // The prose itself already streamed and stays; the terminal chunk is where the truth goes.
         const string sse = """
             data: {"choices":[{"delta":{"content":"let me check"}}]}

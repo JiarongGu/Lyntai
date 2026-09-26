@@ -14,17 +14,11 @@ namespace Lyntai.Tests.Memory;
 /// Every SHIPPED policy implementation is held to its seam's contract — checked structurally.
 /// </summary>
 /// <remarks>
-/// <para>The gap this closes. <c>MemoryGraphStoreCoverageTests</c> already asserts that every concrete
+/// <para>The gap this closes. <c>MemoryGraphStoreCoverageTests</c> asserts that every concrete
 /// <c>IMemoryGraphStore</c> a Lyntai package ships has a suite driving the whole contract, because a
-/// backend with no suite is invisible: nothing fails, and the tick it prints looks identical. The POLICY
-/// seams had no equivalent. Coverage was complete on the day this was written — all four age policies, all
-/// three ranking policies and both retrievability policies run their contract — and nothing kept it that
-/// way. A fifth implementation could ship with no suite and every gate would stay green.</para>
-///
-/// <para>That is not speculative here. The same shape has been found REAL four times in this repository:
-/// a vector-store tiebreak proved on the one backend that already had it, two curated-store facts that
-/// never ran against Postgres, and two more found the moment a coverage check was pointed at them. A
-/// contract is only worth what runs it.</para>
+/// backend with no suite is invisible: nothing fails, and the tick it prints looks identical. This is the
+/// POLICY seams' equivalent — without it a new implementation could ship with no suite and every gate would
+/// stay green. A contract is only worth what runs it.</para>
 ///
 /// <para>SOURCE-TEXT, like its Postgres counterpart, and for the same reason: reflection cannot see which
 /// type a test method constructs. The rule is that a shipped implementation must be NAMED in a file that
@@ -34,11 +28,9 @@ namespace Lyntai.Tests.Memory;
 public class PolicyContractCoverageTests
 {
     /// <summary>Each seam, with the contract class a suite must reference to count as covering it.
-    /// <para><b>All SEVEN of the memory subsystem's policy seams, as of 2026-08-17.</b> It covered three
-    /// until then — the deterministic ones — while salience, retention, annotation and verification had no
-    /// contract at all, so this table could not list them and the backstop below had nothing to compare
-    /// against: the guard was silent about more seams than it checked. Closing it found that
-    /// <c>LlmMemoryVerificationPolicy</c> was constructed by NO offline test whatsoever (archive Part 86).</para>
+    /// <para><b>All SEVEN of the memory subsystem's policy seams.</b> A seam with no contract cannot be listed
+    /// here, and the backstop below then has nothing to compare it against: the guard is silent about every
+    /// seam it does not check.</para>
     /// <para>The two model-in-the-loop seams are covered by MODEL-FREE contracts on purpose. Every promise
     /// they make is about what happens when the model answers badly or not at all, which is exactly what a
     /// live test cannot force — so each driver supplies a working policy and a deliberately broken one, and
@@ -83,9 +75,8 @@ public class PolicyContractCoverageTests
         Assert.NotEmpty(covering);  // …and so would a contract nothing runs
 
         // CONSTRUCTION, not mention. A mention is satisfied by the suite's own class NAME —
-        // `ContentSizeAgePolicyContractTests` contains `ContentSizeAgePolicy` — so a suite that was renamed
-        // to cover one policy while still constructing another would pass. Found by mutation-testing this
-        // very check: pointing that suite's factory at a different policy left it green.
+        // `ContentSizeAgePolicyContractTests` contains `ContentSizeAgePolicy` — so a suite named for one
+        // policy while constructing another would pass a mention check.
         var missing = shipped
             .Where(name => !covering.Any(text => text.Contains($"new {name}(", StringComparison.Ordinal)))
             .ToArray();

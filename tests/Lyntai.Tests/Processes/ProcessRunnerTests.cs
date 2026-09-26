@@ -35,11 +35,10 @@ public class ProcessRunnerTests
     public void A_FAILED_path_lookup_is_not_cached_so_one_transient_locator_failure_is_not_permanent()
     {
         // THE CACHE IS PROCESS-WIDE AND PERMANENT, so what it remembers had better be worth remembering.
-        // `ResolveCommandPath` memoized `Locate(cmd) ?? cmd` — the FALLBACK included. One transient
-        // where.exe failure (a spawn that could not start under load, an AV hook, a dead PATH entry)
-        // therefore cached the unresolved bare name for the lifetime of the process, and `CommandExists`
-        // reads a name with no directory part as NOT FOUND. Every later call then reports the CLI absent,
-        // for a command that is installed and on PATH.
+        // Memoizing `Locate(cmd) ?? cmd` — the FALLBACK included — would let one transient where.exe failure
+        // (a spawn that could not start under load, an AV hook, a dead PATH entry) cache the unresolved bare
+        // name for the lifetime of the process, and `CommandExists` reads a name with no directory part as
+        // NOT FOUND. Every later call would then report the CLI absent, for a command installed and on PATH.
         //
         // The failure is silent, permanent and looks exactly like "the CLI is not installed" — and it is
         // reachable in a shipped app, not only under a test runner: the first probe of a provider's
@@ -63,13 +62,12 @@ public class ProcessRunnerTests
     [Fact]
     public async Task A_locator_that_hangs_is_killed_at_the_bound_rather_than_hanging_the_caller()
     {
-        // A dead network drive on PATH (or an AV hook) can hang where.exe with nothing on stdout. The old
-        // shape read stdout synchronously BEFORE WaitForExit(5000), so the only bound sat behind an
-        // unbounded read and the FIRST CLI-provider call froze forever — ahead of every inactivity clock
-        // RunAsync arms, with no CancellationToken anywhere in the chain to break out.
+        // A dead network drive on PATH (or an AV hook) can hang where.exe with nothing on stdout. Reading
+        // stdout synchronously BEFORE WaitForExit(5000) puts the only bound behind an unbounded read, so the
+        // FIRST CLI-provider call would freeze forever — ahead of every inactivity clock RunAsync arms, with
+        // no CancellationToken anywhere in the chain to break out.
         // Prints nothing and hangs — but self-exits at 60s, because an ORPHANED child inherits the test
-        // host's console handles and wedges the whole runner past the test's own failure (measured: the
-        // RED run of this very test hung `dotnet test` until the stray node was killed by hand).
+        // host's console handles and wedges the whole runner past the test's own failure.
         using var scratch = new ScratchDir("hanging-locator");
         var script = scratch.File("locator.js", "setTimeout(() => process.exit(0), 60000);");
         var run = Task.Run(() => ProcessRunner.RunLocator("node", script));
@@ -145,8 +143,8 @@ public class ProcessRunnerTests
     [Fact]
     public async Task Stdin_write_is_covered_by_the_timeout()
     {
-        // a child that never reads stdin + a payload beyond the OS pipe buffer used to block the
-        // writer forever (the timeout was armed only AFTER the write)
+        // a child that never reads stdin + a payload beyond the OS pipe buffer blocks the writer forever
+        // unless the timeout is armed BEFORE the write
         var bigStdin = new string('x', 1_000_000);
         var sw = Stopwatch.StartNew();
 
@@ -161,8 +159,8 @@ public class ProcessRunnerTests
     [Fact]
     public async Task Stream_lines_does_not_deadlock_on_large_stdin_with_interleaved_stdout()
     {
-        // Regression: StreamLinesAsync used to await the FULL stdin write (and close stdin) BEFORE
-        // the stdout read loop began. On a prompt larger than the OS pipe buffer this deadlocks a
+        // StreamLinesAsync must not await the FULL stdin write (and close stdin) BEFORE the stdout read
+        // loop begins: on a prompt larger than the OS pipe buffer that deadlocks a
         // child that emits stdout before draining stdin (like `claude --output-format stream-json`,
         // which prints its startup/MCP handshake first): the parent blocks filling the stdin pipe
         // while the child blocks filling the stdout pipe the parent hasn't begun draining. On Windows
@@ -199,8 +197,8 @@ public class ProcessRunnerTests
     [Fact]
     public async Task Stream_lines_passes_small_stdin_through()
     {
-        // Regression guard for the concurrent-stdin change: a small prompt (under the pipe buffer)
-        // must still round-trip and the stream must complete cleanly.
+        // The concurrent-stdin path with a small prompt (under the pipe buffer): it must still round-trip
+        // and the stream must complete cleanly.
         var lines = new List<string>();
         await foreach (var line in _runner.StreamLinesAsync("node",
             ["-e", "let n = 0; process.stdin.on('data', d => n += d.length); process.stdin.on('end', () => console.log('READ:' + n))"],
@@ -217,8 +215,8 @@ public class ProcessRunnerTests
     {
         // The buffered path's timeout is child INACTIVITY, not wall clock: a slow-but-ALIVE turn (a big
         // prompt, a long tool loop) that keeps emitting output must finish, even when its TOTAL runtime
-        // exceeds the window — only TRUE SILENCE for the window kills it. Today RunAsync applies a
-        // wall-clock timeout and kills this healthy child at ~4s; an inactivity clock lets it run to exit.
+        // exceeds the window — only TRUE SILENCE for the window kills it. A wall-clock timeout would kill
+        // this healthy child at ~4s; an inactivity clock lets it run to exit.
         // The 4s window is generous headroom for node's cold start under parallel test load (the window is
         // armed before the child prints); the 1s ticks are well under it, but 6 of them outlast the window.
         const string script = """
@@ -262,8 +260,8 @@ public class ProcessRunnerTests
         // stdout closes instantly; the child then SIPS stdin (take one pipe-buffer's worth, nap 150ms,
         // repeat — ~4 KB per sip on Windows) so the TOTAL drain time (~11s) far exceeds the inactivity
         // window, but it never goes SILENT for the window: each sip frees pipe space, the parent's next
-        // slice write completes, and that progress re-arms the clock. Pre-fix, the single fixed post-EOF
-        // window killed this healthy child mid-drain.
+        // slice write completes, and that progress re-arms the clock. A single fixed post-EOF window would
+        // kill this healthy child mid-drain.
         //
         // The window is 5s, 33x the 150ms sip, because a loaded machine eats a thinner margin (at 2s a stalled
         // Node process is indistinguishable from a wedged one). Total drain still far exceeds the window, and
@@ -289,7 +287,7 @@ public class ProcessRunnerTests
     {
         // stdout ends immediately (EOF for the read loop), stdin is never read, and the child lingers —
         // the writer stays blocked on the full stdin pipe, so only a clock ARMED over the stdin observe
-        // can end the call (the pre-fix code stopped the clock there and hung without a maxDuration).
+        // can end the call (a clock stopped there hangs without a maxDuration).
         var sw = Stopwatch.StartNew();
         var result = await _runner.RunAsync("node",
             ["-e", "process.stdout.end(); setTimeout(() => {}, 60000)"],
@@ -396,7 +394,7 @@ public class ProcessRunnerTests
             await foreach (var _ in _runner.StreamLinesAsync("node", ["-e", script, heartbeat]))
                 break; // abandon immediately
 
-            // Bounded poll, not a fixed sleep (which flaked under CI load): the child beats every 100ms,
+            // Bounded poll, not a fixed sleep (which flakes under CI load): the child beats every 100ms,
             // so the kill has landed once the heartbeat file holds the same size across two consecutive
             // 300ms windows (≥5 missed beats). Fails hard if it's still beating at the deadline.
             var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(15);
@@ -430,7 +428,7 @@ public class ProcessRunnerTests
     [SkippableFact]
     public async Task Runs_a_powershell_ps1_launcher_shim()
     {
-        // PR1: a .ps1 launcher shim (some Windows CLIs ship one) can't be exec'd directly by CreateProcess —
+        // A .ps1 launcher shim (some Windows CLIs ship one) can't be exec'd directly by CreateProcess —
         // the runner must host it in PowerShell rather than fail with a Win32Exception. ASCII output only:
         // the UTF-8-no-BOM round-trip is locked separately by Stdin_passes_through_including_utf8_cjk (a real
         // shim's child .exe writes its own bytes through the inherited pipe; PS 5.1 doesn't re-encode them).
@@ -471,7 +469,7 @@ public class ProcessRunnerTests
     public async Task Runs_an_extensionless_shim_through_its_ps1_sibling_when_there_is_no_cmd()
     {
         // Same shape with only a PowerShell sibling present: the shim resolves to the .ps1, which is
-        // itself un-exec'able and gets the powershell.exe host (the existing .ps1 launcher path).
+        // itself un-exec'able and gets the powershell.exe host (the .ps1 launcher path).
         Skip.IfNot(OperatingSystem.IsWindows(), "an extensionless shim is executable as-is elsewhere");
 
         using var scratch = new ScratchDir("shim-ps1sib");
@@ -483,16 +481,13 @@ public class ProcessRunnerTests
         Assert.Contains("ps1-sibling-ran:ok", result.StdOut);
     }
 
-    // The kill-versus-clean-exit decision, as a truth table. It was written TWICE — StreamLinesAsync tested
-    // `timeoutCts.IsCancellationRequested && process.ExitCode != 0` with the race named in a comment, and
-    // RunAsync tested only the cancellation flag — so the buffered path reported a TIMEOUT for a child that
-    // had exited 0, discarding the complete stdout it was holding. CliProviderEngine.CompleteAsync branches
-    // on TimedOut BEFORE it parses stdout, so that turned an already-billed CLI turn into
-    // ProviderVerdict.Timeout and made the router pay for a second one.
+    // The kill-versus-clean-exit decision, as a truth table, shared by both callers. Testing the cancellation
+    // flag alone reports a TIMEOUT for a child that exited 0, discarding the complete stdout it holds — and
+    // CliProviderEngine.CompleteAsync branches on TimedOut BEFORE it parses stdout, so an already-billed CLI
+    // turn becomes ProviderVerdict.Timeout and the router pays for a second one.
     //
-    // The race itself cannot be driven deterministically from outside the class — which is exactly why the
-    // guard that DID exist had no test either. Extracting the decision is what makes it observable: one
-    // function, both callers, and the truth table pinned here.
+    // The race itself cannot be driven deterministically from outside the class, which is why the decision
+    // is one extracted function: that is what makes it observable.
     [Theory]
     [InlineData(true, 1, true)]    // killed mid-flight — a real timeout
     [InlineData(true, 0, false)]   // THE RACE: the kill fired, but the child had already finished cleanly

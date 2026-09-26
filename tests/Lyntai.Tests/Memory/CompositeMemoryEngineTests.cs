@@ -76,7 +76,7 @@ public class CompositeMemoryEngineTests
         Assert.Single(glossary.Writes);
     }
 
-    /// <summary>The reported defect, pinned as the DEFAULT so the fix below is measurable against it:
+    /// <summary>The DEFAULT routing's cost, pinned so the opt-in fan-out below is measurable against it:
     /// <c>UseGraph().UseSemantic()</c> — the graph supports both grades, takes every write, and the semantic
     /// member's store stays permanently empty. Nothing throws, <c>Supported</c> widens, and only a
     /// recall-quality measurement can find it.</summary>
@@ -162,10 +162,9 @@ public class CompositeMemoryEngineTests
     [Fact]
     public async Task A_blend_returns_at_most_the_query_limit()
     {
-        // Found 2026-08-14: the composite added every member's items and returned them with no Take, so a
-        // 2-member blend answered a Limit of 10 with up to 20. MemoryEngineBuilder ALWAYS wraps members in a
-        // composite, so this was the shape every multi-member consumer had. Same class as the
-        // AuthoritativeReserve incident pitfalls.md records — a bound configured on one scope (the query) and
+        // A composite that concatenates its members' items with no Take answers a Limit of 10 with up to 20
+        // from a 2-member blend, and MemoryEngineBuilder ALWAYS wraps members in a composite. Same class as
+        // the AuthoritativeReserve trap pitfalls.md records — a bound configured on one scope (the query) and
         // enforced on another (never).
         var a = new RecordingEngine("project/a", MemoryGrades.Associative)
             .Returning("a1", MemoryGrade.Associative, 0.9).Returning("a2", MemoryGrade.Associative, 0.8);
@@ -198,9 +197,8 @@ public class CompositeMemoryEngineTests
     [Fact]
     public async Task Expansion_routes_THROUGH_the_composite_to_the_owning_member()
     {
-        // THE CAPABILITY-FORWARDING TEST. Decorating a generation provider erased its optional interfaces
-        // once, and every video render stopped routing while every image render kept working and every
-        // inline test stayed green. Without this test, the same regression ships invisibly here.
+        // THE CAPABILITY-FORWARDING TEST. A wrapper that does not forward an optional interface erases it
+        // while every inline test of the member stays green (pitfalls.md: decorating a provider).
         var expandable = new ExpandableEngine("project/graph");
         var composite = Composite(new RecordingEngine("project/lexical", MemoryGrades.Associative), expandable);
 
@@ -244,11 +242,10 @@ public class CompositeMemoryEngineTests
     [Fact]
     public async Task Removal_routes_THROUGH_the_composite_to_every_member_that_can_remove()
     {
-        // THE CAPABILITY-FORWARDING TEST'S MISSING TWIN, found 2026-08-15. The composite forwarded
-        // IExpandableMemory and ILinkableMemory and silently dropped IForgettableMemory — so
-        // `engine is IForgettableMemory` was FALSE for every AddMemoryEngine registration (Build is
-        // documented "ALWAYS a composite, even for one member"), and a consumer of the shipped memory
-        // subsystem had no supported way to remove anything. The engine is typed as IMemoryEngine here on
+        // THE CAPABILITY-FORWARDING TEST'S TWIN. A composite that forwards IExpandableMemory and
+        // ILinkableMemory but drops IForgettableMemory makes `engine is IForgettableMemory` FALSE for every
+        // AddMemoryEngine registration (Build is documented "ALWAYS a composite, even for one member"), so a
+        // consumer has no supported way to remove anything. The engine is typed as IMemoryEngine here on
         // purpose: that is what IMemoryEngineFactory.Get hands back, so this is the consumer's own view.
         var a = new ForgettableEngine("project/a", pruneCount: 2);
         var b = new ForgettableEngine("project/b", pruneCount: 3);
@@ -265,12 +262,9 @@ public class CompositeMemoryEngineTests
     [Fact]
     public async Task A_blend_with_ONE_member_that_cannot_remove_refuses_and_removes_NOTHING()
     {
-        // Round 2 of this review caught the first version fanning out to whichever members could remove and
-        // SILENTLY SKIPPING the rest — the exact outcome the fan-out exists to prevent, and the first
-        // version of this very test pinned it as correct by putting a non-forgettable member in the blend
-        // and asserting success. `UseCurated("glossary").UseGraph()` is a blend from this library's own
-        // README: it cleared the graph half, kept the AUTHORITATIVE half, and returned normally. For the
-        // call an application makes when a user withdraws consent, that is the worst available answer.
+        // Fanning out to whichever members can remove and SILENTLY SKIPPING the rest reports success for a
+        // partial remove — for the call an application makes when a user withdraws consent, the worst
+        // available answer.
         var graph = new ForgettableEngine("project/graph", pruneCount: 4);
         var gap = new RecordingEngine("project/gap", MemoryGrades.Associative);   // a GAP, not a catalogue
         var forgettable = Assert.IsAssignableFrom<IForgettableMemory>(Composite(graph, gap));
@@ -293,9 +287,9 @@ public class CompositeMemoryEngineTests
         Assert.Empty(graph.Prunes);    // a mid-fan-out refusal would be a partial remove AND an exception
     }
 
-    // ---- operator-authored members are SKIPPED, not blockers (3.0) -----------------------------------
+    // ---- operator-authored members are SKIPPED, not blockers -----------------------------------------
     //
-    // The distinction the composite now draws: a member that CANNOT remove is a gap and refuses the whole
+    // The distinction the composite draws: a member that CANNOT remove is a gap and refuses the whole
     // verb; a member that declares its content OPERATOR-authored is out of scope and is skipped. Collapsing
     // them would turn every gap into a silent partial, which is what D63 was written about — so both
     // directions are pinned: the gap that still refuses is A_blend_with_ONE_member_that_cannot_remove_…
@@ -307,9 +301,9 @@ public class CompositeMemoryEngineTests
     [Fact]
     public async Task A_glossary_member_no_longer_BLOCKS_a_removal_it_is_skipped()
     {
-        // THE BLEND FROM THIS LIBRARY'S OWN README: UseCurated("glossary").UseGraph(). Until now it could
-        // not remove at all — the curated member cannot forget, so the whole verb refused, and an application
-        // withdrawing a user's consent had nothing to call.
+        // THE BLEND FROM THIS LIBRARY'S OWN README: UseCurated("glossary").UseGraph(). The curated member
+        // cannot forget, so were it a blocker the whole verb would refuse, and an application withdrawing a
+        // user's consent would have nothing to call.
         var graph = new ForgettableEngine("project/graph", pruneCount: 4);
         var engine = Composite(Glossary(), graph);
 
@@ -406,7 +400,7 @@ public class CompositeMemoryEngineTests
     public async Task A_member_may_be_forgettable_WITHOUT_being_prunable()
     {
         // Why the capabilities split. A vector store can forget a scope exactly and cannot prune by age at
-        // all; under one combined interface it had to claim both or neither. The pre-flight now asks for the
+        // all; one combined interface would force it to claim both or neither. The pre-flight asks for the
         // capability the VERB needs, so forgetting works and pruning refuses — rather than pruning
         // half-succeeding and then throwing from a member mid-fan-out.
         var graph = new ForgettableEngine("project/graph", pruneCount: 4);
@@ -426,8 +420,6 @@ public class CompositeMemoryEngineTests
     [Fact]
     public async Task Forgetting_routes_THROUGH_the_composite_to_every_member_that_can_remove()
     {
-        // ForgetAsync was on NO interface at all before 3.0 — a bare public method on GraphMemoryEngine —
-        // so it was unreachable through any abstraction, composite or not.
         var a = new ForgettableEngine("project/a");
         var b = new ForgettableEngine("project/b");
         IMemoryEngine engine = Composite(a, b);
@@ -455,10 +447,10 @@ public class CompositeMemoryEngineTests
     [Fact]
     public async Task A_blend_reports_the_abstention_signal_a_member_produced()
     {
-        // Found 2026-08-15: the composite returned `new MemoryRecall(items, ran)`, dropping the third
-        // positional argument, so MemoryRecall.Answered was NULL on every DI-registered engine even when a
-        // judge had answered. docs/memory.md's own "know when the memory has nothing useful" sample tests
-        // `recall.Answered == false`, which could never fire.
+        // A composite that returns `new MemoryRecall(items, ran)` drops the third positional argument, so
+        // MemoryRecall.Answered is NULL on every DI-registered engine even when a judge answered — and
+        // docs/memory.md's "know when the memory has nothing useful" sample, which tests
+        // `recall.Answered == false`, can never fire.
         var judged = new StaticEngine("project/graph", [Assoc("project/graph", "the answer")],
             MemorySources.Graph, answered: true);
         var plain = new StaticEngine("project/lexical", [Assoc("project/lexical", "unjudged")]);
@@ -496,9 +488,9 @@ public class CompositeMemoryEngineTests
     [Fact]
     public async Task A_blend_honours_the_query_char_budget()
     {
-        // MemoryQuery.CharBudget travelled to every member unchanged and was never reconciled at the blend —
-        // the same two-scopes defect the Limit cut above was added for, on the field beside it. Each member
-        // may spend the whole budget, so an N-member blend returned up to N x CharBudget.
+        // MemoryQuery.CharBudget travels to every member unchanged and each may spend the whole budget, so a
+        // blend that does not reconcile it returns up to N x CharBudget — the Limit cut's two-scopes defect,
+        // on the field beside it.
         var a = new RecordingEngine("project/a", MemoryGrades.Associative)
             .Returning(new string('a', 60), MemoryGrade.Associative, 0.9);
         var b = new RecordingEngine("project/b", MemoryGrades.Associative)
@@ -525,19 +517,14 @@ public class CompositeMemoryEngineTests
         Assert.NotEmpty(recall.Items);
     }
 
-    /// <summary><b>The capability-forwarding invariant, as a FACT rather than a sentence.</b>
-    ///
-    /// <para>D63's remedy for the composite silently dropping <see cref="IForgettableMemory"/> was written as
-    /// prose — "when a capability interface is added anywhere in this library, the wrapper over it gets a
-    /// line in the same change" — which is another sentence in another document, and D63's own diagnosis of
-    /// the original defect was that <b>a comment asserting an invariant is not the invariant</b>. The class
-    /// docblock had claimed "It never guesses about capabilities" while implementing two of three.</para>
+    /// <summary><b>The capability-forwarding invariant, as a FACT rather than a sentence</b> — a comment
+    /// asserting an invariant is not the invariant (D63).
     ///
     /// <para>Derived from the tree rather than hand-listed, so it cannot go stale: every interface
     /// <see cref="Lyntai.Memory.Engines.GraphMemoryEngine"/> implements, the composite must implement too.
     /// The graph engine is the right yardstick because it is the richest member and the one every
-    /// <c>UseGraph</c> blend wraps — add a fourth capability to it and this fails until the wrapper forwards
-    /// it, which is precisely the change that shipped un-forwarded before.</para></summary>
+    /// <c>UseGraph</c> blend wraps — add a capability to it and this fails until the wrapper forwards
+    /// it.</para></summary>
     [Fact]
     public void The_composite_implements_every_capability_interface_its_richest_member_does()
     {

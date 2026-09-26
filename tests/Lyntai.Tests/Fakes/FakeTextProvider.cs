@@ -19,9 +19,8 @@ public sealed class FakeTextProvider(string id) : IModelProvider
     public bool IsAvailable { get; set; } = true;
 
     /// <summary>Convenience setter that WRITES THROUGH to <see cref="Capabilities"/>, which is where the
-    /// router reads it since D127. A plain auto-property here would let a test set the flag, watch the
-    /// router ignore it, and pass for the wrong reason — which is exactly what happened when the flag
-    /// moved.</summary>
+    /// router reads it (D127). A plain auto-property here would let a test set the flag, watch the
+    /// router ignore it, and pass for the wrong reason.</summary>
     public bool SupportsToolCalls
     {
         get => Capabilities.SupportsToolCalls;

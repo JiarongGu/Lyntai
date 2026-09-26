@@ -88,7 +88,7 @@ public class TextRouterCompleteTests
     [Fact]
     public async Task RateLimited_cools_the_host_immediately_and_advances()
     {
-        // amended §6: a 429 is terminal for the host's window, transient for the fleet
+        // design §6: a 429 is terminal for the host's window, transient for the fleet
         var tracker = new DeadHostTracker(threshold: 3, TimeSpan.FromMinutes(5), () => DateTimeOffset.UtcNow);
         var p1 = new FakeTextProvider("p1");
         p1.Replies.Enqueue(new TextResponse("", ProviderVerdict.RateLimited, Detail: "429"));
@@ -141,9 +141,9 @@ public class TextRouterCompleteTests
     [Fact]
     public async Task An_unconfigured_candidate_is_skipped_blamelessly()
     {
-        // the asymmetry this closes: a consumer who LISTS a backend they have not configured had it benched
-        // on cooldown for a fact the router knew before calling. NotConfigured advances with no penalty and
-        // no cooldown — the same thing the generation router already does (MediaRoutingPolicy).
+        // a consumer who LISTS a backend they have not configured must not have it benched on cooldown for a
+        // fact the router knew before calling: NotConfigured advances with no penalty and no cooldown — as the
+        // generation router does (MediaRoutingPolicy).
         var tracker = new DeadHostTracker(threshold: 1, TimeSpan.FromMinutes(5), () => DateTimeOffset.UtcNow);
         var unset = new FakeTextProvider("unset");
         unset.Replies.Enqueue(new TextResponse("", ProviderVerdict.NotConfigured, Detail: "no api key"));
@@ -160,7 +160,7 @@ public class TextRouterCompleteTests
     public async Task A_real_failure_is_reported_over_a_later_unconfigured_candidate()
     {
         // the masking trap a blameless verdict introduces: told "not configured", a caller goes and sets up
-        // a key — while the backend they HAD configured is the one that is down. MediaRouter already
+        // a key — while the backend they HAD configured is the one that is down. MediaRouter
         // guards this ("aren't faults worth reporting over a real failure"); the LLM router must too.
         var down = new FakeTextProvider("down");
         down.Replies.Enqueue(new TextResponse("", ProviderVerdict.Failed, Detail: "connection refused"));

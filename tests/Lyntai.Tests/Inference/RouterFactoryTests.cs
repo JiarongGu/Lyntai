@@ -10,7 +10,7 @@ namespace Lyntai.Tests.Inference;
 ///
 /// <para>That split is the whole point. A consumer that hand-builds a router per render also rebuilds its
 /// tracker per render, so a failing backend can never actually be benched; the tests below pin both halves,
-/// and the instance overload pins that an app which never touches the pool behaves exactly as it did.</para></summary>
+/// and the instance overload pins that an app which never touches the pool keys on the provider id.</para></summary>
 public class RouterFactoryTests
 {
     private static MediaRequest Request() => new() { Kind = ProviderKinds.Image, Prompt = "a cat" };
@@ -55,7 +55,7 @@ public class RouterFactoryTests
         Assert.Equal(1, built);
     }
 
-    // The regression this whole task exists for: rebuilding the router per call must NOT reset the bench.
+    // Rebuilding the router per call must NOT reset the bench.
     [Fact]
     public async Task Cooldown_survives_a_router_rebuilt_on_every_call()
     {
@@ -93,7 +93,7 @@ public class RouterFactoryTests
         Assert.False(tracker.IsDead($"generation::{Key("cfg-b")}"));
     }
 
-    // The container-composed path keeps today's behaviour exactly: keyed on the id, no pool involved.
+    // The container-composed path: keyed on the id, no pool involved.
     [Fact]
     public async Task The_instance_overload_keys_cooldown_on_the_provider_id()
     {
@@ -133,7 +133,7 @@ public class RouterFactoryTests
     }
 
     // Ids are matched case-insensitively everywhere else, so a slot that differs only in case is the SAME
-    // backend and must be rejected too — a case-sensitive check would let the bug straight back in.
+    // backend and must be rejected too — a case-sensitive check would let the same shadowing through.
     [Fact]
     public void Slots_differing_only_in_case_are_the_same_backend_and_throw()
     {
@@ -166,8 +166,8 @@ public class RouterFactoryTests
     }
 
     // The instance overload never touches the pool, so it is not subject to the check at all — a caller
-    // that hands over two same-id instances is describing today's DI collection, which already de-duplicates
-    // by first-wins and must keep doing so.
+    // that hands over two same-id instances is describing a DI collection, which de-duplicates by
+    // first-wins.
     [Fact]
     public async Task The_instance_overload_is_not_subject_to_the_duplicate_check()
     {
@@ -204,7 +204,7 @@ public class RouterFactoryTests
 
     // ---- the container-composed path -------------------------------------------------------------------
 
-    // The decorator order the factory now owns is load-bearing: the limiter sits INSIDE the budget, so a
+    // The decorator order the factory owns is load-bearing: the limiter sits INSIDE the budget, so a
     // call refused for spend never consumes a permit. With only one permit available, the discriminator is
     // the verdict of the second call — Refused if the budget is outermost, RateLimited if the order flipped.
     [Fact]

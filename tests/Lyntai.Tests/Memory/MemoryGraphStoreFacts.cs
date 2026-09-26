@@ -9,14 +9,12 @@ namespace Lyntai.Tests.Memory;
 /// The theory source and invoker that make <see cref="MemoryGraphStoreContract"/> coverage STRUCTURAL.
 /// </summary>
 /// <remarks>
-/// <para><b>What this replaces, and why it is not merely tidier.</b> Each backend used to wire the contract
-/// by hand — one <c>[Fact]</c> per method on InMemory and SQLite, one long sequential method on Postgres —
-/// and the only exhaustiveness check was a single <c>Assert.Equal(declared, covered)</c> in
-/// <c>PostgresStorageTests</c> against a HAND-BUMPED literal. That catches a fact wired nowhere, and one
-/// wired everywhere except Postgres, but it cannot catch a fact wired to Postgres ALONE: the author bumps
-/// the literal, it passes, and InMemory and SQLite silently never run it. The invariant it protects —
-/// <i>"a cross-backend invariant enforced on ONE backend's test class is not enforced"</i>
-/// (<c>.claude/knowledge/pitfalls.md</c>) — is one this repository has already been bitten by.</para>
+/// <para><b>Why it is not merely tidier.</b> With the contract wired by hand per backend, the only
+/// exhaustiveness check is an <c>Assert.Equal(declared, covered)</c> against a HAND-BUMPED literal. That
+/// catches a fact wired nowhere, and one wired everywhere except one backend, but it cannot catch a fact
+/// wired to one backend ALONE: the author bumps the literal, it passes, and the other backends silently
+/// never run it. The invariant at stake is <i>"a cross-backend invariant enforced on ONE backend's test
+/// class is not enforced"</i> (<c>.claude/knowledge/pitfalls.md</c>).</para>
 ///
 /// <para>Driving every backend from <see cref="Names"/> closes that direction by CONSTRUCTION rather than by
 /// counting: a method added to the contract is a new theory case on every backend the moment it

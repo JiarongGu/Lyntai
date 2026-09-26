@@ -4,7 +4,7 @@ using Lyntai.Tests.Fakes;
 
 // Microsoft.ML.Tokenizers ships a WordPieceTokenizer of its own, so the type under test is aliased rather
 // than imported. BertTokenizer, not that type, is the reference: it runs the FULL pipeline (clean, CJK,
-// lowercase, strip accents, punctuation, then WordPiece), which is what the vector backend used to call.
+// lowercase, strip accents, punctuation, then WordPiece).
 using WordPieceTokenizer = Lyntai.Text.WordPieceTokenizer;
 
 namespace Lyntai.Tests.Text;
@@ -20,8 +20,8 @@ namespace Lyntai.Tests.Text;
 /// finite, plausible, WRONG vectors — the failure mode no smoke test sees. So the load-bearing test here is
 /// not any single rule below: it is
 /// <see cref="Produces_the_SAME_ids_as_the_Microsoft_ML_Tokenizers_implementation_it_replaces"/>, which
-/// compares every id against the implementation being removed. <c>Microsoft.ML.Tokenizers</c> stays
-/// referenced by the TEST project for exactly that reason and by nothing in <c>src/</c>.</para>
+/// compares every id against <c>Microsoft.ML.Tokenizers</c>. That package stays referenced by the TEST
+/// project for exactly that reason and by nothing in <c>src/</c>.</para>
 /// </summary>
 public class WordPieceTokenizerTests
 {
@@ -148,8 +148,8 @@ public class WordPieceTokenizerTests
     private static readonly string[] WhereTheReferenceImplementationIsWrong =
         ["alpha\tbeta", "alpha\nbeta", "alpha\rbeta"];
 
-    /// <summary>The load-bearing test: every id must match the implementation being removed, wherever that
-    /// one follows the reference pipeline.
+    /// <summary>The load-bearing test: every id must match <c>Microsoft.ML.Tokenizers</c>, wherever it
+    /// follows the reference pipeline.
     ///
     /// <para>The corpus hits the rules that differ BETWEEN implementations rather than the ones everybody
     /// agrees on — casing, accents, CJK, punctuation runs, digits, subword splits and unmatchable words —
@@ -171,9 +171,9 @@ public class WordPieceTokenizerTests
         using var stream = new MemoryStream(Encoding.UTF8.GetBytes(string.Join('\n', vocabulary)));
 
         // DECLARED as Tokenizer, not BertTokenizer, and that is not a style choice. BertTokenizer shadows
-        // EncodeToIds with a `new` method that adds [CLS]/[SEP]; the base one does not. Model2VecProvider held
-        // this exact base type, so the base call is the behaviour being reproduced — typing it BertTokenizer
-        // here compares against a DIFFERENT tokenizer and every id shifts by two positions.
+        // EncodeToIds with a `new` method that adds [CLS]/[SEP]; the base one does not, and the unbracketed
+        // call is the behaviour being reproduced — typing it BertTokenizer here compares against a DIFFERENT
+        // tokenizer and every id shifts by two positions.
         Tokenizer theirs = BertTokenizer.Create(stream);
 
         string[] corpus =

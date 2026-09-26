@@ -1,8 +1,7 @@
 namespace Lyntai.Tests.Fakes;
 
 /// <summary>Repo-relative test scratch locations (family rule: scratch under <c>devtools/_*</c>, never
-/// OS temp). Centralizes the <c>AppContext.BaseDirectory + "../../../../.."</c> walk to the repo root
-/// that was previously hand-rolled per test file.</summary>
+/// OS temp). Centralizes the <c>AppContext.BaseDirectory + "../../../../.."</c> walk to the repo root.</summary>
 public static class TestPaths
 {
     /// <summary>Full path of <c>devtools/&lt;name&gt;</c> under the repo root; the directory is created.</summary>

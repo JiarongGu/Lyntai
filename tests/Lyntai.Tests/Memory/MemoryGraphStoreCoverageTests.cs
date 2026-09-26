@@ -5,13 +5,12 @@ using Lyntai.Memory;
 namespace Lyntai.Tests.Memory;
 
 /// <summary>
-/// The guarantee that per-backend contract coverage is STRUCTURAL — the mechanism that replaced a
-/// hand-bumped literal.
+/// The guarantee that per-backend contract coverage is STRUCTURAL rather than a hand-bumped literal.
 /// </summary>
 /// <remarks>
 /// These facts are about the harness, not about any store. They exist because the defect they close is a
-/// harness defect: the old check could not see a fact wired to Postgres alone, and a harness whose failure
-/// mode is a false PASS cannot be validated by running it.
+/// harness defect: a counted check cannot see a fact wired to one backend alone, and a harness whose
+/// failure mode is a false PASS cannot be validated by running it.
 /// </remarks>
 public class MemoryGraphStoreCoverageTests
 {
@@ -27,8 +26,8 @@ public class MemoryGraphStoreCoverageTests
     [Fact]
     public void The_theory_source_offers_exactly_the_facts_the_contract_declares()
     {
-        // If these can drift apart, the theory silently stops covering whatever the filter dropped — the
-        // same permissive direction the counted assertion failed in.
+        // If these can drift apart, the theory silently stops covering whatever the filter dropped — a
+        // false PASS, the same permissive direction a counted assertion fails in.
         var declared = typeof(MemoryGraphStoreContract)
             .GetMethods(BindingFlags.Public | BindingFlags.Static)
             .Where(m => typeof(Task).IsAssignableFrom(m.ReturnType))
@@ -135,7 +134,7 @@ public class MemoryGraphStoreCoverageTests
     public void No_backend_suite_still_carries_a_hand_bumped_coverage_LITERAL()
     {
         // The literal is the defect, not the count. While one exists someone will bump it, and bumping it is
-        // exactly the move that hid a Postgres-only fact.
+        // exactly the move that hides a fact wired to one backend alone.
         foreach (var backend in Backends)
         {
             var counting = backend

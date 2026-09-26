@@ -64,7 +64,7 @@ public class MemorySubjectLinkingTests
 
     /// <summary><b>The headline: a subject cue reaches facts that never contained the subject.</b> "she works
     /// at a hospital" and "we met in Kyoto" share no word with "my spouse is Alice" beyond pronouns, so they
-    /// can arrive only across an edge — and before annotation there was no edge to cross.</summary>
+    /// can arrive only across an edge — and without annotation there is no edge to cross.</summary>
     [Fact]
     public async Task An_annotated_cluster_is_reachable_from_a_subject_cue()
     {
@@ -92,10 +92,10 @@ public class MemorySubjectLinkingTests
         var recall = await engine.RecallAsync(new MemoryQuery("t", "s", "my spouse", Limit: 10));
         var texts = recall.Items.Select(i => i.Content ?? i.Headline).ToList();
 
-        // The POSITIVE half, and without it this control was vacuous: it asserted only two absences, so any
-        // change making RecallAsync return nothing at all would have satisfied it — while the docstring above
-        // promises "reaches only the lexical match". A control that passes when the mechanism it controls for
-        // is dead is the failure it exists to rule out. Found 2026-08-14.
+        // The POSITIVE half, and without it this control is vacuous: two absences alone are satisfied by any
+        // change making RecallAsync return nothing at all — while the docstring above promises "reaches only
+        // the lexical match". A control that passes when the mechanism it controls for is dead is the
+        // failure it exists to rule out.
         Assert.NotEmpty(texts);
         Assert.Contains(texts, t => t!.Contains("Alice", StringComparison.Ordinal));
 
@@ -135,8 +135,8 @@ public class MemorySubjectLinkingTests
     /// <summary><b>A failing subject INDEX must not fail the write either</b> — the other link in the same
     /// chain, and the one the annotator fact above structurally cannot reach.
     /// <para>There the model never answers, so nothing arrives at the store. Here a perfect annotator
-    /// answers and the projection refuses the write, which is the half that catch has never been asked
-    /// about. Same invariant as the similarity index's
+    /// answers and the projection refuses the write, which is the other half of that catch. Same invariant
+    /// as the similarity index's
     /// (<c>GraphSimilarityTests.A_failing_vector_STORE_costs_the_vector_not_the_entry</c>): a partial projection
     /// failure costs that projection, never the fact.</para></summary>
     [Fact]
@@ -200,16 +200,15 @@ public class MemorySubjectLinkingTests
     /// <summary>
     /// <b>THE CASE THE STORED INDEX EXISTS FOR: a shared subject that NO entry names in its own text.</b>
     ///
-    /// <para>The first version of this linked by SEARCHING for the subject, which needs some entry to be
-    /// findable by it — normally the fact that introduces the entity ("my spouse is Alice" contains
-    /// "spouse"). Three facts about one OWNER with different attributes have no such entry: "the spouse is
-    /// Alice", "the deploy key is in the vault", "the client is northern logistics" are all about *me* and
-    /// none contains "me". This test was written in the failing direction to prove that, and it did:
-    /// searching linked nothing here.</para>
+    /// <para>Linking by SEARCHING for the subject needs some entry to be findable by it — normally the fact
+    /// that introduces the entity ("my spouse is Alice" contains "spouse"). Three facts about one OWNER with
+    /// different attributes have no such entry: "the spouse is Alice", "the deploy key is in the vault", "the
+    /// client is northern logistics" are all about *me* and none contains "me", so searching links nothing
+    /// here.</para>
     ///
-    /// <para><b>That mattered because it is exactly the corpus's attribute cluster</b> — and therefore
-    /// exactly where the measured no-graph floor comes from. A search-based mechanism would have looked
-    /// correct in every other test in this file and moved no measurement at all. <c>RecordSubjectsAsync</c>
+    /// <para><b>That matters because it is exactly the corpus's attribute cluster</b> — and therefore
+    /// exactly where the measured no-graph floor comes from. A search-based mechanism looks correct in every
+    /// other test in this file and moves no measurement at all. <c>RecordSubjectsAsync</c>
     /// removes the dependency: the subject is stored, so it links whether or not any text mentions it.</para>
     /// </summary>
     [Fact]
@@ -262,8 +261,7 @@ public class MemorySubjectLinkingTests
     /// <summary><b>The reuse list is bounded, so in a long-lived memory a rarely-used handle DOES fall off —
     /// and this pins which one, because the eviction order is the whole design.</b>
     ///
-    /// <para>`docs/task-archive.md` Part 67 shipped the reuse list and left this unmeasured:
-    /// <c>AnnotationKnownSubjects</c> caps how
+    /// <para>The reuse list (`docs/task-archive.md` Part 67) is bounded: <c>AnnotationKnownSubjects</c> caps how
     /// many existing handles an annotator is shown, and the list is ordered most-used-first, so a
     /// correct-but-singleton subject can drop out and be re-invented under a new name.</para>
     ///
@@ -286,7 +284,7 @@ public class MemorySubjectLinkingTests
 
         // Real nodes are required: RecordSubjectsAsync inserts by SELECTing from the node table (task_key
         // and scope are denormalized from the node), so a subject recorded against a nonexistent id is
-        // silently dropped. The first draft of this test did exactly that and read back an empty list.
+        // silently dropped, and the list reads back empty.
         async Task<long> WriteAsync(string content)
         {
             var reference = (await engine.RememberAsync(new MemoryWrite("t", "s", content))).Reference;

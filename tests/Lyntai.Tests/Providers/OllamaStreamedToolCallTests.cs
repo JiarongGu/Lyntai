@@ -6,10 +6,10 @@ using Lyntai.Tests.Fakes;
 namespace Lyntai.Tests.Providers;
 
 /// <summary>Ollama streams each tool call COMPLETE on its own NDJSON line, and the calls on separate lines
-/// must never share a slot. MEASURED on Ollama 0.34.2 (qwen3:4b, 2026-09-25, a two-tool prompt): two lines,
+/// must never share a slot. MEASURED on Ollama 0.34.2 (qwen3:4b, a two-tool prompt): two lines,
 /// one call each, the <c>index</c> nested inside <c>function</c> rather than at the top level — so a slot
-/// read from a top-level index (else position within the line) put both calls in slot 0, kept the first
-/// name, and appended the arguments into <c>{"city":"Paris"}{"city":"Tokyo"}</c>.</summary>
+/// read from a top-level index (else position within the line) puts both calls in slot 0, keeps the first
+/// name, and appends the arguments into <c>{"city":"Paris"}{"city":"Tokyo"}</c>.</summary>
 public class OllamaStreamedToolCallTests
 {
     private const string MeasuredTwoToolStream = """

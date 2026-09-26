@@ -9,7 +9,7 @@ namespace Lyntai.Tests.Providers;
 /// <summary>URL-shape detection decides which PROVIDER CLASS a registration composes (D160) — an Ollama
 /// server ROOT gets the native provider, everything else the OpenAI-shaped one — plus Azure's URL/auth
 /// conventions. The behaviour half is pinned through <c>AddHttpProvider</c>, because composition is where
-/// the decision now lives; there is no per-call dialect left to test.</summary>
+/// the decision lives; there is no per-call dialect to test.</summary>
 public class ProviderDetectTests
 {
     [Theory]
@@ -54,7 +54,7 @@ public class ProviderDetectTests
         Assert.False(ProviderDetect.IsHost("fakeopenai.com", "openai.com"));
     }
 
-    // ---- the behaviour the detection now drives: which provider AddHttpProvider composes --------------
+    // ---- the behaviour the detection drives: which provider AddHttpProvider composes ------------------
 
     [Fact]
     public async Task AddHttpProvider_with_an_ollama_root_composes_the_native_provider()

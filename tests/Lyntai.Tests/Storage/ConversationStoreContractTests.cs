@@ -5,7 +5,7 @@ using Lyntai.Storage.Sqlite;
 namespace Lyntai.Tests.Storage;
 
 /// <summary>Every <see cref="ConversationStoreContract"/> method as a [Fact] — derive with a store
-/// factory and the whole contract runs on that backend automatically (T11: no silent skips). Postgres
+/// factory and the whole contract runs on that backend automatically (no silent skips). Postgres
 /// deliberately does NOT derive: it runs the Uid-namespaced subset on the shared container.</summary>
 public abstract class ConversationStoreContractFacts
 {

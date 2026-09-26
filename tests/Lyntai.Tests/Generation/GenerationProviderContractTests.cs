@@ -139,9 +139,8 @@ public abstract class InlineHttpGenerationProviderContractFacts : HttpGeneration
 public abstract class JobHttpGenerationProviderContractFacts : HttpGenerationProviderContractFacts
 {
     /// <summary>An operation id this backend can PARSE. It must be well-formed, or a job backend rejects it
-    /// before it ever calls out — which is how the first draft of the fetch fact silently tested fal's
-    /// operation-id validation instead of its verdict classification, and reported the defect it was hunting
-    /// for the wrong reason.</summary>
+    /// before it ever calls out — and the fetch fact silently tests the operation-id validation instead of
+    /// the verdict classification.</summary>
     protected virtual string OperationId => "some-operation-id";
 
     protected override Task SendAsync(IModelProvider provider, MediaRequest ask) => Jobs(provider).SubmitAsync(ask);
@@ -187,7 +186,7 @@ public abstract class JobHttpGenerationProviderContractFacts : HttpGenerationPro
         Assert.False(string.IsNullOrWhiteSpace(polled.Detail));
     }
 
-    /// <summary><b>The FETCH door classifies a 401 too — the door the divergence lived on.</b> Fetch is the
+    /// <summary><b>The FETCH door classifies a 401 too.</b> Fetch is the
     /// one place a job backend returns a verdict rather than a status, and it is reached after a render has
     /// been paid for, so a host that cannot tell "your proxy rejected me" from "the render failed" retries a
     /// generation it already owns.</summary>

@@ -56,11 +56,7 @@ public class LlmVerificationLiveTests(Xunit.Abstractions.ITestOutputHelper outpu
 
     private static string BaseUrl => LiveModel.BaseUrl;
 
-    /// <summary>The default judge. <b><c>llama3.2:3b</c> held this slot until 2026-08-15 and was retired on a
-    /// measurement, not on age:</b> it FAILS the multilingual fact outright, answering <c>[1,2]</c> on the
-    /// Japanese case — the two non-answering notes, missing the answer entirely — while passing English,
-    /// Chinese and Korean. A default that fails the library's own multilingual promise makes the seam look
-    /// worse than it is, and it is the value anyone runs first.
+    /// <summary>The default judge.
     /// <para><b>The judge ladder lives in <c>docs/memory-measurements.md</c> §5 and is not duplicated here</b> — it
     /// carries miss, pollution and a share-of-reference column for six judges, which is strictly more than a
     /// list of model names would say. <c>gemma3:4b</c> is the default because that table makes it the best
@@ -68,19 +64,20 @@ public class LlmVerificationLiveTests(Xunit.Abstractions.ITestOutputHelper outpu
     /// reference, at ~1.5s per judgement.</para>
     /// <para><b>Do NOT default this to a reasoning model, and the reason is measured rather than aesthetic:</b>
     /// <c>docs/memory.md</c> records <c>qwen3:4b</c> at ~25s per judgement against gemma3's ~1.5s, and a seam
-    /// in the latency path of EVERY recall makes that disqualifying whatever it scores. Re-confirmed
-    /// 2026-08-15 the hard way: qwen3 emits ~2,200 output tokens for a four-note question whose answer is
-    /// about 8, and two full ceiling runs were abandoned after 40+ and 55+ minutes. The policy already sets
-    /// <c>TextReasoning.Suppress</c>; Ollama's qwen3 reasons regardless.</para>
+    /// in the latency path of EVERY recall makes that disqualifying whatever it scores. qwen3 emits ~2,200
+    /// output tokens for a four-note question whose answer is about 8, so a full ceiling run does not finish
+    /// inside 55 minutes. The policy sets <c>TextReasoning.Suppress</c>; Ollama's qwen3 reasons regardless.</para>
     /// <para><b>One narrow observation worth keeping, and NOT a precision failure:</b> on this file's
     /// adversarial four-note fixture <c>gemma3:4b</c> also takes the trivia distractor (<c>[3,4]</c> in
     /// Chinese, Japanese and Korean) where <c>qwen3:4b</c> answers <c>[3]</c>. That is a LEXICALLY ADJACENT
     /// distractor chosen to be hard, and it does not generalise: on the real corpus gemma3 admits the least
     /// junk of any judge. The distractor result is REPORTED below rather than asserted, because a fixture
     /// that fails the best-measured local model is mis-calibrated as a gate.</para>
-    /// <para><c>llama3.2:3b</c> was the default until 2026-08-15 and is retired on the ladder's own numbers —
-    /// the weakest judge measured (60–69% of reference) — and separately fails the multilingual RECALL fact,
-    /// answering <c>[1,2]</c> in Japanese and missing the answer entirely.</para>
+    /// <para><c>llama3.2:3b</c> is refused as the default on the ladder's own numbers — the weakest judge
+    /// measured (60–69% of reference) — and separately fails the multilingual RECALL fact, answering
+    /// <c>[1,2]</c> in Japanese and missing the answer entirely. A default that fails the library's own
+    /// multilingual promise makes the seam look worse than it is, and it is the value anyone runs
+    /// first.</para>
     /// <para>Which model runs is a deployment choice
     /// (<c>.claude/knowledge/model-decoupling.md</c>); this default only decides what an unconfigured run
     /// measures.</para></summary>
@@ -182,10 +179,8 @@ public class LlmVerificationLiveTests(Xunit.Abstractions.ITestOutputHelper outpu
     /// <para><see cref="LlmMemoryVerificationPolicy"/>'s instruction says "the question and the notes may be
     /// in any language, and may be in different ones — judge meaning, never spelling", and is deliberately
     /// example-free so as not to bias toward English. Every measurement of the seam, including the whole
-    /// judge ladder, ran on the ENGLISH corpus. A language-neutral claim that only English exercises is the
-    /// exact shape of the blind spot this subsystem spent a release removing — the recall-quality numbers
-    /// published before 2026-08-12 were all English, on the friendliest tokenization the library
-    /// supports.</para>
+    /// judge ladder, ran on the ENGLISH corpus. A language-neutral claim that only English exercises is a
+    /// blind spot, because English is the friendliest tokenization the library supports.</para>
     ///
     /// <para><b>Deliberately not a recall-quality measurement.</b> It asks the narrow question the prompt
     /// makes a promise about: given a question and four notes IN THAT LANGUAGE, does the judge pick the one
@@ -238,12 +233,12 @@ public class LlmVerificationLiveTests(Xunit.Abstractions.ITestOutputHelper outpu
         // for this seam specifically: under GraphMemoryOptions.VerificationFilters a false positive SURVIVES
         // the filter, turning verification from a precision gain into a no-op.
         //
-        // It is not a GATE because the fixture is deliberately adversarial and does not generalise. Measured
-        // 2026-08-15: gemma3:4b takes the distractor here in Chinese, Japanese and Korean — yet on the real
-        // corpus it admits the LEAST junk of any judge measured (pollution 0.0492, docs/memory-measurements.md §5, better
+        // It is not a GATE because the fixture is deliberately adversarial and does not generalise:
+        // gemma3:4b takes the distractor here in Chinese, Japanese and Korean — yet on the real corpus it
+        // admits the LEAST junk of any judge measured (pollution 0.0492, docs/memory-measurements.md §5, better
         // than the ground-truth reference). A fixture that fails the best-measured local model is
-        // mis-calibrated as a pass/fail bar; asserting on it would have forced the default to a reasoning
-        // model the library's own docs disqualify on latency. So the number goes to the ladder and the
+        // mis-calibrated as a pass/fail bar; asserting on it would force the default to a reasoning model the
+        // library's own docs disqualify on latency. So the number goes to the ladder and the
         // judgement stays with the reader.
         var tookDistractor = verdict.RelevantIds.Contains("4");
         output.WriteLine($"[{language}] precision: distractor taken = {tookDistractor}");

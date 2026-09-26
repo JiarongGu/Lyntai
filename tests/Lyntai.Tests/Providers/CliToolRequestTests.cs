@@ -7,7 +7,7 @@ using static Lyntai.Tests.Fakes.FakeProcessRunner;
 namespace Lyntai.Tests.Providers;
 
 /// <summary>A CLI spawn's tool provisioning sees the call it serves — on both doors — and a provisioner that
-/// predates the request-aware member still runs.</summary>
+/// implements only the request-blind member still runs.</summary>
 public class CliToolRequestTests
 {
     private sealed class Recording : ICliToolProvisioner

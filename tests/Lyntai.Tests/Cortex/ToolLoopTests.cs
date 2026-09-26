@@ -543,11 +543,10 @@ public class ToolLoopTests
         Assert.Single(result.Steps);
     }
 
-    // ---- native path over a STREAM (3.0) --------------------------------------------------------------
+    // ---- native path over a STREAM --------------------------------------------------------------------
     //
-    // Before this, the native path always buffered a whole turn through CompleteAsync, because TextChunk
-    // carried no tool-call payload — so an agentic answer had no time-to-first-token at all, however long
-    // the model spent writing prose before its last tool call. The loop now streams when, and only when,
+    // A turn buffered through CompleteAsync gives an agentic answer no time-to-first-token at all, however
+    // long the model spends writing prose before its last tool call. The loop streams when, and only when,
     // the provider says its STREAM delivers tool calls.
 
     private static ToolLoop StreamingNativeLoop(FakeTextClient client, params ITool[] tools)
@@ -601,8 +600,8 @@ public class ToolLoopTests
     public async Task A_provider_whose_STREAM_drops_tool_calls_keeps_the_buffered_path()
     {
         // THE REGRESSION THIS CAPABILITY EXISTS FOR. Native tool-calling and streaming tool-calling are
-        // independent: a provider can surface calls on TextResponse.ToolCalls while its stream drops them, which
-        // is what every provider here did until 3.0. Streaming such a provider would see no call chunk and
+        // independent: a provider can surface calls on TextResponse.ToolCalls while its stream drops them.
+        // Streaming such a provider would see no call chunk and
         // report the turn's prose as a final answer — the tool silently never runs. So the loop must use
         // CompleteAsync, and the StreamScript below would fail the test if it ever reached it.
         var client = new FakeTextClient
@@ -662,8 +661,8 @@ public class ToolLoopTests
     {
         // The prompt fallback is not a degradation of degree: on the one model measured both ways it takes
         // false calls from 20-30% to 90-100% and convergence from 99.4-100% down to 11.3-24.4%
-        // (`docs/memory-measurements.md` §5). A deployment on a model with no tool template got that second
-        // column and nothing said so. Reporting the transport is a FACT about what ran, which is why it is a
+        // (`docs/memory-measurements.md` §5), and a deployment on a model with no tool template gets that
+        // second column silently. Reporting the transport is a FACT about what ran, which is why it is a
         // result property rather than a warning with a threshold picked out of one model's evidence.
         var prompt = new FakeTextClient();
         prompt.Replies.Enqueue(new TextResponse("""{"final":"done"}""", ProviderVerdict.Ok));

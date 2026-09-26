@@ -79,12 +79,12 @@ public class GraphSimilarityTests
     [Fact]
     public async Task A_failing_vector_backend_at_RECALL_degrades_to_the_lexical_hits_rather_than_to_nothing()
     {
-        // The twin of the write-path fact above, and it was missing: the engine's own semantic seed had no
-        // try/catch and was called AFTER store.SeedAsync had already produced lexical seeds, so a transient
-        // vector backend fault threw out of GatherAsync, hit RecallAsync's best-effort catch, and returned
-        // MemoryRecall.Empty — good seeds discarded, and indistinguishable from "the query matched nothing".
-        // Design §5.7.0: "enrichment is best-effort and its failure degrades QUALITY, never CORRECTNESS."
-        // The catch now lives in SemanticSeedSource, and this asserts the same promise through the seam.
+        // The twin of the write-path fact above. The semantic seed runs AFTER store.SeedAsync has produced
+        // lexical seeds, so an uncaught transient vector backend fault throws out of GatherAsync, hits
+        // RecallAsync's best-effort catch, and returns MemoryRecall.Empty — good seeds discarded, and
+        // indistinguishable from "the query matched nothing". Design §5.7.0: "enrichment is best-effort and
+        // its failure degrades QUALITY, never CORRECTNESS." The catch lives in SemanticSeedSource, and this
+        // asserts the promise through the seam.
         //
         // The write must go in with a WORKING vector backend (the write path is separately guarded, but this test is
         // about recall), so the throwing one is installed for the read only.
@@ -121,7 +121,7 @@ public class GraphSimilarityTests
     {
         // The sibling of the vector backend fact above, and a DIFFERENT link in the chain: a working vector backend
         // produces a vector and the INDEX is what refuses it. The vector backend case short-circuits in
-        // SearchAsync before enrichment runs at all, so it never exercised the store's own write.
+        // SearchAsync before enrichment runs at all, so it never exercises the store's own write.
         //
         // "A partial projection failure cannot lose the canonical write" is the invariant, and it is the one
         // this engine's whole best-effort posture rests on: enrichment sits ON TOP of a model-free floor.

@@ -13,10 +13,9 @@ namespace Lyntai.Tests.Memory.Corpus;
 /// guards elsewhere, which would simply re-baseline to the new reality without anyone noticing the
 /// measurement changed rather than the subject.</para>
 ///
-/// <para>Added 2026-08-12 alongside <see cref="CorpusLanguage"/>, whose whole claim is "English is
-/// untouched". These hashes are what makes that claim checkable: they were captured BEFORE the language
-/// axis existed and did not move when it landed. A future change that alters English output fails here
-/// first, which is the point — the failure is not "the hash is stale", it is "you moved the ruler".</para>
+/// <para><see cref="CorpusLanguage"/>'s whole claim is "English is untouched", and these hashes are what
+/// makes that claim checkable: the first five were captured BEFORE the language axis existed and did not
+/// move when it landed. A change that alters English output fails here first, which is the point — the failure is not "the hash is stale", it is "you moved the ruler".</para>
 ///
 /// <para>Deliberately hashes the RENDERED timeline (step kind, text, and ground-truth ids in order) rather
 /// than object identity: that is exactly the surface a measurement consumes, and nothing else about the

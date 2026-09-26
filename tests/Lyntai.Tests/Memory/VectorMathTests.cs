@@ -5,9 +5,9 @@ namespace Lyntai.Tests.Memory;
 /// <summary>The vector arithmetic every vector backend and every brute-force store shares, so that two
 /// of them rank identically.
 ///
-/// <para><b>`NormalizeInPlace` was two copies in two packages</b> — the ONNX adapter's and the model2vec
-/// one's — until D141. Neither could reach the other, Core being their only common dependency, so the
-/// zero-length guard was argued in one and merely present in the other.</para></summary>
+/// <para><b>`NormalizeInPlace` lives in Core (D141)</b>, the one dependency the ONNX and model2vec adapters
+/// share: a copy in each lets the zero-length guard be argued in one and merely present in the
+/// other.</para></summary>
 public class VectorMathTests
 {
     [Fact]

@@ -3,7 +3,7 @@ using Lyntai.Storage;
 
 namespace Lyntai.Tests.Storage;
 
-/// <summary>Backend-agnostic <see cref="IScoreStore"/> contract (A1) — run by the InMemory, SQLite, and
+/// <summary>Backend-agnostic <see cref="IScoreStore"/> contract — run by the InMemory, SQLite, and
 /// Postgres test classes so upsert/aggregate/export semantics are pinned identically.</summary>
 public static class ScoreStoreContract
 {

@@ -10,8 +10,8 @@ using Xunit.Abstractions;
 
 namespace Lyntai.Tests.Generation;
 
-/// <summary>The ComfyUI backend against a REAL local server — the measurement its own class header demands:
-/// every endpoint path and response field name was documented-surface, and only a live run can say whether
+/// <summary>The ComfyUI backend against a REAL local server — the measurement behind its own class header:
+/// every endpoint path and response field name is documented surface, and only a live run can say whether
 /// the documented defaults are the observed ones. One journey exercises the whole queued surface: probe
 /// (<c>system_stats</c> + <c>system.comfyui_version</c>), submit (<c>prompt</c> → <c>prompt_id</c>, with the
 /// dotted-path prompt substitution), poll (<c>history/{id}</c> keyed by id, <c>status.completed</c>), fetch
@@ -197,7 +197,7 @@ public class ComfyUiLiveTests(ITestOutputHelper output)
     private static Dictionary<string, string> Graph(string workflow) =>
         new(StringComparer.OrdinalIgnoreCase) { ["workflow"] = workflow, ["input-path"] = "1.inputs.model_file" };
 
-    /// <summary>GEN7's mesh chain as a DURABLE pipeline job, with no 3D MODEL: stage 1 takes a hand-made GLB as
+    /// <summary>The mesh chain as a DURABLE pipeline job, with no 3D MODEL: stage 1 takes a hand-made GLB as
     /// inline bytes and saves it again, stage 2 chains that mesh's view URI (picked by <c>InputMediaType</c>) and
     /// saves it again, and stage 3 rasterizes it into a PNG. The job runner drives it over an in-memory store, so
     /// every stage is submitted, checkpointed, polled and fetched by the library's own handler — and it measures

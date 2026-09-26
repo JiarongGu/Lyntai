@@ -41,10 +41,7 @@ public abstract class MemoryAnnotationPolicyContractFacts
 /// <para><b>Best-effort over a model-free floor.</b> Graph memory works with no annotator at all, so a
 /// failing or absent one must degrade to "no new links" — never to a failed write and never to no memory.
 /// A policy that threw would take a whole remember down for a judgement the engine was prepared to do
-/// without.</para>
-///
-/// <para>Added 2026-08-17 by the pre-3.0 sweep (archive Part 86), with the other three seams that had
-/// none.</para></summary>
+/// without.</para></summary>
 public static class MemoryAnnotationPolicyContract
 {
     private static MemoryAnnotationRequest Request(
@@ -101,8 +98,8 @@ public static class MemoryAnnotationPolicyContract
     /// <c>catch (OperationCanceledException) { throw; }</c> placed ahead of the fail-open handler turns the
     /// likeliest failure a model-backed policy has — a slow model — into a failed write.
     /// <para>The driver supplies a policy whose dependency times out while NOBODY cancelled, so the only
-    /// available reading is the model's. Found on the verification seam 2026-09-09
-    /// (<c>docs/FIXES.md</c>) and asked of this one because it uses the same idiom.</para></summary>
+    /// available reading is the model's. The verification seam uses the same idiom
+    /// (<c>docs/FIXES.md</c>, 2026-09-09).</para></summary>
     public static async Task A_policy_timing_out_on_its_own_yields_no_opinion(
         IMemoryAnnotationPolicy timingOut)
     {

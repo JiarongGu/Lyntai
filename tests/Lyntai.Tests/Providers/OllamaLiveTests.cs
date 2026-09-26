@@ -31,9 +31,8 @@ public class OllamaLiveTests
             new LyntaiOptions { ProviderTimeout = TimeSpan.FromMinutes(3) }); // cold model load can be slow
 
     /// <summary>True only when the live path is opted in AND the endpoint answers; otherwise the caller
-    /// skips. <see cref="Lyntai.Tests.Live.OllamaLive"/> owns the probe — this file's own copy used a
-    /// 3-second timeout where its siblings used 5, which meant the same machine could run one live suite
-    /// and silently skip another.</summary>
+    /// skips. <see cref="Lyntai.Tests.Live.OllamaLive"/> owns the probe: a per-file copy with its own
+    /// timeout lets the same machine run one live suite and silently skip another.</summary>
     private static Task<bool> LiveAsync() => Lyntai.Tests.Live.OllamaLive.IsAvailableAsync();
 
     private static TextRequest Ask(string prompt) => new()

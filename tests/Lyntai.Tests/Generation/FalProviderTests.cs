@@ -158,7 +158,7 @@ public class FalProviderTests
     public async Task A_COMPLETED_status_carrying_an_error_is_a_FAILED_render()
     {
         // fal's documentation reports a failed request as COMPLETED plus `error` / `error_type`; read as
-        // Succeeded, the job fetched, got a 4xx and reported "succeeded but its artifacts could not be fetched"
+        // Succeeded, the job fetches, gets a 4xx and reports "succeeded but its artifacts could not be fetched"
         var (provider, http) = Provider();
         http.Enqueue(HttpStatusCode.OK,
             """{"status":"COMPLETED","error":"NSFW content detected","error_type":"content_policy_violation"}""");
@@ -272,12 +272,11 @@ public class FalProviderTests
     [Fact]
     public async Task A_4xx_while_polling_is_TERMINAL_rather_than_polled_forever()
     {
-        // The sibling of the test above, and the case it was silently covering. Every GetAsync failure —
-        // 4xx, 5xx, unconfigured, transport — was reported as Running, so an id fal will never resolve was
-        // polled every 15 seconds for the life of the job: never dead-lettered, never failed, never
-        // completed, with the reason sitting in Detail where nothing acts on it. ComfyUiProvider reasons
-        // about exactly this case and answers the opposite way, in writing: "A 4xx or an unconfigured
-        // BaseUrl IS terminal — that id will never resolve, and polling it forever strands the job."
+        // The sibling of the test above: not every GetAsync failure is Running. Reported as Running, an id fal
+        // will never resolve is polled every 15 seconds for the life of the job — never dead-lettered, never
+        // failed, never completed, with the reason sitting in Detail where nothing acts on it. ComfyUiProvider
+        // states the rule: "A 4xx or an unconfigured BaseUrl IS terminal — that id will never resolve, and
+        // polling it forever strands the job."
         var (provider, http) = Provider();
         http.Enqueue(HttpStatusCode.NotFound, "{\"detail\":\"request not found\"}");
 
@@ -309,7 +308,7 @@ public class FalProviderTests
     [Fact]
     public async Task An_unconfigured_backend_polling_is_TERMINAL_rather_than_polled_forever()
     {
-        // The worst shape of the same bug: an operator rotates the key out of configuration and every
+        // The worst shape of the same failure: an operator rotates the key out of configuration and every
         // in-flight durable render polls "not configured: BaseUrl and ApiKey are both required" forever.
         var (provider, _) = Provider(new FalOptions { BaseUrl = "https://queue.fal.run", ApiKey = null });
 
@@ -386,9 +385,9 @@ public class FalProviderTests
     [Fact]
     public async Task A_bytes_only_input_is_refused_rather_than_dropped_and_billed()
     {
-        // the expensive shape: fal reads input media from a URL, so dropping a bytes-only input submitted —
-        // and billed — a text-to-video render against a caller who asked for image→video, and the result
-        // came back plausible. Refusing before the POST is the only honest answer.
+        // the expensive shape: fal reads input media from a URL, so dropping a bytes-only input would submit —
+        // and bill — a text-to-video render against a caller who asked for image→video, and the result
+        // would come back plausible. Refusing before the POST is the only honest answer.
         var (provider, http) = Provider();
 
         var operation = await provider.SubmitAsync(Ask() with
@@ -475,7 +474,7 @@ public class FalProviderTests
     [Fact]
     public async Task A_model_with_stray_slashes_polls_the_same_path_it_submitted_to()
     {
-        // the submit trimmed the model while the operation id kept it raw, so poll/fetch/cancel built
+        // the submit trims the model, so the operation id must too: kept raw, poll/fetch/cancel build
         // `…//fal-ai/wan-t2v/requests/…` for a model configured with a leading or trailing slash
         var (provider, http) = Provider(new FalOptions { ApiKey = "k", Model = "/fal-ai/wan-t2v/" });
         http.Enqueue(HttpStatusCode.OK, """{"request_id":"req-1"}""");

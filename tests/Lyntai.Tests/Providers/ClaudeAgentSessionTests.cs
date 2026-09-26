@@ -395,7 +395,7 @@ public class ClaudeAgentSessionTests
         Assert.True(dtIdx >= 0, "ReadOnly denial must survive the bypass");
         // Whole NAMES, not substrings — see Build_readonly_policy_includes_edit_write_notebookedit_in_disallowed.
         // This is the sharpest of the three: it is what pins that the permission BYPASS does not re-enable the
-        // write tools, and a substring match let the "Edit" half of that promise be deleted silently.
+        // write tools, and a substring match lets the "Edit" half of that promise be deleted silently.
         var denied = argv[dtIdx + 1].Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         Assert.Contains("Edit", denied);
         Assert.Contains("Write", denied);
@@ -433,11 +433,10 @@ public class ClaudeAgentSessionTests
         Assert.False(ended.IsError);
     }
 
-    // The provider seam has carried `environment` since portable installs shipped, and both Add* methods'
-    // docs instruct a host to "pass the same value to both". The agent session took no such value at all, so
-    // a portable install's CLAUDE_CONFIG_DIR was honoured for completions and SILENTLY DROPPED for agent
-    // turns — the agent then reading and mutating the machine-wide install's state, which is the exact thing
-    // a portable install exists to avoid. Mirrors CodexAgentSessionTests.A_portable_installs_environment_-
+    // Both Add* methods' docs instruct a host to pass the same `environment` to the provider and the agent
+    // session. A session that drops it honours a portable install's CLAUDE_CONFIG_DIR for completions and
+    // not for agent turns — the agent then reads and mutates the machine-wide install's state, the exact
+    // thing a portable install exists to avoid. Mirrors CodexAgentSessionTests.A_portable_installs_environment_-
     // reaches_the_spawn.
     [Fact]
     public async Task A_portable_installs_environment_reaches_the_spawn()

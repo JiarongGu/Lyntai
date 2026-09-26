@@ -359,10 +359,10 @@ public sealed class GraphMemoryRankingGoldenTests
     /// <see cref="MemoryQuery.Limit"/> arrives per QUERY, so a reserve chosen against
     /// <see cref="GraphMemoryOptions.DefaultLimit"/> is silently larger than any tighter per-call limit — the
     /// ordinary case, not a pathological one: a caller trimming a prompt budget passes a small
-    /// <c>Limit</c> and the engine's own reserve was never told.
+    /// <c>Limit</c> and the engine's own reserve is never told.
     /// <para>The reserve is capped at the limit, so the option can only ever REDUCE displacement — the only
     /// direction design §5.7 ("within the caller's <c>Limit</c>") documents. Uncapped, reserve 5 with
-    /// <c>Limit: 2</c> and three exact facts returned three items for a limit of two.</para></summary>
+    /// <c>Limit: 2</c> and three exact facts returns three items for a limit of two.</para></summary>
     [Fact]
     public async Task A_reserve_larger_than_the_query_limit_still_returns_at_most_the_limit()
     {

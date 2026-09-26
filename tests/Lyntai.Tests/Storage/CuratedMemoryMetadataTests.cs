@@ -2,11 +2,9 @@ using Lyntai.Storage;
 
 namespace Lyntai.Tests.Storage;
 
-/// <summary>The curated-memory metadata accessor. CMEM6 retired the purpose-built <c>Source</c>/<c>Title</c>
-/// columns into one arbitrary <c>string→string</c> map, which left every consumer hand-unpacking
-/// <c>entry.Metadata!["source"]</c> — an indexer that throws on a missing key and NREs on the (very common)
-/// no-metadata entry. The accessor is the null-safe read of that map; it deliberately does NOT re-privilege
-/// any single key back into a typed member.</summary>
+/// <summary>The curated-memory metadata accessor: the null-safe read of the arbitrary <c>string→string</c>
+/// map, where <c>entry.Metadata!["source"]</c> throws on a missing key and NREs on the (very common)
+/// no-metadata entry. It deliberately does NOT re-privilege any single key back into a typed member.</summary>
 public class CuratedMemoryMetadataTests
 {
     private static CuratedMemory Entry(IReadOnlyDictionary<string, string>? metadata) =>
@@ -33,7 +31,7 @@ public class CuratedMemoryMetadataTests
     [Fact]
     public void MetadataValue_returns_null_when_the_entry_carries_no_metadata_at_all()
     {
-        // the NRE consumers hit today: Metadata is null for every entry written without any
+        // the NRE a raw indexer hits: Metadata is null for every entry written without any
         Assert.Null(Entry(null).MetadataValue("source"));
         Assert.Null(Entry(new Dictionary<string, string>()).MetadataValue("source"));
     }

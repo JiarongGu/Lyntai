@@ -16,7 +16,7 @@ public class SuppressReasoningFieldsTests
 {
     private const string QwenOff = """{"chat_template_kwargs":{"enable_thinking":false}}""";
 
-    // The body as it was before the option existed, for this request — pinned literally, so "unchanged" is
+    // The body with nothing configured, for this request — pinned literally, so "unchanged" is
     // measured against the wire rather than against another call through the same code.
     private const string BufferedBody = """{"model":"gpt-x","messages":[{"role":"user","content":"hi"}],"stream":false}""";
     private const string StreamedBody =

@@ -9,7 +9,7 @@ using Lyntai.Tests.Fakes;
 
 namespace Lyntai.Tests.Providers;
 
-/// <summary>Per-request timeout override (C1): a call can carry its own budget (TextRequest.TimeoutSeconds)
+/// <summary>Per-request timeout override: a call can carry its own budget (TextRequest.TimeoutSeconds)
 /// or inherit a per-consumer default, resolved over the global ProviderTimeout — so a long CLI-agent run
 /// isn't killed by a short global while short calls don't over-wait.</summary>
 public class PerRequestTimeoutTests
@@ -154,8 +154,8 @@ public class PerRequestTimeoutTests
     [Fact]
     public async Task A_longer_per_request_timeout_completes_a_call_that_outlasts_the_global()
     {
-        // Deterministic in BOTH directions (the earlier real-delay spread flaked when a late CTS timer
-        // under CI load outlived the real response): a timer can never fire EARLY, so the 1s response
+        // Deterministic in BOTH directions (a real-delay spread flakes when a late CTS timer under CI load
+        // outlives the real response): a timer can never fire EARLY, so the 1s response
         // under a 60s override can only time out if the 200ms global leaked through (the regression under
         // test); and the never-completing call can only exit via its own timeout.
         var timedOut = await Http(delay: Timeout.InfiniteTimeSpan, global: TimeSpan.FromMilliseconds(200))

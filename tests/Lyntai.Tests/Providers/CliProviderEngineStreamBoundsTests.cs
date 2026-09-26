@@ -5,13 +5,11 @@ using Lyntai.Tests.Fakes;
 
 namespace Lyntai.Tests.Providers;
 
-/// <summary>The two invariants the STREAMED engine path shares with the buffered one and used to miss: an
-/// absolute wall-clock backstop underneath the inactivity window, and the router's commit gate
+/// <summary>The two invariants the STREAMED engine path shares with the buffered one: an absolute wall-clock
+/// backstop underneath the inactivity window, and the router's commit gate
 /// (<c>Kind == Content &amp;&amp; Text.Length &gt; 0</c>) deciding what counts as delivered content.
-///
-/// Both were shipped defects a consumer could not see at compile time — a chatty child that never finished
-/// streamed forever, and one zero-content event marked a stream answered — so each is pinned by a test that
-/// FAILS rather than one that would have to be re-derived from the code.
+/// Neither is visible at compile time: without them a chatty child that never finishes streams forever, and
+/// one zero-content event marks a stream answered.
 ///
 /// The rest of the generic engine contract lives in <see cref="CliProviderEngineTests"/>; the long-running
 /// agent sessions are deliberately NOT covered here, because they drive the process runner directly and must
@@ -37,14 +35,13 @@ public class CliProviderEngineStreamBoundsTests
         return chunks;
     }
 
-    // ── the absolute backstop (CLI-STREAM-CEILING) ───────────────────────────
+    // ── the absolute backstop ────────────────────────────────────────────────
 
     [Fact]
     public async Task A_streamed_completion_carries_the_absolute_backstop_and_not_just_the_inactivity_window()
     {
-        // Regression: the streamed path passed `inactivityTimeout` ONLY. Inactivity alone cannot see the
-        // failure a backstop exists for — a child that prints often enough to re-arm the window but never
-        // finishes re-arms it forever, so the call had no upper bound at all.
+        // `inactivityTimeout` alone cannot see the failure a backstop exists for: a child that prints often
+        // enough to re-arm the window but never finishes re-arms it forever, leaving the call no upper bound.
         var options = new LyntaiOptions
         {
             ProviderTimeout = TimeSpan.FromMinutes(2),
@@ -75,15 +72,15 @@ public class CliProviderEngineStreamBoundsTests
         Assert.Equal(TimeSpan.FromMinutes(45), runner.LastMaxDuration);
     }
 
-    // ── the commit gate (CLI-EMPTY-CONTENT) ──────────────────────────────────
+    // ── the commit gate ──────────────────────────────────────────────────────
 
     [Fact]
     public async Task An_EMPTY_content_event_is_not_delivered_content_so_the_stream_ends_in_an_error()
     {
-        // Regression: the engine counted Content EVENTS rather than their length, so a zero-content event
-        // marked the stream answered — it ended `Final` (a successful EMPTY answer the router would never
-        // fall over from), and through TextRouter a zero-content FIRST chunk committed the stream and
-        // disabled fallback outright. The dialect's "text:" line parses to Content("").
+        // Content counts by LENGTH, not by EVENT: a zero-content event that marked the stream answered would
+        // end it `Final` (a successful EMPTY answer the router never falls over from), and through TextRouter
+        // a zero-content FIRST chunk would commit the stream and disable fallback outright. The dialect's
+        // "text:" line parses to Content("").
         var runner = new FakeProcessRunner(["text:"]);
 
         var chunks = await DrainAsync(Engine(runner), Ask());
@@ -96,9 +93,9 @@ public class CliProviderEngineStreamBoundsTests
     [Fact]
     public async Task An_EMPTY_content_event_does_not_swallow_the_answer_reported_on_the_result_line()
     {
-        // The sharper half of the same bug: "did anything arrive?" also gates the result-only delivery, so
-        // ONE empty content event dropped the entire answer of a stream that reports its text on the
-        // terminal result line — the consumer got Content("") then Final, with the answer nowhere.
+        // The sharper half: "did anything arrive?" also gates the result-only delivery, so counting ONE empty
+        // content event would drop the entire answer of a stream that reports its text on the terminal result
+        // line — Content("") then Final, with the answer nowhere.
         var runner = new FakeProcessRunner(["text:", "result:the answer"]);
 
         var chunks = await DrainAsync(Engine(runner), Ask());
@@ -110,7 +107,7 @@ public class CliProviderEngineStreamBoundsTests
     [Fact]
     public async Task Content_that_is_only_WHITESPACE_still_counts_as_delivered()
     {
-        // The guard against over-fixing: the gate is LENGTH, not IsNullOrWhiteSpace. A space between two
+        // The guard against over-correcting: the gate is LENGTH, not IsNullOrWhiteSpace. A space between two
         // tokens is real output a model emitted, and treating it as nothing would corrupt the answer of any
         // backend that chunks on token boundaries.
         var runner = new FakeProcessRunner(["text: "]);

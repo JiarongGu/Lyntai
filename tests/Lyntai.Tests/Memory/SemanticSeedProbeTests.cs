@@ -15,8 +15,8 @@ namespace Lyntai.Tests.Memory;
 /// <summary><b><see cref="SemanticSeedSource"/> makes a paraphrased entry a CANDIDATE — and the default
 /// ranking still loses it. Both halves are the finding.</b>
 ///
-/// <para>Before this channel the graph engine had no semantic retrieval at all: the vector store was
-/// consulted at WRITE time and never at query time, so a fact worded differently from the query was
+/// <para>Without this channel the graph engine has no semantic retrieval at all: the vector store is
+/// consulted at WRITE time and never at query time, so a fact worded differently from the query is
 /// unreachable however good the model. With it, the query is embedded and its nearest entries join the
 /// candidate set carrying their own cosine as this channel's <c>Relevance</c> — the gradient
 /// <c>ReciprocalRankFusionPolicy</c> ranks WITHIN this source, never the list position
@@ -30,9 +30,8 @@ namespace Lyntai.Tests.Memory;
 ///
 /// <para><b>The logger is load-bearing.</b> <c>RecallAsync</c> catches everything <c>GatherAsync</c> throws
 /// and returns <see cref="MemoryRecall.Empty"/> with a log warning, so a bug in the gather path is
-/// indistinguishable from "nothing matched" unless something is listening. Two earlier attempts at this
-/// feature were debugged blind for exactly that reason; the assertion on an empty warning list is what makes
-/// a silent failure loud.</para></summary>
+/// indistinguishable from "nothing matched" unless something is listening. The assertion on an empty
+/// warning list is what makes a silent failure loud.</para></summary>
 public class SemanticSeedProbeTests(Xunit.Abstractions.ITestOutputHelper output)
 {
     private static string BaseUrl => LiveModel.BaseUrl;
@@ -91,8 +90,8 @@ public class SemanticSeedProbeTests(Xunit.Abstractions.ITestOutputHelper output)
 
         Assert.Empty(logger.Warnings);   // any warning here IS the swallowed failure
 
-        // (1) SEEDING WORKS: the paraphrase is a candidate, which it could not be before this channel — no
-        //     lexical route reaches it, and the vector store was never consulted at query time.
+        // (1) SEEDING WORKS: the paraphrase is a candidate — no lexical route reaches it, so only the
+        //     query-time vector channel can.
         Assert.Contains(wideOpen.Items, i => i.Reference.Id == target.Id);
 
         // (2) RANKING STILL LOSES IT at a realistic limit UNDER THE DEFAULT WEIGHTS. Asserted rather than

@@ -5,7 +5,7 @@ using Lyntai.Tools.Mcp.Hosting;
 namespace Lyntai.Tests.Tools;
 
 /// <summary>The host's bearer check accepts EXACTLY the minted token. The compare is constant-time, which a
-/// unit test cannot observe; what these pin is that moving to a byte compare kept the answer — a near miss,
+/// unit test cannot observe; what these pin is that the byte compare gives the right answer — a near miss,
 /// a prefix, a case change and an absent header are all 401, and the real token gets past the gate (a 404 on
 /// a path the host does not serve is the proof).</summary>
 public class McpToolHostAuthTests

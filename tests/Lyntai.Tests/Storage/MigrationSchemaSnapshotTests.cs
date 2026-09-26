@@ -3,9 +3,8 @@ using Dapper;
 
 namespace Lyntai.Tests.Storage;
 
-/// <summary>The load-bearing gate for the 1.0 migration baseline squash: a fresh migrate must produce a
-/// net <c>lyntai_</c> schema byte-identical to the golden captured from the pre-squash migration set. So
-/// collapsing the 0.x migrations into per-domain baselines can't silently drift the fresh-db schema.
+/// <summary>The fresh-db schema gate: a fresh migrate must produce a net <c>lyntai_</c> schema
+/// byte-identical to the tracked golden, so no migration change drifts the fresh-db schema silently.
 /// Regenerate the golden ONLY on a DELIBERATE schema change: set <c>LYNTAI_UPDATE_SCHEMA_SNAPSHOT=1</c>.</summary>
 public class MigrationSchemaSnapshotTests : IDisposable
 {

@@ -7,7 +7,7 @@ namespace Lyntai.Tests.Storage;
 
 /// <summary>Every <see cref="MemoryStoreContract"/> method as a [Fact] — derive with the two store
 /// factories (default options = cap 3 / recall 100, and a policy-tuned variant) and the whole contract
-/// runs on that backend automatically (T11: no silent skips). The mutable <see cref="Now"/> drives
+/// runs on that backend automatically (no silent skips). The mutable <see cref="Now"/> drives
 /// deterministic TTL expiry. Postgres deliberately does NOT derive: it runs the Uid-namespaced subset
 /// on the shared container.</summary>
 public abstract class MemoryStoreContractFacts

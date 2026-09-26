@@ -21,11 +21,11 @@ public sealed class PostgresFixture : IAsyncLifetime
 
     public async Task InitializeAsync()
     {
-        // The catch covers CONTAINER startup only, on purpose. It used to wrap MigrateUp too, which folded
-        // a genuinely broken Postgres migration into the Docker-down skip: every Postgres test SKIPPED
-        // instead of failing, the skip count is the same in both cases, and a Postgres-only migration
-        // (M202608152310 has no SQLite counterpart) could ship broken behind a green run. Environment
-        // unavailability skips; a defect in OUR code throws, and xunit fails the whole collection with it.
+        // The catch covers CONTAINER startup only, on purpose. Wrapping MigrateUp too folds a broken
+        // Postgres migration into the Docker-down skip: every Postgres test SKIPS instead of failing, at the
+        // same skip count, so a Postgres-only migration (M202608152310 has no SQLite counterpart) could ship
+        // broken behind a green run. Environment unavailability skips; a defect in OUR code throws, and xunit
+        // fails the whole collection with it.
         try
         {
             // pgvector image (a superset of postgres:16) so the PostgresVectorStore's lazy

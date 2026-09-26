@@ -9,8 +9,8 @@ using Lyntai.Tests.Fakes;
 
 namespace Lyntai.Tests.Generation;
 
-/// <summary>The local ComfyUI backend — the GRAPH-shaped one, and the platform's only ASYNC-JOB backend so
-/// far. It matters for three reasons the other two don't cover: the caller supplies a workflow rather than a
+/// <summary>The local ComfyUI backend — the GRAPH-shaped one. It matters for three reasons the other
+/// backends don't cover: the caller supplies a workflow rather than a
 /// bare prompt (so <c>Prompt</c> may be null and <c>Options</c> carries the graph), delivery is
 /// submit → poll → fetch on a LOCAL server, and it is the candidate a host pairs with a hosted one when a
 /// refusal should be picked up locally.
@@ -936,7 +936,7 @@ public class ComfyUiProviderTests
     [Fact]
     public async Task A_run_that_failed_during_execution_polls_as_FAILED_with_the_nodes_message_and_no_server_paths()
     {
-        // it read as "still running" until the caller's own deadline, so a broken graph looked like a slow one
+        // read as "still running", it lasts until the caller's own deadline: a broken graph looks like a slow one
         var (provider, http) = Provider();
         http.Enqueue(HttpStatusCode.OK, ExecutionError);
 

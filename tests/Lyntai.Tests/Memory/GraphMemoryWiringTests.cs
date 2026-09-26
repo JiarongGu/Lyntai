@@ -15,8 +15,8 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Lyntai.Tests.Memory;
 
-/// <summary>The graph engine reached through the MEM1 seam: registered as a member like any other, blended
-/// with an authoritative curated member, and expandable through the blend.</summary>
+/// <summary>The graph engine reached through the named-engine seam: registered as a member like any other,
+/// blended with an authoritative curated member, and expandable through the blend.</summary>
 public class GraphMemoryWiringTests
 {
     /// <summary>Reports a fixed salience for content containing <paramref name="marker"/> and declines
@@ -62,7 +62,7 @@ public class GraphMemoryWiringTests
     }
 
     /// <summary><b>Two named engines carry INDEPENDENT configuration sets — that is the point of naming
-    /// them, and nothing asserted it until now.</b>
+    /// them.</b>
     ///
     /// <para>`AddMemoryEngine` is modelled on `IHttpClientFactory` (<c>docs/DECISIONS.md</c> <b>D39</b>): a
     /// name resolves a configured instance. A design that names instances but shares one option set would
@@ -71,9 +71,9 @@ public class GraphMemoryWiringTests
     ///
     /// <para>Uses <see cref="GraphMemoryOptions.ReinforceOn"/> as the observable because both positions are
     /// visible through the PUBLIC surface: a recall that reinforces resets the entry's age, so its
-    /// retrievability returns to 1, while one that reinforces nothing leaves it decayed. An earlier draft
-    /// used <see cref="GraphMemoryOptions.Reinforcement"/> and measured nothing — the age reset drives
-    /// retrievability to 1 whether or not stability grew, so both arms looked identical through the only
+    /// retrievability returns to 1, while one that reinforces nothing leaves it decayed.
+    /// <see cref="GraphMemoryOptions.Reinforcement"/> would measure nothing — the age reset drives
+    /// retrievability to 1 whether or not stability grew, so both arms look identical through the only
     /// number a consumer can actually read.</para></summary>
     [Fact]
     public async Task Two_named_engines_carry_independent_option_sets()
@@ -133,8 +133,8 @@ public class GraphMemoryWiringTests
         // the whole feature dead for every DI consumer while the rest of the suite stayed green.
         //
         // BOTH entry points, because they are two SEPARATE wraps in MemoryEngineBuilder — UseGraph and the
-        // UseBestAvailable that AddMemory() routes through — and covering only the first left the zero-
-        // configuration path (the one the README leads with) able to lose the feature silently. The existing
+        // UseBestAvailable that AddMemory() routes through — and covering only the first leaves the zero-
+        // configuration path (the one the README leads with) able to lose the feature silently. The other
         // AddMemory facts assert only which engine TYPE was picked, which the wrap does not affect.
         //
         // A custom salience policy stands in for the default so the assertion doesn't also depend on
@@ -331,11 +331,11 @@ public class GraphMemoryWiringTests
     public void A_registered_SalienceOptions_reaches_BOTH_the_salience_and_the_retention_policy()
     {
         // The container is the ONLY configuration path SalienceOptions has — no builder surface, unlike
-        // GraphMemoryOptions. SalienceRetentionPolicy was registered by TYPE (so DI injected
-        // the options into its optional parameter) while the salience policy was registered by a factory that
-        // hardcoded null, so a registered SalienceOptions reached exactly one of the two types whose whole
-        // documented contract is that their bounds "cannot drift apart" — and SalienceTests, which asserts
-        // that coupling by constructing both BY HAND, could not see it.
+        // GraphMemoryOptions. Registering SalienceRetentionPolicy by TYPE (so DI injects the options into its
+        // optional parameter) and the salience policy by a factory that hardcodes null lets a registered
+        // SalienceOptions reach exactly one of the two types whose whole documented contract is that their
+        // bounds "cannot drift apart" — and SalienceTests, which asserts that coupling by constructing both
+        // BY HAND, cannot see it.
         //
         // NoveltyWeight is raised so MaxSalience is actually load-bearing: at the default 1.5 the salience
         // policy tops out at 2.5 and a ceiling of 7 would never be reached, so the assertion would pass against
@@ -534,9 +534,8 @@ public class GraphMemoryWiringTests
         // empirically, registered AFTER AddLyntai (the direction the trap above would break).
         //
         // Registers a value DsrRetrievability could never produce, deliberately — Dsr is the default (see
-        // below), so a fact that registers Dsr passes whether or not the registration had any effect at all,
-        // which is exactly the vacuity a fix-round review caught. Registering something DSR could not have
-        // produced is what makes this discriminate.
+        // below), so a fact that registers Dsr passes whether or not the registration had any effect at all.
+        // Registering something DSR could not have produced is what makes this discriminate.
         const double distinguishableValue = 0.42;
         var services = new ServiceCollection();
         services.AddSingleton<IMemoryStore>(new FakeMemoryStore());
@@ -621,16 +620,16 @@ public class GraphMemoryWiringTests
 
     /// <summary><b>The ONE-LINE path must honour a container registration exactly as the configured path
     /// does.</b>
-    /// <para>It did not. <c>MemoryEngineBuilder.UseBestAvailable</c> — what <c>AddMemory()</c> resolves to,
-    /// and the path this library documents as "the one-line path, and deliberately so" — constructed
-    /// <see cref="Lyntai.Memory.Engines.GraphMemoryEngine"/> without passing <c>annotation:</c> or
-    /// <c>verification:</c> at all, so both fell to the engine's model-free floor. A consumer calling
-    /// <c>AddMemory().AddMemoryAnnotation()</c> got a registered policy that never ran, while the identical
-    /// registration behind <c>AddMemoryEngine(…, e =&gt; e.UseGraph())</c> worked. Silent in both directions:
-    /// nothing threw, recall still returned hits, and the only symptom was quality.</para>
-    /// <para>That is <c>pitfalls.md</c> §DI/config's "a documented option that isn't wired", and it mattered
-    /// most for the seam whose own registration doc calls it <b>the single largest recall-quality lever the
-    /// subsystem has</b>. The cause is the shape: two construction sites for one engine, with the argument
+    /// <para><c>MemoryEngineBuilder.UseBestAvailable</c> — what <c>AddMemory()</c> resolves to, and the path
+    /// this library documents as "the one-line path, and deliberately so" — constructs
+    /// <see cref="Lyntai.Memory.Engines.GraphMemoryEngine"/> separately. Omitting <c>annotation:</c> or
+    /// <c>verification:</c> there drops both to the engine's model-free floor: a consumer calling
+    /// <c>AddMemory().AddMemoryAnnotation()</c> gets a registered policy that never runs, while the identical
+    /// registration behind <c>AddMemoryEngine(…, e =&gt; e.UseGraph())</c> works. Silent in both directions:
+    /// nothing throws, recall still returns hits, and the only symptom is quality.</para>
+    /// <para>That is <c>pitfalls.md</c> §DI/config's "a documented option that isn't wired", on the seam
+    /// whose own registration doc calls it <b>the single largest recall-quality lever the subsystem
+    /// has</b>. The cause is the shape: two construction sites for one engine, with the argument
     /// list duplicated between them, so a parameter added to one is simply absent from the other.</para></summary>
     [Fact]
     public async Task The_one_line_AddMemory_path_honours_a_registered_annotation_and_verification_policy()

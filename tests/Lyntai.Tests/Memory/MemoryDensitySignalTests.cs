@@ -87,7 +87,7 @@ public class MemoryDensitySignalTests
         Assert.Equal(5, recurrence.SimilarCount);
         Assert.True(recurrence.SimilarCount > correction.SimilarCount,
             "the filtered count is the only thing that separates these two");
-        // The claim the comment above makes but didn't check: both writes actually DO see the same raw
+        // The premise the comment above states, checked: both writes actually DO see the same raw
         // search size. Without this, a regression that made ComparableCount differ between the two writes
         // would silently invalidate the premise of the whole test.
         Assert.Equal(9, correction.ComparableCount);

@@ -3,9 +3,8 @@ using Lyntai.Inference;
 namespace Lyntai.Tests.Inference;
 
 /// <summary>The call-site verdict helpers. They are deliberately CATEGORY predicates rather than one
-/// method per enum member: <see cref="ProviderVerdict"/> grows (<see cref="ProviderVerdict.NotConfigured"/> was
-/// appended after the 1.0 freeze), and a per-member helper set would make every growth a public-surface
-/// change while leaving the newest member the only one without a helper.</summary>
+/// method per enum member: <see cref="ProviderVerdict"/> grows, and a per-member helper set would make every
+/// growth a public-surface change while leaving the newest member the only one without a helper.</summary>
 public class ProviderVerdictExtensionsTests
 {
     [Fact]
@@ -19,7 +18,7 @@ public class ProviderVerdictExtensionsTests
     /// registration: a new verdict fails the key-set assertion until someone adds a row, and a row cannot be
     /// added without writing <c>true</c> or <c>false</c> — which IS the classification. A gate that checked
     /// only membership would be greened by appending a name, letting a new verdict sail through to the
-    /// <c>false</c> default undecided. D31 already states that the enum and the routing policy must move
+    /// <c>false</c> default undecided. D31 states that the enum and the routing policy must move
     /// together; this makes the call-site helpers the third thing that moves with them.</summary>
     [Fact]
     public void Every_verdict_states_whether_it_is_transient()

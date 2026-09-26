@@ -4,9 +4,8 @@ namespace Lyntai.Tests.Inference;
 
 /// <summary>What a backend DECLARES it can serve, checked before anything is spent.
 ///
-/// <para>The generation domain had the right model in the wrong place: the LLM half of the library never
-/// got a capability object at all, so "can this backend serve this request" was a type question there and a
-/// data question here (<c>docs/DECISIONS.md</c> D125).</para></summary>
+/// <para>"Can this backend serve this request" is a DATA question on both halves of the library, never a
+/// type question (<c>docs/DECISIONS.md</c> D125).</para></summary>
 public class ProviderCapabilitiesTests
 {
     private static ProviderCapabilities Text(params ProviderOperation[] operations) => new()
@@ -36,8 +35,8 @@ public class ProviderCapabilitiesTests
     [Fact]
     public void A_vector_backend_and_a_chat_model_differ_by_what_they_PRODUCE_not_by_operation()
     {
-        // The correction D130 makes. Both accept text and both deliver inline; the only difference is the
-        // output kind — which is why "embed" was never an operation, and why one backend can declare BOTH.
+        // D130: both accept text and both deliver inline; the only difference is the output kind — which is
+        // why "embed" is not an operation, and why one backend can declare BOTH.
         var chat = Text(ProviderOperation.Complete);
         var vectorProvider = VectorProvider();
 
@@ -52,7 +51,7 @@ public class ProviderCapabilitiesTests
     public void ONE_backend_can_produce_several_kinds_which_is_what_an_OpenAI_host_actually_does()
     {
         // /chat/completions AND /embeddings behind one configuration. Modelling embedding as its own
-        // operation made this inexpressible; as an output kind it is one more list entry.
+        // operation would make this inexpressible; as an output kind it is one more list entry.
         var both = new ProviderCapabilities
         {
             Accepts = [ProviderKinds.Text],

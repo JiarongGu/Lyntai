@@ -12,8 +12,7 @@ namespace Lyntai.Tests.Providers;
 
 /// <summary>Ollama-native is its own BACKEND, not a payload flavour of the HTTP provider
 /// (<c>docs/DECISIONS.md</c> D160): <c>/api/chat</c> + <c>/api/embed</c>, NDJSON streaming, its own
-/// options. The wire behaviour pinned here is the SAME behaviour the old dialect arm was measured
-/// doing — these tests moved, they were not invented.</summary>
+/// options.</summary>
 public class OllamaProviderTests
 {
     private static TextRequest Req => new() { Messages = [TextMessage.User("hi")], Model = "llama3" };
@@ -96,8 +95,8 @@ public class OllamaProviderTests
     [Fact]
     public async Task ContextSize_reaches_the_wire_as_options_num_ctx()
     {
-        // the knob lives on OllamaOptions and ALWAYS applies — the old cross-dialect
-        // silently-ignored hazard is unrepresentable now, which is the point of the split
+        // the knob lives on OllamaOptions and ALWAYS applies — no other backend's options can carry it and
+        // silently ignore it
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK,
             """{"message":{"content":"ok"},"done":true}""");
 
@@ -305,8 +304,7 @@ public class OllamaProviderTests
     public void Produces_score_is_refused_at_construction()
     {
         // Ollama serves no rerank surface, so a Score registration is a composition error heard while a
-        // human is watching — not a /v1/rerank guess that 404s on the first call, which is what the old
-        // dialect arm did
+        // human is watching — not a /v1/rerank guess that 404s on the first call
         var ex = Assert.Throws<ArgumentException>(() => Provider(new StubHttpHandler(),
             o => o.Produces = ProviderKinds.Score));
         Assert.Contains("rerank", ex.Message, StringComparison.OrdinalIgnoreCase);

@@ -37,9 +37,9 @@ public class CompositeRankingPolicyTests : MemoryRankingPolicyContractFacts
         }
     }
 
-    /// <summary>This class carried the SAME "sum of positive, bounded reciprocal terms, so <c>best</c> can
-    /// never turn non-finite" claim <see cref="ReciprocalRankFusionPolicy"/> did, and it was false here for
-    /// the same reason: both weights are validated finite and <c>&gt;= 0</c> with no upper bound, and
+    /// <summary>A sum of positive, bounded reciprocal terms CAN turn <c>best</c> non-finite here, for the
+    /// same reason as in <see cref="ReciprocalRankFusionPolicy"/>: both weights are validated finite and
+    /// <c>&gt;= 0</c> with no upper bound, and
     /// <see cref="CompositeRankingOptions.K"/> may be any finite positive number, so two terms of
     /// <c>double.MaxValue / 1.5</c> overflow their sum. This policy's own
     /// <see cref="CompositeRankingOptions.RelativeFloor"/> also defaults to <c>0</c>, so — exactly like
@@ -123,8 +123,8 @@ public class CompositeRankingPolicyTests : MemoryRankingPolicyContractFacts
     public void A_fully_tied_input_is_decided_only_by_the_id_tiebreak()
     {
         // Every candidate identical on every real signal (relevance, retrievability, hop, no salience
-        // signals) — the exact shape that once made a position-based rank (rather than competition rank)
-        // hand a fully-uninformative signal FULL weight as a covert proxy for node id
+        // signals) — the exact shape in which a position-based rank (rather than competition rank) hands a
+        // fully-uninformative signal FULL weight as a covert proxy for node id
         // (`.claude/knowledge/pitfalls.md`). Both real members already use competition ranking internally
         // and so tie EVERY candidate at rank 1 on their own output; the composite must preserve that rather
         // than reading a member's tiebreak-broken LIST POSITION as if it were a genuine distinction.
@@ -149,7 +149,7 @@ public class CompositeRankingPolicyTests : MemoryRankingPolicyContractFacts
         // fused order follows THAT preference — proving the secondary member's signal genuinely reaches the
         // composite rather than the primary member's id tiebreak silently deciding everything.
         //
-        // Explicit because BOTH shipped policies now default salience to 0 in ranking (D89 measured what D45
+        // Explicit because BOTH shipped policies default salience to 0 in ranking (D89 measured what D45
         // argued). Inherited, this fact would turn on the id tiebreak alone and prove nothing about
         // composition — the subject is the WIRING, so the signal it rides on is switched on deliberately.
         var salient = Candidate(1, signals: MemorySignals.Empty.With(MemorySignals.WellKnown.Salience, 10));

@@ -107,11 +107,12 @@ public class TextClientFactoryTests
         Assert.Equal(ProviderVerdict.Refused, reply.Verdict);
     }
 
-    /// <summary><b>The other half of that promise, and the half nothing asserted.</b>
+    /// <summary><b>The other half of that promise.</b>
     /// <c>TextClientBuilderExtensions</c>'s own doc says every named client carries "the same outermost refusal
-    /// screening as the default one" — and the fold was written TWICE, so deleting the screening from the
-    /// named copy left the entire suite green. The budget fact above covers the decorator half; this covers
-    /// the layer that sits outside them, which is the one a second copy loses first because it is added last.
+    /// screening as the default one" — and the fold exists TWICE, so without this, deleting the screening from
+    /// the named copy leaves the entire suite green. The budget fact above covers the decorator half; this
+    /// covers the layer that sits outside them, which is the one a second copy loses first because it is added
+    /// last.
     /// </summary>
     [Fact]
     public async Task A_named_client_is_screened_for_refusals_like_the_default()
@@ -130,10 +131,10 @@ public class TextClientFactoryTests
     }
 
     /// <summary><b>The wiring the docs recommend has to ROUTE.</b> A client narrowed to one backend, on a host
-    /// whose default candidates name a different one, used to resolve and then fail every call: the router's
-    /// provider set was narrowed while its candidate list still came from the global options, so every
-    /// candidate it tried was absent from its own pool. Reported by an adopter on 3.0.2, whose memory judge
-    /// silently stopped running because both memory policies are fail-open.</summary>
+    /// whose default candidates name a different one: narrowing the router's provider set while its candidate
+    /// list still comes from the global options leaves every candidate it tries absent from its own pool — a
+    /// client that resolves and fails every call, and, because both memory policies are fail-open, a memory
+    /// judge that silently stops running.</summary>
     [Fact]
     public async Task A_named_client_routes_over_its_own_backends_when_the_default_candidates_name_none_of_them()
     {
@@ -152,9 +153,9 @@ public class TextClientFactoryTests
         Assert.Empty(cli.Calls);          // and the client it was NARROWED away from stays untouched
     }
 
-    /// <summary>The other half: narrowing a name must not widen the DEFAULT client. The adopter's workaround
-    /// was to append the named backend to the global candidate list, which works and quietly lets the default
-    /// client reach a backend it was never meant to — so the fix is only a fix if this stays true.</summary>
+    /// <summary>The other half: narrowing a name must not widen the DEFAULT client. Appending the named backend
+    /// to the global candidate list would also make the name route, and quietly let the default client reach a
+    /// backend it was never meant to.</summary>
     [Fact]
     public async Task Deriving_a_named_clients_candidates_leaves_the_default_client_narrow()
     {
@@ -190,8 +191,8 @@ public class TextClientFactoryTests
         Assert.Equal("qwen3:4b", Assert.Single(small.Calls).Model);
     }
 
-    /// <summary><b>The order a name declares IS its fallback order</b> — <c>UseProviders</c> has said so since
-    /// it shipped, and the derived list is what finally makes that true. Pinned with a first candidate that
+    /// <summary><b>The order a name declares IS its fallback order</b> — <c>UseProviders</c> says so, and the
+    /// derived list is what makes that true. Pinned with a first candidate that
     /// FAILS, so the assertion is about which backend is tried first rather than about which one answers.
     /// </summary>
     [Fact]
@@ -213,9 +214,9 @@ public class TextClientFactoryTests
         Assert.Single(second.Calls);      // …then fell over to the one declared second
     }
 
-    /// <summary>A backend in the pool that the global list never mentions is still reachable. Under the old
-    /// behaviour a PARTIAL overlap was the quietest shape of the bug: the client routed, so nothing looked
-    /// broken, and the un-named half of its own pool was simply unreachable.</summary>
+    /// <summary>A backend in the pool that the global list never mentions is still reachable. A PARTIAL
+    /// overlap is the quietest shape of this failure: the client routes, so nothing looks broken, while the
+    /// un-named half of its own pool is unreachable.</summary>
     [Fact]
     public async Task A_pooled_backend_absent_from_the_default_list_is_still_reachable()
     {
@@ -289,11 +290,10 @@ public class TextClientFactoryTests
         Assert.Contains("(cheap)", ex.Message, StringComparison.Ordinal);  // …and the pool it is outside
     }
 
-    /// <summary>…and the same holds when the client names no provider, which is the case the first version of
-    /// that check missed: its pool is then EVERY registered backend, so a stated candidate is outside it
-    /// exactly when nothing registered answers to that id. Checking against the declared ids rather than the
-    /// resolved pool left this one silent — a client that resolves and fails every call, which is the whole
-    /// defect this Part is about.
+    /// <summary>…and the same holds when the client names no provider: its pool is then EVERY registered
+    /// backend, so a stated candidate is outside it exactly when nothing registered answers to that id.
+    /// Checking against the declared ids rather than the resolved pool would leave this one silent — a client
+    /// that resolves and fails every call.
     /// <para><b>It discriminates only as a PAIR</b> with
     /// <c>A_named_client_can_state_its_candidates_outright</c> above, which also declares no provider and
     /// must NOT throw. Checking the declared ids passes one or the other depending on whether an empty list
@@ -336,8 +336,8 @@ public class TextClientFactoryTests
     [Fact]
     public void A_seam_Model_a_candidate_COULD_honour_composes_cleanly_so_a_working_deployment_is_untouched()
     {
-        // Three shapes that must NOT throw, because each can work. The whole point of ruling for a throw was
-        // that it breaks nobody who did not state a contradiction.
+        // Three shapes that must NOT throw, because each can work. A throw is acceptable only because it
+        // breaks nobody who did not state a contradiction.
         using var matches = Build(b =>            // a candidate pins exactly what the seam asked for
         {
             WithProviders(b, "cheap");

@@ -118,9 +118,8 @@ public sealed class FakeGenerationJobProvider : IModelProvider, IMediaJobProvide
         Task.FromResult(new QueuedOperation(operationId, PollStatus,
             Progress: PollStatus == QueuedOperationStatus.Succeeded ? 1 : 0.5, Detail: PollDetail));
 
-    /// <summary>What the completed render COST, reported by the fetch. Null keeps the pre-existing usage
-    /// (seconds only, no money), so every test written before this knob is byte-identical — a real queue
-    /// backend prices at fetch, which is the only point the total is known.</summary>
+    /// <summary>What the completed render COST, reported by the fetch; null reports seconds only, no money. A
+    /// real queue backend prices at fetch, which is the only point the total is known.</summary>
     public double? FetchCostUsd { get; set; }
 
     public Task<MediaResponse> FetchAsync(string operationId, CancellationToken ct = default) =>
@@ -237,10 +236,7 @@ public sealed class BadProbeProvider : IModelProvider
 /// <c>StreamAsync(MediaRequest, …)</c>, so every call answers
 /// <see cref="ProviderVerdict.Unsupported"/> from <see cref="IModelProvider"/>'s default member — the shape
 /// a BYO backend can ship, and the reason a declared delivery is checked against the code behind it.
-/// <para>It was built for a router branch that type-tested a separate streaming interface. <b>D127</b>
-/// deleted that interface, which made the branch unreachable and left this fake used by NOTHING for a
-/// release — the build and the suite stayed green throughout. It is now the negative fixture for
-/// <c>GenerationProviderContract.ServesMediaStream</c>.</para></summary>
+/// <para>It is the negative fixture for <c>GenerationProviderContract.ServesMediaStream</c>.</para></summary>
 public sealed class LyingStreamProvider : IModelProvider
 {
     public string Id { get; init; } = "liar";

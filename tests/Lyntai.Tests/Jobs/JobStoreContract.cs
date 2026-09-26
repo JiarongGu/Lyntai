@@ -174,9 +174,9 @@ public static class JobStoreContract
         Assert.False(await store.CancelAsync(running)); // can't cancel a running job
     }
 
-    // A spec that names no attempt budget gets the ONE shared default (JobSpec.DefaultMaxAttempts) — the
-    // number used to be a bare `3` hand-copied into each store's enqueue, so a change to one drifted from
-    // the other two silently. Pinned here so every backend answers with the same budget.
+    // A spec that names no attempt budget gets the ONE shared default (JobSpec.DefaultMaxAttempts) — a bare
+    // number hand-copied into each store's enqueue would drift silently. Pinned here so every backend answers
+    // with the same budget.
     public static async Task Enqueue_without_max_attempts_uses_the_shared_default(IJobStore store, MutableClock clock, string lane = "default")
     {
         var id = await store.EnqueueAsync(Spec(lane)); // JobSpec.MaxAttempts is null — the store fills it in
@@ -245,7 +245,7 @@ public static class JobStoreContract
     public static async Task Same_tick_same_priority_claims_in_id_order(IJobStore store, MutableClock clock, string lane = "default")
     {
         // two jobs, identical lane/priority/available_at (clock not advanced) → the tiebreak is the id,
-        // consistently on every backend (SQL: ORDER BY …, id; InMemory now matches via the id string)
+        // consistently on every backend (SQL: ORDER BY …, id; InMemory matches via the id string)
         var id1 = await store.EnqueueAsync(Spec(lane));
         var id2 = await store.EnqueueAsync(Spec(lane));
         var expectedFirst = string.CompareOrdinal(id1.ToString(), id2.ToString()) < 0 ? id1 : id2;
@@ -318,12 +318,11 @@ public static class JobStoreContract
         Assert.Equal(JobStatus.Running, (await store.GetAsync(running))!.Status);
     }
 
-    // A Paused job is Pending to nobody and Running to nobody, so BOTH halves of the queue's cancel
-    // (CancelAsync || RequestCancelAsync) used to miss it and an operator had to ResumeAsync first — which
-    // puts the job back in the CLAIMABLE set, so a polling runner could take it in the gap. The pending half
-    // now reaches Paused too (the shared JobStoreSql.CancelNotStarted matches `status IN ('Pending','Paused')`);
-    // the RUNNING half deliberately stays narrow, because cancelling a running job is a cooperative request
-    // to a worker and a held job has no worker to ask.
+    // A Paused job is Pending to nobody and Running to nobody, so the pending half of the queue's cancel
+    // (CancelAsync || RequestCancelAsync) reaches Paused too (the shared JobStoreSql.CancelNotStarted matches
+    // `status IN ('Pending','Paused')`) — otherwise an operator must ResumeAsync first, which puts the job back
+    // in the CLAIMABLE set for a polling runner to take in the gap. The RUNNING half deliberately stays narrow,
+    // because cancelling a running job is a cooperative request to a worker and a held job has no worker to ask.
     public static async Task Cancel_reaches_a_paused_job_without_resuming_it(IJobStore store, MutableClock clock, string lane = "default")
     {
         var id = await store.EnqueueAsync(Spec(lane));
@@ -564,12 +563,11 @@ public static class JobStoreContract
     }
 
     /// <summary>A non-positive limit asks for nothing, on every backend.
-    /// <para>Left unguarded the three disagreed, and one of them dangerously: <c>.Take(limit)</c> gave an
-    /// empty list, SQLite reads a NEGATIVE <c>LIMIT</c> as no limit at all and returned the whole matching
-    /// table, and Postgres threw. Reachable through the public front door, whose <c>ListAsync</c> /
+    /// <para>Unguarded, the three disagree, and one of them dangerously: <c>.Take(limit)</c> gives an empty
+    /// list, SQLite reads a NEGATIVE <c>LIMIT</c> as no limit at all and returns the whole matching table, and
+    /// Postgres throws. Reachable through the public front door, whose <c>ListAsync</c> /
     /// <c>ListDeadAsync</c> document no bound — an admin page computing <c>pageSize - offset</c> gets there.</para>
-    /// <para>This is the same guard the memory-graph reads already carry; the job stores were simply outside
-    /// the convention.</para></summary>
+    /// <para>This is the same guard the memory-graph reads carry.</para></summary>
     public static async Task A_non_positive_list_limit_returns_nothing(IJobStore store, MutableClock clock)
     {
         var lane = "lim-" + Guid.NewGuid().ToString("N");   // self-isolating: the container is shared

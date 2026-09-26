@@ -21,7 +21,7 @@ public class DsrRetrievabilityTests : RetrievabilityPolicyContractFacts
     /// <para><b>They default to OFF</b> (<c>DsrOptions.ReinforceGain = 0</c>,
     /// <c>docs/DECISIONS.md</c> D54 — a measured default, not a cautious one: retrieval-driven growth made
     /// recall measurably worse on every corpus shape, and capped and non-compounding variants both lost to
-    /// not growing at all). The laws themselves are unchanged and correct, so a fact ABOUT a law switches it
+    /// not growing at all). The laws themselves are correct, so a fact ABOUT a law switches it
     /// on explicitly — otherwise it is testing the default rather than the law, and would pass on a build
     /// that had deleted the arithmetic entirely.</para></summary>
     private static DsrRetrievability Reinforcing(DsrOptions? options = null) =>
@@ -38,8 +38,8 @@ public class DsrRetrievabilityTests : RetrievabilityPolicyContractFacts
     /// per review, which is what makes later parameter fitting possible. It simply changes nothing about
     /// retrievability today. Both halves are asserted here so neither can be quietly assumed.</para>
     /// <para><b>Why this is pinned:</b> <c>memory-sweep</c> runs a <c>{difficulty-live, difficulty-inert}</c>
-    /// axis whose arms are therefore bit-identical at shipped defaults — measured 2026-08-14, all cells equal
-    /// to three decimals. An instrument reporting two arms it cannot distinguish is the shape
+    /// axis whose arms are therefore bit-identical at shipped defaults — all cells equal to three
+    /// decimals. An instrument reporting two arms it cannot distinguish is the shape
     /// <c>pitfalls.md</c> records as "a measurement that cannot observe a change reports nothing moved, which
     /// reads exactly like no regression". If <c>ReinforceGain</c>'s default ever moves off zero, this fact
     /// fails and the sweep's own disclosure has to be revisited with it.</para></summary>
@@ -59,7 +59,7 @@ public class DsrRetrievabilityTests : RetrievabilityPolicyContractFacts
         Assert.NotEqual(growing.Reinforce(easy).Stability, growing.Reinforce(hard).Stability);
     }
 
-    /// <summary>The 3.0 default itself, pinned so it cannot drift back without someone deciding to.
+    /// <summary>The default itself, pinned so it cannot drift without someone deciding to.
     /// <para>Two assertions, because the value alone would not catch a build where the laws still ran: the
     /// constant is checked AND a recall of a genuinely faded entry — the case law 3 rewards most — is shown
     /// to leave stability exactly where it was. The age reset that a recall also performs is the engine's
@@ -300,11 +300,11 @@ public class DsrRetrievabilityTests : RetrievabilityPolicyContractFacts
         // already gets, so it cannot be an error to ask for it explicitly
         Assert.Equal(0, new DsrOptions { DifficultyWeight = 0 }.DifficultyWeight);
 
-    // ---- the five options that shipped UNGUARDED beside the guarded ones above (archive Part 54, DSR3) ----
+    // ---- the five options beside the guarded ones above ----
     //
     // A record where one field is domain-guarded and its neighbours are not is more dangerous than one with
     // no guards at all, because the guard reads as evidence the record was audited
-    // (`.claude/knowledge/pitfalls.md`). These five were the remaining half.
+    // (`.claude/knowledge/pitfalls.md`).
 
     [Theory]
     [InlineData(0.0)]
@@ -412,7 +412,7 @@ public class DsrRetrievabilityTests : RetrievabilityPolicyContractFacts
     public void Every_option_on_the_record_now_rejects_a_NaN()
     {
         // Prefer a test that walks the WHOLE options surface over one that pins the field just fixed
-        // (`.claude/knowledge/pitfalls.md`, written after Decay was guarded and InitialStability was not).
+        // (`.claude/knowledge/pitfalls.md`).
         // Reflection over the record's own properties, so a property ADDED later without a guard fails here
         // rather than shipping as the next unguarded neighbour — the compiler cannot see that omission.
         var offenders = typeof(DsrOptions).GetProperties()
@@ -463,14 +463,11 @@ public class DsrRetrievabilityTests : RetrievabilityPolicyContractFacts
     [Fact]
     public void The_cutoff_is_about_thirty_times_wider_than_the_exponential_curves()
     {
-        // The "roughly thirty times wider" claim is stated in DsrRetrievability's own class doc and in
-        // CHANGELOG.md, comparing against the exponential curve 2.5.x shipped — deleted in 3.0
-        // (docs/DECISIONS.md D49), so there is no live instance to compute the denominator from any more.
-        // Its cutoff at these defaults was the exact, unboosted inverse (Math.Log2(1/floor)) widened by its
-        // own MaxConnectionBoost default of 4 — both hardcoded here rather than resurrecting the deleted
-        // class, deliberately, so a future change to THIS curve's Decay/MaxConnectionBoost or to
-        // MinRetrievability's usual floor still leaves the claim checkable against the frozen historical
-        // baseline it was actually measured against, not a moving target.
+        // The "roughly thirty times wider" claim in DsrRetrievability's class doc compares against the
+        // exponential curve D49 deleted, so its cutoff is hardcoded here: the exact, unboosted inverse
+        // (Math.Log2(1/floor)) widened by its MaxConnectionBoost default of 4. A frozen baseline, so a change
+        // to THIS curve's Decay/MaxConnectionBoost or to MinRetrievability's usual floor still leaves the
+        // claim checkable rather than a moving target.
         const double exponentialFloor = 0.05;
         const double exponentialMaxConnectionBoost = 4; // the deleted HalfLifeOptions.MaxConnectionBoost default
         var exponentialCutoff = Math.Log2(1 / exponentialFloor) * exponentialMaxConnectionBoost;
@@ -700,7 +697,7 @@ public class DsrRetrievabilityTests : RetrievabilityPolicyContractFacts
         var oldStaysPinned = policy.Reinforce(migratedUnderOldDefault).Difficulty;
         var newMoves = policy.Reinforce(migratedUnderCorrectedDefault).Difficulty;
 
-        Assert.Equal(1, oldStaysPinned, 9); // PINNED — the migration defect, in permanent test form
+        Assert.Equal(1, oldStaysPinned, 9); // PINNED — a floor default never leaves 1
         Assert.True(newMoves < 5 - 1e-6,
             $"expected the corrected default (5) to fall under this Easy-leaning grade; got {newMoves}");
     }
@@ -736,7 +733,7 @@ public class DsrRetrievabilityTests : RetrievabilityPolicyContractFacts
         Assert.Equal(expectedDifficulty, policy.Reinforce(state).Difficulty, precision: 6);
     }
 
-    /// <summary>Fix-round-1 I1: the across-call drift the pre-state guard cannot see by construction. A
+    /// <summary>The across-call drift the pre-state guard cannot see by construction. A
     /// recall does not advance the engine's position, so a SESSION BURST — several recalls of the same
     /// entry with no intervening write — hands <see cref="DsrRetrievability.Reinforce"/> <c>Age = 0</c> every
     /// time after the first touch (the exact snapshot <c>GraphMemoryEngine</c>'s own age-resolution reports
@@ -776,7 +773,7 @@ public class DsrRetrievabilityTests : RetrievabilityPolicyContractFacts
         Assert.InRange(policy.Reinforce(atCeiling).Difficulty, 1, 10);
     }
 
-    /// <summary>THE fix-round-1 C2 fact: <c>Difficulty = 10</c> is NOT an absorbing state. Linear damping's
+    /// <summary><c>Difficulty = 10</c> is NOT an absorbing state. Linear damping's
     /// own factor, <c>(10-D)/9</c>, is IDENTICALLY ZERO at <c>D = 10</c> regardless of grade — so with no
     /// reversion, reinforcing an entry already at the ceiling would return EXACTLY 10 forever, whatever the
     /// derived grade. Mean reversion is the only term that can still move <c>D</c> there.</summary>
@@ -784,8 +781,8 @@ public class DsrRetrievabilityTests : RetrievabilityPolicyContractFacts
     public void Difficulty_at_the_ceiling_is_no_longer_absorbing()
     {
         var policy = new DsrRetrievability(); // FSRS-6's own defaults — DifficultyReversionWeight = 0.001
-        // an EASY recall (r near 1) — the case where the OLD (reversion-dropped) law would have kept D at
-        // 10 with the most conviction, since damping alone would push toward the ceiling, not away from it
+        // an EASY recall (r near 1) — the case where a law without reversion keeps D at 10 with the most
+        // conviction, since damping alone pushes toward the ceiling, not away from it
         var atCeiling = new MemoryDecayState(Age: 1, RecallCount: 0, Stability: 1000, Difficulty: 10);
 
         var reinforced = policy.Reinforce(atCeiling).Difficulty;
@@ -866,8 +863,8 @@ public class DsrRetrievabilityTests : RetrievabilityPolicyContractFacts
         Assert.Equal(3.7, reinforced.Difficulty, precision: 9);
     }
 
-    /// <summary>The mutation guard against the OLD (pre-fix-round-1) belief that
-    /// <c>DifficultyChangeWeight = 0</c> was sufficient on its own: with the DEFAULT
+    /// <summary>The mutation guard against believing <c>DifficultyChangeWeight = 0</c> sufficient on its
+    /// own: with the DEFAULT
     /// <c>DifficultyReversionWeight</c> (FSRS-6's own <c>0.001</c>, not zero) still active, difficulty is
     /// NOT held constant — confirming the fact above actually needs both weights zeroed, not just one.
     /// </summary>
@@ -882,35 +879,33 @@ public class DsrRetrievabilityTests : RetrievabilityPolicyContractFacts
         Assert.NotEqual(3.7, reinforced.Difficulty, precision: 9);
     }
 
-    /// <summary>THE Part-54 DSR2 fix (2026-08-11): an entry whose stored stability is ALREADY past the
-    /// ceiling is FROZEN — it can no longer grow — rather than TRUNCATED down to the ceiling.
-    /// <para><b>What shipped before:</b> <c>Reinforce</c> ended in a bare
-    /// <c>Math.Min(grown, MaxStability)</c>, so this exact fixture returned <c>2000</c> for a stored
-    /// <c>100000</c> — a 50× SHORTENING, in direct violation of
-    /// <see cref="IMemoryRetrievabilityPolicy.Reinforce"/>'s own written guarantee that the result "must never
-    /// be smaller than the current one" (the interface DISCLOSED the exception rather than closing it; the
-    /// disclosure is gone with this fix). The fix takes the shape
-    /// <see cref="DsrRetrievability"/>'s own <c>EffectiveStability</c> has always used one method away —
+    /// <summary>An entry whose stored stability is ALREADY past the ceiling is FROZEN — it can no longer
+    /// grow — rather than TRUNCATED down to the ceiling (<c>docs/task-archive.md</c> Part 54, DSR2).
+    /// <para>A bare <c>Math.Min(grown, MaxStability)</c> returns <c>2000</c> for this fixture's stored
+    /// <c>100000</c> — a 50× SHORTENING, violating
+    /// <see cref="IMemoryRetrievabilityPolicy.Reinforce"/>'s written guarantee that the result "must never
+    /// be smaller than the current one". The shape that holds is the one
+    /// <see cref="DsrRetrievability"/>'s own <c>EffectiveStability</c> uses —
     /// <c>Math.Max(stability, Math.Min(stability × …, MaxStability))</c> — where the outer floor makes the
     /// ceiling cap GROWTH without ever acting as a CUT. That is what
     /// <see cref="DsrOptions.MaxStability"/> is documented to be for: "unbounded compounding would let an
     /// ASSOCIATIVE entry become permanently retrievable while still labelled associative" is an argument
-    /// about GROWTH, and freezing stops growth just as completely as truncation did.</para>
+    /// about GROWTH, and freezing stops growth just as completely as truncation.</para>
     /// <para>The equality is two-sided on purpose: <c>100000</c> exactly, so this fails both if the entry is
-    /// cut back to the ceiling (the old defect) and if the floor were written in a way that let an
+    /// cut back to the ceiling and if the floor were written in a way that let an
     /// over-ceiling entry keep compounding (the thing the ceiling exists to prevent). The second half needs
     /// growth ON, since at the shipped gain of 0 nothing compounds.</para></summary>
     [Fact]
     public void An_entry_stored_ABOVE_the_ceiling_is_frozen_not_truncated()
     {
         var policy = Reinforcing(); // MaxStability at its shipped default of 2000
-        // the measured reproduction from archive Part 54 DSR2, verbatim: a stored 100000 came back as 2000
+        // a stored 100000, which a bare Math.Min cuts to 2000
         var overCeiling = new MemoryDecayState(Age: 5000, RecallCount: 0, Stability: 100_000);
 
         Assert.Equal(100_000, policy.Reinforce(overCeiling).Stability, precision: 6);
     }
 
-    /// <summary>The other half of the DSR2 fix, and the reason it is not simply "remove the clamp": the floor
+    /// <summary>The other half, and the reason the rule is not simply "remove the clamp": the floor
     /// must not switch the ceiling OFF. An entry UNDER the ceiling still cannot be grown past it, however
     /// large the increase — here an age of a million against a stability of 99, which drives <c>r</c> to
     /// nearly zero and so produces the largest spacing term this curve can emit.</summary>
@@ -942,14 +937,13 @@ public class DsrRetrievabilityTests : RetrievabilityPolicyContractFacts
         Assert.Equal(policy.Reinforce(fromInitial).Stability, reinforced, precision: 9);
     }
 
-    // ---- the connection/Strength axis of REINFORCEMENT (docs/task-archive.md Part 54, DSR4) ----
+    // ---- the connection/Strength axis of REINFORCEMENT ----
     //
-    // Every other state in this class carries Strength = 0, so the EffectiveStrength -> EffectiveStability
-    // path was exercised only through Retrievability (the shared contract's
-    // Connectedness_never_lowers_retrievability), never through the reinforcement laws that read it via `r`.
-    // That is a real hole: connectedness changes r, and r drives all three FSRS stability-increase laws AND
-    // the derived grade, so a connected entry reinforces differently from an isolated one and nothing pinned
-    // the difference. Each fact below is written so it FAILS if the Strength term were dropped from
+    // Every other state in this class carries Strength = 0, so without these facts the EffectiveStrength ->
+    // EffectiveStability path is exercised only through Retrievability (the shared contract's
+    // Connectedness_never_lowers_retrievability), never through the reinforcement laws that read it via `r`
+    // — and r drives all three FSRS stability-increase laws AND the derived grade, so a connected entry
+    // reinforces differently from an isolated one. Each fact below is written so it FAILS if the Strength term were dropped from
     // EffectiveStability's input — mutation-checked by making EffectiveStrength return 0 unconditionally.
 
     /// <summary>Connectedness raises effective stability, which raises <c>r</c> at review, which SHRINKS law
@@ -1012,8 +1006,7 @@ public class DsrRetrievabilityTests : RetrievabilityPolicyContractFacts
             $"{isolatedGain} — the decay is asymptotic, so a quiet neighbourhood is weaker, never absent");
     }
 
-    /// <summary>The shape worth covering DELIBERATELY rather than by accident (<c>docs/task-archive.md</c> Part 54, DSR4's
-    /// own note): a state carrying <c>Strength &gt; 0</c> with <see cref="MemoryDecayState.StrengthAge"/>
+    /// <summary>The shape worth covering DELIBERATELY rather than by accident: a state carrying <c>Strength &gt; 0</c> with <see cref="MemoryDecayState.StrengthAge"/>
     /// UNSET — its record default of <c>0</c>, which is what a caller who never tracked strength age hands
     /// over, and what <c>EffectiveStrength</c>'s own <c>state.StrengthAge &lt;= 0</c> branch is for.
     /// <para>That branch returns the RAW stored strength: "no age recorded" means fully connected, never
@@ -1102,8 +1095,8 @@ public class DsrRetrievabilityTests : RetrievabilityPolicyContractFacts
     /// the retired <see cref="MemoryRetrievabilityProvenance.HalfLife"/> provenance bit set — through a REAL
     /// <see cref="SqliteMemoryGraphStore"/> round-trip, not a hand-built <see cref="MemoryDecayState"/>, so
     /// this also proves storage itself never branches on provenance to convert the stored value. Then ages it
-    /// through a <see cref="GraphMemoryEngine"/> built the 3.0 way (bare constructor, no <c>policy:</c>
-    /// argument — DSR is now what that defaults to) to EXACTLY the stored stability, and recalls it: the
+    /// through a <see cref="GraphMemoryEngine"/> built the default way (bare constructor, no <c>policy:</c>
+    /// argument — DSR is what that defaults to) to EXACTLY the stored stability, and recalls it: the
     /// r(S) = 0.5 anchor's own fixture state, so a curve that reinterpreted what "stability" MEANS (the exact
     /// failure the unit contract exists to prevent) would read something other than 0.5 here, not merely "a
     /// plausible-looking number".</para>
@@ -1129,7 +1122,7 @@ public class DsrRetrievabilityTests : RetrievabilityPolicyContractFacts
         // default the store silently substituted
         Assert.Equal((long)MemoryRetrievabilityProvenance.HalfLife, writtenBack!.ProvenanceRetrievability);
 
-        // Age it through the ENGINE, the 3.0 way — a bare constructor with no `policy:` argument, exactly as
+        // Age it through the ENGINE the default way — a bare constructor with no `policy:` argument, exactly as
         // a consumer who never touched IMemoryRetrievabilityPolicy would build one, so nothing about this
         // path "knows" the row predates DSR.
         var engine = new GraphMemoryEngine("legacy", store, seams: new GraphMemorySeams

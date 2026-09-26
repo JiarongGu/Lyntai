@@ -274,8 +274,8 @@ public class WindowedTokenizerTests
     [Fact]
     public void With_NO_segmentation_an_over_long_input_is_TRUNCATED_exactly_as_the_tokenizer_truncates()
     {
-        // the provider's default, and the behaviour it had before segmenting existed — including a query
-        // long enough to leave the document nothing, which the tokenizer's own pair rule allows
+        // the provider's default — including a query long enough to leave the document nothing, which the
+        // tokenizer's own pair rule allows
         var texts = Windows(16).EncodeTexts([River(8)]);
         var pairs = Windows(32).EncodePairs(Query, [River(10)]);
         var longQuery = Windows(12).EncodePairs(Berlins(14), [River(6)]);

@@ -7,8 +7,8 @@ using Lyntai.Storage.InMemory;
 namespace Lyntai.Tests.Memory;
 
 /// <summary>
-/// MEM-TUNE: the measurement that turns the decay constants from guesses into values chosen against a
-/// stated criterion — and then keeps them there.
+/// The measurement that turns the decay constants from guesses into values chosen against a stated
+/// criterion — and then keeps them there.
 /// <para>Nine constants govern forgetting, and they INTERACT: edge decay erodes the strength that feeds the
 /// connection boost, reinforcement fights the interference the same writes cause, and burst damping changes
 /// what a write costs. Measuring them one at a time would measure the wrong thing, so this drives a corpus

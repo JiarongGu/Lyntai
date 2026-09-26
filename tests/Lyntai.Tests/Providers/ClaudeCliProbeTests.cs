@@ -25,7 +25,7 @@ public class ClaudeCliProbeTests
         // pattern-matching over the registered providers, not by referencing this adapter's type
         IModelProvider provider = Provider(new FakeProcessRunner());
 
-        // Probing is no longer a TYPE question — ProbeAsync is on IModelProvider with a default (D127), so
+        // Probing is not a TYPE question — ProbeAsync is on IModelProvider with a default (D127), so
         // assignability would pass for every backend and prove nothing. What this family actually
         // claims is that the probe is OVERRIDDEN, which the version test below asserts by behaviour.
         Assert.IsAssignableFrom<IProviderUpdater>(provider);

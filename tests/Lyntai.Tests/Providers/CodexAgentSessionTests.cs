@@ -38,8 +38,8 @@ public class CodexAgentSessionTests
         """{"type":"turn.completed","usage":{"input_tokens":6489,"cached_input_tokens":11,"cache_write_input_tokens":7,"output_tokens":2,"reasoning_output_tokens":0}}""",
     ];
 
-    /// <summary>MEASURED: the two error-ish lines that appeared in the run which went on to SUCCEED. The
-    /// consuming app's hand-rolled parser failed the turn on the bare `error` line — defect #1.</summary>
+    /// <summary>MEASURED: the two error-ish lines that appeared in the run which went on to SUCCEED. A parser
+    /// that fails the turn on the bare `error` line fails a turn that succeeded.</summary>
     private static readonly string[] MeasuredNoisyButSuccessful =
     [
         """{"type":"thread.started","thread_id":"thread-noisy"}""",
@@ -50,8 +50,7 @@ public class CodexAgentSessionTests
         """{"type":"turn.completed","usage":{"input_tokens":1,"cached_input_tokens":0,"cache_write_input_tokens":0,"output_tokens":1,"reasoning_output_tokens":0}}""",
     ];
 
-    /// <summary>MEASURED verbatim from a codex-cli 0.155.1 authenticated turn (2026-09-19, D35
-    /// re-measurement): a shell command that FAILED, one that SUCCEEDED, and a file edit. item.started is
+    /// <summary>MEASURED verbatim from a codex-cli 0.155.1 authenticated turn (D35): a shell command that FAILED, one that SUCCEEDED, and a file edit. item.started is
     /// present for every tool item; the failure signals are top-level status + exit_code, in agreement.</summary>
     private static readonly string[] MeasuredToolTurn =
     [
@@ -91,7 +90,7 @@ public class CodexAgentSessionTests
         Assert.Equal("say ok", runner.LastStdin);
     }
 
-    [Fact] // MEASURED — defect #2: works in a dev git repo, breaks in a shipped bundle
+    [Fact] // MEASURED — works in a dev git repo, breaks in a shipped bundle
     public async Task The_git_repo_check_is_skipped_on_the_agent_path_exactly_as_on_the_provider_path()
     {
         // codex refuses to run outside a git repository. The session runs in the CALLER's working directory,
@@ -208,7 +207,7 @@ public class CodexAgentSessionTests
         Assert.Equal("019fc935-704c-75b2-a660-a85c89a67514", ended.SessionId);
     }
 
-    [Fact] // MEASURED — defect #1: a bare `error` line failed a turn that had SUCCEEDED
+    [Fact] // MEASURED — a bare `error` line must not fail a turn that SUCCEEDED
     public async Task Non_terminal_noise_does_not_fail_a_turn_that_succeeded()
     {
         var events = await Session(new FakeProcessRunner(MeasuredNoisyButSuccessful)).StreamAsync(Ask()).ToListAsync();
@@ -284,7 +283,7 @@ public class CodexAgentSessionTests
         Assert.Equal("one two", events.OfType<SessionEnded>().Single().FinalText);
     }
 
-    // ── the tool-step mapping — MEASURED against codex-cli 0.155.1 (2026-09-19, D35) ──────────
+    // ── the tool-step mapping — MEASURED against codex-cli 0.155.1 (D35) ─────────────────────
 
     [Fact] // MEASURED: codex 0.155.1 emits item.started for every tool item, so this primary path fires
     public async Task A_started_then_completed_tool_item_becomes_a_correlated_call_and_result()
@@ -324,7 +323,7 @@ public class CodexAgentSessionTests
     }
 
     [Theory] // MEASURED: a real command_execution failure carried status:"failed" AND exit_code:1 together,
-    // a success status:"completed" AND exit_code:0 — both top-level, in agreement (D35 re-measurement)
+    // a success status:"completed" AND exit_code:0 — both top-level, in agreement (D35)
     [InlineData("""{"id":"i","type":"command_execution","exit_code":2}""", true)]
     [InlineData("""{"id":"i","type":"command_execution","status":"failed"}""", true)]
     [InlineData("""{"id":"i","type":"command_execution","exit_code":0}""", false)]
@@ -414,13 +413,13 @@ public class CodexAgentSessionTests
 
     // ── resume, and the one refusal it leaves ────────────────────────────────
 
-    [Fact] // MEASURED: `codex exec resume --help` on codex-cli 0.146.0 (2026-08-05)
+    [Fact] // MEASURED: `codex exec resume --help` on codex-cli 0.146.0
     public async Task A_resume_token_continues_the_named_thread_instead_of_starting_a_fresh_one()
     {
         // `Usage: codex exec resume [OPTIONS] [SESSION_ID] [PROMPT]` — `resume` is a SUBCOMMAND of `exec`, the
-        // session id is the FIRST positional and the `-` stdin marker is the SECOND. That ORDER is what the
-        // measurement bought: an id that landed in the prompt slot would be answered as a question, which on
-        // this CLI costs a turn instead of an error. Options precede both positionals, as they do on the
+        // session id is the FIRST positional and the `-` stdin marker is the SECOND. The ORDER matters: an id
+        // that landed in the prompt slot would be answered as a question, which on this CLI costs a turn
+        // instead of an error. Options precede both positionals, as they do on the
         // measured fresh invocation and in the CLI's own usage line.
         var runner = new FakeProcessRunner(MeasuredSuccess);
 
@@ -505,7 +504,7 @@ public class CodexAgentSessionTests
 
     // ── the host application's own MCP servers ───────────────────────────────
 
-    /// <summary>MEASURED turn-free against codex-cli 0.146.0 (2026-08-05): `codex exec --help` documents
+    /// <summary>MEASURED turn-free against codex-cli 0.146.0: `codex exec --help` documents
     /// `-c, --config &lt;key=value&gt;` with a dotted path and a TOML value, and driving `codex mcp list` /
     /// `codex mcp get` — which READ configuration and spend no turn — with these exact overrides reported
     /// back the registered server, its command, its args, its env and (for HTTP) its url and

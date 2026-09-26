@@ -40,13 +40,13 @@ public class FtsQueryTests
     }
 
     /// <summary><b>A Chinese phrase must become an OR of trigrams, not one exact-substring phrase.</b>
-    /// <para>This is the defect the whole CJK story turns on. Chinese has no spaces, so a whole sentence
+    /// <para>Chinese has no spaces, so a whole sentence
     /// arrives as ONE whitespace token. Emitting it as a single quoted phrase means FTS matches only an entry
     /// containing that entire substring — while the identical English query, which DOES have spaces, becomes
     /// an OR of its words and matches on any one of them. Same store, same index, wildly different recall,
     /// decided purely by whether the language uses spaces.</para>
     /// <para>The index is <c>trigram</c>, so character trigrams are exactly the unit it stores: expanding a
-    /// CJK run into its sliding trigrams gives Chinese the same partial-match behaviour English already had.
+    /// CJK run into its sliding trigrams gives Chinese the same partial-match behaviour English has.
     /// </para></summary>
     [Fact]
     public void A_cjk_phrase_becomes_an_OR_of_trigrams_not_one_exact_phrase()
@@ -63,8 +63,8 @@ public class FtsQueryTests
 
     /// <summary>The point of the trigram expansion, stated as the behaviour a consumer would notice: a query
     /// that overlaps a stored phrase only PARTIALLY still produces a term the stored text contains, so the
-    /// entry is findable. Before this, the query had to contain the stored substring in full — the two
-    /// sentences below share no such substring in either direction and would have matched nothing.</summary>
+    /// entry is findable. One exact phrase would need the query to contain the stored substring in full, and
+    /// the two sentences below share no such substring in either direction.</summary>
     [Fact]
     public void A_partially_overlapping_cjk_query_still_yields_a_term_the_stored_text_contains()
     {

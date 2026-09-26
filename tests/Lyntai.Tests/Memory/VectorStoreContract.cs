@@ -32,14 +32,11 @@ public abstract class VectorStoreContractFacts
 /// <summary>Backend-agnostic facts every <see cref="IVectorStore"/> satisfies, held to by all three
 /// implementations the way <c>MemoryGraphStoreContract</c> holds every graph store to one contract.
 ///
-/// <para><b>Why this file exists.</b> `IVectorStore` had THREE implementations (in-process, SQLite, Postgres)
-/// and NO cross-backend contract — each was exercised only by a couple of per-backend tests. Worse, every
-/// vector fixture in the repository was a UNIT BASIS VECTOR (<c>[1,0,0]</c>, <c>[0,1,0]</c>), and with unit
-/// vectors the query norm is a positive constant common to every candidate, so cosine similarity and a raw,
-/// unnormalised dot product induce the SAME ordering and the same sign. A test named
-/// <c>VectorStore_ranks_by_cosine</c> therefore could not tell the two apart: deleting the normalisation from
-/// the in-process store, or swapping pgvector's <c>&lt;=&gt;</c> for <c>&lt;#&gt;</c>, passed. Found
-/// 2026-08-14 by the whole-codebase review.</para>
+/// <para><b>Why unit basis vectors cannot test this.</b> With fixtures like <c>[1,0,0]</c> and
+/// <c>[0,1,0]</c> the query norm is a positive constant common to every candidate, so cosine similarity and
+/// a raw, unnormalised dot product induce the SAME ordering and the same sign: a ranks-by-cosine test built
+/// on them passes with the normalisation deleted from the in-process store, or with pgvector's
+/// <c>&lt;=&gt;</c> swapped for <c>&lt;#&gt;</c>.</para>
 ///
 /// <para>That matters beyond tidiness. <c>IVectorStore</c> takes whatever an <c>ProviderKinds.Vector</c> backend produces and
 /// not every embedding model returns normalised vectors, while <c>ISemanticMemory</c>'s <c>minScore</c>

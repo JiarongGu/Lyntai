@@ -287,7 +287,7 @@ public class JobRunnerTests
         Assert.Equal(2, (await store.ListAsync(JobStatus.Pending, lane: "b")).Count);
     }
 
-    // ---- the CROSS-PROCESS cap (3.0) -----------------------------------------------------------------
+    // ---- the CROSS-PROCESS cap -----------------------------------------------------------------------
     //
     // MaxConcurrency bounds one runner; GlobalMaxConcurrency bounds every runner sharing the store. The
     // tests below use TWO runners over ONE store, because a single-runner test cannot tell the two apart —
@@ -311,10 +311,9 @@ public class JobRunnerTests
     [Fact]
     public async Task Two_workers_share_ONE_global_cap_rather_than_one_each()
     {
-        // THE POINT, and it has to be observed as SIMULTANEITY rather than throughput. A first draft
-        // asserted "two passes run 2 jobs, not 4" and failed at 4 — correctly: each pass completes its jobs
-        // and hands the slots back, so four jobs across two sequential passes never breaks a cap of 2. The
-        // cap bounds how many run AT ONCE, so the handler blocks and the test counts what is in flight.
+        // THE POINT, and it has to be observed as SIMULTANEITY rather than throughput: each pass completes
+        // its jobs and hands the slots back, so four jobs across two sequential passes never breaks a cap of
+        // 2. The cap bounds how many run AT ONCE, so the handler blocks and the test counts what is in flight.
         var inFlight = 0;
         var peak = 0;
         var gate = new SemaphoreSlim(0);
@@ -411,8 +410,7 @@ public class JobRunnerTests
     [Fact]
     public async Task Zero_means_unbounded_and_costs_no_slot_round_trip()
     {
-        // The default, and the pre-3.0 behaviour: two workers with no global cap run everything their own
-        // per-process caps allow.
+        // The default: two workers with no global cap run everything their own per-process caps allow.
         var handler = new FakeJobHandler("t", _ => Task.FromResult(JobOutcome.Complete));
         var (a, b, store, queue) = TwoWorkers(
             o => { o.Jobs.DefaultLaneConcurrency = 10; o.Jobs.MaxConcurrency = 2; }, handler);   // Global = 0

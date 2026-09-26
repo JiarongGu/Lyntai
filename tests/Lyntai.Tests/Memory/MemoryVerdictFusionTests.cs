@@ -38,11 +38,11 @@ public class MemoryVerdictFusionTests
     /// <summary><b>Fused, an endorsement no longer beats the ranking outright.</b> Endorsing the LAST-ranked
     /// of four puts it second — its own rank still counts against it — where the partition puts it first.
     ///
-    /// <para><b>This is also the DEGENERATE control the bench's own first attempt failed.</b> Giving an
+    /// <para><b>This is also the DEGENERATE control.</b> Giving an
     /// unendorsed candidate a zero verdict term treats it as UNRANKED, which makes the worst endorsed
     /// candidate outscore the best unendorsed one at every rank — arithmetically the partition again, and
     /// indistinguishable from it in every score column. An unlisted id is judged NOT to have answered, which
-    /// is a LOW RANK and not an absence, so this test fails if that mistake is repeated.</para></summary>
+    /// is a LOW RANK and not an absence, so this test fails on that mistake.</para></summary>
     [Fact]
     public async Task Fused_a_poorly_ranked_endorsement_does_not_displace_the_leader()
     {
@@ -78,7 +78,7 @@ public class MemoryVerdictFusionTests
     }
 
     /// <summary><b>A judge that endorses what already leads still changes nothing.</b> The null result has to
-    /// survive the new combination too — otherwise fusion would be reordering on its own account, which is
+    /// survive fusion too — otherwise fusion would be reordering on its own account, which is
     /// the opposite of what it is for.</summary>
     [Fact]
     public async Task Fused_a_judge_that_endorses_the_leader_returns_an_identical_page()

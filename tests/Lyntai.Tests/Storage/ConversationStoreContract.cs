@@ -188,8 +188,8 @@ public static class ConversationStoreContract
 
     public static async Task Paged_cursor_walks_every_thread_exactly_once(IConversationStore store, string key)
     {
-        // Rapid inserts (no delay) deliberately let several threads share a created_at tick so the keyset
-        // cursor's id tiebreak is exercised — a naive created_at-only cursor would skip or duplicate them.
+        // Rapid inserts (no delay) MAY share a created_at tick, which a created_at-only cursor would skip or
+        // duplicate — may, not must: the next fact pins the id tiebreak deterministically.
         var ids = Enumerable.Range(0, 5).Select(i => $"{key}-p{i}").ToList();
         foreach (var id in ids) await store.CreateThreadAsync(id);
 
@@ -212,11 +212,9 @@ public static class ConversationStoreContract
 
     /// <summary>The keyset cursor's id tiebreak, exercised DETERMINISTICALLY.
     ///
-    /// <para><see cref="Paged_cursor_walks_every_thread_exactly_once"/> inserts without a delay and its
-    /// comment says that "deliberately" lets threads share a <c>created_at</c> tick — but nothing makes them.
-    /// The timestamp comes from the store's own <c>UtcNow</c> and there is no injectable clock, so on a
-    /// fine-resolution clock every row gets a distinct tick, the <c>id</c> branch never executes, and the
-    /// test passes anyway. That is a test which cannot fail for the reason it exists.</para>
+    /// <para>Rapid inserts cannot force two rows onto one <c>created_at</c> tick: the timestamp comes from
+    /// the store's own <c>UtcNow</c> with no injectable clock, so on a fine-resolution clock every row gets a
+    /// distinct tick and the <c>id</c> branch never executes.</para>
     ///
     /// <para>This one needs no two rows to collide: it makes the CURSOR share a timestamp with a real row,
     /// which is entirely under the test's control because <see cref="ChatThread"/> is a public record. A

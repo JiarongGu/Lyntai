@@ -30,13 +30,13 @@ public class ContentSizeAgePolicyContractTests : MemoryAgePolicyContractFacts
 /// <summary>The one policy whose <c>Advance</c> reads a real clock, which makes it the one that cannot take
 /// the shared <see cref="MemoryAgePolicyContractFacts.Advance_per_engine"/> fact at face value.
 ///
-/// <para><b>Why it is constructed with a FROZEN clock (found flaky 2026-08-15).</b> That fact advances
+/// <para><b>Why it is constructed with a FROZEN clock.</b> That fact advances
 /// engine-a, then engine-b five times, then engine-a again, and asserts the result equals an isolated
 /// engine-a run to nine decimal places. For every other policy that equality IS the keying property. For
 /// this one the value is <c>now - last_a</c> in DAYS, so the interleaved arm also absorbs however long the
-/// five engine-b calls took: it held only while the machine was fast enough for both arms to round to zero,
-/// and it failed inside a full-suite run and passed alone. A test that depends on the machine's load reads
-/// as coverage and is not.</para>
+/// five engine-b calls took: on a real clock it holds only while the machine is fast enough for both arms to
+/// round to zero, so it fails inside a loaded full-suite run and passes alone. A test that depends on the
+/// machine's load reads as coverage and is not.</para>
 ///
 /// <para>Frozen, the shared fact is deterministic but no longer discriminating HERE — zero equals zero
 /// whatever the keying does — so the property it was standing in for is asserted directly below, with a

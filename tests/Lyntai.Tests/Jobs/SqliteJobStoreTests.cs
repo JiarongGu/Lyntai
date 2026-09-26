@@ -41,8 +41,8 @@ public class SqliteJobStoreTests : JobStoreContractFacts, IDisposable
     public async Task Step_reports_for_DIFFERENT_jobs_do_not_serialize_behind_one_gate()
     {
         // The step-log read-modify-write needs same-JOB serialization only — the fenced UPDATE already
-        // makes cross-process interleaving safe — but a store-wide gate held across two DB round-trips
-        // serialized every concurrent job's reporting. The clock is called INSIDE the gate, so two reports
+        // makes cross-process interleaving safe — and a store-wide gate held across two DB round-trips
+        // would serialize every concurrent job's reporting. The clock is called INSIDE the gate, so two reports
         // reaching it at once is the overlap a store-wide gate makes impossible: `inside` is a live count
         // (peak overlap), not an arrival total, because sequential reports also reach two eventually.
         var armed = false;

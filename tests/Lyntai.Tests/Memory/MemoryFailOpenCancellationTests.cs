@@ -15,12 +15,11 @@ namespace Lyntai.Tests.Memory;
 /// <para><b>Why one suite rather than a fact per file: these handlers are in SERIES.</b> A single timeout
 /// from a BYO vector backend passes through the seed source, the graph engine's gather, the composite, and then
 /// the walk or the composition — four nested fail-open handlers, and a bare rethrow at ANY of them breaks
-/// the promise of ALL of them. Fixing one link and testing it in isolation would have looked green while the
-/// chain still leaked, which is why <see cref="A_timeout_deep_in_the_chain_degrades_at_every_layer_above_it"/>
+/// the promise of ALL of them. Fixing one link and testing it in isolation looks green while the chain
+/// still leaks, which is why <see cref="A_timeout_deep_in_the_chain_degrades_at_every_layer_above_it"/>
 /// exists alongside the per-layer facts.</para>
 ///
-/// <para>Found 2026-09-09 by asking whether the annotation seam shared the verification seam's defect
-/// (<c>docs/FIXES.md</c>). It did, and so did every other fail-open handler here.</para>
+/// <para>The defect and its fix across every handler here: <c>docs/FIXES.md</c>, 2026-09-09.</para>
 /// </summary>
 public class MemoryFailOpenCancellationTests
 {
@@ -59,7 +58,7 @@ public class MemoryFailOpenCancellationTests
 
     /// <summary>Names one subject unconditionally, so the subject-index write is actually REACHED. Without an
     /// annotator the engine has no subjects to record, <c>RecordSubjectsAsync</c> is never called, and the
-    /// test below passes against the unfixed engine — which is what the mutation probe caught.</summary>
+    /// test below cannot fail.</summary>
     private sealed class AlwaysOneSubject : IMemoryAnnotationPolicy
     {
         public Task<MemoryAnnotation> AnnotateAsync(

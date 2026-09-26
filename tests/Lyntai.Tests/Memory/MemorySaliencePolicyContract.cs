@@ -5,12 +5,7 @@ namespace Lyntai.Tests.Memory;
 
 /// <summary>Policy-agnostic facts every <see cref="IMemorySaliencePolicy"/> satisfies.
 ///
-/// <para><b>Why this file exists.</b> Salience was one of FOUR policy seams with no contract while
-/// <c>PolicyContractCoverageTests</c> made coverage structural for the other three — so a fifth
-/// implementation could have shipped with no suite and every gate would have stayed green, which is the
-/// exact shape that guard exists to prevent. Added 2026-08-17 by the pre-3.0 sweep (archive Part 86).</para>
-///
-/// <para>Salience is the seam that most deserves one. It is PLURAL, so implementations coexist and a
+/// <para>Salience is the seam that most deserves a contract. It is PLURAL, so implementations coexist and a
 /// consumer's own policy runs beside the shipped default; what it writes is consumed by a retention policy
 /// whose declared maximum widens <c>CandidateCutoff</c>; and that cutoff's only consumer is
 /// <c>PruneAsync</c>, which DELETES. A policy that breaks one of these obligations does not fail a recall,
@@ -34,11 +29,11 @@ public static class MemorySaliencePolicyContract
         new("engine", 5, 100),
     ];
 
-    /// <summary>Every value a policy writes is finite. <b>The measured reason this is a contract fact rather
-    /// than an implementation detail:</b> <c>SalienceOptions.NoveltyWeight</c> was the one unguarded field of
-    /// its record, and <see cref="Math.Clamp(double,double,double)"/> PROPAGATES <see cref="double.NaN"/>
-    /// rather than clamping it — so a non-finite weight put a <c>NaN</c> salience into the signals bag, and
-    /// three downstream readers happened to coerce it back. The guard belongs to the VALUE, which is here.
+    /// <summary>Every value a policy writes is finite. <b>Why this is a contract fact rather than an
+    /// implementation detail:</b> <see cref="Math.Clamp(double,double,double)"/> PROPAGATES
+    /// <see cref="double.NaN"/> rather than clamping it, so one non-finite input — an unguarded weight, say —
+    /// puts a <c>NaN</c> salience into the signals bag, where only readers that happen to coerce it keep it
+    /// from mattering. The guard belongs to the VALUE, which is here.
     /// <para>Non-finite CONTEXTS are included above on purpose: a caller defect must not become a stored
     /// one.</para></summary>
     public static void Every_signal_it_writes_is_finite(IMemorySaliencePolicy policy)

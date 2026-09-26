@@ -10,8 +10,8 @@ namespace Lyntai.Tests.Inference;
 ///
 /// <para>The property these tests exist to protect is the one the seam was built for — swapping reuse for
 /// rebuild-every-call is a REGISTRATION change with no edit at any call site. Everything else here guards
-/// the additive promise: an app that never calls one of the new methods resolves exactly what it resolved
-/// before.</para></summary>
+/// the additive promise: an app that never calls one of these methods resolves exactly what it would
+/// without them.</para></summary>
 public class ProviderPoolWiringTests
 {
     private static ProviderKey Key(string value) => ProviderKey.For("a1111").With("v", value).Build();
@@ -222,7 +222,7 @@ public class ProviderPoolWiringTests
 
     // Admission binds to the router factories' POOLED overloads only; the CONTAINER-composed IMediaRouter
     // is built through the INSTANCE overload and is handed no admission at all, so a configured limit does not
-    // bound it. Four doc sites say so and nothing asserted it — pinned here so the single-deployment case is a
+    // bound it. Four doc sites say so — pinned here so the single-deployment case is a
     // decision on record rather than an assumption, and so a change that starts gating the container path
     // arrives as a red test instead of a host whose concurrency silently halved.
     [Fact]
@@ -249,7 +249,7 @@ public class ProviderPoolWiringTests
     }
 
     // ── the IProviderAdmission SEAM ───────────────────────────────────────────────────────────────────
-    // IProviderAdmission was extracted as an interface for exactly one reason: a host running several
+    // IProviderAdmission is an interface for exactly one reason: a host running several
     // processes, containers or replicas coordinates admission over whatever it already shares, and registers
     // that instead. The three tests below are what make that reason true — a host registration that does not
     // displace the shipped table, or a factory that quietly keeps consulting the in-process one, is a seam

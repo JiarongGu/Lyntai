@@ -9,9 +9,9 @@ public enum CorpusLanguage
 
     /// <summary><b>Chinese, written with NO spaces inside a sentence</b>, which is the whole point of having
     /// this axis: whitespace splitting cannot break such a sentence up, so retrieval has to go through
-    /// <c>SearchTerms</c>'s character-trigram expansion. Every recall number this repository published before
-    /// 2026-08-12 was measured under the friendliest tokenization the library supports; this is the
-    /// unfriendly one, and it is the condition much of this library's audience actually deploys in.</summary>
+    /// <c>SearchTerms</c>'s character-trigram expansion. English is the friendliest tokenization the library
+    /// supports; this is the unfriendly one, and it is the condition much of this library's audience actually
+    /// deploys in.</summary>
     Chinese,
 
     /// <summary><b>Japanese — also spaceless, and the sharper test of the two.</b> Same structural condition
@@ -37,12 +37,11 @@ public enum CorpusLanguage
 
     /// <summary><b>Chinese technical prose with English terms embedded WITHOUT spaces around them</b> —
     /// <c>部署pipeline</c>, <c>client客户</c> — which is how the language is actually written in software
-    /// contexts and the single most common real-world shape this library had never measured.
-    /// <para>It exists because mixed script was a real defect, not a hypothetical: a Latin word inside a CJK
-    /// run used to be shredded into fragments that are words in no language (<c>dep</c>, <c>epl</c>) while
-    /// never being emitted whole. Script-run segmentation fixed it, and every other arm here is monolingual
-    /// prose plus ASCII ids — which exercises the boundary only at a token edge, never inside one. This arm
-    /// puts the boundary in the middle of a run, where the defect lived.</para></summary>
+    /// contexts and the single most common real-world shape.
+    /// <para>Mixed script is a real defect shape, not a hypothetical: without script-run segmentation a Latin
+    /// word inside a CJK run is shredded into fragments that are words in no language (<c>dep</c>,
+    /// <c>epl</c>) and never emitted whole. Every other arm here is monolingual prose plus ASCII ids, which
+    /// exercises the boundary only at a token edge; this arm puts it in the middle of a run.</para></summary>
     ChineseMixed,
 }
 
@@ -145,8 +144,8 @@ internal abstract class CorpusLexicon
     /// admission priority, which is <c>PollutionRate</c> by definition. <see cref="Noise"/> cannot present
     /// that case: it shares a fixed skeleton with every other noise entry, so under bag-of-words novelty the
     /// second one onward reads as FAMILIAR. The corpus models noise as *semantically irrelevant*; the
-    /// hypothesis is about *textually diverse*. Those are different things and only one of them was
-    /// buildable before this method.</para>
+    /// hypothesis is about *textually diverse*. Those are different things, and this method is what makes
+    /// the second buildable.</para>
     ///
     /// <para><b>It is deliberately near-skeletonless</b> — the id plus drawn words, and nothing else. A
     /// template with any fixed phrasing would re-introduce the very familiarity being controlled for, at
@@ -178,10 +177,9 @@ internal abstract class CorpusLexicon
     /// <summary>Statement/cue pairs that mean the same thing and share NO index term.
     ///
     /// <para><b>Why the corpus needs them.</b> Every other class here defines relevance LEXICALLY — the
-    /// query names the id or shares a word — so a semantic neighbour is wrong BY CONSTRUCTION, and an
-    /// vector backend can only ever be measured costing slots it never earns back (`docs/task-archive.md` Part 69,
-    /// where
-    /// enabling one raised the miss rate from 0.5357 to 0.8357). This is the one class that asks a question
+    /// query names the id or shares a word — so a semantic neighbour is wrong BY CONSTRUCTION, and a vector
+    /// backend can only ever be measured costing slots it never earns back (`docs/task-archive.md` Part 69,
+    /// where enabling one raised the miss rate from 0.5357 to 0.8357). This is the one class that asks a question
     /// the lexical path cannot answer at all, so it is the only place the enrichment can show an upside.</para>
     ///
     /// <para><b>A bag-of-words test double cannot serve this.</b> <c>FakeVectorProvider</c> is a feature-hashed
@@ -207,8 +205,8 @@ internal abstract class CorpusLexicon
     ///
     /// <para><b>Why this class exists.</b> Every other entry lets the engine DERIVE its headline from the
     /// content, so headline words are a subset of content words and a query matching the headline matches
-    /// the content too. That made headline search unobservable: the 3.0 review narrowed it and then widened
-    /// it back (<c>docs/FIXES.md</c>) and <c>memory-sweep</c> could not see either direction — the
+    /// the content too. That makes headline search unobservable: narrowing or widening it
+    /// (<c>docs/FIXES.md</c>) is invisible to <c>memory-sweep</c> — the
     /// <c>pitfalls.md</c> "a measurement that cannot observe a change reports nothing moved" shape, live in
     /// the instrument rather than in the library.</para>
     ///
@@ -344,16 +342,16 @@ internal abstract class CorpusLexicon
         public override bool WritesWordSpaces => false;
 
         /// <summary>"record entry" — the shared leading token, the Chinese counterpart of "item".
-        /// <para><b>FOUR characters, and the length is load-bearing rather than stylistic.</b> The first
-        /// draft used 条目, which is TWO — below <see cref="Lyntai.Storage.SearchTerms.MinimumTermLength"/>,
-        /// so it yields no trigram and was silently dropped from every query. That deleted the corpus's
-        /// central design property (every queried entry shares a token, so a broad recall makes them genuinely
-        /// COMPETE) and produced a measurably EASIER corpus: the first Chinese sweep reported `topical` miss
-        /// AND pollution of exactly 0.0000 on almost every shape, which is not a language finding but an
-        /// instrument that had stopped measuring. Any replacement must clear the floor.</para>
-        /// <para>This is the same failure the English corpus already paid for from the other direction — see
-        /// <see cref="MemoryCorpus"/>'s note on filler that used to begin "item filler{n}". A shared token
-        /// that competes when it should not, and one that does not compete when it should, are one bug.</para>
+        /// <para><b>FOUR characters, and the length is load-bearing rather than stylistic.</b> A two-character
+        /// token such as 条目 is below <see cref="Lyntai.Storage.SearchTerms.MinimumTermLength"/>, so it yields
+        /// no trigram and is silently dropped from every query. That deletes the corpus's central design
+        /// property (every queried entry shares a token, so a broad recall makes them genuinely COMPETE) and
+        /// produces a measurably EASIER corpus: `topical` miss AND pollution of exactly 0.0000 on almost every
+        /// shape, which is not a language finding but an instrument that has stopped measuring. Any
+        /// replacement must clear the floor.</para>
+        /// <para>The English corpus has the same failure from the other direction — see
+        /// <see cref="MemoryCorpus"/>'s note on FILLER, which must not share the token. A shared token that
+        /// competes when it should not, and one that does not compete when it should, are one bug.</para>
         /// </summary>
         public override string ItemToken => "记录条目";
 
@@ -451,17 +449,17 @@ internal abstract class CorpusLexicon
 
         /// <summary>Subject plus a marker that appears nowhere else — the Chinese counterpart of
         /// "{subject} recallcue".
-        /// <para><b>The leading 我的 is load-bearing, and the first draft ("{subject}回忆线索") reached ZERO
+        /// <para><b>The leading 我的 is load-bearing: without it ("{subject}回忆线索") the cue reaches ZERO
         /// cluster members.</b> English gets to name a subject as a whole word token: "spouse" is a term and
         /// matches. Chinese has no such token — 配偶 is TWO characters, below the trigram floor — so a bare
         /// subject glued to the marker yields only boundary-straddling trigrams (配偶回, 偶回忆, …) that
-        /// appear in no entry at all. The arm reported <c>attribute</c> miss ≈ 0.889 with pollution 0.000
-        /// against English's 0.299, which reads as a language finding and was two different experiments.</para>
+        /// appear in no entry at all: <c>attribute</c> miss ≈ 0.889 with pollution 0.000 against English's
+        /// 0.299, which reads as a language finding and is two different experiments.</para>
         /// <para>The content says 我的{subject}是, so 我的配 and 的配偶 are trigrams the cue and the content
         /// genuinely share — and it is how the phrase is actually said. Pinned by
-        /// <c>MemoryCorpusTests.A_discriminative_cue_reaches_exactly_one_cluster_member</c>, which did not
-        /// exist until this bug: every prior fact pinned the cue's UPPER bound (shares nothing outside the
-        /// cluster) and none pinned the lower one, so a cue matching nothing passed them all.</para>
+        /// <c>MemoryCorpusTests.A_discriminative_cue_reaches_exactly_one_cluster_member</c>, the LOWER bound:
+        /// the other facts pin only the cue's UPPER bound (shares nothing outside the cluster), which a cue
+        /// matching nothing passes.</para>
         /// <para><b>The underlying limitation is real and is NOT a corpus artifact:</b> a two-character CJK
         /// term cannot be matched by a trigram index, so a Chinese query whose only overlap with the stored
         /// text is one two-character word finds nothing through FTS. It reaches the caller's substring
@@ -472,14 +470,13 @@ internal abstract class CorpusLexicon
         /// <summary>The same cue wrapped in ordinary conversational words that DO appear in unrelated
         /// entries. In Chinese this is not a wording choice one could avoid: under trigram matching there is
         /// no stopword to strip, so contention with incidental material is the normal condition.
-        /// <para><b>The overlap is deliberate and load-bearing, and the first draft did not have it.</b>
+        /// <para><b>The overlap is deliberate and load-bearing.</b>
         /// "提醒我一下关于我的{subject}回忆线索" reads perfectly naturally and shares NO trigram with any
-        /// non-cluster entry, which would have made this cue kind identical to the discriminative one and any
+        /// non-cluster entry, which would make this cue kind identical to the discriminative one and any
         /// measured gap between them pure noise. The phrase 提到过一次 is carried on purpose: it appears in
         /// both the critical (只提到过一次的事实) and noise (被提到一次) templates, so the trigrams 提到过 /
         /// 到过一 / 过一次 genuinely reach outside the cluster. Pinned by
-        /// <c>MemoryCorpusTests.An_overlapping_attribute_query_shares_a_token_with_material_outside_its_cluster</c>,
-        /// which is what caught the first draft.</para></summary>
+        /// <c>MemoryCorpusTests.An_overlapping_attribute_query_shares_a_token_with_material_outside_its_cluster</c>.</para></summary>
         public override string CommonTokenCue(string subject) => $"关于我的{subject}我记得提到过一次回忆线索";
 
         public override bool IsAttributeCue(string queryText) =>
@@ -500,7 +497,7 @@ internal abstract class CorpusLexicon
         }
     }
 
-    /// <summary><b>Chinese technical prose with English embedded inside the run</b> — the shape that made
+    /// <summary><b>Chinese technical prose with English embedded inside the run</b> — the shape that makes
     /// script-run segmentation necessary, and the one every other arm misses because they put ASCII only at
     /// token edges (the id) rather than in the middle of a word run.
     /// <para>Subjects and values deliberately span both kinds: <c>配偶</c> is pure Chinese, <c>deploy密钥</c>
@@ -630,8 +627,8 @@ internal abstract class CorpusLexicon
         public override bool WritesWordSpaces => false;
 
         /// <summary>"record item" — four characters, so it clears the trigram floor and the shared token
-        /// actually makes entries compete. The Chinese arm shipped a TWO-character token first and silently
-        /// stopped measuring; see <see cref="ChineseLexicon"/>'s note.</summary>
+        /// actually makes entries compete. A TWO-character token silently stops the corpus measuring; see
+        /// <see cref="ChineseLexicon"/>'s note.</summary>
         public override string ItemToken => "記録項目";
 
         public override IReadOnlyList<string> Fillers =>

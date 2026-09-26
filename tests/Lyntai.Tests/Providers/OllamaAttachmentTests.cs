@@ -9,15 +9,14 @@ using Microsoft.Extensions.Logging;
 
 namespace Lyntai.Tests.Providers;
 
-/// <summary>Vision on the Ollama-NATIVE flavour (<c>/api/chat</c>), which had no attachment arm at all: an
-/// image on a user turn was dropped on the floor, with nothing on the wire and nothing logged, while the
-/// same message through <see cref="OpenAiPayload"/> rendered <c>image_url</c> parts.
+/// <summary>Vision on the Ollama-NATIVE flavour (<c>/api/chat</c>): an image on a user turn is never
+/// dropped with nothing on the wire and nothing logged, where the same message through
+/// <see cref="OpenAiPayload"/> renders <c>image_url</c> parts.
 ///
 /// <para>The two halves are different promises. An attachment carrying BYTES is deliverable — Ollama takes
-/// it as raw base64 in a sibling <c>images</c> array — so dropping it was simply wrong. An attachment
-/// carrying only a remote <c>Uri</c> is NOT deliverable (that schema has no URL form), so the fix there is
-/// to REPORT it, the way the CLI paths report every capability they cannot honour, rather than to keep
-/// failing in silence.</para></summary>
+/// it as raw base64 in a sibling <c>images</c> array. An attachment carrying only a remote <c>Uri</c> is
+/// NOT deliverable (that schema has no URL form), so it is REPORTED, the way the CLI paths report every
+/// capability they cannot honour, rather than failing in silence.</para></summary>
 public class OllamaAttachmentTests
 {
     private static readonly byte[] Png = Encoding.UTF8.GetBytes("fake-png-bytes");
@@ -144,7 +143,7 @@ public class OllamaAttachmentTests
     public async Task The_ollama_provider_puts_the_image_on_the_wire()
     {
         // pins the WIRING as well as the payload: the provider must hand the payload builder its logger,
-        // or the payload fix ships while every real call still sends text only
+        // or a correct payload ships while every real call still sends text only
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK,
             """{"message":{"role":"assistant","content":"a cat"},"done":true,"prompt_eval_count":7,"eval_count":3}""");
         var provider = new OllamaProvider("ollama", new OllamaOptions(),

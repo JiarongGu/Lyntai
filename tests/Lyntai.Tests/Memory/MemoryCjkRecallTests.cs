@@ -20,12 +20,10 @@ namespace Lyntai.Tests.Memory;
 /// on the stem. If trigram expansion ever costs more than it recovers, Korean is where that shows up first.
 /// </para>
 ///
-/// <para><b>Why this file exists.</b> Every recall-quality figure this repository had ever published was
-/// measured on English, space-separated text. Nothing established that a language without spaces recalled at
-/// all — and it did not: whitespace splitting handed back a whole Chinese sentence as ONE token, so a cue
-/// could only match an entry containing that exact substring. English got OR-over-words, Chinese got
-/// exact-phrase-or-nothing, and the difference was invisible because nothing measured it.
-/// <see cref="Lyntai.Storage.SearchTerms"/> now expands a spaceless run into character trigrams, with no
+/// <para><b>Why this file exists.</b> Whitespace splitting hands back a whole Chinese sentence as ONE token,
+/// so a cue can only match an entry containing that exact substring: English gets OR-over-words, Chinese
+/// gets exact-phrase-or-nothing, and a suite measured only on space-separated text cannot see the difference.
+/// <see cref="Lyntai.Storage.SearchTerms"/> expands a spaceless run into character trigrams, with no
 /// configuration required (<c>docs/DECISIONS.md</c> D55).</para>
 ///
 /// <para><b>The cluster, not a single fact, is the point.</b> The case as described: "my spouse is Alice —
@@ -235,17 +233,14 @@ public class MemoryCjkRecallTests
     }
 
     /// <summary><b>An ASSOCIATIVE cluster does NOT come back whole, and pinning that is the honest thing to
-    /// do.</b> This assertion was written the other way round first — "more of the cluster returns than the
-    /// cue could have matched" — and it failed IDENTICALLY in both languages, returning exactly the one
-    /// lexically-matched fact. That is not a language defect and not a bug: this engine's edges come from
+    /// do.</b> The recall returns exactly the one lexically-matched fact, identically in every language. That
+    /// is not a language defect and not a bug: this engine's edges come from
     /// vector similarity at write time (needs a vector backend AND a vector store, neither supplied here) or from
     /// CO-ACTIVATION during recall (entries re-admitted together). Facts stated once, never re-mentioned and
     /// never co-recalled have no edges at all, so there is nothing for spreading activation to traverse.
-    /// <para>Recorded as a fact rather than deleted, because the failing version of it is what makes the next
-    /// test the ANSWER to the consumer's case rather than a decoration. See
-    /// <c>docs/task-archive.md</c> Part 67, which
-    /// reached the same conclusion from the measurement side: "the case needs a GUARANTEE, and the
-    /// associative path cannot give one."</para></summary>
+    /// <para>This fact is what makes the next test the ANSWER to the consumer's case rather than a
+    /// decoration. <c>docs/task-archive.md</c> Part 67 reaches the same conclusion from the measurement side:
+    /// "the case needs a GUARANTEE, and the associative path cannot give one."</para></summary>
     [Theory]
     [MemberData(nameof(Scenarios))]
     public async Task An_associative_cluster_returns_only_what_the_cue_lexically_reached(string language)

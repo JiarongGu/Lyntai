@@ -26,8 +26,8 @@ public class GenerationBlamelessReportingTests
     [Fact]
     public async Task A_run_that_only_blameless_backends_answered_reports_what_the_FIRST_one_said()
     {
-        // the hole Part 40 names: both candidates explained themselves, and the caller used to be told
-        // "not configured" — which is neither what happened nor something they can act on
+        // the hole Part 40 names: both candidates explained themselves, and "not configured" is neither what
+        // happened nor something the caller can act on
         var first = new SayingProvider
         {
             Id = "a", Verdict = ProviderVerdict.Unsupported, Detail = "prompt is too long: 210000 tokens",
@@ -84,7 +84,7 @@ public class GenerationBlamelessReportingTests
     [Fact]
     public async Task Reporting_a_blameless_reason_does_not_turn_it_into_a_fault()
     {
-        // the whole point of the split: what is REPORTED changed, what is BLAMED did not. One penalised
+        // the whole point of the split: what is REPORTED is not what is BLAMED. One penalised
         // failure would be enough to bench at this threshold, so the second run is the assertion.
         var tracker = new DeadHostTracker(threshold: 1, cooldown: TimeSpan.FromMinutes(5));
         var gap = new SayingProvider
@@ -106,16 +106,15 @@ public class GenerationBlamelessReportingTests
         Assert.False(tracker.IsDead("generation::b"));
     }
 
-    // ---- what the rule was blocking: the oversized prompt ---------------------------------------------
+    // ---- what the rule unblocks: the oversized prompt -------------------------------------------------
 
     [Fact]
     public async Task An_oversized_prompt_no_longer_benches_a_perfectly_healthy_backend()
     {
-        // an image backend that answers "prompt is too long" is not ill — but as ProviderVerdict.Failed it
-        // took PenalizeAndAdvance, so a few oversized prompts in a row put it on dead-host cooldown and
-        // UNRELATED later requests were routed away from it. Through 3.1.0 media reached this via a
-        // translation to Unsupported; D136 merged the taxonomy, so the precise member survives and the
-        // policy carries an explicit entry for it. What must NOT change is the penalty: still none.
+        // an image backend that answers "prompt is too long" is not ill — as ProviderVerdict.Failed it would
+        // take PenalizeAndAdvance, so a few oversized prompts in a row would put it on dead-host cooldown and
+        // route UNRELATED later requests away from it. The taxonomy is one (D136), so the precise member
+        // survives and the policy carries an explicit entry for it — with no penalty.
         var oversizedVerdict = ProviderVerdictClassifier.FromErrorText("prompt is too long: 210000 tokens");
         Assert.Equal(ProviderVerdict.ContextWindowExceeded, oversizedVerdict);
 
@@ -150,8 +149,7 @@ public class GenerationBlamelessReportingTests
 
         var result = await new MediaRouter([oversized]).GenerateAsync(Order("hosted"), Image());
 
-        // the member itself now, where a translation used to flatten it to Unsupported — and it is
-        // SUBSTANTIVE rather than blameless, which is right: "too big for this backend" is actionable,
+        // the member itself, not flattened to Unsupported — and it is SUBSTANTIVE rather than blameless, which is right: "too big for this backend" is actionable,
         // so it reaches the caller through firstFailure instead of the blameless slot
         Assert.Equal(ProviderVerdict.ContextWindowExceeded, result.Verdict);
         Assert.Contains("prompt is too long", result.Detail);
@@ -206,8 +204,8 @@ public class GenerationSubmitBlamelessReportingTests
     [Fact]
     public async Task A_submission_only_blameless_queues_rejected_still_reports_what_one_of_them_said()
     {
-        // the same hole as the inline path: the reason was dropped for being blameless, leaving the durable
-        // job handler and the agent tool with a list of candidate ids nobody can act on
+        // the same hole as the inline path: dropping the reason for being blameless leaves the durable job
+        // handler and the agent tool with a list of candidate ids nobody can act on
         using var _ = ProviderVerdictClassifier.AddErrorTextMatcher(t =>
             t.Contains("queue-blameless-probe", StringComparison.Ordinal) ? ProviderVerdict.NotConfigured : null);
 

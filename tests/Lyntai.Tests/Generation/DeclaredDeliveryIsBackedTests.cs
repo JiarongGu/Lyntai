@@ -24,7 +24,7 @@ public class DeclaredDeliveryIsBackedTests
     {
         // `LyingStreamProvider` is the shape a BYO backend can ship: it advertises Stream and never
         // overrides the seam, so every call answers Unsupported after the router has already discarded
-        // every alternative. This is the direction the old assertion could not see.
+        // every alternative. This is the direction a type test cannot see.
         Assert.False(GenerationProviderContract.ServesMediaStream(new LyingStreamProvider()));
 
         var thrown = Assert.ThrowsAny<Exception>(() =>

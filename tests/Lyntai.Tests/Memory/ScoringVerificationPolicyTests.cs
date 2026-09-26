@@ -8,10 +8,9 @@ namespace Lyntai.Tests.Memory;
 /// <summary>The memory half of verifying with a scoring backend: what to send, how many to endorse, and
 /// what an unusable answer means.
 ///
-/// <para><b>Not one of these needs HTTP</b>, which is the point of D140 — the policy and the
-/// <c>/v1/rerank</c> client were ONE class in a provider package, so every policy assertion used to be
-/// written against a scripted wire. A fake <see cref="IModelProvider"/> declaring
-/// <see cref="ProviderKinds.Score"/> is all this layer ever needed.</para>
+/// <para><b>Not one of these needs HTTP</b>, which is the point of D140: with the policy separate from the
+/// <c>/v1/rerank</c> client, no policy assertion is written against a scripted wire. A fake
+/// <see cref="IModelProvider"/> declaring <see cref="ProviderKinds.Score"/> is all this layer needs.</para>
 ///
 /// <para>The failure mode this file exists for is a SILENT one: the seam is fail-open, so a broken backend
 /// and a backend that agreed with the ranking are indistinguishable from the endorsement alone
@@ -134,9 +133,9 @@ public class ScoringVerificationPolicyTests : MemoryVerificationPolicyContractFa
     }
 
     // ---- WHICH backend, when more than one produces scores -------------------------------------------
-    // Registering a second Score backend for any reason at all used to change what verified memory, decided
-    // by DI registration order and reported nowhere. Both sibling seams (LlmVerificationOptions.ClientName,
-    // LlmAnnotationOptions.ClientName) have always been able to say; this one could not.
+    // Without a name, registering a second Score backend for any reason at all changes what verifies memory,
+    // decided by DI registration order and reported nowhere. Both sibling seams (LlmVerificationOptions
+    // .ClientName, LlmAnnotationOptions.ClientName) can say which backend; so can this one.
 
     private static ScoringVerificationPolicy Policy(IReadOnlyList<IModelProvider> backends, string? providerId) =>
         new(backends, new ScoringVerificationOptions { EndorseCount = 1, ProviderId = providerId });
@@ -221,9 +220,9 @@ public class ScoringVerificationPolicyTests : MemoryVerificationPolicyContractFa
         return logger.Levels;
     }
 
-    /// <summary>The wiring defect this seam used to report at Warning on EVERY recall is now refused once,
-    /// at composition, by <c>AddLyntai</c> — a backend declaring ProviderKinds.Score without implementing
-    /// IScoreProvider cannot reach a deployment at all (D153). Pinned by
+    /// <summary>A backend declaring ProviderKinds.Score without implementing IScoreProvider is a wiring
+    /// defect refused once, at composition, by <c>AddLyntai</c> — it cannot reach a deployment at all
+    /// (D153), so this seam never reports it per recall. Pinned by
     /// <c>SemanticMemoryWiringTests.A_backend_that_DECLARES_vectors_without_implementing_the_seam_is_refused</c>
     /// for the vector half; both kinds go through one guard.
     ///

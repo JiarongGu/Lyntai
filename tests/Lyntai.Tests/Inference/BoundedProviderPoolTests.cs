@@ -63,7 +63,7 @@ public class BoundedProviderPoolTests
         Assert.Equal(1, pool.Statistics.Live);
     }
 
-    // Trap 7.1: a configuration change must never abort work already running on the old instance.
+    // A configuration change must never abort work already running on the old instance.
     [Fact]
     public async Task A_retired_instance_is_still_usable_by_whoever_holds_it()
     {
@@ -76,7 +76,7 @@ public class BoundedProviderPoolTests
         Assert.True(result.IsOk);
     }
 
-    // The pool disposes nothing, ever — see the spec's 4.5. Pinned so a later "helpful" disposal fails here.
+    // The pool disposes nothing, ever. Pinned so a "helpful" disposal fails here.
     [Fact]
     public void Retiring_never_disposes()
     {

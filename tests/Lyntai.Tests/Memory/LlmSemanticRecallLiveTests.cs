@@ -16,34 +16,28 @@ namespace Lyntai.Tests.Memory;
 /// <summary><b>Does the vector backend EARN its cost when the question is one only it can answer?</b>
 /// `docs/task-archive.md` Part 69, and the measurement deciding whether that is a defect or an artefact.
 ///
-/// <para><b>The finding it re-examines.</b> Enabling an <c>ProviderKinds.Vector</c> backend + vector store raised the
-/// corpus miss rate from <c>0.5357</c> to <c>0.8357</c> — an order of magnitude more movement than any
-/// policy — because semantic neighbours compete for the same bounded slots as lexical hits. That was
-/// recorded as pinned-not-fixed, on the grounds that the corpus defines relevance LEXICALLY, so a semantic
-/// neighbour is wrong there by construction.</para>
+/// <para><b>The finding it re-examines.</b> Enabling a <c>ProviderKinds.Vector</c> backend + vector store
+/// raises the corpus miss rate from <c>0.5357</c> to <c>0.8357</c> — an order of magnitude more movement
+/// than any policy. That Part pins it rather than fixing it, on the grounds that the corpus defines relevance
+/// LEXICALLY, so a semantic neighbour is wrong there by construction.</para>
 ///
-/// <para><b>Two things were wrong with how that was measured, and both flatter the pessimistic reading.</b>
-/// The corpus had no question a semantic route could uniquely answer, so enrichment could only ever be seen
-/// costing slots it never earned back. And it was measured with <c>FakeVectorProvider</c> — a feature-hashed bag
-/// of WORDS, in which "semantic similarity" IS word overlap. A test double that cannot represent meaning
-/// cannot show meaning-based retrieval helping, so that arm was never a test of the idea.</para>
+/// <para><b>Two blind spots in that measurement, both flattering the pessimistic reading.</b> A corpus with
+/// no question a semantic route could uniquely answer can only show enrichment costing slots it never earns
+/// back, and <c>FakeVectorProvider</c> is a feature-hashed bag of WORDS, in which "semantic similarity" IS
+/// word overlap: a double that cannot represent meaning cannot show meaning-based retrieval helping.</para>
 ///
 /// <para><see cref="CorpusLexicon.ParaphrasePairs"/> supplies the missing question — a statement and a cue
 /// that mean the same and share NO index term, asserted rather than assumed — and this file supplies the
-/// missing instrument: a REAL embedding model. Both were needed; either alone still measures nothing.</para>
+/// missing instrument: a REAL embedding model. Either alone measures nothing.</para>
 ///
-/// <para><b>THE ANSWER, measured 2026-08-13, and it is not the one this file was built to find:</b> a real
-/// embedding model recovers <b>none</b> of them — 0/3, the same as no vector backend — because without the vector
-/// CHANNEL registered the vector store is consulted at WRITE time only. The mechanism, and the correction it
-/// forces on Part 69's own explanation, are argued at the assertion that pins them.</para>
+/// <para><b>THE ANSWER:</b> a real embedding model recovers <b>none</b> of them — 0/3, the same as no
+/// vector backend — because without the vector CHANNEL registered the vector store is consulted at WRITE
+/// time only — the assertion pinning it argues the mechanism, and the correction it forces on Part 69.</para>
 ///
 /// <para>Runs only when <c>LYNTAI_LIVE_MODEL</c> (or the legacy <c>LYNTAI_LIVE_OLLAMA</c>) is set AND a model
-/// endpoint is reachable; otherwise SKIPPED, never a pass that observed nothing.
-/// <c>LYNTAI_OLLAMA_EMBED_MODEL</c> overrides the model (default <c>nomic-embed-text</c>).</para>
-///
-/// <para><b>Any OpenAI-shaped endpoint</b> — <c>LYNTAI_LIVE_MODEL_FLAVOR=openai</c> plus a URL runs this
-/// against llama.cpp's <c>llama-server</c>. The vector backend registration below was already backend-neutral; the
-/// gate and the chat provider were not.</para></summary>
+/// endpoint is reachable — any OpenAI-shaped one, via <c>LYNTAI_LIVE_MODEL_FLAVOR=openai</c> plus a URL;
+/// otherwise SKIPPED, never a pass that observed nothing. <c>LYNTAI_OLLAMA_EMBED_MODEL</c> overrides the
+/// model (default <c>nomic-embed-text</c>).</para></summary>
 public class LlmSemanticRecallLiveTests(Xunit.Abstractions.ITestOutputHelper output)
 {
     private static string BaseUrl => LiveModel.BaseUrl;
@@ -101,25 +95,21 @@ public class LlmSemanticRecallLiveTests(Xunit.Abstractions.ITestOutputHelper out
         Assert.True(lexical.Hits == 0,
             $"the lexical path answered a cue it shares no term with — the pairs are not disjoint:\n{table}");
 
-        // (2) THE FINDING, and it is not the one this file was written to look for: a REAL embedding model
-        //     recovers none of them either. `GraphMemoryEngine.GatherAsync` seeds candidates ONLY from
-        //     `IMemoryGraphStore.SeedAsync` — a lexical query — and then walks edges. The vector store is
-        //     consulted at WRITE time (novelty for salience, and similarity LINKING) and never at recall
-        //     time. So the graph engine has no semantic RETRIEVAL path: a vector backend cannot reach a fact
+        // (2) THE FINDING: a REAL embedding model recovers none of them either. Without the semantic seed
+        //     channel, `GraphMemoryEngine.GatherAsync` seeds candidates only from the lexical source and
+        //     then walks edges; the vector store is consulted at WRITE time (novelty for salience, and
+        //     similarity LINKING) and never at recall time. So a vector backend alone cannot reach a fact
         //     whose wording shares nothing with the query, however good the model is.
         //
         //     Pinned rather than asserted-away, because it is the load-bearing correction to
-        //     `docs/task-archive.md` Part 69. That item explained the vector backend's cost as semantic
-        //     neighbours "competing
-        //     for the same bounded slots as lexical hits" — there are no semantic neighbours at recall, so
-        //     the mechanism is write-time linking and salience instead. A future change that adds
-        //     query-time vector seeding will flip this assertion, which is exactly when someone should be
-        //     made to come back and re-read the Part.
+        //     `docs/task-archive.md` Part 69, which explains the vector backend's cost as semantic neighbours
+        //     "competing for the same bounded slots as lexical hits" — without the channel there are no
+        //     semantic neighbours at recall, so the mechanism is write-time linking and salience instead.
         Assert.Equal(0, semantic.Hits);
     }
 
-    /// <summary><b>Switched ON, the paraphrase becomes REACHABLE — the 0/3 above was never the model's
-    /// fault, it was the engine never asking it anything at recall time.</b>
+    /// <summary><b>Switched ON, the paraphrase becomes REACHABLE — the 0/3 above is not the model's fault:
+    /// without the channel the engine never asks it anything at recall time.</b>
     ///
     /// <para>Measured at a WIDE limit, because the question this answers is whether the entry enters the
     /// candidate set at all. At a realistic limit the default ranking still loses it to recent unrelated

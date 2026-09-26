@@ -5,7 +5,7 @@ using Lyntai.Inference;
 namespace Lyntai.Tests.Storage;
 
 /// <summary>Every <see cref="UsageTrackerContract"/> method as a [Fact] — derive with a tracker factory and
-/// the WHOLE contract runs, so a backend can no longer silently skip one. Postgres deliberately does not
+/// the WHOLE contract runs, so a backend cannot silently skip one. Postgres deliberately does not
 /// derive: it runs the Uid-scoped subset against the shared container (see
 /// <c>PostgresGovernanceStoreTests</c>), and <see cref="PostgresContractCoverageTests"/> is what makes that
 /// subset structural rather than remembered.</summary>

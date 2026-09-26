@@ -11,8 +11,8 @@ namespace Lyntai.Tests.Providers;
 
 /// <summary>The `codex` CLI provider — the SECOND implementer of the shared
 /// <see cref="CliProviderEngine"/> seam, and therefore the test that the seam is genuinely generic rather
-/// than claude-shaped. Everything here is asserted against surface MEASURED on codex-cli 0.146.0
-/// (2026-08-04): <c>--help</c> for the argv, one real successful turn (via the <c>--oss</c> local-model path,
+/// than claude-shaped. Everything here is asserted against surface MEASURED on codex-cli 0.146.0:
+/// <c>--help</c> for the argv, one real successful turn (via the <c>--oss</c> local-model path,
 /// so no tokens were spent) and one real failed turn for the JSONL shapes.
 ///
 /// Driven through <see cref="FakeProcessRunner"/> and the codex-shaped stub — never a real binary, and never
@@ -43,7 +43,7 @@ public class CodexCliProviderTests
     [Fact]
     public void A_dialect_with_no_tool_host_args_builds_exactly_what_it_always_did()
     {
-        // The control: the seam change must be free for every caller that hosts no tools, which is most.
+        // The control: a caller that hosts no tools, which is most, gets the plain argv.
         var argv = new CodexCliBackend()
             .BuildCompletionArgs(new TextRequest { Messages = [TextMessage.User("hi")] }, []).ToList();
 

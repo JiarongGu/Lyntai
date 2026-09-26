@@ -10,11 +10,11 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Lyntai.Tests.Generation;
 
 /// <summary>ONE gate decides whether a media render is billed, on every door. The router's budget decorator
-/// records only when <c>AddMediaUsageBudget()</c> is configured, while the durable job handler and
-/// <c>generate_fetch</c> recorded whenever ANY <see cref="IUsageTracker"/> was registered — which a text-only
-/// <c>AddUsageBudget()</c> and the storage packages' usage tracking both do. So a host with a chat budget and no
-/// media budget had its queued renders billed into the chat wallet, and counted against the chat cap, while its
-/// inline renders were not (<c>pitfalls.md</c>, "a SPEND cap is a capability too").</summary>
+/// records only when <c>AddMediaUsageBudget()</c> is configured, and so must the durable job handler and
+/// <c>generate_fetch</c>. Recording whenever ANY <see cref="IUsageTracker"/> is registered — which a text-only
+/// <c>AddUsageBudget()</c> and the storage packages' usage tracking both do — bills a host's queued renders into
+/// the chat wallet, against the chat cap, while its inline renders are not (<c>pitfalls.md</c>, "a SPEND cap is
+/// a capability too").</summary>
 public class GenerationSpendGateTests
 {
     private sealed class NullSink : IGenerationArtifactSink

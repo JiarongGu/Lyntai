@@ -14,8 +14,8 @@ public class PromptRegistryTests
     [Fact]
     public async Task A_STORES_own_timeout_falls_back_to_the_default_template()
     {
-        // A remote override store with its own deadline must not be able to stop a prompt rendering —
-        // which the class doc has always promised and a bare rethrow quietly broke.
+        // A remote override store with its own deadline must not be able to stop a prompt rendering, as the
+        // class doc promises — a bare rethrow would quietly break that.
         var registry = new PromptRegistry(Throwing.Of<Lyntai.Storage.IKeyValueStore>(() => new OperationCanceledException("the store's own deadline")));
 
         var rendered = await registry.RenderAsync("summary", Default,
@@ -73,7 +73,7 @@ public class PromptRegistryTests
             ["b"] = "B",
         });
 
-        // sequential Replace used to re-scan a's substituted value and turn its "{b}" into "B"
+        // a sequential Replace would re-scan a's substituted value and turn its "{b}" into "B"
         // (order-dependent injection); single-pass keeps values inert
         Assert.Equal("literal {b} inside a value and B", rendered);
     }

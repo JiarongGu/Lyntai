@@ -6,7 +6,7 @@ namespace Lyntai.Tests.Memory;
 /// <summary>The shared option-domain guard (<c>docs/DECISIONS.md</c> D78). Internal surface, reached
 /// through <c>InternalsVisibleTo</c>.
 /// <para>The facts worth pinning are not "does it throw" — the options records' own tests already cover
-/// that per property. They are the two things the extraction is FOR: that the described domain and the
+/// that per property. They are the two things a shared guard is FOR: that the described domain and the
 /// tested domain are the same domain, and that finiteness is asked separately from the bounds.</para></summary>
 public class MemoryOptionTests
 {
@@ -14,16 +14,14 @@ public class MemoryOptionTests
     public void A_range_rejects_every_non_finite_value_whatever_its_bounds()
     {
         // The reason Contains asks IsFinite FIRST rather than relying on the comparisons: every comparison
-        // against NaN is false, so `value < Min` alone ACCEPTS it. pitfalls.md §Storage records this exact
-        // trap landing three times in one subsystem, twice in a file whose neighbour documents it.
+        // against NaN is false, so `value < Min` alone ACCEPTS it — the trap pitfalls.md §Storage records.
         foreach (var range in AllRanges())
             foreach (var bad in new[] { double.NaN, double.PositiveInfinity, double.NegativeInfinity })
                 Assert.False(range.Contains(bad), $"{range.Describe()} must reject {bad}");
     }
 
     [Theory]
-    // The zero-anchored shapes keep the English names every hand-written message already used, so the
-    // extraction changed no consumer-visible phrasing for the thirty-one properties it replaced.
+    // The zero-anchored shapes render as English names — consumer-visible phrasing, pinned so it stays put…
     [InlineData(0, false, double.PositiveInfinity, false, "a finite positive number")]
     [InlineData(0, true, double.PositiveInfinity, false, "a finite non-negative number")]
     [InlineData(double.NegativeInfinity, false, 0, false, "a finite negative number")]
@@ -36,9 +34,9 @@ public class MemoryOptionTests
     [InlineData(1, true, double.PositiveInfinity, false, "a finite number at or above 1")]
     public void A_range_describes_itself(double min, bool minIn, double max, bool maxIn, string expected)
     {
-        // The negative case is here because it was WRONG on the first draft: an arm ordered after the
-        // generic unbounded-lower case rendered it "a finite number below 0", which is true, reads oddly,
-        // and silently replaced the phrase every Decay message had used for two releases.
+        // The negative case is the one arm ORDER decides: placed after the generic unbounded-lower case it
+        // renders "a finite number below 0", which is true, reads oddly, and silently replaces the phrase
+        // every Decay message uses.
         Assert.Equal(expected, new MemoryOptionRange(min, minIn, max, maxIn).Describe());
     }
 
@@ -70,9 +68,8 @@ public class MemoryOptionTests
     [Fact]
     public void A_rejected_value_is_named_by_its_PROPERTY_not_by_the_setter_parameter()
     {
-        // The inconsistency the extraction closed: an inline `nameof(value)` inside an init accessor is the
-        // literal string "value", so 21 of the 31 sites reported a ParamName no caller could act on, while
-        // the ones routed through a file's own local helper reported the property name.
+        // An inline `nameof(value)` inside an init accessor is the literal string "value" — a ParamName no
+        // caller can act on — so the guard is handed the property name instead.
         var ex = Assert.Throws<ArgumentOutOfRangeException>(() => new DsrOptions { Decay = 0 });
 
         Assert.Equal(nameof(DsrOptions.Decay), ex.ParamName);

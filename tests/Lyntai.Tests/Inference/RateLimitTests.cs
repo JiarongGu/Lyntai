@@ -181,8 +181,8 @@ public class RateLimitTests
     }
 
     // The COUNT is why both doors build their refusal through the same helper: a hand-rolled chunk on the
-    // streaming side neither logged nor counted, so a streamed-only workload being throttled reported zero
-    // on lyntai.ratelimit.refusals — the metric ROADMAP and CHANGELOG both point hosts at.
+    // streaming side would neither log nor count, so a streamed-only workload being throttled would report
+    // zero on lyntai.ratelimit.refusals — the metric ROADMAP and CHANGELOG both point hosts at.
     [Fact]
     public async Task A_streamed_refusal_is_counted_like_a_buffered_one()
     {
@@ -270,7 +270,7 @@ public class RateLimitTests
             .AddResponseCache())); // decorator would be silently dropped → guarded
     }
 
-    // ---- no-effective-limit guard (R21b) -------------------------------------------------------------
+    // ---- no-effective-limit guard -------------------------------------------------------------------
 
     [Fact]
     public void HasEffectiveLimit_is_false_for_defaults_and_true_when_a_positive_rate_is_set()

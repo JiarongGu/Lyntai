@@ -74,7 +74,7 @@ public class GraphAnnotationRanTests
     }
 
     /// <summary>The shipped annotator answers a refused call by saying it did not answer, not with an empty
-    /// answer — the case the flag existed for and did not see.</summary>
+    /// answer — an empty answer would hide exactly the case the flag exists for.</summary>
     [Fact]
     public async Task The_shipped_annotator_refused_by_its_model_leaves_the_flag_off()
     {

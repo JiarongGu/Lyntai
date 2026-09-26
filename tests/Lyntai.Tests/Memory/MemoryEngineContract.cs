@@ -28,22 +28,19 @@ public static class MemoryEngineContract
             StringComparison.Ordinal));
     }
 
-    /// <summary>A recall returns AT MOST <see cref="MemoryQuery.Limit"/> items — the flat property that
-    /// nothing anywhere asserted.
-    /// <para>Written as a CONTRACT fact rather than fixed per engine on purpose. The composite and the
-    /// curated engine were each found ignoring the limit on 2026-08-14 and repaired individually, which is
-    /// exactly the shape <c>pitfalls.md</c> records as not working: "a cross-backend invariant enforced on
-    /// ONE backend's test class is not enforced". Every engine answers this question, so every engine is
-    /// asked it here.</para>
+    /// <summary>A recall returns AT MOST <see cref="MemoryQuery.Limit"/> items.
+    /// <para>Written as a CONTRACT fact rather than fixed per engine on purpose: <c>pitfalls.md</c> records
+    /// that "a cross-backend invariant enforced on ONE backend's test class is not enforced". Every engine
+    /// answers this question, so every engine is asked it here.</para>
     /// <para>Deliberately writes MORE entries than the limit and uses a query every one of them matches, so
     /// the bound is the only thing that can cut the result. An engine that returns nothing would pass a bare
     /// upper-bound assertion vacuously, so the non-empty check is part of the fact.</para>
     /// <para><b>It writes EVERY grade the engine supports, and that is what makes it discriminating on a
-    /// blend.</b> The first version wrote only `Inherit`, which a composite routes entirely to its FIRST
-    /// member — so one member held everything, applied the limit itself, and the blend never had more than
-    /// the limit to cut. Disabling the composite's cut outright left that version passing: a fixture sitting
-    /// in the one regime where the property cannot fail, which is the trap <c>pitfalls.md</c> records for the
-    /// AuthoritativeReserve fixtures. Loading every member is what forces the blend past its own bound.</para>
+    /// blend.</b> A composite routes an `Inherit`-only corpus entirely to its FIRST member, which holds
+    /// everything and applies the limit itself, so the blend never has more than the limit to cut and a
+    /// composite with its cut disabled still passes: a fixture sitting in the one regime where the property
+    /// cannot fail, which is the trap <c>pitfalls.md</c> records for the AuthoritativeReserve fixtures.
+    /// Loading every member is what forces the blend past its own bound.</para>
     /// </summary>
     public static async Task A_recall_returns_at_most_the_limit(IMemoryEngine engine, string key)
     {
@@ -74,9 +71,9 @@ public static class MemoryEngineContract
     /// null; one whose store has it asserts the round trip. Neither can pass by returning nothing, which is
     /// what a single "null is fine" fact would have allowed for the two engines that cannot carry it.</para>
     /// <para><b>Asked of every engine because the write side already promises it.</b>
-    /// <see cref="MemoryWrite.Metadata"/> has said "an engine whose store cannot hold it ignores it" since it
-    /// shipped, and nothing said what a READ does — so metadata was writable and unreadable, and a consumer
-    /// wanting it back had to keep a second copy outside the library.</para></summary>
+    /// <see cref="MemoryWrite.Metadata"/> says "an engine whose store cannot hold it ignores it"; without a
+    /// promise for what a READ does, metadata is writable and unreadable, and a consumer wanting it back has
+    /// to keep a second copy outside the library.</para></summary>
     public static async Task Metadata_written_is_returned_or_explicitly_absent(
         IMemoryEngine engine, string key, bool carries)
     {
@@ -102,11 +99,11 @@ public static class MemoryEngineContract
 
     /// <summary>The same round trip through <see cref="IExpandableMemory.ExpandAsync"/>, which
     /// <see cref="Metadata_written_is_returned_or_explicitly_absent"/> does not reach.
-    /// <para><b>Written because the recall-only fact left a live defect green.</b> Expansion projects the
-    /// NAMED entry and its neighbours at separate call sites, and only the neighbour site was repaired: the
-    /// entry the caller asked for came back with null metadata beside neighbours that carried it, inside one
-    /// <see cref="MemoryRecall"/>. A grep for the constructor found two sites because the third is written
-    /// target-typed as <c>new(...)</c> — <c>.claude/knowledge/pitfalls.md</c> §Second doors.</para>
+    /// <para><b>The recall-only fact cannot see this.</b> Expansion projects the NAMED entry and its
+    /// neighbours at separate call sites, so repairing only one leaves the entry the caller asked for with
+    /// null metadata beside neighbours that carry it, inside one <see cref="MemoryRecall"/>. A grep for the
+    /// constructor misses a site written target-typed as <c>new(...)</c> —
+    /// <c>.claude/knowledge/pitfalls.md</c> §Second doors.</para>
     /// <para><paramref name="expands"/> is the caller's declaration that expanding an entry this engine
     /// wrote returns that entry, and all three branches assert positively. An engine with no expansion
     /// surface asserts it has none; a composite whose owning member cannot expand asserts the documented
