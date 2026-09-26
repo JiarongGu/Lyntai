@@ -252,6 +252,9 @@ there is nothing here to code: what remains is evidence only recurrence can supp
   <br>**So it is `watch · data` rather than startable**: what it needs is a recurrence carrying the frame
   BELOW `OpenAsync`, because the three causes a reading can reach are gone and the remaining ones are all
   in the runner's resource behaviour — the same shape as Part 99 above, by a different mechanism.
+  <br>**2026-09-27: 0 of 40 more fresh-process runs of its class** (19 tests each, `Dedup_race` among them), so
+  1 in 51 standalone overall. **Looping is not how this gets caught**; the stack has to come from the run it
+  fails in.
 
 ## Retired — five Parts that outlived their open work (2026-09-16)
 
