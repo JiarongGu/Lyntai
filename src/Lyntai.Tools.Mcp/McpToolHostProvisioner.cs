@@ -17,34 +17,50 @@ internal sealed class McpToolHostProvisioner(
     Lyntai.Guards.IGuardRail? guards = null,
     Microsoft.Extensions.Logging.ILogger<McpToolHostProvisioner>? logger = null) : ICliToolProvisioner
 {
-    // the DI tool collection is fixed once the container is built, so it is read — and checked — once
-    private readonly IReadOnlyList<ITool> _registered = Registered(tools, options);
+    // the tools and the map are read — and checked — once, when the provisioner is built: the DI tool collection
+    // is fixed by then, and the map is COPIED, so a list the caller still holds cannot gain an unchecked name
+    private readonly (IReadOnlyList<ITool> Tools, Dictionary<string, string[]> ByConsumer) _checked =
+        Check(tools, options.ToolsByConsumer);
 
-    public Task<CliToolSession> ProvisionAsync(CancellationToken ct = default) => HostAsync(_registered, ct);
+    public Task<CliToolSession> ProvisionAsync(CancellationToken ct = default) => HostAsync(_checked.Tools, ct);
 
     public Task<CliToolSession> ProvisionAsync(CliToolRequest request, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(request);
+        var (registered, byConsumer) = _checked;
         // the tiering every *ByConsumer map here uses: the consumer's own entry, then "default", then every tool
-        return HostAsync(options.ToolsByConsumer.TryGetValue(request.Request.Consumer, out var names)
-            || options.ToolsByConsumer.TryGetValue(Lyntai.Inference.ProviderConsumers.Default, out names)
-            ? [.. _registered.Where(t => names.Contains(t.Name, StringComparer.Ordinal))]
-            : _registered, ct);
+        return HostAsync(byConsumer.TryGetValue(request.Request.Consumer, out var names)
+            || byConsumer.TryGetValue(Lyntai.Inference.ProviderConsumers.Default, out names)
+            ? [.. registered.Where(t => names.Contains(t.Name, StringComparer.Ordinal))]
+            : registered, ct);
     }
 
-    /// <summary>The registered tools, after refusing a <see cref="McpToolHostOptions.ToolsByConsumer"/> name none of
-    /// them has — a typo would otherwise host a smaller set than configured, silently.</summary>
-    private static IReadOnlyList<ITool> Registered(IEnumerable<ITool> tools, McpToolHostOptions options)
+    /// <summary>The registered tools and a copy of <see cref="McpToolHostOptions.ToolsByConsumer"/>, after refusing
+    /// a null list and a name no registered tool has — naming the consumer key that held it, since a typo would
+    /// otherwise host a smaller set than configured, silently.</summary>
+    private static (IReadOnlyList<ITool>, Dictionary<string, string[]>) Check(
+        IEnumerable<ITool> tools, Dictionary<string, IReadOnlyList<string>> toolsByConsumer)
     {
         var list = tools.ToList();
-        var unknown = options.ToolsByConsumer.Values.SelectMany(n => n)
-            .Where(n => !list.Any(t => string.Equals(t.Name, n, StringComparison.Ordinal)))
-            .Distinct(StringComparer.Ordinal).ToList();
-        if (unknown.Count > 0)
+        var byConsumer = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
+        List<string> refused = [];
+        foreach (var (consumer, names) in toolsByConsumer)
+        {
+            byConsumer[consumer] = names is null
+                ? throw new InvalidOperationException($"McpToolHostOptions.ToolsByConsumer[\"{consumer}\"] is null; "
+                    + "an empty list hosts none of the tools.")
+                : [.. names];
+            var unknown = byConsumer[consumer]
+                .Where(n => !list.Any(t => string.Equals(t.Name, n, StringComparison.Ordinal)))
+                .Distinct(StringComparer.Ordinal).ToList();
+            if (unknown.Count > 0)
+                refused.Add($"ToolsByConsumer[\"{consumer}\"] names {string.Join(", ", unknown.Select(n => $"'{n}'"))}");
+        }
+        if (refused.Count > 0)
             throw new InvalidOperationException(
-                $"McpToolHostOptions.ToolsByConsumer names {string.Join(", ", unknown.Select(n => $"'{n}'"))}, which no "
-                + $"registered ITool has; registered: {string.Join(", ", list.Select(t => t.Name))}.");
-        return list;
+                $"McpToolHostOptions.{string.Join("; ", refused)}, which no registered ITool has; registered: "
+                + $"{string.Join(", ", list.Select(t => t.Name))}.");
+        return (list, byConsumer);
     }
 
     private async Task<CliToolSession> HostAsync(IReadOnlyList<ITool> toolList, CancellationToken ct)

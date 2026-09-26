@@ -24,7 +24,8 @@ public sealed class McpToolHostOptions
     /// the <c>"default"</c> entry, else every registered tool. An EMPTY list gets none of the app's tools, and no
     /// host is started, which is the fast plain call; names get only those tools, matched ordinally. So
     /// <c>ToolsByConsumer["default"] = []</c> denies by default and each consumer that needs tools is listed. Configuration rather than a request field,
-    /// so a call that falls back to an HTTP backend never carries a request whose meaning changed. A name no
-    /// registered tool has is refused when the provisioner is built.</summary>
+    /// so a call that falls back to an HTTP backend never carries a request whose meaning changed. The map is
+    /// COPIED when the provisioner is built, and a null list or a name no registered tool has is refused then,
+    /// naming its consumer key; a later change to the map, or to a list it holds, is never read.</summary>
     public Dictionary<string, IReadOnlyList<string>> ToolsByConsumer { get; } = new(StringComparer.OrdinalIgnoreCase);
 }

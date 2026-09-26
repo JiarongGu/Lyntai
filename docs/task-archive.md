@@ -5184,3 +5184,12 @@ adopting application planning its upgrade; the upstream fixes for all six of its
 in 3.3.0. Its evidence about the CLI tool host went into `TASKS.md` Part 299's recipe item instead.
 
 - What an adopter's 3.2.0 → 3.4.0 upgrade found
+
+## Part 311 — `ToolsByConsumer` is read as it was checked (2026-09-26)
+
+✅ done 2026-09-26 — **Outcome:** closes the first item of `TASKS.md` Part 299. `McpToolHostProvisioner` copies
+the map when it is built, so every spawn reads what the construction check saw; a null list is refused beside an
+unknown name, and each refusal names the consumer key that held it. The option's XML doc says so, and
+`CHANGELOG.md`'s Fixed entry is the consumer-visible line.
+
+- Snapshot `ToolsByConsumer` when the provisioner is built, and name the consumer in the refusal

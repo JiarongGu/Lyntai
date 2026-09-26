@@ -56,6 +56,10 @@ every addition.
 
 ### Fixed
 
+- **`McpToolHostOptions.ToolsByConsumer` is read as it was checked** (**D190**). The map was validated when the
+  provisioner was built but read on every spawn, so a list the caller still held could gain a name the check
+  never saw, and a null list threw a bare `NullReferenceException`. It is now copied then; a null list is refused
+  with the name check, and both refusals name the consumer key that held the problem.
 - **llama.cpp's refusal of an input past its physical batch is `ContextWindowExceeded`.** llama-server answers
   it with HTTP 500 — *"input (5218 tokens) is too large to process. increase the physical batch size"* — which
   classified `Failed`, so a rerank or embedding input too big for the batch counted toward benching a healthy

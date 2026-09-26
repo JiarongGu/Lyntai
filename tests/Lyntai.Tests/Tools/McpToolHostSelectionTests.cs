@@ -101,6 +101,49 @@ public class McpToolHostSelectionTests
     }
 
     [Fact]
+    public void The_refusal_names_the_consumer_key_that_held_each_bad_name()
+    {
+        var options = new McpToolHostOptions { ToolsByConsumer = { ["study"] = ["fecth"], ["scoring"] = ["eho"] } };
+
+        var ex = Assert.Throws<InvalidOperationException>(() =>
+            new McpToolHostProvisioner([Echo, Fetch], new Connector(), options));
+
+        Assert.Contains("[\"study\"] names 'fecth'", ex.Message);
+        Assert.Contains("[\"scoring\"] names 'eho'", ex.Message);
+    }
+
+    [Fact]
+    public void A_null_list_is_refused_at_construction_naming_its_consumer()
+    {
+        var options = new McpToolHostOptions { ToolsByConsumer = { ["study"] = null! } };
+
+        var ex = Assert.Throws<InvalidOperationException>(() =>
+            new McpToolHostProvisioner([Echo, Fetch], new Connector(), options));
+
+        Assert.Contains("\"study\"", ex.Message);
+    }
+
+    /// <summary>The map is checked when the provisioner is built, so it must also be READ as it was then: a
+    /// list the caller still holds could otherwise gain a name the check never saw.</summary>
+    [Fact]
+    public async Task The_map_is_read_as_it_was_when_the_provisioner_was_built()
+    {
+        var connector = new Connector();
+        List<string> names = ["fetch"];
+        var options = new McpToolHostOptions { ToolsByConsumer = { ["study"] = names } };
+        var provisioner = new McpToolHostProvisioner([Echo, Fetch], connector, options);
+
+        names.Add("fecth");                                          // a name the construction check never saw
+        options.ToolsByConsumer["study"] = ["echo"];
+        options.ToolsByConsumer["default"] = [];
+
+        await using var session = await provisioner.ProvisionAsync(For("study"));
+        Assert.Equal(["fetch"], await HostedNames(connector.Seen!));
+        await using var other = await provisioner.ProvisionAsync(For("scoring"));
+        Assert.NotEmpty(other.ExtraArgs);                            // no "default" entry existed when it was built
+    }
+
+    [Fact]
     public async Task A_default_entry_applies_to_every_consumer_not_mapped_itself()
     {
         // deny by default: the tiering TimeoutByConsumer uses — consumer entry, then "default", then every tool
