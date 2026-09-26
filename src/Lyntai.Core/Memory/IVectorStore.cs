@@ -53,6 +53,31 @@ public interface IListableVectorStore : IVectorStore
     Task<IReadOnlyList<string>> ListCollectionsAsync(string prefix, CancellationToken ct = default);
 }
 
+/// <summary>
+/// The OPTIONAL half of <see cref="IVectorStore"/> that reads stored entries back by id — so an application that
+/// keeps its own corpus reads the vectors it stored instead of embedding everything again.
+/// <para><b>Separate rather than a member of <see cref="IVectorStore"/></b>, as <see cref="IListableVectorStore"/>
+/// is: a required member is a major bump for every store an application wrote, and a default returning nothing
+/// would make a store that cannot read indistinguishable from one holding nothing. All three shipped stores
+/// implement it.</para>
+/// </summary>
+public interface IReadableVectorStore : IVectorStore
+{
+    /// <summary>The entries stored under <paramref name="ids"/> in <paramref name="collection"/>, ordered by id
+    /// (ordinal). An absent id is left out rather than failing, an id asked for twice comes back once, and an empty
+    /// <paramref name="ids"/> reads nothing. Each vector is exactly the one upserted, bit for bit, and a fresh
+    /// array: changing it changes nothing stored.</summary>
+    /// <param name="collection">The collection to read.</param>
+    /// <param name="ids">The ids to read; any number of them.</param>
+    /// <param name="ct">Cancellation.</param>
+    Task<IReadOnlyList<VectorEntry>> GetAsync(string collection, IReadOnlyCollection<string> ids,
+        CancellationToken ct = default);
+}
+
 /// <summary>A search result: the stored <paramref name="Payload"/> and its cosine <paramref name="Score"/>
 /// (in [-1, 1]; higher is more similar).</summary>
 public sealed record VectorMatch(string Id, string Payload, double Score);
+
+/// <summary>A stored entry read back by <see cref="IReadableVectorStore.GetAsync"/>: its id, the
+/// <paramref name="Vector"/> exactly as upserted, and its <paramref name="Payload"/>.</summary>
+public sealed record VectorEntry(string Id, float[] Vector, string Payload);

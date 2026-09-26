@@ -132,12 +132,23 @@ public sealed class PostgresGovernanceStoreTests(PostgresFixture pg)
     [SkippableFact] public Task Contract_list_prefix() => VecPg(VectorStoreContract.Listing_matches_a_prefix_ordinally);
     [SkippableFact] public Task Contract_list_literal() => VecPg(VectorStoreContract.A_listing_prefix_is_never_read_as_a_pattern);
     [SkippableFact] public Task Contract_list_empty() => VecPg(VectorStoreContract.Listing_omits_emptied_collections_and_never_throws);
+    [SkippableFact] public Task Contract_read_present_once() => VecPg(VectorStoreContract.Reading_back_returns_present_ids_once_in_id_order);
+    [SkippableFact] public Task Contract_read_exact() => VecPg(VectorStoreContract.A_read_vector_is_bit_identical);
+    [SkippableFact] public Task Contract_read_copy() => VecPg(VectorStoreContract.A_read_vector_cannot_change_what_is_stored);
+    [SkippableFact] public Task Contract_read_many_ids() => VecPg(VectorStoreContract.A_large_id_list_reads_without_failing);
 
     [SkippableFact]
     public void Contract_can_list()
     {
         Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
         VectorStoreContract.Every_shipped_store_can_list_its_collections(new PostgresVectorStore(pg.Factory));
+    }
+
+    [SkippableFact]
+    public void Contract_can_read()
+    {
+        Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
+        VectorStoreContract.Every_shipped_store_can_read_by_id(new PostgresVectorStore(pg.Factory));
     }
 
     [SkippableFact]

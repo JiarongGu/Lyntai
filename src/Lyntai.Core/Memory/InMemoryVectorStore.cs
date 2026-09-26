@@ -9,7 +9,7 @@ namespace Lyntai.Memory;
 /// register a real vector backend (pgvector, sqlite-vec, …) instead. Thread-safe, and its top-k is
 /// DETERMINISTIC: equal scores are broken by id (see <see cref="SearchAsync"/>).
 /// </summary>
-public sealed class InMemoryVectorStore : IListableVectorStore
+public sealed class InMemoryVectorStore : IListableVectorStore, IReadableVectorStore
 {
     private readonly record struct Item(float[] Vector, string Payload);
 
@@ -43,6 +43,19 @@ public sealed class InMemoryVectorStore : IListableVectorStore
             .Take(k)
             .ToList();
         return Task.FromResult<IReadOnlyList<VectorMatch>>(ranked);
+    }
+
+    /// <inheritdoc />
+    public Task<IReadOnlyList<VectorEntry>> GetAsync(string collection, IReadOnlyCollection<string> ids,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(ids);
+        if (!_collections.TryGetValue(collection, out var col)) return Task.FromResult<IReadOnlyList<VectorEntry>>([]);
+        IReadOnlyList<VectorEntry> read = [.. ids.Distinct(StringComparer.Ordinal)
+            .Select(id => col.TryGetValue(id, out var item) ? new VectorEntry(id, [.. item.Vector], item.Payload) : null)
+            .OfType<VectorEntry>()
+            .OrderBy(e => e.Id, StringComparer.Ordinal)];
+        return Task.FromResult(read);
     }
 
     public Task DeleteAsync(string collection, string id, CancellationToken ct = default)

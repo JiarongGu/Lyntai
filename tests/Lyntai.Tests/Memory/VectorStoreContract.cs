@@ -27,6 +27,11 @@ public abstract class VectorStoreContractFacts
     [Fact] public Task List_prefix() => VectorStoreContract.Listing_matches_a_prefix_ordinally(New(), "c11");
     [Fact] public Task List_literal() => VectorStoreContract.A_listing_prefix_is_never_read_as_a_pattern(New(), "c12");
     [Fact] public Task List_empty() => VectorStoreContract.Listing_omits_emptied_collections_and_never_throws(New(), "c13");
+    [Fact] public void Can_read() => VectorStoreContract.Every_shipped_store_can_read_by_id(New());
+    [Fact] public Task Read_present_once() => VectorStoreContract.Reading_back_returns_present_ids_once_in_id_order(New(), "c16");
+    [Fact] public Task Read_exact() => VectorStoreContract.A_read_vector_is_bit_identical(New(), "c17");
+    [Fact] public Task Read_copy() => VectorStoreContract.A_read_vector_cannot_change_what_is_stored(New(), "c18");
+    [Fact] public Task Read_many_ids() => VectorStoreContract.A_large_id_list_reads_without_failing(New(), "c19");
 }
 
 /// <summary>Backend-agnostic facts every <see cref="IVectorStore"/> satisfies, held to by all three
@@ -281,5 +286,65 @@ public static class VectorStoreContract
 
         Assert.Empty(await lister.ListCollectionsAsync($"{c}-gone"));
         Assert.Empty(await lister.ListCollectionsAsync($"{c}-never-written"));
+    }
+
+    /// <summary>Every SHIPPED store reads an entry back by id — optional for a BYO store, which is why it is a
+    /// separate interface, but a shipped store that could not would leave an app re-embedding on that backend
+    /// alone.</summary>
+    public static void Every_shipped_store_can_read_by_id(IVectorStore store) =>
+        Assert.IsAssignableFrom<IReadableVectorStore>(store);
+
+    /// <summary>A read returns the ids that are present, each once, ordered by id — an absent id is left out
+    /// rather than failing, and an empty request or a never-written collection reads nothing.</summary>
+    public static async Task Reading_back_returns_present_ids_once_in_id_order(IVectorStore store, string c)
+    {
+        var reader = (IReadableVectorStore)store;
+        await store.UpsertAsync(c, "b", [0f, 1f, 0f], "B");
+        await store.UpsertAsync(c, "a", [1f, 0f, 0f], "A");
+        await store.UpsertAsync(c, "c", [0f, 0f, 1f], "C");
+
+        var read = await reader.GetAsync(c, ["c", "zz", "a", "a"]);
+
+        Assert.Equal(["a", "c"], read.Select(e => e.Id));
+        Assert.Equal(["A", "C"], read.Select(e => e.Payload));
+        Assert.Equal(new[] { 1f, 0f, 0f }, read[0].Vector);
+        Assert.Empty(await reader.GetAsync(c, []));
+        Assert.Empty(await reader.GetAsync($"{c}-never-written", ["a"]));
+    }
+
+    /// <summary>The vector comes back BIT-identical — values no short decimal represents, the smallest
+    /// subnormal, and a negative zero (which compares equal to zero, so the bits are compared). A backend that
+    /// round-trips through text with too few digits, or through double, fails here.</summary>
+    public static async Task A_read_vector_is_bit_identical(IVectorStore store, string c)
+    {
+        float[] stored = [0.1f, 1f / 3, float.Epsilon, -0f, 1e-38f, 3.4028235e38f];
+        await store.UpsertAsync(c, "x", stored, "X");
+
+        var read = Assert.Single(await ((IReadableVectorStore)store).GetAsync(c, ["x"])).Vector;
+
+        Assert.Equal(stored.Select(BitConverter.SingleToInt32Bits), read.Select(BitConverter.SingleToInt32Bits));
+    }
+
+    /// <summary>A caller mutating the array it read cannot change what is stored.</summary>
+    public static async Task A_read_vector_cannot_change_what_is_stored(IVectorStore store, string c)
+    {
+        var reader = (IReadableVectorStore)store;
+        await store.UpsertAsync(c, "x", [1f, 2f, 3f], "X");
+
+        Assert.Single(await reader.GetAsync(c, ["x"])).Vector[0] = 99f;
+
+        var again = Assert.Single(await reader.GetAsync(c, ["x"])).Vector;
+        Assert.Equal(new[] { 1f, 2f, 3f }, again);
+    }
+
+    /// <summary>A large id list reads without meeting a bound-parameter limit (SQLite's is 32,766).</summary>
+    public static async Task A_large_id_list_reads_without_failing(IVectorStore store, string c)
+    {
+        foreach (var id in new[] { "id-7", "id-4000", "id-4999" }) await store.UpsertAsync(c, id, [1f, 0f], id);
+        var ids = Enumerable.Range(0, 5000).Select(i => $"id-{i}").ToList();
+
+        var read = await ((IReadableVectorStore)store).GetAsync(c, ids);
+
+        Assert.Equal(["id-4000", "id-4999", "id-7"], read.Select(e => e.Id));
     }
 }

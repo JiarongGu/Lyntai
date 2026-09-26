@@ -16,7 +16,7 @@ namespace Lyntai.Storage.Postgres;
 /// search is exact (a sequential scan with pgvector's operator). An ANN index (hnsw/ivfflat, needs a fixed
 /// dimension) is a future enhancement.</para>
 /// </summary>
-public sealed class PostgresVectorStore(IDbConnectionFactory factory) : IListableVectorStore
+public sealed class PostgresVectorStore(IDbConnectionFactory factory) : IListableVectorStore, IReadableVectorStore
 {
     private readonly object _lock = new();
     private Task? _schema;
@@ -70,6 +70,26 @@ public sealed class PostgresVectorStore(IDbConnectionFactory factory) : IListabl
             ORDER BY score DESC, vec_id COLLATE "C" LIMIT @k
             """, new { collection, query = Literal(query), k }, cancellationToken: ct)).ConfigureAwait(false);
         return [.. rows.Select(r => new VectorMatch(r.VecId, r.Payload, r.Score))];
+    }
+
+    /// <inheritdoc />
+    /// <remarks>Reads <c>embedding::real[]</c>, which Npgsql hands back as the exact float4 values — no pgvector
+    /// client package, and no text round trip to lose a digit.</remarks>
+    public async Task<IReadOnlyList<VectorEntry>> GetAsync(string collection, IReadOnlyCollection<string> ids,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(ids);
+        if (ids.Count == 0) return [];
+        await EnsureSchemaAsync().ConfigureAwait(false);
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
+        var rows = await conn.QueryAsync<EntryRow>(new CommandDefinition("""
+            SELECT vec_id, embedding::real[] AS vector, payload FROM lyntai_vector
+            WHERE collection = @collection AND vec_id = ANY(@ids)
+            """, new { collection, ids = ids.Distinct(StringComparer.Ordinal).ToArray() },
+            cancellationToken: ct)).ConfigureAwait(false);
+        return [.. rows
+            .Select(r => new VectorEntry(r.VecId, r.Vector, r.Payload))
+            .OrderBy(e => e.Id, StringComparer.Ordinal)];
     }
 
     /// <summary>Remove the single vector stored under <paramref name="id"/> within
@@ -156,5 +176,12 @@ public sealed class PostgresVectorStore(IDbConnectionFactory factory) : IListabl
         public string VecId { get; set; } = "";
         public string Payload { get; set; } = "";
         public double Score { get; set; }
+    }
+
+    private sealed class EntryRow
+    {
+        public string VecId { get; set; } = "";
+        public float[] Vector { get; set; } = [];
+        public string Payload { get; set; } = "";
     }
 }

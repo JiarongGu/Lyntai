@@ -11,7 +11,7 @@ namespace Lyntai.Storage.Sqlite;
 /// some thousands of vectors per collection; for larger corpora use a dedicated vector backend (pgvector).
 /// Vectors are stored as a JSON float array. Register with <c>UseSqliteVectorStore()</c>.
 /// </summary>
-public sealed class SqliteVectorStore(IDbConnectionFactory factory) : IListableVectorStore
+public sealed class SqliteVectorStore(IDbConnectionFactory factory) : IListableVectorStore, IReadableVectorStore
 {
     public async Task UpsertAsync(string collection, string id, float[] vector, string payload, CancellationToken ct = default)
     {
@@ -38,6 +38,25 @@ public sealed class SqliteVectorStore(IDbConnectionFactory factory) : IListableV
             .OrderByDescending(m => m.Score)
             .ThenBy(m => m.Id, StringComparer.Ordinal)
             .Take(k)];
+    }
+
+    /// <inheritdoc />
+    /// <remarks>The ids travel as ONE JSON array read through <c>json_each</c>, not as an <c>IN</c> list: Dapper
+    /// expands a list into one bound parameter per id, and SQLite refuses a statement past 32,766 of them.</remarks>
+    public async Task<IReadOnlyList<VectorEntry>> GetAsync(string collection, IReadOnlyCollection<string> ids,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(ids);
+        if (ids.Count == 0) return [];
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
+        var rows = await conn.QueryAsync<Row>(new CommandDefinition("""
+            SELECT vec_id, vector, payload FROM lyntai_vector
+            WHERE collection = @collection AND vec_id IN (SELECT value FROM json_each(@ids))
+            """, new { collection, ids = ReflectionJson.Serialize(ids.Distinct(StringComparer.Ordinal).ToArray()) },
+            cancellationToken: ct)).ConfigureAwait(false);
+        return [.. rows
+            .Select(r => new VectorEntry(r.VecId, ReflectionJson.Deserialize<float[]>(r.Vector) ?? [], r.Payload))
+            .OrderBy(e => e.Id, StringComparer.Ordinal)];
     }
 
     public async Task DeleteAsync(string collection, string id, CancellationToken ct = default)

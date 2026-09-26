@@ -2120,6 +2120,8 @@ interface Lyntai.Memory.IMemoryRemovalPolicy
     Includes(IMemoryEngine member, MemoryRemovalKind kind) : Boolean
 interface Lyntai.Memory.IPrunableMemory
     PruneAsync(String taskKey, String scope = null, Nullable<Double> minRetrievability = null, Nullable<TimeSpan> olderThan = null, CancellationToken ct = default) : Task<Int32>
+interface Lyntai.Memory.IReadableVectorStore
+    GetAsync(String collection, IReadOnlyCollection<String> ids, CancellationToken ct = default) : Task<IReadOnlyList<VectorEntry>>
 interface Lyntai.Memory.ISemanticMemory
     ForgetAsync(String taskKey, String scope, CancellationToken ct = default) : Task
     RecallAsync(String taskKey, String scope, String query, Int32 k = 5, Double minScore = 0, CancellationToken ct = default) : Task<IReadOnlyList<SemanticHit>>
@@ -2132,6 +2134,7 @@ interface Lyntai.Memory.IVectorStore
 sealed class Lyntai.Memory.InMemoryVectorStore
     .ctor()
     DeleteAsync(String collection, String id, CancellationToken ct = default) : Task
+    GetAsync(String collection, IReadOnlyCollection<String> ids, CancellationToken ct = default) : Task<IReadOnlyList<VectorEntry>>
     ListCollectionsAsync(String prefix, CancellationToken ct = default) : Task<IReadOnlyList<String>>
     RemoveCollectionAsync(String collection, CancellationToken ct = default) : Task
     SearchAsync(String collection, Single[] query, Int32 k, CancellationToken ct = default) : Task<IReadOnlyList<VectorMatch>>
@@ -2671,6 +2674,16 @@ sealed class Lyntai.Memory.SemanticMemory
     ForgetAsync(String taskKey, String scope, CancellationToken ct = default) : Task
     RecallAsync(String taskKey, String scope, String query, Int32 k = 5, Double minScore = 0, CancellationToken ct = default) : Task<IReadOnlyList<SemanticHit>>
     RememberAsync(String taskKey, String scope, String content, CancellationToken ct = default) : Task
+sealed class Lyntai.Memory.VectorEntry
+    .ctor(String Id, Single[] Vector, String Payload)
+    Deconstruct(String& Id, Single[]& Vector, String& Payload) : Void
+    Equals(Object obj) : Boolean
+    Equals(VectorEntry other) : Boolean
+    GetHashCode() : Int32
+    Id : String { get; init; }
+    Payload : String { get; init; }
+    ToString() : String
+    Vector : Single[] { get; init; }
 sealed class Lyntai.Memory.VectorMatch
     .ctor(String Id, String Payload, Double Score)
     Deconstruct(String& Id, String& Payload, Double& Score) : Void
