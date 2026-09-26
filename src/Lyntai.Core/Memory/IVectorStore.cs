@@ -23,9 +23,11 @@ public interface IVectorStore
     /// <summary>The <paramref name="k"/> nearest entries <paramref name="filter"/> admits, ranked and tie-broken as
     /// the unfiltered search is — the filter applies BEFORE the <paramref name="k"/> boundary, so a narrowed search
     /// still returns up to <paramref name="k"/> results.
-    /// <para><b>The default body is correct and only slower</b>: it ranks the whole collection, keeps what the
-    /// filter admits and takes <paramref name="k"/>, so a store of your own serves this unchanged. The shipped stores
-    /// override it to filter inside their query.</para></summary>
+    /// <para><b>The default body is correct and only slower</b>: it asks the four-argument search for
+    /// <see cref="int.MaxValue"/> results — the whole collection, payloads included — keeps what the filter admits
+    /// and takes <paramref name="k"/>. So it needs a store that takes any <paramref name="k"/>: one that preallocates
+    /// by it, or forwards it to a backend that caps it, overrides this overload instead. The shipped stores override
+    /// it to filter inside their query.</para></summary>
     /// <param name="collection">The collection to search.</param>
     /// <param name="query">The query vector.</param>
     /// <param name="k">How many results at most; zero or less returns nothing.</param>
@@ -36,8 +38,9 @@ public interface IVectorStore
     {
         ArgumentNullException.ThrowIfNull(filter);
         if (k <= 0) return [];
+        var admits = filter.Matcher();
         var ranked = await SearchAsync(collection, query, int.MaxValue, ct).ConfigureAwait(false);
-        return [.. ranked.Where(m => filter.Admits(m.Id)).Take(k)];
+        return [.. ranked.Where(m => admits(m.Id)).Take(k)];
     }
 
     /// <summary>Remove the single vector stored under <paramref name="id"/> in <paramref name="collection"/>.
@@ -108,12 +111,21 @@ public sealed record VectorSearchFilter
     /// <summary>These ids never come back, whether or not <see cref="Ids"/> names them.</summary>
     public IReadOnlyCollection<string>? ExcludeIds { get; init; }
 
-    /// <summary>Whether <paramref name="id"/> may come back (ids compare ordinally) — what a store that filters in
-    /// process asks of each candidate.</summary>
+    /// <summary>Whether <paramref name="id"/> may come back (ids compare ordinally). Each call reads the id sets, so a
+    /// store testing many candidates builds its own hash sets once rather than asking this of each.</summary>
     /// <param name="id">A stored entry's id.</param>
     public bool Admits(string id) =>
         (Ids is null || Ids.Contains(id, StringComparer.Ordinal))
         && (ExcludeIds is null || !ExcludeIds.Contains(id, StringComparer.Ordinal));
+
+    // Admits, with each id set read once: a per-candidate scan makes a 5,000-id filter over 5,000 entries 25M
+    // comparisons. Built per search, never cached on the record, whose equality compares its fields.
+    internal Func<string, bool> Matcher()
+    {
+        var ids = Ids is null ? null : new HashSet<string>(Ids, StringComparer.Ordinal);
+        var exclude = ExcludeIds is null ? null : new HashSet<string>(ExcludeIds, StringComparer.Ordinal);
+        return id => (ids is null || ids.Contains(id)) && (exclude is null || !exclude.Contains(id));
+    }
 }
 
 /// <summary>A stored entry read back by <see cref="IReadableVectorStore.GetAsync"/>: its id, the

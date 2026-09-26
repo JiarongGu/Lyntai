@@ -48,8 +48,9 @@ public sealed class InMemoryVectorStore : IListableVectorStore, IReadableVectorS
         if (k <= 0 || !_collections.TryGetValue(collection, out var col) || col.IsEmpty)
             return Task.FromResult<IReadOnlyList<VectorMatch>>([]);
 
+        var admits = filter?.Matcher();
         var ranked = col
-            .Where(kv => filter is null || filter.Admits(kv.Key))
+            .Where(kv => admits is null || admits(kv.Key))
             .Select(kv => new VectorMatch(kv.Key, kv.Value.Payload, VectorMath.Cosine(query, kv.Value.Vector)))
             .OrderByDescending(m => m.Score)
             .ThenBy(m => m.Id, StringComparer.Ordinal)

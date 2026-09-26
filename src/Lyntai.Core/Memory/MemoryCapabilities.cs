@@ -112,9 +112,10 @@ public interface IReindexableMemory
     /// <para><b>Pause writes to the task while it runs.</b> A write landing mid-pass is embedded by the new model,
     /// but its similarity search still meets old vectors, so under a new model of the same dimension its links may
     /// be scored against the wrong one.</para>
-    /// <para>A removal landing mid-pass is safe within one process: the pass never writes a vector back for an entry
-    /// a forget or prune removed. Two processes sharing a store must not run a re-embed and a removal at once — a
-    /// repeat forget of the scope clears any vector left behind.</para></summary>
+    /// <para>A removal landing mid-pass is safe when it goes through the SAME engine instance (the one DI registers
+    /// is a singleton): the pass never writes a vector back for an entry a forget or prune removed. Two instances —
+    /// in two processes, or one built by hand beside it — must not run a re-embed and a removal at once; a repeat
+    /// forget of the scope clears any vector left behind.</para></summary>
     /// <param name="taskKey">The task to re-embed.</param>
     /// <param name="scope">The scope, or null for every scope of the task.</param>
     /// <param name="ct">Cancellation, which is never swallowed; entries already re-embedded stay so.</param>
@@ -125,4 +126,9 @@ public interface IReindexableMemory
 
 /// <summary>What a re-embed did: <paramref name="Indexed"/> entries re-embedded, <paramref name="Failed"/> left on
 /// their old vector because their embed call failed. An entry removed while the pass ran counts in neither.</summary>
-public sealed record MemoryReindexResult(int Indexed, int Failed);
+public sealed record MemoryReindexResult(int Indexed, int Failed)
+{
+    /// <summary>The members of a blend that cannot re-embed and were passed over, by name — empty from a single
+    /// engine. A member here that holds vectors of its own (a semantic member does) is still on the old model.</summary>
+    public IReadOnlyList<string> Skipped { get; init; } = [];
+}

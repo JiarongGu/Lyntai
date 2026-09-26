@@ -15,18 +15,19 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 5 across 4 Parts: 2 blocked, 2 watch, 1 decision-only
+## Open items — 6 across 5 Parts: 1 startable, 2 blocked, 2 watch, 1 decision-only
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 106 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a free Hugging Face account (an hf_ token) — its router proxies fal's own q… |
-| 153 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 176 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 232 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
-| 261 | 320 | Honour `sentence_bert_config.json`'s `max_seq_length`? | decision-only · decision | a ruling: honouring it changes existing vectors — all-MiniLM-L6-v2 declares… |
+| 107 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a free Hugging Face account (an hf_ token) — its router proxies fal's own q… |
+| 154 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 177 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 233 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 262 | 320 | Honour `sentence_bert_config.json`'s `max_seq_length`? | decision-only · decision | a ruling: honouring it changes existing vectors — all-MiniLM-L6-v2 declares… |
+| 272 | 324 | A forget racing a write can leave the write's vector behind | startable |  |
 
 <!-- open-items:end -->
 
@@ -263,6 +264,15 @@ _Surfaced by `docs/task-archive.md` Part 319 (**D191**), which deliberately left
   256 for all-MiniLM-L6-v2, 128 for paraphrase-multilingual-MiniLM. So a 257–512-token text embeds differently
   here than through the reference pipeline. Honouring it matches the reference and moves every stored vector
   of a long text; the ruling is whether that is a fix to ship or a divergence to document.
+
+## Part 324 — found by the final review of the re-embed work (2026-09-27)
+
+_Surfaced by the review of `docs/task-archive.md` Part 323 (**D194**), which left it alone as pre-existing._
+
+- [ ] **A forget racing a write can leave the write's vector behind.** `GraphMemoryEngine.RememberAsync` upserts <!-- item: state=startable -->
+  the node and only then indexes its vector, so a `ForgetAsync` completing between the two leaves a vector holding
+  the forgotten content — the removal-completeness defect **D90** exists to prevent. The removal lock D194 added
+  makes the fix cheap: index under it, after re-reading that the node still exists.
 
 ## Retired — five Parts that outlived their open work (2026-09-16)
 

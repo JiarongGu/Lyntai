@@ -8,8 +8,9 @@ namespace Lyntai.Memory;
 /// or a package's own <c>Add…Provider</c>). Scoped by (taskKey, scope) like the
 /// lexical store; re-remembering identical content overwrites rather than duplicating.
 /// <para>CHANGING THE EMBEDDING MODEL: stored vectors keep their old dimension, and every shipped vector store
-/// scores one of another dimension 0, so recall finds nothing it wrote before the change (a BYO store that throws
-/// instead yields no hits, fail-open). REINDEX (<see cref="ForgetAsync"/> the scope + re-<see cref="RememberAsync"/>,
+/// scores one of another dimension 0 — so recall still RETURNS old entries, at score 0, unless a
+/// <c>minScore</c> above zero drops them; a new model of the SAME dimension scores them in the wrong space, which
+/// is noise rather than nothing (a BYO store that throws instead yields no hits, fail-open). REINDEX (<see cref="ForgetAsync"/> the scope + re-<see cref="RememberAsync"/>,
 /// or drop the vectors) after a model change so recall works again. A graph memory engine re-embeds in place
 /// instead: <see cref="IReindexableMemory"/>.</para>
 /// </summary>

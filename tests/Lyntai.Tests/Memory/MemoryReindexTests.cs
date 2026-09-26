@@ -218,7 +218,9 @@ public class MemoryReindexTests
         var other = new StaticEngine("static", []);
 
         var blend = new CompositeMemoryEngine("blend", [rig.Engine, other]);
-        Assert.Equal(new MemoryReindexResult(2, 0), await blend.ReindexAsync("t"));
+        var result = await blend.ReindexAsync("t");
+        Assert.Equal((2, 0), (result.Indexed, result.Failed));
+        Assert.Equal(["static"], result.Skipped);                // named, so a semantic member left behind is visible
 
         var none = new CompositeMemoryEngine("none", [other]);
         await Assert.ThrowsAsync<NotSupportedException>(() => none.ReindexAsync("t"));

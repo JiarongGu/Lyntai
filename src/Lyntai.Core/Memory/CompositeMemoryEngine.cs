@@ -284,15 +284,21 @@ public sealed class CompositeMemoryEngine
     }
 
     /// <inheritdoc />
-    /// <remarks>Fans out to every member that can re-embed and SUMS their results; a member that cannot is skipped,
-    /// since a member holding no vectors has nothing to re-embed — unlike removal, where such a member blocks the
-    /// verb. When NO member can, this throws <see cref="NotSupportedException"/>: a count of zero would read as
-    /// "nothing needed re-embedding".</remarks>
+    /// <remarks>Fans out to every member that can re-embed and SUMS their results. A member that cannot is passed
+    /// over, logged and NAMED in <see cref="MemoryReindexResult.Skipped"/> — unlike removal, where such a member blocks
+    /// the verb — because a lexical or curated member holds no vectors; <b>a semantic member does, and stays on the
+    /// old model</b>: repopulate it from the application's own corpus. A member that can re-embed but has no index or
+    /// embedder throws, failing the blend. When NO member can, this throws <see cref="NotSupportedException"/>: a count
+    /// of zero would read as "nothing needed re-embedding".</remarks>
     public async Task<MemoryReindexResult> ReindexAsync(string taskKey, string? scope = null, CancellationToken ct = default)
     {
         var members = _members.OfType<IReindexableMemory>().ToList();
         if (members.Count == 0)
             throw new NotSupportedException($"No member of memory engine '{Name}' can re-embed.");
+        List<string> skipped = [.. _members.Where(m => m is not IReindexableMemory).Select(m => m.Name)];
+        foreach (var name in skipped)
+            _logger.LogWarning("memory engine {Blend}: member {Member} cannot re-embed and was skipped; any vectors "
+                + "it holds are still on the old model", Name, name);
 
         var (indexed, failed) = (0, 0);
         foreach (var member in members)
@@ -301,7 +307,7 @@ public sealed class CompositeMemoryEngine
             var result = await member.ReindexAsync(taskKey, scope, ct).ConfigureAwait(false);
             (indexed, failed) = (indexed + result.Indexed, failed + result.Failed);
         }
-        return new MemoryReindexResult(indexed, failed);
+        return new MemoryReindexResult(indexed, failed) { Skipped = skipped };
     }
 
     /// <summary>The members a removal visits, checked for the SPECIFIC capability that verb needs — refusing

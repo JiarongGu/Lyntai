@@ -46,8 +46,9 @@ every addition.
   change and writes each vector back at its address — ids, links and decay state kept, where the alternative was
   dropping the memory and writing it all again. It writes nothing but vectors, sends `GraphMemoryOptions.ReindexBatchSize`
   (32) entries per embed call, counts a batch whose call failed in `MemoryReindexResult.Failed`, and never writes a
-  vector back for an entry a forget or prune removed while it ran. Pause writes to the task during the pass;
-  similarity links stay as the old model scored them.
+  vector back for an entry a forget or prune removed while it ran through the same engine instance. A blend names
+  the members it passed over in `MemoryReindexResult.Skipped` — a semantic member among them, whose vectors stay on
+  the old model. Pause writes to the task during the pass; similarity links stay as the old model scored them.
 - **A stored vector read back by id** (**D194**): `IReadableVectorStore.GetAsync(collection, ids)` returns each
   present entry once, ordered by id, its vector bit-identical to the one upserted. The in-memory, SQLite and Postgres
   stores implement it; a store of your own may.

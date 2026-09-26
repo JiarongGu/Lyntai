@@ -901,7 +901,8 @@ public sealed class GraphMemoryEngine(
     /// <see cref="GraphMemoryOptions.ReindexBatchSize"/> OUTSIDE the removal lock, so a slow backend holds no removal
     /// up, and writes each batch back UNDER it, re-reading which of its entries still exist first. A batch whose
     /// embed call fails is logged and counted <see cref="MemoryReindexResult.Failed"/>; a write that fails throws, as
-    /// the index itself is then broken, and a rerun resumes.</remarks>
+    /// the index itself is then broken. A rerun re-embeds the WHOLE task again: nothing records which model wrote a
+    /// stored vector.</remarks>
     public async Task<MemoryReindexResult> ReindexAsync(string taskKey, string? scope = null, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(taskKey);

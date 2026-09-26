@@ -22,6 +22,41 @@ public class VectorSearchFilterDefaultTests
         await Assert.ThrowsAsync<ArgumentNullException>(() => New().SearchAsync("d6", [1f], 1, null!));
     }
 
+    [Fact]
+    public async Task A_filter_reads_its_id_sets_once_per_search_not_once_per_candidate()
+    {
+        // the default body and the in-process store both test every candidate; a per-candidate scan of the id list
+        // makes a 5,000-id filter over 5,000 entries 25M comparisons
+        foreach (var store in new IVectorStore[] { New(), new InMemoryVectorStore() })
+        {
+            for (var i = 0; i < 50; i++) await store.UpsertAsync("e", $"id-{i}", [1f, i], $"{i}");
+            var (ids, exclude) = (new CountingIds(["id-3", "id-7"]), new CountingIds(["id-7"]));
+
+            var hits = await store.SearchAsync("e", [1f, 0f], 10, new VectorSearchFilter { Ids = ids, ExcludeIds = exclude });
+
+            Assert.Equal(["id-3"], hits.Select(h => h.Id));
+            Assert.True(ids.Reads <= 1 && exclude.Reads <= 1,
+                $"{store.GetType().Name} read Ids {ids.Reads}x and ExcludeIds {exclude.Reads}x for one search");
+        }
+    }
+
+    /// <summary>An id set that counts how often it is enumerated — and is not an <see cref="ICollection{T}"/>, so
+    /// nothing can ask it <c>Contains</c> without enumerating it.</summary>
+    private sealed class CountingIds(IReadOnlyList<string> ids) : IReadOnlyCollection<string>
+    {
+        public int Reads { get; private set; }
+
+        public int Count => ids.Count;
+
+        public IEnumerator<string> GetEnumerator()
+        {
+            Reads++;
+            return ids.GetEnumerator();
+        }
+
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+    }
+
     /// <summary>A store implementing ONLY the four required members, with the contract's ordering.</summary>
     private sealed class MinimalStore : IVectorStore
     {

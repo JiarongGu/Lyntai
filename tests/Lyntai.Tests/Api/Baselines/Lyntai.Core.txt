@@ -2323,6 +2323,7 @@ sealed class Lyntai.Memory.MemoryReindexResult
     Failed : Int32 { get; init; }
     GetHashCode() : Int32
     Indexed : Int32 { get; init; }
+    Skipped : IReadOnlyList<String> { get; init; }
     ToString() : String
 enum Lyntai.Memory.MemoryReinforcementActs
     All : MemoryReinforcementActs const
