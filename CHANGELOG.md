@@ -68,6 +68,10 @@ every addition.
 
 ### Fixed
 
+- **An XLM-R or MPNet ONNX export no longer takes a window past its position table.** The window read
+  `max_position_embeddings` (514) alone, and those families hold two fewer tokens than they declare; it is now
+  narrowed to the tokenizer's declared `model_max_length` (512) where that is smaller, so a long input is cut at
+  a length the graph can take. No BERT export's window moves.
 - **`McpToolHostOptions.ToolsByConsumer` is read as it was checked** (**D190**). The map was validated when the
   provisioner was built but read on every spawn, so a list the caller still held could gain a name the check
   never saw, and a null list threw a bare `NullReferenceException`. It is now copied then; a null list is refused

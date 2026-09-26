@@ -128,6 +128,21 @@ public class SentenceTransformerConfigTests : IDisposable
         Assert.Equal(512, SentenceTransformerConfig.FromDirectory(Dir).MaxTokens);
     }
 
+    [Theory]
+    [InlineData(514, "512", 512)]                                // XLM-R: positions start after the pad index
+    [InlineData(512, null, 512)]                                 // no tokenizer_config.json
+    [InlineData(512, "1000000000000000019884624838656", 512)]    // HF's "unset" sentinel is no int
+    [InlineData(8194, "8192", 8192)]
+    [InlineData(512, "4096", 512)]                               // a larger declaration never widens
+    public void The_window_is_the_position_limit_NARROWED_to_a_smaller_declared_model_max_length(
+        int positions, string? declared, int expected)
+    {
+        Write("config.json", $$"""{"max_position_embeddings": {{positions}}}""");
+        if (declared is not null) Write("tokenizer_config.json", $$"""{"model_max_length": {{declared}}}""");
+
+        Assert.Equal(expected, SentenceTransformerConfig.FromDirectory(Dir).MaxTokens);
+    }
+
     [Fact]
     public void An_EMPTY_directory_reads_as_the_sentence_transformers_defaults()
     {

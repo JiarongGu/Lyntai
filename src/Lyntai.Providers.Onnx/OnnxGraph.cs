@@ -63,8 +63,9 @@ internal static class OnnxGraph
         ("token_type_ids", e => e.TokenTypeIds),
     ];
 
-    /// <summary>Zero-padded to the widest row, which is what every tensor here wants: id 0 is
-    /// <c>[PAD]</c>, mask 0 excludes the row, and segment 0 is what padding belongs to.</summary>
+    /// <summary>Zero-padded to the widest row. Padding is masked out of attention and pooling, so its id is
+    /// inert — and with the window capped at the real position limit, a RoBERTa graph's padding-derived position
+    /// ids stay inside its table. Mask 0 excludes the row, and segment 0 is what padding belongs to.</summary>
     private static DenseTensor<long> Pad(
         TokenEncoding[] encodings, Func<TokenEncoding, int[]> select, int width)
     {

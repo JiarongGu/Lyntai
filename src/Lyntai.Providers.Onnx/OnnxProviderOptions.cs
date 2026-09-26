@@ -30,8 +30,9 @@ public sealed class OnnxProviderOptions
     /// consumer compares by dot product or stores vectors for something that assumes unit length.</summary>
     public bool? Normalize { get; set; }
 
-    /// <summary>Maximum sequence length INCLUDING <c>[CLS]</c> and <c>[SEP]</c>. Null reads
-    /// <c>config.json</c>'s <c>max_position_embeddings</c>, defaulting to 512.
+    /// <summary>Maximum sequence length INCLUDING the special tokens (<c>[CLS]</c>/<c>[SEP]</c>, or XLM-R's
+    /// <c>&lt;s&gt;</c>/<c>&lt;/s&gt;</c>). Null reads <c>config.json</c>'s <c>max_position_embeddings</c>, narrowed to
+    /// <c>tokenizer_config.json</c>'s <c>model_max_length</c> where that is smaller, defaulting to 512.
     /// <para><b>Longer text is TRUNCATED, not refused</b>, which is what every BERT-family encoder does —
     /// unless <see cref="Segmentation"/> says to segment it. A <c>model2vec</c> table has no such
     /// limit.</para></summary>

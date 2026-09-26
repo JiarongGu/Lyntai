@@ -7,6 +7,27 @@ to `.claude/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-09-26 — an XLM-R or MPNet ONNX export took a window two positions past its table
+
+**Symptom.** Found while bringing up the multilingual reranker mmarco-mMiniLMv2 (**D191**): its `config.json`
+declares `max_position_embeddings: 514`, and `OnnxProvider` took 514 as the window, so any input of 513 or more
+tokens — truncated or segmented — built a row the graph's position table cannot index.
+
+**Root cause.** `SentenceTransformerConfig` read `max_position_embeddings` as the token limit. For the RoBERTa
+family (XLM-R, MPNet) position ids start AFTER the padding index, so 514 positions hold 512 tokens; every such
+tokenizer declares that 512 as `model_max_length`, and nothing read it.
+
+**Fix.** The window is `max_position_embeddings`, narrowed to `tokenizer_config.json`'s `model_max_length`
+where that is smaller. A larger declaration (potion writes 1,000,000; HF writes `int(1e30)` for "unset") never
+widens it, so no BERT export's window moves.
+
+**Verify.** `SentenceTransformerConfigTests.The_window_is_the_position_limit_NARROWED_to_a_smaller_declared_model_max_length`
+(514 → 512 and 8194 → 8192 failed before; the sentinel and the larger declaration pin that nothing widens), and
+`OnnxCrossEncoderLiveTests` against mmarco-mMiniLMv2, whose passages run past 512 tokens.
+
+**Introduced by.** Not a regression: `aaafd584` (2026-09-14) shipped the ONNX provider reading
+`max_position_embeddings`, and every model it was measured on was BERT-family, where the two numbers agree.
+
 ## 2026-09-26 — llama.cpp's physical-batch refusal was a host fault, not an input too big
 
 **Symptom.** Reported by an adopting application planning its 3.2.0 → 3.4.0 upgrade (`docs/task-archive.md` Part 310): an

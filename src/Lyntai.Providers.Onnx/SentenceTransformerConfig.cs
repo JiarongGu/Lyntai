@@ -11,7 +11,8 @@ namespace Lyntai.Providers.Onnx;
 /// <c>Normalize</c> module follows.</para></summary>
 /// <param name="Pooling">Mean over attended tokens, or the classification token alone.</param>
 /// <param name="Normalize">Whether a <c>Normalize</c> module is in the model's module list.</param>
-/// <param name="MaxTokens">The architectural position limit, including both special tokens.</param>
+/// <param name="MaxTokens">The positions a row may take, including its special tokens: the architectural limit,
+/// narrowed to a smaller declared <c>model_max_length</c>.</param>
 internal sealed record SentenceTransformerConfig(OnnxPooling Pooling, bool Normalize, int MaxTokens)
 {
     /// <summary>What sentence-transformers does when a file is absent. MEAN because it is the overwhelming
@@ -22,7 +23,27 @@ internal sealed record SentenceTransformerConfig(OnnxPooling Pooling, bool Norma
     public static SentenceTransformerConfig FromDirectory(string directory) => new(
         PoolingFrom(Path.Combine(directory, "1_Pooling", "config.json")) ?? Defaults.Pooling,
         NormalizesFrom(Path.Combine(directory, "modules.json")) ?? Defaults.Normalize,
-        MaxTokensFrom(Path.Combine(directory, "config.json")) ?? Defaults.MaxTokens);
+        WindowFrom(directory));
+
+    /// <summary>The architectural position limit, narrowed to the tokenizer's declared <c>model_max_length</c>
+    /// where that is SMALLER. <b>The narrowing is load-bearing for the RoBERTa family</b>: position ids start
+    /// after the padding index, so a declared 514 holds 512 tokens and a 514-token row indexes past the table.
+    /// A larger declaration never widens it — potion declares 1,000,000.</summary>
+    private static int WindowFrom(string directory)
+    {
+        var positions = MaxTokensFrom(Path.Combine(directory, "config.json")) ?? Defaults.MaxTokens;
+        return ModelMaxLengthFrom(Path.Combine(directory, "tokenizer_config.json")) is { } declared
+               && declared < positions
+            ? declared
+            : positions;
+    }
+
+    // HF writes int(1e30) for "unset", which is no int32 and so declares nothing
+    private static int? ModelMaxLengthFrom(string path) => Read<int>(path, root =>
+        root.TryGetProperty("model_max_length", out var max)
+        && max.ValueKind == JsonValueKind.Number && max.TryGetInt32(out var value) && value > 2
+            ? value
+            : (int?)null);
 
     /// <summary>CLS only when the model says so explicitly — the flags are not mutually exclusive in the
     /// file, and mean is the safe reading when both or neither is set.</summary>
