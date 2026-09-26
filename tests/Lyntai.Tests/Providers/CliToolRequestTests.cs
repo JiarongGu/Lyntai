@@ -77,6 +77,18 @@ public class CliToolRequestTests
     }
 
     [Fact]
+    public async Task A_provisioner_that_predates_the_request_still_runs_on_a_stream()
+    {
+        var provisioner = new RequestBlind();
+        var engine = new CliProviderEngine(new FakeCliBackend(), new FakeProcessRunner(["text:hi", "result:hi"]),
+            new LyntaiOptions(), command: "fakecli", provisioner: provisioner);
+
+        await foreach (var _ in engine.StreamAsync(Ask("study"))) { }
+
+        Assert.Equal(1, provisioner.Calls);
+    }
+
+    [Fact]
     public async Task A_null_request_is_refused_by_the_default_member_as_by_the_host()
     {
         // the default must not silently run request-blind on a null the shipped host refuses

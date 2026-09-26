@@ -5203,3 +5203,13 @@ lands: the first enumeration of the providers, not `BuildServiceProvider`. It pa
 was right and unstated — so the change is the statement, in `AddMcpToolHost`'s and the option's XML docs.
 
 - Pin the refusal through the builder, and say when it fires
+
+## Part 313 — two test gaps in the CLI tool seam (2026-09-26)
+
+✅ done 2026-09-26 — **Outcome:** closes the third item of `TASKS.md` Part 299, tests only.
+`CliToolRequestTests.A_provisioner_that_predates_the_request_still_runs_on_a_stream` drives the request-blind
+member through `StreamAsync` as its twin already did through `CompleteAsync`, and
+`McpToolHostSelectionTests.A_list_whose_every_name_is_unknown_is_refused_rather_than_read_as_empty` pins that a
+list naming no registered tool is refused rather than hosting nothing. Both passed on arrival.
+
+- Two test gaps in the CLI tool seam

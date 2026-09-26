@@ -112,6 +112,19 @@ public class McpToolHostSelectionTests
         Assert.Contains("[\"scoring\"] names 'eho'", ex.Message);
     }
 
+    /// <summary>A list whose EVERY name is unknown would otherwise host nothing at all — indistinguishable from
+    /// an empty list, which denies on purpose.</summary>
+    [Fact]
+    public void A_list_whose_every_name_is_unknown_is_refused_rather_than_read_as_empty()
+    {
+        var options = new McpToolHostOptions { ToolsByConsumer = { ["study"] = ["fecth", "eho"] } };
+
+        var ex = Assert.Throws<InvalidOperationException>(() =>
+            new McpToolHostProvisioner([Echo, Fetch], new Connector(), options));
+
+        Assert.Contains("'fecth', 'eho'", ex.Message);
+    }
+
     [Fact]
     public void A_null_list_is_refused_at_construction_naming_its_consumer()
     {
