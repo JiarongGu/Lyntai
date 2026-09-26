@@ -88,7 +88,17 @@ public sealed record JobRecord(
     string? StepLog = null,
     string? PartitionKey = null)
 {
+    private readonly JobMessage? _stageMessage;
+
     /// <summary>The live stage as a <see cref="JobMessage"/> — with its code and arguments when it was reported as
-    /// one, else <see cref="Stage"/>'s text alone. Null exactly when <see cref="Stage"/> is.</summary>
-    public JobMessage? StageMessage { get; init; } = Stage is null ? null : new JobMessage(Stage);
+    /// one, else <see cref="Stage"/>'s text alone. Null exactly when <see cref="Stage"/> is.
+    /// <para>Derived on read, not stored beside <see cref="Stage"/>: a <c>with</c> that changes the stage copies
+    /// the message too, so a carried message counts only while its text IS the stage.</para></summary>
+    public JobMessage? StageMessage
+    {
+        get => Stage is null ? null
+            : _stageMessage is { } carried && string.Equals(carried.Text, Stage, StringComparison.Ordinal) ? carried
+            : new JobMessage(Stage);
+        init => _stageMessage = value;
+    }
 }

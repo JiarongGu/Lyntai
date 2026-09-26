@@ -71,7 +71,6 @@ public sealed class InMemoryJobStore(Func<DateTimeOffset>? clock = null, int ste
         lock (_lock)
         {
             if (!Owned(id, workerId, out var j)) return Task.FromResult(false);
-            // StageMessage is set with Stage: a `with` copies it rather than re-deriving it
             _jobs[id] = j with { Progress = done, Total = total, Stage = stage?.Text, StageMessage = stage, UpdatedAt = now }; // NOT a lease renewal
             return Task.FromResult(true);
         }

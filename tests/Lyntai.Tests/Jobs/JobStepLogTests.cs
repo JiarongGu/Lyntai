@@ -103,3 +103,34 @@ public class JobStepLogTests
     [Fact]
     public void A_message_needs_text() => Assert.Throws<ArgumentNullException>(() => new JobMessage(null!));
 }
+
+/// <summary><see cref="JobRecord.StageMessage"/> stays consistent with <see cref="JobRecord.Stage"/> however the record
+/// is made — including through <c>with</c>, which copies a record's fields rather than re-running its initializers,
+/// and is exactly how a store of an app's own would write a stage.</summary>
+public class JobRecordStageMessageTests
+{
+    private static readonly DateTimeOffset T0 = new(2026, 7, 18, 12, 0, 0, TimeSpan.Zero);
+
+    private static JobRecord Record(string? stage) =>
+        new(Guid.NewGuid(), "lane", "t", "{}", JobStatus.Running, null, 1, 3, null, T0, T0, "w1", T0, T0, Stage: stage);
+
+    [Fact]
+    public void A_stage_changed_through_with_reads_back_as_the_new_text()
+    {
+        Assert.Equal(new JobMessage("copying"), (Record(null) with { Stage = "copying" }).StageMessage);
+        Assert.Equal(new JobMessage("b"), (Record("a") with { Stage = "b" }).StageMessage);
+    }
+
+    [Fact]
+    public void A_stage_cleared_through_with_reads_back_as_null() =>
+        Assert.Null((Record("a") with { Stage = null }).StageMessage);
+
+    [Fact]
+    public void A_coded_message_is_kept_while_its_text_is_the_stage()
+    {
+        var coded = new JobMessage("copying") { Code = "copy" };
+
+        Assert.Equal(coded, (Record(null) with { Stage = "copying", StageMessage = coded }).StageMessage);
+        Assert.Equal(new JobMessage("later"), (Record(null) with { Stage = "copying", StageMessage = coded } with { Stage = "later" }).StageMessage);
+    }
+}
