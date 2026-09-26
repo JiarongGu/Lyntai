@@ -315,15 +315,7 @@ public sealed class LyntaiBuilder
     /// name keys the persisted next-run, so only one of the two would ever fire.</exception>
     public LyntaiBuilder AddJobSchedule(JobSchedule schedule)
     {
-        ArgumentNullException.ThrowIfNull(schedule);
-        ArgumentException.ThrowIfNullOrWhiteSpace(schedule.Name, nameof(schedule));
-        if ((schedule.Interval is null) == (schedule.Cron is null))
-            throw new ArgumentException(
-                $"Schedule '{schedule.Name}' must set exactly one of Interval or Cron.", nameof(schedule));
-        if (schedule.Cron is { } cron) _ = CronExpression.Parse(cron);
-        else if (schedule.Interval <= TimeSpan.Zero)
-            throw new ArgumentOutOfRangeException(nameof(schedule), schedule.Interval,
-                $"Schedule '{schedule.Name}' needs a positive Interval.");
+        JobScheduleRules.Validate(schedule);
         if (Services.Any(d => d.ServiceType == typeof(JobSchedule) && !d.IsKeyedService
                 && d.ImplementationInstance is JobSchedule other
                 && string.Equals(other.Name, schedule.Name, StringComparison.Ordinal)))
@@ -331,6 +323,26 @@ public sealed class LyntaiBuilder
                 $"A job schedule named '{schedule.Name}' is already registered. The name keys the persisted " +
                 "next-run, so only one of the two would ever fire; give each schedule its own name.");
         Services.AddSingleton(schedule);
+        return this;
+    }
+
+    /// <summary>Keep schedules added at run time in the key-value store: registers
+    /// <see cref="KeyValueJobScheduleStore"/>, resolvable as itself and as the <see cref="IJobScheduleStore"/> the
+    /// <see cref="IJobScheduler"/> lists on every tick. Needs an <see cref="IKeyValueStore"/> — any storage backend
+    /// registers one. The first schedule store registered wins.</summary>
+    public LyntaiBuilder AddJobScheduleStore()
+    {
+        Services.TryAddSingleton(sp => new KeyValueJobScheduleStore(
+            sp.GetRequiredService<IKeyValueStore>(), sp.GetService<ILogger<KeyValueJobScheduleStore>>()));
+        Services.TryAddSingleton<IJobScheduleStore>(sp => sp.GetRequiredService<KeyValueJobScheduleStore>());
+        return this;
+    }
+
+    /// <summary>Keep schedules added at run time in a store of the app's own — its database, its UI's records. The
+    /// first schedule store registered wins.</summary>
+    public LyntaiBuilder AddJobScheduleStore<TStore>() where TStore : class, IJobScheduleStore
+    {
+        Services.TryAddSingleton<IJobScheduleStore, TStore>();
         return this;
     }
 

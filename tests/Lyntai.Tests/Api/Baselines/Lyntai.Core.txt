@@ -1525,6 +1525,11 @@ interface Lyntai.Jobs.IJobQueue
 interface Lyntai.Jobs.IJobRunner
     RunAsync(CancellationToken ct = default) : Task
     RunOnceAsync(CancellationToken ct = default) : Task<Int32>
+interface Lyntai.Jobs.IJobScheduleStore
+    GetAsync(String name, CancellationToken ct = default) : Task<JobSchedule>
+    ListAsync(CancellationToken ct = default) : Task<IReadOnlyList<JobSchedule>>
+    RemoveAsync(String name, CancellationToken ct = default) : Task<Boolean>
+    SetAsync(JobSchedule schedule, CancellationToken ct = default) : Task
 interface Lyntai.Jobs.IJobScheduler
     RunAsync(CancellationToken ct = default) : Task
     TickAsync(CancellationToken ct = default) : Task<Int32>
@@ -1673,6 +1678,12 @@ static class Lyntai.Jobs.JobStepLog
     DefaultCap : Int32 const
     static Append(String json, String message, DateTimeOffset at, Int32 cap = 200) : String
     static Parse(String json) : IReadOnlyList<JobStep>
+sealed class Lyntai.Jobs.KeyValueJobScheduleStore
+    .ctor(IKeyValueStore store, ILogger<KeyValueJobScheduleStore> logger = null)
+    GetAsync(String name, CancellationToken ct = default) : Task<JobSchedule>
+    ListAsync(CancellationToken ct = default) : Task<IReadOnlyList<JobSchedule>>
+    RemoveAsync(String name, CancellationToken ct = default) : Task<Boolean>
+    SetAsync(JobSchedule schedule, CancellationToken ct = default) : Task
 sealed class Lyntai.LyntaiBuilder
     AddBridgeProvider(String id, Func<TextRequest,CancellationToken,Task<TextResponse>> complete, Func<TextRequest,CancellationToken,IAsyncEnumerable<TextChunk>> stream = null, ProviderCapabilities capabilities = null) : LyntaiBuilder
     AddConversationEnricher(Func<IServiceProvider,IConversationEnricher> factory) : LyntaiBuilder
@@ -1687,6 +1698,8 @@ sealed class Lyntai.LyntaiBuilder
     AddJobHandler<T>() : LyntaiBuilder
     AddJobSchedule(JobSchedule schedule) : LyntaiBuilder
     AddJobSchedule(String name, String lane, String type, String payload, TimeSpan every, Int32 priority = 0) : LyntaiBuilder
+    AddJobScheduleStore() : LyntaiBuilder
+    AddJobScheduleStore<TStore>() : LyntaiBuilder
     AddLiveModelRouting() : LyntaiBuilder
     AddMemoryPruneJob(String cron, Nullable<TimeSpan> olderThan = null, String taskKey = null, String lane = "default", String name = "lyntai-memory-prune", Int32 priority = 0) : LyntaiBuilder
     AddProvider(Func<IServiceProvider,IModelProvider> factory, ProviderCapabilities declares = null) : LyntaiBuilder
