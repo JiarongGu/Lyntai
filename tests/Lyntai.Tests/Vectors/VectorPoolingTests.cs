@@ -143,6 +143,24 @@ public class SentenceTransformerConfigTests : IDisposable
         Assert.Equal(expected, SentenceTransformerConfig.FromDirectory(Dir).MaxTokens);
     }
 
+    [Theory]
+    [InlineData(512, null, "256", 256)]      // all-MiniLM-L6-v2: sentence-transformers truncates at 256
+    [InlineData(512, "512", "128", 128)]     // paraphrase-multilingual-MiniLM-L12-v2
+    [InlineData(514, "512", "1024", 512)]    // a larger declaration never widens either
+    [InlineData(512, "300", "400", 300)]     // the smallest declaration wins, whichever file holds it
+    [InlineData(512, null, null, 512)]       // no sentence_bert_config.json
+    [InlineData(512, null, "null", 512)]     // an export that writes null declares nothing
+    public void The_window_is_narrowed_to_sentence_transformers_own_max_seq_length_too(
+        int positions, string? declared, string? maxSeqLength, int expected)
+    {
+        Write("config.json", $$"""{"max_position_embeddings": {{positions}}}""");
+        if (declared is not null) Write("tokenizer_config.json", $$"""{"model_max_length": {{declared}}}""");
+        if (maxSeqLength is not null)
+            Write("sentence_bert_config.json", $$"""{"max_seq_length": {{maxSeqLength}}, "do_lower_case": false}""");
+
+        Assert.Equal(expected, SentenceTransformerConfig.FromDirectory(Dir).MaxTokens);
+    }
+
     [Fact]
     public void An_EMPTY_directory_reads_as_the_sentence_transformers_defaults()
     {
@@ -340,7 +358,8 @@ public class OnnxProviderLiveTests
         Assert.Equal("onnx", vectorProvider.Id);
         Assert.True(vectorProvider.IsAvailable);
         Assert.True(vectorProvider.MaxTokens > 0);
-        if (IsTheReferenceModel()) Assert.Equal(512, vectorProvider.MaxTokens);
+        // its sentence_bert_config.json declares 256: an export missing the file reads 512 and is incomplete
+        if (IsTheReferenceModel()) Assert.Equal(256, vectorProvider.MaxTokens);
         Assert.NotEmpty((await vectorProvider.EmbedAsync(["x"]))[0]);
     }
 

@@ -19,6 +19,14 @@ every addition.
 
 ## Unreleased
 
+### Changed
+
+- **A sentence-transformers ONNX export is cut where sentence-transformers cuts it** (**D195**). `OnnxProvider`'s
+  window is now also narrowed to `sentence_bert_config.json`'s `max_seq_length`: 256 for all-MiniLM-L6-v2 and 128
+  for paraphrase-multilingual-MiniLM-L12-v2, which both ran at 512. A text longer than the new window embeds
+  differently from before, in the same vector space; `OnnxProviderOptions.MaxTokens = 512` keeps the old window,
+  and `ReindexAsync` re-embeds a graph memory so its stored vectors are cut alike.
+
 ### Fixed
 
 - **A forget racing a graph write no longer leaves the write's vector behind.** A write stored its entry and only

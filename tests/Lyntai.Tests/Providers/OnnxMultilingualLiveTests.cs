@@ -65,7 +65,8 @@ public class OnnxMultilingualLiveTests
 
         var v = await provider.EmbedAsync([paragraph, Sentences[0], Sentences[3]]);
 
-        Assert.Equal(512, provider.MaxTokens);
+        Assert.True(provider.MaxTokens <= 512);
+        if (IsTheReferenceModel()) Assert.Equal(128, provider.MaxTokens);   // its declared max_seq_length
         Assert.Equal(1.0, Math.Sqrt(v[0].Sum(x => (double)x * x)), 3);   // segmented: a re-normalised mean
         Assert.True(Cosine(v[0], v[1]) > Cosine(v[0], v[2]),
             $"the weather paragraph should sit nearer the weather sentence ({Cosine(v[0], v[1]):F3}) than the "

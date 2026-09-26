@@ -5335,3 +5335,15 @@ Mechanism, the reader-writer alternative that was declined, and the four mutatio
 2026-09-27. The contract sentence is in `docs/memory.md` §9, "Delete things, deliberately".
 
 - A forget racing a write can leave the write's vector behind
+
+## Part 326 — honouring `sentence_bert_config.json`'s `max_seq_length` (2026-09-27)
+
+✅ done 2026-09-27 — **Outcome:** `TASKS.md` Part 320's one item, ruled under the owner's delegation as **D195**:
+honoured. `SentenceTransformerConfig` now narrows the ONNX window to `max_seq_length` as it already did to
+`model_max_length`, the smaller one winning and never widening: 256 for all-MiniLM-L6-v2 and 128 for
+paraphrase-multilingual-MiniLM-L12-v2, both 512 before. `OnnxProviderOptions.MaxTokens = 512` keeps the old window.
+Six `SentenceTransformerConfigTests` cases; the two live tests pinning 512 now pin each export's declaration, and
+the 19 ONNX live tests pass against the local models. The local all-MiniLM-L6-v2 copy lacked the file, and the
+published export ships it.
+
+- Honour `sentence_bert_config.json`'s `max_seq_length`?

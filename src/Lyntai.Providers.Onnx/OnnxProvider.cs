@@ -68,7 +68,8 @@ public sealed class OnnxProvider : IVectorProvider, IScoreProvider, IDisposable
     /// <summary>Load an ONNX export: a graph plus its tokenizer — <c>vocab.txt</c> (WordPiece), else a Unigram
     /// <c>tokenizer.json</c> (SentencePiece, the XLM-R family; <c>docs/DECISIONS.md</c> <b>D191</b>) — with the
     /// sequence limit — and, for the default bi-encoder (pooling) head, pooling mode and normalization — taken
-    /// from the model's own <c>config.json</c>, <c>1_Pooling/config.json</c> and <c>modules.json</c>.</summary>
+    /// from the model's own <c>config.json</c>, <c>1_Pooling/config.json</c> and <c>modules.json</c>, the limit
+    /// narrowed by <c>tokenizer_config.json</c> and <c>sentence_bert_config.json</c>.</summary>
     /// <param name="directory">The model directory.</param>
     /// <param name="options">Knobs; null takes the model's own configuration throughout and embeds.</param>
     /// <exception cref="ArgumentException"><see cref="OnnxProviderOptions.Produces"/> is neither

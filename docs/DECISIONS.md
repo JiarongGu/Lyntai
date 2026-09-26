@@ -264,8 +264,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D192](#d192--run-time-job-schedules-are-a-seam-over-the-key-value-store-and-a-coded-job-message-takes-required-store-members-2026-09-26) | 2026-09-26 | run-time job schedules are a seam over the key-value store, and a coded job message takes require… |
 | [D193](#d193--run-time-text-providers-are-a-snapshot-the-default-router-reads-and-call-tracing-is-a-front-door-decorator-2026-09-27) | 2026-09-27 | run-time text providers are a snapshot the DEFAULT router reads, and call tracing is a front-door… |
 | [D194](#d194--a-stored-vector-is-read-back-through-an-optional-interface-a-search-is-filtered-by-an-id-set-and-a-re-embed-writes-only-vectors-2026-09-27) | 2026-09-27 | a stored vector is read back through an optional interface, a search is filtered by an id set, an… |
+| [D195](#d195--a-sentence-transformers-export-is-windowed-where-sentence-transformers-cuts-it-max_seq_length-narrows-the-window-2026-09-27) | 2026-09-27 | a sentence-transformers export is windowed where sentence-transformers cuts it: `max_seq_length`… |
 
-**189 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**190 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -3568,8 +3569,9 @@ because collapsing the factory to a `TryAddSingleton(embedder)` reads as a tidy-
 
 **Every knob defaults to READING THE MODEL**, because pooling, normalization and the position limit are
 properties of how it was trained: `1_Pooling/config.json`, `modules.json`, and `config.json`'s
-`max_position_embeddings` — never `tokenizer_config.json`'s `model_max_length`, which is routinely
-1,000,000. Guessing any of them returns plausible vectors that rank wrongly.
+`max_position_embeddings`, narrowed to a smaller `model_max_length` or `max_seq_length` (**D195**) and never
+widened by one — `model_max_length` is routinely 1,000,000. Guessing any of them returns plausible vectors that
+rank wrongly.
 
 **Correctness is established against a REFERENCE, not against plausibility.** The live test pins the
 cosines the same export produces through Python's `onnxruntime` with the reference HF tokenizer, matching
@@ -5710,3 +5712,23 @@ readable. So the engine's removal verbs and each batch's write step share one lo
 entries still exist, and the embed call — the slow part — runs outside it. **In place, not in a shadow space**
 (owner ruling): a host-declared space re-embedded then flipped removes the mid-pass window but makes every removal
 verb sweep every space; writes during a pass are documented instead.
+
+## D195 — a sentence-transformers export is windowed where sentence-transformers cuts it: `max_seq_length` narrows the window (2026-09-27)
+
+`OnnxProvider`'s window is `config.json`'s `max_position_embeddings`, narrowed to whichever is smaller of
+`tokenizer_config.json`'s `model_max_length` and `sentence_bert_config.json`'s `max_seq_length`: 256 for
+all-MiniLM-L6-v2 and 128 for paraphrase-multilingual-MiniLM-L12-v2, both 512 before. A larger declaration never
+widens it, and `OnnxProviderOptions.MaxTokens` still sets any window the positions allow.
+
+**Honoured, not documented as a divergence** (the owner delegated the ruling). The file is the export's own
+statement of how it is run, the rule every other knob here follows (**D124**), and sentence-transformers — the
+library it is exported for — truncates there, so a 257–512-token text came out as a different vector here than
+there, invisibly to a caller mixing the two. The card's plain-transformers snippet cuts at the tokenizer's 512
+instead; the reference is the library, not the snippet. Nothing was trained past it either: all-MiniLM-L6-v2's
+card gives a 128-token training length.
+
+**The cost, and why it is not Breaking** (**D161**): a text longer than the new window embeds differently from
+before, so a store holding such vectors mixes two cuts of one model in ONE space, and nothing must be done.
+`IReindexableMemory.ReindexAsync` (**D194**) makes a graph memory uniform, and `MaxTokens = 512` restores the old
+window per provider. Under segmentation (**D177**) a long input runs as more, shorter windows. **Trigger to
+reopen**: evidence that a declared `max_seq_length` understates its model — a published evaluation run longer.
