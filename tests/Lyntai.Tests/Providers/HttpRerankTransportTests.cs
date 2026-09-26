@@ -160,6 +160,18 @@ public class HttpRerankTransportTests
     }
 
     [Fact]
+    public async Task An_input_past_the_physical_batch_is_CONTEXT_WINDOW_EXCEEDED_though_the_server_answers_500()
+    {
+        var scorer = Scorer(new StubHttpHandler().Enqueue(HttpStatusCode.InternalServerError, """
+            {"error":{"code":500,"message":"input (5218 tokens) is too large to process. increase the physical batch size (current batch size: 4096)","type":"server_error"}}
+            """));
+
+        var response = await scorer.CallAsync(new ScoreRequest("q", ["a"]));
+
+        Assert.Equal(ProviderVerdict.ContextWindowExceeded, response.Verdict);
+    }
+
+    [Fact]
     public async Task A_document_over_MaxInputChars_is_sent_as_PIECES_and_scores_as_its_BEST_piece()
     {
         var handler = Reranker(d => d.Contains("needle") ? 5.0 : d.Contains("alpha") ? 1.0 : -2.0);

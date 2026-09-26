@@ -160,6 +160,18 @@ public class HttpVectorTransportTests
         Assert.Equal(ProviderVerdict.RateLimited, response.Verdict);
     }
 
+    [Fact]
+    public async Task An_input_past_the_physical_batch_is_CONTEXT_WINDOW_EXCEEDED_not_a_host_fault()
+    {
+        var handler = new StubHttpHandler().Enqueue(HttpStatusCode.InternalServerError, """
+            {"error":{"code":500,"message":"input (1442 tokens) is too large to process. increase the physical batch size (current batch size: 512)","type":"server_error"}}
+            """);
+
+        var response = await VectorProvider(handler).CallAsync(new VectorRequest(["a"]));
+
+        Assert.Equal(ProviderVerdict.ContextWindowExceeded, response.Verdict);
+    }
+
     // ---- a corrupt vector must FAIL, not arrive ------------------------------------------------------
     // Every element used to be coerced with `n.ValueKind == Number ? (float)n.GetDouble() : 0f`, so a null,
     // a string or a non-finite element became a silent 0 in an otherwise plausible vector — which then got

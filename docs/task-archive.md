@@ -5142,3 +5142,13 @@ truncating. The rule is **D177**'s amendment. It is read only where a window is 
 reranker declares none sets `MaxInputChars` generously to use it.
 
 - Bound a reranker document's pieces independently of the query
+
+## Part 307 — llama.cpp's physical-batch refusal is `ContextWindowExceeded` (2026-09-26)
+
+✅ done 2026-09-26 — **Outcome:** closes the sixth item of `TASKS.md` Part 301. `ProviderVerdictClassifier`'s
+context pattern matches "physical batch size", so llama-server's HTTP 500 for an input past its batch advances
+without a dead-host penalty on the rerank and vector transports, as the 400 already did. "Too large to process"
+alone was left unmatched on purpose. The mechanism is `docs/FIXES.md` 2026-09-26; the consumer-visible line is
+`CHANGELOG.md`'s Fixed entry.
+
+- Classify llama.cpp's physical-batch refusal as `ContextWindowExceeded`

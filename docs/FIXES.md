@@ -7,6 +7,27 @@ to `.claude/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-09-26 — llama.cpp's physical-batch refusal was a host fault, not an input too big
+
+**Symptom.** Reported by an adopting application planning its 3.2.0 → 3.4.0 upgrade (`TASKS.md` Part 301): an
+input past llama-server's physical batch — a rerank pair or an embedding input — came back `Failed`, measured on
+b10549 as HTTP 500 *"input (5218 tokens) is too large to process. increase the physical batch size (current batch
+size: 4096)"*. So it counted toward benching a healthy host, and a reranker judge logged it at Debug as transient.
+
+**Root cause.** `FromHttpFailure` reads a 500 by its body alone, and `ContextWindowPattern` knew llama.cpp's 400
+("larger than the max context size") but not this wording. A **D177** bound avoids the refusal only where it is
+set right, and it counts characters while the batch counts tokens.
+
+**Fix.** The pattern matches `physical batch size`. Not `too large to process` alone, which an upload refused
+for its size also says.
+
+**Verify.** `ProviderVerdictClassifierTests` (the captured text, a 500 carrying the captured body, and an upload
+refusal that stays `Failed`), `HttpRerankTransportTests.An_input_past_the_physical_batch_is_CONTEXT_WINDOW_EXCEEDED_though_the_server_answers_500`
+and its `HttpVectorTransportTests` twin — each failed before.
+
+**Introduced by.** Not a regression: `6c45d051` (2026-09-24) taught the pattern llama.cpp's 400, and this
+refusal was never matched.
+
 ## 2026-09-26 — a graph write reported `Annotation` when the shipped annotator never answered
 
 **Symptom.** Reported by an adopting application planning its 3.2.0 → 3.4.0 upgrade (`TASKS.md` Part 301): with

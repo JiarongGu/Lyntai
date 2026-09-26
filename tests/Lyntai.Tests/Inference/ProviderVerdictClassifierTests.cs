@@ -22,6 +22,9 @@ public class ProviderVerdictClassifierTests
     [InlineData("prompt is too long: 210000 tokens", ProviderVerdict.ContextWindowExceeded)]
     // llama.cpp's own wording, captured on two builds from a 512-window reranker
     [InlineData("input (1052 tokens) is larger than the max context size (512 tokens). skipping", ProviderVerdict.ContextWindowExceeded)]
+    // …and its refusal of an input past the PHYSICAL batch, an HTTP 500 captured on b10549
+    [InlineData("input (5218 tokens) is too large to process. increase the physical batch size (current batch size: 4096)", ProviderVerdict.ContextWindowExceeded)]
+    [InlineData("the uploaded file is too large to process", ProviderVerdict.Failed)]   // a size, not a window
     [InlineData("Incorrect API key provided", ProviderVerdict.AuthFailed)]
     [InlineData("401 Unauthorized", ProviderVerdict.AuthFailed)]
     [InlineData("authentication failed for this endpoint", ProviderVerdict.AuthFailed)]
@@ -33,6 +36,19 @@ public class ProviderVerdictClassifierTests
     public void Error_text_classifies_conservatively(string? text, ProviderVerdict expected)
     {
         Assert.Equal(expected, ProviderVerdictClassifier.FromErrorText(text));
+    }
+
+    /// <summary>llama-server answers an input past its physical batch with HTTP 500, which the status alone
+    /// reads as a host fault: the BODY is what says the input was too big for this model.</summary>
+    [Fact]
+    public void A_500_refusing_an_input_past_the_physical_batch_is_CONTEXT_WINDOW_EXCEEDED()
+    {
+        const string body = """
+            {"error":{"code":500,"message":"input (5218 tokens) is too large to process. increase the physical batch size (current batch size: 4096)","type":"server_error"}}
+            """;
+
+        Assert.Equal(ProviderVerdict.ContextWindowExceeded,
+            ProviderVerdictClassifier.FromHttpFailure(HttpStatusCode.InternalServerError, body, hasCredentials: false));
     }
 
     [Fact]

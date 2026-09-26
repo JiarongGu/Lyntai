@@ -47,6 +47,10 @@ every addition.
 
 ### Fixed
 
+- **llama.cpp's refusal of an input past its physical batch is `ContextWindowExceeded`.** llama-server answers
+  it with HTTP 500 — *"input (5218 tokens) is too large to process. increase the physical batch size"* — which
+  classified `Failed`, so a rerank or embedding input too big for the batch counted toward benching a healthy
+  host. The classifier now matches "physical batch size", on every domain.
 - **`MemorySources.Annotation` is absent when the shipped annotator did not answer.** `LlmMemoryAnnotationPolicy`
   returned `MemoryAnnotation.None` on a refused or non-Ok call, an empty or unparseable reply and its own
   timeout — the value an answer "about nothing" parses to — so a write stored without its subjects was
