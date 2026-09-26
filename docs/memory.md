@@ -882,6 +882,26 @@ the index *before* the nodes, so a vector-store outage fails the call with the n
 half-forgetting; and pruning through the store's own path pays a scope read before and, when anything was removed, one after,
 to learn which ids it removed, which a deployment with no vector store does not pay.
 
+### Re-embed after changing the embedding model
+
+A new embedder leaves every stored vector on the old model. Re-embed in place — entries keep their ids, links and
+decay state:
+
+<!-- compile-given: GraphMemoryEngine graph = null!; -->
+```csharp
+// after the registered embedding backend has changed; null scope = every scope of the task
+var result = await graph.ReindexAsync("project");
+if (result.Failed > 0)
+    result = await graph.ReindexAsync("project");   // a failed batch kept its old vectors; a rerun retries them
+```
+
+**Pause writes to the task while it runs**: a write landing mid-pass is embedded by the new model, but its
+similarity search still meets old vectors, so under a new model of the same dimension its links may be scored
+against the wrong one. A forget or prune landing mid-pass is safe — the pass never writes a vector back for an
+entry it removed — within one process; two processes sharing a store must not run a re-embed and a removal at
+once. `similar` links stay as the old model scored them. Through the factory, the blend implements
+`IReindexableMemory` and fans out to the members that can (`docs/DECISIONS.md` **D194**).
+
 ### Blend two members that index the same material
 
 A graph member for decay and links, a semantic member for meaning — over the same facts. Both hold

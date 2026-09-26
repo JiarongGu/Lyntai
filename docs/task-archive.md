@@ -5309,3 +5309,17 @@ Spec: `local/superpowers/specs/2026-09-26-text-provider-set-and-call-tracing-des
 
 - Edit the text provider set at run time
 - Trace and score front-door calls without a wrapper
+
+## Part 323 — vector read-back, filtered search, and re-embedding a graph in place (2026-09-27)
+
+✅ done 2026-09-27 — **Outcome:** the last three of `TASKS.md` Part 298's items, decided in **D194**, which closes
+that Part. `IReadableVectorStore.GetAsync` reads stored entries back bit-identical on all three shipped stores;
+`IVectorStore` gains a default-bodied filtered `SearchAsync` (`VectorSearchFilter`, an id set in or out) the shipped
+stores override in SQL. `IReindexableMemory.ReindexAsync` re-embeds a task's graph memory in place, writing only
+vectors, under a lock the engine's `ForgetAsync`/`PruneAsync` now share so a pass never undoes a removal. The owner
+chose an id set over metadata and read-by-id over an embed cache. Spec:
+`local/superpowers/specs/2026-09-27-vector-read-filter-and-reindex-design.md`.
+
+- Change the embedder without rebuilding the graph
+- Read a stored vector back by id, or cache embeddings on the vector call
+- Filtered nearest-neighbour search

@@ -15,21 +15,18 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 8 across 5 Parts: 3 startable, 2 blocked, 2 watch, 1 decision-only
+## Open items — 5 across 4 Parts: 2 blocked, 2 watch, 1 decision-only
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 109 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a free Hugging Face account (an hf_ token) — its router proxies fal's own q… |
-| 156 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 179 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 235 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
-| 266 | 298 | Change the embedder without rebuilding the graph | startable |  |
-| 268 | 298 | Read a stored vector back by id, or cache embeddings on the vector call | startable |  |
-| 270 | 298 | Filtered nearest-neighbour search | startable |  |
-| 277 | 320 | Honour `sentence_bert_config.json`'s `max_seq_length`? | decision-only · decision | a ruling: honouring it changes existing vectors — all-MiniLM-L6-v2 declares… |
+| 106 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a free Hugging Face account (an hf_ token) — its router proxies fal's own q… |
+| 153 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 176 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 232 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 261 | 320 | Honour `sentence_bert_config.json`'s `max_seq_length`? | decision-only · decision | a ruling: honouring it changes existing vectors — all-MiniLM-L6-v2 declares… |
 
 <!-- open-items:end -->
 
@@ -256,19 +253,6 @@ there is nothing here to code: what remains is evidence only recurrence can supp
   <br>**So it is `watch · data` rather than startable**: what it needs is a recurrence carrying the frame
   BELOW `OpenAsync`, because the three causes a reading can reach are gone and the remaining ones are all
   in the runner's resource behaviour — the same shape as Part 99 above, by a different mechanism.
-
-## Part 298 — what the consuming apps work around (2026-09-26)
-
-_Filed from a read of the four applications that consume the library, for what each wraps, re-implements or
-compensates for. Each item is the general need and its evidence; each has one app behind it, so the design is
-part of the work._
-
-- [ ] **Change the embedder without rebuilding the graph.** A new embedding model means a destructive rebuild <!-- item: state=startable -->
-  that discards decay state and links; a re-embed pass over the stored nodes would keep both.
-- [ ] **Read a stored vector back by id, or cache embeddings on the vector call.** `IVectorStore` searches but <!-- item: state=startable -->
-  cannot return a stored vector, so an app re-embeds its corpus on every refresh or keeps its own memo.
-- [ ] **Filtered nearest-neighbour search.** `IVectorStore.SearchAsync` takes no filter, so an app over-fetches <!-- item: state=startable -->
-  and filters afterwards.
 
 ## Part 320 — found while loading a SentencePiece export (2026-09-26)
 

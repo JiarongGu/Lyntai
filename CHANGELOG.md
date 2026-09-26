@@ -41,6 +41,19 @@ every addition.
 
 ### Added
 
+- **Re-embed a graph memory in place** (**D194**): `IReindexableMemory.ReindexAsync(taskKey, scope?)`, on the graph
+  engine and the composite around it, re-embeds a task's entries with the current embedding backend after a model
+  change and writes each vector back at its address — ids, links and decay state kept, where the alternative was
+  dropping the memory and writing it all again. It writes nothing but vectors, sends `GraphMemoryOptions.ReindexBatchSize`
+  (32) entries per embed call, counts a batch whose call failed in `MemoryReindexResult.Failed`, and never writes a
+  vector back for an entry a forget or prune removed while it ran. Pause writes to the task during the pass;
+  similarity links stay as the old model scored them.
+- **A stored vector read back by id** (**D194**): `IReadableVectorStore.GetAsync(collection, ids)` returns each
+  present entry once, ordered by id, its vector bit-identical to the one upserted. The in-memory, SQLite and Postgres
+  stores implement it; a store of your own may.
+- **Filtered nearest-neighbour search** (**D194**): `IVectorStore.SearchAsync(collection, query, k, VectorSearchFilter)`
+  narrows a search to the ids in `VectorSearchFilter.Ids` and away from those in `ExcludeIds`, the k boundary applied
+  after the filter. A default body serves it for a store of your own; the shipped stores filter in their query.
 - **Text providers registered at run time** (**D193**): `UseTextProviderRegistry()` registers
   `ITextProviderRegistry`, whose `Register`, `Unregister` and `SetDefaultCandidates` change the providers and the
   fallback order the default text client routes over without rebuilding the container. The budget, cache, rate

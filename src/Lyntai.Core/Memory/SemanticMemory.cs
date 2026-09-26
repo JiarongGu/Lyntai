@@ -29,8 +29,8 @@ public sealed class SemanticMemory(
     {
         // NOT fail-open (unlike RecallAsync): a write that faults SURFACES rather than silently losing the
         // fact — see the ISemanticMemory.RememberAsync contract. After an embedding-MODEL swap the stored
-        // vectors keep their old dimension; the vector stores degrade gracefully (in-memory/SQLite rank a
-        // mismatched row last via Cosine=0; pgvector rejects it), so REINDEX (ForgetAsync + re-Remember).
+        // vectors keep their old dimension, and every shipped store scores a mismatched row 0 and ranks it last,
+        // so REINDEX (ForgetAsync + re-Remember).
         if (string.IsNullOrWhiteSpace(content)) return;
         var vector = await EmbeddingRouting.EmbedOneAsync(
             ProvidersOrThrow, content, EmbeddingRole.Document, _logger, routing,
@@ -55,9 +55,9 @@ public sealed class SemanticMemory(
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (Exception ex)
         {
-            // fail-open (like lexical recall): a vector backend can throw on a dimension-mismatched row (a
-            // pgvector `<=>` error after an embedding-model swap, say) — degrade to no hits, don't take down
-            // the caller. REINDEX (Forget + re-Remember, or drop the collection) after changing the model.
+            // fail-open (like lexical recall): a BYO vector backend may throw on a dimension-mismatched row after
+            // an embedding-model swap — degrade to no hits, don't take down the caller. REINDEX (Forget +
+            // re-Remember, or drop the collection) after changing the model.
             _logger.LogWarning(ex, "semantic recall failed for {Task}/{Scope} — returning empty (reindex after a model change)", taskKey, scope);
             return [];
         }

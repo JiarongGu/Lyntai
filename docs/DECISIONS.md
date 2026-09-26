@@ -263,8 +263,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D191](#d191--the-sentencepiece-tokenizer-is-owned-and-reads-tokenizerjson-the-dependency-cannot-load-the-exports-2026-09-26) | 2026-09-26 | the SentencePiece tokenizer is OWNED and reads tokenizer.json: the dependency cannot load the exp… |
 | [D192](#d192--run-time-job-schedules-are-a-seam-over-the-key-value-store-and-a-coded-job-message-takes-required-store-members-2026-09-26) | 2026-09-26 | run-time job schedules are a seam over the key-value store, and a coded job message takes require… |
 | [D193](#d193--run-time-text-providers-are-a-snapshot-the-default-router-reads-and-call-tracing-is-a-front-door-decorator-2026-09-27) | 2026-09-27 | run-time text providers are a snapshot the DEFAULT router reads, and call tracing is a front-door… |
+| [D194](#d194--a-stored-vector-is-read-back-through-an-optional-interface-a-search-is-filtered-by-an-id-set-and-a-re-embed-writes-only-vectors-2026-09-27) | 2026-09-27 | a stored vector is read back through an optional interface, a search is filtered by an id set, an… |
 
-**188 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**189 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -1975,7 +1976,7 @@ because the spelling IS the dialect.
 
 **The decision.** One function guards every option domain in the memory subsystem:
 `MemoryOption.Require(value, MemoryOptionRange, owner, why)`, with an integer twin taking a floor, is the
-sole `ArgumentOutOfRangeException` guard at all 54 sites across ten files. It replaced 31 hand-rolled copies
+sole `ArgumentOutOfRangeException` guard at all 55 sites across ten files. It replaced 31 hand-rolled copies
 across five when it landed — `DsrOptions`, `GraphMemoryOptions` and the three ranking options records — and
 every option guarded since has gone through it. `MemoryOptionRange` both TESTS the value and DESCRIBES
 itself, so the message's domain phrase and the comparison that rejected the caller come from one place.
@@ -5681,3 +5682,30 @@ scores, so a slow store or an LLM scorer adds its time to every traced call. A b
 that, but loses whatever is queued when the process stops; `Include` is the lever. **Inside `Into`, each call
 scores under `{run}#{n}`**: a score store keeps one result per session and scorer, so the run's own id would keep
 only the last call's, and would collide with scores the app saves under it.
+
+## D194 — a stored vector is read back through an optional interface, a search is filtered by an id set, and a re-embed writes only vectors (2026-09-27)
+
+`IReadableVectorStore.GetAsync(collection, ids)` reads stored entries back, bit-identical. `IVectorStore` gains
+`SearchAsync(collection, query, k, VectorSearchFilter, ct)`, narrowing a search to an id set in or out.
+`IReindexableMemory.ReindexAsync(taskKey, scope?)` re-embeds a graph engine's entries in place after an embedder
+change; `CompositeMemoryEngine` routes it to the members that can.
+
+**Read-back is optional, the filter is not.** A default read returning nothing would make a store that cannot read
+look like one that holds nothing, so read-back takes the `IListableVectorStore` shape (**D86**). The filter has a
+correct default — rank everything, keep what it admits, take k — so it is a default-bodied overload (**D99**) every
+store answers; the shipped ones filter in their query.
+
+**An id set, not metadata** (the owner's ruling). The attribute an application filters on lives in its own data;
+a metadata bag stored with each vector would cost a SQLite migration and a Postgres column for a filter the
+application can already express as ids. **The embed cache was refused**: keyed on text and role alone, it serves
+the old model's vectors after a swap, and nothing in the library knows which model a stored vector came from — a
+host-declared vector-space id is its precondition, and the **trigger to reopen**.
+
+**The re-embed writes nothing but vectors**, as an explicit per-task verb beside `ForgetAsync` and `PruneAsync`:
+re-remembering would advance positions, reset age and re-run annotation. `similar` links stay as the old model
+scored them; recomputing them needs a delete-edges-by-kind store member, which is major-only (**D18**). **It must
+never undo a removal** (**D90**): a vector written back for an entry a forget removed would leave its content
+readable. So the engine's removal verbs and each batch's write step share one lock, the write re-reads which
+entries still exist, and the embed call — the slow part — runs outside it. **In place, not in a shadow space**
+(owner ruling): a host-declared space re-embedded then flipped removes the mid-pass window but makes every removal
+verb sweep every space; writes during a pass are documented instead.

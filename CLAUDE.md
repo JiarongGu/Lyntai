@@ -16,12 +16,12 @@ scoring/eval, run traces, long-term memory — all wired by `AddLyntai(...)`.
 **Released: v3.4.0 (2026-09-25).** Eleven packages. The public API is frozen under
 SemVer 2.0 since 1.0 for every package (**D70**), but while every consumer is first-party a documented break
 may ship in a minor under `### Breaking` (**D18**, **D161**); storage and migration breaks stay major-only.
-The reasoning is `docs/DECISIONS.md`, **D1–D193** — read its generated index table rather than any list of
+The reasoning is `docs/DECISIONS.md`, **D1–D194** — read its generated index table rather than any list of
 decisions kept here. **Everything before 3.0 is HISTORY, not context**: `.claude/rules/repo-mechanics.md`
 says what that forbids.
 
 **The baseline a green run should match:** `5175 passed / 5222 total, 47 skipped` (every skip is a
-live-backend gate), e2e 3/3, guard-script tests 960/960, doc samples 56/56 — MEASURED with Docker up at
+live-backend gate), e2e 3/3, guard-script tests 960/960, doc samples 57/57 — MEASURED with Docker up at
 `b3ded0fd` (2026-09-27). No gate holds the xUnit trio (`docs/GATES.md` §Which numbers a gate holds), so:
 
 - **Re-measure it by hand after `verify`, off that run's own output**, never from a diff, and re-attest the

@@ -401,6 +401,10 @@ Vector work ROUTES over every backend that produces vectors, so two of them are 
 through `AddProvider(_ => backend, declares)` must **pass that second argument**, because a factory cannot be
 inspected before it runs. Vectors live in a swappable `IVectorStore`: in memory by default,
 `UseSqliteVectorStore()` in SQLite, `UsePostgresVectorStore()` in **pgvector** (SQL-side top-k), or your own.
+All three shipped stores read a stored vector back by id (`IReadableVectorStore.GetAsync`, bit-identical), and a
+search narrows to ids you keep yourself with `SearchAsync(collection, query, k, new VectorSearchFilter { Ids = … })`
+(`docs/DECISIONS.md` **D194**). After changing the embedding model, a graph memory engine re-embeds in place with
+`ReindexAsync` (`docs/memory.md` §9).
 
 Registering an embedder also upgrades the **chat orchestration**: the default composer blends the keyword store
 and semantic memory — keyword hits first, then semantic ones, deduped — and writes each exchange to both, so a

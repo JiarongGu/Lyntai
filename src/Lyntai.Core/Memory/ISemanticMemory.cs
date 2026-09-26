@@ -7,10 +7,11 @@ namespace Lyntai.Memory;
 /// <see cref="IVectorStore"/>; wired when one is registered (<c>builder.AddProvider(factory, declares)</c>,
 /// or a package's own <c>Add…Provider</c>). Scoped by (taskKey, scope) like the
 /// lexical store; re-remembering identical content overwrites rather than duplicating.
-/// <para>CHANGING THE EMBEDDING MODEL: stored vectors keep their old dimension. Recall is fail-open (a
-/// backend that rejects a dimension-mismatched vector — e.g. pgvector — yields no hits rather than
-/// throwing), but you should REINDEX (<see cref="ForgetAsync"/> the scope + re-<see cref="RememberAsync"/>,
-/// or drop the vectors) after a model change so recall works again.</para>
+/// <para>CHANGING THE EMBEDDING MODEL: stored vectors keep their old dimension, and every shipped vector store
+/// scores one of another dimension 0, so recall finds nothing it wrote before the change (a BYO store that throws
+/// instead yields no hits, fail-open). REINDEX (<see cref="ForgetAsync"/> the scope + re-<see cref="RememberAsync"/>,
+/// or drop the vectors) after a model change so recall works again. A graph memory engine re-embeds in place
+/// instead: <see cref="IReindexableMemory"/>.</para>
 /// </summary>
 public interface ISemanticMemory
 {
