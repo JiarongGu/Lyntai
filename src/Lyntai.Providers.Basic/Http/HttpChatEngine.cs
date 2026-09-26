@@ -1,4 +1,5 @@
 using Lyntai.Inference;
+using System.Net;
 using System.Runtime.CompilerServices;
 using System.Text;
 using Lyntai.Inference.Streaming;
@@ -39,6 +40,9 @@ internal sealed class HttpChatEngine(
 
     private readonly bool _hasCredentials = HttpEndpoint.HasCredentials(wire.ApiKey);
 
+    // 1 once a refusal of the configured members has been warned of: once per registration, not per call
+    private int _refusalWarned;
+
     public async Task<TextResponse> CompleteAsync(TextRequest req, CancellationToken ct = default)
     {
         var model = req.Model ?? wire.DefaultModel ?? "";
@@ -49,7 +53,11 @@ internal sealed class HttpChatEngine(
         {
             var reply = await HttpJsonCall.SendAsync(http, BuildRequest(req, model, stream: false), timeout,
                 _hasCredentials, id, what: null, ct).ConfigureAwait(false);
-            if (reply.Body is not { } body) return new TextResponse("", reply.Verdict, Detail: reply.Detail);
+            if (reply.Body is not { } body)
+            {
+                WarnOfRefusedFields(req, reply.Status, reply.Verdict, reply.Detail);
+                return new TextResponse("", reply.Verdict, Detail: reply.Detail);
+            }
 
             if (wire.TryExtract(body, out var text, out var usage, out var finishReason, out var toolCalls))
             {
@@ -161,6 +169,7 @@ internal sealed class HttpChatEngine(
                 startupError = TextChunk.Error(
                     ProviderVerdictClassifier.FromHttpFailure(response.StatusCode, errorBody, _hasCredentials),
                     $"{id}: HTTP {(int)response.StatusCode} {HttpBody.Head(errorBody)}");
+                WarnOfRefusedFields(req, response.StatusCode, startupError.Verdict, startupError.Detail);
             }
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
@@ -176,6 +185,20 @@ internal sealed class HttpChatEngine(
         if (startupError is null) return (response, null);
         response?.Dispose();
         return (null, startupError);
+    }
+
+    /// <summary>Warn, once per registration, when a call carrying members the deployment configured is answered
+    /// with a client error the classifier leaves <see cref="ProviderVerdict.Failed"/>. This is the one place that
+    /// knows the call carried them; everywhere else a server rejecting them reads as no answer, logged at
+    /// Information by the router and at Debug by the memory seams that fail open.</summary>
+    private void WarnOfRefusedFields(TextRequest req, HttpStatusCode? status, ProviderVerdict verdict, string? detail)
+    {
+        if (verdict != ProviderVerdict.Failed || status is not { } code || (int)code is < 400 or >= 500) return;
+        if (wire.ConfiguredFieldsOption(req) is not { } option) return;
+        if (Interlocked.Exchange(ref _refusalWarned, 1) == 1) return;
+        logger.LogWarning(
+            "{Id}: a call carrying the configured {Option} failed with a client error, which may be the server refusing those members — then every call that sets them fails. The server said: {Detail}",
+            id, option, detail);
     }
 
     /// <summary>What a stream reported as it ran, folded line by line and read once at the end by

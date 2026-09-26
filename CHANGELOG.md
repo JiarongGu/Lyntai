@@ -49,6 +49,10 @@ every addition.
   each and names every one still holding a key, so a deployment that had pointed 3.2's model-key prefix option
   at a namespace of its own adds it here and learns its overrides went inert, rather than finding them back at
   their defaults. `KeyValueModelRoutingStore.ModelOnlyKeyPrefixes` carries it for a store built by hand.
+- **A server refusing `HttpModelOptions.SuppressReasoningFields` is warned of** (**D179**): the first call carrying
+  the configured members that is answered with a client error the classifier leaves `Failed` logs one Warning per
+  registration, naming the option and quoting the server, buffered or streamed. The memory judge and annotator
+  fail open, so a rejected value used to show only as worse recall.
 
 ### Fixed
 

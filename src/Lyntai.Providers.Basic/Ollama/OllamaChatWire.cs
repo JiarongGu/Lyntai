@@ -31,6 +31,9 @@ internal sealed class OllamaChatWire(OllamaOptions config, ILogger logger) : IHt
     public JsonObject BuildPayload(TextRequest req, string model, bool stream) =>
         OllamaPayload.Build(req, model, stream, config.ContextSize, logger);
 
+    /// <summary>None: every member of this body is the wire's own.</summary>
+    public string? ConfiguredFieldsOption(TextRequest req) => null;
+
     /// <summary>Reads the native shape: a top-level <c>message.content</c>, <c>tool_calls</c> with object
     /// arguments and no id, eval-count usage. Ollama sends no <c>finish_reason</c>, so that slot is always
     /// null and the engine's content-filter check simply never fires here.</summary>

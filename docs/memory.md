@@ -441,12 +441,13 @@ services.AddLyntai(b => b
 ```
 
 Only calls asking `Suppress` carry the fields. A server that rejects one fails the call. With the judge's
-backend as its ONLY candidate, the judge then leaves the ranking alone — the router logs the `Failed` verdict at Information, and the
-judge logs it only at Debug, since it reads `Failed` as transient — so a value your server rejects looks like
-no judge at all everywhere but the router's log. With a fallback
-list, the failure advances instead: the judge quietly runs on the next candidate, which may be a paid one, and
-consecutive failures bench the host for its cooldown for every caller (`LyntaiOptions.DeadHostThreshold`).
-Try the value against your server before relying on it.
+backend as its ONLY candidate, the judge then leaves the ranking alone — the router logs the `Failed` verdict at
+Information, and the judge logs it only at Debug, since it reads `Failed` as transient — so a value your server
+rejects would look like no judge at all, were it not for the provider: the first call carrying the fields that
+a server answers with a client error left `Failed` logs ONE Warning per registration, naming the option and
+quoting the server. With a fallback list, the failure advances instead: the judge quietly runs on the next
+candidate, which may be a paid one, and consecutive failures bench the host for its cooldown for every caller
+(`LyntaiOptions.DeadHostThreshold`). Try the value against your server before relying on it.
 
 #### It is a policy, so switching is one line
 

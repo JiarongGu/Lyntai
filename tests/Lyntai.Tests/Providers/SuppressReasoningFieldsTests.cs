@@ -5,6 +5,7 @@ using Lyntai.Providers.Http;
 using Lyntai.Providers.Http.Payloads;
 using Lyntai.Tests.Fakes;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace Lyntai.Tests.Providers;
 
@@ -219,6 +220,62 @@ public class SuppressReasoningFieldsTests
         Assert.Contains($"\"{key}\"", ex.Message, StringComparison.Ordinal);
     }
 
+    // ---- a server refusing the configured members is SAID, once, by the one place that knows ----------------
+
+    private const string Refusal = """
+        {"error":{"code":400,"message":"Unrecognized request argument supplied: chat_template_kwargs","type":"invalid_request_error"}}
+        """;
+
+    private static async Task<ProviderVerdict> CallAsync(HttpModelProvider provider, TextReasoning reasoning, bool stream) =>
+        stream
+            ? (await Stream(provider, Req(reasoning)))[^1].Verdict
+            : (await provider.CompleteAsync(Req(reasoning))).Verdict;
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task A_client_error_to_a_call_carrying_the_members_is_warned_of_ONCE_naming_the_option(bool stream)
+    {
+        var warnings = new List<string>();
+        var provider = Provider(new StubHttpHandler().Enqueue(HttpStatusCode.BadRequest, Refusal), QwenOff,
+            logger: new CapturingLogger<HttpModelProvider>(warnings));
+
+        Assert.Equal(ProviderVerdict.Failed, await CallAsync(provider, TextReasoning.Suppress, stream));
+        Assert.Equal(ProviderVerdict.Failed, await CallAsync(provider, TextReasoning.Suppress, stream));
+
+        var warning = Assert.Single(warnings);
+        Assert.Contains(nameof(HttpModelOptions.SuppressReasoningFields), warning);
+        Assert.Contains("Unrecognized request argument", warning);
+    }
+
+    [Fact]
+    public async Task The_same_client_error_to_a_call_NOT_asking_Suppress_warns_nothing()
+    {
+        var warnings = new List<string>();
+        var provider = Provider(new StubHttpHandler().Enqueue(HttpStatusCode.BadRequest, Refusal), QwenOff,
+            logger: new CapturingLogger<HttpModelProvider>(warnings));
+
+        await CallAsync(provider, TextReasoning.Default, stream: false);
+
+        Assert.Empty(warnings);
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.BadRequest, "input (9000 tokens) is larger than the max context size (8192 tokens)")]
+    [InlineData(HttpStatusCode.Unauthorized, "invalid api key")]
+    [InlineData(HttpStatusCode.TooManyRequests, "slow down")]
+    [InlineData(HttpStatusCode.InternalServerError, "boom")]
+    public async Task A_failure_the_classifier_explains_or_a_server_error_warns_nothing(HttpStatusCode status, string body)
+    {
+        var warnings = new List<string>();
+        var provider = Provider(new StubHttpHandler().Enqueue(status, body), QwenOff,
+            logger: new CapturingLogger<HttpModelProvider>(warnings));
+
+        await CallAsync(provider, TextReasoning.Suppress, stream: false);
+
+        Assert.Empty(warnings);
+    }
+
     private static TextRequest Req(TextReasoning reasoning) =>
         new() { Messages = [TextMessage.User("hi")], Model = "gpt-x", Reasoning = reasoning };
 
@@ -240,11 +297,11 @@ public class SuppressReasoningFieldsTests
     }
 
     private static HttpModelProvider Provider(StubHttpHandler handler, string? fields,
-        Action<HttpModelOptions>? configure = null)
+        Action<HttpModelOptions>? configure = null, ILogger<HttpModelProvider>? logger = null)
     {
         var config = new HttpModelOptions { BaseUrl = "http://localhost:8080", SuppressReasoningFields = fields };
         configure?.Invoke(config);
         return new HttpModelProvider("llama", config, () => new HttpClient(handler, disposeHandler: false),
-            new LyntaiOptions { ProviderTimeout = TimeSpan.FromSeconds(30) });
+            new LyntaiOptions { ProviderTimeout = TimeSpan.FromSeconds(30) }, logger);
     }
 }

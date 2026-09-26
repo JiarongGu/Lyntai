@@ -1,3 +1,4 @@
+using System.Net;
 using System.Text;
 using System.Text.Json.Nodes;
 using Lyntai.Inference;
@@ -8,7 +9,9 @@ namespace Lyntai.Providers.Http;
 /// <param name="Body">The response body; null when the call failed.</param>
 /// <param name="Verdict"><see cref="ProviderVerdict.Ok"/> with a body, else why there is none.</param>
 /// <param name="Detail">The failure's detail; null on success.</param>
-internal readonly record struct HttpJsonResponse(string? Body, ProviderVerdict Verdict, string? Detail);
+/// <param name="Status">The failed response's status; null on success and when no response arrived.</param>
+internal readonly record struct HttpJsonResponse(
+    string? Body, ProviderVerdict Verdict, string? Detail, HttpStatusCode? Status = null);
 
 /// <summary>The buffered JSON POST every HTTP surface in this package makes — the chat engine, the vector
 /// transport and the rerank transport — with ONE policy for how it fails:
@@ -59,7 +62,8 @@ internal static class HttpJsonCall
                     var errorBody = await HttpBody.SafeRead(response, timeoutCts.Token).ConfigureAwait(false);
                     return new(null,
                         ProviderVerdictClassifier.FromHttpFailure(response.StatusCode, errorBody, hasCredentials),
-                        $"{id}: {surface}HTTP {(int)response.StatusCode} {HttpBody.Head(errorBody)}");
+                        $"{id}: {surface}HTTP {(int)response.StatusCode} {HttpBody.Head(errorBody)}",
+                        response.StatusCode);
                 }
                 var body = await response.Content.ReadAsStringAsync(timeoutCts.Token).ConfigureAwait(false);
                 return new(body, ProviderVerdict.Ok, null);

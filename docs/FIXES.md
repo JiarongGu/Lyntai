@@ -9,7 +9,7 @@ to `.claude/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ## 2026-09-26 — llama.cpp's physical-batch refusal was a host fault, not an input too big
 
-**Symptom.** Reported by an adopting application planning its 3.2.0 → 3.4.0 upgrade (`TASKS.md` Part 301): an
+**Symptom.** Reported by an adopting application planning its 3.2.0 → 3.4.0 upgrade (`docs/task-archive.md` Part 310): an
 input past llama-server's physical batch — a rerank pair or an embedding input — came back `Failed`, measured on
 b10549 as HTTP 500 *"input (5218 tokens) is too large to process. increase the physical batch size (current batch
 size: 4096)"*. So it counted toward benching a healthy host, and a reranker judge logged it at Debug as transient.
@@ -30,7 +30,7 @@ refusal was never matched.
 
 ## 2026-09-26 — a graph write reported `Annotation` when the shipped annotator never answered
 
-**Symptom.** Reported by an adopting application planning its 3.2.0 → 3.4.0 upgrade (`TASKS.md` Part 301): with
+**Symptom.** Reported by an adopting application planning its 3.2.0 → 3.4.0 upgrade (`docs/task-archive.md` Part 310): with
 a signed-out CLI, a refused call or a timeout, every write still carried `MemorySources.Annotation`, which
 `CHANGELOG.md` 3.4.0 and `docs/memory.md` say is absent when the annotator "failed or timed out". Its rebuild,
 the flag's reason to exist, would have counted each of those writes as annotated.
@@ -52,7 +52,7 @@ not exist); the annotation contract's fail-open and own-timeout facts now assert
 
 ## 2026-09-26 — a Chinese memory's derived headline showed only its leading date
 
-**Symptom.** Reported by an adopting application planning its 3.2.0 → 3.4.0 upgrade (`TASKS.md` Part 301): a
+**Symptom.** Reported by an adopting application planning its 3.2.0 → 3.4.0 upgrade (`docs/task-archive.md` Part 310): a
 500-character Chinese note whose only space followed a leading date was headlined as the date and `…`, and the
 judge's `ContentChars` note of it read the same.
 

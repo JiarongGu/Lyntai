@@ -49,6 +49,10 @@ internal interface IHttpChatWire
     /// <summary>The request body for one completion.</summary>
     JsonObject BuildPayload(TextRequest req, string model, bool stream);
 
+    /// <summary>The option whose DEPLOYMENT-configured members <see cref="BuildPayload"/> adds to this request's
+    /// body, or null when it adds none — so a client error answering the call may be the server refusing them.</summary>
+    string? ConfiguredFieldsOption(TextRequest req);
+
     /// <summary>Read one buffered response body. True when the body is a well-formed reply — even with
     /// empty content (a content-filtered 200 has exactly that shape); verdicts are the engine's job.</summary>
     bool TryExtract(string body, out string text, out TextUsage? usage, out string? finishReason,

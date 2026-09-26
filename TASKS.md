@@ -15,32 +15,31 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 19 across 7 Parts: 15 startable, 2 blocked, 2 watch
+## Open items — 18 across 6 Parts: 14 startable, 2 blocked, 2 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 120 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a free Hugging Face account (an hf_ token) — its router proxies fal's own q… |
-| 167 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 190 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 246 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
-| 276 | 294 | Give the vector-store, verification and annotation contracts an abstract Fa… | startable |  |
-| 279 | 294 | Sweep test comments for history narration that carries no tag or date | startable |  |
-| 289 | 298 | SentencePiece tokenization for the ONNX provider — D122's trigger has fired | startable |  |
-| 293 | 298 | Change the embedder without rebuilding the graph | startable |  |
-| 295 | 298 | Read a stored vector back by id, or cache embeddings on the vector call | startable |  |
-| 297 | 298 | Filtered nearest-neighbour search | startable |  |
-| 299 | 298 | Edit the text provider set at run time | startable |  |
-| 302 | 298 | Schedules added at run time, persisted | startable |  |
-| 304 | 298 | Trace and score front-door calls without a wrapper | startable |  |
-| 307 | 298 | Job progress as a message code plus arguments | startable |  |
-| 314 | 299 | Snapshot `ToolsByConsumer` when the provisioner is built, and name the cons… | startable |  |
-| 318 | 299 | Pin the refusal through the builder, and say when it fires | startable |  |
-| 321 | 299 | Two test gaps in the CLI tool seam | startable |  |
-| 323 | 299 | A one-line `ToolsByConsumer` recipe in README's MCP section | startable |  |
-| 340 | 301 | Say when a server refuses the configured `SuppressReasoningFields` | startable |  |
+| 119 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a free Hugging Face account (an hf_ token) — its router proxies fal's own q… |
+| 166 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 189 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 245 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 275 | 294 | Give the vector-store, verification and annotation contracts an abstract Fa… | startable |  |
+| 278 | 294 | Sweep test comments for history narration that carries no tag or date | startable |  |
+| 288 | 298 | SentencePiece tokenization for the ONNX provider — D122's trigger has fired | startable |  |
+| 292 | 298 | Change the embedder without rebuilding the graph | startable |  |
+| 294 | 298 | Read a stored vector back by id, or cache embeddings on the vector call | startable |  |
+| 296 | 298 | Filtered nearest-neighbour search | startable |  |
+| 298 | 298 | Edit the text provider set at run time | startable |  |
+| 301 | 298 | Schedules added at run time, persisted | startable |  |
+| 303 | 298 | Trace and score front-door calls without a wrapper | startable |  |
+| 306 | 298 | Job progress as a message code plus arguments | startable |  |
+| 313 | 299 | Snapshot `ToolsByConsumer` when the provisioner is built, and name the cons… | startable |  |
+| 317 | 299 | Pin the refusal through the builder, and say when it fires | startable |  |
+| 320 | 299 | Two test gaps in the CLI tool seam | startable |  |
+| 322 | 299 | A one-line `ToolsByConsumer` recipe in README's MCP section | startable |  |
 
 <!-- open-items:end -->
 
@@ -329,27 +328,6 @@ _The final review of the per-request CLI tools work (**D190**) graded these Mino
   fallback to every tool but not that the library's own calls reach it. An adopting app upgrading from 3.2.0
   found its memory calls hosting, on every call, file-reading tools only its scorers use, while an annotation
   prompt carries stored, consumer-authored content.
-
-## Part 301 — what an adopter's 3.2.0 → 3.4.0 upgrade found (2026-09-26)
-
-_Reported by an adopting application planning its upgrade from 3.2.0 to 3.4.0. The upstream fixes for all six
-of its workarounds shipped in 3.3.0; these are what the upgrade found beside them, each checked against the tree
-at `v3.4.0` (HEAD changes nothing under `src/` since) when it was filed. Its evidence about the CLI tool host
-went into `TASKS.md` Part 299's recipe item instead._
-
-- [ ] **Say when a server refuses the configured `SuppressReasoningFields`.** **D179** adds the members only to <!-- item: state=startable -->
-  calls asking `Suppress` (`src/Lyntai.Providers.Basic/Http/Payloads/OpenAiPayload.cs:92`), and a server that
-  rejects one answers a client error that classifies `Failed`
-  (`src/Lyntai.Providers.Basic/Http/HttpChatEngine.cs:51-52`, `ProviderVerdictClassifier.FromHttpFailure`): the
-  router logs it at Information, the LLM judge at Debug as transient
-  (`src/Lyntai.Core/Memory/Verification/LlmMemoryVerificationPolicy.cs:145`), the LLM annotator at Debug
-  (`src/Lyntai.Core/Memory/Annotation/LlmMemoryAnnotationPolicy.cs:127`). `docs/memory.md`'s recipe says exactly
-  this — a rejected value "looks like no judge at all everywhere but the router's log" — and asks the deployment
-  to try the value first; nothing in the code says it. The HTTP provider is the one place that knows the failed
-  call carried the fields. Suggested: one Warning per registration when a call carrying them fails with a 4xx the
-  classifier leaves `Failed`, naming the option and quoting the server; a probe at startup would cost a
-  generation on every start. An adopting app replacing a server-side "reasoning off" preset with this option has
-  to prove per model that verdicts still ARRIVE, since a wrong spelling would otherwise show only as worse recall.
 
 ## Retired — five Parts that outlived their open work (2026-09-16)
 

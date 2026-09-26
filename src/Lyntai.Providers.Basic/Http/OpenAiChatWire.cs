@@ -32,6 +32,11 @@ internal sealed class OpenAiChatWire(HttpModelOptions config) : IHttpChatWire
     public JsonObject BuildPayload(TextRequest req, string model, bool stream) =>
         OpenAiPayload.Build(req, model, stream, _suppressReasoningFields);
 
+    public string? ConfiguredFieldsOption(TextRequest req) =>
+        req.Reasoning == TextReasoning.Suppress && _suppressReasoningFields is not null
+            ? nameof(HttpModelOptions.SuppressReasoningFields)
+            : null;
+
     /// <summary>Reads <c>choices[0].message.content</c>, <c>finish_reason</c>, native <c>tool_calls</c> and
     /// <c>usage</c>. A recognized message OR a finish_reason is a well-formed reply, even with empty content
     /// (a content-filtered 200 has exactly that shape) — verdicts are the engine's job.</summary>

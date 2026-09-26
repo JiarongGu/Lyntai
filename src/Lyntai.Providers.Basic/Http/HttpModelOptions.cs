@@ -125,7 +125,9 @@ public sealed class HttpModelOptions
     ///
     /// <para><b>Advisory</b>, as <see cref="TextReasoning"/> is: a model may reason anyway. <b>A server that
     /// rejects a field fails the call</b> like any rejected request — an HTTP 400 is classified from its body,
-    /// usually <see cref="ProviderVerdict.Failed"/> — so set it only where the server accepts it.</para>
+    /// usually <see cref="ProviderVerdict.Failed"/> — so set it only where the server accepts it. The first such
+    /// failure logs one Warning per registration naming this option and quoting the server, since every caller
+    /// that fails open would otherwise see only a missing answer.</para>
     ///
     /// <para>Each top-level member is added as given, never merged into one the request sets: a member the
     /// provider sets itself (<c>model</c>, <c>messages</c>, <c>stream</c>, <c>stream_options</c>,

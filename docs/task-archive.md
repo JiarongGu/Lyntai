@@ -5090,7 +5090,7 @@ Also: `nuget-unlist`'s bare `--api-key` prompts with typing hidden, and `Lyntai.
 
 ## Part 302 — a derived headline is cut near its cap in a spaceless script (2026-09-26)
 
-✅ done 2026-09-26 — **Outcome:** closes the first item of `TASKS.md` Part 301. `MemoryHeadline.Derive` takes a
+✅ done 2026-09-26 — **Outcome:** closes the first item of `docs/task-archive.md` Part 310. `MemoryHeadline.Derive` takes a
 space only in the cap's latter half, else cuts at the last text-element boundary, never inside a surrogate
 pair — so the graph engine's derived headline and the judge's `ContentChars` note of a Chinese entry no longer
 collapse to a leading date. The mechanism is `docs/FIXES.md` 2026-09-26; the consumer-visible line is
@@ -5101,7 +5101,7 @@ refusal to split on sentences stands.
 
 ## Part 303 — an annotator that did not answer leaves `MemorySources.Annotation` off (2026-09-26)
 
-✅ done 2026-09-26 — **Outcome:** closes the second item of `TASKS.md` Part 301. `MemoryAnnotation.Unanswered`
+✅ done 2026-09-26 — **Outcome:** closes the second item of `docs/task-archive.md` Part 310. `MemoryAnnotation.Unanswered`
 (`Answered: false`) is apart from `None`, an answer about nothing; `LlmMemoryAnnotationPolicy` returns it on
 every failure path, an unparseable reply included, and the graph engine records nothing it carries and leaves
 the flag off. The choice, and the rejected redefinition of `None`, are **D175**'s amendment; the mechanism is
@@ -5112,7 +5112,7 @@ say what a BYO annotator must return on a failure.
 
 ## Part 304 — a graph write that lost its vector can skip its annotation (2026-09-26)
 
-✅ done 2026-09-26 — **Outcome:** closes the third item of `TASKS.md` Part 301. `GraphMemoryEngine.RememberAsync`
+✅ done 2026-09-26 — **Outcome:** closes the third item of `docs/task-archive.md` Part 310. `GraphMemoryEngine.RememberAsync`
 embeds before it annotates, and `GraphMemoryOptions.SkipAnnotationWithoutVector` (off by default) skips the
 annotation of a write owed a vector — an embedder declared, a vector store wired, `SimilarityK` above zero —
 that got none, so a rebuild retrying on a missing `Similarity` pays the annotator once. Why an engine option
@@ -5124,7 +5124,7 @@ foreseen, and a skipped write loses the annotator's grade suggestion, as a faile
 
 ## Part 305 — a rerank request can narrow its piece cap (2026-09-26)
 
-✅ done 2026-09-26 — **Outcome:** closes the fourth item of `TASKS.md` Part 301. `ScoreRequest.MaxPiecesPerInput`
+✅ done 2026-09-26 — **Outcome:** closes the fourth item of `docs/task-archive.md` Part 310. `ScoreRequest.MaxPiecesPerInput`
 (an init property) narrows the registration's `InputSegmentation.MaxPiecesPerInput` for one call and never
 widens it, by the one rule `InputSegmentation.MaxPiecesFor`; the HTTP reranker and the ONNX cross-encoder honour
 it wherever they segment. Why a per-request per-input cap where **D177** had refused a per-call total, and why
@@ -5135,7 +5135,7 @@ segmenting decorator can now set the cap instead of segmenting a second time.
 
 ## Part 306 — a reranker document's pieces are bounded apart from its query (2026-09-26)
 
-✅ done 2026-09-26 — **Outcome:** closes the fifth item of `TASKS.md` Part 301. `InputSegmentation.MaxDocumentPiece`
+✅ done 2026-09-26 — **Outcome:** closes the fifth item of `docs/task-archive.md` Part 310. `InputSegmentation.MaxDocumentPiece`
 bounds a reranker pair's document pieces in the provider's window unit, each taking the smaller of it and what
 the window leaves beside the query — over HTTP in characters, on the ONNX cross-encoder in tokens, segmenting or
 truncating. The rule is **D177**'s amendment. It is read only where a window is set, so a deployment whose
@@ -5145,7 +5145,7 @@ reranker declares none sets `MaxInputChars` generously to use it.
 
 ## Part 307 — llama.cpp's physical-batch refusal is `ContextWindowExceeded` (2026-09-26)
 
-✅ done 2026-09-26 — **Outcome:** closes the sixth item of `TASKS.md` Part 301. `ProviderVerdictClassifier`'s
+✅ done 2026-09-26 — **Outcome:** closes the sixth item of `docs/task-archive.md` Part 310. `ProviderVerdictClassifier`'s
 context pattern matches "physical batch size", so llama-server's HTTP 500 for an input past its batch advances
 without a dead-host penalty on the rerank and vector transports, as the 400 already did. "Too large to process"
 alone was left unmatched on purpose. The mechanism is `docs/FIXES.md` 2026-09-26; the consumer-visible line is
@@ -5155,10 +5155,32 @@ alone was left unmatched on purpose. The mechanism is `docs/FIXES.md` 2026-09-26
 
 ## Part 308 — leftover keys under an app's own model-only prefix are warned of (2026-09-26)
 
-✅ done 2026-09-26 — **Outcome:** closes the seventh item of `TASKS.md` Part 301. `LyntaiOptions.ModelOnlyKeyPrefixes`
+✅ done 2026-09-26 — **Outcome:** closes the seventh item of `docs/task-archive.md` Part 310. `LyntaiOptions.ModelOnlyKeyPrefixes`
 (default `lyntai.model.`) reaches `KeyValueModelRoutingStore.ModelOnlyKeyPrefixes`, and **D176**'s warn-once lists
 each namespace and names, in one warning, every one still holding a key outside the route prefix — so overrides
 under a namespace an app's 3.2 prefix option pointed at no longer go inert unannounced. A retry after a failed
 listing repeats no warning, since it warns only once every listing succeeded.
 
 - Warn about leftover keys under a model-key prefix of the app's own
+
+## Part 309 — a server refusing `SuppressReasoningFields` is warned of (2026-09-26)
+
+✅ done 2026-09-26 — **Outcome:** closes the eighth item of `docs/task-archive.md` Part 310. The HTTP chat engine
+logs one Warning per registration when a call carrying the configured members is answered with a 4xx the
+classifier leaves `Failed`, naming the option and quoting the server, on both doors — the wire says which option
+it added (`IHttpChatWire.ConfiguredFieldsOption`) and the failed call carries its status. A startup probe was
+refused (**D179**'s amendment): it would spend a generation on every start. `docs/memory.md`'s judge recipe and
+the option's XML doc say so.
+
+- Say when a server refuses the configured `SuppressReasoningFields`
+
+## Part 310 — what an adopter's 3.2.0 → 3.4.0 upgrade found (2026-09-26)
+
+✅ done 2026-09-26 — **Outcome:** the backlog's Part 301, closed in one session as eight commits, one archive
+Part each: 302 (headline cut in a spaceless script), 303 (`MemoryAnnotation.Unanswered`), 304
+(`SkipAnnotationWithoutVector`), 305 (`ScoreRequest.MaxPiecesPerInput`), 306 (`MaxDocumentPiece`), 307 (the
+physical-batch refusal), 308 (`ModelOnlyKeyPrefixes`) and 309 (the refused-fields warning). Reported by an
+adopting application planning its upgrade; the upstream fixes for all six of its earlier workarounds had shipped
+in 3.3.0. Its evidence about the CLI tool host went into `TASKS.md` Part 299's recipe item instead.
+
+- What an adopter's 3.2.0 → 3.4.0 upgrade found

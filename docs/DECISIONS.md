@@ -5310,6 +5310,11 @@ construction, naming the problem. The members are copied into each request. It a
 only; Ollama-native keeps its own `think: false`. Both memory model seams ask `Suppress` on every call (**D59**),
 which is why the gap cost a thinking-capable judge seconds per verdict behind `llama-server`.
 
+**A refusal is SAID, once.** A call carrying the members that a server answers with a 4xx the classifier leaves
+`Failed` logs one Warning per registration, naming the option and quoting the server (2026-09-26): the provider is
+the one place that knows the call carried them, and the fail-open seams read the failure as no answer. Rejected:
+a probe at startup, which would spend a generation on every start.
+
 **Rejected.** A fixed field on every OpenAI-shaped call: the wire also serves hosted APIs that may reject an
 unknown field. A typed enum of known spellings: it bakes model-family names into shared code
 (`model-decoupling.md`) and goes stale with each new template. Detecting `llama-server` and sending Qwen's
