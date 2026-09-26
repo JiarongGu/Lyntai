@@ -23,7 +23,7 @@ backends, a configurable per-verdict `RoutingPolicy`, dead-host cooldown, native
 providers registered at run time behind the governed front door.
 **Generation** — one capability-aware seam for image/video/audio/3d with three delivery modes (inline,
 submit→poll→fetch, streaming — all three routed, governed and throttled alike), durable renders over
-`Lyntai.Jobs`, and six backends.
+`Lyntai.Jobs`, and six backends — local video included, a real Wan 2.2 model run through ComfyUI.
 **Storage** — SQLite / Postgres / InMemory / files, mixable per domain, with FTS5-trigram recall and feature toggles.
 **Agents** — a tool loop, two-gate chat orchestration, guards, and both halves of MCP. **Ops** — prompt
 registry, scoring/eval, run traces (one step per front-door call, opt-in), task-scoped + semantic + curated
