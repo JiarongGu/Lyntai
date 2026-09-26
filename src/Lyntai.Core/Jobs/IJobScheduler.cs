@@ -33,30 +33,59 @@ public interface IJobScheduler
 }
 
 /// <inheritdoc/>
-public sealed class JobScheduler(
-    IJobQueue queue,
-    IEnumerable<JobSchedule> schedules,
-    LyntaiOptions options,
-    IKeyValueStore? store = null,
-    ILogger<JobScheduler>? logger = null,
-    Func<DateTimeOffset>? clock = null) : IJobScheduler
+/// <remarks>Schedules added at run time come from the registered <see cref="IJobScheduleStore"/>, listed on every
+/// tick AFTER the build-time schedules, which therefore win a name clash. A store that throws is skipped for that
+/// tick and warned about once per failure run. A schedule whose cron or interval changed since its next run was
+/// computed is re-anchored rather than fired once more at the old slot.</remarks>
+public sealed class JobScheduler : IJobScheduler
 {
     // ConcurrentDictionary so the caches don't corrupt if the app happens to drive the pump from more than
     // one thread (the intended model is a single pump, but a Dictionary write-race would be nastier than
     // the benign duplicate-work a concurrent one allows).
     private readonly ConcurrentDictionary<string, DateTimeOffset> _memory = new(StringComparer.Ordinal); // no-KV fallback
+    private readonly ConcurrentDictionary<string, string> _triggers = new(StringComparer.Ordinal);       // no-KV fallback
     private readonly ConcurrentDictionary<string, CronExpression?> _cron = new(StringComparer.Ordinal);  // parsed cron cache
     private readonly ConcurrentDictionary<string, byte> _warned = new(StringComparer.Ordinal);           // already-reported bad schedules
-    private readonly IReadOnlyList<JobSchedule> _schedules = [.. schedules];
-    private readonly ILogger _logger = logger ?? NullLogger<JobScheduler>.Instance;
-    private readonly Func<DateTimeOffset> _clock = clock ?? (() => DateTimeOffset.UtcNow);
+    private readonly IJobQueue _queue;
+    private readonly IReadOnlyList<JobSchedule> _schedules;
+    private readonly IJobScheduleStore? _scheduleStore;
+    private readonly LyntaiOptions _options;
+    private readonly IKeyValueStore? _store;
+    private readonly ILogger _logger;
+    private readonly Func<DateTimeOffset> _clock;
+    private int _storeFailing;
+
+    /// <summary>A scheduler over the build-time schedules alone.</summary>
+    public JobScheduler(IJobQueue queue, IEnumerable<JobSchedule> schedules, LyntaiOptions options,
+        IKeyValueStore? store = null, ILogger<JobScheduler>? logger = null, Func<DateTimeOffset>? clock = null)
+        : this(queue, schedules, null, options, store, logger, clock)
+    {
+    }
+
+    /// <summary>A scheduler over the build-time schedules and those <paramref name="scheduleStore"/> holds.</summary>
+    public JobScheduler(IJobQueue queue, IEnumerable<JobSchedule> schedules, IJobScheduleStore? scheduleStore,
+        LyntaiOptions options, IKeyValueStore? store = null, ILogger<JobScheduler>? logger = null,
+        Func<DateTimeOffset>? clock = null)
+    {
+        ArgumentNullException.ThrowIfNull(queue);
+        ArgumentNullException.ThrowIfNull(schedules);
+        ArgumentNullException.ThrowIfNull(options);
+        _queue = queue;
+        _schedules = [.. schedules];
+        _scheduleStore = scheduleStore;
+        _options = options;
+        _store = store;
+        _logger = logger ?? NullLogger<JobScheduler>.Instance;
+        _clock = clock ?? (() => DateTimeOffset.UtcNow);
+    }
 
     public async Task<int> TickAsync(CancellationToken ct = default)
     {
         var now = _clock();
         var enqueued = 0;
         var names = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var s in _schedules)
+        IReadOnlyList<JobSchedule> all = [.. _schedules, .. await ListStoredAsync(ct).ConfigureAwait(false)];
+        foreach (var s in all)
         {
             // a throw here — an impossible cron's NextAfter (Feb 30), anything else — quarantines that ONE
             // schedule, so it neither aborts the tick (skipping later schedules) nor spins on every poll
@@ -71,16 +100,18 @@ public sealed class JobScheduler(
                     continue;
                 }
 
+                // the trigger is recorded on EVERY tick, first sight included, so a change after it is always seen
+                var changed = await TriggerChangedAsync(s, ct).ConfigureAwait(false);
                 var next = await GetNextAsync(s.Name, ct).ConfigureAwait(false);
-                if (next is null)
+                if (next is null || changed)
                 {
-                    // first sight → schedule the first run (one interval out / the cron's next), don't fire now
+                    // first sight, or a changed cron/interval → anchor the next run, don't fire now
                     await SetNextAsync(s.Name, NextAfter(s, now), ct).ConfigureAwait(false);
                     continue;
                 }
                 if (next.Value > now) continue; // not due yet
 
-                await queue.EnqueueAsync(s.Lane, s.Type, s.Payload, s.Priority, ct: ct).ConfigureAwait(false);
+                await _queue.EnqueueAsync(s.Lane, s.Type, s.Payload, s.Priority, ct: ct).ConfigureAwait(false);
                 enqueued++;
                 _logger.LogDebug("scheduler: enqueued '{Name}' ({Type})", s.Name, s.Type);
 
@@ -141,15 +172,50 @@ public sealed class JobScheduler(
             catch (OperationCanceledException) when (ct.IsCancellationRequested) { break; }
             catch (Exception ex) { _logger.LogWarning(ex, "scheduler tick failed; continuing"); }
 
-            try { await Task.Delay(options.Jobs.PollInterval, ct).ConfigureAwait(false); }
+            try { await Task.Delay(_options.Jobs.PollInterval, ct).ConfigureAwait(false); }
             catch (OperationCanceledException) { break; }
         }
     }
 
+    /// <summary>The stored schedules, or none when no store is registered or it failed this tick — warned about on
+    /// the first failing tick after a success, so a store down for an hour does not log on every poll.</summary>
+    private async Task<IReadOnlyList<JobSchedule>> ListStoredAsync(CancellationToken ct)
+    {
+        if (_scheduleStore is null) return [];
+        try
+        {
+            var stored = await _scheduleStore.ListAsync(ct).ConfigureAwait(false);
+            Interlocked.Exchange(ref _storeFailing, 0);
+            return stored;
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (Exception ex)
+        {
+            if (Interlocked.Exchange(ref _storeFailing, 1) == 0)
+                _logger.LogWarning(ex, "scheduler: the schedule store failed; running the build-time schedules until it answers");
+            return [];
+        }
+    }
+
+    /// <summary>Whether <paramref name="s"/>'s trigger differs from the one its next run was computed from, recording
+    /// the current one. None recorded — every schedule a scheduler before this saw — is recorded, not a change.</summary>
+    private async Task<bool> TriggerChangedAsync(JobSchedule s, CancellationToken ct)
+    {
+        var current = JobScheduleRules.Fingerprint(s);
+        var recorded = _store is null
+            ? (_triggers.TryGetValue(s.Name, out var t) ? t : null)
+            : await _store.GetAsync(JobScheduleRules.TriggerKey(s.Name), ct).ConfigureAwait(false);
+        if (string.Equals(recorded, current, StringComparison.Ordinal)) return false;
+
+        if (_store is null) _triggers[s.Name] = current;
+        else await _store.SetAsync(JobScheduleRules.TriggerKey(s.Name), current, ct).ConfigureAwait(false);
+        return recorded is not null;
+    }
+
     private async Task<DateTimeOffset?> GetNextAsync(string name, CancellationToken ct)
     {
-        if (store is null) return _memory.TryGetValue(name, out var t) ? t : null;
-        var raw = await store.GetAsync(Key(name), ct).ConfigureAwait(false);
+        if (_store is null) return _memory.TryGetValue(name, out var t) ? t : null;
+        var raw = await _store.GetAsync(JobScheduleRules.NextRunKey(name), ct).ConfigureAwait(false);
         if (raw is null) return null;
         if (DateTimeOffset.TryParse(raw, CultureInfo.InvariantCulture,
                 DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var parsed))
@@ -163,9 +229,7 @@ public sealed class JobScheduler(
 
     private async Task SetNextAsync(string name, DateTimeOffset when, CancellationToken ct)
     {
-        if (store is null) { _memory[name] = when; return; }
-        await store.SetAsync(Key(name), when.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture), ct).ConfigureAwait(false);
+        if (_store is null) { _memory[name] = when; return; }
+        await _store.SetAsync(JobScheduleRules.NextRunKey(name), when.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture), ct).ConfigureAwait(false);
     }
-
-    private static string Key(string name) => $"lyntai:schedule:{name}";
 }

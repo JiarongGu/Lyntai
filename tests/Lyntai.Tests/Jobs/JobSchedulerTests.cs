@@ -211,4 +211,176 @@ public class JobSchedulerTests
         Assert.IsType<JobScheduler>(scheduler);
         Assert.Equal(0, await scheduler.TickAsync()); // first tick schedules without throwing
     }
+
+    [Fact]
+    public async Task AddJobScheduleStore_wires_the_store_into_the_scheduler()
+    {
+        var services = new ServiceCollection();
+        services.AddLyntai(b => b
+            .AddProvider(_ => new FakeTextProvider("p"))
+            .UseInMemoryStorage()
+            .AddJobScheduleStore());
+        using var sp = services.BuildServiceProvider();
+        await sp.GetRequiredService<IJobScheduleStore>().SetAsync(new JobSchedule("user", "lane", "t", "{}", TimeSpan.FromMinutes(1)));
+        var scheduler = sp.GetRequiredService<IJobScheduler>();
+
+        await scheduler.TickAsync();                                       // first sight of the stored schedule
+
+        Assert.NotNull(await sp.GetRequiredService<IKeyValueStore>().GetAsync("lyntai:schedule:user"));
+    }
+}
+
+/// <summary>Schedules the app adds at run time (<see cref="IJobScheduleStore"/>): listed on every tick after the
+/// build-time ones, skipped for a tick when the store fails, and re-anchored when their trigger changes.</summary>
+public class JobSchedulerStoreTests
+{
+    private readonly MutableClock _clock = new();
+    private readonly InMemoryKeyValueStore _kv = new();
+    private readonly CapturingLogger<JobScheduler> _logger = new();
+    private InMemoryJobStore? _jobs;
+
+    private InMemoryJobStore Jobs => _jobs ??= new InMemoryJobStore(_clock.Get);
+
+    private JobScheduler Scheduler(IJobScheduleStore? store, params JobSchedule[] buildTime)
+    {
+        var options = new LyntaiOptions();
+        return new JobScheduler(new JobQueue(Jobs, options), buildTime, store, options, _kv, _logger, _clock.Get);
+    }
+
+    private static JobSchedule Every(string name, TimeSpan interval, string type = "report") =>
+        new(name, "reports", type, "{}", interval);
+
+    [Fact]
+    public async Task A_stored_schedule_fires_on_the_tick_after_it_is_set()
+    {
+        var store = new KeyValueJobScheduleStore(_kv);
+        var scheduler = Scheduler(store);
+        await store.SetAsync(Every("user", TimeSpan.FromMinutes(10)));
+
+        Assert.Equal(0, await scheduler.TickAsync());                      // first sight: anchored, not fired
+        _clock.Advance(TimeSpan.FromMinutes(10));
+
+        Assert.Equal(1, await scheduler.TickAsync());
+        Assert.Equal("report", Assert.Single(await Jobs.ListAsync()).Type);
+    }
+
+    [Fact]
+    public async Task A_removed_schedule_stops_firing()
+    {
+        var store = new KeyValueJobScheduleStore(_kv);
+        var scheduler = Scheduler(store);
+        await store.SetAsync(Every("user", TimeSpan.FromMinutes(10)));
+        await scheduler.TickAsync();
+        _clock.Advance(TimeSpan.FromMinutes(10));
+        Assert.Equal(1, await scheduler.TickAsync());
+
+        await store.RemoveAsync("user");
+        _clock.Advance(TimeSpan.FromMinutes(10));
+
+        Assert.Equal(0, await scheduler.TickAsync());
+    }
+
+    [Fact]
+    public async Task Build_time_wins_a_name_clash_with_the_store()
+    {
+        var store = new KeyValueJobScheduleStore(_kv);
+        await store.SetAsync(Every("nightly", TimeSpan.FromMinutes(10), type: "stored"));
+        var scheduler = Scheduler(store, Every("nightly", TimeSpan.FromMinutes(10), type: "built"));
+        await scheduler.TickAsync();
+        _clock.Advance(TimeSpan.FromMinutes(10));
+
+        Assert.Equal(1, await scheduler.TickAsync());
+        Assert.Equal("built", Assert.Single(await Jobs.ListAsync()).Type);
+    }
+
+    [Fact]
+    public async Task A_throwing_store_is_skipped_and_build_time_schedules_still_fire()
+    {
+        var scheduler = Scheduler(new FailingStore { Failing = true }, Every("nightly", TimeSpan.FromMinutes(10)));
+        await scheduler.TickAsync();
+        _clock.Advance(TimeSpan.FromMinutes(10));
+
+        Assert.Equal(1, await scheduler.TickAsync());
+    }
+
+    [Fact]
+    public async Task A_store_failing_every_tick_is_warned_once_per_failure_run()
+    {
+        var store = new FailingStore { Failing = true };
+        var scheduler = Scheduler(store);
+
+        for (var i = 0; i < 3; i++) await scheduler.TickAsync();
+        Assert.Single(_logger.Messages, m => m.Contains("schedule store", StringComparison.Ordinal));
+
+        store.Failing = false;
+        await scheduler.TickAsync();                                       // a success ends the run
+        store.Failing = true;
+        await scheduler.TickAsync();
+
+        Assert.Equal(2, _logger.Messages.Count(m => m.Contains("schedule store", StringComparison.Ordinal)));
+    }
+
+    [Fact]
+    public async Task A_changed_trigger_re_anchors_instead_of_firing_at_the_old_slot()
+    {
+        var store = new KeyValueJobScheduleStore(_kv);
+        var scheduler = Scheduler(store);
+        await store.SetAsync(Every("user", TimeSpan.FromMinutes(10)));
+        await scheduler.TickAsync();                                       // next run: +10 min
+
+        await store.SetAsync(Every("user", TimeSpan.FromHours(1)));
+        _clock.Advance(TimeSpan.FromMinutes(10));
+        Assert.Equal(0, await scheduler.TickAsync());                      // the old slot does not fire: re-anchored
+
+        _clock.Advance(TimeSpan.FromHours(1));
+        Assert.Equal(1, await scheduler.TickAsync());
+    }
+
+    [Fact]
+    public async Task A_missing_fingerprint_does_not_re_anchor()
+    {
+        // the first tick after the upgrade: a due next run written by a scheduler that kept no fingerprint
+        await _kv.SetAsync("lyntai:schedule:nightly", _clock.Now.AddMinutes(-1).ToString("O"));
+        var scheduler = Scheduler(null, Every("nightly", TimeSpan.FromMinutes(10)));
+
+        Assert.Equal(1, await scheduler.TickAsync());
+        Assert.NotNull(await _kv.GetAsync("lyntai:schedule-trigger:nightly"));
+    }
+
+    [Fact]
+    public async Task A_build_time_schedule_edited_between_deployments_re_anchors()
+    {
+        await Scheduler(null, Every("nightly", TimeSpan.FromMinutes(10))).TickAsync();
+        _clock.Advance(TimeSpan.FromMinutes(10));
+
+        var redeployed = Scheduler(null, Every("nightly", TimeSpan.FromHours(1)));
+
+        Assert.Equal(0, await redeployed.TickAsync());
+    }
+
+    [Fact]
+    public async Task Cancellation_from_the_store_propagates()
+    {
+        using var cts = new CancellationTokenSource();
+        await cts.CancelAsync();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => Scheduler(new FailingStore()).TickAsync(cts.Token));
+    }
+
+    private sealed class FailingStore : IJobScheduleStore
+    {
+        public bool Failing { get; set; }
+
+        public Task<IReadOnlyList<JobSchedule>> ListAsync(CancellationToken ct = default)
+        {
+            ct.ThrowIfCancellationRequested();
+            return Failing ? throw new InvalidOperationException("down") : Task.FromResult<IReadOnlyList<JobSchedule>>([]);
+        }
+
+        public Task<JobSchedule?> GetAsync(string name, CancellationToken ct = default) => throw new NotSupportedException();
+
+        public Task SetAsync(JobSchedule schedule, CancellationToken ct = default) => throw new NotSupportedException();
+
+        public Task<bool> RemoveAsync(string name, CancellationToken ct = default) => throw new NotSupportedException();
+    }
 }

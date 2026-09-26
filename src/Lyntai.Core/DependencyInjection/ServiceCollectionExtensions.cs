@@ -465,8 +465,8 @@ public static class LyntaiServiceCollectionExtensions
         // recurring schedules: enqueues due JobSchedules; next-run persisted via IKeyValueStore (durable
         // across restart) or in-memory when none is wired. The app drives the pump (host-free).
         services.TryAddSingleton<IJobScheduler>(sp => new JobScheduler(
-            sp.GetRequiredService<IJobQueue>(), sp.GetServices<JobSchedule>(), options,
-            sp.GetService<IKeyValueStore>(), sp.GetService<ILogger<JobScheduler>>()));
+            sp.GetRequiredService<IJobQueue>(), sp.GetServices<JobSchedule>(), sp.GetService<IJobScheduleStore>(),
+            options, sp.GetService<IKeyValueStore>(), sp.GetService<ILogger<JobScheduler>>()));
     }
 
     /// <summary>Scope-guard/jail hooks and the two-gate chat orchestrator that composes guards + memory +

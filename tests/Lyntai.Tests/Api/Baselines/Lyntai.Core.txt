@@ -1638,6 +1638,7 @@ sealed class Lyntai.Jobs.JobSchedule
     ToString() : String
     Type : String { get; init; }
 sealed class Lyntai.Jobs.JobScheduler
+    .ctor(IJobQueue queue, IEnumerable<JobSchedule> schedules, IJobScheduleStore scheduleStore, LyntaiOptions options, IKeyValueStore store = null, ILogger<JobScheduler> logger = null, Func<DateTimeOffset> clock = null)
     .ctor(IJobQueue queue, IEnumerable<JobSchedule> schedules, LyntaiOptions options, IKeyValueStore store = null, ILogger<JobScheduler> logger = null, Func<DateTimeOffset> clock = null)
     RunAsync(CancellationToken ct = default) : Task
     TickAsync(CancellationToken ct = default) : Task<Int32>
