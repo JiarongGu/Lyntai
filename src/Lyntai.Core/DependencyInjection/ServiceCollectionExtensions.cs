@@ -152,12 +152,14 @@ public static class LyntaiServiceCollectionExtensions
         services.TryAddSingleton(sp => new DeadHostTracker(
             options.DeadHostThreshold, options.DeadHostCooldown, logger: sp.GetService<ILogger<DeadHostTracker>>()));
         services.TryAddSingleton<ITextRouter>(sp => sp.GetService<TextProviderRegistry>() is { } registry
-            // run-time providers: one snapshot per call, and a registered provider benched by its configuration
+            // run-time providers: one snapshot per call, and a registered provider benched and admitted by its
+            // configuration (a container provider has no key, so admission lets it through as before)
             ? new TextRouter(registry.Lookup, sp.GetRequiredService<DeadHostTracker>(), options,
                 sp.GetService<ILogger<TextRouter>>(), modelRouting: sp.GetService<IModelRoutingStore>(),
                 configuration: sp.GetRequiredService<IProviderPool<IModelProvider>>() is var pool
                     ? p => pool.TryGetKey(p, out var key) ? key : null
-                    : null)
+                    : null,
+                admission: sp.GetService<IProviderAdmission>())
             : new TextRouter(
                 sp.GetServices<IModelProvider>(), sp.GetRequiredService<DeadHostTracker>(), options,
                 sp.GetService<ILogger<TextRouter>>(), modelRouting: sp.GetService<IModelRoutingStore>()));

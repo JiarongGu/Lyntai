@@ -13,23 +13,34 @@ namespace Lyntai.Inference.Tracing;
 /// <c>AddTextCallTracing</c> traces records its step on the given recorder instead of beginning a trace of its own.</summary>
 public static class TextCallTracing
 {
-    private static readonly AsyncLocal<ITraceRecorder?> Scope = new();
+    private static readonly AsyncLocal<Scope?> Ambient = new();
 
-    internal static ITraceRecorder? Current => Scope.Value;
+    internal static Scope? Current => Ambient.Value;
 
     /// <summary>Record the steps of the calls this async flow makes on <paramref name="recorder"/> until the returned
-    /// scope is disposed. The caller owns the recorder and completes it; scores are saved under its session id.
-    /// Scopes nest: disposing one restores the recorder it replaced. Without <c>AddTextCallTracing</c> nothing is
+    /// scope is disposed. The caller owns the recorder and completes it. Each call's scores are saved under
+    /// <c>{SessionId}#{n}</c>, n counting the scope's traced calls from 0 — the store keeps one result per session
+    /// and scorer, so one id for the run would keep only the last call's — and the step's detail names that id.
+    /// Scopes nest: disposing one restores the one it replaced. Without <c>AddTextCallTracing</c> nothing is
     /// recorded.</summary>
     public static IDisposable Into(ITraceRecorder recorder)
     {
         ArgumentNullException.ThrowIfNull(recorder);
-        var previous = Scope.Value;
-        Scope.Value = recorder;
+        var previous = Ambient.Value;
+        Ambient.Value = new Scope(recorder);
         return new Restore(previous);
     }
 
-    private sealed class Restore(ITraceRecorder? previous) : IDisposable
+    internal sealed class Scope(ITraceRecorder recorder)
+    {
+        private int _calls = -1;
+
+        public ITraceRecorder Recorder { get; } = recorder;
+
+        public string NextScoreSession() => $"{Recorder.SessionId}#{Interlocked.Increment(ref _calls)}";
+    }
+
+    private sealed class Restore(Scope? previous) : IDisposable
     {
         private bool _disposed;
 
@@ -37,7 +48,7 @@ public static class TextCallTracing
         {
             if (_disposed) return;
             _disposed = true;
-            Scope.Value = previous;
+            Ambient.Value = previous;
         }
     }
 }
@@ -136,7 +147,9 @@ internal sealed class TracingTextClient : DelegatingTextClient
         {
             var sinks = _sinks.Value;
             var scope = TextCallTracing.Current;
-            var recorder = scope ?? sinks.Traces.Begin(Guid.NewGuid().ToString("N"), _options.Mode);
+            var recorder = scope?.Recorder ?? sinks.Traces.Begin(Guid.NewGuid().ToString("N"), _options.Mode);
+            var scored = verdict is not null && sinks.Scoring is not null;
+            var scoreSession = scope?.NextScoreSession() ?? recorder.SessionId;
             recorder.Record(new TraceStep
             {
                 Kind = "llm",
@@ -145,11 +158,11 @@ internal sealed class TracingTextClient : DelegatingTextClient
                 OutputTokens = usage?.OutputTokens ?? 0,
                 CostUsd = usage?.CostUsd ?? 0,
                 DurationMs = ms,
-                Detail = Describe(req, verdict, text),
+                Detail = Describe(req, verdict, scored && scope is not null ? scoreSession : null, text),
             });
             if (scope is null) await recorder.CompleteAsync(ct).ConfigureAwait(false);
-            if (verdict is { } finished && sinks.Scoring is { } scoring)
-                await ScoreAsync(scoring, recorder.SessionId, req, finished, text, detail, ct).ConfigureAwait(false);
+            if (scored)
+                await ScoreAsync(sinks.Scoring!, scoreSession, req, verdict!.Value, text, detail, ct).ConfigureAwait(false);
         }
         // the reply already succeeded, so a late cancellation is swallowed with everything else
         catch (Exception ex)
@@ -175,9 +188,11 @@ internal sealed class TracingTextClient : DelegatingTextClient
         }, ct).ConfigureAwait(false);
     }
 
-    private string Describe(TextRequest req, ProviderVerdict? verdict, string text)
+    // the reply goes last: it is free text, so nothing after it could be told apart from it
+    private string Describe(TextRequest req, ProviderVerdict? verdict, string? scoreSession, string text)
     {
-        var detail = $"verdict={verdict?.ToString() ?? "incomplete"}" + (req.Model is null ? "" : $"; model={req.Model}");
+        var detail = $"verdict={verdict?.ToString() ?? "incomplete"}" + (req.Model is null ? "" : $"; model={req.Model}")
+            + (scoreSession is null ? "" : $"; scores={scoreSession}");
         return _options.RecordText ? $"{detail}; reply={Cut(text, _options.MaxRecordedChars)}" : detail;
     }
 

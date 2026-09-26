@@ -10,8 +10,8 @@ public sealed class TextCallTracingOptions
     public string Mode { get; set; } = "text-call";
 
     /// <summary>Which registered scorers run over each call. Default: the deterministic ones only
-    /// (<c>!IsLlm</c>). Admitting an LLM scorer adds a model call to EVERY traced call; that call is itself
-    /// never traced or scored.</summary>
+    /// (<c>!IsLlm</c>). Admitting an LLM scorer adds a model call to EVERY traced call, and the reply waits for
+    /// it; that call is itself never traced or scored.</summary>
     public Func<IScorer, bool> Scorers { get; set; } = scorer => !scorer.IsLlm;
 
     /// <summary>Whether the reply's text is stored in the step's <see cref="TraceStep.Detail"/>, cut to

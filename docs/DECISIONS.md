@@ -5676,4 +5676,8 @@ traced call, so it is opted into through `TextCallTracingOptions.Scorers`, and a
 scorer's own call untraced — without it the scorer recurses through the traced client. The sinks resolve on
 first use, because an LLM scorer needs the `ITextClient` the decorator is being built into. **Fail-open**: a
 throwing store, scorer or late cancellation is logged and the reply returned. A call that THROWS is not traced;
-the OpenTelemetry span records it.
+the OpenTelemetry span records it. **On the call's path, deliberately**: the reply waits for the step and the
+scores, so a slow store or an LLM scorer adds its time to every traced call. A background hand-off would bound
+that, but loses whatever is queued when the process stops; `Include` is the lever. **Inside `Into`, each call
+scores under `{run}#{n}`**: a score store keeps one result per session and scorer, so the run's own id would keep
+only the last call's, and would collide with scores the app saves under it.

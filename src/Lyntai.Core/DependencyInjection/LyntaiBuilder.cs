@@ -521,9 +521,12 @@ public sealed class LyntaiBuilder
     /// trace's session id through the registered <see cref="IScoreStore"/>. Each call begins and completes its own
     /// trace, unless it runs inside <see cref="TextCallTracing.Into"/>, which groups calls on the caller's recorder.
     /// <para>Cached and streamed calls are traced too (a stream when it ends, or when the caller disposes it), and a
-    /// scorer's own model call never is. The verdict recorded is the reply's before refusal screening. Tracing runs
-    /// after the reply and never fails the call: a store or scorer that throws is logged. Folds at
-    /// <see cref="TracingDecoratorOrder"/>; repeating the call re-applies its options.</para></summary>
+    /// scorer's own model call never is. The verdict recorded is the reply's before refusal screening.</para>
+    /// <para><b>Tracing runs after the reply but on the call's path</b>: the reply is returned, and a stream ends,
+    /// only once the step and the scores are saved, so a slow store or an opted-in LLM scorer adds its time to every
+    /// traced call — <see cref="TextCallTracingOptions.Include"/> narrows what pays it. It never fails the call: a
+    /// store or scorer that throws is logged. Folds at <see cref="TracingDecoratorOrder"/>; repeating the call
+    /// re-applies its options.</para></summary>
     /// <exception cref="ArgumentOutOfRangeException"><see cref="TextCallTracingOptions.MaxRecordedChars"/> is
     /// negative.</exception>
     public LyntaiBuilder AddTextCallTracing(Action<TextCallTracingOptions>? configure = null)

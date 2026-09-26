@@ -19,7 +19,8 @@ public interface ITextProviderRegistry
 
     /// <summary>Register a provider, or replace the one registered under its id. It is built at once through the
     /// provider pool, so a mistake fails here rather than at a later call; a replaced configuration is retired from
-    /// the pool without being disposed, so a call already running on it finishes.</summary>
+    /// the pool without being disposed, so a call already running on it finishes. Registering the configuration
+    /// already registered under that id changes nothing and builds nothing.</summary>
     /// <exception cref="InvalidOperationException">A container provider already has that id.</exception>
     /// <exception cref="ArgumentException">The built provider's id is not the key's slot, or it produces no text —
     /// either way it could never be routed to.</exception>
@@ -72,6 +73,11 @@ internal sealed class TextProviderRegistry(IEnumerable<IModelProvider> container
                     $"A provider registered at composition already has the id '{slot}'; a run-time registration "
                     + "cannot share it, because a router matches candidates on the id.");
 
+            // an unchanged configuration keeps its instance: the pool may no longer hold it (idle eviction, or a
+            // transient pool), and asking again would build a second copy and strand the first undisposed
+            var at = _registered.FindIndex(r => string.Equals(r.Key.Slot, slot, StringComparison.OrdinalIgnoreCase));
+            if (at >= 0 && _registered[at].Key == registration.Key) return;
+
             var provider = pool.GetOrAdd(registration.Key, registration.Create);
             try
             {
@@ -87,7 +93,6 @@ internal sealed class TextProviderRegistry(IEnumerable<IModelProvider> container
                 throw;
             }
 
-            var at = _registered.FindIndex(r => string.Equals(r.Key.Slot, slot, StringComparison.OrdinalIgnoreCase));
             if (at >= 0)
             {
                 if (_registered[at].Key != registration.Key) pool.Retire(_registered[at].Key);

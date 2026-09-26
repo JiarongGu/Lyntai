@@ -436,9 +436,10 @@ is separate and **app-driven**: a durable, queryable run history you record your
 **`AddTextCallTracing()` records one for you**: a step per front-door call — consumer, usage, duration, verdict,
 model — then the registered scorers `TextCallTracingOptions.Scorers` selects, the deterministic ones by default,
 saved under the trace's session id (`docs/DECISIONS.md` **D193**). Each call is a trace of its own unless it runs
-inside `using (TextCallTracing.Into(recorder))`, which puts a run of calls on your recorder. Cached and streamed
-calls are traced, a scorer's own model call never is, and the reply's text is stored only with `RecordText`.
-Tracing runs after the reply and never fails it.
+inside `using (TextCallTracing.Into(recorder))`, which puts a run of calls on your recorder and saves each call's
+scores under `{SessionId}#{n}`. Cached and streamed calls are traced, a scorer's own model call never is, and the
+reply's text is stored only with `RecordText`. Tracing never fails a call, but it runs on the call's path: the
+reply waits for the step and the scores, so a slow store or an opted-in LLM scorer adds to every traced call.
 
 ### Bring your own resources
 

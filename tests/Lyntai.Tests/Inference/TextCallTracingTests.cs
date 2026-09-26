@@ -156,6 +156,37 @@ public class TextCallTracingTests
     }
 
     [Fact]
+    public async Task Inside_Into_each_calls_scores_are_kept_apart_from_the_other_calls_and_from_the_run()
+    {
+        // the real store UPSERTS on (session, scorer): one session id for the run would keep only the last call's
+        var provider = new FakeTextProvider("p");
+        provider.Replies.Enqueue(new TextResponse("short", ProviderVerdict.Ok));
+        provider.Replies.Enqueue(new TextResponse("a much longer reply", ProviderVerdict.Ok));
+        var services = new ServiceCollection();
+        services.AddLyntai(b => b
+            .AddProvider(_ => provider).UseDefaultCandidates("p").UseInMemoryStorage()
+            .AddScorer(_ => new FakeScorer("len", score: c => new ScoreResult(c.Output!.Length)))
+            .AddTextCallTracing());
+        using var sp = services.BuildServiceProvider();
+        var client = sp.GetRequiredService<ITextClient>();
+        var recorder = sp.GetRequiredService<ITraceService>().Begin("run-1", "batch");
+
+        using (TextCallTracing.Into(recorder))
+        {
+            await client.CompleteAsync(Req());
+            await client.CompleteAsync(Req());
+        }
+        await recorder.CompleteAsync();
+
+        var scores = sp.GetRequiredService<IScoreStore>();
+        Assert.Equal(5, Assert.Single(await scores.GetAsync("run-1#0")).Score);
+        Assert.Equal(19, Assert.Single(await scores.GetAsync("run-1#1")).Score);
+        Assert.Empty(await scores.GetAsync("run-1"));                                  // the run's own id is the app's
+        var steps = (await sp.GetRequiredService<ITraceService>().GetAsync("run-1"))!.Steps;
+        Assert.Equal(["run-1#0", "run-1#1"], steps.Select(s => s.Detail!.Split("scores=")[1]));
+    }
+
+    [Fact]
     public async Task A_throwing_trace_store_leaves_the_reply_intact()
     {
         using var sp = BuildWith(new ThrowingTraceStore(), Answering(), b => b.AddTextCallTracing());

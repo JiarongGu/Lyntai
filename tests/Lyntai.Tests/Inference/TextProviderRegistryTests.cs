@@ -149,6 +149,40 @@ public class TextProviderRegistryTests
     }
 
     [Fact]
+    public async Task A_registered_provider_is_admitted_under_its_configuration()
+    {
+        var admission = new RecordingAdmission();
+        var services = new ServiceCollection();
+        services.AddSingleton<IProviderAdmission>(admission);                   // before AddLyntai: its TryAdd stands down
+        services.AddLyntai(b => b.AddProvider(_ => Answering("base")).UseDefaultCandidates("base").UseTextProviderRegistry());
+        using var sp = services.BuildServiceProvider();
+        var registry = sp.GetRequiredService<ITextProviderRegistry>();
+        registry.Register(new(Key("user"), () => Answering("user")));
+        registry.SetDefaultCandidates([new ProviderCandidate("user")]);
+
+        Assert.Equal("from user", (await sp.GetRequiredService<ITextClient>().CompleteAsync(Req)).Text);
+
+        Assert.Equal([Key("user")], admission.Entered);
+        Assert.Equal(1, admission.Released);
+    }
+
+    [Fact]
+    public void Re_registering_an_unchanged_configuration_keeps_the_instance_it_holds()
+    {
+        // a host re-syncing its store re-registers every endpoint; a pool that no longer holds the entry (transient
+        // here, idle-evicted in the bounded pool) would otherwise build — and strand — a second copy of each
+        var builds = 0;
+        using var sp = Build(b => b.UseTransientProviders());
+        var registry = sp.GetRequiredService<ITextProviderRegistry>();
+
+        registry.Register(new(Key("user"), () => { builds++; return Answering("user"); }));
+        registry.Register(new(Key("user"), () => { builds++; return Answering("user"); }));
+
+        Assert.Equal(1, builds);
+        Assert.Equal([Key("user")], registry.Registered);
+    }
+
+    [Fact]
     public async Task A_named_client_never_tries_a_registered_provider()
     {
         using var sp = Build(b => b.AddTextClient("judge", c => c.UseProviders("base")));

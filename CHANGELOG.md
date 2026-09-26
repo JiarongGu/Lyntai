@@ -44,17 +44,20 @@ every addition.
 - **Text providers registered at run time** (**D193**): `UseTextProviderRegistry()` registers
   `ITextProviderRegistry`, whose `Register`, `Unregister` and `SetDefaultCandidates` change the providers and the
   fallback order the default text client routes over without rebuilding the container. The budget, cache, rate
-  limit and refusal screening folded onto that client govern them as they do a container provider, and a call
-  already routing finishes on the providers it started with. A provider is built at `Register`, through the
-  provider pool, so an id a container provider holds, an id that is not the key's slot, or a provider that produces
-  no text is refused there. A named client (`AddTextClient`) keeps the providers it was composed with.
+  limit and refusal screening folded onto that client govern them as they do a container provider, cooldown and
+  admission are keyed on each one's configuration, and a call already routing finishes on the providers it started
+  with. A provider is built at `Register`, through the provider pool, so an id a container provider holds, an id
+  that is not the key's slot, or a provider that produces no text is refused there; registering an unchanged
+  configuration again builds nothing. A named client (`AddTextClient`) keeps the providers it was composed with.
 - **Every front-door call traced and scored** (**D193**): `AddTextCallTracing()` records one `"llm"` step per call
   through `ITraceService` — the consumer, usage, duration, verdict and model, and the reply only with
   `TextCallTracingOptions.RecordText` — then runs the registered scorers `TextCallTracingOptions.Scorers` selects,
   the deterministic ones by default, and saves their results under the trace's session id. Cached and streamed calls
-  are traced too, a scorer's own model call never is, and a failure to trace is logged rather than failing the call.
-  `TextCallTracing.Into(recorder)` records a run of calls on one recorder of the caller's. It folds at
-  `LyntaiBuilder.TracingDecoratorOrder` (30), outside the response cache.
+  are traced too, a scorer's own model call never is, and a failure to trace is logged rather than failing the call;
+  the reply waits for the step and the scores, so a slow store or an opted-in LLM scorer adds its time to every
+  traced call. `TextCallTracing.Into(recorder)` records a run of calls on one recorder of the caller's, each call's
+  scores under `{SessionId}#{n}`. It folds at `LyntaiBuilder.TracingDecoratorOrder` (30), outside the response
+  cache.
 - **Schedules added at run time** (**D192**): `IJobScheduleStore` — list, get, set, remove — holds them, and
   `JobScheduler` lists it on every tick after the build-time schedules, which win a name clash; a store that fails
   is skipped for that tick and warned about once per failure run, and one slower than
