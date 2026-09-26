@@ -5643,8 +5643,8 @@ different one re-anchors instead of firing once more at the old slot. None recor
 is recorded and left alone, so no due job is delayed.
 
 **The store members are REQUIRED.** A default forwarding the text would let a store of the app's own drop every
-code without a word — the silent hole **D99** takes a default only to avoid when it costs speed. So it is a
-`### Breaking` entry. **`ReportStageAsync` is a distinct name**, not a `ReportProgressAsync` overload: a
+code without a word: **D99** takes a default body only where the cost is speed, and **D88**/**D72** refuse a
+silent hole. So it is a `### Breaking` entry. **`ReportStageAsync` is a distinct name**, not a `ReportProgressAsync` overload: a
 `ReportProgressAsync(i, n, null, ct)` would turn ambiguous. And `JobContext`'s public constructor stays as it
 is — a second with differently typed reporter delegates would make every lambda argument ambiguous — so the
 runner uses an internal factory, and a context over string reporters receives each message's text.

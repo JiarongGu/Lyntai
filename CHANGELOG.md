@@ -23,8 +23,11 @@ every addition.
 
 - **`IJobStore` gains `ReportStageAsync` and `ReportStepAsync(JobMessage)`** (**D192**), which carry a job's stage
   and steps as a coded `JobMessage` a reader can localize. They have no default bodies: a default forwarding only
-  the text would drop every code without a word. **What to DO:** a job store of your own implements both — its
-  text goes where the string members' did; the shipped InMemory, SQLite and Postgres stores already do.
+  the text would drop every code without a word. **What to DO:** a job store of your own implements both — the
+  text goes where the string members' did, and the records it returns carry the message on
+  `JobRecord.StageMessage` to keep its code; the shipped InMemory, SQLite and Postgres stores already do. The runner
+  now calls only these two, so logic a store or a decorator keeps in `ReportProgressAsync(string)` or
+  `ReportStepAsync(string)` — publishing a progress event, say — moves to them.
 - **`WordPieceEncoding` is `TokenEncoding`** (**D191**), with the same three members, because <!-- drift-ok: the entry announcing the rename names the old type -->
   `SentencePieceTokenizer` returns it too. **What to DO:** rename the type where you use it.
 
@@ -40,7 +43,9 @@ every addition.
 
 - **Schedules added at run time** (**D192**): `IJobScheduleStore` — list, get, set, remove — holds them, and
   `JobScheduler` lists it on every tick after the build-time schedules, which win a name clash; a store that fails
-  is skipped for that tick and warned about once per failure run. `KeyValueJobScheduleStore`, registered by
+  is skipped for that tick and warned about once per failure run, and one slower than
+  `JobOptions.ScheduleStoreTimeout` (10 s) counts as failed — the build-time schedules are handled before it is
+  asked, so it never holds them up. A stored schedule is held to the rules `AddJobSchedule` applies. `KeyValueJobScheduleStore`, registered by
   `AddJobScheduleStore()`, keeps them in the key-value store, one key per schedule; `AddJobScheduleStore<TStore>()`
   registers a store of your own.
 - **Job status a reader can localize** (**D192**): `JobMessage` carries a line's `Text` with a `Code` and
