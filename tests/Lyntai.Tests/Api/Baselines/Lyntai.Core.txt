@@ -1477,6 +1477,15 @@ sealed class Lyntai.Inference.TextUsage
     OutputTokens : Int64 { get; init; }
     ToProviderUsage() : ProviderUsage
     ToString() : String
+static class Lyntai.Inference.Tracing.TextCallTracing
+    static Into(ITraceRecorder recorder) : IDisposable
+sealed class Lyntai.Inference.Tracing.TextCallTracingOptions
+    .ctor()
+    Include : Func<TextRequest,Boolean> { get; set; }
+    MaxRecordedChars : Int32 { get; set; }
+    Mode : String { get; set; }
+    RecordText : Boolean { get; set; }
+    Scorers : Func<IScorer,Boolean> { get; set; }
 sealed class Lyntai.Inference.TransientProviderPool`1
     .ctor()
     GetOrAdd(ProviderKey key, Func<TProvider> factory) : TProvider
@@ -1741,6 +1750,7 @@ sealed class Lyntai.LyntaiBuilder
     AddScorer(Func<IServiceProvider,IScorer> factory) : LyntaiBuilder
     AddScorer<T>() : LyntaiBuilder
     AddSemanticMemory() : LyntaiBuilder
+    AddTextCallTracing(Action<TextCallTracingOptions> configure = null) : LyntaiBuilder
     AddTool(Func<IServiceProvider,ITool> factory) : LyntaiBuilder
     AddTool<T>() : LyntaiBuilder
     AddUsageBudget(Action<BudgetOptions> configure = null) : LyntaiBuilder
@@ -1752,6 +1762,7 @@ sealed class Lyntai.LyntaiBuilder
     Options : LyntaiOptions { get; }
     RateLimitDecoratorOrder : Int32 const
     Services : IServiceCollection { get; }
+    TracingDecoratorOrder : Int32 const
     UseDefaultCandidates(ProviderCandidate[] candidates) : LyntaiBuilder
     UseDefaultCandidates(String[] providerIds) : LyntaiBuilder
     UseTextProviderRegistry() : LyntaiBuilder

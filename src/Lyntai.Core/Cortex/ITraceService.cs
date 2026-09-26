@@ -18,6 +18,7 @@ public interface ITraceRecorder
 /// flows (<c>ChatOrchestrator</c>, <c>ToolLoop</c>, the agent session) deliberately do NOT auto-populate it:
 /// the AUTOMATIC observability path is the OpenTelemetry <c>Activity</c> spans they already emit on the
 /// <c>Lyntai.Inference</c> / <c>Lyntai.Agents</c> sources (see <see cref="Lyntai.Diagnostics.LyntaiDiagnostics"/>).
+/// The one exception is opt-in: <c>AddTextCallTracing</c> records a step for every front-door call.
 /// Use OTel for live tracing/metrics; use <see cref="ITraceService"/> when you want your OWN durable,
 /// step-shaped run history keyed by your session id. Fail-open — no trace store wired → a no-op recorder.</para></summary>
 public interface ITraceService

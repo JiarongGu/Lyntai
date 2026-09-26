@@ -7,6 +7,7 @@ using Lyntai.Jobs;
 using Lyntai.Inference.Budgeting;
 using Lyntai.Inference.Caching;
 using Lyntai.Inference.RateLimiting;
+using Lyntai.Inference.Tracing;
 using Lyntai.Memory;
 using Lyntai.Storage;
 using Microsoft.Extensions.DependencyInjection;
@@ -54,9 +55,10 @@ public sealed class LyntaiBuilder
     /// the same promise <see cref="TextClientBuilder.UseProviders"/> makes about naming backends.</summary>
     internal List<(string Seam, string? ClientName, string Model)> SeamModelPins { get; } = [];
 
-    // Fold order (higher = outer). The cache is OUTERMOST so a hit returns without touching inner
-    // decorators — in particular a cached hit is free and must NOT count toward the usage budget or spend a
-    // rate-limit permit. Rate-limit is innermost (closest to the provider — it throttles real calls).
+    // Fold order (higher = outer). The cache is the outermost GOVERNANCE layer so a hit returns without touching
+    // inner decorators — in particular a cached hit is free and must NOT count toward the usage budget or spend a
+    // rate-limit permit. Rate-limit is innermost (closest to the provider — it throttles real calls); tracing sits
+    // outside them all, so it sees every call, a hit included.
     // Public so a custom decorator (AddFrontDoorDecorator) can position itself relative to the built-ins.
     /// <summary>Fold order of the built-in rate-limit decorator (innermost — closest to the provider).</summary>
     public const int RateLimitDecoratorOrder = 5;
@@ -65,6 +67,11 @@ public sealed class LyntaiBuilder
     /// <summary>Fold order of the built-in response-cache decorator (outermost governance layer — a hit
     /// short-circuits without spending budget/rate-limit).</summary>
     public const int CacheDecoratorOrder = 20;
+    /// <summary>Fold order of the built-in call-tracing decorator (<see cref="AddTextCallTracing"/>): outside the
+    /// cache, so a cache hit is traced too.</summary>
+    public const int TracingDecoratorOrder = 30;
+
+    private TextCallTracingOptions? _tracing;
 
     /// <summary>What a DEFERRED registration said it would produce — the capabilities passed to an
     /// <c>AddProvider</c> overload, for the composition-time questions that cannot wait for a provider to be
@@ -428,7 +435,8 @@ public sealed class LyntaiBuilder
     /// chain as the built-in governance decorators — so it composes with them instead of forcing the app to
     /// pre-register a whole <see cref="ITextClient"/> (which trips the governance guard). <paramref name="order"/>
     /// positions it: higher = outer; the built-ins are <see cref="RateLimitDecoratorOrder"/> (5) /
-    /// <see cref="BudgetDecoratorOrder"/> (10) / <see cref="CacheDecoratorOrder"/> (20). One decorator per
+    /// <see cref="BudgetDecoratorOrder"/> (10) / <see cref="CacheDecoratorOrder"/> (20) /
+    /// <see cref="TracingDecoratorOrder"/> (30). One decorator per
     /// slot, so pick a distinct order (e.g. 15 to sit between budget and cache, 25 to sit outside the cache):
     /// adding the same delegate again is a no-op, and a DIFFERENT decorator on a taken order — a built-in's
     /// included — throws <see cref="InvalidOperationException"/> naming the slot and both registrations.
@@ -453,7 +461,7 @@ public sealed class LyntaiBuilder
             throw new InvalidOperationException(
                 $"Front-door decorator order {order} is already held by {Describe(holder)}, so {Describe(owner)} " +
                 "cannot take it too: a slot holds one decorator. Give the custom decorator a distinct order " +
-                $"(the built-ins are {RateLimitDecoratorOrder}, {BudgetDecoratorOrder} and {CacheDecoratorOrder}).");
+                $"(the built-ins are {RateLimitDecoratorOrder}, {BudgetDecoratorOrder}, {CacheDecoratorOrder} and {TracingDecoratorOrder}).");
         }
         _decoratorOwners[order] = owner;
         FrontDoorDecorators.Add((order, decorate));
@@ -505,6 +513,28 @@ public sealed class LyntaiBuilder
             return new RateLimitedTextClient(
                 inner, limiter, sp.GetService<ILogger<RateLimitedTextClient>>());
         });
+    }
+
+    /// <summary>Trace every front-door call: one <see cref="TraceStep"/> (kind <c>"llm"</c>, the request's consumer as
+    /// its label, usage, duration, verdict and model) through <see cref="ITraceService"/>, then the scorers
+    /// <see cref="TextCallTracingOptions.Scorers"/> selects — the deterministic ones by default — saved under the
+    /// trace's session id through the registered <see cref="IScoreStore"/>. Each call begins and completes its own
+    /// trace, unless it runs inside <see cref="TextCallTracing.Into"/>, which groups calls on the caller's recorder.
+    /// <para>Cached and streamed calls are traced too (a stream when it ends, or when the caller disposes it), and a
+    /// scorer's own model call never is. The verdict recorded is the reply's before refusal screening. Tracing runs
+    /// after the reply and never fails the call: a store or scorer that throws is logged. Folds at
+    /// <see cref="TracingDecoratorOrder"/>; repeating the call re-applies its options.</para></summary>
+    /// <exception cref="ArgumentOutOfRangeException"><see cref="TextCallTracingOptions.MaxRecordedChars"/> is
+    /// negative.</exception>
+    public LyntaiBuilder AddTextCallTracing(Action<TextCallTracingOptions>? configure = null)
+    {
+        var options = _tracing ??= new TextCallTracingOptions();
+        configure?.Invoke(options);
+        ArgumentOutOfRangeException.ThrowIfNegative(options.MaxRecordedChars, nameof(options.MaxRecordedChars));
+        ArgumentException.ThrowIfNullOrWhiteSpace(options.Mode, nameof(options.Mode));
+        ArgumentNullException.ThrowIfNull(options.Scorers, nameof(options.Scorers));
+        return AddFrontDoorDecorator(TracingDecoratorOrder, nameof(AddTextCallTracing), (sp, inner) =>
+            new TracingTextClient(inner, sp, options, sp.GetService<ILogger<TracingTextClient>>()));
     }
 
     /// <summary>Set by any <c>AddSemanticMemory</c> overload: the app has STATED it wants semantic recall,
