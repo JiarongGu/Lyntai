@@ -415,6 +415,18 @@ public class WindowedTokenizerTests
         Assert.Equal(all[^1].End - all[^1].Start, Sides(batch.Rows[^1]).Document.Length);
     }
 
+    [Theory]
+    [InlineData(null, 1, 1)]   // no cap of its own: the request's
+    [InlineData(2, 1, 1)]      // the request narrows the record's
+    [InlineData(2, 5, 2)]      // and never widens it
+    public void A_requests_piece_cap_narrows_a_documents_windows(int? own, int requested, int expected)
+    {
+        var batch = Windows(32, new InputSegmentation { MaxPiecesPerInput = own })
+            .EncodePairs(Query, [River(30)], requested);
+
+        Assert.Equal(expected, batch.Rows.Length);
+    }
+
     [Fact]
     public void A_vanishing_MinDocumentShare_still_leaves_every_window_one_document_token()
     {
@@ -490,6 +502,20 @@ public class OnnxWindowedHeadTests
         var rows = Assert.Single(fed);                          // 7 rows fit one pass of 8
         Assert.True(rows.Length >= 5, $"{rows.Length} rows");
         Assert.Equal(0.0, CountBerlin([rows[0]])[0]);
+    }
+
+    [Fact]
+    public void A_requests_piece_cap_reaches_the_rows_the_graph_is_fed()
+    {
+        var document = $"{WindowedTokenizerTests.River(8)} berlin is old. {WindowedTokenizerTests.River(8)}";
+        var fed = new List<WordPieceEncoding[]>();
+
+        var scores = OnnxCrossEncoderHead.Score(
+            WindowedTokenizerTests.Windows(32, WindowedTokenizerTests.Segment), WindowedTokenizerTests.Query,
+            [document], rows => { fed.Add(rows); return CountBerlin(rows); }, maxPiecesPerInput: 1);
+
+        Assert.Single(Assert.Single(fed));
+        Assert.Equal([0.0], scores);   // the one window kept is the first, which does not mention berlin
     }
 
     [Fact]

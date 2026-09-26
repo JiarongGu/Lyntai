@@ -15,36 +15,35 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 23 across 7 Parts: 19 startable, 2 blocked, 2 watch
+## Open items — 22 across 7 Parts: 18 startable, 2 blocked, 2 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 124 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a free Hugging Face account (an hf_ token) — its router proxies fal's own q… |
-| 171 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 194 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 250 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
-| 280 | 294 | Give the vector-store, verification and annotation contracts an abstract Fa… | startable |  |
-| 283 | 294 | Sweep test comments for history narration that carries no tag or date | startable |  |
-| 293 | 298 | SentencePiece tokenization for the ONNX provider — D122's trigger has fired | startable |  |
-| 297 | 298 | Change the embedder without rebuilding the graph | startable |  |
-| 299 | 298 | Read a stored vector back by id, or cache embeddings on the vector call | startable |  |
-| 301 | 298 | Filtered nearest-neighbour search | startable |  |
-| 303 | 298 | Edit the text provider set at run time | startable |  |
-| 306 | 298 | Schedules added at run time, persisted | startable |  |
-| 308 | 298 | Trace and score front-door calls without a wrapper | startable |  |
-| 311 | 298 | Job progress as a message code plus arguments | startable |  |
-| 318 | 299 | Snapshot `ToolsByConsumer` when the provisioner is built, and name the cons… | startable |  |
-| 322 | 299 | Pin the refusal through the builder, and say when it fires | startable |  |
-| 325 | 299 | Two test gaps in the CLI tool seam | startable |  |
-| 327 | 299 | A one-line `ToolsByConsumer` recipe in README's MCP section | startable |  |
-| 344 | 301 | Let a deployment choose a segmented rerank call's pieces per REQUEST | startable |  |
-| 363 | 301 | Bound a reranker document's pieces independently of the query | startable |  |
-| 374 | 301 | Classify llama.cpp's physical-batch refusal as `ContextWindowExceeded` | startable |  |
-| 389 | 301 | Warn about leftover keys under a model-key prefix of the app's own | startable |  |
-| 400 | 301 | Say when a server refuses the configured `SuppressReasoningFields` | startable |  |
+| 123 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a free Hugging Face account (an hf_ token) — its router proxies fal's own q… |
+| 170 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 193 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 249 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 279 | 294 | Give the vector-store, verification and annotation contracts an abstract Fa… | startable |  |
+| 282 | 294 | Sweep test comments for history narration that carries no tag or date | startable |  |
+| 292 | 298 | SentencePiece tokenization for the ONNX provider — D122's trigger has fired | startable |  |
+| 296 | 298 | Change the embedder without rebuilding the graph | startable |  |
+| 298 | 298 | Read a stored vector back by id, or cache embeddings on the vector call | startable |  |
+| 300 | 298 | Filtered nearest-neighbour search | startable |  |
+| 302 | 298 | Edit the text provider set at run time | startable |  |
+| 305 | 298 | Schedules added at run time, persisted | startable |  |
+| 307 | 298 | Trace and score front-door calls without a wrapper | startable |  |
+| 310 | 298 | Job progress as a message code plus arguments | startable |  |
+| 317 | 299 | Snapshot `ToolsByConsumer` when the provisioner is built, and name the cons… | startable |  |
+| 321 | 299 | Pin the refusal through the builder, and say when it fires | startable |  |
+| 324 | 299 | Two test gaps in the CLI tool seam | startable |  |
+| 326 | 299 | A one-line `ToolsByConsumer` recipe in README's MCP section | startable |  |
+| 343 | 301 | Bound a reranker document's pieces independently of the query | startable |  |
+| 354 | 301 | Classify llama.cpp's physical-batch refusal as `ContextWindowExceeded` | startable |  |
+| 369 | 301 | Warn about leftover keys under a model-key prefix of the app's own | startable |  |
+| 380 | 301 | Say when a server refuses the configured `SuppressReasoningFields` | startable |  |
 
 <!-- open-items:end -->
 
@@ -340,25 +339,6 @@ _Reported by an adopting application planning its upgrade from 3.2.0 to 3.4.0. T
 of its workarounds shipped in 3.3.0; these are what the upgrade found beside them, each checked against the tree
 at `v3.4.0` (HEAD changes nothing under `src/` since) when it was filed. Its evidence about the CLI tool host
 went into `TASKS.md` Part 299's recipe item instead._
-
-- [ ] **Let a deployment choose a segmented rerank call's pieces per REQUEST.** <!-- item: state=startable -->
-  `InputSegmentation.MaxPiecesPerInput` is fixed at registration: the HTTP transport reads it from the
-  registration's record and the request carries none
-  (`src/Lyntai.Providers.Basic/Http/HttpRerankTransport.cs:67-79`). **D177** rejected a per-CALL cap because "a
-  call's pieces are already its inputs × `MaxPiecesPerInput`, and fitting a latency budget is the deployment's
-  policy", which assumes the deployment can choose that cap per call. It cannot, and one registration's calls
-  vary widely: few long candidates or many, a GPU or a CPU. The adopter measured a 480-window call at ~20 s on
-  one GPU and its reranker at ~3.1 s per 1,000 pair tokens on a CPU, where a call sized for the GPU waits out a
-  60 s verification deadline for no verdict. It sizes each call by measured time, down to one piece per input,
-  and keeps its own segmenting score decorator — a second segmenter beside D177's — for that alone. Suggested:
-  an optional per-request override on `ScoreRequest`, e.g. `int? MaxPiecesPerInput`, honoured when set and never
-  above the registration's own cap, as `ScoreRequest.TimeoutSeconds` already overrides a registration's deadline
-  per call, clamped to `LyntaiOptions.MaxProviderTimeout` (`src/Lyntai.Core/Inference/IScoreProvider.cs:12-19`),
-  on every provider that honours `Segmentation`. The library still sets no budget and measures nothing: the
-  number, and how it is chosen, stay the deployment's. Unlike the rejected cap it bounds each input, the quantity
-  D177 names. A deployment sizing by time also predicts a call before sending it, and `InputSegmentation.Spread`
-  is public while the segmenter producing the pieces is not; a way to count an input's pieces would keep that
-  prediction from drifting.
 
 - [ ] **Bound a reranker document's pieces independently of the query.** On a Score registration <!-- item: state=startable -->
   `MaxInputChars` is the PAIR window, and a document keeps what the query leaves, `window − Measure(query)`

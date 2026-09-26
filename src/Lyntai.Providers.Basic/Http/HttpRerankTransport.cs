@@ -73,8 +73,8 @@ internal sealed class HttpRerankTransport(
                 documents = [.. request.Documents.Select(d => InputSegmenter.Truncate(d, budget))];
             else
             {
-                plan = InputSegmenter.Segment(
-                    request.Documents, budget, segmentation.Overlap, segmentation.MaxPiecesPerInput);
+                plan = InputSegmenter.Segment(request.Documents, budget, segmentation.Overlap,
+                    segmentation.MaxPiecesFor(request.MaxPiecesPerInput));
                 documents = plan.Pieces;
             }
         }

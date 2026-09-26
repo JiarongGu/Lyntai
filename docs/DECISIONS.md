@@ -5244,8 +5244,11 @@ window. A bound on the verification seam: one caller, and a guess at the model's
 entry: a new vector-store contract. FirstP: cutting by another name. SumP: it rewards length. Counting tokens
 over HTTP: `/tokenize` is off the OpenAI-shaped wire, and shrink-and-retry costs a round trip per failure.
 Cutting the query per pair on overflow only: one call's documents would meet different questions. A per-CALL
-piece cap: a call's pieces are already its inputs × `MaxPiecesPerInput`, and fitting a latency budget is the
-deployment's policy.
+piece total: a call's pieces are already its inputs × `MaxPiecesPerInput`, and fitting a latency budget is the
+deployment's policy — which is why a rerank REQUEST may narrow the per-input cap (`ScoreRequest.MaxPiecesPerInput`,
+2026-09-26), never widen it: one registration's calls vary, few long candidates or many, a GPU or a CPU, and only
+the caller knows which this one is. Counting an input's pieces for it was refused: the cap already bounds the
+call from above, which is what a prediction needs.
 
 **Known limits.** MaxP gives a long document more chances: its extra windows can outscore a short document
 holding the answer (`rerank-segmented-adopter-long-notes`: 8 losses to 1 gain at the start position).

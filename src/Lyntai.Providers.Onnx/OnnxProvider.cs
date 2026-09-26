@@ -146,7 +146,8 @@ public sealed class OnnxProvider : IVectorProvider, IScoreProvider, IDisposable
 
         return Task.FromResult(request.Documents.Count == 0
             ? new ScoreResponse(ProviderVerdict.Ok, [])
-            : ScoreResponse.Success(scores.Score(Run, _outputName, request.Query ?? string.Empty, request.Documents)));
+            : ScoreResponse.Success(scores.Score(Run, _outputName, request.Query ?? string.Empty, request.Documents,
+                request.MaxPiecesPerInput)));
     }
 
     /// <summary>The engine handed to a head for one call.</summary>

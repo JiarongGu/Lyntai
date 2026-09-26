@@ -35,6 +35,11 @@ every addition.
   a vector store wired, `SimilarityK` above zero — that did not get one skips its annotation, so its `Ran`
   carries neither `Similarity` nor `Annotation` and a rebuild retrying it pays the annotator once. Off by
   default.
+- **`ScoreRequest.MaxPiecesPerInput`** (**D177**): a rerank request narrows its registration's
+  `InputSegmentation.MaxPiecesPerInput` for that call, and never widens it — for a deployment that sizes each
+  call by its measured cost, since one registration's calls vary. Honoured by the HTTP reranker and the ONNX
+  cross-encoder wherever they segment; `InputSegmentation.MaxPiecesFor` is the rule. An init property, so the
+  record's `Deconstruct` is unchanged.
 
 ### Fixed
 

@@ -106,7 +106,8 @@ public sealed class HttpModelOptions
     /// does a record with <see cref="InputOverflow.Segment"/>; <see cref="InputOverflow.Truncate"/> sends each
     /// input cut where its first piece would end and answers what was sent.
     /// <para><see cref="InputSegmentation.Overlap"/> sets how far each piece reaches back into the one before,
-    /// and <see cref="InputSegmentation.MaxPiecesPerInput"/> caps the pieces of one input.
+    /// and <see cref="InputSegmentation.MaxPiecesPerInput"/> caps the pieces of one input — a cap a rerank
+    /// request may narrow for itself (<see cref="ScoreRequest.MaxPiecesPerInput"/>).
     /// <see cref="InputSegmentation.MinDocumentShare"/> applies to a reranker, whose bound holds the query too;
     /// an embedder takes no query.</para></summary>
     public InputSegmentation? Segmentation { get; set; }

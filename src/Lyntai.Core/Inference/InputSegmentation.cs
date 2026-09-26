@@ -81,8 +81,9 @@ public sealed class InputSegmentation
     /// work, and a call that outruns its timeout fails as <see cref="ProviderVerdict.Timeout"/>, so on slow
     /// hardware this cap is what bounds it.
     ///
-    /// <para>There is no per-CALL cap: a call's pieces are already at most its inputs times this, and fitting
-    /// a call to a latency budget is a policy for the deployment that measured it.</para></summary>
+    /// <para>There is no per-CALL total: a call's pieces are already at most its inputs times this, and fitting
+    /// a call to a latency budget is a policy for the deployment that measured it — which is why a reranking
+    /// REQUEST may narrow this cap for itself (<see cref="ScoreRequest.MaxPiecesPerInput"/>).</para></summary>
     /// <exception cref="ArgumentOutOfRangeException">The value is under 1.</exception>
     public int? MaxPiecesPerInput
     {
@@ -92,6 +93,14 @@ public sealed class InputSegmentation
             : throw new ArgumentOutOfRangeException(nameof(MaxPiecesPerInput), value,
                 "MaxPiecesPerInput must be at least 1, or null for no cap.");
     }
+
+    /// <summary>The cap a call runs under when its request asks for <paramref name="requested"/> pieces per
+    /// input (<see cref="ScoreRequest.MaxPiecesPerInput"/>): the lower of that and <see cref="MaxPiecesPerInput"/>,
+    /// so a request narrows this record's cap and never widens it. Null asks nothing and keeps this record's.
+    /// A provider honouring a request's cap passes the result to <see cref="Spread{T}"/>.</summary>
+    /// <param name="requested">The request's own cap, or null.</param>
+    public int? MaxPiecesFor(int? requested) =>
+        requested is { } asked && (MaxPiecesPerInput is not { } own || asked < own) ? asked : MaxPiecesPerInput;
 
     /// <summary>The pieces of one input that <see cref="MaxPiecesPerInput"/> keeps: at most
     /// <paramref name="cap"/> of <paramref name="pieces"/> — the first, the last, and the rest at even steps

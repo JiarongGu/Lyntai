@@ -60,5 +60,7 @@ internal interface IOnnxScoreHead : IOnnxHead
     /// <param name="outputName">What <see cref="IOnnxHead.ResolveOutput"/> chose at composition.</param>
     /// <param name="query">The question every document is scored against.</param>
     /// <param name="documents">The batch; never empty (the provider answers an empty request itself).</param>
-    double[] Score(OnnxRun run, string outputName, string query, IReadOnlyList<string> documents);
+    /// <param name="maxPiecesPerInput">The request's own piece cap (<see cref="Lyntai.Inference.ScoreRequest.MaxPiecesPerInput"/>).</param>
+    double[] Score(OnnxRun run, string outputName, string query, IReadOnlyList<string> documents,
+        int? maxPiecesPerInput);
 }

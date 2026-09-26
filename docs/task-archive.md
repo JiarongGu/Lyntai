@@ -5121,3 +5121,14 @@ rather than the readiness probe or a `MemoryWrite` field is **D175**'s amendment
 foreseen, and a skipped write loses the annotator's grade suggestion, as a failed annotation does.
 
 - Let a graph write skip its annotation when its vector fails — D175's deferred trigger, with its cost
+
+## Part 305 — a rerank request can narrow its piece cap (2026-09-26)
+
+✅ done 2026-09-26 — **Outcome:** closes the fourth item of `TASKS.md` Part 301. `ScoreRequest.MaxPiecesPerInput`
+(an init property) narrows the registration's `InputSegmentation.MaxPiecesPerInput` for one call and never
+widens it, by the one rule `InputSegmentation.MaxPiecesFor`; the HTTP reranker and the ONNX cross-encoder honour
+it wherever they segment. Why a per-request per-input cap where **D177** had refused a per-call total, and why
+no piece-counting API (the cap already bounds a call from above), are D177's amendment. The adopter's own
+segmenting decorator can now set the cap instead of segmenting a second time.
+
+- Let a deployment choose a segmented rerank call's pieces per REQUEST

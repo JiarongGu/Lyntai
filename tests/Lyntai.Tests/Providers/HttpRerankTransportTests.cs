@@ -313,6 +313,35 @@ public class HttpRerankTransportTests
         Assert.Equal([-2.0], scores);   // the needle was in a piece the cap dropped: coverage has gaps
     }
 
+    /// <summary>One registration's calls vary — a few long candidates or many, a GPU or a CPU — so a deployment
+    /// sizing a call by measured time narrows the cap per REQUEST.</summary>
+    [Fact]
+    public async Task A_requests_own_piece_cap_narrows_a_segmented_call()
+    {
+        var handler = Reranker(_ => 1.0);
+
+        var response = await Scorer(handler, configure: o => o.MaxInputChars = 60)
+            .CallAsync(new ScoreRequest("where is the needle", [LongDocument]) { MaxPiecesPerInput = 1 });
+
+        Assert.True(response.IsOk, response.Detail);
+        Assert.Equal([InputSegmenter.Split(LongDocument, 41)[0]], Sent(Assert.Single(handler.Requests).Body));
+    }
+
+    [Fact]
+    public async Task A_requests_piece_cap_never_widens_the_registrations()
+    {
+        var handler = Reranker(_ => 1.0);
+
+        await Scorer(handler, configure: o =>
+        {
+            o.MaxInputChars = 60;
+            o.Segmentation = new InputSegmentation { MaxPiecesPerInput = 2 };
+        }).CallAsync(new ScoreRequest("where is the needle", [LongDocument]) { MaxPiecesPerInput = 5 });
+
+        var all = InputSegmenter.Split(LongDocument, 41);
+        Assert.Equal([all[0], all[^1]], Sent(Assert.Single(handler.Requests).Body));
+    }
+
     [Fact]
     public async Task With_no_document_over_MaxInputChars_the_request_is_BYTE_IDENTICAL_to_one_without_it()
     {

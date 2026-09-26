@@ -135,8 +135,9 @@ embedder takes the length-weighted mean of its windows' unit vectors, re-normali
 keeps at most (1 − `MinDocumentShare`) of it, cut ONCE per call so every document meets the same question.
 HTTP counts characters after NFKC — a linear upper bound — because a tokenizer normalises before it counts,
 and cuts between text elements, else at a code point, so only a lone code point can outgrow it; pieces are sent as
-the original text. `MaxPiecesPerInput` keeps that many windows, spread from the first to the last. Otherwise,
-an input that fits is answered exactly as without segmenting.
+the original text. `MaxPiecesPerInput` keeps that many windows, spread from the first to the last, and a rerank
+request may narrow it for itself (`ScoreRequest.MaxPiecesPerInput`). Otherwise, an input that fits is answered
+exactly as without segmenting.
 
 ## 3. What survives under 500 MB — a few measured rows, and the rest blank
 

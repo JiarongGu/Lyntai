@@ -103,4 +103,21 @@ public class InputSegmentationTests
 
         Assert.Equal(nameof(InputSegmentation.MinDocumentShare), ex.ParamName);
     }
+
+    // ---- a REQUEST may narrow the piece cap, never widen it ------------------------------------------------
+
+    [Theory]
+    [InlineData(null, null, null)]
+    [InlineData(null, 2, 2)]      // a record with no cap: the request's is the only one
+    [InlineData(3, null, 3)]      // a request asking nothing keeps the record's
+    [InlineData(3, 2, 2)]         // the request narrows it
+    [InlineData(2, 5, 2)]         // and never widens it
+    public void A_requests_piece_cap_is_the_lower_of_its_own_and_the_records(int? own, int? requested, int? expected) =>
+        Assert.Equal(expected, new InputSegmentation { MaxPiecesPerInput = own }.MaxPiecesFor(requested));
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public void A_request_piece_cap_under_one_is_refused(int cap) =>
+        Assert.Throws<ArgumentOutOfRangeException>(() => new ScoreRequest("q", ["d"]) { MaxPiecesPerInput = cap });
 }

@@ -78,9 +78,10 @@ internal sealed class WindowedTokenizer(
     }
 
     /// <summary>One query and document per row: <c>[CLS] query [SEP] document [SEP]</c>, the query in segment
-    /// 0 and the document — or one window of it — in segment 1.</summary>
+    /// 0 and the document — or one window of it — in segment 1. <paramref name="maxPiecesPerInput"/> is the
+    /// request's own cap, which narrows the record's (<see cref="InputSegmentation.MaxPiecesFor"/>).</summary>
     /// <exception cref="ArgumentOutOfRangeException"><see cref="MaxTokens"/> is under 4.</exception>
-    public WindowedBatch EncodePairs(string query, IReadOnlyList<string> documents)
+    public WindowedBatch EncodePairs(string query, IReadOnlyList<string> documents, int? maxPiecesPerInput = null)
     {
         ArgumentNullException.ThrowIfNull(documents);
         if (segmentation is null)
@@ -100,7 +101,7 @@ internal sealed class WindowedTokenizer(
             var ids = tokenizer.EncodeToIds(documents[i] ?? string.Empty);
             IReadOnlyList<(int Start, int End)> windows = segmentation.Overflow == InputOverflow.Segment
                 ? InputSegmentation.Spread(TokenSegmenter.Windows(ids, documentBudget, boundaries, segmentation.Overlap),
-                    segmentation.MaxPiecesPerInput)
+                    segmentation.MaxPiecesFor(maxPiecesPerInput))
                 : [(0, Math.Min(ids.Count, documentBudget))];
             foreach (var (start, end) in windows)
                 batch.Add(Row(shell, kept, ids, start, end), windows.Count > 1 ? end - start : 0);

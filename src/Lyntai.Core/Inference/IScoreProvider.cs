@@ -16,7 +16,25 @@ public sealed record ScoreRequest(
     string Query,
     IReadOnlyList<string> Documents,
     string? Consumer = null,
-    int? TimeoutSeconds = null) : IConsumerTagged;
+    int? TimeoutSeconds = null) : IConsumerTagged
+{
+    /// <summary>The most pieces one document may be segmented into on THIS call, narrowing the registration's
+    /// <see cref="InputSegmentation.MaxPiecesPerInput"/> and never widening it
+    /// (<see cref="InputSegmentation.MaxPiecesFor"/>); null — the default — keeps the registration's. It bounds
+    /// a call only where the provider segments; one that truncates, or has no window, sends a piece per document
+    /// regardless. For a deployment that sizes each call by its measured cost — the number, and how it is
+    /// chosen, are its own. An init property rather than a positional parameter, so the record's
+    /// <c>Deconstruct</c> keeps its arity.</summary>
+    /// <exception cref="ArgumentOutOfRangeException">The value is under 1.</exception>
+    public int? MaxPiecesPerInput
+    {
+        get;
+        init => field = value is null or >= 1
+            ? value
+            : throw new ArgumentOutOfRangeException(nameof(MaxPiecesPerInput), value,
+                "MaxPiecesPerInput must be at least 1, or null to keep the registration's.");
+    }
+}
 
 /// <summary>The outcome of a rerank call.
 ///

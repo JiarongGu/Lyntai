@@ -914,6 +914,7 @@ enum Lyntai.Inference.InputOverflow
     value__ : Int32
 sealed class Lyntai.Inference.InputSegmentation
     .ctor()
+    MaxPiecesFor(Nullable<Int32> requested) : Nullable<Int32>
     MaxPiecesPerInput : Nullable<Int32> { get; set; }
     MinDocumentShare : Double { get; set; }
     Overflow : InputOverflow { get; set; }
@@ -1301,6 +1302,7 @@ sealed class Lyntai.Inference.ScoreRequest
     Equals(Object obj) : Boolean
     Equals(ScoreRequest other) : Boolean
     GetHashCode() : Int32
+    MaxPiecesPerInput : Nullable<Int32> { get; init; }
     Query : String { get; init; }
     TimeoutSeconds : Nullable<Int32> { get; init; }
     ToString() : String

@@ -32,14 +32,15 @@ internal sealed class OnnxCrossEncoderHead : IOnnxScoreHead
     /// question, and a runtime that zeroes them scores the pair as one undifferentiated string — which is
     /// how the same weights rank a published reference pair BACKWARDS through llama.cpp
     /// (<c>docs/memory-measurements.md</c> §5).</remarks>
-    public double[] Score(OnnxRun run, string outputName, string query, IReadOnlyList<string> documents) =>
+    public double[] Score(OnnxRun run, string outputName, string query, IReadOnlyList<string> documents,
+        int? maxPiecesPerInput) =>
         Score(run.Windows, query, documents, rows =>
         {
             var width = rows.Max(e => e.Ids.Length);
             using var results = run.Session.Run(OnnxGraph.Feed(run.Session, rows, width), [outputName]);
             var head = results[0].AsTensor<float>();
             return CrossEncoderLogits.Read(head.ToArray(), head.Dimensions, rows.Length);
-        });
+        }, maxPiecesPerInput);
 
     /// <summary>Score each document as its BEST window (<c>docs/DECISIONS.md</c> <b>D177</b>): a document is
     /// as relevant as its most relevant passage, and one that took a single row scores as that row. The rows
@@ -49,11 +50,12 @@ internal sealed class OnnxCrossEncoderHead : IOnnxScoreHead
     /// <param name="query">The question every document is scored against; never segmented.</param>
     /// <param name="documents">The documents, in the order their scores are returned.</param>
     /// <param name="forward">The graph: one score per row it is fed.</param>
+    /// <param name="maxPiecesPerInput">The request's own piece cap, narrowing the record's.</param>
     internal static double[] Score(WindowedTokenizer windows, string query, IReadOnlyList<string> documents,
-        Func<WordPieceEncoding[], double[]> forward)
+        Func<WordPieceEncoding[], double[]> forward, int? maxPiecesPerInput = null)
     {
         ArgumentNullException.ThrowIfNull(documents);
-        var batch = windows.EncodePairs(query, documents);
+        var batch = windows.EncodePairs(query, documents, maxPiecesPerInput);
         var rowScores = batch.Forward(forward);
         return [.. Enumerable.Range(0, documents.Count)
             .Select(i => rowScores[batch.First[i]..batch.First[i + 1]].Max())];
