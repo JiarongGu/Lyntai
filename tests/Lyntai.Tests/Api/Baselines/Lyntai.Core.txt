@@ -577,6 +577,10 @@ sealed class Lyntai.Generation.Jobs.GenerationArtifactDelivery
     StageIndex : Nullable<Int32> { get; init; }
     ToString() : String
     Usage : MediaUsage { get; init; }
+static class Lyntai.Generation.Jobs.GenerationJobMessages
+    Delivered : String const
+    Running : String const
+    Submitted : String const
 sealed class Lyntai.Generation.Jobs.GenerationPipelineJob
     .ctor(IReadOnlyList<GenerationPipelineJobStage> stages)
     Equals(GenerationPipelineJob other) : Boolean

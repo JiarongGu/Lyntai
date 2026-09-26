@@ -21,12 +21,14 @@ public class GenerationPipelineJobHandlerTests
         public string? Checkpoint { get; private set; }
         public List<string> Saved { get; } = [];
         public List<(int Done, int Total, string? Stage)> Progress { get; } = [];
+        public List<JobMessage?> Stages { get; } = [];
         public Func<int, bool> LeaseHeldFor { get; set; } = _ => true;
 
+        // the runner's own coded path, so a stage's code and arguments are observable
         public JobContext Build(string payload, string? checkpoint = null)
         {
             Checkpoint = checkpoint;
-            return new JobContext(Guid.NewGuid(), payload, checkpoint, attempts: 1,
+            return JobContext.ForRunner(Guid.NewGuid(), payload, checkpoint, attempts: 1,
                 saveCheckpoint: (c, _) =>
                 {
                     var held = LeaseHeldFor(Saved.Count);
@@ -34,11 +36,14 @@ public class GenerationPipelineJobHandlerTests
                     if (held) Checkpoint = c;
                     return Task.FromResult(held);
                 },
-                reportProgress: (done, total, stage, _) =>
+                reportStage: (done, total, stage, _) =>
                 {
-                    Progress.Add((done, total, stage));
+                    Progress.Add((done, total, stage?.Text));
+                    Stages.Add(stage);
                     return Task.FromResult(true);
-                });
+                },
+                reportStep: (_, _) => Task.FromResult(true),
+                progress: 0, total: 0, stage: null, stepLog: null);
         }
     }
 
@@ -249,6 +254,36 @@ public class GenerationPipelineJobHandlerTests
                 Assert.Equal(("comfy-video", "comfy-video-op-1"), (d.ProviderId, d.OperationId));
                 Assert.Equal("video/mp4", Assert.Single(d.Artifacts).MediaType);
             });
+    }
+
+    [Fact]
+    public async Task Each_stage_is_reported_with_a_code_and_its_place_and_the_text_is_unchanged()
+    {
+        var image = new QueuedBackend
+        {
+            Id = "comfy-image", Produces = ProviderKinds.Image,
+            Fetch = op => [new MediaArtifact("image/png", Uri: $"https://example.invalid/{op}.png")],
+        };
+        var video = new QueuedBackend { Id = "comfy-video" };
+        IModelProvider[] providers = [image, video];
+        var sink = new CollectingSink();
+        var ctx = new RecordingContext();
+        var payload = Payload(Stage(ProviderKinds.Image, "comfy-image"), Stage(ProviderKinds.Video, "comfy-video"));
+
+        await Handler(providers, sink).HandleAsync(ctx.Build(payload));
+        await RunAsync(() => Handler(providers, sink), ctx, payload);
+
+        var first = ctx.Stages[0]!;
+        Assert.Equal(GenerationJobMessages.Submitted, first.Code);
+        Assert.Equal("stage 1 of 2: submitted", first.Text);
+        Assert.Equal(new Dictionary<string, string> { ["stage"] = "1", ["stages"] = "2" }, first.Arguments);
+        Assert.All(ctx.Stages, m => Assert.Contains(m!.Code,
+            new[] { GenerationJobMessages.Submitted, GenerationJobMessages.Running, GenerationJobMessages.Delivered }));
+
+        var last = ctx.Stages[^1]!;
+        Assert.Equal(GenerationJobMessages.Delivered, last.Code);
+        Assert.Equal("delivered", last.Text);
+        Assert.Null(last.Arguments);                                       // the whole pipeline, no one stage
     }
 
     [Fact]

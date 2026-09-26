@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using Lyntai.Inference;
 using Lyntai.Inference.Budgeting;
@@ -93,7 +94,8 @@ internal sealed class GenerationJobEngine(
 
             if (final)
             {
-                await ctx.ReportProgressAsync(stages * 100, stages * 100, "delivered", ct).ConfigureAwait(false);
+                await ctx.ReportStageAsync(stages * 100, stages * 100,
+                    new JobMessage("delivered") { Code = GenerationJobMessages.Delivered }, ct).ConfigureAwait(false);
                 return JobOutcome.Complete;
             }
 
@@ -110,7 +112,7 @@ internal sealed class GenerationJobEngine(
             if (!await ctx.SaveCheckpointAsync(at.ToJson(), ct).ConfigureAwait(false))
                 return JobOutcome.Fail($"lease lost after {name} was delivered — stopping so the worker that " +
                                        $"reclaimed the job is the only one to run stage {next + 1}");
-            await Progress(ctx, at.Stage - 1, stages, 1, "delivered", mode, ct).ConfigureAwait(false);
+            await Progress(ctx, at.Stage - 1, stages, 1, "delivered", GenerationJobMessages.Delivered, mode, ct).ConfigureAwait(false);
         }
     }
 
@@ -202,7 +204,7 @@ internal sealed class GenerationJobEngine(
                 "stopping so another worker doesn't run a second paid render (the operation id is in this " +
                 "message for manual recovery)");
 
-        await Progress(ctx, at.Stage, stages, 0, "submitted", mode, ct).ConfigureAwait(false);
+        await Progress(ctx, at.Stage, stages, 0, "submitted", GenerationJobMessages.Submitted, mode, ct).ConfigureAwait(false);
         return JobOutcome.Poll(_options.PollDelay);   // Poll, never Retry: the submit succeeded (JobOutcome.Poll)
     }
 
@@ -220,7 +222,7 @@ internal sealed class GenerationJobEngine(
         {
             case QueuedOperationStatus.Queued:
             case QueuedOperationStatus.Running:
-                await Progress(ctx, at.Stage, stages, operation.Progress ?? 0, "running", mode, ct).ConfigureAwait(false);
+                await Progress(ctx, at.Stage, stages, operation.Progress ?? 0, "running", GenerationJobMessages.Running, mode, ct).ConfigureAwait(false);
                 // re-saving renews the lease across a long render, and a false means another worker has it
                 if (!await ctx.SaveCheckpointAsync(at.ToJson(), ct).ConfigureAwait(false))
                     return (JobOutcome.Fail($"lease lost while polling {name}'s operation {operationId} — stopping " +
@@ -245,11 +247,22 @@ internal sealed class GenerationJobEngine(
     }
 
     /// <summary>Overall progress in hundredths of a stage, labelled with the stage the fraction belongs to —
-    /// except for a lone render, which has no stage to name.</summary>
+    /// except for a lone render, which has no stage to name — and coded (<see cref="GenerationJobMessages"/>) so a
+    /// reader can localize it.</summary>
     private static Task<bool> Progress(
-        JobContext ctx, int stage, int stages, double fraction, string what, Mode mode, CancellationToken ct) =>
-        ctx.ReportProgressAsync(stage * 100 + (int)Math.Round(Math.Clamp(fraction, 0, 1) * 100), stages * 100,
-            mode.Standalone ? what : $"stage {stage + 1} of {stages}: {what}", ct);
+        JobContext ctx, int stage, int stages, double fraction, string what, string code, Mode mode, CancellationToken ct) =>
+        ctx.ReportStageAsync(stage * 100 + (int)Math.Round(Math.Clamp(fraction, 0, 1) * 100), stages * 100,
+            mode.Standalone
+                ? new JobMessage(what) { Code = code }
+                : new JobMessage($"stage {stage + 1} of {stages}: {what}")
+                {
+                    Code = code,
+                    Arguments = new Dictionary<string, string>
+                    {
+                        ["stage"] = (stage + 1).ToString(CultureInfo.InvariantCulture),
+                        ["stages"] = stages.ToString(CultureInfo.InvariantCulture),
+                    },
+                }, ct);
 
     private static long InlineBytes(IReadOnlyList<MediaArtifact> artifacts) =>
         artifacts.Sum(a => a.Data?.LongLength ?? 0);

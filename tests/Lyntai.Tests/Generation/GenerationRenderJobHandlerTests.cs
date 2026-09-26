@@ -88,6 +88,23 @@ public class GenerationRenderJobHandlerTests
     }
 
     [Fact]
+    public async Task A_lone_render_reports_a_code_with_no_stage_to_name()
+    {
+        var (handler, _, _) = Handler(new FakeGenerationJobProvider { Id = "video", PollStatus = QueuedOperationStatus.Running });
+        var stages = new List<JobMessage?>();
+        var ctx = JobContext.ForRunner(Guid.NewGuid(), Payload(), null, 1, (_, _) => Task.FromResult(true),
+            (_, _, stage, _) => { stages.Add(stage); return Task.FromResult(true); },
+            (_, _) => Task.FromResult(true), 0, 0, null, null);
+
+        await handler.HandleAsync(ctx);
+
+        var submitted = stages[0]!;
+        Assert.Equal(GenerationJobMessages.Submitted, submitted.Code);
+        Assert.Equal("submitted", submitted.Text);
+        Assert.Null(submitted.Arguments);
+    }
+
+    [Fact]
     public async Task A_still_running_operation_retries_and_reports_progress_rather_than_failing()
     {
         var backend = new FakeGenerationJobProvider { Id = "video", PollStatus = QueuedOperationStatus.Running };
