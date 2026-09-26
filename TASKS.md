@@ -15,30 +15,29 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 17 across 6 Parts: 13 startable, 2 blocked, 2 watch
+## Open items — 16 across 6 Parts: 12 startable, 2 blocked, 2 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 118 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a free Hugging Face account (an hf_ token) — its router proxies fal's own q… |
-| 165 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 188 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 244 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
-| 274 | 294 | Give the vector-store, verification and annotation contracts an abstract Fa… | startable |  |
-| 277 | 294 | Sweep test comments for history narration that carries no tag or date | startable |  |
-| 287 | 298 | SentencePiece tokenization for the ONNX provider — D122's trigger has fired | startable |  |
-| 291 | 298 | Change the embedder without rebuilding the graph | startable |  |
-| 293 | 298 | Read a stored vector back by id, or cache embeddings on the vector call | startable |  |
-| 295 | 298 | Filtered nearest-neighbour search | startable |  |
-| 297 | 298 | Edit the text provider set at run time | startable |  |
-| 300 | 298 | Schedules added at run time, persisted | startable |  |
-| 302 | 298 | Trace and score front-door calls without a wrapper | startable |  |
-| 305 | 298 | Job progress as a message code plus arguments | startable |  |
-| 312 | 299 | Pin the refusal through the builder, and say when it fires | startable |  |
-| 315 | 299 | Two test gaps in the CLI tool seam | startable |  |
-| 317 | 299 | A one-line `ToolsByConsumer` recipe in README's MCP section | startable |  |
+| 117 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a free Hugging Face account (an hf_ token) — its router proxies fal's own q… |
+| 164 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 187 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 243 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 273 | 294 | Give the vector-store, verification and annotation contracts an abstract Fa… | startable |  |
+| 276 | 294 | Sweep test comments for history narration that carries no tag or date | startable |  |
+| 286 | 298 | SentencePiece tokenization for the ONNX provider — D122's trigger has fired | startable |  |
+| 290 | 298 | Change the embedder without rebuilding the graph | startable |  |
+| 292 | 298 | Read a stored vector back by id, or cache embeddings on the vector call | startable |  |
+| 294 | 298 | Filtered nearest-neighbour search | startable |  |
+| 296 | 298 | Edit the text provider set at run time | startable |  |
+| 299 | 298 | Schedules added at run time, persisted | startable |  |
+| 301 | 298 | Trace and score front-door calls without a wrapper | startable |  |
+| 304 | 298 | Job progress as a message code plus arguments | startable |  |
+| 311 | 299 | Two test gaps in the CLI tool seam | startable |  |
+| 313 | 299 | A one-line `ToolsByConsumer` recipe in README's MCP section | startable |  |
 
 <!-- open-items:end -->
 
@@ -309,9 +308,6 @@ part of the work._
 
 _The final review of the per-request CLI tools work (**D190**) graded these Minor; each is small and startable._
 
-- [ ] **Pin the refusal through the builder, and say when it fires.** No test drives <!-- item: state=startable -->
-  `AddMcpToolHost(connector, o => o.ToolsByConsumer[…])`; the refusal fires when the CLI provider is first built,
-  which fails the whole provider enumeration rather than `BuildServiceProvider` — true, defensible, unstated.
 - [ ] **Two test gaps in the CLI tool seam.** A provisioner implementing only the request-blind member is tested <!-- item: state=startable -->
   on `CompleteAsync` but not `StreamAsync`, and no case has every mapped name unknown.
 - [ ] **A one-line `ToolsByConsumer` recipe in README's MCP section**, compiled by `check-samples`, where it <!-- item: state=startable -->

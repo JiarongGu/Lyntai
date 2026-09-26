@@ -25,11 +25,15 @@ public static class McpToolHostBuilderExtensions
     /// becomes the unkeyed fallback for any provider that resolves without a key.</para>
     /// <para>Note: this runs an ephemeral <c>HttpListener</c> (BCL — no ASP.NET Core, no framework
     /// reference) on loopback during each CLI completion — a deliberate, scoped exception to the library's
-    /// otherwise host-free design.</para></summary>
+    /// otherwise host-free design.</para>
+    /// <para>A <see cref="McpToolHostOptions.ToolsByConsumer"/> name no registered tool has throws
+    /// <see cref="InvalidOperationException"/> when the provisioner is first resolved — for a CLI provider, when the
+    /// provider set is first built, so that enumeration fails rather than <c>BuildServiceProvider</c>: the tools are
+    /// registrations the container resolves only then.</para></summary>
     /// <param name="builder">The Lyntai builder.</param>
     /// <param name="connector">Supplies the CLI's flags and config-file shapes — e.g.
     /// <c>ClaudeCliMcpConnector</c> from <c>Lyntai.Providers.ClaudeCli</c>.</param>
-    /// <param name="configure">Optional host tweaks (MCP server name, bind address).</param>
+    /// <param name="configure">Optional host tweaks (MCP server name, bind address, the tools per consumer).</param>
     public static LyntaiBuilder AddMcpToolHost(
         this LyntaiBuilder builder, IMcpCliConnector connector, Action<McpToolHostOptions>? configure = null)
     {

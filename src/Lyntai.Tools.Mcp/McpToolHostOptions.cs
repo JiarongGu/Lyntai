@@ -26,6 +26,8 @@ public sealed class McpToolHostOptions
     /// <c>ToolsByConsumer["default"] = []</c> denies by default and each consumer that needs tools is listed. Configuration rather than a request field,
     /// so a call that falls back to an HTTP backend never carries a request whose meaning changed. The map is
     /// COPIED when the provisioner is built, and a null list or a name no registered tool has is refused then,
-    /// naming its consumer key; a later change to the map, or to a list it holds, is never read.</summary>
+    /// naming its consumer key; a later change to the map, or to a list it holds, is never read. "Then" is when
+    /// the provisioner is first resolved, not <c>BuildServiceProvider</c>: with a CLI provider registered, the
+    /// first enumeration of the providers throws, and every client over them with it.</summary>
     public Dictionary<string, IReadOnlyList<string>> ToolsByConsumer { get; } = new(StringComparer.OrdinalIgnoreCase);
 }

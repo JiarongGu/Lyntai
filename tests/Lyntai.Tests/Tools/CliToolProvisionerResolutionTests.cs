@@ -58,6 +58,24 @@ public class CliToolProvisionerResolutionTests
         Assert.DoesNotContain("--gemini-flag", session.ExtraArgs);
     }
 
+    /// <summary>A <c>ToolsByConsumer</c> name no registered tool has, configured through the builder, is refused
+    /// when the provisioner is first RESOLVED — for a CLI provider, when the provider set is first built — and not
+    /// by <c>BuildServiceProvider</c>, since the tools are registrations the container resolves only then.</summary>
+    [Fact]
+    public void A_bad_ToolsByConsumer_name_fails_the_provider_set_when_first_built_not_the_container()
+    {
+        var services = new ServiceCollection();
+        services.AddLyntai(b => b
+            .AddClaudeCliProvider()
+            .AddMcpToolHost(new ClaudeCliMcpConnector(), o => o.ToolsByConsumer["study"] = ["fecth"])
+            .AddTool(_ => new FunctionTool("fetch", (a, _) => Task.FromResult(a))));
+        using var sp = services.BuildServiceProvider();                       // the container builds
+
+        var ex = Assert.Throws<InvalidOperationException>(() => sp.GetServices<Lyntai.Inference.IModelProvider>().ToList());
+
+        Assert.Contains("[\"study\"] names 'fecth'", ex.Message);
+    }
+
     private sealed class StubDialect(string providerId, string flag) : IMcpCliConnector
     {
         public string ProviderId => providerId;

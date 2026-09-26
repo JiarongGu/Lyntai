@@ -5193,3 +5193,13 @@ unknown name, and each refusal names the consumer key that held it. The option's
 `CHANGELOG.md`'s Fixed entry is the consumer-visible line.
 
 - Snapshot `ToolsByConsumer` when the provisioner is built, and name the consumer in the refusal
+
+## Part 312 — the `ToolsByConsumer` refusal is pinned through the builder (2026-09-26)
+
+✅ done 2026-09-26 — **Outcome:** closes the second item of `TASKS.md` Part 299.
+`CliToolProvisionerResolutionTests.A_bad_ToolsByConsumer_name_fails_the_provider_set_when_first_built_not_the_container`
+drives `AddMcpToolHost(connector, o => o.ToolsByConsumer[…])` with a CLI provider and pins where the refusal
+lands: the first enumeration of the providers, not `BuildServiceProvider`. It passed on arrival — the behaviour
+was right and unstated — so the change is the statement, in `AddMcpToolHost`'s and the option's XML docs.
+
+- Pin the refusal through the builder, and say when it fires
