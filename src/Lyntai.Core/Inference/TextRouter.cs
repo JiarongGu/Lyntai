@@ -49,9 +49,29 @@ public sealed class TextRouter(
     private RoutingPolicy Policy => options.Routing;
     private readonly RouterBookkeeping _bookkeeping = new(deadHosts, admission, configuration);
 
-    // built once — O(1) per candidate/retry. Case-insensitive, as ProviderPoolGuard accepts a pool slot cased
+    // Read ONCE per call, so a call never routes over half an edit to a run-time registry. The container's table is
+    // built once — O(1) per candidate/retry — and case-insensitive, as ProviderPoolGuard accepts a pool slot cased
     // differently from the provider's own Id: an ordinal table left such a backend poolable and never tried.
-    private readonly Lazy<IReadOnlyDictionary<string, IModelProvider>> _byId = new(() => ProviderLookup.ById(providers));
+    private readonly Func<IReadOnlyDictionary<string, IModelProvider>> _lookup = BuiltOnce(providers);
+
+    /// <summary>A router over a provider table <paramref name="lookup"/> answers per call — a run-time registry's
+    /// current snapshot. Otherwise as the public constructor.</summary>
+    internal TextRouter(
+        Func<IReadOnlyDictionary<string, IModelProvider>> lookup,
+        DeadHostTracker deadHosts,
+        LyntaiOptions options,
+        ILogger<TextRouter>? logger = null,
+        IModelRoutingStore? modelRouting = null,
+        Func<IModelProvider, ProviderKey?>? configuration = null,
+        IProviderAdmission? admission = null)
+        : this([], deadHosts, options, logger, modelRouting, configuration, admission) =>
+        _lookup = lookup;
+
+    private static Func<IReadOnlyDictionary<string, IModelProvider>> BuiltOnce(IEnumerable<IModelProvider> providers)
+    {
+        var byId = new Lazy<IReadOnlyDictionary<string, IModelProvider>>(() => ProviderLookup.ById(providers));
+        return () => byId.Value;
+    }
 
     public async Task<TextResponse> CompleteAsync(IReadOnlyList<ProviderCandidate> candidates, TextRequest req, CancellationToken ct = default)
     {
@@ -345,7 +365,8 @@ public sealed class TextRouter(
     }
 
     /// <summary>The candidates one call routes over, and whether they are the consumer's live route.</summary>
-    private readonly record struct Routing(IReadOnlyList<ProviderCandidate> Candidates, bool IsLiveRoute);
+    private readonly record struct Routing(
+        IReadOnlyList<ProviderCandidate> Candidates, bool IsLiveRoute, IReadOnlyDictionary<string, IModelProvider> ById);
 
     /// <summary>The shared candidate-selection preamble every door runs: dedup the list, resolve each
     /// candidate's EFFECTIVE model, skip unknown/text-less/unavailable/cooling providers and those not declaring
@@ -364,7 +385,7 @@ public sealed class TextRouter(
             var effectiveModel = routing.IsLiveRoute
                 ? RouteEntryModel(candidate, req.Model)
                 : options.ResolveModel(req.Consumer, candidate.Model ?? req.Model);
-            var provider = SelectLive(candidate, effectiveModel, door, soleCandidate, out var skipReason, out var gap);
+            var provider = SelectLive(routing.ById, candidate, effectiveModel, door, soleCandidate, out var skipReason, out var gap);
             if (provider is null)
             {
                 // a text-less backend in a text list is the caller's defect, not transient state: warn, as D176
@@ -421,7 +442,8 @@ public sealed class TextRouter(
     private async Task<Routing> LiveRouteAsync(
         IReadOnlyList<ProviderCandidate> given, TextRequest req, CancellationToken ct)
     {
-        if (modelRouting is null) return new(given, false);
+        var byId = _lookup();
+        if (modelRouting is null) return new(given, false, byId);
         var consumer = req.Consumer;
         IReadOnlyList<ProviderCandidate> route;
         try
@@ -431,12 +453,12 @@ public sealed class TextRouter(
         catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
         {
             _logger.LogWarning(ex, "router: the live route read failed for consumer {Consumer}; routing over the given candidates", consumer);
-            return new(given, false);
+            return new(given, false, byId);
         }
-        if (route is not { Count: > 0 }) return new(given, false);
+        if (route is not { Count: > 0 }) return new(given, false, byId);
 
         // a registered backend that serves no text (an embedder, a reranker) is as unusable here as an unknown id
-        bool ServesText(ProviderCandidate c) => _byId.Value.TryGetValue(c.ProviderId, out var p)
+        bool ServesText(ProviderCandidate c) => byId.TryGetValue(c.ProviderId, out var p)
             && ClientCandidates.ServesText(p);
         var usable = route.Where(ServesText).ToList();
         var unusable = route.Where(c => !ServesText(c)).Select(ProviderCandidateSpec.Format).ToList();
@@ -444,7 +466,7 @@ public sealed class TextRouter(
         {
             _logger.LogWarning("router: the live route for consumer {Consumer} ({Route}) names no registered text provider; routing over the given candidates",
                 consumer, string.Join(", ", unusable));
-            return new(given, false);
+            return new(given, false, byId);
         }
         if (unusable.Count > 0)
             _logger.LogWarning("router: the live route for consumer {Consumer} names providers not registered here or serving no text ({Unknown}); they are skipped",
@@ -454,7 +476,7 @@ public sealed class TextRouter(
         if (!string.IsNullOrEmpty(req.Model) && ClientCandidates.ModelPinIsInert(req.Model, usable))
             _logger.LogWarning("router: consumer {Consumer} asks for model {Model}, which its live route ({Route}) can never serve — every entry pins another; the route's models serve",
                 consumer, req.Model, string.Join(", ", usable.Select(ProviderCandidateSpec.Format)));
-        return new(usable, true);
+        return new(usable, true, byId);
     }
 
     /// <summary>A live route entry's model: its own, else the request's, else null — the backend's default. A
@@ -489,11 +511,12 @@ public sealed class TextRouter(
             : identity;
     }
 
-    private IModelProvider? SelectLive(ProviderCandidate candidate, string? effectiveModel, ProviderOperation door,
+    private IModelProvider? SelectLive(IReadOnlyDictionary<string, IModelProvider> byId,
+        ProviderCandidate candidate, string? effectiveModel, ProviderOperation door,
         bool soleCandidate, out string skipReason, out Gap gap)
     {
         gap = Gap.None;
-        if (!_byId.Value.TryGetValue(candidate.ProviderId, out var provider))
+        if (!byId.TryGetValue(candidate.ProviderId, out var provider))
         { skipReason = "no provider with this id registered"; return null; }
 
         // composition refuses a CONFIGURED list naming one; a list passed at run time reaches here
