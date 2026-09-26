@@ -1549,6 +1549,16 @@ sealed class Lyntai.Jobs.JobContext
 sealed class Lyntai.Jobs.JobHandlerRegistry
     .ctor(IEnumerable<IJobHandler> handlers)
     Find(String type) : IJobHandler
+sealed class Lyntai.Jobs.JobMessage
+    .ctor(String Text)
+    Arguments : IReadOnlyDictionary<String,String> { get; init; }
+    Code : String { get; init; }
+    Deconstruct(String& Text) : Void
+    Equals(JobMessage other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Text : String { get; init; }
+    ToString() : String
 sealed class Lyntai.Jobs.JobOptions
     .ctor()
     DefaultLaneConcurrency : Int32 { get; set; }
@@ -1668,7 +1678,9 @@ enum Lyntai.Jobs.JobStatus
     value__ : Int32
 sealed class Lyntai.Jobs.JobStep
     .ctor(DateTimeOffset At, String Message)
+    Arguments : IReadOnlyDictionary<String,String> { get; init; }
     At : DateTimeOffset { get; init; }
+    Code : String { get; init; }
     Deconstruct(DateTimeOffset& At, String& Message) : Void
     Equals(JobStep other) : Boolean
     Equals(Object obj) : Boolean
@@ -1677,6 +1689,7 @@ sealed class Lyntai.Jobs.JobStep
     ToString() : String
 static class Lyntai.Jobs.JobStepLog
     DefaultCap : Int32 const
+    static Append(String json, JobMessage message, DateTimeOffset at, Int32 cap = 200) : String
     static Append(String json, String message, DateTimeOffset at, Int32 cap = 200) : String
     static Parse(String json) : IReadOnlyList<JobStep>
 sealed class Lyntai.Jobs.KeyValueJobScheduleStore
