@@ -1578,6 +1578,7 @@ sealed class Lyntai.Jobs.JobOptions
     MaxStepLog : Int32 { get; set; }
     PollInterval : TimeSpan { get; set; }
     RetryBackoff : TimeSpan { get; set; }
+    ScheduleStoreTimeout : TimeSpan { get; set; }
     SlotLease : TimeSpan { get; set; }
 sealed class Lyntai.Jobs.JobOutcome
     Equals(JobOutcome other) : Boolean

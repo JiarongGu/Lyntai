@@ -57,6 +57,11 @@ public sealed class JobOptions
     /// no work (a productive pass immediately runs the next).</summary>
     public TimeSpan PollInterval { get; set; } = TimeSpan.FromSeconds(2);
 
+    /// <summary>How long a scheduler tick waits for the <see cref="IJobScheduleStore"/> to list its schedules before
+    /// treating the store as failed for that tick. The build-time schedules are handled before the store is asked,
+    /// so this bounds how long a hung store can hold the pump, never whether they run.</summary>
+    public TimeSpan ScheduleStoreTimeout { get; set; } = TimeSpan.FromSeconds(10);
+
     /// <summary>Attempt budget <see cref="IJobQueue"/> stamps onto a <see cref="JobSpec"/> that names none.
     /// Seeded from <see cref="JobSpec.DefaultMaxAttempts"/> — the same constant every store falls back to for
     /// a spec that reached it without passing through the queue, so the two can't disagree by default.</summary>

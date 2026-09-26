@@ -84,47 +84,74 @@ public sealed class JobScheduler : IJobScheduler
         var now = _clock();
         var enqueued = 0;
         var names = new HashSet<string>(StringComparer.Ordinal);
-        IReadOnlyList<JobSchedule> all = [.. _schedules, .. await ListStoredAsync(ct).ConfigureAwait(false)];
-        foreach (var s in all)
-        {
-            // a throw here — an impossible cron's NextAfter (Feb 30), anything else — quarantines that ONE
-            // schedule, so it neither aborts the tick (skipping later schedules) nor spins on every poll
-            try
-            {
-                if (!IsValid(s)) continue; // malformed schedule (no trigger / bad cron / non-positive interval)
-                if (!names.Add(s.Name))
-                {
-                    // the name keys the persisted next-run, so a second schedule of it could never fire
-                    if (FirstSight("duplicate\n" + s.Name))
-                        _logger.LogWarning("scheduler: ignoring a second schedule named '{Name}' — it shares the first one's next-run", s.Name);
-                    continue;
-                }
-
-                // the trigger is recorded on EVERY tick, first sight included, so a change after it is always seen
-                var changed = await TriggerChangedAsync(s, ct).ConfigureAwait(false);
-                var next = await GetNextAsync(s.Name, ct).ConfigureAwait(false);
-                if (next is null || changed)
-                {
-                    // first sight, or a changed cron/interval → anchor the next run, don't fire now
-                    await SetNextAsync(s.Name, NextAfter(s, now), ct).ConfigureAwait(false);
-                    continue;
-                }
-                if (next.Value > now) continue; // not due yet
-
-                await _queue.EnqueueAsync(s.Lane, s.Type, s.Payload, s.Priority, ct: ct).ConfigureAwait(false);
-                enqueued++;
-                _logger.LogDebug("scheduler: enqueued '{Name}' ({Type})", s.Name, s.Type);
-
-                // advance to the next slot strictly after now — missed slots coalesce into this ONE run
-                await SetNextAsync(s.Name, NextAfter(s, now), ct).ConfigureAwait(false);
-            }
-            catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "scheduler: skipping '{Name}' this tick — its next-run couldn't be computed", s.Name);
-            }
-        }
+        // the build-time schedules go BEFORE the store is asked, so a slow or hung store never holds them up
+        foreach (var s in _schedules)
+            if (await EvaluateAsync(s, now, names, stored: false, ct).ConfigureAwait(false)) enqueued++;
+        foreach (var s in await ListStoredAsync(ct).ConfigureAwait(false))
+            if (await EvaluateAsync(s, now, names, stored: true, ct).ConfigureAwait(false)) enqueued++;
         return enqueued;
+    }
+
+    /// <summary>Enqueue <paramref name="s"/> if it is due, advancing it; true when it was enqueued. A stored schedule
+    /// is first held to the rules <c>AddJobSchedule</c> applies, since an app's own store may not validate.</summary>
+    private async Task<bool> EvaluateAsync(
+        JobSchedule s, DateTimeOffset now, HashSet<string> names, bool stored, CancellationToken ct)
+    {
+        // a throw here — an impossible cron's NextAfter (Feb 30), anything else — quarantines that ONE
+        // schedule, so it neither aborts the tick (skipping later schedules) nor spins on every poll
+        try
+        {
+            if (stored && !Conforms(s)) return false;
+            if (!IsValid(s)) return false; // malformed schedule (no trigger / bad cron / non-positive interval)
+            if (!names.Add(s.Name))
+            {
+                // the name keys the persisted next-run, so a second schedule of it could never fire
+                if (FirstSight("duplicate\n" + s.Name))
+                    _logger.LogWarning("scheduler: ignoring a second schedule named '{Name}' — it shares the first one's next-run", s.Name);
+                return false;
+            }
+
+            // the trigger is recorded on EVERY tick, first sight included, so a change after it is always seen
+            var changed = await TriggerChangedAsync(s, ct).ConfigureAwait(false);
+            var next = await GetNextAsync(s.Name, ct).ConfigureAwait(false);
+            if (next is null || changed)
+            {
+                // first sight, or a changed cron/interval → anchor the next run, don't fire now
+                await SetNextAsync(s.Name, NextAfter(s, now), ct).ConfigureAwait(false);
+                return false;
+            }
+            if (next.Value > now) return false; // not due yet
+
+            await _queue.EnqueueAsync(s.Lane, s.Type, s.Payload, s.Priority, ct: ct).ConfigureAwait(false);
+            _logger.LogDebug("scheduler: enqueued '{Name}' ({Type})", s.Name, s.Type);
+
+            // advance to the next slot strictly after now — missed slots coalesce into this ONE run
+            await SetNextAsync(s.Name, NextAfter(s, now), ct).ConfigureAwait(false);
+            return true;
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "scheduler: skipping '{Name}' this tick — its next-run couldn't be computed", s.Name);
+            return false;
+        }
+    }
+
+    /// <summary>Whether a stored schedule passes <c>AddJobSchedule</c>'s rules; one that does not is warned about
+    /// once per name and skipped on every tick.</summary>
+    private bool Conforms(JobSchedule s)
+    {
+        try
+        {
+            JobScheduleRules.Validate(s);
+            return true;
+        }
+        catch (Exception ex) when (ex is ArgumentException or FormatException or InvalidOperationException)
+        {
+            if (FirstSight("invalid\n" + s.Name))
+                _logger.LogWarning("scheduler: skipping the stored schedule '{Name}' — {Reason}", s.Name, ex.Message);
+            return false;
+        }
     }
 
     /// <summary>The next fire time strictly after <paramref name="from"/> — the cron's next occurrence, or
@@ -184,7 +211,8 @@ public sealed class JobScheduler : IJobScheduler
         if (_scheduleStore is null) return [];
         try
         {
-            var stored = await _scheduleStore.ListAsync(ct).ConfigureAwait(false);
+            // bounded: a hung store must not hold the pump, and a timeout is a failure like any other
+            var stored = await _scheduleStore.ListAsync(ct).WaitAsync(_options.Jobs.ScheduleStoreTimeout, ct).ConfigureAwait(false);
             Interlocked.Exchange(ref _storeFailing, 0);
             return stored;
         }

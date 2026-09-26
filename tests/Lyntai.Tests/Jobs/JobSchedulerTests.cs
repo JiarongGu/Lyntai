@@ -359,12 +359,78 @@ public class JobSchedulerStoreTests
     }
 
     [Fact]
+    public async Task A_hung_store_neither_delays_the_build_time_schedules_nor_stalls_the_tick()
+    {
+        var options = new LyntaiOptions();
+        options.Jobs.ScheduleStoreTimeout = TimeSpan.FromMilliseconds(100);
+        var store = new HangingStore();
+        var scheduler = new JobScheduler(new JobQueue(Jobs, options), [Every("nightly", TimeSpan.FromMinutes(10))],
+            store, options, _kv, _logger, _clock.Get);
+        await scheduler.TickAsync();
+        _clock.Advance(TimeSpan.FromMinutes(10));
+        store.Hang = true;
+
+        var tick = scheduler.TickAsync();
+
+        Assert.Single(await Jobs.ListAsync());                              // enqueued BEFORE the store was asked
+        Assert.Equal(1, await tick.WaitAsync(TimeSpan.FromSeconds(5)));     // the hang is bounded, not waited out
+        Assert.Single(_logger.Messages, m => m.Contains("schedule store", StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [InlineData(" ", null, "@hourly")]                    // a blank name
+    [InlineData("both", 10, "@hourly")]                    // both triggers
+    public async Task An_invalid_stored_schedule_is_skipped_and_warned_about_once(string name, int? minutes, string cron)
+    {
+        var store = new FixedStore(new JobSchedule(name, "reports", "report", "{}",
+            minutes is { } m ? TimeSpan.FromMinutes(m) : null, Cron: cron));
+        var scheduler = Scheduler(store);
+
+        for (var i = 0; i < 3; i++)
+        {
+            await scheduler.TickAsync();
+            _clock.Advance(TimeSpan.FromHours(2));
+        }
+
+        Assert.Empty(await Jobs.ListAsync());
+        Assert.Single(_logger.Messages);
+    }
+
+    [Fact]
     public async Task Cancellation_from_the_store_propagates()
     {
         using var cts = new CancellationTokenSource();
         await cts.CancelAsync();
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => Scheduler(new FailingStore()).TickAsync(cts.Token));
+    }
+
+    /// <summary>A store that, once told to, never answers and ignores cancellation — a hung connection.</summary>
+    private sealed class HangingStore : IJobScheduleStore
+    {
+        public bool Hang { get; set; }
+
+        public Task<IReadOnlyList<JobSchedule>> ListAsync(CancellationToken ct = default) =>
+            Hang ? new TaskCompletionSource<IReadOnlyList<JobSchedule>>().Task : Task.FromResult<IReadOnlyList<JobSchedule>>([]);
+
+        public Task<JobSchedule?> GetAsync(string name, CancellationToken ct = default) => throw new NotSupportedException();
+
+        public Task SetAsync(JobSchedule schedule, CancellationToken ct = default) => throw new NotSupportedException();
+
+        public Task<bool> RemoveAsync(string name, CancellationToken ct = default) => throw new NotSupportedException();
+    }
+
+    /// <summary>An app's own store that does not validate what it holds.</summary>
+    private sealed class FixedStore(params JobSchedule[] schedules) : IJobScheduleStore
+    {
+        public Task<IReadOnlyList<JobSchedule>> ListAsync(CancellationToken ct = default) =>
+            Task.FromResult<IReadOnlyList<JobSchedule>>(schedules);
+
+        public Task<JobSchedule?> GetAsync(string name, CancellationToken ct = default) => throw new NotSupportedException();
+
+        public Task SetAsync(JobSchedule schedule, CancellationToken ct = default) => throw new NotSupportedException();
+
+        public Task<bool> RemoveAsync(string name, CancellationToken ct = default) => throw new NotSupportedException();
     }
 
     private sealed class FailingStore : IJobScheduleStore
