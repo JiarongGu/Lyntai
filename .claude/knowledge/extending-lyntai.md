@@ -354,7 +354,9 @@ to make one at a time, so a BYO store loses no behaviour and is merely no faster
 an ORDER as contract — the review log last, so a broken log cannot cost the touch or the edges — so an
 override that reorders it is wrong however fast it is. `KnownSubjectsAsync` has NO default: a store that
 answered with an empty list would silently get **no subject seeding** at all (**D88**), so it must return the
-subject handles in use under a task and scope, most-used first.
+subject handles in use under a task and scope, most-used first. **And an id is never reissued**, not after a
+delete, a forget or a restart — a SQL backend gets that from `AUTOINCREMENT` or an identity column, where a plain
+rowid would hand the deleted top id out again, and an in-process one from a persisted high-water mark.
 
 Mirror `src/Lyntai.Storage.Postgres/`, the reference backend, which implements all twelve. **A backend that is
 not a database mirrors `src/Lyntai.Storage.Basic/FileSystem/` instead** (**D171**) — no SQL and no migrations, but

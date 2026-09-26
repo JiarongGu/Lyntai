@@ -1427,6 +1427,25 @@ public static class MemoryGraphStoreContract
         Assert.Single(await store.SeedAsync("e", key, "s", null, 10));
     }
 
+    /// <summary><b>An id is never reissued, not even after its node is removed.</b> A <see cref="MemoryRef"/> a
+    /// caller holds and the engine's similarity index are both keyed by it and outlive the removal, so a reissued
+    /// number would expand another entry through an old reference, and pass the existence re-read that keeps a
+    /// write racing a forget from indexing forgotten content. The HIGHEST id is deleted first because that is the
+    /// one a max-plus-one allocator hands out again; an emptied scope is the other way back to a low number.</summary>
+    public static async Task An_id_is_never_reissued_after_its_node_is_removed(IMemoryGraphStore store, string key)
+    {
+        var first = await store.UpsertAsync(Write("e", key, "the first entry"));
+        var highest = await store.UpsertAsync(Write("e", key, "the second entry"));
+
+        await store.DeleteAsync("e", [highest]);
+        var afterDelete = await store.UpsertAsync(Write("e", key, "written after a delete"));
+        await store.ForgetAsync("e", key, "s");
+        var afterForget = await store.UpsertAsync(Write("e", key, "written after a forget"));
+
+        Assert.DoesNotContain(afterDelete, new[] { first, highest });
+        Assert.DoesNotContain(afterForget, new[] { first, highest, afterDelete });
+    }
+
     public static async Task Forget_clears_a_scope(IMemoryGraphStore store, string key)
     {
         await store.UpsertAsync(Write("e", key, "gone"));

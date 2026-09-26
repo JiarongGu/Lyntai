@@ -368,7 +368,11 @@ public interface IMemoryGraphStore
     /// shortcut.</para>
     ///
     /// <para>Dedup is on <see cref="MemoryContentKey"/> — see it for why that is a contract fact and not a
-    /// storage detail.</para></summary>
+    /// storage detail.</para>
+    ///
+    /// <para><b>An id is never reissued</b>, not after a delete, a forget or a restart: a <see cref="MemoryRef"/> a
+    /// caller holds and the engine's similarity index are keyed by it and outlive the removal, so a reissued number
+    /// would answer for another entry.</para></summary>
     /// <param name="write">The node to store.</param>
     /// <param name="ct">Cancellation.</param>
     Task<long> UpsertAsync(GraphNodeWrite write, CancellationToken ct = default);

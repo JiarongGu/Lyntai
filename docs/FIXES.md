@@ -28,7 +28,10 @@ behind the `when (ct.IsCancellationRequested)` filter every memory catch uses. T
 instance, as the re-embed's is. The alternative was a reader-writer lock, so that concurrent writes would not
 queue behind one another's index steps; it was not built, because it is a hand-rolled async primitive and no
 instrument measures concurrent writes with a vector index (`memory-scale` writes sequentially and embeds
-nothing). The embed call stays outside the lock.
+nothing). The embed call stays outside the lock. The re-read trusts that an id is never reissued, which every
+shipped store held unstated; `IMemoryGraphStore.UpsertAsync` now states it and
+`MemoryGraphStoreContract.An_id_is_never_reissued_after_its_node_is_removed` pins it, rather than the re-read
+comparing content to survive a store that breaks it.
 
 **Verify.** Four tests, all red before the change:
 `MemoryRemovalCompletenessTests.A_forget_landing_between_a_write_s_upsert_and_its_index_leaves_no_vector` (the

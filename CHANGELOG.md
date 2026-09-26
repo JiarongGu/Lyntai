@@ -26,6 +26,9 @@ every addition.
   for paraphrase-multilingual-MiniLM-L12-v2, which both ran at 512. A text longer than the new window embeds
   differently from before, in the same vector space; `OnnxProviderOptions.MaxTokens = 512` keeps the old window,
   and `ReindexAsync` re-embeds a graph memory so its stored vectors are cut alike.
+- **`IMemoryGraphStore` states that an id is never reissued**, not after a delete, a forget or a restart, and the
+  cross-backend contract now pins it on all four shipped stores, which already held it. A `MemoryRef` a caller keeps
+  and the engine's similarity index relied on it before it was written down.
 
 ### Fixed
 

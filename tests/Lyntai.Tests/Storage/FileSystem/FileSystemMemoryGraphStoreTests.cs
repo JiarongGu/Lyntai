@@ -47,6 +47,22 @@ public class FileSystemMemoryGraphStoreTests : IDisposable
     }
 
     [Fact]
+    public async Task A_removed_memory_s_id_is_not_reissued_after_a_restart()
+    {
+        // the contract's An_id_is_never_reissued_after_its_node_is_removed runs one live store; a reopened one
+        // must take its next id from the journal, never from the highest file that survived the removal
+        var store = new FileSystemMemoryGraphStore(_root.Root);
+        var first = await store.UpsertAsync(Note("zeta", "one"));
+        var highest = await store.UpsertAsync(Note("zeta", "two"));
+        await store.DeleteAsync("zeta", [highest]);
+
+        var reopened = new FileSystemMemoryGraphStore(_root.Reopen());
+        var next = await reopened.UpsertAsync(Note("zeta", "three"));
+
+        Assert.DoesNotContain(next, new[] { first, highest });
+    }
+
+    [Fact]
     public async Task A_memory_reads_its_state_from_its_own_engines_journal_only()
     {
         var store = new FileSystemMemoryGraphStore(_root.Root);
