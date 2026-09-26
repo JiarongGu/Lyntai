@@ -15,37 +15,36 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 24 across 7 Parts: 20 startable, 2 blocked, 2 watch
+## Open items — 23 across 7 Parts: 19 startable, 2 blocked, 2 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 125 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a free Hugging Face account (an hf_ token) — its router proxies fal's own q… |
-| 172 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 195 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 251 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
-| 281 | 294 | Give the vector-store, verification and annotation contracts an abstract Fa… | startable |  |
-| 284 | 294 | Sweep test comments for history narration that carries no tag or date | startable |  |
-| 294 | 298 | SentencePiece tokenization for the ONNX provider — D122's trigger has fired | startable |  |
-| 298 | 298 | Change the embedder without rebuilding the graph | startable |  |
-| 300 | 298 | Read a stored vector back by id, or cache embeddings on the vector call | startable |  |
-| 302 | 298 | Filtered nearest-neighbour search | startable |  |
-| 304 | 298 | Edit the text provider set at run time | startable |  |
-| 307 | 298 | Schedules added at run time, persisted | startable |  |
-| 309 | 298 | Trace and score front-door calls without a wrapper | startable |  |
-| 312 | 298 | Job progress as a message code plus arguments | startable |  |
-| 319 | 299 | Snapshot `ToolsByConsumer` when the provisioner is built, and name the cons… | startable |  |
-| 323 | 299 | Pin the refusal through the builder, and say when it fires | startable |  |
-| 326 | 299 | Two test gaps in the CLI tool seam | startable |  |
-| 328 | 299 | A one-line `ToolsByConsumer` recipe in README's MCP section | startable |  |
-| 345 | 301 | Let a graph write skip its annotation when its vector fails — D175's deferr… | startable |  |
-| 363 | 301 | Let a deployment choose a segmented rerank call's pieces per REQUEST | startable |  |
-| 382 | 301 | Bound a reranker document's pieces independently of the query | startable |  |
-| 393 | 301 | Classify llama.cpp's physical-batch refusal as `ContextWindowExceeded` | startable |  |
-| 408 | 301 | Warn about leftover keys under a model-key prefix of the app's own | startable |  |
-| 419 | 301 | Say when a server refuses the configured `SuppressReasoningFields` | startable |  |
+| 124 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a free Hugging Face account (an hf_ token) — its router proxies fal's own q… |
+| 171 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 194 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 250 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 280 | 294 | Give the vector-store, verification and annotation contracts an abstract Fa… | startable |  |
+| 283 | 294 | Sweep test comments for history narration that carries no tag or date | startable |  |
+| 293 | 298 | SentencePiece tokenization for the ONNX provider — D122's trigger has fired | startable |  |
+| 297 | 298 | Change the embedder without rebuilding the graph | startable |  |
+| 299 | 298 | Read a stored vector back by id, or cache embeddings on the vector call | startable |  |
+| 301 | 298 | Filtered nearest-neighbour search | startable |  |
+| 303 | 298 | Edit the text provider set at run time | startable |  |
+| 306 | 298 | Schedules added at run time, persisted | startable |  |
+| 308 | 298 | Trace and score front-door calls without a wrapper | startable |  |
+| 311 | 298 | Job progress as a message code plus arguments | startable |  |
+| 318 | 299 | Snapshot `ToolsByConsumer` when the provisioner is built, and name the cons… | startable |  |
+| 322 | 299 | Pin the refusal through the builder, and say when it fires | startable |  |
+| 325 | 299 | Two test gaps in the CLI tool seam | startable |  |
+| 327 | 299 | A one-line `ToolsByConsumer` recipe in README's MCP section | startable |  |
+| 344 | 301 | Let a deployment choose a segmented rerank call's pieces per REQUEST | startable |  |
+| 363 | 301 | Bound a reranker document's pieces independently of the query | startable |  |
+| 374 | 301 | Classify llama.cpp's physical-batch refusal as `ContextWindowExceeded` | startable |  |
+| 389 | 301 | Warn about leftover keys under a model-key prefix of the app's own | startable |  |
+| 400 | 301 | Say when a server refuses the configured `SuppressReasoningFields` | startable |  |
 
 <!-- open-items:end -->
 
@@ -341,24 +340,6 @@ _Reported by an adopting application planning its upgrade from 3.2.0 to 3.4.0. T
 of its workarounds shipped in 3.3.0; these are what the upgrade found beside them, each checked against the tree
 at `v3.4.0` (HEAD changes nothing under `src/` since) when it was filed. Its evidence about the CLI tool host
 went into `TASKS.md` Part 299's recipe item instead._
-
-- [ ] **Let a graph write skip its annotation when its vector fails — D175's deferred trigger, with its cost.** <!-- item: state=startable -->
-  `GraphMemoryEngine.RememberAsync` annotates first and embeds after, best-effort
-  (`src/Lyntai.Core/Memory/Engines/GraphMemoryEngine.cs:244`, `:268`). A consumer that retries every write whose
-  `Ran` lacks `Similarity` — **D175**'s intended use — pays an annotation call per write per attempt while its
-  embedder is down, and again on the retry that keeps the vector: an adopting app with a CLI annotator,
-  re-indexing pending facts at each start, spends account quota per pending fact per start through an outage.
-  Stopping a batch at its first vector-less write bounds a back-fill to one wasted call per attempt; every
-  ordinary write made during the outage is still annotated twice. D175 deferred a readiness probe until "a
-  consumer that must decide BEFORE writing anything"; this one must decide whether a write is worth its
-  annotation. Suggested, as the smaller surface: embed BEFORE annotating — the embed reads only `write.Content`
-  (`src/Lyntai.Core/Memory/Engines/GraphVectorProjection.cs:42-59`) and the annotator need only precede the
-  upsert, for its suggested grade — plus an opt-in on `GraphMemoryOptions` that skips annotation when an embedder
-  is wired and this write's embed failed, so `Ran` carries neither flag and the retry annotates once. One option
-  and no new type, where the probe would publish the internal route filter D175 declined to and can pass a moment
-  before the write fails. An engine option, not a `MemoryWrite` field, which D175 rejected as `RequireVector`
-  because a fanned-out write carries it to members that cannot honour it. The grade caveat D175 records for a
-  failed annotator applies.
 
 - [ ] **Let a deployment choose a segmented rerank call's pieces per REQUEST.** <!-- item: state=startable -->
   `InputSegmentation.MaxPiecesPerInput` is fixed at registration: the HTTP transport reads it from the

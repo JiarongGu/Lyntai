@@ -1923,6 +1923,7 @@ sealed class Lyntai.Memory.GraphMemoryOptions
     Reinforcement : MemoryReinforcementEffects { get; init; }
     ReviewLogCap : Int32 { get; init; }
     SimilarityK : Int32 { get; init; }
+    SkipAnnotationWithoutVector : Boolean { get; init; }
     ToString() : String
     VerdictCombination : MemoryVerdictCombination { get; init; }
     VerificationDepth : Nullable<Int32> { get; init; }

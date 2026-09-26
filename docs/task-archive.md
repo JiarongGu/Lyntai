@@ -5109,3 +5109,15 @@ the flag off. The choice, and the rejected redefinition of `None`, are **D175**'
 say what a BYO annotator must return on a failure.
 
 - Let the shipped LLM annotator say it did not answer, so `MemorySources.Annotation` sees a failure
+
+## Part 304 — a graph write that lost its vector can skip its annotation (2026-09-26)
+
+✅ done 2026-09-26 — **Outcome:** closes the third item of `TASKS.md` Part 301. `GraphMemoryEngine.RememberAsync`
+embeds before it annotates, and `GraphMemoryOptions.SkipAnnotationWithoutVector` (off by default) skips the
+annotation of a write owed a vector — an embedder declared, a vector store wired, `SimilarityK` above zero —
+that got none, so a rebuild retrying on a missing `Similarity` pays the annotator once. Why an engine option
+rather than the readiness probe or a `MemoryWrite` field is **D175**'s amendment; the rebuild recipe is
+`docs/memory.md` §Know whether a write kept its vector. A vector the index refuses after a good embed is not
+foreseen, and a skipped write loses the annotator's grade suggestion, as a failed annotation does.
+
+- Let a graph write skip its annotation when its vector fails — D175's deferred trigger, with its cost

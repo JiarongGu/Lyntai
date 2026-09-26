@@ -19,6 +19,11 @@ every addition.
 
 ## Unreleased
 
+### Changed
+
+- **A graph write embeds before it annotates**, where it annotated first. Both still precede the upsert, and
+  neither reads the other, so what is stored is unchanged; an annotator now sees its call after the embed's.
+
 ### Added
 
 - **`MemoryAnnotation.Unanswered` and `MemoryAnnotation.Answered`** (**D175**): an annotator that could not
@@ -26,6 +31,10 @@ every addition.
   records nothing an unanswered annotation carries and leaves `MemorySources.Annotation` off the write, as for
   one that throws. A BYO annotator returning `None` on a failure keeps setting the flag until it returns
   `Unanswered` there instead.
+- **`GraphMemoryOptions.SkipAnnotationWithoutVector`** (**D175**): a graph write owed a vector — an embedder and
+  a vector store wired, `SimilarityK` above zero — that did not get one skips its annotation, so its `Ran`
+  carries neither `Similarity` nor `Annotation` and a rebuild retrying it pays the annotator once. Off by
+  default.
 
 ### Fixed
 
@@ -34,7 +43,6 @@ every addition.
   timeout — the value an answer "about nothing" parses to — so a write stored without its subjects was
   reported as annotated, and a rebuild keying on the flag missed every one. It now returns
   `MemoryAnnotation.Unanswered` on each of them.
-
 - **A derived headline, and a judge's content note, are cut near their cap in a spaceless script.** Both cut at
   the last space within `GraphMemoryOptions.HeadlineChars` / `LlmVerificationOptions.ContentChars` wherever it
   fell, so a Chinese note whose one space followed a leading date showed the date alone, and the hard cut

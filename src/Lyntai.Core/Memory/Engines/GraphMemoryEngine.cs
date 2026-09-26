@@ -238,10 +238,20 @@ public sealed class GraphMemoryEngine(
     {
         ArgumentNullException.ThrowIfNull(write);
 
+        // ONE embed, ONE similarity search, shared between salience judgement (which needs the comparison before
+        // the node has an id) and EnrichAsync below (linking + indexing, which needs it after). Without a
+        // vector store there is nothing to compare against, so nothing is judged or linked — the honest
+        // answer, not a degraded one. Before the annotation, so a write that lost its vector can skip it.
+        var search = await _vectors.SearchAsync(write, _options.SimilarityK, ct).ConfigureAwait(false);
+        var skipAnnotation = _options.SkipAnnotationWithoutVector
+            && search is null && _options.SimilarityK > 0 && _vectors.Owed;
+
         // BEFORE the upsert, because a suggested grade has to reach the row being written — grade is not
         // something a later update can fix up without a second write and a window where the fact is stored
         // at the wrong one.
-        var (annotated, answered) = await AnnotateAsync(write, ct).ConfigureAwait(false);
+        var (annotated, answered) = skipAnnotation
+            ? (MemoryAnnotation.None, false)
+            : await AnnotateAsync(write, ct).ConfigureAwait(false);
 
         // An explicit grade always wins: a model may advise what matters, never overrule the application.
         // `stated` carries that same rule ACROSS TIME — only a caller-named grade may overwrite what is
@@ -261,11 +271,6 @@ public sealed class GraphMemoryEngine(
 
         var tick = _age.Advance(write, Name);
 
-        // ONE embed, ONE similarity search, shared between salience judgement (which needs the comparison before
-        // the node has an id) and EnrichAsync below (linking + indexing, which needs it after). Without a
-        // vector store there is nothing to compare against, so nothing is judged or linked — the honest
-        // answer, not a degraded one.
-        var search = await _vectors.SearchAsync(write, _options.SimilarityK, ct).ConfigureAwait(false);
         var (signals, salienceProvenance) = CollectSignals(write, Probe(write, search, _options.MinSimilarity));
 
         var id = await store.UpsertAsync(

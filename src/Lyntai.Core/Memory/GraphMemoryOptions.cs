@@ -91,6 +91,17 @@ public sealed record GraphMemoryOptions
         init => field = MemoryOption.Require(value, 0, nameof(GraphMemoryOptions), ZeroIsOff);
     } = 24;
 
+    /// <summary>Skip the annotation of a write that was owed a vector and did not get one — an embedding backend
+    /// and an <see cref="IVectorStore"/> are registered and <see cref="SimilarityK"/> is above zero, and this
+    /// write's embed failed or its backend was unavailable. Its <see cref="MemoryWriteResult.Ran"/> then carries
+    /// neither <see cref="MemorySources.Similarity"/> nor <see cref="MemorySources.Annotation"/>, so a consumer
+    /// that retries every write lacking the first pays for the annotation once, on the retry that keeps the
+    /// vector. Off by default: every write is annotated whether or not it was indexed.
+    /// <para>An unstated grade on a skipped write is stored as <see cref="MemoryGrade.Associative"/>, and a retry
+    /// does not apply the annotator's suggestion over it. A vector the index refuses AFTER the embed succeeded
+    /// is not foreseen, so that write is still annotated.</para></summary>
+    public bool SkipAnnotationWithoutVector { get; init; }
+
     /// <summary>How many candidates to fetch per requested item. The store bounds the candidate set with
     /// plain arithmetic and the policy ranks it exactly afterwards, so a multiple above 1 is what keeps
     /// that ranking meaningful.</summary>

@@ -5162,21 +5162,21 @@ fields, so two references to one entry would compare unequal.
 
 **Known limits.** A union can hide one GRAPH member's miss behind another's; the remedy is writing through
 the member. `SimilarityK <= 0` embeds nothing, so such an engine never reports `Similarity` on a write while
-its recalls still do. Two best-effort steps of the graph write are logged, never flagged: the similarity
-links, and salience (the node's `ProvenanceSalience` names who produced its STORED signals, not what this write
-did). **The annotator and the subject-index write are flagged together as `Annotation`** (2026-09-26): an
-adopting app rebuilds with an annotator wired and guarded every cause of a write losing its subjects for good,
-which was this entry's trigger; a failed annotator still stores an unstated grade as `Associative`. **An
-annotator that fails without throwing says so** with `MemoryAnnotation.Unanswered` (`Answered: false`), apart
-from `None`, an answer about nothing — verification's `NoOpinion`/`NothingRelevant` split. The shipped one
-returns it on every failure path, an unparseable reply included, since a reply outside the shape asked for is
-no answer. Rejected: redefining `None` as unanswered, which would leave a BYO annotator that answers "about
-nothing" with it retried by every rebuild, forever. The flag set grows the same way, one flag per consumer
-that must be sure of a step.
+its recalls still do. The similarity links and salience are logged, never flagged.
 
-**Deferred: a readiness probe** — "can the engine embed right now?". `Ran` serves the rebuild, and a public
-probe would publish the internal embedding route's filter for a need nobody has shown. **The trigger** is a
-consumer that must decide BEFORE writing anything.
+**`Annotation` flags the annotator and the subject-index write together** (2026-09-26), for a rebuild that
+must not lose a write's subjects. An annotator that fails without throwing returns `MemoryAnnotation.Unanswered`
+(`Answered: false`), apart from `None`, an answer about nothing — verification's `NoOpinion`/`NothingRelevant`
+split; the shipped one does on every failure path, an unparseable reply included. Rejected: redefining `None`
+as unanswered, which a BYO annotator answering "about nothing" would turn into a retry on every rebuild. A
+failed or skipped annotation stores an unstated grade as `Associative`. The flag set grows this way, one flag
+per consumer that must be sure of a step.
+
+**Deferred: a readiness probe** — "can the engine embed right now?", which would publish the internal
+embedding route's filter and can pass a moment before the write fails. **The trigger** is a consumer that must
+decide BEFORE writing anything. Deciding whether a write is worth its annotation needs none: the graph write
+embeds first, and `GraphMemoryOptions.SkipAnnotationWithoutVector` skips the annotation of a write owed a
+vector that got none — an engine option, not a `MemoryWrite` field, for `RequireVector`'s reason.
 
 ## D176 — live routing moves a ROUTE, not half of one (2026-09-24)
 

@@ -729,6 +729,11 @@ with `HasFlag`, since flags may be added:
   still reads `Similarity`. Write through the member (`"<engine>/<member>"`, which `IMemoryEngineFactory`
   resolves by hierarchical name) to see its own result.
 
+A graph write embeds BEFORE it annotates, so a rebuild that retries every write lacking `Similarity` can set
+`GraphMemoryOptions.SkipAnnotationWithoutVector`: a write owed a vector that did not get one then skips its
+annotation and carries neither flag, and the retry that keeps the vector annotates once. Without it, every
+write made while the embedder is down pays an annotation call that its retry pays again.
+
 `Ran` covers the storage tiers, the vector index and the annotation and nothing else; a storage tier that fails
 throws rather than going missing. The graph engine's similarity links and salience are best-effort, logged,
 and not reported — the stored node's `GraphNode.ProvenanceSalience` names the policies

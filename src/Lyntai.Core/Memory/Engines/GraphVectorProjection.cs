@@ -31,6 +31,11 @@ internal sealed class GraphVectorProjection(
     /// <summary>Whether writes are embedded and indexed — an index AND a backend that embeds.</summary>
     internal bool Enriches => vectors is not null && EmbeddingRouting.CanEmbed(providers);
 
+    /// <summary>Whether a write is OWED a vector: an index and a backend declaring embeds, available or not — so
+    /// a write that got none while this holds lost it, rather than never having been due one.</summary>
+    internal bool Owed => vectors is not null
+        && providers is not null && providers.Any(p => p is IVectorProvider && ProviderShapes.Embeds(p.Capabilities));
+
     /// <summary>The one embed and similarity search a write needs — a backend billing per call is paid ONCE per
     /// write.
     /// <para>Null when nothing is enriched, <paramref name="k"/> is zero, or the EMBED fails. A failed SEARCH
