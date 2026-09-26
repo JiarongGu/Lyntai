@@ -6,8 +6,12 @@ tensor the graph silently ignores: all of those still produce finite, well-order
 same export through onnxruntime + the reference HF tokenizer and prints cosines the C# side can be pinned
 against, which is the check that has somewhere to fail.
 
+The tokenizer is chosen as OnnxProvider chooses it: vocab.txt is WordPiece, else tokenizer.json (the XLM-R
+family's SentencePiece). Mean pooling, which is what both pinned exports declare. Pin figures from an FP32
+graph only: an int8 one quantizes over the whole batch and moves between onnxruntime versions.
+
 Needs a Python env with onnxruntime + tokenizers; this repository provisions none.
-Run:  python devtools/onnx/embed-crosscheck.py <model-dir>
+Run:  python devtools/onnx/embed-crosscheck.py <model-dir> [sentence ...]
 """
 
 import sys
@@ -15,7 +19,7 @@ from pathlib import Path
 
 import numpy as np
 import onnxruntime as ort
-from tokenizers import BertWordPieceTokenizer
+from tokenizers import BertWordPieceTokenizer, Tokenizer
 
 SENTENCES = [
     "the weather forecast for tomorrow",
@@ -24,12 +28,20 @@ SENTENCES = [
 ]
 
 
-def main(directory: Path) -> int:
-    # do_lower_case: true and strip_accents: null (= follow lowercasing) are what this model declares,
-    # which is what the C# side reads out of tokenizer_config.json rather than assuming.
-    tokenizer = BertWordPieceTokenizer(
-        str(directory / "vocab.txt"), lowercase=True, strip_accents=True)
-    encodings = [tokenizer.encode(s) for s in SENTENCES]
+def load_tokenizer(directory: Path):
+    if (directory / "vocab.txt").exists():
+        # do_lower_case: true and strip_accents: null (= follow lowercasing) are what this model declares,
+        # which is what the C# side reads out of tokenizer_config.json rather than assuming.
+        return BertWordPieceTokenizer(str(directory / "vocab.txt"), lowercase=True, strip_accents=True)
+    tokenizer = Tokenizer.from_file(str(directory / "tokenizer.json"))
+    tokenizer.no_truncation()   # the file may carry a training-time cut; the C# side owns its own window
+    tokenizer.no_padding()
+    return tokenizer
+
+
+def main(directory: Path, sentences: list[str]) -> int:
+    tokenizer = load_tokenizer(directory)
+    encodings = [tokenizer.encode(s) for s in sentences]
     width = max(len(e.ids) for e in encodings)
 
     def pad(values):
@@ -54,11 +66,11 @@ def main(directory: Path) -> int:
 
     print(f"width            {pooled.shape[1]}")
     print(f"unit length      {float(np.linalg.norm(pooled[0])):.6f}")
-    print(f"cosine related   {cosine(0, 2):.6f}   ('{SENTENCES[0]}' vs '{SENTENCES[2]}')")
-    print(f"cosine unrelated {cosine(0, 1):.6f}   ('{SENTENCES[0]}' vs '{SENTENCES[1]}')")
+    for k in range(1, len(sentences)):
+        print(f"cosine 0-{k}       {cosine(0, k):.6f}   ({sentences[0]!a} vs {sentences[k]!a})")
     print(f"first 6 of v0    {', '.join(f'{v:.6f}' for v in pooled[0][:6])}")
     return 0
 
 
 if __name__ == "__main__":
-    sys.exit(main(Path(sys.argv[1])))
+    sys.exit(main(Path(sys.argv[1]), sys.argv[2:] or SENTENCES))

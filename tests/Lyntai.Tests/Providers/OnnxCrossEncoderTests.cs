@@ -342,8 +342,9 @@ public class OnnxOwnershipTests
 /// is protobuf and cannot be hand-built.
 ///
 /// <para>Skipped without <c>LYNTAI_ONNX_RERANK_MODEL_DIR</c>. Point it at a cross-encoder export holding an
-/// ONNX graph plus <c>vocab.txt</c> — <c>cross-encoder/ms-marco-MiniLM-L6-v2</c> is what the reference
-/// figures below were taken against.</para></summary>
+/// ONNX graph plus <c>vocab.txt</c> or a Unigram <c>tokenizer.json</c> —
+/// <c>cross-encoder/ms-marco-MiniLM-L6-v2</c> is what the reference figures below were taken against, and the
+/// multilingual <c>mmarco-mMiniLMv2-L12-H384-v1</c> runs everything else.</para></summary>
 public class OnnxCrossEncoderLiveTests
 {
     private const string Query = "How many people live in Berlin?";
@@ -354,6 +355,19 @@ public class OnnxCrossEncoderLiveTests
     private const string Unrelated = "Berlin is well known for its museums.";
 
     private static string? ModelDirectory => Environment.GetEnvironmentVariable("LYNTAI_ONNX_RERANK_MODEL_DIR");
+
+    private const string ReferenceModel = "ms-marco-MiniLM-L6-v2";
+
+    /// <summary>Whether the export IS the model the published figures belong to — named by
+    /// <c>LYNTAI_ONNX_RERANK_MODEL_ID</c>, else by its directory. The SHAPE of its scores is not identity: the
+    /// multilingual mmarco reranker also scores this pair above 5 and below 0.</summary>
+    private static bool IsTheReferenceModel()
+    {
+        var id = Environment.GetEnvironmentVariable("LYNTAI_ONNX_RERANK_MODEL_ID") is { Length: > 0 } named
+            ? named
+            : Path.GetFileName(ModelDirectory?.TrimEnd('/', '\\'));
+        return id?.Contains(ReferenceModel, StringComparison.OrdinalIgnoreCase) == true;
+    }
 
     /// <summary>The cross-encoder DIALECT is not optional here, and nothing but a real model would say so:
     /// the default is the bi-encoder one, so omitting it opens a reranker export and reads the wrong
@@ -401,7 +415,8 @@ public class OnnxCrossEncoderLiveTests
 
         // Pinned against ms-marco-MiniLM-L6-v2 specifically, so a different export skips rather than
         // failing on numbers that were never about it.
-        Skip.IfNot(scores[0] > 5 && scores[1] < 0, "reference figures are ms-marco-MiniLM-L6-v2's");
+        Skip.IfNot(IsTheReferenceModel(),
+            $"reference figures are {ReferenceModel}'s; set LYNTAI_ONNX_RERANK_MODEL_ID if this export is it under another name");
         Assert.Equal(8.607138, scores[0], 3);
         Assert.Equal(-4.320078, scores[1], 3);
     }
