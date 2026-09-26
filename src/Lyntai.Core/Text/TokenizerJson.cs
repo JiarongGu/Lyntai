@@ -52,14 +52,19 @@ internal static class TokenizerJson
 
     private static string TypeOf(JsonElement node) => node.GetProperty("type").GetString()!;
 
-    /// <summary>The ids the added tokens mark <c>special</c> — never matched from text (<b>D191</b>).</summary>
+    /// <summary>The ids the added tokens mark <c>special</c> — never matched from text (<b>D191</b>). A NON-special
+    /// added token is refused: the reference splits it out of the text before the model runs, which this does not.</summary>
     private static HashSet<int> Specials(JsonElement root)
     {
         var specials = new HashSet<int>();
         if (!root.TryGetProperty("added_tokens", out var added) || added.ValueKind != JsonValueKind.Array) return specials;
         foreach (var token in added.EnumerateArray())
-            if (token.TryGetProperty("special", out var special) && special.ValueKind == JsonValueKind.True)
-                specials.Add(token.GetProperty("id").GetInt32());
+        {
+            if (!token.TryGetProperty("special", out var special) || special.ValueKind != JsonValueKind.True)
+                throw Unsupported($"a non-special entry in added_tokens ('{token.GetProperty("content").GetString()}')",
+                    "splits no added token out of the text, which the reference does");
+            specials.Add(token.GetProperty("id").GetInt32());
+        }
         return specials;
     }
 

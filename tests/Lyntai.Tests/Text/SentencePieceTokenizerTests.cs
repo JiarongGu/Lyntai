@@ -279,6 +279,19 @@ public class SentencePieceTokenizerTests
     }
 
     [Fact]
+    public void A_NON_special_added_token_is_refused_because_the_reference_splits_it_out_of_the_text()
+    {
+        // HF matches an added token in the text before the model runs; ignoring it would return other ids
+        var json = Synthetic();
+        json["added_tokens"]!.AsArray().Add(new JsonObject { ["id"] = 12, ["content"] = "▁a▁b", ["special"] = false });
+
+        var error = Assert.Throws<InvalidDataException>(() => LoadJson(json));
+
+        Assert.Contains("added_tokens", error.Message, StringComparison.Ordinal);
+        Assert.Contains("▁a▁b", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Text_that_is_not_JSON_is_refused_as_invalid_data()
     {
         var error = Assert.Throws<InvalidDataException>(() =>
