@@ -19,15 +19,17 @@ mastra's **composable domain storage**, and odysseus's **streaming-aware fallbac
 Eleven packages; one public front door, and a public API frozen under SemVer 2.0 since 1.0.
 
 What is in it, by domain: **LLM** — routing with streaming-aware fallback across CLI / HTTP / lambda-bridged
-backends, a configurable per-verdict `RoutingPolicy`, dead-host cooldown, native + prompt tool-calling.
+backends, a configurable per-verdict `RoutingPolicy`, dead-host cooldown, native + prompt tool-calling, and text
+providers registered at run time behind the governed front door.
 **Generation** — one capability-aware seam for image/video/audio/3d with three delivery modes (inline,
 submit→poll→fetch, streaming — all three routed, governed and throttled alike), durable renders over
 `Lyntai.Jobs`, and six backends.
 **Storage** — SQLite / Postgres / InMemory / files, mixable per domain, with FTS5-trigram recall and feature toggles.
 **Agents** — a tool loop, two-gate chat orchestration, guards, and both halves of MCP. **Ops** — prompt
-registry, scoring/eval, run traces, task-scoped + semantic + curated memory, **named memory engines** over a
-decaying, self-linking graph memory, durable jobs with priorities / DLQ / cron / cancellation, a secret
-vault, OTel across all three domains, and front-door governance (cache, budget, rate limit).
+registry, scoring/eval, run traces (one step per front-door call, opt-in), task-scoped + semantic + curated
+memory, **named memory engines** over a decaying, self-linking graph memory that re-embeds in place, durable jobs
+with priorities / DLQ / cron / run-time schedules / cancellation, a secret vault, OTel across all three domains,
+and front-door governance (cache, budget, rate limit).
 
 **This file documents the working tree, not only the newest package**: anything that has not shipped yet is
 listed under `## Unreleased` in `CHANGELOG.md`, so check there before assuming a member below is in the

@@ -5703,7 +5703,8 @@ host-declared vector-space id is its precondition, and the **trigger to reopen**
 
 **The re-embed writes nothing but vectors**, as an explicit per-task verb beside `ForgetAsync` and `PruneAsync`:
 re-remembering would advance positions, reset age and re-run annotation. `similar` links stay as the old model
-scored them; recomputing them needs a delete-edges-by-kind store member, which is major-only (**D18**). **It must
+scored them; recomputing them needs a delete-edges-by-kind `IMemoryGraphStore` member, a `### Breaking` action for
+every store an application wrote (**D161**), for a step the re-embed does not need. **It must
 never undo a removal** (**D90**): a vector written back for an entry a forget removed would leave its content
 readable. So the engine's removal verbs and each batch's write step share one lock, the write re-reads which
 entries still exist, and the embed call — the slow part — runs outside it. **In place, not in a shadow space**

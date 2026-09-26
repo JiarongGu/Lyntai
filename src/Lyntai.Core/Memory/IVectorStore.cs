@@ -80,7 +80,7 @@ public interface IListableVectorStore : IVectorStore
 /// The OPTIONAL half of <see cref="IVectorStore"/> that reads stored entries back by id — so an application that
 /// keeps its own corpus reads the vectors it stored instead of embedding everything again.
 /// <para><b>Separate rather than a member of <see cref="IVectorStore"/></b>, as <see cref="IListableVectorStore"/>
-/// is: a required member is a major bump for every store an application wrote, and a default returning nothing
+/// is: a required member breaks every store an application wrote, and a default returning nothing
 /// would make a store that cannot read indistinguishable from one holding nothing. All three shipped stores
 /// implement it.</para>
 /// </summary>
