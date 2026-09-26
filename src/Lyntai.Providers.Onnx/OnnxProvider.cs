@@ -65,17 +65,20 @@ public sealed class OnnxProvider : IVectorProvider, IScoreProvider, IDisposable
     /// input is truncated to it, or segmented into windows of it.</summary>
     public int MaxTokens => _windows.MaxTokens;
 
-    /// <summary>Load an ONNX export: a graph plus <c>vocab.txt</c>, with the sequence limit — and, for the
-    /// default bi-encoder (pooling) head, pooling mode and normalization — taken from the model's own
-    /// <c>config.json</c>, <c>1_Pooling/config.json</c> and <c>modules.json</c>.</summary>
+    /// <summary>Load an ONNX export: a graph plus its tokenizer — <c>vocab.txt</c> (WordPiece), else a Unigram
+    /// <c>tokenizer.json</c> (SentencePiece, the XLM-R family; <c>docs/DECISIONS.md</c> <b>D191</b>) — with the
+    /// sequence limit — and, for the default bi-encoder (pooling) head, pooling mode and normalization — taken
+    /// from the model's own <c>config.json</c>, <c>1_Pooling/config.json</c> and <c>modules.json</c>.</summary>
     /// <param name="directory">The model directory.</param>
     /// <param name="options">Knobs; null takes the model's own configuration throughout and embeds.</param>
     /// <exception cref="ArgumentException"><see cref="OnnxProviderOptions.Produces"/> is neither
     /// <see cref="ProviderKinds.Vector"/> nor <see cref="ProviderKinds.Score"/> — judged before anything is
     /// loaded.</exception>
     /// <exception cref="DirectoryNotFoundException">No such directory.</exception>
-    /// <exception cref="FileNotFoundException">No ONNX graph, or no <c>vocab.txt</c> — named individually,
+    /// <exception cref="FileNotFoundException">No ONNX graph, or no tokenizer file — named individually,
     /// because a partial download is the common case and its unguarded symptom is far away.</exception>
+    /// <exception cref="InvalidDataException">The <c>tokenizer.json</c> declares a pipeline
+    /// <see cref="SentencePieceTokenizer"/> does not run — the message names the component.</exception>
     /// <exception cref="InvalidOperationException">The graph has no output the configured head can
     /// read — for a cross-encoder, one that cannot carry one score per pair.</exception>
     public static OnnxProvider FromDirectory(string directory, OnnxProviderOptions? options = null)
@@ -87,9 +90,7 @@ public sealed class OnnxProvider : IVectorProvider, IScoreProvider, IDisposable
 
         var model = OnnxGraph.Resolve(directory, options.ModelFile,
             $"{nameof(OnnxProviderOptions)}.{nameof(OnnxProviderOptions.ModelFile)}");
-        var tokenizer = WordPieceTokenizer.FromModelDirectory(directory);
-        // the tokenizer answers ids only; which rows continue a word or end a sentence is read off the same file
-        var boundaries = TokenBoundaries.FromVocabulary(File.ReadAllLines(Path.Combine(directory, "vocab.txt")));
+        var (tokenizer, boundaries) = TransformerTokenizer.FromModelDirectory(directory);
 
         // One reader for both heads: a cross-encoder wants only the position limit, but
         // `max_position_embeddings` lives in the same config.json and one reader cannot drift.

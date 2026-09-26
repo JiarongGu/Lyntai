@@ -6,7 +6,7 @@ namespace Lyntai.Providers.Onnx;
 /// model's window. Carries no decision of its own — everything that INTERPRETS a tensor belongs to the
 /// head.</summary>
 /// <param name="Session">The ONNX graph, already open.</param>
-/// <param name="Windows">The model's own WordPiece vocabulary, and what it does past the window.</param>
+/// <param name="Windows">The model's own tokenizer, and what it does past the window.</param>
 internal readonly record struct OnnxRun(InferenceSession Session, WindowedTokenizer Windows);
 
 /// <summary>What a <see cref="OnnxProvider"/> DOES with its session — the model's HEAD, in the ML sense:

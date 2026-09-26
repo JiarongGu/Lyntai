@@ -4,7 +4,8 @@ using Microsoft.ML.OnnxRuntime;
 
 namespace Lyntai.Providers.Onnx;
 
-/// <summary>The CROSS-ENCODER head: a <c>[CLS] query [SEP] document [SEP]</c> pair per row — a row per window
+/// <summary>The CROSS-ENCODER head: a query/document pair per row in the model's own layout — BERT's
+/// <c>[CLS] q [SEP] d [SEP]</c>, XLM-R's <c>&lt;s&gt; q &lt;/s&gt;&lt;/s&gt; d &lt;/s&gt;</c> — a row per window
 /// of a segmented document — the classification head read as one score per pair. Selected by
 /// <see cref="OnnxProviderOptions.Produces"/>, so the same <see cref="OnnxProvider"/> serves
 /// <see cref="ProviderKinds.Score"/> instead of vectors — the model on disk is what differs, not the

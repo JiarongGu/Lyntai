@@ -215,7 +215,7 @@ public class WindowedTokenizerTests
     internal static readonly WordPieceTokenizer Tokenizer = WordPieceTokenizer.FromVocabulary(Vocabulary);
 
     internal static WindowedTokenizer Windows(int maxTokens, InputSegmentation? segmentation = null) =>
-        new(Tokenizer, TokenBoundaries.FromVocabulary(Vocabulary), maxTokens, segmentation);
+        new(new WordPieceRows(Tokenizer), TokenBoundaries.FromVocabulary(Vocabulary), maxTokens, segmentation);
 
     /// <summary>A fresh record that segments, with every other value at its default.</summary>
     internal static InputSegmentation Segment => new();

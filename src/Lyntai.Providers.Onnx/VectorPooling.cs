@@ -23,7 +23,8 @@ internal static class VectorPooling
         return vector;
     }
 
-    /// <summary><c>[CLS]</c> is row zero by construction — <c>Encode</c> puts it there.</summary>
+    /// <summary>The classification token — <c>[CLS]</c>, XLM-R's <c>&lt;s&gt;</c> — is row zero by construction:
+    /// every model this targets opens a row with it.</summary>
     private static float[] Cls(ReadOnlySpan<float> tokens, int width) => tokens[..width].ToArray();
 
     /// <summary>Mean over ATTENDED rows only. <b>Including padding is the silent failure this guards</b>:
@@ -41,7 +42,8 @@ internal static class VectorPooling
             counted++;
         }
 
-        // A fully-masked text cannot happen through Encode, which always emits [CLS] and [SEP] — but
+        // A fully-masked text cannot happen: every row carries the model's special tokens (a tokenizer framing
+        // none is refused at load) — but
         // dividing by zero here would yield NaN, which compares false against everything and poisons a
         // store silently rather than failing.
         if (counted == 0) return vector;

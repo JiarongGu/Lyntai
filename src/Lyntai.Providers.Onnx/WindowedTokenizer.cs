@@ -36,25 +36,24 @@ internal sealed record WindowedBatch(TokenEncoding[] Rows, int[] First, int[] We
 /// rows a transformer takes (<c>docs/DECISIONS.md</c> <b>D177</b>).
 ///
 /// <para>With no <see cref="InputSegmentation"/> — the provider's default — every input is the one row the
-/// tokenizer itself gives it, cut at the window: <see cref="WordPieceTokenizer.Encode(string,int)"/> or
-/// <see cref="WordPieceTokenizer.Encode(string,string,int)"/>, exactly. With a record, a text within the
-/// window is still that row, and a longer one is a row per <see cref="TokenSegmenter"/> window — or, when the
-/// record truncates, one row cut at the window. A pair's query is never segmented, and keeps at most
-/// (1 − <see cref="InputSegmentation.MinDocumentShare"/>) of the window: one longer is cut ONCE for the whole
-/// call, so every document is scored against the same question, and a pair that would fit beside the whole
-/// query is not the tokenizer's row.</para></summary>
-/// <param name="tokenizer">The model's own vocabulary and rules.</param>
+/// tokenizer itself gives it, cut at the window: its own <c>Encode</c>, exactly. With a record, a text within the
+/// window is still that row, and a longer one is a row per <see cref="TokenSegmenter"/> window, each FRAMED in
+/// the model's own special tokens — or, when the record truncates, one row cut at the window. A pair's query is
+/// never segmented, and keeps at most (1 − <see cref="InputSegmentation.MinDocumentShare"/>) of the window: one
+/// longer is cut ONCE for the whole call, so every document is scored against the same question, and a pair
+/// that would fit beside the whole query is not the tokenizer's row.</para></summary>
+/// <param name="tokenizer">The model's own vocabulary, rules and layout of special tokens.</param>
 /// <param name="boundaries">Which of its rows continue a word or end a sentence.</param>
 /// <param name="maxTokens">The sequence length a row may take, INCLUDING the special tokens.</param>
 /// <param name="segmentation">What to do past the window; null truncates, as the tokenizer does.</param>
 internal sealed class WindowedTokenizer(
-    WordPieceTokenizer tokenizer, TokenBoundaries boundaries, int maxTokens, InputSegmentation? segmentation)
+    ITransformerTokenizer tokenizer, TokenBoundaries boundaries, int maxTokens, InputSegmentation? segmentation)
 {
     /// <summary>The sequence length a row may take, including the special tokens.</summary>
     public int MaxTokens => maxTokens;
 
-    /// <summary>One text per input: <c>[CLS] text [SEP]</c>, per window when segmenting.</summary>
-    /// <exception cref="ArgumentOutOfRangeException"><see cref="MaxTokens"/> is under 3.</exception>
+    /// <summary>One text per input — <c>[CLS] text [SEP]</c> in BERT's layout — per window when segmenting.</summary>
+    /// <exception cref="ArgumentOutOfRangeException"><see cref="MaxTokens"/> leaves no room for content.</exception>
     public WindowedBatch EncodeTexts(IReadOnlyList<string> texts)
     {
         ArgumentNullException.ThrowIfNull(texts);
@@ -62,25 +61,26 @@ internal sealed class WindowedTokenizer(
         if (segmentation is not { Overflow: InputOverflow.Segment } segment)
             return OneRowEach(texts, text => tokenizer.Encode(text ?? string.Empty, maxTokens));
 
-        // the tokenizer's own special ids, and its own guard on the length, read off an empty encoding
-        var shell = tokenizer.Encode(string.Empty, maxTokens).Ids;
+        // an empty encoding is exactly the specials, and making it runs the tokenizer's own guard on the length
+        var budget = maxTokens - tokenizer.Encode(string.Empty, maxTokens).Ids.Length;
         var batch = new Builder(texts.Count);
         for (var i = 0; i < texts.Count; i++)
         {
             batch.Begin(i);
             var ids = tokenizer.EncodeToIds(texts[i] ?? string.Empty);
             var windows = InputSegmentation.Spread(
-                TokenSegmenter.Windows(ids, maxTokens - 2, boundaries, segment.Overlap), segment.MaxPiecesPerInput);
+                TokenSegmenter.Windows(ids, budget, boundaries, segment.Overlap), segment.MaxPiecesPerInput);
             foreach (var (start, end) in windows)
-                batch.Add(Row(shell, null, ids, start, end), windows.Count > 1 ? end - start : 0);
+                batch.Add(tokenizer.Frame(Slice(ids, start, end)), windows.Count > 1 ? end - start : 0);
         }
         return batch.Build();
     }
 
-    /// <summary>One query and document per row: <c>[CLS] query [SEP] document [SEP]</c>, the query in segment
-    /// 0 and the document — or one window of it — in segment 1. <paramref name="maxPiecesPerInput"/> is the
+    /// <summary>One query and document per row — <c>[CLS] query [SEP] document [SEP]</c> in BERT's layout,
+    /// <c>&lt;s&gt; query &lt;/s&gt;&lt;/s&gt; document &lt;/s&gt;</c> in XLM-R's — with the document, or one
+    /// window of it, in whatever segment the model's layout puts it. <paramref name="maxPiecesPerInput"/> is the
     /// request's own cap, which narrows the record's (<see cref="InputSegmentation.MaxPiecesFor"/>).</summary>
-    /// <exception cref="ArgumentOutOfRangeException"><see cref="MaxTokens"/> is under 4.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><see cref="MaxTokens"/> leaves no room for content.</exception>
     public WindowedBatch EncodePairs(string query, IReadOnlyList<string> documents, int? maxPiecesPerInput = null)
     {
         ArgumentNullException.ThrowIfNull(documents);
@@ -88,8 +88,8 @@ internal sealed class WindowedTokenizer(
             return OneRowEach(documents,
                 document => tokenizer.Encode(query ?? string.Empty, document ?? string.Empty, maxTokens));
 
-        var shell = tokenizer.Encode(string.Empty, string.Empty, maxTokens).Ids;
-        var budget = maxTokens - 3;                             // content tokens across both sides
+        // content tokens across both sides: what the pair's specials leave
+        var budget = maxTokens - tokenizer.Encode(string.Empty, string.Empty, maxTokens).Ids.Length;
         var documentShare = InputSegmentation.DocumentShare(budget, segmentation.MinDocumentShare);
         var queryIds = tokenizer.EncodeToIds(query ?? string.Empty);
         List<int> kept = [.. queryIds.Take(budget - documentShare)];
@@ -106,7 +106,7 @@ internal sealed class WindowedTokenizer(
                     segmentation.MaxPiecesFor(maxPiecesPerInput))
                 : [(0, Math.Min(ids.Count, documentBudget))];
             foreach (var (start, end) in windows)
-                batch.Add(Row(shell, kept, ids, start, end), windows.Count > 1 ? end - start : 0);
+                batch.Add(tokenizer.Frame(kept, Slice(ids, start, end)), windows.Count > 1 ? end - start : 0);
         }
         return batch.Build();
     }
@@ -122,28 +122,11 @@ internal sealed class WindowedTokenizer(
         return batch.Build();
     }
 
-    /// <summary><c>[CLS] query [SEP] window [SEP]</c> with the window in segment 1 — the layout
-    /// <see cref="WordPieceTokenizer.Encode(string,string,int)"/> builds — or <c>[CLS] window [SEP]</c>, all
-    /// segment 0, when there is no query.</summary>
-    private static TokenEncoding Row(
-        int[] shell, IReadOnlyList<int>? query, IReadOnlyList<int> ids, int start, int end)
+    private static int[] Slice(IReadOnlyList<int> ids, int start, int end)
     {
-        var (cls, sep) = (shell[0], shell[1]);
-        var row = new List<int>((query?.Count ?? 0) + end - start + 3) { cls };
-        if (query is not null)
-        {
-            row.AddRange(query);
-            row.Add(sep);
-        }
-        var windowStarts = row.Count;
-        for (var t = start; t < end; t++) row.Add(ids[t]);
-        row.Add(sep);
-
-        var types = new int[row.Count];
-        if (query is not null) Array.Fill(types, 1, windowStarts, types.Length - windowStarts);
-        var mask = new int[row.Count];
-        Array.Fill(mask, 1);
-        return new TokenEncoding([.. row], mask, types);
+        var slice = new int[end - start];
+        for (var t = start; t < end; t++) slice[t - start] = ids[t];
+        return slice;
     }
 
     private sealed class Builder(int inputs)

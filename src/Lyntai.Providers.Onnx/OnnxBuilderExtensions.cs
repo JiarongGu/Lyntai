@@ -35,7 +35,8 @@ public static class OnnxBuilderExtensions
     /// seam is fail-open, so a later refusal is a recall silently never verified.</para>
     /// </summary>
     /// <param name="builder">The Lyntai builder.</param>
-    /// <param name="modelDirectory">A directory holding an ONNX graph and <c>vocab.txt</c>.</param>
+    /// <param name="modelDirectory">A directory holding an ONNX graph and its tokenizer: <c>vocab.txt</c>
+    /// (WordPiece) or a Unigram <c>tokenizer.json</c> (SentencePiece, the XLM-R family).</param>
     /// <param name="configure">Knobs; null takes the model's own configuration.</param>
     public static LyntaiBuilder AddOnnxProvider(this LyntaiBuilder builder, string modelDirectory,
         Action<OnnxProviderOptions>? configure = null)

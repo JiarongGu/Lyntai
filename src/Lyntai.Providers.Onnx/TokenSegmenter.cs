@@ -8,6 +8,7 @@ internal sealed class TokenBoundaries
 {
     private const byte Continuation = 1;
     private const byte SentenceEnd = 2;
+    private const char MetaSpace = '▁';
 
     // At token level the whitespace is gone, so the `.` in "3.14" ends a sentence too; that costs only where a
     // window happens to end.
@@ -31,7 +32,25 @@ internal sealed class TokenBoundaries
         return new TokenBoundaries(kinds);
     }
 
-    /// <summary>Whether <paramref name="id"/> is a WordPiece continuation, never the first piece of a word.</summary>
+    /// <summary>Read a SentencePiece vocabulary, id = position: a piece WITHOUT a leading <c>▁</c> continues a
+    /// word, and a sentence-ending punctuation piece — <c>▁</c> or not — ends a sentence, which wins. CJK text
+    /// has no spaces, so no <c>▁</c> after its first piece: a window there ends after <c>。</c>-class punctuation,
+    /// else hard at the budget.</summary>
+    public static TokenBoundaries FromPieces(IReadOnlyList<string> pieces)
+    {
+        ArgumentNullException.ThrowIfNull(pieces);
+        var kinds = new byte[pieces.Count];
+        for (var id = 0; id < kinds.Length; id++)
+        {
+            var bare = pieces[id].TrimStart(MetaSpace);
+            kinds[id] = SentenceEnds.Contains(bare) ? SentenceEnd
+                : pieces[id].StartsWith(MetaSpace) ? (byte)0
+                : Continuation;
+        }
+        return new TokenBoundaries(kinds);
+    }
+
+    /// <summary>Whether <paramref name="id"/> continues a word, never its first piece.</summary>
     public bool IsContinuation(int id) => Kind(id) == Continuation;
 
     /// <summary>Whether <paramref name="id"/> is a sentence-ending punctuation token.</summary>
