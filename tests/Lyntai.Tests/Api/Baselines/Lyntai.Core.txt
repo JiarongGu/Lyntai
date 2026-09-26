@@ -1541,9 +1541,12 @@ sealed class Lyntai.Jobs.JobContext
     Payload : String { get; }
     Progress : Int32 { get; }
     ReportProgressAsync(Int32 done, Int32 total, String stage = null, CancellationToken ct = default) : Task<Boolean>
+    ReportStageAsync(Int32 done, Int32 total, JobMessage stage, CancellationToken ct = default) : Task<Boolean>
+    ReportStepAsync(JobMessage message, CancellationToken ct = default) : Task<Boolean>
     ReportStepAsync(String message, CancellationToken ct = default) : Task<Boolean>
     SaveCheckpointAsync(String checkpoint, CancellationToken ct = default) : Task<Boolean>
     Stage : String { get; }
+    StageMessage : JobMessage { get; }
     Steps : IReadOnlyList<JobStep> { get; }
     Total : Int32 { get; }
 sealed class Lyntai.Jobs.JobHandlerRegistry

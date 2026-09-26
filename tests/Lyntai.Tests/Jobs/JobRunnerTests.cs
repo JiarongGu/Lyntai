@@ -518,6 +518,84 @@ public class JobRunnerTests
         Assert.Equal(["did the first thing"], JobStepLog.Parse(job.StepLog).Select(s => s.Message));
     }
 
+    private static readonly JobMessage CodedStage = new("Copying 3 of 10")
+    {
+        Code = "copy.stage",
+        Arguments = new Dictionary<string, string> { ["done"] = "3", ["total"] = "10" },
+    };
+
+    [Fact]
+    public async Task A_handler_s_coded_stage_and_step_are_persisted_with_their_codes()
+    {
+        var handler = new FakeJobHandler("t", async ctx =>
+        {
+            await ctx.ReportStageAsync(3, 10, CodedStage);
+            await ctx.ReportStepAsync(new JobMessage("copied a") { Code = "copy.file" });
+            return JobOutcome.Complete;
+        });
+        var (runner, store, queue, _) = Build(null, handler);
+        var id = await queue.EnqueueAsync("default", "t", "{}");
+
+        await runner.RunOnceAsync();
+
+        var job = (await store.GetAsync(id))!;
+        Assert.Equal(CodedStage, job.StageMessage);
+        Assert.Equal("Copying 3 of 10", job.Stage);
+        Assert.Equal("copy.file", Assert.Single(JobStepLog.Parse(job.StepLog)).Code);
+    }
+
+    [Fact]
+    public async Task A_resumed_job_sees_its_coded_stage_in_context()
+    {
+        JobMessage? seenOnResume = null;
+        var handler = new FakeJobHandler("t", async ctx =>
+        {
+            if (ctx.Checkpoint is null)
+            {
+                await ctx.ReportStageAsync(3, 10, CodedStage);
+                await ctx.SaveCheckpointAsync("cp1");
+                return JobOutcome.Retry();
+            }
+            seenOnResume = ctx.StageMessage;
+            return JobOutcome.Complete;
+        });
+        var (runner, _, queue, clock) = Build(null, handler);
+        await queue.EnqueueAsync("default", "t", "{}");
+
+        await runner.RunOnceAsync();
+        clock.Advance(TimeSpan.FromMinutes(2));
+        await runner.RunOnceAsync();
+
+        Assert.Equal(CodedStage, seenOnResume);
+    }
+
+    [Fact]
+    public async Task A_context_built_with_string_reporters_receives_each_message_s_text()
+    {
+        var stages = new List<string?>();
+        var steps = new List<string>();
+        var ctx = new JobContext(Guid.NewGuid(), "{}", null, 1, (_, _) => Task.FromResult(true),
+            (_, _, stage, _) => { stages.Add(stage); return Task.FromResult(true); },
+            (message, _) => { steps.Add(message); return Task.FromResult(true); },
+            stage: "an old stage");
+
+        Assert.True(await ctx.ReportStageAsync(1, 2, CodedStage));
+        Assert.True(await ctx.ReportStepAsync(new JobMessage("a step") { Code = "c" }));
+
+        Assert.Equal(["Copying 3 of 10"], stages);
+        Assert.Equal(["a step"], steps);
+        Assert.Equal(new JobMessage("an old stage"), ctx.StageMessage);
+    }
+
+    [Fact]
+    public async Task A_stage_message_is_required()
+    {
+        var ctx = new JobContext(Guid.NewGuid(), "{}", null, 1, (_, _) => Task.FromResult(true));
+
+        await Assert.ThrowsAsync<ArgumentNullException>(() => ctx.ReportStageAsync(1, 2, null!));
+        await Assert.ThrowsAsync<ArgumentNullException>(() => ctx.ReportStepAsync((JobMessage)null!));
+    }
+
     [Fact]
     public async Task A_resumed_job_sees_its_prior_steps_in_context()
     {
