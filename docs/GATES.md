@@ -112,6 +112,7 @@ each:
 | `OnnxProviderLiveTests` | `LYNTAI_ONNX_MODEL_DIR` (a sentence-transformers ONNX export) |
 | `OnnxCrossEncoderLiveTests` | `LYNTAI_ONNX_RERANK_MODEL_DIR` (a cross-encoder export) |
 | `Model2VecProviderLiveTests`, `WordPieceTokenizerLiveTests` | `LYNTAI_STATIC_MODEL_DIR` (a model2vec directory) |
+| `SentencePieceTokenizerLiveTests`, `OnnxMultilingualLiveTests` | `LYNTAI_SPM_MODEL_DIR` (an XLM-R sentence-transformers export: `tokenizer.json`, `sentencepiece.bpe.model`, `onnx/model.onnx`) |
 | `LocalDiffusionLiveTests` | `LYNTAI_SD_CLI` + `LYNTAI_SD_MODEL` |
 | `ComfyUiLiveTests` | `LYNTAI_COMFYUI_URL` + `LYNTAI_COMFYUI_CHECKPOINT` |
 | `PiperLiveTests` | `LYNTAI_PIPER_CLI` + `LYNTAI_PIPER_MODEL` |
