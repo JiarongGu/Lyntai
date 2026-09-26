@@ -374,6 +374,16 @@ public sealed record GraphMemoryOptions
     /// <exception cref="ArgumentOutOfRangeException">Set below zero.</exception>
     public int ReviewLogCap { get; init => field = MemoryOption.Require(value, 0, nameof(GraphMemoryOptions), ZeroIsOff); } = 10_000;
 
+    /// <summary>How many entries a re-embed (<see cref="IReindexableMemory.ReindexAsync"/>) sends to the embedding
+    /// backend per call. Larger batches mean fewer calls; a backend with a per-call limit wants it smaller.</summary>
+    /// <exception cref="ArgumentOutOfRangeException">Set below one.</exception>
+    public int ReindexBatchSize
+    {
+        get;
+        init => field = MemoryOption.Require(value, 1, nameof(GraphMemoryOptions),
+            "a batch of no entries would re-embed nothing.");
+    } = 32;
+
     /// <summary>Why a count whose zero already means "none" refuses a negative: it can only be a mistake,
     /// and reading it as zero would hide that.</summary>
     private const string ZeroIsOff = "zero already means none, so a negative count can only be a mistake.";

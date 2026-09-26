@@ -42,7 +42,7 @@ public enum MemoryWriteRouting
 /// default; fanning out is what fills a blend whose members index the same material differently.</para>
 /// </summary>
 public sealed class CompositeMemoryEngine
-    : IMemoryEngine, IExpandableMemory, ILinkableMemory, IForgettableMemory, IPrunableMemory
+    : IMemoryEngine, IExpandableMemory, ILinkableMemory, IForgettableMemory, IPrunableMemory, IReindexableMemory
 {
     private readonly IReadOnlyList<IMemoryEngine> _members;
     private readonly ILogger _logger;
@@ -281,6 +281,27 @@ public sealed class CompositeMemoryEngine
             ct.ThrowIfCancellationRequested();
             await member.ForgetAsync(taskKey, scope, ct).ConfigureAwait(false);
         }
+    }
+
+    /// <inheritdoc />
+    /// <remarks>Fans out to every member that can re-embed and SUMS their results; a member that cannot is skipped,
+    /// since a member holding no vectors has nothing to re-embed — unlike removal, where such a member blocks the
+    /// verb. When NO member can, this throws <see cref="NotSupportedException"/>: a count of zero would read as
+    /// "nothing needed re-embedding".</remarks>
+    public async Task<MemoryReindexResult> ReindexAsync(string taskKey, string? scope = null, CancellationToken ct = default)
+    {
+        var members = _members.OfType<IReindexableMemory>().ToList();
+        if (members.Count == 0)
+            throw new NotSupportedException($"No member of memory engine '{Name}' can re-embed.");
+
+        var (indexed, failed) = (0, 0);
+        foreach (var member in members)
+        {
+            ct.ThrowIfCancellationRequested();
+            var result = await member.ReindexAsync(taskKey, scope, ct).ConfigureAwait(false);
+            (indexed, failed) = (indexed + result.Indexed, failed + result.Failed);
+        }
+        return new MemoryReindexResult(indexed, failed);
     }
 
     /// <summary>The members a removal visits, checked for the SPECIFIC capability that verb needs — refusing

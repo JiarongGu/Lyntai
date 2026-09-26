@@ -15,10 +15,11 @@ namespace Lyntai.Tests.Memory.Prototype;
 /// checks it against the shipped code, because the answer decides whether "delete the index and rebuild it"
 /// is a real recovery procedure or a hope.
 ///
-/// <para><b>The answer is yes.</b> Everything a rebuild needs is public: the graph store enumerates its own
-/// nodes with full content, the vector store takes upserts, and the collection address is asked of
-/// <see cref="MemoryVectorCollection.For"/> rather than hard-coded — a guessed format would populate
-/// collections nothing reads, and look like it worked.</para>
+/// <para><b>The answer is yes.</b> The graph store enumerates its own nodes with full content, the vector store
+/// takes upserts, and the collection address is asked of <see cref="MemoryVectorCollection.For"/> rather than
+/// hard-coded — a guessed format would populate collections nothing reads, and look like it worked. That address
+/// is INTERNAL (this assembly sees it through InternalsVisibleTo), so an application cannot write this itself:
+/// <see cref="IReindexableMemory.ReindexAsync"/> is the shipped form.</para>
 ///
 /// <para>One Phase-1 invariant of the proposal's own list; the rest are pinned by the facts in
 /// <c>MemoryRemovalCompletenessTests</c>, <c>MemoryBurialNotDeletionTests</c> and

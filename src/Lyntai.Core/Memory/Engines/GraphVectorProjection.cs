@@ -101,6 +101,23 @@ internal sealed class GraphVectorProjection(
         }
     }
 
+    /// <summary>Embed a re-embed's batch as documents. NOT best-effort: the caller counts a failure.</summary>
+    internal async Task<IReadOnlyList<float[]>> EmbedBatchAsync(IReadOnlyList<string> texts, CancellationToken ct)
+    {
+        var embedded = await EmbeddingRouting.EmbedAsync(
+            providers, texts, EmbeddingRole.Document, logger, routing, ProviderConsumers.Memory, ct).ConfigureAwait(false);
+        return embedded.Count == texts.Count
+            ? embedded
+            : throw new InvalidOperationException(
+                $"the embedding backend returned {embedded.Count} vectors for {texts.Count} texts");
+    }
+
+    /// <summary>Write a re-embedded vector at the node's existing address. NOT best-effort: a broken index is the
+    /// re-embed's failure to report, and a rerun resumes it.</summary>
+    internal Task UpsertAsync(GraphNode node, float[] vector, CancellationToken ct) =>
+        vectors!.UpsertAsync(Collection(node.TaskKey, node.Scope), node.Id.ToString(CultureInfo.InvariantCulture),
+            vector, node.Content, ct);
+
     /// <summary>Drop the collections a forget of (<paramref name="taskKey"/>, <paramref name="scope"/>) erases.
     /// NOT best-effort: a consent withdrawal must fail loudly rather than leave content readable.
     /// <para>A named scope drops its one collection, orphans included. An unscoped forget drops the collection of

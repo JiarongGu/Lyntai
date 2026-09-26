@@ -1840,6 +1840,7 @@ sealed class Lyntai.Memory.CompositeMemoryEngine
     Name : String { get; }
     PruneAsync(String taskKey, String scope = null, Nullable<Double> minRetrievability = null, Nullable<TimeSpan> olderThan = null, CancellationToken ct = default) : Task<Int32>
     RecallAsync(MemoryQuery query, CancellationToken ct = default) : Task<MemoryRecall>
+    ReindexAsync(String taskKey, String scope = null, CancellationToken ct = default) : Task<MemoryReindexResult>
     RememberAsync(MemoryWrite write, CancellationToken ct = default) : Task<MemoryWriteResult>
     Supported : MemoryGrades { get; }
     WriteRouting : MemoryWriteRouting { get; init; }
@@ -1865,6 +1866,7 @@ sealed class Lyntai.Memory.Engines.GraphMemoryEngine
     Name : String { get; }
     PruneAsync(String taskKey, String scope = null, Nullable<Double> minRetrievability = null, Nullable<TimeSpan> olderThan = null, CancellationToken ct = default) : Task<Int32>
     RecallAsync(MemoryQuery query, CancellationToken ct = default) : Task<MemoryRecall>
+    ReindexAsync(String taskKey, String scope = null, CancellationToken ct = default) : Task<MemoryReindexResult>
     RememberAsync(MemoryWrite write, CancellationToken ct = default) : Task<MemoryWriteResult>
     Supported : MemoryGrades { get; }
 sealed class Lyntai.Memory.Engines.GraphMemorySeams
@@ -1978,6 +1980,7 @@ sealed class Lyntai.Memory.GraphMemoryOptions
     MinRetrievability : Double { get; init; }
     MinSimilarity : Double { get; init; }
     RecallReinforceCap : Nullable<Int32> { get; init; }
+    ReindexBatchSize : Int32 { get; init; }
     ReinforceOn : MemoryReinforcementActs { get; init; }
     Reinforcement : MemoryReinforcementEffects { get; init; }
     ReviewLogCap : Int32 { get; init; }
@@ -2122,6 +2125,8 @@ interface Lyntai.Memory.IPrunableMemory
     PruneAsync(String taskKey, String scope = null, Nullable<Double> minRetrievability = null, Nullable<TimeSpan> olderThan = null, CancellationToken ct = default) : Task<Int32>
 interface Lyntai.Memory.IReadableVectorStore
     GetAsync(String collection, IReadOnlyCollection<String> ids, CancellationToken ct = default) : Task<IReadOnlyList<VectorEntry>>
+interface Lyntai.Memory.IReindexableMemory
+    ReindexAsync(String taskKey, String scope = null, CancellationToken ct = default) : Task<MemoryReindexResult>
 interface Lyntai.Memory.ISemanticMemory
     ForgetAsync(String taskKey, String scope, CancellationToken ct = default) : Task
     RecallAsync(String taskKey, String scope, String query, Int32 k = 5, Double minScore = 0, CancellationToken ct = default) : Task<IReadOnlyList<SemanticHit>>
@@ -2309,6 +2314,15 @@ struct Lyntai.Memory.MemoryRef
     Equals(Object obj) : Boolean
     GetHashCode() : Int32
     Id : String { get; init; }
+    ToString() : String
+sealed class Lyntai.Memory.MemoryReindexResult
+    .ctor(Int32 Indexed, Int32 Failed)
+    Deconstruct(Int32& Indexed, Int32& Failed) : Void
+    Equals(MemoryReindexResult other) : Boolean
+    Equals(Object obj) : Boolean
+    Failed : Int32 { get; init; }
+    GetHashCode() : Int32
+    Indexed : Int32 { get; init; }
     ToString() : String
 enum Lyntai.Memory.MemoryReinforcementActs
     All : MemoryReinforcementActs const

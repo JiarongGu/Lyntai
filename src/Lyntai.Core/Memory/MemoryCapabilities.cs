@@ -95,3 +95,34 @@ public interface IPrunableMemory
     Task<int> PruneAsync(string taskKey, string? scope = null, double? minRetrievability = null,
         TimeSpan? olderThan = null, CancellationToken ct = default);
 }
+
+/// <summary>OPTIONAL capability: an engine that re-embeds what it stores, for after its embedding model changes —
+/// in place, keeping every entry's id, links and decay state, where the alternative is dropping the memory and
+/// writing it all again.
+///
+/// <para><b>It writes nothing but vectors.</b> No entry, link, position, decay state or signal changes, and no
+/// annotation or salience runs. Links an engine derived from similarity stay as the old model scored them.</para>
+///
+/// <para>Reached by a type test, like <see cref="IPrunableMemory"/>; the blend around an engine declares it too,
+/// fanning out to the members that have it.</para></summary>
+public interface IReindexableMemory
+{
+    /// <summary>Re-embed every entry under (<paramref name="taskKey"/>, <paramref name="scope"/>) with the engine's
+    /// current embedding backend, and write each vector back where the old one was.
+    /// <para><b>Pause writes to the task while it runs.</b> A write landing mid-pass is embedded by the new model,
+    /// but its similarity search still meets old vectors, so under a new model of the same dimension its links may
+    /// be scored against the wrong one.</para>
+    /// <para>A removal landing mid-pass is safe within one process: the pass never writes a vector back for an entry
+    /// a forget or prune removed. Two processes sharing a store must not run a re-embed and a removal at once — a
+    /// repeat forget of the scope clears any vector left behind.</para></summary>
+    /// <param name="taskKey">The task to re-embed.</param>
+    /// <param name="scope">The scope, or null for every scope of the task.</param>
+    /// <param name="ct">Cancellation, which is never swallowed; entries already re-embedded stay so.</param>
+    /// <returns>How many entries were re-embedded, and how many could not be because their embed call failed.</returns>
+    /// <exception cref="InvalidOperationException">The engine has no vector index, or nothing can embed.</exception>
+    Task<MemoryReindexResult> ReindexAsync(string taskKey, string? scope = null, CancellationToken ct = default);
+}
+
+/// <summary>What a re-embed did: <paramref name="Indexed"/> entries re-embedded, <paramref name="Failed"/> left on
+/// their old vector because their embed call failed. An entry removed while the pass ran counts in neither.</summary>
+public sealed record MemoryReindexResult(int Indexed, int Failed);

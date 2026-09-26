@@ -39,7 +39,7 @@ public sealed class GraphMemoryEngine(
     GraphMemoryOptions? options = null,
     GraphMemorySeams? seams = null,
     ILogger<GraphMemoryEngine>? logger = null)
-    : IMemoryEngine, IExpandableMemory, ILinkableMemory, IForgettableMemory, IPrunableMemory
+    : IMemoryEngine, IExpandableMemory, ILinkableMemory, IForgettableMemory, IPrunableMemory, IReindexableMemory
 {
     private readonly GraphMemoryOptions _options = options ?? new GraphMemoryOptions();
     private readonly IMemoryRetrievabilityPolicy _policy =
@@ -57,6 +57,9 @@ public sealed class GraphMemoryEngine(
     private readonly IReadOnlyDictionary<string, IMemoryRankingPolicy> _namedRanking =
         NormalizeNamedRanking(seams?.NamedRankingPolicies);
     private readonly Func<DateTimeOffset> _clock = seams?.Clock ?? (() => DateTimeOffset.UtcNow);
+    // held by the removal verbs and by each re-embed WRITE step, so a pass never writes a vector back for an entry a
+    // forget or prune removed — the content would outlive a consent withdrawal in the index
+    private readonly SemaphoreSlim _removals = new(1, 1);
     private readonly IReadOnlyList<IMemorySeedSource> _seedSources = NormalizeSeedSources(seams?.SeedSources);
     private readonly IMemoryAnnotationPolicy? _annotation = seams?.Annotation;
     private readonly IMemoryVerificationPolicy? _verification = seams?.Verification;
@@ -811,6 +814,7 @@ public sealed class GraphMemoryEngine(
         TimeSpan? olderThan = null, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
+        using var removals = await RemovalsAsync(ct).ConfigureAwait(false);
 
         // The caller's floor, else the engine's CONFIGURED one — `GraphMemoryOptions.MinRetrievability` is
         // "the retrievability below which PruneAsync may REMOVE an entry", and design §5.7 gives it to this
@@ -884,11 +888,67 @@ public sealed class GraphMemoryEngine(
     /// <param name="ct">Cancellation.</param>
     public async Task ForgetAsync(string taskKey, string? scope = null, CancellationToken ct = default)
     {
+        using var removals = await RemovalsAsync(ct).ConfigureAwait(false);
         await _vectors.ForgetAsync(taskKey, scope, async () =>
                 (await store.SeedAsync(Name, taskKey, scope: null, query: null, limit: int.MaxValue, ct)
                     .ConfigureAwait(false)).Select(n => n.Scope).Distinct(StringComparer.Ordinal),
             ct).ConfigureAwait(false);
         await store.ForgetAsync(Name, taskKey, scope, ct).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    /// <remarks>Enumerates the entries once, then embeds them in batches of
+    /// <see cref="GraphMemoryOptions.ReindexBatchSize"/> OUTSIDE the removal lock, so a slow backend holds no removal
+    /// up, and writes each batch back UNDER it, re-reading which of its entries still exist first. A batch whose
+    /// embed call fails is logged and counted <see cref="MemoryReindexResult.Failed"/>; a write that fails throws, as
+    /// the index itself is then broken, and a rerun resumes.</remarks>
+    public async Task<MemoryReindexResult> ReindexAsync(string taskKey, string? scope = null, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(taskKey);
+        if (!_vectors.Wired)
+            throw new InvalidOperationException(
+                $"Memory engine '{Name}' has no vector index to re-embed into; register an IVectorStore.");
+        if (!_vectors.Enriches) throw new InvalidOperationException(EmbeddingRouting.NothingEmbeds);
+
+        var nodes = await store.SeedAsync(Name, taskKey, scope, query: null, limit: int.MaxValue, ct).ConfigureAwait(false);
+        var (indexed, failed) = (0, 0);
+        foreach (var batch in nodes.Chunk(_options.ReindexBatchSize))
+        {
+            ct.ThrowIfCancellationRequested();
+            IReadOnlyList<float[]> vectors;
+            try
+            {
+                vectors = await _vectors.EmbedBatchAsync([.. batch.Select(n => n.Content)], ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "re-embedding a batch of {Count} for {Engine} failed; they keep their old vectors",
+                    batch.Length, Name);
+                failed += batch.Length;
+                continue;
+            }
+
+            using var removals = await RemovalsAsync(ct).ConfigureAwait(false);
+            for (var i = 0; i < batch.Length; i++)
+            {
+                if (await store.GetAsync(Name, batch[i].Id, ct).ConfigureAwait(false) is null) continue;   // removed mid-pass
+                await _vectors.UpsertAsync(batch[i], vectors[i], ct).ConfigureAwait(false);
+                indexed++;
+            }
+        }
+        return new MemoryReindexResult(indexed, failed);
+    }
+
+    private async Task<Held> RemovalsAsync(CancellationToken ct)
+    {
+        await _removals.WaitAsync(ct).ConfigureAwait(false);
+        return new Held(_removals);
+    }
+
+    private readonly struct Held(SemaphoreSlim held) : IDisposable
+    {
+        public void Dispose() => held.Release();
     }
 
     /// <summary>Clamp one component of a composed <see cref="MemoryTick"/> to something a store may keep.
