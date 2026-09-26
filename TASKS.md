@@ -15,35 +15,34 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 22 across 7 Parts: 18 startable, 2 blocked, 2 watch
+## Open items — 21 across 7 Parts: 17 startable, 2 blocked, 2 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 123 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a free Hugging Face account (an hf_ token) — its router proxies fal's own q… |
-| 170 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 193 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 249 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
-| 279 | 294 | Give the vector-store, verification and annotation contracts an abstract Fa… | startable |  |
-| 282 | 294 | Sweep test comments for history narration that carries no tag or date | startable |  |
-| 292 | 298 | SentencePiece tokenization for the ONNX provider — D122's trigger has fired | startable |  |
-| 296 | 298 | Change the embedder without rebuilding the graph | startable |  |
-| 298 | 298 | Read a stored vector back by id, or cache embeddings on the vector call | startable |  |
-| 300 | 298 | Filtered nearest-neighbour search | startable |  |
-| 302 | 298 | Edit the text provider set at run time | startable |  |
-| 305 | 298 | Schedules added at run time, persisted | startable |  |
-| 307 | 298 | Trace and score front-door calls without a wrapper | startable |  |
-| 310 | 298 | Job progress as a message code plus arguments | startable |  |
-| 317 | 299 | Snapshot `ToolsByConsumer` when the provisioner is built, and name the cons… | startable |  |
-| 321 | 299 | Pin the refusal through the builder, and say when it fires | startable |  |
-| 324 | 299 | Two test gaps in the CLI tool seam | startable |  |
-| 326 | 299 | A one-line `ToolsByConsumer` recipe in README's MCP section | startable |  |
-| 343 | 301 | Bound a reranker document's pieces independently of the query | startable |  |
-| 354 | 301 | Classify llama.cpp's physical-batch refusal as `ContextWindowExceeded` | startable |  |
-| 369 | 301 | Warn about leftover keys under a model-key prefix of the app's own | startable |  |
-| 380 | 301 | Say when a server refuses the configured `SuppressReasoningFields` | startable |  |
+| 122 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a free Hugging Face account (an hf_ token) — its router proxies fal's own q… |
+| 169 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 192 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 248 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 278 | 294 | Give the vector-store, verification and annotation contracts an abstract Fa… | startable |  |
+| 281 | 294 | Sweep test comments for history narration that carries no tag or date | startable |  |
+| 291 | 298 | SentencePiece tokenization for the ONNX provider — D122's trigger has fired | startable |  |
+| 295 | 298 | Change the embedder without rebuilding the graph | startable |  |
+| 297 | 298 | Read a stored vector back by id, or cache embeddings on the vector call | startable |  |
+| 299 | 298 | Filtered nearest-neighbour search | startable |  |
+| 301 | 298 | Edit the text provider set at run time | startable |  |
+| 304 | 298 | Schedules added at run time, persisted | startable |  |
+| 306 | 298 | Trace and score front-door calls without a wrapper | startable |  |
+| 309 | 298 | Job progress as a message code plus arguments | startable |  |
+| 316 | 299 | Snapshot `ToolsByConsumer` when the provisioner is built, and name the cons… | startable |  |
+| 320 | 299 | Pin the refusal through the builder, and say when it fires | startable |  |
+| 323 | 299 | Two test gaps in the CLI tool seam | startable |  |
+| 325 | 299 | A one-line `ToolsByConsumer` recipe in README's MCP section | startable |  |
+| 342 | 301 | Classify llama.cpp's physical-batch refusal as `ContextWindowExceeded` | startable |  |
+| 357 | 301 | Warn about leftover keys under a model-key prefix of the app's own | startable |  |
+| 368 | 301 | Say when a server refuses the configured `SuppressReasoningFields` | startable |  |
 
 <!-- open-items:end -->
 
@@ -339,17 +338,6 @@ _Reported by an adopting application planning its upgrade from 3.2.0 to 3.4.0. T
 of its workarounds shipped in 3.3.0; these are what the upgrade found beside them, each checked against the tree
 at `v3.4.0` (HEAD changes nothing under `src/` since) when it was filed. Its evidence about the CLI tool host
 went into `TASKS.md` Part 299's recipe item instead._
-
-- [ ] **Bound a reranker document's pieces independently of the query.** On a Score registration <!-- item: state=startable -->
-  `MaxInputChars` is the PAIR window, and a document keeps what the query leaves, `window − Measure(query)`
-  (`src/Lyntai.Providers.Basic/Http/HttpRerankTransport.cs:70-71`), so piece length moves with the question. A
-  deployment that chose its piece length by measurement cannot keep it: a window sized for 1,000-character pieces
-  beside a short query cuts a long query and shortens the pieces beside it. An adopting app segments for a
-  reranker that declares no window into pieces of at most 1,000 characters whatever the query (the windows behind
-  the two such rows of `rerank-segmented-adopter-long-notes`) and caps the query separately; D177 cannot express
-  that, so a within-run comparison of the two segmenters would compare piece lengths too. Suggested: an optional
-  per-piece bound on `InputSegmentation`, in the provider's window unit, a document piece taking the smaller of it
-  and `window − query`; null keeps today's rule.
 
 - [ ] **Classify llama.cpp's physical-batch refusal as `ContextWindowExceeded`.** An input longer than <!-- item: state=startable -->
   llama-server's physical batch, a rerank pair or an embedding input, is refused with HTTP 500:

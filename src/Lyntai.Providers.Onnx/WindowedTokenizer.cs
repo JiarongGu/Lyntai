@@ -93,7 +93,9 @@ internal sealed class WindowedTokenizer(
         var documentShare = InputSegmentation.DocumentShare(budget, segmentation.MinDocumentShare);
         var queryIds = tokenizer.EncodeToIds(query ?? string.Empty);
         List<int> kept = [.. queryIds.Take(budget - documentShare)];
-        var documentBudget = budget - kept.Count;
+        var documentBudget = segmentation.MaxDocumentPiece is { } piece
+            ? Math.Min(piece, budget - kept.Count)
+            : budget - kept.Count;
         var batch = new Builder(documents.Count);
         for (var i = 0; i < documents.Count; i++)
         {

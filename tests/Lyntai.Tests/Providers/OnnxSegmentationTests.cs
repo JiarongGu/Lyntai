@@ -427,6 +427,30 @@ public class WindowedTokenizerTests
         Assert.Equal(expected, batch.Rows.Length);
     }
 
+    [Theory]
+    [InlineData(10, 10)]   // the bound, beside a query that leaves more
+    [InlineData(40, 22)]   // what the window leaves beside the query, when that is less
+    public void MaxDocumentPiece_bounds_a_documents_windows_in_tokens(int bound, int expected)
+    {
+        var content = Tokenizer.EncodeToIds(River(10));
+
+        var batch = Windows(32, new InputSegmentation { MaxDocumentPiece = bound }).EncodePairs(Query, [River(10)]);
+
+        var all = TokenSegmenter.Windows(content, expected, TokenBoundaries.FromVocabulary(Vocabulary));
+        Assert.Equal(all.Count, batch.Rows.Length);
+        Assert.All(batch.Rows, row => Assert.InRange(Sides(row).Document.Length, 1, expected));
+    }
+
+    [Fact]
+    public void An_explicit_TRUNCATE_cuts_a_document_at_MaxDocumentPiece()
+    {
+        var truncate = new InputSegmentation { Overflow = InputOverflow.Truncate, MaxDocumentPiece = 10 };
+
+        var row = Assert.Single(Windows(32, truncate).EncodePairs(Query, [River(10)]).Rows);
+
+        Assert.Equal(Tokenizer.EncodeToIds(River(10)).Take(10), Sides(row).Document);
+    }
+
     [Fact]
     public void A_vanishing_MinDocumentShare_still_leaves_every_window_one_document_token()
     {

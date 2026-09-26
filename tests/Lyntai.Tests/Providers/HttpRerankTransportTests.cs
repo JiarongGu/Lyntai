@@ -342,6 +342,54 @@ public class HttpRerankTransportTests
         Assert.Equal([all[0], all[^1]], Sent(Assert.Single(handler.Requests).Body));
     }
 
+    // ---- MaxDocumentPiece: a piece length chosen by measurement, whatever the question ---------------------
+
+    [Theory]
+    [InlineData("q")]
+    [InlineData("where exactly in this long document is the needle hidden?")]
+    public async Task MaxDocumentPiece_keeps_the_piece_length_whatever_the_query(string query)
+    {
+        var handler = Reranker(_ => 1.0);
+
+        await Scorer(handler, configure: o =>
+        {
+            o.MaxInputChars = 200;
+            o.Segmentation = new InputSegmentation { MaxDocumentPiece = 41 };
+        }).ScoreAsync(query, [LongDocument]);
+
+        Assert.Equal(InputSegmenter.Split(LongDocument, 41), Sent(Assert.Single(handler.Requests).Body));
+        Assert.Equal(query, SentQuery(handler.Requests[0].Body));
+    }
+
+    [Fact]
+    public async Task A_window_leaving_less_than_MaxDocumentPiece_bounds_the_pieces_as_before()
+    {
+        var handler = Reranker(_ => 1.0);
+
+        await Scorer(handler, configure: o =>
+        {
+            o.MaxInputChars = 60;
+            o.Segmentation = new InputSegmentation { MaxDocumentPiece = 100 };
+        }).ScoreAsync("where is the needle", [LongDocument]);
+
+        // the 19-character query leaves 41 of the window, fewer than the bound
+        Assert.Equal(InputSegmenter.Split(LongDocument, 41), Sent(Assert.Single(handler.Requests).Body));
+    }
+
+    [Fact]
+    public async Task Overflow_TRUNCATE_cuts_a_document_at_MaxDocumentPiece()
+    {
+        var handler = Reranker(_ => 1.0);
+
+        await Scorer(handler, configure: o =>
+        {
+            o.MaxInputChars = 200;
+            o.Segmentation = new InputSegmentation { Overflow = InputOverflow.Truncate, MaxDocumentPiece = 41 };
+        }).ScoreAsync("where is the needle", [LongDocument]);
+
+        Assert.Equal([InputSegmenter.Truncate(LongDocument, 41)], Sent(Assert.Single(handler.Requests).Body));
+    }
+
     [Fact]
     public async Task With_no_document_over_MaxInputChars_the_request_is_BYTE_IDENTICAL_to_one_without_it()
     {

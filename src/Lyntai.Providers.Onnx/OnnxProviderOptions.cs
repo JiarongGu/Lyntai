@@ -56,7 +56,8 @@ public sealed class OnnxProviderOptions
     /// (1 − <see cref="InputSegmentation.MinDocumentShare"/>) of the window</b>, and a longer one is cut ONCE
     /// per call, the same for every document — so a pair that would fit beside the whole query is still
     /// scored with the cut one, because scores against different question text do not rank. The query is
-    /// never segmented.</para></summary>
+    /// never segmented. <see cref="InputSegmentation.MaxDocumentPiece"/> bounds a document's windows in tokens
+    /// whatever the query leaves.</para></summary>
     public InputSegmentation? Segmentation { get; set; }
 
     /// <summary>The model file, relative to the directory. Null probes <c>onnx/model.onnx</c> then

@@ -69,6 +69,7 @@ internal sealed class HttpRerankTransport(
             var segmentation = config.Segmentation ?? Defaults;
             query = InputSegmenter.QueryWithin(query, window, segmentation.MinDocumentShare);
             var budget = window - InputSegmenter.Measure(query);
+            if (segmentation.MaxDocumentPiece is { } piece) budget = Math.Min(budget, piece);
             if (segmentation.Overflow == InputOverflow.Truncate)
                 documents = [.. request.Documents.Select(d => InputSegmenter.Truncate(d, budget))];
             else

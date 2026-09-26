@@ -5238,6 +5238,10 @@ is `docs/model-tasks.md` §2 and each option's XML doc.
 do nothing until `MaxInputChars` is set, then segment unless told to truncate; Ollama's own silent cut stands
 until then, and once the bound is set, unless the record truncates, every request carries `truncate: false`.
 
+**A reranker document's piece length can be fixed apart from its query** (`MaxDocumentPiece`, 2026-09-26): a
+piece takes the smaller of it and what the window leaves, in the window's unit, so a length chosen by
+measurement holds whatever the question. Null keeps the window's rule; it is one record field, not an HTTP knob.
+
 **Rejected.** Forcing it: a processing judgement the deployment owns, and it changes what an unchanged
 configuration returns. Per-provider knobs: three copies that drift. Cutting only: it loses the text past the
 window. A bound on the verification seam: one caller, and a guess at the model's window. Several vectors per

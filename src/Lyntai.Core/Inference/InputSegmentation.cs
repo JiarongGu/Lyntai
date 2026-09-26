@@ -29,6 +29,7 @@ public sealed class InputSegmentation
     private double _overlap = 0.15;
     private double _minDocumentShare = 0.5;
     private int? _maxPiecesPerInput;
+    private int? _maxDocumentPiece;
 
     /// <summary>Whether an over-long input is segmented (the default) or truncated. Where a truncating
     /// provider cuts is stated by its <c>Segmentation</c> option.</summary>
@@ -71,6 +72,22 @@ public sealed class InputSegmentation
             ? value
             : throw new ArgumentOutOfRangeException(nameof(MinDocumentShare), value,
                 "MinDocumentShare must be greater than 0 and less than 1.");
+    }
+
+    /// <summary>For a reranker PAIR, the longest piece its DOCUMENT is cut into, in the provider's window unit
+    /// — characters over HTTP, tokens on ONNX — so a piece length chosen by measurement holds whatever the
+    /// query: a piece takes the smaller of this and what the window leaves beside the query. Null — the
+    /// default — takes what the window leaves. Truncating, it is where a document is cut. It applies where
+    /// <see cref="MinDocumentShare"/> does, so only a provider given a window reads it; an embedder takes no
+    /// query and ignores it.</summary>
+    /// <exception cref="ArgumentOutOfRangeException">The value is under 1.</exception>
+    public int? MaxDocumentPiece
+    {
+        get => _maxDocumentPiece;
+        set => _maxDocumentPiece = value is null or >= 1
+            ? value
+            : throw new ArgumentOutOfRangeException(nameof(MaxDocumentPiece), value,
+                "MaxDocumentPiece must be at least 1, or null for what the window leaves.");
     }
 
     /// <summary>The most pieces one input is segmented into; null — the default — sets no cap. An input that

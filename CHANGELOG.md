@@ -40,6 +40,10 @@ every addition.
   call by its measured cost, since one registration's calls vary. Honoured by the HTTP reranker and the ONNX
   cross-encoder wherever they segment; `InputSegmentation.MaxPiecesFor` is the rule. An init property, so the
   record's `Deconstruct` is unchanged.
+- **`InputSegmentation.MaxDocumentPiece`** (**D177**): the longest piece a reranker pair's document is cut into,
+  in the provider's window unit (characters over HTTP, tokens on ONNX). A piece takes the smaller of it and what
+  the window leaves beside the query, so a piece length chosen by measurement no longer moves with the question.
+  Null, the default, keeps today's rule; truncating, it is where a document is cut.
 
 ### Fixed
 

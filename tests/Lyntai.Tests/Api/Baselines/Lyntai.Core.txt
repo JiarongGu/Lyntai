@@ -914,6 +914,7 @@ enum Lyntai.Inference.InputOverflow
     value__ : Int32
 sealed class Lyntai.Inference.InputSegmentation
     .ctor()
+    MaxDocumentPiece : Nullable<Int32> { get; set; }
     MaxPiecesFor(Nullable<Int32> requested) : Nullable<Int32>
     MaxPiecesPerInput : Nullable<Int32> { get; set; }
     MinDocumentShare : Double { get; set; }

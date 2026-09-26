@@ -5132,3 +5132,13 @@ no piece-counting API (the cap already bounds a call from above), are D177's ame
 segmenting decorator can now set the cap instead of segmenting a second time.
 
 - Let a deployment choose a segmented rerank call's pieces per REQUEST
+
+## Part 306 — a reranker document's pieces are bounded apart from its query (2026-09-26)
+
+✅ done 2026-09-26 — **Outcome:** closes the fifth item of `TASKS.md` Part 301. `InputSegmentation.MaxDocumentPiece`
+bounds a reranker pair's document pieces in the provider's window unit, each taking the smaller of it and what
+the window leaves beside the query — over HTTP in characters, on the ONNX cross-encoder in tokens, segmenting or
+truncating. The rule is **D177**'s amendment. It is read only where a window is set, so a deployment whose
+reranker declares none sets `MaxInputChars` generously to use it.
+
+- Bound a reranker document's pieces independently of the query

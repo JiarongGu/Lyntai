@@ -108,8 +108,8 @@ public sealed class HttpModelOptions
     /// <para><see cref="InputSegmentation.Overlap"/> sets how far each piece reaches back into the one before,
     /// and <see cref="InputSegmentation.MaxPiecesPerInput"/> caps the pieces of one input — a cap a rerank
     /// request may narrow for itself (<see cref="ScoreRequest.MaxPiecesPerInput"/>).
-    /// <see cref="InputSegmentation.MinDocumentShare"/> applies to a reranker, whose bound holds the query too;
-    /// an embedder takes no query.</para></summary>
+    /// <see cref="InputSegmentation.MinDocumentShare"/> and <see cref="InputSegmentation.MaxDocumentPiece"/>
+    /// apply to a reranker, whose bound holds the query too; an embedder takes no query.</para></summary>
     public InputSegmentation? Segmentation { get; set; }
 
     /// <summary>A JSON object whose members are added to the <c>chat/completions</c> request body of every call

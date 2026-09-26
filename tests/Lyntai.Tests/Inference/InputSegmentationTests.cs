@@ -104,6 +104,16 @@ public class InputSegmentationTests
         Assert.Equal(nameof(InputSegmentation.MinDocumentShare), ex.ParamName);
     }
 
+    [Fact]
+    public void A_new_record_puts_NO_bound_on_a_document_piece() =>
+        Assert.Null(new InputSegmentation().MaxDocumentPiece);
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public void A_document_piece_bound_under_one_is_refused(int bound) =>
+        Assert.Throws<ArgumentOutOfRangeException>(() => new InputSegmentation { MaxDocumentPiece = bound });
+
     // ---- a REQUEST may narrow the piece cap, never widen it ------------------------------------------------
 
     [Theory]
