@@ -15,18 +15,17 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 5 across 4 Parts: 1 startable, 2 blocked, 2 watch
+## Open items — 4 across 3 Parts: 2 blocked, 2 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 106 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a free Hugging Face account (an hf_ token) — its router proxies fal's own q… |
-| 153 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 176 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 232 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
-| 266 | 329 | Record an adopter's within-run measurement of D177's segmentation against i… | startable |  |
+| 105 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a free Hugging Face account (an hf_ token) — its router proxies fal's own q… |
+| 152 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 175 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 231 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
 
 <!-- open-items:end -->
 
@@ -256,46 +255,6 @@ there is nothing here to code: what remains is evidence only recurrence can supp
   <br>**2026-09-27: 0 of 40 more fresh-process runs of its class** (19 tests each, `Dedup_race` among them), so
   1 in 51 standalone overall. **Looping is not how this gets caught**; the stack has to come from the run it
   fails in.
-
-## Part 329 — an adopter measured D177's segmentation against its own, and kept its own (2026-09-27)
-
-_Reported by an adopting application answering `docs/task-archive.md` Part 289, whose outcome asked it to measure
-**D177** against its app-side segmenting score-provider decorator once D177 released, and then remove its copy.
-Checked against the tree at `v3.5.1` (HEAD changes nothing under `src/` since) when it was filed._
-
-- [ ] **Record an adopter's within-run measurement of D177's segmentation against its own.** It configured D177 <!-- item: state=startable -->
-  as close to its own windows as 3.5.1 allows, `docs/task-archive.md` Parts 305 and 306 included — for
-  `bge-reranker-v2-m3` Q5_K_M and `LAMAR-600m` Q5_K_M (no declared window, served at 4,096) `MaxInputChars` 4,090,
-  `MinDocumentShare` 0.5 and `MaxDocumentPiece` 1,000; for `mmarco-mMiniLMv2` Q8_0 (512) 506 and 0.5; for all three
-  `Overlap` 0.25 and `MaxPiecesPerInput` 5 — on llama.cpp b10549, one GPU, a page of 8, no embedder, pre-registered
-  and paired within each run. Found@8 on `rerank-segmented-adopter-long-notes`'s fixture (60 notes of 883–1,241
-  characters, 240 questions), its own → D177: BGE 201 → 171 (discordant 31/1, p < 0.001), LAMAR 211 → 211 (5/5),
-  mMiniLMv2 182 → 196 (10/24, p = 0.024). On 30 short and 30 long notes BGE went 196 → 208 and mMiniLMv2 184 → 198
-  (both p < 0.001); on facts of at most 101 characters the two were byte-identical, rerank bodies included. Its
-  rule — switch only if significantly better for its recommended reranker, BGE, and worse nowhere — KEEPS its own.
-  <br>**Two readings, post hoc and the adopter's.** 26 of BGE's 31 losses were Japanese-worded questions answered
-  with a page of four candidates the target was never among: co-recall links the adopter's arm had built by
-  mid-run and D177's never did; on the mixed fixture it ran the other way (10 of D177's 12 BGE wins there).
-  So that difference is the engine's reinforcement, not segmentation — two verifiers paired on a reinforcing engine
-  carry their diverging recall histories too. mMiniLMv2's gain sat where the answer lies late in a note (past 1,000
-  characters: 2/15, p = 0.002), plausibly because a piece cut at a sentence boundary splits an answer less often
-  than a fixed-position window: the first evidence on D177's PLACEMENT, the one thing no setting could match, and
-  confounded with `Overlap` (at most a quarter in D177, at least a quarter in the adopter's). D177 was also faster
-  on long notes, by 0.05–0.9 s serial median, plausibly its short last piece.
-  <br>**Amended 2026-09-28: the adopter measured the placement reading, and it did not hold.** Its next run put its
-  OWN windows' edges at text boundaries — 97–100% of interior edges on a boundary, against 9–15% evenly spaced, with
-  the same number of windows, budget, overlap and tail — paired within the run against its evenly spaced windows on
-  the same long fixture: mMiniLMv2's found@8 went 182 → 188 (p = 0.146, not significant). And no arm of either run
-  split an answer across pieces on these fixtures, so a split answer is not what D177 gained from here. That leaves
-  D177's mMiniLMv2 lead to what the run did not change — its piece LENGTHS (half to all of the budget), its overlap
-  of at most a quarter, or its piece COUNT — untested. Across runs, and therefore no finding: found@8 196 (D177),
-  188 (boundary windows), 182 (evenly spaced); top-1 90, 90, 79.
-  <br>Suggested: a `docs/memory-measurements.md` §5 result beside `rerank-segmented-adopter-long-notes`, measured by
-  the adopter and `ships=no`, carrying the configuration, the figures, the link-dynamics reading AS a reading, the
-  placement reading as REFUTED by the amendment above, and the limits (one GPU, one run per fixture, constructed
-  fixtures, no CPU arm), then `check-measurements --write`; D177's Known limits should NOT cite placement as its
-  advantage. Both halves are then recorded: `docs/task-archive.md` Part 289 names the decorator to remove, and this
-  result says why it stayed.
 
 ## Retired — five Parts that outlived their open work (2026-09-16)
 

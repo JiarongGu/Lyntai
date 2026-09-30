@@ -5447,3 +5447,15 @@ design was NOT shipped: the adopter's llama.cpp reports usage, so it waits on a 
 `HttpRerankTransportTests` cases, one routing the shipped transport through the governed factory into a tracker.
 
 - Let a segmented rerank call REPORT what it sent, so a deployment timing its calls can count them
+
+## Part 341 — an adopter's within-run measurement of D177 against its own segmentation (2026-09-30)
+
+✅ done 2026-09-30 — **Outcome:** `TASKS.md` Part 329's first item, closing the Part; a record, not a change.
+`docs/memory-measurements.md` §5 gains `rerank-d177-vs-adopter-segmentation` beside
+`rerank-segmented-adopter-long-notes`, `ships=no`: BGE found@8 201 → 171 against the adopter's own windows, so its
+pre-registered rule keeps its decorator. The result carries the configuration, the link-dynamics reading AS a
+reading, the placement reading as REFUTED by the adopter's boundary-window rerun, and the limits. D177's known
+limits are unchanged and claim no placement advantage. `docs/task-archive.md` Part 289 names the decorator to
+remove; this result says why it stayed.
+
+- Record an adopter's within-run measurement of D177's segmentation against its own
