@@ -19,8 +19,9 @@ mastra's **composable domain storage**, and odysseus's **streaming-aware fallbac
 Eleven packages; one public front door, and a public API frozen under SemVer 2.0 since 1.0.
 
 What is in it, by domain: **LLM** — routing with streaming-aware fallback across CLI / HTTP / lambda-bridged
-backends, a configurable per-verdict `RoutingPolicy`, dead-host cooldown, native + prompt tool-calling, and text
-providers registered at run time behind the governed front door.
+backends, a configurable per-verdict `RoutingPolicy`, dead-host cooldown, native + prompt tool-calling, text
+providers registered at run time behind the governed front door, and CLI spawns a host can scope — the tools
+denied and the settings loaded per consumer, an inherited variable removed per registration.
 **Generation** — one capability-aware seam for image/video/audio/3d with three delivery modes (inline,
 submit→poll→fetch, streaming — all three routed, governed and throttled alike), durable renders over
 `Lyntai.Jobs`, and six backends — local video included, a real Wan 2.2 model run through ComfyUI.

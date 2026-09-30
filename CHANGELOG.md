@@ -35,7 +35,9 @@ every addition.
 - **`--setting-sources` and `--strict-mcp-config` on both claude paths**: `SettingSources` and `StrictMcpConfig` on
   `ClaudeAgentOptions` and on `ClaudeCompletionOptions`, so a run or a consumer's one-shot calls choose which of the
   CLI's user, project and local sources load — an empty list loads none, and no project `CLAUDE.md` then, not even
-  one in a parent directory — and start no MCP server from a project `.mcp.json`. Unset, the argv is unchanged.
+  one in a parent directory — and start no MCP server from a project `.mcp.json`. Unset, the argv is unchanged. An
+  entry the CLI would misread — empty, flag-shaped, holding a comma or whitespace — throws `ArgumentException` when
+  set; an unknown source NAME is the CLI's to refuse, which it does before any turn.
 - **A one-shot claude call takes a settings file per consumer**: `ClaudeCompletionOptions.SettingsPath` emits
   `--settings`, as `ClaudeAgentOptions.SettingsPath` does for an agent run, so settings a host needs on every call —
   `disableSkillShellExecution`, a blanked `apiKeyHelper` — reach its scorer, memory-judge and utility calls too. A
@@ -51,11 +53,11 @@ every addition.
   passing a `Dictionary<string, string>` sees **CS8620** until it types the values `string?`, and a BYO
   `IProcessRunner` declaring `string` values sees **CS8614** until it annotates them; a runner copying the entries
   into `ProcessStartInfo.Environment` already removes a null one.
-- **A CLI completion no longer runs in the shared temp directory** (**D196**). `CliProviderEngine.NeutralWorkingDirectory`
-  is a directory this process owns under temp, with an unguessable name, created before each spawn and removed at exit,
-  so a `.claude/settings.json` any program planted in temp is no longer loaded into every library completion and judge
-  call. It scopes SETTINGS only: the claude CLI also reads a `CLAUDE.md` from every parent of its cwd, so keep
-  instructions out with a call's `SettingSources` without `project`.
+- **A CLI completion no longer runs in the shared temp directory** (**D196**).
+  `CliProviderEngine.NeutralWorkingDirectory` is a directory this process owns under temp, with an unguessable name,
+  created before each spawn and removed at exit, so a `.claude/settings.json` any program planted in temp is no longer
+  loaded into every library completion and judge call. It scopes SETTINGS only: the claude CLI also reads a
+  `CLAUDE.md` from every parent of its cwd, so keep instructions out with a call's `SettingSources` without `project`.
 
 ### Fixed
 
