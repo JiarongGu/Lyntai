@@ -1,3 +1,5 @@
+using System.Text.Json.Nodes;
+using Lyntai.Agents;
 using Lyntai.Inference;
 using Lyntai.Processes;
 using Lyntai.Providers.ClaudeCli;
@@ -126,6 +128,143 @@ public class ClaudeCompletionOptionsTests
         Assert.DoesNotContain("--settings", backend.BuildCompletionArgs(Ask("chat"), []));
         Assert.Equal(TodaysArgv, Backend(("x", new ClaudeCompletionOptions { SettingsPath = "" }))
             .BuildCompletionArgs(Ask("x"), []));
+    }
+
+    // ── a HOSTED call: measured on 2.1.285, the CLI applies only the LAST --settings, the earlier file dropped whole ──
+
+    /// <summary>The args the claude tool host hands a call, over files written into <paramref name="dir"/>.</summary>
+    private static async Task<IReadOnlyList<string>> HostArgs(ScratchDir dir) =>
+        await new ClaudeCliMcpConnector().BuildArgsAsync(new McpCliContext(
+            new McpEndpoint("http://127.0.0.1:1234/mcp", "sekret", "lyntai"),
+            (kind, content) => dir.File($"{kind}.json", content)));
+
+    private static string SettingsOf(IReadOnlyList<string> args) => args[args.ToList().IndexOf("--settings") + 1];
+
+    private static string[] Strings(JsonNode? list) => [.. list!.AsArray().Select(n => (string)n!)];
+
+    [Fact]
+    public async Task A_hosted_consumer_is_handed_ONE_settings_file_carrying_its_own_keys_and_the_hosts_allow_list()
+    {
+        using var dir = new ScratchDir("claude-settings");
+        const string mine = """{"apiKeyHelper":"","disableSkillShellExecution":true,"permissions":{"allow":["Read"],"deny":["Bash"]}}""";
+        var consumer = dir.File("one-shot.json", mine);
+        var host = await HostArgs(dir);
+
+        var argv = Backend(("scorer", new ClaudeCompletionOptions { SettingsPath = consumer }))
+            .BuildCompletionArgs(Ask("scorer"), host);
+
+        Assert.Single(argv, a => a == "--settings");
+        // the host's own per-call file, which its session deletes — no second file for anyone to clean up
+        Assert.Equal(SettingsOf(host), SettingsOf(argv));
+        var applied = JsonNode.Parse(File.ReadAllText(SettingsOf(argv)))!;
+        Assert.Equal("", (string?)applied["apiKeyHelper"]);
+        Assert.True((bool?)applied["disableSkillShellExecution"]);
+        Assert.Equal(["Read", "mcp__lyntai__*"], Strings(applied["permissions"]!["allow"]));
+        Assert.Equal(["Bash"], Strings(applied["permissions"]!["deny"]));
+        Assert.Equal(mine, File.ReadAllText(consumer));   // the consumer's own file is only read
+    }
+
+    [Fact]
+    public void Where_the_two_files_disagree_the_consumers_value_stands_and_a_list_is_joined_without_repeats()
+    {
+        using var dir = new ScratchDir("claude-settings");
+        var consumer = dir.File("one-shot.json",
+            """{"model":"haiku","permissions":{"allow":["mcp__lyntai__*","Read"],"defaultMode":"plan"},"env":"x"}""");
+        var hostFile = dir.File("host.json",
+            """{"model":"opus","permissions":{"allow":["mcp__lyntai__*","Grep"],"defaultMode":"default"},"env":{"A":"1"},"hooks":{}}""");
+
+        var argv = Backend(("scorer", new ClaudeCompletionOptions { SettingsPath = consumer }))
+            .BuildCompletionArgs(Ask("scorer"), ["--settings", hostFile]);
+
+        Assert.Equal(hostFile, SettingsOf(argv));
+        var applied = JsonNode.Parse(File.ReadAllText(hostFile))!;
+        Assert.Equal("haiku", (string?)applied["model"]);
+        Assert.Equal("plan", (string?)applied["permissions"]!["defaultMode"]);
+        Assert.Equal(["mcp__lyntai__*", "Read", "Grep"], Strings(applied["permissions"]!["allow"]));
+        Assert.Equal("x", (string?)applied["env"]);        // a clash of KINDS is a clash: the consumer's value stands
+        Assert.NotNull(applied["hooks"]);                  // a key only the host has is carried over
+    }
+
+    [Theory]
+    [InlineData("missing")]      // measured alone: "Settings file not found", exit 1 before any turn
+    [InlineData("malformed")]    // measured alone: not refused, the call goes ahead
+    [InlineData("array")]
+    [InlineData("duplicate")]    // a JSON reader may keep either value; the CLI's own reader decides
+    [InlineData("relative")]     // resolves against the CLI's working directory, never this process's
+    public async Task A_consumers_file_that_cannot_be_merged_is_handed_LAST_so_the_CLI_treats_it_as_with_no_host(string kind)
+    {
+        using var dir = new ScratchDir("claude-settings");
+        var consumer = kind switch
+        {
+            "missing" => dir.Combine("absent.json"),
+            "malformed" => dir.File("bad.json", "{not json"),
+            "array" => dir.File("list.json", "[1]"),
+            "duplicate" => dir.File("twice.json", """{"permissions":{"allow":["Read"],"allow":["Grep"]}}"""),
+            _ => "one-shot.json",
+        };
+        var host = await HostArgs(dir);
+        var allowList = File.ReadAllText(SettingsOf(host));
+
+        var argv = Backend(("scorer", new ClaudeCompletionOptions { SettingsPath = consumer }))
+            .BuildCompletionArgs(Ask("scorer"), host);
+
+        Assert.Equal(["--settings", consumer], argv.TakeLast(2));
+        Assert.Equal(allowList, File.ReadAllText(SettingsOf(host)));   // left as the host wrote it
+    }
+
+    [Fact]
+    public void A_host_settings_value_that_is_not_a_readable_file_leaves_the_consumers_file_handed_last()
+    {
+        using var dir = new ScratchDir("claude-settings");
+        var consumer = dir.File("one-shot.json", """{"disableSkillShellExecution":true}""");
+        const string inline = """{"permissions":{"allow":["mcp__lyntai__*"]}}""";   // the flag also takes a JSON string
+
+        var argv = Backend(("scorer", new ClaudeCompletionOptions { SettingsPath = consumer }))
+            .BuildCompletionArgs(Ask("scorer"), ["--settings", inline]);
+
+        Assert.Equal(["--settings", inline, "--settings", consumer], argv.TakeLast(4));
+    }
+
+    [Fact]
+    public async Task A_hosted_call_with_no_settings_file_of_its_own_is_spawned_as_it_always_was()
+    {
+        using var dir = new ScratchDir("claude-settings");
+        var host = await HostArgs(dir);
+
+        Assert.Equal([.. TodaysArgv, .. host], new ClaudeCliBackend().BuildCompletionArgs(Ask(), host));
+        Assert.Equal(ClaudeCliMcpConnector.SettingsJson("lyntai"), File.ReadAllText(SettingsOf(host)));
+    }
+
+    [Fact]
+    public async Task Through_the_tool_host_the_spawn_applies_ONE_settings_file_holding_the_consumers_keys_and_the_allow_list()
+    {
+        using var dir = new ScratchDir("claude-settings");
+        var consumer = dir.File("one-shot.json", """{"disableSkillShellExecution":true}""");
+        var handed = new List<string>();
+        JsonNode? applied = null;
+        var runner = new FakeProcessRunner { RunResult = FakeProcessRunner.Ok("""{"type":"result","result":"ok"}""") };
+        // read while the process would run: the host deletes its files when the call ends
+        runner.OnSpawn = call =>
+        {
+            handed.AddRange(call.Args.Where(a => a == "--settings"));
+            applied = JsonNode.Parse(File.ReadAllText(SettingsOf(call.Args)));
+        };
+        var services = new ServiceCollection();
+        services.AddSingleton<IProcessRunner>(runner);
+        services.AddLyntai(b => b
+            .AddClaudeCliProvider(Backend(("scorer", new ClaudeCompletionOptions { SettingsPath = consumer })),
+                command: "claude")
+            .AddMcpToolHost(new ClaudeCliMcpConnector())
+            .AddTool(_ => new FunctionTool("echo", (a, _) => Task.FromResult(a)))
+            .UseDefaultCandidates(ClaudeCliProvider.ProviderId));
+        using var sp = services.BuildServiceProvider();
+
+        var reply = await sp.GetRequiredService<ITextClient>().CompleteAsync(Ask("scorer"));
+
+        Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
+        Assert.Single(handed);
+        Assert.True((bool?)applied!["disableSkillShellExecution"]);
+        Assert.Equal(["mcp__lyntai__*"], Strings(applied["permissions"]!["allow"]));
     }
 
     [Theory]

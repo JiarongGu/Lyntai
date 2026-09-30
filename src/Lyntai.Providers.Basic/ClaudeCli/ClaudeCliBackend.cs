@@ -39,10 +39,22 @@ public sealed class ClaudeCliBackend : CliBackendBase
     /// <summary>Print mode + stream-json, with interactive UI tools disallowed for a library call, plus whatever the
     /// request's consumer is configured with in <see cref="CompletionByConsumer"/>.
     /// <para>This argv ends in OPTIONS and takes its prompt on stdin, so the tool-host args are
-    /// appended.</para></summary>
+    /// appended — with a consumer's settings file merged into the host's, since the CLI applies only the last
+    /// <c>--settings</c> (<see cref="ClaudeCompletionOptions.SettingsPath"/>).</para></summary>
     public override IReadOnlyList<string> BuildCompletionArgs(
-        TextRequest request, IReadOnlyList<string> toolHostArgs) =>
-        [.. ClaudeArgs.Build(request.Model, CompletionFor(request.Consumer)), .. toolHostArgs];
+        TextRequest request, IReadOnlyList<string> toolHostArgs)
+    {
+        var completion = CompletionFor(request.Consumer);
+        if (completion?.SettingsPath is not { Length: > 0 } mine
+            || ClaudeSettingsJson.LastValue(toolHostArgs) is not { } hosts)
+            return [.. ClaudeArgs.Build(request.Model, completion), .. toolHostArgs];
+
+        // the CLI applies only the LAST --settings: one merged file, or the consumer's last for the CLI to judge
+        var argv = ClaudeArgs.Build(request.Model, completion with { SettingsPath = null });
+        return ClaudeSettingsJson.TryMergeInto(hosts, mine)
+            ? [.. argv, .. toolHostArgs]
+            : [.. argv, .. toolHostArgs, "--settings", mine];
+    }
 
     private ClaudeCompletionOptions? CompletionFor(string consumer) =>
         CompletionByConsumer.TryGetValue(consumer, out var options)

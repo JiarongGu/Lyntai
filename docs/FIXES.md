@@ -7,6 +7,34 @@ to `.claude/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-09-30 — a hosted one-shot claude call silently dropped its consumer's settings file
+
+**Symptom.** Reported by an adopting application, adopting `ClaudeCompletionOptions.SettingsPath` for every one-shot
+call (`docs/task-archive.md` Part 343): for a consumer the MCP tool host served, the
+settings the file carried — a blanked `apiKeyHelper`, `disableSkillShellExecution` — did not apply, and nothing
+warned. The CLI started, the hosted tools were approved, the call answered.
+
+**Root cause.** `ClaudeCliBackend.BuildCompletionArgs` returned `[.. ClaudeArgs.Build(…), .. toolHostArgs]`: the
+consumer's `--settings` first, then the connector's `--settings` allow-list. The claude CLI applies only the LAST
+`--settings` and never reads an earlier one — re-measured on 2.1.285 at 0 tokens (a blocking hook per file, an
+unreachable base URL): A-then-B applies B, B-then-A applies A, and a MISSING file before the host's exits 0 where
+alone it fails "Settings file not found". Two claude-specific components each emitted the flag, and neither knew the
+other did — the connector cannot see the backend's per-consumer map.
+
+**Fix.** `ClaudeCliBackend` merges the consumer's file into the host's per-call file (`ClaudeSettingsJson`: objects
+by key, lists joined, the consumer's value winning) and hands only that one, which the tool-host session already
+deletes. A file it cannot read as one JSON object — missing, malformed, duplicate keys, a relative path — is handed
+LAST, unchanged, so the CLI judges it exactly as with no host. **D190** records the rule and the rejected shapes; the
+trap is in `.claude/knowledge/pitfalls.md` ("Two of the same flag is not two of the same setting").
+
+**Verify.** Ten `ClaudeCompletionOptionsTests` cases; nine were red before the change, among them the one through the
+real tool host that reads the file handed at spawn
+(`Through_the_tool_host_the_spawn_applies_ONE_settings_file_holding_the_consumers_keys_and_the_allow_list`). The
+tenth, `A_hosted_call_with_no_settings_file_of_its_own_is_spawned_as_it_always_was`, pins the unchanged argv.
+
+**Introduced by.** `86292724` (2026-09-30), which gave the one-shot path its `SettingsPath` and emitted it beside the
+flags a tool host appends; before it the completion path carried no `--settings` of its own, so nothing collided.
+
 ## 2026-09-27 — a forget racing a graph write left the write's vector, and its full content, in the index
 
 **Symptom.** Found by the final review of the re-embed work (**D194**); closed as `docs/task-archive.md` Part 325: a

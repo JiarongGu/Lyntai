@@ -17,6 +17,19 @@ and every Breaking entry ends by naming that action. A pure addition goes under 
 moves the `ApiSurfaceTests` baseline: the baseline gates DELIBERATENESS (D8), not breakage, and it moves for
 every addition.
 
+## Unreleased
+
+### Fixed
+
+- **A hosted one-shot claude call keeps its consumer's settings file** (**D190**). The CLI applies only the LAST
+  `--settings`, the earlier file dropped whole, and a call a tool host serves was handed two: the consumer's
+  `ClaudeCompletionOptions.SettingsPath` and then the host's allow-list — so every setting the file carried
+  (`disableSkillShellExecution`, a blanked `apiKeyHelper`) was silently lost, a missing file included. The call is now
+  handed ONE: the consumer's file merged into the host's per-call file, objects key by key, lists joined, the
+  consumer's value winning a clash. A file that cannot be merged — missing, not one JSON object, a relative path — is
+  handed after the host's, unchanged, so the CLI treats it as it would with no host: a missing one fails the call
+  before any turn.
+
 ## 3.5.2 — 2026-09-30
 
 ### Added

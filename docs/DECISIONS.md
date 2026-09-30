@@ -5633,6 +5633,14 @@ registration take a configured backend through an overload beside the positional
 empty source list loads none, and the CLI refuses an unknown name before any turn, so the library refuses only
 what it would misread — an empty, flag-shaped, comma- or space-holding entry.
 
+**A hosted call's two settings files are MERGED, never stacked** (2026-09-30): the CLI applies only the last
+`--settings` and never reads an earlier one, so `ClaudeCliBackend` merges `SettingsPath` into the tool host's per-call
+file — objects by key, lists joined, the consumer's value winning — and hands that one; a file it cannot read as one
+JSON object goes LAST, unchanged, for the CLI to judge as with no host. That rewrite is why a connector's settings file
+must be written through `McpCliContext.WriteTempFile`. **Rejected:** dropping the host's file for its `--allowedTools`,
+unmeasured alone and off the path the live test covers; merging in the connector, which cannot see the backend's map
+without a second wiring that fails silently when forgotten; refusing an unmergeable file the CLI itself accepts.
+
 ## D191 — the SentencePiece tokenizer is OWNED and reads tokenizer.json: the dependency cannot load the exports (2026-09-26)
 
 `Lyntai.Text.SentencePieceTokenizer` (Core, public) runs the Unigram pipeline a `tokenizer.json` declares — the

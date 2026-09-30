@@ -15,18 +15,17 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 5 across 4 Parts: 1 startable, 2 blocked, 2 watch
+## Open items — 4 across 3 Parts: 2 blocked, 2 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 106 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a free Hugging Face account (an hf_ token) — its router proxies fal's own q… |
-| 153 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 176 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 232 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
-| 265 | 342 | Hand a hosted one-shot claude call ONE settings file, holding the consumer'… | startable |  |
+| 105 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a free Hugging Face account (an hf_ token) — its router proxies fal's own q… |
+| 152 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 175 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 231 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
 
 <!-- open-items:end -->
 
@@ -256,37 +255,6 @@ there is nothing here to code: what remains is evidence only recurrence can supp
   <br>**2026-09-27: 0 of 40 more fresh-process runs of its class** (19 tests each, `Dedup_race` among them), so
   1 in 51 standalone overall. **Looping is not how this gets caught**; the stack has to come from the run it
   fails in.
-
-## Part 342 — a hosted one-shot call gets two `--settings`, and the CLI applies only the last (2026-09-30)
-
-_Reported by an adopting application, adopting 3.5.2's `ClaudeCompletionOptions.SettingsPath`
-(`docs/task-archive.md` Part 338). Checked against the tree at `v3.5.2`._
-
-- [ ] **Hand a hosted one-shot claude call ONE settings file, holding the consumer's settings and the tool host's allow-list.** <!-- item: state=startable -->
-  `ClaudeCliBackend.BuildCompletionArgs` returns `[.. ClaudeArgs.Build(model, completion), .. toolHostArgs]`: the
-  consumer's `--settings <SettingsPath>` first, then — for a consumer `McpToolHostOptions.ToolsByConsumer` hosts —
-  `ClaudeCliMcpConnector.BuildArgsAsync`'s `--mcp-config … --settings <temp file> --allowedTools mcp__<server>__*`,
-  whose file holds only `permissions.allow`. **The claude CLI applies only the LAST `--settings`**, the earlier file
-  dropped whole, not merged per key. Measured by the adopter on claude 2.1.285 at 0 tokens (a blocking
-  `UserPromptSubmit` hook in both files; a cwd whose project `.claude/settings.json` holds an `apiKeyHelper` that writes
-  a marker; `--setting-sources project`): file A blanks `apiKeyHelper`, file B is an allow-list —
-  A alone: `apiKeySource` `none`, the helper did not run; B alone: `apiKeyHelper`, it ran; **A then B** (the hosted
-  argv): `apiKeyHelper`, it ran; B then A: `none`, it did not. The binary's own reader agrees
-  (`fL(e){return Kre(e,n).at(-1)}` behind `eagerLoadSettings`). So a hosted consumer silently loses its `SettingsPath`
-  — every setting a host hands its one-shot calls precisely because it needs them on EVERY call
-  (`disableSkillShellExecution`, a blanked `apiKeyHelper`, a read fence) — and nothing warns: the CLI starts, the tools
-  are approved, the call answers.
-  <br>**The adopter's workaround**: a decorator over `IMcpCliConnector` that rewrites the connector's `--settings`
-  file as the consumer's settings merged with it (objects merged, arrays joined, the consumer's scalar winning), keyed
-  on the CLI's documented `--settings` flag. It is the adopter's copy of this item, to be DELETED when it ships; its
-  test asserts what a hosted call APPLIES (the last file's content), so it passes without the decorator once the
-  library hands one file.
-  <br>Suggested, in the order of what the library already knows: when a completion has a `SettingsPath` and the
-  connector would write a settings file, write ONE — the consumer's file with the connector's `permissions.allow`
-  merged in — through `McpCliContext.WriteTempFile`, and hand only it; or skip the connector's `--settings` when a
-  `SettingsPath` is set, relying on its `--allowedTools` (the CLI documents the flag as the same allow rule; unmeasured
-  here whether a hosted tool is then approved without a model call). Either way a test: a hosted consumer with a
-  `SettingsPath` gets exactly one `--settings`, and it carries both the consumer's keys and the host's allow-list.
 
 ## Retired — five Parts that outlived their open work (2026-09-16)
 

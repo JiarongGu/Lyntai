@@ -5459,3 +5459,16 @@ limits are unchanged and claim no placement advantage. `docs/task-archive.md` Pa
 remove; this result says why it stayed.
 
 - Record an adopter's within-run measurement of D177's segmentation against its own
+
+## Part 343 — a hosted one-shot claude call is handed ONE settings file (2026-09-30)
+
+✅ done 2026-09-30 — **Outcome:** `TASKS.md` Part 342's one item, from an adopter whose hosted one-shot calls lost
+their `SettingsPath`: the CLI applies only the LAST `--settings`, and the tool host's allow-list followed the
+consumer's. `ClaudeCliBackend` now merges the consumer's file into the host's per-call file through a new internal
+`ClaudeSettingsJson` and hands that one; a file it cannot read as one JSON object goes last, unchanged, for the CLI to
+judge. The item's first suggestion shipped, from the backend rather than the connector, which cannot see the
+per-consumer map. **D190** holds the rule and the rejected shapes, `docs/FIXES.md` (2026-09-30) the incident with the
+re-measurement, `pitfalls.md` the trap and its 0-token probe. Ten `ClaudeCompletionOptionsTests` cases. The adopter's
+decorator can go.
+
+- Hand a hosted one-shot claude call ONE settings file, holding the consumer's settings and the tool host's allow-list

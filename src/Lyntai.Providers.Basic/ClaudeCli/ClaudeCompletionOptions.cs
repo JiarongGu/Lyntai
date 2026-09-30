@@ -21,7 +21,12 @@ public sealed record ClaudeCompletionOptions
     /// hands one to an agent run. A command-line settings file outranks the project and local scopes and applies under
     /// every <see cref="SettingSources"/> value, so settings a host needs on EVERY call reach its one-shot calls too —
     /// <c>disableSkillShellExecution</c>, say, or a blanked <c>apiKeyHelper</c> a project file cannot re-enable. Null or
-    /// empty, the default, omits the flag.</summary>
+    /// empty, the default, omits the flag. Give a full path: a relative one resolves against the call's working
+    /// directory, not the host process's.
+    /// <para><b>The CLI applies only the LAST <c>--settings</c></b>, so a call a tool host serves is handed ONE file:
+    /// this one merged into the host's per-call allow-list — objects key by key, lists joined, this file's value winning
+    /// a clash. A file that cannot be merged — missing, not one JSON object, a relative path — is handed after the
+    /// host's, unchanged, so the CLI treats it as it would with no host.</para></summary>
     public string? SettingsPath { get; init; }
 
     /// <summary><c>--setting-sources</c>: which of the CLI's sources the call loads — <c>user</c>, <c>project</c>,
