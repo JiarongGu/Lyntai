@@ -2790,6 +2790,7 @@ static class Lyntai.MemorySeedBuilderExtensions
 static class Lyntai.MemoryVerificationBuilderExtensions
     static AddMemoryVerification(LyntaiBuilder builder, Action<LlmVerificationOptions> configure = null) : LyntaiBuilder
 interface Lyntai.Processes.IProcessRunner
+    CommandExists(String command) : Boolean
     RunAsync(String command, IReadOnlyList<String> args, String stdin = null, Nullable<TimeSpan> inactivityTimeout = null, Nullable<TimeSpan> maxDuration = null, String workingDirectory = null, IReadOnlyDictionary<String,String> environment = null, CancellationToken ct = default) : Task<ProcessResult>
     StreamBytesAsync(String command, IReadOnlyList<String> args, String stdin = null, Nullable<TimeSpan> inactivityTimeout = null, Nullable<TimeSpan> maxDuration = null, String workingDirectory = null, IReadOnlyDictionary<String,String> environment = null, CancellationToken ct = default) : IAsyncEnumerable<Byte[]>
     StreamLinesAsync(String command, IReadOnlyList<String> args, String stdin = null, Nullable<TimeSpan> inactivityTimeout = null, Nullable<TimeSpan> maxDuration = null, String workingDirectory = null, IReadOnlyDictionary<String,String> environment = null, CancellationToken ct = default) : IAsyncEnumerable<String>

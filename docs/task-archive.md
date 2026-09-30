@@ -5360,3 +5360,15 @@ uploaded start frame, which the assertions alone could not show. Pinned as
 `docs/generation.md` §2 says so. `TASKS.md` Part 33's fal item is untouched: its subject is fal's wire.
 
 - Run Wan 2.2 TI2V-5B through `ComfyUiProvider`, text-to-video and image-to-video
+
+## Part 334 — a BYO runner answers the availability probe (2026-09-30)
+
+✅ done 2026-09-30 — **Outcome:** `TASKS.md` Part 331's second item, from an adopter. `IProcessRunner` gains
+`CommandExists(string)`, default-bodied `true`, and `CliProviderEngine.IsAvailable` asks the runner instead of
+type-testing for `ProcessRunner`, which answers through an explicit implementation of its static probe. So a
+local decorator that forwards it keeps a missing CLI skipped by the router, and a runner that does not answer
+stays optimistic as before. **D22** now carries the rule and the two rejected shapes. Three
+`CliProviderEngineTests` cases: a forwarding decorator over the shipped runner, the RESOLVED exe as the question,
+and a non-answering runner that stays optimistic.
+
+- Say why a BYO runner loses the availability check, or let the runner answer it

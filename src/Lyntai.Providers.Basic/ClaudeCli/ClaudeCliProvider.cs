@@ -63,9 +63,10 @@ public sealed class ClaudeCliProvider : IModelProvider, IProviderUpdater,
     /// request-level tools and neither tool flag is set.</summary>
     public ProviderCapabilities Capabilities { get; }
 
-    /// <summary>Whether the <c>claude</c> CLI looks callable — the resolved command on the local PATH for the
-    /// built-in runner, optimistically true for a BYO <see cref="IProcessRunner"/> (which resolves commands in
-    /// its own environment). See <see cref="CliProviderEngine.IsAvailable"/>.</summary>
+    /// <summary>Whether the <c>claude</c> CLI looks callable, as the runner answers
+    /// <see cref="IProcessRunner.CommandExists"/> — the resolved command on the local PATH for the built-in runner,
+    /// true for a BYO runner that does not answer (it resolves commands in its own environment). See
+    /// <see cref="CliProviderEngine.IsAvailable"/>.</summary>
     public bool IsAvailable => _engine.IsAvailable;
 
     /// <inheritdoc/>

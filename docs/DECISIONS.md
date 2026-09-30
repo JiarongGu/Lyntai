@@ -584,8 +584,12 @@ for the engine and every agent session. The two sessions share one turn loop, `C
 ## D22 — a CLI backend may be PORTABLE (application-bundled), not just a global install (2026-08-04)
 A host may ship or side-load its own copy of a CLI rather than depend on a machine-wide install. For a
 portable path `IsAvailable` must verify presence rather than trust the configuration, or a skippable
-candidate becomes a failed turn. A BYO `IProcessRunner` is still trusted optimistically, because it
-resolves commands in its own environment.
+candidate becomes a failed turn. **The probe is the RUNNER's** (`IProcessRunner.CommandExists`): the shipped
+runner checks, and its default body trusts optimistically, because a sandboxed or remote runner resolves
+commands in its own environment. A decorator forwards it. Rejected: a type test on `ProcessRunner`, which a
+host's thin local wrapper — the documented seam for adjusting a spawn — defeated, turning a missing CLI into a
+failed call every turn; and a member with no default body, which would break every BYO runner for a probe
+most of them cannot answer.
 
 **The path is a PARAMETER, not an environment variable** — a host that ships two copies, or picks one at
 runtime, cannot express that through process-wide state. **Per-spawn environment comes with it**, because a

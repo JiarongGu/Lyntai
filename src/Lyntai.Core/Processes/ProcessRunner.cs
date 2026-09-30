@@ -374,6 +374,9 @@ public sealed class ProcessRunner : IProcessRunner
         return File.Exists(resolved) || (OperatingSystem.IsWindows() && SpawnableSibling(resolved) is not null);
     }
 
+    /// <inheritdoc/>
+    bool IProcessRunner.CommandExists(string command) => CommandExists(command);
+
     private static string? Locate(string command) =>
         RunLocator(OperatingSystem.IsWindows() ? "where.exe" : "which", command);
 

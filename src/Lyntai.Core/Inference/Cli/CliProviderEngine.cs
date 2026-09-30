@@ -68,20 +68,20 @@ public sealed class CliProviderEngine(
     /// <summary>The provider id this engine's backend produces.</summary>
     public string Id => backend.Id;
 
-    /// <summary>Whether the backend looks callable: for the built-in <see cref="ProcessRunner"/>, whether the
-    /// resolved command is actually present — a bare name on PATH, or a PORTABLE copy at the path the host
-    /// pointed at (including an extensionless shim rescued by its spawnable sibling).</summary>
+    /// <summary>Whether the backend looks callable, as the RUNNER answers <see cref="IProcessRunner.CommandExists"/>
+    /// for the resolved command: the built-in <see cref="ProcessRunner"/>, and a decorator forwarding to it, check
+    /// that it is actually present — a bare name on PATH, or a PORTABLE copy at the path the host pointed at
+    /// (including an extensionless shim rescued by its spawnable sibling).</summary>
     /// <remarks>
-    /// <para>OPTIMISTIC for a BYO <see cref="IProcessRunner"/>: a custom runner (sandbox / remote / audited
-    /// execution) resolves the command in ITS OWN environment, not the host's local PATH — so this returns
-    /// true without probing rather than skip the provider and never reach the runner. A truly missing binary
-    /// then surfaces as a <see cref="ProviderVerdict.Failed"/> verdict on the actual call, and the router falls
-    /// over to the next candidate.</para>
+    /// <para>OPTIMISTIC for a BYO <see cref="IProcessRunner"/> that does not answer: a sandboxed or remote runner
+    /// resolves the command in ITS OWN environment, so the default answer is true rather than skip the provider
+    /// and never reach the runner. A truly missing binary then surfaces as a <see cref="ProviderVerdict.Failed"/>
+    /// verdict on the actual call, and the router falls over to the next candidate.</para>
     /// <para>An explicit command is CHECKED rather than trusted: a host that ships its own CLI copy wants a
     /// deleted/never-unpacked binary to make this candidate unavailable — the router then skips it, instead of
     /// discovering the absence as a failed turn.</para>
     /// </remarks>
-    public bool IsAvailable => runner is not ProcessRunner || ProcessRunner.CommandExists(ResolveCommand().Exe);
+    public bool IsAvailable => runner.CommandExists(ResolveCommand().Exe);
 
     /// <summary>Resolve the command override / environment seams into exe + prefix args.</summary>
     public (string Exe, IReadOnlyList<string> PrefixArgs) ResolveCommand() => CliCommand.Resolve(command, backend);

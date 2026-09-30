@@ -64,4 +64,16 @@ public interface IProcessRunner
             $"this IProcessRunner does not implement {nameof(StreamBytesAsync)} — binary stdout cannot be "
             + "served through the string-typed RunAsync, so a runner serving a byte-streaming backend "
             + "overrides it (the shipped ProcessRunner does)");
+
+    /// <summary>Whether <paramref name="command"/> looks spawnable by THIS runner right now — the presence check
+    /// behind a CLI provider's <c>IsAvailable</c>, which lets the router skip a candidate whose binary is missing
+    /// instead of failing a turn on it. Presence only: it never runs the command.</summary>
+    /// <param name="command">The resolved executable — a bare name to look up, or a path.</param>
+    /// <remarks><b>The default body answers true</b>: a sandboxed or remote runner resolves commands in its own
+    /// environment, so a runner that does not answer stays optimistic, and a missing binary surfaces as a
+    /// <c>Failed</c> verdict on the call. <see cref="ProcessRunner"/> answers by the real probe
+    /// (<see cref="ProcessRunner.CommandExists"/>). <b>A decorator forwards it</b>: one forwarding only the spawn
+    /// members takes this default, and a local wrapper over <see cref="ProcessRunner"/> then reports every command
+    /// present.</remarks>
+    bool CommandExists(string command) => true;
 }

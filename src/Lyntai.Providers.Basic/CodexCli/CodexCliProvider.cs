@@ -67,7 +67,7 @@ public sealed class CodexCliProvider : IModelProvider, IProviderUpdater, IProvid
     public ProviderCapabilities Capabilities { get; }
 
     /// <summary>Whether the <c>codex</c> CLI looks callable — see <see cref="CliProviderEngine.IsAvailable"/>
-    /// (a portable copy is checked for presence; a BYO runner is trusted).</summary>
+    /// (a portable copy is checked for presence; a BYO runner answers the probe, or is trusted).</summary>
     public bool IsAvailable => _engine.IsAvailable;
 
     /// <inheritdoc/>

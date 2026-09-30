@@ -15,25 +15,24 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 12 across 8 Parts: 8 startable, 2 blocked, 2 watch
+## Open items — 11 across 8 Parts: 7 startable, 2 blocked, 2 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 113 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a free Hugging Face account (an hf_ token) — its router proxies fal's own q… |
-| 160 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 183 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 239 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
-| 273 | 329 | Record an adopter's within-run measurement of D177's segmentation against i… | startable |  |
-| 307 | 329 | Let a segmented rerank call REPORT what it sent, so a deployment timing its… | startable |  |
-| 341 | 330 | Let a caller narrow a one-shot CLI call's disallowed tools per consumer, as… | startable |  |
-| 374 | 331 | Let a spawn's environment REMOVE a variable, not only set one | startable |  |
-| 394 | 331 | Say why a BYO runner loses the availability check, or let the runner answer… | startable |  |
-| 415 | 332 | Add a `--setting-sources` seam and a `--strict-mcp-config` switch to `Claud… | startable |  |
-| 459 | 333 | Let a caller hand the one-shot CLI path a settings file, per consumer, as t… | startable |  |
-| 477 | 333 | Spawn one-shot calls from a directory the library owns, not the shared temp… | startable |  |
+| 112 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a free Hugging Face account (an hf_ token) — its router proxies fal's own q… |
+| 159 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 182 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 238 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 272 | 329 | Record an adopter's within-run measurement of D177's segmentation against i… | startable |  |
+| 306 | 329 | Let a segmented rerank call REPORT what it sent, so a deployment timing its… | startable |  |
+| 340 | 330 | Let a caller narrow a one-shot CLI call's disallowed tools per consumer, as… | startable |  |
+| 373 | 331 | Let a spawn's environment REMOVE a variable, not only set one | startable |  |
+| 400 | 332 | Add a `--setting-sources` seam and a `--strict-mcp-config` switch to `Claud… | startable |  |
+| 444 | 333 | Let a caller hand the one-shot CLI path a settings file, per consumer, as t… | startable |  |
+| 462 | 333 | Spawn one-shot calls from a directory the library owns, not the shared temp… | startable |  |
 
 <!-- open-items:end -->
 
@@ -364,7 +363,7 @@ _Reported by an adopting application. Checked against the tree at `v3.5.1` (`Cla
   one-shot calls, and deletes nothing.** Its agent-side removal already goes through the AGENT path's own seam
   (`ClaudeAgentOptions.DisallowedTools`, which this item does not touch) and stays exactly as it is; this item covers
   the one-shot path only, where the adopter has no workaround to remove. The reciprocal note lives in the adopter's
-  `.claude/rules/dev-conventions.md` under the jail bullet.
+  `.claude/rules/dev-conventions.md` under the jail bullet. <!-- link-ok: a file in the ADOPTER's repository, not this one -->
 
 ## Part 331 — a caller can SET a spawn's environment but never REMOVE an inherited variable (2026-09-28)
 
@@ -382,7 +381,7 @@ _Reported by an adopting application. Checked against the tree at `v3.5.1` (`Pro
   every spawn it did not mean to narrow.
   <br>**Why an adopter feels it.** One adopter does exactly that: its claude CLI runs (the agent session and the
   one-shot provider alike) must not inherit an API key or a base URL, and it cannot say so per spawn. It is a
-  workaround for this item; the adopter's `.claude/rules/dev-conventions.md` (*Data folder discipline*, the
+  workaround for this item; the adopter's `.claude/rules/dev-conventions.md` (*Data folder discipline*, the <!-- link-ok: a file in the ADOPTER's repository, not this one -->
   child-environment bullet) names this Part as what would let it narrow the strip.
   <br>Suggested: `IReadOnlyDictionary<string, string?>` where null REMOVES (or a separate
   `IReadOnlyCollection<string>` of names to remove), threaded through every place a caller passes `environment` —
@@ -390,20 +389,6 @@ _Reported by an adopting application. Checked against the tree at `v3.5.1` (`Pro
   the host holds and the caller names with null is absent in the child; a set one is set; no option changes nothing.
   **When this ships, the adopter can move its CLI policy from the process to the spawn**, keeping a process-level
   strip only for the spawns it does not control (a library's own children).
-
-- [ ] **Say why a BYO runner loses the availability check, or let the runner answer it.** <!-- item: state=startable -->
-  `CliProviderEngine.IsAvailable` is `runner is not ProcessRunner || ProcessRunner.CommandExists(...)`
-  (`src/Lyntai.Core/Inference/Cli/CliProviderEngine.cs:84`), OPTIMISTIC for a BYO `IProcessRunner` by design — its
-  remarks: a sandboxed or remote runner resolves the command in its own environment. But the documented seam for
-  controlling a spawn — a BYO runner — is also what a LOCAL host reaches for to adjust one (the item above), and a
-  thin decorator over `ProcessRunner` then silently loses the probe: a missing CLI is no longer skipped by the router
-  and becomes a failed call on every turn. That is the second reason the adopter above strips its process instead of
-  wrapping the runner.
-  <br>Suggested: let the runner answer (a default interface member such as `bool CommandExists(string exe)`, whose
-  default keeps today's optimism and which `ProcessRunner` — and so any decorator delegating to it — answers by the
-  real probe), so a local decorator keeps the check and a remote runner keeps its optimism. Tests: a decorator over
-  `ProcessRunner` reports a missing command unavailable; a custom runner that does not implement the member stays
-  optimistic, byte-for-byte as today.
 
 ## Part 332 — an agent run cannot tell the claude CLI which settings files to load (2026-09-28)
 
@@ -415,7 +400,7 @@ the `system/init` event and an `InstructionsLoaded` log read back)._
 - [ ] **Add a `--setting-sources` seam and a `--strict-mcp-config` switch to `ClaudeAgentOptions` (and the one-shot path).** <!-- item: state=startable -->
   A `-p` run loads its working directory's settings files on its own and executes their hooks, and connects the
   servers of a project `.mcp.json`, before any caller-side decision. Where that directory is also used INTERACTIVELY,
-  those files are a person's own — Claude Code saves a permission they approve into `.claude/settings.local.json` —
+  those files are a person's own — Claude Code saves a permission they approve into `.claude/settings.local.json` — <!-- link-ok: the claude CLI's per-directory file, not this repository's -->
   so a rule like `Bash(rm:*)` they approved for themselves applies to the caller's agent too. `ClaudeAgentArgs` can
   emit neither flag, `AgentSessionOptions` carries no pass-through arguments, and `ClaudeArgs` (the one-shot path)
   has the same gap.
@@ -437,7 +422,7 @@ the `system/init` event and an `InstructionsLoaded` log read back)._
   <br>**Why an adopter feels it, and what it does meanwhile.** One adopter now composes its command variable
   (`LYNTAI_PROVIDER_CMD`) as the resolved CLI plus `--setting-sources project --strict-mcp-config`, relying on
   `CliCommand.Resolve` turning the extra tokens into prefix arguments that both `ClaudeAgentSession` and the one-shot
-  provider put ahead of their own — recorded as a workaround in its `.claude/rules/dev-conventions.md` (the jail
+  provider put ahead of their own — recorded as a workaround in its `.claude/rules/dev-conventions.md` (the jail <!-- link-ok: a file in the ADOPTER's repository, not this one -->
   bullets, item (7)) with this Part named. It works, and it is fragile: it rides the command's tokenisation (paths
   must be double-quoted), it applies to every call the process makes rather than per run, and an operator's own
   `LYNTAI_PROVIDER_CMD` has to be composed rather than replaced. (It first moved the three files out of the directory

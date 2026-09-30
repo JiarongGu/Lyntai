@@ -17,6 +17,16 @@ and every Breaking entry ends by naming that action. A pure addition goes under 
 moves the `ApiSurfaceTests` baseline: the baseline gates DELIBERATENESS (D8), not breakage, and it moves for
 every addition.
 
+## Unreleased
+
+### Added
+
+- **A process runner answers the availability probe itself** (`IProcessRunner.CommandExists`, **D22**). A
+  CLI provider's `IsAvailable` now asks the runner rather than checking for the shipped `ProcessRunner` by type,
+  so a host's own decorator over `ProcessRunner` that forwards the member keeps a missing CLI skipped by the
+  router, where it used to become a failed call on every turn. A runner that does not answer stays optimistic,
+  exactly as every BYO runner was.
+
 ## 3.5.1 — 2026-09-26
 
 ### Changed

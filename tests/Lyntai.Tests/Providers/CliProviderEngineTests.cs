@@ -301,6 +301,83 @@ public class CliProviderEngineTests
         Assert.True(engine.IsAvailable);
     }
 
+    // ── the availability probe belongs to the RUNNER, so a local decorator keeps it ──
+
+    [Fact]
+    public void A_decorator_over_the_shipped_runner_that_forwards_the_probe_reports_a_missing_command_unavailable()
+    {
+        // the documented seam for adjusting a spawn is a BYO runner; a thin LOCAL wrapper must not turn a
+        // missing CLI into a failed call on every turn by losing the presence check
+        var missing = Path.Combine(TestPaths.TestScratchDir, $"absent-{Guid.NewGuid():N}", "mycli.exe");
+        var engine = new CliProviderEngine(new FakeCliBackend(), new ForwardingRunner(new ProcessRunner()),
+            new LyntaiOptions(), command: $"\"{missing}\"");
+
+        Assert.False(engine.IsAvailable);
+    }
+
+    [Fact]
+    public void The_engine_asks_the_runner_about_the_RESOLVED_executable()
+    {
+        var runner = new ProbeAnsweringRunner(answer: false);
+        var engine = new CliProviderEngine(new FakeCliBackend(), runner, new LyntaiOptions(),
+            command: "node \"C:\\some dir\\stub.mjs\"");
+
+        Assert.False(engine.IsAvailable);
+        Assert.Equal(["node"], runner.Asked);   // the exe, never its prefix args
+    }
+
+    [Fact]
+    public void A_BYO_runner_that_does_not_answer_the_probe_stays_optimistic()
+    {
+        // a sandboxed or remote runner resolves commands in its own environment: the default answer is yes,
+        // exactly as before the probe was the runner's to answer
+        var missing = Path.Combine(TestPaths.TestScratchDir, $"absent-{Guid.NewGuid():N}", "mycli.exe");
+        var engine = new CliProviderEngine(new FakeCliBackend(), new FakeProcessRunner(), new LyntaiOptions(),
+            command: $"\"{missing}\"");
+
+        Assert.True(engine.IsAvailable);
+    }
+
+    /// <summary>A local decorator of the kind a host writes to adjust a spawn: it forwards every member,
+    /// the presence probe included.</summary>
+    private sealed class ForwardingRunner(IProcessRunner inner) : IProcessRunner
+    {
+        public Task<ProcessResult> RunAsync(string command, IReadOnlyList<string> args, string? stdin = null,
+            TimeSpan? inactivityTimeout = null, TimeSpan? maxDuration = null, string? workingDirectory = null,
+            IReadOnlyDictionary<string, string>? environment = null, CancellationToken ct = default) =>
+            inner.RunAsync(command, args, stdin, inactivityTimeout, maxDuration, workingDirectory, environment, ct);
+
+        public IAsyncEnumerable<string> StreamLinesAsync(string command, IReadOnlyList<string> args,
+            string? stdin = null, TimeSpan? inactivityTimeout = null, TimeSpan? maxDuration = null,
+            string? workingDirectory = null, IReadOnlyDictionary<string, string>? environment = null,
+            CancellationToken ct = default) =>
+            inner.StreamLinesAsync(command, args, stdin, inactivityTimeout, maxDuration, workingDirectory, environment, ct);
+
+        public bool CommandExists(string command) => inner.CommandExists(command);
+    }
+
+    private sealed class ProbeAnsweringRunner(bool answer) : IProcessRunner
+    {
+        public List<string> Asked { get; } = [];
+
+        public Task<ProcessResult> RunAsync(string command, IReadOnlyList<string> args, string? stdin = null,
+            TimeSpan? inactivityTimeout = null, TimeSpan? maxDuration = null, string? workingDirectory = null,
+            IReadOnlyDictionary<string, string>? environment = null, CancellationToken ct = default) =>
+            throw new NotSupportedException();
+
+        public IAsyncEnumerable<string> StreamLinesAsync(string command, IReadOnlyList<string> args,
+            string? stdin = null, TimeSpan? inactivityTimeout = null, TimeSpan? maxDuration = null,
+            string? workingDirectory = null, IReadOnlyDictionary<string, string>? environment = null,
+            CancellationToken ct = default) =>
+            throw new NotSupportedException();
+
+        public bool CommandExists(string command)
+        {
+            Asked.Add(command);
+            return answer;
+        }
+    }
+
     [Fact]
     public async Task Extra_environment_variables_reach_completion_AND_maintenance_spawns()
     {
