@@ -301,6 +301,56 @@ public class CliProviderEngineTests
         Assert.True(engine.IsAvailable);
     }
 
+    // ── the neutral cwd is a directory this process OWNS, never the shared temp directory ──
+
+    [Fact]
+    public void The_neutral_directory_is_this_processes_own_under_temp_not_temp_itself()
+    {
+        // any program the user runs can write to the shared temp directory, and a CLI loads a project settings
+        // file from its cwd — so temp ITSELF as the cwd would load a planted one into every library call
+        var temp = Path.GetFullPath(Path.GetTempPath()).TrimEnd(Path.DirectorySeparatorChar);
+        var neutral = Path.GetFullPath(CliProviderEngine.NeutralWorkingDirectory).TrimEnd(Path.DirectorySeparatorChar);
+
+        Assert.NotEqual(temp, neutral, StringComparer.OrdinalIgnoreCase);
+        Assert.Equal(temp, Path.GetDirectoryName(neutral), StringComparer.OrdinalIgnoreCase);
+        Assert.StartsWith("lyntai-cli-", Path.GetFileName(neutral), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Every_spawn_finds_the_neutral_directory_present()
+    {
+        var present = new List<bool>();
+        var runner = new FakeProcessRunner { RunResult = Ok("result:hi"), StreamLines = ["result:hi"] };
+        runner.OnSpawn = call => present.Add(Directory.Exists(call.WorkingDirectory));
+        var engine = Engine(runner, new FakeCliBackend());
+
+        await engine.CompleteAsync(Ask());
+        await engine.StreamAsync(Ask()).ToListAsync();
+        await engine.ProbeAsync();
+
+        Assert.Equal([true, true, true], present);
+        Assert.All(runner.Calls, c => Assert.Equal(CliProviderEngine.NeutralWorkingDirectory, c.WorkingDirectory));
+    }
+
+    [Fact]
+    public void A_neutral_directory_that_disappeared_is_created_again()
+    {
+        // a temp cleaner may remove it while the process lives; the next spawn must not fail on a missing cwd
+        var path = Path.Combine(TestPaths.TestScratchDir, $"neutral-{Guid.NewGuid():N}");
+        try
+        {
+            CliProviderEngine.EnsureDirectory(path);
+            Directory.Delete(path);
+
+            Assert.Equal(path, CliProviderEngine.EnsureDirectory(path));
+            Assert.True(Directory.Exists(path));
+        }
+        finally
+        {
+            if (Directory.Exists(path)) Directory.Delete(path);
+        }
+    }
+
     // ── the availability probe belongs to the RUNNER, so a local decorator keeps it ──
 
     [Fact]

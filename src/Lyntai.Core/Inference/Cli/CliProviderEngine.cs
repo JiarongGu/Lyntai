@@ -1,5 +1,6 @@
 using Lyntai.Inference;
 using System.Runtime.CompilerServices;
+using System.Security.Cryptography;
 using Lyntai.Agents;
 using Lyntai.Inference.Streaming;
 using Lyntai.Processes;
@@ -61,8 +62,34 @@ public sealed class CliProviderEngine(
 {
     /// <summary>Design §6 CLI hygiene: spawn from a NEUTRAL cwd — never the host app's inherited working
     /// directory, whose project config (agent instructions, hooks, memory) a CLI would otherwise load into
-    /// every library completion and judge call, silently skewing them.</summary>
-    public static readonly string NeutralWorkingDirectory = Path.GetTempPath();
+    /// every library completion and judge call, silently skewing them. A directory THIS PROCESS owns under the
+    /// temp directory, with an unguessable name, created before each spawn and removed at exit — never the shared
+    /// temp directory itself, where any program the user runs could plant a project settings file that every
+    /// call would load, hooks and key helper included.</summary>
+    /// <remarks><b>It scopes a CLI's SETTINGS, not its instructions.</b> Measured on the claude CLI 2.1.285: a project
+    /// <c>.claude/settings.json</c> is read from the cwd alone, but a <c>CLAUDE.md</c> from every PARENT too — the
+    /// temp directory's own included — so no cwd keeps one out. A claude call's <c>SettingSources</c> without
+    /// <c>project</c> does.</remarks>
+    public static readonly string NeutralWorkingDirectory =
+        Path.Combine(Path.GetTempPath(), $"lyntai-cli-{Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(8))}");
+
+    static CliProviderEngine() =>
+        // best effort: a CLI that wrote into it, or a child still running there, leaves it for the temp cleaner
+        AppDomain.CurrentDomain.ProcessExit += (_, _) =>
+        {
+            try { Directory.Delete(NeutralWorkingDirectory, recursive: true); }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+        };
+
+    /// <summary>Create <paramref name="path"/> if it is missing — owner-only off Windows — and return it. Per spawn
+    /// rather than once, because a temp cleaner may remove the directory while the process lives.</summary>
+    internal static string EnsureDirectory(string path)
+    {
+        if (OperatingSystem.IsWindows()) Directory.CreateDirectory(path);
+        else Directory.CreateDirectory(path, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        return path;
+    }
 
     private readonly ILogger _logger = logger ?? NullLogger.Instance;
 
@@ -115,7 +142,8 @@ public sealed class CliProviderEngine(
         try
         {
             result = await runner.RunAsync(exe, argv, stdin: stdin, inactivityTimeout: timeout, maxDuration: maxDuration,
-                workingDirectory: NeutralWorkingDirectory, environment: environment, ct: ct).ConfigureAwait(false);
+                workingDirectory: EnsureDirectory(NeutralWorkingDirectory), environment: environment, ct: ct)
+                .ConfigureAwait(false);
         }
         catch (Exception ex) when (CliFault.Classify(ex) is { } fault)
         {
@@ -201,7 +229,8 @@ public sealed class CliProviderEngine(
         // directly and keep no wall clock, since an hour-long healthy session is what one would kill.
         var timeout = options.ResolveTimeout(req);
         var lines = runner.StreamLinesAsync(exe, argv, stdin: stdin, inactivityTimeout: timeout,
-            maxDuration: Backstop(timeout), workingDirectory: NeutralWorkingDirectory, environment: environment, ct: ct);
+            maxDuration: Backstop(timeout), workingDirectory: EnsureDirectory(NeutralWorkingDirectory),
+            environment: environment, ct: ct);
         var enumerator = lines.GetAsyncEnumerator(ct);
         await using (enumerator.ConfigureAwait(false))
         {
@@ -418,7 +447,8 @@ public sealed class CliProviderEngine(
         {
             var result = await runner.RunAsync(exe, [.. prefixArgs, .. maintenanceArgs], stdin: null,
                 inactivityTimeout: inactivity, maxDuration: maxDuration,
-                workingDirectory: NeutralWorkingDirectory, environment: environment, ct: ct).ConfigureAwait(false);
+                workingDirectory: EnsureDirectory(NeutralWorkingDirectory), environment: environment, ct: ct)
+                .ConfigureAwait(false);
             return (result, null);
         }
         catch (OperationCanceledException) { throw; }

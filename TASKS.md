@@ -15,20 +15,19 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 7 across 5 Parts: 3 startable, 2 blocked, 2 watch
+## Open items — 6 across 4 Parts: 2 startable, 2 blocked, 2 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 108 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a free Hugging Face account (an hf_ token) — its router proxies fal's own q… |
-| 155 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 178 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 234 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
-| 268 | 329 | Record an adopter's within-run measurement of D177's segmentation against i… | startable |  |
-| 302 | 329 | Let a segmented rerank call REPORT what it sent, so a deployment timing its… | startable |  |
-| 338 | 333 | Spawn one-shot calls from a directory the library owns, not the shared temp… | startable |  |
+| 107 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a free Hugging Face account (an hf_ token) — its router proxies fal's own q… |
+| 154 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 177 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 233 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 267 | 329 | Record an adopter's within-run measurement of D177's segmentation against i… | startable |  |
+| 301 | 329 | Let a segmented rerank call REPORT what it sent, so a deployment timing its… | startable |  |
 
 <!-- open-items:end -->
 
@@ -327,35 +326,6 @@ Checked against the tree at `v3.5.1` (HEAD changes nothing under `src/` since) w
   refused it because the cap bounds a call from above, which is what a prediction needs, and that holds — the gap
   is learning, after the call. Tests: a segmented call's `Usage` carries the wire's count, and a reply without
   `usage` leaves it null.
-
-## Part 333 — a one-shot CLI call takes no settings file, and its neutral cwd is the shared temp directory (2026-09-29)
-
-_Reported by an adopting application. Checked against the tree at `v3.5.1` (`CliProviderEngine.cs`, `ClaudeArgs.cs`,
-`ClaudeAgentOptions.cs`). The CLI behaviour below was measured by that adopter on the installed CLI 2.1.283 at 0 tokens
-(a `UserPromptSubmit` hook in `--settings` exiting 2, so no model call; the `system/init` event's `apiKeySource` and
-marker files read back)._
-
-- [ ] **Spawn one-shot calls from a directory the library owns, not the shared temp directory itself.** <!-- item: state=startable -->
-  `CliProviderEngine.NeutralWorkingDirectory` is `Path.GetTempPath()` — the account's shared temp folder, writable by
-  every process the user runs. The CLI loads its working directory's project scope on its own (a `-p` run reads a
-  project `.claude/settings.json`, runs its hooks and its `apiKeyHelper`, and loads a `CLAUDE.md` there — measured in a
-  data folder; not measured with temp itself as the cwd, but nothing in the CLI treats temp differently), so a `%TEMP%\.claude\settings.json` or `%TEMP%\CLAUDE.md` planted by
-  any program is loaded into every library completion and judge call — the very skew the neutral cwd exists to avoid
-  (design §6), and a way to run a command or supply an API key through a call the caller believed isolated. Whether
-  the project scope also walks up from temp (a `CLAUDE.md` in a parent such as the profile directory) is unmeasured.
-  <br>Suggested: a library-owned empty directory — created once per process under temp with an unguessable name
-  (or `Directory.CreateTempSubdirectory`), re-created if it disappears, never reused across processes — or an
-  `LyntaiOptions` override for adopters that want their own; and a test that the completion runner's working
-  directory is not `Path.GetTempPath()` itself. The first item closes the settings half regardless; this one closes
-  the instructions half (`CLAUDE.md`), which no settings file can.
-  <br>**MEASURED 2026-09-30, and the last sentence is WRONG** (claude 2.1.285, 0 tokens: a scratch
-  `CLAUDE_CONFIG_DIR` with no credentials, a `UserPromptSubmit` hook exiting 2, an `InstructionsLoaded` hook
-  logging each file). From a cwd one level BELOW a directory holding both files, the parent's `CLAUDE.md` loaded
-  (`memory_type: Project`) and the parent's `.claude/settings.json` hook did NOT run; from the parent itself both did.
-  So `CLAUDE.md` WALKS UP and project settings do not: a temp SUBDIRECTORY closes the settings half and still loads
-  `%TEMP%\CLAUDE.md`. What closed the instructions half was `--setting-sources` without `project` — `""`, `user` or
-  `local` each left the walked-up file unloaded, and `""` is accepted and loads no source at all (`--settings` still
-  applies) — which is Part 332's flag on the one-shot path.
 
 ## Retired — five Parts that outlived their open work (2026-09-16)
 

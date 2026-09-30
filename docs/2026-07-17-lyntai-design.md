@@ -951,6 +951,9 @@ D21/D22.)*
 for a child whose stdout is data (piper's PCM), under the same clocks and kill discipline; its default body
 REFUSES rather than degrading, because binary cannot pass through the buffered member's string-typed
 stdout — D165.)*
+*(2026-09-30: the neutral cwd is a directory the PROCESS owns under temp, never the shared temp directory itself,
+and "no project config loaded" holds for SETTINGS only — the claude CLI reads a `CLAUDE.md` from every parent of
+its cwd, so the instructions half is closed by the call's `SettingSources` rather than by any cwd — D196.)*
 
 **Structured output:** schema-constrained call, tolerant JSON extraction from prose/code-fences, one
 retry on parse failure, else `Failed` verdict.

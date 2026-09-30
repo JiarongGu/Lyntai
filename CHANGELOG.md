@@ -51,6 +51,11 @@ every addition.
   passing a `Dictionary<string, string>` sees **CS8620** until it types the values `string?`, and a BYO
   `IProcessRunner` declaring `string` values sees **CS8614** until it annotates them; a runner copying the entries
   into `ProcessStartInfo.Environment` already removes a null one.
+- **A CLI completion no longer runs in the shared temp directory** (**D196**). `CliProviderEngine.NeutralWorkingDirectory`
+  is a directory this process owns under temp, with an unguessable name, created before each spawn and removed at exit,
+  so a `.claude/settings.json` any program planted in temp is no longer loaded into every library completion and judge
+  call. It scopes SETTINGS only: the claude CLI also reads a `CLAUDE.md` from every parent of its cwd, so keep
+  instructions out with a call's `SettingSources` without `project`.
 
 ## 3.5.1 — 2026-09-26
 

@@ -265,8 +265,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D193](#d193--run-time-text-providers-are-a-snapshot-the-default-router-reads-and-call-tracing-is-a-front-door-decorator-2026-09-27) | 2026-09-27 | run-time text providers are a snapshot the DEFAULT router reads, and call tracing is a front-door… |
 | [D194](#d194--a-stored-vector-is-read-back-through-an-optional-interface-a-search-is-filtered-by-an-id-set-and-a-re-embed-writes-only-vectors-2026-09-27) | 2026-09-27 | a stored vector is read back through an optional interface, a search is filtered by an id set, an… |
 | [D195](#d195--a-sentence-transformers-export-is-windowed-where-sentence-transformers-cuts-it-max_seq_length-narrows-the-window-2026-09-27) | 2026-09-27 | a sentence-transformers export is windowed where sentence-transformers cuts it: `max_seq_length`… |
+| [D196](#d196--the-neutral-cwd-is-a-directory-the-process-owns-and-it-scopes-a-clis-settings-not-its-instructions-2026-09-30) | 2026-09-30 | the neutral cwd is a directory the PROCESS owns, and it scopes a CLI's settings, not its instruct… |
 
-**190 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**191 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -5753,3 +5754,22 @@ before, so a store holding such vectors mixes two cuts of one model in ONE space
 `IReindexableMemory.ReindexAsync` (**D194**) makes a graph memory uniform, and `MaxTokens = 512` restores the old
 window per provider. Under segmentation (**D177**) a long input runs as more, shorter windows. **Trigger to
 reopen**: evidence that a declared `max_seq_length` understates its model — a published evaluation run longer.
+
+## D196 — the neutral cwd is a directory the PROCESS owns, and it scopes a CLI's settings, not its instructions (2026-09-30)
+
+`CliProviderEngine.NeutralWorkingDirectory` is a per-process directory under the temp directory with an
+unguessable name, created before every spawn (a temp cleaner may remove it) — owner-only off Windows — and removed
+at exit, best effort. It was the temp directory itself, which every program the user runs can write to, so a
+planted `.claude/settings.json` there ran its hooks and key helper inside every library completion and judge call.
+
+**Measured on the claude CLI 2.1.285, and it changed what this closes.** A project `.claude/settings.json` is read
+from the cwd alone; a `CLAUDE.md` is read from every PARENT as well, so a subdirectory of temp still loads
+`%TEMP%\CLAUDE.md` — and no directory has no ancestors. The instructions half is closed by the call's
+`SettingSources` without `project` (**D190**), which excludes the walked-up file too. The directory closes the
+settings half, which is the one that runs commands and redirects credentials.
+
+**Rejected.** An `LyntaiOptions` override: an adopter's own directory has ancestors too, so it buys nothing
+`SettingSources` does not. A directory per CALL: it would keep one call's files from the next, but neither shipped
+one-shot path can write any — claude's print mode has no permission host, codex runs a read-only sandbox — so it
+would add a create and a delete to every call for a threat the defaults already close. **Trigger to reopen**: a
+one-shot path that can write into its cwd.

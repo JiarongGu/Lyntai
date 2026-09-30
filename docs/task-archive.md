@@ -5423,3 +5423,16 @@ measurement: the adopter's own (a command-line file outranks the project and loc
 `--setting-sources` value) is what the XML doc states. **D190** names it; `README.md` §CLI backends says what it is for.
 
 - Let a caller hand the one-shot CLI path a settings file, per consumer, as the agent path already can
+
+## Part 339 — the neutral cwd is the process's own directory (2026-09-30)
+
+✅ done 2026-09-30 — **Outcome:** `TASKS.md` Part 333's second item, closing the Part. `NeutralWorkingDirectory`
+is a per-process `lyntai-cli-<hex>` directory under temp, ensured before every spawn and removed at exit, where
+it was the shared temp directory itself. **The item's premise was half wrong, and a measurement said so first**
+(claude 2.1.285, 0 tokens): `CLAUDE.md` walks up from the cwd and project settings do not, so the directory closes
+the SETTINGS half, and the instructions half the item credited to it is closed by `SettingSources` without
+`project` (`docs/task-archive.md` Part 337). **D196** holds the rule and the rejected option override and
+per-call directory; the trap and the 0-token method are in `pitfalls.md`; design §6 carries a dated amendment.
+Three `CliProviderEngineTests`.
+
+- Spawn one-shot calls from a directory the library owns, not the shared temp directory itself
