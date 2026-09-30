@@ -21,6 +21,11 @@ internal static class WireJson
     internal static int? Int32(JsonElement parent, string name) =>
         Property(parent, name, JsonValueKind.Number) is { } el && el.TryGetInt32(out var value) ? value : null;
 
+    /// <summary>A numeric property as a <c>long</c>, or null when absent, non-numeric, fractional or out of
+    /// range — for a count whose ABSENCE is itself the answer, where <see cref="Long"/>'s zero would lie.</summary>
+    internal static long? Int64(JsonElement parent, string name) =>
+        Property(parent, name, JsonValueKind.Number) is { } el && el.TryGetInt64(out var value) ? value : null;
+
     /// <summary>A string-valued property, or null when absent or not a string.</summary>
     internal static string? String(JsonElement parent, string name) =>
         Property(parent, name, JsonValueKind.String)?.GetString();

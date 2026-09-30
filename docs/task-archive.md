@@ -5436,3 +5436,14 @@ per-call directory; the trap and the 0-token method are in `pitfalls.md`; design
 Three `CliProviderEngineTests`.
 
 - Spawn one-shot calls from a directory the library owns, not the shared temp directory itself
+
+## Part 340 — a rerank reports the tokens its wire counted (2026-09-30)
+
+✅ done 2026-09-30 — **Outcome:** `TASKS.md` Part 329's second item, from an adopter pacing its reranker by
+measured time. `HttpRerankTransport` reads `usage.prompt_tokens` into `ScoreResponse.Usage` — null, never zero,
+where the wire says nothing (a new nullable `WireJson.Int64`) — so the governed router bills it to the request's
+consumer and a pace divides a call's time by what was actually sent. The per-input piece count the item left as
+design was NOT shipped: the adopter's llama.cpp reports usage, so it waits on a trigger in **D163**. Six
+`HttpRerankTransportTests` cases, one routing the shipped transport through the governed factory into a tracker.
+
+- Let a segmented rerank call REPORT what it sent, so a deployment timing its calls can count them

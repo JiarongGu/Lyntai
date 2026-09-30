@@ -103,7 +103,26 @@ internal sealed class HttpRerankTransport(
             scores = BestPiece(plan, scores);
         }
         _logger.LogDebug("{Id}: scored {Count} documents", id, scores.Length);
-        return ScoreResponse.Success(scores);
+        return ScoreResponse.Success(scores, usage: TryExtractUsage(body));
+    }
+
+    /// <summary>What the wire said the call spent: <c>usage.prompt_tokens</c>, which llama.cpp reports for a
+    /// rerank and which counts every piece sent — so the governed router bills it (D163) and a deployment timing
+    /// its calls can divide by it. Null where the wire says nothing, never a zero (D162).</summary>
+    private static ProviderUsage? TryExtractUsage(string body)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(body);
+            return WireJson.Object(doc.RootElement, "usage") is { } usage
+                && WireJson.Int64(usage, "prompt_tokens") is { } tokens
+                    ? new ProviderUsage(tokens)
+                    : null;
+        }
+        catch (Exception ex) when (WireJson.IsShapeFault(ex))
+        {
+            return null;
+        }
     }
 
     /// <summary>A document is as relevant as its most relevant passage: the maximum over its pieces.</summary>

@@ -32,7 +32,7 @@ public class HttpRerankTransportTests
 
     /// <summary>A reranker that scores each document it is SENT with <paramref name="score"/> and answers
     /// sorted best-first, as real endpoints do.</summary>
-    private static StubHttpHandler Reranker(Func<string, double> score) =>
+    private static StubHttpHandler Reranker(Func<string, double> score, Func<JsonNode?>? usage = null) =>
         new StubHttpHandler().Enqueue(request =>
         {
             var sent = Sent(request.Content!.ReadAsStringAsync().GetAwaiter().GetResult());
@@ -40,9 +40,11 @@ public class HttpRerankTransportTests
                 .Select((d, i) => (Index: i, Score: score(d)))
                 .OrderByDescending(r => r.Score)
                 .Select(r => (JsonNode)new JsonObject { ["index"] = r.Index, ["relevance_score"] = r.Score })]);
+            var reply = new JsonObject { ["results"] = results };
+            if (usage is not null) reply["usage"] = usage();
             return new HttpResponseMessage(HttpStatusCode.OK)
             {
-                Content = new StringContent(new JsonObject { ["results"] = results }.ToJsonString()),
+                Content = new StringContent(reply.ToJsonString()),
             };
         });
 
@@ -188,6 +190,54 @@ public class HttpRerankTransportTests
         Assert.Equal("alpha document", sent[0]);
         Assert.Equal("beta document", sent[^1]);
         Assert.Contains($"\"top_n\":{sent.Count}", request.Body, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_segmented_call_reports_the_tokens_its_wire_counted()
+    {
+        // measured by an adopter on llama.cpp b10549: /v1/rerank answers "usage":{"prompt_tokens":N,"total_tokens":N},
+        // N counting every piece sent — what a deployment pacing its calls divides a call's time by
+        var handler = Reranker(d => d.Contains("needle") ? 5.0 : -2.0,
+            () => new JsonObject { ["prompt_tokens"] = 1075, ["total_tokens"] = 1075 });
+        var scorer = Scorer(handler, configure: o => o.MaxInputChars = 60);
+
+        var response = await scorer.CallAsync(new ScoreRequest("where is the needle", ["alpha document", LongDocument]));
+
+        Assert.True(response.IsOk);
+        Assert.Equal(2, response.Scores.Count);
+        Assert.Equal(new ProviderUsage(1075), response.Usage);
+    }
+
+    [Fact]
+    public async Task The_governed_router_BILLS_a_reranks_reported_tokens_to_the_requests_consumer()
+    {
+        // D163 makes a rerank token-metered; until the transport reported usage, a cap on "memory" never
+        // counted what an HTTP reranker spent for the scoring verifier
+        var tracker = new Lyntai.Inference.Budgeting.InMemoryUsageTracker();
+        var factory = new ProviderRouterFactory(new DeadHostTracker(), options: new LyntaiOptions(), tracker: tracker);
+        var handler = Reranker(_ => 1.0, () => new JsonObject { ["prompt_tokens"] = 42 });
+        var router = factory.For<ScoreRequest, ScoreResponse>([Scorer(handler)], ScoreResponse.Failure,
+            c => c.Supports(ProviderKinds.Score, ProviderOperation.Complete, accepts: ProviderKinds.Text));
+
+        var reply = await router.CallAsync(new ScoreRequest("q", ["a", "b"], Consumer: "memory"));
+
+        Assert.True(reply.IsOk);
+        Assert.Equal(42, (await tracker.TotalAsync("memory")).InputTokens);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("""{"total_tokens":9}""")]
+    [InlineData("""{"prompt_tokens":"9"}""")]
+    [InlineData("[]")]
+    public async Task A_reply_that_counts_no_prompt_tokens_leaves_the_usage_NULL_never_zero(string? usage)
+    {
+        // a zero would record a call as free; null says the wire did not say (D162)
+        var handler = Reranker(_ => 1.0, usage is null ? null : () => JsonNode.Parse(usage));
+        var response = await Scorer(handler).CallAsync(new ScoreRequest("q", ["a", "b"]));
+
+        Assert.True(response.IsOk);
+        Assert.Null(response.Usage);
     }
 
     [Fact]

@@ -57,6 +57,13 @@ every addition.
   call. It scopes SETTINGS only: the claude CLI also reads a `CLAUDE.md` from every parent of its cwd, so keep
   instructions out with a call's `SettingSources` without `project`.
 
+### Fixed
+
+- **An HTTP rerank now reports the tokens its server counted** (**D163**): the `/v1/rerank` transport reads
+  `usage.prompt_tokens` into `ScoreResponse.Usage`, counting every segment sent, so a `Budget.PerConsumer["memory"]`
+  cap now counts what the scoring verifier spends on an HTTP reranker, and a deployment timing its calls can divide by
+  it. A reply without that count leaves `Usage` null, never zero.
+
 ## 3.5.1 — 2026-09-26
 
 ### Changed

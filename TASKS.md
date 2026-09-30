@@ -15,19 +15,18 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 6 across 4 Parts: 2 startable, 2 blocked, 2 watch
+## Open items — 5 across 4 Parts: 1 startable, 2 blocked, 2 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 107 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a free Hugging Face account (an hf_ token) — its router proxies fal's own q… |
-| 154 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 177 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 233 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
-| 267 | 329 | Record an adopter's within-run measurement of D177's segmentation against i… | startable |  |
-| 301 | 329 | Let a segmented rerank call REPORT what it sent, so a deployment timing its… | startable |  |
+| 106 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a free Hugging Face account (an hf_ token) — its router proxies fal's own q… |
+| 153 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 176 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 232 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 266 | 329 | Record an adopter's within-run measurement of D177's segmentation against i… | startable |  |
 
 <!-- open-items:end -->
 
@@ -297,35 +296,6 @@ Checked against the tree at `v3.5.1` (HEAD changes nothing under `src/` since) w
   fixtures, no CPU arm), then `check-measurements --write`; D177's Known limits should NOT cite placement as its
   advantage. Both halves are then recorded: `docs/task-archive.md` Part 289 names the decorator to remove, and this
   result says why it stayed.
-
-- [ ] **Let a segmented rerank call REPORT what it sent, so a deployment timing its calls can count them.** <!-- item: state=startable -->
-  The adopter's decorator also sizes each call by TIME: it learns ms per pair token from the calls it makes and
-  gives each long document only the pieces that fit a 60 s verification deadline, down to one, skipping a recall
-  where even one each cannot fit — its reranker scored ~3.1 s per 1,000 pair tokens on one CPU, where an unpaced
-  call waits out the deadline for no verdict. Since `docs/task-archive.md` Part 305 such a pace can sit on D177,
-  narrowing `ScoreRequest.MaxPiecesPerInput` per call and predicting from the cap, as D177's amendment says it
-  should. What it cannot do is LEARN: `HttpRerankTransport.CallAsync` returns `ScoreResponse.Success(scores)` with
-  no usage (`src/Lyntai.Providers.Basic/Http/HttpRerankTransport.cs:106`), and the pieces it sent stay in an
-  internal `SegmentPlan` (`src/Lyntai.Providers.Basic/Http/InputSegmenter.cs:11`) — `InputSegmentation.Spread` is
-  public, the segmenter is not. So a pace divides a call's time by a BOUND on what it sent: the upper bound
-  under-estimates the rate and grants too many pieces next time, the unsafe direction, and the safe lower bound
-  sits up to ~2× below it on the adopter's long notes.
-  <br>**The wire already says.** llama.cpp b10549 answers `/v1/rerank` with
-  `"usage":{"prompt_tokens":1075,"total_tokens":1075}` (the adopter's screen: a 7-token query against a 1,041-token
-  document and a short one), and `HttpVectorTransport` reads that member for an embed call
-  (`src/Lyntai.Providers.Basic/Http/HttpVectorTransport.cs:191-201`). It is a ledger gap as well: **D163** makes a
-  rerank token-metered, so a consumer's token cap binds it, yet with no reported usage a cap on `memory` never
-  counts what an HTTP reranker spends for the scoring verifier.
-  <br>Suggested: the rerank transport reads `usage.prompt_tokens` into `ScoreResponse.Usage` as the vector
-  transport does — null, never zero, where the wire says nothing — so the governed router records it like an
-  embed's; a server's count also spares a pace its per-script character weights. Where nothing is reported — a
-  server without `usage`, or the in-process cross-encoder, whose `Usage` is null because it spends nothing — what
-  to report is the design: a per-input piece count, or the characters sent, as an init property beside `Usage`,
-  since a count a pace needs is not spend a ledger bills. The library still times nothing and sets no budget — the
-  latency policy D177 rejected. Nor is counting an input's pieces BEFORE the call re-proposed: D177's amendment
-  refused it because the cap bounds a call from above, which is what a prediction needs, and that holds — the gap
-  is learning, after the call. Tests: a segmented call's `Usage` carries the wire's count, and a reply without
-  `usage` leaves it null.
 
 ## Retired — five Parts that outlived their open work (2026-09-16)
 

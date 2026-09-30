@@ -4882,6 +4882,12 @@ operator's `Budget.PerConsumer["memory"]` cap now genuinely fences memory spend 
 degrades a recall through the seams' existing fail-open paths rather than failing it, which is why routing
 the refusal as a verdict (never a throw) is load-bearing.
 
+**A cap binds only what a response REPORTS**, so the HTTP rerank transport reads `usage.prompt_tokens` (2026-09-30),
+null where the wire says nothing: until then a `"memory"` cap never counted a reranker's spend. The count covers every
+segment sent, which is what a deployment pacing its calls needs. **Not shipped: a per-input piece count on
+`ScoreResponse`** for a server reporting no usage, or the in-process cross-encoder, whose `Usage` stays null because
+it spends nothing. **Trigger**: a deployment pacing such a reranker.
+
 ## D164 — the design record's exemption narrows to its seeds; inline amendments are gated (2026-09-19)
 
 **The decision.** `docs/2026-07-17-lyntai-design.md` was exempt from every prose gate — `check-docs`'
