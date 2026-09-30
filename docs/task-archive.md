@@ -5412,3 +5412,14 @@ blocking `UserPromptSubmit` hook): an empty list is accepted and loads no source
 leaves names to the CLI. The rule is a paragraph of **D190**; `README.md` §CLI backends names the pair.
 
 - Add a `--setting-sources` seam and a `--strict-mcp-config` switch to `ClaudeAgentOptions` (and the one-shot path)
+
+## Part 338 — a settings file for the one-shot claude path (2026-09-30)
+
+✅ done 2026-09-30 — **Outcome:** `TASKS.md` Part 333's first item, from an adopter that measured
+`disableSkillShellExecution` and a blanked `apiKeyHelper` as load-bearing on every call. `ClaudeCompletionOptions`
+gains `SettingsPath`, emitted as `--settings` beside the per-consumer flags `docs/task-archive.md` Parts 336 and 337
+added, so the adopter hands its one-shot calls the file it already generates for its agent runs. No new
+measurement: the adopter's own (a command-line file outranks the project and local scopes, and applies under every
+`--setting-sources` value) is what the XML doc states. **D190** names it; `README.md` §CLI backends says what it is for.
+
+- Let a caller hand the one-shot CLI path a settings file, per consumer, as the agent path already can

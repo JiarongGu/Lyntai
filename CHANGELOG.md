@@ -36,6 +36,10 @@ every addition.
   `ClaudeAgentOptions` and on `ClaudeCompletionOptions`, so a run or a consumer's one-shot calls choose which of the
   CLI's user, project and local sources load — an empty list loads none, and no project `CLAUDE.md` then, not even
   one in a parent directory — and start no MCP server from a project `.mcp.json`. Unset, the argv is unchanged.
+- **A one-shot claude call takes a settings file per consumer**: `ClaudeCompletionOptions.SettingsPath` emits
+  `--settings`, as `ClaudeAgentOptions.SettingsPath` does for an agent run, so settings a host needs on every call —
+  `disableSkillShellExecution`, a blanked `apiKeyHelper` — reach its scorer, memory-judge and utility calls too. A
+  command-line settings file outranks the project and local scopes. Unset, the argv is unchanged.
 
 ### Changed
 

@@ -24,6 +24,11 @@ internal static class ClaudeArgs
             if (!denied.Contains(tool, StringComparer.Ordinal)) denied.Add(tool);
 
         var args = new List<string>(PrintMode) { "--disallowed-tools", string.Join(",", denied) };
+        if (!string.IsNullOrEmpty(completion?.SettingsPath))
+        {
+            args.Add("--settings");
+            args.Add(completion.SettingsPath);
+        }
         AddScope(args, completion?.SettingSources, completion?.StrictMcpConfig == true);
         if (!string.IsNullOrEmpty(model))
         {

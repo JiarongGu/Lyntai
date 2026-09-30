@@ -585,7 +585,8 @@ cfg.AddClaudeCliProvider(new ClaudeCliBackend
 
 `SettingSources` and `StrictMcpConfig` scope what a call LOADS: `[]` loads no settings source — no project
 `CLAUDE.md`, even one in a parent directory, which the CLI walks up to — and strict MCP config starts no server from a
-project `.mcp.json`. `ClaudeAgentOptions` takes the same pair for an agent run.
+project `.mcp.json`. `ClaudeAgentOptions` takes the same pair for an agent run. `SettingsPath` hands a call a command-line settings file, which
+outranks the project and local scopes — the way to put a setting on every call, one-shot and agent alike.
 
 **Writing your own.** The rules every CLI-agent backend must get right — no shell, a neutral working
 directory, an *inactivity* clock, verdicts from the shared classifier, empty output as a failure, exactly one

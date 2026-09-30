@@ -5621,7 +5621,8 @@ maps a consumer to a `ClaudeCompletionOptions`, tiered the same way, whose `Disa
 always-denied `AskUserQuestion` — a caller adds denials and never removes that one. **On the backend**, as
 `CodexCliBackend.SandboxMode` is, because every member is this CLI's own vocabulary; the provider and its
 registration take a configured backend through an overload beside the positional one. `SettingSources` and
-`StrictMcpConfig` ride both it and `ClaudeAgentOptions` through one `ClaudeArgs.AddScope`. Measured on 2.1.285: an
+`StrictMcpConfig` ride both it and `ClaudeAgentOptions` through one `ClaudeArgs.AddScope`. So does
+`SettingsPath`, a command-line settings file, which outranks the project and local scopes under every source. Measured on 2.1.285: an
 empty source list loads none, and the CLI refuses an unknown name before any turn, so the library refuses only
 what it would misread — an empty, flag-shaped, comma- or space-holding entry.
 

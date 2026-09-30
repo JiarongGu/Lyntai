@@ -113,6 +113,21 @@ public class ClaudeCompletionOptionsTests
         Assert.Equal(TodaysArgv, Backend(("x", new ClaudeCompletionOptions())).BuildCompletionArgs(Ask("x"), []));
     }
 
+    [Fact]
+    public void A_consumers_settings_file_is_handed_over_as_a_command_line_settings_file()
+    {
+        // a command-line settings file outranks the project and local scopes, and applies under every source
+        var backend = Backend(("scorer", new ClaudeCompletionOptions { SettingsPath = "/app/data/one-shot.json" }));
+
+        var argv = backend.BuildCompletionArgs(Ask("scorer"), []).ToList();
+
+        Assert.Equal("/app/data/one-shot.json", argv[argv.IndexOf("--settings") + 1]);
+        Assert.Single(argv, a => a == "--settings");
+        Assert.DoesNotContain("--settings", backend.BuildCompletionArgs(Ask("chat"), []));
+        Assert.Equal(TodaysArgv, Backend(("x", new ClaudeCompletionOptions { SettingsPath = "" }))
+            .BuildCompletionArgs(Ask("x"), []));
+    }
+
     [Theory]
     [InlineData("-x")]
     [InlineData("--settings")]

@@ -17,6 +17,13 @@ public sealed record ClaudeCompletionOptions
         init => field = value is null ? throw new ArgumentNullException(nameof(DisallowedTools)) : [.. value];
     } = [];
 
+    /// <summary><c>--settings</c>: a settings file the call is handed, as <see cref="ClaudeAgentOptions.SettingsPath"/>
+    /// hands one to an agent run. A command-line settings file outranks the project and local scopes and applies under
+    /// every <see cref="SettingSources"/> value, so settings a host needs on EVERY call reach its one-shot calls too —
+    /// <c>disableSkillShellExecution</c>, say, or a blanked <c>apiKeyHelper</c> a project file cannot re-enable. Null or
+    /// empty, the default, omits the flag.</summary>
+    public string? SettingsPath { get; init; }
+
     /// <summary><c>--setting-sources</c>: which of the CLI's sources the call loads — <c>user</c>, <c>project</c>,
     /// <c>local</c>. Null, the default, omits the flag and the CLI loads all three. Each source is more than its
     /// settings file: <c>project</c> is also the project <c>CLAUDE.md</c> — one in a PARENT of the working directory

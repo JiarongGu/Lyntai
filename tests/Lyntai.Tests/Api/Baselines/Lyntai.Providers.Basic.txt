@@ -79,6 +79,7 @@ sealed class Lyntai.Providers.ClaudeCli.ClaudeCompletionOptions
     Equals(Object obj) : Boolean
     GetHashCode() : Int32
     SettingSources : IReadOnlyList<String> { get; init; }
+    SettingsPath : String { get; init; }
     StrictMcpConfig : Boolean { get; init; }
     ToString() : String
 static class Lyntai.Providers.ClaudeCli.ClaudeToolCalls

@@ -15,21 +15,20 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 8 across 5 Parts: 4 startable, 2 blocked, 2 watch
+## Open items — 7 across 5 Parts: 3 startable, 2 blocked, 2 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 109 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a free Hugging Face account (an hf_ token) — its router proxies fal's own q… |
-| 156 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 179 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 235 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
-| 269 | 329 | Record an adopter's within-run measurement of D177's segmentation against i… | startable |  |
-| 303 | 329 | Let a segmented rerank call REPORT what it sent, so a deployment timing its… | startable |  |
-| 339 | 333 | Let a caller hand the one-shot CLI path a settings file, per consumer, as t… | startable |  |
-| 357 | 333 | Spawn one-shot calls from a directory the library owns, not the shared temp… | startable |  |
+| 108 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a free Hugging Face account (an hf_ token) — its router proxies fal's own q… |
+| 155 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 178 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 234 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 268 | 329 | Record an adopter's within-run measurement of D177's segmentation against i… | startable |  |
+| 302 | 329 | Let a segmented rerank call REPORT what it sent, so a deployment timing its… | startable |  |
+| 338 | 333 | Spawn one-shot calls from a directory the library owns, not the shared temp… | startable |  |
 
 <!-- open-items:end -->
 
@@ -336,24 +335,6 @@ _Reported by an adopting application. Checked against the tree at `v3.5.1` (`Cli
 (a `UserPromptSubmit` hook in `--settings` exiting 2, so no model call; the `system/init` event's `apiKeySource` and
 marker files read back)._
 
-- [ ] **Let a caller hand the one-shot CLI path a settings file, per consumer, as the agent path already can.** <!-- item: state=startable -->
-  `ClaudeAgentOptions.SettingsPath` gives an agent run a command-line `--settings` file, and a command-line settings
-  file outranks the project and local scopes. The completion path (`ClaudeArgs.Build`, the `ClaudeCliProvider` an
-  adopter uses for scorers, an LLM memory judge and untagged utility calls) has no equivalent, so settings an adopter
-  needs on EVERY claude call cannot reach those calls. Two it measured as load-bearing:
-  `disableSkillShellExecution: true` — without it a skill's or custom command's `` !`cmd` `` line runs its command as
-  prompt preprocessing, before any PreToolUse hook can see it (the hook was never called; with the setting, nothing
-  ran, and a project `.claude/settings.json` setting it `false` could not undo it — the CLI treats it as restrictive);
-  and blanking the key paths — `"apiKeyHelper": ""` plus the API-key, provider-selector and endpoint variables set to
-  `""` in `env` — without which a project `.claude/settings.json` with an `apiKeyHelper` RAN it at init and reported
-  `apiKeySource=apiKeyHelper`, and one with `ANTHROPIC_BASE_URL` sent the calls to that host; with the blanks,
-  `apiKeySource=none`, the helper did not run, the fake host got no request, and the subscription login still
-  answered. (`forceLoginMethod: "claudeai"` did not stop the helper.)
-  <br>Suggested: `SettingsPath` wherever the completion path takes per-consumer options (Part 330's shape, keyed like
-  `McpToolHostOptions.ToolsByConsumer`), emitted as `--settings <path>`; absent = today's argv, byte-identical. Tests:
-  the argv carries `--settings` when set, nothing when unset. **When this ships, the adopter passes the settings file it
-  already generates for its agent runs to its one-shot calls too, and deletes nothing** — it has no workaround for this
-  half today.
 - [ ] **Spawn one-shot calls from a directory the library owns, not the shared temp directory itself.** <!-- item: state=startable -->
   `CliProviderEngine.NeutralWorkingDirectory` is `Path.GetTempPath()` — the account's shared temp folder, writable by
   every process the user runs. The CLI loads its working directory's project scope on its own (a `-p` run reads a
