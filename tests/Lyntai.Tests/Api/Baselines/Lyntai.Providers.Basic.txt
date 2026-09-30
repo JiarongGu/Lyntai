@@ -30,8 +30,10 @@ sealed class Lyntai.Providers.ClaudeCli.ClaudeAgentOptions
     GetHashCode() : Int32
     McpConfigPath : String { get; init; }
     PrintMembers(StringBuilder builder) : Boolean
+    SettingSources : IReadOnlyList<String> { get; init; }
     SettingsPath : String { get; init; }
     SkipAllPermissions : Boolean { get; init; }
+    StrictMcpConfig : Boolean { get; init; }
     ToString() : String
 sealed class Lyntai.Providers.ClaudeCli.ClaudeAgentSession
     .ctor(IProcessRunner runner, LyntaiOptions options, ILogger<ClaudeAgentSession> logger = null, String command = null, IReadOnlyDictionary<String,String> environment = null)
@@ -76,6 +78,8 @@ sealed class Lyntai.Providers.ClaudeCli.ClaudeCompletionOptions
     Equals(ClaudeCompletionOptions other) : Boolean
     Equals(Object obj) : Boolean
     GetHashCode() : Int32
+    SettingSources : IReadOnlyList<String> { get; init; }
+    StrictMcpConfig : Boolean { get; init; }
     ToString() : String
 static class Lyntai.Providers.ClaudeCli.ClaudeToolCalls
     static FilePathOf(ToolCall call) : String

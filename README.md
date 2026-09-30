@@ -583,6 +583,10 @@ cfg.AddClaudeCliProvider(new ClaudeCliBackend
 });
 ```
 
+`SettingSources` and `StrictMcpConfig` scope what a call LOADS: `[]` loads no settings source — no project
+`CLAUDE.md`, even one in a parent directory, which the CLI walks up to — and strict MCP config starts no server from a
+project `.mcp.json`. `ClaudeAgentOptions` takes the same pair for an agent run.
+
 **Writing your own.** The rules every CLI-agent backend must get right — no shell, a neutral working
 directory, an *inactivity* clock, verdicts from the shared classifier, empty output as a failure, exactly one
 terminal stream chunk — live once, in `CliProviderEngine`, and a new CLI supplies only its vocabulary:

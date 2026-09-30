@@ -24,12 +24,42 @@ internal static class ClaudeArgs
             if (!denied.Contains(tool, StringComparer.Ordinal)) denied.Add(tool);
 
         var args = new List<string>(PrintMode) { "--disallowed-tools", string.Join(",", denied) };
+        AddScope(args, completion?.SettingSources, completion?.StrictMcpConfig == true);
         if (!string.IsNullOrEmpty(model))
         {
             args.Add("--model");
             args.Add(model);
         }
         return args;
+    }
+
+    /// <summary>What a spawn loads beyond what it is given — <c>--setting-sources</c> and <c>--strict-mcp-config</c>
+    /// — shared by the completion and agent paths so the two cannot drift. Nothing is added when neither is
+    /// set.</summary>
+    internal static void AddScope(List<string> args, IReadOnlyList<string>? settingSources, bool strictMcpConfig)
+    {
+        if (settingSources is not null)
+        {
+            args.Add("--setting-sources");
+            args.Add(string.Join(",", settingSources));   // an EMPTY list is an empty value: load no source
+        }
+        if (strictMcpConfig) args.Add("--strict-mcp-config");
+    }
+
+    /// <summary>A <c>SettingSources</c> list, copied — or refused where an entry is one the CLI would misread: null,
+    /// empty, holding a comma or whitespace (the value is ONE comma-joined token), or flag-shaped. An unknown NAME is
+    /// the CLI's to refuse, and it does before any turn.</summary>
+    /// <exception cref="ArgumentException">An entry the CLI would misread.</exception>
+    internal static IReadOnlyList<string>? CheckSettingSources(IReadOnlyList<string>? sources, string name)
+    {
+        if (sources is null) return null;
+        foreach (var source in sources)
+            if (string.IsNullOrEmpty(source) || source.StartsWith('-')
+                || source.Any(c => c == ',' || char.IsWhiteSpace(c)))
+                throw new ArgumentException(
+                    $"'{source}' is not a setting source the CLI can be handed: one name each (user, project, local), "
+                    + "never empty, flag-shaped, or holding a comma or whitespace.", name);
+        return [.. sources];
     }
 
     // The PROMPT is not built here: flattening a message list into one blob of text is the same for every

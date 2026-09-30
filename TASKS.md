@@ -15,22 +15,21 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 9 across 6 Parts: 5 startable, 2 blocked, 2 watch
+## Open items — 8 across 5 Parts: 4 startable, 2 blocked, 2 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 110 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a free Hugging Face account (an hf_ token) — its router proxies fal's own q… |
-| 157 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 180 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 236 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
-| 270 | 329 | Record an adopter's within-run measurement of D177's segmentation against i… | startable |  |
-| 304 | 329 | Let a segmented rerank call REPORT what it sent, so a deployment timing its… | startable |  |
-| 340 | 332 | Add a `--setting-sources` seam and a `--strict-mcp-config` switch to `Claud… | startable |  |
-| 384 | 333 | Let a caller hand the one-shot CLI path a settings file, per consumer, as t… | startable |  |
-| 402 | 333 | Spawn one-shot calls from a directory the library owns, not the shared temp… | startable |  |
+| 109 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a free Hugging Face account (an hf_ token) — its router proxies fal's own q… |
+| 156 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 179 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 235 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 269 | 329 | Record an adopter's within-run measurement of D177's segmentation against i… | startable |  |
+| 303 | 329 | Let a segmented rerank call REPORT what it sent, so a deployment timing its… | startable |  |
+| 339 | 333 | Let a caller hand the one-shot CLI path a settings file, per consumer, as t… | startable |  |
+| 357 | 333 | Spawn one-shot calls from a directory the library owns, not the shared temp… | startable |  |
 
 <!-- open-items:end -->
 
@@ -330,50 +329,6 @@ Checked against the tree at `v3.5.1` (HEAD changes nothing under `src/` since) w
   is learning, after the call. Tests: a segmented call's `Usage` carries the wire's count, and a reply without
   `usage` leaves it null.
 
-## Part 332 — an agent run cannot tell the claude CLI which settings files to load (2026-09-28)
-
-_Reported by an adopting application. Checked against the tree at `v3.5.1` (`ClaudeAgentOptions.cs`,
-`ClaudeAgentArgs.cs`, `ClaudeArgs.cs`, `CliCommand.cs`). Both flags VERIFIED by that adopter against the installed CLI
-2.1.283 at 0 tokens, the same day (a `UserPromptSubmit` hook in `--settings` exiting 2, so no model call; marker files,
-the `system/init` event and an `InstructionsLoaded` log read back)._
-
-- [ ] **Add a `--setting-sources` seam and a `--strict-mcp-config` switch to `ClaudeAgentOptions` (and the one-shot path).** <!-- item: state=startable -->
-  A `-p` run loads its working directory's settings files on its own and executes their hooks, and connects the
-  servers of a project `.mcp.json`, before any caller-side decision. Where that directory is also used INTERACTIVELY,
-  those files are a person's own — Claude Code saves a permission they approve into `.claude/settings.local.json` — <!-- link-ok: the claude CLI's per-directory file, not this repository's -->
-  so a rule like `Bash(rm:*)` they approved for themselves applies to the caller's agent too. `ClaudeAgentArgs` can
-  emit neither flag, `AgentSessionOptions` carries no pass-through arguments, and `ClaudeArgs` (the one-shot path)
-  has the same gap.
-  <br>**What the CLI does, measured** (2.1.283; `claude --help`: `--setting-sources <sources>` "Comma-separated list
-  of setting sources to load (user, project, local)", `--strict-mcp-config` "Only use MCP servers from --mcp-config,
-  ignoring all other MCP configurations"):
-  `--strict-mcp-config` — a project `.mcp.json` stdio server is not started, a `--mcp-config` server still is.
-  `--setting-sources` scopes whole SOURCES, and each source is more than its settings file: `project` is also the
-  project `CLAUDE.md`, `.claude/rules`, skills, agents and slash commands (with `user` alone every one of them was
-  gone, and the project `.mcp.json` too); `local` is `settings.local.json` AND `CLAUDE.local.md`; `user` is the
-  config directory's settings, hooks, skills and `CLAUDE.md`. With `project`, the user and local hooks did not run and
-  the local deny rule did not apply, while the project's did. A command-line `--settings` applies under every value —
-  its hooks ran and its deny rule held — and the login does not depend on the sources (`auth status` under both
-  flags reports the same account). Flags placed BEFORE `-p` (as prefix arguments land) are honoured.
-  <br>**So the useful value for an agent that runs on a project knowledge base is `project`, not `user`**: the
-  project scope cannot be dropped without the knowledge base, which leaves a project `.claude/settings.json` read —
-  the caller's residual to state, not the library's to close. The CLI has no way to load a project's `CLAUDE.md`,
-  rules and skills without its `settings.json`; if that matters, it is a CLI request, not this item.
-  <br>**Why an adopter feels it, and what it does meanwhile.** One adopter now composes its command variable
-  (`LYNTAI_PROVIDER_CMD`) as the resolved CLI plus `--setting-sources project --strict-mcp-config`, relying on
-  `CliCommand.Resolve` turning the extra tokens into prefix arguments that both `ClaudeAgentSession` and the one-shot
-  provider put ahead of their own — recorded as a workaround in its `.claude/rules/dev-conventions.md` (the jail <!-- link-ok: a file in the ADOPTER's repository, not this one -->
-  bullets, item (7)) with this Part named. It works, and it is fragile: it rides the command's tokenisation (paths
-  must be double-quoted), it applies to every call the process makes rather than per run, and an operator's own
-  `LYNTAI_PROVIDER_CMD` has to be composed rather than replaced. (It first moved the three files out of the directory
-  around every run instead — removing the person's own interactive config, which is why it changed.)
-  <br>Suggested: `IReadOnlyList<string>? SettingSources` (null = the CLI's default, byte-identical argv) and
-  `bool StrictMcpConfig` on `ClaudeAgentOptions`, emitted by `ClaudeAgentArgs.TryBuild`; the same pair wherever the
-  completion path takes per-consumer options (Part 330). Tests: argv carries `--setting-sources project` /
-  `--strict-mcp-config` when set, and nothing when unset. **When this ships, the adopter sets `SettingSources =
-  ["project"]` and `StrictMcpConfig = true` on its runs and deletes its command composition** (it keeps its own
-  run-scoped undo of a run that edits those files, which is its policy, not a library gap).
-
 ## Part 333 — a one-shot CLI call takes no settings file, and its neutral cwd is the shared temp directory (2026-09-29)
 
 _Reported by an adopting application. Checked against the tree at `v3.5.1` (`CliProviderEngine.cs`, `ClaudeArgs.cs`,
@@ -412,6 +367,14 @@ marker files read back)._
   `LyntaiOptions` override for adopters that want their own; and a test that the completion runner's working
   directory is not `Path.GetTempPath()` itself. The first item closes the settings half regardless; this one closes
   the instructions half (`CLAUDE.md`), which no settings file can.
+  <br>**MEASURED 2026-09-30, and the last sentence is WRONG** (claude 2.1.285, 0 tokens: a scratch
+  `CLAUDE_CONFIG_DIR` with no credentials, a `UserPromptSubmit` hook exiting 2, an `InstructionsLoaded` hook
+  logging each file). From a cwd one level BELOW a directory holding both files, the parent's `CLAUDE.md` loaded
+  (`memory_type: Project`) and the parent's `.claude/settings.json` hook did NOT run; from the parent itself both did.
+  So `CLAUDE.md` WALKS UP and project settings do not: a temp SUBDIRECTORY closes the settings half and still loads
+  `%TEMP%\CLAUDE.md`. What closed the instructions half was `--setting-sources` without `project` — `""`, `user` or
+  `local` each left the walked-up file unloaded, and `""` is accepted and loads no source at all (`--settings` still
+  applies) — which is Part 332's flag on the one-shot path.
 
 ## Retired — five Parts that outlived their open work (2026-09-16)
 

@@ -91,6 +91,43 @@ public class ClaudeCompletionOptionsTests
     }
 
     [Fact]
+    public void Setting_sources_and_strict_mcp_config_are_emitted_only_when_set()
+    {
+        var backend = Backend(
+            ("scorer", new ClaudeCompletionOptions { SettingSources = ["project"], StrictMcpConfig = true }),
+            ("judge", new ClaudeCompletionOptions { SettingSources = ["user", "local"] }),
+            ("bare", new ClaudeCompletionOptions { SettingSources = [] }));
+
+        var scorer = backend.BuildCompletionArgs(Ask("scorer"), []).ToList();
+        Assert.Equal("project", scorer[scorer.IndexOf("--setting-sources") + 1]);
+        Assert.Contains("--strict-mcp-config", scorer);
+
+        var judge = backend.BuildCompletionArgs(Ask("judge"), []).ToList();
+        Assert.Equal("user,local", judge[judge.IndexOf("--setting-sources") + 1]);
+        Assert.DoesNotContain("--strict-mcp-config", judge);
+
+        // measured: an EMPTY value is accepted and loads no source at all, a command-line settings file excepted
+        var bare = backend.BuildCompletionArgs(Ask("bare"), []).ToList();
+        Assert.Equal("", bare[bare.IndexOf("--setting-sources") + 1]);
+
+        Assert.Equal(TodaysArgv, Backend(("x", new ClaudeCompletionOptions())).BuildCompletionArgs(Ask("x"), []));
+    }
+
+    [Theory]
+    [InlineData("-x")]
+    [InlineData("--settings")]
+    [InlineData("project,user")]
+    [InlineData("pro ject")]
+    [InlineData("")]
+    public void A_setting_source_the_CLI_would_misread_is_refused_when_set(string source) =>
+        Assert.Throws<ArgumentException>(() => new ClaudeCompletionOptions { SettingSources = [source] });
+
+    [Fact]
+    public void An_unknown_source_NAME_is_left_to_the_CLI_which_refuses_it_before_any_turn() =>
+        // measured on 2.1.285: "Invalid setting source: projcet. Valid options are: user, project, local", exit 1
+        Assert.Equal(["projcet"], new ClaudeCompletionOptions { SettingSources = ["projcet"] }.SettingSources!);
+
+    [Fact]
     public async Task The_provider_spawns_each_call_with_ITS_consumers_options()
     {
         var runner = new FakeProcessRunner { RunResult = FakeProcessRunner.Ok("""{"type":"result","result":"ok"}""") };

@@ -23,4 +23,18 @@ public sealed record ClaudeAgentOptions : AgentSessionOptions
     /// — bypassing prompts is not the same as un-denying an explicitly denied tool. Leave false unless you
     /// truly want no gate.</summary>
     public bool SkipAllPermissions { get; init; }
+
+    /// <inheritdoc cref="ClaudeCompletionOptions.SettingSources"/>
+    /// <remarks>An agent over a project knowledge base wants <c>["project"]</c>, not <c>["user"]</c>: the project
+    /// source is the knowledge base's own <c>CLAUDE.md</c>, rules and skills, and keeping it keeps its
+    /// <c>.claude/settings.json</c> too — the caller's residual, since the CLI has no way to load one without the
+    /// other. <c>local</c> is where a person's own approved permissions are saved.</remarks>
+    public IReadOnlyList<string>? SettingSources
+    {
+        get;
+        init => field = ClaudeArgs.CheckSettingSources(value, nameof(SettingSources));
+    }
+
+    /// <inheritdoc cref="ClaudeCompletionOptions.StrictMcpConfig"/>
+    public bool StrictMcpConfig { get; init; }
 }

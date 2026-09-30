@@ -108,6 +108,7 @@ internal static class ClaudeAgentArgs
                 args.Add("--settings");
                 args.Add(c.SettingsPath);
             }
+            ClaudeArgs.AddScope(args, c.SettingSources, c.StrictMcpConfig);
             if (!bypass && c.AllowedTools.Count > 0)
             {
                 args.Add("--allowedTools");

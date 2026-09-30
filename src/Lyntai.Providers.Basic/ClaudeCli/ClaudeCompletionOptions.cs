@@ -16,4 +16,22 @@ public sealed record ClaudeCompletionOptions
         get;
         init => field = value is null ? throw new ArgumentNullException(nameof(DisallowedTools)) : [.. value];
     } = [];
+
+    /// <summary><c>--setting-sources</c>: which of the CLI's sources the call loads — <c>user</c>, <c>project</c>,
+    /// <c>local</c>. Null, the default, omits the flag and the CLI loads all three. Each source is more than its
+    /// settings file: <c>project</c> is also the project <c>CLAUDE.md</c> — one in a PARENT of the working directory
+    /// too, since the CLI walks up for it — with its rules, skills and <c>.mcp.json</c>. An EMPTY list loads no source;
+    /// a command-line settings file applies under every value. An unknown name is the CLI's to refuse, which it does
+    /// before any turn. Copied when set.</summary>
+    /// <exception cref="ArgumentException">An entry is null, empty, flag-shaped, or holds a comma or
+    /// whitespace.</exception>
+    public IReadOnlyList<string>? SettingSources
+    {
+        get;
+        init => field = ClaudeArgs.CheckSettingSources(value, nameof(SettingSources));
+    }
+
+    /// <summary><c>--strict-mcp-config</c>: start only the MCP servers the call is handed — a tool host's included —
+    /// and none from a project <c>.mcp.json</c>. False, the default, omits the flag.</summary>
+    public bool StrictMcpConfig { get; init; }
 }

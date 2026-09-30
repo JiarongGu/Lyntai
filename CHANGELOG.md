@@ -32,6 +32,10 @@ every addition.
   denied. Handed over as `new ClaudeCliBackend { CompletionByConsumer = … }` through new `AddClaudeCliProvider` and
   `ClaudeCliProvider` overloads, so a scorer or a memory judge can run with no shell where only the agent path
   could deny tools before. With no entry the argv is byte-identical.
+- **`--setting-sources` and `--strict-mcp-config` on both claude paths**: `SettingSources` and `StrictMcpConfig` on
+  `ClaudeAgentOptions` and on `ClaudeCompletionOptions`, so a run or a consumer's one-shot calls choose which of the
+  CLI's user, project and local sources load — an empty list loads none, and no project `CLAUDE.md` then, not even
+  one in a parent directory — and start no MCP server from a project `.mcp.json`. Unset, the argv is unchanged.
 
 ### Changed
 

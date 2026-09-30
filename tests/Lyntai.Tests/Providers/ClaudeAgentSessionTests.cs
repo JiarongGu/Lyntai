@@ -403,6 +403,23 @@ public class ClaudeAgentSessionTests
     }
 
     [Fact]
+    public void Build_emits_setting_sources_and_strict_mcp_config_only_when_set()
+    {
+        var set = Args(new ClaudeAgentOptions { Prompt = "hi", SettingSources = ["project"], StrictMcpConfig = true })
+            .ToList();
+        var unset = Args(new ClaudeAgentOptions { Prompt = "hi" }).ToList();
+
+        Assert.Equal("project", set[set.IndexOf("--setting-sources") + 1]);
+        Assert.Contains("--strict-mcp-config", set);
+        Assert.DoesNotContain("--setting-sources", unset);
+        Assert.DoesNotContain("--strict-mcp-config", unset);
+    }
+
+    [Fact]
+    public void A_flag_shaped_setting_source_is_refused_when_the_options_are_built() =>
+        Assert.Throws<ArgumentException>(() => new ClaudeAgentOptions { Prompt = "hi", SettingSources = ["--settings"] });
+
+    [Fact]
     public void Build_without_skip_all_permissions_does_not_emit_dangerous_flag()
     {
         var opts = new ClaudeAgentOptions { Prompt = "hi", ToolPolicy = AgentToolPolicy.Write };

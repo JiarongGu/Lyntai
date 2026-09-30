@@ -5400,3 +5400,15 @@ paragraph of **D190**; `README.md` §CLI backends carries the sample. Eight `Cla
 byte-identical argv among them; the agent path is untouched.
 
 - Let a caller narrow a one-shot CLI call's disallowed tools per consumer, as D190 did for the tool host
+
+## Part 337 — which settings sources a claude spawn loads (2026-09-30)
+
+✅ done 2026-09-30 — **Outcome:** `TASKS.md` Part 332's one item, from an adopter composing
+`--setting-sources project --strict-mcp-config` into its command variable. `ClaudeAgentOptions` and
+`ClaudeCompletionOptions` gain `SettingSources` and `StrictMcpConfig`, emitted through one `ClaudeArgs.AddScope`,
+so the adopter can drop its command composition. **Measured on claude 2.1.285 at 0 tokens** (scratch config dir, a
+blocking `UserPromptSubmit` hook): an empty list is accepted and loads no source, and an unknown name exits 1
+("Invalid setting source") before any turn — so the library refuses only an entry the CLI would misread, and
+leaves names to the CLI. The rule is a paragraph of **D190**; `README.md` §CLI backends names the pair.
+
+- Add a `--setting-sources` seam and a `--strict-mcp-config` switch to `ClaudeAgentOptions` (and the one-shot path)
