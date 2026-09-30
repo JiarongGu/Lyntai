@@ -494,7 +494,7 @@ public class CodexCliProviderTests
         services.AddSingleton<IProcessRunner>(runner);   // BYO, registered before AddLyntai's TryAdd
         services.AddLyntai(cfg => cfg.AddCodexCliProvider(
             command: StubCommand,
-            environment: new Dictionary<string, string> { ["CODEX_HOME"] = "portable/home" }));
+            environment: new Dictionary<string, string?> { ["CODEX_HOME"] = "portable/home" }));
         using var sp = services.BuildServiceProvider();
 
         var provider = sp.GetServices<IModelProvider>().Single(p => p.Id == CodexCliProvider.ProviderId);

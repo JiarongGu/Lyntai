@@ -443,7 +443,7 @@ public class ClaudeAgentSessionTests
     {
         var runner = new FakeProcessRunner(FullTranscript);
         var session = new ClaudeAgentSession(runner, new LyntaiOptions(), command: "claude",
-            environment: new Dictionary<string, string> { ["CLAUDE_CONFIG_DIR"] = "portable/config" });
+            environment: new Dictionary<string, string?> { ["CLAUDE_CONFIG_DIR"] = "portable/config" });
 
         await session.StreamAsync(new AgentSessionOptions { Prompt = "hi" }).ToListAsync();
 

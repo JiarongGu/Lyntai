@@ -5,6 +5,10 @@ namespace Lyntai.Processes;
 /// applies the family's spawn hygiene; register your own implementation (before <c>AddLyntai</c>, or
 /// via <c>services.AddSingleton&lt;IProcessRunner&gt;(...)</c>) to own how child processes are launched —
 /// sandboxing, a custom shell, remote/audited execution, resource limits, etc.
+/// <para><b>Every member's <c>environment</c> applies on top of the environment the child inherits</b>: a value
+/// sets that variable, and a NULL value REMOVES one the host process holds — an empty string would leave it
+/// set, and a CLI may read a set variable as present. <c>ProcessStartInfo.Environment</c>'s own convention, so
+/// a runner copying the entries into it removes as the shipped one does.</para>
 /// </summary>
 public interface IProcessRunner
 {
@@ -23,7 +27,7 @@ public interface IProcessRunner
         TimeSpan? inactivityTimeout = null,
         TimeSpan? maxDuration = null,
         string? workingDirectory = null,
-        IReadOnlyDictionary<string, string>? environment = null,
+        IReadOnlyDictionary<string, string?>? environment = null,
         CancellationToken ct = default);
 
     /// <summary>Streamed run: yields stdout lines as they arrive. <paramref name="inactivityTimeout"/> is
@@ -39,7 +43,7 @@ public interface IProcessRunner
         TimeSpan? inactivityTimeout = null,
         TimeSpan? maxDuration = null,
         string? workingDirectory = null,
-        IReadOnlyDictionary<string, string>? environment = null,
+        IReadOnlyDictionary<string, string?>? environment = null,
         CancellationToken ct = default);
 
     /// <summary>Streamed BINARY run: yields stdout as raw byte chunks as they arrive, for a child whose
@@ -58,7 +62,7 @@ public interface IProcessRunner
         TimeSpan? inactivityTimeout = null,
         TimeSpan? maxDuration = null,
         string? workingDirectory = null,
-        IReadOnlyDictionary<string, string>? environment = null,
+        IReadOnlyDictionary<string, string?>? environment = null,
         CancellationToken ct = default) =>
         throw new NotSupportedException(
             $"this IProcessRunner does not implement {nameof(StreamBytesAsync)} — binary stdout cannot be "

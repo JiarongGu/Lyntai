@@ -27,6 +27,17 @@ every addition.
   router, where it used to become a failed call on every turn. A runner that does not answer stays optimistic,
   exactly as every BYO runner was.
 
+### Changed
+
+- **A null value in a spawn's `environment` REMOVES a variable the host process holds** (**D22**), so a host can
+  keep an inherited API key or endpoint out of one CLI it spawns without stripping its whole process. The values
+  are now annotated `string?` on `IProcessRunner`, `CliProviderEngine`, both CLI providers and agent sessions and
+  their four `Add*` registrations. An empty string still sets the variable empty, which a CLI may read as present.
+  <br>**Not a signature change** (nullability annotations only), so nothing rebinds. **What to DO:** a caller
+  passing a `Dictionary<string, string>` sees **CS8620** until it types the values `string?`, and a BYO
+  `IProcessRunner` declaring `string` values sees **CS8614** until it annotates them; a runner copying the entries
+  into `ProcessStartInfo.Environment` already removes a null one.
+
 ## 3.5.1 — 2026-09-26
 
 ### Changed

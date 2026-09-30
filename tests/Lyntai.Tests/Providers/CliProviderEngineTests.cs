@@ -344,12 +344,12 @@ public class CliProviderEngineTests
     {
         public Task<ProcessResult> RunAsync(string command, IReadOnlyList<string> args, string? stdin = null,
             TimeSpan? inactivityTimeout = null, TimeSpan? maxDuration = null, string? workingDirectory = null,
-            IReadOnlyDictionary<string, string>? environment = null, CancellationToken ct = default) =>
+            IReadOnlyDictionary<string, string?>? environment = null, CancellationToken ct = default) =>
             inner.RunAsync(command, args, stdin, inactivityTimeout, maxDuration, workingDirectory, environment, ct);
 
         public IAsyncEnumerable<string> StreamLinesAsync(string command, IReadOnlyList<string> args,
             string? stdin = null, TimeSpan? inactivityTimeout = null, TimeSpan? maxDuration = null,
-            string? workingDirectory = null, IReadOnlyDictionary<string, string>? environment = null,
+            string? workingDirectory = null, IReadOnlyDictionary<string, string?>? environment = null,
             CancellationToken ct = default) =>
             inner.StreamLinesAsync(command, args, stdin, inactivityTimeout, maxDuration, workingDirectory, environment, ct);
 
@@ -362,12 +362,12 @@ public class CliProviderEngineTests
 
         public Task<ProcessResult> RunAsync(string command, IReadOnlyList<string> args, string? stdin = null,
             TimeSpan? inactivityTimeout = null, TimeSpan? maxDuration = null, string? workingDirectory = null,
-            IReadOnlyDictionary<string, string>? environment = null, CancellationToken ct = default) =>
+            IReadOnlyDictionary<string, string?>? environment = null, CancellationToken ct = default) =>
             throw new NotSupportedException();
 
         public IAsyncEnumerable<string> StreamLinesAsync(string command, IReadOnlyList<string> args,
             string? stdin = null, TimeSpan? inactivityTimeout = null, TimeSpan? maxDuration = null,
-            string? workingDirectory = null, IReadOnlyDictionary<string, string>? environment = null,
+            string? workingDirectory = null, IReadOnlyDictionary<string, string?>? environment = null,
             CancellationToken ct = default) =>
             throw new NotSupportedException();
 
@@ -383,7 +383,7 @@ public class CliProviderEngineTests
     {
         // a self-contained portable install needs its own home/config dir (codex reads CODEX_HOME) — and it
         // must apply to the maintenance spawns too, or a probe/auth check would read the GLOBAL install's state
-        var env = new Dictionary<string, string> { ["MYCLI_HOME"] = "/portable/home" };
+        var env = new Dictionary<string, string?> { ["MYCLI_HOME"] = "/portable/home" };
         var runner = new FakeProcessRunner { RunResult = Ok("result:hi") };
         var engine = new CliProviderEngine(new FakeCliBackend(), runner, new LyntaiOptions(),
             command: "mycli", environment: env);

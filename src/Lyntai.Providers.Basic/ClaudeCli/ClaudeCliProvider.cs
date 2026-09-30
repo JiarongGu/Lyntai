@@ -36,7 +36,8 @@ public sealed class ClaudeCliProvider : IModelProvider, IProviderUpdater,
     /// <param name="provisioner">Optional MCP tool host for this provider.</param>
     /// <param name="environment">Extra environment variables for every spawn — a portable install usually
     /// wants its own <c>CLAUDE_CONFIG_DIR</c> so it neither reads nor mutates the machine-wide install's
-    /// state (the maintenance seams honour it too, so a probe/auth check reports the PORTABLE state).</param>
+    /// state (the maintenance seams honour it too, so a probe/auth check reports the PORTABLE state). A null value
+    /// REMOVES a variable the host process holds (an inherited API key, say) from the child.</param>
     /// <param name="id">The router-facing id; <see cref="ProviderId"/> by default. Give a second registration
     /// — a second portable install, a second account — its own, or the first-wins router never reaches it.</param>
     public ClaudeCliProvider(
@@ -45,7 +46,7 @@ public sealed class ClaudeCliProvider : IModelProvider, IProviderUpdater,
         ILogger<ClaudeCliProvider>? logger = null,
         string? command = null,
         ICliToolProvisioner? provisioner = null,
-        IReadOnlyDictionary<string, string>? environment = null,
+        IReadOnlyDictionary<string, string?>? environment = null,
         string id = ProviderId)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(id);

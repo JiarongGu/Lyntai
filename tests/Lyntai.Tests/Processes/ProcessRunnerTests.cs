@@ -425,6 +425,38 @@ public class ProcessRunnerTests
         Assert.Equal(expected, result.StdOut.Trim().TrimEnd(Path.DirectorySeparatorChar), ignoreCase: true);
     }
 
+    [Fact]
+    public async Task A_null_environment_value_REMOVES_a_variable_the_host_process_holds()
+    {
+        // a host keeping an inherited API key out of ONE spawn must not have to strip it from its whole process
+        var inherited = $"LYNTAI_TEST_INHERITED_{Guid.NewGuid():N}";
+        Environment.SetEnvironmentVariable(inherited, "from-host");
+        try
+        {
+            const string echo = "console.log(JSON.stringify([process.env[process.argv[1]] ?? '<absent>', " +
+                "process.env.LYNTAI_TEST_SET ?? '<absent>', process.env.LYNTAI_TEST_EMPTY ?? '<absent>']))";
+
+            // the positive control: without the null entry the child DOES inherit it, so its absence below is
+            // the removal and not a variable that never reached a child at all
+            var untouched = await _runner.RunAsync("node", ["-e", echo, inherited]);
+            var narrowed = await _runner.RunAsync("node", ["-e", echo, inherited],
+                environment: new Dictionary<string, string?>
+                {
+                    [inherited] = null,
+                    ["LYNTAI_TEST_SET"] = "set",
+                    ["LYNTAI_TEST_EMPTY"] = "",
+                });
+
+            Assert.Equal("""["from-host","<absent>","<absent>"]""", untouched.StdOut.Trim());
+            // removed, set, and set EMPTY — which a CLI may still read as present, the reason null exists
+            Assert.Equal("""["<absent>","set",""]""", narrowed.StdOut.Trim());
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(inherited, null);
+        }
+    }
+
     [SkippableFact]
     public async Task Runs_a_powershell_ps1_launcher_shim()
     {
@@ -575,12 +607,12 @@ public class ProcessRunnerTests
     {
         public Task<ProcessResult> RunAsync(string command, IReadOnlyList<string> args, string? stdin = null,
             TimeSpan? inactivityTimeout = null, TimeSpan? maxDuration = null, string? workingDirectory = null,
-            IReadOnlyDictionary<string, string>? environment = null, CancellationToken ct = default) =>
+            IReadOnlyDictionary<string, string?>? environment = null, CancellationToken ct = default) =>
             Task.FromResult(new ProcessResult(0, "", ""));
 
         public async IAsyncEnumerable<string> StreamLinesAsync(string command, IReadOnlyList<string> args,
             string? stdin = null, TimeSpan? inactivityTimeout = null, TimeSpan? maxDuration = null,
-            string? workingDirectory = null, IReadOnlyDictionary<string, string>? environment = null,
+            string? workingDirectory = null, IReadOnlyDictionary<string, string?>? environment = null,
             [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct = default)
         {
             await Task.CompletedTask;

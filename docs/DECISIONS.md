@@ -595,6 +595,13 @@ most of them cannot answer.
 runtime, cannot express that through process-wide state. **Per-spawn environment comes with it**, because a
 bundled CLI almost always needs its own home or config directory rather than the machine's.
 
+**A null value REMOVES an inherited variable**, so a host keeps an API key or an endpoint it holds out of one
+spawn without stripping its whole process. It is `ProcessStartInfo.Environment`'s own convention, so the values
+are annotated `string?` on every seam that carries them — an annotation, not a signature: nothing rebinds, and a
+caller passing a `string`-valued dictionary sees CS8620. Rejected: a wrapper type carrying a removal set, which
+the one merge on this path and any BYO runner copying the entries would drop silently; and a separate list of
+names, which every `IProcessRunner` member would need as a new parameter.
+
 ## D23 — 2.0.0 is BURNED on nuget.org; the 2.x line resumed at 2.0.1 (2026-08-04)
 2.0.0 was published and then unlisted on ten of the twelve package ids, and an unlisted version's number is
 never freed. Cutting 2.0.0 again would report success while `--skip-duplicate` published nothing for those

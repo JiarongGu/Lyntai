@@ -36,7 +36,8 @@ public sealed class CodexCliProvider : IModelProvider, IProviderUpdater, IProvid
     /// rather than a global install (quote a path with spaces). Wins over the env seams.</param>
     /// <param name="provisioner">Optional MCP tool host for this provider.</param>
     /// <param name="environment">Extra environment variables for every spawn — a portable install usually
-    /// wants its own <c>CODEX_HOME</c> so it neither reads nor mutates the machine-wide install's state.</param>
+    /// wants its own <c>CODEX_HOME</c> so it neither reads nor mutates the machine-wide install's state. A null value
+    /// REMOVES a variable the host process holds (an inherited API key, say) from the child.</param>
     /// <param name="backend">A pre-configured backend, to change codex-specific behaviour such as
     /// <see cref="CodexCliBackend.SandboxMode"/>. Defaults to a read-only sandbox.</param>
     /// <param name="id">The router-facing id; <see cref="ProviderId"/> by default. Give a second registration
@@ -47,7 +48,7 @@ public sealed class CodexCliProvider : IModelProvider, IProviderUpdater, IProvid
         ILogger<CodexCliProvider>? logger = null,
         string? command = null,
         ICliToolProvisioner? provisioner = null,
-        IReadOnlyDictionary<string, string>? environment = null,
+        IReadOnlyDictionary<string, string?>? environment = null,
         CodexCliBackend? backend = null,
         string id = ProviderId)
     {

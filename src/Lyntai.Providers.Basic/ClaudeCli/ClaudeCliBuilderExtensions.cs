@@ -23,14 +23,15 @@ public static class ClaudeCliBuilderExtensions
     /// instead of a global one (quote a path with spaces). Read this from your own configuration and pass it
     /// here — no process-wide environment variable needed.</param>
     /// <param name="environment">Extra environment variables for every spawn; a portable install usually
-    /// wants its own <c>CLAUDE_CONFIG_DIR</c> so it neither reads nor mutates the machine-wide install's state.</param>
+    /// wants its own <c>CLAUDE_CONFIG_DIR</c> so it neither reads nor mutates the machine-wide install's state. A
+    /// null value REMOVES a variable the host process holds (an inherited API key, say) from the child.</param>
     /// <param name="id">The router-facing id. Two registrations — two portable installs, two accounts — need
     /// distinct ids, or the first-wins router never reaches the second. The tool provisioner keyed on this id
     /// is preferred, then the one keyed on "claude-cli", then an unkeyed one.</param>
     public static LyntaiBuilder AddClaudeCliProvider(
         this LyntaiBuilder builder,
         string? command = null,
-        IReadOnlyDictionary<string, string>? environment = null,
+        IReadOnlyDictionary<string, string?>? environment = null,
         string id = ClaudeCliProvider.ProviderId)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(id);
@@ -60,10 +61,11 @@ public static class ClaudeCliBuilderExtensions
     /// completions and agent sessions alike.</param>
     /// <param name="environment">Extra environment variables for every spawn — again, pass the SAME value
     /// here as to <see cref="AddClaudeCliProvider"/>: a portable install usually wants its own
-    /// <c>CLAUDE_CONFIG_DIR</c> so it neither reads nor mutates the machine-wide install's state.</param>
+    /// <c>CLAUDE_CONFIG_DIR</c> so it neither reads nor mutates the machine-wide install's state. A null value
+    /// REMOVES a variable the host process holds (an inherited API key, say) from the child.</param>
     /// <param name="id">The key the session is registered under; "claude-cli" by default.</param>
     public static LyntaiBuilder AddClaudeCliAgentSession(this LyntaiBuilder builder, string? command = null,
-        IReadOnlyDictionary<string, string>? environment = null, string id = ClaudeCliProvider.ProviderId)
+        IReadOnlyDictionary<string, string?>? environment = null, string id = ClaudeCliProvider.ProviderId)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(id);
         builder.Services.AddSingleton<IAgentSession>(sp => CreateSession(sp, command, environment));
@@ -72,7 +74,7 @@ public static class ClaudeCliBuilderExtensions
     }
 
     private static ClaudeAgentSession CreateSession(IServiceProvider sp, string? command,
-        IReadOnlyDictionary<string, string>? environment) =>
+        IReadOnlyDictionary<string, string?>? environment) =>
         new(sp.GetRequiredService<IProcessRunner>(),
             sp.GetRequiredService<LyntaiOptions>(),
             sp.GetService<ILogger<ClaudeAgentSession>>(),

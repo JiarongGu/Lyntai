@@ -42,7 +42,7 @@ internal static class CliAgentLoop
     /// <param name="ct">Cancels the turn and kills the process tree.</param>
     public static async IAsyncEnumerable<AgentStreamEvent> RunAsync(
         IProcessRunner runner, string exe, IReadOnlyList<string> argv, string stdin, TimeSpan timeout,
-        AgentSessionOptions options, IReadOnlyDictionary<string, string>? environment,
+        AgentSessionOptions options, IReadOnlyDictionary<string, string?>? environment,
         Func<string, IReadOnlyList<AgentStreamEvent>> read, ILogger logger, string backend,
         [EnumeratorCancellation] CancellationToken ct)
     {

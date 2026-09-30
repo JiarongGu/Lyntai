@@ -48,7 +48,8 @@ namespace Lyntai.Inference.Cli;
 /// alike). The other half of portable support: a bundled CLI usually needs its own home/config directory
 /// (<c>CODEX_HOME</c>, <c>CLAUDE_CONFIG_DIR</c>) so it doesn't read — or mutate — the machine-wide install's
 /// state. Applies to the maintenance spawns too, so a probe/auth check reports the PORTABLE install's state
-/// rather than the global one's.</param>
+/// rather than the global one's. A null value REMOVES a variable the host process holds (an inherited API key, say)
+/// from the child.</param>
 public sealed class CliProviderEngine(
     ICliBackend backend,
     IProcessRunner runner,
@@ -56,7 +57,7 @@ public sealed class CliProviderEngine(
     ILogger? logger = null,
     string? command = null,
     ICliToolProvisioner? provisioner = null,
-    IReadOnlyDictionary<string, string>? environment = null)
+    IReadOnlyDictionary<string, string?>? environment = null)
 {
     /// <summary>Design §6 CLI hygiene: spawn from a NEUTRAL cwd — never the host app's inherited working
     /// directory, whose project config (agent instructions, hooks, memory) a CLI would otherwise load into

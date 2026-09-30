@@ -41,7 +41,7 @@ public sealed class CodexAgentSession : IAgentSession
     private readonly LyntaiOptions _options;
     private readonly ILogger _logger;
     private readonly string? _command;
-    private readonly IReadOnlyDictionary<string, string>? _environment;
+    private readonly IReadOnlyDictionary<string, string?>? _environment;
 
     /// <param name="runner">Process execution — BYO to sandbox, audit or remote the spawn.</param>
     /// <param name="options">Timeout configuration.</param>
@@ -49,13 +49,14 @@ public sealed class CodexAgentSession : IAgentSession
     /// <param name="command">Explicit command, e.g. a PORTABLE <c>codex</c> the host ships or unpacks itself
     /// rather than a global install (quote a path with spaces). Wins over the env seams.</param>
     /// <param name="environment">Extra environment variables for the spawn — a portable install usually
-    /// wants its own <c>CODEX_HOME</c> so it neither reads nor mutates the machine-wide install's state.</param>
+    /// wants its own <c>CODEX_HOME</c> so it neither reads nor mutates the machine-wide install's state. A null value
+    /// REMOVES a variable the host process holds (an inherited API key, say) from the child.</param>
     public CodexAgentSession(
         IProcessRunner runner,
         LyntaiOptions options,
         ILogger<CodexAgentSession>? logger = null,
         string? command = null,
-        IReadOnlyDictionary<string, string>? environment = null)
+        IReadOnlyDictionary<string, string?>? environment = null)
     {
         _runner = runner;
         _options = options;
@@ -113,14 +114,14 @@ public sealed class CodexAgentSession : IAgentSession
 
     /// <summary>The ctor's environment (a portable install's <c>CODEX_HOME</c>, say) plus anything this TURN
     /// needs — currently the bearer tokens of HTTP MCP servers, which codex reads only from a variable it
-    /// names. The turn's own entries win on a collision, and the ctor's dictionary is returned untouched
-    /// when there is nothing to add.</summary>
-    private static IReadOnlyDictionary<string, string>? MergeEnvironment(
-        IReadOnlyDictionary<string, string>? standing, IReadOnlyDictionary<string, string> perTurn)
+    /// names. The turn's own entries win on a collision, a ctor entry's null (a removal) is carried as it
+    /// stands, and the ctor's dictionary is returned untouched when there is nothing to add.</summary>
+    private static IReadOnlyDictionary<string, string?>? MergeEnvironment(
+        IReadOnlyDictionary<string, string?>? standing, IReadOnlyDictionary<string, string> perTurn)
     {
         if (perTurn.Count == 0) return standing;
 
-        var merged = new Dictionary<string, string>(StringComparer.Ordinal);
+        var merged = new Dictionary<string, string?>(StringComparer.Ordinal);
         if (standing is not null)
         {
             foreach (var (key, value) in standing) merged[key] = value;

@@ -27,7 +27,7 @@ public sealed class ClaudeAgentSession : IAgentSession
     private readonly LyntaiOptions _options;
     private readonly ILogger _logger;
     private readonly string? _command;
-    private readonly IReadOnlyDictionary<string, string>? _environment;
+    private readonly IReadOnlyDictionary<string, string?>? _environment;
 
     /// <param name="runner">Spawns the CLI.</param>
     /// <param name="options">Platform options; supplies the timeout resolution.</param>
@@ -36,13 +36,14 @@ public sealed class ClaudeAgentSession : IAgentSession
     /// <param name="environment">Extra environment variables for every spawn — the same seam
     /// <see cref="ClaudeCliProvider"/> has, for the same reason: a portable install usually wants its own
     /// <c>CLAUDE_CONFIG_DIR</c> so it neither reads nor mutates the machine-wide install's state. Pass the
-    /// provider and the session the same value.</param>
+    /// provider and the session the same value. A null value REMOVES a variable the host process holds (an inherited
+    /// API key, say) from the child.</param>
     public ClaudeAgentSession(
         IProcessRunner runner,
         LyntaiOptions options,
         ILogger<ClaudeAgentSession>? logger = null,
         string? command = null,
-        IReadOnlyDictionary<string, string>? environment = null)
+        IReadOnlyDictionary<string, string?>? environment = null)
     {
         _runner = runner;
         _options = options;

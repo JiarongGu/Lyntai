@@ -5372,3 +5372,18 @@ stays optimistic as before. **D22** now carries the rule and the two rejected sh
 and a non-answering runner that stays optimistic.
 
 - Say why a BYO runner loses the availability check, or let the runner answer it
+
+## Part 335 — a spawn's environment can REMOVE a variable (2026-09-30)
+
+✅ done 2026-09-30 — **Outcome:** `TASKS.md` Part 331's first item, from an adopter; with `docs/task-archive.md`
+Part 334 it closes that Part. A null value in `environment` removes a variable the host process holds, and the
+values are annotated `string?` on every seam that carries them — `IProcessRunner`, `CliProviderEngine`, both CLI
+providers and sessions, their registrations — with `ProcessRunner.Start` removing explicitly. **Measured first,
+and it changed what the work was**: .NET already omits a null-valued `ProcessStartInfo.Environment` entry from the
+child, and the codex merge already copied nulls, so both new tests passed on the old code at runtime; the defect
+was the CONTRACT, whose types forbade the null and whose docs never said. The cost is CS8620 for a caller passing
+`string` values and CS8614 for a BYO runner declaring them (`CHANGELOG.md`). **D22** holds the rule and the
+rejected wrapper type and removal list. Pinned by `ProcessRunnerTests` (removed, set, empty, with a positive
+control) and the codex merge.
+
+- Let a spawn's environment REMOVE a variable, not only set one

@@ -23,7 +23,8 @@ public static class CodexCliBuilderExtensions
     /// instead of a global one (quote a path with spaces). Read it from your own configuration and pass it
     /// here — no process-wide environment variable needed.</param>
     /// <param name="environment">Extra environment variables for every spawn; a portable install usually wants
-    /// its own <c>CODEX_HOME</c> so it neither reads nor mutates the machine-wide install's state.</param>
+    /// its own <c>CODEX_HOME</c> so it neither reads nor mutates the machine-wide install's state. A null value
+    /// REMOVES a variable the host process holds (an inherited API key, say) from the child.</param>
     /// <param name="backend">A pre-configured <see cref="CodexCliBackend"/> — e.g.
     /// <c>new CodexCliBackend { SandboxMode = "workspace-write" }</c> to let codex act on disk. Defaults to a
     /// read-only sandbox, which is what a text completion should need.</param>
@@ -33,7 +34,7 @@ public static class CodexCliBuilderExtensions
     public static LyntaiBuilder AddCodexCliProvider(
         this LyntaiBuilder builder,
         string? command = null,
-        IReadOnlyDictionary<string, string>? environment = null,
+        IReadOnlyDictionary<string, string?>? environment = null,
         CodexCliBackend? backend = null,
         string id = CodexCliProvider.ProviderId)
     {
@@ -65,12 +66,13 @@ public static class CodexCliBuilderExtensions
     /// <see cref="AddCodexCliProvider"/> — pass the same value to both so a host's bundled CLI is used for
     /// completions and agent sessions alike.</param>
     /// <param name="environment">Extra environment variables for the spawn; a portable install usually wants
-    /// its own <c>CODEX_HOME</c>.</param>
+    /// its own <c>CODEX_HOME</c>. A null value REMOVES a variable the host process holds (an inherited API key, say)
+    /// from the child.</param>
     /// <param name="id">The key the session is registered under; "codex-cli" by default.</param>
     public static LyntaiBuilder AddCodexCliAgentSession(
         this LyntaiBuilder builder,
         string? command = null,
-        IReadOnlyDictionary<string, string>? environment = null,
+        IReadOnlyDictionary<string, string?>? environment = null,
         string id = CodexCliProvider.ProviderId)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(id);
@@ -80,7 +82,7 @@ public static class CodexCliBuilderExtensions
     }
 
     private static CodexAgentSession CreateSession(
-        IServiceProvider sp, string? command, IReadOnlyDictionary<string, string>? environment) =>
+        IServiceProvider sp, string? command, IReadOnlyDictionary<string, string?>? environment) =>
         new(sp.GetRequiredService<IProcessRunner>(),
             sp.GetRequiredService<LyntaiOptions>(),
             sp.GetService<ILogger<CodexAgentSession>>(),

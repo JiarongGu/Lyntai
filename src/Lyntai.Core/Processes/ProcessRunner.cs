@@ -84,7 +84,7 @@ public sealed class ProcessRunner : IProcessRunner
         TimeSpan? inactivityTimeout = null,
         TimeSpan? maxDuration = null,
         string? workingDirectory = null,
-        IReadOnlyDictionary<string, string>? environment = null,
+        IReadOnlyDictionary<string, string?>? environment = null,
         CancellationToken ct = default)
     {
         using var process = Start(command, args, workingDirectory, environment);
@@ -201,7 +201,7 @@ public sealed class ProcessRunner : IProcessRunner
         TimeSpan? inactivityTimeout = null,
         TimeSpan? maxDuration = null,
         string? workingDirectory = null,
-        IReadOnlyDictionary<string, string>? environment = null,
+        IReadOnlyDictionary<string, string?>? environment = null,
         CancellationToken ct = default) =>
         StreamCoreAsync(command, args, stdin, inactivityTimeout, maxDuration, workingDirectory, environment,
             static process => process.StandardOutput.ReadLineAsync(CancellationToken.None), ct);
@@ -217,7 +217,7 @@ public sealed class ProcessRunner : IProcessRunner
         TimeSpan? inactivityTimeout = null,
         TimeSpan? maxDuration = null,
         string? workingDirectory = null,
-        IReadOnlyDictionary<string, string>? environment = null,
+        IReadOnlyDictionary<string, string?>? environment = null,
         CancellationToken ct = default)
     {
         // one buffer per enumeration: the core reads strictly sequentially, and each yielded chunk is a
@@ -239,7 +239,7 @@ public sealed class ProcessRunner : IProcessRunner
         TimeSpan? inactivityTimeout,
         TimeSpan? maxDuration,
         string? workingDirectory,
-        IReadOnlyDictionary<string, string>? environment,
+        IReadOnlyDictionary<string, string?>? environment,
         Func<Process, ValueTask<T?>> readOne,
         [EnumeratorCancellation] CancellationToken ct = default) where T : class
     {
@@ -432,7 +432,7 @@ public sealed class ProcessRunner : IProcessRunner
 
     private static System.Diagnostics.Process Start(
         string command, IReadOnlyList<string> args, string? workingDirectory,
-        IReadOnlyDictionary<string, string>? environment)
+        IReadOnlyDictionary<string, string?>? environment)
     {
         var (exe, prefixArgs) = ResolveLauncher(command);
         var psi = new ProcessStartInfo(exe)
@@ -450,7 +450,12 @@ public sealed class ProcessRunner : IProcessRunner
         foreach (var a in prefixArgs) psi.ArgumentList.Add(a);
         foreach (var arg in args) psi.ArgumentList.Add(arg);
         if (environment is not null)
-            foreach (var (k, v) in environment) psi.Environment[k] = v;
+            foreach (var (k, v) in environment)
+            {
+                // a null REMOVES the inherited variable; an empty string would leave it set, and present
+                if (v is null) psi.Environment.Remove(k);
+                else psi.Environment[k] = v;
+            }
 
         var process = new System.Diagnostics.Process { StartInfo = psi };
         if (!process.Start()) throw new InvalidOperationException($"failed to start {command}");

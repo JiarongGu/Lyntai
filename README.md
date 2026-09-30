@@ -560,7 +560,7 @@ one, that install's own home directory, so it never touches the machine-wide ins
 ```csharp
 cfg.AddCodexCliProvider(
     command: Path.Combine(AppContext.BaseDirectory, "tools", "codex.exe"),
-    environment: new Dictionary<string, string> { ["CODEX_HOME"] = portableHome });
+    environment: new Dictionary<string, string?> { ["CODEX_HOME"] = portableHome });
 
 cfg.AddClaudeCliProvider(command: bundledClaudePath);   // …and the same value for AddClaudeCliAgentSession
 ```

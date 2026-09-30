@@ -184,7 +184,7 @@ public class CodexAgentSessionTests
     {
         var runner = new FakeProcessRunner(MeasuredSuccess);
         var session = new CodexAgentSession(runner, new LyntaiOptions(), command: "codex",
-            environment: new Dictionary<string, string> { ["CODEX_HOME"] = "portable/home" });
+            environment: new Dictionary<string, string?> { ["CODEX_HOME"] = "portable/home" });
 
         await session.StreamAsync(Ask()).ToListAsync();
 
@@ -588,7 +588,7 @@ public class CodexAgentSessionTests
         // replace it, or the session would silently start reading the machine-wide install's credentials
         var runner = new FakeProcessRunner(MeasuredSuccess);
         var session = new CodexAgentSession(runner, new LyntaiOptions(), command: "codex",
-            environment: new Dictionary<string, string> { ["CODEX_HOME"] = "portable/home" });
+            environment: new Dictionary<string, string?> { ["CODEX_HOME"] = "portable/home" });
 
         await session.StreamAsync(Ask() with
         {
@@ -597,6 +597,25 @@ public class CodexAgentSessionTests
 
         Assert.Equal("portable/home", runner.LastEnvironment?["CODEX_HOME"]);
         Assert.Equal("tok", runner.LastEnvironment?["LYNTAI_MCP_BEARER_REMOTE"]);
+    }
+
+    [Fact]
+    public async Task A_REMOVAL_in_the_installs_environment_survives_the_per_turn_merge()
+    {
+        // the merge is the one place this seam copies the dictionary: dropping a null entry there would hand
+        // the child the very variable the host asked to keep out of it
+        var runner = new FakeProcessRunner(MeasuredSuccess);
+        var session = new CodexAgentSession(runner, new LyntaiOptions(), command: "codex",
+            environment: new Dictionary<string, string?> { ["OPENAI_API_KEY"] = null });
+
+        await session.StreamAsync(Ask() with
+        {
+            McpServers = [AgentMcpServer.Http("remote", "https://tools.example.invalid/mcp", "tok")],
+        }).ToListAsync();
+
+        Assert.True(runner.LastEnvironment!.TryGetValue("OPENAI_API_KEY", out var removed));
+        Assert.Null(removed);
+        Assert.Equal("tok", runner.LastEnvironment["LYNTAI_MCP_BEARER_REMOTE"]);
     }
 
     [Fact]
