@@ -8,8 +8,8 @@ namespace Lyntai.Providers.ClaudeCli;
 /// spawn/verdict/streaming/maintenance behaviour lives in <see cref="CliProviderEngine"/>.
 ///
 /// Public so it can be composed directly (a host wiring its own <see cref="CliProviderEngine"/>, a test
-/// asserting the vocabulary) — but the normal entry point is
-/// <see cref="ClaudeCliBuilderExtensions.AddClaudeCliProvider"/>.</summary>
+/// asserting the vocabulary, a registration configuring <see cref="CompletionByConsumer"/>) — but the normal entry
+/// point is <see cref="ClaudeCliBuilderExtensions.AddClaudeCliProvider(LyntaiBuilder, string, IReadOnlyDictionary{string, string}, string)"/>.</summary>
 /// <remarks>Every maintenance command here was verified against a live CLI (<c>--help</c> on v2.1.220)
 /// before being named. That matters more than usual for this backend: it treats an unrecognized token as a
 /// PROMPT and answers it, so a guessed subcommand costs tokens on every call while the build stays green.</remarks>
@@ -24,12 +24,43 @@ public sealed class ClaudeCliBackend : CliBackendBase
     /// <summary>The shared stub seam first, then this CLI's own override.</summary>
     public override IReadOnlyList<string> CommandEnvironmentVariables => ["LYNTAI_PROVIDER_CMD", "CLAUDE_CMD"];
 
-    /// <summary>Print mode + stream-json, with interactive UI tools disallowed for a library call.
+    /// <summary>How each CONSUMER's one-shot completion is spawned (<see cref="TextRequest.Consumer"/>), resolved as
+    /// every <c>*ByConsumer</c> map is, keys ignoring case: the consumer's own entry, else the <c>"default"</c> entry,
+    /// else none — the argv exactly as without the map. Configuration rather than a request field, so a call that
+    /// falls back to another backend never carries a request whose meaning changed (<c>docs/DECISIONS.md</c> D190).
+    /// COPIED when set: a later edit to the caller's dictionary is never read.</summary>
+    /// <exception cref="ArgumentException">An entry is null — refused naming its consumer.</exception>
+    public IReadOnlyDictionary<string, ClaudeCompletionOptions> CompletionByConsumer
+    {
+        get;
+        init => field = Copy(value);
+    } = new Dictionary<string, ClaudeCompletionOptions>(StringComparer.OrdinalIgnoreCase).AsReadOnly();
+
+    /// <summary>Print mode + stream-json, with interactive UI tools disallowed for a library call, plus whatever the
+    /// request's consumer is configured with in <see cref="CompletionByConsumer"/>.
     /// <para>This argv ends in OPTIONS and takes its prompt on stdin, so the tool-host args are
     /// appended.</para></summary>
     public override IReadOnlyList<string> BuildCompletionArgs(
         TextRequest request, IReadOnlyList<string> toolHostArgs) =>
-        [.. ClaudeArgs.Build(request.Model), .. toolHostArgs];
+        [.. ClaudeArgs.Build(request.Model, CompletionFor(request.Consumer)), .. toolHostArgs];
+
+    private ClaudeCompletionOptions? CompletionFor(string consumer) =>
+        CompletionByConsumer.TryGetValue(consumer, out var options)
+        || CompletionByConsumer.TryGetValue(ProviderConsumers.Default, out options)
+            ? options
+            : null;
+
+    private static IReadOnlyDictionary<string, ClaudeCompletionOptions> Copy(
+        IReadOnlyDictionary<string, ClaudeCompletionOptions> byConsumer)
+    {
+        ArgumentNullException.ThrowIfNull(byConsumer, nameof(CompletionByConsumer));
+        var copy = new Dictionary<string, ClaudeCompletionOptions>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (consumer, options) in byConsumer)
+            copy[consumer] = options ?? throw new ArgumentException(
+                $"CompletionByConsumer[\"{consumer}\"] is null; omit the entry to spawn that consumer as before.",
+                nameof(CompletionByConsumer));
+        return copy.AsReadOnly();
+    }
 
     /// <summary>Decode one <c>stream-json</c> line into the engine's vocabulary.</summary>
     public override CliOutputEvent ParseLine(string line)

@@ -16,12 +16,14 @@ internal static class ClaudeArgs
     /// reason to name.</summary>
     internal static readonly string[] PrintMode = ["-p", "--output-format", "stream-json", "--verbose"];
 
-    public static IReadOnlyList<string> Build(string? model)
+    public static IReadOnlyList<string> Build(string? model, ClaudeCompletionOptions? completion = null)
     {
-        var args = new List<string>(PrintMode)
-        {
-            "--disallowed-tools", "AskUserQuestion", // no interactive UI tools from a library call
-        };
+        // no interactive UI tools from a library call — always, and first, so a caller only ever ADDS denials
+        List<string> denied = ["AskUserQuestion"];
+        foreach (var tool in completion?.DisallowedTools ?? [])
+            if (!denied.Contains(tool, StringComparer.Ordinal)) denied.Add(tool);
+
+        var args = new List<string>(PrintMode) { "--disallowed-tools", string.Join(",", denied) };
         if (!string.IsNullOrEmpty(model))
         {
             args.Add("--model");

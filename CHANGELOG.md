@@ -26,6 +26,12 @@ every addition.
   so a host's own decorator over `ProcessRunner` that forwards the member keeps a missing CLI skipped by the
   router, where it used to become a failed call on every turn. A runner that does not answer stays optimistic,
   exactly as every BYO runner was.
+- **A one-shot claude call's disallowed tools are chosen per consumer** (**D190**):
+  `ClaudeCliBackend.CompletionByConsumer` maps a consumer to a `ClaudeCompletionOptions` — its own entry, then
+  `"default"`, then the plain argv — whose `DisallowedTools` are denied beside `AskUserQuestion`, which stays
+  denied. Handed over as `new ClaudeCliBackend { CompletionByConsumer = … }` through new `AddClaudeCliProvider` and
+  `ClaudeCliProvider` overloads, so a scorer or a memory judge can run with no shell where only the agent path
+  could deny tools before. With no entry the argv is byte-identical.
 
 ### Changed
 

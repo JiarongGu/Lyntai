@@ -5387,3 +5387,16 @@ rejected wrapper type and removal list. Pinned by `ProcessRunnerTests` (removed,
 control) and the codex merge.
 
 - Let a spawn's environment REMOVE a variable, not only set one
+
+## Part 336 — a one-shot claude call's disallowed tools, per consumer (2026-09-30)
+
+✅ done 2026-09-30 — **Outcome:** `TASKS.md` Part 330's one item, from an adopter whose agent runs deny
+`PowerShell` and `Monitor` while its scorer, memory-judge and rephrase calls could not. `ClaudeCliBackend` gains
+`CompletionByConsumer` (copied and null-checked on init) mapping a consumer to a new `ClaudeCompletionOptions`,
+tiered consumer → `"default"` → none, whose `DisallowedTools` `ClaudeArgs.Build` unions after `AskUserQuestion`.
+It rides the backend as codex's `SandboxMode` does, through new `AddClaudeCliProvider(backend, …)` and
+`ClaudeCliProvider(runner, options, backend, …)` overloads; the positional forms delegate to them. The rule is a
+paragraph of **D190**; `README.md` §CLI backends carries the sample. Eight `ClaudeCompletionOptionsTests`, the
+byte-identical argv among them; the agent path is untouched.
+
+- Let a caller narrow a one-shot CLI call's disallowed tools per consumer, as D190 did for the tool host

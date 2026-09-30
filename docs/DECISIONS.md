@@ -5616,6 +5616,12 @@ the only abstract one: a decorator forwarding only the old member would become a
 silent request-blind pass-through, at the cost of an edit for every implementer; the default was kept, and the
 XML doc says a decorator forwards both.
 
+**A one-shot claude call's own flags follow the same rule** (2026-09-30): `ClaudeCliBackend.CompletionByConsumer`
+maps a consumer to a `ClaudeCompletionOptions`, tiered the same way, whose `DisallowedTools` are UNIONED with the
+always-denied `AskUserQuestion` — a caller adds denials and never removes that one. **On the backend**, as
+`CodexCliBackend.SandboxMode` is, because every member is this CLI's own vocabulary; the provider and its
+registration take a configured backend through an overload beside the positional one.
+
 ## D191 — the SentencePiece tokenizer is OWNED and reads tokenizer.json: the dependency cannot load the exports (2026-09-26)
 
 `Lyntai.Text.SentencePieceTokenizer` (Core, public) runs the Unigram pipeline a `tokenizer.json` declares — the

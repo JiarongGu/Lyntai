@@ -32,12 +32,31 @@ public static class ClaudeCliBuilderExtensions
         this LyntaiBuilder builder,
         string? command = null,
         IReadOnlyDictionary<string, string?>? environment = null,
+        string id = ClaudeCliProvider.ProviderId) =>
+        builder.AddClaudeCliProvider(new ClaudeCliBackend(), command, environment, id);
+
+    /// <summary>Register the <c>claude</c> CLI provider over a CONFIGURED <paramref name="backend"/>, whose
+    /// <see cref="ClaudeCliBackend.CompletionByConsumer"/> chooses how each consumer's one-shot completions are
+    /// spawned — <c>new ClaudeCliBackend { CompletionByConsumer = … }</c>, as a codex registration takes a
+    /// configured <c>CodexCliBackend</c>. Every other parameter is the positional overload's.</summary>
+    /// <param name="builder">The Lyntai builder.</param>
+    /// <param name="backend">The configured backend.</param>
+    /// <param name="command">A PORTABLE <c>claude</c> path; null takes the env overrides, then PATH.</param>
+    /// <param name="environment">Extra environment variables for every spawn; a null value removes one.</param>
+    /// <param name="id">The router-facing id; "claude-cli" by default.</param>
+    public static LyntaiBuilder AddClaudeCliProvider(
+        this LyntaiBuilder builder,
+        ClaudeCliBackend backend,
+        string? command = null,
+        IReadOnlyDictionary<string, string?>? environment = null,
         string id = ClaudeCliProvider.ProviderId)
     {
+        ArgumentNullException.ThrowIfNull(backend);
         ArgumentException.ThrowIfNullOrWhiteSpace(id);
         builder.AddProvider(sp => new ClaudeCliProvider(
             sp.GetRequiredService<IProcessRunner>(),
             sp.GetRequiredService<LyntaiOptions>(),
+            backend,
             sp.GetService<ILogger<ClaudeCliProvider>>(),
             command,
             CliComposition.Provisioner(sp, id, ClaudeCliProvider.ProviderId),
@@ -56,11 +75,10 @@ public static class ClaudeCliBuilderExtensions
     /// (<c>GetRequiredKeyedService&lt;IAgentSession&gt;("claude-cli")</c>) instead of whichever registration
     /// happened to be last.</para></summary>
     /// <param name="builder">The Lyntai builder.</param>
-    /// <param name="command">A PORTABLE <c>claude</c> path, as with
-    /// <see cref="AddClaudeCliProvider"/> — pass the same value to both so a host's bundled CLI is used for
-    /// completions and agent sessions alike.</param>
+    /// <param name="command">A PORTABLE <c>claude</c> path, as with <c>AddClaudeCliProvider</c> — pass the same
+    /// value to both so a host's bundled CLI is used for completions and agent sessions alike.</param>
     /// <param name="environment">Extra environment variables for every spawn — again, pass the SAME value
-    /// here as to <see cref="AddClaudeCliProvider"/>: a portable install usually wants its own
+    /// here as to <c>AddClaudeCliProvider</c>: a portable install usually wants its own
     /// <c>CLAUDE_CONFIG_DIR</c> so it neither reads nor mutates the machine-wide install's state. A null value
     /// REMOVES a variable the host process holds (an inherited API key, say) from the child.</param>
     /// <param name="id">The key the session is registered under; "claude-cli" by default.</param>

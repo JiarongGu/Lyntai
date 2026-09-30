@@ -48,9 +48,32 @@ public sealed class ClaudeCliProvider : IModelProvider, IProviderUpdater,
         ICliToolProvisioner? provisioner = null,
         IReadOnlyDictionary<string, string?>? environment = null,
         string id = ProviderId)
+        : this(runner, options, new ClaudeCliBackend(), logger, command, provisioner, environment, id)
     {
+    }
+
+    /// <summary>A provider over a CONFIGURED backend, whose <see cref="ClaudeCliBackend.CompletionByConsumer"/>
+    /// chooses how each consumer's completions are spawned.</summary>
+    /// <param name="runner">Process execution — BYO to sandbox, audit or remote the spawn.</param>
+    /// <param name="options">Timeout/model configuration.</param>
+    /// <param name="backend">The configured backend.</param>
+    /// <param name="logger">Optional diagnostics.</param>
+    /// <param name="command">Explicit command — a PORTABLE <c>claude</c>, as in the other constructor.</param>
+    /// <param name="provisioner">Optional MCP tool host for this provider.</param>
+    /// <param name="environment">Extra environment variables for every spawn; a null value removes one.</param>
+    /// <param name="id">The router-facing id; <see cref="ProviderId"/> by default.</param>
+    public ClaudeCliProvider(
+        IProcessRunner runner,
+        LyntaiOptions options,
+        ClaudeCliBackend backend,
+        ILogger<ClaudeCliProvider>? logger = null,
+        string? command = null,
+        ICliToolProvisioner? provisioner = null,
+        IReadOnlyDictionary<string, string?>? environment = null,
+        string id = ProviderId)
+    {
+        ArgumentNullException.ThrowIfNull(backend);
         ArgumentException.ThrowIfNullOrWhiteSpace(id);
-        var backend = new ClaudeCliBackend();
         _engine = new CliProviderEngine(backend, runner, options, logger, command, provisioner, environment);
         Capabilities = CliComposition.Capabilities(backend);
         Id = id;

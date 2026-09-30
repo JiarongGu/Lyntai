@@ -21,7 +21,7 @@ decisions kept here. **Everything before 3.0 is HISTORY, not context**: `.claude
 says what that forbids.
 
 **The baseline a green run should match:** `5238 passed / 5287 total, 49 skipped` (every skip is a
-live-backend gate), e2e 3/3, guard-script tests 960/960, doc samples 57/57 — MEASURED with Docker up at
+live-backend gate), e2e 3/3, guard-script tests 960/960, doc samples 58/58 — MEASURED with Docker up at
 `2503a414` (2026-09-27). No gate holds the xUnit trio (`docs/GATES.md` §Which numbers a gate holds), so:
 
 - **Re-measure it by hand after `verify`, off that run's own output**, never from a diff, and re-attest the

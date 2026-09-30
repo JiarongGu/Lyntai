@@ -15,23 +15,22 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 10 across 7 Parts: 6 startable, 2 blocked, 2 watch
+## Open items — 9 across 6 Parts: 5 startable, 2 blocked, 2 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 111 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a free Hugging Face account (an hf_ token) — its router proxies fal's own q… |
-| 158 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 181 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 237 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
-| 271 | 329 | Record an adopter's within-run measurement of D177's segmentation against i… | startable |  |
-| 305 | 329 | Let a segmented rerank call REPORT what it sent, so a deployment timing its… | startable |  |
-| 339 | 330 | Let a caller narrow a one-shot CLI call's disallowed tools per consumer, as… | startable |  |
-| 374 | 332 | Add a `--setting-sources` seam and a `--strict-mcp-config` switch to `Claud… | startable |  |
-| 418 | 333 | Let a caller hand the one-shot CLI path a settings file, per consumer, as t… | startable |  |
-| 436 | 333 | Spawn one-shot calls from a directory the library owns, not the shared temp… | startable |  |
+| 110 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a free Hugging Face account (an hf_ token) — its router proxies fal's own q… |
+| 157 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 180 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 236 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 270 | 329 | Record an adopter's within-run measurement of D177's segmentation against i… | startable |  |
+| 304 | 329 | Let a segmented rerank call REPORT what it sent, so a deployment timing its… | startable |  |
+| 340 | 332 | Add a `--setting-sources` seam and a `--strict-mcp-config` switch to `Claud… | startable |  |
+| 384 | 333 | Let a caller hand the one-shot CLI path a settings file, per consumer, as t… | startable |  |
+| 402 | 333 | Spawn one-shot calls from a directory the library owns, not the shared temp… | startable |  |
 
 <!-- open-items:end -->
 
@@ -330,39 +329,6 @@ Checked against the tree at `v3.5.1` (HEAD changes nothing under `src/` since) w
   refused it because the cap bounds a call from above, which is what a prediction needs, and that holds — the gap
   is learning, after the call. Tests: a segmented call's `Usage` carries the wire's count, and a reply without
   `usage` leaves it null.
-
-## Part 330 — a one-shot CLI call disallows only AskUserQuestion, so a library caller cannot narrow its tools (2026-09-28)
-
-_Reported by an adopting application. Checked against the tree at `v3.5.1` (`ClaudeArgs.cs`, `ClaudeAgentArgs.cs`,
-`McpToolHostOptions.ToolsByConsumer`)._
-
-- [ ] **Let a caller narrow a one-shot CLI call's disallowed tools per consumer, as D190 did for the tool host.** <!-- item: state=startable -->
-  `ClaudeArgs.Build` (`src/Lyntai.Providers.Basic/ClaudeCli/ClaudeArgs.cs`) opens every print-mode completion — the
-  one-shot `ITextClient`/`ClaudeCliProvider` path an adopter uses for scorers, an LLM memory judge, and untagged
-  utility calls — with `--disallowed-tools AskUserQuestion` and nothing else. The AGENT path already lets the caller
-  add tools: `ClaudeAgentOptions.DisallowedTools` is unioned with the always-denied set in `ClaudeAgentArgs`
-  (`AskUserQuestion`/`ExitPlanMode`/`EnterPlanMode` + `ReadOnly`'s `Edit`/`Write`/`NotebookEdit`). The COMPLETION path
-  has no equivalent seam. On Windows the CLI's `PowerShell` tool is on by default and `Monitor` uses Bash's permission
-  rules, so both are available to a one-shot call, and a `-p` run with no permission host still runs the read-only
-  and permission-free tools; a library caller that wants a stricter one-shot tool set (no shell of any kind, say, for
-  a judge that should only read) cannot ask for one — it can only set the whole process environment, which is coarse
-  and does not remove a default-on tool.
-  <br>**Why an adopter feels it.** One adopter's agent runs remove `PowerShell` and `Monitor` at its own agent seam
-  (`ClaudeAgentOptions.DisallowedTools`), but its one-shot scorer / memory-judge / rephrase calls go through
-  `ClaudeArgs` and cannot — so the same tools it removed from its jailed agent are reachable from its unattended
-  utility calls, with no seam to close. It has NO workaround for this half, and is recording the gap here rather than
-  shipping one, because the fix belongs in the library: a one-shot call's tool set is the library's argv to build.
-  <br>Suggested: give the completion path the same shape as the agent path — an optional per-call disallowed-tools
-  list (an `HttpModelOptions`-style option, or a `ClaudeCompletionOptions.DisallowedTools`, resolved per CONSUMER like
-  `McpToolHostOptions.ToolsByConsumer` so `scorer` and `memory` can differ from `default`), unioned with the
-  always-denied `AskUserQuestion`. Keep the union — a caller adds denials, never removes `AskUserQuestion`. The
-  agent path's `ClaudeAgentArgs` is the worked precedent for the union; D190 is the precedent for keying it by
-  consumer. Tests: a one-shot call with a caller list denies that list plus `AskUserQuestion`; an empty/absent list
-  is byte-identical to today's argv (no regression). **When this ships, the adopter ADDS the same removal to its
-  one-shot calls, and deletes nothing.** Its agent-side removal already goes through the AGENT path's own seam
-  (`ClaudeAgentOptions.DisallowedTools`, which this item does not touch) and stays exactly as it is; this item covers
-  the one-shot path only, where the adopter has no workaround to remove. The reciprocal note lives in the adopter's
-  `.claude/rules/dev-conventions.md` under the jail bullet. <!-- link-ok: a file in the ADOPTER's repository, not this one -->
 
 ## Part 332 — an agent run cannot tell the claude CLI which settings files to load (2026-09-28)
 

@@ -568,6 +568,21 @@ cfg.AddClaudeCliProvider(command: bundledClaudePath);   // …and the same value
 `IsAvailable` then checks the file is actually *there*, so a missing copy is skipped by the router rather than
 discovered as a failed turn.
 
+**A one-shot claude call's own flags, by consumer.** The library's own model seams call under their consumers —
+`"memory"` for annotation and verification, `"scoring"` for the LLM scorers — so a configured backend says how each
+consumer's completions are spawned: the request's `Consumer` entry, then `"default"`, then the plain argv.
+`AskUserQuestion` is always denied; a list adds to it:
+
+```csharp
+cfg.AddClaudeCliProvider(new ClaudeCliBackend
+{
+    CompletionByConsumer = new Dictionary<string, ClaudeCompletionOptions>
+    {
+        ["default"] = new() { DisallowedTools = ["PowerShell", "Monitor"] },   // no shell for a judge or a scorer
+    },
+});
+```
+
 **Writing your own.** The rules every CLI-agent backend must get right — no shell, a neutral working
 directory, an *inactivity* clock, verdicts from the shared classifier, empty output as a failure, exactly one
 terminal stream chunk — live once, in `CliProviderEngine`, and a new CLI supplies only its vocabulary:
