@@ -27,6 +27,7 @@
 | **v3.5.0** (2026-09-26) | **what the consuming apps work around** (D191–D194): SentencePiece tokenization for the XLM-R family's ONNX exports (D191, Breaking: the encoding both tokenizers return is renamed `TokenEncoding`); schedules added at run time and job progress as a message code (D192, Breaking: two required `IJobStore` members); text providers registered at run time behind the governed client, and a trace step per front-door call (D193); a stored vector read back by id, filtered nearest-neighbour search, and a graph memory re-embedded in place (D194) |
 | **v3.5.1** (2026-09-26) | **removal completeness and the reference window**: a forget racing a graph write no longer leaves the write's vector behind (D90); a sentence-transformers ONNX export is windowed at its own `max_seq_length` (D195); a graph store never reissues an id, now stated and pinned on every backend |
 | **v3.5.2** (2026-09-30) | **CLI spawns a host can scope**: a one-shot claude call takes its disallowed tools, settings file, setting sources and strict MCP config per consumer (D190); a null environment value removes an inherited variable, and a runner answers the availability probe itself (D22); completions run in a directory the process owns (D196); an HTTP rerank reports the tokens its server counted (D163) |
+| **v3.5.3** (2026-09-30) | **one settings file per hosted call**: a one-shot claude call the tool host serves keeps its consumer's settings file, merged into the host's allow-list, since the CLI applies only the last `--settings` (D190) |
 
 ## Open
 
