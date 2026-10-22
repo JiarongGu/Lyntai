@@ -40,7 +40,7 @@ if (Environment.GetEnvironmentVariable("LYNTAI_DEMO") == "agent-session")
 
 // Observability: subscribe BCL listeners to BOTH telemetry surfaces (GenAI "Lyntai.Inference" + agentic
 // "Lyntai.Agents"). This is what wiring the OpenTelemetry SDK's AddSource/AddMeter subscribes to (see
-// README); counting in-process keeps the sample dependency-free while proving spans/metrics really fire.
+// docs/guide.md §Observability); counting in-process keeps the sample dependency-free while proving spans/metrics really fire.
 // Attached before the first LLM call so no span is missed.
 var tel = new TelemetryTally();
 using var spanListener = tel.CreateSpanListener();

@@ -51,7 +51,7 @@ wrongly reading it as stale:
 | `Inference/ProviderVerdict.cs` | the CANONICAL statement, and the IntelliSense a consumer reads | the member, with its own doc |
 | `ITextRouter.cs`'s XML doc | the contract a consumer reads — genuinely ENUMERATES every non-`Ok` verdict | add it to the enumeration |
 | design §5.1 + §6 | the frozen v0.1 record | a DATED amendment, never a rewrite (§5.1 already carries the "now nine members" note) |
-| `README.md` §The semantics you're getting | a consuming-story SUMMARY, deliberately not an enumeration — it names six of nine and omits `Unsupported`/`ContextWindowExceeded` on purpose | only if the new verdict changes what a consumer must DO; silence here is not drift |
+| `docs/guide.md` §The semantics you're getting | a consuming-story SUMMARY, deliberately not an enumeration — it names six of nine and omits `Unsupported`/`ContextWindowExceeded` on purpose | only if the new verdict changes what a consumer must DO; silence here is not drift |
 
 **A consumer can teach the classifier its own error phrasing** — `ProviderVerdictClassifier.AddErrorTextMatcher(text
 => verdict?)` registers a process-wide matcher consulted BEFORE the built-in (English) patterns, first non-null

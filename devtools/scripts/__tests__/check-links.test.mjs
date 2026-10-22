@@ -115,6 +115,93 @@ describe('check-links — what it does NOT flag', () => {
   });
 });
 
+describe('check-links — this repository\'s OWN absolute URLs and #anchors (D197)', () => {
+  // The README ships inside every package and nuget.org resolves a RELATIVE link against itself, so the
+  // landing page links absolutely — which PATH_PATTERN deliberately never reads (the URL test above).
+  const repoUrl = { repositoryUrl: 'https://github.com/acme/widget' };
+  const guide = '# Guide\n\n## Named memory engines\n\n## Graph memory — forgetting, and `UseGraph()`\n\n## 灵台 notes\n';
+
+  it('catches a blob URL naming a file the repository does not have', () => {
+    const { code, out } = run({
+      'README.md': 'Read [the guide](https://github.com/acme/widget/blob/master/docs/gone.md).\n',
+    }, repoUrl);
+    assert.equal(code, 1);
+    assert.match(out, /README\.md:1\s+->\s+https:\/\/github\.com\/acme\/widget\/blob\/master\/docs\/gone\.md/);
+  });
+
+  it('accepts a blob URL, a raw URL and a tree URL that resolve', () => {
+    const { code, out } = run({
+      'README.md': 'See https://github.com/acme/widget/blob/master/docs/guide.md, '
+        + 'https://raw.githubusercontent.com/acme/widget/master/docs/guide.md and '
+        + 'https://github.com/acme/widget/tree/master/docs.\n',
+      'docs/guide.md': guide,
+    }, repoUrl);
+    assert.equal(code, 0, out);
+  });
+
+  it('catches a RAW URL and a TREE URL that resolve to nothing', () => {
+    const { code, out } = run({
+      'llms.txt': '- [Guide](https://raw.githubusercontent.com/acme/widget/master/docs/gone.md)\n'
+        + '- [Samples](https://github.com/acme/widget/tree/master/samples)\n',
+    }, repoUrl);
+    assert.equal(code, 1);
+    assert.match(out, /llms\.txt:1/);
+    assert.match(out, /llms\.txt:2/, 'a tree URL needs some tracked file under it');
+  });
+
+  it('catches a URL #anchor that names no heading in the target, by GitHub\'s own slug rule', () => {
+    const ok = run({
+      'README.md': '[a](https://github.com/acme/widget/blob/master/docs/guide.md#named-memory-engines) '
+        + '[b](https://github.com/acme/widget/blob/master/docs/guide.md#graph-memory--forgetting-and-usegraph) '
+        + '[c](https://github.com/acme/widget/blob/master/docs/guide.md#灵台-notes)\n',
+      'docs/guide.md': guide,
+    }, repoUrl);
+    assert.equal(ok.code, 0, ok.out);
+
+    const dead = run({
+      'README.md': '[a](https://github.com/acme/widget/blob/master/docs/guide.md#semantic-memory)\n',
+      'docs/guide.md': guide,
+    }, repoUrl);
+    assert.equal(dead.code, 1);
+    assert.match(dead.out, /#semantic-memory/);
+  });
+
+  it('catches an in-file #anchor link with no heading behind it, and numbers a REPEATED heading', () => {
+    const ok = run({
+      'README.md': '# Widget\n\n- [Usage](#usage)\n- [Again](#usage-1)\n\n## Usage\n\n## Usage\n',
+    });
+    assert.equal(ok.code, 0, ok.out);
+
+    const dead = run({ 'README.md': '# Widget\n\n- [Install](#install)\n\n## Usage\n' });
+    assert.equal(dead.code, 1);
+    assert.match(dead.out, /README\.md:3\s+->\s+#install/);
+  });
+
+  it('never reads a heading out of a FENCED block — a `#` comment in a shell sample is not one', () => {
+    const { code, out } = run({
+      'README.md': '# Widget\n\n[x](#install-it)\n\n```bash\n# install it\n```\n',
+    });
+    assert.equal(code, 1, 'the fenced line declares nothing');
+    assert.match(out, /#install-it/);
+  });
+
+  it('leaves another repository\'s URLs alone, and honours `link-ok`', () => {
+    const { code, out } = run({
+      'README.md': 'Upstream: https://github.com/acme/other/blob/master/docs/gone.md\n'
+        + 'Quoted: https://github.com/acme/widget/blob/master/docs/gone.md link-ok\n',
+    }, repoUrl);
+    assert.equal(code, 0, out);
+  });
+
+  it('scans context7.json, whose `rules` reach an agent verbatim', () => {
+    const { code, out } = run({
+      'context7.json': '{ "rules": ["Read https://github.com/acme/widget/blob/master/docs/gone.md"] }\n',
+    }, repoUrl);
+    assert.equal(code, 1);
+    assert.match(out, /context7\.json:1/);
+  });
+});
+
 describe('check-links — the file list', () => {
   it('reads tracked files NUL-separated, so a non-ASCII NAME is not C-quoted', () => {
     // Without `-z`, `docs/灵台.md` arrives as `"docs/\347\201\265\345\217\260.md"` — a name matching no file link-ok: a fixture name, quoted as data

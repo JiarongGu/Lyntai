@@ -11,7 +11,7 @@ namespace Lyntai.Tests.Api;
 /// <c>AddSemanticMemory&lt;TVectorProvider&gt;()</c> render as one line, so deleting either overload reads as
 /// the removal of something the surviving duplicate covers;</item>
 /// <item><b>parameter names</b> — a rename is a source break for every named-argument caller, which the
-/// README actively teaches;</item>
+/// docs actively teach;</item>
 /// <item><b>default values</b> — a bare <c>=</c> marker records only that a default EXISTS, so flipping one
 /// passes.</item>
 /// </list>

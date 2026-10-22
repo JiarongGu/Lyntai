@@ -266,8 +266,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D194](#d194--a-stored-vector-is-read-back-through-an-optional-interface-a-search-is-filtered-by-an-id-set-and-a-re-embed-writes-only-vectors-2026-09-27) | 2026-09-27 | a stored vector is read back through an optional interface, a search is filtered by an id set, an… |
 | [D195](#d195--a-sentence-transformers-export-is-windowed-where-sentence-transformers-cuts-it-max_seq_length-narrows-the-window-2026-09-27) | 2026-09-27 | a sentence-transformers export is windowed where sentence-transformers cuts it: `max_seq_length`… |
 | [D196](#d196--the-neutral-cwd-is-a-directory-the-process-owns-and-it-scopes-a-clis-settings-not-its-instructions-2026-09-30) | 2026-09-30 | the neutral cwd is a directory the PROCESS owns, and it scopes a CLI's settings, not its instruct… |
+| [D197](#d197--readme-is-the-landing-page-every-package-ships-the-reference-is-docsguidemd-and-the-agent-facing-files-are-maintained-state-2026-10-22) | 2026-10-22 | README is the landing page every package ships; the reference is `docs/guide.md`, and the agent-f… |
 
-**191 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**192 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -5787,3 +5788,23 @@ settings half, which is the one that runs commands and redirects credentials.
 one-shot path can write any — claude's print mode has no permission host, codex runs a read-only sandbox — so it
 would add a create and a delete to every call for a threat the defaults already close. **Trigger to reopen**: a
 one-shot path that can write into its cwd.
+
+## D197 — README is the landing page every package ships; the reference is `docs/guide.md`, and the agent-facing files are maintained state (2026-10-22)
+
+`README.md` is what nuget.org renders for every package, what GitHub and a search engine index first, and
+what a coding agent reads when it has only the package. It holds the pitch, a quickstart, the feature and backend
+maps, the package table, the status and the agent rules — and links ABSOLUTELY, because nuget.org resolves a
+relative link against itself. Everything a consumer composes, with its semantics and samples, is
+`docs/guide.md`; a new feature's documentation goes there, and README gains at most a row.
+
+`llms.txt` (llmstxt.org) and `context7.json` (the Context7 index's configuration) are written for coding agents
+and are in the prose gates' scope by name. README's `agent-rules` block is canonical: `llms.txt` repeats it,
+`context7.json` carries it as `rules`, and `check-docs` fails while the three disagree, since an agent reads
+whichever one it was handed. `check-links` resolves this repository's own absolute URLs and every in-document
+`#anchor` by GitHub's slug rule (`docs/GATES.md` §check-links).
+
+**Rejected.** One long README: it shipped 990 lines into every package, opened on internal history, and buried
+the quickstart under the reference. A short README beside an unchanged reference that only links out: the
+packaged README is the one document a consumer without the repository can read, so it keeps the rules and the
+package table rather than pointing at them. Three hand-kept copies of the rules with no check: the copies are
+the documents an agent trusts most and reviews least.

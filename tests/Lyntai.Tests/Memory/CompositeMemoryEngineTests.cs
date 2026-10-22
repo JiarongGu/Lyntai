@@ -301,7 +301,7 @@ public class CompositeMemoryEngineTests
     [Fact]
     public async Task A_glossary_member_no_longer_BLOCKS_a_removal_it_is_skipped()
     {
-        // THE BLEND FROM THIS LIBRARY'S OWN README: UseCurated("glossary").UseGraph(). The curated member
+        // THE BLEND FROM THIS LIBRARY'S OWN GUIDE: UseCurated("glossary").UseGraph(). The curated member
         // cannot forget, so were it a blocker the whole verb would refuse, and an application withdrawing a
         // user's consent would have nothing to call.
         var graph = new ForgettableEngine("project/graph", pruneCount: 4);

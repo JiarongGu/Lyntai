@@ -15,6 +15,7 @@
   <PropertyGroup>
     <IsPackable>true</IsPackable>
     <PackageId>Lyntai.Storage.Basic</PackageId>
+    <PackageTags>$(PackageTags);in-memory;file-storage;markdown</PackageTags>
     <Description>The dependency-free Lyntai storage backends: in-memory (UseInMemoryStorage — tests, ephemeral use, and the second backend proving the domain-interface seam) and files you can read (UseFileSystemStorage — one Markdown record per file under a root you choose). Mix either with Lyntai.Storage.Sqlite per domain via DI.</Description>
   </PropertyGroup>
 

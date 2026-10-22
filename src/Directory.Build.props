@@ -34,7 +34,10 @@
     <RepositoryType>git</RepositoryType>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageTags>llm;ai;router;fallback;provider;sqlite;claude;openai;ollama;prompt-registry;evals;tracing;agent-memory</PackageTags>
+    <PackageIcon>lyntai-icon.png</PackageIcon>
+    <PackageReleaseNotes>https://github.com/JiarongGu/Lyntai/blob/master/CHANGELOG.md</PackageReleaseNotes>
+    <!-- Shared by every package; a package APPENDS its own (`$(PackageTags);…`) for what only it serves. -->
+    <PackageTags>llm;ai;dotnet;llm-router;fallback;openai;azure-openai;openrouter;ollama;llama-cpp;claude;claude-code;codex;mcp;rag;embeddings;ai-agents;agent-memory;prompt-registry;evals;llmops;tracing;opentelemetry</PackageTags>
   </PropertyGroup>
 
   <!-- Production packaging: XML docs ship in the package (missing-doc warnings suppressed — public
@@ -58,9 +61,10 @@
     <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
   </PropertyGroup>
 
-  <!-- The repo README ships inside every package (PackageReadmeFile above points at it). -->
+  <!-- The repo README and the icon ship inside every package (PackageReadmeFile / PackageIcon above). -->
   <ItemGroup Condition="'$(IsPackable)' == 'true'">
     <None Include="$(MSBuildThisFileDirectory)..\README.md" Pack="true" PackagePath="\" Visible="false" />
+    <None Include="$(MSBuildThisFileDirectory)..\docs\assets\lyntai-icon.png" Pack="true" PackagePath="\" Visible="false" />
   </ItemGroup>
 
 </Project>

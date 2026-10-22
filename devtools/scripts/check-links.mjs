@@ -1,15 +1,16 @@
 // check-links — fail when a maintained doc points at an in-repo path that is not there.
 //
-// It checks a reference four ways — a PATH that must exist, a `TASKS.md`/archive Part that must be in the
-// record it names, a `§` section that must be a heading, a `Type.Member` that must be declared — because
-// there are four ways one rots. Why each exists, what was measured, and its scope: `docs/GATES.md`
+// It checks a reference five ways — a PATH that must exist, a `TASKS.md`/archive Part that must be in the
+// record it names, a `§` section that must be a heading, a `Type.Member` that must be declared, and this
+// repository's own absolute URL or `#anchor` that must resolve — because there are five ways one rots. Why each exists, what was measured, and its scope: `docs/GATES.md`
 // §check-links. EXISTENCE only, never line numbers, and `local/**` is skipped (untracked by design).
 // Escape: `link-ok`, this gate's own. The "is this maintained state?" predicates are check-docs',
 // imported rather than restated.
 import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { HISTORICAL, IN_SCOPE, IS_SCANNED, LIVE_PREFIX, liveLinesOnly } from './check-docs.mjs';
+import { AGENT_FILES, HISTORICAL, IN_SCOPE, IS_SCANNED, LIVE_PREFIX, liveLinesOnly } from './check-docs.mjs';
+import { slug } from './decisions-index.mjs';
 import { unreleasedHeading } from './doctors.mjs';
 import { readRepoText, repoFiles, twoLineWindows, windowHits } from './_repo-files.mjs';
 
@@ -206,6 +207,66 @@ export const unresolvedAnchor = (anchors, token) => {
 };
 
 /**
+ * A link to THIS repository written as an absolute URL — `github.com/<o>/<r>/{blob,tree,raw}/<ref>/<path>`
+ * or `raw.githubusercontent.com/<o>/<r>/<ref>/<path>`, with an optional `#anchor` — as `null` when `base`
+ * is not a GitHub repository URL.
+ *
+ * The FIFTH way a reference rots (D197). The packaged README is rendered by nuget.org, which resolves a
+ * relative link against itself, so the landing page links absolutely — and PATH_PATTERN's lookbehind
+ * deliberately reads no URL. Group 1 is the view (`undefined` for raw), 2 the path, 3 the anchor.
+ */
+export const repoUrlPattern = (base) => {
+  const m = /^https:\/\/github\.com\/([^/\s]+)\/([^/\s]+?)(?:\.git)?\/?$/.exec(base ?? '');
+  if (!m) return null;
+  const [owner, name] = [m[1], m[2]].map((s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  const stop = '\\s)>\\]"\'`';
+  return new RegExp(
+    `https://(?:github\\.com/${owner}/${name}/(blob|tree|raw)/[^/${stop}]+|raw\\.githubusercontent\\.com/${owner}/${name}/[^/${stop}]+)`
+    + `/([^#?${stop}]+)(?:#([^${stop}]+))?`, 'g');
+};
+
+/** The repository URL the packages publish (`<RepositoryUrl>`), or `null` — one source, never restated. */
+export const repositoryUrlOf = (repo) => {
+  try {
+    return /<RepositoryUrl>([^<]+)<\/RepositoryUrl>/.exec(
+      readFileSync(join(repo, 'src', 'Directory.Build.props'), 'utf8'))?.[1].trim() ?? null;
+  } catch { return null; }
+};
+
+/** An in-document link: `[text](#anchor)`. */
+export const IN_FILE_ANCHOR = /\]\(#([^)\s]+)\)/g;
+
+/**
+ * The `#anchors` GitHub renders for a markdown document: each heading slugged by the rule the decisions
+ * index already generates with (`slug`), a repeat suffixed `-1`, `-2`…, plus explicit `<a id|name>`.
+ *
+ * A FENCED line is never a heading — `# install it` in a shell sample declares nothing. Comments go before
+ * slugging and the space before one stays, which is how GitHub produces a trailing hyphen.
+ */
+export const headingSlugs = (text) => {
+  const seen = new Map();
+  const slugs = new Set();
+  let fenced = false;
+  for (const line of text.split(/\r?\n/)) {
+    if (/^\s*(?:```|~~~)/.test(line)) { fenced = !fenced; continue; }
+    if (fenced) continue;
+    for (const [, id] of line.matchAll(/<a\s+(?:id|name)="([^"]+)"/g)) slugs.add(id.toLowerCase());
+    const h = /^ {0,3}#{1,6}[ \t]+(.*)$/.exec(line);
+    if (!h) continue;
+    const label = h[1].trimEnd().replace(/<!--[\s\S]*?-->/g, '').replace(/\[([^\]]*)\]\([^)]*\)/g, '$1');
+    const base = slug({ text: label });
+    const n = seen.get(base) ?? 0;
+    seen.set(base, n + 1);
+    slugs.add(n === 0 ? base : `${base}-${n}`);
+  }
+  return slugs;
+};
+
+const decodeAnchor = (a) => {
+  try { return decodeURIComponent(a).toLowerCase(); } catch { return a.toLowerCase(); }
+};
+
+/**
  * Check every maintained doc's in-repo references resolve.
  *
  * `files` is the raw candidate list (a `git ls-files` shape) and doubles as the on-disk set, so a test
@@ -233,7 +294,7 @@ export function checkLinks(repo, config = {}, log = console.log, files = null) {
   };
 
   const docs = tracked
-    .filter((f) => f.endsWith('.md'))
+    .filter((f) => f.endsWith('.md') || AGENT_FILES.includes(f))
     .filter(IN_SCOPE)
     .filter(IS_SCANNED);
 
@@ -264,7 +325,45 @@ export function checkLinks(repo, config = {}, log = console.log, files = null) {
   const misfiled = [];
   const deadAnchors = [];
   const stampedAnchors = [];
+  const deadUrls = [];
   let anchorsChecked = 0;
+  let urlsChecked = 0;
+
+  // The URL half: this repository's own absolute links and every in-document `#anchor`.
+  const urlPattern = repoUrlPattern(config.repositoryUrl ?? repositoryUrlOf(repo));
+  const slugCache = new Map();
+  const slugsOf = (target) => {
+    if (!slugCache.has(target)) {
+      let s = null;
+      try { s = headingSlugs(readFileSync(join(repo, target), 'utf8')); } catch { s = null; }
+      slugCache.set(target, s);
+    }
+    return slugCache.get(target);
+  };
+  const scanUrls = (file, lineNo, line) => {
+    const dead = (target) => deadUrls.push({ file, line: lineNo, target, text: line.trim() });
+    if (urlPattern) {
+      for (const [url, view, rawPath, anchor] of line.matchAll(urlPattern)) {
+        urlsChecked++;
+        const target = rawPath.replace(/[.,;:]+$/, '');
+        const shown = url.replace(/[.,;:]+$/, '');
+        if (view === 'tree') {
+          if (!tracked.some((f) => f === target || f.startsWith(`${target}/`))) dead(shown);
+          continue;
+        }
+        if (!onDisk.has(target)) { dead(shown); continue; }
+        if (anchor && target.endsWith('.md')) {
+          const slugs = slugsOf(target);
+          if (slugs && !slugs.has(decodeAnchor(anchor.replace(/[.,;:]+$/, '')))) dead(shown);
+        }
+      }
+    }
+    for (const [, anchor] of line.matchAll(IN_FILE_ANCHOR)) {
+      urlsChecked++;
+      const slugs = slugsOf(file);
+      if (slugs && !slugs.has(decodeAnchor(anchor))) dead(`#${anchor}`);
+    }
+  };
 
   // A citation names a document, usually by BARE BASENAME (`` `pitfalls.md` §Storage ``). Resolving one to
   // exactly one tracked file is the whole admission test: a basename matching two files — or none — is a
@@ -373,6 +472,7 @@ export function checkLinks(repo, config = {}, log = console.log, files = null) {
         if (onDisk.has(target)) continue;
         hits.push({ file, line: i + 1, target, text: line.trim() });
       }
+      scanUrls(file, i + 1, line);
       // The raw line: a citation lives inside backticks or a cref, which an author never breaks across a wrap.
       scanMembers(file, i + 1, line);
     }
@@ -406,12 +506,26 @@ export function checkLinks(repo, config = {}, log = console.log, files = null) {
   }
 
   if (hits.length === 0 && misfiled.length === 0 && deadAnchors.length === 0
-    && stampedAnchors.length === 0 && deadMembers.length === 0) {
+    && stampedAnchors.length === 0 && deadMembers.length === 0 && deadUrls.length === 0) {
     // Every count is reported, so a filter that silently stopped matching one tier is visible in the
     // GREEN line rather than only in a failure that never comes.
     log(`check-links: ${docs.length} maintained doc(s) + ${code.length} code file(s) — every in-repo `
-      + `reference resolves ✓ (${anchorsChecked} §-citation(s) checked)`);
+      + `reference resolves ✓ (${anchorsChecked} §-citation(s) checked; ${urlsChecked} repository URL(s) and #anchor(s))`);
     return 0;
+  }
+
+  if (deadUrls.length > 0) {
+    log(`check-links: ✗ ${deadUrls.length} link(s) to this repository, or an #anchor, that resolve to nothing\n`);
+    for (const u of deadUrls) {
+      const excerpt = u.text.length > 96 ? u.text.slice(0, 93) + '...' : u.text;
+      log(`  ${u.file}:${u.line}  ->  ${u.target}`);
+      log(`      ${excerpt}`);
+    }
+    log('');
+    log('  An absolute link to this repository is how the packaged README reaches the docs from nuget.org,');
+    log('  and an #anchor is GitHub\'s slug of a heading — so a moved file or a renamed heading leaves it');
+    log('  pointing at nothing while the page still renders. Repoint it; if a line deliberately quotes a');
+    log('  link that is gone, put `link-ok` on it.');
   }
 
   if (hits.length > 0) {
@@ -492,7 +606,7 @@ export function checkLinks(repo, config = {}, log = console.log, files = null) {
 
   // The counts on the red path too: a reader of a failure still needs to know the tiers were scanned.
   log(`\ncheck-links: ${docs.length} maintained doc(s) + ${code.length} code file(s) scanned `
-    + `(${anchorsChecked} §-citation(s) checked)`);
+    + `(${anchorsChecked} §-citation(s) checked; ${urlsChecked} repository URL(s) and #anchor(s))`);
   return 1;
 }
 

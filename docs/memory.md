@@ -974,6 +974,6 @@ retention policy always runs beside `SalienceRetentionPolicy`. An argument passe
 | the seed this contract grew from, and its original argument | `docs/2026-07-17-lyntai-design.md` §5.7.0 and §5.7 |
 | why a choice was made | `docs/DECISIONS.md` from **D39** on — its generated index names each (and D13 for the *keyword* store's eviction bound, which is a different surface) |
 | every measured figure, and whether it still holds | `docs/memory-measurements.md` §5 |
-| the consuming story | `README.md` |
+| the consuming story | `docs/guide.md`, behind the overview in `README.md` |
 | which SHAPE of question each model-backed seam asks, and what is measured about each | `docs/model-tasks.md` |
 | traps that pass the build while being wrong | `.claude/knowledge/pitfalls.md` |

@@ -134,7 +134,7 @@ public class GraphMemoryWiringTests
         //
         // BOTH entry points, because they are two SEPARATE wraps in MemoryEngineBuilder — UseGraph and the
         // UseBestAvailable that AddMemory() routes through — and covering only the first leaves the zero-
-        // configuration path (the one the README leads with) able to lose the feature silently. The other
+        // configuration path (the one the guide leads with) able to lose the feature silently. The other
         // AddMemory facts assert only which engine TYPE was picked, which the wrap does not affect.
         //
         // A custom salience policy stands in for the default so the assertion doesn't also depend on

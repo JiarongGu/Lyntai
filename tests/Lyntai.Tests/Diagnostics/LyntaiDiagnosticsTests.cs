@@ -30,7 +30,7 @@ public class LyntaiDiagnosticsTests
 
     // The API gate renders a const's name and type but never its VALUE, so a changed literal here passes it
     // silently — and a const is inlined into the consumer's compiled subscription, so an already-built app
-    // goes on listening to the old name and simply falls quiet. README's OTel snippet publishes all three
+    // goes on listening to the old name and simply falls quiet. the guide's OTel snippet publishes all three
     // pairs, which makes them contract rather than implementation detail.
     [Fact]
     public void The_otel_source_and_meter_names_are_pinned_literals()

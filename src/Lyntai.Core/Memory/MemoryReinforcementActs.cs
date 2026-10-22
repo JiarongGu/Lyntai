@@ -8,7 +8,7 @@ namespace Lyntai.Memory;
 /// question. An earlier single option that tried to be both was reverted before 3.0 froze
 /// (<c>docs/DECISIONS.md</c> <b>D57</b>).</para>
 ///
-/// <para><b>The question this exists to answer.</b> The README promises that <i>material you keep coming
+/// <para><b>The question this exists to answer.</b> The guide promises that <i>material you keep coming
 /// back to</i> becomes durable. The implementation reinforces whatever the RANKER RETURNED — and those were
 /// treated as the same thing for the subsystem's whole life. They are not. FSRS's "retrieval strengthens
 /// memory" comes from a domain where retrieval is VERIFIED: the learner knows whether they got it right, and

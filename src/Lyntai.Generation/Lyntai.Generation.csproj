@@ -16,6 +16,7 @@
   <PropertyGroup>
     <IsPackable>true</IsPackable>
     <PackageId>Lyntai.Generation</PackageId>
+    <PackageTags>$(PackageTags);image-generation;video-generation;text-to-speech;stable-diffusion;comfyui;automatic1111;fal-ai;piper</PackageTags>
     <Description>Generation backends: OpenAI images, Automatic1111, ComfyUI, a local sd-cli subprocess, streaming piper TTS, and the fal.ai queue for video (written from fal's public docs, never called against the service). The generation CONTRACTS live in Lyntai.Core — this is the backend set, kept out of the Lyntai bundle so an application that needs no media generation does not carry it.</Description>
   </PropertyGroup>
 

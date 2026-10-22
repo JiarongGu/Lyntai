@@ -17,6 +17,22 @@ and every Breaking entry ends by naming that action. A pure addition goes under 
 moves the `ApiSurfaceTests` baseline: the baseline gates DELIBERATENESS (D8), not breakage, and it moves for
 every addition.
 
+## Unreleased
+
+### Changed
+
+- **The packaged README is a landing page, and the reference moved to `docs/guide.md`** (**D197**). nuget.org
+  renders the README for every package, so it now opens on what Lyntai is, a quickstart, the feature and backend
+  maps and the package table, and its links are absolute — nuget.org resolves a relative link against itself.
+  Every feature, its semantics and its sample are in the guide, unchanged.
+- **Every package carries an icon, this changelog as its release notes, and tags for what it serves** —
+  pgvector, ONNX, GGUF, MCP, ComfyUI and the rest beside the shared set.
+
+### Added
+
+- **`llms.txt` and `context7.json`, for coding agents** (**D197**): an index of the docs written for language
+  models, and the configuration the Context7 documentation index reads — both carrying README's agent rules.
+
 ## 3.5.3 — 2026-09-30
 
 ### Fixed

@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640" width="1280" height="640">
+  <!-- The repository's social-preview card. social-preview.png is this file rendered by headless Edge in
+       a 1280x640 window. -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#312E81"/>
+      <stop offset="1" stop-color="#0B1120"/>
+    </linearGradient>
+    <radialGradient id="halo" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#FCD34D" stop-opacity="0.6"/>
+      <stop offset="1" stop-color="#FCD34D" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="orb" cx="0.38" cy="0.32" r="0.75">
+      <stop offset="0" stop-color="#FFFBEB"/>
+      <stop offset="0.5" stop-color="#FBBF24"/>
+      <stop offset="1" stop-color="#D97706"/>
+    </radialGradient>
+    <linearGradient id="slab" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#EEF2FF"/>
+      <stop offset="1" stop-color="#A5B4FC"/>
+    </linearGradient>
+  </defs>
+  <rect width="1280" height="640" fill="url(#bg)"/>
+  <g transform="translate(96 168) scale(1.18)">
+    <circle cx="128" cy="90" r="66" fill="url(#halo)"/>
+    <circle cx="128" cy="90" r="30" fill="url(#orb)"/>
+    <rect x="82" y="142" width="92" height="20" rx="6" fill="url(#slab)"/>
+    <rect x="60" y="170" width="136" height="20" rx="6" fill="url(#slab)" opacity="0.88"/>
+    <rect x="38" y="198" width="180" height="20" rx="6" fill="url(#slab)" opacity="0.76"/>
+  </g>
+  <g font-family="'Segoe UI', 'Inter', 'Helvetica Neue', Arial, 'Microsoft YaHei', sans-serif">
+    <text x="440" y="276" font-size="124" font-weight="700" fill="#EEF2FF">Lyntai<tspan dx="30" font-size="72" font-weight="400" fill="#FCD34D">灵台</tspan></text>
+    <text x="444" y="356" font-size="42" font-weight="600" fill="#C7D2FE">A .NET 10 library for LLM applications</text>
+    <text x="444" y="416" font-size="28" fill="#A5B4FC">routing &amp; failover · agent memory · MCP · evals · jobs</text>
+    <text x="444" y="516" font-size="26" fill="#818CF8">dotnet add package Lyntai</text>
+  </g>
+</svg>

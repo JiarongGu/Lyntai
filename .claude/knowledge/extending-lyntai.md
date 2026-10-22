@@ -15,6 +15,11 @@ Lyntai's whole value is being extended without forking. Every extension is **an 
 `Lyntai.Core` + an implementation in an adapter package that depends only on Core** (never adapter →
 adapter) + **a `LyntaiBuilder` extension method** so the consumer wires it with one line.
 
+**A backend a consumer registers is documented in two places, and nothing gates the pair** (**D197**): its
+section in `docs/guide.md`, and a row in `README.md` §Backends, the table nuget.org shows for every package.
+README links ABSOLUTELY — nuget.org resolves a relative link against itself — and `check-links` holds those
+URLs and their `#anchors` to the tree.
+
 ## A duplicate NAME: two rules, and which one you are under is not guessable
 
 Every seam here keys its members by a string, and a duplicate makes one of the two unreachable. **Half of

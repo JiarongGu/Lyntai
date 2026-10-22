@@ -1,0 +1,41 @@
+# Lyntai
+
+> Lyntai is a .NET 10 library (NuGet: `Lyntai`) for building LLM applications. One `ITextClient` front door routes and fails over across OpenAI, Azure OpenAI, OpenRouter, Ollama, llama.cpp, in-process GGUF and ONNX models and the `claude` and `codex` CLIs; the same `services.AddLyntai(cfg => …)` call wires long-term memory engines, MCP tools, a prompt registry, scoring, run traces, durable jobs and image, video and audio generation, over SQLite, PostgreSQL (pgvector), files or memory. It is a library, not a server.
+
+Install `Lyntai` for the starting set: the core, the dependency-free backends (OpenAI-shaped HTTP endpoints, Ollama, the `claude` and `codex` CLIs, a `model2vec` embedder), both halves of MCP, and in-memory and file storage. Add `Lyntai.Storage.Sqlite` or `Lyntai.Storage.Postgres` for a database, `Lyntai.Generation` for media, `Lyntai.Providers.LlamaSharp` for GGUF in process and `Lyntai.Providers.Onnx` for ONNX embeddings and reranking in process.
+
+Rules for writing code against Lyntai:
+
+<!-- agent-rules:begin — a copy of README.md's block; check-docs holds the two equal (D197) -->
+- Compose everything through `services.AddLyntai(cfg => …)` and inject what it registers; never construct a provider, router or store by hand.
+- Call models through the injected `ITextClient`. `UseDefaultCandidates(…)` sets the fallback order over registered provider ids — by default "openai", "azure-openai", "openrouter", "llama", "ollama", "claude-cli", "codex-cli" and "llamasharp".
+- A failed call returns a verdict, never an exception: check `reply.Verdict.IsOk()` and read `reply.Detail`. A bridge registered with `AddBridgeProvider` returns `ProviderVerdict.Failed` rather than throwing.
+- The `Lyntai` package is a starting set: nothing persists until you choose storage (`UseSqliteStorage` from Lyntai.Storage.Sqlite, `UsePostgresStorage` from Lyntai.Storage.Postgres, or `UseFileSystemStorage`), and media generation needs Lyntai.Generation.
+- An embedder is a registration of its own with `o.Produces = ProviderKinds.Vector`, even on a server that also hosts the chat model; `AddSemanticMemory()` then fails at startup when no embedder is registered.
+- Long-term memory goes through `AddMemory()` or `AddMemoryEngine(name, …)` and `IMemoryEngineFactory`. Graph memory decays by interference and hides rather than deletes; only `PruneAsync` removes an entry.
+- Add a cross-cutting layer to the front door with `AddFrontDoorDecorator(order, …)` and a class derived from `DelegatingTextClient`; registering your own `ITextClient` silently discards the cache, budget and rate limit.
+- The builder extensions are in namespace `Lyntai`; `ITextClient`, `TextRequest`, `TextMessage` and `ProviderVerdict` are in `Lyntai.Inference`; the memory types are in `Lyntai.Memory`.
+<!-- agent-rules:end -->
+
+## Docs
+
+- [README](https://raw.githubusercontent.com/JiarongGu/Lyntai/master/README.md): what Lyntai is, a quickstart, the backends and every package
+- [Guide](https://raw.githubusercontent.com/JiarongGu/Lyntai/master/docs/guide.md): every feature with its semantics and a sample — routing and fallback, structured output, the cache, budget and rate limit, memory engines, semantic memory, observability, CLI backends, bridging, tool calling, MCP, agent sessions, durable jobs
+- [Long-term memory](https://raw.githubusercontent.com/JiarongGu/Lyntai/master/docs/memory.md): the memory engine's contract, its configuration and measured costs
+- [Media generation](https://raw.githubusercontent.com/JiarongGu/Lyntai/master/docs/generation.md): image, video, audio and 3D backends, the three delivery modes, pipelines and durable renders
+
+## Reference
+
+- [Model-backed tasks](https://raw.githubusercontent.com/JiarongGu/Lyntai/master/docs/model-tasks.md): every model-backed seam by the shape of the question it asks, and how to size a model for it
+- [Deployment shapes](https://raw.githubusercontent.com/JiarongGu/Lyntai/master/docs/deployment-shapes.md): which configuration fits which deployment
+- [AOT and trimming](https://raw.githubusercontent.com/JiarongGu/Lyntai/master/docs/AOT.md): per-package Native AOT and trimming status
+
+## Examples
+
+- [Playground](https://raw.githubusercontent.com/JiarongGu/Lyntai/master/samples/Lyntai.Playground/Program.cs): a runnable console app composing storage, a CLI backend, prompts, scoring, traces and memory end to end
+
+## Optional
+
+- [Changelog](https://raw.githubusercontent.com/JiarongGu/Lyntai/master/CHANGELOG.md): per-release changes, breaking changes called out
+- [Design record](https://raw.githubusercontent.com/JiarongGu/Lyntai/master/docs/2026-07-17-lyntai-design.md): interfaces, semantics and scope
+- [Decisions](https://raw.githubusercontent.com/JiarongGu/Lyntai/master/docs/DECISIONS.md): why the library is shaped as it is

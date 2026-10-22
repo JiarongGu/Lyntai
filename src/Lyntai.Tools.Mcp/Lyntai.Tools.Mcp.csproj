@@ -3,6 +3,7 @@
   <PropertyGroup>
     <IsPackable>true</IsPackable>
     <PackageId>Lyntai.Tools.Mcp</PackageId>
+    <PackageTags>$(PackageTags);model-context-protocol;mcp-server;mcp-client;tool-calling</PackageTags>
     <Description>MCP in BOTH directions. Exposes a Model Context Protocol server's tools as Lyntai ITools so the tool loop can call them, and hosts the app's registered ITools as an ephemeral, localhost-only MCP server for a CLI that runs its own agent loop. Wired via builder.AddMcpTools(...) and builder.AddMcpToolHost(...). Absorbed Lyntai.Tools.Mcp.Hosting, which pinned the same dependency and is retired.</Description>
     <!-- MCP argument/result marshaling is dynamic JSON (reflection): can't honestly claim trim/AOT. -->
     <IsAotCompatible>false</IsAotCompatible>

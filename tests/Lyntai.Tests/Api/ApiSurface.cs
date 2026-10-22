@@ -131,7 +131,7 @@ internal static class ApiSurface
     private static string TypeParams(MethodInfo m) =>
         m.IsGenericMethod ? $"<{string.Join(",", m.GetGenericArguments().Select(Simple))}>" : "";
 
-    // Parameter NAMES are frozen surface, not decoration: the README teaches named arguments, so renaming
+    // Parameter NAMES are frozen surface, not decoration: the docs teach named arguments, so renaming
     // one is a source break for every caller using it. The DEFAULT is rendered as its VALUE, not a bare `=`
     // marker, for the same reason: flipping a default is a behaviour change no consumer can detect at
     // compile time, and `=` records only that one exists.

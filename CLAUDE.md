@@ -16,12 +16,12 @@ scoring/eval, run traces, long-term memory — all wired by `AddLyntai(...)`.
 **Released: v3.5.3 (2026-09-30).** Eleven packages. The public API is frozen under
 SemVer 2.0 since 1.0 for every package (**D70**), but while every consumer is first-party a documented break
 may ship in a minor under `### Breaking` (**D18**, **D161**); storage and migration breaks stay major-only.
-The reasoning is `docs/DECISIONS.md`, **D1–D196** — read its generated index table rather than any list of
+The reasoning is `docs/DECISIONS.md`, **D1–D197** — read its generated index table rather than any list of
 decisions kept here. **Everything before 3.0 is HISTORY, not context**: `.claude/rules/repo-mechanics.md`
 says what that forbids.
 
 **The baseline a green run should match:** `5280 passed / 5329 total, 49 skipped` (every skip is a
-live-backend gate), e2e 3/3, guard-script tests 960/960, doc samples 58/58 — MEASURED with Docker up at
+live-backend gate), e2e 3/3, guard-script tests 973/973, doc samples 59/59 — MEASURED with Docker up at
 `91db1295` (2026-09-30). No gate holds the xUnit trio (`docs/GATES.md` §Which numbers a gate holds), so:
 
 - **Re-measure it by hand after `verify`, off that run's own output**, never from a diff, and re-attest the
@@ -79,7 +79,7 @@ columns are the two things read wrongly here (**D114**) · `docs/DECISIONS.md` �
 rationale log, present tense, contiguous `D1..Dn` · `docs/GATES.md` — what each gate is for and the numbers
 it holds · `docs/model-tasks.md` — every model-backed seam by the SHAPE of the question it asks ·
 `docs/deployment-shapes.md` — the same evidence cut by the shape of the deployment · `README.md` — the
-consuming story · `docs/generation.md` — the media generation guide · `CHANGELOG.md` — per-release detail · `docs/ROADMAP.md` — one line per version ·
+landing page every package ships, linked ABSOLUTELY (**D197**) · `docs/guide.md` — the consuming story · `docs/generation.md` — the media generation guide · `CHANGELOG.md` — per-release detail · `docs/ROADMAP.md` — one line per version ·
 `TASKS.md` — the OPEN backlog, whose generated roster is the live work: read it, never a copy kept here ·
 `docs/task-archive.md` — the closed one, one Part per task · `docs/FIXES.md` — the fix log ·
 `docs/superpowers/INDEX.md` — the tracked list of specs and plans, whose records live untracked in

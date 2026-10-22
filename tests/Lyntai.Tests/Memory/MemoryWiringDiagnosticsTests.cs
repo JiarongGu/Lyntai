@@ -35,7 +35,7 @@ public class MemoryWiringDiagnosticsTests
     }
 
     /// <summary>The library's own documented blend must stay quiet. <c>UseCurated("glossary").UseGraph()</c>
-    /// is in the README: curated takes the authoritative writes, the graph takes the associative ones, and
+    /// is in the guide: curated takes the authoritative writes, the graph takes the associative ones, and
     /// neither is inert. A check that fired here would be wrong on correct wiring, which is worse than no
     /// check — it teaches a reader to ignore the channel.</summary>
     [Fact]

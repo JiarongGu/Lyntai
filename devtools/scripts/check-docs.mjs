@@ -176,6 +176,42 @@ export const commentLinesOnly = (lines) =>
   lines.map((l) => (l.trim().startsWith('//') ? l.trim().replace(/^\/{2,3}\s*/, '') : ''));
 
 /**
+ * The two root files written FOR coding agents (D197): `llms.txt` and `context7.json`, whose `rules` an
+ * agent receives verbatim. Both name the API exactly as README does, and neither is `.md`, so every gate
+ * that filters by extension must admit them by name.
+ */
+export const AGENT_FILES = ['llms.txt', 'context7.json'];
+
+/** README's agent-rules block: the canonical list `llms.txt` repeats and `context7.json` carries as `rules`. */
+export const AGENT_RULES = /<!-- agent-rules:begin[\s\S]*?-->([\s\S]*?)<!-- agent-rules:end -->/;
+
+const bulletsOf = (block) => block.split(/\r?\n/).map((l) => /^- (.+)$/.exec(l.trim())?.[1]).filter(Boolean);
+
+/**
+ * Where a copy of README's agent rules has drifted, one defect per file — `[]` while README carries no
+ * block. A missing or unparsable copy IS drift: an agent reads whichever one it was handed (D197).
+ */
+export function agentRulesDrift({ readme, llms, context7 }) {
+  const canon = AGENT_RULES.exec(readme ?? '');
+  if (!canon) return [];
+  const want = bulletsOf(canon[1]);
+  const differs = (file, got) => {
+    const i = want.findIndex((rule, k) => got[k] !== rule);
+    const at = i < 0 ? want.length : i;
+    if (i < 0 && got.length === want.length) return null;
+    return `${file}: rule ${at + 1} is ${JSON.stringify(got[at] ?? '(missing)')}, README.md says `
+      + JSON.stringify(want[at] ?? '(nothing)');
+  };
+  const block = AGENT_RULES.exec(llms ?? '');
+  let rules = null;
+  try { rules = JSON.parse(context7 ?? '').rules; } catch { rules = null; }
+  return [
+    block ? differs('llms.txt', bulletsOf(block[1])) : 'llms.txt: no agent-rules block',
+    Array.isArray(rules) ? differs('context7.json', rules) : 'context7.json: no `rules` array',
+  ].filter(Boolean);
+}
+
+/**
  * The maintained PROSE this gate reads: the repo-root documents, `docs/` and `.claude/`. `CLAUDE.md` is
  * auto-loaded into every session and `TASKS.md` is the backlog a session picks work from, so both are in;
  * the historical twins (`CHANGELOG.md` below its live prefix, `docs/task-archive.md`) are read through
@@ -185,6 +221,7 @@ export const IN_SCOPE = (path) =>
   path === 'README.md'
   || path === 'CLAUDE.md'
   || path === 'TASKS.md'
+  || AGENT_FILES.includes(path)
   // CHANGELOG.md is in scope but only for its LIVE PREFIX — see LIVE_PREFIX below, which is what keeps the
   // released sections out. Adding it here was the load-bearing half: this predicate runs FIRST, so while
   // `CHANGELOG.md` was absent from it the file was excluded before the historical filter was ever consulted,
@@ -257,7 +294,7 @@ export function checkDocs(repo, config, log = console.log, files = null) {
   const source = files ?? repoFiles(repo);
   const tracked = source
     // .html too: the published design record is a tracked page, and an untracked one drifted three times
-    .filter((f) => f.endsWith('.md') || f.endsWith('.html'))
+    .filter((f) => f.endsWith('.md') || f.endsWith('.html') || AGENT_FILES.includes(f))
     .filter(IN_SCOPE)
     .filter(IS_SCANNED)
     .concat(source.filter(CODE_IN_SCOPE));
@@ -306,7 +343,20 @@ export function checkDocs(repo, config, log = console.log, files = null) {
     }
   }
 
+  const drift = agentRulesDrift({
+    readme: readRepoText(repo, 'README.md'),
+    llms: readRepoText(repo, 'llms.txt'),
+    context7: readRepoText(repo, 'context7.json'),
+  });
+  if (drift.length > 0) {
+    log(`check-docs: ✗ ${drift.length} copy(ies) of README's agent rules drifted\n`);
+    for (const d of drift) log(`  ${d}`);
+    log('\n  README.md\'s agent-rules block is the canonical list; llms.txt repeats it and context7.json');
+    log('  carries it as `rules`, and an agent reads whichever one it was handed. Edit all three together.\n');
+  }
+
   if (hits.length === 0) {
+    if (drift.length > 0) return 1;
     log(`check-docs: ${tracked.length} doc(s) clean of retired vocabulary ✓`
       + (skipped ? ` (${skipped} superseded record(s) skipped)` : ''));
     return 0;

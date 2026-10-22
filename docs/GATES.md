@@ -267,6 +267,10 @@ Three `devtools/` files are out because quoting retired vocabulary is their job:
 whose fixtures are the terms. Excluding the whole tier once hid a stale embedder name in a sweep script.
 **An empty `retiredTerms` registry FAILS** rather than reporting a clean tree it never checked.
 
+**The two files written for coding agents** — `llms.txt` and `context7.json` (**D197**) — are admitted by NAME,
+neither being `.md`. README's `agent-rules` block is held equal to the copy each carries: a drifted, missing or
+unparsable copy fails, because an agent reads whichever one it was handed.
+
 **It matches on a TWO-LINE WINDOW**, because these documents wrap at ~110 columns and the sentence the gate
 most needs to catch is the one most likely to straddle a break. A consequence worth knowing when moving
 prose: **re-wrapping alone can trip it**, since a reflow joins text that was never adjacent. Run it after
@@ -281,7 +285,7 @@ the one archive that had happened, leaving **six** dead references in maintained
 design contract, `docs/DECISIONS.md` ×2) plus two in `CHANGELOG.md`'s live prefix. Every gate reported
 clean; a reader found them.
 
-It checks a reference **four ways**, because there are four ways one rots.
+It checks a reference **five ways**, because there are five ways one rots.
 
 **The path half** asks whether the target still exists.
 
@@ -347,6 +351,15 @@ exclusion list, at the stated cost of never checking a BCL member), and the voca
 code with **comments STRIPPED**, because an index built from prose lets a citation AUTHORIZE ITSELF: write
 `Type.Nonexistent` in a `//` comment and the name joins the vocabulary, after which nothing can ever flag
 it. That second one was caught by the gate's own test, not by review.
+
+**The URL half** (added 2026-10-22, **D197**) asks whether a link to THIS repository written as an absolute
+URL — `github.com/<owner>/<repo>/{blob,tree,raw}/…` or `raw.githubusercontent.com/…`, owner and name read from
+`<RepositoryUrl>` — names a tracked path, and whether its `#anchor`, like every in-document anchor link, is a
+heading's GitHub slug: the rule `decisions-index` generates with, a repeat suffixed `-1`, and never a line inside
+a fence. The packaged README links absolutely because nuget.org resolves a relative link against itself, and
+PATH_PATTERN reads no URL by design, so without this half every link on the landing page was ungated. Its first
+run checked the decision index's 201 anchors and flagged none — the measurement that the slug rule agrees with
+the generator's.
 
 **Scope.** It scans the CODE tiers too, but narrower than the prose scan on two axes: **comment lines
 only** (a path in a string literal is data the program uses, not a reference a reader follows) and — for

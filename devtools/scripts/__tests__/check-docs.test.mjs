@@ -9,7 +9,9 @@ import path from 'node:path';
 import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { CODE_IN_SCOPE, HISTORICAL, IN_SCOPE, IS_SCANNED, checkDocs, liveLineCount, liveLineMask } from '../check-docs.mjs';
+import {
+  CODE_IN_SCOPE, HISTORICAL, IN_SCOPE, IS_SCANNED, agentRulesDrift, checkDocs, liveLineCount, liveLineMask,
+} from '../check-docs.mjs';
 import { repoFiles } from '../_repo-files.mjs';
 import { git, makeRepo, makeTree, recorder, removeTree } from './_fixtures.mjs';
 
@@ -95,6 +97,18 @@ describe('check-docs — regression: the three measured defects', () => {
       assert.equal(IN_SCOPE(p), true, `${p} should be in scope`);
     for (const p of ['src/Lyntai.Core/README.md', 'tests/notes.md', 'devtools/x.md', 'CONTRIBUTING.md'])
       assert.equal(IN_SCOPE(p), false, `${p} should be out of scope`);
+  });
+
+  it('the two files written FOR coding agents are scanned, though neither is .md (D197)', () => {
+    // `llms.txt` and `context7.json` name the API to an agent writing code against it — the same claim a
+    // README makes — and an extension filter alone reads neither.
+    for (const file of ['llms.txt', 'context7.json']) {
+      assert.equal(IN_SCOPE(file), true, `${file} should be in scope`);
+      const { code, out } = run({ [file]: 'The policy is available but not the default.\n' });
+      assert.equal(code, 1, `${file} must be scanned — a coding agent reads it as current`);
+      assert.match(out, new RegExp(`${file.replace('.', '\\.')}:1`));
+    }
+    assert.equal(IN_SCOPE('notes.txt'), false, 'admitted BY NAME, never by extension');
   });
 
   it('defect 3: the word SUPERSEDED in ordinary PROSE no longer exempts the whole file', () => {
@@ -544,5 +558,42 @@ describe('check-docs — the retiredApiNames ↔ retiredTerms PAIRING audit (the
       { 'docs/guide.md': 'FrobnicateThing appears here.\n' },
       { rules: { retiredTerms: [claimRule], retiredApiNames: [shape] } });
     assert.equal(code, 0);
+  });
+});
+
+describe('check-docs — the agent rules: README is the copy llms.txt and context7.json must equal (D197)', () => {
+  const block = (...rules) => `<!-- agent-rules:begin — canonical -->\n${rules.map((r) => `- ${r}`).join('\n')}\n<!-- agent-rules:end -->\n`;
+  const readme = `# Widget\n\n${block('Inject `ITextClient`.', 'A failure is a verdict.')}`;
+  const llms = `# Widget\n\n> A library.\n\n${block('Inject `ITextClient`.', 'A failure is a verdict.')}`;
+  const context7 = JSON.stringify({ rules: ['Inject `ITextClient`.', 'A failure is a verdict.'] });
+
+  it('is silent while the three agree, and while README carries no block at all', () => {
+    assert.deepEqual(agentRulesDrift({ readme, llms, context7 }), []);
+    assert.deepEqual(agentRulesDrift({ readme: '# Widget\n', llms: null, context7: null }), []);
+  });
+
+  it('names the file that drifted, and the first rule that differs', () => {
+    const edited = JSON.stringify({ rules: ['Inject `ITextClient`.', 'A failure throws.'] });
+    const drift = agentRulesDrift({ readme, llms, context7: edited });
+    assert.equal(drift.length, 1);
+    assert.match(drift[0], /context7\.json/);
+    assert.match(drift[0], /A failure throws/);
+  });
+
+  it('reports a MISSING copy rather than passing it — a deleted file is the loudest drift', () => {
+    const drift = agentRulesDrift({ readme, llms: null, context7: '{ "rules": 3 }' });
+    assert.equal(drift.length, 2);
+    assert.match(drift.join('\n'), /llms\.txt/);
+    assert.match(drift.join('\n'), /context7\.json/);
+  });
+
+  it('fails the gate on a drifted copy, alongside the vocabulary scan', () => {
+    const { code, out } = run({
+      'README.md': readme,
+      'llms.txt': `# Widget\n\n${block('Inject `ITextClient`.')}`,
+      'context7.json': context7,
+    });
+    assert.equal(code, 1);
+    assert.match(out, /llms\.txt/);
   });
 });

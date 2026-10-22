@@ -11,7 +11,7 @@ namespace Lyntai.Tests.Memory;
 /// <summary><b>Does reinforcing only what a caller PAID for beat reinforcing whatever the ranker
 /// returned?</b> The half of reinforcement the effect seam (<b>D57</b>) deliberately does not answer.
 ///
-/// <para><b>The premise error being tested.</b> The README promises that <i>material you keep coming back
+/// <para><b>The premise error being tested.</b> The guide promises that <i>material you keep coming back
 /// to</i> becomes durable; the default reinforces whatever the ranker RETURNED, and those are not the same
 /// thing. FSRS's "retrieval strengthens memory" comes
 /// from a domain where retrieval is VERIFIED — the learner knows whether they got it right. Here it is

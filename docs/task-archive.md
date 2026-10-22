@@ -5472,3 +5472,16 @@ re-measurement, `pitfalls.md` the trap and its 0-token probe. Ten `ClaudeComplet
 decorator can go.
 
 - Hand a hosted one-shot claude call ONE settings file, holding the consumer's settings and the tool host's allow-list
+
+## Part 344 — the GitHub and NuGet presence: a landing README, the guide, and the agent-facing files (2026-10-22)
+
+✅ done 2026-10-22 — **Outcome:** an owner's request to make the library findable — by search, on nuget.org, and by
+coding agents writing against it. README became the landing page every package ships (pitch, quickstart, feature
+and backend maps, packages, status, agent rules, absolute links) and its 910-line reference moved VERBATIM to
+`docs/guide.md`; `llms.txt` and `context7.json` were added, and every package gained an icon, release notes and
+its own tags. Two gate halves came with it: `check-links` resolves this repository's absolute URLs and every
+`#anchor`, and `check-docs` scans the agent files and holds their rules equal to README's. **D197** holds the
+rule and the rejected shapes, `docs/GATES.md` §check-links the URL half, `pitfalls.md` the relative-link trap.
+D158's one deliberate "OpenAI-compatible" README mention had already been lost; it is back, in §Backends.
+
+- Update the GitHub presence (docs, topics) for search and publicity, so other agents building apps can see Lyntai

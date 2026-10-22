@@ -56,12 +56,12 @@ public class DecoratedInterfaceTests
     }
 
     [Fact]
-    public void The_readme_lists_exactly_the_interfaces_the_library_decorates()
+    public void The_guide_lists_exactly_the_interfaces_the_library_decorates()
     {
-        var readme = File.ReadAllText(Path.Combine(RepoRoot(), "README.md"));
-        var block = Regex.Match(readme,
+        var guide = File.ReadAllText(Path.Combine(RepoRoot(), "docs", "guide.md"));
+        var block = Regex.Match(guide,
             "<!-- decorated-interfaces:begin -->(.*?)<!-- decorated-interfaces:end -->", RegexOptions.Singleline);
-        Assert.True(block.Success, "README.md has lost its decorated-interfaces block");
+        Assert.True(block.Success, "docs/guide.md has lost its decorated-interfaces block");
 
         var listed = Regex.Matches(block.Groups[1].Value, @"^\| `(I\w+)` \|", RegexOptions.Multiline)
             .Select(m => m.Groups[1].Value);

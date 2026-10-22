@@ -68,7 +68,7 @@ _A MEASUREMENT RECORD is listed here too: what was measured on one day is the sa
 | 2026-08-08 | Graph memory engine (MEM2) | 2.5.0 | ✓ | ✓ | design §5.7 · D40–D41 · `docs/task-archive.md` Parts 47–52 |
 | 2026-08-08 | Graph memory on SQLite + Postgres (MEM2b) | 2.5.0 | — | ✓ | `.claude/knowledge/storage.md` · `docs/task-archive.md` Part 48 |
 | 2026-08-05 | Provider pool / lifetime seam | 2.2.0 | ✓ | ✓ | D30 · `docs/task-archive.md` Part 37 |
-| 2026-08-04 | The media generation platform (Plan 1 of 7) — the last document to leave `docs/` | 2.0.1 | — | ✓ | **D24**/**D25** · design §6 · `docs/task-archive.md` Parts 32–33 · `README.md` §Generation · `TASKS.md` Part 33 (GEN-VERIFY/GEN6/GEN7, which carry the CURRENT framing — see below) |
+| 2026-08-04 | The media generation platform (Plan 1 of 7) — the last document to leave `docs/` | 2.0.1 | — | ✓ | **D24**/**D25** · design §6 · `docs/task-archive.md` Parts 32–33 · `docs/guide.md` §Generation · `TASKS.md` Part 33 (GEN-VERIFY/GEN6/GEN7, which carry the CURRENT framing — see below) |
 | 2026-08-04 | The 2.0.1 package restructure | 2.0.1 | — | ✓ | design §3 amendment · D25–D27 · `docs/task-archive.md` Part 32 |
 | 2026-07-28 | 1.0 readiness | 1.0.0 | ✓ | ✓ | `docs/ROADMAP.md` (the v1.0.0 row) · D16 |
 | 2026-07-27 | Curated memory metadata catalog | 0.31.0 | ✓ | — | CHANGELOG 0.31.0 · archive |

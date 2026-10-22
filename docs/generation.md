@@ -5,7 +5,7 @@
 > reasoning behind each choice is `docs/DECISIONS.md` (**D24** scope, **D28** input roles, **D64** the
 > Inconclusive submit, **D67** the stream door, **D69** an unmeasured mapping is an option, **D127**
 > capabilities as data, **D156** one door for every backend, **D180** ComfyUI's inputs and `Model3d`, **D181**
-> the durable pipeline, **D185** the one spend gate, **D189** a second queue vendor); `README.md`
+> the durable pipeline, **D185** the one spend gate, **D189** a second queue vendor); `docs/guide.md`
 > §Generation is the short version.
 
 ## 1. Registering backends

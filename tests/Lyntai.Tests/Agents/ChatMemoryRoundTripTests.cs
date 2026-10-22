@@ -37,7 +37,7 @@ public class ChatMemoryRoundTripTests
     }
 
     [Fact]
-    public async Task The_README_headline_chat_over_SQLite_recalls_its_own_earlier_turn()
+    public async Task The_documented_headline_chat_over_SQLite_recalls_its_own_earlier_turn()
     {
         using var db = new TempDbPath("chat-memory");
 

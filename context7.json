@@ -1,0 +1,35 @@
+{
+  "$schema": "https://context7.com/schema/context7.json",
+  "projectTitle": "Lyntai",
+  "description": ".NET 10 library for LLM applications: provider routing and failover across OpenAI, Azure OpenAI, OpenRouter, Ollama, llama.cpp, GGUF, ONNX and the claude and codex CLIs, plus long-term memory engines, MCP tools, a prompt registry, scoring, run traces, durable jobs and media generation, composed with AddLyntai().",
+  "folders": [
+    "docs",
+    "samples"
+  ],
+  "excludeFolders": [
+    "docs/superpowers",
+    "docs/assets"
+  ],
+  "excludeFiles": [
+    "CHANGELOG.md",
+    "CLAUDE.md",
+    "TASKS.md",
+    "DECISIONS.md",
+    "task-archive.md",
+    "FIXES.md",
+    "GATES.md",
+    "memory-measurements.md",
+    "ROADMAP.md",
+    "2026-07-17-lyntai-design.md"
+  ],
+  "rules": [
+    "Compose everything through `services.AddLyntai(cfg => …)` and inject what it registers; never construct a provider, router or store by hand.",
+    "Call models through the injected `ITextClient`. `UseDefaultCandidates(…)` sets the fallback order over registered provider ids — by default \"openai\", \"azure-openai\", \"openrouter\", \"llama\", \"ollama\", \"claude-cli\", \"codex-cli\" and \"llamasharp\".",
+    "A failed call returns a verdict, never an exception: check `reply.Verdict.IsOk()` and read `reply.Detail`. A bridge registered with `AddBridgeProvider` returns `ProviderVerdict.Failed` rather than throwing.",
+    "The `Lyntai` package is a starting set: nothing persists until you choose storage (`UseSqliteStorage` from Lyntai.Storage.Sqlite, `UsePostgresStorage` from Lyntai.Storage.Postgres, or `UseFileSystemStorage`), and media generation needs Lyntai.Generation.",
+    "An embedder is a registration of its own with `o.Produces = ProviderKinds.Vector`, even on a server that also hosts the chat model; `AddSemanticMemory()` then fails at startup when no embedder is registered.",
+    "Long-term memory goes through `AddMemory()` or `AddMemoryEngine(name, …)` and `IMemoryEngineFactory`. Graph memory decays by interference and hides rather than deletes; only `PruneAsync` removes an entry.",
+    "Add a cross-cutting layer to the front door with `AddFrontDoorDecorator(order, …)` and a class derived from `DelegatingTextClient`; registering your own `ITextClient` silently discards the cache, budget and rate limit.",
+    "The builder extensions are in namespace `Lyntai`; `ITextClient`, `TextRequest`, `TextMessage` and `ProviderVerdict` are in `Lyntai.Inference`; the memory types are in `Lyntai.Memory`."
+  ]
+}
