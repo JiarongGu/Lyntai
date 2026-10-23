@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="36" height="36">
+  <!-- The README's logo: lyntai-icon.svg's drawing at a declared 36 px, beside the title. Markdown cannot size an
+       image and nuget.org renders no HTML, so the size lives here; an SVG stays sharp at any pixel density.
+       Edit the drawing in lyntai-icon.svg and copy it here. -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3730A3"/>
+      <stop offset="1" stop-color="#0F172A"/>
+    </linearGradient>
+    <radialGradient id="halo" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#FCD34D" stop-opacity="0.6"/>
+      <stop offset="1" stop-color="#FCD34D" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="orb" cx="0.38" cy="0.32" r="0.75">
+      <stop offset="0" stop-color="#FFFBEB"/>
+      <stop offset="0.5" stop-color="#FBBF24"/>
+      <stop offset="1" stop-color="#D97706"/>
+    </radialGradient>
+    <linearGradient id="slab" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#EEF2FF"/>
+      <stop offset="1" stop-color="#A5B4FC"/>
+    </linearGradient>
+  </defs>
+  <rect width="256" height="256" rx="56" fill="url(#bg)"/>
+  <circle cx="128" cy="90" r="66" fill="url(#halo)"/>
+  <circle cx="128" cy="90" r="30" fill="url(#orb)"/>
+  <rect x="82" y="142" width="92" height="20" rx="6" fill="url(#slab)"/>
+  <rect x="60" y="170" width="136" height="20" rx="6" fill="url(#slab)" opacity="0.88"/>
+  <rect x="38" y="198" width="180" height="20" rx="6" fill="url(#slab)" opacity="0.76"/>
+</svg>

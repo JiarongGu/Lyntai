@@ -1,8 +1,4 @@
-<p align="center">
-  <img src="https://raw.githubusercontent.com/JiarongGu/Lyntai/master/docs/assets/lyntai-icon.png" width="112" alt="Lyntai">
-</p>
-
-# Lyntai (灵台)
+# ![logo](https://raw.githubusercontent.com/JiarongGu/Lyntai/master/docs/assets/lyntai-logo.svg) Lyntai (灵台)
 
 [![NuGet](https://img.shields.io/nuget/v/Lyntai.svg?label=nuget)](https://www.nuget.org/packages/Lyntai)
 [![NuGet downloads](https://img.shields.io/nuget/dt/Lyntai.svg)](https://www.nuget.org/packages/Lyntai)
