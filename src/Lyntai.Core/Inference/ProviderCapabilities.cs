@@ -118,6 +118,13 @@ public sealed record ProviderCapabilities
     /// its final answer. That failure is silent, which is why it is its own flag.</para></summary>
     public bool SupportsStreamingToolCalls { get; init; }
 
+    /// <summary>Whether the backend carries <c>TextRequest.JsonSchema</c> to the model ON THE WIRE — a
+    /// <c>response_format</c>, a <c>format</c> — on both doors. False where the schema becomes prompt text or is
+    /// dropped: the reply may still parse, but nothing held the model to the schema. Coarse, like
+    /// <see cref="SupportsToolCalls"/>: a server that accepts the field and ignores it is not caught here.
+    /// A <c>TextRequest.RequireNativeSupport</c> call skips a backend that declares false.</summary>
+    public bool SupportsStructuredOutput { get; init; }
+
     /// <summary>Free-form declared limits — context window, maximum dimension, rate. Advisory: nothing here
     /// enforces them, they are for a caller or an agent tool deciding what to ask for.</summary>
     public IReadOnlyDictionary<string, string> Limits { get; init; } =

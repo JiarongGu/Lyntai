@@ -35,6 +35,41 @@ public static class LyntaiDiagnostics
         Meter.CreateHistogram<long>("gen_ai.client.token.usage", unit: "{token}",
             description: "Tokens used per LLM call");
 
+    /// <summary>The name of the span one CALL opens over its provider attempts (D207).</summary>
+    internal const string CallSpanName = "lyntai.call";
+
+    /// <summary>Open the span one CALL holds over every provider attempt it makes, so a fallback nests under one
+    /// parent. Internal, not Client, and with no <c>gen_ai.*</c> tag: the attempts are the GenAI operations, and a
+    /// backend counting those must not count the call twice. Never records the request or reply body.</summary>
+    internal static Activity? StartCallSpan(string operation, string? consumer, string? door = null)
+    {
+        var activity = Source.StartActivity(CallSpanName, ActivityKind.Internal);
+        if (activity is not null)
+        {
+            activity.DisplayName = $"{CallSpanName} {operation}";
+            activity.SetTag("lyntai.call.operation", operation);
+            if (consumer is not null) activity.SetTag("lyntai.consumer", consumer);
+            if (door is not null) activity.SetTag("lyntai.call.door", door);
+        }
+        return activity;
+    }
+
+    /// <summary>Mark a call span with the verdict its caller got, when that was not <c>Ok</c>.</summary>
+    internal static void EndCallSpan(Activity? activity, ProviderVerdict verdict, string? detail)
+    {
+        if (activity is null || verdict == ProviderVerdict.Ok) return;
+        activity.SetTag("error.type", verdict.ToString());
+        activity.SetStatus(ActivityStatusCode.Error, detail);
+    }
+
+    /// <summary>Mark a call span that ended in a throw — a caller's cancel included — with the exception's type.</summary>
+    internal static void FaultCallSpan(Activity? activity, Exception error)
+    {
+        if (activity is null) return;
+        activity.SetTag("error.type", error.GetType().FullName);
+        activity.SetStatus(ActivityStatusCode.Error, error.GetType().Name);
+    }
+
     internal static Activity? StartChat(string providerId, string? model) => StartCall("chat", providerId, model);
 
     /// <summary>Start a span for one provider attempt of <paramref name="operation"/> — <c>chat</c> for the text

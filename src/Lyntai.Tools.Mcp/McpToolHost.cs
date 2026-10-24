@@ -70,10 +70,14 @@ internal sealed class McpToolHost : IAsyncDisposable
     /// in logs as the tool loop's own. Both doors always emitted the guard-decision counter, but only the
     /// loop logged — an accident of which class had been given a logger, not a decision
     /// (<c>docs/DECISIONS.md</c> D75).</param>
+    /// <param name="approvers">The approvers every hosted call must pass, for the same reason as
+    /// <paramref name="guards"/>; null approves every call.</param>
+    /// <param name="consumer">The consumer whose CLI call this host serves, as the approvers see it.</param>
     /// <param name="ct">Cancellation.</param>
     public static async Task<McpToolHost> StartAsync(
         IReadOnlyList<ITool> tools, string authToken, McpToolHostOptions? options = null,
         Lyntai.Guards.IGuardRail? guards = null, Microsoft.Extensions.Logging.ILogger? logger = null,
+        IReadOnlyList<IToolApprover>? approvers = null, string consumer = Lyntai.Inference.ProviderConsumers.Default,
         CancellationToken ct = default)
     {
         options ??= new McpToolHostOptions();
@@ -105,7 +109,7 @@ internal sealed class McpToolHost : IAsyncDisposable
                 ToolCollection = [],
             };
             foreach (var tool in tools)
-                serverOptions.ToolCollection.Add(McpServerTool.Create(new ToolFunction(tool, guards, logger)));
+                serverOptions.ToolCollection.Add(McpServerTool.Create(new ToolFunction(tool, guards, logger, approvers, consumer)));
 
             server = McpServer.Create(transport, serverOptions, NullLoggerFactory.Instance, serviceProvider: null);
 

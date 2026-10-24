@@ -5485,3 +5485,293 @@ rule and the rejected shapes, `docs/GATES.md` §check-links the URL half, `pitfa
 D158's one deliberate "OpenAI-compatible" README mention had already been lost; it is back, in §Backends.
 
 - Update the GitHub presence (docs, topics) for search and publicity, so other agents building apps can see Lyntai
+
+## Part 349 — RV1: a forget is complete across engine instances, not only within one (2026-10-24)
+
+✅ done 2026-10-24 — **Outcome:** the first item of the competitive review's backlog (`TASKS.md` Part 345). A graph
+engine's `ForgetAsync` now sweeps the similarity index again after deleting the nodes, and every vector upsert — a
+write's index step and a re-embed's write-back — re-reads its node and retracts the vector if it is gone, so a
+second process over the same store can no longer leave a forgotten entry's content readable as a vector payload.
+The review proposed a persistent tombstone or generation fence; the sweep-and-re-read closes the same window with no
+schema change, and **D198** records that choice and its cost (one entry read per indexed write). The trail is
+`docs/FIXES.md` 2026-10-24; `docs/memory.md` §5 states the new guarantee.
+
+- RV1 — a forget closes its window across PROCESSES, not only within one engine instance
+
+## Part 350 — RV2: a declared vector space keeps two embedders' vectors apart (2026-10-24)
+
+✅ done 2026-10-24 — **Outcome:** the second item of the competitive review's backlog (`TASKS.md` Part 345).
+`UseVectorSpace(id)` wraps the registered vector store (`VectorSpaceStore`, keeping exactly the optional halves
+the store has); each collection is stamped with the space that first wrote it, a write or read-back across spaces
+throws, a search finds nothing and warns, and `ReindexAsync` re-stamps a collection only after a clean pass. The
+review proposed a versioned shadow index with an atomic cutover; **D194** had refused the shadow space, so this
+ships the identity half only, and **D199** records why the stamp lives in the vector store and why an unstamped
+collection is adopted. `docs/memory.md` §Re-embed carries the usage. A resumable re-embed remains unbuilt.
+
+- RV2 — a stored vector says which vector space wrote it, and recall refuses a mismatch
+
+## Part 351 — RV3: `verify`'s test step records what it EXECUTED, and a skipped Postgres leg fails (2026-10-24)
+
+✅ done 2026-10-24 — **Outcome:** the third item of the competitive review's backlog (`TASKS.md` Part 345).
+`dev.mjs test` emits a trx and reduces it (`devtools/scripts/_test-evidence.mjs`) to
+a gitignored `summary.json` — the trio plus every skip bucketed by reason — and fails when a Postgres
+fact skipped unless the run sets `LYNTAI_ALLOW_POSTGRES_SKIP=1`, so a Docker-down run no longer reads green.
+The leg is identified by the `Postgres/Docker unavailable` prefix `PostgresFixture.InitError` now carries, held
+by a guard test over the test sources. The xUnit trio is still re-measured by hand: the summary records it,
+nothing compares it with `CLAUDE.md`. `docs/GATES.md` §test is the gate; the trx `Counters` trap is in `pitfalls.md`.
+
+- RV3 — `verify` writes what its test step EXECUTED, so a skipped Postgres leg cannot read green
+
+## Part 352 — RV4: a host can deny a consumer's CLI and MCP tools by default (2026-10-24)
+
+✅ done 2026-10-24 — **Outcome:** the fourth item of the competitive review's backlog (`TASKS.md` Part 345). The
+MCP half already existed: `McpToolHostOptions.ToolsByConsumer["default"] = []` denies every unlisted consumer, and
+tests pinned it. The gap was the one-shot claude call's BUILT-IN tools, which `DisallowedTools` could only deny by
+name. `ClaudeCompletionOptions.Tools` renders `--tools` as an allow-list, `[]` leaving none while a hosted call's MCP
+tools still reach it. **D190** records the choice and the measurement; `docs/guide.md` shows deny-by-default in both
+maps. No default changed: flipping either map's no-entry tier is a Breaking ruling left to the owner.
+
+- RV4 — a host can deny CLI and MCP tools by default, so a `memory` or `scoring` call gets none
+
+## Part 353 — RV5: a recall can EXPLAIN itself, per candidate (2026-10-24)
+
+✅ done 2026-10-24 — **Outcome:** the fifth item of the competitive review's backlog (`TASKS.md` Part 346).
+`MemoryQuery.Explain` (init-only, default off) makes a graph engine attach `MemoryRecall.Candidates`: per
+candidate its seed-channel ranks, hop, policy score, position, verifier verdict and a `MemoryCandidateOutcome`
+— returned, floored, cut by the limit, filtered by the verifier, cut by the budget — read off the sets the
+recall already built, so nothing it returns, reinforces or logs moves. A blend concatenates its members' lists
+and re-reports its own cut. **D200** records why a per-query flag on the same recall beat a separate method and
+a log trace; `docs/memory.md` §See why an entry was not returned carries the usage. Lexical, semantic and
+curated engines leave it null.
+
+- RV5 — a recall can EXPLAIN itself: per-candidate channel, rank, hop, score and why it was cut
+
+## Part 354 — RV6: a composition reports what it left out, and why (2026-10-24)
+
+✅ done 2026-10-24 — **Outcome:** the sixth item of the competitive review's backlog (`TASKS.md` Part 346).
+`MemoryComposition.RenderWithManifest` returns `Render`'s text byte for byte beside one `MemoryCompositionEntry`
+per item, in the caller's order: its section, a `MemoryCompositionOutcome` — rendered, cut by the budget, or a
+duplicate of a line already rendered, the only two cuts the renderer makes — and the CHARACTERS its line costs
+against the budget. `Render` is now that method's `.Text`, so the two cannot diverge, and the in-band
+authoritative omission line is unchanged. **D201** records why it is a second door with its own enum rather
+than a value on D200's `MemoryCandidateOutcome`; `docs/memory.md` §Compose a prompt from your own retrieval
+carries the usage. `ComposeAsync` and `IPromptComposer` are untouched.
+
+- RV6 — a composition reports what it left out, and why
+
+## Part 355 — RV7: the wiring check is data a host reads, and a graph store reports its size (2026-10-24)
+
+✅ done 2026-10-24 — **Outcome:** the seventh item of the competitive review's backlog (`TASKS.md` Part 346).
+`MemoryWiringReport`, a container service registered with the first `AddMemoryEngine`, carries each **D85**
+finding as a `MemoryWiringFinding` — its `MemoryWiringProblem`, the engine it is about, the logged sentence —
+while the factory's Warning log and `StrictWiring()` failure are unchanged. `ICountableMemoryGraphStore`, which
+all four shipped stores implement and two new contract facts pin on each, counts entries, authoritative entries,
+links and distinct subjects per engine, task and scope; `GraphMemoryEngine.CountAsync` adds `Buried`, the
+associative entries its retrievability puts below the floor, and answers `null` over a store that cannot count.
+**D202** records why the findings are a service, the count is optional and burial is the engine's;
+`docs/memory.md` §Check how a memory is wired, and how much it holds carries the usage. No `--fix`, by design.
+
+- RV7 — the memory wiring check is data a host can read, and a store can report its own size
+
+## Part 356 — RV8: every wired memory bench writes one result shape, and two runs compare paired (2026-10-24)
+
+✅ done 2026-10-24 — **Outcome:** the eighth item of the competitive review's backlog (`TASKS.md` Part 346).
+`bench/Lyntai.Benchmarks/BenchResults.cs` writes one JSONL row per arm × question — bench, metric, arm, a
+dataset-stable question id, hit (`null` = undecidable, never a miss), optional score and latency, a
+configuration hash over the arguments and `LYNTAI_*` environment, run time and commit — into
+`devtools/_bench-results/`. Wired: `memory-locomo` (`--retrieval`, `--shots`, QA; the id is `conv:qa-index`)
+and `memory-longmemeval` (default and `--extract`). `node devtools/dev.mjs bench-compare` pairs two files and
+prints hit rates, discordant counts and McNemar exact, refusing a metric, question-set or configuration
+mismatch; its test pins it to two published `BenchStats.McNemarExact` figures. `docs/GATES.md` §`memory-*` is
+the usage; the other sweeps, the ad-hoc `--dump` files and LongMemEval's temporal modes are not wired.
+
+- RV8 — every memory bench writes one result shape, and two runs compare paired
+
+## Part 357 — RV9: a curated entry carries a revision, and an update can refuse a stale one (2026-10-24)
+
+✅ done 2026-10-24 — **Outcome:** the ninth item of the competitive review's backlog (`TASKS.md` Part 346).
+`CuratedMemory.Revision` is 1 when an entry is added and advances on every write; the optional
+`IRevisionedCuratedMemoryStore` adds an `UpdateAsync(id, expectedRevision, …)` overload whose
+`CuratedUpdateOutcome` tells `Updated` from `NotFound`, `Stale` and `Refused`, checked and written in one atomic
+step — the SQL `WHERE` carries the revision, and the in-process stores check under their lock. All four shipped
+stores implement it, and three new contract facts pin it on each, a race of eight writers on one revision among
+them. One additive migration, `M202610241721_CuratedRevision` (`NOT NULL DEFAULT 1`), on SQLite and Postgres, and
+`CuratedRevisionMigrationTests` pins that an entry written before it reads revision 1. **D203** records why the
+check is an optional capability and why 0 means untracked. It landed additive, NOT held for the major: no stored
+row or consumer call has to change.
+
+- RV9 — a curated fact carries a revision, and an update can refuse a stale one
+
+## Part 358 — RV10: curated memory is exported and imported as scoped, versioned JSONL (2026-10-24)
+
+✅ done 2026-10-24 — **Outcome:** the tenth item of the competitive review's backlog (`TASKS.md` Part 346).
+`IPortableMemory` (`ExportAsync` / `ImportAsync`), an optional capability beside `IPrunableMemory`, is implemented
+by `CuratedMemoryEngine`; the blend fans the export out and routes an import by each line's `engine`. Both verbs
+name a task with no default. An import writes under the task and scope it names, through the store's dedup
+identity, so a second import adds nothing and an entry the target holds is never overwritten; a malformed or
+newer-version line refuses the whole file before any write. `MemoryPortabilityTests` pins scoping, a SQLite →
+InMemory/FileSystem round trip, idempotence, retargeting and refusal. **D204** records the format, the scope rule,
+the no-vectors rule and the honest limit — a file taken before a forget brings the content back; `docs/memory.md`
+§Carry a memory to another store is the schema and usage. The graph half is `TASKS.md` RV25: it needs a store
+write that keeps decay state, which `UpsertAsync` does not.
+
+- RV10 — memory can be EXPORTED and IMPORTED in a portable form, scoped and never resurrecting
+
+## Part 359 — RV11: a request can refuse to have its schema or tools degraded (2026-10-24)
+
+✅ done 2026-10-24 — **Outcome:** the first item of the competitive review's governed-calls group (`TASKS.md`
+Part 347). `TextRequest.RequireNativeSupport` (opt-in, default unchanged) makes `TextRouter.SelectLive` skip a
+candidate whose `ProviderCapabilities` declare no `SupportsStructuredOutput` (new) for a schema, or no native tool
+calls for tools — the streaming flag on a stream — as a capability gap whose reason joins the skipped list; all
+skipped answers `Unsupported`. HTTP and Ollama chat declare it; the CLIs and LLamaSharp do not. The response cache
+folds the flag in only when set. `TextRouterNativeSupportTests` and `StructuredOutputPostureTests` pin it; **D205**
+records why it is per request and opt-in.
+
+- RV11 — a schema- or tool-bearing request skips a candidate that cannot honour it
+
+## Part 360 — RV12: a usage budget can be a hard cap, by reserving before a call (2026-10-24)
+
+✅ done 2026-10-24 — **Outcome:** the second item of the competitive review's governed-calls group (`TASKS.md`
+Part 347). The optional `IReservingUsageTracker` (`ReserveAsync` / `ReconcileAsync`, judged by
+`UsageCaps.ExceededBy`) is implemented by the in-memory, SQLite and Postgres trackers — atomic on both databases,
+migration `M202610241822_UsageReservation` adding `lyntai_usage_reservation`. `BudgetGate` reserves when a tracker
+can and `BudgetOptions.ReserveCostUsd` / `ReserveTokens` is set, and settles in a `finally`, so a failed, cancelled
+or abandoned call releases its hold; the text door, the router's governance and the inline and streaming media doors
+use it. `UsageReservationContract` (all three backends) and `UsageReservationBudgetTests` pin it; **D206** records
+why it is optional and opted into by the hold.
+
+- RV12 — a budget can RESERVE before a call and reconcile after, for a host that needs a hard cap
+
+## Part 361 — RV13: the front door opens one span per call, carrying the consumer (2026-10-24)
+
+✅ done 2026-10-24 — **Outcome:** the third item of the competitive review's governed-calls group (`TASKS.md`
+Part 347). The internal `CallSpanTextClient` wraps refusal screening in the shared front-door fold, so every text
+client, default and named, completion and stream, opens one `lyntai.call` span tagged `lyntai.consumer`, and every
+`chat {model}` attempt span nests under it; `ProviderRouter<,>.CallAsync` opens the same span for embeds, reranks
+and application kinds. The span carries the verdict the caller got, ends with a stream however it ends, and records
+no body. The media doors are not covered. `CallSpanTests` pins it; **D207** records why it opens outermost and
+carries no `gen_ai.*` tag.
+
+- RV13 — the front door opens ONE span per call, carrying the consumer, and attempts nest under it
+
+## Part 362 — RV14: the response cache can be partitioned by consumer, opt-in (2026-10-24)
+
+✅ done 2026-10-24 — **Outcome:** the fourth item of the competitive review's governed-calls group (`TASKS.md`
+Part 347). `CacheOptions.PartitionByConsumer` (default false) makes the front door store and read under
+`ResponseCacheKey.ForConsumer`, the `For` key prefixed with the lower-cased consumer, so two consumers never share
+an entry on any backend; every backend is untouched because the prefix rides on the key. `For` and the default are
+unchanged, pinned by the existing key value and a test that the stored key IS `For` with the option off.
+`ResponseCacheTests` pins it; **D208** records why a prefix, opt-in, rather than a hashed component or a custom store.
+
+- RV14 — the response cache can be partitioned by consumer, opt-in; the key excludes `Consumer` on purpose, which
+  is right for one trust domain and a cross-consumer leak for two
+
+## Part 363 — RV15: a graph memory pins its embedder the way verification pins its reranker (2026-10-24)
+
+✅ done 2026-10-24 — **Outcome:** the fifth item of the competitive review's governed-calls group (`TASKS.md`
+Part 347). `GraphMemoryOptions.VectorProviderId` narrows a graph engine's embedding to one backend on all three
+paths — write, semantic-seed query (via `MemorySeedRequest.VectorProviderId`) and `ReindexAsync` — so a pinned
+embed never fails over to another model, which a declared vector space cannot see. A mis-pin throws at
+composition, as **D148**'s does; a pin with no vector store is `MemoryWiringProblem.PinnedVectorProviderWithoutIndex`.
+`docs/model-tasks.md` no longer says memory embedding is never batched: the re-embed is (**D194**).
+`VectorProviderPinTests` pins it; **D209** records why per engine and why no fallback.
+
+- RV15 — a memory engine can pin its EMBEDDER the way verification pins its reranker
+
+## Part 364 — RV16: a tool call can be approved before it runs, on every door (2026-10-24)
+
+✅ done 2026-10-24 — **Outcome:** the sixth item of the competitive review's governed-calls group (`TASKS.md`
+Part 347). `IToolApprover`, a DI collection registered with `AddToolApprover`, is consulted inside
+`ToolInvocation.InvokeGatedAsync` — the flow the native and prompt tool loop and the hosted MCP endpoint already
+shared — after the guard's argument gate and only for a tool that exists. Every approver must approve; a refusal
+or a throwing approver is `GatedToolResult.Denied`, an error observation carrying the reason, and the loop goes
+on. The MCP host puts calls under the consumer whose CLI call stood it up. `ToolApprovalTests` pins it on all three
+transports and through DI; **D210** records why a collection inside the shared flow, all-must-approve and fail
+closed; `docs/guide.md` §Tool-calling carries the usage.
+
+- RV16 — a tool call can be APPROVED before it runs, through one seam every transport consults
+
+## Part 365 — RV17: a reader can tell when to use Lyntai and when not to, and start from a scenario (2026-10-24)
+
+✅ done 2026-10-24 — **Outcome:** the seventh item of the competitive review's governed-calls group (`TASKS.md`
+Part 347). `docs/guide.md` §When to use Lyntai, and when not to says where the library fits and where
+Microsoft Agent Framework, LiteLLM or a memory service (Mem0, Zep) is the better choice, stating what the tree
+lacks: no Agent Framework or MEAI adapter (**D146**), no gateway, no fact extraction and no valid time (**D90**).
+§Start from a scenario adds three compiled programs (routed text with a fallback and a hard token cap,
+long-term memory for an assistant, tool calling with approval), which `check-samples` counts. The scenarios are
+fenced blocks rather than `samples/` projects: they are compiled by an existing gate and enter no registry.
+README and `llms.txt` link to both.
+
+- RV17 — a reader can tell when to use Lyntai and when not to, and start from a scenario
+
+## Part 366 — RV21: every storage contract runs on every backend structurally, Postgres included (2026-10-24)
+
+✅ done 2026-10-24 — **Outcome:** the eighth item of the competitive review's governed-calls group (`TASKS.md`
+Part 347). Each `*ContractFacts` base now derives `StoreContractSuite<T>` and runs its contract through one
+`[ContractFacts]` theory; the twelve Postgres suites in `PostgresContractTests` derive the same bases, replacing
+157 hand-written delegators, and `PostgresContractCoverageTests`' source scan gave way to
+`StoreContractCoverageTests`. Five facts excused on the shared container now run there, cleared first as
+`[Unscoped]`; all passed, so no backend bug. SQLite's bm25 exclusion is an `[ExcludesFact]`. **D211** records why.
+
+- RV21 — every storage contract runs on Postgres STRUCTURALLY, not through hand-kept delegators
+
+## Part 367 — RV22: a handler that succeeded before its completion was lost is redelivered (2026-10-24)
+
+✅ done 2026-10-24 — **Outcome:** the ninth item of the competitive review's governed-calls group (`TASKS.md`
+Part 347). Test-only: the runner already redelivers, so no `src/` defect. `ClaimThrowingJobStore` became
+`Faulting`, a forwarding `DispatchProxy` that throws from any member a test names. Two `JobRunnerTests` pin both
+windows: `CompleteAsync` alone throwing requeues the job through the fenced `FailAsync` and the next claim runs
+the handler again; every outcome write throwing leaves it `Running` until its lease lapses, then it is
+re-claimed and run again. `IJobHandler`'s idempotency paragraph now names a lost completion as a redelivery.
+
+- RV22 — a handler that succeeded before its completion was lost is redelivered
+
+## Part 368 — RV24: an interrupted re-embed resumes where it stopped (2026-10-24)
+
+✅ done 2026-10-24 — **Outcome:** the tenth item of the competitive review's governed-calls group (`TASKS.md`
+Part 347). `GraphMemoryEngine.ReindexAsync` goes in entry-id order and, under a declared vector space, replaces
+each collection's stamp with a MOVING mark (`VectorSpaceStore.MarkMovingAsync`) carrying the id through which it is
+re-embedded; a rerun into the same space skips those entries, counted in the new `MemoryReindexResult.Resumed`.
+It also closed a hole RV2 left unshipped: releasing the stamp let the pass's first write re-claim the collection,
+so an interrupted pass left it stamped with two models inside; a moving collection is now searched by neither
+space and written only by its target. No migration: the mark lives in the stamp. **D212** records the choice;
+`docs/memory.md` §Re-embed the usage; seven `MemoryReindexTests` facts pin it.
+
+- RV24 — a re-embed can resume where an interrupted one stopped
+
+## Part 369 — RV25: a graph memory is exported and imported with its decay state and links (2026-10-24)
+
+✅ done 2026-10-24 — **Outcome:** the last item of the competitive review's memory group (`TASKS.md` Part 346, now
+retired). `GraphMemoryEngine` implements `IPortableMemory` over the optional `IPortableMemoryGraphStore` — an export
+read, a node insert that keeps stability, difficulty, recall count, signals, provenance, grade and subjects, and a
+link insert — which all four shipped stores implement; `graph` and `link` lines carry each age relative to the
+engine's head, re-anchored on import through `MemoryGraphAnchor` without advancing the target. A held identity is
+never refreshed, a re-import writes nothing, and a link to an entry outside the file is counted in
+`MemoryImportResult.LinksDropped`. Three contract facts run on every backend; `GraphMemoryPortabilityTests` pins the
+round trip, burial and recall. No migration. **D213** records the choices; `docs/memory.md` §Carry a memory to
+another store the schema.
+
+- RV25 — a GRAPH memory can be exported and imported through `IPortableMemory`, decay state and links included
+
+## Part 370 — RV23: recall measured in three layers, candidate → ranked → answered, on two corpora (2026-10-24)
+
+✅ done 2026-10-24 — **Outcome:** the last item of the competitive review's governed-calls group (`TASKS.md`
+Part 347, now retired). `--layers` on `memory-locomo` and `memory-longmemeval` (`RecallLayers.cs`) scores per
+question whether gold evidence was a candidate of an `Explain` recall (**D200**), on the reader's page, and
+answered right, into one RV8 result file. One run per corpus, YES and NO pre-registered. LoCoMo is a YES —
+ranking loses most at the shipped defaults; LongMemEval knowledge-update a refutation — reading does. No default
+moved: the arm that recovers LoCoMo's ranking loss costs LongMemEval, and a reranker is a model, not a default.
+`docs/memory.md` §What it costs you NOT to use a judge carries the recommendation; the figures are
+`docs/memory-measurements.md` §5, `layers-locomo-lyntai-n200` and `layers-lme-ku-lyntai-haystack-n70`.
+
+- RV23 — measure recall in three layers, candidate → ranked → answered, on two corpora
+
+## Part 371 — LANES — Lyntai declares its lanes, and a guard holds every tracked file to them (2026-10-24)
+
+✅ done 2026-10-24 — **Outcome:** `daoris.lanes.json` declares seven lanes (`records` the steward, `memory`,
+`storage`, `inference`, `generation`, `platform`, `tools`) and four laneless groups; `check-lanes` in `verify`
+refuses a file in no lane, a file both owned and laneless, a glob that matches nothing and a malformed map
+(`docs/GATES.md` §check-lanes). `.gitattributes` union-merges the four append-only records. No backlog item;
+nothing a consumer sees, so no changelog line. **D214** records the choices.
+
+- LANES — declare the lanes, gate the map, union-merge the append-only records

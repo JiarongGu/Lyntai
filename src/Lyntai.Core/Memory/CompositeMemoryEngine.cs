@@ -42,7 +42,8 @@ public enum MemoryWriteRouting
 /// default; fanning out is what fills a blend whose members index the same material differently.</para>
 /// </summary>
 public sealed class CompositeMemoryEngine
-    : IMemoryEngine, IExpandableMemory, ILinkableMemory, IForgettableMemory, IPrunableMemory, IReindexableMemory
+    : IMemoryEngine, IExpandableMemory, ILinkableMemory, IForgettableMemory, IPrunableMemory, IReindexableMemory,
+        IPortableMemory
 {
     private readonly IReadOnlyList<IMemoryEngine> _members;
     private readonly ILogger _logger;
@@ -158,6 +159,7 @@ public sealed class CompositeMemoryEngine
         // a boolean: TRUE if any member's judge found an answer, FALSE if at least one judged and none did,
         // NULL only when nothing judged — which keeps the no-verifier default from ever reporting `false`.
         bool? answered = null;
+        List<MemoryRecallCandidate>? candidates = null;
 
         foreach (var member in _members)
         {
@@ -168,6 +170,7 @@ public sealed class CompositeMemoryEngine
                 items.AddRange(recall.Items);
                 ran |= recall.Ran;
                 if (recall.Answered is { } judged) answered = (answered ?? false) || judged;
+                if (query.Explain && recall.Candidates is { } explained) (candidates ??= []).AddRange(explained);
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
             catch (Exception ex)
@@ -178,7 +181,9 @@ public sealed class CompositeMemoryEngine
             }
         }
 
-        if (items.Count == 0) return MemoryRecall.Empty;
+        if (items.Count == 0)
+            return candidates is null ? MemoryRecall.Empty : MemoryRecall.Empty with { Candidates = candidates };
+        var offered = items;
 
         // THE CUT. Every member was asked for up to `Limit` items, so a blend of N members could return N x
         // Limit — and `MemoryEngineBuilder` always wraps members in a composite, so that was the shape every
@@ -206,6 +211,7 @@ public sealed class CompositeMemoryEngine
                 .OrderByDescending(i => i.Grade == MemoryGrade.Authoritative)
                 .ThenByDescending(i => i.Relevance)
                 .Take(limit)];
+        var limited = items;
 
         // THE SECOND CUT: each member spent up to the whole `CharBudget`, so a blend reconciles it too — AFTER
         // the limit, so the budget cuts the weakest tail rather than changing what wins, by the rule a bare
@@ -213,7 +219,31 @@ public sealed class CompositeMemoryEngine
         if (query.CharBudget is { } budget && budget > 0)
             items = MemoryBudget.Cut(items, budget);
 
-        return new MemoryRecall(items, ran, answered);
+        var result = new MemoryRecall(items, ran, answered);
+        return candidates is null ? result : result with { Candidates = Recut(candidates, offered, limited, items) };
+    }
+
+    /// <summary>The members' explanations, re-reported for what the BLEND's own two cuts removed after a
+    /// member returned it — the blend's returned material first, in its order, then the rest in member
+    /// order.</summary>
+    private static List<MemoryRecallCandidate> Recut(IReadOnlyList<MemoryRecallCandidate> candidates,
+        IReadOnlyList<MemoryItem> offered, IReadOnlyList<MemoryItem> limited, IReadOnlyList<MemoryItem> items)
+    {
+        var limitedRefs = limited.Select(i => i.Reference).ToHashSet();
+        var order = new Dictionary<MemoryRef, int>();
+        foreach (var item in items) order.TryAdd(item.Reference, order.Count);
+        var offeredRefs = offered.Select(i => i.Reference).ToHashSet();
+
+        return [.. candidates
+            .Select(c => c.Outcome != MemoryCandidateOutcome.Returned || !offeredRefs.Contains(c.Reference)
+                    || order.ContainsKey(c.Reference) ? c
+                : c with
+                {
+                    Outcome = limitedRefs.Contains(c.Reference)
+                        ? MemoryCandidateOutcome.CutByBudget
+                        : MemoryCandidateOutcome.CutByLimit,
+                })
+            .OrderBy(c => order.TryGetValue(c.Reference, out var i) ? i : int.MaxValue)];
     }
 
     /// <inheritdoc />
@@ -300,14 +330,81 @@ public sealed class CompositeMemoryEngine
             _logger.LogWarning("memory engine {Blend}: member {Member} cannot re-embed and was skipped; any vectors "
                 + "it holds are still on the old model", Name, name);
 
-        var (indexed, failed) = (0, 0);
+        var (indexed, failed, resumed) = (0, 0, 0);
         foreach (var member in members)
         {
             ct.ThrowIfCancellationRequested();
             var result = await member.ReindexAsync(taskKey, scope, ct).ConfigureAwait(false);
-            (indexed, failed) = (indexed + result.Indexed, failed + result.Failed);
+            (indexed, failed, resumed) = (indexed + result.Indexed, failed + result.Failed, resumed + result.Resumed);
         }
-        return new MemoryReindexResult(indexed, failed) { Skipped = skipped };
+        return new MemoryReindexResult(indexed, failed) { Skipped = skipped, Resumed = resumed };
+    }
+
+    /// <inheritdoc />
+    /// <remarks>Fans out to every member that can export, in member order, into the one file; each line names its
+    /// member. A member that cannot is passed over, logged and NAMED in <see cref="MemoryExportResult.Skipped"/>, as
+    /// <see cref="ReindexAsync"/> does — what it holds is not in the file. When NO member can, this throws
+    /// <see cref="NotSupportedException"/>: an empty file would read as an empty memory.</remarks>
+    public async Task<MemoryExportResult> ExportAsync(string taskKey, string? scope, TextWriter destination,
+        CancellationToken ct = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(taskKey);
+        var members = _members.Where(Carries).Cast<IPortableMemory>().ToList();
+        if (members.Count == 0)
+            throw new NotSupportedException($"No member of memory engine '{Name}' can export.");
+        List<string> skipped = [.. _members.Where(m => !Carries(m)).Select(m => m.Name)];
+        foreach (var name in skipped)
+            _logger.LogWarning("memory engine {Blend}: member {Member} cannot export and was skipped; nothing it "
+                + "holds is in the file", Name, name);
+
+        var (exported, links) = (0, 0);
+        foreach (var member in members)
+        {
+            ct.ThrowIfCancellationRequested();
+            var result = await member.ExportAsync(taskKey, scope, destination, ct).ConfigureAwait(false);
+            (exported, links) = (exported + result.Exported, links + result.Links);
+        }
+        return new MemoryExportResult(exported) { Skipped = skipped, Links = links };
+    }
+
+    // a graph member over a store that cannot carry decay state declares the capability and would refuse it
+    private static bool Carries(IMemoryEngine member) =>
+        member is IPortableMemory && member is not Engines.GraphMemoryEngine { Carries: false };
+
+    /// <inheritdoc />
+    /// <remarks>ROUTES each line to the member its <c>engine</c> names, as <see cref="LinkAsync"/> routes a
+    /// <see cref="MemoryRef"/>. A line naming no member that can import refuses the whole file before anything is
+    /// written. Each member then checks its own lines, so a member refusing after an earlier one imported leaves that
+    /// earlier member's entries — a re-run of the corrected file adds nothing to them, so the two converge. To land a
+    /// file in a blend of other names, import it through the member, which takes any engine's lines.</remarks>
+    public async Task<MemoryImportResult> ImportAsync(string taskKey, string? scope, TextReader source,
+        CancellationToken ct = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(taskKey);
+        var lines = await MemoryPortableFormat.ReadAsync(source, ct).ConfigureAwait(false);
+        var routed = new List<(IPortableMemory Member, List<MemoryPortableLine> Lines)>();
+        foreach (var line in lines)
+        {
+            var member = _members.FirstOrDefault(m => string.Equals(m.Name, line.Engine, StringComparison.Ordinal)
+                    && Carries(m))
+                as IPortableMemory ?? throw MemoryPortableFormat.Refuse(line.Number,
+                    $"names engine '{line.Engine}', which is not a member of '{Name}' that can import (members: "
+                    + $"{string.Join(", ", _members.Select(m => m.Name))})");
+            var slot = routed.FindIndex(r => ReferenceEquals(r.Member, member));
+            if (slot < 0) routed.Add((member, [line]));
+            else routed[slot].Lines.Add(line);
+        }
+
+        var (imported, present, links, dropped) = (0, 0, 0, 0);
+        foreach (var (member, mine) in routed)
+        {
+            ct.ThrowIfCancellationRequested();
+            var text = string.Join('\n', mine.Select(l => l.Text));
+            var result = await member.ImportAsync(taskKey, scope, new StringReader(text), ct).ConfigureAwait(false);
+            (imported, present) = (imported + result.Imported, present + result.AlreadyPresent);
+            (links, dropped) = (links + result.Links, dropped + result.LinksDropped);
+        }
+        return new MemoryImportResult(imported, present) { Links = links, LinksDropped = dropped };
     }
 
     /// <summary>The members a removal visits, checked for the SPECIFIC capability that verb needs — refusing

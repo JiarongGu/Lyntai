@@ -87,6 +87,7 @@ public static class LyntaiServiceCollectionExtensions
         RegisterCortex(services, options);
         RegisterConversationEnrichment(services);
         RegisterSemanticMemory(services, builder);
+        RegisterVectorSpace(services, builder);
         RegisterAgents(services, options);
         RegisterJobs(services, options);
         RegisterGuardsAndChat(services);
@@ -295,9 +296,10 @@ public static class LyntaiServiceCollectionExtensions
             // refusal screening (per-request TextRequest.RefusalPattern + any registered IRefusalMatcher) is
             // OUTERMOST + always on (the pattern is a request field), so it re-screens even a cached hit.
             // Deliberately NOT in FrontDoorDecorators, so it doesn't trip the "decorators configured but
-            // ITextClient pre-registered" guard above.
-            return new RefusalScreeningTextClient(client, sp.GetServices<IRefusalMatcher>(),
-                sp.GetService<ILogger<RefusalScreeningTextClient>>());
+            // ITextClient pre-registered" guard above. The call span wraps even that, so it carries the
+            // verdict the caller got (D207).
+            return new CallSpanTextClient(new RefusalScreeningTextClient(client, sp.GetServices<IRefusalMatcher>(),
+                sp.GetService<ILogger<RefusalScreeningTextClient>>()));
         }
 
         // An id naming no registered provider THROWS rather than narrowing to whatever does exist: a
@@ -450,6 +452,26 @@ public static class LyntaiServiceCollectionExtensions
             sp.GetService<IProviderRouterFactory>()));
     }
 
+    /// <summary>Wrap the registered vector store in the declared space's guard (<b>D199</b>). It replaces the LAST
+    /// descriptor, the one resolution would pick; with no store registered there is nothing to guard.</summary>
+    private static void RegisterVectorSpace(IServiceCollection services, LyntaiBuilder builder)
+    {
+        if (builder.VectorSpace is not { } space) return;
+        var backend = services.LastOrDefault(d => d.ServiceType == typeof(IVectorStore));
+        if (backend is null) return;
+        services.Remove(backend);
+        services.AddSingleton<IVectorStore>(sp =>
+        {
+            var logger = sp.GetService<ILogger<IVectorStore>>();
+            if (backend.ImplementationInstance is IVectorStore given)
+                return VectorSpaceStore.Wrap(given, space, owned: false, logger);
+            if (backend.ImplementationFactory is { } factory)
+                return VectorSpaceStore.Wrap((IVectorStore)factory(sp), space, owned: true, logger);
+            var built = (IVectorStore)ActivatorUtilities.CreateInstance(sp, backend.ImplementationType!);
+            return VectorSpaceStore.Wrap(built, space, owned: true, logger);
+        });
+    }
+
     /// <summary>Agentic tool-calling: the registry gathers any registered ITools; the loop runs provider-
     /// agnostically over the front door (works with zero tools too — it degenerates to one completion).</summary>
     private static void RegisterAgents(IServiceCollection services, LyntaiOptions options)
@@ -460,7 +482,7 @@ public static class LyntaiServiceCollectionExtensions
         services.TryAddSingleton<IToolLoop>(sp => new ToolLoop(
             sp.GetRequiredService<ITextClient>(), sp.GetRequiredService<IToolRegistry>(), options,
             sp.GetService<ILogger<ToolLoop>>(), guards: sp.GetService<IGuardRail>(),
-            selector: sp.GetService<IToolSelector>()));
+            selector: sp.GetService<IToolSelector>(), approvers: sp.GetServices<IToolApprover>()));
     }
 
     /// <summary>Durable jobs: the handler registry, enqueue queue, admission control, runner, and scheduler.

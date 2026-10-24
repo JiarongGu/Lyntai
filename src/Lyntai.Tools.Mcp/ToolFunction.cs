@@ -18,8 +18,13 @@ namespace Lyntai.Tools.Mcp.Hosting;
 /// invocation inside a loop the CLIENT owns, and MCP has no "abandon the session" response, so a refusal can
 /// only be reported: the tool does not run, its payload is never produced, and the model may retry within
 /// the client's own loop budget. The built-in rail counts every block on <c>lyntai.guard.decisions</c>, so
-/// repetition is observable (<c>docs/DECISIONS.md</c> D75).</para></summary>
-internal sealed class ToolFunction(ITool tool, IGuardRail? guards = null, ILogger? logger = null) : AIFunction
+/// repetition is observable (<c>docs/DECISIONS.md</c> D75).</para>
+/// <para>The <see cref="IToolApprover"/>s are put each call under the consumer whose CLI call stood this host
+/// up; MCP hands a tool no call id, so they see none (D210).</para></summary>
+internal sealed class ToolFunction(
+    ITool tool, IGuardRail? guards = null, ILogger? logger = null,
+    IReadOnlyList<IToolApprover>? approvers = null, string consumer = Lyntai.Inference.ProviderConsumers.Default)
+    : AIFunction
 {
     private readonly ILogger _logger = logger ?? NullLogger.Instance;
 
@@ -31,13 +36,14 @@ internal sealed class ToolFunction(ITool tool, IGuardRail? guards = null, ILogge
     public override string Description => tool.Description ?? "";
     public override JsonElement JsonSchema => _schema;
 
-    /// <summary>Run the tool gated both ways. A block comes back as the refusal observation
+    /// <summary>Run the tool gated both ways and approved. A block or a refusal comes back as the observation
     /// <see cref="GatedToolResult.Observation"/> carries, which is the enforcement available from this
     /// side.</summary>
     protected override async ValueTask<object?> InvokeCoreAsync(AIFunctionArguments arguments, CancellationToken cancellationToken)
     {
         var gated = await ToolInvocation.InvokeGatedAsync(
-            tool, JsonArgs.Serialize(arguments), guards, _logger, cancellationToken).ConfigureAwait(false);
+            tool, JsonArgs.Serialize(arguments), guards, approvers, consumer, callId: null, _logger,
+            cancellationToken).ConfigureAwait(false);
         return gated.Observation;
     }
 

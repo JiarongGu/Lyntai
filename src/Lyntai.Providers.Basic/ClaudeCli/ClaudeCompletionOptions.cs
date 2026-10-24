@@ -17,6 +17,20 @@ public sealed record ClaudeCompletionOptions
         init => field = value is null ? throw new ArgumentNullException(nameof(DisallowedTools)) : [.. value];
     } = [];
 
+    /// <summary><c>--tools</c>: the ONLY built-in tools the call has — an allow-list, where <see cref="DisallowedTools"/>
+    /// denies by name and so passes a tool a later CLI adds. An EMPTY list leaves no built-in tool at all, which is how
+    /// a <c>memory</c> or <c>scoring</c> call reading stored content gets none by default. MCP tools are not built-in:
+    /// a tool host's still reach the call, chosen by its own per-consumer map. Null, the default, omits the flag and
+    /// the CLI's default set applies. An unknown name is ignored by the CLI, so it grants nothing. Copied when
+    /// set.</summary>
+    /// <exception cref="ArgumentException">An entry is null, empty, flag-shaped, or holds a comma or
+    /// whitespace.</exception>
+    public IReadOnlyList<string>? Tools
+    {
+        get;
+        init => field = ClaudeArgs.CheckNames(value, nameof(Tools), "a built-in tool the CLI can be handed: one name each");
+    }
+
     /// <summary><c>--settings</c>: a settings file the call is handed, as <see cref="ClaudeAgentOptions.SettingsPath"/>
     /// hands one to an agent run. A command-line settings file outranks the project and local scopes and applies under
     /// every <see cref="SettingSources"/> value, so settings a host needs on EVERY call reach its one-shot calls too —

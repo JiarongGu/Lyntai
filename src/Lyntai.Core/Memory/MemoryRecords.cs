@@ -72,7 +72,14 @@ public sealed record MemoryQuery(
     int? Limit = null,
     int? CharBudget = null,
     string? RankingPolicyName = null,
-    MemoryDetail Detail = MemoryDetail.Headline);
+    MemoryDetail Detail = MemoryDetail.Headline)
+{
+    /// <summary>Attach <see cref="MemoryRecall.Candidates"/>: every candidate the recall considered and why
+    /// each was or was not returned. Off by default, and off costs nothing; on, the recall itself — what it
+    /// returns, reinforces and logs — is unchanged. An engine with no candidate stage (lexical, semantic,
+    /// curated) ignores it (<c>docs/DECISIONS.md</c> D200).</summary>
+    public bool Explain { get; init; }
+}
 
 /// <summary>One recalled entry.</summary>
 /// <param name="Reference">Its address, carrying the owning engine.</param>
@@ -133,6 +140,14 @@ public sealed record MemoryRecall(IReadOnlyList<MemoryItem> Items, MemorySources
 {
     /// <summary>An empty result from no tier at all.</summary>
     public static MemoryRecall Empty { get; } = new([], MemorySources.None);
+
+    /// <summary>Every candidate the recall considered, and what became of each, in the order the limit was
+    /// applied to and the floored last; attached only when <see cref="MemoryQuery.Explain"/> asked.
+    /// <para><c>null</c> = not asked, or no engine that answered has a candidate stage; an empty list = asked,
+    /// and nothing was a candidate. An entry absent from a non-null list was <b>never a candidate</b>, which
+    /// is what tells a retrieval miss from <see cref="MemoryCandidateOutcome.CutByLimit"/>. A blend carries
+    /// its members' lists, each entry naming its member, and re-reports what its own cut removed.</para></summary>
+    public IReadOnlyList<MemoryRecallCandidate>? Candidates { get; init; }
 }
 
 /// <summary>What a remember did: the entry's address and the tiers that took the write.

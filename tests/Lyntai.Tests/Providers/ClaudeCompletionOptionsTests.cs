@@ -116,6 +116,37 @@ public class ClaudeCompletionOptionsTests
     }
 
     [Fact]
+    public async Task Tools_ALLOWS_built_in_tools_so_an_empty_list_denies_them_all_and_the_hosts_tools_still_reach_the_call()
+    {
+        using var dir = new ScratchDir("claude-tools");
+        var backend = Backend(
+            (ProviderConsumers.Default, new ClaudeCompletionOptions { Tools = [] }),
+            ("study", new ClaudeCompletionOptions { Tools = ["Read", "Grep"] }));
+        var host = await HostArgs(dir);
+
+        // measured on 2.1.309: an EMPTY value leaves the call no built-in tool, and a hosted MCP server's tools stay
+        var memory = backend.BuildCompletionArgs(Ask(ProviderConsumers.Memory), host).ToList();
+        Assert.Equal("", memory[memory.IndexOf("--tools") + 1]);
+        Assert.Equal(["AskUserQuestion"], Denied(memory));
+        Assert.Equal(host, memory[^host.Count..]);
+
+        var study = backend.BuildCompletionArgs(Ask("study"), []).ToList();
+        Assert.Equal("Read,Grep", study[study.IndexOf("--tools") + 1]);
+
+        Assert.Equal(TodaysArgv, Backend(("x", new ClaudeCompletionOptions())).BuildCompletionArgs(Ask("x"), []));
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("--model")]
+    [InlineData("Read,Grep")]
+    [InlineData("Read Grep")]
+    public void A_tool_name_the_CLI_would_misread_is_refused(string name)
+    {
+        Assert.Throws<ArgumentException>(() => new ClaudeCompletionOptions { Tools = ["Read", name] });
+    }
+
+    [Fact]
     public void A_consumers_settings_file_is_handed_over_as_a_command_line_settings_file()
     {
         // a command-line settings file outranks the project and local scopes, and applies under every source

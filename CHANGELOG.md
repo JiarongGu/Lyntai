@@ -32,6 +32,121 @@ every addition.
 
 - **`llms.txt` and `context7.json`, for coding agents** (**D197**): an index of the docs written for language
   models, and the configuration the Context7 documentation index reads — both carrying README's agent rules.
+- **The guide says when to use Lyntai and when not to, and starts from three scenarios.** It places the library
+  against Microsoft Agent Framework, LiteLLM and memory services such as Mem0 and Zep, naming where each is the
+  better choice. Then come three minimal programs, compiled against the library: routed text with a fallback
+  and a hard token cap, long-term memory for an assistant, and tool calling with approval. README links to
+  both.
+- **`UseVectorSpace(id)`: vectors from two embedders are never mixed or compared** (**D199**). A store compares
+  vectors by dimension alone, so a new model of the same dimension silently scored against the old one's vectors.
+  With a space declared, each collection is stamped with the space that wrote it; a write into another space's
+  collection throws, a search of one finds nothing and warns, and a graph engine's `ReindexAsync` moves a
+  collection to the declared space. Undeclared, nothing changes.
+- **`ClaudeCompletionOptions.Tools`: a consumer's one-shot claude calls get ONLY the built-in tools listed** (**D190**).
+  `[]` leaves none, so `CompletionByConsumer["default"] = new() { Tools = [] }` beside
+  `McpToolHostOptions.ToolsByConsumer["default"] = []` keeps every tool from a `memory` or `scoring` call that reads
+  stored content. `DisallowedTools` denies by name, so it passes a tool a later CLI adds. Unset, nothing changes.
+- **A recall can explain itself: `MemoryQuery.Explain` attaches `MemoryRecall.Candidates`** (**D200**). Each
+  candidate a graph engine considered comes back with the seed channels that found it and its rank in each, its
+  hop, its score, the verifier's verdict, its position and its `MemoryCandidateOutcome` — returned, floored, cut by
+  the limit, filtered by the verifier or cut by the budget — so an entry that was never a candidate is told apart
+  from one ranked off the page. A blend carries its members' lists and re-reports its own cut. Off by default, and
+  the recall it explains is unchanged.
+- **A composition reports what it left out: `MemoryComposition.RenderWithManifest`** (**D201**). It returns
+  `Render`'s text byte for byte beside one entry per item — the section it went to, whether it was rendered, cut
+  by the budget or dropped as a duplicate line, and the characters its line costs — so recalled material the
+  budget dropped is no longer a silent absence. `Render` itself is unchanged.
+- **The memory wiring check is data a host can read: resolve `MemoryWiringReport`** (**D202**). Each finding
+  carries its `MemoryWiringProblem`, the engine it is about and the sentence that was only ever logged, so a host
+  can surface a seam that is registered and never runs without a log or `StrictWiring()`. The Warning log and the
+  strict startup failure are unchanged.
+- **A graph store can report its size: `ICountableMemoryGraphStore.CountAsync`, and
+  `GraphMemoryEngine.CountAsync` on top** (**D202**). Entries, authoritative entries, links and distinct subjects
+  per engine, task and scope; the engine adds how many entries are buried below its retrievability floor, which
+  only it can judge. All four shipped stores implement it; a store of your own that does not makes the engine
+  answer `null`, never zero.
+- **A curated entry carries a `Revision`, and an update can refuse a stale one** (**D203**). Two writers editing
+  one entry used to lose an update silently. `CuratedMemory.Revision` is 1 when added and advances on every
+  write, and `IRevisionedCuratedMemoryStore.UpdateAsync(id, expectedRevision, …)` writes only while the entry is
+  still at that revision, returning `CuratedUpdateOutcome.Updated`, `NotFound`, `Stale` or `Refused`. Of two
+  writers holding one revision, exactly one wins. All four shipped stores implement it. One additive migration
+  (`M202610241721_CuratedRevision`, SQLite and Postgres) gives every existing entry revision 1. A store of your
+  own needs no change and reports revision 0.
+- **Curated memory can be exported and imported as JSONL: `IPortableMemory`** (**D204**). `ExportAsync(taskKey,
+  scope, writer)` writes one versioned line per entry — kind, content, enabled, metadata, grade, timestamps and
+  revision — for one named task, with no whole-store form; `ImportAsync(taskKey, scope, reader)` writes them under
+  the task and scope it names and nowhere else, leaves an entry the target already holds untouched, so a second
+  import adds nothing, and refuses a malformed or newer-version file before writing anything. A blend exports its
+  capable members and names the rest. No vectors travel, and an import cannot know what the target forgot: a file
+  taken before a forget brings that content back. `CuratedMemoryEngine` implements it, and the graph engine too
+  (below).
+- **A request can refuse to have its JSON schema or tools degraded: `TextRequest.RequireNativeSupport`**
+  (**D205**). A fallback from an HTTP backend to a CLI used to turn the schema into prompt text, a local GGUF
+  model dropped it, and tools a backend cannot call only warned. With the flag set, the router skips a candidate
+  that would degrade either, recording why, and a call no candidate can serve natively answers `Unsupported`
+  naming each. `ProviderCapabilities.SupportsStructuredOutput` is the new declaration: true for the HTTP and
+  Ollama chat backends, false for the CLIs and LLamaSharp, and as declared for a bridge. The default is
+  unchanged, and the response cache keeps such a request's replies apart.
+- **A usage budget can be a HARD cap: `BudgetOptions.ReserveCostUsd` / `ReserveTokens`** (**D206**). The soft
+  check let every call already in flight overshoot a cap. With a hold set, each call reserves that amount before
+  it runs, admitted only if spend plus every in-flight hold still fits, and settles to what it reported
+  afterwards, whether it succeeded, failed or was cancelled; a hold whose caller died stops counting after
+  `ReservationLifetime` (15 minutes). The text door, the generic router's governance and the inline and
+  streaming media doors use it; a media submission keeps the soft check. The optional `IReservingUsageTracker`
+  is the capability, implemented by the in-memory, SQLite and Postgres trackers — atomically on both databases,
+  so the cap holds across processes. Migration `M202610241822_UsageReservation` adds the
+  `lyntai_usage_reservation` table. Unset, nothing changes, and a custom tracker keeps the soft check.
+- **One `lyntai.call` span per call, carrying the consumer, with every provider attempt nested under it** (**D207**).
+  A fallback used to read as unrelated `chat {model}` spans; now it is one call with two children. Every text front
+  door opens it, default and named, completion and stream, outside refusal screening, so it carries the verdict
+  the caller got; the generic router opens it for embeds, reranks and an application's own kinds. Tagged
+  `lyntai.consumer`, `lyntai.call.operation`, `lyntai.call.door`, and `error.type` when the call failed. It
+  carries no `gen_ai.*` tag and records no request or reply text. The attempt spans are unchanged.
+- **The response cache can be partitioned by consumer: `CacheOptions.PartitionByConsumer`** (**D208**). The key
+  leaves `Consumer` out so one trust domain shares hits, which serves one tenant's reply to another when consumers
+  are tenants. With the option set, the front door stores under `ResponseCacheKey.ForConsumer` — the same key
+  prefixed with the consumer, matched case-insensitively — so two consumers never share an entry, on every
+  backend. `ResponseCacheKey.For` and the default are unchanged, so every existing entry still hits.
+- **A graph memory can pin its embedder: `GraphMemoryOptions.VectorProviderId`** (**D209**). A graph engine's
+  embeds routed over every vector backend in registration order, so a backend registered for anything else could
+  fill its index, and a failover wrote a second model's vectors into the same collection. Pinned, the named
+  backend alone embeds the engine's writes, its semantic-seed query (`MemorySeedRequest.VectorProviderId` carries
+  the pin to the channel) and its `ReindexAsync`, and a failed embed is not retried on another model. An id naming
+  no backend, or one that does not embed, throws when the engine is built; a pin with no vector store is the new
+  `MemoryWiringProblem.PinnedVectorProviderWithoutIndex`. Unset, nothing changes.
+- **A tool call can be approved before it runs: `IToolApprover`, registered with `AddToolApprover`** (**D210**).
+  `ITool` had no approval hook, so a host could not gate a side-effecting tool. Every registered approver sees
+  the tool name, the arguments a guard left, the request's consumer and the native call id, and must approve, on
+  the tool loop's native and prompt paths and the hosted MCP endpoint alike. A refusal, or an approver that
+  throws, is the call's result — `error: tool call refused by approval: <reason>` — and the loop goes on;
+  `GatedToolResult.Denied` marks it, and `ToolInvocation.InvokeGatedAsync` has an overload taking the approvers.
+  With none registered, nothing changes.
+- **An interrupted re-embed resumes where it stopped, under a declared vector space** (**D212**). A graph
+  engine's `ReindexAsync` re-embedded the whole task on every run, so a pass interrupted near the end of a large
+  task was paid again in full. It now goes in id order and records, in each collection's vector-space stamp, the
+  entry through which the collection is done; a rerun into the same space skips those and reports them as
+  `MemoryReindexResult.Resumed`. Until its pass finishes a collection is searched and read back by neither space
+  and written only by the new one, and it is stamped once none of its entries failed. A rerun into another space,
+  or with no space declared, starts over.
+- **A graph memory can be exported and imported too, decay state and links included** (**D213**).
+  `GraphMemoryEngine` now implements `IPortableMemory`: each entry travels with its stability, difficulty, recall
+  count, signals, provenance, grade, metadata and subjects, its ages measured from where its engine stands, and
+  each link with its weight. An import lands them under new ids, each age as far behind the target's position as it
+  was behind the source's, so a buried entry stays buried and a recall ranks as it did; it ages nothing the target
+  already held, leaves an entry the target holds exactly as it is, and counts a link whose other end is not in the
+  file in `MemoryImportResult.LinksDropped`. `MemoryExportResult.Links` and `MemoryImportResult.Links` count the
+  links. The store capability is the optional `IPortableMemoryGraphStore`, which all four shipped stores
+  implement; over a store of your own without it the engine refuses both verbs and a blend names it in `Skipped`.
+  No migration.
+
+### Fixed
+
+- **A forget from another process no longer leaves a racing write's vector behind** (**D198**). Through 3.5.3 a
+  graph engine serialized a forget against writes and re-embeds on the same instance only, so a second process
+  over the same store could index a vector for an entry the forget had just deleted, leaving its content
+  readable in the similarity index. A forget now sweeps the index again after deleting the nodes, and every
+  vector upsert re-reads its entry and takes the vector back if it is gone. Each indexed write pays one more
+  entry read.
 
 ## 3.5.3 — 2026-09-30
 

@@ -505,9 +505,11 @@ silently run on whatever backend happens to be default. The surface does not yet
   does not need a custom type: the shipped scorer, comparer and tool loop each take a client on a public
   constructor, and the container registrations are try-add, so registering your own instance first wins.
   Resolve the factory, ask it for the name you want, and hand it in.
-- **The embedding seam has no named-client story at all**, and it is the most frequent model contact in the
-  library — per write *and* per recall. Memory's embeds are never batched: every memory call site embeds one
-  text per call.
+- **The embedding seam has no named-client story**, and it is the most frequent model contact in the
+  library — per write *and* per recall. A graph engine pins it by backend id instead, the scoring seam's
+  shape: `GraphMemoryOptions.VectorProviderId` names the backend for its writes, its semantic-seed query and
+  its re-embed (**D209**). A write and a recall embed one text per call; the re-embed
+  (`IReindexableMemory.ReindexAsync`) is the one batched memory call site (**D194**).
 
 > **The trap that eats the obvious advice.** Setting a seam's `Model` is inert on any deployment whose
 > default candidates pin models, because a candidate's own model wins over the request's. Both memory seams

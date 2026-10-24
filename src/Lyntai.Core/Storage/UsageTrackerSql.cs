@@ -30,4 +30,17 @@ public static class UsageTrackerSql
 
     /// <summary>Clear every consumer's ledger.</summary>
     public const string ResetAll = "DELETE FROM lyntai_usage";
+
+    /// <summary>Write one granted hold (<see cref="Lyntai.Inference.Budgeting.IReservingUsageTracker"/>). Run only
+    /// inside the transaction that checked the caps, after the backend's own serialization.</summary>
+    public const string Hold = """
+        INSERT INTO lyntai_usage_reservation (id, consumer, input_tokens, output_tokens, cost_usd, expires_at)
+        VALUES (@id, @consumer, @in, @out, @cost, @expiresAt)
+        """;
+
+    /// <summary>Drop every hold whose expiry has passed — its caller died, or outlived it.</summary>
+    public const string DropExpiredHolds = "DELETE FROM lyntai_usage_reservation WHERE expires_at <= @now";
+
+    /// <summary>Release one hold, in the same transaction as the <see cref="Record"/> that replaces it.</summary>
+    public const string Release = "DELETE FROM lyntai_usage_reservation WHERE id = @id";
 }

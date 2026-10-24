@@ -44,6 +44,7 @@ sealed class Lyntai.Storage.Sqlite.SqliteCuratedMemoryStore
     ListAsync(String kind = null, Boolean enabledOnly = false, String taskKey = null, String scope = null, Nullable<Int32> limit = null, IReadOnlyDictionary<String,String> metadataMatch = null, CancellationToken ct = default) : Task<IReadOnlyList<CuratedMemory>>
     RemoveAsync(Int64 id, CancellationToken ct = default) : Task<Boolean>
     SearchAsync(String query, String kind = null, String taskKey = null, String scope = null, Boolean enabledOnly = false, Nullable<Int32> limit = null, IReadOnlyDictionary<String,String> metadataMatch = null, CancellationToken ct = default) : Task<IReadOnlyList<CuratedMemory>>
+    UpdateAsync(Int64 id, Int64 expectedRevision, String content = null, Nullable<Boolean> enabled = null, String kind = null, String taskKey = null, String scope = null, IReadOnlyDictionary<String,String> metadata = null, CancellationToken ct = default) : Task<CuratedUpdateOutcome>
     UpdateAsync(Int64 id, String content = null, Nullable<Boolean> enabled = null, String kind = null, String taskKey = null, String scope = null, IReadOnlyDictionary<String,String> metadata = null, CancellationToken ct = default) : Task<Boolean>
 sealed class Lyntai.Storage.Sqlite.SqliteJobStore
     .ctor(IDbConnectionFactory factory, Func<DateTimeOffset> clock = null, Int32 stepLogCap = 200)
@@ -78,9 +79,13 @@ sealed class Lyntai.Storage.Sqlite.SqliteKeyValueStore
     SetAsync(String key, String value, CancellationToken ct = default) : Task
 sealed class Lyntai.Storage.Sqlite.SqliteMemoryGraphStore
     .ctor(IDbConnectionFactory factory, ILogger<SqliteMemoryGraphStore> logger = null, Func<DateTimeOffset> clock = null)
+    CountAsync(String engine, String taskKey, String scope, CancellationToken ct = default) : Task<MemoryGraphCounts>
     DeleteAsync(String engine, IReadOnlyCollection<Int64> ids, CancellationToken ct = default) : Task<Int32>
+    ExportAsync(String engine, String taskKey, String scope, CancellationToken ct = default) : Task<MemoryGraphExport>
     ForgetAsync(String engine, String taskKey, String scope, CancellationToken ct = default) : Task
     GetAsync(String engine, Int64 id, CancellationToken ct = default) : Task<GraphNode>
+    ImportLinksAsync(String engine, IReadOnlyList<GraphLink> links, CancellationToken ct = default) : Task<Int32>
+    ImportNodesAsync(String engine, String taskKey, IReadOnlyList<GraphNodeImport> nodes, CancellationToken ct = default) : Task<IReadOnlyList<GraphNodeImportResult>>
     KnownSubjectsAsync(String engine, String taskKey, String scope, Int32 limit, CancellationToken ct = default) : Task<IReadOnlyList<String>>
     LinkAsync(String engine, Int64 from, Int64 to, String kind, Double weight, Boolean symmetric, CancellationToken ct = default) : Task
     LinkManyAsync(String engine, IReadOnlyList<GraphEdgeWrite> edges, CancellationToken ct = default) : Task
@@ -125,7 +130,9 @@ sealed class Lyntai.Storage.Sqlite.SqliteTraceStore
     SaveAsync(RunTrace trace, CancellationToken ct = default) : Task
 sealed class Lyntai.Storage.Sqlite.SqliteUsageTracker
     .ctor(IDbConnectionFactory factory)
+    ReconcileAsync(UsageReservation reservation, ProviderUsage actual, CancellationToken ct = default) : ValueTask
     RecordAsync(String consumer, ProviderUsage usage, CancellationToken ct = default) : ValueTask
+    ReserveAsync(UsageReservationRequest request, CancellationToken ct = default) : ValueTask<UsageReservationResult>
     ResetAsync(String consumer = null, CancellationToken ct = default) : ValueTask
     TotalAsync(String consumer = null, CancellationToken ct = default) : ValueTask<UsageTotals>
 sealed class Lyntai.Storage.Sqlite.SqliteVectorStore

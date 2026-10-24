@@ -410,6 +410,15 @@ own arithmetic fixes that, which is why the seam exists.
 > good — take it knowingly, and if you
 > are running a small local model the odds are about 5:1 against you.
 
+**Measured at the ANSWER, the layer a verifier repairs depends on the workload** (`docs/memory-measurements.md`
+§5, `layers-locomo-lyntai-n200`, `layers-lme-ku-lyntai-haystack-n70`). On a SEARCH workload such as LoCoMo,
+the shipped engine loses more at ranking than at retrieval or reading, and a reader answers far more often
+with the evidence on the page, so a scoring verifier — the cross-encoder above — is aimed at the right layer;
+registering the semantic seeds widens the candidate pool as well. On a REVISION workload such as LongMemEval's
+knowledge-update class, the current fact is already on the page and the reader is what fails: spend on the
+reader there, not on a verifier. Nor is "0% of misses are retrieval failures" a field fact — on LoCoMo some
+questions never reach the candidate pool at all.
+
 So the honest framing is not "the judge is an optimisation" but: *this engine's ranking is its weakest part,
 and a judge is the only shipped mechanism aimed at repairing it* — with the field caveat above on whether a
 given model actually does. Whether ~1.5 s and 3.3 GB is worth it is an application question, and it should
@@ -867,6 +876,54 @@ if (recall.Answered == false)
     Console.WriteLine("memory has nothing that answers this — don't put it in the prompt");
 ```
 
+### See why an entry was not returned
+
+A miss has two causes the page alone cannot tell apart: the entry was never a CANDIDATE — no seed channel
+found it and no edge reached it — or it was found and RANKED off the page, the case §6 measures as most of the
+misses. Ask the recall to explain itself (**D200**):
+
+<!-- compile-given: MemoryRef expected = default; -->
+```csharp
+var recall = await engine.RecallAsync(new MemoryQuery("project", "backend", "deploy") { Explain = true });
+
+var mine = recall.Candidates?.FirstOrDefault(c => c.Reference == expected);
+Console.WriteLine(mine is null
+    ? "never a candidate — a retrieval miss"
+    : $"{mine.Outcome} at position {mine.Position}, hop {mine.Hop}, score {mine.Score}, verified {mine.Verified}");
+```
+
+Each entry carries the seed channels that matched it and its rank in each (`Ranks`, empty for a hop neighbour),
+and its `MemoryCandidateOutcome`: `Returned`, `Floored` by the ranking policy, `CutByLimit`, `FilteredByVerifier`
+(only with `VerificationFilters`) or `CutByBudget`. **Off by default, and explaining changes nothing the recall
+returns, reinforces or logs** — it reads the sets the recall already built, so objective (4) is not spent. A blend
+carries its members' lists, each entry naming its member, and re-reports what its own limit and budget removed;
+lexical, semantic and curated engines have no candidate stage and leave `Candidates` null.
+
+### Check how a memory is wired, and how much it holds
+
+Both reads are read-only: they report, and nothing here repairs. The wiring check (**D85**) is logged when the
+engine factory is built; `MemoryWiringReport` is the same findings as data, each with its `MemoryWiringProblem` and
+the engine it is about (`null` for one about the whole container), readable without a log or `StrictWiring()`
+(**D202**). An empty report is not proof of good wiring: around an engine this library does not ship, a check that
+cannot be sure stays silent.
+
+<!-- compile-given: IMemoryEngineFactory factory = null!; -->
+```csharp
+foreach (var finding in sp.GetRequiredService<MemoryWiringReport>().Findings)
+    Console.WriteLine($"{finding.Problem} in {finding.Engine ?? "the container"}: {finding.Message}");
+
+var graph = (GraphMemoryEngine)factory.Get("project/graph");
+var counts = await graph.CountAsync("project");   // null scope = every scope of the task
+if (counts is not null)
+    Console.WriteLine($"{counts.Entries} entries, {counts.Buried} buried, {counts.Links} links, {counts.Subjects} subjects");
+```
+
+`Entries` is everything stored, since decay removes nothing; `Buried` is the associative entries whose
+retrievability, as a recall reports it, is below `GraphMemoryOptions.MinRetrievability` (or the floor you pass) —
+what `PruneAsync` on that floor targets — and the rest are live. Counting burial reads the scope's entries once.
+The counts come from the store's `ICountableMemoryGraphStore`, which every shipped store implements; over a store of
+your own that does not, the answer is `null`, never a zero that looks like an empty memory.
+
 ### Delete things, deliberately
 
 Decay never deletes; it only buries. Removal is always an explicit call.
@@ -895,8 +952,11 @@ to learn which ids it removed, which a deployment with no vector store does not 
 the DI-registered singleton is: a write indexes its vector under the lock the removal verbs hold, after re-reading
 that its entry survived, so a forget landing between the write's entry and its vector wins, and the write reports no
 `MemorySources.Similarity`. The price is that a write's index step waits for a running forget or prune, and
-concurrent writes to one engine take that step one at a time; the embed call, the slow part, stays outside. Two
-instances over one store, two processes say, are not serialized, and there the window remains.
+concurrent writes to one engine take that step one at a time; the embed call, the slow part, stays outside.
+**Two instances over one store — two processes, say — are not serialized, and are still covered** (**D198**): a
+forget sweeps the index again after it deletes the nodes, and a write re-reads its entry after indexing it and takes
+the vector back if it is gone, so whichever lands second clears it. That costs every indexed write one more entry
+read, and a write landing just after the node delete may lose its vector — never its entry — to the second sweep.
 
 ### Re-embed after changing the embedding model
 
@@ -908,17 +968,124 @@ decay state:
 // after the registered embedding backend has changed; null scope = every scope of the task
 var result = await graph.ReindexAsync("project");
 if (result.Failed > 0)
-    result = await graph.ReindexAsync("project");   // a rerun re-embeds the WHOLE task, not only the failed batches
+    result = await graph.ReindexAsync("project");   // under a declared space, resumes from the failed batch
 ```
 
 **Pause writes to the task while it runs**: a write landing mid-pass is embedded by the new model, but its
 similarity search still meets old vectors, so under a new model of the same dimension its links may be scored
-against the wrong one. A forget or prune landing mid-pass is safe — the pass never writes a vector back for an
-entry it removed — when it goes through the same engine instance, which the DI-registered singleton is; two
-instances must not run a re-embed and a removal at once. `similar` links stay as the old model scored them.
+against the wrong one — under a declared space it meets none, since a collection mid-move is not searched. A forget or prune landing mid-pass is safe — the pass never writes a vector back for an
+entry it removed — and a FORGET from another instance is too, by the same re-read a write makes (**D198**); a
+PRUNE from another instance is best-effort and may orphan one. `similar` links stay as the old model scored them.
 Through the factory, the blend implements `IReindexableMemory` and fans out to the members that can; a member that
 cannot is named in `Skipped`, and **a semantic member is one**: its vectors stay on the old model until the
 application writes its corpus again (`docs/DECISIONS.md` **D194**).
+
+**Declare the vector space, so a swap cannot mix two models silently.** A store compares vectors by dimension
+only, so a new model of the SAME dimension scores its queries against the old model's vectors with no error.
+`UseVectorSpace("bge-m3@1")` names the space the deployment's embedder produces and stamps each collection with
+the space that first wrote it (**D199**): after the name changes, a write into an old collection throws (a graph
+write is stored without its vector instead, as an enrichment failure), a search of one finds nothing and logs a
+warning, and `ReindexAsync` moves a collection to the new space when it re-embeds it with no failed batch. Declare
+it before the first swap — a collection written before is unstamped, and its first write claims it.
+
+**Under a declared space an interrupted re-embed resumes** (**D212**). The pass goes in entry-id order and marks
+each collection MOVING into the space, with the id through which it is done; a cancelled, crashed or partly
+failed pass leaves that mark, and the next `ReindexAsync` into the SAME space skips those entries and reports them
+in `MemoryReindexResult.Resumed`. Until its pass finishes a collection is searched and read back by neither space,
+and only the new space may write into it, so recall loses its similarity channel there in the meantime; rerun
+until `Failed` is zero. Renaming the space again before it finishes starts the next pass over, and with no space
+declared every rerun re-embeds the whole task, because nothing then says which model wrote a stored vector.
+
+```csharp
+services.AddLyntai(cfg => cfg
+    .UseSqliteStorage("app.db")
+    .UseVectorSpace("bge-m3@1")   // rename on every embedder change, same dimension or not
+    .AddMemoryEngine("project", e => e.UseGraph()));
+```
+
+**Pin the embedder the moment a second vector backend is registered** (**D209**). Unpinned, a graph engine's
+embeds route over every backend producing `ProviderKinds.Vector` in registration order, so a backend added for a
+tool selector decides which model fills the index, and a FAILOVER writes the next backend's vectors into the same
+collection — which a declared space cannot catch, because the stamp compares the id you declared, not the model
+that answered. `GraphMemoryOptions.VectorProviderId` names one backend for the engine's writes, its semantic-seed
+query and its re-embed; a failed embed then stays a failure (the write is stored without its vector, the re-embed
+counts it), and an id naming no backend, or one that does not embed, throws when the engine is built. The space
+says WHICH model the collection holds; the pin is what makes that true.
+
+```csharp
+services.AddLyntai(cfg => cfg
+    .UseSqliteStorage("app.db")
+    .UseVectorSpace("bge-m3@1")
+    .AddMemoryEngine("project", e => e.UseGraph(new GraphMemoryOptions { VectorProviderId = "bge" })));
+```
+
+### Carry a memory to another store
+
+`IPortableMemory` writes one task's entries as JSONL and reads such a file back into another store, backend or
+deployment (**D204**). `CuratedMemoryEngine` and `GraphMemoryEngine` implement it, and through the factory the blend
+does too, exporting its capable members into one file and naming the rest in `Skipped`.
+
+<!-- compile-given: IMemoryEngineFactory factory = null!; IMemoryEngineFactory target = null!; -->
+```csharp
+var source = (IPortableMemory)factory.Get("project");
+await using (var file = File.CreateText("project.jsonl"))
+{
+    var exported = await source.ExportAsync("project", scope: null, file);   // null scope = every scope of the task
+    Console.WriteLine($"{exported.Exported} entries; not exported: {string.Join(", ", exported.Skipped)}");
+}
+
+using var reader = File.OpenText("project.jsonl");
+var result = await ((IPortableMemory)target.Get("project")).ImportAsync("project", scope: null, reader);
+Console.WriteLine($"{result.Imported} imported, {result.AlreadyPresent} already there");
+```
+
+**There is no whole-store export**: both verbs name a task, and neither defaults it or the scope. An import writes
+under the task it names, whatever task the file came from; a named scope receives every line, a null one keeps each
+line's own. Each line is one object:
+
+| field | meaning |
+|---|---|
+| `v` | the format version, `1`. A reader refuses any other, rather than guess what a newer writer added |
+| `record` | what the line holds: `curated`, or a graph engine's `graph` and `link` (below) |
+| `engine` | the engine that exported it; a blend routes an import by it, a single engine ignores it |
+| `taskKey`, `scope` | where it was exported from — informational, since the import names its target |
+| `kind`, `content`, `enabled` | the entry; a curated engine bound to one kind refuses a line of another |
+| `metadata` | the app-owned map, or absent |
+| `grade` | what the exporting engine's `Grade` delegate read; an import re-derives its own from `metadata` |
+| `createdAt`, `updatedAt`, `revision` | the source's record. An imported entry is NEW: its timestamps are the import's and its revision starts at 1 |
+
+**What an import promises.** The whole file is checked before the first write: a malformed line, a version other
+than 1 or a record the engine cannot hold throws `InvalidDataException` naming the line, and nothing is written. An
+entry the target already holds — the same kind, content, task and scope — is left exactly as it is, so importing a
+file twice adds nothing, and a disabled entry arrives disabled. **What it cannot promise is that nothing comes back.**
+No store records a forget, so a file taken before one brings the forgotten content back with it: import only a file
+taken after the last removal you mean to keep. **No vectors travel**: a vector is the content under one model, and
+the receiving engine indexes on write. A curated entry with no task, which applies everywhere, belongs to no task's
+export.
+
+**A graph engine carries its decay state and its links** (**D213**), through its store's `IPortableMemoryGraphStore`,
+which every shipped store implements; over a store of your own without it, both verbs throw
+`NotSupportedException` and a blend names the member in `Skipped`. Its file holds a `graph` line per entry, then a
+`link` line per link to an entry of the same task:
+
+| field | meaning |
+|---|---|
+| `id` | the entry's id in the SOURCE, read only to resolve links; the target allocates its own |
+| `headline`, `content`, `grade`, `metadata`, `createdAt` | the entry; `grade` is `Associative` or `Authoritative` |
+| `stability`, `difficulty`, `recallCount`, `signals`, `provenanceRetrievability`, `provenanceSalience` | its decay state, as stored |
+| `subjects` | what it is about, as the annotator recorded it, or absent |
+| `age`, `ordinalAge`, `volumeAge`, `elapsedAge` | how far behind its engine's position it sits on each scale |
+| `from`, `to`, `kind`, `weight` | a `link` line: two `id`s, the relation and the raw weight, with the same four ages |
+
+**Ages are relative, so the state survives a different clock.** An imported entry or link is stamped as far behind
+the TARGET's position as it was behind the source's, and the import advances nothing, so what was buried stays
+buried, a recall over the imported task ranks as the source's did, and nothing the target already held ages. An
+entry the target already holds — the same content, task and scope — is left exactly as it is, decay state and
+subjects included, and the file's links still attach to it; a link it already holds keeps its weight, so a second
+import writes nothing. A link whose other end is not an entry of the file — a scope the export did not cover — is
+dropped and counted in `MemoryImportResult.LinksDropped`. The review log does not travel. With a vector index, the
+engine embeds each imported entry, best-effort; one whose embed fails is stored without its vector until a
+`ReindexAsync`.
 
 ### Blend two members that index the same material
 
@@ -961,6 +1128,23 @@ fact your own selection dropped cannot be rescued here, and the section still lo
 sections is a separator, so with no prompt it is not emitted and there is nothing to trim. Both uses are
 first-class; a formatting-only entry point is as often used to build a block you place yourself as to append
 to a prompt.
+
+**Ask what it left out with `RenderWithManifest`** (**D201**). Its `Text` is `Render`'s, byte for byte; its
+`Entries` hold one per item, in your order — the section it went to, its `MemoryCompositionOutcome` (`Rendered`,
+`CutByBudget`, or `Duplicate` of a line already rendered) and the `Characters` its line costs against the budget,
+bullet and line break included:
+
+<!-- compile-given: string basePrompt = ""; IReadOnlyList<MemoryItem> myItems = []; -->
+```csharp
+var composed = MemoryComposition.RenderWithManifest(basePrompt, myItems);
+
+foreach (var cut in composed.Entries.Where(e => e.Outcome == MemoryCompositionOutcome.CutByBudget))
+    Console.WriteLine($"{cut.Section}: {cut.Item.Headline} needed {cut.Characters} characters");
+```
+
+These are the RENDERER's cuts. What a recall removed before any rendering is `MemoryCandidateOutcome`, through
+`MemoryQuery.Explain` (*See why an entry was not returned*, above); with `ComposeAsync`, recall yourself and pass
+`recall.Items` here to get both.
 
 ### Replace a policy with your own
 

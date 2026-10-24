@@ -310,8 +310,9 @@ public sealed class TextRouter(
     }
 
     /// <summary>Why a candidate was skipped, as far as the synthesized verdict cares: a CAPABILITY gap (it serves
-    /// no text, or not on this door) benches nothing and reports Unsupported; anything else is transient.</summary>
-    private enum Gap { None, NoText, NoDoor }
+    /// no text, not on this door, or not natively what a <see cref="TextRequest.RequireNativeSupport"/> call
+    /// carries) benches nothing and reports Unsupported; anything else is transient.</summary>
+    private enum Gap { None, NoText, NoDoor, NoNative }
 
     /// <summary>The candidates one call skipped, and why — what the router answers with when it tried none.</summary>
     private sealed class SkippedCandidates(ProviderOperation door)
@@ -330,9 +331,11 @@ public sealed class TextRouter(
             var reasons = string.Join("; ", _skipped.Select(s => $"{s.Candidate}: {s.Reason}"));
             if (_skipped.TrueForAll(s => s.Gap == Gap.NoText))
                 return (ProviderVerdict.Unsupported, $"no candidate serves text ({reasons})");
-            return _skipped.TrueForAll(s => s.Gap != Gap.None)
-                ? (ProviderVerdict.Unsupported, $"no candidate serves a text {door} call ({reasons})")
-                : (ProviderVerdict.Failed, $"no live candidate (all skipped: {reasons})");
+            if (!_skipped.TrueForAll(s => s.Gap != Gap.None))
+                return (ProviderVerdict.Failed, $"no live candidate (all skipped: {reasons})");
+            return _skipped.Exists(s => s.Gap == Gap.NoNative)
+                ? (ProviderVerdict.Unsupported, $"no candidate serves this text {door} call natively ({reasons})")
+                : (ProviderVerdict.Unsupported, $"no candidate serves a text {door} call ({reasons})");
         }
     }
 
@@ -370,7 +373,8 @@ public sealed class TextRouter(
 
     /// <summary>The shared candidate-selection preamble every door runs: dedup the list, resolve each
     /// candidate's EFFECTIVE model, skip unknown/text-less/unavailable/cooling providers and those not declaring
-    /// <paramref name="door"/> (with the sole-candidate exemption from cooldown), recording each skip in
+    /// <paramref name="door"/> or, under <see cref="TextRequest.RequireNativeSupport"/>, what the request carries
+    /// (with the sole-candidate exemption from cooldown), recording each skip in
     /// <paramref name="skipped"/>, and pair each survivor with its cooldown key. A given candidate's model is its
     /// own, else the request's, else the consumer default; a live route entry's never falls to the consumer
     /// default, which belongs to the candidates the route replaced — its own, else the request's, else the
@@ -385,7 +389,7 @@ public sealed class TextRouter(
             var effectiveModel = routing.IsLiveRoute
                 ? RouteEntryModel(candidate, req.Model)
                 : options.ResolveModel(req.Consumer, candidate.Model ?? req.Model);
-            var provider = SelectLive(routing.ById, candidate, effectiveModel, door, soleCandidate, out var skipReason, out var gap);
+            var provider = SelectLive(routing.ById, candidate, effectiveModel, req, door, soleCandidate, out var skipReason, out var gap);
             if (provider is null)
             {
                 // a text-less backend in a text list is the caller's defect, not transient state: warn, as D176
@@ -501,6 +505,19 @@ public sealed class TextRouter(
                 provider.Id, streaming ? " on its stream" : "", tools.Count);
     }
 
+    /// <summary>What a backend would DEGRADE in <paramref name="req"/> on <paramref name="door"/>, or null when it
+    /// carries everything natively — the skip reason a <see cref="TextRequest.RequireNativeSupport"/> call
+    /// records. On a stream, tools need the STREAM to carry calls (D71).</summary>
+    private static string? NativeGap(ProviderCapabilities capabilities, TextRequest req, ProviderOperation door)
+    {
+        if (!string.IsNullOrEmpty(req.JsonSchema) && !capabilities.SupportsStructuredOutput)
+            return "cannot honour a JSON schema natively";
+        if (req.Tools is not { Count: > 0 }) return null;
+        return door == ProviderOperation.Stream
+            ? capabilities.SupportsStreamingToolCalls ? null : "declares no native tool calls on its stream"
+            : capabilities.SupportsToolCalls ? null : "declares no native tool calls";
+    }
+
     /// <summary>The dead-host key for a candidate: the bookkeeping's BARE identity (configuration, else id) at
     /// the configured cooldown granularity, which composes on top either way.</summary>
     private string CooldownKey(IModelProvider provider, string? effectiveModel)
@@ -512,7 +529,7 @@ public sealed class TextRouter(
     }
 
     private IModelProvider? SelectLive(IReadOnlyDictionary<string, IModelProvider> byId,
-        ProviderCandidate candidate, string? effectiveModel, ProviderOperation door,
+        ProviderCandidate candidate, string? effectiveModel, TextRequest req, ProviderOperation door,
         bool soleCandidate, out string skipReason, out Gap gap)
     {
         gap = Gap.None;
@@ -531,6 +548,12 @@ public sealed class TextRouter(
         {
             skipReason = $"does not declare {door}";
             gap = Gap.NoDoor;
+            return null;
+        }
+        if (req.RequireNativeSupport && NativeGap(provider.Capabilities, req, door) is { } native)
+        {
+            skipReason = native;
+            gap = Gap.NoNative;
             return null;
         }
         if (!provider.IsAvailable) { skipReason = "provider reports unavailable"; return null; }

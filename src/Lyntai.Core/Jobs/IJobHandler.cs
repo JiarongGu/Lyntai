@@ -7,6 +7,8 @@ namespace Lyntai.Jobs;
 ///
 /// <para><b>Idempotency contract (at-least-once):</b> a job can run more than once — a process may die
 /// after a side effect but before its checkpoint persists, and a crashed job is re-claimed and resumed.
+/// A run whose handler returned <see cref="JobOutcome.Complete"/> but whose completion the store never
+/// recorded is redelivered too: requeued if the store can still take that, else re-claimed once its lease lapses.
 /// So a handler MUST be idempotent from its <see cref="JobContext.Checkpoint"/>: checkpoint AFTER a
 /// durable side effect (or key the effect so repeating it is a no-op), and on entry use the checkpoint to
 /// skip work already done. Lyntai guarantees at-least-once, not exactly-once.</para>

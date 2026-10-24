@@ -101,12 +101,15 @@ public static class MemoryEngineBuilderExtensions
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IMemorySeedSource, LexicalSeedSource>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IMemorySeedSource, SubjectSeedSource>());
 
-        // The wiring check runs in the FACTORY rather than in Build, because two of its three findings are
-        // about the CONTAINER — a policy registered and consulted by no engine — and only this sees them all.
+        // The wiring check runs over the CONTAINER rather than in Build, because two of its findings are about
+        // it — a policy registered and consulted by no engine. The report is its own service so a host reads it
+        // without the factory; building the factory logs it and, under StrictWiring, throws.
+        services.TryAddSingleton<MemoryWiringReport>(MemoryWiring.Inspect);
         services.TryAddSingleton<IMemoryEngineFactory>(sp =>
         {
             var engines = sp.GetServices<IMemoryEngine>().ToList();
-            MemoryWiring.Report(engines, sp, sp.GetServices<MemoryEngineComposition>().Any(c => c.Strict));
+            MemoryWiring.Report(sp.GetRequiredService<MemoryWiringReport>(), sp,
+                sp.GetServices<MemoryEngineComposition>().Any(c => c.Strict));
             return new MemoryEngineFactory(engines);
         });
     }

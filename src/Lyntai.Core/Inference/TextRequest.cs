@@ -43,4 +43,13 @@ public sealed record TextRequest
     /// cached hit. A malformed pattern is logged and ignored (the reply passes through). Completion-path
     /// only — streamed replies aren't screened.</summary>
     public string? RefusalPattern { get; init; }
+
+    /// <summary>Refuse to have <see cref="JsonSchema"/> or <see cref="Tools"/> DEGRADED: a candidate whose
+    /// <see cref="ProviderCapabilities"/> do not declare <see cref="ProviderCapabilities.SupportsStructuredOutput"/>
+    /// (for a schema) or native tool calls (for tools — <see cref="ProviderCapabilities.SupportsStreamingToolCalls"/>
+    /// on a stream) is skipped with its reason recorded, as an unavailable one is. When every candidate is
+    /// skipped so, the call answers <see cref="ProviderVerdict.Unsupported"/> naming each. False (the default)
+    /// asks every candidate in order: a CLI then receives the schema as prompt text, and tools a backend
+    /// cannot call go uncalled with a warning. Inert on a request carrying neither.</summary>
+    public bool RequireNativeSupport { get; init; }
 }

@@ -100,6 +100,25 @@ public sealed class MemoryEdgeRow
     public DateTimeOffset? EdgeStrengthenedAt { get; set; }
 }
 
+/// <summary>One exported link — <see cref="MemoryGraphSql.ExportLinks"/>' row, projected by <see cref="ToLink"/>.
+/// <see cref="StrengthenedAt"/> is subtracted in .NET, as <see cref="MemoryNodeRow.ToNode"/> subtracts its own.</summary>
+public sealed class MemoryLinkRow
+{
+    public long FromId { get; set; }
+    public long ToId { get; set; }
+    public string Kind { get; set; } = "";
+    public double Weight { get; set; }
+    public double Age { get; set; }
+    public double OrdinalAge { get; set; }
+    public double VolumeAge { get; set; }
+    public DateTimeOffset StrengthenedAt { get; set; }
+
+    /// <summary>Project to the contract type.</summary>
+    /// <param name="encodedAt">Where the engine's own elapsed-time primitive currently stands.</param>
+    public GraphLink ToLink(DateTimeOffset encodedAt) =>
+        new(FromId, ToId, Kind, Weight, Age, OrdinalAge, VolumeAge, (encodedAt - StrengthenedAt).TotalDays);
+}
+
 /// <summary>Where an engine currently stands, on every scale a store tracks: the <c>Advance</c>-driven
 /// <see cref="Position"/>, and the three primitives that advance unconditionally on every write regardless
 /// of which age policy is installed.

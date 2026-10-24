@@ -10,7 +10,7 @@ namespace Lyntai.Storage.FileSystem;
 /// operations where the contract promises one. The semantics are <see cref="CuratedCatalog"/>'s, the
 /// in-memory store's own core; every change is written through before it is visible.</para></summary>
 internal sealed class FileSystemCuratedMemoryStore(FileSystemRoot root, Func<DateTimeOffset>? clock = null)
-    : ICuratedMemoryStore
+    : IRevisionedCuratedMemoryStore
 {
     private readonly Lock _lock = new();
     private readonly string _directory = root.Combine("curated");
@@ -24,7 +24,8 @@ internal sealed class FileSystemCuratedMemoryStore(FileSystemRoot root, Func<Dat
         var loaded = root.Load(_directory, (file, h, body) => (File: file, Entry: new CuratedMemory(
             h.Long("id") ?? throw new FormatException("'id' is required"), h.RequiredString("kind"), body,
             h.Bool("enabled") ?? true, h.Time("created") ?? throw new FormatException("'created' is required"),
-            h.Time("updated") ?? h.Time("created")!.Value, h.String("task"), h.String("scope"), h.Map("metadata"))));
+            h.Time("updated") ?? h.Time("created")!.Value, h.String("task"), h.String("scope"), h.Map("metadata"))
+            { Revision = h.Long("revision") ?? 1 })); // a file written before revisions is at the first one
         foreach (var (file, entry) in loaded) _files[entry.Id] = file;
         var catalog = new CuratedCatalog();
         // past every numbered FILE too — one that did not parse still holds its number
@@ -41,7 +42,7 @@ internal sealed class FileSystemCuratedMemoryStore(FileSystemRoot root, Func<Dat
     {
         root.Write(FileOf(e.Id), RecordFile.Write(new RecordHeader().Add("id", e.Id).Add("kind", e.Kind)
             .Add("enabled", e.Enabled).Add("task", e.TaskKey).Add("scope", e.Scope).Add("created", e.CreatedAt)
-            .Add("updated", e.UpdatedAt).Add("metadata", e.Metadata), e.Content));
+            .Add("updated", e.UpdatedAt).Add("revision", e.Revision).Add("metadata", e.Metadata), e.Content));
         catalog.Apply(e);
     }
 
@@ -63,16 +64,24 @@ internal sealed class FileSystemCuratedMemoryStore(FileSystemRoot root, Func<Dat
 
     public Task<bool> UpdateAsync(long id, string? content = null, bool? enabled = null, string? kind = null,
         string? taskKey = null, string? scope = null,
-        IReadOnlyDictionary<string, string>? metadata = null, CancellationToken ct = default)
+        IReadOnlyDictionary<string, string>? metadata = null, CancellationToken ct = default) =>
+        Task.FromResult(Update(id, null, content, enabled, kind, taskKey, scope, metadata) == CuratedUpdateOutcome.Updated);
+
+    public Task<CuratedUpdateOutcome> UpdateAsync(long id, long expectedRevision, string? content = null,
+        bool? enabled = null, string? kind = null, string? taskKey = null, string? scope = null,
+        IReadOnlyDictionary<string, string>? metadata = null, CancellationToken ct = default) =>
+        Task.FromResult(Update(id, expectedRevision, content, enabled, kind, taskKey, scope, metadata));
+
+    private CuratedUpdateOutcome Update(long id, long? expectedRevision, string? content, bool? enabled, string? kind,
+        string? taskKey, string? scope, IReadOnlyDictionary<string, string>? metadata)
     {
         var now = _clock();
         lock (_lock)
         {
             var catalog = Catalog();
-            if (catalog.PlanUpdate(id, content, enabled, kind, taskKey, scope, metadata, now) is not { } updated)
-                return Task.FromResult(false);
-            WriteThenApply(catalog, updated);
-            return Task.FromResult(true);
+            var (outcome, updated) = catalog.PlanUpdate(id, expectedRevision, content, enabled, kind, taskKey, scope, metadata, now);
+            if (updated is not null) WriteThenApply(catalog, updated);
+            return outcome;
         }
     }
 

@@ -68,13 +68,16 @@ Dedup candidates by `(providerId, model)` (first wins — a mis-ordered list tha
 won't retry it), then try in order, skipping providers that are unregistered / serving no text
 (`ClientCandidates.ServesText`, the one predicate; a CONFIGURED list naming one fails at composition, **D178**) /
 not declaring the door this call uses (`ClientCandidates.Serves(provider, door)` — an undeclared door would
-answer `Unsupported`, which surfaces with no fallback, so it is never asked) /
-`!IsAvailable` / in dead-host cooldown. Log every attempt with provider + verdict + detail. A candidate may be
+answer `Unsupported`, which surfaces with no fallback, so it is never asked) / under
+`TextRequest.RequireNativeSupport`, declaring no native support for the request's schema
+(`SupportsStructuredOutput`) or tools (`SupportsToolCalls`, `SupportsStreamingToolCalls` on a stream — **D205**;
+without the flag such a candidate is asked and degrades) / `!IsAvailable` / in dead-host cooldown. Log every attempt with provider + verdict + detail. A candidate may be
 RETRIED before the router advances (`RoutingPolicy.Retry`), and the retries are part of ONE attempt at that
 candidate: exactly one failure is recorded when they are exhausted, never one per retry — recording per retry
 would cross the dead-host threshold inside a single call. When all candidates are exhausted the router returns the last
 SUBSTANTIVE failure; if none were even eligible, a reply naming each skipped candidate and why — `Unsupported`
-when every one is a capability gap (serves no text, or not on this door), else `Failed` "no live candidate".
+when every one is a capability gap (serves no text, not on this door, or not natively), else `Failed` "no live
+candidate".
 
 **"The last reply" is not the rule — a blameless verdict is kept apart from a real failure.** `CompleteAsync`
 holds two slots, `last` (the last substantive failure — what the caller is told) and `lastBlameless`, and
@@ -188,8 +191,8 @@ else `provider.Id`. Passing nothing (the default, and the whole container-compos
 backend, which is correct for a deployment that configures each backend once. **The key, the admission permit
 and the bench test are ONE internal class, `RouterBookkeeping`**, which every router holds with its own
 domain prefix — shared bookkeeping, which is not the router merge **D153** refused. The generic
-`ProviderRouter<,>` also emits the call span and outcome metrics (`LyntaiDiagnostics`) the two named routers
-do.
+`ProviderRouter<,>` also emits the attempt spans and outcome metrics (`LyntaiDiagnostics`) the two named routers
+do, under the `lyntai.call` span its `CallAsync` opens (**D207**).
 
 **The generic kinds get all of this through `IProviderRouterFactory`** (**D155**) — vector, score, and
 whatever an application closes `IProviderCall<,>` over. It is the counterpart of the two named factories and
@@ -281,7 +284,9 @@ token: the same owner again re-applies its options without stacking a second lay
 a held order throws, since the second would be dropped while its options still read as wired.
 
 **The built-in slots are 5 (rate limit), 10 (budget), 20 (cache) and 30 (call tracing)**; refusal screening is
-outermost and outside the list, so tracing records a reply's verdict BEFORE screening. The tracer
+outside the list, so tracing records a reply's verdict BEFORE screening. Outermost of all is `CallSpanTextClient`,
+the call's one `lyntai.call` span (**D207**): every attempt span must nest under it, so a stream re-asserts
+`Activity.Current` before each read, and it carries no `gen_ai.*` tag, or a backend counts each call twice. The tracer
 (`AddTextCallTracing`, **D193**) holds three things that look deletable and are not: an `AsyncLocal` flag set while
 its scorers run — without it an LLM scorer's own call recurses through the traced client until the stack
 overflows; resolving its sinks on FIRST USE, never in the decorator factory — an LLM scorer needs the `ITextClient`

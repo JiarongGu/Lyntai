@@ -44,7 +44,8 @@ public sealed class LlamaSharpProvider(
     public string Id => id;
 
     /// <summary>What this backend serves — an in-process GGUF model: text in, text out, buffered or streamed. LLamaSharp exposes no native
-    /// tool-calling surface here, so neither tool flag is declared.</summary>
+    /// tool-calling surface here, so neither tool flag is declared; nor is structured output, since a request's
+    /// <c>JsonSchema</c> is not applied.</summary>
     public ProviderCapabilities Capabilities { get; } = new()
     {
         Accepts = [ProviderKinds.Text],

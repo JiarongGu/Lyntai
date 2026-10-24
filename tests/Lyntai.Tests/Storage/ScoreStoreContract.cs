@@ -9,6 +9,7 @@ public static class ScoreStoreContract
 {
     private static ScoredResult R(string scorer, double score) => new(scorer, scorer.ToUpperInvariant(), "g", false, score);
 
+    [Unscoped("fixed session ids")]
     public static async Task Rescore_replaces_not_accumulates(IScoreStore store)
     {
         await store.SaveAsync("s1", [R("a", 0.5), R("b", 0.3)]);
@@ -21,6 +22,7 @@ public static class ScoreStoreContract
         Assert.Equal(0.3, results.Single(x => x.ScorerId == "b").Score); // b untouched
     }
 
+    [Unscoped("aggregates the whole table")]
     public static async Task Aggregate_is_per_scorer_across_sessions(IScoreStore store)
     {
         await store.SaveAsync("s1", [R("a", 0.4), R("b", 1.0)]);
@@ -34,6 +36,7 @@ public static class ScoreStoreContract
         Assert.Equal("A", agg["a"].ScorerName);
     }
 
+    [Unscoped("exports the whole table")]
     public static async Task Export_dumps_every_session_scorer_score(IScoreStore store)
     {
         await store.SaveAsync("s1", [R("a", 0.4), R("b", 1.0)]);

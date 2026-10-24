@@ -33,7 +33,8 @@ public sealed record MemoryCompositionOptions
 /// <summary>Renders an engine's recall into a prompt. Composing is something an engine DOES, so there is no
 /// separate composer type — "several composers" is already "several engines".
 /// <para>Two doors: <see cref="ComposeAsync"/> recalls and renders, <see cref="Render"/> renders material a
-/// caller already has.</para></summary>
+/// caller already has; <see cref="RenderWithManifest"/> is <see cref="Render"/> reporting what it left
+/// out.</para></summary>
 public static class MemoryComposition
 {
     /// <summary>Append this engine's relevant material to <paramref name="basePrompt"/> as two labelled
@@ -95,21 +96,36 @@ public static class MemoryComposition
     /// <param name="items">What to render, in the order they should appear within their section.</param>
     /// <param name="options">Budget and headings; null takes the defaults.</param>
     public static string Render(string basePrompt, IReadOnlyList<MemoryItem> items,
+        MemoryCompositionOptions? options = null) =>
+        RenderWithManifest(basePrompt, items, options).Text;
+
+    /// <summary><see cref="Render"/>, plus a manifest of what became of each item — so material the budget
+    /// or the de-duplication left out is data the caller can read rather than a silent absence.
+    /// <para><see cref="MemoryCompositionResult.Text"/> is byte-identical to what <see cref="Render"/>
+    /// returns for the same arguments, the in-band authoritative omission line included.</para></summary>
+    /// <param name="basePrompt">As for <see cref="Render"/>.</param>
+    /// <param name="items">As for <see cref="Render"/>; the manifest has one entry per item, in this order.</param>
+    /// <param name="options">Budget and headings; null takes the defaults.</param>
+    public static MemoryCompositionResult RenderWithManifest(string basePrompt, IReadOnlyList<MemoryItem> items,
         MemoryCompositionOptions? options = null)
     {
         ArgumentNullException.ThrowIfNull(items);
         var opts = options ?? new MemoryCompositionOptions();
-        if (items.Count == 0) return basePrompt;
+        var entries = new MemoryCompositionEntry[items.Count];
+        if (items.Count == 0) return new MemoryCompositionResult(basePrompt, entries);
 
-        var exact = items.Where(i => i.Grade == MemoryGrade.Authoritative).ToList();
-        var recalled = items.Where(i => i.Grade != MemoryGrade.Authoritative).ToList();
+        // indices rather than items, so each section's verdict lands on the caller's own position
+        var exact = Enumerable.Range(0, items.Count)
+            .Where(i => items[i].Grade == MemoryGrade.Authoritative).ToList();
+        var recalled = Enumerable.Range(0, items.Count)
+            .Where(i => items[i].Grade != MemoryGrade.Authoritative).ToList();
 
         // authoritative out of its own reserve FIRST, then associative from whatever of the total is left
         var rendered = new HashSet<string>(StringComparer.Ordinal);
-        var (exactText, omitted) = Fill(exact, Math.Min(opts.AuthoritativeCharacters, opts.Budget), verbatim: true, rendered);
-        var (recalledText, _) = Fill(recalled, Math.Max(0, opts.Budget - exactText.Length), verbatim: false, rendered);
+        var (exactText, omitted) = Fill(exact, Math.Min(opts.AuthoritativeCharacters, opts.Budget), verbatim: true);
+        var (recalledText, _) = Fill(recalled, Math.Max(0, opts.Budget - exactText.Length), verbatim: false);
 
-        if (exactText.Length == 0 && recalledText.Length == 0) return basePrompt;
+        if (exactText.Length == 0 && recalledText.Length == 0) return new MemoryCompositionResult(basePrompt, entries);
 
         var sb = new StringBuilder(basePrompt);
 
@@ -135,15 +151,16 @@ public static class MemoryComposition
             sb.Append(opts.AssociativeHeading).Append('\n').Append(recalledText);
         }
 
-        return sb.ToString().TrimEnd();
+        return new MemoryCompositionResult(sb.ToString().TrimEnd(), entries);
 
-        static (string Text, int Omitted) Fill(List<MemoryItem> items, int budget, bool verbatim,
-            HashSet<string> rendered)
+        (string Text, int Omitted) Fill(List<int> indices, int budget, bool verbatim)
         {
             var sb = new StringBuilder();
             var omitted = 0;
-            foreach (var item in items)
+            var section = verbatim ? MemoryGrade.Authoritative : MemoryGrade.Associative;
+            foreach (var index in indices)
             {
+                var item = items[index];
                 // authoritative material is NEVER truncated: a headline reading "the build gate is
                 // dev.mjs" when the content says "dev.mjs verify" is worse than having no memory at all.
                 // Flattened either way — one memory is one bullet, so no recalled text can forge a heading
@@ -151,14 +168,19 @@ public static class MemoryComposition
                 // character is dropped, so the verbatim promise above survives it.
                 var text = MemoryLine.Flatten(verbatim ? item.Content ?? item.Headline : item.Headline);
                 var line = $"- {text}\n";
+                var outcome = MemoryCompositionOutcome.Rendered;
                 // a duplicate is neither rendered nor counted as omitted — the model already has it
-                if (rendered.Contains(line)) continue;
-                // `continue`, not `break` — one oversized item must not hide every shorter one behind it,
+                if (rendered.Contains(line)) outcome = MemoryCompositionOutcome.Duplicate;
+                // a cut, never a `break` — one oversized item must not hide every shorter one behind it,
                 // and every skipped authoritative item has to be counted so the omission line is truthful
-                if (line.Length > budget) { omitted++; continue; }
-                rendered.Add(line);
-                sb.Append(line);
-                budget -= line.Length;
+                else if (line.Length > budget) { omitted++; outcome = MemoryCompositionOutcome.CutByBudget; }
+                else
+                {
+                    rendered.Add(line);
+                    sb.Append(line);
+                    budget -= line.Length;
+                }
+                entries[index] = new MemoryCompositionEntry(item, section, outcome, line.Length);
             }
             return (sb.ToString(), omitted);
         }

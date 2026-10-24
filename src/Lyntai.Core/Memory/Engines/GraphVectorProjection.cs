@@ -152,6 +152,58 @@ internal sealed class GraphVectorProjection(
         }
     }
 
+    /// <summary>Mark the collections <paramref name="nodes"/> live in, and <paramref name="from"/> does not yet hold,
+    /// as moving into the declared space, recording in <paramref name="from"/> each one's resume point: the id through
+    /// which an interrupted pass into THIS space already re-embedded it, or <see cref="long.MinValue"/>. A no-op
+    /// unless a space is declared (<b>D199</b>, <b>D212</b>).</summary>
+    internal async Task BeginMoveAsync(IEnumerable<GraphNode> nodes, Dictionary<string, long> from, CancellationToken ct)
+    {
+        if (vectors is not VectorSpaceStore spaced) return;
+        foreach (var collection in CollectionsOf(nodes).Where(c => !from.ContainsKey(c)).ToList())
+        {
+            var through = await spaced.ResumePointAsync(collection, ct).ConfigureAwait(false) ?? long.MinValue;
+            await spaced.MarkMovingAsync(collection, through, ct).ConfigureAwait(false);
+            from[collection] = through;
+        }
+    }
+
+    /// <summary>Record that <paramref name="collection"/>'s entries through <paramref name="through"/> are re-embedded,
+    /// so an interrupted pass resumes after them.</summary>
+    internal Task MovedThroughAsync(string collection, long through, CancellationToken ct) =>
+        vectors is VectorSpaceStore spaced ? spaced.MarkMovingAsync(collection, through, ct) : Task.CompletedTask;
+
+    /// <summary>Stamp <paramref name="collection"/> with the declared space — after a re-embed that left none of its
+    /// entries on the old model.</summary>
+    internal Task ClaimSpaceAsync(string collection, CancellationToken ct) =>
+        vectors is VectorSpaceStore spaced ? spaced.StampAsync(collection, ct) : Task.CompletedTask;
+
+    /// <summary>The collection <paramref name="node"/>'s vector lives in.</summary>
+    internal string CollectionOf(GraphNode node) => Collection(node.TaskKey, node.Scope);
+
+    private IEnumerable<string> CollectionsOf(IEnumerable<GraphNode> nodes) =>
+        nodes.Select(CollectionOf).Distinct(StringComparer.Ordinal);
+
+    /// <summary>Take back a vector just indexed for a node that a removal from ANOTHER engine instance deleted
+    /// meanwhile. Best-effort and loud: the removal has already returned, so the writer is the last party able to
+    /// clear it. Returns whether the vector is gone.</summary>
+    internal async Task<bool> RetractAsync(long id, string taskKey, string scope, CancellationToken ct)
+    {
+        try
+        {
+            await vectors!.DeleteAsync(Collection(taskKey, scope), id.ToString(CultureInfo.InvariantCulture), ct)
+                .ConfigureAwait(false);
+            return true;
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (Exception ex)
+        {
+            logger.LogError(ex,
+                "a removal deleted entry {Id} of {Engine} while it was being indexed, and its vector could not be "
+                + "taken back; forget its scope again to clear it", id, engine);
+            return false;
+        }
+    }
+
     /// <summary>Delete the vectors of nodes a PRUNE removed, each under its own task and scope.
     /// <para><b>BEST-EFFORT, unlike <see cref="ForgetAsync"/></b>: a prune clears the index AFTER the store, so
     /// throwing here would lose the COUNT of a prune that in fact succeeded. The honest degradation is an orphaned

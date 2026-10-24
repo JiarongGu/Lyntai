@@ -44,6 +44,16 @@ public class ResponseCacheTests
         Assert.NotEqual(key, ResponseCacheKey.For(baseReq with { JsonSchema = "{}" }));  // schema
         Assert.NotEqual(key, ResponseCacheKey.For(baseReq with { MaxTokens = 10 }));     // max tokens
         Assert.NotEqual(key, ResponseCacheKey.For(baseReq with { Reasoning = TextReasoning.Suppress })); // reasoning
+        Assert.NotEqual(key, ResponseCacheKey.For(baseReq with { RequireNativeSupport = true })); // native only
+    }
+
+    [Fact]
+    public void Key_of_a_request_that_does_not_require_native_support_is_unchanged_by_the_field()
+    {
+        // the value measured BEFORE the field existed, so adding it invalidated no deployed cache
+        var key = ResponseCacheKey.For(Req(TextMessage.User("hi")) with { RequireNativeSupport = false });
+
+        Assert.StartsWith("5de5ad9af67a54317b8c872f6035caedf68ece363", key, StringComparison.Ordinal);
     }
 
     // Guard against a NEW TextRequest field being added but not folded into the cache key (a silent
@@ -60,6 +70,9 @@ public class ResponseCacheTests
             // reply. Serving a suppressed-reasoning caller a cached reasoning-laden hit is precisely the
             // silent collision this guard exists to catch.
             "Reasoning",
+            // decides which backend may answer — a hit a degrading candidate produced must not serve a caller
+            // that refused degradation; folded only when set, so every existing key is unchanged
+            "RequireNativeSupport",
         };
         var excluded = new HashSet<string>
         {
@@ -265,6 +278,90 @@ public class ResponseCacheTests
         Assert.Same(inner.Capabilities, await client.GetCapabilitiesAsync(Req(TextMessage.User("q"))));
     }
 
+    // ---- partition by consumer (opt-in) ---------------------------------------------------------------
+
+    private sealed class RecordingCache(IResponseCache inner) : IResponseCache
+    {
+        public List<string> Keys { get; } = [];
+        public Task<TextResponse?> GetAsync(string key, CancellationToken ct = default) { Keys.Add(key); return inner.GetAsync(key, ct); }
+        public Task SetAsync(string key, TextResponse reply, TimeSpan? ttl = null, CancellationToken ct = default) => inner.SetAsync(key, reply, ttl, ct);
+        public Task RemoveAsync(string key, CancellationToken ct = default) => inner.RemoveAsync(key, ct);
+    }
+
+    private static (CachingTextClient client, FakeTextClient inner, RecordingCache cache) Partitioned(bool partition)
+    {
+        var inner = new FakeTextClient();
+        var options = new LyntaiOptions();
+        options.Cache.PartitionByConsumer = partition;
+        var cache = new RecordingCache(new InMemoryResponseCache(options));
+        return (new CachingTextClient(inner, cache, options), inner, cache);
+    }
+
+    [Fact]
+    public void Partitioning_is_off_by_default()
+    {
+        Assert.False(new LyntaiOptions().Cache.PartitionByConsumer);
+    }
+
+    [Fact]
+    public async Task With_partitioning_off_the_stored_key_is_exactly_For()
+    {
+        var (client, inner, cache) = Partitioned(partition: false);
+        inner.Replies.Enqueue(new TextResponse("a", ProviderVerdict.Ok));
+        var req = new TextRequest { Messages = [TextMessage.User("hi")], Consumer = "chat" };
+
+        await client.CompleteAsync(req);
+
+        Assert.Equal(ResponseCacheKey.For(req, new LyntaiOptions().ResolveModel("chat", null)), Assert.Single(cache.Keys));
+    }
+
+    [Fact]
+    public void A_consumer_key_prefixes_For_with_the_case_folded_consumer()
+    {
+        var key = ResponseCacheKey.For(Req(TextMessage.User("hi")));
+
+        Assert.Equal("tenant-a:" + key, ResponseCacheKey.ForConsumer(key, "Tenant-A"));
+        Assert.Equal(ResponseCacheKey.ForConsumer(key, "tenant-a"), ResponseCacheKey.ForConsumer(key, "TENANT-A"));
+        Assert.NotEqual(ResponseCacheKey.ForConsumer(key, "tenant-a"), ResponseCacheKey.ForConsumer(key, "tenant-b"));
+        Assert.Equal(":" + key, ResponseCacheKey.ForConsumer(key, null));   // no consumer is its own partition
+        Assert.Equal(":" + key, ResponseCacheKey.ForConsumer(key, ""));
+    }
+
+    [Fact]
+    public async Task With_partitioning_on_two_consumers_never_share_a_hit()
+    {
+        var (client, inner, cache) = Partitioned(partition: true);
+        inner.Replies.Enqueue(new TextResponse("for-a", ProviderVerdict.Ok));
+        inner.Replies.Enqueue(new TextResponse("for-b", ProviderVerdict.Ok));
+        TextMessage[] same = [TextMessage.User("same question")];
+
+        var a = await client.CompleteAsync(new TextRequest { Messages = same, Consumer = "a" });
+        var b = await client.CompleteAsync(new TextRequest { Messages = same, Consumer = "b" });
+        var aAgain = await client.CompleteAsync(new TextRequest { Messages = same, Consumer = "A" });
+
+        Assert.Equal("for-a", a.Text);
+        Assert.Equal("for-b", b.Text);      // not served a's entry
+        Assert.Equal("for-a", aAgain.Text); // consumers match case-insensitively, as the budget's do
+        Assert.Equal(2, inner.Calls.Count);
+        var expected = ResponseCacheKey.ForConsumer(
+            ResponseCacheKey.For(new TextRequest { Messages = same, Consumer = "a" }, new LyntaiOptions().ResolveModel("a", null)), "a");
+        Assert.Equal(expected, cache.Keys[0]);
+    }
+
+    [Fact]
+    public async Task With_partitioning_off_two_consumers_share_a_hit()
+    {
+        var (client, inner, _) = Partitioned(partition: false);
+        inner.Replies.Enqueue(new TextResponse("shared", ProviderVerdict.Ok));
+        TextMessage[] same = [TextMessage.User("same question")];
+
+        await client.CompleteAsync(new TextRequest { Messages = same, Consumer = "a" });
+        var b = await client.CompleteAsync(new TextRequest { Messages = same, Consumer = "b" });
+
+        Assert.Equal("shared", b.Text);
+        Assert.Single(inner.Calls);
+    }
+
     // ---- DI wiring -----------------------------------------------------------------------------------
 
     [Fact]
@@ -280,8 +377,8 @@ public class ResponseCacheTests
         using var sp = services.BuildServiceProvider();
 
         var client = sp.GetRequiredService<ITextClient>();
-        // the always-on refusal screen wraps the front door; the caching behavior is proven below
-        Assert.IsType<RefusalScreeningTextClient>(client);
+        // the call span (D207) wraps the refusal screen, which wraps the front door; caching is proven below
+        Assert.IsType<CallSpanTextClient>(client);
 
         var req = new TextRequest { Messages = [TextMessage.User("hi")] };
         var first = await client.CompleteAsync(req);

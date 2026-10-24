@@ -6,7 +6,7 @@
 > failure is spurious.
 
 `node devtools/dev.mjs` with no argument prints the authoritative command list; it is derived from the
-roster in `devtools/commands.mjs`, so it cannot be a subset. `verify` runs 23 checks, stopping at the first
+roster in `devtools/commands.mjs`, so it cannot be a subset. `verify` runs 24 checks, stopping at the first
 failure. **Digits, not a number word** — `parseCount` has no hyphenated compounds, so `twenty-one` would be
 skipped rather than compared and the claim it anchors would match nothing.
 
@@ -83,7 +83,7 @@ Not all of them, and the difference decides what has to be re-measured by hand.
 | guard-script tests | `test-devtools`, against its own run |
 | documented C# samples | `check-samples`, against its own run |
 | e2e suites, the migration count | `check-counts` (derivable from the tree) |
-| the xUnit trio (passed / total / skipped) | **NOTHING** |
+| the xUnit trio (passed / total / skipped) | **NOTHING** — `test` writes it to a JSON summary and holds only the Postgres leg (§test) |
 
 **A run-derived number is checked by the gate that PRODUCES it**, never by a static counter that would have
 to reimplement the filtering: both baselines `CLAUDE.md` quotes are compared by `_baseline.mjs` on a green
@@ -96,9 +96,10 @@ them from a diff, which is exactly how `3266/3287` was once written against a tr
 stale baseline is worse than none: the whole point is that a reader can compare, and a count that no longer
 matches a green run teaches them to stop comparing.
 
-**A skip count in the low HUNDREDS means Docker is down and the whole Postgres leg is silently
-unexercised** — start it and re-run before believing a green suite. `docs/task-archive.md` Part 58 caught a
-missing table exactly that way, and it has recurred since, green on every gate each time. **Derive the leg
+**A skip count in the low HUNDREDS means Docker is down and the whole Postgres leg is unexercised** —
+start it and re-run before believing a green suite. `docs/task-archive.md` Part 58 caught a missing table
+exactly that way, and it recurred, green on every gate each time, until `test` began failing on a Postgres
+skip (§test). **Derive the leg
 from the pair of runs, never carry its size forward**: skipped(down) − skipped(up) = passed(up) −
 passed(down), the same quantity from both sides, and it grows with the tree. A figure that reconciles by
 that arithmetic is still not a measurement; attest only the Docker-up run.
@@ -133,6 +134,7 @@ nobody can see opening.
 | `check-comments` | `comment-ok` | on a block's first line; reserve it for a block no reader would want shorter — a table, a wire-format capture |
 | `check-tautology` | `tautology-ok` | a line that names the collapsed contrast deliberately |
 | `check-measurements` | `measure-ok` | a line discussing ANOTHER result's retraction; naming what this row supersedes is the better fix, and it is also the bookkeeping the index needs |
+| `test` | `LYNTAI_ALLOW_POSTGRES_SKIP=1` | an environment variable, not a line marker: the RUN declares that its Postgres leg is expected to skip (§test) |
 | `check-decisions`, `check-archive`, `check-backlog`, `check-pitfalls`' length ratchet | **none** | an allowance is a visible ratcheted number and is the only way out |
 
 **An allowance that stops matching FAILS, and one looser than the subject needs FAILS**, so exclusions
@@ -248,6 +250,20 @@ it.
 It runs in `verify` over the tree AND in the pre-commit hook over the STAGED blobs (`--staged`) — what the
 commit will record, not the working tree, so a file repaired after staging cannot smuggle its corrupt blob
 in, and an unrelated dirty file cannot block the commit.
+
+### `check-lanes` — whether the lane map still describes the tree
+
+`daoris.lanes.json` is what work is dispatched by (`docs/DECISIONS.md` **D214**): a path belongs to the
+first lane whose globs match it, the steward's lane before the rest. **A path outside the map is work no
+lane is told it owns**, and a glob that matches nothing is a claim of ownership over nothing — both silent
+without a gate, and both arrive the day a folder is added or renamed.
+
+It refuses a file (from `_repo-files.mjs`, so a new one counts before it is committed) that no lane owns
+and no `laneless` group lists, a file a lane owns that a `laneless` group ALSO lists, and any positive glob
+that matches no file — each `{a,b}` branch on its own, so a misspelt branch is not hidden by its sibling.
+It refuses a map it cannot classify by: invalid JSON, a missing, malformed or repeated `id`, a missing
+`title` or `summary`, a lane with no paths, more than one steward, and a `gates` field, since
+`daoris.gates.json` declares none. A green run prints each lane's file count and the laneless count.
 
 ### `check-docs` — vocabulary a decision retired
 
@@ -809,6 +825,22 @@ and a type declared in a sample OUTRANKS the same type from a referenced assembl
 (§Which numbers a gate holds). It once failed open, so as not to dictate prose — which made deleting the
 baseline sentence a way to stop a real `verify` check with no failure and no output.
 
+### `test` — what the xUnit run EXECUTED, not what it printed
+
+With Docker down every Postgres fact skips and `dotnet test` still prints `Passed!`, so a run that never
+touched the Postgres backend read green on every gate. `dev.mjs test` now emits a trx, deletes any earlier
+one first so a stale record cannot stand in for this run, and reduces it (`devtools/scripts/_test-evidence.mjs`)
+to a `summary.json` in the gitignored `RESULTS_DIR` it names: the trio, every skip bucketed by REASON with
+its count and classes, and whether the run declared a Postgres skip. It prints the
+trio on one line — the figures to re-measure by hand (§Which numbers a gate holds) — and **FAILS when a
+Postgres fact skipped** unless the run sets `LYNTAI_ALLOW_POSTGRES_SKIP=1`, and when the trx is missing
+or records nothing.
+
+**The leg is identified by its skip REASON**: `PostgresFixture.InitError` and every site's fallback start
+`Postgres/Docker unavailable`, and a guard test reads the test sources to hold that, because a reworded
+reason would disarm the check silently. Counts come from each result's outcome, never the trx `Counters`
+element, which reports `notExecuted="0"` for an xUnit skip.
+
 ### `check-sensitive` — the leak scan
 
 Runs in `verify` over the whole tree (`--tree`) and, on the staged blobs, in `devtools/hooks/pre-commit`;
@@ -904,6 +936,17 @@ model size.
 benchmarks, measured on data this repository did not build. Both are model-free (the dataset names the
 evidence turn, so no reader and no judge can be credited or blamed), and both need a dataset the command
 prints a `curl` for.
+
+**Two runs are compared PAIRED, through one result shape.** `memory-locomo` (its `--retrieval`, `--shots` and
+QA modes) and `memory-longmemeval` (the default and `--extract` paths) write one row per arm × question
+through `bench/Lyntai.Benchmarks/BenchResults.cs` into the gitignored `devtools/_bench-results/`, and
+`node devtools/dev.mjs bench-compare <a> <b>` pairs two files by (arm, question) and prints per-arm hit rates,
+the discordant counts and McNemar exact — the same arithmetic as `BenchStats.McNemarExact`, pinned by its
+test. `--layers` on either bench (`bench/Lyntai.Benchmarks/RecallLayers.cs`) writes a `recall-layers` file
+whose arms are `<arm>/candidate`, `<arm>/ranked` and `<arm>/answered`, from an `Explain` recall's pool, the
+reader's page and the reader's graded answer. `bench-compare` refuses a different metric always, and a different question set or configuration hash (the run's
+arguments plus its `LYNTAI_*` environment) unless told. Every other sweep still writes only its console table:
+wiring one first needs a question id stable across runs, which a sweep's generated trials do not yet carry.
 
 **`memory-contention` and `memory-decision` are ORCHESTRATED** — a Node script owns the server processes and
 the C# sweep only measures, because both need several `llama-server` instances at once and a bench cannot be

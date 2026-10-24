@@ -82,6 +82,7 @@ sealed class Lyntai.Providers.ClaudeCli.ClaudeCompletionOptions
     SettingsPath : String { get; init; }
     StrictMcpConfig : Boolean { get; init; }
     ToString() : String
+    Tools : IReadOnlyList<String> { get; init; }
 static class Lyntai.Providers.ClaudeCli.ClaudeToolCalls
     static FilePathOf(ToolCall call) : String
 sealed class Lyntai.Providers.CodexCli.CodexAgentOptions

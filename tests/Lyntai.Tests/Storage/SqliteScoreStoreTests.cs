@@ -7,12 +7,12 @@ namespace Lyntai.Tests.Storage;
 /// <summary>The full <see cref="ScoreStoreContract"/> against SQLite over a per-test temp db (facts
 /// inherited from <see cref="ScoreStoreContractFacts"/>), plus the SQLite-specific concerns (the
 /// CAST-affinity trap, session round-trip).</summary>
-public class ScoreStoreTests : ScoreStoreContractFacts, IDisposable
+public class SqliteScoreStoreTests : ScoreStoreContractFacts, IDisposable
 {
     private readonly TempDb _db = new();
     private readonly SqliteScoreStore _store;
 
-    public ScoreStoreTests() => _store = new SqliteScoreStore(_db.Factory);
+    public SqliteScoreStoreTests() => _store = new SqliteScoreStore(_db.Factory);
 
     public void Dispose() => _db.Dispose();
 

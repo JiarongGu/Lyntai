@@ -3,9 +3,10 @@ namespace Lyntai.Inference.Budgeting;
 
 /// <summary>A process-local <see cref="IUsageTracker"/>: per-consumer running totals plus a global sum,
 /// guarded by a single lock (usage recording is low-frequency relative to the calls it meters); every
-/// member completes synchronously. For spend that must survive a restart or be shared across processes,
+/// member completes synchronously. It can reserve (<see cref="IReservingUsageTracker"/>): the check and the hold
+/// happen under that same lock, so a hard cap holds across every caller in this process. For spend that must survive a restart or be shared across processes,
 /// register your own <see cref="IUsageTracker"/> instead.</summary>
-public sealed class InMemoryUsageTracker : IUsageTracker
+public sealed class InMemoryUsageTracker : IReservingUsageTracker
 {
     private sealed class Totals { public long In, Out, Calls; public double Cost; }
 
@@ -16,17 +17,20 @@ public sealed class InMemoryUsageTracker : IUsageTracker
     // TEXT PK) but AGGREGATE reads case-insensitively — totals agree across backends.
     private readonly Dictionary<string, Totals> _byConsumer = new(StringComparer.OrdinalIgnoreCase);
     private readonly Totals _global = new();
+    private readonly Dictionary<string, UsageReservation> _holds = new(StringComparer.Ordinal);
 
     public ValueTask RecordAsync(string consumer, ProviderUsage usage, CancellationToken ct = default)
     {
-        lock (_gate)
-        {
-            var t = Get(consumer);
-            t.In += usage.InputTokens; t.Out += usage.OutputTokens; t.Cost += usage.CostUsd ?? 0; t.Calls++;
-            _global.In += usage.InputTokens; _global.Out += usage.OutputTokens;
-            _global.Cost += usage.CostUsd ?? 0; _global.Calls++;
-        }
+        lock (_gate) RecordLocked(consumer, usage);
         return ValueTask.CompletedTask;
+    }
+
+    private void RecordLocked(string consumer, ProviderUsage usage)
+    {
+        var t = Get(consumer);
+        t.In += usage.InputTokens; t.Out += usage.OutputTokens; t.Cost += usage.CostUsd ?? 0; t.Calls++;
+        _global.In += usage.InputTokens; _global.Out += usage.OutputTokens;
+        _global.Cost += usage.CostUsd ?? 0; _global.Calls++;
     }
 
     public ValueTask<UsageTotals> TotalAsync(string? consumer = null, CancellationToken ct = default)
@@ -54,6 +58,51 @@ public sealed class InMemoryUsageTracker : IUsageTracker
             }
         }
         return ValueTask.CompletedTask;
+    }
+
+    public ValueTask<UsageReservationResult> ReserveAsync(UsageReservationRequest request, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var now = DateTimeOffset.UtcNow;
+        lock (_gate)
+        {
+            foreach (var expired in _holds.Where(h => h.Value.ExpiresAt <= now).Select(h => h.Key).ToList())
+                _holds.Remove(expired);
+
+            var global = Load(null);
+            var mine = Load(request.Consumer);
+            if (request.Caps.ExceededBy(global, mine, request.Amount) is { } cap)
+                return ValueTask.FromResult(new UsageReservationResult(null, cap));
+
+            var held = new UsageReservation(Guid.NewGuid().ToString("N"), request.Consumer, request.Amount, request.ExpiresAt);
+            _holds[held.Id] = held;
+            return ValueTask.FromResult(new UsageReservationResult(held));
+        }
+    }
+
+    public ValueTask ReconcileAsync(UsageReservation reservation, ProviderUsage? actual, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(reservation);
+        lock (_gate)
+        {
+            _holds.Remove(reservation.Id);
+            if (actual is not null) RecordLocked(reservation.Consumer, actual);
+        }
+        return ValueTask.CompletedTask;
+    }
+
+    /// <summary>Committed spend plus live holds, for one consumer or (null) everyone. Caller holds the lock.</summary>
+    private UsageTotals Load(string? consumer)
+    {
+        var spent = consumer is null ? _global : (_byConsumer.TryGetValue(consumer, out var c) ? c : null);
+        long tokensIn = spent?.In ?? 0, tokensOut = spent?.Out ?? 0;
+        var cost = spent?.Cost ?? 0;
+        foreach (var hold in _holds.Values)
+        {
+            if (consumer is not null && !string.Equals(hold.Consumer, consumer, StringComparison.OrdinalIgnoreCase)) continue;
+            tokensIn += hold.Amount.InputTokens; tokensOut += hold.Amount.OutputTokens; cost += hold.Amount.CostUsd ?? 0;
+        }
+        return new UsageTotals(tokensIn, tokensOut, cost, 0);
     }
 
     private Totals Get(string consumer)

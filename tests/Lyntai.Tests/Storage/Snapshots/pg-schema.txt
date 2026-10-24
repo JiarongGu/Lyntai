@@ -5,6 +5,7 @@ lyntai_curated_memory|enabled|boolean|NO|true
 lyntai_curated_memory|id|bigint|NO|nextval('lyntai_curated_memory_id_seq'::regclass)
 lyntai_curated_memory|kind|text|NO|
 lyntai_curated_memory|metadata|text|YES|
+lyntai_curated_memory|revision|bigint|NO|1
 lyntai_curated_memory|scope|text|YES|
 lyntai_curated_memory|task|text|YES|
 lyntai_curated_memory|updated_at|timestamp with time zone|NO|
@@ -152,6 +153,12 @@ lyntai_usage|consumer|text|NO|
 lyntai_usage|cost_usd|double precision|NO|0
 lyntai_usage|input_tokens|bigint|NO|0
 lyntai_usage|output_tokens|bigint|NO|0
+lyntai_usage_reservation|consumer|text|NO|
+lyntai_usage_reservation|cost_usd|double precision|NO|0
+lyntai_usage_reservation|expires_at|timestamp with time zone|NO|
+lyntai_usage_reservation|id|text|NO|
+lyntai_usage_reservation|input_tokens|bigint|NO|0
+lyntai_usage_reservation|output_tokens|bigint|NO|0
 
 == indexes ==
 lyntai_curated_memory|ix_lyntai_curated_content_trgm|CREATE INDEX ix_lyntai_curated_content_trgm ON public.lyntai_curated_memory USING gin (content gin_trgm_ops)
@@ -196,6 +203,7 @@ lyntai_thread|lyntai_thread_pkey|CREATE UNIQUE INDEX lyntai_thread_pkey ON publi
 lyntai_trace_step|ix_lyntai_trace_step_session|CREATE INDEX ix_lyntai_trace_step_session ON public.lyntai_trace_step USING btree (session_id, seq)
 lyntai_trace_step|lyntai_trace_step_pkey|CREATE UNIQUE INDEX lyntai_trace_step_pkey ON public.lyntai_trace_step USING btree (id)
 lyntai_usage|lyntai_usage_pkey|CREATE UNIQUE INDEX lyntai_usage_pkey ON public.lyntai_usage USING btree (consumer)
+lyntai_usage_reservation|lyntai_usage_reservation_pkey|CREATE UNIQUE INDEX lyntai_usage_reservation_pkey ON public.lyntai_usage_reservation USING btree (id)
 
 == foreign_keys ==
 lyntai_curated_meta|memory_id|lyntai_curated_memory|id|CASCADE

@@ -20,7 +20,7 @@ Rules for writing code against Lyntai:
 ## Docs
 
 - [README](https://raw.githubusercontent.com/JiarongGu/Lyntai/master/README.md): what Lyntai is, a quickstart, the backends and every package
-- [Guide](https://raw.githubusercontent.com/JiarongGu/Lyntai/master/docs/guide.md): every feature with its semantics and a sample — routing and fallback, structured output, the cache, budget and rate limit, memory engines, semantic memory, observability, CLI backends, bridging, tool calling, MCP, agent sessions, durable jobs
+- [Guide](https://raw.githubusercontent.com/JiarongGu/Lyntai/master/docs/guide.md): when to use Lyntai and when not to, three starting scenarios, then every feature with its semantics and a sample — routing and fallback, structured output, the cache, budget and rate limit, memory engines, semantic memory, observability, CLI backends, bridging, tool calling, MCP, agent sessions, durable jobs
 - [Long-term memory](https://raw.githubusercontent.com/JiarongGu/Lyntai/master/docs/memory.md): the memory engine's contract, its configuration and measured costs
 - [Media generation](https://raw.githubusercontent.com/JiarongGu/Lyntai/master/docs/generation.md): image, video, audio and 3D backends, the three delivery modes, pipelines and durable renders
 

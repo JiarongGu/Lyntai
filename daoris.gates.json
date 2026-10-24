@@ -25,6 +25,7 @@
     "node devtools/dev.mjs check-dev-loop",
     "node devtools/dev.mjs check-decision-claims",
     "node devtools/dev.mjs check-encoding",
+    "node devtools/dev.mjs check-lanes",
     "node devtools/dev.mjs check-tautology",
     "node devtools/dev.mjs check-api-vocabulary",
     "node devtools/dev.mjs check-samples",

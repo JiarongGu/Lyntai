@@ -111,11 +111,13 @@ public interface IReindexableMemory
     /// current embedding backend, and write each vector back where the old one was.
     /// <para><b>Pause writes to the task while it runs.</b> A write landing mid-pass is embedded by the new model,
     /// but its similarity search still meets old vectors, so under a new model of the same dimension its links may
-    /// be scored against the wrong one.</para>
-    /// <para>A removal landing mid-pass is safe when it goes through the SAME engine instance (the one DI registers
-    /// is a singleton): the pass never writes a vector back for an entry a forget or prune removed. Two instances —
-    /// in two processes, or one built by hand beside it — must not run a re-embed and a removal at once; a repeat
-    /// forget of the scope clears any vector left behind.</para></summary>
+    /// be scored against the wrong one; under a declared vector space it finds no neighbours until the pass ends.</para>
+    /// <para>Under a declared vector space an interrupted pass RESUMES: a rerun into the same space skips what the
+    /// earlier one finished. A rerun into another space, or with none declared, starts over.</para>
+    /// <para>A removal landing mid-pass must not be undone by it: the pass never writes a vector back for an entry a
+    /// forget or prune removed. The graph engine holds this for a forget from any instance over the same store,
+    /// another process included, by re-reading each entry after its upsert; a prune from another instance is
+    /// best-effort and may leave an orphan, which a forget of the scope clears.</para></summary>
     /// <param name="taskKey">The task to re-embed.</param>
     /// <param name="scope">The scope, or null for every scope of the task.</param>
     /// <param name="ct">Cancellation, which is never swallowed; entries already re-embedded stay so.</param>
@@ -131,4 +133,83 @@ public sealed record MemoryReindexResult(int Indexed, int Failed)
     /// <summary>The members of a blend that cannot re-embed and were passed over, by name — empty from a single
     /// engine. A member here that holds vectors of its own (a semantic member does) is still on the old model.</summary>
     public IReadOnlyList<string> Skipped { get; init; } = [];
+
+    /// <summary>Entries this pass left alone because an earlier, interrupted pass into the same declared vector space
+    /// had already re-embedded them — zero unless a space is declared.</summary>
+    public int Resumed { get; init; }
+}
+
+/// <summary>OPTIONAL capability: an engine that can carry one task's memory out as portable JSONL and take such a file
+/// in, for moving a memory between stores, backends or deployments. The format is <c>docs/memory.md</c> §9's "Carry a
+/// memory to another store".
+///
+/// <para><b>Scoped, with no "everything" form.</b> Both verbs name a task; neither has a default for it or for the
+/// scope, so a whole-store dump is never one forgotten argument away.</para>
+///
+/// <para><b>No vectors travel.</b> A vector is a projection of the content under one embedding model; the engine
+/// receiving the file indexes on write, as for any other write.</para>
+///
+/// <para><b>What an import promises, and what it cannot.</b> It writes only under the task and scope it names; it never
+/// overwrites or duplicates an entry the target already holds with the same identity, so importing a file twice adds
+/// nothing the second time; and an entry exported disabled arrives disabled. It cannot know what the target REMOVED:
+/// no store keeps a record of a forget, so importing a file taken before a forget brings that content back. An import
+/// is the caller's explicit act — import only a file taken after the last removal you mean to keep.</para>
+///
+/// <para><b>A graph engine carries decay state and links</b>: each entry's stability, difficulty, recall count, signals,
+/// provenance and grade, its ages relative to where its engine stands, its subjects and the links between entries,
+/// through its store's <see cref="IPortableMemoryGraphStore"/> — without one it refuses both verbs.</para>
+///
+/// <para>Reached by a type test, like <see cref="IPrunableMemory"/>; the blend around an engine declares it too, fanning
+/// out to the members that have it.</para></summary>
+public interface IPortableMemory
+{
+    /// <summary>Write every entry under (<paramref name="taskKey"/>, <paramref name="scope"/>) to
+    /// <paramref name="destination"/>, one JSON object per line, disabled entries included.</summary>
+    /// <param name="taskKey">The task to export; required.</param>
+    /// <param name="scope">The scope, or null for every scope of the task — stated, never defaulted.</param>
+    /// <param name="destination">Receives the lines; it is neither flushed nor closed.</param>
+    /// <param name="ct">Cancellation, which is never swallowed.</param>
+    /// <exception cref="ArgumentException"><paramref name="taskKey"/> is blank.</exception>
+    Task<MemoryExportResult> ExportAsync(string taskKey, string? scope, TextWriter destination,
+        CancellationToken ct = default);
+
+    /// <summary>Read a file <see cref="ExportAsync"/> wrote and write its entries under (<paramref name="taskKey"/>,
+    /// <paramref name="scope"/>), whatever task they were exported from.
+    /// <para>The file is read and checked whole before the first write: a malformed line, a version this reader does
+    /// not know, or a record this engine cannot hold throws <see cref="InvalidDataException"/> naming the line, and
+    /// nothing is written.</para></summary>
+    /// <param name="taskKey">The task every entry is written under; required.</param>
+    /// <param name="scope">The scope every entry is written under, or null to keep each line's own scope inside
+    /// <paramref name="taskKey"/>.</param>
+    /// <param name="source">The lines; read to the end, not closed.</param>
+    /// <param name="ct">Cancellation, which is never swallowed; entries already written stay.</param>
+    /// <exception cref="ArgumentException"><paramref name="taskKey"/> is blank.</exception>
+    /// <exception cref="InvalidDataException">A line cannot be honoured; nothing was written.</exception>
+    Task<MemoryImportResult> ImportAsync(string taskKey, string? scope, TextReader source,
+        CancellationToken ct = default);
+}
+
+/// <summary>What an export wrote: <paramref name="Exported"/> entries, one line each.</summary>
+public sealed record MemoryExportResult(int Exported)
+{
+    /// <summary>The members of a blend that cannot export and were passed over, by name — empty from a single engine.
+    /// Anything they hold is NOT in the file.</summary>
+    public IReadOnlyList<string> Skipped { get; init; } = [];
+
+    /// <summary>Links written beside the entries, one line each — zero from an engine whose entries are not
+    /// connected.</summary>
+    public int Links { get; init; }
+}
+
+/// <summary>What an import did: <paramref name="Imported"/> entries written, <paramref name="AlreadyPresent"/> lines
+/// left alone because the target already held that entry or an earlier line carried it.</summary>
+public sealed record MemoryImportResult(int Imported, int AlreadyPresent)
+{
+    /// <summary>Links written. A link the target already held is left alone and counted in neither this nor
+    /// <see cref="LinksDropped"/>.</summary>
+    public int Links { get; init; }
+
+    /// <summary>Links not written because an endpoint is not an entry of the file — one in a scope or task the export
+    /// did not cover.</summary>
+    public int LinksDropped { get; init; }
 }

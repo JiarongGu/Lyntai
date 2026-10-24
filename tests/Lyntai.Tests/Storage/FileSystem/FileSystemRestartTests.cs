@@ -104,6 +104,7 @@ public class FileSystemRestartTests : IDisposable
         var entry = await after.GetAsync(id);
         Assert.Equal(("style", "use British spelling", false, "writer", "lang:en", "editor"),
             (entry!.Kind, entry.Content, entry.Enabled, entry.TaskKey, entry.Scope, entry.Metadata!["source"]));
+        Assert.Equal(2, entry.Revision); // the revision is in the file, so a restart cannot reopen a stale write
         Assert.Equal([id], (await after.SearchAsync("British")).Select(e => e.Id));
         Assert.Equal(id + 1, await after.AddAsync("style", "another"));
     }

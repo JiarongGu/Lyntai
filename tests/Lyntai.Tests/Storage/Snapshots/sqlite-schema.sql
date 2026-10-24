@@ -84,7 +84,7 @@ CREATE TABLE lyntai_curated_memory (
     enabled    INTEGER NOT NULL DEFAULT 1,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
-, task TEXT NULL, scope TEXT NULL, metadata TEXT NULL);
+, task TEXT NULL, scope TEXT NULL, metadata TEXT NULL, revision INTEGER NOT NULL DEFAULT 1);
 
 -- table lyntai_curated_meta
 CREATE TABLE lyntai_curated_meta (
@@ -312,6 +312,16 @@ CREATE TABLE lyntai_usage (
     output_tokens INTEGER NOT NULL DEFAULT 0,
     cost_usd      REAL    NOT NULL DEFAULT 0,
     calls         INTEGER NOT NULL DEFAULT 0
+);
+
+-- table lyntai_usage_reservation
+CREATE TABLE lyntai_usage_reservation (
+    id            TEXT PRIMARY KEY,
+    consumer      TEXT NOT NULL,
+    input_tokens  INTEGER NOT NULL DEFAULT 0,
+    output_tokens INTEGER NOT NULL DEFAULT 0,
+    cost_usd      REAL    NOT NULL DEFAULT 0,
+    expires_at    TEXT NOT NULL
 );
 
 -- table lyntai_vector

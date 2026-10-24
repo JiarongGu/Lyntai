@@ -15,17 +15,20 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 4 across 3 Parts: 2 blocked, 2 watch
+## Open items — 7 across 4 Parts: 2 blocked, 2 watch, 3 decision-only
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 105 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a free Hugging Face account (an hf_ token) — its router proxies fal's own q… |
-| 152 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 175 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 231 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 108 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a free Hugging Face account (an hf_ token) — its router proxies fal's own q… |
+| 155 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 178 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 234 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 270 | 348 | RV18 — an Agent Framework / `Microsoft.Extensions.AI` adapter | decision-only | the owner's ruling on reversing D146, which deleted the bridge in both dire… |
+| 273 | 348 | RV19 — valid-time on a memory write, so a fact can be SUPERSEDED rather tha… | decision-only | the owner's ruling on reopening D106's bi-temporal write, the prerequisite … |
+| 276 | 348 | RV20 — LLM fact extraction and a user profile (the Mem0 / Zep / LangMem gap) | decision-only | the owner's ruling on whether to rebuild extraction after it lost to decay,… |
 
 <!-- open-items:end -->
 
@@ -255,6 +258,26 @@ there is nothing here to code: what remains is evidence only recurrence can supp
   <br>**2026-09-27: 0 of 40 more fresh-process runs of its class** (19 tests each, `Dedup_race` among them), so
   1 in 51 standalone overall. **Looping is not how this gets caught**; the stack has to come from the run it
   fails in.
+
+## Part 348 — the competitive review: what needs the owner's ruling first (2026-10-24)
+
+_The fourth group from an external competitive review (Graphiti, Mem0, Letta, Mastra, Agent Framework, LiteLLM,
+the OpenAI Agents SDK) held untracked as `local/superpowers/specs/2026-10-24-competitive-roadmap.md` and indexed
+in `docs/superpowers/INDEX.md`; every item survived an existence audit against the tree, and its first three
+groups are closed in `docs/task-archive.md` Parts 349–370. Each contradicts a recorded decision or a
+measured refutation, so building it first would reverse a ruling by momentum._
+
+- [ ] **RV18 — an Agent Framework / `Microsoft.Extensions.AI` adapter.** The review ranks it highest for <!-- item: state=decision-only needs="the owner's ruling on reversing D146, which deleted the bridge in both directions and names its own rebuild triggers" -->
+  adoption; **D146** deleted exactly this and wrote down what would bring it back. Separately, **D146** says
+  MEAI stays in `Directory.Packages.props` and the file says it has no entry — that drift is fixable now.
+- [ ] **RV19 — valid-time on a memory write, so a fact can be SUPERSEDED rather than buried or deleted.** <!-- item: state=decision-only needs="the owner's ruling on reopening D106's bi-temporal write, the prerequisite for supersession and for any profile that knows now from then" -->
+  **D106** priced it at ten times the cost and reopens it "when a consumer asks"; **D90** keeps supersession
+  vacuous until then. The test-only `AssertionResolver` prototype is the starting shape.
+- [ ] **RV20 — LLM fact extraction and a user profile (the Mem0 / Zep / LangMem gap).** Already built in the <!-- item: state=decision-only needs="the owner's ruling on whether to rebuild extraction after it lost to decay, and on RV19, which a profile that knows current from former needs" -->
+  bench and REFUTED: extraction lost to decay and reconciliation cost 18.9 points (`docs/task-archive.md`
+  Parts 148, 149, 156), with no D-number recording it yet. **D106** places abstraction at encoding, and
+  **D167**–**D169** refused corroboration, offline consolidation and affect. A rebuild is opt-in, writes
+  BESIDE the raw exchange, and must beat decay on a corpus dense in revisions.
 
 ## Retired — five Parts that outlived their open work (2026-09-16)
 

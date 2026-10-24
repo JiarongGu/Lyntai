@@ -179,10 +179,10 @@ public class UsageBudgetTests
         using var sp = services.BuildServiceProvider();
 
         var client = sp.GetRequiredService<ITextClient>();
-        // the always-on refusal screen is the outermost layer; the cache is the outermost GOVERNANCE
+        // the call span (D207), then the refusal screen, are outermost; the cache is the outermost GOVERNANCE
         // decorator inside it (proven behaviorally below: a hit reaches the provider 0 extra times and never
         // re-counts toward the budget)
-        Assert.IsType<RefusalScreeningTextClient>(client);
+        Assert.IsType<CallSpanTextClient>(client);
 
         var req = new TextRequest { Messages = [TextMessage.User("hi")] };
         await client.CompleteAsync(req); // miss → provider hit, cost recorded

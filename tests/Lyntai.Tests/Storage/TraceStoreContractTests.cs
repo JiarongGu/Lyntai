@@ -4,19 +4,15 @@ using Lyntai.Storage.Sqlite;
 
 namespace Lyntai.Tests.Storage;
 
-/// <summary>Every <see cref="TraceStoreContract"/> method as a [Fact] — derive with a store factory and
-/// the whole contract runs on that backend automatically (no silent skips). Postgres deliberately
-/// does NOT derive: it runs the Uid-namespaced subset on the shared container.</summary>
-public abstract class TraceStoreContractFacts
+/// <summary>Every <see cref="TraceStoreContract"/> fact as a theory case — derive with a store factory and the
+/// whole contract runs on that backend (<see cref="StoreContractSuite{TStore}"/>).</summary>
+public abstract class TraceStoreContractFacts : StoreContractSuite<ITraceStore>
 {
     protected abstract ITraceStore NewStore();
+    protected sealed override ITraceStore CreateStore(string fact) => NewStore();
 
-    [Fact] public Task Save_load() => TraceStoreContract.Save_and_load_with_steps_totals_and_trace_id(NewStore(), "k");
-    [Fact] public Task Resave_replaces() => TraceStoreContract.Saving_the_same_session_replaces_the_trace(NewStore(), "k");
-    [Fact] public Task Unknown() => TraceStoreContract.Unknown_session_returns_null(NewStore(), "k");
-    [Fact] public Task Seq_offset() => TraceStoreContract.Step_sequence_and_offset_round_trip(NewStore(), "k");
-    [Fact] public Task Unset_seq() => TraceStoreContract.Unset_sequences_store_the_list_position(NewStore(), "k");
-    [Fact] public Task Seq_order() => TraceStoreContract.Steps_read_back_in_sequence_order(NewStore(), "k");
+    [SkippableTheory, ContractFacts(typeof(TraceStoreContract))]
+    public Task Satisfies_the_contract(string fact) => RunAsync(typeof(TraceStoreContract), fact);
 }
 
 /// <summary>The <see cref="TraceStoreContract"/> against the InMemory backend.</summary>

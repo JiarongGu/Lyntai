@@ -89,27 +89,55 @@ public sealed class ProviderRouter<TRequest, TResponse>(
     /// returned — is classified through <see cref="ProviderVerdictClassifier"/> and routed on.</para></summary>
     public async Task<TResponse> CallAsync(TRequest request, CancellationToken ct = default)
     {
+        // one span per call, so a fallback's attempts nest under it (D207)
+        using var span = LyntaiDiagnostics.StartCallSpan(Operation,
+            request is IConsumerTagged tagged ? tagged.Consumer ?? ProviderConsumers.Default : null);
+        try
+        {
+            var response = await GovernedCallAsync(request, ct).ConfigureAwait(false);
+            LyntaiDiagnostics.EndCallSpan(span, response.Verdict, response.Detail);
+            return response;
+        }
+        catch (Exception ex)
+        {
+            LyntaiDiagnostics.FaultCallSpan(span, ex);
+            throw;
+        }
+    }
+
+    private async Task<TResponse> GovernedCallAsync(TRequest request, CancellationToken ct)
+    {
         // Governance first, and only for a request that can be ATTRIBUTED: a budget refusal must cost no
         // backend call, and a client-side rate refusal is nobody's fault — both return before the loop, so
         // no host is tried, penalized or benched for them (D163).
-        string? consumer = null;
-        if (governance is { } gov && request is IConsumerTagged tagged)
+        Budgeting.BudgetAdmission? admission = null;
+        try
         {
-            consumer = tagged.Consumer ?? ProviderConsumers.Default;
-            if (gov.Tracker is { } gate && await Budgeting.BudgetGate.OverBudgetAsync(
-                    gov.Options.Budget, gate, consumer, includeTokens: true, _logger, ct).ConfigureAwait(false)
-                is { } reason)
-                return synthesize(ProviderVerdict.Refused, reason);
-            if (gov.Limiter is { } limiter && await RateLimiting.RateGate.RefuseAsync(
-                    limiter, consumer, RateLimiting.RateGate.Exceeded, _logger, ct).ConfigureAwait(false)
-                is { } throttled)
-                return synthesize(ProviderVerdict.RateLimited, throttled);
-        }
+            if (governance is { } gov && request is IConsumerTagged tagged)
+            {
+                var consumer = tagged.Consumer ?? ProviderConsumers.Default;
+                if (gov.Tracker is { } gate)
+                {
+                    admission = await Budgeting.BudgetGate.AdmitAsync(
+                        gov.Options.Budget, gate, consumer, includeTokens: true, _logger, ct).ConfigureAwait(false);
+                    if (admission.Refusal is { } reason) return synthesize(ProviderVerdict.Refused, reason);
+                }
+                // a rate refusal after a granted hold still releases it: the finally settles with nothing spent
+                if (gov.Limiter is { } limiter && await RateLimiting.RateGate.RefuseAsync(
+                        limiter, consumer, RateLimiting.RateGate.Exceeded, _logger, ct).ConfigureAwait(false)
+                    is { } throttled)
+                    return synthesize(ProviderVerdict.RateLimited, throttled);
+            }
 
-        var response = await RouteAsync(request, ct).ConfigureAwait(false);
-        if (consumer is not null && governance?.Tracker is { } tracker && response.Usage is { } usage)
-            await tracker.RecordAsync(consumer, usage, ct).ConfigureAwait(false);
-        return response;
+            var response = await RouteAsync(request, ct).ConfigureAwait(false);
+            if (admission is not null && response.Usage is { } usage)
+                await admission.SettleAsync(usage, ct).ConfigureAwait(false);
+            return response;
+        }
+        finally
+        {
+            if (admission is not null) await admission.SettleAsync(null, ct).ConfigureAwait(false);
+        }
     }
 
     private async Task<TResponse> RouteAsync(TRequest request, CancellationToken ct)

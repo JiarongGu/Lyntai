@@ -36,7 +36,7 @@ namespace Lyntai.Storage.Sqlite;
 public sealed class SqliteMemoryGraphStore(
     IDbConnectionFactory factory,
     ILogger<SqliteMemoryGraphStore>? logger = null,
-    Func<DateTimeOffset>? clock = null) : IMemoryGraphStore
+    Func<DateTimeOffset>? clock = null) : ICountableMemoryGraphStore, IPortableMemoryGraphStore
 {
     private readonly ILogger _logger = logger ?? NullLogger<SqliteMemoryGraphStore>.Instance;
     private readonly Func<DateTimeOffset> _clock = clock ?? (() => DateTimeOffset.UtcNow);
@@ -519,6 +519,128 @@ public sealed class SqliteMemoryGraphStore(
     }
 
     /// <inheritdoc />
+    public async Task<MemoryGraphCounts> CountAsync(string engine, string taskKey, string? scope,
+        CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
+        var (entries, authoritative, links, subjects) = await conn.QuerySingleAsync<(long, long, long, long)>(
+            new CommandDefinition(MemoryGraphSql.Counts,
+                new { engine, taskKey, scope, authoritative = Authoritative }, cancellationToken: ct))
+            .ConfigureAwait(false);
+        return new((int)entries, (int)authoritative, (int)links, (int)subjects);
+    }
+
+    /// <inheritdoc />
+    public async Task<MemoryGraphExport> ExportAsync(string engine, string taskKey, string? scope,
+        CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
+        // one transaction, so the three reads see one snapshot
+        await using var tx = await conn.BeginTransactionAsync(ct).ConfigureAwait(false);
+        var totals = await TotalsAsync(conn, engine, ct, tx).ConfigureAwait(false);
+        var args = new { engine, taskKey, scope, position = totals.Position, ordinal = totals.Ordinal, chars = totals.Chars };
+        var nodes = await conn.QueryAsync<MemoryNodeRow>(new CommandDefinition(MemoryGraphSql.ExportNodes, args,
+            transaction: tx, cancellationToken: ct)).ConfigureAwait(false);
+        var links = await conn.QueryAsync<MemoryLinkRow>(new CommandDefinition(MemoryGraphSql.ExportLinks, args,
+            transaction: tx, cancellationToken: ct)).ConfigureAwait(false);
+        var subjects = await conn.QueryAsync<(long NodeId, string Subject)>(new CommandDefinition(
+            MemoryGraphSql.ExportSubjects, args, transaction: tx, cancellationToken: ct)).ConfigureAwait(false);
+        await tx.CommitAsync(ct).ConfigureAwait(false);
+        return new MemoryGraphExport([.. nodes.Select(n => n.ToNode(totals.EncodedAt))],
+            [.. links.Select(l => l.ToLink(totals.EncodedAt))],
+            subjects.GroupBy(s => s.NodeId).ToDictionary(g => g.Key, g => (IReadOnlyList<string>)g.Select(s => s.Subject).ToList()));
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<GraphNodeImportResult>> ImportNodesAsync(string engine, string taskKey,
+        IReadOnlyList<GraphNodeImport> nodes, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(nodes);
+        ct.ThrowIfCancellationRequested();
+        if (nodes.Count == 0) return [];
+        var now = _clock();
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
+        await using var tx = await conn.BeginTransactionAsync(ct).ConfigureAwait(false);
+        await conn.ExecuteAsync(new CommandDefinition(MemoryGraphSql.EnsurePosition, new { engine, now },
+            transaction: tx, cancellationToken: ct)).ConfigureAwait(false);
+        var head = await TotalsAsync(conn, engine, ct, tx).ConfigureAwait(false);
+
+        var results = new List<GraphNodeImportResult>(nodes.Count);
+        foreach (var node in nodes)
+        {
+            ct.ThrowIfCancellationRequested();
+            var hash = MemoryContentKey.Of(node.Content);
+            // DO NOTHING: a held identity keeps every column it has (IPortableMemoryGraphStore.ImportNodesAsync)
+            var id = await conn.ExecuteScalarAsync<long?>(new CommandDefinition("""
+                INSERT INTO lyntai_memory_node
+                    (engine, task_key, scope, headline, content, content_hash, grade, metadata, signals, salience,
+                     created_at, last_recalled_position, recall_count, stability, difficulty,
+                     encoding_ordinal, encoding_chars, encoding_at,
+                     provenance_retrievability, provenance_salience)
+                VALUES (@engine, @taskKey, @scope, @headline, @content, @hash, @grade, @metadata, @signals, @salience,
+                        @createdAt, @position, @recallCount, @stability, @difficulty, @ordinal, @chars, @at,
+                        @provenanceRetrievability, @provenanceSalience)
+                ON CONFLICT(engine, task_key, scope, content_hash) DO NOTHING
+                RETURNING id
+                """, ImportArgs(engine, taskKey, node, hash, head), transaction: tx, cancellationToken: ct)).ConfigureAwait(false);
+            if (id is { } inserted)
+            {
+                await conn.ExecuteAsync(new CommandDefinition(MemoryGraphSql.InsertSubject,
+                    MemorySubject.Canonicalize(node.Subjects).Select(subject => new { engine, nodeId = inserted, subject }),
+                    transaction: tx, cancellationToken: ct)).ConfigureAwait(false);
+                results.Add(new GraphNodeImportResult(inserted, true));
+            }
+            else
+                results.Add(new GraphNodeImportResult(await conn.ExecuteScalarAsync<long>(new CommandDefinition(
+                    MemoryGraphSql.NodeIdByIdentity, new { engine, taskKey, scope = node.Scope, hash },
+                    transaction: tx, cancellationToken: ct)).ConfigureAwait(false), false));
+        }
+        await tx.CommitAsync(ct).ConfigureAwait(false);
+        return results;
+    }
+
+    // the parameters both import statements bind, with every age re-anchored through the ONE shared rule
+    private static object ImportArgs(string engine, string taskKey, GraphNodeImport node, string hash,
+        MemoryPositionRow head) => new
+    {
+        engine, taskKey, scope = node.Scope, headline = node.Headline, content = node.Content, hash,
+        grade = (int)node.Grade, metadata = CuratedMetadataJson.Serialize(node.Metadata),
+        signals = MemorySignalsJson.Serialize(node.Signals), salience = MemorySignals.Salience(node.Signals),
+        createdAt = node.CreatedAt.ToUniversalTime(), recallCount = node.RecallCount, stability = node.Stability,
+        difficulty = node.Difficulty,
+        position = MemoryGraphAnchor.Behind(head.Position, node.Age),
+        ordinal = MemoryGraphAnchor.Behind(head.Ordinal, node.OrdinalAge),
+        chars = MemoryGraphAnchor.Behind(head.Chars, node.VolumeAge),
+        at = MemoryGraphAnchor.Behind(head.EncodedAt, node.ElapsedAge),
+        provenanceRetrievability = node.ProvenanceRetrievability, provenanceSalience = node.ProvenanceSalience,
+    };
+
+    /// <inheritdoc />
+    public async Task<int> ImportLinksAsync(string engine, IReadOnlyList<GraphLink> links,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(links);
+        ct.ThrowIfCancellationRequested();
+        if (links.Count == 0) return 0;
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
+        await using var tx = await conn.BeginTransactionAsync(ct).ConfigureAwait(false);
+        var head = await TotalsAsync(conn, engine, ct, tx).ConfigureAwait(false);
+        var written = await conn.ExecuteAsync(new CommandDefinition(MemoryGraphSql.ImportLink,
+            links.Where(l => l.From != l.To).Select(l => new
+            {
+                engine, from = l.From, to = l.To, kind = l.Kind ?? "", weight = l.Weight,
+                position = MemoryGraphAnchor.Behind(head.Position, l.Age),
+                ordinal = MemoryGraphAnchor.Behind(head.Ordinal, l.OrdinalAge),
+                chars = MemoryGraphAnchor.Behind(head.Chars, l.VolumeAge),
+                at = MemoryGraphAnchor.Behind(head.EncodedAt, l.ElapsedAge),
+            }), transaction: tx, cancellationToken: ct)).ConfigureAwait(false);
+        await tx.CommitAsync(ct).ConfigureAwait(false);
+        return written;
+    }
+
+    /// <inheritdoc />
     public async Task<IReadOnlyList<string>> KnownSubjectsAsync(string engine, string taskKey, string? scope,
         int limit, CancellationToken ct = default)
     {
@@ -559,9 +681,10 @@ public sealed class SqliteMemoryGraphStore(
         return [.. rows];
     }
 
-    private static async Task<MemoryPositionRow> TotalsAsync(IDbConnection conn, string engine, CancellationToken ct) =>
+    private static async Task<MemoryPositionRow> TotalsAsync(IDbConnection conn, string engine, CancellationToken ct,
+        IDbTransaction? tx = null) =>
         await conn.QuerySingleOrDefaultAsync<MemoryPositionRow>(new CommandDefinition(MemoryGraphSql.Totals,
-            new { engine }, cancellationToken: ct)).ConfigureAwait(false)
+            new { engine }, transaction: tx, cancellationToken: ct)).ConfigureAwait(false)
         ?? new MemoryPositionRow { EncodedAt = DateTimeOffset.UnixEpoch };
 
     // Every caller is a SEED, which asked: the substring query selects `Matched` per row, and a query that

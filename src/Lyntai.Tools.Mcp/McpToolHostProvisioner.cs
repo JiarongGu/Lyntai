@@ -15,24 +15,29 @@ namespace Lyntai.Tools.Mcp.Hosting;
 internal sealed class McpToolHostProvisioner(
     IEnumerable<ITool> tools, IMcpCliConnector connector, McpToolHostOptions options,
     Lyntai.Guards.IGuardRail? guards = null,
-    Microsoft.Extensions.Logging.ILogger<McpToolHostProvisioner>? logger = null) : ICliToolProvisioner
+    Microsoft.Extensions.Logging.ILogger<McpToolHostProvisioner>? logger = null,
+    IEnumerable<IToolApprover>? approvers = null) : ICliToolProvisioner
 {
     // the tools and the map are read — and checked — once, when the provisioner is built: the DI tool collection
     // is fixed by then, and the map is COPIED, so a list the caller still holds cannot gain an unchecked name
     private readonly (IReadOnlyList<ITool> Tools, Dictionary<string, string[]> ByConsumer) _checked =
         Check(tools, options.ToolsByConsumer);
 
-    public Task<CliToolSession> ProvisionAsync(CancellationToken ct = default) => HostAsync(_checked.Tools, ct);
+    private readonly IReadOnlyList<IToolApprover> _approvers = [.. approvers ?? []];
+
+    public Task<CliToolSession> ProvisionAsync(CancellationToken ct = default) =>
+        HostAsync(_checked.Tools, Lyntai.Inference.ProviderConsumers.Default, ct);
 
     public Task<CliToolSession> ProvisionAsync(CliToolRequest request, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(request);
         var (registered, byConsumer) = _checked;
+        var consumer = request.Request.Consumer;
         // the tiering every *ByConsumer map here uses: the consumer's own entry, then "default", then every tool
-        return HostAsync(byConsumer.TryGetValue(request.Request.Consumer, out var names)
+        return HostAsync(byConsumer.TryGetValue(consumer, out var names)
             || byConsumer.TryGetValue(Lyntai.Inference.ProviderConsumers.Default, out names)
             ? [.. registered.Where(t => names.Contains(t.Name, StringComparer.Ordinal))]
-            : registered, ct);
+            : registered, consumer, ct);
     }
 
     /// <summary>The registered tools and a copy of <see cref="McpToolHostOptions.ToolsByConsumer"/>, after refusing
@@ -63,14 +68,15 @@ internal sealed class McpToolHostProvisioner(
         return (list, byConsumer);
     }
 
-    private async Task<CliToolSession> HostAsync(IReadOnlyList<ITool> toolList, CancellationToken ct)
+    private async Task<CliToolSession> HostAsync(IReadOnlyList<ITool> toolList, string consumer, CancellationToken ct)
     {
         if (toolList.Count == 0) return new CliToolSession([]);
 
         var token = Convert.ToHexString(RandomNumberGenerator.GetBytes(32)); // per-host bearer
-        // the rail travels with the tools: this host is a second door onto the same instances the in-process
-        // tool loop runs, and a guard enforced on one door only is not enforced
-        var host = await McpToolHost.StartAsync(toolList, token, options, guards, logger, ct).ConfigureAwait(false);
+        // the rail and the approvers travel with the tools: this host is a second door onto the same instances
+        // the in-process tool loop runs, and a gate enforced on one door only is not enforced
+        var host = await McpToolHost.StartAsync(toolList, token, options, guards, logger, _approvers, consumer, ct)
+            .ConfigureAwait(false);
 
         // every path the connector asks for is tracked HERE, so cleanup can't be forgotten by a connector
         var tempFiles = new List<string>();

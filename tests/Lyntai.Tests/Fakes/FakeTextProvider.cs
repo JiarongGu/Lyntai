@@ -34,6 +34,13 @@ public sealed class FakeTextProvider(string id) : IModelProvider
         set => Capabilities = Capabilities with { SupportsStreamingToolCalls = value };
     }
 
+    /// <summary>Writes through to <see cref="Capabilities"/>, as <see cref="SupportsToolCalls"/> does.</summary>
+    public bool SupportsStructuredOutput
+    {
+        get => Capabilities.SupportsStructuredOutput;
+        set => Capabilities = Capabilities with { SupportsStructuredOutput = value };
+    }
+
     public Queue<TextResponse> Replies { get; } = new();
 
     public Func<TextRequest, IReadOnlyList<TextChunk>>? StreamScript { get; set; }

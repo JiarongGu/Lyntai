@@ -15,7 +15,9 @@ plain files or memory.
 
 It is a library, not a platform: no server, no host, no UI. You compose it into your own application through
 dependency injection, and the one package you cannot opt out of depends on nothing but the DI and logging
-abstractions.
+abstractions. [When to use it, and when Agent Framework, LiteLLM or a memory service fits
+better](https://github.com/JiarongGu/Lyntai/blob/master/docs/guide.md#when-to-use-lyntai-and-when-not-to) is
+in the guide, beside [three scenarios to start from](https://github.com/JiarongGu/Lyntai/blob/master/docs/guide.md#start-from-a-scenario).
 
 **Contents:** [Why Lyntai](#why-lyntai) · [Quickstart](#quickstart) · [What's in the box](#whats-in-the-box) ·
 [Backends](#backends) · [Packages](#packages) · [Status](#status) · [Documentation](#documentation) ·
@@ -177,7 +179,8 @@ so check there before assuming a member is in the version you installed.
   changes called out; [roadmap](https://github.com/JiarongGu/Lyntai/blob/master/docs/ROADMAP.md) — one line
   per version.
 - [A runnable sample](https://github.com/JiarongGu/Lyntai/tree/master/samples/Lyntai.Playground) — the
-  Playground console app.
+  Playground console app; the guide's [scenarios](https://github.com/JiarongGu/Lyntai/blob/master/docs/guide.md#start-from-a-scenario)
+  are three smaller ones, compiled against the library by the repository's checks.
 
 ## For AI coding agents
 

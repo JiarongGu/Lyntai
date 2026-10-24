@@ -31,7 +31,14 @@ public enum MemorySeedKind
 /// <param name="Query">The recall being served.</param>
 /// <param name="Limit">How many candidates this source may return at most.</param>
 public readonly record struct MemorySeedRequest(
-    string Engine, IMemoryGraphStore Store, MemoryQuery Query, int Limit);
+    string Engine, IMemoryGraphStore Store, MemoryQuery Query, int Limit)
+{
+    /// <summary>The backend the calling engine pinned to embed with
+    /// (<see cref="GraphMemoryOptions.VectorProviderId"/>), or null when it routes over every one. It rides here
+    /// for the store's reason: a channel embedding the query must use the model that embedded the writes, and a
+    /// registered source is shared by every engine.</summary>
+    public string? VectorProviderId { get; init; }
+}
 
 /// <summary>
 /// One retrieval channel — a PRODUCER of candidates, not a policy varying a per-entry rule, so it is the

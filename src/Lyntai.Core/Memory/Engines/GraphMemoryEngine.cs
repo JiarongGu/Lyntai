@@ -39,7 +39,8 @@ public sealed class GraphMemoryEngine(
     GraphMemoryOptions? options = null,
     GraphMemorySeams? seams = null,
     ILogger<GraphMemoryEngine>? logger = null)
-    : IMemoryEngine, IExpandableMemory, ILinkableMemory, IForgettableMemory, IPrunableMemory, IReindexableMemory
+    : IMemoryEngine, IExpandableMemory, ILinkableMemory, IForgettableMemory, IPrunableMemory, IReindexableMemory,
+        IPortableMemory
 {
     private readonly GraphMemoryOptions _options = options ?? new GraphMemoryOptions();
     private readonly IMemoryRetrievabilityPolicy _policy =
@@ -47,8 +48,11 @@ public sealed class GraphMemoryEngine(
             seams?.RetentionPolicies, seams?.RetentionComposition));
     private readonly MemoryAgeResolver _age = new(seams?.AgePolicies, seams?.AgeComposition);
     private readonly ILogger _logger = logger ?? NullLogger<GraphMemoryEngine>.Instance;
-    private readonly GraphVectorProjection _vectors = new(name, seams?.Providers, seams?.Vectors, seams?.Routing,
-        logger ?? (ILogger)NullLogger<GraphMemoryEngine>.Instance);
+    // narrowed ONCE, here, so a mis-pin throws at composition and every embed — write, re-embed — sees one backend
+    private readonly GraphVectorProjection _vectors = new(name,
+        EmbeddingRouting.Pinned(seams?.Providers, options?.VectorProviderId,
+            $"{nameof(GraphMemoryOptions)}.{nameof(GraphMemoryOptions.VectorProviderId)}"),
+        seams?.Vectors, seams?.Routing, logger ?? (ILogger)NullLogger<GraphMemoryEngine>.Instance);
     private readonly IReadOnlyList<IMemorySaliencePolicy> _saliencePolicies =
         NormalizeSaliencePolicies(seams?.SaliencePolicies);
     private readonly IMemorySalienceCompositionPolicy _salienceComposition =
@@ -229,6 +233,10 @@ public sealed class GraphMemoryEngine(
     /// <para>Internal and read only by <see cref="MemoryWiring"/>, exactly like
     /// <see cref="EmbedsWithoutSeeding"/> — the same defect on the other index.</para></summary>
     internal bool RecordsSubjectsWithoutSeeding => _annotation is not null && !MightSeed(MemorySeedKind.Subject);
+
+    /// <summary>This engine pins an embedder and has no index to embed into, so the pin never applies. Read only
+    /// by <see cref="MemoryWiring"/>, like the two above.</summary>
+    internal bool PinsWithoutIndex => !string.IsNullOrWhiteSpace(_options.VectorProviderId) && !_vectors.Wired;
 
     /// <inheritdoc />
     public string Name { get; } = name;
@@ -502,7 +510,10 @@ public sealed class GraphMemoryEngine(
 
     /// <summary>Index the node's vector under the removal lock, and only while the node still exists: a forget
     /// that landed since the upsert has already cleared the index, so indexing after it would leave the forgotten
-    /// content readable there (<b>D90</b>). Best-effort like the index itself — a failed re-read costs the vector.</summary>
+    /// content readable there (<b>D90</b>). Best-effort like the index itself — a failed re-read costs the vector.
+    /// <para>The lock serializes THIS instance's removals only, so the node is read again after the upsert: a
+    /// removal from another instance that deleted it in between has already swept, and the vector is taken
+    /// back here.</para></summary>
     private async Task<bool> IndexUnlessRemovedAsync(long id, MemoryWrite write, float[] vector, CancellationToken ct)
     {
         using var removals = await RemovalsAsync(ct).ConfigureAwait(false);
@@ -516,7 +527,26 @@ public sealed class GraphMemoryEngine(
             _logger.LogWarning(ex, "re-reading a new entry failed for {Engine}; it is stored without its vector", Name);
             return false;
         }
-        return await _vectors.IndexAsync(id, write, vector, ct).ConfigureAwait(false);
+        if (!await _vectors.IndexAsync(id, write, vector, ct).ConfigureAwait(false)) return false;
+        return !await RetractIfRemovedAsync(id, write.TaskKey, write.Scope, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>After a vector upsert: whether its node was deleted meanwhile, in which case the vector is taken
+    /// back. A failed re-read is read as "removed", so the vector goes rather than surviving its node.</summary>
+    private async Task<bool> RetractIfRemovedAsync(long id, string taskKey, string scope, CancellationToken ct)
+    {
+        try
+        {
+            if (await store.GetAsync(Name, id, ct).ConfigureAwait(false) is not null) return false;
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "re-reading entry {Id} after indexing failed for {Engine}; its vector is taken back",
+                id, Name);
+        }
+        await _vectors.RetractAsync(id, taskKey, scope, ct).ConfigureAwait(false);
+        return true;
     }
 
     /// <inheritdoc />
@@ -531,18 +561,19 @@ public sealed class GraphMemoryEngine(
         ct.ThrowIfCancellationRequested();
         var ranking = ResolveRanking(query.RankingPolicyName);
 
+        var nothing = query.Explain ? MemoryRecall.Empty with { Candidates = [] } : MemoryRecall.Empty;
         var limit = query.Limit ?? _options.DefaultLimit;
-        if (limit <= 0) return MemoryRecall.Empty;
+        if (limit <= 0) return nothing;
 
         var found = await TryGatherAsync(query, limit, ct).ConfigureAwait(false);
-        if (found is null) return MemoryRecall.Empty;
+        if (found is null) return nothing;
 
         var candidates = found
             .Select(f => new MemoryCandidate(f.Node, Retrievability(f.Node), f.Hop) { Ranks = f.Ranks })
             .ToList();
 
         var ranked = ranking.Rank(candidates, new MemoryRankingContext(limit, Name));
-        if (ranked.Count == 0 && candidates.Count == 0) return MemoryRecall.Empty;
+        if (ranked.Count == 0 && candidates.Count == 0) return nothing;
 
         var (reserved, ordinary) = ReserveAuthoritative(candidates, ranked, limit);
 
@@ -555,40 +586,90 @@ public sealed class GraphMemoryEngine(
         // Depth is the knob that trades judgement cost against how far down an answer may be rescued from.
         var depth = Math.Max(limit,
             _options.VerificationDepth ?? Saturating(limit, GraphMemoryOptions.DefaultVerificationDepthFactor));
-        var verdict = await VerifyAsync(query.Query ?? string.Empty,
-            [.. ordinary.Take(depth)], ct).ConfigureAwait(false);
+        List<RankedMemory> shown = [.. ordinary.Take(depth)];
+        var verdict = await VerifyAsync(query.Query ?? string.Empty, shown, ct).ConfigureAwait(false);
 
         ordinary = MemoryVerdicts.Apply(ordinary, verdict, _options.VerdictCombination);
 
         // Ordinary material leads, in the policy's order, then the reserved exact facts — the same
         // "matches lead, exact facts take the low end" shape the store's own merge uses, so the two agree.
+        var page = Math.Max(0, limit - reserved.Count);
         var scored = ordinary
-            .Take(Math.Max(0, limit - reserved.Count))
+            .Take(page)
             .Concat(reserved)
             .ToList();
-        if (scored.Count == 0) return MemoryRecall.Empty;
+        var placed = scored;
+        var recall = MemoryRecall.Empty;
 
-        await LogAndReinforceAsync(scored, verdict, ct).ConfigureAwait(false);
+        if (scored.Count > 0)
+        {
+            await LogAndReinforceAsync(scored, verdict, ct).ConfigureAwait(false);
 
-        // A judgement never removes an answer unless a consumer asked for that separately: a mistaken
-        // verdict should cost a little learning, not a lost result. Authoritative material is exempt
-        // whatever the verdict — objective (1) does not defer to a judge (D56).
-        if (verdict.Judged && _options.VerificationFilters)
-            scored = [.. scored.Where(x =>
-                x.Candidate.Node.Grade == MemoryGrade.Authoritative
-                || verdict.RelevantIds.Contains(x.Candidate.Node.Id.ToString(CultureInfo.InvariantCulture)))];
+            // A judgement never removes an answer unless a consumer asked for that separately: a mistaken
+            // verdict should cost a little learning, not a lost result. Authoritative material is exempt
+            // whatever the verdict — objective (1) does not defer to a judge (D56).
+            if (verdict.Judged && _options.VerificationFilters)
+                scored = [.. scored.Where(x =>
+                    x.Candidate.Node.Grade == MemoryGrade.Authoritative
+                    || verdict.RelevantIds.Contains(x.Candidate.Node.Id.ToString(CultureInfo.InvariantCulture)))];
 
-        if (scored.Count == 0) return MemoryRecall.Empty;
+            // The ABSTENTION signal. `Judged` is the only absolute quality statement available here — ranking
+            // is relative by construction, so a page of uniformly-irrelevant material ranks perfectly well
+            // among itself. Null when nothing judged, so the shipped default (no verifier) never reports
+            // `false` and a consumer abstaining on `false` does not abstain on everything.
+            if (scored.Count > 0)
+                recall = new MemoryRecall(ToItems(scored, query), RecallSources,
+                    verdict.Judged ? verdict.RelevantIds.Count > 0 : null);
+        }
 
-        var items = ToItems(scored, query);
+        return query.Explain
+            ? recall with
+            {
+                Candidates = Explain(candidates, ranked, [.. placed, .. ordinary.Skip(page)], placed, scored,
+                    recall.Items, shown, verdict),
+            }
+            : recall;
+    }
 
-        // The ABSTENTION signal. `Judged` is the only absolute quality statement available here — ranking is
-        // relative by construction, so a page of uniformly-irrelevant material ranks perfectly well among
-        // itself. Null when nothing judged, so the shipped default (no verifier) never reports `false` and a
-        // consumer abstaining on `false` does not abstain on everything.
-        var answered = verdict.Judged ? verdict.RelevantIds.Count > 0 : (bool?)null;
+    /// <summary>What <see cref="MemoryQuery.Explain"/> attaches: each candidate's outcome, read off the sets
+    /// the recall already built — in <paramref name="order"/>, the floored after it — so explaining adds no
+    /// query and changes nothing it returns.</summary>
+    /// <param name="candidates">Everything gathered.</param>
+    /// <param name="ranked">What the policy scored; a candidate absent from it was floored.</param>
+    /// <param name="order">The order the limit was applied to: the page, then what fell below it.</param>
+    /// <param name="placed">The page, before a verifier filtered it.</param>
+    /// <param name="kept">The page after filtering, before the character budget.</param>
+    /// <param name="items">What the caller receives.</param>
+    /// <param name="shown">What the verifier was asked about.</param>
+    /// <param name="verdict">What it answered.</param>
+    private List<MemoryRecallCandidate> Explain(IReadOnlyList<MemoryCandidate> candidates,
+        IReadOnlyList<RankedMemory> ranked, IReadOnlyList<RankedMemory> order, IReadOnlyList<RankedMemory> placed,
+        IReadOnlyList<RankedMemory> kept, IReadOnlyList<MemoryItem> items, IReadOnlyList<RankedMemory> shown,
+        MemoryVerification verdict)
+    {
+        static string Id(GraphNode node) => node.Id.ToString(CultureInfo.InvariantCulture);
+        var score = ranked.ToDictionary(r => r.Candidate.Node.Id, r => r.Score);
+        var position = new Dictionary<long, int>(order.Count);
+        foreach (var r in order) position.TryAdd(r.Candidate.Node.Id, position.Count + 1);
+        var placedIds = placed.Select(r => r.Candidate.Node.Id).ToHashSet();
+        var keptIds = kept.Select(r => r.Candidate.Node.Id).ToHashSet();
+        var returned = items.Select(i => i.Reference.Id).ToHashSet(StringComparer.Ordinal);
+        var shownIds = shown.Select(r => r.Candidate.Node.Id).ToHashSet();
+        var endorsed = verdict.RelevantIds.ToHashSet(StringComparer.Ordinal);
 
-        return new MemoryRecall(items, RecallSources, answered);
+        MemoryCandidateOutcome OutcomeOf(GraphNode node) =>
+            returned.Contains(Id(node)) ? MemoryCandidateOutcome.Returned
+            : keptIds.Contains(node.Id) ? MemoryCandidateOutcome.CutByBudget
+            : placedIds.Contains(node.Id) ? MemoryCandidateOutcome.FilteredByVerifier
+            : position.ContainsKey(node.Id) ? MemoryCandidateOutcome.CutByLimit
+            : MemoryCandidateOutcome.Floored;
+
+        return [.. candidates
+            .Select(c => new MemoryRecallCandidate(new MemoryRef(Name, Id(c.Node)), OutcomeOf(c.Node), c.Ranks,
+                c.Hop, score.TryGetValue(c.Node.Id, out var s) ? s : null,
+                position.TryGetValue(c.Node.Id, out var p) ? p : null,
+                verdict.Judged && shownIds.Contains(c.Node.Id) ? endorsed.Contains(Id(c.Node)) : null))
+            .OrderBy(c => c.Position ?? int.MaxValue)];
     }
 
     /// <summary>The candidate set, or <c>null</c> where <see cref="RecallAsync"/>'s fail-open promise fired.
@@ -893,6 +974,39 @@ public sealed class GraphMemoryEngine(
         return count;
     }
 
+    /// <summary>How much this engine holds under (<paramref name="taskKey"/>, <paramref name="scope"/>): the store's
+    /// <see cref="ICountableMemoryGraphStore"/> counts, with <see cref="MemoryGraphCounts.Buried"/> filled in — the
+    /// associative entries whose retrievability, as a recall reports it, is below the floor. Reads only; nothing is
+    /// reinforced, linked, logged or removed.
+    /// <para>Burial is the exact criterion <see cref="PruneAsync"/> applies when an age policy is
+    /// <see cref="MemoryAgeKind.Derivable"/>; its cheaper in-store path uses a conservative cutoff and may remove
+    /// fewer. Counting it reads every entry in the scope, once, unless the floor is zero. The counts and that read
+    /// are two reads, so a write landing between them can skew the two by what it changed.</para></summary>
+    /// <param name="taskKey">The task to count within.</param>
+    /// <param name="scope">The scope, or null for every scope of the task.</param>
+    /// <param name="minRetrievability">The floor; null takes <see cref="GraphMemoryOptions.MinRetrievability"/>,
+    /// and zero buries nothing.</param>
+    /// <param name="ct">Cancellation.</param>
+    /// <returns>The counts, or <c>null</c> when the store does not implement
+    /// <see cref="ICountableMemoryGraphStore"/> — never a zero that reads as an empty memory.</returns>
+    public async Task<MemoryGraphCounts?> CountAsync(string taskKey, string? scope = null,
+        double? minRetrievability = null, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(taskKey);
+        if (store is not ICountableMemoryGraphStore counting) return null;
+
+        var counts = await counting.CountAsync(Name, taskKey, scope, ct).ConfigureAwait(false);
+        var floor = minRetrievability ?? _options.MinRetrievability;
+        if (floor <= 0) return counts with { Buried = 0 };
+
+        var nodes = await store.SeedAsync(Name, taskKey, scope, query: null, limit: int.MaxValue, ct)
+            .ConfigureAwait(false);
+        return counts with
+        {
+            Buried = nodes.Count(n => n.Grade != MemoryGrade.Authoritative && Retrievability(n) < floor),
+        };
+    }
+
     /// <summary>Forget everything under (<paramref name="taskKey"/>, <paramref name="scope"/>) — explicit,
     /// never a side effect of decay, which only ever ranks.
     /// <para><b>The similarity index goes FIRST, and that order is the promise.</b> Enrichment stores each
@@ -903,18 +1017,30 @@ public sealed class GraphMemoryEngine(
     /// deliberately orders the other way, because there the cheap failure is an orphan rather than a
     /// residue.</para>
     /// <para>A write in flight on this instance never outlives it in the index: the two exclude each other around
-    /// the write's index step, which indexes only an entry that survived.</para></summary>
+    /// the write's index step, which indexes only an entry that survived. <b>Another instance over the same
+    /// store</b> — another process — holds no such lock, so the index is swept a SECOND time once the nodes are
+    /// gone: a vector that instance upserted before this sweep is cleared by it, and one it upserts after finds
+    /// its node gone and takes itself back. The cost is a vector, never content — a write landing after the node
+    /// delete keeps its entry and may lose its vector to the second sweep.</para></summary>
     /// <param name="taskKey">The task to clear.</param>
     /// <param name="scope">The scope, or null for every scope of the task.</param>
     /// <param name="ct">Cancellation.</param>
     public async Task ForgetAsync(string taskKey, string? scope = null, CancellationToken ct = default)
     {
         using var removals = await RemovalsAsync(ct).ConfigureAwait(false);
-        await _vectors.ForgetAsync(taskKey, scope, async () =>
-                (await store.SeedAsync(Name, taskKey, scope: null, query: null, limit: int.MaxValue, ct)
-                    .ConfigureAwait(false)).Select(n => n.Scope).Distinct(StringComparer.Ordinal),
-            ct).ConfigureAwait(false);
+        var scopes = new HashSet<string>(StringComparer.Ordinal);
+        async Task<IEnumerable<string>> ReadScopesAsync()
+        {
+            // read live on each call, and remembered: the second sweep runs after the nodes naming them are gone
+            scopes.UnionWith((await store.SeedAsync(Name, taskKey, scope: null, query: null, limit: int.MaxValue, ct)
+                .ConfigureAwait(false)).Select(n => n.Scope));
+            return scopes;
+        }
+
+        await _vectors.ForgetAsync(taskKey, scope, ReadScopesAsync, ct).ConfigureAwait(false);
+        if (scope is null && _vectors.Wired) await ReadScopesAsync().ConfigureAwait(false);   // a scope opened since
         await store.ForgetAsync(Name, taskKey, scope, ct).ConfigureAwait(false);
+        await _vectors.ForgetAsync(taskKey, scope, ReadScopesAsync, ct).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
@@ -922,8 +1048,10 @@ public sealed class GraphMemoryEngine(
     /// <see cref="GraphMemoryOptions.ReindexBatchSize"/> OUTSIDE the removal lock, so a slow backend holds no removal
     /// up, and writes each batch back UNDER it, re-reading which of its entries still exist first. A batch whose
     /// embed call fails is logged and counted <see cref="MemoryReindexResult.Failed"/>; a write that fails throws, as
-    /// the index itself is then broken. A rerun re-embeds the WHOLE task again: nothing records which model wrote a
-    /// stored vector.</remarks>
+    /// the index itself is then broken. Entries go in id order; under a declared vector space each collection records
+    /// the id through which it is re-embedded, so a rerun into the SAME space resumes after it, counted
+    /// <see cref="MemoryReindexResult.Resumed"/>, and a collection is stamped once none of its entries failed
+    /// (<b>D212</b>). Undeclared, a rerun re-embeds the whole task: nothing says which model wrote a stored vector.</remarks>
     public async Task<MemoryReindexResult> ReindexAsync(string taskKey, string? scope = null, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(taskKey);
@@ -933,10 +1061,30 @@ public sealed class GraphMemoryEngine(
         if (!_vectors.Enriches) throw new InvalidOperationException(EmbeddingRouting.NothingEmbeds);
 
         var nodes = await store.SeedAsync(Name, taskKey, scope, query: null, limit: int.MaxValue, ct).ConfigureAwait(false);
+        // a declared space marks each collection MOVING, recording how far an interrupted pass into it got (D212)
+        var resumeAfter = new Dictionary<string, long>(StringComparer.Ordinal);
+        await _vectors.BeginMoveAsync(nodes, resumeAfter, ct).ConfigureAwait(false);
+        if (resumeAfter.Count > 0)
+        {
+            // re-read: an old-space write that landed before the mark is in this list, and one after it was refused
+            nodes = await store.SeedAsync(Name, taskKey, scope, query: null, limit: int.MaxValue, ct).ConfigureAwait(false);
+            await _vectors.BeginMoveAsync(nodes, resumeAfter, ct).ConfigureAwait(false);
+        }
+
+        var pending = new List<GraphNode>(nodes.Count);
+        var resumed = 0;
+        foreach (var node in nodes.OrderBy(n => n.Id))
+        {
+            if (resumeAfter.TryGetValue(_vectors.CollectionOf(node), out var through) && node.Id <= through) resumed++;
+            else pending.Add(node);
+        }
+
+        var held = new HashSet<string>(StringComparer.Ordinal);   // a collection with a failed entry stops advancing
         var (indexed, failed) = (0, 0);
-        foreach (var batch in nodes.Chunk(_options.ReindexBatchSize))
+        foreach (var batch in pending.Chunk(_options.ReindexBatchSize))
         {
             ct.ThrowIfCancellationRequested();
+            var collections = batch.Select(_vectors.CollectionOf).Distinct(StringComparer.Ordinal).ToList();
             IReadOnlyList<float[]> vectors;
             try
             {
@@ -948,18 +1096,113 @@ public sealed class GraphMemoryEngine(
                 _logger.LogWarning(ex, "re-embedding a batch of {Count} for {Engine} failed; they keep their old vectors",
                     batch.Length, Name);
                 failed += batch.Length;
+                held.UnionWith(collections);
                 continue;
             }
 
-            using var removals = await RemovalsAsync(ct).ConfigureAwait(false);
-            for (var i = 0; i < batch.Length; i++)
+            using (await RemovalsAsync(ct).ConfigureAwait(false))
             {
-                if (await store.GetAsync(Name, batch[i].Id, ct).ConfigureAwait(false) is null) continue;   // removed mid-pass
-                await _vectors.UpsertAsync(batch[i], vectors[i], ct).ConfigureAwait(false);
-                indexed++;
+                for (var i = 0; i < batch.Length; i++)
+                {
+                    if (await store.GetAsync(Name, batch[i].Id, ct).ConfigureAwait(false) is null) continue;   // removed mid-pass
+                    await _vectors.UpsertAsync(batch[i], vectors[i], ct).ConfigureAwait(false);
+                    // removed by ANOTHER instance between the read and the upsert — this lock does not reach it
+                    if (await RetractIfRemovedAsync(batch[i].Id, batch[i].TaskKey, batch[i].Scope, ct).ConfigureAwait(false))
+                        continue;
+                    indexed++;
+                }
+            }
+            foreach (var collection in collections.Where(c => resumeAfter.ContainsKey(c) && !held.Contains(c)))
+                await _vectors.MovedThroughAsync(collection, batch[^1].Id, ct).ConfigureAwait(false);
+        }
+        foreach (var collection in resumeAfter.Keys.Where(c => !held.Contains(c)))
+            await _vectors.ClaimSpaceAsync(collection, ct).ConfigureAwait(false);
+        return new MemoryReindexResult(indexed, failed) { Resumed = resumed };
+    }
+
+    /// <summary>Whether the store can carry decay state, so this engine can export and import — read by the blend,
+    /// which names a member that cannot in <see cref="MemoryExportResult.Skipped"/>.</summary>
+    internal bool Carries => store is IPortableMemoryGraphStore;
+
+    private IPortableMemoryGraphStore Portable => store as IPortableMemoryGraphStore
+        ?? throw new NotSupportedException(
+            $"Memory engine '{Name}' cannot carry its memory: its store ({store.GetType().Name}) does not implement " +
+            $"{nameof(IPortableMemoryGraphStore)}, so an entry would travel without its decay state.");
+
+    /// <inheritdoc />
+    /// <remarks>One <c>graph</c> line per entry in id order — decay state, ages relative to this engine's head, subjects
+    /// — then one <c>link</c> line per link to an entry of the same task (<b>D213</b>). Reads only.</remarks>
+    /// <exception cref="NotSupportedException">The store does not implement <see cref="IPortableMemoryGraphStore"/>.</exception>
+    public async Task<MemoryExportResult> ExportAsync(string taskKey, string? scope, TextWriter destination,
+        CancellationToken ct = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(taskKey);
+        ArgumentNullException.ThrowIfNull(destination);
+        var export = await Portable.ExportAsync(Name, taskKey, scope, ct).ConfigureAwait(false);
+        await GraphPortableLines.WriteAsync(destination, Name, export, ct).ConfigureAwait(false);
+        return new MemoryExportResult(export.Nodes.Count) { Links = export.Links.Count };
+    }
+
+    /// <inheritdoc />
+    /// <remarks>Each entry is inserted WITH its state, under an id the store allocates, each age as far behind this
+    /// engine's head as it was behind the source's; nothing advances, so nothing already held ages. An entry whose
+    /// identity is held is left exactly as it is and its links attach to it; a link already held keeps its weight, and
+    /// one whose endpoint is not an entry of the file is dropped and counted (<b>D213</b>). With a vector index, each
+    /// inserted entry is embedded afterwards, best-effort: one whose embed fails is stored without its vector, which
+    /// <see cref="ReindexAsync"/> repairs.</remarks>
+    /// <exception cref="NotSupportedException">The store does not implement <see cref="IPortableMemoryGraphStore"/>.</exception>
+    public async Task<MemoryImportResult> ImportAsync(string taskKey, string? scope, TextReader source,
+        CancellationToken ct = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(taskKey);
+        if (scope is not null) ArgumentException.ThrowIfNullOrWhiteSpace(scope);
+        var portable = Portable;
+        var (nodes, links) = GraphPortableLines.Read(await MemoryPortableFormat.ReadAsync(source, ct).ConfigureAwait(false),
+            Name, scope);
+
+        var results = await portable.ImportNodesAsync(Name, taskKey, [.. nodes.Select(n => n.Node)], ct).ConfigureAwait(false);
+        var map = new Dictionary<long, long>(nodes.Count);
+        for (var i = 0; i < nodes.Count; i++) map[nodes[i].Id] = results[i].Id;
+
+        var remapped = new List<GraphLink>(links.Count);
+        var dropped = 0;
+        foreach (var link in links)
+            if (map.TryGetValue(link.From, out var from) && map.TryGetValue(link.To, out var to)) remapped.Add(link with { From = from, To = to });
+            else dropped++;
+        var linked = remapped.Count == 0 ? 0 : await portable.ImportLinksAsync(Name, remapped, ct).ConfigureAwait(false);
+
+        var inserted = results.Count(r => r.Inserted);
+        if (inserted > 0 && _vectors.Enriches)
+            await IndexImportedAsync([.. results.Where(r => r.Inserted).Select(r => r.Id)], ct).ConfigureAwait(false);
+        return new MemoryImportResult(inserted, results.Count - inserted) { Links = linked, LinksDropped = dropped };
+    }
+
+    // a re-embed's write step over the imported entries alone, best-effort as a write's own index step is
+    private async Task IndexImportedAsync(IReadOnlyList<long> ids, CancellationToken ct)
+    {
+        foreach (var batch in ids.Chunk(_options.ReindexBatchSize))
+        {
+            try
+            {
+                var nodes = new List<GraphNode>(batch.Length);
+                foreach (var id in batch)
+                    if (await store.GetAsync(Name, id, ct).ConfigureAwait(false) is { } node) nodes.Add(node);
+                var vectors = await _vectors.EmbedBatchAsync([.. nodes.Select(n => n.Content)], ct).ConfigureAwait(false);
+                using (await RemovalsAsync(ct).ConfigureAwait(false))
+                    for (var i = 0; i < nodes.Count; i++)
+                    {
+                        if (await store.GetAsync(Name, nodes[i].Id, ct).ConfigureAwait(false) is null) continue;
+                        await _vectors.UpsertAsync(nodes[i], vectors[i], ct).ConfigureAwait(false);
+                        await RetractIfRemovedAsync(nodes[i].Id, nodes[i].TaskKey, nodes[i].Scope, ct).ConfigureAwait(false);
+                    }
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "indexing {Count} imported entries for {Engine} failed; they are stored without "
+                    + "their vectors until a re-embed", batch.Length, Name);
             }
         }
-        return new MemoryReindexResult(indexed, failed);
     }
 
     private async Task<Held> RemovalsAsync(CancellationToken ct)
@@ -1116,7 +1359,10 @@ public sealed class GraphMemoryEngine(
         // no faintness bound: the store returns candidates grade-first, then most-recently-used, and the
         // count is the only limit, so nothing is excluded for having decayed — burial happens by rank, above
         var candidates = Saturating(limit, _options.CandidateMultiplier);
-        var request = new MemorySeedRequest(Name, store, query, candidates);
+        var request = new MemorySeedRequest(Name, store, query, candidates)
+        {
+            VectorProviderId = _options.VectorProviderId,
+        };
 
         var found = new List<(GraphNode Node, int Hop)>();
         var seen = new HashSet<long>();

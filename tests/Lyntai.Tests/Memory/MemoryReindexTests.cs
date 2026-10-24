@@ -227,6 +227,230 @@ public class MemoryReindexTests
     }
 
     [Fact]
+    public async Task An_interrupted_pass_into_a_declared_space_resumes_after_its_last_completed_batch()
+    {
+        var space = SpacedRig.Build();
+        await RememberAsync(space.Before, "t", "s", 6);
+        using var cts = new CancellationTokenSource();
+        var third = space.Provider.Calls + 2;   // the second batch
+        space.Provider.OnCall = (call, ct) =>
+        {
+            if (call != third) return Task.CompletedTask;
+            cts.Cancel();
+            ct.ThrowIfCancellationRequested();
+            return Task.CompletedTask;
+        };
+
+        space.Provider.Model = 2;
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => space.After.Engine.ReindexAsync("t", ct: cts.Token));
+        space.Provider.OnCall = null;
+        var before = space.Provider.Calls;
+
+        var result = await space.After.Engine.ReindexAsync("t");
+
+        Assert.Equal(new MemoryReindexResult(4, 0) { Resumed = 2 }, result);
+        Assert.Equal(2, space.Provider.Calls - before);                     // only the remainder was embedded
+        Assert.All(await space.VectorsAsync("t", "s"), v => Assert.Equal(2f, v.Vector[0]));
+        Assert.Single(await space.Guard("model-b").SearchAsync(space.Collection("t", "s"), [2f, 1f, 1f], 1));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => space.Guard("model-a")
+            .UpsertAsync(space.Collection("t", "s"), "99", [1f, 1f, 1f], "stale"));
+    }
+
+    [Fact]
+    public async Task An_interrupted_pass_leaves_its_collection_claimed_by_neither_space()
+    {
+        // half old vectors, half new: no deployment may search it until a pass finishes, and the old one may
+        // not write into it
+        var space = SpacedRig.Build();
+        await RememberAsync(space.Before, "t", "s", 4);
+        using var cts = new CancellationTokenSource();
+        var second = space.Provider.Calls + 2;
+        space.Provider.OnCall = (call, ct) =>
+        {
+            if (call != second) return Task.CompletedTask;
+            cts.Cancel();
+            ct.ThrowIfCancellationRequested();
+            return Task.CompletedTask;
+        };
+
+        space.Provider.Model = 2;
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => space.After.Engine.ReindexAsync("t", ct: cts.Token));
+
+        Assert.Empty(await space.Guard("model-b").SearchAsync(space.Collection("t", "s"), [2f, 1f, 1f], 10));
+        Assert.Empty(await space.Guard("model-a").SearchAsync(space.Collection("t", "s"), [1f, 1f, 1f], 10));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => space.Guard("model-a")
+            .UpsertAsync(space.Collection("t", "s"), "99", [1f, 1f, 1f], "stale"));
+        await space.Guard("model-b").UpsertAsync(space.Collection("t", "s"), "98", [2f, 1f, 1f], "new");   // the target's own
+        Assert.Empty(await space.Guard("model-b").SearchAsync(space.Collection("t", "s"), [2f, 1f, 1f], 10));
+    }
+
+    [Fact]
+    public async Task A_failed_batch_holds_its_collection_back_and_a_rerun_resumes_from_it()
+    {
+        var space = SpacedRig.Build();
+        await RememberAsync(space.Before, "t", "s", 6);
+        var second = space.Provider.Calls + 2;
+        space.Provider.OnCall = (call, _) => call == second ? throw new InvalidOperationException("embedder down") : Task.CompletedTask;
+
+        space.Provider.Model = 2;
+        Assert.Equal(new MemoryReindexResult(4, 2), await space.After.Engine.ReindexAsync("t"));
+        Assert.Empty(await space.Guard("model-b").SearchAsync(space.Collection("t", "s"), [2f, 1f, 1f], 10));
+
+        space.Provider.OnCall = null;
+        var result = await space.After.Engine.ReindexAsync("t");
+
+        Assert.Equal(new MemoryReindexResult(4, 0) { Resumed = 2 }, result);   // from the failed batch on
+        Assert.All(await space.VectorsAsync("t", "s"), v => Assert.Equal(2f, v.Vector[0]));
+        Assert.NotEmpty(await space.Guard("model-b").SearchAsync(space.Collection("t", "s"), [2f, 1f, 1f], 10));
+    }
+
+    [Fact]
+    public async Task A_resume_covers_an_entry_written_after_the_interruption_and_skips_a_scope_forgotten()
+    {
+        var space = SpacedRig.Build();
+        await RememberAsync(space.Before, "t", "s", 4);
+        await RememberAsync(space.Before, "t", "s2", 2);
+        using var cts = new CancellationTokenSource();
+        var second = space.Provider.Calls + 2;
+        space.Provider.OnCall = (call, ct) =>
+        {
+            if (call != second) return Task.CompletedTask;
+            cts.Cancel();
+            ct.ThrowIfCancellationRequested();
+            return Task.CompletedTask;
+        };
+        space.Provider.Model = 2;
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => space.After.Engine.ReindexAsync("t", ct: cts.Token));
+        space.Provider.OnCall = null;
+
+        await RememberAsync(space.After, "t", "s", 1, label: "-later");   // into the collection mid-move
+        await space.After.Engine.ForgetAsync("t", "s2");
+        var result = await space.After.Engine.ReindexAsync("t");
+
+        Assert.Equal(new MemoryReindexResult(3, 0) { Resumed = 2 }, result);
+        var vectors = await space.VectorsAsync("t", "s");
+        Assert.Equal(5, vectors.Count);
+        Assert.All(vectors, v => Assert.Equal(2f, v.Vector[0]));
+        Assert.NotEmpty(await space.Guard("model-b").SearchAsync(space.Collection("t", "s"), [2f, 1f, 1f], 10));
+    }
+
+    [Fact]
+    public async Task A_rerun_into_a_different_space_restarts_from_zero()
+    {
+        var space = SpacedRig.Build();
+        await RememberAsync(space.Before, "t", "s", 6);
+        using var cts = new CancellationTokenSource();
+        var second = space.Provider.Calls + 2;
+        space.Provider.OnCall = (call, ct) =>
+        {
+            if (call != second) return Task.CompletedTask;
+            cts.Cancel();
+            ct.ThrowIfCancellationRequested();
+            return Task.CompletedTask;
+        };
+        space.Provider.Model = 2;
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => space.After.Engine.ReindexAsync("t", ct: cts.Token));
+        space.Provider.OnCall = null;
+
+        space.Provider.Model = 3;
+        var other = space.EngineIn("model-c");
+        var result = await other.Engine.ReindexAsync("t");
+
+        Assert.Equal(new MemoryReindexResult(6, 0), result);                  // model-b's progress is not model-c's
+        Assert.All(await space.VectorsAsync("t", "s"), v => Assert.Equal(3f, v.Vector[0]));
+        Assert.NotEmpty(await space.Guard("model-c").SearchAsync(space.Collection("t", "s"), [3f, 1f, 1f], 10));
+    }
+
+    [Fact]
+    public async Task A_finished_pass_leaves_nothing_to_resume_and_an_undeclared_space_never_resumes()
+    {
+        var space = SpacedRig.Build();
+        await RememberAsync(space.Before, "t", "s", 4);
+        space.Provider.Model = 2;
+        Assert.Equal(new MemoryReindexResult(4, 0), await space.After.Engine.ReindexAsync("t"));
+        Assert.Equal(new MemoryReindexResult(4, 0), await space.After.Engine.ReindexAsync("t"));
+
+        var rig = Build(options: new GraphMemoryOptions { ReindexBatchSize = 2 });
+        await RememberAsync(rig, "t", "s", 4);
+        using var cts = new CancellationTokenSource();
+        var second = rig.Provider.Calls + 2;
+        rig.Provider.OnCall = (call, ct) =>
+        {
+            if (call != second) return Task.CompletedTask;
+            cts.Cancel();
+            ct.ThrowIfCancellationRequested();
+            return Task.CompletedTask;
+        };
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => rig.Engine.ReindexAsync("t", ct: cts.Token));
+        rig.Provider.OnCall = null;
+        Assert.Equal(new MemoryReindexResult(4, 0), await rig.Engine.ReindexAsync("t"));   // nothing says which model
+    }
+
+    [Fact]
+    public async Task The_blend_sums_what_its_members_resumed()
+    {
+        var space = SpacedRig.Build();
+        await RememberAsync(space.Before, "t", "s", 4);
+        using var cts = new CancellationTokenSource();
+        var second = space.Provider.Calls + 2;
+        space.Provider.OnCall = (call, ct) =>
+        {
+            if (call != second) return Task.CompletedTask;
+            cts.Cancel();
+            ct.ThrowIfCancellationRequested();
+            return Task.CompletedTask;
+        };
+        space.Provider.Model = 2;
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => space.After.Engine.ReindexAsync("t", ct: cts.Token));
+        space.Provider.OnCall = null;
+
+        var result = await new CompositeMemoryEngine("blend", [space.After.Engine]).ReindexAsync("t");
+        Assert.Equal((2, 0, 2), (result.Indexed, result.Failed, result.Resumed));
+    }
+
+    /// <summary>One graph store and one vector store, seen by a deployment under <c>model-a</c> and one under
+    /// <c>model-b</c>, sharing a switchable provider; batches of two.</summary>
+    private sealed record SpacedRig(InMemoryMemoryGraphStore Store, InMemoryVectorStore Inner,
+        SwitchableVectorProvider Provider, Rig Before, Rig After)
+    {
+        public static SpacedRig Build()
+        {
+            var store = new InMemoryMemoryGraphStore();
+            var inner = new InMemoryVectorStore();
+            var provider = new SwitchableVectorProvider();
+            return new SpacedRig(store, inner, provider, Over(store, inner, provider, "model-a"),
+                Over(store, inner, provider, "model-b"));
+        }
+
+        public Rig EngineIn(string space) => Over(Store, Inner, Provider, space);
+
+        public IVectorStore Guard(string space) => VectorSpaceStore.Wrap(Inner, space, owned: false);
+
+        public string Collection(string task, string scope) => MemoryVectorCollection.For(Name, task, scope);
+
+        public async Task<IReadOnlyList<VectorEntry>> VectorsAsync(string task, string scope)
+        {
+            var nodes = await Store.SeedAsync(Name, task, scope, null, int.MaxValue);
+            return await Inner.GetAsync(Collection(task, scope),
+                [.. nodes.Select(n => n.Id.ToString(CultureInfo.InvariantCulture))]);
+        }
+
+        private static Rig Over(InMemoryMemoryGraphStore store, InMemoryVectorStore inner,
+            SwitchableVectorProvider provider, string space)
+        {
+            var guarded = VectorSpaceStore.Wrap(inner, space, owned: false);
+            var engine = new GraphMemoryEngine(Name, store, new GraphMemoryOptions { ReindexBatchSize = 2 },
+                new GraphMemorySeams
+                {
+                    AgePolicies = [new PerWriteAgePolicy()],
+                    Providers = [provider],
+                    Vectors = guarded,
+                });
+            return new Rig(engine, store, guarded, provider);
+        }
+    }
+
+    [Fact]
     public void ReindexBatchSize_below_one_is_refused() =>
         Assert.Throws<ArgumentOutOfRangeException>(() => new GraphMemoryOptions { ReindexBatchSize = 0 });
 

@@ -267,8 +267,25 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D195](#d195--a-sentence-transformers-export-is-windowed-where-sentence-transformers-cuts-it-max_seq_length-narrows-the-window-2026-09-27) | 2026-09-27 | a sentence-transformers export is windowed where sentence-transformers cuts it: `max_seq_length`… |
 | [D196](#d196--the-neutral-cwd-is-a-directory-the-process-owns-and-it-scopes-a-clis-settings-not-its-instructions-2026-09-30) | 2026-09-30 | the neutral cwd is a directory the PROCESS owns, and it scopes a CLI's settings, not its instruct… |
 | [D197](#d197--readme-is-the-landing-page-every-package-ships-the-reference-is-docsguidemd-and-the-agent-facing-files-are-maintained-state-2026-10-22) | 2026-10-22 | README is the landing page every package ships; the reference is `docs/guide.md`, and the agent-f… |
+| [D198](#d198--a-forget-is-complete-across-engine-instances-by-a-second-sweep-and-a-writes-re-read-not-by-a-fence-2026-10-24) | 2026-10-24 | a forget is complete across engine instances by a second sweep and a write's re-read, not by a fence |
+| [D199](#d199--a-declared-vector-space-stamps-each-collection-and-a-collection-is-never-read-or-written-across-spaces-2026-10-24) | 2026-10-24 | a declared vector space stamps each collection, and a collection is never read or written across… |
+| [D200](#d200--a-recall-explains-itself-when-the-query-asks-on-the-result-of-that-same-recall-2026-10-24) | 2026-10-24 | a recall explains itself when the QUERY asks, on the result of that same recall |
+| [D201](#d201--a-composition-reports-its-own-cuts-in-its-own-vocabulary-through-a-second-door-beside-render-2026-10-24) | 2026-10-24 | a composition reports its own cuts in its own vocabulary, through a second door beside `Render` |
+| [D202](#d202--the-wiring-findings-are-a-container-service-and-burial-is-counted-by-the-engine-never-the-store-2026-10-24) | 2026-10-24 | the wiring findings are a container service, and burial is counted by the engine, never the store |
+| [D203](#d203--a-curated-entrys-revision-is-checked-through-an-optional-store-capability-atomically-in-the-write-2026-10-24) | 2026-10-24 | a curated entry's revision is checked through an OPTIONAL store capability, atomically in the write |
+| [D204](#d204--memory-travels-as-versioned-jsonl-through-an-optional-engine-capability-scoped-to-one-named-task-without-vectors-2026-10-24) | 2026-10-24 | memory travels as versioned JSONL through an OPTIONAL engine capability, scoped to one named task… |
+| [D205](#d205--a-request-may-refuse-degradation-per-request-and-opt-in-and-the-router-skips-a-candidate-whose-capabilities-would-degrade-it-2026-10-24) | 2026-10-24 | a request may REFUSE degradation, per request and opt-in, and the router skips a candidate whose… |
+| [D206](#d206--a-hard-cap-is-a-hold-taken-before-the-call-through-an-optional-tracker-capability-opted-into-by-naming-the-hold-2026-10-24) | 2026-10-24 | a hard cap is a HOLD taken before the call through an OPTIONAL tracker capability, opted into by… |
+| [D207](#d207--a-calls-span-opens-at-the-outermost-layer-of-the-front-door-and-carries-no-gen_ai-tag-so-attempts-nest-under-it-and-are-counted-once-2026-10-24) | 2026-10-24 | a call's span opens at the OUTERMOST layer of the front door and carries no gen_ai.* tag, so atte… |
+| [D208](#d208--the-response-cache-partitions-by-consumer-through-a-prefix-on-the-key-opt-in-so-the-default-key-and-every-stored-entry-are-unchanged-2026-10-24) | 2026-10-24 | the response cache partitions by consumer through a PREFIX on the key, opt-in, so the default key… |
+| [D209](#d209--a-graph-engine-pins-its-embedder-by-provider-id-per-engine-and-a-pin-never-fails-over-2026-10-24) | 2026-10-24 | a graph engine PINS its embedder by provider id, per engine, and a pin never fails over |
+| [D210](#d210--a-tool-call-is-approved-inside-the-shared-invocation-flow-by-every-registered-approver-and-a-refusal-is-a-result-never-an-end-2026-10-24) | 2026-10-24 | a tool call is APPROVED inside the shared invocation flow, by every registered approver, and a re… |
+| [D211](#d211--every-storage-contract-runs-on-every-backend-from-one-theory-and-a-shared-database-is-cleared-rather-than-excused-2026-10-24) | 2026-10-24 | every storage contract runs on every backend from ONE theory, and a shared database is cleared ra… |
+| [D212](#d212--an-interrupted-re-embed-resumes-from-a-per-collection-mark-kept-in-the-vector-space-stamp-and-only-into-the-same-declared-space-2026-10-24) | 2026-10-24 | an interrupted re-embed resumes from a per-collection mark kept IN the vector-space stamp, and on… |
+| [D213](#d213--a-graph-memory-travels-with-its-decay-state-through-an-optional-store-capability-its-ages-relative-to-the-engines-head-2026-10-24) | 2026-10-24 | a graph memory travels WITH its decay state through an optional store capability, its ages relati… |
+| [D214](#d214--work-is-dispatched-by-lane-the-steward-alone-writes-the-records-and-what-every-lane-writes-is-laneless-2026-10-24) | 2026-10-24 | work is dispatched by LANE, the steward alone writes the records, and what every lane writes is l… |
 
-**192 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**209 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -5634,6 +5651,11 @@ registration take a configured backend through an overload beside the positional
 empty source list loads none, and the CLI refuses an unknown name before any turn, so the library refuses only
 what it would misread — an empty, flag-shaped, comma- or space-holding entry.
 
+**Denying a consumer's BUILT-IN tools is an allow-list, `ClaudeCompletionOptions.Tools`** (2026-10-24), `--tools`:
+measured on 2.1.309, `[]` lists none while a hosted MCP server's tools stay, and an unknown name is ignored.
+**Rejected:** `DisallowedTools`, which grants whatever a later CLI adds; a Core flag, as built-in tools are this
+CLI's vocabulary; flipping either map's no-entry default, a Breaking ruling left to the owner.
+
 **A hosted call's two settings files are MERGED, never stacked** (2026-09-30): the CLI applies only the last
 `--settings` and never reads an earlier one, so `ClaudeCliBackend` merges `SettingsPath` into the tool host's per-call
 file — objects by key, lists joined, the consumer's value winning — and hands that one; a file it cannot read as one
@@ -5808,3 +5830,296 @@ the quickstart under the reference. A short README beside an unchanged reference
 packaged README is the one document a consumer without the repository can read, so it keeps the rules and the
 package table rather than pointing at them. Three hand-kept copies of the rules with no check: the copies are
 the documents an agent trusts most and reviews least.
+
+## D198 — a forget is complete across engine instances by a second sweep and a write's re-read, not by a fence (2026-10-24)
+
+A graph engine's `ForgetAsync` sweeps the similarity index, deletes the nodes, then sweeps the index AGAIN; every
+vector upsert — a write's index step and a re-embed's — re-reads its node afterwards and takes the vector back if
+the node is gone. Because a graph store never reissues an id, any upsert lands either before the second sweep,
+which clears it, or after the node delete, which its own re-read sees. That holds for two instances over one
+store, another process included, with no lock shared between them. The in-instance removal lock stays: it is
+what keeps the common case to one sweep's worth of work.
+
+**The cost, accepted.** One more entry read per indexed write; and a write landing just after the node delete
+keeps its entry but may lose its vector to the second sweep — a recall cost a re-embed repairs, never content
+surviving a withdrawal (**D90**, **D72**). A prune from another instance stays best-effort, as pruning is.
+
+**Rejected.** A persistent per-scope generation or tombstone fence checked on every write (the external review's
+proposal, `TASKS.md` RV1): a schema change on every backend and a read on every write to close a window the
+sweep-and-re-read closes with none. A cross-process lock: no store the library ships offers one, and a BYO store
+would have to. Documenting the window as a single-process limit: it is the consent-withdrawal path, and the
+window was closable.
+
+## D199 — a declared vector space stamps each collection, and a collection is never read or written across spaces (2026-10-24)
+
+`UseVectorSpace(id)` wraps the registered `IVectorStore`. Each collection is stamped with the space that first
+wrote it, in a collection of stamps inside the same store that no listing returns; a write into a collection
+another space stamped throws, a search of one returns nothing and warns, a read-back throws, and removing a
+collection removes its stamp. `ReindexAsync` releases its collections' stamps, re-embeds, and stamps them with the
+declared space only when no batch failed. Undeclared, nothing changes. This is **D194**'s named precondition — a
+host-declared vector-space id — so its refused embed cache now has the key it lacked.
+
+**Host-declared, not derived.** A vector space is a model, its version and its preprocessing; a provider's model id
+captures the first at best, and only the host knows the rest (`generic-library.md` rule 7). **Stamps live in the
+vector store**, beside the vectors they describe, so a store reset clears both and no second storage domain must
+be registered. **An unstamped collection is adopted, not refused**, so declaring a space on a live deployment
+costs nothing — at the price that a swap made BEFORE declaring is not caught.
+
+**Rejected.** Recording the space in `IKeyValueStore`: a second store that can disagree with the vectors it
+describes, and a registration a vector-only deployment lacks. A shadow collection per space flipped after a
+re-embed: **D194** refused it by owner ruling, and every removal verb would have to sweep every space. Scoring a
+mismatched collection anyway with a warning: the silent mixing this exists to end.
+
+## D200 — a recall explains itself when the QUERY asks, on the result of that same recall (2026-10-24)
+
+`MemoryQuery.Explain` (init-only, default off) makes a graph engine attach `MemoryRecall.Candidates`: every
+candidate it gathered, with its seed-channel ranks, hop, policy score, position, verifier verdict and a
+`MemoryCandidateOutcome` naming the cut that removed it. The list is read off the sets the recall already built,
+so it adds no query and changes nothing returned, reinforced or logged; off, it costs nothing. A blend
+concatenates its members' lists and re-reports what its OWN limit and budget cut; an engine with no candidate
+stage leaves it null, so null means "not explained" and an empty list "nothing was a candidate".
+
+**Rejected.** A separate explain method: a recall MUTATES (reinforcement, co-activation), so a second call
+explains a different recall than the one the caller got, and it is a second door onto recall (**D102**). An
+`ILogger` trace: not data a caller or a bench can join against a ground truth, which measuring recall layer by
+layer (candidate, ranked, answered) needs. Always attaching it: objective (4), keep the first load cheap, would make every recall pay for the few
+that ask.
+
+## D201 — a composition reports its own cuts in its own vocabulary, through a second door beside `Render` (2026-10-24)
+
+`MemoryComposition.RenderWithManifest` returns `Render`'s text byte for byte beside one `MemoryCompositionEntry`
+per item offered: its section, a `MemoryCompositionOutcome` (`Rendered`, `CutByBudget`, `Duplicate`) and the
+CHARACTERS its line costs against the budget — the unit `MemoryCompositionOptions` is denominated in (**D66**).
+`Render` is that method's `.Text`, so the two cannot diverge.
+
+**Rejected.** Adding `Duplicate` to `MemoryCandidateOutcome` (**D200**): that enum holds one value per cut a
+RECALL makes, and a composition runs on items from anywhere — a caller's own retrieval included — so one enum
+would report a renderer's cut as a recall's. A flag on `MemoryCompositionOptions`: `Render` returns a string, so
+there is nowhere to attach the manifest without breaking its signature. D200's case against a second door does
+not carry over: `Render` is pure, so a second call renders the same composition, never a different one.
+
+## D202 — the wiring findings are a container service, and burial is counted by the engine, never the store (2026-10-24)
+
+`MemoryWiringReport`, registered with the first `AddMemoryEngine`, carries each **D85** finding as a
+`MemoryWiringFinding`: a `MemoryWiringProblem`, the engine it is about, and the sentence the factory logs.
+`ICountableMemoryGraphStore.CountAsync` counts entries, authoritative entries, links and distinct subjects per
+engine, task and scope; `GraphMemoryEngine.CountAsync` adds `Buried`.
+
+**Rejected.** A member on `IMemoryEngineFactory`: a required member breaks every factory an application wrote,
+and the findings are about the container, not about resolving one engine. Strings only: a host would branch on
+wording. A default-bodied count on `IMemoryGraphStore`: answering zero, a store that cannot count would read as an
+empty one, so it is optional (**D86**, **D194**), and the engine answers `null` without it. Burial in the store, as
+`PruneAsync`'s `age / stability` cutoff: that cutoff is conservative, so it would under-count — burial is a
+judgement of the curve, and the engine evaluates it exactly, reading the scope once, as its derivable prune does.
+
+## D203 — a curated entry's revision is checked through an OPTIONAL store capability, atomically in the write (2026-10-24)
+
+`CuratedMemory.Revision` (an init property) is 1 when an entry is added, and every write advances it, the
+unconditional `UpdateAsync` included. `IRevisionedCuratedMemoryStore` adds an `UpdateAsync(id, expectedRevision, …)`
+overload returning a `CuratedUpdateOutcome`: `Updated`, `NotFound`, `Stale` or `Refused`. All four shipped stores
+implement it. The column is `NOT NULL DEFAULT 1` on both SQL backends, and a file without the field reads 1, so
+an entry stored before revisions existed reads revision 1.
+
+**Rejected.** A member on `ICuratedMemoryStore`: it breaks every store an application wrote. A default body that
+ignores the revision: it is the lost update this exists to refuse, behind a call that reads as checked (**D86**).
+A positional `Revision` parameter: a source break for every `new CuratedMemory(…)`. A `bool` return: it cannot
+tell stale from a collision or a missing id. An exception for stale: losing a race is the expected case here, not
+a fault. A pre-read compare alone: two writers could both pass it. The SQL `WHERE` carries
+`AND revision = @expected` and reads the row count, so only one writer can match.
+
+**0 means untracked.** A store without the capability leaves the default, so a caller can tell an entry nobody
+has edited from a store that cannot check.
+
+## D204 — memory travels as versioned JSONL through an OPTIONAL engine capability, scoped to one named task, without vectors (2026-10-24)
+
+`IPortableMemory` (`ExportAsync` / `ImportAsync`) sits beside `IPrunableMemory`; `CuratedMemoryEngine` implements
+it and the blend fans out, naming a member that cannot in `Skipped`. Every line carries `v`, `record` and `engine`,
+so a reader refuses a version it does not know line by line, and the whole file is checked before the first write.
+Both verbs take a task with no default and a scope stated even when null. An import writes under the task and scope
+IT names, and adds through the store's dedup identity, so a re-import adds nothing and never overwrites.
+
+**What "never resurrecting" can mean here.** The import never writes outside its target, never touches an entry the
+target holds, and keeps a disabled entry disabled. It cannot refuse content the target forgot: no store records a
+forget, and **D198** rejected the tombstone fence that could. A file taken before a forget brings the content back,
+and the contract says so rather than implying otherwise.
+
+**Rejected.** An export member on `ICuratedMemoryStore`: a required member breaks every store an application wrote,
+and the engine is where grade, section and routing live. A default of "every task": a whole-store dump one omitted
+argument away. Honouring each line's own task on import: a file would decide where it lands, and a deployment could
+not move a task under a new name. Exporting vectors: a vector is the content under one model, so carrying it across
+deployments mixes spaces (**D199**); the receiving engine indexes on write. A header line holding the version: a
+concatenated or filtered file loses it.
+
+## D205 — a request may REFUSE degradation, per request and opt-in, and the router skips a candidate whose capabilities would degrade it (2026-10-24)
+
+`TextRequest.RequireNativeSupport` makes `TextRouter` skip a candidate that declares no
+`ProviderCapabilities.SupportsStructuredOutput` for a request carrying `JsonSchema`, or no native tool calls for one
+carrying `Tools` (`SupportsStreamingToolCalls` on a stream, **D71**). The skip is a capability gap: it benches
+nothing, its reason joins the skipped list, and a call every candidate skips so answers `Unsupported` naming each.
+Only the wire counts: the HTTP and Ollama chat backends declare it, the CLIs (prompt text) and LLamaSharp (dropped)
+do not, and a bridge declares what its registration says. The response cache folds the flag in only when set, so
+every existing key still hits and a degraded reply never serves a caller that refused one.
+
+**Rejected.** On by default: degrade-and-succeed is what every deployment has today, and the owner has not ruled it
+should end (`TASKS.md` RV11 kept it the default). A `RoutingPolicy` switch: whether a schema is load-bearing belongs to
+the CALL, and one consumer's extraction should not change another's chat. Two flags, one per field: no caller was found
+wanting a native schema with degraded tools. Asking the candidate and reading an `Unsupported` back: the CLI would not
+refuse, it would degrade and answer `Ok`.
+
+## D206 — a hard cap is a HOLD taken before the call through an OPTIONAL tracker capability, opted into by naming the hold (2026-10-24)
+
+`IReservingUsageTracker` adds `ReserveAsync` and `ReconcileAsync` to `IUsageTracker`. `BudgetGate` reserves when the
+tracker implements it AND `BudgetOptions.ReserveCostUsd` or `ReserveTokens` is set: a call is admitted only if spend
+plus every live hold plus its own fits (`UsageCaps.ExceededBy`, one rule for every tracker), and settles in a
+`finally` with no cancellation token, so a throw, a cancel or an abandoned stream releases the hold. The in-memory,
+SQLite and Postgres trackers implement it; the databases decide and write in one transaction (`BEGIN IMMEDIATE`;
+advisory locks, the ledger exclusive only under a global cap). A hold expires after `ReservationLifetime`, and
+`ResetAsync` leaves holds alone. A media submission keeps the soft check: its cost is recorded at fetch, so
+nothing could reconcile the hold.
+
+**Rejected.** A member on `IUsageTracker`: it breaks every tracker an application wrote. Reserving whenever the tracker
+can: every SQL-tracker deployment would gain a write per call and, on Postgres, a lock. A hold derived from the
+request's `MaxTokens`: tokens are not cost, and Lyntai keeps no price table to convert them. A single conditional `INSERT … SELECT`
+on Postgres: under READ COMMITTED two callers both see room. A hold without expiry: a crashed process would strand
+budget for good.
+
+## D207 — a call's span opens at the OUTERMOST layer of the front door and carries no gen_ai.* tag, so attempts nest under it and are counted once (2026-10-24)
+
+`CallSpanTextClient` wraps refusal screening in the one front-door fold every client shares (default and named),
+and `ProviderRouter<,>.CallAsync` opens the same span around its governance. Each opens `lyntai.call`
+(`ActivityKind.Internal`) tagged `lyntai.consumer`, `lyntai.call.operation` and, on text, `lyntai.call.door`; the
+attempt spans start under it unchanged. It ends with the call — a stream's when it finishes, is disposed early or
+throws — and carries `error.type` for the verdict the CALLER got, so a screened refusal, a budget or rate refusal and
+a cache hit (a span with no attempt) all read correctly. No body is recorded, whatever `RecordText` says.
+
+**Rejected.** Opening it in `TextRouter`: it would miss the cache, budget, rate-limit and screening layers, and the
+verdict on it would not be the one returned. Tagging it `gen_ai.operation.name`: a backend counting chat spans would
+count every call twice. An opt-in: nothing is emitted without a listener, and every existing span keeps its name and
+tags. The media doors: their spans are on the generation source and a durable render's span is its submission, not
+the call.
+
+## D208 — the response cache partitions by consumer through a PREFIX on the key, opt-in, so the default key and every stored entry are unchanged (2026-10-24)
+
+`CacheOptions.PartitionByConsumer` (default false) makes `CachingTextClient` store and read under
+`ResponseCacheKey.ForConsumer(key, consumer)`: the `For` hash prefixed with the consumer lower-cased and a colon. The
+`For` value is a fixed-length hash, so the prefix cannot make two keys collide, and every backend stores it as it
+stores any key. Consumers match case-insensitively, as the budget, rate limit and per-consumer models match them; a
+null or empty consumer is its own partition. `ForConsumer` is public so a caller can evict a partitioned entry.
+
+**Rejected.** Hashing the consumer into `For`: it would change every key or need a second overload, and the prefix
+leaves a partition readable in the store. Partitioning by default: one trust domain is the common shape, and
+sharing across consumers is the saving there. Leaving it to a custom `IResponseCache`: the store receives only the
+key, so it cannot see the consumer it would partition by.
+
+## D209 — a graph engine PINS its embedder by provider id, per engine, and a pin never fails over (2026-10-24)
+
+`GraphMemoryOptions.VectorProviderId` narrows a graph engine's embedding to one registered backend: the write path,
+the semantic seed's query (`MemorySeedRequest.VectorProviderId` carries it, as the request already carries the
+store) and `ReindexAsync`. It is **D148**'s shape for the embedder: null routes over every vector backend as
+before, and an id naming no backend, or one that does not embed, throws when the engine is composed.
+
+**It composes with a declared vector space (D199) and is what makes one hold.** The stamp compares the id the host
+declared, never the model that answered, so an unpinned failover writes a second model's vectors into a stamped
+collection unseen. Pinned, a failed embed stays failed — the write is stored without its vector, the re-embed counts
+it and does not re-stamp — and no other model is asked.
+
+**Rejected.** A container-wide option: each named engine carries its own configuration (**D39**), and two engines
+may index under different models. A `ProviderId` on `SemanticSeedOptions` beside it: one shared source serves every
+engine, and a second setting could name a different model from the writes it searches. Falling back to routing on a
+mis-pin: the silent degradation D148 refused. A doctor finding for the mis-pin: composition throws first; the doctor
+reports only the inert pin, one with no vector store (`MemoryWiringProblem.PinnedVectorProviderWithoutIndex`).
+
+## D210 — a tool call is APPROVED inside the shared invocation flow, by every registered approver, and a refusal is a result, never an end (2026-10-24)
+
+`IToolApprover` is a DI collection consulted in `ToolInvocation.InvokeGatedAsync`, the flow the tool loop's native
+and prompt paths and the hosted MCP endpoint already share (**D75**), so no door can skip it. It runs after the
+guard's argument gate, on the arguments that will run, and only for a tool that exists. Every approver must
+approve, in registration order; the first refusal decides. A refusal is `GatedToolResult.Denied`, never `Blocked`:
+the tool does not run, the model receives an error observation carrying the reason, and the loop goes on. An
+approver that throws or answers null refuses (fail closed), its exception logged and kept from the model; the
+caller's cancellation propagates. The request carries the consumer and, on the native path only, the call id.
+
+**Rejected.** A member on `ITool`: frozen (**D70**), and per tool where the policy is per host. A guard `Block`: it
+ends the tool loop's run as a jail violation, which is right for denied content and wrong for "not now". A single
+optional service: two concerns (a human gate and a budget, say) would have to be composed by hand. Any approver
+approving: one permissive approver would disarm every other. Failing open on a throw: an approval gate that a
+fault opens is no gate.
+
+## D211 — every storage contract runs on every backend from ONE theory, and a shared database is cleared rather than excused (2026-10-24)
+
+A storage contract (`tests/Lyntai.Tests/Storage/*Contract.cs` and its peers) is driven by a `*ContractFacts`
+base over `StoreContractSuite<T>` whose single `[ContractFacts]` theory enumerates the contract's facts by
+reflection, so a fact added to the contract is a case on every backend that derives the base, Postgres included
+(`PostgresContractTests`). A backend that cannot honour a fact says so with `[ExcludesFact]` and its reason, on
+its own suite. A fact that no key it is handed can isolate is `[Unscoped]`, and a suite whose store is shared
+across cases clears its tables before it: the `postgres` collection runs serially, so a clear is safe.
+`StoreContractCoverageTests` fails a contract no base drives, a shipped store no suite runs, a fact the binder
+cannot call, a stale exclusion and a shared suite that never clears.
+
+**Rejected.** Hand-written per-backend delegators held by a source-text scan: a fact reached InMemory and SQLite
+by a hand list too, and Postgres only once someone remembered it. Excusing table-wide facts on Postgres by name:
+it left five facts unrun on the backend most likely to diverge. A database per test: a container start per case.
+
+## D212 — an interrupted re-embed resumes from a per-collection mark kept IN the vector-space stamp, and only into the same declared space (2026-10-24)
+
+`ReindexAsync` takes a task's entries in id order. Under a declared space (**D199**) it replaces each collection's
+stamp with a MOVING mark naming the target space and the id through which the collection is re-embedded, advances
+the mark after each batch written, and stamps the collection once none of its entries failed; a failed batch holds
+its collections' marks. A rerun into the same space skips the entries at or below each mark and counts them
+`MemoryReindexResult.Resumed`. A moving collection is searched and read back by neither space and written only by
+its target, so a half-moved collection is never compared, and a write landing mid-move is already in the new space.
+
+**Only under a declared space.** The mark is safe to resume from only if the next pass embeds with the same model,
+and the space is the one thing that says so: a mark into another space is ignored and the pass starts over, and
+undeclared there is no mark. **In the stamp, not beside it**: the stamp is read on every guarded call already, so
+the moving state costs no extra read, and a mark that does not parse reads as a foreign space, which refuses.
+
+**Rejected.** A progress record in `IKeyValueStore`: **D199**'s reason — a second store that can disagree with the
+vectors, and a registration a vector-only deployment lacks. A cursor returned to the caller and passed back: the
+caller must persist it, and nothing stops it being passed to a pass under a different model. A shadow space
+flipped at the end: refused by owner ruling (**D194**). Releasing the stamp for the pass, as **D199** shipped: an
+unstamped collection is claimed by its first write, so an interrupted pass left it stamped with two models inside.
+
+## D213 — a graph memory travels WITH its decay state through an optional store capability, its ages relative to the engine's head (2026-10-24)
+
+`GraphMemoryEngine` implements `IPortableMemory` (**D204**) over `IPortableMemoryGraphStore`, which all four shipped
+stores implement: `ExportAsync` reads a task's nodes, the links leaving them to the same task and their subjects as
+of one position; `ImportNodesAsync` inserts each node WITH its stability, difficulty, recall count, signals,
+provenance, grade, metadata, creation time and subjects, under an id the store allocates; `ImportLinksAsync` inserts
+each link with its weight. A file carries one `graph` line per entry and one `link` line per link, by source id.
+
+**Ages travel relative to the head, and an import advances nothing.** Each of the four ages (position, ordinal,
+volume, elapsed) is exported as how far the entry or link sits behind where its engine stands, and imported that
+far behind where the target stands, through one rule (`MemoryGraphAnchor`). So an entry buried in the source is
+buried in the target, a recall ranks the same, and nothing the target already held ages; a target with no head is
+given one at zero, stamped at the import. **A held identity is left exactly as it is** (`MemoryContentKey`, as
+`UpsertAsync` dedups), and its links still attach; a link the target holds keeps its weight, so a second import
+writes nothing. **A link whose endpoint is not an entry of the file is dropped and counted**
+(`MemoryImportResult.LinksDropped`). **Subjects travel**: they are canonical text, not a model's projection, and
+re-deriving them costs an annotator call per entry and drifts (`docs/memory-measurements.md` §5,
+`annotation-drift-corrected-context`). The review
+log, vectors (**D204**) and the age policies' in-process state do not; an engine with an index embeds what it
+imported, best-effort, as a write does.
+
+**Rejected.** Importing through `UpsertAsync`: it stamps a fresh entry and advances the clock, erasing the state
+the file carries. Absolute marks: each engine's clock counts its own writes, so a source mark means nothing in the
+target. Advancing the target by the imported writes: every entry it already held would age by the size of a file.
+Dropping every link that touches an entry the target already held: a re-run of an interrupted import would lose
+the links between its two halves for good. Refreshing a held entry from the file: the import would overwrite what
+the target learned, which **D204** promises never to do. A required member on `IMemoryGraphStore`: it breaks every
+store an application wrote (**D202**).
+
+## D214 — work is dispatched by LANE, the steward alone writes the records, and what every lane writes is laneless (2026-10-24)
+
+`daoris.lanes.json` declares seven lanes: `records` (the steward), `memory`, `storage`, `inference`, `generation`,
+`platform` and `tools`. **The steward owns `TASKS.md`, `docs/task-archive.md`, `docs/DECISIONS.md`, `CHANGELOG.md`
+and the map**: it reserves an item's decision number at dispatch, and writes the item's backlog move, archive entry,
+decision and changelog line as the item lands; a lane session never edits them. **What every lane's change writes
+is laneless**: the API-surface baselines, the shared test doubles and the test project, the solution and the build
+props, `docs/` and `CLAUDE.md`. The append-only records are union-merged (`.gitattributes`); `TASKS.md` is not,
+since its rows move. `check-lanes` holds every file to the map (`docs/GATES.md` §check-lanes).
+
+**Rejected.** The API baselines in the `platform` lane: every public change in any lane would need `platform`,
+serializing all work through it. Lane sessions writing the changelog and the decisions under union merge: the
+owner asked the steward to keep them, so numbering and wording have one author. No lanes: the sub-agents that
+preceded them ran one at a time, serialized because every item wrote these shared files.

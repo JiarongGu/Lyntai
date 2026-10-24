@@ -8,20 +8,21 @@
 
 **Released: v3.5.3 (2026-09-30).** Eleven packages. The public API is frozen under
 SemVer 2.0 since 1.0 for every package (**D70**).
-The reasoning is `docs/DECISIONS.md`, **D1–D197** — read its generated index table rather than any list of
+The reasoning is `docs/DECISIONS.md`, **D1–D214** — read its generated index table rather than any list of
 decisions kept here.
 
-**The baseline a green run should match:** `5280 passed / 5329 total, 49 skipped` (every skip is a
-live-backend gate), e2e 3/3, guard-script tests 973/973, doc samples 59/59 — MEASURED with Docker up at
-`88a65303` (2026-10-22). No gate holds the xUnit trio (`docs/GATES.md` §Which numbers a gate holds), so:
+**The baseline a green run should match:** `5521 passed / 5570 total, 49 skipped` (every skip is a
+live-backend gate), e2e 3/3, guard-script tests 1023/1023, doc samples 69/69 — MEASURED with Docker up at
+`9afece81` (2026-10-24). No gate holds the xUnit trio (`docs/GATES.md` §Which numbers a gate holds), so:
 
 - **Re-measure it by hand after `verify`, off that run's own output**, never from a diff, and re-attest the
   COMMIT with the figures whenever they move.
 - **Accept movement only against a NAMED cause**: a test added or removed. A refactor moves nothing, and
   retiring a package costs its two `ApiSurface` theories. Any other movement is a finding.
-- **A skip count in the low HUNDREDS means Docker is down**: the Postgres leg went unexercised while every
-  gate stayed green. Start Docker and re-run; never attest a figure reconciled by arithmetic. One more skip
-  against a named new live-gated test is fine, and a LOWER count is the live suites running.
+- **A skip count in the low HUNDREDS means Docker is down**: the Postgres leg went unexercised, and `test`
+  fails on it unless the run set `LYNTAI_ALLOW_POSTGRES_SKIP=1` (`docs/GATES.md` §test). Start Docker and
+  re-run; never attest a figure reconciled by arithmetic. One more skip against a named new live-gated test
+  is fine, and a LOWER count is the live suites running.
 
 ## Dev loop
 
@@ -44,7 +45,7 @@ rebuilds it and `verify` fails while the two disagree.
 | `check-packages` | ✓ | a package missing from any registry; the misses are silent |
 | `new-package` |  | scaffold an adapter package into every registry |
 | `consumer-smoke` |  | the release gate — a fresh app against the PACKAGES. Minutes |
-| `test` | ✓ | the xUnit tests |
+| `test` | ✓ | the xUnit tests — a SKIPPED Postgres leg fails unless the run declares it |
 | `test-devtools` | ✓ | the guards' own tests — FIRST in `verify` |
 | `playground` |  | the sample console app |
 | `bench` |  | BenchmarkDotNet router/FTS benchmarks |
@@ -70,6 +71,7 @@ rebuilds it and `verify` fails while the two disagree.
 | `memory-contention` |  | judge vs cross-encoder: does moving verification off the shared model pay? |
 | `memory-decision` |  | a FORCED CHOICE at 3-7 options: one select call, or N score calls argmax'd? |
 | `tool-affordance` |  | given these tools, what do you want — through the PROMPT protocol, on a SYNTHETIC roster |
+| `bench-compare` |  | two `_bench-results/` runs, PAIRED by (arm, question): McNemar exact, refuses a mismatch |
 | `install-hooks` |  | set `core.hooksPath` — once per clone, nothing warns you |
 | `check-sensitive` | ✓ | leak scan; `--tree` for everything, not just staged |
 | `decisions-index` |  | rebuild `DECISIONS.md`'s index after adding a `D<n>` |
@@ -96,6 +98,7 @@ rebuilds it and `verify` fails while the two disagree.
 | `check-dev-loop` | ✓ | this table drifting from `devtools/commands.mjs`; `--write` rebuilds it |
 | `check-decision-claims` | ✓ | a DECISION that stopped describing the code it governs |
 | `check-encoding` | ✓ | MOJIBAKE in tracked text — no other gate can see it |
+| `check-lanes` | ✓ | a tracked file in no lane, or a lane glob that matches nothing |
 | `check-tautology` | ✓ | a rename that collapsed a CONTRAST — prose naming one thing twice |
 | `check-api-vocabulary` | ✓ | a retired name back on the frozen public surface |
 | `check-samples` | ✓ | a fenced `csharp` block that does not COMPILE — default ON |

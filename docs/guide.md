@@ -10,6 +10,8 @@ version you installed.
 
 ## Contents
 
+- [When to use Lyntai, and when not to](#when-to-use-lyntai-and-when-not-to)
+- [Start from a scenario](#start-from-a-scenario)
 - [Install and compose](#install-and-compose)
 - [The semantics you're getting (design §6)](#the-semantics-youre-getting-design-6)
 - [Structured output](#structured-output)
@@ -29,6 +31,151 @@ version you installed.
 - [CLI-agent session vs `IToolLoop` (`IAgentSession`)](#cli-agent-session-vs-itoolloop-iagentsession)
 - [Durable jobs (`Lyntai.Jobs`)](#durable-jobs-lyntaijobs)
 - [Guards, orchestration, secrets, vision](#guards-orchestration-secrets-vision)
+
+## When to use Lyntai, and when not to
+
+Lyntai is a library a .NET application links in. It has no server, no UI and no language other than C#.
+
+**It fits when** the model calls, the memory and the governance belong inside your own process:
+
+- **One application, several backends.** A hosted model first, a local `llama-server` or Ollama as the
+  offline backstop, the signed-in `claude` or `codex` CLI with no API key: all candidates behind one
+  `ITextClient`, with failover, retries and dead-host cooldown, and no proxy to run.
+- **Memory that lives in your database.** The memory engines store on SQLite, PostgreSQL, files or in memory
+  beside your own tables. The graph engine decays by interference rather than the clock, buries rather than
+  deletes, and removes only when asked: `ForgetAsync` for a user's withdrawal, `PruneAsync` for capacity.
+- **One set of controls on every call.** The response cache, usage budget and rate limit sit on the front
+  door, so the tool loop, the scorers and memory's own model calls pass through them; a tool approver sees
+  every tool call, whichever path runs it.
+
+**Reach for something else when:**
+
+- **You are building on Microsoft Agent Framework or `Microsoft.Extensions.AI`.** Lyntai ships no adapter
+  to either, in either direction (`docs/DECISIONS.md` D146): it cannot be handed to Agent Framework as an
+  `IChatClient`, and an `IChatClient` enters Lyntai only through a lambda you write
+  ([`AddBridgeProvider`](#bridging-a-backend-lyntai-has-no-provider-for-addbridgeprovider)). Lyntai has a tool
+  loop and durable jobs, not a multi-agent workflow graph. If those abstractions are what you want, use
+  Agent Framework.
+- **You need a gateway many services share.** LiteLLM is a proxy: one endpoint for every language and
+  team, virtual keys, central spend tracking and a provider catalogue far wider than Lyntai's. Lyntai's
+  budget and rate limit are per process unless you back them with shared state (`UsePostgresUsageTracking`
+  for the budget, an `IRateLimiter` of your own for the rate). The two compose: LiteLLM speaks OpenAI's
+  schema, so `AddHttpProvider` can point at it.
+- **You want a memory service that extracts facts for you.** Mem0 and Zep turn conversations into facts
+  and user profiles with a model, and Zep tracks when a fact stopped being true. Lyntai stores what you write
+  (subject annotation is opt-in, `AddMemoryAnnotation()`); it does not extract facts, and a `MemoryWrite`
+  carries no valid time, so nothing supersedes anything. An old fact fades as newer material is written and
+  recalled; it is never marked false. They also serve many languages over HTTP, which Lyntai does not.
+
+## Start from a scenario
+
+Three minimal programs, each compiled against the library on every `verify`. The sections below hold the
+semantics.
+
+**Routed text with a fallback and a hard token cap.** The hosted model answers when its key is set. Without
+one it answers `NotConfigured`, and the router moves on to the local server with no cooldown:
+
+```csharp
+using Lyntai;
+using Lyntai.Inference;
+using Microsoft.Extensions.DependencyInjection;
+
+var services = new ServiceCollection();
+services.AddLyntai(cfg => cfg
+    .AddOpenAiProvider(apiKey: Environment.GetEnvironmentVariable("OPENAI_API_KEY") ?? "", model: "gpt-4o-mini")
+    .AddLlamaProvider()                                 // llama-server on localhost:8080, the offline backstop
+    .UseDefaultCandidates("openai", "llama")
+    .ConfigureRouting(r => r.Retry(ProviderVerdict.Failed, 1))
+    .AddUsageBudget(b =>
+    {
+        b.MaxTokens = 2_000_000;                        // for the whole process
+        b.ReserveTokens = 8_000;                        // held per call while it runs, which makes the cap hard
+    }));
+
+await using var sp = services.BuildServiceProvider();
+var llm = sp.GetRequiredService<ITextClient>();
+var reply = await llm.CompleteAsync(new TextRequest { Messages = [TextMessage.User("Summarize RFC 9110 in one line.")] });
+Console.WriteLine(reply.Verdict.IsOk() ? reply.Text : $"{reply.Verdict}: {reply.Detail}");
+```
+
+**Long-term memory for an assistant.** Remember under a task (here, one user) and a scope. A later turn
+recalls what is relevant into its prompt, and a withdrawal removes the user's material:
+
+```csharp
+using Lyntai;
+using Lyntai.Cortex;
+using Lyntai.Inference;
+using Lyntai.Memory;
+using Microsoft.Extensions.DependencyInjection;
+
+var services = new ServiceCollection();
+services.AddLyntai(cfg => cfg
+    .AddClaudeCliProvider()
+    .UseDefaultCandidates("claude-cli")
+    .UseSqliteStorage("assistant.db")                   // the graph engine persists here
+    .AddMemory());                                      // one engine, "default", behind IPromptComposer
+
+await using var sp = services.BuildServiceProvider();
+var memory = sp.GetRequiredService<IMemoryEngineFactory>().Get();
+await memory.RememberAsync(new MemoryWrite("user-42", "profile", "Prefers metric units."));
+await memory.RememberAsync(new MemoryWrite("user-42", "travel", "Is going to Kyoto in April."));
+
+var question = "What should I pack?";
+var prompt = await sp.GetRequiredService<IPromptComposer>()
+    .ComposeAsync(question, taskKey: "user-42", query: question);
+var reply = await sp.GetRequiredService<ITextClient>()
+    .CompleteAsync(new TextRequest { Messages = [TextMessage.User(prompt)], Consumer = "assistant" });
+
+if (memory is IForgettableMemory forgettable)
+    await forgettable.ForgetAsync("user-42");           // every scope of the task
+```
+
+**Tool calling with approval.** Every tool call passes the registered approvers before it runs. A refusal
+reaches the model as the tool's result, and the run goes on:
+
+```csharp
+using Lyntai;
+using Lyntai.Agents;
+using Lyntai.Inference;
+using Microsoft.Extensions.DependencyInjection;
+
+public sealed class ConfirmSends : IToolApprover
+{
+    public Task<ToolApprovalResult> ApproveAsync(ToolApprovalRequest call, CancellationToken ct = default)
+    {
+        if (!call.ToolName.StartsWith("send_", StringComparison.Ordinal))
+            return Task.FromResult(ToolApprovalResult.Approve);
+        Console.Write($"Allow {call.ToolName}({call.ArgumentsJson})? [y/N] ");
+        return Task.FromResult(Console.ReadLine() == "y"
+            ? ToolApprovalResult.Approve
+            : ToolApprovalResult.Deny("the user declined to send this"));
+    }
+}
+
+public static class SupportAgent
+{
+    public static async Task RunAsync()
+    {
+        var services = new ServiceCollection();
+        services.AddLyntai(cfg => cfg
+            .AddOllamaProvider(model: "qwen3")
+            .UseDefaultCandidates("ollama")
+            .AddTool(_ => new FunctionTool("lookup_order",
+                (args, ct) => Task.FromResult("""{"status":"shipped"}"""), "Look up an order by id"))
+            .AddTool(_ => new FunctionTool("send_email",
+                (args, ct) => Task.FromResult("sent"), "Email the customer"))
+            .AddToolApprover<ConfirmSends>());
+
+        await using var sp = services.BuildServiceProvider();
+        var result = await sp.GetRequiredService<IToolLoop>().RunAsync(new TextRequest
+        {
+            Messages = [TextMessage.User("Where is order 1187? Email the customer the answer.")],
+            Consumer = "support",
+        });
+        Console.WriteLine(result.Verdict.IsOk() ? result.Answer : $"{result.Verdict}: {result.Detail}");
+    }
+}
+```
 
 ## Install and compose
 
@@ -151,7 +298,10 @@ anything being wrong with it). They hang off the enum, so they read the same off
   that supports pruning too (your app owns the pump).
 - **Curated memory catalog** (`ICuratedMemoryStore`) for hand-managed context: entries grouped by `Kind`,
   each enabled, disabled and edited individually, an app-owned `Metadata` map queryable by exact key/value,
-  keyword `SearchAsync`, and per-kind prompt sections from `CuratedMemorySections.Compose`.
+  keyword `SearchAsync`, and per-kind prompt sections from `CuratedMemorySections.Compose`. Every entry
+  carries a `Revision`, and when two writers may edit one entry, the `IRevisionedCuratedMemoryStore` overload
+  `UpdateAsync(id, expectedRevision: entry.Revision, …)` refuses a stale edit as `CuratedUpdateOutcome.Stale`
+  rather than overwriting the other writer's; every shipped store implements it.
 - **Env overrides beat code config:** `LYNTAI_TIMEOUT_SECONDS`, `LYNTAI_MAX_TIMEOUT_SECONDS`,
   `LYNTAI_DEADHOST_THRESHOLD`, `LYNTAI_DEADHOST_COOLDOWN_SECONDS`, `LYNTAI_DEFAULT_CANDIDATES`
   (`providerId[:model],…`), `LYNTAI_MODEL_<CONSUMER>` (+ `LYNTAI_DEFAULT_MODEL` alias),
@@ -181,6 +331,13 @@ var reply = await llm.CompleteJsonAsync(new TextRequest
 //  so only what code cannot fix costs a retry — a truncated object — else Failed. Design §6.)
 ```
 
+**Not every backend holds the model to the schema.** The HTTP and Ollama backends send it on the wire; a CLI
+receives it as prompt text and LLamaSharp drops it, so a fallback onto one still parses but was never
+constrained. Set `RequireNativeSupport = true` on the request and the router skips any candidate whose
+`ProviderCapabilities` do not declare `SupportsStructuredOutput` — or, for a request carrying `Tools`, native
+tool calls — and answers `Unsupported`, naming each skipped candidate, when none can (**D205**). Unset, every
+candidate is asked, as before.
+
 ## Governance: response cache, usage budget, rate limit
 
 Three opt-in layers on the single front door, so the tool loop, orchestrator and scorers all pass through
@@ -206,10 +363,16 @@ services.AddLyntai(cfg => cfg
 - **The cache** is keyed by a stable hash of the output-determining request fields and the model the call
   resolves to — `Consumer` itself excluded, so two consumers issuing the same request to the same model share a
   hit; a live route, or a client's candidate list when a candidate pins a model, joins the key — and holds only
-  clean `Ok`, non-streaming completions without native tools.
+  clean `Ok`, non-streaming completions without native tools. **When consumers are tenants, set
+  `c.PartitionByConsumer = true`**: each consumer then gets its own entries, on every backend (`docs/DECISIONS.md`
+  **D208**).
 - **The budget** refuses a completion over a cap with `Verdict == Refused`, calling no provider. The ceiling
   is **soft**: the call that crosses a cap still runs, the next is refused. `IUsageTracker.TotalAsync()` and
-  `ResetAsync()` read and reset spend at runtime.
+  `ResetAsync()` read and reset spend at runtime. **For a hard cap, set `b.ReserveCostUsd`** (or `ReserveTokens`)
+  to the most one call can cost: each call then holds that much before it runs, admitted only if spend plus every
+  call in flight still fits, and settles to what it reported afterwards, whether it succeeds, fails or is
+  cancelled (`docs/DECISIONS.md` **D206**). Every shipped tracker can reserve (`IReservingUsageTracker`); a custom
+  one that does not keeps the soft check.
 - **The rate limit** is a token bucket: over the rate a call waits briefly for a permit, then is refused with
   `RateLimited`. Register your own `IRateLimiter` for a limiter shared across processes.
 
@@ -392,7 +555,11 @@ meterProviderBuilder.AddMeter(LyntaiDiagnostics.AgentMeterName);              //
 ```
 
 `chat {model}` spans carry `gen_ai.system` (provider id), `gen_ai.request.model`, token usage and
-`error.type` (the verdict); a `tool_loop` span nests one `execute_tool {name}` span per call. `ITraceService`
+`error.type` (the verdict), one per provider attempt. Each sits under the call's own `lyntai.call` span — opened
+by every text front door and by the generic router, tagged `lyntai.consumer`, `lyntai.call.operation` and
+`error.type` when the caller got a failure — so a fallback reads as one call with two attempts, and a cache hit as a
+call with none (`docs/DECISIONS.md` **D207**). No span records the request or reply text. A `tool_loop` span nests
+one `execute_tool {name}` span per call. `ITraceService`
 is separate and **app-driven**: a durable, queryable run history you record yourself (`Begin(sessionId, mode)`,
 `recorder.Record(step)`) into the wired `ITraceStore`.
 
@@ -459,6 +626,7 @@ decorated interface fails the tests until it is listed here, and so does a row n
 | `IMemoryAgePolicy` | `BurstDampenedAgePolicy` | every member; `Kind` says when not to forward |
 | `IMemoryRankingPolicy` | `CompositeRankingPolicy`, over two | `Rank` |
 | `IMemoryRetrievabilityPolicy` | `ModulatedRetrievability` | every member; `Provenance`, `CandidateCutoff` and `DerivedGrade` say how |
+| `IVectorStore` | the vector-space guard `UseVectorSpace` composes (**D199**) | every member, the filtered `SearchAsync` included, whose default ranks the whole collection; and the optional halves the store has, never one it lacks |
 <!-- decorated-interfaces:end -->
 
 ## Backend self-maintenance: version · upgrade · pinned install · auth
@@ -528,17 +696,23 @@ discovered as a failed turn.
 **A one-shot claude call's own flags, by consumer.** The library's own model seams call under their consumers —
 `"memory"` for annotation and verification, `"scoring"` for the LLM scorers — so a configured backend says how each
 consumer's completions are spawned: the request's `Consumer` entry, then `"default"`, then the plain argv.
-`AskUserQuestion` is always denied; a list adds to it:
+`AskUserQuestion` is always denied, and a `DisallowedTools` list adds to it. `Tools` is the allow-list instead: the
+only built-in tools the call has, so a tool a later CLI adds is never granted by omission, and `[]` leaves none.
+Deny by default and list the consumers that need tools, as the tool host's map does below:
 
 ```csharp
 cfg.AddClaudeCliProvider(new ClaudeCliBackend
 {
     CompletionByConsumer = new Dictionary<string, ClaudeCompletionOptions>
     {
-        ["default"] = new() { DisallowedTools = ["PowerShell", "Monitor"] },   // no shell for a judge or a scorer
+        ["default"] = new() { Tools = [] },   // memory, scoring and every unlisted consumer: no built-in tool
+        ["study"] = new() { DisallowedTools = ["PowerShell", "Monitor"] },   // the CLI's set, less a shell
     },
 });
 ```
+
+`Tools` governs the CLI's BUILT-IN tools only: a hosted call's MCP tools still reach it, and which of yours a consumer
+is handed is `McpToolHostOptions.ToolsByConsumer`'s to say, so denying by default takes `[]` in both maps.
 
 `SettingSources` and `StrictMcpConfig` scope what a call LOADS: `[]` loads no settings source — no project
 `CLAUDE.md`, even one in a parent directory, which the CLI walks up to — and strict MCP config starts no server from a
@@ -753,6 +927,23 @@ that would serve has it and a **prompt protocol** over the text contract elsewhe
 An unknown or throwing tool becomes a recoverable `error: …` observation; a refusal or all-providers-down
 verdict surfaces on `result.Verdict`.
 
+**Approving a call before it runs.** An `IToolApprover` sees every tool call — its tool name, its arguments,
+the request's `Consumer` and, on the native path, the model's call id — before the tool runs, on the native
+path, the prompt protocol and the hosted MCP endpoint below alike. Register one with
+`cfg.AddToolApprover<WritesOnlyForStudy>()`; every registered approver must approve, in registration order.
+A refusal does not end the run: the model receives `error: tool call refused by approval: <reason>` as the
+call's result and carries on. An approver that throws refuses the call (`docs/DECISIONS.md` D210).
+
+```csharp
+public sealed class WritesOnlyForStudy : IToolApprover
+{
+    public Task<ToolApprovalResult> ApproveAsync(ToolApprovalRequest call, CancellationToken ct = default) =>
+        Task.FromResult(call.ToolName.StartsWith("write_", StringComparison.Ordinal) && call.Consumer != "study"
+            ? ToolApprovalResult.Deny("writing files is open only to the study assistant")
+            : ToolApprovalResult.Approve);
+}
+```
+
 **MCP tools** (`Lyntai.Tools.Mcp`) — point the loop at a Model Context Protocol server and its tools
 become `ITool`s. Your app owns the MCP connection; Lyntai adapts:
 
@@ -784,7 +975,8 @@ empty list hosts none and starts no host — the fast plain call — and names h
 even if only your own calls use tools:** the library's model seams spawn the CLI under THEIR consumers —
 `"memory"` for memory annotation and verification, `"scoring"` for the LLM scorers — so with no map each of those
 calls hosts every registered tool and starts a host for it, while an annotation prompt carries stored content
-your users wrote. Deny by default, and list the consumers that need tools:
+your users wrote. Deny by default, and list the consumers that need tools; a claude backend's own `"default"` entry
+with `Tools = []` (above) keeps the CLI's built-in tools from those calls too:
 
 ```csharp
 services.AddLyntai(b => b

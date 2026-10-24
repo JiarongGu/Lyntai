@@ -54,8 +54,11 @@ public sealed class SemanticSeedSource(
         IReadOnlyList<VectorMatch> near;
         try
         {
+            // the engine validated its pin when composed; a hand-built pairing that disagrees lands in the catch
+            var embedders = EmbeddingRouting.Pinned(providers, request.VectorProviderId,
+                $"{nameof(MemorySeedRequest)}.{nameof(MemorySeedRequest.VectorProviderId)}");
             var vector = await EmbeddingRouting.EmbedOneAsync(
-                providers, request.Query.Query, EmbeddingRole.Query, _logger, routing,
+                embedders, request.Query.Query, EmbeddingRole.Query, _logger, routing,
                 ProviderConsumers.Memory, ct).ConfigureAwait(false);
             // SEARCH width is _options.K alone, exactly what today's engine passes to every SearchAsync call
             // — never narrowed by request.Limit, or a small recall limit would silently shrink what this

@@ -266,6 +266,22 @@ public sealed class LyntaiBuilder
         return this;
     }
 
+    /// <summary>Register an <see cref="IToolApprover"/>: every tool call, through the tool loop or the hosted MCP
+    /// endpoint, must pass every registered approver before the tool runs.</summary>
+    public LyntaiBuilder AddToolApprover<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] T>()
+        where T : class, IToolApprover
+    {
+        Services.AddSingleton<IToolApprover, T>();
+        return this;
+    }
+
+    /// <summary>Register a tool approver built from the service provider.</summary>
+    public LyntaiBuilder AddToolApprover(Func<IServiceProvider, IToolApprover> factory)
+    {
+        Services.AddSingleton(factory);
+        return this;
+    }
+
     /// <summary>Register an <see cref="IJobHandler"/> into the durable-job handler collection
     /// (keyed by its <c>Type</c>).</summary>
     public LyntaiBuilder AddJobHandler<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] T>()
@@ -475,7 +491,7 @@ public sealed class LyntaiBuilder
     /// (<c>MaxCostUsd</c>/<c>MaxTokens</c>) with optional per-consumer overrides; also
     /// <c>LYNTAI_BUDGET_MAX_COST_USD</c> / <c>LYNTAI_BUDGET_MAX_TOKENS</c>. The applicable total is checked
     /// BEFORE each call (a call whose cost isn't yet known can push a total slightly past the cap — a soft
-    /// ceiling). Query or reset spend at runtime via the registered
+    /// ceiling; <see cref="BudgetOptions.ReserveCostUsd"/> makes it hard). Query or reset spend at runtime via the registered
     /// <see cref="IUsageTracker"/>; register your own before this to override the
     /// in-memory default. Folds at <see cref="BudgetDecoratorOrder"/>.</summary>
     public LyntaiBuilder AddUsageBudget(Action<BudgetOptions>? configure = null)
@@ -564,6 +580,28 @@ public sealed class LyntaiBuilder
     public LyntaiBuilder AddSemanticMemory()
     {
         SemanticMemoryRequested = true;
+        return this;
+    }
+
+    /// <summary>Set by <see cref="UseVectorSpace"/>: the vector space every collection the store holds is stamped with.</summary>
+    internal string? VectorSpace { get; private set; }
+
+    /// <summary>Declare which vector space this deployment's embedder produces — a name the host chooses for a
+    /// model, its version and its preprocessing, such as <c>"bge-m3@1"</c> — so vectors from two embedders are never
+    /// mixed or compared. Change it whenever the embedder changes, even to a model of the same dimension.
+    /// <para>The registered <see cref="IVectorStore"/> is wrapped. Each collection is stamped with the space that
+    /// first wrote it; a write into a collection another space stamped THROWS, a search of one finds nothing and
+    /// logs a warning, and a read-back throws. A graph engine's <c>ReindexAsync</c> moves a collection to the
+    /// declared space when it re-embeds it without a failure; a semantic collection moves by forgetting and
+    /// re-remembering it. A collection written before the space was declared is unstamped: it is read as before, and
+    /// its first write claims it — so declare the space BEFORE changing the embedder. Each guarded call costs one
+    /// extra read of the stamp.</para>
+    /// <para>Wraps the store registered when <c>AddLyntai</c> returns; one registered afterwards is not wrapped.</para></summary>
+    /// <param name="id">The vector space's name; compared ordinally.</param>
+    public LyntaiBuilder UseVectorSpace(string id)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(id);
+        VectorSpace = id;
         return this;
     }
 

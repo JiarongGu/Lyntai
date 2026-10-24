@@ -175,6 +175,88 @@ public static class CuratedMemoryStoreContract
         Assert.True(await store.UpdateAsync(twin, scope: "site:zh", content: "the selector is .price"));
     }
 
+    // every shipped store implements the revision capability, so a store that drops it fails here, not silently
+    private static IRevisionedCuratedMemoryStore Revisioned(ICuratedMemoryStore store) =>
+        Assert.IsAssignableFrom<IRevisionedCuratedMemoryStore>(store);
+
+    /// <summary><see cref="CuratedMemory.Revision"/> is 1 when added and one more on EVERY update that writes —
+    /// the unconditional one included — while a refused collision and a dedup hit write nothing and so move
+    /// nothing. Kind-parameterized for the shared container.</summary>
+    public static async Task Revision_starts_at_one_and_every_write_advances_it(ICuratedMemoryStore store,
+        string kind = "revision")
+    {
+        var revisioned = Revisioned(store);
+        var id = await store.AddAsync(kind, "a fact that will be edited");
+        Assert.Equal(1, (await store.GetAsync(id))!.Revision);
+        Assert.Equal(1, (await store.ListAsync(kind: kind)).Single().Revision); // every read path carries it
+
+        Assert.True(await store.UpdateAsync(id, enabled: false));               // the unconditional update bumps too
+        Assert.Equal(2, (await store.GetAsync(id))!.Revision);
+
+        Assert.Equal(CuratedUpdateOutcome.Updated, await revisioned.UpdateAsync(id, expectedRevision: 2, content: "edited"));
+        var edited = (await store.GetAsync(id))!;
+        Assert.Equal((3L, "edited", false), (edited.Revision, edited.Content, edited.Enabled)); // null = unchanged still
+
+        // a dedup hit returns the entry without writing it, so its revision stays put
+        Assert.Equal(id, await store.AddAsync(kind, "edited", dedup: true));
+        Assert.Equal(3, (await store.GetAsync(id))!.Revision);
+
+        // a refused collision writes nothing, through either door
+        var other = await store.AddAsync(kind, "the other fact");
+        Assert.False(await store.UpdateAsync(other, content: "edited"));
+        Assert.Equal(CuratedUpdateOutcome.Refused, await revisioned.UpdateAsync(other, expectedRevision: 1, content: "edited"));
+        var untouched = (await store.GetAsync(other))!;
+        Assert.Equal((1L, "the other fact"), (untouched.Revision, untouched.Content));
+
+        Assert.Equal(CuratedUpdateOutcome.NotFound, await revisioned.UpdateAsync(-1, expectedRevision: 1, content: "x"));
+    }
+
+    /// <summary>An update conditioned on a revision the entry has moved past is <see cref="CuratedUpdateOutcome.Stale"/>
+    /// and writes NOTHING — not one field of the call — and the stale check runs before the collision check, so a
+    /// writer holding an old copy is told to re-read rather than told its edit collides.</summary>
+    public static async Task A_stale_revision_is_refused_and_writes_nothing(ICuratedMemoryStore store,
+        string kind = "stale")
+    {
+        var revisioned = Revisioned(store);
+        var id = await store.AddAsync(kind, "first draft", metadata: Meta(("by", "a")));
+        Assert.True(await store.UpdateAsync(id, content: "second draft"));     // someone else's edit: now revision 2
+
+        Assert.Equal(CuratedUpdateOutcome.Stale, await revisioned.UpdateAsync(id, expectedRevision: 1,
+            content: "my draft", enabled: false, kind: kind + "-moved", taskKey: "t", scope: "s", metadata: Meta(("by", "b"))));
+        var kept = (await store.GetAsync(id))!;
+        Assert.Equal((2L, "second draft", true, kind, (string?)null, (string?)null, "a"),
+            (kept.Revision, kept.Content, kept.Enabled, kept.Kind, kept.TaskKey, kept.Scope, kept.Metadata?["by"]));
+
+        // a revision AHEAD of the entry is as stale as one behind it
+        Assert.Equal(CuratedUpdateOutcome.Stale, await revisioned.UpdateAsync(id, expectedRevision: 3, content: "x"));
+
+        // stale wins over a collision the same call would also make
+        await store.AddAsync(kind, "taken");
+        Assert.Equal(CuratedUpdateOutcome.Stale, await revisioned.UpdateAsync(id, expectedRevision: 1, content: "taken"));
+
+        // re-read, decide again, and the edit lands
+        Assert.Equal(CuratedUpdateOutcome.Updated, await revisioned.UpdateAsync(id, expectedRevision: 2, content: "my draft"));
+        Assert.Equal((3L, "my draft"), ((await store.GetAsync(id))!.Revision, (await store.GetAsync(id))!.Content));
+    }
+
+    /// <summary>The lost update this exists to end: writers racing on ONE revision, and exactly one of them wins —
+    /// the rest are told <see cref="CuratedUpdateOutcome.Stale"/>, and the entry holds the winner's content at
+    /// the next revision.</summary>
+    public static async Task Racing_writers_on_one_revision_let_exactly_one_win(ICuratedMemoryStore store,
+        string kind = "race")
+    {
+        var revisioned = Revisioned(store);
+        var id = await store.AddAsync(kind, "contested");
+
+        var outcomes = await Task.WhenAll(Enumerable.Range(0, 8).Select(i => Task.Run(async () =>
+            (Writer: i, Outcome: await revisioned.UpdateAsync(id, expectedRevision: 1, content: $"writer {i}")))));
+
+        var winner = Assert.Single(outcomes, o => o.Outcome == CuratedUpdateOutcome.Updated);
+        Assert.All(outcomes.Where(o => o.Writer != winner.Writer), o => Assert.Equal(CuratedUpdateOutcome.Stale, o.Outcome));
+        var after = (await store.GetAsync(id))!;
+        Assert.Equal((2L, $"writer {winner.Writer}"), (after.Revision, after.Content));
+    }
+
     /// <summary>Kind-parameterized for the shared Postgres container; the cross-kind enabled filter is
     /// asserted by CONTAINMENT (a table-wide count would see other tests' rows there).</summary>
     public static async Task List_filters_by_kind_and_enabled(ICuratedMemoryStore store,

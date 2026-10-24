@@ -1,0 +1,126 @@
+{
+  "_why": "This repository's lanes: the domains work is dispatched to as a quest to `Lyntai:<lane>` (or `Lyntai:<lane>+<lane>` for an item that cuts across two), each owning its paths (D214; the format is Daoris's, its D115). `id` is how work addresses a lane: lower-case letters, digits and dashes, starting with a letter, unique here. `title` and `summary` are for the people and agents that address it. A path belongs to the first lane that owns it, the steward's before the rest. `steward` marks the one lane that keeps the records, which a lane session never edits. `laneless` lists what belongs to no lane on purpose, each group with its reason: any lane's change may write it. `check-lanes` refuses a tracked file that is in no lane and not listed there, a file listed laneless that a lane also owns, and a glob that matches nothing, so a new path is placed when it is added, never left outside silently. Globs: `*` stays inside one folder, `**` crosses folders, `{a,b}` is either, and a path starting `!` carves files out of the globs before it in the same list.",
+
+  "lanes": [
+    {
+      "id": "records",
+      "title": "Records",
+      "steward": true,
+      "summary": "The backlog, its archive, the decisions record, the changelog and this map: the steward's records, which a lane session never edits.",
+      "_why": "The steward splits work into lane quests, reserves each one's decision number, and writes its backlog move, archive entry, decision and changelog line as each lands. The archive, the decisions record and the changelog are union-merged (`.gitattributes`); the backlog is not, since its rows move.",
+      "paths": ["TASKS.md", "docs/task-archive.md", "docs/DECISIONS.md", "CHANGELOG.md", "daoris.lanes.json"]
+    },
+    {
+      "id": "memory",
+      "title": "Memory",
+      "summary": "Long-term memory: the engines, stores' contracts and capabilities under Core's Memory folder, their tests, and the memory benches.",
+      "paths": [
+        "src/Lyntai.Core/Memory/**",
+        "tests/Lyntai.Tests/Memory/**",
+        "tests/Lyntai.Tests/Vectors/**",
+        "bench/**"
+      ]
+    },
+    {
+      "id": "storage",
+      "title": "Storage",
+      "summary": "The storage contracts and row types in Core, every storage package and its migrations, the linked relational source, and the storage tests.",
+      "paths": [
+        "src/Lyntai.Core/Storage/**",
+        "src/Lyntai.Storage.*/**",
+        "src/Shared/**",
+        "tests/Lyntai.Tests/Storage/**"
+      ]
+    },
+    {
+      "id": "inference",
+      "title": "Inference",
+      "summary": "Calling a model: routing and fallback, the providers and their packages, the process runner CLI providers use, the tokenizers, the MCP tool host, and their tests.",
+      "paths": [
+        "src/Lyntai.Core/Inference/**",
+        "src/Lyntai.Core/Processes/**",
+        "src/Lyntai.Core/Text/**",
+        "src/Lyntai.Providers.*/**",
+        "src/Lyntai.Tools.Mcp/**",
+        "tests/Lyntai.Tests/Inference/**",
+        "tests/Lyntai.Tests/Providers/**",
+        "tests/Lyntai.Tests/Processes/**",
+        "tests/Lyntai.Tests/Text/**",
+        "tests/Lyntai.Tests/Tools/**"
+      ]
+    },
+    {
+      "id": "generation",
+      "title": "Generation",
+      "summary": "Media generation: its contracts in Core, the generation package, and their tests.",
+      "paths": [
+        "src/Lyntai.Core/Generation/**",
+        "src/Lyntai.Generation/**",
+        "tests/Lyntai.Tests/Generation/**"
+      ]
+    },
+    {
+      "id": "platform",
+      "title": "Platform",
+      "summary": "The rest of Core: the composition root, options, jobs, agents, guards, secrets, prompts, cortex and diagnostics, the secrets and bundle packages, and their tests.",
+      "_why": "The composition root (`LyntaiBuilder`) is here, so a lane whose feature adds a builder method is addressed with this one too.",
+      "paths": [
+        "src/Lyntai.Core/*.cs",
+        "src/Lyntai.Core/Lyntai.Core.csproj",
+        "src/Lyntai.Core/{Agents,Cortex,DependencyInjection,Diagnostics,Guards,Jobs,Prompts,Secrets}/**",
+        "src/Lyntai.Secrets.Dpapi/**",
+        "src/Lyntai.Bundle/**",
+        "tests/Lyntai.Tests/{Agents,Cortex,Diagnostics,Guards,Jobs,Prompts,Secrets}/**",
+        "tests/Lyntai.Tests/AddLyntaiTests.cs",
+        "tests/Lyntai.Tests/LyntaiOptionsTests.cs"
+      ]
+    },
+    {
+      "id": "tools",
+      "title": "Tools",
+      "summary": "This repository's own tooling and gates: devtools, the hooks, the CI workflow, the gates' declaration, and the ignore and attribute rules.",
+      "paths": [
+        "devtools/**",
+        ".github/**",
+        ".gitattributes",
+        ".gitignore",
+        "daoris.gates.json"
+      ]
+    }
+  ],
+
+  "laneless": [
+    {
+      "what": "The docs and the briefs: read by every lane and written by the change that makes them stale. The steward's records are carved out. CLAUDE.md's counted lines (the decision range and the baseline) are the steward's by convention; its dev-loop table is generated from the tools lane's roster.",
+      "paths": [
+        "docs/**",
+        "!docs/task-archive.md",
+        "!docs/DECISIONS.md",
+        "README.md",
+        "CLAUDE.md",
+        "llms.txt",
+        "context7.json",
+        "LICENSE",
+        "samples/**"
+      ]
+    },
+    {
+      "what": "The doctrine and its mirror: a canon change re-syncs them in one commit, whichever lane asked for it.",
+      "paths": ["AGENTS.md", "daoris.json", "daoris.lock", ".agents/**", ".claude/**", "tests/AGENTS.md", "tests/CLAUDE.md"]
+    },
+    {
+      "what": "What every lane's public change writes: the API-surface baselines change with whichever package's surface moved, and the shared test doubles, live-model helpers and test project serve every suite.",
+      "paths": [
+        "tests/Lyntai.Tests/Api/**",
+        "tests/Lyntai.Tests/Fakes/**",
+        "tests/Lyntai.Tests/Live/**",
+        "tests/Lyntai.Tests/Lyntai.Tests.csproj",
+        "tests/Lyntai.Tests/GlobalUsings.cs"
+      ]
+    },
+    {
+      "what": "Build settings every project shares, and the solution a new package enters: a package added in any lane writes them.",
+      "paths": ["Lyntai.slnx", "Directory.Packages.props", "src/Directory.Build.props", "src/Directory.Packages.props"]
+    }
+  ]
+}

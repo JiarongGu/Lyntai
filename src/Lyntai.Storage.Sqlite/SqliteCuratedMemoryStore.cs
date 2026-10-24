@@ -15,13 +15,13 @@ namespace Lyntai.Storage.Sqlite;
 /// <c>lyntai_curated_meta(memory_id, key, value)</c> index (kept in sync in the write transaction; the FK
 /// cascade clears it on delete). Timestamps are TEXT (the shared handler); <c>enabled</c> is an INTEGER bool.</summary>
 public sealed class SqliteCuratedMemoryStore(IDbConnectionFactory factory,
-    ILogger<SqliteCuratedMemoryStore>? logger = null, Func<DateTimeOffset>? clock = null) : ICuratedMemoryStore
+    ILogger<SqliteCuratedMemoryStore>? logger = null, Func<DateTimeOffset>? clock = null) : IRevisionedCuratedMemoryStore
 {
     // the released schema's column is `task`; the record property is TaskKey — alias so Dapper's
     // MatchNamesWithUnderscores maps task_key → TaskKey. WHERE/INSERT keep the bare `task` column name.
-    private const string Cols = "id, kind, content, enabled, created_at, updated_at, task AS task_key, scope, metadata";
+    private const string Cols = "id, kind, content, enabled, created_at, updated_at, task AS task_key, scope, metadata, revision";
     // the same columns `m.`-qualified, for the FTS JOIN in SearchAsync
-    private const string ColsM = "m.id, m.kind, m.content, m.enabled, m.created_at, m.updated_at, m.task AS task_key, m.scope, m.metadata";
+    private const string ColsM = "m.id, m.kind, m.content, m.enabled, m.created_at, m.updated_at, m.task AS task_key, m.scope, m.metadata, m.revision";
     private readonly ILogger _logger = logger ?? NullLogger<SqliteCuratedMemoryStore>.Instance;
     private readonly Func<DateTimeOffset> _clock = clock ?? (() => DateTimeOffset.UtcNow);
 
@@ -56,7 +56,17 @@ public sealed class SqliteCuratedMemoryStore(IDbConnectionFactory factory,
 
     public async Task<bool> UpdateAsync(long id, string? content = null, bool? enabled = null, string? kind = null,
         string? taskKey = null, string? scope = null,
-        IReadOnlyDictionary<string, string>? metadata = null, CancellationToken ct = default)
+        IReadOnlyDictionary<string, string>? metadata = null, CancellationToken ct = default) =>
+        await UpdateCoreAsync(id, null, content, enabled, kind, taskKey, scope, metadata, ct).ConfigureAwait(false)
+            == CuratedUpdateOutcome.Updated;
+
+    public Task<CuratedUpdateOutcome> UpdateAsync(long id, long expectedRevision, string? content = null,
+        bool? enabled = null, string? kind = null, string? taskKey = null, string? scope = null,
+        IReadOnlyDictionary<string, string>? metadata = null, CancellationToken ct = default) =>
+        UpdateCoreAsync(id, expectedRevision, content, enabled, kind, taskKey, scope, metadata, ct);
+
+    private async Task<CuratedUpdateOutcome> UpdateCoreAsync(long id, long? expectedRevision, string? content, bool? enabled,
+        string? kind, string? taskKey, string? scope, IReadOnlyDictionary<string, string>? metadata, CancellationToken ct)
     {
         var now = _clock();
         var replaceMeta = metadata is not null;                    // non-null (incl. empty) = replace; null = leave
@@ -68,7 +78,8 @@ public sealed class SqliteCuratedMemoryStore(IDbConnectionFactory factory,
         var cur = await conn.QuerySingleOrDefaultAsync<CuratedMemoryRow>(new CommandDefinition(
             $"SELECT {Cols} FROM lyntai_curated_memory WHERE id = @id", new { id },
             transaction: tx, cancellationToken: ct)).ConfigureAwait(false);
-        if (cur is null) return false;                             // no such row (the tx rolls back on dispose)
+        if (cur is null) return CuratedUpdateOutcome.NotFound;     // (the tx rolls back on dispose)
+        if (expectedRevision is { } expected && cur.Revision != expected) return CuratedUpdateOutcome.Stale;
         var newKind = kind ?? cur.Kind;
         var newContent = content ?? cur.Content;
         // resolved in C#, not in the SET: NULL is a LEGAL stored value, so COALESCE cannot carry the sentinel
@@ -86,7 +97,7 @@ public sealed class SqliteCuratedMemoryStore(IDbConnectionFactory factory,
                 LIMIT 1
                 """, new { id, kind = newKind, content = newContent, task = newTask, scope = newScope },
                 transaction: tx, cancellationToken: ct)).ConfigureAwait(false);
-            if (clash is not null) return false;                   // refused (the tx rolls back on dispose)
+            if (clash is not null) return CuratedUpdateOutcome.Refused; // (the tx rolls back on dispose)
         }
 
         // the identity columns are written from the resolved values; enabled keeps COALESCE (no clear sentinel
@@ -100,17 +111,21 @@ public sealed class SqliteCuratedMemoryStore(IDbConnectionFactory factory,
                 task    = @newTask,
                 scope   = @newScope,
                 {{(replaceMeta ? "metadata = @metaJson," : "")}}
-                updated_at = @now
-            WHERE id = @id
-            """, new { id, newContent, enabled, newKind, newTask, newScope, metaJson, now }, transaction: tx, cancellationToken: ct)).ConfigureAwait(false);
+                updated_at = @now,
+                revision = revision + 1
+            WHERE id = @id{{(expectedRevision is null ? "" : " AND revision = @expectedRevision")}}
+            """, new { id, expectedRevision, newContent, enabled, newKind, newTask, newScope, metaJson, now }, transaction: tx, cancellationToken: ct)).ConfigureAwait(false);
         if (replaceMeta && n > 0)
         {
             await conn.ExecuteAsync(new CommandDefinition(
                 "DELETE FROM lyntai_curated_meta WHERE memory_id = @id", new { id }, transaction: tx, cancellationToken: ct)).ConfigureAwait(false);
             await WriteMetaAsync(conn, tx, id, metadata, ct).ConfigureAwait(false);
         }
+        // the revision guard in the WHERE is what makes check-and-write atomic: a writer that committed since the
+        // read above leaves this matching no row (a racing delete reads as stale too; the re-read says which)
+        if (n == 0) return expectedRevision is null ? CuratedUpdateOutcome.NotFound : CuratedUpdateOutcome.Stale;
         await tx.CommitAsync(ct).ConfigureAwait(false);
-        return n > 0;
+        return CuratedUpdateOutcome.Updated;
     }
 
     public async Task<bool> RemoveAsync(long id, CancellationToken ct = default)

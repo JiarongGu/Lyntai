@@ -222,6 +222,61 @@ internal sealed class MemoryGraphState(Func<DateTimeOffset> clock)
         return change;
     }
 
+    /// <summary>Insert nodes WITH their state, each age re-anchored to the engine's head (MemoryGraphAnchor); a held
+    /// identity is left alone. Advances nothing — an engine with no head yet gets one at zero, stamped now.</summary>
+    public (GraphChange Change, IReadOnlyList<GraphNodeImportResult> Results) PlanImportNodes(string engine,
+        string taskKey, IReadOnlyList<GraphNodeImport> nodes)
+    {
+        var change = new GraphChange();
+        var results = new List<GraphNodeImportResult>(nodes.Count);
+        if (nodes.Count == 0) return (change, results);
+        if (!_totals.TryGetValue(engine, out var head))
+            change.Totals.Add((engine, head = new GraphTotals(0, 0, 0, clock())));
+        var planned = new Dictionary<(string, string, string, string), long>();
+        var next = _nextId;
+        foreach (var node in nodes)
+        {
+            var identity = (engine, taskKey, node.Scope, node.Content);
+            if (_identity.TryGetValue(identity, out var held) || planned.TryGetValue(identity, out held))
+            {
+                results.Add(new GraphNodeImportResult(held, false));
+                continue;
+            }
+            var id = next++;
+            planned[identity] = id;
+            change.Nodes.Add((null, new GraphRow(
+                new GraphNodeRecord(id, engine, taskKey, node.Scope, node.Headline, node.Content, node.Grade,
+                    node.CreatedAt, node.Metadata is { Count: > 0 } ? node.Metadata : null),
+                new GraphNodeState(node.RecallCount, node.Stability, MemoryGraphAnchor.Behind(head.Position, node.Age),
+                    node.Signals, MemoryGraphAnchor.Behind(head.Ordinal, node.OrdinalAge),
+                    MemoryGraphAnchor.Behind(head.Chars, node.VolumeAge), MemoryGraphAnchor.Behind(head.EncodedAt, node.ElapsedAge),
+                    node.ProvenanceRetrievability, node.ProvenanceSalience, node.Difficulty))));
+            if (MemorySubject.Canonicalize(node.Subjects) is { Count: > 0 } subjects) change.Subjects.Add((engine, id, subjects));
+            results.Add(new GraphNodeImportResult(id, true));
+        }
+        return (change, results);
+    }
+
+    /// <summary>Insert links WITH their weight and re-anchored marks, only between two nodes the engine holds and never
+    /// over one already held.</summary>
+    public GraphChange PlanImportLinks(string engine, IReadOnlyList<GraphLink> links)
+    {
+        var change = new GraphChange();
+        var head = Totals(engine);
+        var planned = new HashSet<GraphEdgeKey>();
+        foreach (var link in links)
+        {
+            var key = new GraphEdgeKey(link.From, link.To, link.Kind ?? "");
+            if (link.From == link.To || !Holds(engine, link.From) || !Holds(engine, link.To)) continue;
+            if (_out.TryGetValue(link.From, out var outs) && outs.ContainsKey((link.To, key.Kind))) continue;
+            if (!planned.Add(key)) continue;
+            change.Edges.Add((key, new GraphEdgeState(link.Weight, MemoryGraphAnchor.Behind(head.Position, link.Age),
+                MemoryGraphAnchor.Behind(head.Ordinal, link.OrdinalAge), MemoryGraphAnchor.Behind(head.Chars, link.VolumeAge),
+                MemoryGraphAnchor.Behind(head.EncodedAt, link.ElapsedAge))));
+        }
+        return change;
+    }
+
     // ---- which ids a removal takes ------------------------------------------------------------------------
 
     public IReadOnlyList<long> PruneIds(string engine, string taskKey, string? scope, double? maxAgeOverStability,
@@ -368,6 +423,32 @@ internal sealed class MemoryGraphState(Func<DateTimeOffset> clock)
         _nodes.TryGetValue(id, out var node) && node.Record.Engine == engine ? ToNode(node, Totals(engine)) : null;
 
     public IReadOnlyList<MemoryReview> Reviews(string engine) => [.. ReviewsOf(engine)];
+
+    public MemoryGraphExport Export(string engine, string taskKey, string? scope)
+    {
+        var totals = Totals(engine);
+        var rows = InScope(engine, taskKey, scope).OrderBy(r => r.Id).ToList();
+        var links = rows
+            .SelectMany(r => EdgesFrom(r.Id))
+            .Where(e => _nodes.TryGetValue(e.Key.To, out var to) && to.Record.Engine == engine && to.Record.TaskKey == taskKey)
+            .OrderBy(e => e.Key.From).ThenBy(e => e.Key.To).ThenBy(e => e.Key.Kind, StringComparer.Ordinal)
+            .Select(e => new GraphLink(e.Key.From, e.Key.To, e.Key.Kind, e.Edge.Weight, totals.Position - e.Edge.Position,
+                totals.Ordinal - e.Edge.Ordinal, totals.Chars - e.Edge.Chars, (totals.EncodedAt - e.Edge.At).TotalDays));
+        var subjects = new Dictionary<long, IReadOnlyList<string>>();
+        foreach (var row in rows)
+            if (_subjects.TryGetValue(row.Id, out var byEngine) && byEngine.TryGetValue(engine, out var mine))
+                subjects[row.Id] = mine;
+        return new MemoryGraphExport([.. rows.Select(r => ToNode(r, totals))], [.. links], subjects);
+    }
+
+    public MemoryGraphCounts Count(string engine, string taskKey, string? scope)
+    {
+        var rows = InScope(engine, taskKey, scope).ToList();
+        return new(rows.Count,
+            rows.Count(r => r.Record.Grade == MemoryGrade.Authoritative),
+            rows.Sum(r => _out.TryGetValue(r.Id, out var outs) ? outs.Count : 0),
+            SubjectRows(engine, taskKey, scope).Select(s => s.Subject).Distinct(StringComparer.Ordinal).Count());
+    }
 
     public IReadOnlyList<string> KnownSubjects(string engine, string taskKey, string? scope, int limit) =>
         limit <= 0 ? [] : [.. SubjectRows(engine, taskKey, scope)

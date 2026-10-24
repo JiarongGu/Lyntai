@@ -37,13 +37,30 @@ public sealed class PostgresFixture : IAsyncLifetime
         catch (Exception ex)
         {
             Available = false; // Docker unavailable / image pull failed → tests skip
-            InitError = $"{ex.GetType().Name}: {ex.Message}";
+            // The prefix is how `verify` tells a Postgres skip from a live-backend one (`_test-evidence.mjs`).
+            InitError = $"Postgres/Docker unavailable: {ex.GetType().Name}: {ex.Message}";
             return;
         }
 
         MigrationRunnerService.MigrateUp(ConnectionString);
         Factory = new PostgresConnectionFactory(ConnectionString);
         Available = true;
+    }
+
+    /// <summary>The factory, or a SKIP when the container never started — for a test to call first.</summary>
+    public IDbConnectionFactory Require()
+    {
+        Skip.IfNot(Available, InitError ?? "Postgres/Docker unavailable");
+        return Factory;
+    }
+
+    /// <summary>Empties <paramref name="tables"/>. Safe only because every Postgres suite shares the
+    /// <c>postgres</c> collection and therefore runs serially.</summary>
+    public async Task ClearAsync(params string[] tables)
+    {
+        using var conn = Factory.Open();
+        foreach (var table in tables)
+            await Dapper.SqlMapper.ExecuteAsync(conn, $"DELETE FROM {table}");
     }
 
     public async Task DisposeAsync()

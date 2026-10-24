@@ -362,6 +362,26 @@ answered with an empty list would silently get **no subject seeding** at all (**
 subject handles in use under a task and scope, most-used first. **And an id is never reissued**, not after a
 delete, a forget or a restart — a SQL backend gets that from `AUTOINCREMENT` or an identity column, where a plain
 rowid would hand the deleted top id out again, and an in-process one from a persisted high-water mark.
+**Beside it sit two OPTIONAL interfaces.** `ICountableMemoryGraphStore` (**D202**): `CountAsync` reports entries,
+authoritative entries, edges and distinct subjects per engine, task and scope, leaving `Buried` null — the engine
+judges burial. Skip it and `GraphMemoryEngine.CountAsync` answers `null`; every shipped store implements it, and
+`MemoryGraphSql.Counts` is the statement both SQL backends share. `IPortableMemoryGraphStore` (**D213**): an export
+read and an insert that keeps decay state, which the engine's `IPortableMemory` needs. You owe: ages re-anchored
+through `MemoryGraphAnchor` and NO advance of the position; a held `MemoryContentKey` identity left exactly as it is
+(`ON CONFLICT … DO NOTHING`, then read its id); a link written only between two nodes of the engine and never over
+one already held (`MemoryGraphSql.ImportLink`). Skip it and the engine refuses to export or import.
+
+**`ICuratedMemoryStore` has one OPTIONAL interface too, `IRevisionedCuratedMemoryStore`**: an `UpdateAsync`
+overload that writes only while the entry is at the caller's `expectedRevision`. Implement it and you owe three
+things the contract facts pin: `CuratedMemory.Revision` starts at 1 and EVERY write advances it, the unconditional
+update included; the check and the write are ONE atomic step (`… AND revision = @expected` with the row count on
+SQL, the store's lock in process); and a stale call writes nothing. Skip it and report `Revision` 0.
+
+**`IUsageTracker` has one OPTIONAL interface, `IReservingUsageTracker`** (**D206**): `ReserveAsync` holds an amount
+against `UsageCaps`, and `ReconcileAsync` swaps the hold for what the call spent. You owe: the admission check and
+the hold written as ONE step (SQLite's `BEGIN IMMEDIATE`, Postgres advisory locks, the tracker's lock in process),
+judged by `UsageCaps.ExceededBy`; holds folded by consumer case like the totals; an expired hold ignored; and holds
+left alone by `ResetAsync`. Skip it and the budget doors keep the soft check. `UsageReservationContract` pins it.
 
 Mirror `src/Lyntai.Storage.Postgres/`, the reference backend, which implements all twelve. **A backend that is
 not a database mirrors `src/Lyntai.Storage.Basic/FileSystem/` instead** (**D171**) — no SQL and no migrations, but
@@ -388,8 +408,10 @@ Two seams the list alone doesn't reveal:
   one would have accepted, and the two scope rules a copy gets wrong.
 
 Each domain you DO implement runs that domain's existing contract — derive from its `*ContractFacts` base
-with a store factory where one exists, as `tests/Lyntai.Tests/Storage/FileSystem/FileSystemContractTests.cs`
-does. The contracts are `tests/Lyntai.Tests/Storage/*Contract.cs` (the governance pair are
+with a store factory, as `tests/Lyntai.Tests/Storage/FileSystem/FileSystemContractTests.cs` does; the base's one
+theory runs every fact, so there is nothing to wire per fact. A store shared across cases (one database for the
+run, as `PostgresContractTests`) overrides `SharesItsStore` and `ClearAsync`; a fact your backend cannot honour
+is an `[ExcludesFact]` with its reason. `StoreContractCoverageTests` fails a shipped store no suite drives. The contracts are `tests/Lyntai.Tests/Storage/*Contract.cs` (the governance pair are
 `ResponseCacheContract` / `UsageTrackerContract`), `tests/Lyntai.Tests/Jobs/JobStoreContract.cs`, and
 `tests/Lyntai.Tests/Memory/VectorStoreContract.cs` / `MemoryGraphStoreContract.cs`, whose suite joins
 `MemoryGraphStoreCoverageTests`' list — the contract facts run every domain against every backend and are what keeps them from drifting (`storage.md` §Don't "dedup").
