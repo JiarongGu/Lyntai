@@ -1026,8 +1026,8 @@ below names is now two calls: `AddProvider(factory, declares)` + `AddMediaRoutin
   string literals.
 
 *(2026-09-25: this list is the seed. The maintained statement of each clause, and of the traps behind them,
-is `.claude/knowledge/storage.md`, each stated once; `.claude/knowledge/sql-storage.md` indexes the ones that
-return wrong data rather than failing.)*
+is `.agents/knowledge/storage.md`, each stated once, headed by an index of the ones that return wrong data rather
+than failing; the shared `.agents/knowledge/sql-storage.md` states their principle.)*
 
 ## 8. Testing
 

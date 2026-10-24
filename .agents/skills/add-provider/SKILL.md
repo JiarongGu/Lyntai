@@ -5,7 +5,7 @@ description: Use when adding a new LLM provider to Lyntai (a new backend/model s
 
 # Add an LLM provider to Lyntai
 
-Read `.claude/knowledge/extending-lyntai.md` (§Add an LLM provider) and `.claude/knowledge/llm-and-router.md` first.
+Read `.agents/knowledge/extending-lyntai.md` (§Add an LLM provider) and `.agents/knowledge/llm-and-router.md` first.
 
 ## Decide the path
 1. **Is it reachable over HTTP on a wire we speak?** (OpenAI/Azure/Ollama/OpenRouter/vLLM/llama-server/Groq/DeepSeek/…) → don't

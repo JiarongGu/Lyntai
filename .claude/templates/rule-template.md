@@ -26,7 +26,7 @@ and the edge cases where it does NOT apply.
 
 **When creating a new rule (delete this section from your copy):**
 
-1. **Default to `.claude/knowledge/{kebab-name}.md`** (on-demand deep dive — the usual home). Only put it in
+1. **Default to `.agents/knowledge/{kebab-name}.md`** (on-demand deep dive — the usual home). Only put it in
    `.claude/rules/` (always-loaded core) if it's a genuinely universal-workflow rule needed on nearly every
    task — the core stays tiny.
 2. **Copy this file to the tier you picked in step 1, then edit the copy** — including the
@@ -34,7 +34,7 @@ and the edge cases where it does NOT apply.
    Without it the file renders as `⚠ needs frontmatter` in the index and no skill can route to it. It lives
    under `.claude/templates/` precisely so that copying is a deliberate act: nothing there is loaded, and a
    template sitting in the always-on tier is prose every session pays for and no session follows.
-3. **Add a row to `.claude/rules/RULES_INDEX.md`** — the index is what the discovery workflow reads, so a
-   rule missing from it is a rule nothing routes to. The path is spelled out because this template no
-   longer sits beside it.
+3. **A knowledge document needs no row anywhere**: `daoris sync` lists it in the generated
+   `.agents/INDEX.md` from its front matter. A rule in `.claude/rules/` reaches only the agent that reads
+   that folder, so the brief in `AGENTS.md` must say what every agent needs from it.
 4. Name it for *what is enforced*, kebab-case (e.g. `no-global-memory.md`, not `fix-2026-07-bug.md`).

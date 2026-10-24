@@ -349,7 +349,7 @@ them. A backend implements up to **twelve**: the eight in `src/Lyntai.Core/Stora
 `IKeyValueStore`.
 
 **`IMemoryGraphStore` is the LARGEST contract in the storage layer, and the easiest to plan a backend without.**
-It is also the only one with a per-backend migration asymmetry (`.claude/knowledge/storage.md` §Migrations)
+It is also the only one with a per-backend migration asymmetry (`.agents/knowledge/storage.md` §Migrations)
 and the only one whose contract pins an ORDER (`WriteBackAsync`, **D101**). If you are backing the memory
 engine, it is most of your work; if you are not, skip it deliberately, never by omission.
 

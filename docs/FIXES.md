@@ -3,7 +3,7 @@
 Per-incident records: **symptom → root cause → fix → verification**, plus the commit that introduced the
 bug. Newest first. The other two homes, so nothing has to be guessed (`.claude/rules/repo-mechanics.md`
 §Fix log): a decision and its reasoning goes to `docs/DECISIONS.md`; the reusable trap a fix revealed goes
-to `.claude/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.md`.
+to `.agents/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.md`.
 
 ---
 
@@ -25,7 +25,7 @@ other did — the connector cannot see the backend's per-consumer map.
 by key, lists joined, the consumer's value winning) and hands only that one, which the tool-host session already
 deletes. A file it cannot read as one JSON object — missing, malformed, duplicate keys, a relative path — is handed
 LAST, unchanged, so the CLI judges it exactly as with no host. **D190** records the rule and the rejected shapes; the
-trap is in `.claude/knowledge/pitfalls.md` ("Two of the same flag is not two of the same setting").
+trap is in `.agents/knowledge/pitfalls.md` ("Two of the same flag is not two of the same setting").
 
 **Verify.** Ten `ClaudeCompletionOptionsTests` cases; nine were red before the change, among them the one through the
 real tool host that reads the file handed at spawn
@@ -47,7 +47,7 @@ nothing held the two together. A forget landing in between dropped the collectio
 index write then re-created the collection holding the forgotten content. The store's own rows were never at risk:
 every shipped store writes nothing for a link or subject whose node is gone (the SQL inserts are guarded by an
 `EXISTS` or a join, and `MemoryGraphState` follows the same rule). The vector lives outside the store's contract,
-which is the second-door shape in `.claude/knowledge/pitfalls.md` ("A projection the OWNING STORE does not hold").
+which is the second-door shape in `.agents/knowledge/pitfalls.md` ("A projection the OWNING STORE does not hold").
 
 **Fix.** `IndexUnlessRemovedAsync` takes the removal lock D194 added for the re-embed's write step, re-reads the
 node, and indexes only if it still exists. Both halves are needed: the re-read alone still races a forget landing
@@ -303,7 +303,7 @@ and both queue backends already caught their own, so it never fired for a shippe
 every permission prompt — rather than as a session id.
 
 **Root cause.** The token is free-form data in a data slot, and `ArgumentList` stops shell injection, not the
-CLI's own parser reading a value as an option (`.claude/knowledge/pitfalls.md`, "Forwarding a free-form option
+CLI's own parser reading a value as an option (`.agents/knowledge/pitfalls.md`, "Forwarding a free-form option
 value straight into argv"). The codex session refused a blank or `-`-leading token for exactly that reason, since
 its `--last` would resume the wrong thread; the claude twin never had the check.
 
@@ -350,7 +350,7 @@ both 0 and rank them last, as `VectorMath.Cosine` promises.
 
 **Root cause.** `PostgresVectorStore` scored with pgvector's `<=>` directly, which checks dimensions for the WHOLE
 statement and divides by a zero norm. The rule was an invariant documented in one implementation, and the shared
-contract mentioned both cases without pinning either (`.claude/knowledge/pitfalls.md`, "An invariant DOCUMENTED
+contract mentioned both cases without pinning either (`.agents/knowledge/pitfalls.md`, "An invariant DOCUMENTED
 in one implementation is not a contract").
 
 **Fix.** The score is a `CASE` applying `VectorMath.Cosine`'s rule: a row whose dimension differs from the
@@ -610,7 +610,7 @@ next measurement run, three days later.
 **Fix.** Both doubles now implement `IVectorProvider`: `CallAsync(VectorRequest)` wraps the existing batch
 `EmbedAsync`, throwing on a dead server rather than mapping a verdict — a sweep wants a crashed run, not a
 silently degraded figure, the same posture `TryRealVectorProviderAsync` takes about fakes. The reusable
-half is in `.claude/knowledge/pitfalls.md` §Refactoring: **when a refactor touches a seam the instruments
+half is in `.agents/knowledge/pitfalls.md` §Refactoring: **when a refactor touches a seam the instruments
 double, run ONE sweep before recording it done.**
 
 **Verify.** The failing call is the proof both ways: `memory-longmemeval --corroborate` crashed with the
@@ -670,7 +670,7 @@ the stamp through the gate's own `read` seam.
 **Fix.** `check-samples` now REFUSES a compiled sample in any `LIVE_PREFIX` region, naming the stamp and
 saying what to do instead — keyed on the registry rather than on a filename, because an amendment region
 (the design record) is permanent and unaffected. The changelog entry keeps its prose and points at
-`.claude/knowledge/extending-lyntai.md`, where the identical recipe was already compiled — so nothing went
+`.agents/knowledge/extending-lyntai.md`, where the identical recipe was already compiled — so nothing went
 unchecked; the duplicate went. Census is now 60 before and after the stamp. A doubled `compile-given`
 annotation found in that section is removed with it.
 
@@ -828,7 +828,7 @@ restores, compiles and runs. Re-run from a cold scratch feed, so the eviction st
 against today's packages rather than a cached copy.
 
 **Introduced by.** The D125–D147 sweeps, 2026-09-15 — the fixture was never in any of their call-site
-updates. The reusable half is in `.claude/knowledge/pitfalls.md`: a gate outside the routine run rots like
+updates. The reusable half is in `.agents/knowledge/pitfalls.md`: a gate outside the routine run rots like
 an unrun test, and reports it at release time.
 
 ---
@@ -1059,7 +1059,7 @@ leaves accents on; the model's own config asks for them off.
 a `new` method that adds `[CLS]`/`[SEP]`; the base does not. `StaticEmbedder` held the field as `Tokenizer`, <!-- drift-ok: the PRE-RENAME name this incident was recorded under -->
 so it got the base one — correct for a `model2vec` table, and correct **by the declared type of a private
 field**. Narrowing that field to `BertTokenizer`, which reads as a safe tidy-up, would have folded two rows
-into every vector (`.claude/knowledge/pitfalls.md`).
+into every vector (`.agents/knowledge/pitfalls.md`).
 
 **Fix.** The tokenizer is owned: `WordPieceTokenizer` implements the reference pipeline, and
 `TokenizerRules` reads `do_lower_case` / `strip_accents` / `tokenize_chinese_chars` / `unk_token` from the
@@ -2821,7 +2821,7 @@ fourteen-argument list. `annotation:` and `verification:` were added to the firs
 and never to the second, so the zero-configuration path passed neither and the engine took its documented
 model-free floor for both. Nothing could catch it: the parameters are optional, so omitting them compiles;
 the engine's fallback is a real, supported behaviour, so it does not throw; and every existing wiring test
-exercised `UseGraph`. This is `.claude/knowledge/pitfalls.md` §DI/config's *"a documented option that isn't
+exercised `UseGraph`. This is `.agents/knowledge/pitfalls.md` §DI/config's *"a documented option that isn't
 wired"* for the third recorded time, and the first where the unwired option is the one its own registration
 doc calls **the single largest recall-quality lever the subsystem has**.
 

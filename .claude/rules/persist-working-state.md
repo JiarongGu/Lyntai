@@ -4,23 +4,10 @@ description: Checkpoint a decision, finding, or milestone to its durable home in
 applies_when: any multi-step task — at each decision, finding, or milestone
 ---
 
-# Persist working state as you go — context is not durable
+# Persist working state — where each kind goes here
 
-**Working context is ephemeral. The moment a decision is made, a finding is confirmed, or a milestone is
-reached, write it to its durable home in the repository** — not at the end of the task, and never only to a
-scratch area. A long task's context does not survive intact: it gets summarized, truncated, or simply ends,
-and what remains is code whose motivation nobody can reconstruct. Writing at the end is the same failure
-with extra steps, because the end is where interruptions land.
-
-## How to apply
-
-- **Write it when it happens.** A note recorded at the moment of the decision costs a sentence; the same
-  note reconstructed later costs an investigation, and is usually wrong.
-- **A decision that was considered and REJECTED is the highest-value one to record** — without the reason,
-  someone will reverse it later and rediscover the problem.
-- **In-progress plan state → the backlog**, updated as steps land rather than after all of them do.
-- Durable means *in the repository*, tracked and reviewable — not a scratch directory, and not a
-  conversation.
+**The rule is the shared `persist-working-state` (`AGENTS.md`): write it when it happens. This is where
+each kind of thing goes in this repository.**
 
 ## Route by KIND — and the decisions record has the highest bar, not the lowest
 
@@ -32,7 +19,7 @@ you discovered is not a decision, because nobody chose it.
 |---|---|
 | A choice between alternatives that constrains future work | `docs/DECISIONS.md` |
 | What a pass/sweep/review DID — findings triaged, items closed | `docs/task-archive.md` |
-| A trap that costs something when forgotten — nobody chose it, you *found* it | `.claude/knowledge/pitfalls.md` |
+| A trap that costs something when forgotten — nobody chose it, you *found* it | `.agents/knowledge/pitfalls.md` |
 | A number you measured | the record that owns the measurement (`docs/memory-measurements.md` §5 for the memory engine); the CONCLUSION goes to whichever row above fits |
 | A per-incident bug fix | `docs/FIXES.md` |
 | What a gate is for and what it holds | `docs/GATES.md` |

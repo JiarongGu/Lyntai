@@ -252,27 +252,27 @@
     {
       "path": ".claude/skills/add-migration/SKILL.md",
       "of": ".agents/skills/add-migration/SKILL.md",
-      "sha256": "9b13951d9f4946141fecbca8fcf3159fe8e0a020fff8b35bdc614e4503cf87a4"
+      "sha256": "9d02df3b42eccd210f9e1faa801bc6c772806251b30919c60719f183729f3f43"
     },
     {
       "path": ".claude/skills/add-provider/SKILL.md",
       "of": ".agents/skills/add-provider/SKILL.md",
-      "sha256": "a8edcda6cba22dddb82f2573b37420beee7b1ee4ae83f8a806d9f28ae481d01c"
+      "sha256": "706389c0944c0ede516e4f7396b7c113170fb3dd0e85bfa1fb52c11c9adcc5f0"
     },
     {
       "path": ".claude/skills/add-scorer/SKILL.md",
       "of": ".agents/skills/add-scorer/SKILL.md",
-      "sha256": "e5b9eb15594b6cbeb9001b28d2139fbae8df5e14c6c232c961d11bc27ea2f205"
+      "sha256": "b5e63740108b120cdbe89d52a2d3d40a31e06a4f64fd35db73681f94f4594920"
     },
     {
       "path": ".claude/skills/add-storage-backend/SKILL.md",
       "of": ".agents/skills/add-storage-backend/SKILL.md",
-      "sha256": "db2aca3f5f4cb8dbbe264ef7bf0994d1ea4429d0ae7157a24dbbf9a804363a58"
+      "sha256": "f8f4656e2283ce10e8ff97119f900be19d8b1c388a85d262a0089b6313be39b8"
     },
     {
       "path": ".claude/skills/archive-task/SKILL.md",
       "of": ".agents/skills/archive-task/SKILL.md",
-      "sha256": "431803568079fe77bf96ce8221830c8797c4e62999b91748ba9ee1d52f608101"
+      "sha256": "718410509d63fd59deb5173ab148efc4e5dd78c963d0c36adc61eaa31dd803c2"
     },
     {
       "path": ".claude/skills/caveman/SKILL.md",

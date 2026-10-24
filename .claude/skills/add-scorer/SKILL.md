@@ -6,7 +6,7 @@ description: Use when adding an evaluation scorer to Lyntai's cortex layer (a ne
 
 # Add a scorer to Lyntai
 
-Read `.claude/knowledge/extending-lyntai.md` (§Add a scorer). This is the cheapest extension: a class +
+Read `.agents/knowledge/extending-lyntai.md` (§Add a scorer). This is the cheapest extension: a class +
 one registration, no new package. Built-ins live in `Lyntai.Core/Cortex/Scorers/`.
 
 ## Checklist

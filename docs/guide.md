@@ -570,7 +570,7 @@ public sealed class MyCliBackend : CliBackendBase
 ```
 
 …plus a provider of forwarding members that composes the engine with it (`ClaudeCliProvider` is exactly that);
-the rules are `.claude/knowledge/extending-lyntai.md` §Add an LLM provider.
+the rules are `.agents/knowledge/extending-lyntai.md` §Add an LLM provider.
 
 ## Generation: image · video · audio · 3d (`Lyntai.Generation`)
 
@@ -800,7 +800,7 @@ services.AddLyntai(b => b
 A provisioner of your own sees the call through `ProvisionAsync(CliToolRequest, ct)` (`docs/DECISIONS.md` D190).
 
 **Which** CLI connects and **how** it is told to is an `IMcpCliConnector` (flag names plus config-file
-shapes), so another CLI is one small class (`.claude/knowledge/extending-lyntai.md` §Add a CLI tool-hosting
+shapes), so another CLI is one small class (`.agents/knowledge/extending-lyntai.md` §Add a CLI tool-hosting
 connector), registered keyed on its `ProviderId` beside the others. The loopback `HttpListener` it runs
 during each call is a deliberate, scoped exception to Lyntai's otherwise host-free design.
 

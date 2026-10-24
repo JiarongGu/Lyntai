@@ -8,7 +8,7 @@
 > **Every figure here is a pointer**, and nothing is re-derived here, because a second copy of a number is
 > wrong the moment the first is retracted. Quality and contention figures are `docs/memory-measurements.md`
 > §5's, cited by result id; serving-layer ones — the router, the GPU offload table, the proxy — are
-> `.claude/knowledge/pitfalls.md` §Environment / tooling's; the four-server VRAM footprint is the
+> `.agents/knowledge/pitfalls.md` §Environment / tooling's; the four-server VRAM footprint is the
 > `tool-affordance` harness's own budget (`devtools/scripts/tool-affordance.mjs`).
 >
 > **It is advice over seams that already exist.** No shape below needs new API, and no default enables any
@@ -33,7 +33,7 @@ a ~115 MB supervisor. Residency and routing are independent axes; "consolidate o
 is refuted. What a router buys is one endpoint, on-demand loading and an eviction policy.
 
 **3. Encode-only work survives a busy device and generation does not.** Measured with a game rendering
-(`.claude/knowledge/pitfalls.md` §Environment / tooling): a 4B's generation goes from **12.1× faster** than CPU
+(`.agents/knowledge/pitfalls.md` §Environment / tooling): a 4B's generation goes from **12.1× faster** than CPU
 when offloaded on a free device to **92× slower** when the device is contended — a ~1,100× reversal —
 while an embedder stays **4.8×** faster than CPU even while the game renders. **The tell you are in the bad
 regime is a NON-MONOTONE offload curve**, because a genuinely wrong `-ngl` degrades smoothly and contention
@@ -120,7 +120,7 @@ contention figures measure the MODEL's throughput while a neighbour rendered, ne
 worth separating from performance, because two things already measured settle the performance half:
 
 - **The same model gives the same vectors.** Encode-only output is byte-identical across devices
-  (`.claude/knowledge/pitfalls.md` §Environment / tooling), so moving a model in-process cannot change a
+  (`.agents/knowledge/pitfalls.md` §Environment / tooling), so moving a model in-process cannot change a
   retrieval score. There is no quality measurement to run.
 - **The HTTP hop is already noise.** A local call with `UseProxy = false` measures **0.4 ms** mean against
   an embed that costs far more. In-process buys back ~0.4 ms per call, which is not a reason.

@@ -87,7 +87,7 @@ landing page every package ships, linked ABSOLUTELY (**D197**) · `docs/guide.md
 
 ## Rules, knowledge & skills
 
-- **`.claude/rules/` is always-on; `.claude/knowledge/` is not.** What each document applies to is the
+- **`.claude/rules/` is always-on; `.agents/knowledge/` is not.** What each document applies to is the
   routing table in `.claude/rules/RULES_INDEX.md`; each knowledge document's front matter says what it
   enforces. Read the document your task matches before touching code (`skills-workflow.md`), and add a row
   when you add one.
@@ -97,7 +97,7 @@ landing page every package ships, linked ABSOLUTELY (**D197**) · `docs/guide.md
 
 **`verify` is the "am I done?" gate.** Run it before claiming a change is complete, keep your hands off the
 tree while it runs (it voids its own green line if a file moved), and never read its exit code through a
-pipe (`.claude/knowledge/pitfalls.md` §Environment / tooling). `docs/GATES.md` is why each gate exists and
+pipe (`.agents/knowledge/pitfalls.md` §Environment / tooling). `docs/GATES.md` is why each gate exists and
 what it holds. The six rules that bite when editing prose:
 
 - **A rule written down and still violated is a missing gate**: build the gate, not another paragraph. A

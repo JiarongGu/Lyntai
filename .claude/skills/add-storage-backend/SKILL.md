@@ -6,8 +6,8 @@ description: Use when adding a new storage backend to Lyntai (a new Lyntai.Stora
 
 # Add a storage backend to Lyntai
 
-Read `.claude/knowledge/extending-lyntai.md` §Add a storage backend (which interfaces, and what
-`IMemoryGraphStore` costs) and **all of** `.claude/knowledge/storage.md`, the one statement of the traps that
+Read `.agents/knowledge/extending-lyntai.md` §Add a storage backend (which interfaces, and what
+`IMemoryGraphStore` costs) and **all of** `.agents/knowledge/storage.md`, the one statement of the traps that
 pass tests while being wrong. Each item below is the rule; the why is there.
 
 ## Checklist

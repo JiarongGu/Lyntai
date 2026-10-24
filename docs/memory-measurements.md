@@ -575,7 +575,7 @@ of this architecture reaches 104,857,600 B. Sizes read from the HuggingFace tree
 tested refuse to load with `error loading model: bert model needs to define token type count` — a missing
 metadata key, not a missing tensor. That is the LUCKY direction (a hard failure, not silent garbage), and
 it is **not** the defect this repository was watching for: the prediction from the tensor table was that
-they would load and return embeddings. `.claude/knowledge/pitfalls.md` carries the two traps this
+they would load and return embeddings. `.agents/knowledge/pitfalls.md` carries the two traps this
 produced, including why a `cls.output.weight` check cannot condemn a non-BERT architecture.
 
 **What this does NOT say, and the list is longer than the table.**
@@ -759,7 +759,7 @@ b10603 — inside the 9.42e-3 drift `rerank-repeatability-drift` measured on one
 #### …and on the adopter's own fixture, the 132.6 MB model trails LAMAR on found@8 and leads on top-1 (2026-09-24) <!-- result: id=rerank-bench-adopter-zh-en-240 arm="the adopter's scoring-verification seam over each reranker, EndorseCount 8 = the page, at most 60 candidates, NO embedder, against a formula base of 125 found@8 / 79 top-1" metric=evidence-hit@k n="240 zh/en questions over 60 facts (an adopting application's fixture; the longest fact 101 characters)" value="mMiniLMv2 199 found@8 against LAMAR 208 (−3.8 pp, p = 0.004) and BGE 204 (n.s.)" ships=no status=CURRENT -->
 
 **A corpus this repository does not have**, so read the DIRECTION and treat every magnitude as the adopter's
-(`.claude/knowledge/model-decoupling.md`). No length cap bound — the longest fact is 101 characters — so the
+(`.agents/knowledge/model-decoupling.md`). No length cap bound — the longest fact is 101 characters — so the
 window finding above plays no part.
 
 | arm | found@8 | top-1 | serial median |
@@ -779,7 +779,7 @@ default, and the licence caveat above travels with any recommendation that does.
 #### SEGMENTED, a 512-window reranker finds an answer at the END of a long note: 4 → 44 of 60, where cutting read worse than no judge (2026-09-24) <!-- result: id=rerank-segmented-adopter-long-notes arm="an adopting application's own segmentation (a 506-character pair window less the query, the query capped at 253, a document scored as its best window) against cutting at the window, over mmarco-mMiniLMv2 Q8_0, bge-reranker-v2-m3 and LAMAR-600m on llama.cpp b10549" metric=evidence-hit@k n="60 facts written out as ~900-1,200-character notes, the answer at the start, middle, end or beyond 1,000 characters; 240 zh/en questions, EndorseCount 8 (the page), no tags, no embedder" value="mMiniLMv2 with the answer at the end: found@8 4 → 44 of 60 (discordant 0/40, p < 0.001)" ships=no status=CURRENT -->
 
 **Measured by an adopting application, on a corpus this repository does not have**, so read the DIRECTION and
-treat every magnitude as the adopter's (`.claude/knowledge/model-decoupling.md`). It built its own
+treat every magnitude as the adopter's (`.agents/knowledge/model-decoupling.md`). It built its own
 segmentation before **D177** and measured it against cutting on the fixture the result above describes, with
 each of its 60 facts written out as a note of ~900–1,200 characters and the answer placed at the start, in the
 middle, at the end, or beyond 1,000 characters. Same 240 questions, no tags, no embedder, EndorseCount 8 (the
@@ -2538,7 +2538,7 @@ different sequences reaching the same reading — and identical evidence recall 
 ### A BUDGET in the judge's prompt: the number that helps is not the one the library was going to supply (`--arms …+judge+budget20,…+judge+budget5`, 2026-09-04) <!-- result: id=locomo-judge-budget5-n200 arm="`+sem+rel-only+judge+budget5`" metric=evidence-hit@k n="200" value="76.5%" ships=no status=CURRENT -->
 
 The shipped judge prompt says **"Be selective"** and names no count, which is the tell
-`.claude/knowledge/pitfalls.md` records for a model that stops discriminating. The extractor's budget worked
+`.agents/knowledge/pitfalls.md` records for a model that stops discriminating. The extractor's budget worked
 (§5, `--facts`), so the same question was put to this seam. **The budget is injected into the SYSTEM message
 at the `ITextClient` boundary**, so the shipped policy still composes, sends, parses and fails open — a
 bench-local judge would have measured a prompt invented for the bench.
@@ -4256,7 +4256,7 @@ Raw output, gitignored:
 `devtools/_contention/run-grid-2026-09-11.txt` <!-- link-ok: gitignored raw sweep output, named as provenance -->.
 **Context and batch were RAISED so the servers accept this harness's longest real input** — embed
 2048/2048/2048 (ctx/batch/ubatch), rerank 4096, chat ctx 8192 — because the stock physical batch rejects it at
-512 tokens (`.claude/knowledge/pitfalls.md` §Environment / tooling). That raises per-server VRAM, so **these
+512 tokens (`.agents/knowledge/pitfalls.md` §Environment / tooling). That raises per-server VRAM, so **these
 are not stock-default residency figures**: the sampler saw at most 6,770 MiB in use on the quiet device and
 8,069 MiB on the busy one, both including the 2,652 MiB the device already held before the run.
 
@@ -4291,7 +4291,7 @@ predates a wording fix and tells a `--repeat 3` reader to re-run with `--repeat`
 reproducible, only the framing was corrected.)
 
 **3. The busy arm is a COMPUTE load, not a graphics one.** A second `llama-server` generating tokens on its own
-port, held for the whole cell — NOT the rendering neighbour `.claude/knowledge/pitfalls.md` measured the
+port, held for the whole cell — NOT the rendering neighbour `.agents/knowledge/pitfalls.md` measured the
 12x-faster-to-26x-slower swing against. The DIRECTION should transfer; the MAGNITUDE may not. It roughly
 doubles the write path in both arms (299.2 → 627.9 ms judge, 350.8 → 632.5 ms rerank) and leaves the judge's
 mixed recall at 3,744.4 ms against the cross-encoder's 129.7 ms.
@@ -4309,7 +4309,7 @@ and differ 17% on the quiet one (299.2 against 350.8), which bounds this instrum
 whether contention changes WHAT comes back, only what it costs. The `dedicated` topology only: the two router
 arms were not run, and the two structural facts that would shape one — llama.cpp's router being a process
 SUPERVISOR that spawns a child server per model, so consolidating saves no memory, and `--embedding` /
-`--reranking` being PROCESS-WIDE — are already recorded in `.claude/knowledge/pitfalls.md` and are deliberately
+`--reranking` being PROCESS-WIDE — are already recorded in `.agents/knowledge/pitfalls.md` and are deliberately
 not copied here. `--parallel` was fixed. SQLite only, one embedder, one judge model, one cross-encoder.
 
 ### The backlog predicted a NULL and the run REFUTES it: the shipped partition costs a READER 3.5 points, and verdict fusion gives 3.0 of them back (`memory-locomo --verdict`, 2026-09-11) <!-- result: id=locomo-verdict-partition-reader-n300 arm="`+sem+rel-only+judge` — the SHIPPED `MemoryVerdictCombination.Partition`, against the no-judge base, paired per question" metric=token-f1 n="301 questions sampled from 1,540, seed 12345, stratified by category" value="−0.0346, CI [−0.0579, −0.0113]" ships=yes status=CURRENT -->
@@ -4444,7 +4444,7 @@ the axis the retracted write-up argued from. It also reversed a headline: the 46
 points BEHIND the 2.49 GB instruct model and actually sits ahead of it.
 
 **The general trap — a dataset's ground truth is a SET, and taking its first element makes the rest
-distractors — is `.claude/knowledge/pitfalls.md`.** Nothing in the run could have shown it: `oracle` was
+distractors — is `.agents/knowledge/pitfalls.md`.** Nothing in the run could have shown it: `oracle` was
 hardcoded to 100%, so the one control aimed at gold labelling could not fail.
 
 ### A decision at 3-7 options: a 468 MB cross-encoder beats a 2.49 GB instruct model (`memory-decision`, 2026-09-12) <!-- result: id=decision-shape-single-evidence arm="`rerank` — a 468,393,760 B cross-encoder argmax-ing N score-a-pair scorings in one round trip — against `select-4b`, one select-from-list call to a 2,489,757,856 B instruct model, on the same forced-choice trials" metric=forced-choice-accuracy n="261 trials x 5 list lengths, run twice" value="72.0% vs 71.5% at N=3; 67.4% vs 63.6% at N=7" ships=no status=CURRENT supersedes="decision-shape-hard-n200" -->
@@ -5352,7 +5352,7 @@ is now best in BOTH languages, and the two small models sit within a few points 
 **The distortion was not uniform, which is the part worth carrying.** A cleaner context helped the SMALL
 models most — qwen gained 24.5 points of apparent quality from it and the 4B lost 4.2 — so the defect did
 not shift a level, it **inverted a ranking**. A harness that assembles a model's input has to assemble the
-one the engine assembles; `.claude/knowledge/pitfalls.md` carries it.
+one the engine assembles; `.agents/knowledge/pitfalls.md` carries it.
 
 **What survives the retraction**: that drift is high everywhere (58.3% at best, and 83-90% in five cells),
 that the perfect-annotator ceiling is therefore a figure to read with a discount, and the mechanism the
@@ -5422,7 +5422,7 @@ shorter list does not rescue it: `select@8` is no better than `select@24`.
 NOTHING is in use yet is an ABSORBING STATE: the model answers `{"pick": 1}` against an empty list, the
 pick is out of range and dropped, so no handle is ever recorded and the list can never grow — 32 of 32
 facts unlabelled. **A selective seam has to bootstrap generatively.** The figures above are from after the
-fix; `.claude/knowledge/pitfalls.md` carries it.
+fix; `.agents/knowledge/pitfalls.md` carries it.
 
 **What this does NOT say.** It is ONE selective prompt, not a prompt search — but that is the third
 wording-shaped hypothesis this subsystem has refuted, and the failure here is structural rather than

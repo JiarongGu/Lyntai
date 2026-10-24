@@ -4,20 +4,13 @@ description: The backlog holds OPEN work only and never summarizes the archive; 
 applies_when: adding or finishing a task, editing the backlog, or labelling something blocked
 ---
 
-# Task lifecycle — the backlog is open work; finished work moves to the archive
+# Task lifecycle — what this repository adds to the shared rule
 
-**When a task is genuinely finished its entry is *removed* from the backlog and *appended* to the archive —
-not checked off in place.** A checked-off line buries the one thing the file exists to answer: what is
-left? The archive gains a per-task history the line never carried anyway.
+**The rule is the shared `task-lifecycle` (`AGENTS.md`): the backlog is open work, and finished work moves
+to the archive.** This repository adds to it, and keeps one of its lines here because the gates cite it:
 
-- **Backlog:** open tasks only, as checklist items grouped by theme, with a `file:line` where known.
-- **On completion — move, don't tick.** Cut the entry out, paste it into the archive under the right
-  heading, add the completion date plus a one-line outcome, and preserve the original wording.
-- **Three records, three jobs, no duplication:** the backlog is what is still TODO, the archive is the
-  per-task history, the changelog is the release-facing log.
 - **Keep the summary honest.** If the top of the backlog claims everything is done, that must be true.
   Never leave a stale "all done" banner over open items, nor open items under a "done" banner.
-- Picking up work you cannot finish now? Leave it open. That is exactly what the backlog is for.
 - **Never let an ALWAYS-LOADED file summarize the backlog.** The banner is amended in place every time an
   item moves, so any copy goes stale at exactly that moment — and a copy in `CLAUDE.md` is the worst case,
   re-read at the start of every session while the file it duplicates is not. The auto-loaded file ROUTES

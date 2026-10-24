@@ -25,7 +25,7 @@ members.
    `StrengthAge` is swap-safe and `GraphMemoryOptions.EdgeHalfLife` is denominated in whatever the policies
    count, never in time.
 5. **`IMemoryGraphStore` is the largest contract in the library.** A BYO store reads
-   `.claude/knowledge/extending-lyntai.md` §Add a storage backend before starting one — which members take
+   `.agents/knowledge/extending-lyntai.md` §Add a storage backend before starting one — which members take
    no default body, which two do and what each default silently costs, and `WriteBackAsync`'s ORDER.
 
 ## 1. What it is
@@ -976,4 +976,4 @@ retention policy always runs beside `SalienceRetentionPolicy`. An argument passe
 | every measured figure, and whether it still holds | `docs/memory-measurements.md` §5 |
 | the consuming story | `docs/guide.md`, behind the overview in `README.md` |
 | which SHAPE of question each model-backed seam asks, and what is measured about each | `docs/model-tasks.md` |
-| traps that pass the build while being wrong | `.claude/knowledge/pitfalls.md` |
+| traps that pass the build while being wrong | `.agents/knowledge/pitfalls.md` |

@@ -48,7 +48,7 @@ does not belong here. Work you did is not a decision however much reasoning it t
 discovered is not a decision because nobody chose it.
 
 Everything else has a better home, and using it is not a demotion: what a pass DID → `task-archive.md`; a
-trap nobody chose → `.claude/knowledge/pitfalls.md`; a number you measured → a record under
+trap nobody chose → `.agents/knowledge/pitfalls.md`; a number you measured → a record under
 `local/superpowers/records/`; a convention every task follows → the rules or knowledge tier. The full
 routing table is `.claude/rules/persist-working-state.md`.
 
@@ -358,7 +358,7 @@ memory migration for exactly this reason (D52), while `M202608081215_MemoryGraph
 2.5.0 released it.
 
 Folding is a deliberate, bounded RELAXATION of the standing "never reuse a migration number" rule
-(`.claude/knowledge/sql-storage.md`), valid only inside the pre-release window. Two obligations come with
+(`.agents/knowledge/sql-storage.md`), valid only inside the pre-release window. Two obligations come with
 it: a fold changes the fresh-database schema, so the count and version-list guards move with it, and the
 SQLite and Postgres migrations sharing that number stay in lockstep.
 
@@ -402,7 +402,7 @@ semantics are non-obvious enough to be worth stating: a migration runs when the 
 **all** present on it (requested ⊆ migration tags, not any-match) — which inverts the obvious reading, and
 cost real iterations to find. The consequence is the shape of the run: `All` is ONE pass requesting only the
 all-tag that every migration carries, while a subset is one pass PER selected feature, deduplicated by the
-version table. Detail in `.claude/knowledge/storage.md`.
+version table. Detail in `.agents/knowledge/storage.md`.
 
 ## D13 — `IMemoryStore` size management is an app-configurable, multi-strategy policy
 `MemoryEvictionPolicy` (`LyntaiOptions.MemoryEviction`, `ConfigureMemoryEviction(...)`) bounds the keyword
@@ -564,7 +564,7 @@ location. Driving someone else's provisioning is not provisioning.
 Driving a command-line agent involves a dozen invariants that have nothing to do with *which* CLI it is:
 spawn hygiene, the inactivity clock, exit-code-versus-in-band precedence, verdict classification, argument
 refusal. Those live once in `CliProviderEngine`; a new CLI is an `ICliProviderDialect`. The traps in <!-- drift-ok: the record names the seam of its day; a later decision renamed it -->
-`.claude/knowledge/pitfalls.md` were fixable at all only because there is one copy.
+`.agents/knowledge/pitfalls.md` were fixable at all only because there is one copy.
 
 **The engine is COMPOSED, not inherited.** A provider keeps its own name, its own public surface and its own
 registration; it holds an engine rather than deriving from one, so the shared rules cannot leak into a
@@ -1141,7 +1141,7 @@ negative (D59) is what finally supplies an external observable, so what remains 
 can produce.
 <br>**Closed 2026-09-23 without a fit.** No deployment log exists, and a benchmark cannot stand in: under the
 shipped rank fusion no curve constant reorders a recall directly, so they act only through reinforcement,
-which the field benches never carry (`.claude/knowledge/pitfalls.md`). **Reopen on** a store recalled over
+which the field benches never carry (`.agents/knowledge/pitfalls.md`). **Reopen on** a store recalled over
 time — and read a lapse there as a relevant entry NOT returned, which `Verified` alone never records.
 
 **Nothing is queued behind it.** An item waiting on an unreachable one is a permanent backlog resident, so
@@ -1244,7 +1244,7 @@ every ordinary hit was the worse trade. Bounding the reserve is what makes both 
 why the earlier scoping is now only history.
 
 **The durable lesson is about the CORPUS, not the engine**: a harness that cannot express a promise reports
-"nothing moved", which reads exactly like "no regression" (`.claude/knowledge/pitfalls.md` §Storage).
+"nothing moved", which reads exactly like "no regression" (`.agents/knowledge/pitfalls.md` §Storage).
 
 ## D57 — the reinforcement seam is cut at the two EFFECTS, not the two ACTS (2026-08-13)
 A recall's age reset and its stability growth are separable, and they are what a consumer actually wants to
@@ -1565,7 +1565,7 @@ on the LLM streaming contract. That shape is now specified and enforced, and the
 fifteen tests. The residual risk is not "does this work" but "is this the decomposition a real TTS stream
 wants" — worth more than a blanket "unverified" a reader learns to skip.
 
-**Two invariants are INHERITED, not invented**, from `.claude/knowledge/llm-and-router.md` § Streaming:
+**Two invariants are INHERITED, not invented**, from `.agents/knowledge/llm-and-router.md` § Streaming:
 fallback stops at the first chunk carrying real data, and only real data commits (a metadata-only opening
 chunk must not). They transfer because the failure they prevent is identical — splicing two responses into
 one stream — whether the bytes are tokens or audio — so the measured rule needs no measurement of its own.
@@ -1583,7 +1583,7 @@ two-slot reason is consulted *before* the synthetic message, not after.
 
 **The door is an abstract member with no default body**, so every decorator the library ships had to take
 it — the compiler named two where one was expected — and behaviour is pinned per door anyway, because the
-compiler cannot tell a governed implementation from a pass-through (`.claude/knowledge/pitfalls.md` §Second
+compiler cannot tell a governed implementation from a pass-through (`.agents/knowledge/pitfalls.md` §Second
 doors).
 
 ## D68 — the diffusion size ceiling is derived from a DECLARED accelerator, and the GPU profile derives none (2026-08-16)
@@ -1609,7 +1609,7 @@ the same option behave differently on two machines with the same configuration.
 
 **The ceiling had lived in THREE places** — the scale, a second clamp inside the rounding, and the
 ADVERTISED `Limits` — each found a different way (`docs/FIXES.md` 2026-08-17; the trap, a constant nothing
-enforces going stale silently, is `.claude/knowledge/pitfalls.md` §Second doors). With no ceiling the
+enforces going stale silently, is `.agents/knowledge/pitfalls.md` §Second doors). With no ceiling the
 `Limits` keys are **omitted** rather than set to a large number: an absent key already means "not
 enumerated", while any number would be the invented GPU ceiling this decision refuses to invent.
 
@@ -1799,7 +1799,7 @@ statement reads an MVCC snapshot, so two claimers see the same headroom and both
 **The alternative that was refused, and it is the interesting one.** `pg_advisory_xact_lock` makes Postgres
 exact with less code than a table, and is self-defeating: it removes the parallel claiming `SKIP LOCKED`
 exists to provide exactly when there are most workers, and leaves the two backends correct by different
-mechanisms, which `.claude/knowledge/sql-storage.md` records as where wrong-data bugs live.
+mechanisms, which `.agents/knowledge/sql-storage.md` records as where wrong-data bugs live.
 
 **A slot is a ROW, and that turns the problem inside out.** Exclusion then comes from the mechanism already
 proven on both backends, and **`SKIP LOCKED` starts working FOR the cap instead of against it** — two
@@ -1825,7 +1825,7 @@ RENEWAL copies half a pattern that was already here.
 
 **The slot is taken BEFORE the job is claimed**, the one ordering that works: claiming first and finding no
 headroom hands a claimed job back to Pending, burning an attempt. A single-runner test cannot tell this
-global cap from a per-process one (`.claude/knowledge/pitfalls.md` §Testing).
+global cap from a per-process one (`.agents/knowledge/pitfalls.md` §Testing).
 
 ---
 
@@ -2237,7 +2237,7 @@ its `SearchAsync` tiebreak already carries.
 **The graph engine's own semantic seeding spans the same way.** It built the literal `{Name}|{task}|{scope}`,
 which for a null scope names a collection no write can create, while its lexical half spanned scopes — so it
 now enumerates through `IListableVectorStore`, merged and bounded by `SemanticSeedOptions.K`, with ties broken
-by id because those scores become RANKING input. The trap is `.claude/knowledge/pitfalls.md` §Second doors.
+by id because those scores become RANKING input. The trap is `.agents/knowledge/pitfalls.md` §Second doors.
 
 ## D87 — a named LLM client's CANDIDATES are derived from its own pool, not from the global list (2026-08-23)
 
@@ -2570,7 +2570,7 @@ fact, because git's stat cache hides the state until a file is touched.
 | leaving it to `core.autocrlf` | per-clone, untracked, unreviewable |
 
 **It also closes the splice trap** — `\n`-joined lines spliced into a CRLF file are left lone-LF while git
-reports only routine-looking `autocrlf` noise (`.claude/knowledge/pitfalls.md`). That needs a CRLF working
+reports only routine-looking `autocrlf` noise (`.agents/knowledge/pitfalls.md`). That needs a CRLF working
 tree, so `eol=lf` closes it on every clone rather than only where the config happens to agree.
 
 **Deliberately NOT gated — the exception to *a rule that is still violated is a missing gate*.** Git itself
@@ -2687,7 +2687,7 @@ shipped cap — and every `LinkAsync` on a relational store opened its own conne
 totals. Ten connection opens and ten totals reads for twenty upserts, per recall.
 
 **A DEFAULT BODY rather than a required member.** Every other member added to this interface since 3.0 was
-required; `.claude/knowledge/extending-lyntai.md` §Add a storage backend counts them. A store outside this
+required; `.agents/knowledge/extending-lyntai.md` §Add a storage backend counts them. A store outside this
 repository must not break for a
 performance change it gains nothing from — and unlike `KnownSubjectsAsync`, whose default costs a BYO store
 a FEATURE (no subject seeding, **D88**), this one costs it nothing but speed. Overriding is an optimization,
@@ -3097,7 +3097,7 @@ model's own top-k well above base rate, on the workload being served.
 
 `TASKS.md`'s startable-set banner has advertised finished work **four** times, always the same way: a
 session amends an item in place, and the banner is where that item's claim came from, so re-reading the item
-is exactly the check that fails. `.claude/knowledge/pitfalls.md` records three candidate gates measured
+is exactly the check that fails. `.agents/knowledge/pitfalls.md` records three candidate gates measured
 against those four instances, and refuses all three — each catches at most one of four, and all three
 INFER a state from a `- [ ]`, which cannot express *"`TASKS.md` Part 99 is something to watch for recurrence"* or
 *"this one is not startable as a code change"*. Its conclusion was to reach for a registry.
@@ -3126,7 +3126,7 @@ published; the writer iterates to a fixed point instead of emitting positions th
 
 ## D112 — the traps record is filed by FACETS orthogonal to its headings, not by better headings (2026-09-10)
 
-`.claude/knowledge/pitfalls.md` held **158 traps in 2,305 lines on 2026-09-10**, every one written because
+`.agents/knowledge/pitfalls.md` held **158 traps in 2,305 lines on 2026-09-10**, every one written because
 it cost something. A cold-start probe measured that day needed the traps bearing on its task, and the nine
 relevant ones spanned **five of the file's nine headings** — two of them headings nobody looking for that
 task would have opened. A trap nobody can find is one that gets paid for twice. (Sizes here are DATED, not
@@ -3936,7 +3936,7 @@ backend; `AddProvider` names the act. Whole-identifier matching in both registri
 allowance, which is the test that the distinction is real rather than convenient.
 
 **What it constrains:** a new backend registers as `Add<Name>` — the skill and
-`.claude/knowledge/extending-lyntai.md` now say so at the checklist line where the old suffix was being
+`.agents/knowledge/extending-lyntai.md` now say so at the checklist line where the old suffix was being
 copied forward. `check-api-vocabulary` and `check-docs` hold the seventeen retired names.
 
 ## D135 — the HTTP family is named for the TRANSPORT and its dialects, not for OpenAI (2026-09-14)
@@ -4512,7 +4512,7 @@ same `Complete`, "which differ by `Produces`, the CONTENT type, not by the opera
 consuming it — `VectorToolSelector`, `IVectorStore`), **the VERB is `Embed`**. That the ecosystem agrees is
 corroboration, not the argument — `Produces` being a LIST is, because a provider is never defined by
 embedding and so cannot be named for it. Two passes crossed this line in opposite directions;
-`.claude/knowledge/pitfalls.md` carries why.
+`.agents/knowledge/pitfalls.md` carries why.
 
 **The hard part was `AddEmbeddingProvider`, and the answer was not a second door.** It existed for a real <!-- drift-ok: the entry RECORDS this spelling (D152 retired it) -->
 constraint: `AddSemanticMemory` must decide at composition time, and a FACTORY cannot be inspected before
@@ -4598,7 +4598,7 @@ directions bit: `LlmConsumers` is read by the media tools and became `ProviderCo
 model"* — `LlmScorerBase`, `IScorer.IsLlm` — which is also PERSISTED, as `is_llm` in both SQL backends.
 **A persisted spelling is the site that cannot move cheaply, so it decides how wide a rename may be.**
 No gate can see any of this: `check-api-vocabulary` enforces retired names, never whether a kept name is
-true. `.claude/knowledge/pitfalls.md` §Refactoring & namespace moves carries the procedure.
+true. `.agents/knowledge/pitfalls.md` §Refactoring & namespace moves carries the procedure.
 
 **What KEEPS a domain word is the machinery, not the call.** `GenerationPipeline`, `GenerationRenderJob`
 and the media tools RUN a generation; they are not the shape of one. So are the telemetry names —
@@ -5052,7 +5052,7 @@ engine-derived headline that repeats the content's first `HeadlineChars` charact
 default case, and the policy cannot tell an authored headline from a derived one because the candidate does
 not say. A boolean beside a separate cap: two knobs where one integer says both whether and how much — the
 shape `GraphMemoryOptions.HeadlineChars` already has. An unbounded content option: a candidate list
-`VerificationDepth` long of whole entries is the unbudgeted input `.claude/knowledge/pitfalls.md` records a
+`VerificationDepth` long of whole entries is the unbudgeted input `.agents/knowledge/pitfalls.md` records a
 judge degrading under.
 
 **The default does not move until it is priced.** Every judge figure in `docs/memory-measurements.md` §5 was
@@ -5509,7 +5509,7 @@ one, so its presence says nothing about a media budget. A public ledger type for
 public surface whose only job is to exist, where an internal key does the same.
 
 **What this constrains.** A new media door that records spend reads the keyed tracker, never the unkeyed
-`IUsageTracker` (`.claude/knowledge/pitfalls.md`, "A SPEND cap is a capability too").
+`IUsageTracker` (`.agents/knowledge/pitfalls.md`, "A SPEND cap is a capability too").
 
 ## D186 — dialect-free relational plumbing is ONE linked source, compiled into each adapter (2026-09-25)
 

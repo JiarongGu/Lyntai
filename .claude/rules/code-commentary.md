@@ -22,7 +22,7 @@ two copies drift, and the comment is the copy nobody reviews.
 | A consumer who cannot see the source | the `///` XML doc |
 | Someone already reading this line | a `//` comment |
 | Someone asking why the code is shaped this way, where there was a real alternative | `docs/DECISIONS.md` |
-| Someone about to repeat a mistake that already cost something | `.claude/knowledge/pitfalls.md` |
+| Someone about to repeat a mistake that already cost something | `.agents/knowledge/pitfalls.md` |
 | Someone asking what a pass or sweep DID | `docs/task-archive.md` |
 | Someone asking what a number measured | the record that owns the measurement |
 
@@ -75,4 +75,4 @@ other way round. An invariant that exists solely in prose nobody reads is alread
 without relocating finishes the job.
 
 Related: `persist-working-state.md` §Route by KIND · `dotnet-package-layout.md` §Naming (the same principle
-for names: say what the thing IS) · `.claude/knowledge/pitfalls.md`.
+for names: say what the thing IS) · `.agents/knowledge/pitfalls.md`.

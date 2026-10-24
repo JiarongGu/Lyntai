@@ -46,5 +46,5 @@ recorded a real one.
 
 - `.claude/rules/persist-working-state.md` — checkpoint it when it happens; this note is about the *status*
   it gets checkpointed with.
-- `.claude/rules/no-global-memory.md` — why this lives in the repository at all.
+- the shared `no-global-memory` rule (`AGENTS.md`) — why this lives in the repository at all.
 - `.claude/rules/repo-mechanics.md` — this repository's own bindings.

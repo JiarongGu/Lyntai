@@ -34,7 +34,7 @@ from gone, and no `git show` will bring it back.
 **When a design record still matters after
 its version ships, its conclusion belongs in a maintained document**, not in the record: an interface or a
 semantic goes in `docs/2026-07-17-lyntai-design.md` (the memory subsystem's in `docs/memory.md`), a decision and its reasoning in `docs/DECISIONS.md`, a
-reusable trap in `.claude/knowledge/pitfalls.md`, and the per-task history in `docs/task-archive.md`.
+reusable trap in `.agents/knowledge/pitfalls.md`, and the per-task history in `docs/task-archive.md`.
 
 ## What exists
 
@@ -55,7 +55,7 @@ _A MEASUREMENT RECORD is listed here too: what was measured on one day is the sa
 | 2026-09-21 | Offline graph consolidation — the measurement (does an offline pass find edges write-time annotation missed?). **Nothing shipped: refuted**, and the plan's own fixture and baseline were wrong — its deviation note says why | not shipped | — | ✓ | **D168** · `docs/task-archive.md` Part 271 · `docs/memory-measurements.md` §5 (`consolidation-offline-pass`) · two `pitfalls.md` instances (a headroom measured beside a PERFECT component; a templated cluster hands a similarity rule its answer) |
 | 2026-09-21 | Affect as a memory axis — the measurement (oracle ceiling first, real annotator second). **Nothing shipped: refuted**, and not by the route planned — the oracle stage re-measured `memory-importance`, so the run asked whether arousal PREDICTS relevance instead | not shipped | — | ✓ | **D169** · `docs/task-archive.md` Part 273 · `docs/memory-measurements.md` §5 (`affect-arousal-predicts-evidence`) · `pitfalls.md` (a per-item predictor must be scored within LENGTH) |
 | 2026-09-21 | `Lyntai.Storage.FileSystem` — roster-first implementation plan. Shipped five domains; the scan measurement overturned the plan's roster reasoning and its eager guard | 3.3.0 | — | ✓ | **D171** (the shape, the roster, both REJECTED shapes) · `docs/task-archive.md` Part 277 · `docs/memory-measurements.md` §5 (`storage-scan-recall-cost`) · the graph store is `docs/task-archive.md` Part 282 |
-| 2026-09-17 | The namespace restructure: one home for calling a backend | 3.2.0 | ✓ | — | **D154** · **D156** · `docs/task-archive.md` Parts 246–250 and 252 · the reusable half is `.claude/knowledge/pitfalls.md` §Refactoring & namespace moves (a prefix says where a type was BORN; check the MIGRATIONS before setting a rename's scope) |
+| 2026-09-17 | The namespace restructure: one home for calling a backend | 3.2.0 | ✓ | — | **D154** · **D156** · `docs/task-archive.md` Parts 246–250 and 252 · the reusable half is `.agents/knowledge/pitfalls.md` §Refactoring & namespace moves (a prefix says where a type was BORN; check the MIGRATIONS before setting a rename's scope) |
 | 2026-09-17 | The provider seam: one interface per SIGNATURE over a generic routed base, so a consuming app can define its own kind | 3.2.0 | ✓ | — | **D153** · **D155**, which closed the half D153 left open · the measured finding it rests on: routing quality varied by KIND — vector had no cooldown or admission, score had no fallback at all · `docs/task-archive.md` Part 251 |
 | 2026-09-11 | ONE model serving MANY seams, priced against one per seam (`memory-contention`) | 3.2.0 | ✓ | ✓ | `docs/task-archive.md` Part 190 · `docs/memory-measurements.md` §5 (`contention-mixed-recall-quiet-rerank`) · `pitfalls.md` (router mode is a SUPERVISOR; `--embedding`/`--reranking` are process-wide; a port check must test LISTENING; a bare `HttpClient` leaves proxy resolution on) |
 | 2026-09-11 | What `VerdictCombination` costs a READER (`memory-locomo --verdict`) — the backlog predicted a null and the run refuted it | 3.2.0 | ✓ | ✓ | `docs/task-archive.md` Part 191 · `docs/memory-measurements.md` §5 (two rows, partition and `+enginefuse`) · `docs/FIXES.md` (a bench printed a hardcoded caveat about its own output) |
@@ -66,7 +66,7 @@ _A MEASUREMENT RECORD is listed here too: what was measured on one day is the sa
 | 2026-08-08 | The memory subsystem design PAGE (a published snapshot, not a spec) | 2.5.0 | — | record | design §5.7 · `docs/memory.md` · D39–D42 · `docs/task-archive.md` Parts 46–52 |
 | 2026-08-08 | Named memory-engine seam (MEM1) | 2.5.0 | ✓ | ✓ | design §5.7 · D39 · `docs/task-archive.md` Part 46 |
 | 2026-08-08 | Graph memory engine (MEM2) | 2.5.0 | ✓ | ✓ | design §5.7 · D40–D41 · `docs/task-archive.md` Parts 47–52 |
-| 2026-08-08 | Graph memory on SQLite + Postgres (MEM2b) | 2.5.0 | — | ✓ | `.claude/knowledge/storage.md` · `docs/task-archive.md` Part 48 |
+| 2026-08-08 | Graph memory on SQLite + Postgres (MEM2b) | 2.5.0 | — | ✓ | `.agents/knowledge/storage.md` · `docs/task-archive.md` Part 48 |
 | 2026-08-05 | Provider pool / lifetime seam | 2.2.0 | ✓ | ✓ | D30 · `docs/task-archive.md` Part 37 |
 | 2026-08-04 | The media generation platform (Plan 1 of 7) — the last document to leave `docs/` | 2.0.1 | — | ✓ | **D24**/**D25** · design §6 · `docs/task-archive.md` Parts 32–33 · `docs/guide.md` §Generation · `TASKS.md` Part 33 (GEN-VERIFY/GEN6/GEN7, which carry the CURRENT framing — see below) |
 | 2026-08-04 | The 2.0.1 package restructure | 2.0.1 | — | ✓ | design §3 amendment · D25–D27 · `docs/task-archive.md` Part 32 |

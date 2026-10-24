@@ -107,12 +107,12 @@ notice, because there is no outside voice to disagree with.
 ## Related
 
 - `TASKS.md` (the standing "this is a generic library" rule this doc expands).
-- `.claude/knowledge/library-api-design.md` — the rules for ANY public API, request or not: seams over flags,
+- `.agents/knowledge/library-api-design.md` — the rules for ANY public API, request or not: seams over flags,
   options over magic values, and **every public type earns its keep**.
 - `.claude/rules/dotnet-package-layout.md` — package layout (contract in Core, impl in an adapter, never
   adapter→adapter), variation points = DI collections; `.claude/rules/repo-mechanics.md` binds it to this
   repo's package names and entry points.
-- `.claude/knowledge/extending-lyntai.md` — the six extension seams a generalization usually rides on
+- `.agents/knowledge/extending-lyntai.md` — the six extension seams a generalization usually rides on
   (provider, generation backend, storage backend, scorer, CLI tool-hosting connector, migration).
 - `docs/2026-07-17-lyntai-design.md` — the `ITextClient` "behaves like one provider" front door.
 - `ApiSurfaceTests` — the baseline gate that surfaces an app-specific leak in review.
