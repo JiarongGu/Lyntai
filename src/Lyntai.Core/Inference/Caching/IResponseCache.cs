@@ -89,6 +89,9 @@ public static class ResponseCacheKey
                 if (a.Data is { Length: > 0 }) h.AppendData(a.Data);
             }
         }
+        // folded only when set, so every key minted before the field existed still hits: a reply a degrading
+        // backend produced must never serve a caller that refused degradation
+        if (req.RequireNativeSupport) AddString(h, "native");
         return Convert.ToHexStringLower(h.GetHashAndReset());
     }
 

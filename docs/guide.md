@@ -184,6 +184,13 @@ var reply = await llm.CompleteJsonAsync(new TextRequest
 //  so only what code cannot fix costs a retry — a truncated object — else Failed. Design §6.)
 ```
 
+**Not every backend holds the model to the schema.** The HTTP and Ollama backends send it on the wire; a CLI
+receives it as prompt text and LLamaSharp drops it, so a fallback onto one still parses but was never
+constrained. Set `RequireNativeSupport = true` on the request and the router skips any candidate whose
+`ProviderCapabilities` do not declare `SupportsStructuredOutput` — or, for a request carrying `Tools`, native
+tool calls — and answers `Unsupported`, naming each skipped candidate, when none can (**D205**). Unset, every
+candidate is asked, as before.
+
 ## Governance: response cache, usage budget, rate limit
 
 Three opt-in layers on the single front door, so the tool loop, orchestrator and scorers all pass through

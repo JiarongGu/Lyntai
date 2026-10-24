@@ -96,6 +96,7 @@ public sealed class OllamaProvider : IModelProvider, IVectorProvider
                 : [ProviderOperation.Complete],
             SupportsToolCalls = ServesText(config),
             SupportsStreamingToolCalls = ServesText(config),
+            SupportsStructuredOutput = ServesText(config), // the schema travels as format
         };
     }
 

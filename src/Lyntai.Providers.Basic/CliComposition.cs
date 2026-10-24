@@ -20,7 +20,8 @@ internal static class CliComposition
 
     /// <summary>A CLI provider's capabilities: text in, text out, buffered or streamed, and request-level tool
     /// calls exactly as the BACKEND declares them — the provider declares (D21), derived from the backend so
-    /// the two cannot disagree. The engine streams no tool calls.</summary>
+    /// the two cannot disagree. The engine streams no tool calls, and declares no structured output: a schema
+    /// reaches the CLI as prompt text (<see cref="CliBackendBase.BuildPrompt"/>).</summary>
     public static ProviderCapabilities Capabilities(ICliBackend backend) => new()
     {
         Accepts = [ProviderKinds.Text],

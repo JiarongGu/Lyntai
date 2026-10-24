@@ -44,6 +44,16 @@ public class ResponseCacheTests
         Assert.NotEqual(key, ResponseCacheKey.For(baseReq with { JsonSchema = "{}" }));  // schema
         Assert.NotEqual(key, ResponseCacheKey.For(baseReq with { MaxTokens = 10 }));     // max tokens
         Assert.NotEqual(key, ResponseCacheKey.For(baseReq with { Reasoning = TextReasoning.Suppress })); // reasoning
+        Assert.NotEqual(key, ResponseCacheKey.For(baseReq with { RequireNativeSupport = true })); // native only
+    }
+
+    [Fact]
+    public void Key_of_a_request_that_does_not_require_native_support_is_unchanged_by_the_field()
+    {
+        // the value measured BEFORE the field existed, so adding it invalidated no deployed cache
+        var key = ResponseCacheKey.For(Req(TextMessage.User("hi")) with { RequireNativeSupport = false });
+
+        Assert.StartsWith("5de5ad9af67a54317b8c872f6035caedf68ece363", key, StringComparison.Ordinal);
     }
 
     // Guard against a NEW TextRequest field being added but not folded into the cache key (a silent
@@ -60,6 +70,9 @@ public class ResponseCacheTests
             // reply. Serving a suppressed-reasoning caller a cached reasoning-laden hit is precisely the
             // silent collision this guard exists to catch.
             "Reasoning",
+            // decides which backend may answer — a hit a degrading candidate produced must not serve a caller
+            // that refused degradation; folded only when set, so every existing key is unchanged
+            "RequireNativeSupport",
         };
         var excluded = new HashSet<string>
         {

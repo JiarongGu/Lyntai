@@ -1106,6 +1106,7 @@ sealed class Lyntai.Inference.ProviderCapabilities
     Supports(String produces, ProviderOperation operation, String accepts = null, String model = null, Boolean hasInputs = false) : Boolean
     SupportsInputs : Boolean { get; init; }
     SupportsStreamingToolCalls : Boolean { get; init; }
+    SupportsStructuredOutput : Boolean { get; init; }
     SupportsToolCalls : Boolean { get; init; }
     ToString() : String
 static class Lyntai.Inference.ProviderConsumers
@@ -1418,6 +1419,7 @@ sealed class Lyntai.Inference.TextRequest
     Model : String { get; init; }
     Reasoning : TextReasoning { get; init; }
     RefusalPattern : String { get; init; }
+    RequireNativeSupport : Boolean { get; init; }
     Temperature : Nullable<Double> { get; init; }
     TimeoutSeconds : Nullable<Int32> { get; init; }
     ToString() : String

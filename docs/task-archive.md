@@ -5616,3 +5616,15 @@ the no-vectors rule and the honest limit — a file taken before a forget brings
 write that keeps decay state, which `UpsertAsync` does not.
 
 - RV10 — memory can be EXPORTED and IMPORTED in a portable form, scoped and never resurrecting
+
+## Part 359 — RV11: a request can refuse to have its schema or tools degraded (2026-10-24)
+
+✅ done 2026-10-24 — **Outcome:** the first item of the competitive review's governed-calls group (`TASKS.md`
+Part 347). `TextRequest.RequireNativeSupport` (opt-in, default unchanged) makes `TextRouter.SelectLive` skip a
+candidate whose `ProviderCapabilities` declare no `SupportsStructuredOutput` (new) for a schema, or no native tool
+calls for tools — the streaming flag on a stream — as a capability gap whose reason joins the skipped list; all
+skipped answers `Unsupported`. HTTP and Ollama chat declare it; the CLIs and LLamaSharp do not. The response cache
+folds the flag in only when set. `TextRouterNativeSupportTests` and `StructuredOutputPostureTests` pin it; **D205**
+records why it is per request and opt-in.
+
+- RV11 — a schema- or tool-bearing request skips a candidate that cannot honour it

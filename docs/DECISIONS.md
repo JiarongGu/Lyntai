@@ -274,8 +274,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D202](#d202--the-wiring-findings-are-a-container-service-and-burial-is-counted-by-the-engine-never-the-store-2026-10-24) | 2026-10-24 | the wiring findings are a container service, and burial is counted by the engine, never the store |
 | [D203](#d203--a-curated-entrys-revision-is-checked-through-an-optional-store-capability-atomically-in-the-write-2026-10-24) | 2026-10-24 | a curated entry's revision is checked through an OPTIONAL store capability, atomically in the write |
 | [D204](#d204--memory-travels-as-versioned-jsonl-through-an-optional-engine-capability-scoped-to-one-named-task-without-vectors-2026-10-24) | 2026-10-24 | memory travels as versioned JSONL through an OPTIONAL engine capability, scoped to one named task… |
+| [D205](#d205--a-request-may-refuse-degradation-per-request-and-opt-in-and-the-router-skips-a-candidate-whose-capabilities-would-degrade-it-2026-10-24) | 2026-10-24 | a request may REFUSE degradation, per request and opt-in, and the router skips a candidate whose… |
 
-**199 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**200 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -5939,3 +5940,19 @@ argument away. Honouring each line's own task on import: a file would decide whe
 not move a task under a new name. Exporting vectors: a vector is the content under one model, so carrying it across
 deployments mixes spaces (**D199**); the receiving engine indexes on write. A header line holding the version: a
 concatenated or filtered file loses it.
+
+## D205 — a request may REFUSE degradation, per request and opt-in, and the router skips a candidate whose capabilities would degrade it (2026-10-24)
+
+`TextRequest.RequireNativeSupport` makes `TextRouter` skip a candidate that declares no
+`ProviderCapabilities.SupportsStructuredOutput` for a request carrying `JsonSchema`, or no native tool calls for one
+carrying `Tools` (`SupportsStreamingToolCalls` on a stream, **D71**). The skip is a capability gap: it benches
+nothing, its reason joins the skipped list, and a call every candidate skips so answers `Unsupported` naming each.
+Only the wire counts: the HTTP and Ollama chat backends declare it, the CLIs (prompt text) and LLamaSharp (dropped)
+do not, and a bridge declares what its registration says. The response cache folds the flag in only when set, so
+every existing key still hits and a degraded reply never serves a caller that refused one.
+
+**Rejected.** On by default: degrade-and-succeed is what every deployment has today, and the owner has not ruled it
+should end (`TASKS.md` RV11 kept it the default). A `RoutingPolicy` switch: whether a schema is load-bearing belongs to
+the CALL, and one consumer's extraction should not change another's chat. Two flags, one per field: no caller was found
+wanting a native schema with degraded tools. Asking the candidate and reading an `Unsupported` back: the CLI would not
+refuse, it would degrade and answer `Ok`.

@@ -90,6 +90,7 @@ public sealed class HttpModelProvider : IModelProvider, IVectorProvider, IScoreP
             : [ProviderOperation.Complete],
         SupportsToolCalls = ServesText(config),
         SupportsStreamingToolCalls = ServesText(config),
+        SupportsStructuredOutput = ServesText(config), // the schema travels as response_format
     };
 
     /// <summary>Which kind this registration serves — one field decides the route, the wire shape, and which

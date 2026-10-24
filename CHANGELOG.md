@@ -75,6 +75,13 @@ every addition.
   capable members and names the rest. No vectors travel, and an import cannot know what the target forgot: a file
   taken before a forget brings that content back. `CuratedMemoryEngine` implements it; the graph engine does not
   yet.
+- **A request can refuse to have its JSON schema or tools degraded: `TextRequest.RequireNativeSupport`**
+  (**D205**). A fallback from an HTTP backend to a CLI used to turn the schema into prompt text, a local GGUF
+  model dropped it, and tools a backend cannot call only warned. With the flag set, the router skips a candidate
+  that would degrade either, recording why, and a call no candidate can serve natively answers `Unsupported`
+  naming each. `ProviderCapabilities.SupportsStructuredOutput` is the new declaration: true for the HTTP and
+  Ollama chat backends, false for the CLIs and LLamaSharp, and as declared for a bridge. The default is
+  unchanged, and the response cache keeps such a request's replies apart.
 
 ### Fixed
 
