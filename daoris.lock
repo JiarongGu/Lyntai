@@ -349,5 +349,10 @@
       "of": ".agents/skills/set-up-documents/templates/router.md",
       "sha256": "573dd259c4ec6345c5759674ffd652f8495189e4d10e6c85a81a400b1a4191f0"
     }
+  ],
+  "rooms": [
+    "devtools",
+    "docs",
+    "tests"
   ]
 }

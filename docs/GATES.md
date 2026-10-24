@@ -144,6 +144,22 @@ single number whose slack over the 40-line limit is REPORTED on a green run, not
 **Paying a ratchet down means RELOCATING, not deleting** — several long entries are the only maintained
 home for a trap. Move the rule to the record that owns it, keep a pointer, then cut.
 
+## Editing prose without turning `verify` red
+
+The rules that bite when editing any document here, each a gate's view of prose:
+
+- **A rule written down and still violated is a missing gate**: build the gate, not another paragraph. A
+  gate whose SCOPE rests on a measurement needs the measurement re-run as the tree grows.
+- **A decision that renames or re-dimensions something adds a `retiredTerms` entry**
+  (`devtools/project.config.mjs`); a rename in neither registry is invisible to every gate.
+- **Each gate owns its OWN escape token** (`docs/GATES.md` §Escape tokens and allowances).
+- **Repoint a citation, never renumber its target**: a renumbered `§` resolves to the WRONG section
+  silently.
+- **Every fenced `csharp` block compiles**: prefer `compile-given` to `compile-skip`, and never put a
+  compiled sample under `## Unreleased` (`docs/GATES.md` §check-samples).
+- **Rewording the one sentence a counted claim is anchored in turns `verify` red**: move it VERBATIM, and
+  into a file the gate scans. `CLAUDE.md` says which of its own lines the tooling reads by path.
+
 ## Writing a new gate
 
 - **Where the registry lives is decided by what an entry IS.** Data — a term, a name, an allowance, a

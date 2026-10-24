@@ -7,7 +7,11 @@
   ],
   "harness": "agents",
   "target": ".agents",
-  "rooms": [],
+  "rooms": [
+    "devtools",
+    "docs",
+    "tests"
+  ],
   "coreBudgetBytes": 30000,
   "domain": {
     "summary": "Lyntai (灵台): a .NET 10 library, shipped as NuGet packages, for building LLM applications: one ITextClient front door routing and failing over across providers, pluggable storage, and the LLM-ops layer (prompts, scoring, traces, long-term memory, jobs, media generation).",
@@ -29,5 +33,15 @@
       "an upgrade question for a consumer moving between Lyntai releases"
     ],
     "uses": []
+  },
+  "documents": {
+    "router": "docs/documents.md",
+    "decisions": "docs/DECISIONS.md",
+    "backlog": "TASKS.md",
+    "archive": "docs/task-archive.md",
+    "fixes": "docs/FIXES.md",
+    "changelog": "CHANGELOG.md",
+    "glossary": "docs/glossary.md",
+    "gates": "docs/GATES.md"
   }
 }

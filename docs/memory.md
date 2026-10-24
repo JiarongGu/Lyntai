@@ -6,6 +6,15 @@
 > `docs/DECISIONS.md` from **D39** on — its generated index names each; the evidence is
 > `docs/memory-measurements.md` §5; the per-task history is `docs/task-archive.md`.
 
+## What it is not
+
+**Long-term memory is the subsystem most often reasoned about wrongly.** `IMemoryEngine` (named engines,
+**D39**) is not the three older surfaces (`IMemoryStore`, `ISemanticMemory`, `ICuratedMemoryStore`): it
+decays by INTERFERENCE, never a clock (**D40**), BURIES rather than deletes (**D41**), and a recall is an
+n-shot WALK over headlines, not a top-k (**D100**, **D102**), so a one-shot metric measures the wrong mode.
+Its contract, headed by the five invariants no gate holds, is `docs/memory.md`; every figure is
+`docs/memory-measurements.md` §5.
+
 ## The invariants no gate holds
 
 Each is a rule a change can break silently. A gate or a test holds the rest of this page's promises; these
