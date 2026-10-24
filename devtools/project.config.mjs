@@ -1589,6 +1589,7 @@ export default {
     'memory-contention': 'judge vs cross-encoder: does moving verification off the shared model pay?',
     'memory-decision': 'a FORCED CHOICE at 3-7 options: one select call, or N score calls argmax\'d?',
     'tool-affordance': 'given these tools, what do you want — through the PROMPT protocol, on a SYNTHETIC roster',
+    'bench-compare': 'two `_bench-results/` runs, PAIRED by (arm, question): McNemar exact, refuses a mismatch',
     'rerank-screen': 'does a candidate GGUF rerank AT ALL? `--inspect` needs no download',
     'embed-screen': 'does a candidate GGUF EMBED at all? Sweeps `--pooling`, reads the range not the order',
     'locomo-pair': '`memory-locomo` against a CHOSEN embedder + reader, owning both servers',

@@ -717,6 +717,7 @@ internal static class MemoryLongMemEvalBench
         }
 
         PrintPairedComparison(arms, perQuestion);
+        await WriteResultsAsync(args, arms, sampled, perQuestion);
         return 0;
     }
 
@@ -871,6 +872,23 @@ internal static class MemoryLongMemEvalBench
         Console.WriteLine("  '+' is questions this arm preferred the current fact on and the reference did");
         Console.WriteLine("  not; '-' the reverse. Only those DISAGREEMENTS carry information, so a small");
         Console.WriteLine("  net over few discordant pairs is not a result however large the percentage gap.");
+    }
+
+    /// <summary>The per-question outcomes as <see cref="BenchResults"/> rows. <paramref name="perQuestion"/> is
+    /// keyed by 1-based sample position; an UNDECIDABLE question is written as <c>hit: null</c>, never as a
+    /// miss, for the reason <see cref="PrintPairedComparison"/> gives.</summary>
+    private static async Task WriteResultsAsync(IEnumerable<string> args, IReadOnlyList<string> arms,
+        IReadOnlyList<Question> sampled, Dictionary<string, Dictionary<int, bool>> perQuestion)
+    {
+        var results = new BenchResults("memory-longmemeval", "prefers-current", args);
+        foreach (var arm in arms)
+        {
+            var mine = perQuestion.GetValueOrDefault(arm);
+            for (var i = 0; i < sampled.Count; i++)
+                results.Add(arm, sampled[i].Id,
+                    mine is not null && mine.TryGetValue(i + 1, out var preferred) ? preferred : null);
+        }
+        await results.WriteAsync();
     }
 
     /// <summary>One arm's engine over its own store, with the semantic channel registered when the arm asks
@@ -1415,6 +1433,7 @@ internal static class MemoryLongMemEvalBench
         }
 
         PrintPairedComparison(arms, perQuestion);
+        await WriteResultsAsync(args, arms, sampled, perQuestion);
 
         Console.WriteLine();
         Console.WriteLine("  'prefers current' is scored only over questions where the arm returned at least");

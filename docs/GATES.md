@@ -923,6 +923,15 @@ benchmarks, measured on data this repository did not build. Both are model-free 
 evidence turn, so no reader and no judge can be credited or blamed), and both need a dataset the command
 prints a `curl` for.
 
+**Two runs are compared PAIRED, through one result shape.** `memory-locomo` (its `--retrieval`, `--shots` and
+QA modes) and `memory-longmemeval` (the default and `--extract` paths) write one row per arm × question
+through `bench/Lyntai.Benchmarks/BenchResults.cs` into the gitignored `devtools/_bench-results/`, and
+`node devtools/dev.mjs bench-compare <a> <b>` pairs two files by (arm, question) and prints per-arm hit rates,
+the discordant counts and McNemar exact — the same arithmetic as `BenchStats.McNemarExact`, pinned by its
+test. It refuses a different metric always, and a different question set or configuration hash (the run's
+arguments plus its `LYNTAI_*` environment) unless told. Every other sweep still writes only its console table:
+wiring one first needs a question id stable across runs, which a sweep's generated trials do not yet carry.
+
 **`memory-contention` and `memory-decision` are ORCHESTRATED** — a Node script owns the server processes and
 the C# sweep only measures, because both need several `llama-server` instances at once and a bench cannot be
 trusted to tear them down. `memory-decision` is also the only sweep whose subject is not the memory engine

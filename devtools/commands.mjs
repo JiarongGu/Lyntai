@@ -42,6 +42,7 @@ export const COMMANDS = [
   { name: 'memory-contention', script: 'memory-contention' },
   { name: 'memory-decision', script: 'memory-decision' },
   { name: 'tool-affordance', script: 'tool-affordance' },
+  { name: 'bench-compare', script: 'bench-compare' },
   { name: 'install-hooks', builtin: true },
   { name: 'check-sensitive', script: 'check-sensitive' },
   { name: 'decisions-index', script: 'decisions-index' },

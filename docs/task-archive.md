@@ -5572,3 +5572,17 @@ associative entries its retrievability puts below the floor, and answers `null` 
 `docs/memory.md` §Check how a memory is wired, and how much it holds carries the usage. No `--fix`, by design.
 
 - RV7 — the memory wiring check is data a host can read, and a store can report its own size
+
+## Part 356 — RV8: every wired memory bench writes one result shape, and two runs compare paired (2026-10-24)
+
+✅ done 2026-10-24 — **Outcome:** the eighth item of the competitive review's backlog (`TASKS.md` Part 346).
+`bench/Lyntai.Benchmarks/BenchResults.cs` writes one JSONL row per arm × question — bench, metric, arm, a
+dataset-stable question id, hit (`null` = undecidable, never a miss), optional score and latency, a
+configuration hash over the arguments and `LYNTAI_*` environment, run time and commit — into
+`devtools/_bench-results/`. Wired: `memory-locomo` (`--retrieval`, `--shots`, QA; the id is `conv:qa-index`)
+and `memory-longmemeval` (default and `--extract`). `node devtools/dev.mjs bench-compare` pairs two files and
+prints hit rates, discordant counts and McNemar exact, refusing a metric, question-set or configuration
+mismatch; its test pins it to two published `BenchStats.McNemarExact` figures. `docs/GATES.md` §`memory-*` is
+the usage; the other sweeps, the ad-hoc `--dump` files and LongMemEval's temporal modes are not wired.
+
+- RV8 — every memory bench writes one result shape, and two runs compare paired

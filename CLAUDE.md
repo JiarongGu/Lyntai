@@ -12,7 +12,7 @@ The reasoning is `docs/DECISIONS.md`, **D1–D202** — read its generated index
 decisions kept here.
 
 **The baseline a green run should match:** `5335 passed / 5384 total, 49 skipped` (every skip is a
-live-backend gate), e2e 3/3, guard-script tests 987/987, doc samples 63/63 — MEASURED with Docker up at
+live-backend gate), e2e 3/3, guard-script tests 1000/1000, doc samples 63/63 — MEASURED with Docker up at
 `c23adcc9` (2026-10-24). No gate holds the xUnit trio (`docs/GATES.md` §Which numbers a gate holds), so:
 
 - **Re-measure it by hand after `verify`, off that run's own output**, never from a diff, and re-attest the
@@ -71,6 +71,7 @@ rebuilds it and `verify` fails while the two disagree.
 | `memory-contention` |  | judge vs cross-encoder: does moving verification off the shared model pay? |
 | `memory-decision` |  | a FORCED CHOICE at 3-7 options: one select call, or N score calls argmax'd? |
 | `tool-affordance` |  | given these tools, what do you want — through the PROMPT protocol, on a SYNTHETIC roster |
+| `bench-compare` |  | two `_bench-results/` runs, PAIRED by (arm, question): McNemar exact, refuses a mismatch |
 | `install-hooks` |  | set `core.hooksPath` — once per clone, nothing warns you |
 | `check-sensitive` | ✓ | leak scan; `--tree` for everything, not just staged |
 | `decisions-index` |  | rebuild `DECISIONS.md`'s index after adding a `D<n>` |

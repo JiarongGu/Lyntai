@@ -110,8 +110,10 @@ internal static class MemoryLocomoBench
     // `internal` rather than private, and the loader with them: `MemoryDecisionSweep` builds its trials from
     // this corpus, and a second loader would be a REPLICA of a shipped rule — the shape that has already
     // moved a published row by 4 points while looking entirely plausible (`pitfalls.md`).
+    /// <param name="Id">The conversation id and the question's index in its <c>qa</c> array — stable across
+    /// samples, which is what lets <see cref="BenchResults"/> pair two runs.</param>
     internal sealed record Question(string ConvId, string Text, string Gold, int Category,
-        IReadOnlyList<string> Evidence);
+        IReadOnlyList<string> Evidence, string Id);
 
     internal sealed record Turn(string Speaker, string Text, string Date, string DiaId);
 
@@ -405,6 +407,8 @@ internal static class MemoryLocomoBench
         // `--dump`'s per-item record. Collected in memory rather than streamed: 100 questions x 8 arms is
         // 800 lines, and a writer held open across the run is one more thing to get wrong on a throw.
         var dumped = new List<string>();
+        var results = new BenchResults("memory-locomo",
+            retrievalOnly || shotsOnly ? "evidence-hit@k" : judged ? "judge" : "exact-match", args);
 
         // ONE probe across every conversation, because the ladder's rates are over the whole sample. It is
         // installed as the shipped arm's ranking policy and delegates untouched, so it describes the run that
@@ -1154,8 +1158,9 @@ internal static class MemoryLocomoBench
                         returned[name] = returned.GetValueOrDefault(name) + body.Count;
                         chars[name] = chars.GetValueOrDefault(name) + body.Sum(b => b.Length);
                         millis[name] = millis.GetValueOrDefault(name) + clock.Elapsed.TotalMilliseconds;
-                        if (q.Evidence.Any(e => body.Any(g => g.Contains($"({e})", StringComparison.Ordinal))))
-                            correct[key] = correct.GetValueOrDefault(key) + 1;
+                        var shotHit = q.Evidence.Any(e => body.Any(g => g.Contains($"({e})", StringComparison.Ordinal)));
+                        if (shotHit) correct[key] = correct.GetValueOrDefault(key) + 1;
+                        results.Add(name, q.Id, shotHit, latencyMs: clock.Elapsed.TotalMilliseconds);
                     }
                 }
             }
@@ -1176,8 +1181,9 @@ internal static class MemoryLocomoBench
                         asked[key] = asked.GetValueOrDefault(key) + 1;
                         returned[arm] = returned.GetValueOrDefault(arm) + got.Count;
                         chars[arm] = chars.GetValueOrDefault(arm) + got.Sum(g => g.Length);
-                        if (q.Evidence.Any(e => got.Any(g => g.Contains($"({e})", StringComparison.Ordinal))))
-                            correct[key] = correct.GetValueOrDefault(key) + 1;
+                        var hit = q.Evidence.Any(e => got.Any(g => g.Contains($"({e})", StringComparison.Ordinal)));
+                        if (hit) correct[key] = correct.GetValueOrDefault(key) + 1;
+                        results.Add(arm, q.Id, hit, latencyMs: clock.Elapsed.TotalMilliseconds);
                     }
 
                     var fullKey = ("full", q.Category);
@@ -1229,8 +1235,9 @@ internal static class MemoryLocomoBench
                         var key = (arm, q.Category);
                         asked[key] = asked.GetValueOrDefault(key) + 1;
                         returned[arm] = returned.GetValueOrDefault(arm) + got.Count;
-                        if (q.Evidence.Any(e => got.Any(g => g.Contains($"({e})", StringComparison.Ordinal))))
-                            correct[key] = correct.GetValueOrDefault(key) + 1;
+                        var hit = q.Evidence.Any(e => got.Any(g => g.Contains($"({e})", StringComparison.Ordinal)));
+                        if (hit) correct[key] = correct.GetValueOrDefault(key) + 1;
+                        results.Add(arm, q.Id, hit);
                     }
                 }
                 Console.WriteLine($"  {convId}: {turns.Count} turns x {configs.Length} arm(s) ingested, "
@@ -1282,6 +1289,7 @@ internal static class MemoryLocomoBench
                         // Same value the dump above records for this case, so the paired list and the dump
                         // cannot disagree about what an "unknown" scored.
                         verdictF1?[arm].Add(0.0);
+                        results.Add(arm, q.Id, false, score: 0.0);
                         continue;
                     }
 
@@ -1299,6 +1307,7 @@ internal static class MemoryLocomoBench
                     if (itemExact) exact[key] = exact.GetValueOrDefault(key) + 1;
                     if (verdict is true) correct[key] = correct.GetValueOrDefault(key) + 1;
                     verdictF1?[arm].Add(itemF1);
+                    results.Add(arm, q.Id, judged ? verdict is true : itemExact, score: itemF1);
                     if (dump)
                         dumped.Add(JsonSerializer.Serialize(new
                         {
@@ -1384,6 +1393,8 @@ internal static class MemoryLocomoBench
                 Console.WriteLine($"  pairs whose DOCUMENT did not fit the window: {reranker.Truncated} of "
                     + $"{scored}" + (scored > 0 ? $" ({100.0 * reranker.Truncated / scored:F1}%)" : ""));
         }
+
+        await results.WriteAsync();
 
         // `--dump` was parsed and read by NOTHING until 2026-09-01 — a flag the usage advertised and the
         // run silently ignored. It survived because `var dump = args.Contains(...)` assigns a method
@@ -1522,8 +1533,10 @@ internal static class MemoryLocomoBench
             }
             conversations.Add((id, turns));
 
+            var qaIndex = -1;
             foreach (var qa in sample.GetProperty("qa").EnumerateArray())
             {
+                qaIndex++;
                 var category = qa.GetProperty("category").GetInt32();
                 if (!ScoredCategories.Contains(category)) continue;
                 if (!qa.TryGetProperty("answer", out var gold)) continue;
@@ -1531,7 +1544,7 @@ internal static class MemoryLocomoBench
                     ? ev.EnumerateArray().Select(e => e.ToString()).ToList()
                     : [];
                 questions.Add(new Question(id, qa.GetProperty("question").GetString() ?? "",
-                    gold.ToString(), category, evidence));
+                    gold.ToString(), category, evidence, $"{id}:{qaIndex}"));
             }
         }
         return (conversations, questions);
