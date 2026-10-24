@@ -502,7 +502,10 @@ public sealed class GraphMemoryEngine(
 
     /// <summary>Index the node's vector under the removal lock, and only while the node still exists: a forget
     /// that landed since the upsert has already cleared the index, so indexing after it would leave the forgotten
-    /// content readable there (<b>D90</b>). Best-effort like the index itself — a failed re-read costs the vector.</summary>
+    /// content readable there (<b>D90</b>). Best-effort like the index itself — a failed re-read costs the vector.
+    /// <para>The lock serializes THIS instance's removals only, so the node is read again after the upsert: a
+    /// removal from another instance that deleted it in between has already swept, and the vector is taken
+    /// back here.</para></summary>
     private async Task<bool> IndexUnlessRemovedAsync(long id, MemoryWrite write, float[] vector, CancellationToken ct)
     {
         using var removals = await RemovalsAsync(ct).ConfigureAwait(false);
@@ -516,7 +519,26 @@ public sealed class GraphMemoryEngine(
             _logger.LogWarning(ex, "re-reading a new entry failed for {Engine}; it is stored without its vector", Name);
             return false;
         }
-        return await _vectors.IndexAsync(id, write, vector, ct).ConfigureAwait(false);
+        if (!await _vectors.IndexAsync(id, write, vector, ct).ConfigureAwait(false)) return false;
+        return !await RetractIfRemovedAsync(id, write.TaskKey, write.Scope, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>After a vector upsert: whether its node was deleted meanwhile, in which case the vector is taken
+    /// back. A failed re-read is read as "removed", so the vector goes rather than surviving its node.</summary>
+    private async Task<bool> RetractIfRemovedAsync(long id, string taskKey, string scope, CancellationToken ct)
+    {
+        try
+        {
+            if (await store.GetAsync(Name, id, ct).ConfigureAwait(false) is not null) return false;
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "re-reading entry {Id} after indexing failed for {Engine}; its vector is taken back",
+                id, Name);
+        }
+        await _vectors.RetractAsync(id, taskKey, scope, ct).ConfigureAwait(false);
+        return true;
     }
 
     /// <inheritdoc />
@@ -903,18 +925,30 @@ public sealed class GraphMemoryEngine(
     /// deliberately orders the other way, because there the cheap failure is an orphan rather than a
     /// residue.</para>
     /// <para>A write in flight on this instance never outlives it in the index: the two exclude each other around
-    /// the write's index step, which indexes only an entry that survived.</para></summary>
+    /// the write's index step, which indexes only an entry that survived. <b>Another instance over the same
+    /// store</b> — another process — holds no such lock, so the index is swept a SECOND time once the nodes are
+    /// gone: a vector that instance upserted before this sweep is cleared by it, and one it upserts after finds
+    /// its node gone and takes itself back. The cost is a vector, never content — a write landing after the node
+    /// delete keeps its entry and may lose its vector to the second sweep.</para></summary>
     /// <param name="taskKey">The task to clear.</param>
     /// <param name="scope">The scope, or null for every scope of the task.</param>
     /// <param name="ct">Cancellation.</param>
     public async Task ForgetAsync(string taskKey, string? scope = null, CancellationToken ct = default)
     {
         using var removals = await RemovalsAsync(ct).ConfigureAwait(false);
-        await _vectors.ForgetAsync(taskKey, scope, async () =>
-                (await store.SeedAsync(Name, taskKey, scope: null, query: null, limit: int.MaxValue, ct)
-                    .ConfigureAwait(false)).Select(n => n.Scope).Distinct(StringComparer.Ordinal),
-            ct).ConfigureAwait(false);
+        var scopes = new HashSet<string>(StringComparer.Ordinal);
+        async Task<IEnumerable<string>> ReadScopesAsync()
+        {
+            // read live on each call, and remembered: the second sweep runs after the nodes naming them are gone
+            scopes.UnionWith((await store.SeedAsync(Name, taskKey, scope: null, query: null, limit: int.MaxValue, ct)
+                .ConfigureAwait(false)).Select(n => n.Scope));
+            return scopes;
+        }
+
+        await _vectors.ForgetAsync(taskKey, scope, ReadScopesAsync, ct).ConfigureAwait(false);
+        if (scope is null && _vectors.Wired) await ReadScopesAsync().ConfigureAwait(false);   // a scope opened since
         await store.ForgetAsync(Name, taskKey, scope, ct).ConfigureAwait(false);
+        await _vectors.ForgetAsync(taskKey, scope, ReadScopesAsync, ct).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
@@ -956,6 +990,9 @@ public sealed class GraphMemoryEngine(
             {
                 if (await store.GetAsync(Name, batch[i].Id, ct).ConfigureAwait(false) is null) continue;   // removed mid-pass
                 await _vectors.UpsertAsync(batch[i], vectors[i], ct).ConfigureAwait(false);
+                // removed by ANOTHER instance between the read and the upsert — this lock does not reach it
+                if (await RetractIfRemovedAsync(batch[i].Id, batch[i].TaskKey, batch[i].Scope, ct).ConfigureAwait(false))
+                    continue;
                 indexed++;
             }
         }

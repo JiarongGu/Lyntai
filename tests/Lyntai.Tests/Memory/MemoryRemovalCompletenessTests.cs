@@ -300,6 +300,88 @@ public class MemoryRemovalCompletenessTests
         Assert.Empty(await PayloadsAsync(vectors, Collection("t", "s")));
     }
 
+    // TWO INSTANCES over one store stand in for two processes: neither holds the other's removal lock, which is
+    // the whole difference — one instance serializes a forget against its own writes and nothing else.
+
+    [Fact]
+    public async Task A_forget_from_ANOTHER_instance_landing_mid_index_leaves_no_vector()
+    {
+        var store = new InMemoryMemoryGraphStore();
+        var vectors = new ParkingVectorStore();
+        var writer = Engine(vectors, store: store);
+        var forgetter = Engine(vectors, store: store);
+        vectors.ParkNextUpsert();
+
+        var write = writer.RememberAsync(new MemoryWrite("t", "s", "the recovery key is written on the blue card"));
+        await vectors.Parked.Task.WaitAsync(TestTimeouts.GateWait);   // past its re-read, before its upsert
+        await forgetter.ForgetAsync("t", "s");                          // not held up: another instance's lock
+        vectors.Release.SetResult();
+
+        var written = await write.WaitAsync(TestTimeouts.GateWait);
+        Assert.Empty(await PayloadsAsync(vectors, Collection("t", "s")));
+        Assert.False(written.Ran.HasFlag(MemorySources.Similarity));
+    }
+
+    [Fact]
+    public async Task A_write_from_ANOTHER_instance_indexed_while_a_forget_deletes_nodes_leaves_no_vector()
+    {
+        // The write finishes entirely inside the forget — after its index sweep, before its node delete — so
+        // the write's own re-check sees its node alive and keeps the vector. Only a sweep AFTER the nodes are
+        // gone can reach it.
+        var store = new ForgetParkingGraphStore();
+        var vectors = new InMemoryVectorStore();
+        var writer = Engine(vectors, store: store);
+        var forgetter = Engine(vectors, store: store);
+
+        var forget = forgetter.ForgetAsync("t", null);
+        await store.Parked.Task.WaitAsync(TestTimeouts.GateWait);
+        await writer.RememberAsync(new MemoryWrite("t", "s", "the recovery key is written on the blue card"));
+        Assert.NotEmpty(await PayloadsAsync(vectors, Collection("t", "s")));   // indexed, so the fact can fail
+        store.Release.SetResult();
+
+        await forget.WaitAsync(TestTimeouts.GateWait);
+        Assert.Empty(await store.SeedAsync("project/graph", "t", null, null, 10));
+        Assert.Empty(await PayloadsAsync(vectors, Collection("t", "s")));
+    }
+
+    [Fact]
+    public async Task A_forget_from_ANOTHER_instance_landing_mid_reindex_leaves_no_vector()
+    {
+        var store = new InMemoryMemoryGraphStore();
+        var vectors = new ParkingVectorStore();
+        var reindexer = Engine(vectors, store: store);
+        var forgetter = Engine(vectors, store: store);
+        await reindexer.RememberAsync(new MemoryWrite("t", "s", "the recovery key is written on the blue card"));
+        await forgetter.ForgetAsync("t", "s");
+        await reindexer.RememberAsync(new MemoryWrite("t", "s", "the recovery key is written on the blue card"));
+        vectors.ParkNextUpsert();
+
+        var reindex = reindexer.ReindexAsync("t", "s");
+        await vectors.Parked.Task.WaitAsync(TestTimeouts.GateWait);
+        await forgetter.ForgetAsync("t", "s");
+        vectors.Release.SetResult();
+
+        await reindex.WaitAsync(TestTimeouts.GateWait);
+        Assert.Empty(await PayloadsAsync(vectors, Collection("t", "s")));
+    }
+
+    /// <summary>A real in-process graph store whose next forget parks BEFORE it deletes anything — a forget held
+    /// between its first index sweep and its node delete.</summary>
+    private sealed class ForgetParkingGraphStore : DelegatingGraphStore
+    {
+        public TaskCompletionSource Parked { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public override async Task ForgetAsync(string engine, string taskKey, string? scope,
+            CancellationToken ct = default)
+        {
+            Parked.TrySetResult();
+            await Release.Task;
+            await base.ForgetAsync(engine, taskKey, scope, ct);
+        }
+    }
+
     /// <summary>A real in-process graph store whose next upsert parks AFTER the node is stored — a write held
     /// between its upsert and its index.</summary>
     private sealed class UpsertParkingGraphStore : DelegatingGraphStore

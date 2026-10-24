@@ -5485,3 +5485,15 @@ rule and the rejected shapes, `docs/GATES.md` §check-links the URL half, `pitfa
 D158's one deliberate "OpenAI-compatible" README mention had already been lost; it is back, in §Backends.
 
 - Update the GitHub presence (docs, topics) for search and publicity, so other agents building apps can see Lyntai
+
+## Part 349 — RV1: a forget is complete across engine instances, not only within one (2026-10-24)
+
+✅ done 2026-10-24 — **Outcome:** the first item of the competitive review's backlog (`TASKS.md` Part 345). A graph
+engine's `ForgetAsync` now sweeps the similarity index again after deleting the nodes, and every vector upsert — a
+write's index step and a re-embed's write-back — re-reads its node and retracts the vector if it is gone, so a
+second process over the same store can no longer leave a forgotten entry's content readable as a vector payload.
+The review proposed a persistent tombstone or generation fence; the sweep-and-re-read closes the same window with no
+schema change, and **D198** records that choice and its cost (one entry read per indexed write). The trail is
+`docs/FIXES.md` 2026-10-24; `docs/memory.md` §5 states the new guarantee.
+
+- RV1 — a forget closes its window across PROCESSES, not only within one engine instance

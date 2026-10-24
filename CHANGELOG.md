@@ -33,6 +33,15 @@ every addition.
 - **`llms.txt` and `context7.json`, for coding agents** (**D197**): an index of the docs written for language
   models, and the configuration the Context7 documentation index reads — both carrying README's agent rules.
 
+### Fixed
+
+- **A forget from another process no longer leaves a racing write's vector behind** (**D198**). Through 3.5.3 a
+  graph engine serialized a forget against writes and re-embeds on the same instance only, so a second process
+  over the same store could index a vector for an entry the forget had just deleted, leaving its content
+  readable in the similarity index. A forget now sweeps the index again after deleting the nodes, and every
+  vector upsert re-reads its entry and takes the vector back if it is gone. Each indexed write pays one more
+  entry read.
+
 ## 3.5.3 — 2026-09-30
 
 ### Fixed

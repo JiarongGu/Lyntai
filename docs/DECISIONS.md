@@ -267,8 +267,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D195](#d195--a-sentence-transformers-export-is-windowed-where-sentence-transformers-cuts-it-max_seq_length-narrows-the-window-2026-09-27) | 2026-09-27 | a sentence-transformers export is windowed where sentence-transformers cuts it: `max_seq_length`… |
 | [D196](#d196--the-neutral-cwd-is-a-directory-the-process-owns-and-it-scopes-a-clis-settings-not-its-instructions-2026-09-30) | 2026-09-30 | the neutral cwd is a directory the PROCESS owns, and it scopes a CLI's settings, not its instruct… |
 | [D197](#d197--readme-is-the-landing-page-every-package-ships-the-reference-is-docsguidemd-and-the-agent-facing-files-are-maintained-state-2026-10-22) | 2026-10-22 | README is the landing page every package ships; the reference is `docs/guide.md`, and the agent-f… |
+| [D198](#d198--a-forget-is-complete-across-engine-instances-by-a-second-sweep-and-a-writes-re-read-not-by-a-fence-2026-10-24) | 2026-10-24 | a forget is complete across engine instances by a second sweep and a write's re-read, not by a fence |
 
-**192 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**193 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -5808,3 +5809,22 @@ the quickstart under the reference. A short README beside an unchanged reference
 packaged README is the one document a consumer without the repository can read, so it keeps the rules and the
 package table rather than pointing at them. Three hand-kept copies of the rules with no check: the copies are
 the documents an agent trusts most and reviews least.
+
+## D198 — a forget is complete across engine instances by a second sweep and a write's re-read, not by a fence (2026-10-24)
+
+A graph engine's `ForgetAsync` sweeps the similarity index, deletes the nodes, then sweeps the index AGAIN; every
+vector upsert — a write's index step and a re-embed's — re-reads its node afterwards and takes the vector back if
+the node is gone. Because a graph store never reissues an id, any upsert lands either before the second sweep,
+which clears it, or after the node delete, which its own re-read sees. That holds for two instances over one
+store, another process included, with no lock shared between them. The in-instance removal lock stays: it is
+what keeps the common case to one sweep's worth of work.
+
+**The cost, accepted.** One more entry read per indexed write; and a write landing just after the node delete
+keeps its entry but may lose its vector to the second sweep — a recall cost a re-embed repairs, never content
+surviving a withdrawal (**D90**, **D72**). A prune from another instance stays best-effort, as pruning is.
+
+**Rejected.** A persistent per-scope generation or tombstone fence checked on every write (the external review's
+proposal, `TASKS.md` RV1): a schema change on every backend and a read on every write to close a window the
+sweep-and-re-read closes with none. A cross-process lock: no store the library ships offers one, and a BYO store
+would have to. Documenting the window as a single-process limit: it is the consent-withdrawal path, and the
+window was closable.

@@ -895,8 +895,11 @@ to learn which ids it removed, which a deployment with no vector store does not 
 the DI-registered singleton is: a write indexes its vector under the lock the removal verbs hold, after re-reading
 that its entry survived, so a forget landing between the write's entry and its vector wins, and the write reports no
 `MemorySources.Similarity`. The price is that a write's index step waits for a running forget or prune, and
-concurrent writes to one engine take that step one at a time; the embed call, the slow part, stays outside. Two
-instances over one store, two processes say, are not serialized, and there the window remains.
+concurrent writes to one engine take that step one at a time; the embed call, the slow part, stays outside.
+**Two instances over one store — two processes, say — are not serialized, and are still covered** (**D198**): a
+forget sweeps the index again after it deletes the nodes, and a write re-reads its entry after indexing it and takes
+the vector back if it is gone, so whichever lands second clears it. That costs every indexed write one more entry
+read, and a write landing just after the node delete may lose its vector — never its entry — to the second sweep.
 
 ### Re-embed after changing the embedding model
 
@@ -914,8 +917,8 @@ if (result.Failed > 0)
 **Pause writes to the task while it runs**: a write landing mid-pass is embedded by the new model, but its
 similarity search still meets old vectors, so under a new model of the same dimension its links may be scored
 against the wrong one. A forget or prune landing mid-pass is safe — the pass never writes a vector back for an
-entry it removed — when it goes through the same engine instance, which the DI-registered singleton is; two
-instances must not run a re-embed and a removal at once. `similar` links stay as the old model scored them.
+entry it removed — and a FORGET from another instance is too, by the same re-read a write makes (**D198**); a
+PRUNE from another instance is best-effort and may orphan one. `similar` links stay as the old model scored them.
 Through the factory, the blend implements `IReindexableMemory` and fans out to the members that can; a member that
 cannot is named in `Skipped`, and **a semantic member is one**: its vectors stay on the old model until the
 application writes its corpus again (`docs/DECISIONS.md` **D194**).

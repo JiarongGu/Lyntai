@@ -7,6 +7,31 @@ to `.agents/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-10-24 — a forget from ANOTHER engine instance still left a racing write's vector in the index
+
+**Symptom.** Found by an existence audit of an external review, not in the field: `docs/memory.md` stated that two
+graph-engine instances over one store — two processes — were not serialized and "the window remains", so a
+consent-withdrawing forget could report success with a concurrent write's content still readable as a vector
+payload. The same held for a re-embed racing a forget.
+
+**Root cause.** The 2026-09-27 fix below serialized the write's index step and the re-embed's write-back against
+removals with `GraphMemoryEngine._removals`, an in-process `SemaphoreSlim`. A second instance holds a different
+semaphore, so its forget could clear the index and delete the node between this instance's re-read and its
+upsert — and nothing ran after the upsert to notice.
+
+**Fix.** `GraphMemoryEngine.ForgetAsync` sweeps the index a second time after the node delete, remembering the
+scopes it read before, and every vector upsert (`IndexUnlessRemovedAsync`, the `ReindexAsync` write-back) re-reads
+its node afterwards and retracts the vector if it is gone (`GraphVectorProjection.RetractAsync`). Sound because a
+graph store never reissues an id (**D198**).
+
+**Verify.** Three facts in `MemoryRemovalCompletenessTests`, each over two engine instances sharing one store, all
+failing before the change: `A_forget_from_ANOTHER_instance_landing_mid_index_leaves_no_vector`,
+`A_write_from_ANOTHER_instance_indexed_while_a_forget_deletes_nodes_leaves_no_vector`,
+`A_forget_from_ANOTHER_instance_landing_mid_reindex_leaves_no_vector`.
+
+**Introduced by.** Not a regression: `baba9b25` (2026-09-27) closed the race for one instance and documented the
+multi-instance window as open.
+
 ## 2026-09-30 — a hosted one-shot claude call silently dropped its consumer's settings file
 
 **Symptom.** Reported by an adopting application, adopting `ClaudeCompletionOptions.SettingsPath` for every one-shot

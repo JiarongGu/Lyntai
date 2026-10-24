@@ -112,10 +112,10 @@ public interface IReindexableMemory
     /// <para><b>Pause writes to the task while it runs.</b> A write landing mid-pass is embedded by the new model,
     /// but its similarity search still meets old vectors, so under a new model of the same dimension its links may
     /// be scored against the wrong one.</para>
-    /// <para>A removal landing mid-pass is safe when it goes through the SAME engine instance (the one DI registers
-    /// is a singleton): the pass never writes a vector back for an entry a forget or prune removed. Two instances —
-    /// in two processes, or one built by hand beside it — must not run a re-embed and a removal at once; a repeat
-    /// forget of the scope clears any vector left behind.</para></summary>
+    /// <para>A removal landing mid-pass must not be undone by it: the pass never writes a vector back for an entry a
+    /// forget or prune removed. The graph engine holds this for a forget from any instance over the same store,
+    /// another process included, by re-reading each entry after its upsert; a prune from another instance is
+    /// best-effort and may leave an orphan, which a forget of the scope clears.</para></summary>
     /// <param name="taskKey">The task to re-embed.</param>
     /// <param name="scope">The scope, or null for every scope of the task.</param>
     /// <param name="ct">Cancellation, which is never swallowed; entries already re-embedded stay so.</param>

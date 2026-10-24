@@ -152,6 +152,27 @@ internal sealed class GraphVectorProjection(
         }
     }
 
+    /// <summary>Take back a vector just indexed for a node that a removal from ANOTHER engine instance deleted
+    /// meanwhile. Best-effort and loud: the removal has already returned, so the writer is the last party able to
+    /// clear it. Returns whether the vector is gone.</summary>
+    internal async Task<bool> RetractAsync(long id, string taskKey, string scope, CancellationToken ct)
+    {
+        try
+        {
+            await vectors!.DeleteAsync(Collection(taskKey, scope), id.ToString(CultureInfo.InvariantCulture), ct)
+                .ConfigureAwait(false);
+            return true;
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (Exception ex)
+        {
+            logger.LogError(ex,
+                "a removal deleted entry {Id} of {Engine} while it was being indexed, and its vector could not be "
+                + "taken back; forget its scope again to clear it", id, engine);
+            return false;
+        }
+    }
+
     /// <summary>Delete the vectors of nodes a PRUNE removed, each under its own task and scope.
     /// <para><b>BEST-EFFORT, unlike <see cref="ForgetAsync"/></b>: a prune clears the index AFTER the store, so
     /// throwing here would lose the COUNT of a prune that in fact succeeded. The honest degradation is an orphaned
