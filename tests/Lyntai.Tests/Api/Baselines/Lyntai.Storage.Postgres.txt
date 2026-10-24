@@ -77,6 +77,7 @@ sealed class Lyntai.Storage.Postgres.PostgresKeyValueStore
     SetAsync(String key, String value, CancellationToken ct = default) : Task
 sealed class Lyntai.Storage.Postgres.PostgresMemoryGraphStore
     .ctor(IDbConnectionFactory factory, ILogger<PostgresMemoryGraphStore> logger = null, Func<DateTimeOffset> clock = null)
+    CountAsync(String engine, String taskKey, String scope, CancellationToken ct = default) : Task<MemoryGraphCounts>
     DeleteAsync(String engine, IReadOnlyCollection<Int64> ids, CancellationToken ct = default) : Task<Int32>
     ForgetAsync(String engine, String taskKey, String scope, CancellationToken ct = default) : Task
     GetAsync(String engine, Int64 id, CancellationToken ct = default) : Task<GraphNode>

@@ -168,6 +168,22 @@ public static class MemoryGraphSql
         WHERE engine = @engine AND task_key = @taskKey AND (@scope IS NULL OR scope = @scope)
         """;
 
+    /// <summary>What a task and scope hold, in one statement — <see cref="ICountableMemoryGraphStore.CountAsync"/>.
+    /// Four <c>COUNT</c>s, read back positionally: entries, authoritative entries, edges leaving them, distinct
+    /// subjects. Edges and subjects go with their node by cascade, so nothing here counts a removed entry's.</summary>
+    public const string Counts = """
+        SELECT
+            (SELECT COUNT(*) FROM lyntai_memory_node n
+             WHERE n.engine = @engine AND n.task_key = @taskKey AND (@scope IS NULL OR n.scope = @scope)),
+            (SELECT COUNT(*) FROM lyntai_memory_node n
+             WHERE n.engine = @engine AND n.task_key = @taskKey AND (@scope IS NULL OR n.scope = @scope)
+               AND n.grade = @authoritative),
+            (SELECT COUNT(*) FROM lyntai_memory_edge e JOIN lyntai_memory_node n ON n.id = e.from_id
+             WHERE n.engine = @engine AND n.task_key = @taskKey AND (@scope IS NULL OR n.scope = @scope)),
+            (SELECT COUNT(DISTINCT s.subject) FROM lyntai_memory_subject s
+             WHERE s.engine = @engine AND s.task_key = @taskKey AND (@scope IS NULL OR s.scope = @scope))
+        """;
+
     /// <summary>Append to the review log. Every column is bound by parameter — including <c>verified</c>,
     /// whose TRI-STATE each backend binds its own way (SQLite <c>1</c>/<c>0</c>/NULL, Postgres a native
     /// <c>bool?</c>), which is why <see cref="MemoryReviewRow"/> deliberately does not declare it.</summary>

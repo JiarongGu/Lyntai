@@ -658,3 +658,37 @@ public interface IMemoryGraphStore
     Task<IReadOnlyList<string>> KnownSubjectsAsync(string engine, string taskKey, string? scope,
         int limit, CancellationToken ct = default);
 }
+
+/// <summary>
+/// The OPTIONAL half of <see cref="IMemoryGraphStore"/> that reports how much it holds — the read-only census a
+/// host checks a memory with.
+/// <para><b>Separate rather than a member of <see cref="IMemoryGraphStore"/></b>, as <see cref="IListableVectorStore"/>
+/// is: a required member breaks every store an application wrote, and a default answering zero would make a store
+/// that cannot count indistinguishable from an empty one. All four shipped stores implement it.</para>
+/// </summary>
+public interface ICountableMemoryGraphStore : IMemoryGraphStore
+{
+    /// <summary>What (<paramref name="engine"/>, <paramref name="taskKey"/>, <paramref name="scope"/>) holds, read
+    /// in one pass. <see cref="MemoryGraphCounts.Buried"/> is always null here: burial is a judgement of the
+    /// decay curve, which a store never evaluates.</summary>
+    /// <param name="engine">The owning engine's name.</param>
+    /// <param name="taskKey">The task to count within; nothing outside it is counted.</param>
+    /// <param name="scope">The scope, or null for every scope of the task.</param>
+    /// <param name="ct">Cancellation.</param>
+    Task<MemoryGraphCounts> CountAsync(string engine, string taskKey, string? scope, CancellationToken ct = default);
+}
+
+/// <summary>How much one engine holds under a task and scope.</summary>
+/// <param name="Entries">Every stored entry — decay never removes one, so this is everything not explicitly
+/// removed.</param>
+/// <param name="Authoritative">How many of <paramref name="Entries"/> are <see cref="MemoryGrade.Authoritative"/>.</param>
+/// <param name="Links">Stored edges leaving those entries. A symmetric link is two; strengthening one adds none.</param>
+/// <param name="Subjects">Distinct subject handles recorded on those entries — the set
+/// <see cref="IMemoryGraphStore.KnownSubjectsAsync"/> lists.</param>
+public sealed record MemoryGraphCounts(int Entries, int Authoritative, int Links, int Subjects)
+{
+    /// <summary>How many associative entries the engine's retrievability puts below its floor — buried, and what
+    /// a prune on that floor targets; the other <see cref="Entries"/> are live. <c>null</c> means not computed:
+    /// a store never sets it, and <see cref="Engines.GraphMemoryEngine.CountAsync"/> does.</summary>
+    public int? Buried { get; init; }
+}

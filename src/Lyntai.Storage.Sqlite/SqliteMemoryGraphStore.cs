@@ -36,7 +36,7 @@ namespace Lyntai.Storage.Sqlite;
 public sealed class SqliteMemoryGraphStore(
     IDbConnectionFactory factory,
     ILogger<SqliteMemoryGraphStore>? logger = null,
-    Func<DateTimeOffset>? clock = null) : IMemoryGraphStore
+    Func<DateTimeOffset>? clock = null) : ICountableMemoryGraphStore
 {
     private readonly ILogger _logger = logger ?? NullLogger<SqliteMemoryGraphStore>.Instance;
     private readonly Func<DateTimeOffset> _clock = clock ?? (() => DateTimeOffset.UtcNow);
@@ -516,6 +516,19 @@ public sealed class SqliteMemoryGraphStore(
 
         await conn.ExecuteAsync(new CommandDefinition(MemoryGraphSql.InsertSubject,
             rows.Select(subject => new { engine, nodeId, subject }), cancellationToken: ct)).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async Task<MemoryGraphCounts> CountAsync(string engine, string taskKey, string? scope,
+        CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
+        var (entries, authoritative, links, subjects) = await conn.QuerySingleAsync<(long, long, long, long)>(
+            new CommandDefinition(MemoryGraphSql.Counts,
+                new { engine, taskKey, scope, authoritative = Authoritative }, cancellationToken: ct))
+            .ConfigureAwait(false);
+        return new((int)entries, (int)authoritative, (int)links, (int)subjects);
     }
 
     /// <inheritdoc />

@@ -1861,6 +1861,7 @@ sealed class Lyntai.Memory.Engines.CuratedMemoryEngine
     Supported : MemoryGrades { get; }
 sealed class Lyntai.Memory.Engines.GraphMemoryEngine
     .ctor(String name, IMemoryGraphStore store, GraphMemoryOptions options = null, GraphMemorySeams seams = null, ILogger<GraphMemoryEngine> logger = null)
+    CountAsync(String taskKey, String scope = null, Nullable<Double> minRetrievability = null, CancellationToken ct = default) : Task<MemoryGraphCounts>
     ExpandAsync(MemoryRef reference, Int32 hops = 1, Nullable<Int32> charBudget = null, MemoryDetail detail = MemoryDetail.Headline, CancellationToken ct = default) : Task<MemoryRecall>
     ForgetAsync(String taskKey, String scope = null, CancellationToken ct = default) : Task
     LinkAsync(MemoryRef from, MemoryRef to, String kind = null, Double weight = 1, Boolean symmetric = false, CancellationToken ct = default) : Task
@@ -2085,6 +2086,8 @@ sealed class Lyntai.Memory.GraphWriteBack
     Reviews : IReadOnlyCollection<MemoryReviewWrite> { get; init; }
     ToString() : String
     Touches : IReadOnlyCollection<GraphTouch> { get; init; }
+interface Lyntai.Memory.ICountableMemoryGraphStore
+    CountAsync(String engine, String taskKey, String scope, CancellationToken ct = default) : Task<MemoryGraphCounts>
 interface Lyntai.Memory.IExpandableMemory
     ExpandAsync(MemoryRef reference, Int32 hops = 1, Nullable<Int32> charBudget = null, MemoryDetail detail = MemoryDetail.Headline, CancellationToken ct = default) : Task<MemoryRecall>
 interface Lyntai.Memory.IForgettableMemory
@@ -2295,6 +2298,18 @@ enum Lyntai.Memory.MemoryGrades
     Authoritative : MemoryGrades const
     None : MemoryGrades const
     value__ : Int32
+sealed class Lyntai.Memory.MemoryGraphCounts
+    .ctor(Int32 Entries, Int32 Authoritative, Int32 Links, Int32 Subjects)
+    Authoritative : Int32 { get; init; }
+    Buried : Nullable<Int32> { get; init; }
+    Deconstruct(Int32& Entries, Int32& Authoritative, Int32& Links, Int32& Subjects) : Void
+    Entries : Int32 { get; init; }
+    Equals(MemoryGraphCounts other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Links : Int32 { get; init; }
+    Subjects : Int32 { get; init; }
+    ToString() : String
 sealed class Lyntai.Memory.MemoryItem
     .ctor(MemoryRef Reference, String Headline, String Content, MemoryGrade Grade, Double Relevance, Double Retrievability, Int32 Degree, IReadOnlyDictionary<String,String> Metadata = null)
     Content : String { get; init; }
@@ -2497,6 +2512,26 @@ sealed class Lyntai.Memory.MemoryWalkStep
     Ran : MemorySources { get; init; }
     ToString() : String
     UpgradedCount : Int32 { get; init; }
+sealed class Lyntai.Memory.MemoryWiringFinding
+    .ctor(MemoryWiringProblem Problem, String Engine, String Message)
+    Deconstruct(MemoryWiringProblem& Problem, String& Engine, String& Message) : Void
+    Engine : String { get; init; }
+    Equals(MemoryWiringFinding other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Message : String { get; init; }
+    Problem : MemoryWiringProblem { get; init; }
+    ToString() : String
+enum Lyntai.Memory.MemoryWiringProblem
+    AnnotatesWithoutSubjectSeeding : MemoryWiringProblem const
+    AnnotationUnconsulted : MemoryWiringProblem const
+    EmbedsWithoutSemanticSeeding : MemoryWiringProblem const
+    UnwritableMember : MemoryWiringProblem const
+    VerificationUnconsulted : MemoryWiringProblem const
+    value__ : Int32
+sealed class Lyntai.Memory.MemoryWiringReport
+    Findings : IReadOnlyList<MemoryWiringFinding> { get; }
+    IsClean : Boolean { get; }
 sealed class Lyntai.Memory.MemoryWrite
     .ctor(String TaskKey, String Scope, String Content, String Headline = null, MemoryGrade Grade = MemoryGrade.Inherit, IReadOnlyDictionary<String,String> Metadata = null)
     Content : String { get; init; }
@@ -3265,6 +3300,7 @@ sealed class Lyntai.Storage.MemoryEvictionPolicy
     static TimeToLive(TimeSpan ttl, Nullable<Int32> maxEntries = null) : MemoryEvictionPolicy
 static class Lyntai.Storage.MemoryGraphSql
     AdvancePosition : String const
+    Counts : String const
     DeleteSubjects : String const
     Forget : String const
     InsertReview : String const

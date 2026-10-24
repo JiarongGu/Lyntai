@@ -369,6 +369,15 @@ internal sealed class MemoryGraphState(Func<DateTimeOffset> clock)
 
     public IReadOnlyList<MemoryReview> Reviews(string engine) => [.. ReviewsOf(engine)];
 
+    public MemoryGraphCounts Count(string engine, string taskKey, string? scope)
+    {
+        var rows = InScope(engine, taskKey, scope).ToList();
+        return new(rows.Count,
+            rows.Count(r => r.Record.Grade == MemoryGrade.Authoritative),
+            rows.Sum(r => _out.TryGetValue(r.Id, out var outs) ? outs.Count : 0),
+            SubjectRows(engine, taskKey, scope).Select(s => s.Subject).Distinct(StringComparer.Ordinal).Count());
+    }
+
     public IReadOnlyList<string> KnownSubjects(string engine, string taskKey, string? scope, int limit) =>
         limit <= 0 ? [] : [.. SubjectRows(engine, taskKey, scope)
             .GroupBy(s => s.Subject, StringComparer.Ordinal)

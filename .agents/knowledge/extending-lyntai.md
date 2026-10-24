@@ -362,6 +362,10 @@ answered with an empty list would silently get **no subject seeding** at all (**
 subject handles in use under a task and scope, most-used first. **And an id is never reissued**, not after a
 delete, a forget or a restart — a SQL backend gets that from `AUTOINCREMENT` or an identity column, where a plain
 rowid would hand the deleted top id out again, and an in-process one from a persisted high-water mark.
+**Beside it sits one OPTIONAL interface, `ICountableMemoryGraphStore`** (**D202**): `CountAsync` reports entries,
+authoritative entries, edges and distinct subjects per engine, task and scope, leaving `Buried` null — the engine
+judges burial. Skip it and `GraphMemoryEngine.CountAsync` answers `null`; every shipped store implements it, and
+`MemoryGraphSql.Counts` is the statement both SQL backends share.
 
 Mirror `src/Lyntai.Storage.Postgres/`, the reference backend, which implements all twelve. **A backend that is
 not a database mirrors `src/Lyntai.Storage.Basic/FileSystem/` instead** (**D171**) — no SQL and no migrations, but

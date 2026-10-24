@@ -890,6 +890,31 @@ returns, reinforces or logs** — it reads the sets the recall already built, so
 carries its members' lists, each entry naming its member, and re-reports what its own limit and budget removed;
 lexical, semantic and curated engines have no candidate stage and leave `Candidates` null.
 
+### Check how a memory is wired, and how much it holds
+
+Both reads are read-only: they report, and nothing here repairs. The wiring check (**D85**) is logged when the
+engine factory is built; `MemoryWiringReport` is the same findings as data, each with its `MemoryWiringProblem` and
+the engine it is about (`null` for one about the whole container), readable without a log or `StrictWiring()`
+(**D202**). An empty report is not proof of good wiring: around an engine this library does not ship, a check that
+cannot be sure stays silent.
+
+<!-- compile-given: IMemoryEngineFactory factory = null!; -->
+```csharp
+foreach (var finding in sp.GetRequiredService<MemoryWiringReport>().Findings)
+    Console.WriteLine($"{finding.Problem} in {finding.Engine ?? "the container"}: {finding.Message}");
+
+var graph = (GraphMemoryEngine)factory.Get("project/graph");
+var counts = await graph.CountAsync("project");   // null scope = every scope of the task
+if (counts is not null)
+    Console.WriteLine($"{counts.Entries} entries, {counts.Buried} buried, {counts.Links} links, {counts.Subjects} subjects");
+```
+
+`Entries` is everything stored, since decay removes nothing; `Buried` is the associative entries whose
+retrievability, as a recall reports it, is below `GraphMemoryOptions.MinRetrievability` (or the floor you pass) —
+what `PruneAsync` on that floor targets — and the rest are live. Counting burial reads the scope's entries once.
+The counts come from the store's `ICountableMemoryGraphStore`, which every shipped store implements; over a store of
+your own that does not, the answer is `null`, never a zero that looks like an empty memory.
+
 ### Delete things, deliberately
 
 Decay never deletes; it only buries. Removal is always an explicit call.

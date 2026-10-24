@@ -966,6 +966,39 @@ public sealed class GraphMemoryEngine(
         return count;
     }
 
+    /// <summary>How much this engine holds under (<paramref name="taskKey"/>, <paramref name="scope"/>): the store's
+    /// <see cref="ICountableMemoryGraphStore"/> counts, with <see cref="MemoryGraphCounts.Buried"/> filled in — the
+    /// associative entries whose retrievability, as a recall reports it, is below the floor. Reads only; nothing is
+    /// reinforced, linked, logged or removed.
+    /// <para>Burial is the exact criterion <see cref="PruneAsync"/> applies when an age policy is
+    /// <see cref="MemoryAgeKind.Derivable"/>; its cheaper in-store path uses a conservative cutoff and may remove
+    /// fewer. Counting it reads every entry in the scope, once, unless the floor is zero. The counts and that read
+    /// are two reads, so a write landing between them can skew the two by what it changed.</para></summary>
+    /// <param name="taskKey">The task to count within.</param>
+    /// <param name="scope">The scope, or null for every scope of the task.</param>
+    /// <param name="minRetrievability">The floor; null takes <see cref="GraphMemoryOptions.MinRetrievability"/>,
+    /// and zero buries nothing.</param>
+    /// <param name="ct">Cancellation.</param>
+    /// <returns>The counts, or <c>null</c> when the store does not implement
+    /// <see cref="ICountableMemoryGraphStore"/> — never a zero that reads as an empty memory.</returns>
+    public async Task<MemoryGraphCounts?> CountAsync(string taskKey, string? scope = null,
+        double? minRetrievability = null, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(taskKey);
+        if (store is not ICountableMemoryGraphStore counting) return null;
+
+        var counts = await counting.CountAsync(Name, taskKey, scope, ct).ConfigureAwait(false);
+        var floor = minRetrievability ?? _options.MinRetrievability;
+        if (floor <= 0) return counts with { Buried = 0 };
+
+        var nodes = await store.SeedAsync(Name, taskKey, scope, query: null, limit: int.MaxValue, ct)
+            .ConfigureAwait(false);
+        return counts with
+        {
+            Buried = nodes.Count(n => n.Grade != MemoryGrade.Authoritative && Retrievability(n) < floor),
+        };
+    }
+
     /// <summary>Forget everything under (<paramref name="taskKey"/>, <paramref name="scope"/>) — explicit,
     /// never a side effect of decay, which only ever ranks.
     /// <para><b>The similarity index goes FIRST, and that order is the promise.</b> Enrichment stores each

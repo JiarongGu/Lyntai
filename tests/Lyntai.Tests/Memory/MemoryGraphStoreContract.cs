@@ -1832,4 +1832,57 @@ public static class MemoryGraphStoreContract
         Assert.Equal("runbook-v2", node!.Metadata!["source"]);
         Assert.DoesNotContain("stale", node.Metadata.Keys);
     }
+
+    /// <summary><b>Every shipped store can COUNT what it holds, inside one engine and task</b>
+    /// (<see cref="ICountableMemoryGraphStore"/>): entries, the authoritative among them, the stored edges leaving
+    /// them, and the distinct subject handles in use — the same set <see cref="IMemoryGraphStore.KnownSubjectsAsync"/>
+    /// lists. A symmetric link is two edges; strengthening an existing one adds none.</summary>
+    public static async Task Counts_cover_one_engine_and_task_and_a_null_scope_spans_its_scopes(
+        IMemoryGraphStore store, string key)
+    {
+        var counting = Assert.IsAssignableFrom<ICountableMemoryGraphStore>(store);
+        const string engine = "count";
+
+        var a = await store.UpsertAsync(Write(engine, key, "the spouse is Alice"));
+        var b = await store.UpsertAsync(Write(engine, key, "Alice runs the deploy"));
+        var c = await store.UpsertAsync(Write(engine, key, "the production database is db-prod-2",
+            MemoryGrade.Authoritative));
+        var elsewhere = await store.UpsertAsync(new GraphNodeWrite(engine, key, "t", "a note in another scope",
+            "a note in another scope", MemoryGrade.Associative, Stability, 1, null));
+        await store.UpsertAsync(Write(engine, key + "-other", "another task's fact"));
+        await store.UpsertAsync(Write("count-other", key, "another engine's fact"));
+
+        await store.LinkAsync(engine, a, b, null, 1, symmetric: true, default);
+        await store.LinkAsync(engine, a, b, null, 1, symmetric: true, default);   // strengthens, adds no edge
+        await store.LinkAsync(engine, b, c, "about", 1, symmetric: false, default);
+        await store.RecordSubjectsAsync(engine, a, ["alice", "family"]);
+        await store.RecordSubjectsAsync(engine, b, ["alice"]);
+        await store.RecordSubjectsAsync(engine, elsewhere, ["notes"]);
+
+        Assert.Equal(new MemoryGraphCounts(3, 1, 3, 2), await counting.CountAsync(engine, key, "s"));
+        Assert.Equal(new MemoryGraphCounts(4, 1, 3, 3), await counting.CountAsync(engine, key, null));
+        Assert.Equal((await store.KnownSubjectsAsync(engine, key, null, int.MaxValue)).Count,
+            (await counting.CountAsync(engine, key, null)).Subjects);
+        Assert.Equal(new MemoryGraphCounts(0, 0, 0, 0), await counting.CountAsync(engine, key + "-none", null));
+    }
+
+    /// <summary>A removal takes its edges and subjects out of the count with it — a count that still saw them
+    /// would report a graph the store no longer holds.</summary>
+    public static async Task Counts_drop_what_a_forget_removed(IMemoryGraphStore store, string key)
+    {
+        var counting = Assert.IsAssignableFrom<ICountableMemoryGraphStore>(store);
+        const string engine = "count-forget";
+
+        var a = await store.UpsertAsync(Write(engine, key, "the spouse is Alice"));
+        var b = await store.UpsertAsync(Write(engine, key, "Alice runs the deploy"));
+        var kept = await store.UpsertAsync(new GraphNodeWrite(engine, key, "t", "kept", "kept",
+            MemoryGrade.Associative, Stability, 1, null));
+        await store.LinkAsync(engine, a, b, null, 1, symmetric: true, default);
+        await store.RecordSubjectsAsync(engine, a, ["alice"]);
+        await store.RecordSubjectsAsync(engine, kept, ["kept"]);
+
+        await store.ForgetAsync(engine, key, "s");
+
+        Assert.Equal(new MemoryGraphCounts(1, 0, 0, 1), await counting.CountAsync(engine, key, null));
+    }
 }

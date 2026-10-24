@@ -14,7 +14,7 @@ namespace Lyntai.Storage.FileSystem;
 /// the journal first, then the memory file, so a crash between leaves unreachable state, never a memory with none.</para>
 /// </summary>
 internal sealed class FileSystemMemoryGraphStore(FileSystemRoot root, Func<DateTimeOffset>? clock = null,
-    int compactionFloor = 4096) : IMemoryGraphStore
+    int compactionFloor = 4096) : ICountableMemoryGraphStore
 {
     private const string StateDirectory = "state";
 
@@ -428,6 +428,17 @@ internal sealed class FileSystemMemoryGraphStore(FileSystemRoot root, Func<DateT
         {
             Load();
             return Task.FromResult(_graph.NodesBySubject(engine, taskKey, scope, subject, limit));
+        }
+    }
+
+    public Task<MemoryGraphCounts> CountAsync(string engine, string taskKey, string? scope,
+        CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        lock (_lock)
+        {
+            Load();
+            return Task.FromResult(_graph.Count(engine, taskKey, scope));
         }
     }
 

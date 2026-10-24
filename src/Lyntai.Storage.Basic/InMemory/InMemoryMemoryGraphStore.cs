@@ -21,7 +21,7 @@ namespace Lyntai.Storage.InMemory;
 /// query did NOT match (see <see cref="IMemoryGraphStore.SeedAsync"/>). A flat <c>1</c> is what a query-less
 /// enumeration reports, where everything matches by definition — never the unconditional answer.</para></summary>
 /// <param name="clock">Time source for the audit timestamps; null takes the system clock.</param>
-public sealed class InMemoryMemoryGraphStore(Func<DateTimeOffset>? clock = null) : IMemoryGraphStore
+public sealed class InMemoryMemoryGraphStore(Func<DateTimeOffset>? clock = null) : ICountableMemoryGraphStore
 {
     private readonly MemoryGraphState _graph = new(clock ?? (() => DateTimeOffset.UtcNow));
     private readonly Lock _lock = new();
@@ -136,6 +136,14 @@ public sealed class InMemoryMemoryGraphStore(Func<DateTimeOffset>? clock = null)
         ct.ThrowIfCancellationRequested();
         lock (_lock) _graph.Apply(_graph.PlanSubjects(engine, nodeId, subjects));
         return Task.CompletedTask;
+    }
+
+    /// <inheritdoc />
+    public Task<MemoryGraphCounts> CountAsync(string engine, string taskKey, string? scope,
+        CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        lock (_lock) return Task.FromResult(_graph.Count(engine, taskKey, scope));
     }
 
     /// <inheritdoc />

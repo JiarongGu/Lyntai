@@ -51,6 +51,15 @@ every addition.
   `Render`'s text byte for byte beside one entry per item — the section it went to, whether it was rendered, cut
   by the budget or dropped as a duplicate line, and the characters its line costs — so recalled material the
   budget dropped is no longer a silent absence. `Render` itself is unchanged.
+- **The memory wiring check is data a host can read: resolve `MemoryWiringReport`** (**D202**). Each finding
+  carries its `MemoryWiringProblem`, the engine it is about and the sentence that was only ever logged, so a host
+  can surface a seam that is registered and never runs without a log or `StrictWiring()`. The Warning log and the
+  strict startup failure are unchanged.
+- **A graph store can report its size: `ICountableMemoryGraphStore.CountAsync`, and
+  `GraphMemoryEngine.CountAsync` on top** (**D202**). Entries, authoritative entries, links and distinct subjects
+  per engine, task and scope; the engine adds how many entries are buried below its retrievability floor, which
+  only it can judge. All four shipped stores implement it; a store of your own that does not makes the engine
+  answer `null`, never zero.
 
 ### Fixed
 

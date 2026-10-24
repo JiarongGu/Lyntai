@@ -20,31 +20,35 @@ namespace Lyntai.Memory;
 /// from <see cref="IMemoryEngine.Supported"/>, which holds for a BYO engine too.</para></summary>
 internal static class MemoryWiring
 {
+    /// <summary>The container's findings, as the report a host resolves.</summary>
+    internal static MemoryWiringReport Inspect(IServiceProvider sp) =>
+        new(Inspect(sp.GetServices<IMemoryEngine>().ToList(),
+            Registered<IMemoryVerificationPolicy>(sp), Registered<IMemoryAnnotationPolicy>(sp)));
+
     /// <summary>Log every finding, then throw if any engine asked for strict wiring.</summary>
-    internal static void Report(IReadOnlyList<IMemoryEngine> engines, IServiceProvider sp, bool strict)
+    internal static void Report(MemoryWiringReport report, IServiceProvider sp, bool strict)
     {
-        var findings = Inspect(engines,
-            Registered<IMemoryVerificationPolicy>(sp), Registered<IMemoryAnnotationPolicy>(sp));
+        var findings = report.Findings;
         if (findings.Count == 0) return;
 
         var logger = sp.GetService<ILogger<MemoryEngineFactory>>();
-        foreach (var finding in findings) logger?.LogWarning("memory wiring: {Finding}", finding);
+        foreach (var finding in findings) logger?.LogWarning("memory wiring: {Finding}", finding.Message);
 
         if (strict)
             throw new InvalidOperationException(
                 "Memory wiring is strict (MemoryEngineBuilder.StrictWiring) and found " +
                 $"{findings.Count} problem(s):{Environment.NewLine}- " +
-                string.Join($"{Environment.NewLine}- ", findings));
+                string.Join($"{Environment.NewLine}- ", findings.Select(f => f.Message)));
     }
 
-    /// <summary>The findings, as finished sentences. Pure, so a test drives it without a container.</summary>
+    /// <summary>The findings, each a finished sentence with its kind. Pure, so a test drives it without a container.</summary>
     /// <param name="engines">Every registered engine, blends included.</param>
     /// <param name="verification">Whether an <see cref="IMemoryVerificationPolicy"/> is registered.</param>
     /// <param name="annotation">Whether an <see cref="IMemoryAnnotationPolicy"/> is registered.</param>
-    internal static List<string> Inspect(IReadOnlyList<IMemoryEngine> engines, bool verification,
+    internal static List<MemoryWiringFinding> Inspect(IReadOnlyList<IMemoryEngine> engines, bool verification,
         bool annotation)
     {
-        var findings = new List<string>();
+        var findings = new List<MemoryWiringFinding>();
         foreach (var engine in engines.OfType<CompositeMemoryEngine>())
             findings.AddRange(Unwritable(engine));
 
@@ -53,45 +57,45 @@ internal static class MemoryWiring
         foreach (var member in engines.SelectMany(Flatten).OfType<GraphMemoryEngine>())
         {
             if (member.EmbedsWithoutSeeding)
-                findings.Add(
+                findings.Add(new(MemoryWiringProblem.EmbedsWithoutSemanticSeeding, member.Name,
                     $"graph member '{member.Name}' is wired with a vector backend and a vector store but no " +
                     "IMemorySeedSource declaring MemorySeedKind.Semantic — every write is embedded, for " +
                     "novelty and similarity linking, and no recall considers those neighbours. Call " +
                     "AddMemorySemanticSeeds(), or drop the vector backend registration; as wired you pay an " +
                     "embedding per write for nothing a recall reads. If you HAVE your own vector channel, " +
-                    "declare its Kind — this asks a channel's role, not its name.");
+                    "declare its Kind — this asks a channel's role, not its name."));
 
             // The same defect on the other index, and it was live for the whole life of the annotation seam:
             // handles were recorded, paid for per write, and readable by nothing but the writer.
             if (member.RecordsSubjectsWithoutSeeding)
-                findings.Add(
+                findings.Add(new(MemoryWiringProblem.AnnotatesWithoutSubjectSeeding, member.Name,
                     $"graph member '{member.Name}' is wired with an annotator but no IMemorySeedSource " +
                     "declaring MemorySeedKind.Subject — every write pays a model call to record what the " +
                     "fact is about, and no recall can reach an entry through a subject. Call " +
                     "AddMemorySubjectSeeds(), or drop the annotator; as wired the handles are readable only " +
                     "by the write path's own linking. If you HAVE your own subject channel, declare its " +
-                    "Kind — this asks a channel's role, not its name.");
+                    "Kind — this asks a channel's role, not its name."));
         }
 
         if (verification && CertainlyUnconsulted(engines))
-            findings.Add(
+            findings.Add(new(MemoryWiringProblem.VerificationUnconsulted, null,
                 "an IMemoryVerificationPolicy is registered and no engine consults one — only a graph member " +
                 "(UseGraph) asks a judge which candidates answered. Add one, or drop AddMemoryVerification; " +
                 "as wired, the judge never runs and a recall reports Answered = null, which is exactly what " +
-                "it reports when no judge is registered at all.");
+                "it reports when no judge is registered at all."));
 
         if (annotation && CertainlyUnconsulted(engines))
-            findings.Add(
+            findings.Add(new(MemoryWiringProblem.AnnotationUnconsulted, null,
                 "an IMemoryAnnotationPolicy is registered and no engine consults one — only a graph member " +
                 "(UseGraph) annotates what a written fact is about. Add one, or drop the registration; as " +
-                "wired, nothing is annotated and no subject links are written.");
+                "wired, nothing is annotated and no subject links are written."));
 
         return findings;
     }
 
     /// <summary>Members that cannot receive a write, because every grade they support is already claimed by
     /// an earlier member and the blend routes rather than fans out.</summary>
-    private static IEnumerable<string> Unwritable(CompositeMemoryEngine engine)
+    private static IEnumerable<MemoryWiringFinding> Unwritable(CompositeMemoryEngine engine)
     {
         // Fanning out makes every capable member a target, so nothing here can be inert by routing.
         if (engine.WriteRouting != MemoryWriteRouting.FirstCapable) yield break;
@@ -104,11 +108,11 @@ internal static class MemoryWiring
             // the first WRITABLE member takes every Inherit write, so it is never inert
             var inert = !first && (member.Supported & ~claimed) == MemoryGrades.None;
             if (inert)
-                yield return
+                yield return new(MemoryWiringProblem.UnwritableMember, member.Name,
                     $"member '{member.Name}' of engine '{engine.Name}' can never receive a write: every " +
                     $"grade it supports ({member.Supported}) is already taken by an earlier member, and this " +
                     "blend routes each write to the FIRST capable member. Call FanOutWrites() to write to " +
-                    "every capable member, reorder the members, or fill this one through its own store.";
+                    "every capable member, reorder the members, or fill this one through its own store.");
 
             claimed |= member.Supported;
             first = false;

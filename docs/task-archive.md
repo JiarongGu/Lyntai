@@ -5558,3 +5558,17 @@ than a value on D200's `MemoryCandidateOutcome`; `docs/memory.md` §Compose a pr
 carries the usage. `ComposeAsync` and `IPromptComposer` are untouched.
 
 - RV6 — a composition reports what it left out, and why
+
+## Part 355 — RV7: the wiring check is data a host reads, and a graph store reports its size (2026-10-24)
+
+✅ done 2026-10-24 — **Outcome:** the seventh item of the competitive review's backlog (`TASKS.md` Part 346).
+`MemoryWiringReport`, a container service registered with the first `AddMemoryEngine`, carries each **D85**
+finding as a `MemoryWiringFinding` — its `MemoryWiringProblem`, the engine it is about, the logged sentence —
+while the factory's Warning log and `StrictWiring()` failure are unchanged. `ICountableMemoryGraphStore`, which
+all four shipped stores implement and two new contract facts pin on each, counts entries, authoritative entries,
+links and distinct subjects per engine, task and scope; `GraphMemoryEngine.CountAsync` adds `Buried`, the
+associative entries its retrievability puts below the floor, and answers `null` over a store that cannot count.
+**D202** records why the findings are a service, the count is optional and burial is the engine's;
+`docs/memory.md` §Check how a memory is wired, and how much it holds carries the usage. No `--fix`, by design.
+
+- RV7 — the memory wiring check is data a host can read, and a store can report its own size

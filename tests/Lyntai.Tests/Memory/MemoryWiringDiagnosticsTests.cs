@@ -8,6 +8,7 @@ using Lyntai.Storage;
 using Lyntai.Storage.InMemory;
 using Lyntai.Tests.Fakes;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace Lyntai.Tests.Memory;
 
@@ -30,8 +31,8 @@ public class MemoryWiringDiagnosticsTests
 
         var found = Assert.Single(MemoryWiring.Inspect([blend], verification: false, annotation: false));
 
-        Assert.Contains("project/semantic", found, StringComparison.Ordinal);
-        Assert.Contains("FanOutWrites", found, StringComparison.Ordinal);
+        Assert.Contains("project/semantic", found.Message, StringComparison.Ordinal);
+        Assert.Contains("FanOutWrites", found.Message, StringComparison.Ordinal);
     }
 
     /// <summary>The library's own documented blend must stay quiet. <c>UseCurated("glossary").UseGraph()</c>
@@ -70,8 +71,8 @@ public class MemoryWiringDiagnosticsTests
 
         var found = Assert.Single(MemoryWiring.Inspect([blend], verification: true, annotation: false));
 
-        Assert.Contains("IMemoryVerificationPolicy", found, StringComparison.Ordinal);
-        Assert.Contains("UseGraph", found, StringComparison.Ordinal);
+        Assert.Contains("IMemoryVerificationPolicy", found.Message, StringComparison.Ordinal);
+        Assert.Contains("UseGraph", found.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -82,7 +83,7 @@ public class MemoryWiringDiagnosticsTests
 
         var found = Assert.Single(MemoryWiring.Inspect([blend], verification: false, annotation: true));
 
-        Assert.Contains("IMemoryAnnotationPolicy", found, StringComparison.Ordinal);
+        Assert.Contains("IMemoryAnnotationPolicy", found.Message, StringComparison.Ordinal);
     }
 
     /// <summary>Silence in the face of a BYO engine, deliberately. The two model-backed seams are consulted
@@ -96,7 +97,7 @@ public class MemoryWiringDiagnosticsTests
             Member("project/mine", MemoryGrades.Associative));
 
         Assert.DoesNotContain(MemoryWiring.Inspect([blend], verification: true, annotation: true),
-            f => f.Contains("IMemory", StringComparison.Ordinal));
+            f => f.Message.Contains("IMemory", StringComparison.Ordinal));
     }
 
     /// <summary>A vector backend plus a vector store turns enrichment on, so every write is embedded for
@@ -115,7 +116,7 @@ public class MemoryWiringDiagnosticsTests
         var found = Assert.Single(MemoryWiring.Inspect([Blend(MemoryWriteRouting.FirstCapable, graph)],
             verification: false, annotation: false));
 
-        Assert.Contains("AddMemorySemanticSeeds", found, StringComparison.Ordinal);
+        Assert.Contains("AddMemorySemanticSeeds", found.Message, StringComparison.Ordinal);
     }
 
     /// <summary>Registering the channel closes it — the finding is about the GAP between the two paths, not
@@ -162,7 +163,7 @@ public class MemoryWiringDiagnosticsTests
         var found = Assert.Single(MemoryWiring.Inspect([Blend(MemoryWriteRouting.FirstCapable, graph)],
             verification: false, annotation: false));
 
-        Assert.Contains("AddMemorySubjectSeeds", found, StringComparison.Ordinal);
+        Assert.Contains("AddMemorySubjectSeeds", found.Message, StringComparison.Ordinal);
     }
 
     /// <summary>The shipped default registers the handle channel, so the ordinary annotated wiring is clean —
@@ -325,7 +326,7 @@ public class MemoryWiringDiagnosticsTests
             });
 
         var found = Assert.Single(MemoryWiring.Inspect([engine], verification: false, annotation: false));
-        Assert.Contains("AddMemorySemanticSeeds()", found, StringComparison.Ordinal);
+        Assert.Contains("AddMemorySemanticSeeds()", found.Message, StringComparison.Ordinal);
     }
 
     /// <summary>A consumer's channel that declines to say what it is (the defaulted
@@ -343,6 +344,125 @@ public class MemoryWiringDiagnosticsTests
             });
 
         Assert.Empty(MemoryWiring.Inspect([engine], verification: false, annotation: false));
+    }
+
+    // ---- the findings as data a host reads ---------------------------------------------------------------
+
+    /// <summary>Each finding names its problem and the engine it is about — the member's hierarchical name, which
+    /// the factory resolves — so a host can act on one without parsing the sentence.</summary>
+    [Fact]
+    public void A_finding_names_its_problem_and_the_engine_it_is_about()
+    {
+        var blend = Blend(MemoryWriteRouting.FirstCapable,
+            Member("project/graph", MemoryGrades.Associative | MemoryGrades.Authoritative),
+            Member("project/semantic", MemoryGrades.Associative));
+
+        var found = Assert.Single(MemoryWiring.Inspect([blend], verification: false, annotation: false));
+
+        Assert.Equal(MemoryWiringProblem.UnwritableMember, found.Problem);
+        Assert.Equal("project/semantic", found.Engine);
+        Assert.Equal(found.Message, found.ToString());
+    }
+
+    /// <summary>A container-wide finding is about no one engine, and says so with a null.</summary>
+    [Fact]
+    public void A_container_wide_finding_names_no_engine()
+    {
+        var blend = Blend(MemoryWriteRouting.FirstCapable,
+            new CuratedMemoryEngine("project/glossary", new FakeCuratedStore(), "glossary"));
+
+        var found = Assert.Single(MemoryWiring.Inspect([blend], verification: true, annotation: false));
+
+        Assert.Equal(MemoryWiringProblem.VerificationUnconsulted, found.Problem);
+        Assert.Null(found.Engine);
+    }
+
+    [Fact]
+    public void The_graph_findings_name_their_member_and_their_index()
+    {
+        var graph = new GraphMemoryEngine("project/graph", new InMemoryMemoryGraphStore(), seams: new GraphMemorySeams
+            {
+                Providers = [new FakeVectorProvider()],
+                Vectors = new InMemoryVectorStore(),
+                Annotation = new FakeAnnotator(),
+                SeedSources = [new LexicalSeedSource()],
+            });
+
+        var found = MemoryWiring.Inspect([graph], verification: false, annotation: false);
+
+        Assert.Equal([MemoryWiringProblem.EmbedsWithoutSemanticSeeding, MemoryWiringProblem.AnnotatesWithoutSubjectSeeding],
+            found.Select(f => f.Problem));
+        Assert.All(found, f => Assert.Equal("project/graph", f.Engine));
+    }
+
+    /// <summary>The findings are a service a host RESOLVES, with no log to read and no strict flag to set.</summary>
+    [Fact]
+    public void The_container_offers_the_findings_as_a_report()
+    {
+        var services = new ServiceCollection();
+        services.AddLyntai(b => b
+            .AddProvider(_ => new FakeTextProvider("p"))
+            .AddMemoryEngine("chat", e => e.UseCurated("glossary"))
+            .AddMemoryVerification());
+        services.AddSingleton<ICuratedMemoryStore>(new FakeCuratedStore());
+        using var sp = services.BuildServiceProvider();
+
+        var report = sp.GetRequiredService<MemoryWiringReport>();
+
+        Assert.False(report.IsClean);
+        Assert.Equal(MemoryWiringProblem.VerificationUnconsulted, Assert.Single(report.Findings).Problem);
+    }
+
+    [Fact]
+    public void A_clean_container_reports_no_findings()
+    {
+        var services = new ServiceCollection();
+        services.AddLyntai(b => b
+            .UseInMemoryStorage()
+            .AddMemoryEngine("chat", e => e.UseGraph()));
+        using var sp = services.BuildServiceProvider();
+
+        var report = sp.GetRequiredService<MemoryWiringReport>();
+
+        Assert.True(report.IsClean);
+        Assert.Empty(report.Findings);
+    }
+
+    /// <summary>Strict wiring fails the FACTORY, never the report — a host can still read what is wrong.</summary>
+    [Fact]
+    public void Strict_wiring_fails_the_factory_and_leaves_the_report_readable()
+    {
+        var services = new ServiceCollection();
+        services.AddLyntai(b => b
+            .AddProvider(_ => new FakeTextProvider("p"))
+            .AddMemoryEngine("chat", e => e.UseCurated("glossary").StrictWiring())
+            .AddMemoryVerification());
+        services.AddSingleton<ICuratedMemoryStore>(new FakeCuratedStore());
+        using var sp = services.BuildServiceProvider();
+
+        Assert.Single(sp.GetRequiredService<MemoryWiringReport>().Findings);
+        Assert.Throws<InvalidOperationException>(() => sp.GetRequiredService<IMemoryEngineFactory>());
+    }
+
+    /// <summary>The log line is unchanged: the same category, level and sentence it carried before the
+    /// findings became data.</summary>
+    [Fact]
+    public void Building_the_factory_still_logs_each_finding_as_a_warning()
+    {
+        var log = new CapturingLogger();
+        var services = new ServiceCollection();
+        services.AddLogging(l => l.AddProvider(log));
+        services.AddLyntai(b => b
+            .AddProvider(_ => new FakeTextProvider("p"))
+            .AddMemoryEngine("chat", e => e.UseCurated("glossary"))
+            .AddMemoryVerification());
+        services.AddSingleton<ICuratedMemoryStore>(new FakeCuratedStore());
+        using var sp = services.BuildServiceProvider();
+
+        sp.GetRequiredService<IMemoryEngineFactory>();
+
+        var finding = Assert.Single(sp.GetRequiredService<MemoryWiringReport>().Findings);
+        Assert.Contains($"memory wiring: {finding.Message}", log.Warnings);
     }
 
     /// <summary>A consumer's own vector channel: named for their product, declaring its ROLE.</summary>

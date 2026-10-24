@@ -271,8 +271,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D199](#d199--a-declared-vector-space-stamps-each-collection-and-a-collection-is-never-read-or-written-across-spaces-2026-10-24) | 2026-10-24 | a declared vector space stamps each collection, and a collection is never read or written across… |
 | [D200](#d200--a-recall-explains-itself-when-the-query-asks-on-the-result-of-that-same-recall-2026-10-24) | 2026-10-24 | a recall explains itself when the QUERY asks, on the result of that same recall |
 | [D201](#d201--a-composition-reports-its-own-cuts-in-its-own-vocabulary-through-a-second-door-beside-render-2026-10-24) | 2026-10-24 | a composition reports its own cuts in its own vocabulary, through a second door beside `Render` |
+| [D202](#d202--the-wiring-findings-are-a-container-service-and-burial-is-counted-by-the-engine-never-the-store-2026-10-24) | 2026-10-24 | the wiring findings are a container service, and burial is counted by the engine, never the store |
 
-**196 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**197 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -5884,3 +5885,17 @@ RECALL makes, and a composition runs on items from anywhere — a caller's own r
 would report a renderer's cut as a recall's. A flag on `MemoryCompositionOptions`: `Render` returns a string, so
 there is nowhere to attach the manifest without breaking its signature. D200's case against a second door does
 not carry over: `Render` is pure, so a second call renders the same composition, never a different one.
+
+## D202 — the wiring findings are a container service, and burial is counted by the engine, never the store (2026-10-24)
+
+`MemoryWiringReport`, registered with the first `AddMemoryEngine`, carries each **D85** finding as a
+`MemoryWiringFinding`: a `MemoryWiringProblem`, the engine it is about, and the sentence the factory logs.
+`ICountableMemoryGraphStore.CountAsync` counts entries, authoritative entries, links and distinct subjects per
+engine, task and scope; `GraphMemoryEngine.CountAsync` adds `Buried`.
+
+**Rejected.** A member on `IMemoryEngineFactory`: a required member breaks every factory an application wrote,
+and the findings are about the container, not about resolving one engine. Strings only: a host would branch on
+wording. A default-bodied count on `IMemoryGraphStore`: answering zero, a store that cannot count would read as an
+empty one, so it is optional (**D86**, **D194**), and the engine answers `null` without it. Burial in the store, as
+`PruneAsync`'s `age / stability` cutoff: that cutoff is conservative, so it would under-count — burial is a
+judgement of the curve, and the engine evaluates it exactly, reading the scope once, as its derivable prune does.
