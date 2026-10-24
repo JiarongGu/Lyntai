@@ -109,6 +109,13 @@ every addition.
   the pin to the channel) and its `ReindexAsync`, and a failed embed is not retried on another model. An id naming
   no backend, or one that does not embed, throws when the engine is built; a pin with no vector store is the new
   `MemoryWiringProblem.PinnedVectorProviderWithoutIndex`. Unset, nothing changes.
+- **A tool call can be approved before it runs: `IToolApprover`, registered with `AddToolApprover`** (**D210**).
+  `ITool` had no approval hook, so a host could not gate a side-effecting tool. Every registered approver sees
+  the tool name, the arguments a guard left, the request's consumer and the native call id, and must approve, on
+  the tool loop's native and prompt paths and the hosted MCP endpoint alike. A refusal, or an approver that
+  throws, is the call's result — `error: tool call refused by approval: <reason>` — and the loop goes on;
+  `GatedToolResult.Denied` marks it, and `ToolInvocation.InvokeGatedAsync` has an overload taking the approvers.
+  With none registered, nothing changes.
 
 ### Fixed
 

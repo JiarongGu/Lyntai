@@ -266,6 +266,22 @@ public sealed class LyntaiBuilder
         return this;
     }
 
+    /// <summary>Register an <see cref="IToolApprover"/>: every tool call, through the tool loop or the hosted MCP
+    /// endpoint, must pass every registered approver before the tool runs.</summary>
+    public LyntaiBuilder AddToolApprover<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] T>()
+        where T : class, IToolApprover
+    {
+        Services.AddSingleton<IToolApprover, T>();
+        return this;
+    }
+
+    /// <summary>Register a tool approver built from the service provider.</summary>
+    public LyntaiBuilder AddToolApprover(Func<IServiceProvider, IToolApprover> factory)
+    {
+        Services.AddSingleton(factory);
+        return this;
+    }
+
     /// <summary>Register an <see cref="IJobHandler"/> into the durable-job handler collection
     /// (keyed by its <c>Type</c>).</summary>
     public LyntaiBuilder AddJobHandler<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] T>()

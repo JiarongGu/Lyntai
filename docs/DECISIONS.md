@@ -279,8 +279,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D207](#d207--a-calls-span-opens-at-the-outermost-layer-of-the-front-door-and-carries-no-gen_ai-tag-so-attempts-nest-under-it-and-are-counted-once-2026-10-24) | 2026-10-24 | a call's span opens at the OUTERMOST layer of the front door and carries no gen_ai.* tag, so atte… |
 | [D208](#d208--the-response-cache-partitions-by-consumer-through-a-prefix-on-the-key-opt-in-so-the-default-key-and-every-stored-entry-are-unchanged-2026-10-24) | 2026-10-24 | the response cache partitions by consumer through a PREFIX on the key, opt-in, so the default key… |
 | [D209](#d209--a-graph-engine-pins-its-embedder-by-provider-id-per-engine-and-a-pin-never-fails-over-2026-10-24) | 2026-10-24 | a graph engine PINS its embedder by provider id, per engine, and a pin never fails over |
+| [D210](#d210--a-tool-call-is-approved-inside-the-shared-invocation-flow-by-every-registered-approver-and-a-refusal-is-a-result-never-an-end-2026-10-24) | 2026-10-24 | a tool call is APPROVED inside the shared invocation flow, by every registered approver, and a re… |
 
-**204 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**205 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -6023,3 +6024,19 @@ may index under different models. A `ProviderId` on `SemanticSeedOptions` beside
 engine, and a second setting could name a different model from the writes it searches. Falling back to routing on a
 mis-pin: the silent degradation D148 refused. A doctor finding for the mis-pin: composition throws first; the doctor
 reports only the inert pin, one with no vector store (`MemoryWiringProblem.PinnedVectorProviderWithoutIndex`).
+
+## D210 — a tool call is APPROVED inside the shared invocation flow, by every registered approver, and a refusal is a result, never an end (2026-10-24)
+
+`IToolApprover` is a DI collection consulted in `ToolInvocation.InvokeGatedAsync`, the flow the tool loop's native
+and prompt paths and the hosted MCP endpoint already share (**D75**), so no door can skip it. It runs after the
+guard's argument gate, on the arguments that will run, and only for a tool that exists. Every approver must
+approve, in registration order; the first refusal decides. A refusal is `GatedToolResult.Denied`, never `Blocked`:
+the tool does not run, the model receives an error observation carrying the reason, and the loop goes on. An
+approver that throws or answers null refuses (fail closed), its exception logged and kept from the model; the
+caller's cancellation propagates. The request carries the consumer and, on the native path only, the call id.
+
+**Rejected.** A member on `ITool`: frozen (**D70**), and per tool where the policy is per host. A guard `Block`: it
+ends the tool loop's run as a jail violation, which is right for denied content and wrong for "not now". A single
+optional service: two concerns (a human gate and a budget, say) would have to be composed by hand. Any approver
+approving: one permissive approver would disarm every other. Failing open on a throw: an approval gate that a
+fault opens is no gate.

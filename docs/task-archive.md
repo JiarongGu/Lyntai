@@ -5677,3 +5677,16 @@ composition, as **D148**'s does; a pin with no vector store is `MemoryWiringProb
 `VectorProviderPinTests` pins it; **D209** records why per engine and why no fallback.
 
 - RV15 — a memory engine can pin its EMBEDDER the way verification pins its reranker
+
+## Part 364 — RV16: a tool call can be approved before it runs, on every door (2026-10-24)
+
+✅ done 2026-10-24 — **Outcome:** the sixth item of the competitive review's governed-calls group (`TASKS.md`
+Part 347). `IToolApprover`, a DI collection registered with `AddToolApprover`, is consulted inside
+`ToolInvocation.InvokeGatedAsync` — the flow the native and prompt tool loop and the hosted MCP endpoint already
+shared — after the guard's argument gate and only for a tool that exists. Every approver must approve; a refusal
+or a throwing approver is `GatedToolResult.Denied`, an error observation carrying the reason, and the loop goes
+on. The MCP host puts calls under the consumer whose CLI call stood it up. `ToolApprovalTests` pins it on all three
+transports and through DI; **D210** records why a collection inside the shared flow, all-must-approve and fail
+closed; `docs/guide.md` §Tool-calling carries the usage.
+
+- RV16 — a tool call can be APPROVED before it runs, through one seam every transport consults

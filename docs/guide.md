@@ -780,6 +780,23 @@ that would serve has it and a **prompt protocol** over the text contract elsewhe
 An unknown or throwing tool becomes a recoverable `error: …` observation; a refusal or all-providers-down
 verdict surfaces on `result.Verdict`.
 
+**Approving a call before it runs.** An `IToolApprover` sees every tool call — its tool name, its arguments,
+the request's `Consumer` and, on the native path, the model's call id — before the tool runs, on the native
+path, the prompt protocol and the hosted MCP endpoint below alike. Register one with
+`cfg.AddToolApprover<WritesOnlyForStudy>()`; every registered approver must approve, in registration order.
+A refusal does not end the run: the model receives `error: tool call refused by approval: <reason>` as the
+call's result and carries on. An approver that throws refuses the call (`docs/DECISIONS.md` D210).
+
+```csharp
+public sealed class WritesOnlyForStudy : IToolApprover
+{
+    public Task<ToolApprovalResult> ApproveAsync(ToolApprovalRequest call, CancellationToken ct = default) =>
+        Task.FromResult(call.ToolName.StartsWith("write_", StringComparison.Ordinal) && call.Consumer != "study"
+            ? ToolApprovalResult.Deny("writing files is open only to the study assistant")
+            : ToolApprovalResult.Approve);
+}
+```
+
 **MCP tools** (`Lyntai.Tools.Mcp`) — point the loop at a Model Context Protocol server and its tools
 become `ITool`s. Your app owns the MCP connection; Lyntai adapts:
 

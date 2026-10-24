@@ -30,6 +30,25 @@ public sealed class ToolLoop(
     IToolSelector? selector = null) : IToolLoop
 {
     private readonly ILogger _logger = logger ?? NullLogger<ToolLoop>.Instance;
+    private readonly IReadOnlyList<IToolApprover> _approvers = [];
+
+    /// <summary>The loop with <see cref="IToolApprover"/>s: every tool call, on either transport, must pass all
+    /// of them before it runs, and a refusal is fed back to the model as the call's result.</summary>
+    /// <param name="client">The front door every turn goes through.</param>
+    /// <param name="registry">The tools the model may call.</param>
+    /// <param name="options">The iteration budget and the protocol preamble.</param>
+    /// <param name="logger">Optional.</param>
+    /// <param name="guards">The rail each call and observation passes; null runs ungated.</param>
+    /// <param name="selector">Narrows the roster the model sees; null shows every tool.</param>
+    /// <param name="approvers">Every approver a call must pass, in order.</param>
+    public ToolLoop(
+        ITextClient client, IToolRegistry registry, LyntaiOptions options, ILogger<ToolLoop>? logger,
+        IGuardRail? guards, IToolSelector? selector, IEnumerable<IToolApprover> approvers)
+        : this(client, registry, options, logger, guards, selector)
+    {
+        ArgumentNullException.ThrowIfNull(approvers);
+        _approvers = [.. approvers];
+    }
 
     /// <summary>Result door: drives the shared core to completion and folds its event stream into a
     /// <see cref="ToolLoopResult"/> (steps + usage are populated as the core runs; the terminal
@@ -219,7 +238,7 @@ public sealed class ToolLoop(
             {
                 yield return new ToolCall(call.Name, call.ArgumentsJson, call.Id);
                 enter();
-                var gated = await GatedInvokeAsync(call.Name, call.ArgumentsJson, ct).ConfigureAwait(false);
+                var gated = await GatedInvokeAsync(call.Name, call.ArgumentsJson, req.Consumer, call.Id, ct).ConfigureAwait(false);
                 if (gated.Blocked)
                 {
                     yield return new ToolResult(call.Id, gated.Reason ?? "", true);
@@ -345,7 +364,7 @@ public sealed class ToolLoop(
 
             yield return new ToolCall(call.ToolName, call.ArgumentsJson, null); // prompt protocol has no call id
             enter();
-            var gated = await GatedInvokeAsync(call.ToolName, call.ArgumentsJson, ct).ConfigureAwait(false);
+            var gated = await GatedInvokeAsync(call.ToolName, call.ArgumentsJson, req.Consumer, callId: null, ct).ConfigureAwait(false);
             if (gated.Blocked)
             {
                 yield return new ToolResult(null, gated.Reason ?? "", true);
@@ -367,9 +386,12 @@ public sealed class ToolLoop(
 
     /// <summary>Gate a tool call's ARGS before it runs and its OBSERVATION after, through the flow every door
     /// shares (<see cref="ToolInvocation"/>). A Block in either direction aborts THIS loop as a jail
-    /// violation — its callers turn <see cref="GatedToolResult.Blocked"/> into a terminal Refused.</summary>
-    private Task<GatedToolResult> GatedInvokeAsync(string name, string argumentsJson, CancellationToken ct) =>
-        ToolInvocation.InvokeGatedAsync(name, registry.Find(name), argumentsJson, guards, _logger,
+    /// violation — its callers turn <see cref="GatedToolResult.Blocked"/> into a terminal Refused. An approver's
+    /// refusal is not a Block: it comes back as the call's observation and the loop goes on.</summary>
+    private Task<GatedToolResult> GatedInvokeAsync(
+        string name, string argumentsJson, string consumer, string? callId, CancellationToken ct) =>
+        ToolInvocation.InvokeGatedAsync(name, registry.Find(name), argumentsJson, guards, _approvers, consumer,
+            callId, _logger,
             () => ToolObservations.Error(
                 $"unknown tool \"{name}\". Available tools: {string.Join(", ", registry.Tools.Select(t => t.Name))}"),
             ct);
