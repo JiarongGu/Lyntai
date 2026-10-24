@@ -1,13 +1,33 @@
 {
   "source": "daoris@0.0.1",
-  "packs": ["dotnet-library", "storage-sql", "windows-machine"],
+  "packs": [
+    "dotnet-library",
+    "storage-sql",
+    "windows-machine"
+  ],
   "harness": "agents",
   "target": ".agents",
   "rooms": [],
   "coreBudgetBytes": 30000,
   "domain": {
-    "summary": "",
-    "owns": [],
-    "accepts": []
+    "summary": "Lyntai (灵台): a .NET 10 library, shipped as NuGet packages, for building LLM applications: one ITextClient front door routing and failing over across providers, pluggable storage, and the LLM-ops layer (prompts, scoring, traces, long-term memory, jobs, media generation).",
+    "owns": [
+      "the LLM provider abstraction: the ITextClient front door, TextRouter/MediaRouter fallback and the ProviderVerdict taxonomy (src/Lyntai.Core/Inference)",
+      "the provider adapters: CLI, HTTP, in-process LlamaSharp and ONNX, bridged (src/Lyntai.Providers.*)",
+      "media generation backends (src/Lyntai.Generation)",
+      "the storage domain interfaces and their SQLite, PostgreSQL, in-memory and file-system backends, with every lyntai_* table and its migrations (src/Lyntai.Core/Storage, src/Lyntai.Storage.*)",
+      "long-term memory: named memory engines, the graph memory policies, semantic memory and the vector store (src/Lyntai.Core/Memory)",
+      "the LLM-ops layer: prompt registry, scorers and evaluation, run traces, usage budget, response cache, rate limits (src/Lyntai.Core)",
+      "durable jobs, tool calling and agent sessions, MCP tools in both directions, guards, the secret vault (src/Lyntai.Core, src/Lyntai.Tools.Mcp, src/Lyntai.Secrets.Dpapi)",
+      "the public API surface of every Lyntai package and its baselines (tests/Lyntai.Tests/Api/Baselines)"
+    ],
+    "accepts": [
+      "a capability an application needs from an LLM library, stated as the general need rather than the application's shape",
+      "a new provider, storage backend, scorer, generation backend or memory policy behind an existing seam",
+      "a defect in routing, fallback, storage, memory recall or any shipped package",
+      "a question about what Lyntai promises: its public surface, its data, how a figure it reports is derived",
+      "an upgrade question for a consumer moving between Lyntai releases"
+    ],
+    "uses": []
   }
 }
