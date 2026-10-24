@@ -45,6 +45,42 @@ internal static class BudgetGate
         return null;
     }
 
+    /// <summary>Admit one call: reserve when the tracker can (<see cref="IReservingUsageTracker"/>) and a hold is
+    /// configured, else the soft <see cref="OverBudgetAsync"/> check. Settle the admission once the call ends —
+    /// <see cref="BudgetAdmission.SettleAsync"/> in a <c>finally</c>, so a throw or a cancellation releases the hold.</summary>
+    internal static async ValueTask<BudgetAdmission> AdmitAsync(
+        BudgetOptions budget, IUsageTracker tracker, string consumer, bool includeTokens,
+        ILogger logger, CancellationToken ct)
+    {
+        var holdTokens = includeTokens ? budget.ReserveTokens : null;
+        if (tracker is not IReservingUsageTracker ledger || (budget.ReserveCostUsd is null && holdTokens is null))
+            return new BudgetAdmission(
+                await OverBudgetAsync(budget, tracker, consumer, includeTokens, logger, ct).ConfigureAwait(false),
+                tracker, consumer, null, null);
+
+        budget.PerConsumer.TryGetValue(consumer, out var cb);
+        var caps = new UsageCaps(
+            budget.MaxCostUsd, includeTokens ? budget.MaxTokens : null,
+            cb?.MaxCostUsd, includeTokens ? cb?.MaxTokens : null);
+        if (!caps.HasGlobal && !caps.HasConsumer)
+            return new BudgetAdmission(null, tracker, consumer, null, null);
+
+        var result = await ledger.ReserveAsync(new UsageReservationRequest(
+            consumer, new ProviderUsage(holdTokens ?? 0, 0, budget.ReserveCostUsd), caps,
+            DateTimeOffset.UtcNow + budget.ReservationLifetime), ct).ConfigureAwait(false);
+        if (result.Reservation is { } held)
+            return new BudgetAdmission(null, tracker, consumer, ledger, held);
+
+        var reason = result.ExceededCap switch
+        {
+            UsageCap.GlobalTokens => Refuse("global token budget", caps.MaxTokens ?? 0, logger),
+            UsageCap.ConsumerCost => Refuse($"consumer '{consumer}' cost budget", caps.ConsumerMaxCostUsd ?? 0, logger),
+            UsageCap.ConsumerTokens => Refuse($"consumer '{consumer}' token budget", caps.ConsumerMaxTokens ?? 0, logger),
+            _ => Refuse("global cost budget", caps.MaxCostUsd ?? 0, logger),
+        };
+        return new BudgetAdmission(reason, tracker, consumer, null, null);
+    }
+
     /// <summary>Record what a render reported costing into the ledger, as a cost-only entry
     /// (<see cref="MediaUsage.ToProviderUsage"/>) — the one place generation spend maps onto the ledger. A render
     /// that reported no positive cost records nothing.</summary>
@@ -60,5 +96,26 @@ internal static class BudgetGate
         logger.LogInformation("usage budget refusal: {Reason}", reason);
         LyntaiDiagnostics.RecordBudgetRefusal(label);
         return reason;
+    }
+}
+
+/// <summary>One call's passage through <see cref="BudgetGate.AdmitAsync"/>: refused, admitted on the soft check, or
+/// admitted on a hold that <see cref="SettleAsync"/> must reconcile.</summary>
+internal sealed class BudgetAdmission(
+    string? refusal, IUsageTracker tracker, string consumer, IReservingUsageTracker? ledger, UsageReservation? held)
+{
+    private int _settled;
+
+    /// <summary>Why the call is refused, or null when it may run.</summary>
+    public string? Refusal { get; } = refusal;
+
+    /// <summary>Account for what the call spent. A hold is reconciled ONCE, with no cancellation — a cancelled call
+    /// must still release it; anything after that, or on the soft path, is recorded as before. Null records
+    /// nothing, so a <c>finally</c> calling this after the usage was settled is a no-op.</summary>
+    public ValueTask SettleAsync(ProviderUsage? usage, CancellationToken ct)
+    {
+        if (held is not null && Interlocked.Exchange(ref _settled, 1) == 0)
+            return ledger!.ReconcileAsync(held, usage, CancellationToken.None);
+        return usage is null ? ValueTask.CompletedTask : tracker.RecordAsync(consumer, usage, ct);
     }
 }

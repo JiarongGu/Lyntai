@@ -108,6 +108,25 @@ public sealed class PostgresGovernanceStoreTests(PostgresFixture pg)
         Assert.Equal(15, (await new PostgresUsageTracker(pg.Factory).TotalAsync(consumer)).TotalTokens);
     }
 
+    // The cross-backend UsageReservationContract, consumer-capped for the shared container. The one global-cap
+    // fact is excluded by name in PostgresContractCoverageTests.
+    private async Task HoldPg(Func<IReservingUsageTracker, string, Task> body)
+    {
+        Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
+        await body(new PostgresUsageTracker(pg.Factory), Uid());
+    }
+
+    [SkippableFact] public Task Hold_fits_then_refuses() => HoldPg(UsageReservationContract.A_hold_that_fits_is_granted_and_the_next_that_does_not_is_refused);
+    [SkippableFact] public Task Hold_reconcile_records() => HoldPg(UsageReservationContract.Reconciling_records_the_actual_and_releases_the_hold);
+    [SkippableFact] public Task Hold_reconcile_without_usage() => HoldPg(UsageReservationContract.Reconciling_without_usage_releases_and_records_nothing);
+    [SkippableFact] public Task Hold_committed_spend() => HoldPg(UsageReservationContract.Committed_spend_counts_against_the_cap);
+    [SkippableFact] public Task Hold_token_cap() => HoldPg(UsageReservationContract.A_token_cap_binds_tokens);
+    [SkippableFact] public Task Hold_racing() => HoldPg(UsageReservationContract.Racing_reservations_admit_exactly_what_fits);
+    [SkippableFact] public Task Hold_expired() => HoldPg(UsageReservationContract.An_expired_hold_no_longer_counts);
+    [SkippableFact] public Task Hold_casing() => HoldPg(UsageReservationContract.Holds_fold_consumer_casing_like_the_totals);
+    [SkippableFact] public Task Hold_other_consumer() => HoldPg(UsageReservationContract.A_consumer_cap_does_not_count_another_consumers_holds);
+    [SkippableFact] public Task Hold_reset_keeps_holds() => HoldPg(UsageReservationContract.Resetting_spend_leaves_holds_in_place);
+
     // The cross-backend VectorStoreContract, NAMESPACED with Uid() so it coexists with the other tests on the
     // shared instance. This backend computes similarity in SQL (pgvector's <=> cosine distance) rather than
     // through VectorMath, so it is where a divergence from the in-process store would live.

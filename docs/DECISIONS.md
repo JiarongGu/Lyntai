@@ -275,8 +275,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D203](#d203--a-curated-entrys-revision-is-checked-through-an-optional-store-capability-atomically-in-the-write-2026-10-24) | 2026-10-24 | a curated entry's revision is checked through an OPTIONAL store capability, atomically in the write |
 | [D204](#d204--memory-travels-as-versioned-jsonl-through-an-optional-engine-capability-scoped-to-one-named-task-without-vectors-2026-10-24) | 2026-10-24 | memory travels as versioned JSONL through an OPTIONAL engine capability, scoped to one named task… |
 | [D205](#d205--a-request-may-refuse-degradation-per-request-and-opt-in-and-the-router-skips-a-candidate-whose-capabilities-would-degrade-it-2026-10-24) | 2026-10-24 | a request may REFUSE degradation, per request and opt-in, and the router skips a candidate whose… |
+| [D206](#d206--a-hard-cap-is-a-hold-taken-before-the-call-through-an-optional-tracker-capability-opted-into-by-naming-the-hold-2026-10-24) | 2026-10-24 | a hard cap is a HOLD taken before the call through an OPTIONAL tracker capability, opted into by… |
 
-**200 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**201 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -5956,3 +5957,20 @@ should end (`TASKS.md` RV11 kept it the default). A `RoutingPolicy` switch: whet
 the CALL, and one consumer's extraction should not change another's chat. Two flags, one per field: no caller was found
 wanting a native schema with degraded tools. Asking the candidate and reading an `Unsupported` back: the CLI would not
 refuse, it would degrade and answer `Ok`.
+
+## D206 — a hard cap is a HOLD taken before the call through an OPTIONAL tracker capability, opted into by naming the hold (2026-10-24)
+
+`IReservingUsageTracker` adds `ReserveAsync` and `ReconcileAsync` to `IUsageTracker`. `BudgetGate` reserves when the
+tracker implements it AND `BudgetOptions.ReserveCostUsd` or `ReserveTokens` is set: a call is admitted only if spend
+plus every live hold plus its own fits (`UsageCaps.ExceededBy`, one rule for every tracker), and settles in a
+`finally` with no cancellation token, so a throw, a cancel or an abandoned stream releases the hold. The in-memory,
+SQLite and Postgres trackers implement it; the databases decide and write in one transaction (`BEGIN IMMEDIATE`;
+advisory locks, the ledger exclusive only under a global cap). A hold expires after `ReservationLifetime`, and
+`ResetAsync` leaves holds alone. A media submission keeps the soft check: its cost is recorded at fetch, so
+nothing could reconcile the hold.
+
+**Rejected.** A member on `IUsageTracker`: it breaks every tracker an application wrote. Reserving whenever the tracker
+can: every SQL-tracker deployment would gain a write per call and, on Postgres, a lock. A hold derived from the
+request's `MaxTokens`: tokens are not cost, and Lyntai keeps no price table to convert them. A single conditional `INSERT … SELECT`
+on Postgres: under READ COMMITTED two callers both see room. A hold without expiry: a crashed process would strand
+budget for good.

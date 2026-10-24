@@ -319,6 +319,9 @@ sealed class Lyntai.BudgetOptions
     MaxCostUsd : Nullable<Double> { get; set; }
     MaxTokens : Nullable<Int64> { get; set; }
     PerConsumer : Dictionary<String,ConsumerBudget> { get; }
+    ReservationLifetime : TimeSpan { get; set; }
+    ReserveCostUsd : Nullable<Double> { get; set; }
+    ReserveTokens : Nullable<Int64> { get; set; }
 sealed class Lyntai.CacheOptions
     .ctor()
     MaxEntries : Int32 { get; set; }
@@ -694,15 +697,72 @@ sealed class Lyntai.Inference.Budgeting.BudgetedTextClient
     .ctor(ITextClient inner, IUsageTracker tracker, LyntaiOptions options, ILogger<BudgetedTextClient> logger = null)
     CompleteAsync(TextRequest req, CancellationToken ct = default) : Task<TextResponse>
     StreamAsync(TextRequest req, CancellationToken ct = default) : IAsyncEnumerable<TextChunk>
+interface Lyntai.Inference.Budgeting.IReservingUsageTracker
+    ReconcileAsync(UsageReservation reservation, ProviderUsage actual, CancellationToken ct = default) : ValueTask
+    ReserveAsync(UsageReservationRequest request, CancellationToken ct = default) : ValueTask<UsageReservationResult>
 interface Lyntai.Inference.Budgeting.IUsageTracker
     RecordAsync(String consumer, ProviderUsage usage, CancellationToken ct = default) : ValueTask
     ResetAsync(String consumer = null, CancellationToken ct = default) : ValueTask
     TotalAsync(String consumer = null, CancellationToken ct = default) : ValueTask<UsageTotals>
 sealed class Lyntai.Inference.Budgeting.InMemoryUsageTracker
     .ctor()
+    ReconcileAsync(UsageReservation reservation, ProviderUsage actual, CancellationToken ct = default) : ValueTask
     RecordAsync(String consumer, ProviderUsage usage, CancellationToken ct = default) : ValueTask
+    ReserveAsync(UsageReservationRequest request, CancellationToken ct = default) : ValueTask<UsageReservationResult>
     ResetAsync(String consumer = null, CancellationToken ct = default) : ValueTask
     TotalAsync(String consumer = null, CancellationToken ct = default) : ValueTask<UsageTotals>
+enum Lyntai.Inference.Budgeting.UsageCap
+    ConsumerCost : UsageCap const
+    ConsumerTokens : UsageCap const
+    GlobalCost : UsageCap const
+    GlobalTokens : UsageCap const
+    value__ : Int32
+sealed class Lyntai.Inference.Budgeting.UsageCaps
+    .ctor(Nullable<Double> MaxCostUsd = null, Nullable<Int64> MaxTokens = null, Nullable<Double> ConsumerMaxCostUsd = null, Nullable<Int64> ConsumerMaxTokens = null)
+    ConsumerMaxCostUsd : Nullable<Double> { get; init; }
+    ConsumerMaxTokens : Nullable<Int64> { get; init; }
+    Deconstruct(Nullable`1& MaxCostUsd, Nullable`1& MaxTokens, Nullable`1& ConsumerMaxCostUsd, Nullable`1& ConsumerMaxTokens) : Void
+    Equals(Object obj) : Boolean
+    Equals(UsageCaps other) : Boolean
+    ExceededBy(UsageTotals globalLoad, UsageTotals consumerLoad, ProviderUsage amount) : Nullable<UsageCap>
+    GetHashCode() : Int32
+    HasConsumer : Boolean { get; }
+    HasGlobal : Boolean { get; }
+    MaxCostUsd : Nullable<Double> { get; init; }
+    MaxTokens : Nullable<Int64> { get; init; }
+    ToString() : String
+sealed class Lyntai.Inference.Budgeting.UsageReservation
+    .ctor(String Id, String Consumer, ProviderUsage Amount, DateTimeOffset ExpiresAt)
+    Amount : ProviderUsage { get; init; }
+    Consumer : String { get; init; }
+    Deconstruct(String& Id, String& Consumer, ProviderUsage& Amount, DateTimeOffset& ExpiresAt) : Void
+    Equals(Object obj) : Boolean
+    Equals(UsageReservation other) : Boolean
+    ExpiresAt : DateTimeOffset { get; init; }
+    GetHashCode() : Int32
+    Id : String { get; init; }
+    ToString() : String
+sealed class Lyntai.Inference.Budgeting.UsageReservationRequest
+    .ctor(String Consumer, ProviderUsage Amount, UsageCaps Caps, DateTimeOffset ExpiresAt)
+    Amount : ProviderUsage { get; init; }
+    Caps : UsageCaps { get; init; }
+    Consumer : String { get; init; }
+    Deconstruct(String& Consumer, ProviderUsage& Amount, UsageCaps& Caps, DateTimeOffset& ExpiresAt) : Void
+    Equals(Object obj) : Boolean
+    Equals(UsageReservationRequest other) : Boolean
+    ExpiresAt : DateTimeOffset { get; init; }
+    GetHashCode() : Int32
+    ToString() : String
+sealed class Lyntai.Inference.Budgeting.UsageReservationResult
+    .ctor(UsageReservation Reservation, Nullable<UsageCap> ExceededCap = null)
+    Deconstruct(UsageReservation& Reservation, Nullable`1& ExceededCap) : Void
+    Equals(Object obj) : Boolean
+    Equals(UsageReservationResult other) : Boolean
+    ExceededCap : Nullable<UsageCap> { get; init; }
+    GetHashCode() : Int32
+    Granted : Boolean { get; }
+    Reservation : UsageReservation { get; init; }
+    ToString() : String
 sealed class Lyntai.Inference.Budgeting.UsageTotals
     .ctor(Int64 InputTokens, Int64 OutputTokens, Double CostUsd, Int64 Calls)
     Calls : Int64 { get; init; }
@@ -3543,7 +3603,10 @@ sealed class Lyntai.Storage.UsageTotalsRow
     InputTokens : Int64 { get; set; }
     OutputTokens : Int64 { get; set; }
 static class Lyntai.Storage.UsageTrackerSql
+    DropExpiredHolds : String const
+    Hold : String const
     Record : String const
+    Release : String const
     ResetAll : String const
     static Consumer(String consumer) : String
 static class Lyntai.Text.JsonExtract

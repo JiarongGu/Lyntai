@@ -82,6 +82,15 @@ every addition.
   naming each. `ProviderCapabilities.SupportsStructuredOutput` is the new declaration: true for the HTTP and
   Ollama chat backends, false for the CLIs and LLamaSharp, and as declared for a bridge. The default is
   unchanged, and the response cache keeps such a request's replies apart.
+- **A usage budget can be a HARD cap: `BudgetOptions.ReserveCostUsd` / `ReserveTokens`** (**D206**). The soft
+  check let every call already in flight overshoot a cap. With a hold set, each call reserves that amount before
+  it runs, admitted only if spend plus every in-flight hold still fits, and settles to what it reported
+  afterwards, whether it succeeded, failed or was cancelled; a hold whose caller died stops counting after
+  `ReservationLifetime` (15 minutes). The text door, the generic router's governance and the inline and
+  streaming media doors use it; a media submission keeps the soft check. The optional `IReservingUsageTracker`
+  is the capability, implemented by the in-memory, SQLite and Postgres trackers — atomically on both databases,
+  so the cap holds across processes. Migration `M202610241822_UsageReservation` adds the
+  `lyntai_usage_reservation` table. Unset, nothing changes, and a custom tracker keeps the soft check.
 
 ### Fixed
 

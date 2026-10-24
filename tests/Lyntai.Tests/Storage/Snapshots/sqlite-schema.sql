@@ -314,6 +314,16 @@ CREATE TABLE lyntai_usage (
     calls         INTEGER NOT NULL DEFAULT 0
 );
 
+-- table lyntai_usage_reservation
+CREATE TABLE lyntai_usage_reservation (
+    id            TEXT PRIMARY KEY,
+    consumer      TEXT NOT NULL,
+    input_tokens  INTEGER NOT NULL DEFAULT 0,
+    output_tokens INTEGER NOT NULL DEFAULT 0,
+    cost_usd      REAL    NOT NULL DEFAULT 0,
+    expires_at    TEXT NOT NULL
+);
+
 -- table lyntai_vector
 CREATE TABLE lyntai_vector (
     collection TEXT NOT NULL,

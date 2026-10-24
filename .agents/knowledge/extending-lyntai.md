@@ -373,6 +373,12 @@ things the contract facts pin: `CuratedMemory.Revision` starts at 1 and EVERY wr
 update included; the check and the write are ONE atomic step (`… AND revision = @expected` with the row count on
 SQL, the store's lock in process); and a stale call writes nothing. Skip it and report `Revision` 0.
 
+**`IUsageTracker` has one OPTIONAL interface, `IReservingUsageTracker`** (**D206**): `ReserveAsync` holds an amount
+against `UsageCaps`, and `ReconcileAsync` swaps the hold for what the call spent. You owe: the admission check and
+the hold written as ONE step (SQLite's `BEGIN IMMEDIATE`, Postgres advisory locks, the tracker's lock in process),
+judged by `UsageCaps.ExceededBy`; holds folded by consumer case like the totals; an expired hold ignored; and holds
+left alone by `ResetAsync`. Skip it and the budget doors keep the soft check. `UsageReservationContract` pins it.
+
 Mirror `src/Lyntai.Storage.Postgres/`, the reference backend, which implements all twelve. **A backend that is
 not a database mirrors `src/Lyntai.Storage.Basic/FileSystem/` instead** (**D171**) — no SQL and no migrations, but
 the same contract suites, plus RESTART tests those suites cannot express, since each runs one live store. An

@@ -475,7 +475,7 @@ public sealed class LyntaiBuilder
     /// (<c>MaxCostUsd</c>/<c>MaxTokens</c>) with optional per-consumer overrides; also
     /// <c>LYNTAI_BUDGET_MAX_COST_USD</c> / <c>LYNTAI_BUDGET_MAX_TOKENS</c>. The applicable total is checked
     /// BEFORE each call (a call whose cost isn't yet known can push a total slightly past the cap — a soft
-    /// ceiling). Query or reset spend at runtime via the registered
+    /// ceiling; <see cref="BudgetOptions.ReserveCostUsd"/> makes it hard). Query or reset spend at runtime via the registered
     /// <see cref="IUsageTracker"/>; register your own before this to override the
     /// in-memory default. Folds at <see cref="BudgetDecoratorOrder"/>.</summary>
     public LyntaiBuilder AddUsageBudget(Action<BudgetOptions>? configure = null)

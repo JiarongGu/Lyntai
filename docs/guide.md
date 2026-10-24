@@ -219,7 +219,11 @@ services.AddLyntai(cfg => cfg
   clean `Ok`, non-streaming completions without native tools.
 - **The budget** refuses a completion over a cap with `Verdict == Refused`, calling no provider. The ceiling
   is **soft**: the call that crosses a cap still runs, the next is refused. `IUsageTracker.TotalAsync()` and
-  `ResetAsync()` read and reset spend at runtime.
+  `ResetAsync()` read and reset spend at runtime. **For a hard cap, set `b.ReserveCostUsd`** (or `ReserveTokens`)
+  to the most one call can cost: each call then holds that much before it runs, admitted only if spend plus every
+  call in flight still fits, and settles to what it reported afterwards, whether it succeeds, fails or is
+  cancelled (`docs/DECISIONS.md` **D206**). Every shipped tracker can reserve (`IReservingUsageTracker`); a custom
+  one that does not keeps the soft check.
 - **The rate limit** is a token bucket: over the rate a call waits briefly for a permit, then is refused with
   `RateLimited`. Register your own `IRateLimiter` for a limiter shared across processes.
 

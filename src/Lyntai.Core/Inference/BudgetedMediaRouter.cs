@@ -24,7 +24,9 @@ namespace Lyntai.Inference;
 ///
 /// <para>The ceiling is soft, exactly as on the LLM side: the call that crosses a cap still runs (its cost
 /// isn't known until it returns) and the next one is refused. Under concurrency the overshoot is bounded by
-/// the combined cost of the calls already in flight when the cap was crossed.</para>
+/// the combined cost of the calls already in flight when the cap was crossed — unless
+/// <see cref="BudgetOptions.ReserveCostUsd"/> is set over a tracker that can reserve, which makes the inline and
+/// streaming doors hold that cost before a render and reconcile it after (<see cref="IReservingUsageTracker"/>).</para>
 /// </summary>
 /// <param name="inner">The router being governed.</param>
 /// <param name="tracker">Shared spend ledger — the text front door's tracker.</param>
@@ -42,19 +44,29 @@ public sealed class BudgetedMediaRouter(
     public async Task<MediaResponse> GenerateAsync(
         IReadOnlyList<ProviderCandidate> candidates, MediaRequest request, CancellationToken ct = default)
     {
-        if (await OverBudgetAsync(request.Consumer, ct).ConfigureAwait(false) is { } reason)
+        var admission = await AdmitAsync(request.Consumer, ct).ConfigureAwait(false);
+        if (admission.Refusal is { } reason)
             return MediaResponse.Failure(ProviderVerdict.Refused, reason);
 
-        var result = await inner.GenerateAsync(candidates, request, ct).ConfigureAwait(false);
-        await RecordAsync(request.Consumer, result.Usage, ct).ConfigureAwait(false);
-        return result;
+        try
+        {
+            var result = await inner.GenerateAsync(candidates, request, ct).ConfigureAwait(false);
+            await admission.SettleAsync(Spent(result.Usage), ct).ConfigureAwait(false);
+            return result;
+        }
+        finally
+        {
+            await admission.SettleAsync(null, ct).ConfigureAwait(false);
+        }
     }
 
     /// <inheritdoc/>
     /// <remarks>The submit path is where the money is COMMITTED — a hosted video render is charged for
     /// whether or not anyone ever fetches it — so the check belongs here rather than at fetch time. The cost
     /// itself is only known when the render finishes, which is why whatever FETCHES it records it — the durable
-    /// job handlers and the <c>generate_fetch</c> tool: this decorator never sees the completed result.</remarks>
+    /// job handlers and the <c>generate_fetch</c> tool: this decorator never sees the completed result. So a
+    /// submission takes the soft check even where the other doors reserve: there is no end of call here to
+    /// reconcile a hold at.</remarks>
     public async Task<MediaSubmission> SubmitAsync(
         IReadOnlyList<ProviderCandidate> candidates, MediaRequest request, CancellationToken ct = default)
     {
@@ -79,22 +91,35 @@ public sealed class BudgetedMediaRouter(
         IReadOnlyList<ProviderCandidate> candidates, MediaRequest request,
         [EnumeratorCancellation] CancellationToken ct = default)
     {
-        if (await OverBudgetAsync(request.Consumer, ct).ConfigureAwait(false) is { } reason)
+        var admission = await AdmitAsync(request.Consumer, ct).ConfigureAwait(false);
+        if (admission.Refusal is { } reason)
         {
             yield return MediaChunk.Failure(ProviderVerdict.Refused, reason);
             yield break;
         }
 
-        await foreach (var chunk in inner.StreamAsync(candidates, request, ct).ConfigureAwait(false))
+        try
         {
-            if (chunk.Usage is not null)
-                await RecordAsync(request.Consumer, chunk.Usage, ct).ConfigureAwait(false);
-            yield return chunk;
+            await foreach (var chunk in inner.StreamAsync(candidates, request, ct).ConfigureAwait(false))
+            {
+                if (Spent(chunk.Usage) is { } spent)
+                    await admission.SettleAsync(spent, ct).ConfigureAwait(false);
+                yield return chunk;
+            }
+        }
+        finally
+        {
+            await admission.SettleAsync(null, ct).ConfigureAwait(false);
         }
     }
 
-    private ValueTask RecordAsync(string consumer, MediaUsage? usage, CancellationToken ct) =>
-        BudgetGate.RecordCostAsync(tracker, consumer, usage, ct);
+    /// <summary>What a render puts on the ledger: its cost alone, and nothing when it reported no positive cost
+    /// (<see cref="BudgetGate.RecordCostAsync"/>'s rule).</summary>
+    private static ProviderUsage? Spent(MediaUsage? usage) => usage is { CostUsd: > 0 } ? usage.ToProviderUsage() : null;
+
+    /// <summary>The same gate on the same cost-only terms as <see cref="OverBudgetAsync"/>, reserving where it can.</summary>
+    private ValueTask<BudgetAdmission> AdmitAsync(string consumer, CancellationToken ct) =>
+        BudgetGate.AdmitAsync(options.Budget, tracker, consumer, includeTokens: false, _logger, ct);
 
     /// <summary>The refusal reason when a COST cap that applies to <paramref name="consumer"/> has been
     /// reached — delegated to the ONE <see cref="BudgetGate"/> the text door and the generic

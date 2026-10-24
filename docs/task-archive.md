@@ -5628,3 +5628,16 @@ folds the flag in only when set. `TextRouterNativeSupportTests` and `StructuredO
 records why it is per request and opt-in.
 
 - RV11 — a schema- or tool-bearing request skips a candidate that cannot honour it
+
+## Part 360 — RV12: a usage budget can be a hard cap, by reserving before a call (2026-10-24)
+
+✅ done 2026-10-24 — **Outcome:** the second item of the competitive review's governed-calls group (`TASKS.md`
+Part 347). The optional `IReservingUsageTracker` (`ReserveAsync` / `ReconcileAsync`, judged by
+`UsageCaps.ExceededBy`) is implemented by the in-memory, SQLite and Postgres trackers — atomic on both databases,
+migration `M202610241822_UsageReservation` adding `lyntai_usage_reservation`. `BudgetGate` reserves when a tracker
+can and `BudgetOptions.ReserveCostUsd` / `ReserveTokens` is set, and settles in a `finally`, so a failed, cancelled
+or abandoned call releases its hold; the text door, the router's governance and the inline and streaming media doors
+use it. `UsageReservationContract` (all three backends) and `UsageReservationBudgetTests` pin it; **D206** records
+why it is optional and opted into by the hold.
+
+- RV12 — a budget can RESERVE before a call and reconcile after, for a host that needs a hard cap

@@ -31,7 +31,7 @@ public class PostgresContractCoverageTests
         nameof(ConversationStoreContract), nameof(CuratedMemoryStoreContract), nameof(KeyValueStoreContract),
         nameof(MemoryStoreContract), nameof(PromptVersionStoreContract), nameof(ScoreStoreContract),
         nameof(TraceStoreContract), nameof(VectorStoreContract), nameof(UsageTrackerContract),
-        nameof(ResponseCacheContract), nameof(JobStoreContract),
+        nameof(ResponseCacheContract), nameof(JobStoreContract), nameof(UsageReservationContract),
     ];
 
     /// <summary>Facts deliberately NOT run against Postgres, each with the reason. An entry that stops
@@ -50,6 +50,9 @@ public class PostgresContractCoverageTests
         ["UsageTrackerContract.Resetting_everything_clears_every_consumer"] =
             "a null consumer DELETEs the whole table — it would erase the rows other tests are mid-way "
             + "through asserting on, which is worse than not running it",
+        ["UsageReservationContract.A_global_cap_counts_every_consumers_holds"] =
+            "a global cap reads the whole ledger and every live hold, so other tests' rows fall inside it on the "
+            + "shared container; the consumer-capped facts exercise the same statement",
     };
 
     private static string SuiteSource(string file) =>
