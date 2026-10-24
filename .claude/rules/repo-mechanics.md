@@ -9,8 +9,21 @@ applies_when: applying a general rule in this repository
 **The general rules state the principle; this file states how it is enforced HERE.** Where they appear to
 disagree, the general rule states the intent and this file states the mechanism.
 
-> **Every file under `.claude/` is this repository's own** — no sync, no upstream, no provenance tier.
-> Editing one is an ordinary change, reviewed like any other.
+> **Every file under `.claude/rules/` and `.claude/templates/` is this repository's own**, and so is every
+> `.agents/` document the index marks _(local)_: editing one is an ordinary change. The shared doctrine is
+> `AGENTS.md`'s generated region and each `.agents/` file carrying a `daoris:` provenance line — change it
+> through the canon, never in place. `.claude/skills/` is the tool's mirror of `.agents/skills/`: edit the
+> source and run `daoris sync`.
+
+## Where a fact goes here
+
+- **The general rule is the shared `no-global-memory` (`AGENTS.md`); here, anything about this project that
+  is not an always-on convention or a deep dive is routed by kind** — `persist-working-state.md` §Route by
+  KIND. That rule is about the assistant's memory, never the library's own `IMemoryStore` /
+  `ICuratedMemoryStore` / `ISemanticMemory` / `IMemoryEngine`.
+- **The always-on tier is `.claude/rules/` plus `AGENTS.md`; the on-demand tier is `.agents/knowledge/`**,
+  listed with each document's *applies when* in the generated `.agents/INDEX.md`. Nothing hand-kept routes
+  to a knowledge document any more, so a new one needs only its front matter.
 
 ## Sensitive info — the guard that enforces it
 
@@ -156,11 +169,11 @@ convention about what to REACH FOR, not a constraint the code enforces.
   legacy `LYNTAI_OLLAMA_*` names still work, and are legacy because a variable named after one vendor is a
   claim about the host that the code never makes. Every sweep prints the endpoint it used.
 - **The library supports both and prefers neither**: `AddLlamaProvider` beside `AddOllamaProvider`. Which
-  one a deployment uses is its own choice (`.claude/knowledge/model-decoupling.md`).
+  one a deployment uses is its own choice (`.agents/knowledge/model-decoupling.md`).
 - **Run your OWN server on its own port; never borrow one that happens to be up, never kill one by image
   name, and never infer from a green run that the model you named is the model that answered.** The three
   traps behind that sentence — plus the two servers' silent disagreement about an over-long input — are in
-  `.claude/knowledge/pitfalls.md` §Environment / tooling.
+  `.agents/knowledge/pitfalls.md` §Environment / tooling.
 
 ## Scratch and working files
 

@@ -2,10 +2,11 @@
 name: add-scorer
 description: Use when adding an evaluation scorer to Lyntai's cortex layer (a new IScorer — deterministic or an LLM judge via LlmScorerBase — for the scoring/eval loop).
 ---
+<!-- daoris: mirror of .agents/skills/add-scorer/SKILL.md for agents that read only .claude/skills — edit that file, not this; daoris sync rewrites this one -->
 
 # Add a scorer to Lyntai
 
-Read `.claude/knowledge/extending-lyntai.md` (§Add a scorer). This is the cheapest extension: a class +
+Read `.agents/knowledge/extending-lyntai.md` (§Add a scorer). This is the cheapest extension: a class +
 one registration, no new package. Built-ins live in `Lyntai.Core/Cortex/Scorers/`.
 
 ## Checklist

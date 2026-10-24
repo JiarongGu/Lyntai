@@ -75,7 +75,7 @@ model, and it splits:
   does fit. §3.1 has the figures; a 1B on the prompt protocol fails the exact mirror way.
 
 **A budget that RAISES the output is the tell**, and it is only visible if you count how often the seam
-fired. The trap is `.claude/knowledge/pitfalls.md` §A model given an UNBOUNDED task; the measurement that
+fired. The trap is `.agents/knowledge/pitfalls.md` §A model given an UNBOUNDED task; the measurement that
 owns these figures is `docs/memory-measurements.md` §5.
 
 ### For a selective task, LIST LENGTH is the governing variable
@@ -307,7 +307,7 @@ reaching for.
 **And do not carry any magnitude here into your own deployment.** Direction transfers between corpora and
 size does not — the same 4B model reads best-in-class on this repository's own synthetic corpus and
 catastrophic on a field benchmark at the shipped depth. One model, two corpora, opposite signs. Price it on
-the corpus at hand; `.claude/knowledge/model-decoupling.md` is the standing rule.
+the corpus at hand; `.agents/knowledge/model-decoupling.md` is the standing rule.
 
 ### 3.1 `affordance`: the selection works, the REFUSAL does not
 
@@ -383,7 +383,7 @@ which is why it lives here rather than in the backlog.
 
 **A DESK survey — sizes and capabilities read, not called.** That is the tier GEN-VERIFY exists to distrust,
 so the SHAPES transfer and nothing here licenses skipping a smoke test. Sizes are exact bytes because MiB
-and MB straddle a 500 threshold (`.claude/knowledge/pitfalls.md`). Surveyed 2026-09-10 and adversarially
+and MB straddle a 500 threshold (`.agents/knowledge/pitfalls.md`). Surveyed 2026-09-10 and adversarially
 re-checked against the model cards and the HF API.
 
 **Rerankers under 500 MB, multilingual:** `LAMAR-600m` Q5_K_M **468,393,760 B** — measured, see
@@ -562,5 +562,5 @@ stops choosing altogether.
 | which model, rather than which task | `docs/memory.md` §Choosing the model |
 | what the memory seams cost, and the judge's field caveat | `docs/memory.md` §Model-backed steps |
 | the figures behind every claim here | `docs/memory-measurements.md` §5 |
-| why a model is a deployment choice at all | `.claude/knowledge/model-decoupling.md` |
-| adding your own scorer, or your own policy | `.claude/knowledge/extending-lyntai.md` |
+| why a model is a deployment choice at all | `.agents/knowledge/model-decoupling.md` |
+| adding your own scorer, or your own policy | `.agents/knowledge/extending-lyntai.md` |

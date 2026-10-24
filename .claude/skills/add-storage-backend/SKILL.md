@@ -2,11 +2,12 @@
 name: add-storage-backend
 description: Use when adding a new storage backend to Lyntai (a new Lyntai.Storage.* package — or a folder in Lyntai.Storage.Basic for one needing nothing beyond Core — implementing one or more of the TWELVE domain interfaces a backend implements — IKeyValueStore, IConversationStore, IMemoryStore, IScoreStore, ITraceStore, IPromptVersionStore, IJobStore, ICuratedMemoryStore, IVectorStore, IResponseCache, IUsageTracker, IMemoryGraphStore — another SQL dialect, etc.). Covers the repository pattern, FTS, migrations, and the load-bearing SQLite/SQL traps.
 ---
+<!-- daoris: mirror of .agents/skills/add-storage-backend/SKILL.md for agents that read only .claude/skills — edit that file, not this; daoris sync rewrites this one -->
 
 # Add a storage backend to Lyntai
 
-Read `.claude/knowledge/extending-lyntai.md` §Add a storage backend (which interfaces, and what
-`IMemoryGraphStore` costs) and **all of** `.claude/knowledge/storage.md`, the one statement of the traps that
+Read `.agents/knowledge/extending-lyntai.md` §Add a storage backend (which interfaces, and what
+`IMemoryGraphStore` costs) and **all of** `.agents/knowledge/storage.md`, the one statement of the traps that
 pass tests while being wrong. Each item below is the rule; the why is there.
 
 ## Checklist

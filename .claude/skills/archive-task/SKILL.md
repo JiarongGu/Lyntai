@@ -2,6 +2,7 @@
 name: archive-task
 description: Use when a task in TASKS.md is complete (implemented, tested, committed, verified) and needs to be moved out of the active backlog. Moves the entry from TASKS.md into docs/task-archive.md per the task-lifecycle rule, so TASKS.md holds only open work.
 ---
+<!-- daoris: mirror of .agents/skills/archive-task/SKILL.md for agents that read only .claude/skills — edit that file, not this; daoris sync rewrites this one -->
 
 # Archive a completed task
 
@@ -26,7 +27,7 @@ verify` is green. (If it's not actually done, leave it `- [ ]` in `TASKS.md`.)
    got WRONG that the next reader needs. Then the task's item titles as bullets. Use the real date (today's
    date from the session context), not a relative one.
    - **Keep the heading and the outcome, not the original text**; git history holds it. A conclusion that
-     must outlive the Part goes to `docs/DECISIONS.md`, `.claude/knowledge/pitfalls.md` or the design
+     must outlive the Part goes to `docs/DECISIONS.md`, `.agents/knowledge/pitfalls.md` or the design
      contract, and `check-archive` bounds the entry's length.
    - **Take the next number above the highest in EITHER file; the archive never renumbers.** The two files
      number independently, so cite `` `TASKS.md` Part N `` or `` `docs/task-archive.md` Part N ``, never a

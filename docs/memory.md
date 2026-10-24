@@ -6,6 +6,15 @@
 > `docs/DECISIONS.md` from **D39** on — its generated index names each; the evidence is
 > `docs/memory-measurements.md` §5; the per-task history is `docs/task-archive.md`.
 
+## What it is not
+
+**Long-term memory is the subsystem most often reasoned about wrongly.** `IMemoryEngine` (named engines,
+**D39**) is not the three older surfaces (`IMemoryStore`, `ISemanticMemory`, `ICuratedMemoryStore`): it
+decays by INTERFERENCE, never a clock (**D40**), BURIES rather than deletes (**D41**), and a recall is an
+n-shot WALK over headlines, not a top-k (**D100**, **D102**), so a one-shot metric measures the wrong mode.
+Its contract, headed by the five invariants no gate holds, is `docs/memory.md`; every figure is
+`docs/memory-measurements.md` §5.
+
 ## The invariants no gate holds
 
 Each is a rule a change can break silently. A gate or a test holds the rest of this page's promises; these
@@ -25,7 +34,7 @@ members.
    `StrengthAge` is swap-safe and `GraphMemoryOptions.EdgeHalfLife` is denominated in whatever the policies
    count, never in time.
 5. **`IMemoryGraphStore` is the largest contract in the library.** A BYO store reads
-   `.claude/knowledge/extending-lyntai.md` §Add a storage backend before starting one — which members take
+   `.agents/knowledge/extending-lyntai.md` §Add a storage backend before starting one — which members take
    no default body, which two do and what each default silently costs, and `WriteBackAsync`'s ORDER.
 
 ## 1. What it is
@@ -976,4 +985,4 @@ retention policy always runs beside `SalienceRetentionPolicy`. An argument passe
 | every measured figure, and whether it still holds | `docs/memory-measurements.md` §5 |
 | the consuming story | `docs/guide.md`, behind the overview in `README.md` |
 | which SHAPE of question each model-backed seam asks, and what is measured about each | `docs/model-tasks.md` |
-| traps that pass the build while being wrong | `.claude/knowledge/pitfalls.md` |
+| traps that pass the build while being wrong | `.agents/knowledge/pitfalls.md` |

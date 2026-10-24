@@ -68,7 +68,7 @@ incrementally on top of it.
 (`devtools/scripts/_tree-fingerprint.mjs`), every moved file named, the green summary suppressed and a
 non-zero exit. A verdict is only about the bytes the gates read, so an edit mid-run makes the whole report
 describe a tree that no longer exists, green line included. Added 2026-08-30 after that produced two false
-greens in one session. The habit the gate does not replace is in `.claude/knowledge/pitfalls.md`
+greens in one session. The habit the gate does not replace is in `.agents/knowledge/pitfalls.md`
 §Environment / tooling, along with the two cheaper checks that were tried and refused.
 
 **The guard tests run FIRST on purpose**: nothing below that gate can be trusted if the gates themselves
@@ -143,6 +143,22 @@ single number whose slack over the 40-line limit is REPORTED on a green run, not
 
 **Paying a ratchet down means RELOCATING, not deleting** — several long entries are the only maintained
 home for a trap. Move the rule to the record that owns it, keep a pointer, then cut.
+
+## Editing prose without turning `verify` red
+
+The rules that bite when editing any document here, each a gate's view of prose:
+
+- **A rule written down and still violated is a missing gate**: build the gate, not another paragraph. A
+  gate whose SCOPE rests on a measurement needs the measurement re-run as the tree grows.
+- **A decision that renames or re-dimensions something adds a `retiredTerms` entry**
+  (`devtools/project.config.mjs`); a rename in neither registry is invisible to every gate.
+- **Each gate owns its OWN escape token** (`docs/GATES.md` §Escape tokens and allowances).
+- **Repoint a citation, never renumber its target**: a renumbered `§` resolves to the WRONG section
+  silently.
+- **Every fenced `csharp` block compiles**: prefer `compile-given` to `compile-skip`, and never put a
+  compiled sample under `## Unreleased` (`docs/GATES.md` §check-samples).
+- **Rewording the one sentence a counted claim is anchored in turns `verify` red**: move it VERBATIM, and
+  into a file the gate scans. `CLAUDE.md` says which of its own lines the tooling reads by path.
 
 ## Writing a new gate
 
@@ -421,7 +437,7 @@ four tiers (`src`, `tests`, `devtools`, `bench`), `.cs` and `.mjs`.
 
 Measured cost of not having it: **0.86 comment lines per line of real code** in `src/` (14,927 against
 17,259, blanks and brace-only lines excluded), and `src/` carrying **1.6× more prose than
-`docs/DECISIONS.md` + `.claude/knowledge/pitfalls.md` + `docs/task-archive.md` + the design contract
+`docs/DECISIONS.md` + `.agents/knowledge/pitfalls.md` + `docs/task-archive.md` + the design contract
 COMBINED** — prose in the one place no other gate scanned, rotting exactly as `pitfalls.md` records. A
 third of it sat in blocks of 16+ lines, including a 120-line `<remarks>` on one method. The rule it
 enforces is `.claude/rules/code-commentary.md`.
@@ -570,7 +586,7 @@ it. The first run found **5 undocumented options in 5 hits** — all genuine, fo
 `AgentSessionOptions`, including `Model`, an option named for the very thing that is explicitly the
 application's choice. The wider rule that suggests itself — *a one-line doc says WHAT and not WHY* — was
 refused on measurement: **53** options have exactly one line and most are correct, because `ApiKey` and
-`BaseUrl` do not need an essay. `.claude/knowledge/pitfalls.md` records two gates this repository built,
+`BaseUrl` do not need an essay. `.agents/knowledge/pitfalls.md` records two gates this repository built,
 measured at a **0% defect rate**, and withdrew; a hit here is a defect by construction, which is the bar a
 vocabulary gate has to clear before it ships. The one-line count is REPORTED on a passing run so the softer
 tier stays visible without being enforced.
@@ -642,7 +658,7 @@ recommendation is the specific mistake this record invites.
 silently superseded by a run nobody wrote down is invisible, and the index asserts completeness. And a
 **bare `§5`** — no filename — is checked by nothing, here or in `check-links`, whose pattern needs a
 filename by design; splitting this record turned eight of them into silent lies in one commit, which is
-recorded in `.claude/knowledge/pitfalls.md` §Refactoring & namespace moves.
+recorded in `.agents/knowledge/pitfalls.md` §Refactoring & namespace moves.
 
 ### `check-decision-claims` — whether a DECISION still describes the code it governs
 
@@ -726,7 +742,7 @@ and says nothing. The retired name is gone, so `check-docs` is happy; the surviv
 whole, until **D164** narrowed the exemption to its seeds and period blockquotes: the inline dated
 amendments, the file's present-tense contract tier, are scanned again through `LIVE_REGIONS`. The
 same sweep left **six** more — `docs/DECISIONS.md` (D36, D128, D130), `CHANGELOG.md`,
-`.claude/knowledge/pitfalls.md` and a shipped `//` comment in `Lyntai.Core` — plus four in `README.md` that
+`.agents/knowledge/pitfalls.md` and a shipped `//` comment in `Lyntai.Core` — plus four in `README.md` that
 this rule's shape does not reach, one of them a compiled sample type-testing `IModelProvider` against
 `IModelProvider`. <!-- tautology-ok: naming the defect this gate catches -->
 
@@ -817,7 +833,7 @@ D125–D147 rename campaign went straight past it — `GenerationCandidate` afte
 `Lyntai.Inference`. Four compile errors, sitting there across the largest breaking change in the project's
 history, discovered only when someone ran it. **A gate nothing schedules rots exactly as an unrun test
 does** — and this one surfaces its rot at release time, which is the worst moment to meet it. The trap is in
-`.claude/knowledge/pitfalls.md`; the fixture's own staleness is `docs/FIXES.md`.
+`.agents/knowledge/pitfalls.md`; the fixture's own staleness is `docs/FIXES.md`.
 
 ### `doctor` — the three version checks
 

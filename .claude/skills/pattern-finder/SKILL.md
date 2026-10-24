@@ -2,6 +2,7 @@
 name: pattern-finder
 description: Find the existing exemplar to mirror before writing a new unit that has the same shape as something already in the codebase — a module, a handler, a test, a migration, a tooling script. Use before writing new code, so it reads like the code around it instead of introducing a second convention.
 ---
+<!-- daoris: mirror of .agents/skills/pattern-finder/SKILL.md for agents that read only .claude/skills — edit that file, not this, and promote an edit with `daoris upstream`; daoris sync rewrites this one -->
 
 # pattern-finder
 

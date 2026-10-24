@@ -2,10 +2,11 @@
 name: add-provider
 description: Use when adding a new LLM provider to Lyntai (a new backend/model source behind IModelProvider, or bridging an existing Microsoft.Extensions.AI IChatClient). Covers the correct pattern, the verdict/streaming/timeout invariants, and stub-based tests.
 ---
+<!-- daoris: mirror of .agents/skills/add-provider/SKILL.md for agents that read only .claude/skills — edit that file, not this; daoris sync rewrites this one -->
 
 # Add an LLM provider to Lyntai
 
-Read `.claude/knowledge/extending-lyntai.md` (§Add an LLM provider) and `.claude/knowledge/llm-and-router.md` first.
+Read `.agents/knowledge/extending-lyntai.md` (§Add an LLM provider) and `.agents/knowledge/llm-and-router.md` first.
 
 ## Decide the path
 1. **Is it reachable over HTTP on a wire we speak?** (OpenAI/Azure/Ollama/OpenRouter/vLLM/llama-server/Groq/DeepSeek/…) → don't

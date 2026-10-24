@@ -100,7 +100,7 @@ _**What remains unmeasured: fal's wire format, and it alone needs a vendor.** `s
 graph (Part 262), then a video-producing workflow (Part 264) — which needed no video MODEL, because the
 provider only ever reads the history document, and a core-node MP4 measures that document's video shape.
 The fal-first naming that once hid ComfyUI inside this list is recorded in
-`.claude/knowledge/pitfalls.md`._
+`.agents/knowledge/pitfalls.md`._
 
 - [ ] **GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key**, checking the status <!-- item: state=blocked kind=env needs="a free Hugging Face account (an hf_ token) — its router proxies fal's own queue; or a fal.ai key" -->
   vocabulary, the result field names and what `cost` reports. Then delete that backend's "unverified" notes
@@ -287,8 +287,8 @@ exist reads exactly like one about a Part that does._
 - **TDD, every task:** failing test → run it fail → minimal impl → run it pass → commit. Read
   `.claude/rules/dotnet-package-layout.md` (package layout) + `.claude/rules/repo-mechanics.md` (this
   repo's bindings — package names, naming invariant, dev loop, test conventions), then the relevant
-  `.claude/knowledge/*` (migrations → `storage.md` / `sql-storage.md`; spawn hygiene →
-  `llm-and-router.md`) + `.claude/skills/*` before extending.
+  `.agents/knowledge/*` (migrations → `storage.md` / `sql-storage.md`; spawn hygiene →
+  `llm-and-router.md`) + `.agents/skills/*` before extending.
 - **Commit per task.** **Never commit without the user's approval.** Describe changes structurally in the
   message (no dev-machine paths / private tokens — the pre-commit guard enforces this).
 - **This is a generic library** — every task must be a reusable, app-agnostic improvement behind the

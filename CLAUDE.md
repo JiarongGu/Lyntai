@@ -1,24 +1,15 @@
 # CLAUDE.md — Lyntai (灵台)
 
-> Auto-loaded every session. Keep short — details live in `docs/` and `.claude/rules/`.
-
-## What this is
-
-**Lyntai** (灵台, "the numinous platform" — the seat of the mind) is a reusable **.NET 10 library**: a set
-of NuGet-packable projects, **not an app** — no server, no host, no UI. It provides (1) an **LLM provider
-abstraction** with routing + **fallback** across CLI / HTTP / lambda-**bridged** providers (**D147** —
-`AddBridgeProvider` is a delegate, so bridging costs the library no dependency),
-(2) **pluggable storage** behind per-domain interfaces, and (3) the LLM-ops layer — prompt registry,
-scoring/eval, run traces, long-term memory — all wired by `AddLyntai(...)`.
+> The brief every agent reads is `AGENTS.md`, imported at the foot of this file. This file keeps only the
+> lines this repository's tooling reads HERE by path, and the agent-specific half: `.claude/rules/` is
+> loaded with it.
 
 ## Current state
 
 **Released: v3.5.3 (2026-09-30).** Eleven packages. The public API is frozen under
-SemVer 2.0 since 1.0 for every package (**D70**), but while every consumer is first-party a documented break
-may ship in a minor under `### Breaking` (**D18**, **D161**); storage and migration breaks stay major-only.
+SemVer 2.0 since 1.0 for every package (**D70**).
 The reasoning is `docs/DECISIONS.md`, **D1–D197** — read its generated index table rather than any list of
-decisions kept here. **Everything before 3.0 is HISTORY, not context**: `.claude/rules/repo-mechanics.md`
-says what that forbids.
+decisions kept here.
 
 **The baseline a green run should match:** `5280 passed / 5329 total, 49 skipped` (every skip is a
 live-backend gate), e2e 3/3, guard-script tests 973/973, doc samples 59/59 — MEASURED with Docker up at
@@ -32,87 +23,12 @@ live-backend gate), e2e 3/3, guard-script tests 973/973, doc samples 59/59 — M
   gate stayed green. Start Docker and re-run; never attest a figure reconciled by arithmetic. One more skip
   against a named new live-gated test is fine, and a LOWER count is the live suites running.
 
-**Long-term memory is the subsystem most often reasoned about wrongly.** `IMemoryEngine` (named engines,
-**D39**) is not the three older surfaces (`IMemoryStore`, `ISemanticMemory`, `ICuratedMemoryStore`): it
-decays by INTERFERENCE, never a clock (**D40**), BURIES rather than deletes (**D41**), and a recall is an
-n-shot WALK over headlines, not a top-k (**D100**, **D102**), so a one-shot metric measures the wrong mode.
-Its contract, headed by the five invariants no gate holds, is `docs/memory.md`; every figure is
-`docs/memory-measurements.md` §5.
-
-**Namespace map (Core).** Builder + `Add*`/`Use*` extensions live in `Lyntai`.
-
-- `Lyntai.Inference`: everything about CALLING a backend, flat (**D154**) — the provider seam, the verdict
-  taxonomy, the four call shapes, the text front door and both routers (`TextRouter`, `MediaRouter`: peers
-  **D153** refused to merge). Plus `.Cli` (ONE engine; a new CLI is an `ICliBackend`, **D21**/**D159**) and
-  the front-door decorators `.Caching` / `.Budgeting` / `.RateLimiting` / `.Streaming`.
-- `Lyntai.Generation` (+ `.Jobs` / `.Tools`): what RUNS a generation. The media backends are the separate
-  `Lyntai.Generation` package, namespace `Lyntai.Generation.Providers`.
-- `Lyntai.Memory`: the engines (`.Engines`), semantic memory, the vector store.
-  The graph-memory DOMAINS are SEVEN: `.Interference` / `.Forgetting` / `.Modulation` / `.Salience` /
-  `.Ranking` / `.Annotation` / `.Verification`, each an `IMemory*Policy` seam with its implementations and
-  options, placed by OWNERSHIP.
-  `.Seeding` (it produces candidates) and `IMemoryRemovalPolicy` (a blend concern, **D72**) are not domains,
-  and a root-level `IMemory*Policy` without a recorded reason fails `check-counts`.
-- `Lyntai.Prompts` · `Lyntai.Cortex` (+ `.Scorers`) · `Lyntai.Agents` · `Lyntai.Jobs` · `Lyntai.Guards` ·
-  `Lyntai.Secrets` (shared with `Lyntai.Secrets.Dpapi`) · `Lyntai.Storage` · `Lyntai.Processes` ·
-  `Lyntai.Text` · `Lyntai.Diagnostics`. Adapters are `Lyntai.Providers.<Backend>` /
-  `Lyntai.Storage.<Backend>`, one segment per adapter.
-
-**Vocabulary** — what a rename sweep breaks without failing anything:
-
-- A CALL SHAPE is named for what it PRODUCES: `Text*`, `Vector*`, `Score*`, `Media*` (`ITextClient`,
-  `TextRouter`).
-- `Llm` stays wherever it means "this asks a language model": `LlmScorerBase`, `LlmMemoryVerificationPolicy`,
-  `IScorer.IsLlm`, the `is_llm` column in both SQL backends and the `"llm"` score group.
-- A PROVIDER is named for its BACKEND, and what it produces is DATA (`ProviderCapabilities.Produces`,
-  **D152**): one `Add<Backend>Provider(…)` per backend, EF Core-style, never an `Add<Kind>Provider`. A kind
-  never forks a provider class; an options field selects it (`HttpModelOptions.Produces`,
-  `OnnxProviderOptions.Produces`, **D157**), and is a list only where one backend really serves several
-  (`ComfyUiOptions`, `FalOptions`).
-- The noun is `Vector` (what `Produces` selects on: `ProviderKinds.Vector`, `IVectorStore`) and the verb is
-  `Embed` (`EmbedAsync`, `CanEmbed`).
-
-**The records, and what each is for:** `docs/2026-07-17-lyntai-design.md` — the design contract (semantics;
-the API baselines own shape): read the section you touch · `docs/memory.md` — the memory CONTRACT, and
-`docs/memory-measurements.md` the EVIDENCE, behind a generated results index whose `ships` and status
-columns are the two things read wrongly here (**D114**) · `docs/DECISIONS.md` §How to read it — the
-rationale log, present tense, contiguous `D1..Dn` · `docs/GATES.md` — what each gate is for and the numbers
-it holds · `docs/model-tasks.md` — every model-backed seam by the SHAPE of the question it asks ·
-`docs/deployment-shapes.md` — the same evidence cut by the shape of the deployment · `README.md` — the
-landing page every package ships, linked ABSOLUTELY (**D197**) · `docs/guide.md` — the consuming story · `docs/generation.md` — the media generation guide · `CHANGELOG.md` — per-release detail · `docs/ROADMAP.md` — one line per version ·
-`TASKS.md` — the OPEN backlog, whose generated roster is the live work: read it, never a copy kept here ·
-`docs/task-archive.md` — the closed one, one Part per task · `docs/FIXES.md` — the fix log ·
-`docs/superpowers/INDEX.md` — the tracked list of specs and plans, whose records live untracked in
-`local/superpowers/`.
-
-## Rules, knowledge & skills
-
-- **`.claude/rules/` is always-on; `.claude/knowledge/` is not.** What each document applies to is the
-  routing table in `.claude/rules/RULES_INDEX.md`; each knowledge document's front matter says what it
-  enforces. Read the document your task matches before touching code (`skills-workflow.md`), and add a row
-  when you add one.
-- **TDD** (failing test first) and **commit per task**. **Never commit without explicit user approval.**
-
 ## Dev loop
 
-**`verify` is the "am I done?" gate.** Run it before claiming a change is complete, keep your hands off the
-tree while it runs (it voids its own green line if a file moved), and never read its exit code through a
-pipe (`.claude/knowledge/pitfalls.md` §Environment / tooling). `docs/GATES.md` is why each gate exists and
-what it holds. The six rules that bite when editing prose:
-
-- **A rule written down and still violated is a missing gate**: build the gate, not another paragraph. A
-  gate whose SCOPE rests on a measurement needs the measurement re-run as the tree grows.
-- **A decision that renames or re-dimensions something adds a `retiredTerms` entry**
-  (`devtools/project.config.mjs`); a rename in neither registry is invisible to every gate.
-- **Each gate owns its OWN escape token** (`docs/GATES.md` §Escape tokens and allowances).
-- **Repoint a citation, never renumber its target**: a renumbered `§` resolves to the WRONG section
-  silently.
-- **Every fenced `csharp` block compiles**: prefer `compile-given` to `compile-skip`, and never put a
-  compiled sample under `## Unreleased` (`docs/GATES.md` §check-samples).
-- **Rewording the one sentence a counted claim is anchored in turns `verify` red**: move it VERBATIM. This
-  file is read BY PATH by `test-devtools` and `check-samples` (the two run-derived baselines above),
-  `check-dev-loop` (the table) and `doctor` (the `**Released:**` line) — and `doctor` is NOT in `verify`, so
-  run it after touching this file.
+**Rewording the one sentence a counted claim is anchored in turns `verify` red**: move it VERBATIM. This
+file is read BY PATH by `test-devtools` and `check-samples` (the two run-derived baselines above),
+`check-dev-loop` (the table), `check-counts` (the decision range) and `doctor` (the `**Released:**` line) —
+and `doctor` is NOT in `verify`, so run it after touching this file.
 
 The table below is GENERATED from `devtools/commands.mjs` plus `devLoopCommands` in
 `devtools/project.config.mjs`. Edit those, never the table — `node devtools/dev.mjs check-dev-loop --write`
@@ -187,3 +103,7 @@ rebuilds it and `verify` fails while the two disagree.
 | `new-migration` |  | scaffold the next migration with a unique number |
 
 <!-- dev-loop:end -->
+
+<!-- daoris:import — generated; edit the canon, not this -->
+@AGENTS.md
+<!-- /daoris:import -->
