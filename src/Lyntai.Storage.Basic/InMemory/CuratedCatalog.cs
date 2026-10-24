@@ -34,15 +34,19 @@ internal sealed class CuratedCatalog
         if (dedup && _entries.FirstOrDefault(e => e.Kind == kind && e.Content == content
                 && e.TaskKey == taskKey && e.Scope == scope) is { } hit)
             return (hit, false);
-        return (new CuratedMemory(NextId, kind, content, enabled, now, now, taskKey, scope, Copy(metadata)), true);
+        return (new CuratedMemory(NextId, kind, content, enabled, now, now, taskKey, scope, Copy(metadata)) { Revision = 1 },
+            true);
     }
 
-    /// <summary>The entry an update writes, or null when there is no such id or the update would move the
-    /// entry onto an identity ANOTHER entry holds — refused, writing nothing (the interface's contract).</summary>
-    public CuratedMemory? PlanUpdate(long id, string? content, bool? enabled, string? kind, string? taskKey,
-        string? scope, IReadOnlyDictionary<string, string>? metadata, DateTimeOffset now)
+    /// <summary>The entry an update writes, with its outcome: nothing to write when there is no such id, when
+    /// <paramref name="expectedRevision"/> is given and the entry has moved past it, or when the update would move
+    /// the entry onto an identity ANOTHER entry holds — refused, writing nothing (the interface's contract).</summary>
+    public (CuratedUpdateOutcome Outcome, CuratedMemory? Entry) PlanUpdate(long id, long? expectedRevision,
+        string? content, bool? enabled, string? kind, string? taskKey, string? scope,
+        IReadOnlyDictionary<string, string>? metadata, DateTimeOffset now)
     {
-        if (Get(id) is not { } e) return null;
+        if (Get(id) is not { } e) return (CuratedUpdateOutcome.NotFound, null);
+        if (expectedRevision is { } expected && e.Revision != expected) return (CuratedUpdateOutcome.Stale, null);
         var newKind = kind ?? e.Kind;
         var newContent = content ?? e.Content;
         var newTask = CuratedMemoryUpdates.Rescope(taskKey, e.TaskKey);
@@ -52,9 +56,9 @@ internal sealed class CuratedCatalog
         if ((newKind != e.Kind || newContent != e.Content || newTask != e.TaskKey || newScope != e.Scope)
             && _entries.Any(o => o.Id != id && o.Kind == newKind && o.Content == newContent
                                  && o.TaskKey == newTask && o.Scope == newScope))
-            return null;
+            return (CuratedUpdateOutcome.Refused, null);
 
-        return e with
+        return (CuratedUpdateOutcome.Updated, e with
         {
             Content = newContent,
             Enabled = enabled ?? e.Enabled,
@@ -63,7 +67,8 @@ internal sealed class CuratedCatalog
             Scope = newScope,
             Metadata = metadata is null ? e.Metadata : Copy(metadata), // null = unchanged; non-null REPLACES
             UpdatedAt = now,
-        };
+            Revision = e.Revision + 1,
+        });
     }
 
     /// <summary>Store a planned entry: replace the entry holding its id, or add it.</summary>

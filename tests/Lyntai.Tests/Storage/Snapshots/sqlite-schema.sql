@@ -84,7 +84,7 @@ CREATE TABLE lyntai_curated_memory (
     enabled    INTEGER NOT NULL DEFAULT 1,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
-, task TEXT NULL, scope TEXT NULL, metadata TEXT NULL);
+, task TEXT NULL, scope TEXT NULL, metadata TEXT NULL, revision INTEGER NOT NULL DEFAULT 1);
 
 -- table lyntai_curated_meta
 CREATE TABLE lyntai_curated_meta (

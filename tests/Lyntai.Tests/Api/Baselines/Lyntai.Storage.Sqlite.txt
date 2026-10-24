@@ -44,6 +44,7 @@ sealed class Lyntai.Storage.Sqlite.SqliteCuratedMemoryStore
     ListAsync(String kind = null, Boolean enabledOnly = false, String taskKey = null, String scope = null, Nullable<Int32> limit = null, IReadOnlyDictionary<String,String> metadataMatch = null, CancellationToken ct = default) : Task<IReadOnlyList<CuratedMemory>>
     RemoveAsync(Int64 id, CancellationToken ct = default) : Task<Boolean>
     SearchAsync(String query, String kind = null, String taskKey = null, String scope = null, Boolean enabledOnly = false, Nullable<Int32> limit = null, IReadOnlyDictionary<String,String> metadataMatch = null, CancellationToken ct = default) : Task<IReadOnlyList<CuratedMemory>>
+    UpdateAsync(Int64 id, Int64 expectedRevision, String content = null, Nullable<Boolean> enabled = null, String kind = null, String taskKey = null, String scope = null, IReadOnlyDictionary<String,String> metadata = null, CancellationToken ct = default) : Task<CuratedUpdateOutcome>
     UpdateAsync(Int64 id, String content = null, Nullable<Boolean> enabled = null, String kind = null, String taskKey = null, String scope = null, IReadOnlyDictionary<String,String> metadata = null, CancellationToken ct = default) : Task<Boolean>
 sealed class Lyntai.Storage.Sqlite.SqliteJobStore
     .ctor(IDbConnectionFactory factory, Func<DateTimeOffset> clock = null, Int32 stepLogCap = 200)

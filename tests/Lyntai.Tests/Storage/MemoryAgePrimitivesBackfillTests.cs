@@ -112,7 +112,7 @@ public sealed class MemoryAgePrimitivesBackfillTests : IDisposable
             VALUES (@engine, 't', 's', @content, @content, @content, 1, @createdAt, 0, 0, 7)
             """, new { engine, content, createdAt });
 
-    private static void SeedPragmas(string connectionString)
+    internal static void SeedPragmas(string connectionString)
     {
         using var conn = new SqliteConnection(connectionString);
         conn.Open();
@@ -125,7 +125,7 @@ public sealed class MemoryAgePrimitivesBackfillTests : IDisposable
     /// <paramref name="version"/>, or every remaining migration when null — mirrors
     /// <c>MigrationRunnerService.RunPass</c> exactly, except it drives FluentMigrator's own
     /// version-targeted <c>MigrateUp</c> so this test can pause mid-history and insert legacy data.</summary>
-    private static void RunTo(string connectionString, long? version)
+    internal static void RunTo(string connectionString, long? version)
     {
         var services = new ServiceCollection()
             .AddFluentMigratorCore()

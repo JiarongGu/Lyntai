@@ -367,6 +367,12 @@ authoritative entries, edges and distinct subjects per engine, task and scope, l
 judges burial. Skip it and `GraphMemoryEngine.CountAsync` answers `null`; every shipped store implements it, and
 `MemoryGraphSql.Counts` is the statement both SQL backends share.
 
+**`ICuratedMemoryStore` has one OPTIONAL interface too, `IRevisionedCuratedMemoryStore`**: an `UpdateAsync`
+overload that writes only while the entry is at the caller's `expectedRevision`. Implement it and you owe three
+things the contract facts pin: `CuratedMemory.Revision` starts at 1 and EVERY write advances it, the unconditional
+update included; the check and the write are ONE atomic step (`… AND revision = @expected` with the row count on
+SQL, the store's lock in process); and a stale call writes nothing. Skip it and report `Revision` 0.
+
 Mirror `src/Lyntai.Storage.Postgres/`, the reference backend, which implements all twelve. **A backend that is
 not a database mirrors `src/Lyntai.Storage.Basic/FileSystem/` instead** (**D171**) — no SQL and no migrations, but
 the same contract suites, plus RESTART tests those suites cannot express, since each runs one live store. An

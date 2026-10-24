@@ -272,8 +272,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D200](#d200--a-recall-explains-itself-when-the-query-asks-on-the-result-of-that-same-recall-2026-10-24) | 2026-10-24 | a recall explains itself when the QUERY asks, on the result of that same recall |
 | [D201](#d201--a-composition-reports-its-own-cuts-in-its-own-vocabulary-through-a-second-door-beside-render-2026-10-24) | 2026-10-24 | a composition reports its own cuts in its own vocabulary, through a second door beside `Render` |
 | [D202](#d202--the-wiring-findings-are-a-container-service-and-burial-is-counted-by-the-engine-never-the-store-2026-10-24) | 2026-10-24 | the wiring findings are a container service, and burial is counted by the engine, never the store |
+| [D203](#d203--a-curated-entrys-revision-is-checked-through-an-optional-store-capability-atomically-in-the-write-2026-10-24) | 2026-10-24 | a curated entry's revision is checked through an OPTIONAL store capability, atomically in the write |
 
-**197 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**198 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -5899,3 +5900,21 @@ wording. A default-bodied count on `IMemoryGraphStore`: answering zero, a store 
 empty one, so it is optional (**D86**, **D194**), and the engine answers `null` without it. Burial in the store, as
 `PruneAsync`'s `age / stability` cutoff: that cutoff is conservative, so it would under-count — burial is a
 judgement of the curve, and the engine evaluates it exactly, reading the scope once, as its derivable prune does.
+
+## D203 — a curated entry's revision is checked through an OPTIONAL store capability, atomically in the write (2026-10-24)
+
+`CuratedMemory.Revision` (an init property) is 1 when an entry is added, and every write advances it, the
+unconditional `UpdateAsync` included. `IRevisionedCuratedMemoryStore` adds an `UpdateAsync(id, expectedRevision, …)`
+overload returning a `CuratedUpdateOutcome`: `Updated`, `NotFound`, `Stale` or `Refused`. All four shipped stores
+implement it. The column is `NOT NULL DEFAULT 1` on both SQL backends, and a file without the field reads 1, so
+an entry stored before revisions existed reads revision 1.
+
+**Rejected.** A member on `ICuratedMemoryStore`: it breaks every store an application wrote. A default body that
+ignores the revision: it is the lost update this exists to refuse, behind a call that reads as checked (**D86**).
+A positional `Revision` parameter: a source break for every `new CuratedMemory(…)`. A `bool` return: it cannot
+tell stale from a collision or a missing id. An exception for stale: losing a race is the expected case here, not
+a fault. A pre-read compare alone: two writers could both pass it. The SQL `WHERE` carries
+`AND revision = @expected` and reads the row count, so only one writer can match.
+
+**0 means untracked.** A store without the capability leaves the default, so a caller can tell an entry nobody
+has edited from a store that cannot check.

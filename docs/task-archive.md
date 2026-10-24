@@ -5586,3 +5586,18 @@ mismatch; its test pins it to two published `BenchStats.McNemarExact` figures. `
 the usage; the other sweeps, the ad-hoc `--dump` files and LongMemEval's temporal modes are not wired.
 
 - RV8 — every memory bench writes one result shape, and two runs compare paired
+
+## Part 357 — RV9: a curated entry carries a revision, and an update can refuse a stale one (2026-10-24)
+
+✅ done 2026-10-24 — **Outcome:** the ninth item of the competitive review's backlog (`TASKS.md` Part 346).
+`CuratedMemory.Revision` is 1 when an entry is added and advances on every write; the optional
+`IRevisionedCuratedMemoryStore` adds an `UpdateAsync(id, expectedRevision, …)` overload whose
+`CuratedUpdateOutcome` tells `Updated` from `NotFound`, `Stale` and `Refused`, checked and written in one atomic
+step — the SQL `WHERE` carries the revision, and the in-process stores check under their lock. All four shipped
+stores implement it, and three new contract facts pin it on each, a race of eight writers on one revision among
+them. One additive migration, `M202610241721_CuratedRevision` (`NOT NULL DEFAULT 1`), on SQLite and Postgres, and
+`CuratedRevisionMigrationTests` pins that an entry written before it reads revision 1. **D203** records why the
+check is an optional capability and why 0 means untracked. It landed additive, NOT held for the major: no stored
+row or consumer call has to change.
+
+- RV9 — a curated fact carries a revision, and an update can refuse a stale one

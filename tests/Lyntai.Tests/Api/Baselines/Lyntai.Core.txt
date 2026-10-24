@@ -3056,6 +3056,7 @@ sealed class Lyntai.Storage.CuratedMemory
     Id : Int64 { get; init; }
     Kind : String { get; init; }
     Metadata : IReadOnlyDictionary<String,String> { get; init; }
+    Revision : Int64 { get; init; }
     Scope : String { get; init; }
     TaskKey : String { get; init; }
     ToString() : String
@@ -3070,6 +3071,7 @@ sealed class Lyntai.Storage.CuratedMemoryRow
     Id : Int64 { get; set; }
     Kind : String { get; set; }
     Metadata : String { get; set; }
+    Revision : Int64 { get; set; }
     Scope : String { get; set; }
     TaskKey : String { get; set; }
     ToRecord() : CuratedMemory
@@ -3079,6 +3081,12 @@ static class Lyntai.Storage.CuratedMemoryUpdates
 static class Lyntai.Storage.CuratedMetadataJson
     static Deserialize(String json) : IReadOnlyDictionary<String,String>
     static Serialize(IReadOnlyDictionary<String,String> metadata) : String
+enum Lyntai.Storage.CuratedUpdateOutcome
+    NotFound : CuratedUpdateOutcome const
+    Refused : CuratedUpdateOutcome const
+    Stale : CuratedUpdateOutcome const
+    Updated : CuratedUpdateOutcome const
+    value__ : Int32
 sealed class Lyntai.Storage.EnrichingConversationStore
     .ctor(IConversationStore inner, IEnumerable<IConversationEnricher> enrichers)
     AppendMessageAsync(String threadId, String kind, String payload, String metadata = null, CancellationToken ct = default) : Task<ChatMessage>
@@ -3153,6 +3161,8 @@ interface Lyntai.Storage.IPromptVersionStore
     HistoryAsync(String name, CancellationToken ct = default) : Task<IReadOnlyList<PromptVersion>>
     RollbackAsync(String name, Int32 version, CancellationToken ct = default) : Task<PromptVersion>
     SaveAsync(String name, String template, String author = null, CancellationToken ct = default) : Task<PromptVersion>
+interface Lyntai.Storage.IRevisionedCuratedMemoryStore
+    UpdateAsync(Int64 id, Int64 expectedRevision, String content = null, Nullable<Boolean> enabled = null, String kind = null, String taskKey = null, String scope = null, IReadOnlyDictionary<String,String> metadata = null, CancellationToken ct = default) : Task<CuratedUpdateOutcome>
 interface Lyntai.Storage.IScoreStore
     AggregateAsync(CancellationToken ct = default) : Task<IReadOnlyList<ScorerAggregate>>
     ExportAsync(CancellationToken ct = default) : Task<IReadOnlyList<ScoreExportEntry>>

@@ -3,7 +3,7 @@ namespace Lyntai.Storage.InMemory;
 /// <summary>In-memory <see cref="ICuratedMemoryStore"/> — a small managed catalog under one lock, for
 /// tests and ephemeral use. Its semantics are <see cref="CuratedCatalog"/>'s, shared with the file-system
 /// store.</summary>
-public sealed class InMemoryCuratedMemoryStore(Func<DateTimeOffset>? clock = null) : ICuratedMemoryStore
+public sealed class InMemoryCuratedMemoryStore(Func<DateTimeOffset>? clock = null) : IRevisionedCuratedMemoryStore
 {
     private readonly Lock _lock = new();
     private readonly CuratedCatalog _catalog = new();
@@ -24,15 +24,23 @@ public sealed class InMemoryCuratedMemoryStore(Func<DateTimeOffset>? clock = nul
 
     public Task<bool> UpdateAsync(long id, string? content = null, bool? enabled = null, string? kind = null,
         string? taskKey = null, string? scope = null,
-        IReadOnlyDictionary<string, string>? metadata = null, CancellationToken ct = default)
+        IReadOnlyDictionary<string, string>? metadata = null, CancellationToken ct = default) =>
+        Task.FromResult(Update(id, null, content, enabled, kind, taskKey, scope, metadata) == CuratedUpdateOutcome.Updated);
+
+    public Task<CuratedUpdateOutcome> UpdateAsync(long id, long expectedRevision, string? content = null,
+        bool? enabled = null, string? kind = null, string? taskKey = null, string? scope = null,
+        IReadOnlyDictionary<string, string>? metadata = null, CancellationToken ct = default) =>
+        Task.FromResult(Update(id, expectedRevision, content, enabled, kind, taskKey, scope, metadata));
+
+    private CuratedUpdateOutcome Update(long id, long? expectedRevision, string? content, bool? enabled, string? kind,
+        string? taskKey, string? scope, IReadOnlyDictionary<string, string>? metadata)
     {
         var now = _clock();
         lock (_lock)
         {
-            if (_catalog.PlanUpdate(id, content, enabled, kind, taskKey, scope, metadata, now) is not { } updated)
-                return Task.FromResult(false);
-            _catalog.Apply(updated);
-            return Task.FromResult(true);
+            var (outcome, updated) = _catalog.PlanUpdate(id, expectedRevision, content, enabled, kind, taskKey, scope, metadata, now);
+            if (updated is not null) _catalog.Apply(updated);
+            return outcome;
         }
     }
 

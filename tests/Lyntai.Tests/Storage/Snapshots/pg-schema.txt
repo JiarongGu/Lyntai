@@ -5,6 +5,7 @@ lyntai_curated_memory|enabled|boolean|NO|true
 lyntai_curated_memory|id|bigint|NO|nextval('lyntai_curated_memory_id_seq'::regclass)
 lyntai_curated_memory|kind|text|NO|
 lyntai_curated_memory|metadata|text|YES|
+lyntai_curated_memory|revision|bigint|NO|1
 lyntai_curated_memory|scope|text|YES|
 lyntai_curated_memory|task|text|YES|
 lyntai_curated_memory|updated_at|timestamp with time zone|NO|

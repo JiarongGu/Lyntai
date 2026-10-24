@@ -151,7 +151,10 @@ anything being wrong with it). They hang off the enum, so they read the same off
   that supports pruning too (your app owns the pump).
 - **Curated memory catalog** (`ICuratedMemoryStore`) for hand-managed context: entries grouped by `Kind`,
   each enabled, disabled and edited individually, an app-owned `Metadata` map queryable by exact key/value,
-  keyword `SearchAsync`, and per-kind prompt sections from `CuratedMemorySections.Compose`.
+  keyword `SearchAsync`, and per-kind prompt sections from `CuratedMemorySections.Compose`. Every entry
+  carries a `Revision`, and when two writers may edit one entry, the `IRevisionedCuratedMemoryStore` overload
+  `UpdateAsync(id, expectedRevision: entry.Revision, …)` refuses a stale edit as `CuratedUpdateOutcome.Stale`
+  rather than overwriting the other writer's; every shipped store implements it.
 - **Env overrides beat code config:** `LYNTAI_TIMEOUT_SECONDS`, `LYNTAI_MAX_TIMEOUT_SECONDS`,
   `LYNTAI_DEADHOST_THRESHOLD`, `LYNTAI_DEADHOST_COOLDOWN_SECONDS`, `LYNTAI_DEFAULT_CANDIDATES`
   (`providerId[:model],…`), `LYNTAI_MODEL_<CONSUMER>` (+ `LYNTAI_DEFAULT_MODEL` alias),

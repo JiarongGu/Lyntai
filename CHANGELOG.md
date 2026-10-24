@@ -60,6 +60,13 @@ every addition.
   per engine, task and scope; the engine adds how many entries are buried below its retrievability floor, which
   only it can judge. All four shipped stores implement it; a store of your own that does not makes the engine
   answer `null`, never zero.
+- **A curated entry carries a `Revision`, and an update can refuse a stale one** (**D203**). Two writers editing
+  one entry used to lose an update silently. `CuratedMemory.Revision` is 1 when added and advances on every
+  write, and `IRevisionedCuratedMemoryStore.UpdateAsync(id, expectedRevision, …)` writes only while the entry is
+  still at that revision, returning `CuratedUpdateOutcome.Updated`, `NotFound`, `Stale` or `Refused`. Of two
+  writers holding one revision, exactly one wins. All four shipped stores implement it. One additive migration
+  (`M202610241721_CuratedRevision`, SQLite and Postgres) gives every existing entry revision 1. A store of your
+  own needs no change and reports revision 0.
 
 ### Fixed
 

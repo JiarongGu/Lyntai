@@ -289,6 +289,17 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
             store, Uid() + "-collide", Uid() + "-k1", Uid() + "-k2");
     }
 
+    [SkippableFact]
+    public async Task Curated_memory_revisions()
+    {
+        Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
+        var store = new PostgresCuratedMemoryStore(pg.Factory);
+        // unique kinds: the facts read back by kind and add a dedup identity
+        await CuratedMemoryStoreContract.Revision_starts_at_one_and_every_write_advances_it(store, Uid() + "-rev");
+        await CuratedMemoryStoreContract.A_stale_revision_is_refused_and_writes_nothing(store, Uid() + "-stale");
+        await CuratedMemoryStoreContract.Racing_writers_on_one_revision_let_exactly_one_win(store, Uid() + "-race");
+    }
+
     [SkippableFact] public Task Curated_memory_non_positive_limit() => Pg(() =>
         CuratedMemoryStoreContract.A_non_positive_limit_returns_nothing(new PostgresCuratedMemoryStore(pg.Factory), Uid() + "-lim"));
 

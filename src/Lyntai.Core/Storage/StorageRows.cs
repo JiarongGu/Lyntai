@@ -18,10 +18,11 @@ public sealed class CuratedMemoryRow
     public string? TaskKey { get; set; }
     public string? Scope { get; set; }
     public string? Metadata { get; set; }
+    public long Revision { get; set; }
 
     /// <summary>Project to the contract type.</summary>
     public CuratedMemory ToRecord() => new(Id, Kind, Content, Enabled, CreatedAt, UpdatedAt,
-        TaskKey, Scope, CuratedMetadataJson.Deserialize(Metadata));
+        TaskKey, Scope, CuratedMetadataJson.Deserialize(Metadata)) { Revision = Revision };
 }
 
 /// <summary>A <c>lyntai_prompt_version</c> row.</summary>

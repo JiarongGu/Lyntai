@@ -13,7 +13,13 @@ namespace Lyntai.Storage;
 public sealed record CuratedMemory(
     long Id, string Kind, string Content, bool Enabled,
     DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt, string? TaskKey = null, string? Scope = null,
-    IReadOnlyDictionary<string, string>? Metadata = null);
+    IReadOnlyDictionary<string, string>? Metadata = null)
+{
+    /// <summary>How many times the entry has been written: 1 when added (and for every entry stored before
+    /// revisions existed), one more on every update that writes. 0 means the store does not track revisions —
+    /// it is not an <see cref="IRevisionedCuratedMemoryStore"/>, so nothing can be conditioned on it.</summary>
+    public long Revision { get; init; }
+}
 
 /// <summary>
 /// A curated memory catalog: hand-managed entries grouped by <c>Kind</c>, each individually
@@ -54,12 +60,10 @@ public interface ICuratedMemoryStore
     /// is null = leave unchanged, or a non-null map REPLACES the whole metadata set (an empty map clears it).
     /// <para><paramref name="taskKey"/>/<paramref name="scope"/> RE-SCOPE in place the same way <paramref name="kind"/>
     /// re-categorises (same id, same <c>created_at</c>) — so retargeting an entry at another consumer or variant
-    /// is an edit, not delete+re-add. Null = leave unchanged, as everywhere else here; the EMPTY STRING is the
-    /// CLEAR sentinel, resetting the field to null ("applies everywhere" — see <see cref="ForCompositionAsync"/>),
-    /// because a plain null is already spoken for. It destroys no legitimate value: an empty scope ALREADY
-    /// reads as "every scope" in composition, and an entry keyed to a task literally named <c>""</c> could
-    /// never be composed. The sentinel is UPDATE-only — <see cref="AddAsync"/> stores what it is given, since
-    /// there a plain null already means "everywhere".</para>
+    /// is an edit, not delete+re-add. Null = leave unchanged; the EMPTY STRING is the CLEAR sentinel, resetting
+    /// the field to null ("applies everywhere" — see <see cref="ForCompositionAsync"/>), which costs no stored
+    /// value: an empty scope already composes everywhere, and a task named <c>""</c> could never be composed.
+    /// The sentinel is UPDATE-only — <see cref="AddAsync"/> stores what it is given.</para>
     /// <para>An identity-mutating update REFUSES a collision rather than creating one.
     /// <c>(kind, content, taskKey, scope)</c> is the dedup identity of <see cref="AddAsync"/>, so moving an entry
     /// onto an identity a DIFFERENT entry already holds would mint exactly the duplicate <c>dedup: true</c>
@@ -71,7 +75,9 @@ public interface ICuratedMemoryStore
     /// <c>dedup: false</c> legitimately allows stay editable. Like <see cref="AddAsync"/>'s dedup it is a
     /// pre-write identity check rather than a unique index, so it is BEST-EFFORT under CONCURRENT writers.</para>
     /// <para>Returns whether a row was updated — so false means "nothing changed" for EITHER reason: no such id,
-    /// or a refused collision. <see cref="GetAsync"/> tells them apart.</para></summary>
+    /// or a refused collision. <see cref="GetAsync"/> tells them apart. A write advances
+    /// <see cref="CuratedMemory.Revision"/> unchecked, so of two writers the later wins silently;
+    /// <see cref="IRevisionedCuratedMemoryStore"/> refuses that instead.</para></summary>
     Task<bool> UpdateAsync(long id, string? content = null, bool? enabled = null, string? kind = null,
         string? taskKey = null, string? scope = null,
         IReadOnlyDictionary<string, string>? metadata = null, CancellationToken ct = default);
@@ -120,6 +126,54 @@ public interface ICuratedMemoryStore
     /// Set <paramref name="enabledOnly"/> false to include disabled rows (admin preview).</summary>
     Task<IReadOnlyList<CuratedMemory>> ForCompositionAsync(string taskKey, IEnumerable<string> scopes,
         bool enabledOnly = true, CancellationToken ct = default);
+}
+
+/// <summary>
+/// The OPTIONAL half of <see cref="ICuratedMemoryStore"/> that refuses a STALE update — the edit two writers
+/// make of one entry without either losing the other's silently.
+/// <para><b>Separate rather than a member of <see cref="ICuratedMemoryStore"/></b>, as
+/// <c>IListableVectorStore</c> is: a required member breaks every store an application wrote, and a default
+/// body that ignored the revision would accept exactly the lost update this exists to refuse. All four
+/// shipped stores implement it; a store that does not reports <see cref="CuratedMemory.Revision"/> 0.</para>
+/// </summary>
+public interface IRevisionedCuratedMemoryStore : ICuratedMemoryStore
+{
+    /// <summary><see cref="ICuratedMemoryStore.UpdateAsync(long, string?, bool?, string?, string?, string?, IReadOnlyDictionary{string, string}?, CancellationToken)"/>
+    /// — the same arguments, the same collision refusal — applied only while the entry is still at
+    /// <paramref name="expectedRevision"/>. The check and the write are ONE atomic step, so of two writers
+    /// holding the same revision exactly one wins. A successful update leaves the entry at
+    /// <paramref name="expectedRevision"/> + 1.</summary>
+    /// <param name="id">The entry to update.</param>
+    /// <param name="expectedRevision">The <see cref="CuratedMemory.Revision"/> the caller read.</param>
+    /// <param name="content">The new content, or null to keep it.</param>
+    /// <param name="enabled">The new enabled flag, or null to keep it.</param>
+    /// <param name="kind">The new kind, or null to keep it.</param>
+    /// <param name="taskKey">The new task key; null keeps it, the empty string clears it.</param>
+    /// <param name="scope">The new scope; null keeps it, the empty string clears it.</param>
+    /// <param name="metadata">The replacement metadata, or null to keep it; an empty map clears it.</param>
+    /// <param name="ct">Cancellation.</param>
+    /// <returns>Which of the four outcomes happened; only <see cref="CuratedUpdateOutcome.Updated"/> wrote.</returns>
+    Task<CuratedUpdateOutcome> UpdateAsync(long id, long expectedRevision, string? content = null,
+        bool? enabled = null, string? kind = null, string? taskKey = null, string? scope = null,
+        IReadOnlyDictionary<string, string>? metadata = null, CancellationToken ct = default);
+}
+
+/// <summary>What a revision-checked update on an <see cref="IRevisionedCuratedMemoryStore"/> did.</summary>
+public enum CuratedUpdateOutcome
+{
+    /// <summary>Written; the entry is now at the expected revision + 1.</summary>
+    Updated,
+
+    /// <summary>No entry has that id.</summary>
+    NotFound,
+
+    /// <summary>The entry has moved past the expected revision — re-read it and decide again. Nothing was written.</summary>
+    Stale,
+
+    /// <summary>The update would move the entry onto an identity another entry holds — the collision
+    /// <see cref="ICuratedMemoryStore.UpdateAsync(long, string?, bool?, string?, string?, string?, IReadOnlyDictionary{string, string}?, CancellationToken)"/>
+    /// refuses. Nothing was written.</summary>
+    Refused,
 }
 
 /// <summary>The one spelling of <see cref="ICuratedMemoryStore.UpdateAsync"/>'s re-scope sentinel, for every
