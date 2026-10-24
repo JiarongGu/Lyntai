@@ -15,17 +15,37 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 4 across 3 Parts: 2 blocked, 2 watch
+## Open items — 24 across 7 Parts: 17 startable, 2 blocked, 2 watch, 3 decision-only
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 105 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a free Hugging Face account (an hf_ token) — its router proxies fal's own q… |
-| 152 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 175 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 231 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 125 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a free Hugging Face account (an hf_ token) — its router proxies fal's own q… |
+| 172 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 195 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 251 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 288 | 345 | RV1 — a forget closes its window across PROCESSES, not only within one engi… | startable |  |
+| 294 | 345 | RV2 — a stored vector says which vector space wrote it, and recall refuses … | startable |  |
+| 300 | 345 | RV3 — `verify` writes what its test step EXECUTED, so a skipped Postgres le… | startable |  |
+| 304 | 345 | RV4 — a host can deny CLI and MCP tools by default, so a `memory` or `scori… | startable |  |
+| 315 | 346 | RV5 — a recall can EXPLAIN itself: per-candidate channel, rank, hop, score … | startable |  |
+| 319 | 346 | RV6 — a composition reports what it left out, and why | startable |  |
+| 323 | 346 | RV7 — the memory wiring check is data a host can read, and a store can repo… | startable |  |
+| 328 | 346 | RV8 — every memory bench writes one result shape, and two runs compare pair… | startable |  |
+| 332 | 346 | RV9 — a curated fact carries a revision, and an update can refuse a stale o… | startable |  |
+| 336 | 346 | RV10 — memory can be EXPORTED and IMPORTED in a portable form, scoped and n… | startable |  |
+| 345 | 347 | RV11 — a schema- or tool-bearing request skips a candidate that cannot hono… | startable |  |
+| 350 | 347 | RV12 — a budget can RESERVE before a call and reconcile after, for a host t… | startable |  |
+| 354 | 347 | RV13 — the front door opens ONE span per call, carrying the consumer, and a… | startable |  |
+| 357 | 347 | RV14 — the response cache can be partitioned by consumer, opt-in | startable |  |
+| 360 | 347 | RV15 — a memory engine can pin its EMBEDDER the way verification pins its r… | startable |  |
+| 363 | 347 | RV16 — a tool call can be APPROVED before it runs, through one seam every t… | startable |  |
+| 367 | 347 | RV17 — a reader can tell when to use Lyntai and when not to, and start from… | startable |  |
+| 377 | 348 | RV18 — an Agent Framework / `Microsoft.Extensions.AI` adapter | decision-only | the owner's ruling on reversing D146, which deleted the bridge in both dire… |
+| 380 | 348 | RV19 — valid-time on a memory write, so a fact can be SUPERSEDED rather tha… | decision-only | the owner's ruling on reopening D106's bi-temporal write, the prerequisite … |
+| 383 | 348 | RV20 — LLM fact extraction and a user profile (the Mem0 / Zep / LangMem gap) | decision-only | the owner's ruling on whether to rebuild extraction after it lost to decay,… |
 
 <!-- open-items:end -->
 
@@ -255,6 +275,116 @@ there is nothing here to code: what remains is evidence only recurrence can supp
   <br>**2026-09-27: 0 of 40 more fresh-process runs of its class** (19 tests each, `Dedup_race` among them), so
   1 in 51 standalone overall. **Looping is not how this gets caught**; the stack has to come from the run it
   fails in.
+
+## Part 345 — the competitive review: removal, vector identity and test evidence (2026-10-24)
+
+_Opened by an external competitive review (Graphiti, Mem0, Letta, Mastra, Agent Framework, LiteLLM, the
+OpenAI Agents SDK) held untracked as `local/superpowers/specs/2026-10-24-competitive-roadmap.md` and indexed in
+`docs/superpowers/INDEX.md`. **Every item below survived an existence audit against the tree**; what the
+review proposed and the tree already has, or a decision already refused, is not filed. The owner's framing is
+a working position (`input-is-thinking-not-doctrine.md`): the group is the goal for the next MAJOR release,
+which is the only kind allowed to break storage (**D18**, **D161**), and no item names that number._
+
+- [ ] **RV1 — a forget closes its window across PROCESSES, not only within one engine instance.** **D90** <!-- item: state=startable -->
+  makes removal complete, and 3.5.1 closed the write/forget race with `GraphMemoryEngine._removals`, which
+  serializes ONE instance; `docs/memory.md` says the window stays open for two (`GraphMemoryEngine.cs`
+  `ForgetAsync`, `IndexUnlessRemovedAsync`). Close it without a cross-process lock: sweep the vectors again
+  after the nodes are deleted, and re-read the node after a vector upsert, removing the vector if the node is
+  gone — sound because a graph store never reissues an id. Pin it with two engine instances over one store.
+- [ ] **RV2 — a stored vector says which vector space wrote it, and recall refuses a mismatch.** Nothing <!-- item: state=startable -->
+  records which embedder wrote a vector, so a same-dimension model swap scores old against new silently
+  (`PostgresVectorStore` scores another DIMENSION as 0, never another MODEL). **D194** named a host-declared
+  vector-space id as the precondition it lacked. Ship that id as an option, persist it per engine and task,
+  drop the similarity tier with a reported reason on a mismatch, and let `ReindexAsync` stamp it on a clean
+  finish. A resumable re-embed is the second half, not the first.
+- [ ] **RV3 — `verify` writes what its test step EXECUTED, so a skipped Postgres leg cannot read green.** <!-- item: state=startable -->
+  The xUnit trio is re-measured by hand (`docs/GATES.md` §Which numbers a gate holds) and a Docker-down run
+  passes every gate. Emit a trx, reduce it to a JSON summary with each skip bucketed by reason, and fail
+  when a Postgres fact skipped unless the run declares it.
+- [ ] **RV4 — a host can deny CLI and MCP tools by default, so a `memory` or `scoring` call gets none.** <!-- item: state=startable -->
+  `McpToolHostOptions.ToolsByConsumer` falls back to EVERY tool when neither the consumer nor `"default"` is
+  listed, and a one-shot claude call denies only `AskUserQuestion`. Model calls that read untrusted memory
+  should not inherit the host's tools by omission. Ship it opt-in (**D190**'s per-consumer map is the seam);
+  flipping the default is a Breaking ruling for the owner.
+
+## Part 346 — the competitive review: memory you can explain, inspect, revise and carry (2026-10-24)
+
+_The second group from the same review (Part 345 names the record). The raw material for the first two items
+already exists inside recall and composition and is discarded before it reaches the caller._
+
+- [ ] **RV5 — a recall can EXPLAIN itself: per-candidate channel, rank, hop, score and why it was cut.** <!-- item: state=startable -->
+  `MemoryRecall` carries only per-tier `Ran` flags; `MemoryCandidate.Ranks`, the hop and the verifier's
+  verdict die inside the engine. Opt in per query, additive and init-only, so a caller can tell "never a
+  candidate" from "ranked out of the limit" — the distinction `docs/memory.md` §6 measures and no caller sees.
+- [ ] **RV6 — a composition reports what it left out, and why.** `MemoryComposition.Render` returns a <!-- item: state=startable -->
+  string; dropped recalled items are discarded silently and only the authoritative overflow is announced
+  in-band. Return a manifest beside the text — per item: included, section, reason (budget, duplicate),
+  characters — keeping the budget in CHARACTERS and named for it (**D66**).
+- [ ] **RV7 — the memory wiring check is data a host can read, and a store can report its own size.** <!-- item: state=startable -->
+  `MemoryWiring` (**D85**) already detects the "embeds every write, never seeds from it" trap but only logs
+  it. Expose the findings as a public, read-only result, and add an optional statistics capability over the
+  graph store (live, buried, link and subject counts per engine and task) — the read-only doctor the review
+  asked for, with no `--fix`.
+- [ ] **RV8 — every memory bench writes one result shape, and two runs compare paired.** Results are <!-- item: state=startable -->
+  console tables plus ad-hoc dumps (`devtools/_locomo-dump-*.jsonl`); `BenchStats.McNemarExact` exists but
+  nothing feeds it two files. One `BenchResult` writer (arm, question, hit, configuration hash) into
+  `devtools/_bench-results/`, and a `bench-compare` command over two of them.
+- [ ] **RV9 — a curated fact carries a revision, and an update can refuse a stale one.** `UpdateAsync` <!-- item: state=startable -->
+  overwrites in place, and its collision refusal is best-effort under concurrent writers; two agents editing
+  one fact lose an update silently. A `Revision` on `CuratedMemory` and an `expectedRevision` overload, on
+  every backend, through a migration — a storage change, which is why it waits for the major.
+- [ ] **RV10 — memory can be EXPORTED and IMPORTED in a portable form, scoped and never resurrecting.** <!-- item: state=startable -->
+  No memory surface has an export (`IScoreStore.ExportAsync` is the only one in the library). An optional
+  capability beside `IPrunableMemory`: JSONL entries with grade, metadata and decay state, scoped by task and
+  scope with no "everything" default; curated memory is the first slice, the graph second.
+
+## Part 347 — the competitive review: governed calls that cannot silently degrade (2026-10-24)
+
+_The third group from the same review (Part 345 names the record)._
+
+- [ ] **RV11 — a schema- or tool-bearing request skips a candidate that cannot honour it.** A fallback from <!-- item: state=startable -->
+  HTTP to a CLI turns `response_format: json_schema` into prompt text, and LlamaSharp drops `JsonSchema`
+  entirely; tools only WARN (`TextRouter.WarnIfToolsUnsupported`). Declare structured-output support in
+  `ProviderCapabilities` and let `SelectLive` skip with a recorded reason — opt-in per request, so today's
+  degrade-and-succeed stays the default until the owner rules otherwise.
+- [ ] **RV12 — a budget can RESERVE before a call and reconcile after, for a host that needs a hard cap.** <!-- item: state=startable -->
+  `BudgetedTextClient` says the soft cap overshoots by the in-flight count and tells a host to build
+  reserve-then-reconcile itself; nothing in the library helps. An optional reservation capability that
+  `BudgetGate` uses when a tracker implements it, plus an atomic conditional reserve on both SQL backends.
+- [ ] **RV13 — the front door opens ONE span per call, carrying the consumer, and attempts nest under it.** <!-- item: state=startable -->
+  Spans are per provider attempt and carry no consumer; a fallback reads as unrelated spans. The body stays
+  unrecorded (`TextCallTracingOptions.RecordText` stays false).
+- [ ] **RV14 — the response cache can be partitioned by consumer, opt-in.** The key excludes `Consumer` on <!-- item: state=startable -->
+  purpose (`IResponseCache`), which is right for one trust domain and a cross-consumer leak for two. An
+  option that prefixes the key, leaving `For()` and its documented default unchanged.
+- [ ] **RV15 — a memory engine can pin its EMBEDDER the way verification pins its reranker.** Embedding <!-- item: state=startable -->
+  routes over every vector provider; `ScoringVerificationOptions.ProviderId` (**D148**) is the pattern. Also
+  correct `docs/model-tasks.md`, which says memory embedding is never batched — re-embedding is (**D194**).
+- [ ] **RV16 — a tool call can be APPROVED before it runs, through one seam every transport consults.** <!-- item: state=startable -->
+  `ITool` has no approval hook, so a host cannot gate a side-effecting tool on the native, prompt or MCP
+  path alike. An optional approval seam consulted before `InvokeAsync`; a refusal is a tool result, never a
+  thrown loop.
+- [ ] **RV17 — a reader can tell when to use Lyntai and when not to, and start from a scenario.** No page <!-- item: state=startable -->
+  places the library against Agent Framework, LiteLLM or a memory service, and there is one sample. A
+  "when to use it" section in `docs/guide.md` linked from the README (**D197**), and two or three minimal
+  compiled scenarios.
+
+## Part 348 — the competitive review: what needs the owner's ruling first (2026-10-24)
+
+_The fourth group from the same review (Part 345 names the record). Each contradicts a recorded decision or a
+measured refutation, so building it first would reverse a ruling by momentum._
+
+- [ ] **RV18 — an Agent Framework / `Microsoft.Extensions.AI` adapter.** The review ranks it highest for <!-- item: state=decision-only needs="the owner's ruling on reversing D146, which deleted the bridge in both directions and names its own rebuild triggers" -->
+  adoption; **D146** deleted exactly this and wrote down what would bring it back. Separately, **D146** says
+  MEAI stays in `Directory.Packages.props` and the file says it has no entry — that drift is fixable now.
+- [ ] **RV19 — valid-time on a memory write, so a fact can be SUPERSEDED rather than buried or deleted.** <!-- item: state=decision-only needs="the owner's ruling on reopening D106's bi-temporal write, the prerequisite for supersession and for any profile that knows now from then" -->
+  **D106** priced it at ten times the cost and reopens it "when a consumer asks"; **D90** keeps supersession
+  vacuous until then. The test-only `AssertionResolver` prototype is the starting shape.
+- [ ] **RV20 — LLM fact extraction and a user profile (the Mem0 / Zep / LangMem gap).** Already built in the <!-- item: state=decision-only needs="the owner's ruling on whether to rebuild extraction after it lost to decay, and on RV19, which a profile that knows current from former needs" -->
+  bench and REFUTED: extraction lost to decay and reconciliation cost 18.9 points (`docs/task-archive.md`
+  Parts 148, 149, 156), with no D-number recording it yet. **D106** places abstraction at encoding, and
+  **D167**–**D169** refused corroboration, offline consolidation and affect. A rebuild is opt-in, writes
+  BESIDE the raw exchange, and must beat decay on a corpus dense in revisions.
 
 ## Retired — five Parts that outlived their open work (2026-09-16)
 
