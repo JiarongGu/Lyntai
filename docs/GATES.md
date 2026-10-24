@@ -928,7 +928,9 @@ QA modes) and `memory-longmemeval` (the default and `--extract` paths) write one
 through `bench/Lyntai.Benchmarks/BenchResults.cs` into the gitignored `devtools/_bench-results/`, and
 `node devtools/dev.mjs bench-compare <a> <b>` pairs two files by (arm, question) and prints per-arm hit rates,
 the discordant counts and McNemar exact — the same arithmetic as `BenchStats.McNemarExact`, pinned by its
-test. It refuses a different metric always, and a different question set or configuration hash (the run's
+test. `--layers` on either bench (`bench/Lyntai.Benchmarks/RecallLayers.cs`) writes a `recall-layers` file
+whose arms are `<arm>/candidate`, `<arm>/ranked` and `<arm>/answered`, from an `Explain` recall's pool, the
+reader's page and the reader's graded answer. `bench-compare` refuses a different metric always, and a different question set or configuration hash (the run's
 arguments plus its `LYNTAI_*` environment) unless told. Every other sweep still writes only its console table:
 wiring one first needs a question id stable across runs, which a sweep's generated trials do not yet carry.
 

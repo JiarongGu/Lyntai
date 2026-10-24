@@ -891,6 +891,51 @@ internal static class MemoryLongMemEvalBench
         await results.WriteAsync();
     }
 
+    /// <summary><c>--layers</c>: one explained recall per arm × question, its page handed to a reader at full
+    /// detail. The page is the shipped one — <c>Detail</c> is applied after ranking — so <c>ranked</c> is the
+    /// same <c>current@k</c> the default table scores.</summary>
+    private static async Task<int> RunLayersAsync(List<Question> sampled,
+        SweepDoubles.CachingVectorProvider vectorProvider, SweepDoubles.OpenAiCompatibleChat reader, string[] args)
+    {
+        var configs = SelectConfigs(args, out _);
+        if (configs is null) return 1;
+        var layers = new RecallLayers("memory-longmemeval-layers", args);
+        var done = 0;
+        foreach (var q in sampled)
+        {
+            Progress(++done, sampled.Count);
+            var current = q.Current.Select(t => t.Tag).ToHashSet(StringComparer.Ordinal);
+            foreach (var arm in configs)
+            {
+                using var db = new MemoryPolicySweep.SweepDb();
+                var engine = EngineFor(arm, db, vectorProvider);
+                var turnOf = new Dictionary<string, Turn>(StringComparer.Ordinal);
+                foreach (var t in q.Turns)
+                    turnOf[(await engine.RememberAsync(new MemoryWrite(Task, Scope, $"{t.Tag} {t.Text}"))).Reference.Id] = t;
+
+                var recall = await engine.RecallAsync(
+                    new MemoryQuery(Task, Scope, q.Text, Limit: RecallLimit, Detail: MemoryDetail.Full) { Explain = true });
+                bool IsCurrent(string id) => turnOf.TryGetValue(id, out var t) && current.Contains(t.Tag);
+                var candidate = (recall.Candidates ?? []).Any(c => IsCurrent(c.Reference.Id));
+                var ranked = recall.Items.Any(i => IsCurrent(i.Reference.Id));
+
+                var context = string.Join("\n", recall.Items.Select(i =>
+                    $"[{(turnOf.TryGetValue(i.Reference.Id, out var t) ? t.Date : "")}] {i.Content ?? i.Headline}"));
+                var question = $"{q.Text} (asked {q.Asked}; where excerpts disagree, the latest-dated is current)";
+                var hypothesis = (await reader.AskAsync(MemoryLocomoBench.AnswerPrompt(context, question), maxTokens: 48))
+                    ?.Trim() ?? "";
+                var unknown = hypothesis.Length == 0 || hypothesis.StartsWith("unknown", StringComparison.OrdinalIgnoreCase);
+                var f1 = unknown ? 0 : MemoryLocomoBench.TokenF1(hypothesis, q.Answer);
+                var answered = !unknown && await MemoryLocomoBench.JudgeAsync(reader, q.Text, q.Answer, hypothesis);
+                layers.Add(arm.Name, q.Id, candidate, ranked, answered, f1);
+            }
+        }
+
+        await layers.PrintAsync();
+        Console.WriteLine($"  vector backend {vectorProvider.Misses} call(s), {vectorProvider.Hits} cache hit(s){TruncationNote()}.");
+        return 0;
+    }
+
     /// <summary>One arm's engine over its own store, with the semantic channel registered when the arm asks
     /// for one. <b>Every arm gets its own store and its own vector store</b> — a recall reinforces what it
     /// returns, so arms sharing one would each mutate the decay state the next reads.</summary>
@@ -913,7 +958,7 @@ internal static class MemoryLongMemEvalBench
             });
     }
 
-    private sealed record Turn(int Session, int Index, string Role, string Content, bool HasAnswer)
+    private sealed record Turn(int Session, int Index, string Role, string Content, bool HasAnswer, string Date = "")
     {
         /// <summary>The marker rides in the CONTENT so a hit is checkable with no model, exactly as the
         /// LoCoMo harness carries a dialogue id. Every arm reads the same text, so none is advantaged.</summary>
@@ -923,7 +968,8 @@ internal static class MemoryLongMemEvalBench
     }
 
     private sealed record Question(string Id, string Text, string Type, IReadOnlyList<Turn> Turns,
-        IReadOnlyList<Turn> Current, IReadOnlyList<Turn> Stale, IReadOnlyList<Turn> Evidence);
+        IReadOnlyList<Turn> Current, IReadOnlyList<Turn> Stale, IReadOnlyList<Turn> Evidence,
+        string Answer = "", string Asked = "");
 
     public static async Task<int> RunAsync(string[] args)
     {
@@ -1264,6 +1310,19 @@ internal static class MemoryLongMemEvalBench
             Console.WriteLine();
             Preamble(sampled, questions.Count, turns, haystack, seed, "knowledge-update");
             return await RunCorroborationAsync(sampled, vectorProvider);
+        }
+
+        if (args.Contains("--layers"))
+        {
+            var reader = await SweepDoubles.TryRealChatAsync(http, "memory-longmemeval layers");
+            if (reader is null) return 1;
+            Console.WriteLine("=== Knowledge-update in three layers: candidate -> ranked -> answered ===");
+            Console.WriteLine();
+            Preamble(sampled, questions.Count, turns, haystack, seed, "knowledge-update");
+            Console.WriteLine($"Reader:    {reader.Model}, Detail = Full, each excerpt prefixed with its session date");
+            Console.WriteLine("Evidence:  the CURRENT-value turns; the judge is the reader model (RecallLayers)");
+            Console.WriteLine();
+            return await RunLayersAsync(sampled, vectorProvider, reader, args);
         }
 
         if (shots)
@@ -2453,11 +2512,11 @@ internal static class MemoryLongMemEvalBench
                 .ToList();
 
             var turns = new List<Turn>();
-            foreach (var (session, _, si) in ordered)
+            foreach (var (session, date, si) in ordered)
                 turns.AddRange(session.EnumerateArray().Select((t, ti) => new Turn(si, ti,
                     t.GetProperty("role").GetString() ?? "",
                     t.GetProperty("content").GetString() ?? "",
-                    t.TryGetProperty("has_answer", out var h) && h.ValueKind == JsonValueKind.True)));
+                    t.TryGetProperty("has_answer", out var h) && h.ValueKind == JsonValueKind.True, date)));
 
             // The current value sits in the latest-dated session that CARRIES a flagged turn, never simply in
             // the latest session. In the oracle the two coincide because every session is an evidence session;
@@ -2470,7 +2529,9 @@ internal static class MemoryLongMemEvalBench
             if (temporal ? evidence.Count == 0 : current.Count == 0 || stale.Count == 0) continue;
 
             result.Add(new Question(q.GetProperty("question_id").GetString() ?? "",
-                q.GetProperty("question").GetString() ?? "", wantType, turns, current, stale, evidence));
+                q.GetProperty("question").GetString() ?? "", wantType, turns, current, stale, evidence,
+                q.TryGetProperty("answer", out var a) ? a.ToString() : "",
+                q.TryGetProperty("question_date", out var asked) ? asked.GetString() ?? "" : ""));
         }
         return result;
     }

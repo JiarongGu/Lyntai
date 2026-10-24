@@ -174,6 +174,12 @@ internal static class MemoryLocomoBench
         // NOT D103's ranking fusion, which this file also contains: see the `+enginefuse` suffix.
         var verdictOnly = args.Contains("--verdict");
         var needsReader = !args.Contains("--retrieval") && !shotsOnly && !ranksOnly && !composition;
+        // `--layers` (RecallLayers) rides the QA path: it needs the reader's answer as its third layer.
+        if (args.Contains("--layers") && (!needsReader || verdictOnly))
+        {
+            Console.Error.WriteLine("memory-locomo: --layers needs the QA path (a reader) - drop the other mode flag.");
+            return 1;
+        }
         var chat = needsReader ? await SweepDoubles.TryRealChatAsync(http, "memory-locomo") : null;
         if (needsReader && chat is null) return 1;
 
@@ -409,6 +415,8 @@ internal static class MemoryLocomoBench
         var dumped = new List<string>();
         var results = new BenchResults("memory-locomo",
             retrievalOnly || shotsOnly ? "evidence-hit@k" : judged ? "judge" : "exact-match", args);
+        var layers = args.Contains("--layers") ? new RecallLayers("memory-locomo-layers", args) : null;
+        var candidateOf = new Dictionary<(string Arm, string Question), bool>();
 
         // ONE probe across every conversation, because the ladder's rates are over the whole sample. It is
         // installed as the shipped arm's ranking policy and delegates untouched, so it describes the run that
@@ -986,8 +994,11 @@ internal static class MemoryLocomoBench
                         SeedSources = seeds,
                     });
 
-                foreach (var text in texts)
-                    await ingest.RememberAsync(new MemoryWrite(convId, "session", text));
+                // entry id -> dia_id, so `--layers` can read an explained recall's candidates as evidence
+                var idToDia = new Dictionary<string, string>(StringComparer.Ordinal);
+                for (var i = 0; i < texts.Count; i++)
+                    idToDia[(await ingest.RememberAsync(new MemoryWrite(convId, "session", texts[i]))).Reference.Id]
+                        = turns[i].DiaId;
 
                 // The vector store is deliberately SHARED across questions: RememberAsync is the only thing
                 // that writes it, so it is read-only once ingestion is done, and re-embedding per question
@@ -1140,6 +1151,23 @@ internal static class MemoryLocomoBench
                                 recalled[(arm, q.Text)] = context;
                         }
 
+                    // `--layers`: the same recall again on its own pristine clone, explained, for its candidate
+                    // pool. A single-shot arm only — a walk's context is not one recall's pool.
+                    if (layers is not null && !MultiShotArms.Contains(arm) && last is not null)
+                    {
+                        using var edb = template.Clone();
+                        var explained = await Fresh(edb).RecallAsync(new MemoryQuery(convId, "session", q.Text,
+                            Limit: RecallLimit,
+                            Detail: FullDetailArms.Contains(arm) ? MemoryDetail.Full : MemoryDetail.Headline)
+                        { Explain = true });
+                        if (!explained.Items.Select(i => i.Reference.Id)
+                                .SequenceEqual(last.Items.Select(i => i.Reference.Id)))
+                            layers.Mismatched++;
+                        var pool = (explained.Candidates ?? [])
+                            .Select(c => idToDia.GetValueOrDefault(c.Reference.Id)).ToHashSet();
+                        candidateOf[(arm, q.Text)] = q.Evidence.Any(pool.Contains);
+                    }
+
                     // The FINAL set is what the reader was handed, so its duplication is the number Part 135
                     // asks for. Recorded under the arm's own name, beside the per-shot rows above.
                     if (composition) Record(arm, context, last?.Items);
@@ -1267,6 +1295,13 @@ internal static class MemoryLocomoBench
                     };
                     var context = string.Join("\n", pieces);
                     returned[arm] = returned.GetValueOrDefault(arm) + pieces.Count;
+                    void Layer(bool answered, double score)
+                    {
+                        if (layers is null || q.Evidence.Count == 0
+                            || !candidateOf.TryGetValue((arm, q.Text), out var candidate)) return;
+                        var ranked = q.Evidence.Any(e => pieces.Any(p => p.Contains($"({e})", StringComparison.Ordinal)));
+                        layers.Add(arm, q.Id, candidate, ranked, answered, score);
+                    }
 
                     var hypothesis = (await chat!.AskAsync(AnswerPrompt(context, q.Text), maxTokens: 48))?.Trim() ?? "";
                     var key = (arm, q.Category);
@@ -1290,6 +1325,7 @@ internal static class MemoryLocomoBench
                         // cannot disagree about what an "unknown" scored.
                         verdictF1?[arm].Add(0.0);
                         results.Add(arm, q.Id, false, score: 0.0);
+                        Layer(false, 0.0);
                         continue;
                     }
 
@@ -1308,6 +1344,7 @@ internal static class MemoryLocomoBench
                     if (verdict is true) correct[key] = correct.GetValueOrDefault(key) + 1;
                     verdictF1?[arm].Add(itemF1);
                     results.Add(arm, q.Id, judged ? verdict is true : itemExact, score: itemF1);
+                    Layer(judged ? verdict is true : itemExact, itemF1);
                     if (dump)
                         dumped.Add(JsonSerializer.Serialize(new
                         {
@@ -1395,6 +1432,7 @@ internal static class MemoryLocomoBench
         }
 
         await results.WriteAsync();
+        if (layers is not null) await layers.PrintAsync();
 
         // `--dump` was parsed and read by NOTHING until 2026-09-01 — a flag the usage advertised and the
         // run silently ignored. It survived because `var dump = args.Contains(...)` assigns a method
@@ -1450,7 +1488,7 @@ internal static class MemoryLocomoBench
         return na == 0 || nb == 0 ? 0 : dot / (Math.Sqrt(na) * Math.Sqrt(nb));
     }
 
-    private static string AnswerPrompt(string context, string question) =>
+    internal static string AnswerPrompt(string context, string question) =>
         $"""
          Answer the question using ONLY the conversation excerpts below.
          Reply with the answer alone - a few words, no sentence, no explanation.
@@ -1465,7 +1503,7 @@ internal static class MemoryLocomoBench
 
     /// <summary>SQuAD's answer normalization — lowercase, drop punctuation and the articles — so "The Bahamas"
     /// and "bahamas" are one string. It is what makes a model-free grade possible over a model's prose.</summary>
-    private static string[] Normalize(string s) =>
+    internal static string[] Normalize(string s) =>
         new string([.. s.ToLowerInvariant().Select(c => char.IsLetterOrDigit(c) ? c : ' ')])
             .Split(' ', StringSplitOptions.RemoveEmptyEntries)
             .Where(w => w is not ("a" or "an" or "the"))
@@ -1475,7 +1513,7 @@ internal static class MemoryLocomoBench
     /// number here no model produced. It is reported as the PRIMARY grade for that reason: this machine's
     /// judge is the same small model that wrote the answer, and a self-grading reader is generous to its own
     /// phrasing.</summary>
-    private static double TokenF1(string hypothesis, string gold)
+    internal static double TokenF1(string hypothesis, string gold)
     {
         var h = Normalize(hypothesis);
         var g = Normalize(gold);
@@ -1492,14 +1530,18 @@ internal static class MemoryLocomoBench
     /// known weakness and is disclosed in the preamble rather than hidden: a self-grading reader can be
     /// generous to its own phrasing. It is used because the alternative on this machine is no grader at all.
     /// </summary>
-    private static async Task<bool> JudgeAsync(SweepDoubles.OpenAiCompatibleChat chat, Question q, string hypothesis)
+    private static Task<bool> JudgeAsync(SweepDoubles.OpenAiCompatibleChat chat, Question q, string hypothesis) =>
+        JudgeAsync(chat, q.Text, q.Gold, hypothesis);
+
+    internal static async Task<bool> JudgeAsync(SweepDoubles.OpenAiCompatibleChat chat, string question, string gold,
+        string hypothesis)
     {
         var verdict = await chat.AskAsync(
             $"""
              Grade a short answer. Reply with exactly one word: YES or NO.
 
-             Question: {q.Text}
-             Reference answer: {q.Gold}
+             Question: {question}
+             Reference answer: {gold}
              Candidate answer: {hypothesis}
 
              Does the candidate state the same fact as the reference? YES or NO:

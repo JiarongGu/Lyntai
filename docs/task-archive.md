@@ -5752,3 +5752,16 @@ round trip, burial and recall. No migration. **D213** records the choices; `docs
 another store the schema.
 
 - RV25 — a GRAPH memory can be exported and imported through `IPortableMemory`, decay state and links included
+
+## Part 370 — RV23: recall measured in three layers, candidate → ranked → answered, on two corpora (2026-10-24)
+
+✅ done 2026-10-24 — **Outcome:** the last item of the competitive review's governed-calls group (`TASKS.md`
+Part 347, now retired). `--layers` on `memory-locomo` and `memory-longmemeval` (`RecallLayers.cs`) scores per
+question whether gold evidence was a candidate of an `Explain` recall (**D200**), on the reader's page, and
+answered right, into one RV8 result file. One run per corpus, YES and NO pre-registered. LoCoMo is a YES —
+ranking loses most at the shipped defaults; LongMemEval knowledge-update a refutation — reading does. No default
+moved: the arm that recovers LoCoMo's ranking loss costs LongMemEval, and a reranker is a model, not a default.
+`docs/memory.md` §What it costs you NOT to use a judge carries the recommendation; the figures are
+`docs/memory-measurements.md` §5, `layers-locomo-lyntai-n200` and `layers-lme-ku-lyntai-haystack-n70`.
+
+- RV23 — measure recall in three layers, candidate → ranked → answered, on two corpora

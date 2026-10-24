@@ -410,6 +410,15 @@ own arithmetic fixes that, which is why the seam exists.
 > good — take it knowingly, and if you
 > are running a small local model the odds are about 5:1 against you.
 
+**Measured at the ANSWER, the layer a verifier repairs depends on the workload** (`docs/memory-measurements.md`
+§5, `layers-locomo-lyntai-n200`, `layers-lme-ku-lyntai-haystack-n70`). On a SEARCH workload such as LoCoMo,
+the shipped engine loses more at ranking than at retrieval or reading, and a reader answers far more often
+with the evidence on the page, so a scoring verifier — the cross-encoder above — is aimed at the right layer;
+registering the semantic seeds widens the candidate pool as well. On a REVISION workload such as LongMemEval's
+knowledge-update class, the current fact is already on the page and the reader is what fails: spend on the
+reader there, not on a verifier. Nor is "0% of misses are retrieval failures" a field fact — on LoCoMo some
+questions never reach the candidate pool at all.
+
 So the honest framing is not "the judge is an optimisation" but: *this engine's ranking is its weakest part,
 and a judge is the only shipped mechanism aimed at repairing it* — with the field caveat above on whether a
 given model actually does. Whether ~1.5 s and 3.3 GB is worth it is an application question, and it should
