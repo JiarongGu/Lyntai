@@ -5636,6 +5636,11 @@ registration take a configured backend through an overload beside the positional
 empty source list loads none, and the CLI refuses an unknown name before any turn, so the library refuses only
 what it would misread — an empty, flag-shaped, comma- or space-holding entry.
 
+**Denying a consumer's BUILT-IN tools is an allow-list, `ClaudeCompletionOptions.Tools`** (2026-10-24), `--tools`:
+measured on 2.1.309, `[]` lists none while a hosted MCP server's tools stay, and an unknown name is ignored.
+**Rejected:** `DisallowedTools`, which grants whatever a later CLI adds; a Core flag, as built-in tools are this
+CLI's vocabulary; flipping either map's no-entry default, a Breaking ruling left to the owner.
+
 **A hosted call's two settings files are MERGED, never stacked** (2026-09-30): the CLI applies only the last
 `--settings` and never reads an earlier one, so `ClaudeCliBackend` merges `SettingsPath` into the tool host's per-call
 file — objects by key, lists joined, the consumer's value winning — and hands that one; a file it cannot read as one

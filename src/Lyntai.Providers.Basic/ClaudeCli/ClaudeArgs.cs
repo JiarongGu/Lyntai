@@ -24,6 +24,11 @@ internal static class ClaudeArgs
             if (!denied.Contains(tool, StringComparer.Ordinal)) denied.Add(tool);
 
         var args = new List<string>(PrintMode) { "--disallowed-tools", string.Join(",", denied) };
+        if (completion?.Tools is { } tools)
+        {
+            args.Add("--tools");
+            args.Add(string.Join(",", tools));   // an EMPTY list is an empty value: no built-in tool at all
+        }
         if (!string.IsNullOrEmpty(completion?.SettingsPath))
         {
             args.Add("--settings");
@@ -51,20 +56,25 @@ internal static class ClaudeArgs
         if (strictMcpConfig) args.Add("--strict-mcp-config");
     }
 
-    /// <summary>A <c>SettingSources</c> list, copied — or refused where an entry is one the CLI would misread: null,
-    /// empty, holding a comma or whitespace (the value is ONE comma-joined token), or flag-shaped. An unknown NAME is
-    /// the CLI's to refuse, and it does before any turn.</summary>
+    /// <summary>A <c>SettingSources</c> list, copied — or refused where an entry is one the CLI would misread
+    /// (<see cref="CheckNames"/>).</summary>
     /// <exception cref="ArgumentException">An entry the CLI would misread.</exception>
-    internal static IReadOnlyList<string>? CheckSettingSources(IReadOnlyList<string>? sources, string name)
+    internal static IReadOnlyList<string>? CheckSettingSources(IReadOnlyList<string>? sources, string name) =>
+        CheckNames(sources, name, "a setting source the CLI can be handed: one name each (user, project, local)");
+
+    /// <summary>A list the CLI takes as ONE comma-joined value, copied — or refused where an entry is one it would
+    /// misread: null, empty, holding a comma or whitespace, or flag-shaped. An unknown NAME is left to the
+    /// CLI.</summary>
+    /// <exception cref="ArgumentException">An entry the CLI would misread.</exception>
+    internal static IReadOnlyList<string>? CheckNames(IReadOnlyList<string>? names, string name, string what)
     {
-        if (sources is null) return null;
-        foreach (var source in sources)
-            if (string.IsNullOrEmpty(source) || source.StartsWith('-')
-                || source.Any(c => c == ',' || char.IsWhiteSpace(c)))
+        if (names is null) return null;
+        foreach (var entry in names)
+            if (string.IsNullOrEmpty(entry) || entry.StartsWith('-')
+                || entry.Any(c => c == ',' || char.IsWhiteSpace(c)))
                 throw new ArgumentException(
-                    $"'{source}' is not a setting source the CLI can be handed: one name each (user, project, local), "
-                    + "never empty, flag-shaped, or holding a comma or whitespace.", name);
-        return [.. sources];
+                    $"'{entry}' is not {what}, never empty, flag-shaped, or holding a comma or whitespace.", name);
+        return [.. names];
     }
 
     // The PROMPT is not built here: flattening a message list into one blob of text is the same for every

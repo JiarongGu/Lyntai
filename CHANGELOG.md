@@ -37,6 +37,10 @@ every addition.
   With a space declared, each collection is stamped with the space that wrote it; a write into another space's
   collection throws, a search of one finds nothing and warns, and a graph engine's `ReindexAsync` moves a
   collection to the declared space. Undeclared, nothing changes.
+- **`ClaudeCompletionOptions.Tools`: a consumer's one-shot claude calls get ONLY the built-in tools listed** (**D190**).
+  `[]` leaves none, so `CompletionByConsumer["default"] = new() { Tools = [] }` beside
+  `McpToolHostOptions.ToolsByConsumer["default"] = []` keeps every tool from a `memory` or `scoring` call that reads
+  stored content. `DisallowedTools` denies by name, so it passes a tool a later CLI adds. Unset, nothing changes.
 
 ### Fixed
 

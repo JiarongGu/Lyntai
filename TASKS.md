@@ -15,38 +15,37 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 25 across 7 Parts: 17 startable, 3 blocked, 2 watch, 3 decision-only
+## Open items — 24 across 6 Parts: 16 startable, 3 blocked, 2 watch, 3 decision-only
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 126 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a free Hugging Face account (an hf_ token) — its router proxies fal's own q… |
-| 173 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 196 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 252 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
-| 289 | 345 | RV4 — a host can deny CLI and MCP tools by default, so a `memory` or `scori… | startable |  |
-| 300 | 346 | RV5 — a recall can EXPLAIN itself: per-candidate channel, rank, hop, score … | startable |  |
-| 304 | 346 | RV6 — a composition reports what it left out, and why | startable |  |
-| 308 | 346 | RV7 — the memory wiring check is data a host can read, and a store can repo… | startable |  |
-| 313 | 346 | RV8 — every memory bench writes one result shape, and two runs compare pair… | startable |  |
-| 317 | 346 | RV9 — a curated fact carries a revision, and an update can refuse a stale o… | startable |  |
-| 321 | 346 | RV10 — memory can be EXPORTED and IMPORTED in a portable form, scoped and n… | startable |  |
-| 330 | 347 | RV11 — a schema- or tool-bearing request skips a candidate that cannot hono… | startable |  |
-| 335 | 347 | RV12 — a budget can RESERVE before a call and reconcile after, for a host t… | startable |  |
-| 339 | 347 | RV13 — the front door opens ONE span per call, carrying the consumer, and a… | startable |  |
-| 342 | 347 | RV14 — the response cache can be partitioned by consumer, opt-in | startable |  |
-| 345 | 347 | RV15 — a memory engine can pin its EMBEDDER the way verification pins its r… | startable |  |
-| 348 | 347 | RV16 — a tool call can be APPROVED before it runs, through one seam every t… | startable |  |
-| 352 | 347 | RV17 — a reader can tell when to use Lyntai and when not to, and start from… | startable |  |
-| 357 | 347 | RV21 — every storage contract runs on Postgres STRUCTURALLY, not through ha… | startable |  |
-| 361 | 347 | RV22 — a handler that succeeded before its completion was lost is redeliver… | startable |  |
-| 365 | 347 | RV23 — measure recall in three layers, candidate → ranked → answered, on tw… | blocked · tree | RV5 (per-candidate diagnostics) and RV8 (one result shape, a paired compare) |
-| 369 | 347 | RV24 — a re-embed can resume where an interrupted one stopped | startable |  |
-| 379 | 348 | RV18 — an Agent Framework / `Microsoft.Extensions.AI` adapter | decision-only | the owner's ruling on reversing D146, which deleted the bridge in both dire… |
-| 382 | 348 | RV19 — valid-time on a memory write, so a fact can be SUPERSEDED rather tha… | decision-only | the owner's ruling on reopening D106's bi-temporal write, the prerequisite … |
-| 385 | 348 | RV20 — LLM fact extraction and a user profile (the Mem0 / Zep / LangMem gap) | decision-only | the owner's ruling on whether to rebuild extraction after it lost to decay,… |
+| 125 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a free Hugging Face account (an hf_ token) — its router proxies fal's own q… |
+| 172 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 195 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 251 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 291 | 346 | RV5 — a recall can EXPLAIN itself: per-candidate channel, rank, hop, score … | startable |  |
+| 295 | 346 | RV6 — a composition reports what it left out, and why | startable |  |
+| 299 | 346 | RV7 — the memory wiring check is data a host can read, and a store can repo… | startable |  |
+| 304 | 346 | RV8 — every memory bench writes one result shape, and two runs compare pair… | startable |  |
+| 308 | 346 | RV9 — a curated fact carries a revision, and an update can refuse a stale o… | startable |  |
+| 312 | 346 | RV10 — memory can be EXPORTED and IMPORTED in a portable form, scoped and n… | startable |  |
+| 321 | 347 | RV11 — a schema- or tool-bearing request skips a candidate that cannot hono… | startable |  |
+| 326 | 347 | RV12 — a budget can RESERVE before a call and reconcile after, for a host t… | startable |  |
+| 330 | 347 | RV13 — the front door opens ONE span per call, carrying the consumer, and a… | startable |  |
+| 333 | 347 | RV14 — the response cache can be partitioned by consumer, opt-in | startable |  |
+| 336 | 347 | RV15 — a memory engine can pin its EMBEDDER the way verification pins its r… | startable |  |
+| 339 | 347 | RV16 — a tool call can be APPROVED before it runs, through one seam every t… | startable |  |
+| 343 | 347 | RV17 — a reader can tell when to use Lyntai and when not to, and start from… | startable |  |
+| 348 | 347 | RV21 — every storage contract runs on Postgres STRUCTURALLY, not through ha… | startable |  |
+| 352 | 347 | RV22 — a handler that succeeded before its completion was lost is redeliver… | startable |  |
+| 356 | 347 | RV23 — measure recall in three layers, candidate → ranked → answered, on tw… | blocked · tree | RV5 (per-candidate diagnostics) and RV8 (one result shape, a paired compare) |
+| 360 | 347 | RV24 — a re-embed can resume where an interrupted one stopped | startable |  |
+| 370 | 348 | RV18 — an Agent Framework / `Microsoft.Extensions.AI` adapter | decision-only | the owner's ruling on reversing D146, which deleted the bridge in both dire… |
+| 373 | 348 | RV19 — valid-time on a memory write, so a fact can be SUPERSEDED rather tha… | decision-only | the owner's ruling on reopening D106's bi-temporal write, the prerequisite … |
+| 376 | 348 | RV20 — LLM fact extraction and a user profile (the Mem0 / Zep / LangMem gap) | decision-only | the owner's ruling on whether to rebuild extraction after it lost to decay,… |
 
 <!-- open-items:end -->
 
@@ -277,25 +276,17 @@ there is nothing here to code: what remains is evidence only recurrence can supp
   1 in 51 standalone overall. **Looping is not how this gets caught**; the stack has to come from the run it
   fails in.
 
-## Part 345 — the competitive review: removal, vector identity and test evidence (2026-10-24)
+## Part 346 — the competitive review: memory you can explain, inspect, revise and carry (2026-10-24)
 
 _Opened by an external competitive review (Graphiti, Mem0, Letta, Mastra, Agent Framework, LiteLLM, the
 OpenAI Agents SDK) held untracked as `local/superpowers/specs/2026-10-24-competitive-roadmap.md` and indexed in
-`docs/superpowers/INDEX.md`. **Every item below survived an existence audit against the tree**; what the
-review proposed and the tree already has, or a decision already refused, is not filed. The owner's framing is
-a working position (`input-is-thinking-not-doctrine.md`): the group is the goal for the next MAJOR release,
-which is the only kind allowed to break storage (**D18**, **D161**), and no item names that number._
-
-- [ ] **RV4 — a host can deny CLI and MCP tools by default, so a `memory` or `scoring` call gets none.** <!-- item: state=startable -->
-  `McpToolHostOptions.ToolsByConsumer` falls back to EVERY tool when neither the consumer nor `"default"` is
-  listed, and a one-shot claude call denies only `AskUserQuestion`. Model calls that read untrusted memory
-  should not inherit the host's tools by omission. Ship it opt-in (**D190**'s per-consumer map is the seam);
-  flipping the default is a Breaking ruling for the owner.
-
-## Part 346 — the competitive review: memory you can explain, inspect, revise and carry (2026-10-24)
-
-_The second group from the same review (Part 345 names the record). The raw material for the first two items
-already exists inside recall and composition and is discarded before it reaches the caller._
+`docs/superpowers/INDEX.md`. **Every item in this and the following groups survived an existence audit against
+the tree**; what the review proposed and the tree already has, or a decision already refused, is not filed. Its
+first group (removal, vector identity, test evidence) is closed: `docs/task-archive.md` Parts 349–352. The owner's
+framing of that group is a working position (`input-is-thinking-not-doctrine.md`): it is the goal for the next
+MAJOR release, which is the only kind allowed to break storage (**D18**, **D161**), and no item names that number.
+The raw material for the first two items below already exists inside recall and composition and is discarded
+before it reaches the caller._
 
 - [ ] **RV5 — a recall can EXPLAIN itself: per-candidate channel, rank, hop, score and why it was cut.** <!-- item: state=startable -->
   `MemoryRecall` carries only per-tier `Ran` flags; `MemoryCandidate.Ranks`, the hop and the verifier's
@@ -325,7 +316,7 @@ already exists inside recall and composition and is discarded before it reaches 
 
 ## Part 347 — the competitive review: governed calls that cannot silently degrade (2026-10-24)
 
-_The third group from the same review (Part 345 names the record)._
+_The third group from the same review (Part 346 names the record)._
 
 - [ ] **RV11 — a schema- or tool-bearing request skips a candidate that cannot honour it.** A fallback from <!-- item: state=startable -->
   HTTP to a CLI turns `response_format: json_schema` into prompt text, and LlamaSharp drops `JsonSchema`
@@ -373,7 +364,7 @@ _The third group from the same review (Part 345 names the record)._
 
 ## Part 348 — the competitive review: what needs the owner's ruling first (2026-10-24)
 
-_The fourth group from the same review (Part 345 names the record). Each contradicts a recorded decision or a
+_The fourth group from the same review (Part 346 names the record). Each contradicts a recorded decision or a
 measured refutation, so building it first would reverse a ruling by momentum._
 
 - [ ] **RV18 — an Agent Framework / `Microsoft.Extensions.AI` adapter.** The review ranks it highest for <!-- item: state=decision-only needs="the owner's ruling on reversing D146, which deleted the bridge in both directions and names its own rebuild triggers" -->

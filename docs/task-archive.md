@@ -5521,3 +5521,14 @@ by a guard test over the test sources. The xUnit trio is still re-measured by ha
 nothing compares it with `CLAUDE.md`. `docs/GATES.md` §test is the gate; the trx `Counters` trap is in `pitfalls.md`.
 
 - RV3 — `verify` writes what its test step EXECUTED, so a skipped Postgres leg cannot read green
+
+## Part 352 — RV4: a host can deny a consumer's CLI and MCP tools by default (2026-10-24)
+
+✅ done 2026-10-24 — **Outcome:** the fourth item of the competitive review's backlog (`TASKS.md` Part 345). The
+MCP half already existed: `McpToolHostOptions.ToolsByConsumer["default"] = []` denies every unlisted consumer, and
+tests pinned it. The gap was the one-shot claude call's BUILT-IN tools, which `DisallowedTools` could only deny by
+name. `ClaudeCompletionOptions.Tools` renders `--tools` as an allow-list, `[]` leaving none while a hosted call's MCP
+tools still reach it. **D190** records the choice and the measurement; `docs/guide.md` shows deny-by-default in both
+maps. No default changed: flipping either map's no-entry tier is a Breaking ruling left to the owner.
+
+- RV4 — a host can deny CLI and MCP tools by default, so a `memory` or `scoring` call gets none

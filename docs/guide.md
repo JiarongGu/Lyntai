@@ -529,17 +529,23 @@ discovered as a failed turn.
 **A one-shot claude call's own flags, by consumer.** The library's own model seams call under their consumers —
 `"memory"` for annotation and verification, `"scoring"` for the LLM scorers — so a configured backend says how each
 consumer's completions are spawned: the request's `Consumer` entry, then `"default"`, then the plain argv.
-`AskUserQuestion` is always denied; a list adds to it:
+`AskUserQuestion` is always denied, and a `DisallowedTools` list adds to it. `Tools` is the allow-list instead: the
+only built-in tools the call has, so a tool a later CLI adds is never granted by omission, and `[]` leaves none.
+Deny by default and list the consumers that need tools, as the tool host's map does below:
 
 ```csharp
 cfg.AddClaudeCliProvider(new ClaudeCliBackend
 {
     CompletionByConsumer = new Dictionary<string, ClaudeCompletionOptions>
     {
-        ["default"] = new() { DisallowedTools = ["PowerShell", "Monitor"] },   // no shell for a judge or a scorer
+        ["default"] = new() { Tools = [] },   // memory, scoring and every unlisted consumer: no built-in tool
+        ["study"] = new() { DisallowedTools = ["PowerShell", "Monitor"] },   // the CLI's set, less a shell
     },
 });
 ```
+
+`Tools` governs the CLI's BUILT-IN tools only: a hosted call's MCP tools still reach it, and which of yours a consumer
+is handed is `McpToolHostOptions.ToolsByConsumer`'s to say, so denying by default takes `[]` in both maps.
 
 `SettingSources` and `StrictMcpConfig` scope what a call LOADS: `[]` loads no settings source — no project
 `CLAUDE.md`, even one in a parent directory, which the CLI walks up to — and strict MCP config starts no server from a
@@ -785,7 +791,8 @@ empty list hosts none and starts no host — the fast plain call — and names h
 even if only your own calls use tools:** the library's model seams spawn the CLI under THEIR consumers —
 `"memory"` for memory annotation and verification, `"scoring"` for the LLM scorers — so with no map each of those
 calls hosts every registered tool and starts a host for it, while an annotation prompt carries stored content
-your users wrote. Deny by default, and list the consumers that need tools:
+your users wrote. Deny by default, and list the consumers that need tools; a claude backend's own `"default"` entry
+with `Tools = []` (above) keeps the CLI's built-in tools from those calls too:
 
 ```csharp
 services.AddLyntai(b => b
