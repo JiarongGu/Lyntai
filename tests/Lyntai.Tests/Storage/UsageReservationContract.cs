@@ -8,8 +8,8 @@ namespace Lyntai.Tests.Storage;
 /// reservations against one cap admit exactly the ones that fit, on every backend.
 ///
 /// <para>Every fact caps the caller-supplied <paramref name="consumer"/> rather than the global ledger, so it is safe
-/// on the shared Postgres container. The one that needs a global cap is excluded there by name in
-/// <see cref="PostgresContractCoverageTests"/>.</para></summary>
+/// on the shared Postgres container. The one that needs a global cap is <see cref="UnscopedAttribute"/>, so a
+/// shared store is cleared before it.</para></summary>
 public static class UsageReservationContract
 {
     private static DateTimeOffset Later => DateTimeOffset.UtcNow.AddMinutes(10);
@@ -122,6 +122,7 @@ public static class UsageReservationContract
     // ---- TABLE-WIDE: excluded on the shared Postgres container, by name, with the reason recorded -------
 
     /// <summary>A global cap counts every consumer's holds.</summary>
+    [Unscoped("a global cap reads the whole ledger and every live hold")]
     public static async Task A_global_cap_counts_every_consumers_holds(IReservingUsageTracker tracker, string consumer)
     {
         var caps = new UsageCaps(MaxCostUsd: 1.0);

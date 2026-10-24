@@ -5703,3 +5703,14 @@ fenced blocks rather than `samples/` projects: they are compiled by an existing 
 README and `llms.txt` link to both.
 
 - RV17 — a reader can tell when to use Lyntai and when not to, and start from a scenario
+
+## Part 366 — RV21: every storage contract runs on every backend structurally, Postgres included (2026-10-24)
+
+✅ done 2026-10-24 — **Outcome:** the eighth item of the competitive review's governed-calls group (`TASKS.md`
+Part 347). Each `*ContractFacts` base now derives `StoreContractSuite<T>` and runs its contract through one
+`[ContractFacts]` theory; the twelve Postgres suites in `PostgresContractTests` derive the same bases, replacing
+157 hand-written delegators, and `PostgresContractCoverageTests`' source scan gave way to
+`StoreContractCoverageTests`. Five facts excused on the shared container now run there, cleared first as
+`[Unscoped]`; all passed, so no backend bug. SQLite's bm25 exclusion is an `[ExcludesFact]`. **D211** records why.
+
+- RV21 — every storage contract runs on Postgres STRUCTURALLY, not through hand-kept delegators

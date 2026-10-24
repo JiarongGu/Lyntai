@@ -1269,7 +1269,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   this corpus?"** — and assert it in the study as a distinct-value count.
 - **A COUNT is not exhaustiveness.** A reflected count of a contract's facts compared against a hand-bumped <!-- trap: sub=tests,storage shape=scope-blind -->
   literal passes whenever the author bumps it — including for a fact wired to one backend alone.
-  `MemoryGraphStoreCoverageTests` made coverage structural; carry that shape to any new cross-backend contract.
+  Every storage contract now runs from one theory per backend (`StoreContractSuite`); a new contract joins it.
 - **A cross-backend invariant enforced on ONE backend's test class is not enforced.** The non-finite-salience <!-- trap: sub=tests,storage shape=scope-blind -->
   guard was pinned only in `SqliteMemoryGraphStoreTests`, so the in-process store's own divergence survived a
   full review. A fact about the CONTRACT belongs in `MemoryGraphStoreContract`, wired to every backend

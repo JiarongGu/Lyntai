@@ -12,8 +12,8 @@ namespace Lyntai.Tests.Storage;
 /// a wrong answer.</para>
 ///
 /// <para>Every fact is scoped to a caller-supplied <paramref name="consumer"/> so it is safe on the shared
-/// Postgres container. The two that read a TABLE-WIDE total cannot be, and are excluded there by name —
-/// see <see cref="PostgresContractCoverageTests"/>, which fails if an exclusion stops matching.</para></summary>
+/// Postgres container. The two that read a TABLE-WIDE total cannot be, and are <see cref="UnscopedAttribute"/>,
+/// so a shared store is cleared before them.</para></summary>
 public static class UsageTrackerContract
 {
     private static ProviderUsage Call(long input, long output, double cost) =>
@@ -112,6 +112,7 @@ public static class UsageTrackerContract
     // ---- TABLE-WIDE: excluded on the shared Postgres container, by name, with the reason recorded -------
 
     /// <summary>A null consumer sums ACROSS consumers — the global spend a global cap is checked against.</summary>
+    [Unscoped("a null consumer sums the whole ledger")]
     public static async Task The_global_total_sums_across_consumers(IUsageTracker tracker, string consumer)
     {
         await tracker.RecordAsync(consumer + "-a", Call(10, 0, 0.10));
@@ -122,6 +123,7 @@ public static class UsageTrackerContract
     }
 
     /// <summary>A null consumer resets EVERYTHING — the billing-window boundary.</summary>
+    [Unscoped("a null consumer deletes the whole ledger")]
     public static async Task Resetting_everything_clears_every_consumer(IUsageTracker tracker, string consumer)
     {
         await tracker.RecordAsync(consumer + "-a", Call(10, 0, 0.10));

@@ -47,6 +47,22 @@ public sealed class PostgresFixture : IAsyncLifetime
         Available = true;
     }
 
+    /// <summary>The factory, or a SKIP when the container never started — for a test to call first.</summary>
+    public IDbConnectionFactory Require()
+    {
+        Skip.IfNot(Available, InitError ?? "Postgres/Docker unavailable");
+        return Factory;
+    }
+
+    /// <summary>Empties <paramref name="tables"/>. Safe only because every Postgres suite shares the
+    /// <c>postgres</c> collection and therefore runs serially.</summary>
+    public async Task ClearAsync(params string[] tables)
+    {
+        using var conn = Factory.Open();
+        foreach (var table in tables)
+            await Dapper.SqlMapper.ExecuteAsync(conn, $"DELETE FROM {table}");
+    }
+
     public async Task DisposeAsync()
     {
         if (_container is not null) await _container.DisposeAsync();

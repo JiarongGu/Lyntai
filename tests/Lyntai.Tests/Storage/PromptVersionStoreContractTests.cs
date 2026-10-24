@@ -4,21 +4,15 @@ using Lyntai.Storage.Sqlite;
 
 namespace Lyntai.Tests.Storage;
 
-/// <summary>Every <see cref="PromptVersionStoreContract"/> method as a [Fact] — derive with a store
-/// factory and the whole contract runs on that backend automatically (no silent skips). Postgres
-/// deliberately does NOT derive: it runs the Uid-namespaced subset on the shared container.</summary>
-public abstract class PromptVersionStoreContractFacts
+/// <summary>Every <see cref="PromptVersionStoreContract"/> fact as a theory case — derive with a store factory
+/// and the whole contract runs on that backend (<see cref="StoreContractSuite{TStore}"/>).</summary>
+public abstract class PromptVersionStoreContractFacts : StoreContractSuite<IPromptVersionStore>
 {
     protected abstract IPromptVersionStore NewStore();
+    protected sealed override IPromptVersionStore CreateStore(string fact) => NewStore();
 
-    [Fact] public Task None_yet() => PromptVersionStoreContract.No_version_yet_returns_null_active_and_empty_history(NewStore(), "k");
-    [Fact] public Task Monotonic() => PromptVersionStoreContract.Save_creates_monotonic_versions_and_the_latest_is_active(NewStore(), "k");
-    [Fact] public Task History() => PromptVersionStoreContract.History_is_newest_first_with_exactly_one_active(NewStore(), "k");
-    [Fact] public Task Rollback() => PromptVersionStoreContract.Rollback_reactivates_an_earlier_revision_without_rewriting_history(NewStore(), "k");
-    [Fact] public Task Rollback_missing() => PromptVersionStoreContract.Rollback_to_a_missing_version_returns_null_and_changes_nothing(NewStore(), "k");
-    [Fact] public Task Isolation() => PromptVersionStoreContract.Names_are_isolated(NewStore(), "k");
-    [Fact] public Task Raced() => PromptVersionStoreContract.Concurrent_saves_of_one_name_get_distinct_consecutive_versions(NewStore(), "k");
-    [Fact] public Task Raced_rollbacks() => PromptVersionStoreContract.Racing_saves_and_rollbacks_leave_exactly_one_active_revision(NewStore(), "k");
+    [SkippableTheory, ContractFacts(typeof(PromptVersionStoreContract))]
+    public Task Satisfies_the_contract(string fact) => RunAsync(typeof(PromptVersionStoreContract), fact);
 }
 
 /// <summary>The <see cref="PromptVersionStoreContract"/> against the InMemory backend.</summary>

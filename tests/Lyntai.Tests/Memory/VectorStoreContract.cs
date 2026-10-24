@@ -2,43 +2,6 @@ using Lyntai.Memory;
 
 namespace Lyntai.Tests.Memory;
 
-/// <summary>Every <see cref="VectorStoreContract"/> fact, inherited, so the in-process and SQLite stores run the
-/// whole contract BY CONSTRUCTION — the shape <c>KeyValueStoreContractFacts</c> uses. Postgres deliberately does
-/// NOT derive: its facts run on a shared container behind <c>[SkippableFact]</c>, each wired by name in
-/// <c>PostgresGovernanceStoreTests</c>, which <c>PostgresContractCoverageTests</c> holds to this contract.</summary>
-public abstract class VectorStoreContractFacts
-{
-    /// <summary>A fresh store; each fact namespaces its own collection.</summary>
-    protected abstract IVectorStore New();
-
-    [Fact] public Task Cosine_not_dot() => VectorStoreContract.Ranking_is_by_cosine_so_magnitude_does_not_win(New(), "c1");
-    [Fact] public Task Score_in_range() => VectorStoreContract.A_score_is_a_cosine_in_the_documented_range(New(), "c2");
-    [Fact] public Task Upsert_replaces() => VectorStoreContract.Upserting_the_same_id_replaces_rather_than_duplicating(New(), "c3");
-    [Fact] public Task Bounded_by_k() => VectorStoreContract.Search_returns_at_most_k(New(), "c4");
-    [Fact] public Task Delete_one() => VectorStoreContract.Delete_removes_one_entry_and_leaves_the_others(New(), "c5");
-    [Fact] public Task Remove_collection() => VectorStoreContract.Removing_a_collection_clears_it_and_absent_deletes_are_no_ops(New(), "c6");
-    [Fact] public Task Isolated() => VectorStoreContract.Collections_are_isolated(New(), "c7");
-    [Fact] public Task Tie_by_id() => VectorStoreContract.Equal_scores_are_ordered_by_id(New(), "c8");
-    [Fact] public Task Tie_at_k() => VectorStoreContract.The_k_boundary_keeps_the_same_tied_entries(New(), "c9");
-    [Fact] public Task Tie_loses_to_score() => VectorStoreContract.The_tiebreak_never_outranks_the_score(New(), "c10");
-    [Fact] public Task Other_dimension() => VectorStoreContract.A_vector_of_another_dimension_scores_zero_and_ranks_last(New(), "c14");
-    [Fact] public Task Zero_vector() => VectorStoreContract.A_zero_vector_scores_zero_and_ranks_last(New(), "c15");
-    [Fact] public void Can_list() => VectorStoreContract.Every_shipped_store_can_list_its_collections(New());
-    [Fact] public Task List_prefix() => VectorStoreContract.Listing_matches_a_prefix_ordinally(New(), "c11");
-    [Fact] public Task List_literal() => VectorStoreContract.A_listing_prefix_is_never_read_as_a_pattern(New(), "c12");
-    [Fact] public Task List_empty() => VectorStoreContract.Listing_omits_emptied_collections_and_never_throws(New(), "c13");
-    [Fact] public void Can_read() => VectorStoreContract.Every_shipped_store_can_read_by_id(New());
-    [Fact] public Task Read_present_once() => VectorStoreContract.Reading_back_returns_present_ids_once_in_id_order(New(), "c16");
-    [Fact] public Task Read_exact() => VectorStoreContract.A_read_vector_is_bit_identical(New(), "c17");
-    [Fact] public Task Read_copy() => VectorStoreContract.A_read_vector_cannot_change_what_is_stored(New(), "c18");
-    [Fact] public Task Read_many_ids() => VectorStoreContract.A_large_id_list_reads_without_failing(New(), "c19");
-    [Fact] public Task Filter_admits() => VectorStoreContract.A_filter_admits_only_its_ids(New(), "c20");
-    [Fact] public Task Filter_exclusion_wins() => VectorStoreContract.An_exclusion_wins_over_an_inclusion(New(), "c21");
-    [Fact] public Task Filter_empty() => VectorStoreContract.An_empty_inclusion_returns_nothing(New(), "c22");
-    [Fact] public Task Filter_tie() => VectorStoreContract.The_tiebreak_holds_within_the_admitted_set(New(), "c23");
-    [Fact] public Task Filter_many_ids() => VectorStoreContract.A_large_filter_searches_without_failing(New(), "c24");
-}
-
 /// <summary>Backend-agnostic facts every <see cref="IVectorStore"/> satisfies, held to by all three
 /// implementations the way <c>MemoryGraphStoreContract</c> holds every graph store to one contract.
 ///

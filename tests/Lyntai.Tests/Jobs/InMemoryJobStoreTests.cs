@@ -1,6 +1,5 @@
 using Lyntai.Storage;
 using Lyntai.Storage.InMemory;
-using Lyntai.Tests.Fakes;
 
 namespace Lyntai.Tests.Jobs;
 
@@ -8,9 +7,5 @@ namespace Lyntai.Tests.Jobs;
 /// inherited from <see cref="JobStoreContractFacts"/>).</summary>
 public class InMemoryJobStoreTests : JobStoreContractFacts
 {
-    protected override (IJobStore, MutableClock) New()
-    {
-        var clock = new MutableClock();
-        return (new InMemoryJobStore(clock.Get), clock);
-    }
+    protected override IJobStore New() => new InMemoryJobStore(Clock.Get);
 }

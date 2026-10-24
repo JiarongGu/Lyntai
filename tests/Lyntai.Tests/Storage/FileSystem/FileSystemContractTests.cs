@@ -27,15 +27,11 @@ public class FileSystemConversationStoreContractTests : ConversationStoreContrac
     public void Dispose() => _root.Dispose();
 }
 
-/// <summary>The <see cref="MemoryStoreContract"/> against the file-system backend, on the shared clock.</summary>
+/// <summary>The <see cref="MemoryStoreContract"/> against the file-system backend, on the suite clock.</summary>
 public class FileSystemMemoryStoreContractTests : MemoryStoreContractFacts, IDisposable
 {
-    [Fact] public Task Match_count_ranking() => MemoryStoreContract.More_matched_terms_outrank_a_newer_weaker_match(New(), "k", by => Now += by);
-
     private readonly TempRoot _root = new();
-    protected override IMemoryStore New() => new FileSystemMemoryStore(_root.Root, Options, clock: () => Now);
-    protected override IMemoryStore NewWith(MemoryEvictionPolicy p) =>
-        new FileSystemMemoryStore(_root.Root, new LyntaiOptions { MemoryEviction = p, MemoryRecallLimit = 100 }, clock: () => Now);
+    protected override IMemoryStore NewWith(MemoryEvictionPolicy p) => new FileSystemMemoryStore(_root.Root, OptionsWith(p), clock: Clock.Get);
     public void Dispose() => _root.Dispose();
 }
 

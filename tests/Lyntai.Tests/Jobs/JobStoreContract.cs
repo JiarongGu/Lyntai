@@ -1,6 +1,7 @@
 using Lyntai.Jobs;
 using Lyntai.Storage;
 using Lyntai.Tests.Fakes;
+using Lyntai.Tests.Storage;
 
 namespace Lyntai.Tests.Jobs;
 
@@ -502,6 +503,7 @@ public static class JobStoreContract
     // cross-PROCESS cap is meaningless; the SQL stores are the ones that ship it.
 
     /// <summary>The cap is a real ceiling, and a released slot is reused rather than leaked.</summary>
+    [Unscoped("slot state is table-wide: a cap a lane could partition would not be one")]
     public static async Task Slots_are_handed_out_up_to_the_cap_and_reused_after_release(
         IJobStore store, MutableClock clock)
     {
@@ -520,6 +522,7 @@ public static class JobStoreContract
 
     /// <summary>A slot whose holder stopped heartbeating past its lease is reclaimable — the property that
     /// keeps a crashed worker from consuming a slot forever. Heartbeating one keeps it.</summary>
+    [Unscoped("slot state is table-wide: a cap a lane could partition would not be one")]
     public static async Task A_slot_past_its_lease_is_reclaimed_and_a_heartbeat_prevents_it(
         IJobStore store, MutableClock clock)
     {
@@ -542,6 +545,7 @@ public static class JobStoreContract
     /// <summary>The property the heartbeat buys: a holder that keeps beating keeps its slot however many leases
     /// it runs for, and one that stops is reclaimable a lease later. A single expiry cannot serve both — long
     /// enough for an hours-long job lets a crash throttle the fleet for hours.</summary>
+    [Unscoped("slot state is table-wide: a cap a lane could partition would not be one")]
     public static async Task A_heartbeating_holder_keeps_its_slot_across_many_leases(IJobStore store, MutableClock clock)
     {
         var lease = TimeSpan.FromSeconds(30);
@@ -560,6 +564,7 @@ public static class JobStoreContract
 
     /// <summary>A stalled holder that wakes and beats must not steal back the slot its successor now holds:
     /// the heartbeat is fenced by worker id exactly as the release is.</summary>
+    [Unscoped("slot state is table-wide: a cap a lane could partition would not be one")]
     public static async Task A_heartbeat_does_not_revive_a_slot_already_reclaimed(IJobStore store, MutableClock clock)
     {
         var lease = TimeSpan.FromSeconds(30);
@@ -577,6 +582,7 @@ public static class JobStoreContract
 
     /// <summary>The cap is CONFIGURATION, not schema: slots are created lazily and taken only below the cap, so
     /// lowering it strands nothing and needs no migration.</summary>
+    [Unscoped("slot state is table-wide: a cap a lane could partition would not be one")]
     public static async Task Lowering_the_cap_needs_no_cleanup(IJobStore store, MutableClock clock)
     {
         var lease = TimeSpan.FromMinutes(5);
@@ -590,6 +596,7 @@ public static class JobStoreContract
 
     /// <summary>Release is FENCED by worker id, so a worker whose slot was already reclaimed cannot free
     /// the slot its successor now holds — the same fencing every other write on this store carries.</summary>
+    [Unscoped("slot state is table-wide: a cap a lane could partition would not be one")]
     public static async Task Releasing_a_slot_is_fenced_by_worker_id(IJobStore store, MutableClock clock)
     {
         var lease = TimeSpan.FromMinutes(5);
@@ -603,6 +610,7 @@ public static class JobStoreContract
 
     /// <summary>A cap of zero or less hands out nothing rather than throwing or handing out slot 0 — the
     /// boundary a caller reaches by computing the cap from configuration.</summary>
+    [Unscoped("slot state is table-wide: a cap a lane could partition would not be one")]
     public static async Task A_non_positive_cap_hands_out_no_slot(IJobStore store, MutableClock clock)
     {
         Assert.Null(await store.TryAcquireSlotAsync(0, "w1", TimeSpan.FromMinutes(5)));

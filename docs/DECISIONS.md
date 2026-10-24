@@ -280,8 +280,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D208](#d208--the-response-cache-partitions-by-consumer-through-a-prefix-on-the-key-opt-in-so-the-default-key-and-every-stored-entry-are-unchanged-2026-10-24) | 2026-10-24 | the response cache partitions by consumer through a PREFIX on the key, opt-in, so the default key… |
 | [D209](#d209--a-graph-engine-pins-its-embedder-by-provider-id-per-engine-and-a-pin-never-fails-over-2026-10-24) | 2026-10-24 | a graph engine PINS its embedder by provider id, per engine, and a pin never fails over |
 | [D210](#d210--a-tool-call-is-approved-inside-the-shared-invocation-flow-by-every-registered-approver-and-a-refusal-is-a-result-never-an-end-2026-10-24) | 2026-10-24 | a tool call is APPROVED inside the shared invocation flow, by every registered approver, and a re… |
+| [D211](#d211--every-storage-contract-runs-on-every-backend-from-one-theory-and-a-shared-database-is-cleared-rather-than-excused-2026-10-24) | 2026-10-24 | every storage contract runs on every backend from ONE theory, and a shared database is cleared ra… |
 
-**205 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**206 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -6040,3 +6041,18 @@ ends the tool loop's run as a jail violation, which is right for denied content 
 optional service: two concerns (a human gate and a budget, say) would have to be composed by hand. Any approver
 approving: one permissive approver would disarm every other. Failing open on a throw: an approval gate that a
 fault opens is no gate.
+
+## D211 — every storage contract runs on every backend from ONE theory, and a shared database is cleared rather than excused (2026-10-24)
+
+A storage contract (`tests/Lyntai.Tests/Storage/*Contract.cs` and its peers) is driven by a `*ContractFacts`
+base over `StoreContractSuite<T>` whose single `[ContractFacts]` theory enumerates the contract's facts by
+reflection, so a fact added to the contract is a case on every backend that derives the base, Postgres included
+(`PostgresContractTests`). A backend that cannot honour a fact says so with `[ExcludesFact]` and its reason, on
+its own suite. A fact that no key it is handed can isolate is `[Unscoped]`, and a suite whose store is shared
+across cases clears its tables before it: the `postgres` collection runs serially, so a clear is safe.
+`StoreContractCoverageTests` fails a contract no base drives, a shipped store no suite runs, a fact the binder
+cannot call, a stale exclusion and a shared suite that never clears.
+
+**Rejected.** Hand-written per-backend delegators held by a source-text scan: a fact reached InMemory and SQLite
+by a hand list too, and Postgres only once someone remembered it. Excusing table-wide facts on Postgres by name:
+it left five facts unrun on the backend most likely to diverge. A database per test: a container start per case.

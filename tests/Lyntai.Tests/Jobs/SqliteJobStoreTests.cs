@@ -14,11 +14,7 @@ public class SqliteJobStoreTests : JobStoreContractFacts, IDisposable
     private readonly TempDb _db = new();
     public void Dispose() => _db.Dispose();
 
-    protected override (IJobStore, MutableClock) New()
-    {
-        var clock = new MutableClock();
-        return (new SqliteJobStore(_db.Factory, clock.Get), clock);
-    }
+    protected override IJobStore New() => new SqliteJobStore(_db.Factory, Clock.Get);
 
     [Fact]
     public async Task Concurrent_claims_never_double_grab()
@@ -84,7 +80,7 @@ public class SqliteJobStoreTests : JobStoreContractFacts, IDisposable
     {
         // the lease comparison is a TEXT (ISO-8601) string compare; prove it's chronologically correct
         // right at the boundary (values with and without fractional seconds)
-        var (store, clock) = New();
+        var (store, clock) = (New(), Clock);
         var lease = TimeSpan.FromMinutes(1);
         var id = await store.EnqueueAsync(new JobSpec("b", "t", "{}"));
         await store.ClaimNextAsync("b", "w1", lease);

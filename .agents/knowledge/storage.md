@@ -40,7 +40,7 @@ yields a **silent null**, not an error — always alias explicitly in SELECTs (`
 SQLite stores `1.0` as an INTEGER and `0.5` as a REAL in the *same* column, so Dapper's type inference
 can hand a `double` property a boxed `long` and throw (or truncate). **Every** 0..1 / floating column
 (scores, `cost_usd`) MUST be read as `CAST(col AS REAL)` in the SELECT. Integer columns (token counts,
-durations) are fine uncast. `ScoreStoreTests.Doubles_round_trip_exactly_the_affinity_trap` guards this.
+durations) are fine uncast. `SqliteScoreStoreTests.Doubles_round_trip_exactly_the_affinity_trap` guards this.
 **In a statement shared with Postgres** (Core's `*Sql` classes) spell it `CAST(col AS DOUBLE PRECISION)`: the
 name gives the same REAL affinity on SQLite, while Postgres's `REAL` is single precision (**D187**).
 

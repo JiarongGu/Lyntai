@@ -404,8 +404,10 @@ Two seams the list alone doesn't reveal:
   one would have accepted, and the two scope rules a copy gets wrong.
 
 Each domain you DO implement runs that domain's existing contract — derive from its `*ContractFacts` base
-with a store factory where one exists, as `tests/Lyntai.Tests/Storage/FileSystem/FileSystemContractTests.cs`
-does. The contracts are `tests/Lyntai.Tests/Storage/*Contract.cs` (the governance pair are
+with a store factory, as `tests/Lyntai.Tests/Storage/FileSystem/FileSystemContractTests.cs` does; the base's one
+theory runs every fact, so there is nothing to wire per fact. A store shared across cases (one database for the
+run, as `PostgresContractTests`) overrides `SharesItsStore` and `ClearAsync`; a fact your backend cannot honour
+is an `[ExcludesFact]` with its reason. `StoreContractCoverageTests` fails a shipped store no suite drives. The contracts are `tests/Lyntai.Tests/Storage/*Contract.cs` (the governance pair are
 `ResponseCacheContract` / `UsageTrackerContract`), `tests/Lyntai.Tests/Jobs/JobStoreContract.cs`, and
 `tests/Lyntai.Tests/Memory/VectorStoreContract.cs` / `MemoryGraphStoreContract.cs`, whose suite joins
 `MemoryGraphStoreCoverageTests`' list — the contract facts run every domain against every backend and are what keeps them from drifting (`storage.md` §Don't "dedup").
