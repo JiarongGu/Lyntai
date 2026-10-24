@@ -283,8 +283,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D211](#d211--every-storage-contract-runs-on-every-backend-from-one-theory-and-a-shared-database-is-cleared-rather-than-excused-2026-10-24) | 2026-10-24 | every storage contract runs on every backend from ONE theory, and a shared database is cleared ra… |
 | [D212](#d212--an-interrupted-re-embed-resumes-from-a-per-collection-mark-kept-in-the-vector-space-stamp-and-only-into-the-same-declared-space-2026-10-24) | 2026-10-24 | an interrupted re-embed resumes from a per-collection mark kept IN the vector-space stamp, and on… |
 | [D213](#d213--a-graph-memory-travels-with-its-decay-state-through-an-optional-store-capability-its-ages-relative-to-the-engines-head-2026-10-24) | 2026-10-24 | a graph memory travels WITH its decay state through an optional store capability, its ages relati… |
+| [D214](#d214--work-is-dispatched-by-lane-the-steward-alone-writes-the-records-and-what-every-lane-writes-is-laneless-2026-10-24) | 2026-10-24 | work is dispatched by LANE, the steward alone writes the records, and what every lane writes is l… |
 
-**208 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**209 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -6107,3 +6108,18 @@ Dropping every link that touches an entry the target already held: a re-run of a
 the links between its two halves for good. Refreshing a held entry from the file: the import would overwrite what
 the target learned, which **D204** promises never to do. A required member on `IMemoryGraphStore`: it breaks every
 store an application wrote (**D202**).
+
+## D214 — work is dispatched by LANE, the steward alone writes the records, and what every lane writes is laneless (2026-10-24)
+
+`daoris.lanes.json` declares seven lanes: `records` (the steward), `memory`, `storage`, `inference`, `generation`,
+`platform` and `tools`. **The steward owns `TASKS.md`, `docs/task-archive.md`, `docs/DECISIONS.md`, `CHANGELOG.md`
+and the map**: it reserves an item's decision number at dispatch, and writes the item's backlog move, archive entry,
+decision and changelog line as the item lands; a lane session never edits them. **What every lane's change writes
+is laneless**: the API-surface baselines, the shared test doubles and the test project, the solution and the build
+props, `docs/` and `CLAUDE.md`. The append-only records are union-merged (`.gitattributes`); `TASKS.md` is not,
+since its rows move. `check-lanes` holds every file to the map (`docs/GATES.md` §check-lanes).
+
+**Rejected.** The API baselines in the `platform` lane: every public change in any lane would need `platform`,
+serializing all work through it. Lane sessions writing the changelog and the decisions under union merge: the
+owner asked the steward to keep them, so numbering and wording have one author. No lanes: the sub-agents that
+preceded them ran one at a time, serialized because every item wrote these shared files.

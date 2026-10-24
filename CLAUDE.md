@@ -8,11 +8,11 @@
 
 **Released: v3.5.3 (2026-09-30).** Eleven packages. The public API is frozen under
 SemVer 2.0 since 1.0 for every package (**D70**).
-The reasoning is `docs/DECISIONS.md`, **D1–D213** — read its generated index table rather than any list of
+The reasoning is `docs/DECISIONS.md`, **D1–D214** — read its generated index table rather than any list of
 decisions kept here.
 
 **The baseline a green run should match:** `5521 passed / 5570 total, 49 skipped` (every skip is a
-live-backend gate), e2e 3/3, guard-script tests 1000/1000, doc samples 69/69 — MEASURED with Docker up at
+live-backend gate), e2e 3/3, guard-script tests 1023/1023, doc samples 69/69 — MEASURED with Docker up at
 `5dba2c01` (2026-10-24). No gate holds the xUnit trio (`docs/GATES.md` §Which numbers a gate holds), so:
 
 - **Re-measure it by hand after `verify`, off that run's own output**, never from a diff, and re-attest the
@@ -98,6 +98,7 @@ rebuilds it and `verify` fails while the two disagree.
 | `check-dev-loop` | ✓ | this table drifting from `devtools/commands.mjs`; `--write` rebuilds it |
 | `check-decision-claims` | ✓ | a DECISION that stopped describing the code it governs |
 | `check-encoding` | ✓ | MOJIBAKE in tracked text — no other gate can see it |
+| `check-lanes` | ✓ | a tracked file in no lane, or a lane glob that matches nothing |
 | `check-tautology` | ✓ | a rename that collapsed a CONTRAST — prose naming one thing twice |
 | `check-api-vocabulary` | ✓ | a retired name back on the frozen public surface |
 | `check-samples` | ✓ | a fenced `csharp` block that does not COMPILE — default ON |

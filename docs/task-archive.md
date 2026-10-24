@@ -5765,3 +5765,13 @@ moved: the arm that recovers LoCoMo's ranking loss costs LongMemEval, and a rera
 `docs/memory-measurements.md` §5, `layers-locomo-lyntai-n200` and `layers-lme-ku-lyntai-haystack-n70`.
 
 - RV23 — measure recall in three layers, candidate → ranked → answered, on two corpora
+
+## Part 371 — LANES — Lyntai declares its lanes, and a guard holds every tracked file to them (2026-10-24)
+
+✅ done 2026-10-24 — **Outcome:** `daoris.lanes.json` declares seven lanes (`records` the steward, `memory`,
+`storage`, `inference`, `generation`, `platform`, `tools`) and four laneless groups; `check-lanes` in `verify`
+refuses a file in no lane, a file both owned and laneless, a glob that matches nothing and a malformed map
+(`docs/GATES.md` §check-lanes). `.gitattributes` union-merges the four append-only records. No backlog item;
+nothing a consumer sees, so no changelog line. **D214** records the choices.
+
+- LANES — declare the lanes, gate the map, union-merge the append-only records

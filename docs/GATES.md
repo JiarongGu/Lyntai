@@ -6,7 +6,7 @@
 > failure is spurious.
 
 `node devtools/dev.mjs` with no argument prints the authoritative command list; it is derived from the
-roster in `devtools/commands.mjs`, so it cannot be a subset. `verify` runs 23 checks, stopping at the first
+roster in `devtools/commands.mjs`, so it cannot be a subset. `verify` runs 24 checks, stopping at the first
 failure. **Digits, not a number word** — `parseCount` has no hyphenated compounds, so `twenty-one` would be
 skipped rather than compared and the claim it anchors would match nothing.
 
@@ -250,6 +250,20 @@ it.
 It runs in `verify` over the tree AND in the pre-commit hook over the STAGED blobs (`--staged`) — what the
 commit will record, not the working tree, so a file repaired after staging cannot smuggle its corrupt blob
 in, and an unrelated dirty file cannot block the commit.
+
+### `check-lanes` — whether the lane map still describes the tree
+
+`daoris.lanes.json` is what work is dispatched by (`docs/DECISIONS.md` **D214**): a path belongs to the
+first lane whose globs match it, the steward's lane before the rest. **A path outside the map is work no
+lane is told it owns**, and a glob that matches nothing is a claim of ownership over nothing — both silent
+without a gate, and both arrive the day a folder is added or renamed.
+
+It refuses a file (from `_repo-files.mjs`, so a new one counts before it is committed) that no lane owns
+and no `laneless` group lists, a file a lane owns that a `laneless` group ALSO lists, and any positive glob
+that matches no file — each `{a,b}` branch on its own, so a misspelt branch is not hidden by its sibling.
+It refuses a map it cannot classify by: invalid JSON, a missing, malformed or repeated `id`, a missing
+`title` or `summary`, a lane with no paths, more than one steward, and a `gates` field, since
+`daoris.gates.json` declares none. A green run prints each lane's file count and the laneless count.
 
 ### `check-docs` — vocabulary a decision retired
 

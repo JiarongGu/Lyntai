@@ -1541,6 +1541,7 @@ export default {
     'check-packages': 'a package missing from any registry; the misses are silent',
     'check-bundle': "the bundle's dependency closure — membership is a budget",
     'check-encoding': 'MOJIBAKE in tracked text — no other gate can see it',
+    'check-lanes': 'a tracked file in no lane, or a lane glob that matches nothing',
     'check-docs': 'vocabulary a decision retired (`retiredTerms`)',
     'check-links': 'a dead path, `Part N`, `§section` or `Type.Member`',
     'check-counts': 'a COUNT in prose that disagrees with the tree',

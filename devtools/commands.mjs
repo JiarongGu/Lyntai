@@ -69,6 +69,7 @@ export const COMMANDS = [
   { name: 'check-dev-loop', script: 'check-dev-loop' },
   { name: 'check-decision-claims', script: 'check-decision-claims' },
   { name: 'check-encoding', script: 'check-encoding' },
+  { name: 'check-lanes', script: 'check-lanes' },
   { name: 'check-tautology', script: 'check-tautology' },
   { name: 'check-api-vocabulary', script: 'check-api-vocabulary' },
   { name: 'check-samples', script: 'check-samples' },
@@ -84,7 +85,7 @@ export const COMMANDS = [
  */
 export const VERIFY_STEPS = [
   ['test-devtools', []], ['check-warnings', []], ['check-packages', []], ['check-bundle', []],
-  ['check-encoding', []], ['check-docs', []], ['check-links', []], ['check-counts', []],
+  ['check-encoding', []], ['check-lanes', []], ['check-docs', []], ['check-links', []], ['check-counts', []],
   ['check-comments', []], ['check-decisions', []], ['check-archive', []], ['check-backlog', []],
   ['check-pitfalls', []], ['check-measurements', []], ['check-decision-claims', []], ['check-dev-loop', []],
   ['check-options', []], ['check-api-vocabulary', []], ['check-tautology', []], ['check-samples', []],

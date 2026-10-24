@@ -6,3 +6,14 @@
 # attribute beats the config — which is the point, since the config is untracked and differs per clone.
 
 * text=auto eol=lf
+
+# The append-only records are UNION-merged: lane branches and the steward add entries to them at once, and
+# two entries appended at the same place are both kept rather than conflicting. See docs/DECISIONS.md D214.
+# `TASKS.md` is NOT union, because its rows MOVE — a union merge would keep a row in both its old and new
+# place. DECISIONS.md's generated index is the one non-appended part: after a merge the steward re-runs
+# `decisions-index`, and `decisions-index --check` reports a stale one (it is outside `verify`).
+
+CHANGELOG.md merge=union
+docs/DECISIONS.md merge=union
+docs/task-archive.md merge=union
+docs/FIXES.md merge=union
