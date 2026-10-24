@@ -15,26 +15,25 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 13 across 6 Parts: 6 startable, 2 blocked, 2 watch, 3 decision-only
+## Open items — 12 across 6 Parts: 5 startable, 2 blocked, 2 watch, 3 decision-only
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 114 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a free Hugging Face account (an hf_ token) — its router proxies fal's own q… |
-| 161 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 184 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 240 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
-| 278 | 346 | RV25 — a GRAPH memory can be exported and imported through `IPortableMemory… | startable |  |
-| 292 | 347 | RV17 — a reader can tell when to use Lyntai and when not to, and start from… | startable |  |
-| 297 | 347 | RV21 — every storage contract runs on Postgres STRUCTURALLY, not through ha… | startable |  |
-| 301 | 347 | RV22 — a handler that succeeded before its completion was lost is redeliver… | startable |  |
-| 305 | 347 | RV23 — measure recall in three layers, candidate → ranked → answered, on tw… | startable |  |
-| 309 | 347 | RV24 — a re-embed can resume where an interrupted one stopped | startable |  |
-| 319 | 348 | RV18 — an Agent Framework / `Microsoft.Extensions.AI` adapter | decision-only | the owner's ruling on reversing D146, which deleted the bridge in both dire… |
-| 322 | 348 | RV19 — valid-time on a memory write, so a fact can be SUPERSEDED rather tha… | decision-only | the owner's ruling on reopening D106's bi-temporal write, the prerequisite … |
-| 325 | 348 | RV20 — LLM fact extraction and a user profile (the Mem0 / Zep / LangMem gap) | decision-only | the owner's ruling on whether to rebuild extraction after it lost to decay,… |
+| 113 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a free Hugging Face account (an hf_ token) — its router proxies fal's own q… |
+| 160 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 183 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 239 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 277 | 346 | RV25 — a GRAPH memory can be exported and imported through `IPortableMemory… | startable |  |
+| 291 | 347 | RV21 — every storage contract runs on Postgres STRUCTURALLY, not through ha… | startable |  |
+| 295 | 347 | RV22 — a handler that succeeded before its completion was lost is redeliver… | startable |  |
+| 299 | 347 | RV23 — measure recall in three layers, candidate → ranked → answered, on tw… | startable |  |
+| 303 | 347 | RV24 — a re-embed can resume where an interrupted one stopped | startable |  |
+| 313 | 348 | RV18 — an Agent Framework / `Microsoft.Extensions.AI` adapter | decision-only | the owner's ruling on reversing D146, which deleted the bridge in both dire… |
+| 316 | 348 | RV19 — valid-time on a memory write, so a fact can be SUPERSEDED rather tha… | decision-only | the owner's ruling on reopening D106's bi-temporal write, the prerequisite … |
+| 319 | 348 | RV20 — LLM fact extraction and a user profile (the Mem0 / Zep / LangMem gap) | decision-only | the owner's ruling on whether to rebuild extraction after it lost to decay,… |
 
 <!-- open-items:end -->
 
@@ -288,11 +287,6 @@ MAJOR release, which is the only kind allowed to break storage (**D18**, **D161*
 ## Part 347 — the competitive review: governed calls that cannot silently degrade (2026-10-24)
 
 _The third group from the same review (Part 346 names the record)._
-
-- [ ] **RV17 — a reader can tell when to use Lyntai and when not to, and start from a scenario.** No page <!-- item: state=startable -->
-  places the library against Agent Framework, LiteLLM or a memory service, and there is one sample. A
-  "when to use it" section in `docs/guide.md` linked from the README (**D197**), and two or three minimal
-  compiled scenarios.
 
 - [ ] **RV21 — every storage contract runs on Postgres STRUCTURALLY, not through hand-kept delegators.** <!-- item: state=startable -->
   `PostgresStorageTests` / `PostgresGovernanceStoreTests` restate each contract fact by hand, and

@@ -32,6 +32,11 @@ every addition.
 
 - **`llms.txt` and `context7.json`, for coding agents** (**D197**): an index of the docs written for language
   models, and the configuration the Context7 documentation index reads — both carrying README's agent rules.
+- **The guide says when to use Lyntai and when not to, and starts from three scenarios.** It places the library
+  against Microsoft Agent Framework, LiteLLM and memory services such as Mem0 and Zep, naming where each is the
+  better choice. Then come three minimal programs, compiled against the library: routed text with a fallback
+  and a hard token cap, long-term memory for an assistant, and tool calling with approval. README links to
+  both.
 - **`UseVectorSpace(id)`: vectors from two embedders are never mixed or compared** (**D199**). A store compares
   vectors by dimension alone, so a new model of the same dimension silently scored against the old one's vectors.
   With a space declared, each collection is stamped with the space that wrote it; a write into another space's

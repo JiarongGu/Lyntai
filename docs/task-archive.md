@@ -5690,3 +5690,16 @@ transports and through DI; **D210** records why a collection inside the shared f
 closed; `docs/guide.md` §Tool-calling carries the usage.
 
 - RV16 — a tool call can be APPROVED before it runs, through one seam every transport consults
+
+## Part 365 — RV17: a reader can tell when to use Lyntai and when not to, and start from a scenario (2026-10-24)
+
+✅ done 2026-10-24 — **Outcome:** the seventh item of the competitive review's governed-calls group (`TASKS.md`
+Part 347). `docs/guide.md` §When to use Lyntai, and when not to says where the library fits and where
+Microsoft Agent Framework, LiteLLM or a memory service (Mem0, Zep) is the better choice, stating what the tree
+lacks: no Agent Framework or MEAI adapter (**D146**), no gateway, no fact extraction and no valid time (**D90**).
+§Start from a scenario adds three compiled programs (routed text with a fallback and a hard token cap,
+long-term memory for an assistant, tool calling with approval), which `check-samples` counts. The scenarios are
+fenced blocks rather than `samples/` projects: they are compiled by an existing gate and enter no registry.
+README and `llms.txt` link to both.
+
+- RV17 — a reader can tell when to use Lyntai and when not to, and start from a scenario

@@ -10,6 +10,8 @@ version you installed.
 
 ## Contents
 
+- [When to use Lyntai, and when not to](#when-to-use-lyntai-and-when-not-to)
+- [Start from a scenario](#start-from-a-scenario)
 - [Install and compose](#install-and-compose)
 - [The semantics you're getting (design §6)](#the-semantics-youre-getting-design-6)
 - [Structured output](#structured-output)
@@ -29,6 +31,151 @@ version you installed.
 - [CLI-agent session vs `IToolLoop` (`IAgentSession`)](#cli-agent-session-vs-itoolloop-iagentsession)
 - [Durable jobs (`Lyntai.Jobs`)](#durable-jobs-lyntaijobs)
 - [Guards, orchestration, secrets, vision](#guards-orchestration-secrets-vision)
+
+## When to use Lyntai, and when not to
+
+Lyntai is a library a .NET application links in. It has no server, no UI and no language other than C#.
+
+**It fits when** the model calls, the memory and the governance belong inside your own process:
+
+- **One application, several backends.** A hosted model first, a local `llama-server` or Ollama as the
+  offline backstop, the signed-in `claude` or `codex` CLI with no API key: all candidates behind one
+  `ITextClient`, with failover, retries and dead-host cooldown, and no proxy to run.
+- **Memory that lives in your database.** The memory engines store on SQLite, PostgreSQL, files or in memory
+  beside your own tables. The graph engine decays by interference rather than the clock, buries rather than
+  deletes, and removes only when asked: `ForgetAsync` for a user's withdrawal, `PruneAsync` for capacity.
+- **One set of controls on every call.** The response cache, usage budget and rate limit sit on the front
+  door, so the tool loop, the scorers and memory's own model calls pass through them; a tool approver sees
+  every tool call, whichever path runs it.
+
+**Reach for something else when:**
+
+- **You are building on Microsoft Agent Framework or `Microsoft.Extensions.AI`.** Lyntai ships no adapter
+  to either, in either direction (`docs/DECISIONS.md` D146): it cannot be handed to Agent Framework as an
+  `IChatClient`, and an `IChatClient` enters Lyntai only through a lambda you write
+  ([`AddBridgeProvider`](#bridging-a-backend-lyntai-has-no-provider-for-addbridgeprovider)). Lyntai has a tool
+  loop and durable jobs, not a multi-agent workflow graph. If those abstractions are what you want, use
+  Agent Framework.
+- **You need a gateway many services share.** LiteLLM is a proxy: one endpoint for every language and
+  team, virtual keys, central spend tracking and a provider catalogue far wider than Lyntai's. Lyntai's
+  budget and rate limit are per process unless you back them with shared state (`UsePostgresUsageTracking`
+  for the budget, an `IRateLimiter` of your own for the rate). The two compose: LiteLLM speaks OpenAI's
+  schema, so `AddHttpProvider` can point at it.
+- **You want a memory service that extracts facts for you.** Mem0 and Zep turn conversations into facts
+  and user profiles with a model, and Zep tracks when a fact stopped being true. Lyntai stores what you write
+  (subject annotation is opt-in, `AddMemoryAnnotation()`); it does not extract facts, and a `MemoryWrite`
+  carries no valid time, so nothing supersedes anything. An old fact fades as newer material is written and
+  recalled; it is never marked false. They also serve many languages over HTTP, which Lyntai does not.
+
+## Start from a scenario
+
+Three minimal programs, each compiled against the library on every `verify`. The sections below hold the
+semantics.
+
+**Routed text with a fallback and a hard token cap.** The hosted model answers when its key is set. Without
+one it answers `NotConfigured`, and the router moves on to the local server with no cooldown:
+
+```csharp
+using Lyntai;
+using Lyntai.Inference;
+using Microsoft.Extensions.DependencyInjection;
+
+var services = new ServiceCollection();
+services.AddLyntai(cfg => cfg
+    .AddOpenAiProvider(apiKey: Environment.GetEnvironmentVariable("OPENAI_API_KEY") ?? "", model: "gpt-4o-mini")
+    .AddLlamaProvider()                                 // llama-server on localhost:8080, the offline backstop
+    .UseDefaultCandidates("openai", "llama")
+    .ConfigureRouting(r => r.Retry(ProviderVerdict.Failed, 1))
+    .AddUsageBudget(b =>
+    {
+        b.MaxTokens = 2_000_000;                        // for the whole process
+        b.ReserveTokens = 8_000;                        // held per call while it runs, which makes the cap hard
+    }));
+
+await using var sp = services.BuildServiceProvider();
+var llm = sp.GetRequiredService<ITextClient>();
+var reply = await llm.CompleteAsync(new TextRequest { Messages = [TextMessage.User("Summarize RFC 9110 in one line.")] });
+Console.WriteLine(reply.Verdict.IsOk() ? reply.Text : $"{reply.Verdict}: {reply.Detail}");
+```
+
+**Long-term memory for an assistant.** Remember under a task (here, one user) and a scope. A later turn
+recalls what is relevant into its prompt, and a withdrawal removes the user's material:
+
+```csharp
+using Lyntai;
+using Lyntai.Cortex;
+using Lyntai.Inference;
+using Lyntai.Memory;
+using Microsoft.Extensions.DependencyInjection;
+
+var services = new ServiceCollection();
+services.AddLyntai(cfg => cfg
+    .AddClaudeCliProvider()
+    .UseDefaultCandidates("claude-cli")
+    .UseSqliteStorage("assistant.db")                   // the graph engine persists here
+    .AddMemory());                                      // one engine, "default", behind IPromptComposer
+
+await using var sp = services.BuildServiceProvider();
+var memory = sp.GetRequiredService<IMemoryEngineFactory>().Get();
+await memory.RememberAsync(new MemoryWrite("user-42", "profile", "Prefers metric units."));
+await memory.RememberAsync(new MemoryWrite("user-42", "travel", "Is going to Kyoto in April."));
+
+var question = "What should I pack?";
+var prompt = await sp.GetRequiredService<IPromptComposer>()
+    .ComposeAsync(question, taskKey: "user-42", query: question);
+var reply = await sp.GetRequiredService<ITextClient>()
+    .CompleteAsync(new TextRequest { Messages = [TextMessage.User(prompt)], Consumer = "assistant" });
+
+if (memory is IForgettableMemory forgettable)
+    await forgettable.ForgetAsync("user-42");           // every scope of the task
+```
+
+**Tool calling with approval.** Every tool call passes the registered approvers before it runs. A refusal
+reaches the model as the tool's result, and the run goes on:
+
+```csharp
+using Lyntai;
+using Lyntai.Agents;
+using Lyntai.Inference;
+using Microsoft.Extensions.DependencyInjection;
+
+public sealed class ConfirmSends : IToolApprover
+{
+    public Task<ToolApprovalResult> ApproveAsync(ToolApprovalRequest call, CancellationToken ct = default)
+    {
+        if (!call.ToolName.StartsWith("send_", StringComparison.Ordinal))
+            return Task.FromResult(ToolApprovalResult.Approve);
+        Console.Write($"Allow {call.ToolName}({call.ArgumentsJson})? [y/N] ");
+        return Task.FromResult(Console.ReadLine() == "y"
+            ? ToolApprovalResult.Approve
+            : ToolApprovalResult.Deny("the user declined to send this"));
+    }
+}
+
+public static class SupportAgent
+{
+    public static async Task RunAsync()
+    {
+        var services = new ServiceCollection();
+        services.AddLyntai(cfg => cfg
+            .AddOllamaProvider(model: "qwen3")
+            .UseDefaultCandidates("ollama")
+            .AddTool(_ => new FunctionTool("lookup_order",
+                (args, ct) => Task.FromResult("""{"status":"shipped"}"""), "Look up an order by id"))
+            .AddTool(_ => new FunctionTool("send_email",
+                (args, ct) => Task.FromResult("sent"), "Email the customer"))
+            .AddToolApprover<ConfirmSends>());
+
+        await using var sp = services.BuildServiceProvider();
+        var result = await sp.GetRequiredService<IToolLoop>().RunAsync(new TextRequest
+        {
+            Messages = [TextMessage.User("Where is order 1187? Email the customer the answer.")],
+            Consumer = "support",
+        });
+        Console.WriteLine(result.Verdict.IsOk() ? result.Answer : $"{result.Verdict}: {result.Detail}");
+    }
+}
+```
 
 ## Install and compose
 
