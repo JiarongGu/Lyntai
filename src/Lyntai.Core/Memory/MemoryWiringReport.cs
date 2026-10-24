@@ -50,4 +50,8 @@ public enum MemoryWiringProblem
 
     /// <summary>An <see cref="Annotation.IMemoryAnnotationPolicy"/> is registered and no engine consults one.</summary>
     AnnotationUnconsulted = 5,
+
+    /// <summary>A graph member pins <see cref="GraphMemoryOptions.VectorProviderId"/> and has no
+    /// <see cref="IVectorStore"/>, so nothing it writes is ever embedded.</summary>
+    PinnedVectorProviderWithoutIndex = 6,
 }

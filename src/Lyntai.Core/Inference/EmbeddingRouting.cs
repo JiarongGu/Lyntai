@@ -30,6 +30,36 @@ internal static class EmbeddingRouting
         providers is not null
         && providers.Any(p => p is IVectorProvider && ProviderShapes.Embeds(p.Capabilities) && p.IsAvailable);
 
+    /// <summary>The backends an embed may route over: all of them, or only the one <paramref name="id"/> names —
+    /// so a pinned embed never fails over to another model (<c>docs/DECISIONS.md</c> <b>D209</b>, the shape
+    /// <b>D148</b> gave the reranker).</summary>
+    /// <param name="providers">The registered backends.</param>
+    /// <param name="id">The pinned backend's id, or null/blank for no pin.</param>
+    /// <param name="option">The option that set <paramref name="id"/>, named in the error.</param>
+    /// <exception cref="InvalidOperationException"><paramref name="id"/> names no registered backend, or one that
+    /// does not embed.</exception>
+    public static IEnumerable<IModelProvider>? Pinned(
+        IEnumerable<IModelProvider>? providers, string? id, string option)
+    {
+        if (string.IsNullOrWhiteSpace(id)) return providers;
+
+        var all = providers?.ToList() ?? [];
+        var named = ProviderLookup.Find(all, id)
+            ?? throw new InvalidOperationException(
+                $"{option} names '{id}', which is not a registered backend "
+                + $"({(all.Count == 0 ? "(none)" : string.Join(", ", all.Select(p => p.Id)))}). A name nothing "
+                + "answers to would leave every write unembedded and report nothing.");
+
+        // checked here rather than left to the router's capability filter, which would skip it in silence
+        if (named is not IVectorProvider || !ProviderShapes.Embeds(named.Capabilities))
+            throw new InvalidOperationException(
+                $"{option} names '{named.Id}', which does not embed — it produces "
+                + $"{ClientCandidates.Produces(named)}. Name a backend producing {ProviderKinds.Vector}, or drop "
+                + "the setting to route over every one.");
+
+        return [named];
+    }
+
     /// <summary>Embed a batch, falling over to the next capable backend when one fails.</summary>
     /// <exception cref="InvalidOperationException">Nothing can embed, or every backend failed. <b>Thrown
     /// rather than returned</b> because these callers have no verdict to put it in — the routing beneath

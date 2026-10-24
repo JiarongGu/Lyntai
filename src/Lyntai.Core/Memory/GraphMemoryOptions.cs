@@ -102,6 +102,19 @@ public sealed record GraphMemoryOptions
     /// is not foreseen, so that write is still annotated.</para></summary>
     public bool SkipAnnotationWithoutVector { get; init; }
 
+    /// <summary>WHICH registered backend embeds for this engine, by <see cref="Lyntai.Inference.IModelProvider.Id"/>:
+    /// every write, every recall query the semantic seed embeds, and every <see cref="IReindexableMemory.ReindexAsync"/>
+    /// batch. Null — the default — routes over every backend producing <see cref="Lyntai.Inference.ProviderKinds.Vector"/>
+    /// in registration order (<c>docs/DECISIONS.md</c> <b>D209</b>).
+    /// <para><b>Pin it as soon as a second vector backend exists for ANY reason.</b> Unpinned, registration order
+    /// decides which model fills this engine's index, and a failover writes the next backend's vectors into the
+    /// same collection — which a declared vector space cannot see, since it compares declared ids, not models.
+    /// Pinned, a failed embed is a failed embed: the write is stored without its vector, the re-embed counts it
+    /// failed, and no other model is asked.</para>
+    /// <para>An id naming no registered backend, or one that does not embed, THROWS when the engine is composed.
+    /// Matched case-insensitively, like every other id lookup here.</para></summary>
+    public string? VectorProviderId { get; init; }
+
     /// <summary>How many candidates to fetch per requested item. The store bounds the candidate set with
     /// plain arithmetic and the policy ranks it exactly afterwards, so a multiple above 1 is what keeps
     /// that ranking meaningful.</summary>

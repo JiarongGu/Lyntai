@@ -47,8 +47,11 @@ public sealed class GraphMemoryEngine(
             seams?.RetentionPolicies, seams?.RetentionComposition));
     private readonly MemoryAgeResolver _age = new(seams?.AgePolicies, seams?.AgeComposition);
     private readonly ILogger _logger = logger ?? NullLogger<GraphMemoryEngine>.Instance;
-    private readonly GraphVectorProjection _vectors = new(name, seams?.Providers, seams?.Vectors, seams?.Routing,
-        logger ?? (ILogger)NullLogger<GraphMemoryEngine>.Instance);
+    // narrowed ONCE, here, so a mis-pin throws at composition and every embed — write, re-embed — sees one backend
+    private readonly GraphVectorProjection _vectors = new(name,
+        EmbeddingRouting.Pinned(seams?.Providers, options?.VectorProviderId,
+            $"{nameof(GraphMemoryOptions)}.{nameof(GraphMemoryOptions.VectorProviderId)}"),
+        seams?.Vectors, seams?.Routing, logger ?? (ILogger)NullLogger<GraphMemoryEngine>.Instance);
     private readonly IReadOnlyList<IMemorySaliencePolicy> _saliencePolicies =
         NormalizeSaliencePolicies(seams?.SaliencePolicies);
     private readonly IMemorySalienceCompositionPolicy _salienceComposition =
@@ -229,6 +232,10 @@ public sealed class GraphMemoryEngine(
     /// <para>Internal and read only by <see cref="MemoryWiring"/>, exactly like
     /// <see cref="EmbedsWithoutSeeding"/> — the same defect on the other index.</para></summary>
     internal bool RecordsSubjectsWithoutSeeding => _annotation is not null && !MightSeed(MemorySeedKind.Subject);
+
+    /// <summary>This engine pins an embedder and has no index to embed into, so the pin never applies. Read only
+    /// by <see cref="MemoryWiring"/>, like the two above.</summary>
+    internal bool PinsWithoutIndex => !string.IsNullOrWhiteSpace(_options.VectorProviderId) && !_vectors.Wired;
 
     /// <inheritdoc />
     public string Name { get; } = name;
@@ -1240,7 +1247,10 @@ public sealed class GraphMemoryEngine(
         // no faintness bound: the store returns candidates grade-first, then most-recently-used, and the
         // count is the only limit, so nothing is excluded for having decayed — burial happens by rank, above
         var candidates = Saturating(limit, _options.CandidateMultiplier);
-        var request = new MemorySeedRequest(Name, store, query, candidates);
+        var request = new MemorySeedRequest(Name, store, query, candidates)
+        {
+            VectorProviderId = _options.VectorProviderId,
+        };
 
         var found = new List<(GraphNode Node, int Hop)>();
         var seen = new HashSet<long>();

@@ -102,6 +102,13 @@ every addition.
   are tenants. With the option set, the front door stores under `ResponseCacheKey.ForConsumer` — the same key
   prefixed with the consumer, matched case-insensitively — so two consumers never share an entry, on every
   backend. `ResponseCacheKey.For` and the default are unchanged, so every existing entry still hits.
+- **A graph memory can pin its embedder: `GraphMemoryOptions.VectorProviderId`** (**D209**). A graph engine's
+  embeds routed over every vector backend in registration order, so a backend registered for anything else could
+  fill its index, and a failover wrote a second model's vectors into the same collection. Pinned, the named
+  backend alone embeds the engine's writes, its semantic-seed query (`MemorySeedRequest.VectorProviderId` carries
+  the pin to the channel) and its `ReindexAsync`, and a failed embed is not retried on another model. An id naming
+  no backend, or one that does not embed, throws when the engine is built; a pin with no vector store is the new
+  `MemoryWiringProblem.PinnedVectorProviderWithoutIndex`. Unset, nothing changes.
 
 ### Fixed
 

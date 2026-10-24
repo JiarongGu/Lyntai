@@ -278,8 +278,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D206](#d206--a-hard-cap-is-a-hold-taken-before-the-call-through-an-optional-tracker-capability-opted-into-by-naming-the-hold-2026-10-24) | 2026-10-24 | a hard cap is a HOLD taken before the call through an OPTIONAL tracker capability, opted into by… |
 | [D207](#d207--a-calls-span-opens-at-the-outermost-layer-of-the-front-door-and-carries-no-gen_ai-tag-so-attempts-nest-under-it-and-are-counted-once-2026-10-24) | 2026-10-24 | a call's span opens at the OUTERMOST layer of the front door and carries no gen_ai.* tag, so atte… |
 | [D208](#d208--the-response-cache-partitions-by-consumer-through-a-prefix-on-the-key-opt-in-so-the-default-key-and-every-stored-entry-are-unchanged-2026-10-24) | 2026-10-24 | the response cache partitions by consumer through a PREFIX on the key, opt-in, so the default key… |
+| [D209](#d209--a-graph-engine-pins-its-embedder-by-provider-id-per-engine-and-a-pin-never-fails-over-2026-10-24) | 2026-10-24 | a graph engine PINS its embedder by provider id, per engine, and a pin never fails over |
 
-**203 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**204 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -6004,3 +6005,21 @@ null or empty consumer is its own partition. `ForConsumer` is public so a caller
 leaves a partition readable in the store. Partitioning by default: one trust domain is the common shape, and
 sharing across consumers is the saving there. Leaving it to a custom `IResponseCache`: the store receives only the
 key, so it cannot see the consumer it would partition by.
+
+## D209 — a graph engine PINS its embedder by provider id, per engine, and a pin never fails over (2026-10-24)
+
+`GraphMemoryOptions.VectorProviderId` narrows a graph engine's embedding to one registered backend: the write path,
+the semantic seed's query (`MemorySeedRequest.VectorProviderId` carries it, as the request already carries the
+store) and `ReindexAsync`. It is **D148**'s shape for the embedder: null routes over every vector backend as
+before, and an id naming no backend, or one that does not embed, throws when the engine is composed.
+
+**It composes with a declared vector space (D199) and is what makes one hold.** The stamp compares the id the host
+declared, never the model that answered, so an unpinned failover writes a second model's vectors into a stamped
+collection unseen. Pinned, a failed embed stays failed — the write is stored without its vector, the re-embed counts
+it and does not re-stamp — and no other model is asked.
+
+**Rejected.** A container-wide option: each named engine carries its own configuration (**D39**), and two engines
+may index under different models. A `ProviderId` on `SemanticSeedOptions` beside it: one shared source serves every
+engine, and a second setting could name a different model from the writes it searches. Falling back to routing on a
+mis-pin: the silent degradation D148 refused. A doctor finding for the mis-pin: composition throws first; the doctor
+reports only the inert pin, one with no vector store (`MemoryWiringProblem.PinnedVectorProviderWithoutIndex`).

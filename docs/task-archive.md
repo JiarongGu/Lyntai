@@ -5665,3 +5665,15 @@ unchanged, pinned by the existing key value and a test that the stored key IS `F
 
 - RV14 — the response cache can be partitioned by consumer, opt-in; the key excludes `Consumer` on purpose, which
   is right for one trust domain and a cross-consumer leak for two
+
+## Part 363 — RV15: a graph memory pins its embedder the way verification pins its reranker (2026-10-24)
+
+✅ done 2026-10-24 — **Outcome:** the fifth item of the competitive review's governed-calls group (`TASKS.md`
+Part 347). `GraphMemoryOptions.VectorProviderId` narrows a graph engine's embedding to one backend on all three
+paths — write, semantic-seed query (via `MemorySeedRequest.VectorProviderId`) and `ReindexAsync` — so a pinned
+embed never fails over to another model, which a declared vector space cannot see. A mis-pin throws at
+composition, as **D148**'s does; a pin with no vector store is `MemoryWiringProblem.PinnedVectorProviderWithoutIndex`.
+`docs/model-tasks.md` no longer says memory embedding is never batched: the re-embed is (**D194**).
+`VectorProviderPinTests` pins it; **D209** records why per engine and why no fallback.
+
+- RV15 — a memory engine can pin its EMBEDDER the way verification pins its reranker

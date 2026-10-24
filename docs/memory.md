@@ -986,6 +986,22 @@ services.AddLyntai(cfg => cfg
     .AddMemoryEngine("project", e => e.UseGraph()));
 ```
 
+**Pin the embedder the moment a second vector backend is registered** (**D209**). Unpinned, a graph engine's
+embeds route over every backend producing `ProviderKinds.Vector` in registration order, so a backend added for a
+tool selector decides which model fills the index, and a FAILOVER writes the next backend's vectors into the same
+collection — which a declared space cannot catch, because the stamp compares the id you declared, not the model
+that answered. `GraphMemoryOptions.VectorProviderId` names one backend for the engine's writes, its semantic-seed
+query and its re-embed; a failed embed then stays a failure (the write is stored without its vector, the re-embed
+counts it), and an id naming no backend, or one that does not embed, throws when the engine is built. The space
+says WHICH model the collection holds; the pin is what makes that true.
+
+```csharp
+services.AddLyntai(cfg => cfg
+    .UseSqliteStorage("app.db")
+    .UseVectorSpace("bge-m3@1")
+    .AddMemoryEngine("project", e => e.UseGraph(new GraphMemoryOptions { VectorProviderId = "bge" })));
+```
+
 ### Carry a memory to another store
 
 `IPortableMemory` writes one task's entries as JSONL and reads such a file back into another store, backend or

@@ -75,6 +75,12 @@ internal static class MemoryWiring
                     "AddMemorySubjectSeeds(), or drop the annotator; as wired the handles are readable only " +
                     "by the write path's own linking. If you HAVE your own subject channel, declare its " +
                     "Kind — this asks a channel's role, not its name."));
+
+            if (member.PinsWithoutIndex)
+                findings.Add(new(MemoryWiringProblem.PinnedVectorProviderWithoutIndex, member.Name,
+                    $"graph member '{member.Name}' pins GraphMemoryOptions.VectorProviderId and has no " +
+                    "IVectorStore, so nothing it writes is ever embedded. Register one, or pass the backend's " +
+                    "capabilities to AddProvider(factory, declares) so AddLyntai registers one; or drop the pin."));
         }
 
         if (verification && CertainlyUnconsulted(engines))
