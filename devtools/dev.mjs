@@ -11,6 +11,7 @@ import { fileURLToPath } from 'node:url';
 import { COMMANDS, VERIFY_STEPS } from './commands.mjs';
 import config from './project.config.mjs';
 import { changelogDoctor, claudeDoctor, packDoctor, versionDoctor } from './scripts/doctors.mjs';
+import { RESULTS_DIR, SUMMARY_NAME, TRX_NAME, testEvidence } from './scripts/_test-evidence.mjs';
 import { fingerprintDrift, fingerprintTree } from './scripts/_tree-fingerprint.mjs';
 
 const here = fileURLToPath(import.meta.url);
@@ -35,7 +36,15 @@ const valueOf = (args, flag) => {
 /** The commands `dev.mjs` runs itself, keyed by name. Every `builtin` in the roster has exactly one. */
 export const BUILTINS = {
   build: () => run('dotnet', ['build', config.solution, '-v', 'minimal']),
-  test: (args) => run('dotnet', ['test', config.testProject, '-v', 'minimal', ...args]),
+  test: (args) => {
+    // The trx is deleted first: a stale one from an earlier run would be read as this run's evidence.
+    const results = path.join(repo, RESULTS_DIR);
+    fs.rmSync(path.join(results, TRX_NAME), { force: true });
+    run('dotnet', ['test', config.testProject, '-v', 'minimal', '--logger', `trx;LogFileName=${TRX_NAME}`,
+      '--results-directory', results, ...args]);
+    const evidence = testEvidence({ trxPath: path.join(results, TRX_NAME), summaryPath: path.join(results, SUMMARY_NAME) });
+    process.exitCode ||= evidence;
+  },
   playground: (args) => run('dotnet', ['run', '--project', config.playgroundProject, ...args]),
   bench: (args) => bench(args),
   'install-hooks': () => {

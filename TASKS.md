@@ -15,39 +15,38 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 26 across 7 Parts: 18 startable, 3 blocked, 2 watch, 3 decision-only
+## Open items — 25 across 7 Parts: 17 startable, 3 blocked, 2 watch, 3 decision-only
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 127 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a free Hugging Face account (an hf_ token) — its router proxies fal's own q… |
-| 174 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 197 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 253 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
-| 290 | 345 | RV3 — `verify` writes what its test step EXECUTED, so a skipped Postgres le… | startable |  |
-| 294 | 345 | RV4 — a host can deny CLI and MCP tools by default, so a `memory` or `scori… | startable |  |
-| 305 | 346 | RV5 — a recall can EXPLAIN itself: per-candidate channel, rank, hop, score … | startable |  |
-| 309 | 346 | RV6 — a composition reports what it left out, and why | startable |  |
-| 313 | 346 | RV7 — the memory wiring check is data a host can read, and a store can repo… | startable |  |
-| 318 | 346 | RV8 — every memory bench writes one result shape, and two runs compare pair… | startable |  |
-| 322 | 346 | RV9 — a curated fact carries a revision, and an update can refuse a stale o… | startable |  |
-| 326 | 346 | RV10 — memory can be EXPORTED and IMPORTED in a portable form, scoped and n… | startable |  |
-| 335 | 347 | RV11 — a schema- or tool-bearing request skips a candidate that cannot hono… | startable |  |
-| 340 | 347 | RV12 — a budget can RESERVE before a call and reconcile after, for a host t… | startable |  |
-| 344 | 347 | RV13 — the front door opens ONE span per call, carrying the consumer, and a… | startable |  |
-| 347 | 347 | RV14 — the response cache can be partitioned by consumer, opt-in | startable |  |
-| 350 | 347 | RV15 — a memory engine can pin its EMBEDDER the way verification pins its r… | startable |  |
-| 353 | 347 | RV16 — a tool call can be APPROVED before it runs, through one seam every t… | startable |  |
-| 357 | 347 | RV17 — a reader can tell when to use Lyntai and when not to, and start from… | startable |  |
-| 362 | 347 | RV21 — every storage contract runs on Postgres STRUCTURALLY, not through ha… | startable |  |
-| 366 | 347 | RV22 — a handler that succeeded before its completion was lost is redeliver… | startable |  |
-| 370 | 347 | RV23 — measure recall in three layers, candidate → ranked → answered, on tw… | blocked · tree | RV5 (per-candidate diagnostics) and RV8 (one result shape, a paired compare) |
-| 374 | 347 | RV24 — a re-embed can resume where an interrupted one stopped | startable |  |
-| 384 | 348 | RV18 — an Agent Framework / `Microsoft.Extensions.AI` adapter | decision-only | the owner's ruling on reversing D146, which deleted the bridge in both dire… |
-| 387 | 348 | RV19 — valid-time on a memory write, so a fact can be SUPERSEDED rather tha… | decision-only | the owner's ruling on reopening D106's bi-temporal write, the prerequisite … |
-| 390 | 348 | RV20 — LLM fact extraction and a user profile (the Mem0 / Zep / LangMem gap) | decision-only | the owner's ruling on whether to rebuild extraction after it lost to decay,… |
+| 126 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a free Hugging Face account (an hf_ token) — its router proxies fal's own q… |
+| 173 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 196 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 252 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 289 | 345 | RV4 — a host can deny CLI and MCP tools by default, so a `memory` or `scori… | startable |  |
+| 300 | 346 | RV5 — a recall can EXPLAIN itself: per-candidate channel, rank, hop, score … | startable |  |
+| 304 | 346 | RV6 — a composition reports what it left out, and why | startable |  |
+| 308 | 346 | RV7 — the memory wiring check is data a host can read, and a store can repo… | startable |  |
+| 313 | 346 | RV8 — every memory bench writes one result shape, and two runs compare pair… | startable |  |
+| 317 | 346 | RV9 — a curated fact carries a revision, and an update can refuse a stale o… | startable |  |
+| 321 | 346 | RV10 — memory can be EXPORTED and IMPORTED in a portable form, scoped and n… | startable |  |
+| 330 | 347 | RV11 — a schema- or tool-bearing request skips a candidate that cannot hono… | startable |  |
+| 335 | 347 | RV12 — a budget can RESERVE before a call and reconcile after, for a host t… | startable |  |
+| 339 | 347 | RV13 — the front door opens ONE span per call, carrying the consumer, and a… | startable |  |
+| 342 | 347 | RV14 — the response cache can be partitioned by consumer, opt-in | startable |  |
+| 345 | 347 | RV15 — a memory engine can pin its EMBEDDER the way verification pins its r… | startable |  |
+| 348 | 347 | RV16 — a tool call can be APPROVED before it runs, through one seam every t… | startable |  |
+| 352 | 347 | RV17 — a reader can tell when to use Lyntai and when not to, and start from… | startable |  |
+| 357 | 347 | RV21 — every storage contract runs on Postgres STRUCTURALLY, not through ha… | startable |  |
+| 361 | 347 | RV22 — a handler that succeeded before its completion was lost is redeliver… | startable |  |
+| 365 | 347 | RV23 — measure recall in three layers, candidate → ranked → answered, on tw… | blocked · tree | RV5 (per-candidate diagnostics) and RV8 (one result shape, a paired compare) |
+| 369 | 347 | RV24 — a re-embed can resume where an interrupted one stopped | startable |  |
+| 379 | 348 | RV18 — an Agent Framework / `Microsoft.Extensions.AI` adapter | decision-only | the owner's ruling on reversing D146, which deleted the bridge in both dire… |
+| 382 | 348 | RV19 — valid-time on a memory write, so a fact can be SUPERSEDED rather tha… | decision-only | the owner's ruling on reopening D106's bi-temporal write, the prerequisite … |
+| 385 | 348 | RV20 — LLM fact extraction and a user profile (the Mem0 / Zep / LangMem gap) | decision-only | the owner's ruling on whether to rebuild extraction after it lost to decay,… |
 
 <!-- open-items:end -->
 
@@ -287,10 +286,6 @@ review proposed and the tree already has, or a decision already refused, is not 
 a working position (`input-is-thinking-not-doctrine.md`): the group is the goal for the next MAJOR release,
 which is the only kind allowed to break storage (**D18**, **D161**), and no item names that number._
 
-- [ ] **RV3 — `verify` writes what its test step EXECUTED, so a skipped Postgres leg cannot read green.** <!-- item: state=startable -->
-  The xUnit trio is re-measured by hand (`docs/GATES.md` §Which numbers a gate holds) and a Docker-down run
-  passes every gate. Emit a trx, reduce it to a JSON summary with each skip bucketed by reason, and fail
-  when a Postgres fact skipped unless the run declares it.
 - [ ] **RV4 — a host can deny CLI and MCP tools by default, so a `memory` or `scoring` call gets none.** <!-- item: state=startable -->
   `McpToolHostOptions.ToolsByConsumer` falls back to EVERY tool when neither the consumer nor `"default"` is
   listed, and a one-shot claude call denies only `AskUserQuestion`. Model calls that read untrusted memory

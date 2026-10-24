@@ -37,7 +37,8 @@ public sealed class PostgresFixture : IAsyncLifetime
         catch (Exception ex)
         {
             Available = false; // Docker unavailable / image pull failed → tests skip
-            InitError = $"{ex.GetType().Name}: {ex.Message}";
+            // The prefix is how `verify` tells a Postgres skip from a live-backend one (`_test-evidence.mjs`).
+            InitError = $"Postgres/Docker unavailable: {ex.GetType().Name}: {ex.Message}";
             return;
         }
 

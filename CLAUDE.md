@@ -12,16 +12,17 @@ The reasoning is `docs/DECISIONS.md`, **D1–D199** — read its generated index
 decisions kept here.
 
 **The baseline a green run should match:** `5293 passed / 5342 total, 49 skipped` (every skip is a
-live-backend gate), e2e 3/3, guard-script tests 973/973, doc samples 60/60 — MEASURED with Docker up at
+live-backend gate), e2e 3/3, guard-script tests 987/987, doc samples 60/60 — MEASURED with Docker up at
 `7133e0e9` (2026-10-24). No gate holds the xUnit trio (`docs/GATES.md` §Which numbers a gate holds), so:
 
 - **Re-measure it by hand after `verify`, off that run's own output**, never from a diff, and re-attest the
   COMMIT with the figures whenever they move.
 - **Accept movement only against a NAMED cause**: a test added or removed. A refactor moves nothing, and
   retiring a package costs its two `ApiSurface` theories. Any other movement is a finding.
-- **A skip count in the low HUNDREDS means Docker is down**: the Postgres leg went unexercised while every
-  gate stayed green. Start Docker and re-run; never attest a figure reconciled by arithmetic. One more skip
-  against a named new live-gated test is fine, and a LOWER count is the live suites running.
+- **A skip count in the low HUNDREDS means Docker is down**: the Postgres leg went unexercised, and `test`
+  fails on it unless the run set `LYNTAI_ALLOW_POSTGRES_SKIP=1` (`docs/GATES.md` §test). Start Docker and
+  re-run; never attest a figure reconciled by arithmetic. One more skip against a named new live-gated test
+  is fine, and a LOWER count is the live suites running.
 
 ## Dev loop
 
@@ -44,7 +45,7 @@ rebuilds it and `verify` fails while the two disagree.
 | `check-packages` | ✓ | a package missing from any registry; the misses are silent |
 | `new-package` |  | scaffold an adapter package into every registry |
 | `consumer-smoke` |  | the release gate — a fresh app against the PACKAGES. Minutes |
-| `test` | ✓ | the xUnit tests |
+| `test` | ✓ | the xUnit tests — a SKIPPED Postgres leg fails unless the run declares it |
 | `test-devtools` | ✓ | the guards' own tests — FIRST in `verify` |
 | `playground` |  | the sample console app |
 | `bench` |  | BenchmarkDotNet router/FTS benchmarks |

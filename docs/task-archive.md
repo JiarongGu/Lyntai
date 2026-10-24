@@ -5509,3 +5509,15 @@ ships the identity half only, and **D199** records why the stamp lives in the ve
 collection is adopted. `docs/memory.md` §Re-embed carries the usage. A resumable re-embed remains unbuilt.
 
 - RV2 — a stored vector says which vector space wrote it, and recall refuses a mismatch
+
+## Part 351 — RV3: `verify`'s test step records what it EXECUTED, and a skipped Postgres leg fails (2026-10-24)
+
+✅ done 2026-10-24 — **Outcome:** the third item of the competitive review's backlog (`TASKS.md` Part 345).
+`dev.mjs test` emits a trx and reduces it (`devtools/scripts/_test-evidence.mjs`) to
+a gitignored `summary.json` — the trio plus every skip bucketed by reason — and fails when a Postgres
+fact skipped unless the run sets `LYNTAI_ALLOW_POSTGRES_SKIP=1`, so a Docker-down run no longer reads green.
+The leg is identified by the `Postgres/Docker unavailable` prefix `PostgresFixture.InitError` now carries, held
+by a guard test over the test sources. The xUnit trio is still re-measured by hand: the summary records it,
+nothing compares it with `CLAUDE.md`. `docs/GATES.md` §test is the gate; the trx `Counters` trap is in `pitfalls.md`.
+
+- RV3 — `verify` writes what its test step EXECUTED, so a skipped Postgres leg cannot read green

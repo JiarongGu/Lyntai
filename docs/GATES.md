@@ -83,7 +83,7 @@ Not all of them, and the difference decides what has to be re-measured by hand.
 | guard-script tests | `test-devtools`, against its own run |
 | documented C# samples | `check-samples`, against its own run |
 | e2e suites, the migration count | `check-counts` (derivable from the tree) |
-| the xUnit trio (passed / total / skipped) | **NOTHING** |
+| the xUnit trio (passed / total / skipped) | **NOTHING** — `test` writes it to a JSON summary and holds only the Postgres leg (§test) |
 
 **A run-derived number is checked by the gate that PRODUCES it**, never by a static counter that would have
 to reimplement the filtering: both baselines `CLAUDE.md` quotes are compared by `_baseline.mjs` on a green
@@ -96,9 +96,10 @@ them from a diff, which is exactly how `3266/3287` was once written against a tr
 stale baseline is worse than none: the whole point is that a reader can compare, and a count that no longer
 matches a green run teaches them to stop comparing.
 
-**A skip count in the low HUNDREDS means Docker is down and the whole Postgres leg is silently
-unexercised** — start it and re-run before believing a green suite. `docs/task-archive.md` Part 58 caught a
-missing table exactly that way, and it has recurred since, green on every gate each time. **Derive the leg
+**A skip count in the low HUNDREDS means Docker is down and the whole Postgres leg is unexercised** —
+start it and re-run before believing a green suite. `docs/task-archive.md` Part 58 caught a missing table
+exactly that way, and it recurred, green on every gate each time, until `test` began failing on a Postgres
+skip (§test). **Derive the leg
 from the pair of runs, never carry its size forward**: skipped(down) − skipped(up) = passed(up) −
 passed(down), the same quantity from both sides, and it grows with the tree. A figure that reconciles by
 that arithmetic is still not a measurement; attest only the Docker-up run.
@@ -133,6 +134,7 @@ nobody can see opening.
 | `check-comments` | `comment-ok` | on a block's first line; reserve it for a block no reader would want shorter — a table, a wire-format capture |
 | `check-tautology` | `tautology-ok` | a line that names the collapsed contrast deliberately |
 | `check-measurements` | `measure-ok` | a line discussing ANOTHER result's retraction; naming what this row supersedes is the better fix, and it is also the bookkeeping the index needs |
+| `test` | `LYNTAI_ALLOW_POSTGRES_SKIP=1` | an environment variable, not a line marker: the RUN declares that its Postgres leg is expected to skip (§test) |
 | `check-decisions`, `check-archive`, `check-backlog`, `check-pitfalls`' length ratchet | **none** | an allowance is a visible ratcheted number and is the only way out |
 
 **An allowance that stops matching FAILS, and one looser than the subject needs FAILS**, so exclusions
@@ -808,6 +810,22 @@ and a type declared in a sample OUTRANKS the same type from a referenced assembl
 **Its sample-count check reads `CLAUDE.md` BY PATH and FAILS on an absent claim**, as `test-devtools`' does
 (§Which numbers a gate holds). It once failed open, so as not to dictate prose — which made deleting the
 baseline sentence a way to stop a real `verify` check with no failure and no output.
+
+### `test` — what the xUnit run EXECUTED, not what it printed
+
+With Docker down every Postgres fact skips and `dotnet test` still prints `Passed!`, so a run that never
+touched the Postgres backend read green on every gate. `dev.mjs test` now emits a trx, deletes any earlier
+one first so a stale record cannot stand in for this run, and reduces it (`devtools/scripts/_test-evidence.mjs`)
+to a `summary.json` in the gitignored `RESULTS_DIR` it names: the trio, every skip bucketed by REASON with
+its count and classes, and whether the run declared a Postgres skip. It prints the
+trio on one line — the figures to re-measure by hand (§Which numbers a gate holds) — and **FAILS when a
+Postgres fact skipped** unless the run sets `LYNTAI_ALLOW_POSTGRES_SKIP=1`, and when the trx is missing
+or records nothing.
+
+**The leg is identified by its skip REASON**: `PostgresFixture.InitError` and every site's fallback start
+`Postgres/Docker unavailable`, and a guard test reads the test sources to hold that, because a reworded
+reason would disarm the check silently. Counts come from each result's outcome, never the trx `Counters`
+element, which reports `notExecuted="0"` for an xUnit skip.
 
 ### `check-sensitive` — the leak scan
 

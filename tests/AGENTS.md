@@ -18,9 +18,9 @@
 
 ## Traps
 
-- **A skip count in the low hundreds means Docker is down**: the Postgres leg went unexercised while every
-  gate stayed green. The baseline to compare against, and how to read movement in it, is `CLAUDE.md`
-  §Current state.
+- **A skip count in the low hundreds means Docker is down**: the Postgres leg went unexercised, and `test`
+  fails on it unless the run declares it (`docs/GATES.md` §test). The baseline to compare against, and how
+  to read movement in it, is `CLAUDE.md` §Current state.
 - A test that wraps a migration in the Docker-down catch turns a broken migration into a skip; the
   fixture's comment says why the catch covers container startup only.
 

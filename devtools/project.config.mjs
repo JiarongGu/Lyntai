@@ -1534,7 +1534,7 @@ export default {
   devLoopCommands: {
     verify: 'the "am I done?" gate. Hands off the tree while it runs',
     build: 'build the solution',
-    test: 'the xUnit tests',
+    test: 'the xUnit tests — a SKIPPED Postgres leg fails unless the run declares it',
     'test-devtools': "the guards' own tests — FIRST in `verify`",
     e2e: 'the Playground against the deterministic provider-stub',
     'check-warnings': 'a warning in `src/` — an unfailed IL2026 is a FALSE trim promise',
