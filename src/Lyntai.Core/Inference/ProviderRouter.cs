@@ -89,6 +89,24 @@ public sealed class ProviderRouter<TRequest, TResponse>(
     /// returned — is classified through <see cref="ProviderVerdictClassifier"/> and routed on.</para></summary>
     public async Task<TResponse> CallAsync(TRequest request, CancellationToken ct = default)
     {
+        // one span per call, so a fallback's attempts nest under it (D207)
+        using var span = LyntaiDiagnostics.StartCallSpan(Operation,
+            request is IConsumerTagged tagged ? tagged.Consumer ?? ProviderConsumers.Default : null);
+        try
+        {
+            var response = await GovernedCallAsync(request, ct).ConfigureAwait(false);
+            LyntaiDiagnostics.EndCallSpan(span, response.Verdict, response.Detail);
+            return response;
+        }
+        catch (Exception ex)
+        {
+            LyntaiDiagnostics.FaultCallSpan(span, ex);
+            throw;
+        }
+    }
+
+    private async Task<TResponse> GovernedCallAsync(TRequest request, CancellationToken ct)
+    {
         // Governance first, and only for a request that can be ATTRIBUTED: a budget refusal must cost no
         // backend call, and a client-side rate refusal is nobody's fault — both return before the loop, so
         // no host is tried, penalized or benched for them (D163).

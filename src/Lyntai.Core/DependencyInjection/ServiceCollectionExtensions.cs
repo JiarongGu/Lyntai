@@ -296,9 +296,10 @@ public static class LyntaiServiceCollectionExtensions
             // refusal screening (per-request TextRequest.RefusalPattern + any registered IRefusalMatcher) is
             // OUTERMOST + always on (the pattern is a request field), so it re-screens even a cached hit.
             // Deliberately NOT in FrontDoorDecorators, so it doesn't trip the "decorators configured but
-            // ITextClient pre-registered" guard above.
-            return new RefusalScreeningTextClient(client, sp.GetServices<IRefusalMatcher>(),
-                sp.GetService<ILogger<RefusalScreeningTextClient>>());
+            // ITextClient pre-registered" guard above. The call span wraps even that, so it carries the
+            // verdict the caller got (D207).
+            return new CallSpanTextClient(new RefusalScreeningTextClient(client, sp.GetServices<IRefusalMatcher>(),
+                sp.GetService<ILogger<RefusalScreeningTextClient>>()));
         }
 
         // An id naming no registered provider THROWS rather than narrowing to whatever does exist: a

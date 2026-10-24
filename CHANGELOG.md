@@ -91,6 +91,12 @@ every addition.
   is the capability, implemented by the in-memory, SQLite and Postgres trackers — atomically on both databases,
   so the cap holds across processes. Migration `M202610241822_UsageReservation` adds the
   `lyntai_usage_reservation` table. Unset, nothing changes, and a custom tracker keeps the soft check.
+- **One `lyntai.call` span per call, carrying the consumer, with every provider attempt nested under it** (**D207**).
+  A fallback used to read as unrelated `chat {model}` spans; now it is one call with two children. Every text front
+  door opens it, default and named, completion and stream, outside refusal screening, so it carries the verdict
+  the caller got; the generic router opens it for embeds, reranks and an application's own kinds. Tagged
+  `lyntai.consumer`, `lyntai.call.operation`, `lyntai.call.door`, and `error.type` when the call failed. It
+  carries no `gen_ai.*` tag and records no request or reply text. The attempt spans are unchanged.
 
 ### Fixed
 

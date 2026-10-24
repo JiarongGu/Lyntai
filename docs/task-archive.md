@@ -5641,3 +5641,15 @@ use it. `UsageReservationContract` (all three backends) and `UsageReservationBud
 why it is optional and opted into by the hold.
 
 - RV12 — a budget can RESERVE before a call and reconcile after, for a host that needs a hard cap
+
+## Part 361 — RV13: the front door opens one span per call, carrying the consumer (2026-10-24)
+
+✅ done 2026-10-24 — **Outcome:** the third item of the competitive review's governed-calls group (`TASKS.md`
+Part 347). The internal `CallSpanTextClient` wraps refusal screening in the shared front-door fold, so every text
+client, default and named, completion and stream, opens one `lyntai.call` span tagged `lyntai.consumer`, and every
+`chat {model}` attempt span nests under it; `ProviderRouter<,>.CallAsync` opens the same span for embeds, reranks
+and application kinds. The span carries the verdict the caller got, ends with a stream however it ends, and records
+no body. The media doors are not covered. `CallSpanTests` pins it; **D207** records why it opens outermost and
+carries no `gen_ai.*` tag.
+
+- RV13 — the front door opens ONE span per call, carrying the consumer, and attempts nest under it

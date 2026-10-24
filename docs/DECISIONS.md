@@ -276,8 +276,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D204](#d204--memory-travels-as-versioned-jsonl-through-an-optional-engine-capability-scoped-to-one-named-task-without-vectors-2026-10-24) | 2026-10-24 | memory travels as versioned JSONL through an OPTIONAL engine capability, scoped to one named task… |
 | [D205](#d205--a-request-may-refuse-degradation-per-request-and-opt-in-and-the-router-skips-a-candidate-whose-capabilities-would-degrade-it-2026-10-24) | 2026-10-24 | a request may REFUSE degradation, per request and opt-in, and the router skips a candidate whose… |
 | [D206](#d206--a-hard-cap-is-a-hold-taken-before-the-call-through-an-optional-tracker-capability-opted-into-by-naming-the-hold-2026-10-24) | 2026-10-24 | a hard cap is a HOLD taken before the call through an OPTIONAL tracker capability, opted into by… |
+| [D207](#d207--a-calls-span-opens-at-the-outermost-layer-of-the-front-door-and-carries-no-gen_ai-tag-so-attempts-nest-under-it-and-are-counted-once-2026-10-24) | 2026-10-24 | a call's span opens at the OUTERMOST layer of the front door and carries no gen_ai.* tag, so atte… |
 
-**201 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**202 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -5974,3 +5975,18 @@ can: every SQL-tracker deployment would gain a write per call and, on Postgres, 
 request's `MaxTokens`: tokens are not cost, and Lyntai keeps no price table to convert them. A single conditional `INSERT … SELECT`
 on Postgres: under READ COMMITTED two callers both see room. A hold without expiry: a crashed process would strand
 budget for good.
+
+## D207 — a call's span opens at the OUTERMOST layer of the front door and carries no gen_ai.* tag, so attempts nest under it and are counted once (2026-10-24)
+
+`CallSpanTextClient` wraps refusal screening in the one front-door fold every client shares (default and named),
+and `ProviderRouter<,>.CallAsync` opens the same span around its governance. Each opens `lyntai.call`
+(`ActivityKind.Internal`) tagged `lyntai.consumer`, `lyntai.call.operation` and, on text, `lyntai.call.door`; the
+attempt spans start under it unchanged. It ends with the call — a stream's when it finishes, is disposed early or
+throws — and carries `error.type` for the verdict the CALLER got, so a screened refusal, a budget or rate refusal and
+a cache hit (a span with no attempt) all read correctly. No body is recorded, whatever `RecordText` says.
+
+**Rejected.** Opening it in `TextRouter`: it would miss the cache, budget, rate-limit and screening layers, and the
+verdict on it would not be the one returned. Tagging it `gen_ai.operation.name`: a backend counting chat spans would
+count every call twice. An opt-in: nothing is emitted without a listener, and every existing span keeps its name and
+tags. The media doors: their spans are on the generation source and a durable render's span is its submission, not
+the call.

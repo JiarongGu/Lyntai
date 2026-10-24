@@ -293,8 +293,8 @@ public class ResponseCacheTests
         using var sp = services.BuildServiceProvider();
 
         var client = sp.GetRequiredService<ITextClient>();
-        // the always-on refusal screen wraps the front door; the caching behavior is proven below
-        Assert.IsType<RefusalScreeningTextClient>(client);
+        // the call span (D207) wraps the refusal screen, which wraps the front door; caching is proven below
+        Assert.IsType<CallSpanTextClient>(client);
 
         var req = new TextRequest { Messages = [TextMessage.User("hi")] };
         var first = await client.CompleteAsync(req);

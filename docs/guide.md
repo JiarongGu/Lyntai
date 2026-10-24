@@ -406,7 +406,11 @@ meterProviderBuilder.AddMeter(LyntaiDiagnostics.AgentMeterName);              //
 ```
 
 `chat {model}` spans carry `gen_ai.system` (provider id), `gen_ai.request.model`, token usage and
-`error.type` (the verdict); a `tool_loop` span nests one `execute_tool {name}` span per call. `ITraceService`
+`error.type` (the verdict), one per provider attempt. Each sits under the call's own `lyntai.call` span — opened
+by every text front door and by the generic router, tagged `lyntai.consumer`, `lyntai.call.operation` and
+`error.type` when the caller got a failure — so a fallback reads as one call with two attempts, and a cache hit as a
+call with none (`docs/DECISIONS.md` **D207**). No span records the request or reply text. A `tool_loop` span nests
+one `execute_tool {name}` span per call. `ITraceService`
 is separate and **app-driven**: a durable, queryable run history you record yourself (`Begin(sessionId, mode)`,
 `recorder.Record(step)`) into the wired `ITraceStore`.
 
