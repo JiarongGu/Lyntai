@@ -16,6 +16,9 @@ public class DecoratedInterfaceTests
     {
         ["Lyntai.Storage.IDbConnectionFactory.OpenAsync(CancellationToken)"] =
             "the fallback runs the decorator's own Open: correct, only loses the inner factory's async open",
+        ["Lyntai.Memory.IVectorStore.SearchAsync(String, Single[], Int32, VectorSearchFilter, CancellationToken)"] =
+            "the fallback ranks the whole collection and filters: correct, only slower; a body-less member would be a "
+            + "Breaking action for every store an application wrote (D194), and the one decorator forwards it",
     };
 
     private static readonly Type[] Shipped =

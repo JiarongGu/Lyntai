@@ -152,6 +152,27 @@ internal sealed class GraphVectorProjection(
         }
     }
 
+    /// <summary>Release the vector-space stamps of the collections <paramref name="nodes"/> live in, so a re-embed may
+    /// write into them; a no-op unless a space is declared (<b>D199</b>).</summary>
+    internal async Task ReleaseSpaceAsync(IEnumerable<GraphNode> nodes, CancellationToken ct)
+    {
+        if (vectors is not VectorSpaceStore spaced) return;
+        foreach (var collection in CollectionsOf(nodes))
+            await spaced.UnstampAsync(collection, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>Stamp the collections <paramref name="nodes"/> live in with the declared space — after a re-embed
+    /// that left none of them on the old model.</summary>
+    internal async Task ClaimSpaceAsync(IEnumerable<GraphNode> nodes, CancellationToken ct)
+    {
+        if (vectors is not VectorSpaceStore spaced) return;
+        foreach (var collection in CollectionsOf(nodes))
+            await spaced.StampAsync(collection, ct).ConfigureAwait(false);
+    }
+
+    private IEnumerable<string> CollectionsOf(IEnumerable<GraphNode> nodes) =>
+        nodes.Select(n => Collection(n.TaskKey, n.Scope)).Distinct(StringComparer.Ordinal);
+
     /// <summary>Take back a vector just indexed for a node that a removal from ANOTHER engine instance deleted
     /// meanwhile. Best-effort and loud: the removal has already returned, so the writer is the last party able to
     /// clear it. Returns whether the vector is gone.</summary>

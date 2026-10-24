@@ -567,6 +567,28 @@ public sealed class LyntaiBuilder
         return this;
     }
 
+    /// <summary>Set by <see cref="UseVectorSpace"/>: the vector space every collection the store holds is stamped with.</summary>
+    internal string? VectorSpace { get; private set; }
+
+    /// <summary>Declare which vector space this deployment's embedder produces — a name the host chooses for a
+    /// model, its version and its preprocessing, such as <c>"bge-m3@1"</c> — so vectors from two embedders are never
+    /// mixed or compared. Change it whenever the embedder changes, even to a model of the same dimension.
+    /// <para>The registered <see cref="IVectorStore"/> is wrapped. Each collection is stamped with the space that
+    /// first wrote it; a write into a collection another space stamped THROWS, a search of one finds nothing and
+    /// logs a warning, and a read-back throws. A graph engine's <c>ReindexAsync</c> moves a collection to the
+    /// declared space when it re-embeds it without a failure; a semantic collection moves by forgetting and
+    /// re-remembering it. A collection written before the space was declared is unstamped: it is read as before, and
+    /// its first write claims it — so declare the space BEFORE changing the embedder. Each guarded call costs one
+    /// extra read of the stamp.</para>
+    /// <para>Wraps the store registered when <c>AddLyntai</c> returns; one registered afterwards is not wrapped.</para></summary>
+    /// <param name="id">The vector space's name; compared ordinally.</param>
+    public LyntaiBuilder UseVectorSpace(string id)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(id);
+        VectorSpace = id;
+        return this;
+    }
+
     /// <summary>Set the router fallback order used when callers don't pass explicit candidates.
     /// SETS (clears + replaces) the default candidate list — the last call wins; it does not append.
     /// Each entry is a candidate spec, as <c>LYNTAI_DEFAULT_CANDIDATES</c> reads one: a provider id, optionally

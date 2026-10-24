@@ -32,6 +32,11 @@ every addition.
 
 - **`llms.txt` and `context7.json`, for coding agents** (**D197**): an index of the docs written for language
   models, and the configuration the Context7 documentation index reads — both carrying README's agent rules.
+- **`UseVectorSpace(id)`: vectors from two embedders are never mixed or compared** (**D199**). A store compares
+  vectors by dimension alone, so a new model of the same dimension silently scored against the old one's vectors.
+  With a space declared, each collection is stamped with the space that wrote it; a write into another space's
+  collection throws, a search of one finds nothing and warns, and a graph engine's `ReindexAsync` moves a
+  collection to the declared space. Undeclared, nothing changes.
 
 ### Fixed
 

@@ -5497,3 +5497,15 @@ schema change, and **D198** records that choice and its cost (one entry read per
 `docs/FIXES.md` 2026-10-24; `docs/memory.md` §5 states the new guarantee.
 
 - RV1 — a forget closes its window across PROCESSES, not only within one engine instance
+
+## Part 350 — RV2: a declared vector space keeps two embedders' vectors apart (2026-10-24)
+
+✅ done 2026-10-24 — **Outcome:** the second item of the competitive review's backlog (`TASKS.md` Part 345).
+`UseVectorSpace(id)` wraps the registered vector store (`VectorSpaceStore`, keeping exactly the optional halves
+the store has); each collection is stamped with the space that first wrote it, a write or read-back across spaces
+throws, a search finds nothing and warns, and `ReindexAsync` re-stamps a collection only after a clean pass. The
+review proposed a versioned shadow index with an atomic cutover; **D194** had refused the shadow space, so this
+ships the identity half only, and **D199** records why the stamp lives in the vector store and why an unstamped
+collection is adopted. `docs/memory.md` §Re-embed carries the usage. A resumable re-embed remains unbuilt.
+
+- RV2 — a stored vector says which vector space wrote it, and recall refuses a mismatch

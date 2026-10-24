@@ -87,6 +87,7 @@ public static class LyntaiServiceCollectionExtensions
         RegisterCortex(services, options);
         RegisterConversationEnrichment(services);
         RegisterSemanticMemory(services, builder);
+        RegisterVectorSpace(services, builder);
         RegisterAgents(services, options);
         RegisterJobs(services, options);
         RegisterGuardsAndChat(services);
@@ -448,6 +449,26 @@ public static class LyntaiServiceCollectionExtensions
             sp.GetServices<IModelProvider>(), sp.GetRequiredService<IVectorStore>(),
             sp.GetService<ILogger<SemanticMemory>>(),
             sp.GetService<IProviderRouterFactory>()));
+    }
+
+    /// <summary>Wrap the registered vector store in the declared space's guard (<b>D199</b>). It replaces the LAST
+    /// descriptor, the one resolution would pick; with no store registered there is nothing to guard.</summary>
+    private static void RegisterVectorSpace(IServiceCollection services, LyntaiBuilder builder)
+    {
+        if (builder.VectorSpace is not { } space) return;
+        var backend = services.LastOrDefault(d => d.ServiceType == typeof(IVectorStore));
+        if (backend is null) return;
+        services.Remove(backend);
+        services.AddSingleton<IVectorStore>(sp =>
+        {
+            var logger = sp.GetService<ILogger<IVectorStore>>();
+            if (backend.ImplementationInstance is IVectorStore given)
+                return VectorSpaceStore.Wrap(given, space, owned: false, logger);
+            if (backend.ImplementationFactory is { } factory)
+                return VectorSpaceStore.Wrap((IVectorStore)factory(sp), space, owned: true, logger);
+            var built = (IVectorStore)ActivatorUtilities.CreateInstance(sp, backend.ImplementationType!);
+            return VectorSpaceStore.Wrap(built, space, owned: true, logger);
+        });
     }
 
     /// <summary>Agentic tool-calling: the registry gathers any registered ITools; the loop runs provider-

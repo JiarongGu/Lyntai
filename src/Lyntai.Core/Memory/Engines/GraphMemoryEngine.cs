@@ -967,6 +967,8 @@ public sealed class GraphMemoryEngine(
         if (!_vectors.Enriches) throw new InvalidOperationException(EmbeddingRouting.NothingEmbeds);
 
         var nodes = await store.SeedAsync(Name, taskKey, scope, query: null, limit: int.MaxValue, ct).ConfigureAwait(false);
+        // a declared vector space stamps each collection; the pass re-embeds into it, and claims it only when clean
+        await _vectors.ReleaseSpaceAsync(nodes, ct).ConfigureAwait(false);
         var (indexed, failed) = (0, 0);
         foreach (var batch in nodes.Chunk(_options.ReindexBatchSize))
         {
@@ -996,6 +998,7 @@ public sealed class GraphMemoryEngine(
                 indexed++;
             }
         }
+        if (failed == 0) await _vectors.ClaimSpaceAsync(nodes, ct).ConfigureAwait(false);
         return new MemoryReindexResult(indexed, failed);
     }
 

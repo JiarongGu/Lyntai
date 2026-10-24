@@ -923,6 +923,21 @@ Through the factory, the blend implements `IReindexableMemory` and fans out to t
 cannot is named in `Skipped`, and **a semantic member is one**: its vectors stay on the old model until the
 application writes its corpus again (`docs/DECISIONS.md` **D194**).
 
+**Declare the vector space, so a swap cannot mix two models silently.** A store compares vectors by dimension
+only, so a new model of the SAME dimension scores its queries against the old model's vectors with no error.
+`UseVectorSpace("bge-m3@1")` names the space the deployment's embedder produces and stamps each collection with
+the space that first wrote it (**D199**): after the name changes, a write into an old collection throws (a graph
+write is stored without its vector instead, as an enrichment failure), a search of one finds nothing and logs a
+warning, and `ReindexAsync` moves a collection to the new space when it re-embeds it with no failed batch. Declare
+it before the first swap — a collection written before is unstamped, and its first write claims it.
+
+```csharp
+services.AddLyntai(cfg => cfg
+    .UseSqliteStorage("app.db")
+    .UseVectorSpace("bge-m3@1")   // rename on every embedder change, same dimension or not
+    .AddMemoryEngine("project", e => e.UseGraph()));
+```
+
 ### Blend two members that index the same material
 
 A graph member for decay and links, a semantic member for meaning — over the same facts. Both hold

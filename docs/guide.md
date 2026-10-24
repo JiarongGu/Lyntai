@@ -459,6 +459,7 @@ decorated interface fails the tests until it is listed here, and so does a row n
 | `IMemoryAgePolicy` | `BurstDampenedAgePolicy` | every member; `Kind` says when not to forward |
 | `IMemoryRankingPolicy` | `CompositeRankingPolicy`, over two | `Rank` |
 | `IMemoryRetrievabilityPolicy` | `ModulatedRetrievability` | every member; `Provenance`, `CandidateCutoff` and `DerivedGrade` say how |
+| `IVectorStore` | the vector-space guard `UseVectorSpace` composes (**D199**) | every member, the filtered `SearchAsync` included, whose default ranks the whole collection; and the optional halves the store has, never one it lacks |
 <!-- decorated-interfaces:end -->
 
 ## Backend self-maintenance: version · upgrade · pinned install · auth

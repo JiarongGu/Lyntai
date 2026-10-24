@@ -268,8 +268,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D196](#d196--the-neutral-cwd-is-a-directory-the-process-owns-and-it-scopes-a-clis-settings-not-its-instructions-2026-09-30) | 2026-09-30 | the neutral cwd is a directory the PROCESS owns, and it scopes a CLI's settings, not its instruct… |
 | [D197](#d197--readme-is-the-landing-page-every-package-ships-the-reference-is-docsguidemd-and-the-agent-facing-files-are-maintained-state-2026-10-22) | 2026-10-22 | README is the landing page every package ships; the reference is `docs/guide.md`, and the agent-f… |
 | [D198](#d198--a-forget-is-complete-across-engine-instances-by-a-second-sweep-and-a-writes-re-read-not-by-a-fence-2026-10-24) | 2026-10-24 | a forget is complete across engine instances by a second sweep and a write's re-read, not by a fence |
+| [D199](#d199--a-declared-vector-space-stamps-each-collection-and-a-collection-is-never-read-or-written-across-spaces-2026-10-24) | 2026-10-24 | a declared vector space stamps each collection, and a collection is never read or written across… |
 
-**193 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**194 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -5828,3 +5829,23 @@ proposal, `TASKS.md` RV1): a schema change on every backend and a read on every 
 sweep-and-re-read closes with none. A cross-process lock: no store the library ships offers one, and a BYO store
 would have to. Documenting the window as a single-process limit: it is the consent-withdrawal path, and the
 window was closable.
+
+## D199 — a declared vector space stamps each collection, and a collection is never read or written across spaces (2026-10-24)
+
+`UseVectorSpace(id)` wraps the registered `IVectorStore`. Each collection is stamped with the space that first
+wrote it, in a collection of stamps inside the same store that no listing returns; a write into a collection
+another space stamped throws, a search of one returns nothing and warns, a read-back throws, and removing a
+collection removes its stamp. `ReindexAsync` releases its collections' stamps, re-embeds, and stamps them with the
+declared space only when no batch failed. Undeclared, nothing changes. This is **D194**'s named precondition — a
+host-declared vector-space id — so its refused embed cache now has the key it lacked.
+
+**Host-declared, not derived.** A vector space is a model, its version and its preprocessing; a provider's model id
+captures the first at best, and only the host knows the rest (`generic-library.md` rule 7). **Stamps live in the
+vector store**, beside the vectors they describe, so a store reset clears both and no second storage domain must
+be registered. **An unstamped collection is adopted, not refused**, so declaring a space on a live deployment
+costs nothing — at the price that a swap made BEFORE declaring is not caught.
+
+**Rejected.** Recording the space in `IKeyValueStore`: a second store that can disagree with the vectors it
+describes, and a registration a vector-only deployment lacks. A shadow collection per space flipped after a
+re-embed: **D194** refused it by owner ruling, and every removal verb would have to sweep every space. Scoring a
+mismatched collection anyway with a warning: the silent mixing this exists to end.

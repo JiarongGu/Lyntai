@@ -1766,6 +1766,7 @@ sealed class Lyntai.LyntaiBuilder
     UseDefaultCandidates(ProviderCandidate[] candidates) : LyntaiBuilder
     UseDefaultCandidates(String[] providerIds) : LyntaiBuilder
     UseTextProviderRegistry() : LyntaiBuilder
+    UseVectorSpace(String id) : LyntaiBuilder
 sealed class Lyntai.LyntaiOptions
     .ctor()
     ApplyEnvOverrides(Func<String,String> getEnv = null, IEnumerable<KeyValuePair<String,String>> allEnv = null) : Void
