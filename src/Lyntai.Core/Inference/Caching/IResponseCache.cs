@@ -51,9 +51,9 @@ public static class ResponseCacheKey
     /// across them mid-request, so there is no backend to key on when the lookup happens. A MODEL a client's
     /// candidates pin is different — it decides the output — so <c>CachingTextClient</c> folds such a list
     /// into <paramref name="effectiveModel"/>.</para>
-    /// <para>If you need entries isolated per tenant, the isolating field is
-    /// <see cref="TextRequest.Consumer"/> and the seam is your own <see cref="IResponseCache"/> — not this
-    /// key.</para></summary>
+    /// <para>If you need entries isolated per tenant, set <see cref="CacheOptions.PartitionByConsumer"/>: the
+    /// front door then prefixes this key with <see cref="ForConsumer"/>, and this method's value is
+    /// unchanged.</para></summary>
     public static string For(TextRequest req, string? effectiveModel = null)
     {
         using var h = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
@@ -93,6 +93,16 @@ public static class ResponseCacheKey
         // backend produced must never serve a caller that refused degradation
         if (req.RequireNativeSupport) AddString(h, "native");
         return Convert.ToHexStringLower(h.GetHashAndReset());
+    }
+
+    /// <summary>The key a <see cref="CacheOptions.PartitionByConsumer"/> front door stores under:
+    /// <paramref name="key"/> (a <see cref="For"/> value) prefixed with the consumer lower-cased and a colon. A
+    /// null or empty consumer is its own partition (a bare colon). Use it to <see cref="IResponseCache.RemoveAsync"/>
+    /// a partitioned entry. <see cref="For"/> is a fixed-length hash, so the prefix never makes two keys collide.</summary>
+    public static string ForConsumer(string key, string? consumer)
+    {
+        ArgumentNullException.ThrowIfNull(key);
+        return (consumer ?? "").ToLowerInvariant() + ":" + key;
     }
 
     private static void AddString(IncrementalHash h, string? s)

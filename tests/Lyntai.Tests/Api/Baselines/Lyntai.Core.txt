@@ -325,6 +325,7 @@ sealed class Lyntai.BudgetOptions
 sealed class Lyntai.CacheOptions
     .ctor()
     MaxEntries : Int32 { get; set; }
+    PartitionByConsumer : Boolean { get; set; }
     Ttl : TimeSpan { get; set; }
 sealed class Lyntai.ConsumerBudget
     .ctor(Nullable<Double> MaxCostUsd = null, Nullable<Int64> MaxTokens = null)
@@ -790,6 +791,7 @@ sealed class Lyntai.Inference.Caching.InMemoryResponseCache
     SetAsync(String key, TextResponse reply, Nullable<TimeSpan> ttl = null, CancellationToken ct = default) : Task
 static class Lyntai.Inference.Caching.ResponseCacheKey
     static For(TextRequest req, String effectiveModel = null) : String
+    static ForConsumer(String key, String consumer) : String
 abstract class Lyntai.Inference.Cli.CliBackendBase
     .ctor()
     AuthStatusArgs : IReadOnlyList<String> { get; }

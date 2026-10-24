@@ -45,6 +45,7 @@ public sealed class CachingTextClient(
             }
         }
         var key = ResponseCacheKey.For(req, EffectiveModel(req, route));
+        if (options.Cache.PartitionByConsumer) key = ResponseCacheKey.ForConsumer(key, req.Consumer);
         var cached = await cache.GetAsync(key, ct).ConfigureAwait(false);
         if (cached is not null)
         {

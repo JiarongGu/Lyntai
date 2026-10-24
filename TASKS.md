@@ -15,29 +15,28 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 16 across 6 Parts: 9 startable, 2 blocked, 2 watch, 3 decision-only
+## Open items — 15 across 6 Parts: 8 startable, 2 blocked, 2 watch, 3 decision-only
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 117 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a free Hugging Face account (an hf_ token) — its router proxies fal's own q… |
-| 164 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 187 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 243 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
-| 281 | 346 | RV25 — a GRAPH memory can be exported and imported through `IPortableMemory… | startable |  |
-| 295 | 347 | RV14 — the response cache can be partitioned by consumer, opt-in | startable |  |
-| 298 | 347 | RV15 — a memory engine can pin its EMBEDDER the way verification pins its r… | startable |  |
-| 301 | 347 | RV16 — a tool call can be APPROVED before it runs, through one seam every t… | startable |  |
-| 305 | 347 | RV17 — a reader can tell when to use Lyntai and when not to, and start from… | startable |  |
-| 310 | 347 | RV21 — every storage contract runs on Postgres STRUCTURALLY, not through ha… | startable |  |
-| 314 | 347 | RV22 — a handler that succeeded before its completion was lost is redeliver… | startable |  |
-| 318 | 347 | RV23 — measure recall in three layers, candidate → ranked → answered, on tw… | startable |  |
-| 322 | 347 | RV24 — a re-embed can resume where an interrupted one stopped | startable |  |
-| 332 | 348 | RV18 — an Agent Framework / `Microsoft.Extensions.AI` adapter | decision-only | the owner's ruling on reversing D146, which deleted the bridge in both dire… |
-| 335 | 348 | RV19 — valid-time on a memory write, so a fact can be SUPERSEDED rather tha… | decision-only | the owner's ruling on reopening D106's bi-temporal write, the prerequisite … |
-| 338 | 348 | RV20 — LLM fact extraction and a user profile (the Mem0 / Zep / LangMem gap) | decision-only | the owner's ruling on whether to rebuild extraction after it lost to decay,… |
+| 116 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a free Hugging Face account (an hf_ token) — its router proxies fal's own q… |
+| 163 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 186 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 242 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 280 | 346 | RV25 — a GRAPH memory can be exported and imported through `IPortableMemory… | startable |  |
+| 294 | 347 | RV15 — a memory engine can pin its EMBEDDER the way verification pins its r… | startable |  |
+| 297 | 347 | RV16 — a tool call can be APPROVED before it runs, through one seam every t… | startable |  |
+| 301 | 347 | RV17 — a reader can tell when to use Lyntai and when not to, and start from… | startable |  |
+| 306 | 347 | RV21 — every storage contract runs on Postgres STRUCTURALLY, not through ha… | startable |  |
+| 310 | 347 | RV22 — a handler that succeeded before its completion was lost is redeliver… | startable |  |
+| 314 | 347 | RV23 — measure recall in three layers, candidate → ranked → answered, on tw… | startable |  |
+| 318 | 347 | RV24 — a re-embed can resume where an interrupted one stopped | startable |  |
+| 328 | 348 | RV18 — an Agent Framework / `Microsoft.Extensions.AI` adapter | decision-only | the owner's ruling on reversing D146, which deleted the bridge in both dire… |
+| 331 | 348 | RV19 — valid-time on a memory write, so a fact can be SUPERSEDED rather tha… | decision-only | the owner's ruling on reopening D106's bi-temporal write, the prerequisite … |
+| 334 | 348 | RV20 — LLM fact extraction and a user profile (the Mem0 / Zep / LangMem gap) | decision-only | the owner's ruling on whether to rebuild extraction after it lost to decay,… |
 
 <!-- open-items:end -->
 
@@ -292,9 +291,6 @@ MAJOR release, which is the only kind allowed to break storage (**D18**, **D161*
 
 _The third group from the same review (Part 346 names the record)._
 
-- [ ] **RV14 — the response cache can be partitioned by consumer, opt-in.** The key excludes `Consumer` on <!-- item: state=startable -->
-  purpose (`IResponseCache`), which is right for one trust domain and a cross-consumer leak for two. An
-  option that prefixes the key, leaving `For()` and its documented default unchanged.
 - [ ] **RV15 — a memory engine can pin its EMBEDDER the way verification pins its reranker.** Embedding <!-- item: state=startable -->
   routes over every vector provider; `ScoringVerificationOptions.ProviderId` (**D148**) is the pattern. Also
   correct `docs/model-tasks.md`, which says memory embedding is never batched — re-embedding is (**D194**).

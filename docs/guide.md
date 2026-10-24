@@ -216,7 +216,9 @@ services.AddLyntai(cfg => cfg
 - **The cache** is keyed by a stable hash of the output-determining request fields and the model the call
   resolves to — `Consumer` itself excluded, so two consumers issuing the same request to the same model share a
   hit; a live route, or a client's candidate list when a candidate pins a model, joins the key — and holds only
-  clean `Ok`, non-streaming completions without native tools.
+  clean `Ok`, non-streaming completions without native tools. **When consumers are tenants, set
+  `c.PartitionByConsumer = true`**: each consumer then gets its own entries, on every backend (`docs/DECISIONS.md`
+  **D208**).
 - **The budget** refuses a completion over a cap with `Verdict == Refused`, calling no provider. The ceiling
   is **soft**: the call that crosses a cap still runs, the next is refused. `IUsageTracker.TotalAsync()` and
   `ResetAsync()` read and reset spend at runtime. **For a hard cap, set `b.ReserveCostUsd`** (or `ReserveTokens`)

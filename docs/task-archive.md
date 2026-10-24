@@ -5653,3 +5653,15 @@ no body. The media doors are not covered. `CallSpanTests` pins it; **D207** reco
 carries no `gen_ai.*` tag.
 
 - RV13 — the front door opens ONE span per call, carrying the consumer, and attempts nest under it
+
+## Part 362 — RV14: the response cache can be partitioned by consumer, opt-in (2026-10-24)
+
+✅ done 2026-10-24 — **Outcome:** the fourth item of the competitive review's governed-calls group (`TASKS.md`
+Part 347). `CacheOptions.PartitionByConsumer` (default false) makes the front door store and read under
+`ResponseCacheKey.ForConsumer`, the `For` key prefixed with the lower-cased consumer, so two consumers never share
+an entry on any backend; every backend is untouched because the prefix rides on the key. `For` and the default are
+unchanged, pinned by the existing key value and a test that the stored key IS `For` with the option off.
+`ResponseCacheTests` pins it; **D208** records why a prefix, opt-in, rather than a hashed component or a custom store.
+
+- RV14 — the response cache can be partitioned by consumer, opt-in; the key excludes `Consumer` on purpose, which
+  is right for one trust domain and a cross-consumer leak for two

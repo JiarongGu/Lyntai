@@ -97,6 +97,11 @@ every addition.
   the caller got; the generic router opens it for embeds, reranks and an application's own kinds. Tagged
   `lyntai.consumer`, `lyntai.call.operation`, `lyntai.call.door`, and `error.type` when the call failed. It
   carries no `gen_ai.*` tag and records no request or reply text. The attempt spans are unchanged.
+- **The response cache can be partitioned by consumer: `CacheOptions.PartitionByConsumer`** (**D208**). The key
+  leaves `Consumer` out so one trust domain shares hits, which serves one tenant's reply to another when consumers
+  are tenants. With the option set, the front door stores under `ResponseCacheKey.ForConsumer` — the same key
+  prefixed with the consumer, matched case-insensitively — so two consumers never share an entry, on every
+  backend. `ResponseCacheKey.For` and the default are unchanged, so every existing entry still hits.
 
 ### Fixed
 
