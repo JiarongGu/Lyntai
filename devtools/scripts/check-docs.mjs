@@ -229,7 +229,8 @@ export const IN_SCOPE = (path) =>
   // trusting a clean run — a silently-unscanned file reports exactly like a clean one.
   || path === 'CHANGELOG.md'
   || path.startsWith('docs/')
-  || path.startsWith('.claude/');
+  || path.startsWith('.claude/')
+  || path.startsWith('.agents/');
 
 /**
  * The PAIRING audit between the two retirement registries. The gap this closes was measured: D157's renames

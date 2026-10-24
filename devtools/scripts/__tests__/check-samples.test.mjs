@@ -294,7 +294,7 @@ describe('check-samples — what is deliberately NOT scanned', () => {
   });
 
   it('scope matches check-docs — it is the same question about the same prose', () => {
-    for (const p of ['README.md', 'docs/x.md', '.claude/knowledge/y.md']) assert.equal(IN_SCOPE(p), true, p);
+    for (const p of ['README.md', 'docs/x.md', '.claude/knowledge/y.md', '.agents/knowledge/y.md']) assert.equal(IN_SCOPE(p), true, p);
     for (const p of ['src/Lyntai.Core/README.md', 'tests/notes.md']) assert.equal(IN_SCOPE(p), false, p);
   });
 });

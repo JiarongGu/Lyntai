@@ -33,8 +33,8 @@ the next upgrade.
 | Windows DPAPI binding for the secret vault | `Lyntai.Secrets.Dpapi` | its csproj `Description` |
 
 The live roster is `src/*/*.csproj` (`src/Shared` is linked source, not a package). Retired ids are the
-`RETIRED` array in `devtools/nuget-unlist.mjs` — among them `Lyntai.Providers.Default`,
-`Lyntai.Storage.InMemory` and `Lyntai.Providers.ExtensionsAi`. A consumer still referencing one is on a
+`RETIRED` array in `devtools/nuget-unlist.mjs` — among them `Lyntai.Providers.Default`, <!-- drift-ok: names a retired package id on purpose -->
+`Lyntai.Storage.InMemory` and `Lyntai.Providers.ExtensionsAi`. A consumer still referencing one is on a <!-- drift-ok: names a retired package id on purpose -->
 release before its retirement and moves to the package that absorbed it (`CHANGELOG.md` names which).
 
 ### What is promised
@@ -65,6 +65,6 @@ none). Its third-party dependencies are pinned centrally in `src/Directory.Packa
 
 Confirmed: **Aurelia**, whose desktop projects (`apps/desktop/Aurelia.Manager*/*.csproj`) reference
 `Lyntai.Core`, `Lyntai.Storage.Sqlite`, `Lyntai.Tools.Mcp`, `Lyntai.Generation` and the retired
-`Lyntai.Providers.Default`, all at `3.0.2`. **Not confirmed**: any other consumer — a search of the
+`Lyntai.Providers.Default`, all at `3.0.2`. **Not confirmed**: any other consumer — a search of the <!-- drift-ok: names a retired package id on purpose -->
 workspace's checkouts for `Lyntai` in project and package files found only Aurelia, and a consumer outside
 these checkouts would not appear.

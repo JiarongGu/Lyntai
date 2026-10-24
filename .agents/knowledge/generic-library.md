@@ -52,7 +52,7 @@ When a task says "app X wants Y," run it through this before writing code:
 5. **Vary via seams, never `if (appName)`.** The extension model is DI collections + BYO interfaces
    (`IProcessRunner`, `IModelProvider`, `IDbConnectionFactory`, `IToolLoop`). If a consumer needs different
    behavior, the answer is "register your own implementation," not a branch in Core
-   (`dotnet-package-layout.md` §Variation points).
+   (`AGENTS.md` §Variation points).
 6. **Pin the generality with tests + baseline.** The contract test (e.g. `CuratedMemoryStoreContract`)
    runs across *all* backends so a new param behaves identically on every one of them. Update the
    `ApiSurface` baseline deliberately — it's the review gate that makes an app-specific leak visible.

@@ -34,7 +34,7 @@ const here = fileURLToPath(import.meta.url);
 const repoDefault = path.resolve(path.dirname(here), '..', '..');
 
 /** The record this gate reads. */
-export const RECORD = '.claude/knowledge/pitfalls.md';
+export const RECORD = '.agents/knowledge/pitfalls.md';
 
 /** The facets a trap carries. Both are required; each takes one or two values. */
 export const FACETS = ['sub', 'shape'];
