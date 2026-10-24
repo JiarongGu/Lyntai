@@ -1835,7 +1835,9 @@ sealed class Lyntai.Memory.Annotation.MemoryAnnotationRequest
 sealed class Lyntai.Memory.CompositeMemoryEngine
     .ctor(String name, IReadOnlyList<IMemoryEngine> members, ILogger<CompositeMemoryEngine> logger = null, IMemoryRemovalPolicy removalPolicy = null)
     ExpandAsync(MemoryRef reference, Int32 hops = 1, Nullable<Int32> charBudget = null, MemoryDetail detail = MemoryDetail.Headline, CancellationToken ct = default) : Task<MemoryRecall>
+    ExportAsync(String taskKey, String scope, TextWriter destination, CancellationToken ct = default) : Task<MemoryExportResult>
     ForgetAsync(String taskKey, String scope = null, CancellationToken ct = default) : Task
+    ImportAsync(String taskKey, String scope, TextReader source, CancellationToken ct = default) : Task<MemoryImportResult>
     LinkAsync(MemoryRef from, MemoryRef to, String kind = null, Double weight = 1, Boolean symmetric = false, CancellationToken ct = default) : Task
     Members : IReadOnlyList<IMemoryEngine> { get; }
     Name : String { get; }
@@ -1854,7 +1856,9 @@ sealed class Lyntai.Memory.EngineBackedPromptComposer
     RememberAsync(String taskKey, String scope, String content, CancellationToken ct = default) : Task
 sealed class Lyntai.Memory.Engines.CuratedMemoryEngine
     .ctor(String name, ICuratedMemoryStore store, String kind = "memory", ILogger<CuratedMemoryEngine> logger = null)
+    ExportAsync(String taskKey, String scope, TextWriter destination, CancellationToken ct = default) : Task<MemoryExportResult>
     Grade : Func<CuratedMemory,MemoryGrade> { get; init; }
+    ImportAsync(String taskKey, String scope, TextReader source, CancellationToken ct = default) : Task<MemoryImportResult>
     Name : String { get; }
     RecallAsync(MemoryQuery query, CancellationToken ct = default) : Task<MemoryRecall>
     RememberAsync(MemoryWrite write, CancellationToken ct = default) : Task<MemoryWriteResult>
@@ -2125,6 +2129,9 @@ interface Lyntai.Memory.IMemoryGraphStore
     WriteBackAsync(String engine, GraphWriteBack work, CancellationToken ct = default) : Task
 interface Lyntai.Memory.IMemoryRemovalPolicy
     Includes(IMemoryEngine member, MemoryRemovalKind kind) : Boolean
+interface Lyntai.Memory.IPortableMemory
+    ExportAsync(String taskKey, String scope, TextWriter destination, CancellationToken ct = default) : Task<MemoryExportResult>
+    ImportAsync(String taskKey, String scope, TextReader source, CancellationToken ct = default) : Task<MemoryImportResult>
 interface Lyntai.Memory.IPrunableMemory
     PruneAsync(String taskKey, String scope = null, Nullable<Double> minRetrievability = null, Nullable<TimeSpan> olderThan = null, CancellationToken ct = default) : Task<Int32>
 interface Lyntai.Memory.IReadableVectorStore
@@ -2288,6 +2295,15 @@ sealed class Lyntai.Memory.MemoryEngineFactory
     Get(String name) : IMemoryEngine
     Names : IReadOnlyList<String> { get; }
     TryGet(String name, IMemoryEngine& engine) : Boolean
+sealed class Lyntai.Memory.MemoryExportResult
+    .ctor(Int32 Exported)
+    Deconstruct(Int32& Exported) : Void
+    Equals(MemoryExportResult other) : Boolean
+    Equals(Object obj) : Boolean
+    Exported : Int32 { get; init; }
+    GetHashCode() : Int32
+    Skipped : IReadOnlyList<String> { get; init; }
+    ToString() : String
 enum Lyntai.Memory.MemoryGrade
     Associative : MemoryGrade const
     Authoritative : MemoryGrade const
@@ -2309,6 +2325,15 @@ sealed class Lyntai.Memory.MemoryGraphCounts
     GetHashCode() : Int32
     Links : Int32 { get; init; }
     Subjects : Int32 { get; init; }
+    ToString() : String
+sealed class Lyntai.Memory.MemoryImportResult
+    .ctor(Int32 Imported, Int32 AlreadyPresent)
+    AlreadyPresent : Int32 { get; init; }
+    Deconstruct(Int32& Imported, Int32& AlreadyPresent) : Void
+    Equals(MemoryImportResult other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Imported : Int32 { get; init; }
     ToString() : String
 sealed class Lyntai.Memory.MemoryItem
     .ctor(MemoryRef Reference, String Headline, String Content, MemoryGrade Grade, Double Relevance, Double Retrievability, Int32 Degree, IReadOnlyDictionary<String,String> Metadata = null)

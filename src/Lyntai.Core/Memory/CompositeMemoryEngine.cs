@@ -42,7 +42,8 @@ public enum MemoryWriteRouting
 /// default; fanning out is what fills a blend whose members index the same material differently.</para>
 /// </summary>
 public sealed class CompositeMemoryEngine
-    : IMemoryEngine, IExpandableMemory, ILinkableMemory, IForgettableMemory, IPrunableMemory, IReindexableMemory
+    : IMemoryEngine, IExpandableMemory, ILinkableMemory, IForgettableMemory, IPrunableMemory, IReindexableMemory,
+        IPortableMemory
 {
     private readonly IReadOnlyList<IMemoryEngine> _members;
     private readonly ILogger _logger;
@@ -337,6 +338,66 @@ public sealed class CompositeMemoryEngine
             (indexed, failed) = (indexed + result.Indexed, failed + result.Failed);
         }
         return new MemoryReindexResult(indexed, failed) { Skipped = skipped };
+    }
+
+    /// <inheritdoc />
+    /// <remarks>Fans out to every member that can export, in member order, into the one file; each line names its
+    /// member. A member that cannot is passed over, logged and NAMED in <see cref="MemoryExportResult.Skipped"/>, as
+    /// <see cref="ReindexAsync"/> does — what it holds is not in the file. When NO member can, this throws
+    /// <see cref="NotSupportedException"/>: an empty file would read as an empty memory.</remarks>
+    public async Task<MemoryExportResult> ExportAsync(string taskKey, string? scope, TextWriter destination,
+        CancellationToken ct = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(taskKey);
+        var members = _members.OfType<IPortableMemory>().ToList();
+        if (members.Count == 0)
+            throw new NotSupportedException($"No member of memory engine '{Name}' can export.");
+        List<string> skipped = [.. _members.Where(m => m is not IPortableMemory).Select(m => m.Name)];
+        foreach (var name in skipped)
+            _logger.LogWarning("memory engine {Blend}: member {Member} cannot export and was skipped; nothing it "
+                + "holds is in the file", Name, name);
+
+        var exported = 0;
+        foreach (var member in members)
+        {
+            ct.ThrowIfCancellationRequested();
+            exported += (await member.ExportAsync(taskKey, scope, destination, ct).ConfigureAwait(false)).Exported;
+        }
+        return new MemoryExportResult(exported) { Skipped = skipped };
+    }
+
+    /// <inheritdoc />
+    /// <remarks>ROUTES each line to the member its <c>engine</c> names, as <see cref="LinkAsync"/> routes a
+    /// <see cref="MemoryRef"/>. A line naming no member that can import refuses the whole file before anything is
+    /// written. Each member then checks its own lines, so a member refusing after an earlier one imported leaves that
+    /// earlier member's entries — a re-run of the corrected file adds nothing to them, so the two converge. To land a
+    /// file in a blend of other names, import it through the member, which takes any engine's lines.</remarks>
+    public async Task<MemoryImportResult> ImportAsync(string taskKey, string? scope, TextReader source,
+        CancellationToken ct = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(taskKey);
+        var lines = await MemoryPortableFormat.ReadAsync(source, ct).ConfigureAwait(false);
+        var routed = new List<(IPortableMemory Member, List<MemoryPortableLine> Lines)>();
+        foreach (var line in lines)
+        {
+            var member = _members.FirstOrDefault(m => string.Equals(m.Name, line.Engine, StringComparison.Ordinal))
+                as IPortableMemory ?? throw MemoryPortableFormat.Refuse(line.Number,
+                    $"names engine '{line.Engine}', which is not a member of '{Name}' that can import (members: "
+                    + $"{string.Join(", ", _members.Select(m => m.Name))})");
+            var slot = routed.FindIndex(r => ReferenceEquals(r.Member, member));
+            if (slot < 0) routed.Add((member, [line]));
+            else routed[slot].Lines.Add(line);
+        }
+
+        var (imported, present) = (0, 0);
+        foreach (var (member, mine) in routed)
+        {
+            ct.ThrowIfCancellationRequested();
+            var text = string.Join('\n', mine.Select(l => l.Text));
+            var result = await member.ImportAsync(taskKey, scope, new StringReader(text), ct).ConfigureAwait(false);
+            (imported, present) = (imported + result.Imported, present + result.AlreadyPresent);
+        }
+        return new MemoryImportResult(imported, present);
     }
 
     /// <summary>The members a removal visits, checked for the SPECIFIC capability that verb needs — refusing

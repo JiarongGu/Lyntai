@@ -5601,3 +5601,18 @@ check is an optional capability and why 0 means untracked. It landed additive, N
 row or consumer call has to change.
 
 - RV9 — a curated fact carries a revision, and an update can refuse a stale one
+
+## Part 358 — RV10: curated memory is exported and imported as scoped, versioned JSONL (2026-10-24)
+
+✅ done 2026-10-24 — **Outcome:** the tenth item of the competitive review's backlog (`TASKS.md` Part 346).
+`IPortableMemory` (`ExportAsync` / `ImportAsync`), an optional capability beside `IPrunableMemory`, is implemented
+by `CuratedMemoryEngine`; the blend fans the export out and routes an import by each line's `engine`. Both verbs
+name a task with no default. An import writes under the task and scope it names, through the store's dedup
+identity, so a second import adds nothing and an entry the target holds is never overwritten; a malformed or
+newer-version line refuses the whole file before any write. `MemoryPortabilityTests` pins scoping, a SQLite →
+InMemory/FileSystem round trip, idempotence, retargeting and refusal. **D204** records the format, the scope rule,
+the no-vectors rule and the honest limit — a file taken before a forget brings the content back; `docs/memory.md`
+§Carry a memory to another store is the schema and usage. The graph half is `TASKS.md` RV25: it needs a store
+write that keeps decay state, which `UpsertAsync` does not.
+
+- RV10 — memory can be EXPORTED and IMPORTED in a portable form, scoped and never resurrecting

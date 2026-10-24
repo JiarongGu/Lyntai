@@ -273,8 +273,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D201](#d201--a-composition-reports-its-own-cuts-in-its-own-vocabulary-through-a-second-door-beside-render-2026-10-24) | 2026-10-24 | a composition reports its own cuts in its own vocabulary, through a second door beside `Render` |
 | [D202](#d202--the-wiring-findings-are-a-container-service-and-burial-is-counted-by-the-engine-never-the-store-2026-10-24) | 2026-10-24 | the wiring findings are a container service, and burial is counted by the engine, never the store |
 | [D203](#d203--a-curated-entrys-revision-is-checked-through-an-optional-store-capability-atomically-in-the-write-2026-10-24) | 2026-10-24 | a curated entry's revision is checked through an OPTIONAL store capability, atomically in the write |
+| [D204](#d204--memory-travels-as-versioned-jsonl-through-an-optional-engine-capability-scoped-to-one-named-task-without-vectors-2026-10-24) | 2026-10-24 | memory travels as versioned JSONL through an OPTIONAL engine capability, scoped to one named task… |
 
-**198 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**199 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -5918,3 +5919,23 @@ a fault. A pre-read compare alone: two writers could both pass it. The SQL `WHER
 
 **0 means untracked.** A store without the capability leaves the default, so a caller can tell an entry nobody
 has edited from a store that cannot check.
+
+## D204 — memory travels as versioned JSONL through an OPTIONAL engine capability, scoped to one named task, without vectors (2026-10-24)
+
+`IPortableMemory` (`ExportAsync` / `ImportAsync`) sits beside `IPrunableMemory`; `CuratedMemoryEngine` implements
+it and the blend fans out, naming a member that cannot in `Skipped`. Every line carries `v`, `record` and `engine`,
+so a reader refuses a version it does not know line by line, and the whole file is checked before the first write.
+Both verbs take a task with no default and a scope stated even when null. An import writes under the task and scope
+IT names, and adds through the store's dedup identity, so a re-import adds nothing and never overwrites.
+
+**What "never resurrecting" can mean here.** The import never writes outside its target, never touches an entry the
+target holds, and keeps a disabled entry disabled. It cannot refuse content the target forgot: no store records a
+forget, and **D198** rejected the tombstone fence that could. A file taken before a forget brings the content back,
+and the contract says so rather than implying otherwise.
+
+**Rejected.** An export member on `ICuratedMemoryStore`: a required member breaks every store an application wrote,
+and the engine is where grade, section and routing live. A default of "every task": a whole-store dump one omitted
+argument away. Honouring each line's own task on import: a file would decide where it lands, and a deployment could
+not move a task under a new name. Exporting vectors: a vector is the content under one model, so carrying it across
+deployments mixes spaces (**D199**); the receiving engine indexes on write. A header line holding the version: a
+concatenated or filtered file loses it.

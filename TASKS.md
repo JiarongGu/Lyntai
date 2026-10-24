@@ -26,21 +26,21 @@ _Edit a marker, never this table — `verify` fails the moment the two disagree.
 | 167 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
 | 190 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
 | 246 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
-| 284 | 346 | RV10 — memory can be EXPORTED and IMPORTED in a portable form, scoped and n… | startable |  |
-| 293 | 347 | RV11 — a schema- or tool-bearing request skips a candidate that cannot hono… | startable |  |
-| 298 | 347 | RV12 — a budget can RESERVE before a call and reconcile after, for a host t… | startable |  |
-| 302 | 347 | RV13 — the front door opens ONE span per call, carrying the consumer, and a… | startable |  |
-| 305 | 347 | RV14 — the response cache can be partitioned by consumer, opt-in | startable |  |
-| 308 | 347 | RV15 — a memory engine can pin its EMBEDDER the way verification pins its r… | startable |  |
-| 311 | 347 | RV16 — a tool call can be APPROVED before it runs, through one seam every t… | startable |  |
-| 315 | 347 | RV17 — a reader can tell when to use Lyntai and when not to, and start from… | startable |  |
-| 320 | 347 | RV21 — every storage contract runs on Postgres STRUCTURALLY, not through ha… | startable |  |
-| 324 | 347 | RV22 — a handler that succeeded before its completion was lost is redeliver… | startable |  |
-| 328 | 347 | RV23 — measure recall in three layers, candidate → ranked → answered, on tw… | startable |  |
-| 332 | 347 | RV24 — a re-embed can resume where an interrupted one stopped | startable |  |
-| 342 | 348 | RV18 — an Agent Framework / `Microsoft.Extensions.AI` adapter | decision-only | the owner's ruling on reversing D146, which deleted the bridge in both dire… |
-| 345 | 348 | RV19 — valid-time on a memory write, so a fact can be SUPERSEDED rather tha… | decision-only | the owner's ruling on reopening D106's bi-temporal write, the prerequisite … |
-| 348 | 348 | RV20 — LLM fact extraction and a user profile (the Mem0 / Zep / LangMem gap) | decision-only | the owner's ruling on whether to rebuild extraction after it lost to decay,… |
+| 284 | 346 | RV25 — a GRAPH memory can be exported and imported through `IPortableMemory… | startable |  |
+| 298 | 347 | RV11 — a schema- or tool-bearing request skips a candidate that cannot hono… | startable |  |
+| 303 | 347 | RV12 — a budget can RESERVE before a call and reconcile after, for a host t… | startable |  |
+| 307 | 347 | RV13 — the front door opens ONE span per call, carrying the consumer, and a… | startable |  |
+| 310 | 347 | RV14 — the response cache can be partitioned by consumer, opt-in | startable |  |
+| 313 | 347 | RV15 — a memory engine can pin its EMBEDDER the way verification pins its r… | startable |  |
+| 316 | 347 | RV16 — a tool call can be APPROVED before it runs, through one seam every t… | startable |  |
+| 320 | 347 | RV17 — a reader can tell when to use Lyntai and when not to, and start from… | startable |  |
+| 325 | 347 | RV21 — every storage contract runs on Postgres STRUCTURALLY, not through ha… | startable |  |
+| 329 | 347 | RV22 — a handler that succeeded before its completion was lost is redeliver… | startable |  |
+| 333 | 347 | RV23 — measure recall in three layers, candidate → ranked → answered, on tw… | startable |  |
+| 337 | 347 | RV24 — a re-embed can resume where an interrupted one stopped | startable |  |
+| 347 | 348 | RV18 — an Agent Framework / `Microsoft.Extensions.AI` adapter | decision-only | the owner's ruling on reversing D146, which deleted the bridge in both dire… |
+| 350 | 348 | RV19 — valid-time on a memory write, so a fact can be SUPERSEDED rather tha… | decision-only | the owner's ruling on reopening D106's bi-temporal write, the prerequisite … |
+| 353 | 348 | RV20 — LLM fact extraction and a user profile (the Mem0 / Zep / LangMem gap) | decision-only | the owner's ruling on whether to rebuild extraction after it lost to decay,… |
 
 <!-- open-items:end -->
 
@@ -281,10 +281,15 @@ first group (removal, vector identity, test evidence) is closed: `docs/task-arch
 framing of that group is a working position (`input-is-thinking-not-doctrine.md`): it is the goal for the next
 MAJOR release, which is the only kind allowed to break storage (**D18**, **D161**), and no item names that number._
 
-- [ ] **RV10 — memory can be EXPORTED and IMPORTED in a portable form, scoped and never resurrecting.** <!-- item: state=startable -->
-  No memory surface has an export (`IScoreStore.ExportAsync` is the only one in the library). An optional
-  capability beside `IPrunableMemory`: JSONL entries with grade, metadata and decay state, scoped by task and
-  scope with no "everything" default; curated memory is the first slice, the graph second.
+- [ ] **RV25 — a GRAPH memory can be exported and imported through `IPortableMemory`, decay state and links included.** <!-- item: state=startable -->
+  The curated slice shipped (**D204**, `docs/task-archive.md` Part 358); the graph half was split off because it
+  needs a store write the contract lacks. `UpsertAsync` stamps a fresh entry (stability from the policy, recall
+  count 0, age 0) and advances the position, so an import through it erases the decay state it exists to carry
+  and buries nothing that was buried. It needs an optional store capability that inserts a node WITH its
+  stability, difficulty, recall count, signals, provenance and grade, plus a `graph` record and an edge record whose
+  endpoints are remapped — ids are never reissued, so the target allocates new ones. Open questions to settle:
+  how the age primitives travel (position-relative, since a target's ordinal clock differs), whether subjects
+  travel, and that dedup on `MemoryContentKey` must not refresh an existing node's state. No vectors (**D204**).
 
 ## Part 347 — the competitive review: governed calls that cannot silently degrade (2026-10-24)
 

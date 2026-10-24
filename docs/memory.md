@@ -986,6 +986,50 @@ services.AddLyntai(cfg => cfg
     .AddMemoryEngine("project", e => e.UseGraph()));
 ```
 
+### Carry a memory to another store
+
+`IPortableMemory` writes one task's entries as JSONL and reads such a file back into another store, backend or
+deployment (**D204**). `CuratedMemoryEngine` implements it, and through the factory the blend does too, exporting
+its capable members into one file and naming the rest in `Skipped`; the graph engine does not yet.
+
+<!-- compile-given: IMemoryEngineFactory factory = null!; IMemoryEngineFactory target = null!; -->
+```csharp
+var source = (IPortableMemory)factory.Get("project");
+await using (var file = File.CreateText("project.jsonl"))
+{
+    var exported = await source.ExportAsync("project", scope: null, file);   // null scope = every scope of the task
+    Console.WriteLine($"{exported.Exported} entries; not exported: {string.Join(", ", exported.Skipped)}");
+}
+
+using var reader = File.OpenText("project.jsonl");
+var result = await ((IPortableMemory)target.Get("project")).ImportAsync("project", scope: null, reader);
+Console.WriteLine($"{result.Imported} imported, {result.AlreadyPresent} already there");
+```
+
+**There is no whole-store export**: both verbs name a task, and neither defaults it or the scope. An import writes
+under the task it names, whatever task the file came from; a named scope receives every line, a null one keeps each
+line's own. Each line is one object:
+
+| field | meaning |
+|---|---|
+| `v` | the format version, `1`. A reader refuses any other, rather than guess what a newer writer added |
+| `record` | what the line holds: `curated` |
+| `engine` | the engine that exported it; a blend routes an import by it, a single engine ignores it |
+| `taskKey`, `scope` | where it was exported from — informational, since the import names its target |
+| `kind`, `content`, `enabled` | the entry; a curated engine bound to one kind refuses a line of another |
+| `metadata` | the app-owned map, or absent |
+| `grade` | what the exporting engine's `Grade` delegate read; an import re-derives its own from `metadata` |
+| `createdAt`, `updatedAt`, `revision` | the source's record. An imported entry is NEW: its timestamps are the import's and its revision starts at 1 |
+
+**What an import promises.** The whole file is checked before the first write: a malformed line, a version other
+than 1 or a record the engine cannot hold throws `InvalidDataException` naming the line, and nothing is written. An
+entry the target already holds — the same kind, content, task and scope — is left exactly as it is, so importing a
+file twice adds nothing, and a disabled entry arrives disabled. **What it cannot promise is that nothing comes back.**
+No store records a forget, so a file taken before one brings the forgotten content back with it: import only a file
+taken after the last removal you mean to keep. **No vectors travel**: a vector is the content under one model, and
+the receiving engine indexes on write. A curated entry with no task, which applies everywhere, belongs to no task's
+export.
+
 ### Blend two members that index the same material
 
 A graph member for decay and links, a semantic member for meaning — over the same facts. Both hold

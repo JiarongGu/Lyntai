@@ -67,6 +67,14 @@ every addition.
   writers holding one revision, exactly one wins. All four shipped stores implement it. One additive migration
   (`M202610241721_CuratedRevision`, SQLite and Postgres) gives every existing entry revision 1. A store of your
   own needs no change and reports revision 0.
+- **Curated memory can be exported and imported as JSONL: `IPortableMemory`** (**D204**). `ExportAsync(taskKey,
+  scope, writer)` writes one versioned line per entry — kind, content, enabled, metadata, grade, timestamps and
+  revision — for one named task, with no whole-store form; `ImportAsync(taskKey, scope, reader)` writes them under
+  the task and scope it names and nowhere else, leaves an entry the target already holds untouched, so a second
+  import adds nothing, and refuses a malformed or newer-version file before writing anything. A blend exports its
+  capable members and names the rest. No vectors travel, and an import cannot know what the target forgot: a file
+  taken before a forget brings that content back. `CuratedMemoryEngine` implements it; the graph engine does not
+  yet.
 
 ### Fixed
 

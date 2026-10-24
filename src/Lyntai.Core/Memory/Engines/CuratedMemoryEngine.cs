@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text.Json;
 using Lyntai.Storage;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -20,7 +21,7 @@ public sealed class CuratedMemoryEngine(
     string name,
     ICuratedMemoryStore store,
     string? kind = "memory",
-    ILogger<CuratedMemoryEngine>? logger = null) : IMemoryEngine
+    ILogger<CuratedMemoryEngine>? logger = null) : IMemoryEngine, IPortableMemory
 {
     private readonly ILogger _logger = logger ?? NullLogger<CuratedMemoryEngine>.Instance;
 
@@ -121,5 +122,106 @@ public sealed class CuratedMemoryEngine(
                 Name, query.TaskKey);
             return MemoryRecall.Empty;
         }
+    }
+    /// <inheritdoc />
+    /// <remarks>Exports this engine's section (every section when <c>kind</c> is null) through
+    /// <see cref="ICuratedMemoryStore.ListAsync"/>, so an entry with no task — one that applies everywhere — belongs to
+    /// no task export. Each line's <c>grade</c> is <see cref="Grade"/>'s reading, for a reader of the file; an import
+    /// ignores it, because the store has no grade column and the target's own delegate re-derives it from the
+    /// metadata that travels. A throwing delegate fails the export rather than writing a guess.</remarks>
+    public async Task<MemoryExportResult> ExportAsync(string taskKey, string? scope, TextWriter destination,
+        CancellationToken ct = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(taskKey);
+        ArgumentNullException.ThrowIfNull(destination);
+        var entries = await store.ListAsync(kind, enabledOnly: false, taskKey, scope, ct: ct).ConfigureAwait(false);
+        foreach (var entry in entries)
+        {
+            var grade = Grade?.Invoke(entry) ?? MemoryGrade.Authoritative;
+            if (grade == MemoryGrade.Inherit) grade = MemoryGrade.Authoritative;
+            await MemoryPortableFormat.WriteLineAsync(destination, MemoryPortableFormat.Curated, Name, w =>
+            {
+                w.WriteString("taskKey", entry.TaskKey);
+                w.WriteString("scope", entry.Scope);
+                w.WriteString("kind", entry.Kind);
+                w.WriteString("content", entry.Content);
+                w.WriteBoolean("enabled", entry.Enabled);
+                w.WriteString("grade", grade.ToString());
+                if (entry.Metadata is { Count: > 0 } metadata)
+                {
+                    w.WriteStartObject("metadata");
+                    foreach (var key in metadata.Keys.Order(StringComparer.Ordinal)) w.WriteString(key, metadata[key]);
+                    w.WriteEndObject();
+                }
+                w.WriteString("createdAt", entry.CreatedAt);
+                w.WriteString("updatedAt", entry.UpdatedAt);
+                w.WriteNumber("revision", entry.Revision);
+            }, ct).ConfigureAwait(false);
+        }
+        return new MemoryExportResult(entries.Count);
+    }
+
+    /// <inheritdoc />
+    /// <remarks>Each entry is ADDED with <c>dedup: true</c>, so identity is <see cref="ICuratedMemoryStore.AddAsync"/>'s
+    /// (kind, content, task, scope) and an entry the target already holds is left exactly as it is, enabled flag and
+    /// metadata included. What travels is kind, content, enabled and metadata; an imported entry is a NEW entry, so
+    /// its timestamps are the import's and its revision starts at 1 — a revision is the issuing store's concurrency
+    /// token, not a property of the fact. Lines of another section are refused unless <c>kind</c> is null, in which
+    /// case each line keeps its own.</remarks>
+    public async Task<MemoryImportResult> ImportAsync(string taskKey, string? scope, TextReader source,
+        CancellationToken ct = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(taskKey);
+        if (scope is not null) ArgumentException.ThrowIfNullOrWhiteSpace(scope);
+        var lines = await MemoryPortableFormat.ReadAsync(source, ct).ConfigureAwait(false);
+
+        var entries = new List<(string Kind, string Content, string? Scope, bool Enabled,
+            IReadOnlyDictionary<string, string>? Metadata)>(lines.Count);
+        foreach (var line in lines)
+        {
+            if (line.Record != MemoryPortableFormat.Curated)
+                throw MemoryPortableFormat.Refuse(line.Number,
+                    $"is a '{line.Record}' record, and engine '{Name}' takes only '{MemoryPortableFormat.Curated}' records");
+            var lineKind = MemoryPortableFormat.String(line.Body, "kind")
+                ?? throw MemoryPortableFormat.Refuse(line.Number, "names no \"kind\"");
+            if (kind is not null && !string.Equals(lineKind, kind, StringComparison.Ordinal))
+                throw MemoryPortableFormat.Refuse(line.Number,
+                    $"belongs to section '{lineKind}', and engine '{Name}' holds only '{kind}'");
+            var content = MemoryPortableFormat.String(line.Body, "content")
+                ?? throw MemoryPortableFormat.Refuse(line.Number, "carries no \"content\"");
+            if (!line.Body.TryGetProperty("enabled", out var enabled)
+                || enabled.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
+                throw MemoryPortableFormat.Refuse(line.Number, "carries no boolean \"enabled\"");
+            entries.Add((lineKind, content, scope ?? MemoryPortableFormat.String(line.Body, "scope"),
+                enabled.GetBoolean(), Metadata(line)));
+        }
+
+        // what the target already holds under this task, so the count can say which lines changed nothing; the add's
+        // own dedup is what actually prevents the duplicate, concurrent writers included
+        var held = (await store.ListAsync(kind, enabledOnly: false, taskKey, scope, ct: ct).ConfigureAwait(false))
+            .Select(e => (e.Kind, e.Content, e.Scope)).ToHashSet();
+        var (imported, present) = (0, 0);
+        foreach (var entry in entries)
+        {
+            if (!held.Add((entry.Kind, entry.Content, entry.Scope))) { present++; continue; }
+            await store.AddAsync(entry.Kind, entry.Content, entry.Enabled, taskKey, entry.Scope, dedup: true,
+                entry.Metadata, ct).ConfigureAwait(false);
+            imported++;
+        }
+        return new MemoryImportResult(imported, present);
+    }
+
+    private static Dictionary<string, string>? Metadata(MemoryPortableLine line)
+    {
+        if (!line.Body.TryGetProperty("metadata", out var element) || element.ValueKind == JsonValueKind.Null)
+            return null;
+        if (element.ValueKind != JsonValueKind.Object)
+            throw MemoryPortableFormat.Refuse(line.Number, "carries a \"metadata\" that is not an object");
+        var metadata = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var pair in element.EnumerateObject())
+            metadata[pair.Name] = pair.Value.ValueKind == JsonValueKind.String
+                ? pair.Value.GetString()!
+                : throw MemoryPortableFormat.Refuse(line.Number, $"carries a non-string metadata value for '{pair.Name}'");
+        return metadata.Count == 0 ? null : metadata;
     }
 }

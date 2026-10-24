@@ -132,3 +132,61 @@ public sealed record MemoryReindexResult(int Indexed, int Failed)
     /// engine. A member here that holds vectors of its own (a semantic member does) is still on the old model.</summary>
     public IReadOnlyList<string> Skipped { get; init; } = [];
 }
+
+/// <summary>OPTIONAL capability: an engine that can carry one task's memory out as portable JSONL and take such a file
+/// in, for moving a memory between stores, backends or deployments. The format is <c>docs/memory.md</c> §9's "Carry a
+/// memory to another store".
+///
+/// <para><b>Scoped, with no "everything" form.</b> Both verbs name a task; neither has a default for it or for the
+/// scope, so a whole-store dump is never one forgotten argument away.</para>
+///
+/// <para><b>No vectors travel.</b> A vector is a projection of the content under one embedding model; the engine
+/// receiving the file indexes on write, as for any other write.</para>
+///
+/// <para><b>What an import promises, and what it cannot.</b> It writes only under the task and scope it names; it never
+/// overwrites or duplicates an entry the target already holds with the same identity, so importing a file twice adds
+/// nothing the second time; and an entry exported disabled arrives disabled. It cannot know what the target REMOVED:
+/// no store keeps a record of a forget, so importing a file taken before a forget brings that content back. An import
+/// is the caller's explicit act — import only a file taken after the last removal you mean to keep.</para>
+///
+/// <para>Reached by a type test, like <see cref="IPrunableMemory"/>; the blend around an engine declares it too, fanning
+/// out to the members that have it.</para></summary>
+public interface IPortableMemory
+{
+    /// <summary>Write every entry under (<paramref name="taskKey"/>, <paramref name="scope"/>) to
+    /// <paramref name="destination"/>, one JSON object per line, disabled entries included.</summary>
+    /// <param name="taskKey">The task to export; required.</param>
+    /// <param name="scope">The scope, or null for every scope of the task — stated, never defaulted.</param>
+    /// <param name="destination">Receives the lines; it is neither flushed nor closed.</param>
+    /// <param name="ct">Cancellation, which is never swallowed.</param>
+    /// <exception cref="ArgumentException"><paramref name="taskKey"/> is blank.</exception>
+    Task<MemoryExportResult> ExportAsync(string taskKey, string? scope, TextWriter destination,
+        CancellationToken ct = default);
+
+    /// <summary>Read a file <see cref="ExportAsync"/> wrote and write its entries under (<paramref name="taskKey"/>,
+    /// <paramref name="scope"/>), whatever task they were exported from.
+    /// <para>The file is read and checked whole before the first write: a malformed line, a version this reader does
+    /// not know, or a record this engine cannot hold throws <see cref="InvalidDataException"/> naming the line, and
+    /// nothing is written.</para></summary>
+    /// <param name="taskKey">The task every entry is written under; required.</param>
+    /// <param name="scope">The scope every entry is written under, or null to keep each line's own scope inside
+    /// <paramref name="taskKey"/>.</param>
+    /// <param name="source">The lines; read to the end, not closed.</param>
+    /// <param name="ct">Cancellation, which is never swallowed; entries already written stay.</param>
+    /// <exception cref="ArgumentException"><paramref name="taskKey"/> is blank.</exception>
+    /// <exception cref="InvalidDataException">A line cannot be honoured; nothing was written.</exception>
+    Task<MemoryImportResult> ImportAsync(string taskKey, string? scope, TextReader source,
+        CancellationToken ct = default);
+}
+
+/// <summary>What an export wrote: <paramref name="Exported"/> entries, one line each.</summary>
+public sealed record MemoryExportResult(int Exported)
+{
+    /// <summary>The members of a blend that cannot export and were passed over, by name — empty from a single engine.
+    /// Anything they hold is NOT in the file.</summary>
+    public IReadOnlyList<string> Skipped { get; init; } = [];
+}
+
+/// <summary>What an import did: <paramref name="Imported"/> entries written, <paramref name="AlreadyPresent"/> lines
+/// left alone because the target already held that entry or an earlier line carried it.</summary>
+public sealed record MemoryImportResult(int Imported, int AlreadyPresent);
