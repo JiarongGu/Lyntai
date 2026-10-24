@@ -187,3 +187,7 @@ rebuilds it and `verify` fails while the two disagree.
 | `new-migration` |  | scaffold the next migration with a unique number |
 
 <!-- dev-loop:end -->
+
+<!-- daoris:import — generated; edit the canon, not this -->
+@AGENTS.md
+<!-- /daoris:import -->

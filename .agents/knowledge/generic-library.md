@@ -11,6 +11,9 @@ enforces: ship the general need, never the consumer's shape; neutral need in Cor
 leaked into the surface.** Most tasks arrive as "app X needs Y"; your job is to ship the *general Y*, not
 X's Y.
 
+This document works the shared `library-api-design.md` rule *translate the request before implementing
+it, and keep the caller's vocabulary out* through this library's own cases (rules 1 and 3 below).
+
 ## Why
 
 The backlog is fed by sibling apps and adopters (a source-study tool, a WinForms AI-manager, …). Those

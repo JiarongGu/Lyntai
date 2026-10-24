@@ -7,9 +7,22 @@ enforces: alias every SELECT and CAST affinity-typed columns; open connections o
 # Storage internals
 
 The load-bearing rules for the relational backends (`Lyntai.Storage.Sqlite`, `Lyntai.Storage.Postgres`)
-and any future one — the ONE statement of each; `sql-storage.md` only indexes them. Each is a place where
+and any future one — the ONE statement of each; the shared `sql-storage.md` states the principle. Each is a place where
 the code passes tests while being subtly wrong. Reference: design §7, and `Lyntai.Storage.Sqlite` as the
 worked example.
+
+**The shared `sql-storage.md` states each trap in principle; this is where each is fixed here:**
+
+| Trap | Where |
+|---|---|
+| A dynamically typed column reads back as an integer and truncates | §The integer-affinity trap |
+| A mapper's type map and handler registry are PROCESS-GLOBAL, so two backends in one process share them | §Dapper + snake_case |
+| A connection opened outside the factory silently loses foreign-key enforcement | §Per-connection pragmas |
+| A reused migration number is skipped silently; a renumbered one re-runs | §Migrations |
+| A structure correct only for rows written after it shipped | §Migrations |
+| A word-boundary tokenizer finds nothing in a script written without spaces; an index kept by app code drifts | §FTS5 trigram external-content |
+| Raw user text passed to a full-text matcher; ranking left to insertion order | §FTS5 trigram external-content |
+| A bare `catch (OperationCanceledException)` turns a fail-open store fail-closed | §Conventions |
 
 ## Dapper + snake_case
 
