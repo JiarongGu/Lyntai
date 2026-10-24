@@ -1958,7 +1958,9 @@ sealed class Lyntai.Memory.Engines.GraphMemoryEngine
     .ctor(String name, IMemoryGraphStore store, GraphMemoryOptions options = null, GraphMemorySeams seams = null, ILogger<GraphMemoryEngine> logger = null)
     CountAsync(String taskKey, String scope = null, Nullable<Double> minRetrievability = null, CancellationToken ct = default) : Task<MemoryGraphCounts>
     ExpandAsync(MemoryRef reference, Int32 hops = 1, Nullable<Int32> charBudget = null, MemoryDetail detail = MemoryDetail.Headline, CancellationToken ct = default) : Task<MemoryRecall>
+    ExportAsync(String taskKey, String scope, TextWriter destination, CancellationToken ct = default) : Task<MemoryExportResult>
     ForgetAsync(String taskKey, String scope = null, CancellationToken ct = default) : Task
+    ImportAsync(String taskKey, String scope, TextReader source, CancellationToken ct = default) : Task<MemoryImportResult>
     LinkAsync(MemoryRef from, MemoryRef to, String kind = null, Double weight = 1, Boolean symmetric = false, CancellationToken ct = default) : Task
     Name : String { get; }
     PruneAsync(String taskKey, String scope = null, Nullable<Double> minRetrievability = null, Nullable<TimeSpan> olderThan = null, CancellationToken ct = default) : Task<Int32>
@@ -2055,6 +2057,21 @@ struct Lyntai.Memory.GraphEdgeWrite
     To : Int64 { get; init; }
     ToString() : String
     Weight : Double { get; init; }
+sealed class Lyntai.Memory.GraphLink
+    .ctor(Int64 From, Int64 To, String Kind, Double Weight, Double Age, Double OrdinalAge, Double VolumeAge, Double ElapsedAge)
+    Age : Double { get; init; }
+    Deconstruct(Int64& From, Int64& To, String& Kind, Double& Weight, Double& Age, Double& OrdinalAge, Double& VolumeAge, Double& ElapsedAge) : Void
+    ElapsedAge : Double { get; init; }
+    Equals(GraphLink other) : Boolean
+    Equals(Object obj) : Boolean
+    From : Int64 { get; init; }
+    GetHashCode() : Int32
+    Kind : String { get; init; }
+    OrdinalAge : Double { get; init; }
+    To : Int64 { get; init; }
+    ToString() : String
+    VolumeAge : Double { get; init; }
+    Weight : Double { get; init; }
 sealed class Lyntai.Memory.GraphMemoryOptions
     .ctor()
     AnnotationContext : Int32 { get; init; }
@@ -2139,6 +2156,39 @@ sealed class Lyntai.Memory.GraphNode
     TaskKey : String { get; init; }
     ToString() : String
     VolumeAge : Double { get; init; }
+sealed class Lyntai.Memory.GraphNodeImport
+    .ctor(String Scope, String Headline, String Content, MemoryGrade Grade, DateTimeOffset CreatedAt, Int32 RecallCount, Double Stability, Double Difficulty, MemorySignals Signals, Int64 ProvenanceRetrievability, Int64 ProvenanceSalience, IReadOnlyDictionary<String,String> Metadata, IReadOnlyCollection<String> Subjects, Double Age, Double OrdinalAge, Double VolumeAge, Double ElapsedAge)
+    Age : Double { get; init; }
+    Content : String { get; init; }
+    CreatedAt : DateTimeOffset { get; init; }
+    Deconstruct(String& Scope, String& Headline, String& Content, MemoryGrade& Grade, DateTimeOffset& CreatedAt, Int32& RecallCount, Double& Stability, Double& Difficulty, MemorySignals& Signals, Int64& ProvenanceRetrievability, Int64& ProvenanceSalience, IReadOnlyDictionary`2& Metadata, IReadOnlyCollection`1& Subjects, Double& Age, Double& OrdinalAge, Double& VolumeAge, Double& ElapsedAge) : Void
+    Difficulty : Double { get; init; }
+    ElapsedAge : Double { get; init; }
+    Equals(GraphNodeImport other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Grade : MemoryGrade { get; init; }
+    Headline : String { get; init; }
+    Metadata : IReadOnlyDictionary<String,String> { get; init; }
+    OrdinalAge : Double { get; init; }
+    ProvenanceRetrievability : Int64 { get; init; }
+    ProvenanceSalience : Int64 { get; init; }
+    RecallCount : Int32 { get; init; }
+    Scope : String { get; init; }
+    Signals : MemorySignals { get; init; }
+    Stability : Double { get; init; }
+    Subjects : IReadOnlyCollection<String> { get; init; }
+    ToString() : String
+    VolumeAge : Double { get; init; }
+struct Lyntai.Memory.GraphNodeImportResult
+    .ctor(Int64 Id, Boolean Inserted)
+    Deconstruct(Int64& Id, Boolean& Inserted) : Void
+    Equals(GraphNodeImportResult other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Id : Int64 { get; init; }
+    Inserted : Boolean { get; init; }
+    ToString() : String
 sealed class Lyntai.Memory.GraphNodeWrite
     .ctor(String Engine, String TaskKey, String Scope, String Headline, String Content, MemoryGrade Grade, Double InitialStability, Double Advance, IReadOnlyDictionary<String,String> Metadata, MemorySignals Signals = default, Int64 ProvenanceRetrievability = 0, Int64 ProvenanceSalience = 0, Boolean GradeStated = true, Boolean HeadlineStated = true)
     Advance : Double { get; init; }
@@ -2224,6 +2274,10 @@ interface Lyntai.Memory.IMemoryRemovalPolicy
 interface Lyntai.Memory.IPortableMemory
     ExportAsync(String taskKey, String scope, TextWriter destination, CancellationToken ct = default) : Task<MemoryExportResult>
     ImportAsync(String taskKey, String scope, TextReader source, CancellationToken ct = default) : Task<MemoryImportResult>
+interface Lyntai.Memory.IPortableMemoryGraphStore
+    ExportAsync(String engine, String taskKey, String scope, CancellationToken ct = default) : Task<MemoryGraphExport>
+    ImportLinksAsync(String engine, IReadOnlyList<GraphLink> links, CancellationToken ct = default) : Task<Int32>
+    ImportNodesAsync(String engine, String taskKey, IReadOnlyList<GraphNodeImport> nodes, CancellationToken ct = default) : Task<IReadOnlyList<GraphNodeImportResult>>
 interface Lyntai.Memory.IPrunableMemory
     PruneAsync(String taskKey, String scope = null, Nullable<Double> minRetrievability = null, Nullable<TimeSpan> olderThan = null, CancellationToken ct = default) : Task<Int32>
 interface Lyntai.Memory.IReadableVectorStore
@@ -2394,6 +2448,7 @@ sealed class Lyntai.Memory.MemoryExportResult
     Equals(Object obj) : Boolean
     Exported : Int32 { get; init; }
     GetHashCode() : Int32
+    Links : Int32 { get; init; }
     Skipped : IReadOnlyList<String> { get; init; }
     ToString() : String
 enum Lyntai.Memory.MemoryGrade
@@ -2406,6 +2461,10 @@ enum Lyntai.Memory.MemoryGrades
     Authoritative : MemoryGrades const
     None : MemoryGrades const
     value__ : Int32
+static class Lyntai.Memory.MemoryGraphAnchor
+    static Behind(DateTimeOffset head, Double days) : DateTimeOffset
+    static Behind(Double head, Double age) : Double
+    static Behind(Int64 head, Double age) : Int64
 sealed class Lyntai.Memory.MemoryGraphCounts
     .ctor(Int32 Entries, Int32 Authoritative, Int32 Links, Int32 Subjects)
     Authoritative : Int32 { get; init; }
@@ -2418,6 +2477,16 @@ sealed class Lyntai.Memory.MemoryGraphCounts
     Links : Int32 { get; init; }
     Subjects : Int32 { get; init; }
     ToString() : String
+sealed class Lyntai.Memory.MemoryGraphExport
+    .ctor(IReadOnlyList<GraphNode> Nodes, IReadOnlyList<GraphLink> Links, IReadOnlyDictionary<Int64,IReadOnlyList<String>> Subjects)
+    Deconstruct(IReadOnlyList`1& Nodes, IReadOnlyList`1& Links, IReadOnlyDictionary`2& Subjects) : Void
+    Equals(MemoryGraphExport other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Links : IReadOnlyList<GraphLink> { get; init; }
+    Nodes : IReadOnlyList<GraphNode> { get; init; }
+    Subjects : IReadOnlyDictionary<Int64,IReadOnlyList<String>> { get; init; }
+    ToString() : String
 sealed class Lyntai.Memory.MemoryImportResult
     .ctor(Int32 Imported, Int32 AlreadyPresent)
     AlreadyPresent : Int32 { get; init; }
@@ -2426,6 +2495,8 @@ sealed class Lyntai.Memory.MemoryImportResult
     Equals(Object obj) : Boolean
     GetHashCode() : Int32
     Imported : Int32 { get; init; }
+    Links : Int32 { get; init; }
+    LinksDropped : Int32 { get; init; }
     ToString() : String
 sealed class Lyntai.Memory.MemoryItem
     .ctor(MemoryRef Reference, String Headline, String Content, MemoryGrade Grade, Double Relevance, Double Retrievability, Int32 Degree, IReadOnlyDictionary<String,String> Metadata = null)
@@ -3432,12 +3503,18 @@ static class Lyntai.Storage.MemoryGraphSql
     AdvancePosition : String const
     Counts : String const
     DeleteSubjects : String const
+    EnsurePosition : String const
+    ExportLinks : String const
+    ExportNodes : String const
+    ExportSubjects : String const
     Forget : String const
+    ImportLink : String const
     InsertReview : String const
     InsertSubject : String const
     MinimumStability : String const
     NodeById : String const
     NodeColumns : String const
+    NodeIdByIdentity : String const
     Reviews : String const
     SeedRecent : String const
     StrengthenEdge : String const
@@ -3447,6 +3524,17 @@ static class Lyntai.Storage.MemoryGraphSql
     static MinimumStabilityValue : Double
     static Prune(String ageOverStability) : String
     static SeedMatching(LikeTermClause kw) : String
+sealed class Lyntai.Storage.MemoryLinkRow
+    .ctor()
+    Age : Double { get; set; }
+    FromId : Int64 { get; set; }
+    Kind : String { get; set; }
+    OrdinalAge : Double { get; set; }
+    StrengthenedAt : DateTimeOffset { get; set; }
+    ToId : Int64 { get; set; }
+    ToLink(DateTimeOffset encodedAt) : GraphLink
+    VolumeAge : Double { get; set; }
+    Weight : Double { get; set; }
 sealed class Lyntai.Storage.MemoryNodeRow
     .ctor()
     Age : Double { get; set; }

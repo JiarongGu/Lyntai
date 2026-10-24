@@ -1013,8 +1013,8 @@ services.AddLyntai(cfg => cfg
 ### Carry a memory to another store
 
 `IPortableMemory` writes one task's entries as JSONL and reads such a file back into another store, backend or
-deployment (**D204**). `CuratedMemoryEngine` implements it, and through the factory the blend does too, exporting
-its capable members into one file and naming the rest in `Skipped`; the graph engine does not yet.
+deployment (**D204**). `CuratedMemoryEngine` and `GraphMemoryEngine` implement it, and through the factory the blend
+does too, exporting its capable members into one file and naming the rest in `Skipped`.
 
 <!-- compile-given: IMemoryEngineFactory factory = null!; IMemoryEngineFactory target = null!; -->
 ```csharp
@@ -1037,7 +1037,7 @@ line's own. Each line is one object:
 | field | meaning |
 |---|---|
 | `v` | the format version, `1`. A reader refuses any other, rather than guess what a newer writer added |
-| `record` | what the line holds: `curated` |
+| `record` | what the line holds: `curated`, or a graph engine's `graph` and `link` (below) |
 | `engine` | the engine that exported it; a blend routes an import by it, a single engine ignores it |
 | `taskKey`, `scope` | where it was exported from — informational, since the import names its target |
 | `kind`, `content`, `enabled` | the entry; a curated engine bound to one kind refuses a line of another |
@@ -1053,6 +1053,30 @@ No store records a forget, so a file taken before one brings the forgotten conte
 taken after the last removal you mean to keep. **No vectors travel**: a vector is the content under one model, and
 the receiving engine indexes on write. A curated entry with no task, which applies everywhere, belongs to no task's
 export.
+
+**A graph engine carries its decay state and its links** (**D213**), through its store's `IPortableMemoryGraphStore`,
+which every shipped store implements; over a store of your own without it, both verbs throw
+`NotSupportedException` and a blend names the member in `Skipped`. Its file holds a `graph` line per entry, then a
+`link` line per link to an entry of the same task:
+
+| field | meaning |
+|---|---|
+| `id` | the entry's id in the SOURCE, read only to resolve links; the target allocates its own |
+| `headline`, `content`, `grade`, `metadata`, `createdAt` | the entry; `grade` is `Associative` or `Authoritative` |
+| `stability`, `difficulty`, `recallCount`, `signals`, `provenanceRetrievability`, `provenanceSalience` | its decay state, as stored |
+| `subjects` | what it is about, as the annotator recorded it, or absent |
+| `age`, `ordinalAge`, `volumeAge`, `elapsedAge` | how far behind its engine's position it sits on each scale |
+| `from`, `to`, `kind`, `weight` | a `link` line: two `id`s, the relation and the raw weight, with the same four ages |
+
+**Ages are relative, so the state survives a different clock.** An imported entry or link is stamped as far behind
+the TARGET's position as it was behind the source's, and the import advances nothing, so what was buried stays
+buried, a recall over the imported task ranks as the source's did, and nothing the target already held ages. An
+entry the target already holds — the same content, task and scope — is left exactly as it is, decay state and
+subjects included, and the file's links still attach to it; a link it already holds keeps its weight, so a second
+import writes nothing. A link whose other end is not an entry of the file — a scope the export did not cover — is
+dropped and counted in `MemoryImportResult.LinksDropped`. The review log does not travel. With a vector index, the
+engine embeds each imported entry, best-effort; one whose embed fails is stored without its vector until a
+`ReindexAsync`.
 
 ### Blend two members that index the same material
 

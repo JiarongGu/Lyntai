@@ -15,22 +15,21 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 9 across 6 Parts: 2 startable, 2 blocked, 2 watch, 3 decision-only
+## Open items — 8 across 5 Parts: 1 startable, 2 blocked, 2 watch, 3 decision-only
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 110 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a free Hugging Face account (an hf_ token) — its router proxies fal's own q… |
-| 157 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 180 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 236 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
-| 274 | 346 | RV25 — a GRAPH memory can be exported and imported through `IPortableMemory… | startable |  |
-| 288 | 347 | RV23 — measure recall in three layers, candidate → ranked → answered, on tw… | startable |  |
-| 298 | 348 | RV18 — an Agent Framework / `Microsoft.Extensions.AI` adapter | decision-only | the owner's ruling on reversing D146, which deleted the bridge in both dire… |
-| 301 | 348 | RV19 — valid-time on a memory write, so a fact can be SUPERSEDED rather tha… | decision-only | the owner's ruling on reopening D106's bi-temporal write, the prerequisite … |
-| 304 | 348 | RV20 — LLM fact extraction and a user profile (the Mem0 / Zep / LangMem gap) | decision-only | the owner's ruling on whether to rebuild extraction after it lost to decay,… |
+| 109 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a free Hugging Face account (an hf_ token) — its router proxies fal's own q… |
+| 156 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 179 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 235 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 270 | 347 | RV23 — measure recall in three layers, candidate → ranked → answered, on tw… | startable |  |
+| 280 | 348 | RV18 — an Agent Framework / `Microsoft.Extensions.AI` adapter | decision-only | the owner's ruling on reversing D146, which deleted the bridge in both dire… |
+| 283 | 348 | RV19 — valid-time on a memory write, so a fact can be SUPERSEDED rather tha… | decision-only | the owner's ruling on reopening D106's bi-temporal write, the prerequisite … |
+| 286 | 348 | RV20 — LLM fact extraction and a user profile (the Mem0 / Zep / LangMem gap) | decision-only | the owner's ruling on whether to rebuild extraction after it lost to decay,… |
 
 <!-- open-items:end -->
 
@@ -261,29 +260,12 @@ there is nothing here to code: what remains is evidence only recurrence can supp
   1 in 51 standalone overall. **Looping is not how this gets caught**; the stack has to come from the run it
   fails in.
 
-## Part 346 — the competitive review: memory you can explain, inspect, revise and carry (2026-10-24)
-
-_Opened by an external competitive review (Graphiti, Mem0, Letta, Mastra, Agent Framework, LiteLLM, the
-OpenAI Agents SDK) held untracked as `local/superpowers/specs/2026-10-24-competitive-roadmap.md` and indexed in
-`docs/superpowers/INDEX.md`. **Every item in this and the following groups survived an existence audit against
-the tree**; what the review proposed and the tree already has, or a decision already refused, is not filed. Its
-first group (removal, vector identity, test evidence) is closed: `docs/task-archive.md` Parts 349–352. The owner's
-framing of that group is a working position (`input-is-thinking-not-doctrine.md`): it is the goal for the next
-MAJOR release, which is the only kind allowed to break storage (**D18**, **D161**), and no item names that number._
-
-- [ ] **RV25 — a GRAPH memory can be exported and imported through `IPortableMemory`, decay state and links included.** <!-- item: state=startable -->
-  The curated slice shipped (**D204**, `docs/task-archive.md` Part 358); the graph half was split off because it
-  needs a store write the contract lacks. `UpsertAsync` stamps a fresh entry (stability from the policy, recall
-  count 0, age 0) and advances the position, so an import through it erases the decay state it exists to carry
-  and buries nothing that was buried. It needs an optional store capability that inserts a node WITH its
-  stability, difficulty, recall count, signals, provenance and grade, plus a `graph` record and an edge record whose
-  endpoints are remapped — ids are never reissued, so the target allocates new ones. Open questions to settle:
-  how the age primitives travel (position-relative, since a target's ordinal clock differs), whether subjects
-  travel, and that dedup on `MemoryContentKey` must not refresh an existing node's state. No vectors (**D204**).
-
 ## Part 347 — the competitive review: governed calls that cannot silently degrade (2026-10-24)
 
-_The third group from the same review (Part 346 names the record)._
+_The third group from an external competitive review (Graphiti, Mem0, Letta, Mastra, Agent Framework, LiteLLM, the
+OpenAI Agents SDK) held untracked as `local/superpowers/specs/2026-10-24-competitive-roadmap.md` and indexed in
+`docs/superpowers/INDEX.md`. **Every item in this and the following group survived an existence audit against the
+tree.** Its first two groups are closed: `docs/task-archive.md` Parts 349–358 and Part 369._
 
 - [ ] **RV23 — measure recall in three layers, candidate → ranked → answered, on two corpora.** <!-- item: state=startable -->
   The review's LYN-REV-004/005 and GAP-105. **Before the first run** (`task-lifecycle.md`): a YES — a layer
@@ -292,7 +274,7 @@ _The third group from the same review (Part 346 names the record)._
 
 ## Part 348 — the competitive review: what needs the owner's ruling first (2026-10-24)
 
-_The fourth group from the same review (Part 346 names the record). Each contradicts a recorded decision or a
+_The fourth group from the same review (`TASKS.md` Part 347 names the record). Each contradicts a recorded decision or a
 measured refutation, so building it first would reverse a ruling by momentum._
 
 - [ ] **RV18 — an Agent Framework / `Microsoft.Extensions.AI` adapter.** The review ranks it highest for <!-- item: state=decision-only needs="the owner's ruling on reversing D146, which deleted the bridge in both directions and names its own rebuild triggers" -->

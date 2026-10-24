@@ -349,22 +349,27 @@ public sealed class CompositeMemoryEngine
         CancellationToken ct = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(taskKey);
-        var members = _members.OfType<IPortableMemory>().ToList();
+        var members = _members.Where(Carries).Cast<IPortableMemory>().ToList();
         if (members.Count == 0)
             throw new NotSupportedException($"No member of memory engine '{Name}' can export.");
-        List<string> skipped = [.. _members.Where(m => m is not IPortableMemory).Select(m => m.Name)];
+        List<string> skipped = [.. _members.Where(m => !Carries(m)).Select(m => m.Name)];
         foreach (var name in skipped)
             _logger.LogWarning("memory engine {Blend}: member {Member} cannot export and was skipped; nothing it "
                 + "holds is in the file", Name, name);
 
-        var exported = 0;
+        var (exported, links) = (0, 0);
         foreach (var member in members)
         {
             ct.ThrowIfCancellationRequested();
-            exported += (await member.ExportAsync(taskKey, scope, destination, ct).ConfigureAwait(false)).Exported;
+            var result = await member.ExportAsync(taskKey, scope, destination, ct).ConfigureAwait(false);
+            (exported, links) = (exported + result.Exported, links + result.Links);
         }
-        return new MemoryExportResult(exported) { Skipped = skipped };
+        return new MemoryExportResult(exported) { Skipped = skipped, Links = links };
     }
+
+    // a graph member over a store that cannot carry decay state declares the capability and would refuse it
+    private static bool Carries(IMemoryEngine member) =>
+        member is IPortableMemory && member is not Engines.GraphMemoryEngine { Carries: false };
 
     /// <inheritdoc />
     /// <remarks>ROUTES each line to the member its <c>engine</c> names, as <see cref="LinkAsync"/> routes a
@@ -380,7 +385,8 @@ public sealed class CompositeMemoryEngine
         var routed = new List<(IPortableMemory Member, List<MemoryPortableLine> Lines)>();
         foreach (var line in lines)
         {
-            var member = _members.FirstOrDefault(m => string.Equals(m.Name, line.Engine, StringComparison.Ordinal))
+            var member = _members.FirstOrDefault(m => string.Equals(m.Name, line.Engine, StringComparison.Ordinal)
+                    && Carries(m))
                 as IPortableMemory ?? throw MemoryPortableFormat.Refuse(line.Number,
                     $"names engine '{line.Engine}', which is not a member of '{Name}' that can import (members: "
                     + $"{string.Join(", ", _members.Select(m => m.Name))})");
@@ -389,15 +395,16 @@ public sealed class CompositeMemoryEngine
             else routed[slot].Lines.Add(line);
         }
 
-        var (imported, present) = (0, 0);
+        var (imported, present, links, dropped) = (0, 0, 0, 0);
         foreach (var (member, mine) in routed)
         {
             ct.ThrowIfCancellationRequested();
             var text = string.Join('\n', mine.Select(l => l.Text));
             var result = await member.ImportAsync(taskKey, scope, new StringReader(text), ct).ConfigureAwait(false);
             (imported, present) = (imported + result.Imported, present + result.AlreadyPresent);
+            (links, dropped) = (links + result.Links, dropped + result.LinksDropped);
         }
-        return new MemoryImportResult(imported, present);
+        return new MemoryImportResult(imported, present) { Links = links, LinksDropped = dropped };
     }
 
     /// <summary>The members a removal visits, checked for the SPECIFIC capability that verb needs — refusing

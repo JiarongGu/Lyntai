@@ -184,6 +184,63 @@ public static class MemoryGraphSql
              WHERE s.engine = @engine AND s.task_key = @taskKey AND (@scope IS NULL OR s.scope = @scope))
         """;
 
+    /// <summary>Give an engine nothing was written to a head — zero on every count scale, stamped <c>@now</c> — and
+    /// leave one that has a head alone: an import re-anchors against it and advances nothing.</summary>
+    public const string EnsurePosition = """
+        INSERT INTO lyntai_memory_position (engine, position, ordinal, chars, encoded_at)
+        VALUES (@engine, 0, 0, 0, @now)
+        ON CONFLICT (engine) DO NOTHING
+        """;
+
+    /// <summary>A held node's id by its dedup identity — what an import reports for a node it did not insert.</summary>
+    public const string NodeIdByIdentity = """
+        SELECT id FROM lyntai_memory_node
+        WHERE engine = @engine AND task_key = @taskKey AND scope = @scope AND content_hash = @hash
+        """;
+
+    /// <summary>A task's nodes in id order, for <see cref="IPortableMemoryGraphStore.ExportAsync"/>.</summary>
+    public const string ExportNodes = $"""
+        SELECT {NodeColumns}
+        FROM lyntai_memory_node n
+        WHERE n.engine = @engine AND n.task_key = @taskKey AND (@scope IS NULL OR n.scope = @scope)
+        ORDER BY n.id
+        """;
+
+    /// <summary>The links leaving those nodes to a node of the same engine and task, aliased to
+    /// <see cref="MemoryLinkRow"/>, each mark subtracted from where the engine stands.</summary>
+    public const string ExportLinks = """
+        SELECT e.from_id AS FromId, e.to_id AS ToId, e.kind AS Kind,
+               CAST(e.weight AS DOUBLE PRECISION) AS Weight,
+               CAST(@position - e.strengthened_position AS DOUBLE PRECISION) AS Age,
+               CAST(@ordinal - e.strengthened_ordinal AS DOUBLE PRECISION) AS OrdinalAge,
+               CAST(@chars - e.strengthened_chars AS DOUBLE PRECISION) AS VolumeAge,
+               e.strengthened_at AS StrengthenedAt
+        FROM lyntai_memory_edge e
+        JOIN lyntai_memory_node n ON n.id = e.from_id
+        JOIN lyntai_memory_node t ON t.id = e.to_id
+        WHERE n.engine = @engine AND n.task_key = @taskKey AND (@scope IS NULL OR n.scope = @scope)
+          AND t.engine = @engine AND t.task_key = @taskKey
+        ORDER BY e.from_id, e.to_id, e.kind
+        """;
+
+    /// <summary>The subjects of those nodes, as (node id, subject) pairs.</summary>
+    public const string ExportSubjects = """
+        SELECT s.node_id, s.subject FROM lyntai_memory_subject s
+        WHERE s.engine = @engine AND s.task_key = @taskKey AND (@scope IS NULL OR s.scope = @scope)
+        ORDER BY s.node_id, s.subject
+        """;
+
+    /// <summary>Insert one imported link with the marks the caller re-anchored, only between two nodes of
+    /// <c>@engine</c> and never over a link already held — that one keeps its weight.</summary>
+    public const string ImportLink = """
+        INSERT INTO lyntai_memory_edge (from_id, to_id, kind, weight, strengthened_position,
+            strengthened_ordinal, strengthened_chars, strengthened_at)
+        SELECT @from, @to, @kind, @weight, @position, @ordinal, @chars, @at
+        WHERE EXISTS (SELECT 1 FROM lyntai_memory_node WHERE id = @from AND engine = @engine)
+          AND EXISTS (SELECT 1 FROM lyntai_memory_node WHERE id = @to AND engine = @engine)
+        ON CONFLICT (from_id, to_id, kind) DO NOTHING
+        """;
+
     /// <summary>Append to the review log. Every column is bound by parameter — including <c>verified</c>,
     /// whose TRI-STATE each backend binds its own way (SQLite <c>1</c>/<c>0</c>/NULL, Postgres a native
     /// <c>bool?</c>), which is why <see cref="MemoryReviewRow"/> deliberately does not declare it.</summary>

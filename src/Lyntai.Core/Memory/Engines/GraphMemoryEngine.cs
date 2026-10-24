@@ -39,7 +39,8 @@ public sealed class GraphMemoryEngine(
     GraphMemoryOptions? options = null,
     GraphMemorySeams? seams = null,
     ILogger<GraphMemoryEngine>? logger = null)
-    : IMemoryEngine, IExpandableMemory, ILinkableMemory, IForgettableMemory, IPrunableMemory, IReindexableMemory
+    : IMemoryEngine, IExpandableMemory, ILinkableMemory, IForgettableMemory, IPrunableMemory, IReindexableMemory,
+        IPortableMemory
 {
     private readonly GraphMemoryOptions _options = options ?? new GraphMemoryOptions();
     private readonly IMemoryRetrievabilityPolicy _policy =
@@ -1117,6 +1118,91 @@ public sealed class GraphMemoryEngine(
         foreach (var collection in resumeAfter.Keys.Where(c => !held.Contains(c)))
             await _vectors.ClaimSpaceAsync(collection, ct).ConfigureAwait(false);
         return new MemoryReindexResult(indexed, failed) { Resumed = resumed };
+    }
+
+    /// <summary>Whether the store can carry decay state, so this engine can export and import — read by the blend,
+    /// which names a member that cannot in <see cref="MemoryExportResult.Skipped"/>.</summary>
+    internal bool Carries => store is IPortableMemoryGraphStore;
+
+    private IPortableMemoryGraphStore Portable => store as IPortableMemoryGraphStore
+        ?? throw new NotSupportedException(
+            $"Memory engine '{Name}' cannot carry its memory: its store ({store.GetType().Name}) does not implement " +
+            $"{nameof(IPortableMemoryGraphStore)}, so an entry would travel without its decay state.");
+
+    /// <inheritdoc />
+    /// <remarks>One <c>graph</c> line per entry in id order — decay state, ages relative to this engine's head, subjects
+    /// — then one <c>link</c> line per link to an entry of the same task (<b>D213</b>). Reads only.</remarks>
+    /// <exception cref="NotSupportedException">The store does not implement <see cref="IPortableMemoryGraphStore"/>.</exception>
+    public async Task<MemoryExportResult> ExportAsync(string taskKey, string? scope, TextWriter destination,
+        CancellationToken ct = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(taskKey);
+        ArgumentNullException.ThrowIfNull(destination);
+        var export = await Portable.ExportAsync(Name, taskKey, scope, ct).ConfigureAwait(false);
+        await GraphPortableLines.WriteAsync(destination, Name, export, ct).ConfigureAwait(false);
+        return new MemoryExportResult(export.Nodes.Count) { Links = export.Links.Count };
+    }
+
+    /// <inheritdoc />
+    /// <remarks>Each entry is inserted WITH its state, under an id the store allocates, each age as far behind this
+    /// engine's head as it was behind the source's; nothing advances, so nothing already held ages. An entry whose
+    /// identity is held is left exactly as it is and its links attach to it; a link already held keeps its weight, and
+    /// one whose endpoint is not an entry of the file is dropped and counted (<b>D213</b>). With a vector index, each
+    /// inserted entry is embedded afterwards, best-effort: one whose embed fails is stored without its vector, which
+    /// <see cref="ReindexAsync"/> repairs.</remarks>
+    /// <exception cref="NotSupportedException">The store does not implement <see cref="IPortableMemoryGraphStore"/>.</exception>
+    public async Task<MemoryImportResult> ImportAsync(string taskKey, string? scope, TextReader source,
+        CancellationToken ct = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(taskKey);
+        if (scope is not null) ArgumentException.ThrowIfNullOrWhiteSpace(scope);
+        var portable = Portable;
+        var (nodes, links) = GraphPortableLines.Read(await MemoryPortableFormat.ReadAsync(source, ct).ConfigureAwait(false),
+            Name, scope);
+
+        var results = await portable.ImportNodesAsync(Name, taskKey, [.. nodes.Select(n => n.Node)], ct).ConfigureAwait(false);
+        var map = new Dictionary<long, long>(nodes.Count);
+        for (var i = 0; i < nodes.Count; i++) map[nodes[i].Id] = results[i].Id;
+
+        var remapped = new List<GraphLink>(links.Count);
+        var dropped = 0;
+        foreach (var link in links)
+            if (map.TryGetValue(link.From, out var from) && map.TryGetValue(link.To, out var to)) remapped.Add(link with { From = from, To = to });
+            else dropped++;
+        var linked = remapped.Count == 0 ? 0 : await portable.ImportLinksAsync(Name, remapped, ct).ConfigureAwait(false);
+
+        var inserted = results.Count(r => r.Inserted);
+        if (inserted > 0 && _vectors.Enriches)
+            await IndexImportedAsync([.. results.Where(r => r.Inserted).Select(r => r.Id)], ct).ConfigureAwait(false);
+        return new MemoryImportResult(inserted, results.Count - inserted) { Links = linked, LinksDropped = dropped };
+    }
+
+    // a re-embed's write step over the imported entries alone, best-effort as a write's own index step is
+    private async Task IndexImportedAsync(IReadOnlyList<long> ids, CancellationToken ct)
+    {
+        foreach (var batch in ids.Chunk(_options.ReindexBatchSize))
+        {
+            try
+            {
+                var nodes = new List<GraphNode>(batch.Length);
+                foreach (var id in batch)
+                    if (await store.GetAsync(Name, id, ct).ConfigureAwait(false) is { } node) nodes.Add(node);
+                var vectors = await _vectors.EmbedBatchAsync([.. nodes.Select(n => n.Content)], ct).ConfigureAwait(false);
+                using (await RemovalsAsync(ct).ConfigureAwait(false))
+                    for (var i = 0; i < nodes.Count; i++)
+                    {
+                        if (await store.GetAsync(Name, nodes[i].Id, ct).ConfigureAwait(false) is null) continue;
+                        await _vectors.UpsertAsync(nodes[i], vectors[i], ct).ConfigureAwait(false);
+                        await RetractIfRemovedAsync(nodes[i].Id, nodes[i].TaskKey, nodes[i].Scope, ct).ConfigureAwait(false);
+                    }
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "indexing {Count} imported entries for {Engine} failed; they are stored without "
+                    + "their vectors until a re-embed", batch.Length, Name);
+            }
+        }
     }
 
     private async Task<Held> RemovalsAsync(CancellationToken ct)

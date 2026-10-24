@@ -78,8 +78,8 @@ every addition.
   the task and scope it names and nowhere else, leaves an entry the target already holds untouched, so a second
   import adds nothing, and refuses a malformed or newer-version file before writing anything. A blend exports its
   capable members and names the rest. No vectors travel, and an import cannot know what the target forgot: a file
-  taken before a forget brings that content back. `CuratedMemoryEngine` implements it; the graph engine does not
-  yet.
+  taken before a forget brings that content back. `CuratedMemoryEngine` implements it, and the graph engine too
+  (below).
 - **A request can refuse to have its JSON schema or tools degraded: `TextRequest.RequireNativeSupport`**
   (**D205**). A fallback from an HTTP backend to a CLI used to turn the schema into prompt text, a local GGUF
   model dropped it, and tools a backend cannot call only warned. With the flag set, the router skips a candidate
@@ -128,6 +128,16 @@ every addition.
   `MemoryReindexResult.Resumed`. Until its pass finishes a collection is searched and read back by neither space
   and written only by the new one, and it is stamped once none of its entries failed. A rerun into another space,
   or with no space declared, starts over.
+- **A graph memory can be exported and imported too, decay state and links included** (**D213**).
+  `GraphMemoryEngine` now implements `IPortableMemory`: each entry travels with its stability, difficulty, recall
+  count, signals, provenance, grade, metadata and subjects, its ages measured from where its engine stands, and
+  each link with its weight. An import lands them under new ids, each age as far behind the target's position as it
+  was behind the source's, so a buried entry stays buried and a recall ranks as it did; it ages nothing the target
+  already held, leaves an entry the target holds exactly as it is, and counts a link whose other end is not in the
+  file in `MemoryImportResult.LinksDropped`. `MemoryExportResult.Links` and `MemoryImportResult.Links` count the
+  links. The store capability is the optional `IPortableMemoryGraphStore`, which all four shipped stores
+  implement; over a store of your own without it the engine refuses both verbs and a blend names it in `Skipped`.
+  No migration.
 
 ### Fixed
 

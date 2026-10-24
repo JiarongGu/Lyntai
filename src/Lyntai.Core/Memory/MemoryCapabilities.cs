@@ -155,6 +155,10 @@ public sealed record MemoryReindexResult(int Indexed, int Failed)
 /// no store keeps a record of a forget, so importing a file taken before a forget brings that content back. An import
 /// is the caller's explicit act — import only a file taken after the last removal you mean to keep.</para>
 ///
+/// <para><b>A graph engine carries decay state and links</b>: each entry's stability, difficulty, recall count, signals,
+/// provenance and grade, its ages relative to where its engine stands, its subjects and the links between entries,
+/// through its store's <see cref="IPortableMemoryGraphStore"/> — without one it refuses both verbs.</para>
+///
 /// <para>Reached by a type test, like <see cref="IPrunableMemory"/>; the blend around an engine declares it too, fanning
 /// out to the members that have it.</para></summary>
 public interface IPortableMemory
@@ -191,8 +195,21 @@ public sealed record MemoryExportResult(int Exported)
     /// <summary>The members of a blend that cannot export and were passed over, by name — empty from a single engine.
     /// Anything they hold is NOT in the file.</summary>
     public IReadOnlyList<string> Skipped { get; init; } = [];
+
+    /// <summary>Links written beside the entries, one line each — zero from an engine whose entries are not
+    /// connected.</summary>
+    public int Links { get; init; }
 }
 
 /// <summary>What an import did: <paramref name="Imported"/> entries written, <paramref name="AlreadyPresent"/> lines
 /// left alone because the target already held that entry or an earlier line carried it.</summary>
-public sealed record MemoryImportResult(int Imported, int AlreadyPresent);
+public sealed record MemoryImportResult(int Imported, int AlreadyPresent)
+{
+    /// <summary>Links written. A link the target already held is left alone and counted in neither this nor
+    /// <see cref="LinksDropped"/>.</summary>
+    public int Links { get; init; }
+
+    /// <summary>Links not written because an endpoint is not an entry of the file — one in a scope or task the export
+    /// did not cover.</summary>
+    public int LinksDropped { get; init; }
+}

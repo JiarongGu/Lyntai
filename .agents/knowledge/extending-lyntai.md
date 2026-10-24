@@ -362,10 +362,14 @@ answered with an empty list would silently get **no subject seeding** at all (**
 subject handles in use under a task and scope, most-used first. **And an id is never reissued**, not after a
 delete, a forget or a restart — a SQL backend gets that from `AUTOINCREMENT` or an identity column, where a plain
 rowid would hand the deleted top id out again, and an in-process one from a persisted high-water mark.
-**Beside it sits one OPTIONAL interface, `ICountableMemoryGraphStore`** (**D202**): `CountAsync` reports entries,
+**Beside it sit two OPTIONAL interfaces.** `ICountableMemoryGraphStore` (**D202**): `CountAsync` reports entries,
 authoritative entries, edges and distinct subjects per engine, task and scope, leaving `Buried` null — the engine
 judges burial. Skip it and `GraphMemoryEngine.CountAsync` answers `null`; every shipped store implements it, and
-`MemoryGraphSql.Counts` is the statement both SQL backends share.
+`MemoryGraphSql.Counts` is the statement both SQL backends share. `IPortableMemoryGraphStore` (**D213**): an export
+read and an insert that keeps decay state, which the engine's `IPortableMemory` needs. You owe: ages re-anchored
+through `MemoryGraphAnchor` and NO advance of the position; a held `MemoryContentKey` identity left exactly as it is
+(`ON CONFLICT … DO NOTHING`, then read its id); a link written only between two nodes of the engine and never over
+one already held (`MemoryGraphSql.ImportLink`). Skip it and the engine refuses to export or import.
 
 **`ICuratedMemoryStore` has one OPTIONAL interface too, `IRevisionedCuratedMemoryStore`**: an `UpdateAsync`
 overload that writes only while the entry is at the caller's `expectedRevision`. Implement it and you owe three

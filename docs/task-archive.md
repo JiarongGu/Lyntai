@@ -5738,3 +5738,17 @@ space and written only by its target. No migration: the mark lives in the stamp.
 `docs/memory.md` §Re-embed the usage; seven `MemoryReindexTests` facts pin it.
 
 - RV24 — a re-embed can resume where an interrupted one stopped
+
+## Part 369 — RV25: a graph memory is exported and imported with its decay state and links (2026-10-24)
+
+✅ done 2026-10-24 — **Outcome:** the last item of the competitive review's memory group (`TASKS.md` Part 346, now
+retired). `GraphMemoryEngine` implements `IPortableMemory` over the optional `IPortableMemoryGraphStore` — an export
+read, a node insert that keeps stability, difficulty, recall count, signals, provenance, grade and subjects, and a
+link insert — which all four shipped stores implement; `graph` and `link` lines carry each age relative to the
+engine's head, re-anchored on import through `MemoryGraphAnchor` without advancing the target. A held identity is
+never refreshed, a re-import writes nothing, and a link to an entry outside the file is counted in
+`MemoryImportResult.LinksDropped`. Three contract facts run on every backend; `GraphMemoryPortabilityTests` pins the
+round trip, burial and recall. No migration. **D213** records the choices; `docs/memory.md` §Carry a memory to
+another store the schema.
+
+- RV25 — a GRAPH memory can be exported and imported through `IPortableMemory`, decay state and links included

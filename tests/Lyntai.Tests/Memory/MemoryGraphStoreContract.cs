@@ -1885,4 +1885,136 @@ public static class MemoryGraphStoreContract
 
         Assert.Equal(new MemoryGraphCounts(1, 0, 0, 1), await counting.CountAsync(engine, key, null));
     }
+
+    private static GraphNodeImport Carried(GraphNode node, IReadOnlyDictionary<long, IReadOnlyList<string>> subjects) =>
+        new(node.Scope, node.Headline, node.Content, node.Grade, node.CreatedAt, node.RecallCount, node.Stability,
+            node.Difficulty, node.Signals, node.ProvenanceRetrievability, node.ProvenanceSalience, node.Metadata,
+            subjects.GetValueOrDefault(node.Id) ?? [], node.Age, node.OrdinalAge, node.VolumeAge, node.ElapsedAge);
+
+    /// <summary>Export one engine's task, import it into another engine's — whose clock stands elsewhere — and read it
+    /// back: <b>every decay field arrives as it left</b>, each age the same distance behind the TARGET's head as it was
+    /// behind the source's, and every link and subject with it, under ids the target allocated
+    /// (<see cref="IPortableMemoryGraphStore"/>). An import advances the target's clock on no scale.</summary>
+    public static async Task Portable_import_carries_decay_state_links_and_subjects_re_anchored_to_the_targets_clock(
+        IMemoryGraphStore store, string key)
+    {
+        var portable = Assert.IsAssignableFrom<IPortableMemoryGraphStore>(store);
+        const string source = "port-src", target = "port-dst";
+
+        var a = await store.UpsertAsync(new GraphNodeWrite(source, key, "s", "alice", "the spouse is Alice",
+            MemoryGrade.Associative, 3, 1, new Dictionary<string, string> { ["from"] = "chat" },
+            MemorySignals.Empty.With(MemorySignals.WellKnown.Salience, 2), 4, 8));
+        var b = await store.UpsertAsync(Write(source, key, "Alice runs the deploy"));
+        var c = await store.UpsertAsync(Write(source, key, "the production database is db-prod-2", MemoryGrade.Authoritative));
+        await store.LinkAsync(source, a, b, null, 2, symmetric: true, default);
+        await store.LinkAsync(source, b, c, "about", 1, symmetric: false, default);
+        await store.RecordSubjectsAsync(source, a, ["alice", "family"]);
+        await CrowdAtOnce(store, source, key, 5);
+        await store.TouchAsync(source, [new GraphTouch(b, 11, 2, 6.5)]);
+        await Crowd(store, source, key, 3);
+
+        // the target already stands far from where the source does, on every scale
+        await CrowdAtOnce(store, target, key, 40);
+        await Crowd(store, target, key, 2);
+        var targetBefore = (await portable.ExportAsync(target, key, "filler")).Nodes;
+
+        var exported = await portable.ExportAsync(source, key, "s");
+        Assert.Equal(3, exported.Nodes.Count);
+        Assert.Equal(3, exported.Links.Count);
+
+        var results = await portable.ImportNodesAsync(target, key + "-to", [.. exported.Nodes.Select(n => Carried(n, exported.Subjects))]);
+        Assert.All(results, r => Assert.True(r.Inserted));
+        var map = exported.Nodes.Select((n, i) => (n.Id, results[i].Id)).ToDictionary(p => p.Item1, p => p.Item2);
+        Assert.Empty(map.Values.Intersect(map.Keys));   // ids are never reissued: the target allocated its own
+        var linked = await portable.ImportLinksAsync(target,
+            [.. exported.Links.Select(l => l with { From = map[l.From], To = map[l.To] })]);
+        Assert.Equal(3, linked);
+
+        var imported = await portable.ExportAsync(target, key + "-to", null);
+        foreach (var before in exported.Nodes)
+        {
+            var after = imported.Nodes.Single(n => n.Id == map[before.Id]);
+            Assert.Equal((before.Headline, before.Content, before.Grade, before.RecallCount, before.Scope),
+                (after.Headline, after.Content, after.Grade, after.RecallCount, after.Scope));
+            Assert.Equal(before.Stability, after.Stability, 9);
+            Assert.Equal(before.Difficulty, after.Difficulty, 9);
+            Assert.Equal(before.Signals, after.Signals);
+            Assert.Equal((before.ProvenanceRetrievability, before.ProvenanceSalience),
+                (after.ProvenanceRetrievability, after.ProvenanceSalience));
+            Assert.Equal(before.Age, after.Age, 9);
+            Assert.Equal(before.OrdinalAge, after.OrdinalAge, 9);
+            Assert.Equal(before.VolumeAge, after.VolumeAge, 9);
+            Assert.Equal(before.ElapsedAge, after.ElapsedAge, 4);
+            Assert.Equal(before.CreatedAt.ToUnixTimeSeconds(), after.CreatedAt.ToUnixTimeSeconds());
+            Assert.Equal(before.Degree, after.Degree);
+            Assert.Equal(before.Strength, after.Strength, 9);
+            Assert.Equal(before.StrengthAge, after.StrengthAge, 9);
+            Assert.Equal(before.StrengthOrdinalAge, after.StrengthOrdinalAge, 9);
+            Assert.Equal(before.Metadata?.GetValueOrDefault("from"), after.Metadata?.GetValueOrDefault("from"));
+            Assert.Equal((exported.Subjects.GetValueOrDefault(before.Id) ?? []).Order(StringComparer.Ordinal),
+                (imported.Subjects.GetValueOrDefault(after.Id) ?? []).Order(StringComparer.Ordinal));
+        }
+        Assert.Equal(
+            exported.Links.Select(l => (map[l.From], map[l.To], l.Kind, l.Weight, l.Age, l.OrdinalAge)).Order(),
+            imported.Links.Select(l => (l.From, l.To, l.Kind, l.Weight, l.Age, l.OrdinalAge)).Order());
+
+        // the import moved the target's clock on no scale: what it already held aged by nothing
+        var targetAfter = (await portable.ExportAsync(target, key, "filler")).Nodes;
+        Assert.Equal(targetBefore.Select(n => (n.Id, n.Age, n.OrdinalAge, n.VolumeAge)),
+            targetAfter.Select(n => (n.Id, n.Age, n.OrdinalAge, n.VolumeAge)));
+    }
+
+    /// <summary><b>Dedup on <see cref="MemoryContentKey"/> never refreshes what the target holds</b>: an imported node
+    /// whose identity is already there leaves that node's decay state, grade and subjects exactly as they were and
+    /// reports its id, so a link to it still lands — once, and never strengthening one the target already has.</summary>
+    public static async Task Portable_import_never_refreshes_a_node_it_already_holds_and_never_strengthens_a_link(
+        IMemoryGraphStore store, string key)
+    {
+        var portable = Assert.IsAssignableFrom<IPortableMemoryGraphStore>(store);
+        const string engine = "port-dedup";
+        var held = await store.UpsertAsync(Write(engine, key, "the spouse is Alice"));
+        var other = await store.UpsertAsync(Write(engine, key, "Alice runs the deploy"));
+        await store.LinkAsync(engine, held, other, null, 1, symmetric: false, default);
+        await store.RecordSubjectsAsync(engine, held, ["mine"]);
+        await Crowd(store, engine, key, 4);
+        var before = (await store.GetAsync(engine, held))!;
+
+        var stranger = new GraphNodeImport("s", "imported headline", "the spouse is Alice", MemoryGrade.Authoritative,
+            DateTimeOffset.UnixEpoch, 9, 99, 9, MemorySignals.Empty.With(MemorySignals.WellKnown.Salience, 3), 0, 0,
+            new Dictionary<string, string> { ["from"] = "file" }, ["theirs"], 0, 0, 0, 0);
+        var fresh = stranger with { Content = "a new fact", Headline = "a new fact", Subjects = [] };
+
+        var results = await portable.ImportNodesAsync(engine, key, [stranger, fresh, stranger]);
+
+        Assert.Equal([new GraphNodeImportResult(held, false), results[1], new GraphNodeImportResult(held, false)], results);
+        Assert.True(results[1].Inserted);
+        var after = (await store.GetAsync(engine, held))!;
+        Assert.Equal((before.Headline, before.Grade, before.RecallCount, before.Stability, before.Age, before.Signals),
+            (after.Headline, after.Grade, after.RecallCount, after.Stability, after.Age, after.Signals));
+        Assert.Null(after.Metadata);
+        Assert.Equal([held], await store.NodesBySubjectAsync(engine, key, null, "mine", 10));
+        Assert.Empty(await store.NodesBySubjectAsync(engine, key, null, "theirs", 10));
+
+        GraphLink[] links = [new(held, other, "", 5, 0, 0, 0, 0), new(held, results[1].Id, "", 5, 0, 0, 0, 0)];
+        Assert.Equal(1, await portable.ImportLinksAsync(engine, links));
+        Assert.Equal(0, await portable.ImportLinksAsync(engine, links));
+        var strength = (await store.GetAsync(engine, held))!.Strength;
+        Assert.Equal(6, strength, 9);   // the held link kept its weight of 1; the new one carries 5
+    }
+
+    /// <summary>A link lands only between two nodes the importing engine holds — never to an id it does not, another
+    /// engine's included, and never a self-edge.</summary>
+    public static async Task Portable_import_writes_no_link_to_a_node_the_engine_does_not_hold(
+        IMemoryGraphStore store, string key)
+    {
+        var portable = Assert.IsAssignableFrom<IPortableMemoryGraphStore>(store);
+        var mine = await store.UpsertAsync(Write("port-links", key, "mine"));
+        var theirs = await store.UpsertAsync(Write("port-links-other", key, "theirs"));
+
+        var written = await portable.ImportLinksAsync("port-links",
+            [new(mine, theirs, "", 1, 0, 0, 0, 0), new(mine, mine, "", 1, 0, 0, 0, 0), new(mine, long.MaxValue - 1, "", 1, 0, 0, 0, 0)]);
+
+        Assert.Equal(0, written);
+        Assert.Equal(0, (await store.GetAsync("port-links", mine))!.Degree);
+    }
 }

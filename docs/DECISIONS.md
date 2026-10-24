@@ -282,8 +282,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D210](#d210--a-tool-call-is-approved-inside-the-shared-invocation-flow-by-every-registered-approver-and-a-refusal-is-a-result-never-an-end-2026-10-24) | 2026-10-24 | a tool call is APPROVED inside the shared invocation flow, by every registered approver, and a re… |
 | [D211](#d211--every-storage-contract-runs-on-every-backend-from-one-theory-and-a-shared-database-is-cleared-rather-than-excused-2026-10-24) | 2026-10-24 | every storage contract runs on every backend from ONE theory, and a shared database is cleared ra… |
 | [D212](#d212--an-interrupted-re-embed-resumes-from-a-per-collection-mark-kept-in-the-vector-space-stamp-and-only-into-the-same-declared-space-2026-10-24) | 2026-10-24 | an interrupted re-embed resumes from a per-collection mark kept IN the vector-space stamp, and on… |
+| [D213](#d213--a-graph-memory-travels-with-its-decay-state-through-an-optional-store-capability-its-ages-relative-to-the-engines-head-2026-10-24) | 2026-10-24 | a graph memory travels WITH its decay state through an optional store capability, its ages relati… |
 
-**207 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**208 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -6077,3 +6078,32 @@ vectors, and a registration a vector-only deployment lacks. A cursor returned to
 caller must persist it, and nothing stops it being passed to a pass under a different model. A shadow space
 flipped at the end: refused by owner ruling (**D194**). Releasing the stamp for the pass, as **D199** shipped: an
 unstamped collection is claimed by its first write, so an interrupted pass left it stamped with two models inside.
+
+## D213 — a graph memory travels WITH its decay state through an optional store capability, its ages relative to the engine's head (2026-10-24)
+
+`GraphMemoryEngine` implements `IPortableMemory` (**D204**) over `IPortableMemoryGraphStore`, which all four shipped
+stores implement: `ExportAsync` reads a task's nodes, the links leaving them to the same task and their subjects as
+of one position; `ImportNodesAsync` inserts each node WITH its stability, difficulty, recall count, signals,
+provenance, grade, metadata, creation time and subjects, under an id the store allocates; `ImportLinksAsync` inserts
+each link with its weight. A file carries one `graph` line per entry and one `link` line per link, by source id.
+
+**Ages travel relative to the head, and an import advances nothing.** Each of the four ages (position, ordinal,
+volume, elapsed) is exported as how far the entry or link sits behind where its engine stands, and imported that
+far behind where the target stands, through one rule (`MemoryGraphAnchor`). So an entry buried in the source is
+buried in the target, a recall ranks the same, and nothing the target already held ages; a target with no head is
+given one at zero, stamped at the import. **A held identity is left exactly as it is** (`MemoryContentKey`, as
+`UpsertAsync` dedups), and its links still attach; a link the target holds keeps its weight, so a second import
+writes nothing. **A link whose endpoint is not an entry of the file is dropped and counted**
+(`MemoryImportResult.LinksDropped`). **Subjects travel**: they are canonical text, not a model's projection, and
+re-deriving them costs an annotator call per entry and drifts (`docs/memory-measurements.md` §5,
+`annotation-drift-corrected-context`). The review
+log, vectors (**D204**) and the age policies' in-process state do not; an engine with an index embeds what it
+imported, best-effort, as a write does.
+
+**Rejected.** Importing through `UpsertAsync`: it stamps a fresh entry and advances the clock, erasing the state
+the file carries. Absolute marks: each engine's clock counts its own writes, so a source mark means nothing in the
+target. Advancing the target by the imported writes: every entry it already held would age by the size of a file.
+Dropping every link that touches an entry the target already held: a re-run of an interrupted import would lose
+the links between its two halves for good. Refreshing a held entry from the file: the import would overwrite what
+the target learned, which **D204** promises never to do. A required member on `IMemoryGraphStore`: it breaks every
+store an application wrote (**D202**).

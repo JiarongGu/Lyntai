@@ -80,8 +80,11 @@ sealed class Lyntai.Storage.Postgres.PostgresMemoryGraphStore
     .ctor(IDbConnectionFactory factory, ILogger<PostgresMemoryGraphStore> logger = null, Func<DateTimeOffset> clock = null)
     CountAsync(String engine, String taskKey, String scope, CancellationToken ct = default) : Task<MemoryGraphCounts>
     DeleteAsync(String engine, IReadOnlyCollection<Int64> ids, CancellationToken ct = default) : Task<Int32>
+    ExportAsync(String engine, String taskKey, String scope, CancellationToken ct = default) : Task<MemoryGraphExport>
     ForgetAsync(String engine, String taskKey, String scope, CancellationToken ct = default) : Task
     GetAsync(String engine, Int64 id, CancellationToken ct = default) : Task<GraphNode>
+    ImportLinksAsync(String engine, IReadOnlyList<GraphLink> links, CancellationToken ct = default) : Task<Int32>
+    ImportNodesAsync(String engine, String taskKey, IReadOnlyList<GraphNodeImport> nodes, CancellationToken ct = default) : Task<IReadOnlyList<GraphNodeImportResult>>
     KnownSubjectsAsync(String engine, String taskKey, String scope, Int32 limit, CancellationToken ct = default) : Task<IReadOnlyList<String>>
     LinkAsync(String engine, Int64 from, Int64 to, String kind, Double weight, Boolean symmetric, CancellationToken ct = default) : Task
     LinkManyAsync(String engine, IReadOnlyList<GraphEdgeWrite> edges, CancellationToken ct = default) : Task

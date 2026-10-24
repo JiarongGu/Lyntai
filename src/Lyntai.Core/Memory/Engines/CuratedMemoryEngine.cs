@@ -193,7 +193,7 @@ public sealed class CuratedMemoryEngine(
                 || enabled.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
                 throw MemoryPortableFormat.Refuse(line.Number, "carries no boolean \"enabled\"");
             entries.Add((lineKind, content, scope ?? MemoryPortableFormat.String(line.Body, "scope"),
-                enabled.GetBoolean(), Metadata(line)));
+                enabled.GetBoolean(), MemoryPortableFormat.Map(line, "metadata")));
         }
 
         // what the target already holds under this task, so the count can say which lines changed nothing; the add's
@@ -209,19 +209,5 @@ public sealed class CuratedMemoryEngine(
             imported++;
         }
         return new MemoryImportResult(imported, present);
-    }
-
-    private static Dictionary<string, string>? Metadata(MemoryPortableLine line)
-    {
-        if (!line.Body.TryGetProperty("metadata", out var element) || element.ValueKind == JsonValueKind.Null)
-            return null;
-        if (element.ValueKind != JsonValueKind.Object)
-            throw MemoryPortableFormat.Refuse(line.Number, "carries a \"metadata\" that is not an object");
-        var metadata = new Dictionary<string, string>(StringComparer.Ordinal);
-        foreach (var pair in element.EnumerateObject())
-            metadata[pair.Name] = pair.Value.ValueKind == JsonValueKind.String
-                ? pair.Value.GetString()!
-                : throw MemoryPortableFormat.Refuse(line.Number, $"carries a non-string metadata value for '{pair.Name}'");
-        return metadata.Count == 0 ? null : metadata;
     }
 }

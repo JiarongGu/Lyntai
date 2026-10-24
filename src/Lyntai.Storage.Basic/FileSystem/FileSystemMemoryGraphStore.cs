@@ -14,7 +14,7 @@ namespace Lyntai.Storage.FileSystem;
 /// the journal first, then the memory file, so a crash between leaves unreachable state, never a memory with none.</para>
 /// </summary>
 internal sealed class FileSystemMemoryGraphStore(FileSystemRoot root, Func<DateTimeOffset>? clock = null,
-    int compactionFloor = 4096) : ICountableMemoryGraphStore
+    int compactionFloor = 4096) : ICountableMemoryGraphStore, IPortableMemoryGraphStore
 {
     private const string StateDirectory = "state";
 
@@ -247,6 +247,49 @@ internal sealed class FileSystemMemoryGraphStore(FileSystemRoot root, Func<DateT
         }
     }
 
+    public Task<IReadOnlyList<GraphNodeImportResult>> ImportNodesAsync(string engine, string taskKey,
+        IReadOnlyList<GraphNodeImport> nodes, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(nodes);
+        ct.ThrowIfCancellationRequested();
+        lock (_lock)
+        {
+            Load();
+            var (change, results) = _graph.PlanImportNodes(engine, taskKey, nodes);
+            if (change.Nodes.Count == 0) return Task.FromResult(results);
+            var files = change.Nodes.Select(n => (n.After, File: Path.Combine(FilesOf(engine).Directory,
+                RecordName.For(taskKey), RecordName.For(n.After.Record.Scope), FileSystemRoot.IdFile(n.After.Id)))).ToList();
+            List<EngineFiles> journaled;
+            try
+            {
+                // the journal first, as UpsertAsync writes it: a crash before a memory file leaves unreachable state
+                journaled = Journal(change, engine);
+                foreach (var (after, file) in files) root.Write(file, MemoryFile(after.Record));
+            }
+            catch
+            {
+                _graph.Reserve(change.Nodes.Max(n => n.After.Id), 0);
+                throw;
+            }
+            foreach (var (after, file) in files) _files[after.Id] = [file];
+            ApplyAndCompact(change, journaled);
+            return Task.FromResult(results);
+        }
+    }
+
+    public Task<int> ImportLinksAsync(string engine, IReadOnlyList<GraphLink> links, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(links);
+        ct.ThrowIfCancellationRequested();
+        lock (_lock)
+        {
+            Load();
+            var change = _graph.PlanImportLinks(engine, links);
+            if (change.Edges.Count > 0) Commit(change, engine);
+            return Task.FromResult(change.Edges.Count);
+        }
+    }
+
     public Task TouchAsync(string engine, IReadOnlyCollection<GraphTouch> touches, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(touches);
@@ -428,6 +471,17 @@ internal sealed class FileSystemMemoryGraphStore(FileSystemRoot root, Func<DateT
         {
             Load();
             return Task.FromResult(_graph.NodesBySubject(engine, taskKey, scope, subject, limit));
+        }
+    }
+
+    public Task<MemoryGraphExport> ExportAsync(string engine, string taskKey, string? scope,
+        CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        lock (_lock)
+        {
+            Load();
+            return Task.FromResult(_graph.Export(engine, taskKey, scope));
         }
     }
 
