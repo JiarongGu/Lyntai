@@ -281,8 +281,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D209](#d209--a-graph-engine-pins-its-embedder-by-provider-id-per-engine-and-a-pin-never-fails-over-2026-10-24) | 2026-10-24 | a graph engine PINS its embedder by provider id, per engine, and a pin never fails over |
 | [D210](#d210--a-tool-call-is-approved-inside-the-shared-invocation-flow-by-every-registered-approver-and-a-refusal-is-a-result-never-an-end-2026-10-24) | 2026-10-24 | a tool call is APPROVED inside the shared invocation flow, by every registered approver, and a re… |
 | [D211](#d211--every-storage-contract-runs-on-every-backend-from-one-theory-and-a-shared-database-is-cleared-rather-than-excused-2026-10-24) | 2026-10-24 | every storage contract runs on every backend from ONE theory, and a shared database is cleared ra… |
+| [D212](#d212--an-interrupted-re-embed-resumes-from-a-per-collection-mark-kept-in-the-vector-space-stamp-and-only-into-the-same-declared-space-2026-10-24) | 2026-10-24 | an interrupted re-embed resumes from a per-collection mark kept IN the vector-space stamp, and on… |
 
-**206 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**207 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -6056,3 +6057,23 @@ cannot call, a stale exclusion and a shared suite that never clears.
 **Rejected.** Hand-written per-backend delegators held by a source-text scan: a fact reached InMemory and SQLite
 by a hand list too, and Postgres only once someone remembered it. Excusing table-wide facts on Postgres by name:
 it left five facts unrun on the backend most likely to diverge. A database per test: a container start per case.
+
+## D212 — an interrupted re-embed resumes from a per-collection mark kept IN the vector-space stamp, and only into the same declared space (2026-10-24)
+
+`ReindexAsync` takes a task's entries in id order. Under a declared space (**D199**) it replaces each collection's
+stamp with a MOVING mark naming the target space and the id through which the collection is re-embedded, advances
+the mark after each batch written, and stamps the collection once none of its entries failed; a failed batch holds
+its collections' marks. A rerun into the same space skips the entries at or below each mark and counts them
+`MemoryReindexResult.Resumed`. A moving collection is searched and read back by neither space and written only by
+its target, so a half-moved collection is never compared, and a write landing mid-move is already in the new space.
+
+**Only under a declared space.** The mark is safe to resume from only if the next pass embeds with the same model,
+and the space is the one thing that says so: a mark into another space is ignored and the pass starts over, and
+undeclared there is no mark. **In the stamp, not beside it**: the stamp is read on every guarded call already, so
+the moving state costs no extra read, and a mark that does not parse reads as a foreign space, which refuses.
+
+**Rejected.** A progress record in `IKeyValueStore`: **D199**'s reason — a second store that can disagree with the
+vectors, and a registration a vector-only deployment lacks. A cursor returned to the caller and passed back: the
+caller must persist it, and nothing stops it being passed to a pass under a different model. A shadow space
+flipped at the end: refused by owner ruling (**D194**). Releasing the stamp for the pass, as **D199** shipped: an
+unstamped collection is claimed by its first write, so an interrupted pass left it stamped with two models inside.

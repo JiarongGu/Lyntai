@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Globalization;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -10,7 +11,8 @@ namespace Lyntai.Memory;
 /// <para>Each collection carries a STAMP — the space that first wrote it — kept in the same store, in a collection
 /// of stamps no listing returns. A write into a collection stamped with another space throws; a search of one
 /// finds nothing and warns; a read-back throws. An unstamped collection, written before the space was declared, is
-/// read as before and claimed by its first write. Removing a collection removes its stamp.</para>
+/// read as before and claimed by its first write. Removing a collection removes its stamp. A re-embed replaces the
+/// stamp with its progress until it finishes, so an interrupted one resumes (<b>D212</b>).</para>
 /// <para>Each guarded call costs the inner store one filtered read of the stamp.</para></summary>
 internal abstract class VectorSpaceStore : IVectorStore, IAsyncDisposable, IDisposable
 {
@@ -68,8 +70,33 @@ internal abstract class VectorSpaceStore : IVectorStore, IAsyncDisposable, IDisp
     internal Task StampAsync(string collection, CancellationToken ct) =>
         Inner.UpsertAsync(Stamps, collection, StampVector, Space, ct);
 
-    /// <summary>Clear <paramref name="collection"/>'s stamp, so a re-embed may write into it.</summary>
-    internal Task UnstampAsync(string collection, CancellationToken ct) => Inner.DeleteAsync(Stamps, collection, ct);
+    /// <summary>Mark <paramref name="collection"/> as MOVING into the declared space, every entry whose id is at or
+    /// below <paramref name="through"/> already re-embedded into it (<b>D212</b>). A moving collection holds two
+    /// spaces' vectors, so it is searched and read back by neither; only its target space may write into it.</summary>
+    internal Task MarkMovingAsync(string collection, long through, CancellationToken ct) =>
+        Inner.UpsertAsync(Stamps, collection, StampVector,
+            Moving + through.ToString(CultureInfo.InvariantCulture) + Separator + Space, ct);
+
+    /// <summary>How far an interrupted re-embed into the DECLARED space got in <paramref name="collection"/>: the id
+    /// through which its entries are re-embedded, or null when no move into this space is under way.</summary>
+    internal async Task<long?> ResumePointAsync(string collection, CancellationToken ct) =>
+        MovingOf(await StampOfAsync(collection, ct).ConfigureAwait(false)) is { } move && move.Space == Space
+            ? move.Through
+            : null;
+
+    // a payload no host-declared space id can be: a re-embed's progress lives in the stamp it replaces
+    private const string Moving = "\u001fmoving\u001f";
+    private const char Separator = '\u001f';
+
+    private static (long Through, string Space)? MovingOf(string? stamp)
+    {
+        if (stamp is null || !stamp.StartsWith(Moving, StringComparison.Ordinal)) return null;
+        var rest = stamp.AsSpan(Moving.Length);
+        var cut = rest.IndexOf(Separator);
+        return cut > 0 && long.TryParse(rest[..cut], NumberStyles.Integer, CultureInfo.InvariantCulture, out var through)
+            ? (through, rest[(cut + 1)..].ToString())
+            : null;
+    }
 
     /// <summary>Whether <paramref name="collection"/> may be read under the declared space.</summary>
     private protected async Task<bool> ReadableAsync(string collection, CancellationToken ct)
@@ -78,8 +105,8 @@ internal abstract class VectorSpaceStore : IVectorStore, IAsyncDisposable, IDisp
         if (stamp is null || stamp == Space) return true;
         if (_warned.TryAdd(collection, 0))
             Logger.LogWarning(
-                "vector collection {Collection} was written by vector space '{Stamp}' and this deployment declares "
-                + "'{Space}'; it is not searched until it is re-embedded or forgotten", collection, stamp, Space);
+                "vector collection {Collection} holds {Stamp} and this deployment declares '{Space}'; it is not "
+                + "searched until it is re-embedded or forgotten", collection, Describe(stamp), Space);
         return false;
     }
 
@@ -89,15 +116,20 @@ internal abstract class VectorSpaceStore : IVectorStore, IAsyncDisposable, IDisp
         if (stamp is not null && stamp != Space) throw Mismatch(collection, stamp);
     }
 
+    private static string Describe(string stamp) => MovingOf(stamp) is { } move
+        ? $"an unfinished re-embed into vector space '{move.Space}'"
+        : $"vector space '{stamp}'";
+
     private InvalidOperationException Mismatch(string collection, string stamp) => new(
-        $"Vector collection '{collection}' was written by vector space '{stamp}', and this deployment declares "
+        $"Vector collection '{collection}' holds {Describe(stamp)}, and this deployment declares "
         + $"'{Space}'. Its vectors cannot be mixed or compared with this embedder's: re-embed it "
         + "(IReindexableMemory.ReindexAsync) or forget it first.");
 
     public async Task UpsertAsync(string collection, string id, float[] vector, string payload, CancellationToken ct = default)
     {
         var stamp = await StampOfAsync(collection, ct).ConfigureAwait(false);
-        if (stamp is not null && stamp != Space) throw Mismatch(collection, stamp);
+        // a collection moving INTO this space takes its writes, and stays unclaimed until the move finishes
+        if (stamp is not null && stamp != Space && MovingOf(stamp)?.Space != Space) throw Mismatch(collection, stamp);
         await Inner.UpsertAsync(collection, id, vector, payload, ct).ConfigureAwait(false);
         if (stamp is null) await StampAsync(collection, ct).ConfigureAwait(false);
     }
@@ -120,7 +152,7 @@ internal abstract class VectorSpaceStore : IVectorStore, IAsyncDisposable, IDisp
     public async Task RemoveCollectionAsync(string collection, CancellationToken ct = default)
     {
         await Inner.RemoveCollectionAsync(collection, ct).ConfigureAwait(false);
-        await UnstampAsync(collection, ct).ConfigureAwait(false);
+        await Inner.DeleteAsync(Stamps, collection, ct).ConfigureAwait(false);
     }
 
     private protected async Task<IReadOnlyList<string>> ListAsync(string prefix, CancellationToken ct) =>

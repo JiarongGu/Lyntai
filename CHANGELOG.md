@@ -121,6 +121,13 @@ every addition.
   throws, is the call's result — `error: tool call refused by approval: <reason>` — and the loop goes on;
   `GatedToolResult.Denied` marks it, and `ToolInvocation.InvokeGatedAsync` has an overload taking the approvers.
   With none registered, nothing changes.
+- **An interrupted re-embed resumes where it stopped, under a declared vector space** (**D212**). A graph
+  engine's `ReindexAsync` re-embedded the whole task on every run, so a pass interrupted near the end of a large
+  task was paid again in full. It now goes in id order and records, in each collection's vector-space stamp, the
+  entry through which the collection is done; a rerun into the same space skips those and reports them as
+  `MemoryReindexResult.Resumed`. Until its pass finishes a collection is searched and read back by neither space
+  and written only by the new one, and it is stamped once none of its entries failed. A rerun into another space,
+  or with no space declared, starts over.
 
 ### Fixed
 

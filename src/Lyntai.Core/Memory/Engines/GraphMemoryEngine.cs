@@ -1047,8 +1047,10 @@ public sealed class GraphMemoryEngine(
     /// <see cref="GraphMemoryOptions.ReindexBatchSize"/> OUTSIDE the removal lock, so a slow backend holds no removal
     /// up, and writes each batch back UNDER it, re-reading which of its entries still exist first. A batch whose
     /// embed call fails is logged and counted <see cref="MemoryReindexResult.Failed"/>; a write that fails throws, as
-    /// the index itself is then broken. A rerun re-embeds the WHOLE task again: nothing records which model wrote a
-    /// stored vector.</remarks>
+    /// the index itself is then broken. Entries go in id order; under a declared vector space each collection records
+    /// the id through which it is re-embedded, so a rerun into the SAME space resumes after it, counted
+    /// <see cref="MemoryReindexResult.Resumed"/>, and a collection is stamped once none of its entries failed
+    /// (<b>D212</b>). Undeclared, a rerun re-embeds the whole task: nothing says which model wrote a stored vector.</remarks>
     public async Task<MemoryReindexResult> ReindexAsync(string taskKey, string? scope = null, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(taskKey);
@@ -1058,12 +1060,30 @@ public sealed class GraphMemoryEngine(
         if (!_vectors.Enriches) throw new InvalidOperationException(EmbeddingRouting.NothingEmbeds);
 
         var nodes = await store.SeedAsync(Name, taskKey, scope, query: null, limit: int.MaxValue, ct).ConfigureAwait(false);
-        // a declared vector space stamps each collection; the pass re-embeds into it, and claims it only when clean
-        await _vectors.ReleaseSpaceAsync(nodes, ct).ConfigureAwait(false);
+        // a declared space marks each collection MOVING, recording how far an interrupted pass into it got (D212)
+        var resumeAfter = new Dictionary<string, long>(StringComparer.Ordinal);
+        await _vectors.BeginMoveAsync(nodes, resumeAfter, ct).ConfigureAwait(false);
+        if (resumeAfter.Count > 0)
+        {
+            // re-read: an old-space write that landed before the mark is in this list, and one after it was refused
+            nodes = await store.SeedAsync(Name, taskKey, scope, query: null, limit: int.MaxValue, ct).ConfigureAwait(false);
+            await _vectors.BeginMoveAsync(nodes, resumeAfter, ct).ConfigureAwait(false);
+        }
+
+        var pending = new List<GraphNode>(nodes.Count);
+        var resumed = 0;
+        foreach (var node in nodes.OrderBy(n => n.Id))
+        {
+            if (resumeAfter.TryGetValue(_vectors.CollectionOf(node), out var through) && node.Id <= through) resumed++;
+            else pending.Add(node);
+        }
+
+        var held = new HashSet<string>(StringComparer.Ordinal);   // a collection with a failed entry stops advancing
         var (indexed, failed) = (0, 0);
-        foreach (var batch in nodes.Chunk(_options.ReindexBatchSize))
+        foreach (var batch in pending.Chunk(_options.ReindexBatchSize))
         {
             ct.ThrowIfCancellationRequested();
+            var collections = batch.Select(_vectors.CollectionOf).Distinct(StringComparer.Ordinal).ToList();
             IReadOnlyList<float[]> vectors;
             try
             {
@@ -1075,22 +1095,28 @@ public sealed class GraphMemoryEngine(
                 _logger.LogWarning(ex, "re-embedding a batch of {Count} for {Engine} failed; they keep their old vectors",
                     batch.Length, Name);
                 failed += batch.Length;
+                held.UnionWith(collections);
                 continue;
             }
 
-            using var removals = await RemovalsAsync(ct).ConfigureAwait(false);
-            for (var i = 0; i < batch.Length; i++)
+            using (await RemovalsAsync(ct).ConfigureAwait(false))
             {
-                if (await store.GetAsync(Name, batch[i].Id, ct).ConfigureAwait(false) is null) continue;   // removed mid-pass
-                await _vectors.UpsertAsync(batch[i], vectors[i], ct).ConfigureAwait(false);
-                // removed by ANOTHER instance between the read and the upsert — this lock does not reach it
-                if (await RetractIfRemovedAsync(batch[i].Id, batch[i].TaskKey, batch[i].Scope, ct).ConfigureAwait(false))
-                    continue;
-                indexed++;
+                for (var i = 0; i < batch.Length; i++)
+                {
+                    if (await store.GetAsync(Name, batch[i].Id, ct).ConfigureAwait(false) is null) continue;   // removed mid-pass
+                    await _vectors.UpsertAsync(batch[i], vectors[i], ct).ConfigureAwait(false);
+                    // removed by ANOTHER instance between the read and the upsert — this lock does not reach it
+                    if (await RetractIfRemovedAsync(batch[i].Id, batch[i].TaskKey, batch[i].Scope, ct).ConfigureAwait(false))
+                        continue;
+                    indexed++;
+                }
             }
+            foreach (var collection in collections.Where(c => resumeAfter.ContainsKey(c) && !held.Contains(c)))
+                await _vectors.MovedThroughAsync(collection, batch[^1].Id, ct).ConfigureAwait(false);
         }
-        if (failed == 0) await _vectors.ClaimSpaceAsync(nodes, ct).ConfigureAwait(false);
-        return new MemoryReindexResult(indexed, failed);
+        foreach (var collection in resumeAfter.Keys.Where(c => !held.Contains(c)))
+            await _vectors.ClaimSpaceAsync(collection, ct).ConfigureAwait(false);
+        return new MemoryReindexResult(indexed, failed) { Resumed = resumed };
     }
 
     private async Task<Held> RemovalsAsync(CancellationToken ct)

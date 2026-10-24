@@ -330,14 +330,14 @@ public sealed class CompositeMemoryEngine
             _logger.LogWarning("memory engine {Blend}: member {Member} cannot re-embed and was skipped; any vectors "
                 + "it holds are still on the old model", Name, name);
 
-        var (indexed, failed) = (0, 0);
+        var (indexed, failed, resumed) = (0, 0, 0);
         foreach (var member in members)
         {
             ct.ThrowIfCancellationRequested();
             var result = await member.ReindexAsync(taskKey, scope, ct).ConfigureAwait(false);
-            (indexed, failed) = (indexed + result.Indexed, failed + result.Failed);
+            (indexed, failed, resumed) = (indexed + result.Indexed, failed + result.Failed, resumed + result.Resumed);
         }
-        return new MemoryReindexResult(indexed, failed) { Skipped = skipped };
+        return new MemoryReindexResult(indexed, failed) { Skipped = skipped, Resumed = resumed };
     }
 
     /// <inheritdoc />

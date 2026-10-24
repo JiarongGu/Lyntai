@@ -15,23 +15,22 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 10 across 6 Parts: 3 startable, 2 blocked, 2 watch, 3 decision-only
+## Open items — 9 across 6 Parts: 2 startable, 2 blocked, 2 watch, 3 decision-only
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 111 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a free Hugging Face account (an hf_ token) — its router proxies fal's own q… |
-| 158 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 181 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 237 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
-| 275 | 346 | RV25 — a GRAPH memory can be exported and imported through `IPortableMemory… | startable |  |
-| 289 | 347 | RV23 — measure recall in three layers, candidate → ranked → answered, on tw… | startable |  |
-| 293 | 347 | RV24 — a re-embed can resume where an interrupted one stopped | startable |  |
-| 303 | 348 | RV18 — an Agent Framework / `Microsoft.Extensions.AI` adapter | decision-only | the owner's ruling on reversing D146, which deleted the bridge in both dire… |
-| 306 | 348 | RV19 — valid-time on a memory write, so a fact can be SUPERSEDED rather tha… | decision-only | the owner's ruling on reopening D106's bi-temporal write, the prerequisite … |
-| 309 | 348 | RV20 — LLM fact extraction and a user profile (the Mem0 / Zep / LangMem gap) | decision-only | the owner's ruling on whether to rebuild extraction after it lost to decay,… |
+| 110 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a free Hugging Face account (an hf_ token) — its router proxies fal's own q… |
+| 157 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 180 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 236 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 274 | 346 | RV25 — a GRAPH memory can be exported and imported through `IPortableMemory… | startable |  |
+| 288 | 347 | RV23 — measure recall in three layers, candidate → ranked → answered, on tw… | startable |  |
+| 298 | 348 | RV18 — an Agent Framework / `Microsoft.Extensions.AI` adapter | decision-only | the owner's ruling on reversing D146, which deleted the bridge in both dire… |
+| 301 | 348 | RV19 — valid-time on a memory write, so a fact can be SUPERSEDED rather tha… | decision-only | the owner's ruling on reopening D106's bi-temporal write, the prerequisite … |
+| 304 | 348 | RV20 — LLM fact extraction and a user profile (the Mem0 / Zep / LangMem gap) | decision-only | the owner's ruling on whether to rebuild extraction after it lost to decay,… |
 
 <!-- open-items:end -->
 
@@ -290,10 +289,6 @@ _The third group from the same review (Part 346 names the record)._
   The review's LYN-REV-004/005 and GAP-105. **Before the first run** (`task-lifecycle.md`): a YES — a layer
   whose loss a ranking or verification default could recover — changes a shipped default or a
   `docs/memory.md` recommendation; a NO is written as a refutation in `docs/memory-measurements.md` §5.
-- [ ] **RV24 — a re-embed can resume where an interrupted one stopped.** A rerun re-embeds the WHOLE task <!-- item: state=startable -->
-  (`GraphMemoryEngine.ReindexAsync`); with a declared vector space (**D199**) a collection's stamp is released
-  until a clean pass, so an interrupted pass over a large task is paid again in full. Record the last
-  completed batch and resume from it.
 
 ## Part 348 — the competitive review: what needs the owner's ruling first (2026-10-24)
 

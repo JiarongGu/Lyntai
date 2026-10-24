@@ -111,7 +111,9 @@ public interface IReindexableMemory
     /// current embedding backend, and write each vector back where the old one was.
     /// <para><b>Pause writes to the task while it runs.</b> A write landing mid-pass is embedded by the new model,
     /// but its similarity search still meets old vectors, so under a new model of the same dimension its links may
-    /// be scored against the wrong one.</para>
+    /// be scored against the wrong one; under a declared vector space it finds no neighbours until the pass ends.</para>
+    /// <para>Under a declared vector space an interrupted pass RESUMES: a rerun into the same space skips what the
+    /// earlier one finished. A rerun into another space, or with none declared, starts over.</para>
     /// <para>A removal landing mid-pass must not be undone by it: the pass never writes a vector back for an entry a
     /// forget or prune removed. The graph engine holds this for a forget from any instance over the same store,
     /// another process included, by re-reading each entry after its upsert; a prune from another instance is
@@ -131,6 +133,10 @@ public sealed record MemoryReindexResult(int Indexed, int Failed)
     /// <summary>The members of a blend that cannot re-embed and were passed over, by name — empty from a single
     /// engine. A member here that holds vectors of its own (a semantic member does) is still on the old model.</summary>
     public IReadOnlyList<string> Skipped { get; init; } = [];
+
+    /// <summary>Entries this pass left alone because an earlier, interrupted pass into the same declared vector space
+    /// had already re-embedded them — zero unless a space is declared.</summary>
+    public int Resumed { get; init; }
 }
 
 /// <summary>OPTIONAL capability: an engine that can carry one task's memory out as portable JSONL and take such a file

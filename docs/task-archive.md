@@ -5725,3 +5725,16 @@ the handler again; every outcome write throwing leaves it `Running` until its le
 re-claimed and run again. `IJobHandler`'s idempotency paragraph now names a lost completion as a redelivery.
 
 - RV22 — a handler that succeeded before its completion was lost is redelivered
+
+## Part 368 — RV24: an interrupted re-embed resumes where it stopped (2026-10-24)
+
+✅ done 2026-10-24 — **Outcome:** the tenth item of the competitive review's governed-calls group (`TASKS.md`
+Part 347). `GraphMemoryEngine.ReindexAsync` goes in entry-id order and, under a declared vector space, replaces
+each collection's stamp with a MOVING mark (`VectorSpaceStore.MarkMovingAsync`) carrying the id through which it is
+re-embedded; a rerun into the same space skips those entries, counted in the new `MemoryReindexResult.Resumed`.
+It also closed a hole RV2 left unshipped: releasing the stamp let the pass's first write re-claim the collection,
+so an interrupted pass left it stamped with two models inside; a moving collection is now searched by neither
+space and written only by its target. No migration: the mark lives in the stamp. **D212** records the choice;
+`docs/memory.md` §Re-embed the usage; seven `MemoryReindexTests` facts pin it.
+
+- RV24 — a re-embed can resume where an interrupted one stopped

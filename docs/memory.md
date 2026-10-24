@@ -959,12 +959,12 @@ decay state:
 // after the registered embedding backend has changed; null scope = every scope of the task
 var result = await graph.ReindexAsync("project");
 if (result.Failed > 0)
-    result = await graph.ReindexAsync("project");   // a rerun re-embeds the WHOLE task, not only the failed batches
+    result = await graph.ReindexAsync("project");   // under a declared space, resumes from the failed batch
 ```
 
 **Pause writes to the task while it runs**: a write landing mid-pass is embedded by the new model, but its
 similarity search still meets old vectors, so under a new model of the same dimension its links may be scored
-against the wrong one. A forget or prune landing mid-pass is safe — the pass never writes a vector back for an
+against the wrong one — under a declared space it meets none, since a collection mid-move is not searched. A forget or prune landing mid-pass is safe — the pass never writes a vector back for an
 entry it removed — and a FORGET from another instance is too, by the same re-read a write makes (**D198**); a
 PRUNE from another instance is best-effort and may orphan one. `similar` links stay as the old model scored them.
 Through the factory, the blend implements `IReindexableMemory` and fans out to the members that can; a member that
@@ -978,6 +978,14 @@ the space that first wrote it (**D199**): after the name changes, a write into a
 write is stored without its vector instead, as an enrichment failure), a search of one finds nothing and logs a
 warning, and `ReindexAsync` moves a collection to the new space when it re-embeds it with no failed batch. Declare
 it before the first swap — a collection written before is unstamped, and its first write claims it.
+
+**Under a declared space an interrupted re-embed resumes** (**D212**). The pass goes in entry-id order and marks
+each collection MOVING into the space, with the id through which it is done; a cancelled, crashed or partly
+failed pass leaves that mark, and the next `ReindexAsync` into the SAME space skips those entries and reports them
+in `MemoryReindexResult.Resumed`. Until its pass finishes a collection is searched and read back by neither space,
+and only the new space may write into it, so recall loses its similarity channel there in the meantime; rerun
+until `Failed` is zero. Renaming the space again before it finishes starts the next pass over, and with no space
+declared every rerun re-embeds the whole task, because nothing then says which model wrote a stored vector.
 
 ```csharp
 services.AddLyntai(cfg => cfg
