@@ -269,8 +269,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D197](#d197--readme-is-the-landing-page-every-package-ships-the-reference-is-docsguidemd-and-the-agent-facing-files-are-maintained-state-2026-10-22) | 2026-10-22 | README is the landing page every package ships; the reference is `docs/guide.md`, and the agent-f… |
 | [D198](#d198--a-forget-is-complete-across-engine-instances-by-a-second-sweep-and-a-writes-re-read-not-by-a-fence-2026-10-24) | 2026-10-24 | a forget is complete across engine instances by a second sweep and a write's re-read, not by a fence |
 | [D199](#d199--a-declared-vector-space-stamps-each-collection-and-a-collection-is-never-read-or-written-across-spaces-2026-10-24) | 2026-10-24 | a declared vector space stamps each collection, and a collection is never read or written across… |
+| [D200](#d200--a-recall-explains-itself-when-the-query-asks-on-the-result-of-that-same-recall-2026-10-24) | 2026-10-24 | a recall explains itself when the QUERY asks, on the result of that same recall |
 
-**194 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**195 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -5854,3 +5855,18 @@ costs nothing — at the price that a swap made BEFORE declaring is not caught.
 describes, and a registration a vector-only deployment lacks. A shadow collection per space flipped after a
 re-embed: **D194** refused it by owner ruling, and every removal verb would have to sweep every space. Scoring a
 mismatched collection anyway with a warning: the silent mixing this exists to end.
+
+## D200 — a recall explains itself when the QUERY asks, on the result of that same recall (2026-10-24)
+
+`MemoryQuery.Explain` (init-only, default off) makes a graph engine attach `MemoryRecall.Candidates`: every
+candidate it gathered, with its seed-channel ranks, hop, policy score, position, verifier verdict and a
+`MemoryCandidateOutcome` naming the cut that removed it. The list is read off the sets the recall already built,
+so it adds no query and changes nothing returned, reinforced or logged; off, it costs nothing. A blend
+concatenates its members' lists and re-reports what its OWN limit and budget cut; an engine with no candidate
+stage leaves it null, so null means "not explained" and an empty list "nothing was a candidate".
+
+**Rejected.** A separate explain method: a recall MUTATES (reinforcement, co-activation), so a second call
+explains a different recall than the one the caller got, and it is a second door onto recall (**D102**). An
+`ILogger` trace: not data a caller or a bench can join against a ground truth, which measuring recall layer by
+layer (candidate, ranked, answered) needs. Always attaching it: objective (4), keep the first load cheap, would make every recall pay for the few
+that ask.

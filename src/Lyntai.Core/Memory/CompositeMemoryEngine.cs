@@ -158,6 +158,7 @@ public sealed class CompositeMemoryEngine
         // a boolean: TRUE if any member's judge found an answer, FALSE if at least one judged and none did,
         // NULL only when nothing judged — which keeps the no-verifier default from ever reporting `false`.
         bool? answered = null;
+        List<MemoryRecallCandidate>? candidates = null;
 
         foreach (var member in _members)
         {
@@ -168,6 +169,7 @@ public sealed class CompositeMemoryEngine
                 items.AddRange(recall.Items);
                 ran |= recall.Ran;
                 if (recall.Answered is { } judged) answered = (answered ?? false) || judged;
+                if (query.Explain && recall.Candidates is { } explained) (candidates ??= []).AddRange(explained);
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
             catch (Exception ex)
@@ -178,7 +180,9 @@ public sealed class CompositeMemoryEngine
             }
         }
 
-        if (items.Count == 0) return MemoryRecall.Empty;
+        if (items.Count == 0)
+            return candidates is null ? MemoryRecall.Empty : MemoryRecall.Empty with { Candidates = candidates };
+        var offered = items;
 
         // THE CUT. Every member was asked for up to `Limit` items, so a blend of N members could return N x
         // Limit — and `MemoryEngineBuilder` always wraps members in a composite, so that was the shape every
@@ -206,6 +210,7 @@ public sealed class CompositeMemoryEngine
                 .OrderByDescending(i => i.Grade == MemoryGrade.Authoritative)
                 .ThenByDescending(i => i.Relevance)
                 .Take(limit)];
+        var limited = items;
 
         // THE SECOND CUT: each member spent up to the whole `CharBudget`, so a blend reconciles it too — AFTER
         // the limit, so the budget cuts the weakest tail rather than changing what wins, by the rule a bare
@@ -213,7 +218,31 @@ public sealed class CompositeMemoryEngine
         if (query.CharBudget is { } budget && budget > 0)
             items = MemoryBudget.Cut(items, budget);
 
-        return new MemoryRecall(items, ran, answered);
+        var result = new MemoryRecall(items, ran, answered);
+        return candidates is null ? result : result with { Candidates = Recut(candidates, offered, limited, items) };
+    }
+
+    /// <summary>The members' explanations, re-reported for what the BLEND's own two cuts removed after a
+    /// member returned it — the blend's returned material first, in its order, then the rest in member
+    /// order.</summary>
+    private static List<MemoryRecallCandidate> Recut(IReadOnlyList<MemoryRecallCandidate> candidates,
+        IReadOnlyList<MemoryItem> offered, IReadOnlyList<MemoryItem> limited, IReadOnlyList<MemoryItem> items)
+    {
+        var limitedRefs = limited.Select(i => i.Reference).ToHashSet();
+        var order = new Dictionary<MemoryRef, int>();
+        foreach (var item in items) order.TryAdd(item.Reference, order.Count);
+        var offeredRefs = offered.Select(i => i.Reference).ToHashSet();
+
+        return [.. candidates
+            .Select(c => c.Outcome != MemoryCandidateOutcome.Returned || !offeredRefs.Contains(c.Reference)
+                    || order.ContainsKey(c.Reference) ? c
+                : c with
+                {
+                    Outcome = limitedRefs.Contains(c.Reference)
+                        ? MemoryCandidateOutcome.CutByBudget
+                        : MemoryCandidateOutcome.CutByLimit,
+                })
+            .OrderBy(c => order.TryGetValue(c.Reference, out var i) ? i : int.MaxValue)];
     }
 
     /// <inheritdoc />

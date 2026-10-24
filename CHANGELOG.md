@@ -41,6 +41,12 @@ every addition.
   `[]` leaves none, so `CompletionByConsumer["default"] = new() { Tools = [] }` beside
   `McpToolHostOptions.ToolsByConsumer["default"] = []` keeps every tool from a `memory` or `scoring` call that reads
   stored content. `DisallowedTools` denies by name, so it passes a tool a later CLI adds. Unset, nothing changes.
+- **A recall can explain itself: `MemoryQuery.Explain` attaches `MemoryRecall.Candidates`** (**D200**). Each
+  candidate a graph engine considered comes back with the seed channels that found it and its rank in each, its
+  hop, its score, the verifier's verdict, its position and its `MemoryCandidateOutcome` — returned, floored, cut by
+  the limit, filtered by the verifier or cut by the budget — so an entry that was never a candidate is told apart
+  from one ranked off the page. A blend carries its members' lists and re-reports its own cut. Off by default, and
+  the recall it explains is unchanged.
 
 ### Fixed
 

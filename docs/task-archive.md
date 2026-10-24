@@ -5532,3 +5532,16 @@ tools still reach it. **D190** records the choice and the measurement; `docs/gui
 maps. No default changed: flipping either map's no-entry tier is a Breaking ruling left to the owner.
 
 - RV4 — a host can deny CLI and MCP tools by default, so a `memory` or `scoring` call gets none
+
+## Part 353 — RV5: a recall can EXPLAIN itself, per candidate (2026-10-24)
+
+✅ done 2026-10-24 — **Outcome:** the fifth item of the competitive review's backlog (`TASKS.md` Part 346).
+`MemoryQuery.Explain` (init-only, default off) makes a graph engine attach `MemoryRecall.Candidates`: per
+candidate its seed-channel ranks, hop, policy score, position, verifier verdict and a `MemoryCandidateOutcome`
+— returned, floored, cut by the limit, filtered by the verifier, cut by the budget — read off the sets the
+recall already built, so nothing it returns, reinforces or logs moves. A blend concatenates its members' lists
+and re-reports its own cut. **D200** records why a per-query flag on the same recall beat a separate method and
+a log trace; `docs/memory.md` §See why an entry was not returned carries the usage. Lexical, semantic and
+curated engines leave it null.
+
+- RV5 — a recall can EXPLAIN itself: per-candidate channel, rank, hop, score and why it was cut

@@ -867,6 +867,29 @@ if (recall.Answered == false)
     Console.WriteLine("memory has nothing that answers this — don't put it in the prompt");
 ```
 
+### See why an entry was not returned
+
+A miss has two causes the page alone cannot tell apart: the entry was never a CANDIDATE — no seed channel
+found it and no edge reached it — or it was found and RANKED off the page, the case §6 measures as most of the
+misses. Ask the recall to explain itself (**D200**):
+
+<!-- compile-given: MemoryRef expected = default; -->
+```csharp
+var recall = await engine.RecallAsync(new MemoryQuery("project", "backend", "deploy") { Explain = true });
+
+var mine = recall.Candidates?.FirstOrDefault(c => c.Reference == expected);
+Console.WriteLine(mine is null
+    ? "never a candidate — a retrieval miss"
+    : $"{mine.Outcome} at position {mine.Position}, hop {mine.Hop}, score {mine.Score}, verified {mine.Verified}");
+```
+
+Each entry carries the seed channels that matched it and its rank in each (`Ranks`, empty for a hop neighbour),
+and its `MemoryCandidateOutcome`: `Returned`, `Floored` by the ranking policy, `CutByLimit`, `FilteredByVerifier`
+(only with `VerificationFilters`) or `CutByBudget`. **Off by default, and explaining changes nothing the recall
+returns, reinforces or logs** — it reads the sets the recall already built, so objective (4) is not spent. A blend
+carries its members' lists, each entry naming its member, and re-reports what its own limit and budget removed;
+lexical, semantic and curated engines have no candidate stage and leave `Candidates` null.
+
 ### Delete things, deliberately
 
 Decay never deletes; it only buries. Removal is always an explicit call.

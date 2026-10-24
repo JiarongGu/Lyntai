@@ -553,18 +553,19 @@ public sealed class GraphMemoryEngine(
         ct.ThrowIfCancellationRequested();
         var ranking = ResolveRanking(query.RankingPolicyName);
 
+        var nothing = query.Explain ? MemoryRecall.Empty with { Candidates = [] } : MemoryRecall.Empty;
         var limit = query.Limit ?? _options.DefaultLimit;
-        if (limit <= 0) return MemoryRecall.Empty;
+        if (limit <= 0) return nothing;
 
         var found = await TryGatherAsync(query, limit, ct).ConfigureAwait(false);
-        if (found is null) return MemoryRecall.Empty;
+        if (found is null) return nothing;
 
         var candidates = found
             .Select(f => new MemoryCandidate(f.Node, Retrievability(f.Node), f.Hop) { Ranks = f.Ranks })
             .ToList();
 
         var ranked = ranking.Rank(candidates, new MemoryRankingContext(limit, Name));
-        if (ranked.Count == 0 && candidates.Count == 0) return MemoryRecall.Empty;
+        if (ranked.Count == 0 && candidates.Count == 0) return nothing;
 
         var (reserved, ordinary) = ReserveAuthoritative(candidates, ranked, limit);
 
@@ -577,40 +578,90 @@ public sealed class GraphMemoryEngine(
         // Depth is the knob that trades judgement cost against how far down an answer may be rescued from.
         var depth = Math.Max(limit,
             _options.VerificationDepth ?? Saturating(limit, GraphMemoryOptions.DefaultVerificationDepthFactor));
-        var verdict = await VerifyAsync(query.Query ?? string.Empty,
-            [.. ordinary.Take(depth)], ct).ConfigureAwait(false);
+        List<RankedMemory> shown = [.. ordinary.Take(depth)];
+        var verdict = await VerifyAsync(query.Query ?? string.Empty, shown, ct).ConfigureAwait(false);
 
         ordinary = MemoryVerdicts.Apply(ordinary, verdict, _options.VerdictCombination);
 
         // Ordinary material leads, in the policy's order, then the reserved exact facts — the same
         // "matches lead, exact facts take the low end" shape the store's own merge uses, so the two agree.
+        var page = Math.Max(0, limit - reserved.Count);
         var scored = ordinary
-            .Take(Math.Max(0, limit - reserved.Count))
+            .Take(page)
             .Concat(reserved)
             .ToList();
-        if (scored.Count == 0) return MemoryRecall.Empty;
+        var placed = scored;
+        var recall = MemoryRecall.Empty;
 
-        await LogAndReinforceAsync(scored, verdict, ct).ConfigureAwait(false);
+        if (scored.Count > 0)
+        {
+            await LogAndReinforceAsync(scored, verdict, ct).ConfigureAwait(false);
 
-        // A judgement never removes an answer unless a consumer asked for that separately: a mistaken
-        // verdict should cost a little learning, not a lost result. Authoritative material is exempt
-        // whatever the verdict — objective (1) does not defer to a judge (D56).
-        if (verdict.Judged && _options.VerificationFilters)
-            scored = [.. scored.Where(x =>
-                x.Candidate.Node.Grade == MemoryGrade.Authoritative
-                || verdict.RelevantIds.Contains(x.Candidate.Node.Id.ToString(CultureInfo.InvariantCulture)))];
+            // A judgement never removes an answer unless a consumer asked for that separately: a mistaken
+            // verdict should cost a little learning, not a lost result. Authoritative material is exempt
+            // whatever the verdict — objective (1) does not defer to a judge (D56).
+            if (verdict.Judged && _options.VerificationFilters)
+                scored = [.. scored.Where(x =>
+                    x.Candidate.Node.Grade == MemoryGrade.Authoritative
+                    || verdict.RelevantIds.Contains(x.Candidate.Node.Id.ToString(CultureInfo.InvariantCulture)))];
 
-        if (scored.Count == 0) return MemoryRecall.Empty;
+            // The ABSTENTION signal. `Judged` is the only absolute quality statement available here — ranking
+            // is relative by construction, so a page of uniformly-irrelevant material ranks perfectly well
+            // among itself. Null when nothing judged, so the shipped default (no verifier) never reports
+            // `false` and a consumer abstaining on `false` does not abstain on everything.
+            if (scored.Count > 0)
+                recall = new MemoryRecall(ToItems(scored, query), RecallSources,
+                    verdict.Judged ? verdict.RelevantIds.Count > 0 : null);
+        }
 
-        var items = ToItems(scored, query);
+        return query.Explain
+            ? recall with
+            {
+                Candidates = Explain(candidates, ranked, [.. placed, .. ordinary.Skip(page)], placed, scored,
+                    recall.Items, shown, verdict),
+            }
+            : recall;
+    }
 
-        // The ABSTENTION signal. `Judged` is the only absolute quality statement available here — ranking is
-        // relative by construction, so a page of uniformly-irrelevant material ranks perfectly well among
-        // itself. Null when nothing judged, so the shipped default (no verifier) never reports `false` and a
-        // consumer abstaining on `false` does not abstain on everything.
-        var answered = verdict.Judged ? verdict.RelevantIds.Count > 0 : (bool?)null;
+    /// <summary>What <see cref="MemoryQuery.Explain"/> attaches: each candidate's outcome, read off the sets
+    /// the recall already built — in <paramref name="order"/>, the floored after it — so explaining adds no
+    /// query and changes nothing it returns.</summary>
+    /// <param name="candidates">Everything gathered.</param>
+    /// <param name="ranked">What the policy scored; a candidate absent from it was floored.</param>
+    /// <param name="order">The order the limit was applied to: the page, then what fell below it.</param>
+    /// <param name="placed">The page, before a verifier filtered it.</param>
+    /// <param name="kept">The page after filtering, before the character budget.</param>
+    /// <param name="items">What the caller receives.</param>
+    /// <param name="shown">What the verifier was asked about.</param>
+    /// <param name="verdict">What it answered.</param>
+    private List<MemoryRecallCandidate> Explain(IReadOnlyList<MemoryCandidate> candidates,
+        IReadOnlyList<RankedMemory> ranked, IReadOnlyList<RankedMemory> order, IReadOnlyList<RankedMemory> placed,
+        IReadOnlyList<RankedMemory> kept, IReadOnlyList<MemoryItem> items, IReadOnlyList<RankedMemory> shown,
+        MemoryVerification verdict)
+    {
+        static string Id(GraphNode node) => node.Id.ToString(CultureInfo.InvariantCulture);
+        var score = ranked.ToDictionary(r => r.Candidate.Node.Id, r => r.Score);
+        var position = new Dictionary<long, int>(order.Count);
+        foreach (var r in order) position.TryAdd(r.Candidate.Node.Id, position.Count + 1);
+        var placedIds = placed.Select(r => r.Candidate.Node.Id).ToHashSet();
+        var keptIds = kept.Select(r => r.Candidate.Node.Id).ToHashSet();
+        var returned = items.Select(i => i.Reference.Id).ToHashSet(StringComparer.Ordinal);
+        var shownIds = shown.Select(r => r.Candidate.Node.Id).ToHashSet();
+        var endorsed = verdict.RelevantIds.ToHashSet(StringComparer.Ordinal);
 
-        return new MemoryRecall(items, RecallSources, answered);
+        MemoryCandidateOutcome OutcomeOf(GraphNode node) =>
+            returned.Contains(Id(node)) ? MemoryCandidateOutcome.Returned
+            : keptIds.Contains(node.Id) ? MemoryCandidateOutcome.CutByBudget
+            : placedIds.Contains(node.Id) ? MemoryCandidateOutcome.FilteredByVerifier
+            : position.ContainsKey(node.Id) ? MemoryCandidateOutcome.CutByLimit
+            : MemoryCandidateOutcome.Floored;
+
+        return [.. candidates
+            .Select(c => new MemoryRecallCandidate(new MemoryRef(Name, Id(c.Node)), OutcomeOf(c.Node), c.Ranks,
+                c.Hop, score.TryGetValue(c.Node.Id, out var s) ? s : null,
+                position.TryGetValue(c.Node.Id, out var p) ? p : null,
+                verdict.Judged && shownIds.Contains(c.Node.Id) ? endorsed.Contains(Id(c.Node)) : null))
+            .OrderBy(c => c.Position ?? int.MaxValue)];
     }
 
     /// <summary>The candidate set, or <c>null</c> where <see cref="RecallAsync"/>'s fail-open promise fired.
