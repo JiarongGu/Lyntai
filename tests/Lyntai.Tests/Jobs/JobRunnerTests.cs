@@ -1,5 +1,6 @@
 using Lyntai;
 using Lyntai.Jobs;
+using Lyntai.Storage;
 using Lyntai.Storage.InMemory;
 using Lyntai.Tests.Fakes;
 
@@ -390,7 +391,7 @@ public class JobRunnerTests
         var handler = new FakeJobHandler("t", _ => Task.FromResult(JobOutcome.Complete));
         var clock = new MutableClock();
         var inner = new InMemoryJobStore(clock.Get);
-        var store = new ClaimThrowingJobStore(inner);
+        var store = Faulting.Over<IJobStore>(inner, out var faults);
         var options = new LyntaiOptions();
         options.Jobs.Lease = Lease;
         options.Jobs.DefaultLaneConcurrency = 10;
@@ -399,12 +400,82 @@ public class JobRunnerTests
         var queue = new JobQueue(inner, options);
         await queue.EnqueueAsync("x", "t", "{}");
 
-        store.ThrowOnClaim = true;
+        faults.Add(nameof(IJobStore.ClaimNextAsync));
         await Assert.ThrowsAsync<InvalidOperationException>(() => runner.RunOnceAsync());
 
         // With a global cap of 1, a healthy next pass can only claim if the failed pass's slot came back.
-        store.ThrowOnClaim = false;
+        faults.Clear();
         Assert.Equal(1, await runner.RunOnceAsync());
+    }
+
+    // ---- a COMPLETION LOST after the handler succeeded -------------------------------------------------
+    //
+    // The at-least-once case an idempotent handler exists for (IJobHandler): the work is done, the store never
+    // recorded it, so the job must come round again rather than vanish or read as a handler failure.
+
+    private static (JobRunner Runner, InMemoryJobStore Inner, Faulting.FaultSet Faults, JobQueue Queue, MutableClock Clock)
+        BuildFaulting(params IJobHandler[] handlers)
+    {
+        var clock = new MutableClock();
+        var inner = new InMemoryJobStore(clock.Get);
+        var store = Faulting.Over<IJobStore>(inner, out var faults);
+        var options = new LyntaiOptions();
+        options.Jobs.Lease = Lease;
+        options.Jobs.RetryBackoff = TimeSpan.FromMinutes(1);
+        var runner = new JobRunner(store, new JobHandlerRegistry(handlers), options, clock: clock.Get);
+        return (runner, inner, faults, new JobQueue(inner, options), clock);
+    }
+
+    [Fact]
+    public async Task A_succeeded_handler_whose_completion_throws_is_requeued_and_redelivered()
+    {
+        // The store blips on CompleteAsync alone: the runner requeues the job through the fenced FailAsync, the
+        // same transient path a thrown handler takes, and the next claim runs the handler AGAIN.
+        var handler = new FakeJobHandler("t", _ => Task.FromResult(JobOutcome.Complete));
+        var (runner, inner, faults, queue, clock) = BuildFaulting(handler);
+        var id = await queue.EnqueueAsync("default", "t", "{}");
+
+        faults.Add(nameof(IJobStore.CompleteAsync));
+        Assert.Equal(1, await runner.RunOnceAsync());
+
+        var lost = (await inner.GetAsync(id))!;
+        Assert.Equal(1, handler.Calls);
+        Assert.Equal(JobStatus.Pending, lost.Status);              // not Succeeded, and not dropped
+        Assert.Contains(nameof(IJobStore.CompleteAsync), lost.LastError);
+
+        faults.Clear();
+        clock.Advance(TimeSpan.FromMinutes(2));                    // past the retry backoff
+        Assert.Equal(1, await runner.RunOnceAsync());
+
+        Assert.Equal(2, handler.Calls);                            // REDELIVERED: the handler ran twice
+        Assert.Equal(JobStatus.Succeeded, (await inner.GetAsync(id))!.Status);
+    }
+
+    [Fact]
+    public async Task A_succeeded_handler_whose_every_outcome_write_throws_is_redelivered_after_its_lease()
+    {
+        // The store stays unreachable past the handler's return, so neither the completion nor the requeue
+        // lands — what a process dying right after the handler leaves. The job is still Running under the
+        // dead claim; once that lease lapses, a fresh worker re-claims it and the handler runs again.
+        var handler = new FakeJobHandler("t", _ => Task.FromResult(JobOutcome.Complete));
+        var (runner, inner, faults, queue, clock) = BuildFaulting(handler);
+        var id = await queue.EnqueueAsync("default", "t", "{}");
+
+        faults.Add(nameof(IJobStore.CompleteAsync), nameof(IJobStore.FailAsync), nameof(IJobStore.DeadLetterAsync));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => runner.RunOnceAsync()); // RunAsync logs + continues
+
+        Assert.Equal(1, handler.Calls);
+        Assert.Equal(JobStatus.Running, (await inner.GetAsync(id))!.Status); // the completion was lost
+
+        faults.Clear();
+        Assert.Equal(0, await runner.RunOnceAsync());              // the lease still holds it: no early redelivery
+        clock.Advance(Lease + TimeSpan.FromSeconds(1));
+        Assert.Equal(1, await runner.RunOnceAsync());
+
+        var job = (await inner.GetAsync(id))!;
+        Assert.Equal(2, handler.Calls);                            // REDELIVERED
+        Assert.Equal(JobStatus.Succeeded, job.Status);
+        Assert.Equal(2, job.Attempts);                             // the lost run still counted as an attempt
     }
 
     [Fact]

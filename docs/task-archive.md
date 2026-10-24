@@ -5714,3 +5714,14 @@ Part 347). Each `*ContractFacts` base now derives `StoreContractSuite<T>` and ru
 `[Unscoped]`; all passed, so no backend bug. SQLite's bm25 exclusion is an `[ExcludesFact]`. **D211** records why.
 
 - RV21 — every storage contract runs on Postgres STRUCTURALLY, not through hand-kept delegators
+
+## Part 367 — RV22: a handler that succeeded before its completion was lost is redelivered (2026-10-24)
+
+✅ done 2026-10-24 — **Outcome:** the ninth item of the competitive review's governed-calls group (`TASKS.md`
+Part 347). Test-only: the runner already redelivers, so no `src/` defect. `ClaimThrowingJobStore` became
+`Faulting`, a forwarding `DispatchProxy` that throws from any member a test names. Two `JobRunnerTests` pin both
+windows: `CompleteAsync` alone throwing requeues the job through the fenced `FailAsync` and the next claim runs
+the handler again; every outcome write throwing leaves it `Running` until its lease lapses, then it is
+re-claimed and run again. `IJobHandler`'s idempotency paragraph now names a lost completion as a redelivery.
+
+- RV22 — a handler that succeeded before its completion was lost is redelivered

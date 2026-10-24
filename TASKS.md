@@ -15,24 +15,23 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 11 across 6 Parts: 4 startable, 2 blocked, 2 watch, 3 decision-only
+## Open items — 10 across 6 Parts: 3 startable, 2 blocked, 2 watch, 3 decision-only
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 112 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a free Hugging Face account (an hf_ token) — its router proxies fal's own q… |
-| 159 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 182 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 238 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
-| 276 | 346 | RV25 — a GRAPH memory can be exported and imported through `IPortableMemory… | startable |  |
-| 290 | 347 | RV22 — a handler that succeeded before its completion was lost is redeliver… | startable |  |
-| 294 | 347 | RV23 — measure recall in three layers, candidate → ranked → answered, on tw… | startable |  |
-| 298 | 347 | RV24 — a re-embed can resume where an interrupted one stopped | startable |  |
-| 308 | 348 | RV18 — an Agent Framework / `Microsoft.Extensions.AI` adapter | decision-only | the owner's ruling on reversing D146, which deleted the bridge in both dire… |
-| 311 | 348 | RV19 — valid-time on a memory write, so a fact can be SUPERSEDED rather tha… | decision-only | the owner's ruling on reopening D106's bi-temporal write, the prerequisite … |
-| 314 | 348 | RV20 — LLM fact extraction and a user profile (the Mem0 / Zep / LangMem gap) | decision-only | the owner's ruling on whether to rebuild extraction after it lost to decay,… |
+| 111 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a free Hugging Face account (an hf_ token) — its router proxies fal's own q… |
+| 158 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 181 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 237 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 275 | 346 | RV25 — a GRAPH memory can be exported and imported through `IPortableMemory… | startable |  |
+| 289 | 347 | RV23 — measure recall in three layers, candidate → ranked → answered, on tw… | startable |  |
+| 293 | 347 | RV24 — a re-embed can resume where an interrupted one stopped | startable |  |
+| 303 | 348 | RV18 — an Agent Framework / `Microsoft.Extensions.AI` adapter | decision-only | the owner's ruling on reversing D146, which deleted the bridge in both dire… |
+| 306 | 348 | RV19 — valid-time on a memory write, so a fact can be SUPERSEDED rather tha… | decision-only | the owner's ruling on reopening D106's bi-temporal write, the prerequisite … |
+| 309 | 348 | RV20 — LLM fact extraction and a user profile (the Mem0 / Zep / LangMem gap) | decision-only | the owner's ruling on whether to rebuild extraction after it lost to decay,… |
 
 <!-- open-items:end -->
 
@@ -287,10 +286,6 @@ MAJOR release, which is the only kind allowed to break storage (**D18**, **D161*
 
 _The third group from the same review (Part 346 names the record)._
 
-- [ ] **RV22 — a handler that succeeded before its completion was lost is redelivered.** <!-- item: state=startable -->
-  `JobRunnerTests` crash at claim and mid-handler; nothing fails `CompleteAsync` after a
-  successful handler, the at-least-once case an idempotent handler exists for. Generalize
-  `ClaimThrowingJobStore` into a store that faults any member, and pin the redelivery.
 - [ ] **RV23 — measure recall in three layers, candidate → ranked → answered, on two corpora.** <!-- item: state=startable -->
   The review's LYN-REV-004/005 and GAP-105. **Before the first run** (`task-lifecycle.md`): a YES — a layer
   whose loss a ranking or verification default could recover — changes a shipped default or a
