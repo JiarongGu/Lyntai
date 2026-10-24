@@ -270,8 +270,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D198](#d198--a-forget-is-complete-across-engine-instances-by-a-second-sweep-and-a-writes-re-read-not-by-a-fence-2026-10-24) | 2026-10-24 | a forget is complete across engine instances by a second sweep and a write's re-read, not by a fence |
 | [D199](#d199--a-declared-vector-space-stamps-each-collection-and-a-collection-is-never-read-or-written-across-spaces-2026-10-24) | 2026-10-24 | a declared vector space stamps each collection, and a collection is never read or written across… |
 | [D200](#d200--a-recall-explains-itself-when-the-query-asks-on-the-result-of-that-same-recall-2026-10-24) | 2026-10-24 | a recall explains itself when the QUERY asks, on the result of that same recall |
+| [D201](#d201--a-composition-reports-its-own-cuts-in-its-own-vocabulary-through-a-second-door-beside-render-2026-10-24) | 2026-10-24 | a composition reports its own cuts in its own vocabulary, through a second door beside `Render` |
 
-**195 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**196 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -5870,3 +5871,16 @@ explains a different recall than the one the caller got, and it is a second door
 `ILogger` trace: not data a caller or a bench can join against a ground truth, which measuring recall layer by
 layer (candidate, ranked, answered) needs. Always attaching it: objective (4), keep the first load cheap, would make every recall pay for the few
 that ask.
+
+## D201 — a composition reports its own cuts in its own vocabulary, through a second door beside `Render` (2026-10-24)
+
+`MemoryComposition.RenderWithManifest` returns `Render`'s text byte for byte beside one `MemoryCompositionEntry`
+per item offered: its section, a `MemoryCompositionOutcome` (`Rendered`, `CutByBudget`, `Duplicate`) and the
+CHARACTERS its line costs against the budget — the unit `MemoryCompositionOptions` is denominated in (**D66**).
+`Render` is that method's `.Text`, so the two cannot diverge.
+
+**Rejected.** Adding `Duplicate` to `MemoryCandidateOutcome` (**D200**): that enum holds one value per cut a
+RECALL makes, and a composition runs on items from anywhere — a caller's own retrieval included — so one enum
+would report a renderer's cut as a recall's. A flag on `MemoryCompositionOptions`: `Render` returns a string, so
+there is nowhere to attach the manifest without breaking its signature. D200's case against a second door does
+not carry over: `Render` is pure, so a second call renders the same composition, never a different one.

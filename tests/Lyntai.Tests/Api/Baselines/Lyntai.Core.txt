@@ -2212,6 +2212,19 @@ enum Lyntai.Memory.MemoryCandidateOutcome
 static class Lyntai.Memory.MemoryComposition
     static ComposeAsync(IMemoryEngine engine, String basePrompt, MemoryQuery query, MemoryCompositionOptions options = null, CancellationToken ct = default) : Task<String>
     static Render(String basePrompt, IReadOnlyList<MemoryItem> items, MemoryCompositionOptions options = null) : String
+    static RenderWithManifest(String basePrompt, IReadOnlyList<MemoryItem> items, MemoryCompositionOptions options = null) : MemoryCompositionResult
+sealed class Lyntai.Memory.MemoryCompositionEntry
+    .ctor(MemoryItem Item, MemoryGrade Section, MemoryCompositionOutcome Outcome, Int32 Characters)
+    Characters : Int32 { get; init; }
+    Deconstruct(MemoryItem& Item, MemoryGrade& Section, MemoryCompositionOutcome& Outcome, Int32& Characters) : Void
+    Equals(MemoryCompositionEntry other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Included : Boolean { get; }
+    Item : MemoryItem { get; init; }
+    Outcome : MemoryCompositionOutcome { get; init; }
+    Section : MemoryGrade { get; init; }
+    ToString() : String
 sealed class Lyntai.Memory.MemoryCompositionOptions
     .ctor()
     AssociativeHeading : String { get; init; }
@@ -2221,6 +2234,20 @@ sealed class Lyntai.Memory.MemoryCompositionOptions
     Equals(MemoryCompositionOptions other) : Boolean
     Equals(Object obj) : Boolean
     GetHashCode() : Int32
+    ToString() : String
+enum Lyntai.Memory.MemoryCompositionOutcome
+    CutByBudget : MemoryCompositionOutcome const
+    Duplicate : MemoryCompositionOutcome const
+    Rendered : MemoryCompositionOutcome const
+    value__ : Int32
+sealed class Lyntai.Memory.MemoryCompositionResult
+    .ctor(String Text, IReadOnlyList<MemoryCompositionEntry> Entries)
+    Deconstruct(String& Text, IReadOnlyList`1& Entries) : Void
+    Entries : IReadOnlyList<MemoryCompositionEntry> { get; init; }
+    Equals(MemoryCompositionResult other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Text : String { get; init; }
     ToString() : String
 static class Lyntai.Memory.MemoryContentKey
     static Of(String content) : String

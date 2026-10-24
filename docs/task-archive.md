@@ -5545,3 +5545,16 @@ a log trace; `docs/memory.md` §See why an entry was not returned carries the us
 curated engines leave it null.
 
 - RV5 — a recall can EXPLAIN itself: per-candidate channel, rank, hop, score and why it was cut
+
+## Part 354 — RV6: a composition reports what it left out, and why (2026-10-24)
+
+✅ done 2026-10-24 — **Outcome:** the sixth item of the competitive review's backlog (`TASKS.md` Part 346).
+`MemoryComposition.RenderWithManifest` returns `Render`'s text byte for byte beside one `MemoryCompositionEntry`
+per item, in the caller's order: its section, a `MemoryCompositionOutcome` — rendered, cut by the budget, or a
+duplicate of a line already rendered, the only two cuts the renderer makes — and the CHARACTERS its line costs
+against the budget. `Render` is now that method's `.Text`, so the two cannot diverge, and the in-band
+authoritative omission line is unchanged. **D201** records why it is a second door with its own enum rather
+than a value on D200's `MemoryCandidateOutcome`; `docs/memory.md` §Compose a prompt from your own retrieval
+carries the usage. `ComposeAsync` and `IPromptComposer` are untouched.
+
+- RV6 — a composition reports what it left out, and why

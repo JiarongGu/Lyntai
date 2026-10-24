@@ -47,6 +47,10 @@ every addition.
   the limit, filtered by the verifier or cut by the budget — so an entry that was never a candidate is told apart
   from one ranked off the page. A blend carries its members' lists and re-reports its own cut. Off by default, and
   the recall it explains is unchanged.
+- **A composition reports what it left out: `MemoryComposition.RenderWithManifest`** (**D201**). It returns
+  `Render`'s text byte for byte beside one entry per item — the section it went to, whether it was rendered, cut
+  by the budget or dropped as a duplicate line, and the characters its line costs — so recalled material the
+  budget dropped is no longer a silent absence. `Render` itself is unchanged.
 
 ### Fixed
 

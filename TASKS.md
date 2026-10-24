@@ -15,36 +15,35 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 23 across 6 Parts: 15 startable, 3 blocked, 2 watch, 3 decision-only
+## Open items — 22 across 6 Parts: 14 startable, 3 blocked, 2 watch, 3 decision-only
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 124 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a free Hugging Face account (an hf_ token) — its router proxies fal's own q… |
-| 171 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 194 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 250 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
-| 290 | 346 | RV6 — a composition reports what it left out, and why | startable |  |
-| 294 | 346 | RV7 — the memory wiring check is data a host can read, and a store can repo… | startable |  |
-| 299 | 346 | RV8 — every memory bench writes one result shape, and two runs compare pair… | startable |  |
-| 303 | 346 | RV9 — a curated fact carries a revision, and an update can refuse a stale o… | startable |  |
-| 307 | 346 | RV10 — memory can be EXPORTED and IMPORTED in a portable form, scoped and n… | startable |  |
-| 316 | 347 | RV11 — a schema- or tool-bearing request skips a candidate that cannot hono… | startable |  |
-| 321 | 347 | RV12 — a budget can RESERVE before a call and reconcile after, for a host t… | startable |  |
-| 325 | 347 | RV13 — the front door opens ONE span per call, carrying the consumer, and a… | startable |  |
-| 328 | 347 | RV14 — the response cache can be partitioned by consumer, opt-in | startable |  |
-| 331 | 347 | RV15 — a memory engine can pin its EMBEDDER the way verification pins its r… | startable |  |
-| 334 | 347 | RV16 — a tool call can be APPROVED before it runs, through one seam every t… | startable |  |
-| 338 | 347 | RV17 — a reader can tell when to use Lyntai and when not to, and start from… | startable |  |
-| 343 | 347 | RV21 — every storage contract runs on Postgres STRUCTURALLY, not through ha… | startable |  |
-| 347 | 347 | RV22 — a handler that succeeded before its completion was lost is redeliver… | startable |  |
-| 351 | 347 | RV23 — measure recall in three layers, candidate → ranked → answered, on tw… | blocked · tree | RV8 (one result shape, a paired compare) |
-| 355 | 347 | RV24 — a re-embed can resume where an interrupted one stopped | startable |  |
-| 365 | 348 | RV18 — an Agent Framework / `Microsoft.Extensions.AI` adapter | decision-only | the owner's ruling on reversing D146, which deleted the bridge in both dire… |
-| 368 | 348 | RV19 — valid-time on a memory write, so a fact can be SUPERSEDED rather tha… | decision-only | the owner's ruling on reopening D106's bi-temporal write, the prerequisite … |
-| 371 | 348 | RV20 — LLM fact extraction and a user profile (the Mem0 / Zep / LangMem gap) | decision-only | the owner's ruling on whether to rebuild extraction after it lost to decay,… |
+| 123 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a free Hugging Face account (an hf_ token) — its router proxies fal's own q… |
+| 170 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 193 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 249 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 287 | 346 | RV7 — the memory wiring check is data a host can read, and a store can repo… | startable |  |
+| 292 | 346 | RV8 — every memory bench writes one result shape, and two runs compare pair… | startable |  |
+| 296 | 346 | RV9 — a curated fact carries a revision, and an update can refuse a stale o… | startable |  |
+| 300 | 346 | RV10 — memory can be EXPORTED and IMPORTED in a portable form, scoped and n… | startable |  |
+| 309 | 347 | RV11 — a schema- or tool-bearing request skips a candidate that cannot hono… | startable |  |
+| 314 | 347 | RV12 — a budget can RESERVE before a call and reconcile after, for a host t… | startable |  |
+| 318 | 347 | RV13 — the front door opens ONE span per call, carrying the consumer, and a… | startable |  |
+| 321 | 347 | RV14 — the response cache can be partitioned by consumer, opt-in | startable |  |
+| 324 | 347 | RV15 — a memory engine can pin its EMBEDDER the way verification pins its r… | startable |  |
+| 327 | 347 | RV16 — a tool call can be APPROVED before it runs, through one seam every t… | startable |  |
+| 331 | 347 | RV17 — a reader can tell when to use Lyntai and when not to, and start from… | startable |  |
+| 336 | 347 | RV21 — every storage contract runs on Postgres STRUCTURALLY, not through ha… | startable |  |
+| 340 | 347 | RV22 — a handler that succeeded before its completion was lost is redeliver… | startable |  |
+| 344 | 347 | RV23 — measure recall in three layers, candidate → ranked → answered, on tw… | blocked · tree | RV8 (one result shape, a paired compare) |
+| 348 | 347 | RV24 — a re-embed can resume where an interrupted one stopped | startable |  |
+| 358 | 348 | RV18 — an Agent Framework / `Microsoft.Extensions.AI` adapter | decision-only | the owner's ruling on reversing D146, which deleted the bridge in both dire… |
+| 361 | 348 | RV19 — valid-time on a memory write, so a fact can be SUPERSEDED rather tha… | decision-only | the owner's ruling on reopening D106's bi-temporal write, the prerequisite … |
+| 364 | 348 | RV20 — LLM fact extraction and a user profile (the Mem0 / Zep / LangMem gap) | decision-only | the owner's ruling on whether to rebuild extraction after it lost to decay,… |
 
 <!-- open-items:end -->
 
@@ -283,14 +282,8 @@ OpenAI Agents SDK) held untracked as `local/superpowers/specs/2026-10-24-competi
 the tree**; what the review proposed and the tree already has, or a decision already refused, is not filed. Its
 first group (removal, vector identity, test evidence) is closed: `docs/task-archive.md` Parts 349–352. The owner's
 framing of that group is a working position (`input-is-thinking-not-doctrine.md`): it is the goal for the next
-MAJOR release, which is the only kind allowed to break storage (**D18**, **D161**), and no item names that number.
-The raw material for the first item below already exists inside composition and is discarded before it reaches
-the caller._
+MAJOR release, which is the only kind allowed to break storage (**D18**, **D161**), and no item names that number._
 
-- [ ] **RV6 — a composition reports what it left out, and why.** `MemoryComposition.Render` returns a <!-- item: state=startable -->
-  string; dropped recalled items are discarded silently and only the authoritative overflow is announced
-  in-band. Return a manifest beside the text — per item: included, section, reason (budget, duplicate),
-  characters — keeping the budget in CHARACTERS and named for it (**D66**).
 - [ ] **RV7 — the memory wiring check is data a host can read, and a store can report its own size.** <!-- item: state=startable -->
   `MemoryWiring` (**D85**) already detects the "embeds every write, never seeds from it" trap but only logs
   it. Expose the findings as a public, read-only result, and add an optional statistics capability over the

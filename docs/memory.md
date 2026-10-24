@@ -1003,6 +1003,23 @@ sections is a separator, so with no prompt it is not emitted and there is nothin
 first-class; a formatting-only entry point is as often used to build a block you place yourself as to append
 to a prompt.
 
+**Ask what it left out with `RenderWithManifest`** (**D201**). Its `Text` is `Render`'s, byte for byte; its
+`Entries` hold one per item, in your order — the section it went to, its `MemoryCompositionOutcome` (`Rendered`,
+`CutByBudget`, or `Duplicate` of a line already rendered) and the `Characters` its line costs against the budget,
+bullet and line break included:
+
+<!-- compile-given: string basePrompt = ""; IReadOnlyList<MemoryItem> myItems = []; -->
+```csharp
+var composed = MemoryComposition.RenderWithManifest(basePrompt, myItems);
+
+foreach (var cut in composed.Entries.Where(e => e.Outcome == MemoryCompositionOutcome.CutByBudget))
+    Console.WriteLine($"{cut.Section}: {cut.Item.Headline} needed {cut.Characters} characters");
+```
+
+These are the RENDERER's cuts. What a recall removed before any rendering is `MemoryCandidateOutcome`, through
+`MemoryQuery.Explain` (*See why an entry was not returned*, above); with `ComposeAsync`, recall yourself and pass
+`recall.Items` here to get both.
+
 ### Replace a policy with your own
 
 Every seam is an interface plus a registration. Nothing here is a mode or a flag.

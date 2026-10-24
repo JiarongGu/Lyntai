@@ -239,4 +239,101 @@ public class MemoryCompositionTests
 
         Assert.Contains("the build gate is dev.mjs verify", composed, StringComparison.Ordinal);
     }
+
+    // ---- RenderWithManifest: the same text, and what it left out --------------------------------------
+
+    private static readonly MemoryCompositionOptions Tight = new() { Budget = 120, AuthoritativeCharacters = 60 };
+
+    private static List<MemoryItem> MixedSelection() =>
+    [
+        Item("exact fact one", MemoryGrade.Authoritative),
+        Item("exact fact two stated at a length the reserve cannot hold", MemoryGrade.Authoritative),
+        Item("recalled note", MemoryGrade.Associative),
+        Item("recalled note", MemoryGrade.Associative),
+        Item(new string('x', 200), MemoryGrade.Associative),
+        Item("another short note", MemoryGrade.Inherit),
+    ];
+
+    [Fact]
+    public void The_manifested_text_is_byte_identical_to_Render()
+    {
+        foreach (var (prompt, options) in new (string, MemoryCompositionOptions?)[]
+                     { ("BASE", null), ("", Tight), ("  ", Tight), ("BASE", new() { Budget = 0 }) })
+        {
+            var items = MixedSelection();
+            Assert.Equal(MemoryComposition.Render(prompt, items, options),
+                MemoryComposition.RenderWithManifest(prompt, items, options).Text);
+        }
+        Assert.Equal("BASE", MemoryComposition.RenderWithManifest("BASE", []).Text);
+        Assert.Empty(MemoryComposition.RenderWithManifest("BASE", []).Entries);
+    }
+
+    [Fact]
+    public void The_manifest_has_one_entry_per_item_in_the_callers_order()
+    {
+        var items = MixedSelection();
+
+        var result = MemoryComposition.RenderWithManifest("BASE", items, Tight);
+
+        Assert.Equal(items, result.Entries.Select(e => e.Item));
+        Assert.Equal(
+            [MemoryGrade.Authoritative, MemoryGrade.Authoritative, MemoryGrade.Associative,
+             MemoryGrade.Associative, MemoryGrade.Associative, MemoryGrade.Associative],
+            result.Entries.Select(e => e.Section));
+    }
+
+    [Fact]
+    public void A_recalled_item_the_budget_dropped_is_reported_with_its_reason_and_characters()
+    {
+        var result = MemoryComposition.RenderWithManifest("BASE", MixedSelection(), Tight);
+
+        var oversized = result.Entries[4];
+        Assert.Equal(MemoryCompositionOutcome.CutByBudget, oversized.Outcome);
+        Assert.False(oversized.Included);
+        Assert.Equal("- ".Length + 200 + "\n".Length, oversized.Characters);
+        Assert.DoesNotContain(new string('x', 200), result.Text, StringComparison.Ordinal);
+
+        // the one AFTER it still fitted: a cut does not hide the shorter ones behind it
+        Assert.Equal(MemoryCompositionOutcome.Rendered, result.Entries[5].Outcome);
+        Assert.True(result.Entries[5].Included);
+    }
+
+    [Fact]
+    public void A_duplicate_line_is_reported_as_a_duplicate_not_as_a_budget_cut()
+    {
+        var result = MemoryComposition.RenderWithManifest("BASE", MixedSelection(), Tight);
+
+        Assert.Equal(MemoryCompositionOutcome.Rendered, result.Entries[2].Outcome);
+        Assert.Equal(MemoryCompositionOutcome.Duplicate, result.Entries[3].Outcome);
+        Assert.Equal("- recalled note\n".Length, result.Entries[3].Characters);
+        Assert.Single(result.Text.Split('\n'), l => l == "- recalled note");
+    }
+
+    [Fact]
+    public void Authoritative_overflow_is_reported_per_item_and_agrees_with_the_in_band_count()
+    {
+        var items = Enumerable.Range(0, 20)
+            .Select(i => Item($"exact fact number {i} stated at some length", MemoryGrade.Authoritative))
+            .ToArray();
+
+        var result = MemoryComposition.RenderWithManifest("BASE", items,
+            new MemoryCompositionOptions { Budget = 200, AuthoritativeCharacters = 200 });
+
+        var cut = result.Entries.Count(e => e.Outcome == MemoryCompositionOutcome.CutByBudget);
+        Assert.True(cut > 0);
+        Assert.Contains($"… {cut} further authoritative facts omitted (budget)", result.Text, StringComparison.Ordinal);
+        Assert.All(result.Entries, e => Assert.Equal(MemoryGrade.Authoritative, e.Section));
+    }
+
+    [Fact]
+    public void The_included_entries_spend_exactly_the_characters_their_lines_occupy()
+    {
+        var result = MemoryComposition.RenderWithManifest("", MixedSelection(), Tight);
+
+        var spent = result.Entries.Where(e => e.Included).Sum(e => e.Characters);
+        var bullets = result.Text.Split('\n').Where(l => l.StartsWith("- ", StringComparison.Ordinal))
+            .Sum(l => l.Length + 1);
+        Assert.Equal(bullets, spent);
+        Assert.True(spent <= Tight.Budget);
+    }
 }
