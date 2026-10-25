@@ -9,7 +9,7 @@ to `.agents/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ## 2026-10-25 — a bridged backend had no provider timeout: a hung vendor held the call until the caller gave up
 
-**Symptom.** Found assessing whether an `IChatClient` needs an adapter (`TASKS.md` Part 348, RV18), by hanging an
+**Symptom.** Found assessing whether an `IChatClient` needs an adapter (RV18, `docs/task-archive.md` Part 373), by hanging an
 `AddBridgeProvider` delegate under a 150 ms `ProviderTimeout`: the call never returned, the router never advanced
 to the next candidate, and only the caller's own cancel ended it. The seam's docs promised "routing, fallback,
 cooldown, admission" with the bridge, and a reader took the timeout to be among them.

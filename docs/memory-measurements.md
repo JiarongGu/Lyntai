@@ -2707,7 +2707,7 @@ consolidation against read-time decay — measured on a baseline built to be goo
 
 ### An LLM-extracted profile on valid time does not beat the raw exchange at the answer, and costs 47 model calls a question (`memory-longmemeval --profile --haystack`, 2026-10-25) <!-- result: id=profile-valid-time-haystack-4b arm="`raw+profile` — a gemma-3-4b-it extracted profile on RV19 valid time beside the raw turns, knowledge-update `--haystack`" metric=answered-vs-raw n="70 knowledge-update questions" value="65.7% against raw 60.0% (+6 -2, p = 0.289)" ships=no status=CURRENT -->
 
-`TASKS.md` Part 348, RV20. The earlier extraction verdict (`docs/task-archive.md` Parts 148, 149, 156) was taken
+RV20, `docs/task-archive.md` Part 374. The earlier extraction verdict (`docs/task-archive.md` Parts 148, 149, 156) was taken
 BEFORE a write could state valid time, so the loss may not have carried over: a profile that knows the current
 value from the former one needs exactly what RV19 added. **Pre-registered before the first run**
 (`bench(memory): an LLM-extracted profile on valid time …`): a YES is `raw+profile` beating `raw` on the

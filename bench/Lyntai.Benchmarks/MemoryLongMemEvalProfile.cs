@@ -9,7 +9,7 @@ using Lyntai.Memory.Engines;
 namespace Lyntai.Benchmarks;
 
 /// <summary><c>--profile</c>: LLM fact extraction into a PROFILE written beside the raw exchange, on valid time
-/// (<c>TASKS.md</c> Part 348, RV20). A model reads each session in date order against the profile so far and
+/// (RV20, <c>docs/task-archive.md</c> Part 374). A model reads each session in date order against the profile so far and
 /// states the attributes it sets or changes; a change is written with <c>ValidFrom</c> the session's date and
 /// <c>Supersedes</c> the entry that attribute held, so a default (Current) recall reads the latest value and the
 /// former one leaves the page without being buried or deleted.

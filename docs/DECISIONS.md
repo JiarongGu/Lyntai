@@ -286,8 +286,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D214](#d214--work-is-dispatched-by-lane-the-steward-alone-writes-the-records-and-what-every-lane-writes-is-laneless-2026-10-24) | 2026-10-24 | work is dispatched by LANE, the steward alone writes the records, and what every lane writes is l… |
 | [D215](#d215--valid-time-is-stated-on-the-write-and-supersession-preserves-evidence-2026-10-25) | 2026-10-25 | valid time is stated on the write, and supersession preserves evidence |
 | [D216](#d216--the-ichatclient-composition-is-a-tested-recipe-rather-than-a-package-2026-10-25) | 2026-10-25 | the IChatClient composition is a tested recipe rather than a package |
+| [D217](#d217--llm-fact-extraction-and-a-user-profile-are-refused-a-second-time-because-a-model-cannot-supply-an-attributes-identity-2026-10-25) | 2026-10-25 | LLM fact extraction and a user profile are refused a second time, because a model cannot supply a… |
 
-**211 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**212 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -6168,3 +6169,23 @@ The bridge's missing timeout was a real gap and is fixed independently (`docs/FI
 Reconsider a package when another consumer needs the same mapping. A container-resolved client is a
 separate requirement: the delegate registration cannot access DI, and a registration overload needs
 its own design. The recipe's field, trimming and Agent Framework compilation limits are stated on its page.
+
+## D217 — LLM fact extraction and a user profile are refused a second time, because a model cannot supply an attribute's identity (2026-10-25)
+
+Nothing ships. A profile that knows the current value from the former needs a write that names what it
+replaces; **D215** gave the write that ability and **D90** keeps it the CALLER's act. Measured on LongMemEval
+knowledge-update `--haystack` (n = 70, a 4B extractor and reader): a profile beside the raw exchange did not
+beat raw memory with decay at the answer, and the same facts without valid time did as well, so valid time
+earned nothing extraction had not. The model filed a revised value under the key its predecessor held in a
+quarter of questions, so most revisions superseded nothing; the oracle variant and a 7B extractor did not
+close it. It costs some 47 model calls a question where the raw path makes none. The figures are
+`docs/memory-measurements.md` §5, `profile-valid-time-haystack-4b`; the guidance is `docs/memory.md`.
+
+**Rejected.** A model-named key as the identity (measured here). Inferring a successor from similar text
+(**D90** refuses it; **D106** measured the read-time form inverting). A profile REPLACING the raw exchange
+(`docs/task-archive.md` Parts 148, 149, 156: extraction without decay is a flat retriever). Reconciliation by
+deletion (cost 18.9 points, **D41**).
+
+**Re-opens** when a consumer supplies attribute identity (a schema, an entity id) and asks for extraction to
+fill the values, or when a measured key-matching step lifts same-key revisions well above the oracle's rate.
+A strong paid extractor was not run (`docs/memory-measurements.md` §5 says what it would cost).

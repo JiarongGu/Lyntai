@@ -5799,3 +5799,16 @@ and Lyntai out as one through a consumer-owned class, both copied from source th
 session, quest `#dc16098144ca`, lanes `inference+platform`.
 
 - RV18 — assess and, if needed, build an Agent Framework / `Microsoft.Extensions.AI` adapter
+
+## Part 374 — RV20: an LLM-extracted profile on valid time, measured and refused (2026-10-25)
+
+✅ done 2026-10-25 — **Outcome:** a refutation, by the rule registered before the first run (`62250b42`).
+`memory-longmemeval --profile --haystack` scored a 4B-extracted profile on RV19's valid time beside the raw turns
+against raw memory with decay: no significant gain at the answer, and the same facts without valid time did as
+well. The binding failure is attribute identity — a revised value rarely landed under its predecessor's key.
+Nothing ships; the bench gains `--profile`, `--writer-url`/`--writer-model` and `--identity-only`. **D217**
+records the refusal and its re-open triggers; `docs/memory-measurements.md` §5 `profile-valid-time-haystack-4b`
+the figures and the strong-extractor run not taken; `docs/memory.md` the recommendation. Lane session, quest
+`#1eac4b856e06`, lanes `memory+platform`.
+
+- RV20 — assess and, if needed, rebuild LLM fact extraction and a user profile
