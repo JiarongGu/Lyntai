@@ -134,9 +134,14 @@ public sealed class LyntaiBuilder
     ///
     /// <para><b>Use it when a backend is reachable but has no provider here</b>: a vendor SDK, an in-house
     /// service, a <c>Microsoft.Extensions.AI</c> <c>IChatClient</c>. You write the mapping you actually
-    /// need — usually a few lines — and routing, fallback, dead-host cooldown, admission and the ops layer
-    /// come along. Nothing about the caller's ecosystem reaches this library, which is why a bridge costs no
-    /// dependency (<c>docs/DECISIONS.md</c> D147).</para>
+    /// need — usually a few lines — and routing, fallback, dead-host cooldown, admission, the provider timeout
+    /// and the ops layer come along. Nothing about the caller's ecosystem reaches this library, which is why a
+    /// bridge costs no dependency (<c>docs/DECISIONS.md</c> D147).</para>
+    ///
+    /// <para><b>The timeout is enforced for you</b>: <see cref="LyntaiOptions.ProviderTimeout"/> (or the
+    /// request's own) bounds a completion as a whole and a stream by inactivity, answering
+    /// <see cref="ProviderVerdict.Timeout"/> so the router can advance. A delegate that ignores its token is
+    /// abandoned, not waited for.</para>
     ///
     /// <para><b>For an OpenAI-shaped endpoint, use <c>AddHttpProvider</c> instead</b> — most vendors
     /// ship one, and it already handles verdicts, streaming, usage, tool calls and the per-wire
@@ -188,7 +193,7 @@ public sealed class LyntaiBuilder
                     $"Bridge '{id}' declares ProviderKinds '{kind}', but its delegates answer text, so no router would "
                     + "ever select it for that. An embedder or reranker implements IVectorProvider or IScoreProvider "
                     + "and registers with AddProvider; drop the kind from Produces.", nameof(capabilities));
-        return AddProvider(_ => new BridgeProvider(id, declared, complete, stream));
+        return AddProvider(sp => new BridgeProvider(id, declared, complete, stream, sp.GetRequiredService<LyntaiOptions>()));
     }
 
     /// <summary>Register an eval dimension into the scoring collection.</summary>
