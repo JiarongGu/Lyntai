@@ -35,6 +35,9 @@
          reference implementation WordPieceTokenizerTests asserts id-for-id equality against, which is what
          makes owning the tokenizer safe rather than hopeful. See src/Directory.Packages.props. -->
     <PackageReference Include="Microsoft.ML.Tokenizers" />
+    <!-- The package an application adds above the abstractions MCP already brings: the tool-invoking middleware
+         the IChatClient recipes are tested under. See src/Directory.Packages.props. -->
+    <PackageReference Include="Microsoft.Extensions.AI" />
     <!-- The NATIVE ONNX backend, supplied here the way a consuming application supplies it — the adapter
          package deliberately ships only the managed half. See src/Directory.Packages.props. -->
     <PackageReference Include="Microsoft.ML.OnnxRuntime" />

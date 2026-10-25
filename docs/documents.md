@@ -22,6 +22,7 @@ measured, and it stays a record of that moment. A *record* is append-only and re
 | `docs/AOT.md` | contract | trimming and Native AOT status, per package | current |
 | `docs/guide.md` | method | the consuming story | current |
 | `docs/generation.md` | method | the media generation guide | current |
+| `docs/extensions-ai.md` | method | composing with `Microsoft.Extensions.AI` and Agent Framework: the two recipes the suite runs, and what they do not carry | current |
 | `docs/GATES.md` | method | what each gate is for and the numbers it holds | current |
 | `daoris.lanes.json` | method | the lanes work is dispatched by, the paths each owns, and what is laneless on purpose (D214); `check-lanes` holds it to the tree | current |
 | `docs/DECISIONS.md` | record | the rationale log, present tense, contiguous `D1..Dn`; read §How to read it and its generated index | current |

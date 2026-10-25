@@ -51,11 +51,12 @@ Lyntai is a library a .NET application links in. It has no server, no UI and no 
 **Reach for something else when:**
 
 - **You are building on Microsoft Agent Framework or `Microsoft.Extensions.AI`.** Lyntai ships no adapter
-  to either, in either direction (`docs/DECISIONS.md` D146): it cannot be handed to Agent Framework as an
-  `IChatClient`, and an `IChatClient` enters Lyntai only through a lambda you write
-  ([`AddBridgeProvider`](#bridging-a-backend-lyntai-has-no-provider-for-addbridgeprovider)). Lyntai has a tool
-  loop and durable jobs, not a multi-agent workflow graph. If those abstractions are what you want, use
-  Agent Framework.
+  package for either (`docs/DECISIONS.md` D146), and its public seams cover both directions: an `IChatClient`
+  enters through [`AddBridgeProvider`](#bridging-a-backend-lyntai-has-no-provider-for-addbridgeprovider), and
+  Lyntai leaves as one through a small class you own — both tested, and copied from the tested files, in
+  [`docs/extensions-ai.md`](extensions-ai.md). Lyntai has a tool loop and durable jobs, not a multi-agent
+  workflow graph. If those abstractions are what you want, build the agents on Agent Framework and keep Lyntai
+  for what sits under them: routing, fallback, budget and memory.
 - **You need a gateway many services share.** LiteLLM is a proxy: one endpoint for every language and
   team, virtual keys, central spend tracking and a provider catalogue far wider than Lyntai's. Lyntai's
   budget and rate limit are per process unless you back them with shared state (`UsePostgresUsageTracking`
@@ -861,9 +862,12 @@ services.AddLyntai(cfg => cfg
     .UseDefaultCandidates("vendor"));
 ```
 
-From there it is a backend like any other. **Return a verdict rather than throwing**: a throw is classified
-conservatively, while a verdict says what happened (`ProviderVerdictClassifier.FromHttpFailure(status, body,
-hasCredentials)` maps a response for you). **A bridge declares only what you hand it a delegate for**: omit
+From there it is a backend like any other, **the provider timeout included**: `LyntaiOptions.ProviderTimeout`
+(or the request's own) bounds a completion as a whole and a stream by inactivity, answers `Timeout` so the
+router advances, and abandons a delegate that ignores its token. **Return a verdict rather than throwing**: a
+throw is classified conservatively, while a verdict says what happened
+(`ProviderVerdictClassifier.FromHttpFailure(status, body, hasCredentials)` maps a response for you). For an
+`IChatClient` in particular, [`docs/extensions-ai.md`](extensions-ai.md) has the whole mapping. **A bridge declares only what you hand it a delegate for**: omit
 `stream` and no router asks it to stream, and pass `capabilities` to declare more than the defaults — tool
 calls, a model list, declared limits. **A bridge answers text only**, and refuses any other `Produces` at the
 call: an embedder or reranker of your own is an `IModelProvider` that implements `IVectorProvider` or
