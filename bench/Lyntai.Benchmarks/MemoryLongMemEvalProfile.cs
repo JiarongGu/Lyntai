@@ -257,6 +257,8 @@ internal static partial class MemoryLongMemEvalBench
             });
         if (!Console.IsErrorRedirected) Console.Error.WriteLine();
         var readingSeconds = wall.Elapsed.TotalSeconds;
+        PrintIdentity(sampled, extractions);
+        if (args.Contains("--identity-only")) return 0;
 
         // PHASE 2 — write the three stores per question and read each as a reader would.
         string[] arms = ["raw", "profile", "profile-untimed", "raw+profile", "raw+profile-untimed"];
@@ -404,6 +406,38 @@ internal static partial class MemoryLongMemEvalBench
             total.ProvenanceTotal += one.ProvenanceTotal;
             total.ProvenanceResolved += one.ProvenanceResolved;
         }
+    }
+
+    /// <summary>The question valid time cannot answer: did the extractor file the REVISED value under the key the
+    /// old one held? A write can only supersede an entry it names, and nothing is inferred from similar text
+    /// (<c>MemoryWrite.Supersedes</c>), so a revision filed under a second key supersedes nothing and both values
+    /// stay current. Counted over the questions where an assertion cites BOTH a superseded and a current gold turn.</summary>
+    private static void PrintIdentity(List<Question> sampled, ProfileExtraction[] extractions)
+    {
+        int both = 0, sameKey = 0, sameKeyChanged = 0, otherKey = 0, curOnly = 0, staleOnly = 0, neither = 0;
+        foreach (var (q, ex) in sampled.Zip(extractions))
+        {
+            var cur = ex.Assertions.Where(a => q.Current.Any(t => t.Tag == a.Tag)).ToList();
+            var stale = ex.Assertions.Where(a => q.Stale.Any(t => t.Tag == a.Tag)).ToList();
+            if (cur.Count == 0 && stale.Count == 0) { neither++; continue; }
+            if (stale.Count == 0) { curOnly++; continue; }
+            if (cur.Count == 0) { staleOnly++; continue; }
+
+            both++;
+            var shared = cur.Select(a => a.Key).Intersect(stale.Select(a => a.Key)).ToList();
+            if (shared.Count == 0) { otherKey++; continue; }
+
+            sameKey++;
+            if (shared.Any(k => !SameValue(cur.First(a => a.Key == k).Value, stale.First(a => a.Key == k).Value)))
+                sameKeyChanged++;
+        }
+
+        Console.WriteLine();
+        Console.WriteLine($"  IDENTITY  {both} of {sampled.Count} questions cite BOTH a superseded and a current gold turn "
+            + $"({curOnly} current only, {staleOnly} superseded only, {neither} neither).");
+        Console.WriteLine($"            revision filed under the SAME key: {sameKey}/{both} "
+            + $"({(both == 0 ? 0 : (double)sameKey / both):P1}), a changed value under it in {sameKeyChanged}; "
+            + $"under ANOTHER key: {otherKey}/{both} ({(both == 0 ? 0 : (double)otherKey / both):P1}) - nothing to supersede.");
     }
 
     private static void PrintProfile(List<Question> sampled, ProfileExtraction[] extractions, string[] arms,

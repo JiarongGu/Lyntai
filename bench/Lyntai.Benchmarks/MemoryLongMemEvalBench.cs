@@ -1249,6 +1249,21 @@ internal static partial class MemoryLongMemEvalBench
             SweepDoubles.IBenchChat? writer = ArgValue(args, "--writer") is "cli"
                 ? await SweepDoubles.TryCliChatAsync("memory-longmemeval profile")
                 : reader;
+            // `--writer-url` / `--writer-model` put the extractor on its OWN server, so a bigger model can read
+            // the sessions while the reader stays the one every earlier table used.
+            if (ArgValue(args, "--writer-url") is { } writerUrl)
+            {
+                var separate = new SweepDoubles.OpenAiCompatibleChat(http, writerUrl,
+                    ArgValue(args, "--writer-model") ?? reader.Model);
+                if (!await separate.ReachableAsync())
+                {
+                    Console.Error.WriteLine($"--writer-url: nothing answered at {writerUrl}.");
+                    return 1;
+                }
+
+                writer = separate;
+            }
+
             if (writer is null) return 1;
             Console.WriteLine("=== An LLM-extracted PROFILE on valid time, beside the raw exchange (RV20) ===");
             Console.WriteLine();

@@ -642,6 +642,14 @@ Each of these cost a real measurement to find.
   leaves every `Current` and `AsOf` reading it does not cover and returns only under `Validity = History` or by
   reference. For an entry nothing timed this changes nothing, so the surprise is reachable only by a write that
   stated valid time. **It is also not a deletion**: `CountAsync` still counts it and `PruneAsync` leaves it.
+- **A model-extracted PROFILE beside the raw exchange is REFUTED, on valid time as well** — so the recommendation
+  stays: write the raw exchange, and where the application KNOWS which entry a new one replaces, say so with
+  `Supersedes`. A write supersedes only an entry it names, and a model asked to file each fact under an attribute
+  key named the revised value's key the same way in 25% of questions on a haystack and 66% on the oracle, so most
+  revisions superseded nothing. On the haystack the profile gained 5.7 points over the raw page (p = 0.289), the
+  same facts without valid time did as well, and it cost 47 model calls a question where the raw path makes none
+  (`docs/memory-measurements.md` §5, `profile-valid-time-haystack-4b`). The identity of an attribute is the
+  caller's knowledge; the engine will not take it from a model's key.
 - **`Stability` has exactly one meaning**: the position delta at which retrievability is `0.5`. FSRS anchors
   at 90%; adopting that convention would silently reinterpret every stored value, so a contract fact makes
   it unshippable.
