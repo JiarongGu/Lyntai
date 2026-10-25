@@ -18,7 +18,32 @@ public sealed record MemoryWrite(
     string Content,
     string? Headline = null,
     MemoryGrade Grade = MemoryGrade.Inherit,
-    IReadOnlyDictionary<string, string>? Metadata = null);
+    IReadOnlyDictionary<string, string>? Metadata = null)
+{
+    /// <summary>When this fact started holding in the world; null states nothing. Valid time is the writer's
+    /// claim about the world, not when the engine heard of it, so a late write can name an instant before
+    /// earlier ones. On a re-remember a stated value replaces the stored one and an unstated one keeps it.
+    /// <para>An engine that cannot hold valid time THROWS <see cref="NotSupportedException"/> on a write that
+    /// states any — storing it as open-ended would return an ended fact as current.</para></summary>
+    public DateTimeOffset? ValidFrom { get; init; }
+
+    /// <summary>When it stopped holding, exclusive: valid at every instant before it, not at it. Null states
+    /// nothing. Must not precede <see cref="ValidFrom"/> when both are stated.</summary>
+    public DateTimeOffset? ValidTo { get; init; }
+
+    /// <summary>The entries this one SUPERSEDES: each ends where this one starts, and is never deleted — it
+    /// still reads in a <see cref="MemoryValidityReading.History"/> or earlier <see cref="MemoryValidityReading.AsOf"/>
+    /// reading. <b>Only a caller names a predecessor; nothing is inferred from similar text.</b> A write naming
+    /// one with no <see cref="ValidFrom"/> starts when it is written.
+    /// <para>Each reference must name this engine's own entry in this write's task, and an entry has one
+    /// successor: naming one a different entry already superseded throws <see cref="InvalidOperationException"/>
+    /// before anything is written, and a <see cref="ValidFrom"/> earlier than a named entry's own start throws
+    /// <see cref="ArgumentException"/>.</para></summary>
+    public IReadOnlyList<MemoryRef>? Supersedes { get; init; }
+
+    /// <summary>Whether this write states valid time at all — what an engine that cannot hold it refuses.</summary>
+    public bool StatesValidity => ValidFrom is not null || ValidTo is not null || Supersedes is { Count: > 0 };
+}
 
 /// <summary>How much of each matched entry a recall returns.
 /// <para>The default withholds associative content until an expansion asks for it, which is what makes a
@@ -79,6 +104,13 @@ public sealed record MemoryQuery(
     /// returns, reinforces and logs — is unchanged. An engine with no candidate stage (lexical, semantic,
     /// curated) ignores it (<c>docs/DECISIONS.md</c> D200).</summary>
     public bool Explain { get; init; }
+
+    /// <summary>Which entries to admit by valid time. The default, <see cref="MemoryValidityReading.Current"/>,
+    /// leaves out what has ended or not yet started and admits every untimed entry, so a store that holds no
+    /// valid time recalls as it always did. Applied after the candidate set is gathered, so a scope dense in
+    /// ended entries can return fewer than <see cref="Limit"/> — never an ended one.
+    /// <para>An engine that holds no valid time ignores it: its entries are untimed, valid at every instant.</para></summary>
+    public MemoryValidityReading Validity { get; init; }
 }
 
 /// <summary>One recalled entry.</summary>
@@ -114,7 +146,14 @@ public sealed record MemoryItem(
     double Relevance,
     double Retrievability,
     int Degree,
-    IReadOnlyDictionary<string, string>? Metadata = null);
+    IReadOnlyDictionary<string, string>? Metadata = null)
+{
+    /// <summary>When the fact held in the world and what superseded it, or null for an untimed entry and for an
+    /// engine that holds no valid time. A recall under <see cref="MemoryValidityReading.History"/> or an
+    /// earlier reading returns entries that are no longer current; this is how a caller, and
+    /// <see cref="MemoryComposition"/>, tell.</summary>
+    public MemoryValidity? Validity { get; init; }
+}
 
 /// <summary>The result of a recall, with the tiers that actually ran.</summary>
 /// <param name="Items">Hits, most relevant first.</param>

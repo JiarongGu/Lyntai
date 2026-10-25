@@ -45,6 +45,8 @@ public static class MemoryGraphSql
         CAST(@chars - n.encoding_chars AS DOUBLE PRECISION) AS VolumeAge,
         n.encoding_at AS EncodingAt,
         n.provenance_retrievability AS ProvenanceRetrievability, n.provenance_salience AS ProvenanceSalience,
+        n.valid_from AS ValidFrom, n.valid_to AS ValidTo,
+        n.superseded_by AS SupersededBy, n.superseded_at AS SupersededAt,
         (SELECT COUNT(*) FROM lyntai_memory_edge e WHERE e.from_id = n.id) AS Degree,
         (SELECT CAST(COALESCE(SUM(e.weight), 0) AS DOUBLE PRECISION)
          FROM lyntai_memory_edge e WHERE e.from_id = n.id) AS Strength,
@@ -126,6 +128,20 @@ public static class MemoryGraphSql
             recall_count = recall_count + 1,
             encoding_ordinal = @ordinal, encoding_chars = @chars, encoding_at = @encodedAt
         WHERE id = @Id AND engine = @engine
+        """;
+
+    /// <summary>End one node by a successor — <see cref="ITemporalMemoryGraphStore.SupersedeAsync"/>. Touches the
+    /// two supersession columns and no decay state. A null <c>@by</c> restates the instant and keeps any successor
+    /// (<c>COALESCE</c>); a non-null one is written only over none, the same, or one that no longer exists, so a node
+    /// already ended by a DIFFERENT live successor matches no row and the affected count says so.
+    /// <c>CAST(@by AS BIGINT)</c> because a NULL parameter has no type for Postgres to infer, and the cast is a no-op
+    /// on SQLite.</summary>
+    public const string Supersede = """
+        UPDATE lyntai_memory_node
+        SET superseded_by = COALESCE(CAST(@by AS BIGINT), superseded_by), superseded_at = @at
+        WHERE id = @id AND engine = @engine
+          AND (CAST(@by AS BIGINT) IS NULL OR superseded_by IS NULL OR superseded_by = CAST(@by AS BIGINT)
+               OR NOT EXISTS (SELECT 1 FROM lyntai_memory_node s WHERE s.id = lyntai_memory_node.superseded_by))
         """;
 
     /// <summary>Remove nodes past a retrievability cutoff or older than a real-time bound, with the

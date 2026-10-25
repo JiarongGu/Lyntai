@@ -30,6 +30,10 @@ public abstract class MemoryEngineContractFacts
     [Fact] public Task Honours_limit() => MemoryEngineContract.A_recall_returns_at_most_the_limit(New(), "k9");
 
     [Fact]
+    public Task Keeps_or_refuses_valid_time() =>
+        MemoryEngineContract.A_write_stating_valid_time_is_kept_or_refused_never_dropped(New(), "k15");
+
+    [Fact]
     public Task Metadata_round_trip() =>
         MemoryEngineContract.Metadata_written_is_returned_or_explicitly_absent(New(), "k10", CarriesMetadata);
 

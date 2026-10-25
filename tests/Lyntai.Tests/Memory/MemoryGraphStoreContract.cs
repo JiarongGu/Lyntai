@@ -2017,4 +2017,216 @@ public static class MemoryGraphStoreContract
         Assert.Equal(0, written);
         Assert.Equal(0, (await store.GetAsync("port-links", mine))!.Degree);
     }
+
+    // ---- valid time (ITemporalMemoryGraphStore) ------------------------------------------------------------
+
+    private static readonly DateTimeOffset Jan = new(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+    private static readonly DateTimeOffset Mar = new(2026, 3, 1, 0, 0, 0, TimeSpan.Zero);
+    private static readonly DateTimeOffset Jun = new(2026, 6, 1, 0, 0, 0, TimeSpan.Zero);
+
+    /// <summary><b>What a write states about valid time reads back exactly, by id and by seed, and an entry that
+    /// stated none reads as untimed.</b> The interval is half-open: valid AT its start, not valid AT its end —
+    /// asserted one tick either side, because an off-by-one at a boundary is the defect this axis invites. A
+    /// bound stated in another offset names the same instant.</summary>
+    public static async Task Temporal_store_round_trips_what_a_write_states_and_reads_untimed_as_unbounded(
+        IMemoryGraphStore store, string key)
+    {
+        Assert.IsAssignableFrom<ITemporalMemoryGraphStore>(store);
+        const string engine = "tv-roundtrip";
+        var timed = await store.UpsertAsync(Write(engine, key, "lives in Paris") with { ValidFrom = Jan, ValidTo = Jun });
+        var open = await store.UpsertAsync(Write(engine, key, "likes tea")
+            with { ValidFrom = new DateTimeOffset(2026, 3, 1, 8, 0, 0, TimeSpan.FromHours(8)) });
+        var untimed = await store.UpsertAsync(Write(engine, key, "is called Alice"));
+
+        var seeded = (await store.SeedAsync(engine, key, "s", null, 10)).ToDictionary(n => n.Id);
+        foreach (var node in new[] { (await store.GetAsync(engine, timed))!, seeded[timed] })
+        {
+            Assert.Equal(Jan, node.ValidFrom);
+            Assert.Equal(Jun, node.ValidTo);
+            Assert.Null(node.SupersededAt);
+            Assert.Null(node.SupersededBy);
+            var validity = node.Validity!;
+            Assert.False(validity.IsValidAt(Jan.AddTicks(-1)));
+            Assert.True(validity.IsValidAt(Jan));
+            Assert.True(validity.IsValidAt(Jun.AddTicks(-1)));
+            Assert.False(validity.IsValidAt(Jun));
+        }
+
+        var started = (await store.GetAsync(engine, open))!;
+        Assert.Equal(Mar, started.ValidFrom);   // 08:00 at +08:00 is midnight UTC: one instant, whatever the spelling
+        Assert.Null(started.ValidTo);
+
+        foreach (var node in new[] { (await store.GetAsync(engine, untimed))!, seeded[untimed] })
+        {
+            Assert.Null(node.ValidFrom);
+            Assert.Null(node.ValidTo);
+            Assert.Null(node.Validity);
+        }
+    }
+
+    /// <summary><b>A re-remember replaces a bound the write STATES and keeps one it does not</b> — the rule every
+    /// optional field follows (D91) — and <c>ValidFromIfUnset</c> never moves a start the entry already holds.</summary>
+    public static async Task Temporal_refresh_replaces_a_stated_bound_and_keeps_an_unstated_one(
+        IMemoryGraphStore store, string key)
+    {
+        Assert.IsAssignableFrom<ITemporalMemoryGraphStore>(store);
+        const string engine = "tv-refresh";
+        var id = await store.UpsertAsync(Write(engine, key, "lives in Paris") with { ValidFrom = Jan, ValidTo = Jun });
+
+        await store.UpsertAsync(Write(engine, key, "lives in Paris"));   // says nothing about valid time
+        var kept = (await store.GetAsync(engine, id))!;
+        Assert.Equal(Jan, kept.ValidFrom);
+        Assert.Equal(Jun, kept.ValidTo);
+
+        await store.UpsertAsync(Write(engine, key, "lives in Paris") with { ValidTo = Mar });
+        var shortened = (await store.GetAsync(engine, id))!;
+        Assert.Equal(Jan, shortened.ValidFrom);
+        Assert.Equal(Mar, shortened.ValidTo);
+
+        await store.UpsertAsync(Write(engine, key, "lives in Paris") with { ValidFromIfUnset = Jun });
+        Assert.Equal(Jan, (await store.GetAsync(engine, id))!.ValidFrom);   // a held start wins over the default
+
+        var bare = await store.UpsertAsync(Write(engine, key, "likes tea"));
+        await store.UpsertAsync(Write(engine, key, "likes tea") with { ValidFromIfUnset = Mar });
+        await store.UpsertAsync(Write(engine, key, "likes tea") with { ValidFromIfUnset = Jun });
+        Assert.Equal(Mar, (await store.GetAsync(engine, bare))!.ValidFrom);   // an unheld one takes the first, then keeps it
+    }
+
+    /// <summary><b>Superseding ends an entry and says by whom, and touches nothing else.</b> Age, stability, recall
+    /// count and the engine's position are exactly as they were, so an ended entry is not buried or reinforced, only
+    /// ended. An entry has ONE successor: the same one restates the instant, a different one is left unwritten and
+    /// uncounted, and a successor-less end takes a successor without losing its instant.</summary>
+    public static async Task Supersede_ends_an_entry_records_by_whom_and_moves_no_decay_state(
+        IMemoryGraphStore store, string key)
+    {
+        var temporal = Assert.IsAssignableFrom<ITemporalMemoryGraphStore>(store);
+        const string engine = "tv-supersede";
+        var old = await store.UpsertAsync(Write(engine, key, "lives in Paris") with { ValidFrom = Jan });
+        var next = await store.UpsertAsync(Write(engine, key, "lives in Berlin") with { ValidFrom = Mar });
+        var other = await store.UpsertAsync(Write(engine, key, "lives in Rome") with { ValidFrom = Jun });
+        await Crowd(store, engine, key, 3);
+        var before = (await store.GetAsync(engine, old))!;
+        var position = (await store.GetAsync(engine, other))!.Age;
+
+        Assert.Equal(1, await temporal.SupersedeAsync(engine, [new GraphSupersession(old, next, Mar)]));
+
+        var ended = (await store.GetAsync(engine, old))!;
+        Assert.Equal((next, Mar), (ended.SupersededBy, ended.SupersededAt));
+        Assert.Equal(Jan, ended.ValidFrom);
+        Assert.Null(ended.ValidTo);   // the entry's own claim is not overwritten by being superseded
+        Assert.Equal(Mar, ended.Validity!.End);
+        Assert.True(ended.Validity.IsValidAt(Mar.AddTicks(-1)));
+        Assert.False(ended.Validity.IsValidAt(Mar));
+        Assert.Equal((before.Age, before.OrdinalAge, before.VolumeAge, before.Stability, before.RecallCount, before.Content),
+            (ended.Age, ended.OrdinalAge, ended.VolumeAge, ended.Stability, ended.RecallCount, ended.Content));
+        Assert.Equal(position, (await store.GetAsync(engine, other))!.Age);   // the engine's position did not move
+
+        // the same successor restates the instant
+        Assert.Equal(1, await temporal.SupersedeAsync(engine, [new GraphSupersession(old, next, Mar.AddDays(1))]));
+        Assert.Equal(Mar.AddDays(1), (await store.GetAsync(engine, old))!.SupersededAt);
+
+        // a different one is left unwritten, and the count says so
+        Assert.Equal(0, await temporal.SupersedeAsync(engine, [new GraphSupersession(old, other, Jun)]));
+        var still = (await store.GetAsync(engine, old))!;
+        Assert.Equal((next, Mar.AddDays(1)), (still.SupersededBy, still.SupersededAt));
+
+        // an end recorded with no successor takes one later, and a null never erases one
+        var orphan = await store.UpsertAsync(Write(engine, key, "lives in Oslo"));
+        Assert.Equal(1, await temporal.SupersedeAsync(engine, [new GraphSupersession(orphan, null, Jun)]));
+        var ended2 = (await store.GetAsync(engine, orphan))!;
+        Assert.Null(ended2.SupersededBy);
+        Assert.Equal(Jun, ended2.SupersededAt);
+        Assert.Equal(1, await temporal.SupersedeAsync(engine, [new GraphSupersession(orphan, other, Jun)]));
+        Assert.Equal(other, (await store.GetAsync(engine, orphan))!.SupersededBy);
+        Assert.Equal(1, await temporal.SupersedeAsync(engine, [new GraphSupersession(orphan, null, Jun)]));
+        Assert.Equal(other, (await store.GetAsync(engine, orphan))!.SupersededBy);
+
+        // the superseded entry is still seeded, whole: ended is not removed
+        Assert.Contains(await store.SeedAsync(engine, key, "s", "Paris", 10), n => n.Id == old);
+    }
+
+    /// <summary>An entry another engine holds, or none, is never ended by this one — the engine name scopes it as it
+    /// does every other write here.</summary>
+    public static async Task Supersede_writes_nothing_for_an_entry_the_engine_does_not_hold(
+        IMemoryGraphStore store, string key)
+    {
+        var temporal = Assert.IsAssignableFrom<ITemporalMemoryGraphStore>(store);
+        var mine = await store.UpsertAsync(Write("tv-mine", key, "mine"));
+        var theirs = await store.UpsertAsync(Write("tv-theirs", key, "theirs"));
+
+        var written = await temporal.SupersedeAsync("tv-mine",
+            [new GraphSupersession(theirs, mine, Mar), new GraphSupersession(long.MaxValue - 1, mine, Mar)]);
+
+        Assert.Equal(0, written);
+        Assert.Null((await store.GetAsync("tv-theirs", theirs))!.SupersededAt);
+    }
+
+    /// <summary><b>Removing a successor does not reopen what it superseded.</b> The ended entry keeps its end — the
+    /// entry that ended it is gone, not the fact that it ended — and the dangling number cannot name another entry,
+    /// because ids are never reissued.</summary>
+    public static async Task Removing_a_successor_leaves_the_superseded_entry_ended(IMemoryGraphStore store, string key)
+    {
+        var temporal = Assert.IsAssignableFrom<ITemporalMemoryGraphStore>(store);
+        const string engine = "tv-removed";
+        var old = await store.UpsertAsync(Write(engine, key, "lives in Paris") with { ValidFrom = Jan });
+        var next = await store.UpsertAsync(Write(engine, key, "lives in Berlin") with { ValidFrom = Mar });
+        await temporal.SupersedeAsync(engine, [new GraphSupersession(old, next, Mar)]);
+
+        Assert.Equal(1, await store.DeleteAsync(engine, [next]));
+
+        var ended = (await store.GetAsync(engine, old))!;
+        Assert.Equal(Mar, ended.SupersededAt);
+        Assert.False(ended.Validity!.IsValidAt(Jun));
+        var reissued = await store.UpsertAsync(Write(engine, key, "lives in Rome"));
+        Assert.NotEqual(next, reissued);
+
+        // a successor that no longer exists is no successor: the entry it ended can be superseded again
+        Assert.Equal(1, await temporal.SupersedeAsync(engine, [new GraphSupersession(old, reissued, Jun)]));
+        var retaken = (await store.GetAsync(engine, old))!;
+        Assert.Equal(reissued, retaken.SupersededBy);
+        Assert.Equal(Jun, retaken.SupersededAt);
+    }
+
+    /// <summary>An entry exported with its valid time and imported into another engine arrives with the same interval,
+    /// and the end a successor recorded is restored through <c>SupersedeAsync</c> — with the successor's NEW id, or none
+    /// when it was not carried.</summary>
+    public static async Task Portable_import_carries_valid_time_and_supersession(IMemoryGraphStore store, string key)
+    {
+        var portable = Assert.IsAssignableFrom<IPortableMemoryGraphStore>(store);
+        var temporal = Assert.IsAssignableFrom<ITemporalMemoryGraphStore>(store);
+        const string source = "tv-port-src", target = "tv-port-dst";
+        var old = await store.UpsertAsync(Write(source, key, "lives in Paris") with { ValidFrom = Jan, ValidTo = Jun });
+        var next = await store.UpsertAsync(Write(source, key, "lives in Berlin") with { ValidFrom = Mar });
+        await temporal.SupersedeAsync(source, [new GraphSupersession(old, next, Mar)]);
+
+        var exported = await portable.ExportAsync(source, key, "s");
+        var carriedOld = exported.Nodes.Single(n => n.Id == old);
+        Assert.Equal(next, carriedOld.SupersededBy);
+        Assert.Equal(Mar, carriedOld.SupersededAt);
+
+        var results = await portable.ImportNodesAsync(target, key + "-to",
+            [.. exported.Nodes.Select(n => Carried(n, exported.Subjects)
+                with { ValidFrom = n.ValidFrom, ValidTo = n.ValidTo, SupersededAt = n.SupersededAt })]);
+        var map = exported.Nodes.Select((n, i) => (n.Id, results[i].Id)).ToDictionary(p => p.Item1, p => p.Item2);
+
+        // the END lands with the insert — an import cut short here leaves it ended with none named, never open
+        var ended = (await store.GetAsync(target, map[old]))!;
+        Assert.Equal(Mar, ended.SupersededAt);
+        Assert.Null(ended.SupersededBy);
+        Assert.False(ended.Validity!.IsValidAt(Jun));
+
+        await temporal.SupersedeAsync(target,
+            [.. exported.Nodes.Where(n => n.SupersededBy is not null)
+                .Select(n => new GraphSupersession(map[n.Id], map[n.SupersededBy!.Value], n.SupersededAt!.Value))]);
+
+        var imported = (await store.GetAsync(target, map[old]))!;
+        Assert.Equal(Jan, imported.ValidFrom);
+        Assert.Equal(Jun, imported.ValidTo);
+        Assert.Equal(Mar, imported.SupersededAt);
+        Assert.Equal(map[next], imported.SupersededBy);
+        var successor = (await store.GetAsync(target, map[next]))!;
+        Assert.Equal(Mar, successor.ValidFrom);
+        Assert.Null(successor.ValidTo);
+        Assert.Null(successor.SupersededAt);
+    }
 }

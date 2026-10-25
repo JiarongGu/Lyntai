@@ -22,6 +22,11 @@ public enum MemoryCandidateOutcome
 
     /// <summary>It fitted the limit and not the query's <see cref="MemoryQuery.CharBudget"/>.</summary>
     CutByBudget = 4,
+
+    /// <summary>It was gathered, and its valid time did not cover the query's
+    /// <see cref="MemoryQuery.Validity"/> reading — ended, superseded or not yet started. Never ranked, so it
+    /// has no score or position.</summary>
+    OutsideValidity = 5,
 }
 
 /// <summary>One candidate a recall considered and what became of it — an entry of

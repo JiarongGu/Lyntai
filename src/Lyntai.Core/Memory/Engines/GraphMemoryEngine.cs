@@ -40,7 +40,7 @@ public sealed class GraphMemoryEngine(
     GraphMemorySeams? seams = null,
     ILogger<GraphMemoryEngine>? logger = null)
     : IMemoryEngine, IExpandableMemory, ILinkableMemory, IForgettableMemory, IPrunableMemory, IReindexableMemory,
-        IPortableMemory
+        IPortableMemory, ITemporalMemory
 {
     private readonly GraphMemoryOptions _options = options ?? new GraphMemoryOptions();
     private readonly IMemoryRetrievabilityPolicy _policy =
@@ -245,9 +245,18 @@ public sealed class GraphMemoryEngine(
     public MemoryGrades Supported => MemoryGrades.Associative | MemoryGrades.Authoritative;
 
     /// <inheritdoc />
+    /// <remarks>True when the store implements <see cref="ITemporalMemoryGraphStore"/>, which every shipped store does.
+    /// A BYO store without it reads every entry as untimed, so reads are right; a write stating valid time is
+    /// refused instead.</remarks>
+    public bool HoldsValidity => store is ITemporalMemoryGraphStore;
+
+    /// <inheritdoc />
     public async Task<MemoryWriteResult> RememberAsync(MemoryWrite write, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(write);
+
+        // Valid time is checked FIRST, before any embed or annotation call: a refused write has cost nothing.
+        var predecessors = await ResolvePredecessorsAsync(write, ct).ConfigureAwait(false);
 
         // ONE embed, ONE similarity search, shared between salience judgement (which needs the comparison before
         // the node has an id) and EnrichAsync below (linking + indexing, which needs it after). Without a
@@ -290,8 +299,17 @@ public sealed class GraphMemoryEngine(
                 write.Metadata, signals,
                 ProvenanceRetrievability: (long)_policy.Provenance,
                 ProvenanceSalience: salienceProvenance,
-                GradeStated: stated, HeadlineStated: write.Headline is not null),
+                GradeStated: stated, HeadlineStated: write.Headline is not null)
+            {
+                ValidFrom = write.ValidFrom, ValidTo = write.ValidTo,
+                // a write that supersedes starts when it is written unless it says otherwise — and only where it holds
+                // no start already, so repeating the same write does not move it
+                ValidFromIfUnset = predecessors.Count > 0 ? _clock() : null,
+            },
             ct).ConfigureAwait(false);
+
+        if (predecessors.Count > 0)
+            await SupersedeAsync(id, predecessors, write.ValidFrom is not null, ct).ConfigureAwait(false);
 
         var indexed = await EnrichAsync(id, write, search, ct).ConfigureAwait(false);
         var recorded = await LinkBySubjectAsync(id, write, annotated, ct).ConfigureAwait(false);
@@ -299,6 +317,91 @@ public sealed class GraphMemoryEngine(
             MemorySources.Graph
             | (indexed ? MemorySources.Similarity : MemorySources.None)
             | (answered && recorded ? MemorySources.Annotation : MemorySources.None));
+    }
+
+    /// <summary>What a write states about valid time, checked and resolved before anything is written: the entries it
+    /// supersedes, as ids. Refuses — rather than storing the write without it — when the store cannot hold valid
+    /// time, a bound is reversed, or a reference does not name an entry this engine holds in this write's task.
+    /// <para>An entry has ONE successor. One already ended by a different entry that still exists is refused here,
+    /// naming it, so the write that would have lost the claim is not stored; the same write repeated is not
+    /// "different" and passes. One whose successor was removed counts as none.</para></summary>
+    /// <exception cref="NotSupportedException">The store holds no valid time.</exception>
+    /// <exception cref="ArgumentException">A reversed bound, or a reference that names no usable entry.</exception>
+    /// <exception cref="InvalidOperationException">A named entry has another successor.</exception>
+    private async Task<IReadOnlyList<long>> ResolvePredecessorsAsync(MemoryWrite write, CancellationToken ct)
+    {
+        if (!write.StatesValidity) return [];
+        if (store is not ITemporalMemoryGraphStore)
+            throw new NotSupportedException(
+                $"Memory engine '{Name}' cannot hold valid time: its store ({store.GetType().Name}) does not implement " +
+                $"{nameof(ITemporalMemoryGraphStore)}, so the write would be stored without it and an ended fact would " +
+                "be returned as current.");
+        if (write.ValidFrom is { } from && write.ValidTo is { } to && to < from)
+            throw new ArgumentException($"ValidTo ({to:O}) precedes ValidFrom ({from:O}).", nameof(write));
+        if (write.Supersedes is not { Count: > 0 } named) return [];
+
+        var ids = new List<long>(named.Count);
+        foreach (var reference in named)
+        {
+            if (!Owns(reference))
+                throw new ArgumentException(
+                    $"Memory engine '{Name}' supersedes only its own entries; got one of '{reference.Engine}'. An id means " +
+                    "a node only in the engine that wrote it.", nameof(write));
+            if (!long.TryParse(reference.Id, NumberStyles.Integer, CultureInfo.InvariantCulture, out var id))
+                throw new ArgumentException(
+                    $"Memory engine '{Name}' addresses nodes by numeric id; got '{reference.Id}'.", nameof(write));
+            if (ids.Contains(id)) continue;
+            var held = await store.GetAsync(Name, id, ct).ConfigureAwait(false)
+                ?? throw new ArgumentException($"Memory engine '{Name}' has no entry '{reference.Id}' to supersede.", nameof(write));
+            if (!string.Equals(held.TaskKey, write.TaskKey, StringComparison.Ordinal))
+                throw new ArgumentException(
+                    $"Memory engine '{Name}' cannot supersede across tasks: '{reference.Id}' is in task '{held.TaskKey}' " +
+                    $"and this write is in '{write.TaskKey}'.", nameof(write));
+            if (IsThisWrite(held, write))
+                throw new ArgumentException($"Entry '{reference.Id}' cannot supersede itself.", nameof(write));
+            // an entry cannot end before it began: its interval would be empty and no reading would ever see it. Only a
+            // STATED start is known here; an unstated one is read back and checked after the write (SupersedeAsync)
+            if (write.ValidFrom is { } start && held.ValidFrom is { } began && start < began)
+                throw new ArgumentException(
+                    $"Entry '{reference.Id}' began at {began:O}, after the {start:O} this write would end it: an entry " +
+                    "cannot be superseded before it started. Correct its ValidFrom first, or this write's.", nameof(write));
+            if (held.SupersededBy is { } by && await store.GetAsync(Name, by, ct).ConfigureAwait(false) is { } other
+                && !IsThisWrite(other, write))
+                throw new InvalidOperationException(
+                    $"Entry '{reference.Id}' was already superseded by entry '{by}' (\"{other.Headline}\"), and an entry has " +
+                    "one successor. Supersede that entry instead, or bound this one with ValidTo; nothing was written.");
+            ids.Add(id);
+        }
+        return ids;
+    }
+
+    // a write's identity is (engine, task, scope, content), the dedup key; the engine is this one by construction
+    private static bool IsThisWrite(GraphNode node, MemoryWrite write) =>
+        string.Equals(node.TaskKey, write.TaskKey, StringComparison.Ordinal)
+        && string.Equals(node.Scope, write.Scope, StringComparison.Ordinal)
+        && string.Equals(node.Content, write.Content, StringComparison.Ordinal);
+
+    /// <summary>End each predecessor at the successor's own start, read back so a start the entry already held is the
+    /// one used. Surfaces a failure like the write it belongs to: the successor is stored by now, and a caller told
+    /// nothing would believe the old entry ended.</summary>
+    private async Task SupersedeAsync(long successor, IReadOnlyList<long> predecessors, bool startStated,
+        CancellationToken ct)
+    {
+        var temporal = (ITemporalMemoryGraphStore)store;   // ResolvePredecessorsAsync refused any other
+        var at = (await store.GetAsync(Name, successor, ct).ConfigureAwait(false))?.ValidFrom ?? _clock();
+        // the start the write STATED was checked before it; one it did not is only known now, from the stored entry
+        if (!startStated)
+            foreach (var id in predecessors)
+                if ((await store.GetAsync(Name, id, ct).ConfigureAwait(false))?.ValidFrom is { } began && at < began)
+                    throw new InvalidOperationException(
+                        $"Entry '{successor}' was stored, but starts at {at:O}, before the {began:O} entry '{id}' began, so " +
+                        "it cannot supersede it; nothing was ended. Correct the start of one of them.");
+        var written = await temporal.SupersedeAsync(Name,
+            [.. predecessors.Select(p => new GraphSupersession(p, successor, at))], ct).ConfigureAwait(false);
+        if (written != predecessors.Count)
+            throw new InvalidOperationException(
+                $"Entry '{successor}' was stored, but only {written} of the {predecessors.Count} entries it supersedes " +
+                "were ended: another write superseded the rest first.");
     }
 
     /// <summary>Ask the annotator what this fact is about, showing it recent entries so a pronoun is
@@ -560,13 +663,29 @@ public sealed class GraphMemoryEngine(
         ArgumentNullException.ThrowIfNull(query);
         ct.ThrowIfCancellationRequested();
         var ranking = ResolveRanking(query.RankingPolicyName);
+        query.Validity.ThrowIfIncoherent();   // a caller mistake, like an unknown ranking name: never fail-open
 
         var nothing = query.Explain ? MemoryRecall.Empty with { Candidates = [] } : MemoryRecall.Empty;
         var limit = query.Limit ?? _options.DefaultLimit;
         if (limit <= 0) return nothing;
 
-        var found = await TryGatherAsync(query, limit, ct).ConfigureAwait(false);
-        if (found is null) return nothing;
+        var gathered = await TryGatherAsync(query, limit, ct).ConfigureAwait(false);
+        if (gathered is null) return nothing;
+
+        // THE READING, applied to the PAGE and not to the graph: an ended entry is still walked through, so what it
+        // links to is reached as it always was, and it is simply not offered to the ranking. A recall dense in ended
+        // entries can therefore return fewer than the limit — never an ended one.
+        var now = _clock();
+        var found = query.Validity.IsHistory
+            ? gathered
+            : gathered.Where(f => query.Validity.Admits(f.Node.Validity, now)).ToList();
+        var admitted = found.Select(f => f.Node.Id).ToHashSet();
+        List<MemoryRecallCandidate> outside = query.Explain && found.Count != gathered.Count
+            ? [.. gathered.Where(f => !admitted.Contains(f.Node.Id)).Select(f => new MemoryRecallCandidate(
+                new MemoryRef(Name, f.Node.Id.ToString(CultureInfo.InvariantCulture)),
+                MemoryCandidateOutcome.OutsideValidity, f.Ranks, f.Hop, null, null, null))]
+            : [];
+        if (query.Explain) nothing = MemoryRecall.Empty with { Candidates = outside };
 
         var candidates = found
             .Select(f => new MemoryCandidate(f.Node, Retrievability(f.Node), f.Hop) { Ranks = f.Ranks })
@@ -625,8 +744,12 @@ public sealed class GraphMemoryEngine(
         return query.Explain
             ? recall with
             {
-                Candidates = Explain(candidates, ranked, [.. placed, .. ordinary.Skip(page)], placed, scored,
-                    recall.Items, shown, verdict),
+                Candidates =
+                [
+                    .. Explain(candidates, ranked, [.. placed, .. ordinary.Skip(page)], placed, scored,
+                        recall.Items, shown, verdict),
+                    .. outside,
+                ],
             }
             : recall;
     }
@@ -777,7 +900,7 @@ public sealed class GraphMemoryEngine(
                 new MemoryRef(Name, x.Candidate.Node.Id.ToString(CultureInfo.InvariantCulture)),
                 x.Candidate.Node.Headline, ProjectContent(x.Candidate.Node, query.Detail),
                 x.Candidate.Node.Grade, x.Candidate.Node.Relevance, x.Candidate.Retrievability,
-                x.Candidate.Node.Degree, x.Candidate.Node.Metadata))
+                x.Candidate.Node.Degree, x.Candidate.Node.Metadata) { Validity = x.Candidate.Node.Validity })
             .ToList();
 
         // applied AFTER ranking, so the budget cuts the weakest tail rather than changing what wins
@@ -791,10 +914,21 @@ public sealed class GraphMemoryEngine(
         node.Grade == MemoryGrade.Authoritative || detail == MemoryDetail.Full ? node.Content : null;
 
     /// <inheritdoc />
-    public async Task<MemoryRecall> ExpandAsync(MemoryRef reference, int hops = 1, int? charBudget = null,
-        MemoryDetail detail = MemoryDetail.Headline, CancellationToken ct = default)
+    /// <remarks>Reads the facts valid NOW, as a recall does by default.</remarks>
+    public Task<MemoryRecall> ExpandAsync(MemoryRef reference, int hops = 1, int? charBudget = null,
+        MemoryDetail detail = MemoryDetail.Headline, CancellationToken ct = default) =>
+        ExpandAsync(reference, hops, charBudget, detail, MemoryValidityReading.Current, ct);
+
+    /// <inheritdoc />
+    /// <remarks>The named entry comes back whatever its validity. An ended NEIGHBOUR is left out of the result but
+    /// still walked through, so the hops reach what it links to exactly as they did — the same rule a recall applies
+    /// to its page.</remarks>
+    public async Task<MemoryRecall> ExpandAsync(MemoryRef reference, int hops, int? charBudget, MemoryDetail detail,
+        MemoryValidityReading validity, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
+        validity.ThrowIfIncoherent();
+        var now = _clock();
         // another engine's reference names another store's node, so a matching id here would be the wrong entry
         if (!Owns(reference) ||
             !long.TryParse(reference.Id, NumberStyles.Integer, CultureInfo.InvariantCulture, out var id))
@@ -824,7 +958,7 @@ public sealed class GraphMemoryEngine(
                 // this is the identity filter unless a deployment asks for it — see the option's own doc.
                 if (_options.ExpansionRetrievabilityFloor > 0
                     && Retrievability(neighbour.Node) < _options.ExpansionRetrievabilityFloor) continue;
-                walked.Add(neighbour);
+                if (validity.Admits(neighbour.Node.Validity, now)) walked.Add(neighbour);
                 frontier.Add(neighbour.Node.Id);
             }
         }
@@ -837,13 +971,13 @@ public sealed class GraphMemoryEngine(
         {
             // the expanded node carries its FULL content whatever its grade — that is what expansion IS
             new(reference, node.Headline, node.Content, node.Grade, 1, Retrievability(node), node.Degree,
-                node.Metadata),
+                node.Metadata) { Validity = node.Validity },
         };
         // neighbours take the recall projection's rule: the caller's stated detail decides
         items.AddRange(walked.Select(w => new MemoryItem(
             new MemoryRef(Name, w.Node.Id.ToString(CultureInfo.InvariantCulture)),
             w.Node.Headline, ProjectContent(w.Node, detail), w.Node.Grade, w.Node.Relevance,
-            Retrievability(w.Node), w.Node.Degree, w.Node.Metadata)));
+            Retrievability(w.Node), w.Node.Degree, w.Node.Metadata) { Validity = w.Node.Validity }));
 
         // The budget bounds the NEIGHBOURS, never the entry itself — the cut keeps its first item whatever it
         // costs. Null takes the engine's configured budget, itself null (unbounded) unless a host sets one.
@@ -1160,9 +1294,29 @@ public sealed class GraphMemoryEngine(
         var (nodes, links) = GraphPortableLines.Read(await MemoryPortableFormat.ReadAsync(source, ct).ConfigureAwait(false),
             Name, scope);
 
+        // refused before the first write, like every other check on the file: importing an ended fact into a store
+        // that cannot hold its end would hand it back as current
+        if (store is not ITemporalMemoryGraphStore && nodes.Any(n => n.IsTimed))
+            throw new NotSupportedException(
+                $"Memory engine '{Name}' cannot import valid time: its store ({store.GetType().Name}) does not implement " +
+                $"{nameof(ITemporalMemoryGraphStore)}, so the file's entries would arrive without it. Nothing was imported.");
+
         var results = await portable.ImportNodesAsync(Name, taskKey, [.. nodes.Select(n => n.Node)], ct).ConfigureAwait(false);
         var map = new Dictionary<long, long>(nodes.Count);
         for (var i = 0; i < nodes.Count; i++) map[nodes[i].Id] = results[i].Id;
+
+        // an entry's END landed with its insert, so an import cut short from here leaves it ended with no successor
+        // named, never open. Naming the successor is what remains, for the entries this import INSERTED — a held one
+        // is left exactly as it is, valid time included — now that the successor's id in this store is known; a
+        // successor the file does not hold leaves the entry ended with none named
+        if (store is ITemporalMemoryGraphStore temporal)
+        {
+            List<GraphSupersession> named = [.. nodes
+                .Select((n, i) => (n, i))
+                .Where(x => results[x.i].Inserted && x.n.SupersededBy is { } by && map.ContainsKey(by))
+                .Select(x => new GraphSupersession(results[x.i].Id, map[x.n.SupersededBy!.Value], x.n.Node.SupersededAt!.Value))];
+            if (named.Count > 0) await temporal.SupersedeAsync(Name, named, ct).ConfigureAwait(false);
+        }
 
         var remapped = new List<GraphLink>(links.Count);
         var dropped = 0;

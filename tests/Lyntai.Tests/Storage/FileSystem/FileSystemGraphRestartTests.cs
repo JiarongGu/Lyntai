@@ -106,6 +106,35 @@ public class FileSystemGraphRestartTests : IDisposable
     }
 
     [Fact]
+    public async Task Valid_time_and_supersession_survive_a_restart_and_an_untimed_memory_file_is_unchanged()
+    {
+        var jan = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        var mar = new DateTimeOffset(2026, 3, 1, 0, 0, 0, TimeSpan.Zero);
+        var before = Open(_temp.Root);
+        var old = await before.UpsertAsync(Write("lives in Paris") with { ValidFrom = jan, ValidTo = mar.AddDays(30) });
+        var next = await before.UpsertAsync(Write("lives in Berlin") with { ValidFrom = mar });
+        await before.UpsertAsync(Write("owns a bicycle"));
+        await before.SupersedeAsync("e", [new GraphSupersession(old, next, mar)]);
+
+        var after = Open(_temp.Reopen());
+
+        var ended = (await after.GetAsync("e", old))!;
+        Assert.Equal(jan, ended.ValidFrom);
+        Assert.Equal(mar.AddDays(30), ended.ValidTo);
+        Assert.Equal(mar, ended.SupersededAt);
+        Assert.Equal(next, ended.SupersededBy);
+        Assert.Equal(mar, (await after.GetAsync("e", next))!.ValidFrom);
+        // the files: valid time is written only where there is some, so a memory that never had any is the file it
+        // always was — and a person can read and correct what is there
+        var files = MemoryFiles().Select(File.ReadAllText).ToList();
+        var plain = Assert.Single(files, f => f.Contains("owns a bicycle", StringComparison.Ordinal));
+        Assert.DoesNotContain("valid", plain, StringComparison.Ordinal);
+        Assert.DoesNotContain("superseded", plain, StringComparison.Ordinal);
+        Assert.Contains("supersededBy: " + next, files.Single(f => f.Contains("lives in Paris", StringComparison.Ordinal)),
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Ids_continue_after_a_restart_and_a_deleted_newest_id_is_never_reused()
     {
         var store = Open(_temp.Root, floor: 0);
