@@ -37,7 +37,8 @@ public sealed record MemoryWrite(
     /// one with no <see cref="ValidFrom"/> starts when it is written.
     /// <para>Each reference must name this engine's own entry in this write's task, and an entry has one
     /// successor: naming one a different entry already superseded throws <see cref="InvalidOperationException"/>
-    /// before anything is written.</para></summary>
+    /// before anything is written, and a <see cref="ValidFrom"/> earlier than a named entry's own start throws
+    /// <see cref="ArgumentException"/>.</para></summary>
     public IReadOnlyList<MemoryRef>? Supersedes { get; init; }
 
     /// <summary>Whether this write states valid time at all — what an engine that cannot hold it refuses.</summary>

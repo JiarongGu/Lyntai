@@ -371,9 +371,9 @@ through `MemoryGraphAnchor` and NO advance of the position; a held `MemoryConten
 (`ON CONFLICT … DO NOTHING`, then read its id); a link written only between two nodes of the engine and never over
 one already held (`MemoryGraphSql.ImportLink`). Skip it and the engine refuses to export or import.
 `ITemporalMemoryGraphStore`: valid time. You owe the four `GraphNode` members (`ValidFrom`, `ValidTo`, `SupersededBy`,
-`SupersededAt`) on every read, the `ValidFrom`/`ValidTo`/`ValidFromIfUnset` inputs of `GraphNodeWrite` and the two
-`GraphNodeImport` ones (a STATED bound replaces and an unstated one keeps what is stored; `ValidFromIfUnset` never
-moves a held start), and `SupersedeAsync` — which changes only those fields (no age, stability or position),
+`SupersededAt`) on every read, the `ValidFrom`/`ValidTo`/`ValidFromIfUnset` inputs of `GraphNodeWrite` and the three
+`GraphNodeImport` ones, `ValidFrom`/`ValidTo`/`SupersededAt` (a STATED bound replaces and an unstated one keeps what
+is stored; `ValidFromIfUnset` never moves a held start), and `SupersedeAsync` — which changes only those fields (no age, stability or position),
 writes over no live successor but the same one, and returns how many it wrote (`MemoryGraphSql.Supersede`). Store
 all four NULLABLE and leave old rows NULL, which reads as untimed. **Skip it and the engine REFUSES a write that
 states valid time, or an import of one, rather than store it open-ended** — a store that never heard of it reads

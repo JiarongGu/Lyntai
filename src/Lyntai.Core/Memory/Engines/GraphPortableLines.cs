@@ -122,24 +122,26 @@ internal static class GraphPortableLines
                 MemoryPortableFormat.Number(line, "volumeAge"), MemoryPortableFormat.Number(line, "elapsedAge"))
             {
                 ValidFrom = Instant(line, "validFrom"), ValidTo = Instant(line, "validTo"),
-            }, Instant(line, "supersededAt"), line.Body.TryGetProperty("supersededBy", out _)
-                ? MemoryPortableFormat.Whole(line, "supersededBy") : null));
+                SupersededAt = Instant(line, "supersededAt"),
+            }, line.Body.TryGetProperty("supersededBy", out _) ? MemoryPortableFormat.Whole(line, "supersededBy") : null));
+            // a successor with no instant would name who ended an entry and not when, which no reading can use
+            if (nodes[^1].SupersededBy is not null && nodes[^1].Node.SupersededAt is null)
+                throw MemoryPortableFormat.Refuse(line.Number, "carries a \"supersededBy\" and no \"supersededAt\"");
         }
         return (nodes, links);
     }
 
-    /// <summary>One <c>graph</c> line read: the entry under the source's <paramref name="Id"/>, and the end a successor
-    /// recorded — which is applied after the entry lands, through
+    /// <summary>One <c>graph</c> line read: the entry under the source's <paramref name="Id"/>, whose end lands with
+    /// it, and the successor that ended it — named afterwards through
     /// <see cref="ITemporalMemoryGraphStore.SupersedeAsync"/>, because the successor's id in THIS store is known
     /// only then.</summary>
     /// <param name="Id">The entry's id in the source, read only to resolve links and successors.</param>
-    /// <param name="Node">The entry.</param>
-    /// <param name="SupersededAt">When a successor took over, or null.</param>
+    /// <param name="Node">The entry, valid time included.</param>
     /// <param name="SupersededBy">The successor's id in the source, or null.</param>
-    public readonly record struct CarriedNode(long Id, GraphNodeImport Node, DateTimeOffset? SupersededAt, long? SupersededBy)
+    public readonly record struct CarriedNode(long Id, GraphNodeImport Node, long? SupersededBy)
     {
         /// <summary>Whether this entry carries any valid time at all — what a store that cannot hold it refuses.</summary>
-        public bool IsTimed => Node.ValidFrom is not null || Node.ValidTo is not null || SupersededAt is not null;
+        public bool IsTimed => Node.ValidFrom is not null || Node.ValidTo is not null || Node.SupersededAt is not null;
     }
 
     // an optional instant, refused where present and not one — a bad bound is never read as no bound

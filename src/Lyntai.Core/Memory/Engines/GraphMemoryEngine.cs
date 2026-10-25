@@ -308,7 +308,8 @@ public sealed class GraphMemoryEngine(
             },
             ct).ConfigureAwait(false);
 
-        if (predecessors.Count > 0) await SupersedeAsync(id, predecessors, ct).ConfigureAwait(false);
+        if (predecessors.Count > 0)
+            await SupersedeAsync(id, predecessors, write.ValidFrom is not null, ct).ConfigureAwait(false);
 
         var indexed = await EnrichAsync(id, write, search, ct).ConfigureAwait(false);
         var recorded = await LinkBySubjectAsync(id, write, annotated, ct).ConfigureAwait(false);
@@ -358,6 +359,12 @@ public sealed class GraphMemoryEngine(
                     $"and this write is in '{write.TaskKey}'.", nameof(write));
             if (IsThisWrite(held, write))
                 throw new ArgumentException($"Entry '{reference.Id}' cannot supersede itself.", nameof(write));
+            // an entry cannot end before it began: its interval would be empty and no reading would ever see it. Only a
+            // STATED start is known here; an unstated one is read back and checked after the write (SupersedeAsync)
+            if (write.ValidFrom is { } start && held.ValidFrom is { } began && start < began)
+                throw new ArgumentException(
+                    $"Entry '{reference.Id}' began at {began:O}, after the {start:O} this write would end it: an entry " +
+                    "cannot be superseded before it started. Correct its ValidFrom first, or this write's.", nameof(write));
             if (held.SupersededBy is { } by && await store.GetAsync(Name, by, ct).ConfigureAwait(false) is { } other
                 && !IsThisWrite(other, write))
                 throw new InvalidOperationException(
@@ -377,10 +384,18 @@ public sealed class GraphMemoryEngine(
     /// <summary>End each predecessor at the successor's own start, read back so a start the entry already held is the
     /// one used. Surfaces a failure like the write it belongs to: the successor is stored by now, and a caller told
     /// nothing would believe the old entry ended.</summary>
-    private async Task SupersedeAsync(long successor, IReadOnlyList<long> predecessors, CancellationToken ct)
+    private async Task SupersedeAsync(long successor, IReadOnlyList<long> predecessors, bool startStated,
+        CancellationToken ct)
     {
         var temporal = (ITemporalMemoryGraphStore)store;   // ResolvePredecessorsAsync refused any other
         var at = (await store.GetAsync(Name, successor, ct).ConfigureAwait(false))?.ValidFrom ?? _clock();
+        // the start the write STATED was checked before it; one it did not is only known now, from the stored entry
+        if (!startStated)
+            foreach (var id in predecessors)
+                if ((await store.GetAsync(Name, id, ct).ConfigureAwait(false))?.ValidFrom is { } began && at < began)
+                    throw new InvalidOperationException(
+                        $"Entry '{successor}' was stored, but starts at {at:O}, before the {began:O} entry '{id}' began, so " +
+                        "it cannot supersede it; nothing was ended. Correct the start of one of them.");
         var written = await temporal.SupersedeAsync(Name,
             [.. predecessors.Select(p => new GraphSupersession(p, successor, at))], ct).ConfigureAwait(false);
         if (written != predecessors.Count)
@@ -1290,18 +1305,17 @@ public sealed class GraphMemoryEngine(
         var map = new Dictionary<long, long>(nodes.Count);
         for (var i = 0; i < nodes.Count; i++) map[nodes[i].Id] = results[i].Id;
 
-        // the end a successor recorded, for the entries this import INSERTED — a held one is left exactly as it is,
-        // valid time included — now that the successor's id in this store is known; a successor the file does not
-        // hold leaves the entry ended with none named
+        // an entry's END landed with its insert, so an import cut short from here leaves it ended with no successor
+        // named, never open. Naming the successor is what remains, for the entries this import INSERTED — a held one
+        // is left exactly as it is, valid time included — now that the successor's id in this store is known; a
+        // successor the file does not hold leaves the entry ended with none named
         if (store is ITemporalMemoryGraphStore temporal)
         {
-            List<GraphSupersession> ended = [.. nodes
+            List<GraphSupersession> named = [.. nodes
                 .Select((n, i) => (n, i))
-                .Where(x => results[x.i].Inserted && x.n.SupersededAt is not null)
-                .Select(x => new GraphSupersession(results[x.i].Id,
-                    x.n.SupersededBy is { } by && map.TryGetValue(by, out var successor) ? successor : null,
-                    x.n.SupersededAt!.Value))];
-            if (ended.Count > 0) await temporal.SupersedeAsync(Name, ended, ct).ConfigureAwait(false);
+                .Where(x => results[x.i].Inserted && x.n.SupersededBy is { } by && map.ContainsKey(by))
+                .Select(x => new GraphSupersession(results[x.i].Id, map[x.n.SupersededBy!.Value], x.n.Node.SupersededAt!.Value))];
+            if (named.Count > 0) await temporal.SupersedeAsync(Name, named, ct).ConfigureAwait(false);
         }
 
         var remapped = new List<GraphLink>(links.Count);

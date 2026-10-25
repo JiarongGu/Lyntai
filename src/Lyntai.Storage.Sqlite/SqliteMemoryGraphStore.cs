@@ -601,10 +601,10 @@ public sealed class SqliteMemoryGraphStore(
                     (engine, task_key, scope, headline, content, content_hash, grade, metadata, signals, salience,
                      created_at, last_recalled_position, recall_count, stability, difficulty,
                      encoding_ordinal, encoding_chars, encoding_at,
-                     provenance_retrievability, provenance_salience, valid_from, valid_to)
+                     provenance_retrievability, provenance_salience, valid_from, valid_to, superseded_at)
                 VALUES (@engine, @taskKey, @scope, @headline, @content, @hash, @grade, @metadata, @signals, @salience,
                         @createdAt, @position, @recallCount, @stability, @difficulty, @ordinal, @chars, @at,
-                        @provenanceRetrievability, @provenanceSalience, @validFrom, @validTo)
+                        @provenanceRetrievability, @provenanceSalience, @validFrom, @validTo, @supersededAt)
                 ON CONFLICT(engine, task_key, scope, content_hash) DO NOTHING
                 RETURNING id
                 """, ImportArgs(engine, taskKey, node, hash, head), transaction: tx, cancellationToken: ct)).ConfigureAwait(false);
@@ -639,6 +639,7 @@ public sealed class SqliteMemoryGraphStore(
         at = MemoryGraphAnchor.Behind(head.EncodedAt, node.ElapsedAge),
         provenanceRetrievability = node.ProvenanceRetrievability, provenanceSalience = node.ProvenanceSalience,
         validFrom = node.ValidFrom?.ToUniversalTime(), validTo = node.ValidTo?.ToUniversalTime(),
+        supersededAt = node.SupersededAt?.ToUniversalTime(),
     };
 
     /// <inheritdoc />

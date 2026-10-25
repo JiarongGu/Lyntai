@@ -99,6 +99,12 @@ public sealed record GraphNodeImport(
 
     /// <summary>When the writer said it stopped holding, or null; honoured as <see cref="ValidFrom"/> is.</summary>
     public DateTimeOffset? ValidTo { get; init; }
+
+    /// <summary>When a successor took over, or null; honoured as <see cref="ValidFrom"/> is. It lands WITH the
+    /// insert, so an import cut short after it leaves the entry ended with no successor named — the safe direction —
+    /// and never open. The successor itself is named afterwards through
+    /// <see cref="ITemporalMemoryGraphStore.SupersedeAsync"/>, because its id in this store is known only then.</summary>
+    public DateTimeOffset? SupersededAt { get; init; }
 }
 
 /// <summary>Where one imported node landed: <paramref name="Id"/> in this store, and whether this import

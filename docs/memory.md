@@ -823,8 +823,10 @@ metadata, decay state and links: it is not buried (its retrievability is whateve
 removed by `PruneAsync`; only `ForgetAsync` removes it, as it removes anything. **An entry has one successor**: naming
 one another entry already ended throws `InvalidOperationException` before anything is written — supersede the
 newer entry instead, or bound the older with `ValidTo`. A successor that was later forgotten does not reopen what it
-ended, and a new write may then take over. What the engine will not do is guess: near-identical text is never a
-supersession, and an entry nobody named stays valid.
+ended, and a new write may then take over. **An entry cannot be superseded before it began**: a stated start earlier
+than the entry's own throws `ArgumentException` before anything is written, and an unstated one that turns out
+earlier throws `InvalidOperationException` with the successor stored and nothing ended. What the engine will not do
+is guess: near-identical text is never a supersession, and an entry nobody named stays valid.
 
 **Valid time is the world's clock, so a late write may name an earlier instant.** A fact learned in April that held
 from February is written with `ValidFrom` in February; where that overlaps an entry written earlier, both are valid
@@ -836,7 +838,8 @@ changes nothing.
 lexical, semantic or curated engine, and on a graph engine whose store does not implement
 `ITemporalMemoryGraphStore` (all four shipped stores do): storing it without would return an ended fact as current.
 `ITemporalMemory.HoldsValidity` says which. A blend routes such a write to the first member that holds it and
-refuses where none does, and a fan-out that includes a member that cannot refuses before writing anywhere. Reads
+refuses where none does, and a fan-out that includes a member that cannot refuses before writing anywhere. A write
+that supersedes goes to the one member that owns the entries it names, whatever the routing, and to no other. Reads
 need no refusal: an engine that holds none has only untimed entries, which every reading admits.
 
 A rendered memory says when it held — `- the client lives in Paris (valid from 2026-01-01 until 2026-03-01,
@@ -1156,8 +1159,9 @@ entry the target already holds — the same content, task and scope — is left 
 subjects included, and the file's links still attach to it; a link it already holds keeps its weight, so a second
 import writes nothing. A link whose other end is not an entry of the file — a scope the export did not cover — is
 dropped and counted in `MemoryImportResult.LinksDropped`. **Valid time travels, and is refused where it cannot be
-kept**: an imported entry carries its interval, and the end a successor recorded is restored against the successor's
-NEW id — or with none named, when the file does not hold it, which leaves the entry ended all the same. An entry the
+kept**: an imported entry carries its interval and its end, which land with the insert, and the successor is then
+named by its NEW id — or not at all, when the file does not hold it, which leaves the entry ended all the same, so
+an import cut short never leaves an ended fact open. An entry the
 target already holds keeps its own valid time, as it keeps everything else. A file carrying valid time imported into
 an engine whose store does not implement `ITemporalMemoryGraphStore` throws `NotSupportedException` before anything is
 written. The review log does not travel. With a vector index, the

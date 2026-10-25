@@ -553,6 +553,50 @@ public class MemoryValidityTests
         Assert.Single((await blend.RecallAsync(Ask(MemoryValidityReading.AsOf(Feb)))).Items);
     }
 
+    [Theory]
+    [InlineData(MemoryWriteRouting.FirstCapable)]
+    [InlineData(MemoryWriteRouting.EveryCapable)]
+    public async Task A_write_that_supersedes_goes_to_the_one_member_that_owns_what_it_supersedes(MemoryWriteRouting routing)
+    {
+        var shared = new InMemoryMemoryGraphStore();
+        var first = Build(shared, "blend/first");
+        var second = Build(shared, "blend/second");
+        var blend = new CompositeMemoryEngine("blend", [first.Engine, second.Engine]) { WriteRouting = routing };
+        var paris = (await second.Engine.RememberAsync(Fact("lives in Paris", from: Jan))).Reference;
+
+        var written = await blend.RememberAsync(Fact("lives in Berlin", from: Mar, supersedes: paris));
+
+        Assert.Equal("blend/second", written.Reference.Engine);   // not the first member, which would refuse the reference
+        Assert.Empty(await shared.SeedAsync("blend/first", "t", null, null, 10));   // and no fan-out copy anywhere else
+        Assert.Equal(Mar, (await shared.GetAsync("blend/second", Id(paris)))!.SupersededAt);
+        await Assert.ThrowsAsync<ArgumentException>(() => blend.RememberAsync(
+            Fact("lives in Rome", from: Jun, supersedes: new MemoryRef("blend/nowhere", "1"))));
+        Assert.Empty(await shared.SeedAsync("blend/first", "t", null, null, 10));
+    }
+
+    [Fact]
+    public async Task An_entry_cannot_be_superseded_before_it_began()
+    {
+        var rig = Build();
+        var paris = (await rig.Engine.RememberAsync(Fact("lives in Paris", from: Mar))).Reference;
+
+        // a STATED start earlier than the entry's own: refused before anything is written
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            rig.Engine.RememberAsync(Fact("lives in Berlin", from: Jan, supersedes: paris)));
+        Assert.Single(await rig.Store.SeedAsync(Name, "t", null, null, 10));
+
+        // an UNSTATED one starts at the clock, which is after Paris began: fine; before it, the write is stored and
+        // the end refused, loudly, with nothing ended
+        rig.Clock.Now = Feb;
+        var refused = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            rig.Engine.RememberAsync(Fact("lives in Lyon", supersedes: paris)));
+        Assert.Contains("nothing was ended", refused.Message, StringComparison.Ordinal);
+        Assert.Null((await rig.Store.GetAsync(Name, Id(paris)))!.SupersededAt);
+        rig.Clock.Now = Jun;
+        await rig.Engine.RememberAsync(Fact("lives in Rome", supersedes: paris));
+        Assert.Equal(Jun, (await rig.Store.GetAsync(Name, Id(paris)))!.SupersededAt);
+    }
+
     [Fact]
     public async Task A_blend_with_no_member_that_holds_valid_time_refuses_and_so_does_a_fan_out_with_one_that_cannot()
     {

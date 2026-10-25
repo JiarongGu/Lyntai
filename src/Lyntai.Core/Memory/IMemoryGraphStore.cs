@@ -108,9 +108,9 @@ public sealed record GraphNode(
     /// <summary>When the writer said it stopped holding, exclusive; null is unstated.</summary>
     public DateTimeOffset? ValidTo { get; init; }
 
-    /// <summary>The successor that ended this entry, or null — also null where the successor was not carried or has
-    /// been removed; the entry stays ended (<see cref="SupersededAt"/>). An id is never reissued, so a removed
-    /// successor's number cannot name another entry.</summary>
+    /// <summary>The successor that ended this entry, or null where none is named — an import of a file that did not
+    /// hold it. After the successor is REMOVED this still holds its id, which names nothing: the entry stays ended
+    /// (<see cref="SupersededAt"/>), and an id is never reissued, so the number cannot name another entry.</summary>
     public long? SupersededBy { get; init; }
 
     /// <summary>When a successor took over, or null while nothing has superseded this entry.</summary>

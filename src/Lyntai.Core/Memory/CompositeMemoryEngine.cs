@@ -136,7 +136,22 @@ public sealed class CompositeMemoryEngine
         // VALID TIME goes only where it is HELD. A member that cannot would store the write without it, and an
         // ended fact held open-ended is returned as current — so under FirstCapable the write goes to the first
         // member that can, and a fan-out that includes one that cannot refuses before anything is written.
-        if (write.StatesValidity)
+        // A write that SUPERSEDES goes to the member that owns what it supersedes, and to no other: a reference
+        // names exactly one member, only that member holds the entries being ended, and a copy anywhere else would
+        // store the successor without ending anything. So it ignores the routing mode.
+        if (write.Supersedes is { Count: > 0 } named)
+        {
+            var owners = named.Select(r => r.Engine).Distinct(StringComparer.Ordinal).ToList();
+            var owner = owners.Count == 1 ? capable.FirstOrDefault(m => m.Name == owners[0]) : null;
+            if (owner is null || !Holds(owner))
+                throw new ArgumentException(
+                    $"Memory engine '{Name}' sends a write that supersedes to the one member that holds the entries it " +
+                    $"supersedes, which must hold valid time and store this grade; its references name " +
+                    $"{string.Join(", ", owners.Select(o => $"'{o}'"))}. Members: {string.Join(", ", _members.Select(m => m.Name))}. " +
+                    "Nothing was written.", nameof(write));
+            capable = [owner];
+        }
+        else if (write.StatesValidity)
         {
             var cannot = capable.Where(m => !Holds(m)).Select(m => m.Name).ToList();
             if (capable.Count == cannot.Count || (WriteRouting == MemoryWriteRouting.EveryCapable && cannot.Count > 0))

@@ -2205,11 +2205,19 @@ public static class MemoryGraphStoreContract
         Assert.Equal(Mar, carriedOld.SupersededAt);
 
         var results = await portable.ImportNodesAsync(target, key + "-to",
-            [.. exported.Nodes.Select(n => Carried(n, exported.Subjects) with { ValidFrom = n.ValidFrom, ValidTo = n.ValidTo })]);
+            [.. exported.Nodes.Select(n => Carried(n, exported.Subjects)
+                with { ValidFrom = n.ValidFrom, ValidTo = n.ValidTo, SupersededAt = n.SupersededAt })]);
         var map = exported.Nodes.Select((n, i) => (n.Id, results[i].Id)).ToDictionary(p => p.Item1, p => p.Item2);
+
+        // the END lands with the insert — an import cut short here leaves it ended with none named, never open
+        var ended = (await store.GetAsync(target, map[old]))!;
+        Assert.Equal(Mar, ended.SupersededAt);
+        Assert.Null(ended.SupersededBy);
+        Assert.False(ended.Validity!.IsValidAt(Jun));
+
         await temporal.SupersedeAsync(target,
-            [.. exported.Nodes.Where(n => n.SupersededAt is not null)
-                .Select(n => new GraphSupersession(map[n.Id], n.SupersededBy is { } by ? map[by] : null, n.SupersededAt!.Value))]);
+            [.. exported.Nodes.Where(n => n.SupersededBy is not null)
+                .Select(n => new GraphSupersession(map[n.Id], map[n.SupersededBy!.Value], n.SupersededAt!.Value))]);
 
         var imported = (await store.GetAsync(target, map[old]))!;
         Assert.Equal(Jan, imported.ValidFrom);

@@ -2187,6 +2187,7 @@ sealed class Lyntai.Memory.GraphNodeImport
     Signals : MemorySignals { get; init; }
     Stability : Double { get; init; }
     Subjects : IReadOnlyCollection<String> { get; init; }
+    SupersededAt : Nullable<DateTimeOffset> { get; init; }
     ToString() : String
     ValidFrom : Nullable<DateTimeOffset> { get; init; }
     ValidTo : Nullable<DateTimeOffset> { get; init; }

@@ -11,8 +11,9 @@ namespace Lyntai.Memory;
 /// <param name="From">When it started holding; null is since always.</param>
 /// <param name="To">When the writer said it stopped holding; null is not stated.</param>
 /// <param name="SupersededAt">When a successor took over; null while nothing has superseded it.</param>
-/// <param name="SupersededBy">The successor, or null — also null where the successor was not carried (an import
-/// of a file that did not hold it) or has since been removed, which does not reopen the entry.</param>
+/// <param name="SupersededBy">The successor, or null where none is named (an import of a file that did not hold
+/// it). After the successor is removed this still names it, and the entry stays ended: reading it back from the
+/// engine finds nothing at that reference.</param>
 public sealed record MemoryValidity(
     DateTimeOffset? From = null, DateTimeOffset? To = null, DateTimeOffset? SupersededAt = null,
     MemoryRef? SupersededBy = null)
@@ -92,9 +93,9 @@ public readonly record struct GraphSupersession(long Superseded, long? By, DateT
 /// <para><b>Separate rather than a member of <see cref="IMemoryGraphStore"/></b>, as
 /// <see cref="IPortableMemoryGraphStore"/> is: a required member breaks every store an application wrote, and a
 /// store that never heard of valid time reads every node as untimed, which is correct. All four shipped stores
-/// implement it. Implementing it owes the four <see cref="GraphNode"/> members and the three
-/// <see cref="GraphNodeWrite"/> inputs, round-tripped through <see cref="IPortableMemoryGraphStore"/> where
-/// that is implemented too.</para></summary>
+/// implement it. Implementing it owes the four <see cref="GraphNode"/> members, the three
+/// <see cref="GraphNodeWrite"/> inputs and the three <see cref="GraphNodeImport"/> ones, round-tripped through
+/// <see cref="IPortableMemoryGraphStore"/> where that is implemented too.</para></summary>
 public interface ITemporalMemoryGraphStore : IMemoryGraphStore
 {
     /// <summary>Record that each named entry ended, and by what, returning how many were written. Touches

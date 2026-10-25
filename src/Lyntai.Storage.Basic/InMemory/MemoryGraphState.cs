@@ -288,7 +288,7 @@ internal sealed class MemoryGraphState(Func<DateTimeOffset> clock)
             change.Nodes.Add((null, new GraphRow(
                 new GraphNodeRecord(id, engine, taskKey, node.Scope, node.Headline, node.Content, node.Grade,
                     node.CreatedAt, node.Metadata is { Count: > 0 } ? node.Metadata : null,
-                    ValidFrom: Utc(node.ValidFrom), ValidTo: Utc(node.ValidTo)),
+                    ValidFrom: Utc(node.ValidFrom), ValidTo: Utc(node.ValidTo), SupersededAt: Utc(node.SupersededAt)),
                 new GraphNodeState(node.RecallCount, node.Stability, MemoryGraphAnchor.Behind(head.Position, node.Age),
                     node.Signals, MemoryGraphAnchor.Behind(head.Ordinal, node.OrdinalAge),
                     MemoryGraphAnchor.Behind(head.Chars, node.VolumeAge), MemoryGraphAnchor.Behind(head.EncodedAt, node.ElapsedAge),

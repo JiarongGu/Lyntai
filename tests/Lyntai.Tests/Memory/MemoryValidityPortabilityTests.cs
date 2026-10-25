@@ -227,6 +227,44 @@ public class MemoryValidityPortabilityTests
         Assert.Equal("lives in Berlin", (await IntervalsAsync(targetStore))["lives in Paris"].By);
     }
 
+    [Fact]
+    public async Task An_import_cut_short_before_it_names_a_successor_leaves_the_entry_ended_never_open()
+    {
+        var source = Engine(new InMemoryMemoryGraphStore());
+        await SeedAsync(source);
+        var cut = new CutShortStore();
+        var into = Engine(cut);
+        var jsonl = await ExportAsync(source);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => into.ImportAsync("t", "s", new StringReader(jsonl)));
+
+        var paris = (await cut.SeedAsync(Name, "t", "s", "Paris", 10)).Single();
+        Assert.Equal(Mar, paris.SupersededAt);   // its end landed with the insert
+        Assert.Null(paris.SupersededBy);          // naming the successor is the step that was cut short
+        Assert.Empty((await into.RecallAsync(new MemoryQuery("t", "s", "Paris"))).Items);
+    }
+
+    /// <summary>Stores and carries valid time like the in-process store, but cannot name a successor: the step an
+    /// import takes last.</summary>
+    private sealed class CutShortStore : DelegatingGraphStore, IPortableMemoryGraphStore, ITemporalMemoryGraphStore
+    {
+        private IPortableMemoryGraphStore Portable => (IPortableMemoryGraphStore)Inner;
+
+        public Task<MemoryGraphExport> ExportAsync(string engine, string taskKey, string? scope, CancellationToken ct = default) =>
+            Portable.ExportAsync(engine, taskKey, scope, ct);
+
+        public Task<IReadOnlyList<GraphNodeImportResult>> ImportNodesAsync(string engine, string taskKey,
+            IReadOnlyList<GraphNodeImport> nodes, CancellationToken ct = default) =>
+            Portable.ImportNodesAsync(engine, taskKey, nodes, ct);
+
+        public Task<int> ImportLinksAsync(string engine, IReadOnlyList<GraphLink> links, CancellationToken ct = default) =>
+            Portable.ImportLinksAsync(engine, links, ct);
+
+        public Task<int> SupersedeAsync(string engine, IReadOnlyList<GraphSupersession> supersessions,
+            CancellationToken ct = default) =>
+            throw new InvalidOperationException("the store went away before the successor was named");
+    }
+
     /// <summary>A store that carries decay state and holds no valid time — what a BYO store written before valid time
     /// existed is: it forwards every member and is not <see cref="ITemporalMemoryGraphStore"/>.</summary>
     private sealed class PortableOnlyStore : DelegatingGraphStore, IPortableMemoryGraphStore
