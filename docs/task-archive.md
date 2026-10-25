@@ -5775,3 +5775,27 @@ refuses a file in no lane, a file both owned and laneless, a glob that matches n
 nothing a consumer sees, so no changelog line. **D214** records the choices.
 
 - LANES — declare the lanes, gate the map, union-merge the append-only records
+
+## Part 372 — RV19: valid time on a memory write, and explicit supersession (2026-10-25)
+
+✅ done 2026-10-25 — **Outcome:** the owner reopened **D106**. `MemoryWrite.ValidFrom`, `ValidTo` and
+`Supersedes` state when a fact held and what it replaces; `MemoryQuery.Validity` reads current (the default),
+as of an instant, or history, applied to the gathered page. A supersession ends an entry without deleting,
+burying or reinforcing it, and nothing is inferred from text. Stores hold it through the optional
+`ITemporalMemoryGraphStore` (all four shipped stores, one additive migration per SQL backend); graph export
+uses format version 2 only for timed lines. An independent review's three findings landed in `05f1d8be`.
+**D215** records the choices; `docs/memory.md` §Say when a fact held, and what it replaced the usage. Lane
+session, quest `#3b08b75bf2b7`, lanes `memory+storage`.
+
+- RV19 — valid-time on a memory write, so a fact can be SUPERSEDED rather than buried or deleted
+
+## Part 373 — RV18: the `IChatClient` composition, tested both ways, and no adapter to rebuild (2026-10-25)
+
+✅ done 2026-10-25 — **Outcome:** the owner approved "yes if needed"; the assessment found no general gap a
+package would close. `docs/extensions-ai.md` composes an `IChatClient` into Lyntai through `AddBridgeProvider`
+and Lyntai out as one through a consumer-owned class, both copied from source the suite runs and held to it by
+`RecipeDocTests`. The bridge's missing provider timeout was a real gap and is fixed (`docs/FIXES.md`,
+2026-10-25). Nothing in `src/` gains MEAI. **D216** records the choice and its reconsider triggers. Lane
+session, quest `#dc16098144ca`, lanes `inference+platform`.
+
+- RV18 — assess and, if needed, build an Agent Framework / `Microsoft.Extensions.AI` adapter

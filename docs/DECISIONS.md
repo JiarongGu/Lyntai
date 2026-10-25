@@ -284,8 +284,10 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D212](#d212--an-interrupted-re-embed-resumes-from-a-per-collection-mark-kept-in-the-vector-space-stamp-and-only-into-the-same-declared-space-2026-10-24) | 2026-10-24 | an interrupted re-embed resumes from a per-collection mark kept IN the vector-space stamp, and on… |
 | [D213](#d213--a-graph-memory-travels-with-its-decay-state-through-an-optional-store-capability-its-ages-relative-to-the-engines-head-2026-10-24) | 2026-10-24 | a graph memory travels WITH its decay state through an optional store capability, its ages relati… |
 | [D214](#d214--work-is-dispatched-by-lane-the-steward-alone-writes-the-records-and-what-every-lane-writes-is-laneless-2026-10-24) | 2026-10-24 | work is dispatched by LANE, the steward alone writes the records, and what every lane writes is l… |
+| [D215](#d215--valid-time-is-stated-on-the-write-and-supersession-preserves-evidence-2026-10-25) | 2026-10-25 | valid time is stated on the write, and supersession preserves evidence |
+| [D216](#d216--the-ichatclient-composition-is-a-tested-recipe-rather-than-a-package-2026-10-25) | 2026-10-25 | the IChatClient composition is a tested recipe rather than a package |
 
-**209 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**211 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -2394,11 +2396,10 @@ the design contract and deliberately not restated here** — one home, so they c
 **Scope — which the shipped engine can be held to TODAY, said because an objective naming guarantees the
 code does not provide misleads every reader of it.** Invariants 1 and 2 are LIVE and asserted
 (`MemoryRemovalCompletenessTests`, `MemoryBurialNotDeletionTests`, `MemoryAuthoritativeSurvivalTests`).
-Invariants 3 and 4 bind FUTURE work and make no claim about the base engine: a `MemoryWrite` carries no
-valid-time and nothing supersedes anything, so the engine can neither violate nor satisfy them. What they
-govern is whatever is built ON that data — a resolver, a supersession feature, an application storing
-validity in `MemoryWrite.Metadata`. The prototype in `tests/Lyntai.Tests/Memory/Prototype/` is the first
-such thing and is held to them.
+Invariants 3 and 4 now govern explicit valid-time writes and supersession (**D215**): a caller names what
+replaced an entry, the old evidence remains, and overlapping claims are not silently resolved.
+`MemoryValidityTests`, `MemoryValidityPortabilityTests` and `MemoryGraphStoreContract` hold that path;
+the resolver in `tests/Lyntai.Tests/Memory/Prototype/` remains a test-only prototype.
 
 **The consequence worth naming: those two lines are what make Phase 2 measurable, and also what forbids the
 cheapest way to pass it.** "Newest wins" resolves every conflict and satisfies no line here; a resolver that
@@ -2986,6 +2987,12 @@ controls, and no deployment has asked. Shipping it would speculate on both count
 times the cost.
 
 **This re-opens when a consumer asks**, and the ask will name which reading it wants.
+
+### RV19 — valid-time writes approved (2026-10-25)
+
+The owner approved RV19. **D215** supplies explicit validity and supersession at encoding; current,
+as-of and history readings are in `docs/memory.md`. This reopens the write-time prerequisite, not the
+refuted read-time gist tier or automatic extraction.
 
 ## D107 — SQLite's memory statistics are the read-concurrency ceiling, and turning them off is the HOST's call (2026-09-08)
 
@@ -4343,8 +4350,9 @@ parent; taking it back wholesale is the option to justify, not the default.
 
 **`LlmVerdictException` goes with it** because it existed only for the reverse bridge — its own doc said so <!-- drift-ok: the bridge as it stood when this entry was written; D146 deleted it -->
 ("Today that seam is the Microsoft.Extensions.AI reverse bridge"). A type serving one caller dies with that
-caller. **MEAI stays in `Directory.Packages.props`**: `Lyntai.Tools.Mcp` genuinely uses it, which is also
-why a bundle consumer's dependency graph is unchanged.
+caller. **MEAI abstractions remain transitive through `ModelContextProtocol.Core`**: `Lyntai.Tools.Mcp`
+uses them without a central abstractions version pin. The full MEAI package is test-only for the recipes
+in **D216**; Core and the basic providers acquire no MEAI dependency.
 
 ## D147 — a BRIDGE is a function, so it costs no dependency and belongs in Core (2026-09-15)
 
@@ -6123,3 +6131,40 @@ since its rows move. `check-lanes` holds every file to the map (`docs/GATES.md` 
 serializing all work through it. Lane sessions writing the changelog and the decisions under union merge: the
 owner asked the steward to keep them, so numbering and wording have one author. No lanes: the sub-agents that
 preceded them ran one at a time, serialized because every item wrote these shared files.
+
+## D215 — valid time is stated on the write, and supersession preserves evidence (2026-10-25)
+
+`MemoryWrite.ValidFrom`, `ValidTo` and `Supersedes` state when a fact held and which entries it replaces.
+Intervals are half-open; absent bounds are unbounded. The graph engine defaults to `Current` reads,
+supports `AsOf` and `History`, and exposes `MemoryValidity` with the original bounds and the successor's
+end separately. A caller names predecessors explicitly: similarity never establishes contradiction.
+Ending an entry neither deletes nor reinforces it; its evidence and links remain available.
+
+**Validity filters the gathered page**, preserving traversal and the candidate-query budget; ended
+entries can therefore leave a page shorter than its limit. An entry has one live successor, and an
+explicit successor cannot begin before its predecessor. The exact refusals and retry semantics are
+`docs/memory.md` §Say when a fact held, and what it replaced.
+
+**Storage support is optional**, through `ITemporalMemoryGraphStore`, implemented by all four shipped
+stores. Nullable SQL columns preserve existing data as untimed; graph JSONL uses version 2 only for
+timed entries. Unsupported engines and stores refuse stated validity instead of silently dropping it.
+`MemoryValidityTests`, `MemoryValidityPortabilityTests` and the shared graph-store contract cover this.
+
+**Rejected.** A required store member breaks BYO stores. Inferring supersession from text silently
+resolves conflicts. Overwriting or deleting a predecessor loses evidence. A read-time gist tier cannot
+recover validity the writer never recorded (D106). Untimed writes and reads retain their behavior.
+
+## D216 — the IChatClient composition is a tested recipe rather than a package (2026-10-25)
+
+`docs/extensions-ai.md` composes both directions through `AddBridgeProvider` and `ITextClient`.
+The recipe source is exercised in `tests/Lyntai.Tests/Inference/ChatClients/` and held verbatim in
+the page by `RecipeDocTests`. No shared consumer requirement justified restoring an adapter; the
+owner's "if needed" approval is satisfied by demonstrating the existing composition.
+
+**Rejected.** Restoring the entire bridge removed by D146 adds a dependency and frozen public surface
+without a demonstrated reusable gap. Adding MEAI to Core makes every consumer pay that dependency.
+The bridge's missing timeout was a real gap and is fixed independently (`docs/FIXES.md`, 2026-10-25).
+
+Reconsider a package when another consumer needs the same mapping. A container-resolved client is a
+separate requirement: the delegate registration cannot access DI, and a registration overload needs
+its own design. The recipe's field, trimming and Agent Framework compilation limits are stated on its page.
