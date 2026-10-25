@@ -15,18 +15,20 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 5 across 4 Parts: 1 startable, 2 blocked, 2 watch
+## Open items — 7 across 5 Parts: 1 startable, 2 blocked, 2 watch, 2 decision-only
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 106 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a free Hugging Face account (an hf_ token) — its router proxies fal's own q… |
-| 153 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 176 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 232 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
-| 269 | 348 | RV20 — assess and, if needed, rebuild LLM fact extraction and a user profile | startable |  |
+| 108 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a free Hugging Face account (an hf_ token) — its router proxies fal's own q… |
+| 155 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 178 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 234 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 271 | 348 | RV20 — assess and, if needed, rebuild LLM fact extraction and a user profile | startable |  |
+| 295 | 372 | RV26 — a schema-first user profile, read with no search and no model call | decision-only | the owner's ruling on whether the library ships a profile surface at all — … |
+| 301 | 372 | RV27 — the profile and ingestion benchmark (GAP-125: the review's P01–P16 c… | decision-only | a YES on RV20 or RV26 — the instrument is not the deliverable (task-lifecyc… |
 
 <!-- open-items:end -->
 
@@ -270,6 +272,37 @@ the shared records to the steward (D214); decision number D217 is reserved for R
   The owner approved "yes if needed". On RV19's valid time (**D215**), compare with the losses in `docs/task-archive.md`
   Parts 148, 149, 156: a win ships an opt-in path beside raw exchanges; a loss updates the recommendation.
   Proof: revision-dense accuracy and cost evidence, provenance tests if built, and `verify`; quest `#1eac4b856e06`, lanes `memory+platform`.
+
+## Part 372 — the competitive review, second round: memory intelligence and a user profile (2026-10-24)
+
+_The review's second round (its §22–32, GAP-116–125: Mem0's v3 ingestion and Dream, Zep's user summary,
+Supermemory's profiles, LangMem's profile manager, Letta's memory editing), audited against the tree. It
+filed TWO new items, and both need a ruling. The rest is already decided or folds into an item that exists:_
+
+- _**GAP-116/117/122** (an `ObserveAsync` intake, a schema-first extractor, debounced background jobs) are
+  **RV20**'s build, run on the existing `IJobRunner`. **GAP-119** (supersede, keep history) is **RV19**._
+- _**GAP-120** (per-task model pinning, local-only) is covered: `ClientName` on the annotation and
+  verification seams, `ProviderId` on scoring, `VectorProviderId` on the graph's embedder (**D209**), and
+  RV11's refusal to degrade a schema-bearing request. The embedder takes no named client by design (**D209**)._
+- _**GAP-123** (Dream / Observation synthesis) is refused by **D167** and **D168**, both refused on measurement.
+  It reopens only with a new measurement from **RV27**, never on the review's say-so._
+- _**One finding sharpens RV20.** The refuted reconciliation DELETED what it superseded, through
+  `IMemoryGraphStore.DeleteAsync` (`docs/task-archive.md` Part 148), and the cost it measured came from
+  deleting the wrong entries. Mem0's v3 and the review both supersede WITHOUT deleting, and that arm has never
+  been measured, because it needs **RV19**'s valid-time. The refutation also scored RECALL; a profile is read
+  WITHOUT a search, so the refutation does not reach it._
+
+- [ ] **RV26 — a schema-first user profile, read with no search and no model call.** A versioned, <!-- item: state=decision-only needs="the owner's ruling on whether the library ships a profile surface at all — no consumer has asked (generic-library.md), and D106 reopens its prerequisite only on an ask — and, if yes, whether it is a projection over ICuratedMemoryStore or a new package" -->
+  field-level projection (GAP-118/121/124). Each field carries its subject, scope, source, status and revision. A
+  correction from the user outranks a hypothesis, and a narrative summary is a cache that never counts as
+  evidence. Much of it already ships: curated memory's edit, disable and forget, RV9's revision, RV10's
+  export, and RV6's composition reporting what it left out. A model-free mode comes first; an
+  extractor-fed one waits on **RV20**.
+- [ ] **RV27 — the profile and ingestion benchmark (GAP-125: the review's P01–P16 cases).** Cases cover <!-- item: state=decision-only needs="a YES on RV20 or RV26 — the instrument is not the deliverable (task-lifecycle.md), so it is built for the ruling it serves" -->
+  negation, third-party speech, reported speech, a revised preference, a correction, deletion propagating,
+  and cross-tenant isolation, scored per bucket and never as one accuracy figure. **A YES ships RV20's
+  extractor opt-in; a NO records extraction refused with a D-number**, which it still lacks. Write the result
+  in the RV8 shape and compare runs with `bench-compare`.
 
 ## Retired — five Parts that outlived their open work (2026-09-16)
 
