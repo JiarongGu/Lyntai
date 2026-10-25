@@ -37,7 +37,7 @@ namespace Lyntai.Benchmarks;
 /// in both files, so a seeded <c>--n</c> sample selects the same questions in each, and the digest printed in
 /// the preamble is what proves a pair of runs is paired.</para>
 /// </summary>
-internal static class MemoryLongMemEvalBench
+internal static partial class MemoryLongMemEvalBench
 {
     internal const string DataVariable = "LYNTAI_LME_PATH";
     internal const string HaystackVariable = "LYNTAI_LME_S_PATH";
@@ -1240,6 +1240,40 @@ internal static class MemoryLongMemEvalBench
             return shots
                 ? await RunTemporalShotsAsync(sampled, vectorProvider, expandFloor, budgets, fillK, pools, args, detail)
                 : await RunTemporalAsync(sampled, vectorProvider, args);
+        }
+
+        if (args.Contains("--profile"))
+        {
+            var reader = await SweepDoubles.TryRealChatAsync(http, "memory-longmemeval profile");
+            if (reader is null) return 1;
+            SweepDoubles.IBenchChat? writer = ArgValue(args, "--writer") is "cli"
+                ? await SweepDoubles.TryCliChatAsync("memory-longmemeval profile")
+                : reader;
+            // `--writer-url` / `--writer-model` put the extractor on its OWN server, so a bigger model can read
+            // the sessions while the reader stays the one every earlier table used.
+            if (ArgValue(args, "--writer-url") is { } writerUrl)
+            {
+                var separate = new SweepDoubles.OpenAiCompatibleChat(http, writerUrl,
+                    ArgValue(args, "--writer-model") ?? reader.Model);
+                if (!await separate.ReachableAsync())
+                {
+                    Console.Error.WriteLine($"--writer-url: nothing answered at {writerUrl}.");
+                    return 1;
+                }
+
+                writer = separate;
+            }
+
+            if (writer is null) return 1;
+            Console.WriteLine("=== An LLM-extracted PROFILE on valid time, beside the raw exchange (RV20) ===");
+            Console.WriteLine();
+            Console.WriteLine("A model reads each session in date order against the profile so far; a changed attribute is");
+            Console.WriteLine("written with ValidFrom = the session's date and Supersedes = the entry it replaces, so a");
+            Console.WriteLine("default (Current) recall reads the latest value. Scored at the ANSWER, where this class loses.");
+            Console.WriteLine();
+            Preamble(sampled, questions.Count, turns, haystack, seed, "knowledge-update");
+            Console.WriteLine($"Reader:    {reader.Model}, Detail = Full, each line prefixed with its source session's date");
+            return await RunProfileAsync(sampled, vectorProvider, reader, writer, haystack, args);
         }
 
         if (args.Contains("--extract"))

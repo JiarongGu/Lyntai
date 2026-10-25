@@ -30,6 +30,12 @@ every addition.
 
 ### Added
 
+- **Explicit valid time and supersession for graph memory** (**D215**): `MemoryWrite.ValidFrom`, `ValidTo`
+  and `Supersedes` preserve earlier evidence while current, as-of and history readings select the stated
+  interval. All four shipped graph stores support it; unsupported engines refuse timed writes. Additive SQL
+  migrations retain existing data as untimed, and graph export/import preserves validity with version 2 lines.
+- **Tested Microsoft.Extensions.AI integration recipes in both directions** (**D216**):
+  `docs/extensions-ai.md` composes through the existing bridge and text client without a new adapter package.
 - **`llms.txt` and `context7.json`, for coding agents** (**D197**): an index of the docs written for language
   models, and the configuration the Context7 documentation index reads — both carrying README's agent rules.
 - **The guide says when to use Lyntai and when not to, and starts from three scenarios.** It places the library
@@ -141,6 +147,9 @@ every addition.
 
 ### Fixed
 
+- **A bridged provider enforces its provider timeout.** `AddBridgeProvider` bounds a completion as a whole
+  and a stream by inactivity, returning `Timeout` so routing can advance. Previously a hung delegate could
+  hold the call until the caller cancelled.
 - **A forget from another process no longer leaves a racing write's vector behind** (**D198**). Through 3.5.3 a
   graph engine serialized a forget against writes and re-embeds on the same instance only, so a second process
   over the same store could index a vector for an entry the forget had just deleted, leaving its content

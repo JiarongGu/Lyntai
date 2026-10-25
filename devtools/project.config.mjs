@@ -1695,6 +1695,7 @@ export default {
     'all-evidence-recall', // temporal / multi-session: every flagged turn, not just one
     // READER-FACING — a model reads the page and answers.
     'token-f1',
+    'answered-vs-raw',    // the reader's answer judged right, paired against the raw page's (RV20)
     // THE MODEL-IN-THE-LOOP SEAMS — what a judge, annotator or reranker actually does.
     'endorsement-rate',   // how much of what it was shown the judge endorsed
     'screen-verdict',     // one hard case, one call: does this model answer it at all

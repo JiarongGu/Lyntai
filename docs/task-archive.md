@@ -5775,3 +5775,40 @@ refuses a file in no lane, a file both owned and laneless, a glob that matches n
 nothing a consumer sees, so no changelog line. **D214** records the choices.
 
 - LANES — declare the lanes, gate the map, union-merge the append-only records
+
+## Part 372 — RV19: valid time on a memory write, and explicit supersession (2026-10-25)
+
+✅ done 2026-10-25 — **Outcome:** the owner reopened **D106**. `MemoryWrite.ValidFrom`, `ValidTo` and
+`Supersedes` state when a fact held and what it replaces; `MemoryQuery.Validity` reads current (the default),
+as of an instant, or history, applied to the gathered page. A supersession ends an entry without deleting,
+burying or reinforcing it, and nothing is inferred from text. Stores hold it through the optional
+`ITemporalMemoryGraphStore` (all four shipped stores, one additive migration per SQL backend); graph export
+uses format version 2 only for timed lines. An independent review's three findings landed in `05f1d8be`.
+**D215** records the choices; `docs/memory.md` §Say when a fact held, and what it replaced the usage. Lane
+session, quest `#3b08b75bf2b7`, lanes `memory+storage`.
+
+- RV19 — valid-time on a memory write, so a fact can be SUPERSEDED rather than buried or deleted
+
+## Part 373 — RV18: the `IChatClient` composition, tested both ways, and no adapter to rebuild (2026-10-25)
+
+✅ done 2026-10-25 — **Outcome:** the owner approved "yes if needed"; the assessment found no general gap a
+package would close. `docs/extensions-ai.md` composes an `IChatClient` into Lyntai through `AddBridgeProvider`
+and Lyntai out as one through a consumer-owned class, both copied from source the suite runs and held to it by
+`RecipeDocTests`. The bridge's missing provider timeout was a real gap and is fixed (`docs/FIXES.md`,
+2026-10-25). Nothing in `src/` gains MEAI. **D216** records the choice and its reconsider triggers. Lane
+session, quest `#dc16098144ca`, lanes `inference+platform`.
+
+- RV18 — assess and, if needed, build an Agent Framework / `Microsoft.Extensions.AI` adapter
+
+## Part 374 — RV20: an LLM-extracted profile on valid time, measured and refused (2026-10-25)
+
+✅ done 2026-10-25 — **Outcome:** a refutation, by the rule registered before the first run (`62250b42`).
+`memory-longmemeval --profile --haystack` scored a 4B-extracted profile on RV19's valid time beside the raw turns
+against raw memory with decay: no significant gain at the answer, and the same facts without valid time did as
+well. The binding failure is attribute identity — a revised value rarely landed under its predecessor's key.
+Nothing ships; the bench gains `--profile`, `--writer-url`/`--writer-model` and `--identity-only`. **D217**
+records the refusal and its re-open triggers; `docs/memory-measurements.md` §5 `profile-valid-time-haystack-4b`
+the figures and the strong-extractor run not taken; `docs/memory.md` the recommendation. Lane session, quest
+`#1eac4b856e06`, lanes `memory+platform`.
+
+- RV20 — assess and, if needed, rebuild LLM fact extraction and a user profile
