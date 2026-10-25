@@ -8,12 +8,12 @@
 
 **Released: v3.5.3 (2026-09-30).** Eleven packages. The public API is frozen under
 SemVer 2.0 since 1.0 for every package (**D70**).
-The reasoning is `docs/DECISIONS.md`, **D1–D214** — read its generated index table rather than any list of
+The reasoning is `docs/DECISIONS.md`, **D1–D216** — read its generated index table rather than any list of
 decisions kept here.
 
-**The baseline a green run should match:** `5521 passed / 5570 total, 49 skipped` (every skip is a
-live-backend gate), e2e 3/3, guard-script tests 1023/1023, doc samples 69/69 — MEASURED with Docker up at
-`9afece81` (2026-10-24). No gate holds the xUnit trio (`docs/GATES.md` §Which numbers a gate holds), so:
+**The baseline a green run should match:** `5642 passed / 5691 total, 49 skipped` (every skip is a
+live-backend gate), e2e 3/3, guard-script tests 1023/1023, doc samples 74/74 — MEASURED with Docker up at
+`658cbb16` (2026-10-25). No gate holds the xUnit trio (`docs/GATES.md` §Which numbers a gate holds), so:
 
 - **Re-measure it by hand after `verify`, off that run's own output**, never from a diff, and re-attest the
   COMMIT with the figures whenever they move.
