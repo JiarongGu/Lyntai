@@ -16,4 +16,26 @@ internal static class MemoryLine
 {
     public static string Flatten(string content) => content.ReplaceLineEndings(" ")
         .Replace('\v', ' ').Replace('\u001C', ' ').Replace('\u001D', ' ').Replace('\u001E', ' ').Trim();
+
+    /// <summary>What a rendered memory says about when it held, so an ended fact is not read as a current one: empty
+    /// for an untimed entry, otherwise <c> (valid from X until Y, superseded)</c> with only the parts it has.
+    /// Written from instants alone, so nothing a writer authored reaches the line through it.</summary>
+    public static string ValidityNote(MemoryValidity? validity)
+    {
+        if (validity is null) return "";
+        var parts = new List<string>(2);
+        if (validity.From is { } from) parts.Add($"from {Instant(from)}");
+        if (validity.End is { } end) parts.Add($"until {Instant(end)}");   // a supersession is an end, so it is always here
+        if (parts.Count == 0) return "";
+        return $" (valid {string.Join(' ', parts)}{(validity.SupersededAt is null ? "" : ", superseded")})";
+    }
+
+    // a date where the instant is midnight UTC, the instant otherwise — always UTC, always invariant
+    private static string Instant(DateTimeOffset at)
+    {
+        var utc = at.UtcDateTime;
+        return utc.TimeOfDay == TimeSpan.Zero
+            ? utc.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture)
+            : utc.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", System.Globalization.CultureInfo.InvariantCulture);
+    }
 }

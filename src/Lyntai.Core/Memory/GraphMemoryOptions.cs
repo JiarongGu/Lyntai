@@ -10,7 +10,7 @@ public sealed record GraphMemoryOptions
     public int Hops { get; init => field = MemoryOption.Require(value, 0, nameof(GraphMemoryOptions), ZeroIsOff); } = 2;
 
     /// <summary>The character budget an expansion falls back to when the caller passes none — the "engine's
-    /// configured budget" <see cref="IExpandableMemory.ExpandAsync"/> has always promised.
+    /// configured budget" <see cref="IExpandableMemory.ExpandAsync(MemoryRef, int, int?, MemoryDetail, CancellationToken)"/> has always promised.
     /// <para>Null (the default) means UNBOUNDED. It bounds the NEIGHBOURS only: the expanded entry's own
     /// content is always returned whole, because that is what expansion is for.</para></summary>
     /// <exception cref="ArgumentOutOfRangeException">Set below zero.</exception>

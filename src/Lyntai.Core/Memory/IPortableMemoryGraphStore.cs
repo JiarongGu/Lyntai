@@ -91,7 +91,15 @@ public sealed record GraphNodeImport(
     string Scope, string Headline, string Content, MemoryGrade Grade, DateTimeOffset CreatedAt,
     int RecallCount, double Stability, double Difficulty, MemorySignals Signals,
     long ProvenanceRetrievability, long ProvenanceSalience, IReadOnlyDictionary<string, string>? Metadata,
-    IReadOnlyCollection<string> Subjects, double Age, double OrdinalAge, double VolumeAge, double ElapsedAge);
+    IReadOnlyCollection<string> Subjects, double Age, double OrdinalAge, double VolumeAge, double ElapsedAge)
+{
+    /// <summary>When it started holding, or null. Honoured only by a store implementing
+    /// <see cref="ITemporalMemoryGraphStore"/>; the engine refuses to import one into any other.</summary>
+    public DateTimeOffset? ValidFrom { get; init; }
+
+    /// <summary>When the writer said it stopped holding, or null; honoured as <see cref="ValidFrom"/> is.</summary>
+    public DateTimeOffset? ValidTo { get; init; }
+}
 
 /// <summary>Where one imported node landed: <paramref name="Id"/> in this store, and whether this import
 /// <paramref name="Inserted"/> it or found it already held.</summary>

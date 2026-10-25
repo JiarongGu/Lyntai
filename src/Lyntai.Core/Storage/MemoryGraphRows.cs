@@ -46,6 +46,10 @@ public sealed class MemoryNodeRow
     public DateTimeOffset EncodingAt { get; set; }
     public long ProvenanceRetrievability { get; set; }
     public long ProvenanceSalience { get; set; }
+    public DateTimeOffset? ValidFrom { get; set; }
+    public DateTimeOffset? ValidTo { get; set; }
+    public long? SupersededBy { get; set; }
+    public DateTimeOffset? SupersededAt { get; set; }
 
     /// <summary>Whether the seeding query actually matched this row — selected ONLY by the query paths that
     /// admit a row on GRADE alone. <b>NULLABLE on purpose</b>: every other query omits the column, leaving
@@ -84,7 +88,10 @@ public sealed class MemoryNodeRow
         Difficulty: Difficulty,
         StrengthOrdinalAge: StrengthOrdinalAge, StrengthVolumeAge: StrengthVolumeAge,
         StrengthElapsedAge: StrengthenedAt is { } at ? (encodedAt - at).TotalDays : 0,
-        Matched: null);
+        Matched: null)
+    {
+        ValidFrom = ValidFrom, ValidTo = ValidTo, SupersededBy = SupersededBy, SupersededAt = SupersededAt,
+    };
 }
 
 /// <summary>The connecting edge's half of a neighbour row — settable properties, matching

@@ -37,3 +37,8 @@ renaming anything: a rename sweep breaks these without failing anything. The sha
   (`ComfyUiOptions`, `FalOptions`).
 - The noun is `Vector` (what `Produces` selects on: `ProviderKinds.Vector`, `IVectorStore`) and the verb is
   `Embed` (`EmbedAsync`, `CanEmbed`).
+- `Valid` names WHEN A FACT HELD IN THE WORLD (`MemoryValidity`, `MemoryValidityReading`, `ValidFrom`/`ValidTo`),
+  never when the engine learned it (`CreatedAt`) and never how well it is remembered (retrievability). `Temporal` is
+  the capability adjective (`ITemporalMemory`, `ITemporalMemoryGraphStore`) and "valid time" the axis. To SUPERSEDE
+  is to end an entry at a successor's start because a caller named it (`MemoryWrite.Supersedes`) — it never deletes,
+  buries or reinforces, and the engine never infers one.

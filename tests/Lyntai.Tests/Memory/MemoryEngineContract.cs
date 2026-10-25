@@ -241,6 +241,38 @@ public static class MemoryEngineContract
         Assert.NotNull(recall.Items);
     }
 
+    /// <summary><b>A write stating valid time is KEPT or REFUSED by every engine, never dropped.</b> An engine that
+    /// holds it answers a reading by instant; one that cannot throws <see cref="NotSupportedException"/> and stores
+    /// nothing, because an ended fact stored as open-ended would be returned as current.
+    /// <para>Declared by the engine itself (<see cref="ITemporalMemory"/>) and asserted on BOTH branches, so
+    /// neither can pass by doing nothing — the shape <see cref="Metadata_written_is_returned_or_explicitly_absent"/>
+    /// has.</para></summary>
+    public static async Task A_write_stating_valid_time_is_kept_or_refused_never_dropped(IMemoryEngine engine, string key)
+    {
+        var june = new DateTimeOffset(2026, 6, 1, 0, 0, 0, TimeSpan.Zero);
+        var write = new MemoryWrite(key, "s", "the lease runs until june") { ValidTo = june };
+
+        if (engine is not ITemporalMemory { HoldsValidity: true })
+        {
+            await Assert.ThrowsAsync<NotSupportedException>(() => engine.RememberAsync(write));
+            var none = await engine.RecallAsync(new MemoryQuery(key, "s", "lease"));
+            Assert.Empty(none.Items);   // refused means nothing was stored, not stored without its bound
+            return;
+        }
+
+        await engine.RememberAsync(write);
+        var before = await engine.RecallAsync(new MemoryQuery(key, "s", "lease")
+            { Validity = MemoryValidityReading.AsOf(june.AddDays(-1)) });
+        var after = await engine.RecallAsync(new MemoryQuery(key, "s", "lease")
+            { Validity = MemoryValidityReading.AsOf(june) });
+        var history = await engine.RecallAsync(new MemoryQuery(key, "s", "lease")
+            { Validity = MemoryValidityReading.History });
+
+        Assert.Single(before.Items);
+        Assert.Empty(after.Items);   // valid until June, exclusive
+        Assert.Equal(june, Assert.Single(history.Items).Validity!.To);
+    }
+
     /// <summary>A PRE-cancelled token is refused — the entry check only. It never reaches a fail-open
     /// catch, so a catch that swallowed the caller's cancellation would pass here; the mid-call, marked
     /// half is <see cref="MemoryFailOpenCancellationTests"/>.</summary>

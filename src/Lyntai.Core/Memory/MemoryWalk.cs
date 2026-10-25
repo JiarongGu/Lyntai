@@ -11,7 +11,7 @@ public sealed record MemoryWalkOptions
     public int SeedsPerStep { get; init; } = 3;
 
     /// <summary>Edge depth INSIDE one expansion, passed straight to
-    /// <see cref="IExpandableMemory.ExpandAsync"/>. Not the number of steps: a step is the outer unit, a hop
+    /// <see cref="IExpandableMemory.ExpandAsync(MemoryRef, int, int?, MemoryDetail, MemoryValidityReading, CancellationToken)"/>. Not the number of steps: a step is the outer unit, a hop
     /// is an edge.</summary>
     public int Hops { get; init; } = 1;
 
@@ -58,7 +58,7 @@ public sealed record MemoryWalkStep(
 /// query instead (<b>D104</b>); expansion then buys discovery alone, which is a different question from
 /// detail and the one a walk is actually for.</para>
 /// <para>This composes <see cref="IMemoryEngine.RecallAsync"/> and
-/// <see cref="IExpandableMemory.ExpandAsync"/> and adds nothing to either, the same way
+/// <see cref="IExpandableMemory.ExpandAsync(MemoryRef, int, int?, MemoryDetail, MemoryValidityReading, CancellationToken)"/> and adds nothing to either, the same way
 /// <see cref="MemoryComposition"/> composes a recall and a rendering.</para></summary>
 public static class MemoryWalk
 {
@@ -133,8 +133,9 @@ public static class MemoryWalk
                 // `yield return` may not sit inside a try/catch, so the fault is carried out as a flag
                 try
                 {
-                    // the query's own detail, so a caller states it ONCE and every step honours it
-                    near = await expandable.ExpandAsync(seed.Reference, opts.Hops, null, query.Detail, ct)
+                    // the query's own detail and valid-time reading, so a caller states each ONCE and every step
+                    // honours it
+                    near = await expandable.ExpandAsync(seed.Reference, opts.Hops, null, query.Detail, query.Validity, ct)
                         .ConfigureAwait(false);
                 }
                 catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }

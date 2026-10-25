@@ -20,6 +20,12 @@ internal static class MemoryPortableFormat
     /// fields it may drop.</summary>
     public const int Version = 1;
 
+    /// <summary>The version of a <see cref="Graph"/> line that carries valid time. An older reader refuses it
+    /// outright, which is the point: the alternative is importing an ended fact with its end silently dropped. A
+    /// graph line with no valid time stays at <see cref="Version"/>, so a memory that never used it exports exactly
+    /// as it did, and every other record kind stays at version 1.</summary>
+    public const int TemporalVersion = 2;
+
     public const string Curated = "curated";
 
     /// <summary>A graph entry WITH its decay state; its <c>id</c> is the source's, read only to resolve links.</summary>
@@ -30,13 +36,13 @@ internal static class MemoryPortableFormat
 
     /// <summary>One line, newline-terminated with <c>\n</c> on every platform.</summary>
     public static Task WriteLineAsync(TextWriter destination, string record, string engine,
-        Action<Utf8JsonWriter> body, CancellationToken ct)
+        Action<Utf8JsonWriter> body, CancellationToken ct, int version = Version)
     {
         using var buffer = new MemoryStream();
         using (var writer = new Utf8JsonWriter(buffer))
         {
             writer.WriteStartObject();
-            writer.WriteNumber("v", Version);
+            writer.WriteNumber("v", version);
             writer.WriteString("record", record);
             writer.WriteString("engine", engine);
             body(writer);
@@ -68,9 +74,13 @@ internal static class MemoryPortableFormat
             if (body.ValueKind != JsonValueKind.Object) throw Refuse(number, "is not a JSON object");
             if (!body.TryGetProperty("v", out var v) || !v.TryGetInt32(out var version))
                 throw Refuse(number, "carries no format version (\"v\")");
-            if (version != Version)
-                throw Refuse(number, $"was written in format version {version}; this reader understands version {Version}");
-            var record = String(body, "record") ?? throw Refuse(number, "names no \"record\"");
+            var record = String(body, "record");
+            var graphLine = record == Graph;
+            if (version != Version && !(graphLine && version == TemporalVersion))
+                throw Refuse(number, $"was written in format version {version}; this reader understands "
+                    + (graphLine ? $"versions {Version} and {TemporalVersion}"
+                        : $"version {Version}{(record is null ? "" : $" for a '{record}' record")}"));
+            if (record is null) throw Refuse(number, "names no \"record\"");
             lines.Add(new MemoryPortableLine(number, record, String(body, "engine"), body, text));
         }
         return lines;

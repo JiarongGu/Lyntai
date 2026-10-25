@@ -150,9 +150,10 @@ Objective (1) is why `MemoryGrade.Authoritative` exists, and why it behaves the 
 **Four absolutes sit above the list** (**D90**) — pass/fail conditions on a change, not lines to trade: an
 explicit deletion COMPLETES, reaching every projection; decay buries, and only an explicit caller act
 deletes; nothing is silently overwritten and no conflict is hidden; current and historical facts resolve by
-time in any feature offering a temporal answer. The last two bind what is built ON the engine: a
-`MemoryWrite` carries no valid-time and nothing supersedes anything, so they are vacuous here by
-construction.
+time in any feature offering a temporal answer. **The last two bind the engine wherever a write states valid
+time** (*Say when a fact held, and what it replaced*, §9): a write that states none is untimed, valid at every
+instant, and neither can fail on it. What a write may state is the writer's explicit claim — the engine never
+infers one, never picks between two entries valid at once, and ends an entry only because a caller named it.
 
 **What an optimization may not spend:** a sweeper or background job (decay is computed when read); more
 than one embed and one bounded candidate query per recall; a deletion no caller asked for (`ForgetAsync` is
@@ -636,6 +637,11 @@ Each of these cost a real measurement to find.
   **`SemanticSeedOptions.K` is useful in combination with `AddMemoryVerification`** — seeding widens the
   candidate set, the judge is what promotes from it. Pinned by `SemanticSeedProbeTests`, which asserts the
   negative for all five configurations so a future ranking change forces this claim to be re-read.
+- **A default recall reads the facts valid NOW, and an entry that has ended is not buried — it is out of the
+  reading.** Burial is a rank (§4), and an outranked entry can still surface under another query; an ended one
+  leaves every `Current` and `AsOf` reading it does not cover and returns only under `Validity = History` or by
+  reference. For an entry nothing timed this changes nothing, so the surprise is reachable only by a write that
+  stated valid time. **It is also not a deletion**: `CountAsync` still counts it and `PruneAsync` leaves it.
 - **`Stability` has exactly one meaning**: the position delta at which retrievability is `0.5`. FSRS anchors
   at 90%; adopting that convention would silently reinterpret every stored value, so a contract fact makes
   it unshippable.
@@ -772,6 +778,71 @@ await engine.RememberAsync(new MemoryWrite("project", "backend",
 
 Everything else defaults to `Associative`: it decays, competes, and can be buried. **That two-tier split is
 the design** — §3 objective (1) applies only to the first tier.
+
+### Say when a fact held, and what it replaced
+
+A fact that used to be true is not a fact that decayed: "the client lives in Paris" stops being the answer the day
+the client moves, however recently it was recalled, and decay cannot know that. **Valid time** is a writer's
+statement of WHEN a fact held in the world — a different axis from when the engine learned it (`CreatedAt`) and
+from how well it is remembered. `MemoryWrite` states it; nothing else does, and nothing infers it.
+
+```csharp
+var paris = (await engine.RememberAsync(new MemoryWrite("project", "people", "the client lives in Paris")
+    { ValidFrom = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero) })).Reference;
+
+// Berlin says it REPLACES Paris, so Paris ends where Berlin starts
+await engine.RememberAsync(new MemoryWrite("project", "people", "the client lives in Berlin")
+    { ValidFrom = new DateTimeOffset(2026, 3, 1, 0, 0, 0, TimeSpan.Zero), Supersedes = [paris] });
+
+var now = await engine.RecallAsync(new MemoryQuery("project", "people", "client lives"));            // Berlin
+var then = await engine.RecallAsync(new MemoryQuery("project", "people", "client lives")
+    { Validity = MemoryValidityReading.AsOf(new DateTimeOffset(2026, 2, 1, 0, 0, 0, TimeSpan.Zero)) });   // Paris
+var ledger = await engine.RecallAsync(new MemoryQuery("project", "people", "client lives")
+    { Validity = MemoryValidityReading.History });                                                       // both
+```
+
+**An interval is half-open and a null bound is unbounded.** An entry is valid AT `ValidFrom` and not valid AT its
+end, which is the earlier of `ValidTo` and the instant a successor took over; no bound at all is valid at every
+instant. So every entry written before valid time existed — and every write that states none — is untimed, and
+reads exactly as it always did under every reading. A stated `ValidTo` before `ValidFrom` throws.
+
+**There are three readings, and the default is the current one.** `MemoryQuery.Validity` is `Current` (valid now,
+by the engine's clock — what a default recall now does, so an ended entry leaves it), `AsOf(instant)` or `History`
+(every entry, each carrying its `MemoryItem.Validity` so a caller can tell). It is a FILTER on what was stated,
+never a resolver: two entries valid at one instant are both returned, and the engine does not decide which is true.
+It is applied to the PAGE after candidates are gathered, so an ended entry is still walked through — what it links
+to is reached as it always was — and a scope dense in ended entries can return fewer than `Limit`, never an ended
+one. `Explain` reports what the reading left out as `MemoryCandidateOutcome.OutsideValidity`. A walk passes its
+query's reading into every expansion, and an expansion always returns the entry it was asked for, ended or not:
+asking for it by reference is how history is read.
+
+**To supersede is to END, never to delete.** `Supersedes` names entries of this engine in this write's task; each
+takes the successor's start as its end and records who ended it. A write that supersedes and states no
+`ValidFrom` starts when it is written, and repeating that write moves nothing. The ended entry keeps its text,
+metadata, decay state and links: it is not buried (its retrievability is whatever it was), not reinforced, and not
+removed by `PruneAsync`; only `ForgetAsync` removes it, as it removes anything. **An entry has one successor**: naming
+one another entry already ended throws `InvalidOperationException` before anything is written — supersede the
+newer entry instead, or bound the older with `ValidTo`. A successor that was later forgotten does not reopen what it
+ended, and a new write may then take over. What the engine will not do is guess: near-identical text is never a
+supersession, and an entry nobody named stays valid.
+
+**Valid time is the world's clock, so a late write may name an earlier instant.** A fact learned in April that held
+from February is written with `ValidFrom` in February; where that overlaps an entry written earlier, both are valid
+at the overlap and both are returned — a conflict is shown, never hidden. A re-remember of identical content
+replaces a bound the write states and keeps one it does not (D91), so a corrected start lands and a bare refresh
+changes nothing.
+
+**An engine that cannot hold valid time refuses it.** A write that states any throws `NotSupportedException` on a
+lexical, semantic or curated engine, and on a graph engine whose store does not implement
+`ITemporalMemoryGraphStore` (all four shipped stores do): storing it without would return an ended fact as current.
+`ITemporalMemory.HoldsValidity` says which. A blend routes such a write to the first member that holds it and
+refuses where none does, and a fan-out that includes a member that cannot refuses before writing anywhere. Reads
+need no refusal: an engine that holds none has only untimed entries, which every reading admits.
+
+A rendered memory says when it held — `- the client lives in Paris (valid from 2026-01-01 until 2026-03-01,
+superseded)` — so a prompt built from a `History` recall never presents an ended fact as current, and the memory
+tools report `validFrom`, `validTo`, `supersededAt` and `supersededBy` on an entry that has them. An untimed entry
+renders exactly as before.
 
 ### Read the full text of one entry, and what it is linked to
 
@@ -1045,7 +1116,7 @@ line's own. Each line is one object:
 
 | field | meaning |
 |---|---|
-| `v` | the format version, `1`. A reader refuses any other, rather than guess what a newer writer added |
+| `v` | the format version, `1` — or `2` on a `graph` line that carries valid time (below), and nowhere else. A reader refuses any version it does not know, rather than guess what a newer writer added: that is what stops a reader that predates valid time importing an ended fact as an open one |
 | `record` | what the line holds: `curated`, or a graph engine's `graph` and `link` (below) |
 | `engine` | the engine that exported it; a blend routes an import by it, a single engine ignores it |
 | `taskKey`, `scope` | where it was exported from — informational, since the import names its target |
@@ -1075,6 +1146,7 @@ which every shipped store implements; over a store of your own without it, both 
 | `stability`, `difficulty`, `recallCount`, `signals`, `provenanceRetrievability`, `provenanceSalience` | its decay state, as stored |
 | `subjects` | what it is about, as the annotator recorded it, or absent |
 | `age`, `ordinalAge`, `volumeAge`, `elapsedAge` | how far behind its engine's position it sits on each scale |
+| `validFrom`, `validTo`, `supersededAt`, `supersededBy` | its valid time, each present only where set: when it started and stopped holding as its writer stated, when a successor took over, and that successor's `id` in the SOURCE. A line carrying any is `v: 2`; an untimed one is exactly the line it always was |
 | `from`, `to`, `kind`, `weight` | a `link` line: two `id`s, the relation and the raw weight, with the same four ages |
 
 **Ages are relative, so the state survives a different clock.** An imported entry or link is stamped as far behind
@@ -1083,7 +1155,12 @@ buried, a recall over the imported task ranks as the source's did, and nothing t
 entry the target already holds — the same content, task and scope — is left exactly as it is, decay state and
 subjects included, and the file's links still attach to it; a link it already holds keeps its weight, so a second
 import writes nothing. A link whose other end is not an entry of the file — a scope the export did not cover — is
-dropped and counted in `MemoryImportResult.LinksDropped`. The review log does not travel. With a vector index, the
+dropped and counted in `MemoryImportResult.LinksDropped`. **Valid time travels, and is refused where it cannot be
+kept**: an imported entry carries its interval, and the end a successor recorded is restored against the successor's
+NEW id — or with none named, when the file does not hold it, which leaves the entry ended all the same. An entry the
+target already holds keeps its own valid time, as it keeps everything else. A file carrying valid time imported into
+an engine whose store does not implement `ITemporalMemoryGraphStore` throws `NotSupportedException` before anything is
+written. The review log does not travel. With a vector index, the
 engine embeds each imported entry, best-effort; one whose embed fails is stored without its vector until a
 `ReindexAsync`.
 

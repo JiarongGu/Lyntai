@@ -166,7 +166,10 @@ public static class MemoryComposition
                 // Flattened either way — one memory is one bullet, so no recalled text can forge a heading
                 // and claim a grade this renderer alone is entitled to state. Not a truncation: no
                 // character is dropped, so the verbatim promise above survives it.
-                var text = MemoryLine.Flatten(verbatim ? item.Content ?? item.Headline : item.Headline);
+                // an item that says when it held says so on its line, whichever section it is in, so an ended fact is
+                // never read as a current one; an untimed item gets nothing and renders exactly as before
+                var text = MemoryLine.Flatten(verbatim ? item.Content ?? item.Headline : item.Headline)
+                    + MemoryLine.ValidityNote(item.Validity);
                 var line = $"- {text}\n";
                 var outcome = MemoryCompositionOutcome.Rendered;
                 // a duplicate is neither rendered nor counted as omitted — the model already has it

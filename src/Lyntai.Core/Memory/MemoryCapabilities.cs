@@ -22,6 +22,34 @@ public interface IExpandableMemory
     /// <param name="ct">Cancellation, which is never swallowed.</param>
     Task<MemoryRecall> ExpandAsync(MemoryRef reference, int hops = 1, int? charBudget = null,
         MemoryDetail detail = MemoryDetail.Headline, CancellationToken ct = default);
+
+    /// <summary>Expand, admitting NEIGHBOURS by valid time as a recall admits its entries. The named entry always
+    /// comes back, ended or not: asking for it by reference is how history is read.
+    /// <para><b>It has a DEFAULT BODY on purpose.</b> An engine that holds no valid time has only untimed
+    /// entries, which every reading admits, so ignoring <paramref name="validity"/> is correct there and a BYO
+    /// engine breaks on nothing. <see cref="MemoryWalk"/> passes its query's reading here.</para></summary>
+    /// <param name="reference">The entry to expand.</param>
+    /// <param name="hops">How far to walk from it.</param>
+    /// <param name="charBudget">Maximum characters to return; null takes the engine's configured budget.</param>
+    /// <param name="detail">How much of each neighbour to return.</param>
+    /// <param name="validity">Which neighbours to admit.</param>
+    /// <param name="ct">Cancellation, which is never swallowed.</param>
+    Task<MemoryRecall> ExpandAsync(MemoryRef reference, int hops, int? charBudget, MemoryDetail detail,
+        MemoryValidityReading validity, CancellationToken ct = default) =>
+        ExpandAsync(reference, hops, charBudget, detail, ct);
+}
+
+/// <summary>OPTIONAL capability: an engine that holds VALID TIME — a write may state when a fact held and which
+/// entries it supersedes, and a recall may read the facts valid now, then, or all of them
+/// (<see cref="MemoryQuery.Validity"/>).
+/// <para>A composite routes a write that states valid time to a member that has this, and refuses it where none
+/// does; a lexical, semantic or curated engine has none, and throws on such a write rather than store it
+/// open-ended.</para></summary>
+public interface ITemporalMemory
+{
+    /// <summary>Whether a write stating valid time would be kept. A graph engine reports whether its store
+    /// implements <see cref="ITemporalMemoryGraphStore"/>, which a BYO store may not.</summary>
+    bool HoldsValidity { get; }
 }
 
 /// <summary>An engine whose entries can be linked explicitly, so an application can assert structure the

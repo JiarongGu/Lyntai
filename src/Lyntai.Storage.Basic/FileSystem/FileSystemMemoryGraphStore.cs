@@ -14,7 +14,7 @@ namespace Lyntai.Storage.FileSystem;
 /// the journal first, then the memory file, so a crash between leaves unreachable state, never a memory with none.</para>
 /// </summary>
 internal sealed class FileSystemMemoryGraphStore(FileSystemRoot root, Func<DateTimeOffset>? clock = null,
-    int compactionFloor = 4096) : ICountableMemoryGraphStore, IPortableMemoryGraphStore
+    int compactionFloor = 4096) : ICountableMemoryGraphStore, IPortableMemoryGraphStore, ITemporalMemoryGraphStore
 {
     private const string StateDirectory = "state";
 
@@ -143,12 +143,23 @@ internal sealed class FileSystemMemoryGraphStore(FileSystemRoot root, Func<DateT
             "authoritative" => MemoryGrade.Authoritative,
             var other => throw new FormatException($"'{other}' is not a grade"),
         },
-        h.Time("created") ?? throw new FormatException("'created' is required"), h.Map("metadata"));
+        h.Time("created") ?? throw new FormatException("'created' is required"), h.Map("metadata"),
+        ValidFrom: h.Time("validFrom"), ValidTo: h.Time("validTo"), SupersededBy: h.Long("supersededBy"),
+        SupersededAt: h.Time("supersededAt"));
 
-    private static string MemoryFile(GraphNodeRecord r) => RecordFile.Write(new RecordHeader()
-        .Add("id", r.Id).Add("engine", r.Engine).Add("task", r.TaskKey).Add("scope", r.Scope)
-        .Add("headline", r.Headline).Add("grade", r.Grade == MemoryGrade.Authoritative ? "authoritative" : "associative")
-        .Add("created", r.CreatedAt).Add("metadata", r.Metadata), r.Content);
+    // the valid-time fields are written only where set, so a memory that never had any is the file it always was
+    private static string MemoryFile(GraphNodeRecord r)
+    {
+        var header = new RecordHeader()
+            .Add("id", r.Id).Add("engine", r.Engine).Add("task", r.TaskKey).Add("scope", r.Scope)
+            .Add("headline", r.Headline).Add("grade", r.Grade == MemoryGrade.Authoritative ? "authoritative" : "associative")
+            .Add("created", r.CreatedAt).Add("metadata", r.Metadata);
+        if (r.ValidFrom is { } from) header.Add("validFrom", from);
+        if (r.ValidTo is { } to) header.Add("validTo", to);
+        if (r.SupersededAt is { } at) header.Add("supersededAt", at);
+        if (r.SupersededBy is { } by) header.Add("supersededBy", by);
+        return RecordFile.Write(header, r.Content);
+    }
 
     // ---- the files an engine writes -------------------------------------------------------------------------
 
@@ -244,6 +255,25 @@ internal sealed class FileSystemMemoryGraphStore(FileSystemRoot root, Func<DateT
             if (before is null) _files[after.Id] = [file];
             ApplyAndCompact(change, journaled);
             return Task.FromResult(after.Id);
+        }
+    }
+
+    public Task<int> SupersedeAsync(string engine, IReadOnlyList<GraphSupersession> supersessions,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(supersessions);
+        ct.ThrowIfCancellationRequested();
+        lock (_lock)
+        {
+            Load();
+            var change = _graph.PlanSupersede(engine, supersessions, out var written);
+            // the memory file is the one thing that changes, and it goes first: a failed write leaves the entry
+            // as it was rather than ended in this process and open after a restart
+            foreach (var (before, after) in change.Nodes)
+                if (!MemoryGraphState.SameRecord(before!.Record, after.Record))
+                    root.Write(_files[after.Id][^1], MemoryFile(after.Record));
+            _graph.Apply(change);
+            return Task.FromResult(written);
         }
     }
 

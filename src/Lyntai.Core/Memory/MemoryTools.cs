@@ -64,6 +64,14 @@ internal static class MemoryTools
             writer.WriteString("grade", item.Grade.ToString());
             writer.WriteNumber("links", item.Degree);
             writer.WriteNumber("retrievability", Math.Round(item.Retrievability, 3));
+            // only where it has some: an ended fact says so, and an untimed one is the observation it always was
+            if (item.Validity is { } validity)
+            {
+                if (validity.From is { } from) writer.WriteString("validFrom", from);
+                if (validity.To is { } to) writer.WriteString("validTo", to);
+                if (validity.SupersededAt is { } at) writer.WriteString("supersededAt", at);
+                if (validity.SupersededBy is { } by) writer.WriteString("supersededBy", Format(by));
+            }
             writer.WriteEndObject();
         }
         writer.WriteEndArray();

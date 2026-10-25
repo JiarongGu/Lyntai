@@ -58,6 +58,7 @@ public sealed class CuratedMemoryEngine(
     public async Task<MemoryWriteResult> RememberAsync(MemoryWrite write, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(write);
+        MemoryValidityRefusal.ThrowIfStated(write, Name);
         if (kind is null)
             throw new NotSupportedException(
                 $"Memory engine '{Name}' reads every section of the catalog (kind: null) and cannot write: " +

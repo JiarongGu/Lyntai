@@ -34,7 +34,7 @@ public enum MemoryWriteRouting
 /// EVERY registration, so a capability it omits is one no consumer can reach.</para>
 ///
 /// <para><b>Removal fans OUT; expansion and linking ROUTE.</b> The difference is the argument:
-/// <see cref="ExpandAsync"/> and <see cref="LinkAsync"/> take a <see cref="MemoryRef"/>, which names exactly
+/// <see cref="ExpandAsync(MemoryRef, int, int?, MemoryDetail, CancellationToken)"/> and <see cref="LinkAsync"/> take a <see cref="MemoryRef"/>, which names exactly
 /// one owning member, while removing takes a (task, scope) that every member may hold material under. Removal
 /// one member and reporting success would leave the rest of the blend holding the very data the caller asked
 /// to remove.</para>
@@ -43,7 +43,7 @@ public enum MemoryWriteRouting
 /// </summary>
 public sealed class CompositeMemoryEngine
     : IMemoryEngine, IExpandableMemory, ILinkableMemory, IForgettableMemory, IPrunableMemory, IReindexableMemory,
-        IPortableMemory
+        IPortableMemory, ITemporalMemory
 {
     private readonly IReadOnlyList<IMemoryEngine> _members;
     private readonly ILogger _logger;
@@ -98,6 +98,12 @@ public sealed class CompositeMemoryEngine
     public MemoryGrades Supported => _members.Aggregate(MemoryGrades.None, (acc, m) => acc | m.Supported);
 
     /// <inheritdoc />
+    /// <remarks>True when ANY member holds valid time; a write stating it is routed to such a member.</remarks>
+    public bool HoldsValidity => _members.Any(Holds);
+
+    private static bool Holds(IMemoryEngine member) => member is ITemporalMemory { HoldsValidity: true };
+
+    /// <inheritdoc />
     /// <remarks>Returns the FIRST written member's reference. Under
     /// <see cref="MemoryWriteRouting.EveryCapable"/> the others hold their own copies under their own ids;
     /// address one of those through its member engine, which <c>IMemoryEngineFactory</c> indexes by
@@ -126,6 +132,22 @@ public sealed class CompositeMemoryEngine
         IReadOnlyList<IMemoryEngine> capable = wanted == MemoryGrades.None
             ? [.. _members.Where(m => m.Supported != MemoryGrades.None)]
             : [.. _members.Where(m => m.Supported.HasFlag(wanted))];
+
+        // VALID TIME goes only where it is HELD. A member that cannot would store the write without it, and an
+        // ended fact held open-ended is returned as current — so under FirstCapable the write goes to the first
+        // member that can, and a fan-out that includes one that cannot refuses before anything is written.
+        if (write.StatesValidity)
+        {
+            var cannot = capable.Where(m => !Holds(m)).Select(m => m.Name).ToList();
+            if (capable.Count == cannot.Count || (WriteRouting == MemoryWriteRouting.EveryCapable && cannot.Count > 0))
+                throw new NotSupportedException(
+                    $"Memory engine '{Name}' cannot keep this write's valid time: " +
+                    (capable.Count == cannot.Count
+                        ? "no member that can store it holds valid time"
+                        : $"member(s) {string.Join(", ", cannot)} would store it without") +
+                    ". Nothing was written. Route it to a graph engine, or leave valid time unstated.");
+            capable = [.. capable.Where(Holds)];
+        }
 
         IReadOnlyList<IMemoryEngine> targets = WriteRouting == MemoryWriteRouting.EveryCapable
             ? capable
@@ -259,6 +281,16 @@ public sealed class CompositeMemoryEngine
     }
 
     /// <inheritdoc />
+    public async Task<MemoryRecall> ExpandAsync(MemoryRef reference, int hops, int? charBudget, MemoryDetail detail,
+        MemoryValidityReading validity, CancellationToken ct = default)
+    {
+        var owner = Owner(reference);
+        return owner is IExpandableMemory expandable
+            ? await expandable.ExpandAsync(reference, hops, charBudget, detail, validity, ct).ConfigureAwait(false)
+            : MemoryRecall.Empty;
+    }
+
+    /// <inheritdoc />
     public async Task LinkAsync(MemoryRef from, MemoryRef to, string? kind = null, double weight = 1.0,
         bool symmetric = false, CancellationToken ct = default)
     {
@@ -275,7 +307,7 @@ public sealed class CompositeMemoryEngine
     /// in-scope member cannot prune, this throws <see cref="NotSupportedException"/> having removed nothing —
     /// not just when NO member can. A member the <see cref="IMemoryRemovalPolicy"/> excludes is a different
     /// case and is skipped rather than blocking the verb.
-    /// <para>It fails LOUD — like <see cref="LinkAsync"/> and unlike <see cref="ExpandAsync"/> — because this
+    /// <para>It fails LOUD — like <see cref="LinkAsync"/> and unlike <see cref="ExpandAsync(MemoryRef, int, int?, MemoryDetail, CancellationToken)"/> — because this
     /// method returns a COUNT and <c>0</c> already means "nothing matched". Reporting <c>0</c> for "nothing
     /// here can ever remove" would make a deletion that cannot happen indistinguishable from one that found
     /// nothing to do, and a caller removing for a consent withdrawal would read it as done. Pruning only the

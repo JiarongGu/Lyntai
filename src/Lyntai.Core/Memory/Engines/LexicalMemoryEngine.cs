@@ -29,6 +29,7 @@ public sealed class LexicalMemoryEngine(
     public async Task<MemoryWriteResult> RememberAsync(MemoryWrite write, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(write);
+        MemoryValidityRefusal.ThrowIfStated(write, Name);
         if (write.Grade == MemoryGrade.Authoritative)
             throw new NotSupportedException(
                 $"Memory engine '{Name}' stores associative material only and cannot hold an authoritative " +

@@ -28,7 +28,7 @@ namespace Lyntai.Storage.Postgres;
 public sealed class PostgresMemoryGraphStore(
     IDbConnectionFactory factory,
     ILogger<PostgresMemoryGraphStore>? logger = null,
-    Func<DateTimeOffset>? clock = null) : ICountableMemoryGraphStore, IPortableMemoryGraphStore
+    Func<DateTimeOffset>? clock = null) : ICountableMemoryGraphStore, IPortableMemoryGraphStore, ITemporalMemoryGraphStore
 {
     private readonly ILogger _logger = logger ?? NullLogger<PostgresMemoryGraphStore>.Instance;
     private readonly Func<DateTimeOffset> _clock = clock ?? (() => DateTimeOffset.UtcNow);
@@ -82,10 +82,11 @@ public sealed class PostgresMemoryGraphStore(
                 (engine, task_key, scope, headline, content, content_hash, grade, metadata, signals, salience,
                  created_at, last_recalled_position, recall_count, stability, difficulty,
                  encoding_ordinal, encoding_chars, encoding_at,
-                 provenance_retrievability, provenance_salience)
+                 provenance_retrievability, provenance_salience, valid_from, valid_to)
             VALUES (@engine, @taskKey, @scope, @headline, @content, @hash, @grade, @metadata, @signals::jsonb, @salience,
                     @now, @position, 0, @stability, @difficulty, @ordinal, @chars, @now,
-                    @provenanceRetrievability, @provenanceSalience)
+                    @provenanceRetrievability, @provenanceSalience,
+                    COALESCE(@validFrom::timestamptz, @validFromIfUnset::timestamptz), @validTo::timestamptz)
             ON CONFLICT (engine, task_key, scope, content_hash)
                 DO UPDATE SET last_recalled_position = @position,
                               headline = CASE WHEN @headlineStated THEN @headline ELSE lyntai_memory_node.headline END,
@@ -96,6 +97,9 @@ public sealed class PostgresMemoryGraphStore(
                               difficulty = CASE WHEN @hasDifficultySignal THEN @difficulty ELSE lyntai_memory_node.difficulty END,
                               provenance_salience = CASE WHEN @signals::jsonb IS NULL THEN lyntai_memory_node.provenance_salience
                                                           ELSE @provenanceSalience END,
+                              valid_from = COALESCE(@validFrom::timestamptz, lyntai_memory_node.valid_from,
+                                                    @validFromIfUnset::timestamptz),
+                              valid_to = COALESCE(@validTo::timestamptz, lyntai_memory_node.valid_to),
                               encoding_ordinal = @ordinal, encoding_chars = @chars, encoding_at = @now
             RETURNING id
             """, new
@@ -104,12 +108,30 @@ public sealed class PostgresMemoryGraphStore(
             headline = write.Headline, content = write.Content, hash, grade = (int)write.Grade,
             metadata, signals, salience, difficulty, hasDifficultySignal, now, position = totals.Position,
             gradeStated = write.GradeStated, headlineStated = write.HeadlineStated,
+            validFrom = write.ValidFrom?.ToUniversalTime(), validTo = write.ValidTo?.ToUniversalTime(),
+            validFromIfUnset = write.ValidFromIfUnset?.ToUniversalTime(),
             stability = write.InitialStability, ordinal = totals.Ordinal, chars = totals.Chars,
             provenanceRetrievability = write.ProvenanceRetrievability, provenanceSalience = write.ProvenanceSalience,
         }, transaction: tx, cancellationToken: ct)).ConfigureAwait(false);
 
         await tx.CommitAsync(ct).ConfigureAwait(false);
         return id;
+    }
+
+    /// <inheritdoc />
+    public async Task<int> SupersedeAsync(string engine, IReadOnlyList<GraphSupersession> supersessions,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(supersessions);
+        ct.ThrowIfCancellationRequested();
+        if (supersessions.Count == 0) return 0;
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
+        await using var tx = await conn.BeginTransactionAsync(ct).ConfigureAwait(false);
+        var written = await conn.ExecuteAsync(new CommandDefinition(MemoryGraphSql.Supersede,
+            supersessions.Select(s => new { id = s.Superseded, engine, by = s.By, at = s.At.ToUniversalTime() }),
+            transaction: tx, cancellationToken: ct)).ConfigureAwait(false);
+        await tx.CommitAsync(ct).ConfigureAwait(false);
+        return written;
     }
 
     /// <inheritdoc />
@@ -519,10 +541,10 @@ public sealed class PostgresMemoryGraphStore(
                     (engine, task_key, scope, headline, content, content_hash, grade, metadata, signals, salience,
                      created_at, last_recalled_position, recall_count, stability, difficulty,
                      encoding_ordinal, encoding_chars, encoding_at,
-                     provenance_retrievability, provenance_salience)
+                     provenance_retrievability, provenance_salience, valid_from, valid_to)
                 VALUES (@engine, @taskKey, @scope, @headline, @content, @hash, @grade, @metadata, @signals::jsonb, @salience,
                         @createdAt, @position, @recallCount, @stability, @difficulty, @ordinal, @chars, @at,
-                        @provenanceRetrievability, @provenanceSalience)
+                        @provenanceRetrievability, @provenanceSalience, @validFrom::timestamptz, @validTo::timestamptz)
                 ON CONFLICT (engine, task_key, scope, content_hash) DO NOTHING
                 RETURNING id
                 """, ImportArgs(engine, taskKey, node, hash, head), transaction: tx, cancellationToken: ct)).ConfigureAwait(false);
@@ -555,6 +577,7 @@ public sealed class PostgresMemoryGraphStore(
         chars = MemoryGraphAnchor.Behind(head.Chars, node.VolumeAge),
         at = MemoryGraphAnchor.Behind(head.EncodedAt, node.ElapsedAge),
         provenanceRetrievability = node.ProvenanceRetrievability, provenanceSalience = node.ProvenanceSalience,
+        validFrom = node.ValidFrom?.ToUniversalTime(), validTo = node.ValidTo?.ToUniversalTime(),
     };
 
     /// <inheritdoc />

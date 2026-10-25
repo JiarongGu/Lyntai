@@ -101,6 +101,29 @@ public sealed record GraphNode(
     double StrengthOrdinalAge = 0, double StrengthVolumeAge = 0, double StrengthElapsedAge = 0,
     bool? Matched = true)
 {
+    /// <summary>When the fact started holding in the world, as its writer stated it; null is unstated. Read back
+    /// by a store that implements <see cref="ITemporalMemoryGraphStore"/>; every other reads null.</summary>
+    public DateTimeOffset? ValidFrom { get; init; }
+
+    /// <summary>When the writer said it stopped holding, exclusive; null is unstated.</summary>
+    public DateTimeOffset? ValidTo { get; init; }
+
+    /// <summary>The successor that ended this entry, or null — also null where the successor was not carried or has
+    /// been removed; the entry stays ended (<see cref="SupersededAt"/>). An id is never reissued, so a removed
+    /// successor's number cannot name another entry.</summary>
+    public long? SupersededBy { get; init; }
+
+    /// <summary>When a successor took over, or null while nothing has superseded this entry.</summary>
+    public DateTimeOffset? SupersededAt { get; init; }
+
+    /// <summary>The interval this node carries, or null for an untimed one that nothing superseded. Reads
+    /// the four members above, so it carries no state of its own.</summary>
+    public MemoryValidity? Validity =>
+        ValidFrom is null && ValidTo is null && SupersededAt is null && SupersededBy is null
+            ? null
+            : new MemoryValidity(ValidFrom, ValidTo, SupersededAt,
+                SupersededBy is { } by ? new MemoryRef(Engine, by.ToString(System.Globalization.CultureInfo.InvariantCulture)) : null);
+
     /// <summary>This node's decay bookkeeping, for an <see cref="Lyntai.Memory.Forgetting.IMemoryRetrievabilityPolicy"/>.
     /// <para>Carries <see cref="Age"/> — the store's own, single, <c>Advance</c>-driven view — unchanged by
     /// the primitives below existing.</para></summary>
@@ -207,7 +230,21 @@ public sealed record GraphNodeWrite(
     string Engine, string TaskKey, string Scope, string Headline, string Content, MemoryGrade Grade,
     double InitialStability, double Advance, IReadOnlyDictionary<string, string>? Metadata,
     MemorySignals Signals = default, long ProvenanceRetrievability = 0, long ProvenanceSalience = 0,
-    bool GradeStated = true, bool HeadlineStated = true);
+    bool GradeStated = true, bool HeadlineStated = true)
+{
+    /// <summary>When the fact started holding, as the caller states it. Null is "no opinion": an INSERT stores
+    /// none and a refresh keeps what is stored, the rule every optional field here follows (D91); a stated
+    /// value replaces. Only a store implementing <see cref="ITemporalMemoryGraphStore"/> may be handed one.</summary>
+    public DateTimeOffset? ValidFrom { get; init; }
+
+    /// <summary>When the fact stopped holding, exclusive; null is "no opinion", as <see cref="ValidFrom"/>.</summary>
+    public DateTimeOffset? ValidTo { get; init; }
+
+    /// <summary>A start to give an entry that HOLDS none — an INSERT takes it and a refresh keeps a stored start
+    /// over it, where <see cref="ValidFrom"/> would replace. What a write that supersedes another stamps, so
+    /// repeating it does not move its start.</summary>
+    public DateTimeOffset? ValidFromIfUnset { get; init; }
+}
 
 /// <summary>A reinforcement to record against one node. The store stamps the current position — a recall
 /// does not advance it, so "now" is simply wherever the engine already is.

@@ -49,7 +49,12 @@ internal static class GraphPortableLines
                 w.WriteNumber("provenanceRetrievability", node.ProvenanceRetrievability);
                 w.WriteNumber("provenanceSalience", node.ProvenanceSalience);
                 Ages(w, node.Age, node.OrdinalAge, node.VolumeAge, node.ElapsedAge);
-            }, ct).ConfigureAwait(false);
+                // valid time only where there is some, so a memory that never stated any exports as it always did
+                if (node.ValidFrom is { } from) w.WriteString("validFrom", from);
+                if (node.ValidTo is { } to) w.WriteString("validTo", to);
+                if (node.SupersededAt is { } at) w.WriteString("supersededAt", at);
+                if (node.SupersededBy is { } by) w.WriteNumber("supersededBy", by);
+            }, ct, node.Validity is null ? MemoryPortableFormat.Version : MemoryPortableFormat.TemporalVersion).ConfigureAwait(false);
         }
         foreach (var link in export.Links)
         {
@@ -75,10 +80,10 @@ internal static class GraphPortableLines
 
     /// <summary>Every line checked, before anything is written: graph lines keyed by the source id they carry, and
     /// link lines in that same id space.</summary>
-    public static (List<(long Id, GraphNodeImport Node)> Nodes, List<GraphLink> Links) Read(
+    public static (List<CarriedNode> Nodes, List<GraphLink> Links) Read(
         IReadOnlyList<MemoryPortableLine> lines, string engine, string? scope)
     {
-        var nodes = new List<(long, GraphNodeImport)>();
+        var nodes = new List<CarriedNode>();
         var links = new List<GraphLink>();
         var ids = new HashSet<long>();
         foreach (var line in lines)
@@ -105,7 +110,7 @@ internal static class GraphPortableLines
                     $"carries no \"grade\" of {nameof(MemoryGrade.Associative)} or {nameof(MemoryGrade.Authoritative)}"),
             };
             var recallCount = MemoryPortableFormat.Whole(line, "recallCount", nonNegative: true);
-            nodes.Add((id, new GraphNodeImport(
+            nodes.Add(new CarriedNode(id, new GraphNodeImport(
                 scope ?? Required(line, "scope"), Required(line, "headline"), Required(line, "content"), grade,
                 (line.Body.TryGetProperty("createdAt", out var created) && created.TryGetDateTimeOffset(out var at)
                     ? at : throw MemoryPortableFormat.Refuse(line.Number, "carries no \"createdAt\" time")).ToUniversalTime(),
@@ -114,10 +119,34 @@ internal static class GraphPortableLines
                 Signals(line), Optional(line, "provenanceRetrievability"), Optional(line, "provenanceSalience"),
                 MemoryPortableFormat.Map(line, "metadata"), Subjects(line),
                 MemoryPortableFormat.Number(line, "age"), MemoryPortableFormat.Number(line, "ordinalAge"),
-                MemoryPortableFormat.Number(line, "volumeAge"), MemoryPortableFormat.Number(line, "elapsedAge"))));
+                MemoryPortableFormat.Number(line, "volumeAge"), MemoryPortableFormat.Number(line, "elapsedAge"))
+            {
+                ValidFrom = Instant(line, "validFrom"), ValidTo = Instant(line, "validTo"),
+            }, Instant(line, "supersededAt"), line.Body.TryGetProperty("supersededBy", out _)
+                ? MemoryPortableFormat.Whole(line, "supersededBy") : null));
         }
         return (nodes, links);
     }
+
+    /// <summary>One <c>graph</c> line read: the entry under the source's <paramref name="Id"/>, and the end a successor
+    /// recorded — which is applied after the entry lands, through
+    /// <see cref="ITemporalMemoryGraphStore.SupersedeAsync"/>, because the successor's id in THIS store is known
+    /// only then.</summary>
+    /// <param name="Id">The entry's id in the source, read only to resolve links and successors.</param>
+    /// <param name="Node">The entry.</param>
+    /// <param name="SupersededAt">When a successor took over, or null.</param>
+    /// <param name="SupersededBy">The successor's id in the source, or null.</param>
+    public readonly record struct CarriedNode(long Id, GraphNodeImport Node, DateTimeOffset? SupersededAt, long? SupersededBy)
+    {
+        /// <summary>Whether this entry carries any valid time at all — what a store that cannot hold it refuses.</summary>
+        public bool IsTimed => Node.ValidFrom is not null || Node.ValidTo is not null || SupersededAt is not null;
+    }
+
+    // an optional instant, refused where present and not one — a bad bound is never read as no bound
+    private static DateTimeOffset? Instant(MemoryPortableLine line, string name) =>
+        !line.Body.TryGetProperty(name, out var element) || element.ValueKind == JsonValueKind.Null ? null
+        : element.ValueKind == JsonValueKind.String && element.TryGetDateTimeOffset(out var at) ? at.ToUniversalTime()
+        : throw MemoryPortableFormat.Refuse(line.Number, $"carries a \"{name}\" that is not a time");
 
     private static string Required(MemoryPortableLine line, string name) =>
         MemoryPortableFormat.String(line.Body, name) is { Length: > 0 } value
