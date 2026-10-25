@@ -7,6 +7,32 @@ to `.agents/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-10-25 — a bridged backend had no provider timeout: a hung vendor held the call until the caller gave up
+
+**Symptom.** Found assessing whether an `IChatClient` needs an adapter (`TASKS.md` Part 348, RV18), by hanging an
+`AddBridgeProvider` delegate under a 150 ms `ProviderTimeout`: the call never returned, the router never advanced
+to the next candidate, and only the caller's own cancel ended it. The seam's docs promised "routing, fallback,
+cooldown, admission" with the bridge, and a reader took the timeout to be among them.
+
+**Root cause.** The router enforces no deadline: each backend owns its clock through
+`LyntaiOptions.ResolveTimeout` (`HttpChatEngine`, `CliProviderEngine`, `LlamaSharpProvider` all do). `BridgeProvider`
+was built from `(req, ct)` delegates and received no `LyntaiOptions`, so nothing resolved a timeout for it at all.
+
+**Fix.** `AddBridgeProvider` builds the provider from the container (`sp.GetRequiredService<LyntaiOptions>()`);
+`BridgeProvider.CompleteAsync` bounds the call as a whole and `StreamAsync` bounds each read by inactivity through
+`GuardedStream`, both answering `Timeout` so the router advances. A delegate that ignores its token is abandoned
+(`WaitAsync`), and its enumerator is disposed only after the pending move ends — an async iterator throws
+`NotSupportedException` when disposed mid-move.
+
+**Verify.** `BridgeProviderTests`: `A_bridge_that_hangs_is_cut_off_by_the_provider_timeout_and_the_router_FALLS_OVER`,
+`A_bridge_that_ignores_its_token_is_still_abandoned_at_the_timeout`, `The_per_request_timeout_wins_over_the_configured_one`,
+`A_stream_that_goes_silent_ends_in_a_Timeout_error_BEFORE_content_so_the_router_falls_over` and
+`A_stream_that_goes_silent_AFTER_content_surfaces_the_Timeout_with_no_fallback` — all five failed before the change (each
+ran to its 10 s safety cancel) — plus `The_stream_timeout_is_an_INACTIVITY_clock_a_slow_but_alive_stream_finishes` and
+`The_callers_own_cancel_is_NOT_a_timeout_it_propagates`, which pin what must not change.
+
+**Introduced by.** `90877b09` (2026-09-15), D147's `AddBridgeProvider`, which shipped without a timeout.
+
 ## 2026-10-24 — a forget from ANOTHER engine instance still left a racing write's vector in the index
 
 **Symptom.** Found by an existence audit of an external review, not in the field: `docs/memory.md` stated that two

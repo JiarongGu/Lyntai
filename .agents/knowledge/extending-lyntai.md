@@ -66,7 +66,9 @@ backend — a vendor SDK, an in-house service, a `Microsoft.Extensions.AI` `ICha
 mapping you need; routing, fallback, cooldown, admission and the ops layer come along, and the library takes
 no dependency on whatever you wrapped (**D147**). **Return a non-Ok `ProviderVerdict` rather than throwing**,
 so the router can advance to the next candidate. A bridge declares only the operations you hand it a
-delegate for — omit `stream` and no router will ask it to stream.
+delegate for — omit `stream` and no router will ask it to stream. The provider timeout is the bridge's own, as
+on every backend (`BridgeProvider`); a NEW door that builds a backend from a function must supply that clock
+itself (`pitfalls.md`). The `IChatClient` mapping, in both directions, is `docs/extensions-ai.md`.
 
 **A2. A SPAWNED CLI → an `ICliBackend` plus a thin provider.** If the backend is a command-line agent
 (`claude`, `codex`, or a sibling), do NOT re-implement the spawn/verdict/streaming rules — they are already in

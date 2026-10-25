@@ -29,6 +29,12 @@
          nothing. Measured in project.assets.json — the entry said 10.8.0 and the restore resolved 10.5.2,
          ModelContextProtocol.Core's own. -->
 
+    <!-- TEST-ONLY, and the Abstractions entry above stays absent: this is the package a consuming application
+         adds on top of them (ChatClientBuilder, UseFunctionInvocation), referenced by the test project so the
+         `IChatClient` recipes in docs/extensions-ai.md are exercised under the middleware Agent Framework uses.
+         Nothing in src/ references it. -->
+    <PackageVersion Include="Microsoft.Extensions.AI" Version="10.8.3" />
+
     <!-- in-process local inference (managed only; the consumer app picks an LLamaSharp.Backend.*) -->
     <PackageVersion Include="LLamaSharp" Version="0.27.0" />
 

@@ -276,8 +276,8 @@ CLI via `LYNTAI_PROVIDER_CMD`.
 
 To a consumer, Lyntai behaves like **one** provider: `ITextClient` wraps the router with the default
 candidate list so callers don't thread candidates through. New consumer-facing surface (structured
-output, etc.) hangs off the front door, not the raw router. There is no MEAI bridge in either direction since **D146** deleted it; an OpenAI-shaped backend is
-reached with `AddHttpProvider`.
+output, etc.) hangs off the front door, not the raw router. There is no MEAI bridge package in either direction since **D146** deleted it; an OpenAI-shaped backend is
+reached with `AddHttpProvider`, and an `IChatClient` through the recipes in `docs/extensions-ai.md`.
 
 **A front-door decorator slot has ONE owner** (**D182**). A decorator registers at an ORDER with an owner
 token: the same owner again re-applies its options without stacking a second layer, and a different owner on
