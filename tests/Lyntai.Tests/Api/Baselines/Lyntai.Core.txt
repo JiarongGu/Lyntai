@@ -107,6 +107,12 @@ sealed class Lyntai.Agents.AgentRestriction
     Recovery : RestrictionRecovery { get; init; }
     Subject : RestrictionSubject { get; init; }
     ToString() : String
+sealed class Lyntai.Agents.AgentRetryOptions
+    .ctor()
+    ContinueWord : String { get; set; }
+    InitialDelay : TimeSpan { get; set; }
+    MaxDelay : TimeSpan { get; set; }
+    MaxRetries : Int32 { get; set; }
 static class Lyntai.Agents.AgentSessionExtensions
     static RunAsync(IAgentSession session, AgentSessionOptions options, Action<AgentStreamEvent> onEvent = null, CancellationToken ct = default) : Task<AgentSessionResult>
 class Lyntai.Agents.AgentSessionOptions
@@ -325,6 +331,9 @@ enum Lyntai.Agents.RestrictionSubject
     Pool : RestrictionSubject const
     Unknown : RestrictionSubject const
     value__ : Int32
+sealed class Lyntai.Agents.RetryingAgentSession
+    .ctor(IAgentSession inner, AgentRetryOptions options, TimeProvider time = null, ILogger<RetryingAgentSession> logger = null)
+    StreamAsync(AgentSessionOptions options, CancellationToken ct = default) : IAsyncEnumerable<AgentStreamEvent>
 sealed class Lyntai.Agents.SessionEnded
     .ctor(ProviderVerdict Verdict, Boolean IsError, String Subtype, String SessionId, String FinalText, String Diagnostic)
     Deconstruct(ProviderVerdict& Verdict, Boolean& IsError, String& Subtype, String& SessionId, String& FinalText, String& Diagnostic) : Void
@@ -1999,6 +2008,7 @@ sealed class Lyntai.Jobs.KeyValueJobScheduleStore
     SetAsync(JobSchedule schedule, CancellationToken ct = default) : Task
 sealed class Lyntai.LyntaiBuilder
     AddAgentProvider(Func<IServiceProvider,IAgentProvider> factory) : LyntaiBuilder
+    AddAgentRetry(Action<AgentRetryOptions> configure = null) : LyntaiBuilder
     AddBridgeProvider(String id, Func<TextRequest,CancellationToken,Task<TextResponse>> complete, Func<TextRequest,CancellationToken,IAsyncEnumerable<TextChunk>> stream = null, ProviderCapabilities capabilities = null) : LyntaiBuilder
     AddConversationEnricher(Func<IServiceProvider,IConversationEnricher> factory) : LyntaiBuilder
     AddConversationEnricher<T>() : LyntaiBuilder

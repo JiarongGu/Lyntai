@@ -41,6 +41,12 @@ every addition.
 
 ### Added
 
+- **A bounded retry for an agent turn that failed transiently, off unless you ask** (**D219**).
+  `AddAgentRetry(o => …)` wraps every registered `IAgentSession` in a `RetryingAgentSession`. It retries only a
+  `Transient` failure, within `MaxRetries`, waiting on the `TimeProvider` in the container (the system clock by
+  default) and stopping at a cancellation. A turn whose prompt was never sent is sent again; one the door had
+  taken resumes its conversation with a continue word; one that may have run a tool step, or has no session to
+  resume, is not retried and its terminal says so. A limit, an access failure or a fatal one is never retried.
 - **An agent session's event stream carries a plan and a usage reading that can say "unknown"** (**D219**).
   `PlanUpdated` is the agent's whole plan as it now stands (claude's `TodoWrite` list, codex's `todo_list`);
   `UsageReading` holds nullable counts, a unit, a scope (`Turn` or `Cumulative`) and the time the library read

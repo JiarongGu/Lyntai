@@ -621,6 +621,7 @@ decorated interface fails the tests until it is listed here, and so does a row n
 | --- | --- | --- |
 | `ITextClient` | `DelegatingTextClient` (derive from it), `BudgetedTextClient`, `CachingTextClient`, `RateLimitedTextClient`, `GuardedTextClient`, `RefusalScreeningTextClient` | every member, `GetCapabilitiesAsync` included |
 | `IMediaRouter` | `BudgetedMediaRouter`, `RateLimitedMediaRouter` | all three doors, each one governed: the compiler cannot tell a governed door from a pass-through |
+| `IAgentSession` | `RetryingAgentSession` (`AddAgentRetry`) | `StreamAsync`, forwarding the options as given or with a resumed turn's prompt and token |
 | `IConversationStore` | `EnrichingConversationStore` | every member |
 | `IDbConnectionFactory` | `LazyMigratingConnectionFactory` | `Open`, and `OpenAsync`, whose default loses the inner factory's async open |
 | `IMemoryEngine` | `CompositeMemoryEngine`, over its members | every member |
@@ -1088,6 +1089,19 @@ its own handling (codex's logs `DisallowedTools` and spawns). An `Unknown` abili
 the door. Another agent is one `IAgentProvider` registered with `AddAgentProvider`; build it with `AgentProvider`
 over a descriptor and a session per door and the refusal comes with it. Today's claims on the two CLI doors are
 declared from the adapters, except codex's resume, which was measured; codex's plan events are `Unknown`.
+
+**Retrying a transient failure** (`AddAgentRetry`, off unless you call it). Every registered `IAgentSession` —
+unkeyed and keyed, whichever order you register them in — is wrapped in a `RetryingAgentSession` when `AddLyntai`
+finishes composing. It acts on `Failure.Kind == Transient` and nothing else, at most `MaxRetries` times (default
+2), waiting `InitialDelay` doubled per retry up to `MaxDelay` — or a stated retry-not-before moment, if that is
+later and within `MaxDelay`. The wait runs on the container's `TimeProvider` and a cancellation cuts it. What it
+sends depends on `Delivery`: `NeverSent` sends the same prompt again; `Taken` resumes the conversation from the
+failed attempt's session id with `ContinueWord` (default `"continue"`), and with no session to resume does not
+retry, since resending would send the prompt twice; `Uncertain` is never retried, as a tool step may have acted.
+Events are forwarded live, so a retried turn's stream holds the failed attempt's events and then the next
+attempt's, and only a failed terminal that is about to be retried is withheld: you see one `SessionEnded`, the
+last attempt's, and a transient failure that was not retried says why in its `Diagnostic`. One layer owns the
+budget: wrapping a `RetryingAgentSession` in another, or registering one by hand beside `AddAgentRetry`, throws.
 
 ## Durable jobs (`Lyntai.Jobs`)
 
