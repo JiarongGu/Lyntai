@@ -73,6 +73,8 @@ internal static class MemoryCorpusBench
         var perKind = int.Parse(Value(args, "--per-kind") ?? "150");
         var maxChunks = int.Parse(Value(args, "--chunks") ?? int.MaxValue.ToString());
         var records = Load(dir);
+        // VN2: the partial-amendment case on these records, exact reads and no ranking (ProfileAmendmentBench)
+        if (args.Contains("--profile")) return await ProfileAmendmentBench.RunAsync(records);
         var chunks = RecordChunker.Chunk(records).Take(maxChunks).ToList();
         var present = chunks.Select(c => c.RecordKey).ToHashSet();
         var questions = QuestionBuilder.Build([.. records.Where(r => present.Contains(r.Key))], perKind, seed: 1);

@@ -73,3 +73,42 @@ grants, a renamed attribute) need features of Waves 2 to 4, so they enter RV27 o
 A memory-lane run of the engines on a corpus far larger than the library's own has landed
 (`docs/memory-measurements.md` §5). Its amendment finding is why VN2's scenario set gains a partial amendment
 (**D220**); VN2 and RV27 read it there.
+
+## 6. VN2 compared: the decision proposed for the steward
+
+**Standing.** A PROPOSAL, written by the session that ran `TASKS.md` Part 377; it is not a record until the steward
+enters it in `docs/DECISIONS.md` and moves the row. The evidence is `docs/memory-measurements.md` §5 (the VN2 setup and
+`vn2-concurrent-corrections`, `vn2-partial-amendment-real-records`) and `ProfileScenarioTests`, test-only code over
+shipped store interfaces. No public type, package or default changed.
+
+**Proposed: the profile is a projection over curated memory.** One claim per field of the schema, one curated entry per
+claim (kind = the field id, task key = the subject, **D92**), appended and never edited: a correction ends the entry it
+read behind `IRevisionedCuratedMemoryStore`'s revision check and then adds the new one, and a replay is found by a claim
+id. **The authority is the entry**, which is the claim and the source it cites at once; the profile keeps no state and a
+read returns the latest start, reporting any other claim that still holds. The three cases: a schema rename re-kinds each
+entry in place (ids and creation times kept) and a file taken before it repopulates the old id until the caller renames
+again, which merges by claim id; a partial correction writes one field and no other; an older export with a conflicting
+current value is added beside the newer claim and read as a dispute, never as an overwrite (**D204**).
+
+**Why this and not the ledger.** Both options passed every deterministic scenario and read the real records exactly
+(869 of 869, 97% of amendments partial), so reads decide nothing. The one scenario they split on is two writers correcting
+one claim: the revision check gave one winner in 20 of 20 trials on each store, while the ledger written through
+`GraphMemoryEngine` alone left the refused writer's claim live and returned its value in 17 to 20 of 20 on SQLite. Closing
+that takes a compare-and-supersede on `ITemporalMemoryGraphStore` across four backends, a frozen public capability
+(**D70**) added for a prototype that **D220** says fixes no contract. What the projection lacks (valid time held in
+metadata, one successor, a start no earlier than the predecessor's) is code the prototype owns and tests, in one place.
+
+**Costs it accepts, to be proved by RV28 and RV27 Track A.** Valid time as entry metadata is a second vocabulary beside
+**D215**'s, and the store checks none of it. A correction is two writes, so a crash between them leaves the field with no
+current claim and fails closed; inject it. A forget removes rows one by one. The catalog's own edit path can change an
+entry's content in place, so the prototype must detect a claim whose content no longer matches its id, or the profile
+becomes a second authority edited by another tool. On disk it is 1.8 to 2.3 times smaller than the ledger.
+
+**Rejected.** The ledger now (the race above; node ids change on a rename; a stored claim carries decay state). The ledger
+with a caller-side compensation, which narrows the race to a window and does not close it. One claim per record: of two
+writers the second is stale, so a partial amendment must be a field. Choosing from the real records' structure: only 46% of
+partial amendments name their field by word overlap, so the field comes from the caller or the schema (**D217**).
+
+**Re-opens** if a compare-and-supersede reaches `ITemporalMemoryGraphStore` for another consumer (the ledger's remaining
+costs are the rename and the disk), if the profile needs intervals queried across fields, or if the two-write gap or the
+in-place edit cannot be closed in the prototype.

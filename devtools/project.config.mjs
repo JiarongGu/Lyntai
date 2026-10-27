@@ -1710,6 +1710,8 @@ export default {
     'similar-count',
     'rrf-score-separation',
     'marker-survival',    // does a ground-truth marker survive the transform under test
+    // WRITES — what a concurrent or repeated write leaves behind.
+    'single-winner',      // two writers race one claim: exactly one is told it won, exactly one claim holds, and it is theirs
     // COST — no ground truth, and never mixed with a quality column.
     'latency',
     'vram-resident',
