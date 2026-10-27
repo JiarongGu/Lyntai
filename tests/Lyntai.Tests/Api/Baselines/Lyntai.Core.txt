@@ -45,6 +45,45 @@ sealed class Lyntai.Agents.AgentAccountMapping
     GetHashCode() : Int32
     HomeVariable : String { get; init; }
     ToString() : String
+sealed class Lyntai.Agents.AgentBrief
+    .ctor(String Text, Int32 Characters, Boolean WithinBound, AgentBriefOmitted Omitted)
+    Characters : Int32 { get; init; }
+    Deconstruct(String& Text, Int32& Characters, Boolean& WithinBound, AgentBriefOmitted& Omitted) : Void
+    Equals(AgentBrief other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Omitted : AgentBriefOmitted { get; init; }
+    Text : String { get; init; }
+    ToString() : String
+    WithinBound : Boolean { get; init; }
+sealed class Lyntai.Agents.AgentBriefComposer
+    .ctor(AgentBriefOptions options = null)
+    Brief(AgentTranscript transcript, IReadOnlyList<String> facts = null) : AgentBrief
+sealed class Lyntai.Agents.AgentBriefOmitted
+    .ctor(Int32 ToolSummaries, Int32 AgentMessages, Boolean Plan, Int32 Facts)
+    AgentMessages : Int32 { get; init; }
+    Deconstruct(Int32& ToolSummaries, Int32& AgentMessages, Boolean& Plan, Int32& Facts) : Void
+    Equals(AgentBriefOmitted other) : Boolean
+    Equals(Object obj) : Boolean
+    Facts : Int32 { get; init; }
+    GetHashCode() : Int32
+    IsNone : Boolean { get; }
+    Plan : Boolean { get; init; }
+    ToString() : String
+    ToolSummaries : Int32 { get; init; }
+sealed class Lyntai.Agents.AgentBriefOptions
+    .ctor()
+    MaxCharacters : Int32 { get; set; }
+sealed class Lyntai.Agents.AgentConversationSource
+    .ctor(String ProviderId, String DoorId, String Account = null)
+    Account : String { get; init; }
+    Deconstruct(String& ProviderId, String& DoorId, String& Account) : Void
+    DoorId : String { get; init; }
+    Equals(AgentConversationSource other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    ProviderId : String { get; init; }
+    ToString() : String
 enum Lyntai.Agents.AgentDelivery
     NeverSent : AgentDelivery const
     Taken : AgentDelivery const
@@ -80,6 +119,33 @@ enum Lyntai.Agents.AgentFailureKind
     Fatal : AgentFailureKind const
     Limit : AgentFailureKind const
     Transient : AgentFailureKind const
+    value__ : Int32
+static class Lyntai.Agents.AgentHandover
+    static Decide(AgentTranscript transcript, AgentProviderDescriptor target, String doorId, String account = null) : AgentHandoverDecision
+sealed class Lyntai.Agents.AgentHandoverDecision
+    .ctor(AgentHandoverKind Kind, AgentHandoverReason Reason, String ResumeToken)
+    Apply(AgentSessionOptions next, AgentBrief brief) : AgentSessionOptions
+    Deconstruct(AgentHandoverKind& Kind, AgentHandoverReason& Reason, String& ResumeToken) : Void
+    Equals(AgentHandoverDecision other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Kind : AgentHandoverKind { get; init; }
+    Reason : AgentHandoverReason { get; init; }
+    ResumeToken : String { get; init; }
+    ToString() : String
+enum Lyntai.Agents.AgentHandoverKind
+    FreshWithBrief : AgentHandoverKind const
+    Resume : AgentHandoverKind const
+    value__ : Int32
+enum Lyntai.Agents.AgentHandoverReason
+    AccountChanged : AgentHandoverReason const
+    Allowed : AgentHandoverReason const
+    DoorChanged : AgentHandoverReason const
+    NoConversation : AgentHandoverReason const
+    NoSuchDoor : AgentHandoverReason const
+    ProviderChanged : AgentHandoverReason const
+    ResumeNotMeasured : AgentHandoverReason const
+    ResumeUnsupported : AgentHandoverReason const
     value__ : Int32
 sealed class Lyntai.Agents.AgentMcpServer
     .ctor()
@@ -186,6 +252,21 @@ enum Lyntai.Agents.AgentToolPolicy
     ReadOnly : AgentToolPolicy const
     Write : AgentToolPolicy const
     value__ : Int32
+sealed class Lyntai.Agents.AgentTranscript
+    .ctor(IReadOnlyList<TranscriptTurn> Turns)
+    Deconstruct(IReadOnlyList`1& Turns) : Void
+    Equals(AgentTranscript other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    LatestSession : TranscriptTurn { get; }
+    ToString() : String
+    Turns : IReadOnlyList<TranscriptTurn> { get; init; }
+    static Empty : AgentTranscript { get; }
+sealed class Lyntai.Agents.AgentTranscriptRecorder
+    .ctor()
+    Add(AgentStreamEvent e) : Void
+    BeginTurn(AgentConversationSource source, AgentSessionOptions options) : Void
+    Transcript : AgentTranscript { get; }
 sealed class Lyntai.Agents.ChatOrchestrator
     .ctor(ITextClient llm, IToolLoop toolLoop, IToolRegistry tools, IGuardRail guards, IPromptComposer composer, ILogger<ChatOrchestrator> logger = null)
     ChatAsync(ChatTurn turn, CancellationToken ct = default) : Task<ChatResult>
@@ -318,6 +399,9 @@ sealed class Lyntai.Agents.PlanUpdated
     GetHashCode() : Int32
     PrintMembers(StringBuilder builder) : Boolean
     ToString() : String
+sealed class Lyntai.Agents.RecordingAgentSession
+    .ctor(IAgentSession inner, AgentTranscriptRecorder recorder, AgentConversationSource source)
+    StreamAsync(AgentSessionOptions options, CancellationToken ct = default) : IAsyncEnumerable<AgentStreamEvent>
 enum Lyntai.Agents.RecoveryKind
     OwnerAction : RecoveryKind const
     ResetAt : RecoveryKind const
@@ -500,6 +584,31 @@ enum Lyntai.Agents.ToolTransport
     None : ToolTransport const
     Prompt : ToolTransport const
     value__ : Int32
+sealed class Lyntai.Agents.ToolUseSummary
+    .ctor(String Name, Int32 Calls, Int32 Failed)
+    Calls : Int32 { get; init; }
+    Deconstruct(String& Name, Int32& Calls, Int32& Failed) : Void
+    Equals(Object obj) : Boolean
+    Equals(ToolUseSummary other) : Boolean
+    Failed : Int32 { get; init; }
+    GetHashCode() : Int32
+    Name : String { get; init; }
+    ToString() : String
+sealed class Lyntai.Agents.TranscriptTurn
+    .ctor()
+    Equals(Object obj) : Boolean
+    Equals(TranscriptTurn other) : Boolean
+    FailureKind : Nullable<AgentFailureKind> { get; init; }
+    GetHashCode() : Int32
+    LastMessage : String { get; init; }
+    Plan : IReadOnlyList<PlanEntry> { get; init; }
+    Prompt : String { get; init; } required
+    SessionId : String { get; init; }
+    Source : AgentConversationSource { get; init; } required
+    SystemPrompt : String { get; init; }
+    ToString() : String
+    Tools : IReadOnlyList<ToolUseSummary> { get; init; }
+    Verdict : Nullable<ProviderVerdict> { get; init; }
 sealed class Lyntai.Agents.UsageFinal
     .ctor(Int64 InputTokens, Int64 OutputTokens, Int64 CacheReadTokens, Int64 CacheCreateTokens, String Model)
     CacheCreateTokens : Int64 { get; init; }
@@ -2028,6 +2137,7 @@ sealed class Lyntai.Jobs.KeyValueJobScheduleStore
     RemoveAsync(String name, CancellationToken ct = default) : Task<Boolean>
     SetAsync(JobSchedule schedule, CancellationToken ct = default) : Task
 sealed class Lyntai.LyntaiBuilder
+    AddAgentBrief(Action<AgentBriefOptions> configure = null) : LyntaiBuilder
     AddAgentProvider(Func<IServiceProvider,IAgentProvider> factory) : LyntaiBuilder
     AddAgentRetry(Action<AgentRetryOptions> configure = null) : LyntaiBuilder
     AddBridgeProvider(String id, Func<TextRequest,CancellationToken,Task<TextResponse>> complete, Func<TextRequest,CancellationToken,IAsyncEnumerable<TextChunk>> stream = null, ProviderCapabilities capabilities = null) : LyntaiBuilder
