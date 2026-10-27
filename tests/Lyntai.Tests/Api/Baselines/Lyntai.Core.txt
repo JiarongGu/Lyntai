@@ -1,8 +1,51 @@
+static class Lyntai.Agents.AgentAbilities
+    DisallowedTools : String const
+    LiveUsage : String const
+    McpServers : String const
+    PlanEvents : String const
+    ReadOnlyGate : String const
+    Resume : String const
+    Steering : String const
+    SystemPrompt : String const
+    TypedFailures : String const
+    static All : IReadOnlyList<String> { get; }
+    static Needed(AgentSessionOptions options) : IReadOnlyList<String>
+sealed class Lyntai.Agents.AgentAbility
+    .ctor(String Name, AgentSupport Support, AgentAbilitySource Source)
+    AppliesTo : String { get; init; }
+    Deconstruct(String& Name, AgentSupport& Support, AgentAbilitySource& Source) : Void
+    Equals(AgentAbility other) : Boolean
+    Equals(Object obj) : Boolean
+    Evidence : String { get; init; }
+    GetHashCode() : Int32
+    Name : String { get; init; }
+    Source : AgentAbilitySource { get; init; }
+    Support : AgentSupport { get; init; }
+    ToString() : String
+enum Lyntai.Agents.AgentAbilitySource
+    Declared : AgentAbilitySource const
+    Measured : AgentAbilitySource const
+    Negotiated : AgentAbilitySource const
+    value__ : Int32
 enum Lyntai.Agents.AgentDelivery
     NeverSent : AgentDelivery const
     Taken : AgentDelivery const
     Uncertain : AgentDelivery const
     value__ : Int32
+sealed class Lyntai.Agents.AgentDoor
+    .ctor()
+    Abilities : IReadOnlyList<AgentAbility> { get; init; } required
+    Equals(AgentDoor other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Id : String { get; init; } required
+    Kind : String { get; init; } required
+    SupportFor(String ability) : AgentSupport
+    ToString() : String
+    Unhonourable(AgentSessionOptions options) : IReadOnlyList<String>
+static class Lyntai.Agents.AgentDoorKinds
+    Acp : String const
+    Cli : String const
 sealed class Lyntai.Agents.AgentFailure
     .ctor(AgentFailureKind Kind, String By)
     By : String { get; init; }
@@ -35,6 +78,25 @@ sealed class Lyntai.Agents.AgentMcpServer
     Url : String { get; init; }
     static Http(String name, String url, String authToken = null) : AgentMcpServer
     static Stdio(String name, String command, IEnumerable<String> arguments = null, IReadOnlyDictionary<String,String> environment = null) : AgentMcpServer
+sealed class Lyntai.Agents.AgentProvider
+    .ctor(AgentProviderDescriptor descriptor, Func<AgentDoor,IAgentSession> sessions)
+    Describe() : AgentProviderDescriptor
+    Open(String doorId) : IAgentSession
+    OptionRefusedSubtype : String const
+sealed class Lyntai.Agents.AgentProviderDescriptor
+    .ctor()
+    Doors : IReadOnlyList<AgentDoor> { get; init; } required
+    Equals(AgentProviderDescriptor other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Id : String { get; init; } required
+    ToString() : String
+sealed class Lyntai.Agents.AgentProviderRegistry
+    .ctor(IEnumerable<IAgentProvider> providers)
+    All : IReadOnlyList<IAgentProvider> { get; }
+    Get(String id) : IAgentProvider
+    Ids : IReadOnlyList<String> { get; }
+    TryGet(String id, IAgentProvider& provider) : Boolean
 sealed class Lyntai.Agents.AgentRestriction
     .ctor(RestrictionCause Cause, RestrictionSubject Subject, RestrictionRecovery Recovery)
     Cause : RestrictionCause { get; init; }
@@ -88,6 +150,11 @@ abstract class Lyntai.Agents.AgentStreamEvent
     GetHashCode() : Int32
     PrintMembers(StringBuilder builder) : Boolean
     ToString() : String
+enum Lyntai.Agents.AgentSupport
+    Supported : AgentSupport const
+    Unknown : AgentSupport const
+    Unsupported : AgentSupport const
+    value__ : Int32
 enum Lyntai.Agents.AgentToolPolicy
     ReadOnly : AgentToolPolicy const
     Write : AgentToolPolicy const
@@ -153,6 +220,9 @@ sealed class Lyntai.Agents.GatedToolResult
     Observation : String { get; init; }
     Reason : String { get; init; }
     ToString() : String
+interface Lyntai.Agents.IAgentProvider
+    Describe() : AgentProviderDescriptor
+    Open(String doorId) : IAgentSession
 interface Lyntai.Agents.IAgentSession
     StreamAsync(AgentSessionOptions options, CancellationToken ct = default) : IAsyncEnumerable<AgentStreamEvent>
 interface Lyntai.Agents.IChatOrchestrator
@@ -1928,6 +1998,7 @@ sealed class Lyntai.Jobs.KeyValueJobScheduleStore
     RemoveAsync(String name, CancellationToken ct = default) : Task<Boolean>
     SetAsync(JobSchedule schedule, CancellationToken ct = default) : Task
 sealed class Lyntai.LyntaiBuilder
+    AddAgentProvider(Func<IServiceProvider,IAgentProvider> factory) : LyntaiBuilder
     AddBridgeProvider(String id, Func<TextRequest,CancellationToken,Task<TextResponse>> complete, Func<TextRequest,CancellationToken,IAsyncEnumerable<TextChunk>> stream = null, ProviderCapabilities capabilities = null) : LyntaiBuilder
     AddConversationEnricher(Func<IServiceProvider,IConversationEnricher> factory) : LyntaiBuilder
     AddConversationEnricher<T>() : LyntaiBuilder

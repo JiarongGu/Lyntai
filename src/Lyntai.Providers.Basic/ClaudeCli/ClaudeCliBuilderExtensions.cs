@@ -73,7 +73,10 @@ public static class ClaudeCliBuilderExtensions
     /// <para>Registered both unkeyed and KEYED by <paramref name="id"/>, so an app that also registers
     /// <c>AddCodexCliAgentSession</c> resolves the one it means
     /// (<c>GetRequiredKeyedService&lt;IAgentSession&gt;("claude-cli")</c>) instead of whichever registration
-    /// happened to be last.</para></summary>
+    /// happened to be last.</para>
+    /// <para>Also registered as an <see cref="IAgentProvider"/> under <paramref name="id"/> (resolved through
+    /// <see cref="AgentProviderRegistry"/>), whose session refuses an option the door cannot honour before a
+    /// spawn.</para></summary>
     /// <param name="builder">The Lyntai builder.</param>
     /// <param name="command">A PORTABLE <c>claude</c> path, as with <c>AddClaudeCliProvider</c> — pass the same
     /// value to both so a host's bundled CLI is used for completions and agent sessions alike.</param>
@@ -88,6 +91,8 @@ public static class ClaudeCliBuilderExtensions
         ArgumentException.ThrowIfNullOrWhiteSpace(id);
         builder.Services.AddSingleton<IAgentSession>(sp => CreateSession(sp, command, environment));
         builder.Services.AddKeyedSingleton<IAgentSession>(id, (sp, _) => CreateSession(sp, command, environment));
+        builder.AddAgentProvider(sp => new AgentProvider(ClaudeAgentDoor.Describe(id),
+            _ => sp.GetRequiredKeyedService<IAgentSession>(id)));
         return builder;
     }
 

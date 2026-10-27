@@ -191,6 +191,10 @@ public static class LyntaiServiceCollectionExtensions
         // A name narrows the PROVIDER set and its CANDIDATE list together. Narrowing only the first is what
         // made a client pooled outside the global candidate list resolve and then fail every call —
         // ClientCandidates.Resolve is where that pairing lives.
+        // The agent providers, resolved by id. Registered here so the collection resolves even when no agent
+        // adapter is added: an empty registry names that, where a missing registration would be a DI error.
+        services.TryAddSingleton(sp => new AgentProviderRegistry(sp.GetServices<IAgentProvider>()));
+
         services.TryAddSingleton<ITextClientFactory>(sp =>
         {
             var named = builder.NamedTextClients.ToDictionary(

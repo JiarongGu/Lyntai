@@ -55,7 +55,10 @@ public static class CodexCliBuilderExtensions
     /// (agentic) codex seam, which streams the agent's TOOL STEPS rather than collapsing a turn to text.
     /// Registered both unkeyed and KEYED by <paramref name="id"/>, so an app offering both CLI backends resolves
     /// the one it means (<c>GetRequiredKeyedService&lt;IAgentSession&gt;("codex-cli")</c>) instead of whichever
-    /// registration happened to be last. The spawned command honors <c>LYNTAI_PROVIDER_CMD</c> /
+    /// registration happened to be last. Also registered as an <see cref="IAgentProvider"/> under
+    /// <paramref name="id"/> (through <see cref="AgentProviderRegistry"/>), whose session refuses an option the
+    /// door cannot honour — <see cref="AgentSessionOptions.DisallowedTools"/> here — before a spawn, where the
+    /// keyed session logs it. The spawned command honors <c>LYNTAI_PROVIDER_CMD</c> /
     /// <c>CODEX_CMD</c> so tests and e2e can point at a deterministic stub.</summary>
     /// <remarks>Read <see cref="CodexAgentSession"/>'s remarks before adopting: a tool step's KIND is reached
     /// by elimination and is provisional, while its PAYLOAD is codex's own; and two neutral
@@ -78,6 +81,8 @@ public static class CodexCliBuilderExtensions
         ArgumentException.ThrowIfNullOrWhiteSpace(id);
         builder.Services.AddSingleton<IAgentSession>(sp => CreateSession(sp, command, environment));
         builder.Services.AddKeyedSingleton<IAgentSession>(id, (sp, _) => CreateSession(sp, command, environment));
+        builder.AddAgentProvider(sp => new AgentProvider(CodexAgentDoor.Describe(id),
+            _ => sp.GetRequiredKeyedService<IAgentSession>(id)));
         return builder;
     }
 
