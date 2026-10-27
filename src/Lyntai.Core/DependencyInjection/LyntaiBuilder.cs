@@ -83,6 +83,17 @@ public sealed class LyntaiBuilder
     /// container is still being described.</para></summary>
     internal List<ProviderCapabilities> DeclaredCapabilities { get; } = [];
 
+    /// <summary>Register an <see cref="IAgentProvider"/> into the collection <see cref="AgentProviderRegistry"/>
+    /// resolves by id. Build it with <see cref="AgentProvider"/> so an option its door cannot honour is refused
+    /// before a spawn. The CLI agent-session registrations add theirs beside the keyed session.</summary>
+    /// <param name="factory">Builds the provider from the service provider.</param>
+    public LyntaiBuilder AddAgentProvider(Func<IServiceProvider, IAgentProvider> factory)
+    {
+        ArgumentNullException.ThrowIfNull(factory);
+        Services.AddSingleton(factory);
+        return this;
+    }
+
     /// <summary>Register an <see cref="IModelProvider"/> into the router's provider collection.</summary>
     /// <param name="declares">Optional. What this backend will produce, stated NOW because a type the
     /// container constructs cannot be inspected until it is built — see the

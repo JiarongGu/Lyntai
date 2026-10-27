@@ -1074,6 +1074,21 @@ was read — `NeverSent` (nothing came back from the door), `Taken` (it answered
 begun) — which is what a retry has to know. A process fault is the harness's, not the door's: only its stderr may
 name an `Access` failure, and the verdict of such a fault is still its stderr's read.
 
+**What an agent can do** (`AgentProviderRegistry`). Both `Add*CliAgentSession` extensions also register an
+`IAgentProvider` under the same `id`, and `AddLyntai` registers the `AgentProviderRegistry` that resolves one by id;
+an unknown id throws `KeyNotFoundException` naming the ids that exist. `Describe()` returns an
+`AgentProviderDescriptor`: its doors (`Id`, `Kind`) and, per door, one claim for EACH ability in `AgentAbilities.All`
+(resume, read-only gate, MCP servers, disallowed tools, system prompt, steering, plan events, live usage, typed
+failures). A claim is `Supported`, `Unsupported` or `Unknown`, with a `Source` (`Declared`, `Negotiated`,
+`Measured`) and its `Evidence`; an ability nobody measured is `Unknown`, which a host reads as not promised, never
+as not possible. Ask the descriptor rather than branching on an id. `Open(doorId)` returns the door's session, and
+that session refuses an option its door states `Unsupported` before anything is spawned — one `SessionEnded` with
+`ProviderVerdict.Unsupported`, subtype `option-unsupported` and `NeverSent` — where the keyed `IAgentSession` keeps
+its own handling (codex's logs `DisallowedTools` and spawns). An `Unknown` ability is not refused: the option reaches
+the door. Another agent is one `IAgentProvider` registered with `AddAgentProvider`; build it with `AgentProvider`
+over a descriptor and a session per door and the refusal comes with it. Today's claims on the two CLI doors are
+declared from the adapters, except codex's resume, which was measured; codex's plan events are `Unknown`.
+
 ## Durable jobs (`Lyntai.Jobs`)
 
 Long, multi-step work that survives restarts: a runner claims a job, your handler checkpoints, and a job whose

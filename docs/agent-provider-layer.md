@@ -1,7 +1,8 @@
 # The agent-provider layer — a design for the owner
 
-**Status: a proposal; one row is built — the failure of §5.3 on the two CLI doors (`docs/guide.md` §CLI-agent
-session), whose names stand as built.** The decision is **D219** (`docs/DECISIONS.md`); the build rows are
+**Status: a proposal; three rows are built — the failure of §5.3 on the two CLI doors, the event additions of
+§5.2, and the provider description and registry of §5.1 (`docs/guide.md` §CLI-agent session), whose names stand
+as built.** The decision is **D219** (`docs/DECISIONS.md`); the build rows are
 `TASKS.md` Part 376. This is a study (`docs/documents.md`): it is read for its reasoning, and what it settles
 moves into the contract documents as each row lands. Every type named below is a PROPOSED name, to be
 confirmed by the row that builds it against the `ApiSurface` baselines. The sketches are plain text because
@@ -97,6 +98,11 @@ IAgentFailureReader       a door's reading of its own failure (§5.3), required
 IAgentUsageSource         OPTIONAL, discovered with `is`, as D203 does for a store capability
 ```
 
+- **As built (AG3):** `AgentProviderDescriptor` holds the id and `AgentDoor`s; each door holds `AgentAbility`
+  claims (`Name`, `Support`, `Source`, `Evidence`, `AppliesTo`). `Accounts` waits for AG5 and `IAgentFailureReader`
+  is not built, since the two CLI doors read their failure in their own readers. `IAgentProvider` is
+  `Describe()` and `Open(doorId)`; `AgentProvider` wraps a door's session with the refusal, and
+  `AgentProviderRegistry` resolves by id.
 - **Registration is a DI collection** of `IAgentProvider`, resolved by id; an unknown id throws and names what
   exists. The existing `Add*CliAgentSession` extensions register the provider beside the keyed session they
   register now, so no consumer changes. Adding an agent is a new class and one registration, never an edit to
