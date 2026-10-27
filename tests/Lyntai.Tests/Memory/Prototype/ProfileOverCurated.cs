@@ -46,7 +46,9 @@ internal sealed class ProfileOverCurated(ICuratedMemoryStore store) : IProfileOp
         var id = ProfileClaims.IdOf(field, value, from, source);
         if (await FindAsync(field, id) is not null) return Correction.Applied;
         var (rowId, revision) = Parse(basedOn);
-        if (await store.GetAsync(rowId) is not { } old) return Correction.Missing;
+        // a handle is a row id, so a caller can name one it read under another subject or field: that is no claim of this one
+        if (await store.GetAsync(rowId) is not { } old || old.Kind != field.Field || old.TaskKey != field.TaskKey)
+            return Correction.Missing;
         if (from < Start(old)) throw new ArgumentException("A correction cannot begin before the claim it replaces.");
 
         var ended = new Dictionary<string, string>(old.Metadata ?? new Dictionary<string, string>())
