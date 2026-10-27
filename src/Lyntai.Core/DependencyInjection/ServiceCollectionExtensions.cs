@@ -89,6 +89,7 @@ public static class LyntaiServiceCollectionExtensions
         RegisterSemanticMemory(services, builder);
         RegisterVectorSpace(services, builder);
         RegisterAgents(services, options);
+        if (builder.AgentRetry is { } agentRetry) AgentRetryRegistration.Wrap(services, agentRetry);
         RegisterJobs(services, options);
         RegisterGuardsAndChat(services);
 

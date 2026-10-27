@@ -157,7 +157,8 @@ AgentFailure
 - **A recovery is a fact the sentence states or it is `unknown`.** Lyntai never invents a deadline. A default
   cool-off for an unstated reset is the HOST's option (`generic-library.md` rule 7: two honest applications
   would answer differently).
-- **A transient failure is retried by a decorator, `RetryingAgentSession`, that is off unless registered**:
+- **A transient failure is retried by a decorator, `RetryingAgentSession`, that is off unless registered**
+  (built: `AddAgentRetry`, `docs/guide.md` §CLI-agent session):
   bounded, with waits taken from an injected `TimeProvider` and cut short by cancellation. **One layer owns the
   retry budget.** It resends the original prompt only when the delivery was `never-sent`; when it was `taken`
   it resumes the conversation with a continue word if the door can resume; when it was `uncertain` it does

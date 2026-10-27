@@ -547,6 +547,25 @@ public sealed class LyntaiBuilder
         });
     }
 
+    /// <summary>Retry an agent turn that failed transiently, within <see cref="AgentRetryOptions"/>: every
+    /// registered <see cref="IAgentSession"/>, unkeyed and keyed, is wrapped in a <see cref="RetryingAgentSession"/>
+    /// when <c>AddLyntai</c> finishes composing, whatever the order of this call against the
+    /// <c>Add*AgentSession</c> calls. Off unless called. A session a host registers on the collection after
+    /// <c>AddLyntai</c> returns is not wrapped, and one the host already wrapped throws when first resolved — one
+    /// layer owns the retry budget. Repeating the call re-applies its options.</summary>
+    /// <exception cref="ArgumentOutOfRangeException">A bound is negative, or <c>MaxDelay</c> is under
+    /// <c>InitialDelay</c>.</exception>
+    public LyntaiBuilder AddAgentRetry(Action<AgentRetryOptions>? configure = null)
+    {
+        var options = AgentRetry ??= new AgentRetryOptions();
+        configure?.Invoke(options);
+        options.Validate();
+        return this;
+    }
+
+    /// <summary>Set by <see cref="AddAgentRetry"/>; <c>AddLyntai</c> wraps the agent sessions when it is present.</summary>
+    internal AgentRetryOptions? AgentRetry { get; private set; }
+
     /// <summary>Trace every front-door call: one <see cref="TraceStep"/> (kind <c>"llm"</c>, the request's consumer as
     /// its label, usage, duration, verdict and model) through <see cref="ITraceService"/>, then the scorers
     /// <see cref="TextCallTracingOptions.Scorers"/> selects — the deterministic ones by default — saved under the

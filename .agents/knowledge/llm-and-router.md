@@ -67,6 +67,9 @@ report it.
 `FromErrorText` agrees with them (one `RateLimitPattern`); a door reads a status, a category or a rejected frame
 first, and only the door's error text — never an agent message or a tool's output — reaches a sentence. A process
 fault's stderr may name an access failure and nothing else. Delivery is stamped once, in `CliAgentLoop`.
+`RetryingAgentSession` (opt-in, `AddAgentRetry`) is the only retry an agent session has, because a session never
+passes through the router; it retries `Transient` alone and a prompt is sent again only when `Delivery` is
+`NeverSent`, so a second retry layer anywhere above it would spend the turn's budget twice.
 
 ## Fallback (`TextRouter.CompleteAsync`)
 
