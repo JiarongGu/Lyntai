@@ -9,9 +9,12 @@ internal static class ClaudeAgentDoor
 {
     public const string DoorId = "cli";
 
+    public const string AccountHomeVariable = "CLAUDE_CONFIG_DIR";
+
     public static AgentProviderDescriptor Describe(string providerId) => new()
     {
         Id = providerId,
+        Accounts = new AgentAccountMapping(AccountHomeVariable),
         Doors =
         [
             new AgentDoor
@@ -29,6 +32,7 @@ internal static class ClaudeAgentDoor
                     Claim(AgentAbilities.PlanEvents, AgentSupport.Supported, "a TodoWrite call read as the plan; no real capture"),
                     Claim(AgentAbilities.LiveUsage, AgentSupport.Supported, "UsageLive on each assistant message"),
                     Claim(AgentAbilities.TypedFailures, AgentSupport.Supported, "the result's error fields before any sentence"),
+                    Claim(AgentAbilities.Accounts, AgentSupport.Supported, "the account's home in CLAUDE_CONFIG_DIR for the child"),
                 ],
             },
         ],

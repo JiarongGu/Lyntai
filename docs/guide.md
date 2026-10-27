@@ -1080,7 +1080,7 @@ name an `Access` failure, and the verdict of such a fault is still its stderr's 
 an unknown id throws `KeyNotFoundException` naming the ids that exist. `Describe()` returns an
 `AgentProviderDescriptor`: its doors (`Id`, `Kind`) and, per door, one claim for EACH ability in `AgentAbilities.All`
 (resume, read-only gate, MCP servers, disallowed tools, system prompt, steering, plan events, live usage, typed
-failures). A claim is `Supported`, `Unsupported` or `Unknown`, with a `Source` (`Declared`, `Negotiated`,
+failures, accounts). A claim is `Supported`, `Unsupported` or `Unknown`, with a `Source` (`Declared`, `Negotiated`,
 `Measured`) and its `Evidence`; an ability nobody measured is `Unknown`, which a host reads as not promised, never
 as not possible. Ask the descriptor rather than branching on an id. `Open(doorId)` returns the door's session, and
 that session refuses an option its door states `Unsupported` before anything is spawned — one `SessionEnded` with
@@ -1089,6 +1089,20 @@ its own handling (codex's logs `DisallowedTools` and spawns). An `Unknown` abili
 the door. Another agent is one `IAgentProvider` registered with `AddAgentProvider`; build it with `AgentProvider`
 over a descriptor and a session per door and the refusal comes with it. Today's claims on the two CLI doors are
 declared from the adapters, except codex's resume, which was measured; codex's plan events are `Unknown`.
+
+**Running a turn under an account** (`AgentSessionOptions.Account`). An `AgentAccount` is a `Provider` (the id the
+agent is registered under, `"claude-cli"` by default), a `Name` of your choosing and a `Home`: a configuration
+directory you already set up and signed in. The door starts its child with the home in its agent's own variable, for
+that turn only and over the same variable in the session's `environment`: `CLAUDE_CONFIG_DIR` for claude and
+`CODEX_HOME` for codex (`Describe().Accounts.HomeVariable` names it). Lyntai creates no profile, signs in to none and
+stores no credential (**D20**): it never opens the home, and nothing in the account is a secret. Pass the home
+absolute and existing, since the agent creates a missing one signed out and resolves a relative one against the
+turn's working directory. A turn through `Open(doorId)` is refused, with no process spawned, when the account belongs
+to another provider (subtype `account-other-provider`), when the door states `accounts` `Unsupported`
+(`option-unsupported`), or when the name is blank or the home is blank or holds a control character
+(`account-invalid`, which the door's own session raises too); each is one `SessionEnded` with
+`ProviderVerdict.Unsupported` and `NeverSent`. The keyed `IAgentSession` checks only the account's own shape, not whose
+it is, so go through the provider when the account may be the wrong one.
 
 **Retrying a transient failure** (`AddAgentRetry`, off unless you call it). Every registered `IAgentSession` —
 unkeyed and keyed, whichever order you register them in — is wrapped in a `RetryingAgentSession` when `AddLyntai`

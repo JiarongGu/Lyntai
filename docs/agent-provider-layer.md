@@ -1,10 +1,11 @@
 # The agent-provider layer — a design for the owner
 
-**Status: a proposal; four rows are built — the failure of §5.3 on the two CLI doors (AG1), the event additions of
-§5.2 (AG2), the provider description and registry of §5.1 (AG3) and the bounded retry of §5.3 (AG4), all in
-`docs/guide.md` §CLI-agent session, whose names stand as built; the account (AG5), the pool (AG6), the brief (AG7),
-the ACP door (AG8) and the usage reading (AG9) are not.** The decision is **D219** (`docs/DECISIONS.md`); the open
-build rows are `TASKS.md` Part 376 and the closed ones `docs/task-archive.md` Parts 381, 382, 384 and 385. This is a study (`docs/documents.md`): it is read for its reasoning, and what it settles
+**Status: a proposal; five rows are built — the failure of §5.3 on the two CLI doors (AG1), the event additions of
+§5.2 (AG2), the provider description and registry of §5.1 (AG3), the bounded retry of §5.3 (AG4) and the account's
+reach into a door (AG5, §5.4's first bullet), all in `docs/guide.md` §CLI-agent session, whose names stand as built;
+the pool (AG6), the brief (AG7), the ACP door (AG8) and the usage reading (AG9) are not.** The decision is **D219**
+(`docs/DECISIONS.md`); the open build rows are `TASKS.md` Part 376 and the closed ones `docs/task-archive.md` Parts
+381, 382, 384 and 385. This is a study (`docs/documents.md`): it is read for its reasoning, and what it settles
 moves into the contract documents as each row lands. Every type named below is a PROPOSED name, to be
 confirmed by the row that builds it against the `ApiSurface` baselines. The sketches are plain text because
 none of them compiles yet.
@@ -100,10 +101,13 @@ IAgentUsageSource         OPTIONAL, discovered with `is`, as D203 does for a sto
 ```
 
 - **As built (AG3):** `AgentProviderDescriptor` holds the id and `AgentDoor`s; each door holds `AgentAbility`
-  claims (`Name`, `Support`, `Source`, `Evidence`, `AppliesTo`). `Accounts` waits for AG5 and `IAgentFailureReader`
-  is not built, since the two CLI doors read their failure in their own readers. `IAgentProvider` is
-  `Describe()` and `Open(doorId)`; `AgentProvider` wraps a door's session with the refusal, and
-  `AgentProviderRegistry` resolves by id.
+  claims (`Name`, `Support`, `Source`, `Evidence`, `AppliesTo`). `IAgentFailureReader` is not built, since the two
+  CLI doors read their failure in their own readers. `IAgentProvider` is `Describe()` and `Open(doorId)`;
+  `AgentProvider` wraps a door's session with the refusal, and `AgentProviderRegistry` resolves by id.
+- **As built (AG5):** `Accounts` is an `AgentAccountMapping` (`HomeVariable`) on the descriptor, set exactly when
+  the doors state the `accounts` ability `Supported`: `CLAUDE_CONFIG_DIR` on claude, `CODEX_HOME` on codex. It is
+  on the descriptor, as §5.1's sketch has it, and not on each door: both CLI doors of a provider are one agent
+  reading one variable.
 - **Registration is a DI collection** of `IAgentProvider`, resolved by id; an unknown id throws and names what
   exists. The existing `Add*CliAgentSession` extensions register the provider beside the keyed session they
   register now, so no consumer changes. Adding an agent is a new class and one registration, never an edit to
@@ -170,6 +174,11 @@ AgentFailure
 - **An account** is a host-named configuration home for one provider. A neutral `Account` on
   `AgentSessionOptions` is mapped by each door to its own variable. **Lyntai creates no profile, signs in to
   none and stores no credential** (D20); whether one is signed in is the door's existing `IProviderAuth` probe.
+  **As built (AG5):** `AgentAccount` is a `Provider` (the registered id), a `Name` and a `Home`, all strings and none
+  a secret. The door sets the home in its variable on the child for that turn, over the session's own entry for it;
+  `AgentProvider` refuses an account of another provider, and each session refuses a blank name or a home with a
+  control character, all before a spawn (`docs/guide.md` §CLI-agent session). The library never opens the home
+  and does not check that it exists, since a runner may place the child on another machine.
 - **The pool** takes an ordered list of choices (provider, model, effort) and the accounts of each, and
   answers the first choice and account that no active restriction forbids, **walking a choice's accounts
   before the next choice**. It is asked once per turn, so **a rotation happens at a turn's end and never

@@ -74,6 +74,9 @@ public sealed class CodexAgentSession : IAgentSession
     /// single <see cref="SessionEnded"/> with <see cref="ProviderVerdict.Unsupported"/> — is one the CLI would read
     /// as an OPTION rather than as an id (blank, or starting with <c>-</c> such as its own <c>--last</c>),
     /// because forwarding it would silently resume the WRONG thread.
+    /// <para>A non-null <see cref="AgentSessionOptions.Account"/> sets <c>CODEX_HOME</c> to its
+    /// <see cref="AgentAccount.Home"/> for this turn's child, over the same variable in the ctor's environment; a
+    /// blank name or a home with a control character refuses the turn without spawning.</para>
     /// <para>Whether codex re-announces <c>thread.started</c> on a resumed turn is NOT measured, so a resumed
     /// turn's <see cref="SessionEnded.SessionId"/> may be null where a fresh one's is set. Nothing is
     /// fabricated to cover that: a caller resuming already holds the id it passed in, and echoing it back
@@ -86,6 +89,12 @@ public sealed class CodexAgentSession : IAgentSession
         if (!AgentMcpServers.TryValidate(options.McpServers, out var mcpRefusal))
         {
             yield return CliAgentLoop.Refused(AgentMcpServers.RefusedSubtype, mcpRefusal);
+            yield break;
+        }
+
+        if (!AgentAccounts.TryMap(options.Account, CodexAgentDoor.AccountHomeVariable, out var accountEnvironment, out var accountRefusal))
+        {
+            yield return CliAgentLoop.Refused(AgentAccounts.RefusedSubtype, accountRefusal);
             yield break;
         }
 
@@ -106,27 +115,10 @@ public sealed class CodexAgentSession : IAgentSession
         var (exe, prefixArgs) = CliCommand.Resolve(_command, Backend);
         var reader = new CodexAgentReader();
         var turn = CliAgentLoop.RunAsync(_runner, exe, [.. prefixArgs, .. agentArgs], CodexAgentArgs.BuildPrompt(options),
-            _options.ResolveTimeout(options.TimeoutSeconds), options, MergeEnvironment(_environment, mcpEnvironment),
+            _options.ResolveTimeout(options.TimeoutSeconds),
+            options, AgentAccounts.Merge(AgentAccounts.Merge(_environment, mcpEnvironment), accountEnvironment),
             reader.Read, _logger, "codex", ct);
         await foreach (var evt in turn.ConfigureAwait(false))
             yield return evt;
-    }
-
-    /// <summary>The ctor's environment (a portable install's <c>CODEX_HOME</c>, say) plus anything this TURN
-    /// needs — currently the bearer tokens of HTTP MCP servers, which codex reads only from a variable it
-    /// names. The turn's own entries win on a collision, a ctor entry's null (a removal) is carried as it
-    /// stands, and the ctor's dictionary is returned untouched when there is nothing to add.</summary>
-    private static IReadOnlyDictionary<string, string?>? MergeEnvironment(
-        IReadOnlyDictionary<string, string?>? standing, IReadOnlyDictionary<string, string> perTurn)
-    {
-        if (perTurn.Count == 0) return standing;
-
-        var merged = new Dictionary<string, string?>(StringComparer.Ordinal);
-        if (standing is not null)
-        {
-            foreach (var (key, value) in standing) merged[key] = value;
-        }
-        foreach (var (key, value) in perTurn) merged[key] = value;
-        return merged;
     }
 }

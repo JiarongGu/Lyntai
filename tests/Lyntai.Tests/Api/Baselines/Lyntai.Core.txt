@@ -1,4 +1,5 @@
 static class Lyntai.Agents.AgentAbilities
+    Accounts : String const
     DisallowedTools : String const
     LiveUsage : String const
     McpServers : String const
@@ -27,6 +28,23 @@ enum Lyntai.Agents.AgentAbilitySource
     Measured : AgentAbilitySource const
     Negotiated : AgentAbilitySource const
     value__ : Int32
+sealed class Lyntai.Agents.AgentAccount
+    .ctor()
+    Equals(AgentAccount other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Home : String { get; init; } required
+    Name : String { get; init; } required
+    Provider : String { get; init; } required
+    ToString() : String
+sealed class Lyntai.Agents.AgentAccountMapping
+    .ctor(String HomeVariable)
+    Deconstruct(String& HomeVariable) : Void
+    Equals(AgentAccountMapping other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    HomeVariable : String { get; init; }
+    ToString() : String
 enum Lyntai.Agents.AgentDelivery
     NeverSent : AgentDelivery const
     Taken : AgentDelivery const
@@ -80,11 +98,13 @@ sealed class Lyntai.Agents.AgentMcpServer
     static Stdio(String name, String command, IEnumerable<String> arguments = null, IReadOnlyDictionary<String,String> environment = null) : AgentMcpServer
 sealed class Lyntai.Agents.AgentProvider
     .ctor(AgentProviderDescriptor descriptor, Func<AgentDoor,IAgentSession> sessions)
+    AccountRefusedSubtype : String const
     Describe() : AgentProviderDescriptor
     Open(String doorId) : IAgentSession
     OptionRefusedSubtype : String const
 sealed class Lyntai.Agents.AgentProviderDescriptor
     .ctor()
+    Accounts : AgentAccountMapping { get; init; }
     Doors : IReadOnlyList<AgentDoor> { get; init; } required
     Equals(AgentProviderDescriptor other) : Boolean
     Equals(Object obj) : Boolean
@@ -118,6 +138,7 @@ static class Lyntai.Agents.AgentSessionExtensions
 class Lyntai.Agents.AgentSessionOptions
     .ctor()
     .ctor(AgentSessionOptions original)
+    Account : AgentAccount { get; init; }
     DisallowedTools : IReadOnlyList<String> { get; init; }
     EqualityContract : Type { protected get; }
     Equals(AgentSessionOptions other) : Boolean

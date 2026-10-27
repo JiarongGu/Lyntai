@@ -89,7 +89,17 @@ public sealed record AgentProviderDescriptor
 
     /// <summary>The doors, at least one.</summary>
     public required IReadOnlyList<AgentDoor> Doors { get; init; }
+
+    /// <summary>How the provider reads an account, or null when it reads none. Set exactly when its doors state
+    /// <see cref="AgentAbilities.Accounts"/> <see cref="AgentSupport.Supported"/>.</summary>
+    public AgentAccountMapping? Accounts { get; init; }
 }
+
+/// <summary>How a provider's doors take an <see cref="AgentAccount"/>: the environment variable its agent reads its
+/// configuration home from, set on the child it starts for the turn.</summary>
+/// <param name="HomeVariable">The variable name (<c>CLAUDE_CONFIG_DIR</c> for claude, <c>CODEX_HOME</c> for codex).
+/// For the turn it wins over the same variable in the session's own environment.</param>
+public sealed record AgentAccountMapping(string HomeVariable);
 
 /// <summary>The abilities a host asks about, by name. A host's own provider may state more; these are the ones
 /// every provider states.</summary>
@@ -123,21 +133,26 @@ public static class AgentAbilities
     /// <summary>State a failed turn in <see cref="SessionEnded.Failure"/>, read from the door's own fields.</summary>
     public const string TypedFailures = "typed-failures";
 
+    /// <summary>Run under <see cref="AgentSessionOptions.Account"/>: the account's home reaches the agent through
+    /// <see cref="AgentProviderDescriptor.Accounts"/>.</summary>
+    public const string Accounts = "accounts";
+
     /// <summary>Every ability a provider states, in a fixed order.</summary>
     public static IReadOnlyList<string> All { get; } =
-        [Resume, ReadOnlyGate, McpServers, DisallowedTools, SystemPrompt, Steering, PlanEvents, LiveUsage, TypedFailures];
+        [Resume, ReadOnlyGate, McpServers, DisallowedTools, SystemPrompt, Steering, PlanEvents, LiveUsage, TypedFailures, Accounts];
 
     /// <summary>The abilities <paramref name="options"/> asks a door for. Only the option-shaped ones appear:
     /// an event ability (plan events, live usage) is something a door emits, not something a turn asks for.</summary>
     public static IReadOnlyList<string> Needed(AgentSessionOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
-        var needed = new List<string>(5);
+        var needed = new List<string>(6);
         if (options.ResumeToken is not null) needed.Add(Resume);
         if (options.ToolPolicy == AgentToolPolicy.ReadOnly) needed.Add(ReadOnlyGate);
         if (options.McpServers.Count > 0) needed.Add(McpServers);
         if (options.DisallowedTools.Count > 0) needed.Add(DisallowedTools);
         if (!string.IsNullOrEmpty(options.SystemPrompt)) needed.Add(SystemPrompt);
+        if (options.Account is not null) needed.Add(Accounts);
         return needed;
     }
 }

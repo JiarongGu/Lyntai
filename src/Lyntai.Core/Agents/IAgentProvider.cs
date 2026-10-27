@@ -34,6 +34,11 @@ public sealed class AgentProvider : IAgentProvider
     /// option.</summary>
     public const string OptionRefusedSubtype = "option-unsupported";
 
+    /// <summary>The <see cref="SessionEnded.Subtype"/> of a turn refused because its
+    /// <see cref="AgentSessionOptions.Account"/> belongs to another provider. Refused the same way as an
+    /// unsupported option: one terminal, <see cref="AgentDelivery.NeverSent"/>, nothing spawned.</summary>
+    public const string AccountRefusedSubtype = "account-other-provider";
+
     private readonly AgentProviderDescriptor _descriptor;
     private readonly Dictionary<string, AgentDoorSession> _sessions;
 
@@ -59,7 +64,7 @@ public sealed class AgentProvider : IAgentProvider
             if (duplicate is not null)
                 throw new ArgumentException(
                     $"Door '{door.Id}' of agent provider '{descriptor.Id}' states '{duplicate.Key}' twice.", nameof(descriptor));
-            if (!_sessions.TryAdd(door.Id, new AgentDoorSession(door, sessions)))
+            if (!_sessions.TryAdd(door.Id, new AgentDoorSession(descriptor.Id, door, sessions)))
                 throw new ArgumentException(
                     $"Agent provider '{descriptor.Id}' has two doors named '{door.Id}'.", nameof(descriptor));
         }
@@ -78,7 +83,7 @@ public sealed class AgentProvider : IAgentProvider
                 $"Agent provider '{_descriptor.Id}' has no door '{doorId}'. Doors: {string.Join(", ", _sessions.Keys)}.");
     }
 
-    private sealed class AgentDoorSession(AgentDoor door, Func<AgentDoor, IAgentSession> open) : IAgentSession
+    private sealed class AgentDoorSession(string providerId, AgentDoor door, Func<AgentDoor, IAgentSession> open) : IAgentSession
     {
         private readonly Lazy<IAgentSession> _inner = new(() => open(door));
 
@@ -86,6 +91,16 @@ public sealed class AgentProvider : IAgentProvider
             AgentSessionOptions options, [EnumeratorCancellation] CancellationToken ct = default)
         {
             ArgumentNullException.ThrowIfNull(options);
+            if (options.Account is { } account && !string.Equals(account.Provider, providerId, StringComparison.Ordinal))
+            {
+                yield return new SessionEnded(ProviderVerdict.Unsupported, true, AccountRefusedSubtype, null, null,
+                    $"account '{account.Name}' belongs to provider '{account.Provider}', not '{providerId}'")
+                {
+                    Failure = new AgentFailure(AgentFailureKind.Fatal, "refused-before-spawn") { Delivery = AgentDelivery.NeverSent },
+                };
+                yield break;
+            }
+
             var refused = door.Unhonourable(options);
             if (refused.Count > 0)
             {
