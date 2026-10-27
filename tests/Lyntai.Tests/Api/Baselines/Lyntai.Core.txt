@@ -45,6 +45,23 @@ sealed class Lyntai.Agents.AgentAccountMapping
     GetHashCode() : Int32
     HomeVariable : String { get; init; }
     ToString() : String
+sealed class Lyntai.Agents.AgentAccountPool
+    .ctor(AgentPoolOptions options, IKeyValueStore store = null, TimeProvider time = null, IEnumerable<IAgentAllowanceSource> allowances = null, IAgentAccountPolicy policy = null, ILogger<AgentAccountPool> logger = null)
+    AbandonAsync(AgentPick pick, CancellationToken ct = default) : Task
+    ClearAsync(String id, Int64 revision, CancellationToken ct = default) : Task<Boolean>
+    HoldsAsync(CancellationToken ct = default) : Task<IReadOnlyList<AgentHold>>
+    PickAsync(CancellationToken ct = default) : Task<AgentPickResult>
+    ReportAsync(AgentPick pick, SessionEnded ended, CancellationToken ct = default) : Task
+    ReportReadingAsync(AgentAccount account, DateTimeOffset measuredAt, Nullable<Boolean> hasRoom, CancellationToken ct = default) : Task<Int32>
+sealed class Lyntai.Agents.AgentAllowance
+    .ctor(String Id, String Evidence)
+    Deconstruct(String& Id, String& Evidence) : Void
+    Equals(AgentAllowance other) : Boolean
+    Equals(Object obj) : Boolean
+    Evidence : String { get; init; }
+    GetHashCode() : Int32
+    Id : String { get; init; }
+    ToString() : String
 sealed class Lyntai.Agents.AgentBrief
     .ctor(String Text, Int32 Characters, Boolean WithinBound, AgentBriefOmitted Omitted)
     Characters : Int32 { get; init; }
@@ -74,6 +91,16 @@ sealed class Lyntai.Agents.AgentBriefOmitted
 sealed class Lyntai.Agents.AgentBriefOptions
     .ctor()
     MaxCharacters : Int32 { get; set; }
+sealed class Lyntai.Agents.AgentChoice
+    .ctor()
+    Accounts : IReadOnlyList<AgentAccount> { get; init; } required
+    Effort : String { get; init; }
+    Equals(AgentChoice other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Model : String { get; init; }
+    Provider : String { get; init; } required
+    ToString() : String
 sealed class Lyntai.Agents.AgentConversationSource
     .ctor(String ProviderId, String DoorId, String Account = null)
     Account : String { get; init; }
@@ -147,6 +174,25 @@ enum Lyntai.Agents.AgentHandoverReason
     ResumeNotMeasured : AgentHandoverReason const
     ResumeUnsupported : AgentHandoverReason const
     value__ : Int32
+sealed class Lyntai.Agents.AgentHold
+    .ctor(String Id, Int64 Revision, String Scope, AgentRestriction Restriction, DateTimeOffset ObservedAt, AgentHoldState State, Nullable<DateTimeOffset> ReadyAt)
+    Deconstruct(String& Id, Int64& Revision, String& Scope, AgentRestriction& Restriction, DateTimeOffset& ObservedAt, AgentHoldState& State, Nullable`1& ReadyAt) : Void
+    Equals(AgentHold other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Id : String { get; init; }
+    ObservedAt : DateTimeOffset { get; init; }
+    ReadyAt : Nullable<DateTimeOffset> { get; init; }
+    Restriction : AgentRestriction { get; init; }
+    Revision : Int64 { get; init; }
+    Scope : String { get; init; }
+    State : AgentHoldState { get; init; }
+    ToString() : String
+enum Lyntai.Agents.AgentHoldState
+    Attempting : AgentHoldState const
+    Blocked : AgentHoldState const
+    Ready : AgentHoldState const
+    value__ : Int32
 sealed class Lyntai.Agents.AgentMcpServer
     .ctor()
     Arguments : IReadOnlyList<String> { get; init; }
@@ -162,6 +208,24 @@ sealed class Lyntai.Agents.AgentMcpServer
     Url : String { get; init; }
     static Http(String name, String url, String authToken = null) : AgentMcpServer
     static Stdio(String name, String command, IEnumerable<String> arguments = null, IReadOnlyDictionary<String,String> environment = null) : AgentMcpServer
+sealed class Lyntai.Agents.AgentPick
+    Apply(AgentSessionOptions options) : AgentSessionOptions
+    Seat : AgentSeat { get; }
+sealed class Lyntai.Agents.AgentPickResult
+    .ctor(AgentPick Pick, Nullable<DateTimeOffset> ReadyAt)
+    Deconstruct(AgentPick& Pick, Nullable`1& ReadyAt) : Void
+    Equals(AgentPickResult other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Pick : AgentPick { get; init; }
+    ReadyAt : Nullable<DateTimeOffset> { get; init; }
+    ToString() : String
+sealed class Lyntai.Agents.AgentPoolOptions
+    .ctor()
+    AttemptLease : TimeSpan { get; set; }
+    Choices : List<AgentChoice> { get; }
+    Name : String { get; set; }
+    UnknownProbeAfter : Nullable<TimeSpan> { get; set; }
 sealed class Lyntai.Agents.AgentProvider
     .ctor(AgentProviderDescriptor descriptor, Func<AgentDoor,IAgentSession> sessions)
     AccountRefusedSubtype : String const
@@ -199,6 +263,17 @@ sealed class Lyntai.Agents.AgentRetryOptions
     InitialDelay : TimeSpan { get; set; }
     MaxDelay : TimeSpan { get; set; }
     MaxRetries : Int32 { get; set; }
+sealed class Lyntai.Agents.AgentSeat
+    .ctor(Int32 ChoiceIndex, AgentChoice Choice, AgentAccount Account, Boolean IsProbe)
+    Account : AgentAccount { get; init; }
+    Choice : AgentChoice { get; init; }
+    ChoiceIndex : Int32 { get; init; }
+    Deconstruct(Int32& ChoiceIndex, AgentChoice& Choice, AgentAccount& Account, Boolean& IsProbe) : Void
+    Equals(AgentSeat other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    IsProbe : Boolean { get; init; }
+    ToString() : String
 static class Lyntai.Agents.AgentSessionExtensions
     static RunAsync(IAgentSession session, AgentSessionOptions options, Action<AgentStreamEvent> onEvent = null, CancellationToken ct = default) : Task<AgentSessionResult>
 class Lyntai.Agents.AgentSessionOptions
@@ -328,6 +403,10 @@ sealed class Lyntai.Agents.GatedToolResult
     Observation : String { get; init; }
     Reason : String { get; init; }
     ToString() : String
+interface Lyntai.Agents.IAgentAccountPolicy
+    Select(IReadOnlyList<AgentSeat> admissible) : AgentSeat
+interface Lyntai.Agents.IAgentAllowanceSource
+    AllowanceOf(AgentAccount account) : AgentAllowance
 interface Lyntai.Agents.IAgentProvider
     Describe() : AgentProviderDescriptor
     Open(String doorId) : IAgentSession
@@ -2137,6 +2216,7 @@ sealed class Lyntai.Jobs.KeyValueJobScheduleStore
     RemoveAsync(String name, CancellationToken ct = default) : Task<Boolean>
     SetAsync(JobSchedule schedule, CancellationToken ct = default) : Task
 sealed class Lyntai.LyntaiBuilder
+    AddAgentAccountPool(Action<AgentPoolOptions> configure) : LyntaiBuilder
     AddAgentBrief(Action<AgentBriefOptions> configure = null) : LyntaiBuilder
     AddAgentProvider(Func<IServiceProvider,IAgentProvider> factory) : LyntaiBuilder
     AddAgentRetry(Action<AgentRetryOptions> configure = null) : LyntaiBuilder

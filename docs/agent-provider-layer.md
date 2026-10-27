@@ -2,8 +2,8 @@
 
 **Status: a proposal; built so far are the failure of §5.3 on the two CLI doors (AG1), the event additions of
 §5.2 (AG2), the provider description and registry of §5.1 (AG3), the bounded retry of §5.3 (AG4), the account's
-reach into a door (AG5, §5.4's first bullet) and the transcript, brief and hand-over of §5.5 (AG7), all in
-`docs/guide.md` §CLI-agent session, whose names stand as built; the pool (AG6), the ACP door (AG8) and the usage
+reach into a door (AG5, §5.4's first bullet), the pool and its restriction reducer of §5.4 (AG6) and the transcript, brief and hand-over of
+§5.5 (AG7), all in `docs/guide.md` §CLI-agent session, whose names stand as built; the ACP door (AG8) and the usage
 reading (AG9) are not.** The decision is **D219** (`docs/DECISIONS.md`); the open build rows are `TASKS.md` Part 376
 and the closed ones `docs/task-archive.md` Parts 381, 382, 384 and 385. This is a study (`docs/documents.md`): it is
 read for its reasoning, and what it settles
@@ -199,6 +199,24 @@ host-enabled, validated per door and version, side effects declared, unknown on 
   the first slice and recorded as such (§7).
 - **Which account serves a turn beyond the ordered walk** (spread, most work, least recently used) is an
   `IAgentAccountPolicy` seam. Only the ordered walk ships.
+- **As built (AG6):** `AgentAccountPool` over `AgentPoolOptions.Choices` (`AgentChoice`: provider, model, effort and
+  its accounts); `PickAsync` answers an `AgentSeat` once per turn, `ReportAsync` takes the turn's `SessionEnded`
+  back, and the rotation therefore lands on the next pick. The reducer (`AgentPoolReducer`, internal and pure) holds
+  a set of `HoldRow`s, one per scope and cause. **What a failure holds:** its own `Restriction` (a limit or an access
+  failure holds something even when the door stated nothing; a transient or fatal one only when it carries one). The
+  subject picks the scope: `Account` the account, `Endpoint` the provider, `Pool` the allowance an
+  `IAgentAllowanceSource` showed (else only the account it was seen on, since an unknown extent is not guessed),
+  and `Model` or an unstated subject the account and model that met it. **How a hold ends:** a stated moment
+  passing, a host's `ClearAsync(id, revision)`, or for an unstated recovery `AgentPoolOptions.UnknownProbeAfter`
+  (null by default, since a deadline is the host's); an owner action only by a clear. **Ending is not recovering:**
+  a released hold permits one attempt at a time, leased for `AttemptLease`, and only that attempt's success removes
+  it; its failure restates the hold one revision up. A success, a clear or a reading names the revision or the time
+  it is about, so none can undo a newer failure. A reading (`ReportReadingAsync`, the input AG9 will feed) lifts
+  only holds with a stated moment, and only if measured strictly after the hold was taken. State is one key per
+  hold under `lyntai:agent-pool:<name>:hold:`, written through, and read back on first use. **Out of scope, and
+  stated on the type: two processes sharing one pool**, since the store has no compare-and-set (§7, **D219**'s
+  re-open condition). No door implements `IAgentAllowanceSource` yet, so every `Pool` restriction holds one account
+  today.
 
 ### 5.5 Context that travels
 

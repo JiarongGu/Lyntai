@@ -581,6 +581,28 @@ public sealed class LyntaiBuilder
     /// <summary>Set by <see cref="AddAgentBrief"/>; <c>AddLyntai</c> builds the composer from it.</summary>
     internal AgentBriefOptions? AgentBrief { get; private set; }
 
+    /// <summary>Register an <see cref="AgentAccountPool"/> over the choices <paramref name="configure"/> lists
+    /// (<see cref="AgentPoolOptions.Choices"/>). Its holds are kept in the registered <see cref="IKeyValueStore"/>,
+    /// when there is one, so a restart reads them back; with none the pool is process-only. A host's own
+    /// <see cref="IAgentAccountPolicy"/> registration picks among the permitted seats, and an
+    /// <see cref="IAgentProvider"/> that is also an <see cref="IAgentAllowanceSource"/> shows which accounts share an
+    /// allowance. Off unless called; repeating the call re-applies its options. Two processes sharing one pool are out
+    /// of scope (<see cref="AgentAccountPool"/>).</summary>
+    /// <exception cref="ArgumentException">No choice, a choice with no account or with an account of another
+    /// provider, or one account listed with two homes.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">A bound is not positive.</exception>
+    public LyntaiBuilder AddAgentAccountPool(Action<AgentPoolOptions> configure)
+    {
+        ArgumentNullException.ThrowIfNull(configure);
+        var options = AgentPool ??= new AgentPoolOptions();
+        configure(options);
+        options.Validate();
+        return this;
+    }
+
+    /// <summary>Set by <see cref="AddAgentAccountPool"/>; <c>AddLyntai</c> registers the pool from it.</summary>
+    internal AgentPoolOptions? AgentPool { get; private set; }
+
     /// <summary>Trace every front-door call: one <see cref="TraceStep"/> (kind <c>"llm"</c>, the request's consumer as
     /// its label, usage, duration, verdict and model) through <see cref="ITraceService"/>, then the scorers
     /// <see cref="TextCallTracingOptions.Scorers"/> selects — the deterministic ones by default — saved under the
