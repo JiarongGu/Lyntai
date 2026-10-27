@@ -9,9 +9,12 @@ internal static class CodexAgentDoor
 {
     public const string DoorId = "cli";
 
+    public const string AccountHomeVariable = "CODEX_HOME";
+
     public static AgentProviderDescriptor Describe(string providerId) => new()
     {
         Id = providerId,
+        Accounts = new AgentAccountMapping(AccountHomeVariable),
         Doors =
         [
             new AgentDoor
@@ -30,6 +33,7 @@ internal static class CodexAgentDoor
                     Declared(AgentAbilities.PlanEvents, AgentSupport.Unknown, "read from the published todo_list item; no real capture"),
                     Declared(AgentAbilities.LiveUsage, AgentSupport.Unsupported, "usage arrives once, on turn.completed"),
                     Declared(AgentAbilities.TypedFailures, AgentSupport.Supported, "turn.failed's message, never the agent's items; no typed field on the wire"),
+                    Declared(AgentAbilities.Accounts, AgentSupport.Supported, "the account's home in CODEX_HOME for the child"),
                 ],
             },
         ],

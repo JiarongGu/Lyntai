@@ -55,6 +55,30 @@ public record AgentSessionOptions
     /// <see cref="AgentMcpServer"/> for the two transports and for what this does NOT grant (tool
     /// permission, which stays the caller's).</summary>
     public IReadOnlyList<AgentMcpServer> McpServers { get; init; } = [];
+
+    /// <summary>The account this turn runs under; null = the door's own default home. A door that reads one starts
+    /// its child with the account's <see cref="AgentAccount.Home"/> in its own configuration-home variable
+    /// (<see cref="AgentAccountMapping.HomeVariable"/>); a door that does not, and an account that belongs to
+    /// another provider, refuse the turn before anything is spawned. Needs <see cref="AgentAbilities.Accounts"/>.</summary>
+    public AgentAccount? Account { get; init; }
+}
+
+/// <summary>An account for one provider: a name the host calls it by and a configuration home the host already set
+/// up and signed in. Lyntai creates no profile, signs in to none and stores no credential (<c>D20</c>): nothing
+/// here is a secret, and the home's contents are the agent's own, never read or written by the library.</summary>
+public sealed record AgentAccount
+{
+    /// <summary>The id of the registered provider this account belongs to (<see cref="AgentProviderDescriptor.Id"/>,
+    /// <c>"claude-cli"</c> by default). Another provider refuses it.</summary>
+    public required string Provider { get; init; }
+
+    /// <summary>What the host calls the account. Carried for the host's own bookkeeping; never sent to the agent.</summary>
+    public required string Name { get; init; }
+
+    /// <summary>The account's configuration home, passed to the child verbatim in the door's home variable. It must
+    /// exist already and should be absolute: a relative path resolves against the child's working directory, and a
+    /// missing one is created by the agent itself, signed out. No control character is allowed.</summary>
+    public required string Home { get; init; }
 }
 
 /// <summary>The caller-facing outcome of a session (the fold of the event stream).</summary>

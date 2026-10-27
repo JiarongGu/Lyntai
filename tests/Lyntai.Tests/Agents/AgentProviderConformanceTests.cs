@@ -37,6 +37,7 @@ public class AgentProviderConformanceTests
                         Claim(AgentAbilities.PlanEvents, AgentSupport.Unknown, AgentAbilitySource.Declared),
                         Claim(AgentAbilities.LiveUsage, AgentSupport.Unknown, AgentAbilitySource.Declared),
                         Claim(AgentAbilities.TypedFailures, AgentSupport.Unsupported, AgentAbilitySource.Declared),
+                        Claim(AgentAbilities.Accounts, AgentSupport.Unsupported, AgentAbilitySource.Declared),
                     ],
                 },
             ],
@@ -81,11 +82,12 @@ public class AgentProviderConformanceTests
     }
 
     /// <summary>The options that need exactly <paramref name="ability"/> and nothing else a door could refuse.</summary>
-    private static AgentSessionOptions Needing(string ability)
+    private static AgentSessionOptions Needing(string ability, string providerId = StandIn)
     {
         var options = new AgentSessionOptions { Prompt = "go", ToolPolicy = AgentToolPolicy.Write };
         return ability switch
         {
+            AgentAbilities.Accounts => options with { Account = AccountOf(providerId) },
             AgentAbilities.Resume => options with { ResumeToken = "conv-1" },
             AgentAbilities.ReadOnlyGate => options with { ToolPolicy = AgentToolPolicy.ReadOnly },
             AgentAbilities.McpServers => options with { McpServers = [new AgentMcpServer { Name = "app", Command = "app-mcp" }] },
@@ -94,6 +96,11 @@ public class AgentProviderConformanceTests
             _ => throw new ArgumentOutOfRangeException(nameof(ability), ability, "not an option-shaped ability"),
         };
     }
+
+    private const string AccountHome = "/accounts/work-home";
+
+    private static AgentAccount AccountOf(string providerId) =>
+        new() { Provider = providerId, Name = "work", Home = AccountHome };
 
     private static AgentDoor DoorOf(AgentProviderRegistry registry, string providerId, string doorId) =>
         registry.Get(providerId).Describe().Doors.Single(d => d.Id == doorId);
@@ -136,7 +143,7 @@ public class AgentProviderConformanceTests
         foreach (var ability in door.Abilities.Where(a => a.Support == AgentSupport.Unsupported)
                      .Select(a => a.Name).Where(OptionAbilities.Contains))
         {
-            var events = await Run(registry.Get(providerId), doorId, Needing(ability));
+            var events = await Run(registry.Get(providerId), doorId, Needing(ability, providerId));
 
             var ended = Assert.IsType<SessionEnded>(Assert.Single(events));
             Assert.Equal(ProviderVerdict.Unsupported, ended.Verdict);
@@ -161,7 +168,7 @@ public class AgentProviderConformanceTests
             .Select(a => a.Name).Where(OptionAbilities.Contains).ToList();
         foreach (var ability in reachable)
         {
-            var events = await Run(registry.Get(providerId), doorId, Needing(ability));
+            var events = await Run(registry.Get(providerId), doorId, Needing(ability, providerId));
             Assert.DoesNotContain(events, e => e is SessionEnded { Subtype: AgentProvider.OptionRefusedSubtype });
         }
 
@@ -171,8 +178,53 @@ public class AgentProviderConformanceTests
     private static readonly string[] OptionAbilities =
     [
         AgentAbilities.Resume, AgentAbilities.ReadOnlyGate, AgentAbilities.McpServers,
-        AgentAbilities.DisallowedTools, AgentAbilities.SystemPrompt,
+        AgentAbilities.DisallowedTools, AgentAbilities.SystemPrompt, AgentAbilities.Accounts,
     ];
+
+    [Theory, MemberData(nameof(Doors))]
+    public void A_door_reads_accounts_exactly_when_it_says_how(string providerId, string doorId)
+    {
+        using var sp = Compose(new FakeProcessRunner());
+        var provider = sp.GetRequiredService<AgentProviderRegistry>().Get(providerId);
+        var supported = DoorOf(sp.GetRequiredService<AgentProviderRegistry>(), providerId, doorId)
+            .SupportFor(AgentAbilities.Accounts) == AgentSupport.Supported;
+
+        Assert.Equal(supported, !string.IsNullOrWhiteSpace(provider.Describe().Accounts?.HomeVariable));
+    }
+
+    [Theory, MemberData(nameof(Doors))]
+    public async Task An_account_of_another_provider_is_refused_before_a_spawn(string providerId, string doorId)
+    {
+        var runner = new FakeProcessRunner();
+        using var sp = Compose(runner);
+        var registry = sp.GetRequiredService<AgentProviderRegistry>();
+        var foreign = Needing(AgentAbilities.Accounts, registry.Ids.First(id => id != providerId));
+
+        var events = await Run(registry.Get(providerId), doorId, foreign);
+
+        var ended = Assert.IsType<SessionEnded>(Assert.Single(events));
+        Assert.Equal(ProviderVerdict.Unsupported, ended.Verdict);
+        Assert.True(ended.IsError);
+        Assert.Equal(AgentProvider.AccountRefusedSubtype, ended.Subtype);
+        Assert.Contains($"'{providerId}'", ended.Diagnostic);
+        Assert.Equal(AgentFailureKind.Fatal, ended.Failure!.Kind);
+        Assert.Equal(AgentDelivery.NeverSent, ended.Failure.Delivery);
+        Assert.Empty(runner.Calls);
+    }
+
+    [Theory, MemberData(nameof(Doors))]
+    public async Task An_account_of_its_own_provider_reaches_the_child_in_the_doors_home_variable(string providerId, string doorId)
+    {
+        var runner = new FakeProcessRunner();
+        using var sp = Compose(runner);
+        var registry = sp.GetRequiredService<AgentProviderRegistry>();
+        if (registry.Get(providerId).Describe().Accounts is not { } mapping) return;   // a door that reads none refuses it, held above
+
+        await Run(registry.Get(providerId), doorId, Needing(AgentAbilities.Accounts, providerId));
+
+        var call = Assert.Single(runner.Calls);
+        Assert.Equal(AccountHome, call.Environment![mapping.HomeVariable]);
+    }
 
     // ── the registry, the doors and the descriptor ───────────────────────────
 
@@ -259,11 +311,12 @@ public class AgentProviderConformanceTests
         {
             Prompt = "go", ResumeToken = "t", SystemPrompt = "s", DisallowedTools = ["Bash"],
             McpServers = [new AgentMcpServer { Name = "app", Command = "x" }],
+            Account = AccountOf("p"),
         };
 
         Assert.Equal(
             [AgentAbilities.Resume, AgentAbilities.ReadOnlyGate, AgentAbilities.McpServers,
-                AgentAbilities.DisallowedTools, AgentAbilities.SystemPrompt],
+                AgentAbilities.DisallowedTools, AgentAbilities.SystemPrompt, AgentAbilities.Accounts],
             AgentAbilities.Needed(everything));
         Assert.Equal([AgentAbilities.ReadOnlyGate], AgentAbilities.Needed(new AgentSessionOptions { Prompt = "go" }));
         Assert.Empty(AgentAbilities.Needed(new AgentSessionOptions { Prompt = "go", ToolPolicy = AgentToolPolicy.Write }));

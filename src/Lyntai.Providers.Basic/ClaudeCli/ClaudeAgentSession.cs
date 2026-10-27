@@ -60,7 +60,9 @@ public sealed class ClaudeAgentSession : IAgentSession
     /// <see cref="ProviderVerdict.Unsupported"/>) rather than being dropped, because an agent that silently lost
     /// the tools it exists to use looks like a working agent. So does a
     /// <see cref="AgentSessionOptions.ResumeToken"/> the CLI would read as an OPTION rather than an id: blank,
-    /// or starting with <c>-</c>.</param>
+    /// or starting with <c>-</c>. A non-null <see cref="AgentSessionOptions.Account"/> sets
+    /// <c>CLAUDE_CONFIG_DIR</c> to its <see cref="AgentAccount.Home"/> for this turn's child, over the same variable
+    /// in the ctor's environment; a blank name or a home with a control character refuses the turn too.</param>
     /// <param name="ct">Cancels the turn and kills the process tree.</param>
     public async IAsyncEnumerable<AgentStreamEvent> StreamAsync(
         AgentSessionOptions options, [EnumeratorCancellation] CancellationToken ct = default)
@@ -68,6 +70,12 @@ public sealed class ClaudeAgentSession : IAgentSession
         if (!AgentMcpServers.TryValidate(options.McpServers, out var mcpRefusal))
         {
             yield return CliAgentLoop.Refused(AgentMcpServers.RefusedSubtype, mcpRefusal);
+            yield break;
+        }
+
+        if (!AgentAccounts.TryMap(options.Account, ClaudeAgentDoor.AccountHomeVariable, out var accountEnvironment, out var accountRefusal))
+        {
+            yield return CliAgentLoop.Refused(AgentAccounts.RefusedSubtype, accountRefusal);
             yield break;
         }
 
@@ -92,7 +100,7 @@ public sealed class ClaudeAgentSession : IAgentSession
             var (exe, prefixArgs) = CliCommand.Resolve(_command, Backend);
             var reader = new StreamJsonAgentReader();
             var turn = CliAgentLoop.RunAsync(_runner, exe, [.. prefixArgs, .. agentArgs], options.Prompt,
-                _options.ResolveTimeout(options.TimeoutSeconds), options, _environment, reader.Read, _logger,
+                _options.ResolveTimeout(options.TimeoutSeconds), options, AgentAccounts.Merge(_environment, accountEnvironment), reader.Read, _logger,
                 "claude", ct);
             await foreach (var evt in turn.ConfigureAwait(false))
                 yield return evt;
