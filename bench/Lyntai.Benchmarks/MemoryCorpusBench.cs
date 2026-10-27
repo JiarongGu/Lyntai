@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Text.Json;
 using Lyntai.Memory;
 using Lyntai.Memory.Engines;
+using Lyntai.Memory.Ranking;
 using Lyntai.Memory.Seeding;
 using Lyntai.Storage;
 using Lyntai.Storage.Sqlite;
@@ -38,7 +39,9 @@ internal static class MemoryCorpusBench
     private const string Scope = "records";
     private const int Limit = 10;
 
-    private sealed record Arm(string Name, bool Embeds, Func<ArmEnv, IMemoryEngine> Build);
+    /// <param name="Validity">Write each chunk with its record's date as valid time, and a decision that amends another
+    /// as superseding the amended one's chunks — the way a caller who reads "this amends D7" as "D7 ended" would.</param>
+    private sealed record Arm(string Name, bool Embeds, Func<ArmEnv, IMemoryEngine> Build, bool Validity = false);
 
     private sealed class ArmEnv(MemoryPolicySweep.SweepDb db, SweepDoubles.CachingVectorProvider? vectorProvider)
     {
@@ -47,8 +50,10 @@ internal static class MemoryCorpusBench
         public SweepDoubles.CachingVectorProvider VectorProvider => vectorProvider!;
     }
 
+    /// <param name="PoolHit">Whether a primary gold chunk was among the candidates the recall considered, returned or
+    /// not; null for an engine with no candidate stage. The gap between this and the page is RANKING, the rest is RETRIEVAL.</param>
     private sealed record Result(int Question, QuestionKind Kind, QuestionOutcome Outcome, double LatencyMs, bool Empty,
-        double Overlap, int GoldRecords, int Quintile);
+        double Overlap, int GoldRecords, int Quintile, bool? PoolHit);
 
     private sealed record ArmSummary(string Arm, string Tier, int Writes, double IngestSeconds, long Bytes,
         double RecallP50, double RecallP95, double EmptyRate, IReadOnlyList<Result> Results);
@@ -99,7 +104,7 @@ internal static class MemoryCorpusBench
         foreach (var arm in arms)
         {
             Console.WriteLine($"-- {arm.Name}: ingesting {chunks.Count} chunk(s)…");
-            summaries.Add(await RunArmAsync(arm, embedder, chunks, questions, overlap, firstChunk, tier));
+            summaries.Add(await RunArmAsync(arm, embedder, chunks, questions, overlap, firstChunk, tier, byKey));
         }
 
         PrintResults(summaries, questions, byKey, tier, embedNote);
@@ -129,10 +134,28 @@ internal static class MemoryCorpusBench
         yield return new Arm("lexical-default-cap", false, e => new LexicalMemoryEngine(Task,
             new SqliteMemoryStore(e.Db.Factory, new LyntaiOptions())));
         yield return new Arm("lexical", false, e => new LexicalMemoryEngine(Task,
-            new SqliteMemoryStore(e.Db.Factory, new LyntaiOptions { MemoryEviction = MemoryEvictionPolicy.CountCap(int.MaxValue) })));
+            new SqliteMemoryStore(e.Db.Factory, new LyntaiOptions { MemoryEviction = MemoryEvictionPolicy.Manual })));
         yield return new Arm("graph", false, e => new GraphMemoryEngine(Task, new SqliteMemoryGraphStore(e.Db.Factory)));
         yield return new Arm("graph-ro", false, e => new GraphMemoryEngine(Task, new SqliteMemoryGraphStore(e.Db.Factory),
             options: ReadOnly));
+        // Where does the graph engine lose to the keyword store it seeds from? Same pool, three different orderings.
+        yield return new Arm("graph-ro+relevance", false, e => new GraphMemoryEngine(Task,
+            new SqliteMemoryGraphStore(e.Db.Factory), options: ReadOnly, seams: new GraphMemorySeams
+            {
+                Ranking = new ReciprocalRankFusionPolicy(new ReciprocalRankFusionOptions { RetrievabilityWeight = 0, HopWeight = 0 }),
+            }));
+        yield return new Arm("graph-ro+multiplicative", false, e => new GraphMemoryEngine(Task,
+            new SqliteMemoryGraphStore(e.Db.Factory), options: ReadOnly, seams: new GraphMemorySeams
+            {
+                Ranking = new MultiplicativeRankingPolicy(),
+            }));
+        yield return new Arm("graph-ro+relevance+valid", false, e => new GraphMemoryEngine(Task,
+            new SqliteMemoryGraphStore(e.Db.Factory), options: ReadOnly, seams: new GraphMemorySeams
+            {
+                Ranking = new ReciprocalRankFusionPolicy(new ReciprocalRankFusionOptions { RetrievabilityWeight = 0, HopWeight = 0 }),
+            }), Validity: true);
+        yield return new Arm("graph-ro+pool100", false, e => new GraphMemoryEngine(Task,
+            new SqliteMemoryGraphStore(e.Db.Factory), options: ReadOnly with { CandidateMultiplier = 100 }));
         if (!embedder) yield break;
 
         yield return new Arm("semantic", true, e => new SemanticMemoryEngine(Task,
@@ -142,6 +165,8 @@ internal static class MemoryCorpusBench
         yield return new Arm("graph-ro+seed20", true, e => Seeded(e, ReadOnly, 20));
         yield return new Arm("graph-ro+seed20-nolink", true, e => Seeded(e, ReadOnly with { MinSimilarity = 1.01 }, 20));
         yield return new Arm("graph+seed20", true, e => Seeded(e, new GraphMemoryOptions(), 20));
+        yield return new Arm("graph-ro+seed20+relevance", true, e => Seeded(e, ReadOnly, 20,
+            new ReciprocalRankFusionPolicy(new ReciprocalRankFusionOptions { RetrievabilityWeight = 0, HopWeight = 0 })));
     }
 
     private static GraphMemoryOptions ReadOnly => new()
@@ -151,13 +176,14 @@ internal static class MemoryCorpusBench
         LogReviews = false,
     };
 
-    private static GraphMemoryEngine Seeded(ArmEnv e, GraphMemoryOptions options, int k)
+    private static GraphMemoryEngine Seeded(ArmEnv e, GraphMemoryOptions options, int k, IMemoryRankingPolicy? ranking = null)
     {
         var vectors = new InMemoryVectorStore();
         return new GraphMemoryEngine(Task, new SqliteMemoryGraphStore(e.Db.Factory), options: options, seams: new GraphMemorySeams
         {
             Providers = [e.VectorProvider],
             Vectors = vectors,
+            Ranking = ranking,
             SeedSources = [new LexicalSeedSource(), new SubjectSeedSource(),
                 new SemanticSeedSource([e.VectorProvider], vectors, new SemanticSeedOptions { K = k })],
         });
@@ -190,17 +216,36 @@ internal static class MemoryCorpusBench
 
     private static async Task<ArmSummary> RunArmAsync(Arm arm, SweepDoubles.CachingVectorProvider? embedder,
         IReadOnlyList<CorpusChunk> chunks, IReadOnlyList<CorpusQuestion> questions, Dictionary<int, double> overlap,
-        Dictionary<string, int> firstChunk, string tier)
+        Dictionary<string, int> firstChunk, string tier, Dictionary<string, CorpusRecord> byKey)
     {
         using var db = new MemoryPolicySweep.SweepDb();
         var engine = arm.Build(new ArmEnv(db, embedder));
         var chunkOf = new Dictionary<string, int>(StringComparer.Ordinal);
+        var written = new Dictionary<string, List<MemoryRef>>();
 
         var sw = Stopwatch.StartNew();
         for (var i = 0; i < chunks.Count; i++)
         {
-            var written = await engine.RememberAsync(new MemoryWrite(Task, Scope, chunks[i].Text));
-            chunkOf.TryAdd(written.Reference.Id, i);
+            var write = new MemoryWrite(Task, Scope, chunks[i].Text);
+            if (arm.Validity && byKey[chunks[i].RecordKey] is { Date: { } day } record)
+            {
+                // Only the amender's first chunk names what it supersedes, and only an amended record that
+                // is strictly older: a supersession ending an entry before it began is a caller's error.
+                var amended = chunks[i].FirstSection == 0 && !written.ContainsKey(record.Key)
+                    ? record.Amends.Where(k => written.ContainsKey(k) && byKey[k].Date < day)
+                        .SelectMany(k => written[k]).ToList()
+                    : [];
+                write = new MemoryWrite(Task, Scope, chunks[i].Text)
+                {
+                    ValidFrom = new DateTimeOffset(day.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero),
+                    Supersedes = amended.Count > 0 ? amended : null,
+                };
+            }
+
+            var result = await engine.RememberAsync(write);
+            if (arm.Validity) written.TryAdd(chunks[i].RecordKey, []);
+            if (arm.Validity) written[chunks[i].RecordKey].Add(result.Reference);
+            chunkOf.TryAdd(result.Reference.Id, i);
             if ((i + 1) % 2000 == 0) Console.WriteLine($"   {i + 1}/{chunks.Count} in {sw.Elapsed.TotalSeconds:F0}s");
         }
 
@@ -210,15 +255,18 @@ internal static class MemoryCorpusBench
         foreach (var q in questions)
         {
             sw.Restart();
-            var recall = await engine.RecallAsync(new MemoryQuery(Task, Scope, q.Text, Limit));
+            var recall = await engine.RecallAsync(new MemoryQuery(Task, Scope, q.Text, Limit) { Explain = true });
             var ms = sw.Elapsed.TotalMilliseconds;
             latencies.Add(ms);
             var ranked = recall.Items.Where(i => chunkOf.ContainsKey(i.Reference.Id))
                 .Select(i => chunks[chunkOf[i.Reference.Id]]).ToList();
             var gold = q.Gold.Where(g => g.Role == q.Primary).Select(g => g.RecordKey).Distinct().ToList();
             var quintile = gold.Where(firstChunk.ContainsKey).Select(g => firstChunk[g] * 5 / Math.Max(1, chunks.Count)).DefaultIfEmpty(0).Min();
+            bool? poolHit = recall.Candidates is null ? null
+                : recall.Candidates.Any(c => chunkOf.TryGetValue(c.Reference.Id, out var ci)
+                    && q.Gold.Any(g => g.Role == q.Primary && g.Matches(chunks[ci])));
             results.Add(new Result(q.Id, q.Kind, RecallScoring.Score(q, ranked), ms, recall.Items.Count == 0,
-                overlap[q.Id], gold.Count, quintile));
+                overlap[q.Id], gold.Count, quintile, poolHit));
         }
 
         latencies.Sort();
@@ -274,11 +322,27 @@ internal static class MemoryCorpusBench
             }
         }
 
+        PrintPool(arms);
         PrintAmendments(arms);
         PrintBy(arms, "lexical overlap of the question with its answer (hit@10)",
             [("<1/3", r => r.Overlap < 1 / 3.0), ("1/3-2/3", r => r.Overlap is >= 1 / 3.0 and < 2 / 3.0), (">=2/3", r => r.Overlap >= 2 / 3.0)]);
         PrintBy(arms, "age of the answer in the ingest order, oldest fifth first (hit@10)",
             [.. Enumerable.Range(0, 5).Select<int, (string, Func<Result, bool>)>(i => ($"q{i + 1}", r => r.Quintile == i))]);
+    }
+
+    private static void PrintPool(IReadOnlyList<ArmSummary> arms)
+    {
+        Console.WriteLine("\nRetrieval vs ranking — the answer was among the candidates considered / on the returned page (primary role)");
+        foreach (var kind in Enum.GetValues<QuestionKind>())
+        {
+            Console.WriteLine($"  {kind}");
+            foreach (var a in arms)
+            {
+                var rs = a.Results.Where(r => r.Kind == kind && r.PoolHit is not null).ToList();
+                if (rs.Count == 0) continue;
+                Console.WriteLine($"    {a.Arm,-24}pool {rs.Count(r => r.PoolHit == true) / (double)rs.Count,5:P0}   page {rs.Count(r => r.Outcome.Hit(10)) / (double)rs.Count,5:P0}");
+            }
+        }
     }
 
     private static void PrintAmendments(IReadOnlyList<ArmSummary> arms)
