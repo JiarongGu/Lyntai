@@ -7,6 +7,59 @@ to `.agents/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-10-28 — a SQLite vector search parsed every vector and payload in the collection: 1.5 s a query at 11,000
+
+**Symptom.** Found by `memory-corpus` over a real 11,112-chunk record set with a 384-dimension embedder: a
+`SemanticMemoryEngine` over `SqliteVectorStore` answered a recall in p50 1,461 ms (p95 2,313 ms), where the same
+engine over `InMemoryVectorStore` answered in p50 17 ms. The same scan ran inside every graph write that embeds, and
+inside the semantic seed of every recall.
+
+**Root cause.** `SearchCoreAsync` selected `vec_id, vector, payload` for the WHOLE collection, deserialized each
+vector's JSON into a `float[]` and each row into an object, scored all of them, sorted all of them, and only then took
+`k`. The cost was the per-row materialisation (about 77 MB of text for 11,000 rows), not the arithmetic.
+`InMemoryVectorStore` had the same shape one level down: a `VectorMatch` per entry and a sort of the whole collection
+per search, which is what a write that judges novelty pays against a growing index.
+
+**Fix.** Both keep a bounded top-k in a heap and read nothing they will not return. SQLite streams each vector's text
+straight into the dot product, summed in `VectorMath.Cosine`'s order so a score is the same double, and reads the
+payloads of the `k` winners alone. The in-memory store caches each vector's squared length at upsert and copies the
+vector it is handed, so a caller reusing its buffer can no longer change what is stored. The heap's worst-first order
+(lowest score, then greatest id) is the exact reverse of the result order, which keeps the k-boundary tie rule
+`VectorStoreContract` pins.
+
+**Verify.** `SqliteVectorStoreScanTests` and `InMemoryVectorStoreScanTests`: scores equal `VectorMath.Cosine` to the
+bit over magnitudes from 1e-7 to 1e4, the same k members as a full sort when k falls inside a tie, and a row whose
+text is not a vector ranks last instead of failing the search. The buffer-reuse test fails before the change; the
+others pin what must not move, and `VectorStoreContract` runs unchanged against both stores. Timing is in
+`docs/memory-measurements.md` §5, `corpus-cost-before-after`.
+
+**Introduced by.** `e97aeadc` (2026-07-18), the first semantic memory, which scored by sorting; `SqliteVectorStore`
+kept the shape when it took its JSON column.
+
+## 2026-10-28 — the SQLite graph store committed every edge and every touch on its own: a linked write cost six times an unlinked one
+
+**Symptom.** Found by `memory-corpus`: ingesting 11,112 chunks took 516 s with similarity linking and the semantic seed on and 191 s with the
+link floor above 1, the same embeddings, search and novelty either way; and a recall on shipped defaults took p50
+517 ms where the same engine with reinforcement off took 230 ms. On 3,000 entries with the deterministic test embedder a
+linked write cost 57.7 ms against 8.6 ms unlinked.
+
+**Root cause.** `LinkManyAsync` and the touch statement ran one statement per edge or row on a connection with no
+transaction, and each autocommits. A write linking five neighbours symmetrically paid ten commits; a recall's
+write-back paid one per touched row and per edge. The batching of `9f74880f` and `28024014` had removed the repeated
+connection opens and position reads and left the commits.
+
+**Fix.** `LinkManyAsync`, `LinkAsync` and the touches-and-edges half of `WriteBackAsync` each run in one transaction.
+The review log stays outside it, last, as `IMemoryGraphStore.WriteBackAsync` requires. A failure part-way now rolls the
+batch back where it used to keep the statements that had run. `PostgresMemoryGraphStore` has the same loop and was NOT
+changed: the Docker daemon was down for this work, so the change could not be run against it.
+
+**Verify.** Not a failing test: no test asserts a commit count. The memory and storage suites pass unchanged
+(`MemoryGraphStoreContract`, `GraphSimilarityTests` and the write-back tests among them), and the figures are
+`docs/memory-measurements.md` §5, `corpus-cost-before-after`: the linked ingest (516 s to 210 s), the shipped graph recall
+(p50 517 ms to 268 ms), and the 3,000-entry case above.
+
+**Introduced by.** `9f74880f` (2026-08-29) and `28024014` (2026-08-29), which batched the calls and kept the commits.
+
 ## 2026-10-25 — a bridged backend had no provider timeout: a hung vendor held the call until the caller gave up
 
 **Symptom.** Found assessing whether an `IChatClient` needs an adapter (RV18, `docs/task-archive.md` Part 373), by hanging an

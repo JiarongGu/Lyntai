@@ -104,7 +104,19 @@ internal static class MemoryCorpusBench
         foreach (var arm in arms)
         {
             Console.WriteLine($"-- {arm.Name}: ingesting {chunks.Count} chunk(s)…");
-            summaries.Add(await RunArmAsync(arm, embedder, chunks, questions, overlap, firstChunk, tier, byKey));
+            try
+            {
+                var done = await RunArmAsync(arm, embedder, chunks, questions, overlap, firstChunk, tier, byKey);
+                summaries.Add(done);
+                Console.WriteLine($"   done: ingest {done.IngestSeconds:F0}s, recall p50 {done.RecallP50:F0} ms, hit@10 "
+                    + string.Join(" ", done.Results.GroupBy(r => r.Kind).OrderBy(g => g.Key)
+                        .Select(g => $"{g.Key}={g.Count(r => r.Outcome.Hit(10)) / (double)g.Count():P0}")));
+            }
+            catch (Exception ex)
+            {
+                // an arm that cannot run is a finding, and must not cost the arms that did
+                Console.WriteLine($"   ✗ {arm.Name} failed: {ex.GetType().Name}: {ex.Message.Split('\n')[0]}");
+            }
         }
 
         PrintResults(summaries, questions, byKey, tier, embedNote);
@@ -222,6 +234,7 @@ internal static class MemoryCorpusBench
         var engine = arm.Build(new ArmEnv(db, embedder));
         var chunkOf = new Dictionary<string, int>(StringComparer.Ordinal);
         var written = new Dictionary<string, List<MemoryRef>>();
+        var ended = new HashSet<string>();
 
         var sw = Stopwatch.StartNew();
         for (var i = 0; i < chunks.Count; i++)
@@ -231,8 +244,10 @@ internal static class MemoryCorpusBench
             {
                 // Only the amender's first chunk names what it supersedes, and only an amended record that
                 // is strictly older: a supersession ending an entry before it began is a caller's error.
+                // An entry has ONE successor, so a decision amended twice can be superseded by only the first
+                // amender; the second states its valid time and leaves it alone.
                 var amended = chunks[i].FirstSection == 0 && !written.ContainsKey(record.Key)
-                    ? record.Amends.Where(k => written.ContainsKey(k) && byKey[k].Date < day)
+                    ? record.Amends.Where(k => written.ContainsKey(k) && byKey[k].Date < day && ended.Add(k))
                         .SelectMany(k => written[k]).ToList()
                     : [];
                 write = new MemoryWrite(Task, Scope, chunks[i].Text)
