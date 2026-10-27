@@ -26,7 +26,32 @@ internal static class CliAgentLoop
     /// be handed as given. <see cref="ProviderVerdict.Unsupported"/>, with <paramref name="subtype"/> naming
     /// WHICH input.</summary>
     public static SessionEnded Refused(string subtype, string? why) =>
-        new(ProviderVerdict.Unsupported, true, subtype, null, null, why);
+        new(ProviderVerdict.Unsupported, true, subtype, null, null, why)
+        {
+            Failure = new AgentFailure(AgentFailureKind.Fatal, "refused-before-spawn") { Delivery = AgentDelivery.NeverSent },
+        };
+
+    // What a failed turn had shown before it failed — the one place delivery is decided, for every door. A tool
+    // step that had begun may have acted, so it is uncertain; any other event means the door answered, so the
+    // prompt was taken; nothing at all shows no sign it was read.
+    private static SessionEnded Stamp(SessionEnded ended, bool sawEvent, bool sawTool)
+    {
+        if (!ended.IsError) return ended;
+        var failure = ended.Failure ?? new AgentFailure(AgentFailureKind.Fatal, "no-failure-fields");
+        var delivery = sawTool ? AgentDelivery.Uncertain : sawEvent ? AgentDelivery.Taken : AgentDelivery.NeverSent;
+        return ended with { Failure = failure with { Delivery = delivery } };
+    }
+
+    // A process fault is the harness's, not the door's: only its stderr may name an access failure, a stalled
+    // window is transient, and anything else is fatal.
+    private static AgentFailure FaultFailure(Exception ex, ProviderVerdict verdict) => ex switch
+    {
+        ProcessTimeoutException => new AgentFailure(AgentFailureKind.Transient, "process.inactivity-timeout"),
+        ProcessRunException when verdict is ProviderVerdict.AuthFailed or ProviderVerdict.NotConfigured =>
+            new AgentFailure(AgentFailureKind.Access, "process.stderr:auth"),
+        ProcessRunException => new AgentFailure(AgentFailureKind.Fatal, "process.exit"),
+        _ => new AgentFailure(AgentFailureKind.Fatal, "process.spawn"),
+    };
 
     /// <summary>Run one turn and stream its events.</summary>
     /// <param name="runner">Spawns the CLI.</param>
@@ -48,6 +73,8 @@ internal static class CliAgentLoop
     {
         var sawTerminal = false;
         var sawContent = false;
+        var sawEvent = false;
+        var sawTool = false;
         string? sessionId = null;
 
         var lines = runner.StreamLinesAsync(exe, argv, stdin: stdin, inactivityTimeout: timeout,
@@ -59,8 +86,8 @@ internal static class CliAgentLoop
             var guarded = GuardedStream.ReadAll<string, SessionEnded>(
                 async () => await e.MoveNextAsync().ConfigureAwait(false) ? e.Current : null,
                 ex => CliFault.Classify(ex) is { } fault
-                    ? new SessionEnded(fault.Verdict, true, ex is ProcessTimeoutException ? "timeout" : null,
-                        sessionId, null, fault.Detail)
+                    ? Stamp(new SessionEnded(fault.Verdict, true, ex is ProcessTimeoutException ? "timeout" : null,
+                        sessionId, null, fault.Detail) { Failure = FaultFailure(ex, fault.Verdict) }, sawEvent, sawTool)
                     : null,
                 ct);
             await foreach (var (line, terminal) in guarded.ConfigureAwait(false))
@@ -72,8 +99,9 @@ internal static class CliAgentLoop
                     yield break;
                 }
 
-                foreach (var evt in read(line!))
+                foreach (var item in read(line!))
                 {
+                    var evt = item;
                     switch (evt)
                     {
                         case SessionStarted started:
@@ -83,11 +111,14 @@ internal static class CliAgentLoop
                             if (sawTerminal) continue;
                             sawTerminal = true;
                             sessionId = ended.SessionId ?? sessionId;
+                            evt = Stamp(ended, sawEvent, sawTool);
                             break;
                         case TextDelta or ToolCall or ToolResult or Thinking:
                             sawContent = true;
                             break;
                     }
+                    if (evt is ToolCall or ToolResult) sawTool = true;
+                    if (evt is not SessionEnded) sawEvent = true;
                     yield return evt;
                 }
             }
@@ -100,6 +131,7 @@ internal static class CliAgentLoop
             : "no output produced (no terminal result)";
         logger.LogWarning("{Backend} agent session produced no terminal event ({Diagnostic}); session={SessionId}",
             backend, diagnostic, sessionId);
-        yield return new SessionEnded(ProviderVerdict.Failed, true, null, sessionId, null, diagnostic);
+        yield return Stamp(new SessionEnded(ProviderVerdict.Failed, true, null, sessionId, null, diagnostic)
+            { Failure = new AgentFailure(AgentFailureKind.Fatal, "no-terminal-event") }, sawEvent, sawTool);
     }
 }

@@ -93,13 +93,19 @@ internal sealed class CodexAgentReader
 
             case CodexEnvelope.TurnFailed:
                 var message = CodexEnvelope.FailureMessage(root);
+                // the exec JSONL carries a message and no typed field, so `turn.failed`'s message is the door's
+                // own failure; the agent's items before it never are
+                var failure = ProviderVerdictClassifier.ReadAgentFailure(message, _time) is { } read
+                    ? read with { By = $"codex.turn.failed:{read.By}" }
+                    : new AgentFailure(AgentFailureKind.Fatal, "codex.turn.failed");
                 yield return new SessionEnded(
-                    Verdict: ProviderVerdictClassifier.FromErrorText(message),
+                    Verdict: ProviderVerdictClassifier.FromAgentFailure(failure, message),
                     IsError: true,
                     Subtype: null,                 // codex reports no failure subtype
                     SessionId: _threadId,
                     FinalText: null,               // a failed turn's partial text is not an answer
-                    Diagnostic: message);
+                    Diagnostic: message)
+                { Failure = failure };
                 break;
 
             // Everything else — `turn.started`, a bare `error` NOTICE, an `item.updated` that is not a plan (a

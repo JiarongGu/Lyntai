@@ -1062,6 +1062,18 @@ reading only with one of the same door and scope. Both doors read `Turn` from th
 claude's is the turn's total over every API call, and codex's scope is taken from its usage record and has not
 been re-measured across a resumed conversation.
 
+**Why a turn failed** (`SessionEnded.Failure`, set on every failed terminal of both CLI sessions, null on a good
+one). `AgentFailure.Kind` is `Limit`, `Access`, `Transient` or `Fatal`, read from the door's OWN failure — a
+rejected `rate_limit_event`, a result's `api_error_status`, a failed turn's message — and never from what the agent
+said or a tool printed, so a model quoting "529 Overloaded" cannot stop its own turn. The kinds map onto the
+existing verdicts and add none (`Limit` is `RateLimited`, `Access` is `AuthFailed`, `Transient` is `Failed`).
+`Restriction` says what ran out (`Cause`), what it holds back (`Subject`) and how it ends (`Recovery`: a reset
+moment, a retry-not-before, an owner action, or `Unknown`). Lyntai states a recovery only where the words or a
+field do and never invents a deadline: a default cool-off is yours to choose. `Delivery` says whether the prompt
+was read — `NeverSent` (nothing came back from the door), `Taken` (it answered) or `Uncertain` (a tool step had
+begun) — which is what a retry has to know. A process fault is the harness's, not the door's: only its stderr may
+name an `Access` failure, and the verdict of such a fault is still its stderr's read.
+
 ## Durable jobs (`Lyntai.Jobs`)
 
 Long, multi-step work that survives restarts: a runner claims a job, your handler checkpoints, and a job whose

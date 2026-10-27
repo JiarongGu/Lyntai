@@ -1,3 +1,25 @@
+enum Lyntai.Agents.AgentDelivery
+    NeverSent : AgentDelivery const
+    Taken : AgentDelivery const
+    Uncertain : AgentDelivery const
+    value__ : Int32
+sealed class Lyntai.Agents.AgentFailure
+    .ctor(AgentFailureKind Kind, String By)
+    By : String { get; init; }
+    Deconstruct(AgentFailureKind& Kind, String& By) : Void
+    Delivery : AgentDelivery { get; init; }
+    Equals(AgentFailure other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Kind : AgentFailureKind { get; init; }
+    Restriction : AgentRestriction { get; init; }
+    ToString() : String
+enum Lyntai.Agents.AgentFailureKind
+    Access : AgentFailureKind const
+    Fatal : AgentFailureKind const
+    Limit : AgentFailureKind const
+    Transient : AgentFailureKind const
+    value__ : Int32
 sealed class Lyntai.Agents.AgentMcpServer
     .ctor()
     Arguments : IReadOnlyList<String> { get; init; }
@@ -13,6 +35,16 @@ sealed class Lyntai.Agents.AgentMcpServer
     Url : String { get; init; }
     static Http(String name, String url, String authToken = null) : AgentMcpServer
     static Stdio(String name, String command, IEnumerable<String> arguments = null, IReadOnlyDictionary<String,String> environment = null) : AgentMcpServer
+sealed class Lyntai.Agents.AgentRestriction
+    .ctor(RestrictionCause Cause, RestrictionSubject Subject, RestrictionRecovery Recovery)
+    Cause : RestrictionCause { get; init; }
+    Deconstruct(RestrictionCause& Cause, RestrictionSubject& Subject, RestrictionRecovery& Recovery) : Void
+    Equals(AgentRestriction other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Recovery : RestrictionRecovery { get; init; }
+    Subject : RestrictionSubject { get; init; }
+    ToString() : String
 static class Lyntai.Agents.AgentSessionExtensions
     static RunAsync(IAgentSession session, AgentSessionOptions options, Action<AgentStreamEvent> onEvent = null, CancellationToken ct = default) : Task<AgentSessionResult>
 class Lyntai.Agents.AgentSessionOptions
@@ -189,6 +221,40 @@ sealed class Lyntai.Agents.PlanUpdated
     GetHashCode() : Int32
     PrintMembers(StringBuilder builder) : Boolean
     ToString() : String
+enum Lyntai.Agents.RecoveryKind
+    OwnerAction : RecoveryKind const
+    ResetAt : RecoveryKind const
+    RetryNotBefore : RecoveryKind const
+    Unknown : RecoveryKind const
+    value__ : Int32
+enum Lyntai.Agents.RestrictionCause
+    Capacity : RestrictionCause const
+    Concurrency : RestrictionCause const
+    Credit : RestrictionCause const
+    Quota : RestrictionCause const
+    Rate : RestrictionCause const
+    Unknown : RestrictionCause const
+    value__ : Int32
+sealed class Lyntai.Agents.RestrictionRecovery
+    .ctor(RecoveryKind Kind, Nullable<DateTimeOffset> At = null)
+    At : Nullable<DateTimeOffset> { get; init; }
+    Deconstruct(RecoveryKind& Kind, Nullable`1& At) : Void
+    Equals(Object obj) : Boolean
+    Equals(RestrictionRecovery other) : Boolean
+    GetHashCode() : Int32
+    Kind : RecoveryKind { get; init; }
+    ToString() : String
+    static OwnerAction : RestrictionRecovery { get; }
+    static ResetAt(DateTimeOffset at) : RestrictionRecovery
+    static RetryNotBefore(DateTimeOffset at) : RestrictionRecovery
+    static Unknown : RestrictionRecovery { get; }
+enum Lyntai.Agents.RestrictionSubject
+    Account : RestrictionSubject const
+    Endpoint : RestrictionSubject const
+    Model : RestrictionSubject const
+    Pool : RestrictionSubject const
+    Unknown : RestrictionSubject const
+    value__ : Int32
 sealed class Lyntai.Agents.SessionEnded
     .ctor(ProviderVerdict Verdict, Boolean IsError, String Subtype, String SessionId, String FinalText, String Diagnostic)
     Deconstruct(ProviderVerdict& Verdict, Boolean& IsError, String& Subtype, String& SessionId, String& FinalText, String& Diagnostic) : Void
@@ -197,6 +263,7 @@ sealed class Lyntai.Agents.SessionEnded
     Equals(AgentStreamEvent other) : Boolean
     Equals(Object obj) : Boolean
     Equals(SessionEnded other) : Boolean
+    Failure : AgentFailure { get; init; }
     FinalText : String { get; init; }
     GetHashCode() : Int32
     IsError : Boolean { get; init; }
@@ -1376,12 +1443,14 @@ enum Lyntai.Inference.ProviderVerdict
     value__ : Int32
 static class Lyntai.Inference.ProviderVerdictClassifier
     static AddErrorTextMatcher(Func<String,Nullable<ProviderVerdict>> matcher) : IDisposable
+    static FromAgentFailure(AgentFailure failure, String text = null) : ProviderVerdict
     static FromErrorText(String text, Boolean hasCredentials) : ProviderVerdict
     static FromErrorText(String text, ProviderVerdict fallback = ProviderVerdict.Failed) : ProviderVerdict
     static FromException(Exception ex) : ProviderVerdict
     static FromHttpFailure(HttpStatusCode status, String body) : ProviderVerdict
     static FromHttpFailure(HttpStatusCode status, String body, Boolean hasCredentials) : ProviderVerdict
     static FromThrown(Exception ex) : ProviderVerdict
+    static ReadAgentFailure(String text, TimeProvider time = null) : AgentFailure
 static class Lyntai.Inference.ProviderVerdictExtensions
     static IsBlameless(ProviderVerdict verdict) : Boolean
     static IsOk(ProviderVerdict verdict) : Boolean
