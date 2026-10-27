@@ -165,6 +165,12 @@ if (args.Contains("--decision"))
 if (args.Contains("--affordance"))
     return await ToolAffordanceSweep.RunAsync(args);
 
+// `node devtools/dev.mjs memory-corpus` → --corpus. Recall over a REAL record set far larger than this
+// repository's own (decisions, a fix log, a task archive), kept in the gitignored `devtools/_corpus`: the
+// questions are built from the records' structure, the output is numbers. See MemoryCorpusBench.
+if (args.Contains("--corpus"))
+    return await MemoryCorpusBench.RunAsync(args);
+
 // A `--evidence` study lived here on 2026-08-12 and was removed with the `GraphMemoryOptions.ReinforceOn`
 // seam it drove — see that option's own reverted-here note. Its FINDING survives in
 // docs/task-archive.md Part 64: the engine's reinforcement conflates an age RESET with a stability

@@ -68,6 +68,7 @@ rebuilds it and `verify` fails while the two disagree.
 | `memory-density` |  | a REFUTATION: does a CORRECTION separate from a RECURRENCE? |
 | `memory-support` |  | rule × θ × clock × `ConnectionBoost`; `--screen` = the model ladder |
 | `memory-scale` |  | COST, not quality — latency, throughput, bytes; no ground truth |
+| `memory-corpus` |  | recall QUALITY on a real record set far larger than ours, kept untracked; `--model-free` or a local emb… |
 | `memory-contention` |  | judge vs cross-encoder: does moving verification off the shared model pay? |
 | `memory-decision` |  | a FORCED CHOICE at 3-7 options: one select call, or N score calls argmax'd? |
 | `tool-affordance` |  | given these tools, what do you want — through the PROMPT protocol, on a SYNTHETIC roster |

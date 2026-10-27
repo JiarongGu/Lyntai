@@ -39,6 +39,7 @@ export const COMMANDS = [
   { name: 'memory-density', bench: '--density' },
   { name: 'memory-support', bench: '--gist-support' },
   { name: 'memory-scale', bench: '--scale' },
+  { name: 'memory-corpus', bench: '--corpus' },
   { name: 'memory-contention', script: 'memory-contention' },
   { name: 'memory-decision', script: 'memory-decision' },
   { name: 'tool-affordance', script: 'tool-affordance' },
