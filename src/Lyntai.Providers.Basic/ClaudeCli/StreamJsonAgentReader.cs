@@ -17,6 +17,8 @@ internal sealed class StreamJsonAgentReader
     private string? _model;
     private string? _sessionId;
     private string? _lastAssistantText;
+    private string? _assistantError;
+    private RejectedLimit? _rejectedLimit;
 
     /// <param name="time">The clock a <see cref="UsageReading.MeasuredAt"/> is stamped from; null = the system
     /// clock.</param>
@@ -45,10 +47,19 @@ internal sealed class StreamJsonAgentReader
         "assistant" => ReadAssistant(root),
         "user" => ReadUser(root),
         "result" => ReadResult(root),
-        // Any other type → nothing. That includes `rate_limit_event`, whose `rate_limit_info` is not
-        // surfaced: no AgentStreamEvent carries it, and adding one is a public-surface decision.
+        "rate_limit_event" => NoteRateLimit(root),
+        // Any other type → nothing.
         _ => [],
     };
+
+    // `rate_limit_info` is not surfaced as an event (no AgentStreamEvent carries it); a REJECTED one is kept so a
+    // failing result can name the limit and when it renews. An `allowed` frame, which is every ordinary one, is
+    // never kept.
+    private IEnumerable<AgentStreamEvent> NoteRateLimit(JsonElement root)
+    {
+        _rejectedLimit = StreamJsonFailure.ReadRejection(root) ?? _rejectedLimit;
+        return [];
+    }
 
     // ── system/init ──────────────────────────────────────────────────────────
 
@@ -113,6 +124,10 @@ internal sealed class StreamJsonAgentReader
         // Update model if present on the message
         if (msg.TryGetProperty("model", out var modelEl) && modelEl.ValueKind == JsonValueKind.String)
             _model = modelEl.GetString();
+
+        // the CLI marks a message that is an API error with a category beside `message` — the door's own field;
+        // the LAST message's is the one that can have ended the turn
+        _assistantError = WireJson.String(root, "error");
 
         var toolCalls = new List<ToolCall>();
         PlanUpdated? plan = null;
@@ -254,18 +269,18 @@ internal sealed class StreamJsonAgentReader
             yield return new UsageReading(counts.Input, counts.Output, counts.CacheRead, counts.CacheCreate,
                 UsageReading.Tokens, UsageScope.Turn, _time.GetUtcNow());
 
+        // classified, never hand-rolled, so an expired login is AuthFailed and a 429 RateLimited; the door's own
+        // fields decide before its words, and Failed only when neither reads
+        var failure = isError
+            ? StreamJsonFailure.Read(WireJson.Int32(root, "api_error_status"), _assistantError, _rejectedLimit, finalText, _time)
+            : null;
         yield return new SessionEnded(
-            // classified, never hand-rolled, so an expired login is AuthFailed and a 429 RateLimited; Failed
-            // only when the CLI gives no words to read
-            Verdict: isError
-                ? (string.IsNullOrWhiteSpace(finalText ?? subtype)
-                    ? ProviderVerdict.Failed
-                    : ProviderVerdictClassifier.FromErrorText(finalText ?? subtype!))
-                : ProviderVerdict.Ok,
+            Verdict: failure is null ? ProviderVerdict.Ok : ProviderVerdictClassifier.FromAgentFailure(failure, finalText ?? subtype),
             IsError: isError,
             Subtype: subtype,
             SessionId: sessionId,
             FinalText: finalText,
-            Diagnostic: null);
+            Diagnostic: null)
+        { Failure = failure };
     }
 }

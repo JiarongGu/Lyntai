@@ -1,6 +1,7 @@
 # The agent-provider layer — a design for the owner
 
-**Status: a proposal; nothing is built.** The decision is **D219** (`docs/DECISIONS.md`); the build rows are
+**Status: a proposal; one row is built — the failure of §5.3 on the two CLI doors (`docs/guide.md` §CLI-agent
+session), whose names stand as built.** The decision is **D219** (`docs/DECISIONS.md`); the build rows are
 `TASKS.md` Part 376. This is a study (`docs/documents.md`): it is read for its reasoning, and what it settles
 moves into the contract documents as each row lands. Every type named below is a PROPOSED name, to be
 confirmed by the row that builds it against the `ApiSurface` baselines. The sketches are plain text because

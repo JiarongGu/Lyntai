@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text.RegularExpressions;
+using Lyntai.Agents;
 
 namespace Lyntai.Inference;
 
@@ -56,6 +57,94 @@ public static partial class ProviderVerdictClassifier
         if (AuthPattern().IsMatch(text)) return ProviderVerdict.AuthFailed;
         if (RefusalPattern().IsMatch(text)) return ProviderVerdict.Refused;
         return fallback;
+    }
+
+    /// <summary>Read an agent door's own failure SENTENCE as a failure: the kind, and what it restricts when the
+    /// words say. Order is limit, then access, then transient; null when no entry reads it, which a caller takes
+    /// as <see cref="AgentFailureKind.Fatal"/>. Call it only with words the DOOR reported (an error field, a
+    /// failed turn's message) — an agent's own message or a tool's output is never evidence of a failure.
+    /// <para>The verdict is the same table's: <see cref="FromAgentFailure"/> maps the kinds back, and
+    /// <see cref="FromErrorText(string, ProviderVerdict)"/> agrees with it on every sentence it reads. A recovery
+    /// is stated by the words or it is <see cref="RecoveryKind.Unknown"/>; it is never defaulted.</para></summary>
+    /// <param name="text">The door's words.</param>
+    /// <param name="time">The clock a time written without a date or a zone is read against, in its local zone;
+    /// null reads the system's.</param>
+    public static AgentFailure? ReadAgentFailure(string? text, TimeProvider? time = null)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return null;
+        time ??= TimeProvider.System;
+
+        foreach (var matcher in _matcherSnapshot)
+        {
+            if (matcher(text) is not { } verdict) continue;
+            return verdict switch
+            {
+                ProviderVerdict.RateLimited => new AgentFailure(AgentFailureKind.Limit, "sentence:custom-matcher")
+                    { Restriction = new(RestrictionCause.Unknown, RestrictionSubject.Unknown, RestrictionRecovery.Unknown) },
+                ProviderVerdict.AuthFailed or ProviderVerdict.NotConfigured => new AgentFailure(AgentFailureKind.Access, "sentence:custom-matcher"),
+                _ => null,
+            };
+        }
+
+        if (RateLimitPattern().IsMatch(text)) return ReadLimit(text, time);
+        if (ContextWindowPattern().IsMatch(text)) return null;
+        if (AuthPattern().IsMatch(text)) return new AgentFailure(AgentFailureKind.Access, "sentence:auth");
+        return ReadTransient(text);
+    }
+
+    /// <summary>The verdict a failure maps onto — no new member, so the router's actions stand: a limit is
+    /// <see cref="ProviderVerdict.RateLimited"/>, an access failure <see cref="ProviderVerdict.AuthFailed"/>, a
+    /// transient one <see cref="ProviderVerdict.Failed"/>, and a fatal one what <see cref="FromErrorText(string, ProviderVerdict)"/>
+    /// says of <paramref name="text"/> when that is a refusal or an over-long input, else <c>Failed</c>.</summary>
+    /// <param name="failure">The failure.</param>
+    /// <param name="text">The door's words, which only a fatal failure reads.</param>
+    public static ProviderVerdict FromAgentFailure(AgentFailure failure, string? text = null)
+    {
+        ArgumentNullException.ThrowIfNull(failure);
+        return failure.Kind switch
+        {
+            AgentFailureKind.Limit => ProviderVerdict.RateLimited,
+            AgentFailureKind.Access => ProviderVerdict.AuthFailed,
+            AgentFailureKind.Transient => ProviderVerdict.Failed,
+            _ => FatalVerdict(FromErrorText(text)),
+        };
+
+        static ProviderVerdict FatalVerdict(ProviderVerdict read) =>
+            read is ProviderVerdict.Refused or ProviderVerdict.ContextWindowExceeded ? read : ProviderVerdict.Failed;
+    }
+
+    private static AgentFailure ReadLimit(string text, TimeProvider time)
+    {
+        var credit = CreditPattern().IsMatch(text);
+        var cause = credit ? RestrictionCause.Credit
+            : ConcurrencyPattern().IsMatch(text) ? RestrictionCause.Concurrency
+            : QuotaPattern().IsMatch(text) ? RestrictionCause.Quota
+            : RestrictionCause.Rate;
+        var subject = SharedBudgetPattern().IsMatch(text) ? RestrictionSubject.Pool
+            : ModelLimitPattern().IsMatch(text) ? RestrictionSubject.Model
+            : cause is RestrictionCause.Credit or RestrictionCause.Quota ? RestrictionSubject.Account
+            : RestrictionSubject.Unknown;
+        var recovery = credit ? RestrictionRecovery.OwnerAction : StatedRecovery.Read(text, time) ?? RestrictionRecovery.Unknown;
+
+        return new AgentFailure(AgentFailureKind.Limit, $"sentence:limit-{cause.ToString().ToLowerInvariant()}")
+        {
+            Restriction = new AgentRestriction(cause, subject, recovery),
+        };
+    }
+
+    private static AgentFailure? ReadTransient(string text)
+    {
+        if (CapacityPattern().IsMatch(text))
+            return new AgentFailure(AgentFailureKind.Transient, "sentence:model-capacity")
+            {
+                Restriction = new(RestrictionCause.Capacity, RestrictionSubject.Model, RestrictionRecovery.Unknown),
+            };
+        if (OverloadedPattern().IsMatch(text))
+            return new AgentFailure(AgentFailureKind.Transient, "sentence:overloaded")
+            {
+                Restriction = new(RestrictionCause.Capacity, RestrictionSubject.Endpoint, RestrictionRecovery.Unknown),
+            };
+        return UnavailablePattern().IsMatch(text) ? new AgentFailure(AgentFailureKind.Transient, "sentence:unavailable") : null;
     }
 
     private sealed class MatcherRegistration(Func<string, ProviderVerdict?> matcher) : IDisposable
@@ -127,8 +216,40 @@ public static partial class ProviderVerdictClassifier
     // "out of credits" is an allowance spent until a person refills it (Codex: "Your workspace is out of
     // credits. Ask your workspace owner to refill…"), named with no reset time and no 429 — the same remedy
     // as a quota: bench this account and advance
-    [GeneratedRegex(@"rate[\s_-]?limit|too\s+many\s+requests|quota\s+exceeded|resource[\s_-]?exhausted|out\s+of\s+credits|(?:http|status(?:\s+code)?|error|code)\s*[:=]?\s*429\b", RegexOptions.IgnoreCase)]
+    // …and so is a usage limit a vendor names in its own words ("You've hit your usage limit", "You've hit your
+    // weekly limit · resets Mon 12:00am", a spend cap, a team's shared budget)
+    [GeneratedRegex(@"rate[\s_-]?limit|too\s+many\s+requests|quota\s+exceeded|resource[\s_-]?exhausted|out\s+of\s+credits|usage\s+limit|spend\s+cap|hit\s+your\s+(?:[\w'’]+\s+){0,2}(?:limit|budget)|(?:http|status(?:\s+code)?|error|code)\s*[:=]?\s*429\b", RegexOptions.IgnoreCase)]
     private static partial Regex RateLimitPattern();
+
+    // what a limit sentence says ran out. Credits and a spend cap wait for a person; the rest are an allowance
+    [GeneratedRegex(@"out\s+of\s+(?:usage\s+)?credits|spend\s+cap", RegexOptions.IgnoreCase)]
+    private static partial Regex CreditPattern();
+
+    [GeneratedRegex(@"quota|resource[\s_-]?exhausted|usage\s+limit|hit\s+your\s+(?:[\w'’]+\s+){0,2}(?:limit|budget)", RegexOptions.IgnoreCase)]
+    private static partial Regex QuotaPattern();
+
+    [GeneratedRegex(@"concurren", RegexOptions.IgnoreCase)]
+    private static partial Regex ConcurrencyPattern();
+
+    [GeneratedRegex(@"shared\s+budget", RegexOptions.IgnoreCase)]
+    private static partial Regex SharedBudgetPattern();
+
+    // "limit for gpt-x" (Codex's per-model limit) and "your Opus limit" (Claude Code's): one model's, so another
+    // model on the same account is still available
+    [GeneratedRegex(@"limit\s+for\s+\S|your\s+(?:opus|sonnet|haiku)\s+limit", RegexOptions.IgnoreCase)]
+    private static partial Regex ModelLimitPattern();
+
+    // a MODEL at capacity is the model's, never the account's (Codex: "Selected model is at capacity…")
+    [GeneratedRegex(@"model\s+is\s+at\s+capacity", RegexOptions.IgnoreCase)]
+    private static partial Regex CapacityPattern();
+
+    // a 529 needs its context word like a 429 does ("processed 529 records" and "cli.js:529:17" stay unread);
+    // "overloaded" alone is left out because a method can be overloaded
+    [GeneratedRegex(@"overloaded_error|\b529\s+overloaded|api\s+error:?\s*529|(?:http|status(?:\s+code)?|error|code)\s*[:=]?\s*529\b|(?:servers?|service|api)\s+(?:is|are)\s+(?:currently\s+)?overloaded", RegexOptions.IgnoreCase)]
+    private static partial Regex OverloadedPattern();
+
+    [GeneratedRegex(@"(?:http|status(?:\s+code)?|error|code)\s*[:=]?\s*50[234]\b|service\s+(?:is\s+)?(?:temporarily\s+)?unavailable|bad\s+gateway|gateway\s+time-?out", RegexOptions.IgnoreCase)]
+    private static partial Regex UnavailablePattern();
 
     // "physical batch size" is llama.cpp refusing an input past its batch, as HTTP 500; "too large to process"
     // alone is left out, because an upload refused for its size says it too

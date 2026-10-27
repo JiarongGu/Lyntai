@@ -77,4 +77,11 @@ public sealed record UsageReading(
 /// stderr tail.</summary>
 public sealed record SessionEnded(
     ProviderVerdict Verdict, bool IsError, string? Subtype, string? SessionId,
-    string? FinalText, string? Diagnostic) : AgentStreamEvent;
+    string? FinalText, string? Diagnostic) : AgentStreamEvent
+{
+    /// <summary>What the failure was, for a run that failed: its kind, what it restricts and whether the prompt
+    /// was delivered. Null when <see cref="IsError"/> is false. Both CLI doors set it on every failed
+    /// terminal, read from the door's own fields before any sentence; <see cref="Verdict"/> is its mapping onto
+    /// the verdict taxonomy, except that a process fault keeps the verdict its stderr gave.</summary>
+    public AgentFailure? Failure { get; init; }
+}

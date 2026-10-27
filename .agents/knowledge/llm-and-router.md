@@ -62,6 +62,12 @@ included. That deliberately differs from `IRefusalMatcher` (below), whose seam l
 fails open: the classifier is static and has no logger, so swallowing there would hide the bug rather than
 report it.
 
+**An agent door's failure is read from its OWN fields, then through the same classifier** (`SessionEnded.Failure`,
+`ProviderVerdictClassifier.ReadAgentFailure` / `FromAgentFailure`). The sentences stay in the classifier and
+`FromErrorText` agrees with them (one `RateLimitPattern`); a door reads a status, a category or a rejected frame
+first, and only the door's error text — never an agent message or a tool's output — reaches a sentence. A process
+fault's stderr may name an access failure and nothing else. Delivery is stamped once, in `CliAgentLoop`.
+
 ## Fallback (`TextRouter.CompleteAsync`)
 
 Dedup candidates by `(providerId, model)` (first wins — a mis-ordered list that re-prepends the primary
