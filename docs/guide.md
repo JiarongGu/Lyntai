@@ -1142,6 +1142,62 @@ recorded session id when it is the same provider, door and account and the door 
 `decision.Apply(nextOptions, brief)` returns the options to run: the token set, or the token cleared and the
 prompt led by the brief with your new request after a marker. When to hand over stays yours.
 
+**Running turns across several accounts** (an account pool; `AddAgentAccountPool`, off unless you call it). List your
+`AgentChoice`s in the order you prefer them — a provider, optionally a model and an effort word, and the accounts to
+try for it — and the pool answers which account the next turn runs on, walking a choice's accounts before the next
+choice. **Ask once per turn**, run the turn on the pick, and give the pick back with the turn's terminal event; a
+rotation therefore lands on the next pick, never inside a turn:
+
+<!-- compile-given: AgentAccountPool pool; IAgentSession session; AgentSessionOptions turn; -->
+```csharp
+var asked = await pool.PickAsync();
+if (asked.Pick is { } pick)
+{
+    SessionEnded? ended = null;
+    await foreach (var e in session.StreamAsync(pick.Apply(turn)))
+        if (e is SessionEnded end) ended = end;
+
+    await pool.ReportAsync(pick, ended!);          // a failure's restriction is held; a success clears the attempt's
+}
+else
+{
+    // every seat is restricted: asked.ReadyAt is the earliest moment time alone could free one (null = only you can)
+}
+```
+
+`pick.Apply(options)` sets the options' `Account` and, when the choice names one, the `Model`. `Effort` is yours to
+read off `pick.Seat.Choice`: no neutral option carries it. The pool never sleeps and never decides to wait.
+
+**What a failure holds.** The door's own `Restriction` (never the agent's words) is held on what it covers, and a seat
+runs only if EVERY restriction covering it permits: `Account` holds the account, `Endpoint` the provider (all its
+accounts), `Model` and an unstated subject the account and model that met it. `Pool` holds the allowance an
+`IAgentAllowanceSource` showed several accounts share — a door implements it beside `IAgentProvider` and gives its
+evidence — and with none, only the account it was seen on, because another profile name proves nothing. A limit or an
+access failure holds something even when the door stated nothing more; a transient or fatal failure only when it
+carries a restriction. Two limits on one account are two holds, with their own moments.
+
+**A hold ends, and then proves nothing.** A stated reset or retry-not-before moment passing releases the hold; so does
+`ClearAsync(id, revision)`. A released hold permits ONE attempt at a time, leased for `AttemptLease` (default 30
+minutes, which should outlast your longest turn) — a second ask is turned to the next seat. That attempt's success
+removes the hold; its failure restates it at the next revision, so a clear you made from an older reading cannot lift
+it (`ClearAsync` returns false). An **owner action** (an empty balance, a signed-out account) never expires: only your
+clear releases it. A recovery the door did not state holds until you clear it, because Lyntai invents no deadline;
+set `UnknownProbeAfter` to let a probe through after a cool-off of your choosing — a bare 429 reads this way, and
+without it holds its seat until you act. `HoldsAsync()` lists every hold with its id, revision, state and the moment
+time alone releases it.
+
+`ReportReadingAsync(account, measuredAt, hasRoom)` takes a reading of an account's allowance, the input an optional
+usage source will feed. It lifts a hold with a stated moment only when the reading shows room and was measured after
+the hold was taken; an older reading, one that shows nothing (`null`: absent is unknown, never zero) and an owner
+action or unknown recovery are left alone. Which permitted seat serves beyond the first is an `IAgentAccountPolicy`
+you register yourself; only the ordered walk ships.
+
+Holds are written through the registered `IKeyValueStore`, one key per hold under `lyntai:agent-pool:<name>:hold:`
+(`AgentPoolOptions.Name`), and read back on first use, so a restart keeps them and an attempt that was in flight when
+the process died bars the seat until its lease runs out; with no store the pool is process-only. **Two processes
+sharing one pool are not supported**: the store has no compare-and-set, so each would hold its own picture and the
+last writer would win. Give each process its own pool name, or one owner.
+
 ## Durable jobs (`Lyntai.Jobs`)
 
 Long, multi-step work that survives restarts: a runner claims a job, your handler checkpoints, and a job whose
