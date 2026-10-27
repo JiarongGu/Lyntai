@@ -47,6 +47,11 @@
     <!-- memory-corpus: the record parser, chunker, question builder and scorer, pure and tested in the test project. -->
     <Compile Include="..\..\tests\Lyntai.Tests\Memory\Corpus\RecordCorpus.cs" Link="Corpus\RecordCorpus.cs" />
     <Compile Include="..\..\tests\Lyntai.Tests\Memory\Corpus\RecordQuestions.cs" Link="Corpus\RecordQuestions.cs" />
+    <!-- memory-corpus with the profile flag (VN2): the two profile options, test-only and built on public store
+         interfaces alone, linked so the bench runs the code the scenario tests pin rather than a copy. -->
+    <Compile Include="..\..\tests\Lyntai.Tests\Memory\Prototype\ProfileModel.cs" Link="Prototype\ProfileModel.cs" />
+    <Compile Include="..\..\tests\Lyntai.Tests\Memory\Prototype\ProfileOverCurated.cs" Link="Prototype\ProfileOverCurated.cs" />
+    <Compile Include="..\..\tests\Lyntai.Tests\Memory\Prototype\ProfileLedger.cs" Link="Prototype\ProfileLedger.cs" />
     <!-- Every template the corpus emits, plus the readers that parse it back. MemoryCorpus does not compile
          without it: the language axis routes every piece of text through this class. -->
     <Compile Include="..\..\tests\Lyntai.Tests\Memory\Corpus\CorpusLexicon.cs" Link="Corpus\CorpusLexicon.cs" />
