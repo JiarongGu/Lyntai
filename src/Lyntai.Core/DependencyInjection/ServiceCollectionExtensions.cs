@@ -90,6 +90,7 @@ public static class LyntaiServiceCollectionExtensions
         RegisterVectorSpace(services, builder);
         RegisterAgents(services, options);
         if (builder.AgentRetry is { } agentRetry) AgentRetryRegistration.Wrap(services, agentRetry);
+        services.TryAddSingleton(new AgentBriefComposer(builder.AgentBrief));
         RegisterJobs(services, options);
         RegisterGuardsAndChat(services);
 

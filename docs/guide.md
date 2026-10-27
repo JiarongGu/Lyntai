@@ -621,7 +621,7 @@ decorated interface fails the tests until it is listed here, and so does a row n
 | --- | --- | --- |
 | `ITextClient` | `DelegatingTextClient` (derive from it), `BudgetedTextClient`, `CachingTextClient`, `RateLimitedTextClient`, `GuardedTextClient`, `RefusalScreeningTextClient` | every member, `GetCapabilitiesAsync` included |
 | `IMediaRouter` | `BudgetedMediaRouter`, `RateLimitedMediaRouter` | all three doors, each one governed: the compiler cannot tell a governed door from a pass-through |
-| `IAgentSession` | `RetryingAgentSession` (`AddAgentRetry`) | `StreamAsync`, forwarding the options as given or with a resumed turn's prompt and token |
+| `IAgentSession` | `RetryingAgentSession` (`AddAgentRetry`), `RecordingAgentSession` | `StreamAsync`, forwarding the options as given or with a resumed turn's prompt and token |
 | `IConversationStore` | `EnrichingConversationStore` | every member |
 | `IDbConnectionFactory` | `LazyMigratingConnectionFactory` | `Open`, and `OpenAsync`, whose default loses the inner factory's async open |
 | `IMemoryEngine` | `CompositeMemoryEngine`, over its members | every member |
@@ -1116,6 +1116,31 @@ Events are forwarded live, so a retried turn's stream holds the failed attempt's
 attempt's, and only a failed terminal that is about to be retried is withheld: you see one `SessionEnded`, the
 last attempt's, and a transient failure that was not retried says why in its `Diagnostic`. One layer owns the
 budget: wrapping a `RetryingAgentSession` in another, or registering one by hand beside `AddAgentRetry`, throws.
+
+**Carrying a conversation to another agent** (a transcript and a brief; no model, no memory engine). Wrap a
+session in `new RecordingAgentSession(session, recorder, new AgentConversationSource(providerId, doorId, account))`
+— or call `recorder.BeginTurn(source, options)` and `recorder.Add(event)` yourself — and `recorder.Transcript`
+holds each turn: your prompt and system prompt verbatim, the agent's last message (the terminal's `FinalText`, else
+the text after its last tool step), a count per tool, its last plan, the session id and the end. Thinking and
+diagnostics are not kept, and where the transcript is stored is yours. A recorder is one conversation, one turn at
+a time, so build it per conversation rather than registering one.
+
+`AgentBriefComposer` (registered by `AddLyntai`; `AddAgentBrief(o => o.MaxCharacters = …)` sets the bound,
+default 6000) turns a transcript and your own facts into the text a fresh agent is handed: a preamble saying it is a
+record and not the agent's memory, **your words verbatim and first** (the request as first written, later prompts,
+standing instructions), your facts, a block per turn, the last plan, and a count of what was left out. Everything an
+agent said is a claim: its lines are quoted behind `> `, so it cannot pose as yours or open a section. The bound is
+in Unicode characters and **cuts in a fixed order, first to go first**: tool lines (oldest turn first), agent
+messages (oldest first, the newest turn's kept longest), the plan, the newest message, then your facts
+(last-listed first). Your words, the turn headers and the count are never cut; a brief they alone outgrow is
+returned with `WithinBound` false, and so is one no cut shortens, since the count is itself text.
+
+`AgentHandover.Decide(transcript, targetDescriptor, doorId, account)` says what to do next: **resume** with the
+recorded session id when it is the same provider, door and account and the door states `resume` `Supported`
+(`Unknown` is not promised); otherwise a **fresh session handed the brief**, with the reason (`ProviderChanged`,
+`DoorChanged`, `AccountChanged`, `ResumeUnsupported`, `ResumeNotMeasured`, `NoSuchDoor`, `NoConversation`).
+`decision.Apply(nextOptions, brief)` returns the options to run: the token set, or the token cleared and the
+prompt led by the brief with your new request after a marker. When to hand over stays yours.
 
 ## Durable jobs (`Lyntai.Jobs`)
 

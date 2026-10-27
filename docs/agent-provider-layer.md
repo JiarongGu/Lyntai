@@ -1,11 +1,12 @@
 # The agent-provider layer — a design for the owner
 
-**Status: a proposal; five rows are built — the failure of §5.3 on the two CLI doors (AG1), the event additions of
-§5.2 (AG2), the provider description and registry of §5.1 (AG3), the bounded retry of §5.3 (AG4) and the account's
-reach into a door (AG5, §5.4's first bullet), all in `docs/guide.md` §CLI-agent session, whose names stand as built;
-the pool (AG6), the brief (AG7), the ACP door (AG8) and the usage reading (AG9) are not.** The decision is **D219**
-(`docs/DECISIONS.md`); the open build rows are `TASKS.md` Part 376 and the closed ones `docs/task-archive.md` Parts
-381, 382, 384 and 385. This is a study (`docs/documents.md`): it is read for its reasoning, and what it settles
+**Status: a proposal; built so far are the failure of §5.3 on the two CLI doors (AG1), the event additions of
+§5.2 (AG2), the provider description and registry of §5.1 (AG3), the bounded retry of §5.3 (AG4), the account's
+reach into a door (AG5, §5.4's first bullet) and the transcript, brief and hand-over of §5.5 (AG7), all in
+`docs/guide.md` §CLI-agent session, whose names stand as built; the pool (AG6), the ACP door (AG8) and the usage
+reading (AG9) are not.** The decision is **D219** (`docs/DECISIONS.md`); the open build rows are `TASKS.md` Part 376
+and the closed ones `docs/task-archive.md` Parts 381, 382, 384 and 385. This is a study (`docs/documents.md`): it is
+read for its reasoning, and what it settles
 moves into the contract documents as each row lands. Every type named below is a PROPOSED name, to be
 confirmed by the row that builds it against the `ApiSurface` baselines. The sketches are plain text because
 none of them compiles yet.
@@ -213,6 +214,20 @@ host-enabled, validated per door and version, side effects declared, unknown on 
   position of the brief in the prompt is the adapter's, as `SystemPrompt`'s is.
 - **Not memory.** No `IMemoryEngine` is involved and no model summarises. A brief is a record's projection and
   expires with the move that used it.
+- **As built (AG7):** `AgentTranscriptRecorder` folds a turn (`BeginTurn` with the options, then each event), and
+  `RecordingAgentSession` does both around any `IAgentSession`; an `AgentTranscript` holds `TranscriptTurn`s, each
+  with an `AgentConversationSource` (provider, door, account — the host's names). `AgentBriefComposer` composes the
+  brief and `AgentHandover.Decide` decides the move; `AddAgentBrief` sets the bound. The bound is
+  `AgentBriefOptions.MaxCharacters` in Unicode characters, not UTF-16 units, bytes or tokens. **Order of the
+  brief:** preamble, the host's words verbatim (the first request, later prompts, standing instructions), host
+  facts, one block per turn (outcome, the agent's last message quoted line by line behind `> `, a tool line), the
+  last plan, the left-out count. **The bound cuts, first to go first:** tool lines oldest turn first; messages
+  oldest turn first, the newest turn's excepted; the plan; the newest turn's message; facts last-listed first.
+  Never cut: the preamble, the host's words, the per-turn headers, the count. A part is kept whole or dropped
+  whole, and because the count is text a cut that would lengthen the brief is not made: the shortest reachable
+  brief comes back with `WithinBound` false. A resume needs a recorded session id, the same provider, door and
+  account, and the door stating resume `Supported` (`Unknown` is not promised); every other case is a fresh
+  session, and `AgentHandoverDecision.Apply` leads its prompt with the brief, the host's new request after a marker.
 
 ## 6. Which agents and doors first
 

@@ -566,6 +566,21 @@ public sealed class LyntaiBuilder
     /// <summary>Set by <see cref="AddAgentRetry"/>; <c>AddLyntai</c> wraps the agent sessions when it is present.</summary>
     internal AgentRetryOptions? AgentRetry { get; private set; }
 
+    /// <summary>Bound the hand-over brief <see cref="AgentBriefComposer"/> composes, within
+    /// <see cref="AgentBriefOptions"/>. The composer is registered with the default bound even if this is never
+    /// called, since it holds no state and spends nothing; repeating the call re-applies its options.</summary>
+    /// <exception cref="ArgumentOutOfRangeException"><c>MaxCharacters</c> is under 1.</exception>
+    public LyntaiBuilder AddAgentBrief(Action<AgentBriefOptions>? configure = null)
+    {
+        var options = AgentBrief ??= new AgentBriefOptions();
+        configure?.Invoke(options);
+        options.Validate();
+        return this;
+    }
+
+    /// <summary>Set by <see cref="AddAgentBrief"/>; <c>AddLyntai</c> builds the composer from it.</summary>
+    internal AgentBriefOptions? AgentBrief { get; private set; }
+
     /// <summary>Trace every front-door call: one <see cref="TraceStep"/> (kind <c>"llm"</c>, the request's consumer as
     /// its label, usage, duration, verdict and model) through <see cref="ITraceService"/>, then the scorers
     /// <see cref="TextCallTracingOptions.Scorers"/> selects — the deterministic ones by default — saved under the
