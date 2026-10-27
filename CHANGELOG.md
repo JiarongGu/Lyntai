@@ -33,6 +33,12 @@ every addition.
 - **Every package carries an icon, this changelog as its release notes, and tags for what it serves** —
   pgvector, ONNX, GGUF, MCP, ComfyUI and the rest beside the shared set.
 
+- **Vector searches are faster, and a few memory writes cost less.** `SqliteVectorStore` searches in one pass
+  and reads a payload for the winners only (about 3 times faster at 11,000 vectors), `InMemoryVectorStore` keeps a
+  bounded top-k instead of sorting the collection, and `SqliteMemoryGraphStore` commits a batch of edges and
+  touches once. Scores and results are unchanged. `InMemoryVectorStore` now copies the vector it is given, so
+  changing a reused buffer afterwards no longer changes what is stored.
+
 ### Added
 
 - **Explicit valid time and supersession for graph memory** (**D215**): `MemoryWrite.ValidFrom`, `ValidTo`

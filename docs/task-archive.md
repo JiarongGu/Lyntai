@@ -5812,3 +5812,33 @@ the figures and the strong-extractor run not taken; `docs/memory.md` the recomme
 `#1eac4b856e06`, lanes `memory+platform`.
 
 - RV20 — assess and, if needed, rebuild LLM fact extraction and a user profile
+
+## Part 378 — RV26, VN1 and AG9: the three owner rulings of the vNext fold (2026-10-28)
+
+✅ done 2026-10-28 — **Outcome:** **RV26 YES**, the owner's own ruling (**D220**): a model-free profile is built
+through VN2, a prototype on its winner held to RV27's Track A, and a package only through VN1's gate, with no
+type in Core. **VN1 YES within a bound** (**D221**): D25 gains the whole promotion gate as its second reason, one
+version train and every D70 obligation standing, nothing moves now. **AG9 YES within a bound** (**D222**): an
+optional, host-enabled, version-validated, bounded usage reading with its side effects declared, unknown on any
+failure. VN1 and AG9 were decided by the coordinating parent session on the owner's delegation, with an
+independent read of these records by Codex, which read VN1 and AG9 as yes within a bound and RV26 as NO, on the
+ground the owner overruled. RV26 and VN1 left `TASKS.md`; AG9 stayed in Part 376 as a build row after AG1 to AG3; VN2 became
+startable with two added questions, RV27 and a new RV28 wait on it. Quest `#9e96d5bef23e`, lane `records`.
+
+- RV26 — a schema-first user profile, read with no search and no model call
+- VN1 — does D25 gain a second reason for a package?
+- AG9 — may a door read an account's usage through the vendor's own server? (the ruling; the row stays open)
+
+## Part 379 — a real record set far larger than the library's own, and what it found (2026-10-28)
+
+✅ done 2026-10-28 — **Outcome:** `memory-corpus` measured the engines on 11,112 chunks of real records (795
+questions, six kinds, one English corpus). The shipped ranking loses the answer on an archive that does not age;
+the original text outranks an amending one; ending a whole document by link cut an amendment's own recall from 66%
+to 14%; an embedder adds little to word matching there (`docs/memory-measurements.md` §5, six `corpus-*` results).
+Two cost fixes landed with tests and no behaviour change: the SQLite vector store's single-pass search (recall p50
+1,461 to 515 ms) and the in-memory store's bounded top-k that copies the vector it is given, and one transaction
+per batch of edges in the SQLite graph store (linked ingest 516 s to 210 s). The recipe is `docs/memory.md` §9;
+**D223** keeps it a recipe; the three open costs are `TASKS.md` Part 380; the amendment evidence is what **D220**
+hands VN2. Lane session, quest `#3a3744941b80`, lane `memory`; the storage fixes are outside it and were flagged.
+
+- Test Lyntai's long-term memory against a real corpus far larger than its own, and improve what it finds
