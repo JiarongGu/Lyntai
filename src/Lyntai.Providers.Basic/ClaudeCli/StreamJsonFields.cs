@@ -31,6 +31,24 @@ internal static class StreamJsonFields
             cost);
     }
 
+    /// <summary>The four counts of a <c>usage</c> object with an ABSENT field kept null, for the reading whose
+    /// whole point is that a count the wire never sent is unknown. <see cref="WireUsage"/> reads the same
+    /// fields as 0.</summary>
+    public readonly record struct WireUsageCounts(long? Input, long? Output, long? CacheRead, long? CacheCreate);
+
+    /// <summary>Read the <c>usage</c> object's counts as the wire gave them; null when there is no usage
+    /// object or it carries none of the four.</summary>
+    public static WireUsageCounts? ReadUsageCounts(JsonElement root)
+    {
+        if (WireJson.Object(root, "usage") is not { } u) return null;
+        var counts = new WireUsageCounts(
+            WireJson.Int64(u, "input_tokens"),
+            WireJson.Int64(u, "output_tokens"),
+            WireJson.Int64(u, "cache_read_input_tokens"),
+            WireJson.Int64(u, "cache_creation_input_tokens"));
+        return counts is { Input: null, Output: null, CacheRead: null, CacheCreate: null } ? null : counts;
+    }
+
     /// <summary>Concatenate the text of every <c>{"type":"text","text":…}</c> block in a content array
     /// (Anthropic message content is an array of typed blocks). Empty for a non-array / no text blocks; a
     /// block that is not an object is skipped.</summary>

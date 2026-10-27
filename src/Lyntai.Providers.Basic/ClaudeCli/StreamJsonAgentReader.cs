@@ -13,9 +13,14 @@ namespace Lyntai.Providers.ClaudeCli;
 /// <see cref="SessionEnded.Diagnostic"/> (no stderr knowledge — the session runner fills that).</summary>
 internal sealed class StreamJsonAgentReader
 {
+    private readonly TimeProvider _time;
     private string? _model;
     private string? _sessionId;
     private string? _lastAssistantText;
+
+    /// <param name="time">The clock a <see cref="UsageReading.MeasuredAt"/> is stamped from; null = the system
+    /// clock.</param>
+    public StreamJsonAgentReader(TimeProvider? time = null) => _time = time ?? TimeProvider.System;
 
     /// <summary>Translates one stream-json line into 0..N events. Never throws.</summary>
     public IReadOnlyList<AgentStreamEvent> Read(string line)
@@ -110,6 +115,7 @@ internal sealed class StreamJsonAgentReader
             _model = modelEl.GetString();
 
         var toolCalls = new List<ToolCall>();
+        PlanUpdated? plan = null;
         StringBuilder? text = null;
         if (msg.TryGetProperty("content", out var content) && content.ValueKind == JsonValueKind.Array)
         {
@@ -136,6 +142,8 @@ internal sealed class StreamJsonAgentReader
                         ? inputEl.GetRawText()
                         : "{}";
                     toolCalls.Add(new ToolCall(name, argsJson, id));
+                    if (name == TodoWriteTool && ReadTodoPlan(block) is { } todoPlan)
+                        plan = todoPlan;   // the last list in a message is the plan as it now stands
                 }
             }
         }
@@ -147,6 +155,9 @@ internal sealed class StreamJsonAgentReader
         foreach (var tc in toolCalls)
             yield return tc;
 
+        if (plan is not null)
+            yield return plan;
+
         // Emit UsageLive if usage is present
         if (msg.TryGetProperty("usage", out var usage) && usage.ValueKind == JsonValueKind.Object)
         {
@@ -155,6 +166,26 @@ internal sealed class StreamJsonAgentReader
                 WireJson.Long(usage, "output_tokens"),
                 WireJson.Long(usage, "cache_read_input_tokens"));
         }
+    }
+
+    /// <summary>The harness's own to-do tool: its list is the agent's plan. The call is still a
+    /// <see cref="ToolCall"/> — the plan event is read beside it, not instead of it.</summary>
+    private const string TodoWriteTool = "TodoWrite";
+
+    /// <summary>The <c>todos</c> of a <c>TodoWrite</c> call as a plan; null when the call carries no list. An
+    /// entry with no <c>content</c> string is skipped.</summary>
+    private static PlanUpdated? ReadTodoPlan(JsonElement toolUse)
+    {
+        if (WireJson.Object(toolUse, "input") is not { } input || WireJson.Array(input, "todos") is not { } todos)
+            return null;
+
+        var entries = new List<PlanEntry>();
+        foreach (var todo in todos.EnumerateArray())
+        {
+            if (WireJson.String(todo, "content") is { } content)
+                entries.Add(new PlanEntry(content, WirePlan.Status(WireJson.String(todo, "status"))));
+        }
+        return new PlanUpdated(entries);
     }
 
     // ── user (tool results fed back) ─────────────────────────────────────────
@@ -216,6 +247,12 @@ internal sealed class StreamJsonAgentReader
         // the raw counts incl. cache-create (it deliberately carries no cost — the app prices itself)
         if (StreamJsonFields.ReadUsage(root) is { } w)
             yield return new UsageFinal(w.Input, w.Output, w.CacheRead, w.CacheCreate, _model);
+
+        // Taken from the result's usage and never from the assistant lines: the result's figure is the turn's
+        // total over every API call, while a streamed message's output count is partial.
+        if (StreamJsonFields.ReadUsageCounts(root) is { } counts)
+            yield return new UsageReading(counts.Input, counts.Output, counts.CacheRead, counts.CacheCreate,
+                UsageReading.Tokens, UsageScope.Turn, _time.GetUtcNow());
 
         yield return new SessionEnded(
             // classified, never hand-rolled, so an expired login is AuthFailed and a 429 RateLimited; Failed

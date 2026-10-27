@@ -6,6 +6,9 @@ namespace Lyntai.Agents;
 /// the stream, gate it (read-only vs write), and resume it across a human gate. Distinct from
 /// <see cref="IToolLoop"/> (where Lyntai drives the loop). Adapters implement ONLY <see cref="StreamAsync"/>;
 /// the result-door <c>RunAsync</c> extension folds the stream for callers that just want the outcome.
+/// <para><b>One <see cref="StreamAsync"/> call is one turn, ended by its <see cref="SessionEnded"/>;</b> the
+/// conversation is the resume token that event carries, handed back as
+/// <see cref="AgentSessionOptions.ResumeToken"/> to start the next turn.</para>
 ///
 /// <para><b>A session is NOT bound by the front door.</b> <c>AddUsageBudget</c> and <c>AddRateLimit</c>
 /// decorate <see cref="Lyntai.Inference.ITextClient"/>, and a session never goes through one — it spawns a CLI that

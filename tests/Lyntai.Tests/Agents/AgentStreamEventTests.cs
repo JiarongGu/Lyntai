@@ -16,7 +16,7 @@ public class AgentStreamEventTests
         Assert.True(typeof(AgentStreamEvent).IsAbstract);
         Assert.All(subtypes, t => Assert.True(t.IsSealed, $"{t.Name} is not sealed, so the hierarchy is open"));
         Assert.Equal(
-            ["SessionEnded", "SessionStarted", "TextDelta", "Thinking", "ToolCall", "ToolResult", "UsageFinal", "UsageLive"],
+            ["PlanUpdated", "SessionEnded", "SessionStarted", "TextDelta", "Thinking", "ToolCall", "ToolResult", "UsageFinal", "UsageLive", "UsageReading"],
             subtypes.Select(t => t.Name).Order(StringComparer.Ordinal));
     }
 
