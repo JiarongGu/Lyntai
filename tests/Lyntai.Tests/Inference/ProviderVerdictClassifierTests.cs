@@ -15,6 +15,13 @@ public class ProviderVerdictClassifierTests
     [InlineData("status code: 429", ProviderVerdict.RateLimited)]
     [InlineData("quota exceeded for this project", ProviderVerdict.RateLimited)]
     [InlineData("RESOURCE_EXHAUSTED", ProviderVerdict.RateLimited)]
+    // codex-acp 2.1.1 (Codex 0.159.3): the account's allowance is spent until a person refills it — the
+    // remedy is another account or provider, never a retry, so the host is benched
+    [InlineData("Internal error: Your workspace is out of credits. Ask your workspace owner to refill in order to continue.", ProviderVerdict.RateLimited)]
+    [InlineData("Your workspace is out of credits. Ask your workspace owner to refill in order to continue.", ProviderVerdict.RateLimited)]
+    // …whereas a MODEL at capacity is not the account's problem: it stays Failed (advance, counted toward the
+    // threshold, no immediate bench), so another model on the same provider is still asked
+    [InlineData("Selected model is at capacity. Please try a different model.", ProviderVerdict.Failed)]
     [InlineData("blocked by content_filter", ProviderVerdict.Refused)]
     [InlineData("violates our content policy", ProviderVerdict.Refused)]
     [InlineData("This model's maximum context length is 8192 tokens", ProviderVerdict.ContextWindowExceeded)]

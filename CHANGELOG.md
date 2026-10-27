@@ -21,6 +21,11 @@ every addition.
 
 ### Changed
 
+- **"Your workspace is out of credits" classifies as `RateLimited`**, so the router benches that account and
+  advances instead of asking it again on the next call. Codex reports it without a status code or a reset time
+  (`Internal error: Your workspace is out of credits. Ask your workspace owner to refill in order to continue.`).
+  "Selected model is at capacity. Please try a different model." stays `Failed`: it is the model's, so the
+  host is not benched and another model on it is still asked.
 - **The packaged README is a landing page, and the reference moved to `docs/guide.md`** (**D197**). nuget.org
   renders the README for every package, so it now opens on what Lyntai is, a quickstart, the feature and backend
   maps and the package table, and its links are absolute — nuget.org resolves a relative link against itself.

@@ -124,7 +124,10 @@ public static partial class ProviderVerdictClassifier
     private static ProviderVerdict Credentialed(ProviderVerdict verdict, bool hasCredentials) =>
         verdict == ProviderVerdict.AuthFailed && !hasCredentials ? ProviderVerdict.NotConfigured : verdict;
 
-    [GeneratedRegex(@"rate[\s_-]?limit|too\s+many\s+requests|quota\s+exceeded|resource[\s_-]?exhausted|(?:http|status(?:\s+code)?|error|code)\s*[:=]?\s*429\b", RegexOptions.IgnoreCase)]
+    // "out of credits" is an allowance spent until a person refills it (Codex: "Your workspace is out of
+    // credits. Ask your workspace owner to refill…"), named with no reset time and no 429 — the same remedy
+    // as a quota: bench this account and advance
+    [GeneratedRegex(@"rate[\s_-]?limit|too\s+many\s+requests|quota\s+exceeded|resource[\s_-]?exhausted|out\s+of\s+credits|(?:http|status(?:\s+code)?|error|code)\s*[:=]?\s*429\b", RegexOptions.IgnoreCase)]
     private static partial Regex RateLimitPattern();
 
     // "physical batch size" is llama.cpp refusing an input past its batch, as HTTP 500; "too large to process"

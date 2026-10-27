@@ -203,6 +203,22 @@ public class CodexCliProviderTests
         Assert.Contains("401", reply.Detail);
     }
 
+    [Theory]   // the two sentences codex-acp 2.1.1 (Codex 0.159.3) reports untyped, as an in-band turn failure
+    [InlineData("Internal error: Your workspace is out of credits. Ask your workspace owner to refill in order to continue.", ProviderVerdict.RateLimited)]
+    [InlineData("Selected model is at capacity. Please try a different model.", ProviderVerdict.Failed)]
+    public async Task An_exhausted_workspace_cools_the_host_and_a_model_at_capacity_does_not(string message, ProviderVerdict expected)
+    {
+        var runner = new FakeProcessRunner
+        {
+            RunResult = Ok($$$"""{"type":"turn.failed","error":{"message":"{{{message}}}"}}"""),
+        };
+
+        var reply = await Provider(runner).CompleteAsync(Ask());
+
+        Assert.Equal(expected, reply.Verdict);
+        Assert.Contains(message, reply.Detail);
+    }
+
     [Fact]
     public async Task An_in_band_failure_is_classified_even_when_the_process_ALSO_exits_nonzero()
     {

@@ -235,6 +235,24 @@ public class CodexAgentSessionTests
         Assert.Equal("thread-fail", ended.SessionId);
     }
 
+    [Theory] // codex-acp 2.1.1 (Codex 0.159.3): an exhausted workspace benches the host, a model at capacity does not
+    [InlineData("Internal error: Your workspace is out of credits. Ask your workspace owner to refill in order to continue.", ProviderVerdict.RateLimited)]
+    [InlineData("Selected model is at capacity. Please try a different model.", ProviderVerdict.Failed)]
+    public async Task A_turn_failure_naming_exhaustion_or_capacity_is_told_apart(string message, ProviderVerdict expected)
+    {
+        var runner = new FakeProcessRunner([
+            """{"type":"thread.started","thread_id":"thread-fail"}""",
+            $$$"""{"type":"turn.failed","error":{"message":"{{{message}}}"}}""",
+        ]);
+
+        var events = await Session(runner).StreamAsync(Ask()).ToListAsync();
+
+        var ended = events.OfType<SessionEnded>().Single();
+        Assert.True(ended.IsError);
+        Assert.Equal(expected, ended.Verdict);
+        Assert.Equal(message, ended.Diagnostic);
+    }
+
     [Fact] // MEASURED usage fields; the absent model id is a measured ABSENCE, never guessed
     public async Task The_final_usage_carries_the_measured_cache_fields_and_no_model()
     {
