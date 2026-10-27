@@ -1,9 +1,10 @@
 # The agent-provider layer — a design for the owner
 
-**Status: a proposal; three rows are built — the failure of §5.3 on the two CLI doors, the event additions of
-§5.2, and the provider description and registry of §5.1 (`docs/guide.md` §CLI-agent session), whose names stand
-as built.** The decision is **D219** (`docs/DECISIONS.md`); the build rows are
-`TASKS.md` Part 376. This is a study (`docs/documents.md`): it is read for its reasoning, and what it settles
+**Status: a proposal; four rows are built — the failure of §5.3 on the two CLI doors (AG1), the event additions of
+§5.2 (AG2), the provider description and registry of §5.1 (AG3) and the bounded retry of §5.3 (AG4), all in
+`docs/guide.md` §CLI-agent session, whose names stand as built; the account (AG5), the pool (AG6), the brief (AG7),
+the ACP door (AG8) and the usage reading (AG9) are not.** The decision is **D219** (`docs/DECISIONS.md`); the open
+build rows are `TASKS.md` Part 376 and the closed ones `docs/task-archive.md` Parts 381, 382, 384 and 385. This is a study (`docs/documents.md`): it is read for its reasoning, and what it settles
 moves into the contract documents as each row lands. Every type named below is a PROPOSED name, to be
 confirmed by the row that builds it against the `ApiSurface` baselines. The sketches are plain text because
 none of them compiles yet.

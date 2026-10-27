@@ -21,6 +21,10 @@ every addition.
 
 ### Changed
 
+- **"You've hit your usage limit" and a spend cap classify as `RateLimited`**, so the router benches that account
+  instead of reading the turn as an ordinary failure and asking it again. Both CLI agent doors read the failure
+  from their own failure fields before any sentence, and the same sentences now decide a provider call and an
+  agent turn (**D219**).
 - **"Your workspace is out of credits" classifies as `RateLimited`**, so the router benches that account and
   advances instead of asking it again on the next call. Codex reports it without a status code or a reset time
   (`Internal error: Your workspace is out of credits. Ask your workspace owner to refill in order to continue.`).
@@ -41,11 +45,23 @@ every addition.
 
 ### Added
 
+- **A failed agent turn says what failed** (**D219**). `SessionEnded.Failure` is an `AgentFailure` on every failed
+  turn of both CLI agent sessions, null on a good one: a `Kind` (`Limit`, `Access`, `Transient` or `Fatal`), an
+  optional `Restriction` (what ran out, what it holds back and how it ends: a reset moment, a retry-not-before, an
+  owner action, or unknown) and a `Delivery` (`NeverSent`, `Taken` or `Uncertain`), which is what a retry has to
+  know. The kinds map onto the existing verdicts and add none. A recovery is stated only where the door says so,
+  never invented, and what an agent said or a tool printed never classifies the turn.
+- **A description of what an agent can do, and a registry to ask it** (**D219**). `AgentProviderDescriptor` states
+  an agent's doors and, per door, a claim for every ability (`Supported`, `Unsupported` or `Unknown`, with a
+  source and its evidence), so an ability nobody measured is unknown rather than guessed. `IAgentProvider` is a DI
+  collection beside the keyed sessions, resolved by id through `AgentProviderRegistry`, and an unknown id throws
+  naming those that exist. Both CLI agent registrations also register their provider. `AddAgentProvider` adds
+  another agent, and an option a door states unsupported is refused before anything is spawned.
 - **A bounded retry for an agent turn that failed transiently, off unless you ask** (**D219**).
   `AddAgentRetry(o => …)` wraps every registered `IAgentSession` in a `RetryingAgentSession`. It retries only a
-  `Transient` failure, within `MaxRetries`, waiting on the `TimeProvider` in the container (the system clock by
-  default) and stopping at a cancellation. A turn whose prompt was never sent is sent again; one the door had
-  taken resumes its conversation with a continue word; one that may have run a tool step, or has no session to
+  `Transient` failure, within `MaxRetries` (2), waiting on the `TimeProvider` in the container (the system clock by
+  default) from `InitialDelay` (2 s) doubling to `MaxDelay` (30 s), with no jitter, and stopping at a cancellation. A turn whose prompt was never sent is sent again; one the door had
+  taken resumes its conversation with a continue word (`ContinueWord`, "continue"); one that may have run a tool step, or has no session to
   resume, is not retried and its terminal says so. A limit, an access failure or a fatal one is never retried.
 - **An agent session's event stream carries a plan and a usage reading that can say "unknown"** (**D219**).
   `PlanUpdated` is the agent's whole plan as it now stands (claude's `TodoWrite` list, codex's `todo_list`);

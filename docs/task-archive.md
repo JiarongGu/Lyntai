@@ -5842,3 +5842,62 @@ per batch of edges in the SQLite graph store (linked ingest 516 s to 210 s). The
 hands VN2. Lane session, quest `#3a3744941b80`, lane `memory`; the storage fixes are outside it and were flagged.
 
 - Test Lyntai's long-term memory against a real corpus far larger than its own, and improve what it finds
+
+## Part 381 — AG2: the agent event stream completed with a plan and a usage reading (2026-10-28)
+
+✅ done 2026-10-28 — **Outcome:** `e79c415c` (merged `f82058af`). The stream gains `PlanUpdated` (the agent's whole
+plan as it now stands) and `UsageReading` (nullable counts, a unit, a scope of turn or cumulative, and the time the
+library read it), so a count a door never reports is unknown and not 0. Both CLI readers fold recorded captures into
+the same shape; `UsageLive` and `UsageFinal` are unchanged, and the baseline diff is additive only. Codex's
+`todo_list` is now a plan and no longer surfaces as a tool step. `SessionEnded` says it ends the turn, the
+conversation being the resume token. The decision is **D219**; the surface is in `docs/guide.md` §CLI-agent session.
+Lane session, lanes `platform` + `inference`.
+
+- AG2 — the event stream completed
+
+## Part 382 — AG1: a failed agent turn says what failed, its kind, its restriction and its delivery (2026-10-28)
+
+✅ done 2026-10-28 — **Outcome:** `44c8d45b` (merged `6da869df`). `SessionEnded.Failure` is an `AgentFailure`: a kind
+(limit, access, transient, fatal), an optional restriction (cause, subject, recovery), a delivery (never sent, taken,
+uncertain) and what decided it. Each door reads its own failure fields before a sentence; the sentences stay in
+`ProviderVerdictClassifier`, and the kinds map onto the existing verdicts and add none. **A change a user sees:**
+"You've hit your usage limit" and a spend cap now read as `RateLimited` (`CHANGELOG.md`). The Claude captures are
+source-derived, not recorded. The reading is `docs/guide.md` §CLI-agent session and `.agents/knowledge/llm-and-router.md`.
+Lane session, lanes `platform` + `inference`.
+
+- AG1 — failure kinds, restriction facts and delivery on the two existing doors
+
+## Part 383 — VN2: profile ownership, a projection over curated memory (2026-10-28)
+
+✅ done 2026-10-28 — **Outcome:** `e60b57a7` (merged `743ee9bc`). The comparison ran one scenario set on a projection
+over curated memory and a claim ledger, over the SQLite and file stores, with the partial amendment and the
+second-authority cases **D220** added; the projection wins, recorded as **D224**. Both passed every deterministic
+scenario and read the real records exactly; they split on two writers correcting one claim (20 of 20 single winners
+against the ledger leaving the refused claim live). No public type, package or default changed: both options are
+test-only code (`tests/Lyntai.Tests/Memory/Prototype/`). The proposal is `docs/vnext-modular-capabilities.md` §6 and
+the measurements `docs/memory-measurements.md` §5. It opened RV27 and RV28. Lane session, lane `memory`.
+
+- VN2 — profile ownership: a projection over curated memory, or a claim ledger
+
+## Part 384 — AG3: the provider description, registry and conformance theory (2026-10-28)
+
+✅ done 2026-10-28 — **Outcome:** `b6ad51ec` (merged `00812737`). `AgentProviderDescriptor`, `IAgentProvider`,
+`AgentProviderRegistry` (an unknown id throws and names what exists), an `AgentProvider` wrapper that refuses an
+`Unsupported` option before a spawn, and `LyntaiBuilder.AddAgentProvider`. One theory holds every registered
+provider to every ability, an unmeasured one `Unknown`. **Readings the session left:** the keyed Codex session still
+logs and spawns with `DisallowedTools` where the provider refuses it (`CodexAgentSessionTests.cs:517`,
+`docs/guide.md`), kept so no consumer changed; Codex resume is `Measured`, every other claim `Declared`, Codex plan
+events `Unknown`; accounts are left out of the descriptor for AG5; no `IAgentFailureReader` was built, the two doors
+reading their failure in their own readers. Lane session, lanes `platform` + `inference`.
+
+- AG3 — the provider description, registry and conformance theory
+
+## Part 385 — AG4: a bounded retry decorator (2026-10-28)
+
+✅ done 2026-10-28 — **Outcome:** `cacde2fa` (merged `c245bac4`). `RetryingAgentSession`, `AgentRetryOptions` and
+`LyntaiBuilder.AddAgentRetry`, off unless registered. It retries AG1's `Transient` kind only, by its delivery: never
+sent resends, taken resumes with a continue word, uncertain is not retried. **The public defaults are now frozen
+(D70):** 2 retries, a 2 s first wait doubling to 30 s, no jitter, the continue word `continue`. Proof is under a fake
+clock, with two mutations each turning a test red. Lane session, lane `platform`.
+
+- AG4 — a bounded retry decorator

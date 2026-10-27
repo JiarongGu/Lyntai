@@ -41,10 +41,10 @@ _One line per step, because a roadmap entry is not a task: nothing below can sta
 (`docs/vnext-modular-capabilities.md`, **D218**). A step that becomes startable is filed in `TASKS.md` then._
 
 - **The agent-provider layer** (**D219**, `TASKS.md` Part 376) is the one forward line with startable rows:
-  the failure policy and the event stream on the two doors that exist, then the registry, the retry, the pool and
-  the brief, and last an ACP door.
-- **Wave 0 of the vNext RFC** is ruled: RV26 yes (**D220**) and VN1 yes within a bound (**D221**). VN2 (curated
-  projection or ledger) is the row left, and RV27 (the instrument) waits on it.
+  the failure policy, the event stream, the registry and the retry are built; the account, the pool, the brief and
+  an ACP door remain, and the optional usage reading (AG9) with them.
+- **Wave 0 of the vNext RFC** is ruled: RV26 yes (**D220**) and VN1 yes within a bound (**D221**). VN2 chose the
+  projection over curated memory (**D224**), so RV27 (the instrument) and RV28 (the prototype) are startable.
 - **Wave 1, a model-free schema-first profile**, after VN2: a prototype held to RV27's Track A, and a package only
   through D25's promotion gate.
 - **Wave 2, extraction that picks from a consumer's attribute schema or abstains**, after Wave 1 and only on
