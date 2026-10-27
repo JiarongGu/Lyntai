@@ -948,6 +948,14 @@ reader's page and the reader's graded answer. `bench-compare` refuses a differen
 arguments plus its `LYNTAI_*` environment) unless told. Every other sweep still writes only its console table:
 wiring one first needs a question id stable across runs, which a sweep's generated trials do not yet carry.
 
+**`memory-profile` is a deterministic gate rather than a sweep**: RV27's Track A runs a fixed case set against the
+projection over curated memory, scored per bucket and never as one figure, with no model and about two minutes
+of runtime. It writes the same RV8 rows (metric `case-pass`; the arm is `<projection>/<bucket>`, the question the case
+id), so `bench-compare` pairs two runs bucket by bucket. It exits 1 when the projection fails a case that is no
+declared gap (`ProfileTrackA.KnownGaps`), when a declared gap passes, or when a deliberately broken projection passes the
+bucket it should fail; `ProfileTrackATests` pins the same three in `verify`, so the bench is for the result and the
+test is the gate. What it found is `docs/memory-measurements.md` §5, `profile-track-a-gate`.
+
 **`memory-contention` and `memory-decision` are ORCHESTRATED** — a Node script owns the server processes and
 the C# sweep only measures, because both need several `llama-server` instances at once and a bench cannot be
 trusted to tear them down. `memory-decision` is also the only sweep whose subject is not the memory engine

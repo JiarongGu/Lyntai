@@ -171,6 +171,12 @@ if (args.Contains("--affordance"))
 if (args.Contains("--corpus"))
     return await MemoryCorpusBench.RunAsync(args);
 
+// `node devtools/dev.mjs memory-profile` → --profile-track-a. RV27's Track A: the model-free gate a profile over
+// curated memory must pass, scored per bucket, plus five broken projections that show each bucket can fail.
+// Model-free and a minute or two; it writes one RV8 row per case. See ProfileTrackABench and docs/memory-measurements.md §5.
+if (args.Contains("--profile-track-a"))
+    return await ProfileTrackABench.RunAsync(args);
+
 // A `--evidence` study lived here on 2026-08-12 and was removed with the `GraphMemoryOptions.ReinforceOn`
 // seam it drove — see that option's own reverted-here note. Its FINDING survives in
 // docs/task-archive.md Part 64: the engine's reinforcement conflates an age RESET with a stability

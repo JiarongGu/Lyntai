@@ -52,6 +52,10 @@
     <Compile Include="..\..\tests\Lyntai.Tests\Memory\Prototype\ProfileModel.cs" Link="Prototype\ProfileModel.cs" />
     <Compile Include="..\..\tests\Lyntai.Tests\Memory\Prototype\ProfileOverCurated.cs" Link="Prototype\ProfileOverCurated.cs" />
     <Compile Include="..\..\tests\Lyntai.Tests\Memory\Prototype\ProfileLedger.cs" Link="Prototype\ProfileLedger.cs" />
+    <!-- memory-profile (RV27 Track A): the gate's cases and the broken projections that show it can fail, the files
+         ProfileTrackATests pins. Neither needs anything beyond Core and the two projection files above. -->
+    <Compile Include="..\..\tests\Lyntai.Tests\Memory\Prototype\ProfileTrackA.cs" Link="Prototype\ProfileTrackA.cs" />
+    <Compile Include="..\..\tests\Lyntai.Tests\Memory\Prototype\ProfileFlaws.cs" Link="Prototype\ProfileFlaws.cs" />
     <!-- Every template the corpus emits, plus the readers that parse it back. MemoryCorpus does not compile
          without it: the language axis routes every piece of text through this class. -->
     <Compile Include="..\..\tests\Lyntai.Tests\Memory\Corpus\CorpusLexicon.cs" Link="Corpus\CorpusLexicon.cs" />
