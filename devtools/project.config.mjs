@@ -1588,6 +1588,7 @@ export default {
     'memory-support': 'rule × θ × clock × `ConnectionBoost`; `--screen` = the model ladder',
     'memory-scale': 'COST, not quality — latency, throughput, bytes; no ground truth',
     'memory-corpus': 'recall QUALITY on a real record set far larger than ours, kept untracked; `--model-free` or a local embedder',
+    'memory-profile': "RV27 Track A: the model-free gate a profile over curated memory must pass, per bucket. No model",
     'memory-contention': 'judge vs cross-encoder: does moving verification off the shared model pay?',
     'memory-decision': 'a FORCED CHOICE at 3-7 options: one select call, or N score calls argmax\'d?',
     'tool-affordance': 'given these tools, what do you want — through the PROMPT protocol, on a SYNTHETIC roster',
@@ -1712,6 +1713,8 @@ export default {
     'marker-survival',    // does a ground-truth marker survive the transform under test
     // WRITES — what a concurrent or repeated write leaves behind.
     'single-winner',      // two writers race one claim: exactly one is told it won, exactly one claim holds, and it is theirs
+    // GATES — a deterministic case set, scored per bucket by how many of its cases pass.
+    'case-pass',          // RV27 Track A: a profile's cases, a bucket is a gate and never one accuracy figure
     // COST — no ground truth, and never mixed with a quality column.
     'latency',
     'vram-resident',

@@ -65,7 +65,8 @@ internal sealed class ProfileFlawed(ICuratedMemoryStore store, ProfileFlaw flaw)
         var id = ProfileClaims.IdOf(field, value, from, source);
         var parts = basedOn.Split(':');
         var (rowId, revision) = (long.Parse(parts[0], CultureInfo.InvariantCulture), long.Parse(parts[1], CultureInfo.InvariantCulture));
-        if (await store.GetAsync(rowId) is not { } old) return Correction.Missing;
+        if (await store.GetAsync(rowId) is not { } old || old.Kind != field.Field || old.TaskKey != field.TaskKey)
+            return Correction.Missing;
         if (from < Start(old)) throw new ArgumentException("A correction cannot begin before the claim it replaces.");
 
         if (flaw == ProfileFlaw.InPlaceCorrection)
