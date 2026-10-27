@@ -43,9 +43,10 @@ _One line per step, because a roadmap entry is not a task: nothing below can sta
 - **The agent-provider layer** (**D219**, `TASKS.md` Part 376) is the one forward line with startable rows:
   the failure policy and the event stream on the two doors that exist, then the registry, the retry, the pool and
   the brief, and last an ACP door.
-- **Wave 0 of the vNext RFC** is decisions only: RV26 (a profile at all), VN1 (a second reason for a package) and,
-  on an RV26 yes, VN2 (curated projection or ledger) and RV27 (the instrument).
-- **Wave 1, a model-free schema-first profile**, after RV26 yes, VN1 and VN2.
+- **Wave 0 of the vNext RFC** is ruled: RV26 yes (**D220**) and VN1 yes within a bound (**D221**). VN2 (curated
+  projection or ledger) is the row left, and RV27 (the instrument) waits on it.
+- **Wave 1, a model-free schema-first profile**, after VN2: a prototype held to RV27's Track A, and a package only
+  through D25's promotion gate.
 - **Wave 2, extraction that picks from a consumer's attribute schema or abstains**, after Wave 1 and only on
   **D217**'s trigger.
 - **Wave 3, context sources over the existing composer**; reflection stays refused (**D167**, **D168**) until a new

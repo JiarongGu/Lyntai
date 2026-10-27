@@ -94,7 +94,7 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D22](#d22--a-cli-backend-may-be-portable-application-bundled-not-just-a-global-install-2026-08-04) | 2026-08-04 | a CLI backend may be PORTABLE (application-bundled), not just a global install |
 | [D23](#d23--200-is-burned-on-nugetorg-the-2x-line-resumed-at-201-2026-08-04) | 2026-08-04 | 2.0.0 is BURNED on nuget.org; the 2.x line resumed at 2.0.1 |
 | [D24](#d24--generation-is-a-platform-in-its-own-domain-coupled-to-the-llm-side-only-through-tools-2026-08-04) | 2026-08-04 | generation is a PLATFORM in its own domain, coupled to the LLM side only through tools |
-| [D25](#d25--packages-are-split-by-dependency-footprint-not-by-vendor-or-by-size-2026-08-04) | 2026-08-04 | packages are split by DEPENDENCY FOOTPRINT, not by vendor or by size |
+| [D25](#d25--packages-are-split-by-dependency-footprint-or-a-promotion-gate-never-by-vendor-or-by-size-2026-08-04) | 2026-08-04 | packages are split by DEPENDENCY FOOTPRINT or a PROMOTION GATE, never by vendor or by size |
 | [D26](#d26--what-goes-in-the-lyntai-bundle-is-a-dependency-budget-enforced-by-a-gate-2026-08-04) | 2026-08-04 | what goes IN the `Lyntai` bundle is a DEPENDENCY BUDGET, enforced by a gate |
 | [D27](#d27--many-small-packages-is-the-intended-shape-the-cost-is-paid-in-tooling-2026-08-04) | 2026-08-04 | MANY small packages is the intended shape; the cost is paid in tooling |
 | [D28](#d28--a-constructor-whose-slots-can-be-silently-transposed-gets-named-factories-2026-08-04) | 2026-08-04 | a constructor whose slots can be silently transposed gets NAMED FACTORIES |
@@ -289,8 +289,12 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D217](#d217--llm-fact-extraction-and-a-user-profile-are-refused-a-second-time-because-a-model-cannot-supply-an-attributes-identity-2026-10-25) | 2026-10-25 | LLM fact extraction and a user profile are refused a second time, because a model cannot supply a… |
 | [D218](#d218--the-vnext-rfcs-principles-bind-anything-optional-its-package-graph-relaxation-is-the-owners-and-its-waves-wait-on-rulings-2026-10-27) | 2026-10-27 | the vNext RFC's principles bind anything optional, its package-graph relaxation is the owner's, a… |
 | [D219](#d219--the-agent-provider-layer-is-built-in-core-and-providersbasic-with-orchestration-left-to-hosts-2026-10-27) | 2026-10-27 | the agent-provider layer is built in Core and Providers.Basic, with orchestration left to hosts |
+| [D220](#d220--a-schema-first-user-profile-is-built-behind-a-comparison-and-a-gate-no-consumer-has-asked-yet-is-sequencing-not-demand-2026-10-28) | 2026-10-28 | a schema-first user profile is built, behind a comparison and a gate: "no consumer has asked yet"… |
+| [D221](#d221--a-package-may-be-earned-by-a-promotion-gate-not-only-by-a-dependency-it-isolates-2026-10-28) | 2026-10-28 | a package may be earned by a promotion gate, not only by a dependency it isolates |
+| [D222](#d222--a-door-may-read-an-accounts-usage-through-the-vendors-own-server-as-an-optional-ability-the-host-switches-on-2026-10-28) | 2026-10-28 | a door may read an account's usage through the vendor's own server, as an optional ability the ho… |
+| [D223](#d223--an-archive-that-does-not-age-is-searched-by-a-recipe-not-by-a-preset-or-a-changed-default-2026-10-28) | 2026-10-28 | an archive that does not age is searched by a recipe, not by a preset or a changed default |
 
-**214 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**218 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -665,23 +669,24 @@ core was still uncommitted to consumers.
 **Fallback is a POLICY, not a law** — `GenerationRoutingPolicy` makes the per-verdict action configurable, <!-- drift-ok: the record names the type AS IT WAS; D154 renamed it after -->
 the same shape the LLM side uses (D3).
 
-## D25 — packages are split by DEPENDENCY FOOTPRINT, not by vendor or by size (2026-08-04)
+## D25 — packages are split by DEPENDENCY FOOTPRINT or a PROMOTION GATE, never by vendor or by size (2026-08-04)
 
-> **The RELEASE-CADENCE reason below is withdrawn by D70**, with the carve-out it served. The `Lyntai.Generation`
+> **The RELEASE-CADENCE reason this entry gave is withdrawn by D70**, with the carve-out it served. The `Lyntai.Generation`
 > boundary stands on footprint alone, in a form this entry did not spell out: the package sits outside the
 > `Lyntai` bundle (**D26**), so a one-line install does not drag the media backends. The MCP paragraph's
-> "our own bridge" is gone too (**D146**).
+> "our own bridge" is gone too (**D146**). The generation *contracts* live in `Lyntai.Core` and carry the full
+> SemVer promise; only the package ever differed. **A different second reason replaces cadence: the promotion
+> gate (D221)**, which a boundary must pass whole.
 
 Lyntai had one package per backend, which read as "a package per vendor". The test is instead: *which
 dependency does this isolate?* Backends needing nothing extra share `Lyntai.Providers.Basic`; one earns
 its own package the moment it drags a native runtime, a platform-specific API, or a dependency a consumer
 might refuse.
 
-**RELEASE CADENCE is the second legitimate reason to draw a boundary.** The generation backends answer the
-dependency question weakly and a different one strongly: they need to ship EXPERIMENTAL and be reshaped in
-a minor while the rest of the library holds a frozen surface. **That carve-out is the `Lyntai.Generation`
-PACKAGE, never the namespace** — the generation *contracts* live in `Lyntai.Core` and carry the full SemVer
-promise.
+**A PROMOTION GATE is the second reason (D221).** An independently useful, removable capability may earn a
+package without isolating a dependency, only once two applications of different kinds reuse its contract,
+removing it leaves Core intact, its contract suites pass on the chosen backends, AOT and dependency reports
+exist and a quickstart does. One `VersionPrefix` and every compatibility obligation stand (**D70**).
 
 **Whatever the reason for the boundary, an adapter references `Lyntai.Core` — or one domain package such as
 `Lyntai.Generation` — and NEVER another adapter.** That is what lets a new backend be a new package rather
@@ -6207,9 +6212,9 @@ authority (**D217**). A read makes no model call and no store write it did not d
 A scope string is a namespace and never authorization (**D92**). A claim of benefit is measured per objective,
 paired and preregistered, never as one accuracy figure.
 
-**Adopted in part.** The package graph is a contract: the adapter rule stands whole, and a second reason for a
-package (an opt-in capability earning one) is NOT adopted, because it changes **D25** and only the owner may
-change that (`TASKS.md` Part 377, VN1).
+**Adopted in part.** The package graph is a contract: the adapter rule stands whole. A second reason for a
+package changes **D25**, and the owner delegated it: it is adopted as the whole promotion gate, nothing more
+(**D221**).
 
 **Rejected.** A profile contract in Core before two heterogeneous consumers use it, which is the RFC's own gate.
 A preview train per package: one `VersionPrefix` stamps every package (**D19**) and **D70** withdrew the last
@@ -6218,8 +6223,9 @@ entry here. Waves 1 to 4 as open rows now: they are `docs/ROADMAP.md` entries be
 or consolidation on by default (**D167**, **D168**). A context package beside the composer, which owns the
 budget (**D201**). An Agent Framework package (**D216**). Shared memory with grants before a host asks.
 
-**Re-opens** when the owner rules RV26 or VN1, when a consumer supplies attribute identity (**D217**), or when
-a second host needs the same shared scope.
+**Re-opens** when a consumer supplies attribute identity (**D217**), or when a second host needs the same shared
+scope. RV26 was ruled yes (**D220**) and VN1 yes within a bound (**D221**), and neither moves this entry's
+Core rule.
 
 ## D219 — the agent-provider layer is built in Core and Providers.Basic, with orchestration left to hosts (2026-10-27)
 
@@ -6247,4 +6253,118 @@ a session never passes through; a thirteenth storage domain for the pool (a migr
 any later mistake a major-only break, **D18**); a default-on retry; copying the sibling's code.
 
 **Re-opens** when a dependency appears that a package would isolate (an ACP library, a hosted agent's SDK), when
-**VN1** is ruled yes, or when two processes must share one pool (it then needs an atomic store capability).
+a package passes **D221**'s promotion gate, or when two processes must share one pool (it then needs an atomic
+store capability). VN1 is ruled yes within that bound and moves nothing here; the usage ability its ninth row
+adds is **D222**.
+
+## D220 — a schema-first user profile is built, behind a comparison and a gate: "no consumer has asked yet" is sequencing, not demand (2026-10-28)
+
+**Standing.** The owner's own ruling on RV26 (`docs/task-archive.md` Part 378). It reverses by a later decision
+here, not by a session.
+
+**Decided: YES.** The library takes a model-free profile capability, in this order: VN2 (`TASKS.md` Part 377)
+compares a projection over curated memory with a claim ledger; a model-free prototype is built on the winner and
+held to RV27's Track A; a package follows only through **D221**'s promotion gate. **No profile type enters Core**
+(**D218**). The reason, as the owner gave it: the profile has planned consumers, the owner's own applications,
+which use it once the work ahead of them is done. `generic-library.md`'s test (a general need, never one
+consumer's shape) was read as demand, and "no consumer has asked yet" is when they will ask, not whether. An
+independent read answered NO on that ground alone; this entry records the owner's reason as the one that decides.
+
+**What it does not do.** It does not re-open **D217**: extraction (RV27's Track B) stays gated on D217's
+triggers, and a model never supplies an attribute's identity. It adds no Core type and no package. It fixes no
+contract: VN2 may find that a projection over `ICuratedMemoryStore` needs no new type.
+
+**Two things VN2 must answer.**
+- **A partial amendment.** On the real record set a "current rule" question returned the original in 57-96% of
+  cases where a later record amended part of it, and ending whole documents cut an amendment's own recall from
+  66% to 14% (`docs/memory-measurements.md` §5, `corpus-amendments-supersession`). VN2's scenario set gains the
+  current value after a later record changes one field of an earlier one with the rest still standing, run on both
+  options.
+- **A second authority.** A profile can become one beside the evidence. For each option VN2 says which record
+  is the authority and how three cases resolve: a schema rename, a partial correction, and the import of an
+  older export giving conflicting current values. Deterministic read tests alone do not settle ownership.
+
+The records of the real repository the memory run used (decisions amended by dated notes) are the first corpus VN2 measures.
+
+**Rejected.** Refusing on "no consumer has asked yet" (the row's own NO disposition). A profile type in Core
+before two heterogeneous consumers use it (**D218**). A package outside **D221**'s gate. An extractor-fed mode
+now (**D217**).
+
+**Re-opens** if VN2 cannot name one authority for the three cases on either option, or the prototype fails
+Track A: the profile then stays a recipe over curated memory and valid time (`docs/memory.md` §7).
+
+## D221 — a package may be earned by a promotion gate, not only by a dependency it isolates (2026-10-28)
+
+**Standing.** Decided by the parent session that coordinates this repository's work, on the owner's delegation, with an
+independent read of these records by Codex. A first reading leaned NO; the independent read changed it on one point. It reverses
+by a later decision here.
+
+**Decided: YES within a bound.** Dependency isolation measures transitive dependency cost. It does not measure
+what it costs a consumer to adopt an API or to own its persisted data, and an independently useful, removable
+capability can justify a package with no new external dependency. **D25 gains the promotion gate as its second
+reason, whole**: two applications of DIFFERENT kinds reuse the contract (not one application's policy shown
+twice), removing the package leaves Core intact, the contract suites pass on the chosen backends, AOT and
+dependency reports exist, and a quickstart does. "Its API stands apart" alone is not the gate.
+
+**The bound.**
+- One `VersionPrefix` stamps every package (**D19**) and every compatibility obligation stands (**D70**). A
+  package is an adoption boundary, never a way to publish an unsettled contract.
+- **D218**'s adapter rule stands: an adapter references Core or one domain package, never another adapter. Core
+  stays free of speculative capability types. **Bridge packages that reference several capability packages are
+  NOT authorized here**: the RFC flags that graph disagreement (`docs/vnext-modular-capabilities.md` §4).
+- **Nothing moves now.** `TASKS.md` Part 376 stays as **D219** placed it. A later move of types between
+  assemblies proves binary compatibility, with type forwarding where needed, because an unchanged namespace does
+  not guarantee it.
+
+**Rejected.** NO: keeping a capability in the package whose dependency it shares until one appears, which prices
+adoption at nothing. A preview train per package (**D70**). The gate without its heterogeneous-consumer clause.
+
+**Re-opens** if a capability that passed the gate cannot stay independently removable, or the gate repeatedly
+approves contracts that need synchronized consumer-specific changes.
+
+## D222 — a door may read an account's usage through the vendor's own server, as an optional ability the host switches on (2026-10-28)
+
+**Standing.** As **D221**: the coordinating parent session on the owner's delegation, with Codex's independent read.
+
+**Decided: YES within a bound** (`TASKS.md` Part 376, AG9). An account's allowance and a turn's usage are
+different observations, and the design keeps unit, scope, time and *unknown* apart (`docs/agent-provider-layer.md`
+§5.4). **D20** already lets Lyntai drive a backend's own probing while the host keeps binaries, provisioning and
+credentials, and launching a host-selected vendor binary is inside it. AG1 to AG8 stand without it.
+
+**The bound.**
+- An optional ability on a door, **off unless the host enables it and invokes it explicitly**; never part of an
+  ordinary read (**D218**).
+- Supported per door AND per vendor version only after that version's real usage response is validated. "The only
+  whole-account source" is not established by the design's say-so and carries no support until then.
+- Bounded, with cancellation and process cleanup.
+- **Its side effects are declared**: a start may refresh credentials, change configuration, load extensions, open
+  a listener or leave a process running. Default-off alone does not address them.
+- Any failure or unrecognised answer returns **unknown**, never a guess (**D20**). Vendor mechanics stay inside
+  the adapter, and Lyntai stores no credential.
+- It is its own row after AG1 to AG3, because it sits on the provider description.
+
+**Rejected.** NO: usage only from the events a turn reports, so the pool ranks on restrictions alone. A probe on
+by default, or run inside a read. Resting support on one vendor's behaviour read from a document.
+
+**Re-opens** if a probe needs credential custody, has side effects that cannot be declared, or answers in a way
+whose account identity and allowance scope cannot be established reliably.
+
+## D223 — an archive that does not age is searched by a recipe, not by a preset or a changed default (2026-10-28)
+
+**Standing.** From the memory lane's real-corpus run (`docs/memory-measurements.md` §5, `corpus-ranking-archive`),
+recorded by the steward.
+
+**Decided.** The shipped ranking keeps its age vote and its reinforcement. A reference archive (decisions, a fix
+log, finished tasks) is searched with the documented recipe, `docs/memory.md` §9 *Search an archive that does not
+age*: `ReinforceOn = None`, `CoActivationCap = 0`, `LogReviews = false` and `RetrievabilityWeight = 0`,
+`HopWeight = 0`. No preset, option or default is added from this run. On the 11,112 chunks the default let
+unrelated recent candidates outvote the relevant old ones (the answer in the candidates for 73% and on the page for
+26%, against 45% with relevance alone), and that is the design working on a corpus where age is no evidence.
+
+**Rejected.** A new default: `layers-lme-ku-lyntai-haystack-n70` is the workload where the age vote pays, and
+the engine cannot tell the two kinds of corpus apart. A named preset: one English record set and one run per arm
+is too little to put a corpus kind on the frozen surface (**D70**). A wider candidate pool: measured worse
+(`corpus-pool-width`).
+
+**Re-opens** when a second real archive, or a consumer's own measurement, shows the same loss, or when a signal
+the engine can read tells the two corpus kinds apart.

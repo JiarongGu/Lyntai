@@ -67,10 +67,10 @@ or HTTP agent, and the restriction reducer's behaviour on a real shared allowanc
 `VersionPrefix` stamps every package, so a new package is under the full promise from its first stable
 version. (3) A pool package would need the CLI doors that live in Basic; Core would then hold the contracts
 anyway, or the package would reference an adapter, which `.claude/rules/dotnet-package-layout.md` forbids.
-(4) The RFC's second axis for a package (an opt-in capability earning one) is an owner decision (**VN1**,
-`TASKS.md` Part 377), and this design does not wait on it: namespaces do not change when code moves between
-packages (D25), so a later `Lyntai.Agents` package taking the pool, the brief and the ACP door costs a
-consumer one package reference.
+(4) The RFC's second axis for a package (an opt-in capability earning one) is ruled yes within a bound (**D221**):
+it needs the whole promotion gate, and this design waits on none of it. Nothing moves now. A later `Lyntai.Agents`
+package taking the pool, the brief and the ACP door would need two applications of different kinds reusing the
+contract, and proof of binary compatibility, since a namespace that does not change does not guarantee it.
 
 **The risk taken, stated.** A published member is frozen (D70). The pool and the restriction model come from a
 design nobody has built, so they are the least certain surface. The rows are therefore ordered so the
@@ -173,7 +173,8 @@ AgentFailure
 - **A shared allowance exists only where a door supplies the relationship with its evidence.** Another local
   profile name proves nothing, and an unknown pool stays unknown.
 - **Usage readings** keep their unit, scope and time, and an absent reading is unknown and never zero. They
-  come from the usage events and from the optional `IAgentUsageSource` a door may supply.
+  come from the usage events and from the optional `IAgentUsageSource` a door may supply (AG9, bounded by **D222**:
+host-enabled, validated per door and version, side effects declared, unknown on any failure).
 - **State** is the reducer in process, persisted through the key-value store so a restart keeps its holds.
   Two processes sharing one pool would need an atomic compare-and-set the store does not have; that is out of
   the first slice and recorded as such (§7).
@@ -242,7 +243,7 @@ needs and the data already measured first; the parts designed but never built la
 5. **AG5** — the account reaching a door (`inference`), then **AG6** the pool with its reducer (`platform`).
 6. **AG7** — the transcript and the brief (`platform`).
 7. **AG8** — the ACP door and its stand-in (`inference` + `tools`).
-8. **AG9** — the owner's ruling on usage reads (§11), which gates an optional ability only.
+8. **AG9** — the optional usage reading (§11, **D222**), after AG1 to AG3; AG1 to AG8 stand without it.
 
 ## 10. Rejected
 
@@ -255,13 +256,16 @@ needs and the data already measured first; the parts designed but never built la
 
 ## 11. For the owner
 
-Three questions; the first two are decision-only rows because a yes or no each changes the work.
+Three questions; the first two are ruled.
 
-1. **VN1 — a second reason for a package** (`TASKS.md` Part 377). This design needs no answer, and a yes
-   moves the pool, the brief and the ACP door into one package later.
+1. **VN1 — a second reason for a package**: yes within a bound (**D221**, `docs/task-archive.md` Part 378). This
+   design needed no answer and nothing moves; a later package takes the pool, the brief and the ACP door only
+   through the whole promotion gate.
 2. **AG9 — may a door read an account's usage by starting the vendor's own server under that account's home?**
-   It spawns the vendor binary with that account's credentials in its environment (Daoris does this for Codex
-   and Claude). It is the only source of a whole-account allowance. Recommended: yes, as an optional ability
-   a host switches on, off by default.
+   Yes within a bound (**D222**), as its own row after AG1 to AG3. It spawns the vendor binary with that
+   account's credentials in its environment (Daoris does this for Codex and Claude), so it is an optional ability a
+   host enables and invokes explicitly, supported per door and vendor version only once that version's real
+   response is validated, with its side effects declared and unknown on any failure. That it is "the only
+   source of a whole-account allowance" is to be tested there, not assumed.
 3. **Whether Daoris adopts it** is Daoris's decision, taken in its own records. The layer must stand without
    it, and the first-party consumer of `IAgentSession` today must see no change: every addition is additive.

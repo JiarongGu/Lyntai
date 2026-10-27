@@ -8,19 +8,19 @@ and Part 375, and `docs/ROADMAP.md` §Sequenced.
 
 ## 1. How each proposed item stands
 
-`Exists`, `Partly`, `Refused` (a decision already answered it), `Owner` (only the owner can rule) or `Later`
-(sequenced behind a ruling). Evidence is the decision or the archive Part, read at this commit.
+`Exists`, `Partly`, `Refused` (a decision already answered it), `Owner` (only the owner can rule), `Decided` (ruled
+since this table was written) or `Later` (sequenced behind a ruling). Evidence is the decision or the archive Part, read at this commit.
 
 | RFC item | Stands | Evidence and disposition |
 |---|---|---|
 | §1.2 do not rebuild: router, graph, jobs, forget, vector migration, no UI in Core | Exists | `ITextClient` and the router; D39–D41, D215; the job runner and its redelivery (`docs/task-archive.md` Part 367); D198; D199 and D212 (`docs/task-archive.md` Parts 350 and 368); design §9 (a host is an application's concern). All seven stand as written |
 | §1.2 another free-key LLM extraction | Refused | D217: a model cannot supply an attribute's identity. Re-opens only on its two triggers |
 | NEXT-001 capability inventory | Exists | this table, plus D39, D175, D188, D200–D204, D209, D213–D216 |
-| NEXT-002 profile ownership (Curated or a ledger) | Owner | RV26 decides whether a profile ships at all; on yes, **VN2** compares the two on one scenario set |
-| NEXT-003 package graph | Owner | **VN1**: whether D25 gains a second reason for a package |
-| NEXT-004 consumer story, P-fixtures, no-model baseline | Owner | RV27, which serves RV26 alone; §3 reconciles the RFC's two fixture lists |
+| NEXT-002 profile ownership (Curated or a ledger) | Decided | RV26 is yes (**D220**); **VN2** compares the two on one scenario set, with a partial amendment and the second-authority question added |
+| NEXT-003 package graph | Decided | **VN1** is yes within a bound (**D221**): D25 gains the whole promotion gate; bridge packages referencing several capability packages are not authorized |
+| NEXT-004 consumer story, P-fixtures, no-model baseline | Later | RV27, behind VN2 and serving the profile alone; §3 reconciles the RFC's two fixture lists |
 | NEXT-005 what D217 refused | Exists | D217 names it: a model-named key as identity. What stays open is its trigger, a consumer-supplied schema |
-| NEXT-101 to 106 profiles package | Later | Wave 1, behind RV26, VN1 and VN2 |
+| NEXT-101 to 106 profiles package | Later | Wave 1: VN2, then a prototype (RV28) held to RV27's Track A, then a package only through D221's gate |
 | NEXT-201 to 207 ingestion | Later | Wave 2, behind Wave 1 and D217's trigger. The RFC's constrained arm (the model picks from allowed attribute ids or abstains) is exactly what the trigger asks for |
 | NEXT-301 does the composer already serve many sources | Partly | `IPromptComposer` and `EngineBackedPromptComposer` own the budget; D201's manifest already reports cuts. A context package is an adapter over them or nothing |
 | NEXT-302 budgeted contributions with an omission manifest | Exists | D201 |
@@ -31,7 +31,7 @@ and Part 375, and `docs/ROADMAP.md` §Sequenced.
 | NEXT-401, 402 grants and multi-agent shared memory | Later | Wave 4. No consumer has asked; the RFC itself leaves orchestration to hosts, which D219 holds for agents |
 | NEXT-403 revocation-aware import | Refused | D198 refused a tombstone fence and D204 says a file older than a forget brings the content back (`docs/memory.md`). Re-opens on a consumer that needs the fence |
 | NEXT-404 to 406 | Later | Wave 4, on demand |
-| ADR-A to D (appendix) | Owner / Exists | package boundary is VN1; ownership is VN2; subject, actor and scope is D92 plus the host authorizing before a read; change and forget propagation is D198 and D213 |
+| ADR-A to D (appendix) | Decided / Later / Exists | package boundary is D221; ownership is VN2; subject, actor and scope is D92 plus the host authorizing before a read; change and forget propagation is D198 and D213 |
 | §16 version and release | Partly | one `VersionPrefix` stamps every package (D19), so a per-capability preview train does not exist; adding a package does not force a major (D18 already) |
 
 ## 2. The principles
@@ -59,16 +59,17 @@ grants, a renamed attribute) need features of Waves 2 to 4, so they enter RV27 o
   `VersionPrefix` stamps all of them (D19) and D70 withdrew the last exemption, so a new package is under the
   full promise from its first stable version. The freeze risk is handled by what ships first, not by a label.
 - **Capability packages referencing each other.** The layout rule allows an adapter to reference Core or one
-  domain package. The RFC's bridge packages reference two. That is VN1's question, not a given.
+  domain package. The RFC's bridge packages reference two. **D221** does not authorize that: it adopts the
+  promotion gate and leaves the adapter rule whole.
 - **ADRs and a proposals folder.** The records here are `docs/DECISIONS.md` entries of at most 35 lines and
   untracked specs under `local/superpowers/` (D43); the RFC's nine-heading ADR and its `docs/proposals/` do
   not exist here. The headings it wants (problem, alternatives, rejected, reversal trigger) are what an entry
   already carries.
-- **The RFC's recommendation on RV26** (a conditional yes to a prototype) is a recommendation. RV26 stays
-  decision-only until the owner rules, and what each answer does is written on the row.
+- **The RFC's recommendation on RV26** (a conditional yes to a prototype) was a recommendation. The owner ruled
+  yes (**D220**), for their own reason: planned consumers, so "no consumer has asked yet" is sequencing.
 
 ## 5. Room left for the memory evidence
 
-A memory-lane run of the engines on a corpus far larger than the library's own is in flight. Wave 0's
-evidence is not guessed here: its findings are written to `docs/memory-measurements.md` §5 when it lands, and
-VN2 and RV27 read them there before they are built. Nothing in this fold depends on their direction.
+A memory-lane run of the engines on a corpus far larger than the library's own has landed
+(`docs/memory-measurements.md` §5). Its amendment finding is why VN2's scenario set gains a partial amendment
+(**D220**); VN2 and RV27 read it there.
