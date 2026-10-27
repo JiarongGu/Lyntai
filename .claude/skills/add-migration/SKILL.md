@@ -32,8 +32,9 @@ below is the rule and the why is there. Never hand-pick a migration number: a re
    `.agents/knowledge/storage.md` §Migrations names, and NOTHING fails if you forget the twin —
    `docs/DECISIONS.md` D9), and an InMemory implementation in `src/Lyntai.Storage.Basic/InMemory/` (a
    Governance domain's in-memory default lives in Core). Then a `<Domain>StoreContract` fact class in
-   `tests/Lyntai.Tests/Storage/`, named in `PostgresContractCoverageTests.BackendContracts` — that list is by
-   name, so a contract missing from it is unchecked on Postgres. The contract facts, not a shared base class,
+   `tests/Lyntai.Tests/Storage/` and a `<Domain>StoreContractFacts` base over `StoreContractSuite<T>` whose one
+   `[ContractFacts]` theory runs it, derived once per backend — Postgres in `PostgresContractTests`;
+   `StoreContractCoverageTests` fails a contract no base drives and a shipped store no suite runs. The contract facts, not a shared base class,
    keep the backends from drifting (`.agents/knowledge/storage.md` §Don't "dedup" the Sqlite/Postgres stores). If it's a change to an
    existing table, update the affected store's SQL.
 4. Add/extend the integration test against a temp db (migrate → round-trip; prove FTS recall if you added

@@ -120,7 +120,7 @@
       "source": "core/rules/skills-workflow.md",
       "target": "rules/skills-workflow.md",
       "canonVersion": "0.0.1",
-      "sha256": "d30e9d6937a1d4333f190468ed3410e4e77d86b7c5df60c1874ad22d0a5c34f8",
+      "sha256": "c3fe6c35cfbbb58b3586e24d66f9eada08d2f6a62ff6bbb20dd37d019e5d698d",
       "in": "AGENTS.md"
     },
     {
@@ -151,7 +151,7 @@
       "source": "core/skills/co-working/SKILL.md",
       "target": "skills/co-working/SKILL.md",
       "canonVersion": "0.0.1",
-      "sha256": "72d18311f7f87a788b47af74c0b3cde6c47696f59923fb52561fd7818e23ba77"
+      "sha256": "0644e228c0cf3246ef95cb1cf490639ade8817562f7910dc2b36ebfdeadb11aa"
     },
     {
       "pack": "core",
@@ -252,7 +252,7 @@
     {
       "path": ".claude/skills/add-migration/SKILL.md",
       "of": ".agents/skills/add-migration/SKILL.md",
-      "sha256": "9d02df3b42eccd210f9e1faa801bc6c772806251b30919c60719f183729f3f43"
+      "sha256": "445cfbdec6647d75479791f0c597a675f533c702d568161fa9858f24b7d5d2d2"
     },
     {
       "path": ".claude/skills/add-provider/SKILL.md",
@@ -282,7 +282,7 @@
     {
       "path": ".claude/skills/co-working/SKILL.md",
       "of": ".agents/skills/co-working/SKILL.md",
-      "sha256": "877e628fc56920cafaf46003084caa99b390ae962a3dddd532c2476e8db7ffd4"
+      "sha256": "a33d610f2022d6046a31b10f3ddb9772199b1774eb81a95b3f165e5f6b136c58"
     },
     {
       "path": ".claude/skills/doc-loader/SKILL.md",

@@ -392,8 +392,18 @@ not reading them produces the *appearance* of having checked, which is worse tha
 openly: the transcript shows diligence and the code shows none. Repositories that hit this added an
 explicit blocking step for it, which is the strongest evidence that it happens to everyone.
 
+A procedure kept only in one agent's user directory is another missing contract: it works on that
+machine but cannot be reviewed, shared or recovered with the project.
+
 ## How to apply
 
+- **Give managed instructions a portable home.** A managed document or skill belongs either to the
+  repository, versioned with its files, or to the coordinator's managed content store, eligible for its
+  permitted record sync. Declare one source and keep generated copies traceable to it; a user directory
+  or agent installation is not a third authoritative home. Prefer the repository's procedure when one
+  exists. External tools may supply general capabilities and official references, but project workflows
+  and required supporting instructions must be kept in one of those managed homes. Do not copy secrets,
+  machine state or third-party bundles merely to make a procedure portable.
 - **Find them in your agent's own skill list, or in the generated index.** Both are built from what is on
   disk, so they are right about which discovery skills this repository actually has — a memorized list
   is not, and repositories differ.
