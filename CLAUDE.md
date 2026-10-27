@@ -8,7 +8,7 @@
 
 **Released: v3.5.3 (2026-09-30).** Eleven packages. The public API is frozen under
 SemVer 2.0 since 1.0 for every package (**D70**).
-The reasoning is `docs/DECISIONS.md`, **D1–D223** — read its generated index table rather than any list of
+The reasoning is `docs/DECISIONS.md`, **D1–D224** — read its generated index table rather than any list of
 decisions kept here.
 
 **The baseline a green run should match:** `5642 passed / 5691 total, 49 skipped` (every skip is a

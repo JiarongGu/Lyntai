@@ -3,8 +3,8 @@
 **Status: a study of an external proposal** (`docs/documents.md`). The RFC, *Lyntai vNext — modular memory
 intelligence and agent capabilities*, was reviewed on 2026-10-25 against the public repository, without a clone or a
 test run. It proposes; it does not decide. **Where it and this repository's records disagree, the records
-win**, and §4 says where. What Lyntai adopts and refuses is **D218**; what is filed is `TASKS.md` Part 377
-and Part 375, and `docs/ROADMAP.md` §Sequenced.
+win**, and §4 says where. What Lyntai adopts and refuses is **D218**; what is filed is `TASKS.md` Part 375
+(VN2, its comparison, closed as **D224**), and `docs/ROADMAP.md` §Sequenced.
 
 ## 1. How each proposed item stands
 
@@ -74,14 +74,14 @@ A memory-lane run of the engines on a corpus far larger than the library's own h
 (`docs/memory-measurements.md` §5). Its amendment finding is why VN2's scenario set gains a partial amendment
 (**D220**); VN2 and RV27 read it there.
 
-## 6. VN2 compared: the decision proposed for the steward
+## 6. VN2 compared: the profile is a projection over curated memory
 
-**Standing.** A PROPOSAL, written by the session that ran `TASKS.md` Part 377; it is not a record until the steward
-enters it in `docs/DECISIONS.md` and moves the row. The evidence is `docs/memory-measurements.md` §5 (the VN2 setup and
-`vn2-concurrent-corrections`, `vn2-partial-amendment-real-records`) and `ProfileScenarioTests`, test-only code over
-shipped store interfaces. No public type, package or default changed.
+**Standing.** The proposal of the session that ran VN2, now recorded as **D224** (`docs/DECISIONS.md`), which governs; this
+section is the comparison it rests on and stays as written. The evidence is `docs/memory-measurements.md` §5 (the VN2
+setup and `vn2-concurrent-corrections`, `vn2-partial-amendment-real-records`) and `ProfileScenarioTests`, test-only
+code over shipped store interfaces. No public type, package or default changed.
 
-**Proposed: the profile is a projection over curated memory.** One claim per field of the schema, one curated entry per
+**The profile is a projection over curated memory.** One claim per field of the schema, one curated entry per
 claim (kind = the field id, task key = the subject, **D92**), appended and never edited: a correction ends the entry it
 read behind `IRevisionedCuratedMemoryStore`'s revision check and then adds the new one, and a replay is found by a claim
 id. **The authority is the entry**, which is the claim and the source it cites at once; the profile keeps no state and a

@@ -293,8 +293,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D221](#d221--a-package-may-be-earned-by-a-promotion-gate-not-only-by-a-dependency-it-isolates-2026-10-28) | 2026-10-28 | a package may be earned by a promotion gate, not only by a dependency it isolates |
 | [D222](#d222--a-door-may-read-an-accounts-usage-through-the-vendors-own-server-as-an-optional-ability-the-host-switches-on-2026-10-28) | 2026-10-28 | a door may read an account's usage through the vendor's own server, as an optional ability the ho… |
 | [D223](#d223--an-archive-that-does-not-age-is-searched-by-a-recipe-not-by-a-preset-or-a-changed-default-2026-10-28) | 2026-10-28 | an archive that does not age is searched by a recipe, not by a preset or a changed default |
+| [D224](#d224--the-profile-is-a-projection-over-curated-memory-not-a-claim-ledger-2026-10-28) | 2026-10-28 | the profile is a projection over curated memory, not a claim ledger |
 
-**218 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**219 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -6262,7 +6263,7 @@ adds is **D222**.
 **Standing.** The owner's own ruling on RV26 (`docs/task-archive.md` Part 378). It reverses by a later decision
 here, not by a session.
 
-**Decided: YES.** The library takes a model-free profile capability, in this order: VN2 (`TASKS.md` Part 377)
+**Decided: YES.** The library takes a model-free profile capability, in this order: VN2 (`docs/task-archive.md` Part 383)
 compares a projection over curated memory with a claim ledger; a model-free prototype is built on the winner and
 held to RV27's Track A; a package follows only through **D221**'s promotion gate. **No profile type enters Core**
 (**D218**). The reason, as the owner gave it: the profile has planned consumers, the owner's own applications,
@@ -6368,3 +6369,46 @@ is too little to put a corpus kind on the frozen surface (**D70**). A wider cand
 
 **Re-opens** when a second real archive, or a consumer's own measurement, shows the same loss, or when a signal
 the engine can read tells the two corpus kinds apart.
+
+## D224 — the profile is a projection over curated memory, not a claim ledger (2026-10-28)
+
+**Standing.** Written by the steward from the comparison the session that ran VN2 (`docs/task-archive.md` Part 383) proposed
+(`docs/vnext-modular-capabilities.md` §6); the owner's acceptance of the branch makes it binding. It answers the
+comparison **D220** ordered and reverses by a later decision here. The evidence is `docs/memory-measurements.md` §5
+(the VN2 setup, `vn2-concurrent-corrections`, `vn2-partial-amendment-real-records`) and `ProfileScenarioTests`,
+test-only code over shipped store interfaces. No public type, package or default changed.
+
+**Decided.** The profile is a projection over `ICuratedMemoryStore`: one claim per field of the schema, one curated
+entry per claim (kind = the field id, task key = the subject, **D92**), appended and never edited. A correction ends
+the entry it read behind `IRevisionedCuratedMemoryStore`'s revision check and then adds the new one; a replay is
+found by a claim id. **The authority is the entry**, the claim and the source it cites at once: the profile keeps no
+state, and a read returns the latest start and reports any other claim that still holds. **D220**'s three cases: a
+schema rename re-kinds each entry in place (ids and creation times kept), and a file taken before it repopulates the
+old id until the caller renames again, which merges by claim id; a partial correction writes one field and no other;
+an older export with a conflicting current value lands beside the newer claim and is read as a dispute, never as an
+overwrite (**D204**). RV28 builds it as a prototype and holds it to RV27's Track A (**D220**).
+
+**Why.** Both options passed every deterministic scenario and read the real records exactly (869 of 869 fields, 97% of
+the amendments partial), so reads decide nothing. They split on two writers correcting one claim: the revision check
+left one winner in 20 of 20 trials on each store, while the ledger written through `GraphMemoryEngine` alone left the
+refused writer's claim live and returned its value in 17 to 20 of 20 on SQLite. Closing that takes a
+compare-and-supersede on `ITemporalMemoryGraphStore` across four backends, a frozen capability (**D70**) added for a
+prototype **D220** says fixes no contract. What the projection lacks (valid time held in metadata, one successor, a
+start no earlier than its predecessor's) is code the prototype owns and tests in one place. It is also 1.8 to 2.3
+times smaller on disk.
+
+**Costs accepted.** Valid time as entry metadata is a second vocabulary beside **D215**'s and the store checks none
+of it. A correction is two writes, so a crash between them leaves the field with no current claim and fails closed:
+RV28 injects it. A forget removes rows one by one. The catalog's own edit path can change an entry's content in
+place, so the prototype detects a claim whose content no longer matches its id, or the profile becomes a second
+authority edited by another tool.
+
+**Rejected.** The ledger now: the race above, node ids that change on a rename, decay state on a stored claim. The
+ledger with a caller-side compensation, which narrows the race to a window and does not close it. One claim per
+record: of two writers the second is stale, so a partial amendment must be a field. Choosing the field from the real
+records' structure: only 46% of partial amendments name it by word overlap, so it comes from the caller or the schema
+(**D217**). The graph's own ranking as the current value, refused by **D217**'s reasoning and not run.
+
+**Re-opens** if a compare-and-supersede reaches `ITemporalMemoryGraphStore` for another consumer, if the profile
+needs intervals queried across fields, or if the two-write gap or the in-place edit cannot be closed in the
+prototype.
