@@ -703,13 +703,41 @@ Each of these cost a real measurement to find.
   **D107**), which Lyntai does not do for you because the setting is process-wide. Figures, repeats and the
   refuted explanations: `docs/memory-measurements.md` §5, `scale-graph-sqlite-sequential` and its neighbours.
 
+- **On a large archive that does not age, the shipped ranking spends relevance on recency, and a WIDER pool
+  makes it worse.** 11,112 chunks of real records, model-free (`memory-corpus`; `docs/memory-measurements.md`
+  §5, `corpus-ranking-archive`, `corpus-pool-width`): on one question kind the answer was among the 40 candidates
+  for 73% of questions and on the page for 26% under the default ranking, against 45% with relevance alone, and
+  the oldest fifth of the archive was found 23% of the time against 59% for the newest. Raising
+  `CandidateMultiplier` to 100 took the candidates from 45–97% to 86–100% and the page DOWN from 22–88% to 8–69%,
+  because every candidate casts a retrievability vote and the votes of the unrelated recent ones outweigh a
+  relevant old one.
+  That is the design working — decay is the engine's point — on a corpus where age carries no signal. The recipe
+  is *Search an archive that does not age*, below; the age weight stays on where recency IS evidence
+  (`docs/memory-measurements.md` §5, `layers-lme-ku-lyntai-haystack-n70`).
+- **A decision that amends another does not END it, and `Supersedes` cannot say so.** In the same records the
+  amending text states the CHANGED rule and shares few words with the text it amends, so a query for the old
+  topic returns the old text (the amender above the original in 4–17% of those questions on every engine and
+  embedder tier measured). Writing each amender as superseding what it names ended whole documents that were
+  only partly replaced and cut recall of an amendment's own claim from 66% to 14%
+  (`corpus-amendments-supersession`): what ends is a CLAIM, which the caller knows and the engine cannot read
+  off a link. Register supersession per claim, or not at all. An entry also has ONE successor, so a document
+  amended twice throws on the second `Supersedes` that names it.
+- **The keyword store keeps 500 entries a scope by default**, evicting FIFO, so a corpus past that quietly
+  loses its oldest records (hit@10 of 0–8% on 11,112 chunks). It is documented on
+  `LyntaiOptions.MemoryEviction`; a corpus-sized store sets `MemoryEvictionPolicy.Manual`. A large finite cap
+  is worse than none: every write sorts the scope to evict, and 11,112 writes took 185 s at the default cap, 394 s
+  at `CountCap(int.MaxValue)` and 66 s under `Manual` (`corpus-cost-before-after`).
+
 ### What is not measured
 
-- **Scale beyond cost.** Recall QUALITY at scale, Postgres, and any model in the loop.
+- **Scale beyond cost, outside one corpus.** Recall QUALITY at scale is measured on ONE real record set,
+  English, in three record shapes (`memory-corpus`); Postgres, a model in the loop and any other language or
+  record shape are not.
 - **Salience's admission priority on its OWN.** It is live at the defaults and has been priced only by
   difference: against a genuine off arm it nearly cancels retention's miss cost (`docs/memory-measurements.md`
   §5, `salience-novelty-nw15-true-off`).
-- **Real-world recall quality.** The corpus defines relevance lexically and is synthetic throughout.
+- **Real-world recall quality, beyond one record set.** The sweep corpus defines relevance lexically and is
+  synthetic throughout; `memory-corpus` is the one real measurement, and says what it is (above).
 - **Parameter fitting.** Every `DsrOptions` constant is either FSRS's published default — fitted against an
   external corpus — or marked unmeasured in its own XML doc; none is fitted against this library's own reviews — **with one exception, `ReinforceGain`, which 3.0 moved
   to `0` on a measurement taken here** (§6's Learning table, **D54**). The review log can now carry real
@@ -771,6 +799,40 @@ write made while the embedder is down pays an annotation call that its retry pay
 throws rather than going missing. The graph engine's similarity links and salience are best-effort, logged,
 and not reported — the stored node's `GraphNode.ProvenanceSalience` names the policies
 behind its STORED signals, which a later write whose policies all decline leaves as they were.
+
+### Search an archive that does not age
+
+The shipped engine is built for material whose recency is evidence: what was said last is more likely to matter,
+and what nothing has touched fades. A reference archive — decisions, a fix log, finished tasks — is the opposite,
+since an entry's age says nothing about whether it answers the question, and on 11,112 such chunks the default
+ranking let the unrelated recent candidates outvote the relevant old ones (`docs/memory-measurements.md` §5,
+`corpus-ranking-archive`). Switch the age vote off, and stop a recall from reinforcing what it returns:
+
+```csharp
+services.AddLyntai(cfg => cfg
+    .UseSqliteStorage("archive.db")
+    .AddMemoryEngine("archive", e => e.UseGraph(
+        new GraphMemoryOptions
+        {
+            ReinforceOn = MemoryReinforcementActs.None,
+            CoActivationCap = 0,
+            LogReviews = false,
+        },
+        ranking: new ReciprocalRankFusionPolicy(new ReciprocalRankFusionOptions
+        {
+            RetrievabilityWeight = 0,
+            HopWeight = 0,
+        }))));
+```
+
+The page then follows the lexical ranking it is seeded from, which on that archive is within six points of the
+plain keyword store's on every question kind and, with `AddMemorySemanticSeeds` and a local embedder, above it on
+all six kinds by 2 to 15 points with one of the two embedders measured and on three with the other
+(`corpus-hit-embedder`). **Leave `CandidateMultiplier`
+alone**: under the default ranking a wider pool lowers recall of the page (§7), and with the age vote off it buys
+nothing the seed's own ordering did not already give. Nothing is buried or deleted either way — this changes what
+a recall RANKS, not what is kept. It is a measured recipe for one kind of corpus, not a new default: where recency
+is evidence, keep the shipped weights.
 
 ### Keep a fact exactly, forever
 

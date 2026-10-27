@@ -44,6 +44,9 @@
   <ItemGroup>
     <Compile Include="..\..\tests\Lyntai.Tests\Memory\Corpus\MemoryCorpus.cs" Link="Corpus\MemoryCorpus.cs" />
     <Compile Include="..\..\tests\Lyntai.Tests\Memory\Corpus\RecallQuality.cs" Link="Corpus\RecallQuality.cs" />
+    <!-- memory-corpus: the record parser, chunker, question builder and scorer, pure and tested in the test project. -->
+    <Compile Include="..\..\tests\Lyntai.Tests\Memory\Corpus\RecordCorpus.cs" Link="Corpus\RecordCorpus.cs" />
+    <Compile Include="..\..\tests\Lyntai.Tests\Memory\Corpus\RecordQuestions.cs" Link="Corpus\RecordQuestions.cs" />
     <!-- Every template the corpus emits, plus the readers that parse it back. MemoryCorpus does not compile
          without it: the language axis routes every piece of text through this class. -->
     <Compile Include="..\..\tests\Lyntai.Tests\Memory\Corpus\CorpusLexicon.cs" Link="Corpus\CorpusLexicon.cs" />

@@ -346,14 +346,15 @@ public sealed class SqliteMemoryGraphStore(
     // The statement itself, over a connection and a totals snapshot the caller owns — so the single-member
     // path and WriteBackAsync run identically and cannot drift into two spellings of one write.
     private static Task TouchAsync(IDbConnection conn, string engine,
-        IReadOnlyCollection<GraphTouch> touches, MemoryPositionRow totals, CancellationToken ct) =>
+        IReadOnlyCollection<GraphTouch> touches, MemoryPositionRow totals, CancellationToken ct,
+        IDbTransaction? tx = null) =>
         conn.ExecuteAsync(new CommandDefinition(MemoryGraphSql.Touch, touches.Select(t => new
             {
                 t.Id, t.Stability, t.Difficulty, t.ProvenanceRetrievability, engine,
                 position = totals.Position, ordinal = totals.Ordinal, chars = totals.Chars,
                 encodedAt = totals.EncodedAt,
             }),
-            cancellationToken: ct));
+            transaction: tx, cancellationToken: ct));
 
     /// <inheritdoc />
     public async Task LinkAsync(string engine, long from, long to, string? kind, double weight,
@@ -364,8 +365,10 @@ public sealed class SqliteMemoryGraphStore(
 
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         var totals = await TotalsAsync(conn, engine, ct).ConfigureAwait(false);
-        await LinkManyAsync(conn, [new GraphEdgeWrite(from, to, kind, weight, symmetric)], totals, ct)
+        await using var tx = await conn.BeginTransactionAsync(ct).ConfigureAwait(false);
+        await LinkManyAsync(conn, [new GraphEdgeWrite(from, to, kind, weight, symmetric)], totals, ct, tx)
             .ConfigureAwait(false);
+        await tx.CommitAsync(ct).ConfigureAwait(false);
     }
 
     /// <summary>The batched form: ONE connection and ONE position-totals read for every edge, where the
@@ -381,21 +384,26 @@ public sealed class SqliteMemoryGraphStore(
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         // ONE snapshot for the whole batch — the correctness half of IMemoryGraphStore.LinkManyAsync.
         var totals = await TotalsAsync(conn, engine, ct).ConfigureAwait(false);
-        await LinkManyAsync(conn, edges, totals, ct).ConfigureAwait(false);
+        // ONE transaction: each edge is a statement, and a statement of its own commits on its own — a
+        // similarity-linked write of five symmetric edges paid ten commits, which on a corpus-sized graph was
+        // most of what a write cost.
+        await using var tx = await conn.BeginTransactionAsync(ct).ConfigureAwait(false);
+        await LinkManyAsync(conn, edges, totals, ct, tx).ConfigureAwait(false);
+        await tx.CommitAsync(ct).ConfigureAwait(false);
     }
 
     // As with TouchAsync above: the loop over a caller-owned connection and snapshot, so WriteBackAsync
     // reuses it rather than restating it.
     private static async Task LinkManyAsync(IDbConnection conn, IReadOnlyList<GraphEdgeWrite> edges,
-        MemoryPositionRow totals, CancellationToken ct)
+        MemoryPositionRow totals, CancellationToken ct, IDbTransaction? tx = null)
     {
         foreach (var e in edges)
         {
             ct.ThrowIfCancellationRequested();
             if (e.From == e.To) continue;   // a self-edge is never useful and would skew Degree
-            await StrengthenAsync(conn, e.From, e.To, e.Kind ?? "", e.Weight, totals, ct).ConfigureAwait(false);
+            await StrengthenAsync(conn, e.From, e.To, e.Kind ?? "", e.Weight, totals, ct, tx).ConfigureAwait(false);
             if (e.Symmetric)
-                await StrengthenAsync(conn, e.To, e.From, e.Kind ?? "", e.Weight, totals, ct).ConfigureAwait(false);
+                await StrengthenAsync(conn, e.To, e.From, e.Kind ?? "", e.Weight, totals, ct, tx).ConfigureAwait(false);
         }
     }
 
@@ -414,10 +422,14 @@ public sealed class SqliteMemoryGraphStore(
         if (work.Touches.Count > 0 || work.Edges.Count > 0)
         {
             var totals = await TotalsAsync(conn, engine, ct).ConfigureAwait(false);
+            // The touches and the edges commit together: a recall's write-back was one commit per touched
+            // row and per edge, and the reviews below stay outside it so a broken log costs neither.
+            await using var tx = await conn.BeginTransactionAsync(ct).ConfigureAwait(false);
             if (work.Touches.Count > 0)
-                await TouchAsync(conn, engine, work.Touches, totals, ct).ConfigureAwait(false);
+                await TouchAsync(conn, engine, work.Touches, totals, ct, tx).ConfigureAwait(false);
             if (work.Edges.Count > 0)
-                await LinkManyAsync(conn, work.Edges, totals, ct).ConfigureAwait(false);
+                await LinkManyAsync(conn, work.Edges, totals, ct, tx).ConfigureAwait(false);
+            await tx.CommitAsync(ct).ConfigureAwait(false);
         }
 
         // LAST by contract — see IMemoryGraphStore.WriteBackAsync: a broken log must cost neither of the above
@@ -426,13 +438,13 @@ public sealed class SqliteMemoryGraphStore(
     }
 
     private static Task StrengthenAsync(IDbConnection conn, long from, long to, string kind,
-        double weight, MemoryPositionRow totals, CancellationToken ct) =>
+        double weight, MemoryPositionRow totals, CancellationToken ct, IDbTransaction? tx = null) =>
         conn.ExecuteAsync(new CommandDefinition(MemoryGraphSql.StrengthenEdge,
             new
             {
                 from, to, kind, weight, position = totals.Position, ordinal = totals.Ordinal,
                 chars = totals.Chars, at = totals.EncodedAt,
-            }, cancellationToken: ct));
+            }, transaction: tx, cancellationToken: ct));
 
     /// <inheritdoc />
     public async Task<int> PruneAsync(string engine, string taskKey, string? scope,
