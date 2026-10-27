@@ -35,6 +35,23 @@
 - **Server/host/launcher + auto-update** stays out of scope for good: a host is an application's concern,
   and the library stays host-free (design §9).
 
+## Sequenced — not open work, each behind a ruling
+
+_One line per step, because a roadmap entry is not a task: nothing below can start until the ruling it names
+(`docs/vnext-modular-capabilities.md`, **D218**). A step that becomes startable is filed in `TASKS.md` then._
+
+- **The agent-provider layer** (**D219**, `TASKS.md` Part 376) is the one forward line with startable rows:
+  the failure policy and the event stream on the two doors that exist, then the registry, the retry, the pool and
+  the brief, and last an ACP door.
+- **Wave 0 of the vNext RFC** is decisions only: RV26 (a profile at all), VN1 (a second reason for a package) and,
+  on an RV26 yes, VN2 (curated projection or ledger) and RV27 (the instrument).
+- **Wave 1, a model-free schema-first profile**, after RV26 yes, VN1 and VN2.
+- **Wave 2, extraction that picks from a consumer's attribute schema or abstains**, after Wave 1 and only on
+  **D217**'s trigger.
+- **Wave 3, context sources over the existing composer**; reflection stays refused (**D167**, **D168**) until a new
+  measurement, and an Agent Framework package until a second consumer needs the mapping (**D216**).
+- **Wave 4, shared memory across agents**, when a second host needs a shared scope; orchestration stays the host's.
+
 ## Standing maintenance policies
 
 - **OTel GenAI semconv watch**: the conventions are experimental and moved to a standalone repo, so pin

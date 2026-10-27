@@ -15,19 +15,30 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 6 across 4 Parts: 2 blocked, 2 watch, 2 decision-only
+## Open items — 17 across 6 Parts: 8 startable, 3 blocked, 2 watch, 4 decision-only
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 107 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a free Hugging Face account (an hf_ token) — its router proxies fal's own q… |
-| 154 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 177 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 233 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
-| 277 | 375 | RV26 — a schema-first user profile, read with no search and no model call | decision-only | the owner's ruling on whether the library ships a profile surface at all — … |
-| 283 | 375 | RV27 — the profile and ingestion benchmark (GAP-125: the review's P01–P16 c… | decision-only | a YES on RV26 — the instrument is not the deliverable (task-lifecycle.md), … |
+| 118 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a free Hugging Face account (an hf_ token) — its router proxies fal's own q… |
+| 165 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 188 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 244 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 288 | 375 | RV26 — a schema-first user profile, read with no search and no model call | decision-only | the owner's ruling on whether the library ships a profile surface at all — … |
+| 299 | 375 | RV27 — the profile and ingestion benchmark (GAP-125: the review's P01–P16 c… | decision-only | a YES on RV26 — the instrument is not the deliverable (task-lifecycle.md), … |
+| 318 | 376 | AG1 — failure kinds, restriction facts and delivery on the two existing doo… | startable |  |
+| 327 | 376 | AG2 — the event stream completed | startable |  |
+| 332 | 376 | AG3 — the provider description, registry and conformance theory | startable |  |
+| 337 | 376 | AG4 — a bounded retry decorator | startable |  |
+| 341 | 376 | AG5 — an account reaching a door | startable |  |
+| 345 | 376 | AG6 — the account pool and its restriction reducer | startable |  |
+| 352 | 376 | AG7 — a transcript and a brief that travel | startable |  |
+| 358 | 376 | AG8 — an ACP door and its stand-in | startable |  |
+| 364 | 376 | AG9 — may a door read an account's usage through the vendor's own server? | decision-only | the owner's ruling on spawning a vendor binary under an account's credentia… |
+| 376 | 377 | VN1 — does D25 gain a second reason for a package? | decision-only | the owner's ruling on whether an opt-in capability may earn its own package… |
+| 383 | 377 | VN2 — profile ownership: a projection over curated memory, or a claim ledger | blocked · decision | RV26 ruled YES |
 
 <!-- open-items:end -->
 
@@ -280,10 +291,101 @@ untracked as `local/superpowers/specs/2026-10-24-competitive-roadmap.md`. Its fi
   evidence. Much of it already ships: curated memory's edit, disable and forget, RV9's revision, RV10's
   export, RV6's composition reporting what it left out, and D215's valid time. It is model-free: the schema is
   the attribute identity **D217** found a model cannot supply, and an extractor-fed mode re-opens only on D217's triggers.
+  <br>**What each answer does.** **YES** opens **VN2** (Part 377) and then a model-free prototype on the winner of
+  that comparison, a profile package only if VN1 also rules yes, and RV27; it adds no profile type to Core
+  (**D218**). **NO** closes RV26 and RV27 as refused with a decision, leaves `docs/memory.md` §7 as the guidance,
+  and drops the RFC's Waves 1 and 2 (`docs/ROADMAP.md` §Sequenced); a consumer's own profile stays a recipe over
+  curated memory and valid time.
 - [ ] **RV27 — the profile and ingestion benchmark (GAP-125: the review's P01–P16 cases).** Cases cover <!-- item: state=decision-only needs="a YES on RV26 — the instrument is not the deliverable (task-lifecycle.md), so it is built for the ruling it serves" -->
   negation, third-party speech, reported speech, a revised preference, a correction, deletion propagating,
   and cross-tenant isolation, scored per bucket and never as one accuracy figure. RV20's NO is **D217**, so
   this now serves RV26 alone. Write the result in the RV8 shape and compare runs with `bench-compare`.
+  <br>**Two tracks, kept apart** (`docs/vnext-modular-capabilities.md` §3). **Track A**, model-free: exact reads,
+  corrections and history, isolation, concurrent writes, a replayed event, zero model calls on a read; a hard
+  gate, and the only track RV26's yes needs. **Track B**, an extractor choosing from allowed attribute ids or
+  abstaining: attribution, identity binding, evidence, cost per event; targets preregistered after a baseline
+  and built only on D217's trigger. The memory-lane corpus run in flight writes its findings to
+  `docs/memory-measurements.md` §5, and this reads them there before it is built.
+
+## Part 376 — the agent-provider layer (2026-10-27)
+
+_Designed in `docs/agent-provider-layer.md` and decided in **D219**, from an application that runs coding agents
+and had to build the layer inside its own driver. Eight rows are build work, in the design's §9 order, and one is
+the owner's. **Each build row is a lane quest**; the lane is `daoris.lanes.json`'s. Every row is additive on the
+frozen surface, takes its first failing test from a recorded capture, and runs against stand-ins at zero tokens.
+The order is the risk order: AG1 to AG4 use what is measured; AG5 to AG8 carry what was only designed._
+
+- [ ] **AG1 — failure kinds, restriction facts and delivery on the two existing doors** (lanes `platform` + <!-- item: state=startable -->
+  `inference`). A new init member on the terminal event carries an `AgentFailure`: kind (limit, access,
+  transient, fatal), an optional restriction (cause, subject, recovery as reset-at, retry-not-before, owner action
+  or unknown), a delivery (never sent, taken, uncertain) and what decided it. Each door reads its own failure fields
+  before a sentence; the sentences stay in `ProviderVerdictClassifier`; the kinds map onto the existing verdicts and
+  add none. **Proof:** the recorded Codex exhaustion and capacity sentences, a stated-reset limit and a 529 each held
+  both ways with a near sentence that must not match; a `success` result with an error flag reads as a failure; agent
+  prose and tool output never classify; delivery by fault injection on the stubs (dies before any event, mid-stream,
+  after a tool call).
+- [ ] **AG2 — the event stream completed** (lanes `platform` + `inference`). A plan event and a usage-reading <!-- item: state=startable -->
+  event with nullable counts, a unit, a scope (turn or cumulative) and a measured time, so a count a door never
+  reports is unknown and not 0; the terminal event is documented as ending the turn, the conversation being the
+  resume token. **Proof:** both readers fold recorded captures into the same stream shape, the older usage events are
+  unchanged, and the baseline diff is additive only.
+- [ ] **AG3 — the provider description, registry and conformance theory** (lanes `platform` + `inference`, after <!-- item: state=startable -->
+  AG1 and AG2). `AgentProviderDescriptor` (doors, abilities each with a support value and a source) and
+  `IAgentProvider` as a DI collection beside the keyed sessions now registered; an unknown id throws and names what
+  exists. **Proof:** one theory over every registered provider: each states every ability, an unmeasured one is
+  `unknown`, and an option a door cannot honour is refused before a spawn.
+- [ ] **AG4 — a bounded retry decorator** (lane `platform`, after AG1). `RetryingAgentSession`, off unless <!-- item: state=startable -->
+  registered; only transient; waits on an injected `TimeProvider`, cut by cancellation; resends the prompt only when
+  never sent, resumes with a continue word when taken and the door can resume, and does not retry when uncertain.
+  **Proof:** the disposition table, the bound, an uncancelled wait and one retry layer, all under a fake clock.
+- [ ] **AG5 — an account reaching a door** (lane `inference`, after AG3). A neutral account on the session <!-- item: state=startable -->
+  options, mapped by each CLI door to its own configuration-home variable; Lyntai creates no profile, signs in to
+  none and stores no credential (**D20**). **Proof:** the variable reaches the child through the runner stub; an
+  account of another provider is refused; a test that no credential value is written anywhere.
+- [ ] **AG6 — the account pool and its restriction reducer** (lane `platform`, after AG1 and AG5). Ordered <!-- item: state=startable -->
+  choices walked account by account, asked once per turn so a rotation lands at a turn's end; a set of independent
+  restrictions all of which must permit; a reset time permits one bounded attempt; an owner action is cleared by id
+  and revision; a shared allowance only where a door supplies it; state kept through the key-value store. Selection
+  beyond the ordered walk is an `IAgentAccountPolicy` seam with no second implementation. **Proof:** the reducer
+  under a fake clock (concurrent holds, an owner action, an unknown recovery, a stale reading, a restart); a note
+  that two processes sharing one pool are out of scope.
+- [ ] **AG7 — a transcript and a brief that travel** (lane `platform`). A recorder that folds the event stream <!-- item: state=startable -->
+  into a transcript, and a deterministic composer of a bounded brief with no model: the host's words verbatim and
+  first, another agent's output as its claim, each turn's last message, the plan, host-supplied facts, a count of
+  what was left out; plus the hand-over decision (resume when the provider, account and ability allow, else a fresh
+  session with the brief). **Proof:** golden briefs, the bound biting in the stated order, no memory engine
+  referenced.
+- [ ] **AG8 — an ACP door and its stand-in** (lanes `inference` + `tools`, after AG1 to AG3). JSON-RPC 2.0 over <!-- item: state=startable -->
+  stdio, a process per turn, load or resume by the agent's negotiated capability, prompt, cancel, the update kinds
+  mapped to the stream, an error's `data` and a typed failure read into AG1's failure. A stand-in under
+  `devtools/scripts` speaks the protocol including a limit. **Proof:** the stand-in suite at zero tokens, captures
+  marked source-derived or real, and live tests against installed `claude-agent-acp` and `codex-acp` that skip
+  without them (each a named new skip).
+- [ ] **AG9 — may a door read an account's usage through the vendor's own server?** Daoris starts the agent's <!-- item: state=decision-only needs="the owner's ruling on spawning a vendor binary under an account's credentials to read its allowance" -->
+  own server under the account's home to ask one question. It is the only whole-account source and it runs the
+  vendor binary with that account's credentials in its environment. **YES** adds an optional `IAgentUsageSource`
+  ability to the two CLI doors, switched on by the host and off by default, as a row of its own. **NO** leaves
+  usage to the events a turn reports, and the pool then ranks on restrictions alone.
+
+## Part 377 — what the vNext RFC leaves to the owner (2026-10-27)
+
+_From `docs/vnext-modular-capabilities.md` and **D218**. Both rows need a ruling before they are work; neither
+asks for code today. RV26 and RV27 (Part 375 above) are the RFC's other two owner items, and each now says
+what yes and no do._
+
+- [ ] **VN1 — does D25 gain a second reason for a package?** Today a boundary exists to isolate a dependency. <!-- item: state=decision-only needs="the owner's ruling on whether an opt-in capability may earn its own package without isolating a dependency" -->
+  The RFC would add: an opt-in capability whose API, persistence or adoption stands apart. **YES** amends D25 with
+  the RFC's promotion gate (two applications reusing the contract, uninstallable without breaking Core, a contract
+  suite on the chosen backends, AOT and dependency reports, a quickstart); a capability may then ship as a package,
+  one `VersionPrefix` still stamping it. **NO** keeps a capability in the package whose dependency it shares,
+  behind an opt-in registration, and a profile or the agent layer moves out only when a dependency appears.
+  Nothing in Part 376 waits on it; a yes later moves code without changing a namespace.
+- [ ] **VN2 — profile ownership: a projection over curated memory, or a claim ledger** (lane `memory`, plus <!-- item: state=blocked kind=decision needs="RV26 ruled YES" -->
+  `storage` if the ledger wins). The RFC's ADR-B. Run ONE scenario set (set, read with no model, correct, history,
+  forget, export and import, two concurrent corrections) on both options over the SQLite and file stores, with the
+  memory-lane evidence in `docs/memory-measurements.md` §5 read first. **Proof:** a written comparison choosing
+  one, entered as a decision; no public type is added. A third option, the graph's own ranking as the current
+  value, is refused by D217's reasoning and is not run.
 
 ## Retired — five Parts that outlived their open work (2026-09-16)
 

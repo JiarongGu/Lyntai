@@ -287,8 +287,10 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D215](#d215--valid-time-is-stated-on-the-write-and-supersession-preserves-evidence-2026-10-25) | 2026-10-25 | valid time is stated on the write, and supersession preserves evidence |
 | [D216](#d216--the-ichatclient-composition-is-a-tested-recipe-rather-than-a-package-2026-10-25) | 2026-10-25 | the IChatClient composition is a tested recipe rather than a package |
 | [D217](#d217--llm-fact-extraction-and-a-user-profile-are-refused-a-second-time-because-a-model-cannot-supply-an-attributes-identity-2026-10-25) | 2026-10-25 | LLM fact extraction and a user profile are refused a second time, because a model cannot supply a… |
+| [D218](#d218--the-vnext-rfcs-principles-bind-anything-optional-its-package-graph-relaxation-is-the-owners-and-its-waves-wait-on-rulings-2026-10-27) | 2026-10-27 | the vNext RFC's principles bind anything optional, its package-graph relaxation is the owner's, a… |
+| [D219](#d219--the-agent-provider-layer-is-built-in-core-and-providersbasic-with-orchestration-left-to-hosts-2026-10-27) | 2026-10-27 | the agent-provider layer is built in Core and Providers.Basic, with orchestration left to hosts |
 
-**212 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**214 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -6189,3 +6191,60 @@ deletion (cost 18.9 points, **D41**).
 **Re-opens** when a consumer supplies attribute identity (a schema, an entity id) and asks for extraction to
 fill the values, or when a measured key-matching step lifts same-key revisions well above the oracle's rate.
 A strong paid extractor was not run (`docs/memory-measurements.md` §5 says what it would cost).
+
+## D218 — the vNext RFC's principles bind anything optional, its package-graph relaxation is the owner's, and its waves wait on rulings (2026-10-27)
+
+**Standing.** Written by the steward from an external proposal; the owner's acceptance of the branch makes it
+binding. Before any row it governs is built it reverses by editing this entry. The item-by-item mapping is
+`docs/vnext-modular-capabilities.md`.
+
+**Adopted**, each because it restates a choice already made and now binds an optional capability. Core stays
+stable: it takes nothing beyond `Microsoft.Extensions.*` (**D25**) and gains no profile, extraction,
+reflection or collaboration type. Raw exchange, a stored fact, a projection and a summary stay different
+things; a summary is a cache and never evidence, and a supersession is the caller's act (**D90**, **D215**,
+**D217**). Every capability works with no model, and a model proposes without owning identity, scope or write
+authority (**D217**). A read makes no model call and no store write it did not declare (**D175**, **D200**).
+A scope string is a namespace and never authorization (**D92**). A claim of benefit is measured per objective,
+paired and preregistered, never as one accuracy figure.
+
+**Adopted in part.** The package graph is a contract: the adapter rule stands whole, and a second reason for a
+package (an opt-in capability earning one) is NOT adopted, because it changes **D25** and only the owner may
+change that (`TASKS.md` Part 377, VN1).
+
+**Rejected.** A profile contract in Core before two heterogeneous consumers use it, which is the RFC's own gate.
+A preview train per package: one `VersionPrefix` stamps every package (**D19**) and **D70** withdrew the last
+exemption. The RFC's ids and nine-heading ADR as tracked records: an id becomes a Part row, a decision an
+entry here. Waves 1 to 4 as open rows now: they are `docs/ROADMAP.md` entries behind the rulings. Reflection
+or consolidation on by default (**D167**, **D168**). A context package beside the composer, which owns the
+budget (**D201**). An Agent Framework package (**D216**). Shared memory with grants before a host asks.
+
+**Re-opens** when the owner rules RV26 or VN1, when a consumer supplies attribute identity (**D217**), or when
+a second host needs the same shared scope.
+
+## D219 — the agent-provider layer is built in Core and Providers.Basic, with orchestration left to hosts (2026-10-27)
+
+**Standing.** As **D218**. The design is `docs/agent-provider-layer.md`; the rows are `TASKS.md` Part 376.
+
+One layer serves any application that runs coding agents: a provider contract that describes an agent's doors
+and abilities with a source for each; a turn's event stream; an account pool with restrictions, limits and
+rotation at a turn's end; one error policy over the door's own failure; and a brief that carries a
+conversation to another agent. **Contracts and pure policy live in `Lyntai.Core` (`Lyntai.Agents`), the doors
+in `Lyntai.Providers.Basic` (the two CLI sessions, then an ACP door), and the pool's state in the key-value
+store.** No package is added, because none isolates a dependency (**D25**, **D27**), and the preview shelter
+a package would give does not exist (**D19**, **D70**).
+
+The error policy adds no `ProviderVerdict` member: limit, access, transient and fatal map onto the existing
+ones and a field carries the rest, as `84a17f99` did for Codex's exhaustion sentence. Only the door's own
+failure classifies, never the agent's prose. A recovery time is a fact the sentence states or it is unknown;
+a default cool-off is the host's option (`generic-library.md` rule 7). A retry is a decorator that is off
+unless registered, bounded, and resends a prompt only when it was never sent.
+
+**Left to hosts**: which task an agent works, how its work lands, review, the UI, when to rotate or hand over,
+spend, sign-in and credentials (**D20**), and where a transcript is kept.
+
+**Rejected.** A new package now; a second verdict enum; a model-written brief; a pool in the front door, which
+a session never passes through; a thirteenth storage domain for the pool (a migration on every backend, and
+any later mistake a major-only break, **D18**); a default-on retry; copying the sibling's code.
+
+**Re-opens** when a dependency appears that a package would isolate (an ACP library, a hosted agent's SDK), when
+**VN1** is ruled yes, or when two processes must share one pool (it then needs an atomic store capability).
