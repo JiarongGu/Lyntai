@@ -1052,6 +1052,16 @@ own item type with codex's own payload, so switch on `ToolCall.Name`; `UsageLive
 gates on `--sandbox`, from `ToolPolicy` or `CodexAgentOptions.SandboxMode`); and `SystemPrompt` travels as a
 leading block of the prompt.
 
+**A turn's stream, completed.** One `StreamAsync` call is one turn, ended by its one `SessionEnded`; the
+conversation is the resume token that event carries. Two events sit beside the older usage ones. `PlanUpdated`
+is the agent's WHOLE plan as it now stands (claude's `TodoWrite` list, codex's `todo_list`), each replacing the
+last; a turn with none means the door sent none. `UsageReading` holds nullable counts, a unit, a scope
+(`Turn` or `Cumulative`) and the time the library read it, so a count a door never sends is `null`, which
+`UsageFinal`'s `0` cannot say. Counts are the door's own and are not normalised across doors, so compare a
+reading only with one of the same door and scope. Both doors read `Turn` from their terminal usage line;
+claude's is the turn's total over every API call, and codex's scope is taken from its usage record and has not
+been re-measured across a resumed conversation.
+
 ## Durable jobs (`Lyntai.Jobs`)
 
 Long, multi-step work that survives restarts: a runner claims a job, your handler checkpoints, and a job whose

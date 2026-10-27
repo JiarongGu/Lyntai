@@ -37,7 +37,17 @@ internal static class CodexEnvelope
     /// arrives.</summary>
     public const string ItemStarted = "item.started";
 
+    /// <summary>SOURCE-DERIVED (not yet captured on a real run here): an item whose list changed, carrying the
+    /// WHOLE item again. Read only for a <see cref="TodoListItem"/>; for any other item its accumulation rule is
+    /// unmeasured and it stays ignored.</summary>
+    public const string ItemUpdated = "item.updated";
+
     // ── item types ───────────────────────────────────────────────────────────
+
+    /// <summary>SOURCE-DERIVED: the agent's plan, <c>{"id":…,"type":"todo_list","items":[{"text":…,
+    /// "completed":bool}]}</c> — the whole list on <c>item.started</c>, <c>item.updated</c> and
+    /// <c>item.completed</c> alike. A step is pending or completed; the wire has no in-progress flag.</summary>
+    public const string TodoListItem = "todo_list";
 
     /// <summary>MEASURED (0.146.0): <c>{"id":…,"type":"agent_message","text":"…"}</c> — the assistant's
     /// answer.</summary>
@@ -80,6 +90,24 @@ internal static class CodexEnvelope
             WireJson.Long(usage, "output_tokens"),
             WireJson.Long(usage, "cached_input_tokens"),
             WireJson.Long(usage, "cache_write_input_tokens"));
+    }
+
+    /// <summary>The four counts of a <c>usage</c> object with an ABSENT field kept null — a build that omits
+    /// <c>cache_write_input_tokens</c> reports an unknown count, which <see cref="ReadUsage"/> would read as 0.
+    /// Null when there is no usage object or it carries none of the four.</summary>
+    public readonly record struct UsageCounts(long? Input, long? Output, long? CacheRead, long? CacheCreate);
+
+    /// <summary>Read <c>{"usage":{…}}</c> without defaulting an absent count.</summary>
+    public static UsageCounts? ReadUsageCounts(JsonElement root)
+    {
+        if (WireJson.Object(root, "usage") is not { } usage) return null;
+
+        var counts = new UsageCounts(
+            WireJson.Int64(usage, "input_tokens"),
+            WireJson.Int64(usage, "output_tokens"),
+            WireJson.Int64(usage, "cached_input_tokens"),
+            WireJson.Int64(usage, "cache_write_input_tokens"));
+        return counts is { Input: null, Output: null, CacheRead: null, CacheCreate: null } ? null : counts;
     }
 
     /// <summary><c>turn.failed</c> nests its reason under <c>error.message</c>; fall back to a top-level

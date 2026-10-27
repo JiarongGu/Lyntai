@@ -201,7 +201,7 @@ public class StreamJsonAgentReaderTests
 
         var events = reader.Read(line).ToList();
 
-        Assert.Equal(2, events.Count);
+        Assert.Equal(3, events.Count);
 
         var final = Assert.IsType<UsageFinal>(events[0]);
         Assert.Equal(100, final.InputTokens);
@@ -209,7 +209,10 @@ public class StreamJsonAgentReaderTests
         Assert.Equal(50, final.CacheReadTokens);
         Assert.Equal(10, final.CacheCreateTokens);
 
-        var ended = Assert.IsType<SessionEnded>(events[1]);
+        // the usage reading rides between the older event and the terminal (AgentEventStreamCompletionTests)
+        Assert.IsType<UsageReading>(events[1]);
+
+        var ended = Assert.IsType<SessionEnded>(events[2]);
         Assert.Equal(ProviderVerdict.Ok, ended.Verdict);
         Assert.False(ended.IsError);
         Assert.Equal("success", ended.Subtype);
@@ -230,13 +233,15 @@ public class StreamJsonAgentReaderTests
         const string resultLine = """{"type":"result","subtype":"error_max_turns","is_error":true,"session_id":"sess-9","usage":{"input_tokens":200,"output_tokens":30,"cache_read_input_tokens":0,"cache_creation_input_tokens":5}}""";
         var events = reader.Read(resultLine).ToList();
 
-        Assert.Equal(2, events.Count);
+        Assert.Equal(3, events.Count);
 
         var final = Assert.IsType<UsageFinal>(events[0]);
         Assert.Equal("claude-opus-4-8", final.Model);  // remembered from init
         Assert.Equal(5, final.CacheCreateTokens);
 
-        var ended = Assert.IsType<SessionEnded>(events[1]);
+        Assert.IsType<UsageReading>(events[1]);
+
+        var ended = Assert.IsType<SessionEnded>(events[2]);
         Assert.Equal(ProviderVerdict.Failed, ended.Verdict);
         Assert.True(ended.IsError);
         Assert.Equal("error_max_turns", ended.Subtype);

@@ -31,7 +31,12 @@ internal sealed class CodexAgentReader
 {
     private readonly HashSet<string> _startedItems = new(StringComparer.Ordinal);
     private readonly StringBuilder _answer = new();
+    private readonly TimeProvider _time;
     private string? _threadId;
+
+    /// <param name="time">The clock a <see cref="UsageReading.MeasuredAt"/> is stamped from; null = the system
+    /// clock.</param>
+    public CodexAgentReader(TimeProvider? time = null) => _time = time ?? TimeProvider.System;
 
     /// <summary>The session id seen so far (<c>thread.started</c>), for a terminal the runner has to
     /// fabricate after a process-level fault.</summary>
@@ -73,6 +78,15 @@ internal sealed class CodexAgentReader
                 foreach (var e in ReadItem(root, started: false)) yield return e;
                 break;
 
+            // Only a plan is read from an update: every other item's partial has an unmeasured accumulation
+            // rule, but a todo list arrives whole each time.
+            case CodexEnvelope.ItemUpdated:
+                if (CodexEnvelope.Item(root) is { } updated &&
+                    JsonExtract.StringProperty(updated, "type") == CodexEnvelope.TodoListItem &&
+                    ReadPlan(updated) is { } updatedPlan)
+                    yield return updatedPlan;
+                break;
+
             case CodexEnvelope.TurnCompleted:
                 foreach (var e in ReadTurnCompleted(root)) yield return e;
                 break;
@@ -88,9 +102,9 @@ internal sealed class CodexAgentReader
                     Diagnostic: message);
                 break;
 
-            // Everything else — `turn.started`, a bare `error` NOTICE, `item.updated` (a partial whose
-            // accumulation rule is unmeasured, so counting it would risk duplicating the answer), and
-            // any future envelope type — is deliberately ignored.
+            // Everything else — `turn.started`, a bare `error` NOTICE, an `item.updated` that is not a plan (a
+            // partial whose accumulation rule is unmeasured, so counting it would risk duplicating the answer),
+            // and any future envelope type — is deliberately ignored.
         }
     }
 
@@ -106,6 +120,12 @@ internal sealed class CodexAgentReader
             // substituted one, and with no --model it picks its own).
             yield return new UsageFinal(usage.Input, usage.Output, usage.CacheRead, usage.CacheCreate, Model: null);
         }
+
+        // Scope Turn is a reading, not a measurement made here: `codex exec --json` is taken to report counts per
+        // turn, and a resumed conversation's figure has not been re-measured.
+        if (CodexEnvelope.ReadUsageCounts(root) is { } counts)
+            yield return new UsageReading(counts.Input, counts.Output, counts.CacheRead, counts.CacheCreate,
+                UsageReading.Tokens, UsageScope.Turn, _time.GetUtcNow());
 
         yield return new SessionEnded(
             Verdict: ProviderVerdict.Ok,
@@ -150,6 +170,12 @@ internal sealed class CodexAgentReader
             case CodexEnvelope.ErrorItem:
                 break;
 
+            // The agent's plan is not a step it took: it is read as a plan on start and on completion alike
+            // (each carries the whole list), not as a tool step by elimination.
+            case CodexEnvelope.TodoListItem:
+                if (ReadPlan(item) is { } plan) yield return plan;
+                break;
+
             // MEASURED shapes reach this arm by ELIMINATION rather than recognition: everything that is not
             // one of the three names above is a step the agent took, under codex's own item type and carrying
             // codex's own item object. codex 0.155.1 confirmed four here — `command_execution` (shell),
@@ -170,6 +196,22 @@ internal sealed class CodexAgentReader
                 }
                 break;
         }
+    }
+
+    /// <summary>A <c>todo_list</c> item as a plan; null when it carries no <c>items</c> array. A step is
+    /// completed or pending by its <c>completed</c> flag, and an entry with no <c>text</c> is skipped.</summary>
+    private static PlanUpdated? ReadPlan(JsonElement item)
+    {
+        if (WireJson.Array(item, "items") is not { } items) return null;
+
+        var entries = new List<PlanEntry>();
+        foreach (var step in items.EnumerateArray())
+        {
+            if (WireJson.String(step, "text") is not { } text) continue;
+            var done = step.TryGetProperty("completed", out var flag) && flag.ValueKind == JsonValueKind.True;
+            entries.Add(new PlanEntry(text, done ? PlanEntryStatus.Completed : PlanEntryStatus.Pending));
+        }
+        return new PlanUpdated(entries);
     }
 
     /// <summary>MEASURED (codex 0.155.1): whether a completed tool item reports a failure. Two TOP-LEVEL

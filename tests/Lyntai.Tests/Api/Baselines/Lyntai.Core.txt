@@ -164,6 +164,31 @@ enum Lyntai.Agents.McpTransport
     Http : McpTransport const
     Stdio : McpTransport const
     value__ : Int32
+sealed class Lyntai.Agents.PlanEntry
+    .ctor(String Content, Nullable<PlanEntryStatus> Status)
+    Content : String { get; init; }
+    Deconstruct(String& Content, Nullable`1& Status) : Void
+    Equals(Object obj) : Boolean
+    Equals(PlanEntry other) : Boolean
+    GetHashCode() : Int32
+    Status : Nullable<PlanEntryStatus> { get; init; }
+    ToString() : String
+enum Lyntai.Agents.PlanEntryStatus
+    Completed : PlanEntryStatus const
+    InProgress : PlanEntryStatus const
+    Pending : PlanEntryStatus const
+    value__ : Int32
+sealed class Lyntai.Agents.PlanUpdated
+    .ctor(IReadOnlyList<PlanEntry> Entries)
+    Deconstruct(IReadOnlyList`1& Entries) : Void
+    Entries : IReadOnlyList<PlanEntry> { get; init; }
+    EqualityContract : Type { protected get; }
+    Equals(AgentStreamEvent other) : Boolean
+    Equals(Object obj) : Boolean
+    Equals(PlanUpdated other) : Boolean
+    GetHashCode() : Int32
+    PrintMembers(StringBuilder builder) : Boolean
+    ToString() : String
 sealed class Lyntai.Agents.SessionEnded
     .ctor(ProviderVerdict Verdict, Boolean IsError, String Subtype, String SessionId, String FinalText, String Diagnostic)
     Deconstruct(ProviderVerdict& Verdict, Boolean& IsError, String& Subtype, String& SessionId, String& FinalText, String& Diagnostic) : Void
@@ -336,6 +361,28 @@ sealed class Lyntai.Agents.UsageLive
     OutputTokens : Int64 { get; init; }
     PrintMembers(StringBuilder builder) : Boolean
     ToString() : String
+sealed class Lyntai.Agents.UsageReading
+    .ctor(Nullable<Int64> InputTokens, Nullable<Int64> OutputTokens, Nullable<Int64> CacheReadTokens, Nullable<Int64> CacheCreateTokens, String Unit, UsageScope Scope, DateTimeOffset MeasuredAt)
+    CacheCreateTokens : Nullable<Int64> { get; init; }
+    CacheReadTokens : Nullable<Int64> { get; init; }
+    Deconstruct(Nullable`1& InputTokens, Nullable`1& OutputTokens, Nullable`1& CacheReadTokens, Nullable`1& CacheCreateTokens, String& Unit, UsageScope& Scope, DateTimeOffset& MeasuredAt) : Void
+    EqualityContract : Type { protected get; }
+    Equals(AgentStreamEvent other) : Boolean
+    Equals(Object obj) : Boolean
+    Equals(UsageReading other) : Boolean
+    GetHashCode() : Int32
+    InputTokens : Nullable<Int64> { get; init; }
+    MeasuredAt : DateTimeOffset { get; init; }
+    OutputTokens : Nullable<Int64> { get; init; }
+    PrintMembers(StringBuilder builder) : Boolean
+    Scope : UsageScope { get; init; }
+    ToString() : String
+    Tokens : String const
+    Unit : String { get; init; }
+enum Lyntai.Agents.UsageScope
+    Cumulative : UsageScope const
+    Turn : UsageScope const
+    value__ : Int32
 sealed class Lyntai.Agents.VectorToolSelector
     .ctor(IEnumerable<IModelProvider> providers, ToolSelectorOptions options = null, IProviderRouterFactory routing = null)
     SelectAsync(TextRequest request, IReadOnlyList<ITool> tools, CancellationToken ct = default) : Task<IReadOnlyList<ITool>>

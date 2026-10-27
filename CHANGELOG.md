@@ -41,6 +41,12 @@ every addition.
 
 ### Added
 
+- **An agent session's event stream carries a plan and a usage reading that can say "unknown"** (**D219**).
+  `PlanUpdated` is the agent's whole plan as it now stands (claude's `TodoWrite` list, codex's `todo_list`);
+  `UsageReading` holds nullable counts, a unit, a scope (`Turn` or `Cumulative`) and the time the library read
+  it, so a count a door never sends is `null` rather than the 0 that `UsageFinal` has to show. `UsageLive` and
+  `UsageFinal` are unchanged, and `SessionEnded` now says it ends the TURN, the conversation being the resume
+  token. A codex `todo_list` is now a plan and no longer surfaces as a tool step.
 - **Explicit valid time and supersession for graph memory** (**D215**): `MemoryWrite.ValidFrom`, `ValidTo`
   and `Supersedes` preserve earlier evidence while current, as-of and history readings select the stated
   interval. All four shipped graph stores support it; unsupported engines refuse timed writes. Additive SQL
