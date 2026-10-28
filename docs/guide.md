@@ -797,12 +797,12 @@ checkpoint, or a result over `GenerationPipelineJobOptions.MaxCheckpointBytes` (
 | `Automatic1111Provider` | Inline | Measured against stable-diffusion.cpp's `sd-server`, which implements the WebUI's API — not against the WebUI itself. Not running (nothing listening) is **Failed**, a down host like any other, and so is a WebUI that drops a render mid-response |
 | `ComfyUiProvider` | **Job** | Measured against a live server: image, video and mesh workflows |
 | `LocalDiffusionProvider` | Inline | A local `sd-cli` subprocess, measured end to end (txt2img and img2img) |
-| `FalProvider` | **Job** | *Measured only as far as fal's door: written from fal.ai's public docs, and an account with no balance was refused there* |
+| `FalProvider` | **Job** | *Written from fal.ai's public docs, then run against fal's own queue for an image model; a video model has not been called* |
 | `PiperProvider` | Inline + **Stream** | Local piper TTS; streamed PCM measured against a real engine |
 
-**`FalProvider` was written from fal.ai's public queue documentation and has been measured only as far as fal's
-door: a submit under `Key` auth reached `queue.fal.run` and was refused for an account with no balance
-(`docs/generation.md` §3).** Its URL segments, status vocabulary, cost fields, `ErrorField`, `AuthScheme`
+**`FalProvider` was written from fal.ai's public queue documentation and has been run against fal's own queue for
+an image model: a submit under `Key` auth, a poll, a fetch and a failed request were measured, while a video model
+and some shapes remain the documented ones (`docs/generation.md` §3).** Its URL segments, status vocabulary, cost fields, `ErrorField`, `AuthScheme`
 and `QueryParameters` are options on `FalOptions`, so a host that finds a different wire corrects it in
 configuration. A free Hugging Face account can verify the wire through the Hugging Face router, which proxies
 fal's queue: `BaseUrl = "https://router.huggingface.co/fal-ai"`, `AuthScheme = "Bearer"`, an `hf_` token as the

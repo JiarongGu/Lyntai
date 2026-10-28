@@ -9,7 +9,7 @@ namespace Lyntai.Generation.Providers;
 
 /// <summary>Configuration for <see cref="FalProvider"/>.</summary>
 /// <remarks>Every URL segment, the status vocabulary, the error and cost fields, the auth scheme and the extra
-/// query parameters are settable because this backend's wire has not been measured past fal's door (see
+/// query parameters are settable because part of this backend's wire is still the documented one (see
 /// <see cref="FalProvider"/>): a host that finds the wire differs corrects it here, in configuration, rather
 /// than waiting for a Lyntai release.</remarks>
 public sealed class FalOptions
@@ -57,9 +57,10 @@ public sealed class FalOptions
     /// <c>{owner}/{app}</c>: <c>RequestPaths["fal-ai/flux/schnell"] = "fal-ai/flux/schnell"</c> addresses that
     /// model's requests by its full path. A model not listed keeps the documented default, its first two
     /// segments; a blank value is not an override. The submit is always to the model's own path.</summary>
-    /// <remarks>fal documents a request as addressed by its model's owner and app only, which no run has yet
-    /// confirmed for a model with a longer path (D69), so a host whose model is addressed differently corrects
-    /// it here. Keys match case-insensitively unless the dictionary is replaced.</remarks>
+    /// <remarks>fal addresses a request by its model's owner and app only, as documented and as a run measured
+    /// for <c>fal-ai/flux/schnell</c> (the full model path in a status URL answers <c>405</c>), so a host whose
+    /// model is addressed differently corrects it here. Keys match case-insensitively unless the dictionary is
+    /// replaced.</remarks>
     public IDictionary<string, string> RequestPaths { get; set; } =
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
@@ -84,9 +85,9 @@ public sealed class FalOptions
     /// heard of.</summary>
     /// <remarks><b>Settable for the same reason the path segments are, and it matters more.</b> A wrong PATH
     /// fails loudly on the first call; a wrong status STRING fails quietly — the render is polled forever, or
-    /// is reported finished when it is not. The shipped three are a reading of vendor documentation that
-    /// nobody here has been able to call, so the host who first runs this against the real queue is the one
-    /// who finds out, and they must be able to fix it in `appsettings.json` rather than wait for a release.
+    /// is reported finished when it is not. The shipped three are fal's documented ones; <c>IN_QUEUE</c> (the
+    /// submit answer) and <c>COMPLETED</c> have been seen on the live queue, <c>IN_PROGRESS</c> has not, so a
+    /// host who sees another string fixes it in `appsettings.json` rather than waiting for a release.
     /// That is also why this is a dictionary rather than a delegate: configuration binding can reach it.
     /// <para>Replacing the map replaces it wholesale — add to it to extend the vocabulary, assign to it to
     /// redefine one.</para></remarks>
@@ -98,17 +99,19 @@ public sealed class FalOptions
             ["COMPLETED"] = QueuedOperationStatus.Succeeded,
         };
 
-    /// <summary>Result fields read, in order, as the render's cost — the first numeric one wins. Settable
-    /// for the same reason as <see cref="StatusVocabulary"/>: what this queue calls the field, and whether
-    /// it reports one at all, is documented rather than measured. An empty list disables cost reporting,
-    /// which is honest when a deployment knows the number is wrong.</summary>
+    /// <summary>Result fields read, in order, as the render's cost — the first numeric one wins. fal's own
+    /// queue reported none in a measured result or status (a price is on its pricing page, not in the answer),
+    /// so these names match nothing there; they stay for a gateway that does report one. An empty list
+    /// disables cost reporting, which is honest when a deployment knows the number is wrong.</summary>
     public IList<string> CostFields { get; set; } = ["cost", "cost_usd", "price"];
 
     /// <summary>The status-document field that marks a FAILED request. fal documents a failed request as
     /// <c>COMPLETED</c> carrying this field, so a status that maps to
     /// <see cref="QueuedOperationStatus.Succeeded"/> and carries a non-empty value here polls as
-    /// <see cref="QueuedOperationStatus.Failed"/>, the value in the detail — never as a success whose fetch
-    /// then fails. Empty disables the check.</summary>
+    /// <see cref="QueuedOperationStatus.Failed"/>, the value in the detail. Empty disables the check.
+    /// <para>A measured failure did NOT carry it: an input fal could not download polled <c>COMPLETED</c> with
+    /// no such field and failed at the result fetch (<c>422</c>, a <c>detail</c> list), so a request can poll
+    /// Succeeded and still fail there.</para></summary>
     public string ErrorField { get; set; } = "error";
 
     /// <summary>The field beside <see cref="ErrorField"/> naming the failure's kind
@@ -146,21 +149,24 @@ public sealed class FalOptions
 /// checkpoints the operation id and polls to completion across restarts, so a crash never pays for a render twice.
 /// </summary>
 /// <remarks>
-/// <para><b>Measured only as far as fal's door.</b> Written from fal's public queue documentation. A submit to
-/// <c>queue.fal.run</c> under <c>Authorization: Key …</c> reached fal and was refused <c>403</c> for an account
-/// with no balance, so the auth scheme and that refusal's shape are measured; the status vocabulary, the result
-/// fields, the cost and the failure shape past the door are still the documented ones. Its tests pin this
-/// library's behaviour for each, never that fal answers in it — the first run on a funded account is the
-/// verification. A host corrects in configuration the URL segments, the status vocabulary, the error, cost and
-/// auth settings, extra query parameters (<see cref="FalOptions"/>), and any request field, which
-/// <see cref="MediaRequest.Options"/> sends verbatim as a string, or as raw JSON where
-/// <see cref="FalOptions.JsonFields"/> names it. It cannot correct the response fields read by
-/// name: <c>request_id</c>, <c>status</c>, <c>queue_position</c>, <c>url</c> and <c>content_type</c>.</para>
+/// <para><b>Measured on fal's own queue for an image model</b> (<c>queue.fal.run</c>, <c>Authorization: Key …</c>):
+/// the submit, status and result fields, <c>IN_QUEUE</c> and <c>COMPLETED</c>, the sub-path addressing and a failed
+/// request's shape. <c>IN_PROGRESS</c>, <c>queue_position</c> on a status read, a video model and the
+/// <see cref="FalOptions.ErrorField"/> shape are still the documented ones. A host corrects in configuration the
+/// URL segments, the status vocabulary, the error, cost and auth settings, extra query parameters
+/// (<see cref="FalOptions"/>), and any request field, which <see cref="MediaRequest.Options"/> sends verbatim as a
+/// string, or as raw JSON where <see cref="FalOptions.JsonFields"/> names it. It cannot correct the response
+/// fields read by name: <c>request_id</c>, <c>status</c>, <c>queue_position</c>, <c>url</c> and
+/// <c>content_type</c>.</para>
 /// <para><b>Sub-path models:</b> a model such as <c>fal-ai/flux/schnell</c> is submitted under its full path
-/// and polled, fetched and cancelled under its owner and app (<c>fal-ai/flux</c>) alone, as fal documents, unless
-/// <see cref="FalOptions.RequestPaths"/> names another path for it; the operation id keeps the whole model. A cancel is a REQUEST (202), so <see cref="CancelAsync"/> reports the
-/// render still running and only a poll says how it ended.</para>
-/// <para><b>Cost:</b> fal's documented results carry NO cost field, so unless a
+/// and polled and fetched under its owner and app (<c>fal-ai/flux</c>) alone — measured, the full path answers
+/// <c>405</c> — and cancelled there too, as fal documents, unless <see cref="FalOptions.RequestPaths"/> names
+/// another path for it; the operation id keeps the whole model. A cancel is a REQUEST (202), so
+/// <see cref="CancelAsync"/> reports the render still running and only a poll says how it ended.</para>
+/// <para><b>Failure:</b> a request whose input fal cannot download is accepted, polls <c>COMPLETED</c> with no
+/// <c>error</c> field, and fails at the fetch (<c>422</c>, a <c>detail</c> list), which reports it
+/// <see cref="ProviderVerdict.Failed"/> with fal's words.</para>
+/// <para><b>Cost:</b> fal's results carry NO cost field (measured), so unless a
 /// <see cref="FalOptions.CostFields"/> name matches, <see cref="MediaUsage.CostUsd"/> is null and a spend cap
 /// never sees these renders. A reported cost is used as given, never inferred from a rate card.</para>
 /// <para><b>The operation id carries its model</b> (<c>"{model}#{requestId}"</c>): the status and result URLs
