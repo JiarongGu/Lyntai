@@ -123,8 +123,9 @@ it, so treat that run as the verification.
 `StatusSegment`, `CancelSegment`), the status vocabulary (`StatusVocabulary`), the cost fields (`CostFields`),
 the failure fields (`ErrorField` — fal documents a failed request as `COMPLETED` carrying an `error` field,
 which polls as `Failed` here — and `ErrorTypeField`), the auth scheme (`AuthScheme`, `Key` by default) and
-extra query parameters on every call (`QueryParameters`). Any request field goes through verbatim in
-`MediaRequest.Options`. **What it cannot correct**: the response fields read by name — `request_id`, `status`,
+extra query parameters on every call (`QueryParameters`), the per-model request path (`RequestPaths`) and
+which request fields are raw JSON (`JsonFields`). Any request field goes through verbatim in
+`MediaRequest.Options`, as a string unless `JsonFields` names it. **What it cannot correct**: the response fields read by name — `request_id`, `status`,
 `queue_position`, `url` and `content_type` — which a release would have to change.
 
 **Cost**: fal's documented results carry **no cost field**, so unless a `CostFields` name matches,
@@ -137,9 +138,18 @@ backend sent the full path (`fal-ai/flux/schnell/requests/…`), which under tha
 polled a sub-path model to completion (a 405 polls as still running), so it now submits to the full path and
 polls, fetches and cancels under `fal-ai/flux` (`FalProviderTests`); the operation id keeps the whole model.
 The live test records the full-path answer on a finished request and will say if the documentation is wrong.
-A cancel is a REQUEST (202), so `CancelAsync` reports the render still running and only a poll says how it
+A host whose model fal addresses differently sets the path per model in `FalOptions.RequestPaths`
+(`["fal-ai/flux/schnell"] = "fal-ai/flux/schnell"` polls under the full path); a model not listed keeps the
+owner-and-app default, pinned byte for byte. The path is **not** read from the submit answer's `status_url`,
+`response_url` and `cancel_url`: a durable job resumes with only the operation id (`"{model}#{requestId}"`), so those
+URLs would have to ride inside it, and no run has yet shown the fields. A cancel is a REQUEST (202), so `CancelAsync` reports the render still running and only a poll says how it
 ended. A model's input fields other than the prompt go through `MediaRequest.Options` **as strings**
-(`"image_size":"square"`), so an object-valued field such as a custom `image_size` cannot be sent yet.
+(`"image_size":"square_hd"`), except a key listed in `FalOptions.JsonFields`, whose value is sent as raw JSON, so an
+object-valued field such as a custom `image_size` is `o.JsonFields = ["image_size"]` plus
+`Options["image_size"] = """{"width":1024,"height":768}"""`. A listed option whose value is not valid JSON
+(a preset name, say) is refused as `Unsupported` before any call. The list is a name list rather than a marker in the
+value, because whether a field is an object is a property of the model's schema, and no string can be mistaken for JSON by
+what it begins with. Nothing has sent an object-valued field to fal yet.
 
 **A free way to verify the wire.** Hugging Face's router proxies fal's own queue wire, and a free Hugging Face
 account carries a small monthly inference credit and needs no fal account. The route is a configuration, not
@@ -222,7 +232,11 @@ names files in them: `Checkpoint = "sd15.safetensors"`, `Loras = [new MediaLora(
 A backend states which it honours in `ProviderCapabilities.Parameters`; empty honours none. **A request naming one a backend
 does not declare is skipped by the router and, called directly, refused by the backend as `Unsupported` before anything is
 sent or spawned** — the way an agent door refuses an option whose ability it states unsupported — because a backend that took
-the call and ignored a checkpoint would return a plausible, wrong image. The local backends also refuse a value no engine can
+the call and ignored a checkpoint would return a plausible, wrong image. That holds for the hosted and speech backends too:
+`OpenAiImageProvider`, `FalProvider` and `PiperProvider` declare none and refuse one through the same check and in the same
+words, a request naming none reaching the wire as before (`GenerationProviderContract`'s parameter fact runs over every
+shipped backend). A hosted API may well take a seed or a step count on its own wire, but declaring one is a separate step,
+its mapping measured or made an option. The local backends also refuse a value no engine can
 read (a non-positive step count, a non-finite weight, a name carrying a folder or a tag character).
 
 | | checkpoint | LoRAs | negative prompt, seed, steps, CFG, sampler, scheduler |

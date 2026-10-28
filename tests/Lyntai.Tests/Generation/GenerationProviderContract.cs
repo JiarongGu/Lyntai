@@ -178,6 +178,53 @@ public static class GenerationProviderContract
         }
     }
 
+    /// <summary>A request naming exactly one <see cref="MediaParameters"/>, and a marker that appears in whatever a
+    /// backend sends when it honours that parameter. One per name in <see cref="MediaParameters.All"/>.</summary>
+    public static IReadOnlyList<(string Parameter, MediaRequest Name, string Marker)> ParameterProbes(MediaRequest ask) =>
+    [
+        (MediaParameters.Checkpoint, ask with { Checkpoint = "marker-ckpt.safetensors" }, "marker-ckpt"),
+        (MediaParameters.Loras, ask with { Loras = [new MediaLora("marker-lora.safetensors", 0.5)] }, "marker-lora"),
+        (MediaParameters.NegativePrompt, ask with { NegativePrompt = "marker-negative" }, "marker-negative"),
+        (MediaParameters.Seed, ask with { Seed = 7261934 }, "7261934"),
+        (MediaParameters.Steps, ask with { Steps = 4719 }, "4719"),
+        (MediaParameters.CfgScale, ask with { CfgScale = 6.37 }, "6.37"),
+        (MediaParameters.Sampler, ask with { Sampler = "marker-sampler" }, "marker-sampler"),
+        (MediaParameters.Scheduler, ask with { Scheduler = "marker-scheduler" }, "marker-scheduler"),
+    ];
+
+    /// <summary><b>A handed media parameter is honoured or refused, never dropped.</b> The sibling of
+    /// <see cref="A_handed_input_is_consumed_or_refused"/> on the <see cref="ProviderCapabilities.Parameters"/>
+    /// axis: a backend that takes a call naming a checkpoint, a LoRA or a seed and ignores it returns a plausible,
+    /// wrong result, and the router's skip protects only a caller that goes through the router.
+    /// <para>A backend that does NOT declare <paramref name="parameter"/> must refuse before it sends or spawns
+    /// anything (<paramref name="sent"/> empty); a backend that declares it must send it, its
+    /// <paramref name="marker"/> in what went out. Sending something that lacks the marker is the defect in both
+    /// cases.</para></summary>
+    /// <param name="verdict">What the call answered; a refusal is <see cref="ProviderVerdict.Unsupported"/>, which
+    /// the router advances past without a strike.</param>
+    /// <param name="sent">Everything the call put on the wire or into a spawn: URLs, bodies, arguments, stdin.</param>
+    public static void A_handed_parameter_is_honoured_or_refused(
+        string providerId, string parameter, bool declared, ProviderVerdict? verdict,
+        IReadOnlyCollection<string> sent, string marker)
+    {
+        if (!declared && sent.Count == 0)   // refused before spending anything
+        {
+            Assert.True(verdict == ProviderVerdict.Unsupported,
+                $"{providerId} sent nothing for the undeclared '{parameter}' but answered {verdict}, not Unsupported — "
+                + "the router advances past Unsupported without a strike and treats anything else as the backend's fault.");
+            return;
+        }
+
+        Assert.True(
+            sent.Any(text => text.Contains(marker, StringComparison.Ordinal)),
+            declared
+                ? $"{providerId} DECLARES '{parameter}' in ProviderCapabilities.Parameters, but what it sent has no trace of "
+                  + $"'{marker}' (it sent {sent.Count} request(s) or spawn(s)) — the parameter was dropped or refused."
+                : $"{providerId} does not declare '{parameter}' and SENT {sent.Count} request(s) or spawn(s) with no trace of "
+                  + $"'{marker}' — the parameter was silently dropped. Refuse it before the call (ParameterRefusal) or declare "
+                  + "and honour it.");
+    }
+
     /// <summary>A 401 response, for the auth facts above.</summary>
     public static HttpResponseMessage Unauthorized() =>
         new(HttpStatusCode.Unauthorized) { Content = new StringContent("""{"error":"invalid api key"}""") };

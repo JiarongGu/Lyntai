@@ -139,6 +139,12 @@ public sealed class PiperProvider(PiperOptions options, IProcessRunner runner) :
         }
         var (binary, model) = (options.BinaryPath!, options.ModelPath!);
 
+        if (ParameterRefusal.For(Capabilities, request, loraTags: false, checkpointFile: false) is { } unhonoured)
+        {
+            yield return MediaChunk.Failure(ProviderVerdict.Unsupported, unhonoured);
+            yield break;
+        }
+
         if (request.Prompt is not { Length: > 0 } prompt || string.IsNullOrWhiteSpace(prompt))
         {
             yield return MediaChunk.Failure(ProviderVerdict.Unsupported,

@@ -52,6 +52,27 @@ public sealed class FalOptions
     /// <summary>Path segment collection for requests: <c>{BaseUrl}/{model}/{RequestsSegment}/{id}</c>.</summary>
     public string RequestsSegment { get; set; } = "requests";
 
+    /// <summary>The path a model's requests are polled, fetched and cancelled under, keyed by the model id as
+    /// submitted (<c>fal-ai/flux/schnell</c>) and giving the path in place of
+    /// <c>{owner}/{app}</c>: <c>RequestPaths["fal-ai/flux/schnell"] = "fal-ai/flux/schnell"</c> addresses that
+    /// model's requests by its full path. A model not listed keeps the documented default, its first two
+    /// segments; a blank value is not an override. The submit is always to the model's own path.</summary>
+    /// <remarks>fal documents a request as addressed by its model's owner and app only, which no run has yet
+    /// confirmed for a model with a longer path (D69), so a host whose model is addressed differently corrects
+    /// it here. Keys match case-insensitively unless the dictionary is replaced.</remarks>
+    public IDictionary<string, string> RequestPaths { get; set; } =
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>The <see cref="MediaRequest.Options"/> keys whose value is sent as raw JSON rather than as a string,
+    /// so an object- or array-valued model field (<c>image_size</c> as <c>{"width":1024,"height":768}</c>) can be
+    /// sent while <see cref="MediaRequest.Options"/> stays a string map. Matched case-insensitively. A listed
+    /// option whose value is not valid JSON is refused as <see cref="ProviderVerdict.Unsupported"/> before any
+    /// call; every option not listed is written as a string, as before. Empty by default.</summary>
+    /// <remarks>A name list rather than a marker inside the value: whether a field is an object is a fact about
+    /// the model's input schema, so it is set once, in configuration, and no string value can be mistaken for
+    /// JSON by what it happens to start with.</remarks>
+    public IList<string> JsonFields { get; set; } = [];
+
     /// <summary>Path segment that abandons a request, appended as
     /// <c>{BaseUrl}/{model}/{RequestsSegment}/{id}/{CancelSegment}</c> — the sibling of
     /// <see cref="StatusSegment"/> on the same request path, and settable for the same reason.</summary>
@@ -132,11 +153,12 @@ public sealed class FalOptions
 /// library's behaviour for each, never that fal answers in it — the first run on a funded account is the
 /// verification. A host corrects in configuration the URL segments, the status vocabulary, the error, cost and
 /// auth settings, extra query parameters (<see cref="FalOptions"/>), and any request field, which
-/// <see cref="MediaRequest.Options"/> sends verbatim as a string. It cannot correct the response fields read by
+/// <see cref="MediaRequest.Options"/> sends verbatim as a string, or as raw JSON where
+/// <see cref="FalOptions.JsonFields"/> names it. It cannot correct the response fields read by
 /// name: <c>request_id</c>, <c>status</c>, <c>queue_position</c>, <c>url</c> and <c>content_type</c>.</para>
 /// <para><b>Sub-path models:</b> a model such as <c>fal-ai/flux/schnell</c> is submitted under its full path
-/// and polled, fetched and cancelled under its owner and app (<c>fal-ai/flux</c>) alone, as fal documents; the
-/// operation id keeps the whole model. A cancel is a REQUEST (202), so <see cref="CancelAsync"/> reports the
+/// and polled, fetched and cancelled under its owner and app (<c>fal-ai/flux</c>) alone, as fal documents, unless
+/// <see cref="FalOptions.RequestPaths"/> names another path for it; the operation id keeps the whole model. A cancel is a REQUEST (202), so <see cref="CancelAsync"/> reports the
 /// render still running and only a poll says how it ended.</para>
 /// <para><b>Cost:</b> fal's documented results carry NO cost field, so unless a
 /// <see cref="FalOptions.CostFields"/> name matches, <see cref="MediaUsage.CostUsd"/> is null and a spend cap
@@ -210,8 +232,12 @@ public sealed class FalProvider(
             return QueuedOperation.Failure(
                 "no model: name one on the request, the candidate (\"fal:model-id\") or FalOptions.Model");
 
+        if (ParameterRefusal.For(Capabilities, request, loraTags: false, checkpointFile: false) is { } unhonoured)
+            return QueuedOperation.Failure(unhonoured, ProviderVerdict.Unsupported);
         if (InputRefusal(request) is { } refusal)
             return QueuedOperation.Failure(refusal, ProviderVerdict.Unsupported);
+        if (JsonFieldRefusal(request) is { } notJson)
+            return QueuedOperation.Failure(notJson, ProviderVerdict.Unsupported);
 
         var url = Url(model, request.Option("webhook") is { Length: > 0 } webhook ? webhook : null);
 
@@ -359,9 +385,14 @@ public sealed class FalProvider(
 
     /// <summary><c>{owner}/{app}/{RequestsSegment}/{id}</c>: a request is addressed by its model's owner and
     /// app only, so <c>fal-ai/flux/schnell</c> submits to its full path and is polled under
-    /// <c>fal-ai/flux</c>.</summary>
-    private string RequestPath(string model, string requestId) =>
-        $"{string.Join('/', model.Split('/').Take(2))}/{options.RequestsSegment}/{requestId}";
+    /// <c>fal-ai/flux</c>, unless <see cref="FalOptions.RequestPaths"/> names another for the model.</summary>
+    private string RequestPath(string model, string requestId)
+    {
+        var path = options.RequestPaths.TryGetValue(model, out var overridden) && overridden.Trim().Trim('/') is { Length: > 0 } set
+            ? set
+            : string.Join('/', model.Split('/').Take(2));
+        return $"{path}/{options.RequestsSegment}/{requestId}";
+    }
 
     /// <summary>The failure a status document reports under <see cref="FalOptions.ErrorField"/>, with its
     /// <see cref="FalOptions.ErrorTypeField"/>, or null when it reports none.</summary>
@@ -457,9 +488,10 @@ public sealed class FalProvider(
     }
 
     /// <summary>The model's input object. Common fields are mapped; everything else in
-    /// <see cref="MediaRequest.Options"/> is passed through verbatim, because each model on an aggregator
-    /// takes its own parameters and typing them would need a release per model.</summary>
-    internal static string BuildInput(MediaRequest request) => JsonExtract.WriteObject(writer =>
+    /// <see cref="MediaRequest.Options"/> is passed through verbatim — as a string, or as raw JSON for a key in
+    /// <see cref="FalOptions.JsonFields"/> — because each model on an aggregator takes its own parameters and
+    /// typing them would need a release per model.</summary>
+    internal string BuildInput(MediaRequest request) => JsonExtract.WriteObject(writer =>
     {
         if (request.Prompt is { Length: > 0 } prompt) writer.WriteString("prompt", prompt);
 
@@ -470,9 +502,36 @@ public sealed class FalProvider(
         foreach (var (key, value) in request.Options)
         {
             if (string.Equals(key, "webhook", StringComparison.OrdinalIgnoreCase)) continue;  // a URL, not an input
-            writer.WriteString(key, value);
+            if (IsJsonField(key))
+            {
+                // validated before the submit (JsonFieldRefusal), so this parse cannot fail on a built body
+                using var json = JsonDocument.Parse(value);
+                writer.WritePropertyName(key);
+                json.RootElement.WriteTo(writer);
+            }
+            else writer.WriteString(key, value);
         }
     });
+
+    private bool IsJsonField(string key) =>
+        options.JsonFields.Contains(key, StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Why a <see cref="FalOptions.JsonFields"/> option cannot be sent, or null: its value is not
+    /// valid JSON.</summary>
+    private string? JsonFieldRefusal(MediaRequest request)
+    {
+        foreach (var (key, value) in request.Options)
+        {
+            if (string.Equals(key, "webhook", StringComparison.OrdinalIgnoreCase) || !IsJsonField(key)) continue;
+            try { using var _ = JsonDocument.Parse(value ?? ""); }
+            catch (JsonException ex)
+            {
+                return $"the option '{key}' is listed in FalOptions.JsonFields but its value is not valid JSON " +
+                       $"({ex.Message}), so nothing was sent";
+            }
+        }
+        return null;
+    }
 
     /// <summary>Pull artifacts out of a completed result. Tolerant by design: fal's models return their output
     /// under model-specific names (<c>video</c>, <c>images</c>, <c>audio</c>), so ANY object carrying a

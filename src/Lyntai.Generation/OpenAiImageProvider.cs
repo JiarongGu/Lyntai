@@ -145,6 +145,9 @@ public sealed class OpenAiImageProvider(
         if (string.IsNullOrWhiteSpace(options.BaseUrl))
             return MediaResponse.Failure(ProviderVerdict.NotConfigured, "no BaseUrl configured");
 
+        if (ParameterRefusal.For(Capabilities, request, loraTags: false, checkpointFile: false) is { } unhonoured)
+            return MediaResponse.Failure(ProviderVerdict.Unsupported, unhonoured);
+
         var edit = SingleInitInput.Read(request, "the images endpoint", out var refusal);
         if (refusal is not null) return MediaResponse.Failure(ProviderVerdict.Unsupported, refusal);
         if (edit is not null && edit.Data is not { Length: > 0 })

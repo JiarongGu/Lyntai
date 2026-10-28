@@ -1,5 +1,6 @@
 using Lyntai.Inference;
 using System.Net;
+using System.Text.Json;
 using Lyntai.Generation;
 using Lyntai.Generation.Providers;
 using Lyntai.Tests.Fakes;
@@ -109,6 +110,69 @@ public class FalProviderTests
         Assert.Equal("https://queue.fal.run/fal-ai/flux/requests/req-1/cancel", http.Requests[3].Uri?.ToString());
     }
 
+    [Theory]
+    [InlineData("fal-ai/wan-t2v", "fal-ai/wan-t2v")]                       // owner and app
+    [InlineData("fal-ai/flux/schnell", "fal-ai/flux")]                     // a sub-path: the first two segments
+    [InlineData("fal-ai/flux/dev/image-to-image", "fal-ai/flux")]
+    [InlineData("single", "single")]                                       // a model that has no app at all
+    public async Task Without_an_override_the_request_path_is_the_owner_and_app_byte_for_byte(string model, string under)
+    {
+        var (provider, http) = Provider(new FalOptions { ApiKey = "k" });
+        http.Enqueue(HttpStatusCode.OK, """{"status":"COMPLETED"}""");
+        http.Enqueue(HttpStatusCode.OK, """{"images":[{"url":"https://cdn.invalid/a.png"}]}""");
+        http.Enqueue(HttpStatusCode.Accepted, """{"status":"CANCELLATION_REQUESTED"}""");
+        var id = $"{model}#req-1";
+
+        await provider.PollAsync(id);
+        await provider.FetchAsync(id);
+        await provider.CancelAsync(id);
+
+        Assert.Equal($"https://queue.fal.run/{under}/requests/req-1/status", http.Requests[0].Uri?.ToString());
+        Assert.Equal($"https://queue.fal.run/{under}/requests/req-1", http.Requests[1].Uri?.ToString());
+        Assert.Equal($"https://queue.fal.run/{under}/requests/req-1/cancel", http.Requests[2].Uri?.ToString());
+    }
+
+    [Fact]
+    public async Task A_host_whose_model_fal_addresses_differently_sets_its_request_path_and_the_submit_is_unchanged()
+    {
+        var options = new FalOptions { ApiKey = "k", Model = "fal-ai/flux/schnell" };
+        options.RequestPaths["fal-ai/flux/schnell"] = "/fal-ai/flux/schnell/";   // stray slashes are trimmed
+        var (provider, http) = Provider(options);
+        http.Enqueue(HttpStatusCode.OK, """{"request_id":"req-1"}""");
+        http.Enqueue(HttpStatusCode.OK, """{"status":"COMPLETED"}""");
+        http.Enqueue(HttpStatusCode.OK, """{"images":[{"url":"https://cdn.invalid/a.png"}]}""");
+        http.Enqueue(HttpStatusCode.Accepted, """{"status":"CANCELLATION_REQUESTED"}""");
+
+        var submitted = await provider.SubmitAsync(Ask());
+        await provider.PollAsync(submitted.Id);
+        await provider.FetchAsync(submitted.Id);
+        await provider.CancelAsync(submitted.Id);
+
+        Assert.Equal("fal-ai/flux/schnell#req-1", submitted.Id);
+        Assert.Equal("https://queue.fal.run/fal-ai/flux/schnell", http.Requests[0].Uri?.ToString());
+        Assert.Equal("https://queue.fal.run/fal-ai/flux/schnell/requests/req-1/status", http.Requests[1].Uri?.ToString());
+        Assert.Equal("https://queue.fal.run/fal-ai/flux/schnell/requests/req-1", http.Requests[2].Uri?.ToString());
+        Assert.Equal("https://queue.fal.run/fal-ai/flux/schnell/requests/req-1/cancel", http.Requests[3].Uri?.ToString());
+    }
+
+    [Fact]
+    public async Task A_request_path_override_is_per_model_and_a_blank_one_is_no_override()
+    {
+        var options = new FalOptions { ApiKey = "k" };
+        options.RequestPaths["FAL-AI/flux/schnell"] = "owner/app/extra";   // keys match case-insensitively
+        options.RequestPaths["fal-ai/flux/dev"] = "  ";
+        var (provider, http) = Provider(options);
+        http.Enqueue(HttpStatusCode.OK, """{"status":"IN_QUEUE"}""");
+
+        await provider.PollAsync("fal-ai/flux/schnell#r");
+        await provider.PollAsync("fal-ai/flux/dev#r");
+        await provider.PollAsync("fal-ai/flux/pro#r");
+
+        Assert.Equal("https://queue.fal.run/owner/app/extra/requests/r/status", http.Requests[0].Uri?.ToString());
+        Assert.Equal("https://queue.fal.run/fal-ai/flux/requests/r/status", http.Requests[1].Uri?.ToString());
+        Assert.Equal("https://queue.fal.run/fal-ai/flux/requests/r/status", http.Requests[2].Uri?.ToString());
+    }
+
     [Fact]
     public async Task Options_pass_through_as_model_input_and_a_webhook_stays_out_of_the_body()
     {
@@ -127,6 +191,83 @@ public class FalProviderTests
         Assert.Contains("\"duration\":\"5\"", http.Requests[0].Body);
         Assert.DoesNotContain("webhook", http.Requests[0].Body);          // it's a URL, not an input
         Assert.Contains("fal_webhook=https%3A%2F%2Fapp.invalid%2Fhook", http.Requests[0].Uri?.Query);
+    }
+
+    private static FalOptions WithJsonFields(params string[] fields) =>
+        new() { ApiKey = "k", Model = "fal-ai/flux/schnell", JsonFields = [.. fields] };
+
+    private static MediaRequest AskWith(params (string Key, string Value)[] options) => Ask() with
+    {
+        Options = options.ToDictionary(o => o.Key, o => o.Value, StringComparer.OrdinalIgnoreCase),
+    };
+
+    [Fact]
+    public async Task A_field_named_as_JSON_is_sent_as_an_object_when_its_value_is_one()
+    {
+        var (provider, http) = Provider(WithJsonFields("image_size"));
+        http.Enqueue(HttpStatusCode.OK, """{"request_id":"r"}""");
+
+        await provider.SubmitAsync(AskWith(("image_size", """{"width":1024,"height":768}""")));
+
+        Assert.Equal("""{"prompt":"a cat surfing","image_size":{"width":1024,"height":768}}""", http.Requests[0].Body);
+    }
+
+    [Fact]
+    public async Task A_field_named_as_JSON_is_sent_as_an_array_or_a_bare_scalar_when_its_value_is_one()
+    {
+        var (provider, http) = Provider(WithJsonFields("LORAS", "guidance"));   // matched case-insensitively
+        http.Enqueue(HttpStatusCode.OK, """{"request_id":"r"}""");
+
+        await provider.SubmitAsync(AskWith(("loras", """[{"path":"a","scale":0.5},"b"]"""), ("guidance", "7.5")));
+
+        Assert.Equal("""{"prompt":"a cat surfing","loras":[{"path":"a","scale":0.5},"b"],"guidance":7.5}""",
+            http.Requests[0].Body);
+    }
+
+    [Fact]
+    public async Task An_option_not_named_as_JSON_is_still_a_string_even_when_it_looks_like_JSON()
+    {
+        var (provider, http) = Provider(WithJsonFields("image_size"));
+        http.Enqueue(HttpStatusCode.OK, """{"request_id":"r"}""");
+
+        await provider.SubmitAsync(AskWith(("duration", "5"), ("style", """{"a":1}""")));
+
+        // read back rather than compared as text: the writer's escaping of the inner quotes is its own
+        using var body = JsonDocument.Parse(http.Requests[0].Body);
+        Assert.Equal(JsonValueKind.String, body.RootElement.GetProperty("duration").ValueKind);
+        Assert.Equal("5", body.RootElement.GetProperty("duration").GetString());
+        Assert.Equal("""{"a":1}""", body.RootElement.GetProperty("style").GetString());
+    }
+
+    [Fact]
+    public async Task With_no_JSON_fields_named_every_option_is_a_string_as_before()
+    {
+        var (provider, http) = Provider();
+        http.Enqueue(HttpStatusCode.OK, """{"request_id":"r"}""");
+
+        await provider.SubmitAsync(AskWith(("image_size", """{"width":1,"height":2}""")));
+
+        using var body = JsonDocument.Parse(http.Requests[0].Body);
+        Assert.Equal(JsonValueKind.String, body.RootElement.GetProperty("image_size").ValueKind);
+        Assert.Equal("""{"width":1,"height":2}""", body.RootElement.GetProperty("image_size").GetString());
+    }
+
+    [Theory]
+    [InlineData("square_hd")]            // a preset name where an object was asked for
+    [InlineData("{\"width\":")]          // truncated
+    [InlineData("")]                     // nothing
+    [InlineData("{} {}")]                // trailing content
+    public async Task A_JSON_field_whose_value_is_not_JSON_is_refused_before_any_call(string value)
+    {
+        var (provider, http) = Provider(WithJsonFields("image_size"));
+
+        var submitted = await provider.SubmitAsync(AskWith(("image_size", value)));
+
+        Assert.Equal(QueuedOperationStatus.Failed, submitted.Status);
+        Assert.Equal(ProviderVerdict.Unsupported, submitted.Verdict);
+        Assert.Contains("image_size", submitted.Detail);
+        Assert.Contains("not valid JSON", submitted.Detail);
+        Assert.Empty(http.Requests);
     }
 
     [Theory]

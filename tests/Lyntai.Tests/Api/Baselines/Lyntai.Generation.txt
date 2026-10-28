@@ -66,9 +66,11 @@ sealed class Lyntai.Generation.Providers.FalOptions
     ErrorField : String { get; set; }
     ErrorTypeField : String { get; set; }
     Id : String { get; set; }
+    JsonFields : IList<String> { get; set; }
     Model : String { get; set; }
     Produces : IReadOnlyList<String> { get; set; }
     QueryParameters : IDictionary<String,String> { get; set; }
+    RequestPaths : IDictionary<String,String> { get; set; }
     RequestsSegment : String { get; set; }
     StatusSegment : String { get; set; }
     StatusVocabulary : IDictionary<String,QueuedOperationStatus> { get; set; }
