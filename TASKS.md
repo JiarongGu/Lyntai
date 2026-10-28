@@ -15,7 +15,7 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 11 across 4 Parts: 5 startable, 2 blocked, 4 watch
+## Open items — 11 across 4 Parts: 4 startable, 3 blocked, 4 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
@@ -30,9 +30,9 @@ _Edit a marker, never this table — `verify` fails the moment the two disagree.
 | 275 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
 | 308 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
 | 324 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
-| 351 | 401 | A newer local model on the GPU behind the live suites | startable |  |
-| 357 | 401 | A checkpoint and LoRAs per request | startable |  |
-| 367 | 401 | The example image-workflow pipeline | startable |  |
+| 354 | 401 | A checkpoint and LoRAs per request | startable |  |
+| 364 | 401 | The example image-workflow pipeline | startable |  |
+| 382 | 401 | The two stable-diffusion.cpp backends on Z-Image-Turbo | blocked · env | a Qwen3-4B text encoder stable-diffusion.cpp can load (not fp8-scaled), or … |
 
 <!-- open-items:end -->
 
@@ -329,6 +329,9 @@ there is nothing here to code: what remains is evidence only recurrence can supp
   as its first had been): the same message, at `Pids` (`AgentUsageProcessTests.cs:90`), after 21 s, and the same run
   failed the NFKC test below, so a loaded machine took two timing tests at once. That is three failures in six full runs
   across both sessions, none standalone.
+  <br>**Recurred again in the Z-Image-Turbo session's `verify`** (`21de4e6a`): its first run failed on this test and the
+  re-run was green with nothing changed: four failures in eight full runs across three sessions, still none
+  standalone. The load that run ran under was not captured.
   <br>**A reading, not a capture:** the test reads the pid file AFTER the usage source has returned, so a node that
   starts later than the 3 s ceiling is killed before it writes anything, and the assertion reports exactly that message.
   That is the family of the timing tests above and of those already closed (`docs/task-archive.md` Parts 395 and 396):
@@ -348,12 +351,6 @@ photos; the local backends carry no content filter, and the library neither adds
 step (`task-lifecycle.md`), so none of the rows below is blocked by one; the host's models live in its untracked
 `local/` folder, never in the tree._
 
-- [ ] **A newer local model on the GPU behind the live suites** (lane `generation`). <!-- item: state=startable -->
-  The live suites render with SD 1.5 only. **Contract:** a permissively licensed (Apache-2.0 or MIT), ungated open model
-  that fits 12 GB of VRAM (quantised where needed) and that ComfyUI or stable-diffusion.cpp runs, **first choice
-  Z-Image-Turbo, fallback FLUX.1-schnell**; a non-commercial or gated model is refused. SD 1.5 stays the cheap smoke
-  model. **Proof:** the model renders one image behind `ComfyUiLiveTests`, `LocalDiffusionLiveTests` and the
-  Automatic1111 suite where each backend can run it, each a named new skip when its model is absent.
 - [ ] **A checkpoint and LoRAs per request** (lane `generation`, after the row above). <!-- item: state=startable -->
   A generation request can name a checkpoint and zero or more LoRAs with weights, resolved from model folders the HOST
   configures (options, no hard-coded paths), and passes the setup image's parameters through: prompt, negative prompt,
@@ -382,6 +379,18 @@ step (`task-lifecycle.md`), so none of the rows below is blocked by one; the hos
   once the sample shows the need, with that need as its evidence: named input roles beyond `init` and `reference`
   (style, subject, control or pose, mask) in `MediaInputRoles`; per-input weights; mapping seed, steps, size and LoRA
   into graph paths; a template declaring the roles it accepts and refusing others.
+- [ ] **The two stable-diffusion.cpp backends on Z-Image-Turbo** (lane `generation`). <!-- item: state=blocked kind=env needs="a Qwen3-4B text encoder stable-diffusion.cpp can load (not fp8-scaled), or a newer stable-diffusion.cpp build, installed by the owner" -->
+  `LocalDiffusionProvider` (`sd-cli`) and the `sd-server` behind `Automatic1111Provider` render with SD 1.5 only;
+  ComfyUI already runs Z-Image-Turbo (`docs/task-archive.md` Part 403). **Evidence:** stable-diffusion.cpp `656a135`
+  (Vulkan) accepts the three files by `--diffusion-model`, `--llm` and `--vae`, recognises Z-Image, then aborts loading
+  the installed fp8-mixed Qwen3-4B text encoder with `GGML_ASSERT(scale_nelements == 1 || scale_nelements ==
+  out_features)`, also with `--type bf16` (`docs/generation.md` §2). **Contract:** the same model, licence and 12 GB
+  bound as the closed row: Z-Image-Turbo (Apache-2.0), ungated, fitting 12 GB, with SD 1.5 left as the cheap smoke
+  model. **Proof:** it renders one image behind `LocalDiffusionLiveTests` and behind the Automatic1111 suite against the
+  `sd-server`, each a named new skip when its model is absent. **Blocker's kind is the ENVIRONMENT:** the fix is a file
+  or a build the owner installs, so a re-check asks whether such an encoder or build is OBTAINABLE, not whether one is
+  installed (`task-lifecycle.md`). The provider needs no change for the failure measured: a provider option cannot make
+  the engine read a file it cannot load.
 
 ## Retired — five Parts that outlived their open work (2026-09-16)
 
