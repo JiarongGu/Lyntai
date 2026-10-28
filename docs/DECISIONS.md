@@ -301,8 +301,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D229](#d229--the-sqlite-vector-store-keeps-writing-a-vectors-json-text-beside-its-binary-column-2026-10-28) | 2026-10-28 | the SQLite vector store keeps writing a vector's JSON text beside its binary column |
 | [D230](#d230--local-image-generation-is-proved-by-an-example-pipeline-a-host-runs-as-is-not-by-a-workflow-engine-or-per-backend-live-suites-2026-10-28) | 2026-10-28 | local image generation is proved by an example pipeline a host runs as-is, not by a workflow engi… |
 | [D231](#d231--a-generation-requests-checkpoint-loras-and-sampling-parameters-are-typed-fields-each-backend-declares-not-free-options-keys-2026-10-28) | 2026-10-28 | a generation request's checkpoint, LoRAs and sampling parameters are typed fields each backend de… |
+| [D232](#d232--fals-per-model-request-path-and-raw-json-fields-are-host-settings-in-faloptions-not-read-from-the-submit-answer-or-marked-inside-a-value-2026-10-29) | 2026-10-29 | fal's per-model request path and raw-JSON fields are host settings in `FalOptions`, not read from… |
 
-**226 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**227 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -6619,3 +6620,37 @@ measured differs from the WebUI it imitates, so an unmeasured mapping is the hos
 **Re-opens** when a hosted backend can take a seed or a step count on its own wire and a host asks for it (it then declares the
 parameter, its mapping measured), when a host runs the WebUI and its measured behaviour differs from the declared default, or
 when a second template family shows the host-named path cannot carry a field.
+
+**Amended.** The hosted backends now refuse as well: `OpenAiImageProvider`, `FalProvider` and `PiperProvider` answer
+`Unsupported` before any call to a request naming a parameter they do not declare, through the same `ParameterRefusal`, and
+a contract fact over all six shipped backends fails on one that honours a handed parameter by neither sending it nor
+refusing it. Declaring a parameter one of them could take on its own wire stays a separate step, its mapping measured.
+
+## D232 — fal's per-model request path and raw-JSON fields are host settings in `FalOptions`, not read from the submit answer or marked inside a value (2026-10-29)
+
+**Standing.** Shipped as additive public surface (the API baselines gain two lines and lose none, **D70**); it reverses by a
+later decision here. The behaviour and its defaults are `docs/generation.md` §3.
+
+**Decided.**
+- **`FalOptions.RequestPaths`**: per model id as submitted, the path the model is polled, fetched and cancelled under. A model
+  not listed, or listed blank, keeps the owner-and-app default (its first two segments), pinned byte for byte by a test. The
+  submit goes to the model's own path either way.
+- **`FalOptions.JsonFields`**: the `Options` keys sent to fal as raw JSON; every other option is still a string. A listed key
+  whose value is not valid JSON is refused as `Unsupported` before any call, naming the key, as `FalProvider` already refuses
+  an input it cannot send. The type of `MediaRequest.Options` stays `IReadOnlyDictionary<string, string>`.
+
+**Why.** Both are facts about a model's own interface (where fal addresses it, which of its input fields are structured), so a
+host states them once in configuration, where **D69** puts every mapping not yet measured, and an `appsettings.json` binds them.
+No run has reached fal past its door (`TASKS.md` GEN-VERIFY-FAL), so neither the default nor a URL field fal documents is
+measured.
+
+**Rejected.**
+- **Reading `status_url`, `response_url` and `cancel_url` from the submit answer**: a resumed durable job holds only
+  `"{model}#{requestId}"`, so the three URLs would have to ride inside that operation id and change its shape, for fields no
+  answer has yet shown.
+- **A marker prefix inside an option value**: a legitimate string starting with the marker would be read as JSON and need an
+  escape of its own, and a reader of the host's options cannot see which fields are structured.
+- **Changing `MediaRequest.Options` to carry JSON values**: a break of a frozen type (**D70**).
+
+**Re-opens** when a live fal run shows the URL fields in the submit answer and a way to carry them through a resumed job
+exists, or when a host's model needs a field's JSON-ness to vary per request rather than per model.
