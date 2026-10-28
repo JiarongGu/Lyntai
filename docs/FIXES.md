@@ -7,6 +7,32 @@ to `.agents/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-10-28 — the chatty-child ceiling tests spent node's cold start from a real 2 s `maxDuration`
+
+**Symptom.** `ProcessRunnerTests.Stream_lines_absolute_max_caps_a_chatty_child_that_never_stalls` failed twice across 31
+full runs of the bridge test's session (`Assert.NotEmpty(lines)`, about 3 s elapsed), and both chatty-child tests failed
+in one loaded `verify` while passing 108 of 108 alone.
+
+**Root cause.** Both tests started `node -e` under a real `maxDuration` of 2 s and asserted that the ceiling fired
+after the child had spoken (a yielded line; the `< 5 s` margin). The ceiling is armed before the child starts, so a
+machine whose node start took the 2 s fired the ceiling before the first `spam0`: a margin the test could not own,
+spent by load. The runner was right; widening the margin only moves the stall that loses it.
+
+**Fix.** The test owns the ceiling's clock. `ProcessRunner` has an internal `CeilingClock` (default `TimeProvider.System`)
+that the absolute `maxDuration` cancellation source is armed on, in `RunAsync` and the shared streaming core alike; the
+inactivity window and the kill stay on real timers, and the public surface does not move. The streamed test moves
+`ManualTimeProvider` 2 s on the first yielded line. The buffered test cannot see stdout mid-run, so the child writes a
+marker file from the flush callback of its first line, and the test advances the clock once the marker exists and the
+ceiling's timer is armed. Neither asserts on elapsed real time any more: they assert `MaxDuration`, the lines produced
+before it (`spam0`), that the child was killed rather than finishing (no `spam120`; fewer than 121 lines), and that the
+message names the 2 s window.
+
+**Verify.** Both tests go red when the ceiling is made to bound nothing (`maxCts.CancelAfter` disabled in both paths:
+`Assert.True()` failure on the buffered, "No exception was thrown" on the streamed), and pass with it restored. Twenty full
+`test` runs, one after another with `LYNTAI_ALLOW_POSTGRES_SKIP=1`, are in the commit message.
+
+**Introduced by.** `f33669da` (2026-07-23) for the buffered test and `7af5fe02` (2026-07-27) for the streamed one.
+
 ## 2026-10-28 — the bridge's stream-timeout test measured the machine: a 150 ms scheduling stall read as silence
 
 **Symptom.** `BridgeProviderTests.The_stream_timeout_is_an_INACTIVITY_clock_a_slow_but_alive_stream_finishes` failed in

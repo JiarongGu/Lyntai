@@ -69,6 +69,11 @@ public sealed class ProcessRunner : IProcessRunner
     private static readonly ConcurrentDictionary<string, string> PathCache = new(StringComparer.OrdinalIgnoreCase);
     private static readonly UTF8Encoding Utf8NoBom = new(encoderShouldEmitUTF8Identifier: false);
 
+    /// <summary>The clock the absolute <c>maxDuration</c> ceiling is armed on; the inactivity window and the
+    /// kill stay on real timers. System time unless a test owns it, so the ceiling can be moved after the
+    /// child has demonstrably started instead of racing the child's own start-up.</summary>
+    internal TimeProvider CeilingClock { get; init; } = TimeProvider.System;
+
     /// <summary>Buffered run: returns exit code + full stdout/stderr. <paramref name="inactivityTimeout"/>
     /// is an INACTIVITY window ("dead" detection), NOT a wall clock: it is re-armed on every stdout chunk
     /// and every drained stdin slice, so a slow-but-ALIVE child (a big prompt, a long tool loop) runs to
@@ -107,7 +112,7 @@ public sealed class ProcessRunner : IProcessRunner
             Interlocked.CompareExchange(ref stopReason, (int)ProcessTimeoutKind.Inactivity, (int)ProcessTimeoutKind.None);
             killCts.Cancel();
         });
-        using var maxCts = new CancellationTokenSource();
+        using var maxCts = new CancellationTokenSource(Timeout.InfiniteTimeSpan, CeilingClock);
         using var maxReg = maxCts.Token.Register(() =>
         {
             Interlocked.CompareExchange(ref stopReason, (int)ProcessTimeoutKind.MaxDuration, (int)ProcessTimeoutKind.None);
@@ -276,7 +281,7 @@ public sealed class ProcessRunner : IProcessRunner
         // path as the inactivity clock, so a chatty child that never finishes is bounded too. It tags itself
         // on the way through (RunAsync tags both clocks into stopReason; only this one is taggable here), so
         // ProcessTimeoutException can name the window that actually fired instead of always naming inactivity.
-        using var maxCts = new CancellationTokenSource();
+        using var maxCts = new CancellationTokenSource(Timeout.InfiniteTimeSpan, CeilingClock);
         var hitMaxDuration = false;
         using var maxReg = maxCts.Token.Register(() => { Volatile.Write(ref hitMaxDuration, true); timeoutCts.Cancel(); });
         if (maxDuration is not null) maxCts.CancelAfter(maxDuration.Value);
