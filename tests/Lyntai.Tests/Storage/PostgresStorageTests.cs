@@ -145,6 +145,108 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
         Assert.Empty(await store.NeighboursAsync(engine, key, [a], 10));
     }
 
+    // Nodes per round and rounds before the test gives up looking for a deadlock. Opposite orders over 40 nodes
+    // cross almost every round on the unordered store; the server's deadlock detector fires after
+    // deadlock_timeout (1 s), so a failing run ends at the first one.
+    private const int RaceNodes = 40, RaceRounds = 25;
+
+    private async Task<long[]> SeedRaceNodesAsync(PostgresMemoryGraphStore store, string engine, string key)
+    {
+        var ids = new long[RaceNodes];
+        for (var i = 0; i < ids.Length; i++)
+            ids[i] = await store.UpsertAsync(new GraphNodeWrite(engine, key, "s", $"n{i}", $"node {i}",
+                MemoryGrade.Associative, 7, 1, null));
+        return ids;
+    }
+
+    /// <summary>Runs <paramref name="ascending"/> and <paramref name="descending"/> together, round after round,
+    /// until one of them is aborted or the rounds run out; returns the rounds it took and what failed.</summary>
+    private static async Task<(int Rounds, Exception[] Failures)> RaceAsync(
+        Func<Task> ascending, Func<Task> descending)
+    {
+        for (var round = 1; round <= RaceRounds; round++)
+        {
+            using var gate = new Barrier(2);
+            Task Run(Func<Task> work) => Task.Run(() => { gate.SignalAndWait(); return work(); });
+            var both = new[] { Run(ascending), Run(descending) };
+            try { await Task.WhenAll(both); }
+            catch { /* read per task below */ }
+            var failures = both.Where(t => t.IsFaulted).Select(t => t.Exception!.GetBaseException()).ToArray();
+            if (failures.Length > 0) return (round, failures);
+        }
+        return (RaceRounds, []);
+    }
+
+    /// <summary>Two write-backs over the same nodes and edges, listed in opposite orders, never deadlock: the
+    /// transaction holds each row it touched until commit, so the order the rows are taken in is what keeps
+    /// two of them from each waiting on the other. The store takes them in one fixed order.</summary>
+    [SkippableFact]
+    public async Task Concurrent_write_backs_listing_the_same_nodes_in_opposite_orders_do_not_deadlock()
+    {
+        Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
+        var store = new PostgresMemoryGraphStore(pg.Factory);
+        var (engine, key) = (Uid(), Uid());
+        var ids = await SeedRaceNodesAsync(store, engine, key);
+        GraphWriteBack WriteBack(IEnumerable<long> order) => new(
+            [.. order.Select(id => new GraphTouch(id, 10.5))],
+            [.. order.Zip(order.Skip(1), (from, to) => new GraphEdgeWrite(from, to, "race", 1, Symmetric: true))],
+            [], 0);
+        var forward = WriteBack(ids);
+        var backward = WriteBack(ids.Reverse());
+
+        var (rounds, failures) = await RaceAsync(
+            () => store.WriteBackAsync(engine, forward), () => store.WriteBackAsync(engine, backward));
+
+        Assert.True(failures.Length == 0, $"after {rounds} round(s): {string.Join(" | ", failures.Select(f => f.Message))}");
+        // every round wrote both write-backs whole
+        var node = await store.GetAsync(engine, ids[0]);
+        Assert.Equal(2 * RaceRounds, node!.RecallCount);
+    }
+
+    /// <summary>The same for two batches of edges, which take the edge rows (and, for a new edge, the unique
+    /// index entry) in the order listed.</summary>
+    [SkippableFact]
+    public async Task Concurrent_edge_batches_listing_the_same_edges_in_opposite_orders_do_not_deadlock()
+    {
+        Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
+        var store = new PostgresMemoryGraphStore(pg.Factory);
+        var (engine, key) = (Uid(), Uid());
+        var ids = await SeedRaceNodesAsync(store, engine, key);
+        var forward = ids.Zip(ids.Skip(1), (from, to) => new GraphEdgeWrite(from, to, "race", 1, Symmetric: true)).ToList();
+        var backward = Enumerable.Reverse(forward).ToList();
+
+        var (rounds, failures) = await RaceAsync(
+            () => store.LinkManyAsync(engine, forward), () => store.LinkManyAsync(engine, backward));
+
+        Assert.True(failures.Length == 0, $"after {rounds} round(s): {string.Join(" | ", failures.Select(f => f.Message))}");
+        var neighbours = await store.NeighboursAsync(engine, key, [ids[0]], 10);
+        Assert.Equal(2 * RaceRounds, neighbours.Single().EdgeWeight, precision: 6);
+    }
+
+    /// <summary>Taking the rows in a fixed order changes no outcome: a node touched twice in one batch ends on
+    /// the LAST listed touch with both counted, and an edge listed twice carries both weights.</summary>
+    [SkippableFact]
+    public async Task A_batch_listing_a_node_or_an_edge_twice_writes_the_same_rows_as_before()
+    {
+        Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
+        var store = new PostgresMemoryGraphStore(pg.Factory);
+        var (engine, key) = (Uid(), Uid());
+        var a = await store.UpsertAsync(new GraphNodeWrite(engine, key, "s", "a", "alpha", MemoryGrade.Associative, 7, 1, null));
+        var b = await store.UpsertAsync(new GraphNodeWrite(engine, key, "s", "b", "beta", MemoryGrade.Associative, 7, 1, null));
+
+        await store.WriteBackAsync(engine, new GraphWriteBack(
+            [new GraphTouch(b, 3.5), new GraphTouch(a, 11.5), new GraphTouch(b, 4.5), new GraphTouch(a, 12.5)],
+            [new GraphEdgeWrite(b, a, "k", 2), new GraphEdgeWrite(a, b, "k", 1), new GraphEdgeWrite(b, a, "k", 4)],
+            [], 0));
+
+        var nodeA = await store.GetAsync(engine, a);
+        var nodeB = await store.GetAsync(engine, b);
+        Assert.Equal((2, 12.5), (nodeA!.RecallCount, nodeA.Stability));
+        Assert.Equal((2, 4.5), (nodeB!.RecallCount, nodeB.Stability));
+        Assert.Equal(1, (await store.NeighboursAsync(engine, key, [a], 10)).Single().EdgeWeight, precision: 6);
+        Assert.Equal(6, (await store.NeighboursAsync(engine, key, [b], 10)).Single().EdgeWeight, precision: 6);
+    }
+
     [SkippableFact]
     public async Task Every_object_carries_the_lyntai_prefix()
     {

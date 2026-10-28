@@ -250,7 +250,9 @@ public sealed class PostgresMemoryGraphStore(
     private static Task TouchAsync(IDbConnection conn, string engine,
         IReadOnlyCollection<GraphTouch> touches, MemoryPositionRow totals, CancellationToken ct,
         IDbTransaction? tx = null) =>
-        conn.ExecuteAsync(new CommandDefinition(MemoryGraphSql.Touch, touches.Select(t => new
+        // OrderBy is stable, so a node listed twice keeps its touches in the order given; only the order
+        // BETWEEN nodes changes — see the note above LinkManyAsync.
+        conn.ExecuteAsync(new CommandDefinition(MemoryGraphSql.Touch, touches.OrderBy(t => t.Id).Select(t => new
             {
                 t.Id, t.Stability, t.Difficulty, t.ProvenanceRetrievability, engine,
                 position = totals.Position, ordinal = totals.Ordinal, chars = totals.Chars,
@@ -295,16 +297,24 @@ public sealed class PostgresMemoryGraphStore(
 
     // As with TouchAsync above: the loop over a caller-owned connection and snapshot, so WriteBackAsync
     // reuses it rather than restating it.
+    //
+    // The rows are written in ONE order whatever order the caller listed them in — touches by node id, edges
+    // (both directions of a symmetric one) by from_id, to_id, kind — because the transaction holds every row
+    // lock to commit, and two batches taking the same rows in opposite orders each wait on the other until
+    // the server aborts one. The sort is stable, so a duplicate keeps its place among its own kind and the
+    // rows written do not change.
     private static async Task LinkManyAsync(IDbConnection conn, IReadOnlyList<GraphEdgeWrite> edges,
         MemoryPositionRow totals, CancellationToken ct, IDbTransaction? tx = null)
     {
-        foreach (var e in edges)
+        var directed = edges.Where(e => e.From != e.To)   // a self-edge is never useful and would skew Degree
+            .SelectMany(e => e.Symmetric
+                ? new[] { (From: e.From, To: e.To, Kind: e.Kind ?? "", e.Weight), (From: e.To, To: e.From, Kind: e.Kind ?? "", e.Weight) }
+                : [(From: e.From, To: e.To, Kind: e.Kind ?? "", e.Weight)])
+            .OrderBy(e => e.From).ThenBy(e => e.To).ThenBy(e => e.Kind, StringComparer.Ordinal);
+        foreach (var (from, to, kind, weight) in directed)
         {
             ct.ThrowIfCancellationRequested();
-            if (e.From == e.To) continue;   // a self-edge is never useful and would skew Degree
-            await StrengthenAsync(conn, e.From, e.To, e.Kind ?? "", e.Weight, totals, ct, tx).ConfigureAwait(false);
-            if (e.Symmetric)
-                await StrengthenAsync(conn, e.To, e.From, e.Kind ?? "", e.Weight, totals, ct, tx).ConfigureAwait(false);
+            await StrengthenAsync(conn, from, to, kind, weight, totals, ct, tx).ConfigureAwait(false);
         }
     }
 
