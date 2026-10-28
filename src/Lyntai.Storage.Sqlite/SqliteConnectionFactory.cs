@@ -30,7 +30,8 @@ public sealed class SqliteConnectionFactory : IDbConnectionFactory
     // the driver marks a fresh handle active BEFORE it records who holds it, and a rent racing that gap reads the
     // handle as leaked, returns it to the pool and hands it out a second time — two callers on one handle, which
     // surfaces as "cannot start a transaction within a transaction" or a disposed 'SQLitePCL.sqlite3'. A rent is a
-    // pool pop or one file open and never waits on a database lock, so the serialization is cheap.
+    // pool pop or one file open and never waits on a database lock, so the serialization is cheap. The driver fixed
+    // this in 10.0.13 (dotnet/efcore#39008); the lock stays for a consumer that pins an older patch.
     private static readonly object RentLock = new();
 
     private static void Rent(SqliteConnection conn)
