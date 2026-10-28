@@ -15,18 +15,21 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 5 across 3 Parts: 2 blocked, 3 watch
+## Open items — 8 across 4 Parts: 4 startable, 1 blocked, 3 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 106 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a free Hugging Face account (an hf_ token) — its router proxies fal's own q… |
-| 153 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 178 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 234 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
-| 267 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
+| 109 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | startable |  |
+| 160 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 185 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 241 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 274 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
+| 296 | 401 | A newer local model on the GPU behind the live suites | startable |  |
+| 302 | 401 | A checkpoint and LoRAs per request | startable |  |
+| 312 | 401 | The example image-workflow pipeline | startable |  |
 
 <!-- open-items:end -->
 
@@ -103,10 +106,14 @@ provider only ever reads the history document, and a core-node MP4 measures that
 The fal-first naming that once hid ComfyUI inside this list is recorded in
 `.agents/knowledge/pitfalls.md`._
 
-- [ ] **GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key**, checking the status <!-- item: state=blocked kind=env needs="a free Hugging Face account (an hf_ token) — its router proxies fal's own queue; or a fal.ai key" -->
+- [ ] **GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key**, checking the status <!-- item: state=startable -->
   vocabulary, the result field names and what `cost` reports. Then delete that backend's "unverified" notes
   or fix the mapping.
-  <br>**PARKED 2026-09-25 by the owner, who holds no fal.ai account** and did not know why fal was the vendor
+  <br>**UNBLOCKED 2026-10-28: the owner now holds a key from a free fal.ai account**, kept untracked in `local/` and
+  named no further here. That is the "fal.ai key" this item's blocker asked for, so the run can go against fal's own
+  queue with `Key` auth, which the Hugging Face route could not confirm; the paragraphs below are the history of
+  why it waited.
+  <br>**PARKED 2026-09-25 by the owner, who held no fal.ai account** and did not know why fal was the vendor
   chosen: it arrived with GEN4 (2026-08-04) as the hosted queue-shaped video backend the durable render job was
   built against, written from fal's public docs, and has never been called. **The full review kept it** (`docs/task-archive.md`
   Part 295, owner) and found a cheaper verifier: the Hugging Face router proxies fal's queue for a free account, and
@@ -119,8 +126,8 @@ The fal-first naming that once hid ComfyUI inside this list is recorded in
   vendor (the note above), and the video DELIVERY path is reachable through ComfyUI. Filed narrowly on
   purpose, because the old bundled item let "we are waiting on fal" stand in for "the platform is unverified"._
 
-  _**This half IS blocked, and it is the rule's own example of one**: a vendor key or an account, which no
-  download can supply. Split from the `sd-cli` half on 2026-09-16 because they were always independent —
+  _**This half WAS blocked, and was the rule's own example of one**: a vendor key or an account, which no
+  download can supply; the owner's key (above) cleared it. Split from the `sd-cli` half on 2026-09-16 because they were always independent —
   the old single item said so itself — and bundling them let the real blocker hide a startable one behind
   it for weeks._
 
@@ -275,6 +282,51 @@ there is nothing here to code: what remains is evidence only recurrence can supp
   <br>**Watch, not startable:** nothing here is known to be wrong. A recurrence with the ratio the assertion
   prints either shows a stall (the ratio far from 4 in either direction) or a real quadratic (near 16 every time),
   and only then is there something to change.
+
+## Part 401 — local image generation on this machine's GPU (2026-10-28)
+
+_The owner's direction, recorded as `docs/DECISIONS.md` **D230**: generation is proved by an example pipeline a host
+runs as-is, and models stay host-configured. **The rows are worked in this order**, each after the one before it.
+**Content rules on rows 2 to 4, each part of its contract:** everything the library, its samples, tests and docs carry
+is safe for work and names no real artist, studio, franchise or real person; no face-identity model is used on real
+photos; the local backends carry no content filter, and the library neither adds nor removes one. A download is a
+step (`task-lifecycle.md`), so none of the rows below is blocked by one; the host's models live in its untracked
+`local/` folder, never in the tree._
+
+- [ ] **A newer local model on the GPU behind the live suites** (lane `generation`). <!-- item: state=startable -->
+  The live suites render with SD 1.5 only. **Contract:** a permissively licensed (Apache-2.0 or MIT), ungated open model
+  that fits 12 GB of VRAM (quantised where needed) and that ComfyUI or stable-diffusion.cpp runs, **first choice
+  Z-Image-Turbo, fallback FLUX.1-schnell**; a non-commercial or gated model is refused. SD 1.5 stays the cheap smoke
+  model. **Proof:** the model renders one image behind `ComfyUiLiveTests`, `LocalDiffusionLiveTests` and the
+  Automatic1111 suite where each backend can run it, each a named new skip when its model is absent.
+- [ ] **A checkpoint and LoRAs per request** (lane `generation`, after the row above). <!-- item: state=startable -->
+  A generation request can name a checkpoint and zero or more LoRAs with weights, resolved from model folders the HOST
+  configures (options, no hard-coded paths), and passes the setup image's parameters through: prompt, negative prompt,
+  seed, steps, CFG, sampler and scheduler, size. **Contract:** each local backend maps them to its own mechanism
+  (ComfyUI's loader nodes; the Automatic1111 API's LoRA tags and `override_settings` for the checkpoint; sd-cli's LoRA
+  directory and arguments), states in its capabilities which it supports, and refuses an unsupported one before a call,
+  as the agent layer does. Additive: the API baselines lose no line (**D70**). **Proof:** live on the GPU, on every
+  local backend that supports it: switching between two checkpoints (SD 1.5 and the row above's model) and applying one
+  neutral, permissively licensed LoRA whose effect is measurable (an LCM LoRA for SD 1.5: fewer steps); each live test
+  gated, a named new skip.
+- [ ] **The example image-workflow pipeline** (lane `generation`, after the row above). <!-- item: state=startable -->
+  A library change it needs is in lane `generation`; the sample under `samples/` is laneless; it uses the row above's
+  request fields for the setup image. **Contract:** the pipeline of **D230** as a sample driving `ComfyUiProvider` with tracked API-format workflow
+  templates, one per step (setup image, variations over several seeds, a compose from references by role, and the optional
+  inpaint and upscale), filled through the provider's prompt-path and `input-path:<role>` options. Every output carries
+  the recipe and the sample replays it. Engine setup lives in the host's untracked local folder: the currently
+  maintained IP-Adapter node pack and ControlNet preprocessor pack (read before installing, commits pinned and recorded),
+  SDXL base 1.0 (OpenRAIL++) as the main tier and SD 1.5 as the smoke tier, the IP-Adapter SDXL weights and the image
+  encoder they need, an SDXL OpenPose ControlNet under a verified permissive licence, and optionally an open
+  multi-reference edit model only if its licence allows and it fits 12 GB; `.safetensors` only, sha256 recorded, about
+  40 GB of downloads at most. **Proof:** live-gated tests running each step once on the GPU, each a named new skip; one
+  sample run (a base image, three variations, a compose from a style reference, a pose reference, a subject reference and
+  words, then a recipe replay) with its outputs in an ignored folder; `docs/generation.md` gains a workflow-pipeline
+  section (model folder layout, node packs, how roles map to nodes, the recipe format, licence and safety notes).
+  <br>**Library gaps this is likely to show, recorded as CANDIDATES and not yet rows** — each becomes its own row
+  once the sample shows the need, with that need as its evidence: named input roles beyond `init` and `reference`
+  (style, subject, control or pose, mask) in `MediaInputRoles`; per-input weights; mapping seed, steps, size and LoRA
+  into graph paths; a template declaring the roles it accepts and refusing others.
 
 ## Retired — five Parts that outlived their open work (2026-09-16)
 
