@@ -15,21 +15,24 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 8 across 4 Parts: 4 startable, 1 blocked, 3 watch
+## Open items — 11 across 4 Parts: 5 startable, 2 blocked, 4 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 109 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | startable |  |
-| 160 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 185 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 241 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
-| 274 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
-| 296 | 401 | A newer local model on the GPU behind the live suites | startable |  |
-| 302 | 401 | A checkpoint and LoRAs per request | startable |  |
-| 312 | 401 | The example image-workflow pipeline | startable |  |
+| 112 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal account with a balance, or a Hugging Face token for the router route … |
+| 159 | 33 | fal's request path for a sub-path model | startable |  |
+| 168 | 33 | `MediaRequest.Options` values reach fal as strings | startable |  |
+| 193 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 219 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 275 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 308 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
+| 324 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
+| 351 | 401 | A newer local model on the GPU behind the live suites | startable |  |
+| 357 | 401 | A checkpoint and LoRAs per request | startable |  |
+| 367 | 401 | The example image-workflow pipeline | startable |  |
 
 <!-- open-items:end -->
 
@@ -106,13 +109,23 @@ provider only ever reads the history document, and a core-node MP4 measures that
 The fal-first naming that once hid ComfyUI inside this list is recorded in
 `.agents/knowledge/pitfalls.md`._
 
-- [ ] **GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key**, checking the status <!-- item: state=startable -->
+- [ ] **GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key**, checking the status <!-- item: state=blocked kind=env needs="a fal account with a balance, or a Hugging Face token for the router route (`docs/generation.md` §3)" -->
   vocabulary, the result field names and what `cost` reports. Then delete that backend's "unverified" notes
   or fix the mapping.
-  <br>**UNBLOCKED 2026-10-28: the owner now holds a key from a free fal.ai account**, kept untracked in `local/` and
-  named no further here. That is the "fal.ai key" this item's blocker asked for, so the run can go against fal's own
-  queue with `Key` auth, which the Hugging Face route could not confirm; the paragraphs below are the history of
-  why it waited.
+  <br>**FIRST RUN 2026-10-28, and it stopped at fal's door** (`FalLiveTests`, two submits under `Key` auth against
+  fal's own queue, from the owner's free account). Both were refused `403` with `{"detail":"User is locked. Reason:
+  Exhausted balance. …"}`: the account holds no balance, so nothing was enqueued or billed. **Measured:** the host
+  `queue.fal.run`, `Key` as the auth scheme (the key was recognised, where a bad one is a 401) and the refusal's body
+  shape. **Not measured**, since nothing past the door answered: the status vocabulary, the `request_id` / `status` /
+  `url` / `content_type` fields, `queue_position`, the `COMPLETED`-plus-`error` failure shape and `ErrorField`, what a
+  failed request's result fetch answers, what `cost` reports, and the sub-path URL (below). Two fixes came out of it
+  (`docs/generation.md` §3): a refused submit is classified by its status (403 and 401 `AuthFailed`, 429
+  `RateLimited`), and a sub-path model is polled, fetched and cancelled under its owner and app, which is fal's
+  documentation read, not a measurement. The live tests skip, naming the balance, on that answer.
+  <br>**Blocked again, on the account**: a fal account with a balance, or a Hugging Face token for the router route
+  (`docs/generation.md` §3), which a free account can use and which does not confirm `Key` auth. One `FalLiveTests`
+  run is two submits at about a tenth of a cent, and the docs and the shipped tests stay "documented, not measured"
+  for everything above until one passes.
   <br>**PARKED 2026-09-25 by the owner, who held no fal.ai account** and did not know why fal was the vendor
   chosen: it arrived with GEN4 (2026-08-04) as the hosted queue-shaped video backend the durable render job was
   built against, written from fal's public docs, and has never been called. **The full review kept it** (`docs/task-archive.md`
@@ -126,8 +139,8 @@ The fal-first naming that once hid ComfyUI inside this list is recorded in
   vendor (the note above), and the video DELIVERY path is reachable through ComfyUI. Filed narrowly on
   purpose, because the old bundled item let "we are waiting on fal" stand in for "the platform is unverified"._
 
-  _**This half WAS blocked, and was the rule's own example of one**: a vendor key or an account, which no
-  download can supply; the owner's key (above) cleared it. Split from the `sd-cli` half on 2026-09-16 because they were always independent —
+  _**This half is the rule's own example of a blocker**: a vendor key or an account, which no download can
+  supply. A key was not enough, since the account behind it holds no balance (above). Split from the `sd-cli` half on 2026-09-16 because they were always independent —
   the old single item said so itself — and bundling them let the real blocker hide a startable one behind
   it for weeks._
 
@@ -142,6 +155,26 @@ The fal-first naming that once hid ComfyUI inside this list is recorded in
   _**What a real run is still for**, stated so this is not read as closed: a STRUCTURAL difference — a status
   that is not a string field at all, a history document shaped differently — is not fixable by a per-field
   option. The residual risk is a shape, not a spelling._
+
+- [ ] **fal's request path for a sub-path model** (lane `generation`). <!-- item: state=startable -->
+  `FalProvider.RequestPath` takes a model's first two segments as its owner and app and polls, fetches and cancels under
+  them (`fal-ai/flux` for `fal-ai/flux/schnell`), from fal's documentation and with nothing measured, where **D69** makes
+  an unmeasured mapping an option. **Contract:** the path is either read from the submit answer, where fal documents
+  `status_url`, `response_url` and `cancel_url` (check fal's docs and any answer recorded since the first run, which
+  reached none), or settable in `FalOptions`, the documented owner-and-app default kept; a host whose model fal addresses
+  differently corrects it in configuration. Additive (**D70**). **Proof:** unit tests on both shapes in `FalProviderTests`,
+  the default's pinned byte-for-byte; the live confirmation waits with GEN-VERIFY-FAL, whose `FalLiveTests` already
+  records the full-path answer on a finished request.
+- [ ] **`MediaRequest.Options` values reach fal as strings** (lane `generation`). <!-- item: state=startable -->
+  `FalProvider.BuildInput` writes every option with `WriteString`, and `MediaRequest.Options` is an
+  `IReadOnlyDictionary<string, string>`, so an object- or array-valued model field, such as a custom `image_size`
+  (`{"width":…,"height":…}`), cannot be sent; only the preset names can (`docs/generation.md` §3). **Contract:** a host
+  can send a field as raw JSON without the type of `Options` changing, which would be a break (**D70**): the choice
+  between a `FalOptions` list of field names sent as JSON and a value convention is the item's to make and to record,
+  with the other named as rejected; a value that is not valid JSON where JSON is asked for is refused before a call, and
+  every option not so named is written as a string, as now. **Proof:** unit tests in `FalProviderTests` on the body sent
+  for an object-valued and an array-valued field, for a string field unchanged, and for the refusal; the API baselines
+  gain only additive lines. A live check of an object-valued field waits with GEN-VERIFY-FAL.
 
 > Add new tasks here as checklist items with an `id` and a short `file:line` where known. Group related
 > tasks under a `## Part N — <theme>` heading. Move an item to the archive when it lands — don't leave a
@@ -175,7 +208,8 @@ _It opened holding the two Phase-1 gaps. One of those (cross-tenant isolation) c
 the proposal. **Two items were left open here, both WATCH items** — the rest closed into the archive, and this line said "all
 three are startable" until 2026-08-28, after two of them had gone. A third, also a WATCH item, joined them on
 2026-10-28: the bridge's stream-timeout test and the chatty-child tests closed that day (`docs/task-archive.md` Parts 395
-and 396) and the NFKC-linearity test, listed beside them, stayed._
+and 396) and the NFKC-linearity test, listed beside them, stayed. A fourth, the usage-process test last in this Part, joined
+the same day._
 
 _**The flake below is a WATCH item, not startable work, and the banner counted it as startable until 2026-08-28.** The
 suspected cause is fixed AND pinned — `ProcessRunnerTests.A_FAILED_path_lookup_is_not_cached_so_one_transient_locator_failure_is_not_permanent`,
@@ -279,9 +313,30 @@ there is nothing here to code: what remains is evidence only recurrence can supp
   <br>**Not those, and so not fixed by what fixed them.** Neither a real-time margin nor a node start is in it, so
   there is no clock for the test to own. The reading is that a stall landing inside one size's three runs and not the
   other's moves a ratio of two timings; that is a reading, not a capture, and one failure is all there is.
+  <br>**Recurred 2026-10-28 with its ratio: 17.3** (0.027 s for the smaller size, 0.462 s for the larger), in a full
+  `verify` that also failed the usage-process test above, and green in the two other full runs of that pass. A ratio
+  near 16 that does not come back is one reading, so it does not separate a stall from a quadratic; a quadratic would
+  not have been green twice.
   <br>**Watch, not startable:** nothing here is known to be wrong. A recurrence with the ratio the assertion
   prints either shows a stall (the ratio far from 4 in either direction) or a real quadratic (near 16 every time),
   and only then is there something to change.
+
+- [ ] **`AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_children_when_the_time_runs_out` failed in two of the fal session's three `verify` runs.** <!-- item: state=watch kind=data needs="a recurrence under the full parallel run, with the load it ran under; it failed twice there and passes alone" -->
+  It spawns a node stand-in that never answers, gives the usage source a 3 s timeout, and failed with "the stand-in
+  never wrote its pids" in two of three full `verify` runs on 2026-10-28, passing run alone. It is a different test from
+  the three above, and the same shape.
+  <br>**Recurred in the steward pass that recorded it** (its second full `verify`, then green on the unmodified re-run,
+  as its first had been): the same message, at `Pids` (`AgentUsageProcessTests.cs:90`), after 21 s, and the same run
+  failed the NFKC test below, so a loaded machine took two timing tests at once. That is three failures in six full runs
+  across both sessions, none standalone.
+  <br>**A reading, not a capture:** the test reads the pid file AFTER the usage source has returned, so a node that
+  starts later than the 3 s ceiling is killed before it writes anything, and the assertion reports exactly that message.
+  That is the family of the timing tests above and of those already closed (`docs/task-archive.md` Parts 395 and 396):
+  a real process's start measured against a real ceiling, on a machine loaded by the parallel suite. **Not yet known:**
+  whether the child was late or something else emptied the file.
+  <br>**Watch, not startable:** nothing here is known to be wrong in shipped code, and a widening chosen from one
+  failure with no capture would repeat Part 395's first one, which failed once in twenty runs anyway. A recurrence with
+  the load it ran under says whether the ceiling or the start owns it.
 
 ## Part 401 — local image generation on this machine's GPU (2026-10-28)
 

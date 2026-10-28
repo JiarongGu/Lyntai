@@ -1694,6 +1694,11 @@ options too, which lets the Hugging Face router verify fal's wire for free. fal'
 literals, and an unconfigured host must not be able to tell. *(2026-09-19: MEASURED — upstream HAD retired
 the `img2img` mode value; the default now omits the mode pair, `Img2ImgMode` restores it for older builds.)*
 
+*(Amended 2026-10-28: the Automatic1111 and OpenAI-images shapes are now measured, against a local server that
+implements both and is neither the WebUI nor OpenAI, and no mapping was wrong; fal's `Key` auth and its refusal's body
+shape are measured, from a first run refused for an account with no balance. The rest of fal's mapping, and the
+sub-path request path, stay documented and options: `docs/generation.md` §2 and §3.)*
+
 ---
 
 ## D70 — `Lyntai.Generation` comes under the full SemVer promise; its 2.0.1 exemption is withdrawn (2026-08-16)

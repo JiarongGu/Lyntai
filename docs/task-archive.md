@@ -6116,3 +6116,14 @@ concurrent tests fail on the unordered store and pass, and a third pins the rows
 write-backs entry). Lane storage.
 
 - Concurrent write-backs and batches on Postgres do not deadlock
+
+## Part 401 — The Automatic1111 and OpenAI-images backends measured against a local server (2026-10-28)
+
+✅ done 2026-10-28 — **Outcome:** `66413563` (merged `9aa5a87c`), the owner's request, not a backlog row. stable-diffusion.cpp's
+`sd-server` serves both APIs, and `Automatic1111LiveTests` (3, gated on `LYNTAI_A1111_URL`) and `OpenAiImageLiveTests` (3,
+gated on `LYNTAI_OPENAI_IMAGE_URL`) passed against it; no mapping was wrong, so no provider behaviour changed. The docs now
+say what was measured and that the server is neither the WebUI nor OpenAI (`docs/generation.md` §2): it ignores
+`sampler_name` and lists only its one loaded model in `sd-models`, so the probe's "loaded" reading is proven only where the
+two coincide. The six tests are six named skips in the baseline. **D69** is amended for what this measured. Lane generation.
+
+- The Automatic1111 and OpenAI-images backends measured against a local server
