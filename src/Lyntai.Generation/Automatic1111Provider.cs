@@ -44,10 +44,11 @@ public sealed class Automatic1111Options
 
     /// <summary>Where a request's LoRAs go. Null — the default — writes each into the prompt as the WebUI's
     /// <c>&lt;lora:name:weight&gt;</c> tag, with the name's model extension dropped. A name here sends them instead as
-    /// that JSON array field of the payload, each entry <c>{"path": name, "multiplier": weight, "is_high_noise":
-    /// false}</c> — what stable-diffusion.cpp's <c>sd-server</c> reads (set it to <c>"lora"</c>), since it ignores
-    /// tags and refuses a path its <c>/sdapi/v1/loras</c> does not list. The request's name is sent as given, so there
-    /// it is the file name that endpoint reports (<c>"lcm-lora-sdv1-5.safetensors"</c>).</summary>
+    /// that JSON array field of the payload, each entry <c>{"path": name, "multiplier": weight}</c> — what
+    /// stable-diffusion.cpp's <c>sd-server</c> reads (set it to <c>"lora"</c>), since it ignores tags. It refuses a path
+    /// its <c>/sdapi/v1/loras</c> has not LISTED, and lists a folder only when asked, so a render naming LoRAs is
+    /// preceded by that GET. The request's name is sent as given, so there it is the file name that endpoint reports
+    /// (<c>"lcm-lora-sdv1-5.safetensors"</c>).</summary>
     public string? LoraRequestField { get; set; }
 
     /// <summary>Ceiling for ONE call to this backend — the render, and the probe. Generous because a render on
@@ -70,12 +71,14 @@ public sealed class Automatic1111Options
 /// candidate a host puts AFTER a hosted backend when it wants a refusal to be picked up locally
 /// (<see cref="MediaRoutingPolicy"/>).
 ///
-/// <b>The loaded checkpoint decides the model, not the request.</b> The payload carries prompt, size, steps and
-/// CFG only, so <see cref="MediaRequest.Model"/> is NOT honoured — including a candidate's
-/// <c>"a1111:some-checkpoint"</c> pin, which the router applies to the request and this backend then ignores.
-/// The render uses whatever checkpoint the WebUI currently holds (<see cref="ProbeAsync"/> reports which), and a
-/// host that needs a specific one switches it in the WebUI. Every local backend answers "what decides the
-/// model?" differently: ComfyUI's is the workflow, the local engine's its model path, this one's the server.
+/// <b>The loaded checkpoint decides the model unless the request names one the host declared.</b>
+/// <see cref="MediaRequest.Model"/> is NOT honoured — including a candidate's <c>"a1111:some-checkpoint"</c> pin,
+/// which the router applies to the request and this backend then ignores. A <see cref="MediaRequest.Checkpoint"/>
+/// is sent as <c>override_settings</c> only when <see cref="Automatic1111Options.HonouredParameters"/> declares it
+/// (a server that loads one checkpoint ignores the override, so by default it is refused); otherwise the render uses
+/// whatever the WebUI currently holds (<see cref="ProbeAsync"/> reports which). Every local backend answers "what
+/// decides the model?" differently: ComfyUI's is the workflow, the local engine's its model path or folder, this
+/// one's the server.
 /// </summary>
 /// <remarks>Run against stable-diffusion.cpp's <c>sd-server</c>, which implements this API — not against the
 /// WebUI itself, whose behaviour beyond those shapes is unmeasured. A server that isn't running
@@ -187,7 +190,6 @@ public sealed class Automatic1111Provider(
             {
                 ["path"] = l.Name,
                 ["multiplier"] = l.Weight,
-                ["is_high_noise"] = false,
             })]);
         if (request.Checkpoint is { Length: > 0 } checkpoint)
             payloadBody["override_settings"] = new JsonObject { ["sd_model_checkpoint"] = checkpoint };
@@ -203,6 +205,12 @@ public sealed class Automatic1111Provider(
         var http = lease.Client;
         try
         {
+            // the server's own index of its LoRA folder, which a payload's LoRA is checked against: measured, a
+            // fresh server refuses every one until this has been read. Its answer is not used — a refusal is the
+            // render's to report
+            if (options.LoraRequestField is { Length: > 0 } && request.Loras.Count > 0)
+                using (await http.GetAsync($"{Root}/sdapi/v1/loras", ct).ConfigureAwait(false)) { }
+
             using var content = new StringContent(payload, Encoding.UTF8, "application/json");
             using var response = await http.PostAsync($"{Root}/sdapi/v1/{endpoint}", content, ct).ConfigureAwait(false);
             var body = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);

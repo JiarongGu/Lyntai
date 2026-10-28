@@ -113,8 +113,9 @@ public sealed class LocalDiffusionOptions
     /// error; an older build that required the explicit pair gets it back by setting <c>"img2img"</c> here.</summary>
     public string? Img2ImgMode { get; set; }
 
-    /// <summary>Extra arguments appended verbatim to every render — a sampler, a seed, a VAE path, whatever
-    /// this build accepts that the platform has no opinion about. Empty by default.</summary>
+    /// <summary>Extra arguments appended verbatim to every render — a VAE path, whatever this build accepts that the
+    /// platform has no opinion about (a sampler and a seed are the request's: <see cref="MediaRequest.Sampler"/>,
+    /// <see cref="MediaRequest.Seed"/>). Empty by default.</summary>
     /// <remarks>The platform deliberately models NONE of these as first-class options: each is specific to
     /// one engine build, and promoting them would put a third-party binary's flag set into a frozen public
     /// surface. This is the escape hatch that keeps that from being necessary.</remarks>

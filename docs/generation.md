@@ -62,7 +62,7 @@ vendor documentation and has been measured only as far as fal's door** (§3).
 | Backend | Delivery | Notes |
 |---|---|---|
 | `OpenAiImageProvider` | Inline | `/images/generations`, or `/images/edits` when the request carries an input image. *Measured against a local OpenAI-compatible server — stable-diffusion.cpp's `sd-server` (`656a135`), **not OpenAI***: the `/models` probe, a generation answered as inline `b64_json`, and the multipart edit all pass (`OpenAiImageLiveTests`), which proves the request is one a second implementation accepts and says nothing about OpenAI's service. The server takes `"model": null` and answers only `b64_json`, and the OpenAI shape carries no step count, so its own default (20) applies. **Not measured against OpenAI's current GPT-image models**, which are reported to reject `response_format`, so that family is sent none by default (`OpenAiImageOptions.ResponseFormat`). A `url` response comes back as a URI artifact — never downloaded for you |
-| `Automatic1111Provider` | Inline | A locally-run SD WebUI's `/sdapi/v1` API: `txt2img` / `img2img`. *Measured against stable-diffusion.cpp's `sd-server` (`656a135`, Vulkan), which implements the WebUI's shapes — **not against the WebUI itself*** (`Automatic1111LiveTests`: the probe, txt2img at a non-square size, img2img, all passing). That proves the shapes it implements, not every WebUI behaviour. Seen different from the WebUI's documented API: `sd-server` ignores `sampler_name` (this backend sends none), lists only its one loaded model in `sd-models` where the WebUI lists the checkpoints it could load — so the probe's "loaded" reading is proven only against a server for which the two coincide — and answers `info` with its own metadata. It honoured `steps`, `cfg_scale`, `width`/`height` and `denoising_strength`. A WebUI that is not running — nothing listening — is **Failed**, a down host like any other (**D31**), and so is one that drops a render mid-response; both count toward the dead-host threshold, and only the detail tells them apart. Its probe checks a checkpoint is *loaded* — "up" isn't "usable". The WebUI's loaded checkpoint decides the model: `MediaRequest.Model`, including a candidate's `a1111:sd_xl_base` pin, is **not** sent |
+| `Automatic1111Provider` | Inline | A locally-run SD WebUI's `/sdapi/v1` API: `txt2img` / `img2img`. *Measured against stable-diffusion.cpp's `sd-server` (`656a135`, Vulkan), which implements the WebUI's shapes — **not against the WebUI itself*** (`Automatic1111LiveTests`: the probe, txt2img at a non-square size, img2img, all passing). That proves the shapes it implements, not every WebUI behaviour. Seen different from the WebUI's documented API: `sd-server` lists only its one loaded model in `sd-models` where the WebUI lists the checkpoints it could load — so the probe's "loaded" reading is proven only against a server for which the two coincide — and answers `info` with its own metadata. It honoured `steps`, `cfg_scale`, `width`/`height` and `denoising_strength`, and (§5, *Parameters*) `seed`, `negative_prompt`, `sampler_name` and `scheduler`, while it ignores `override_settings` and `<lora:…>` tags. A WebUI that is not running — nothing listening — is **Failed**, a down host like any other (**D31**), and so is one that drops a render mid-response; both count toward the dead-host threshold, and only the detail tells them apart. Its probe checks a checkpoint is *loaded* — "up" isn't "usable". The WebUI's loaded checkpoint decides the model unless the request names one the host declared (§5, *Parameters*): `MediaRequest.Model`, including a candidate's `a1111:sd_xl_base` pin, is **not** sent |
 | `ComfyUiProvider` | **Job** | *Measured against a live server, image, video and mesh workflows* — video both as a core-node MP4 and through a real video model, Wan 2.2 TI2V-5B, from text and from a `first-frame` input. Workflow-driven: you supply the graph in `Options["workflow"]` (+ optional `Options["prompt-path"]` to place the prompt), and outputs come back as view URIs — a mesh as `model/gltf-binary`. Each input (bytes, or a URI it fetches from any http(s) server, capped by `MaxFetchBytes`, and fetched off ComfyUI's own origin with no credentials so long as the ComfyUI client follows no redirect itself — `AddComfyUiProvider`'s does not, and a client you supply should not either (**D180**); validate URIs a model supplies) is uploaded and its stored name written at the field `Options["input-path"]` names, or `Options["input-path:<role>"]` for an input with a role; an input with nowhere to go is refused, never dropped. A transport failure while polling reports **Running, not Failed**, while a 4xx or an unconfigured base URL stays terminal, so a bad id never polls forever |
 | `LocalDiffusionProvider` | Inline | A local `sd-cli` / stable-diffusion.cpp subprocess through `IProcessRunner` — no key, no network, no content policy in the path. Argv and the multiple-of-64 size clamp are measured against a real engine (txt2img and img2img, end to end through the library) |
 | `FalProvider` | **Job** | *Measured only as far as fal's door: written from fal.ai's public docs, and an account with no balance was refused there* (§3). One aggregator queue reaching the Wan/Kling/Veo-class video models. The operation id **carries its model** (`"model#requestId"`) because a resumed job has only the id, and a transport failure while polling reports **Running, not Failed** — a 500 says nothing about a paid render still in flight |
@@ -197,6 +197,59 @@ cfg.ConfigureMediaRouting(p =>
 
 Every backend answers **"are you usable?"** without generating anything (`ProbeAsync`), so a setup screen
 never pays for a test image.
+
+### Parameters: a checkpoint, LoRAs and sampling
+
+A request names more than a prompt through typed fields on `MediaRequest`, one name for each in
+`MediaParameters`: `Checkpoint` (a file name in the model folder the SELECTED backend reads, never a path),
+`Loras` (a list of `MediaLora(name, weight)`), `NegativePrompt`, `Seed`, `Steps`, `CfgScale`, `Sampler` and
+`Scheduler`. The size stays the advisory `Options["size"]` hint every backend reads or ignores. Sampler and scheduler are
+spelled as the selected backend spells them, since the engines disagree (`euler_a` / `Euler a` / `euler`) and nothing
+translates; `MediaRequest.Model` still means an aggregator's endpoint id, not a checkpoint file. Every field is
+null or empty by default, and a durable job carries them through its JSON. A host points a local engine at its model
+folders (`o.CheckpointDirectory = checkpoints; o.LoraDirectory = loras;` in `AddLocalDiffusionProvider`) and a request
+names files in them: `Checkpoint = "sd15.safetensors"`, `Loras = [new MediaLora("lcm-lora-sdv1-5.safetensors", 1.0)]`,
+`Seed = 7, Steps = 4, CfgScale = 1, Sampler = "lcm"`.
+
+A backend states which it honours in `ProviderCapabilities.Parameters`; empty honours none. **A request naming one a backend
+does not declare is skipped by the router and, called directly, refused by the backend as `Unsupported` before anything is
+sent or spawned** — the way an agent door refuses an option whose ability it states unsupported — because a backend that took
+the call and ignored a checkpoint would return a plausible, wrong image. The local backends also refuse a value no engine can
+read (a non-positive step count, a non-finite weight, a name carrying a folder or a tag character).
+
+| | checkpoint | LoRAs | negative prompt, seed, steps, CFG, sampler, scheduler |
+|---|---|---|---|
+| `LocalDiffusionProvider` (sd-cli) | `CheckpointDirectory`: the file there by name, else with `.safetensors`, `.gguf` or `.ckpt` added, passed as `-m`; declared only when the folder is set | `LoraDirectory`: passed as `--lora-model-dir`, each LoRA written into the prompt as `<lora:name:weight>`; declared only when the folder is set | `-n`, `-s`, `--steps`, `--cfg-scale`, `--sampling-method`, `--scheduler` (each flag a settable `ArgvFlags` key) |
+| `Automatic1111Provider` | `override_settings.sd_model_checkpoint`, if the host declared it | tags in the prompt (extension dropped), or the payload field `LoraRequestField` names, if declared | `negative_prompt`, `seed`, `steps`, `cfg_scale`, `sampler_name`, `scheduler` |
+| `ComfyUiProvider` | the graph field `checkpoint-path` names | per LoRA `n` (from 1): `lora-path:n` for the name and `lora-weight-path:n` for the weight, comma-separated for a loader with a model and a text-encoder strength | `negative-prompt-path`, `seed-path`, `steps-path`, `cfg-scale-path`, `sampler-path`, `scheduler-path`, and `width-path` / `height-path` for the size hint |
+
+- **sd-cli** takes its folders from the host (`LocalDiffusionOptions.CheckpointDirectory`, `LoraDirectory`) and the host's
+  `ModelPath` stays the checkpoint a request that names none renders with. A name the folder does not hold is refused
+  before the spawn.
+- **The Automatic1111 API** has no way to ask a server what it honours, so the host declares it:
+  `Automatic1111Options.HonouredParameters` defaults to what was measured on stable-diffusion.cpp's `sd-server` — every
+  field but `Checkpoint` and `Loras` — and a host running the WebUI adds those two. **`sd-server` loads one checkpoint and
+  answers `override_settings` with the render it would have made anyway** (`Automatic1111LiveTests`), so it cannot switch per
+  request and a request naming one is refused. It also ignores `<lora:…>` tags and takes LoRAs from a `lora: [{path,
+  multiplier}]` payload field (`LoraRequestField = "lora"`), refusing any `path` its `/sdapi/v1/loras` has not listed;
+  that listing happens only when asked, so the backend reads it before a render that names a LoRA. It matches `sampler_name`
+  in either spelling (`LCM`, `lcm`, `Euler a`, `euler_a`) and **silently ignores one it does not know**.
+- **ComfyUI** is template-driven, as for the prompt and the inputs: the host's workflow says where each field goes through
+  dotted-path options, the library inserts no node, and a request naming a field whose path is unset or not in the
+  workflow is refused at submit with nothing uploaded or queued. A LoRA loader's strengths in the template should be 0, which
+  ComfyUI treats as no LoRA, for a request that names none. The checkpoint's field differs by family (`4.inputs.ckpt_name` on
+  an SD 1.5 graph, `37.inputs.unet_name` on Z-Image's), so switching across families switches the host's template too; the
+  server resolves the name against its own model folders and refuses one it lacks, which the submit reports as `Unsupported`.
+
+**Measured** on the 12 GB RTX 4080 Laptop (`LocalDiffusionLiveTests`, `Automatic1111LiveTests`, `ComfyUiLiveTests`;
+checkpoint switching, the LoRA and the seed each a gated live test, skipped without their variables): consecutive requests
+switch SD 1.5 and SDXL base on sd-cli (the engine's own log names the file it loaded, and the first checkpoint comes back
+bit for bit) and SD 1.5 and Z-Image-Turbo on ComfyUI; the LCM LoRA at 4 steps, CFG 1, seed 7 turns a soft smear into a
+recognisable picture on all three (mean neighbouring-pixel difference 3.3 → 9.7 on the engines, 2.0 → 3.9 on ComfyUI, the same
+seed, steps and sampler with and without) and costs about 2 to 3 s a request on a warm server, to apply its weights (sd-server
+2.5 s → 4.8 s, ComfyUI 4.2 s → 10.8 s; an sd-cli call is a fresh process, so its timings are dominated by the model load and
+are not comparable). Measured with the LCM LoRA of SD 1.5 under its own licence; a host reads that licence for the LoRAs it
+runs. The local backends apply no content filter, and this adds none.
 
 ## 6. Delivery modes
 

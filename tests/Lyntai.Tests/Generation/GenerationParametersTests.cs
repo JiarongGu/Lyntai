@@ -248,6 +248,7 @@ public class GenerationParametersTests : IDisposable
         var handler = new StubHttpHandler();
         var options = new Automatic1111Options { BaseUrl = "http://127.0.0.1:7860" };
         configure?.Invoke(options);
+        if (options.LoraRequestField is not null) handler.Enqueue(HttpStatusCode.OK, "[]");   // the LoRA listing
         handler.Enqueue(HttpStatusCode.OK, """{"images":["iVBORw=="]}""");
         return (new Automatic1111Provider(options, () => new HttpClient(handler, disposeHandler: false)), handler);
     }
@@ -290,13 +291,17 @@ public class GenerationParametersTests : IDisposable
             o.LoraRequestField = "lora";
         });
 
-        await provider.GenerateAsync(Ask("a teapot") with { Loras = [new MediaLora("lcm-lora.safetensors", 0.5)] });
+        // the server indexes its LoRA folder only when asked, and refuses a payload path it has not listed: the
+        // list is read first, then the render posted
+        var result = await provider.GenerateAsync(Ask("a teapot") with { Loras = [new MediaLora("lcm-lora.safetensors", 0.5)] });
 
-        var body = JsonNode.Parse(http.Requests[0].Body)!;
+        Assert.True(result.IsOk, result.Detail);
+        Assert.Equal(["http://127.0.0.1:7860/sdapi/v1/loras", "http://127.0.0.1:7860/sdapi/v1/txt2img"],
+            http.Requests.Select(r => r.Uri?.ToString()));
+        var body = JsonNode.Parse(http.Requests[1].Body)!;
         Assert.Equal("a teapot", (string?)body["prompt"]);
         var entry = Assert.Single(body["lora"]!.AsArray());
-        Assert.Equal(("lcm-lora.safetensors", 0.5, false),
-            ((string?)entry!["path"], (double?)entry["multiplier"], (bool?)entry["is_high_noise"]));
+        Assert.Equal(("lcm-lora.safetensors", 0.5), ((string?)entry!["path"], (double?)entry["multiplier"]));
     }
 
     [Fact]
