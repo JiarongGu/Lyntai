@@ -21,7 +21,7 @@ namespace Lyntai.Tests.Generation;
 /// <para>Skipped without <c>LYNTAI_COMFYUI_URL</c> (e.g. <c>http://127.0.0.1:8188</c>) and
 /// <c>LYNTAI_COMFYUI_CHECKPOINT</c> (a checkpoint filename the server's <c>models/checkpoints</c> holds,
 /// e.g. an SD 1.5) — except the mesh journey, which needs no model and only the URL, and the Wan journeys, which
-/// need <c>LYNTAI_COMFYUI_WAN_MODEL</c> instead. A CPU render is minutes, not seconds — this suite is a
+/// need <c>LYNTAI_COMFYUI_WAN_MODEL</c> instead, and the Z-Image journey, which needs <c>LYNTAI_COMFYUI_ZIMAGE_MODEL</c>. A CPU render is minutes, not seconds — this suite is a
 /// measurement, not a regression gate.</para></summary>
 public class ComfyUiLiveTests(ITestOutputHelper output)
 {
@@ -256,6 +256,83 @@ public class ComfyUiLiveTests(ITestOutputHelper output)
         Assert.Equal("ftyp"u8.ToArray(), mp4[4..8]);
         // 25 frames at 24 fps: a one-frame or a wrong-rate fallback would still be a valid MP4
         Assert.InRange(Mp4Seconds(mp4), 25 / 24.0 - 0.2, 25 / 24.0 + 0.2);
+    }
+
+    private static string? ZImageModel => Environment.GetEnvironmentVariable("LYNTAI_COMFYUI_ZIMAGE_MODEL");
+
+    /// <summary>Z-Image-Turbo in API format, from ComfyUI's own <c>image_z_image_turbo</c> template: the Qwen3-4B
+    /// text encoder as a <c>lumina2</c> CLIP, the flow-shift 3 sampling patch, an EMPTY negative (the turbo model
+    /// is distilled for CFG 1, so the negative is zeroed rather than written) and 8 <c>res_multistep</c> steps. The
+    /// encoder and VAE are Comfy-Org's repackaged names; the seed is the one thing a caller varies.</summary>
+    private static string ZImageWorkflow(string model, int seed) => """
+        {
+          "37": {"class_type": "UNETLoader", "inputs": {"unet_name": "UNET_NAME", "weight_dtype": "default"}},
+          "38": {"class_type": "CLIPLoader", "inputs": {"clip_name": "qwen_3_4b_fp8_mixed.safetensors",
+                 "type": "lumina2", "device": "default"}},
+          "39": {"class_type": "VAELoader", "inputs": {"vae_name": "z_image_ae.safetensors"}},
+          "48": {"class_type": "ModelSamplingAuraFlow", "inputs": {"model": ["37", 0], "shift": 3}},
+          "6": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["38", 0], "text": "PLACEHOLDER"}},
+          "7": {"class_type": "ConditioningZeroOut", "inputs": {"conditioning": ["6", 0]}},
+          "55": {"class_type": "EmptySD3LatentImage", "inputs": {"width": 512, "height": 512, "batch_size": 1}},
+          "3": {"class_type": "KSampler", "inputs": {"model": ["48", 0], "positive": ["6", 0], "negative": ["7", 0],
+                "latent_image": ["55", 0], "seed": SEED, "steps": 8, "cfg": 1, "sampler_name": "res_multistep",
+                "scheduler": "simple", "denoise": 1}},
+          "8": {"class_type": "VAEDecode", "inputs": {"samples": ["3", 0], "vae": ["39", 0]}},
+          "9": {"class_type": "SaveImage", "inputs": {"images": ["8", 0], "filename_prefix": "lyntai-live-zimage"}}
+        }
+        """
+        .Replace("UNET_NAME", model)
+        .Replace("SEED", seed.ToString(System.Globalization.CultureInfo.InvariantCulture));
+
+    /// <summary>A real current image model through the backend, where the SD 1.5 journey above is the cheap smoke:
+    /// the SAME provider surface, with the graph (UNET + CLIP + VAE as three files) the only thing that changes —
+    /// ComfyUI needs no provider option for a split model because the workflow already names every file. Renders
+    /// twice, the first against a server that has not loaded the model yet (COLD, the weights load) and the second
+    /// with another seed (WARM — the same seed would be answered from ComfyUI's cache). Skipped without
+    /// <c>LYNTAI_COMFYUI_ZIMAGE_MODEL</c>, the server's <c>z_image_turbo_bf16.safetensors</c> file name.</summary>
+    [SkippableFact]
+    public async Task A_real_current_image_model_renders_through_the_provider_cold_then_warm()
+    {
+        Skip.If(string.IsNullOrWhiteSpace(BaseUrl) || string.IsNullOrWhiteSpace(ZImageModel),
+            "set LYNTAI_COMFYUI_URL to a running ComfyUI and LYNTAI_COMFYUI_ZIMAGE_MODEL to its Z-Image-Turbo diffusion file");
+
+        var provider = new ComfyUiProvider(new ComfyUiOptions { BaseUrl = BaseUrl! }, () => new HttpClient());
+        using var http = new HttpClient();
+
+        foreach (var (label, seed) in new[] { ("cold", 7), ("warm", 8) })
+        {
+            var clock = Stopwatch.StartNew();
+            var submitted = await provider.SubmitAsync(new MediaRequest
+            {
+                Kind = ProviderKinds.Image,
+                Prompt = "a ceramic teapot on a wooden table by a window, soft morning light, photograph",
+                Options = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["workflow"] = ZImageWorkflow(ZImageModel!, seed),
+                    ["prompt-path"] = "6.inputs.text",
+                },
+            });
+            Assert.True(submitted.Status == QueuedOperationStatus.Queued, submitted.Detail);
+
+            var deadline = DateTime.UtcNow + TimeSpan.FromMinutes(15);   // a cold run loads ~18 GB of weights
+            QueuedOperation polled;
+            do
+            {
+                await Task.Delay(TimeSpan.FromSeconds(1));
+                polled = await provider.PollAsync(submitted.Id);
+                Assert.True(polled.Status != QueuedOperationStatus.Failed, polled.Detail);
+            }
+            while (polled.Status != QueuedOperationStatus.Succeeded && DateTime.UtcNow < deadline);
+            Assert.True(polled.Status == QueuedOperationStatus.Succeeded,
+                $"the render did not finish inside the budget — last: {polled.Status} {polled.Detail}");
+            output.WriteLine($"{label}: 512x512, 8 steps, seed {seed} in {clock.Elapsed.TotalSeconds:F1} s");
+
+            var fetched = await provider.FetchAsync(submitted.Id);
+            Assert.True(fetched.IsOk, fetched.Detail);
+            var png = await http.GetByteArrayAsync(Assert.Single(fetched.Artifacts).Uri);
+            Assert.True(png.Length > 24 && png[1] == 'P' && png[2] == 'N' && png[3] == 'G', "view did not serve a PNG");
+            Assert.Equal((512, 512), (ReadBigEndian(png, 16), ReadBigEndian(png, 20)));
+        }
     }
 
     /// <summary>The movie header's duration over its timescale — <c>mvhd</c> version 0 or 1.</summary>
