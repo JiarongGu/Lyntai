@@ -69,6 +69,31 @@ public interface IProcessRunner
             + "served through the string-typed RunAsync, so a runner serving a byte-streaming backend "
             + "overrides it (the shipped ProcessRunner does)");
 
+    /// <summary>Streamed run with a LIVE stdin, for a child that answers as it is spoken to — a line-framed
+    /// protocol over stdio, where the next line to send depends on a line just read. Each line
+    /// <paramref name="stdinLines"/> yields is written to the child's stdin (with its line break) as it is
+    /// yielded, and stdin is closed when that sequence ends; stdout is yielded line by line, as
+    /// <see cref="StreamLinesAsync"/> yields it. The clocks, the kill on abandonment, and the terminal
+    /// exceptions are <see cref="StreamLinesAsync"/>'s, and the inactivity window counts a written line as
+    /// activity only after stdout has ended. <c>stdinLines</c> is produced while the child runs (a channel's
+    /// reader, usually) and must END for stdin to close, which a child reading to EOF waits on.</summary>
+    /// <remarks><b>The default body REFUSES rather than degrading</b>: a fixed stdin string cannot carry a
+    /// conversation, so a BYO runner serving a protocol agent overrides this; every other implementer keeps
+    /// compiling. The shipped <see cref="ProcessRunner"/> does.</remarks>
+    IAsyncEnumerable<string> ExchangeLinesAsync(
+        string command,
+        IReadOnlyList<string> args,
+        IAsyncEnumerable<string> stdinLines,
+        TimeSpan? inactivityTimeout = null,
+        TimeSpan? maxDuration = null,
+        string? workingDirectory = null,
+        IReadOnlyDictionary<string, string?>? environment = null,
+        CancellationToken ct = default) =>
+        throw new NotSupportedException(
+            $"this IProcessRunner does not implement {nameof(ExchangeLinesAsync)} — a protocol agent needs a live "
+            + "stdin that a fixed string cannot carry, so a runner serving one overrides it (the shipped "
+            + "ProcessRunner does)");
+
     /// <summary>Whether <paramref name="command"/> looks spawnable by THIS runner right now — the presence check
     /// behind a CLI provider's <c>IsAvailable</c>, which lets the router skip a candidate whose binary is missing
     /// instead of failing a turn on it. Presence only: it never runs the command.</summary>

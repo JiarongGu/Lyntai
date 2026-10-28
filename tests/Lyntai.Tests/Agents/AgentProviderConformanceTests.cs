@@ -64,6 +64,7 @@ public class AgentProviderConformanceTests
         services.AddLyntai(b => b
             .AddClaudeCliAgentSession(command: "claude")
             .AddCodexCliAgentSession(command: "codex")
+            .AddAcpAgentSession("acp-agent", "acp-agent-cmd", accountHomeVariable: "ACP_AGENT_HOME")
             .AddAgentProvider(_ => StandInProvider(runner)));
         return services.BuildServiceProvider();
     }
@@ -229,14 +230,15 @@ public class AgentProviderConformanceTests
     // ── the registry, the doors and the descriptor ───────────────────────────
 
     [Fact]
-    public void Both_cli_doors_and_a_hosts_own_are_registered_by_id()
+    public void Both_cli_doors_the_acp_door_and_a_hosts_own_are_registered_by_id()
     {
         using var sp = Compose(new FakeProcessRunner());
         var registry = sp.GetRequiredService<AgentProviderRegistry>();
 
-        Assert.Equal(["claude-cli", "codex-cli", StandIn], registry.Ids);
+        Assert.Equal(["acp-agent", "claude-cli", "codex-cli", StandIn], registry.Ids);
         Assert.Equal(registry.Ids, registry.All.Select(p => p.Describe().Id));
         Assert.Equal(AgentDoorKinds.Cli, Assert.Single(registry.Get("claude-cli").Describe().Doors).Kind);
+        Assert.Equal(AgentDoorKinds.Acp, Assert.Single(registry.Get("acp-agent").Describe().Doors).Kind);
     }
 
     [Fact]
@@ -248,7 +250,7 @@ public class AgentProviderConformanceTests
         var ex = Assert.Throws<KeyNotFoundException>(() => registry.Get("gemini-cli"));
 
         Assert.Contains("gemini-cli", ex.Message);
-        Assert.Contains("claude-cli, codex-cli, stand-in", ex.Message);
+        Assert.Contains("acp-agent, claude-cli, codex-cli, stand-in", ex.Message);
         Assert.False(registry.TryGet("gemini-cli", out _));
         Assert.True(registry.TryGet("codex-cli", out var found));
         Assert.Equal("codex-cli", found.Describe().Id);

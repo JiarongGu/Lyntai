@@ -2,11 +2,11 @@
 
 **Status: a proposal; built so far are the failure of §5.3 on the two CLI doors (AG1), the event additions of
 §5.2 (AG2), the provider description and registry of §5.1 (AG3), the bounded retry of §5.3 (AG4), the account's
-reach into a door (AG5, §5.4's first bullet), the pool and its restriction reducer of §5.4 (AG6) and the transcript, brief and hand-over of
-§5.5 (AG7), all in `docs/guide.md` §CLI-agent session, whose names stand as built; the ACP door (AG8) and the usage
-reading (AG9) are not.** The decision is **D219** (`docs/DECISIONS.md`); the open build rows are `TASKS.md` Part 376
-and the closed ones `docs/task-archive.md` Parts 381, 382, 384 and 385. This is a study (`docs/documents.md`): it is
-read for its reasoning, and what it settles
+reach into a door (AG5, §5.4's first bullet), the pool and its restriction reducer of §5.4 (AG6), the transcript,
+brief and hand-over of §5.5 (AG7) and the ACP door with its stand-in (AG8, §5.1 and §6), all in `docs/guide.md`
+§CLI-agent session, whose names stand as built; the usage reading (AG9) is not.** The decision is **D219**
+(`docs/DECISIONS.md`); the open build rows are `TASKS.md` Part 376 and the closed ones `docs/task-archive.md` Parts
+381, 382, 384 and 385. This is a study (`docs/documents.md`): it is read for its reasoning, and what it settles
 moves into the contract documents as each row lands. Every type named below is a PROPOSED name, to be
 confirmed by the row that builds it against the `ApiSurface` baselines. The sketches are plain text because
 none of them compiles yet.
@@ -109,6 +109,17 @@ IAgentUsageSource         OPTIONAL, discovered with `is`, as D203 does for a sto
   the doors state the `accounts` ability `Supported`: `CLAUDE_CONFIG_DIR` on claude, `CODEX_HOME` on codex. It is
   on the descriptor, as §5.1's sketch has it, and not on each door: both CLI doors of a provider are one agent
   reading one variable.
+- **As built (AG8):** the ACP door is `AddAcpAgentSession(id, command, …, accountHomeVariable)`, one provider with
+  one door (`"acp"`, kind `Acp`), registered keyed and as a provider and adding no unkeyed session. An agent
+  reachable by both a CLI and ACP is therefore TWO providers with two ids, not one provider with two doors:
+  the registry keys on the id, and an `AgentAccount` names its provider. Its claims are `Declared` for what the
+  door does; `resume` is `Unknown` with the source `Negotiated`, since only the agent's `initialize` answer states
+  it, and a turn that needs it is refused before the prompt when the agent states neither `session/resume` nor
+  `loadSession`. The door adds one member to `IProcessRunner`, `ExchangeLinesAsync` (a live stdin, default body
+  refusing), because a conversation cannot ride a fixed stdin string. What it reads and maps is in `docs/guide.md`
+  §CLI-agent session; the captures behind it are labelled REAL or SOURCE-DERIVED in
+  `tests/Lyntai.Tests/Providers/AcpAgentSessionTests.cs`, and only `codex-acp`'s `initialize` and its logged-out
+  `session/new` are REAL. Every other shape, `claude-agent-acp`'s included, is read from the agents' shipped code.
 - **Registration is a DI collection** of `IAgentProvider`, resolved by id; an unknown id throws and names what
   exists. The existing `Add*CliAgentSession` extensions register the provider beside the keyed session they
   register now, so no consumer changes. Adding an agent is a new class and one registration, never an edit to
@@ -254,6 +265,9 @@ host-enabled, validated per door and version, side effects declared, unknown on 
 2. **A generic ACP door** on JSON-RPC 2.0 over stdio, then the two agents Daoris measured through it
    (`claude-agent-acp`, `codex-acp`), each with its own reading of its `_meta`, error `data` and typed failures.
    Last in the order because it is the largest new surface and the one most dependent on installed adapters.
+   **Built (AG8) as one generic door**: the two agents are two registrations of it, each with its own `errorKind` or
+   `codexErrorInfo` read from the error's `data`, and neither agent's own `_meta` beyond the typed failure and the
+   forwarded rate-limit frame is read.
 3. **Any other agent** by a host registering its own `IAgentProvider`. **Hosted or HTTP agents are not in
    scope**: they need an executor, a workspace and a cancellation story nobody has measured.
 
@@ -267,7 +281,8 @@ Zero tokens, as the rest of the suite is (`repo-mechanics.md` §Dev loop).
 - **Recorded captures per door**, each marked source-derived or captured on a real door, and neither standing
   for the other.
 - **Stand-ins**: the existing deterministic provider and Codex stubs, and one new ACP stand-in under
-  `devtools/scripts` that speaks the protocol, including an error with `data`, a usage update, and a limit.
+  `devtools/scripts` that speaks the protocol, including an error with `data`, a usage update, and a limit
+  (`acp-stub.mjs`, built with AG8, where a header comment lists its markers and the two captures that are REAL).
 - **A conformance theory** over every registered provider, from one source (D211's shape): each states every
   ability, an unknown one is `unknown`, and an option it cannot honour is refused before a spawn.
 - **Fault injection** for delivery: a process dying before any event (never sent), mid-stream (taken), after

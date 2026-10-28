@@ -96,6 +96,50 @@ public sealed class FakeProcessRunner : IProcessRunner
         }
     }
 
+    /// <summary>Answers <see cref="ExchangeLinesAsync"/>: for each line the client writes, the lines the agent
+    /// replies with, or null to end the stream as an agent that exited would. Null (the default) makes the
+    /// exchange behave as <see cref="StreamLinesAsync"/> does, scripted lines and then
+    /// <see cref="ThrowsAfterLines"/>, without reading the client's side.</summary>
+    public Func<string, IEnumerable<string>?>? ExchangeHandler { get; set; }
+
+    /// <summary>Every line the client wrote to <see cref="ExchangeLinesAsync"/>'s stdin, in order.</summary>
+    public List<string> Exchanged { get; } = [];
+
+    public async IAsyncEnumerable<string> ExchangeLinesAsync(string command, IReadOnlyList<string> args,
+        IAsyncEnumerable<string> stdinLines, TimeSpan? inactivityTimeout = null, TimeSpan? maxDuration = null,
+        string? workingDirectory = null, IReadOnlyDictionary<string, string?>? environment = null,
+        [EnumeratorCancellation] CancellationToken ct = default)
+    {
+        Record(new Call(command, args, null, workingDirectory, inactivityTimeout, maxDuration, environment));
+
+        if (ExchangeHandler is null)
+        {
+            foreach (var line in StreamLines)
+            {
+                ct.ThrowIfCancellationRequested();
+                yield return line;
+                await Task.Yield();
+            }
+            if (ThrowsAfterLines is not null)
+            {
+                await Task.Yield();
+                throw ThrowsAfterLines;
+            }
+            yield break;
+        }
+
+        await foreach (var sent in stdinLines.WithCancellation(ct))
+        {
+            Exchanged.Add(sent);
+            if (ExchangeHandler(sent) is not { } replies) yield break;
+            foreach (var reply in replies)
+            {
+                yield return reply;
+                await Task.Yield();
+            }
+        }
+    }
+
     public async IAsyncEnumerable<byte[]> StreamBytesAsync(string command, IReadOnlyList<string> args,
         string? stdin = null, TimeSpan? inactivityTimeout = null, TimeSpan? maxDuration = null, string? workingDirectory = null,
         IReadOnlyDictionary<string, string?>? environment = null,
