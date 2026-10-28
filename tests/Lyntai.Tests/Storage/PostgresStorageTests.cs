@@ -96,6 +96,55 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
                                      // MemorySignals.Difficulty
     }
 
+    // A kind holding U+0000 is the failure these two inject: the server refuses a NUL in text, so the edge
+    // statement throws AFTER the earlier statements of the same batch have run.
+    private const string RefusedKind = "refused\0kind";
+
+    /// <summary>A batch of edges is one unit: a statement failing partway leaves none of the batch — the
+    /// edges before it as well as the one that failed. Each edge was its own autocommit statement, so the
+    /// first one survived.</summary>
+    [SkippableFact]
+    public async Task A_batch_of_edges_that_fails_partway_commits_none_of_them()
+    {
+        Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
+        var store = new PostgresMemoryGraphStore(pg.Factory);
+        var (engine, key) = (Uid(), Uid());
+        var a = await store.UpsertAsync(new GraphNodeWrite(engine, key, "s", "a", "alpha", MemoryGrade.Associative, 7, 1, null));
+        var b = await store.UpsertAsync(new GraphNodeWrite(engine, key, "s", "b", "beta", MemoryGrade.Associative, 7, 1, null));
+
+        await Assert.ThrowsAnyAsync<Exception>(() => store.LinkManyAsync(engine,
+        [
+            new GraphEdgeWrite(a, b, "kept", 1, Symmetric: true),
+            new GraphEdgeWrite(a, b, RefusedKind, 1),
+        ]));
+
+        Assert.Empty(await store.NeighboursAsync(engine, key, [a], 10));
+        Assert.Empty(await store.NeighboursAsync(engine, key, [b], 10));
+    }
+
+    /// <summary>A recall's touches and edges commit together: the edge failing leaves the touch unapplied.
+    /// The reviews stay outside the transaction, which the shared contract's write-back facts hold.</summary>
+    [SkippableFact]
+    public async Task A_write_back_whose_edge_fails_leaves_its_touches_unapplied()
+    {
+        Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
+        var store = new PostgresMemoryGraphStore(pg.Factory);
+        var (engine, key) = (Uid(), Uid());
+        var a = await store.UpsertAsync(new GraphNodeWrite(engine, key, "s", "a", "alpha", MemoryGrade.Associative, 7, 1, null));
+        var b = await store.UpsertAsync(new GraphNodeWrite(engine, key, "s", "b", "beta", MemoryGrade.Associative, 7, 1, null));
+
+        await Assert.ThrowsAnyAsync<Exception>(() => store.WriteBackAsync(engine, new GraphWriteBack(
+            [new GraphTouch(a, 10.5)],
+            [new GraphEdgeWrite(a, b, "kept", 1), new GraphEdgeWrite(a, b, RefusedKind, 1)],
+            [], 0)));
+
+        var node = await store.GetAsync(engine, a);
+        Assert.NotNull(node);
+        Assert.Equal(0, node!.RecallCount);
+        Assert.Equal(7, node.Stability, precision: 6);
+        Assert.Empty(await store.NeighboursAsync(engine, key, [a], 10));
+    }
+
     [SkippableFact]
     public async Task Every_object_carries_the_lyntai_prefix()
     {
