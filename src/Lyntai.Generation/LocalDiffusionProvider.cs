@@ -12,8 +12,20 @@ public sealed class LocalDiffusionOptions
     /// <see cref="ProviderVerdict.NotConfigured"/>.</summary>
     public string? BinaryPath { get; set; }
 
-    /// <summary>Path to the model weights (a GGUF/safetensors file the engine accepts).</summary>
+    /// <summary>Path to the model weights (a GGUF/safetensors file the engine accepts) — the checkpoint a request
+    /// that names none renders with.</summary>
     public string? ModelPath { get; set; }
+
+    /// <summary>The folder a request's <see cref="MediaRequest.Checkpoint"/> is looked up in, by file name (the name
+    /// as given, else with <c>.safetensors</c>, <c>.gguf</c> or <c>.ckpt</c> added). Null — the default — means this
+    /// backend does not switch checkpoints and says so in its capabilities. A name carrying a folder is refused, so a
+    /// request cannot reach outside it.</summary>
+    public string? CheckpointDirectory { get; set; }
+
+    /// <summary>The folder a request's <see cref="MediaRequest.Loras"/> are looked up in, passed to the engine as its
+    /// LoRA directory with each LoRA written into the prompt as <c>&lt;lora:name:weight&gt;</c>. Null — the default —
+    /// means this backend takes no LoRAs and says so in its capabilities.</summary>
+    public string? LoraDirectory { get; set; }
 
     /// <summary>Where per-call scratch (the output PNG, a staged init image) is written. Each call gets its own
     /// subdirectory, deleted afterwards. Defaults to the OS temp directory.</summary>
@@ -69,7 +81,7 @@ public sealed class LocalDiffusionOptions
     /// change here and remains a configuration edit for any host whose engine drifts next — never a wait for
     /// a Lyntai release. Recognised keys: <c>model</c>, <c>prompt</c>, <c>output</c>,
     /// <c>width</c>, <c>height</c>, <c>steps</c>, <c>cfg-scale</c>, <c>mode</c>, <c>init</c>,
-    /// <c>strength</c>.</remarks>
+    /// <c>strength</c>, <c>negative-prompt</c>, <c>seed</c>, <c>sampler</c>, <c>scheduler</c>, <c>lora-dir</c>.</remarks>
     public IDictionary<string, string> ArgvFlags { get; set; } =
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
@@ -88,6 +100,11 @@ public sealed class LocalDiffusionOptions
             ["mode"] = "-M",
             ["init"] = "-i",
             ["strength"] = "--strength",
+            ["negative-prompt"] = "-n",
+            ["seed"] = "-s",
+            ["sampler"] = "--sampling-method",
+            ["scheduler"] = "--scheduler",
+            ["lora-dir"] = "--lora-model-dir",
         };
 
     /// <summary>The value passed after the <c>mode</c> flag for an image-to-image run — or <c>null</c>, the
@@ -96,8 +113,9 @@ public sealed class LocalDiffusionOptions
     /// error; an older build that required the explicit pair gets it back by setting <c>"img2img"</c> here.</summary>
     public string? Img2ImgMode { get; set; }
 
-    /// <summary>Extra arguments appended verbatim to every render — a sampler, a seed, a VAE path, whatever
-    /// this build accepts that the platform has no opinion about. Empty by default.</summary>
+    /// <summary>Extra arguments appended verbatim to every render — a VAE path, whatever this build accepts that the
+    /// platform has no opinion about (a sampler and a seed are the request's: <see cref="MediaRequest.Sampler"/>,
+    /// <see cref="MediaRequest.Seed"/>). Empty by default.</summary>
     /// <remarks>The platform deliberately models NONE of these as first-class options: each is specific to
     /// one engine build, and promoting them would put a third-party binary's flag set into a frozen public
     /// surface. This is the escape hatch that keeps that from being necessary.</remarks>
@@ -170,8 +188,21 @@ public sealed class LocalDiffusionProvider(LocalDiffusionOptions options, IProce
         Produces = [ProviderKinds.Image],
         Operations = [ProviderOperation.Complete],
         SupportsInputs = true,   // img2img
+        Parameters = Honoured(),
         Limits = SizeLimits(options.EffectiveMaxDimension),
     };
+
+    /// <summary>What the engine's argv carries for a request — and, for the two that need a folder, only when the
+    /// host named one: a checkpoint or a LoRA this backend has no folder to resolve is refused, not guessed.</summary>
+    private List<string> Honoured()
+    {
+        List<string> honoured =
+            [MediaParameters.NegativePrompt, MediaParameters.Seed, MediaParameters.Steps, MediaParameters.CfgScale,
+             MediaParameters.Sampler, MediaParameters.Scheduler];
+        if (!string.IsNullOrWhiteSpace(options.CheckpointDirectory)) honoured.Add(MediaParameters.Checkpoint);
+        if (!string.IsNullOrWhiteSpace(options.LoraDirectory)) honoured.Add(MediaParameters.Loras);
+        return honoured;
+    }
 
     /// <summary>The size limits to advertise. With no ceiling the dimension keys are OMITTED rather than set
     /// to some large number: <see cref="ProviderCapabilities"/> reads an absent key as "not enumerated",
@@ -203,8 +234,16 @@ public sealed class LocalDiffusionProvider(LocalDiffusionOptions options, IProce
     /// <inheritdoc/>
     public async Task<MediaResponse> GenerateAsync(MediaRequest request, CancellationToken ct = default)
     {
-        if (Missing() is { } missing) return MediaResponse.Failure(ProviderVerdict.NotConfigured, missing);
-        var (binary, model) = (options.BinaryPath!, options.ModelPath!);
+        // a refusal of the request as posed costs nothing: no spawn, and only the folder reads it needs
+        if (ParameterRefusal.For(Capabilities, request, loraTags: true, checkpointFile: true) is { } unhonoured)
+            return MediaResponse.Failure(ProviderVerdict.Unsupported, unhonoured);
+        var (checkpoint, loras, notFound) = ResolveModels(request);
+        if (notFound is not null) return MediaResponse.Failure(ProviderVerdict.Unsupported, notFound);
+
+        var model = checkpoint ?? options.ModelPath;
+        if (LocalEngine.Missing(options.BinaryPath, model, "sd-cli", "model file") is { } missing)
+            return MediaResponse.Failure(ProviderVerdict.NotConfigured, missing);
+        var binary = options.BinaryPath!;
 
         var source = SingleInitInput.Read(request, "the engine", out var refusal);
         if (refusal is not null) return MediaResponse.Failure(ProviderVerdict.Unsupported, refusal);
@@ -226,7 +265,8 @@ public sealed class LocalDiffusionProvider(LocalDiffusionOptions options, IProce
             }
 
             var (width, height) = ClampSize(request.Option("size"), options.EffectiveMaxDimension);
-            var argv = BuildArgs(model, request.Prompt ?? "", output, width, height, initPath);
+            var argv = BuildArgs(model!, WithLoraTags(request.Prompt ?? "", loras), output, width, height, initPath,
+                request, loras.Count > 0 ? options.LoraDirectory : null);
 
             var maxDuration = options.Timeout;
             var inactivity = LocalEngine.Inactivity(maxDuration, options.InactivityTimeout);
@@ -284,7 +324,9 @@ public sealed class LocalDiffusionProvider(LocalDiffusionOptions options, IProce
     /// a Lyntai release. The ORDER and the pairing stay this backend's — only the
     /// tokens are the host's — because which flags may legally sit where is the engine's grammar
     /// (`docs/DECISIONS.md` D65 records what happens when a caller places argv it does not own).</remarks>
-    internal List<string> BuildArgs(string model, string prompt, string output, int width, int height, string? initPath)
+    internal List<string> BuildArgs(
+        string model, string prompt, string output, int width, int height, string? initPath,
+        MediaRequest? request = null, string? loraDirectory = null)
     {
         var flag = (string name) => LocalEngine.Flag(options.ArgvFlags, LocalDiffusionOptions.DefaultArgvFlags, name);
 
@@ -295,9 +337,14 @@ public sealed class LocalDiffusionProvider(LocalDiffusionOptions options, IProce
             flag("output"), output,
             flag("width"), width.ToString(),
             flag("height"), height.ToString(),
-            flag("steps"), options.Steps.ToString(),
-            flag("cfg-scale"), options.CfgScale.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            flag("steps"), (request?.Steps ?? options.Steps).ToString(Invariant),
+            flag("cfg-scale"), (request?.CfgScale ?? options.CfgScale).ToString(Invariant),
         ];
+        if (request?.NegativePrompt is { Length: > 0 } negative) { args.Add(flag("negative-prompt")); args.Add(negative); }
+        if (request?.Seed is { } seed) { args.Add(flag("seed")); args.Add(seed.ToString(Invariant)); }
+        if (request?.Sampler is { Length: > 0 } sampler) { args.Add(flag("sampler")); args.Add(sampler); }
+        if (request?.Scheduler is { Length: > 0 } scheduler) { args.Add(flag("scheduler")); args.Add(scheduler); }
+        if (loraDirectory is { Length: > 0 }) { args.Add(flag("lora-dir")); args.Add(loraDirectory); }
         if (initPath is not null)
         {
             // MEASURED: the engine reads the init flag's PRESENCE as the img2img switch. The mode pair is
@@ -320,6 +367,54 @@ public sealed class LocalDiffusionProvider(LocalDiffusionOptions options, IProce
         args.AddRange(options.ExtraArgs);
         return args;
     }
+
+    private static readonly System.Globalization.CultureInfo Invariant = System.Globalization.CultureInfo.InvariantCulture;
+
+    private static readonly string[] ModelExtensions = [".safetensors", ".gguf", ".ckpt"];
+
+    /// <summary>The checkpoint file and the LoRAs a request names, each looked up under the host's folder — or the
+    /// sentence saying which is not there. A LoRA comes back as the name its tag is written with: the file's name
+    /// without its model extension, which is how the engine looks it up in its LoRA directory.</summary>
+    private (string? Checkpoint, IReadOnlyList<(string Tag, double Weight)> Loras, string? NotFound) ResolveModels(
+        MediaRequest request)
+    {
+        string? checkpoint = null;
+        if (request.Checkpoint is { Length: > 0 } name)
+        {
+            checkpoint = Find(options.CheckpointDirectory, name);
+            if (checkpoint is null)
+                return (null, [], $"the checkpoint '{name}' is not in CheckpointDirectory, so nothing was spawned");
+        }
+
+        var loras = new List<(string Tag, double Weight)>();
+        foreach (var lora in request.Loras)
+        {
+            var file = Find(options.LoraDirectory, lora.Name);
+            if (file is null)
+                return (null, [], $"the LoRA '{lora.Name}' is not in LoraDirectory, so nothing was spawned");
+            var stem = ModelExtensions.Contains(Path.GetExtension(file), StringComparer.OrdinalIgnoreCase)
+                ? Path.GetFileNameWithoutExtension(file) : Path.GetFileName(file);
+            loras.Add((stem, lora.Weight));
+        }
+        return (checkpoint, loras, null);
+    }
+
+    /// <summary>The file <paramref name="name"/> names directly under <paramref name="directory"/>, as given or with
+    /// a model extension added, or null. The name is already a plain file name here.</summary>
+    private static string? Find(string? directory, string name)
+    {
+        if (string.IsNullOrWhiteSpace(directory)) return null;
+        foreach (var candidate in new[] { name }.Concat(ModelExtensions.Select(e => name + e)))
+        {
+            var path = Path.Combine(directory, candidate);
+            if (File.Exists(path)) return path;
+        }
+        return null;
+    }
+
+    private static string WithLoraTags(string prompt, IReadOnlyList<(string Tag, double Weight)> loras) =>
+        loras.Count == 0 ? prompt
+            : prompt + string.Concat(loras.Select(l => $" <lora:{l.Tag}:{l.Weight.ToString("R", Invariant)}>"));
 
     /// <summary>Parse <c>"WxH"</c> and fit it to what the configured engine can actually do: keep the aspect
     /// ratio, bring the longer side down to <paramref name="maxDimension"/> when one applies, floor at 256,

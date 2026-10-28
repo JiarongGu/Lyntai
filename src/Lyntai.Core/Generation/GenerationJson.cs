@@ -41,6 +41,26 @@ internal static class GenerationJson
         if (request.Prompt is { } prompt) writer.WriteString("prompt", prompt);
         if (request.Model is { } model) writer.WriteString("model", model);
         if (request.TimeoutSeconds is { } timeout) writer.WriteNumber("timeoutSeconds", timeout);
+        // a durable job outlives the request that made it, so the parameters ride along with the rest
+        if (request.Checkpoint is { } checkpoint) writer.WriteString("checkpoint", checkpoint);
+        if (request.NegativePrompt is { } negative) writer.WriteString("negativePrompt", negative);
+        if (request.Seed is { } seed) writer.WriteNumber("seed", seed);
+        if (request.Steps is { } steps) writer.WriteNumber("steps", steps);
+        if (request.CfgScale is { } cfg) writer.WriteNumber("cfgScale", cfg);
+        if (request.Sampler is { } sampler) writer.WriteString("sampler", sampler);
+        if (request.Scheduler is { } scheduler) writer.WriteString("scheduler", scheduler);
+        if (request.Loras.Count > 0)
+        {
+            writer.WriteStartArray("loras");
+            foreach (var lora in request.Loras)
+            {
+                writer.WriteStartObject();
+                writer.WriteString("name", lora.Name);
+                writer.WriteNumber("weight", lora.Weight);
+                writer.WriteEndObject();
+            }
+            writer.WriteEndArray();
+        }
 
         if (request.Options.Count > 0)
         {
@@ -87,12 +107,30 @@ internal static class GenerationJson
                     JsonExtract.StringProperty(input, "uri"), JsonExtract.StringProperty(input, "role")));
             }
 
+        var loras = new List<MediaLora>();
+        if (element.TryGetProperty("loras", out var loraArray) && loraArray.ValueKind == JsonValueKind.Array)
+            foreach (var lora in loraArray.EnumerateArray())
+                if (JsonExtract.StringProperty(lora, "name") is { } loraName)
+                    loras.Add(new MediaLora(loraName,
+                        lora.TryGetProperty("weight", out var w) && w.ValueKind == JsonValueKind.Number ? w.GetDouble() : 1.0));
+
         return new MediaRequest
         {
             Kind = kind,
             Consumer = JsonExtract.StringProperty(element, "consumer") ?? ProviderConsumers.Default,
             Prompt = JsonExtract.StringProperty(element, "prompt"),
             Model = JsonExtract.StringProperty(element, "model"),
+            Checkpoint = JsonExtract.StringProperty(element, "checkpoint"),
+            Loras = loras,
+            NegativePrompt = JsonExtract.StringProperty(element, "negativePrompt"),
+            Seed = element.TryGetProperty("seed", out var seed) && seed.ValueKind == JsonValueKind.Number &&
+                seed.TryGetInt64(out var seedValue) ? seedValue : null,
+            Steps = element.TryGetProperty("steps", out var steps) && steps.ValueKind == JsonValueKind.Number &&
+                steps.TryGetInt32(out var stepCount) ? stepCount : null,
+            CfgScale = element.TryGetProperty("cfgScale", out var cfg) && cfg.ValueKind == JsonValueKind.Number
+                ? cfg.GetDouble() : null,
+            Sampler = JsonExtract.StringProperty(element, "sampler"),
+            Scheduler = JsonExtract.StringProperty(element, "scheduler"),
             Options = options,
             Inputs = inputs,
             TimeoutSeconds = element.TryGetProperty("timeoutSeconds", out var t) &&

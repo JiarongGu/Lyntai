@@ -30,6 +30,27 @@ public sealed class Automatic1111Options
     /// <summary>See <see cref="DefaultWidth"/>.</summary>
     public int DefaultHeight { get; set; } = 512;
 
+    /// <summary>The <see cref="MediaParameters"/> the server answering at <see cref="BaseUrl"/> honours — what this
+    /// backend declares, and so what a request may name before it is refused. The default is what was measured
+    /// to take effect on stable-diffusion.cpp's <c>sd-server</c>, which loads ONE checkpoint and so cannot switch it
+    /// per request; a Stable Diffusion WebUI also takes a checkpoint (<c>override_settings</c>) and LoRA tags, and a
+    /// host running one adds <see cref="MediaParameters.Checkpoint"/> and <see cref="MediaParameters.Loras"/>. Nothing
+    /// here is probed: only the host knows which server it runs.</summary>
+    public IList<string> HonouredParameters { get; set; } =
+    [
+        MediaParameters.NegativePrompt, MediaParameters.Seed, MediaParameters.Steps, MediaParameters.CfgScale,
+        MediaParameters.Sampler, MediaParameters.Scheduler,
+    ];
+
+    /// <summary>Where a request's LoRAs go. Null — the default — writes each into the prompt as the WebUI's
+    /// <c>&lt;lora:name:weight&gt;</c> tag, with the name's model extension dropped. A name here sends them instead as
+    /// that JSON array field of the payload, each entry <c>{"path": name, "multiplier": weight}</c> — what
+    /// stable-diffusion.cpp's <c>sd-server</c> reads (set it to <c>"lora"</c>), since it ignores tags. It refuses a path
+    /// its <c>/sdapi/v1/loras</c> has not LISTED, and lists a folder only when asked, so a render naming LoRAs is
+    /// preceded by that GET. The request's name is sent as given, so there it is the file name that endpoint reports
+    /// (<c>"lcm-lora-sdv1-5.safetensors"</c>).</summary>
+    public string? LoraRequestField { get; set; }
+
     /// <summary>Ceiling for ONE call to this backend — the render, and the probe. Generous because a render on
     /// the host's own GPU legitimately runs for minutes (which is why <c>AddAutomatic1111Provider</c> gives its
     /// client an infinite <see cref="HttpClient"/> timeout rather than the 100-second default), but bounded: a
@@ -50,12 +71,14 @@ public sealed class Automatic1111Options
 /// candidate a host puts AFTER a hosted backend when it wants a refusal to be picked up locally
 /// (<see cref="MediaRoutingPolicy"/>).
 ///
-/// <b>The loaded checkpoint decides the model, not the request.</b> The payload carries prompt, size, steps and
-/// CFG only, so <see cref="MediaRequest.Model"/> is NOT honoured — including a candidate's
-/// <c>"a1111:some-checkpoint"</c> pin, which the router applies to the request and this backend then ignores.
-/// The render uses whatever checkpoint the WebUI currently holds (<see cref="ProbeAsync"/> reports which), and a
-/// host that needs a specific one switches it in the WebUI. Every local backend answers "what decides the
-/// model?" differently: ComfyUI's is the workflow, the local engine's its model path, this one's the server.
+/// <b>The loaded checkpoint decides the model unless the request names one the host declared.</b>
+/// <see cref="MediaRequest.Model"/> is NOT honoured — including a candidate's <c>"a1111:some-checkpoint"</c> pin,
+/// which the router applies to the request and this backend then ignores. A <see cref="MediaRequest.Checkpoint"/>
+/// is sent as <c>override_settings</c> only when <see cref="Automatic1111Options.HonouredParameters"/> declares it
+/// (a server that loads one checkpoint ignores the override, so by default it is refused); otherwise the render uses
+/// whatever the WebUI currently holds (<see cref="ProbeAsync"/> reports which). Every local backend answers "what
+/// decides the model?" differently: ComfyUI's is the workflow, the local engine's its model path or folder, this
+/// one's the server.
 /// </summary>
 /// <remarks>Run against stable-diffusion.cpp's <c>sd-server</c>, which implements this API — not against the
 /// WebUI itself, whose behaviour beyond those shapes is unmeasured. A server that isn't running
@@ -76,12 +99,15 @@ public sealed class Automatic1111Provider(
     public string Id => options.Id;
 
     /// <inheritdoc/>
-    public ProviderCapabilities Capabilities { get; } = new()
+    /// <remarks>Derived per access, so a host that changes <see cref="Automatic1111Options.HonouredParameters"/>
+    /// after registration is routed by the new value.</remarks>
+    public ProviderCapabilities Capabilities => new()
     {
         Accepts = [ProviderKinds.Text],
         Produces = [ProviderKinds.Image],
         Operations = [ProviderOperation.Complete],
         SupportsInputs = true,          // img2img
+        Parameters = [.. options.HonouredParameters],
     };
 
     /// <summary>Asks which checkpoints are loaded (<c>GET /sdapi/v1/sd-models</c>). Free, and a better answer
@@ -134,6 +160,9 @@ public sealed class Automatic1111Provider(
         if (string.IsNullOrWhiteSpace(options.BaseUrl))
             return MediaResponse.Failure(ProviderVerdict.NotConfigured, "no BaseUrl configured");
 
+        if (ParameterRefusal.For(Capabilities, request, loraTags: true, checkpointFile: false) is { } unhonoured)
+            return MediaResponse.Failure(ProviderVerdict.Unsupported, unhonoured);
+
         var source = SingleInitInput.Read(request, "img2img", out var refusal);
         if (refusal is not null) return MediaResponse.Failure(ProviderVerdict.Unsupported, refusal);
         if (source is not null && source.Data is not { Length: > 0 })
@@ -145,12 +174,25 @@ public sealed class Automatic1111Provider(
         // trim/AOT claim (IL2026/IL3050) — same reason as Payloads/OpenAiPayload
         var payloadBody = new JsonObject
         {
-            ["prompt"] = request.Prompt ?? "",
-            ["steps"] = options.Steps,
+            ["prompt"] = WithLoraTags(request),
+            ["steps"] = request.Steps ?? options.Steps,
             ["width"] = width,
             ["height"] = height,
-            ["cfg_scale"] = options.CfgScale,
+            ["cfg_scale"] = request.CfgScale ?? options.CfgScale,
         };
+        // a field only when the request names it: the server's own default stands otherwise
+        if (request.NegativePrompt is { Length: > 0 } negative) payloadBody["negative_prompt"] = negative;
+        if (request.Seed is { } seed) payloadBody["seed"] = seed;
+        if (request.Sampler is { Length: > 0 } sampler) payloadBody["sampler_name"] = sampler;
+        if (request.Scheduler is { Length: > 0 } scheduler) payloadBody["scheduler"] = scheduler;
+        if (options.LoraRequestField is { Length: > 0 } loraField && request.Loras.Count > 0)
+            payloadBody[loraField] = new JsonArray([.. request.Loras.Select(l => (JsonNode)new JsonObject
+            {
+                ["path"] = l.Name,
+                ["multiplier"] = l.Weight,
+            })]);
+        if (request.Checkpoint is { Length: > 0 } checkpoint)
+            payloadBody["override_settings"] = new JsonObject { ["sd_model_checkpoint"] = checkpoint };
         if (source is not null)
         {
             payloadBody["init_images"] = new JsonArray(Convert.ToBase64String(source.Data!));
@@ -163,6 +205,12 @@ public sealed class Automatic1111Provider(
         var http = lease.Client;
         try
         {
+            // the server's own index of its LoRA folder, which a payload's LoRA is checked against: measured, a
+            // fresh server refuses every one until this has been read. Its answer is not used — a refusal is the
+            // render's to report
+            if (options.LoraRequestField is { Length: > 0 } && request.Loras.Count > 0)
+                using (await http.GetAsync($"{Root}/sdapi/v1/loras", ct).ConfigureAwait(false)) { }
+
             using var content = new StringContent(payload, Encoding.UTF8, "application/json");
             using var response = await http.PostAsync($"{Root}/sdapi/v1/{endpoint}", content, ct).ConfigureAwait(false);
             var body = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
@@ -195,6 +243,19 @@ public sealed class Automatic1111Provider(
     }
 
     private string Root => options.BaseUrl.TrimEnd('/');
+
+    /// <summary>The prompt with each LoRA written in as the WebUI's <c>&lt;lora:name:weight&gt;</c> tag, which the
+    /// server resolves against its own LoRA folder — the host's to configure there, not here. The tag names the LoRA
+    /// without its model extension, as the WebUI lists it.</summary>
+    private string WithLoraTags(MediaRequest request) =>
+        options.LoraRequestField is { Length: > 0 }
+            ? request.Prompt ?? ""
+            : (request.Prompt ?? "") + string.Concat(request.Loras.Select(l =>
+                $" <lora:{StripModelExtension(l.Name)}:{l.Weight.ToString("R", System.Globalization.CultureInfo.InvariantCulture)}>"));
+
+    private static string StripModelExtension(string name) =>
+        Path.GetExtension(name).ToLowerInvariant() is ".safetensors" or ".ckpt" or ".pt" or ".gguf"
+            ? Path.GetFileNameWithoutExtension(name) : name;
 
     /// <summary><c>"768x512"</c> → (768, 512); anything unparseable — or numeric but non-positive, such as
     /// <c>"0x0"</c> — falls back to the configured default rather than failing the call, because a bad size hint

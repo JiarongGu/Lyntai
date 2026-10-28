@@ -76,4 +76,101 @@ public class Automatic1111LiveTests(ITestOutputHelper output)
         Assert.Equal((256, 256), LivePng.Dimensions(artifact.Data!));
         output.WriteLine($"img2img 256x256 in {clock.Elapsed.TotalSeconds:F1} s");
     }
+
+    // ---- the request's checkpoint, LoRAs and sampling parameters ----------------------------------------
+
+    private static string? Lora => Environment.GetEnvironmentVariable("LYNTAI_A1111_LORA");
+
+    private static MediaRequest Sampled(string prompt = "a red apple on a wooden table") => Ask(prompt, "256x256") with
+    {
+        Steps = 4,
+        CfgScale = 1,
+        Seed = 7,
+    };
+
+    [SkippableFact]
+    public async Task A_seed_a_negative_prompt_a_sampler_and_a_scheduler_reach_the_server()
+    {
+        Skip.If(string.IsNullOrWhiteSpace(BaseUrl), NotRunning);
+        var provider = Provider();
+        var request = Sampled();
+
+        var first = (await provider.GenerateAsync(request)).Artifacts[0].Data!;
+        var again = (await provider.GenerateAsync(request)).Artifacts[0].Data!;
+        var otherSeed = await provider.GenerateAsync(request with { Seed = 8 });
+        var negated = await provider.GenerateAsync(request with { NegativePrompt = "red" });
+        var sampled = await provider.GenerateAsync(request with { Sampler = "euler_a" });
+        var scheduled = await provider.GenerateAsync(request with { Scheduler = "karras" });
+
+        Assert.All([otherSeed, negated, sampled, scheduled], r => Assert.True(r.IsOk, r.Detail));
+        Assert.Equal(first, again);                                    // one seed, one image
+        Assert.NotEqual(first, otherSeed.Artifacts[0].Data);
+        Assert.NotEqual(first, negated.Artifacts[0].Data);
+        Assert.NotEqual(first, sampled.Artifacts[0].Data);
+        Assert.NotEqual(first, scheduled.Artifacts[0].Data);
+    }
+
+    /// <summary>What the default declaration rests on: the server loads one checkpoint and answers a request's
+    /// <c>override_settings</c> with the render it would have made anyway, so a checkpoint is not something this
+    /// backend can honestly declare against it — the refusal is the proof that a caller is never handed the wrong model.</summary>
+    [SkippableFact]
+    public async Task A_server_with_one_loaded_checkpoint_ignores_override_settings_and_the_backend_refuses_it_instead()
+    {
+        Skip.If(string.IsNullOrWhiteSpace(BaseUrl), NotRunning);
+        var provider = Provider();
+        var plain = (await provider.GenerateAsync(Sampled())).Artifacts[0].Data!;
+
+        // the same payload the WebUI would switch models on, sent to the server directly
+        using var http = new HttpClient();
+        var body = """
+            {"prompt":"a red apple on a wooden table","steps":4,"width":256,"height":256,"cfg_scale":1,"seed":7,
+             "override_settings":{"sd_model_checkpoint":"sd_xl_base_1.0"}}
+            """;
+        using var reply = await http.PostAsync($"{BaseUrl!.TrimEnd('/')}/sdapi/v1/txt2img",
+            new StringContent(body, System.Text.Encoding.UTF8, "application/json"));
+        var image = System.Text.Json.JsonDocument.Parse(await reply.Content.ReadAsStringAsync())
+            .RootElement.GetProperty("images")[0].GetString()!;
+        Assert.Equal(plain, Convert.FromBase64String(image));         // the override changed nothing
+
+        var refused = await provider.GenerateAsync(Sampled() with { Checkpoint = "sd_xl_base_1.0.safetensors" });
+        Assert.Equal(ProviderVerdict.Unsupported, refused.Verdict);
+        Assert.DoesNotContain(MediaParameters.Checkpoint, provider.Capabilities.Parameters);
+    }
+
+    /// <summary>The LCM LoRA on SD 1.5: four steps at CFG 1 are a smear without it and a picture with it, same seed and
+    /// sampler. Skipped unless <c>LYNTAI_A1111_LORA</c> names the file the server's <c>/sdapi/v1/loras</c> lists
+    /// (<c>lcm-lora-sdv1-5.safetensors</c>), which needs the server started with its LoRA folder.</summary>
+    [SkippableFact]
+    public async Task The_LCM_LoRA_makes_a_four_step_render_at_CFG_one_a_recognisable_image()
+    {
+        Skip.If(string.IsNullOrWhiteSpace(BaseUrl) || string.IsNullOrWhiteSpace(Lora),
+            $"{NotRunning}, started with its LoRA folder, and LYNTAI_A1111_LORA to the file name /sdapi/v1/loras lists");
+        var provider = new Automatic1111Provider(
+            new Automatic1111Options
+            {
+                BaseUrl = BaseUrl!,
+                LoraRequestField = "lora",   // sd-server reads LoRAs from a payload field and ignores prompt tags
+                HonouredParameters = [.. new Automatic1111Options().HonouredParameters, MediaParameters.Loras],
+            }, () => new HttpClient());
+        var request = Sampled() with { Sampler = "lcm", Options = new Dictionary<string, string> { ["size"] = "512x512" } };
+
+        await provider.GenerateAsync(request);   // warms the server, so neither timing below carries it
+        var clock = Stopwatch.StartNew();
+        var without = await provider.GenerateAsync(request);
+        var withoutSeconds = clock.Elapsed.TotalSeconds;
+        clock.Restart();
+        var with = await provider.GenerateAsync(request with { Loras = [new MediaLora(Lora!, 1.0)] });
+        var withSeconds = clock.Elapsed.TotalSeconds;
+        Assert.True(without.IsOk && with.IsOk, $"{without.Detail} {with.Detail}");
+
+        var (plain, tuned) = (without.Artifacts[0].Data!, with.Artifacts[0].Data!);
+        var (detailWithout, detailWith) = (LivePng.Detail(plain), LivePng.Detail(tuned));
+        output.WriteLine($"512x512, 4 steps, CFG 1, seed 7, sampler lcm: without the LoRA {withoutSeconds:F1} s " +
+                         $"(detail {detailWithout:F2}); with {Lora} at 1.0 {withSeconds:F1} s (detail {detailWith:F2})");
+        LivePng.Keep("sd-server-4steps-without-lora.png", plain);
+        LivePng.Keep("sd-server-4steps-with-lora.png", tuned);
+
+        Assert.True(detailWith > 1.5 * detailWithout,
+            $"the LoRA should turn a four-step smear into a picture; detail {detailWithout:F2} -> {detailWith:F2}");
+    }
 }

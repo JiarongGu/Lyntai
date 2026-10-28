@@ -338,7 +338,9 @@ public sealed class MediaRouter(
         : benched > 0 ? (ProviderVerdict.RateLimited,
             $"every capable media backend for kind '{request.Kind}' is on dead-host cooldown ({benched} of [{Ids(candidates)}])")
         : (ProviderVerdict.Unsupported,
-            $"no capable media backend for kind '{request.Kind}' via {door} among [{Ids(candidates)}]");
+            $"no capable media backend for kind '{request.Kind}' via {door} among [{Ids(candidates)}]" +
+            (MediaParameters.Needed(request) is { Count: > 0 } named
+                ? $"; the request names {string.Join(", ", named)}, which a backend must declare" : ""));
 
     private static string Ids(IReadOnlyList<ProviderCandidate> candidates) =>
         string.Join(", ", candidates.Select(c => c.ProviderId));
@@ -470,6 +472,9 @@ public sealed class MediaRouter(
                     accepts: ProviderKinds.Text,
                     model: entry.Request.Model,
                     hasInputs: entry.Request.Inputs.Count > 0) &&
+                // a parameter the backend does not declare is refused, never dropped: the image would come back
+                // plausible and wrong. Not a rule of Supports, which the text side shares
+                entry.Provider.Capabilities.Unhonourable(entry.Request).Count == 0 &&
                 // a declared queue the type cannot serve is not capable — nor counted toward the exemption
                 (delivery != ProviderOperation.Queued || entry.Provider is IMediaJobProvider))
                 capable.Add(entry);

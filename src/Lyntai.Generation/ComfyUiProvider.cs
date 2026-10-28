@@ -217,6 +217,9 @@ public sealed class ComfyUiProvider(
         // an admission promise the submit path keeps: each input is uploaded and bound at the graph field the
         // CALLER names (ComfyUiOptions.InputPathOption), and one with nowhere to go is refused, never dropped
         SupportsInputs = true,
+        // every parameter has a graph field to land in IF the template names one; the graph decides, so the
+        // refusal is per request, at submit (BindParameters)
+        Parameters = MediaParameters.All,
     };
 
     /// <summary>Reads server info — free, and it answers "is it up, and which build?" without generating.
@@ -300,6 +303,9 @@ public sealed class ComfyUiProvider(
         catch (JsonException ex) { return Unsupported($"the workflow in Options[\"{options.WorkflowOption}\"] is not valid JSON: {ex.Message}"); }
         if (graph is null) return Unsupported("the workflow parsed to nothing");
 
+        if (ParameterRefusal.For(Capabilities, request, loraTags: false, checkpointFile: false) is { } invalid)
+            return Unsupported(invalid);
+
         // a prompt path that misses leaves the graph as the caller wrote it, placeholder and all
         GraphField? promptField = null;
         if (request.Prompt is { Length: > 0 } prompt &&
@@ -310,8 +316,10 @@ public sealed class ComfyUiProvider(
             promptField = field;
         }
 
-        // every input is bound BEFORE anything is fetched or uploaded, so a refusal spends nothing
-        var (bindings, refusal) = BindInputs(graph, request, promptField);
+        // every parameter and input is bound BEFORE anything is fetched or uploaded, so a refusal spends nothing
+        var (written, parameterRefusal) = BindParameters(graph, request, promptField);
+        if (parameterRefusal is not null) return Unsupported(parameterRefusal);
+        var (bindings, refusal) = BindInputs(graph, request, promptField, written);
         if (refusal is not null) return Unsupported(refusal);
 
         using var lease = HttpClientLease.From(httpFactory, disposeHttpClient);
@@ -495,12 +503,97 @@ public sealed class ComfyUiProvider(
 
     private sealed record InputBinding(MediaInput Input, GraphField Field, string Describe);
 
+    /// <summary>The option keys a request parameter is placed by — each a dotted path to the workflow field that
+    /// takes it, in the style of <see cref="ComfyUiOptions.PromptPathOption"/>: the host's template says where, and
+    /// the library inserts no node. <c>lora-path:&lt;n&gt;</c> and <c>lora-weight-path:&lt;n&gt;</c> are the
+    /// <c>n</c>th LoRA's (from 1) name field and weight field(s), the weight's a comma-separated list for a loader
+    /// with a model and a text-encoder strength.</summary>
+    private static readonly (string Parameter, string Key)[] ParameterKeys =
+    [
+        (MediaParameters.NegativePrompt, "negative-prompt-path"),
+        (MediaParameters.Seed, "seed-path"),
+        (MediaParameters.Steps, "steps-path"),
+        (MediaParameters.CfgScale, "cfg-scale-path"),
+        (MediaParameters.Sampler, "sampler-path"),
+        (MediaParameters.Scheduler, "scheduler-path"),
+        (MediaParameters.Checkpoint, "checkpoint-path"),
+    ];
+
+    /// <summary>Writes each parameter the request names into the workflow field its option key points at, and
+    /// answers the fields written. The first parameter with nowhere to go — no key, a path the graph lacks, a field
+    /// the prompt or another parameter already took — is the refusal, so nothing is dropped. A <c>size</c> hint is
+    /// written only where the template names <c>width-path</c> and <c>height-path</c>: it is advisory everywhere
+    /// else and stays so here.</summary>
+    private static (List<GraphField> Written, string? Refusal) BindParameters(
+        JsonNode graph, MediaRequest request, GraphField? promptField)
+    {
+        var written = new List<GraphField>();
+
+        string? PlaceAt(string path, string key, string describe, JsonNode value)
+        {
+            if (Resolve(graph, path) is not { } field)
+                return $"{describe}: Options[\"{key}\"] is \"{path}\", which is not a field of the workflow";
+            if (promptField is not null && field.Is(promptField))
+                return $"{describe}: \"{path}\" is where the prompt was written, which it would erase";
+            if (written.Any(field.Is))
+                return $"{describe}: \"{path}\" is already taken by another parameter, which it would erase";
+            field.Owner[field.Name] = value;
+            written.Add(field);
+            return null;
+        }
+
+        string? Place(string key, string describe, JsonNode value) =>
+            request.Option(key) is { Length: > 0 } path
+                ? PlaceAt(path, key, describe, value)
+                : $"the request names {describe}, which has nowhere to go: set Options[\"{key}\"] to the dotted " +
+                  "path of the workflow field that takes it (e.g. \"3.inputs.seed\")";
+
+        foreach (var (parameter, key) in ParameterKeys)
+        {
+            JsonNode? value = parameter switch
+            {
+                MediaParameters.NegativePrompt => request.NegativePrompt is { Length: > 0 } negative ? JsonValue.Create(negative) : null,
+                MediaParameters.Seed => request.Seed is { } seed ? JsonValue.Create(seed) : null,
+                MediaParameters.Steps => request.Steps is { } steps ? JsonValue.Create(steps) : null,
+                MediaParameters.CfgScale => request.CfgScale is { } cfg ? JsonValue.Create(cfg) : null,
+                MediaParameters.Sampler => request.Sampler is { Length: > 0 } sampler ? JsonValue.Create(sampler) : null,
+                MediaParameters.Scheduler => request.Scheduler is { Length: > 0 } scheduler ? JsonValue.Create(scheduler) : null,
+                _ => request.Checkpoint is { Length: > 0 } checkpoint ? JsonValue.Create(checkpoint) : null,
+            };
+            if (value is not null && Place(key, parameter, value) is { } refusal) return ([], refusal);
+        }
+
+        for (var i = 0; i < request.Loras.Count; i++)
+        {
+            var (lora, at) = (request.Loras[i], i + 1);
+            var describe = $"LoRA {at} ('{lora.Name}')";
+            if (Place($"lora-path:{at}", describe, JsonValue.Create(lora.Name)) is { } nameRefusal)
+                return ([], nameRefusal);
+
+            var weightKey = $"lora-weight-path:{at}";
+            if (request.Option(weightKey) is not { Length: > 0 } weightPaths)
+                return ([], $"{describe} has a weight with nowhere to go: set Options[\"{weightKey}\"] to the dotted " +
+                            "path(s), comma-separated, of the loader's strength field(s)");
+            foreach (var weightPath in weightPaths.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                if (PlaceAt(weightPath, weightKey, $"the weight of {describe}", JsonValue.Create(lora.Weight)) is { } weightRefusal)
+                    return ([], weightRefusal);
+        }
+
+        if (SizeHint.TryParse(request.Option("size"), out var width, out var height))
+            foreach (var (key, side, value) in new[] { ("width-path", "width", width), ("height-path", "height", height) })
+                if (request.Option(key) is { Length: > 0 } sizePath &&
+                    PlaceAt(sizePath, key, $"the {side} of the size hint", JsonValue.Create(value)) is { } sizeRefusal)
+                    return ([], sizeRefusal);
+
+        return (written, null);
+    }
+
     /// <summary>Where each input goes: the path under <see cref="ComfyUiOptions.InputPathOption"/>, or under
     /// <c>"&lt;key&gt;:&lt;role&gt;"</c> for an input with a role. The first input with nowhere to go — no
     /// path, a path the graph lacks, a field the prompt or another input already took, nothing to send, or a
     /// URI that is not absolute http(s) — is the refusal.</summary>
     private (IReadOnlyList<InputBinding> Bindings, string? Refusal) BindInputs(
-        JsonNode graph, MediaRequest request, GraphField? promptField)
+        JsonNode graph, MediaRequest request, GraphField? promptField, IReadOnlyList<GraphField> written)
     {
         var bindings = new List<InputBinding>();
         for (var i = 0; i < request.Inputs.Count; i++)
@@ -516,6 +609,8 @@ public sealed class ComfyUiProvider(
                 return ([], $"{describe}: Options[\"{key}\"] is \"{path}\", which is not a field of the workflow");
             if (promptField is not null && field.Is(promptField))
                 return ([], $"{describe}: \"{path}\" is where the prompt was written, which it would erase");
+            if (written.Any(field.Is))
+                return ([], $"{describe}: \"{path}\" is where a request parameter was written, which it would erase");
             if (bindings.Any(b => b.Field.Is(field)))
                 return ([], $"{describe}: \"{path}\" is already bound to another input, which it would erase");
             if (input.Data is not { Length: > 0 })
