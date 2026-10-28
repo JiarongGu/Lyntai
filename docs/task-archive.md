@@ -6016,3 +6016,44 @@ the host wires `HasRoom` into `ReportReadingAsync` in one line (**D227**). The a
 accounts, so it is no `IAgentAllowanceSource` either. Lane session, lanes `platform` + `inference`.
 
 - AG9 — an optional usage reading through the vendor's own server
+
+## Part 393 — A binary vector column for the SQLite vector store (2026-10-28)
+
+✅ done 2026-10-28 — **Outcome:** `bd4bb887` (on master as `ebeb0fe8`, merged `54e6430e`). `M202610281422_VectorBlob` adds a
+nullable `lyntai_vector.vector_blob` (little-endian floats) and fills it in C# a page at a time; a search scores the blob
+and a row with none is read from its text as before. SQLite only: the Postgres store keeps pgvector's column in a table it
+creates itself, so a fresh database applies 17 migrations on each (`.agents/knowledge/storage.md`). The JSON text is
+still written beside the blob (**D229**). Scores are bit-identical (`SqliteVectorBlobTests`; `VectorStoreContract` and
+`SqliteVectorStoreScanTests` unchanged). Recall p50 on a rebuilt 11,163-chunk corpus fell 1,256 to 339 ms, every hit rate
+identical, at 64.8 to 88.6 MiB on disk and 48 to 63 s of ingest (`corpus-vector-blob-before-after`). The scan is still 339
+ms against 29 ms in memory; the blob sits after the text in the row, the likely remaining cost, not measured. Lane
+storage.
+
+- A binary vector column for the SQLite vector store
+
+## Part 394 — The keyword store's count cap sorts the whole scope on every write (2026-10-28)
+
+✅ done 2026-10-28 — **Outcome:** `76285665` (merged `1152dca4`). `MemoryEviction.CapEvictSql` keeps its signature and
+counts the scope, then deletes only the excess, so a scope at or under its cap computes zero and reads nothing; the
+survivors are `MemoryEviction.Survivors`' (`MemoryCapEvictionTests`, 400 random scopes). No migration, no default
+changed. `CountCap(int.MaxValue)` ingests 11,163 writes in 111 s against `Manual`'s 114 s in the same run (596 s before),
+so a cap no scope reaches costs what `Manual` does (`corpus-cap-evict-before-after`). **Finding, not a row:** the default
+500 cap did not change beyond the machine's spread (198 to 203 s); a scope at its cap deletes one entry per write, and that
+delete with its trigram index entries (about 5 of the 5.6 ms an eviction took) is its whole remaining cost, which no
+choice of row changes. **The Postgres leg of the memory-store contract has not run** (Docker down) and the statement is
+shared with `PostgresMemoryStore`: it stays open as a blocked item under `TASKS.md` Part 380. Lane storage.
+
+- The keyword store's count cap sorts the whole scope on every write
+
+## Part 395 — The bridge's stream-timeout test fails under the parallel `verify` run (2026-10-28)
+
+✅ done 2026-10-28 — **Outcome:** `4e540af7` (on master as `964b1971`, merged `2932d85c`). The test measured the machine
+(five real 100 ms delays under a real 250 ms window), and a first widening still failed once in twenty full runs because a
+stalled process starves the chunk's timer and the guard's alike. `InactivityClock` gains an internal constructor on a
+`TimeProvider`; `BridgeProvider` takes the container's when the application registered one, as `AgentAccountPool` does, and
+keeps the cancellation source's timer otherwise. The test registers `ManualTimeProvider` and runs in no real time; it goes
+red when the clock bounds the whole stream. Cause, fix and the twenty runs are `docs/FIXES.md` 2026-10-28. **One run in the
+twenty failed another test**, `ProcessRunnerTests.Stream_lines_absolute_max_caps_a_chatty_child_that_never_stalls`: it is
+the startable row left in `TASKS.md` Part 99. Lane inference.
+
+- The bridge's stream-timeout test fails under the parallel `verify` run and passes alone

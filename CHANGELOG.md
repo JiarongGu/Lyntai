@@ -42,6 +42,21 @@ every addition.
   bounded top-k instead of sorting the collection, and `SqliteMemoryGraphStore` commits a batch of edges and
   touches once. Scores and results are unchanged. `InMemoryVectorStore` now copies the vector it is given, so
   changing a reused buffer afterwards no longer changes what is stored.
+- **The SQLite vector store searches a binary column, and the database is larger** (**D229**). A migration adds
+  `lyntai_vector.vector_blob` and fills it for every stored vector, a vector is written as floats beside its JSON
+  text, and a search scores the floats: recall over 11,163 vectors fell from 1,256 to 339 ms at the median, with
+  every score and hit rate unchanged. The text is still written so an older build reading the same database scores
+  what it did, which costs disk (64.8 to 88.6 MiB there) and ingest time (48 to 63 s). The migration runs the backfill
+  once, when it applies. The Postgres store is unchanged.
+- **A count cap no scope reaches costs what `MemoryEvictionPolicy.Manual` does.** The keyword store used to sort the
+  whole scope on every write to find what to evict; it now counts the scope and deletes only the excess, with the same
+  survivors. `CountCap(int.MaxValue)` ingested 11,163 writes in 111 s against `Manual`'s 114 s (596 s before). A scope
+  at its cap pays for deleting one entry per write, as before. The statement is shared with the Postgres store, whose
+  leg has not run against it yet.
+- **A `TimeProvider` the application registers now drives a bridged provider's stream inactivity window.** A host
+  that registers one (a fake clock in a test, say) sees `BridgeProvider` arm its inactivity window on it, as
+  `AgentAccountPool` and the retry decorator already wait on it; with none registered the window runs on the
+  cancellation source's own timer, as before. The deadline of a non-streaming call is unchanged.
 
 ### Added
 
