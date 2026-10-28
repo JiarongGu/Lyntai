@@ -246,6 +246,15 @@ every addition.
 
 ### Fixed
 
+- **A refused fal submit is classified by its status.** `FalProvider` left the verdict of a refused submit to the
+  words of the answer; a `403` or `401` is now an auth failure and a `429` is rate-limited, so the router benches the
+  account instead of asking it again. fal's first answer to a submit on an account with no balance was
+  `403 {"detail":"User is locked. Reason: Exhausted balance. …"}`.
+- **A fal model with a sub-path is polled under its owner and app.** `FalProvider` polled, fetched and cancelled a
+  model such as `fal-ai/flux/schnell` under its full path, which fal's documentation says answers `405`, and a `405`
+  polls as still running, so such a render would never have been seen to finish. It now submits to the full path and
+  polls, fetches and cancels under `fal-ai/flux`, as fal documents; this is the documentation read, not yet measured
+  against a finished render (`docs/generation.md` §3).
 - **A bridged provider enforces its provider timeout.** `AddBridgeProvider` bounds a completion as a whole
   and a stream by inactivity, returning `Timeout` so routing can advance. Previously a hung delegate could
   hold the call until the caller cancelled.

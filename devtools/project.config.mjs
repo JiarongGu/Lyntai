@@ -1746,6 +1746,7 @@ export default {
    */
   decisionLengthAllowances: {
     D66: 44,
+    D69: 38,
   },
 
   /**
