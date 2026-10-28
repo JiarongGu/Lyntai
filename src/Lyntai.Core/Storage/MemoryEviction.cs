@@ -51,21 +51,34 @@ public static class MemoryEviction
     /// <summary>The atomic COUNT-CAP eviction statement (the common fast path that skips
     /// <see cref="ApplyAsync"/>'s fetch→survivors→delete round-trip): keep the newest <c>@cap</c> LIVE
     /// entries of a <c>(@taskKey, @scope)</c> group — expired rows sort last so they evict first, recency is
-    /// created-at (FIFO) or last-access (LRU), id breaks ties — and delete the rest. The text is
-    /// dialect-identical (SQLite + Postgres both accept <c>NOT IN (SELECT … LIMIT @cap)</c>), so it lives
-    /// ONCE here and reproduces <see cref="Survivors"/>' count-cap ordering exactly; each backend binds
+    /// created-at (FIFO) or last-access (LRU), id breaks ties — and delete the rest, which is exactly the
+    /// first <c>count − @cap</c> rows of the REVERSE order (expired oldest-first, then live oldest-first).
+    /// A scope at or under its cap computes <c>0</c> and the <c>LIMIT 0</c> branches read nothing; over it,
+    /// each branch keeps only that many rows (typically one), so the whole scope is never ordered. The text is
+    /// dialect-identical (<c>WITH … DELETE</c> and <c>LIMIT (subquery)</c> run on SQLite and Postgres), so it
+    /// lives ONCE here and reproduces <see cref="Survivors"/>' count-cap ordering; each backend binds
     /// <c>@taskKey/@scope/@cap/@now</c> through its own driver. The recency expression is one of two fixed
     /// column expressions (no user input) — safe to interpolate.</summary>
     public static string CapEvictSql(MemoryEvictionMode mode)
     {
         var recency = mode == MemoryEvictionMode.Lru ? "COALESCE(last_accessed_at, created_at)" : "created_at";
         return $"""
+            WITH excess AS (
+                SELECT CASE WHEN COUNT(*) > @cap THEN COUNT(*) - @cap ELSE 0 END AS n
+                FROM lyntai_memory_entry WHERE task_key = @taskKey AND scope = @scope)
             DELETE FROM lyntai_memory_entry
-            WHERE task_key = @taskKey AND scope = @scope AND id NOT IN (
-                SELECT id FROM lyntai_memory_entry WHERE task_key = @taskKey AND scope = @scope
-                ORDER BY (CASE WHEN expires_at IS NULL OR expires_at > @now THEN 0 ELSE 1 END),
-                         {recency} DESC, id DESC
-                LIMIT @cap)
+            WHERE id IN (
+                SELECT id FROM (
+                    SELECT id, tier, rec FROM (
+                        SELECT id, 0 AS tier, {recency} AS rec FROM lyntai_memory_entry
+                        WHERE task_key = @taskKey AND scope = @scope AND expires_at IS NOT NULL AND expires_at <= @now
+                        ORDER BY rec, id LIMIT (SELECT n FROM excess)) AS expired
+                    UNION ALL
+                    SELECT id, tier, rec FROM (
+                        SELECT id, 1 AS tier, {recency} AS rec FROM lyntai_memory_entry
+                        WHERE task_key = @taskKey AND scope = @scope AND (expires_at IS NULL OR expires_at > @now)
+                        ORDER BY rec, id LIMIT (SELECT n FROM excess)) AS live) AS worst
+                ORDER BY tier, rec, id LIMIT (SELECT n FROM excess))
             """;
     }
 

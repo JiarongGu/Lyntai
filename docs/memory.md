@@ -724,9 +724,10 @@ Each of these cost a real measurement to find.
   amended twice throws on the second `Supersedes` that names it.
 - **The keyword store keeps 500 entries a scope by default**, evicting FIFO, so a corpus past that quietly
   loses its oldest records (hit@10 of 0–8% on 11,112 chunks). It is documented on
-  `LyntaiOptions.MemoryEviction`; a corpus-sized store sets `MemoryEvictionPolicy.Manual`. A large finite cap
-  is worse than none: every write sorts the scope to evict, and 11,112 writes took 185 s at the default cap, 394 s
-  at `CountCap(int.MaxValue)` and 66 s under `Manual` (`corpus-cost-before-after`).
+  `LyntaiOptions.MemoryEviction`; a corpus-sized store sets `MemoryEvictionPolicy.Manual`. A cap no scope
+  reaches costs what `Manual` does (`corpus-cap-evict-before-after`: 11,163 writes took 111 s at
+  `CountCap(int.MaxValue)` against 114 s), and a scope AT its cap pays for the delete of one entry per write,
+  about 5 ms of the 5.6 ms an eviction took there.
 
 ### What is not measured
 
