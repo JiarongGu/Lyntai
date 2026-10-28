@@ -6057,3 +6057,15 @@ twenty failed another test**, `ProcessRunnerTests.Stream_lines_absolute_max_caps
 the startable row left in `TASKS.md` Part 99. Lane inference.
 
 - The bridge's stream-timeout test fails under the parallel `verify` run and passes alone
+
+## Part 396 — The `ProcessRunnerTests` chatty-child tests race node's cold start against a fixed real 2 s ceiling (2026-10-28)
+
+✅ done 2026-10-28 — **Outcome:** `bc42e79e` (merged `c2865883`). `ProcessRunner` gains an internal `CeilingClock` (system
+time by default) that only the absolute `maxDuration` ceiling is armed on, in `RunAsync` and the streaming core; the
+inactivity window, the kill, the public surface and the defaults do not move. Both chatty-child tests drive that clock
+after the child has demonstrably spoken and assert no elapsed real time; they go red with the ceiling disabled, and twenty
+full serial `test` runs had no failure. Cause, fix and verification are `docs/FIXES.md` 2026-10-28. No user-visible
+change and no decision. The `InputSegmenterTests` NFKC-linearity note stays open as a watch item in `TASKS.md` Part 99.
+Lane inference.
+
+- The `ProcessRunnerTests` chatty-child tests race node's cold start against a fixed real 2 s ceiling
