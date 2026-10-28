@@ -69,22 +69,30 @@ vendor documentation and has been measured only as far as fal's door** (§3).
 | `PiperProvider` | Inline + **Stream** | A local piper TTS engine through `IProcessRunner` — no key, no network. Raw PCM **streams** through the media stream door as it is synthesised (measured against a real engine: several chunks before one terminal), typed `audio/pcm;rate=…;bits=16;channels=1;endian=little` with the rate read from the voice's own config. `GenerateAsync` is the same stream, buffered |
 
 **A current model behind the local backends: Z-Image-Turbo** (**Apache-2.0**; the host supplies Comfy-Org's three
-repackaged files from `Comfy-Org/Z-Image-Turbo`: the bf16 diffusion model, the fp8-mixed Qwen3-4B text encoder and
-the VAE). SD 1.5 stays the cheap smoke model; the new test sits beside it and is skipped
-without `LYNTAI_COMFYUI_ZIMAGE_MODEL`. The local backends apply **no content filter**, as before, and this adds none.
+repackaged files from `Comfy-Org/Z-Image-Turbo`: the bf16 diffusion model, a Qwen3-4B text encoder — the fp8-mixed
+one for ComfyUI, the bf16 one for stable-diffusion.cpp — and the VAE). SD 1.5 stays the cheap smoke model; the
+new test sits beside it and is skipped without `LYNTAI_COMFYUI_ZIMAGE_MODEL`. The local backends apply **no content filter**, as before, and this adds none.
 
 - **ComfyUI runs it, through the provider as it is.** No option was needed: the workflow already names each of the
   three files (`UNETLoader`, a `lumina2` `CLIPLoader`, `VAELoader`), which is why this backend's model is "the
   workflow" (`ComfyUiLiveTests`). Measured on a 12 GB RTX 4080 Laptop at 512×512, 8 steps, CFG 1, `res_multistep`:
   about 37 to 44 s for the first render of a server (the weights load) and 7 to 14 s warm. The bf16 model is 12.3 GB, so
   ComfyUI streams weights between RAM and VRAM on its own; nothing was cast.
-- **`LocalDiffusionProvider` and the `sd-server` behind `Automatic1111Provider` do not run it on the measured
-  engine** (`656a135`, Vulkan). The engine reads the three files by `--diffusion-model`, `--llm` and `--vae` and
-  recognises "Z-Image", then aborts loading the fp8-mixed text encoder (`GGML_ASSERT(scale_nelements == 1 ||
-  scale_nelements == out_features)`), with or without `--type bf16`. Both stay on SD 1.5, and no option was added:
-  the argv is already expressible with `ArgvFlags["model"]` set to `--diffusion-model` and `ExtraArgs`, and a
-  provider option cannot make the engine read a file it cannot load. A text encoder in a format the engine does read
-  is a different file, which the host would supply.
+- **`LocalDiffusionProvider` and the `sd-server` behind `Automatic1111Provider` run it, with the bf16 Qwen3-4B
+  encoder** (`qwen_3_4b.safetensors` from the same repository, not fp8-scaled), on the measured engine (`656a135`,
+  Vulkan). The same engine aborts loading the fp8-mixed encoder (`GGML_ASSERT(scale_nelements == 1 ||
+  scale_nelements == out_features)`), with or without `--type bf16`, so the file the host supplies is the one that
+  decides. **No option was added**: the argv is the provider's own with `ArgvFlags["model"]` set to
+  `--diffusion-model` and `ExtraArgs` carrying `--llm <encoder> --vae <vae> --diffusion-fa --offload-to-cpu`
+  (`A_split_model_is_expressible_by_renaming_the_model_flag_and_adding_its_files_as_extra_args` pins it); the
+  `sd-server` is started with the same three files and flags, and the provider needs only `Steps = 8` and
+  `CfgScale = 1`. Measured on a 12 GB RTX 4080 Laptop at 512×512, 8 steps, CFG 1, seed 8: the engine keeps the
+  19.6 GB of weights in RAM and streams them through the card, so a render is minutes where ComfyUI's is seconds, and
+  the card's own use peaks at about 7.5 GB above what was already resident. `sd-cli` is a fresh process per call, so
+  both of its renders load the weights again (262 s, then 250 s); the server loads once and its first render is
+  388 s against 169 s warm. Behind `LocalDiffusionLiveTests` (`LYNTAI_SD_ZIMAGE_MODEL`, `LYNTAI_SD_ZIMAGE_LLM`,
+  `LYNTAI_SD_ZIMAGE_VAE`, each a full path) and `Automatic1111LiveTests` (`LYNTAI_A1111_ZIMAGE_URL`, a server of its
+  own); each skips without its variables, and SD 1.5 stays the smoke model.
 
 A backend that catches its own exceptions applies the router's rules itself, so no shipped backend turns a
 possibly-delivered submit into a conclusive `Failed`, and none reports a thrown exception as a content

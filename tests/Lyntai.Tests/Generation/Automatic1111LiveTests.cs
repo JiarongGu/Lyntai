@@ -77,6 +77,46 @@ public class Automatic1111LiveTests(ITestOutputHelper output)
         output.WriteLine($"img2img 256x256 in {clock.Elapsed.TotalSeconds:F1} s");
     }
 
+    // ---- a current split model ---------------------------------------------------------------------------
+
+    private static string? ZImageUrl => Environment.GetEnvironmentVariable("LYNTAI_A1111_ZIMAGE_URL");
+
+    /// <summary>Z-Image-Turbo behind the same backend, where SD 1.5 above is the cheap smoke: the server is started on
+    /// the three files (<c>--diffusion-model</c>, <c>--llm</c> with the bf16 Qwen3-4B — the engine aborts on the
+    /// fp8-scaled one — and <c>--vae</c>), so the provider needs no option beyond the model's own steps and CFG. A
+    /// separate server from the SD 1.5 one, hence a variable of its own. The first render of a server loads ~19 GB.
+    /// Skipped without <c>LYNTAI_A1111_ZIMAGE_URL</c>.</summary>
+    [SkippableFact]
+    public async Task Z_Image_Turbo_renders_through_the_server_cold_then_warm()
+    {
+        Skip.If(string.IsNullOrWhiteSpace(ZImageUrl),
+            "set LYNTAI_A1111_ZIMAGE_URL to an sd-server started with --diffusion-model z_image_turbo_bf16, --llm qwen_3_4b (bf16) and --vae z_image_ae");
+        var provider = new Automatic1111Provider(
+            new Automatic1111Options { BaseUrl = ZImageUrl!, Steps = 8, CfgScale = 1, Timeout = TimeSpan.FromMinutes(30) },
+            () => new HttpClient { Timeout = Timeout.InfiniteTimeSpan });
+
+        var probe = await provider.ProbeAsync();
+        Assert.True(probe.Available, probe.Detail);
+
+        var renders = new List<byte[]>();
+        foreach (var (label, seed) in new[] { ("cold", 8), ("warm", 9) })
+        {
+            var clock = Stopwatch.StartNew();
+            var rendered = await provider.GenerateAsync(
+                Ask("a ceramic teapot on a wooden table by a window, soft morning light, photograph", "512x512") with { Seed = seed });
+
+            Assert.True(rendered.IsOk, rendered.Detail);
+            var png = Assert.Single(rendered.Artifacts).Data!;
+            Assert.Equal((512, 512), LivePng.Dimensions(png));
+            output.WriteLine($"Z-Image-Turbo {label}: 512x512, 8 steps, CFG 1, seed {seed} in {clock.Elapsed.TotalSeconds:F1} s");
+            LivePng.Keep($"sd-server-zimage-seed{seed}.png", png);
+            renders.Add(png);
+        }
+
+        Assert.NotEqual(renders[0], renders[1]);   // the seed reaches the server
+        Assert.True(LivePng.Detail(renders[0]) > 2, "a Z-Image render at 8 steps is a picture, not a flat field");
+    }
+
     // ---- the request's checkpoint, LoRAs and sampling parameters ----------------------------------------
 
     private static string? Lora => Environment.GetEnvironmentVariable("LYNTAI_A1111_LORA");

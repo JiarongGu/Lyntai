@@ -208,6 +208,27 @@ public class LocalDiffusionProviderTests : IDisposable
     }
 
     [Fact]
+    public void A_split_model_is_expressible_by_renaming_the_model_flag_and_adding_its_files_as_extra_args()
+    {
+        // Z-Image-Turbo is three files (the diffusion model, a Qwen3-4B encoder, a VAE), measured against the
+        // engine: no option is needed, so none exists — the seam is the model flag's spelling and ExtraArgs.
+        var provider = Configured(o =>
+        {
+            o.Steps = 8;
+            o.CfgScale = 1;
+            o.ArgvFlags["model"] = "--diffusion-model";
+            o.ExtraArgs = ["--llm", "qwen_3_4b.safetensors", "--vae", "z_image_ae.safetensors"];
+        });
+
+        var args = provider.BuildArgs("z_image_turbo_bf16.safetensors", "a teapot", "out.png", 512, 512, initPath: null);
+
+        Assert.Equal(
+            ["--diffusion-model", "z_image_turbo_bf16.safetensors", "-p", "a teapot", "-o", "out.png", "-W", "512", "-H", "512",
+             "--steps", "8", "--cfg-scale", "1", "--llm", "qwen_3_4b.safetensors", "--vae", "z_image_ae.safetensors"],
+            args);
+    }
+
+    [Fact]
     public void The_unconfigured_argv_is_byte_identical_to_the_MEASURED_one()
     {
         // The flags are a lookup rather than literals; an unconfigured host gets exactly the argv a real
