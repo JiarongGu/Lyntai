@@ -15,23 +15,20 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 10 across 4 Parts: 5 startable, 2 blocked, 3 watch
+## Open items — 7 across 4 Parts: 2 startable, 2 blocked, 3 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 111 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal account with a balance, or a Hugging Face token for the router route … |
-| 158 | 33 | fal's request path for a sub-path model | startable |  |
-| 167 | 33 | `MediaRequest.Options` values reach fal as strings | startable |  |
-| 177 | 33 | A hosted backend refuses a media parameter it does not declare | startable |  |
-| 203 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 229 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 285 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | startable |  |
-| 339 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
-| 355 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
-| 387 | 401 | The example image-workflow pipeline | startable |  |
+| 108 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal account with a balance, or a Hugging Face token for the router route … |
+| 170 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 196 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 252 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | startable |  |
+| 306 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
+| 322 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
+| 354 | 401 | The example image-workflow pipeline | startable |  |
 
 <!-- open-items:end -->
 
@@ -117,7 +114,8 @@ The fal-first naming that once hid ComfyUI inside this list is recorded in
   `queue.fal.run`, `Key` as the auth scheme (the key was recognised, where a bad one is a 401) and the refusal's body
   shape. **Not measured**, since nothing past the door answered: the status vocabulary, the `request_id` / `status` /
   `url` / `content_type` fields, `queue_position`, the `COMPLETED`-plus-`error` failure shape and `ErrorField`, what a
-  failed request's result fetch answers, what `cost` reports, and the sub-path URL (below). Two fixes came out of it
+  failed request's result fetch answers, what `cost` reports, the sub-path URL (`FalOptions.RequestPaths` is the host's
+  correction, `docs/task-archive.md` Part 406) and an object-valued field (`FalOptions.JsonFields`, Part 407). Two fixes came out of it
   (`docs/generation.md` §3): a refused submit is classified by its status (403 and 401 `AuthFailed`, 429
   `RateLimited`), and a sub-path model is polled, fetched and cancelled under its owner and app, which is fal's
   documentation read, not a measurement. The live tests skip, naming the balance, on that answer.
@@ -154,37 +152,6 @@ The fal-first naming that once hid ComfyUI inside this list is recorded in
   _**What a real run is still for**, stated so this is not read as closed: a STRUCTURAL difference — a status
   that is not a string field at all, a history document shaped differently — is not fixable by a per-field
   option. The residual risk is a shape, not a spelling._
-
-- [ ] **fal's request path for a sub-path model** (lane `generation`). <!-- item: state=startable -->
-  `FalProvider.RequestPath` takes a model's first two segments as its owner and app and polls, fetches and cancels under
-  them (`fal-ai/flux` for `fal-ai/flux/schnell`), from fal's documentation and with nothing measured, where **D69** makes
-  an unmeasured mapping an option. **Contract:** the path is either read from the submit answer, where fal documents
-  `status_url`, `response_url` and `cancel_url` (check fal's docs and any answer recorded since the first run, which
-  reached none), or settable in `FalOptions`, the documented owner-and-app default kept; a host whose model fal addresses
-  differently corrects it in configuration. Additive (**D70**). **Proof:** unit tests on both shapes in `FalProviderTests`,
-  the default's pinned byte-for-byte; the live confirmation waits with GEN-VERIFY-FAL, whose `FalLiveTests` already
-  records the full-path answer on a finished request.
-- [ ] **`MediaRequest.Options` values reach fal as strings** (lane `generation`). <!-- item: state=startable -->
-  `FalProvider.BuildInput` writes every option with `WriteString`, and `MediaRequest.Options` is an
-  `IReadOnlyDictionary<string, string>`, so an object- or array-valued model field, such as a custom `image_size`
-  (`{"width":…,"height":…}`), cannot be sent; only the preset names can (`docs/generation.md` §3). **Contract:** a host
-  can send a field as raw JSON without the type of `Options` changing, which would be a break (**D70**): the choice
-  between a `FalOptions` list of field names sent as JSON and a value convention is the item's to make and to record,
-  with the other named as rejected; a value that is not valid JSON where JSON is asked for is refused before a call, and
-  every option not so named is written as a string, as now. **Proof:** unit tests in `FalProviderTests` on the body sent
-  for an object-valued and an array-valued field, for a string field unchanged, and for the refusal; the API baselines
-  gain only additive lines. A live check of an object-valued field waits with GEN-VERIFY-FAL.
-- [ ] **A hosted backend refuses a media parameter it does not declare** (lane `generation`). <!-- item: state=startable -->
-  `OpenAiImageProvider`, `FalProvider` and `PiperProvider` declare an empty `ProviderCapabilities.Parameters`, so the
-  router skips them for a request naming a checkpoint, LoRA, seed or sampler (`docs/task-archive.md` Part 404), but only the
-  three local diffusion backends refuse one when called directly, through `ParameterRefusal`. A caller holding one of
-  the other three and calling it gets a plausible result that ignored the checkpoint. **Contract:** each of the three
-  returns `Unsupported` before any call for a request naming a parameter it does not declare, through the same shared check
-  and message, and a request naming none is untouched. Declaring a parameter such a backend could take on its own wire (fal
-  and OpenAI images accept a seed or a step count) is a separate decision, its mapping measured or made an option (**D69**),
-  and is not this row. Additive; the API baselines lose no line (**D70**).
-  **Proof:** a contract fact in `GenerationProviderContract` that a handed parameter is honoured or refused, run over
-  every shipped backend, failing on one that does neither (`.agents/knowledge/pitfalls.md`, the capability-flag trap).
 
 > Add new tasks here as checklist items with an `id` and a short `file:line` where known. Group related
 > tasks under a `## Part N — <theme>` heading. Move an item to the archive when it lands — don't leave a

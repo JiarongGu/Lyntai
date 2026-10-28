@@ -73,12 +73,20 @@ every addition.
   (**D231**). `MediaRequest` gains `Checkpoint`, `Loras` (`MediaLora`: a name and a weight), `NegativePrompt`, `Seed`,
   `Steps`, `CfgScale`, `Sampler` and `Scheduler`, and a durable job carries them. `ProviderCapabilities` gains
   `Parameters` (names in `MediaParameters`; empty honours none) and `Unhonourable(request)`. The router skips a backend
-  that does not declare a parameter a request names, and `LocalDiffusionProvider`, `Automatic1111Provider` and
-  `ComfyUiProvider` each refuse one before any call, so a checkpoint is never silently ignored. Size stays the advisory
+  that does not declare a parameter a request names, and every backend refuses one it does not declare before any
+  call (`Unsupported`, through `ParameterRefusal`): the three local ones, and `OpenAiImageProvider`, `FalProvider` and
+  `PiperProvider`, which declare none. A checkpoint is never silently ignored. Size stays the advisory
   `Options["size"]`. New options: `LocalDiffusionOptions.CheckpointDirectory` and `LoraDirectory` (each declared only when
   set), `Automatic1111Options.HonouredParameters` (defaulting to what stable-diffusion.cpp's `sd-server` honours) and
   `LoraRequestField` (its `lora` payload field, listed from the server before a render), and ComfyUI's `*-path`
   option keys, which name the graph field for each parameter, each LoRA and the size hint.
+- **`FalOptions.RequestPaths` sets the path a sub-path fal model is polled, fetched and cancelled under** (**D232**).
+  Keyed by the model id as submitted; a model not listed keeps the owner-and-app default, and the submit goes to the
+  model's own path either way. A host whose model fal addresses differently corrects it in configuration.
+- **`FalOptions.JsonFields` names the `Options` keys fal receives as raw JSON** (**D232**), for a field that is an object
+  or an array, such as a custom `image_size`. Every other option is still a string, and the type of
+  `MediaRequest.Options` is unchanged. A listed key whose value is not valid JSON is refused as `Unsupported` before
+  any call, naming the key.
 - **A failed agent turn says what failed** (**D219**). `SessionEnded.Failure` is an `AgentFailure` on every failed
   turn of both CLI agent sessions, null on a good one: a `Kind` (`Limit`, `Access`, `Transient` or `Fatal`), an
   optional `Restriction` (what ran out, what it holds back and how it ends: a reset moment, a retry-not-before, an

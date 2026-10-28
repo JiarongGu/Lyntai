@@ -6166,3 +6166,38 @@ ComfyUI renders the same model in 37 to 44 s cold and 7 to 14 s warm (Part 403).
 `docs/generation.md` §2. Lane generation.
 
 - The two stable-diffusion.cpp backends on Z-Image-Turbo
+
+## Part 406 — fal's request path for a sub-path model (2026-10-29)
+
+✅ done 2026-10-29 — **Outcome:** `c49d0128` (merged `1dc57d52`). `FalOptions.RequestPaths` sets, per model as submitted,
+the path a sub-path model is polled, fetched and cancelled under; a model not listed keeps the owner-and-app default, pinned
+byte for byte for two-, three-, four- and one-segment models. It is a setting, not read from the submit answer: a resumed job
+holds only `"{model}#{requestId}"` and no run has shown `status_url`, `response_url` or `cancel_url` (`docs/DECISIONS.md`
+D232). **The live confirmation still waits with GEN-VERIFY-FAL**, so the default stays fal's documentation read and
+`RequestPaths` is the host's correction if fal addresses a sub-path model differently. The API baseline gained one line and
+lost none. Lane generation.
+
+- fal's request path for a sub-path model
+
+## Part 407 — `MediaRequest.Options` values reach fal as strings (2026-10-29)
+
+✅ done 2026-10-29 — **Outcome:** `b48c6bd0` (merged `1dc57d52`). `FalOptions.JsonFields` names the `Options` keys sent to fal
+as raw JSON, so an object- or array-valued field can be sent; every other option is still a string and the type of
+`MediaRequest.Options` is unchanged. A listed key whose value is not valid JSON is refused as `Unsupported` before any call,
+naming the key. A name list was chosen over a marker prefix inside the value (`docs/DECISIONS.md` D232). **No object-valued
+field has yet reached fal**: the check waits with GEN-VERIFY-FAL. The API baseline gained one line and lost none. Lane
+generation.
+
+- `MediaRequest.Options` values reach fal as strings
+
+## Part 408 — A hosted backend refuses a media parameter it does not declare (2026-10-29)
+
+✅ done 2026-10-29 — **Outcome:** `7a8fb56d` (merged `1dc57d52`). `OpenAiImageProvider`, `FalProvider` and `PiperProvider`
+answer `Unsupported` before any call to a request naming a parameter they do not declare, through the `ParameterRefusal` the
+three local backends use, so a direct caller no longer gets a plausible image that ignored the checkpoint (`docs/DECISIONS.md`
+D231). A contract fact, `GenerationProviderContract.A_handed_parameter_is_honoured_or_refused`, runs over all six shipped
+backends and failed on exactly those three before the fix; a new `MediaParameters` name needs a probe in it. No parameter was
+declared on any of them: that stays a separate step, its mapping measured (**D69**). The API baselines lost no line. Lane
+generation.
+
+- A hosted backend refuses a media parameter it does not declare
