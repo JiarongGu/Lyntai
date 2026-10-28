@@ -60,9 +60,10 @@ public sealed class OpenAiImageOptions
 /// Both response variants are handled: inline <c>b64_json</c>, and a <c>url</c>, which is returned AS a URI
 /// artifact rather than downloaded (the platform never spends the caller's bandwidth uninvited).
 /// </summary>
-/// <remarks>The request/response shapes are ported from a sibling app's production implementation, which is
-/// why both response variants are covered rather than only the one a first test happens to hit.
-/// <para><b>Unmeasured against OpenAI's current models.</b> The GPT-image family — all OpenAI still serves for
+/// <remarks>Both response variants are covered rather than only the one a first test happens to hit. Run
+/// against a local OpenAI-compatible server (stable-diffusion.cpp's <c>sd-server</c>), which answers only
+/// <c>b64_json</c>.
+/// <para><b>Unmeasured against OpenAI itself.</b> The GPT-image family — all OpenAI still serves for
 /// images — is REPORTED to reject <c>response_format</c>, so it is sent none by default
 /// (<see cref="OpenAiImageOptions.ResponseFormat"/>); no call from this library has confirmed either the
 /// rejection or the reply that follows.</para></remarks>

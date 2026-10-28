@@ -305,9 +305,10 @@ What a backend implements:
   unless the throw proves it never did); any other failed submission is `QueuedOperation.Failure(detail,
   verdict)`; and a 2xx submit answer with no operation id is Inconclusive too.
 - **MEASURE the wire format before shipping it.** Of the six backends here, three are measured against a
-  real engine (`sd-cli`, ComfyUI, piper); two are PORTED from a sibling app's production implementation and
-  say so (`Automatic1111`, `OpenAiImage`) — someone else's evidence, which is not none and is not ours; and
-  one is written from vendor documentation with no key to call it (`fal`, `TASKS.md` Part 33). One of the
+  real engine (`sd-cli`, ComfyUI, piper); two are measured against a LOCAL SERVER that speaks their API
+  (`Automatic1111`, `OpenAiImage`: stable-diffusion.cpp's `sd-server`, which is neither the WebUI nor OpenAI —
+  what it proves is in `docs/generation.md` §2); and one is written from vendor documentation with no key to
+  call it (`fal`, `TASKS.md` Part 33). One of the
   three measurements found its mapping WRONG — the engine had retired the `img2img` mode value, so every
   img2img render failed at the argv parse while the build stayed green. Do not add another unmeasured one: a
   mapping derived from vendor docs is a guess wearing a type.
