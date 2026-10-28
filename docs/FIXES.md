@@ -26,6 +26,30 @@ stability binds as NULL, which the `NOT NULL` column refuses, after a good touch
 `RecallCount` 1 and passes on the new; `MemoryGraphStoreContract` runs unchanged against SQLite.
 
 **Introduced by.** `28024014` (2026-08-29), which batched the calls and kept the commits.
+## 2026-10-28 — two concurrent Postgres write-backs or edge batches over the same nodes deadlocked when they listed them in different orders
+
+**Symptom.** Reproduced from a reading of the commit below, not reported: two `WriteBackAsync` calls (and two `LinkManyAsync`
+calls) over the same 40 nodes, one listing them ascending and the other descending, started together on a pgvector
+container. Both races failed on the first attempt with `40P01: deadlock detected`, and the server aborts one transaction, so
+the fail-open write-back in `GraphMemoryEngine` drops that write-back whole.
+
+**Root cause.** The transaction of `8586cd8a` holds each row lock until commit, where autocommit released it at once.
+`MemoryGraphSql.Touch` locks the `lyntai_memory_node` rows and `MemoryGraphSql.StrengthenEdge` the `lyntai_memory_edge` rows
+(and, for a new edge, its unique-index entry) in the order the batch lists them, so two batches taking the same rows in
+opposite orders each wait on the other.
+
+**Fix.** `PostgresMemoryGraphStore` writes every batch in one order whatever the caller listed: touches by node id, edges by
+`from_id, to_id, kind`, a symmetric edge expanded to its two directions first. A write-back takes its node rows before its
+edge rows, as before. The sort is stable, so a node or edge listed twice keeps its own touches in the order given and the
+rows written are the same; the only observable difference is which row a failing batch reaches first, and that batch commits
+nothing. No public type or default moves. The SQLite store is not affected (it serializes writers).
+
+**Verify.** `PostgresStorageTests.Concurrent_write_backs_listing_the_same_nodes_in_opposite_orders_do_not_deadlock` and
+`Concurrent_edge_batches_listing_the_same_edges_in_opposite_orders_do_not_deadlock` (up to 25 rounds of the two racing) fail on
+the unordered store at round 1 and pass with the fix; `A_batch_listing_a_node_or_an_edge_twice_writes_the_same_rows_as_before`
+passes on both. All 115 `PostgresStorageTests` pass, the shared graph-store contract and the two partial-batch tests included.
+
+**Introduced by.** `8586cd8a` (2026-10-28), which put each batch in a transaction.
 
 ## 2026-10-28 — the Postgres graph store committed every edge and every touch on its own: a batch failing partway kept the statements that had run
 
