@@ -57,7 +57,11 @@ every addition.
   partway leaves none of them where it used to leave the statements that had run, and a linked write is about three
   times faster (about 54 to 18 ms at the median over several thousand entries; a write-back about 137 to 33 ms).
   `LinkManyAsync`, `LinkAsync`, `TouchAsync` and a write-back's touches and edges are one transaction each, with the
-  review log outside it and last, as before.
+  review log outside it and last, as before. Concurrent batches write their rows in one order (touches by node id,
+  edges by `from_id, to_id, kind`), so two batches over the same rows listed in opposite orders do not deadlock.
+- **The SQLite graph store's `TouchAsync` applies a batch whole or not at all.** It committed each touched row on
+  its own, so a batch that failed partway kept the touches that had run; it is now one transaction, as the store's
+  other batch writes are.
 - **A `TimeProvider` the application registers now drives a bridged provider's stream inactivity window.** A host
   that registers one (a fake clock in a test, say) sees `BridgeProvider` arm its inactivity window on it, as
   `AgentAccountPool` and the retry decorator already wait on it; with none registered the window runs on the
