@@ -66,7 +66,7 @@ store had been fixed, because the Docker daemon was down for that work and the P
 and writes the review log outside it and last, as `IMemoryGraphStore.WriteBackAsync` requires. The statements and the public
 surface do not move. A linked write fell to about 18 ms and a write-back to about 33 ms (`docs/memory-measurements.md` §5,
 `corpus-pg-graph-commit-before-after`). The transactions hold row locks to commit, which autocommit did not: the ordering
-that avoids a deadlock between two write-backs is an open row, `TASKS.md` Part 381.
+that avoids a deadlock between two write-backs followed as `docs/task-archive.md` Part 400.
 
 **Verify.** `PostgresStorageTests.A_batch_of_edges_that_fails_partway_commits_none_of_them` (an edge whose kind holds U+0000,
 which the server refuses, after a good edge) and `A_write_back_whose_edge_fails_leaves_its_touches_unapplied` fail on the

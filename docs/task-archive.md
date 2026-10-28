@@ -6080,7 +6080,7 @@ old store (`A_batch_of_edges_that_fails_partway_commits_none_of_them`,
 fell about 54 to 18 ms and a write-back about 137 to 33 ms, medians over several thousand entries on a wide machine spread
 (`corpus-pg-graph-commit-before-after`, `PostgresGraphWriteSweep`). Cause, fix and verification are `docs/FIXES.md`
 2026-10-28. The SQLite store's standalone `TouchAsync` is still not one transaction, and the Postgres locks now last to
-commit: both are startable rows under `TASKS.md` Part 381. Lane storage.
+commit: both closed afterwards, as `docs/task-archive.md` Parts 399 and 400. Lane storage.
 
 - Postgres graph store: one transaction for a batch of edges and touches
 
@@ -6093,3 +6093,26 @@ survivors on Postgres as `MemoryEviction.Survivors`, and needs no per-dialect co
 `CountCap(int.MaxValue)` timing in Part 394 was measured on SQLite and is not claimed for Postgres. Lane storage.
 
 - The count cap's shared statement, run on Postgres
+
+## Part 399 — The SQLite graph store's standalone `TouchAsync` as one transaction (2026-10-28)
+
+✅ done 2026-10-28 — **Outcome:** `246c684e` (merged `9231b278`). The public `SqliteMemoryGraphStore.TouchAsync` opens one
+transaction, runs the batch in it and commits once, as `LinkManyAsync`, `LinkAsync` and `WriteBackAsync` already did; the
+statement, the private overload and the public surface do not move.
+`SqliteMemoryGraphStoreTests.A_batch_of_touches_that_fails_partway_applies_none_of_them` failed on the old store and passes;
+`MemoryGraphStoreContract` runs unchanged. Cause, fix and verification are `docs/FIXES.md` 2026-10-28 (the SQLite
+`TouchAsync` entry). Lane storage.
+
+- The SQLite graph store's standalone `TouchAsync` as one transaction
+
+## Part 400 — Concurrent write-backs and batches on Postgres do not deadlock (2026-10-28)
+
+✅ done 2026-10-28 — **Outcome:** `8dd1054f` (on master as `b2a029a0`, merged `d6e35c22`). The row said "a reading from review";
+it reproduced: two write-backs, and two `LinkManyAsync` batches, over the same 40 nodes in opposite orders deadlocked
+(`40P01`) at round 1 on the old store. `PostgresMemoryGraphStore` now writes touches by node id and edges by
+`from_id, to_id, kind` (a symmetric edge expanded before the sort, the sort stable), so the rows written do not change; two
+concurrent tests fail on the unordered store and pass, and a third pins the rows. The deadlock came in with `8586cd8a`
+(Part 397), which is not yet released. Cause, fix and verification are `docs/FIXES.md` 2026-10-28 (the concurrent
+write-backs entry). Lane storage.
+
+- Concurrent write-backs and batches on Postgres do not deadlock
