@@ -232,6 +232,8 @@ public sealed class FalProvider(
             return QueuedOperation.Failure(
                 "no model: name one on the request, the candidate (\"fal:model-id\") or FalOptions.Model");
 
+        if (ParameterRefusal.For(Capabilities, request, loraTags: false, checkpointFile: false) is { } unhonoured)
+            return QueuedOperation.Failure(unhonoured, ProviderVerdict.Unsupported);
         if (InputRefusal(request) is { } refusal)
             return QueuedOperation.Failure(refusal, ProviderVerdict.Unsupported);
         if (JsonFieldRefusal(request) is { } notJson)

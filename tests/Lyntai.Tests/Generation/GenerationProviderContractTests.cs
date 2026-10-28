@@ -23,12 +23,63 @@ public abstract class GenerationProviderContractFacts
     /// <summary>A request this backend would accept — the shape its own suite uses.</summary>
     protected abstract MediaRequest Ask();
 
+    /// <summary>Drive <paramref name="ask"/> through the door this backend serves — the inline one by default —
+    /// and report the verdict and detail it answered.</summary>
+    protected virtual async Task<(ProviderVerdict? Verdict, string? Detail)> SendAsync(
+        IModelProvider provider, MediaRequest ask)
+    {
+        var result = await provider.GenerateAsync(ask);
+        return (result.Verdict, result.Detail);
+    }
+
+    /// <summary>Everything the last <see cref="New"/> backend put on the wire or into a spawn. The default reads
+    /// the HTTP stub; a subprocess backend reads its runner's calls.</summary>
+    protected virtual IReadOnlyCollection<string> Sent(StubHttpHandler http) =>
+        [.. http.Requests.Select(r => $"{r.Uri} {r.Body}")];
+
     protected IModelProvider Healthy() => New(new StubHttpHandler());
 
     [Fact] public void Identity() => GenerationProviderContract.It_declares_a_usable_identity(Healthy());
 
     [Fact] public void Deliveries_are_backed() =>
         GenerationProviderContract.Its_declared_deliveries_are_backed_by_the_interfaces_it_implements(Healthy());
+
+    /// <summary><b>A parameter a request names is honoured or refused, for every name in
+    /// <see cref="MediaParameters.All"/>.</b> Each is handed alone, so a backend declaring some and not others
+    /// is held to its own declaration. The response is junk: what is under test is what was SENT.</summary>
+    [Fact]
+    public async Task A_handed_parameter_is_honoured_or_refused()
+    {
+        var probes = GenerationProviderContract.ParameterProbes(Ask());
+        Assert.Equal(MediaParameters.All, probes.Select(p => p.Parameter));   // a new parameter needs a probe
+
+        foreach (var (parameter, request, marker) in probes)
+        {
+            var http = new StubHttpHandler();
+            http.Enqueue(HttpStatusCode.OK, """{"name":"stored.png"}""");
+            var provider = New(http);
+
+            var (verdict, _) = await SendAsync(provider, request);
+
+            GenerationProviderContract.A_handed_parameter_is_honoured_or_refused(
+                provider.Id, parameter,
+                provider.Capabilities.Parameters.Contains(parameter, StringComparer.OrdinalIgnoreCase),
+                verdict, Sent(http), marker);
+        }
+    }
+
+    /// <summary>The request naming no parameter is untouched: it is sent, never refused for naming one.</summary>
+    [Fact]
+    public async Task A_request_naming_no_parameter_is_not_refused_for_one()
+    {
+        var http = new StubHttpHandler();
+        http.Enqueue(HttpStatusCode.OK, """{"name":"stored.png"}""");
+        var provider = New(http);
+
+        var (_, detail) = await SendAsync(provider, Ask());
+
+        Assert.DoesNotContain("does not honour", detail ?? "");
+    }
 }
 
 /// <summary>The HTTP backends, which additionally have to consume the inputs they declare. Split from the
@@ -36,7 +87,8 @@ public abstract class GenerationProviderContractFacts
 public abstract class HttpGenerationProviderContractFacts : GenerationProviderContractFacts
 {
     /// <summary>Drive <paramref name="ask"/> through the door this backend serves.</summary>
-    protected abstract Task SendAsync(IModelProvider provider, MediaRequest ask);
+    protected abstract override Task<(ProviderVerdict? Verdict, string? Detail)> SendAsync(
+        IModelProvider provider, MediaRequest ask);
 
     /// <summary>A 401 on every request, which is what an authenticating proxy in front of a local backend
     /// looks like — the reachable case, not a hypothetical.</summary>
@@ -96,7 +148,12 @@ public abstract class HttpGenerationProviderContractFacts : GenerationProviderCo
 /// <summary>HTTP backends that answer on the INLINE door (<c>GenerateAsync</c>).</summary>
 public abstract class InlineHttpGenerationProviderContractFacts : HttpGenerationProviderContractFacts
 {
-    protected override Task SendAsync(IModelProvider provider, MediaRequest ask) => provider.GenerateAsync(ask);
+    protected override async Task<(ProviderVerdict? Verdict, string? Detail)> SendAsync(
+        IModelProvider provider, MediaRequest ask)
+    {
+        var result = await provider.GenerateAsync(ask);
+        return (result.Verdict, result.Detail);
+    }
 
     private static IModelProvider ServingInline(IModelProvider provider)
     {
@@ -143,7 +200,12 @@ public abstract class JobHttpGenerationProviderContractFacts : HttpGenerationPro
     /// the verdict classification.</summary>
     protected virtual string OperationId => "some-operation-id";
 
-    protected override Task SendAsync(IModelProvider provider, MediaRequest ask) => Jobs(provider).SubmitAsync(ask);
+    protected override async Task<(ProviderVerdict? Verdict, string? Detail)> SendAsync(
+        IModelProvider provider, MediaRequest ask)
+    {
+        var operation = await Jobs(provider).SubmitAsync(ask);
+        return (operation.Verdict, operation.Detail);
+    }
 
     private static IMediaJobProvider Jobs(IModelProvider provider)
     {
@@ -228,8 +290,10 @@ public class ComfyUiProviderContractTests : JobHttpGenerationProviderContractFac
 {
     // nodes 10 and 11 load the first frame and the init image, so the input facts see both CONSUMED
     // (uploaded) rather than refused
+    // node 20 carries a field for every media parameter, so a handed one is honoured (written into the graph)
+    // rather than refused for want of a path
     private const string Workflow =
-        """{"3":{"class_type":"KSampler","inputs":{"seed":0}},"6":{"class_type":"CLIPTextEncode","inputs":{"text":"placeholder"}},"10":{"class_type":"LoadImage","inputs":{"image":"none"}},"11":{"class_type":"LoadImage","inputs":{"image":"none"}}}""";
+        """{"3":{"class_type":"KSampler","inputs":{"seed":0}},"6":{"class_type":"CLIPTextEncode","inputs":{"text":"placeholder"}},"10":{"class_type":"LoadImage","inputs":{"image":"none"}},"11":{"class_type":"LoadImage","inputs":{"image":"none"}},"20":{"class_type":"Sampling","inputs":{"negative":"","seed":0,"steps":0,"cfg":0,"sampler":"","scheduler":"","ckpt":"","lora":"","lora_strength":0}}}""";
 
     protected override IModelProvider New(StubHttpHandler http) =>
         new ComfyUiProvider(
@@ -246,6 +310,15 @@ public class ComfyUiProviderContractTests : JobHttpGenerationProviderContractFac
             ["prompt-path"] = "6.inputs.text",
             ["input-path:first-frame"] = "10.inputs.image",
             ["input-path:init"] = "11.inputs.image",
+            ["negative-prompt-path"] = "20.inputs.negative",
+            ["seed-path"] = "20.inputs.seed",
+            ["steps-path"] = "20.inputs.steps",
+            ["cfg-scale-path"] = "20.inputs.cfg",
+            ["sampler-path"] = "20.inputs.sampler",
+            ["scheduler-path"] = "20.inputs.scheduler",
+            ["checkpoint-path"] = "20.inputs.ckpt",
+            ["lora-path:1"] = "20.inputs.lora",
+            ["lora-weight-path:1"] = "20.inputs.lora_strength",
         },
     };
 }
@@ -273,6 +346,8 @@ public class LocalDiffusionProviderContractTests : GenerationProviderContractFac
 
     public void Dispose() => _scratch.Dispose();
 
+    private FakeProcessRunner _runner = new();
+
     protected override IModelProvider New(StubHttpHandler http) =>
         new LocalDiffusionProvider(
             new LocalDiffusionOptions
@@ -280,7 +355,10 @@ public class LocalDiffusionProviderContractTests : GenerationProviderContractFac
                 BinaryPath = _scratch.File("sd-cli.exe"), ModelPath = _scratch.File("sd15.gguf"),
                 WorkDirectory = _scratch.Path,
             },
-            new FakeProcessRunner());
+            _runner = new FakeProcessRunner());
+
+    protected override IReadOnlyCollection<string> Sent(StubHttpHandler http) =>
+        [.. _runner.Calls.Select(c => $"{c.Command} {string.Join(' ', c.Args)} {c.Stdin}")];
 
     protected override MediaRequest Ask() =>
         new() { Kind = ProviderKinds.Image, Prompt = "a red square" };
@@ -295,11 +373,127 @@ public class PiperProviderContractTests : GenerationProviderContractFacts, IDisp
 
     public void Dispose() => _scratch.Dispose();
 
+    private FakeProcessRunner _runner = new();
+
     protected override IModelProvider New(StubHttpHandler http) =>
         new PiperProvider(
             new PiperOptions { BinaryPath = _scratch.File("piper.exe"), ModelPath = _scratch.File("voice.onnx") },
-            new FakeProcessRunner());
+            _runner = new FakeProcessRunner());
+
+    protected override IReadOnlyCollection<string> Sent(StubHttpHandler http) =>
+        [.. _runner.Calls.Select(c => $"{c.Command} {string.Join(' ', c.Args)} {c.Stdin}")];
 
     protected override MediaRequest Ask() =>
         new() { Kind = ProviderKinds.Audio, Prompt = "read this aloud" };
+}
+
+/// <summary>The parameter fact has teeth: it fails on each way a backend can neither honour nor refuse.</summary>
+public class ParameterContractFactTests
+{
+    private static readonly string[] Nothing = [];
+    private static readonly string[] SentWithout = ["POST http://x/ {\"prompt\":\"a\"}"];
+    private static readonly string[] SentWith = ["POST http://x/ {\"seed\":7261934}"];
+
+    private static void Check(bool declared, ProviderVerdict? verdict, string[] sent) =>
+        GenerationProviderContract.A_handed_parameter_is_honoured_or_refused("b", "seed", declared, verdict, sent, "7261934");
+
+    [Fact]
+    public void A_refusal_before_any_call_and_an_honoured_parameter_pass()
+    {
+        Check(declared: false, ProviderVerdict.Unsupported, Nothing);
+        Check(declared: true, ProviderVerdict.Failed, SentWith);
+    }
+
+    [Fact]
+    public void A_parameter_sent_without_a_trace_fails_whether_or_not_it_is_declared()
+    {
+        Assert.ThrowsAny<Xunit.Sdk.XunitException>(() => Check(declared: false, ProviderVerdict.Ok, SentWithout));
+        Assert.ThrowsAny<Xunit.Sdk.XunitException>(() => Check(declared: true, ProviderVerdict.Ok, SentWithout));
+    }
+
+    [Fact]
+    public void A_declared_parameter_that_sent_nothing_fails()
+    {
+        Assert.ThrowsAny<Xunit.Sdk.XunitException>(() => Check(declared: true, ProviderVerdict.Unsupported, Nothing));
+    }
+
+    [Fact]
+    public void A_silent_refusal_that_is_not_Unsupported_fails()
+    {
+        Assert.ThrowsAny<Xunit.Sdk.XunitException>(() => Check(declared: false, ProviderVerdict.Failed, Nothing));
+    }
+}
+
+/// <summary>The three backends that declare no parameter refuse a request naming one through the shared check, in
+/// its words, and a request naming none reaches the wire or the spawn as before.</summary>
+public class HostedBackendParameterRefusalTests : IDisposable
+{
+    private readonly ScratchDir _scratch = new("refusal");
+
+    public void Dispose() => _scratch.Dispose();
+
+    private static MediaRequest Naming(MediaRequest ask) =>
+        ask with { Checkpoint = "juggernaut.safetensors", Seed = 7, Steps = 4 };
+
+    [Fact]
+    public async Task OpenAI_images_refuses_in_the_shared_words_and_sends_nothing()
+    {
+        var http = new StubHttpHandler();
+        var provider = new OpenAiImageProvider(new OpenAiImageOptions { ApiKey = "k" },
+            () => new HttpClient(http, disposeHandler: false));
+        var ask = Naming(new MediaRequest { Kind = ProviderKinds.Image, Prompt = "a red square" });
+
+        var result = await provider.GenerateAsync(ask);
+
+        Assert.Equal(ProviderVerdict.Unsupported, result.Verdict);
+        Assert.Equal(ParameterRefusal.For(provider.Capabilities, ask, loraTags: false, checkpointFile: false), result.Detail);
+        Assert.Contains("checkpoint, seed, steps", result.Detail);
+        Assert.Empty(http.Requests);
+    }
+
+    [Fact]
+    public async Task Fal_refuses_in_the_shared_words_and_sends_nothing()
+    {
+        var http = new StubHttpHandler();
+        var provider = new FalProvider(new FalOptions { ApiKey = "k", Model = "fal-ai/flux/schnell" },
+            () => new HttpClient(http, disposeHandler: false));
+        var ask = Naming(new MediaRequest { Kind = ProviderKinds.Image, Prompt = "a red square" });
+
+        var submitted = await provider.SubmitAsync(ask);
+
+        Assert.Equal(ProviderVerdict.Unsupported, submitted.Verdict);
+        Assert.Equal(ParameterRefusal.For(provider.Capabilities, ask, loraTags: false, checkpointFile: false), submitted.Detail);
+        Assert.Empty(http.Requests);
+    }
+
+    [Fact]
+    public async Task Piper_refuses_in_the_shared_words_inline_and_streamed_and_spawns_nothing()
+    {
+        var runner = new FakeProcessRunner();
+        var provider = new PiperProvider(
+            new PiperOptions { BinaryPath = _scratch.File("piper.exe"), ModelPath = _scratch.File("voice.onnx") }, runner);
+        var ask = Naming(new MediaRequest { Kind = ProviderKinds.Audio, Prompt = "read this aloud" });
+
+        var inline = await provider.GenerateAsync(ask);
+        var chunks = await provider.StreamAsync(ask).ToListAsync();
+
+        Assert.Equal(ProviderVerdict.Unsupported, inline.Verdict);
+        Assert.Equal(ParameterRefusal.For(provider.Capabilities, ask, loraTags: false, checkpointFile: false), inline.Detail);
+        Assert.Equal(ProviderVerdict.Unsupported, Assert.Single(chunks).Error);
+        Assert.Empty(runner.Calls);
+    }
+
+    [Fact]
+    public async Task A_request_naming_no_parameter_is_untouched_by_the_check()
+    {
+        var http = new StubHttpHandler();
+        http.Enqueue(HttpStatusCode.OK, """{"data":[{"b64_json":"AAAA"}]}""");
+        var provider = new OpenAiImageProvider(new OpenAiImageOptions { ApiKey = "k" },
+            () => new HttpClient(http, disposeHandler: false));
+
+        var result = await provider.GenerateAsync(new MediaRequest { Kind = ProviderKinds.Image, Prompt = "a red square" });
+
+        Assert.Equal(ProviderVerdict.Ok, result.Verdict);
+        Assert.Single(http.Requests);
+    }
 }

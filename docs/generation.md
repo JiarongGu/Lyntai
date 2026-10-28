@@ -232,7 +232,11 @@ names files in them: `Checkpoint = "sd15.safetensors"`, `Loras = [new MediaLora(
 A backend states which it honours in `ProviderCapabilities.Parameters`; empty honours none. **A request naming one a backend
 does not declare is skipped by the router and, called directly, refused by the backend as `Unsupported` before anything is
 sent or spawned** — the way an agent door refuses an option whose ability it states unsupported — because a backend that took
-the call and ignored a checkpoint would return a plausible, wrong image. The local backends also refuse a value no engine can
+the call and ignored a checkpoint would return a plausible, wrong image. That holds for the hosted and speech backends too:
+`OpenAiImageProvider`, `FalProvider` and `PiperProvider` declare none and refuse one through the same check and in the same
+words, a request naming none reaching the wire as before (`GenerationProviderContract`'s parameter fact runs over every
+shipped backend). A hosted API may well take a seed or a step count on its own wire, but declaring one is a separate step,
+its mapping measured or made an option. The local backends also refuse a value no engine can
 read (a non-positive step count, a non-finite weight, a name carrying a folder or a tag character).
 
 | | checkpoint | LoRAs | negative prompt, seed, steps, CFG, sampler, scheduler |
