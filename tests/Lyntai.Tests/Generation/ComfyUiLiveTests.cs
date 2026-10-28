@@ -335,6 +335,168 @@ public class ComfyUiLiveTests(ITestOutputHelper output)
         }
     }
 
+    // ---- the request's checkpoint, LoRAs and sampling parameters, placed by the host's template paths --------
+
+    private static string? Lora => Environment.GetEnvironmentVariable("LYNTAI_COMFYUI_LORA");
+
+    /// <summary>SD 1.5 with a LoRA loader and the LCM sampling patch, whose every field a request places by path. The
+    /// loader ships at strength 0, which ComfyUI treats as no LoRA, so a request that names none renders the plain model.</summary>
+    private static string LoraWorkflow(string checkpoint, string lora) => """
+        {
+          "3": {"class_type": "KSampler", "inputs": {"cfg": 7, "denoise": 1, "latent_image": ["5", 0],
+                "model": ["12", 0], "negative": ["7", 0], "positive": ["6", 0],
+                "sampler_name": "euler", "scheduler": "normal", "seed": 0, "steps": 20}},
+          "4": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": "CKPT_NAME"}},
+          "5": {"class_type": "EmptyLatentImage", "inputs": {"batch_size": 1, "height": 512, "width": 512}},
+          "6": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["10", 1], "text": "PLACEHOLDER"}},
+          "7": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["10", 1], "text": ""}},
+          "8": {"class_type": "VAEDecode", "inputs": {"samples": ["3", 0], "vae": ["4", 2]}},
+          "9": {"class_type": "SaveImage", "inputs": {"filename_prefix": "lyntai-live-lora", "images": ["8", 0]}},
+          "10": {"class_type": "LoraLoader", "inputs": {"model": ["4", 0], "clip": ["4", 1], "lora_name": "LORA_NAME",
+                 "strength_model": 0, "strength_clip": 0}},
+          "12": {"class_type": "ModelSamplingDiscrete", "inputs": {"model": ["10", 0], "sampling": "lcm", "zsnr": false}}
+        }
+        """.Replace("CKPT_NAME", checkpoint).Replace("LORA_NAME", lora);
+
+    /// <summary>The paths the SD 1.5 templates here place a request's fields at; <see cref="ZImagePaths"/> is the other family's.</summary>
+    private static Dictionary<string, string> Sd15Paths(string workflow) => new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["workflow"] = workflow,
+        ["prompt-path"] = "6.inputs.text",
+        ["negative-prompt-path"] = "7.inputs.text",
+        ["seed-path"] = "3.inputs.seed",
+        ["steps-path"] = "3.inputs.steps",
+        ["cfg-scale-path"] = "3.inputs.cfg",
+        ["sampler-path"] = "3.inputs.sampler_name",
+        ["scheduler-path"] = "3.inputs.scheduler",
+        ["checkpoint-path"] = "4.inputs.ckpt_name",
+        ["width-path"] = "5.inputs.width",
+        ["height-path"] = "5.inputs.height",
+        ["lora-path:1"] = "10.inputs.lora_name",
+        ["lora-weight-path:1"] = "10.inputs.strength_model,10.inputs.strength_clip",
+    };
+
+    private static Dictionary<string, string> ZImagePaths(string workflow) => new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["workflow"] = workflow,
+        ["prompt-path"] = "6.inputs.text",
+        ["seed-path"] = "3.inputs.seed",
+        ["steps-path"] = "3.inputs.steps",
+        ["cfg-scale-path"] = "3.inputs.cfg",
+        ["sampler-path"] = "3.inputs.sampler_name",
+        ["scheduler-path"] = "3.inputs.scheduler",
+        ["checkpoint-path"] = "37.inputs.unet_name",   // the diffusion model's file, where SD 1.5 has a checkpoint loader
+        ["width-path"] = "55.inputs.width",
+        ["height-path"] = "55.inputs.height",
+    };
+
+    /// <summary>Submits, polls and fetches one render, and answers its PNG and how long the whole call took.</summary>
+    private static async Task<(byte[] Png, double Seconds)> Render(ComfyUiProvider provider, MediaRequest request)
+    {
+        var clock = Stopwatch.StartNew();
+        var submitted = await provider.SubmitAsync(request);
+        Assert.True(submitted.Status == QueuedOperationStatus.Queued, submitted.Detail);
+
+        var deadline = DateTime.UtcNow + TimeSpan.FromMinutes(15);   // a cold run loads the weights
+        QueuedOperation polled;
+        do
+        {
+            await Task.Delay(TimeSpan.FromMilliseconds(500));
+            polled = await provider.PollAsync(submitted.Id);
+            Assert.True(polled.Status != QueuedOperationStatus.Failed, polled.Detail);
+        }
+        while (polled.Status != QueuedOperationStatus.Succeeded && DateTime.UtcNow < deadline);
+        Assert.True(polled.Status == QueuedOperationStatus.Succeeded, $"not finished: {polled.Status} {polled.Detail}");
+        var seconds = clock.Elapsed.TotalSeconds;
+
+        var fetched = await provider.FetchAsync(submitted.Id);
+        Assert.True(fetched.IsOk, fetched.Detail);
+        using var http = new HttpClient();
+        return (await http.GetByteArrayAsync(Assert.Single(fetched.Artifacts).Uri), seconds);
+    }
+
+    /// <summary>Two checkpoints in consecutive requests: SD 1.5, then Z-Image-Turbo, then SD 1.5 again. The request
+    /// names the file; the host's template for each family says which loader's field it goes in, which is the only
+    /// thing that differs between the two (<c>checkpoint-path</c> is <c>4.inputs.ckpt_name</c> for one and
+    /// <c>37.inputs.unet_name</c> for the other). Seed, steps, CFG, sampler, scheduler and size are the request's, too.
+    /// Skipped without <c>LYNTAI_COMFYUI_URL</c>, <c>LYNTAI_COMFYUI_CHECKPOINT</c>, <c>LYNTAI_COMFYUI_ZIMAGE_MODEL</c> and
+    /// <c>LYNTAI_COMFYUI_LORA</c>.</summary>
+    [SkippableFact]
+    public async Task A_request_switches_between_SD15_and_Z_Image_Turbo_by_checkpoint_name()
+    {
+        // the SD 1.5 template names a LoRA loader the render does not need, so it needs a file that exists (at strength 0)
+        Skip.If(string.IsNullOrWhiteSpace(BaseUrl) || string.IsNullOrWhiteSpace(Checkpoint) ||
+                string.IsNullOrWhiteSpace(ZImageModel) || string.IsNullOrWhiteSpace(Lora),
+            "set LYNTAI_COMFYUI_URL, LYNTAI_COMFYUI_CHECKPOINT (SD 1.5), LYNTAI_COMFYUI_ZIMAGE_MODEL (Z-Image-Turbo) and LYNTAI_COMFYUI_LORA");
+        var provider = new ComfyUiProvider(new ComfyUiOptions { BaseUrl = BaseUrl! }, () => new HttpClient());
+        var sizeHint = new Dictionary<string, string> { ["size"] = "512x512" };
+
+        MediaRequest Sd15() => new()
+        {
+            Kind = ProviderKinds.Image,
+            Prompt = "a ceramic teapot on a wooden table by a window, soft morning light",
+            Checkpoint = Checkpoint,
+            Seed = 21, Steps = 12, CfgScale = 6, Sampler = "euler", Scheduler = "normal",
+            Options = Sd15Paths(LoraWorkflow(Checkpoint!, Lora!)).Concat(sizeHint)
+                .ToDictionary(p => p.Key, p => p.Value, StringComparer.OrdinalIgnoreCase),
+        };
+        MediaRequest ZImage() => new()
+        {
+            Kind = ProviderKinds.Image,
+            Prompt = "a ceramic teapot on a wooden table by a window, soft morning light",
+            Checkpoint = ZImageModel,
+            Seed = 21, Steps = 8, CfgScale = 1, Sampler = "res_multistep", Scheduler = "simple",
+            Options = ZImagePaths(ZImageWorkflow(ZImageModel!, 0)).Concat(sizeHint)
+                .ToDictionary(p => p.Key, p => p.Value, StringComparer.OrdinalIgnoreCase),
+        };
+        var renders = new List<byte[]>();
+        foreach (var (label, make) in new (string, Func<MediaRequest>)[] { ("SD 1.5", Sd15), ("Z-Image-Turbo", ZImage), ("SD 1.5 again", Sd15) })
+        {
+            var request = make();
+            var (png, seconds) = await Render(provider, request);
+            Assert.Equal((512, 512), LivePng.Dimensions(png));
+            output.WriteLine($"{label} ({request.Checkpoint}): 512x512, {request.Steps} steps, CFG {request.CfgScale}, " +
+                             $"{request.Sampler}/{request.Scheduler}, seed {request.Seed}: {seconds:F1} s");
+            LivePng.Keep($"comfyui-{renders.Count + 1}-{label.Replace(' ', '-').ToLowerInvariant()}.png", png);
+            renders.Add(png);
+        }
+
+        Assert.NotEqual(renders[0], renders[1]);   // another model, another picture
+        Assert.Equal(renders[0], renders[2]);      // and SD 1.5 again, from the same request, is the same picture
+    }
+
+    /// <summary>The LCM LoRA through the template's loader paths: four steps at CFG 1 and the same seed, once with the
+    /// request naming no LoRA (the template's loader at strength 0) and once naming it at 1. Skipped without
+    /// <c>LYNTAI_COMFYUI_URL</c>, <c>LYNTAI_COMFYUI_CHECKPOINT</c> and <c>LYNTAI_COMFYUI_LORA</c>.</summary>
+    [SkippableFact]
+    public async Task The_LCM_LoRA_through_the_template_paths_turns_four_steps_at_CFG_one_into_a_picture()
+    {
+        Skip.If(string.IsNullOrWhiteSpace(BaseUrl) || string.IsNullOrWhiteSpace(Checkpoint) || string.IsNullOrWhiteSpace(Lora),
+            "set LYNTAI_COMFYUI_URL, LYNTAI_COMFYUI_CHECKPOINT (SD 1.5) and LYNTAI_COMFYUI_LORA (lcm-lora-sdv1-5.safetensors)");
+        var provider = new ComfyUiProvider(new ComfyUiOptions { BaseUrl = BaseUrl! }, () => new HttpClient());
+        var request = new MediaRequest
+        {
+            Kind = ProviderKinds.Image,
+            Prompt = "a red apple on a wooden table",
+            Checkpoint = Checkpoint,
+            Seed = 7, Steps = 4, CfgScale = 1, Sampler = "lcm", Scheduler = "sgm_uniform",
+            Options = Sd15Paths(LoraWorkflow(Checkpoint!, Lora!)),
+        };
+
+        await Render(provider, request with { Seed = 99 });   // loads the checkpoint, so neither timing below carries it
+        var (without, withoutSeconds) = await Render(provider, request);
+        var (with, withSeconds) = await Render(provider, request with { Loras = [new MediaLora(Lora!, 1.0)] });
+
+        var (detailWithout, detailWith) = (LivePng.Detail(without), LivePng.Detail(with));
+        output.WriteLine($"512x512, 4 steps, CFG 1, seed 7, lcm/sgm_uniform: without the LoRA {withoutSeconds:F1} s " +
+                         $"(detail {detailWithout:F2}); with {Lora} at 1.0 {withSeconds:F1} s (detail {detailWith:F2})");
+        LivePng.Keep("comfyui-4steps-without-lora.png", without);
+        LivePng.Keep("comfyui-4steps-with-lora.png", with);
+
+        Assert.True(detailWith > 1.5 * detailWithout,
+            $"the LoRA should turn a four-step smear into a picture; detail {detailWithout:F2} -> {detailWith:F2}");
+    }
+
     /// <summary>The movie header's duration over its timescale — <c>mvhd</c> version 0 or 1.</summary>
     private static double Mp4Seconds(byte[] mp4)
     {

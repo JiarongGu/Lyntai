@@ -125,6 +125,19 @@ public sealed record ProviderCapabilities
     /// A <c>TextRequest.RequireNativeSupport</c> call skips a backend that declares false.</summary>
     public bool SupportsStructuredOutput { get; init; }
 
+    /// <summary>The <see cref="MediaParameters"/> a media backend honours — what a <see cref="MediaRequest"/> may
+    /// name beyond its prompt. Empty honours none, and a request naming one is skipped by the router and refused by
+    /// the backend before any call: a backend that took the call and ignored a checkpoint would return a plausible,
+    /// wrong image. May be derived from the backend's configuration, since which a local engine honours depends on
+    /// the folders and routes its host set up.</summary>
+    public IReadOnlyList<string> Parameters { get; init; } = [];
+
+    /// <summary>The parameters <paramref name="request"/> names that this backend does not declare in
+    /// <see cref="Parameters"/>, in the order of <see cref="MediaParameters.All"/>; empty when the backend can be
+    /// handed the request.</summary>
+    public IReadOnlyList<string> Unhonourable(MediaRequest request) =>
+        [.. MediaParameters.Needed(request).Where(p => !Parameters.Contains(p, StringComparer.OrdinalIgnoreCase))];
+
     /// <summary>Free-form declared limits — context window, maximum dimension, rate. Advisory: nothing here
     /// enforces them, they are for a caller or an agent tool deciding what to ask for.</summary>
     public IReadOnlyDictionary<string, string> Limits { get; init; } =

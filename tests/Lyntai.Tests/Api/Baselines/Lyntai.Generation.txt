@@ -5,7 +5,9 @@ sealed class Lyntai.Generation.Providers.Automatic1111Options
     DefaultHeight : Int32 { get; set; }
     DefaultWidth : Int32 { get; set; }
     DenoisingStrength : Double { get; set; }
+    HonouredParameters : IList<String> { get; set; }
     Id : String { get; set; }
+    LoraRequestField : String { get; set; }
     Steps : Int32 { get; set; }
     Timeout : TimeSpan { get; set; }
 sealed class Lyntai.Generation.Providers.Automatic1111Provider
@@ -88,11 +90,13 @@ sealed class Lyntai.Generation.Providers.LocalDiffusionOptions
     ArgvFlags : IDictionary<String,String> { get; set; }
     BinaryPath : String { get; set; }
     CfgScale : Double { get; set; }
+    CheckpointDirectory : String { get; set; }
     DenoisingStrength : Double { get; set; }
     ExtraArgs : IList<String> { get; set; }
     Id : String { get; set; }
     Img2ImgMode : String { get; set; }
     InactivityTimeout : TimeSpan { get; set; }
+    LoraDirectory : String { get; set; }
     MaxDimension : Nullable<Int32> { get; set; }
     ModelPath : String { get; set; }
     Steps : Int32 { get; set; }

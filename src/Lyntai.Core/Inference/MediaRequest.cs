@@ -24,6 +24,34 @@ public sealed record MediaRequest
     /// aggregator serves hundreds). Null = the backend's own default.</summary>
     public string? Model { get; init; }
 
+    /// <summary>The checkpoint to render with, by file name in the model folder the SELECTED BACKEND is configured
+    /// with — never a path. Null = the backend's own default. Distinct from <see cref="Model"/>, which names an
+    /// endpoint at an aggregator.</summary>
+    public string? Checkpoint { get; init; }
+
+    /// <summary>LoRAs to apply, in order, each by name with a weight. Empty = none.</summary>
+    public IReadOnlyList<MediaLora> Loras { get; init; } = [];
+
+    /// <summary>What the render should avoid, where the backend takes one.</summary>
+    public string? NegativePrompt { get; init; }
+
+    /// <summary>The random seed; the same seed, model and parameters give the same image on one backend. Null = the
+    /// backend's own choice.</summary>
+    public long? Seed { get; init; }
+
+    /// <summary>Sampling steps. Null = the backend's configured default.</summary>
+    public int? Steps { get; init; }
+
+    /// <summary>Classifier-free guidance scale. Null = the backend's configured default.</summary>
+    public double? CfgScale { get; init; }
+
+    /// <summary>The sampler, spelled as the SELECTED BACKEND spells it (<c>euler</c>, <c>dpmpp_2m</c>,
+    /// <c>dpm++2m</c>): engines disagree on the names and nothing here translates them.</summary>
+    public string? Sampler { get; init; }
+
+    /// <summary>The sigma scheduler, spelled as the SELECTED BACKEND spells it (<c>karras</c>, <c>simple</c>).</summary>
+    public string? Scheduler { get; init; }
+
     /// <summary>Backend-documented knobs, passed through verbatim.</summary>
     public IReadOnlyDictionary<string, string> Options { get; init; } =
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);

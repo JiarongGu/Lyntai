@@ -1535,18 +1535,46 @@ static class Lyntai.Inference.MediaInputRoles
     Init : String const
     Reference : String const
     Voice : String const
+sealed class Lyntai.Inference.MediaLora
+    .ctor(String Name, Double Weight = 1)
+    Deconstruct(String& Name, Double& Weight) : Void
+    Equals(MediaLora other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Name : String { get; init; }
+    ToString() : String
+    Weight : Double { get; init; }
+static class Lyntai.Inference.MediaParameters
+    CfgScale : String const
+    Checkpoint : String const
+    Loras : String const
+    NegativePrompt : String const
+    Sampler : String const
+    Scheduler : String const
+    Seed : String const
+    Steps : String const
+    static All : IReadOnlyList<String> { get; }
+    static Needed(MediaRequest request) : IReadOnlyList<String>
 sealed class Lyntai.Inference.MediaRequest
     .ctor()
+    CfgScale : Nullable<Double> { get; init; }
+    Checkpoint : String { get; init; }
     Consumer : String { get; init; }
     Equals(MediaRequest other) : Boolean
     Equals(Object obj) : Boolean
     GetHashCode() : Int32
     Inputs : IReadOnlyList<MediaInput> { get; init; }
     Kind : String { get; init; } required
+    Loras : IReadOnlyList<MediaLora> { get; init; }
     Model : String { get; init; }
+    NegativePrompt : String { get; init; }
     Option(String name) : String
     Options : IReadOnlyDictionary<String,String> { get; init; }
     Prompt : String { get; init; }
+    Sampler : String { get; init; }
+    Scheduler : String { get; init; }
+    Seed : Nullable<Int64> { get; init; }
+    Steps : Nullable<Int32> { get; init; }
     TimeoutSeconds : Nullable<Int32> { get; init; }
     ToString() : String
 sealed class Lyntai.Inference.MediaResponse
@@ -1645,6 +1673,7 @@ sealed class Lyntai.Inference.ProviderCapabilities
     Limits : IReadOnlyDictionary<String,String> { get; init; }
     Models : IReadOnlyList<String> { get; init; }
     Operations : IReadOnlyList<ProviderOperation> { get; init; }
+    Parameters : IReadOnlyList<String> { get; init; }
     Produces : IReadOnlyList<String> { get; init; }
     Supports(String produces, ProviderOperation operation, String accepts = null, String model = null, Boolean hasInputs = false) : Boolean
     SupportsInputs : Boolean { get; init; }
@@ -1652,6 +1681,7 @@ sealed class Lyntai.Inference.ProviderCapabilities
     SupportsStructuredOutput : Boolean { get; init; }
     SupportsToolCalls : Boolean { get; init; }
     ToString() : String
+    Unhonourable(MediaRequest request) : IReadOnlyList<String>
 static class Lyntai.Inference.ProviderConsumers
     Agent : String const
     Chat : String const
