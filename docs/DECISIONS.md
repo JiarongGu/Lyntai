@@ -299,8 +299,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D227](#d227--the-account-pool-grants-a-seat-only-on-a-stated-fact-and-invents-none-2026-10-28) | 2026-10-28 | the account pool grants a seat only on a stated fact, and invents none |
 | [D228](#d228--a-brief-is-cut-whole-or-nothing-in-a-fixed-order-and-never-through-the-hosts-words-2026-10-28) | 2026-10-28 | a brief is cut whole-or-nothing, in a fixed order, and never through the host's words |
 | [D229](#d229--the-sqlite-vector-store-keeps-writing-a-vectors-json-text-beside-its-binary-column-2026-10-28) | 2026-10-28 | the SQLite vector store keeps writing a vector's JSON text beside its binary column |
+| [D230](#d230--local-image-generation-is-proved-by-an-example-pipeline-a-host-runs-as-is-not-by-a-workflow-engine-or-per-backend-live-suites-2026-10-28) | 2026-10-28 | local image generation is proved by an example pipeline a host runs as-is, not by a workflow engi… |
 
-**224 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**225 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -6545,3 +6546,35 @@ reading a newer database would no longer score what it did.
 **Re-opens** at the next major, if the cost that remains is worth removing: the scan is still 339 ms against 29 ms in memory,
 and the blob sits after the text and the payload in the row, so a read walks past the text's overflow pages. Dropping the text
 would test it and has not been tried.
+
+## D230 — local image generation is proved by an example pipeline a host runs as-is, not by a workflow engine or per-backend live suites (2026-10-28)
+
+**Standing.** The owner's direction of 2026-10-28, recorded by the steward before the lane sessions that build it are
+dispatched; the owner's acceptance of the branch makes it binding. It adds no public type, and it reverses by a later
+decision here (`TASKS.md` Part 401 holds the rows).
+
+**Decided.**
+- **The proof is a sample.** Lyntai is a library, so its generation capability is shown through a pipeline under
+  `samples/` that a host can run unchanged, covering this kind of tool's standard workflow: a setup image (text to
+  image); variations of it (image to image from a chosen image over several seeds); and one image composed from several
+  reference images and words, each reference by its role (style, subject, pose or structure guide) with its own weight
+  and start and end. Optional steps: inpainting a masked region, and an upscale or high-resolution second pass.
+- **Every output carries a recipe**: the model files with their sha256, every parameter, the seed, the input hashes and
+  the template id. The sample replays a recipe and records whether the replay is bit-identical, and why not when it is not.
+- **The pipeline is not a library type.** It drives the shipped providers (`ComfyUiProvider` first) with tracked
+  workflow templates. Models stay host-configured and are downloaded by nobody but the host. What the library lacks for
+  it becomes its own row, with the sample's need as its evidence, and the steward decides it.
+- **Content.** Everything the library, its samples, tests and docs carry is safe for work and names no real artist,
+  studio, franchise or real person; no face-identity model is used on real photos. The local backends carry no content
+  filter, and the library neither adds nor removes one.
+
+**Why.** A host adopting the generation layer needs to see the whole workflow run, with its inputs, roles and
+replayability, and a single-image render per backend shows none of it. The sample's need is evidence for each library gap,
+where a gap guessed ahead of it would be a surface no host asked for (**D70**).
+
+**Rejected.** A workflow engine in the library: the providers already take a host's graph, and an engine would own what a
+template file says better. Proving generation only backend by backend, through live suites that each render one image:
+it shows each backend answers, not that the steps compose, and it leaves the library gaps unnamed.
+
+**Re-opens** when the sample shows a need no provider option or template can meet and a library type is the smaller
+answer, or when a host's own pipeline shows the template route cannot carry a step.
