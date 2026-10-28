@@ -11,18 +11,20 @@ namespace Lyntai.Tests.Storage;
 internal static class SchemaFacts
 {
     /// <summary>The SQLite set, in order: the nine 1.0 baselines, MemoryGraph, MemoryRetentionModel,
-    /// JobSlots, JobStageDetail, CuratedRevision, UsageReservation, MemoryValidTime.</summary>
+    /// JobSlots, JobStageDetail, CuratedRevision, UsageReservation, MemoryValidTime, VectorBlob.</summary>
     public static readonly long[] SqliteVersions =
     [
         202607280001, 202607280002, 202607280003, 202607280004, 202607280005, 202607280006, 202607280007,
         202607280008, 202607280009, 202608081215, 202608121100, 202608161159, 202609262244, 202610241721,
-        202610241822, 202610251239,
+        202610241822, 202610251239, 202610281422,
     ];
 
-    /// <summary>Postgres carries one more, MemoryHeadlineSearch: a trigram index on <c>headline</c> that
-    /// SQLite needs no counterpart for, because its FTS5 mirror already indexes that column. Migrations are
-    /// per-backend projects, so the sets are allowed to differ.</summary>
-    public static readonly long[] PostgresVersions = [.. SqliteVersions.Append(202608152310).Order()];
+    /// <summary>Postgres carries MemoryHeadlineSearch, a trigram index on <c>headline</c> that SQLite needs no
+    /// counterpart for because its FTS5 mirror already indexes that column, and lacks VectorBlob, which has no
+    /// counterpart there because <c>PostgresVectorStore</c> creates its own pgvector table outside the migrations.
+    /// Migrations are per-backend projects, so the sets are allowed to differ.</summary>
+    public static readonly long[] PostgresVersions =
+        [.. SqliteVersions.Where(v => v != 202610281422).Append(202608152310).Order()];
 
     public static bool SqliteTableExists(SqliteConnectionFactory factory, string table)
     {

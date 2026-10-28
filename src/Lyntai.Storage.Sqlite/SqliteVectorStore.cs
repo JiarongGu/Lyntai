@@ -11,7 +11,9 @@ namespace Lyntai.Storage.Sqlite;
 /// Core is lost on restart). Search is brute-force exact cosine: the collection's rows are loaded and
 /// ranked in-process (SQLite has no native vector ops), so it's persistent but not indexed — fine for up to
 /// some thousands of vectors per collection; for larger corpora use a dedicated vector backend (pgvector).
-/// Vectors are stored as a JSON float array. Register with <c>UseSqliteVectorStore()</c>.
+/// Each vector is stored as a binary float array (<c>vector_blob</c>) and, beside it, as a JSON float array
+/// (<c>vector</c>); a search reads the blob, and a row that has none is read from its JSON.
+/// Register with <c>UseSqliteVectorStore()</c>.
 /// </summary>
 public sealed class SqliteVectorStore(IDbConnectionFactory factory) : IListableVectorStore, IReadableVectorStore
 {
@@ -19,10 +21,11 @@ public sealed class SqliteVectorStore(IDbConnectionFactory factory) : IListableV
     {
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         await conn.ExecuteAsync(new CommandDefinition("""
-            INSERT INTO lyntai_vector (collection, vec_id, vector, payload)
-            VALUES (@collection, @id, @vector, @payload)
-            ON CONFLICT(collection, vec_id) DO UPDATE SET vector = @vector, payload = @payload
-            """, new { collection, id, vector = ReflectionJson.Serialize(vector), payload }, cancellationToken: ct)).ConfigureAwait(false);
+            INSERT INTO lyntai_vector (collection, vec_id, vector, vector_blob, payload)
+            VALUES (@collection, @id, @vector, @blob, @payload)
+            ON CONFLICT(collection, vec_id) DO UPDATE SET vector = @vector, vector_blob = @blob, payload = @payload
+            """, new { collection, id, vector = ReflectionJson.Serialize(vector), blob = VectorBlob.Encode(vector), payload },
+            cancellationToken: ct)).ConfigureAwait(false);
     }
 
     public Task<IReadOnlyList<VectorMatch>> SearchAsync(string collection, float[] query, int k, CancellationToken ct = default) =>
@@ -41,7 +44,8 @@ public sealed class SqliteVectorStore(IDbConnectionFactory factory) : IListableV
     /// <summary>A scan, and kept one: score every vector in the collection against the query, hold the best
     /// <paramref name="k"/>, and read the payload of those alone. Scoring streams each vector's JSON text
     /// straight into the dot product, so a search allocates no float array and no payload per row — at 11,000
-    /// vectors the per-row materialisation, not the arithmetic, was what a search cost.</summary>
+    /// vectors the per-row materialisation, not the arithmetic, was what a search cost. A row reads its blob, and
+    /// its JSON text only where the blob is NULL (written before the column, or text that is not a vector).</summary>
     private async Task<IReadOnlyList<VectorMatch>> SearchCoreAsync(string collection, float[] query, int k,
         VectorSearchFilter? filter, CancellationToken ct)
     {
@@ -49,7 +53,7 @@ public sealed class SqliteVectorStore(IDbConnectionFactory factory) : IListableV
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         // the fragments are compile-time constants; every value is a parameter
         await using var scan = conn.CreateCommand();
-        scan.CommandText = "SELECT vec_id, vector FROM lyntai_vector WHERE collection = @collection"
+        scan.CommandText = "SELECT vec_id, vector_blob, CASE WHEN vector_blob IS NULL THEN vector END FROM lyntai_vector WHERE collection = @collection"
             + (filter?.Ids is null ? "" : " AND vec_id IN (SELECT value FROM json_each(@ids))")
             + (filter?.ExcludeIds is null ? "" : " AND vec_id NOT IN (SELECT value FROM json_each(@exclude))");
         AddParameter(scan, "@collection", collection);
@@ -62,12 +66,15 @@ public sealed class SqliteVectorStore(IDbConnectionFactory factory) : IListableV
         // ORDER BY, so without it tied scores keep the query PLAN's order (VectorStoreContract).
         var best = new PriorityQueue<(string Id, double Score), (double Score, string Id)>(WorstFirst.Instance);
         var queryNorm = SquaredNorm(query);
+        var buffer = new byte[query.Length * VectorBlob.Width];
         await using (var reader = await scan.ExecuteReaderAsync(ct).ConfigureAwait(false))
         {
             while (await reader.ReadAsync(ct).ConfigureAwait(false))
             {
                 var id = reader.GetString(0);
-                var score = JsonCosine(query, queryNorm, reader.GetString(1));
+                var score = reader.IsDBNull(1)
+                    ? reader.IsDBNull(2) ? 0 : JsonCosine(query, queryNorm, reader.GetString(2))
+                    : BlobCosine(query, queryNorm, reader, buffer);
                 if (best.Count < k) best.Enqueue((id, score), (score, id));
                 else if (best.TryPeek(out _, out var worst) && WorstFirst.Instance.Compare((score, id), worst) > 0)
                     best.EnqueueDequeue((id, score), (score, id));
@@ -100,6 +107,26 @@ public sealed class SqliteVectorStore(IDbConnectionFactory factory) : IListableV
         double sum = 0;
         foreach (var v in vector) sum += (double)v * v;
         return sum;
+    }
+
+    /// <summary><see cref="VectorMath.Cosine(float[], float[])"/> against column 1's blob, summed in the same order
+    /// as <see cref="JsonCosine"/> so the two agree bit for bit. A blob of another dimension, a ragged one, or an
+    /// empty or zero vector scores 0. <paramref name="buffer"/> is one query-sized scratch, so a row whose blob is
+    /// larger is rejected on its length before a byte of it is copied.</summary>
+    private static double BlobCosine(float[] query, double queryNorm, DbDataReader reader, byte[] buffer)
+    {
+        if (query.Length == 0) return 0;
+        if (reader.GetBytes(1, 0, null, 0, 0) != buffer.Length) return 0;
+        reader.GetBytes(1, 0, buffer, 0, buffer.Length);
+        double dot = 0, norm = 0;
+        for (var n = 0; n < query.Length; n++)
+        {
+            var value = VectorBlob.Component(buffer, n);
+            dot += (double)query[n] * value;
+            norm += (double)value * value;
+        }
+
+        return queryNorm == 0 || norm == 0 ? 0 : dot / (Math.Sqrt(queryNorm) * Math.Sqrt(norm));
     }
 
     /// <summary><see cref="VectorMath.Cosine(float[], float[])"/> against a vector held as its JSON text, summed in
@@ -147,12 +174,13 @@ public sealed class SqliteVectorStore(IDbConnectionFactory factory) : IListableV
         if (ids.Count == 0) return [];
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         var rows = await conn.QueryAsync<Row>(new CommandDefinition("""
-            SELECT vec_id, vector, payload FROM lyntai_vector
+            SELECT vec_id AS VecId, vector AS Vector, vector_blob AS Blob, payload AS Payload FROM lyntai_vector
             WHERE collection = @collection AND vec_id IN (SELECT value FROM json_each(@ids))
             """, new { collection, ids = ReflectionJson.Serialize(ids.Distinct(StringComparer.Ordinal).ToArray()) },
             cancellationToken: ct)).ConfigureAwait(false);
         return [.. rows
-            .Select(r => new VectorEntry(r.VecId, ReflectionJson.Deserialize<float[]>(r.Vector) ?? [], r.Payload))
+            .Select(r => new VectorEntry(r.VecId, r.Blob is { Length: var n } && n % VectorBlob.Width == 0
+                ? VectorBlob.Decode(r.Blob) : ReflectionJson.Deserialize<float[]>(r.Vector) ?? [], r.Payload))
             .OrderBy(e => e.Id, StringComparer.Ordinal)];
     }
 
@@ -191,6 +219,7 @@ public sealed class SqliteVectorStore(IDbConnectionFactory factory) : IListableV
     {
         public string VecId { get; set; } = "";
         public string Vector { get; set; } = "";
+        public byte[]? Blob { get; set; }
         public string Payload { get; set; } = "";
     }
 }
