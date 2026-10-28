@@ -57,7 +57,8 @@ public sealed class Automatic1111Options
 /// host that needs a specific one switches it in the WebUI. Every local backend answers "what decides the
 /// model?" differently: ComfyUI's is the workflow, the local engine's its model path, this one's the server.
 /// </summary>
-/// <remarks>Wire shapes ported from a sibling app's production implementation. A server that isn't running
+/// <remarks>Run against stable-diffusion.cpp's <c>sd-server</c>, which implements this API — not against the
+/// WebUI itself, whose behaviour beyond those shapes is unmeasured. A server that isn't running
 /// reports <see cref="ProviderVerdict.Failed"/> — a down host, as for every other HTTP backend — so routing
 /// advances and, past the dead-host threshold, stops asking until the cooldown ends. No <c>BaseUrl</c> is
 /// <see cref="ProviderVerdict.NotConfigured"/>.</remarks>

@@ -6,8 +6,8 @@ using Lyntai.Tests.Fakes;
 namespace Lyntai.Tests.Generation;
 
 /// <summary>The Stable Diffusion WebUI (Automatic1111) backend — a LOCALLY-run server, so no key and no
-/// content policy in the path. Wire shapes ported from a sibling app's production implementation
-/// (<c>/sdapi/v1/txt2img</c>, <c>/sdapi/v1/img2img</c>, <c>{ images: [base64] }</c>).</summary>
+/// content policy in the path. The shapes (<c>/sdapi/v1/txt2img</c>, <c>/sdapi/v1/img2img</c>,
+/// <c>{ images: [base64] }</c>) are measured in <see cref="Automatic1111LiveTests"/>.</summary>
 public class Automatic1111ProviderTests
 {
     private const string OneByteBase64 = "iVBORw==";
