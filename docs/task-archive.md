@@ -6139,3 +6139,16 @@ then aborts loading the installed fp8-mixed Qwen3-4B text encoder; that half is 
 measurements and the engine's assert are `docs/generation.md` §2. Lane generation.
 
 - A newer local model on the GPU behind the live suites
+
+## Part 404 — A checkpoint and LoRAs per request (2026-10-28)
+
+✅ done 2026-10-28 — **Outcome:** `88b82ad8` and `0f35d6a6` (on master as `6ff28e74` and `449b4f69`, merged `82e7efeb`). A
+`MediaRequest` names a checkpoint, LoRAs with weights, a negative prompt, a seed, steps, CFG, a sampler and a scheduler;
+each backend declares which it honours in `ProviderCapabilities.Parameters`, the router skips one that does not, and the
+three local backends refuse the rest before any call (`D231`). Proved live on the GPU: checkpoint switching on sd-cli (SD 1.5
+and SDXL base) and ComfyUI (SD 1.5 and Z-Image-Turbo), `sd-server`'s refusal standing for the one it cannot do, and the LCM
+LoRA's few-step effect on all three; eight new named skips. The API baselines gained 34 lines and lost none. The mappings
+and the measurements are `docs/generation.md` §5, *Parameters*. **Left open:** the hosted backends and Piper declare nothing,
+so a direct call to one ignores a named checkpoint (`TASKS.md` Part 33). Lane generation.
+
+- A checkpoint and LoRAs per request
