@@ -6117,7 +6117,7 @@ write-backs entry). Lane storage.
 
 - Concurrent write-backs and batches on Postgres do not deadlock
 
-## Part 401 — The Automatic1111 and OpenAI-images backends measured against a local server (2026-10-28)
+## Part 402 — The Automatic1111 and OpenAI-images backends measured against a local server (2026-10-28)
 
 ✅ done 2026-10-28 — **Outcome:** `66413563` (merged `9aa5a87c`), the owner's request, not a backlog row. stable-diffusion.cpp's
 `sd-server` serves both APIs, and `Automatic1111LiveTests` (3, gated on `LYNTAI_A1111_URL`) and `OpenAiImageLiveTests` (3,
@@ -6127,3 +6127,15 @@ say what was measured and that the server is neither the WebUI nor OpenAI (`docs
 two coincide. The six tests are six named skips in the baseline. **D69** is amended for what this measured. Lane generation.
 
 - The Automatic1111 and OpenAI-images backends measured against a local server
+
+## Part 403 — A newer local model on the GPU behind the live suites (2026-10-28)
+
+✅ done 2026-10-28 — **Outcome:** `21de4e6a` (on master as `94079b87`, merged `ea0c1336`). Z-Image-Turbo (Apache-2.0) renders
+through the provider as it is, behind one new live test, `ComfyUiLiveTests.A_real_current_image_model_renders_through_the_provider_cold_then_warm`,
+gated on `LYNTAI_COMFYUI_ZIMAGE_MODEL` and a named new skip in the baseline; no provider option was needed (37 to 44 s cold,
+7 to 14 s warm at 512², 8 steps, about 9.1 GB of VRAM). **Not proved, and why:** `LocalDiffusionProvider` and the `sd-server`
+behind `Automatic1111Provider` stay on SD 1.5 — stable-diffusion.cpp `656a135` accepts the three files and recognises Z-Image,
+then aborts loading the installed fp8-mixed Qwen3-4B text encoder; that half is `TASKS.md` Part 401's blocked item. The
+measurements and the engine's assert are `docs/generation.md` §2. Lane generation.
+
+- A newer local model on the GPU behind the live suites
