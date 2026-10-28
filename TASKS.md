@@ -15,24 +15,23 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 11 across 4 Parts: 5 startable, 2 blocked, 4 watch
+## Open items — 10 across 4 Parts: 5 startable, 2 blocked, 3 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 112 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal account with a balance, or a Hugging Face token for the router route … |
-| 159 | 33 | fal's request path for a sub-path model | startable |  |
-| 168 | 33 | `MediaRequest.Options` values reach fal as strings | startable |  |
-| 178 | 33 | A hosted backend refuses a media parameter it does not declare | startable |  |
-| 204 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 230 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 286 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
-| 319 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
-| 335 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
-| 366 | 401 | The example image-workflow pipeline | startable |  |
-| 384 | 401 | The two stable-diffusion.cpp backends on Z-Image-Turbo | startable |  |
+| 111 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal account with a balance, or a Hugging Face token for the router route … |
+| 158 | 33 | fal's request path for a sub-path model | startable |  |
+| 167 | 33 | `MediaRequest.Options` values reach fal as strings | startable |  |
+| 177 | 33 | A hosted backend refuses a media parameter it does not declare | startable |  |
+| 203 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 229 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 285 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | startable |  |
+| 339 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
+| 355 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
+| 387 | 401 | The example image-workflow pipeline | startable |  |
 
 <!-- open-items:end -->
 
@@ -283,7 +282,7 @@ there is nothing here to code: what remains is evidence only recurrence can supp
   not confirm or refute the `ProcessRunner` fix this item watches. The name was not captured; capture it if
   it recurs, which is the only thing that would make it actionable.
 
-- [ ] **`SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another caller is still using.** <!-- item: state=watch kind=data needs="a recurrence with a full stack — the three hypotheses a reading can reach are refuted, so the next move needs the frame that raised it" -->
+- [ ] **`SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another caller is still using.** <!-- item: state=startable -->
   **Captured 2026-09-14 — a name, an exception, and a reproduction, which is what the note above asked for
   and did not get.** `System.ObjectDisposedException: Cannot access a disposed object. Object name:
   'SQLitePCL.sqlite3'`, thrown inside `SqliteConnectionFactory.OpenAsync`
@@ -304,7 +303,7 @@ there is nothing here to code: what remains is evidence only recurrence can supp
   `TempDbPath.Dispose` clears only its OWN db's pool and `TempDb` delegates to it. The trap is now in
   `pitfalls.md`, where it was not. (3) Work outliving the test method: no — every task in
   `Dedup_add_race_settles_to_a_stable_id` is awaited through `Task.WhenAll`.
-  <br>**So it is `watch · data` rather than startable**: what it needs is a recurrence carrying the frame
+  <br>**So it was `watch · data` rather than startable** (it is startable since 2026-10-29, below): what it needed is a recurrence carrying the frame
   BELOW `OpenAsync`, because the three causes a reading can reach are gone and the remaining ones are all
   in the runner's resource behaviour — the same shape as Part 99 above, by a different mechanism.
   <br>**2026-09-27: 0 of 40 more fresh-process runs of its class** (19 tests each, `Dedup_race` among them), so
@@ -315,6 +314,27 @@ there is nothing here to code: what remains is evidence only recurrence can supp
   `SQLite Error 1: 'cannot start a transaction within a transaction'`, thrown in `BeginTransaction` inside
   `SqliteCuratedMemoryStore.UpdateCoreAsync`; the unmodified re-run passed. It is not this exception, but it is the
   same shape (one connection in use by two callers), in the same store, and it carries the stack this item waits for.
+  <br>**2026-10-29, the same message in this store's `AddAsync`:** the stable-diffusion.cpp Z-Image session's `verify`
+  failed `ProfilePrototypeTests.One_file_imported_by_four_writers_at_once_adds_each_claim_once(backend: "sqlite")` with
+  `SQLite Error 1: 'cannot start a transaction within a transaction'`, thrown in `SqliteCuratedMemoryStore.AddAsync`
+  (the earlier one was in `UpdateCoreAsync`); it passed 5 of 5 run alone and on the unmodified re-run. That is two full
+  stacks of one exception from two methods of one store, both at the `BeginTransaction` that follows a fresh
+  `factory.OpenAsync` (`SqliteCuratedMemoryStore.cs` lines 35 and 75).
+  <br>**It recurred in this pass's own `verify`, the same test and message** (failed at `AddAsync` line 35 after 6 s,
+  nothing else failing; the unmodified re-run was green at 6212 passed), so it has failed in two sessions and
+  never standalone. The stack reads
+  `SqliteTransaction..ctor` → `ExecuteNonQuery` → `ThrowExceptionForRC`: SQLite itself rejected the `BEGIN`, so the
+  connection WAS inside a transaction when the store received it.
+  <br>**Startable since 2026-10-29 (a reading, not a capture).** What this item waited for is in hand: the frame below
+  `OpenAsync`. What it shows is the THROWER, and the store cannot nest a transaction on its own (one `await using`
+  connection and transaction per call), so a handle came out of the pool already inside a transaction, or two
+  callers held one. A stack from the throwing thread cannot say which, and one more of them will not, so waiting for a
+  third would repeat the first move. **The first move is a deterministic probe, not a loop** (a loop reached it 1 in 51):
+  in one caller force a failure INSIDE the transaction (a constraint violation, a busy timeout, a cancelled token, the
+  losing writer's path in both tests that failed) and read whether the handle returns to the pool with its transaction
+  rolled back; then read the pinned `Microsoft.Data.Sqlite` pool's return and rent against that. **A YES** is a store or
+  factory change, with the probe as its failing test. **A NO** (the handle always returns clean) refutes the reading
+  and sends this back to `watch · data`, with the three exceptions recorded as one shape the driver owns.
 
 - [ ] **`InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` failed once in AG6's `verify` run.** <!-- item: state=watch kind=data needs="a recurrence under the full parallel run, with the ratio it read — the message prints it, and a single failure with no ratio cannot say whether a stall or a real quadratic did it" -->
   It spawns no process and holds no ceiling: it takes a RATIO of two in-process timings (`InputSegmenter.Split` over
@@ -356,11 +376,12 @@ there is nothing here to code: what remains is evidence only recurrence can supp
 
 _The owner's direction, recorded as `docs/DECISIONS.md` **D230**: generation is proved by an example pipeline a host
 runs as-is, and models stay host-configured. **The pipeline row follows the checkpoint-and-LoRAs row**, which closed as
-`docs/task-archive.md` Part 404 (the Z-Image-Turbo row closed as Part 403); the sd.cpp row needs neither.
-**Content rules on every row below, each part of its contract:** everything the library, its samples, tests and docs carry
+`docs/task-archive.md` Part 404 (the Z-Image-Turbo row closed as Part 403, and the stable-diffusion.cpp row as Part 405),
+so **this Part now holds only the pipeline row.**
+**Content rules on the row below, part of its contract:** everything the library, its samples, tests and docs carry
 is safe for work and names no real artist, studio, franchise or real person; no face-identity model is used on real
 photos; the local backends carry no content filter, and the library neither adds nor removes one. A download is a
-step (`task-lifecycle.md`), so none of the rows below is blocked by one; the host's models live in its untracked
+step (`task-lifecycle.md`), so the row below is not blocked by one; the host's models live in its untracked
 `local/` folder, never in the tree._
 
 - [ ] **The example image-workflow pipeline** (lane `generation`, after `docs/task-archive.md` Part 404). <!-- item: state=startable -->
@@ -381,21 +402,6 @@ step (`task-lifecycle.md`), so none of the rows below is blocked by one; the hos
   once the sample shows the need, with that need as its evidence: named input roles beyond `init` and `reference`
   (style, subject, control or pose, mask) in `MediaInputRoles`; per-input weights; a template declaring the roles it
   accepts and refusing others. Seed, steps, size and LoRA already map into graph paths (`docs/task-archive.md` Part 404).
-- [ ] **The two stable-diffusion.cpp backends on Z-Image-Turbo** (lane `generation`). <!-- item: state=startable -->
-  **Startable since 2026-10-29:** the owner installed a Qwen3-4B text encoder that is not fp8-scaled (bf16, Apache-2.0)
-  beside the fp8-mixed one, which is the file the blocker below asked for. That it LOADS in stable-diffusion.cpp
-  `656a135` is the first thing this row measures: the encoder was not tried there when the row was unblocked.
-  `LocalDiffusionProvider` (`sd-cli`) and the `sd-server` behind `Automatic1111Provider` render with SD 1.5 only;
-  ComfyUI already runs Z-Image-Turbo (`docs/task-archive.md` Part 403). **Evidence:** stable-diffusion.cpp `656a135`
-  (Vulkan) accepts the three files by `--diffusion-model`, `--llm` and `--vae`, recognises Z-Image, then aborts loading
-  the installed fp8-mixed Qwen3-4B text encoder with `GGML_ASSERT(scale_nelements == 1 || scale_nelements ==
-  out_features)`, also with `--type bf16` (`docs/generation.md` §2). **Contract:** the same model, licence and 12 GB
-  bound as the closed row: Z-Image-Turbo (Apache-2.0), ungated, fitting 12 GB, with SD 1.5 left as the cheap smoke
-  model. **Proof:** it renders one image behind `LocalDiffusionLiveTests` and behind the Automatic1111 suite against the
-  `sd-server`, each a named new skip when its model is absent. **The blocker was the ENVIRONMENT** (a file the owner
-  installs, `task-lifecycle.md`) and is cleared; if the bf16 encoder aborts too, the row is `blocked` again on a newer
-  build, and says so. The provider needs no change for the failure measured: a provider option cannot make
-  the engine read a file it cannot load.
 
 ## Retired — five Parts that outlived their open work (2026-09-16)
 

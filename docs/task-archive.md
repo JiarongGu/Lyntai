@@ -6152,3 +6152,17 @@ and the measurements are `docs/generation.md` §5, *Parameters*. **Left open:** 
 so a direct call to one ignores a named checkpoint (`TASKS.md` Part 33). Lane generation.
 
 - A checkpoint and LoRAs per request
+
+## Part 405 — The two stable-diffusion.cpp backends on Z-Image-Turbo (2026-10-29)
+
+✅ done 2026-10-29 — **Outcome:** `8ea8519e` (on master as `305e5df9`, merged `bb79fd75`). With the bf16 Qwen3-4B encoder the
+owner installed, Z-Image-Turbo renders through `sd-cli` (`LocalDiffusionLiveTests.Z_Image_Turbo_renders_through_the_provider_with_the_bf16_encoder`)
+and through the `sd-server`'s Automatic1111 API (`Automatic1111LiveTests.Z_Image_Turbo_renders_through_the_server_cold_then_warm`),
+each a named new skip in the baseline; the fp8-mixed encoder is the one the engine aborts on. No provider option was added:
+`ArgvFlags` plus `ExtraArgs` carry the argv, and a unit test pins it. **Minutes, not seconds, and why:** 250 to 262 s an image
+through `sd-cli` (a fresh process per call, so every render reloads the weights) and 388 s cold, 169 s warm through the
+server, at 512², 8 steps, because the engine keeps its 19.6 GB of weights in RAM and streams them through a 12 GB card;
+ComfyUI renders the same model in 37 to 44 s cold and 7 to 14 s warm (Part 403). The measurements and the argv are
+`docs/generation.md` §2. Lane generation.
+
+- The two stable-diffusion.cpp backends on Z-Image-Turbo
