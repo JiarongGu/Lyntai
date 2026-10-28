@@ -38,6 +38,7 @@ public class AgentProviderConformanceTests
                         Claim(AgentAbilities.LiveUsage, AgentSupport.Unknown, AgentAbilitySource.Declared),
                         Claim(AgentAbilities.TypedFailures, AgentSupport.Unsupported, AgentAbilitySource.Declared),
                         Claim(AgentAbilities.Accounts, AgentSupport.Unsupported, AgentAbilitySource.Declared),
+                        Claim(AgentAbilities.UsageReading, AgentSupport.Unsupported, AgentAbilitySource.Declared),
                     ],
                 },
             ],
@@ -225,6 +226,43 @@ public class AgentProviderConformanceTests
 
         var call = Assert.Single(runner.Calls);
         Assert.Equal(AccountHome, call.Environment![mapping.HomeVariable]);
+    }
+
+    [Theory, MemberData(nameof(Doors))]
+    public void A_door_reads_usage_exactly_when_it_says_so_and_declares_what_its_start_may_do(string providerId, string doorId)
+    {
+        using var sp = Compose(new FakeProcessRunner());
+        var registry = sp.GetRequiredService<AgentProviderRegistry>();
+        var door = DoorOf(registry, providerId, doorId);
+        var usage = door.Abilities.Single(a => a.Name == AgentAbilities.UsageReading);
+        var supported = usage.Support == AgentSupport.Supported;
+
+        Assert.Equal(supported, registry.Get(providerId) is IAgentUsageSource);
+        if (supported)
+        {
+            Assert.NotEqual(AgentSideEffects.None, usage.SideEffects);
+            Assert.False(string.IsNullOrWhiteSpace(usage.AppliesTo), "a usage reading is validated per version: say which");
+        }
+
+        // only an ability that starts a vendor's own process has effects to declare
+        Assert.All(door.Abilities.Where(a => a.Name != AgentAbilities.UsageReading),
+            claim => Assert.Equal(AgentSideEffects.None, claim.SideEffects));
+    }
+
+    [Fact]
+    public void The_usage_claim_names_exactly_the_versions_its_reader_is_validated_on()
+    {
+        using var sp = Compose(new FakeProcessRunner());
+        var registry = sp.GetRequiredService<AgentProviderRegistry>();
+
+        Assert.Equal("2.1.296", AppliesTo(registry, "claude-cli"));
+        Assert.Equal("0.160.0", AppliesTo(registry, "codex-cli"));
+        Assert.Equal(AgentSideEffects.RefreshesCredentials | AgentSideEffects.ChangesConfiguration | AgentSideEffects.LoadsExtensions
+            | AgentSideEffects.OpensListener | AgentSideEffects.LeavesProcess,
+            registry.Get("claude-cli").Describe().Doors[0].Abilities.Single(a => a.Name == AgentAbilities.UsageReading).SideEffects);
+
+        static string? AppliesTo(AgentProviderRegistry registry, string id) =>
+            registry.Get(id).Describe().Doors[0].Abilities.Single(a => a.Name == AgentAbilities.UsageReading).AppliesTo;
     }
 
     // ── the registry, the doors and the descriptor ───────────────────────────

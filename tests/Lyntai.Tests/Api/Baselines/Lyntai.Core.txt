@@ -9,6 +9,7 @@ static class Lyntai.Agents.AgentAbilities
     Steering : String const
     SystemPrompt : String const
     TypedFailures : String const
+    UsageReading : String const
     static All : IReadOnlyList<String> { get; }
     static Needed(AgentSessionOptions options) : IReadOnlyList<String>
 sealed class Lyntai.Agents.AgentAbility
@@ -20,6 +21,7 @@ sealed class Lyntai.Agents.AgentAbility
     Evidence : String { get; init; }
     GetHashCode() : Int32
     Name : String { get; init; }
+    SideEffects : AgentSideEffects { get; init; }
     Source : AgentAbilitySource { get; init; }
     Support : AgentSupport { get; init; }
     ToString() : String
@@ -62,6 +64,44 @@ sealed class Lyntai.Agents.AgentAllowance
     GetHashCode() : Int32
     Id : String { get; init; }
     ToString() : String
+sealed class Lyntai.Agents.AgentAllowanceReading
+    .ctor()
+    Equals(AgentAllowanceReading other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    HasRoom : Nullable<Boolean> { get; }
+    IsKnown : Boolean { get; }
+    MeasuredAt : DateTimeOffset { get; init; } required
+    Plan : String { get; init; }
+    ToString() : String
+    UnknownReason : String { get; init; }
+    Windows : IReadOnlyList<AgentAllowanceWindow> { get; init; }
+    static Unknown(String reason, DateTimeOffset measuredAt) : AgentAllowanceReading
+static class Lyntai.Agents.AgentAllowanceUnknown
+    AccountRefused : String const
+    Disabled : String const
+    NoAnswer : String const
+    NotReported : String const
+    NotSignedIn : String const
+    RunnerUnsupported : String const
+    SpawnFailed : String const
+    TimedOut : String const
+    Unrecognised : String const
+    VersionNotValidated : String const
+    VersionUnreadable : String const
+sealed class Lyntai.Agents.AgentAllowanceWindow
+    .ctor(String Name, Nullable<Int32> UsedPercent, Nullable<TimeSpan> Length, Nullable<DateTimeOffset> ResetsAt)
+    Deconstruct(String& Name, Nullable`1& UsedPercent, Nullable`1& Length, Nullable`1& ResetsAt) : Void
+    Equals(AgentAllowanceWindow other) : Boolean
+    Equals(Object obj) : Boolean
+    FiveHour : String const
+    GetHashCode() : Int32
+    Length : Nullable<TimeSpan> { get; init; }
+    Name : String { get; init; }
+    ResetsAt : Nullable<DateTimeOffset> { get; init; }
+    ToString() : String
+    UsedPercent : Nullable<Int32> { get; init; }
+    Weekly : String const
 sealed class Lyntai.Agents.AgentBrief
     .ctor(String Text, Int32 Characters, Boolean WithinBound, AgentBriefOmitted Omitted)
     Characters : Int32 { get; init; }
@@ -309,6 +349,14 @@ sealed class Lyntai.Agents.AgentSessionResult
     ToString() : String
     Usage : UsageFinal { get; init; }
     Verdict : ProviderVerdict { get; init; }
+enum Lyntai.Agents.AgentSideEffects
+    ChangesConfiguration : AgentSideEffects const
+    LeavesProcess : AgentSideEffects const
+    LoadsExtensions : AgentSideEffects const
+    None : AgentSideEffects const
+    OpensListener : AgentSideEffects const
+    RefreshesCredentials : AgentSideEffects const
+    value__ : Int32
 abstract class Lyntai.Agents.AgentStreamEvent
     .ctor()
     .ctor(AgentStreamEvent original)
@@ -342,6 +390,10 @@ sealed class Lyntai.Agents.AgentTranscriptRecorder
     Add(AgentStreamEvent e) : Void
     BeginTurn(AgentConversationSource source, AgentSessionOptions options) : Void
     Transcript : AgentTranscript { get; }
+sealed class Lyntai.Agents.AgentUsageReadingOptions
+    .ctor()
+    Enabled : Boolean { get; set; }
+    Timeout : TimeSpan { get; set; }
 sealed class Lyntai.Agents.ChatOrchestrator
     .ctor(ITextClient llm, IToolLoop toolLoop, IToolRegistry tools, IGuardRail guards, IPromptComposer composer, ILogger<ChatOrchestrator> logger = null)
     ChatAsync(ChatTurn turn, CancellationToken ct = default) : Task<ChatResult>
@@ -412,6 +464,8 @@ interface Lyntai.Agents.IAgentProvider
     Open(String doorId) : IAgentSession
 interface Lyntai.Agents.IAgentSession
     StreamAsync(AgentSessionOptions options, CancellationToken ct = default) : IAsyncEnumerable<AgentStreamEvent>
+interface Lyntai.Agents.IAgentUsageSource
+    ReadAllowanceAsync(AgentAccount account, CancellationToken ct = default) : Task<AgentAllowanceReading>
 interface Lyntai.Agents.IChatOrchestrator
     ChatAsync(ChatTurn turn, CancellationToken ct = default) : Task<ChatResult>
 interface Lyntai.Agents.ICliToolProvisioner
@@ -2220,6 +2274,7 @@ sealed class Lyntai.LyntaiBuilder
     AddAgentBrief(Action<AgentBriefOptions> configure = null) : LyntaiBuilder
     AddAgentProvider(Func<IServiceProvider,IAgentProvider> factory) : LyntaiBuilder
     AddAgentRetry(Action<AgentRetryOptions> configure = null) : LyntaiBuilder
+    AddAgentUsageReading(Action<AgentUsageReadingOptions> configure = null) : LyntaiBuilder
     AddBridgeProvider(String id, Func<TextRequest,CancellationToken,Task<TextResponse>> complete, Func<TextRequest,CancellationToken,IAsyncEnumerable<TextChunk>> stream = null, ProviderCapabilities capabilities = null) : LyntaiBuilder
     AddConversationEnricher(Func<IServiceProvider,IConversationEnricher> factory) : LyntaiBuilder
     AddConversationEnricher<T>() : LyntaiBuilder
