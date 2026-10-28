@@ -6069,3 +6069,27 @@ change and no decision. The `InputSegmenterTests` NFKC-linearity note stays open
 Lane inference.
 
 - The `ProcessRunnerTests` chatty-child tests race node's cold start against a fixed real 2 s ceiling
+
+## Part 397 — Postgres graph store: one transaction for a batch of edges and touches (2026-10-28)
+
+✅ done 2026-10-28 — **Outcome:** `8586cd8a` (merged `a4f61d83`). `PostgresMemoryGraphStore` runs `LinkManyAsync`, `LinkAsync`,
+the public `TouchAsync` and a write-back's touches and edges as one transaction each, the review log outside it and last as
+`IMemoryGraphStore` requires, so a batch failing partway leaves none of its statements. Two new Postgres tests go red on the
+old store (`A_batch_of_edges_that_fails_partway_commits_none_of_them`,
+`A_write_back_whose_edge_fails_leaves_its_touches_unapplied`); the shared graph-store contract runs unchanged. A linked write
+fell about 54 to 18 ms and a write-back about 137 to 33 ms, medians over several thousand entries on a wide machine spread
+(`corpus-pg-graph-commit-before-after`, `PostgresGraphWriteSweep`). Cause, fix and verification are `docs/FIXES.md`
+2026-10-28. The SQLite store's standalone `TouchAsync` is still not one transaction, and the Postgres locks now last to
+commit: both are startable rows under `TASKS.md` Part 381. Lane storage.
+
+- Postgres graph store: one transaction for a batch of edges and touches
+
+## Part 398 — The count cap's shared statement, run on Postgres (2026-10-28)
+
+✅ done 2026-10-28 — **Outcome:** no code changed. With Docker up and `LYNTAI_ALLOW_POSTGRES_SKIP` unset, the full `verify` at
+`a4f61d83` ran `PostgresMemoryStoreContract`'s facts, the count cap's among them, against a real container: 6181 passed /
+6236 total, 55 skipped, none of them on the Postgres leg. `MemoryEviction.CapEvictSql` (`76285665`) therefore gives the same
+survivors on Postgres as `MemoryEviction.Survivors`, and needs no per-dialect copy (`storage.md`, D187). The
+`CountCap(int.MaxValue)` timing in Part 394 was measured on SQLite and is not claimed for Postgres. Lane storage.
+
+- The count cap's shared statement, run on Postgres
