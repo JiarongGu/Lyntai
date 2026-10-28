@@ -15,7 +15,7 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 7 across 4 Parts: 4 blocked, 3 watch
+## Open items — 7 across 4 Parts: 2 startable, 2 blocked, 3 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
@@ -27,8 +27,8 @@ _Edit a marker, never this table — `verify` fails the moment the two disagree.
 | 180 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
 | 236 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
 | 269 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
-| 287 | 380 | Postgres graph store: one transaction for a batch of edges and touches | blocked · env | Docker up, so the Postgres leg runs; LYNTAI_ALLOW_POSTGRES_SKIP=1 would ski… |
-| 292 | 380 | The count cap's shared statement, run on Postgres | blocked · env | Docker up, so the Postgres leg of the memory-store contract runs; LYNTAI_AL… |
+| 286 | 381 | The SQLite graph store's standalone `TouchAsync` as one transaction | startable |  |
+| 294 | 381 | Concurrent write-backs and batches on Postgres do not deadlock | startable |  |
 
 <!-- open-items:end -->
 
@@ -278,23 +278,29 @@ there is nothing here to code: what remains is evidence only recurrence can supp
   prints either shows a stall (the ratio far from 4 in either direction) or a real quadratic (near 16 every time),
   and only then is there something to change.
 
-## Part 380 — what the real-corpus memory run left (2026-10-28)
+## Part 381 — what the batched graph-store commits left (2026-10-28)
 
-_From `docs/memory-measurements.md` §5 (`corpus-cost-before-after`) and `docs/task-archive.md` Part 379. Cost
-findings that run named and did not fix; two closed as `docs/task-archive.md` Parts 393 and 394. Each is additive or
-internal: none changes a recall's result, and the store contracts hold them._
+_From `docs/task-archive.md` Part 397 (the Postgres graph store's transaction) and `docs/FIXES.md` 2026-10-28. Each is
+internal: neither changes a recall's result._
 
-- [ ] **Postgres graph store: one transaction for a batch of edges and touches** (lane `storage`). The SQLite store <!-- item: state=blocked kind=env needs="Docker up, so the Postgres leg runs; LYNTAI_ALLOW_POSTGRES_SKIP=1 would skip the only proof" -->
-  commits a batch once (`bda3c5e1`); `PostgresMemoryGraphStore`'s edge loop runs each `StrengthenAsync` as its own
-  autocommit statement and was neither measured nor changed. **Contract:** one transaction per `LinkManyAsync`
-  and per write-back, reviews outside it as `IMemoryGraphStore` requires. **Proof:** the shared graph-store
-  contract on Postgres, and a per-write time before and after at several thousand entries.
-- [ ] **The count cap's shared statement, run on Postgres** (lane `storage`). `MemoryEviction.CapEvictSql` counts the <!-- item: state=blocked kind=env needs="Docker up, so the Postgres leg of the memory-store contract runs; LYNTAI_ALLOW_POSTGRES_SKIP=1 would skip the only proof" -->
-  scope and deletes only the excess (`76285665`), and the statement text is shared with `PostgresMemoryStore`; it uses
-  portable constructs but has been proved on SQLite and in memory alone (`MemoryCapEvictionTests` against
-  `MemoryEviction.Survivors`, the memory-store contract). **Contract:** the same survivors on Postgres, a scope under
-  its cap deleting nothing. **Proof:** the memory-store contract on Postgres, run without `LYNTAI_ALLOW_POSTGRES_SKIP`
-  once Docker is up; if it differs, the statement gets a per-dialect copy (`storage.md`, D187).
+- [ ] **The SQLite graph store's standalone `TouchAsync` as one transaction** (lane `storage`). <!-- item: state=startable -->
+  `SqliteMemoryGraphStore.TouchAsync(engine, touches, ct)` runs `MemoryGraphSql.Touch` as one autocommit statement per
+  touched row on a connection with no transaction; `LinkManyAsync`, `LinkAsync` and `WriteBackAsync` already commit once
+  (`bda3c5e1`), and the Postgres store's `TouchAsync` now does too (`8586cd8a`), so SQLite is the one behind.
+  **Contract:** a `TouchAsync` batch that fails partway leaves none of its touches applied, as on Postgres; the
+  public surface and a touch's result do not move. **Proof:** a SQLite test that fails on the current store and passes on
+  the new (a touch that throws partway, then every earlier node's `RecallCount` still 0), beside the Postgres
+  `A_batch_of_edges_that_fails_partway_commits_none_of_them`.
+- [ ] **Concurrent write-backs and batches on Postgres do not deadlock** (lane `storage`). <!-- item: state=startable -->
+  A reading from review, not a measured failure. Since `8586cd8a` the Postgres store's transactions hold row locks on
+  `lyntai_memory_node` (`MemoryGraphSql.Touch` updates the touched rows) and on `lyntai_memory_edge`
+  (`MemoryGraphSql.StrengthenEdge` upserts them) until commit, in the order the batch lists them; autocommit released each
+  lock at once. Two concurrent write-backs over overlapping nodes listed in different orders can therefore each wait on
+  the other, and Postgres aborts one. `GraphMemoryEngine` drops a failed write-back and logs it (the write-back is
+  fail-open), so a deadlock loses one write-back whole. **Contract:** concurrent write-backs and batches on Postgres do
+  not deadlock (for example, each batch written in a fixed id order, touches by node id and edges by `from_id, to_id,
+  kind`), with the same rows written. **Proof:** a concurrent Postgres test that fails without the ordering (two
+  write-backs over the same nodes listed in opposite orders, run together until one deadlocks) and passes with it.
 
 ## Retired — five Parts that outlived their open work (2026-09-16)
 

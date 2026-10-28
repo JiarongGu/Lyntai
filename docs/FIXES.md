@@ -7,6 +7,31 @@ to `.agents/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-10-28 — the Postgres graph store committed every edge and every touch on its own: a batch failing partway kept the statements that had run
+
+**Symptom.** Found by reading the SQLite fix below against its Postgres twin: `PostgresMemoryGraphStore` ran one statement
+per edge or touched row with no transaction, so five symmetric edges paid ten commits and a batch that threw partway left
+the earlier statements written. On a pgvector container a linked write took about 54 ms and a write-back about 137 ms
+(medians, 3,000 and 6,000 stored entries).
+
+**Root cause.** `LinkManyAsync`, `LinkAsync`, the public `TouchAsync` and the touches-and-edges half of `WriteBackAsync` handed
+each row to Dapper's `ExecuteAsync` on a connection with no transaction, and each statement autocommitted. Only the SQLite
+store had been fixed, because the Docker daemon was down for that work and the Postgres change could not be run.
+
+**Fix.** Each of the four runs in one transaction on its connection; `WriteBackAsync` commits its touches and edges together
+and writes the review log outside it and last, as `IMemoryGraphStore.WriteBackAsync` requires. The statements and the public
+surface do not move. A linked write fell to about 18 ms and a write-back to about 33 ms (`docs/memory-measurements.md` §5,
+`corpus-pg-graph-commit-before-after`). The transactions hold row locks to commit, which autocommit did not: the ordering
+that avoids a deadlock between two write-backs is an open row, `TASKS.md` Part 381.
+
+**Verify.** `PostgresStorageTests.A_batch_of_edges_that_fails_partway_commits_none_of_them` (an edge whose kind holds U+0000,
+which the server refuses, after a good edge) and `A_write_back_whose_edge_fails_leaves_its_touches_unapplied` fail on the
+old store and pass on the new; `MemoryGraphStoreContract` runs unchanged against Postgres. The Docker-up `verify` at
+`a4f61d83` passed without the Postgres skip.
+
+**Introduced by.** `9f74880f` (2026-08-29) and `28024014` (2026-08-29), which batched the calls and kept the commits, as for
+the SQLite store.
+
 ## 2026-10-28 — the chatty-child ceiling tests spent node's cold start from a real 2 s `maxDuration`
 
 **Symptom.** `ProcessRunnerTests.Stream_lines_absolute_max_caps_a_chatty_child_that_never_stalls` failed twice across 31
@@ -86,7 +111,9 @@ others pin what must not move, and `VectorStoreContract` runs unchanged against 
 **Introduced by.** `e97aeadc` (2026-07-18), the first semantic memory, which scored by sorting; `SqliteVectorStore`
 kept the shape when it took its JSON column.
 
-## 2026-10-28 — the SQLite graph store committed every edge and every touch on its own: a linked write cost six times an unlinked one
+## 2026-10-28 — the SQLite graph store committed every edge and every touch on its own: a linked write cost six times an unlinked one <!-- keeps: the SQLite cause, fix and figures; only the Postgres sentence is superseded -->
+
+> Correction: `PostgresMemoryGraphStore` has since been changed the same way; see the entry above. The sentence below saying it was NOT changed was true when written.
 
 **Symptom.** Found by `memory-corpus`: ingesting 11,112 chunks took 516 s with similarity linking and the semantic seed on and 191 s with the
 link floor above 1, the same embeddings, search and novelty either way; and a recall on shipped defaults took p50
