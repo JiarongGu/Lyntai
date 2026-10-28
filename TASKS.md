@@ -15,20 +15,19 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 7 across 4 Parts: 2 startable, 2 blocked, 3 watch
+## Open items — 6 across 4 Parts: 1 startable, 2 blocked, 3 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 108 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal account with a balance, or a Hugging Face token for the router route … |
-| 170 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 107 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal account with a balance, or a Hugging Face token for the router route … |
+| 169 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
 | 196 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 252 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | startable |  |
-| 306 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
-| 322 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
-| 354 | 401 | The example image-workflow pipeline | startable |  |
+| 255 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
+| 273 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
+| 307 | 401 | The example image-workflow pipeline | startable |  |
 
 <!-- open-items:end -->
 
@@ -186,7 +185,8 @@ the proposal. **Two items were left open here, both WATCH items** — the rest c
 three are startable" until 2026-08-28, after two of them had gone. A third, also a WATCH item, joined them on
 2026-10-28: the bridge's stream-timeout test and the chatty-child tests closed that day (`docs/task-archive.md` Parts 395
 and 396) and the NFKC-linearity test, listed beside them, stayed. A fourth, the usage-process test last in this Part, joined
-the same day._
+the same day. The second of the two, the `Dedup_race` item, closed on 2026-10-29 as `docs/task-archive.md` Part 409: a race in
+the driver's pool, fixed in the factory._
 
 _**The flake below is a WATCH item, not startable work, and the banner counted it as startable until 2026-08-28.** The
 suspected cause is fixed AND pinned — `ProcessRunnerTests.A_FAILED_path_lookup_is_not_cached_so_one_transient_locator_failure_is_not_permanent`,
@@ -248,60 +248,9 @@ there is nothing here to code: what remains is evidence only recurrence can supp
   SHAPE — intermittent, only under `verify`, unreproducible on demand — but it is NOT the nine, so it does
   not confirm or refute the `ProcessRunner` fix this item watches. The name was not captured; capture it if
   it recurs, which is the only thing that would make it actionable.
-
-- [ ] **`SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another caller is still using.** <!-- item: state=startable -->
-  **Captured 2026-09-14 — a name, an exception, and a reproduction, which is what the note above asked for
-  and did not get.** `System.ObjectDisposedException: Cannot access a disposed object. Object name:
-  'SQLitePCL.sqlite3'`, thrown inside `SqliteConnectionFactory.OpenAsync`
-  (`src/Lyntai.Storage.Sqlite/SqliteConnectionFactory.cs`) while the test exercises concurrent dedup.
-  <br>**It is NOT the flake above, and the difference is the whole point:** that one is *only* under
-  `verify` and has never reproduced standalone. This one failed **1 of 3 standalone runs** of its own
-  class — so it is not `verify`-specific, not process-churn, and not the nine. Nothing here touches
-  `ProcessRunner`.
-  <br>**The reproduction is the cheap part** — loop the single class until it fails. What
-  makes it worth doing rather than muting: the exception says a connection was DISPOSED while in use, and
-  the same factory serves every SQLite domain. A test that fails a third of the time is also a gate that
-  passes two thirds of the time for the wrong reason.
-  <br>**2026-09-15: did not reproduce in 8 consecutive runs, and the "shipped storage code" reading is
-  REFUTED — three hypotheses, each checked by reading rather than by re-running.** (1) A double dispose in
-  `SqliteCuratedMemoryStore.AddAsync`: no — connection and transaction are both `await using`, disposed in
-  the right order, and the factory builds a fresh `SqliteConnection` per call and disposes it on failure.
-  (2) `SqliteConnection.ClearAllPools()` evicting a concurrent test's handle: already fixed —
-  `TempDbPath.Dispose` clears only its OWN db's pool and `TempDb` delegates to it. The trap is now in
-  `pitfalls.md`, where it was not. (3) Work outliving the test method: no — every task in
-  `Dedup_add_race_settles_to_a_stable_id` is awaited through `Task.WhenAll`.
-  <br>**So it was `watch · data` rather than startable** (it is startable since 2026-10-29, below): what it needed is a recurrence carrying the frame
-  BELOW `OpenAsync`, because the three causes a reading can reach are gone and the remaining ones are all
-  in the runner's resource behaviour — the same shape as Part 99 above, by a different mechanism.
-  <br>**2026-09-27: 0 of 40 more fresh-process runs of its class** (19 tests each, `Dedup_race` among them), so
-  1 in 51 standalone overall. **Looping is not how this gets caught**; the stack has to come from the run it
-  fails in.
-  <br>**2026-10-28, a neighbour with a full stack:** one full `verify` failed
-  `SqliteCuratedMemoryStoreTests.Satisfies_the_contract("Racing_writers_on_one_revision_let_exactly_one_win")` with
-  `SQLite Error 1: 'cannot start a transaction within a transaction'`, thrown in `BeginTransaction` inside
-  `SqliteCuratedMemoryStore.UpdateCoreAsync`; the unmodified re-run passed. It is not this exception, but it is the
-  same shape (one connection in use by two callers), in the same store, and it carries the stack this item waits for.
-  <br>**2026-10-29, the same message in this store's `AddAsync`:** the stable-diffusion.cpp Z-Image session's `verify`
-  failed `ProfilePrototypeTests.One_file_imported_by_four_writers_at_once_adds_each_claim_once(backend: "sqlite")` with
-  `SQLite Error 1: 'cannot start a transaction within a transaction'`, thrown in `SqliteCuratedMemoryStore.AddAsync`
-  (the earlier one was in `UpdateCoreAsync`); it passed 5 of 5 run alone and on the unmodified re-run. That is two full
-  stacks of one exception from two methods of one store, both at the `BeginTransaction` that follows a fresh
-  `factory.OpenAsync` (`SqliteCuratedMemoryStore.cs` lines 35 and 75).
-  <br>**It recurred in this pass's own `verify`, the same test and message** (failed at `AddAsync` line 35 after 6 s,
-  nothing else failing; the unmodified re-run was green at 6212 passed), so it has failed in two sessions and
-  never standalone. The stack reads
-  `SqliteTransaction..ctor` → `ExecuteNonQuery` → `ThrowExceptionForRC`: SQLite itself rejected the `BEGIN`, so the
-  connection WAS inside a transaction when the store received it.
-  <br>**Startable since 2026-10-29 (a reading, not a capture).** What this item waited for is in hand: the frame below
-  `OpenAsync`. What it shows is the THROWER, and the store cannot nest a transaction on its own (one `await using`
-  connection and transaction per call), so a handle came out of the pool already inside a transaction, or two
-  callers held one. A stack from the throwing thread cannot say which, and one more of them will not, so waiting for a
-  third would repeat the first move. **The first move is a deterministic probe, not a loop** (a loop reached it 1 in 51):
-  in one caller force a failure INSIDE the transaction (a constraint violation, a busy timeout, a cancelled token, the
-  losing writer's path in both tests that failed) and read whether the handle returns to the pool with its transaction
-  rolled back; then read the pinned `Microsoft.Data.Sqlite` pool's return and rent against that. **A YES** is a store or
-  factory change, with the probe as its failing test. **A NO** (the handle always returns clean) refutes the reading
-  and sends this back to `watch · data`, with the three exceptions recorded as one shape the driver owns.
+  <br>**2026-10-29: the SQLite pool race (`docs/FIXES.md`) does not explain this.** Seven of the nine open no SQLite store, and
+  the two `CortexIntegrationTests` that do would fail with a transaction or disposed-handle error, where the one captured
+  failure was `IsAvailable` false on a command that did not resolve. The item stays as it is.
 
 - [ ] **`InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` failed once in AG6's `verify` run.** <!-- item: state=watch kind=data needs="a recurrence under the full parallel run, with the ratio it read — the message prints it, and a single failure with no ratio cannot say whether a stall or a real quadratic did it" -->
   It spawns no process and holds no ceiling: it takes a RATIO of two in-process timings (`InputSegmenter.Split` over
@@ -318,6 +267,8 @@ there is nothing here to code: what remains is evidence only recurrence can supp
   <br>**Watch, not startable:** nothing here is known to be wrong. A recurrence with the ratio the assertion
   prints either shows a stall (the ratio far from 4 in either direction) or a real quadratic (near 16 every time),
   and only then is there something to change.
+  <br>**2026-10-29: not the SQLite pool race** (`docs/FIXES.md`). The test times two in-process runs of `InputSegmenter.Split`
+  and opens no connection.
 
 - [ ] **`AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_children_when_the_time_runs_out` failed in two of the fal session's three `verify` runs.** <!-- item: state=watch kind=data needs="a recurrence under the full parallel run, with the load it ran under; it failed twice there and passes alone" -->
   It spawns a node stand-in that never answers, gives the usage source a 3 s timeout, and failed with "the stand-in
@@ -338,6 +289,8 @@ there is nothing here to code: what remains is evidence only recurrence can supp
   <br>**Watch, not startable:** nothing here is known to be wrong in shipped code, and a widening chosen from one
   failure with no capture would repeat Part 395's first one, which failed once in twenty runs anyway. A recurrence with
   the load it ran under says whether the ceiling or the start owns it.
+  <br>**2026-10-29: not the SQLite pool race** (`docs/FIXES.md`). The test spawns a node stand-in and reads its pid file, and
+  opens no connection.
 
 ## Part 401 — local image generation on this machine's GPU (2026-10-28)
 
