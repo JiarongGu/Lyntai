@@ -4,12 +4,14 @@
 §5.2 (AG2), the provider description and registry of §5.1 (AG3), the bounded retry of §5.3 (AG4), the account's
 reach into a door (AG5, §5.4's first bullet), the pool and its restriction reducer of §5.4 (AG6), the transcript,
 brief and hand-over of §5.5 (AG7), the ACP door with its stand-in (AG8, §5.1 and §6) and the optional usage reading
-of §5.4 (AG9), all in `docs/guide.md` §CLI-agent session, whose names stand as built.** The decision is **D219**
-(`docs/DECISIONS.md`); the open build rows are `TASKS.md` Part 376 and the closed ones `docs/task-archive.md` Parts
-381, 382, 384 and 385. This is a study (`docs/documents.md`): it is read for its reasoning, and what it settles
-moves into the contract documents as each row lands. Every type named below is a PROPOSED name, to be
-confirmed by the row that builds it against the `ApiSurface` baselines. The sketches are plain text because
-none of them compiles yet.
+of §5.4 (AG9), all in `docs/guide.md` §CLI-agent session, whose names stand as built; all nine rows are built.**
+The decision is **D219** (`docs/DECISIONS.md`) with **D222** and **D225** to **D228** from the rows; the rows are
+closed in `docs/task-archive.md` Parts 381, 382, 384, 385, 386, 388, 389, 391 and 392. **This line is the steward's:**
+a lane session building a row leaves it alone (every row used to edit it, and each landing after the first
+conflicted there), and the steward brings it up to date when the row lands. This is a study (`docs/documents.md`): it
+is read for its reasoning, and what it settles moves into the contract documents as each row lands. Every type named
+below was a proposed name, and the `ApiSurface` baselines hold what shipped. The sketches are plain text because
+none of them compiles.
 
 ## 1. The need, and why it is general
 

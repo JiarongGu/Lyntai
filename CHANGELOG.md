@@ -69,6 +69,42 @@ every addition.
   it, so a count a door never sends is `null` rather than the 0 that `UsageFinal` has to show. `UsageLive` and
   `UsageFinal` are unchanged, and `SessionEnded` now says it ends the TURN, the conversation being the resume
   token. A codex `todo_list` is now a plan and no longer surfaces as a tool step.
+- **An agent turn can run under a named account** (**D219**). `AgentSessionOptions.Account` is an `AgentAccount`
+  (`Provider`, `Name`, `Home`); each CLI door sets its own configuration-home variable (`CLAUDE_CONFIG_DIR`,
+  `CODEX_HOME`) to `Home` for that turn only, and states the new `accounts` ability with an `AgentAccountMapping` on
+  `AgentProviderDescriptor.Accounts`. Lyntai creates no profile, signs in to none and stores no credential. An
+  account of another provider, a blank name or home, or a door that states `accounts` unsupported is refused before
+  anything is spawned, with the subtype `account-other-provider` or `account-invalid`. The other-provider check is
+  `AgentProvider`'s, so resolve the provider when the account may be the wrong one; a host's own `IAgentProvider`
+  that does not state `accounts` reads `Unknown` and the account reaches its door. `Home` should exist and be
+  absolute: claude creates a missing home signed out and `codex-acp` exits at startup.
+- **An account pool with a restriction reducer, off unless you register it** (**D227**). `AddAgentAccountPool`
+  registers an `AgentAccountPool` that walks ordered `AgentChoice`s account by account, is asked once per turn
+  (`PickAsync`) and told how the turn ended (`ReportAsync`). A failure holds its own restriction; holds are
+  independent and every covering one must permit; a stated reset or a `ClearAsync(id, revision)` lets one leased
+  attempt through, and only its success lifts the hold. An unstated recovery stays held until the host clears it
+  (`UnknownProbeAfter` is the host's option), and a shared allowance is held only where an `IAgentAllowanceSource`
+  supplies one. `IAgentAccountPolicy` picks among permitted seats. State is kept through the key-value store, and
+  two processes sharing one pool are out of scope.
+- **A transcript, a bounded brief and a hand-over decision** (**D228**). `RecordingAgentSession` folds any
+  `IAgentSession`'s events into an `AgentTranscript` (`AgentTranscriptRecorder`); `AgentBriefComposer.Brief` makes a
+  brief from it with no model: the host's words verbatim and first, the agents' output quoted as their claim, each
+  turn's last message, the last plan, host facts and a count of what was left out, within `MaxCharacters` (6000, set
+  by `AddAgentBrief`) counted in characters and cut in a stated order. `AgentHandover.Decide` resumes only for the
+  same provider, door and account with `resume` stated supported, and otherwise says why it starts fresh.
+- **An agent that speaks the Agent Client Protocol** (**D225**, **D226**). `AddAcpAgentSession(id, command, …)`
+  registers it as its own keyed `IAgentSession` and `IAgentProvider`, one door `acp`: `initialize`, `session/new`,
+  `session/prompt`, `session/resume` or `session/load` by what the agent states, and `session/cancel` on a cancel. Its
+  updates map onto the event stream, its permission requests are answered by the access mode, and its errors and
+  typed failures read into `SessionEnded.Failure`. It needs a runner that implements the new
+  `IProcessRunner.ExchangeLinesAsync`, a live stdin; the shipped `ProcessRunner` does, and a host's own runner that
+  does not reads as unsupported.
+- **An optional reading of an account's allowance through the vendor's own server** (**D222**). `IAgentUsageSource`
+  returns an `AgentAllowanceReading` (windows with their use, length and reset, a plan, a time and `HasRoom`) or an
+  unknown with a reason; both CLI doors' providers are the source. It is off unless `AddAgentUsageReading` is called,
+  nothing in the library calls it, and it runs the vendor binary under the account home only for a version whose
+  response was validated (claude 2.1.296, codex-cli 0.160.0). The door's `usage-reading` claim declares its side
+  effects with `AgentSideEffects`.
 - **Explicit valid time and supersession for graph memory** (**D215**): `MemoryWrite.ValidFrom`, `ValidTo`
   and `Supersedes` preserve earlier evidence while current, as-of and history readings select the stated
   interval. All four shipped graph stores support it; unsupported engines refuse timed writes. Additive SQL

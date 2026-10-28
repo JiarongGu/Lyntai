@@ -294,8 +294,12 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D222](#d222--a-door-may-read-an-accounts-usage-through-the-vendors-own-server-as-an-optional-ability-the-host-switches-on-2026-10-28) | 2026-10-28 | a door may read an account's usage through the vendor's own server, as an optional ability the ho… |
 | [D223](#d223--an-archive-that-does-not-age-is-searched-by-a-recipe-not-by-a-preset-or-a-changed-default-2026-10-28) | 2026-10-28 | an archive that does not age is searched by a recipe, not by a preset or a changed default |
 | [D224](#d224--the-profile-is-a-projection-over-curated-memory-not-a-claim-ledger-2026-10-28) | 2026-10-28 | the profile is a projection over curated memory, not a claim ledger |
+| [D225](#d225--an-acp-agent-is-its-own-provider-id-not-a-second-door-on-a-cli-providers-id-2026-10-28) | 2026-10-28 | an ACP agent is its own provider id, not a second door on a CLI provider's id |
+| [D226](#d226--a-protocol-agent-is-spoken-to-through-a-live-stdin-member-on-the-runner-seam-2026-10-28) | 2026-10-28 | a protocol agent is spoken to through a live-stdin member on the runner seam |
+| [D227](#d227--the-account-pool-grants-a-seat-only-on-a-stated-fact-and-invents-none-2026-10-28) | 2026-10-28 | the account pool grants a seat only on a stated fact, and invents none |
+| [D228](#d228--a-brief-is-cut-whole-or-nothing-in-a-fixed-order-and-never-through-the-hosts-words-2026-10-28) | 2026-10-28 | a brief is cut whole-or-nothing, in a fixed order, and never through the host's words |
 
-**219 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**223 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -6230,7 +6234,8 @@ Core rule.
 
 ## D219 — the agent-provider layer is built in Core and Providers.Basic, with orchestration left to hosts (2026-10-27)
 
-**Standing.** As **D218**. The design is `docs/agent-provider-layer.md`; the rows are `TASKS.md` Part 376.
+**Standing.** As **D218**. The design is `docs/agent-provider-layer.md`; the rows closed as `docs/task-archive.md` Parts 381, 382, 384, 385, 386,
+388, 389, 391 and 392.
 
 One layer serves any application that runs coding agents: a provider contract that describes an agent's doors
 and abilities with a source for each; a turn's event stream; an account pool with restrictions, limits and
@@ -6313,7 +6318,7 @@ dependency reports exist, and a quickstart does. "Its API stands apart" alone is
 - **D218**'s adapter rule stands: an adapter references Core or one domain package, never another adapter. Core
   stays free of speculative capability types. **Bridge packages that reference several capability packages are
   NOT authorized here**: the RFC flags that graph disagreement (`docs/vnext-modular-capabilities.md` §4).
-- **Nothing moves now.** `TASKS.md` Part 376 stays as **D219** placed it. A later move of types between
+- **Nothing moves now.** The agent-provider layer stays where **D219** placed it. A later move of types between
   assemblies proves binary compatibility, with type forwarding where needed, because an unchanged namespace does
   not guarantee it.
 
@@ -6327,7 +6332,7 @@ approves contracts that need synchronized consumer-specific changes.
 
 **Standing.** As **D221**: the coordinating parent session on the owner's delegation, with Codex's independent read.
 
-**Decided: YES within a bound** (`TASKS.md` Part 376, AG9). An account's allowance and a turn's usage are
+**Decided: YES within a bound** (AG9, `docs/task-archive.md` Part 392). An account's allowance and a turn's usage are
 different observations, and the design keeps unit, scope, time and *unknown* apart (`docs/agent-provider-layer.md`
 §5.4). **D20** already lets Lyntai drive a backend's own probing while the host keeps binaries, provisioning and
 credentials, and launching a host-selected vendor binary is inside it. AG1 to AG8 stand without it.
@@ -6412,3 +6417,107 @@ records' structure: only 46% of partial amendments name it by word overlap, so i
 **Re-opens** if a compare-and-supersede reaches `ITemporalMemoryGraphStore` for another consumer, if the profile
 needs intervals queried across fields, or if the two-write gap or the in-place edit cannot be closed in the
 prototype.
+
+## D225 — an ACP agent is its own provider id, not a second door on a CLI provider's id (2026-10-28)
+
+**Standing.** Written by the steward from the AG8 session's request (`docs/task-archive.md` Part 391); the owner's
+acceptance of the branch makes it binding. It places what **D219** left as "then an ACP door" and reverses by a later
+decision here. The id and door names a host registers are its own, and the door's claims are frozen from release
+(**D70**).
+
+**Decided.** `AddAcpAgentSession(id, command, …)` registers a keyed `IAgentSession` and an `IAgentProvider` under the
+id the host names, with one door, `acp`, of kind `Acp`. It adds no unkeyed session, so a host resolving the unkeyed CLI
+session sees no change. The door is generic: the host names the agent's command and, for an account, the home
+variable that agent reads (`accountHomeVariable`); no preset for `claude-agent-acp` or `codex-acp` ships. Its claims
+are `Declared` for what the door does, and resume is `Unknown` with the source `Negotiated`, because a description is
+static and only `initialize` says what one agent supports.
+
+**Why.** A second registration of an id replaces the first, so an ACP door filed under a CLI provider's id would
+displace that provider, and `AgentAccount.Provider` names exactly one id, so an account of the CLI provider would
+reach a door that reads another variable. As its own provider, an account (**D219**), a pool seat (**D227**) and a
+hand-over decision (**D228**) each rest on one door's facts.
+
+**Rejected.** A second door on the CLI provider's id. A claude and a codex preset: `generic-library.md` ships the
+general need, and the two home variables are documented instead. A package: no ACP library is referenced, so none
+isolates a dependency (**D25**, **D219**).
+
+**Re-opens** when an ACP library dependency appears that a package would isolate, or a host needs one account usable
+across a CLI door and an ACP door of the same agent.
+
+## D226 — a protocol agent is spoken to through a live-stdin member on the runner seam (2026-10-28)
+
+**Standing.** Written by the steward from the AG8 and AG9 sessions (`docs/task-archive.md` Parts 391 and 392); the
+owner's acceptance of the branch makes it binding. The member is additive on the frozen surface (**D70**) and
+reverses by a later decision here.
+
+**Decided.** `IProcessRunner.ExchangeLinesAsync(command, args, stdinLines, …)` writes each line the sequence yields
+to the child's stdin as it is yielded, closes stdin when the sequence ends, and yields stdout line by line under
+`StreamLinesAsync`'s clocks and kill. Its default body REFUSES (`NotSupportedException`), as `StreamBytesAsync`'s does,
+so a host's own runner keeps compiling and the rows that need it read it as unsupported (the ACP door refuses the
+turn, the usage reading answers `runner-unsupported`). The shipped `ProcessRunner` implements it. Two rows needed it
+independently: the ACP door, where `session/prompt` carries the id `session/new` answers with, and the usage reading,
+where codex's `app-server` ends the instant stdin closes, before it answers.
+
+**Why.** On the seam, a host's runner that sandboxes, audits or remotes a spawn (the interface's stated purpose)
+sees these spawns too. A fixed stdin string cannot carry a conversation, which the refusing default says rather than
+degrading into a call that sends the next request before the answer it depends on.
+
+**Rejected.** Closing stdin after the write, as the other members do: a test shows it loses codex's answer, and it
+cannot hold an ACP turn. Spawning outside the runner: it bypasses every host's runner. A default body that writes the
+lines up front: it reads like support and breaks on the first dependent request.
+
+**Re-opens** when a host's runner cannot hold a process open and needs either row anyway, or a protocol needs
+something other than lines on stdin.
+
+## D227 — the account pool grants a seat only on a stated fact, and invents none (2026-10-28)
+
+**Standing.** Written by the steward from the AG6 and AG9 sessions (`docs/task-archive.md` Parts 389 and 392); the
+owner's acceptance of the branch makes it binding. It applies **D219**'s "Lyntai never invents a deadline" to the
+pool, and its constants are frozen from release (**D70**).
+
+**Decided.**
+- **A released hold buys ONE leased attempt.** A stated reset or retry-not-before passing, or the host's
+  `ClearAsync(id, revision)`, lets one attempt run, leased for `AttemptLease` (30 minutes); only its success removes
+  the hold, and its failure restates the hold one revision up.
+- **A recovery nobody stated stays unknown.** The hold lasts until the host clears it, unless the host sets
+  `UnknownProbeAfter` (null by default). A bare 429 is one, so it holds its seat.
+- **An extent nobody stated stays unknown.** A hold covers the account, and the model that met it; a shared allowance
+  is held only where an `IAgentAllowanceSource` supplies one with evidence. None ships: no door supplies one.
+- **Older evidence never undoes a newer failure.** A clear, a success or a reading names the revision or time it
+  is about, and a clear for an old revision returns false.
+- **The usage reading feeds nothing.** A host passes its `HasRoom` to `ReportReadingAsync` in one line.
+
+**Rejected.** Free passage once a reset has passed: a vendor states the moment and does not guarantee it, and every
+waiting seat would hit one account together. A default probe interval for an unknown recovery: a default cool-off is
+the host's option (**D219**). Holding the whole pool on one account's limit when its extent is unstated: an unknown
+pool stays unknown (`docs/agent-provider-layer.md` §5.4). The reading feeding the pool or the allowance source on its
+own: the answer carries no relation between accounts, and account identity that cannot be established reliably is
+**D222**'s re-open condition.
+
+**Re-opens** when two processes must share one pool (it needs an atomic store capability, **D219**), or a door
+supplies a shared allowance with evidence.
+
+## D228 — a brief is cut whole-or-nothing, in a fixed order, and never through the host's words (2026-10-28)
+
+**Standing.** Written by the steward from the AG7 session (`docs/task-archive.md` Part 388); the owner's acceptance
+of the branch makes it binding. The order and the default are public behaviour from release (**D70**), and a
+model-written brief is already refused by **D219**.
+
+**Decided.** `AgentBriefComposer.Brief` is bounded by `AgentBriefOptions.MaxCharacters` (6000), counted in Unicode
+characters, a surrogate pair being one. A part is kept whole or dropped whole, and cuts run in this order until the
+brief fits: tool lines (oldest turn first), agent messages (oldest turn first, the newest turn's excepted), the plan,
+the newest turn's message, host facts (last-listed first). **Never cut:** the preamble saying the brief is a record,
+the host's words (the first request, later prompts, standing instructions; `SystemPrompt` counts as the host's), each
+turn's header and the count of what was left out. A cut that would lengthen the brief is not made, and the shortest
+reachable brief returns `WithinBound` false and says so. Every agent line is quoted behind `> `. A conversation
+resumes instead of getting a brief only for the same provider, door and account with `resume` stated `Supported`;
+`Unknown` is not a promise.
+
+**Why.** The host's words are the one part no one else can supply, and the quoting keeps an agent's claim from posing
+as them. The order drops what is most derived and cheapest to re-read first. Characters, not bytes, because a host's
+sentences may be Chinese: a golden brief pins that its UTF-8 bytes exceed its characters.
+
+**Rejected.** A byte bound. A cut inside a part: half an agent message reads as its whole claim. Cutting the host's
+words to fit. Counting host facts as the host's words, which would leave a long list uncuttable.
+
+**Re-opens** when a host shows the order dropping what the next agent needed while keeping what it did not.

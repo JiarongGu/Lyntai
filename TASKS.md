@@ -15,27 +15,21 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 14 across 6 Parts: 9 startable, 3 blocked, 2 watch
+## Open items — 8 across 4 Parts: 3 startable, 3 blocked, 2 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 115 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a free Hugging Face account (an hf_ token) — its router proxies fal's own q… |
-| 162 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 185 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 241 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
-| 286 | 375 | RV27 — the profile and ingestion benchmark (GAP-125: the review's P01–P16 c… | startable |  |
-| 300 | 375 | RV28 — a model-free schema-first profile prototype on VN2's winner (lane `m… | startable |  |
-| 323 | 376 | AG5 — an account reaching a door | startable |  |
-| 327 | 376 | AG6 — the account pool and its restriction reducer | startable |  |
-| 334 | 376 | AG7 — a transcript and a brief that travel | startable |  |
-| 340 | 376 | AG8 — an ACP door and its stand-in | startable |  |
-| 346 | 376 | AG9 — an optional usage reading through the vendor's own server | startable |  |
-| 369 | 380 | A binary vector column for the SQLite vector store | startable |  |
-| 374 | 380 | Postgres graph store: one transaction for a batch of edges and touches | blocked · env | Docker up, so the Postgres leg runs; LYNTAI_ALLOW_POSTGRES_SKIP=1 would ski… |
-| 379 | 380 | The keyword store's count cap sorts the whole scope on every write | startable |  |
+| 109 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a free Hugging Face account (an hf_ token) — its router proxies fal's own q… |
+| 156 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 180 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 236 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 269 | 99 | The bridge's stream-timeout test fails under the parallel `verify` run and … | startable |  |
+| 288 | 380 | A binary vector column for the SQLite vector store | startable |  |
+| 293 | 380 | Postgres graph store: one transaction for a batch of edges and touches | blocked · env | Docker up, so the Postgres leg runs; LYNTAI_ALLOW_POSTGRES_SKIP=1 would ski… |
+| 298 | 380 | The keyword store's count cap sorts the whole scope on every write | startable |  |
 
 <!-- open-items:end -->
 
@@ -174,8 +168,9 @@ being looked for._
 
 _It opened holding the two Phase-1 gaps. One of those (cross-tenant isolation) closed the same day as
 **Part 100** and left a DECISION behind it; the flake below arrived from watching `verify` rather than from
-the proposal. **Two items are left open here, both WATCH items** — the rest closed into the archive, and this line said "all
-three are startable" until 2026-08-28, after two of them had gone._
+the proposal. **Two items were left open here, both WATCH items** — the rest closed into the archive, and this line said "all
+three are startable" until 2026-08-28, after two of them had gone. A third, a startable timing test, joined them
+on 2026-10-28._
 
 _**The flake below is a WATCH item, not startable work, and the banner counted it as startable until 2026-08-28.** The
 suspected cause is fixed AND pinned — `ProcessRunnerTests.A_FAILED_path_lookup_is_not_cached_so_one_transient_locator_failure_is_not_permanent`,
@@ -265,100 +260,24 @@ there is nothing here to code: what remains is evidence only recurrence can supp
   <br>**2026-09-27: 0 of 40 more fresh-process runs of its class** (19 tests each, `Dedup_race` among them), so
   1 in 51 standalone overall. **Looping is not how this gets caught**; the stack has to come from the run it
   fails in.
+  <br>**2026-10-28, a neighbour with a full stack:** one full `verify` failed
+  `SqliteCuratedMemoryStoreTests.Satisfies_the_contract("Racing_writers_on_one_revision_let_exactly_one_win")` with
+  `SQLite Error 1: 'cannot start a transaction within a transaction'`, thrown in `BeginTransaction` inside
+  `SqliteCuratedMemoryStore.UpdateCoreAsync`; the unmodified re-run passed. It is not this exception, but it is the
+  same shape (one connection in use by two callers), in the same store, and it carries the stack this item waits for.
 
-## Part 375 — the competitive review, second round: memory intelligence and a user profile (2026-10-24)
-
-_The review's second round (its §22–32, GAP-116–125: Mem0's v3 ingestion and Dream, Zep's user summary,
-Supermemory's profiles, LangMem's profile manager, Letta's memory editing), audited against the tree and held
-untracked as `local/superpowers/specs/2026-10-24-competitive-roadmap.md`. Its first round is closed in
-`docs/task-archive.md` Parts 349–374. RV26, the owner's ruling, is YES (**D220**), and VN2 chose the projection over curated memory (**D224**,
-`docs/task-archive.md` Part 383); the two items below are what that opens, and the rest is decided:_
-
-- _**GAP-119** (supersede, keep history) shipped as RV19 (**D215**). **GAP-116/117/122** (an `ObserveAsync`
-  intake, a schema-first extractor, debounced background jobs) were RV20's build, and RV20 measured a
-  model-fed profile on valid time and refused it (**D217**): a model cannot supply an attribute's identity._
-- _**GAP-120** (per-task model pinning, local-only) is covered: `ClientName` on the annotation and
-  verification seams, `ProviderId` on scoring, `VectorProviderId` on the graph's embedder (**D209**), and
-  RV11's refusal to degrade a schema-bearing request. The embedder takes no named client by design (**D209**)._
-- _**GAP-123** (Dream / Observation synthesis) is refused by **D167** and **D168**, both refused on measurement.
-  It reopens only with a new measurement, never on the review's say-so._
-
-- [ ] **RV27 — the profile and ingestion benchmark (GAP-125: the review's P01–P16 cases).** Cases cover <!-- item: state=startable -->
-  negation, third-party speech, reported speech, a revised preference, a correction, deletion propagating,
-  and cross-tenant isolation, scored per bucket and never as one accuracy figure. RV20's NO is **D217**, so
-  this serves the profile alone (**D220**). Write the result in the RV8 shape and compare runs with `bench-compare`.
-  <br>**Startable since VN2 closed** (**D224**): Track A gates the projection over curated memory, and VN2's
-  `ProfileScenarioTests` scenarios are its first cases.
-  <br>**Two tracks, kept apart** (`docs/vnext-modular-capabilities.md` §3). **Track A**, model-free: exact reads,
-  corrections and history, isolation, concurrent writes, a replayed event, zero model calls on a read; a hard
-  gate, and the only track the ruling needs. It gains the cases **D220** names: a partial amendment (one field
-  changed, the rest standing) and the three second-authority cases (a schema rename, a partial correction, an
-  older export imported). **Track B**, an extractor choosing from allowed attribute ids or abstaining:
-  attribution, identity binding, evidence, cost per event; targets preregistered after a baseline and built only
-  on D217's trigger, which the ruling does not meet. The memory-lane corpus run has landed in
-  `docs/memory-measurements.md` §5 (`corpus-amendments-supersession`), and this reads it there before it is built.
-- [ ] **RV28 — a model-free schema-first profile prototype on VN2's winner (lane `memory`).** A versioned, <!-- item: state=startable -->
-  field-level projection (GAP-118/121/124), read with no search and no model call. Each field carries its subject,
-  scope, source, status and revision. A correction from the user outranks a hypothesis, and a narrative summary
-  is a cache that never counts as evidence. Much of it already ships: curated memory's edit, disable and forget,
-  RV9's revision, RV10's export, RV6's composition reporting what it left out, and D215's valid time. The schema
-  is the attribute identity **D217** found a model cannot supply. **Bound (D220, D221):** no profile type in Core
-  (**D218**); a prototype, not a published contract; **a package only through D25's promotion gate**; an
-  extractor-fed mode only on D217's triggers. **Proof:** RV27's Track A passes on it, and the ruling's two
-  VN2 questions (the authority, the partial amendment) hold on the built thing.
-  <br>**Startable since VN2 closed: the winner is the projection over curated memory** (**D224**), one append-only
-  entry per claim and the entry as the authority. The costs **D224** accepts are this row's to close: a crash between
-  a correction's two writes injected, a claim whose content no longer matches its id detected, and valid time held in
-  metadata tested in one place. It starts from the `Prototype/` code VN2 left under `tests/Lyntai.Tests/Memory/`.
-
-## Part 376 — the agent-provider layer (2026-10-27)
-
-_Designed in `docs/agent-provider-layer.md` and decided in **D219**, from an application that runs coding agents
-and had to build the layer inside its own driver. Nine rows are build work, in the design's §9 order; AG9's ruling
-is **D222**. **Each build row is a lane quest**; the lane is `daoris.lanes.json`'s. Every row is additive on the
-frozen surface, takes its first failing test from a recorded capture, and runs against stand-ins at zero tokens.
-The order is the risk order: AG1 to AG4 used what is measured and have closed (`docs/task-archive.md` Parts
-381, 382, 384 and 385); AG5 to AG8 carry what was only designed._
-
-- [ ] **AG5 — an account reaching a door** (lane `inference`, after AG3). A neutral account on the session <!-- item: state=startable -->
-  options, mapped by each CLI door to its own configuration-home variable; Lyntai creates no profile, signs in to
-  none and stores no credential (**D20**). **Proof:** the variable reaches the child through the runner stub; an
-  account of another provider is refused; a test that no credential value is written anywhere.
-- [ ] **AG6 — the account pool and its restriction reducer** (lane `platform`, after AG1 and AG5). Ordered <!-- item: state=startable -->
-  choices walked account by account, asked once per turn so a rotation lands at a turn's end; a set of independent
-  restrictions all of which must permit; a reset time permits one bounded attempt; an owner action is cleared by id
-  and revision; a shared allowance only where a door supplies it; state kept through the key-value store. Selection
-  beyond the ordered walk is an `IAgentAccountPolicy` seam with no second implementation. **Proof:** the reducer
-  under a fake clock (concurrent holds, an owner action, an unknown recovery, a stale reading, a restart); a note
-  that two processes sharing one pool are out of scope.
-- [ ] **AG7 — a transcript and a brief that travel** (lane `platform`). A recorder that folds the event stream <!-- item: state=startable -->
-  into a transcript, and a deterministic composer of a bounded brief with no model: the host's words verbatim and
-  first, another agent's output as its claim, each turn's last message, the plan, host-supplied facts, a count of
-  what was left out; plus the hand-over decision (resume when the provider, account and ability allow, else a fresh
-  session with the brief). **Proof:** golden briefs, the bound biting in the stated order, no memory engine
-  referenced.
-- [ ] **AG8 — an ACP door and its stand-in** (lanes `inference` + `tools`, after AG1 to AG3). JSON-RPC 2.0 over <!-- item: state=startable -->
-  stdio, a process per turn, load or resume by the agent's negotiated capability, prompt, cancel, the update kinds
-  mapped to the stream, an error's `data` and a typed failure read into AG1's failure. A stand-in under
-  `devtools/scripts` speaks the protocol including a limit. **Proof:** the stand-in suite at zero tokens, captures
-  marked source-derived or real, and live tests against installed `claude-agent-acp` and `codex-acp` that skip
-  without them (each a named new skip).
-- [ ] **AG9 — an optional usage reading through the vendor's own server** (lanes `platform` + `inference`, <!-- item: state=startable -->
-  after AG1 to AG3; ruled in **D222**). An optional `IAgentUsageSource` ability on the two CLI doors starts the
-  agent's own server under the host's account home to ask one question about the account's allowance, which runs
-  the vendor binary with that account's credentials in its environment. **Off unless the host enables it and
-  invokes it explicitly**, never inside an ordinary read. Supported per door and per vendor version only after
-  that version's real usage response is validated; "the only whole-account source" is a claim to test, not a
-  premise. Bounded, with cancellation and process cleanup; **its side effects declared** (a start may refresh
-  credentials, change configuration, load extensions, open a listener or leave a process); any failure or
-  unrecognised answer is *unknown*, never a guess; vendor mechanics stay inside the adapter and Lyntai stores no
-  credential (**D20**). **Proof:** a stand-in server and recorded responses per door and version; a response
-  that does not match reads unknown; an explicit-off host never spawns; cancellation leaves no process (fault
-  injection); the declared side effects are on the description (AG3's conformance theory); live tests gated
-  and skipping without the binary (each a named new skip).
-  <br>**Startable since AG1 to AG3 landed**: the provider description and registry exist (`AgentProviderDescriptor`,
-  `AgentProviderRegistry`), so the ability is declared there, and a failure reads as AG1's kinds
-  (`SessionEnded.Failure`).
+- [ ] **The bridge's stream-timeout test fails under the parallel `verify` run and passes alone** (lane <!-- item: state=startable -->
+  `inference`). `BridgeProviderTests.The_stream_timeout_is_an_INACTIVITY_clock_a_slow_but_alive_stream_finishes`
+  has five chunks 100 ms apart finish inside a 250 ms inactivity window, so a 150 ms stall of the test's own
+  scheduling reads as silence and the stream ends in `Timeout`. It failed in the `verify` runs of AG3, AG5, AG8 and
+  RV28 and passed unmodified on the re-run; AG6's run saw it beside three more timing tests (an `InputSegmenterTests`
+  NFKC-linearity test and two `ProcessRunnerTests` chatty-child tests) that passed 108 of 108 alone. `docs/FIXES.md`
+  (2026-10-25, the bridge's timeout) records the test as the pin for the clock's kind.
+  <br>**Not the two items above:** their cause is in a runner or a connection, this one's is a margin in the test,
+  and a loaded machine spends it. **Contract:** the test still proves what its name says (a stream never silent for
+  the window finishes though the whole run is longer than the window). **Proof:** the margin widened, or the guard
+  driven from a clock the test controls; the test goes red when the guard bounds the whole stream instead of each
+  read; twenty full parallel `test` runs without it failing.
 
 ## Part 380 — what the real-corpus memory run left (2026-10-28)
 

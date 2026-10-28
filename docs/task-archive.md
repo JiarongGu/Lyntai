@@ -5901,3 +5901,118 @@ sent resends, taken resumes with a continue word, uncertain is not retried. **Th
 clock, with two mutations each turning a test red. Lane session, lane `platform`.
 
 - AG4 — a bounded retry decorator
+
+## Part 386 — AG5: an account reaching a door (2026-10-28)
+
+✅ done 2026-10-28 — **Outcome:** `47103cf4` (merged `90d4c37a`). `AgentSessionOptions.Account` is an `AgentAccount`
+(`Provider`, `Name`, `Home`: three strings and nothing that could carry a credential). Each CLI door maps it to its own
+configuration-home variable for that turn only (`CLAUDE_CONFIG_DIR`, `CODEX_HOME`), and the description states the new
+`accounts` ability with an `AgentAccountMapping`. Refused before any spawn: another provider's account, a door that
+states `accounts` unsupported, and a blank name or a blank or control-character home. A test pins that the home is
+byte-identical and a sentinel secret in it appears in no event, log, argv or stdin. **Readings the session left:** the
+other-provider refusal sits in `AgentProvider`, not the raw sessions, which do not know the id they were registered
+under, so a keyed session maps whatever it is handed; `Home` is checked neither for existence nor for being absolute,
+because the runner seam may place the child elsewhere (**D20**); a host's own `IAgentProvider` that does not state
+`accounts` is not caught by the provider's constructor, and its `Unknown` default lets an account through. The reading
+is `docs/guide.md` §CLI-agent session. Lane session, lane `inference`.
+
+- AG5 — an account reaching a door
+
+## Part 387 — RV27 Track A: the profile gate, 42 cases in 9 buckets (2026-10-28)
+
+✅ done 2026-10-28 — **Outcome:** `f917a4b4` and `ac36838c` (merged `f36b3265`). The cases, five projections with one
+deliberate flaw each, and `node devtools/dev.mjs memory-profile` (no model; RV8 rows, metric `case-pass`, one arm per
+projection and bucket, paired by `bench-compare`) are in `tests/Lyntai.Tests/Memory/Prototype/`; `ProfileTrackATests`
+runs them in `verify`. Each broken projection fails the bucket it should and every bucket is failed by one. The gate
+passed VN2's projection 40 of 42 and found a defect, fixed in two lines (a correction took any row id as its
+predecessor, so a handle read under one subject ended another's claim), and two gaps it declared by ratchet: an import
+that dedups on (kind, content) and a replayed event delivered to four writers at once. RV28 closed both. The numbers
+are `docs/memory-measurements.md` §5 `profile-track-a-gate`. **Track B stays unbuilt and is not a row**: it is the
+extractor option **D220** keeps behind **D217**'s trigger, which the ruling does not meet. Cases left out need that
+extractor (negation, third-party and reported speech, a one-off request against a standing preference) or a seam the
+projection lacks (conflicting scopes, a provider fault). **The review's second round closed around it** (the Part
+that held RV27 and RV28 left the backlog with them): GAP-119 shipped as RV19 (**D215**); GAP-116/117/122 were RV20's
+build, refused on measurement (**D217**); GAP-120 is covered by `ClientName`, `ProviderId` and `VectorProviderId`
+(**D209**); GAP-123 is refused by **D167** and **D168** and reopens only on a new measurement. Nothing user-visible
+changed. Lane session, lane `memory`.
+
+- RV27 — the profile and ingestion benchmark (GAP-125: the review's P01–P16 cases)
+
+## Part 388 — AG7: a transcript and a brief that travel (2026-10-28)
+
+✅ done 2026-10-28 — **Outcome:** `c10306fc` (merged `3168873d`). In `Lyntai.Core`: `AgentTranscriptRecorder` and the
+`RecordingAgentSession` decorator fold a turn into an `AgentTranscript`; `AgentBriefComposer.Brief` makes a bounded
+brief with no model, no memory engine and no clock (`Brief`, not `Compose`, which `check-api-vocabulary` retires on the
+frozen surface); `AgentHandover.Decide` resumes only for the same provider, door and account with a stated `resume`
+and otherwise names why it starts fresh. The bound is `AgentBriefOptions.MaxCharacters` (6000, `AddAgentBrief`), in
+Unicode characters, cut in a fixed order and whole-or-nothing (**D228**). Every agent line is quoted behind `> `, so an
+agent's claim cannot pose as the host's words. Proof: golden English and Chinese briefs, the order asserted at every
+bound, hostile agent text, the decision over every door, and an IL scan finding no memory type. **Readings:** host
+facts are cuttable and `SystemPrompt` counts as the host's words; `RecordingAgentSession` is built by hand, not
+DI-wrapped like `AddAgentRetry`, because a transcript belongs to one conversation. Lane session, lane `platform`.
+
+- AG7 — a transcript and a brief that travel
+
+## Part 389 — AG6: the account pool and its restriction reducer (2026-10-28)
+
+✅ done 2026-10-28 — **Outcome:** `03a17e96` (merged `0e04f314`). `AgentAccountPool` (`PickAsync` once per turn,
+`ReportAsync` with the turn's end), the pure `AgentPoolReducer`, `AgentPoolOptions`, `IAgentAccountPolicy` (an ordered
+walk ships; no second implementation) and `IAgentAllowanceSource`, with `AddAgentAccountPool`. A hold per scope and
+cause, every covering hold permitting; a failure holds its own restriction; a stated reset or a `ClearAsync(id,
+revision)` buys one leased attempt, not free passage; older evidence never undoes a newer failure; state is one
+key-value entry per hold, process-only without a store. The rules and what they rejected are **D227**. Two processes
+sharing one pool are out of scope, stated on the type and in the guide. 37 tests under a fake clock. **Readings:** a
+bare 429 is `Rate` with unknown recovery and holds its seat until the host clears it or sets `UnknownProbeAfter`; no
+door supplies an allowance today, found by `is` over the registered providers as **D203** does for capabilities;
+`ReportReadingAsync` takes primitives, so AG9's reading froze no shape. Lane session, lane `platform`.
+
+- AG6 — the account pool and its restriction reducer
+
+## Part 390 — RV28: the profile prototype passes Track A 42 of 42 (2026-10-28)
+
+✅ done 2026-10-28 — **Outcome:** `f84cc43d` (merged `39833655`). `ProfileOverCurated` on **D224**'s winner, still
+test-only under `tests/Lyntai.Tests/Memory/Prototype/` (no profile type in Core, **D218**), passes RV27's Track A 42 of
+42 on SQLite and files with no declared gap left: an import that finds a claim by id, so a value a field held twice
+comes back twice, and writers that agree on the lowest row as the survivor of one event. The replay case now counts
+stored entries as well as history. **D224**'s accepted costs are proved on both stores: a crash between a correction's
+two writes fails closed and completes once on redelivery, and an entry edited in place or added by hand is reported
+and never read. The authority is the entry, and a partial amendment leaves every other claim equal down to its
+revision. The result is `docs/memory-measurements.md` §5 `profile-prototype-rv28`, which supersedes
+`profile-track-a-gate`. **D224 needs no amendment**: its re-open condition did not occur. The limits it could carry
+(the checksum does not cover a rename or the end and successor a correction writes; a racing writer can hold a handle
+to a copy a peer removed) are in that entry. A package still waits on **D221**'s gate. Nothing user-visible changed.
+Lane session, lane `memory`.
+
+- RV28 — a model-free schema-first profile prototype on VN2's winner
+
+## Part 391 — AG8: an ACP door and its stand-in (2026-10-28)
+
+✅ done 2026-10-28 — **Outcome:** `d26224e1` (merged `b522a04b`). `AddAcpAgentSession` registers an agent speaking
+the Agent Client Protocol as its own keyed session and provider, one door `acp` (**D225**), through
+`IProcessRunner.ExchangeLinesAsync`, a live-stdin member added for it (**D226**). A turn is `initialize`, `session/new`
+and `session/prompt`; `session/resume` or `session/load` follows what the agent states; a permission request is
+rejected, allowed once or cancelled by the access mode; failures read into AG1's kinds. The stand-in is
+`devtools/scripts/acp-stub.mjs`; 72 tests, two named live skips. Real captures are only codex-acp 2.1.1's `initialize`
+and its logged-out `session/new`; every other shape is source-derived and labelled so. **Two traps:** codex-acp exits
+at startup when its home does not exist, which `AgentAccount.Home`'s "the agent creates a missing home" holds for
+claude only, and a failed codex turn ends a clean `end_turn` unless the client declares the typed-failure capability
+(`.agents/knowledge/pitfalls.md` §Second doors). Resume is `Unknown`, source `Negotiated`: only `initialize` can say.
+No claude or codex preset ships (`generic-library.md`). Lane session, lanes `inference` + `tools`.
+
+- AG8 — an ACP door and its stand-in
+
+## Part 392 — AG9: an optional usage reading through the vendor's own server (2026-10-28)
+
+✅ done 2026-10-28 — **Outcome:** `8a9ebaf8` (merged `c49b131d`). `IAgentUsageSource.ReadAllowanceAsync` returns an
+`AgentAllowanceReading` (windows with use, length and reset, a plan, a time, a derived `HasRoom`) or an unknown with a
+reason from `AgentAllowanceUnknown`; both CLI doors' providers are the source. Off unless `AddAgentUsageReading`;
+nothing in the library calls it, and a test pins that (**D222**). A read asks the binary `--version` with no home set
+and starts the server only for a validated version (claude 2.1.296, codex-cli 0.160.0), under the account home in a
+fresh empty working directory, ending the process tree on every path. The `usage-reading` claim declares its side
+effects (`AgentSideEffects`), observed on a start under an empty home. Validation rests on the sibling's evidence
+notes, so the claim is `Declared`; the installed versions (claude 2.1.312, codex-cli 0.163.0-alpha.10.2) read
+`version-not-validated`. Four named live skips (`LYNTAI_LIVE_AGENT_USAGE`). **The reading does not feed AG6's pool**:
+the host wires `HasRoom` into `ReportReadingAsync` in one line (**D227**). The answer carries no relation between
+accounts, so it is no `IAgentAllowanceSource` either. Lane session, lanes `platform` + `inference`.
+
+- AG9 — an optional usage reading through the vendor's own server
