@@ -5937,7 +5937,7 @@ mechanism and not a claim about extraction.
 
 ### RV27 Track A: the profile gate passes 40 of 42 cases on the projection over curated memory, and each broken projection fails its own bucket (`memory-profile`, 2026-10-28) <!-- result: id=profile-track-a-gate arm="the projection over curated memory (D224, `ProfileOverCurated`) on SQLite and files, and five projections with one deliberate flaw each on SQLite — `node devtools/dev.mjs memory-profile`" metric=case-pass n="42 cases in 9 buckets per arm, 7 arms, one run each; the same run repeated, and run again before and after the one defect it found" value="projection 40/42 on both stores (7 buckets 100%, concurrent-writes 3/4, export-import 3/4: the two declared gaps); in-place correction 3/7 of corrections-history, ranked read 2/4 of zero-model-read, unchecked correction 1/4 of concurrent-writes, replay that writes again 2/4 of replayed-event, shared subjects 0/6 of isolation" ships=no status=CURRENT -->
 
-Tier: **none**. RV27's Track A is the model-free half of the profile benchmark `TASKS.md` Part 375 filed: a gate, so a
+Tier: **none**. RV27's Track A is the model-free half of the profile benchmark RV27 filed (`docs/task-archive.md` Part 387): a gate, so a
 bucket is scored by how many of its cases pass and never folded into one accuracy figure. No model, judge or embedder
 runs, and every read in it asks the store exact verbs only. It runs the projection **D224** chose
 (`tests/Lyntai.Tests/Memory/Prototype/ProfileOverCurated.cs`), test-only code over shipped store interfaces: it adds no

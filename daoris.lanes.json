@@ -91,7 +91,7 @@
 
   "laneless": [
     {
-      "what": "The docs and the briefs: read by every lane and written by the change that makes them stale. The steward's records are carved out. CLAUDE.md's counted lines (the decision range and the baseline) are the steward's by convention; its dev-loop table is generated from the tools lane's roster.",
+      "what": "The docs and the briefs: read by every lane and written by the change that makes them stale. The steward's records are carved out. CLAUDE.md's counted lines (the decision range and the baseline) are the steward's by convention, and so is the status line at the head of `docs/agent-provider-layer.md`, which a lane session leaves alone; its dev-loop table is generated from the tools lane's roster.",
       "paths": [
         "docs/**",
         "!docs/task-archive.md",

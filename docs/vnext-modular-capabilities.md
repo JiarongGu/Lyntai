@@ -3,8 +3,8 @@
 **Status: a study of an external proposal** (`docs/documents.md`). The RFC, *Lyntai vNext — modular memory
 intelligence and agent capabilities*, was reviewed on 2026-10-25 against the public repository, without a clone or a
 test run. It proposes; it does not decide. **Where it and this repository's records disagree, the records
-win**, and §4 says where. What Lyntai adopts and refuses is **D218**; what is filed is `TASKS.md` Part 375
-(VN2, its comparison, closed as **D224**), and `docs/ROADMAP.md` §Sequenced.
+win**, and §4 says where. What Lyntai adopts and refuses is **D218**; what was filed has closed:
+VN2 as **D224**, RV27's Track A and RV28 in `docs/task-archive.md` Parts 387 and 390. See also `docs/ROADMAP.md` §Sequenced.
 
 ## 1. How each proposed item stands
 
@@ -24,7 +24,7 @@ since this table was written) or `Later` (sequenced behind a ruling). Evidence i
 | NEXT-201 to 207 ingestion | Later | Wave 2, behind Wave 1 and D217's trigger. The RFC's constrained arm (the model picks from allowed attribute ids or abstains) is exactly what the trigger asks for |
 | NEXT-301 does the composer already serve many sources | Partly | `IPromptComposer` and `EngineBackedPromptComposer` own the budget; D201's manifest already reports cuts. A context package is an adapter over them or nothing |
 | NEXT-302 budgeted contributions with an omission manifest | Exists | D201 |
-| NEXT-303 reflection proposals | Refused | D167, D168 and the Dream refusal in `TASKS.md` Part 375. A proposal-only, default-off form needs a NEW measurement before it is a task |
+| NEXT-303 reflection proposals | Refused | D167 and D168, which refuse Dream (`docs/task-archive.md` Part 387). A proposal-only, default-off form needs a NEW measurement before it is a task |
 | NEXT-304 Agent Framework adapter | Refused | D216: a tested recipe (`docs/extensions-ai.md`); reconsidered when a second consumer needs the same mapping |
 | NEXT-305 tool and MCP recipes | Exists | `ITool`, `Lyntai.Tools.Mcp`, D210's approval seam |
 | NEXT-306 fault injection, compatibility | Partly | D211 (every contract on every backend, `docs/task-archive.md` Part 366) and the redelivery in Part 367. A package-absent run belongs to whichever wave ships a package |
