@@ -21,6 +21,15 @@ every addition.
 
 ### Changed
 
+- **`Microsoft.Data.Sqlite` is 10.0.14**, which carries the upstream fix for the connection-pool race that could hand one
+  handle to two callers (dotnet/efcore#39008, fixed in 10.0.13). The SQLite factory still serializes the rent, for a consumer
+  who pins an older patch; with the lock removed, 8 runs of the 200-round handoff test on 10.0.14 passed, and the lock's cost is
+  not measurable. The SQLitePCLRaw bundle stays at its pin.
+- **fal's documented behaviour is confirmed by a run on a funded account, with no API change.** `FalProvider` read
+  `request_id`, `status`, `url` and `content_type`, `IN_QUEUE` and `COMPLETED`, and owner-and-app addressing for a sub-path
+  model correctly; fal reports no cost on its own queue. A request whose input cannot be downloaded is accepted, polls
+  `COMPLETED` with no `error` field and fails at the result fetch with `422`, so the render reports `Failed` there and
+  `FalOptions.ErrorField` does not see it. The docs now say what was measured and what was not (`docs/generation.md` §3).
 - **"You've hit your usage limit" and a spend cap classify as `RateLimited`**, so the router benches that account
   instead of reading the turn as an ordinary failure and asking it again. Both CLI agent doors read the failure
   from their own failure fields before any sentence, and the same sentences now decide a provider call and an
@@ -69,6 +78,11 @@ every addition.
 
 ### Added
 
+- **An example image pipeline: `samples/Lyntai.ImagePipeline`** (**D230**). It drives `ComfyUiProvider` through five
+  API-format workflow templates (setup image, variation, compose from style, subject and pose references, inpaint, upscale),
+  each mapped by a manifest to the provider's option keys. Every step writes a recipe (template and its hash, fields, seed,
+  models, inputs and the output's pixel hash), and a replay compares decoded pixels. No library type or option changed;
+  `docs/generation.md` §12 has the model layout, the node packs, the role mapping and the recipe format.
 - **A generation request names a checkpoint, LoRAs and sampling parameters, and each backend declares which it honours**
   (**D231**). `MediaRequest` gains `Checkpoint`, `Loras` (`MediaLora`: a name and a weight), `NegativePrompt`, `Seed`,
   `Steps`, `CfgScale`, `Sampler` and `Scheduler`, and a durable job carries them. `ProviderCapabilities` gains
@@ -271,8 +285,8 @@ every addition.
 - **A fal model with a sub-path is polled under its owner and app.** `FalProvider` polled, fetched and cancelled a
   model such as `fal-ai/flux/schnell` under its full path, which fal's documentation says answers `405`, and a `405`
   polls as still running, so such a render would never have been seen to finish. It now submits to the full path and
-  polls, fetches and cancels under `fal-ai/flux`, as fal documents; this is the documentation read, not yet measured
-  against a finished render (`docs/generation.md` §3).
+  polls, fetches and cancels under `fal-ai/flux`, as fal documents; a finished render of `fal-ai/flux/schnell` has since
+  confirmed it, and the full path answered `405` (`docs/generation.md` §3).
 - **A bridged provider enforces its provider timeout.** `AddBridgeProvider` bounds a completion as a whole
   and a stream by inactivity, returning `Timeout` so routing can advance. Previously a hung delegate could
   hold the call until the caller cancelled.
