@@ -56,8 +56,9 @@ never left the process (a refused connection, a failed name lookup or TLS handsh
 
 `Lyntai.Generation` ships six (`dotnet add package Lyntai.Generation` — it pulls Core with it). Five have run
 against a live engine or a local server speaking their API — the table says which, and neither of the two
-HTTP image backends has been called on its vendor's own service or the WebUI itself; **fal's is written from
-vendor documentation and has been measured only as far as fal's door** (§3).
+HTTP image backends has been called on its vendor's own service or the WebUI itself; **fal's has been called on
+fal's own queue for an image model, and a video model, `IN_PROGRESS` and a runtime failure are still the documented
+shapes** (§3).
 
 | Backend | Delivery | Notes |
 |---|---|---|
@@ -65,7 +66,7 @@ vendor documentation and has been measured only as far as fal's door** (§3).
 | `Automatic1111Provider` | Inline | A locally-run SD WebUI's `/sdapi/v1` API: `txt2img` / `img2img`. *Measured against stable-diffusion.cpp's `sd-server` (`656a135`, Vulkan), which implements the WebUI's shapes — **not against the WebUI itself*** (`Automatic1111LiveTests`: the probe, txt2img at a non-square size, img2img, all passing). That proves the shapes it implements, not every WebUI behaviour. Seen different from the WebUI's documented API: `sd-server` lists only its one loaded model in `sd-models` where the WebUI lists the checkpoints it could load — so the probe's "loaded" reading is proven only against a server for which the two coincide — and answers `info` with its own metadata. It honoured `steps`, `cfg_scale`, `width`/`height` and `denoising_strength`, and (§5, *Parameters*) `seed`, `negative_prompt`, `sampler_name` and `scheduler`, while it ignores `override_settings` and `<lora:…>` tags. A WebUI that is not running — nothing listening — is **Failed**, a down host like any other (**D31**), and so is one that drops a render mid-response; both count toward the dead-host threshold, and only the detail tells them apart. Its probe checks a checkpoint is *loaded* — "up" isn't "usable". The WebUI's loaded checkpoint decides the model unless the request names one the host declared (§5, *Parameters*): `MediaRequest.Model`, including a candidate's `a1111:sd_xl_base` pin, is **not** sent |
 | `ComfyUiProvider` | **Job** | *Measured against a live server, image, video and mesh workflows* — video both as a core-node MP4 and through a real video model, Wan 2.2 TI2V-5B, from text and from a `first-frame` input. Workflow-driven: you supply the graph in `Options["workflow"]` (+ optional `Options["prompt-path"]` to place the prompt), and outputs come back as view URIs — a mesh as `model/gltf-binary`. Each input (bytes, or a URI it fetches from any http(s) server, capped by `MaxFetchBytes`, and fetched off ComfyUI's own origin with no credentials so long as the ComfyUI client follows no redirect itself — `AddComfyUiProvider`'s does not, and a client you supply should not either (**D180**); validate URIs a model supplies) is uploaded and its stored name written at the field `Options["input-path"]` names, or `Options["input-path:<role>"]` for an input with a role; an input with nowhere to go is refused, never dropped. A transport failure while polling reports **Running, not Failed**, while a 4xx or an unconfigured base URL stays terminal, so a bad id never polls forever |
 | `LocalDiffusionProvider` | Inline | A local `sd-cli` / stable-diffusion.cpp subprocess through `IProcessRunner` — no key, no network, no content policy in the path. Argv and the multiple-of-64 size clamp are measured against a real engine (txt2img and img2img, end to end through the library) |
-| `FalProvider` | **Job** | *Measured only as far as fal's door: written from fal.ai's public docs, and an account with no balance was refused there* (§3). One aggregator queue reaching the Wan/Kling/Veo-class video models. The operation id **carries its model** (`"model#requestId"`) because a resumed job has only the id, and a transport failure while polling reports **Running, not Failed** — a 500 says nothing about a paid render still in flight |
+| `FalProvider` | **Job** | *Written from fal.ai's public docs, then run against fal's own queue for an image model (submit → poll → fetch, a failed request); a video model has not been called* (§3). One aggregator queue reaching the Wan/Kling/Veo-class video models. The operation id **carries its model** (`"model#requestId"`) because a resumed job has only the id, and a transport failure while polling reports **Running, not Failed** — a 500 says nothing about a paid render still in flight |
 | `PiperProvider` | Inline + **Stream** | A local piper TTS engine through `IProcessRunner` — no key, no network. Raw PCM **streams** through the media stream door as it is synthesised (measured against a real engine: several chunks before one terminal), typed `audio/pcm;rate=…;bits=16;channels=1;endian=little` with the rate read from the voice's own config. `GenerateAsync` is the same stream, buffered |
 
 **A current model behind the local backends: Z-Image-Turbo** (**Apache-2.0**; the host supplies Comfy-Org's three
@@ -98,26 +99,38 @@ A backend that catches its own exceptions applies the router's rules itself, so 
 possibly-delivered submit into a conclusive `Failed`, and none reports a thrown exception as a content
 `Refused`.
 
-## 3. fal: documented, measured only as far as the door
+## 3. fal: measured on an image model, documented for the rest
 
 `FalProvider` was written from fal.ai's public queue documentation. `FalLiveTests` has called it on fal's own
-queue with a key from a free account, and **the account held no balance**, so both submits (a text-to-image on
-the cheapest model, `fal-ai/flux/schnell` at its smallest preset, and an image-to-image whose input cannot be
-fetched) were refused at the door and nothing was enqueued or billed.
+queue (`queue.fal.run`, `Authorization: Key …`) with a funded account: a text-to-image on the cheapest model,
+`fal-ai/flux/schnell` (fal's pricing page lists it at $0.003 per megapixel, billed rounded up to one) at its
+smallest preset (`image_size` `square`, 512×512), and an image-to-image on `fal-ai/flux/schnell/redux` whose input
+cannot be downloaded. The wire replayed from those answers is in `FalProviderTests` ("recorded from fal").
 
-**Measured**: `POST https://queue.fal.run/{model}` under `Authorization: Key …` reaches fal and the key is
-recognised (the refusal names the account, where a bad key would be a 401); a locked account answers
-`403 {"detail":"User is locked. Reason: Exhausted balance. Top up your balance at fal.ai/dashboard/billing."}`.
-A refusal's body is `{"detail": "<words>"}` there, and the submit is now classified by its status
-(403 and 401 `AuthFailed`, 429 `RateLimited`), so the router benches the account instead of guessing from the
-words. The live tests **skip**, naming the balance, on that answer, since it says nothing about the queue behind
-the door.
+**Measured**: a locked account (no balance) answers a submit `403 {"detail":"User is locked. Reason: Exhausted
+balance. Top up your balance at fal.ai/dashboard/billing."}`, classified by its status (403 and 401
+`AuthFailed`, 429 `RateLimited`); the live tests **skip**, naming the balance, on that answer. On a funded
+account:
 
-**Still documented, not measured**: the status vocabulary, the `request_id`/`status`/`url`/`content_type`
-fields, `queue_position`, the `COMPLETED`-plus-`error` failure shape, what a failed request's result fetch
-answers, and cost. The next run needs an account with a balance; one `FalLiveTests` run is two submits at about
-a tenth of a cent. Its tests pin this library's behaviour for each documented shape, never that fal answers in
-it, so treat that run as the verification.
+- **Submit**: `200` with `status` `IN_QUEUE`, `request_id`, `response_url`, `status_url` and `cancel_url` (all under
+  the model's owner and app, `fal-ai/flux`, never the full model path), `queue_position` (`0`), `logs` null and
+  `metrics` empty.
+- **Status**: `200` with `status` `COMPLETED` on the first read, a second after the submit (`IN_QUEUE` was seen only
+  on the submit answer, `IN_PROGRESS` not at all), the same URL fields and `metrics.inference_time`. No `error`
+  field and no cost.
+- **Result**: `{"images":[{"url","width","height","content_type":"image/png"}],"timings","seed",
+  "has_nsfw_concepts","prompt"}`, the URL a public CDN link that served a 512×512 PNG. No cost field, so
+  `MediaUsage.CostUsd` is null and a spend cap does not see fal renders.
+- **A failed request**: the redux request whose `image_url` does not resolve was accepted (`200 IN_QUEUE`), polled
+  `COMPLETED` with no `error` field, and answered the result fetch `422 {"detail":[{"loc":["body","image_url"],
+  "msg":"Failed to download the file. …","type":"file_download_error",…}]}`. So the poll does not see this failure
+  (the `ErrorField` check never fires on it) and the fetch reports it `Failed` with fal's words; a job that polls
+  `Succeeded` then fetches ends "succeeded but its artifacts could not be fetched: 422 …".
+
+**Still documented, not measured**: `IN_PROGRESS`, `queue_position` on a status read, a failure fal reports on the
+status document itself (`ErrorField`, `ErrorTypeField`), a video model, cancel, an object-valued request field
+(`JsonFields`), and what a failed request bills. One `FalLiveTests` run is two submits at about a third of a cent.
+Its tests pin this library's behaviour for each, never that fal answers in it.
 
 **What a host can correct in configuration** (`FalOptions`, D69): the URL segments (`RequestsSegment`,
 `StatusSegment`, `CancelSegment`), the status vocabulary (`StatusVocabulary`), the cost fields (`CostFields`),
@@ -128,28 +141,29 @@ which request fields are raw JSON (`JsonFields`). Any request field goes through
 `MediaRequest.Options`, as a string unless `JsonFields` names it. **What it cannot correct**: the response fields read by name — `request_id`, `status`,
 `queue_position`, `url` and `content_type` — which a release would have to change.
 
-**Cost**: fal's documented results carry **no cost field**, so unless a `CostFields` name matches,
+**Cost**: fal's results and statuses carry **no cost field** (measured), so unless a `CostFields` name matches,
 `MediaUsage.CostUsd` is null and a spend cap never sees these renders. A reported cost is used as given, never
-inferred from a rate card.
+inferred from a rate card, and the shipped names (`cost`, `cost_usd`, `price`) match nothing on fal's own queue.
 
-**Sub-path models, read from fal's documentation (a read, not a measurement)**: fal documents status, result and
-cancel URLs as using "only the owner and the app" and says one carrying the endpoint path returns `405`. The
-backend sent the full path (`fal-ai/flux/schnell/requests/…`), which under that reading would never have
-polled a sub-path model to completion (a 405 polls as still running), so it now submits to the full path and
-polls, fetches and cancels under `fal-ai/flux` (`FalProviderTests`); the operation id keeps the whole model.
-The live test records the full-path answer on a finished request and will say if the documentation is wrong.
-A host whose model fal addresses differently sets the path per model in `FalOptions.RequestPaths`
-(`["fal-ai/flux/schnell"] = "fal-ai/flux/schnell"` polls under the full path); a model not listed keeps the
-owner-and-app default, pinned byte for byte. The path is **not** read from the submit answer's `status_url`,
-`response_url` and `cancel_url`: a durable job resumes with only the operation id (`"{model}#{requestId}"`), so those
-URLs would have to ride inside it, and no run has yet shown the fields. A cancel is a REQUEST (202), so `CancelAsync` reports the render still running and only a poll says how it
+**Sub-path models, measured**: fal documents status, result and cancel URLs as using "only the owner and the app"
+and says one carrying the endpoint path returns `405`. The run confirmed it for `fal-ai/flux/schnell`: the
+status URL under `fal-ai/flux` answered `200`, under the full path `405`, and the submit answer's own
+`status_url`, `response_url` and `cancel_url` use `fal-ai/flux`. So the backend submits to the full path and
+polls, fetches and cancels under `fal-ai/flux` (`FalProviderTests`); the operation id keeps the whole model. A
+`405` polls as still running, so the full path would never have polled a sub-path model to completion. The
+live test records the full-path answer on every finished request. A host whose model fal addresses differently
+sets the path per model in `FalOptions.RequestPaths` (`["fal-ai/flux/schnell"] = "fal-ai/flux/schnell"` polls under
+the full path); a model not listed keeps the owner-and-app default, pinned byte for byte. The path is **not** read
+from the submit answer's `status_url`, `response_url` and `cancel_url`: a durable job resumes with only the operation
+id (`"{model}#{requestId}"`), so those URLs would have to ride inside it. The answer shows the fields are there
+and agree with the default for the models run, so reading them stays an option for a model that breaks the rule. A cancel is a REQUEST (202), so `CancelAsync` reports the render still running and only a poll says how it
 ended. A model's input fields other than the prompt go through `MediaRequest.Options` **as strings**
 (`"image_size":"square_hd"`), except a key listed in `FalOptions.JsonFields`, whose value is sent as raw JSON, so an
 object-valued field such as a custom `image_size` is `o.JsonFields = ["image_size"]` plus
 `Options["image_size"] = """{"width":1024,"height":768}"""`. A listed option whose value is not valid JSON
 (a preset name, say) is refused as `Unsupported` before any call. The list is a name list rather than a marker in the
 value, because whether a field is an object is a property of the model's schema, and no string can be mistaken for JSON by
-what it begins with. Nothing has sent an object-valued field to fal yet.
+what it begins with. Nothing has sent an object-valued field to fal yet: the run's `image_size` was a preset name.
 
 **A free way to verify the wire.** Hugging Face's router proxies fal's own queue wire, and a free Hugging Face
 account carries a small monthly inference credit and needs no fal account. The route is a configuration, not

@@ -8,9 +8,10 @@ namespace Lyntai.Tests.Generation;
 
 /// <summary>The fal backend against fal's OWN queue (<c>queue.fal.run</c>, <c>Authorization: Key …</c>).
 ///
-/// <para>Skipped without <c>FAL_KEY</c>. <b>Each test makes ONE submit and the pair costs about a tenth of a
-/// cent</b> — the cheapest image model fal lists, at its smallest preset, and a second request that fails
-/// before it renders — so this is a measurement to run on purpose, never a gate. The key is read from the
+/// <para>Skipped without <c>FAL_KEY</c>. <b>Each test makes ONE submit and the pair costs about a third of a
+/// cent</b> — the cheapest image model fal lists ($0.003 per megapixel, billed rounded up to one) at its
+/// smallest preset, and a second request that fails before it renders (fal reports no cost, so what it bills is not measured) — so this is a
+/// measurement to run on purpose, never a gate. The key is read from the
 /// environment and goes nowhere but the <c>Authorization</c> header; the wire log below records each exchange's
 /// method, URL, status and body, never a header.</para></summary>
 public class FalLiveTests(ITestOutputHelper output)
@@ -103,13 +104,13 @@ public class FalLiveTests(ITestOutputHelper output)
     }
 
     [SkippableFact]
-    public async Task A_request_whose_input_cannot_be_fetched_fails_with_fals_error_shape()
+    public async Task A_request_whose_input_cannot_be_downloaded_is_accepted_then_fails_at_the_result_fetch()
     {
         Skip.If(string.IsNullOrWhiteSpace(Key), NoKey);
         var provider = Provider();
 
         // Redux takes one image_url and nothing else; a host that does not resolve cannot be downloaded from, so
-        // the request fails before it renders and bills nothing
+        // the request is accepted, then fails before it renders
         var submitted = await provider.SubmitAsync(new MediaRequest
         {
             Kind = ProviderKinds.Image,
@@ -120,7 +121,7 @@ public class FalLiveTests(ITestOutputHelper output)
         {
             SkipWhenLocked(submitted);
             output.WriteLine($"submit: {submitted.Status} {submitted.Verdict} {submitted.Detail}");
-            if (submitted.Status == QueuedOperationStatus.Failed) return;   // refused at the door: the answer is in the wire log
+            Assert.True(submitted.Status == QueuedOperationStatus.Queued, $"{submitted.Verdict}: {submitted.Detail}");
 
             var deadline = DateTime.UtcNow + TimeSpan.FromMinutes(3);
             QueuedOperation polled;
@@ -135,7 +136,13 @@ public class FalLiveTests(ITestOutputHelper output)
 
             var fetched = await provider.FetchAsync(submitted.Id);   // what the result of a failed request looks like
             output.WriteLine($"fetch: {fetched.Verdict} {fetched.Detail}");
-            Assert.Equal(QueuedOperationStatus.Failed, polled.Status);
+
+            // MEASURED: fal reports COMPLETED with no `error` field, so the poll cannot see this failure, and the
+            // result fetch answers 422 with a `detail` list naming the field and the kind
+            Assert.Equal(QueuedOperationStatus.Succeeded, polled.Status);
+            Assert.False(fetched.IsOk);
+            Assert.Contains("422", fetched.Detail);
+            Assert.Contains("file_download_error", fetched.Detail);
         }
         finally { Dump(); }
     }

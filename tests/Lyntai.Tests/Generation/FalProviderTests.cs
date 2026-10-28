@@ -7,12 +7,13 @@ using Lyntai.Tests.Fakes;
 
 namespace Lyntai.Tests.Generation;
 
-/// <summary>The fal.ai queue backend. Deliberately THIN coverage: past the door, this backend's wire format is
-/// documented rather than measured (<see cref="FalLiveTests"/> reached only the door, which refused an account
-/// with no balance), so exhaustive tests here would only prove our code consistent with a guess. What is pinned
-/// is what would break silently and cost money — the operation-id encoding a resumed job depends on, the status
-/// mapping the job handler branches on, and "no artifacts" never becoming a fake success. The vendor shape
-/// itself gets confirmed the first time a funded account runs the live suite.</summary>
+/// <summary>The fal.ai queue backend. What is pinned is what would break silently and cost money — the
+/// operation-id encoding a resumed job depends on, the status mapping the job handler branches on, and "no
+/// artifacts" never becoming a fake success. The wire a <see cref="FalLiveTests"/> run MEASURED (an image
+/// request's submit, status and result, and the answer to an input fal could not download) is replayed
+/// verbatim below under "recorded from fal"; the rest of the surface — the vocabulary beyond the two states
+/// seen, <c>queue_position</c> on a status read, the <c>error</c> field — is still the documented one, and these
+/// tests pin this library's reading of it, never that fal answers so.</summary>
 public class FalProviderTests
 {
     private static (FalProvider Provider, StubHttpHandler Http) Provider(FalOptions? options = null)
@@ -90,8 +91,9 @@ public class FalProviderTests
     public async Task A_model_with_a_sub_path_is_submitted_under_its_full_path_and_polled_under_owner_and_app()
     {
         // fal's queue documentation: status, result and cancel URLs "use only the owner and the app", and one
-        // carrying the endpoint path returns 405. The live run was refused before any request existed, so this is
-        // the documented shape, not a measured one (docs/generation.md §3)
+        // carrying the endpoint path returns 405. A live run measured the status and result under owner and app
+        // (and the full path's 405); the cancel URL is the submit answer's cancel_url, never called
+        // (docs/generation.md §3)
         var (provider, http) = Provider(new FalOptions { ApiKey = "k", Model = "fal-ai/flux/schnell" });
         http.Enqueue(HttpStatusCode.OK, """{"request_id":"req-1"}""");
         http.Enqueue(HttpStatusCode.OK, """{"status":"COMPLETED"}""");
@@ -108,6 +110,92 @@ public class FalProviderTests
         Assert.Equal("https://queue.fal.run/fal-ai/flux/requests/req-1/status", http.Requests[1].Uri?.ToString());
         Assert.Equal("https://queue.fal.run/fal-ai/flux/requests/req-1", http.Requests[2].Uri?.ToString());
         Assert.Equal("https://queue.fal.run/fal-ai/flux/requests/req-1/cancel", http.Requests[3].Uri?.ToString());
+    }
+
+    // ---- recorded from fal: queue.fal.run under `Key`, fal-ai/flux/schnell, 512x512 ---------------------
+    // The bodies are fal's own answers, ids and URLs as received (no header, no credential).
+
+    private const string RecordedRequest = "01a18432-eb46-7373-9386-b2db8577fa11";
+
+    [Fact]
+    public async Task Recorded_from_fal_a_submit_answers_IN_QUEUE_with_a_request_id_and_the_owner_and_app_urls()
+    {
+        var (provider, http) = Provider(new FalOptions { ApiKey = "k", Model = "fal-ai/flux/schnell" });
+        http.Enqueue(HttpStatusCode.OK, $$$"""
+            {"status":"IN_QUEUE","request_id":"{{{RecordedRequest}}}","response_url":"https://queue.fal.run/fal-ai/flux/requests/{{{RecordedRequest}}}","status_url":"https://queue.fal.run/fal-ai/flux/requests/{{{RecordedRequest}}}/status","cancel_url":"https://queue.fal.run/fal-ai/flux/requests/{{{RecordedRequest}}}/cancel","logs":null,"metrics":{},"queue_position":0,"user_queue_position":0,"user_queued_count":1}
+            """);
+
+        var submitted = await provider.SubmitAsync(Ask());
+
+        Assert.Equal(QueuedOperationStatus.Queued, submitted.Status);
+        Assert.Equal($"fal-ai/flux/schnell#{RecordedRequest}", submitted.Id);
+    }
+
+    [Fact]
+    public async Task Recorded_from_fal_a_finished_request_polls_Succeeded_and_its_result_is_an_image_artifact_with_no_cost()
+    {
+        var (provider, http) = Provider(new FalOptions { ApiKey = "k", Model = "fal-ai/flux/schnell" });
+        var id = $"fal-ai/flux/schnell#{RecordedRequest}";
+        http.Enqueue(HttpStatusCode.OK, $$$"""
+            {"status":"COMPLETED","request_id":"{{{RecordedRequest}}}","response_url":"https://queue.fal.run/fal-ai/flux/requests/{{{RecordedRequest}}}","status_url":"https://queue.fal.run/fal-ai/flux/requests/{{{RecordedRequest}}}/status","cancel_url":"https://queue.fal.run/fal-ai/flux/requests/{{{RecordedRequest}}}/cancel","logs":null,"metrics":{"inference_time":1.676999807357788}}
+            """);
+        http.Enqueue(HttpStatusCode.OK, """
+            {"images":[{"url":"https://v3b.fal.media/files/b/0ab03c49/1Ps_riequ46wVCFP2MKC1.png","width":512,"height":512,"content_type":"image/png"}],"timings":{"inference":0.8004623689921573},"seed":1123371702,"has_nsfw_concepts":[false],"prompt":"a red square on a white background"}
+            """);
+
+        var polled = await provider.PollAsync(id);
+        var fetched = await provider.FetchAsync(id);
+
+        Assert.Equal(QueuedOperationStatus.Succeeded, polled.Status);
+        Assert.Equal($"https://queue.fal.run/fal-ai/flux/requests/{RecordedRequest}/status", http.Requests[0].Uri?.ToString());
+        Assert.Equal($"https://queue.fal.run/fal-ai/flux/requests/{RecordedRequest}", http.Requests[1].Uri?.ToString());
+        var artifact = Assert.Single(fetched.Artifacts);
+        Assert.Equal("image/png", artifact.MediaType);
+        Assert.Equal("https://v3b.fal.media/files/b/0ab03c49/1Ps_riequ46wVCFP2MKC1.png", artifact.Uri);
+        // fal's status and result carry NO price, so none is reported (timings are seconds, not dollars)
+        Assert.Null(fetched.Usage?.CostUsd);
+    }
+
+    [Fact]
+    public async Task Recorded_from_fal_an_input_it_cannot_download_polls_Succeeded_and_fails_only_at_the_fetch()
+    {
+        // fal accepted the request, reported COMPLETED with NO error field, and answered the result fetch 422 with
+        // a `detail` list. FalOptions.ErrorField therefore cannot see this failure at the poll: the job fetches,
+        // and the fetch's own failure is what it reports
+        var (provider, http) = Provider(new FalOptions { ApiKey = "k", Model = "fal-ai/flux/schnell/redux" });
+        const string id = "fal-ai/flux/schnell/redux#01a18433-5a8a-7651-bfe6-a4e747e24f8f";
+        http.Enqueue(HttpStatusCode.OK, """
+            {"status":"COMPLETED","request_id":"01a18433-5a8a-7651-bfe6-a4e747e24f8f","response_url":"https://queue.fal.run/fal-ai/flux/requests/01a18433-5a8a-7651-bfe6-a4e747e24f8f","status_url":"https://queue.fal.run/fal-ai/flux/requests/01a18433-5a8a-7651-bfe6-a4e747e24f8f/status","cancel_url":"https://queue.fal.run/fal-ai/flux/requests/01a18433-5a8a-7651-bfe6-a4e747e24f8f/cancel","logs":null,"metrics":{"inference_time":0.2369999885559082}}
+            """);
+        http.Enqueue(HttpStatusCode.UnprocessableEntity, """
+            {"detail":[{"loc":["body","image_url"],"msg":"Failed to download the file. Please check if the URL is accessible and try again.","type":"file_download_error","url":"https://docs.fal.ai/errors#file_download_error","input":"https://no-such-host.invalid/in.png"}]}
+            """);
+
+        var polled = await provider.PollAsync(id);
+        var fetched = await provider.FetchAsync(id);
+
+        Assert.Equal(QueuedOperationStatus.Succeeded, polled.Status);
+        Assert.Equal("https://queue.fal.run/fal-ai/flux/requests/01a18433-5a8a-7651-bfe6-a4e747e24f8f/status", http.Requests[0].Uri?.ToString());
+        Assert.False(fetched.IsOk);
+        Assert.Equal(ProviderVerdict.Failed, fetched.Verdict);
+        Assert.Contains("422", fetched.Detail);
+        Assert.Contains("file_download_error", fetched.Detail);
+    }
+
+    [Fact]
+    public async Task Recorded_from_fal_the_full_model_path_in_a_status_url_answers_405_and_would_poll_forever()
+    {
+        // what a host that sets RequestPaths to the full path gets on this model: an empty 405, and a poll treats
+        // anything but a 404 as still running (the cost of a wrong path, which the owner-and-app default avoids)
+        var options = new FalOptions { ApiKey = "k", Model = "fal-ai/flux/schnell" };
+        options.RequestPaths["fal-ai/flux/schnell"] = "fal-ai/flux/schnell";
+        var (provider, http) = Provider(options);
+        http.Enqueue(HttpStatusCode.MethodNotAllowed, "");
+
+        var polled = await provider.PollAsync($"fal-ai/flux/schnell#{RecordedRequest}");
+
+        Assert.Equal(QueuedOperationStatus.Running, polled.Status);
+        Assert.Equal($"https://queue.fal.run/fal-ai/flux/schnell/requests/{RecordedRequest}/status", http.Requests[0].Uri?.ToString());
     }
 
     [Theory]
@@ -289,11 +377,10 @@ public class FalProviderTests
 
     // ---- the unmeasured surface is CORRECTABLE without a library release ------------------------------
     //
-    // This backend's wire format is documented, not measured — nobody here has a key to call it. The
-    // defaults are therefore a reading of vendor docs, and the host who first runs it for real is the one
-    // who finds out. What these pin is that finding out is CHEAP: every mapping that could be wrong is an
-    // option, so the fix is a configuration edit rather than an upstream release. That is what makes
-    // "leave it unmeasured" a defensible position instead of a deferred bug.
+    // Past the image shapes recorded above, this backend's wire format is documented, not measured. The
+    // defaults there are a reading of vendor docs, and the host who first runs them for real is the one who
+    // finds out. What these pin is that finding out is CHEAP: every mapping that could be wrong is an
+    // option, so the fix is a configuration edit rather than an upstream release.
 
     [Fact]
     public async Task A_host_that_learns_the_real_status_vocabulary_can_correct_it_in_configuration()
