@@ -117,6 +117,7 @@ each:
 | `LocalDiffusionLiveTests` | `LYNTAI_SD_CLI` + `LYNTAI_SD_MODEL` |
 | `ComfyUiLiveTests` | `LYNTAI_COMFYUI_URL` + `LYNTAI_COMFYUI_CHECKPOINT` |
 | `PiperLiveTests` | `LYNTAI_PIPER_CLI` + `LYNTAI_PIPER_MODEL` |
+| `FalLiveTests` | `FAL_KEY` (a fal.ai key) — and it skips again on an account with no balance. Two submits per run, a tenth of a cent: run it on purpose, never in `verify` |
 
 The rest ride a running server, CLI or MCP endpoint (`LYNTAI_LIVE_*`, the Ollama and MCP variables); each
 suite's `Skip` message names what it needs.

@@ -6,11 +6,12 @@ using Lyntai.Tests.Fakes;
 
 namespace Lyntai.Tests.Generation;
 
-/// <summary>The fal.ai queue backend. Deliberately THIN coverage: this backend's wire format is documented
-/// rather than measured (no API key to call), so exhaustive tests here would only prove our code consistent
-/// with a guess. What is pinned is what would break silently and cost money — the operation-id encoding a
-/// resumed job depends on, the status mapping the job handler branches on, and "no artifacts" never becoming a
-/// fake success. The vendor shape itself gets confirmed the first time it runs for real.</summary>
+/// <summary>The fal.ai queue backend. Deliberately THIN coverage: past the door, this backend's wire format is
+/// documented rather than measured (<see cref="FalLiveTests"/> reached only the door, which refused an account
+/// with no balance), so exhaustive tests here would only prove our code consistent with a guess. What is pinned
+/// is what would break silently and cost money — the operation-id encoding a resumed job depends on, the status
+/// mapping the job handler branches on, and "no artifacts" never becoming a fake success. The vendor shape
+/// itself gets confirmed the first time a funded account runs the live suite.</summary>
 public class FalProviderTests
 {
     private static (FalProvider Provider, StubHttpHandler Http) Provider(FalOptions? options = null)
@@ -50,6 +51,62 @@ public class FalProviderTests
         Assert.Equal("https://queue.fal.run/fal-ai/wan-t2v", http.Requests[0].Uri?.ToString());
         Assert.Equal("Key k", http.Requests[0].Auth);
         Assert.Contains("a cat surfing", http.Requests[0].Body);
+    }
+
+    [Fact]
+    public async Task A_locked_account_is_an_AUTH_failure_carrying_fals_own_words()
+    {
+        // MEASURED against queue.fal.run with a real key on an account with no balance: a submit answers
+        // 403 {"detail":"<words>"}. The status says nothing retryable, so it must bench the host (AuthFailed)
+        // instead of leaving the router to guess from the words
+        var (provider, http) = Provider();
+        http.Enqueue(HttpStatusCode.Forbidden,
+            """{"detail":"User is locked. Reason: Exhausted balance. Top up your balance at fal.ai/dashboard/billing."}""");
+
+        var operation = await provider.SubmitAsync(Ask());
+
+        Assert.Equal(QueuedOperationStatus.Failed, operation.Status);
+        Assert.Equal(ProviderVerdict.AuthFailed, operation.Verdict);
+        Assert.False(operation.Inconclusive);   // fal answered, so nothing was enqueued
+        Assert.Contains("Exhausted balance", operation.Detail);
+        Assert.Equal("Key k", http.Requests[0].Auth);
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.Unauthorized, ProviderVerdict.AuthFailed)]
+    [InlineData(HttpStatusCode.TooManyRequests, ProviderVerdict.RateLimited)]
+    public async Task A_refused_submit_is_classified_by_its_status(HttpStatusCode status, ProviderVerdict expected)
+    {
+        var (provider, http) = Provider();
+        http.Enqueue(status, """{"detail":"no"}""");
+
+        var operation = await provider.SubmitAsync(Ask());
+
+        Assert.Equal(expected, operation.Verdict);
+    }
+
+    [Fact]
+    public async Task A_model_with_a_sub_path_is_submitted_under_its_full_path_and_polled_under_owner_and_app()
+    {
+        // fal's queue documentation: status, result and cancel URLs "use only the owner and the app", and one
+        // carrying the endpoint path returns 405. The live run was refused before any request existed, so this is
+        // the documented shape, not a measured one (docs/generation.md §3)
+        var (provider, http) = Provider(new FalOptions { ApiKey = "k", Model = "fal-ai/flux/schnell" });
+        http.Enqueue(HttpStatusCode.OK, """{"request_id":"req-1"}""");
+        http.Enqueue(HttpStatusCode.OK, """{"status":"COMPLETED"}""");
+        http.Enqueue(HttpStatusCode.OK, """{"images":[{"url":"https://cdn.invalid/a.png"}]}""");
+        http.Enqueue(HttpStatusCode.Accepted, """{"status":"CANCELLATION_REQUESTED"}""");
+
+        var submitted = await provider.SubmitAsync(Ask());
+        await provider.PollAsync(submitted.Id);
+        await provider.FetchAsync(submitted.Id);
+        await provider.CancelAsync(submitted.Id);
+
+        Assert.Equal("fal-ai/flux/schnell#req-1", submitted.Id);   // the id keeps the whole model
+        Assert.Equal("https://queue.fal.run/fal-ai/flux/schnell", http.Requests[0].Uri?.ToString());
+        Assert.Equal("https://queue.fal.run/fal-ai/flux/requests/req-1/status", http.Requests[1].Uri?.ToString());
+        Assert.Equal("https://queue.fal.run/fal-ai/flux/requests/req-1", http.Requests[2].Uri?.ToString());
+        Assert.Equal("https://queue.fal.run/fal-ai/flux/requests/req-1/cancel", http.Requests[3].Uri?.ToString());
     }
 
     [Fact]
