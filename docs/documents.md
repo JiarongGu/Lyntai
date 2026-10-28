@@ -15,7 +15,7 @@ measured, and it stays a record of that moment. A *record* is append-only and re
 | `tests/Lyntai.Tests/Api/Baselines/` | contract | the frozen public surface, one file per assembly | current |
 | `docs/memory.md` | contract | the memory CONTRACT, headed by the five invariants no gate holds | current |
 | `docs/memory-measurements.md` | evidence | the memory EVIDENCE, behind a generated results index whose `ships` and status columns are the two things read wrongly here (D114) | each result a record of its run |
-| `docs/agent-provider-layer.md` | study | the agent-provider layer: the evidence, the placement, the contract and the rows (D219; `TASKS.md` Part 376) | proposal; AG1 to AG4 built, AG5 to AG9 open |
+| `docs/agent-provider-layer.md` | study | the agent-provider layer: the evidence, the placement, the contract and the rows (D219; `TASKS.md` Part 376) | proposal; AG1 to AG8 built, AG9 open |
 | `docs/vnext-modular-capabilities.md` | study | the vNext RFC mapped item by item against what exists, and where the records win (D218) | proposal folded; the rulings are D220 and D221, VN2 is answered by D224, and what remains is `TASKS.md` Part 375 |
 | `docs/model-tasks.md` | study | every model-backed seam by the SHAPE of the question it asks | current |
 | `docs/deployment-shapes.md` | study | the same evidence cut by the shape of the deployment | current |

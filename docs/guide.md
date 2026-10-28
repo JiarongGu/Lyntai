@@ -1104,6 +1104,53 @@ to another provider (subtype `account-other-provider`), when the door states `ac
 `ProviderVerdict.Unsupported` and `NeverSent`. The keyed `IAgentSession` checks only the account's own shape, not whose
 it is, so go through the provider when the account may be the wrong one.
 
+**An agent that speaks the Agent Client Protocol** (`AddAcpAgentSession`). Any ACP agent (`claude-agent-acp`,
+`codex-acp`, your own) is a third door: JSON-RPC 2.0 over the stdio of a process started for the turn and ended with
+it. It registers keyed by `id` and as an `IAgentProvider` with one door, `"acp"`, and adds no unkeyed
+`IAgentSession`, so the CLI door you resolve unkeyed does not change. It is its own provider, with its own id:
+`"claude-acp"` is not `"claude-cli"`, and an `AgentAccount` names the one it belongs to.
+
+<!-- compile-given: string cwd; -->
+```csharp
+services.AddLyntai(b => b
+    .AddAcpAgentSession("codex-acp", "codex-acp", accountHomeVariable: "CODEX_HOME"));
+
+var door = sp.GetRequiredService<AgentProviderRegistry>().Get("codex-acp").Open("acp");
+var result = await door.RunAsync(new AgentSessionOptions { Prompt = "Summarise the repository.", WorkingDirectory = cwd });
+Console.WriteLine($"{result.Verdict}: {result.FinalText}");
+```
+
+A turn is `initialize`, then `session/new`, or for a `ResumeToken` `session/resume` where the agent's `initialize`
+answer states `sessionCapabilities.resume` and `session/load` where it states `loadSession`, then `session/prompt`.
+An agent that states neither refuses the turn before the prompt (`option-unsupported`, `NeverSent`), which is why
+the door states `resume` as `Unknown` with the source `Negotiated`: only the agent can say. A load's replay of the
+conversation is dropped. The mapping is the protocol's own words and nothing inferred: `agent_message_chunk` is
+`TextDelta`, `agent_thought_chunk` `Thinking`, `plan` `PlanUpdated`, `tool_call` a `ToolCall` and a finished
+`tool_call_update` a `ToolResult` (the name is the protocol's `kind`, the payload the update's own object, so read
+`title` and `rawInput` from it), and the prompt's `usage` is a `UsageFinal` and a `UsageReading`. A count the agent
+does not send is `null` on the reading; counts are the agent's own (`codex-acp`'s input excludes what it read from a
+cache). `usage_update` carries the context window, not counts, so no `UsageLive` is emitted.
+
+A failure is read from the agent's own fields, never its prose: the JSON-RPC error's code (`-32000` is access) and
+`data` — `errorKind` from `claude-agent-acp` (the same categories the claude door reads), `codexErrorInfo` with the
+sentence in `data.message` from `codex-acp` — a rejected rate-limit frame `claude-agent-acp` forwards, and the
+`sessionFailure` field the door declares at `initialize`, which is how `codex-acp` says a failure it ends with
+`end_turn`. A sentence only fills a detail the fields left open, such as when a limit resets. A stop reason of
+`refusal`, `max_tokens`, `max_turn_requests` or `cancelled` unrequested is a fatal failure. An agent that fails a turn
+with `end_turn` and no field reads as a clean end, because nothing on its wire says otherwise.
+
+`session/request_permission` follows `ToolPolicy`: read-only rejects every request, write allows each once and never
+for good, and an agent in a mode that asks for nothing is gated by its mode. The door offers no filesystem and no
+terminal, and answers any other request `method not found`. `DisallowedTools` and steering are `Unsupported`;
+`SystemPrompt` is a leading text block; plan events are `Unknown` until a real agent's plan is recorded. Cancelling
+the token sends `session/cancel` and waits for the agent's answer for `AcpAgentSession.DefaultCancelGrace` (5 s)
+before killing the process, and the cancellation then propagates. `accountHomeVariable` is `CLAUDE_CONFIG_DIR` for
+`claude-agent-acp` and `CODEX_HOME` for `codex-acp`, which exits at startup when its home does not exist; left null
+the door states `accounts` `Unsupported`. A BYO `IProcessRunner` must implement `ExchangeLinesAsync`, the live-stdin
+member the shipped runner has, or the turn is refused (`runner-unsupported`) before it spawns. The tests run against a stand-in
+(`devtools/scripts/acp-stub.mjs`) at zero tokens; set `LYNTAI_LIVE_ACP=1` with an agent installed to run the two live
+tests, which use an empty home with every credential variable removed and so cannot sign in or spend a token.
+
 **Retrying a transient failure** (`AddAgentRetry`, off unless you call it). Every registered `IAgentSession` —
 unkeyed and keyed, whichever order you register them in — is wrapped in a `RetryingAgentSession` when `AddLyntai`
 finishes composing. It acts on `Failure.Kind == Transient` and nothing else, at most `MaxRetries` times (default

@@ -203,8 +203,26 @@ public sealed class ProcessRunner : IProcessRunner
         string? workingDirectory = null,
         IReadOnlyDictionary<string, string?>? environment = null,
         CancellationToken ct = default) =>
-        StreamCoreAsync(command, args, stdin, inactivityTimeout, maxDuration, workingDirectory, environment,
+        StreamCoreAsync(command, args, stdin, inactivityTimeout, maxDuration, workingDirectory, environment, null,
             static process => process.StandardOutput.ReadLineAsync(CancellationToken.None), ct);
+
+    /// <summary>Streamed run with a live stdin — <see cref="IProcessRunner.ExchangeLinesAsync"/>. The same
+    /// core as <see cref="StreamLinesAsync"/> with the stdin writer swapped, so the two cannot drift on the
+    /// clocks or the kill.</summary>
+    public IAsyncEnumerable<string> ExchangeLinesAsync(
+        string command,
+        IReadOnlyList<string> args,
+        IAsyncEnumerable<string> stdinLines,
+        TimeSpan? inactivityTimeout = null,
+        TimeSpan? maxDuration = null,
+        string? workingDirectory = null,
+        IReadOnlyDictionary<string, string?>? environment = null,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(stdinLines);
+        return StreamCoreAsync(command, args, null, inactivityTimeout, maxDuration, workingDirectory, environment, stdinLines,
+            static process => process.StandardOutput.ReadLineAsync(CancellationToken.None), ct);
+    }
 
     /// <summary>Streamed BINARY run — <see cref="IProcessRunner.StreamBytesAsync"/>. The read goes through
     /// the raw base stream, never the encoding-aware reader, so every byte arrives as written; chunk
@@ -223,7 +241,7 @@ public sealed class ProcessRunner : IProcessRunner
         // one buffer per enumeration: the core reads strictly sequentially, and each yielded chunk is a
         // fresh copy, so the consumer may hold chunks across reads
         var buffer = new byte[16 * 1024];
-        return StreamCoreAsync(command, args, stdin, inactivityTimeout, maxDuration, workingDirectory, environment,
+        return StreamCoreAsync(command, args, stdin, inactivityTimeout, maxDuration, workingDirectory, environment, null,
             async process =>
             {
                 var n = await process.StandardOutput.BaseStream
@@ -240,6 +258,7 @@ public sealed class ProcessRunner : IProcessRunner
         TimeSpan? maxDuration,
         string? workingDirectory,
         IReadOnlyDictionary<string, string?>? environment,
+        IAsyncEnumerable<string>? stdinLines,
         Func<Process, ValueTask<T?>> readOne,
         [EnumeratorCancellation] CancellationToken ct = default) where T : class
     {
@@ -275,9 +294,13 @@ public sealed class ProcessRunner : IProcessRunner
             // through consumer dwell — killing a healthy stream under a slow reader.
             var observeStdin = false;
             if (inactivityTimeout is not null) timeoutCts.CancelAfter(inactivityTimeout.Value); // arm for the first read
-            var stdinTask = WriteStdinAsync(process, stdin,
-                onProgress: () => { if (inactivityTimeout is not null && Volatile.Read(ref observeStdin)) timeoutCts.CancelAfter(inactivityTimeout.Value); },
-                timeoutCts.Token);
+            // a live stdin has its own token: a child that exits leaves the sequence it was reading unfinished,
+            // and the writer must not outlive the child waiting on it
+            using var writerCts = CancellationTokenSource.CreateLinkedTokenSource(timeoutCts.Token);
+            Action onStdinProgress = () => { if (inactivityTimeout is not null && Volatile.Read(ref observeStdin)) timeoutCts.CancelAfter(inactivityTimeout.Value); };
+            var stdinTask = stdinLines is null
+                ? WriteStdinAsync(process, stdin, onStdinProgress, timeoutCts.Token)
+                : WriteStdinLinesAsync(process, stdinLines, onStdinProgress, writerCts.Token);
 
             while (!timedOut && !timeoutCts.IsCancellationRequested)
             {
@@ -305,6 +328,7 @@ public sealed class ProcessRunner : IProcessRunner
             // The stdout loop ended (child closed stdout, or a timeout). Enable writer-progress re-arms,
             // then run the shared observe-stdin/remove tail below.
             Volatile.Write(ref observeStdin, true);
+            if (stdinLines is not null) writerCts.Cancel();
             var stderr = await ObserveStdinAndReapAsync(process, stdinTask, stderrTask,
                 reArm: () => { if (inactivityTimeout is not null) timeoutCts.CancelAfter(inactivityTimeout.Value); },
                 killed: () => timeoutCts.IsCancellationRequested).ConfigureAwait(false);
@@ -548,6 +572,26 @@ public sealed class ProcessRunner : IProcessRunner
             // stderr path reports the real story; this is not a spawn failure
             try { process.StandardInput.Close(); } catch (IOException) { }
         }
+    }
+
+    private static async Task WriteStdinLinesAsync(System.Diagnostics.Process process, IAsyncEnumerable<string> lines,
+        Action? onProgress, CancellationToken ct)
+    {
+        try
+        {
+            await foreach (var line in lines.WithCancellation(ct).ConfigureAwait(false))
+            {
+                await process.StandardInput.WriteAsync((line + "\n").AsMemory(), ct).ConfigureAwait(false);
+                onProgress?.Invoke();
+            }
+        }
+        catch (Exception ex) when (ex is IOException or OperationCanceledException)
+        {
+            // a broken pipe is a child that exited, and a cancellation is the clock, the caller or the child's
+            // own end: each is reported by the exit code or the timeout, never by the writer
+        }
+
+        try { process.StandardInput.Close(); } catch (IOException) { }
     }
 
     /// <summary>The shared post-read-loop tail of BOTH run shapes (the I2 fresh-window discipline, kept in

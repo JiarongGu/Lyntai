@@ -603,6 +603,87 @@ public class ProcessRunnerTests
         Assert.Contains(nameof(IProcessRunner.StreamBytesAsync), thrown.Message);
     }
 
+    // ---- ExchangeLinesAsync — a live stdin, for a child that answers as it is spoken to ----------------
+
+    private const string UppercaseEcho =
+        "require('readline').createInterface({input: process.stdin}).on('line', l => console.log(l.toUpperCase()))";
+
+    [Fact]
+    public async Task Exchange_writes_each_line_as_it_is_produced_and_reads_the_answer_before_the_next()
+    {
+        // the next line to send depends on the line just read: a fixed stdin string cannot do this
+        var outbox = System.Threading.Channels.Channel.CreateUnbounded<string>();
+        outbox.Writer.TryWrite("one");
+        var answers = new List<string>();
+        using var guard = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+
+        await foreach (var line in _runner.ExchangeLinesAsync("node", ["-e", UppercaseEcho], outbox.Reader.ReadAllAsync(), ct: guard.Token))
+        {
+            answers.Add(line);
+            if (line == "ONE") outbox.Writer.TryWrite("two");
+            else outbox.Writer.TryComplete();   // stdin closes, the child ends
+        }
+
+        Assert.Equal(["ONE", "TWO"], answers);
+    }
+
+    [Fact]
+    public async Task Exchange_ends_when_the_child_exits_though_the_stdin_sequence_never_does()
+    {
+        var outbox = System.Threading.Channels.Channel.CreateUnbounded<string>();   // never completed
+        var sw = Stopwatch.StartNew();
+
+        var lines = await _runner.ExchangeLinesAsync("node", ["-e", "console.log('bye')"], outbox.Reader.ReadAllAsync(),
+                inactivityTimeout: TimeSpan.FromSeconds(60))
+            .ToListAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(30));
+
+        Assert.Equal(["bye"], lines);
+        Assert.True(sw.Elapsed < TimeSpan.FromSeconds(30));
+    }
+
+    [Fact]
+    public async Task Exchange_reports_a_nonzero_exit_with_the_stderr_tail()
+    {
+        var outbox = System.Threading.Channels.Channel.CreateUnbounded<string>();
+        outbox.Writer.TryComplete();
+
+        var thrown = await Assert.ThrowsAsync<ProcessRunException>(async () =>
+        {
+            await foreach (var _ in _runner.ExchangeLinesAsync("node", ["-e", "console.error('why'); process.exit(3)"],
+                               outbox.Reader.ReadAllAsync())) { }
+        });
+
+        Assert.Equal(3, thrown.ExitCode);
+        Assert.Contains("why", thrown.StdErrTail);
+    }
+
+    [Fact]
+    public async Task Exchange_kills_the_child_when_the_caller_cancels()
+    {
+        var outbox = System.Threading.Channels.Channel.CreateUnbounded<string>();
+        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(500));
+        var sw = Stopwatch.StartNew();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+        {
+            await foreach (var _ in _runner.ExchangeLinesAsync("node", ["-e", "setTimeout(() => {}, 60000)"],
+                               outbox.Reader.ReadAllAsync(), ct: cts.Token)) { }
+        });
+
+        Assert.True(sw.Elapsed < TimeSpan.FromSeconds(30), $"took {sw.Elapsed} — kill didn't work");
+    }
+
+    [Fact]
+    public async Task A_runner_that_predates_the_exchange_member_refuses_LOUDLY_rather_than_dropping_the_conversation()
+    {
+        IProcessRunner legacy = new LinesOnlyRunner();
+
+        var thrown = Assert.Throws<NotSupportedException>(() => legacy.ExchangeLinesAsync("x", [], AsyncEnumerable.Empty<string>()));
+
+        Assert.Contains(nameof(IProcessRunner.ExchangeLinesAsync), thrown.Message);
+        await Task.CompletedTask;
+    }
+
     private sealed class LinesOnlyRunner : IProcessRunner
     {
         public Task<ProcessResult> RunAsync(string command, IReadOnlyList<string> args, string? stdin = null,

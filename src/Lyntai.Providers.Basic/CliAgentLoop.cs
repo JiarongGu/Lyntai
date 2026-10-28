@@ -34,7 +34,7 @@ internal static class CliAgentLoop
     // What a failed turn had shown before it failed — the one place delivery is decided, for every door. A tool
     // step that had begun may have acted, so it is uncertain; any other event means the door answered, so the
     // prompt was taken; nothing at all shows no sign it was read.
-    private static SessionEnded Stamp(SessionEnded ended, bool sawEvent, bool sawTool)
+    internal static SessionEnded Stamp(SessionEnded ended, bool sawEvent, bool sawTool)
     {
         if (!ended.IsError) return ended;
         var failure = ended.Failure ?? new AgentFailure(AgentFailureKind.Fatal, "no-failure-fields");
@@ -65,9 +65,28 @@ internal static class CliAgentLoop
     /// <param name="logger">Where a turn with no terminal is reported.</param>
     /// <param name="backend">The CLI's name, for the diagnostic.</param>
     /// <param name="ct">Cancels the turn and kills the process tree.</param>
-    public static async IAsyncEnumerable<AgentStreamEvent> RunAsync(
+    public static IAsyncEnumerable<AgentStreamEvent> RunAsync(
         IProcessRunner runner, string exe, IReadOnlyList<string> argv, string stdin, TimeSpan timeout,
         AgentSessionOptions options, IReadOnlyDictionary<string, string?>? environment,
+        Func<string, IReadOnlyList<AgentStreamEvent>> read, ILogger logger, string backend, CancellationToken ct) =>
+        RunLinesAsync(
+            runner.StreamLinesAsync(exe, argv, stdin: stdin, inactivityTimeout: timeout,
+                workingDirectory: options.WorkingDirectory, environment: environment, ct: ct),
+            endAtTerminal: false, read, logger, backend, ct);
+
+    /// <summary>The loop over lines already being read: <see cref="RunAsync"/>'s own, and a protocol door's,
+    /// whose process is spoken to as it answers. <paramref name="endAtTerminal"/> ends the turn at its
+    /// terminal event instead of reading on to the process's exit, which abandons the read and so ends the
+    /// process — for a door whose agent stays up until its stdin closes.</summary>
+    /// <param name="lines">The child's stdout lines.</param>
+    /// <param name="endAtTerminal">Stop at the terminal event, and leave cancelling the read to whoever built
+    /// <paramref name="lines"/>.</param>
+    /// <param name="read">The backend's line reader: 0..N events per line, never a throw.</param>
+    /// <param name="logger">Where a turn with no terminal is reported.</param>
+    /// <param name="backend">The CLI's name, for the diagnostic.</param>
+    /// <param name="ct">Cancels the turn.</param>
+    public static async IAsyncEnumerable<AgentStreamEvent> RunLinesAsync(
+        IAsyncEnumerable<string> lines, bool endAtTerminal,
         Func<string, IReadOnlyList<AgentStreamEvent>> read, ILogger logger, string backend,
         [EnumeratorCancellation] CancellationToken ct)
     {
@@ -77,9 +96,9 @@ internal static class CliAgentLoop
         var sawTool = false;
         string? sessionId = null;
 
-        var lines = runner.StreamLinesAsync(exe, argv, stdin: stdin, inactivityTimeout: timeout,
-            workingDirectory: options.WorkingDirectory, environment: environment, ct: ct);
-        var e = lines.GetAsyncEnumerator(ct);
+        // a protocol door cancels its own runner, once the agent has heard session/cancel: the caller's token must not
+        // reach the read, or the process dies before it can answer
+        var e = lines.GetAsyncEnumerator(endAtTerminal ? CancellationToken.None : ct);
         await using (e.ConfigureAwait(false))
         {
             // the fault terminal reads the session id at FAULT time (the closure sees the loop's updates)
@@ -120,6 +139,7 @@ internal static class CliAgentLoop
                     if (evt is ToolCall or ToolResult) sawTool = true;
                     if (evt is not SessionEnded) sawEvent = true;
                     yield return evt;
+                    if (endAtTerminal && evt is SessionEnded) yield break;
                 }
             }
         }

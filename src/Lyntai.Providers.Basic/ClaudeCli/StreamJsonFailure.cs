@@ -18,10 +18,14 @@ internal sealed record RejectedLimit(string? Type, DateTimeOffset? ResetsAt, str
 internal static class StreamJsonFailure
 {
     /// <summary>The frame's rejection, or null for any other status (<c>allowed</c> on every ordinary frame).</summary>
-    public static RejectedLimit? ReadRejection(JsonElement root)
+    public static RejectedLimit? ReadRejection(JsonElement root) =>
+        WireJson.Object(root, "rate_limit_info") is { } info ? ReadRejectionInfo(info) : null;
+
+    /// <summary>The rejection a <c>rate_limit_info</c> object states, which the protocol door finds under
+    /// <c>_meta["_claude/rateLimit"]</c> of a <c>usage_update</c>, unchanged.</summary>
+    public static RejectedLimit? ReadRejectionInfo(JsonElement info)
     {
-        if (WireJson.Object(root, "rate_limit_info") is not { } info || WireJson.String(info, "status") != "rejected")
-            return null;
+        if (WireJson.String(info, "status") != "rejected") return null;
 
         var type = WireJson.String(info, "rateLimitType");
         var seconds = WireJson.Int64(info, type == "overage" ? "overageResetsAt" : "resetsAt")
@@ -40,13 +44,24 @@ internal static class StreamJsonFailure
     public static AgentFailure Read(int? status, string? category, RejectedLimit? rejected, string? text, TimeProvider time)
     {
         var sentence = ProviderVerdictClassifier.ReadAgentFailure(text, time);
+        return Merge([FromRejection(rejected), FromStatus(status), FromCategory(category)], sentence, "claude.result");
+    }
 
-        var fields = new[] { FromRejection(rejected), FromStatus(status), FromCategory(category) }
+    /// <summary>The most severe reading among a door's fields (limit, then access, then transient, then fatal), else
+    /// the sentence, else fatal; a sentence that agrees with the field's kind fills what the field left open and
+    /// never overrides it. Shared with the protocol door, which reads the same categories off an error's
+    /// <c>data</c>.</summary>
+    /// <param name="readings">What each of the door's fields read as; null for a field that said nothing.</param>
+    /// <param name="sentence">The door's words read as a failure, or null.</param>
+    /// <param name="unreadBy">The <see cref="AgentFailure.By"/> of a failure no field and no sentence read.</param>
+    internal static AgentFailure Merge(IEnumerable<AgentFailure?> readings, AgentFailure? sentence, string unreadBy)
+    {
+        var fields = readings
             .OfType<AgentFailure>()
             .OrderBy(f => Rank(f.Kind))
             .ToList();
         if (fields.Count == 0)
-            return sentence is { } s ? s with { By = $"claude.result:{s.By}" } : new AgentFailure(AgentFailureKind.Fatal, "claude.result");
+            return sentence is { } s ? s with { By = $"{unreadBy}:{s.By}" } : new AgentFailure(AgentFailureKind.Fatal, unreadBy);
 
         var field = fields[0];
         if (sentence is null || sentence.Kind != field.Kind || sentence.Restriction is not { } said) return field;
@@ -70,7 +85,7 @@ internal static class StreamJsonFailure
         _ => 3,
     };
 
-    private static AgentFailure? FromRejection(RejectedLimit? r) => r is null ? null : new AgentFailure(AgentFailureKind.Limit, "claude.rate_limit_event.rejected")
+    internal static AgentFailure? FromRejection(RejectedLimit? r) => r is null ? null : new AgentFailure(AgentFailureKind.Limit, "claude.rate_limit_event.rejected")
     {
         Restriction = new AgentRestriction(
             r.Type == "overage" ? RestrictionCause.Credit : RestrictionCause.Quota,
@@ -94,7 +109,7 @@ internal static class StreamJsonFailure
         };
     }
 
-    private static AgentFailure? FromCategory(string? category)
+    internal static AgentFailure? FromCategory(string? category)
     {
         var by = $"claude.assistant.error={category}";
         return category switch

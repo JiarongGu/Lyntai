@@ -1,3 +1,5 @@
+static class Lyntai.AcpBuilderExtensions
+    static AddAcpAgentSession(LyntaiBuilder builder, String id, String command, IReadOnlyList<String> arguments = null, IReadOnlyDictionary<String,String> environment = null, String accountHomeVariable = null) : LyntaiBuilder
 static class Lyntai.ClaudeCliBuilderExtensions
     static AddClaudeCliAgentSession(LyntaiBuilder builder, String command = null, IReadOnlyDictionary<String,String> environment = null, String id = "claude-cli") : LyntaiBuilder
     static AddClaudeCliProvider(LyntaiBuilder builder, ClaudeCliBackend backend, String command = null, IReadOnlyDictionary<String,String> environment = null, String id = "claude-cli") : LyntaiBuilder
@@ -20,6 +22,10 @@ static class Lyntai.Model2VecBuilderExtensions
 static class Lyntai.OllamaBuilderExtensions
     static AddOllamaProvider(LyntaiBuilder builder, String baseUrl = null, String model = null, String id = "ollama", Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
     static AddOllamaProvider(LyntaiBuilder builder, String id, Action<OllamaOptions> configure, Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
+sealed class Lyntai.Providers.Acp.AcpAgentSession
+    .ctor(IProcessRunner runner, LyntaiOptions options, String command, IReadOnlyList<String> arguments = null, IReadOnlyDictionary<String,String> environment = null, String accountHomeVariable = null, Nullable<TimeSpan> cancelGrace = null, ILogger<AcpAgentSession> logger = null, TimeProvider time = null)
+    StreamAsync(AgentSessionOptions options, CancellationToken ct = default) : IAsyncEnumerable<AgentStreamEvent>
+    static DefaultCancelGrace : TimeSpan
 sealed class Lyntai.Providers.ClaudeCli.ClaudeAgentOptions
     .ctor()
     AllowedTools : IReadOnlyList<String> { get; init; }
