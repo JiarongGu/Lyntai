@@ -69,6 +69,16 @@ every addition.
 
 ### Added
 
+- **A generation request names a checkpoint, LoRAs and sampling parameters, and each backend declares which it honours**
+  (**D231**). `MediaRequest` gains `Checkpoint`, `Loras` (`MediaLora`: a name and a weight), `NegativePrompt`, `Seed`,
+  `Steps`, `CfgScale`, `Sampler` and `Scheduler`, and a durable job carries them. `ProviderCapabilities` gains
+  `Parameters` (names in `MediaParameters`; empty honours none) and `Unhonourable(request)`. The router skips a backend
+  that does not declare a parameter a request names, and `LocalDiffusionProvider`, `Automatic1111Provider` and
+  `ComfyUiProvider` each refuse one before any call, so a checkpoint is never silently ignored. Size stays the advisory
+  `Options["size"]`. New options: `LocalDiffusionOptions.CheckpointDirectory` and `LoraDirectory` (each declared only when
+  set), `Automatic1111Options.HonouredParameters` (defaulting to what stable-diffusion.cpp's `sd-server` honours) and
+  `LoraRequestField` (its `lora` payload field, listed from the server before a render), and ComfyUI's `*-path`
+  option keys, which name the graph field for each parameter, each LoRA and the size hint.
 - **A failed agent turn says what failed** (**D219**). `SessionEnded.Failure` is an `AgentFailure` on every failed
   turn of both CLI agent sessions, null on a good one: a `Kind` (`Limit`, `Access`, `Transient` or `Fatal`), an
   optional `Restriction` (what ran out, what it holds back and how it ends: a reset moment, a retry-not-before, an

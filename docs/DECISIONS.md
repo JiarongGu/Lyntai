@@ -300,8 +300,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D228](#d228--a-brief-is-cut-whole-or-nothing-in-a-fixed-order-and-never-through-the-hosts-words-2026-10-28) | 2026-10-28 | a brief is cut whole-or-nothing, in a fixed order, and never through the host's words |
 | [D229](#d229--the-sqlite-vector-store-keeps-writing-a-vectors-json-text-beside-its-binary-column-2026-10-28) | 2026-10-28 | the SQLite vector store keeps writing a vector's JSON text beside its binary column |
 | [D230](#d230--local-image-generation-is-proved-by-an-example-pipeline-a-host-runs-as-is-not-by-a-workflow-engine-or-per-backend-live-suites-2026-10-28) | 2026-10-28 | local image generation is proved by an example pipeline a host runs as-is, not by a workflow engi… |
+| [D231](#d231--a-generation-requests-checkpoint-loras-and-sampling-parameters-are-typed-fields-each-backend-declares-not-free-options-keys-2026-10-28) | 2026-10-28 | a generation request's checkpoint, LoRAs and sampling parameters are typed fields each backend de… |
 
-**225 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**226 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -6556,7 +6557,7 @@ would test it and has not been tried.
 
 **Standing.** The owner's direction of 2026-10-28, recorded by the steward before the lane sessions that build it are
 dispatched; the owner's acceptance of the branch makes it binding. It adds no public type, and it reverses by a later
-decision here (`TASKS.md` Part 401 holds the rows).
+decision here (`TASKS.md` Part 401 holds the open rows; the closed ones are `docs/task-archive.md` Parts 403 and 404).
 
 **Decided.**
 - **The proof is a sample.** Lyntai is a library, so its generation capability is shown through a pipeline under
@@ -6583,3 +6584,38 @@ it shows each backend answers, not that the steps compose, and it leaves the lib
 
 **Re-opens** when the sample shows a need no provider option or template can meet and a library type is the smaller
 answer, or when a host's own pipeline shows the template route cannot carry a step.
+
+## D231 — a generation request's checkpoint, LoRAs and sampling parameters are typed fields each backend declares, not free `Options` keys (2026-10-28)
+
+**Standing.** Shipped as additive public surface (the API baselines gain 34 lines and lose none, **D70**); it reverses by a
+later decision here. The mappings and what was measured are `docs/generation.md` §5, *Parameters*.
+
+**Decided.**
+- **Typed fields on `MediaRequest`**: `Checkpoint` (a file name, never a path), `Loras` (`MediaLora`: a name and a weight),
+  `NegativePrompt`, `Seed`, `Steps`, `CfgScale`, `Sampler`, `Scheduler`. A backend states which it honours in
+  `ProviderCapabilities.Parameters` (names in `MediaParameters`); empty honours none. The router skips a backend that does
+  not declare a parameter a request names, and each local backend refuses one before any call, as the agent layer does.
+- **ComfyUI's mapping stays in the host's template**: each field goes to a graph path the host names in an option (`*-path`),
+  the library inserts no node, and a field with no path or a path not in the graph is refused at submit.
+- **The Automatic1111 backend's support is host-declared** (`HonouredParameters`), defaulting to what stable-diffusion.cpp's
+  `sd-server` was measured to honour; a host running the WebUI adds `Checkpoint` and `Loras`. The sd-cli backend declares a
+  checkpoint or LoRAs only when the host sets the folder they resolve from.
+- **Size stays the advisory `Options["size"]`**, read by the backends and the agent tools that already read it.
+
+**Why.** A backend that took a named checkpoint and ignored it returns a plausible, wrong image, so support has to be
+declared and refused rather than hoped for. The Automatic1111 API cannot be asked what a server honours, and the one server
+measured differs from the WebUI it imitates, so an unmeasured mapping is the host's option (**D69**).
+
+**Rejected.**
+- **`Options` string keys**: no way to declare support, so no refusal.
+- **A nested parameters record**: noise for no gain.
+- **Typed width and height**: they duplicate `Options["size"]`.
+- **A new argument on `ProviderCapabilities.Supports(...)`**: it changes a public baseline line, and the text side shares it.
+- **Routing the new parameters through the `size` refusal rule**: it would break existing requests at backends that never
+  declared `size`.
+- **A node the library inserts into a ComfyUI graph for a LoRA or checkpoint**: it would own what a template file says better
+  (**D230**).
+
+**Re-opens** when a hosted backend can take a seed or a step count on its own wire and a host asks for it (it then declares the
+parameter, its mapping measured), when a host runs the WebUI and its measured behaviour differs from the declared default, or
+when a second template family shows the host-named path cannot carry a field.

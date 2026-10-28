@@ -15,7 +15,7 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 11 across 4 Parts: 4 startable, 3 blocked, 4 watch
+## Open items — 11 across 4 Parts: 5 startable, 2 blocked, 4 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
@@ -25,14 +25,14 @@ _Edit a marker, never this table — `verify` fails the moment the two disagree.
 | 112 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal account with a balance, or a Hugging Face token for the router route … |
 | 159 | 33 | fal's request path for a sub-path model | startable |  |
 | 168 | 33 | `MediaRequest.Options` values reach fal as strings | startable |  |
-| 193 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 219 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 275 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
-| 308 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
-| 324 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
-| 354 | 401 | A checkpoint and LoRAs per request | startable |  |
-| 364 | 401 | The example image-workflow pipeline | startable |  |
-| 382 | 401 | The two stable-diffusion.cpp backends on Z-Image-Turbo | blocked · env | a Qwen3-4B text encoder stable-diffusion.cpp can load (not fp8-scaled), or … |
+| 178 | 33 | A hosted backend refuses a media parameter it does not declare | startable |  |
+| 204 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 230 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 286 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 319 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
+| 335 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
+| 366 | 401 | The example image-workflow pipeline | startable |  |
+| 384 | 401 | The two stable-diffusion.cpp backends on Z-Image-Turbo | startable |  |
 
 <!-- open-items:end -->
 
@@ -175,6 +175,17 @@ The fal-first naming that once hid ComfyUI inside this list is recorded in
   every option not so named is written as a string, as now. **Proof:** unit tests in `FalProviderTests` on the body sent
   for an object-valued and an array-valued field, for a string field unchanged, and for the refusal; the API baselines
   gain only additive lines. A live check of an object-valued field waits with GEN-VERIFY-FAL.
+- [ ] **A hosted backend refuses a media parameter it does not declare** (lane `generation`). <!-- item: state=startable -->
+  `OpenAiImageProvider`, `FalProvider` and `PiperProvider` declare an empty `ProviderCapabilities.Parameters`, so the
+  router skips them for a request naming a checkpoint, LoRA, seed or sampler (`docs/task-archive.md` Part 404), but only the
+  three local diffusion backends refuse one when called directly, through `ParameterRefusal`. A caller holding one of
+  the other three and calling it gets a plausible result that ignored the checkpoint. **Contract:** each of the three
+  returns `Unsupported` before any call for a request naming a parameter it does not declare, through the same shared check
+  and message, and a request naming none is untouched. Declaring a parameter such a backend could take on its own wire (fal
+  and OpenAI images accept a seed or a step count) is a separate decision, its mapping measured or made an option (**D69**),
+  and is not this row. Additive; the API baselines lose no line (**D70**).
+  **Proof:** a contract fact in `GenerationProviderContract` that a handed parameter is honoured or refused, run over
+  every shipped backend, failing on one that does neither (`.agents/knowledge/pitfalls.md`, the capability-flag trap).
 
 > Add new tasks here as checklist items with an `id` and a short `file:line` where known. Group related
 > tasks under a `## Part N — <theme>` heading. Move an item to the archive when it lands — don't leave a
@@ -344,26 +355,17 @@ there is nothing here to code: what remains is evidence only recurrence can supp
 ## Part 401 — local image generation on this machine's GPU (2026-10-28)
 
 _The owner's direction, recorded as `docs/DECISIONS.md` **D230**: generation is proved by an example pipeline a host
-runs as-is, and models stay host-configured. **The rows are worked in this order**, each after the one before it.
-**Content rules on rows 2 to 4, each part of its contract:** everything the library, its samples, tests and docs carry
+runs as-is, and models stay host-configured. **The pipeline row follows the checkpoint-and-LoRAs row**, which closed as
+`docs/task-archive.md` Part 404 (the Z-Image-Turbo row closed as Part 403); the sd.cpp row needs neither.
+**Content rules on every row below, each part of its contract:** everything the library, its samples, tests and docs carry
 is safe for work and names no real artist, studio, franchise or real person; no face-identity model is used on real
 photos; the local backends carry no content filter, and the library neither adds nor removes one. A download is a
 step (`task-lifecycle.md`), so none of the rows below is blocked by one; the host's models live in its untracked
 `local/` folder, never in the tree._
 
-- [ ] **A checkpoint and LoRAs per request** (lane `generation`, after the row above). <!-- item: state=startable -->
-  A generation request can name a checkpoint and zero or more LoRAs with weights, resolved from model folders the HOST
-  configures (options, no hard-coded paths), and passes the setup image's parameters through: prompt, negative prompt,
-  seed, steps, CFG, sampler and scheduler, size. **Contract:** each local backend maps them to its own mechanism
-  (ComfyUI's loader nodes; the Automatic1111 API's LoRA tags and `override_settings` for the checkpoint; sd-cli's LoRA
-  directory and arguments), states in its capabilities which it supports, and refuses an unsupported one before a call,
-  as the agent layer does. Additive: the API baselines lose no line (**D70**). **Proof:** live on the GPU, on every
-  local backend that supports it: switching between two checkpoints (SD 1.5 and the row above's model) and applying one
-  neutral, permissively licensed LoRA whose effect is measurable (an LCM LoRA for SD 1.5: fewer steps); each live test
-  gated, a named new skip.
-- [ ] **The example image-workflow pipeline** (lane `generation`, after the row above). <!-- item: state=startable -->
-  A library change it needs is in lane `generation`; the sample under `samples/` is laneless; it uses the row above's
-  request fields for the setup image. **Contract:** the pipeline of **D230** as a sample driving `ComfyUiProvider` with tracked API-format workflow
+- [ ] **The example image-workflow pipeline** (lane `generation`, after `docs/task-archive.md` Part 404). <!-- item: state=startable -->
+  A library change it needs is in lane `generation`; the sample under `samples/` is laneless; it uses the checkpoint-and-LoRAs
+  row's request fields (`docs/generation.md` §5, *Parameters*) for the setup image. **Contract:** the pipeline of **D230** as a sample driving `ComfyUiProvider` with tracked API-format workflow
   templates, one per step (setup image, variations over several seeds, a compose from references by role, and the optional
   inpaint and upscale), filled through the provider's prompt-path and `input-path:<role>` options. Every output carries
   the recipe and the sample replays it. Engine setup lives in the host's untracked local folder: the currently
@@ -377,9 +379,12 @@ step (`task-lifecycle.md`), so none of the rows below is blocked by one; the hos
   section (model folder layout, node packs, how roles map to nodes, the recipe format, licence and safety notes).
   <br>**Library gaps this is likely to show, recorded as CANDIDATES and not yet rows** — each becomes its own row
   once the sample shows the need, with that need as its evidence: named input roles beyond `init` and `reference`
-  (style, subject, control or pose, mask) in `MediaInputRoles`; per-input weights; mapping seed, steps, size and LoRA
-  into graph paths; a template declaring the roles it accepts and refusing others.
-- [ ] **The two stable-diffusion.cpp backends on Z-Image-Turbo** (lane `generation`). <!-- item: state=blocked kind=env needs="a Qwen3-4B text encoder stable-diffusion.cpp can load (not fp8-scaled), or a newer stable-diffusion.cpp build, installed by the owner" -->
+  (style, subject, control or pose, mask) in `MediaInputRoles`; per-input weights; a template declaring the roles it
+  accepts and refusing others. Seed, steps, size and LoRA already map into graph paths (`docs/task-archive.md` Part 404).
+- [ ] **The two stable-diffusion.cpp backends on Z-Image-Turbo** (lane `generation`). <!-- item: state=startable -->
+  **Startable since 2026-10-29:** the owner installed a Qwen3-4B text encoder that is not fp8-scaled (bf16, Apache-2.0)
+  beside the fp8-mixed one, which is the file the blocker below asked for. That it LOADS in stable-diffusion.cpp
+  `656a135` is the first thing this row measures: the encoder was not tried there when the row was unblocked.
   `LocalDiffusionProvider` (`sd-cli`) and the `sd-server` behind `Automatic1111Provider` render with SD 1.5 only;
   ComfyUI already runs Z-Image-Turbo (`docs/task-archive.md` Part 403). **Evidence:** stable-diffusion.cpp `656a135`
   (Vulkan) accepts the three files by `--diffusion-model`, `--llm` and `--vae`, recognises Z-Image, then aborts loading
@@ -387,9 +392,9 @@ step (`task-lifecycle.md`), so none of the rows below is blocked by one; the hos
   out_features)`, also with `--type bf16` (`docs/generation.md` §2). **Contract:** the same model, licence and 12 GB
   bound as the closed row: Z-Image-Turbo (Apache-2.0), ungated, fitting 12 GB, with SD 1.5 left as the cheap smoke
   model. **Proof:** it renders one image behind `LocalDiffusionLiveTests` and behind the Automatic1111 suite against the
-  `sd-server`, each a named new skip when its model is absent. **Blocker's kind is the ENVIRONMENT:** the fix is a file
-  or a build the owner installs, so a re-check asks whether such an encoder or build is OBTAINABLE, not whether one is
-  installed (`task-lifecycle.md`). The provider needs no change for the failure measured: a provider option cannot make
+  `sd-server`, each a named new skip when its model is absent. **The blocker was the ENVIRONMENT** (a file the owner
+  installs, `task-lifecycle.md`) and is cleared; if the bf16 encoder aborts too, the row is `blocked` again on a newer
+  build, and says so. The provider needs no change for the failure measured: a provider option cannot make
   the engine read a file it cannot load.
 
 ## Retired — five Parts that outlived their open work (2026-09-16)
