@@ -112,3 +112,21 @@ partial amendments name their field by word overlap, so the field comes from the
 **Re-opens** if a compare-and-supersede reaches `ITemporalMemoryGraphStore` for another consumer (the ledger's remaining
 costs are the rename and the disk), if the profile needs intervals queried across fields, or if the two-write gap or the
 in-place edit cannot be closed in the prototype.
+
+## 7. RV28 built it: what the prototype proved of §6's costs
+
+**Standing.** What the prototype did, with its evidence in `docs/memory-measurements.md` §5 (`profile-prototype-rv28`) and
+`ProfilePrototypeTests`; it adds no public type, package or default, and §6 above stands as written. **D224**'s re-open
+condition (the two-write gap or the in-place edit cannot be closed in the prototype) did not occur.
+
+- **The two-write gap closes without a new store verb.** A correction that crashes between its writes leaves the field with
+  no current claim, says which claim was never written, and is completed once by delivering the same event again. A peer
+  that loses the revision gate to the same event finishes the second write itself.
+- **The in-place edit is detected, not prevented.** Each claim carries a checksum over its content, start, source, authority
+  and scope; an entry that fails it, or that the profile never wrote, is reported and never read. A kind change and the
+  end a correction writes are outside the checksum.
+- **Track A's two declared gaps are closed.** The engine's import is replaced by an import that finds a claim by id, and
+  one event delivered to several writers converges on one entry. A reader folds copies of one claim by id meanwhile.
+- **Attributes beyond VN2's.** A claim carries scope, authority, status and revision. A user's claim outranks a
+  hypothesis and a hypothesis cannot end it; a narrative summary is a cache stamped with the snapshot's version and
+  never answers a read. None of this is a published contract: the prototype stays under `tests/`.

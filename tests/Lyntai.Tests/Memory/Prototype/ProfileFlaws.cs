@@ -43,7 +43,7 @@ internal sealed class ProfileFlawed(ICuratedMemoryStore store, ProfileFlaw flaw)
     {
         if (flaw != ProfileFlaw.ReplayWritesAgain) return await _correct.SetAsync(Key(field), value, from, source);
         var id = ProfileClaims.IdOf(field, value, from, source);
-        var meta = new Dictionary<string, string> { [Claim] = id, [From] = Iso(from), [Src] = source };
+        var meta = ProfileOverCurated.ClaimMetadata(id, value, from, source, ProfileAuthority.User, field.Scope);
         return ClaimOf((await store.GetAsync(await store.AddAsync(field.Field, value, true, field.TaskKey, null, false, meta)))!);
     }
 
@@ -71,7 +71,7 @@ internal sealed class ProfileFlawed(ICuratedMemoryStore store, ProfileFlaw flaw)
 
         if (flaw == ProfileFlaw.InPlaceCorrection)
         {
-            var edited = new Dictionary<string, string> { [Claim] = id, [From] = Iso(from), [Src] = source };
+            var edited = ProfileOverCurated.ClaimMetadata(id, value, from, source, ProfileAuthority.User, field.Scope);
             var gate = await ((IRevisionedCuratedMemoryStore)store).UpdateAsync(rowId, revision, content: value, metadata: edited);
             return gate == CuratedUpdateOutcome.Updated ? Correction.Applied : gate == CuratedUpdateOutcome.NotFound ? Correction.Missing : Correction.Stale;
         }
@@ -79,7 +79,7 @@ internal sealed class ProfileFlawed(ICuratedMemoryStore store, ProfileFlaw flaw)
         var ended = new Dictionary<string, string>(old.Metadata ?? new Dictionary<string, string>()) { [Ended] = Iso(from), [By] = id };
         await store.UpdateAsync(rowId, enabled: false, metadata: ended);
         await store.AddAsync(field.Field, value, true, field.TaskKey, null, false,
-            new Dictionary<string, string> { [Claim] = id, [From] = Iso(from), [Src] = source });
+            ProfileOverCurated.ClaimMetadata(id, value, from, source, ProfileAuthority.User, field.Scope));
         return Correction.Applied;
     }
 
