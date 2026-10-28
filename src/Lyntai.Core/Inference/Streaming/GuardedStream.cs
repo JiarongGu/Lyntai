@@ -10,11 +10,33 @@ namespace Lyntai.Inference.Streaming;
 /// process-based shape is <c>ProcessRunner.StreamLinesAsync</c>.</summary>
 public sealed class InactivityClock(CancellationTokenSource cts, TimeSpan timeout)
 {
+    private readonly ITimer? _timer;
+
+    /// <summary>The same clock read from a <see cref="TimeProvider"/>, so a test that owns the time moves it
+    /// without waiting; null keeps the cancellation source's own timer.</summary>
+    internal InactivityClock(CancellationTokenSource cts, TimeSpan timeout, TimeProvider? time) : this(cts, timeout)
+    {
+        if (time is null) return;
+        _timer = time.CreateTimer(_ =>
+        {
+            try { cts.Cancel(); }
+            catch (ObjectDisposedException) { /* the stream ended and its source went with it */ }
+        }, null, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+    }
+
     /// <summary>Start (or re-start) the window — call immediately before each read.</summary>
-    public void Arm() => cts.CancelAfter(timeout);
+    public void Arm()
+    {
+        if (_timer is null) cts.CancelAfter(timeout);
+        else _timer.Change(timeout, Timeout.InfiniteTimeSpan);
+    }
 
     /// <summary>Suspend the window — call immediately after a read returns, while the chunk is processed.</summary>
-    public void Stop() => cts.CancelAfter(Timeout.InfiniteTimeSpan);
+    public void Stop()
+    {
+        if (_timer is null) cts.CancelAfter(Timeout.InfiniteTimeSpan);
+        else _timer.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+    }
 }
 
 /// <summary>

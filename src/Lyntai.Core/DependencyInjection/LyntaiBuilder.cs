@@ -204,7 +204,8 @@ public sealed class LyntaiBuilder
                     $"Bridge '{id}' declares ProviderKinds '{kind}', but its delegates answer text, so no router would "
                     + "ever select it for that. An embedder or reranker implements IVectorProvider or IScoreProvider "
                     + "and registers with AddProvider; drop the kind from Produces.", nameof(capabilities));
-        return AddProvider(sp => new BridgeProvider(id, declared, complete, stream, sp.GetRequiredService<LyntaiOptions>()));
+        return AddProvider(sp => new BridgeProvider(id, declared, complete, stream,
+            sp.GetRequiredService<LyntaiOptions>(), sp.GetService<TimeProvider>()));
     }
 
     /// <summary>Register an eval dimension into the scoring collection.</summary>

@@ -7,6 +7,30 @@ to `.agents/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-10-28 — the bridge's stream-timeout test measured the machine: a 150 ms scheduling stall read as silence
+
+**Symptom.** `BridgeProviderTests.The_stream_timeout_is_an_INACTIVITY_clock_a_slow_but_alive_stream_finishes` failed in
+the full parallel `verify` of four sessions and passed unmodified on the re-run, and alone.
+
+**Root cause.** The test (the pin for the clock's kind, 2026-10-25 below) ran five real 100 ms delays under a real 250 ms
+window, so it asserted that no read of the test's own scheduling took 150 ms longer than asked. Under a loaded
+machine one did. Widening the margin only moves that: a first widening to 300 ms gaps in a 1000 ms window failed in
+the tenth of twenty full runs (a stall of 700 ms is rare, not absent), because the stalled thread starves the chunk's
+timer and the guard's timer alike, and the guard's callback can run before the read it was guarding is resumed.
+
+**Fix.** The test owns the clock. `InactivityClock` has an internal constructor that arms its window on a
+`TimeProvider`, and `BridgeProvider` takes the container's `TimeProvider` when the application registered one, the way
+`AgentAccountPool` does; with none it keeps the cancellation source's own timer, so the shipped behaviour and the public
+surface do not move. The test registers `ManualTimeProvider` and holds each chunk until it has moved time 900 ms into a
+1000 ms window, five times: 4500 ms in all, over the window, though never silent for it, in no real time. `CompleteAsync`
+still uses the cancellation source's own timer; its tests drive real 150 ms deadlines against delegates that hang or
+ignore their token, which a stall cannot turn into a pass or a fail.
+
+**Verify.** The test goes red with `"a"` for `"abcde"` when the clock is made to bound the whole stream (armed once, never
+stopped), and passes with it restored. Twenty full `test` runs, one after another, are in the commit message.
+
+**Introduced by.** `878e7f65` (2026-10-25), which added the test with real delays.
+
 ## 2026-10-28 — a SQLite vector search parsed every vector and payload in the collection: 1.5 s a query at 11,000
 
 **Symptom.** Found by `memory-corpus` over a real 11,112-chunk record set with a 384-dimension embedder: a
