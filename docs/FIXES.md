@@ -23,17 +23,27 @@ reclaims "leaked" handles whenever no idle one exists and the pool count is even
 another thread's `Activate` returns that live handle to the pool, and the next rent pops it: two callers on one handle, so the second
 `BEGIN` meets the first's transaction, and the first to close can dispose a handle the other is still using. The window is a few
 instructions wide and opens only while the pool grows, which is why it took concurrent writers on a fresh database and 1 run in about
-50 to hit.
+50 to hit. The driver's own bug, reported upstream as dotnet/efcore#39008 ("SQLite pool activation can lend the same connection to
+two live owners") and fixed in 10.0.13 (PR #39009, backported as #39012), where `Activate` sets the owner before `_active`.
 
 **Fix.** `SqliteConnectionFactory` opens through one process-wide lock (`Rent`), so no two rents run the driver's `Open` together. A rent
 is a pool pop or one file open and waits on no database lock. `OpenAsync` calls it directly, since the driver's own `OpenAsync` is
 `Open()` run synchronously, and checks the token first. No public type or default moves. A rent from outside the factory (a consumer's
-own `SqliteConnection` on the same connection string) is not covered.
+own `SqliteConnection` on the same connection string) is not covered. `Microsoft.Data.Sqlite` 10.0.14 carries the upstream fix, and the
+lock stays anyway: it costs nothing measurable and covers a consumer that pins 10.0.12 or earlier.
 
 **Verify.** `SqliteConnectionPoolHandoffTests.Callers_renting_at_once_from_an_empty_pool_each_get_their_own_handle` (8 threads released
 together on an emptied pool, 200 rounds, every held handle distinct) failed on the old factory in 3 of 200 rounds and passed on the
 fix in 5 runs of 200 (1,000 rounds); its five-shape companion `A_handle_returns_to_the_pool_outside_any_transaction_after_a_failure_inside_one`
-passes before and after and pins the clean return.
+passes before and after and pins the clean return. On 10.0.14: 5 runs of the whole class green with the lock, and 8 runs of 200 rounds
+green with the lock removed, against the same unlocked factory on 10.0.12 failing 3 of 5 runs (1 or 2 shared rounds in 200). A rent plus
+the pragma statement takes about 15 µs, and locked and unlocked runs overlapped at 1 and 8 threads, so the lock's cost does not show.
+
+**Not reachable here.** dotnet/efcore#39082, still open on 10.0.14 (a refused `ROLLBACK` detaches the transaction and the handle goes back
+to the pool still inside it; fixed on the upstream main branch, not backported to 10.0), needs SQLite to refuse a `ROLLBACK`. Lyntai
+installs no authorizer, issues no raw `ROLLBACK`, `COMMIT` or `SAVEPOINT`, and never interrupts a statement; every rollback is the driver's,
+on a disposed transaction, and the five-shape test shows those succeed. Only an I/O failure inside the rollback itself could, and no test
+of this repository can force one without testing the driver, so none is added.
 
 **Introduced by.** The driver, not a Lyntai commit: the factory has always rented through the driver's pool.
 
