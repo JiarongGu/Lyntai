@@ -89,8 +89,8 @@ public static class MediaBackendBuilderExtensions
     }
 
     /// <summary>The fal.ai queue — submit/poll/fetch, which is the shape a video render needs. Default id
-    /// <c>"fal"</c> (<see cref="FalOptions.Id"/>). Written from fal's public docs and never called against the
-    /// real service (see <see cref="FalProvider"/>'s remarks); its URL segments, status vocabulary, error, cost
+    /// <c>"fal"</c> (<see cref="FalOptions.Id"/>). Written from fal's public docs and measured only as far as
+    /// fal's door (see <see cref="FalProvider"/>'s remarks); its URL segments, status vocabulary, error, cost
     /// and auth settings are options, so a host corrects a wrong one in configuration.</summary>
     /// <param name="builder">The builder.</param>
     /// <param name="configure">Endpoint, credential and declared kinds.</param>

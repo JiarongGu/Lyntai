@@ -31,7 +31,7 @@
 
 ## Open
 
-- **fal's wire format** is the one generation mapping never called against the real service (`TASKS.md`).
+- **fal's wire format** is the one generation mapping not measured past the vendor's door: its first live run was refused for an account with no balance (`TASKS.md`).
 - **Server/host/launcher + auto-update** stays out of scope for good: a host is an application's concern,
   and the library stays host-free (design §9).
 

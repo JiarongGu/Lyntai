@@ -9,7 +9,7 @@ namespace Lyntai.Generation.Providers;
 
 /// <summary>Configuration for <see cref="FalProvider"/>.</summary>
 /// <remarks>Every URL segment, the status vocabulary, the error and cost fields, the auth scheme and the extra
-/// query parameters are settable because this backend has never been called against the real service (see
+/// query parameters are settable because this backend's wire has not been measured past fal's door (see
 /// <see cref="FalProvider"/>): a host that finds the wire differs corrects it here, in configuration, rather
 /// than waiting for a Lyntai release.</remarks>
 public sealed class FalOptions
@@ -125,16 +125,19 @@ public sealed class FalOptions
 /// checkpoints the operation id and polls to completion across restarts, so a crash never pays for a render twice.
 /// </summary>
 /// <remarks>
-/// <para><b>Never called against fal.ai.</b> Written from fal's public queue documentation; nobody maintaining
-/// Lyntai holds a fal account, so no request from it has reached the real service. Its tests pin this library's
-/// behaviour for each documented shape, never that fal answers in it — treat the first real run as the
+/// <para><b>Measured only as far as fal's door.</b> Written from fal's public queue documentation. A submit to
+/// <c>queue.fal.run</c> under <c>Authorization: Key …</c> reached fal and was refused <c>403</c> for an account
+/// with no balance, so the auth scheme and that refusal's shape are measured; the status vocabulary, the result
+/// fields, the cost and the failure shape past the door are still the documented ones. Its tests pin this
+/// library's behaviour for each, never that fal answers in it — the first run on a funded account is the
 /// verification. A host corrects in configuration the URL segments, the status vocabulary, the error, cost and
 /// auth settings, extra query parameters (<see cref="FalOptions"/>), and any request field, which
-/// <see cref="MediaRequest.Options"/> sends verbatim. It cannot correct the response fields read by name:
-/// <c>request_id</c>, <c>status</c>, <c>queue_position</c>, <c>url</c> and <c>content_type</c>.</para>
-/// <para><b>Open against the docs:</b> whether a model with a sub-path (<c>fal-ai/flux/dev</c>) takes its full
-/// path in the status and result URLs, which is what this sends; and a cancel is a REQUEST (202), so
-/// <see cref="CancelAsync"/> reports the render still running and only a poll says how it ended.</para>
+/// <see cref="MediaRequest.Options"/> sends verbatim as a string. It cannot correct the response fields read by
+/// name: <c>request_id</c>, <c>status</c>, <c>queue_position</c>, <c>url</c> and <c>content_type</c>.</para>
+/// <para><b>Sub-path models:</b> a model such as <c>fal-ai/flux/schnell</c> is submitted under its full path
+/// and polled, fetched and cancelled under its owner and app (<c>fal-ai/flux</c>) alone, as fal documents; the
+/// operation id keeps the whole model. A cancel is a REQUEST (202), so <see cref="CancelAsync"/> reports the
+/// render still running and only a poll says how it ended.</para>
 /// <para><b>Cost:</b> fal's documented results carry NO cost field, so unless a
 /// <see cref="FalOptions.CostFields"/> name matches, <see cref="MediaUsage.CostUsd"/> is null and a spend cap
 /// never sees these renders. A reported cost is used as given, never inferred from a rate card.</para>
@@ -227,7 +230,8 @@ public sealed class FalProvider(
             var body = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
 
             if (!response.IsSuccessStatusCode)
-                return QueuedOperation.Failure($"{(int)response.StatusCode}: {HttpArtifacts.FailureDetail(body)}");
+                return QueuedOperation.Failure($"{(int)response.StatusCode}: {HttpArtifacts.FailureDetail(body)}",
+                    ProviderVerdictClassifier.FromHttpFailure(response.StatusCode, body, hasCredentials: true));
 
             return Field(body, "request_id") is { } requestId
                 ? new QueuedOperation($"{model}{ModelSeparator}{requestId}", QueuedOperationStatus.Queued)
@@ -257,7 +261,7 @@ public sealed class FalProvider(
                 Detail: $"malformed operation id '{operationId}' — expected \"model{ModelSeparator}requestId\"");
 
         var (body, failure, transport, _) = await GetAsync(
-            Url($"{model}/{options.RequestsSegment}/{requestId}/{options.StatusSegment}"), ct).ConfigureAwait(false);
+            Url($"{RequestPath(model, requestId)}/{options.StatusSegment}"), ct).ConfigureAwait(false);
         if (failure is not null) return QueueCalls.PollFailure(operationId, failure, transport);
 
         var status = Field(body!, "status");
@@ -292,7 +296,7 @@ public sealed class FalProvider(
         // a fetch that cannot complete is a result the caller acts on now, so it is classified rather than
         // read as transport the way a poll — a question that can be asked again — is
         var (body, failure, _, status) = await GetAsync(
-            Url($"{model}/{options.RequestsSegment}/{requestId}"), ct).ConfigureAwait(false);
+            Url(RequestPath(model, requestId)), ct).ConfigureAwait(false);
         if (failure is not null) return QueueCalls.FetchFailure(status, failure, hasCredentials: true);
 
         var artifacts = ReadArtifacts(body!);
@@ -322,7 +326,7 @@ public sealed class FalProvider(
         try
         {
             using var message = new HttpRequestMessage(HttpMethod.Put,
-                Url($"{model}/{options.RequestsSegment}/{requestId}/{options.CancelSegment}"));
+                Url($"{RequestPath(model, requestId)}/{options.CancelSegment}"));
             Authorize(message);
             using var response = await http.SendAsync(message, ct).ConfigureAwait(false);
             if (response.StatusCode != HttpStatusCode.Accepted)
@@ -352,6 +356,12 @@ public sealed class FalProvider(
         if (webhook is not null) query.Add($"{options.WebhookQueryParameter}={Uri.EscapeDataString(webhook)}");
         return query.Count == 0 ? $"{Root}/{path}" : $"{Root}/{path}?{string.Join('&', query)}";
     }
+
+    /// <summary><c>{owner}/{app}/{RequestsSegment}/{id}</c>: a request is addressed by its model's owner and
+    /// app only, so <c>fal-ai/flux/schnell</c> submits to its full path and is polled under
+    /// <c>fal-ai/flux</c>.</summary>
+    private string RequestPath(string model, string requestId) =>
+        $"{string.Join('/', model.Split('/').Take(2))}/{options.RequestsSegment}/{requestId}";
 
     /// <summary>The failure a status document reports under <see cref="FalOptions.ErrorField"/>, with its
     /// <see cref="FalOptions.ErrorTypeField"/>, or null when it reports none.</summary>
