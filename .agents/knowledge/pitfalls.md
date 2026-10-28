@@ -1338,11 +1338,11 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   newest of it. The miss decomposition (`Explain`, pool against page) is what shows it: a pool-only metric reads
   the change as an improvement. **Never widen the pool to buy recall before reading where the answer lands**
   (`docs/memory-measurements.md` §5, `corpus-pool-width`).
-- **A count cap is not "no cap" at a large number: the keyword store sorts the scope on every write.** <!-- trap: sub=storage,memory shape=resource -->
-  `MemoryEvictionPolicy.CountCap(int.MaxValue)` still runs `CapEvictSql`'s ordered sub-select over the whole scope per
-  write — 11,112 writes took 394 s against 66 s under `MemoryEvictionPolicy.Manual`, growing quadratically — and `MemoryRecallBenchmarks` writes
-  that very value as its "uncapped" store. **The no-bound policy is `Manual`**
-  (`docs/memory-measurements.md` §5, `corpus-cost-before-after`).
+- **A count cap is not "no cap" at a large number: the keyword store counts the scope on every write.** <!-- trap: sub=storage,memory shape=resource -->
+  `CapEvictSql` no longer orders the scope (it did, and 11,112 writes took 394 s against 66 s under `Manual`), but
+  `MemoryEvictionPolicy.CountCap(int.MaxValue)` still walks the scope's index to count it per write, 0.08 ms per 1,000 rows.
+  `MemoryRecallBenchmarks` writes that very value as its "uncapped" store. **The no-bound policy is `Manual`**
+  (`docs/memory-measurements.md` §5, `corpus-cap-evict-before-after`).
 - **A question built from a record and an index holding that same part of it measures a self-match.** <!-- trap: sub=measurement shape=vacuous -->
   A fix's symptom asked of an index that holds the symptom, or an archived task's title of one that holds the
   title, is answered by the query itself, and every engine scores near perfect. `memory-corpus` holds out of the

@@ -149,6 +149,9 @@ internal static class MemoryCorpusBench
             new SqliteMemoryStore(e.Db.Factory, new LyntaiOptions())));
         yield return new Arm("lexical", false, e => new LexicalMemoryEngine(Task,
             new SqliteMemoryStore(e.Db.Factory, new LyntaiOptions { MemoryEviction = MemoryEvictionPolicy.Manual })));
+        // A count cap no scope reaches: the write-time cost of the cap check itself, against `lexical`'s none.
+        yield return new Arm("lexical-cap-max", false, e => new LexicalMemoryEngine(Task,
+            new SqliteMemoryStore(e.Db.Factory, new LyntaiOptions { MemoryEviction = MemoryEvictionPolicy.CountCap(int.MaxValue) })));
         yield return new Arm("graph", false, e => new GraphMemoryEngine(Task, new SqliteMemoryGraphStore(e.Db.Factory)));
         yield return new Arm("graph-ro", false, e => new GraphMemoryEngine(Task, new SqliteMemoryGraphStore(e.Db.Factory),
             options: ReadOnly));
@@ -239,6 +242,7 @@ internal static class MemoryCorpusBench
         var ended = new HashSet<string>();
 
         var sw = Stopwatch.StartNew();
+        var window = TimeSpan.Zero;
         for (var i = 0; i < chunks.Count; i++)
         {
             var write = new MemoryWrite(Task, Scope, chunks[i].Text);
@@ -263,7 +267,12 @@ internal static class MemoryCorpusBench
             if (arm.Validity) written.TryAdd(chunks[i].RecordKey, []);
             if (arm.Validity) written[chunks[i].RecordKey].Add(result.Reference);
             chunkOf.TryAdd(result.Reference.Id, i);
-            if ((i + 1) % 2000 == 0) Console.WriteLine($"   {i + 1}/{chunks.Count} in {sw.Elapsed.TotalSeconds:F0}s");
+            if ((i + 1) % 1000 == 0)
+            {
+                // the window is the write-time curve: seconds per 1,000 writes at this scope size
+                Console.WriteLine($"   {i + 1}/{chunks.Count} in {sw.Elapsed.TotalSeconds:F1}s (window {(sw.Elapsed - window).TotalSeconds:F2}s)");
+                window = sw.Elapsed;
+            }
         }
 
         var ingest = sw.Elapsed.TotalSeconds;
