@@ -147,6 +147,11 @@ if (args.Contains("--contention"))
 if (args.Contains("--scale"))
     return await MemoryScaleSweep.RunAsync(args);
 
+// `--pg-graph-write` (no dev command; needs `LYNTAI_LIVE_POSTGRES`): what a linked write and a write-back cost on the
+// Postgres graph store as it grows. The Postgres half of the commit fix memory-corpus measured on SQLite.
+if (args.Contains("--pg-graph-write"))
+    return await PostgresGraphWriteSweep.RunAsync(args);
+
 // `node devtools/dev.mjs memory-decision` → --decision. Every selective figure this repository holds stops
 // at 20 candidates and measures an endorse-a-SUBSET task; a decision is a FORCED CHOICE over 3-7 options, so
 // neither the precision nor the lift column transfers. Two SHAPES on the same two models — one

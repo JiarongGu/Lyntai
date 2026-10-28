@@ -16,6 +16,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Lyntai.Core\Lyntai.Core.csproj" />
     <ProjectReference Include="..\..\src\Lyntai.Storage.Sqlite\Lyntai.Storage.Sqlite.csproj" />
+    <ProjectReference Include="..\..\src\Lyntai.Storage.Postgres\Lyntai.Storage.Postgres.csproj" />
     <!-- MemoryGistSupportSweep runs ~600 replays, and a fresh migrated SQLite database per replay is what
          makes memory-sweep slow by design. This study reads GraphNode.DecayState off an ENUMERATION rather
          than measuring ranking, so the in-process store is sufficient (pitfalls.md asks for SQLite when the
