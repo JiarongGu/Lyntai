@@ -137,7 +137,11 @@ backend sent the full path (`fal-ai/flux/schnell/requests/…`), which under tha
 polled a sub-path model to completion (a 405 polls as still running), so it now submits to the full path and
 polls, fetches and cancels under `fal-ai/flux` (`FalProviderTests`); the operation id keeps the whole model.
 The live test records the full-path answer on a finished request and will say if the documentation is wrong.
-A cancel is a REQUEST (202), so `CancelAsync` reports the render still running and only a poll says how it
+A host whose model fal addresses differently sets the path per model in `FalOptions.RequestPaths`
+(`["fal-ai/flux/schnell"] = "fal-ai/flux/schnell"` polls under the full path); a model not listed keeps the
+owner-and-app default, pinned byte for byte. The path is **not** read from the submit answer's `status_url`,
+`response_url` and `cancel_url`: a durable job resumes with only the operation id (`"{model}#{requestId}"`), so those
+URLs would have to ride inside it, and no run has yet shown the fields. A cancel is a REQUEST (202), so `CancelAsync` reports the render still running and only a poll says how it
 ended. A model's input fields other than the prompt go through `MediaRequest.Options` **as strings**
 (`"image_size":"square"`), so an object-valued field such as a custom `image_size` cannot be sent yet.
 

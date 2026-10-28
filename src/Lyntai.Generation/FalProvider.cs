@@ -52,6 +52,17 @@ public sealed class FalOptions
     /// <summary>Path segment collection for requests: <c>{BaseUrl}/{model}/{RequestsSegment}/{id}</c>.</summary>
     public string RequestsSegment { get; set; } = "requests";
 
+    /// <summary>The path a model's requests are polled, fetched and cancelled under, keyed by the model id as
+    /// submitted (<c>fal-ai/flux/schnell</c>) and giving the path in place of
+    /// <c>{owner}/{app}</c>: <c>RequestPaths["fal-ai/flux/schnell"] = "fal-ai/flux/schnell"</c> addresses that
+    /// model's requests by its full path. A model not listed keeps the documented default, its first two
+    /// segments; a blank value is not an override. The submit is always to the model's own path.</summary>
+    /// <remarks>fal documents a request as addressed by its model's owner and app only, which no run has yet
+    /// confirmed for a model with a longer path (D69), so a host whose model is addressed differently corrects
+    /// it here. Keys match case-insensitively unless the dictionary is replaced.</remarks>
+    public IDictionary<string, string> RequestPaths { get; set; } =
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
     /// <summary>Path segment that abandons a request, appended as
     /// <c>{BaseUrl}/{model}/{RequestsSegment}/{id}/{CancelSegment}</c> — the sibling of
     /// <see cref="StatusSegment"/> on the same request path, and settable for the same reason.</summary>
@@ -135,8 +146,8 @@ public sealed class FalOptions
 /// <see cref="MediaRequest.Options"/> sends verbatim as a string. It cannot correct the response fields read by
 /// name: <c>request_id</c>, <c>status</c>, <c>queue_position</c>, <c>url</c> and <c>content_type</c>.</para>
 /// <para><b>Sub-path models:</b> a model such as <c>fal-ai/flux/schnell</c> is submitted under its full path
-/// and polled, fetched and cancelled under its owner and app (<c>fal-ai/flux</c>) alone, as fal documents; the
-/// operation id keeps the whole model. A cancel is a REQUEST (202), so <see cref="CancelAsync"/> reports the
+/// and polled, fetched and cancelled under its owner and app (<c>fal-ai/flux</c>) alone, as fal documents, unless
+/// <see cref="FalOptions.RequestPaths"/> names another path for it; the operation id keeps the whole model. A cancel is a REQUEST (202), so <see cref="CancelAsync"/> reports the
 /// render still running and only a poll says how it ended.</para>
 /// <para><b>Cost:</b> fal's documented results carry NO cost field, so unless a
 /// <see cref="FalOptions.CostFields"/> name matches, <see cref="MediaUsage.CostUsd"/> is null and a spend cap
@@ -359,9 +370,14 @@ public sealed class FalProvider(
 
     /// <summary><c>{owner}/{app}/{RequestsSegment}/{id}</c>: a request is addressed by its model's owner and
     /// app only, so <c>fal-ai/flux/schnell</c> submits to its full path and is polled under
-    /// <c>fal-ai/flux</c>.</summary>
-    private string RequestPath(string model, string requestId) =>
-        $"{string.Join('/', model.Split('/').Take(2))}/{options.RequestsSegment}/{requestId}";
+    /// <c>fal-ai/flux</c>, unless <see cref="FalOptions.RequestPaths"/> names another for the model.</summary>
+    private string RequestPath(string model, string requestId)
+    {
+        var path = options.RequestPaths.TryGetValue(model, out var overridden) && overridden.Trim().Trim('/') is { Length: > 0 } set
+            ? set
+            : string.Join('/', model.Split('/').Take(2));
+        return $"{path}/{options.RequestsSegment}/{requestId}";
+    }
 
     /// <summary>The failure a status document reports under <see cref="FalOptions.ErrorField"/>, with its
     /// <see cref="FalOptions.ErrorTypeField"/>, or null when it reports none.</summary>

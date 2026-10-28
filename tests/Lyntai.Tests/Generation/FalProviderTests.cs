@@ -109,6 +109,69 @@ public class FalProviderTests
         Assert.Equal("https://queue.fal.run/fal-ai/flux/requests/req-1/cancel", http.Requests[3].Uri?.ToString());
     }
 
+    [Theory]
+    [InlineData("fal-ai/wan-t2v", "fal-ai/wan-t2v")]                       // owner and app
+    [InlineData("fal-ai/flux/schnell", "fal-ai/flux")]                     // a sub-path: the first two segments
+    [InlineData("fal-ai/flux/dev/image-to-image", "fal-ai/flux")]
+    [InlineData("single", "single")]                                       // a model that has no app at all
+    public async Task Without_an_override_the_request_path_is_the_owner_and_app_byte_for_byte(string model, string under)
+    {
+        var (provider, http) = Provider(new FalOptions { ApiKey = "k" });
+        http.Enqueue(HttpStatusCode.OK, """{"status":"COMPLETED"}""");
+        http.Enqueue(HttpStatusCode.OK, """{"images":[{"url":"https://cdn.invalid/a.png"}]}""");
+        http.Enqueue(HttpStatusCode.Accepted, """{"status":"CANCELLATION_REQUESTED"}""");
+        var id = $"{model}#req-1";
+
+        await provider.PollAsync(id);
+        await provider.FetchAsync(id);
+        await provider.CancelAsync(id);
+
+        Assert.Equal($"https://queue.fal.run/{under}/requests/req-1/status", http.Requests[0].Uri?.ToString());
+        Assert.Equal($"https://queue.fal.run/{under}/requests/req-1", http.Requests[1].Uri?.ToString());
+        Assert.Equal($"https://queue.fal.run/{under}/requests/req-1/cancel", http.Requests[2].Uri?.ToString());
+    }
+
+    [Fact]
+    public async Task A_host_whose_model_fal_addresses_differently_sets_its_request_path_and_the_submit_is_unchanged()
+    {
+        var options = new FalOptions { ApiKey = "k", Model = "fal-ai/flux/schnell" };
+        options.RequestPaths["fal-ai/flux/schnell"] = "/fal-ai/flux/schnell/";   // stray slashes are trimmed
+        var (provider, http) = Provider(options);
+        http.Enqueue(HttpStatusCode.OK, """{"request_id":"req-1"}""");
+        http.Enqueue(HttpStatusCode.OK, """{"status":"COMPLETED"}""");
+        http.Enqueue(HttpStatusCode.OK, """{"images":[{"url":"https://cdn.invalid/a.png"}]}""");
+        http.Enqueue(HttpStatusCode.Accepted, """{"status":"CANCELLATION_REQUESTED"}""");
+
+        var submitted = await provider.SubmitAsync(Ask());
+        await provider.PollAsync(submitted.Id);
+        await provider.FetchAsync(submitted.Id);
+        await provider.CancelAsync(submitted.Id);
+
+        Assert.Equal("fal-ai/flux/schnell#req-1", submitted.Id);
+        Assert.Equal("https://queue.fal.run/fal-ai/flux/schnell", http.Requests[0].Uri?.ToString());
+        Assert.Equal("https://queue.fal.run/fal-ai/flux/schnell/requests/req-1/status", http.Requests[1].Uri?.ToString());
+        Assert.Equal("https://queue.fal.run/fal-ai/flux/schnell/requests/req-1", http.Requests[2].Uri?.ToString());
+        Assert.Equal("https://queue.fal.run/fal-ai/flux/schnell/requests/req-1/cancel", http.Requests[3].Uri?.ToString());
+    }
+
+    [Fact]
+    public async Task A_request_path_override_is_per_model_and_a_blank_one_is_no_override()
+    {
+        var options = new FalOptions { ApiKey = "k" };
+        options.RequestPaths["FAL-AI/flux/schnell"] = "owner/app/extra";   // keys match case-insensitively
+        options.RequestPaths["fal-ai/flux/dev"] = "  ";
+        var (provider, http) = Provider(options);
+        http.Enqueue(HttpStatusCode.OK, """{"status":"IN_QUEUE"}""");
+
+        await provider.PollAsync("fal-ai/flux/schnell#r");
+        await provider.PollAsync("fal-ai/flux/dev#r");
+        await provider.PollAsync("fal-ai/flux/pro#r");
+
+        Assert.Equal("https://queue.fal.run/owner/app/extra/requests/r/status", http.Requests[0].Uri?.ToString());
+        Assert.Equal("https://queue.fal.run/fal-ai/flux/requests/r/status", http.Requests[1].Uri?.ToString());
+        Assert.Equal("https://queue.fal.run/fal-ai/flux/requests/r/status", http.Requests[2].Uri?.ToString());
+    }
+
     [Fact]
     public async Task Options_pass_through_as_model_input_and_a_webhook_stays_out_of_the_body()
     {
