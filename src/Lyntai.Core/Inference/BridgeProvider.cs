@@ -26,7 +26,8 @@ internal sealed class BridgeProvider(
     ProviderCapabilities capabilities,
     Func<TextRequest, CancellationToken, Task<TextResponse>> complete,
     Func<TextRequest, CancellationToken, IAsyncEnumerable<TextChunk>>? stream,
-    LyntaiOptions options) : IModelProvider
+    LyntaiOptions options,
+    TimeProvider? time = null) : IModelProvider
 {
     public string Id => id;
 
@@ -61,7 +62,7 @@ internal sealed class BridgeProvider(
 
         var timeout = options.ResolveTimeout(req);
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        var clock = new InactivityClock(cts, timeout);
+        var clock = new InactivityClock(cts, timeout, time);
         var source = stream(req, cts.Token).GetAsyncEnumerator(cts.Token);
         Task<bool>? pending = null;
         try

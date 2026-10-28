@@ -1,4 +1,5 @@
 using Lyntai.Inference;
+using Lyntai.Tests.Fakes;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Lyntai.Tests.Inference;
@@ -12,9 +13,10 @@ public class BridgeProviderTests
 {
     private static TextRequest Ask(string text = "hello") => new() { Messages = [TextMessage.User(text)] };
 
-    private static ServiceProvider Build(Action<LyntaiBuilder> configure)
+    private static ServiceProvider Build(Action<LyntaiBuilder> configure, TimeProvider? time = null)
     {
         var services = new ServiceCollection();
+        if (time is not null) services.AddSingleton(time);
         services.AddLyntai(b => configure(b));
         return services.BuildServiceProvider();
     }
@@ -190,17 +192,35 @@ public class BridgeProviderTests
     [Fact]
     public async Task The_stream_timeout_is_an_INACTIVITY_clock_a_slow_but_alive_stream_finishes()
     {
-        // five chunks 100 ms apart run 500 ms in all — over the 250 ms window, though never silent for it
+        // The clock is the test's: each chunk waits for the test to move time 900 ms into a 1000 ms window, so five
+        // of them run 4500 ms in all — over the window, though never silent for it — and no scheduling stall on a
+        // loaded machine can read as silence, because time moves only when the test says.
+        var window = TimeSpan.FromMilliseconds(1000);
+        var gap = TimeSpan.FromMilliseconds(900);
+        var time = new ManualTimeProvider();
+        var reading = new SemaphoreSlim(0);
+        var release = new SemaphoreSlim(0);
         using var sp = Build(b => b
-            .Configure(o => o.ProviderTimeout = TimeSpan.FromMilliseconds(250))
-            .AddBridgeProvider("slow", Hangs, (_, ct) => Dribble(ct))
-            .UseDefaultCandidates("slow"));
-        using var safety = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+            .Configure(o => o.ProviderTimeout = window)
+            .AddBridgeProvider("slow", Hangs, (_, ct) => Dribble(reading, release, ct))
+            .UseDefaultCandidates("slow"), time);
+        using var safety = new CancellationTokenSource(TimeSpan.FromSeconds(30));
 
-        var chunks = await Collect(sp.GetRequiredService<ITextClient>().StreamAsync(Ask(), safety.Token));
+        var collecting = Collect(sp.GetRequiredService<ITextClient>().StreamAsync(Ask(), safety.Token));
+        var elapsed = TimeSpan.Zero;
+        for (var i = 0; i < 5; i++)
+        {
+            // the read is pending and its window is armed — unless the stream already ended, which the asserts report
+            if (await Task.WhenAny(reading.WaitAsync(safety.Token), collecting) == collecting) break;
+            time.Advance(gap);
+            elapsed += gap;
+            release.Release();
+        }
+        var chunks = await collecting;
 
         Assert.Equal("abcde", string.Concat(chunks.Where(c => c.Kind == TextChunkKind.Content).Select(c => c.Text)));
         Assert.Equal(TextChunkKind.Final, chunks[^1].Kind);
+        Assert.True(elapsed > window, "the run must outlast the window, or it proves nothing about the clock's kind");
     }
 
     private static async Task<List<TextChunk>> Collect(IAsyncEnumerable<TextChunk> stream)
@@ -232,11 +252,13 @@ public class BridgeProviderTests
     }
 
     private static async IAsyncEnumerable<TextChunk> Dribble(
+        SemaphoreSlim reading, SemaphoreSlim release,
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct)
     {
         foreach (var letter in "abcde")
         {
-            await Task.Delay(100, ct);
+            reading.Release();
+            await release.WaitAsync(ct);
             yield return TextChunk.Content(letter.ToString());
         }
         yield return TextChunk.Final();
