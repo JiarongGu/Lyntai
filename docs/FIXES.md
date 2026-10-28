@@ -7,6 +7,26 @@ to `.agents/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-10-28 — the SQLite graph store's standalone `TouchAsync` committed every touched row on its own: a batch failing partway kept the touches that had run
+
+**Symptom.** Found by reading the Postgres fix below against the SQLite one: `SqliteMemoryGraphStore.TouchAsync` was the one
+batch member of the store still outside a transaction, so a touch batch that threw on its second row left the first row
+reinforced (`RecallCount` 1, `Stability` rewritten) and paid one commit per row.
+
+**Root cause.** The public `TouchAsync` handed the batch to Dapper's `ExecuteAsync` on a connection with no transaction, and
+Dapper runs one statement per row, each autocommitting. The SQLite commit fix (`bda3c5e1`) wrapped `LinkManyAsync`,
+`LinkAsync` and `WriteBackAsync`, whose shared private `TouchAsync` already took a transaction, and left the public member
+calling it with none.
+
+**Fix.** The public `TouchAsync` opens one transaction on its connection, runs the batch in it and commits once. The
+statement, the private overload and the public surface do not move.
+
+**Verify.** `SqliteMemoryGraphStoreTests.A_batch_of_touches_that_fails_partway_applies_none_of_them` (a touch whose NaN
+stability binds as NULL, which the `NOT NULL` column refuses, after a good touch) fails on the old store with
+`RecallCount` 1 and passes on the new; `MemoryGraphStoreContract` runs unchanged against SQLite.
+
+**Introduced by.** `28024014` (2026-08-29), which batched the calls and kept the commits.
+
 ## 2026-10-28 — the Postgres graph store committed every edge and every touch on its own: a batch failing partway kept the statements that had run
 
 **Symptom.** Found by reading the SQLite fix below against its Postgres twin: `PostgresMemoryGraphStore` ran one statement

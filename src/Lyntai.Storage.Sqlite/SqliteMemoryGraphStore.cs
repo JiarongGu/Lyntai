@@ -340,7 +340,10 @@ public sealed class SqliteMemoryGraphStore(
 
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         var totals = await TotalsAsync(conn, engine, ct).ConfigureAwait(false);
-        await TouchAsync(conn, engine, touches, totals, ct).ConfigureAwait(false);
+        // One transaction: Dapper runs one statement per row, and each autocommits on its own.
+        await using var tx = await conn.BeginTransactionAsync(ct).ConfigureAwait(false);
+        await TouchAsync(conn, engine, touches, totals, ct, tx).ConfigureAwait(false);
+        await tx.CommitAsync(ct).ConfigureAwait(false);
     }
 
     // The statement itself, over a connection and a totals snapshot the caller owns — so the single-member

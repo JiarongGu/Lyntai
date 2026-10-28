@@ -68,6 +68,26 @@ public class SqliteMemoryGraphStoreTests : IDisposable
                 PreStrengthAge: 0, ReviewGrade: 3, PostStability: 9, PostDifficulty: 5);
     }
 
+    /// <summary>A batch of touches is one unit: a touch failing partway leaves none of the batch — the touches
+    /// before it as well as the one that failed. Each touched row was its own autocommit statement, so the
+    /// first one survived. A NaN stability binds as NULL, which the NOT NULL column refuses AFTER the earlier
+    /// rows have been updated.</summary>
+    [Fact]
+    public async Task A_batch_of_touches_that_fails_partway_applies_none_of_them()
+    {
+        var store = New();
+        var a = await store.UpsertAsync(new GraphNodeWrite("e", "tb", "s", "a", "alpha", MemoryGrade.Associative, 7, 1, null));
+        var b = await store.UpsertAsync(new GraphNodeWrite("e", "tb", "s", "b", "beta", MemoryGrade.Associative, 7, 1, null));
+
+        await Assert.ThrowsAnyAsync<Exception>(() => store.TouchAsync("e",
+            [new GraphTouch(a, 10.5), new GraphTouch(b, double.NaN)]));
+
+        var node = await store.GetAsync("e", a);
+        Assert.NotNull(node);
+        Assert.Equal(0, node!.RecallCount);
+        Assert.Equal(7, node.Stability, precision: 6);
+    }
+
     /// <summary>Counts what the store asks the factory for. A decorator rather than a counter inside
     /// <see cref="SqliteConnectionFactory"/>, so the thing being measured is the store's behaviour and not a
     /// field the store could be written to satisfy.</summary>
