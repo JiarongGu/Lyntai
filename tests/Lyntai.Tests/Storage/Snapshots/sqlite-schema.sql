@@ -329,7 +329,7 @@ CREATE TABLE lyntai_vector (
     collection TEXT NOT NULL,
     vec_id     TEXT NOT NULL,
     vector     TEXT NOT NULL,
-    payload    TEXT NOT NULL,
+    payload    TEXT NOT NULL, vector_blob BLOB NULL,
     PRIMARY KEY (collection, vec_id)
 );
 

@@ -214,11 +214,14 @@ skipped). Use `dev.mjs new-migration` to get a unique monotonic number. **Backfi
 adds a structure** — a structure correct only for rows written after it shipped is a bug waiting for the
 first old row.
 
-**A fresh database applies 16 migrations on SQLite and 17 on POSTGRES, and the asymmetry is deliberate:**
+**A fresh database applies 17 migrations on SQLite and 17 on POSTGRES, and the two sets differ by one each,
+deliberately:**
 `M202608152310_MemoryHeadlineSearch` adds a trigram index on `headline` so a recall can match an authored
 one without a sequential scan, and SQLite needs no counterpart because its FTS5 mirror has indexed
-`headline, content` since the graph store shipped. Migrations are per-backend projects; forcing the numbers
-to match would mean shipping a SQLite migration that does nothing. `check-counts` holds the first number.
+`headline, content` since the graph store shipped. `M202610281422_VectorBlob` adds a binary column to
+`lyntai_vector` and fills it, and Postgres needs none because `PostgresVectorStore` keeps pgvector's own column
+in a table it creates itself. Migrations are per-backend projects; forcing the numbers to match would mean
+shipping a migration that does nothing. `check-counts` holds the first number.
 
 **Never renumber a shipped migration**: the number is recorded in `lyntai_version_info`, so a new one re-runs
 it against tables that already exist. Composite PKs and FKs go **inline at `Create.Table`** (SQLite has no
