@@ -305,23 +305,42 @@ public class ProcessRunnerTests
     {
         // Backstop: a child that NEVER goes silent (output every 50ms) would run forever under a pure
         // inactivity clock, so the absolute max duration caps it — reported as a MaxDuration timeout,
-        // distinct from inactivity. The inactivity window (30s) can't trip here; only the 2s cap can.
-        // The child self-exits at ~6s so a broken cap fails the test instead of hanging the run.
-        const string script = """
-            let i = 0;
-            const t = setInterval(() => {
-              console.log('spam' + i++);
-              if (i > 120) { clearInterval(t); process.exit(0); }
-            }, 50);
-            """;
-        var sw = Stopwatch.StartNew();
-        var result = await _runner.RunAsync("node", ["-e", script],
-            inactivityTimeout: TimeSpan.FromSeconds(30), maxDuration: TimeSpan.FromSeconds(2));
-        sw.Stop();
+        // distinct from inactivity. The inactivity window (30s) can't trip here; only the cap can.
+        // The test owns the ceiling's clock (CeilingClock) and moves it past the 2s window once the child has
+        // spoken, so node's cold start is not spent from the ceiling. The child self-exits at ~6s (exit 0), so
+        // a ceiling that bounds nothing yields a clean run and fails the test instead of hanging it.
+        var marker = Path.Combine(Path.GetTempPath(), $"lyntai-chatty-{Guid.NewGuid():N}");
+        try
+        {
+            const string script = """
+                const fs = require('fs');
+                let i = 0;
+                const t = setInterval(() => {
+                  const first = i === 0;
+                  process.stdout.write('spam' + i++ + '\n', () => { if (first) fs.writeFileSync(process.argv[1], ''); });
+                  if (i > 120) { clearInterval(t); process.exit(0); }
+                }, 50);
+                """;
+            var clock = new ManualTimeProvider();
+            var runner = new ProcessRunner { CeilingClock = clock };
+            var run = runner.RunAsync("node", ["-e", script, marker],
+                inactivityTimeout: TimeSpan.FromSeconds(30), maxDuration: TimeSpan.FromSeconds(2));
 
-        Assert.True(result.TimedOut);
-        Assert.Equal(ProcessTimeoutKind.MaxDuration, result.TimeoutKind);
-        Assert.True(sw.Elapsed < TimeSpan.FromSeconds(5), $"took {sw.Elapsed} — the max cap didn't fire early");
+            // the first line is flushed to the pipe once the marker exists; the ceiling is armed once its timer does
+            while (!run.IsCompleted && !(File.Exists(marker) && clock.Pending > 0))
+                await Task.Delay(10);
+            clock.Advance(TimeSpan.FromSeconds(2));
+            var result = await run.WaitAsync(TimeSpan.FromSeconds(60)); // guard: fail loud instead of hanging the suite
+
+            Assert.True(result.TimedOut);
+            Assert.Equal(ProcessTimeoutKind.MaxDuration, result.TimeoutKind);
+            Assert.Contains("spam0", result.StdOut); // the output before the cap survives
+            Assert.DoesNotContain("spam120", result.StdOut); // killed by the ceiling, not run to its own exit
+        }
+        finally
+        {
+            File.Delete(marker);
+        }
     }
 
     [Fact]
@@ -330,7 +349,9 @@ public class ProcessRunnerTests
         // Mirror of the buffered max-cap test on the STREAMED path: a child that prints every 50ms never
         // trips the 30s inactivity window, so only the 2s absolute maxDuration can end it — surfacing as
         // ProcessTimeoutException (a timeout, not a ProcessRunException child failure), AFTER the lines
-        // produced so far were yielded. The child self-exits at ~6s so a broken cap fails instead of hanging.
+        // produced so far were yielded. The test owns the ceiling's clock (CeilingClock) and moves it past the 2s
+        // window on the first line, so node's cold start is not spent from the ceiling. The child self-exits at
+        // ~6s (exit 0), so a ceiling that bounds nothing ends the loop with no exception and fails the test.
         const string script = """
             let i = 0;
             const t = setInterval(() => {
@@ -339,19 +360,20 @@ public class ProcessRunnerTests
             }, 50);
             """;
         var lines = new List<string>();
-        var sw = Stopwatch.StartNew();
+        var clock = new ManualTimeProvider();
+        var runner = new ProcessRunner { CeilingClock = clock };
         var timeout = await Assert.ThrowsAsync<ProcessTimeoutException>(async () =>
         {
-            await foreach (var line in _runner.StreamLinesAsync("node", ["-e", script],
+            await foreach (var line in runner.StreamLinesAsync("node", ["-e", script],
                 inactivityTimeout: TimeSpan.FromSeconds(30), maxDuration: TimeSpan.FromSeconds(2)))
             {
                 lines.Add(line);
+                if (lines.Count == 1) clock.Advance(TimeSpan.FromSeconds(2)); // the ceiling is armed before any read
             }
         });
-        sw.Stop();
 
         Assert.NotEmpty(lines); // the healthy output before the cap was still yielded
-        Assert.True(sw.Elapsed < TimeSpan.FromSeconds(5), $"took {sw.Elapsed} — the max cap didn't fire early");
+        Assert.True(lines.Count < 121, $"{lines.Count} lines — the child ran to its own exit"); // killed, not finished
         // and the message names the window that ACTUALLY fired: the 2s ceiling, not the 30s inactivity
         // clock that never tripped — a message naming the wrong clock sends the reader to the wrong knob
         Assert.Contains("00:00:02", timeout.Message);
