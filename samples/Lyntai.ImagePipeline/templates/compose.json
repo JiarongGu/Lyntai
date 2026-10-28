@@ -1,0 +1,34 @@
+{
+  "4": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": "model.safetensors"}},
+  "5": {"class_type": "EmptyLatentImage", "inputs": {"width": 1024, "height": 1024, "batch_size": 1}},
+  "6": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["4", 1], "text": "prompt"}},
+  "7": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["4", 1], "text": "negative"}},
+
+  "20": {"class_type": "LoadImage", "inputs": {"image": "style.png"}},
+  "21": {"class_type": "LoadImage", "inputs": {"image": "subject.png"}},
+  "22": {"class_type": "LoadImage", "inputs": {"image": "pose.png"}},
+
+  "31": {"class_type": "CLIPVisionLoader", "inputs": {"clip_name": "CLIP-ViT-H-14-laion2B-s32B-b79K.safetensors"}},
+  "30": {"class_type": "IPAdapterModelLoader", "inputs": {"ipadapter_file": "ip-adapter_sdxl_vit-h.safetensors"}},
+  "32": {"class_type": "IPAdapterAdvanced", "inputs": {"model": ["4", 0], "ipadapter": ["30", 0], "image": ["20", 0],
+         "clip_vision": ["31", 0], "weight": 0.8, "weight_type": "style transfer", "combine_embeds": "concat",
+         "start_at": 0, "end_at": 1, "embeds_scaling": "V only"}},
+  "33": {"class_type": "IPAdapterModelLoader", "inputs": {"ipadapter_file": "ip-adapter-plus_sdxl_vit-h.safetensors"}},
+  "34": {"class_type": "IPAdapterAdvanced", "inputs": {"model": ["32", 0], "ipadapter": ["33", 0], "image": ["21", 0],
+         "clip_vision": ["31", 0], "weight": 0.8, "weight_type": "linear", "combine_embeds": "concat",
+         "start_at": 0, "end_at": 1, "embeds_scaling": "V only"}},
+
+  "40": {"class_type": "DWPreprocessor", "inputs": {"image": ["22", 0], "detect_hand": "enable", "detect_body": "enable",
+         "detect_face": "enable", "resolution": 1024, "bbox_detector": "None",
+         "pose_estimator": "dw-ll_ucoco_384.onnx", "scale_stick_for_xinsr_cn": "disable"}},
+  "41": {"class_type": "SaveImage", "inputs": {"images": ["40", 0], "filename_prefix": "pipeline-compose-skeleton"}},
+  "42": {"class_type": "ControlNetLoader", "inputs": {"control_net_name": "controlnet-openpose-sdxl-1.0.safetensors"}},
+  "43": {"class_type": "ControlNetApplyAdvanced", "inputs": {"positive": ["6", 0], "negative": ["7", 0],
+         "control_net": ["42", 0], "image": ["40", 0], "strength": 0.8, "start_percent": 0, "end_percent": 0.8}},
+
+  "3": {"class_type": "KSampler", "inputs": {"model": ["34", 0], "positive": ["43", 0], "negative": ["43", 1],
+        "latent_image": ["5", 0], "seed": 0, "steps": 25, "cfg": 7, "sampler_name": "euler", "scheduler": "normal",
+        "denoise": 1}},
+  "8": {"class_type": "VAEDecode", "inputs": {"samples": ["3", 0], "vae": ["4", 2]}},
+  "9": {"class_type": "SaveImage", "inputs": {"images": ["8", 0], "filename_prefix": "pipeline-compose"}}
+}

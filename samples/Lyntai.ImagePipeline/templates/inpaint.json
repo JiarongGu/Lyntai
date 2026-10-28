@@ -1,0 +1,20 @@
+{
+  "4": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": "model.safetensors"}},
+  "10": {"class_type": "LoadImage", "inputs": {"image": "init.png"}},
+  "11": {"class_type": "VAEEncode", "inputs": {"pixels": ["10", 0], "vae": ["4", 2]}},
+  "12": {"class_type": "SolidMask", "inputs": {"value": 0, "width": 1024, "height": 1024}},
+  "13": {"class_type": "SolidMask", "inputs": {"value": 1, "width": 256, "height": 256}},
+  "14": {"class_type": "MaskComposite", "inputs": {"destination": ["12", 0], "source": ["13", 0], "x": 384, "y": 384,
+         "operation": "add"}},
+  "15": {"class_type": "SetLatentNoiseMask", "inputs": {"samples": ["11", 0], "mask": ["14", 0]}},
+  "6": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["4", 1], "text": "prompt"}},
+  "7": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["4", 1], "text": "negative"}},
+  "3": {"class_type": "KSampler", "inputs": {"model": ["4", 0], "positive": ["6", 0], "negative": ["7", 0],
+        "latent_image": ["15", 0], "seed": 0, "steps": 25, "cfg": 7, "sampler_name": "euler", "scheduler": "normal",
+        "denoise": 1}},
+  "8": {"class_type": "VAEDecode", "inputs": {"samples": ["3", 0], "vae": ["4", 2]}},
+  "17": {"class_type": "FeatherMask", "inputs": {"mask": ["14", 0], "left": 24, "top": 24, "right": 24, "bottom": 24}},
+  "16": {"class_type": "ImageCompositeMasked", "inputs": {"destination": ["10", 0], "source": ["8", 0], "x": 0, "y": 0,
+         "resize_source": false, "mask": ["17", 0]}},
+  "9": {"class_type": "SaveImage", "inputs": {"images": ["16", 0], "filename_prefix": "pipeline-inpaint"}}
+}

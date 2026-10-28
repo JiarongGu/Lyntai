@@ -469,3 +469,106 @@ services.AddLyntai(b => b.ConfigureProviderAdmission(a => a.BySlot["local-diffus
 
 Generation itself, downloading engines or model weights, hosting a webhook endpoint, storing artifacts, or
 holding your credentials — see `docs/DECISIONS.md` D20 and D24.
+
+## 12. The example image pipeline
+
+`samples/Lyntai.ImagePipeline` is the proof that these backends compose (**D230**): a setup image, variations of it over
+several seeds, one image composed from a style, a subject and a pose reference plus words, a replay of that compose from
+its recipe, and optionally an inpaint and an upscale. It drives `ComfyUiProvider` with tracked API-format workflow
+templates, **one per step**, and **adds nothing to the library**: every field goes in through the options and request
+fields of §5, every reference through an `input-path:<role>` option. The sample's README says how a host runs it; this
+section says what it stands on. Models stay the host's: the sample downloads none and asks the server for none.
+
+**The model folder layout** (a ComfyUI install's own `models/` folders; the file names are what the templates name, so a
+host that files them differently edits the templates, not the library):
+
+| Folder | File | Licence |
+|---|---|---|
+| `checkpoints/` | `sd_xl_base_1.0.safetensors` (the main tier); an SD 1.5 file for the smoke tier | CreativeML Open RAIL++-M |
+| `ipadapter/` | `ip-adapter_sdxl_vit-h.safetensors`, `ip-adapter-plus_sdxl_vit-h.safetensors` | Apache-2.0 |
+| `clip_vision/` | `CLIP-ViT-H-14-laion2B-s32B-b79K.safetensors` | Apache-2.0 |
+| `controlnet/` | `controlnet-openpose-sdxl-1.0.safetensors` | Apache-2.0 |
+| the preprocessor pack's `ckpts/yzd-v/DWPose/` | `dw-ll_ucoco_384.onnx` (`yolox_l.onnx` is placed too and unused: the pose template runs with no detector) | Apache-2.0 |
+
+**The two node packs**, loaded by the host: `ComfyUI_IPAdapter_plus` (GPL-3.0; `IPAdapterModelLoader`,
+`IPAdapterAdvanced`), measured at commit `a0f451a5113cf9becb0847b92884cb10cbdec0ef`, and `comfyui_controlnet_aux`
+(Apache-2.0; `DWPreprocessor`), at `a587a4c1594524c1d2de5cd1a86cd868ff448e1c`. Only the compose template uses them; the rest
+are core nodes, and a test pins that no template uses any other. A node pack is the host's install, never a dependency of
+this library, and a preprocessor **downloads its weights on first use** if they are not placed: place the DWPose file
+first, and run the server offline (`HF_HUB_OFFLINE=1`) if a download must fail rather than happen.
+
+**One template per step**, each a graph file and an entry in `templates/manifest.json` (the provider's option keys to graph
+paths, plus `fields` for numbers the request has no typed field for):
+
+| Step | Template | Roles | What it is |
+|---|---|---|---|
+| setup image | `setup` | none | `CheckpointLoaderSimple` → `KSampler` from an `EmptyLatentImage`; the typed fields place prompt, negative, seed, steps, CFG, sampler, scheduler, checkpoint and the `size` hint (`width-path`, `height-path`); also the SD 1.5 smoke tier |
+| variation | `variation` | `init` | `LoadImage` → `VAEEncode` → `KSampler` at `denoise` (a template field, 0.6 in the sample): the same words over another seed |
+| compose | `compose` | `style`, `subject`, `pose` | below |
+| inpaint | `inpaint` | `init` | a box mask built from `SolidMask` and `MaskComposite` (no upload), `SetLatentNoiseMask`, then the result pasted back through a feathered `ImageCompositeMasked`, so **no pixel outside the box changes** |
+| upscale | `upscale` | `init` | `ImageScaleBy` (lanczos) → `VAEEncode` → a low-denoise `KSampler` second pass; core nodes only, since no upscale model is assumed |
+
+**How each compose role maps to nodes.** `style` → a `LoadImage` read by `IPAdapterAdvanced` over the standard SDXL
+adapter at weight type `style transfer`; `subject` → another `LoadImage` read by `IPAdapterAdvanced` over the plus adapter,
+chained on the first one's model, at `linear`; `pose` → a `LoadImage` read by `DWPreprocessor` (detector `None`, the
+estimator on the whole frame, because the person detector found no figure in a wooden mannequin and drew a black image),
+whose skeleton goes through `ControlNetApplyAdvanced` with the OpenPose SDXL ControlNet. The skeleton is saved as a second
+output, since a blank one is the visible sign that no pose was found. The weights (`style-weight`, `subject-weight`,
+`pose-strength` and each start and end) are template fields the sample writes into the graph before it submits.
+
+**A role is a name the template maps, and nothing else.** The sample's roles are free strings through
+`MediaInput.From("style", …)`; a template accepts exactly those it has an `input-path:<role>` key for, and the provider
+refuses an input in any other role before uploading anything, naming the missing key (`ImagePipelineTests` pins it). The
+result is the artifact from the node the manifest names (`Metadata["node"]`), so a graph can save more than one image.
+
+**The recipe.** Every step writes `recipe.json` beside `image.png` and its inputs (`inputs/<role>.png`):
+
+```json
+{
+  "step": "compose", "template": "compose", "templateSha256": "…", "engineVersion": "0.36.0",
+  "prompt": "…", "negativePrompt": "…", "seed": 401, "steps": 25, "cfgScale": 7, "sampler": "euler", "scheduler": "normal",
+  "checkpoint": "sd_xl_base_1.0.safetensors", "width": 1024, "height": 1024,
+  "fields": { "style-weight": 0.8, "subject-weight": 0.8, "pose-strength": 0.8, "pose-end": 0.8 },
+  "inputs": [ { "role": "style", "file": "inputs/style.png", "sha256": "…" } ],
+  "models": [ { "kind": "ipadapter", "file": "ip-adapter-plus_sdxl_vit-h.safetensors", "sha256": "…" } ],
+  "output": { "file": "image.png", "fileSha256": "…", "pixelsSha256": "…", "width": 1024, "height": 1024 }
+}
+```
+
+A model's hash is there when the host gave the sample its model folders (`LYNTAI_COMFYUI_MODELS`,
+`LYNTAI_COMFYUI_DWPOSE_DIR`) and absent otherwise; nothing is hashed from a name alone. A **replay** reads the recipe, checks
+each input against its hash, fills the same template through the same provider and compares **decoded pixels**, because a
+ComfyUI PNG embeds the run's own workflow text, whose uploaded file names differ every run: the file bytes of a replayed
+compose differ and its pixels do not. When the pixels differ, the report says which of "the template file changed" and
+"same template, fields and inputs, different pixels: the engine, a node pack, the driver or the GPU is not the one that
+made the recipe" applies.
+
+**Measured** on the 12 GB RTX 4080 Laptop, ComfyUI 0.36.0, the two packs at the commits above, SDXL base at 1024×1024, 25
+steps, euler/normal, CFG 7: one sample run with `--optional`, a step at a time, the card shared with other processes
+already holding about 2.3 GB. A time runs from submit to the finished history entry and **the first step carries the
+weight load**. The peak is the whole card's used memory by `nvidia-smi`, so it includes what ComfyUI kept from earlier steps.
+Three runs of the sample put a warm step between 17 s and 86 s and the compose between 147 s and 263 s.
+
+| Step | Time | Peak VRAM |
+|---|---|---|
+| setup (base) | 56 s (cold) | 11,489 MiB |
+| variation ×3 | 44 s, 63 s, 61 s | 10,607, 10,334, 10,569 MiB |
+| style, subject, pose references | 71 s, 49 s, 27 s | 9,254, 11,522, 9,378 MiB |
+| compose | 147 s | 11,467 MiB |
+| inpaint | 86 s | 9,673 MiB |
+| upscale ×1.5 (1536×1536) | 39 s | 10,969 MiB |
+| replay of the compose | 114 s | pixels identical, file bytes not |
+| replay of the base (no inputs, same server) | 33 s | pixels and file bytes identical |
+
+The pose role does something: the same compose with the same seed and the ControlNet at strength 0 differs from the one at 0.8
+by a mean luma difference of 44 (`ImagePipelineLiveTests`). Whether a replay is bit-identical is a property of the engine and
+the card, not of this library: it held here, with the driver and packs as recorded, and is reported rather than assumed.
+
+**Two quality caveats.** SDXL drew the mannequin with its arms down however the prompt asked, so the pose reference is a
+standing figure and the composed figure follows it; and the inpaint's feathered paste still shows a faint box edge where the
+model's tone inside the box differs from the original. Neither is a library question.
+
+**Licence and safety.** The packs and weights keep their own licences (the table above); a host reads them for what it
+runs. Every prompt, reference and example here is plain and safe for work, names no artist, studio, franchise or real
+person, and uses objects, an animal and a wooden mannequin; no face-identity model is used. The local backends apply no
+content filter, and this section adds none.

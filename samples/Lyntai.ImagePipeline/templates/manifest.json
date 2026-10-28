@@ -1,0 +1,111 @@
+{
+  "setup": {
+    "file": "setup.json",
+    "output": "9",
+    "options": {
+      "prompt-path": "6.inputs.text",
+      "negative-prompt-path": "7.inputs.text",
+      "seed-path": "3.inputs.seed",
+      "steps-path": "3.inputs.steps",
+      "cfg-scale-path": "3.inputs.cfg",
+      "sampler-path": "3.inputs.sampler_name",
+      "scheduler-path": "3.inputs.scheduler",
+      "checkpoint-path": "4.inputs.ckpt_name",
+      "width-path": "5.inputs.width",
+      "height-path": "5.inputs.height"
+    },
+    "fields": {}
+  },
+  "variation": {
+    "file": "variation.json",
+    "output": "9",
+    "options": {
+      "prompt-path": "6.inputs.text",
+      "negative-prompt-path": "7.inputs.text",
+      "seed-path": "3.inputs.seed",
+      "steps-path": "3.inputs.steps",
+      "cfg-scale-path": "3.inputs.cfg",
+      "sampler-path": "3.inputs.sampler_name",
+      "scheduler-path": "3.inputs.scheduler",
+      "checkpoint-path": "4.inputs.ckpt_name",
+      "input-path:init": "10.inputs.image"
+    },
+    "fields": {
+      "denoise": "3.inputs.denoise"
+    }
+  },
+  "compose": {
+    "file": "compose.json",
+    "output": "9",
+    "extraOutputs": {"skeleton": "41"},
+    "options": {
+      "prompt-path": "6.inputs.text",
+      "negative-prompt-path": "7.inputs.text",
+      "seed-path": "3.inputs.seed",
+      "steps-path": "3.inputs.steps",
+      "cfg-scale-path": "3.inputs.cfg",
+      "sampler-path": "3.inputs.sampler_name",
+      "scheduler-path": "3.inputs.scheduler",
+      "checkpoint-path": "4.inputs.ckpt_name",
+      "width-path": "5.inputs.width",
+      "height-path": "5.inputs.height",
+      "input-path:style": "20.inputs.image",
+      "input-path:subject": "21.inputs.image",
+      "input-path:pose": "22.inputs.image"
+    },
+    "fields": {
+      "style-weight": "32.inputs.weight",
+      "style-start": "32.inputs.start_at",
+      "style-end": "32.inputs.end_at",
+      "subject-weight": "34.inputs.weight",
+      "subject-start": "34.inputs.start_at",
+      "subject-end": "34.inputs.end_at",
+      "pose-strength": "43.inputs.strength",
+      "pose-start": "43.inputs.start_percent",
+      "pose-end": "43.inputs.end_percent"
+    }
+  },
+  "inpaint": {
+    "file": "inpaint.json",
+    "output": "9",
+    "options": {
+      "prompt-path": "6.inputs.text",
+      "negative-prompt-path": "7.inputs.text",
+      "seed-path": "3.inputs.seed",
+      "steps-path": "3.inputs.steps",
+      "cfg-scale-path": "3.inputs.cfg",
+      "sampler-path": "3.inputs.sampler_name",
+      "scheduler-path": "3.inputs.scheduler",
+      "checkpoint-path": "4.inputs.ckpt_name",
+      "input-path:init": "10.inputs.image"
+    },
+    "fields": {
+      "denoise": "3.inputs.denoise",
+      "image-width": "12.inputs.width",
+      "image-height": "12.inputs.height",
+      "box-x": "14.inputs.x",
+      "box-y": "14.inputs.y",
+      "box-width": "13.inputs.width",
+      "box-height": "13.inputs.height"
+    }
+  },
+  "upscale": {
+    "file": "upscale.json",
+    "output": "9",
+    "options": {
+      "prompt-path": "6.inputs.text",
+      "negative-prompt-path": "7.inputs.text",
+      "seed-path": "3.inputs.seed",
+      "steps-path": "3.inputs.steps",
+      "cfg-scale-path": "3.inputs.cfg",
+      "sampler-path": "3.inputs.sampler_name",
+      "scheduler-path": "3.inputs.scheduler",
+      "checkpoint-path": "4.inputs.ckpt_name",
+      "input-path:init": "10.inputs.image"
+    },
+    "fields": {
+      "denoise": "3.inputs.denoise",
+      "scale": "12.inputs.scale_by"
+    }
+  }
+}
