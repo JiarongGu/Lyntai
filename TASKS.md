@@ -15,7 +15,7 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 7 across 4 Parts: 1 startable, 4 blocked, 2 watch
+## Open items — 7 across 4 Parts: 4 blocked, 3 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
@@ -24,11 +24,11 @@ _Edit a marker, never this table — `verify` fails the moment the two disagree.
 | ---: | ---: | --- | --- | --- |
 | 108 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a free Hugging Face account (an hf_ token) — its router proxies fal's own q… |
 | 155 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 179 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 235 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
-| 268 | 99 | The `ProcessRunnerTests` chatty-child tests race node's cold start against … | startable |  |
-| 296 | 380 | Postgres graph store: one transaction for a batch of edges and touches | blocked · env | Docker up, so the Postgres leg runs; LYNTAI_ALLOW_POSTGRES_SKIP=1 would ski… |
-| 301 | 380 | The count cap's shared statement, run on Postgres | blocked · env | Docker up, so the Postgres leg of the memory-store contract runs; LYNTAI_AL… |
+| 180 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 236 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 269 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
+| 287 | 380 | Postgres graph store: one transaction for a batch of edges and touches | blocked · env | Docker up, so the Postgres leg runs; LYNTAI_ALLOW_POSTGRES_SKIP=1 would ski… |
+| 292 | 380 | The count cap's shared statement, run on Postgres | blocked · env | Docker up, so the Postgres leg of the memory-store contract runs; LYNTAI_AL… |
 
 <!-- open-items:end -->
 
@@ -168,8 +168,9 @@ being looked for._
 _It opened holding the two Phase-1 gaps. One of those (cross-tenant isolation) closed the same day as
 **Part 100** and left a DECISION behind it; the flake below arrived from watching `verify` rather than from
 the proposal. **Two items were left open here, both WATCH items** — the rest closed into the archive, and this line said "all
-three are startable" until 2026-08-28, after two of them had gone. A third, a startable timing test, joined them
-on 2026-10-28: the bridge's closed that day (`docs/task-archive.md` Part 395) and the chatty-child tests took its place._
+three are startable" until 2026-08-28, after two of them had gone. A third, also a WATCH item, joined them on
+2026-10-28: the bridge's stream-timeout test and the chatty-child tests closed that day (`docs/task-archive.md` Parts 395
+and 396) and the NFKC-linearity test, listed beside them, stayed._
 
 _**The flake below is a WATCH item, not startable work, and the banner counted it as startable until 2026-08-28.** The
 suspected cause is fixed AND pinned — `ProcessRunnerTests.A_FAILED_path_lookup_is_not_cached_so_one_transient_locator_failure_is_not_permanent`,
@@ -265,27 +266,17 @@ there is nothing here to code: what remains is evidence only recurrence can supp
   `SqliteCuratedMemoryStore.UpdateCoreAsync`; the unmodified re-run passed. It is not this exception, but it is the
   same shape (one connection in use by two callers), in the same store, and it carries the stack this item waits for.
 
-- [ ] **The `ProcessRunnerTests` chatty-child tests race node's cold start against a fixed real 2 s ceiling** (lane <!-- item: state=startable -->
-  `inference`). `Stream_lines_absolute_max_caps_a_chatty_child_that_never_stalls` failed twice across the
-  stream-timeout session's 31 full runs, `Assert.NotEmpty(lines)` at `ProcessRunnerTests.cs:353`, with about 3 s
-  elapsed: it starts `node -e` under `maxDuration: 2 s` and asserts that a line arrived first, so a loaded machine
-  whose node start takes the 2 s leaves the ceiling firing before the first `spam0`. Its buffered twin
-  `Run_async_absolute_max_caps_a_chatty_child_that_never_stalls` shares the 2 s ceiling and the `< 5 s` margin but
-  asserts no yielded line, so the same stall would show there as the margin alone. AG6's `verify` run saw both
-  chatty-child tests fail beside the bridge's test and pass 108 of 108 alone.
-  <br>**Not the bridge's test, which closed** (`docs/task-archive.md` Part 395): that one measured a gap between
-  chunks, and a `TimeProvider` the test owns removed it. `RunAsync` and `StreamLinesAsync` arm `maxDuration` on a
-  real `CancellationTokenSource` timer and spawn a real process, so the same device is not on offer here without a
-  seam in the runner: the cause read is a margin the test cannot own, and a loaded machine spends it.
-  <br>**Not `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` either**, which the same AG6 run
-  listed: it spawns no process and holds no ceiling, it takes a RATIO of two in-process timings (best of three,
-  4x apart, `ratio < 10`), so a stall that lands inside one size and not the other moves it. The stream-timeout
-  session read it as a different shape, and it is recorded here rather than as a row of its own.
-  <br>**Contract:** the ceiling still ends a child that never goes silent, reported as `MaxDuration` rather than
-  `Inactivity`, with the lines produced before it yielded and the message naming the 2 s window. **Proof:** the
-  assertion on yielded lines stops depending on how long node took to start (a ceiling the cold start cannot spend, or
-  a child that needs no start-up), with no change to what `maxDuration` means; the test goes red when the ceiling is
-  made to bound nothing; twenty full parallel `test` runs without either test failing.
+- [ ] **`InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` failed once in AG6's `verify` run.** <!-- item: state=watch kind=data needs="a recurrence under the full parallel run, with the ratio it read — the message prints it, and a single failure with no ratio cannot say whether a stall or a real quadratic did it" -->
+  It spawns no process and holds no ceiling: it takes a RATIO of two in-process timings (`InputSegmenter.Split` over
+  25,000 and 100,000 repeats, 4x apart, best of three each), and asserts `ratio < 10`, where linear work reads about
+  4 and quadratic about 16. It was listed beside the `ProcessRunnerTests` chatty-child tests and the bridge's
+  stream-timeout test, which have since closed (`docs/task-archive.md` Parts 395 and 396).
+  <br>**Not those, and so not fixed by what fixed them.** Neither a real-time margin nor a node start is in it, so
+  there is no clock for the test to own. The reading is that a stall landing inside one size's three runs and not the
+  other's moves a ratio of two timings; that is a reading, not a capture, and one failure is all there is.
+  <br>**Watch, not startable:** nothing here is known to be wrong. A recurrence with the ratio the assertion
+  prints either shows a stall (the ratio far from 4 in either direction) or a real quadratic (near 16 every time),
+  and only then is there something to change.
 
 ## Part 380 — what the real-corpus memory run left (2026-10-28)
 
