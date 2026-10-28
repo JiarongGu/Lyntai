@@ -13,6 +13,7 @@
     <Project Path="src/Lyntai.Generation/Lyntai.Generation.csproj" />
   </Folder>
   <Folder Name="/samples/">
+    <Project Path="samples/Lyntai.ImagePipeline/Lyntai.ImagePipeline.csproj" />
     <Project Path="samples/Lyntai.Playground/Lyntai.Playground.csproj" />
   </Folder>
   <Folder Name="/tests/">

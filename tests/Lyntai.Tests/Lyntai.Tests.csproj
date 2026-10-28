@@ -22,6 +22,8 @@
     <ProjectReference Include="..\..\src\Lyntai.Secrets.Dpapi\Lyntai.Secrets.Dpapi.csproj" />
     <ProjectReference Include="..\..\src\Lyntai.Providers.Onnx\Lyntai.Providers.Onnx.csproj" />
     <ProjectReference Include="..\..\src\Lyntai.Generation\Lyntai.Generation.csproj" />
+    <!-- the example image pipeline: its templates, recipe and runner are unit-tested against a scripted server -->
+    <ProjectReference Include="..\..\samples\Lyntai.ImagePipeline\Lyntai.ImagePipeline.csproj" />
   </ItemGroup>
 
   <ItemGroup>

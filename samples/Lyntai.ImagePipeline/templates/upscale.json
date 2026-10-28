@@ -1,0 +1,13 @@
+{
+  "4": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": "model.safetensors"}},
+  "10": {"class_type": "LoadImage", "inputs": {"image": "init.png"}},
+  "12": {"class_type": "ImageScaleBy", "inputs": {"image": ["10", 0], "upscale_method": "lanczos", "scale_by": 1.5}},
+  "11": {"class_type": "VAEEncode", "inputs": {"pixels": ["12", 0], "vae": ["4", 2]}},
+  "6": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["4", 1], "text": "prompt"}},
+  "7": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["4", 1], "text": "negative"}},
+  "3": {"class_type": "KSampler", "inputs": {"model": ["4", 0], "positive": ["6", 0], "negative": ["7", 0],
+        "latent_image": ["11", 0], "seed": 0, "steps": 20, "cfg": 7, "sampler_name": "euler", "scheduler": "normal",
+        "denoise": 0.35}},
+  "8": {"class_type": "VAEDecode", "inputs": {"samples": ["3", 0], "vae": ["4", 2]}},
+  "9": {"class_type": "SaveImage", "inputs": {"images": ["8", 0], "filename_prefix": "pipeline-upscale"}}
+}
