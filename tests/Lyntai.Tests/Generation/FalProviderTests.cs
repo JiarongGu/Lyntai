@@ -1,5 +1,6 @@
 using Lyntai.Inference;
 using System.Net;
+using System.Text.Json;
 using Lyntai.Generation;
 using Lyntai.Generation.Providers;
 using Lyntai.Tests.Fakes;
@@ -190,6 +191,83 @@ public class FalProviderTests
         Assert.Contains("\"duration\":\"5\"", http.Requests[0].Body);
         Assert.DoesNotContain("webhook", http.Requests[0].Body);          // it's a URL, not an input
         Assert.Contains("fal_webhook=https%3A%2F%2Fapp.invalid%2Fhook", http.Requests[0].Uri?.Query);
+    }
+
+    private static FalOptions WithJsonFields(params string[] fields) =>
+        new() { ApiKey = "k", Model = "fal-ai/flux/schnell", JsonFields = [.. fields] };
+
+    private static MediaRequest AskWith(params (string Key, string Value)[] options) => Ask() with
+    {
+        Options = options.ToDictionary(o => o.Key, o => o.Value, StringComparer.OrdinalIgnoreCase),
+    };
+
+    [Fact]
+    public async Task A_field_named_as_JSON_is_sent_as_an_object_when_its_value_is_one()
+    {
+        var (provider, http) = Provider(WithJsonFields("image_size"));
+        http.Enqueue(HttpStatusCode.OK, """{"request_id":"r"}""");
+
+        await provider.SubmitAsync(AskWith(("image_size", """{"width":1024,"height":768}""")));
+
+        Assert.Equal("""{"prompt":"a cat surfing","image_size":{"width":1024,"height":768}}""", http.Requests[0].Body);
+    }
+
+    [Fact]
+    public async Task A_field_named_as_JSON_is_sent_as_an_array_or_a_bare_scalar_when_its_value_is_one()
+    {
+        var (provider, http) = Provider(WithJsonFields("LORAS", "guidance"));   // matched case-insensitively
+        http.Enqueue(HttpStatusCode.OK, """{"request_id":"r"}""");
+
+        await provider.SubmitAsync(AskWith(("loras", """[{"path":"a","scale":0.5},"b"]"""), ("guidance", "7.5")));
+
+        Assert.Equal("""{"prompt":"a cat surfing","loras":[{"path":"a","scale":0.5},"b"],"guidance":7.5}""",
+            http.Requests[0].Body);
+    }
+
+    [Fact]
+    public async Task An_option_not_named_as_JSON_is_still_a_string_even_when_it_looks_like_JSON()
+    {
+        var (provider, http) = Provider(WithJsonFields("image_size"));
+        http.Enqueue(HttpStatusCode.OK, """{"request_id":"r"}""");
+
+        await provider.SubmitAsync(AskWith(("duration", "5"), ("style", """{"a":1}""")));
+
+        // read back rather than compared as text: the writer's escaping of the inner quotes is its own
+        using var body = JsonDocument.Parse(http.Requests[0].Body);
+        Assert.Equal(JsonValueKind.String, body.RootElement.GetProperty("duration").ValueKind);
+        Assert.Equal("5", body.RootElement.GetProperty("duration").GetString());
+        Assert.Equal("""{"a":1}""", body.RootElement.GetProperty("style").GetString());
+    }
+
+    [Fact]
+    public async Task With_no_JSON_fields_named_every_option_is_a_string_as_before()
+    {
+        var (provider, http) = Provider();
+        http.Enqueue(HttpStatusCode.OK, """{"request_id":"r"}""");
+
+        await provider.SubmitAsync(AskWith(("image_size", """{"width":1,"height":2}""")));
+
+        using var body = JsonDocument.Parse(http.Requests[0].Body);
+        Assert.Equal(JsonValueKind.String, body.RootElement.GetProperty("image_size").ValueKind);
+        Assert.Equal("""{"width":1,"height":2}""", body.RootElement.GetProperty("image_size").GetString());
+    }
+
+    [Theory]
+    [InlineData("square_hd")]            // a preset name where an object was asked for
+    [InlineData("{\"width\":")]          // truncated
+    [InlineData("")]                     // nothing
+    [InlineData("{} {}")]                // trailing content
+    public async Task A_JSON_field_whose_value_is_not_JSON_is_refused_before_any_call(string value)
+    {
+        var (provider, http) = Provider(WithJsonFields("image_size"));
+
+        var submitted = await provider.SubmitAsync(AskWith(("image_size", value)));
+
+        Assert.Equal(QueuedOperationStatus.Failed, submitted.Status);
+        Assert.Equal(ProviderVerdict.Unsupported, submitted.Verdict);
+        Assert.Contains("image_size", submitted.Detail);
+        Assert.Contains("not valid JSON", submitted.Detail);
+        Assert.Empty(http.Requests);
     }
 
     [Theory]

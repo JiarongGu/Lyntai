@@ -123,8 +123,9 @@ it, so treat that run as the verification.
 `StatusSegment`, `CancelSegment`), the status vocabulary (`StatusVocabulary`), the cost fields (`CostFields`),
 the failure fields (`ErrorField` — fal documents a failed request as `COMPLETED` carrying an `error` field,
 which polls as `Failed` here — and `ErrorTypeField`), the auth scheme (`AuthScheme`, `Key` by default) and
-extra query parameters on every call (`QueryParameters`). Any request field goes through verbatim in
-`MediaRequest.Options`. **What it cannot correct**: the response fields read by name — `request_id`, `status`,
+extra query parameters on every call (`QueryParameters`), the per-model request path (`RequestPaths`) and
+which request fields are raw JSON (`JsonFields`). Any request field goes through verbatim in
+`MediaRequest.Options`, as a string unless `JsonFields` names it. **What it cannot correct**: the response fields read by name — `request_id`, `status`,
 `queue_position`, `url` and `content_type` — which a release would have to change.
 
 **Cost**: fal's documented results carry **no cost field**, so unless a `CostFields` name matches,
@@ -143,7 +144,12 @@ owner-and-app default, pinned byte for byte. The path is **not** read from the s
 `response_url` and `cancel_url`: a durable job resumes with only the operation id (`"{model}#{requestId}"`), so those
 URLs would have to ride inside it, and no run has yet shown the fields. A cancel is a REQUEST (202), so `CancelAsync` reports the render still running and only a poll says how it
 ended. A model's input fields other than the prompt go through `MediaRequest.Options` **as strings**
-(`"image_size":"square"`), so an object-valued field such as a custom `image_size` cannot be sent yet.
+(`"image_size":"square_hd"`), except a key listed in `FalOptions.JsonFields`, whose value is sent as raw JSON, so an
+object-valued field such as a custom `image_size` is `o.JsonFields = ["image_size"]` plus
+`Options["image_size"] = """{"width":1024,"height":768}"""`. A listed option whose value is not valid JSON
+(a preset name, say) is refused as `Unsupported` before any call. The list is a name list rather than a marker in the
+value, because whether a field is an object is a property of the model's schema, and no string can be mistaken for JSON by
+what it begins with. Nothing has sent an object-valued field to fal yet.
 
 **A free way to verify the wire.** Hugging Face's router proxies fal's own queue wire, and a free Hugging Face
 account carries a small monthly inference credit and needs no fal account. The route is a configuration, not
