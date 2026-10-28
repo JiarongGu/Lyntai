@@ -282,6 +282,10 @@ every addition.
   readable in the similarity index. A forget now sweeps the index again after deleting the nodes, and every
   vector upsert re-reads its entry and takes the vector back if it is gone. Each indexed write pays one more
   entry read.
+- **Concurrent opens of the SQLite stores could share one connection.** Two callers renting from the driver's
+  connection pool at once could be handed the same handle, which surfaced as an intermittent `cannot start a
+  transaction within a transaction` or a disposed handle. The factory now serializes the rent. A connection a
+  consumer opens itself on the same connection string is not covered.
 
 ## 3.5.3 — 2026-09-30
 

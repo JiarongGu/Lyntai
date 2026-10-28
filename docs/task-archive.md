@@ -6201,3 +6201,17 @@ declared on any of them: that stays a separate step, its mapping measured (**D69
 generation.
 
 - A hosted backend refuses a media parameter it does not declare
+
+## Part 409 — `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another caller is still using (2026-10-29)
+
+✅ done 2026-10-29 — **Outcome:** `3d9f0b14` (on master as `a98330c4`, merged `9909d889`). **The item's reading, that a pooled handle
+returns inside a transaction, is REFUTED:** a probe forcing five failures inside a transaction left every handle clean. The cause
+is `Microsoft.Data.Sqlite`'s pool, which can hand one handle to two concurrent renters while it grows, and that one race yields all
+three recorded failures (the disposed `SQLitePCL.sqlite3` and the two `cannot start a transaction within a transaction`).
+`SqliteConnectionFactory` now rents through one process-wide lock; `SqliteConnectionPoolHandoffTests` holds the stress test (3 of 200
+rounds shared on the unfixed factory, 0 of 1,000 after) and the clean-return theory. The incident is `docs/FIXES.md` (2026-10-29)
+and the trap `.agents/knowledge/pitfalls.md` §Storage. **Limit:** a rent from outside the factory on the same connection string
+is not covered. **Open, and the owner's:** whether to report the race to the driver's maintainers; nothing was filed. **The other
+`TASKS.md` Part 99 watch items are not this race**, and each now says why. Lane storage.
+
+- `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another caller is still using
