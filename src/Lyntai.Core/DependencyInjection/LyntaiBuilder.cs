@@ -603,6 +603,25 @@ public sealed class LyntaiBuilder
     /// <summary>Set by <see cref="AddAgentAccountPool"/>; <c>AddLyntai</c> registers the pool from it.</summary>
     internal AgentPoolOptions? AgentPool { get; private set; }
 
+    /// <summary>Turn on <see cref="IAgentUsageSource"/>, the read of an account's allowance through the vendor's own
+    /// server, within <see cref="AgentUsageReadingOptions"/>. Off unless called — and even then it runs only when
+    /// the host calls <see cref="IAgentUsageSource.ReadAllowanceAsync"/> on a provider, never inside a turn or a
+    /// pool pick. Each read starts the vendor's binary under the account's home, with the side effects the
+    /// descriptor's <see cref="AgentAbilities.UsageReading"/> claim declares. Repeating the call re-applies its
+    /// options; <c>o.Enabled = false</c> inside it switches the ability back off.</summary>
+    /// <exception cref="ArgumentOutOfRangeException">The timeout is not between 0 and 5 minutes.</exception>
+    public LyntaiBuilder AddAgentUsageReading(Action<AgentUsageReadingOptions>? configure = null)
+    {
+        var options = AgentUsageReading ??= new AgentUsageReadingOptions();
+        options.Enabled = true;
+        configure?.Invoke(options);
+        options.Validate();
+        return this;
+    }
+
+    /// <summary>Set by <see cref="AddAgentUsageReading"/>; <c>AddLyntai</c> registers it for the doors to read.</summary>
+    internal AgentUsageReadingOptions? AgentUsageReading { get; private set; }
+
     /// <summary>Trace every front-door call: one <see cref="TraceStep"/> (kind <c>"llm"</c>, the request's consumer as
     /// its label, usage, duration, verdict and model) through <see cref="ITraceService"/>, then the scorers
     /// <see cref="TextCallTracingOptions.Scorers"/> selects — the deterministic ones by default — saved under the

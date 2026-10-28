@@ -1080,7 +1080,7 @@ name an `Access` failure, and the verdict of such a fault is still its stderr's 
 an unknown id throws `KeyNotFoundException` naming the ids that exist. `Describe()` returns an
 `AgentProviderDescriptor`: its doors (`Id`, `Kind`) and, per door, one claim for EACH ability in `AgentAbilities.All`
 (resume, read-only gate, MCP servers, disallowed tools, system prompt, steering, plan events, live usage, typed
-failures, accounts). A claim is `Supported`, `Unsupported` or `Unknown`, with a `Source` (`Declared`, `Negotiated`,
+failures, accounts, usage reading). A claim is `Supported`, `Unsupported` or `Unknown`, with a `Source` (`Declared`, `Negotiated`,
 `Measured`) and its `Evidence`; an ability nobody measured is `Unknown`, which a host reads as not promised, never
 as not possible. Ask the descriptor rather than branching on an id. `Open(doorId)` returns the door's session, and
 that session refuses an option its door states `Unsupported` before anything is spawned — one `SessionEnded` with
@@ -1233,8 +1233,8 @@ set `UnknownProbeAfter` to let a probe through after a cool-off of your choosing
 without it holds its seat until you act. `HoldsAsync()` lists every hold with its id, revision, state and the moment
 time alone releases it.
 
-`ReportReadingAsync(account, measuredAt, hasRoom)` takes a reading of an account's allowance, the input an optional
-usage source will feed. It lifts a hold with a stated moment only when the reading shows room and was measured after
+`ReportReadingAsync(account, measuredAt, hasRoom)` takes a reading of an account's allowance, the input an
+`IAgentUsageSource` read can feed (below), though nothing connects the two for you. It lifts a hold with a stated moment only when the reading shows room and was measured after
 the hold was taken; an older reading, one that shows nothing (`null`: absent is unknown, never zero) and an owner
 action or unknown recovery are left alone. Which permitted seat serves beyond the first is an `IAgentAccountPolicy`
 you register yourself; only the ordered walk ships.
@@ -1244,6 +1244,51 @@ Holds are written through the registered `IKeyValueStore`, one key per hold unde
 the process died bars the seat until its lease runs out; with no store the pool is process-only. **Two processes
 sharing one pool are not supported**: the store has no compare-and-set, so each would hold its own picture and the
 last writer would win. Give each process its own pool name, or one owner.
+
+**Reading an account's whole allowance** (`IAgentUsageSource`; `AddAgentUsageReading`, off unless you call it). A turn
+reports its own usage; what an account has left across every surface is only the vendor's own server's to say, so
+this asks it. Find it by type test on the provider and call it yourself — **nothing in the library ever does**, not a
+turn, a retry, a pick or `ReportReadingAsync`, because each read starts the vendor's binary under the account's home:
+
+<!-- compile-given: AgentAccount account; AgentAccountPool pool; -->
+```csharp
+// services.AddLyntai(b => b.AddClaudeCliAgentSession().AddAgentUsageReading(o => o.Timeout = TimeSpan.FromSeconds(45)));
+if (sp.GetRequiredService<AgentProviderRegistry>().Get("claude-cli") is IAgentUsageSource usage)
+{
+    var reading = await usage.ReadAllowanceAsync(account);
+    if (reading.IsKnown)
+        foreach (var w in reading.Windows) Console.WriteLine($"{w.Name}: {w.UsedPercent}% used, resets {w.ResetsAt}");
+    else Console.WriteLine($"unknown: {reading.UnknownReason}");
+
+    await pool.ReportReadingAsync(account, reading.MeasuredAt, reading.HasRoom);   // yours to wire; the pool never asks
+}
+```
+
+Without `AddAgentUsageReading` (or with `o.Enabled = false`) a read answers `disabled` and starts nothing. When on, a
+read asks the binary its version first (of no account's home) and **starts the server only for a version whose
+signed-in usage response is validated** — claude 2.1.296 and codex-cli 0.160.0, which the descriptor's
+`usage-reading` claim names in `AppliesTo`; any other version reads `version-not-validated`, and so does one whose
+version cannot be read. The server is claude's `-p --input-format stream-json` with a `get_usage` control request, or
+codex's `app-server` with `account/rateLimits/read`; neither spends model usage. It runs under the account's home,
+in a fresh empty working directory (so no project's extensions load), bounded by `AgentUsageReadingOptions.Timeout`
+(default 30 seconds); the process tree is ended when the answer arrives, the time passes, the server ends, or the
+token is cancelled, which rethrows. It needs a runner that can hold a process open (`IProcessRunner.ExchangeLinesAsync`, the live-stdin member;
+the shipped one does, a runner of your own that does not reads `runner-unsupported`).
+
+**What a start may do is declared, not hidden.** The `usage-reading` claim's `SideEffects` lists `RefreshesCredentials`,
+`ChangesConfiguration`, `LoadsExtensions`, `OpensListener` and `LeavesProcess` as things the vendor's start MAY do,
+since none can be ruled out from outside. Seen on a start under an empty home: claude wrote `.claude.json`, `backups`,
+`plugins` and `sessions` into it; codex created its state databases and a skills folder and made a network request.
+Whether a read disturbs a turn running on the same home was not measured, so read an account between its turns.
+
+**The reading** (`AgentAllowanceReading`) holds the windows the server stated (`AgentAllowanceWindow`: `five-hour`,
+`weekly`, or `<n>-minutes` for another length, each with `UsedPercent`, `Length` and `ResetsAt` where stated), the
+`Plan` the server named and `MeasuredAt`, on the library's clock. **Anything else is unknown with a reason** from
+`AgentAllowanceUnknown` — a failure to start, a timeout, a server that ended, a signed-out account (`not-signed-in`,
+`allowance-not-reported`), or an answer that does not match what the validated version sends (`unrecognised-answer`)
+— and is never a guess or a zero. The library keeps no account id and no token. `reading.HasRoom` is false when a
+stated window is full, true when every stated window shows room, and null otherwise: it is exactly the pool's
+`hasRoom`, and wiring the two is yours.
 
 ## Durable jobs (`Lyntai.Jobs`)
 

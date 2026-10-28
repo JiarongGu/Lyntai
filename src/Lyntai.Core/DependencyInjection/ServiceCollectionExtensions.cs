@@ -91,6 +91,7 @@ public static class LyntaiServiceCollectionExtensions
         RegisterAgents(services, options);
         if (builder.AgentRetry is { } agentRetry) AgentRetryRegistration.Wrap(services, agentRetry);
         services.TryAddSingleton(new AgentBriefComposer(builder.AgentBrief));
+        if (builder.AgentUsageReading is { } usageReading) services.TryAddSingleton(usageReading);
         if (builder.AgentPool is { } agentPool)
             services.TryAddSingleton(sp => new AgentAccountPool(
                 agentPool, sp.GetService<IKeyValueStore>(), sp.GetService<TimeProvider>(),

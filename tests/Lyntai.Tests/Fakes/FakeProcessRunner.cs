@@ -102,6 +102,9 @@ public sealed class FakeProcessRunner : IProcessRunner
     /// <see cref="ThrowsAfterLines"/>, without reading the client's side.</summary>
     public Func<string, IEnumerable<string>?>? ExchangeHandler { get; set; }
 
+    /// <summary>The exchanges only, in order — a subset of <see cref="Calls"/>.</summary>
+    public List<Call> Exchanges { get; } = [];
+
     /// <summary>Every line the client wrote to <see cref="ExchangeLinesAsync"/>'s stdin, in order.</summary>
     public List<string> Exchanged { get; } = [];
 
@@ -110,7 +113,9 @@ public sealed class FakeProcessRunner : IProcessRunner
         string? workingDirectory = null, IReadOnlyDictionary<string, string?>? environment = null,
         [EnumeratorCancellation] CancellationToken ct = default)
     {
-        Record(new Call(command, args, null, workingDirectory, inactivityTimeout, maxDuration, environment));
+        var call = new Call(command, args, null, workingDirectory, inactivityTimeout, maxDuration, environment);
+        Record(call);
+        Exchanges.Add(call);
 
         if (ExchangeHandler is null)
         {

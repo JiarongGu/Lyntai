@@ -3,8 +3,8 @@
 **Status: a proposal; built so far are the failure of §5.3 on the two CLI doors (AG1), the event additions of
 §5.2 (AG2), the provider description and registry of §5.1 (AG3), the bounded retry of §5.3 (AG4), the account's
 reach into a door (AG5, §5.4's first bullet), the pool and its restriction reducer of §5.4 (AG6), the transcript,
-brief and hand-over of §5.5 (AG7) and the ACP door with its stand-in (AG8, §5.1 and §6), all in `docs/guide.md`
-§CLI-agent session, whose names stand as built; the usage reading (AG9) is not.** The decision is **D219**
+brief and hand-over of §5.5 (AG7), the ACP door with its stand-in (AG8, §5.1 and §6) and the optional usage reading
+of §5.4 (AG9), all in `docs/guide.md` §CLI-agent session, whose names stand as built.** The decision is **D219**
 (`docs/DECISIONS.md`); the open build rows are `TASKS.md` Part 376 and the closed ones `docs/task-archive.md` Parts
 381, 382, 384 and 385. This is a study (`docs/documents.md`): it is read for its reasoning, and what it settles
 moves into the contract documents as each row lands. Every type named below is a PROPOSED name, to be
@@ -208,6 +208,22 @@ host-enabled, validated per door and version, side effects declared, unknown on 
 - **State** is the reducer in process, persisted through the key-value store so a restart keeps its holds.
   Two processes sharing one pool would need an atomic compare-and-set the store does not have; that is out of
   the first slice and recorded as such (§7).
+- **As built (AG9):** `IAgentUsageSource.ReadAllowanceAsync(account)` returns an `AgentAllowanceReading`: windows
+  (`five-hour`, `weekly`, or `<n>-minutes`, each with use, length and reset where the server stated them), a plan and
+  the library's `MeasuredAt`, or unknown with one of `AgentAllowanceUnknown`'s reasons. The provider a CLI door
+  registers is also the source (`provider is IAgentUsageSource`), and a read is a **version probe, then, for a
+  validated version only, an exchange** with the vendor's own server under the account's home
+  (AG8's live-stdin `IProcessRunner.ExchangeLinesAsync`, kept open until the answer, because codex's app server ends
+  the moment stdin closes, before it answers). The door's ability `usage-reading` carries `AppliesTo` (the validated versions: claude
+  2.1.296, codex-cli 0.160.0) and `SideEffects` (`AgentSideEffects`). Those two versions are validated against a
+  signed-in response recorded in a sibling repository's evidence notes, which the reader's fixtures are written from
+  and mark source-derived; no signed-in response was captured on this machine, and a signed-out answer (captured
+  from claude 2.1.312 and codex-cli 0.163.0, which are therefore NOT validated) proves only that the reader
+  recognises that answer. "The only source of a whole-account allowance" stays a claim, not a finding: that record
+  read a figure differing from the host's own tally, and no second source was compared here. **The pool does not
+  read it**: `AgentAllowanceReading.HasRoom` is `ReportReadingAsync`'s `hasRoom`, and the host connects them. It does not
+  feed `IAgentAllowanceSource` either, since the answer carries no relationship between accounts (the codex answer holds
+  an account id, deliberately neither read nor kept).
 - **Which account serves a turn beyond the ordered walk** (spread, most work, least recently used) is an
   `IAgentAccountPolicy` seam. Only the ordered walk ships.
 - **As built (AG6):** `AgentAccountPool` over `AgentPoolOptions.Choices` (`AgentChoice`: provider, model, effort and
@@ -222,7 +238,7 @@ host-enabled, validated per door and version, side effects declared, unknown on 
   (null by default, since a deadline is the host's); an owner action only by a clear. **Ending is not recovering:**
   a released hold permits one attempt at a time, leased for `AttemptLease`, and only that attempt's success removes
   it; its failure restates the hold one revision up. A success, a clear or a reading names the revision or the time
-  it is about, so none can undo a newer failure. A reading (`ReportReadingAsync`, the input AG9 will feed) lifts
+  it is about, so none can undo a newer failure. A reading (`ReportReadingAsync`, the input AG9's `HasRoom` fits) lifts
   only holds with a stated moment, and only if measured strictly after the hold was taken. State is one key per
   hold under `lyntai:agent-pool:<name>:hold:`, written through, and read back on first use. **Out of scope, and
   stated on the type: two processes sharing one pool**, since the store has no compare-and-set (§7, **D219**'s
@@ -309,7 +325,7 @@ needs and the data already measured first; the parts designed but never built la
 5. **AG5** — the account reaching a door (`inference`), then **AG6** the pool with its reducer (`platform`).
 6. **AG7** — the transcript and the brief (`platform`).
 7. **AG8** — the ACP door and its stand-in (`inference` + `tools`).
-8. **AG9** — the optional usage reading (§11, **D222**), after AG1 to AG3; AG1 to AG8 stand without it.
+8. **AG9** — the optional usage reading (§11, **D222**), after AG1 to AG3; AG1 to AG8 stand without it. Built (§5.4).
 
 ## 10. Rejected
 
@@ -332,6 +348,7 @@ Three questions; the first two are ruled.
    account's credentials in its environment (Daoris does this for Codex and Claude), so it is an optional ability a
    host enables and invokes explicitly, supported per door and vendor version only once that version's real
    response is validated, with its side effects declared and unknown on any failure. That it is "the only
-   source of a whole-account allowance" is to be tested there, not assumed.
+   source of a whole-account allowance" is to be tested there, not assumed; as built (§5.4) it was not, and
+   the ability makes no such claim.
 3. **Whether Daoris adopts it** is Daoris's decision, taken in its own records. The layer must stand without
    it, and the first-party consumer of `IAgentSession` today must see no change: every addition is additive.

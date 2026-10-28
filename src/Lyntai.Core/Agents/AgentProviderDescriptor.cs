@@ -27,6 +27,31 @@ public enum AgentAbilitySource
     Measured,
 }
 
+/// <summary>What using an ability may do to the machine beyond the answer a host asked for. Declared, never
+/// measured away: a vendor's start is not the library's to promise about, so a flag here means "may", and an
+/// ability that starts the vendor's own process states every effect it cannot rule out.</summary>
+[Flags]
+public enum AgentSideEffects
+{
+    /// <summary>Nothing beyond the answer; the default, which an ability that spawns nothing keeps.</summary>
+    None = 0,
+
+    /// <summary>The start may refresh the account's credentials in place, changing files in its home.</summary>
+    RefreshesCredentials = 1,
+
+    /// <summary>The start may create or change configuration or state files (the account's home, the vendor's caches).</summary>
+    ChangesConfiguration = 2,
+
+    /// <summary>The start may load the vendor's extensions: plugins, skills, hooks, or servers it is configured with.</summary>
+    LoadsExtensions = 4,
+
+    /// <summary>The start may open a listener (a port, a pipe, a remote-control endpoint) beyond its stdio.</summary>
+    OpensListener = 8,
+
+    /// <summary>The start may leave a process running after the library has ended the one it started.</summary>
+    LeavesProcess = 16,
+}
+
 /// <summary>One claim a door makes about one ability.</summary>
 /// <param name="Name">The ability, one of <see cref="AgentAbilities.All"/> or a host's own.</param>
 /// <param name="Support">What the door says about it.</param>
@@ -38,6 +63,10 @@ public sealed record AgentAbility(string Name, AgentSupport Support, AgentAbilit
 
     /// <summary>The door's version the claim applies to; null when no version is stated.</summary>
     public string? AppliesTo { get; init; }
+
+    /// <summary>What using the ability may do beyond its answer; <see cref="AgentSideEffects.None"/> unless the
+    /// ability starts a process of the vendor's whose effects are not the library's own.</summary>
+    public AgentSideEffects SideEffects { get; init; }
 }
 
 /// <summary>The kinds of door the library names. A door's <see cref="AgentDoor.Kind"/> is open: a host's own
@@ -137,9 +166,14 @@ public static class AgentAbilities
     /// <see cref="AgentProviderDescriptor.Accounts"/>.</summary>
     public const string Accounts = "accounts";
 
+    /// <summary>Read an account's allowance through the vendor's own server (<see cref="IAgentUsageSource"/>). Not
+    /// something a turn asks for or a stream emits: a host invokes it, after enabling it, and the claim names the
+    /// versions it is validated on and the <see cref="AgentAbility.SideEffects"/> of the start.</summary>
+    public const string UsageReading = "usage-reading";
+
     /// <summary>Every ability a provider states, in a fixed order.</summary>
     public static IReadOnlyList<string> All { get; } =
-        [Resume, ReadOnlyGate, McpServers, DisallowedTools, SystemPrompt, Steering, PlanEvents, LiveUsage, TypedFailures, Accounts];
+        [Resume, ReadOnlyGate, McpServers, DisallowedTools, SystemPrompt, Steering, PlanEvents, LiveUsage, TypedFailures, Accounts, UsageReading];
 
     /// <summary>The abilities <paramref name="options"/> asks a door for. Only the option-shaped ones appear:
     /// an event ability (plan events, live usage) is something a door emits, not something a turn asks for.</summary>

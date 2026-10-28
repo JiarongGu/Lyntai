@@ -1,4 +1,5 @@
 using Lyntai.Agents;
+using Lyntai.Providers.Basic;
 
 namespace Lyntai.Providers.ClaudeCli;
 
@@ -33,6 +34,13 @@ internal static class ClaudeAgentDoor
                     Claim(AgentAbilities.LiveUsage, AgentSupport.Supported, "UsageLive on each assistant message"),
                     Claim(AgentAbilities.TypedFailures, AgentSupport.Supported, "the result's error fields before any sentence"),
                     Claim(AgentAbilities.Accounts, AgentSupport.Supported, "the account's home in CLAUDE_CONFIG_DIR for the child"),
+                    new AgentAbility(AgentAbilities.UsageReading, AgentSupport.Supported, AgentAbilitySource.Declared)
+                    {
+                        Evidence = "get_usage control request to `claude -p --input-format stream-json`, no model request; "
+                            + "a start wrote .claude.json, backups, plugins and sessions into the home",
+                        AppliesTo = string.Join(", ", ClaudeUsageDialect.Validated.Order(StringComparer.Ordinal)),
+                        SideEffects = UsageAgentProvider.ServerStart,
+                    },
                 ],
             },
         ],

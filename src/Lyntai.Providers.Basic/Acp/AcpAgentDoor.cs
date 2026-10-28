@@ -38,6 +38,7 @@ internal static class AcpAgentDoor
                         accountHomeVariable is null
                             ? "registered without the agent's configuration-home variable"
                             : $"the account's home in {accountHomeVariable} for the child"),
+                    Declared(AgentAbilities.UsageReading, AgentSupport.Unsupported, "the door reads no allowance: the protocol has no usage question, and a turn reports its own usage"),
                 ],
             },
         ],

@@ -1,4 +1,5 @@
 using Lyntai.Agents;
+using Lyntai.Providers.Basic;
 
 namespace Lyntai.Providers.CodexCli;
 
@@ -34,6 +35,13 @@ internal static class CodexAgentDoor
                     Declared(AgentAbilities.LiveUsage, AgentSupport.Unsupported, "usage arrives once, on turn.completed"),
                     Declared(AgentAbilities.TypedFailures, AgentSupport.Supported, "turn.failed's message, never the agent's items; no typed field on the wire"),
                     Declared(AgentAbilities.Accounts, AgentSupport.Supported, "the account's home in CODEX_HOME for the child"),
+                    new AgentAbility(AgentAbilities.UsageReading, AgentSupport.Supported, AgentAbilitySource.Declared)
+                    {
+                        Evidence = "account/rateLimits/read on `codex app-server`, no model request; a start created state "
+                            + "databases and skills in the home and made a network request",
+                        AppliesTo = string.Join(", ", CodexUsageDialect.Validated.Order(StringComparer.Ordinal)),
+                        SideEffects = UsageAgentProvider.ServerStart,
+                    },
                 ],
             },
         ],
