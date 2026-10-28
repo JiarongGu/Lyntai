@@ -954,7 +954,8 @@ of runtime. It writes the same RV8 rows (metric `case-pass`; the arm is `<projec
 id), so `bench-compare` pairs two runs bucket by bucket. It exits 1 when the projection fails a case that is no
 declared gap (`ProfileTrackA.KnownGaps`), when a declared gap passes, or when a deliberately broken projection passes the
 bucket it should fail; `ProfileTrackATests` pins the same three in `verify`, so the bench is for the result and the
-test is the gate. What it found is `docs/memory-measurements.md` §5, `profile-track-a-gate`.
+test is the gate. What it found is `docs/memory-measurements.md` §5, `profile-track-a-gate`, and what RV28's prototype
+changed in it is `profile-prototype-rv28`.
 
 **`memory-contention` and `memory-decision` are ORCHESTRATED** — a Node script owns the server processes and
 the C# sweep only measures, because both need several `llama-server` instances at once and a bench cannot be

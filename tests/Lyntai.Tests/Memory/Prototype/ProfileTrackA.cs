@@ -180,26 +180,13 @@ internal static class ProfileTrackA
     internal static IReadOnlyList<TrackACase> Cases { get; } = Build();
 
     /// <summary>
-    /// What <see cref="ProfileOverCurated"/> fails today, by case, each with the limit that causes it. They are
-    /// findings of this gate, not exceptions to it: the tests require the projection to fail exactly these, so
-    /// closing one makes its entry fail until it is removed, and a new failure is a regression. The prototype that
-    /// closes them is RV28's.
+    /// What <see cref="ProfileOverCurated"/> is allowed to fail, by case, each with the limit that causes it. A
+    /// declared gap is a finding of this gate, not an exception to it: the tests require the projection to fail
+    /// exactly these, so closing one makes its entry fail until it is removed, and a new failure is a regression.
+    /// RV28 closed the two Track A first declared (an import that deduplicated on content, and one event delivered
+    /// to four writers at once), so the list is empty and every case must pass.
     /// </summary>
-    internal static readonly IReadOnlyList<KnownGap> KnownGaps =
-    [
-        new("export-import/a-value-that-returns-survives-an-export", "sqlite", ImportDedup),
-        new("export-import/a-value-that-returns-survives-an-export", "files", ImportDedup),
-        new(ReplayRace, "sqlite", ReplayRaceReason),
-        new(ReplayRace, "files", ReplayRaceReason, Intermittent: true),
-    ];
-
-    private const string ImportDedup =
-        "the engine's import adds each entry with dedup on (kind, content), so a value a field held twice comes back once";
-
-    private const string ReplayRace = "concurrent-writes/one-event-delivered-to-four-writers-at-once-is-one-claim";
-
-    private const string ReplayRaceReason =
-        "a set finds its claim by id and then adds it, two steps no store verb makes one, so one event delivered at once is written more than once";
+    internal static readonly IReadOnlyList<KnownGap> KnownGaps = [];
 
     /// <summary>Whether <paramref name="question"/> is a declared gap of the projection on <paramref name="backend"/>.</summary>
     internal static bool IsKnownGap(string question, string backend) =>
@@ -555,14 +542,22 @@ internal static class ProfileTrackA
             {
                 var field = new ProfileField($"replay-{t}", "address.city");
                 await Together(4, () => o.SetAsync(field, "Paris", Jan, "chat:1"));
+                // stored entries are counted beside the history, because a read may fold copies of one claim into one
                 var claims = (await o.HistoryAsync(field)).Count;
-                if (claims != 1) { problems.Add($"trial {t}: {claims} claims after a set delivered four times"); continue; }
+                var stored = StoredEntries(await o.FingerprintAsync(field.Subject), field);
+                if (claims != 1 || stored != 1)
+                {
+                    problems.Add($"trial {t}: {claims} claims in {stored} entries after a set delivered four times");
+                    continue;
+                }
+
                 var paris = (await o.ReadAsync(field, Now)).Current!;
                 await Together(4, () => o.CorrectAsync(field, "Berlin", Mar, "chat:2", paris.Handle));
                 var read = await o.ReadAsync(field, Now);
                 var history = (await o.HistoryAsync(field)).Count;
-                if (read.Current?.Value != "Berlin" || read.Disputed || history != 2)
-                    problems.Add($"trial {t}: after a correction delivered four times, '{read.Current?.Value}', disputed {read.Disputed}, {history} claims");
+                stored = StoredEntries(await o.FingerprintAsync(field.Subject), field);
+                if (read.Current?.Value != "Berlin" || read.Disputed || history != 2 || stored != 2)
+                    problems.Add($"trial {t}: after a correction delivered four times, '{read.Current?.Value}', disputed {read.Disputed}, {history} claims in {stored} entries");
             }
 
             Expect(problems.Count == 0, $"{problems.Count} of {RaceTrials} trials: {problems.FirstOrDefault()}");
@@ -843,6 +838,9 @@ internal static class ProfileTrackA
         if (read.Disputed) return "the refused writer's claim is reported as a rival";
         return history.Count == 2 ? null : $"the history holds {history.Count} claims";
     }
+
+    private static int StoredEntries(string fingerprint, ProfileField field) =>
+        Rows(fingerprint).Count(r => r.Kind == field.Field);
 
     private readonly record struct Row(string Kind, string Text);
 
