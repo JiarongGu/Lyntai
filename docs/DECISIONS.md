@@ -298,8 +298,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D226](#d226--a-protocol-agent-is-spoken-to-through-a-live-stdin-member-on-the-runner-seam-2026-10-28) | 2026-10-28 | a protocol agent is spoken to through a live-stdin member on the runner seam |
 | [D227](#d227--the-account-pool-grants-a-seat-only-on-a-stated-fact-and-invents-none-2026-10-28) | 2026-10-28 | the account pool grants a seat only on a stated fact, and invents none |
 | [D228](#d228--a-brief-is-cut-whole-or-nothing-in-a-fixed-order-and-never-through-the-hosts-words-2026-10-28) | 2026-10-28 | a brief is cut whole-or-nothing, in a fixed order, and never through the host's words |
+| [D229](#d229--the-sqlite-vector-store-keeps-writing-a-vectors-json-text-beside-its-binary-column-2026-10-28) | 2026-10-28 | the SQLite vector store keeps writing a vector's JSON text beside its binary column |
 
-**223 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**224 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -6521,3 +6522,26 @@ sentences may be Chinese: a golden brief pins that its UTF-8 bytes exceed its ch
 words to fit. Counting host facts as the host's words, which would leave a long list uncuttable.
 
 **Re-opens** when a host shows the order dropping what the next agent needed while keeping what it did not.
+
+## D229 — the SQLite vector store keeps writing a vector's JSON text beside its binary column (2026-10-28)
+
+**Standing.** Written by the steward from the vector-column session's request (`docs/task-archive.md` Part 393); the
+owner's acceptance of the branch makes it binding. The column and its migration are shipped storage (**D70**), and what
+this keeps is the line a storage break may not cross before a major.
+
+**Decided.** `lyntai_vector` gains a nullable `vector_blob` (`M202610281422_VectorBlob`, backfilled in C# a page at a
+time) and a search scores it, but `vector`, the JSON text, is still written on every upsert. A row with no blob (written
+before the column, or whose text is not a vector) is read from its text. The Postgres store has no twin: it keeps pgvector's
+own column in a table it creates itself.
+
+**Why.** A build that predates the column, reading a newer database, still finds the text it scores from and returns what it
+always returned; dropping the text is a storage break, which the versioning rule allows only at a major (**D70**). The price
+is measured: 24 MiB more on disk (37%) and 15 s more ingest at 11,163 chunks, against recall p50 1,256 to 339 ms
+(`corpus-vector-blob-before-after`).
+
+**Rejected.** A blob-only column: a storage break, which the versioning rule allows only at a major, and an older build
+reading a newer database would no longer score what it did.
+
+**Re-opens** at the next major, if the cost that remains is worth removing: the scan is still 339 ms against 29 ms in memory,
+and the blob sits after the text and the payload in the row, so a read walks past the text's overflow pages. Dropping the text
+would test it and has not been tried.
