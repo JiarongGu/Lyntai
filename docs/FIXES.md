@@ -7,6 +7,36 @@ to `.agents/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-10-29 — two callers renting from the SQLite pool at once could be handed one handle: `cannot start a transaction within a transaction`, or a disposed `SQLitePCL.sqlite3`
+
+**Symptom.** Three failures of one shape, each green alone and on an unmodified re-run: `ObjectDisposedException … 'SQLitePCL.sqlite3'`
+inside `SqliteConnectionFactory.OpenAsync` (`SqliteCuratedMemoryStoreTests.Dedup_race`, 2026-09-14), and twice `SQLite Error 1:
+'cannot start a transaction within a transaction'` at the `BeginTransaction` after a fresh `OpenAsync` (`UpdateCoreAsync` in the
+contract's racing-writers fact, then `AddAsync` in `ProfilePrototypeTests.One_file_imported_by_four_writers_at_once_adds_each_claim_once`).
+
+**Root cause.** Not a handle returned inside a transaction: five forced failures INSIDE the transaction (a constraint violation, a
+cancelled token, a busy timeout on the `BEGIN`, a commit refused by a deferred foreign key, and the store's early return without a
+commit) each left the handle back in the pool in autocommit and the next rent got it clean. The driver's pool (`Microsoft.Data.Sqlite`
+10.0.12, the same source at 10.0.0) hands ONE handle to two callers instead: `SqliteConnectionInternal.Activate` sets `_active = true`
+and only then records which `SqliteConnection` holds it, `Leaked` reads `_active && no holder`, and `SqliteConnectionPool.GetConnection`
+reclaims "leaked" handles whenever no idle one exists and the pool count is even. A rent landing between those two statements in
+another thread's `Activate` returns that live handle to the pool, and the next rent pops it: two callers on one handle, so the second
+`BEGIN` meets the first's transaction, and the first to close can dispose a handle the other is still using. The window is a few
+instructions wide and opens only while the pool grows, which is why it took concurrent writers on a fresh database and 1 run in about
+50 to hit.
+
+**Fix.** `SqliteConnectionFactory` opens through one process-wide lock (`Rent`), so no two rents run the driver's `Open` together. A rent
+is a pool pop or one file open and waits on no database lock. `OpenAsync` calls it directly, since the driver's own `OpenAsync` is
+`Open()` run synchronously, and checks the token first. No public type or default moves. A rent from outside the factory (a consumer's
+own `SqliteConnection` on the same connection string) is not covered.
+
+**Verify.** `SqliteConnectionPoolHandoffTests.Callers_renting_at_once_from_an_empty_pool_each_get_their_own_handle` (8 threads released
+together on an emptied pool, 200 rounds, every held handle distinct) failed on the old factory in 3 of 200 rounds and passed on the
+fix in 5 runs of 200 (1,000 rounds); its five-shape companion `A_handle_returns_to_the_pool_outside_any_transaction_after_a_failure_inside_one`
+passes before and after and pins the clean return.
+
+**Introduced by.** The driver, not a Lyntai commit: the factory has always rented through the driver's pool.
+
 ## 2026-10-28 — the SQLite graph store's standalone `TouchAsync` committed every touched row on its own: a batch failing partway kept the touches that had run
 
 **Symptom.** Found by reading the Postgres fix below against the SQLite one: `SqliteMemoryGraphStore.TouchAsync` was the one
