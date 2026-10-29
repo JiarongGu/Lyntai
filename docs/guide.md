@@ -802,7 +802,7 @@ checkpoint, or a result over `GenerationPipelineJobOptions.MaxCheckpointBytes` (
 
 **`FalProvider` was written from fal.ai's public queue documentation and has been run against fal's own queue for
 an image model and a video model: a submit under `Key` auth, each status, a fetch, a cancel, an object-valued field
-and two failed requests were measured, while what a failed request bills is not (`docs/generation.md` §3).** Its URL segments, status vocabulary, cost fields, `ErrorField`, `AuthScheme`
+and two failed requests were measured, as was what a failed or cancelled request bills: nothing (`docs/generation.md` §3).** Its URL segments, status vocabulary, cost fields, `ErrorField`, `AuthScheme`
 and `QueryParameters` are options on `FalOptions`, so a host that finds a different wire corrects it in
 configuration. A free Hugging Face account can verify the wire through the Hugging Face router, which proxies
 fal's queue: `BaseUrl = "https://router.huggingface.co/fal-ai"`, `AuthScheme = "Bearer"`, an `hf_` token as the

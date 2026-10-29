@@ -6268,3 +6268,18 @@ US$1.50 bound. Five replay tests in `FalProviderTests`, four live tests in `FalL
 the answers are `docs/generation.md` §3. Lane generation.
 
 - GEN-VERIFY-FAL: the status, cancel, video and object-valued lines
+
+## Part 414 — GEN-VERIFY-FAL: what a failed request bills, read with a billing key (2026-10-30)
+
+✅ done 2026-10-30 — **Outcome:** a request that fails at the model or lands as a cancel **bills nothing**, a cancel that does
+not land bills the render in full, and **no `FalProvider` default changes**. fal's per-request `billing-events` (a billing-scope
+key; the generation key answers `403`) and the balance agree: 160 submits on `fal-ai/flux/schnell` and its `redux` sibling,
+91 renders at US$0.003 summing to US$0.273, a balance of 9.75 to 9.48. A model failure writes an event of quantity zero (19 and 5
+requests), a landed cancel writes none (45), and an event is visible within seconds. **Found:** a second cancel form, `200
+{"status":"OK"}` before a worker takes the request, which `CancelAsync` reports `Cancelled` while the poll says `Succeeded` and the
+fetch `499`; 36 of the 45 landed cancels were this form. **Spend:** about US$0.27 billed, at most US$0.60 by list price against the
+US$1.00 bound. One replay test in `FalProviderTests`, one live test in `FalLiveTests` behind `FAL_ADMIN_KEY` (a new named skip);
+the table, the timing and the limits are `docs/generation.md` §3. **Left open:** the Hugging Face route (`TASKS.md` Part 33).
+Lane generation.
+
+- GEN-VERIFY-FAL: what a failed request bills
