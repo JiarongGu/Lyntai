@@ -15,18 +15,29 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 5 across 3 Parts: 1 startable, 1 blocked, 3 watch
+## Open items — 16 across 4 Parts: 11 startable, 1 blocked, 3 watch, 1 decision-only
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 106 | 33 | GEN-VERIFY-FAL, the rest — what the second run did not reach | startable |  |
-| 149 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 176 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 235 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
-| 253 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
+| 117 | 33 | GEN-VERIFY-FAL, the rest — what the second run did not reach | startable |  |
+| 160 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 187 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 246 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
+| 264 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
+| 297 | 412 | AG10 — the Claude CLI door keeps a subagent's lines apart from the session's | startable |  |
+| 310 | 412 | AG11 — the ACP door carries `AgentSessionOptions.Model`, or refuses it | startable |  |
+| 320 | 412 | AG12 — a refused model is a hold the pool can keep against one seat | startable |  |
+| 328 | 412 | AG13 — an HTTP response's own facts are read as an `AgentFailure` | startable |  |
+| 337 | 412 | AG14 — an HTTP door: `IToolLoop` as an agent provider | startable |  |
+| 347 | 412 | AG15 — an ACP dialect seam | startable |  |
+| 355 | 412 | AG16 — the event-stream rules, held by one theory | startable |  |
+| 363 | 412 | AG17 — an account that is a key, and the variables a provider reads | startable |  |
+| 372 | 412 | AG18 — background work started and ended, as events | startable |  |
+| 379 | 412 | AG19 — an ACP permission request the host can answer | startable |  |
+| 386 | 412 | AG20 — one account across a CLI door and an ACP door of the same agent: an … | decision-only | the owner's ruling on D225's re-open condition: whether a design Daoris has… |
 
 <!-- open-items:end -->
 
@@ -276,6 +287,109 @@ there is nothing here to code: what remains is evidence only recurrence can supp
   the load it ran under says whether the ceiling or the start owns it.
   <br>**2026-10-29: not the SQLite pool race** (`docs/FIXES.md`). The test spawns a node stand-in and reads its pid file, and
   opens no connection.
+
+## Part 412 — the agent-provider layer after Daoris's accepted provider design (2026-10-29)
+
+_The study is `docs/agent-provider-daoris-study.md`: it answers every Daoris row, and these are the general gaps it found.
+Each is one sitting, none is built, and each capture a test uses is labelled REAL or SOURCE-DERIVED. The decision they
+stand on is **D233**. The first is startable and needs nothing._
+
+- [ ] **AG10 — the Claude CLI door keeps a subagent's lines apart from the session's** (lane `inference`). Daoris <!-- item: state=startable -->
+  measured that every line a subagent produces arrives on the session's stdout with `parent_tool_use_id` set to the
+  spawning call, and `StreamJsonAgentReader` (`StreamJsonAgentReader.cs:119`) never reads the field: a subagent's
+  `TodoWrite` replaces the session's plan, its tool calls read as the session's, its usage ticks as the turn's, and its
+  last text and error field can become the turn's fallback text and failure reading (`:130`, `:168`, `:258`).
+  <br>**Contract.** `ToolCall` and `ToolResult` gain an init member `ParentCallId` (null for the session's own, the
+  call that spawned it otherwise); a line carrying the field never moves the session's plan, its `UsageLive`, its
+  fallback text or its failure reading. **Proof.** A SOURCE-DERIVED fixture in the shape of Daoris's capture (a
+  subagent's `assistant` line with a `Read`, its `user` result and its text, beside the session's own): the child's
+  calls carry the parent id, the plan and fallback text stay the session's, a line with no field reads as before (every
+  existing reader test unchanged); the `ApiSurface` baselines move from the emitted `.actual`. **Not established:** a
+  synchronous subagent, a nested one and a failed one were not seen there, so the fixture names which it is.
+
+- [ ] **AG11 — the ACP door carries `AgentSessionOptions.Model`, or refuses it** (lane `inference`, then `platform` for <!-- item: state=startable -->
+  the ability). The door never reads the option (nothing under `Acp/` names it, `configOptions` or
+  `session/set_config_option`), so `AgentPick.Apply` handing a pool choice's model to an ACP provider drops it silently,
+  which is what `docs/agent-provider-layer.md` §5.1 forbids. **Contract.** A `model` ability in
+  `AgentAbilities.All` (both CLI doors `Supported`, `Declared`; the ACP door `Unknown` until the agent's `session/new`
+  answer lists a model option, `Negotiated`, as resume is); a turn naming a model the agent did not offer ends before
+  the prompt with `Unsupported`, `NeverSent` and a diagnostic naming the offered values; one it offered is set by
+  `session/set_config_option` before the prompt. **Proof.** SOURCE-DERIVED captures through `acp-stub.mjs` (offered and
+  not offered), the conformance theory over the new ability, the descriptor tests, and the `ApiSurface` baselines.
+
+- [ ] **AG12 — a refused model is a hold the pool can keep against one seat** (lanes `platform` + `inference`, after <!-- item: state=startable -->
+  AG11). A `model_not_found` reads `Fatal` with no restriction (`StreamJsonFailure.cs:126`) and the reducer holds a fatal
+  failure only when it carries one, so the pool picks the same account and model again. **Contract.** A refused model
+  (both CLI doors' category, the ACP door's AG11 refusal) is `Fatal` with a restriction whose subject is the model and
+  whose recovery is `OwnerAction`, so the pool holds that account and model and nothing wider; no enum member is added
+  and no duration is chosen (a host clears it). **Proof.** the failure tables held both ways on recorded sentences, and a
+  reducer case: the seat is skipped for that model, the same account serves another model, `ClearAsync` frees it.
+
+- [ ] **AG13 — an HTTP response's own facts are read as an `AgentFailure`** (lane `inference`). Today <!-- item: state=startable -->
+  `ProviderVerdictClassifier.FromHttpFailure` returns a verdict from the status and the body and no header is read, so a
+  `Retry-After` is lost and a 402 is not a credit hold. **Contract.** A pure reader over a status, the headers, the body
+  and a `TimeProvider`: 429 a rate limit whose recovery is `RetryNotBefore` from `Retry-After` (seconds or an HTTP date)
+  and `Unknown` when absent (never defaulted); 402 or a credit code `OwnerAction`; 401 and 403 access; 408, 5xx and 529
+  transient with the scope the envelope names; the JSON error envelope's `code` and `type` read before the sentence; an
+  error under a 2xx (`HttpBody.InBandError`) the same. **Proof.** SOURCE-DERIVED responses (OpenAI-style, Anthropic-style
+  and OpenRouter-style envelopes) held both ways, including a limit a tool's output merely quotes, which never classifies.
+
+- [ ] **AG14 — an HTTP door: `IToolLoop` as an agent provider** (lanes `platform` + `inference`, after AG13, **D233**). <!-- item: state=startable -->
+  `ToolLoop.StreamAsync` yields `AgentStreamEvent`s and one `SessionEnded`, but nothing describes it as a provider.
+  **Contract.** `AddHttpAgentSession(id, …)` registers a keyed session and an `IAgentProvider` with one door of kind
+  `http`: abilities stated from what the loop measurably does and `Unknown` otherwise (resume `Unsupported` until a
+  conversation token exists), `SessionEnded.Failure` from AG13 with a delivery (`NeverSent` when no byte left,
+  `Taken` after the first response, `Uncertain` after a tool ran), **one pinned route and no fallback** so the retry
+  budget stays `RetryingAgentSession`'s, and an evidence line saying the turn's content goes to the endpoint.
+  **Proof.** A fake HTTP handler through the conformance theory (AG16's cases join when it lands), a refused option before
+  any call, a 429 with and without `Retry-After`, a cancelled call ending as a stop, and the `ApiSurface` baselines.
+
+- [ ] **AG15 — an ACP dialect seam** (lane `inference`). `AcpAgentReader` and `AcpFailure` read both vendors' extensions <!-- item: state=startable -->
+  inline for every agent (`AcpAgentReader.cs:251`), so a third agent's `_meta`, error `data` and limit frames cannot be
+  taught without a fork. **Contract.** A public dialect interface registered through `AddAcpAgentSession`: it reads an
+  update's extension, an error's `data` and a turn's end, answering events or an `AgentFailure`; the built-in reads
+  become the default composite, so nothing changes for a host that names none, and a host naming a set narrows what its
+  door reads. **Proof.** Every existing ACP test unchanged; a stand-in with a vocabulary of its own (extension keys no
+  built-in reads) read by a registered dialect; the built-in reads fed that stand-in's keys give nothing.
+
+- [ ] **AG16 — the event-stream rules, held by one theory** (lanes `platform` + `tools`). The conformance theory holds the <!-- item: state=startable -->
+  descriptor and the spawn, and each stream rule is held door by door. **Contract.** A theory over the registry, from one
+  source (**D211**'s shape), driven by the existing stubs: exactly one terminal and nothing after it; a failed terminal
+  carries a `Failure` where the door states `typed-failures`; delivery `NeverSent` for a process that dies before any
+  event, `Taken` after a start and `Uncertain` after a tool call; a limit sentence a tool printed never classifies;
+  cancellation ends the turn without a second terminal. **Proof.** the cases themselves, each shown failing against a
+  door that breaks it (a planted double terminal); a stand-in a host registers is held to them with no edit here.
+
+- [ ] **AG17 — an account that is a key, and the variables a provider reads** (lanes `inference` + `platform`). <!-- item: state=startable -->
+  `AgentAccount` is a provider, a name and a home, so an agent run on an API key or through a gateway cannot vary per
+  turn, and a host that wants an agent not to inherit another provider's key has no list to strip from. **Contract.**
+  `AgentAccount` gains optional environment entries the host supplies for the turn; `AgentAccountMapping` names the
+  variables the provider reads, and an entry outside that set is refused before a spawn. The value is never stored, never
+  in argv, a log line, a diagnostic, the pool's persisted hold or a transcript (**D20**; `AgentMcpServer.AuthToken`'s
+  handling is the precedent). **Proof.** A turn under a key account reaches the child; a name outside the set is refused
+  with nothing spawned; a sentinel value appears nowhere in the pool's store, the events or the diagnostics.
+
+- [ ] **AG18 — background work started and ended, as events** (lane `inference`, after AG10). Daoris measured the <!-- item: state=startable -->
+  `task_started`, `task_updated` and `task_notification` lines of `stream-json` and that the binary ends its background
+  work when the turn ends, so a `SessionEnded` does not mean the work finished. **Contract.** `AgentTaskStarted` (a task
+  id, the agent's own kind word, a description, the call that started it) and `AgentTaskEnded` (the id, the agent's
+  status word), the Claude door's reading of those lines, a task never reaching the session's own events.
+  **Proof.** a SOURCE-DERIVED fixture of the shape Daoris captured, including a task still open at the result.
+
+- [ ] **AG19 — an ACP permission request the host can answer** (lane `inference`). A read-only turn rejects every <!-- item: state=startable -->
+  request and a write turn allows each once, so an application that lets a person decide cannot. **Contract.** An
+  optional host callback on the ACP door's registration (the shape of `IToolApprover`), an ability `permission-requests`
+  stated `Unsupported` where none is registered, the response written once with the answer, and no answer within the
+  turn's inactivity clock a refusal. **Proof.** SOURCE-DERIVED `session/request_permission` captures: answered allow,
+  answered deny, never answered; the default (no callback) behaves exactly as today.
+
+- [ ] **AG20 — one account across a CLI door and an ACP door of the same agent: an identity in the pool?** <!-- item: state=decision-only needs="the owner's ruling on D225's re-open condition: whether a design Daoris has accepted and not yet used is the host need it names, and whether the pool's hold key may change" -->
+  `docs/DECISIONS.md` **D225** re-opens "when a host needs one account usable across a CLI door and an ACP door
+  of the same agent", and Daoris's accepted design is that need (one account on two doors is one account), designed and
+  not yet used. Today a limit on the CLI provider's seat does not hold the ACP provider's, and an account is built once
+  per provider over the same home. **A YES** adds an identity the pool keys a hold by (a persisted-key change under
+  `lyntai:agent-pool:`), so it is the owner's to rule and not a sitting; **a NO** documents the per-provider account as
+  the answer and closes the row.
 
 ## Retired — five Parts that outlived their open work (2026-09-16)
 

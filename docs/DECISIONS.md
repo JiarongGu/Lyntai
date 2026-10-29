@@ -302,8 +302,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D230](#d230--local-image-generation-is-proved-by-an-example-pipeline-a-host-runs-as-is-not-by-a-workflow-engine-or-per-backend-live-suites-2026-10-28) | 2026-10-28 | local image generation is proved by an example pipeline a host runs as-is, not by a workflow engi… |
 | [D231](#d231--a-generation-requests-checkpoint-loras-and-sampling-parameters-are-typed-fields-each-backend-declares-not-free-options-keys-2026-10-28) | 2026-10-28 | a generation request's checkpoint, LoRAs and sampling parameters are typed fields each backend de… |
 | [D232](#d232--fals-per-model-request-path-and-raw-json-fields-are-host-settings-in-faloptions-not-read-from-the-submit-answer-or-marked-inside-a-value-2026-10-29) | 2026-10-29 | fal's per-model request path and raw-JSON fields are host settings in `FalOptions`, not read from… |
+| [D233](#d233--an-http-inference-endpoint-is-an-agent-door-when-lyntais-own-tool-loop-is-the-executor-a-hosted-agent-stays-out-2026-10-29) | 2026-10-29 | an HTTP inference endpoint is an agent door when Lyntai's own tool loop is the executor; a hosted… |
 
-**227 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**228 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -6670,3 +6671,34 @@ the default derives from the model id; the full model path answered `405`. So re
 with the default and adds nothing for that model, and the decision stands: the first half of the re-open trigger is met, the
 second (a way to carry the URLs through a resumed job) is not, and no model has yet differed. `JsonFields` has not met an
 object-valued field.
+
+## D233 — an HTTP inference endpoint is an agent door when Lyntai's own tool loop is the executor; a hosted agent stays out (2026-10-29)
+
+**Standing.** Written from the study `docs/agent-provider-daoris-study.md`; the owner's acceptance of the branch makes it
+binding. It places what **D219** §6 left out ("hosted or HTTP agents are not in scope") and reverses by a later decision here.
+Nothing ships with it: the door is `TASKS.md` AG14, after the failure facts of AG13.
+
+**Decided.**
+- **An HTTP chat-completions endpoint reached through `ToolLoop` is an agent door** (kind `http`, an `IAgentProvider`).
+  The executor is Lyntai's own loop: it owns the tool calls, their approval and the iteration budget, so what D219 asked
+  of an HTTP agent (an executor, a cancellation story) exists and is a call the library makes. The door states what the
+  loop measurably does and `Unknown` otherwise, ends every turn with one terminal and a typed `Failure`, and calls **one
+  pinned route with no fallback**, so the retry budget stays `RetryingAgentSession`'s.
+- **A hosted agent is still out**: a remote job with a workspace snapshot and a cancellation that a closed connection
+  does not confirm. Lyntai owns no workspace, and "stopped" would be a claim nothing can check.
+
+**Why.** Daoris's accepted design reads an inference API as supplying model responses, and an agent only where an executor
+owns the tool loop, the permissions and the lifecycle; `ToolLoop` is that executor for an endpoint with no agent of its own.
+A host then treats the model reached over HTTP as one more provider (the descriptor, the pool, the refusal before a call)
+and never branches on a transport.
+
+**Rejected.**
+- **Claude Code pointed at a gateway as the only route**: it works for a host that runs the CLI, and AG17 gives it per-turn
+  accounts, but it makes a vendor program the price of reaching an endpoint.
+- **A new package**: the door uses `HttpClient` and the loop, so no dependency is isolated (**D25**).
+- **A hosted-agent door now**: see above.
+
+**Option, not a row: a long-lived run** (a connection kept across turns, with steering and a stop that keeps the
+conversation). **D219** §10 deferred it; Daoris has built the ACP half (`promptQueueing`). It is a design, not a sitting.
+**Re-opens** on a host that needs a word taken mid-turn, with a first measurement of which of the two CLI doors and which
+ACP agents accept one; and on a hosted agent with a cancellation Lyntai can confirm.
