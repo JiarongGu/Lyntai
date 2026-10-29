@@ -63,6 +63,63 @@ public static class Png
         return (width, height, bytesPerPixel, pixels);
     }
 
+    /// <summary>An 8-bit RGB PNG from <paramref name="rgb"/> (three bytes per pixel, row by row), unfiltered and deflated.</summary>
+    public static byte[] Encode(int width, int height, byte[] rgb)
+    {
+        var stride = width * 3;
+        var scan = new byte[height * (stride + 1)];
+        for (var y = 0; y < height; y++)
+            Buffer.BlockCopy(rgb, y * stride, scan, y * (stride + 1) + 1, stride);
+
+        using var deflated = new MemoryStream();
+        using (var z = new ZLibStream(deflated, CompressionLevel.Optimal, leaveOpen: true)) z.Write(scan);
+
+        var header = new byte[13];
+        WriteBigEndian(header, 0, width);
+        WriteBigEndian(header, 4, height);
+        header[8] = 8;
+        header[9] = 2;
+        using var png = new MemoryStream();
+        png.Write([0x89, (byte)'P', (byte)'N', (byte)'G', 0x0D, 0x0A, 0x1A, 0x0A]);
+        Chunk(png, "IHDR", header);
+        Chunk(png, "IDAT", deflated.ToArray());
+        Chunk(png, "IEND", []);
+        return png.ToArray();
+    }
+
+    private static void Chunk(Stream stream, string type, byte[] data)
+    {
+        var length = new byte[4];
+        WriteBigEndian(length, 0, data.Length);
+        var body = new byte[4 + data.Length];
+        System.Text.Encoding.ASCII.GetBytes(type, body);
+        data.CopyTo(body, 4);
+        var crc = new byte[4];
+        WriteBigEndian(crc, 0, (int)Crc32(body));
+        stream.Write(length);
+        stream.Write(body);
+        stream.Write(crc);
+    }
+
+    private static uint Crc32(ReadOnlySpan<byte> data)
+    {
+        var crc = 0xFFFFFFFFu;
+        foreach (var b in data)
+        {
+            crc ^= b;
+            for (var k = 0; k < 8; k++) crc = (crc >> 1) ^ (0xEDB88320u & (0u - (crc & 1)));
+        }
+        return ~crc;
+    }
+
+    private static void WriteBigEndian(byte[] bytes, int at, int value)
+    {
+        bytes[at] = (byte)(value >> 24);
+        bytes[at + 1] = (byte)(value >> 16);
+        bytes[at + 2] = (byte)(value >> 8);
+        bytes[at + 3] = (byte)value;
+    }
+
     private static int Paeth(int a, int b, int c)
     {
         var p = a + b - c;

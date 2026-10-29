@@ -9,6 +9,7 @@
 //   LYNTAI_COMFYUI_DWPOSE_DIR       optional: the folder holding the DWPose ONNX files, for the same
 //
 //   --out <folder>  where the steps land    --optional  add the inpaint and the upscale
+//   --pose-control  also compose with the pose ControlNet at strength 0, the control the pose is measured against
 //   --replay <step folder>  run one recorded step again from its recipe.json and compare the pixels
 using Lyntai.Generation.Providers;
 using Lyntai.ImagePipeline;
@@ -33,7 +34,8 @@ var pipeline = new Pipeline(
     new PipelineOptions(output, checkpoint!, Optional: args.Contains("--optional"),
         ModelsDirectory: Environment.GetEnvironmentVariable("LYNTAI_COMFYUI_MODELS"),
         DwposeDirectory: Environment.GetEnvironmentVariable("LYNTAI_COMFYUI_DWPOSE_DIR"),
-        EngineVersion: probe.Version));
+        EngineVersion: probe.Version, PoseControl: args.Contains("--pose-control")),
+    new PoseMeter(http, url));
 
 // --replay <folder>: run one recorded step again from its recipe.json and compare the pixels, nothing else
 if (Arg("--replay") is { Length: > 0 } recorded)
@@ -50,6 +52,11 @@ foreach (var step in steps)
     Console.WriteLine($"  {step.Name,-18} {step.Seconds,6:F1} s   " +
         (step.Gpu is { } gpu ? $"VRAM peak {gpu.Peak} MiB (resident before {gpu.Resident})" : "VRAM unread") +
         $"   {step.Recipe.Output.Width}x{step.Recipe.Output.Height}");
+
+foreach (var pose in pipeline.Poses)
+    Console.WriteLine($"  pose of {pose.Step,-16} " + (pose.Distance is { } d
+        ? $"arms {d.ArmAngle:F1} deg from the reference, limb joints {d.Keypoint:F2} torso lengths away"
+        : "no figure read: not following the reference"));
 
 var compose = steps.Single(s => s.Name == "compose");
 var replay = await pipeline.ReplayAsync(compose.Directory);

@@ -47,7 +47,7 @@ public sealed class Template(
     /// <summary>The graph node whose image is the step's result.</summary>
     public string Output { get; } = output;
 
-    /// <summary>Other saved nodes worth keeping, by a name (the pose skeleton a preprocessor drew).</summary>
+    /// <summary>Other saved nodes worth keeping, by a name (a mask a graph drew, say).</summary>
     public IReadOnlyDictionary<string, string> ExtraOutputs { get; } = extraOutputs;
 
     /// <summary>The provider's own option keys (<c>prompt-path</c>, <c>input-path:style</c>…) to graph paths.</summary>

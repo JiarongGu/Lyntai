@@ -473,7 +473,7 @@ holding your credentials — see `docs/DECISIONS.md` D20 and D24.
 ## 12. The example image pipeline
 
 `samples/Lyntai.ImagePipeline` is the proof that these backends compose (**D230**): a setup image, variations of it over
-several seeds, one image composed from a style, a subject and a pose reference plus words, a replay of that compose from
+several seeds, one image composed from a style, a subject and a DRAWN pose reference plus words, a replay of that compose from
 its recipe, and optionally an inpaint and an upscale. It drives `ComfyUiProvider` with tracked API-format workflow
 templates, **one per step**, and **adds nothing to the library**: every field goes in through the options and request
 fields of §5, every reference through an `input-path:<role>` option. The sample's README says how a host runs it; this
@@ -488,12 +488,12 @@ host that files them differently edits the templates, not the library):
 | `ipadapter/` | `ip-adapter_sdxl_vit-h.safetensors`, `ip-adapter-plus_sdxl_vit-h.safetensors` | Apache-2.0 |
 | `clip_vision/` | `CLIP-ViT-H-14-laion2B-s32B-b79K.safetensors` | Apache-2.0 |
 | `controlnet/` | `controlnet-openpose-sdxl-1.0.safetensors` | Apache-2.0 |
-| the preprocessor pack's `ckpts/yzd-v/DWPose/` | `dw-ll_ucoco_384.onnx` (`yolox_l.onnx` is placed too and unused: the pose template runs with no detector) | Apache-2.0 |
+| the preprocessor pack's `ckpts/yzd-v/DWPose/` | `dw-ll_ucoco_384.onnx` (`yolox_l.onnx` is placed too and unused: the pose reading runs with no detector); the pose MEASURE needs it, the compose does not | Apache-2.0 |
 
 **The two node packs**, loaded by the host: `ComfyUI_IPAdapter_plus` (GPL-3.0; `IPAdapterModelLoader`,
 `IPAdapterAdvanced`), measured at commit `a0f451a5113cf9becb0847b92884cb10cbdec0ef`, and `comfyui_controlnet_aux`
-(Apache-2.0; `DWPreprocessor`), at `a587a4c1594524c1d2de5cd1a86cd868ff448e1c`. Only the compose template uses them; the rest
-are core nodes, and a test pins that no template uses any other. A node pack is the host's install, never a dependency of
+(Apache-2.0; `DWPreprocessor`), at `a587a4c1594524c1d2de5cd1a86cd868ff448e1c`. Only the compose template uses the IP-Adapter pack and no template uses the preprocessor pack: the pose reading (below) is
+its one caller. The templates' other nodes are core, and a test pins that no template uses any other. A node pack is the host's install, never a dependency of
 this library, and a preprocessor **downloads its weights on first use** if they are not placed: place the DWPose file
 first, and run the server offline (`HF_HUB_OFFLINE=1`) if a download must fail rather than happen.
 
@@ -510,11 +510,9 @@ paths, plus `fields` for numbers the request has no typed field for):
 
 **How each compose role maps to nodes.** `style` → a `LoadImage` read by `IPAdapterAdvanced` over the standard SDXL
 adapter at weight type `style transfer`; `subject` → another `LoadImage` read by `IPAdapterAdvanced` over the plus adapter,
-chained on the first one's model, at `linear`; `pose` → a `LoadImage` read by `DWPreprocessor` (detector `None`, the
-estimator on the whole frame, because the person detector found no figure in a wooden mannequin and drew a black image),
-whose skeleton goes through `ControlNetApplyAdvanced` with the OpenPose SDXL ControlNet. The skeleton is saved as a second
-output, since a blank one is the visible sign that no pose was found. The weights (`style-weight`, `subject-weight`,
-`pose-strength` and each start and end) are template fields the sample writes into the graph before it submits.
+chained on the first one's model, at `linear`; `pose` → a `LoadImage` whose pixels go straight to `ControlNetApplyAdvanced` with the OpenPose SDXL ControlNet: the pose reference
+IS the skeleton image (the pose step, below), so no preprocessor runs inside the compose. The weights (`style-weight`,
+`subject-weight`, `pose-strength` and each start and end) are template fields the sample writes into the graph before it submits.
 
 **A role is a name the template maps, and nothing else.** The sample's roles are free strings through
 `MediaInput.From("style", …)`; a template accepts exactly those it has an `input-path:<role>` key for, and the provider
@@ -528,7 +526,7 @@ result is the artifact from the node the manifest names (`Metadata["node"]`), so
   "step": "compose", "template": "compose", "templateSha256": "…", "engineVersion": "0.36.0",
   "prompt": "…", "negativePrompt": "…", "seed": 401, "steps": 25, "cfgScale": 7, "sampler": "euler", "scheduler": "normal",
   "checkpoint": "sd_xl_base_1.0.safetensors", "width": 1024, "height": 1024,
-  "fields": { "style-weight": 0.8, "subject-weight": 0.8, "pose-strength": 0.8, "pose-end": 0.8 },
+  "fields": { "style-weight": 0.8, "subject-weight": 0.6, "subject-start": 0.3, "pose-strength": 1, "pose-end": 0.8 },
   "inputs": [ { "role": "style", "file": "inputs/style.png", "sha256": "…" } ],
   "models": [ { "kind": "ipadapter", "file": "ip-adapter-plus_sdxl_vit-h.safetensors", "sha256": "…" } ],
   "output": { "file": "image.png", "fileSha256": "…", "pixelsSha256": "…", "width": 1024, "height": 1024 }
@@ -560,15 +558,91 @@ Three runs of the sample put a warm step between 17 s and 86 s and the compose b
 | replay of the compose | 114 s | pixels identical, file bytes not |
 | replay of the base (no inputs, same server) | 33 s | pixels and file bytes identical |
 
-The pose role does something: the same compose with the same seed and the ControlNet at strength 0 differs from the one at 0.8
-by a mean luma difference of 44 (`ImagePipelineLiveTests`). Whether a replay is bit-identical is a property of the engine and
-the card, not of this library: it held here, with the driver and packs as recorded, and is reported rather than assumed.
+**Measured** on the 12 GB RTX 4080 Laptop, ComfyUI 0.36.0, the two packs at the commits above, SDXL base at 1024×1024, 25
+steps, euler/normal, CFG 7: one sample run with `--optional --pose-control`, a step at a time, the card shared with other
+processes already holding about 2.3 GB. A time runs from submit to the finished history entry and **the first step carries
+the weight load**. The peak is the whole card's used memory by `nvidia-smi`, so it includes what ComfyUI kept from earlier
+steps.
 
-**Two quality caveats.** SDXL drew the mannequin with its arms down however the prompt asked, so the pose reference is a
-standing figure and the composed figure follows it; and the inpaint's feathered paste still shows a faint box edge where the
-model's tone inside the box differs from the original. Neither is a library question.
+| Step | Time | Peak VRAM |
+|---|---|---|
+| setup (base) | 84 s (cold) | 9,264 MiB |
+| variation ×3 | 35 s, 34 s, 41 s | 8,643, 9,314, 9,919 MiB |
+| style, subject references | 29 s, 24 s | 11,202, 11,481 MiB |
+| pose reference (drawn, no model) | 0 s | none |
+| compose | 122 s | 11,460 MiB |
+| compose with the ControlNet at 0 (`--pose-control`) | 120 s | 11,308 MiB |
+| inpaint | 70 s | 11,030 MiB |
+| upscale ×1.5 (1536×1536) | 38 s | 11,711 MiB |
+| replay of the compose | 94 s | pixels identical, file bytes not |
+
+Whether a replay is bit-identical is a property of the engine and the card, not of this library, and it is reported rather
+than assumed: it held in this run, with the replay after the pose reading. In two live-test runs a replay after the pose reading came
+back different in its last bits (the picture looked the same), while the same recipe replayed on its own afterwards matched
+twice; the cause was not found, and `ImagePipelineLiveTests` replays the compose before it reads the pose, where the third
+run matched.
+
+### The pose step: a drawn reference, and a measure that the compose follows it
+
+**The reference is drawn, not generated.** SDXL drew a wooden mannequin with its arms down however the prompt asked, so a
+generated pose reference carried no pose to follow. `PoseReference.ArmsOutWide` is 18 fixed OpenPose body keypoints (a figure
+square to the viewer, both arms out level, wrist to wrist across three quarters of the frame) and `PoseReference.Render`
+paints them as the OpenPose ControlNet reads them: a coloured limb per bone and a dot per joint on black. No detector, no
+sampler and no preprocessor is involved, the step is deterministic code, and `NN-reference-pose/` keeps the image and the
+`keypoints.json` it came from. The compose template feeds that image to `ControlNetApplyAdvanced` as it is.
+
+**The settings, and what each one is for** (`Pipeline.ComposeFields`, `Pipeline.ComposePrompt`):
+
+| Setting | Value | Why this and not the old one |
+|---|---|---|
+| ControlNet strength, start, end | 1.0, 0, 0.8 | the pose holds to four fifths of the sampling; 0.8 to 0.8 with the old words and subject settings left the figure a sitting fox |
+| subject weight, start, end | 0.6, 0.3, 1 | the subject reference (a ceramic fox sitting) carries its OWN pose, so it joins after three tenths of the sampling: the pose sets the layout and the subject then dresses it |
+| style weight | 0.8 | unchanged |
+| words | "an anthropomorphic ceramic fox figure standing upright on two legs, front view, both arms stretched out wide to the sides, …" | asked for "a small fox figure", the model reads a fox and the ControlNet finds no person to pose |
+
+The old recipe (words "a small fox figure standing upright like a person…", subject weight 0.8 from the start, ControlNet 0.8 to
+0.8) drew a sitting fox with at most one raised paw (`ImagePipelineLiveTests` of that date measured only that the ControlNet
+changed the picture, by a mean luma of 44). Variants with the new words at 768×768 and 20 steps (seed 401) all read as arms out wide, 0.2° to 8.6° off the
+reference: subject weight 0.5, 0.35, and 0.6 from 0.3 (with the ControlNet to 1.0 or to 0.8), 0.5 until 0.5, and 0.5 with
+ControlNet 1.2; ControlNet 0.8 to 0.8 with the shipped subject settings was 1.3° off. The words and the subject's late start do
+the work that raising the ControlNet did not: with the old words a ControlNet at 1.0 only raised one paw. The shipped
+combination is not the nearest of them (0.6 from 0.3 with the ControlNet to 1.0 was 0.2°, against 0.7° for to 0.8)); it is a
+choice rather than a minimum, since every variant sat well inside the tolerance below, and it leaves the last fifth of the
+sampling to the checkpoint and the style (a reading from two pictures that look alike, not a measured gain).
+
+**The measure** (`PoseMeter`, `PoseDistance`): `DWPreprocessor` run on the compose's output, on the whole frame (detector `None`,
+estimator `dw-ll_ucoco_384.onnx`), its keypoints read from the `openpose_json` the node reports beside its drawn skeleton. Two
+numbers compare that reading to the reference's keypoints, and both ignore where the figure stands and how big it is: the
+**arm angle**, the mean over both arms of the angle between the shoulder-to-wrist directions (an arm out level against an arm
+hanging is about 90°), and the **keypoint distance**, the mean distance between the twelve shoulder, elbow, wrist, hip, knee
+and ankle joints after each pose is centred on its neck and scaled by its own neck-to-hip length (a torso length). A figure
+DWPose cannot read, or one missing a joint a number needs, has no pose to compare and counts as NOT following. The live test's
+tolerance is 20° and 0.3 torso lengths, and the control (the same compose, seed, references and words with the ControlNet at
+strength 0) must miss it.
+
+| Compose (768×768, 15 steps, seed 401) | Arm angle | Keypoint distance |
+|---|---|---|
+| ControlNet 1.0 to 0.8 | 1.8° | 0.13 torso lengths |
+| ControlNet 0 | no figure read | no figure read |
+
+| Compose (the sample: 1024×1024, 25 steps, seed 401) | Arm angle | Keypoint distance |
+|---|---|---|
+| ControlNet 1.0 to 0.8 (`08-compose`) | 2.6° | 0.18 |
+| ControlNet 0 (`09-compose-no-pose`) | 64.2° | 0.39 |
+
+At strength 0 the figure still stands on two legs, because the WORDS now ask for it; what the control removes is the pose
+reference, and with it the arms: they hang. The sample writes `pose-reading.json` and `pose-reading.png` (what DWPose drew
+from the compose) beside each compose it measures.
+
+**Caveats.** DWPose is a model, and a statue-like fox is outside what it was trained on: the measure read every joint it needs (neck, shoulders,
+elbows, wrists, hips, knees, ankles) in both composes here, which is a finding about these images and not a guarantee for
+another subject. The body keypoints are
+the only ones compared (hands and face are not read), so an arm bent at the wrist is not seen. A seed that makes the model
+disagree with the ControlNet shows as a larger distance rather than an error; the tolerance is set from the two seeds and
+sizes above, not from a sweep. The inpaint's feathered paste still shows a faint box edge where the model's tone inside the
+box differs from the original. None of this is a library question.
 
 **Licence and safety.** The packs and weights keep their own licences (the table above); a host reads them for what it
 runs. Every prompt, reference and example here is plain and safe for work, names no artist, studio, franchise or real
-person, and uses objects, an animal and a wooden mannequin; no face-identity model is used. The local backends apply no
+person, and uses objects and an animal, with the pose reference a drawn stick figure; no face-identity model is used. The local backends apply no
 content filter, and this section adds none.
