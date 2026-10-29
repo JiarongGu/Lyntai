@@ -566,21 +566,21 @@ steps.
 
 | Step | Time | Peak VRAM |
 |---|---|---|
-| setup (base) | 84 s (cold) | 9,264 MiB |
-| variation ×3 | 35 s, 34 s, 41 s | 8,643, 9,314, 9,919 MiB |
-| style, subject references | 29 s, 24 s | 11,202, 11,481 MiB |
+| setup (base) | 58 s (cold) | 8,842 MiB |
+| variation ×3 | 35 s, 34 s, 32 s | 9,674, 11,291, 10,395 MiB |
+| style, subject references | 34 s, 40 s | 11,306, 10,212 MiB |
 | pose reference (drawn, no model) | 0 s | none |
-| compose | 122 s | 11,460 MiB |
-| compose with the ControlNet at 0 (`--pose-control`) | 120 s | 11,308 MiB |
-| inpaint | 70 s | 11,030 MiB |
-| upscale ×1.5 (1536×1536) | 38 s | 11,711 MiB |
-| replay of the compose | 94 s | pixels identical, file bytes not |
+| compose | 153 s | 11,379 MiB |
+| compose with the ControlNet at 0 (`--pose-control`) | 82 s | 11,080 MiB |
+| inpaint | 37 s | 11,367 MiB |
+| upscale ×1.5 (1536×1536) | 31 s | 11,463 MiB |
+| replay of the compose | 88 s | pixels identical, file bytes not |
 
 Whether a replay is bit-identical is a property of the engine and the card, not of this library, and it is reported rather
 than assumed: it held in this run, with the replay after the pose reading. In two live-test runs a replay after the pose reading came
 back different in its last bits (the picture looked the same), while the same recipe replayed on its own afterwards matched
-twice; the cause was not found, and `ImagePipelineLiveTests` replays the compose before it reads the pose, where the third
-run matched.
+twice; the cause was not found, and `ImagePipelineLiveTests` replays the compose before it reads the pose, where the next two
+runs matched.
 
 ### The pose step: a drawn reference, and a measure that the compose follows it
 
