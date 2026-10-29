@@ -153,7 +153,7 @@ public sealed class FalOptions
 /// <para><b>Measured on fal's own queue for an image and a video model</b> (<c>queue.fal.run</c>,
 /// <c>Authorization: Key …</c>): the submit, status and result fields, all three statuses with
 /// <c>queue_position</c> on an <c>IN_QUEUE</c> read, the sub-path addressing, a cancel, an object-valued field and the
-/// shape of two failures. What a failed request bills is not measured. A host corrects in configuration the
+/// shape of two failures, and what a failure bills (nothing). A host corrects in configuration the
 /// URL segments, the status vocabulary, the error, cost and auth settings, extra query parameters
 /// (<see cref="FalOptions"/>), and any request field, which <see cref="MediaRequest.Options"/> sends verbatim as a
 /// string, or as raw JSON where <see cref="FalOptions.JsonFields"/> names it. It cannot correct the response
@@ -344,7 +344,9 @@ public sealed class FalProvider(
     /// <remarks>fal's cancel is a REQUEST — <c>202 {"status":"CANCELLATION_REQUESTED"}</c>, measured — so a
     /// 202 reports the render still <see cref="QueuedOperationStatus.Running"/>: it may yet finish and be billed,
     /// and only a poll says how it ended. A finished request answers <c>400 ALREADY_COMPLETED</c>, reported the
-    /// same way ("cancel rejected: 400"). Any other 2xx is <see cref="QueuedOperationStatus.Cancelled"/>. Bounded
+    /// same way ("cancel rejected: 400"). Any other 2xx is <see cref="QueuedOperationStatus.Cancelled"/>: fal answers
+    /// <c>200 {"status":"OK"}</c> to a request cancelled before a worker takes it, which then polls Succeeded and fetches
+    /// <c>499</c>. A cancel that lands bills nothing and one that does not bills the render (measured). Bounded
     /// by <see cref="FalOptions.Timeout"/>; a cancel that timed out may or may not have landed, so it too reports
     /// the render still running.</remarks>
     public Task<QueuedOperation> CancelAsync(string operationId, CancellationToken ct = default) =>

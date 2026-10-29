@@ -10,7 +10,8 @@ namespace Lyntai.Tests.Generation;
 ///
 /// <para>Skipped without <c>FAL_KEY</c>. <b>A run is twenty to forty submits at about a third of a cent each</b> —
 /// the cheapest image model fal lists ($0.003 per megapixel, billed rounded up to one) at its smallest preset, some
-/// of them cancelled or failing before they render (fal reports no cost, so what a failure bills is not measured) —
+/// of them cancelled or failing before they render (fal reports no cost on a queue answer; what they bill is read in
+/// the billing test, with a second key) —
 /// <b>and the video test, which needs <c>FAL_LIVE_VIDEO=1</c> as well, is one more at $0.02</b>. So this is a
 /// measurement to run on purpose, never a gate. The key is read from the
 /// environment and goes nowhere but the <c>Authorization</c> header; the wire log below records each exchange's
@@ -294,6 +295,66 @@ public class FalLiveTests(ITestOutputHelper output)
             output.WriteLine($"control: poll {controlEnd.Status}; fetch {controlFetch.Verdict}: {controlFetch.Detail}");
             Assert.False(controlFetch.IsOk);
             Assert.Contains("model_attributes_type", controlFetch.Detail);
+        }
+        finally { Dump(); }
+    }
+
+    /// <summary>fal's own bill for two requests, read from its per-request <c>billing-events</c> with a key that
+    /// has billing scope (<c>FAL_ADMIN_KEY</c>, used for this read and nothing else): a render bills one megapixel
+    /// at list price, and a request that fails at the model bills an event of quantity zero. Two submits, US$0.003
+    /// by list price.</summary>
+    [SkippableFact]
+    public async Task A_render_bills_one_megapixel_and_a_request_that_fails_at_the_model_bills_nothing()
+    {
+        Skip.If(string.IsNullOrWhiteSpace(Key), NoKey);
+        var admin = Environment.GetEnvironmentVariable("FAL_ADMIN_KEY");
+        Skip.If(string.IsNullOrWhiteSpace(admin),
+            "set FAL_ADMIN_KEY as well: a fal key with billing scope, to read the bill (two submits, US$0.003 by list price)");
+        var provider = Provider();
+
+        var rendered = await provider.SubmitAsync(Square("a red square on a white background",
+            ("image_size", "square"), ("num_inference_steps", "4")));
+        SkipWhenLocked(rendered);
+        // an object-valued field sent as a string is accepted, polls COMPLETED and fails at the fetch
+        var failed = await provider.SubmitAsync(Square("a red square on a white background",
+            ("image_size", """{"width":512,"height":384}"""), ("num_inference_steps", "4")));
+        try
+        {
+            foreach (var s in new[] { rendered, failed }) Assert.True(s.Status == QueuedOperationStatus.Queued, $"{s.Verdict}: {s.Detail}");
+            foreach (var s in new[] { rendered, failed }) await PollToEnd(provider, s.Id, TimeSpan.FromMilliseconds(300), TimeSpan.FromMinutes(1));
+            Assert.True((await provider.FetchAsync(rendered.Id)).IsOk);
+            Assert.False((await provider.FetchAsync(failed.Id)).IsOk);
+
+            string RequestId(string id) => id[(id.LastIndexOf('#') + 1)..];
+            using var billing = new HttpClient();
+            billing.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Key", admin);
+            var url = "https://api.fal.ai/v1/models/billing-events?start=" +
+                      Uri.EscapeDataString(DateTime.UtcNow.AddMinutes(-10).ToString("o")) +
+                      $"&request_id={RequestId(rendered.Id)}&request_id={RequestId(failed.Id)}";
+
+            // the events settle within seconds of the request ending (8 s at the slowest read): wait for both
+            var events = new Dictionary<string, System.Text.Json.JsonElement>();
+            var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(90);
+            while (events.Count < 2 && DateTime.UtcNow < deadline)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(3));
+                using var answer = await billing.GetAsync(url);
+                Assert.Equal(HttpStatusCode.OK, answer.StatusCode);
+                using var doc = System.Text.Json.JsonDocument.Parse(await answer.Content.ReadAsStringAsync());
+                foreach (var e in doc.RootElement.GetProperty("billing_events").EnumerateArray())
+                    events[e.GetProperty("request_id").GetString()!] = e.Clone();
+            }
+            Assert.Equal(2, events.Count);
+            foreach (var (id, e) in events)
+                output.WriteLine($"billed {id}: {e.GetProperty("quantity")} {e.GetProperty("unit")} at {e.GetProperty("unit_price")} = {e.GetProperty("cost_total")}");
+
+            var bill = events[RequestId(rendered.Id)];
+            Assert.Equal(1, bill.GetProperty("quantity").GetDecimal());
+            Assert.Equal("megapixels", bill.GetProperty("unit").GetString());
+            Assert.Equal(0.003m, bill.GetProperty("cost_total").GetDecimal());
+            var nothing = events[RequestId(failed.Id)];
+            Assert.Equal(0m, nothing.GetProperty("quantity").GetDecimal());
+            Assert.Equal(0m, nothing.GetProperty("cost_total").GetDecimal());
         }
         finally { Dump(); }
     }

@@ -22,22 +22,22 @@ _Edit a marker, never this table — `verify` fails the moment the two disagree.
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 117 | 33 | GEN-VERIFY-FAL, the last two lines — what a failed request bills, and the H… | blocked · env | a way to read the account's balance (a dashboard sign-in, or a key with bil… |
-| 160 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 187 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 246 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
-| 264 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
-| 299 | 412 | AG10 — the Claude CLI door keeps a subagent's lines apart from the session's | startable |  |
-| 312 | 412 | AG11 — the ACP door carries `AgentSessionOptions.Model`, or refuses it | startable |  |
-| 322 | 412 | AG12 — a refused model is a hold the pool can keep against one seat | startable |  |
-| 330 | 412 | AG13 — an HTTP response's own facts are read as an `AgentFailure` | startable |  |
-| 339 | 412 | AG14 — an HTTP door: `IToolLoop` as an agent provider | startable |  |
-| 349 | 412 | AG15 — an ACP dialect seam | startable |  |
-| 357 | 412 | AG16 — the event-stream rules, held by one theory | startable |  |
-| 365 | 412 | AG17 — an account that is a key, and the variables a provider reads | startable |  |
-| 374 | 412 | AG18 — background work started and ended, as events | startable |  |
-| 381 | 412 | AG19 — an ACP permission request the host can answer | startable |  |
-| 388 | 412 | AG20 — one account across a CLI door and an ACP door of the same agent: an … | decision-only | the owner's ruling on D225's re-open condition: whether a design Daoris has… |
+| 117 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
+| 158 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 185 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 244 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
+| 262 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
+| 297 | 412 | AG10 — the Claude CLI door keeps a subagent's lines apart from the session's | startable |  |
+| 310 | 412 | AG11 — the ACP door carries `AgentSessionOptions.Model`, or refuses it | startable |  |
+| 320 | 412 | AG12 — a refused model is a hold the pool can keep against one seat | startable |  |
+| 328 | 412 | AG13 — an HTTP response's own facts are read as an `AgentFailure` | startable |  |
+| 337 | 412 | AG14 — an HTTP door: `IToolLoop` as an agent provider | startable |  |
+| 347 | 412 | AG15 — an ACP dialect seam | startable |  |
+| 355 | 412 | AG16 — the event-stream rules, held by one theory | startable |  |
+| 363 | 412 | AG17 — an account that is a key, and the variables a provider reads | startable |  |
+| 372 | 412 | AG18 — background work started and ended, as events | startable |  |
+| 379 | 412 | AG19 — an ACP permission request the host can answer | startable |  |
+| 386 | 412 | AG20 — one account across a CLI door and an ACP door of the same agent: an … | decision-only | the owner's ruling on D225's re-open condition: whether a design Daoris has… |
 
 <!-- open-items:end -->
 
@@ -114,15 +114,13 @@ provider only ever reads the history document, and a core-node MP4 measures that
 The fal-first naming that once hid ComfyUI inside this list is recorded in
 `.agents/knowledge/pitfalls.md`._
 
-- [ ] **GEN-VERIFY-FAL, the last two lines — what a failed request bills, and the Hugging Face route**, so each is <!-- item: state=blocked kind=env needs="a way to read the account's balance (a dashboard sign-in, or a key with billing scope) to meter a failed and a cancelled request, and an hf_ token for the router route" -->
-  confirmed and its docs say "measured", or is corrected. Two funded runs measured the rest of `FalProvider`'s defaults
-  (`docs/task-archive.md` Parts 410 and 413). **Left:** what a request that fails, or a cancel that lands, bills: fal reports
-  no cost on any answer, its balance and usage endpoints answer `403` to the run's key, and the dashboard asks for the
-  owner's sign-in, so a bill can only be read as a balance delta over enough failed requests on a model priced to show in
-  cents; and the Hugging Face route (`docs/generation.md` §3), which needs an `hf_` token.
-  <br>**A YES** deletes that line's "not measured" note from `docs/generation.md` §3 and the XML docs; **a NO** corrects the
-  mapping or the default. Run `FalLiveTests` with `FAL_KEY` on purpose, never in `verify`, under a spend bound the owner sets
-  first; the tests skip, naming the balance, when the account has none.
+- [ ] **GEN-VERIFY-FAL, the last line — the Hugging Face route**, so it is <!-- item: state=blocked kind=env needs="an hf_ token for the router route" -->
+  confirmed and its docs say "measured", or is corrected. Three funded runs and a billing read measured the rest of
+  `FalProvider`'s defaults (`docs/task-archive.md` Parts 410, 413 and 414). **Left:** the Hugging Face route
+  (`docs/generation.md` §3), which needs an `hf_` token.
+  <br>**A YES** deletes the route's "nobody has run it" note from `docs/generation.md` §3; **a NO** corrects the mapping or
+  the default. Run `FalLiveTests` with `FAL_KEY` on purpose, never in `verify`, under a spend bound the owner sets first; the
+  tests skip, naming the balance, when the account has none.
 
   _**This is fal's OWN wire format and nothing else.** It is not the generation platform's verification
   story and must not be treated as one — `sd-cli` and ComfyUI, once bundled with it, were measured without a

@@ -249,6 +249,30 @@ public class FalProviderTests
     }
 
     [Fact]
+    public async Task Recorded_from_fal_a_cancel_answered_200_OK_is_Cancelled_and_the_request_polls_Succeeded_then_fetches_499()
+    {
+        // the request left the queue before a worker took it: the cancel is `200 {"status":"OK"}`, and the status
+        // document is COMPLETED with no error, no URLs and empty metrics, so only the fetch reports it
+        var (provider, http) = Provider(new FalOptions { ApiKey = "k", Model = "fal-ai/flux/schnell" });
+        const string id = "fal-ai/flux/schnell#01a187ed-507c-7222-a1db-8da039522d33";
+        http.Enqueue(HttpStatusCode.OK, """{"status":"OK"}""");
+        http.Enqueue(HttpStatusCode.OK, """
+            {"status":"COMPLETED","request_id":"01a187ed-507c-7222-a1db-8da039522d33","response_url":null,"status_url":null,"cancel_url":null,"logs":null,"metrics":{}}
+            """);
+        http.Enqueue((HttpStatusCode)499, """{"detail":"Request was cancelled"}""");
+
+        var cancelled = await provider.CancelAsync(id);
+        var polled = await provider.PollAsync(id);
+        var fetched = await provider.FetchAsync(id);
+
+        Assert.Equal(QueuedOperationStatus.Cancelled, cancelled.Status);
+        Assert.Equal(QueuedOperationStatus.Succeeded, polled.Status);
+        Assert.False(fetched.IsOk);
+        Assert.Contains("499", fetched.Detail);
+        Assert.Contains("Request was cancelled", fetched.Detail);
+    }
+
+    [Fact]
     public async Task Recorded_from_fal_a_cancel_of_a_finished_request_is_400_ALREADY_COMPLETED_and_the_poll_says_Succeeded()
     {
         var (provider, http) = Provider(new FalOptions { ApiKey = "k", Model = "fal-ai/flux/schnell" });

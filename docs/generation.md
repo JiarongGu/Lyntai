@@ -57,7 +57,7 @@ never left the process (a refused connection, a failed name lookup or TLS handsh
 `Lyntai.Generation` ships six (`dotnet add package Lyntai.Generation` — it pulls Core with it). Five have run
 against a live engine or a local server speaking their API — the table says which, and neither of the two
 HTTP image backends has been called on its vendor's own service or the WebUI itself; **fal's has been called on
-fal's own queue for an image model and a video model; what a failed request bills is not measured** (§3).
+fal's own queue for an image model and a video model, and what a failed or cancelled request bills is measured** (§3).
 
 | Backend | Delivery | Notes |
 |---|---|---|
@@ -98,7 +98,7 @@ A backend that catches its own exceptions applies the router's rules itself, so 
 possibly-delivered submit into a conclusive `Failed`, and none reports a thrown exception as a content
 `Refused`.
 
-## 3. fal: measured on an image and a video model, billing and the Hugging Face route not
+## 3. fal: measured on an image and a video model, and what a failure bills; the Hugging Face route not
 
 `FalProvider` was written from fal.ai's public queue documentation. `FalLiveTests` has called it on fal's own
 queue (`queue.fal.run`, `Authorization: Key …`) with a funded account: a text-to-image on the cheapest model,
@@ -139,7 +139,10 @@ account:
   queued or a running request, a request and not a stop: of eight cancelled the moment each was submitted, between one
   and four landed in the runs made and the rest rendered anyway (a request cancelled while `IN_PROGRESS` rendered in
   every run). A finished request answers `400 {"status":"ALREADY_COMPLETED"}`, which `CancelAsync` reports as `Running`
-  ("cancel rejected: 400"), and the poll then says `Succeeded`. What a landed cancel bills is not measured (below).
+  ("cancel rejected: 400"), and the poll then says `Succeeded`. What a landed cancel bills is in *What a request bills*, below.
+  **A cancel has a second form**: one that lands before a worker takes the request answers `200 {"status":"OK"}`, which
+  `CancelAsync` reports `Cancelled`; the status document is then `COMPLETED` with no `error`, null URLs and empty
+  `metrics`, so the poll says `Succeeded`, and only the fetch reports it (`499 {"detail":"Request was cancelled"}`, `Failed`).
 - **A video model**: `fal-ai/ltx-video` is addressed as an image model is. Submit `IN_QUEUE`, `IN_PROGRESS` for the rest,
   `COMPLETED` after 15 s (`inference_time` 13.5 s), no cost. The result is `{"video":{"url","content_type":"video/mp4",
   "file_name","file_size"},"seed"}`, which `ReadArtifacts` reads as one `video/mp4` artifact; the URL served the file
@@ -149,10 +152,37 @@ account:
   fetch with `422` (`model_attributes_type`: "Input should be a valid dictionary or object"), so a field left out of
   `JsonFields` fails late, as the input that could not be downloaded did.
 
-**Still not measured**: what a failed request bills, and the Hugging Face route below. fal's balance and usage endpoints
-refuse the key (`403`), and the dashboard needs the owner's sign-in; fal reports no cost on any answer, so a bill can
-only be read from the balance. One run of `FalLiveTests` without `FAL_LIVE_VIDEO` is twenty to forty submits at $0.003; with it,
-one more at $0.02. Its tests pin this library's behaviour for each, never that fal answers in it.
+**What a request bills, measured** with fal's per-request `GET api.fal.ai/v1/models/billing-events` (filtered by
+`request_id`) and the balance from `GET /v1/account/billing?expand=credits`, read with a key that has billing scope: the
+generation key answers `403` on both, and fal reports no cost on any queue answer. 160 submits on `fal-ai/flux/schnell`
+(512×512, 4 steps) and its `redux` sibling, each case repeated five times or more:
+
+| case | requests | billing event | billed |
+|---|---:|---|---|
+| a render | 28 | `1 megapixels` at the list `0.003` | US$0.003 each |
+| accepted, then fails at the model (`image_size` as a string, `422` at the fetch) | 19 | `0 megapixels` | **nothing** |
+| accepted, then the input cannot be downloaded (`redux`, listed at `0.025`) | 5 | `0 megapixels` | **nothing** |
+| a cancel that landed, either form above | 45 (9 and 36) | **no event at all**, and fal's request list says `499` | **nothing** |
+| a cancel that lost the race (`202` or `400`), so the request rendered | 63 | as a render | US$0.003 each |
+
+The events summed to US$0.273 for the 91 renders and the balance fell from 9.75 to 9.48, so the two readings agree (the
+balance is in whole cents). So **a failure fal reports as `422` or `499`, and a landed cancel, bill nothing, and a cancel
+that does not land bills in full**: 63 of the 108 cancels sent. A model failure still writes an event, of quantity zero, so an
+event's existence is no bill, and its quantity and `cost_total` are. **It is immediate**: an event is stamped 0.5 to 2.2 s
+after the submit (the request's end) and was visible to the first read made at 8 s, not to one at 5 s, and the gap was not narrowed
+further, and the balance lagged by seconds in one read made straight after ten renders. The admin reads are rate limited (a
+read twice a second was refused; the status was not recorded). Not triggered, so unmeasured: a failure after inference has
+begun (a content-policy refusal, a `5xx`); fal's pricing page says a server error is never billed. A bill on another model is
+this model's shape under its own unit.
+
+**So `FalProvider` changes nothing.** A `Failed` it reports is never a bill, a `Cancelled` or a landed cancel is never one,
+and `CancelAsync`'s "may still finish and be billed" stays true; a success carries no cost on fal's answer, so
+`MediaUsage.CostUsd` stays null (a host with a billing key can read `billing-events` itself). `FalLiveTests` pins the
+render and the model failure against `billing-events` when `FAL_ADMIN_KEY` is set.
+
+**Still not measured**: the Hugging Face route below. One run of `FalLiveTests` without `FAL_LIVE_VIDEO` is twenty to forty
+submits at $0.003; with it, one more at $0.02; the billing test is two more. Its tests pin this library's behaviour for
+each, never that fal answers in it.
 
 **What a host can correct in configuration** (`FalOptions`, D69): the URL segments (`RequestsSegment`,
 `StatusSegment`, `CancelSegment`), the status vocabulary (`StatusVocabulary`), the cost fields (`CostFields`),
