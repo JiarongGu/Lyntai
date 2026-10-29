@@ -15,19 +15,18 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 6 across 4 Parts: 1 startable, 2 blocked, 3 watch
+## Open items — 5 across 3 Parts: 1 startable, 1 blocked, 3 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 107 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal account with a balance, or a Hugging Face token for the router route … |
-| 169 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 196 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 255 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
-| 273 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
-| 307 | 401 | The example image-workflow pipeline | startable |  |
+| 106 | 33 | GEN-VERIFY-FAL, the rest — what the second run did not reach | startable |  |
+| 149 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 176 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 235 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
+| 253 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
 
 <!-- open-items:end -->
 
@@ -96,7 +95,7 @@ core was built._
 _GEN3 (local `sd-cli`), GEN4 (durable renders + the fal.ai queue backend), GEN6's tool/MCP bridge half and
 GEN5 (governance + telemetry parity) all landed 2026-08-04 — see `docs/task-archive.md` Part 33._
 
-_**What remains unmeasured: fal's wire format, and it alone needs a vendor.** `sd-cli` left this list on
+_**What remains unmeasured: the rest of fal's wire format, and it alone needs a vendor.** `sd-cli` left this list on
 2026-09-19 (argv + clamp measured against a real engine, correcting the retired `img2img` mode value —
 `docs/task-archive.md` Part 261), and ComfyUI followed the same day IN FULL: the HTTP surface over an image
 graph (Part 262), then a video-producing workflow (Part 264) — which needed no video MODEL, because the
@@ -104,41 +103,21 @@ provider only ever reads the history document, and a core-node MP4 measures that
 The fal-first naming that once hid ComfyUI inside this list is recorded in
 `.agents/knowledge/pitfalls.md`._
 
-- [ ] **GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key**, checking the status <!-- item: state=blocked kind=env needs="a fal account with a balance, or a Hugging Face token for the router route (`docs/generation.md` §3)" -->
-  vocabulary, the result field names and what `cost` reports. Then delete that backend's "unverified" notes
-  or fix the mapping.
-  <br>**FIRST RUN 2026-10-28, and it stopped at fal's door** (`FalLiveTests`, two submits under `Key` auth against
-  fal's own queue, from the owner's free account). Both were refused `403` with `{"detail":"User is locked. Reason:
-  Exhausted balance. …"}`: the account holds no balance, so nothing was enqueued or billed. **Measured:** the host
-  `queue.fal.run`, `Key` as the auth scheme (the key was recognised, where a bad one is a 401) and the refusal's body
-  shape. **Not measured**, since nothing past the door answered: the status vocabulary, the `request_id` / `status` /
-  `url` / `content_type` fields, `queue_position`, the `COMPLETED`-plus-`error` failure shape and `ErrorField`, what a
-  failed request's result fetch answers, what `cost` reports, the sub-path URL (`FalOptions.RequestPaths` is the host's
-  correction, `docs/task-archive.md` Part 406) and an object-valued field (`FalOptions.JsonFields`, Part 407). Two fixes came out of it
-  (`docs/generation.md` §3): a refused submit is classified by its status (403 and 401 `AuthFailed`, 429
-  `RateLimited`), and a sub-path model is polled, fetched and cancelled under its owner and app, which is fal's
-  documentation read, not a measurement. The live tests skip, naming the balance, on that answer.
-  <br>**Blocked again, on the account**: a fal account with a balance, or a Hugging Face token for the router route
-  (`docs/generation.md` §3), which a free account can use and which does not confirm `Key` auth. One `FalLiveTests`
-  run is two submits at about a tenth of a cent, and the docs and the shipped tests stay "documented, not measured"
-  for everything above until one passes.
-  <br>**PARKED 2026-09-25 by the owner, who held no fal.ai account** and did not know why fal was the vendor
-  chosen: it arrived with GEN4 (2026-08-04) as the hosted queue-shaped video backend the durable render job was
-  built against, written from fal's public docs, and has never been called. **The full review kept it** (`docs/task-archive.md`
-  Part 295, owner) and found a cheaper verifier: the Hugging Face router proxies fal's queue for a free account, and
-  `FalOptions.AuthScheme` / `QueryParameters` make that route configuration (`docs/generation.md` §3). One run
-  there confirms the status vocabulary, the `COMPLETED`+`error` failure shape (`FalOptions.ErrorField`), the result
-  fields and the sub-path question; it does not confirm fal's own `Key` auth or billing.
+- [ ] **GEN-VERIFY-FAL, the rest — what the second run did not reach**, so each `FalProvider` default it names is <!-- item: state=startable -->
+  confirmed and its docs say "measured", or is corrected. A funded run rendered an image model and a failing request through
+  fal's own queue (`docs/task-archive.md` Part 410); **still unmeasured:** `IN_PROGRESS` (`StatusVocabulary`),
+  `queue_position` on a status read, a failure fal puts on the status document itself (`ErrorField`), a video model, cancel,
+  an object-valued field (`FalOptions.JsonFields`), what a failed request bills, and the Hugging Face route
+  (`docs/generation.md` §3).
+  <br>**A YES** deletes that line's "documented, not measured" note from `docs/generation.md` §3 and the XML docs; **a NO**
+  corrects the mapping or the default. Run `FalLiveTests` with `FAL_KEY` on purpose, never in `verify`, under a spend bound the
+  owner sets first: an image render is about US$0.003 by list price, a video model costs more, and the tests skip, naming the
+  balance, when the account has none.
 
   _**This is fal's OWN wire format and nothing else.** It is not the generation platform's verification
   story and must not be treated as one — `sd-cli` and ComfyUI, once bundled with it, were measured without a
   vendor (the note above), and the video DELIVERY path is reachable through ComfyUI. Filed narrowly on
   purpose, because the old bundled item let "we are waiting on fal" stand in for "the platform is unverified"._
-
-  _**This half is the rule's own example of a blocker**: a vendor key or an account, which no download can
-  supply. A key was not enough, since the account behind it holds no balance (above). Split from the `sd-cli` half on 2026-09-16 because they were always independent —
-  the old single item said so itself — and bundling them let the real blocker hide a startable one behind
-  it for weeks._
 
   _**The BLOCKING half is gone (2026-08-16, `docs/DECISIONS.md` D69) — what is left is confirmation, not
   repair.** Every mapping the docs name is now a host option: fal's status vocabulary and cost fields.
@@ -150,7 +129,8 @@ The fal-first naming that once hid ComfyUI inside this list is recorded in
 
   _**What a real run is still for**, stated so this is not read as closed: a STRUCTURAL difference — a status
   that is not a string field at all, a history document shaped differently — is not fixable by a per-field
-  option. The residual risk is a shape, not a spelling._
+  option. The residual risk is a shape, not a spelling, and the second run found one: a failed request that
+  polls `COMPLETED` and fails at the result fetch._
 
 > Add new tasks here as checklist items with an `id` and a short `file:line` where known. Group related
 > tasks under a `## Part N — <theme>` heading. Move an item to the archive when it lands — don't leave a
@@ -281,6 +261,11 @@ there is nothing here to code: what remains is evidence only recurrence can supp
   <br>**Recurred again in the Z-Image-Turbo session's `verify`** (`21de4e6a`): its first run failed on this test and the
   re-run was green with nothing changed: four failures in eight full runs across three sessions, still none
   standalone. The load that run ran under was not captured.
+  <br>**Recurred three more times in the image-pipeline session** (`9b270b06`): its first two `verify` runs and one full
+  `dotnet test` failed on it, about 50 s into the run, with the same message, and it passed alone, with that session's own
+  tests, and in a run without them; its third `verify` was green. That machine was shared with other sessions' builds and the
+  GPU was busy, which is the load it ran under, uncaptured as a figure. With the fourteenth steward pass's first `verify`
+  (green), that is seven failures in thirteen full runs across five sessions, none standalone.
   <br>**A reading, not a capture:** the test reads the pid file AFTER the usage source has returned, so a node that
   starts later than the 3 s ceiling is killed before it writes anything, and the assertion reports exactly that message.
   That is the family of the timing tests above and of those already closed (`docs/task-archive.md` Parts 395 and 396):
@@ -291,37 +276,6 @@ there is nothing here to code: what remains is evidence only recurrence can supp
   the load it ran under says whether the ceiling or the start owns it.
   <br>**2026-10-29: not the SQLite pool race** (`docs/FIXES.md`). The test spawns a node stand-in and reads its pid file, and
   opens no connection.
-
-## Part 401 — local image generation on this machine's GPU (2026-10-28)
-
-_The owner's direction, recorded as `docs/DECISIONS.md` **D230**: generation is proved by an example pipeline a host
-runs as-is, and models stay host-configured. **The pipeline row follows the checkpoint-and-LoRAs row**, which closed as
-`docs/task-archive.md` Part 404 (the Z-Image-Turbo row closed as Part 403, and the stable-diffusion.cpp row as Part 405),
-so **this Part now holds only the pipeline row.**
-**Content rules on the row below, part of its contract:** everything the library, its samples, tests and docs carry
-is safe for work and names no real artist, studio, franchise or real person; no face-identity model is used on real
-photos; the local backends carry no content filter, and the library neither adds nor removes one. A download is a
-step (`task-lifecycle.md`), so the row below is not blocked by one; the host's models live in its untracked
-`local/` folder, never in the tree._
-
-- [ ] **The example image-workflow pipeline** (lane `generation`, after `docs/task-archive.md` Part 404). <!-- item: state=startable -->
-  A library change it needs is in lane `generation`; the sample under `samples/` is laneless; it uses the checkpoint-and-LoRAs
-  row's request fields (`docs/generation.md` §5, *Parameters*) for the setup image. **Contract:** the pipeline of **D230** as a sample driving `ComfyUiProvider` with tracked API-format workflow
-  templates, one per step (setup image, variations over several seeds, a compose from references by role, and the optional
-  inpaint and upscale), filled through the provider's prompt-path and `input-path:<role>` options. Every output carries
-  the recipe and the sample replays it. Engine setup lives in the host's untracked local folder: the currently
-  maintained IP-Adapter node pack and ControlNet preprocessor pack (read before installing, commits pinned and recorded),
-  SDXL base 1.0 (OpenRAIL++) as the main tier and SD 1.5 as the smoke tier, the IP-Adapter SDXL weights and the image
-  encoder they need, an SDXL OpenPose ControlNet under a verified permissive licence, and optionally an open
-  multi-reference edit model only if its licence allows and it fits 12 GB; `.safetensors` only, sha256 recorded, about
-  40 GB of downloads at most. **Proof:** live-gated tests running each step once on the GPU, each a named new skip; one
-  sample run (a base image, three variations, a compose from a style reference, a pose reference, a subject reference and
-  words, then a recipe replay) with its outputs in an ignored folder; `docs/generation.md` gains a workflow-pipeline
-  section (model folder layout, node packs, how roles map to nodes, the recipe format, licence and safety notes).
-  <br>**Library gaps this is likely to show, recorded as CANDIDATES and not yet rows** — each becomes its own row
-  once the sample shows the need, with that need as its evidence: named input roles beyond `init` and `reference`
-  (style, subject, control or pose, mask) in `MediaInputRoles`; per-input weights; a template declaring the roles it
-  accepts and refusing others. Seed, steps, size and LoRA already map into graph paths (`docs/task-archive.md` Part 404).
 
 ## Retired — five Parts that outlived their open work (2026-09-16)
 

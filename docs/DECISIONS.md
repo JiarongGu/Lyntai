@@ -1696,10 +1696,10 @@ options too, which lets the Hugging Face router verify fal's wire for free. fal'
 literals, and an unconfigured host must not be able to tell. *(2026-09-19: MEASURED — upstream HAD retired
 the `img2img` mode value; the default now omits the mode pair, `Img2ImgMode` restores it for older builds.)*
 
-*(Amended 2026-10-28: the Automatic1111 and OpenAI-images shapes are now measured, against a local server that
-implements both and is neither the WebUI nor OpenAI, and no mapping was wrong; fal's `Key` auth and its refusal's body
-shape are measured, from a first run refused for an account with no balance. The rest of fal's mapping, and the
-sub-path request path, stay documented and options: `docs/generation.md` §2 and §3.)*
+*(Amended 2026-10-28: the Automatic1111 and OpenAI-images shapes are measured against a local server, and no mapping was
+wrong. Amended 2026-10-29: a funded run passed fal's door and confirmed `Key` auth, the `request_id`, `status`, `url` and
+`content_type` fields, `IN_QUEUE`, `COMPLETED` and owner-and-app addressing, with no cost field; a failed download polls
+`COMPLETED` and fails at the result fetch with `422`. The rest stays documented and an option: `docs/generation.md` §2, §3.)*
 
 ---
 
@@ -6558,7 +6558,7 @@ would test it and has not been tried.
 
 **Standing.** The owner's direction of 2026-10-28, recorded by the steward before the lane sessions that build it are
 dispatched; the owner's acceptance of the branch makes it binding. It adds no public type, and it reverses by a later
-decision here (`TASKS.md` Part 401 holds the open rows; the closed ones are `docs/task-archive.md` Parts 403 and 404).
+decision here (its rows are closed: `docs/task-archive.md` Parts 403, 404, 405 and 411).
 
 **Decided.**
 - **The proof is a sample.** Lyntai is a library, so its generation capability is shown through a pipeline under
@@ -6585,6 +6585,16 @@ it shows each backend answers, not that the steps compose, and it leaves the lib
 
 **Re-opens** when the sample shows a need no provider option or template can meet and a library type is the smaller
 answer, or when a host's own pipeline shows the template route cannot carry a step.
+
+**Amended 2026-10-29.** The sample ran with no library change (`docs/task-archive.md` Part 411), and two stances hold on that
+evidence. **Input roles stay free strings**: the sample passes `init`, `style`, `subject` and `pose` through `MediaInput.From`,
+and a role its template does not map is refused at submit, naming the missing `input-path:<role>` key. **Template numbers are
+written by the host**: the sample's `Template.Fill` and manifest `fields` put 22 values (IP-Adapter weights, ControlNet
+strength, denoise, the inpaint box, the upscale scale) into the graph, and the provider takes no path option for an arbitrary
+value. **Rejected:** role constants in `MediaInputRoles` (public surface for a name a template already maps), typed weight,
+strength or denoise fields on `MediaRequest` (the manifest already writes them), and a type by which a template declares the
+roles it accepts (the provider already refuses an unmapped role). They reverse on a host whose pipeline the template route
+cannot carry, as above.
 
 ## D231 — a generation request's checkpoint, LoRAs and sampling parameters are typed fields each backend declares, not free `Options` keys (2026-10-28)
 
@@ -6641,8 +6651,7 @@ later decision here. The behaviour and its defaults are `docs/generation.md` §3
 
 **Why.** Both are facts about a model's own interface (where fal addresses it, which of its input fields are structured), so a
 host states them once in configuration, where **D69** puts every mapping not yet measured, and an `appsettings.json` binds them.
-No run has reached fal past its door (`TASKS.md` GEN-VERIFY-FAL), so neither the default nor a URL field fal documents is
-measured.
+The default was written before any run reached fal past its door; the amendment below records what one measured.
 
 **Rejected.**
 - **Reading `status_url`, `response_url` and `cancel_url` from the submit answer**: a resumed durable job holds only
@@ -6654,3 +6663,10 @@ measured.
 
 **Re-opens** when a live fal run shows the URL fields in the submit answer and a way to carry them through a resumed job
 exists, or when a host's model needs a field's JSON-ness to vary per request rather than per model.
+
+**Amended 2026-10-29.** A funded run has passed fal's door (`docs/task-archive.md` Part 410). For `fal-ai/flux/schnell` the
+submit answer carried `status_url`, `response_url` and `cancel_url`, and all three sit under `fal-ai/flux`, the owner and app
+the default derives from the model id; the full model path answered `405`. So reading the path from the submit answer agrees
+with the default and adds nothing for that model, and the decision stands: the first half of the re-open trigger is met, the
+second (a way to carry the URLs through a resumed job) is not, and no model has yet differed. `JsonFields` has not met an
+object-valued field.

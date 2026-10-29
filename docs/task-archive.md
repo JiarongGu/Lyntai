@@ -6135,7 +6135,7 @@ through the provider as it is, behind one new live test, `ComfyUiLiveTests.A_rea
 gated on `LYNTAI_COMFYUI_ZIMAGE_MODEL` and a named new skip in the baseline; no provider option was needed (37 to 44 s cold,
 7 to 14 s warm at 512², 8 steps, about 9.1 GB of VRAM). **Not proved, and why:** `LocalDiffusionProvider` and the `sd-server`
 behind `Automatic1111Provider` stay on SD 1.5 — stable-diffusion.cpp `656a135` accepts the three files and recognises Z-Image,
-then aborts loading the installed fp8-mixed Qwen3-4B text encoder; that half is `TASKS.md` Part 401's blocked item. The
+then aborts loading the installed fp8-mixed Qwen3-4B text encoder; that half closed as `docs/task-archive.md` Part 405. The
 measurements and the engine's assert are `docs/generation.md` §2. Lane generation.
 
 - A newer local model on the GPU behind the live suites
@@ -6213,5 +6213,41 @@ rounds shared on the unfixed factory, 0 of 1,000 after) and the clean-return the
 and the trap `.agents/knowledge/pitfalls.md` §Storage. **Limit:** a rent from outside the factory on the same connection string
 is not covered. **Open, and the owner's:** whether to report the race to the driver's maintainers; nothing was filed. **The other
 `TASKS.md` Part 99 watch items are not this race**, and each now says why. Lane storage.
+<br>**2026-10-29, later:** the race is dotnet/efcore#39008, already reported and fixed upstream in 10.0.13, so it is **not to be
+reported**, which closes the open question above. `b78224e9` (on master as `7b468a1e`, merged `2c87cab0`) moves
+`Microsoft.Data.Sqlite` to 10.0.14; the factory's rent lock is kept, with its evidence in `docs/FIXES.md`.
 
 - `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another caller is still using
+
+## Part 410 — GEN-VERIFY-FAL: fal's queue measured past its door, on an image model (2026-10-29)
+
+✅ done 2026-10-29 — **Outcome:** `2ec106c1` (merged `ded642e0`). The first run (2026-10-28) stopped at the door: two submits
+under `Key` auth, both refused `403` for an exhausted balance, so only the host, the auth scheme and the refusal's body shape
+were measured. **The second run, on a funded account, used 3 of its 4 allowed submits:** a render of `fal-ai/flux/schnell` at
+512x512 (about US$0.003 by fal's list price; fal reports no cost, so no billed figure exists), a request whose input cannot be
+downloaded, and a re-run of that test after its assertions changed. **Confirmed:** `Key` auth; `request_id`, `status`, `url` and
+`content_type`; `IN_QUEUE` (seen on the submit answer only) and `COMPLETED`; owner-and-app addressing for a sub-path model (the
+full path answers `405`); no cost field; `status_url`, `response_url` and `cancel_url` present and under owner-and-app. **Found:** a
+failed input download is accepted, polls `COMPLETED` with no `error` field and fails at the result fetch with `422` and a detail
+list, so `ErrorField` never fires on it and the fetch reports the failure; no provider change, only `ErrorField`'s docs. Four
+`FalProviderTests` replay the recorded answers and `FalLiveTests` asserts the failure shape. No API change. **Still unmeasured,
+and now the narrowed row in `TASKS.md` Part 33:** `IN_PROGRESS`, `queue_position` on a status read, a failure fal puts on the
+status document, a video model, cancel, an object-valued field (`JsonFields`), what a failed request bills, and the Hugging Face
+route. The run and its answers are `docs/generation.md` §3; the decisions it touches are D69 and D232. Lane generation.
+
+- GEN-VERIFY-FAL, fal's queue measured past its door
+
+## Part 411 — The example image-workflow pipeline (2026-10-29)
+
+✅ done 2026-10-29 — **Outcome:** `9b270b06` (on master as `14cc1edd`, merged `f7d04875`). `samples/Lyntai.ImagePipeline` drives
+`ComfyUiProvider` through five API-format templates (setup, variation, compose from style, subject and pose references,
+inpaint, upscale) of **D230**; every step writes a recipe and a replay compares decoded pixels, because ComfyUI's PNG embeds the
+run's own workflow text, so bytes differ and pixels do not (the compose replay was identical in every run). **No library
+change:** every field goes in through the existing options and request fields, and the API baselines are untouched. Measured on
+ComfyUI 0.36.0 and a 12 GB card, SDXL base at 1024² and 25 steps: a warm step 17 to 86 s and the compose 147 to 263 s
+(`docs/generation.md` §12). 21 unit tests in `ImagePipelineTests`, and six live-gated tests in `ImagePipelineLiveTests`, each a
+named skip without `LYNTAI_COMFYUI_URL` and `LYNTAI_COMFYUI_SDXL_CHECKPOINT`. **Its three candidate rows were not filed**: the
+sample ran with no library change, so none shows a need, and its two stances are recorded on **D230**. Its session saw
+`AgentUsageProcessTests` fail three times on a loaded machine (`TASKS.md` Part 99). Lane generation.
+
+- The example image-workflow pipeline
