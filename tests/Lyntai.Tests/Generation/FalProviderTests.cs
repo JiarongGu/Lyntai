@@ -10,10 +10,10 @@ namespace Lyntai.Tests.Generation;
 /// <summary>The fal.ai queue backend. What is pinned is what would break silently and cost money — the
 /// operation-id encoding a resumed job depends on, the status mapping the job handler branches on, and "no
 /// artifacts" never becoming a fake success. The wire a <see cref="FalLiveTests"/> run MEASURED (an image
-/// request's submit, status and result, and the answer to an input fal could not download) is replayed
-/// verbatim below under "recorded from fal"; the rest of the surface — the vocabulary beyond the two states
-/// seen, <c>queue_position</c> on a status read, the <c>error</c> field — is still the documented one, and these
-/// tests pin this library's reading of it, never that fal answers so.</summary>
+/// request's submit, status and result, the answer to an input fal could not download, a status read in each
+/// state, a cancel, a video model and an object-valued field) is replayed verbatim below under "recorded from
+/// fal"; the rest of the surface — a status vocabulary beyond fal's three, another failure fal reports on the
+/// status document — is still this library's reading, and the tests pin that, never that fal answers so.</summary>
 public class FalProviderTests
 {
     private static (FalProvider Provider, StubHttpHandler Http) Provider(FalOptions? options = null)
@@ -198,6 +198,125 @@ public class FalProviderTests
         Assert.Equal($"https://queue.fal.run/fal-ai/flux/schnell/requests/{RecordedRequest}/status", http.Requests[0].Uri?.ToString());
     }
 
+    // ---- recorded from fal, the third run: status reads, a cancel, a video model, an object-valued field ----
+
+    [Fact]
+    public async Task Recorded_from_fal_a_status_read_is_202_IN_QUEUE_with_its_position_then_202_IN_PROGRESS_then_200_COMPLETED()
+    {
+        var (provider, http) = Provider(new FalOptions { ApiKey = "k", Model = "fal-ai/flux/schnell" });
+        const string queued = "01a186e8-a911-7fe3-80e6-83a39e388f77";
+        const string running = "01a186e8-9f8e-7720-ad10-a52d47dbc052";
+        http.Enqueue(HttpStatusCode.Accepted, $$$"""
+            {"status":"IN_QUEUE","request_id":"{{{queued}}}","response_url":"https://queue.fal.run/fal-ai/flux/requests/{{{queued}}}","status_url":"https://queue.fal.run/fal-ai/flux/requests/{{{queued}}}/status","cancel_url":"https://queue.fal.run/fal-ai/flux/requests/{{{queued}}}/cancel","logs":null,"metrics":{},"queue_position":0}
+            """);
+        http.Enqueue(HttpStatusCode.Accepted, $$$"""
+            {"status":"IN_PROGRESS","request_id":"{{{running}}}","response_url":"https://queue.fal.run/fal-ai/flux/requests/{{{running}}}","status_url":"https://queue.fal.run/fal-ai/flux/requests/{{{running}}}/status","cancel_url":"https://queue.fal.run/fal-ai/flux/requests/{{{running}}}/cancel","logs":null,"metrics":{}}
+            """);
+
+        var waiting = await provider.PollAsync($"fal-ai/flux/schnell#{queued}");
+        var rendering = await provider.PollAsync($"fal-ai/flux/schnell#{running}");
+
+        Assert.Equal(QueuedOperationStatus.Queued, waiting.Status);
+        Assert.Equal("queue position 0", waiting.Detail);
+        Assert.Equal(QueuedOperationStatus.Running, rendering.Status);
+        Assert.Null(rendering.Detail);   // the position is on the IN_QUEUE document only
+    }
+
+    [Fact]
+    public async Task Recorded_from_fal_a_cancel_that_lands_polls_COMPLETED_carrying_an_error_and_fetches_499()
+    {
+        // fal answers the cancel 202 and reports the request COMPLETED with `error` and `error_type` on the status
+        // document itself, so ErrorField and ErrorTypeField fire: the poll is Failed, naming the kind
+        var (provider, http) = Provider(new FalOptions { ApiKey = "k", Model = "fal-ai/flux/schnell" });
+        const string id = "fal-ai/flux/schnell#01a186e8-efb8-7ca0-b90b-ebf6ffce2314";
+        http.Enqueue(HttpStatusCode.Accepted, """{"status":"CANCELLATION_REQUESTED"}""");
+        http.Enqueue(HttpStatusCode.OK, """
+            {"status":"COMPLETED","request_id":"01a186e8-efb8-7ca0-b90b-ebf6ffce2314","response_url":"https://queue.fal.run/fal-ai/flux/requests/01a186e8-efb8-7ca0-b90b-ebf6ffce2314","status_url":"https://queue.fal.run/fal-ai/flux/requests/01a186e8-efb8-7ca0-b90b-ebf6ffce2314/status","cancel_url":"https://queue.fal.run/fal-ai/flux/requests/01a186e8-efb8-7ca0-b90b-ebf6ffce2314/cancel","logs":null,"metrics":{"inference_time":0.0},"error":"Request cancelled by the client.","error_type":"client_cancelled"}
+            """);
+        http.Enqueue((HttpStatusCode)499, """{"detail":"Request cancelled by the client.","error_type":"client_cancelled"}""");
+
+        var cancelled = await provider.CancelAsync(id);
+        var polled = await provider.PollAsync(id);
+        var fetched = await provider.FetchAsync(id);
+
+        Assert.Equal(QueuedOperationStatus.Running, cancelled.Status);
+        Assert.Equal("https://queue.fal.run/fal-ai/flux/requests/01a186e8-efb8-7ca0-b90b-ebf6ffce2314/cancel", http.Requests[0].Uri?.ToString());
+        Assert.Equal(QueuedOperationStatus.Failed, polled.Status);
+        Assert.Contains("client_cancelled", polled.Detail);
+        Assert.Contains("Request cancelled by the client.", polled.Detail);
+        Assert.False(fetched.IsOk);
+        Assert.Contains("499", fetched.Detail);
+    }
+
+    [Fact]
+    public async Task Recorded_from_fal_a_cancel_of_a_finished_request_is_400_ALREADY_COMPLETED_and_the_poll_says_Succeeded()
+    {
+        var (provider, http) = Provider(new FalOptions { ApiKey = "k", Model = "fal-ai/flux/schnell" });
+        const string id = "fal-ai/flux/schnell#01a186e8-efbd-72e2-8a8f-0faea892deda";
+        http.Enqueue(HttpStatusCode.BadRequest, """{"status":"ALREADY_COMPLETED"}""");
+        http.Enqueue(HttpStatusCode.OK, """
+            {"status":"COMPLETED","request_id":"01a186e8-efbd-72e2-8a8f-0faea892deda","response_url":"https://queue.fal.run/fal-ai/flux/requests/01a186e8-efbd-72e2-8a8f-0faea892deda","status_url":"https://queue.fal.run/fal-ai/flux/requests/01a186e8-efbd-72e2-8a8f-0faea892deda/status","cancel_url":"https://queue.fal.run/fal-ai/flux/requests/01a186e8-efbd-72e2-8a8f-0faea892deda/cancel","logs":null,"metrics":{"inference_time":0.625}}
+            """);
+
+        var cancelled = await provider.CancelAsync(id);
+        var polled = await provider.PollAsync(id);
+
+        Assert.Equal(QueuedOperationStatus.Running, cancelled.Status);   // a rejected cancel says nothing of how it ended
+        Assert.Contains("400", cancelled.Detail);
+        Assert.Equal(QueuedOperationStatus.Succeeded, polled.Status);
+    }
+
+    [Fact]
+    public async Task Recorded_from_fal_a_video_model_polls_under_owner_and_app_and_its_result_is_a_video_artifact_with_no_cost()
+    {
+        var (provider, http) = Provider(new FalOptions { ApiKey = "k", Model = "fal-ai/ltx-video" });
+        const string id = "fal-ai/ltx-video#01a186ef-e123-7c23-aec5-6632b3107826";
+        http.Enqueue(HttpStatusCode.Accepted, """
+            {"status":"IN_PROGRESS","request_id":"01a186ef-e123-7c23-aec5-6632b3107826","response_url":"https://queue.fal.run/fal-ai/ltx-video/requests/01a186ef-e123-7c23-aec5-6632b3107826","status_url":"https://queue.fal.run/fal-ai/ltx-video/requests/01a186ef-e123-7c23-aec5-6632b3107826/status","cancel_url":"https://queue.fal.run/fal-ai/ltx-video/requests/01a186ef-e123-7c23-aec5-6632b3107826/cancel","logs":null,"metrics":{}}
+            """);
+        http.Enqueue(HttpStatusCode.OK, """
+            {"status":"COMPLETED","request_id":"01a186ef-e123-7c23-aec5-6632b3107826","response_url":"https://queue.fal.run/fal-ai/ltx-video/requests/01a186ef-e123-7c23-aec5-6632b3107826","status_url":"https://queue.fal.run/fal-ai/ltx-video/requests/01a186ef-e123-7c23-aec5-6632b3107826/status","cancel_url":"https://queue.fal.run/fal-ai/ltx-video/requests/01a186ef-e123-7c23-aec5-6632b3107826/cancel","logs":null,"metrics":{"inference_time":13.463000059127808}}
+            """);
+        http.Enqueue(HttpStatusCode.OK, """
+            {"video":{"url":"https://v3b.fal.media/files/b/0ab04e3c/0vILv0Rc7tsU4nzrdYHAY.mp4","content_type":"video/mp4","file_name":"0vILv0Rc7tsU4nzrdYHAY.mp4","file_size":1014724},"seed":262130060}
+            """);
+
+        var running = await provider.PollAsync(id);
+        var done = await provider.PollAsync(id);
+        var fetched = await provider.FetchAsync(id);
+
+        Assert.Equal(QueuedOperationStatus.Running, running.Status);
+        Assert.Equal(QueuedOperationStatus.Succeeded, done.Status);
+        Assert.Equal("https://queue.fal.run/fal-ai/ltx-video/requests/01a186ef-e123-7c23-aec5-6632b3107826/status", http.Requests[0].Uri?.ToString());
+        var artifact = Assert.Single(fetched.Artifacts);
+        Assert.Equal("video/mp4", artifact.MediaType);
+        Assert.Equal("https://v3b.fal.media/files/b/0ab04e3c/0vILv0Rc7tsU4nzrdYHAY.mp4", artifact.Uri);
+        Assert.Null(fetched.Usage?.CostUsd);
+    }
+
+    [Fact]
+    public async Task Recorded_from_fal_an_object_valued_field_sent_as_a_string_is_accepted_and_refused_at_the_fetch()
+    {
+        // what a host that does not name image_size in JsonFields gets: fal accepts the submit and polls COMPLETED,
+        // then answers the fetch 422 because the field is not an object
+        var options = new FalOptions { ApiKey = "k", Model = "fal-ai/flux/schnell" };
+        var (provider, http) = Provider(options);
+        const string id = "fal-ai/flux/schnell#01a186e9-c2d4-71d1-9d8b-086f39a9f902";
+        http.Enqueue(HttpStatusCode.OK, """
+            {"status":"COMPLETED","request_id":"01a186e9-c2d4-71d1-9d8b-086f39a9f902","response_url":"https://queue.fal.run/fal-ai/flux/requests/01a186e9-c2d4-71d1-9d8b-086f39a9f902","status_url":"https://queue.fal.run/fal-ai/flux/requests/01a186e9-c2d4-71d1-9d8b-086f39a9f902/status","cancel_url":"https://queue.fal.run/fal-ai/flux/requests/01a186e9-c2d4-71d1-9d8b-086f39a9f902/cancel","logs":null,"metrics":{"inference_time":0.0410001277923584}}
+            """);
+        http.Enqueue(HttpStatusCode.UnprocessableEntity, """
+            {"detail":[{"type":"model_attributes_type","loc":["body","image_size","ImageSize"],"msg":"Input should be a valid dictionary or object to extract fields from","input":"{\"width\":512,\"height\":384}"},{"type":"literal_error","loc":["body","image_size","literal['square_hd','square','portrait_4_3','portrait_16_9','landscape_4_3','landscape_16_9']"],"msg":"Input should be 'square_hd', 'square', 'portrait_4_3', 'portrait_16_9', 'landscape_4_3' or 'landscape_16_9'","input":"{\"width\":512,\"height\":384}","ctx":{"expected":"'square_hd', 'square', 'portrait_4_3', 'portrait_16_9', 'landscape_4_3' or 'landscape_16_9'"}}]}
+            """);
+
+        var polled = await provider.PollAsync(id);
+        var fetched = await provider.FetchAsync(id);
+
+        Assert.Equal(QueuedOperationStatus.Succeeded, polled.Status);
+        Assert.False(fetched.IsOk);
+        Assert.Contains("model_attributes_type", fetched.Detail);
+    }
+
     [Theory]
     [InlineData("fal-ai/wan-t2v", "fal-ai/wan-t2v")]                       // owner and app
     [InlineData("fal-ai/flux/schnell", "fal-ai/flux")]                     // a sub-path: the first two segments
@@ -377,7 +496,7 @@ public class FalProviderTests
 
     // ---- the unmeasured surface is CORRECTABLE without a library release ------------------------------
     //
-    // Past the image shapes recorded above, this backend's wire format is documented, not measured. The
+    // Past the shapes recorded above, this backend's wire format is documented, not measured. The
     // defaults there are a reading of vendor docs, and the host who first runs them for real is the one who
     // finds out. What these pin is that finding out is CHEAP: every mapping that could be wrong is an
     // option, so the fix is a configuration edit rather than an upstream release.

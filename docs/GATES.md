@@ -117,7 +117,7 @@ each:
 | `LocalDiffusionLiveTests` | `LYNTAI_SD_CLI` + `LYNTAI_SD_MODEL` |
 | `ComfyUiLiveTests` | `LYNTAI_COMFYUI_URL` + `LYNTAI_COMFYUI_CHECKPOINT` |
 | `PiperLiveTests` | `LYNTAI_PIPER_CLI` + `LYNTAI_PIPER_MODEL` |
-| `FalLiveTests` | `FAL_KEY` (a fal.ai key) — and it skips again on an account with no balance. Two submits per run, a tenth of a cent: run it on purpose, never in `verify` |
+| `FalLiveTests` | `FAL_KEY` (a fal.ai key) — and it skips again on an account with no balance. Twenty to forty submits per run, about a tenth of a dollar at fal's list price; `FAL_LIVE_VIDEO=1` adds one video submit at $0.02. Run it on purpose, never in `verify` |
 
 The rest ride a running server, CLI or MCP endpoint (`LYNTAI_LIVE_*`, the Ollama and MCP variables); each
 suite's `Skip` message names what it needs.

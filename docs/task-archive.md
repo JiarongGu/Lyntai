@@ -6251,3 +6251,20 @@ sample ran with no library change, so none shows a need, and its two stances are
 `AgentUsageProcessTests` fail three times on a loaded machine (`TASKS.md` Part 99). Lane generation.
 
 - The example image-workflow pipeline
+
+## Part 413 — GEN-VERIFY-FAL: the status, cancel, video and object-valued lines (2026-10-29)
+
+✅ done 2026-10-29 — **Outcome:** a third funded run answered six of the eight lines `TASKS.md` Part 33 left, **each YES and no
+default corrected**. `IN_PROGRESS` is `202` and maps to `Running`; `queue_position` is on the `IN_QUEUE` status read (`202`, a
+number) and absent from `IN_PROGRESS`; a cancel is `202 CANCELLATION_REQUESTED` and lands on a queued render only, a finished one
+answering `400 ALREADY_COMPLETED`; a video model (`fal-ai/ltx-video`, a flat $0.02, one request) addresses and reads like an
+image model, its result `{"video":{"url","content_type":"video/mp4",…}}`; an object-valued `image_size` through `JsonFields`
+rendered 512×384, and the same value as a string polls `COMPLETED` and fails at the fetch with `422`. **Found:** a cancel that
+lands polls `COMPLETED` carrying `error` and `error_type` `client_cancelled`, the first failure fal put on the status document, so
+`ErrorField` fires and the poll says `Failed` where `Cancelled` might be expected (documented, no change). **Left open:** what a
+failed request bills (the key cannot read the balance, and the dashboard wants the owner's sign-in) and the Hugging Face route (no
+`hf_` token). **Spend:** about 85 image submits at $0.003 and the one video at $0.02, at most US$0.28 by list price against the
+US$1.50 bound. Five replay tests in `FalProviderTests`, four live tests in `FalLiveTests` (the video one behind `FAL_LIVE_VIDEO=1`);
+the answers are `docs/generation.md` §3. Lane generation.
+
+- GEN-VERIFY-FAL: the status, cancel, video and object-valued lines

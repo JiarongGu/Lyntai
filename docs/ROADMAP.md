@@ -31,7 +31,7 @@
 
 ## Open
 
-- **fal's wire format** is the one generation mapping not measured past the vendor's door: its first live run was refused for an account with no balance (`TASKS.md`).
+- **fal's wire format** is measured on its own queue for an image and a video model; what a failed request bills, and the Hugging Face route, are not (`TASKS.md`).
 - **Server/host/launcher + auto-update** stays out of scope for good: a host is an application's concern,
   and the library stays host-free (design §9).
 

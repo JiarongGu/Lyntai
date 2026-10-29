@@ -57,8 +57,7 @@ never left the process (a refused connection, a failed name lookup or TLS handsh
 `Lyntai.Generation` ships six (`dotnet add package Lyntai.Generation` — it pulls Core with it). Five have run
 against a live engine or a local server speaking their API — the table says which, and neither of the two
 HTTP image backends has been called on its vendor's own service or the WebUI itself; **fal's has been called on
-fal's own queue for an image model, and a video model, `IN_PROGRESS` and a runtime failure are still the documented
-shapes** (§3).
+fal's own queue for an image model and a video model; what a failed request bills is not measured** (§3).
 
 | Backend | Delivery | Notes |
 |---|---|---|
@@ -99,13 +98,15 @@ A backend that catches its own exceptions applies the router's rules itself, so 
 possibly-delivered submit into a conclusive `Failed`, and none reports a thrown exception as a content
 `Refused`.
 
-## 3. fal: measured on an image model, documented for the rest
+## 3. fal: measured on an image and a video model, billing and the Hugging Face route not
 
 `FalProvider` was written from fal.ai's public queue documentation. `FalLiveTests` has called it on fal's own
 queue (`queue.fal.run`, `Authorization: Key …`) with a funded account: a text-to-image on the cheapest model,
-`fal-ai/flux/schnell` (fal's pricing page lists it at $0.003 per megapixel, billed rounded up to one) at its
-smallest preset (`image_size` `square`, 512×512), and an image-to-image on `fal-ai/flux/schnell/redux` whose input
-cannot be downloaded. The wire replayed from those answers is in `FalProviderTests` ("recorded from fal").
+`fal-ai/flux/schnell` (fal's pricing API lists it at $0.003 per megapixel, billed rounded up to one) at its
+smallest preset (`image_size` `square`, 512×512), an image-to-image on `fal-ai/flux/schnell/redux` whose input
+cannot be downloaded, status reads in each state, cancels, an object-valued field, and one video request on
+`fal-ai/ltx-video`, the cheapest video model fal lists with a known price (a flat $0.02 a video). The wire replayed
+from those answers is in `FalProviderTests` ("recorded from fal").
 
 **Measured**: a locked account (no balance) answers a submit `403 {"detail":"User is locked. Reason: Exhausted
 balance. Top up your balance at fal.ai/dashboard/billing."}`, classified by its status (403 and 401
@@ -115,9 +116,12 @@ account:
 - **Submit**: `200` with `status` `IN_QUEUE`, `request_id`, `response_url`, `status_url` and `cancel_url` (all under
   the model's owner and app, `fal-ai/flux`, never the full model path), `queue_position` (`0`), `logs` null and
   `metrics` empty.
-- **Status**: `200` with `status` `COMPLETED` on the first read, a second after the submit (`IN_QUEUE` was seen only
-  on the submit answer, `IN_PROGRESS` not at all), the same URL fields and `metrics.inference_time`. No `error`
-  field and no cost.
+- **Status**: three documents, the same URL fields in each. `IN_QUEUE` is `202` and carries `queue_position`
+  (a number, `0` on every status read that caught it; the submit answer carries positions up to 6 under load, with
+  `user_queue_position` and `user_queued_count` beside it), which the poll reports as `Queued` with the detail
+  `queue position N`. `IN_PROGRESS` is `202` with no position and maps to `Running`. `COMPLETED` is `200` and carries
+  `metrics.inference_time`. No cost. A small render leaves the queue in well under a second, so whether a read catches
+  `IN_QUEUE` is a race against a warm worker; `FalLiveTests` reports it and asserts only `IN_PROGRESS`.
 - **Result**: `{"images":[{"url","width","height","content_type":"image/png"}],"timings","seed",
   "has_nsfw_concepts","prompt"}`, the URL a public CDN link that served a 512×512 PNG. No cost field, so
   `MediaUsage.CostUsd` is null and a spend cap does not see fal renders.
@@ -126,11 +130,29 @@ account:
   "msg":"Failed to download the file. …","type":"file_download_error",…}]}`. So the poll does not see this failure
   (the `ErrorField` check never fires on it) and the fetch reports it `Failed` with fal's words; a job that polls
   `Succeeded` then fetches ends "succeeded but its artifacts could not be fetched: 422 …".
+- **A failure on the status document**: a request cancelled while still queued polls `200 COMPLETED` carrying
+  `"error":"Request cancelled by the client."` and `"error_type":"client_cancelled"` on the status document itself, with
+  `inference_time` `0.0`. `ErrorField` and `ErrorTypeField` fire on it, so the poll reports `Failed` ("the render failed
+  (client_cancelled): Request cancelled by the client."), and the result fetch answers `499` with the same two fields in
+  its body. A landed cancel is therefore `Failed` here rather than `Cancelled`, which `CancelAsync` alone can return.
+- **Cancel**: `PUT` on the request path under owner and app answers `202 {"status":"CANCELLATION_REQUESTED"}` for a
+  queued or a running request, a request and not a stop: of eight cancelled the moment each was submitted, between one
+  and four landed in the runs made and the rest rendered anyway (a request cancelled while `IN_PROGRESS` rendered in
+  every run). A finished request answers `400 {"status":"ALREADY_COMPLETED"}`, which `CancelAsync` reports as `Running`
+  ("cancel rejected: 400"), and the poll then says `Succeeded`. What a landed cancel bills is not measured (below).
+- **A video model**: `fal-ai/ltx-video` is addressed as an image model is. Submit `IN_QUEUE`, `IN_PROGRESS` for the rest,
+  `COMPLETED` after 15 s (`inference_time` 13.5 s), no cost. The result is `{"video":{"url","content_type":"video/mp4",
+  "file_name","file_size"},"seed"}`, which `ReadArtifacts` reads as one `video/mp4` artifact; the URL served the file
+  (1.0 MB). A video model with a sub-path id was not run.
+- **An object-valued field**: with `FalOptions.JsonFields = ["image_size"]`, `{"width":512,"height":384}` reached fal as
+  an object and the render was 512×384. The same value as a string is accepted, polls `COMPLETED` and fails at the
+  fetch with `422` (`model_attributes_type`: "Input should be a valid dictionary or object"), so a field left out of
+  `JsonFields` fails late, as the input that could not be downloaded did.
 
-**Still documented, not measured**: `IN_PROGRESS`, `queue_position` on a status read, a failure fal reports on the
-status document itself (`ErrorField`, `ErrorTypeField`), a video model, cancel, an object-valued request field
-(`JsonFields`), and what a failed request bills. One `FalLiveTests` run is two submits at about a third of a cent.
-Its tests pin this library's behaviour for each, never that fal answers in it.
+**Still not measured**: what a failed request bills, and the Hugging Face route below. fal's balance and usage endpoints
+refuse the key (`403`), and the dashboard needs the owner's sign-in; fal reports no cost on any answer, so a bill can
+only be read from the balance. One run of `FalLiveTests` without `FAL_LIVE_VIDEO` is twenty to forty submits at $0.003; with it,
+one more at $0.02. Its tests pin this library's behaviour for each, never that fal answers in it.
 
 **What a host can correct in configuration** (`FalOptions`, D69): the URL segments (`RequestsSegment`,
 `StatusSegment`, `CancelSegment`), the status vocabulary (`StatusVocabulary`), the cost fields (`CostFields`),
@@ -163,7 +185,7 @@ object-valued field such as a custom `image_size` is `o.JsonFields = ["image_siz
 `Options["image_size"] = """{"width":1024,"height":768}"""`. A listed option whose value is not valid JSON
 (a preset name, say) is refused as `Unsupported` before any call. The list is a name list rather than a marker in the
 value, because whether a field is an object is a property of the model's schema, and no string can be mistaken for JSON by
-what it begins with. Nothing has sent an object-valued field to fal yet: the run's `image_size` was a preset name.
+what it begins with. An object-valued `image_size` was sent and rendered at the size asked (above).
 
 **A free way to verify the wire.** Hugging Face's router proxies fal's own queue wire, and a free Hugging Face
 account carries a small monthly inference credit and needs no fal account. The route is a configuration, not
@@ -184,7 +206,7 @@ services.AddLyntai(cfg => cfg
 It confirms the queue vocabulary, the error fields, the result shape and the sub-path question. It does not
 confirm fal's direct `Key` auth or fal's own billing, and because it reaches the same backend it is a
 verifier rather than a fallback: an outage at fal takes both down. The route is documented by Hugging Face;
-nobody has run it from this library yet.
+nobody has run it from this library yet, because the run that measured fal's own queue held no `hf_` token.
 
 ## 4. Hosted fallbacks beside fal
 
