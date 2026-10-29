@@ -1,11 +1,12 @@
 # The agent-provider layer against Daoris's accepted provider design — a study
 
-**Status: a study (`docs/documents.md`), 2026-10-29; nothing is built from it.** It reads Lyntai's layer
+**Status: a study (`docs/documents.md`), 2026-10-29; AG20 is built, the rest is not.** It reads Lyntai's layer
 (`docs/agent-provider-layer.md`, **D219**, rows AG1 to AG9 closed in `docs/task-archive.md`) against two designs
 Daoris has since accepted, and files what a host that runs coding agents still needs from the layer as rows AG10 to
-AG20 in `TASKS.md` (Part 412 there) and one decision, **D233**. Its reasoning is read here; the rows are built in
-later sessions. A type named below is a shipped one unless the row that proposes it says otherwise, and the
-`ApiSurface` baselines hold what shipped.
+AG20 in `TASKS.md` (Part 412 there) and **D233**. AG20 was ruled and built as **D234**, and §9 states how a host
+consumes the layer before a release (**D235**). Its reasoning is read here; the other rows are built in later
+sessions. A type named below is a shipped one unless the row that proposes it says otherwise, and the `ApiSurface`
+baselines hold what shipped.
 
 ## 1. What was read, and how far it can be trusted
 
@@ -58,7 +59,7 @@ is; what Lyntai **lacks** that is general (a row in `TASKS.md`) or why it files 
 | **a** the contract named, the registry, the census | `AgentProviderDescriptor`, `AgentDoor`, `AgentAbility` (a name, a support, a source: declared, negotiated or measured, evidence, `AppliesTo`), `AgentProviderRegistry` by id, an unknown id throws and names what exists | Daoris's `Known<T>` applies per **eight facts** (door, versions, posture, writable roots, reach, OS, settings digest); `AgentAbility.AppliesTo` is one version. Daoris needs it to ADMIT a measured confinement; Lyntai states `Unknown` and never reads it as a promise, the safe direction. **Not filed**: no consumer measures confinement per posture; it re-opens when one does. The census (no vendor name outside the providers) is a Daoris maintenance gate: Lyntai's vendor vocabulary in Core is the one classifier's sentence tables by **D219**, and `check-api-vocabulary` holds the surface | nothing |
 | **b** the shim, the one registration list, the conformance suite, stand-ins discovered | `AddAgentProvider` is a DI collection, so a provider is a class and a registration; `AgentProviderConformanceTests` is a theory over the registry; `provider-stub.mjs`, `codex-stub.mjs`, `acp-stub.mjs` | the theory holds the DESCRIPTOR and the spawn rules; it never drives a stream, so "exactly one terminal", "a failed terminal carries its failure" and "a limit a tool printed never classifies" are held door by door in each door's own tests and by no theory | **AG16** |
 | **c** a third stand-in through the contract alone | the suite's own `StandInProvider` (a host-own door, kind `host-own`) registers with no edit to Core | it emits one terminal and nothing a wire carries, so it proves the REGISTRATION and not the vocabulary: a stand-in with a dialect of its own, whose extensions no built-in door reads, is what shows a door is not reading another agent's keys | **AG15**'s proof, **AG16** |
-| **d** the owner, once: an account key above the doors | `AgentAccount.Provider` names one provider; an ACP agent is its own provider id, never a second door on a CLI id (**D225**) | Daoris keeps one provider with two doors and resolves the owner once; Lyntai chose two providers so an account, a seat and a hand-over each rest on one door's facts. **D225 named its own re-open condition: a host that needs one account across a CLI door and an ACP door of the same agent**; Daoris's design is that need, designed and not used | **AG20**, a ruling first |
+| **d** the owner, once: an account key above the doors | `AgentAccount.Provider` names one provider; an ACP agent is its own provider id, never a second door on a CLI id (**D225**) | Daoris keeps one provider with two doors and resolves the owner once; Lyntai chose two providers so an account, a seat and a hand-over each rest on one door's facts. **D225 named its own re-open condition: a host that needs one account across a CLI door and an ACP door of the same agent**; Daoris's design is that need, designed and not used. **Answered by AG20 as D234**: the doors stay providers and name one `Agent`, which is the account key Daoris's §2.2 describes ("a key resolves to its pool, never to one provider"); doors of one key read the home through one variable, so a plugin door that declares its own variable is a key of its own, as Daoris's §4.1 already has it | built, **D234** |
 | **e** the accounts' readers (usage question, floors, windows, limit grammar, sign-in words) | `IAgentUsageSource` with a per-vendor internal dialect (`ClaudeUsageDialect`, `CodexUsageDialect`) and `AgentAllowanceReading` (**D222**); the limit grammar is `ProviderVerdictClassifier` and `StatedRecovery`, one classifier | Daoris splits words into a provider's and a door's tables; Lyntai keeps one classifier a BYO door may call (`ReadAgentFailure`) and builds its own `AgentFailure` where its words differ, so a third provider's reset grammar needs no registry. The **floor** (how often a read may run) is the host's: a read starts the vendor's process, which the ability's `SideEffects` says, and how often to pay it is a deployment's call | nothing |
 | **f** the program: install, update, pin, release sources | `ICliBackend` drives the backend's own installer at a version the host names (**D20**) | Daoris owns release sources and a signed download; **D20 refuses exactly that** (Lyntai never fetches, chooses a version or picks a location), so this is the host's | nothing |
 | **g** the doors as abilities | `AgentAbilities` (eleven names), `AgentDoor.Unhonourable`, refusal before a spawn | Daoris's `interactive` is a conversation the person types into: the host's, Lyntai has no chat in the layer | nothing |
@@ -79,7 +80,7 @@ is; what Lyntai **lacks** that is general (a row in `TASKS.md`) or why it files 
 | **s-iv** the efforts a door offers | effort is the host's word on `AgentChoice` | the host's | nothing |
 | **s-v** the Claude seam on every protocol door | the ACP door sends no vendor variable but the one the host names as the account's home | Daoris-specific | nothing |
 | **s-vi** other providers' credentials stripped from a spawn | the removal seam exists (a null value in `environment`) | which variable to strip is a deployment's policy; **the DECLARED list of variables each provider reads** is a fact about the provider, which a host needs to compute the strip and which the descriptor does not state | **AG17** |
-| **s-vii** counted by agent, a pick carried across one agent's two doors | the pool is per provider (D225) | follows row **d** | **AG20** |
+| **s-vii** counted by agent, a pick carried across one agent's two doors | an account filed under the agent is one account in the pool whichever door's choice it sits in (**D234**); a pick names the account and model, and the host chooses the door | the conversation is not carried: `AgentHandover.Decide` resumes only on the same provider and door, else a brief | built with row **d**, **D234** |
 | **s-viii** a child's card kind | not a Lyntai concept | the host's | nothing |
 | **s-ix on** each cell where today's copies disagree | not a Lyntai concept (one registry) | Daoris-internal | nothing |
 | **t** the old seam's end, records held | the ids and event shapes are frozen (**D70**) | Lyntai keeps its strings by the freeze | nothing |
@@ -127,7 +128,7 @@ Each sentence is what a library user would say with the asker's name struck.
 | **AG17** | *An application that runs an agent on an API key, or through a gateway, needs an account that is a set of variables and not only a home, and the provider's own list of what it reads.* | `AgentAccount` is `Provider`, `Name`, `Home`; Daoris's key account and its strip rule (s-vi) | the VALUE is the host's and is never stored (D20); the declared NAMES are the provider's |
 | **AG18** | *An application that runs an agent that starts background work needs to know it started and how it ended, because the binary ends it when the turn ends.* | Daoris measured it (the same evidence: `task_started`, `task_updated`, `task_notification`; background work killed at the turn's end) | the fact is the agent's; what to show is the host's |
 | **AG19** | *An application that lets a person decide a tool call needs an ACP permission request handed to it, not decided by the library.* | Daoris's `RequestHeld`, built; Lyntai's ACP door rejects every request in a read-only turn and allows each in a write turn | who decides is the host's, and today it cannot |
-| **AG20** | *An application that runs one agent through both its CLI and its ACP adapter needs a limit on one to hold the other.* | D225's own re-open condition; Daoris §4.1 ("one account on two doors is one account") | a ruling first: it changes what a persisted hold is keyed by |
+| **AG20** | *An application that runs one agent through both its CLI and its ACP adapter needs a limit on one to hold the other.* | D225's own re-open condition; Daoris §4.1 ("one account on two doors is one account") | built as **D234**; no persisted key moved, because the key of an account filed under its provider's id is unchanged |
 
 ## 5. What the study judges the host's
 
@@ -156,13 +157,20 @@ to a provider; the rule language and skills; the plugin catalogue and its manife
 
 ## 7. Order of the rows
 
-All are startable now except AG20, which waits on a ruling; the "after" marks are a sequence and not a block.
+AG20 is built (**D234**); AG10 to AG19 are startable, and this is the order they are built in, one sitting each:
 
-1. **AG10** first: it is a defect against measured evidence in a shipped reader, small, and needs nothing.
-2. **AG11**, then **AG12**: the second reads the refusal the first makes.
-3. **AG13**, then **AG14**: the failure facts before the door that needs them. **D233** is the ruling AG14 stands on.
-4. **AG15**, **AG16**, **AG17**: independent of each other. AG16's HTTP door joins the theory when AG14 lands.
-5. **AG18** after AG10 (it reads the same lines); **AG19** independent; **AG20** decision-only.
+1. **AG10**: a defect against measured evidence in a shipped reader, small, and it needs nothing.
+2. **AG11**, then **AG12**: the second reads the refusal the first makes, and a pool pick must not drop a model
+   silently (Daoris §4.2's models).
+3. **AG17**: an account that is a key and the variables a provider reads; it builds on the account key AG20 fixed, and
+   Daoris's first new provider (§12 there) needs it.
+4. **AG16**, then **AG13**, then **AG14**: the stream rules are held by one theory before the HTTP door exists, so the
+   door is born under them, and the failure facts come before the door that needs them (**D233**).
+5. **AG18** (after AG10: it reads the same lines), then **AG15** and **AG19**, which no Daoris row waits on: Daoris
+   built its own dialect seam and held permission request.
+
+The order is Lyntai's reading of the dependencies in the rows and of Daoris's §11 order; a host that reports a blocking
+need moves a row up, and a row that is not built says so in `TASKS.md` rather than here.
 
 Each row is sized for one sitting, names its lanes (`daoris.lanes.json`), and carries its proof in `TASKS.md`.
 Every capture a row's tests use is labelled SOURCE-DERIVED or REAL as `tests/Lyntai.Tests/Providers/AcpAgentSessionTests.cs`
@@ -174,3 +182,38 @@ It read Daoris's files and Lyntai's code and ran nothing: AG10 rests on Daoris's
 (an asynchronous subagent; a synchronous one, a nested one and a failed one were not seen there), and the row's
 first step is a fixture of that shape. The Daoris rows were read as accepted designs, with row a alone built, on a
 branch. Whether a Codex or ACP agent emits any child frame the reader should take is unmeasured on both sides.
+
+## 9. How a host consumes the layer before a release (**D235**)
+
+A host that builds on the layer takes it as a package (`Lyntai.Core` for the contracts and the pool,
+`Lyntai.Providers.Basic` for the doors) and composes it through `AddLyntai`. **Every entry for the layer is under
+`## Unreleased` in `CHANGELOG.md`, so no version a host can pin carries any of it.**
+
+**Building against what is not released.** Pack the packages from a named commit of this repository into a folder the
+host keeps untracked (`dotnet pack Lyntai.slnx -c Release -p:Version=<a version of the host's own> -o <folder>`, as
+`consumer-smoke` does), add the folder as a package source in the host's untracked NuGet configuration, and use a version
+that differs on each pack and evict the global cache's copy of it (`docs/GATES.md` §consumer-smoke says why). The host's
+tracked files name no folder and no unreleased version; when a release carries what it needs it pins that release. Lyntai
+publishes no preview version.
+
+**What is frozen.** A release freezes the surface it carries (**D70**; **D18**'s disclosed break in a minor). Nothing of
+the layer is yet carried, so the tiers below are about what a row can still touch:
+
+| Tier | Members | A host may |
+|---|---|---|
+| Not touched by any open row | `IAgentProvider`, `AgentProvider`, `AgentProviderRegistry`, `AgentProviderDescriptor` with `Agent` and `AccountKey` (**D234**), `AgentDoor`, `AgentAbility`, `AgentAccount`, `AgentSessionOptions`, `IAgentSession` and the event records but `ToolCall` and `ToolResult`, `SessionEnded` with `AgentFailure`, `AgentRestriction` and `AgentDelivery`, `AgentAccountPool` with `AgentChoice`, `AgentPick`, `AgentSeat`, `AgentHold` and `IAgentAccountPolicy`, `AgentHandover`, the brief and transcript types, the retry decorator, `AddAgentProvider` in both forms, the pool, retry, brief and usage-reading registrations, and `agent:` on the three session registrations | build on them as they stand |
+| Grown by a row, additively | `ToolCall` and `ToolResult` (a `ParentCallId`, AG10); `AgentAbilities.All` (a `model` ability, AG11, and `permission-requests`, AG19; a provider that states fewer reads `Unknown` for the rest); `AgentAccount` and `AgentAccountMapping` (environment entries and the names a provider reads, AG17, which replaces `AgentAccount`'s test that it holds only a name and a home); new event records (AG18); `AddAcpAgentSession` (a dialect and a callback, AG15 and AG19); `AddHttpAgentSession` (AG14); the HTTP failure reader (AG13) | build on the members that exist, and treat a member a row adds as absent until its row lands |
+| Not a promise | `internal` types, XML-doc wording, log text, the SOURCE-DERIVED capture shapes (`TASKS.md` AG rows say which), an ability stated `Unknown`, and what `docs/guide.md` says an agent's wire carries beyond the neutral events | read them, never depend on them |
+
+Every row's change to a type in the first two tiers is made with its `ApiSurface` baseline moved from an emitted
+`.actual` and a `CHANGELOG.md` entry, and a change that is not additive is disclosed under `### Breaking` (**D161**), so
+a host that rebuilds against a newer pack reads the difference in one place.
+
+**What the study's rows missed.** Reading Daoris's §2.2 to §4.1 and §11 again for what it needs to replace its own
+contract found one thing the study had filed as AG20 and no further general gap: **row d** (the account key, one pool
+for a key) is **D234**, **s-vii** follows it, and **s-vi**'s declared variables and OPENROUTER1's key account are **AG17**.
+What stays Daoris's, each failing the generic-library test (two honest applications answer it differently): the door's
+trust file and whether a start with no account runs in its own home, `Reach` and the opening of a repository to a
+provider, the rule language, skills and hooks, the plugin catalogue and its manifest, the census, the eight-fact
+applicability of a measurement, and a plugin door's `Lent` part. **Not filed, with a trigger**: a long-lived run
+(**D233**), provenance on every reading, an offered-model list (§3.1 row n).

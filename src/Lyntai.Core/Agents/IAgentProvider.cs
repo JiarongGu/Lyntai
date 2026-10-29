@@ -35,7 +35,8 @@ public sealed class AgentProvider : IAgentProvider
     public const string OptionRefusedSubtype = "option-unsupported";
 
     /// <summary>The <see cref="SessionEnded.Subtype"/> of a turn refused because its
-    /// <see cref="AgentSessionOptions.Account"/> belongs to another provider. Refused the same way as an
+    /// <see cref="AgentSessionOptions.Account"/> belongs to another provider (neither this one's id nor its
+    /// <see cref="AgentProviderDescriptor.Agent"/>). Refused the same way as an
     /// unsupported option: one terminal, <see cref="AgentDelivery.NeverSent"/>, nothing spawned.</summary>
     public const string AccountRefusedSubtype = "account-other-provider";
 
@@ -43,7 +44,8 @@ public sealed class AgentProvider : IAgentProvider
     private readonly Dictionary<string, AgentDoorSession> _sessions;
 
     /// <param name="descriptor">What the provider is. Must have an id, at least one door, and per door a unique
-    /// id and at most one claim per ability.</param>
+    /// id and at most one claim per ability; an <see cref="AgentProviderDescriptor.Agent"/> needs
+    /// <see cref="AgentProviderDescriptor.Accounts"/>.</param>
     /// <param name="sessions">The session of a door, asked for once per door, lazily.</param>
     /// <exception cref="ArgumentException">The descriptor is malformed.</exception>
     public AgentProvider(AgentProviderDescriptor descriptor, Func<AgentDoor, IAgentSession> sessions)
@@ -53,6 +55,12 @@ public sealed class AgentProvider : IAgentProvider
         ArgumentException.ThrowIfNullOrWhiteSpace(descriptor.Id, nameof(descriptor));
         if (descriptor.Doors is null || descriptor.Doors.Count == 0)
             throw new ArgumentException($"Agent provider '{descriptor.Id}' states no door.", nameof(descriptor));
+
+        if (descriptor.Agent is not null && string.IsNullOrWhiteSpace(descriptor.Agent))
+            throw new ArgumentException($"Agent provider '{descriptor.Id}' names a blank agent.", nameof(descriptor));
+        if (descriptor.Agent is not null && descriptor.Accounts is null)
+            throw new ArgumentException(
+                $"Agent provider '{descriptor.Id}' names agent '{descriptor.Agent}' but reads no account.", nameof(descriptor));
 
         _descriptor = descriptor;
         _sessions = new Dictionary<string, AgentDoorSession>(StringComparer.Ordinal);
@@ -64,7 +72,7 @@ public sealed class AgentProvider : IAgentProvider
             if (duplicate is not null)
                 throw new ArgumentException(
                     $"Door '{door.Id}' of agent provider '{descriptor.Id}' states '{duplicate.Key}' twice.", nameof(descriptor));
-            if (!_sessions.TryAdd(door.Id, new AgentDoorSession(descriptor.Id, door, sessions)))
+            if (!_sessions.TryAdd(door.Id, new AgentDoorSession(descriptor.Id, descriptor.Agent, door, sessions)))
                 throw new ArgumentException(
                     $"Agent provider '{descriptor.Id}' has two doors named '{door.Id}'.", nameof(descriptor));
         }
@@ -83,7 +91,8 @@ public sealed class AgentProvider : IAgentProvider
                 $"Agent provider '{_descriptor.Id}' has no door '{doorId}'. Doors: {string.Join(", ", _sessions.Keys)}.");
     }
 
-    private sealed class AgentDoorSession(string providerId, AgentDoor door, Func<AgentDoor, IAgentSession> open) : IAgentSession
+    private sealed class AgentDoorSession(
+        string providerId, string? agent, AgentDoor door, Func<AgentDoor, IAgentSession> open) : IAgentSession
     {
         private readonly Lazy<IAgentSession> _inner = new(() => open(door));
 
@@ -91,10 +100,13 @@ public sealed class AgentProvider : IAgentProvider
             AgentSessionOptions options, [EnumeratorCancellation] CancellationToken ct = default)
         {
             ArgumentNullException.ThrowIfNull(options);
-            if (options.Account is { } account && !string.Equals(account.Provider, providerId, StringComparison.Ordinal))
+            if (options.Account is { } account
+                && !string.Equals(account.Provider, providerId, StringComparison.Ordinal)
+                && !string.Equals(account.Provider, agent, StringComparison.Ordinal))
             {
                 yield return new SessionEnded(ProviderVerdict.Unsupported, true, AccountRefusedSubtype, null, null,
-                    $"account '{account.Name}' belongs to provider '{account.Provider}', not '{providerId}'")
+                    $"account '{account.Name}' belongs to '{account.Provider}', not to provider '{providerId}'"
+                    + (agent is null ? "" : $" or its agent '{agent}'"))
                 {
                     Failure = new AgentFailure(AgentFailureKind.Fatal, "refused-before-spawn") { Delivery = AgentDelivery.NeverSent },
                 };
@@ -125,10 +137,14 @@ public sealed class AgentProviderRegistry
     private readonly Dictionary<string, IAgentProvider> _byId = new(StringComparer.Ordinal);
 
     /// <param name="providers">Every registered provider.</param>
+    /// <exception cref="InvalidOperationException">Providers that share an account key
+    /// (<see cref="AgentProviderDescriptor.AccountKey"/>) read the home through different variables, or one names an
+    /// agent and reads no account.</exception>
     public AgentProviderRegistry(IEnumerable<IAgentProvider> providers)
     {
         ArgumentNullException.ThrowIfNull(providers);
         foreach (var provider in providers) _byId[provider.Describe().Id] = provider;
+        AgentAccountKeys.Validate(_byId.Values.Select(p => p.Describe()));
         Ids = [.. _byId.Keys.Order(StringComparer.Ordinal)];
     }
 

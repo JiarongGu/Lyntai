@@ -148,6 +148,15 @@ every addition.
   (`UnknownProbeAfter` is the host's option), and a shared allowance is held only where an `IAgentAllowanceSource`
   supplies one. `IAgentAccountPolicy` picks among permitted seats. State is kept through the key-value store, and
   two processes sharing one pool are out of scope.
+- **One account can serve every door of an agent** (**D234**). A CLI and an ACP adapter stay two providers, and each
+  names the agent it shares accounts with: `agent:` on `AddClaudeCliAgentSession`, `AddCodexCliAgentSession` and
+  `AddAcpAgentSession`, or `AgentProviderDescriptor.Agent` (its `AccountKey` is that, else its id) on a provider of
+  your own. An `AgentAccount.Provider` is that key, each door accepts it, and the pool holds one account once, so a limit,
+  a cool-off or a clear through one door is the other's. Doors of one agent must read the home through the same variable:
+  `AgentProviderRegistry` refuses a set that does not, and so does `AddAgentProvider(descriptor, factory)`, a new overload,
+  at the call. `AgentAccountPool`'s constructor takes the providers' descriptors last, and an account whose key is neither
+  its choice's provider nor that provider's agent now throws when the pool is built rather than at `AddAgentAccountPool`.
+  A hold already stored for an account filed under a provider id keeps its key.
 - **A transcript, a bounded brief and a hand-over decision** (**D228**). `RecordingAgentSession` folds any
   `IAgentSession`'s events into an `AgentTranscript` (`AgentTranscriptRecorder`); `AgentBriefComposer.Brief` makes a
   brief from it with no model: the host's words verbatim and first, the agents' output quoted as their claim, each

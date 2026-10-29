@@ -94,6 +94,40 @@ public sealed class LyntaiBuilder
         return this;
     }
 
+    private readonly Dictionary<string, AgentProviderDescriptor> _declaredAgents = new(StringComparer.Ordinal);
+
+    /// <summary>As <see cref="AddAgentProvider(Func{IServiceProvider,IAgentProvider})"/>, with the provider's
+    /// descriptor stated NOW, so a provider that shares an account key
+    /// (<see cref="AgentProviderDescriptor.AccountKey"/>) with one registered through this overload and reads the home
+    /// through another variable is refused at this call, whatever the order, instead of when the registry is first
+    /// built. The factory's provider must describe itself as <paramref name="descriptor"/> does in id, agent and
+    /// account variable; it throws when it is built if it does not. A later call for the same id replaces the
+    /// earlier, as the registry does.</summary>
+    /// <exception cref="InvalidOperationException">The descriptor conflicts with one already declared.</exception>
+    public LyntaiBuilder AddAgentProvider(AgentProviderDescriptor descriptor, Func<IServiceProvider, IAgentProvider> factory)
+    {
+        ArgumentNullException.ThrowIfNull(descriptor);
+        ArgumentNullException.ThrowIfNull(factory);
+        ArgumentException.ThrowIfNullOrWhiteSpace(descriptor.Id, nameof(descriptor));
+        var declared = new Dictionary<string, AgentProviderDescriptor>(_declaredAgents, StringComparer.Ordinal)
+        {
+            [descriptor.Id] = descriptor,
+        };
+        AgentAccountKeys.Validate(declared.Values);
+        _declaredAgents[descriptor.Id] = descriptor;
+        return AddAgentProvider(sp =>
+        {
+            var provider = factory(sp);
+            var described = provider.Describe();
+            if (described.Id != descriptor.Id || described.Agent != descriptor.Agent
+                || described.Accounts?.HomeVariable != descriptor.Accounts?.HomeVariable)
+                throw new InvalidOperationException(
+                    $"Agent provider '{described.Id}' was declared as '{descriptor.Id}' (agent '{descriptor.Agent}', " +
+                    $"home variable '{descriptor.Accounts?.HomeVariable}') and describes itself differently.");
+            return provider;
+        });
+    }
+
     /// <summary>Register an <see cref="IModelProvider"/> into the router's provider collection.</summary>
     /// <param name="declares">Optional. What this backend will produce, stated NOW because a type the
     /// container constructs cannot be inspected until it is built — see the
@@ -589,15 +623,16 @@ public sealed class LyntaiBuilder
     /// <see cref="IAgentProvider"/> that is also an <see cref="IAgentAllowanceSource"/> shows which accounts share an
     /// allowance. Off unless called; repeating the call re-applies its options. Two processes sharing one pool are out
     /// of scope (<see cref="AgentAccountPool"/>).</summary>
-    /// <exception cref="ArgumentException">No choice, a choice with no account or with an account of another
-    /// provider, or one account listed with two homes.</exception>
+    /// <exception cref="ArgumentException">No choice, a choice with no account, or one account listed with two homes.
+    /// An account whose key is neither its choice's provider nor the agent that provider shares is refused when the
+    /// pool is built (the providers are not all known at this call), by the same exception.</exception>
     /// <exception cref="ArgumentOutOfRangeException">A bound is not positive.</exception>
     public LyntaiBuilder AddAgentAccountPool(Action<AgentPoolOptions> configure)
     {
         ArgumentNullException.ThrowIfNull(configure);
         var options = AgentPool ??= new AgentPoolOptions();
         configure(options);
-        options.Validate();
+        options.Validate(null, checkOwners: false);
         return this;
     }
 

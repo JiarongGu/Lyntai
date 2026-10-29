@@ -12,9 +12,10 @@ internal static class CodexAgentDoor
 
     public const string AccountHomeVariable = "CODEX_HOME";
 
-    public static AgentProviderDescriptor Describe(string providerId) => new()
+    public static AgentProviderDescriptor Describe(string providerId, string? agent = null) => new()
     {
         Id = providerId,
+        Agent = agent,
         Accounts = new AgentAccountMapping(AccountHomeVariable),
         Doors =
         [

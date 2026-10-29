@@ -6283,3 +6283,18 @@ the table, the timing and the limits are `docs/generation.md` §3. **Left open:*
 Lane generation.
 
 - GEN-VERIFY-FAL: what a failed request bills
+
+## Part 415 — AG20: one account across an agent's doors (2026-10-29)
+
+✅ done 2026-10-29 — **Outcome:** **D234** amends **D225** where it re-opened. Each door stays its own provider and
+names an `Agent` (`agent:` on `AddClaudeCliAgentSession`, `AddCodexCliAgentSession` and `AddAcpAgentSession`, or the
+descriptor's own member); an `AgentAccount.Provider` is that key, the pool files the account's holds under it, and a
+limit, a cool-off, a clear and a probe lease on it reach every door, while an endpoint stays one provider's. Doors of one
+agent must read the home through one variable: the registry refuses a set that does not when it is built, and
+`AddAgentProvider(descriptor, factory)` refuses it at the call in either order. **No persisted key moved**: an account
+filed under its provider's id writes the scope strings it always wrote. Proof: `AgentAccountAcrossDoorsTests`, 16 tests, one
+account picked through the CLI and the ACP door and read off each child's spawn, the hold seen by both, and the refusals;
+six of them fail when the account scope is keyed by provider. The same session wrote **D235** (how a host builds against
+unreleased rows) and the build order in the study's §7. Lanes `inference` + `platform`.
+
+- AG20 — one account across a CLI door and an ACP door of the same agent: an identity in the pool?

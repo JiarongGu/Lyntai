@@ -72,19 +72,27 @@ public static class CodexCliBuilderExtensions
     /// its own <c>CODEX_HOME</c>. A null value REMOVES a variable the host process holds (an inherited API key, say)
     /// from the child.</param>
     /// <param name="id">The key the session is registered under; "codex-cli" by default.</param>
+    /// <param name="agent">The agent this provider shares its accounts with
+    /// (<see cref="AgentProviderDescriptor.Agent"/>), as <c>AddClaudeCliAgentSession</c>'s; null keeps the accounts to
+    /// <paramref name="id"/>.</param>
+    /// <exception cref="InvalidOperationException"><paramref name="agent"/> is shared with a door registered through
+    /// a descriptor that reads the home through another variable.</exception>
     public static LyntaiBuilder AddCodexCliAgentSession(
         this LyntaiBuilder builder,
         string? command = null,
         IReadOnlyDictionary<string, string?>? environment = null,
-        string id = CodexCliProvider.ProviderId)
+        string id = CodexCliProvider.ProviderId,
+        string? agent = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(id);
+        ArgumentException.ThrowIfNullOrWhiteSpace(agent ?? id, nameof(agent));
+        builder.AddAgentProvider(CodexAgentDoor.Describe(id, agent), sp => new UsageAgentProvider(
+            new AgentProvider(CodexAgentDoor.Describe(id, agent), _ => sp.GetRequiredKeyedService<IAgentSession>(id)),
+            new CliUsageSource(new CodexUsageDialect(id), sp.GetRequiredService<IProcessRunner>(),
+                sp.GetService<AgentUsageReadingOptions>(), sp.GetService<ILogger<CliUsageSource>>(), command, environment,
+                agent: agent)));
         builder.Services.AddSingleton<IAgentSession>(sp => CreateSession(sp, command, environment));
         builder.Services.AddKeyedSingleton<IAgentSession>(id, (sp, _) => CreateSession(sp, command, environment));
-        builder.AddAgentProvider(sp => new UsageAgentProvider(
-            new AgentProvider(CodexAgentDoor.Describe(id), _ => sp.GetRequiredKeyedService<IAgentSession>(id)),
-            new CliUsageSource(new CodexUsageDialect(id), sp.GetRequiredService<IProcessRunner>(),
-                sp.GetService<AgentUsageReadingOptions>(), sp.GetService<ILogger<CliUsageSource>>(), command, environment)));
         return builder;
     }
 

@@ -53,7 +53,8 @@ internal sealed class CliUsageSource(
     string? command,
     IReadOnlyDictionary<string, string?>? environment,
     TimeProvider? time = null,
-    bool requireValidatedVersion = true) : IAgentUsageSource
+    bool requireValidatedVersion = true,
+    string? agent = null) : IAgentUsageSource
 {
     private static readonly TimeSpan VersionTimeout = TimeSpan.FromSeconds(15);
 
@@ -66,7 +67,8 @@ internal sealed class CliUsageSource(
         if (options is not { Enabled: true }) return Unknown(AgentAllowanceUnknown.Disabled);
         ct.ThrowIfCancellationRequested();
 
-        if (!string.Equals(account.Provider, dialect.ProviderId, StringComparison.Ordinal)
+        if (!(string.Equals(account.Provider, dialect.ProviderId, StringComparison.Ordinal)
+                || string.Equals(account.Provider, agent, StringComparison.Ordinal))
             || !AgentAccounts.TryMap(account, dialect.HomeVariable, out var accountEnvironment, out _))
             return Unknown(AgentAllowanceUnknown.AccountRefused);
 

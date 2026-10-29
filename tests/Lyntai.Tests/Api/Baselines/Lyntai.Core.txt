@@ -48,7 +48,7 @@ sealed class Lyntai.Agents.AgentAccountMapping
     HomeVariable : String { get; init; }
     ToString() : String
 sealed class Lyntai.Agents.AgentAccountPool
-    .ctor(AgentPoolOptions options, IKeyValueStore store = null, TimeProvider time = null, IEnumerable<IAgentAllowanceSource> allowances = null, IAgentAccountPolicy policy = null, ILogger<AgentAccountPool> logger = null)
+    .ctor(AgentPoolOptions options, IKeyValueStore store = null, TimeProvider time = null, IEnumerable<IAgentAllowanceSource> allowances = null, IAgentAccountPolicy policy = null, ILogger<AgentAccountPool> logger = null, IEnumerable<AgentProviderDescriptor> providers = null)
     AbandonAsync(AgentPick pick, CancellationToken ct = default) : Task
     ClearAsync(String id, Int64 revision, CancellationToken ct = default) : Task<Boolean>
     HoldsAsync(CancellationToken ct = default) : Task<IReadOnlyList<AgentHold>>
@@ -274,7 +274,9 @@ sealed class Lyntai.Agents.AgentProvider
     OptionRefusedSubtype : String const
 sealed class Lyntai.Agents.AgentProviderDescriptor
     .ctor()
+    AccountKey : String { get; }
     Accounts : AgentAccountMapping { get; init; }
+    Agent : String { get; init; }
     Doors : IReadOnlyList<AgentDoor> { get; init; } required
     Equals(AgentProviderDescriptor other) : Boolean
     Equals(Object obj) : Boolean
@@ -2302,6 +2304,7 @@ sealed class Lyntai.Jobs.KeyValueJobScheduleStore
 sealed class Lyntai.LyntaiBuilder
     AddAgentAccountPool(Action<AgentPoolOptions> configure) : LyntaiBuilder
     AddAgentBrief(Action<AgentBriefOptions> configure = null) : LyntaiBuilder
+    AddAgentProvider(AgentProviderDescriptor descriptor, Func<IServiceProvider,IAgentProvider> factory) : LyntaiBuilder
     AddAgentProvider(Func<IServiceProvider,IAgentProvider> factory) : LyntaiBuilder
     AddAgentRetry(Action<AgentRetryOptions> configure = null) : LyntaiBuilder
     AddAgentUsageReading(Action<AgentUsageReadingOptions> configure = null) : LyntaiBuilder

@@ -303,8 +303,10 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D231](#d231--a-generation-requests-checkpoint-loras-and-sampling-parameters-are-typed-fields-each-backend-declares-not-free-options-keys-2026-10-28) | 2026-10-28 | a generation request's checkpoint, LoRAs and sampling parameters are typed fields each backend de… |
 | [D232](#d232--fals-per-model-request-path-and-raw-json-fields-are-host-settings-in-faloptions-not-read-from-the-submit-answer-or-marked-inside-a-value-2026-10-29) | 2026-10-29 | fal's per-model request path and raw-JSON fields are host settings in `FalOptions`, not read from… |
 | [D233](#d233--an-http-inference-endpoint-is-an-agent-door-when-lyntais-own-tool-loop-is-the-executor-a-hosted-agent-stays-out-2026-10-29) | 2026-10-29 | an HTTP inference endpoint is an agent door when Lyntai's own tool loop is the executor; a hosted… |
+| [D234](#d234--one-account-serves-every-door-of-an-agent-each-door-stays-its-own-provider-and-names-the-agent-that-owns-the-account-2026-10-29) | 2026-10-29 | one account serves every door of an agent: each door stays its own provider and names the agent t… |
+| [D235](#d235--a-host-builds-against-unreleased-layer-rows-from-a-feed-it-packs-itself-and-lyntai-publishes-no-preview-version-2026-10-29) | 2026-10-29 | a host builds against unreleased layer rows from a feed it packs itself, and Lyntai publishes no… |
 
-**228 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**230 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -6451,8 +6453,9 @@ hand-over decision (**D228**) each rest on one door's facts.
 general need, and the two home variables are documented instead. A package: no ACP library is referenced, so none
 isolates a dependency (**D25**, **D219**).
 
-**Re-opens** when an ACP library dependency appears that a package would isolate, or a host needs one account usable
-across a CLI door and an ACP door of the same agent.
+**Re-opens** when an ACP library dependency appears that a package would isolate. The second condition, a host that
+needs one account usable across a CLI door and an ACP door of the same agent, was met and answered by **D234**, which
+keeps this entry's two reasons.
 
 ## D226 — a protocol agent is spoken to through a live-stdin member on the runner seam (2026-10-28)
 
@@ -6702,3 +6705,66 @@ and never branches on a transport.
 conversation). **D219** §10 deferred it; Daoris has built the ACP half (`promptQueueing`). It is a design, not a sitting.
 **Re-opens** on a host that needs a word taken mid-turn, with a first measurement of which of the two CLI doors and which
 ACP agents accept one; and on a hosted agent with a cancellation Lyntai can confirm.
+
+## D234 — one account serves every door of an agent: each door stays its own provider and names the agent that owns the account (2026-10-29)
+
+**Standing.** Written from the AG20 session (`docs/agent-provider-daoris-study.md` §3.1 row d); the owner's acceptance of
+the branch makes it binding. It answers **D225**'s second re-open condition and keeps both of that entry's reasons. The
+members it adds are frozen from release (**D70**).
+
+**Decided.**
+- **An `AgentProviderDescriptor` may name an `Agent`**, and its `AccountKey` is that, else its id. An `AgentAccount.Provider`
+  is that key, so an account filed under the agent is accepted by every door that names it, and one filed under a door's
+  own id still reaches that door alone. A door states its agent through `agent:` on `AddClaudeCliAgentSession`,
+  `AddCodexCliAgentSession` and `AddAcpAgentSession`, a host's own provider on its descriptor. The string is the host's:
+  no vendor name is known to the library.
+- **The pool holds by the account's key.** One account listed in the choices of several providers is one account, so a
+  limit, a cool-off, a clear and a probe lease on it are seen by every door, as is a model held on it. The endpoint stays
+  one provider's. No persisted key changes: an account filed under its provider's id writes the scope strings it always
+  wrote, and only an account filed under an agent writes the agent's name.
+- **Every provider of one agent reads the home through the same variable.** The registry refuses a set that does not
+  when it is built, and `AddAgentProvider(descriptor, factory)`, which the three registrations use, refuses it at the
+  call in either order. An agent needs a variable, and the pool refuses an account whose key is neither its choice's
+  provider nor that provider's agent when it is built.
+
+**Why.** **D225**'s reasons hold: a second registration of an id must not displace the first, and an account must not
+reach a door that reads another variable. A shared key meets both with no provider id shared, and the variable rule
+meets the second at registration instead of at a turn. The host states the identity, because **D227** and **D222**
+leave account identity that Lyntai would have to infer unestablished.
+
+**Rejected.**
+- **One provider id with several doors**: **D225**'s displacement, and every seat, ability and hand-over decision
+  (`AgentHandover.Decide` keys on provider, door and account) would then rest on a door inside a provider.
+- **A table in the pool options that groups providers**: a host could group doors reading different variables and
+  nothing at registration would refuse it; the doors state it instead.
+- **A list of providers on the account**: it names every door again, and the registry could not hold it.
+- **Identity by home path**: two paths can reach one login and one path two, which is the inference **D227** refuses.
+- **A variable per door on one account**: it hands a home to a program that reads another variable.
+
+**Re-opens** when a program reads one account through a variable that differs by door, which needs the account to carry
+a variable per door, or when a host needs a hold shared across agents, which is **D227**'s allowance source.
+
+## D235 — a host builds against unreleased layer rows from a feed it packs itself, and Lyntai publishes no preview version (2026-10-29)
+
+**Standing.** Written from the AG20 session; the owner's acceptance of the branch makes it binding. It places what a host
+that takes the agent-provider layer by package does before the release that carries it, and reverses by a later decision here.
+
+**Decided.**
+- **Nothing of the agent layer is released** (every entry for it is under `## Unreleased`), so no version a host can pin
+  holds it. Until a release does, a host packs the layer from a named commit of this repository into a folder it
+  keeps untracked: `dotnet pack Lyntai.slnx -c Release -p:Version=<a version of its own> -o <folder>`, what
+  `consumer-smoke` does with a throwaway version. The version differs on each pack, and the global package cache's copy of
+  it is evicted, because NuGet never extracts a version it already holds (`docs/GATES.md` §consumer-smoke). The host's tracked
+  files name neither the folder nor that version; when a release carries the rows it pins that release.
+- **Lyntai publishes no preview or pre-release package.** The release workflow is started by the owner and names the
+  version itself (**D19**), and a version pushed to nuget.org is never freed (**D23**, **D44**).
+- **Frozen is what a release has carried.** An unreleased member can still change; each change lands with its row, a
+  moved `ApiSurface` baseline and a changelog entry, and freezes with the release that first carries it (**D70**,
+  **D18**). `docs/agent-provider-daoris-study.md` §9 lists what a host may rely on and what the rows still move.
+
+**Rejected.** A preview train on nuget.org (**D221**'s rejection of one per package, and the number it burns). A project
+reference to a checkout of this repository: it is a path in the host's tracked files, and a host does not edit what it
+references. Waiting for the release with nothing to build on: Daoris's provider work and the layer's rows run in parallel.
+
+**Re-opens** when a second host needs a shared feed rather than its own pack, or when a release cadence makes the wait
+cheaper than the pack.

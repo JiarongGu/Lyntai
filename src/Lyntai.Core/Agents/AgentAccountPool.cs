@@ -53,18 +53,23 @@ public sealed class AgentAccountPool
     /// <param name="allowances">The doors that can show accounts sharing an allowance; null = none.</param>
     /// <param name="policy">Which permitted seat serves; null = the first.</param>
     /// <param name="logger">Where a stored hold that does not read is reported; null = silent.</param>
-    /// <exception cref="ArgumentException">No choice, a choice with no account or an account of another provider, or
-    /// one account listed with two homes.</exception>
+    /// <param name="providers">What the registered providers say they are, for the agent each shares
+    /// (<see cref="AgentProviderDescriptor.Agent"/>); null = none shares one, and an account must name its choice's
+    /// provider.</param>
+    /// <exception cref="ArgumentException">No choice, a choice with no account, an account whose key is neither its
+    /// choice's provider nor the agent that provider shares, or one account listed with two homes.</exception>
     /// <exception cref="ArgumentOutOfRangeException">A bound is not positive (or <c>UnknownProbeAfter</c> is
     /// negative).</exception>
     /// <exception cref="InvalidOperationException">A source states an allowance with a blank id or no evidence.</exception>
     public AgentAccountPool(
         AgentPoolOptions options, IKeyValueStore? store = null, TimeProvider? time = null,
         IEnumerable<IAgentAllowanceSource>? allowances = null, IAgentAccountPolicy? policy = null,
-        ILogger<AgentAccountPool>? logger = null)
+        ILogger<AgentAccountPool>? logger = null, IEnumerable<AgentProviderDescriptor>? providers = null)
     {
         ArgumentNullException.ThrowIfNull(options);
-        options.Validate();
+        var accountKeys = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var provider in providers ?? []) accountKeys[provider.Id] = provider.AccountKey;   // a later registration wins, as in the registry
+        options.Validate(accountKeys, checkOwners: true);
         _rules = new PoolRules(options.AttemptLease, options.UnknownProbeAfter);
         _prefix = $"lyntai:agent-pool:{Uri.EscapeDataString(options.Name)}:hold:";
         _store = store;
@@ -110,7 +115,7 @@ public sealed class AgentAccountPool
             foreach (var (seat, allowance) in _walk)
             {
                 var admission = AgentPoolReducer.Admit(
-                    _holds, AgentPoolReducer.Covering(seat.Account, seat.Choice.Model, allowance), now, _rules);
+                    _holds, AgentPoolReducer.Covering(seat.Account, seat.Choice.Provider, seat.Choice.Model, allowance), now, _rules);
                 if (admission.Permitted)
                     offered.Add((seat with { IsProbe = admission.Probing.Count > 0 }, allowance, admission));
                 else if (admission.ReadyAt is { } at)
@@ -161,7 +166,7 @@ public sealed class AgentAccountPool
                 var seat = pick.Seat;
                 var allowance = _walk.First(p => p.Seat.Account == seat.Account).Allowance;
                 if (ended.Failure is { } failure
-                    && AgentPoolReducer.FailureHold(failure, seat.Account, seat.Choice.Model, allowance) is { } held)
+                    && AgentPoolReducer.FailureHold(failure, seat.Account, seat.Choice.Provider, seat.Choice.Model, allowance) is { } held)
                     holds = AgentPoolReducer.Hold(holds, held.Scope, held.Restriction, _time.GetUtcNow());
             }
             await CommitAsync(holds, ct).ConfigureAwait(false);
