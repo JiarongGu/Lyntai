@@ -85,8 +85,8 @@ public sealed class FalOptions
     /// heard of.</summary>
     /// <remarks><b>Settable for the same reason the path segments are, and it matters more.</b> A wrong PATH
     /// fails loudly on the first call; a wrong status STRING fails quietly — the render is polled forever, or
-    /// is reported finished when it is not. The shipped three are fal's documented ones; <c>IN_QUEUE</c> (the
-    /// submit answer) and <c>COMPLETED</c> have been seen on the live queue, <c>IN_PROGRESS</c> has not, so a
+    /// is reported finished when it is not. The shipped three are fal's, and all three have been seen on its own
+    /// queue (<c>IN_QUEUE</c> and <c>IN_PROGRESS</c> as <c>202</c>, <c>COMPLETED</c> as <c>200</c>), so a
     /// host who sees another string fixes it in `appsettings.json` rather than waiting for a release.
     /// That is also why this is a dictionary rather than a delegate: configuration binding can reach it.
     /// <para>Replacing the map replaces it wholesale — add to it to extend the vocabulary, assign to it to
@@ -109,9 +109,10 @@ public sealed class FalOptions
     /// <c>COMPLETED</c> carrying this field, so a status that maps to
     /// <see cref="QueuedOperationStatus.Succeeded"/> and carries a non-empty value here polls as
     /// <see cref="QueuedOperationStatus.Failed"/>, the value in the detail. Empty disables the check.
-    /// <para>A measured failure did NOT carry it: an input fal could not download polled <c>COMPLETED</c> with
-    /// no such field and failed at the result fetch (<c>422</c>, a <c>detail</c> list), so a request can poll
-    /// Succeeded and still fail there.</para></summary>
+    /// <para>Measured: a request cancelled while still queued carries it (<c>error</c> and <c>error_type</c>
+    /// <c>client_cancelled</c>), so it polls Failed. An input fal could not download did NOT: it polled
+    /// <c>COMPLETED</c> with no such field and failed at the result fetch (<c>422</c>, a <c>detail</c> list), so a
+    /// request can poll Succeeded and still fail there.</para></summary>
     public string ErrorField { get; set; } = "error";
 
     /// <summary>The field beside <see cref="ErrorField"/> naming the failure's kind
@@ -149,10 +150,10 @@ public sealed class FalOptions
 /// checkpoints the operation id and polls to completion across restarts, so a crash never pays for a render twice.
 /// </summary>
 /// <remarks>
-/// <para><b>Measured on fal's own queue for an image model</b> (<c>queue.fal.run</c>, <c>Authorization: Key …</c>):
-/// the submit, status and result fields, <c>IN_QUEUE</c> and <c>COMPLETED</c>, the sub-path addressing and a failed
-/// request's shape. <c>IN_PROGRESS</c>, <c>queue_position</c> on a status read, a video model and the
-/// <see cref="FalOptions.ErrorField"/> shape are still the documented ones. A host corrects in configuration the
+/// <para><b>Measured on fal's own queue for an image and a video model</b> (<c>queue.fal.run</c>,
+/// <c>Authorization: Key …</c>): the submit, status and result fields, all three statuses with
+/// <c>queue_position</c> on an <c>IN_QUEUE</c> read, the sub-path addressing, a cancel, an object-valued field and the
+/// shape of two failures. What a failed request bills is not measured. A host corrects in configuration the
 /// URL segments, the status vocabulary, the error, cost and auth settings, extra query parameters
 /// (<see cref="FalOptions"/>), and any request field, which <see cref="MediaRequest.Options"/> sends verbatim as a
 /// string, or as raw JSON where <see cref="FalOptions.JsonFields"/> names it. It cannot correct the response
@@ -162,10 +163,11 @@ public sealed class FalOptions
 /// and polled and fetched under its owner and app (<c>fal-ai/flux</c>) alone — measured, the full path answers
 /// <c>405</c> — and cancelled there too, as fal documents, unless <see cref="FalOptions.RequestPaths"/> names
 /// another path for it; the operation id keeps the whole model. A cancel is a REQUEST (202), so
-/// <see cref="CancelAsync"/> reports the render still running and only a poll says how it ended.</para>
+/// <see cref="CancelAsync"/> reports the render still running and only a poll says how it ended: a cancel that
+/// lands polls <see cref="QueuedOperationStatus.Failed"/> (<c>client_cancelled</c>), not Cancelled.</para>
 /// <para><b>Failure:</b> a request whose input fal cannot download is accepted, polls <c>COMPLETED</c> with no
 /// <c>error</c> field, and fails at the fetch (<c>422</c>, a <c>detail</c> list), which reports it
-/// <see cref="ProviderVerdict.Failed"/> with fal's words.</para>
+/// <see cref="ProviderVerdict.Failed"/> with fal's words. A cancelled request does carry the field.</para>
 /// <para><b>Cost:</b> fal's results carry NO cost field (measured), so unless a
 /// <see cref="FalOptions.CostFields"/> name matches, <see cref="MediaUsage.CostUsd"/> is null and a spend cap
 /// never sees these renders. A reported cost is used as given, never inferred from a rate card.</para>
@@ -339,9 +341,10 @@ public sealed class FalProvider(
     }
 
     /// <inheritdoc/>
-    /// <remarks>fal documents its cancel as a REQUEST — <c>202 {"status":"CANCELLATION_REQUESTED"}</c> — so a
+    /// <remarks>fal's cancel is a REQUEST — <c>202 {"status":"CANCELLATION_REQUESTED"}</c>, measured — so a
     /// 202 reports the render still <see cref="QueuedOperationStatus.Running"/>: it may yet finish and be billed,
-    /// and only a poll says how it ended. Any other 2xx is <see cref="QueuedOperationStatus.Cancelled"/>. Bounded
+    /// and only a poll says how it ended. A finished request answers <c>400 ALREADY_COMPLETED</c>, reported the
+    /// same way ("cancel rejected: 400"). Any other 2xx is <see cref="QueuedOperationStatus.Cancelled"/>. Bounded
     /// by <see cref="FalOptions.Timeout"/>; a cancel that timed out may or may not have landed, so it too reports
     /// the render still running.</remarks>
     public Task<QueuedOperation> CancelAsync(string operationId, CancellationToken ct = default) =>

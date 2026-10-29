@@ -30,6 +30,9 @@ every addition.
   model correctly; fal reports no cost on its own queue. A request whose input cannot be downloaded is accepted, polls
   `COMPLETED` with no `error` field and fails at the result fetch with `422`, so the render reports `Failed` there and
   `FalOptions.ErrorField` does not see it. The docs now say what was measured and what was not (`docs/generation.md` §3).
+  A third run confirmed the rest with no default corrected: `IN_PROGRESS`, `queue_position` on a status read, a cancel
+  (`202`, a request; one that lands polls `Failed` with `client_cancelled` through `ErrorField`), a video model, and an
+  object-valued field through `JsonFields`. What a failed request bills, and the Hugging Face route, are still unmeasured.
 - **"You've hit your usage limit" and a spend cap classify as `RateLimited`**, so the router benches that account
   instead of reading the turn as an ordinary failure and asking it again. Both CLI agent doors read the failure
   from their own failure fields before any sentence, and the same sentences now decide a provider call and an

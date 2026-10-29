@@ -1700,7 +1700,7 @@ the `img2img` mode value; the default now omits the mode pair, `Img2ImgMode` res
 *(Amended 2026-10-28: the Automatic1111 and OpenAI-images shapes are measured against a local server, and no mapping was
 wrong. Amended 2026-10-29: a funded run passed fal's door and confirmed `Key` auth, the `request_id`, `status`, `url` and
 `content_type` fields, `IN_QUEUE`, `COMPLETED` and owner-and-app addressing, with no cost field; a failed download polls
-`COMPLETED` and fails at the result fetch with `422`. The rest stays documented and an option: `docs/generation.md` §2, §3.)*
+`COMPLETED` and fails at the result fetch with `422`. A third run measured all but billing and the Hugging Face route: `docs/generation.md` §3.)*
 
 ---
 

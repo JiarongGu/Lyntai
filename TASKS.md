@@ -15,29 +15,29 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 16 across 4 Parts: 11 startable, 1 blocked, 3 watch, 1 decision-only
+## Open items — 16 across 4 Parts: 10 startable, 2 blocked, 3 watch, 1 decision-only
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 117 | 33 | GEN-VERIFY-FAL, the rest — what the second run did not reach | startable |  |
+| 117 | 33 | GEN-VERIFY-FAL, the last two lines — what a failed request bills, and the H… | blocked · env | a way to read the account's balance (a dashboard sign-in, or a key with bil… |
 | 160 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
 | 187 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
 | 246 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
 | 264 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
-| 297 | 412 | AG10 — the Claude CLI door keeps a subagent's lines apart from the session's | startable |  |
-| 310 | 412 | AG11 — the ACP door carries `AgentSessionOptions.Model`, or refuses it | startable |  |
-| 320 | 412 | AG12 — a refused model is a hold the pool can keep against one seat | startable |  |
-| 328 | 412 | AG13 — an HTTP response's own facts are read as an `AgentFailure` | startable |  |
-| 337 | 412 | AG14 — an HTTP door: `IToolLoop` as an agent provider | startable |  |
-| 347 | 412 | AG15 — an ACP dialect seam | startable |  |
-| 355 | 412 | AG16 — the event-stream rules, held by one theory | startable |  |
-| 363 | 412 | AG17 — an account that is a key, and the variables a provider reads | startable |  |
-| 372 | 412 | AG18 — background work started and ended, as events | startable |  |
-| 379 | 412 | AG19 — an ACP permission request the host can answer | startable |  |
-| 386 | 412 | AG20 — one account across a CLI door and an ACP door of the same agent: an … | decision-only | the owner's ruling on D225's re-open condition: whether a design Daoris has… |
+| 299 | 412 | AG10 — the Claude CLI door keeps a subagent's lines apart from the session's | startable |  |
+| 312 | 412 | AG11 — the ACP door carries `AgentSessionOptions.Model`, or refuses it | startable |  |
+| 322 | 412 | AG12 — a refused model is a hold the pool can keep against one seat | startable |  |
+| 330 | 412 | AG13 — an HTTP response's own facts are read as an `AgentFailure` | startable |  |
+| 339 | 412 | AG14 — an HTTP door: `IToolLoop` as an agent provider | startable |  |
+| 349 | 412 | AG15 — an ACP dialect seam | startable |  |
+| 357 | 412 | AG16 — the event-stream rules, held by one theory | startable |  |
+| 365 | 412 | AG17 — an account that is a key, and the variables a provider reads | startable |  |
+| 374 | 412 | AG18 — background work started and ended, as events | startable |  |
+| 381 | 412 | AG19 — an ACP permission request the host can answer | startable |  |
+| 388 | 412 | AG20 — one account across a CLI door and an ACP door of the same agent: an … | decision-only | the owner's ruling on D225's re-open condition: whether a design Daoris has… |
 
 <!-- open-items:end -->
 
@@ -106,7 +106,7 @@ core was built._
 _GEN3 (local `sd-cli`), GEN4 (durable renders + the fal.ai queue backend), GEN6's tool/MCP bridge half and
 GEN5 (governance + telemetry parity) all landed 2026-08-04 — see `docs/task-archive.md` Part 33._
 
-_**What remains unmeasured: the rest of fal's wire format, and it alone needs a vendor.** `sd-cli` left this list on
+_**What remains unmeasured: two lines of fal's wire, and they alone need a vendor.** `sd-cli` left this list on
 2026-09-19 (argv + clamp measured against a real engine, correcting the retired `img2img` mode value —
 `docs/task-archive.md` Part 261), and ComfyUI followed the same day IN FULL: the HTTP surface over an image
 graph (Part 262), then a video-producing workflow (Part 264) — which needed no video MODEL, because the
@@ -114,16 +114,15 @@ provider only ever reads the history document, and a core-node MP4 measures that
 The fal-first naming that once hid ComfyUI inside this list is recorded in
 `.agents/knowledge/pitfalls.md`._
 
-- [ ] **GEN-VERIFY-FAL, the rest — what the second run did not reach**, so each `FalProvider` default it names is <!-- item: state=startable -->
-  confirmed and its docs say "measured", or is corrected. A funded run rendered an image model and a failing request through
-  fal's own queue (`docs/task-archive.md` Part 410); **still unmeasured:** `IN_PROGRESS` (`StatusVocabulary`),
-  `queue_position` on a status read, a failure fal puts on the status document itself (`ErrorField`), a video model, cancel,
-  an object-valued field (`FalOptions.JsonFields`), what a failed request bills, and the Hugging Face route
-  (`docs/generation.md` §3).
-  <br>**A YES** deletes that line's "documented, not measured" note from `docs/generation.md` §3 and the XML docs; **a NO**
-  corrects the mapping or the default. Run `FalLiveTests` with `FAL_KEY` on purpose, never in `verify`, under a spend bound the
-  owner sets first: an image render is about US$0.003 by list price, a video model costs more, and the tests skip, naming the
-  balance, when the account has none.
+- [ ] **GEN-VERIFY-FAL, the last two lines — what a failed request bills, and the Hugging Face route**, so each is <!-- item: state=blocked kind=env needs="a way to read the account's balance (a dashboard sign-in, or a key with billing scope) to meter a failed and a cancelled request, and an hf_ token for the router route" -->
+  confirmed and its docs say "measured", or is corrected. Two funded runs measured the rest of `FalProvider`'s defaults
+  (`docs/task-archive.md` Parts 410 and 412). **Left:** what a request that fails, or a cancel that lands, bills: fal reports
+  no cost on any answer, its balance and usage endpoints answer `403` to the run's key, and the dashboard asks for the
+  owner's sign-in, so a bill can only be read as a balance delta over enough failed requests on a model priced to show in
+  cents; and the Hugging Face route (`docs/generation.md` §3), which needs an `hf_` token.
+  <br>**A YES** deletes that line's "not measured" note from `docs/generation.md` §3 and the XML docs; **a NO** corrects the
+  mapping or the default. Run `FalLiveTests` with `FAL_KEY` on purpose, never in `verify`, under a spend bound the owner sets
+  first; the tests skip, naming the balance, when the account has none.
 
   _**This is fal's OWN wire format and nothing else.** It is not the generation platform's verification
   story and must not be treated as one — `sd-cli` and ComfyUI, once bundled with it, were measured without a
@@ -141,7 +140,8 @@ The fal-first naming that once hid ComfyUI inside this list is recorded in
   _**What a real run is still for**, stated so this is not read as closed: a STRUCTURAL difference — a status
   that is not a string field at all, a history document shaped differently — is not fixable by a per-field
   option. The residual risk is a shape, not a spelling, and the second run found one: a failed request that
-  polls `COMPLETED` and fails at the result fetch._
+  polls `COMPLETED` and fails at the result fetch. The third found none: a cancel landing as `COMPLETED` plus
+  `error` fits `ErrorField`._
 
 > Add new tasks here as checklist items with an `id` and a short `file:line` where known. Group related
 > tasks under a `## Part N — <theme>` heading. Move an item to the archive when it lands — don't leave a
@@ -277,6 +277,8 @@ there is nothing here to code: what remains is evidence only recurrence can supp
   tests, and in a run without them; its third `verify` was green. That machine was shared with other sessions' builds and the
   GPU was busy, which is the load it ran under, uncaptured as a figure. With the fourteenth steward pass's first `verify`
   (green), that is seven failures in thirteen full runs across five sessions, none standalone.
+  <br>**Twice more in the last fal session** (two `verify` runs in a row, the same message, 21 s in), and the test passed
+  alone straight after. Nine failures in sixteen full runs across six sessions, none standalone.
   <br>**A reading, not a capture:** the test reads the pid file AFTER the usage source has returned, so a node that
   starts later than the 3 s ceiling is killed before it writes anything, and the assertion reports exactly that message.
   That is the family of the timing tests above and of those already closed (`docs/task-archive.md` Parts 395 and 396):
