@@ -41,5 +41,19 @@
     "daoris check",
     "daoris status --json",
     "daoris doctor"
-  ]
+  ],
+  "integration": {
+    "scratch": [
+      "devtools/_test-results/**",
+      "devtools/_test-dbs/**",
+      "devtools/_test-scratch/**",
+      "devtools/_guard-tests-*/**",
+      "devtools/_e2e-*-data/**",
+      "devtools/_samples/**",
+      "devtools/_consumer-smoke/**",
+      "devtools/_playground-data/**",
+      "devtools/_image-pipeline/**",
+      "devtools/_live/**"
+    ]
+  }
 }
