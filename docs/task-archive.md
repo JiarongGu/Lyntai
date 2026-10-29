@@ -6252,7 +6252,7 @@ sample ran with no library change, so none shows a need, and its two stances are
 
 - The example image-workflow pipeline
 
-## Part 412 — GEN-VERIFY-FAL: the status, cancel, video and object-valued lines (2026-10-29)
+## Part 413 — GEN-VERIFY-FAL: the status, cancel, video and object-valued lines (2026-10-29)
 
 ✅ done 2026-10-29 — **Outcome:** a third funded run answered six of the eight lines `TASKS.md` Part 33 left, **each YES and no
 default corrected**. `IN_PROGRESS` is `202` and maps to `Running`; `queue_position` is on the `IN_QUEUE` status read (`202`, a

@@ -116,7 +116,7 @@ The fal-first naming that once hid ComfyUI inside this list is recorded in
 
 - [ ] **GEN-VERIFY-FAL, the last two lines — what a failed request bills, and the Hugging Face route**, so each is <!-- item: state=blocked kind=env needs="a way to read the account's balance (a dashboard sign-in, or a key with billing scope) to meter a failed and a cancelled request, and an hf_ token for the router route" -->
   confirmed and its docs say "measured", or is corrected. Two funded runs measured the rest of `FalProvider`'s defaults
-  (`docs/task-archive.md` Parts 410 and 412). **Left:** what a request that fails, or a cancel that lands, bills: fal reports
+  (`docs/task-archive.md` Parts 410 and 413). **Left:** what a request that fails, or a cancel that lands, bills: fal reports
   no cost on any answer, its balance and usage endpoints answer `403` to the run's key, and the dashboard asks for the
   owner's sign-in, so a bill can only be read as a balance delta over enough failed requests on a model priced to show in
   cents; and the Hugging Face route (`docs/generation.md` §3), which needs an `hf_` token.
