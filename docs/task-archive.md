@@ -6283,7 +6283,8 @@ the table, the timing and the limits are `docs/generation.md` §3. **Left open:*
 Lane generation.
 
 - GEN-VERIFY-FAL: what a failed request bills
-## Part 412 — AG20: one account across an agent's doors (2026-10-29)
+
+## Part 415 — AG20: one account across an agent's doors (2026-10-29)
 
 ✅ done 2026-10-29 — **Outcome:** **D234** amends **D225** where it re-opened. Each door stays its own provider and
 names an `Agent` (`agent:` on `AddClaudeCliAgentSession`, `AddCodexCliAgentSession` and `AddAcpAgentSession`, or the
