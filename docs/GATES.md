@@ -147,6 +147,24 @@ single number whose slack over the 40-line limit is REPORTED on a green run, not
 **Paying a ratchet down means RELOCATING, not deleting** — several long entries are the only maintained
 home for a trap. Move the rule to the record that owns it, keep a pointer, then cut.
 
+## `daoris.gates.json` — what a session may run, and what its landed tree may drop
+
+`safe` lists the commands a session may run unasked. **`integration.scratch` lists the ignored output Lyntai's own
+checks write again**, so a tree is removed after landing rather than kept for it: globs over repository-relative
+paths, `/` separated, `*` within one segment, a trailing `/**` for the folder and all under it. It is output a run
+rewrites: the `test` trx (`_test-results`), per-test databases and scratch (`_test-dbs`, `_test-scratch`), the
+guards' fixture trees (`_guard-tests-*`), the e2e data folders (`_e2e-*-data`), `check-samples`' project
+(`_samples`), `consumer-smoke`'s app and feed, the Playground's default data folder, the image-pipeline sample's
+output and `devtools/_live`, the conventional `LYNTAI_LIVE_OUTPUT_DIR` for a live suite's renders.
+
+**Never declare a path a person or a session writes by hand, and `devtools/` holds both kinds**, so each entry names
+a folder or a pattern, never `devtools/_**`. Left out on purpose: the benches' output and caches (`_bench-results`,
+`_bench-data`, `_corpus*`, `_affordance`, the dump files and the sweeps' databases) because a bench is run by hand
+and its output is the evidence a record cites, and the harness folders beside it (`_locomo-pair`,
+`_rerank-screen`, …) for the same reason; and any survey, probe or pre-registration folder. An undeclared path
+keeps the tree and is named, which is the safe side, so a new check that writes under `devtools/_*` adds its folder
+here only when its output is rewritten every run.
+
 ## Editing prose without turning `verify` red
 
 The rules that bite when editing any document here, each a gate's view of prose:
