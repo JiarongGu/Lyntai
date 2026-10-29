@@ -28,11 +28,12 @@ public class ImagePipelineLiveTests(ITestOutputHelper output) : IDisposable
             Directory.Delete(_out, recursive: true);
     }
 
-    private Pipeline Start(string checkpoint)
+    private Pipeline Start(string checkpoint, bool withMeter = false)
     {
         var provider = new ComfyUiProvider(new ComfyUiOptions { BaseUrl = BaseUrl! }, () => new HttpClient());
-        return new Pipeline(Templates.Load(Templates.DefaultDirectory()), new StepRunner(provider, new HttpClient()),
-            new PipelineOptions(_out, checkpoint));
+        var http = new HttpClient();
+        return new Pipeline(Templates.Load(Templates.DefaultDirectory()), new StepRunner(provider, http),
+            new PipelineOptions(_out, checkpoint), withMeter ? new PoseMeter(http, BaseUrl!) : null);
     }
 
     private static StepSpec Spec(string checkpoint, string prompt, long seed, int size, int steps) => new()
@@ -96,8 +97,18 @@ public class ImagePipelineLiveTests(ITestOutputHelper output) : IDisposable
             "the variation is no nearer its init image than an unrelated picture is");
     }
 
+    /// <summary>How near the compose's figure must stand to the reference to count as following it: each arm within this many
+    /// degrees of the reference's, and the limb joints within this many torso lengths. A figure with its arms down is some 90
+    /// degrees from arms out wide, so 20 is a quarter of that gap; a torso length is the neck to the hips, so 0.3 keeps every
+    /// limb joint within a third of the body of where the reference put it.</summary>
+    private const double ArmTolerance = 20, KeypointTolerance = 0.3;
+
+    private static bool Follows(PoseDistance? distance) => distance is { } d && d.ArmAngle <= ArmTolerance && d.Keypoint <= KeypointTolerance;
+
+    private static string Say(PoseDistance? d) => d is null ? "no figure read" : $"arms {d.ArmAngle:F1} deg, limb joints {d.Keypoint:F2} torso lengths";
+
     [SkippableFact]
-    public async Task The_compose_step_draws_a_skeleton_from_the_pose_reference_and_a_recipe_replays_to_the_same_pixels()
+    public async Task The_compose_follows_the_pose_reference_where_the_same_compose_with_the_ControlNet_at_zero_does_not_and_replays_to_the_same_pixels()
     {
         RequireSdxl();
         using (var http = new HttpClient())
@@ -107,46 +118,38 @@ public class ImagePipelineLiveTests(ITestOutputHelper output) : IDisposable
                 "the ComfyUI at LYNTAI_COMFYUI_URL has not loaded the IPAdapter_plus and controlnet_aux node packs");
         }
 
-        var pipeline = Start(Sdxl!);
+        var pipeline = Start(Sdxl!, withMeter: true);
         var (style, _) = await pipeline.StepAsync("setup", "style", Spec(Sdxl!,
             "a watercolour painting of a mountain village, soft washes, muted teal and ochre palette, visible paper texture", 301, 768, 15), default);
         var (subject, _) = await pipeline.StepAsync("setup", "subject", Spec(Sdxl!,
             "a ceramic fox figurine standing on a plain light background, studio lighting, product photo", 302, 768, 15), default);
-        var (pose, _) = await pipeline.StepAsync("setup", "pose", Spec(Sdxl!,
-            "a wooden artist's mannequin wearing a plain grey tunic, standing upright with both arms stretched out wide, full body filling the frame, plain light grey background",
-            303, 768, 15), default);
+        var pose = PoseReference.Render(PoseReference.ArmsOutWide, 768);
 
-        var (composed, step) = await pipeline.StepAsync("compose", "compose", new StepSpec
+        StepSpec Compose(double poseStrength) => new()
         {
-            Prompt = "a small fox figure standing upright like a person with both arms stretched out wide, in front of a mountain village, soft washes",
-            NegativePrompt = Pipeline.Negative, Seed = 401, Steps = 15, CfgScale = 7, Sampler = "euler", Scheduler = "normal",
-            Checkpoint = Sdxl, Width = 768, Height = 768,
-            Fields = new Dictionary<string, double> { ["style-weight"] = 0.8, ["subject-weight"] = 0.8, ["pose-strength"] = 0.8, ["pose-end"] = 0.8 },
+            Prompt = Pipeline.ComposePrompt, NegativePrompt = Pipeline.Negative, Seed = 401, Steps = 15, CfgScale = 7, Sampler = "euler",
+            Scheduler = "normal", Checkpoint = Sdxl, Width = 768, Height = 768, Fields = Pipeline.ComposeFields(poseStrength),
             Inputs = [("style", style), ("subject", subject), ("pose", pose)],
-        }, default);
+        };
+
+        var (composed, step) = await pipeline.StepAsync("compose", "compose", Compose(1), default);
         Report(step);
-
         Assert.Equal((768, 768), Png.Dimensions(composed));
-        // the preprocessor found a figure: a skeleton on black is not all black
-        var skeleton = await File.ReadAllBytesAsync(Path.Combine(step.Directory, "skeleton.png"));
-        Assert.True(Png.Decode(skeleton).Pixels.Any(b => b != 0), "DWPreprocessor drew nothing: no pose was found in the reference");
-
-        // the pose role does something: the same compose with the ControlNet at strength 0 is another picture
-        var (withoutPose, _) = await pipeline.StepAsync("compose", "compose-no-pose", new StepSpec
-        {
-            Prompt = step.Recipe.Prompt, NegativePrompt = step.Recipe.NegativePrompt, Seed = step.Recipe.Seed, Steps = step.Recipe.Steps,
-            CfgScale = step.Recipe.CfgScale, Sampler = step.Recipe.Sampler, Scheduler = step.Recipe.Scheduler,
-            Checkpoint = Sdxl, Width = 768, Height = 768,
-            Fields = new Dictionary<string, double> { ["style-weight"] = 0.8, ["subject-weight"] = 0.8, ["pose-strength"] = 0 },
-            Inputs = [("style", style), ("subject", subject), ("pose", pose)],
-        }, default);
-        var poseEffect = LivePng.Distance(composed, withoutPose);
-        output.WriteLine($"pose strength 0.8 against 0, same seed: mean luma difference {poseEffect:F2}");
-        Assert.True(poseEffect > 3, $"the pose reference changed the picture by only {poseEffect:F2}");
-
+        // the recipe replays to the same pixels, before the pose is read (a replay run after the preprocessor had loaded came back different in its last bits, twice)
         var replay = await pipeline.ReplayAsync(step.Directory);
         output.WriteLine($"replay: {replay.Seconds:F1} s, identical={replay.Identical}, bytes identical={replay.BytesIdentical} — {replay.Why}");
         Assert.True(replay.Identical, replay.Why);
+
+        var followed = (await pipeline.MeasurePoseAsync(step))!.Distance;
+        output.WriteLine($"compose, ControlNet at 1: {Say(followed)}");
+        Assert.True(Follows(followed), $"the compose does not follow the pose reference: {Say(followed)} (tolerance {ArmTolerance} deg, {KeypointTolerance} torso lengths)");
+
+        // the control: the same words, seed, references and weights with the ControlNet at strength 0 is another figure
+        var (withoutPose, controlStep) = await pipeline.StepAsync("compose", "compose-no-pose", Compose(0), default);
+        var control = (await pipeline.MeasurePoseAsync(controlStep))!.Distance;
+        output.WriteLine($"compose, ControlNet at 0: {Say(control)}; the two differ by a mean luma of {LivePng.Distance(composed, withoutPose):F1}");
+        Assert.False(Follows(control), $"the pose reference is not what moved the figure: with the ControlNet at 0 it stands as {Say(control)}");
+        Assert.True(control is null || control.ArmAngle > followed!.ArmAngle + ArmTolerance, $"the control is only {Say(control)} against {Say(followed)}");
     }
 
     [SkippableFact]

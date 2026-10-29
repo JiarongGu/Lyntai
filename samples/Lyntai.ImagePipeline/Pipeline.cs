@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Lyntai.Generation.Providers;
 
 namespace Lyntai.ImagePipeline;
@@ -7,12 +8,17 @@ public sealed record PipelineOptions(
     string OutputDirectory,
     string Checkpoint,
     bool Optional = false,
+    bool PoseControl = false,
     string? ModelsDirectory = null,
     string? DwposeDirectory = null,
     string? EngineVersion = null);
 
 /// <summary>One step as it ran: where its files are, what it took, and the recipe.</summary>
 public sealed record StepReport(string Name, string Directory, Recipe Recipe, double Seconds, GpuUse? Gpu);
+
+/// <summary>How far one compose's figure stands from the pose it was given: <c>Distance</c> is null when DWPose could not read a
+/// figure (or a joint a measure needs), which counts as not following. <c>File</c> is the step folder's own record of it.</summary>
+public sealed record PoseMeasurement(string Step, PoseReading Reading, PoseDistance? Distance, string File);
 
 /// <summary>A replay's verdict: <c>Identical</c> is decided on the decoded pixels; <c>BytesIdentical</c> on the file.</summary>
 public sealed record ReplayReport(string Step, bool Identical, bool BytesIdentical, bool TemplateUnchanged, double Seconds, string Why);
@@ -22,15 +28,30 @@ public sealed record ReplayReport(string Step, bool Identical, bool BytesIdentic
 /// <see cref="ComfyUiProvider"/> by <see cref="StepRunner"/>; the references are made by the setup step itself, so no
 /// outside image enters, and every step writes <c>recipe.json</c> beside its image.</summary>
 public sealed class Pipeline(
-    IReadOnlyDictionary<string, Template> templates, StepRunner runner, PipelineOptions options)
+    IReadOnlyDictionary<string, Template> templates, StepRunner runner, PipelineOptions options, PoseMeter? meter = null)
 {
     public const string Negative = "blurry, low quality, text, watermark, deformed";
+
+    /// <summary>The compose words. The figure is called anthropomorphic on purpose: asked for "a small fox", the subject
+    /// reference (a sitting fox) wins and the ControlNet finds no person to pose.</summary>
+    public const string ComposePrompt =
+        "an anthropomorphic ceramic fox figure standing upright on two legs, front view, both arms stretched out wide to the sides, full body, in front of a mountain village, soft washes";
+
+    /// <summary>The compose template's fields: the pose at full strength until four fifths of the sampling, the subject
+    /// reference held back until three tenths of it (so the pose sets the layout and the subject then dresses it), the style
+    /// reference throughout. <paramref name="poseStrength"/> 0 is the control the pose is measured against.</summary>
+    public static Dictionary<string, double> ComposeFields(double poseStrength = 1) => new()
+    {
+        ["style-weight"] = 0.8, ["subject-weight"] = 0.6, ["subject-start"] = 0.3, ["pose-strength"] = poseStrength, ["pose-end"] = 0.8,
+    };
 
     private readonly ModelCatalog _models = new(
         options.ModelsDirectory, options.DwposeDirectory, Path.Combine(options.OutputDirectory, "model-hashes.json"));
     private int _number;
 
     public List<StepReport> Steps { get; } = [];
+
+    public List<PoseMeasurement> Poses { get; } = [];
 
     public async Task<IReadOnlyList<StepReport>> RunAsync(CancellationToken ct = default)
     {
@@ -48,20 +69,15 @@ public sealed class Pipeline(
             "a watercolour painting of a mountain village, soft washes, muted teal and ochre palette, visible paper texture", seed: 301), ct);
         var subject = await StepAsync("setup", "reference-subject", Setup(
             "a ceramic fox figurine standing on a plain light background, studio lighting, product photo", seed: 302), ct);
-        var pose = await StepAsync("setup", "reference-pose", Setup(
-"a wooden artist's mannequin wearing a plain grey tunic, standing upright with both arms stretched out wide, full body filling the frame, plain light grey background", seed: 303), ct);
+        var pose = DrawPose("reference-pose", 1024);
 
-        await StepAsync("compose", "compose", new StepSpec
+        var compose = await StepAsync("compose", "compose", ComposeSpec(style.Png, subject.Png, pose, 1), ct);
+        await MeasurePoseAsync(compose.Report, ct);
+        if (options.PoseControl)
         {
-            Prompt = "a small fox figure standing upright like a person with both arms stretched out wide, in front of a mountain village, soft washes",
-            NegativePrompt = Negative, Seed = 401, Steps = 25, CfgScale = 7, Sampler = "euler", Scheduler = "normal",
-            Checkpoint = options.Checkpoint, Width = 1024, Height = 1024,
-            Fields = new Dictionary<string, double>
-            {
-                ["style-weight"] = 0.8, ["subject-weight"] = 0.8, ["pose-strength"] = 0.8, ["pose-end"] = 0.8,
-            },
-            Inputs = [("style", style.Png), ("subject", subject.Png), ("pose", pose.Png)],
-        }, ct);
+            var control = await StepAsync("compose", "compose-no-pose", ComposeSpec(style.Png, subject.Png, pose, 0), ct);
+            await MeasurePoseAsync(control.Report, ct);
+        }
 
         if (options.Optional)
         {
@@ -87,6 +103,53 @@ public sealed class Pipeline(
         }
         return Steps;
     }
+
+    private StepSpec ComposeSpec(byte[] style, byte[] subject, byte[] pose, double poseStrength) => new()
+    {
+        Prompt = ComposePrompt, NegativePrompt = Negative, Seed = 401, Steps = 25, CfgScale = 7, Sampler = "euler", Scheduler = "normal",
+        Checkpoint = options.Checkpoint, Width = 1024, Height = 1024, Fields = ComposeFields(poseStrength),
+        Inputs = [("style", style), ("subject", subject), ("pose", pose)],
+    };
+
+    /// <summary>Draws the pose reference from <see cref="PoseReference.ArmsOutWide"/> and writes it, with its keypoints, as a
+    /// numbered folder among the steps: no model runs, so it has an image and no recipe.</summary>
+    private byte[] DrawPose(string name, int size)
+    {
+        var png = PoseReference.Render(PoseReference.ArmsOutWide, size);
+        var directory = Path.Combine(options.OutputDirectory, $"{++_number:00}-{name}");
+        Directory.CreateDirectory(directory);
+        File.WriteAllBytes(Path.Combine(directory, "image.png"), png);
+        File.WriteAllText(Path.Combine(directory, "keypoints.json"), JsonSerializer.Serialize(new
+        {
+            size,
+            joints = PoseReference.Joints.Select((joint, i) => new { joint, x = PoseReference.ArmsOutWide[i].X, y = PoseReference.ArmsOutWide[i].Y }),
+        }, Indented));
+        return png;
+    }
+
+    /// <summary>Reads the pose DWPose finds in a compose step's image and writes <c>pose-reading.png</c> (what it drew) and
+    /// <c>pose-reading.json</c> (the keypoints, the distance from the reference and the estimator's model) beside it. Does
+    /// nothing without a <see cref="PoseMeter"/>.</summary>
+    public async Task<PoseMeasurement?> MeasurePoseAsync(StepReport step, CancellationToken ct = default)
+    {
+        if (meter is null) return null;
+        var (reading, drawn) = await meter.ReadAsync(await File.ReadAllBytesAsync(Path.Combine(step.Directory, "image.png"), ct), ct);
+        var distance = PoseDistance.Between(PoseReference.Reading(PoseReference.ArmsOutWide), reading);
+        File.WriteAllBytes(Path.Combine(step.Directory, "pose-reading.png"), drawn);
+        var file = Path.Combine(step.Directory, "pose-reading.json");
+        File.WriteAllText(file, JsonSerializer.Serialize(new
+        {
+            step = step.Name, people = reading.People,
+            joints = PoseReference.Joints.Select((joint, i) => new { joint, x = reading.Joints[i]?.X, y = reading.Joints[i]?.Y }),
+            armAngleDegrees = distance?.ArmAngle, keypointDistance = distance?.Keypoint, followed = distance is not null,
+            models = _models.Of(PoseMeter.Graph),
+        }, Indented));
+        var measurement = new PoseMeasurement(step.Name, reading, distance, file);
+        Poses.Add(measurement);
+        return measurement;
+    }
+
+    private static readonly JsonSerializerOptions Indented = new() { WriteIndented = true };
 
     private StepSpec Setup(string prompt, long seed) => new()
     {
