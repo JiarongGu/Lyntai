@@ -96,7 +96,8 @@ public static class LyntaiServiceCollectionExtensions
             services.TryAddSingleton(sp => new AgentAccountPool(
                 agentPool, sp.GetService<IKeyValueStore>(), sp.GetService<TimeProvider>(),
                 sp.GetServices<IAgentProvider>().OfType<IAgentAllowanceSource>(),
-                sp.GetService<IAgentAccountPolicy>(), sp.GetService<ILogger<AgentAccountPool>>()));
+                sp.GetService<IAgentAccountPolicy>(), sp.GetService<ILogger<AgentAccountPool>>(),
+                sp.GetServices<IAgentProvider>().Select(p => p.Describe())));
         RegisterJobs(services, options);
         RegisterGuardsAndChat(services);
 

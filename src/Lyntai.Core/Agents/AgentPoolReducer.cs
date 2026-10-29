@@ -41,14 +41,15 @@ internal static class AgentPoolReducer
     public static string AllowanceScope(string allowance) => $"allowance|{Esc(allowance)}";
 
     /// <summary>Every scope that holds a seat: its account, its model on that account, its provider's endpoint and,
-    /// where a door supplied one, the allowance its account draws on.</summary>
-    public static IReadOnlyList<string> Covering(AgentAccount account, string? model, string? allowance)
+    /// where a door supplied one, the allowance its account draws on. The account is the agent's, shared by every
+    /// provider that files under its key; the endpoint is the one provider's.</summary>
+    public static IReadOnlyList<string> Covering(AgentAccount account, string provider, string? model, string? allowance)
     {
         var scopes = new List<string>(4)
         {
             AccountScope(account.Provider, account.Name),
             SeatScope(account.Provider, account.Name, model),
-            EndpointScope(account.Provider),
+            EndpointScope(provider),
         };
         if (allowance is not null) scopes.Add(AllowanceScope(allowance));
         return scopes;
@@ -194,7 +195,7 @@ internal static class AgentPoolReducer
     /// the door stated nothing more (an access failure the account, a bare limit the exact seat that met it); a
     /// transient or fatal one only when it carries a restriction. Null = nothing to hold.</summary>
     public static (string Scope, AgentRestriction Restriction)? FailureHold(
-        AgentFailure failure, AgentAccount account, string? model, string? allowance)
+        AgentFailure failure, AgentAccount account, string provider, string? model, string? allowance)
     {
         var restriction = failure.Restriction;
         if (restriction is null)
@@ -216,7 +217,7 @@ internal static class AgentPoolReducer
         var scope = subject switch
         {
             RestrictionSubject.Account => AccountScope(account.Provider, account.Name),
-            RestrictionSubject.Endpoint => EndpointScope(account.Provider),
+            RestrictionSubject.Endpoint => EndpointScope(provider),
             // a pool no door has shown the extent of is held only where it was seen; the model and unknown
             // subjects hold exactly the account-and-model that met them
             RestrictionSubject.Pool when allowance is not null => AllowanceScope(allowance),

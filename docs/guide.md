@@ -1105,11 +1105,26 @@ to another provider (subtype `account-other-provider`), when the door states `ac
 `ProviderVerdict.Unsupported` and `NeverSent`. The keyed `IAgentSession` checks only the account's own shape, not whose
 it is, so go through the provider when the account may be the wrong one.
 
+**One account across an agent's doors** (`agent:`, **D234**). A CLI and an ACP adapter of one vendor are two
+providers with two ids, so by default an account built for one is refused by the other. Pass the same `agent:` string
+to each registration (`AddClaudeCliAgentSession(agent: "claude")`, `AddAcpAgentSession("claude-acp", …,
+accountHomeVariable: "CLAUDE_CONFIG_DIR", agent: "claude")`; the string is yours and no vendor name is special) and
+file the account under it (`AgentAccount.Provider = "claude"`): each door accepts it, the account's home reaches the
+child in that door's variable, and an account filed under a door's own id still reaches that door alone. List the one
+account in the choices of each provider and the pool holds it once: a limit, a cool-off, a clear or a probe lease on it
+through one door is the other's too, as is a model held on it; an endpoint restriction stays the one provider's.
+Every door of an agent must read the home through the same variable: a door that does not is refused when it is
+registered, and a door that names an agent but reads no account is refused too. A host's own provider states
+`AgentProviderDescriptor.Agent` and registers through `AddAgentProvider(descriptor, factory)` to be held to the same rule
+at the call. A pool built over an account whose key is neither its choice's provider nor that provider's agent throws
+when it is built. Holds already stored for an account filed under a provider id stay where they were; an account moved
+under an agent starts without them.
+
 **An agent that speaks the Agent Client Protocol** (`AddAcpAgentSession`). Any ACP agent (`claude-agent-acp`,
 `codex-acp`, your own) is a third door: JSON-RPC 2.0 over the stdio of a process started for the turn and ended with
 it. It registers keyed by `id` and as an `IAgentProvider` with one door, `"acp"`, and adds no unkeyed
 `IAgentSession`, so the CLI door you resolve unkeyed does not change. It is its own provider, with its own id:
-`"claude-acp"` is not `"claude-cli"`, and an `AgentAccount` names the one it belongs to.
+`"claude-acp"` is not `"claude-cli"`, and an `AgentAccount` names the one it belongs to, or the agent both name.
 
 <!-- compile-given: string cwd; -->
 ```csharp

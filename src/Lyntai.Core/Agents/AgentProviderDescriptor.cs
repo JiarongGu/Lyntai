@@ -122,6 +122,19 @@ public sealed record AgentProviderDescriptor
     /// <summary>How the provider reads an account, or null when it reads none. Set exactly when its doors state
     /// <see cref="AgentAbilities.Accounts"/> <see cref="AgentSupport.Supported"/>.</summary>
     public AgentAccountMapping? Accounts { get; init; }
+
+    /// <summary>The agent whose accounts this provider reads, when several providers are doors of one agent (its CLI,
+    /// its protocol adapter, an HTTP door): providers that state the same agent share one set of accounts, and an
+    /// <see cref="AgentAccount"/> whose <see cref="AgentAccount.Provider"/> is that string is accepted by each. Null =
+    /// the provider's own id, so a provider that states none keeps its accounts to itself. Needs
+    /// <see cref="Accounts"/>, and every provider of one agent must read the home through the same variable: the
+    /// account's home is the agent's, so a provider reading another variable is refused when the registry is built
+    /// (<see cref="AgentProviderRegistry"/>) and, through <see cref="LyntaiBuilder.AddAgentProvider(AgentProviderDescriptor, Func{IServiceProvider, IAgentProvider})"/>,
+    /// when it is registered.</summary>
+    public string? Agent { get; init; }
+
+    /// <summary>The key accounts of this provider are filed under: <see cref="Agent"/>, else <see cref="Id"/>.</summary>
+    public string AccountKey => Agent ?? Id;
 }
 
 /// <summary>How a provider's doors take an <see cref="AgentAccount"/>: the environment variable its agent reads its

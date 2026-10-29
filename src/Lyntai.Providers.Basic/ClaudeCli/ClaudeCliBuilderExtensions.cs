@@ -85,16 +85,25 @@ public static class ClaudeCliBuilderExtensions
     /// <c>CLAUDE_CONFIG_DIR</c> so it neither reads nor mutates the machine-wide install's state. A null value
     /// REMOVES a variable the host process holds (an inherited API key, say) from the child.</param>
     /// <param name="id">The key the session is registered under; "claude-cli" by default.</param>
+    /// <param name="agent">The agent this provider shares its accounts with (<see cref="AgentProviderDescriptor.Agent"/>),
+    /// so an <see cref="AgentAccount"/> filed under that string runs through this door and through each other door
+    /// that names it, such as <c>AddAcpAgentSession</c> for the same agent. Null keeps the accounts to <paramref name="id"/>.
+    /// Every door of one agent must read the home through the same variable; one that does not is refused here.</param>
+    /// <exception cref="InvalidOperationException"><paramref name="agent"/> is shared with a door registered through
+    /// a descriptor that reads the home through another variable.</exception>
     public static LyntaiBuilder AddClaudeCliAgentSession(this LyntaiBuilder builder, string? command = null,
-        IReadOnlyDictionary<string, string?>? environment = null, string id = ClaudeCliProvider.ProviderId)
+        IReadOnlyDictionary<string, string?>? environment = null, string id = ClaudeCliProvider.ProviderId,
+        string? agent = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(id);
+        ArgumentException.ThrowIfNullOrWhiteSpace(agent ?? id, nameof(agent));
+        builder.AddAgentProvider(ClaudeAgentDoor.Describe(id, agent), sp => new UsageAgentProvider(
+            new AgentProvider(ClaudeAgentDoor.Describe(id, agent), _ => sp.GetRequiredKeyedService<IAgentSession>(id)),
+            new CliUsageSource(new ClaudeUsageDialect(id), sp.GetRequiredService<IProcessRunner>(),
+                sp.GetService<AgentUsageReadingOptions>(), sp.GetService<ILogger<CliUsageSource>>(), command, environment,
+                agent: agent)));
         builder.Services.AddSingleton<IAgentSession>(sp => CreateSession(sp, command, environment));
         builder.Services.AddKeyedSingleton<IAgentSession>(id, (sp, _) => CreateSession(sp, command, environment));
-        builder.AddAgentProvider(sp => new UsageAgentProvider(
-            new AgentProvider(ClaudeAgentDoor.Describe(id), _ => sp.GetRequiredKeyedService<IAgentSession>(id)),
-            new CliUsageSource(new ClaudeUsageDialect(id), sp.GetRequiredService<IProcessRunner>(),
-                sp.GetService<AgentUsageReadingOptions>(), sp.GetService<ILogger<CliUsageSource>>(), command, environment)));
         return builder;
     }
 

@@ -15,29 +15,28 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 16 across 4 Parts: 10 startable, 2 blocked, 3 watch, 1 decision-only
+## Open items — 15 across 4 Parts: 10 startable, 2 blocked, 3 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 117 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
-| 158 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 185 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 244 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
-| 262 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
-| 297 | 412 | AG10 — the Claude CLI door keeps a subagent's lines apart from the session's | startable |  |
-| 310 | 412 | AG11 — the ACP door carries `AgentSessionOptions.Model`, or refuses it | startable |  |
-| 320 | 412 | AG12 — a refused model is a hold the pool can keep against one seat | startable |  |
-| 328 | 412 | AG13 — an HTTP response's own facts are read as an `AgentFailure` | startable |  |
-| 337 | 412 | AG14 — an HTTP door: `IToolLoop` as an agent provider | startable |  |
-| 347 | 412 | AG15 — an ACP dialect seam | startable |  |
-| 355 | 412 | AG16 — the event-stream rules, held by one theory | startable |  |
-| 363 | 412 | AG17 — an account that is a key, and the variables a provider reads | startable |  |
-| 372 | 412 | AG18 — background work started and ended, as events | startable |  |
-| 379 | 412 | AG19 — an ACP permission request the host can answer | startable |  |
-| 386 | 412 | AG20 — one account across a CLI door and an ACP door of the same agent: an … | decision-only | the owner's ruling on D225's re-open condition: whether a design Daoris has… |
+| 116 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
+| 157 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 184 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 243 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
+| 261 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
+| 296 | 412 | AG10 — the Claude CLI door keeps a subagent's lines apart from the session's | startable |  |
+| 309 | 412 | AG11 — the ACP door carries `AgentSessionOptions.Model`, or refuses it | startable |  |
+| 319 | 412 | AG12 — a refused model is a hold the pool can keep against one seat | startable |  |
+| 327 | 412 | AG13 — an HTTP response's own facts are read as an `AgentFailure` | startable |  |
+| 336 | 412 | AG14 — an HTTP door: `IToolLoop` as an agent provider | startable |  |
+| 346 | 412 | AG15 — an ACP dialect seam | startable |  |
+| 354 | 412 | AG16 — the event-stream rules, held by one theory | startable |  |
+| 362 | 412 | AG17 — an account that is a key, and the variables a provider reads | startable |  |
+| 371 | 412 | AG18 — background work started and ended, as events | startable |  |
+| 378 | 412 | AG19 — an ACP permission request the host can answer | startable |  |
 
 <!-- open-items:end -->
 
@@ -292,7 +291,7 @@ there is nothing here to code: what remains is evidence only recurrence can supp
 
 _The study is `docs/agent-provider-daoris-study.md`: it answers every Daoris row, and these are the general gaps it found.
 Each is one sitting, none is built, and each capture a test uses is labelled REAL or SOURCE-DERIVED. The decision they
-stand on is **D233**. The first is startable and needs nothing._
+stand on is **D233**, and the study's §7 is the order they are built in. The first is startable and needs nothing._
 
 - [ ] **AG10 — the Claude CLI door keeps a subagent's lines apart from the session's** (lane `inference`). Daoris <!-- item: state=startable -->
   measured that every line a subagent produces arrives on the session's stdout with `parent_tool_use_id` set to the
@@ -382,14 +381,6 @@ stand on is **D233**. The first is startable and needs nothing._
   stated `Unsupported` where none is registered, the response written once with the answer, and no answer within the
   turn's inactivity clock a refusal. **Proof.** SOURCE-DERIVED `session/request_permission` captures: answered allow,
   answered deny, never answered; the default (no callback) behaves exactly as today.
-
-- [ ] **AG20 — one account across a CLI door and an ACP door of the same agent: an identity in the pool?** <!-- item: state=decision-only needs="the owner's ruling on D225's re-open condition: whether a design Daoris has accepted and not yet used is the host need it names, and whether the pool's hold key may change" -->
-  `docs/DECISIONS.md` **D225** re-opens "when a host needs one account usable across a CLI door and an ACP door
-  of the same agent", and Daoris's accepted design is that need (one account on two doors is one account), designed and
-  not yet used. Today a limit on the CLI provider's seat does not hold the ACP provider's, and an account is built once
-  per provider over the same home. **A YES** adds an identity the pool keys a hold by (a persisted-key change under
-  `lyntai:agent-pool:`), so it is the owner's to rule and not a sitting; **a NO** documents the per-provider account as
-  the answer and closes the row.
 
 ## Retired — five Parts that outlived their open work (2026-09-16)
 

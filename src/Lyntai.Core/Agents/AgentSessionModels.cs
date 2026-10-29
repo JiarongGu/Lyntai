@@ -59,7 +59,8 @@ public record AgentSessionOptions
     /// <summary>The account this turn runs under; null = the door's own default home. A door that reads one starts
     /// its child with the account's <see cref="AgentAccount.Home"/> in its own configuration-home variable
     /// (<see cref="AgentAccountMapping.HomeVariable"/>); a door that does not, and an account that belongs to
-    /// another provider, refuse the turn before anything is spawned. Needs <see cref="AgentAbilities.Accounts"/>.</summary>
+    /// another provider (neither the door's id nor its <see cref="AgentProviderDescriptor.Agent"/>), refuse the turn
+    /// before anything is spawned. Needs <see cref="AgentAbilities.Accounts"/>.</summary>
     public AgentAccount? Account { get; init; }
 }
 
@@ -68,8 +69,11 @@ public record AgentSessionOptions
 /// here is a secret, and the home's contents are the agent's own, never read or written by the library.</summary>
 public sealed record AgentAccount
 {
-    /// <summary>The id of the registered provider this account belongs to (<see cref="AgentProviderDescriptor.Id"/>,
-    /// <c>"claude-cli"</c> by default). Another provider refuses it.</summary>
+    /// <summary>The account's key: the id of the registered provider it belongs to
+    /// (<see cref="AgentProviderDescriptor.Id"/>, <c>"claude-cli"</c> by default), or the agent several providers
+    /// share (<see cref="AgentProviderDescriptor.Agent"/>), which makes one account usable through each of them. A
+    /// provider that is neither refuses it. The pool holds a restriction on the account for every provider that
+    /// shares the key.</summary>
     public required string Provider { get; init; }
 
     /// <summary>What the host calls the account. Carried for the host's own bookkeeping; never sent to the agent.</summary>

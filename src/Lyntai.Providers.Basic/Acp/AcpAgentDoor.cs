@@ -11,9 +11,10 @@ internal static class AcpAgentDoor
 {
     public const string DoorId = "acp";
 
-    public static AgentProviderDescriptor Describe(string providerId, string? accountHomeVariable) => new()
+    public static AgentProviderDescriptor Describe(string providerId, string? accountHomeVariable, string? agent = null) => new()
     {
         Id = providerId,
+        Agent = agent,
         Accounts = accountHomeVariable is null ? null : new AgentAccountMapping(accountHomeVariable),
         Doors =
         [

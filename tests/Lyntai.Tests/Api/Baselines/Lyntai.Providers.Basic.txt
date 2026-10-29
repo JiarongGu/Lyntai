@@ -1,11 +1,11 @@
 static class Lyntai.AcpBuilderExtensions
-    static AddAcpAgentSession(LyntaiBuilder builder, String id, String command, IReadOnlyList<String> arguments = null, IReadOnlyDictionary<String,String> environment = null, String accountHomeVariable = null) : LyntaiBuilder
+    static AddAcpAgentSession(LyntaiBuilder builder, String id, String command, IReadOnlyList<String> arguments = null, IReadOnlyDictionary<String,String> environment = null, String accountHomeVariable = null, String agent = null) : LyntaiBuilder
 static class Lyntai.ClaudeCliBuilderExtensions
-    static AddClaudeCliAgentSession(LyntaiBuilder builder, String command = null, IReadOnlyDictionary<String,String> environment = null, String id = "claude-cli") : LyntaiBuilder
+    static AddClaudeCliAgentSession(LyntaiBuilder builder, String command = null, IReadOnlyDictionary<String,String> environment = null, String id = "claude-cli", String agent = null) : LyntaiBuilder
     static AddClaudeCliProvider(LyntaiBuilder builder, ClaudeCliBackend backend, String command = null, IReadOnlyDictionary<String,String> environment = null, String id = "claude-cli") : LyntaiBuilder
     static AddClaudeCliProvider(LyntaiBuilder builder, String command = null, IReadOnlyDictionary<String,String> environment = null, String id = "claude-cli") : LyntaiBuilder
 static class Lyntai.CodexCliBuilderExtensions
-    static AddCodexCliAgentSession(LyntaiBuilder builder, String command = null, IReadOnlyDictionary<String,String> environment = null, String id = "codex-cli") : LyntaiBuilder
+    static AddCodexCliAgentSession(LyntaiBuilder builder, String command = null, IReadOnlyDictionary<String,String> environment = null, String id = "codex-cli", String agent = null) : LyntaiBuilder
     static AddCodexCliProvider(LyntaiBuilder builder, String command = null, IReadOnlyDictionary<String,String> environment = null, CodexCliBackend backend = null, String id = "codex-cli") : LyntaiBuilder
 static class Lyntai.HttpProviderBuilderExtensions
     static AddAzureOpenAiProvider(LyntaiBuilder builder, String endpoint, String apiKey, String model = null, String id = "azure-openai", Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder

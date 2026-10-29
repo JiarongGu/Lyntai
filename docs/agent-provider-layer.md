@@ -114,7 +114,8 @@ IAgentUsageSource         OPTIONAL, discovered with `is`, as D203 does for a sto
 - **As built (AG8):** the ACP door is `AddAcpAgentSession(id, command, …, accountHomeVariable)`, one provider with
   one door (`"acp"`, kind `Acp`), registered keyed and as a provider and adding no unkeyed session. An agent
   reachable by both a CLI and ACP is therefore TWO providers with two ids, not one provider with two doors:
-  the registry keys on the id, and an `AgentAccount` names its provider. Its claims are `Declared` for what the
+  the registry keys on the id, and an `AgentAccount` names its provider, or the agent several providers name
+  (`AgentProviderDescriptor.Agent`, **D234**). Its claims are `Declared` for what the
   door does; `resume` is `Unknown` with the source `Negotiated`, since only the agent's `initialize` answer states
   it, and a turn that needs it is refused before the prompt when the agent states neither `session/resume` nor
   `loadSession`. The door adds one member to `IProcessRunner`, `ExchangeLinesAsync` (a live stdin, default body
