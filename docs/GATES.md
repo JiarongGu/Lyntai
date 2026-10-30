@@ -165,6 +165,28 @@ and its output is the evidence a record cites, and the harness folders beside it
 keeps the tree and is named, which is the safe side, so a new check that writes under `devtools/_*` adds its folder
 here only when its output is rewritten every run.
 
+### What Lyntai declares for integration, and what it leaves undeclared
+
+`gates` names what Daoris runs whole on a candidate before the line moves, and `integration.gates` picks from
+them: **`decisions-index --check`** (a check) and **`verify`** (the suite), in that order. `verify` is ONE gate on
+purpose: it runs the guards' own tests first, fails if the tree changed while it ran, and compares its run against
+the baseline, so splitting it into its steps would drop the ordering and the fingerprint. `decisions-index
+--check` is declared beside it because the append-only records are UNION-merged (`.gitattributes`, **D214**) and
+two branches that each add a decision merge cleanly with a stale index, which `verify` does not read. `by:
+daoris`, because Lyntai has no integrating tool of its own.
+
+`merge` declares `docs/documents.md` by rows, the one table sessions add a row to at the same place. **Left
+undeclared, each with its reason:** the union records (git settles them already, and `by: rows` would be
+stricter than the union and unsafe for a multi-line entry); `CLAUDE.md`'s baseline line (two sessions that
+each re-measured it have a conflict of meaning, and only a run writes it); the API baselines (emitted and
+ordered, so two additions kept side by side can read as unordered, and `ApiSurfaceTests` writes the `.actual`
+that repairs one); the generated regions (a `line` writer recomputes a line, and these are multi-line regions
+in hand-written files). `commits` is undeclared because the commit guards (`check-version`, `check-sensitive`)
+read the staged diff, not a range. No `env.pass`: nothing a gate reads is known to need more than the composed
+base. **`verify` at integration needs a running Docker engine**: with it down `test` fails on the skipped
+Postgres leg (§Which numbers a gate holds), which hands the candidate back rather than passing it, and
+`LYNTAI_ALLOW_POSTGRES_SKIP` is deliberately not passed through.
+
 ## Editing prose without turning `verify` red
 
 The rules that bite when editing any document here, each a gate's view of prose:
@@ -282,7 +304,7 @@ and no `laneless` group lists, a file a lane owns that a `laneless` group ALSO l
 that matches no file — each `{a,b}` branch on its own, so a misspelt branch is not hidden by its sibling.
 It refuses a map it cannot classify by: invalid JSON, a missing, malformed or repeated `id`, a missing
 `title` or `summary`, a lane with no paths, more than one steward, and a `gates` field, since
-`daoris.gates.json` declares none. A green run prints each lane's file count and the laneless count.
+integration runs every declared gate whole (`daoris.gates.json`, below), never a plan chosen by lane. A green run prints each lane's file count and the laneless count.
 
 ### `check-docs` — vocabulary a decision retired
 

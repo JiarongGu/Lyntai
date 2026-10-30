@@ -87,7 +87,7 @@ export function validateMap(map) {
     if (typeof lane.title !== 'string' || lane.title.trim() === '') problems.push(`${at}: missing title`);
     if (typeof lane.summary !== 'string' || lane.summary.trim() === '') problems.push(`${at}: missing summary`);
     problems.push(...pathProblems(at, lane.paths));
-    if ('gates' in lane) problems.push(`${at}: has \`gates\`, but daoris.gates.json declares none`);
+    if ('gates' in lane) problems.push(`${at}: has \`gates\`, but integration runs the declared gates whole, never by lane`);
     if (lane.steward === true) stewards.push(lane.id);
   });
   if (stewards.length > 1) problems.push(`more than one steward lane: ${stewards.join(', ')}`);

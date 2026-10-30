@@ -171,7 +171,7 @@ test('more than one steward FAILS, naming both', () => {
   }, ['a/x', 'b/x']), /more than one steward lane: a, b/);
 });
 
-test('a `gates` field FAILS — this repository declares none', () => {
+test('a `gates` field FAILS — integration runs the declared gates whole', () => {
   fails(run({ lanes: [lane('a', ['a/**'], { gates: ['test'] })] }, ['a/x']), /lanes\[0\] \(a\): has `gates`/);
 });
 
