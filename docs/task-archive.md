@@ -6298,3 +6298,16 @@ six of them fail when the account scope is keyed by provider. The same session w
 unreleased rows) and the build order in the study's §7. Lanes `inference` + `platform`.
 
 - AG20 — one account across a CLI door and an ACP door of the same agent: an identity in the pool?
+
+## Part 418 — MC9: the expand tool stays inside the task its host pinned (2026-10-30)
+
+✅ done 2026-10-30 — **Outcome:** the cause was wider than the tool, so the engine holds the check. `ITaskExpandableMemory`
+(`ExpandInTaskAsync`, optional, beside the frozen `IExpandableMemory`) is implemented by `GraphMemoryEngine`, which refuses a
+node of another task before it reads or reinforces anything, and by the blend, which refuses where the owning member cannot
+say its task. `<engine>_expand` resolves the task at call time (`MemoryToolScope`) and answers an error the model can read,
+the same for a missing entry and one of another task. A BYO engine implementing only `IExpandableMemory` now gets an error
+from the tool: disclosed under `### Breaking` in `CHANGELOG.md`. Proof: three `MemoryToolsTests` cases (another task refused
+with no reinforcement, a turn's pinned task followed, an engine that cannot say its task expands nothing); a pitfall entry;
+the `Lyntai.Core` baseline moved by the interface and its two members. Lane `memory`.
+
+- MC9 — the expand tool stays inside the task its host pinned

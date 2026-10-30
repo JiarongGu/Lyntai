@@ -131,7 +131,7 @@ internal static class MemoryTools
             """);
 
     /// <summary>The expand tool for <paramref name="engine"/> — full text plus neighbours.</summary>
-    internal static ITool Expand(IMemoryEngine engine, string prefix) =>
+    internal static ITool Expand(IMemoryEngine engine, string prefix, string taskKey, string? scope) =>
         new FunctionTool(
             $"{prefix}_expand",
             async (argumentsJson, ct) =>
@@ -139,13 +139,21 @@ internal static class MemoryTools
                 var reference = Parse(ReadString(argumentsJson, "ref"));
                 if (reference is not MemoryRef target)
                     return """{"error":"pass the 'ref' of an item returned by the matching recall tool"}""";
-                if (engine is not IExpandableMemory expandable)
+                if (engine is not IExpandableMemory)
                     return """{"error":"this memory cannot be expanded"}""";
+                // an id is an engine-wide number, so the tool pinned to one task asks the engine to keep to it
+                if (engine is not ITaskExpandableMemory scoped)
+                    return """{"error":"this memory cannot be expanded within one task, so it is not expanded"}""";
 
-                var recall = await expandable
-                    .ExpandAsync(target, hops: ReadInt(argumentsJson, "hops") ?? 1, ct: ct)
+                var (task, _) = MemoryToolScope.Resolve(taskKey, scope);
+                var recall = await scoped
+                    .ExpandInTaskAsync(target, task, ReadInt(argumentsJson, "hops") ?? 1, null, MemoryDetail.Headline,
+                        MemoryValidityReading.Current, ct)
                     .ConfigureAwait(false);
-                return Render(recall);
+                // an empty answer is a missing entry or one of another task, and the model is told only that
+                return recall.Items.Count == 0
+                    ? """{"error":"no such item in this task's memory; pass a 'ref' returned by the matching recall tool"}"""
+                    : Render(recall);
             },
             $"Read the full text of one item in '{engine.Name}' and the headlines of what it is linked to. " +
             $"Pass the 'ref' from a {prefix}_recall result.",

@@ -19,6 +19,14 @@ every addition.
 
 ## Unreleased
 
+### Breaking
+
+- **The memory tools' `<engine>_expand` expands only inside the task the host pinned** (**D241**). Through 3.5.3 it read the
+  node a reference named in whichever task held it, so an agent could expand, and reinforce, an entry of another task. It now
+  asks the engine through the new optional `ITaskExpandableMemory`, which `GraphMemoryEngine` and the blend implement, and a
+  reference of another task reads as a missing one. **A host whose own `IMemoryEngine` implements only `IExpandableMemory` must
+  also implement `ITaskExpandableMemory`, or its expand tool answers an error rather than expanding.**
+
 ### Changed
 
 - **`Microsoft.Data.Sqlite` is 10.0.14**, which carries the upstream fix for the connection-pool race that could hand one

@@ -39,8 +39,8 @@ public sealed class GraphMemoryEngine(
     GraphMemoryOptions? options = null,
     GraphMemorySeams? seams = null,
     ILogger<GraphMemoryEngine>? logger = null)
-    : IMemoryEngine, IExpandableMemory, ILinkableMemory, IForgettableMemory, IPrunableMemory, IReindexableMemory,
-        IPortableMemory, ITemporalMemory
+    : IMemoryEngine, IExpandableMemory, ITaskExpandableMemory, ILinkableMemory, IForgettableMemory, IPrunableMemory,
+        IReindexableMemory, IPortableMemory, ITemporalMemory
 {
     private readonly GraphMemoryOptions _options = options ?? new GraphMemoryOptions();
     private readonly IMemoryRetrievabilityPolicy _policy =
@@ -923,8 +923,20 @@ public sealed class GraphMemoryEngine(
     /// <remarks>The named entry comes back whatever its validity. An ended NEIGHBOUR is left out of the result but
     /// still walked through, so the hops reach what it links to exactly as they did — the same rule a recall applies
     /// to its page.</remarks>
-    public async Task<MemoryRecall> ExpandAsync(MemoryRef reference, int hops, int? charBudget, MemoryDetail detail,
-        MemoryValidityReading validity, CancellationToken ct = default)
+    public Task<MemoryRecall> ExpandAsync(MemoryRef reference, int hops, int? charBudget, MemoryDetail detail,
+        MemoryValidityReading validity, CancellationToken ct = default) =>
+        ExpandCoreAsync(reference, null, hops, charBudget, detail, validity, ct);
+
+    /// <inheritdoc />
+    public Task<MemoryRecall> ExpandInTaskAsync(MemoryRef reference, string taskKey, int hops, int? charBudget,
+        MemoryDetail detail, MemoryValidityReading validity, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(taskKey);
+        return ExpandCoreAsync(reference, taskKey, hops, charBudget, detail, validity, ct);
+    }
+
+    private async Task<MemoryRecall> ExpandCoreAsync(MemoryRef reference, string? onlyTask, int hops, int? charBudget,
+        MemoryDetail detail, MemoryValidityReading validity, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
         validity.ThrowIfIncoherent();
@@ -935,7 +947,9 @@ public sealed class GraphMemoryEngine(
             return MemoryRecall.Empty;
 
         var node = await store.GetAsync(Name, id, ct).ConfigureAwait(false);
-        if (node is null) return MemoryRecall.Empty;
+        // a node of another task is refused BEFORE anything is read or reinforced, and looks like a missing one
+        if (node is null || (onlyTask is not null && !string.Equals(node.TaskKey, onlyTask, StringComparison.Ordinal)))
+            return MemoryRecall.Empty;
 
         // `hops` is CLAMPED to the engine's configured ceiling rather than honoured unbounded: this is a
         // model-facing seam (MemoryTools advertises the parameter in its tool schema), so an agent asking for

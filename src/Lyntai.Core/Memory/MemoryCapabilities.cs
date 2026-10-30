@@ -39,6 +39,28 @@ public interface IExpandableMemory
         ExpandAsync(reference, hops, charBudget, detail, ct);
 }
 
+/// <summary>OPTIONAL half of <see cref="IExpandableMemory"/> that expands only inside one task. A reference names an
+/// engine and an id, and ids are sequential, so <see cref="IExpandableMemory.ExpandAsync(MemoryRef, int, int?, MemoryDetail, CancellationToken)"/>
+/// reads a node of ANY task of its engine; a caller pinned to one task (the memory tools) must not.
+/// <para>A reference whose entry is in another task, or in none, expands to <see cref="MemoryRecall.Empty"/> and
+/// reinforces nothing — the two cases are indistinguishable by design, so a refusal reveals nothing. A composite
+/// implements it and routes by <see cref="MemoryRef.Engine"/>; where the owning member does not, it refuses the
+/// same way, since it cannot say which task the entry is in.</para></summary>
+public interface ITaskExpandableMemory
+{
+    /// <summary>Expand <paramref name="reference"/> as <see cref="IExpandableMemory.ExpandAsync(MemoryRef, int, int?, MemoryDetail, MemoryValidityReading, CancellationToken)"/>
+    /// does, only if its entry belongs to <paramref name="taskKey"/>.</summary>
+    /// <param name="reference">The entry to expand.</param>
+    /// <param name="taskKey">The task the entry must belong to.</param>
+    /// <param name="hops">How far to walk from it.</param>
+    /// <param name="charBudget">Maximum characters to return; null takes the engine's configured budget.</param>
+    /// <param name="detail">How much of each neighbour to return.</param>
+    /// <param name="validity">Which neighbours to admit.</param>
+    /// <param name="ct">Cancellation, which is never swallowed.</param>
+    Task<MemoryRecall> ExpandInTaskAsync(MemoryRef reference, string taskKey, int hops, int? charBudget,
+        MemoryDetail detail, MemoryValidityReading validity, CancellationToken ct = default);
+}
+
 /// <summary>OPTIONAL capability: an engine that holds VALID TIME — a write may state when a fact held and which
 /// entries it supersedes, and a recall may read the facts valid now, then, or all of them
 /// (<see cref="MemoryQuery.Validity"/>).

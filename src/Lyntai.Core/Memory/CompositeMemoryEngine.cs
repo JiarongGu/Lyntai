@@ -42,8 +42,8 @@ public enum MemoryWriteRouting
 /// default; fanning out is what fills a blend whose members index the same material differently.</para>
 /// </summary>
 public sealed class CompositeMemoryEngine
-    : IMemoryEngine, IExpandableMemory, ILinkableMemory, IForgettableMemory, IPrunableMemory, IReindexableMemory,
-        IPortableMemory, ITemporalMemory
+    : IMemoryEngine, IExpandableMemory, ITaskExpandableMemory, ILinkableMemory, IForgettableMemory, IPrunableMemory,
+        IReindexableMemory, IPortableMemory, ITemporalMemory
 {
     private readonly IReadOnlyList<IMemoryEngine> _members;
     private readonly ILogger _logger;
@@ -304,6 +304,15 @@ public sealed class CompositeMemoryEngine
             ? await expandable.ExpandAsync(reference, hops, charBudget, detail, validity, ct).ConfigureAwait(false)
             : MemoryRecall.Empty;
     }
+
+    /// <inheritdoc />
+    /// <remarks>Fails CLOSED where the owning member cannot expand inside a task: it cannot say which task the entry
+    /// is in, and the caller asked for a boundary.</remarks>
+    public async Task<MemoryRecall> ExpandInTaskAsync(MemoryRef reference, string taskKey, int hops, int? charBudget,
+        MemoryDetail detail, MemoryValidityReading validity, CancellationToken ct = default) =>
+        Owner(reference) is ITaskExpandableMemory scoped
+            ? await scoped.ExpandInTaskAsync(reference, taskKey, hops, charBudget, detail, validity, ct).ConfigureAwait(false)
+            : MemoryRecall.Empty;
 
     /// <inheritdoc />
     public async Task LinkAsync(MemoryRef from, MemoryRef to, string? kind = null, double weight = 1.0,

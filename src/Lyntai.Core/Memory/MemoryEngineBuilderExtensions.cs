@@ -141,7 +141,7 @@ public static class MemoryEngineBuilderExtensions
         builder.Services.AddSingleton<Lyntai.Agents.ITool>(sp => MemoryTools.Recall(
             sp.GetRequiredService<IMemoryEngineFactory>().Get(name), resolved, taskKey, scope));
         builder.Services.AddSingleton<Lyntai.Agents.ITool>(sp => MemoryTools.Expand(
-            sp.GetRequiredService<IMemoryEngineFactory>().Get(name), resolved));
+            sp.GetRequiredService<IMemoryEngineFactory>().Get(name), resolved, taskKey, scope));
         return builder;
     }
 

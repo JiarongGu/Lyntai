@@ -81,6 +81,74 @@ public class MemoryToolsTests
     }
 
     [Fact]
+    public async Task Expand_refuses_a_ref_of_another_task_and_reinforces_nothing()
+    {
+        using var sp = Build(cfg => cfg
+            .AddMemoryEngine("project", e => e.UseGraph())
+            .AddMemoryTools("project/graph", taskKey: "mine", scope: "s"));
+        var engine = sp.GetRequiredService<IMemoryEngineFactory>().Get("project/graph");
+        var other = await engine.RememberAsync(new MemoryWrite("theirs", "s", "the vault key lives in the other task"));
+        var own = await engine.RememberAsync(new MemoryWrite("mine", "s", "the build gate runs seven checks"));
+        var store = sp.GetRequiredService<IMemoryGraphStore>();
+        var before = await store.GetAsync("project/graph", long.Parse(other.Reference.Id));
+
+        var refused = await Tool(sp, "project_graph_expand")
+            .InvokeAsync($$"""{"ref":"{{MemoryTools.Format(other.Reference)}}"}""");
+        var allowed = await Tool(sp, "project_graph_expand")
+            .InvokeAsync($$"""{"ref":"{{MemoryTools.Format(own.Reference)}}"}""");
+
+        Assert.Contains("error", refused, StringComparison.Ordinal);
+        Assert.DoesNotContain("vault key", refused, StringComparison.Ordinal);
+        Assert.Contains("seven checks", allowed, StringComparison.Ordinal);
+        var after = await store.GetAsync("project/graph", long.Parse(other.Reference.Id));
+        Assert.Equal(before!.RecallCount, after!.RecallCount);
+        Assert.Equal(before.Stability, after.Stability);
+    }
+
+    [Fact]
+    public async Task Expand_follows_the_task_a_turn_pinned_not_only_the_registered_one()
+    {
+        using var sp = Build(cfg => cfg
+            .AddMemoryEngine("project", e => e.UseGraph())
+            .AddMemoryTools("project/graph", taskKey: "default-task", scope: "s"));
+        var written = await sp.GetRequiredService<IMemoryEngineFactory>().Get("project/graph")
+            .RememberAsync(new MemoryWrite("conversation-42", "s", "belongs to conversation 42"));
+        var arguments = $$"""{"ref":"{{MemoryTools.Format(written.Reference)}}"}""";
+
+        Assert.Contains("error", await Tool(sp, "project_graph_expand").InvokeAsync(arguments), StringComparison.Ordinal);
+        using (MemoryToolScope.Use("conversation-42", "s"))
+            Assert.Contains("belongs to conversation 42",
+                await Tool(sp, "project_graph_expand").InvokeAsync(arguments), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Expand_on_an_engine_that_cannot_say_its_task_expands_nothing()
+    {
+        // fails CLOSED: a BYO engine that is expandable but not task-expandable cannot prove the boundary
+        var tool = MemoryTools.Expand(new ExpandOnlyEngine(), "x", "t", null);
+
+        var result = await tool.InvokeAsync("""{"ref":"x::1"}""");
+
+        Assert.Contains("error", result, StringComparison.Ordinal);
+        Assert.DoesNotContain("leaked", result, StringComparison.Ordinal);
+    }
+
+    private sealed class ExpandOnlyEngine : IMemoryEngine, IExpandableMemory
+    {
+        public string Name => "x";
+        public MemoryGrades Supported => MemoryGrades.Associative;
+        public Task<MemoryWriteResult> RememberAsync(MemoryWrite write, CancellationToken ct = default) =>
+            throw new NotSupportedException();
+        public Task<MemoryRecall> RecallAsync(MemoryQuery query, CancellationToken ct = default) =>
+            Task.FromResult(MemoryRecall.Empty);
+        public Task<MemoryRecall> ExpandAsync(MemoryRef reference, int hops = 1, int? charBudget = null,
+            MemoryDetail detail = MemoryDetail.Headline, CancellationToken ct = default) =>
+            Task.FromResult(new MemoryRecall(
+                [new MemoryItem(reference, "leaked", "leaked", MemoryGrade.Associative, 1, 1, 0, null)],
+                MemorySources.None));
+    }
+
+    [Fact]
     public async Task Expand_without_a_ref_explains_itself_rather_than_throwing()
     {
         using var sp = Build(cfg => cfg

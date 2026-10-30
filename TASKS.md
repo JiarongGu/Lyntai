@@ -15,41 +15,40 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 28 across 6 Parts: 23 startable, 2 blocked, 3 watch
+## Open items — 27 across 6 Parts: 22 startable, 2 blocked, 3 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 129 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
-| 170 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 197 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 256 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
-| 274 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
-| 309 | 412 | AG10 — the Claude CLI door keeps a subagent's lines apart from the session's | startable |  |
-| 322 | 412 | AG11 — the ACP door carries `AgentSessionOptions.Model`, or refuses it | startable |  |
-| 332 | 412 | AG12 — a refused model is a hold the pool can keep against one seat | startable |  |
-| 340 | 412 | AG13 — an HTTP response's own facts are read as an `AgentFailure` | startable |  |
-| 349 | 412 | AG14 — an HTTP door: `IToolLoop` as an agent provider | startable |  |
-| 359 | 412 | AG15 — an ACP dialect seam | startable |  |
-| 367 | 412 | AG16 — the event-stream rules, held by one theory | startable |  |
-| 375 | 412 | AG17 — an account that is a key, and the variables a provider reads | startable |  |
-| 384 | 412 | AG18 — background work started and ended, as events | startable |  |
-| 391 | 412 | AG19 — an ACP permission request the host can answer | startable |  |
-| 406 | 416 | AG21 — the usage exchange writes each request after the answer it depends on | startable |  |
-| 418 | 416 | AG22 — the host names where the usage server runs and what it is told of it… | startable |  |
-| 431 | 416 | AG23 — an allowance reading carries what the server stated | startable |  |
-| 446 | 416 | AG24 — a host's policy for a version the library has not validated | startable |  |
-| 467 | 417 | MC1 — an entry is ended by reference, with a reason | startable |  |
-| 491 | 417 | MC2 — an agent writes and ends what it remembers, through tools the host re… | startable |  |
-| 504 | 417 | MC3 — a write is shown the live entries it may update, and applies none | startable |  |
-| 516 | 417 | MC4 — two live entries that may disagree are marked by their writer | startable |  |
-| 527 | 417 | MC5 — a stored fact can be re-checked by its host, and a failed check ends … | startable |  |
-| 543 | 417 | MC6 — an approver seam on what a write tool would supersede or end | startable |  |
-| 552 | 417 | MC7 — a read-only view of the owner's task, as a blend member | startable |  |
-| 562 | 417 | MC8 — the wrong-end instrument: what a model's proposed end costs, per mode… | startable |  |
-| 573 | 417 | MC9 — the expand tool stays inside the task its host pinned | startable |  |
+| 128 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
+| 169 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 196 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 255 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
+| 273 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
+| 308 | 412 | AG10 — the Claude CLI door keeps a subagent's lines apart from the session's | startable |  |
+| 321 | 412 | AG11 — the ACP door carries `AgentSessionOptions.Model`, or refuses it | startable |  |
+| 331 | 412 | AG12 — a refused model is a hold the pool can keep against one seat | startable |  |
+| 339 | 412 | AG13 — an HTTP response's own facts are read as an `AgentFailure` | startable |  |
+| 348 | 412 | AG14 — an HTTP door: `IToolLoop` as an agent provider | startable |  |
+| 358 | 412 | AG15 — an ACP dialect seam | startable |  |
+| 366 | 412 | AG16 — the event-stream rules, held by one theory | startable |  |
+| 374 | 412 | AG17 — an account that is a key, and the variables a provider reads | startable |  |
+| 383 | 412 | AG18 — background work started and ended, as events | startable |  |
+| 390 | 412 | AG19 — an ACP permission request the host can answer | startable |  |
+| 405 | 416 | AG21 — the usage exchange writes each request after the answer it depends on | startable |  |
+| 417 | 416 | AG22 — the host names where the usage server runs and what it is told of it… | startable |  |
+| 430 | 416 | AG23 — an allowance reading carries what the server stated | startable |  |
+| 445 | 416 | AG24 — a host's policy for a version the library has not validated | startable |  |
+| 466 | 417 | MC1 — an entry is ended by reference, with a reason | startable |  |
+| 490 | 417 | MC2 — an agent writes and ends what it remembers, through tools the host re… | startable |  |
+| 503 | 417 | MC3 — a write is shown the live entries it may update, and applies none | startable |  |
+| 515 | 417 | MC4 — two live entries that may disagree are marked by their writer | startable |  |
+| 526 | 417 | MC5 — a stored fact can be re-checked by its host, and a failed check ends … | startable |  |
+| 542 | 417 | MC6 — an approver seam on what a write tool would supersede or end | startable |  |
+| 551 | 417 | MC7 — a read-only view of the owner's task, as a blend member | startable |  |
+| 561 | 417 | MC8 — the wrong-end instrument: what a model's proposed end costs, per mode… | startable |  |
 
 <!-- open-items:end -->
 
@@ -569,14 +568,6 @@ MC3's measured rate and MC8's instrument each state what a YES and a NO change, 
   execution order counterbalanced, since a recall mutates (`docs/memory.md` §7) and counterbalancing alone removes order bias, not
   contamination; **this is required before MC8 can promote any step**, and the harness is read first for whether it does it. Disagreement
   between reviewers abstains. **Stop rule.** The first actionable rate stops the instrument; no run is spent after it.
-
-- [ ] **MC9 — the expand tool stays inside the task its host pinned** (lane `memory`; **D241**). `ExpandAsync` takes a <!-- item: state=startable -->
-  reference of an engine and reads that engine's node by id, taking the task from the node, so an agent holding a tool
-  pinned to one task expands a reference of another, and ids are sequential. **Contract.** `<engine>_expand` refuses a
-  reference whose node is outside the pinned task, as a result the model can read, without a signature change on the
-  frozen `IExpandableMemory` (**D70**): the tool checks, or the engine takes an optional task, whichever the first step
-  shows is additive. **Proof.** A reference of another task refused through the tool and not expanded; one of this task
-  unchanged; no reinforcement from a refused call; a pitfall entry if the cause is wider than the tool.
 
 ## Retired — five Parts that outlived their open work (2026-09-16)
 
