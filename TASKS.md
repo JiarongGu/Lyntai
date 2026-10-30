@@ -15,37 +15,41 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 24 across 5 Parts: 19 startable, 2 blocked, 3 watch
+## Open items — 28 across 6 Parts: 23 startable, 2 blocked, 3 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 125 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
-| 166 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 193 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 252 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
-| 270 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
-| 305 | 412 | AG10 — the Claude CLI door keeps a subagent's lines apart from the session's | startable |  |
-| 318 | 412 | AG11 — the ACP door carries `AgentSessionOptions.Model`, or refuses it | startable |  |
-| 328 | 412 | AG12 — a refused model is a hold the pool can keep against one seat | startable |  |
-| 336 | 412 | AG13 — an HTTP response's own facts are read as an `AgentFailure` | startable |  |
-| 345 | 412 | AG14 — an HTTP door: `IToolLoop` as an agent provider | startable |  |
-| 355 | 412 | AG15 — an ACP dialect seam | startable |  |
-| 363 | 412 | AG16 — the event-stream rules, held by one theory | startable |  |
-| 371 | 412 | AG17 — an account that is a key, and the variables a provider reads | startable |  |
-| 380 | 412 | AG18 — background work started and ended, as events | startable |  |
-| 387 | 412 | AG19 — an ACP permission request the host can answer | startable |  |
-| 403 | 417 | MC1 — an entry is ended by reference, with a reason | startable |  |
-| 424 | 417 | MC2 — an agent writes and ends what it remembers, through tools the host re… | startable |  |
-| 437 | 417 | MC3 — a write is shown the live entries it may update, and applies none | startable |  |
-| 449 | 417 | MC4 — two live entries that may disagree are marked by their writer | startable |  |
-| 459 | 417 | MC5 — a stored fact can be re-checked by its host, and a failed check ends … | startable |  |
-| 475 | 417 | MC6 — an approver seam on what a write tool would supersede or end | startable |  |
-| 484 | 417 | MC7 — a read-only view of the owner's task, as a blend member | startable |  |
-| 494 | 417 | MC8 — the wrong-end instrument: what a model's proposed end costs, per mode… | startable |  |
-| 504 | 417 | MC9 — the expand tool stays inside the task its host pinned | startable |  |
+| 129 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
+| 170 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 197 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 256 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
+| 274 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
+| 309 | 412 | AG10 — the Claude CLI door keeps a subagent's lines apart from the session's | startable |  |
+| 322 | 412 | AG11 — the ACP door carries `AgentSessionOptions.Model`, or refuses it | startable |  |
+| 332 | 412 | AG12 — a refused model is a hold the pool can keep against one seat | startable |  |
+| 340 | 412 | AG13 — an HTTP response's own facts are read as an `AgentFailure` | startable |  |
+| 349 | 412 | AG14 — an HTTP door: `IToolLoop` as an agent provider | startable |  |
+| 359 | 412 | AG15 — an ACP dialect seam | startable |  |
+| 367 | 412 | AG16 — the event-stream rules, held by one theory | startable |  |
+| 375 | 412 | AG17 — an account that is a key, and the variables a provider reads | startable |  |
+| 384 | 412 | AG18 — background work started and ended, as events | startable |  |
+| 391 | 412 | AG19 — an ACP permission request the host can answer | startable |  |
+| 406 | 416 | AG21 — the usage exchange writes each request after the answer it depends on | startable |  |
+| 418 | 416 | AG22 — the host names where the usage server runs and what it is told of it… | startable |  |
+| 431 | 416 | AG23 — an allowance reading carries what the server stated | startable |  |
+| 446 | 416 | AG24 — a host's policy for a version the library has not validated | startable |  |
+| 467 | 417 | MC1 — an entry is ended by reference, with a reason | startable |  |
+| 488 | 417 | MC2 — an agent writes and ends what it remembers, through tools the host re… | startable |  |
+| 501 | 417 | MC3 — a write is shown the live entries it may update, and applies none | startable |  |
+| 513 | 417 | MC4 — two live entries that may disagree are marked by their writer | startable |  |
+| 523 | 417 | MC5 — a stored fact can be re-checked by its host, and a failed check ends … | startable |  |
+| 539 | 417 | MC6 — an approver seam on what a write tool would supersede or end | startable |  |
+| 548 | 417 | MC7 — a read-only view of the owner's task, as a blend member | startable |  |
+| 558 | 417 | MC8 — the wrong-end instrument: what a model's proposed end costs, per mode… | startable |  |
+| 568 | 417 | MC9 — the expand tool stays inside the task its host pinned | startable |  |
 
 <!-- open-items:end -->
 
@@ -390,6 +394,66 @@ stand on is **D233**, and the study's §7 is the order they are built in. The fi
   stated `Unsupported` where none is registered, the response written once with the answer, and no answer within the
   turn's inactivity clock a refusal. **Proof.** SOURCE-DERIVED `session/request_permission` captures: answered allow,
   answered deny, never answered; the default (no callback) behaves exactly as today.
+
+## Part 416 — the usage reading, as a host that keeps an account's history needs it (2026-10-30)
+
+_A host that consumes the layer asked three things of the usage reading (`D236` to `D238` answer them, each by the
+generic-library test; none asks for a consumer's shape). The types are unreleased, so a row reshapes them with its
+`ApiSurface` baseline moved from the emitted `.actual` and no `### Breaking` (**D235**). Order: AG21, then AG22 (it edits
+the first step AG21 makes), then AG23 and AG24 in either. No row spends an account or calls a paid service; the unmeasured
+fact is named where it bites. Captures are labelled REAL or SOURCE-DERIVED as `UsageCaptures` does._
+
+- [ ] **AG21 — the usage exchange writes each request after the answer it depends on** (lane `inference`, **D238**). <!-- item: state=startable -->
+  `CliUsageSource.ExchangeAsync` writes every request before reading any answer (`CliUsageSource.cs:133-134`;
+  `CodexUsageDialect.cs:33-38`), the order **D226** refuses as a default; a server that answers `initialize` with an
+  error is still sent the question. **Contract.** `IUsageDialect` states the exchange as steps (internal, so no baseline
+  moves): the first request is written, each next only after the answer to the one before has arrived, and a notification
+  goes with the request after it. An error answer to any step ends the read as unknown (`not-signed-in` where the dialect
+  reads it so, else `unrecognised-answer`) with the process ended; a line the server pushes between answers is read past,
+  as today. **Proof.** A `node` stand-in beside `AgentUsageProcessTests` that records arrival order and exits when the
+  second request arrives before the first's answer was written (RED against today's source, green after), one that
+  answers `initialize` with an error and must receive nothing more, and every existing usage test unchanged.
+  **Not established:** whether the installed servers tolerate the eager order; nothing here needs it measured.
+
+- [ ] **AG22 — the host names where the usage server runs and what it is told of its client** (lanes `inference` + <!-- item: state=startable -->
+  `platform`, after AG21, **D238**). The read starts the vendor's server in a fresh folder under the system's temporary
+  folder (`CliUsageSource.cs:84`) and tells Codex it is client `lyntai` version `1` (`CodexUsageDialect.cs:35`), neither of
+  which a host can change, though a vendor keys project state by the folder and a server may act on its client's name.
+  **Contract.** `AgentUsageReadingOptions` gains `WorkingDirectory` (a function of the account: a fully qualified path or
+  null for today's fresh folder; a named folder is created when absent and never removed or emptied; a path not fully
+  qualified is `account-refused` before a spawn), `ClientName` and `ClientVersion` (defaults as today, validated at
+  registration, written by a JSON writer where the protocol carries a client and ignored where it carries none). Each has
+  an XML doc, as `check-options` requires, and `docs/guide.md` states the folder is a project to the vendor. **Proof.** A
+  stand-in that echoes its working directory and the `initialize` line: the named folder reached and left in place, the
+  default folder removed, a name holding a quote or a newline written intact or refused at registration, and the Claude
+  door's request unchanged by a client name.
+
+- [ ] **AG23 — an allowance reading carries what the server stated** (lanes `platform` + `inference`, **D237**). <!-- item: state=startable -->
+  `AgentAllowanceWindow` is a name, an integer percent, a length and a reset with no scope (`AgentUsageSource.cs:27`); the
+  Claude reader takes two windows (`ClaudeUsageDialect.cs:70-94`) and the Codex reader only `rateLimits`, where a fractional
+  percent makes the whole reading unknown (`CodexUsageDialect.cs:68-93`). **Contract.** As **D237**: `Scope`,
+  `UsedPercent` as `double?` with `UsedStep`, a window said in part kept, `Limits` (Claude's `limits[]` rows by kind and
+  scope, never severity), `LimitId`, Claude's `seven_day_<scope>` windows and Codex's `rateLimitsByLimitId` limits other than
+  the own one read as scoped windows, `HasRoom` over the unscoped windows only, a present unrecognisable value still unknown.
+  The XML doc names what the reading does not carry (the account id, the credits, the severity). **Proof.** Every existing
+  capture reads as before apart from the type; SOURCE-DERIVED captures for a fractional use on each vendor, a scoped week
+  at 100 with the account's own windows under it (`HasRoom` true), a window with a use and no reset and one with a reset and
+  no use, a `limits[]` row with a scope, and `rateLimitsByLimitId` with a second limit, each held both ways beside a
+  malformed value that stays unknown. **Not established:** the shape of a scoped row and of a second Codex limit on a real
+  signed-in account; the host holds recorded answers and can share them, and a capture of it should replace the
+  SOURCE-DERIVED one when it arrives.
+
+- [ ] **AG24 — a host's policy for a version the library has not validated** (lanes `platform` + `inference`, **D236**). <!-- item: state=startable -->
+  The version gate is internal (`CliUsageSource.cs:77-82`; `requireValidatedVersion`), so a host that keeps an agent at a
+  version it chose can only get `version-not-validated`. **Contract.** `IAgentUsageVersionPolicy` (whether the version is
+  probed; given an `AgentUsageVersionQuery` of the provider, the account, the version and whether the library validated it,
+  whether the server starts), a `VersionPolicy` on `AgentUsageReadingOptions` defaulting to `ValidatedOnly`, and a shipped
+  `AnyVersion` (no probe). The reading names the version it was read on and whether the library validated it. The
+  descriptor's `UsageReading` claim, its validated versions and its side effects are untouched, and an unrecognised answer
+  is unknown under every policy. **Proof.** An unvalidated version refused by default, read under a host policy naming
+  it and under `AnyVersion` with no probe spawned, the reading's version fields set in each, `Describe()` equal with and
+  without a policy, a throwing policy refusing as `version-not-validated` without a throw, and an unrecognised answer
+  still unknown under `AnyVersion`.
 
 ## Part 417 — keeping an agent's memory current, after Daoris's requests LQ16 to LQ20 (2026-10-30)
 
