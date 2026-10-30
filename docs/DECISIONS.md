@@ -6938,8 +6938,11 @@ maker's, for Daoris's KNOWCENTRAL1 round 1; nothing ships with it and the rows a
 **D239** and **D240** where it says so, and reverses by a later decision here.
 
 **Decided.**
-- **Retirement is an end, never decay.** An ended entry is kept whole and read back under `History` with its reason; decay
-  quiets what nobody uses and retires nothing, because a use reinforces the replaced fact and burial is relative.
+- **Retirement is an end a writer or confirmer directs, held as valid-time state beside the decay seam** (**D40**,
+  **D41**); decay never decides it. The `Current` reading drops the entry before ranking, so it stays out however it ranks;
+  no recall, expansion or touch writes the end and a re-remember stating no validity keeps it; it is whole under `History`
+  with reason and successor. It is not decay state because every use rewrites that, and a retrievability policy is the
+  host's swappable function (`docs/memory-currency-synthesis.md` §0).
 - **Shared memory is one owner and a read-only view.** The view reads without reinforcing, linking or advancing the owner's
   interference tick and refuses a reference outside its task; owners, grants, the change log and cursors are the coordinator's.
 - **`Failed` means the host confirmed the named claim no longer holds** (amends **D240**). A run that did not complete
@@ -6947,16 +6950,23 @@ maker's, for Daoris's KNOWCENTRAL1 round 1; nothing ships with it and the rows a
 - **A step that supersedes, ends or fails is confirmed through an approver seam** the library ships empty: a person, a
   registered deterministic check, or a model only past a preregistered bound for that model and corpus. `Disputes` and
   `Amends` apply alone, attributed, since they end nothing.
-- **An end may carry the state it was reviewed on** and is applied only if that still holds (amends **D239**), optional on
-  a store, and refused rather than ignored where a store cannot hold it.
-- **MC4 comes before the agent's tools**, and every measured step pairs its arms and reports stale answers, lost current
-  claims and lost history separately.
+- **An end may carry the opaque revision of the entry it was reviewed on** and is applied only if that is still current,
+  compared in the end's own statement (amends **D239**). Any write landing on the entry, an end or a confirmation advances
+  it and no recall does, so a rewrite that keeps validity and confirmation but changes headline, grade, metadata or check
+  mismatches; the claim is the entry's identity (`MemoryContentKey`), so a changed claim is another entry. A mismatch needs
+  a fresh approval and the guard is never dropped to repair; a store that cannot hold it refuses.
+- **MC4 comes before the agent's tools**, and every measured step reports stale answers, lost current claims and lost
+  history separately, each arm from an equivalent **isolated snapshot** with its mutations kept in its own repeated walk,
+  order counterbalanced; MC8 promotes no step without it.
+- **`Disputes` and `Amends` reach a reader as the writer's attributed assertion**, never an established disagreement. A
+  due sweep is eventual repair, not proof of currency at presentation; the revision is checked first.
 
 **Why.** A reference expands in any task of its engine, and a recall reinforces and ages the owner's entries, so a plain blend
 member is not a read grant. Confirmation reviewed an hour ago can end what the entry has since become.
 
-**Rejected.** Retirement through decay; a writable shared task; a library-held log or grant; a recorded inconclusive state;
-an approver that approves by itself or an opt-in setting for one; a transaction over a successor's insert and the
+**Rejected.** An end stored as decay state or decided by a ranking policy (it would reverse by use and vary by policy);
+an expected state of validity and confirmation alone (a rewrite keeps both); a writable shared task; a
+library-held log or grant; a recorded inconclusive state; an approver that approves by itself or an opt-in setting for one; a transaction over a successor's insert and the
 predecessor's end; the tools before the relations; one aggregate accuracy.
 
 **Re-opens** when MC8 clears a bar (that pair moves class), when polling `DueAsync` is measured too slow for readers (a

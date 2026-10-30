@@ -42,14 +42,14 @@ _Edit a marker, never this table — `verify` fails the moment the two disagree.
 | 431 | 416 | AG23 — an allowance reading carries what the server stated | startable |  |
 | 446 | 416 | AG24 — a host's policy for a version the library has not validated | startable |  |
 | 467 | 417 | MC1 — an entry is ended by reference, with a reason | startable |  |
-| 488 | 417 | MC2 — an agent writes and ends what it remembers, through tools the host re… | startable |  |
-| 501 | 417 | MC3 — a write is shown the live entries it may update, and applies none | startable |  |
-| 513 | 417 | MC4 — two live entries that may disagree are marked by their writer | startable |  |
-| 523 | 417 | MC5 — a stored fact can be re-checked by its host, and a failed check ends … | startable |  |
-| 539 | 417 | MC6 — an approver seam on what a write tool would supersede or end | startable |  |
-| 548 | 417 | MC7 — a read-only view of the owner's task, as a blend member | startable |  |
-| 558 | 417 | MC8 — the wrong-end instrument: what a model's proposed end costs, per mode… | startable |  |
-| 568 | 417 | MC9 — the expand tool stays inside the task its host pinned | startable |  |
+| 491 | 417 | MC2 — an agent writes and ends what it remembers, through tools the host re… | startable |  |
+| 504 | 417 | MC3 — a write is shown the live entries it may update, and applies none | startable |  |
+| 516 | 417 | MC4 — two live entries that may disagree are marked by their writer | startable |  |
+| 527 | 417 | MC5 — a stored fact can be re-checked by its host, and a failed check ends … | startable |  |
+| 543 | 417 | MC6 — an approver seam on what a write tool would supersede or end | startable |  |
+| 552 | 417 | MC7 — a read-only view of the owner's task, as a blend member | startable |  |
+| 562 | 417 | MC8 — the wrong-end instrument: what a model's proposed end costs, per mode… | startable |  |
+| 573 | 417 | MC9 — the expand tool stays inside the task its host pinned | startable |  |
 
 <!-- open-items:end -->
 
@@ -471,16 +471,19 @@ MC3's measured rate and MC8's instrument each state what a YES and a NO change, 
   of this engine; with a successor it records the supersession at the instant (default: the successor's start), without
   one it states the entry's own `ValidTo`. `MemoryValidity` gains an `EndedReason` that reads it back. Refusals are supersession's own (a
   reference outside this engine or task, an end before the entry began, a different successor than the one it has); an
-  end already recorded changes nothing and the result says so. `MemoryEnding` also takes an optional **expected state**
-  (the validity and confirmation the confirmer read): a store holding the capability ends only if it still matches, in one
-  conditional statement on SQL and under the lock on the in-memory and file-system stores, and a mismatch changes nothing and
-  returns `Changed` with what it found; a store without it throws `NotSupportedException` rather than end unconditionally
-  (**D241**). It is **optional** (`IEndableMemoryGraphStore :
+  end already recorded changes nothing and the result says so. `MemoryEnding` also takes an optional **expected revision**
+  (an opaque token the confirmer read, advanced by any write that lands on the entry, an end or a confirmation, and by no
+  recall): a store holding the capability ends only if it still matches, in one conditional statement on SQL and under the
+  lock on the in-memory and file-system stores, and a mismatch changes nothing and returns `Changed` with the current
+  revision; a store without it throws `NotSupportedException` rather than end unconditionally (**D241**). It is **optional** (`IEndableMemoryGraphStore :
   ITemporalMemoryGraphStore`), a nullable `ended_reason` column in one migration on SQLite and Postgres, the in-memory and
   file-system stores, the `v: 2` portable line, and the blend declares and routes it. **Proof.** The store contract and
   the engine contract on every shipped store, a composite routing case, the entry read under `History` and gone under
   `Current`, not buried, not pruned, not reinforced, task isolation (**D92**), an `ApiSurface` baseline move from the
-  emitted `.actual`, and `docs/memory.md` §9's recipe. **A measured step**: two ends racing one entry, a retry, a failure
+  emitted `.actual`, and `docs/memory.md` §9's recipe. **Race cases**: a rewrite that changes the headline and keeps the validity and confirmation mismatches
+  the revision; **a retry after the successor is inserted and the end fails or returns `Changed`** keeps the successor's
+  identity and provenance, reports the partial outcome, needs a fresh approval on a mismatch and never drops the guard.
+  **A measured step**: two ends racing one entry, a retry, a failure
   between a write's successor insert and its predecessor end (both live, the same write repeated passing), and the page
   length against accumulated ends (`docs/memory.md` §9), reported in `docs/memory-measurements.md` §5; an end
   lost or doubled is a store defect fixed in this row, and none found changes nothing.
@@ -492,7 +495,7 @@ MC3's measured rate and MC8's instrument each state what a YES and a NO change, 
   `by`, `at`); the task comes from `MemoryToolScope.Resolve` and is never an argument, the scope is the host's unless the
   options let a model name one, a tool write is `Associative` with no grade argument, the options carry a metadata
   stamp and a content bound, and `AddMemoryTools` is unchanged. `_remember` also takes MC4's `disputes` and `amends` refs
-  (applied alone, stamped), while `supersedes` and `_end` go through MC6's approver and carry the expected state of MC1.
+  (applied alone, stamped), while `supersedes` and `_end` go through MC6's approver and carry the expected revision of MC1.
   An engine's refusal reaches the model as an `{"error"}` it can act on.
   **Proof.** Tool-schema tests; no approver means no applied supersession and no end; a stale entry superseded and one ended with no successor, both read back under `History`;
   a ref of another engine and of another task refused; a second successor refused with the engine's own message; a host
@@ -515,7 +518,8 @@ MC3's measured rate and MC8's instrument each state what a YES and a NO change, 
   refused. **Contract.** `Disputes` and `Amends` relations between two live entries of one task, stated on a write beside
   `Supersedes` or after it by `RelateAsync`, neither ending anything; a recall returns them as `Relations` on `MemoryItem` for
   the items it returns and only where the other end is in the same reading; the memory tools report them and a rendered
-  memory says them. **First step**: read whether an edge keeps a kind through co-activation, decay and traversal; if it does
+  memory says them **as the writer's attributed assertion with its evidence, never as an established disagreement**; false
+  disputes and unaffected-claim recall are measured. **First step**: read whether an edge keeps a kind through co-activation, decay and traversal; if it does
   not, the relation takes its own column and the row says so. **Proof.** A relation read back on both ends, gone from the
   reading once either end has ended, a recall's co-activation and a prune leaving it as it was, task isolation, and the
   `ApiSurface` baselines.
@@ -525,8 +529,8 @@ MC3's measured rate and MC8's instrument each state what a YES and a NO change, 
   confirmed. **Contract.** `MemoryWrite` gains a `Recheck`, an opaque bounded text the library never reads;
   `IConfirmableMemory.ConfirmAsync(taskKey, entry, outcome, at?, note?, expected?)` where `Held` stamps `ConfirmedAt` (never
   backwards; no other field moves, so it is not a reinforcement) and `Failed` ends the entry through MC1's call, at the
-  confirmation instant and never an earlier one, with the note as its required reason and the due read's state as the
-  expected one. **`Failed` is documented as the host having confirmed the named claim no longer holds**; a run that did not
+  confirmation instant and never an earlier one, with the note as its required reason and the due read's revision as the
+  expected one. **A due sweep is eventual repair, not proof of currency at presentation**, and says so in its doc. **`Failed` is documented as the host having confirmed the named claim no longer holds**; a run that did not
   finish (a timeout, missing access, an ambiguous answer) is reported by calling nothing, records no state and stays due
   (**D241**); `DueAsync(taskKey, scope, notConfirmedSince, limit)` answering the live entries that carry a `Recheck`
   and were last confirmed before an instant or never; a `Confirmation` on `MemoryItem` on read; a `_confirm` tool when MC2 is
@@ -534,15 +538,15 @@ MC3's measured rate and MC8's instrument each state what a YES and a NO change, 
   interface, the portable line, the blend. **Proof.** A held check stamps and changes nothing else; a failed one is gone
   from `Current` and read under `History` with its reason; a re-remember of identical content keeps the stamp, and one that
   names no `Recheck` keeps the stored one; the due query both ways; the library runs nothing (no process or network type in the
-  change); an end whose expected state no longer matches changed nothing; and the `ApiSurface` baselines.
+  change); an end whose expected revision no longer matches changed nothing, including when a rewrite changed the headline, grade, metadata or check and left the confirmation as it was; and the `ApiSurface` baselines.
 
 - [ ] **MC6 — an approver seam on what a write tool would supersede or end** (lane `memory`, after MC1; **D241**). An agent's <!-- item: state=startable -->
   supersession or end hides a fact from `Current`, and a model's proposal is not a confirmation (**D109**, **D217**).
   **Contract.** An approver in the shape of `IToolApprover` (`src/Lyntai.Core/Agents/IToolApprover.cs`) that MC2's
-  `supersedes` and `_end` call with the exact references, the claim, the evidence and MC1's expected state; the library
+  `supersedes` and `_end` call with the exact references, the claim, the evidence and MC1's expected revision (**the approval is bound to that revision**); the library
   ships **no approver that approves by itself**, and with none registered a write lands live and unlinked and an end is
   refused as a result the model can read. **Proof.** No approver, no applied supersession or end; a denial reads back to the
-  model; an approval carrying a stale expected state changes nothing; a reference the host did not issue, of another engine or
+  model; an approval carrying a stale expected revision changes nothing; a reference the host did not issue, of another engine or
   task, is refused; and no shipped type approves without a caller's code.
 
 - [ ] **MC7 — a read-only view of the owner's task, as a blend member** (lane `memory`, after MC1; Wave 4's first half in <!-- item: state=startable -->
@@ -561,8 +565,9 @@ MC3's measured rate and MC8's instrument each state what a YES and a NO change, 
   may confirm by review of a bounded claim pair; a NO changes nothing and is recorded as a refutation so the next session
   does not repeat it. **Contract.** Independently adjudicated revised-against-superseded pairs from `memory-longmemeval
   --haystack`, a model proposing the end from MC3's candidates, and four rates reported separately: a wrong end hiding the
-  true fact, a missed replacement, an unaffected claim lost, a stale fact kept. Paired, counterbalanced arms with the walk
-  repeated, since a recall mutates (`docs/memory.md` §7); the harness is read first for whether it does this. Disagreement
+  true fact, a missed replacement, an unaffected claim lost, a stale fact kept. Paired arms, **each starting from an equivalent isolated snapshot and keeping its mutations inside its own repeated walk**,
+  execution order counterbalanced, since a recall mutates (`docs/memory.md` §7) and counterbalancing alone removes order bias, not
+  contamination; **this is required before MC8 can promote any step**, and the harness is read first for whether it does it. Disagreement
   between reviewers abstains. **Stop rule.** The first actionable rate stops the instrument; no run is spent after it.
 
 - [ ] **MC9 — the expand tool stays inside the task its host pinned** (lane `memory`; **D241**). `ExpandAsync` takes a <!-- item: state=startable -->

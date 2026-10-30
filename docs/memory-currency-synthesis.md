@@ -15,11 +15,15 @@ cross-task links (`docs/memory.md` §7, **D92**).
 
 **The answer to the owner's proposal of retiring through decay.** Decay stays, for what nobody uses, and the owner's point
 is kept: **an ended entry is kept whole and recoverable**, never deleted, read back under `History` with its reason and
-successor, and a wrong end is corrected by writing the fact again. What decay cannot do is retire the entry somebody still
-asks about, which is the case that matters. A use reinforces the stale fact, burial is relative to the top result so a
-replaced and a current fact that rank alike are both returned, an authoritative entry is never buried (**D41**, **D56**),
-and a guaranteed exclusion would be a third stored state every reading must answer for. So an end, which is the writer's
-statement, retires; decay, which is the ranker's, only quiets. The exclusion an end gives is of *eligibility*; bounded
+successor, and a wrong end is corrected by writing the fact again. The brief's direction is kept too: a writer or confirmer
+*directs* the retirement, decay never *decides* it. **Applied to the seam (D40, D41), the end is a state beside it, for the
+reason the code gives**: decay state (age, stability, position) is rewritten by every recall, expansion and touch, so an end
+held there is undone by the next use, burial is relative to the top result so a replaced and a current fact that rank alike
+are both returned, an authoritative entry is never buried (**D56**), and a retrievability policy is the host's swappable
+function, so retirement would vary with it. The end is instead the valid-time interval and its reason, which no decay or
+reinforcement path writes and the `Current` reading filters on before ranking: durably excluded from `Current`; not restored
+by a use (a re-remember that states no validity keeps it); whole under `History` with reason and successor; and the
+writer's or confirmer's decision. It is not a third state, since `Current` and `History` already read it. The exclusion an end gives is of *eligibility*; bounded
 retrieval can still miss an eligible entry, and ended entries stay in the walk, so accumulated ends can shorten a page
 (`docs/memory.md` §9) — MC1 measures that instead of promising it away.
 
@@ -113,14 +117,26 @@ missed changes nothing, which is stated here so the next session does not re-run
 **Chosen.** Codex's point holds against the code: a write that supersedes resolves its predecessors, upserts the
 successor, then ends them as three calls (`GraphMemoryEngine` write path, `SupersedeAsync`), and a confirmation that a person
 made an hour ago ends whatever the entry has become since (for example a `Held` stamped after the failure it was
-reviewed on). So MC1's `MemoryEnding` gains an optional **expected state**: the validity and confirmation as the confirmer
-read them. A store that holds the capability applies the end **only if** the state still matches, in one conditional
-statement on the SQL stores and under the lock on the in-memory and file-system stores; a mismatch changes nothing and
-returns `Changed` with the state it found, never an exception. An unconditional end is the default, as today.
+reviewed on). So MC1's `MemoryEnding` gains an optional **expected revision**: an opaque token the confirmer read, which covers the claim and
+every decision-relevant field. Validity plus confirmation alone would not: a rewrite can keep both and change the headline,
+the grade, the metadata or the check's instructions. The claim itself is the entry's identity (`MemoryContentKey`, a hash of
+the content), so a changed claim is a different entry and the reviewed one is unchanged. The revision advances on any write
+that lands on the entry, an end and a confirmation, and on nothing a recall does. A store that holds the capability applies
+the end **only if** the revision still matches, in one conditional statement on the SQL stores and under the lock on the
+in-memory and file-system stores; a mismatch changes nothing and returns `Changed` with the entry's current revision, never
+an exception, and needs a fresh approval. An unconditional end is the default, as today.
 
-**A store without the capability throws `NotSupportedException` when an expected state is given**, never ends unconditionally
-in silence. MC5's `ConfirmAsync(Failed)` and MC6's proposal carry the state the due read returned, so the three use one
-guard.
+**A store without the capability throws `NotSupportedException` when an expected revision is given**, never ends
+unconditionally in silence. MC5's `ConfirmAsync(Failed)` and MC6's proposal carry the revision the due read returned, so the
+three use one guard.
+
+**A retry after a partial write is an acceptance case, not a transaction.** When the successor is stored and the end then
+fails or returns `Changed`, the repeat of the same write finds the successor by its identity, keeps its provenance, reports
+the partial outcome explicitly, and a revision mismatch is answered by a fresh approval; the guard is never dropped to repair.
+No cross-store transaction is built before that evidence says the retry is not enough.
+
+**A due sweep is eventual repair, not proof of currency at presentation.** A coordinator that presents cached material as
+current checks the revision at presentation.
 
 **Not chosen:** a transaction over the successor's insert and the predecessor's end. That widens a store contract the
 shipped stores implement; the order today (insert, then end) fails toward both entries live, and a repeat of the same write
@@ -141,8 +157,8 @@ only as §2 says; the library runs nothing). **MC7**, the view, whose trigger is
 soon as MC3 lands. **MC9**, a small isolation fix that waits for nothing and is listed last only because nothing stands on it.
 
 **Recall is measured by repeated paired walks.** A recall reinforces and links what it returns (`docs/memory.md` §7's
-trap), so every measured step above runs its arms back to back on each query with the order alternating, repeats the
-walk, and reports **stale answers, lost current claims and lost historical evidence separately**. The first step of MC3
+trap), so every measured step above runs each arm from an equivalent **isolated snapshot** of the graph, keeps that arm's
+reinforcement and links inside its own repeated walk, counterbalances the execution order, and reports **stale answers, lost current claims and lost historical evidence separately**. The first step of MC3
 and MC8 is to read whether the harness does this (`bench/Lyntai.Benchmarks/MemoryLongMemEvalBench.cs`) and to add it
 where it does not; it is a step inside those rows, not a row, because no outcome of an instrument alone changes the
 library (`.claude/rules/task-lifecycle.md`). **Rejects:** one aggregate accuracy as permission to trade an invariant away.
@@ -169,6 +185,6 @@ rebuildable from the record, with stable claim identity the owner supplies; a mo
 | `Failed` | the host confirmed the claim; else inconclusive | the other's | a recorded inconclusive state |
 | confirmer | person, deterministic check, or a model past MC8's bar | both | an opt-in "apply alone" setting |
 | `Disputes`, `Amends` | alone and attributed | this repository's | a proposed-versus-accepted state |
-| conditional end | optional expected state | the other's | a transaction over insert and end |
+| conditional end | optional expected revision | the other's | a transaction over insert and end |
 | order | MC4 before the tools | the other's | tools first |
 | instruments | MC8 plus paired walks | both | one aggregate score |
