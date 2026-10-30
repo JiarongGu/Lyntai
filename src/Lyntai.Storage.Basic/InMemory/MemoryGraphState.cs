@@ -503,6 +503,19 @@ internal sealed class MemoryGraphState(Func<DateTimeOffset> clock)
                 EdgeElapsedAge: (totals.EncodedAt - x.When).TotalDays))];
     }
 
+    /// <summary>The links of the named kinds whose both ends are in <paramref name="ids"/> and in the task.</summary>
+    public IReadOnlyList<GraphTypedLink> LinksAmong(string engine, string taskKey, IReadOnlyCollection<long> ids,
+        IReadOnlyCollection<string> kinds)
+    {
+        var among = ids.ToHashSet();
+        bool InTask(long id) => _nodes.TryGetValue(id, out var n) && n.Record.Engine == engine && n.Record.TaskKey == taskKey;
+        return [.. among
+            .Where(_out.ContainsKey)
+            .SelectMany(from => _out[from].Keys.Select(k => new GraphTypedLink(from, k.To, k.Kind)))
+            .Where(l => among.Contains(l.To) && kinds.Contains(l.Kind) && InTask(l.From) && InTask(l.To))
+            .OrderBy(l => l.From).ThenBy(l => l.To).ThenBy(l => l.Kind, StringComparer.Ordinal)];
+    }
+
     public GraphNode? Get(string engine, long id) =>
         _nodes.TryGetValue(id, out var node) && node.Record.Engine == engine ? ToNode(node, Totals(engine)) : null;
 

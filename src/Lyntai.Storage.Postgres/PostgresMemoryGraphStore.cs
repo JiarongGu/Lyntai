@@ -28,7 +28,8 @@ namespace Lyntai.Storage.Postgres;
 public sealed class PostgresMemoryGraphStore(
     IDbConnectionFactory factory,
     ILogger<PostgresMemoryGraphStore>? logger = null,
-    Func<DateTimeOffset>? clock = null) : ICountableMemoryGraphStore, IPortableMemoryGraphStore, IEndableMemoryGraphStore
+    Func<DateTimeOffset>? clock = null) : ICountableMemoryGraphStore, IPortableMemoryGraphStore, IEndableMemoryGraphStore,
+    ITypedLinkMemoryGraphStore
 {
     private readonly ILogger _logger = logger ?? NullLogger<PostgresMemoryGraphStore>.Instance;
     private readonly Func<DateTimeOffset> _clock = clock ?? (() => DateTimeOffset.UtcNow);
@@ -238,6 +239,29 @@ public sealed class PostgresMemoryGraphStore(
                     : 0),
             splitOn: "EdgeWeight").ConfigureAwait(false);
         return [.. rows];
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<GraphTypedLink>> LinksAmongAsync(string engine, string taskKey,
+        IReadOnlyCollection<long> ids, IReadOnlyCollection<string> kinds, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(ids);
+        ArgumentNullException.ThrowIfNull(kinds);
+        ct.ThrowIfCancellationRequested();
+        if (ids.Count == 0 || kinds.Count == 0) return [];
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
+        var idArray = ids.ToArray();
+        var kindArray = kinds.ToArray();
+        var rows = await conn.QueryAsync<TypedLinkRow>(new CommandDefinition("""
+            SELECT e.from_id AS FromId, e.to_id AS ToId, e.kind AS Kind
+            FROM lyntai_memory_edge e
+            JOIN lyntai_memory_node a ON a.id = e.from_id
+            JOIN lyntai_memory_node b ON b.id = e.to_id
+            WHERE e.from_id = ANY(@idArray) AND e.to_id = ANY(@idArray) AND e.kind = ANY(@kindArray)
+              AND a.engine = @engine AND a.task_key = @taskKey AND b.engine = @engine AND b.task_key = @taskKey
+            ORDER BY e.from_id, e.to_id, e.kind
+            """, new { idArray, kindArray, engine, taskKey }, cancellationToken: ct)).ConfigureAwait(false);
+        return [.. rows.Select(r => new GraphTypedLink(r.FromId, r.ToId, r.Kind))];
     }
 
     /// <inheritdoc />

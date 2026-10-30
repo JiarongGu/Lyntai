@@ -169,7 +169,7 @@ public static class MemoryComposition
                 // an item that says when it held says so on its line, whichever section it is in, so an ended fact is
                 // never read as a current one; an untimed item gets nothing and renders exactly as before
                 var text = MemoryLine.Flatten(verbatim ? item.Content ?? item.Headline : item.Headline)
-                    + MemoryLine.ValidityNote(item.Validity);
+                    + MemoryLine.ValidityNote(item.Validity) + MemoryLine.RelationNote(item.Relations);
                 var line = $"- {text}\n";
                 var outcome = MemoryCompositionOutcome.Rendered;
                 // a duplicate is neither rendered nor counted as omitted — the model already has it

@@ -92,6 +92,10 @@ every addition.
 
 ### Added
 
+- **Two live entries that may disagree can be marked by their writer: `MemoryWrite.Disputes` and `MemoryWrite.Amends`, or
+  `IRelatableMemory.RelateAsync`** (**D240**, **D241**). Neither ends anything. A recall reports `MemoryItem.Relations` where the
+  other end is in the same reading, as the writer's attributed assertion; the memory tools and a rendered memory say so in fixed
+  words. The optional `ITypedLinkMemoryGraphStore` reads typed links among a set of entries on all four shipped stores.
 - **A write can be shown the live entries it may update: `IMemoryCandidates.FindUpdatesAsync`** (**D239**). The graph engine and the
   blend list the entries of the write's own task and scope that are valid now, each with its basis (lexical, or similarity
   where an embedder is wired) and its revision, and apply none; nothing is reinforced, linked or written. The default limit is ten: measured on 70 revised-fact pairs among a LongMemEval haystack, the lexical basis puts the true predecessor in the first four for 54% and in the first ten for 89%.

@@ -2436,6 +2436,7 @@ sealed class Lyntai.Memory.CompositeMemoryEngine
     PruneAsync(String taskKey, String scope = null, Nullable<Double> minRetrievability = null, Nullable<TimeSpan> olderThan = null, CancellationToken ct = default) : Task<Int32>
     RecallAsync(MemoryQuery query, CancellationToken ct = default) : Task<MemoryRecall>
     ReindexAsync(String taskKey, String scope = null, CancellationToken ct = default) : Task<MemoryReindexResult>
+    RelateAsync(String taskKey, MemoryRef from, MemoryRef to, MemoryRelation relation, CancellationToken ct = default) : Task
     RememberAsync(MemoryWrite write, CancellationToken ct = default) : Task<MemoryWriteResult>
     Supported : MemoryGrades { get; }
     WriteRouting : MemoryWriteRouting { get; init; }
@@ -2472,6 +2473,7 @@ sealed class Lyntai.Memory.Engines.GraphMemoryEngine
     PruneAsync(String taskKey, String scope = null, Nullable<Double> minRetrievability = null, Nullable<TimeSpan> olderThan = null, CancellationToken ct = default) : Task<Int32>
     RecallAsync(MemoryQuery query, CancellationToken ct = default) : Task<MemoryRecall>
     ReindexAsync(String taskKey, String scope = null, CancellationToken ct = default) : Task<MemoryReindexResult>
+    RelateAsync(String taskKey, MemoryRef from, MemoryRef to, MemoryRelation relation, CancellationToken ct = default) : Task
     RememberAsync(MemoryWrite write, CancellationToken ct = default) : Task<MemoryWriteResult>
     Supported : MemoryGrades { get; }
 sealed class Lyntai.Memory.Engines.GraphMemorySeams
@@ -2779,6 +2781,16 @@ struct Lyntai.Memory.GraphTouch
     ProvenanceRetrievability : Int64 { get; init; }
     Stability : Double { get; init; }
     ToString() : String
+struct Lyntai.Memory.GraphTypedLink
+    .ctor(Int64 From, Int64 To, String Kind)
+    Deconstruct(Int64& From, Int64& To, String& Kind) : Void
+    Equals(GraphTypedLink other) : Boolean
+    Equals(Object obj) : Boolean
+    From : Int64 { get; init; }
+    GetHashCode() : Int32
+    Kind : String { get; init; }
+    To : Int64 { get; init; }
+    ToString() : String
 sealed class Lyntai.Memory.GraphWriteBack
     .ctor(IReadOnlyCollection<GraphTouch> Touches, IReadOnlyList<GraphEdgeWrite> Edges, IReadOnlyCollection<MemoryReviewWrite> Reviews, Int32 ReviewLogCap)
     Deconstruct(IReadOnlyCollection`1& Touches, IReadOnlyList`1& Edges, IReadOnlyCollection`1& Reviews, Int32& ReviewLogCap) : Void
@@ -2849,6 +2861,8 @@ interface Lyntai.Memory.IReadableVectorStore
     GetAsync(String collection, IReadOnlyCollection<String> ids, CancellationToken ct = default) : Task<IReadOnlyList<VectorEntry>>
 interface Lyntai.Memory.IReindexableMemory
     ReindexAsync(String taskKey, String scope = null, CancellationToken ct = default) : Task<MemoryReindexResult>
+interface Lyntai.Memory.IRelatableMemory
+    RelateAsync(String taskKey, MemoryRef from, MemoryRef to, MemoryRelation relation, CancellationToken ct = default) : Task
 interface Lyntai.Memory.ISemanticMemory
     ForgetAsync(String taskKey, String scope, CancellationToken ct = default) : Task
     RecallAsync(String taskKey, String scope, String query, Int32 k = 5, Double minScore = 0, CancellationToken ct = default) : Task<IReadOnlyList<SemanticHit>>
@@ -2859,6 +2873,8 @@ interface Lyntai.Memory.ITemporalMemory
     HoldsValidity : Boolean { get; }
 interface Lyntai.Memory.ITemporalMemoryGraphStore
     SupersedeAsync(String engine, IReadOnlyList<GraphSupersession> supersessions, CancellationToken ct = default) : Task<Int32>
+interface Lyntai.Memory.ITypedLinkMemoryGraphStore
+    LinksAmongAsync(String engine, String taskKey, IReadOnlyCollection<Int64> ids, IReadOnlyCollection<String> kinds, CancellationToken ct = default) : Task<IReadOnlyList<GraphTypedLink>>
 interface Lyntai.Memory.IVectorStore
     DeleteAsync(String collection, String id, CancellationToken ct = default) : Task
     RemoveCollectionAsync(String collection, CancellationToken ct = default) : Task
@@ -3107,11 +3123,22 @@ sealed class Lyntai.Memory.MemoryItem
     Headline : String { get; init; }
     Metadata : IReadOnlyDictionary<String,String> { get; init; }
     Reference : MemoryRef { get; init; }
+    Relations : IReadOnlyList<MemoryItemRelation> { get; init; }
     Relevance : Double { get; init; }
     Retrievability : Double { get; init; }
     Revision : String { get; init; }
     ToString() : String
     Validity : MemoryValidity { get; init; }
+sealed class Lyntai.Memory.MemoryItemRelation
+    .ctor(MemoryRelation Relation, MemoryRef Other, Boolean AssertedByThis)
+    AssertedByThis : Boolean { get; init; }
+    Deconstruct(MemoryRelation& Relation, MemoryRef& Other, Boolean& AssertedByThis) : Void
+    Equals(MemoryItemRelation other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Other : MemoryRef { get; init; }
+    Relation : MemoryRelation { get; init; }
+    ToString() : String
 static class Lyntai.Memory.MemoryProvenance
     static Fits(Int64 stored, Int64 required) : Boolean
     static Pack(IEnumerable<Int64> contributions) : Int64
@@ -3191,6 +3218,10 @@ enum Lyntai.Memory.MemoryReinforcementEffects
     All : MemoryReinforcementEffects const
     None : MemoryReinforcementEffects const
     StabilityGrowth : MemoryReinforcementEffects const
+    value__ : Int32
+enum Lyntai.Memory.MemoryRelation
+    Amends : MemoryRelation const
+    Disputes : MemoryRelation const
     value__ : Int32
 static class Lyntai.Memory.MemoryRelevance
     static ByRankPosition(Int32 index, Int32 count, Nullable<Boolean> matched = null) : Double
@@ -3362,8 +3393,10 @@ sealed class Lyntai.Memory.MemoryWiringReport
     IsClean : Boolean { get; }
 sealed class Lyntai.Memory.MemoryWrite
     .ctor(String TaskKey, String Scope, String Content, String Headline = null, MemoryGrade Grade = MemoryGrade.Inherit, IReadOnlyDictionary<String,String> Metadata = null)
+    Amends : IReadOnlyList<MemoryRef> { get; init; }
     Content : String { get; init; }
     Deconstruct(String& TaskKey, String& Scope, String& Content, String& Headline, MemoryGrade& Grade, IReadOnlyDictionary`2& Metadata) : Void
+    Disputes : IReadOnlyList<MemoryRef> { get; init; }
     Equals(MemoryWrite other) : Boolean
     Equals(Object obj) : Boolean
     GetHashCode() : Int32
@@ -4377,6 +4410,11 @@ static class Lyntai.Storage.TraceStoreSql
     GetTrace : String const
     InsertStep : String const
     InsertTrace : String const
+sealed class Lyntai.Storage.TypedLinkRow
+    .ctor()
+    FromId : Int64 { get; set; }
+    Kind : String { get; set; }
+    ToId : Int64 { get; set; }
 sealed class Lyntai.Storage.UsageTotalsRow
     .ctor()
     Calls : Int64 { get; set; }

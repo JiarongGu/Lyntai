@@ -30,6 +30,22 @@ internal static class MemoryLine
         return $" (valid {string.Join(' ', parts)}{(validity.SupersededAt is null ? "" : ", superseded")})";
     }
 
+    /// <summary>What a rendered memory says about a relation its writer stated: fixed words only, so nothing a writer
+    /// authored reaches the line, and always as an assertion by an entry shown beside it — never as an established
+    /// disagreement. Empty where there are none.</summary>
+    public static string RelationNote(IReadOnlyList<MemoryItemRelation>? relations)
+    {
+        if (relations is not { Count: > 0 }) return "";
+        var parts = relations.Select(r => (r.Relation, r.AssertedByThis) switch
+        {
+            (MemoryRelation.Disputes, true) => "asserts a dispute of another entry shown here",
+            (MemoryRelation.Disputes, false) => "disputed by another entry shown here",
+            (MemoryRelation.Amends, true) => "amends another entry shown here",
+            _ => "amended by another entry shown here",
+        }).Distinct();
+        return $" ({string.Join("; ", parts)})";
+    }
+
     // a date where the instant is midnight UTC, the instant otherwise — always UTC, always invariant
     private static string Instant(DateTimeOffset at)
     {

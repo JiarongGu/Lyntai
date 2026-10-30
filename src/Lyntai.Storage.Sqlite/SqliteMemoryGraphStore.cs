@@ -36,7 +36,8 @@ namespace Lyntai.Storage.Sqlite;
 public sealed class SqliteMemoryGraphStore(
     IDbConnectionFactory factory,
     ILogger<SqliteMemoryGraphStore>? logger = null,
-    Func<DateTimeOffset>? clock = null) : ICountableMemoryGraphStore, IPortableMemoryGraphStore, IEndableMemoryGraphStore
+    Func<DateTimeOffset>? clock = null) : ICountableMemoryGraphStore, IPortableMemoryGraphStore, IEndableMemoryGraphStore,
+    ITypedLinkMemoryGraphStore
 {
     private readonly ILogger _logger = logger ?? NullLogger<SqliteMemoryGraphStore>.Instance;
     private readonly Func<DateTimeOffset> _clock = clock ?? (() => DateTimeOffset.UtcNow);
@@ -339,6 +340,30 @@ public sealed class SqliteMemoryGraphStore(
                     : 0),
             splitOn: "EdgeWeight").ConfigureAwait(false);
         return [.. rows];
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<GraphTypedLink>> LinksAmongAsync(string engine, string taskKey,
+        IReadOnlyCollection<long> ids, IReadOnlyCollection<string> kinds, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(ids);
+        ArgumentNullException.ThrowIfNull(kinds);
+        ct.ThrowIfCancellationRequested();
+        if (ids.Count == 0 || kinds.Count == 0) return [];
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
+        var idList = ids.ToList();
+        var kindList = kinds.ToList();
+        // both ends are checked against the task, so an edge that crosses one is never reported
+        var rows = await conn.QueryAsync<TypedLinkRow>(new CommandDefinition("""
+            SELECT e.from_id AS FromId, e.to_id AS ToId, e.kind AS Kind
+            FROM lyntai_memory_edge e
+            JOIN lyntai_memory_node a ON a.id = e.from_id
+            JOIN lyntai_memory_node b ON b.id = e.to_id
+            WHERE e.from_id IN @idList AND e.to_id IN @idList AND e.kind IN @kindList
+              AND a.engine = @engine AND a.task_key = @taskKey AND b.engine = @engine AND b.task_key = @taskKey
+            ORDER BY e.from_id, e.to_id, e.kind
+            """, new { idList, kindList, engine, taskKey }, cancellationToken: ct)).ConfigureAwait(false);
+        return [.. rows.Select(r => new GraphTypedLink(r.FromId, r.ToId, r.Kind))];
     }
 
     /// <inheritdoc />

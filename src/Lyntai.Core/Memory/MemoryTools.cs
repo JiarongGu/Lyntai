@@ -73,6 +73,20 @@ internal static class MemoryTools
                 if (validity.SupersededBy is { } by) writer.WriteString("supersededBy", Format(by));
                 if (validity.EndedReason is { } reason) writer.WriteString("endedReason", reason);
             }
+            // a writer's assertion with the other end in this page: attributed to whichever entry made it
+            if (item.Relations is { Count: > 0 } relations)
+            {
+                writer.WriteStartArray("relations");
+                foreach (var relation in relations)
+                {
+                    writer.WriteStartObject();
+                    writer.WriteString("relation", relation.Relation.ToString().ToLowerInvariant());
+                    writer.WriteString("other", Format(relation.Other));
+                    writer.WriteBoolean("assertedByThis", relation.AssertedByThis);
+                    writer.WriteEndObject();
+                }
+                writer.WriteEndArray();
+            }
             // the state a confirmer reviewed: an end passes it back so it applies only to the entry as it was read
             if (item.Revision is { } revision) writer.WriteString("revision", revision);
             writer.WriteEndObject();

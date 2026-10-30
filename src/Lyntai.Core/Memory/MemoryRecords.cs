@@ -41,6 +41,18 @@ public sealed record MemoryWrite(
     /// <see cref="ArgumentException"/>.</para></summary>
     public IReadOnlyList<MemoryRef>? Supersedes { get; init; }
 
+    /// <summary>Live entries of this engine and task this write DISPUTES — its writer says their claim is wrong or in doubt.
+    /// Ends nothing: both stay current, and a recall reports the relation as <see cref="MemoryItem.Relations"/> where
+    /// both ends are in the reading, as the writer's attributed assertion. <b>Only a caller states one</b>; nothing is
+    /// inferred from similar text. Refused, before anything is written, for an entry that is not valid now, another
+    /// engine's or task's, the write itself, or a store that cannot read the relation back
+    /// (<see cref="ITypedLinkMemoryGraphStore"/>).</summary>
+    public IReadOnlyList<MemoryRef>? Disputes { get; init; }
+
+    /// <summary>Live entries this write AMENDS: it corrects or extends one claim of each and leaves the rest of it standing,
+    /// which a whole-entry supersession would not. Stated, reported and refused as <see cref="Disputes"/> is.</summary>
+    public IReadOnlyList<MemoryRef>? Amends { get; init; }
+
     /// <summary>Whether this write states valid time at all — what an engine that cannot hold it refuses.</summary>
     public bool StatesValidity => ValidFrom is not null || ValidTo is not null || Supersedes is { Count: > 0 };
 }
@@ -158,6 +170,11 @@ public sealed record MemoryItem(
     /// <see cref="MemoryEnding.ExpectedRevision"/> so an end applies only to the entry as it was read; compare it
     /// for equality only.</summary>
     public string? Revision { get; init; }
+
+    /// <summary>The relations this entry takes part in whose other end is in the same reading, or null where there are
+    /// none or the engine holds no relations. A relation whose other end is not returned, or has ended, is not reported.
+    /// Each is the writer's attributed assertion, never an established disagreement.</summary>
+    public IReadOnlyList<MemoryItemRelation>? Relations { get; init; }
 }
 
 /// <summary>The result of a recall, with the tiers that actually ran.</summary>

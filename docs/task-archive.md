@@ -6325,3 +6325,16 @@ API baselines moved. **Measured:** accumulated ends crowd current entries out of
 ended), recorded in `docs/memory-measurements.md` §5 and filed as `TASKS.md` MC10. Lanes `memory` + `storage`.
 
 - MC1 — an entry is ended by reference, with a reason
+
+## Part 420 — MC4: two live entries that may disagree are marked by their writer (2026-10-30)
+
+✅ done 2026-10-30 — **Outcome:** `MemoryWrite.Disputes` and `Amends` plus `IRelatableMemory.RelateAsync` (graph engine and blend);
+a recall returns `MemoryItem.Relations` only where the other end is in the same reading, the tools and a rendered memory say it
+in fixed words as the writer's assertion. First step read: an edge is keyed (from, to, kind) in all four stores, so no relation
+column; the missing piece was a read of an edge's kind, added as the optional `ITypedLinkMemoryGraphStore.LinksAmongAsync` (SQL on
+both dialects, in-memory, files). Proof: one store fact on four stores, eight engine cases (both ends read, later `RelateAsync`
+and its repeat, gone once an end ended, co-activation and prune leave it, refusals, a store that cannot read a typed link, the
+blend, the tool and the line). **Measured, by construction and pinned:** 30 claims, 5 stated disputes, 35 of 35 returned and
+exactly 5 relations, so no false dispute and no unaffected claim lost. Lane `memory`.
+
+- MC4 — two live entries that may disagree are marked by their writer

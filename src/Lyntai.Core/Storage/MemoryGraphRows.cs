@@ -203,3 +203,16 @@ public sealed class EndStateRow
     /// <summary>1 where that successor still exists, else 0 — a removed one counts as none.</summary>
     public int SuccessorLives { get; set; }
 }
+
+/// <summary>One typed link as the SQL stores read it for <see cref="Lyntai.Memory.ITypedLinkMemoryGraphStore"/>.</summary>
+public sealed class TypedLinkRow
+{
+    /// <summary>The source entry.</summary>
+    public long FromId { get; set; }
+
+    /// <summary>The target entry.</summary>
+    public long ToId { get; set; }
+
+    /// <summary>The relation name.</summary>
+    public string Kind { get; set; } = "";
+}

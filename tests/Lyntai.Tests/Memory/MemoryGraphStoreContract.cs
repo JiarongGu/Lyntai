@@ -2203,6 +2203,38 @@ public static class MemoryGraphStoreContract
         Assert.Equal(GraphEndOutcome.Missing, (await endable.EndAsync("another-engine", new GraphEnd(id, "x", Mar))).Outcome);
     }
 
+    /// <summary><b>Typed links are read by kind among a set, inside one task, and an untyped link is not one.</b> A recall's
+    /// co-activation writes untyped edges, so it can neither create nor strengthen a typed one; an endpoint outside the
+    /// task, or outside the set, is never reported.</summary>
+    public static async Task Typed_links_are_read_by_kind_among_a_set_inside_one_task(IMemoryGraphStore store, string key)
+    {
+        var typed = Assert.IsAssignableFrom<ITypedLinkMemoryGraphStore>(store);
+        const string engine = "tv-typed";
+        var a = await store.UpsertAsync(Write(engine, key, "alpha claim"));
+        var b = await store.UpsertAsync(Write(engine, key, "beta claim"));
+        var c = await store.UpsertAsync(Write(engine, key, "gamma claim"));
+        var outside = await store.UpsertAsync(Write(engine, key + "-elsewhere", "delta claim"));
+        await store.LinkAsync(engine, a, b, "disputes", 1, false);
+        await store.LinkAsync(engine, c, a, "amends", 1, false);
+        await store.LinkAsync(engine, b, c, null, 1, true);          // an association, not a relation
+        await store.LinkAsync(engine, a, c, "other-kind", 1, false);   // a kind nobody asked for
+        await store.LinkAsync(engine, a, outside, "disputes", 1, false);
+
+        var found = await typed.LinksAmongAsync(engine, key, [a, b, c, outside], ["disputes", "amends"]);
+
+        Assert.Equal([new GraphTypedLink(c, a, "amends"), new GraphTypedLink(a, b, "disputes")],
+            found.OrderBy(l => l.Kind, StringComparer.Ordinal).ThenBy(l => l.From));
+        // a set that leaves one end out reports nothing for it, and nothing asked for is nothing returned
+        Assert.Equal([new GraphTypedLink(c, a, "amends")], await typed.LinksAmongAsync(engine, key, [a, c], ["disputes", "amends"]));
+        Assert.Empty(await typed.LinksAmongAsync(engine, key, [a, b, c], []));
+        Assert.Empty(await typed.LinksAmongAsync(engine, key, [], ["disputes"]));
+        Assert.Empty(await typed.LinksAmongAsync("another-engine", key, [a, b, c], ["disputes"]));
+
+        // co-activation is untyped: strengthening an association leaves the typed set as it was
+        await store.LinkAsync(engine, a, b, null, 5, true);
+        Assert.Equal(2, (await typed.LinksAmongAsync(engine, key, [a, b, c], ["disputes", "amends"])).Count);
+    }
+
     /// <summary><b>An end applies only to the revision it was reviewed on.</b> A rewrite that keeps the validity and
     /// changes the headline advances the revision, so the end reviewed before it changes nothing and reports the one it
     /// found; a recall's touch and a link advance nothing; a supersession and an end do.</summary>

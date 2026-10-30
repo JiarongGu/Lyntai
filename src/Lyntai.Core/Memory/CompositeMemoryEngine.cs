@@ -43,7 +43,7 @@ public enum MemoryWriteRouting
 /// </summary>
 public sealed class CompositeMemoryEngine
     : IMemoryEngine, IExpandableMemory, ITaskExpandableMemory, ILinkableMemory, IForgettableMemory, IPrunableMemory,
-        IReindexableMemory, IPortableMemory, ITemporalMemory, IEndableMemory, IMemoryCandidates
+        IReindexableMemory, IPortableMemory, ITemporalMemory, IEndableMemory, IMemoryCandidates, IRelatableMemory
 {
     private readonly IReadOnlyList<IMemoryEngine> _members;
     private readonly ILogger _logger;
@@ -139,7 +139,8 @@ public sealed class CompositeMemoryEngine
         // A write that SUPERSEDES goes to the member that owns what it supersedes, and to no other: a reference
         // names exactly one member, only that member holds the entries being ended, and a copy anywhere else would
         // store the successor without ending anything. So it ignores the routing mode.
-        if (write.Supersedes is { Count: > 0 } named)
+        var named = (write.Supersedes ?? []).Concat(write.Disputes ?? []).Concat(write.Amends ?? []).ToList();
+        if (named.Count > 0)
         {
             var owners = named.Select(r => r.Engine).Distinct(StringComparer.Ordinal).ToList();
             var owner = owners.Count == 1 ? capable.FirstOrDefault(m => m.Name == owners[0]) : null;
@@ -332,6 +333,20 @@ public sealed class CompositeMemoryEngine
         return member is IMemoryCandidates candidates
             ? await candidates.FindUpdatesAsync(write, limit, ct).ConfigureAwait(false)
             : [];
+    }
+
+    /// <inheritdoc />
+    /// <remarks>Both ends must name one member; it fails LOUD where that member cannot hold a relation.</remarks>
+    public async Task RelateAsync(string taskKey, MemoryRef from, MemoryRef to, MemoryRelation relation,
+        CancellationToken ct = default)
+    {
+        if (!string.Equals(from.Engine, to.Engine, StringComparison.Ordinal))
+            throw new ArgumentException(
+                $"A relation holds between two entries of one engine; got '{from.Engine}' and '{to.Engine}'.", nameof(to));
+        if (Owner(from) is not IRelatableMemory relatable)
+            throw new NotSupportedException(
+                $"Memory engine '{from.Engine}' cannot hold a relation, so it was not recorded.");
+        await relatable.RelateAsync(taskKey, from, to, relation, ct).ConfigureAwait(false);
     }
 
     /// <inheritdoc />

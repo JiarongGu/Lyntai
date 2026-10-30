@@ -927,6 +927,18 @@ reinforced, and an ended entry, another scope or another task never appears. Eac
 `Reference` and `Revision` are what `Supersedes` or `EndAsync` take. **A list the writer reads demotes nothing**: the
 writer confirms (D239).
 
+**To say that two live entries may disagree, state it when you write** — `MemoryWrite.Disputes` (this entry says another's claim is
+wrong or in doubt) and `MemoryWrite.Amends` (it corrects or extends one claim of another and leaves the rest standing) — **or after
+it** with `IRelatableMemory.RelateAsync(taskKey, from, to, relation)`. Neither ends anything: both entries stay current, which is
+the point of `Amends` (ending a whole entry for one amended claim cost 66% to 14% in §7). Both ends must be valid now, of this
+engine and task, and not the write itself; a store that cannot read a typed link (`ITypedLinkMemoryGraphStore`, which all four
+shipped stores implement) refuses rather than record what it could not show. A recall returns `MemoryItem.Relations` on an entry
+**only where the other end is in the same reading**, so a relation whose other end has ended, or fell off the page, is not
+reported; the memory tools and a rendered memory say it in fixed words as an assertion by the entry that made it, never as an
+established disagreement. **The engine states no relation it was not told**: nothing is inferred from overlapping text (D240). A
+relation is an edge of its own kind, so a recall's co-activation does not strengthen it, and like any edge it counts in an entry's
+`Degree` and connection strength.
+
 **To end an entry that nothing replaced, or one a successor is not at hand for, call `IEndableMemory.EndAsync`** (the
 graph engine and a blend implement it): `EndAsync(taskKey, entry, new MemoryEnding("moved away"))`, with an optional
 `At` (the engine's clock, or the successor's start), an optional `Successor` of this engine, and an optional

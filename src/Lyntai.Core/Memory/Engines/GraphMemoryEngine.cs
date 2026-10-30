@@ -40,7 +40,7 @@ public sealed class GraphMemoryEngine(
     GraphMemorySeams? seams = null,
     ILogger<GraphMemoryEngine>? logger = null)
     : IMemoryEngine, IExpandableMemory, ITaskExpandableMemory, ILinkableMemory, IForgettableMemory, IPrunableMemory,
-        IReindexableMemory, IPortableMemory, ITemporalMemory, IEndableMemory, IMemoryCandidates
+        IReindexableMemory, IPortableMemory, ITemporalMemory, IEndableMemory, IMemoryCandidates, IRelatableMemory
 {
     private readonly GraphMemoryOptions _options = options ?? new GraphMemoryOptions();
     private readonly IMemoryRetrievabilityPolicy _policy =
@@ -257,6 +257,7 @@ public sealed class GraphMemoryEngine(
 
         // Valid time is checked FIRST, before any embed or annotation call: a refused write has cost nothing.
         var predecessors = await ResolvePredecessorsAsync(write, ct).ConfigureAwait(false);
+        var relations = await ResolveRelationsAsync(write, ct).ConfigureAwait(false);
 
         // ONE embed, ONE similarity search, shared between salience judgement (which needs the comparison before
         // the node has an id) and EnrichAsync below (linking + indexing, which needs it after). Without a
@@ -310,6 +311,8 @@ public sealed class GraphMemoryEngine(
 
         if (predecessors.Count > 0)
             await SupersedeAsync(id, predecessors, write.ValidFrom is not null, ct).ConfigureAwait(false);
+        foreach (var (other, kind) in relations)
+            await store.LinkAsync(Name, id, other, kind, 1, false, ct).ConfigureAwait(false);
 
         var indexed = await EnrichAsync(id, write, search, ct).ConfigureAwait(false);
         var recorded = await LinkBySubjectAsync(id, write, annotated, ct).ConfigureAwait(false);
@@ -455,6 +458,95 @@ public sealed class GraphMemoryEngine(
         && !IsThisWrite(node, write)
         && MemoryValidityReading.Current.Admits(node.Validity, now);
 
+    private const string DisputesKind = "disputes";
+    private const string AmendsKind = "amends";
+    private static readonly string[] RelationKinds = [DisputesKind, AmendsKind];
+
+    private static string KindOf(MemoryRelation relation) => relation == MemoryRelation.Disputes ? DisputesKind : AmendsKind;
+
+    /// <summary>The relations a write states, resolved and checked before anything is written: each must name a live entry
+    /// of this engine and task that is not the write itself, and the store must be able to read the relation back.</summary>
+    private async Task<IReadOnlyList<(long Other, string Kind)>> ResolveRelationsAsync(MemoryWrite write, CancellationToken ct)
+    {
+        if (write.Disputes is not { Count: > 0 } && write.Amends is not { Count: > 0 }) return [];
+        RequireTypedLinks();
+        var now = _clock();
+        var resolved = new List<(long, string)>();
+        foreach (var (named, kind) in new[] { (write.Disputes, DisputesKind), (write.Amends, AmendsKind) })
+            foreach (var reference in named ?? [])
+            {
+                var node = await ReadOwnAsync(reference, write.TaskKey, ct, "relates").ConfigureAwait(false);
+                if (IsThisWrite(node, write))
+                    throw new ArgumentException($"Entry '{reference.Id}' cannot be related to itself.", nameof(write));
+                if (!MemoryValidityReading.Current.Admits(node.Validity, now))
+                    throw new ArgumentException(
+                        $"Entry '{reference.Id}' is not valid now, and a relation holds between two live entries.", nameof(write));
+                if (!resolved.Contains((node.Id, kind))) resolved.Add((node.Id, kind));
+            }
+        return resolved;
+    }
+
+    private void RequireTypedLinks()
+    {
+        if (store is not ITypedLinkMemoryGraphStore)
+            throw new NotSupportedException(
+                $"Memory engine '{Name}' cannot hold a relation: its store ({store.GetType().Name}) does not implement " +
+                $"{nameof(ITypedLinkMemoryGraphStore)}, so the relation could be written and never read back.");
+    }
+
+    /// <inheritdoc />
+    public async Task RelateAsync(string taskKey, MemoryRef from, MemoryRef to, MemoryRelation relation,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(taskKey);
+        ct.ThrowIfCancellationRequested();
+        RequireTypedLinks();
+        var source = await ReadOwnAsync(from, taskKey, ct, "relates").ConfigureAwait(false);
+        var target = await ReadOwnAsync(to, taskKey, ct, "relates").ConfigureAwait(false);
+        if (source.Id == target.Id)
+            throw new ArgumentException($"Entry '{from.Id}' cannot be related to itself.", nameof(to));
+        var now = _clock();
+        foreach (var (node, reference) in new[] { (source, from), (target, to) })
+            if (!MemoryValidityReading.Current.Admits(node.Validity, now))
+                throw new ArgumentException(
+                    $"Entry '{reference.Id}' is not valid now, and a relation holds between two live entries.", nameof(from));
+        // the edge's strengthening is a LinkAsync's, so repeating it only adds weight and the read is unchanged
+        await store.LinkAsync(Name, source.Id, target.Id, KindOf(relation), 1, false, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>Attach each item's relations whose other end is in the SAME page. Best-effort, like every read here: a
+    /// failing store leaves the page as it was.</summary>
+    private async Task<IReadOnlyList<MemoryItem>> WithRelationsAsync(string taskKey, IReadOnlyList<MemoryItem> items,
+        CancellationToken ct)
+    {
+        if (store is not ITypedLinkMemoryGraphStore typed || items.Count < 2) return items;
+        try
+        {
+            var ids = items
+                .Select(i => long.TryParse(i.Reference.Id, NumberStyles.Integer, CultureInfo.InvariantCulture, out var id) ? id : (long?)null)
+                .Where(id => id is not null).Select(id => id!.Value).ToList();
+            var links = await typed.LinksAmongAsync(Name, taskKey, ids, RelationKinds, ct).ConfigureAwait(false);
+            if (links.Count == 0) return items;
+            MemoryRef Ref(long id) => new(Name, id.ToString(CultureInfo.InvariantCulture));
+            return [.. items.Select(item =>
+            {
+                var mine = long.Parse(item.Reference.Id, CultureInfo.InvariantCulture);
+                var relations = links.Where(l => l.From == mine || l.To == mine)
+                    .Select(l => new MemoryItemRelation(
+                        l.Kind == DisputesKind ? MemoryRelation.Disputes : MemoryRelation.Amends,
+                        Ref(l.From == mine ? l.To : l.From), l.From == mine))
+                    .ToList();
+                return relations.Count == 0 ? item : item with { Relations = relations };
+            })];
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "reading relations failed for {Engine}; the page is returned without them", Name);
+            return items;
+        }
+    }
+
     private static string? RevisionOf(GraphNode node) => node.Revision?.ToString(CultureInfo.InvariantCulture);
 
     /// <inheritdoc />
@@ -513,11 +605,11 @@ public sealed class GraphMemoryEngine(
     }
 
     // an entry named by reference, refused as a supersession refuses: another engine, another task, or none
-    private async Task<GraphNode> ReadOwnAsync(MemoryRef reference, string taskKey, CancellationToken ct)
+    private async Task<GraphNode> ReadOwnAsync(MemoryRef reference, string taskKey, CancellationToken ct, string verb = "ends")
     {
         if (!Owns(reference))
             throw new ArgumentException(
-                $"Memory engine '{Name}' ends only its own entries; got one of '{reference.Engine}'. An id means a node only " +
+                $"Memory engine '{Name}' {verb} only its own entries; got one of '{reference.Engine}'. An id means a node only " +
                 "in the engine that wrote it.", nameof(reference));
         if (!long.TryParse(reference.Id, NumberStyles.Integer, CultureInfo.InvariantCulture, out var id))
             throw new ArgumentException($"Memory engine '{Name}' addresses nodes by numeric id; got '{reference.Id}'.", nameof(reference));
@@ -525,7 +617,7 @@ public sealed class GraphMemoryEngine(
             ?? throw new ArgumentException($"Memory engine '{Name}' has no entry '{reference.Id}'.", nameof(reference));
         if (!string.Equals(node.TaskKey, taskKey, StringComparison.Ordinal))
             throw new ArgumentException(
-                $"Memory engine '{Name}' cannot end across tasks: '{reference.Id}' is in task '{node.TaskKey}' and this call is " +
+                $"Memory engine '{Name}' cannot {verb.TrimEnd('s')} across tasks: '{reference.Id}' is in task '{node.TaskKey}' and this call is " +
                 $"in '{taskKey}'.", nameof(reference));
         return node;
     }
@@ -863,8 +955,9 @@ public sealed class GraphMemoryEngine(
             // among itself. Null when nothing judged, so the shipped default (no verifier) never reports
             // `false` and a consumer abstaining on `false` does not abstain on everything.
             if (scored.Count > 0)
-                recall = new MemoryRecall(ToItems(scored, query), RecallSources,
-                    verdict.Judged ? verdict.RelevantIds.Count > 0 : null);
+                recall = new MemoryRecall(
+                    await WithRelationsAsync(query.TaskKey, ToItems(scored, query), ct).ConfigureAwait(false),
+                    RecallSources, verdict.Judged ? verdict.RelevantIds.Count > 0 : null);
         }
 
         return query.Explain
