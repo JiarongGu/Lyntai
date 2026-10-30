@@ -29,8 +29,10 @@ public interface IMemoryCandidates
     /// task never appear. Callable before the write or after it: an entry the write is (same content) is left out
     /// either way.</summary>
     /// <param name="write">The write to find updates for; nothing of it is stored.</param>
-    /// <param name="limit">The most to return; zero or less returns none.</param>
+    /// <param name="limit">The most to return; zero or less returns none. The default of ten is measured, not borrowed: on
+    /// <c>docs/memory-measurements.md</c> §5 (<c>update-candidates-lexical-haystack-n70</c>) the lexical basis puts the true
+    /// predecessor in the first four for 54% of pairs and in the first ten for 89%.</param>
     /// <param name="ct">Cancellation, which is never swallowed.</param>
-    Task<IReadOnlyList<MemoryUpdateCandidate>> FindUpdatesAsync(MemoryWrite write, int limit = 4,
+    Task<IReadOnlyList<MemoryUpdateCandidate>> FindUpdatesAsync(MemoryWrite write, int limit = 10,
         CancellationToken ct = default);
 }

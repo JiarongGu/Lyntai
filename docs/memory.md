@@ -919,7 +919,7 @@ tools report `validFrom`, `validTo`, `supersededAt`, `supersededBy` and `endedRe
 untimed entry renders exactly as before.
 
 **To see what a write may update before confirming it, call `IMemoryCandidates.FindUpdatesAsync(write, limit)`** (the graph
-engine and a blend implement it; the default limit is 4). It returns the live entries of the write's own task and scope,
+engine and a blend implement it; the default limit is 10, because the lexical basis put the true predecessor in the first four for 54% of measured pairs and in the first ten for 89%). It returns the live entries of the write's own task and scope,
 other than the write, each with the `MemoryUpdateBasis` that found it — `Lexical` (the store's own match over the write's
 words, which admits any shared token of three characters or more, so a common word brings noise) or `Similarity` (needs an
 embedder and a vector index; one that fails leaves the lexical list). It reads only: nothing is superseded, ended, linked or

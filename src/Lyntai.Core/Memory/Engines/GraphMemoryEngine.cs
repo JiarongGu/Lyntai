@@ -408,7 +408,7 @@ public sealed class GraphMemoryEngine(
     /// <remarks>Lexical: the store's own seed over the write's content. Similarity: the one vector search a write
     /// makes, floored at <see cref="GraphMemoryOptions.MinSimilarity"/>. Both read the store and the index only: no
     /// reinforcement, link or write happens, and a failed embed or search leaves the lexical list.</remarks>
-    public async Task<IReadOnlyList<MemoryUpdateCandidate>> FindUpdatesAsync(MemoryWrite write, int limit = 4,
+    public async Task<IReadOnlyList<MemoryUpdateCandidate>> FindUpdatesAsync(MemoryWrite write, int limit = 10,
         CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(write);

@@ -2426,7 +2426,7 @@ sealed class Lyntai.Memory.CompositeMemoryEngine
     ExpandAsync(MemoryRef reference, Int32 hops, Nullable<Int32> charBudget, MemoryDetail detail, MemoryValidityReading validity, CancellationToken ct = default) : Task<MemoryRecall>
     ExpandInTaskAsync(MemoryRef reference, String taskKey, Int32 hops, Nullable<Int32> charBudget, MemoryDetail detail, MemoryValidityReading validity, CancellationToken ct = default) : Task<MemoryRecall>
     ExportAsync(String taskKey, String scope, TextWriter destination, CancellationToken ct = default) : Task<MemoryExportResult>
-    FindUpdatesAsync(MemoryWrite write, Int32 limit = 4, CancellationToken ct = default) : Task<IReadOnlyList<MemoryUpdateCandidate>>
+    FindUpdatesAsync(MemoryWrite write, Int32 limit = 10, CancellationToken ct = default) : Task<IReadOnlyList<MemoryUpdateCandidate>>
     ForgetAsync(String taskKey, String scope = null, CancellationToken ct = default) : Task
     HoldsValidity : Boolean { get; }
     ImportAsync(String taskKey, String scope, TextReader source, CancellationToken ct = default) : Task<MemoryImportResult>
@@ -2463,7 +2463,7 @@ sealed class Lyntai.Memory.Engines.GraphMemoryEngine
     ExpandAsync(MemoryRef reference, Int32 hops, Nullable<Int32> charBudget, MemoryDetail detail, MemoryValidityReading validity, CancellationToken ct = default) : Task<MemoryRecall>
     ExpandInTaskAsync(MemoryRef reference, String taskKey, Int32 hops, Nullable<Int32> charBudget, MemoryDetail detail, MemoryValidityReading validity, CancellationToken ct = default) : Task<MemoryRecall>
     ExportAsync(String taskKey, String scope, TextWriter destination, CancellationToken ct = default) : Task<MemoryExportResult>
-    FindUpdatesAsync(MemoryWrite write, Int32 limit = 4, CancellationToken ct = default) : Task<IReadOnlyList<MemoryUpdateCandidate>>
+    FindUpdatesAsync(MemoryWrite write, Int32 limit = 10, CancellationToken ct = default) : Task<IReadOnlyList<MemoryUpdateCandidate>>
     ForgetAsync(String taskKey, String scope = null, CancellationToken ct = default) : Task
     HoldsValidity : Boolean { get; }
     ImportAsync(String taskKey, String scope, TextReader source, CancellationToken ct = default) : Task<MemoryImportResult>
@@ -2806,7 +2806,7 @@ interface Lyntai.Memory.ILinkableMemory
 interface Lyntai.Memory.IListableVectorStore
     ListCollectionsAsync(String prefix, CancellationToken ct = default) : Task<IReadOnlyList<String>>
 interface Lyntai.Memory.IMemoryCandidates
-    FindUpdatesAsync(MemoryWrite write, Int32 limit = 4, CancellationToken ct = default) : Task<IReadOnlyList<MemoryUpdateCandidate>>
+    FindUpdatesAsync(MemoryWrite write, Int32 limit = 10, CancellationToken ct = default) : Task<IReadOnlyList<MemoryUpdateCandidate>>
 interface Lyntai.Memory.IMemoryEngine
     Name : String { get; }
     RecallAsync(MemoryQuery query, CancellationToken ct = default) : Task<MemoryRecall>

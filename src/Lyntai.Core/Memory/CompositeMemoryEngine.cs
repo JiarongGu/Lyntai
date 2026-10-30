@@ -317,7 +317,7 @@ public sealed class CompositeMemoryEngine
     /// <inheritdoc />
     /// <remarks>Asked of the first member that can offer candidates and store the write's grade — the one a write would
     /// reach under <see cref="MemoryWriteRouting.FirstCapable"/> among those that hold valid time. None offers none.</remarks>
-    public async Task<IReadOnlyList<MemoryUpdateCandidate>> FindUpdatesAsync(MemoryWrite write, int limit = 4,
+    public async Task<IReadOnlyList<MemoryUpdateCandidate>> FindUpdatesAsync(MemoryWrite write, int limit = 10,
         CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(write);
