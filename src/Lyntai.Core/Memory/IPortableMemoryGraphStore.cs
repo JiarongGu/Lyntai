@@ -105,6 +105,10 @@ public sealed record GraphNodeImport(
     /// and never open. The successor itself is named afterwards through
     /// <see cref="ITemporalMemoryGraphStore.SupersedeAsync"/>, because its id in this store is known only then.</summary>
     public DateTimeOffset? SupersededAt { get; init; }
+
+    /// <summary>Why the entry was ended through <see cref="IEndableMemoryGraphStore.EndAsync"/>, or null; honoured as
+    /// <see cref="ValidFrom"/> is, and lands with the insert.</summary>
+    public string? EndedReason { get; init; }
 }
 
 /// <summary>Where one imported node landed: <paramref name="Id"/> in this store, and whether this import

@@ -4,12 +4,12 @@ namespace Lyntai.Storage.InMemory;
 
 /// <summary>A memory's identity and text — what a person reads, and all a file store writes to the memory's
 /// own file. Nothing here changes on a recall. Its valid time is here too: a claim about the world a person
-/// may read or correct, changed only by a write or a supersession, never by a recall.</summary>
+/// may read or correct, changed only by a write, a supersession or an end, never by a recall. `Revision` moves with every such change.</summary>
 internal sealed record GraphNodeRecord(
     long Id, string Engine, string TaskKey, string Scope, string Headline, string Content,
     MemoryGrade Grade, DateTimeOffset CreatedAt, IReadOnlyDictionary<string, string>? Metadata,
     DateTimeOffset? ValidFrom = null, DateTimeOffset? ValidTo = null, long? SupersededBy = null,
-    DateTimeOffset? SupersededAt = null);
+    DateTimeOffset? SupersededAt = null, string? EndedReason = null, long Revision = 0);
 
 /// <summary>A memory's decay bookkeeping — what the engine's arithmetic reads and writes, and what a file store
 /// journals. <c>LastRecalledPosition</c> is the <c>Advance</c>-driven mark; the three <c>Encoding*</c> stamps are

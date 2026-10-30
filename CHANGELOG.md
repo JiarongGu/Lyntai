@@ -92,6 +92,12 @@ every addition.
 
 ### Added
 
+- **An entry can be ended by reference, with a reason: `IEndableMemory.EndAsync`** (**D239**, **D241**). The graph engine and
+  the blend end an entry through the optional `IEndableMemoryGraphStore` (all four shipped stores), which keeps it whole
+  under `History` as `MemoryValidity.EndedReason`, takes it out of `Current` and is never undone by a recall. An end may
+  carry the `MemoryItem.Revision` it was reviewed on and applies only if that is still current, otherwise returning
+  `MemoryEndOutcome.Changed` and writing nothing. Two nullable columns in one migration on SQLite and Postgres (`ended_reason`,
+  `revision`), and `endedReason` on the portable line.
 - **An example image pipeline: `samples/Lyntai.ImagePipeline`** (**D230**). It drives `ComfyUiProvider` through five
   API-format workflow templates (setup image, variation, compose from style, subject and pose references, inpaint, upscale),
   each mapped by a manifest to the provider's option keys. Every step writes a recipe (template and its hash, fields, seed,

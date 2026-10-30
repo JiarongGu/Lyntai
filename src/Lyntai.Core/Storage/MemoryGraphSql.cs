@@ -47,6 +47,7 @@ public static class MemoryGraphSql
         n.provenance_retrievability AS ProvenanceRetrievability, n.provenance_salience AS ProvenanceSalience,
         n.valid_from AS ValidFrom, n.valid_to AS ValidTo,
         n.superseded_by AS SupersededBy, n.superseded_at AS SupersededAt,
+        n.ended_reason AS EndedReason, n.revision AS Revision,
         (SELECT COUNT(*) FROM lyntai_memory_edge e WHERE e.from_id = n.id) AS Degree,
         (SELECT CAST(COALESCE(SUM(e.weight), 0) AS DOUBLE PRECISION)
          FROM lyntai_memory_edge e WHERE e.from_id = n.id) AS Strength,
@@ -138,11 +139,54 @@ public static class MemoryGraphSql
     /// on SQLite.</summary>
     public const string Supersede = """
         UPDATE lyntai_memory_node
-        SET superseded_by = COALESCE(CAST(@by AS BIGINT), superseded_by), superseded_at = @at
+        SET superseded_by = COALESCE(CAST(@by AS BIGINT), superseded_by), superseded_at = @at, revision = revision + 1
         WHERE id = @id AND engine = @engine
           AND (CAST(@by AS BIGINT) IS NULL OR superseded_by IS NULL OR superseded_by = CAST(@by AS BIGINT)
                OR NOT EXISTS (SELECT 1 FROM lyntai_memory_node s WHERE s.id = lyntai_memory_node.superseded_by))
         """;
+
+    /// <summary>End one node with a reason — <see cref="IEndableMemoryGraphStore.EndAsync"/> — in ONE statement, so the
+    /// revision test and the write cannot be separated by another writer. Returns the new revision, or no row when
+    /// the entry is absent, already carries a reason, is at another revision, or has a different live successor;
+    /// <see cref="EndState"/> says which. Without a successor the entry's own <c>valid_to</c> becomes the EARLIER of what
+    /// it held and <c>@at</c>, so an end never reopens an interval a writer had closed sooner. The reason and the
+    /// revision are the only columns touched besides the end fields: no decay state moves.</summary>
+    public const string End = """
+        UPDATE lyntai_memory_node
+        SET ended_reason = @reason,
+            valid_to = CASE WHEN CAST(@by AS BIGINT) IS NULL AND (valid_to IS NULL OR valid_to > @at) THEN @at ELSE valid_to END,
+            superseded_by = COALESCE(CAST(@by AS BIGINT), superseded_by),
+            superseded_at = CASE WHEN CAST(@by AS BIGINT) IS NULL THEN superseded_at ELSE @at END,
+            revision = revision + 1
+        WHERE id = @id AND engine = @engine AND ended_reason IS NULL
+          AND (CAST(@expected AS BIGINT) IS NULL OR revision = CAST(@expected AS BIGINT))
+          AND (CAST(@by AS BIGINT) IS NULL OR superseded_by IS NULL OR superseded_by = CAST(@by AS BIGINT)
+               OR NOT EXISTS (SELECT 1 FROM lyntai_memory_node s WHERE s.id = lyntai_memory_node.superseded_by))
+        RETURNING revision
+        """;
+
+    /// <summary>What an <see cref="End"/> that matched no row found, to classify the refusal. The WHERE of
+    /// <see cref="End"/> carries the reason test, so an entry ended with a reason never matches, and a different live
+    /// successor on it is told apart from "already ended" here.</summary>
+    public const string EndState = """
+        SELECT revision AS Revision, ended_reason AS EndedReason, superseded_by AS SupersededBy,
+               CASE WHEN EXISTS (SELECT 1 FROM lyntai_memory_node s WHERE s.id = lyntai_memory_node.superseded_by)
+                    THEN 1 ELSE 0 END AS SuccessorLives
+        FROM lyntai_memory_node WHERE id = @id AND engine = @engine
+        """;
+
+    /// <summary>Classify an <see cref="End"/> that changed nothing from the row it found. Shared by both dialects so
+    /// the outcome order — missing, changed, already ended, refused — is one rule.</summary>
+    /// <param name="state">The row <see cref="EndState"/> read, or null when there is none.</param>
+    /// <param name="expected">The revision the caller expected, or null.</param>
+    /// <param name="by">The successor the caller named, or null.</param>
+    public static GraphEndResult Classify(EndStateRow? state, long? expected, long? by) =>
+        state is null ? new GraphEndResult(GraphEndOutcome.Missing, null)
+        : expected is { } e && e != state.Revision ? new GraphEndResult(GraphEndOutcome.Changed, state.Revision)
+        : by is { } b && state.SupersededBy is { } held && held != b && state.SuccessorLives == 1
+            ? new GraphEndResult(GraphEndOutcome.Refused, state.Revision)
+        : state.EndedReason is not null ? new GraphEndResult(GraphEndOutcome.AlreadyEnded, state.Revision)
+        : new GraphEndResult(GraphEndOutcome.Changed, state.Revision);
 
     /// <summary>Remove nodes past a retrievability cutoff or older than a real-time bound, with the
     /// <see cref="MemoryGrade.Authoritative"/> carve-out applied as a predicate — an authoritative entry

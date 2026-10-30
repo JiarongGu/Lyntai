@@ -40,7 +40,7 @@ public sealed class GraphMemoryEngine(
     GraphMemorySeams? seams = null,
     ILogger<GraphMemoryEngine>? logger = null)
     : IMemoryEngine, IExpandableMemory, ITaskExpandableMemory, ILinkableMemory, IForgettableMemory, IPrunableMemory,
-        IReindexableMemory, IPortableMemory, ITemporalMemory
+        IReindexableMemory, IPortableMemory, ITemporalMemory, IEndableMemory
 {
     private readonly GraphMemoryOptions _options = options ?? new GraphMemoryOptions();
     private readonly IMemoryRetrievabilityPolicy _policy =
@@ -402,6 +402,81 @@ public sealed class GraphMemoryEngine(
             throw new InvalidOperationException(
                 $"Entry '{successor}' was stored, but only {written} of the {predecessors.Count} entries it supersedes " +
                 "were ended: another write superseded the rest first.");
+    }
+
+    private static string? RevisionOf(GraphNode node) => node.Revision?.ToString(CultureInfo.InvariantCulture);
+
+    /// <inheritdoc />
+    /// <remarks>Ends through <see cref="IEndableMemoryGraphStore.EndAsync"/>, which applies it in one conditional step;
+    /// every refusal is checked here first, in the order a supersession checks them.</remarks>
+    public async Task<MemoryEndResult> EndAsync(string taskKey, MemoryRef entry, MemoryEnding ending,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(taskKey);
+        ArgumentNullException.ThrowIfNull(ending);
+        ct.ThrowIfCancellationRequested();
+        if (string.IsNullOrWhiteSpace(ending.Reason))
+            throw new ArgumentException("An end states why: the reason is required.", nameof(ending));
+        if (store is not IEndableMemoryGraphStore endable)
+            throw new NotSupportedException(
+                $"Memory engine '{Name}' cannot end an entry with a reason: its store ({store.GetType().Name}) does not " +
+                $"implement {nameof(IEndableMemoryGraphStore)}, so the end would be dropped or applied without its guard.");
+
+        var held = await ReadOwnAsync(entry, taskKey, ct).ConfigureAwait(false);
+        long? by = null;
+        GraphNode? successor = null;
+        if (ending.Successor is { } named)
+        {
+            successor = await ReadOwnAsync(named, taskKey, ct).ConfigureAwait(false);
+            if (successor.Id == held.Id)
+                throw new ArgumentException($"Entry '{entry.Id}' cannot be its own successor.", nameof(ending));
+            by = successor.Id;
+        }
+        var at = ending.At ?? successor?.ValidFrom ?? _clock();
+        if (held.ValidFrom is { } began && at < began)
+            throw new ArgumentException(
+                $"Entry '{entry.Id}' began at {began:O}, after the {at:O} this would end it: an entry cannot end before it " +
+                "started.", nameof(ending));
+        long? expected = null;
+        if (ending.ExpectedRevision is { } token)
+            expected = long.TryParse(token, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed)
+                ? parsed
+                : throw new ArgumentException("The expected revision is not one this engine issued.", nameof(ending));
+
+        var result = await endable.EndAsync(Name, new GraphEnd(held.Id, ending.Reason.Trim(), at, by, expected), ct)
+            .ConfigureAwait(false);
+        var revision = result.Revision?.ToString(CultureInfo.InvariantCulture);
+        switch (result.Outcome)
+        {
+            case GraphEndOutcome.Ended: return new MemoryEndResult(MemoryEndOutcome.Ended, revision);
+            case GraphEndOutcome.AlreadyEnded: return new MemoryEndResult(MemoryEndOutcome.AlreadyEnded, revision);
+            case GraphEndOutcome.Changed: return new MemoryEndResult(MemoryEndOutcome.Changed, revision);
+            case GraphEndOutcome.Refused:
+                var other = (await store.GetAsync(Name, held.Id, ct).ConfigureAwait(false))?.SupersededBy;
+                throw new InvalidOperationException(
+                    $"Entry '{entry.Id}' was already superseded by entry '{other}', and an entry has one successor. End it " +
+                    "without a successor, or end that entry instead; nothing was written.");
+            default:
+                throw new ArgumentException($"Memory engine '{Name}' has no entry '{entry.Id}' to end.", nameof(entry));
+        }
+    }
+
+    // an entry named by reference, refused as a supersession refuses: another engine, another task, or none
+    private async Task<GraphNode> ReadOwnAsync(MemoryRef reference, string taskKey, CancellationToken ct)
+    {
+        if (!Owns(reference))
+            throw new ArgumentException(
+                $"Memory engine '{Name}' ends only its own entries; got one of '{reference.Engine}'. An id means a node only " +
+                "in the engine that wrote it.", nameof(reference));
+        if (!long.TryParse(reference.Id, NumberStyles.Integer, CultureInfo.InvariantCulture, out var id))
+            throw new ArgumentException($"Memory engine '{Name}' addresses nodes by numeric id; got '{reference.Id}'.", nameof(reference));
+        var node = await store.GetAsync(Name, id, ct).ConfigureAwait(false)
+            ?? throw new ArgumentException($"Memory engine '{Name}' has no entry '{reference.Id}'.", nameof(reference));
+        if (!string.Equals(node.TaskKey, taskKey, StringComparison.Ordinal))
+            throw new ArgumentException(
+                $"Memory engine '{Name}' cannot end across tasks: '{reference.Id}' is in task '{node.TaskKey}' and this call is " +
+                $"in '{taskKey}'.", nameof(reference));
+        return node;
     }
 
     /// <summary>Ask the annotator what this fact is about, showing it recent entries so a pronoun is
@@ -900,7 +975,7 @@ public sealed class GraphMemoryEngine(
                 new MemoryRef(Name, x.Candidate.Node.Id.ToString(CultureInfo.InvariantCulture)),
                 x.Candidate.Node.Headline, ProjectContent(x.Candidate.Node, query.Detail),
                 x.Candidate.Node.Grade, x.Candidate.Node.Relevance, x.Candidate.Retrievability,
-                x.Candidate.Node.Degree, x.Candidate.Node.Metadata) { Validity = x.Candidate.Node.Validity })
+                x.Candidate.Node.Degree, x.Candidate.Node.Metadata) { Validity = x.Candidate.Node.Validity, Revision = RevisionOf(x.Candidate.Node) })
             .ToList();
 
         // applied AFTER ranking, so the budget cuts the weakest tail rather than changing what wins
@@ -985,13 +1060,14 @@ public sealed class GraphMemoryEngine(
         {
             // the expanded node carries its FULL content whatever its grade — that is what expansion IS
             new(reference, node.Headline, node.Content, node.Grade, 1, Retrievability(node), node.Degree,
-                node.Metadata) { Validity = node.Validity },
+                node.Metadata) { Validity = node.Validity, Revision = RevisionOf(node) },
         };
         // neighbours take the recall projection's rule: the caller's stated detail decides
         items.AddRange(walked.Select(w => new MemoryItem(
             new MemoryRef(Name, w.Node.Id.ToString(CultureInfo.InvariantCulture)),
             w.Node.Headline, ProjectContent(w.Node, detail), w.Node.Grade, w.Node.Relevance,
-            Retrievability(w.Node), w.Node.Degree, w.Node.Metadata) { Validity = w.Node.Validity }));
+            Retrievability(w.Node), w.Node.Degree, w.Node.Metadata)
+            { Validity = w.Node.Validity, Revision = RevisionOf(w.Node) }));
 
         // The budget bounds the NEIGHBOURS, never the entry itself — the cut keeps its first item whatever it
         // costs. Null takes the engine's configured budget, itself null (unbounded) unless a host sets one.

@@ -28,7 +28,7 @@ namespace Lyntai.Storage.Postgres;
 public sealed class PostgresMemoryGraphStore(
     IDbConnectionFactory factory,
     ILogger<PostgresMemoryGraphStore>? logger = null,
-    Func<DateTimeOffset>? clock = null) : ICountableMemoryGraphStore, IPortableMemoryGraphStore, ITemporalMemoryGraphStore
+    Func<DateTimeOffset>? clock = null) : ICountableMemoryGraphStore, IPortableMemoryGraphStore, IEndableMemoryGraphStore
 {
     private readonly ILogger _logger = logger ?? NullLogger<PostgresMemoryGraphStore>.Instance;
     private readonly Func<DateTimeOffset> _clock = clock ?? (() => DateTimeOffset.UtcNow);
@@ -100,6 +100,8 @@ public sealed class PostgresMemoryGraphStore(
                               valid_from = COALESCE(@validFrom::timestamptz, lyntai_memory_node.valid_from,
                                                     @validFromIfUnset::timestamptz),
                               valid_to = COALESCE(@validTo::timestamptz, lyntai_memory_node.valid_to),
+                              -- any write that lands on the entry advances its revision (IEndableMemoryGraphStore)
+                              revision = lyntai_memory_node.revision + 1,
                               encoding_ordinal = @ordinal, encoding_chars = @chars, encoding_at = @now
             RETURNING id
             """, new
@@ -132,6 +134,28 @@ public sealed class PostgresMemoryGraphStore(
             transaction: tx, cancellationToken: ct)).ConfigureAwait(false);
         await tx.CommitAsync(ct).ConfigureAwait(false);
         return written;
+    }
+
+/// <inheritdoc />
+    public async Task<GraphEndResult> EndAsync(string engine, GraphEnd end, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(end);
+        ct.ThrowIfCancellationRequested();
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
+        await using var tx = await conn.BeginTransactionAsync(ct).ConfigureAwait(false);
+        var args = new
+        {
+            id = end.Id, engine, reason = end.Reason, by = end.By, at = end.At.ToUniversalTime(), expected = end.ExpectedRevision,
+        };
+        var revision = await conn.ExecuteScalarAsync<long?>(new CommandDefinition(MemoryGraphSql.End, args,
+            transaction: tx, cancellationToken: ct)).ConfigureAwait(false);
+        var result = revision is { } landed
+            ? new GraphEndResult(GraphEndOutcome.Ended, landed)
+            : MemoryGraphSql.Classify(await conn.QuerySingleOrDefaultAsync<EndStateRow>(new CommandDefinition(
+                MemoryGraphSql.EndState, new { id = end.Id, engine }, transaction: tx, cancellationToken: ct))
+                .ConfigureAwait(false), end.ExpectedRevision, end.By);
+        await tx.CommitAsync(ct).ConfigureAwait(false);
+        return result;
     }
 
     /// <inheritdoc />
@@ -565,11 +589,11 @@ public sealed class PostgresMemoryGraphStore(
                     (engine, task_key, scope, headline, content, content_hash, grade, metadata, signals, salience,
                      created_at, last_recalled_position, recall_count, stability, difficulty,
                      encoding_ordinal, encoding_chars, encoding_at,
-                     provenance_retrievability, provenance_salience, valid_from, valid_to, superseded_at)
+                     provenance_retrievability, provenance_salience, valid_from, valid_to, superseded_at, ended_reason)
                 VALUES (@engine, @taskKey, @scope, @headline, @content, @hash, @grade, @metadata, @signals::jsonb, @salience,
                         @createdAt, @position, @recallCount, @stability, @difficulty, @ordinal, @chars, @at,
                         @provenanceRetrievability, @provenanceSalience, @validFrom::timestamptz, @validTo::timestamptz,
-                        @supersededAt::timestamptz)
+                        @supersededAt::timestamptz, @endedReason)
                 ON CONFLICT (engine, task_key, scope, content_hash) DO NOTHING
                 RETURNING id
                 """, ImportArgs(engine, taskKey, node, hash, head), transaction: tx, cancellationToken: ct)).ConfigureAwait(false);
@@ -603,7 +627,7 @@ public sealed class PostgresMemoryGraphStore(
         at = MemoryGraphAnchor.Behind(head.EncodedAt, node.ElapsedAge),
         provenanceRetrievability = node.ProvenanceRetrievability, provenanceSalience = node.ProvenanceSalience,
         validFrom = node.ValidFrom?.ToUniversalTime(), validTo = node.ValidTo?.ToUniversalTime(),
-        supersededAt = node.SupersededAt?.ToUniversalTime(),
+        supersededAt = node.SupersededAt?.ToUniversalTime(), endedReason = node.EndedReason,
     };
 
     /// <inheritdoc />

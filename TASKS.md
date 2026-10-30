@@ -41,14 +41,14 @@ _Edit a marker, never this table — `verify` fails the moment the two disagree.
 | 417 | 416 | AG22 — the host names where the usage server runs and what it is told of it… | startable |  |
 | 430 | 416 | AG23 — an allowance reading carries what the server stated | startable |  |
 | 445 | 416 | AG24 — a host's policy for a version the library has not validated | startable |  |
-| 466 | 417 | MC1 — an entry is ended by reference, with a reason | startable |  |
-| 490 | 417 | MC2 — an agent writes and ends what it remembers, through tools the host re… | startable |  |
-| 503 | 417 | MC3 — a write is shown the live entries it may update, and applies none | startable |  |
-| 515 | 417 | MC4 — two live entries that may disagree are marked by their writer | startable |  |
-| 526 | 417 | MC5 — a stored fact can be re-checked by its host, and a failed check ends … | startable |  |
-| 542 | 417 | MC6 — an approver seam on what a write tool would supersede or end | startable |  |
-| 551 | 417 | MC7 — a read-only view of the owner's task, as a blend member | startable |  |
-| 561 | 417 | MC8 — the wrong-end instrument: what a model's proposed end costs, per mode… | startable |  |
+| 466 | 417 | MC2 — an agent writes and ends what it remembers, through tools the host re… | startable |  |
+| 479 | 417 | MC3 — a write is shown the live entries it may update, and applies none | startable |  |
+| 491 | 417 | MC4 — two live entries that may disagree are marked by their writer | startable |  |
+| 502 | 417 | MC5 — a stored fact can be re-checked by its host, and a failed check ends … | startable |  |
+| 518 | 417 | MC6 — an approver seam on what a write tool would supersede or end | startable |  |
+| 527 | 417 | MC7 — a read-only view of the owner's task, as a blend member | startable |  |
+| 537 | 417 | MC8 — the wrong-end instrument: what a model's proposed end costs, per mode… | startable |  |
+| 548 | 417 | MC10 — a scope dense in ended entries still returns its current ones | startable |  |
 
 <!-- open-items:end -->
 
@@ -457,35 +457,11 @@ fact is named where it bites. Captures are labelled REAL or SOURCE-DERIVED as `U
 ## Part 417 — keeping an agent's memory current, after Daoris's requests LQ16 to LQ20 (2026-10-30)
 
 _The study is `docs/memory-currency-study.md`, the rulings are **D239** and **D240**, and the synthesis that orders and
-amends them is `docs/memory-currency-synthesis.md` (**D241**). Each row is one sitting and none is built; the order is MC1,
-MC3, MC4, MC6, MC2, MC5, MC7, with MC8 able to run once MC3 lands and MC9 waiting for nothing. Every member a row adds is
+amends them is `docs/memory-currency-synthesis.md` (**D241**). Each row is one sitting and none is built; the order is MC3,
+MC4, MC6, MC2, MC5, MC7, with MC8 able to run once MC3 lands and MC10 waiting for nothing. Every member a row adds is
 unreleased until a release carries it (**D70**, **D235**). **What a YES does to the library is each row's contract**;
 MC3's measured rate and MC8's instrument each state what a YES and a NO change, and a measured step pairs its arms
 (`docs/memory-currency-synthesis.md` §5)._
-
-- [ ] **MC1 — an entry is ended by reference, with a reason** (lanes `memory` + `storage`; LQ20). Today an entry leaves by <!-- item: state=startable -->
-  `Supersedes`, a scope-wide forget, a prune, or identical text written again with `ValidTo`, so a fact that simply
-  stopped being true has no way out that keeps why. **Contract.** `IEndableMemory.EndAsync(taskKey, entry, MemoryEnding)`
-  where `MemoryEnding` is a required reason, an optional instant (now by the engine's clock) and an optional successor
-  of this engine; with a successor it records the supersession at the instant (default: the successor's start), without
-  one it states the entry's own `ValidTo`. `MemoryValidity` gains an `EndedReason` that reads it back. Refusals are supersession's own (a
-  reference outside this engine or task, an end before the entry began, a different successor than the one it has); an
-  end already recorded changes nothing and the result says so. `MemoryEnding` also takes an optional **expected revision**
-  (an opaque token the confirmer read, advanced by any write that lands on the entry, an end or a confirmation, and by no
-  recall): a store holding the capability ends only if it still matches, in one conditional statement on SQL and under the
-  lock on the in-memory and file-system stores, and a mismatch changes nothing and returns `Changed` with the current
-  revision; a store without it throws `NotSupportedException` rather than end unconditionally (**D241**). It is **optional** (`IEndableMemoryGraphStore :
-  ITemporalMemoryGraphStore`), a nullable `ended_reason` column in one migration on SQLite and Postgres, the in-memory and
-  file-system stores, the `v: 2` portable line, and the blend declares and routes it. **Proof.** The store contract and
-  the engine contract on every shipped store, a composite routing case, the entry read under `History` and gone under
-  `Current`, not buried, not pruned, not reinforced, task isolation (**D92**), an `ApiSurface` baseline move from the
-  emitted `.actual`, and `docs/memory.md` §9's recipe. **Race cases**: a rewrite that changes the headline and keeps the validity and confirmation mismatches
-  the revision; **a retry after the successor is inserted and the end fails or returns `Changed`** keeps the successor's
-  identity and provenance, reports the partial outcome, needs a fresh approval on a mismatch and never drops the guard.
-  **A measured step**: two ends racing one entry, a retry, a failure
-  between a write's successor insert and its predecessor end (both live, the same write repeated passing), and the page
-  length against accumulated ends (`docs/memory.md` §9), reported in `docs/memory-measurements.md` §5; an end
-  lost or doubled is a store defect fixed in this row, and none found changes nothing.
 
 - [ ] **MC2 — an agent writes and ends what it remembers, through tools the host registered** (lane `memory`, after MC1, <!-- item: state=startable -->
   MC4 and MC6; LQ16, **D239**). `AddMemoryTools` registers `<engine>_recall` and `<engine>_expand` only, so an agent that learns an entry
@@ -568,6 +544,15 @@ MC3's measured rate and MC8's instrument each state what a YES and a NO change, 
   execution order counterbalanced, since a recall mutates (`docs/memory.md` §7) and counterbalancing alone removes order bias, not
   contamination; **this is required before MC8 can promote any step**, and the harness is read first for whether it does it. Disagreement
   between reviewers abstains. **Stop rule.** The first actionable rate stops the instrument; no run is spent after it.
+
+- [ ] **MC10 — a scope dense in ended entries still returns its current ones** (lane `memory`; **D241**, measured by MC1). <!-- item: state=startable -->
+  The validity reading is applied to the page after the candidates are gathered, so 100 ended entries that match a query
+  better than 5 current ones return **0 of the 5** (`docs/memory-measurements.md` §5, `ended-entries-crowd-page-n4`).
+  **Contract.** A `Current` or as-of recall returns the current entries it would have returned with no ended ones in the
+  scope; the first step is to read where the window is cut (`TryGatherAsync`) and whether the store can take the reading
+  into its seed or the engine can widen and re-seed under a bound, whichever stays additive on `IMemoryGraphStore`
+  (**D70**, **D41**: only the ranker buries). **Proof.** The measured corpus returns 5/5 at N = 100 and 500 on every
+  shipped store, a recall under `History` unchanged, and the `ApiSurface` baselines.
 
 ## Retired — five Parts that outlived their open work (2026-09-16)
 

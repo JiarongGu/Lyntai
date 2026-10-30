@@ -43,7 +43,7 @@ public enum MemoryWriteRouting
 /// </summary>
 public sealed class CompositeMemoryEngine
     : IMemoryEngine, IExpandableMemory, ITaskExpandableMemory, ILinkableMemory, IForgettableMemory, IPrunableMemory,
-        IReindexableMemory, IPortableMemory, ITemporalMemory
+        IReindexableMemory, IPortableMemory, ITemporalMemory, IEndableMemory
 {
     private readonly IReadOnlyList<IMemoryEngine> _members;
     private readonly ILogger _logger;
@@ -313,6 +313,15 @@ public sealed class CompositeMemoryEngine
         Owner(reference) is ITaskExpandableMemory scoped
             ? await scoped.ExpandInTaskAsync(reference, taskKey, hops, charBudget, detail, validity, ct).ConfigureAwait(false)
             : MemoryRecall.Empty;
+
+    /// <inheritdoc />
+    /// <remarks>Fails LOUD where the owning member cannot end: a dropped end leaves a stale fact current.</remarks>
+    public async Task<MemoryEndResult> EndAsync(string taskKey, MemoryRef entry, MemoryEnding ending,
+        CancellationToken ct = default) =>
+        Owner(entry) is IEndableMemory endable
+            ? await endable.EndAsync(taskKey, entry, ending, ct).ConfigureAwait(false)
+            : throw new NotSupportedException(
+                $"Memory engine '{entry.Engine}' cannot end an entry, so the end of '{entry.Id}' was not recorded.");
 
     /// <inheritdoc />
     public async Task LinkAsync(MemoryRef from, MemoryRef to, string? kind = null, double weight = 1.0,

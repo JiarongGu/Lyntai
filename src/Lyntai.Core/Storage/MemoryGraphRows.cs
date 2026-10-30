@@ -50,6 +50,8 @@ public sealed class MemoryNodeRow
     public DateTimeOffset? ValidTo { get; set; }
     public long? SupersededBy { get; set; }
     public DateTimeOffset? SupersededAt { get; set; }
+    public string? EndedReason { get; set; }
+    public long Revision { get; set; }
 
     /// <summary>Whether the seeding query actually matched this row — selected ONLY by the query paths that
     /// admit a row on GRADE alone. <b>NULLABLE on purpose</b>: every other query omits the column, leaving
@@ -91,6 +93,7 @@ public sealed class MemoryNodeRow
         Matched: null)
     {
         ValidFrom = ValidFrom, ValidTo = ValidTo, SupersededBy = SupersededBy, SupersededAt = SupersededAt,
+        EndedReason = EndedReason, Revision = Revision,
     };
 }
 
@@ -183,4 +186,20 @@ public class MemoryReviewRow
         Id, Engine, NodeId, Guid.Parse(BatchId), CreatedAt, PreAge, PreStability, PreDifficulty,
         PreStrength, PreStrengthAge, ReviewGrade, PostStability, PostDifficulty, ProvenanceRetrievability,
         verified);
+}
+
+/// <summary>What <see cref="MemoryGraphSql.EndState"/> reads back, to say why an end changed nothing.</summary>
+public sealed class EndStateRow
+{
+    /// <summary>The entry's revision now.</summary>
+    public long Revision { get; set; }
+
+    /// <summary>Its end reason, or null while nothing ended it through <c>EndAsync</c>.</summary>
+    public string? EndedReason { get; set; }
+
+    /// <summary>Its successor's id, or null.</summary>
+    public long? SupersededBy { get; set; }
+
+    /// <summary>1 where that successor still exists, else 0 — a removed one counts as none.</summary>
+    public int SuccessorLives { get; set; }
 }

@@ -214,7 +214,7 @@ skipped). Use `dev.mjs new-migration` to get a unique monotonic number. **Backfi
 adds a structure** — a structure correct only for rows written after it shipped is a bug waiting for the
 first old row.
 
-**A fresh database applies 17 migrations on SQLite and 17 on POSTGRES, and the two sets differ by one each,
+**A fresh database applies 18 migrations on SQLite and 18 on POSTGRES, and the two sets differ by one each,
 deliberately:**
 `M202608152310_MemoryHeadlineSearch` adds a trigram index on `headline` so a recall can match an authored
 one without a sequential scan, and SQLite needs no counterpart because its FTS5 mirror has indexed

@@ -18,6 +18,10 @@ public sealed record MemoryValidity(
     DateTimeOffset? From = null, DateTimeOffset? To = null, DateTimeOffset? SupersededAt = null,
     MemoryRef? SupersededBy = null)
 {
+    /// <summary>Why the entry was ended through <see cref="IEndableMemory.EndAsync"/>, as its writer or confirmer
+    /// stated it; null for an entry nothing ended that way, including one a write superseded.</summary>
+    public string? EndedReason { get; init; }
+
     /// <summary>Where the interval ends: the earlier of <see cref="To"/> and <see cref="SupersededAt"/>, or null
     /// while neither is set.</summary>
     public DateTimeOffset? End => To is { } to && SupersededAt is { } at ? (to < at ? to : at) : To ?? SupersededAt;
@@ -113,4 +117,54 @@ public interface ITemporalMemoryGraphStore : IMemoryGraphStore
     /// <param name="ct">Cancellation.</param>
     Task<int> SupersedeAsync(string engine, IReadOnlyList<GraphSupersession> supersessions,
         CancellationToken ct = default);
+}
+
+/// <summary>One entry ended by <see cref="IEndableMemoryGraphStore.EndAsync"/>.</summary>
+/// <param name="Id">The entry.</param>
+/// <param name="Reason">Why it ended; required.</param>
+/// <param name="At">When it ended — the successor's start where there is one.</param>
+/// <param name="By">The successor, or null for an end that names none.</param>
+/// <param name="ExpectedRevision">The revision the confirmer read, or null for an unconditional end.</param>
+public sealed record GraphEnd(long Id, string Reason, DateTimeOffset At, long? By = null, long? ExpectedRevision = null);
+
+/// <summary>What <see cref="IEndableMemoryGraphStore.EndAsync"/> did.</summary>
+public enum GraphEndOutcome
+{
+    /// <summary>The entry is now ended.</summary>
+    Ended,
+    /// <summary>An end through this call was already recorded; nothing changed, and the first reason stands.</summary>
+    AlreadyEnded,
+    /// <summary>The entry's revision is not the expected one; nothing changed.</summary>
+    Changed,
+    /// <summary>The entry already has a different live successor; nothing changed.</summary>
+    Refused,
+    /// <summary>The store holds no such entry under that engine.</summary>
+    Missing,
+}
+
+/// <summary>The outcome of one end, and the entry's revision after it (for <see cref="GraphEndOutcome.Changed"/>, the
+/// one found).</summary>
+/// <param name="Outcome">What happened.</param>
+/// <param name="Revision">The entry's revision, or null for <see cref="GraphEndOutcome.Missing"/>.</param>
+public readonly record struct GraphEndResult(GraphEndOutcome Outcome, long? Revision);
+
+/// <summary>OPTIONAL half of <see cref="ITemporalMemoryGraphStore"/> that ends ONE entry with a reason, conditionally.
+/// <para><b>Separate rather than a member</b>, as its parent is: a required member breaks every store an application
+/// wrote. A store that does not hold it makes the engine refuse an end rather than record one it cannot guard.</para>
+/// <para>Implementing it owes <see cref="GraphNode.EndedReason"/> and <see cref="GraphNode.Revision"/>, a revision that
+/// advances on <see cref="ITemporalMemoryGraphStore.SupersedeAsync"/>, on a write that changes the entry and on an
+/// end — never on a touch, a link or a recall — and the portable round trip of the reason.</para></summary>
+public interface IEndableMemoryGraphStore : ITemporalMemoryGraphStore
+{
+    /// <summary>End one entry, only if its revision is still <see cref="GraphEnd.ExpectedRevision"/> when that is
+    /// given, as ONE conditional statement (or under the store's lock), so a rewrite between the read and the end
+    /// cannot be ended on a review it never had.
+    /// <para>Touches the end fields and the revision and no decay state. With no successor the entry's own
+    /// <see cref="GraphNode.ValidTo"/> becomes the earlier of what it held and <see cref="GraphEnd.At"/>; with one it
+    /// takes <see cref="ITemporalMemoryGraphStore.SupersedeAsync"/>'s rule, including that a different live successor
+    /// refuses. An entry that already carries a reason is <see cref="GraphEndOutcome.AlreadyEnded"/>.</para></summary>
+    /// <param name="engine">The owning engine's name.</param>
+    /// <param name="end">The end.</param>
+    /// <param name="ct">Cancellation.</param>
+    Task<GraphEndResult> EndAsync(string engine, GraphEnd end, CancellationToken ct = default);
 }

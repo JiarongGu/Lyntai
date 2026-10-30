@@ -2145,6 +2145,139 @@ public static class MemoryGraphStoreContract
         Assert.Contains(await store.SeedAsync(engine, key, "s", "Paris", 10), n => n.Id == old);
     }
 
+    /// <summary><b>Ending with a reason records it, moves no decay state, and keeps the first end.</b> With no successor
+    /// the entry's own end becomes the EARLIER of what it held and the instant; a second end changes nothing; an entry
+    /// that already has a different live successor is refused; an entry the engine does not hold is missing.</summary>
+    public static async Task End_records_a_reason_moves_no_decay_state_and_keeps_the_first_end(
+        IMemoryGraphStore store, string key)
+    {
+        var endable = Assert.IsAssignableFrom<IEndableMemoryGraphStore>(store);
+        const string engine = "tv-end";
+        var id = await store.UpsertAsync(Write(engine, key, "lives in Paris") with { ValidFrom = Jan });
+        var other = await store.UpsertAsync(Write(engine, key, "lives in Rome") with { ValidFrom = Jun });
+        await Crowd(store, engine, key, 3);
+        var before = (await store.GetAsync(engine, id))!;
+
+        var first = await endable.EndAsync(engine, new GraphEnd(id, "moved away", Mar));
+
+        Assert.Equal(GraphEndOutcome.Ended, first.Outcome);
+        var ended = (await store.GetAsync(engine, id))!;
+        Assert.Equal(("moved away", Mar, null), (ended.EndedReason, ended.ValidTo, ended.SupersededAt));
+        Assert.Equal(first.Revision, ended.Revision);
+        Assert.True(ended.Revision > before.Revision);
+        Assert.Equal(Mar, ended.Validity!.End);
+        Assert.Equal("moved away", ended.Validity.EndedReason);
+        Assert.Equal((before.Age, before.OrdinalAge, before.VolumeAge, before.Stability, before.RecallCount, before.Content),
+            (ended.Age, ended.OrdinalAge, ended.VolumeAge, ended.Stability, ended.RecallCount, ended.Content));
+
+        // a second end changes nothing, and the first reason and instant stand
+        var again = await endable.EndAsync(engine, new GraphEnd(id, "a different reason", Jun));
+        Assert.Equal(GraphEndOutcome.AlreadyEnded, again.Outcome);
+        var kept = (await store.GetAsync(engine, id))!;
+        Assert.Equal(("moved away", Mar, ended.Revision), (kept.EndedReason, kept.ValidTo, kept.Revision));
+
+        // an interval a writer closed sooner is never reopened by a later end
+        var closed = await store.UpsertAsync(Write(engine, key, "lives in Oslo") with { ValidFrom = Jan, ValidTo = Mar });
+        Assert.Equal(GraphEndOutcome.Ended, (await endable.EndAsync(engine, new GraphEnd(closed, "stated", Jun))).Outcome);
+        Assert.Equal(Mar, (await store.GetAsync(engine, closed))!.ValidTo);
+        // and one stated for later is brought forward
+        var planned = await store.UpsertAsync(Write(engine, key, "lives in Bern") with { ValidFrom = Jan, ValidTo = Jun });
+        Assert.Equal(GraphEndOutcome.Ended, (await endable.EndAsync(engine, new GraphEnd(planned, "stated", Mar))).Outcome);
+        Assert.Equal(Mar, (await store.GetAsync(engine, planned))!.ValidTo);
+
+        // a successor records the supersession at the instant; a different live one then refuses
+        var replaced = await store.UpsertAsync(Write(engine, key, "lives in Lima") with { ValidFrom = Jan });
+        Assert.Equal(GraphEndOutcome.Ended, (await endable.EndAsync(engine, new GraphEnd(replaced, "replaced", Mar, other))).Outcome);
+        var successor = (await store.GetAsync(engine, replaced))!;
+        Assert.Equal((other, Mar, "replaced"), (successor.SupersededBy, successor.SupersededAt, successor.EndedReason));
+        // and an entry ended WITH a reason refuses a different successor rather than call it already ended
+        Assert.Equal(GraphEndOutcome.Refused, (await endable.EndAsync(engine, new GraphEnd(replaced, "again", Jun, id))).Outcome);
+        Assert.Equal(GraphEndOutcome.AlreadyEnded, (await endable.EndAsync(engine, new GraphEnd(replaced, "again", Jun, other))).Outcome);
+        var superseded = await store.UpsertAsync(Write(engine, key, "lives in Nice"));
+        await ((ITemporalMemoryGraphStore)store).SupersedeAsync(engine, [new GraphSupersession(superseded, other, Mar)]);
+        Assert.Equal(GraphEndOutcome.Refused,
+            (await endable.EndAsync(engine, new GraphEnd(superseded, "replaced", Jun, id))).Outcome);
+        Assert.Null((await store.GetAsync(engine, superseded))!.EndedReason);
+
+        Assert.Equal(GraphEndOutcome.Missing, (await endable.EndAsync(engine, new GraphEnd(987654, "x", Mar))).Outcome);
+        Assert.Equal(GraphEndOutcome.Missing, (await endable.EndAsync("another-engine", new GraphEnd(id, "x", Mar))).Outcome);
+    }
+
+    /// <summary><b>An end applies only to the revision it was reviewed on.</b> A rewrite that keeps the validity and
+    /// changes the headline advances the revision, so the end reviewed before it changes nothing and reports the one it
+    /// found; a recall's touch and a link advance nothing; a supersession and an end do.</summary>
+    public static async Task End_applies_only_to_the_revision_it_was_reviewed_on(IMemoryGraphStore store, string key)
+    {
+        var endable = Assert.IsAssignableFrom<IEndableMemoryGraphStore>(store);
+        const string engine = "tv-revision";
+        var id = await store.UpsertAsync(Write(engine, key, "lives in Paris") with { ValidFrom = Jan });
+        var other = await store.UpsertAsync(Write(engine, key, "lives in Rome"));
+        var reviewed = (await store.GetAsync(engine, id))!.Revision!.Value;
+
+        // what a recall does moves no revision
+        await store.TouchAsync(engine, [new GraphTouch(id, 5)]);
+        await store.LinkAsync(engine, id, other, null, 1, true);
+        Assert.Equal(reviewed, (await store.GetAsync(engine, id))!.Revision);
+
+        // a rewrite that keeps the validity and changes the headline does
+        await store.UpsertAsync(Write(engine, key, "lives in Paris") with { Headline = "reviewed claim, since reworded" });
+        var rewritten = (await store.GetAsync(engine, id))!;
+        Assert.True(rewritten.Revision > reviewed);
+        Assert.Equal((Jan, null), (rewritten.ValidFrom, rewritten.ValidTo));
+
+        var stale = await endable.EndAsync(engine, new GraphEnd(id, "outdated", Mar, ExpectedRevision: reviewed));
+        Assert.Equal((GraphEndOutcome.Changed, rewritten.Revision), (stale.Outcome, stale.Revision));
+        var untouched = (await store.GetAsync(engine, id))!;
+        Assert.Null(untouched.EndedReason);
+        Assert.Null(untouched.ValidTo);
+        Assert.Equal(rewritten.Revision, untouched.Revision);
+
+        // a fresh review of the revision found applies
+        var applied = await endable.EndAsync(engine, new GraphEnd(id, "outdated", Mar, ExpectedRevision: rewritten.Revision));
+        Assert.Equal(GraphEndOutcome.Ended, applied.Outcome);
+
+        // a supersession advances it too
+        var before = (await store.GetAsync(engine, other))!.Revision;
+        await ((ITemporalMemoryGraphStore)store).SupersedeAsync(engine, [new GraphSupersession(other, id, Mar)]);
+        Assert.True((await store.GetAsync(engine, other))!.Revision > before);
+    }
+
+    /// <summary><b>A re-remember that states no validity keeps an end</b>, and so does a use: the end is not decay
+    /// state, so nothing a recall, a touch or a refresh does restores the entry's currency.</summary>
+    public static async Task An_end_survives_a_refresh_and_a_touch(IMemoryGraphStore store, string key)
+    {
+        var endable = Assert.IsAssignableFrom<IEndableMemoryGraphStore>(store);
+        const string engine = "tv-end-sticks";
+        var id = await store.UpsertAsync(Write(engine, key, "lives in Paris") with { ValidFrom = Jan });
+        await endable.EndAsync(engine, new GraphEnd(id, "moved away", Mar));
+
+        await store.UpsertAsync(Write(engine, key, "lives in Paris"));
+        await store.TouchAsync(engine, [new GraphTouch(id, 50)]);
+
+        var node = (await store.GetAsync(engine, id))!;
+        Assert.Equal(("moved away", Mar), (node.EndedReason, node.ValidTo));
+        Assert.False(node.Validity!.IsValidAt(Mar));
+    }
+
+    /// <summary><b>Two ends racing one entry land exactly one.</b> The test and the write are one statement, or one
+    /// critical section, so the loser reports <see cref="GraphEndOutcome.AlreadyEnded"/> or
+    /// <see cref="GraphEndOutcome.Changed"/> rather than a second write.</summary>
+    public static async Task Racing_ends_apply_once(IMemoryGraphStore store, string key)
+    {
+        var endable = Assert.IsAssignableFrom<IEndableMemoryGraphStore>(store);
+        const string engine = "tv-end-race";
+        var id = await store.UpsertAsync(Write(engine, key, "lives in Paris") with { ValidFrom = Jan });
+        var revision = (await store.GetAsync(engine, id))!.Revision;
+
+        var results = await Task.WhenAll(Enumerable.Range(0, 6).Select(i =>
+            endable.EndAsync(engine, new GraphEnd(id, $"reason {i}", Mar, ExpectedRevision: revision))));
+
+        Assert.Single(results, r => r.Outcome == GraphEndOutcome.Ended);
+        Assert.All(results.Where(r => r.Outcome != GraphEndOutcome.Ended),
+            r => Assert.Contains(r.Outcome, new[] { GraphEndOutcome.AlreadyEnded, GraphEndOutcome.Changed }));
+        Assert.StartsWith("reason ", (await store.GetAsync(engine, id))!.EndedReason, StringComparison.Ordinal);
+    }
+
     /// <summary>An entry another engine holds, or none, is never ended by this one — the engine name scopes it as it
     /// does every other write here.</summary>
     public static async Task Supersede_writes_nothing_for_an_entry_the_engine_does_not_hold(

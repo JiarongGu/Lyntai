@@ -22,7 +22,7 @@ namespace Lyntai.Storage.InMemory;
 /// enumeration reports, where everything matches by definition — never the unconditional answer.</para></summary>
 /// <param name="clock">Time source for the audit timestamps; null takes the system clock.</param>
 public sealed class InMemoryMemoryGraphStore(Func<DateTimeOffset>? clock = null)
-    : ICountableMemoryGraphStore, IPortableMemoryGraphStore, ITemporalMemoryGraphStore
+    : ICountableMemoryGraphStore, IPortableMemoryGraphStore, IEndableMemoryGraphStore
 {
     private readonly MemoryGraphState _graph = new(clock ?? (() => DateTimeOffset.UtcNow));
     private readonly Lock _lock = new();
@@ -38,6 +38,19 @@ public sealed class InMemoryMemoryGraphStore(Func<DateTimeOffset>? clock = null)
             var change = _graph.PlanSupersede(engine, supersessions, out var written);
             _graph.Apply(change);
             return Task.FromResult(written);
+        }
+    }
+
+    /// <inheritdoc />
+    public Task<GraphEndResult> EndAsync(string engine, GraphEnd end, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(end);
+        ct.ThrowIfCancellationRequested();
+        lock (_lock)
+        {
+            var change = _graph.PlanEnd(engine, end, out var result);
+            _graph.Apply(change);
+            return Task.FromResult(result);
         }
     }
 

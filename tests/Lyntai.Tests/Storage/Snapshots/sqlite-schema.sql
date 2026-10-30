@@ -178,7 +178,7 @@ CREATE TABLE lyntai_memory_node (
     last_recalled_position REAL NOT NULL,
     recall_count INTEGER NOT NULL DEFAULT 0,
     stability REAL NOT NULL
-, signals TEXT NULL, salience REAL NOT NULL DEFAULT 1, encoding_ordinal INTEGER NOT NULL DEFAULT 0, encoding_chars INTEGER NOT NULL DEFAULT 0, encoding_at TEXT NOT NULL DEFAULT '1970-01-01T00:00:00.0000000+00:00', provenance_retrievability INTEGER NOT NULL DEFAULT 0, provenance_salience INTEGER NOT NULL DEFAULT 0, difficulty REAL NOT NULL DEFAULT 5, valid_from TEXT NULL, valid_to TEXT NULL, superseded_by INTEGER NULL, superseded_at TEXT NULL);
+, signals TEXT NULL, salience REAL NOT NULL DEFAULT 1, encoding_ordinal INTEGER NOT NULL DEFAULT 0, encoding_chars INTEGER NOT NULL DEFAULT 0, encoding_at TEXT NOT NULL DEFAULT '1970-01-01T00:00:00.0000000+00:00', provenance_retrievability INTEGER NOT NULL DEFAULT 0, provenance_salience INTEGER NOT NULL DEFAULT 0, difficulty REAL NOT NULL DEFAULT 5, valid_from TEXT NULL, valid_to TEXT NULL, superseded_by INTEGER NULL, superseded_at TEXT NULL, ended_reason TEXT NULL, revision INTEGER NOT NULL DEFAULT 0);
 
 -- table lyntai_memory_node_fts
 CREATE VIRTUAL TABLE lyntai_memory_node_fts USING fts5(

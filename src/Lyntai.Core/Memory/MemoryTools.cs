@@ -71,7 +71,10 @@ internal static class MemoryTools
                 if (validity.To is { } to) writer.WriteString("validTo", to);
                 if (validity.SupersededAt is { } at) writer.WriteString("supersededAt", at);
                 if (validity.SupersededBy is { } by) writer.WriteString("supersededBy", Format(by));
+                if (validity.EndedReason is { } reason) writer.WriteString("endedReason", reason);
             }
+            // the state a confirmer reviewed: an end passes it back so it applies only to the entry as it was read
+            if (item.Revision is { } revision) writer.WriteString("revision", revision);
             writer.WriteEndObject();
         }
         writer.WriteEndArray();

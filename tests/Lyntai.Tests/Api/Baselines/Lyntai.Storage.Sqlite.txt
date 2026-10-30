@@ -81,6 +81,7 @@ sealed class Lyntai.Storage.Sqlite.SqliteMemoryGraphStore
     .ctor(IDbConnectionFactory factory, ILogger<SqliteMemoryGraphStore> logger = null, Func<DateTimeOffset> clock = null)
     CountAsync(String engine, String taskKey, String scope, CancellationToken ct = default) : Task<MemoryGraphCounts>
     DeleteAsync(String engine, IReadOnlyCollection<Int64> ids, CancellationToken ct = default) : Task<Int32>
+    EndAsync(String engine, GraphEnd end, CancellationToken ct = default) : Task<GraphEndResult>
     ExportAsync(String engine, String taskKey, String scope, CancellationToken ct = default) : Task<MemoryGraphExport>
     ForgetAsync(String engine, String taskKey, String scope, CancellationToken ct = default) : Task
     GetAsync(String engine, Int64 id, CancellationToken ct = default) : Task<GraphNode>

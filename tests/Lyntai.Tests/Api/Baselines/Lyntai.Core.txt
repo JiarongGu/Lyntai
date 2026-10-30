@@ -2421,6 +2421,7 @@ sealed class Lyntai.Memory.Annotation.MemoryAnnotationRequest
     Write : MemoryWrite { get; init; }
 sealed class Lyntai.Memory.CompositeMemoryEngine
     .ctor(String name, IReadOnlyList<IMemoryEngine> members, ILogger<CompositeMemoryEngine> logger = null, IMemoryRemovalPolicy removalPolicy = null)
+    EndAsync(String taskKey, MemoryRef entry, MemoryEnding ending, CancellationToken ct = default) : Task<MemoryEndResult>
     ExpandAsync(MemoryRef reference, Int32 hops = 1, Nullable<Int32> charBudget = null, MemoryDetail detail = MemoryDetail.Headline, CancellationToken ct = default) : Task<MemoryRecall>
     ExpandAsync(MemoryRef reference, Int32 hops, Nullable<Int32> charBudget, MemoryDetail detail, MemoryValidityReading validity, CancellationToken ct = default) : Task<MemoryRecall>
     ExpandInTaskAsync(MemoryRef reference, String taskKey, Int32 hops, Nullable<Int32> charBudget, MemoryDetail detail, MemoryValidityReading validity, CancellationToken ct = default) : Task<MemoryRecall>
@@ -2456,6 +2457,7 @@ sealed class Lyntai.Memory.Engines.CuratedMemoryEngine
 sealed class Lyntai.Memory.Engines.GraphMemoryEngine
     .ctor(String name, IMemoryGraphStore store, GraphMemoryOptions options = null, GraphMemorySeams seams = null, ILogger<GraphMemoryEngine> logger = null)
     CountAsync(String taskKey, String scope = null, Nullable<Double> minRetrievability = null, CancellationToken ct = default) : Task<MemoryGraphCounts>
+    EndAsync(String taskKey, MemoryRef entry, MemoryEnding ending, CancellationToken ct = default) : Task<MemoryEndResult>
     ExpandAsync(MemoryRef reference, Int32 hops = 1, Nullable<Int32> charBudget = null, MemoryDetail detail = MemoryDetail.Headline, CancellationToken ct = default) : Task<MemoryRecall>
     ExpandAsync(MemoryRef reference, Int32 hops, Nullable<Int32> charBudget, MemoryDetail detail, MemoryValidityReading validity, CancellationToken ct = default) : Task<MemoryRecall>
     ExpandInTaskAsync(MemoryRef reference, String taskKey, Int32 hops, Nullable<Int32> charBudget, MemoryDetail detail, MemoryValidityReading validity, CancellationToken ct = default) : Task<MemoryRecall>
@@ -2559,6 +2561,34 @@ struct Lyntai.Memory.GraphEdgeWrite
     To : Int64 { get; init; }
     ToString() : String
     Weight : Double { get; init; }
+sealed class Lyntai.Memory.GraphEnd
+    .ctor(Int64 Id, String Reason, DateTimeOffset At, Nullable<Int64> By = null, Nullable<Int64> ExpectedRevision = null)
+    At : DateTimeOffset { get; init; }
+    By : Nullable<Int64> { get; init; }
+    Deconstruct(Int64& Id, String& Reason, DateTimeOffset& At, Nullable`1& By, Nullable`1& ExpectedRevision) : Void
+    Equals(GraphEnd other) : Boolean
+    Equals(Object obj) : Boolean
+    ExpectedRevision : Nullable<Int64> { get; init; }
+    GetHashCode() : Int32
+    Id : Int64 { get; init; }
+    Reason : String { get; init; }
+    ToString() : String
+enum Lyntai.Memory.GraphEndOutcome
+    AlreadyEnded : GraphEndOutcome const
+    Changed : GraphEndOutcome const
+    Ended : GraphEndOutcome const
+    Missing : GraphEndOutcome const
+    Refused : GraphEndOutcome const
+    value__ : Int32
+struct Lyntai.Memory.GraphEndResult
+    .ctor(GraphEndOutcome Outcome, Nullable<Int64> Revision)
+    Deconstruct(GraphEndOutcome& Outcome, Nullable`1& Revision) : Void
+    Equals(GraphEndResult other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Outcome : GraphEndOutcome { get; init; }
+    Revision : Nullable<Int64> { get; init; }
+    ToString() : String
 sealed class Lyntai.Memory.GraphLink
     .ctor(Int64 From, Int64 To, String Kind, Double Weight, Double Age, Double OrdinalAge, Double VolumeAge, Double ElapsedAge)
     Age : Double { get; init; }
@@ -2632,6 +2662,7 @@ sealed class Lyntai.Memory.GraphNode
     Degree : Int32 { get; init; }
     Difficulty : Double { get; init; }
     ElapsedAge : Double { get; init; }
+    EndedReason : String { get; init; }
     Engine : String { get; init; }
     Equals(GraphNode other) : Boolean
     Equals(Object obj) : Boolean
@@ -2646,6 +2677,7 @@ sealed class Lyntai.Memory.GraphNode
     ProvenanceSalience : Int64 { get; init; }
     RecallCount : Int32 { get; init; }
     Relevance : Double { get; init; }
+    Revision : Nullable<Int64> { get; init; }
     Scope : String { get; init; }
     Signals : MemorySignals { get; init; }
     Stability : Double { get; init; }
@@ -2671,6 +2703,7 @@ sealed class Lyntai.Memory.GraphNodeImport
     Deconstruct(String& Scope, String& Headline, String& Content, MemoryGrade& Grade, DateTimeOffset& CreatedAt, Int32& RecallCount, Double& Stability, Double& Difficulty, MemorySignals& Signals, Int64& ProvenanceRetrievability, Int64& ProvenanceSalience, IReadOnlyDictionary`2& Metadata, IReadOnlyCollection`1& Subjects, Double& Age, Double& OrdinalAge, Double& VolumeAge, Double& ElapsedAge) : Void
     Difficulty : Double { get; init; }
     ElapsedAge : Double { get; init; }
+    EndedReason : String { get; init; }
     Equals(GraphNodeImport other) : Boolean
     Equals(Object obj) : Boolean
     GetHashCode() : Int32
@@ -2757,6 +2790,10 @@ sealed class Lyntai.Memory.GraphWriteBack
     Touches : IReadOnlyCollection<GraphTouch> { get; init; }
 interface Lyntai.Memory.ICountableMemoryGraphStore
     CountAsync(String engine, String taskKey, String scope, CancellationToken ct = default) : Task<MemoryGraphCounts>
+interface Lyntai.Memory.IEndableMemory
+    EndAsync(String taskKey, MemoryRef entry, MemoryEnding ending, CancellationToken ct = default) : Task<MemoryEndResult>
+interface Lyntai.Memory.IEndableMemoryGraphStore
+    EndAsync(String engine, GraphEnd end, CancellationToken ct = default) : Task<GraphEndResult>
 interface Lyntai.Memory.IExpandableMemory
     ExpandAsync(MemoryRef reference, Int32 hops = 1, Nullable<Int32> charBudget = null, MemoryDetail detail = MemoryDetail.Headline, CancellationToken ct = default) : Task<MemoryRecall>
     ExpandAsync(MemoryRef reference, Int32 hops, Nullable<Int32> charBudget, MemoryDetail detail, MemoryValidityReading validity, CancellationToken ct = default) : Task<MemoryRecall>
@@ -2956,6 +2993,31 @@ enum Lyntai.Memory.MemoryDetail
     Full : MemoryDetail const
     Headline : MemoryDetail const
     value__ : Int32
+enum Lyntai.Memory.MemoryEndOutcome
+    AlreadyEnded : MemoryEndOutcome const
+    Changed : MemoryEndOutcome const
+    Ended : MemoryEndOutcome const
+    value__ : Int32
+struct Lyntai.Memory.MemoryEndResult
+    .ctor(MemoryEndOutcome Outcome, String Revision)
+    Deconstruct(MemoryEndOutcome& Outcome, String& Revision) : Void
+    Equals(MemoryEndResult other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Outcome : MemoryEndOutcome { get; init; }
+    Revision : String { get; init; }
+    ToString() : String
+sealed class Lyntai.Memory.MemoryEnding
+    .ctor(String Reason)
+    At : Nullable<DateTimeOffset> { get; init; }
+    Deconstruct(String& Reason) : Void
+    Equals(MemoryEnding other) : Boolean
+    Equals(Object obj) : Boolean
+    ExpectedRevision : String { get; init; }
+    GetHashCode() : Int32
+    Reason : String { get; init; }
+    Successor : Nullable<MemoryRef> { get; init; }
+    ToString() : String
 sealed class Lyntai.Memory.MemoryEngineBuilder
     Budget(Int32 characters) : MemoryEngineBuilder
     FanOutWrites() : MemoryEngineBuilder
@@ -3043,6 +3105,7 @@ sealed class Lyntai.Memory.MemoryItem
     Reference : MemoryRef { get; init; }
     Relevance : Double { get; init; }
     Retrievability : Double { get; init; }
+    Revision : String { get; init; }
     ToString() : String
     Validity : MemoryValidity { get; init; }
 static class Lyntai.Memory.MemoryProvenance
@@ -3214,6 +3277,7 @@ sealed class Lyntai.Memory.MemoryValidity
     .ctor(Nullable<DateTimeOffset> From = null, Nullable<DateTimeOffset> To = null, Nullable<DateTimeOffset> SupersededAt = null, Nullable<MemoryRef> SupersededBy = null)
     Deconstruct(Nullable`1& From, Nullable`1& To, Nullable`1& SupersededAt, Nullable`1& SupersededBy) : Void
     End : Nullable<DateTimeOffset> { get; }
+    EndedReason : String { get; init; }
     Equals(MemoryValidity other) : Boolean
     Equals(Object obj) : Boolean
     From : Nullable<DateTimeOffset> { get; init; }
@@ -3841,6 +3905,12 @@ enum Lyntai.Storage.CuratedUpdateOutcome
     Stale : CuratedUpdateOutcome const
     Updated : CuratedUpdateOutcome const
     value__ : Int32
+sealed class Lyntai.Storage.EndStateRow
+    .ctor()
+    EndedReason : String { get; set; }
+    Revision : Int64 { get; set; }
+    SuccessorLives : Int32 { get; set; }
+    SupersededBy : Nullable<Int64> { get; set; }
 sealed class Lyntai.Storage.EnrichingConversationStore
     .ctor(IConversationStore inner, IEnumerable<IConversationEnricher> enrichers)
     AppendMessageAsync(String threadId, String kind, String payload, String metadata = null, CancellationToken ct = default) : Task<ChatMessage>
@@ -4066,6 +4136,8 @@ static class Lyntai.Storage.MemoryGraphSql
     AdvancePosition : String const
     Counts : String const
     DeleteSubjects : String const
+    End : String const
+    EndState : String const
     EnsurePosition : String const
     ExportLinks : String const
     ExportNodes : String const
@@ -4085,6 +4157,7 @@ static class Lyntai.Storage.MemoryGraphSql
     Totals : String const
     Touch : String const
     TrimReviews : String const
+    static Classify(EndStateRow state, Nullable<Int64> expected, Nullable<Int64> by) : GraphEndResult
     static MinimumStabilityValue : Double
     static Prune(String ageOverStability) : String
     static SeedMatching(LikeTermClause kw) : String
@@ -4107,6 +4180,7 @@ sealed class Lyntai.Storage.MemoryNodeRow
     Degree : Int32 { get; set; }
     Difficulty : Double { get; set; }
     EncodingAt : DateTimeOffset { get; set; }
+    EndedReason : String { get; set; }
     Engine : String { get; set; }
     Grade : Int32 { get; set; }
     Headline : String { get; set; }
@@ -4117,6 +4191,7 @@ sealed class Lyntai.Storage.MemoryNodeRow
     ProvenanceRetrievability : Int64 { get; set; }
     ProvenanceSalience : Int64 { get; set; }
     RecallCount : Int32 { get; set; }
+    Revision : Int64 { get; set; }
     Scope : String { get; set; }
     Signals : String { get; set; }
     Stability : Double { get; set; }

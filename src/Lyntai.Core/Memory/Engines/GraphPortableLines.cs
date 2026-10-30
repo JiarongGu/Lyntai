@@ -54,6 +54,7 @@ internal static class GraphPortableLines
                 if (node.ValidTo is { } to) w.WriteString("validTo", to);
                 if (node.SupersededAt is { } at) w.WriteString("supersededAt", at);
                 if (node.SupersededBy is { } by) w.WriteNumber("supersededBy", by);
+                if (node.EndedReason is { } reason) w.WriteString("endedReason", reason);
             }, ct, node.Validity is null ? MemoryPortableFormat.Version : MemoryPortableFormat.TemporalVersion).ConfigureAwait(false);
         }
         foreach (var link in export.Links)
@@ -123,6 +124,8 @@ internal static class GraphPortableLines
             {
                 ValidFrom = Instant(line, "validFrom"), ValidTo = Instant(line, "validTo"),
                 SupersededAt = Instant(line, "supersededAt"),
+                EndedReason = line.Body.TryGetProperty("endedReason", out var ended) && ended.ValueKind == JsonValueKind.String
+                    ? ended.GetString() : null,
             }, line.Body.TryGetProperty("supersededBy", out _) ? MemoryPortableFormat.Whole(line, "supersededBy") : null));
             // a successor with no instant would name who ended an entry and not when, which no reading can use
             if (nodes[^1].SupersededBy is not null && nodes[^1].Node.SupersededAt is null)
@@ -141,7 +144,8 @@ internal static class GraphPortableLines
     public readonly record struct CarriedNode(long Id, GraphNodeImport Node, long? SupersededBy)
     {
         /// <summary>Whether this entry carries any valid time at all — what a store that cannot hold it refuses.</summary>
-        public bool IsTimed => Node.ValidFrom is not null || Node.ValidTo is not null || Node.SupersededAt is not null;
+        public bool IsTimed => Node.ValidFrom is not null || Node.ValidTo is not null || Node.SupersededAt is not null
+            || Node.EndedReason is not null;
     }
 
     // an optional instant, refused where present and not one — a bad bound is never read as no bound

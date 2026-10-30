@@ -915,8 +915,23 @@ need no refusal: an engine that holds none has only untimed entries, which every
 
 A rendered memory says when it held — `- the client lives in Paris (valid from 2026-01-01 until 2026-03-01,
 superseded)` — so a prompt built from a `History` recall never presents an ended fact as current, and the memory
-tools report `validFrom`, `validTo`, `supersededAt` and `supersededBy` on an entry that has them. An untimed entry
-renders exactly as before.
+tools report `validFrom`, `validTo`, `supersededAt`, `supersededBy` and `endedReason` on an entry that has them. An
+untimed entry renders exactly as before.
+
+**To end an entry that nothing replaced, or one a successor is not at hand for, call `IEndableMemory.EndAsync`** (the
+graph engine and a blend implement it): `EndAsync(taskKey, entry, new MemoryEnding("moved away"))`, with an optional
+`At` (the engine's clock, or the successor's start), an optional `Successor` of this engine, and an optional
+`ExpectedRevision`. It refuses what a supersession refuses, and an end already recorded returns
+`MemoryEndOutcome.AlreadyEnded` with the first reason standing. **An end is valid-time state beside the decay seam
+(D241), never a decay input**: it is out of `Current` however the entry ranks, read back under `History` as
+`MemoryValidity.EndedReason`, and no recall, expansion or touch restores it, nor does a re-remember that states no
+validity. **A confirmer's approval is bound to a revision**: every `MemoryItem` carries an opaque `Revision` that
+advances when a write changes the entry, an end lands or a supersession does, and nothing a recall does moves it;
+passing it as `ExpectedRevision` makes the end apply only if it is still current, in one statement on the SQL stores and
+under the lock on the others. A rewrite that keeps the validity and changes the headline, the grade or the metadata
+mismatches, and the call returns `MemoryEndOutcome.Changed` with the revision found, writing nothing — the approval is
+read again, never dropped. A store that does not implement `IEndableMemoryGraphStore` throws `NotSupportedException`
+on any end. Ended entries are filtered after the candidates are gathered, so a scope dense in them can return fewer than `Limit`, never an ended one.
 
 ### Read the full text of one entry, and what it is linked to
 

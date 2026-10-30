@@ -90,8 +90,7 @@ internal sealed class MemoryGraphState(Func<DateTimeOffset> clock)
     private static GraphRow Refresh(GraphRow existing, GraphNodeWrite write, GraphTotals totals)
     {
         var (record, state) = (existing.Record, existing.State);
-        return new GraphRow(
-            record with
+        var refreshed = record with
             {
                 // only a CALLER-NAMED grade overwrites, or a re-remember silently demotes an authoritative fact
                 Grade = write.GradeStated ? write.Grade : record.Grade,
@@ -103,7 +102,10 @@ internal sealed class MemoryGraphState(Func<DateTimeOffset> clock)
                 // stamps goes only where none is held, so repeating it moves nothing
                 ValidFrom = Utc(write.ValidFrom) ?? record.ValidFrom ?? Utc(write.ValidFromIfUnset),
                 ValidTo = Utc(write.ValidTo) ?? record.ValidTo,
-            },
+            };
+        return new GraphRow(
+            // a write that changes the entry advances its revision; one that changes nothing leaves it where it was
+            SameRecord(record, refreshed) ? refreshed : refreshed with { Revision = record.Revision + 1 },
             state with
             {
                 LastRecalledPosition = totals.Position,
@@ -240,7 +242,10 @@ internal sealed class MemoryGraphState(Func<DateTimeOffset> clock)
                 continue;
             var next = row with
             {
-                Record = held with { SupersededBy = s.By ?? held.SupersededBy, SupersededAt = Utc(s.At) },
+                Record = held with
+                {
+                    SupersededBy = s.By ?? held.SupersededBy, SupersededAt = Utc(s.At), Revision = held.Revision + 1,
+                },
             };
             if (at >= 0) change.Nodes[at] = (change.Nodes[at].Before, next);
             else
@@ -249,6 +254,42 @@ internal sealed class MemoryGraphState(Func<DateTimeOffset> clock)
                 change.Nodes.Add((_nodes[s.Superseded], next));
             }
             written++;
+        }
+        return change;
+    }
+
+    /// <summary>End one entry by <see cref="IEndableMemoryGraphStore.EndAsync"/>'s rule, in the order a SQL store's one
+    /// statement decides it: missing, changed, already ended, refused, else ended. Only the end fields and the revision
+    /// change, so no decay state moves.</summary>
+    public GraphChange PlanEnd(string engine, GraphEnd end, out GraphEndResult result)
+    {
+        var change = new GraphChange();
+        if (!_nodes.TryGetValue(end.Id, out var row) || row.Record.Engine != engine)
+        {
+            result = new GraphEndResult(GraphEndOutcome.Missing, null);
+            return change;
+        }
+        var held = row.Record;
+        if (end.ExpectedRevision is { } expected && expected != held.Revision)
+            result = new GraphEndResult(GraphEndOutcome.Changed, held.Revision);
+        else if (end.By is { } by && held.SupersededBy is { } existing && existing != by && _nodes.ContainsKey(existing))
+            result = new GraphEndResult(GraphEndOutcome.Refused, held.Revision);
+        else if (held.EndedReason is not null)
+            result = new GraphEndResult(GraphEndOutcome.AlreadyEnded, held.Revision);
+        else
+        {
+            var at = Utc(end.At);
+            var next = held with
+            {
+                EndedReason = end.Reason,
+                // with no successor the entry's own end becomes the EARLIER of what it held and this one
+                ValidTo = end.By is null && (held.ValidTo is null || held.ValidTo > at) ? at : held.ValidTo,
+                SupersededBy = end.By ?? held.SupersededBy,
+                SupersededAt = end.By is null ? held.SupersededAt : at,
+                Revision = held.Revision + 1,
+            };
+            change.Nodes.Add((row, row with { Record = next }));
+            result = new GraphEndResult(GraphEndOutcome.Ended, next.Revision);
         }
         return change;
     }
@@ -288,7 +329,8 @@ internal sealed class MemoryGraphState(Func<DateTimeOffset> clock)
             change.Nodes.Add((null, new GraphRow(
                 new GraphNodeRecord(id, engine, taskKey, node.Scope, node.Headline, node.Content, node.Grade,
                     node.CreatedAt, node.Metadata is { Count: > 0 } ? node.Metadata : null,
-                    ValidFrom: Utc(node.ValidFrom), ValidTo: Utc(node.ValidTo), SupersededAt: Utc(node.SupersededAt)),
+                    ValidFrom: Utc(node.ValidFrom), ValidTo: Utc(node.ValidTo), SupersededAt: Utc(node.SupersededAt),
+                    EndedReason: node.EndedReason),
                 new GraphNodeState(node.RecallCount, node.Stability, MemoryGraphAnchor.Behind(head.Position, node.Age),
                     node.Signals, MemoryGraphAnchor.Behind(head.Ordinal, node.OrdinalAge),
                     MemoryGraphAnchor.Behind(head.Chars, node.VolumeAge), MemoryGraphAnchor.Behind(head.EncodedAt, node.ElapsedAge),
@@ -549,6 +591,7 @@ internal sealed class MemoryGraphState(Func<DateTimeOffset> clock)
             Matched: null)
         {
             ValidFrom = r.ValidFrom, ValidTo = r.ValidTo, SupersededBy = r.SupersededBy, SupersededAt = r.SupersededAt,
+            EndedReason = r.EndedReason, Revision = r.Revision,
         };
     }
 }

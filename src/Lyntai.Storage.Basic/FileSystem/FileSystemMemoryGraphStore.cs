@@ -14,7 +14,7 @@ namespace Lyntai.Storage.FileSystem;
 /// the journal first, then the memory file, so a crash between leaves unreachable state, never a memory with none.</para>
 /// </summary>
 internal sealed class FileSystemMemoryGraphStore(FileSystemRoot root, Func<DateTimeOffset>? clock = null,
-    int compactionFloor = 4096) : ICountableMemoryGraphStore, IPortableMemoryGraphStore, ITemporalMemoryGraphStore
+    int compactionFloor = 4096) : ICountableMemoryGraphStore, IPortableMemoryGraphStore, IEndableMemoryGraphStore
 {
     private const string StateDirectory = "state";
 
@@ -145,7 +145,7 @@ internal sealed class FileSystemMemoryGraphStore(FileSystemRoot root, Func<DateT
         },
         h.Time("created") ?? throw new FormatException("'created' is required"), h.Map("metadata"),
         ValidFrom: h.Time("validFrom"), ValidTo: h.Time("validTo"), SupersededBy: h.Long("supersededBy"),
-        SupersededAt: h.Time("supersededAt"));
+        SupersededAt: h.Time("supersededAt"), EndedReason: h.String("endedReason"), Revision: h.Long("revision") ?? 0);
 
     // the valid-time fields are written only where set, so a memory that never had any is the file it always was
     private static string MemoryFile(GraphNodeRecord r)
@@ -158,6 +158,8 @@ internal sealed class FileSystemMemoryGraphStore(FileSystemRoot root, Func<DateT
         if (r.ValidTo is { } to) header.Add("validTo", to);
         if (r.SupersededAt is { } at) header.Add("supersededAt", at);
         if (r.SupersededBy is { } by) header.Add("supersededBy", by);
+        if (r.EndedReason is { } reason) header.Add("endedReason", reason);
+        if (r.Revision > 0) header.Add("revision", r.Revision);
         return RecordFile.Write(header, r.Content);
     }
 
@@ -274,6 +276,22 @@ internal sealed class FileSystemMemoryGraphStore(FileSystemRoot root, Func<DateT
                     root.Write(_files[after.Id][^1], MemoryFile(after.Record));
             _graph.Apply(change);
             return Task.FromResult(written);
+        }
+    }
+
+    public Task<GraphEndResult> EndAsync(string engine, GraphEnd end, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(end);
+        ct.ThrowIfCancellationRequested();
+        lock (_lock)
+        {
+            Load();
+            var change = _graph.PlanEnd(engine, end, out var result);
+            // the memory file is the one thing that changes, and it goes first, as a supersession's does
+            foreach (var (_, after) in change.Nodes)
+                root.Write(_files[after.Id][^1], MemoryFile(after.Record));
+            _graph.Apply(change);
+            return Task.FromResult(result);
         }
     }
 

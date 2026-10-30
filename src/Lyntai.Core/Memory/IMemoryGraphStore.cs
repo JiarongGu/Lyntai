@@ -116,13 +116,23 @@ public sealed record GraphNode(
     /// <summary>When a successor took over, or null while nothing has superseded this entry.</summary>
     public DateTimeOffset? SupersededAt { get; init; }
 
+    /// <summary>Why <see cref="IEndableMemoryGraphStore.EndAsync"/> ended this entry, or null. Read back by a store that
+    /// implements that interface; every other reads null.</summary>
+    public string? EndedReason { get; init; }
+
+    /// <summary>The entry's revision, or null where the store holds none. A store implementing
+    /// <see cref="IEndableMemoryGraphStore"/> advances it on any write that changes the entry, an end, and nothing a
+    /// recall does; it is compared, never interpreted.</summary>
+    public long? Revision { get; init; }
+
     /// <summary>The interval this node carries, or null for an untimed one that nothing superseded. Reads
-    /// the four members above, so it carries no state of its own.</summary>
+    /// the members above, so it carries no state of its own.</summary>
     public MemoryValidity? Validity =>
-        ValidFrom is null && ValidTo is null && SupersededAt is null && SupersededBy is null
+        ValidFrom is null && ValidTo is null && SupersededAt is null && SupersededBy is null && EndedReason is null
             ? null
             : new MemoryValidity(ValidFrom, ValidTo, SupersededAt,
-                SupersededBy is { } by ? new MemoryRef(Engine, by.ToString(System.Globalization.CultureInfo.InvariantCulture)) : null);
+                SupersededBy is { } by ? new MemoryRef(Engine, by.ToString(System.Globalization.CultureInfo.InvariantCulture)) : null)
+            { EndedReason = EndedReason };
 
     /// <summary>This node's decay bookkeeping, for an <see cref="Lyntai.Memory.Forgetting.IMemoryRetrievabilityPolicy"/>.
     /// <para>Carries <see cref="Age"/> — the store's own, single, <c>Advance</c>-driven view — unchanged by

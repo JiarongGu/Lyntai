@@ -6311,3 +6311,17 @@ with no reinforcement, a turn's pinned task followed, an engine that cannot say 
 the `Lyntai.Core` baseline moved by the interface and its two members. Lane `memory`.
 
 - MC9 — the expand tool stays inside the task its host pinned
+
+## Part 419 — MC1: an entry is ended by reference, with a reason (2026-10-30)
+
+✅ done 2026-10-30 — **Outcome:** `IEndableMemory.EndAsync` (graph engine and blend) over the optional
+`IEndableMemoryGraphStore`, implemented by all four stores; `MemoryValidity.EndedReason`, `GraphNode.Revision` and
+`MemoryItem.Revision` read it back. The expected state became an **opaque revision** (amended **D241**): one
+conditional statement on SQL, the lock on the in-memory and file stores, advanced by a changing write, a supersession
+and an end and by no recall. A migration on SQLite and Postgres adds `ended_reason` and `revision`; the portable line
+carries the reason. Proof: four store facts on each of four stores (including 6 racing ends landing once), ten engine
+and blend cases (refusals, a rewrite under a reviewer, a retry after the successor was stored, a failed end), schema and
+API baselines moved. **Measured:** accumulated ends crowd current entries out of the candidate window (0 of 5 at 100
+ended), recorded in `docs/memory-measurements.md` §5 and filed as `TASKS.md` MC10. Lanes `memory` + `storage`.
+
+- MC1 — an entry is ended by reference, with a reason

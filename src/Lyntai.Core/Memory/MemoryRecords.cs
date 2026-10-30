@@ -153,6 +153,11 @@ public sealed record MemoryItem(
     /// earlier reading returns entries that are no longer current; this is how a caller, and
     /// <see cref="MemoryComposition"/>, tell.</summary>
     public MemoryValidity? Validity { get; init; }
+
+    /// <summary>An opaque token for this entry's state, or null where the engine holds none. Pass it back as
+    /// <see cref="MemoryEnding.ExpectedRevision"/> so an end applies only to the entry as it was read; compare it
+    /// for equality only.</summary>
+    public string? Revision { get; init; }
 }
 
 /// <summary>The result of a recall, with the tiers that actually ran.</summary>
