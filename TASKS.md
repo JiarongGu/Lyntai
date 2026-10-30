@@ -15,36 +15,38 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 23 across 6 Parts: 18 startable, 2 blocked, 3 watch
+## Open items — 25 across 6 Parts: 20 startable, 2 blocked, 3 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 124 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
-| 165 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 192 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 251 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
-| 269 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
-| 304 | 412 | AG10 — the Claude CLI door keeps a subagent's lines apart from the session's | startable |  |
-| 317 | 412 | AG11 — the ACP door carries `AgentSessionOptions.Model`, or refuses it | startable |  |
-| 327 | 412 | AG12 — a refused model is a hold the pool can keep against one seat | startable |  |
-| 335 | 412 | AG13 — an HTTP response's own facts are read as an `AgentFailure` | startable |  |
-| 344 | 412 | AG14 — an HTTP door: `IToolLoop` as an agent provider | startable |  |
-| 354 | 412 | AG15 — an ACP dialect seam | startable |  |
-| 362 | 412 | AG16 — the event-stream rules, held by one theory | startable |  |
-| 370 | 412 | AG17 — an account that is a key, and the variables a provider reads | startable |  |
-| 379 | 412 | AG18 — background work started and ended, as events | startable |  |
-| 386 | 412 | AG19 — an ACP permission request the host can answer | startable |  |
-| 401 | 416 | AG21 — the usage exchange writes each request after the answer it depends on | startable |  |
-| 413 | 416 | AG22 — the host names where the usage server runs and what it is told of it… | startable |  |
-| 426 | 416 | AG23 — an allowance reading carries what the server stated | startable |  |
-| 441 | 416 | AG24 — a host's policy for a version the library has not validated | startable |  |
-| 462 | 417 | MC3 — measure the candidate list's similarity basis | startable |  |
-| 470 | 417 | MC7 — a read-only view of the owner's task, as a blend member | startable |  |
-| 480 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | startable |  |
-| 493 | 417 | MC10 — a scope dense in ended entries still returns its current ones | startable |  |
+| 126 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
+| 167 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 194 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 253 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
+| 271 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
+| 306 | 412 | AG10 — the Claude CLI door keeps a subagent's lines apart from the session's | startable |  |
+| 319 | 412 | AG11 — the ACP door carries `AgentSessionOptions.Model`, or refuses it | startable |  |
+| 329 | 412 | AG12 — a refused model is a hold the pool can keep against one seat | startable |  |
+| 337 | 412 | AG13 — an HTTP response's own facts are read as an `AgentFailure` | startable |  |
+| 346 | 412 | AG14 — an HTTP door: `IToolLoop` as an agent provider | startable |  |
+| 356 | 412 | AG15 — an ACP dialect seam | startable |  |
+| 364 | 412 | AG16 — the event-stream rules, held by one theory | startable |  |
+| 372 | 412 | AG17 — an account that is a key, and the variables a provider reads | startable |  |
+| 381 | 412 | AG18 — background work started and ended, as events | startable |  |
+| 388 | 412 | AG19 — an ACP permission request the host can answer | startable |  |
+| 403 | 416 | AG21 — the usage exchange writes each request after the answer it depends on | startable |  |
+| 415 | 416 | AG22 — the host names where the usage server runs and what it is told of it… | startable |  |
+| 428 | 416 | AG23 — an allowance reading carries what the server stated | startable |  |
+| 443 | 416 | AG24 — a host's policy for a version the library has not validated | startable |  |
+| 464 | 417 | MC3 — measure the candidate list's similarity basis | startable |  |
+| 472 | 417 | MC7 — a read-only view of the owner's task, as a blend member | startable |  |
+| 487 | 417 | MC11 — a caller's operation key on every memory write, with a receipt | startable |  |
+| 500 | 417 | MC12 — a supersession that applies as one change | startable |  |
+| 511 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | startable |  |
+| 524 | 417 | MC10 — a scope dense in ended entries still returns its current ones | startable |  |
 
 <!-- open-items:end -->
 
@@ -456,7 +458,7 @@ _The study is `docs/memory-currency-study.md`, the rulings are **D239** and **D2
 amends them is `docs/memory-currency-synthesis.md` (**D241**). Each row is one sitting and none is built; the order is MC3,
 MC4, MC6, MC2, MC5, MC7, with MC8 able to run once MC3 lands and MC10 waiting for nothing. Every member a row adds is
 unreleased until a release carries it (**D70**, **D235**). **What a YES does to the library is each row's contract**;
-MC3's measured rate and MC8's instrument each state what a YES and a NO change, and a measured step pairs its arms
+**D242** widens MC7 and adds MC11 (a caller's key and receipt) then MC12 (the one-change supersession). MC3's measured rate and MC8's instrument each state what a YES and a NO change, and a measured step pairs its arms
 (`docs/memory-currency-synthesis.md` §5)._
 
 - [ ] **MC3 — measure the candidate list's similarity basis** (lane `memory`; LQ17, **D239**). <!-- item: state=startable -->
@@ -475,7 +477,36 @@ MC3's measured rate and MC8's instrument each state what a YES and a NO change, 
   through the view refused; a recall and an expansion through it leave the owner's reinforcement, links and age as they were;
   a reference of another task refused; an owner's end seen at the reader's next recall; the blend routing it by
   `MemoryRef.Engine`; the `ApiSurface` baselines. A reader's citation of a shared fact is a `Recheck` (MC5), and no
-  cross-task link is added (**D92**).
+  cross-task link is added (**D92**). **Widened by D242** (Daoris's request B): each result names its source task beside the
+  reference, revision, relations and retirement standing; `RevisionOf(reference)` is one read by id and moves nothing; an
+  expansion first asks a host-supplied check per reference and a refusal reads nothing (a call, not a grant); an engine
+  without the view says so through a capability member and a refusing call. **Added proof.** A refused expansion reads no
+  entry; `RevisionOf` leaves use stamp, confirmation, links and age as they were; the capability member false on an engine
+  without the view.
+
+- [ ] **MC11 — a caller's operation key on every memory write, with a receipt** (lane `memory` + `storage`; **D242**). <!-- item: state=startable -->
+  Daoris's request C. **Contract.** `MemoryWrite`, `RelateAsync`, `ConfirmAsync`, `EndAsync` each take an optional key (opaque, bounded, scoped to
+  engine and task). The receipt — call kind, a fingerprint of the stated call, the reference, the revision after, an outcome
+  (`Created` or `Refreshed` for a remember, read from the revision the insert starts at, which is zero) — is written in the
+  effect's transaction, names its expiry (default thirty days) and is purged by a later keyed write. A repeat answers the receipt
+  and moves no revision and adds no weight; the key with another fingerprint is refused; a receipt reads without effect. An optional
+  capability beside `IEndableMemoryGraphStore` on all four stores (a migration on SQLite and Postgres adds the table; the
+  portable line does not carry receipts); an engine over a store without it refuses a keyed call. **Proof.** Per store: a keyed
+  remember repeated leaves one revision step; a keyed relation repeated adds no weight; a keyed confirm repeated stamps once; a
+  keyed end repeated answers `AlreadyEnded` from the receipt; a reused key with other content refused; a remember landing on
+  another writer's content reports `Refreshed`; an expired receipt purged and its key new; racing repeats landing once; schema and
+  `ApiSurface` baselines moved.
+
+- [ ] **MC12 — a supersession that applies as one change** (lane `memory` + `storage`, after MC11; **D242**). <!-- item: state=startable -->
+  Daoris's request A. **Contract.** One call takes the successor write, the predecessors each with the revision read, a reason and an optional key;
+  one store transaction stores the successor and ends every predecessor (the in-memory store under its lock, the file store in one
+  journal batch), or changes nothing and says which predecessors moved, with their revisions. It records the key's receipt in the
+  same transaction (MC11). A different live successor, a reference outside the task and a store without the capability refuse;
+  none falls back to insert-then-end, and `MemoryChangeGate`'s store-first path is unchanged. The embed and annotation precede the
+  transaction and the index and subject links follow it. **Proof.** Per store: all predecessors guarded and ended with the
+  successor current; one stale revision stores nothing (the successor absent, no predecessor ended); a repeat with the key answers
+  the receipt naming the successor and changes nothing; a torn journal tail on the file store leaves neither; a failed index write
+  leaves the supersession applied; the blend routing by `MemoryRef.Engine`; `ApiSurface` baselines.
 
 - [ ] **MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar written first** (lane `memory`; <!-- item: state=startable -->
   **D241**).

@@ -311,8 +311,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D239](#d239--an-entry-is-ended-by-one-call-that-a-writer-makes-and-an-agent-reaches-it-through-tools-the-host-registers-2026-10-30) | 2026-10-30 | an entry is ended by one call that a writer makes, and an agent reaches it through tools the host… |
 | [D240](#d240--a-mark-or-a-stamp-on-an-entry-states-what-a-writer-or-a-host-said-never-what-the-library-inferred-about-the-world-2026-10-30) | 2026-10-30 | a mark or a stamp on an entry states what a writer or a host said, never what the library inferre… |
 | [D241](#d241--a-model-driven-knowledge-systems-memory-is-kept-current-by-an-end-a-confirmer-applies-a-view-that-only-reads-and-a-check-the-host-stands-behind-2026-10-30) | 2026-10-30 | a model-driven knowledge system's memory is kept current by an end a confirmer applies, a view th… |
+| [D242](#d242--a-supersession-can-apply-as-one-change-a-view-over-another-task-only-reads-and-a-callers-key-makes-a-write-answerable-2026-10-31) | 2026-10-31 | a supersession can apply as one change, a view over another task only reads, and a caller's key m… |
 
-**236 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**237 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -6967,7 +6968,49 @@ member is not a read grant. Confirmation reviewed an hour ago can end what the e
 **Rejected.** An end stored as decay state or decided by a ranking policy (it would reverse by use and vary by policy);
 an expected state of validity and confirmation alone (a rewrite keeps both); a writable shared task; a
 library-held log or grant; a recorded inconclusive state; an approver that approves by itself or an opt-in setting for one; a transaction over a successor's insert and the
-predecessor's end; the tools before the relations; one aggregate accuracy.
+predecessor's end (taken up as an optional store capability by **D242**); the tools before the relations; one aggregate accuracy.
 
 **Re-opens** when MC8 clears a bar (that pair moves class), when polling `DueAsync` is measured too slow for readers (a
 changed-since read), or when a record and an experience must be ranked together.
+
+## D242 — a supersession can apply as one change, a view over another task only reads, and a caller's key makes a write answerable (2026-10-31)
+
+**Standing.** Written for the three requests of Daoris's memory coordinator (its design §6, A to C), taken as a working
+position: nothing ships with it and the rows are `TASKS.md` MC11, MC12 and MC7, which it widens. It amends **D241** on one
+item and keeps the rest whole. Reversing it costs a row now and a frozen surface once a release carries it (**D70**).
+
+**Decided.**
+- **A keyed write is answerable** (C). A remember, a relation, a confirmation, an end and a supersession each take an optional
+  caller's key, opaque, bounded, scoped to (engine, task). Its receipt — the call kind, a fingerprint of everything the call
+  stated, the reference, the revision after, and an outcome that tells `Created` from `Refreshed` — commits in the effect's
+  transaction. A repeat answers the receipt and moves no revision and adds no weight; the same key with another fingerprint is
+  refused; a receipt reads without effect. It names its expiry (default thirty days) and a later keyed write purges the
+  expired, so the library runs no timer; a repeat after that is a new operation, and the revision guard answers it.
+- **A supersession can apply as one change** (A; amends **D241**'s rejected transaction). One call stores the successor and
+  ends every named predecessor, each guarded by the revision its approver read, in one store transaction: afterwards the
+  successor is current and every predecessor ended by it, or nothing changed and the call says which predecessors moved. It
+  carries the key, so it is one receipt. The embed and annotation precede it; the similarity index and subject links follow
+  it, are derived, and a failure there leaves the supersession applied and is reported as the sources already are.
+- **Both are optional store capabilities**, as ending is (`IEndableMemoryGraphStore`): an engine over a store without one
+  refuses the call and never falls back to insert-then-end, and an unkeyed call is unchanged on every store.
+- **The gate's agent path stays store-first**: an agent's observation is its own; the new call is for a host that holds the
+  successor and calls after approval.
+- **The view is MC7, widened** (B). The row stands: no write path in its type, nothing of the owner's moved (use stamp,
+  confirmation, co-activation, decay), a reference outside its task refused, references and never copies. It adds the source
+  task on each result beside the reference, revision, relations and retirement standing it reads; `RevisionOf(reference)`
+  as one read by id; a host-supplied check per reference before an expansion reads anything; and a capability member plus
+  a refusing call for an engine without it. The check is a call, not a grant: owners, grants and the log stay out.
+- **Presentation (X) is the host's**: the revision read and the receipt are what it stands on.
+
+**Why.** **D241** refused the transaction because it widened a store contract and a retry repaired the window. It widens one
+as ending did, optionally, and a retry stops holding once a view shows another repository the window. After a lost response
+the store cannot say whether a call ran: a same-content write advances the revision, a repeated relation adds weight and a
+stamp names no confirmation.
+
+**Rejected.** A key that is also an entry's identity (identity stays the content key, so two writers' equal content would still be one entry). A receipt on
+each predecessor (a remember and a relation have none; one table answers all five calls). Applying atomically in the gate's
+agent path. A timer to expire receipts. Federation, merged ranking, replicas, and the library knowing repositories, quests or
+policy, or holding a successor before approval.
+
+**Re-opens** if a store cannot make the pair atomic across a crash (it then refuses the capability), or if receipts' growth
+needs more than a purge on write.
