@@ -305,8 +305,11 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D233](#d233--an-http-inference-endpoint-is-an-agent-door-when-lyntais-own-tool-loop-is-the-executor-a-hosted-agent-stays-out-2026-10-29) | 2026-10-29 | an HTTP inference endpoint is an agent door when Lyntai's own tool loop is the executor; a hosted… |
 | [D234](#d234--one-account-serves-every-door-of-an-agent-each-door-stays-its-own-provider-and-names-the-agent-that-owns-the-account-2026-10-29) | 2026-10-29 | one account serves every door of an agent: each door stays its own provider and names the agent t… |
 | [D235](#d235--a-host-builds-against-unreleased-layer-rows-from-a-feed-it-packs-itself-and-lyntai-publishes-no-preview-version-2026-10-29) | 2026-10-29 | a host builds against unreleased layer rows from a feed it packs itself, and Lyntai publishes no… |
+| [D236](#d236--a-host-states-its-own-policy-for-reading-a-version-the-library-has-not-validated-and-the-librarys-support-claim-does-not-move-2026-10-30) | 2026-10-30 | a host states its own policy for reading a version the library has not validated, and the library… |
+| [D237](#d237--an-allowance-reading-carries-what-the-server-stated-in-its-own-scope-precision-and-absence-a-hosts-names-and-inferences-stay-the-hosts-2026-10-30) | 2026-10-30 | an allowance reading carries what the server stated, in its own scope, precision and absence; a h… |
+| [D238](#d238--the-usage-exchange-follows-the-protocols-order-and-the-host-names-where-the-server-runs-and-what-it-is-told-of-its-client-2026-10-30) | 2026-10-30 | the usage exchange follows the protocol's order, and the host names where the server runs and wha… |
 
-**230 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**233 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -6768,3 +6771,98 @@ references. Waiting for the release with nothing to build on: Daoris's provider 
 
 **Re-opens** when a second host needs a shared feed rather than its own pack, or when a release cadence makes the wait
 cheaper than the pack.
+
+## D236 — a host states its own policy for reading a version the library has not validated, and the library's support claim does not move (2026-10-30)
+
+**Standing.** Written from the session that answered a host's three requests about the usage reading (`TASKS.md` Part 416);
+the owner's acceptance of the branch makes it binding. It refines **D222**'s "per vendor version" without loosening it. The
+members it adds are unreleased, so a row may still reshape them (**D235**).
+
+**Decided.**
+- **The policy is a seam on `AgentUsageReadingOptions`**: an `IAgentUsageVersionPolicy` the host implements. It says whether
+  the binary's version is probed before the server starts, and, given the provider, the account, the version read (null
+  when not probed) and whether the library validated it, whether the server is started. The default is `ValidatedOnly`,
+  today's behaviour; `AnyVersion` (no probe, always start) ships beside it. A host's own evidence is three lines of the
+  interface, so no list of versions is added to a library type.
+- **The library's claim stays exactly what it is.** The descriptor's `UsageReading` ability, its validated versions and its
+  declared side effects are identical with and without a policy: a policy widens what THIS host's reads attempt, never what
+  the descriptor says is supported. A reading names the version it was read on and whether the library validated it, so a
+  host keeping readings can tell one taken under its own policy from a validated one.
+- **An answer this reader does not recognise is unknown under every policy.** The dialect takes only the fields a
+  validated version was seen to send, so a wider policy changes whether the server starts, never what counts as a reading.
+  A policy that throws refuses as `version-not-validated`, logs the exception type only, and never throws out of the read.
+
+**Why.** Support is a claim about what Lyntai has recorded (**D222**). Whether a deployment risks a read on a version it
+pinned is a fact only the host has, and two honest hosts answer it differently: one holds recorded answers per pin, one holds
+none (`generic-library.md` rule 7). Returning `version-not-validated` alone leaves the host one choice, no read.
+
+**Rejected.** A `bool` that reads any version: it cannot say which, and it spreads one answer over every vendor. A list of
+extra versions on the options: it fixes the shape of the host's evidence, which may be a pin store looked up per account.
+The host widening `ValidatedVersions`: that moves the claim **D222** rests on the library's own recorded answers. A parameter
+on `ReadAllowanceAsync`: the registration already holds the host's other usage options, and the query names the account.
+
+**Re-opens** when a host needs a decision the query's facts cannot express.
+
+## D237 — an allowance reading carries what the server stated, in its own scope, precision and absence; a host's names and inferences stay the host's (2026-10-30)
+
+**Standing.** As **D236**. The types are unreleased (**D235**), so this reshapes them and breaks nothing a release carried.
+
+**Decided.**
+- **A window states what the server did.** `AgentAllowanceWindow` gains a `Scope` (null for the account's own limit;
+  Claude's `seven_day_<scope>` windows carry the suffix, a Codex limit other than the answer's own carries its
+  `limitId`). `UsedPercent` becomes a `double?` kept as written: a fractional percent is a reading, where today a Codex one
+  makes the whole reading unknown. `UsedStep` is the least difference the written digits show (1 for `23`, 0.1 for
+  `23.5`; null when no use was stated or it was written in exponent form). `Length` and `ResetsAt` stay null when the
+  server stated none, and the library never makes one up. A window stating neither a use nor a reset says nothing and is
+  left out; one stating either is kept.
+- **The reading carries the server's own limit rows**: `Limits`, each a `Kind`, `Scope`, `UsedPercent` with its step and
+  `ResetsAt`, from Claude's `rate_limits.limits[]`, never a row's severity, which is the server's judgement; and `LimitId`,
+  the name Codex gives the account's own limit. `Plan` is unchanged.
+- **A present value this reader cannot recognise still makes the whole reading unknown** (**D222**): a use outside 0 to 100
+  or not a number, a malformed reset, a Codex window with no length. Leaving the window out would let `HasRoom` say true
+  over one that may be full. An ABSENT field is not that case: it is the server's statement that it has none.
+- **`HasRoom` reads the account's own windows only** (`Scope` null). A full model-scoped week is not an account with no
+  room, and reporting it so would hold a seat on a limit other models do not meet; a host that wants a scope's room reads
+  `Windows`.
+- **Names stay the dialect's** (`five-hour`, `weekly`, `{n}-minutes`). A host's word for a window, and a reset it infers
+  for a window not yet opened, are the host's.
+
+**Why.** Each is a fact the server stated that the reader drops or turns into unknown for everything. The host that keeps an
+account's history needs them as stated, and a type that rounds, flattens or guesses cannot be corrected by the host.
+
+**Rejected.** The server's answer passed through raw: it makes each vendor revision the host's problem (**D20**). Reading
+whatever windows are present: it takes shapes no validated version was seen to send (**D222**). A `decimal` percent: its
+scale carries the digits only while every parser keeps a trailing zero, and exponent form loses them; a stated step does
+not. The scope inside the name (`weekly-opus`): a host would split a string. Leaving a malformed window out: above.
+
+**Re-opens** when a vendor states a window that neither a length nor a scope can name.
+
+## D238 — the usage exchange follows the protocol's order, and the host names where the server runs and what it is told of its client (2026-10-30)
+
+**Standing.** As **D236**.
+
+**Decided.**
+- **Each request is written once the answer it depends on has arrived.** The dialect states the exchange as steps; the source
+  writes the first and each next one only after the answer to the one before, and a notification (Codex's `initialized`)
+  is written with the request after it, not awaited. An error answer to any step ends the read as unknown, with
+  `not-signed-in` where the dialect's reading of the error says so and `unrecognised-answer` otherwise, and the process is
+  ended. The order is the library's and the dialect's: no host option reaches it.
+- **The server's working directory is a host option**, `AgentUsageReadingOptions.WorkingDirectory`, a function of the
+  account returning a fully qualified path or null. Null keeps today's fresh empty folder per read, removed after it. A
+  named folder is created when absent and never removed or emptied: it is the host's, and to the vendor it is a project,
+  whose state it keys by that path and whose extensions it loads (already declared in the ability's side effects). A path
+  that is not fully qualified is refused as `account-refused` before a spawn.
+- **The client the server is told of is a host option**: `ClientName` and `ClientVersion`, default `lyntai` and `1`,
+  written through a JSON writer and never spliced, into the protocols that carry one (Codex's `initialize`) and ignored where
+  none does (Claude's control request). Each is non-empty, free of control characters and bounded.
+
+**Why.** **D226** refused a default that writes lines up front because it "breaks on the first dependent request", and the
+usage exchange does that today, working only where a server happens to tolerate it. Whether the two validated servers do is
+unmeasured and need not be: waiting is correct either way. Where a vendor keeps state and what a server may do on its
+client's name are facts of the host's arrangement that the library cannot know (`generic-library.md` rule 7).
+
+**Rejected.** Measuring the eager order first: no answer licenses what **D226** already refuses. A folder under the account's
+home chosen by the library: the library only sets a variable to that home, and inventing a folder in it is not its to do. A
+host callback per line: it puts the order in the host's hands. A client name per account: nothing asks for one.
+
+**Re-opens** when a host needs a folder or an identity that depends on more than the account.
