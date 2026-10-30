@@ -15,28 +15,33 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 15 across 4 Parts: 10 startable, 2 blocked, 3 watch
+## Open items — 20 across 5 Parts: 15 startable, 2 blocked, 3 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 116 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
-| 157 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 184 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 243 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
-| 261 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
-| 296 | 412 | AG10 — the Claude CLI door keeps a subagent's lines apart from the session's | startable |  |
-| 309 | 412 | AG11 — the ACP door carries `AgentSessionOptions.Model`, or refuses it | startable |  |
-| 319 | 412 | AG12 — a refused model is a hold the pool can keep against one seat | startable |  |
-| 327 | 412 | AG13 — an HTTP response's own facts are read as an `AgentFailure` | startable |  |
-| 336 | 412 | AG14 — an HTTP door: `IToolLoop` as an agent provider | startable |  |
-| 346 | 412 | AG15 — an ACP dialect seam | startable |  |
-| 354 | 412 | AG16 — the event-stream rules, held by one theory | startable |  |
-| 362 | 412 | AG17 — an account that is a key, and the variables a provider reads | startable |  |
-| 371 | 412 | AG18 — background work started and ended, as events | startable |  |
-| 378 | 412 | AG19 — an ACP permission request the host can answer | startable |  |
+| 121 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
+| 162 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 189 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 248 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
+| 266 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
+| 301 | 412 | AG10 — the Claude CLI door keeps a subagent's lines apart from the session's | startable |  |
+| 314 | 412 | AG11 — the ACP door carries `AgentSessionOptions.Model`, or refuses it | startable |  |
+| 324 | 412 | AG12 — a refused model is a hold the pool can keep against one seat | startable |  |
+| 332 | 412 | AG13 — an HTTP response's own facts are read as an `AgentFailure` | startable |  |
+| 341 | 412 | AG14 — an HTTP door: `IToolLoop` as an agent provider | startable |  |
+| 351 | 412 | AG15 — an ACP dialect seam | startable |  |
+| 359 | 412 | AG16 — the event-stream rules, held by one theory | startable |  |
+| 367 | 412 | AG17 — an account that is a key, and the variables a provider reads | startable |  |
+| 376 | 412 | AG18 — background work started and ended, as events | startable |  |
+| 383 | 412 | AG19 — an ACP permission request the host can answer | startable |  |
+| 397 | 416 | MC1 — an entry is ended by reference, with a reason | startable |  |
+| 411 | 416 | MC2 — an agent writes and ends what it remembers, through tools the host re… | startable |  |
+| 422 | 416 | MC3 — a write is shown the live entries it may update, and applies none | startable |  |
+| 434 | 416 | MC4 — two live entries that may disagree are marked by their writer | startable |  |
+| 444 | 416 | MC5 — a stored fact can be re-checked by its host, and a failed check ends … | startable |  |
 
 <!-- open-items:end -->
 
@@ -381,6 +386,73 @@ stand on is **D233**, and the study's §7 is the order they are built in. The fi
   stated `Unsupported` where none is registered, the response written once with the answer, and no answer within the
   turn's inactivity clock a refusal. **Proof.** SOURCE-DERIVED `session/request_permission` captures: answered allow,
   answered deny, never answered; the default (no callback) behaves exactly as today.
+
+## Part 416 — keeping an agent's memory current, after Daoris's requests LQ16 to LQ20 (2026-10-30)
+
+_The study is `docs/memory-currency-study.md` and the rulings are **D236** and **D237**. Each row is one sitting and none is
+built; the order is MC1, then MC2 and MC3 (independent), then MC4, then MC5. Every member a row adds is unreleased until a
+release carries it (**D70**, **D235**). **What a YES does to the library is each row's contract; there is no measurement
+row here**, and MC3's measured rate is a step inside it with its own consequence stated._
+
+- [ ] **MC1 — an entry is ended by reference, with a reason** (lanes `memory` + `storage`; LQ20). Today an entry leaves by <!-- item: state=startable -->
+  `Supersedes`, a scope-wide forget, a prune, or identical text written again with `ValidTo`, so a fact that simply
+  stopped being true has no way out that keeps why. **Contract.** `IEndableMemory.EndAsync(taskKey, entry, MemoryEnding)`
+  where `MemoryEnding` is a required reason, an optional instant (now by the engine's clock) and an optional successor
+  of this engine; with a successor it records the supersession at the instant (default: the successor's start), without
+  one it states the entry's own `ValidTo`. `MemoryValidity` gains an `EndedReason` that reads it back. Refusals are supersession's own (a
+  reference outside this engine or task, an end before the entry began, a different successor than the one it has); an
+  end already recorded changes nothing and the result says so. It is **optional** (`IEndableMemoryGraphStore :
+  ITemporalMemoryGraphStore`), a nullable `ended_reason` column in one migration on SQLite and Postgres, the in-memory and
+  file-system stores, the `v: 2` portable line, and the blend declares and routes it. **Proof.** The store contract and
+  the engine contract on every shipped store, a composite routing case, the entry read under `History` and gone under
+  `Current`, not buried, not pruned, not reinforced, task isolation (**D92**), an `ApiSurface` baseline move from the
+  emitted `.actual`, and `docs/memory.md` §9's recipe.
+
+- [ ] **MC2 — an agent writes and ends what it remembers, through tools the host registered** (lane `memory`, after MC1; <!-- item: state=startable -->
+  LQ16, **D236**). `AddMemoryTools` registers `<engine>_recall` and `<engine>_expand` only, so an agent that learns an entry
+  is wrong cannot record it. **Contract.** `AddMemoryWriteTools(name, taskKey, scope?, prefix?, options?)` registers
+  `<prefix>_remember` (content, headline, `supersedes` refs, `validFrom`, `validTo`) and `<prefix>_end` (ref, reason,
+  `by`, `at`); the task comes from `MemoryToolScope.Resolve` and is never an argument, the scope is the host's unless the
+  options let a model name one, a tool write is `Associative` with no grade argument, the options carry a metadata
+  stamp and a content bound, and `AddMemoryTools` is unchanged. An engine's refusal reaches the model as an `{"error"}` it can act on.
+  **Proof.** Tool-schema tests; a stale entry superseded and one ended with no successor, both read back under `History`;
+  a ref of another engine and of another task refused; a second successor refused with the engine's own message; a host
+  that registered only the read tools exposes no write.
+
+- [ ] **MC3 — a write is shown the live entries it may update, and applies none** (lane `memory`; LQ17, **D236**). <!-- item: state=startable -->
+  `Supersedes` needs an id a writer rarely holds when it learns the new fact. **Contract.**
+  `IMemoryCandidates.FindUpdatesAsync(write, limit)`: the live entries (the `Current` reading) of the write's own task and
+  scope, other than the write, each with a basis (lexical, or similarity when an embedder is wired); no reinforcement, no
+  link, no write, no model call beyond the embed that `Ran` declares; callable before the write or after it. With MC2, the
+  `_remember` tool returns it as `"mayUpdate"`. **Proof.** Cases both ways (a revised fact finds its predecessor; an
+  unrelated entry, another scope, another task and an ended entry never appear); the recall counters show nothing moved;
+  and **a measured step**: the rate at which the true predecessor is among the first four, per basis, on the
+  `memory-longmemeval --haystack` pairs, reported in `docs/memory-measurements.md` §5 and not gated. **A low rate moves the
+  default limit and the guidance in `docs/memory.md`; it removes nothing, because nothing is applied unconfirmed.** The
+  default of four is another system's habit, not a finding.
+
+- [ ] **MC4 — two live entries that may disagree are marked by their writer** (lane `memory`, after MC1 and, for the tool <!-- item: state=startable -->
+  half, MC2; LQ18, **D237**). Overlapping valid entries come back side by side unmarked, and an engine-derived mark was
+  refused. **Contract.** `Disputes` and `Amends` relations between two live entries of one task, stated on a write beside
+  `Supersedes` or after it by `RelateAsync`, neither ending anything; a recall returns them as `Relations` on `MemoryItem` for
+  the items it returns and only where the other end is in the same reading; the memory tools report them and a rendered
+  memory says them. **First step**: read whether an edge keeps a kind through co-activation, decay and traversal; if it does
+  not, the relation takes its own column and the row says so. **Proof.** A relation read back on both ends, gone from the
+  reading once either end has ended, a recall's co-activation and a prune leaving it as it was, task isolation, and the
+  `ApiSurface` baselines.
+
+- [ ] **MC5 — a stored fact can be re-checked by its host, and a failed check ends it** (lanes `memory` + `storage`, after <!-- item: state=startable -->
+  MC1; LQ19, **D237**). `IMemoryVerificationPolicy` judges relevance, not truth, and nothing records when a fact was last
+  confirmed. **Contract.** `MemoryWrite` gains a `Recheck`, an opaque bounded text the library never reads;
+  `IConfirmableMemory.ConfirmAsync(taskKey, entry, outcome, at?, note?)` where `Held` stamps `ConfirmedAt` (never
+  backwards; no other field moves, so it is not a reinforcement) and `Failed` ends the entry through MC1's call with the
+  note as its reason; `DueAsync(taskKey, scope, notConfirmedSince, limit)` answering the live entries that carry a `Recheck`
+  and were last confirmed before an instant or never; a `Confirmation` on `MemoryItem` on read; a `_confirm` tool when MC2 is
+  built. Optional, as MC1: nullable `recheck` and `confirmed_at` columns in their own migration, a second optional store
+  interface, the portable line, the blend. **Proof.** A held check stamps and changes nothing else; a failed one is gone
+  from `Current` and read under `History` with its reason; a re-remember of identical content keeps the stamp, and one that
+  names no `Recheck` keeps the stored one; the due query both ways; the library runs nothing (no process or network type in the
+  change); and the `ApiSurface` baselines.
 
 ## Retired — five Parts that outlived their open work (2026-09-16)
 
