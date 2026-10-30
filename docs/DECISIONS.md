@@ -305,10 +305,11 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D233](#d233--an-http-inference-endpoint-is-an-agent-door-when-lyntais-own-tool-loop-is-the-executor-a-hosted-agent-stays-out-2026-10-29) | 2026-10-29 | an HTTP inference endpoint is an agent door when Lyntai's own tool loop is the executor; a hosted… |
 | [D234](#d234--one-account-serves-every-door-of-an-agent-each-door-stays-its-own-provider-and-names-the-agent-that-owns-the-account-2026-10-29) | 2026-10-29 | one account serves every door of an agent: each door stays its own provider and names the agent t… |
 | [D235](#d235--a-host-builds-against-unreleased-layer-rows-from-a-feed-it-packs-itself-and-lyntai-publishes-no-preview-version-2026-10-29) | 2026-10-29 | a host builds against unreleased layer rows from a feed it packs itself, and Lyntai publishes no… |
-| [D236](#d236--an-entry-is-ended-by-one-call-that-a-writer-makes-and-an-agent-reaches-it-through-tools-the-host-registers-2026-10-30) | 2026-10-30 | an entry is ended by one call that a writer makes, and an agent reaches it through tools the host… |
-| [D237](#d237--a-mark-or-a-stamp-on-an-entry-states-what-a-writer-or-a-host-said-never-what-the-library-inferred-about-the-world-2026-10-30) | 2026-10-30 | a mark or a stamp on an entry states what a writer or a host said, never what the library inferre… |
+| [D239](#d239--an-entry-is-ended-by-one-call-that-a-writer-makes-and-an-agent-reaches-it-through-tools-the-host-registers-2026-10-30) | 2026-10-30 | an entry is ended by one call that a writer makes, and an agent reaches it through tools the host… |
+| [D240](#d240--a-mark-or-a-stamp-on-an-entry-states-what-a-writer-or-a-host-said-never-what-the-library-inferred-about-the-world-2026-10-30) | 2026-10-30 | a mark or a stamp on an entry states what a writer or a host said, never what the library inferre… |
+| [D241](#d241--a-model-driven-knowledge-systems-memory-is-kept-current-by-an-end-a-confirmer-applies-a-view-that-only-reads-and-a-check-the-host-stands-behind-2026-10-30) | 2026-10-30 | a model-driven knowledge system's memory is kept current by an end a confirmer applies, a view th… |
 
-**232 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**233 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -6771,7 +6772,7 @@ references. Waiting for the release with nothing to build on: Daoris's provider 
 **Re-opens** when a second host needs a shared feed rather than its own pack, or when a release cadence makes the wait
 cheaper than the pack.
 
-## D236 — an entry is ended by one call that a writer makes, and an agent reaches it through tools the host registers (2026-10-30)
+## D239 — an entry is ended by one call that a writer makes, and an agent reaches it through tools the host registers (2026-10-30)
 
 **Standing.** Written from `docs/memory-currency-study.md` (Daoris's requests LQ16, LQ17 and LQ20); the owner's acceptance of
 the branch makes it binding. Nothing ships with it: the rows are `TASKS.md` MC1 to MC3. It keeps **D90**, **D109**, **D217**
@@ -6780,7 +6781,7 @@ and **D218** whole and reverses by a later decision here.
 **Decided.**
 - **Ending is one primitive**: an entry is ended by reference with a required reason, at an instant, optionally by a
   successor of this engine, and is kept as supersession keeps it. A supersession confirmed after the write, a fact that
-  stopped being true and a failed re-check (**D237**) are that call with different reasons. It is an optional capability
+  stopped being true and a failed re-check (**D240**) are that call with different reasons. It is an optional capability
   beside `ITemporalMemoryGraphStore`, never a required member.
 - **An agent writes only through a second registration**, `AddMemoryWriteTools`, which `AddMemoryTools` never makes. The
   host pins the task; the scope is the host's unless its options let a model name one; a tool write is `Associative`.
@@ -6788,7 +6789,7 @@ and **D218** whole and reverses by a later decision here.
   bases, no model call beyond a declared embed) and **never applies one**: the writer confirms through `Supersedes` or the
   end call. A list the writer reads demotes nothing, which is the line **D109** drew.
 - **One successor per entry stays.** A record amended in one claim is written as its claims and each is superseded by
-  name; the relation that ends nothing is **D237**'s.
+  name; the relation that ends nothing is **D240**'s.
 
 **Why.** Four methods for four requests would be four places a refusal rule could drift, and the store already has the
 one call. A model that could write through the tools it was given to read would have a write authority nobody
@@ -6805,15 +6806,15 @@ registered (**D218**).
 (the default limit then moves, not the rule), or when a host needs an agent to write across tasks, which needs a grant
 **D92** does not have.
 
-## D237 — a mark or a stamp on an entry states what a writer or a host said, never what the library inferred about the world (2026-10-30)
+## D240 — a mark or a stamp on an entry states what a writer or a host said, never what the library inferred about the world (2026-10-30)
 
-**Standing.** As **D236**, for Daoris's requests LQ18 and LQ19; the rows are `TASKS.md` MC4 and MC5.
+**Standing.** As **D239**, for Daoris's requests LQ18 and LQ19; the rows are `TASKS.md` MC4 and MC5.
 
 **Decided.**
 - **A relation between two live entries is stated by the writer**: `Disputes` and `Amends`, on a write or after it, shown
   on a recall where the other end is in the same reading, and ending nothing. The engine derives no "may disagree" mark.
 - **A re-check is the host's.** An entry may carry an opaque `Recheck` text the library never reads; the host records
-  that a check held, which stamps `ConfirmedAt`, or failed, which ends the entry through **D236**'s call. A host finds what to
+  that a check held, which stamps `ConfirmedAt`, or failed, which ends the entry through **D239**'s call. A host finds what to
   run with a due query. The library runs no check and ends no entry by age.
 - **A failed check ends; there is no flagged state.** A flagged entry a recall does not return as current is an ended
   entry with a third state every reading must answer for.
@@ -6831,3 +6832,34 @@ honest applications answer differently, so the library holds the outcome and the
 
 **Re-opens** on **D109**'s one measurement: a basis whose precision at naming the true predecessor, against its base rate, is
 well above it makes a detector, and a detector's output is then a candidate shown to a writer, never a mark applied.
+
+## D241 — a model-driven knowledge system's memory is kept current by an end a confirmer applies, a view that only reads, and a check the host stands behind (2026-10-30)
+
+**Standing.** Written from `docs/memory-currency-synthesis.md`, settling this repository's sealed proposal against the other
+maker's, for Daoris's KNOWCENTRAL1 round 1; nothing ships with it and the rows are `TASKS.md` MC1 to MC9. It amends
+**D239** and **D240** where it says so, and reverses by a later decision here.
+
+**Decided.**
+- **Retirement is an end, never decay.** An ended entry is kept whole and read back under `History` with its reason; decay
+  quiets what nobody uses and retires nothing, because a use reinforces the replaced fact and burial is relative.
+- **Shared memory is one owner and a read-only view.** The view reads without reinforcing, linking or advancing the owner's
+  interference tick and refuses a reference outside its task; owners, grants, the change log and cursors are the coordinator's.
+- **`Failed` means the host confirmed the named claim no longer holds** (amends **D240**). A run that did not complete
+  changes nothing and stays due; the end is at the confirmation instant, never an inferred earlier one.
+- **A step that supersedes, ends or fails is confirmed through an approver seam** the library ships empty: a person, a
+  registered deterministic check, or a model only past a preregistered bound for that model and corpus. `Disputes` and
+  `Amends` apply alone, attributed, since they end nothing.
+- **An end may carry the state it was reviewed on** and is applied only if that still holds (amends **D239**), optional on
+  a store, and refused rather than ignored where a store cannot hold it.
+- **MC4 comes before the agent's tools**, and every measured step pairs its arms and reports stale answers, lost current
+  claims and lost history separately.
+
+**Why.** A reference expands in any task of its engine, and a recall reinforces and ages the owner's entries, so a plain blend
+member is not a read grant. Confirmation reviewed an hour ago can end what the entry has since become.
+
+**Rejected.** Retirement through decay; a writable shared task; a library-held log or grant; a recorded inconclusive state;
+an approver that approves by itself or an opt-in setting for one; a transaction over a successor's insert and the
+predecessor's end; the tools before the relations; one aggregate accuracy.
+
+**Re-opens** when MC8 clears a bar (that pair moves class), when polling `DueAsync` is measured too slow for readers (a
+changed-since read), or when a record and an experience must be ranked together.

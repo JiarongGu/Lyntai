@@ -1,7 +1,7 @@
 # Memory a model-driven knowledge system keeps current — Lyntai's sealed proposal, round 1
 
 **Status: a proposal (`docs/documents.md`), 2026-10-30, written from Daoris's brief alone before the other maker's is
-read; nothing is built and nothing here is decided.** It builds on `docs/memory-currency-study.md` (D236, D237,
+read; nothing is built and nothing here is decided.** It builds on `docs/memory-currency-study.md` (D239, D240,
 `TASKS.md` MC1 to MC5) and answers the brief's five questions, each with a choice, its reason and what it rejects.
 
 ## 1. The retirement channel: end for a replaced or false entry, decay for an unused one
@@ -42,7 +42,7 @@ the effect on `Current`:
 | Find candidates (MC3) | model or engine alone | read-only, demotes nothing (D109's line) |
 | Propose `Disputes` or `Amends` (MC4) | model alone | neither ends anything; a wrong mark costs a doubt, not a fact |
 | Propose `Supersedes` | **confirmed**: a second party applies it | a wrong one hides the true fact from `Current` |
-| Run a `Recheck` | host's process alone | the library runs nothing (D237) |
+| Run a `Recheck` | host's process alone | the library runs nothing (D240) |
 | `Held` from a check | check alone | an exit status, not a model's reading |
 | `Failed`, so ending | **confirmed**: a check's result, repeated per host policy, or a person | one failed run on an offline machine is wrong |
 | End with no successor | **confirmed** | "it stopped being true" is the unsupported judgement |

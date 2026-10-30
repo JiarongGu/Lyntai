@@ -4,7 +4,7 @@
 (its requests LQ16 to LQ20): what an agent or a host still cannot do to keep what it remembers current by replacement.
 This reads each against what the engine ships (`docs/memory.md` §9, *Say when a fact held, and what it replaced*;
 `MemoryValidity.cs`, `MemoryRecords.cs`, `MemoryTools.cs`), answers each by the generic-library test, and files rows
-MC1 to MC5 in `TASKS.md` (Part 416 there). The rulings are **D236** and **D237**. A type named below is a shipped one
+MC1 to MC5 in `TASKS.md` (Part 417 there). The rulings are **D239** and **D240**. A type named below is a shipped one
 unless a row proposes it, and every name a row proposes is settled against `docs/glossary.md` when it is built.
 
 ## 1. What the requests rest on, and what binds any answer
