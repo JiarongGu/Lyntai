@@ -2819,6 +2819,8 @@ interface Lyntai.Memory.IListableVectorStore
     ListCollectionsAsync(String prefix, CancellationToken ct = default) : Task<IReadOnlyList<String>>
 interface Lyntai.Memory.IMemoryCandidates
     FindUpdatesAsync(MemoryWrite write, Int32 limit = 10, CancellationToken ct = default) : Task<IReadOnlyList<MemoryUpdateCandidate>>
+interface Lyntai.Memory.IMemoryChangeApprover
+    ApproveAsync(MemoryChangeRequest request, CancellationToken ct = default) : Task<MemoryChangeDecision>
 interface Lyntai.Memory.IMemoryEngine
     Name : String { get; }
     RecallAsync(MemoryQuery query, CancellationToken ct = default) : Task<MemoryRecall>
@@ -2953,6 +2955,64 @@ enum Lyntai.Memory.MemoryCandidateOutcome
     OutsideValidity : MemoryCandidateOutcome const
     Returned : MemoryCandidateOutcome const
     value__ : Int32
+sealed class Lyntai.Memory.MemoryChangeDecision
+    Approved : Boolean { get; }
+    Equals(MemoryChangeDecision other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Reason : String { get; }
+    ToString() : String
+    static Approve : MemoryChangeDecision { get; }
+    static Deny(String reason) : MemoryChangeDecision
+sealed class Lyntai.Memory.MemoryChangeGate
+    .ctor(IEnumerable<IMemoryChangeApprover> approvers)
+    EndAsync(IMemoryEngine engine, String taskKey, MemoryRef entry, String revision, String reason, String evidence = null, CancellationToken ct = default) : Task<MemoryChangeResult>
+    SupersedeAsync(IMemoryEngine engine, MemoryWrite write, IReadOnlyList<MemoryChangeTarget> targets, String reason, String evidence = null, CancellationToken ct = default) : Task<MemoryChangeResult>
+enum Lyntai.Memory.MemoryChangeKind
+    End : MemoryChangeKind const
+    Supersede : MemoryChangeKind const
+    value__ : Int32
+sealed class Lyntai.Memory.MemoryChangeRequest
+    .ctor(MemoryChangeKind Kind, String TaskKey, IReadOnlyList<MemoryChangeTarget> Targets, String Claim, String Reason, String Evidence)
+    Claim : String { get; init; }
+    Deconstruct(MemoryChangeKind& Kind, String& TaskKey, IReadOnlyList`1& Targets, String& Claim, String& Reason, String& Evidence) : Void
+    Equals(MemoryChangeRequest other) : Boolean
+    Equals(Object obj) : Boolean
+    Evidence : String { get; init; }
+    GetHashCode() : Int32
+    Kind : MemoryChangeKind { get; init; }
+    Reason : String { get; init; }
+    Targets : IReadOnlyList<MemoryChangeTarget> { get; init; }
+    TaskKey : String { get; init; }
+    ToString() : String
+sealed class Lyntai.Memory.MemoryChangeResult
+    .ctor(MemoryChangeStatus Status, String Message, Nullable<MemoryRef> Successor = null, IReadOnlyDictionary<MemoryRef,String> Revisions = null)
+    Deconstruct(MemoryChangeStatus& Status, String& Message, Nullable`1& Successor, IReadOnlyDictionary`2& Revisions) : Void
+    Equals(MemoryChangeResult other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Message : String { get; init; }
+    Revisions : IReadOnlyDictionary<MemoryRef,String> { get; init; }
+    Status : MemoryChangeStatus { get; init; }
+    Successor : Nullable<MemoryRef> { get; init; }
+    ToString() : String
+enum Lyntai.Memory.MemoryChangeStatus
+    AlreadyEnded : MemoryChangeStatus const
+    Applied : MemoryChangeStatus const
+    Changed : MemoryChangeStatus const
+    Denied : MemoryChangeStatus const
+    NoApprover : MemoryChangeStatus const
+    Refused : MemoryChangeStatus const
+    value__ : Int32
+sealed class Lyntai.Memory.MemoryChangeTarget
+    .ctor(MemoryRef Reference, String Revision)
+    Deconstruct(MemoryRef& Reference, String& Revision) : Void
+    Equals(MemoryChangeTarget other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Reference : MemoryRef { get; init; }
+    Revision : String { get; init; }
+    ToString() : String
 static class Lyntai.Memory.MemoryComposition
     static ComposeAsync(IMemoryEngine engine, String basePrompt, MemoryQuery query, MemoryCompositionOptions options = null, CancellationToken ct = default) : Task<String>
     static Render(String basePrompt, IReadOnlyList<MemoryItem> items, MemoryCompositionOptions options = null) : String
@@ -3733,6 +3793,8 @@ static class Lyntai.MemoryAnnotationBuilderExtensions
     static AddMemoryAnnotation(LyntaiBuilder builder, Action<LlmAnnotationOptions> configure = null) : LyntaiBuilder
 static class Lyntai.MemoryEngineBuilderExtensions
     static AddMemory(LyntaiBuilder builder, String name = "default") : LyntaiBuilder
+    static AddMemoryChangeApprover(LyntaiBuilder builder, Func<IServiceProvider,IMemoryChangeApprover> factory) : LyntaiBuilder
+    static AddMemoryChangeApprover<T>(LyntaiBuilder builder) : LyntaiBuilder
     static AddMemoryEngine(LyntaiBuilder builder, String name, Action<MemoryEngineBuilder> configure = null) : LyntaiBuilder
     static AddMemoryTools(LyntaiBuilder builder, String name, String taskKey, String scope = null, String prefix = null) : LyntaiBuilder
     static UseMemoryComposer(LyntaiBuilder builder, String name) : LyntaiBuilder

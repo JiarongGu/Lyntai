@@ -927,6 +927,17 @@ reinforced, and an ended entry, another scope or another task never appears. Eac
 `Reference` and `Revision` are what `Supersedes` or `EndAsync` take. **A list the writer reads demotes nothing**: the
 writer confirms (D239).
 
+**To let a person, a check or a model-with-a-measured-bound confirm an agent's supersession or end, register an
+`IMemoryChangeApprover` (`AddMemoryChangeApprover`) and put proposals through `MemoryChangeGate`** — `EndAsync(engine, task,
+entry, revision, reason, evidence)` and `SupersedeAsync(engine, write, targets, reason, evidence)`, each target carrying the
+`MemoryItem.Revision` the proposer read. **The library ships no approver that approves by itself** (D241): with none registered
+nothing ends (`MemoryChangeStatus.NoApprover`), and a supersession's successor is stored live and unlinked, since an observation
+is not a confirmation. Every approver must approve, the first refusal decides, and one that throws or answers null refuses. An
+approval applies through `EndAsync` with that revision, so an entry rewritten after it was read changes nothing and returns
+`Changed` with the revision found (`MemoryChangeResult.Revisions`) — read again, propose again; the guard is never dropped. A
+reference the engine did not issue for this task is `Refused` in words the proposer can act on, and a retried supersession finds
+the same successor.
+
 **To say that two live entries may disagree, state it when you write** — `MemoryWrite.Disputes` (this entry says another's claim is
 wrong or in doubt) and `MemoryWrite.Amends` (it corrects or extends one claim of another and leaves the rest standing) — **or after
 it** with `IRelatableMemory.RelateAsync(taskKey, from, to, relation)`. Neither ends anything: both entries stay current, which is

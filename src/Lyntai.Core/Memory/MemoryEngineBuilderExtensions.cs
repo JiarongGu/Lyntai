@@ -114,6 +114,33 @@ public static class MemoryEngineBuilderExtensions
         });
     }
 
+    /// <summary>Register an <see cref="IMemoryChangeApprover"/>: a proposed supersession or end, from an agent or any caller of
+    /// <see cref="MemoryChangeGate"/>, is applied only if every registered approver approves it. With none registered
+    /// nothing is ended. <b>The library ships no approver that approves by itself</b> (<c>docs/DECISIONS.md</c> D241).</summary>
+    /// <typeparam name="T">The approver, constructed by the container.</typeparam>
+    /// <param name="builder">The Lyntai builder.</param>
+    public static LyntaiBuilder AddMemoryChangeApprover<[System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(
+        System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this LyntaiBuilder builder)
+        where T : class, IMemoryChangeApprover
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        builder.Services.AddSingleton<IMemoryChangeApprover, T>();
+        builder.Services.TryAddSingleton<MemoryChangeGate>();
+        return builder;
+    }
+
+    /// <summary>Register a memory-change approver built from the service provider.</summary>
+    /// <param name="builder">The Lyntai builder.</param>
+    /// <param name="factory">Builds the approver.</param>
+    public static LyntaiBuilder AddMemoryChangeApprover(this LyntaiBuilder builder, Func<IServiceProvider, IMemoryChangeApprover> factory)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentNullException.ThrowIfNull(factory);
+        builder.Services.AddSingleton(factory);
+        builder.Services.TryAddSingleton<MemoryChangeGate>();
+        return builder;
+    }
+
     /// <summary>Expose a named engine to the model as a pair of tools — <c>{prefix}_recall</c> returns
     /// headlines, <c>{prefix}_expand</c> returns one item's full text and what it is linked to. Registered
     /// as ordinary <see cref="Lyntai.Agents.ITool"/>s, so they reach the tool loop and the MCP bridge alike.

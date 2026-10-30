@@ -92,6 +92,10 @@ every addition.
 
 ### Added
 
+- **A proposed supersession or end can be put to an approver: `IMemoryChangeApprover`, `AddMemoryChangeApprover` and
+  `MemoryChangeGate`** (**D241**). Each proposal names the exact references, the claim, the evidence and the revision read; with no
+  approver registered nothing ends, an approver that throws or answers nothing refuses, and an approval applies only to that
+  revision (otherwise `Changed`). The library ships no approver that approves by itself.
 - **Two live entries that may disagree can be marked by their writer: `MemoryWrite.Disputes` and `MemoryWrite.Amends`, or
   `IRelatableMemory.RelateAsync`** (**D240**, **D241**). Neither ends anything. A recall reports `MemoryItem.Relations` where the
   other end is in the same reading, as the writer's attributed assertion; the memory tools and a rendered memory say so in fixed

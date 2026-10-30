@@ -6338,3 +6338,15 @@ blend, the tool and the line). **Measured, by construction and pinned:** 30 clai
 exactly 5 relations, so no false dispute and no unaffected claim lost. Lane `memory`.
 
 - MC4 — two live entries that may disagree are marked by their writer
+
+## Part 421 — MC6: an approver seam on what a write tool would supersede or end (2026-10-30)
+
+✅ done 2026-10-30 — **Outcome:** `IMemoryChangeApprover` (in `IToolApprover`'s shape, a DI collection, first refusal decides, a
+throw or null refuses) and `MemoryChangeGate`, which MC2's tools will call: `EndAsync` and `SupersedeAsync`, each target carrying
+the revision its proposer read, applied through `EndAsync` with it. No approver means nothing ends and a successor lands live and
+unlinked; a stale revision returns `Changed` with the one found. **Reading:** the model reads a revision off the recall render and
+passes it back, so the gate needs no read of the claim and reinforces nothing. Proof: `MemoryChangeGateTests` (8: no approver, a
+denial, a throwing and a null approver, an approval and what the approver sees, a stale revision then a fresh one and a retry that
+finds the same successor, a reference the host did not issue, no shipped approver, the container). Lane `memory`.
+
+- MC6 — an approver seam on what a write tool would supersede or end
