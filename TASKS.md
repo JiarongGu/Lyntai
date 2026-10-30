@@ -44,11 +44,11 @@ _Edit a marker, never this table — `verify` fails the moment the two disagree.
 | 466 | 417 | MC2 — an agent writes and ends what it remembers, through tools the host re… | startable |  |
 | 479 | 417 | MC3 — the candidate list's measured step: how often the true predecessor is… | startable |  |
 | 490 | 417 | MC4 — two live entries that may disagree are marked by their writer | startable |  |
-| 501 | 417 | MC5 — a stored fact can be re-checked by its host, and a failed check ends … | startable |  |
-| 517 | 417 | MC6 — an approver seam on what a write tool would supersede or end | startable |  |
-| 526 | 417 | MC7 — a read-only view of the owner's task, as a blend member | startable |  |
-| 536 | 417 | MC8 — the wrong-end instrument: what a model's proposed end costs, per mode… | startable |  |
-| 547 | 417 | MC10 — a scope dense in ended entries still returns its current ones | startable |  |
+| 504 | 417 | MC5 — a stored fact can be re-checked by its host, and a failed check ends … | startable |  |
+| 520 | 417 | MC6 — an approver seam on what a write tool would supersede or end | startable |  |
+| 529 | 417 | MC7 — a read-only view of the owner's task, as a blend member | startable |  |
+| 539 | 417 | MC8 — the wrong-end instrument: what a model's proposed end costs, per mode… | startable |  |
+| 550 | 417 | MC10 — a scope dense in ended entries still returns its current ones | startable |  |
 
 <!-- open-items:end -->
 
@@ -493,8 +493,11 @@ MC3's measured rate and MC8's instrument each state what a YES and a NO change, 
   `Supersedes` or after it by `RelateAsync`, neither ending anything; a recall returns them as `Relations` on `MemoryItem` for
   the items it returns and only where the other end is in the same reading; the memory tools report them and a rendered
   memory says them **as the writer's attributed assertion with its evidence, never as an established disagreement**; false
-  disputes and unaffected-claim recall are measured. **First step**: read whether an edge keeps a kind through co-activation, decay and traversal; if it does
-  not, the relation takes its own column and the row says so. **Proof.** A relation read back on both ends, gone from the
+  disputes and unaffected-claim recall are measured. **First step, read:** an edge's identity is (from, to, kind) in all four stores, so a typed edge is its own row that
+  co-activation (untyped) never strengthens, and decay and prune touch it as they touch any edge; no relation column is needed.
+  **But no store read returns an edge's kind or its source**: `NeighboursAsync` reports the neighbour and the weight only, and
+  only the portable export reads kinds. So the row needs an optional store read of the relation edges among a set of ids (SQL on
+  both dialects, in-memory, files), as MC1 added its capability, before a recall can report `Relations`. **Proof.** A relation read back on both ends, gone from the
   reading once either end has ended, a recall's co-activation and a prune leaving it as it was, task isolation, and the
   `ApiSurface` baselines.
 
