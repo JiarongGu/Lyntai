@@ -14,7 +14,7 @@ namespace Lyntai.Memory;
 /// <para>INTERNAL: consumers reach these through <c>AddMemoryTools</c> and never construct one, so this
 /// type is an implementation detail rather than surface. It is exposed to the tests via
 /// <c>InternalsVisibleTo</c>.</para></summary>
-internal static class MemoryTools
+internal static partial class MemoryTools
 {
     /// <summary>Separates the engine from the id in a reference the model echoes back. Engine names are
     /// caller-chosen and may contain <c>/</c>; ids are numeric or hex, so parsing on the LAST occurrence is

@@ -1011,6 +1011,16 @@ services.AddLyntai(cfg => cfg
     .AddMemoryTools("project", taskKey: "project", scope: "backend"));
 ```
 
+**To let it write and end what it learns, add `AddMemoryWriteTools(name, taskKey, scope, options: …)`** — a second registration
+that `AddMemoryTools` never makes, so no existing agent gains a write it did not choose. It adds `<engine>_remember` and
+`<engine>_end`. The HOST owns the task (from `MemoryToolScope`, never an argument), the grade (always associative, with no
+argument to change it), the scope (unless `ModelMayNameScope`) and a metadata stamp, and `MaxContentChars` bounds what a call
+may write. `_remember` returns its `ref` and `mayUpdate` — the live entries it may update, each with its `revision` — and
+applies none. `disputes` and `amends` end nothing and apply alone; `supersedes` (each entry a ref and the revision read, with a
+`reason`) and `_end` go through `MemoryChangeGate`, so **with no approver registered the write lands live and unlinked and the
+end is refused as a result the model reads**, and an approval applies only to the revision the model read. An engine's refusal
+(another task's ref, a second successor) reaches the model as an `{"error"}` or a `Refused` status it can act on.
+
 ### Two engines that behave differently
 
 Named engines carry independent configuration, so a fast-moving chat memory and a stable archive can share

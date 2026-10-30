@@ -2966,7 +2966,7 @@ sealed class Lyntai.Memory.MemoryChangeDecision
     static Deny(String reason) : MemoryChangeDecision
 sealed class Lyntai.Memory.MemoryChangeGate
     .ctor(IEnumerable<IMemoryChangeApprover> approvers)
-    EndAsync(IMemoryEngine engine, String taskKey, MemoryRef entry, String revision, String reason, String evidence = null, CancellationToken ct = default) : Task<MemoryChangeResult>
+    EndAsync(IMemoryEngine engine, String taskKey, MemoryRef entry, String revision, String reason, String evidence = null, Nullable<MemoryRef> by = null, Nullable<DateTimeOffset> at = null, CancellationToken ct = default) : Task<MemoryChangeResult>
     SupersedeAsync(IMemoryEngine engine, MemoryWrite write, IReadOnlyList<MemoryChangeTarget> targets, String reason, String evidence = null, CancellationToken ct = default) : Task<MemoryChangeResult>
 enum Lyntai.Memory.MemoryChangeKind
     End : MemoryChangeKind const
@@ -3483,6 +3483,12 @@ enum Lyntai.Memory.MemoryWriteRouting
     EveryCapable : MemoryWriteRouting const
     FirstCapable : MemoryWriteRouting const
     value__ : Int32
+sealed class Lyntai.Memory.MemoryWriteToolOptions
+    .ctor()
+    CandidateLimit : Int32 { get; init; }
+    MaxContentChars : Int32 { get; init; }
+    Metadata : IReadOnlyDictionary<String,String> { get; init; }
+    ModelMayNameScope : Boolean { get; init; }
 interface Lyntai.Memory.Modulation.IMemoryRetentionCompositionPolicy
     StabilityFactor(IReadOnlyList<Double> factors) : Double
 interface Lyntai.Memory.Modulation.IMemoryRetentionPolicy
@@ -3797,6 +3803,7 @@ static class Lyntai.MemoryEngineBuilderExtensions
     static AddMemoryChangeApprover<T>(LyntaiBuilder builder) : LyntaiBuilder
     static AddMemoryEngine(LyntaiBuilder builder, String name, Action<MemoryEngineBuilder> configure = null) : LyntaiBuilder
     static AddMemoryTools(LyntaiBuilder builder, String name, String taskKey, String scope = null, String prefix = null) : LyntaiBuilder
+    static AddMemoryWriteTools(LyntaiBuilder builder, String name, String taskKey, String scope, String prefix = null, MemoryWriteToolOptions options = null) : LyntaiBuilder
     static UseMemoryComposer(LyntaiBuilder builder, String name) : LyntaiBuilder
 static class Lyntai.MemorySeedBuilderExtensions
     static AddMemorySemanticSeeds(LyntaiBuilder builder, SemanticSeedOptions options = null) : LyntaiBuilder

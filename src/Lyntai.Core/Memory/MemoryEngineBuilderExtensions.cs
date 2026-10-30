@@ -172,6 +172,41 @@ public static class MemoryEngineBuilderExtensions
         return builder;
     }
 
+    /// <summary>Let a model write and end what it remembers in a named engine, as two more tools: <c>{prefix}_remember</c> (content,
+    /// headline, validity, <c>supersedes</c>, <c>disputes</c>, <c>amends</c>) and <c>{prefix}_end</c> (ref, revision, reason).
+    /// <see cref="AddMemoryTools"/> never registers these, so no existing host's agent gains a write it did not choose
+    /// (<c>docs/DECISIONS.md</c> D239).
+    /// <para>The HOST owns the task (from <see cref="MemoryToolScope"/>, never an argument), the grade (always associative, with
+    /// no argument to change it) and the metadata stamp. <c>disputes</c> and <c>amends</c> end nothing and apply alone;
+    /// <c>supersedes</c> and the end tool go through the registered <see cref="IMemoryChangeApprover"/>s and apply only if all
+    /// approve, bound to the revision the model read — with none registered nothing ends (D241). A write returns
+    /// <c>mayUpdate</c>, the live entries it may update, and applies none of them.</para></summary>
+    /// <param name="builder">The Lyntai builder.</param>
+    /// <param name="name">The engine to expose.</param>
+    /// <param name="taskKey">Default task key; override per turn with <see cref="MemoryToolScope.Use"/>.</param>
+    /// <param name="scope">The scope a write lands in. Required: an entry has one.</param>
+    /// <param name="prefix">Overrides the derived tool-name prefix, which is the same one <see cref="AddMemoryTools"/> derives.</param>
+    /// <param name="options">The stamp, the content bound and whether a model may name a scope; null takes the defaults.</param>
+    public static LyntaiBuilder AddMemoryWriteTools(this LyntaiBuilder builder, string name, string taskKey, string scope,
+        string? prefix = null, MemoryWriteToolOptions? options = null)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        ArgumentException.ThrowIfNullOrWhiteSpace(taskKey);
+        ArgumentException.ThrowIfNullOrWhiteSpace(scope);
+
+        var resolved = prefix ?? MemoryTools.ToolPrefix(name);
+        // the gate with no approver is the gate that ends nothing, so a host that registered none still gets a safe tool
+        builder.Services.TryAddSingleton<MemoryChangeGate>(sp => new MemoryChangeGate(sp.GetServices<IMemoryChangeApprover>()));
+        builder.Services.AddSingleton<Lyntai.Agents.ITool>(sp => MemoryTools.Remember(
+            sp.GetRequiredService<IMemoryEngineFactory>().Get(name), sp.GetRequiredService<MemoryChangeGate>(),
+            resolved, taskKey, scope, options));
+        builder.Services.AddSingleton<Lyntai.Agents.ITool>(sp => MemoryTools.End(
+            sp.GetRequiredService<IMemoryEngineFactory>().Get(name), sp.GetRequiredService<MemoryChangeGate>(),
+            resolved, taskKey, scope));
+        return builder;
+    }
+
     /// <summary>Back <see cref="IPromptComposer"/> — what <c>ChatOrchestrator</c> composes with AND remembers
     /// each exchange through — using the named engine, so the chat writes into the engine it reads from.
     /// <para>Without this call the default composer (over the keyword and semantic stores) stays in place, so

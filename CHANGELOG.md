@@ -92,6 +92,10 @@ every addition.
 
 ### Added
 
+- **An agent can write and end what it remembers through tools the host registers: `AddMemoryWriteTools`** (**D239**, **D241**).
+  `<engine>_remember` and `<engine>_end`; `AddMemoryTools` is unchanged, so no existing agent gains a write. The host owns the
+  task, the grade (always associative), the scope and a metadata stamp (`MemoryWriteToolOptions`). A write returns `mayUpdate`;
+  `disputes` and `amends` apply alone; `supersedes` and the end tool go through the approver, bound to the revision read.
 - **A proposed supersession or end can be put to an approver: `IMemoryChangeApprover`, `AddMemoryChangeApprover` and
   `MemoryChangeGate`** (**D241**). Each proposal names the exact references, the claim, the evidence and the revision read; with no
   approver registered nothing ends, an approver that throws or answers nothing refuses, and an approval applies only to that

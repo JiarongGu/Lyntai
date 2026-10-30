@@ -6350,3 +6350,17 @@ denial, a throwing and a null approver, an approval and what the approver sees, 
 finds the same successor, a reference the host did not issue, no shipped approver, the container). Lane `memory`.
 
 - MC6 — an approver seam on what a write tool would supersede or end
+
+## Part 422 — MC2: an agent writes and ends what it remembers, through tools the host registered (2026-10-30)
+
+✅ done 2026-10-30 — **Outcome:** `AddMemoryWriteTools(name, taskKey, scope, prefix?, options?)` registers `<prefix>_remember` and
+`<prefix>_end` and nothing else; `AddMemoryTools` is unchanged. The task comes from `MemoryToolScope`, a write is always
+associative with no grade argument, and `MemoryWriteToolOptions` carries the stamp, the content bound, a model-named scope (off) and
+the `mayUpdate` limit (10). `supersedes` and `_end` call `MemoryChangeGate`, which gained an optional successor and instant so
+`_end` can name `by` and `at`. **Reading:** `_end` and `supersedes` take the `revision` the model read off the recall render, so the
+tools need no extra read and reinforce nothing. Proof: `MemoryWriteToolsTests` (7: no write without the registration and no task or
+grade in the schemas, a stamped associative write with `mayUpdate`, the turn's task and the content bound, relations applying
+alone and a bad ref read as an error, no approver, an approved supersession and end read back under History with their reasons, a
+stale revision and a second successor and a foreign ref). Lane `memory`.
+
+- MC2 — an agent writes and ends what it remembers, through tools the host registered

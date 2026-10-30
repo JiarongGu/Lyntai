@@ -15,38 +15,37 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 25 across 6 Parts: 20 startable, 2 blocked, 3 watch
+## Open items — 24 across 6 Parts: 19 startable, 2 blocked, 3 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 126 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
-| 167 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 194 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 253 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
-| 271 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
-| 306 | 412 | AG10 — the Claude CLI door keeps a subagent's lines apart from the session's | startable |  |
-| 319 | 412 | AG11 — the ACP door carries `AgentSessionOptions.Model`, or refuses it | startable |  |
-| 329 | 412 | AG12 — a refused model is a hold the pool can keep against one seat | startable |  |
-| 337 | 412 | AG13 — an HTTP response's own facts are read as an `AgentFailure` | startable |  |
-| 346 | 412 | AG14 — an HTTP door: `IToolLoop` as an agent provider | startable |  |
-| 356 | 412 | AG15 — an ACP dialect seam | startable |  |
-| 364 | 412 | AG16 — the event-stream rules, held by one theory | startable |  |
-| 372 | 412 | AG17 — an account that is a key, and the variables a provider reads | startable |  |
-| 381 | 412 | AG18 — background work started and ended, as events | startable |  |
-| 388 | 412 | AG19 — an ACP permission request the host can answer | startable |  |
-| 403 | 416 | AG21 — the usage exchange writes each request after the answer it depends on | startable |  |
-| 415 | 416 | AG22 — the host names where the usage server runs and what it is told of it… | startable |  |
-| 428 | 416 | AG23 — an allowance reading carries what the server stated | startable |  |
-| 443 | 416 | AG24 — a host's policy for a version the library has not validated | startable |  |
-| 464 | 417 | MC2 — an agent writes and ends what it remembers, through tools the host re… | startable |  |
-| 477 | 417 | MC3 — measure the candidate list's similarity basis | startable |  |
-| 485 | 417 | MC5 — a stored fact can be re-checked by its host, and a failed check ends … | startable |  |
-| 501 | 417 | MC7 — a read-only view of the owner's task, as a blend member | startable |  |
-| 511 | 417 | MC8 — the wrong-end instrument: what a model's proposed end costs, per mode… | startable |  |
-| 522 | 417 | MC10 — a scope dense in ended entries still returns its current ones | startable |  |
+| 125 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
+| 166 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 193 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 252 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
+| 270 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
+| 305 | 412 | AG10 — the Claude CLI door keeps a subagent's lines apart from the session's | startable |  |
+| 318 | 412 | AG11 — the ACP door carries `AgentSessionOptions.Model`, or refuses it | startable |  |
+| 328 | 412 | AG12 — a refused model is a hold the pool can keep against one seat | startable |  |
+| 336 | 412 | AG13 — an HTTP response's own facts are read as an `AgentFailure` | startable |  |
+| 345 | 412 | AG14 — an HTTP door: `IToolLoop` as an agent provider | startable |  |
+| 355 | 412 | AG15 — an ACP dialect seam | startable |  |
+| 363 | 412 | AG16 — the event-stream rules, held by one theory | startable |  |
+| 371 | 412 | AG17 — an account that is a key, and the variables a provider reads | startable |  |
+| 380 | 412 | AG18 — background work started and ended, as events | startable |  |
+| 387 | 412 | AG19 — an ACP permission request the host can answer | startable |  |
+| 402 | 416 | AG21 — the usage exchange writes each request after the answer it depends on | startable |  |
+| 414 | 416 | AG22 — the host names where the usage server runs and what it is told of it… | startable |  |
+| 427 | 416 | AG23 — an allowance reading carries what the server stated | startable |  |
+| 442 | 416 | AG24 — a host's policy for a version the library has not validated | startable |  |
+| 463 | 417 | MC3 — measure the candidate list's similarity basis | startable |  |
+| 471 | 417 | MC5 — a stored fact can be re-checked by its host, and a failed check ends … | startable |  |
+| 487 | 417 | MC7 — a read-only view of the owner's task, as a blend member | startable |  |
+| 497 | 417 | MC8 — the wrong-end instrument: what a model's proposed end costs, per mode… | startable |  |
+| 508 | 417 | MC10 — a scope dense in ended entries still returns its current ones | startable |  |
 
 <!-- open-items:end -->
 
@@ -460,19 +459,6 @@ MC4, MC6, MC2, MC5, MC7, with MC8 able to run once MC3 lands and MC10 waiting fo
 unreleased until a release carries it (**D70**, **D235**). **What a YES does to the library is each row's contract**;
 MC3's measured rate and MC8's instrument each state what a YES and a NO change, and a measured step pairs its arms
 (`docs/memory-currency-synthesis.md` §5)._
-
-- [ ] **MC2 — an agent writes and ends what it remembers, through tools the host registered** (lane `memory`, after MC1, <!-- item: state=startable -->
-  MC4 and MC6; LQ16, **D239**). `AddMemoryTools` registers `<engine>_recall` and `<engine>_expand` only, so an agent that learns an entry
-  is wrong cannot record it. **Contract.** `AddMemoryWriteTools(name, taskKey, scope?, prefix?, options?)` registers
-  `<prefix>_remember` (content, headline, `supersedes` refs, `validFrom`, `validTo`) and `<prefix>_end` (ref, reason,
-  `by`, `at`); the task comes from `MemoryToolScope.Resolve` and is never an argument, the scope is the host's unless the
-  options let a model name one, a tool write is `Associative` with no grade argument, the options carry a metadata
-  stamp and a content bound, and `AddMemoryTools` is unchanged. `_remember` also takes MC4's `disputes` and `amends` refs
-  (applied alone, stamped), while `supersedes` and `_end` go through MC6's approver and carry the expected revision of MC1.
-  An engine's refusal reaches the model as an `{"error"}` it can act on.
-  **Proof.** Tool-schema tests; no approver means no applied supersession and no end; a stale entry superseded and one ended with no successor, both read back under `History`;
-  a ref of another engine and of another task refused; a second successor refused with the engine's own message; a host
-  that registered only the read tools exposes no write.
 
 - [ ] **MC3 — measure the candidate list's similarity basis** (lane `memory`; LQ17, **D239**). <!-- item: state=startable -->
   The contract is built and the lexical basis is measured (`docs/memory-measurements.md` §5, `update-candidates-lexical-haystack-n70`:

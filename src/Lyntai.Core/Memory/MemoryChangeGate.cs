@@ -20,10 +20,14 @@ public sealed class MemoryChangeGate(IEnumerable<IMemoryChangeApprover> approver
     /// <param name="revision">The <see cref="MemoryItem.Revision"/> read; required, since an approval is bound to it.</param>
     /// <param name="reason">Why it ended, as the proposer states it.</param>
     /// <param name="evidence">What the proposer offers for it.</param>
+    /// <param name="by">The entry of this engine that replaced it, or null for an end that names none.</param>
+    /// <param name="at">When it stopped holding; null is now, or the successor's start.</param>
     /// <param name="ct">Cancellation.</param>
     public Task<MemoryChangeResult> EndAsync(IMemoryEngine engine, string taskKey, MemoryRef entry, string revision,
-        string reason, string? evidence = null, CancellationToken ct = default) =>
-        RunAsync(engine, MemoryChangeKind.End, taskKey, null, [new MemoryChangeTarget(entry, revision)], reason, evidence, ct);
+        string reason, string? evidence = null, MemoryRef? by = null, DateTimeOffset? at = null,
+        CancellationToken ct = default) =>
+        RunAsync(engine, MemoryChangeKind.End, taskKey, null, [new MemoryChangeTarget(entry, revision)], reason, evidence,
+            by, at, ct);
 
     /// <summary>Propose that <paramref name="write"/> replaces <paramref name="targets"/>. The write is stored live and
     /// unlinked first, so its identity is the same on a retry; the targets end only on approval.</summary>
@@ -39,11 +43,12 @@ public sealed class MemoryChangeGate(IEnumerable<IMemoryChangeApprover> approver
         ArgumentNullException.ThrowIfNull(write);
         if (write.Supersedes is { Count: > 0 })
             throw new ArgumentException("A write put to the gate names its predecessors as targets, not as Supersedes.", nameof(write));
-        return RunAsync(engine, MemoryChangeKind.Supersede, write.TaskKey, write, targets, reason, evidence, ct);
+        return RunAsync(engine, MemoryChangeKind.Supersede, write.TaskKey, write, targets, reason, evidence, null, null, ct);
     }
 
     private async Task<MemoryChangeResult> RunAsync(IMemoryEngine engine, MemoryChangeKind kind, string taskKey,
-        MemoryWrite? write, IReadOnlyList<MemoryChangeTarget> targets, string reason, string? evidence, CancellationToken ct)
+        MemoryWrite? write, IReadOnlyList<MemoryChangeTarget> targets, string reason, string? evidence, MemoryRef? by,
+        DateTimeOffset? at, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(engine);
         ArgumentNullException.ThrowIfNull(taskKey);
@@ -58,14 +63,14 @@ public sealed class MemoryChangeGate(IEnumerable<IMemoryChangeApprover> approver
                 "Pass the revision you read for each entry, from the recall that returned it: an approval is bound to it.");
 
         // the observation is stored whatever the answer: it is the AGENT's, and only its ending of another entry is gated
-        MemoryRef? successor = null;
+        MemoryRef? successor = by;
         if (write is not null)
             successor = (await engine.RememberAsync(write, ct).ConfigureAwait(false)).Reference;
 
         var request = new MemoryChangeRequest(kind, taskKey, targets, write?.Content, reason.Trim(), evidence);
         if (_approvers.Count == 0)
             return new MemoryChangeResult(MemoryChangeStatus.NoApprover,
-                "No approver is registered, so nothing was ended" + (successor is null ? "." : "; the new entry is stored, live, and replaces nothing."),
+                "No approver is registered, so nothing was ended" + (write is null ? "." : "; the new entry is stored, live, and replaces nothing."),
                 successor);
         foreach (var approver in _approvers)
         {
@@ -82,14 +87,14 @@ public sealed class MemoryChangeGate(IEnumerable<IMemoryChangeApprover> approver
             if (decision is not { Approved: true })
                 return new MemoryChangeResult(MemoryChangeStatus.Denied,
                     "Not approved: " + (decision?.Reason is { Length: > 0 } why ? why : "the approver gave no answer.")
-                    + (successor is null ? "" : " The new entry is stored, live, and replaces nothing."), successor);
+                    + (write is null ? "" : " The new entry is stored, live, and replaces nothing."), successor);
         }
 
-        return await ApplyAsync(engine, taskKey, targets, successor, reason.Trim(), ct).ConfigureAwait(false);
+        return await ApplyAsync(engine, taskKey, targets, successor, reason.Trim(), at, ct).ConfigureAwait(false);
     }
 
     private static async Task<MemoryChangeResult> ApplyAsync(IMemoryEngine engine, string taskKey,
-        IReadOnlyList<MemoryChangeTarget> targets, MemoryRef? successor, string reason, CancellationToken ct)
+        IReadOnlyList<MemoryChangeTarget> targets, MemoryRef? successor, string reason, DateTimeOffset? at, CancellationToken ct)
     {
         if (engine is not IEndableMemory endable)
             return new MemoryChangeResult(MemoryChangeStatus.Refused,
@@ -103,7 +108,7 @@ public sealed class MemoryChangeGate(IEnumerable<IMemoryChangeApprover> approver
             try
             {
                 var result = await endable.EndAsync(taskKey, target.Reference,
-                    new MemoryEnding(reason) { Successor = successor, ExpectedRevision = target.Revision }, ct).ConfigureAwait(false);
+                    new MemoryEnding(reason) { Successor = successor, At = at, ExpectedRevision = target.Revision }, ct).ConfigureAwait(false);
                 switch (result.Outcome)
                 {
                     case MemoryEndOutcome.Ended: ended++; break;
