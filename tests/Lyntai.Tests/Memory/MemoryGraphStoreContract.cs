@@ -2235,6 +2235,84 @@ public static class MemoryGraphStoreContract
         Assert.Equal(2, (await typed.LinksAmongAsync(engine, key, [a, b, c], ["disputes", "amends"])).Count);
     }
 
+    /// <summary><b>A confirmation stamps and changes nothing else, and never moves backwards.</b> It advances the revision but moves no
+    /// decay state, a refresh keeps both the stamp and a stored re-check that the write does not restate, an older instant is
+    /// unchanged, an expected revision that is not current changes nothing, and an ended entry is left alone.</summary>
+    public static async Task Confirm_stamps_forward_only_keeps_through_a_refresh_and_moves_no_decay_state(
+        IMemoryGraphStore store, string key)
+    {
+        var confirmable = Assert.IsAssignableFrom<IConfirmableMemoryGraphStore>(store);
+        const string engine = "tv-confirm";
+        var id = await store.UpsertAsync(Write(engine, key, "the vault door is red") with { Recheck = "check-17" });
+        await Crowd(store, engine, key, 2);
+        var before = (await store.GetAsync(engine, id))!;
+        Assert.Equal(("check-17", null), (before.Recheck, before.ConfirmedAt));
+
+        var stamped = await confirmable.ConfirmAsync(engine, new GraphConfirm(id, Mar));
+        Assert.Equal(GraphConfirmOutcome.Stamped, stamped.Outcome);
+        var node = (await store.GetAsync(engine, id))!;
+        Assert.Equal((Mar, stamped.Revision), (node.ConfirmedAt, node.Revision));
+        Assert.True(node.Revision > before.Revision);
+        Assert.Equal((before.Age, before.OrdinalAge, before.Stability, before.RecallCount, before.Content),
+            (node.Age, node.OrdinalAge, node.Stability, node.RecallCount, node.Content));
+
+        // never backwards, and an equal instant is not a change either
+        Assert.Equal(GraphConfirmOutcome.Unchanged, (await confirmable.ConfirmAsync(engine, new GraphConfirm(id, Jan))).Outcome);
+        Assert.Equal(GraphConfirmOutcome.Unchanged, (await confirmable.ConfirmAsync(engine, new GraphConfirm(id, Mar))).Outcome);
+        Assert.Equal(Mar, (await store.GetAsync(engine, id))!.ConfirmedAt);
+        Assert.Equal(GraphConfirmOutcome.Stamped, (await confirmable.ConfirmAsync(engine, new GraphConfirm(id, Jun))).Outcome);
+
+        // a refresh that names no re-check keeps the stored text and the stamp; one that names a re-check replaces the text only
+        await store.UpsertAsync(Write(engine, key, "the vault door is red"));
+        var kept = (await store.GetAsync(engine, id))!;
+        Assert.Equal(("check-17", Jun), (kept.Recheck, kept.ConfirmedAt));
+        await store.UpsertAsync(Write(engine, key, "the vault door is red") with { Recheck = "check-18" });
+        var replaced = (await store.GetAsync(engine, id))!;
+        Assert.Equal(("check-18", Jun), (replaced.Recheck, replaced.ConfirmedAt));
+
+        // a stale expected revision changes nothing and reports the one found
+        var stale = await confirmable.ConfirmAsync(engine, new GraphConfirm(id, Jun.AddDays(30), ExpectedRevision: before.Revision));
+        Assert.Equal((GraphConfirmOutcome.Changed, replaced.Revision), (stale.Outcome, stale.Revision));
+        Assert.Equal(Jun, (await store.GetAsync(engine, id))!.ConfirmedAt);
+
+        // an ended entry is left alone, and a missing one is missing
+        await ((IEndableMemoryGraphStore)store).EndAsync(engine, new GraphEnd(id, "stale", Jun.AddDays(1)));
+        Assert.Equal(GraphConfirmOutcome.Ended, (await confirmable.ConfirmAsync(engine, new GraphConfirm(id, Jun.AddDays(60)))).Outcome);
+        Assert.Equal(GraphConfirmOutcome.Missing, (await confirmable.ConfirmAsync(engine, new GraphConfirm(987654, Mar))).Outcome);
+        Assert.Equal(GraphConfirmOutcome.Missing, (await confirmable.ConfirmAsync("another-engine", new GraphConfirm(id, Mar))).Outcome);
+    }
+
+    /// <summary><b>What is due is the live entries that carry a re-check and were last confirmed before an instant or never</b>, never
+    /// confirmed first, inside the task and scope, bounded by the limit, and read without writing.</summary>
+    public static async Task Due_reads_live_checkable_entries_never_confirmed_first(IMemoryGraphStore store, string key)
+    {
+        var confirmable = Assert.IsAssignableFrom<IConfirmableMemoryGraphStore>(store);
+        const string engine = "tv-due";
+        var never = await store.UpsertAsync(Write(engine, key, "never checked") with { Recheck = "a" });
+        var old = await store.UpsertAsync(Write(engine, key, "checked long ago") with { Recheck = "b" });
+        var recent = await store.UpsertAsync(Write(engine, key, "checked lately") with { Recheck = "c" });
+        await store.UpsertAsync(Write(engine, key, "no re-check at all"));
+        var ended = await store.UpsertAsync(Write(engine, key, "ended") with { Recheck = "d" });
+        var later = await store.UpsertAsync(Write(engine, key, "starts later") with { Recheck = "e", ValidFrom = Jun.AddYears(5) });
+        await store.UpsertAsync(Write(engine, key + "-elsewhere", "another task") with { Recheck = "f" });
+        await confirmable.ConfirmAsync(engine, new GraphConfirm(old, Jan));
+        await confirmable.ConfirmAsync(engine, new GraphConfirm(recent, Jun));
+        await confirmable.EndAsync(engine, new GraphEnd(ended, "stale", Mar));
+        var before = (await store.GetAsync(engine, never))!;
+
+        var due = await confirmable.DueAsync(engine, key, "s", Mar, Jun.AddMonths(1), 10);
+
+        Assert.Equal([never, old], due.Select(n => n.Id));   // never-confirmed first, then the longest unconfirmed
+        Assert.DoesNotContain(due, n => n.Id == later);        // not valid yet at the instant asked
+        Assert.Equal(("a", null), (due[0].Recheck, due[0].ConfirmedAt));
+        Assert.Equal([never], (await confirmable.DueAsync(engine, key, "s", Mar, Jun.AddMonths(1), 1)).Select(n => n.Id));
+        Assert.Empty(await confirmable.DueAsync(engine, key, "s", Mar, Jun.AddMonths(1), 0));
+        Assert.Empty(await confirmable.DueAsync(engine, key, "other-scope", Mar, Jun.AddMonths(1), 10));
+        Assert.Equal(3, (await confirmable.DueAsync(engine, key, null, Jun.AddYears(1), Jun.AddMonths(1), 10)).Count);   // everything checked before then
+        Assert.Equal((before.RecallCount, before.Revision, before.ConfirmedAt), ((await store.GetAsync(engine, never))!.RecallCount,
+            (await store.GetAsync(engine, never))!.Revision, (await store.GetAsync(engine, never))!.ConfirmedAt));
+    }
+
     /// <summary><b>An end applies only to the revision it was reviewed on.</b> A rewrite that keeps the validity and
     /// changes the headline advances the revision, so the end reviewed before it changes nothing and reports the one it
     /// found; a recall's touch and a link advance nothing; a supersession and an end do.</summary>

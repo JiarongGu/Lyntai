@@ -43,7 +43,7 @@ public enum MemoryWriteRouting
 /// </summary>
 public sealed class CompositeMemoryEngine
     : IMemoryEngine, IExpandableMemory, ITaskExpandableMemory, ILinkableMemory, IForgettableMemory, IPrunableMemory,
-        IReindexableMemory, IPortableMemory, ITemporalMemory, IEndableMemory, IMemoryCandidates, IRelatableMemory
+        IReindexableMemory, IPortableMemory, ITemporalMemory, IEndableMemory, IMemoryCandidates, IRelatableMemory, IConfirmableMemory
 {
     private readonly IReadOnlyList<IMemoryEngine> _members;
     private readonly ILogger _logger;
@@ -333,6 +333,26 @@ public sealed class CompositeMemoryEngine
         return member is IMemoryCandidates candidates
             ? await candidates.FindUpdatesAsync(write, limit, ct).ConfigureAwait(false)
             : [];
+    }
+
+    /// <inheritdoc />
+    /// <remarks>Routed by the reference; fails LOUD where the owning member cannot record a confirmation.</remarks>
+    public async Task<MemoryConfirmResult> ConfirmAsync(string taskKey, MemoryRef entry, MemoryCheckOutcome outcome,
+        DateTimeOffset? at = null, string? note = null, string? expectedRevision = null, CancellationToken ct = default) =>
+        Owner(entry) is IConfirmableMemory confirmable
+            ? await confirmable.ConfirmAsync(taskKey, entry, outcome, at, note, expectedRevision, ct).ConfigureAwait(false)
+            : throw new NotSupportedException(
+                $"Memory engine '{entry.Engine}' cannot record a confirmation, so it was not recorded for '{entry.Id}'.");
+
+    /// <inheritdoc />
+    /// <remarks>Every member that can answer is asked, never-confirmed entries first across them; a member that cannot adds none.</remarks>
+    public async Task<IReadOnlyList<MemoryItem>> DueAsync(string taskKey, string? scope, DateTimeOffset notConfirmedSince,
+        int limit = 50, CancellationToken ct = default)
+    {
+        var due = new List<MemoryItem>();
+        foreach (var member in _members.OfType<IConfirmableMemory>())
+            due.AddRange(await member.DueAsync(taskKey, scope, notConfirmedSince, limit, ct).ConfigureAwait(false));
+        return [.. due.OrderBy(i => i.ConfirmedAt is not null).ThenBy(i => i.ConfirmedAt).Take(Math.Max(limit, 0))];
     }
 
     /// <inheritdoc />

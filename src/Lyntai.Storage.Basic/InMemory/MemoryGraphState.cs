@@ -79,7 +79,8 @@ internal sealed class MemoryGraphState(Func<DateTimeOffset> clock)
             change.Nodes.Add((null, new GraphRow(
                 new GraphNodeRecord(_nextId, write.Engine, write.TaskKey, write.Scope, write.Headline, write.Content,
                     write.Grade, now, write.Metadata,
-                    ValidFrom: Utc(write.ValidFrom ?? write.ValidFromIfUnset), ValidTo: Utc(write.ValidTo)),
+                    ValidFrom: Utc(write.ValidFrom ?? write.ValidFromIfUnset), ValidTo: Utc(write.ValidTo),
+                    Recheck: write.Recheck),
                 new GraphNodeState(0, write.InitialStability, totals.Position, write.Signals, totals.Ordinal,
                     totals.Chars, totals.EncodedAt, write.ProvenanceRetrievability, write.ProvenanceSalience,
                     MemorySignals.Difficulty(write.Signals)))));
@@ -102,6 +103,8 @@ internal sealed class MemoryGraphState(Func<DateTimeOffset> clock)
                 // stamps goes only where none is held, so repeating it moves nothing
                 ValidFrom = Utc(write.ValidFrom) ?? record.ValidFrom ?? Utc(write.ValidFromIfUnset),
                 ValidTo = Utc(write.ValidTo) ?? record.ValidTo,
+                // an ABSENT re-check keeps the stored one; the confirmation stamp is not a write's to move
+                Recheck = write.Recheck ?? record.Recheck,
             };
         return new GraphRow(
             // a write that changes the entry advances its revision; one that changes nothing leaves it where it was
@@ -294,6 +297,52 @@ internal sealed class MemoryGraphState(Func<DateTimeOffset> clock)
         return change;
     }
 
+    /// <summary>Stamp an entry as confirmed, by <see cref="IConfirmableMemoryGraphStore.ConfirmAsync"/>'s rule: missing, changed,
+    /// ended, unchanged (the stamp never moves backwards), else stamped. Only the stamp and the revision change.</summary>
+    public GraphChange PlanConfirm(string engine, GraphConfirm confirm, out GraphConfirmResult result)
+    {
+        var change = new GraphChange();
+        if (!_nodes.TryGetValue(confirm.Id, out var row) || row.Record.Engine != engine)
+        {
+            result = new GraphConfirmResult(GraphConfirmOutcome.Missing, null);
+            return change;
+        }
+        var held = row.Record;
+        var at = Utc(confirm.At);
+        if (held.EndedReason is null && (held.ConfirmedAt is null || held.ConfirmedAt < at)
+            && (confirm.ExpectedRevision is not { } expected || expected == held.Revision))
+        {
+            var next = held with { ConfirmedAt = at, Revision = held.Revision + 1 };
+            change.Nodes.Add((row, row with { Record = next }));
+            result = new GraphConfirmResult(GraphConfirmOutcome.Stamped, next.Revision);
+        }
+        else
+            result = confirm.ExpectedRevision is { } e && e != held.Revision
+                ? new GraphConfirmResult(GraphConfirmOutcome.Changed, held.Revision)
+                : held.EndedReason is not null
+                    ? new GraphConfirmResult(GraphConfirmOutcome.Ended, held.Revision)
+                    : new GraphConfirmResult(GraphConfirmOutcome.Unchanged, held.Revision);
+        return change;
+    }
+
+    /// <summary>The entries that carry a re-check, are valid at <paramref name="now"/>, and were last confirmed before
+    /// <paramref name="since"/> or never — never-confirmed first, then longest unconfirmed.</summary>
+    public IReadOnlyList<GraphNode> Due(string engine, string taskKey, string? scope, DateTimeOffset since,
+        DateTimeOffset now, int limit)
+    {
+        var totals = Totals(engine);
+        var at = Utc(since)!.Value;
+        return [.. InScope(engine, taskKey, scope)
+            .Where(r => r.Record.Recheck is not null && r.Record.EndedReason is null
+                && (r.Record.ConfirmedAt is null || r.Record.ConfirmedAt < at)
+                && (r.Record.ValidTo is null || r.Record.ValidTo > now)
+                && (r.Record.SupersededAt is null || r.Record.SupersededAt > now)
+                && (r.Record.ValidFrom is null || r.Record.ValidFrom <= now))
+            .OrderBy(r => r.Record.ConfirmedAt is not null).ThenBy(r => r.Record.ConfirmedAt).ThenBy(r => r.Id)
+            .Take(limit)
+            .Select(r => ToNode(r, totals))];
+    }
+
     // one instant has one spelling in every record, so equal valid time compares equal whatever offset it came in
     private static DateTimeOffset? Utc(DateTimeOffset? at) => at?.ToUniversalTime();
 
@@ -330,7 +379,7 @@ internal sealed class MemoryGraphState(Func<DateTimeOffset> clock)
                 new GraphNodeRecord(id, engine, taskKey, node.Scope, node.Headline, node.Content, node.Grade,
                     node.CreatedAt, node.Metadata is { Count: > 0 } ? node.Metadata : null,
                     ValidFrom: Utc(node.ValidFrom), ValidTo: Utc(node.ValidTo), SupersededAt: Utc(node.SupersededAt),
-                    EndedReason: node.EndedReason),
+                    EndedReason: node.EndedReason, Recheck: node.Recheck, ConfirmedAt: Utc(node.ConfirmedAt)),
                 new GraphNodeState(node.RecallCount, node.Stability, MemoryGraphAnchor.Behind(head.Position, node.Age),
                     node.Signals, MemoryGraphAnchor.Behind(head.Ordinal, node.OrdinalAge),
                     MemoryGraphAnchor.Behind(head.Chars, node.VolumeAge), MemoryGraphAnchor.Behind(head.EncodedAt, node.ElapsedAge),
@@ -604,7 +653,7 @@ internal sealed class MemoryGraphState(Func<DateTimeOffset> clock)
             Matched: null)
         {
             ValidFrom = r.ValidFrom, ValidTo = r.ValidTo, SupersededBy = r.SupersededBy, SupersededAt = r.SupersededAt,
-            EndedReason = r.EndedReason, Revision = r.Revision,
+            EndedReason = r.EndedReason, Revision = r.Revision, Recheck = r.Recheck, ConfirmedAt = r.ConfirmedAt,
         };
     }
 }

@@ -53,6 +53,11 @@ public sealed record MemoryWrite(
     /// which a whole-entry supersession would not. Stated, reported and refused as <see cref="Disputes"/> is.</summary>
     public IReadOnlyList<MemoryRef>? Amends { get; init; }
 
+    /// <summary>An opaque text the HOST understands and the library never reads: what to run to check that this fact still holds. At
+    /// most <see cref="MemoryLimits.MaxRecheckChars"/> characters. Null is "no opinion" — a re-remember that names none keeps the stored
+    /// one. A store that cannot hold it makes the engine refuse the write (<see cref="IConfirmableMemoryGraphStore"/>).</summary>
+    public string? Recheck { get; init; }
+
     /// <summary>Whether this write states valid time at all — what an engine that cannot hold it refuses.</summary>
     public bool StatesValidity => ValidFrom is not null || ValidTo is not null || Supersedes is { Count: > 0 };
 }
@@ -175,6 +180,19 @@ public sealed record MemoryItem(
     /// none or the engine holds no relations. A relation whose other end is not returned, or has ended, is not reported.
     /// Each is the writer's attributed assertion, never an established disagreement.</summary>
     public IReadOnlyList<MemoryItemRelation>? Relations { get; init; }
+
+    /// <summary>The host's opaque re-check text, or null; returned by <see cref="IConfirmableMemory.DueAsync"/>, so a host knows what to run.</summary>
+    public string? Recheck { get; init; }
+
+    /// <summary>When a host last recorded that its check held, or null when none has.</summary>
+    public DateTimeOffset? ConfirmedAt { get; init; }
+}
+
+/// <summary>Bounds the library keeps on text a caller hands it to store.</summary>
+public static class MemoryLimits
+{
+    /// <summary>The longest <see cref="MemoryWrite.Recheck"/>, in characters.</summary>
+    public const int MaxRecheckChars = 2000;
 }
 
 /// <summary>The result of a recall, with the tiers that actually ran.</summary>

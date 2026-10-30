@@ -55,7 +55,10 @@ internal static class GraphPortableLines
                 if (node.SupersededAt is { } at) w.WriteString("supersededAt", at);
                 if (node.SupersededBy is { } by) w.WriteNumber("supersededBy", by);
                 if (node.EndedReason is { } reason) w.WriteString("endedReason", reason);
-            }, ct, node.Validity is null ? MemoryPortableFormat.Version : MemoryPortableFormat.TemporalVersion).ConfigureAwait(false);
+                if (node.Recheck is { } recheck) w.WriteString("recheck", recheck);
+                if (node.ConfirmedAt is { } confirmed) w.WriteString("confirmedAt", confirmed);
+            }, ct, node.Validity is null && node.Recheck is null && node.ConfirmedAt is null
+                ? MemoryPortableFormat.Version : MemoryPortableFormat.TemporalVersion).ConfigureAwait(false);
         }
         foreach (var link in export.Links)
         {
@@ -126,6 +129,9 @@ internal static class GraphPortableLines
                 SupersededAt = Instant(line, "supersededAt"),
                 EndedReason = line.Body.TryGetProperty("endedReason", out var ended) && ended.ValueKind == JsonValueKind.String
                     ? ended.GetString() : null,
+                Recheck = line.Body.TryGetProperty("recheck", out var check) && check.ValueKind == JsonValueKind.String
+                    ? check.GetString() : null,
+                ConfirmedAt = Instant(line, "confirmedAt"),
             }, line.Body.TryGetProperty("supersededBy", out _) ? MemoryPortableFormat.Whole(line, "supersededBy") : null));
             // a successor with no instant would name who ended an entry and not when, which no reading can use
             if (nodes[^1].SupersededBy is not null && nodes[^1].Node.SupersededAt is null)
@@ -146,6 +152,9 @@ internal static class GraphPortableLines
         /// <summary>Whether this entry carries any valid time at all — what a store that cannot hold it refuses.</summary>
         public bool IsTimed => Node.ValidFrom is not null || Node.ValidTo is not null || Node.SupersededAt is not null
             || Node.EndedReason is not null;
+
+        /// <summary>Whether this entry carries a re-check or a confirmation — what a store that cannot hold them refuses.</summary>
+        public bool HasConfirmation => Node.Recheck is not null || Node.ConfirmedAt is not null;
     }
 
     // an optional instant, refused where present and not one — a bad bound is never read as no bound

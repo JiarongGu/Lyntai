@@ -58,8 +58,10 @@ sealed class Lyntai.Storage.InMemory.InMemoryKeyValueStore
     SetAsync(String key, String value, CancellationToken ct = default) : Task
 sealed class Lyntai.Storage.InMemory.InMemoryMemoryGraphStore
     .ctor(Func<DateTimeOffset> clock = null)
+    ConfirmAsync(String engine, GraphConfirm confirm, CancellationToken ct = default) : Task<GraphConfirmResult>
     CountAsync(String engine, String taskKey, String scope, CancellationToken ct = default) : Task<MemoryGraphCounts>
     DeleteAsync(String engine, IReadOnlyCollection<Int64> ids, CancellationToken ct = default) : Task<Int32>
+    DueAsync(String engine, String taskKey, String scope, DateTimeOffset notConfirmedSince, DateTimeOffset now, Int32 limit, CancellationToken ct = default) : Task<IReadOnlyList<GraphNode>>
     EndAsync(String engine, GraphEnd end, CancellationToken ct = default) : Task<GraphEndResult>
     ExportAsync(String engine, String taskKey, String scope, CancellationToken ct = default) : Task<MemoryGraphExport>
     ForgetAsync(String engine, String taskKey, String scope, CancellationToken ct = default) : Task

@@ -109,6 +109,13 @@ public sealed record GraphNodeImport(
     /// <summary>Why the entry was ended through <see cref="IEndableMemoryGraphStore.EndAsync"/>, or null; honoured as
     /// <see cref="ValidFrom"/> is, and lands with the insert.</summary>
     public string? EndedReason { get; init; }
+
+    /// <summary>The re-check text, or null; honoured as <see cref="ValidFrom"/> is, by a store implementing
+    /// <see cref="IConfirmableMemoryGraphStore"/>.</summary>
+    public string? Recheck { get; init; }
+
+    /// <summary>When a check last held, or null; honoured as <see cref="Recheck"/> is.</summary>
+    public DateTimeOffset? ConfirmedAt { get; init; }
 }
 
 /// <summary>Where one imported node landed: <paramref name="Id"/> in this store, and whether this import

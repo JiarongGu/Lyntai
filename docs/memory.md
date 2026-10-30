@@ -927,6 +927,19 @@ reinforced, and an ended entry, another scope or another task never appears. Eac
 `Reference` and `Revision` are what `Supersedes` or `EndAsync` take. **A list the writer reads demotes nothing**: the
 writer confirms (D239).
 
+**To have a host re-check a stored fact, write it with `MemoryWrite.Recheck` and record what the check concluded** — `Recheck` is an
+opaque text of at most `MemoryLimits.MaxRecheckChars` that the library never reads and never runs (a re-remember that names none keeps the
+stored one). `IConfirmableMemory.DueAsync(taskKey, scope, notConfirmedSince, limit)` returns the live entries that carry one and were last
+confirmed before the instant or never, never-confirmed first, each with its `Recheck` and `Revision`; the host runs its check and calls
+`ConfirmAsync(taskKey, entry, outcome, at, note, expectedRevision)`. **`Held` stamps `ConfirmedAt`** (never backwards; nothing else moves, so
+it is not a reinforcement). **`Failed` means the host confirmed the named claim no longer holds**: the entry ends at the confirmation instant,
+never an earlier one, with the required `note` as its reason, and reads back under `History`. **A run that did not finish — a timeout,
+missing access, an ambiguous answer — is reported by calling nothing**: the library records no state for it, the entry stays exactly as it was
+and stays due. Passing the `expectedRevision` the due read returned makes either apply only if the entry is unchanged, otherwise
+`Changed` with the revision found. **A due sweep is eventual repair, not proof of currency at presentation**: a caller presenting cached
+material as current checks the revision then. A store that cannot hold a re-check refuses the write rather than drop it
+(`IConfirmableMemoryGraphStore`, which all four shipped stores implement).
+
 **To let a person, a check or a model-with-a-measured-bound confirm an agent's supersession or end, register an
 `IMemoryChangeApprover` (`AddMemoryChangeApprover`) and put proposals through `MemoryChangeGate`** — `EndAsync(engine, task,
 entry, revision, reason, evidence)` and `SupersedeAsync(engine, write, targets, reason, evidence)`, each target carrying the

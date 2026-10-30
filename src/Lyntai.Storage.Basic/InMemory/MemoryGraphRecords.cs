@@ -9,7 +9,8 @@ internal sealed record GraphNodeRecord(
     long Id, string Engine, string TaskKey, string Scope, string Headline, string Content,
     MemoryGrade Grade, DateTimeOffset CreatedAt, IReadOnlyDictionary<string, string>? Metadata,
     DateTimeOffset? ValidFrom = null, DateTimeOffset? ValidTo = null, long? SupersededBy = null,
-    DateTimeOffset? SupersededAt = null, string? EndedReason = null, long Revision = 0);
+    DateTimeOffset? SupersededAt = null, string? EndedReason = null, long Revision = 0,
+    string? Recheck = null, DateTimeOffset? ConfirmedAt = null);
 
 /// <summary>A memory's decay bookkeeping — what the engine's arithmetic reads and writes, and what a file store
 /// journals. <c>LastRecalledPosition</c> is the <c>Advance</c>-driven mark; the three <c>Encoding*</c> stamps are

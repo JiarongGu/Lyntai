@@ -6364,3 +6364,17 @@ alone and a bad ref read as an error, no approver, an approved supersession and 
 stale revision and a second successor and a foreign ref). Lane `memory`.
 
 - MC2 — an agent writes and ends what it remembers, through tools the host registered
+
+## Part 423 — MC5: a stored fact can be re-checked by its host, and a failed check ends it (2026-10-30)
+
+✅ done 2026-10-30 — **Outcome:** `MemoryWrite.Recheck` (opaque, bounded at `MemoryLimits.MaxRecheckChars`), `IConfirmableMemory` (`ConfirmAsync`,
+`DueAsync`) over the optional `IConfirmableMemoryGraphStore : IEndableMemoryGraphStore` on all four stores, `MemoryItem.Recheck` and
+`ConfirmedAt`, a migration on SQLite and Postgres (`recheck`, `confirmed_at`), both on the portable line. `Held` is a forward-only stamp that
+advances the revision and moves no decay state; `Failed` ends through MC1's call at the confirmation instant with the note as its reason; a
+run that did not finish calls nothing and records nothing. The due read decides liveness in its own statement, so its limit counts only
+current entries. Proof: two store facts on four stores, nine engine and blend cases (including a guard that the confirmation code names no
+process or network type). **Declined with its reason, as a reading:** the `_confirm` tool the row allowed when MC2 was built. `Held` is the host's
+exit status and never a model's reading (**D241**), and a failed claim a model can already propose through `_end` and the approver. Lanes
+`memory` + `storage`.
+
+- MC5 — a stored fact can be re-checked by its host, and a failed check ends it

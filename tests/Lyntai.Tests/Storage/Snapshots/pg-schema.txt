@@ -55,6 +55,7 @@ lyntai_memory_entry|id|bigint|NO|nextval('lyntai_memory_entry_id_seq'::regclass)
 lyntai_memory_entry|last_accessed_at|timestamp with time zone|YES|
 lyntai_memory_entry|scope|text|NO|
 lyntai_memory_entry|task_key|text|NO|
+lyntai_memory_node|confirmed_at|timestamp with time zone|YES|
 lyntai_memory_node|content|text|NO|
 lyntai_memory_node|content_hash|text|NO|
 lyntai_memory_node|created_at|timestamp with time zone|NO|
@@ -72,6 +73,7 @@ lyntai_memory_node|metadata|text|YES|
 lyntai_memory_node|provenance_retrievability|bigint|NO|0
 lyntai_memory_node|provenance_salience|bigint|NO|0
 lyntai_memory_node|recall_count|integer|NO|0
+lyntai_memory_node|recheck|text|YES|
 lyntai_memory_node|revision|bigint|NO|0
 lyntai_memory_node|salience|double precision|NO|1
 lyntai_memory_node|scope|text|NO|

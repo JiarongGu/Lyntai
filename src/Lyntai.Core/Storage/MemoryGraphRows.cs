@@ -52,6 +52,8 @@ public sealed class MemoryNodeRow
     public DateTimeOffset? SupersededAt { get; set; }
     public string? EndedReason { get; set; }
     public long Revision { get; set; }
+    public string? Recheck { get; set; }
+    public DateTimeOffset? ConfirmedAt { get; set; }
 
     /// <summary>Whether the seeding query actually matched this row — selected ONLY by the query paths that
     /// admit a row on GRADE alone. <b>NULLABLE on purpose</b>: every other query omits the column, leaving
@@ -93,7 +95,7 @@ public sealed class MemoryNodeRow
         Matched: null)
     {
         ValidFrom = ValidFrom, ValidTo = ValidTo, SupersededBy = SupersededBy, SupersededAt = SupersededAt,
-        EndedReason = EndedReason, Revision = Revision,
+        EndedReason = EndedReason, Revision = Revision, Recheck = Recheck, ConfirmedAt = ConfirmedAt,
     };
 }
 
@@ -196,6 +198,9 @@ public sealed class EndStateRow
 
     /// <summary>Its end reason, or null while nothing ended it through <c>EndAsync</c>.</summary>
     public string? EndedReason { get; set; }
+
+    /// <summary>When a check last held, or null.</summary>
+    public DateTimeOffset? ConfirmedAt { get; set; }
 
     /// <summary>Its successor's id, or null.</summary>
     public long? SupersededBy { get; set; }

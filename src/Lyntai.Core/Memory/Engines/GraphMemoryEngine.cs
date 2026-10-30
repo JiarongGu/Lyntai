@@ -40,7 +40,7 @@ public sealed class GraphMemoryEngine(
     GraphMemorySeams? seams = null,
     ILogger<GraphMemoryEngine>? logger = null)
     : IMemoryEngine, IExpandableMemory, ITaskExpandableMemory, ILinkableMemory, IForgettableMemory, IPrunableMemory,
-        IReindexableMemory, IPortableMemory, ITemporalMemory, IEndableMemory, IMemoryCandidates, IRelatableMemory
+        IReindexableMemory, IPortableMemory, ITemporalMemory, IEndableMemory, IMemoryCandidates, IRelatableMemory, IConfirmableMemory
 {
     private readonly GraphMemoryOptions _options = options ?? new GraphMemoryOptions();
     private readonly IMemoryRetrievabilityPolicy _policy =
@@ -258,6 +258,7 @@ public sealed class GraphMemoryEngine(
         // Valid time is checked FIRST, before any embed or annotation call: a refused write has cost nothing.
         var predecessors = await ResolvePredecessorsAsync(write, ct).ConfigureAwait(false);
         var relations = await ResolveRelationsAsync(write, ct).ConfigureAwait(false);
+        CheckRecheck(write);
 
         // ONE embed, ONE similarity search, shared between salience judgement (which needs the comparison before
         // the node has an id) and EnrichAsync below (linking + indexing, which needs it after). Without a
@@ -306,6 +307,7 @@ public sealed class GraphMemoryEngine(
                 // a write that supersedes starts when it is written unless it says otherwise — and only where it holds
                 // no start already, so repeating the same write does not move it
                 ValidFromIfUnset = predecessors.Count > 0 ? _clock() : null,
+                Recheck = write.Recheck,
             },
             ct).ConfigureAwait(false);
 
@@ -457,6 +459,83 @@ public sealed class GraphMemoryEngine(
         string.Equals(node.Scope, write.Scope, StringComparison.Ordinal)
         && !IsThisWrite(node, write)
         && MemoryValidityReading.Current.Admits(node.Validity, now);
+
+    /// <summary>A re-check is bounded and needs a store that can hold it, or the write would lose it silently.</summary>
+    private void CheckRecheck(MemoryWrite write)
+    {
+        if (write.Recheck is null) return;
+        if (write.Recheck.Length > MemoryLimits.MaxRecheckChars)
+            throw new ArgumentException(
+                $"Recheck is {write.Recheck.Length} characters and at most {MemoryLimits.MaxRecheckChars} are kept; it is opaque text the host " +
+                "reads back, so keep an identifier rather than a procedure.", nameof(write));
+        if (store is not IConfirmableMemoryGraphStore)
+            throw new NotSupportedException(
+                $"Memory engine '{Name}' cannot hold a re-check: its store ({store.GetType().Name}) does not implement " +
+                $"{nameof(IConfirmableMemoryGraphStore)}, so the text would be dropped.");
+    }
+
+    /// <inheritdoc />
+    /// <remarks>A held check stamps and moves nothing else; a failed one ends through <see cref="EndAsync"/>, at the confirmation
+    /// and never an earlier instant. Nothing is run here: the host's check ran elsewhere.</remarks>
+    public async Task<MemoryConfirmResult> ConfirmAsync(string taskKey, MemoryRef entry, MemoryCheckOutcome outcome,
+        DateTimeOffset? at = null, string? note = null, string? expectedRevision = null, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(taskKey);
+        ct.ThrowIfCancellationRequested();
+        if (store is not IConfirmableMemoryGraphStore confirmable)
+            throw new NotSupportedException(
+                $"Memory engine '{Name}' cannot record a confirmation: its store ({store.GetType().Name}) does not implement " +
+                $"{nameof(IConfirmableMemoryGraphStore)}.");
+        if (outcome == MemoryCheckOutcome.Failed && string.IsNullOrWhiteSpace(note))
+            throw new ArgumentException("A failed check states why: the note is required, and becomes the entry's reason.", nameof(note));
+        var instant = at ?? _clock();
+
+        if (outcome == MemoryCheckOutcome.Failed)
+        {
+            var ended = await EndAsync(taskKey, entry, new MemoryEnding(note!) { At = instant, ExpectedRevision = expectedRevision }, ct)
+                .ConfigureAwait(false);
+            return new MemoryConfirmResult(ended.Outcome switch
+            {
+                MemoryEndOutcome.Ended => MemoryConfirmOutcome.Ended,
+                MemoryEndOutcome.AlreadyEnded => MemoryConfirmOutcome.AlreadyEnded,
+                _ => MemoryConfirmOutcome.Changed,
+            }, ended.Revision);
+        }
+
+        var held = await ReadOwnAsync(entry, taskKey, ct, "confirms").ConfigureAwait(false);
+        long? expected = null;
+        if (expectedRevision is { } token)
+            expected = long.TryParse(token, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed)
+                ? parsed
+                : throw new ArgumentException("The expected revision is not one this engine issued.", nameof(expectedRevision));
+        var result = await confirmable.ConfirmAsync(Name, new GraphConfirm(held.Id, instant, expected), ct).ConfigureAwait(false);
+        var revision = result.Revision?.ToString(CultureInfo.InvariantCulture);
+        return result.Outcome switch
+        {
+            GraphConfirmOutcome.Stamped => new MemoryConfirmResult(MemoryConfirmOutcome.Stamped, revision),
+            GraphConfirmOutcome.Unchanged => new MemoryConfirmResult(MemoryConfirmOutcome.Unchanged, revision),
+            GraphConfirmOutcome.Ended => new MemoryConfirmResult(MemoryConfirmOutcome.AlreadyEnded, revision),
+            GraphConfirmOutcome.Changed => new MemoryConfirmResult(MemoryConfirmOutcome.Changed, revision),
+            _ => throw new ArgumentException($"Memory engine '{Name}' has no entry '{entry.Id}' to confirm.", nameof(entry)),
+        };
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<MemoryItem>> DueAsync(string taskKey, string? scope, DateTimeOffset notConfirmedSince,
+        int limit = 50, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(taskKey);
+        ct.ThrowIfCancellationRequested();
+        if (store is not IConfirmableMemoryGraphStore confirmable)
+            throw new NotSupportedException(
+                $"Memory engine '{Name}' cannot answer what is due: its store ({store.GetType().Name}) does not implement " +
+                $"{nameof(IConfirmableMemoryGraphStore)}.");
+        var nodes = await confirmable.DueAsync(Name, taskKey, scope, notConfirmedSince, _clock(), limit, ct).ConfigureAwait(false);
+        return [.. nodes.Select(n => new MemoryItem(
+            new MemoryRef(Name, n.Id.ToString(CultureInfo.InvariantCulture)), n.Headline, n.Content, n.Grade, 1, Retrievability(n),
+            n.Degree, n.Metadata)
+        { Validity = n.Validity, Revision = RevisionOf(n), Recheck = n.Recheck, ConfirmedAt = n.ConfirmedAt })];
+    }
 
     private const string DisputesKind = "disputes";
     private const string AmendsKind = "amends";
@@ -1119,7 +1198,8 @@ public sealed class GraphMemoryEngine(
                 new MemoryRef(Name, x.Candidate.Node.Id.ToString(CultureInfo.InvariantCulture)),
                 x.Candidate.Node.Headline, ProjectContent(x.Candidate.Node, query.Detail),
                 x.Candidate.Node.Grade, x.Candidate.Node.Relevance, x.Candidate.Retrievability,
-                x.Candidate.Node.Degree, x.Candidate.Node.Metadata) { Validity = x.Candidate.Node.Validity, Revision = RevisionOf(x.Candidate.Node) })
+                x.Candidate.Node.Degree, x.Candidate.Node.Metadata) { Validity = x.Candidate.Node.Validity, Revision = RevisionOf(x.Candidate.Node),
+                Recheck = x.Candidate.Node.Recheck, ConfirmedAt = x.Candidate.Node.ConfirmedAt })
             .ToList();
 
         // applied AFTER ranking, so the budget cuts the weakest tail rather than changing what wins
@@ -1204,14 +1284,14 @@ public sealed class GraphMemoryEngine(
         {
             // the expanded node carries its FULL content whatever its grade — that is what expansion IS
             new(reference, node.Headline, node.Content, node.Grade, 1, Retrievability(node), node.Degree,
-                node.Metadata) { Validity = node.Validity, Revision = RevisionOf(node) },
+                node.Metadata) { Validity = node.Validity, Revision = RevisionOf(node), Recheck = node.Recheck, ConfirmedAt = node.ConfirmedAt },
         };
         // neighbours take the recall projection's rule: the caller's stated detail decides
         items.AddRange(walked.Select(w => new MemoryItem(
             new MemoryRef(Name, w.Node.Id.ToString(CultureInfo.InvariantCulture)),
             w.Node.Headline, ProjectContent(w.Node, detail), w.Node.Grade, w.Node.Relevance,
             Retrievability(w.Node), w.Node.Degree, w.Node.Metadata)
-            { Validity = w.Node.Validity, Revision = RevisionOf(w.Node) }));
+            { Validity = w.Node.Validity, Revision = RevisionOf(w.Node), Recheck = w.Node.Recheck, ConfirmedAt = w.Node.ConfirmedAt }));
 
         // The budget bounds the NEIGHBOURS, never the entry itself — the cut keeps its first item whatever it
         // costs. Null takes the engine's configured budget, itself null (unbounded) unless a host sets one.
@@ -1534,6 +1614,11 @@ public sealed class GraphMemoryEngine(
             throw new NotSupportedException(
                 $"Memory engine '{Name}' cannot import valid time: its store ({store.GetType().Name}) does not implement " +
                 $"{nameof(ITemporalMemoryGraphStore)}, so the file's entries would arrive without it. Nothing was imported.");
+
+        if (store is not IConfirmableMemoryGraphStore && nodes.Any(n => n.HasConfirmation))
+            throw new NotSupportedException(
+                $"Memory engine '{Name}' cannot import re-checks: its store ({store.GetType().Name}) does not implement " +
+                $"{nameof(IConfirmableMemoryGraphStore)}, so the file's entries would arrive without them. Nothing was imported.");
 
         var results = await portable.ImportNodesAsync(Name, taskKey, [.. nodes.Select(n => n.Node)], ct).ConfigureAwait(false);
         var map = new Dictionary<long, long>(nodes.Count);

@@ -92,6 +92,11 @@ every addition.
 
 ### Added
 
+- **A stored fact can be re-checked by its host, and a failed check ends it: `MemoryWrite.Recheck`, `IConfirmableMemory`**
+  (**D240**, **D241**). The re-check is opaque text the library never reads or runs. `DueAsync` lists the live entries last confirmed before an
+  instant or never; `ConfirmAsync` records `Held` (a forward-only stamp) or `Failed` (the host confirmed the claim no longer holds: the
+  entry ends at the confirmation with the host's note), optionally bound to the revision read. Two nullable columns in one migration on
+  SQLite and Postgres (`recheck`, `confirmed_at`), and the text and the stamp on the portable line.
 - **An agent can write and end what it remembers through tools the host registers: `AddMemoryWriteTools`** (**D239**, **D241**).
   `<engine>_remember` and `<engine>_end`; `AddMemoryTools` is unchanged, so no existing agent gains a write. The host owns the
   task, the grade (always associative), the scope and a metadata stamp (`MemoryWriteToolOptions`). A write returns `mayUpdate`;

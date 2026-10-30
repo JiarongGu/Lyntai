@@ -47,7 +47,7 @@ public static class MemoryGraphSql
         n.provenance_retrievability AS ProvenanceRetrievability, n.provenance_salience AS ProvenanceSalience,
         n.valid_from AS ValidFrom, n.valid_to AS ValidTo,
         n.superseded_by AS SupersededBy, n.superseded_at AS SupersededAt,
-        n.ended_reason AS EndedReason, n.revision AS Revision,
+        n.ended_reason AS EndedReason, n.revision AS Revision, n.recheck AS Recheck, n.confirmed_at AS ConfirmedAt,
         (SELECT COUNT(*) FROM lyntai_memory_edge e WHERE e.from_id = n.id) AS Degree,
         (SELECT CAST(COALESCE(SUM(e.weight), 0) AS DOUBLE PRECISION)
          FROM lyntai_memory_edge e WHERE e.from_id = n.id) AS Strength,
@@ -165,11 +165,50 @@ public static class MemoryGraphSql
         RETURNING revision
         """;
 
+    /// <summary>Record that a host's check held — <see cref="IConfirmableMemoryGraphStore.ConfirmAsync"/> — in ONE statement.
+    /// Touches the stamp and the revision and nothing else, so it is not a reinforcement; the stamp never moves backwards, so
+    /// an older instant matches no row; an entry an end with a reason closed is left alone. Returns the new revision.</summary>
+    public const string Confirm = """
+        UPDATE lyntai_memory_node
+        SET confirmed_at = @at, revision = revision + 1
+        WHERE id = @id AND engine = @engine AND ended_reason IS NULL
+          AND (confirmed_at IS NULL OR confirmed_at < @at)
+          AND (CAST(@expected AS BIGINT) IS NULL OR revision = CAST(@expected AS BIGINT))
+        RETURNING revision
+        """;
+
+    /// <summary>Classify a <see cref="Confirm"/> that changed nothing, from the row <see cref="EndState"/> read: missing,
+    /// changed (the expected revision is not the one found), ended, else unchanged because the stamp is already as late.</summary>
+    /// <param name="state">The row, or null when there is none.</param>
+    /// <param name="expected">The revision the caller expected, or null.</param>
+    public static GraphConfirmResult ClassifyConfirm(EndStateRow? state, long? expected) =>
+        state is null ? new GraphConfirmResult(GraphConfirmOutcome.Missing, null)
+        : expected is { } e && e != state.Revision ? new GraphConfirmResult(GraphConfirmOutcome.Changed, state.Revision)
+        : state.EndedReason is not null ? new GraphConfirmResult(GraphConfirmOutcome.Ended, state.Revision)
+        : new GraphConfirmResult(GraphConfirmOutcome.Unchanged, state.Revision);
+
+    /// <summary>The live entries of a task and scope that carry a re-check and were last confirmed before an instant or never —
+    /// <see cref="IConfirmableMemoryGraphStore.DueAsync"/>. "Live" is decided here, at <c>@now</c>, so the limit counts only
+    /// entries a reader would see as current: never-confirmed first, then the longest unconfirmed.</summary>
+    public const string Due = $"""
+        SELECT {NodeColumns}
+        FROM lyntai_memory_node n
+        WHERE n.engine = @engine AND n.task_key = @taskKey AND (@scope IS NULL OR n.scope = @scope)
+          AND n.recheck IS NOT NULL
+          AND (n.confirmed_at IS NULL OR n.confirmed_at < @since)
+          AND n.ended_reason IS NULL
+          AND (n.valid_to IS NULL OR n.valid_to > @now)
+          AND (n.superseded_at IS NULL OR n.superseded_at > @now)
+          AND (n.valid_from IS NULL OR n.valid_from <= @now)
+        ORDER BY (n.confirmed_at IS NOT NULL), n.confirmed_at, n.id
+        LIMIT @limit
+        """;
+
     /// <summary>What an <see cref="End"/> that matched no row found, to classify the refusal. The WHERE of
     /// <see cref="End"/> carries the reason test, so an entry ended with a reason never matches, and a different live
     /// successor on it is told apart from "already ended" here.</summary>
     public const string EndState = """
-        SELECT revision AS Revision, ended_reason AS EndedReason, superseded_by AS SupersededBy,
+        SELECT revision AS Revision, ended_reason AS EndedReason, superseded_by AS SupersededBy, confirmed_at AS ConfirmedAt,
                CASE WHEN EXISTS (SELECT 1 FROM lyntai_memory_node s WHERE s.id = lyntai_memory_node.superseded_by)
                     THEN 1 ELSE 0 END AS SuccessorLives
         FROM lyntai_memory_node WHERE id = @id AND engine = @engine

@@ -168,3 +168,57 @@ public interface IEndableMemoryGraphStore : ITemporalMemoryGraphStore
     /// <param name="ct">Cancellation.</param>
     Task<GraphEndResult> EndAsync(string engine, GraphEnd end, CancellationToken ct = default);
 }
+
+/// <summary>Record that a host's check held, for <see cref="IConfirmableMemoryGraphStore.ConfirmAsync"/>.</summary>
+/// <param name="Id">The entry.</param>
+/// <param name="At">When the check held.</param>
+/// <param name="ExpectedRevision">The revision the host read, or null for an unconditional stamp.</param>
+public sealed record GraphConfirm(long Id, DateTimeOffset At, long? ExpectedRevision = null);
+
+/// <summary>What <see cref="IConfirmableMemoryGraphStore.ConfirmAsync"/> did.</summary>
+public enum GraphConfirmOutcome
+{
+    /// <summary>The stamp moved forward to the instant.</summary>
+    Stamped,
+    /// <summary>The entry already carries a stamp at that instant or later; nothing changed.</summary>
+    Unchanged,
+    /// <summary>The entry is not at the expected revision; nothing changed.</summary>
+    Changed,
+    /// <summary>The entry has been ended with a reason; nothing changed.</summary>
+    Ended,
+    /// <summary>The store holds no such entry under that engine.</summary>
+    Missing,
+}
+
+/// <summary>The outcome of one confirmation, and the entry's revision after it (for <see cref="GraphConfirmOutcome.Changed"/>, the one found).</summary>
+/// <param name="Outcome">What happened.</param>
+/// <param name="Revision">The entry's revision, or null for <see cref="GraphConfirmOutcome.Missing"/>.</param>
+public readonly record struct GraphConfirmResult(GraphConfirmOutcome Outcome, long? Revision);
+
+/// <summary>OPTIONAL half of <see cref="IEndableMemoryGraphStore"/> that holds a host's re-check text and the instant its check
+/// last held (<c>docs/DECISIONS.md</c> D240). The store never reads the text and runs nothing.
+/// <para>Implementing it owes <see cref="GraphNode.Recheck"/> and <see cref="GraphNode.ConfirmedAt"/>, a stamp that never moves
+/// backwards and is a revision change but not a reinforcement, a re-remember that keeps the stamp and keeps the stored text when it
+/// names none, and the portable round trip of both.</para></summary>
+public interface IConfirmableMemoryGraphStore : IEndableMemoryGraphStore
+{
+    /// <summary>Stamp the entry as confirmed at <see cref="GraphConfirm.At"/>, only if it is still at the expected revision when one
+    /// is given. Touches the stamp and the revision and no decay state.</summary>
+    /// <param name="engine">The owning engine's name.</param>
+    /// <param name="confirm">The confirmation.</param>
+    /// <param name="ct">Cancellation.</param>
+    Task<GraphConfirmResult> ConfirmAsync(string engine, GraphConfirm confirm, CancellationToken ct = default);
+
+    /// <summary>The entries of (<paramref name="engine"/>, <paramref name="taskKey"/>, <paramref name="scope"/>) that carry a re-check,
+    /// are valid at <paramref name="now"/>, and were last confirmed before <paramref name="notConfirmedSince"/> or never — never
+    /// confirmed first, then longest unconfirmed, at most <paramref name="limit"/>. Reads without writing.</summary>
+    /// <param name="engine">The owning engine's name.</param>
+    /// <param name="taskKey">The task to read within.</param>
+    /// <param name="scope">The scope, or null for every scope of the task.</param>
+    /// <param name="notConfirmedSince">The instant a confirmation must be before to be due.</param>
+    /// <param name="now">The instant liveness is judged at.</param>
+    /// <param name="limit">The most entries; zero or less returns none.</param>
+    /// <param name="ct">Cancellation.</param>
+    Task<IReadOnlyList<GraphNode>> DueAsync(string engine, string taskKey, string? scope, DateTimeOffset notConfirmedSince,
+        DateTimeOffset now, int limit, CancellationToken ct = default);
+}

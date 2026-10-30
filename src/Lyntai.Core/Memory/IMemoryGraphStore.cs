@@ -120,6 +120,13 @@ public sealed record GraphNode(
     /// implements that interface; every other reads null.</summary>
     public string? EndedReason { get; init; }
 
+    /// <summary>The opaque re-check text its writer stored with it, or null. Read back by a store implementing
+    /// <see cref="IConfirmableMemoryGraphStore"/>; the library never reads it.</summary>
+    public string? Recheck { get; init; }
+
+    /// <summary>When a host last recorded that its check held, or null when none has.</summary>
+    public DateTimeOffset? ConfirmedAt { get; init; }
+
     /// <summary>The entry's revision, or null where the store holds none. A store implementing
     /// <see cref="IEndableMemoryGraphStore"/> advances it on any write that changes the entry, an end, and nothing a
     /// recall does; it is compared, never interpreted.</summary>
@@ -254,6 +261,10 @@ public sealed record GraphNodeWrite(
     /// over it, where <see cref="ValidFrom"/> would replace. What a write that supersedes another stamps, so
     /// repeating it does not move its start.</summary>
     public DateTimeOffset? ValidFromIfUnset { get; init; }
+
+    /// <summary>The opaque re-check text to store; null is "no opinion" — an INSERT stores none and a refresh keeps what is
+    /// stored. Only a store implementing <see cref="IConfirmableMemoryGraphStore"/> may be handed one.</summary>
+    public string? Recheck { get; init; }
 }
 
 /// <summary>A reinforcement to record against one node. The store stamps the current position — a recall

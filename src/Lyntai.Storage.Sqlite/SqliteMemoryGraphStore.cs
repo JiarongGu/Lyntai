@@ -36,7 +36,7 @@ namespace Lyntai.Storage.Sqlite;
 public sealed class SqliteMemoryGraphStore(
     IDbConnectionFactory factory,
     ILogger<SqliteMemoryGraphStore>? logger = null,
-    Func<DateTimeOffset>? clock = null) : ICountableMemoryGraphStore, IPortableMemoryGraphStore, IEndableMemoryGraphStore,
+    Func<DateTimeOffset>? clock = null) : ICountableMemoryGraphStore, IPortableMemoryGraphStore, IConfirmableMemoryGraphStore,
     ITypedLinkMemoryGraphStore
 {
     private readonly ILogger _logger = logger ?? NullLogger<SqliteMemoryGraphStore>.Instance;
@@ -96,11 +96,11 @@ public sealed class SqliteMemoryGraphStore(
                 (engine, task_key, scope, headline, content, content_hash, grade, metadata, signals, salience,
                  created_at, last_recalled_position, recall_count, stability, difficulty,
                  encoding_ordinal, encoding_chars, encoding_at,
-                 provenance_retrievability, provenance_salience, valid_from, valid_to)
+                 provenance_retrievability, provenance_salience, valid_from, valid_to, recheck)
             VALUES (@engine, @taskKey, @scope, @headline, @content, @hash, @grade, @metadata, @signals, @salience,
                     @now, @position, 0, @stability, @difficulty, @ordinal, @chars, @now,
                     @provenanceRetrievability, @provenanceSalience,
-                    COALESCE(@validFrom, @validFromIfUnset), @validTo)
+                    COALESCE(@validFrom, @validFromIfUnset), @validTo, @recheck)
             ON CONFLICT(engine, task_key, scope, content_hash)
                 DO UPDATE SET last_recalled_position = @position,
                               -- an AUTHORED headline survives a refresh that does not restate it:
@@ -128,6 +128,8 @@ public sealed class SqliteMemoryGraphStore(
                               valid_to = COALESCE(@validTo, lyntai_memory_node.valid_to),
                               -- any write that lands on the entry advances its revision (IEndableMemoryGraphStore)
                               revision = lyntai_memory_node.revision + 1,
+                              -- an ABSENT re-check keeps the stored one, and the stamp is never touched by a refresh
+                              recheck = COALESCE(@recheck, lyntai_memory_node.recheck),
                               encoding_ordinal = @ordinal, encoding_chars = @chars, encoding_at = @now
             RETURNING id
             """, new
@@ -137,7 +139,7 @@ public sealed class SqliteMemoryGraphStore(
             metadata, signals, salience, difficulty, hasDifficultySignal, now, position = totals.Position,
             gradeStated = write.GradeStated, headlineStated = write.HeadlineStated,
             validFrom = write.ValidFrom?.ToUniversalTime(), validTo = write.ValidTo?.ToUniversalTime(),
-            validFromIfUnset = write.ValidFromIfUnset?.ToUniversalTime(),
+            validFromIfUnset = write.ValidFromIfUnset?.ToUniversalTime(), recheck = write.Recheck,
             stability = write.InitialStability, ordinal = totals.Ordinal, chars = totals.Chars,
             provenanceRetrievability = write.ProvenanceRetrievability, provenanceSalience = write.ProvenanceSalience,
         }, transaction: tx, cancellationToken: ct)).ConfigureAwait(false);
@@ -340,6 +342,41 @@ public sealed class SqliteMemoryGraphStore(
                     : 0),
             splitOn: "EdgeWeight").ConfigureAwait(false);
         return [.. rows];
+    }
+
+    /// <inheritdoc />
+    public async Task<GraphConfirmResult> ConfirmAsync(string engine, GraphConfirm confirm, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(confirm);
+        ct.ThrowIfCancellationRequested();
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
+        await using var tx = await conn.BeginTransactionAsync(ct).ConfigureAwait(false);
+        var revision = await conn.ExecuteScalarAsync<long?>(new CommandDefinition(MemoryGraphSql.Confirm,
+            new { id = confirm.Id, engine, at = confirm.At.ToUniversalTime(), expected = confirm.ExpectedRevision },
+            transaction: tx, cancellationToken: ct)).ConfigureAwait(false);
+        var result = revision is { } landed
+            ? new GraphConfirmResult(GraphConfirmOutcome.Stamped, landed)
+            : MemoryGraphSql.ClassifyConfirm(await conn.QuerySingleOrDefaultAsync<EndStateRow>(new CommandDefinition(
+                MemoryGraphSql.EndState, new { id = confirm.Id, engine }, transaction: tx, cancellationToken: ct))
+                .ConfigureAwait(false), confirm.ExpectedRevision);
+        await tx.CommitAsync(ct).ConfigureAwait(false);
+        return result;
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<GraphNode>> DueAsync(string engine, string taskKey, string? scope,
+        DateTimeOffset notConfirmedSince, DateTimeOffset now, int limit, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        if (limit <= 0) return [];
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
+        var totals = await TotalsAsync(conn, engine, ct).ConfigureAwait(false);
+        var rows = await conn.QueryAsync<MemoryNodeRow>(new CommandDefinition(MemoryGraphSql.Due, new
+        {
+            engine, taskKey, scope, since = notConfirmedSince.ToUniversalTime(), now = now.ToUniversalTime(), limit,
+            position = totals.Position, ordinal = totals.Ordinal, chars = totals.Chars,
+        }, cancellationToken: ct)).ConfigureAwait(false);
+        return [.. rows.Select(r => r.ToNode(totals.EncodedAt))];
     }
 
     /// <inheritdoc />
@@ -665,10 +702,12 @@ public sealed class SqliteMemoryGraphStore(
                     (engine, task_key, scope, headline, content, content_hash, grade, metadata, signals, salience,
                      created_at, last_recalled_position, recall_count, stability, difficulty,
                      encoding_ordinal, encoding_chars, encoding_at,
-                     provenance_retrievability, provenance_salience, valid_from, valid_to, superseded_at, ended_reason)
+                     provenance_retrievability, provenance_salience, valid_from, valid_to, superseded_at, ended_reason,
+                     recheck, confirmed_at)
                 VALUES (@engine, @taskKey, @scope, @headline, @content, @hash, @grade, @metadata, @signals, @salience,
                         @createdAt, @position, @recallCount, @stability, @difficulty, @ordinal, @chars, @at,
-                        @provenanceRetrievability, @provenanceSalience, @validFrom, @validTo, @supersededAt, @endedReason)
+                        @provenanceRetrievability, @provenanceSalience, @validFrom, @validTo, @supersededAt, @endedReason,
+                        @recheck, @confirmedAt)
                 ON CONFLICT(engine, task_key, scope, content_hash) DO NOTHING
                 RETURNING id
                 """, ImportArgs(engine, taskKey, node, hash, head), transaction: tx, cancellationToken: ct)).ConfigureAwait(false);
@@ -704,6 +743,7 @@ public sealed class SqliteMemoryGraphStore(
         provenanceRetrievability = node.ProvenanceRetrievability, provenanceSalience = node.ProvenanceSalience,
         validFrom = node.ValidFrom?.ToUniversalTime(), validTo = node.ValidTo?.ToUniversalTime(),
         supersededAt = node.SupersededAt?.ToUniversalTime(), endedReason = node.EndedReason,
+        recheck = node.Recheck, confirmedAt = node.ConfirmedAt?.ToUniversalTime(),
     };
 
     /// <inheritdoc />

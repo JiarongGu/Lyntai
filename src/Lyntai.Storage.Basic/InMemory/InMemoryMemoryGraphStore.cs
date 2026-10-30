@@ -22,7 +22,7 @@ namespace Lyntai.Storage.InMemory;
 /// enumeration reports, where everything matches by definition — never the unconditional answer.</para></summary>
 /// <param name="clock">Time source for the audit timestamps; null takes the system clock.</param>
 public sealed class InMemoryMemoryGraphStore(Func<DateTimeOffset>? clock = null)
-    : ICountableMemoryGraphStore, IPortableMemoryGraphStore, IEndableMemoryGraphStore,
+    : ICountableMemoryGraphStore, IPortableMemoryGraphStore, IConfirmableMemoryGraphStore,
         ITypedLinkMemoryGraphStore
 {
     private readonly MemoryGraphState _graph = new(clock ?? (() => DateTimeOffset.UtcNow));
@@ -50,6 +50,28 @@ public sealed class InMemoryMemoryGraphStore(Func<DateTimeOffset>? clock = null)
         ArgumentNullException.ThrowIfNull(kinds);
         ct.ThrowIfCancellationRequested();
         lock (_lock) return Task.FromResult(_graph.LinksAmong(engine, taskKey, ids, kinds));
+    }
+
+    /// <inheritdoc />
+    public Task<GraphConfirmResult> ConfirmAsync(string engine, GraphConfirm confirm, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(confirm);
+        ct.ThrowIfCancellationRequested();
+        lock (_lock)
+        {
+            var change = _graph.PlanConfirm(engine, confirm, out var result);
+            _graph.Apply(change);
+            return Task.FromResult(result);
+        }
+    }
+
+    /// <inheritdoc />
+    public Task<IReadOnlyList<GraphNode>> DueAsync(string engine, string taskKey, string? scope,
+        DateTimeOffset notConfirmedSince, DateTimeOffset now, int limit, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        if (limit <= 0) return Task.FromResult<IReadOnlyList<GraphNode>>([]);
+        lock (_lock) return Task.FromResult(_graph.Due(engine, taskKey, scope, notConfirmedSince, now, limit));
     }
 
     /// <inheritdoc />

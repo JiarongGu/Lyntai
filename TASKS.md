@@ -15,37 +15,36 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 24 across 6 Parts: 19 startable, 2 blocked, 3 watch
+## Open items — 23 across 6 Parts: 18 startable, 2 blocked, 3 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 125 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
-| 166 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 193 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 252 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
-| 270 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
-| 305 | 412 | AG10 — the Claude CLI door keeps a subagent's lines apart from the session's | startable |  |
-| 318 | 412 | AG11 — the ACP door carries `AgentSessionOptions.Model`, or refuses it | startable |  |
-| 328 | 412 | AG12 — a refused model is a hold the pool can keep against one seat | startable |  |
-| 336 | 412 | AG13 — an HTTP response's own facts are read as an `AgentFailure` | startable |  |
-| 345 | 412 | AG14 — an HTTP door: `IToolLoop` as an agent provider | startable |  |
-| 355 | 412 | AG15 — an ACP dialect seam | startable |  |
-| 363 | 412 | AG16 — the event-stream rules, held by one theory | startable |  |
-| 371 | 412 | AG17 — an account that is a key, and the variables a provider reads | startable |  |
-| 380 | 412 | AG18 — background work started and ended, as events | startable |  |
-| 387 | 412 | AG19 — an ACP permission request the host can answer | startable |  |
-| 402 | 416 | AG21 — the usage exchange writes each request after the answer it depends on | startable |  |
-| 414 | 416 | AG22 — the host names where the usage server runs and what it is told of it… | startable |  |
-| 427 | 416 | AG23 — an allowance reading carries what the server stated | startable |  |
-| 442 | 416 | AG24 — a host's policy for a version the library has not validated | startable |  |
-| 463 | 417 | MC3 — measure the candidate list's similarity basis | startable |  |
-| 471 | 417 | MC5 — a stored fact can be re-checked by its host, and a failed check ends … | startable |  |
-| 487 | 417 | MC7 — a read-only view of the owner's task, as a blend member | startable |  |
-| 497 | 417 | MC8 — the wrong-end instrument: what a model's proposed end costs, per mode… | startable |  |
-| 508 | 417 | MC10 — a scope dense in ended entries still returns its current ones | startable |  |
+| 124 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
+| 165 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 192 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 251 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
+| 269 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
+| 304 | 412 | AG10 — the Claude CLI door keeps a subagent's lines apart from the session's | startable |  |
+| 317 | 412 | AG11 — the ACP door carries `AgentSessionOptions.Model`, or refuses it | startable |  |
+| 327 | 412 | AG12 — a refused model is a hold the pool can keep against one seat | startable |  |
+| 335 | 412 | AG13 — an HTTP response's own facts are read as an `AgentFailure` | startable |  |
+| 344 | 412 | AG14 — an HTTP door: `IToolLoop` as an agent provider | startable |  |
+| 354 | 412 | AG15 — an ACP dialect seam | startable |  |
+| 362 | 412 | AG16 — the event-stream rules, held by one theory | startable |  |
+| 370 | 412 | AG17 — an account that is a key, and the variables a provider reads | startable |  |
+| 379 | 412 | AG18 — background work started and ended, as events | startable |  |
+| 386 | 412 | AG19 — an ACP permission request the host can answer | startable |  |
+| 401 | 416 | AG21 — the usage exchange writes each request after the answer it depends on | startable |  |
+| 413 | 416 | AG22 — the host names where the usage server runs and what it is told of it… | startable |  |
+| 426 | 416 | AG23 — an allowance reading carries what the server stated | startable |  |
+| 441 | 416 | AG24 — a host's policy for a version the library has not validated | startable |  |
+| 462 | 417 | MC3 — measure the candidate list's similarity basis | startable |  |
+| 470 | 417 | MC7 — a read-only view of the owner's task, as a blend member | startable |  |
+| 480 | 417 | MC8 — the wrong-end instrument: what a model's proposed end costs, per mode… | startable |  |
+| 491 | 417 | MC10 — a scope dense in ended entries still returns its current ones | startable |  |
 
 <!-- open-items:end -->
 
@@ -467,22 +466,6 @@ MC3's measured rate and MC8's instrument each state what a YES and a NO change, 
   run the 70 pairs with `Similarity` on, report the rate per basis beside the lexical one. A YES moves the guidance in
   `docs/memory.md`; a NO changes nothing. The measurement's scratch harness was deleted: rebuild it from the `knowledge-update`
   loading in `MemoryLongMemEvalBench.cs`.
-
-- [ ] **MC5 — a stored fact can be re-checked by its host, and a failed check ends it** (lanes `memory` + `storage`, after <!-- item: state=startable -->
-  MC1; LQ19, **D240**). `IMemoryVerificationPolicy` judges relevance, not truth, and nothing records when a fact was last
-  confirmed. **Contract.** `MemoryWrite` gains a `Recheck`, an opaque bounded text the library never reads;
-  `IConfirmableMemory.ConfirmAsync(taskKey, entry, outcome, at?, note?, expected?)` where `Held` stamps `ConfirmedAt` (never
-  backwards; no other field moves, so it is not a reinforcement) and `Failed` ends the entry through MC1's call, at the
-  confirmation instant and never an earlier one, with the note as its required reason and the due read's revision as the
-  expected one. **A due sweep is eventual repair, not proof of currency at presentation**, and says so in its doc. **`Failed` is documented as the host having confirmed the named claim no longer holds**; a run that did not
-  finish (a timeout, missing access, an ambiguous answer) is reported by calling nothing, records no state and stays due
-  (**D241**); `DueAsync(taskKey, scope, notConfirmedSince, limit)` answering the live entries that carry a `Recheck`
-  and were last confirmed before an instant or never; a `Confirmation` on `MemoryItem` on read; a `_confirm` tool when MC2 is
-  built. Optional, as MC1: nullable `recheck` and `confirmed_at` columns in their own migration, a second optional store
-  interface, the portable line, the blend. **Proof.** A held check stamps and changes nothing else; a failed one is gone
-  from `Current` and read under `History` with its reason; a re-remember of identical content keeps the stamp, and one that
-  names no `Recheck` keeps the stored one; the due query both ways; the library runs nothing (no process or network type in the
-  change); an end whose expected revision no longer matches changed nothing, including when a rewrite changed the headline, grade, metadata or check and left the confirmation as it was; and the `ApiSurface` baselines.
 
 - [ ] **MC7 — a read-only view of the owner's task, as a blend member** (lane `memory`, after MC1; Wave 4's first half in <!-- item: state=startable -->
   `docs/ROADMAP.md`; **D241**). A second host needs a scope another host owns and writes. **Contract.** A view of one task key
