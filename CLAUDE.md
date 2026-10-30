@@ -66,6 +66,7 @@ rebuilds it and `verify` fails while the two disagree.
 | `memory-salience-weight` |  | how LOUD salience is. Needs a real embedder or the curve is an ARTIFACT |
 | `memory-importance` |  | WHAT salience measures — novelty against a perfect ORACLE |
 | `memory-density` |  | a REFUTATION: does a CORRECTION separate from a RECURRENCE? |
+| `memory-end-proposal` |  | the wrong-end instrument: what a proposed end costs, isolated arms, four rates. Promotes nothing |
 | `memory-support` |  | rule × θ × clock × `ConnectionBoost`; `--screen` = the model ladder |
 | `memory-scale` |  | COST, not quality — latency, throughput, bytes; no ground truth |
 | `memory-corpus` |  | recall QUALITY on a real record set far larger than ours, kept untracked; `--model-free` or a local emb… |

@@ -1577,6 +1577,7 @@ export default {
     'memory-salience-weight': 'how LOUD salience is. Needs a real embedder or the curve is an ARTIFACT',
     'memory-importance': 'WHAT salience measures — novelty against a perfect ORACLE',
     'memory-density': 'a REFUTATION: does a CORRECTION separate from a RECURRENCE?',
+    'memory-end-proposal': 'the wrong-end instrument: what a proposed end costs, isolated arms, four rates. Promotes nothing',
     'memory-enrichment': 'why an embedder costs recall quality. Calls a REAL model',
     'memory-annotation': "subject linking with a PERFECT annotator — the CEILING, not a model",
     'memory-annotation-drift': "how much of that ceiling a REAL annotator reaches, and whether CODE can close it",

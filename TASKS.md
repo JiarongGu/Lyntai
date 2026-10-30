@@ -43,8 +43,8 @@ _Edit a marker, never this table — `verify` fails the moment the two disagree.
 | 441 | 416 | AG24 — a host's policy for a version the library has not validated | startable |  |
 | 462 | 417 | MC3 — measure the candidate list's similarity basis | startable |  |
 | 470 | 417 | MC7 — a read-only view of the owner's task, as a blend member | startable |  |
-| 480 | 417 | MC8 — the wrong-end instrument: what a model's proposed end costs, per mode… | startable |  |
-| 491 | 417 | MC10 — a scope dense in ended entries still returns its current ones | startable |  |
+| 480 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | startable |  |
+| 493 | 417 | MC10 — a scope dense in ended entries still returns its current ones | startable |  |
 
 <!-- open-items:end -->
 
@@ -477,16 +477,18 @@ MC3's measured rate and MC8's instrument each state what a YES and a NO change, 
   `MemoryRef.Engine`; the `ApiSurface` baselines. A reader's citation of a shared fact is a `Recheck` (MC5), and no
   cross-task link is added (**D92**).
 
-- [ ] **MC8 — the wrong-end instrument: what a model's proposed end costs, per model and corpus** (lane `memory`, after MC3's <!-- item: state=startable -->
-  pairs; **D241**). **What a YES and a NO change, before the first run.** A YES, a model and corpus that clear a bar written
-  beforehand, names that pair in `docs/memory.md`'s guidance and `docs/memory-measurements.md` §5 as one whose proposal a host
-  may confirm by review of a bounded claim pair; a NO changes nothing and is recorded as a refutation so the next session
-  does not repeat it. **Contract.** Independently adjudicated revised-against-superseded pairs from `memory-longmemeval
-  --haystack`, a model proposing the end from MC3's candidates, and four rates reported separately: a wrong end hiding the
-  true fact, a missed replacement, an unaffected claim lost, a stale fact kept. Paired arms, **each starting from an equivalent isolated snapshot and keeping its mutations inside its own repeated walk**,
-  execution order counterbalanced, since a recall mutates (`docs/memory.md` §7) and counterbalancing alone removes order bias, not
-  contamination; **this is required before MC8 can promote any step**, and the harness is read first for whether it does it. Disagreement
-  between reviewers abstains. **Stop rule.** The first actionable rate stops the instrument; no run is spent after it.
+- [ ] **MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar written first** (lane `memory`; <!-- item: state=startable -->
+  **D241**).
+  **The harness is built**: `node devtools/dev.mjs memory-end-proposal` (`MemoryEndProposalBench.cs`) ingests each `--haystack` question once, clones
+  the database per arm (`SweepDb.Clone`) so one arm's reinforcement and links never reach another, counterbalances the arm order across questions,
+  repeats the walk inside each clone, and prints four rates separately — a wrong end hiding a fact that still held, a missed replacement, an
+  unaffected claim lost, a stale fact kept — beside lost current claims and lost historical evidence. Proposers: `none`, `first` and `oracle`
+  (controls, model-free) and `model` (a chat model through `LYNTAI_LIVE_CHAT_URL`). `--adjudication` takes two reviewers' labels per pair and a
+  disagreement abstains; `--bar` takes ceilings written before the run. **It withholds its verdict without both and promotes nothing.**
+  **What remains**: two reviewers independently label a sample of the pairs (replaces / amends / unrelated), a bar is written and committed before
+  the first model run, then one run per (model, corpus) pair. **What a YES does:** names that pair in `docs/memory.md` and
+  `docs/memory-measurements.md` §5 as one whose proposal a host may confirm by review of a bounded claim pair; **a NO changes nothing** and is
+  recorded as a refutation. **Stop rule.** The first actionable rate stops the instrument; no run is spent after it.
 
 - [ ] **MC10 — a scope dense in ended entries still returns its current ones** (lane `memory`; **D241**, measured by MC1). <!-- item: state=startable -->
   The validity reading is applied to the page after the candidates are gathered, so 100 ended entries that match a query

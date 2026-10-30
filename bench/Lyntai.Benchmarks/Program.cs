@@ -117,6 +117,12 @@ if (args.Contains("--salience-weight"))
 if (args.Contains("--importance"))
     return await MemoryImportanceSweep.RunAsync(args.Contains("--languages"));
 
+// `node devtools/dev.mjs memory-end-proposal` → --end-proposal. The wrong-end instrument (TASKS.md MC8, D241): what a proposed
+// end costs per proposer and corpus, each arm from an isolated clone of one ingested snapshot, order counterbalanced, four rates
+// reported separately. It promotes NOTHING and withholds a verdict unless given an adjudicated corpus and a bar written first.
+if (args.Contains("--end-proposal"))
+    return await MemoryLongMemEvalBench.RunEndProposalAsync(args);
+
 // `node devtools/dev.mjs memory-density` → --density. Whether a CORRECTION and a RECURRENCE separate on
 // SalienceContext.SimilarCount at all. This is the cheapest possible refutation of the gist tier: if they
 // do not separate here, on authored fixtures with a real vector backend, nothing downstream can work.

@@ -37,6 +37,7 @@ export const COMMANDS = [
   { name: 'memory-salience-weight', bench: '--salience-weight' },
   { name: 'memory-importance', bench: '--importance' },
   { name: 'memory-density', bench: '--density' },
+  { name: 'memory-end-proposal', bench: '--end-proposal' },
   { name: 'memory-support', bench: '--gist-support' },
   { name: 'memory-scale', bench: '--scale' },
   { name: 'memory-corpus', bench: '--corpus' },
