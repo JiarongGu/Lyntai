@@ -918,6 +918,15 @@ superseded)` — so a prompt built from a `History` recall never presents an end
 tools report `validFrom`, `validTo`, `supersededAt`, `supersededBy` and `endedReason` on an entry that has them. An
 untimed entry renders exactly as before.
 
+**To see what a write may update before confirming it, call `IMemoryCandidates.FindUpdatesAsync(write, limit)`** (the graph
+engine and a blend implement it; the default limit is 4). It returns the live entries of the write's own task and scope,
+other than the write, each with the `MemoryUpdateBasis` that found it — `Lexical` (the store's own match over the write's
+words, which admits any shared token of three characters or more, so a common word brings noise) or `Similarity` (needs an
+embedder and a vector index; one that fails leaves the lexical list). It reads only: nothing is superseded, ended, linked or
+reinforced, and an ended entry, another scope or another task never appears. Each candidate is a `MemoryItem`, so its
+`Reference` and `Revision` are what `Supersedes` or `EndAsync` take. **A list the writer reads demotes nothing**: the
+writer confirms (D239).
+
 **To end an entry that nothing replaced, or one a successor is not at hand for, call `IEndableMemory.EndAsync`** (the
 graph engine and a blend implement it): `EndAsync(taskKey, entry, new MemoryEnding("moved away"))`, with an optional
 `At` (the engine's clock, or the successor's start), an optional `Successor` of this engine, and an optional

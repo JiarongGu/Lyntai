@@ -92,6 +92,9 @@ every addition.
 
 ### Added
 
+- **A write can be shown the live entries it may update: `IMemoryCandidates.FindUpdatesAsync`** (**D239**). The graph engine and the
+  blend list the entries of the write's own task and scope that are valid now, each with its basis (lexical, or similarity
+  where an embedder is wired) and its revision, and apply none; nothing is reinforced, linked or written.
 - **An entry can be ended by reference, with a reason: `IEndableMemory.EndAsync`** (**D239**, **D241**). The graph engine and
   the blend end an entry through the optional `IEndableMemoryGraphStore` (all four shipped stores), which keeps it whole
   under `History` as `MemoryValidity.EndedReason`, takes it out of `Current` and is never undone by a recall. An end may

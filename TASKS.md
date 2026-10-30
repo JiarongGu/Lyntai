@@ -42,13 +42,13 @@ _Edit a marker, never this table — `verify` fails the moment the two disagree.
 | 430 | 416 | AG23 — an allowance reading carries what the server stated | startable |  |
 | 445 | 416 | AG24 — a host's policy for a version the library has not validated | startable |  |
 | 466 | 417 | MC2 — an agent writes and ends what it remembers, through tools the host re… | startable |  |
-| 479 | 417 | MC3 — a write is shown the live entries it may update, and applies none | startable |  |
-| 491 | 417 | MC4 — two live entries that may disagree are marked by their writer | startable |  |
-| 502 | 417 | MC5 — a stored fact can be re-checked by its host, and a failed check ends … | startable |  |
-| 518 | 417 | MC6 — an approver seam on what a write tool would supersede or end | startable |  |
-| 527 | 417 | MC7 — a read-only view of the owner's task, as a blend member | startable |  |
-| 537 | 417 | MC8 — the wrong-end instrument: what a model's proposed end costs, per mode… | startable |  |
-| 548 | 417 | MC10 — a scope dense in ended entries still returns its current ones | startable |  |
+| 479 | 417 | MC3 — the candidate list's measured step: how often the true predecessor is… | startable |  |
+| 490 | 417 | MC4 — two live entries that may disagree are marked by their writer | startable |  |
+| 501 | 417 | MC5 — a stored fact can be re-checked by its host, and a failed check ends … | startable |  |
+| 517 | 417 | MC6 — an approver seam on what a write tool would supersede or end | startable |  |
+| 526 | 417 | MC7 — a read-only view of the owner's task, as a blend member | startable |  |
+| 536 | 417 | MC8 — the wrong-end instrument: what a model's proposed end costs, per mode… | startable |  |
+| 547 | 417 | MC10 — a scope dense in ended entries still returns its current ones | startable |  |
 
 <!-- open-items:end -->
 
@@ -476,17 +476,16 @@ MC3's measured rate and MC8's instrument each state what a YES and a NO change, 
   a ref of another engine and of another task refused; a second successor refused with the engine's own message; a host
   that registered only the read tools exposes no write.
 
-- [ ] **MC3 — a write is shown the live entries it may update, and applies none** (lane `memory`; LQ17, **D239**). <!-- item: state=startable -->
-  `Supersedes` needs an id a writer rarely holds when it learns the new fact. **Contract.**
-  `IMemoryCandidates.FindUpdatesAsync(write, limit)`: the live entries (the `Current` reading) of the write's own task and
-  scope, other than the write, each with a basis (lexical, or similarity when an embedder is wired); no reinforcement, no
-  link, no write, no model call beyond the embed that `Ran` declares; callable before the write or after it. With MC2, the
-  `_remember` tool returns it as `"mayUpdate"`. **Proof.** Cases both ways (a revised fact finds its predecessor; an
-  unrelated entry, another scope, another task and an ended entry never appear); the recall counters show nothing moved;
-  and **a measured step**: the rate at which the true predecessor is among the first four, per basis, on the
-  `memory-longmemeval --haystack` pairs, reported in `docs/memory-measurements.md` §5 and not gated. **A low rate moves the
-  default limit and the guidance in `docs/memory.md`; it removes nothing, because nothing is applied unconfirmed.** The
-  default of four is another system's habit, not a finding.
+- [ ] **MC3 — the candidate list's measured step: how often the true predecessor is among the first four** (lane `memory`; LQ17, <!-- item: state=startable -->
+  **D239**).
+  **The contract is built** (`IMemoryCandidates.FindUpdatesAsync`, `MemoryUpdateCandidatesTests`, `docs/memory.md` §9): live entries
+  of the write's task and scope, a lexical and a similarity basis, nothing applied. **What remains is the measurement**: the rate at
+  which the true predecessor is among the first four, per basis, on the `memory-longmemeval --haystack` pairs (the dataset is
+  `lme_s.json`, a download; `MemoryLongMemEvalBench.cs` states where), each arm from an isolated
+  snapshot (`docs/memory-currency-synthesis.md` §5), reported in `docs/memory-measurements.md` §5 and not gated. **A low rate
+  moves the default limit and the guidance in `docs/memory.md`; it removes nothing, because nothing is applied unconfirmed.** The
+  default of four is another system's habit, not a finding. The lexical basis admits any shared token of three characters or
+  more, and the in-process store ranks every match alike, so expect it to be the noisy arm.
 
 - [ ] **MC4 — two live entries that may disagree are marked by their writer** (lane `memory`, after MC1 and before the <!-- item: state=startable -->
   agent's tools, so an agent never has only a whole-entry end for a partly amended claim; LQ18, **D240**, **D241**). Overlapping valid entries come back side by side unmarked, and an engine-derived mark was

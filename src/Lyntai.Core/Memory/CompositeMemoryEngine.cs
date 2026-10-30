@@ -43,7 +43,7 @@ public enum MemoryWriteRouting
 /// </summary>
 public sealed class CompositeMemoryEngine
     : IMemoryEngine, IExpandableMemory, ITaskExpandableMemory, ILinkableMemory, IForgettableMemory, IPrunableMemory,
-        IReindexableMemory, IPortableMemory, ITemporalMemory, IEndableMemory
+        IReindexableMemory, IPortableMemory, ITemporalMemory, IEndableMemory, IMemoryCandidates
 {
     private readonly IReadOnlyList<IMemoryEngine> _members;
     private readonly ILogger _logger;
@@ -313,6 +313,26 @@ public sealed class CompositeMemoryEngine
         Owner(reference) is ITaskExpandableMemory scoped
             ? await scoped.ExpandInTaskAsync(reference, taskKey, hops, charBudget, detail, validity, ct).ConfigureAwait(false)
             : MemoryRecall.Empty;
+
+    /// <inheritdoc />
+    /// <remarks>Asked of the first member that can offer candidates and store the write's grade — the one a write would
+    /// reach under <see cref="MemoryWriteRouting.FirstCapable"/> among those that hold valid time. None offers none.</remarks>
+    public async Task<IReadOnlyList<MemoryUpdateCandidate>> FindUpdatesAsync(MemoryWrite write, int limit = 4,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(write);
+        var wanted = write.Grade switch
+        {
+            MemoryGrade.Authoritative => MemoryGrades.Authoritative,
+            MemoryGrade.Associative => MemoryGrades.Associative,
+            _ => MemoryGrades.None,
+        };
+        var member = _members.FirstOrDefault(m => m is IMemoryCandidates
+            && (wanted == MemoryGrades.None ? m.Supported != MemoryGrades.None : m.Supported.HasFlag(wanted)));
+        return member is IMemoryCandidates candidates
+            ? await candidates.FindUpdatesAsync(write, limit, ct).ConfigureAwait(false)
+            : [];
+    }
 
     /// <inheritdoc />
     /// <remarks>Fails LOUD where the owning member cannot end: a dropped end leaves a stale fact current.</remarks>

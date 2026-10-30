@@ -40,7 +40,7 @@ public sealed class GraphMemoryEngine(
     GraphMemorySeams? seams = null,
     ILogger<GraphMemoryEngine>? logger = null)
     : IMemoryEngine, IExpandableMemory, ITaskExpandableMemory, ILinkableMemory, IForgettableMemory, IPrunableMemory,
-        IReindexableMemory, IPortableMemory, ITemporalMemory, IEndableMemory
+        IReindexableMemory, IPortableMemory, ITemporalMemory, IEndableMemory, IMemoryCandidates
 {
     private readonly GraphMemoryOptions _options = options ?? new GraphMemoryOptions();
     private readonly IMemoryRetrievabilityPolicy _policy =
@@ -403,6 +403,57 @@ public sealed class GraphMemoryEngine(
                 $"Entry '{successor}' was stored, but only {written} of the {predecessors.Count} entries it supersedes " +
                 "were ended: another write superseded the rest first.");
     }
+
+    /// <inheritdoc />
+    /// <remarks>Lexical: the store's own seed over the write's content. Similarity: the one vector search a write
+    /// makes, floored at <see cref="GraphMemoryOptions.MinSimilarity"/>. Both read the store and the index only: no
+    /// reinforcement, link or write happens, and a failed embed or search leaves the lexical list.</remarks>
+    public async Task<IReadOnlyList<MemoryUpdateCandidate>> FindUpdatesAsync(MemoryWrite write, int limit = 4,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(write);
+        ct.ThrowIfCancellationRequested();
+        if (limit <= 0) return [];
+        var now = _clock();
+        var found = new Dictionary<long, (GraphNode Node, MemoryUpdateBasis Basis, double Score)>();
+
+        // the window is wider than the answer, because the validity reading and the write's own entry cut it afterwards
+        var window = Math.Max(limit * 5, 20);
+        foreach (var node in await store.SeedAsync(Name, write.TaskKey, write.Scope, write.Content, window, ct).ConfigureAwait(false))
+            if (node.Matched != false && Eligible(node, write, now))
+                found.TryAdd(node.Id, (node, MemoryUpdateBasis.Lexical, node.Relevance));
+
+        if (await _vectors.SearchAsync(write, window, ct).ConfigureAwait(false) is { } search)
+            foreach (var near in search.Near)
+            {
+                if (near.Score < _options.MinSimilarity
+                    || !long.TryParse(near.Id, NumberStyles.Integer, CultureInfo.InvariantCulture, out var id)) continue;
+                if (found.TryGetValue(id, out var already))
+                {
+                    found[id] = (already.Node, already.Basis | MemoryUpdateBasis.Similarity, Math.Max(already.Score, near.Score));
+                    continue;
+                }
+                if (await store.GetAsync(Name, id, ct).ConfigureAwait(false) is { } node
+                    && string.Equals(node.TaskKey, write.TaskKey, StringComparison.Ordinal) && Eligible(node, write, now))
+                    found[id] = (node, MemoryUpdateBasis.Similarity, near.Score);
+            }
+
+        return [.. found.Values
+            .OrderByDescending(f => f.Basis.HasFlag(MemoryUpdateBasis.Similarity) ? 1 : 0)
+            .ThenByDescending(f => f.Score)
+            .ThenByDescending(f => f.Node.Id)
+            .Take(limit)
+            .Select(f => new MemoryUpdateCandidate(new MemoryItem(
+                new MemoryRef(Name, f.Node.Id.ToString(CultureInfo.InvariantCulture)), f.Node.Headline, f.Node.Content,
+                f.Node.Grade, f.Score, Retrievability(f.Node), f.Node.Degree, f.Node.Metadata)
+            { Validity = f.Node.Validity, Revision = RevisionOf(f.Node) }, f.Basis))];
+    }
+
+    // live now, in the write's own scope, and not the entry the write is
+    private static bool Eligible(GraphNode node, MemoryWrite write, DateTimeOffset now) =>
+        string.Equals(node.Scope, write.Scope, StringComparison.Ordinal)
+        && !IsThisWrite(node, write)
+        && MemoryValidityReading.Current.Admits(node.Validity, now);
 
     private static string? RevisionOf(GraphNode node) => node.Revision?.ToString(CultureInfo.InvariantCulture);
 
