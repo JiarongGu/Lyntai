@@ -11,6 +11,8 @@ public enum MemoryOperationKind
     Confirm,
     /// <summary><see cref="IEndableMemory.EndAsync"/>.</summary>
     End,
+    /// <summary><see cref="ISupersedingMemory.SupersedeAsync"/>.</summary>
+    Supersede,
 }
 
 /// <summary>What a keyed call did, as its receipt keeps it.</summary>
@@ -65,7 +67,7 @@ public sealed class MemoryKeyConflictException : InvalidOperationException
 /// (<c>docs/DECISIONS.md</c> D242).
 /// <para>The key is opaque, at most <see cref="MemoryLimits.MaxOperationKeyChars"/> characters, and scoped to (engine, task).
 /// A remember and an end carry it on <see cref="MemoryWrite.OperationKey"/> and <see cref="MemoryEnding.OperationKey"/>; a
-/// supersession on <c>MemorySupersession.OperationKey</c>; a relation and a confirmation take it here. An engine over a
+/// supersession on <see cref="MemorySupersession.OperationKey"/>; a relation and a confirmation take it here. An engine over a
 /// store that cannot hold receipts REFUSES a keyed call, because a dropped key is a write nobody can settle.</para>
 /// <para>A composite ALWAYS implements this and routes by <see cref="MemoryRef.Engine"/>.</para></summary>
 public interface IKeyedMemory

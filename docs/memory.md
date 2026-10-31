@@ -994,6 +994,21 @@ Removing an entry removes the receipts that name it. **An engine over a store th
 or curated engine refuses one; an un-keyed call is unchanged on every store. A keyed write states no `Supersedes`, `Disputes` or `Amends`: each
 is its own call with its own receipt. A repeat of a keyed write answers before the embed and the annotation run, so it costs neither.
 
+**To replace one or more entries in a single change, call `ISupersedingMemory.SupersedeAsync`** (**D242**; the graph engine and a blend
+implement it): `SupersedeAsync(new MemorySupersession(successor, predecessors, "relocated") { OperationKey = "…" })`, each predecessor a
+`MemorySupersededEntry` carrying the `Revision` its approver read. **One store transaction stores the successor and ends every
+predecessor with the reason, or changes nothing**: afterwards the successor is current and each predecessor ended by it, or
+`MemorySupersessionResult.Applied` is false and `Predecessors` says, per entry, whether it was `Unmoved` (fine, but left alone because
+another failed), `Changed` (not at the revision read, with the revision found — a fresh review reads it), `Refused` (a different live
+successor, or a successor that would start before it) or `Missing`. The in-process store does it under its lock, the file store as one
+journal line (a crash tears it whole, and a restart finishes a predecessor's memory file the line already committed), and the SQL stores in
+one transaction that includes the position the successor advanced. **With a key it is one receipt**: a repeat answers `Applied`, naming
+the successor, though every revision it carries is stale by then. The embed and the annotation precede the transaction; the similarity
+index and the subject links follow it, are derived, and a failure there leaves the supersession applied. **It never falls back to storing then
+ending**: an engine over a store that cannot make the pair atomic (`ISupersedingMemoryGraphStore`, which all four shipped stores
+implement) throws `NotSupportedException`. `MemoryChangeGate`'s agent path is unchanged — an agent's observation is its own, and this call is for
+a host that holds the successor and calls after approval.
+
 ### Read the full text of one entry, and what it is linked to
 
 <!-- compile-given: IExpandableMemory expandable = null!; MemoryRef reference = default!; -->

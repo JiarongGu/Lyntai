@@ -30,7 +30,7 @@ public sealed class PostgresMemoryGraphStore(
     IDbConnectionFactory factory,
     ILogger<PostgresMemoryGraphStore>? logger = null,
     Func<DateTimeOffset>? clock = null) : ICountableMemoryGraphStore, IPortableMemoryGraphStore, IConfirmableMemoryGraphStore,
-    ITypedLinkMemoryGraphStore, IKeyedMemoryGraphStore
+    ITypedLinkMemoryGraphStore, ISupersedingMemoryGraphStore
 {
     private readonly ILogger _logger = logger ?? NullLogger<PostgresMemoryGraphStore>.Instance;
     private readonly Func<DateTimeOffset> _clock = clock ?? (() => DateTimeOffset.UtcNow);
@@ -229,6 +229,16 @@ public sealed class PostgresMemoryGraphStore(
                     ? new GraphReceiptSql.Effect(confirm.Id, result.Revision!.Value, MemoryOperationOutcome.Applied)
                     : (GraphReceiptSql.Effect?)null);
             }, ct);
+    }
+
+    /// <inheritdoc />
+    public Task<GraphSupersedeResult> SupersedeWithAsync(GraphNodeWrite successor, IReadOnlyList<GraphPredecessor> predecessors,
+        string reason, DateTimeOffset at, GraphOperationKey? key, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(successor);
+        ArgumentNullException.ThrowIfNull(predecessors);
+        return GraphSupersedeSql.RunAsync(factory, successor, predecessors, reason, at, key,
+            (conn, tx) => UpsertInAsync(conn, tx, successor, ct), ct);
     }
 
     /// <inheritdoc />

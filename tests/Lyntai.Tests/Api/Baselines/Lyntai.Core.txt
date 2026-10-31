@@ -2432,6 +2432,7 @@ sealed class Lyntai.Memory.CompositeMemoryEngine
     FindUpdatesAsync(MemoryWrite write, Int32 limit = 10, CancellationToken ct = default) : Task<IReadOnlyList<MemoryUpdateCandidate>>
     ForgetAsync(String taskKey, String scope = null, CancellationToken ct = default) : Task
     HoldsReceipts : Boolean { get; }
+    HoldsSupersession : Boolean { get; }
     HoldsValidity : Boolean { get; }
     ImportAsync(String taskKey, String scope, TextReader source, CancellationToken ct = default) : Task<MemoryImportResult>
     LinkAsync(MemoryRef from, MemoryRef to, String kind = null, Double weight = 1, Boolean symmetric = false, CancellationToken ct = default) : Task
@@ -2444,6 +2445,7 @@ sealed class Lyntai.Memory.CompositeMemoryEngine
     RelateAsync(String taskKey, MemoryRef from, MemoryRef to, MemoryRelation relation, CancellationToken ct = default) : Task
     RelateKeyedAsync(String taskKey, MemoryRef from, MemoryRef to, MemoryRelation relation, String operationKey, CancellationToken ct = default) : Task<MemoryReceipt>
     RememberAsync(MemoryWrite write, CancellationToken ct = default) : Task<MemoryWriteResult>
+    SupersedeAsync(MemorySupersession supersession, CancellationToken ct = default) : Task<MemorySupersessionResult>
     Supported : MemoryGrades { get; }
     WriteRouting : MemoryWriteRouting { get; init; }
 sealed class Lyntai.Memory.DefaultMemoryRemovalPolicy
@@ -2476,6 +2478,7 @@ sealed class Lyntai.Memory.Engines.GraphMemoryEngine
     FindUpdatesAsync(MemoryWrite write, Int32 limit = 10, CancellationToken ct = default) : Task<IReadOnlyList<MemoryUpdateCandidate>>
     ForgetAsync(String taskKey, String scope = null, CancellationToken ct = default) : Task
     HoldsReceipts : Boolean { get; }
+    HoldsSupersession : Boolean { get; }
     HoldsValidity : Boolean { get; }
     ImportAsync(String taskKey, String scope, TextReader source, CancellationToken ct = default) : Task<MemoryImportResult>
     LinkAsync(MemoryRef from, MemoryRef to, String kind = null, Double weight = 1, Boolean symmetric = false, CancellationToken ct = default) : Task
@@ -2487,6 +2490,7 @@ sealed class Lyntai.Memory.Engines.GraphMemoryEngine
     RelateAsync(String taskKey, MemoryRef from, MemoryRef to, MemoryRelation relation, CancellationToken ct = default) : Task
     RelateKeyedAsync(String taskKey, MemoryRef from, MemoryRef to, MemoryRelation relation, String operationKey, CancellationToken ct = default) : Task<MemoryReceipt>
     RememberAsync(MemoryWrite write, CancellationToken ct = default) : Task<MemoryWriteResult>
+    SupersedeAsync(MemorySupersession supersession, CancellationToken ct = default) : Task<MemorySupersessionResult>
     Supported : MemoryGrades { get; }
 sealed class Lyntai.Memory.Engines.GraphMemorySeams
     .ctor()
@@ -2827,6 +2831,32 @@ sealed class Lyntai.Memory.GraphOperationKey
     Kind : MemoryOperationKind { get; init; }
     TaskKey : String { get; init; }
     ToString() : String
+sealed class Lyntai.Memory.GraphPredecessor
+    .ctor(Int64 Id, Int64 ExpectedRevision)
+    Deconstruct(Int64& Id, Int64& ExpectedRevision) : Void
+    Equals(GraphPredecessor other) : Boolean
+    Equals(Object obj) : Boolean
+    ExpectedRevision : Int64 { get; init; }
+    GetHashCode() : Int32
+    Id : Int64 { get; init; }
+    ToString() : String
+struct Lyntai.Memory.GraphPredecessorResult
+    .ctor(Int64 Id, GraphPredecessorStanding Standing, Nullable<Int64> Revision)
+    Deconstruct(Int64& Id, GraphPredecessorStanding& Standing, Nullable`1& Revision) : Void
+    Equals(GraphPredecessorResult other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Id : Int64 { get; init; }
+    Revision : Nullable<Int64> { get; init; }
+    Standing : GraphPredecessorStanding { get; init; }
+    ToString() : String
+enum Lyntai.Memory.GraphPredecessorStanding
+    Changed : GraphPredecessorStanding const
+    Ended : GraphPredecessorStanding const
+    Missing : GraphPredecessorStanding const
+    Refused : GraphPredecessorStanding const
+    Unmoved : GraphPredecessorStanding const
+    value__ : Int32
 sealed class Lyntai.Memory.GraphReceipt
     .ctor(String Key, String TaskKey, MemoryOperationKind Kind, String Fingerprint, Int64 NodeId, Int64 Revision, MemoryOperationOutcome Outcome, DateTimeOffset At, DateTimeOffset ExpiresAt)
     At : DateTimeOffset { get; init; }
@@ -2842,6 +2872,19 @@ sealed class Lyntai.Memory.GraphReceipt
     Outcome : MemoryOperationOutcome { get; init; }
     Revision : Int64 { get; init; }
     TaskKey : String { get; init; }
+    ToString() : String
+sealed class Lyntai.Memory.GraphSupersedeResult
+    .ctor(Boolean Applied, Nullable<Int64> SuccessorId, Nullable<Int64> SuccessorRevision, IReadOnlyList<GraphPredecessorResult> Predecessors, Boolean Replayed, GraphReceipt Receipt)
+    Applied : Boolean { get; init; }
+    Deconstruct(Boolean& Applied, Nullable`1& SuccessorId, Nullable`1& SuccessorRevision, IReadOnlyList`1& Predecessors, Boolean& Replayed, GraphReceipt& Receipt) : Void
+    Equals(GraphSupersedeResult other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Predecessors : IReadOnlyList<GraphPredecessorResult> { get; init; }
+    Receipt : GraphReceipt { get; init; }
+    Replayed : Boolean { get; init; }
+    SuccessorId : Nullable<Int64> { get; init; }
+    SuccessorRevision : Nullable<Int64> { get; init; }
     ToString() : String
 struct Lyntai.Memory.GraphSupersession
     .ctor(Int64 Superseded, Nullable<Int64> By, DateTimeOffset At)
@@ -2969,6 +3012,11 @@ interface Lyntai.Memory.ISemanticMemory
     ForgetAsync(String taskKey, String scope, CancellationToken ct = default) : Task
     RecallAsync(String taskKey, String scope, String query, Int32 k = 5, Double minScore = 0, CancellationToken ct = default) : Task<IReadOnlyList<SemanticHit>>
     RememberAsync(String taskKey, String scope, String content, CancellationToken ct = default) : Task
+interface Lyntai.Memory.ISupersedingMemory
+    HoldsSupersession : Boolean { get; }
+    SupersedeAsync(MemorySupersession supersession, CancellationToken ct = default) : Task<MemorySupersessionResult>
+interface Lyntai.Memory.ISupersedingMemoryGraphStore
+    SupersedeWithAsync(GraphNodeWrite successor, IReadOnlyList<GraphPredecessor> predecessors, String reason, DateTimeOffset at, GraphOperationKey key, CancellationToken ct = default) : Task<GraphSupersedeResult>
 interface Lyntai.Memory.ITaskExpandableMemory
     ExpandInTaskAsync(MemoryRef reference, String taskKey, Int32 hops, Nullable<Int32> charBudget, MemoryDetail detail, MemoryValidityReading validity, CancellationToken ct = default) : Task<MemoryRecall>
 interface Lyntai.Memory.ITemporalMemory
@@ -3335,12 +3383,30 @@ enum Lyntai.Memory.MemoryOperationKind
     End : MemoryOperationKind const
     Relate : MemoryOperationKind const
     Remember : MemoryOperationKind const
+    Supersede : MemoryOperationKind const
     value__ : Int32
 enum Lyntai.Memory.MemoryOperationOutcome
     Applied : MemoryOperationOutcome const
     Created : MemoryOperationOutcome const
     Refreshed : MemoryOperationOutcome const
     value__ : Int32
+enum Lyntai.Memory.MemoryPredecessorOutcome
+    Changed : MemoryPredecessorOutcome const
+    Ended : MemoryPredecessorOutcome const
+    Missing : MemoryPredecessorOutcome const
+    Refused : MemoryPredecessorOutcome const
+    Unmoved : MemoryPredecessorOutcome const
+    value__ : Int32
+struct Lyntai.Memory.MemoryPredecessorResult
+    .ctor(MemoryRef Entry, MemoryPredecessorOutcome Outcome, String Revision)
+    Deconstruct(MemoryRef& Entry, MemoryPredecessorOutcome& Outcome, String& Revision) : Void
+    Entry : MemoryRef { get; init; }
+    Equals(MemoryPredecessorResult other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Outcome : MemoryPredecessorOutcome { get; init; }
+    Revision : String { get; init; }
+    ToString() : String
 static class Lyntai.Memory.MemoryProvenance
     static Fits(Int64 stored, Int64 required) : Boolean
     static Pack(IEnumerable<Int64> contributions) : Int64
@@ -3523,6 +3589,39 @@ static class Lyntai.Memory.MemorySubject
     static IsUsable(String subject) : Boolean
     static Matches(String query, String subject) : Boolean
     static Normalize(String subject) : String
+sealed class Lyntai.Memory.MemorySupersededEntry
+    .ctor(MemoryRef Entry, String ExpectedRevision)
+    Deconstruct(MemoryRef& Entry, String& ExpectedRevision) : Void
+    Entry : MemoryRef { get; init; }
+    Equals(MemorySupersededEntry other) : Boolean
+    Equals(Object obj) : Boolean
+    ExpectedRevision : String { get; init; }
+    GetHashCode() : Int32
+    ToString() : String
+sealed class Lyntai.Memory.MemorySupersession
+    .ctor(MemoryWrite Successor, IReadOnlyList<MemorySupersededEntry> Predecessors, String Reason)
+    Deconstruct(MemoryWrite& Successor, IReadOnlyList`1& Predecessors, String& Reason) : Void
+    Equals(MemorySupersession other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    OperationKey : String { get; init; }
+    Predecessors : IReadOnlyList<MemorySupersededEntry> { get; init; }
+    Reason : String { get; init; }
+    Successor : MemoryWrite { get; init; }
+    ToString() : String
+sealed class Lyntai.Memory.MemorySupersessionResult
+    .ctor(Boolean Applied, Nullable<MemoryRef> Successor, String Revision, IReadOnlyList<MemoryPredecessorResult> Predecessors)
+    Applied : Boolean { get; init; }
+    Deconstruct(Boolean& Applied, Nullable`1& Successor, String& Revision, IReadOnlyList`1& Predecessors) : Void
+    Equals(MemorySupersessionResult other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Predecessors : IReadOnlyList<MemoryPredecessorResult> { get; init; }
+    Ran : MemorySources { get; init; }
+    Receipt : MemoryReceipt { get; init; }
+    Revision : String { get; init; }
+    Successor : Nullable<MemoryRef> { get; init; }
+    ToString() : String
 static class Lyntai.Memory.MemoryToolScope
     static Use(String taskKey, String scope = null) : IDisposable
 enum Lyntai.Memory.MemoryUpdateBasis

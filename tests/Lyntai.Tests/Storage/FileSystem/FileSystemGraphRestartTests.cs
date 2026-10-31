@@ -459,6 +459,80 @@ public class FileSystemGraphRestartTests : IDisposable
         Assert.Equal(kept.Value, (await reopened.GetAsync("e", kept.Value))!.Id);
     }
 
+    private string FileHolding(string text) =>
+        MemoryFiles().Single(f => File.ReadAllText(f).Contains(text, StringComparison.Ordinal));
+
+    // A supersession commits as ONE journal line (the successor, every end and the receipt) and its predecessors' memory files are
+    // rewritten after it. Each test below is a crash at one of those two points, modelled by putting the files back as they were.
+    private async Task<(long Paris, GraphSupersedeResult Result, string ParisFile, string ParisBefore)> Supersede()
+    {
+        var store = Open(_temp.Root);
+        var paris = await store.UpsertAsync(Write("lives in Paris") with { ValidFrom = _now.AddDays(-30) });
+        var parisFile = FileHolding("lives in Paris");
+        var before = File.ReadAllText(parisFile);
+        var revision = (await store.GetAsync("e", paris))!.Revision!.Value;
+        var result = await store.SupersedeWithAsync(Write("lives in Rome") with { ValidFrom = _now },
+            [new GraphPredecessor(paris, revision)], "moved", _now, Keyed("sup-1", MemoryOperationKind.Supersede));
+        Assert.True(result.Applied);
+        return (paris, result, parisFile, before);
+    }
+
+    [Fact]
+    public async Task A_supersession_torn_from_the_journal_leaves_neither_the_successor_nor_an_end()
+    {
+        var (paris, _, parisFile, before) = await Supersede();
+        // the crash tore the one journal line, and had not yet reached the predecessor's file
+        File.WriteAllText(parisFile, before);
+        var lines = File.ReadAllLines(JournalPath);
+        Assert.StartsWith("{\"commit\"", lines[^1], StringComparison.Ordinal);
+        File.WriteAllText(JournalPath, string.Join("\n", lines[..^1]) + "\n" + lines[^1][..60]);
+
+        var reopened = Open(_temp.Reopen());
+
+        var held = (await reopened.GetAsync("e", paris))!;
+        Assert.Null(held.EndedReason);
+        Assert.Null(held.SupersededBy);
+        Assert.Equal(["lives in Paris"], (await reopened.SeedAsync("e", "task", null, null, 10)).Select(n => n.Content));
+        Assert.Null(await reopened.ReceiptAsync("e", "task", "sup-1", _now));
+        Assert.True(File.Exists(JournalPath + ".torn"));
+    }
+
+    [Fact]
+    public async Task A_supersession_committed_to_the_journal_finishes_the_predecessors_file_at_the_next_start()
+    {
+        var (paris, result, parisFile, before) = await Supersede();
+        File.WriteAllText(parisFile, before);   // the crash fell between the commit and the file
+
+        var reopened = Open(_temp.Reopen());
+
+        var ended = (await reopened.GetAsync("e", paris))!;
+        Assert.Equal(("moved", result.SuccessorId), (ended.EndedReason, ended.SupersededBy));
+        Assert.Equal(result.Predecessors.Single().Revision, ended.Revision);
+        Assert.Contains("endedReason", File.ReadAllText(parisFile), StringComparison.Ordinal);   // and the file is caught up
+        Assert.NotNull(await reopened.ReceiptAsync("e", "task", "sup-1", _now));
+        Assert.Equal(["lives in Rome"], (await reopened.SeedAsync("e", "task", null, "Rome", 10)).Select(n => n.Content));
+    }
+
+    [Fact]
+    public async Task A_predecessors_file_that_cannot_be_written_does_not_undo_a_committed_supersession()
+    {
+        var store = Open(_temp.Root);
+        var paris = await store.UpsertAsync(Write("lives in Paris") with { ValidFrom = _now.AddDays(-30) });
+        var parisFile = FileHolding("lives in Paris");
+        var before = File.ReadAllText(parisFile);
+        File.Delete(parisFile);
+        Directory.CreateDirectory(parisFile);   // the rename onto it cannot land
+
+        var result = await store.SupersedeWithAsync(Write("lives in Rome") with { ValidFrom = _now },
+            [new GraphPredecessor(paris, (await store.GetAsync("e", paris))!.Revision!.Value)], "moved", _now, null);
+
+        Assert.True(result.Applied);
+        Assert.Equal("moved", (await store.GetAsync("e", paris))!.EndedReason);
+        Directory.Delete(parisFile);
+        File.WriteAllText(parisFile, before);
+        Assert.Equal("moved", (await Open(_temp.Reopen()).GetAsync("e", paris))!.EndedReason);   // the journal still holds it
+    }
+
     [Fact]
     public async Task A_receipt_line_torn_by_a_crash_is_set_aside_and_its_key_is_a_new_call()
     {

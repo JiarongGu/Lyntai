@@ -44,7 +44,7 @@ public enum MemoryWriteRouting
 public sealed class CompositeMemoryEngine
     : IMemoryEngine, IExpandableMemory, ITaskExpandableMemory, ILinkableMemory, IForgettableMemory, IPrunableMemory,
         IReindexableMemory, IPortableMemory, ITemporalMemory, IEndableMemory, IMemoryCandidates, IRelatableMemory, IConfirmableMemory,
-        IKeyedMemory
+        IKeyedMemory, ISupersedingMemory
 {
     private readonly IReadOnlyList<IMemoryEngine> _members;
     private readonly ILogger _logger;
@@ -121,6 +121,29 @@ public sealed class CompositeMemoryEngine
         foreach (var member in keepers)
             if (await member.ReceiptAsync(taskKey, key, ct).ConfigureAwait(false) is { } held) return held;
         return null;
+    }
+
+    /// <inheritdoc />
+    /// <remarks>True when ANY member applies a supersession as one change.</remarks>
+    public bool HoldsSupersession => _members.Any(m => m is ISupersedingMemory { HoldsSupersession: true });
+
+    /// <inheritdoc />
+    /// <remarks>Sent to the one member that owns the predecessors, as a write that supersedes is: only it holds the entries being ended, and
+    /// a copy anywhere else would store the successor and end nothing. Fails LOUD where that member cannot apply the pair atomically.</remarks>
+    public async Task<MemorySupersessionResult> SupersedeAsync(MemorySupersession supersession, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(supersession);
+        ArgumentNullException.ThrowIfNull(supersession.Predecessors);
+        var owners = supersession.Predecessors.Select(p => p.Entry.Engine).Distinct(StringComparer.Ordinal).ToList();
+        if (owners.Count != 1)
+            throw new ArgumentException(
+                $"Memory engine '{Name}' sends a supersession to the one member that holds the entries it ends; its predecessors name " +
+                $"{(owners.Count == 0 ? "none" : string.Join(", ", owners.Select(o => $"'{o}'")))}. Nothing was written.", nameof(supersession));
+        var owner = _members.FirstOrDefault(m => m.Name == owners[0]);
+        return owner is ISupersedingMemory { HoldsSupersession: true } atomic
+            ? await atomic.SupersedeAsync(supersession, ct).ConfigureAwait(false)
+            : throw new NotSupportedException(
+                $"Memory engine '{owners[0]}' cannot apply a supersession as one change, so nothing was written.");
     }
 
     /// <inheritdoc />

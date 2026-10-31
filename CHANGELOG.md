@@ -92,6 +92,12 @@ every addition.
 
 ### Added
 
+- **A supersession can apply as one change: `ISupersedingMemory.SupersedeAsync`, `MemorySupersession`** (**D242**). One call stores
+  the successor and ends every named predecessor, each guarded by the revision its approver read, in one store transaction — afterwards
+  the successor is current and every predecessor ended by it, or nothing changed and the result says which predecessors moved, with
+  their revisions. It carries the same optional key, so a repeat answers that it applied, naming the successor. A new optional store
+  capability, `ISupersedingMemoryGraphStore`, on all four stores; an engine over a store without it refuses and never stores then ends.
+  `MemoryChangeGate`'s store-first path and an un-keyed `MemoryWrite.Supersedes` are unchanged.
 - **A memory write can carry a caller's key, and a repeat with it answers a receipt instead of writing again: `OperationKey`,
   `IKeyedMemory`, `MemoryReceipt`** (**D242**). A remember, a relation, a confirmation and an end each take an optional opaque key
   scoped to (engine, task); the receipt — call kind, reference, revision after, `Created` or `Refreshed` — commits in the effect's own

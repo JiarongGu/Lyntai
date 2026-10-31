@@ -23,7 +23,7 @@ namespace Lyntai.Storage.InMemory;
 /// <param name="clock">Time source for the audit timestamps; null takes the system clock.</param>
 public sealed class InMemoryMemoryGraphStore(Func<DateTimeOffset>? clock = null)
     : ICountableMemoryGraphStore, IPortableMemoryGraphStore, IConfirmableMemoryGraphStore,
-        ITypedLinkMemoryGraphStore, IKeyedMemoryGraphStore
+        ITypedLinkMemoryGraphStore, ISupersedingMemoryGraphStore
 {
     private readonly MemoryGraphState _graph = new(clock ?? (() => DateTimeOffset.UtcNow));
     private readonly Lock _lock = new();
@@ -74,6 +74,21 @@ public sealed class InMemoryMemoryGraphStore(Func<DateTimeOffset>? clock = null)
         lock (_lock)
         {
             var change = _graph.PlanConfirmKeyed(engine, confirm, key, out var result);
+            _graph.Apply(change);
+            return Task.FromResult(result);
+        }
+    }
+
+    /// <inheritdoc />
+    public Task<GraphSupersedeResult> SupersedeWithAsync(GraphNodeWrite successor, IReadOnlyList<GraphPredecessor> predecessors,
+        string reason, DateTimeOffset at, GraphOperationKey? key, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(successor);
+        ArgumentNullException.ThrowIfNull(predecessors);
+        ct.ThrowIfCancellationRequested();
+        lock (_lock)
+        {
+            var change = _graph.PlanSupersedeWith(successor, predecessors, reason, at, key, out var result);
             _graph.Apply(change);
             return Task.FromResult(result);
         }

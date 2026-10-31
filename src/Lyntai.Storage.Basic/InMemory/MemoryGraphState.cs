@@ -431,6 +431,73 @@ internal sealed class MemoryGraphState(Func<DateTimeOffset> clock)
         return change;
     }
 
+    /// <summary>Store a successor and end every predecessor by it, as ONE change: the successor's upsert, each predecessor's end and
+    /// the key's receipt, or nothing at all. Each predecessor is judged as <see cref="PlanEnd"/> judges one — missing, changed,
+    /// refused — plus a successor that would start before it began. A change comes back only when every predecessor ends, so the
+    /// caller applies (or journals) all of it or none, and a stale revision leaves the successor absent and the position where it was.</summary>
+    public GraphChange PlanSupersedeWith(GraphNodeWrite successor, IReadOnlyList<GraphPredecessor> predecessors, string reason,
+        DateTimeOffset at, GraphOperationKey? key, out GraphSupersedeResult result)
+    {
+        var engine = successor.Engine;
+        if (key is not null && Replay(engine, key) is { } held)
+        {
+            result = new GraphSupersedeResult(true, held.NodeId, held.Revision,
+                [.. predecessors.Select(p => _nodes.TryGetValue(p.Id, out var row) && row.Record.Engine == engine
+                    ? new GraphPredecessorResult(p.Id, row.Record.SupersededBy == held.NodeId ? GraphPredecessorStanding.Ended
+                        : GraphPredecessorStanding.Changed, row.Record.Revision)
+                    : new GraphPredecessorResult(p.Id, GraphPredecessorStanding.Missing, null))], true, held);
+            return new GraphChange();
+        }
+
+        var change = PlanUpsert(successor);
+        var (_, after) = change.Nodes[0];
+        var start = after.Record.ValidFrom ?? Utc(at)!.Value;
+        var results = new List<GraphPredecessorResult>(predecessors.Count);
+        var ended = new List<(GraphRow? Before, GraphRow After)>();
+        foreach (var p in predecessors)
+        {
+            if (!_nodes.TryGetValue(p.Id, out var row) || row.Record.Engine != engine)
+            {
+                results.Add(new GraphPredecessorResult(p.Id, GraphPredecessorStanding.Missing, null));
+                continue;
+            }
+            var held2 = row.Record;
+            var standing =
+                p.ExpectedRevision != held2.Revision || held2.EndedReason is not null ? GraphPredecessorStanding.Changed
+                : p.Id == after.Id || (held2.SupersededBy is { } existing && existing != after.Id && _nodes.ContainsKey(existing))
+                    || (held2.ValidFrom is { } began && start < began) ? GraphPredecessorStanding.Refused
+                : GraphPredecessorStanding.Ended;
+            results.Add(new GraphPredecessorResult(p.Id, standing, held2.Revision));
+            if (standing == GraphPredecessorStanding.Ended)
+                ended.Add((row, row with
+                {
+                    Record = held2 with
+                    {
+                        EndedReason = reason, SupersededBy = after.Id, SupersededAt = start, Revision = held2.Revision + 1,
+                    },
+                }));
+        }
+
+        if (results.Any(r => r.Standing != GraphPredecessorStanding.Ended))
+        {
+            result = new GraphSupersedeResult(false, null, null,
+                [.. results.Select(r => r.Standing == GraphPredecessorStanding.Ended ? r with { Standing = GraphPredecessorStanding.Unmoved } : r)],
+                false, null);
+            return new GraphChange();
+        }
+
+        change.Nodes.AddRange(ended);
+        results = [.. results.Select((r, i) => r with { Revision = ended[i].After.Record.Revision })];
+        GraphReceipt? receipt = null;
+        if (key is not null)
+        {
+            PlanPurge(engine, key.At, change);
+            receipt = Stamp(change, engine, key, after.Id, after.Record.Revision, MemoryOperationOutcome.Applied);
+        }
+        result = new GraphSupersedeResult(true, after.Id, after.Record.Revision, results, false, receipt);
+        return change;
+    }
+
     /// <summary>The entries that carry a re-check, are valid at <paramref name="now"/>, and were last confirmed before
     /// <paramref name="since"/> or never — never-confirmed first, then longest unconfirmed.</summary>
     public IReadOnlyList<GraphNode> Due(string engine, string taskKey, string? scope, DateTimeOffset since,

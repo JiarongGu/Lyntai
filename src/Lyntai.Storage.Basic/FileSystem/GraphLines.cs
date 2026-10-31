@@ -21,6 +21,13 @@ internal sealed record ReviewLine(MemoryReview Review) : GraphLine;
 
 internal sealed record ReceiptLine(string Engine, GraphReceipt Receipt) : GraphLine;
 
+/// <summary>An entry ended by a supersession: the end fields of its memory file and the revision they carry. Journaled only inside a
+/// <see cref="BatchLine"/>, so a restart can finish the memory-file write a crash cut short.</summary>
+internal sealed record EndedLine(long Id, string Reason, long? By, DateTimeOffset At, long Revision) : GraphLine;
+
+/// <summary>Lines that commit together: ONE journal line, so a torn tail is cut whole and a restart sees all of them or none.</summary>
+internal sealed record BatchLine(IReadOnlyList<(GraphLine Line, string Raw)> Lines) : GraphLine;
+
 /// <summary>
 /// One JSON object per line for the graph store's journals. Each record line ASSIGNS the full state of one
 /// record, so a journal is replayed by keeping the last line per record. Doubles round-trip exactly; a
@@ -106,6 +113,23 @@ internal static class GraphLines
         Time(w, "expires", r.ExpiresAt);
     });
 
+    public static string Ended(long id, string reason, long? by, DateTimeOffset at, long revision) => Encode(w =>
+    {
+        w.WriteNumber("ended", id);
+        w.WriteString("reason", reason);
+        if (by is { } successor) w.WriteNumber("by", successor); else w.WriteNull("by");
+        Time(w, "at", at);
+        w.WriteNumber("revision", revision);
+    });
+
+    /// <summary>The lines of one commit as a single line; each is written as the JSON it already is.</summary>
+    public static string Batch(IEnumerable<string> lines) => Encode(w =>
+    {
+        w.WriteStartArray("commit");
+        foreach (var line in lines) w.WriteRawValue(line);
+        w.WriteEndArray();
+    });
+
     public static string Review(MemoryReview r) => Encode(w =>
     {
         w.WriteNumber("review", r.Id);
@@ -133,6 +157,11 @@ internal static class GraphLines
             if (e.ValueKind != JsonValueKind.Object) throw new FormatException("a graph line is a JSON object");
             if (e.TryGetProperty("lyntai", out var schema))
                 return new HeaderLine(schema.GetInt64(), OptionalString(e, "engine"), e.TryGetProperty("ids", out var ids) ? ids.GetInt64() : 0);
+            if (e.TryGetProperty("commit", out var batch))
+                return new BatchLine([.. batch.EnumerateArray().Select(inner => (Parse(inner), inner.GetRawText()))]);
+            if (e.TryGetProperty("ended", out var endedId))
+                return new EndedLine(endedId.GetInt64(), e.GetProperty("reason").GetString()!,
+                    e.GetProperty("by").ValueKind == JsonValueKind.Null ? null : Long(e, "by"), Time(e, "at"), Long(e, "revision"));
             if (e.TryGetProperty("receipt", out var receiptKey))
                 return new ReceiptLine(e.GetProperty("engine").GetString()!, new GraphReceipt(receiptKey.GetString()!,
                     e.GetProperty("task").GetString()!, (MemoryOperationKind)Long(e, "kind"), e.GetProperty("fingerprint").GetString()!,

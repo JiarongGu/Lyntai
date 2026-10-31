@@ -2676,6 +2676,157 @@ public static class MemoryGraphStoreContract
         Assert.Single(await store.SeedAsync(engine, key, "s", null, 10));
     }
 
+    // ---- a supersession applied as one change (docs/DECISIONS.md D242) --------------------------------------------
+
+    private static async Task<long> Revision(IMemoryGraphStore store, string engine, long id) =>
+        (await store.GetAsync(engine, id))!.Revision!.Value;
+
+    /// <summary><b>One call stores the successor and ends every predecessor, each guarded by the revision read</b>: afterwards the
+    /// successor is current, every predecessor is ended by it with the reason, and none of their decay state moved.</summary>
+    public static async Task A_supersession_stores_the_successor_and_ends_every_predecessor(IMemoryGraphStore store, string key)
+    {
+        var atomic = Assert.IsAssignableFrom<ISupersedingMemoryGraphStore>(store);
+        const string engine = "tv-atomic";
+        var paris = await store.UpsertAsync(Write(engine, key, "lives in Paris") with { ValidFrom = Jan });
+        var london = await store.UpsertAsync(Write(engine, key, "works in London") with { ValidFrom = Jan });
+        var before = (await store.GetAsync(engine, paris))!;
+
+        var result = await atomic.SupersedeWithAsync(Write(engine, key, "lives and works in Rome") with { ValidFrom = Mar },
+            [new GraphPredecessor(paris, await Revision(store, engine, paris)), new GraphPredecessor(london, await Revision(store, engine, london))],
+            "relocated", Mar, null);
+
+        Assert.True(result.Applied);
+        Assert.All(result.Predecessors, p => Assert.Equal(GraphPredecessorStanding.Ended, p.Standing));
+        var rome = (await store.GetAsync(engine, result.SuccessorId!.Value))!;
+        Assert.Equal((Mar, null, result.SuccessorRevision), (rome.ValidFrom, rome.EndedReason, rome.Revision));
+        foreach (var id in new[] { paris, london })
+        {
+            var ended = (await store.GetAsync(engine, id))!;
+            Assert.Equal(("relocated", rome.Id, Mar), (ended.EndedReason, ended.SupersededBy, ended.SupersededAt));
+            Assert.Equal(result.Predecessors.Single(p => p.Id == id).Revision, ended.Revision);
+        }
+        var after = (await store.GetAsync(engine, paris))!;
+        Assert.Equal((before.Stability, before.RecallCount, before.Content), (after.Stability, after.RecallCount, after.Content));
+        Assert.Null(result.Receipt);
+    }
+
+    /// <summary><b>One stale revision stores nothing</b>: the successor is absent, no predecessor is ended, the engine's position is
+    /// where it was, and the result says which predecessors moved and their revisions.</summary>
+    public static async Task One_stale_predecessor_stores_nothing_and_says_which_moved(IMemoryGraphStore store, string key)
+    {
+        var atomic = Assert.IsAssignableFrom<ISupersedingMemoryGraphStore>(store);
+        const string engine = "tv-atomic-stale";
+        var fresh = await store.UpsertAsync(Write(engine, key, "lives in Paris") with { ValidFrom = Jan });
+        var stale = await store.UpsertAsync(Write(engine, key, "works in London") with { ValidFrom = Jan });
+        var reviewed = await Revision(store, engine, stale);
+        await store.UpsertAsync(Write(engine, key, "works in London") with { Headline = "reworded since the review" });
+        var current = await Revision(store, engine, stale);
+        var probeAge = (await store.GetAsync(engine, fresh))!.OrdinalAge;
+        var op = Op("atomic-stale", key, MemoryOperationKind.Supersede, "fp-s", Jun);
+
+        var result = await atomic.SupersedeWithAsync(Write(engine, key, "lives and works in Rome") with { ValidFrom = Mar },
+            [new GraphPredecessor(fresh, await Revision(store, engine, fresh)), new GraphPredecessor(stale, reviewed)], "relocated", Mar, op);
+
+        Assert.False(result.Applied);
+        Assert.Null(result.SuccessorId);
+        Assert.Null(result.Receipt);
+        Assert.Equal([(fresh, GraphPredecessorStanding.Unmoved), (stale, GraphPredecessorStanding.Changed)],
+            result.Predecessors.Select(p => (p.Id, p.Standing)));
+        Assert.Equal(current, result.Predecessors.Single(p => p.Id == stale).Revision);
+        Assert.Equal(2, (await store.SeedAsync(engine, key, "s", null, 10)).Count);
+        Assert.All(await store.SeedAsync(engine, key, "s", null, 10), n => Assert.Null(n.EndedReason));
+        Assert.Equal(probeAge, (await store.GetAsync(engine, fresh))!.OrdinalAge);
+        Assert.Null(await atomic.ReceiptAsync(engine, key, "atomic-stale", Jun));   // nothing took effect, so the key is still free
+    }
+
+    /// <summary><b>A repeat with the key answers that it applied, naming the successor, and changes nothing</b> — though every
+    /// revision the repeat carries is stale by then, and the same call without the key would be refused.</summary>
+    public static async Task A_keyed_supersession_repeated_answers_the_receipt_naming_the_successor(IMemoryGraphStore store, string key)
+    {
+        var atomic = Assert.IsAssignableFrom<ISupersedingMemoryGraphStore>(store);
+        const string engine = "tv-atomic-key";
+        var paris = await store.UpsertAsync(Write(engine, key, "lives in Paris") with { ValidFrom = Jan });
+        var reviewed = await Revision(store, engine, paris);
+        var op = Op("atomic-1", key, MemoryOperationKind.Supersede, "fp-s", Jun);
+        var successor = Write(engine, key, "lives in Rome") with { ValidFrom = Mar };
+
+        var first = await atomic.SupersedeWithAsync(successor, [new GraphPredecessor(paris, reviewed)], "moved", Mar, op);
+        var rome = (await store.GetAsync(engine, first.SuccessorId!.Value))!;
+        var again = await atomic.SupersedeWithAsync(successor, [new GraphPredecessor(paris, reviewed)], "moved", Mar,
+            op with { At = Jun.AddDays(1) });
+
+        Assert.True(first.Applied);
+        Assert.Equal((MemoryOperationKind.Supersede, rome.Id, MemoryOperationOutcome.Applied),
+            (first.Receipt!.Kind, first.Receipt.NodeId, first.Receipt.Outcome));
+        Assert.True(again.Applied);
+        Assert.True(again.Replayed);
+        Assert.Equal((rome.Id, first.SuccessorRevision), (again.SuccessorId, again.SuccessorRevision));
+        Assert.Equal(GraphPredecessorStanding.Ended, again.Predecessors.Single().Standing);
+        Assert.Equal(rome.Revision, (await store.GetAsync(engine, rome.Id))!.Revision);
+        Assert.Equal(2, (await store.SeedAsync(engine, key, "s", null, 10)).Count);
+
+        var unkeyed = await atomic.SupersedeWithAsync(successor, [new GraphPredecessor(paris, reviewed)], "moved", Mar, null);
+        Assert.False(unkeyed.Applied);
+        Assert.Equal(GraphPredecessorStanding.Changed, unkeyed.Predecessors.Single().Standing);
+
+        await Assert.ThrowsAsync<MemoryKeyConflictException>(() => atomic.SupersedeWithAsync(
+            Write(engine, key, "lives in Oslo") with { ValidFrom = Mar }, [new GraphPredecessor(paris, reviewed)], "moved", Mar,
+            op with { Fingerprint = "another call" }));
+    }
+
+    /// <summary><b>A predecessor with a different live successor, a missing one, one the successor would precede, and the successor
+    /// itself are each refused whole</b>: nothing is stored.</summary>
+    public static async Task A_supersession_refuses_what_an_end_refuses(IMemoryGraphStore store, string key)
+    {
+        var atomic = Assert.IsAssignableFrom<ISupersedingMemoryGraphStore>(store);
+        const string engine = "tv-atomic-refuse";
+        var paris = await store.UpsertAsync(Write(engine, key, "lives in Paris") with { ValidFrom = Jan });
+        var london = await store.UpsertAsync(Write(engine, key, "works in London") with { ValidFrom = Mar });
+        var first = await atomic.SupersedeWithAsync(Write(engine, key, "lives in Rome") with { ValidFrom = Mar },
+            [new GraphPredecessor(paris, await Revision(store, engine, paris))], "moved", Mar, null);
+        Assert.True(first.Applied);
+        var count = (await store.SeedAsync(engine, key, "s", null, 10)).Count;
+
+        // paris already has a different live successor (and a revision that moved with the end)
+        var taken = await atomic.SupersedeWithAsync(Write(engine, key, "lives in Oslo") with { ValidFrom = Jun },
+            [new GraphPredecessor(paris, await Revision(store, engine, paris))], "moved again", Jun, null);
+        Assert.Equal(GraphPredecessorStanding.Changed, taken.Predecessors.Single().Standing);
+
+        // a missing entry, and one the successor would start before
+        var early = await atomic.SupersedeWithAsync(Write(engine, key, "works in Madrid") with { ValidFrom = Jan },
+            [new GraphPredecessor(london, await Revision(store, engine, london)), new GraphPredecessor(987654, 0)], "moved", Jan, null);
+        Assert.False(early.Applied);
+        Assert.Equal([GraphPredecessorStanding.Refused, GraphPredecessorStanding.Missing], early.Predecessors.Select(p => p.Standing));
+        Assert.Equal(count, (await store.SeedAsync(engine, key, "s", null, 10)).Count);
+
+        // the successor is not its own predecessor
+        var self = Write(engine, key, "lives in Rome") with { ValidFrom = Mar };
+        var romeId = first.SuccessorId!.Value;
+        var itself = await atomic.SupersedeWithAsync(self, [new GraphPredecessor(romeId, await Revision(store, engine, romeId))], "x", Mar, null);
+        Assert.False(itself.Applied);
+        // refused where a refresh moves no revision, changed where it does (a SQL refresh advances it): never ended
+        Assert.NotEqual(GraphPredecessorStanding.Ended, itself.Predecessors.Single().Standing);
+        Assert.Null((await store.GetAsync(engine, romeId))!.EndedReason);
+    }
+
+    /// <summary><b>Racing keyed supersessions land once</b>: one applies, the rest answer its receipt.</summary>
+    public static async Task Racing_keyed_supersessions_land_once(IMemoryGraphStore store, string key)
+    {
+        var atomic = Assert.IsAssignableFrom<ISupersedingMemoryGraphStore>(store);
+        const string engine = "tv-atomic-race";
+        var paris = await store.UpsertAsync(Write(engine, key, "lives in Paris") with { ValidFrom = Jan });
+        var reviewed = await Revision(store, engine, paris);
+        var op = Op("atomic-race", key, MemoryOperationKind.Supersede, "fp-s", Jun);
+
+        var results = await Task.WhenAll(Enumerable.Range(0, 6).Select(_ => atomic.SupersedeWithAsync(
+            Write(engine, key, "lives in Rome") with { ValidFrom = Mar }, [new GraphPredecessor(paris, reviewed)], "moved", Mar, op)));
+
+        Assert.All(results, r => Assert.True(r.Applied));
+        Assert.Single(results, r => !r.Replayed);
+        Assert.Single(results.Select(r => r.SuccessorId).Distinct());
+        Assert.Equal(2, (await store.SeedAsync(engine, key, "s", null, 10)).Count);
+    }
+
     /// <summary><b>Removing an entry removes the receipts that concern it</b>: a receipt must not answer with a reference to nothing.</summary>
     public static async Task Removing_an_entry_removes_its_receipts(IMemoryGraphStore store, string key)
     {

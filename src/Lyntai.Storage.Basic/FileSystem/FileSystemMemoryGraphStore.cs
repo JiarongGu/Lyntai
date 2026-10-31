@@ -15,7 +15,7 @@ namespace Lyntai.Storage.FileSystem;
 /// </summary>
 internal sealed class FileSystemMemoryGraphStore(FileSystemRoot root, Func<DateTimeOffset>? clock = null,
     int compactionFloor = 4096) : ICountableMemoryGraphStore, IPortableMemoryGraphStore, IConfirmableMemoryGraphStore,
-    ITypedLinkMemoryGraphStore, IKeyedMemoryGraphStore
+    ITypedLinkMemoryGraphStore, ISupersedingMemoryGraphStore
 {
     private const string StateDirectory = "state";
 
@@ -54,6 +54,7 @@ internal sealed class FileSystemMemoryGraphStore(FileSystemRoot root, Func<DateT
         var subjects = new Dictionary<(string, long), (SubjectsLine Line, string Raw, EngineFiles Files)>();
         var reviews = new Dictionary<long, MemoryReview>();
         var receipts = new Dictionary<(string, string, string), (string Engine, GraphReceipt Receipt)>();
+        var ends = new Dictionary<long, EndedLine>();
         var records = new List<(GraphNodeRecord Record, string File, EngineFiles Files)>();
         var onDisk = new HashSet<long>();
         long highWater = 0, reviewHighWater = 0;
@@ -63,7 +64,8 @@ internal sealed class FileSystemMemoryGraphStore(FileSystemRoot root, Func<DateT
             {
                 var files = Files(dir);
                 var keys = new HashSet<string>(StringComparer.Ordinal);
-                files.Journal.Load((line, raw) =>
+                Action<GraphLine, string> take = null!;
+                take = (line, raw) =>
                 {
                     switch (line)
                     {
@@ -75,8 +77,17 @@ internal sealed class FileSystemMemoryGraphStore(FileSystemRoot root, Func<DateT
                             receipts[(r.Engine, r.Receipt.TaskKey, r.Receipt.Key)] = (r.Engine, r.Receipt);
                             keys.Add($"r{r.Engine}\n{r.Receipt.TaskKey}\n{r.Receipt.Key}");
                             break;
+                        // a supersession's lines are ONE journal line: read as the lines it holds, or not at all
+                        case BatchLine b:
+                            foreach (var (inner, innerRaw) in b.Lines) take(inner, innerRaw);
+                            break;
+                        case EndedLine x:
+                            if (!ends.TryGetValue(x.Id, out var seen) || seen.Revision < x.Revision) ends[x.Id] = x;
+                            keys.Add("x" + x.Id);
+                            break;
                     }
-                });
+                };
+                files.Journal.Load(take);
                 files.Journal.Baseline = keys.Count;
                 files.Reviews.Load((line, _) =>
                 {
@@ -106,6 +117,13 @@ internal sealed class FileSystemMemoryGraphStore(FileSystemRoot root, Func<DateT
             {
                 root.Logger.LogWarning("skipping {File}: its engine's journal holds no state for memory {Id}", file, record.Id);
                 continue;
+            }
+            // a supersession committed to the journal whose memory file a crash left behind: the journal line is the newer
+            // truth, and the file is rewritten below
+            if (ends.TryGetValue(record.Id, out var end) && end.Revision > record.Revision)
+            {
+                record = record with { EndedReason = end.Reason, SupersededBy = end.By, SupersededAt = end.At.ToUniversalTime(), Revision = end.Revision };
+                _stale.Add(record.Id);
             }
             restore.Nodes.Add((null, new GraphRow(record, state.Line.State)));
             _files[record.Id] = [.. group.Select(r => r.File).Order(StringComparer.Ordinal)];
@@ -137,6 +155,28 @@ internal sealed class FileSystemMemoryGraphStore(FileSystemRoot root, Func<DateT
             if (files.Engine is { } engine) _byEngine.TryAdd(engine, files);
         }
         _loaded = true;
+        FlushStale();
+    }
+
+    // Memory files that lag the graph: a supersession is committed by ONE journal line and its predecessors' files are rewritten
+    // after it, so a file write that failed (or a crash before it) leaves the file behind the journal until this catches it up.
+    private readonly HashSet<long> _stale = [];
+
+    private void FlushStale()
+    {
+        foreach (var id in _stale.ToList())
+        {
+            if (_graph.Row(id) is not { } row || !_files.TryGetValue(id, out var names)) { _stale.Remove(id); continue; }
+            try
+            {
+                root.Write(names[^1], MemoryFile(row.Record));
+                _stale.Remove(id);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                root.Logger.LogWarning(ex, "could not rewrite the memory file of {Id}; its supersession stands in the journal and is retried", id);
+            }
+        }
     }
 
     // An orphan is worth keeping only while a memory file it belongs to exists but cannot be read.
@@ -200,7 +240,7 @@ internal sealed class FileSystemMemoryGraphStore(FileSystemRoot root, Func<DateT
     // Each line goes to the journal of the engine that OWNS the record — a memory and its outgoing edges to the
     // memory's engine, totals and subjects to the calling engine — so compacting one engine re-emits exactly
     // what its journal holds.
-    private List<EngineFiles> Journal(GraphChange change, string engine)
+    private List<EngineFiles> Journal(GraphChange change, string engine, bool atomic = false)
     {
         var batches = new Dictionary<EngineFiles, List<string>>();
         void Add(string owner, string line)
@@ -216,7 +256,13 @@ internal sealed class FileSystemMemoryGraphStore(FileSystemRoot root, Func<DateT
         foreach (var (e, id, subjects) in change.Subjects) Add(e, GraphLines.Subjects(e, id, subjects));
         // the receipt is the LAST line of the append: a torn tail cuts it first, so it never outlives the effect lines before it
         foreach (var (e, receipt) in change.Receipts) Add(e, GraphLines.Receipt(e, receipt));
-        foreach (var (files, lines) in batches) files.Journal.Append(lines, files.Engine!, _graph.NextId - 1);
+        // a supersession commits as ONE line: the successor, the ends and the receipt are read together or not at all
+        if (atomic)
+            foreach (var (_, row) in change.Nodes.Skip(1))
+                Add(row.Record.Engine, GraphLines.Ended(row.Id, row.Record.EndedReason!, row.Record.SupersededBy, row.Record.SupersededAt!.Value,
+                    row.Record.Revision));
+        foreach (var (files, lines) in batches)
+            files.Journal.Append(atomic ? [GraphLines.Batch(lines)] : lines, files.Engine!, _graph.NextId - 1);
         return [.. batches.Keys];
     }
 
@@ -249,6 +295,9 @@ internal sealed class FileSystemMemoryGraphStore(FileSystemRoot root, Func<DateT
         lines.AddRange(rows.SelectMany(r => _graph.EdgesFrom(r.Id)).Select(e => GraphLines.Edge(e.Key, e.Edge)));
         lines.AddRange(_graph.SubjectSets.Where(s => s.Engine == engine).Select(s => GraphLines.Subjects(s.Engine, s.NodeId, s.Subjects)));
         lines.AddRange(_graph.ReceiptsOf(engine).Select(r => GraphLines.Receipt(r.Engine, r.Receipt)));
+        // a memory file still behind the graph keeps the line that lets a restart catch it up
+        lines.AddRange(_stale.Select(_graph.Row).OfType<GraphRow>().Where(r => r.Record.Engine == engine && r.Record.EndedReason is not null)
+            .Select(r => GraphLines.Ended(r.Id, r.Record.EndedReason!, r.Record.SupersededBy, r.Record.SupersededAt ?? DateTimeOffset.UnixEpoch, r.Record.Revision)));
         files.Orphans.RemoveAll(o => !Keeps(o.Ids));
         lines.AddRange(files.Orphans.Select(o => o.Line));
         files.Journal.Rewrite(lines, engine, _graph.NextId - 1);
@@ -318,6 +367,48 @@ internal sealed class FileSystemMemoryGraphStore(FileSystemRoot root, Func<DateT
             Load();
             var change = _graph.PlanUpsertKeyed(write, key, out var result);
             if (change.Nodes.Count > 0) WriteUpsert(change, write.Engine);
+            return Task.FromResult(result);
+        }
+    }
+
+    public Task<GraphSupersedeResult> SupersedeWithAsync(GraphNodeWrite successor, IReadOnlyList<GraphPredecessor> predecessors,
+        string reason, DateTimeOffset at, GraphOperationKey? key, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(successor);
+        ArgumentNullException.ThrowIfNull(predecessors);
+        ct.ThrowIfCancellationRequested();
+        lock (_lock)
+        {
+            Load();
+            var change = _graph.PlanSupersedeWith(successor, predecessors, reason, at, key, out var result);
+            if (change.Nodes.Count == 0) return Task.FromResult(result);   // answered by a receipt, or not applied
+
+            var (before, after) = change.Nodes[0];
+            var file = before is null
+                ? Path.Combine(FilesOf(after.Record.Engine).Directory, RecordName.For(after.Record.TaskKey),
+                    RecordName.For(after.Record.Scope), FileSystemRoot.IdFile(after.Id))
+                : _files[after.Id][^1];
+            List<EngineFiles> journaled;
+            try
+            {
+                // The successor's file first: without journal state it is unreachable, so it cannot outrun the commit. The commit is
+                // ONE journal line holding the successor, every end and the receipt — a crash tears it whole, and a restart sees
+                // the supersession entirely or not at all.
+                if (before is null || !MemoryGraphState.SameRecord(before.Record, after.Record))
+                    root.Write(file, MemoryFile(after.Record));
+                journaled = Journal(change, successor.Engine, atomic: true);
+            }
+            catch when (before is null)
+            {
+                _graph.Reserve(after.Id, 0);
+                throw;
+            }
+            if (before is null) _files[after.Id] = [file];
+            _graph.Apply(change);
+            // past the commit: the predecessors' files catch up now, or at the next write, or at the next start
+            foreach (var (_, ended) in change.Nodes.Skip(1)) _stale.Add(ended.Id);
+            FlushStale();
+            foreach (var files in journaled.Where(f => f.Journal.NeedsCompaction)) Compact(files);
             return Task.FromResult(result);
         }
     }

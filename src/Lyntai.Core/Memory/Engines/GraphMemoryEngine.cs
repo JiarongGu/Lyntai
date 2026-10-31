@@ -41,7 +41,7 @@ public sealed class GraphMemoryEngine(
     ILogger<GraphMemoryEngine>? logger = null)
     : IMemoryEngine, IExpandableMemory, ITaskExpandableMemory, ILinkableMemory, IForgettableMemory, IPrunableMemory,
         IReindexableMemory, IPortableMemory, ITemporalMemory, IEndableMemory, IMemoryCandidates, IRelatableMemory, IConfirmableMemory,
-        IKeyedMemory
+        IKeyedMemory, ISupersedingMemory
 {
     private readonly GraphMemoryOptions _options = options ?? new GraphMemoryOptions();
     private readonly IMemoryRetrievabilityPolicy _policy =
@@ -265,6 +265,43 @@ public sealed class GraphMemoryEngine(
         var call = await KeyedRememberAsync(write, ct).ConfigureAwait(false);
         if (call.Replay is { } repeat) return repeat;
 
+        var prepared = await PrepareAsync(write, predecessors.Count > 0 ? _clock() : null, ct).ConfigureAwait(false);
+        var (node, search, annotated, answered) = (prepared.Node, prepared.Search, prepared.Annotation, prepared.Answered);
+        long id;
+        MemoryReceipt? receipt = null;
+        if (call.Store is { } keyedStore)
+        {
+            var keyed = await keyedStore.UpsertKeyedAsync(node, call.Key!, ct).ConfigureAwait(false);
+            // a racing repeat found the key answered inside the store's own transaction, so nothing was applied here
+            if (keyed.Replayed) return ReplayedWrite(keyed.Receipt!);
+            (id, receipt) = (keyed.Value, ToReceipt(keyed.Receipt!, false));
+        }
+        else
+            id = await store.UpsertAsync(node, ct).ConfigureAwait(false);
+
+        if (predecessors.Count > 0)
+            await EndPredecessorsAsync(id, predecessors, write.ValidFrom is not null, ct).ConfigureAwait(false);
+        foreach (var (other, kind) in relations)
+            await store.LinkAsync(Name, id, other, kind, 1, false, ct).ConfigureAwait(false);
+
+        var indexed = await EnrichAsync(id, write, search, ct).ConfigureAwait(false);
+        var recorded = await LinkBySubjectAsync(id, write, annotated, ct).ConfigureAwait(false);
+        return new MemoryWriteResult(new MemoryRef(Name, id.ToString(CultureInfo.InvariantCulture)),
+            MemorySources.Graph
+            | (indexed ? MemorySources.Similarity : MemorySources.None)
+            | (answered && recorded ? MemorySources.Annotation : MemorySources.None))
+        { Receipt = receipt };
+    }
+
+    /// <summary>What a write becomes before it is stored: the embed and the similarity search, the annotation, the resolved grade and
+    /// headline, the age tick and the salience signals — everything costly or model-made, done BEFORE the store call so a refused
+    /// or repeated write has paid for none of it. Shared by a remember and a supersession, which store the same node.</summary>
+    /// <param name="write">The write.</param>
+    /// <param name="startIfUnset">A start to give an entry that holds none, for a write that supersedes.</param>
+    /// <param name="ct">Cancellation.</param>
+    private async Task<(GraphNodeWrite Node, (float[] Vector, IReadOnlyList<VectorMatch> Near)? Search, MemoryAnnotation Annotation, bool Answered)>
+        PrepareAsync(MemoryWrite write, DateTimeOffset? startIfUnset, CancellationToken ct)
+    {
         // ONE embed, ONE similarity search, shared between salience judgement (which needs the comparison before
         // the node has an id) and EnrichAsync below (linking + indexing, which needs it after). Without a
         // vector store there is nothing to compare against, so nothing is judged or linked — the honest
@@ -310,33 +347,11 @@ public sealed class GraphMemoryEngine(
             ValidFrom = write.ValidFrom, ValidTo = write.ValidTo,
             // a write that supersedes starts when it is written unless it says otherwise — and only where it holds
             // no start already, so repeating the same write does not move it
-            ValidFromIfUnset = predecessors.Count > 0 ? _clock() : null,
+            ValidFromIfUnset = startIfUnset,
             Recheck = write.Recheck,
         };
-        long id;
-        MemoryReceipt? receipt = null;
-        if (call.Store is { } keyedStore)
-        {
-            var keyed = await keyedStore.UpsertKeyedAsync(node, call.Key!, ct).ConfigureAwait(false);
-            // a racing repeat found the key answered inside the store's own transaction, so nothing was applied here
-            if (keyed.Replayed) return ReplayedWrite(keyed.Receipt!);
-            (id, receipt) = (keyed.Value, ToReceipt(keyed.Receipt!, false));
-        }
-        else
-            id = await store.UpsertAsync(node, ct).ConfigureAwait(false);
 
-        if (predecessors.Count > 0)
-            await SupersedeAsync(id, predecessors, write.ValidFrom is not null, ct).ConfigureAwait(false);
-        foreach (var (other, kind) in relations)
-            await store.LinkAsync(Name, id, other, kind, 1, false, ct).ConfigureAwait(false);
-
-        var indexed = await EnrichAsync(id, write, search, ct).ConfigureAwait(false);
-        var recorded = await LinkBySubjectAsync(id, write, annotated, ct).ConfigureAwait(false);
-        return new MemoryWriteResult(new MemoryRef(Name, id.ToString(CultureInfo.InvariantCulture)),
-            MemorySources.Graph
-            | (indexed ? MemorySources.Similarity : MemorySources.None)
-            | (answered && recorded ? MemorySources.Annotation : MemorySources.None))
-        { Receipt = receipt };
+        return (node, search, annotated, answered);
     }
 
     /// <summary>What a write states about valid time, checked and resolved before anything is written: the entries it
@@ -404,7 +419,7 @@ public sealed class GraphMemoryEngine(
     /// <summary>End each predecessor at the successor's own start, read back so a start the entry already held is the
     /// one used. Surfaces a failure like the write it belongs to: the successor is stored by now, and a caller told
     /// nothing would believe the old entry ended.</summary>
-    private async Task SupersedeAsync(long successor, IReadOnlyList<long> predecessors, bool startStated,
+    private async Task EndPredecessorsAsync(long successor, IReadOnlyList<long> predecessors, bool startStated,
         CancellationToken ct)
     {
         var temporal = (ITemporalMemoryGraphStore)store;   // ResolvePredecessorsAsync refused any other
@@ -536,7 +551,7 @@ public sealed class GraphMemoryEngine(
         if (write.Supersedes is { Count: > 0 } || write.Disputes is { Count: > 0 } || write.Amends is { Count: > 0 })
             throw new ArgumentException(
                 "A keyed write states no supersession or relation: each is its own call with its own receipt — " +
-                $"SupersedeAsync and {nameof(IKeyedMemory.RelateKeyedAsync)}. Nothing was written.", nameof(write));
+                $"{nameof(ISupersedingMemory.SupersedeAsync)} and {nameof(IKeyedMemory.RelateKeyedAsync)}. Nothing was written.", nameof(write));
         var (keyed, key) = Keyed(new KeyedCall(operationKey, MemoryOperationKind.Remember, MemoryFingerprint.Of(
             MemoryOperationKind.Remember, Name, write.TaskKey, write.Scope, write.Content, write.Headline, write.Grade,
             MemoryFingerprint.Bag(write.Metadata), write.ValidFrom, write.ValidTo, write.Recheck)), write.TaskKey);
@@ -545,6 +560,119 @@ public sealed class GraphMemoryEngine(
         if (held.Kind != key.Kind || !string.Equals(held.Fingerprint, key.Fingerprint, StringComparison.Ordinal))
             throw new MemoryKeyConflictException(operationKey, write.TaskKey, held.Kind);
         return (keyed, key, ReplayedWrite(held));
+    }
+
+    /// <inheritdoc />
+    public bool HoldsSupersession => store is ISupersedingMemoryGraphStore;
+
+    /// <inheritdoc />
+    /// <remarks>The embed and the annotation precede the store's one transaction; the similarity index and the subject links follow it
+    /// and are best-effort, as a remember's are. A store that cannot make the pair atomic refuses — this never stores then ends.</remarks>
+    public async Task<MemorySupersessionResult> SupersedeAsync(MemorySupersession supersession, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(supersession);
+        ArgumentNullException.ThrowIfNull(supersession.Successor);
+        ArgumentNullException.ThrowIfNull(supersession.Predecessors);
+        ct.ThrowIfCancellationRequested();
+        var write = supersession.Successor;
+        if (store is not ISupersedingMemoryGraphStore atomic)
+            throw new NotSupportedException(
+                $"Memory engine '{Name}' cannot apply a supersession as one change: its store ({store.GetType().Name}) does not implement " +
+                $"{nameof(ISupersedingMemoryGraphStore)}, and storing the successor then ending the predecessors would leave a window in which " +
+                "both are current. Nothing was written.");
+        if (string.IsNullOrWhiteSpace(supersession.Reason))
+            throw new ArgumentException("A supersession states why: the reason is required.", nameof(supersession));
+        if (supersession.Predecessors.Count == 0)
+            throw new ArgumentException("A supersession names at least one predecessor.", nameof(supersession));
+        if (write.Supersedes is not null || write.Disputes is not null || write.Amends is not null || write.OperationKey is not null)
+            throw new ArgumentException(
+                "The successor states no supersession, relation or key of its own: the predecessors and the key belong to the " +
+                $"{nameof(MemorySupersession)}. Nothing was written.", nameof(supersession));
+
+        var expected = new Dictionary<long, long>();
+        foreach (var named in supersession.Predecessors)
+        {
+            if (!long.TryParse(named.ExpectedRevision, NumberStyles.Integer, CultureInfo.InvariantCulture, out var revision))
+                throw new ArgumentException("The expected revision is not one this engine issued.", nameof(supersession));
+            if (!Owns(named.Entry) || !long.TryParse(named.Entry.Id, NumberStyles.Integer, CultureInfo.InvariantCulture, out var id))
+                throw new ArgumentException(
+                    $"Memory engine '{Name}' supersedes only its own entries, which it addresses by numeric id; got '{named.Entry.Engine}' " +
+                    $"'{named.Entry.Id}'.", nameof(supersession));
+            expected[id] = revision;
+        }
+        // the refusals a stated supersession gives, before any embed: another task, a missing or self entry, a bound reversed, an entry
+        // that already has a different live successor
+        var ids = await ResolvePredecessorsAsync(write with { Supersedes = [.. supersession.Predecessors.Select(p => p.Entry)] }, ct)
+            .ConfigureAwait(false);
+        CheckRecheck(write);
+
+        GraphOperationKey? key = null;
+        if (supersession.OperationKey is { } operationKey)
+        {
+            var (_, made) = Keyed(new KeyedCall(operationKey, MemoryOperationKind.Supersede, MemoryFingerprint.Of(
+                MemoryOperationKind.Supersede, Name, write.TaskKey, write.Scope, write.Content, write.Headline, write.Grade,
+                MemoryFingerprint.Bag(write.Metadata), write.ValidFrom, write.ValidTo, write.Recheck, supersession.Reason.Trim(),
+                string.Join(',', ids.Select(i => FormattableString.Invariant($"{i}@{expected[i]}"))))), write.TaskKey);
+            key = made;
+            var held = await atomic.ReceiptAsync(Name, write.TaskKey, operationKey, key.At, ct).ConfigureAwait(false);
+            if (held is not null)
+            {
+                if (held.Kind != key.Kind || !string.Equals(held.Fingerprint, key.Fingerprint, StringComparison.Ordinal))
+                    throw new MemoryKeyConflictException(operationKey, write.TaskKey, held.Kind);
+                return await ReplayedSupersessionAsync(held, ids, ct).ConfigureAwait(false);
+            }
+        }
+
+        var at = _clock();
+        var prepared = await PrepareAsync(write, write.ValidFrom ?? at, ct).ConfigureAwait(false);
+        var applied = await atomic.SupersedeWithAsync(prepared.Node, [.. ids.Select(i => new GraphPredecessor(i, expected[i]))],
+            supersession.Reason.Trim(), write.ValidFrom ?? at, key, ct).ConfigureAwait(false);
+
+        MemoryRef Ref(long id) => new(Name, id.ToString(CultureInfo.InvariantCulture));
+        var predecessors = applied.Predecessors.Select(p => new MemoryPredecessorResult(Ref(p.Id), p.Standing switch
+        {
+            GraphPredecessorStanding.Ended => MemoryPredecessorOutcome.Ended,
+            GraphPredecessorStanding.Unmoved => MemoryPredecessorOutcome.Unmoved,
+            GraphPredecessorStanding.Changed => MemoryPredecessorOutcome.Changed,
+            GraphPredecessorStanding.Refused => MemoryPredecessorOutcome.Refused,
+            _ => MemoryPredecessorOutcome.Missing,
+        }, p.Revision?.ToString(CultureInfo.InvariantCulture))).ToList();
+        if (!applied.Applied)
+            return new MemorySupersessionResult(false, null, null, predecessors);
+        var receipt = applied.Receipt is { } landed ? ToReceipt(landed, applied.Replayed) : null;
+        if (applied.Replayed)   // a racing repeat found the key answered inside the store's own transaction
+            return new MemorySupersessionResult(true, Ref(applied.SuccessorId!.Value), applied.SuccessorRevision?.ToString(CultureInfo.InvariantCulture),
+                predecessors) { Receipt = receipt };
+
+        var successorId = applied.SuccessorId!.Value;
+        var indexed = await EnrichAsync(successorId, write, prepared.Search, ct).ConfigureAwait(false);
+        var recorded = await LinkBySubjectAsync(successorId, write, prepared.Annotation, ct).ConfigureAwait(false);
+        return new MemorySupersessionResult(true, Ref(successorId), applied.SuccessorRevision?.ToString(CultureInfo.InvariantCulture), predecessors)
+        {
+            Receipt = receipt,
+            Ran = MemorySources.Graph
+                | (indexed ? MemorySources.Similarity : MemorySources.None)
+                | (prepared.Answered && recorded ? MemorySources.Annotation : MemorySources.None),
+        };
+    }
+
+    // a repeat that an existing receipt answers, built from the receipt and a read of each predecessor, before any embed
+    private async Task<MemorySupersessionResult> ReplayedSupersessionAsync(GraphReceipt held, IReadOnlyList<long> ids, CancellationToken ct)
+    {
+        MemoryRef Ref(long id) => new(Name, id.ToString(CultureInfo.InvariantCulture));
+        var predecessors = new List<MemoryPredecessorResult>(ids.Count);
+        foreach (var id in ids)
+        {
+            var now = await store.GetAsync(Name, id, ct).ConfigureAwait(false);
+            predecessors.Add(new MemoryPredecessorResult(Ref(id),
+                now is null ? MemoryPredecessorOutcome.Missing
+                : now.SupersededBy == held.NodeId ? MemoryPredecessorOutcome.Ended
+                : MemoryPredecessorOutcome.Changed, now is null ? null : RevisionOf(now)));
+        }
+        return new MemorySupersessionResult(true, Ref(held.NodeId), held.Revision.ToString(CultureInfo.InvariantCulture), predecessors)
+        {
+            Receipt = ToReceipt(held, true),
+        };
     }
 
     /// <inheritdoc />

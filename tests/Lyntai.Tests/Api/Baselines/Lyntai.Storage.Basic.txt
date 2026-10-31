@@ -83,6 +83,7 @@ sealed class Lyntai.Storage.InMemory.InMemoryMemoryGraphStore
     ReviewsAsync(String engine, CancellationToken ct = default) : Task<IReadOnlyList<MemoryReview>>
     SeedAsync(String engine, String taskKey, String scope, String query, Int32 limit, CancellationToken ct = default) : Task<IReadOnlyList<GraphNode>>
     SupersedeAsync(String engine, IReadOnlyList<GraphSupersession> supersessions, CancellationToken ct = default) : Task<Int32>
+    SupersedeWithAsync(GraphNodeWrite successor, IReadOnlyList<GraphPredecessor> predecessors, String reason, DateTimeOffset at, GraphOperationKey key, CancellationToken ct = default) : Task<GraphSupersedeResult>
     TouchAsync(String engine, IReadOnlyCollection<GraphTouch> touches, CancellationToken ct = default) : Task
     UpsertAsync(GraphNodeWrite write, CancellationToken ct = default) : Task<Int64>
     UpsertKeyedAsync(GraphNodeWrite write, GraphOperationKey key, CancellationToken ct = default) : Task<GraphKeyed<Int64>>
