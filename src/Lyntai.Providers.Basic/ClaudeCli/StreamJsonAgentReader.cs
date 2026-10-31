@@ -40,12 +40,15 @@ internal sealed class StreamJsonAgentReader
         }
     }
 
+    // A subagent's lines arrive on the session's stdout with `parent_tool_use_id` set to the call that spawned it.
+    // Such a line yields its calls and results with that id and nothing the session owns: no plan, usage tick,
+    // text, model or error field, and no text delta (a TextDelta has no parent to name).
     private IEnumerable<AgentStreamEvent> ReadLine(JsonElement root) => WireJson.String(root, "type") switch
     {
         "system" => ReadSystem(root),
-        "stream_event" => ReadStreamEvent(root),
-        "assistant" => ReadAssistant(root),
-        "user" => ReadUser(root),
+        "stream_event" => WireJson.String(root, "parent_tool_use_id") is null ? ReadStreamEvent(root) : [],
+        "assistant" => ReadAssistant(root, WireJson.String(root, "parent_tool_use_id")),
+        "user" => ReadUser(root, WireJson.String(root, "parent_tool_use_id")),
         "result" => ReadResult(root),
         "rate_limit_event" => NoteRateLimit(root),
         // Any other type → nothing.
@@ -116,18 +119,21 @@ internal sealed class StreamJsonAgentReader
 
     // ── assistant (complete message, may contain tool_use blocks + usage) ────
 
-    private IEnumerable<AgentStreamEvent> ReadAssistant(JsonElement root)
+    private IEnumerable<AgentStreamEvent> ReadAssistant(JsonElement root, string? parentCallId)
     {
         if (!root.TryGetProperty("message", out var msg) || msg.ValueKind != JsonValueKind.Object)
             yield break;
 
+        var own = parentCallId is null;
+
         // Update model if present on the message
-        if (msg.TryGetProperty("model", out var modelEl) && modelEl.ValueKind == JsonValueKind.String)
+        if (own && msg.TryGetProperty("model", out var modelEl) && modelEl.ValueKind == JsonValueKind.String)
             _model = modelEl.GetString();
 
         // the CLI marks a message that is an API error with a category beside `message` — the door's own field;
         // the LAST message's is the one that can have ended the turn
-        _assistantError = WireJson.String(root, "error");
+        if (own)
+            _assistantError = WireJson.String(root, "error");
 
         var toolCalls = new List<ToolCall>();
         PlanUpdated? plan = null;
@@ -142,7 +148,7 @@ internal sealed class StreamJsonAgentReader
                     // text blocks are NOT re-emitted (already streamed via stream_event deltas), but the
                     // last assistant turn's text is retained so a terminal result that ends empty
                     // (truncation / older CLI / provider variant) can fall back to it (see ReadResult).
-                    if (block.TryGetProperty("text", out var textEl) && textEl.ValueKind == JsonValueKind.String)
+                    if (own && block.TryGetProperty("text", out var textEl) && textEl.ValueKind == JsonValueKind.String)
                         (text ??= new StringBuilder()).Append(textEl.GetString());
                 }
                 else if (blockType == "tool_use")
@@ -156,8 +162,8 @@ internal sealed class StreamJsonAgentReader
                     var argsJson = block.TryGetProperty("input", out var inputEl)
                         ? inputEl.GetRawText()
                         : "{}";
-                    toolCalls.Add(new ToolCall(name, argsJson, id));
-                    if (name == TodoWriteTool && ReadTodoPlan(block) is { } todoPlan)
+                    toolCalls.Add(new ToolCall(name, argsJson, id) { ParentCallId = parentCallId });
+                    if (own && name == TodoWriteTool && ReadTodoPlan(block) is { } todoPlan)
                         plan = todoPlan;   // the last list in a message is the plan as it now stands
                 }
             }
@@ -174,7 +180,7 @@ internal sealed class StreamJsonAgentReader
             yield return plan;
 
         // Emit UsageLive if usage is present
-        if (msg.TryGetProperty("usage", out var usage) && usage.ValueKind == JsonValueKind.Object)
+        if (own && msg.TryGetProperty("usage", out var usage) && usage.ValueKind == JsonValueKind.Object)
         {
             yield return new UsageLive(
                 WireJson.Long(usage, "input_tokens"),
@@ -205,7 +211,7 @@ internal sealed class StreamJsonAgentReader
 
     // ── user (tool results fed back) ─────────────────────────────────────────
 
-    private static IEnumerable<AgentStreamEvent> ReadUser(JsonElement root)
+    private static IEnumerable<AgentStreamEvent> ReadUser(JsonElement root, string? parentCallId)
     {
         if (!root.TryGetProperty("message", out var msg) || msg.ValueKind != JsonValueKind.Object)
             yield break;
@@ -230,7 +236,7 @@ internal sealed class StreamJsonAgentReader
                     ? contentEl.GetString() ?? string.Empty
                     : StreamJsonFields.ConcatTextBlocks(contentEl); // array → concat text blocks; else ""
 
-            yield return new ToolResult(callId, contentStr, isError);
+            yield return new ToolResult(callId, contentStr, isError) { ParentCallId = parentCallId };
         }
     }
 

@@ -17,10 +17,20 @@ public sealed record Thinking(string Text) : AgentStreamEvent;
 
 /// <summary>The agent invoked a tool. <paramref name="CallId"/> correlates to the matching <see cref="ToolResult"/>.
 /// No file path here — that is a specific tool's argument schema, not universal; parse it from ArgumentsJson.</summary>
-public sealed record ToolCall(string Name, string ArgumentsJson, string? CallId = null) : AgentStreamEvent;
+public sealed record ToolCall(string Name, string ArgumentsJson, string? CallId = null) : AgentStreamEvent
+{
+    /// <summary>The <see cref="CallId"/> of the call that spawned the subagent making this one; null for the
+    /// session's own call, and for a door that does not say.</summary>
+    public string? ParentCallId { get; init; }
+}
 
 /// <summary>A tool returned its observation.</summary>
-public sealed record ToolResult(string? CallId, string Content, bool IsError) : AgentStreamEvent;
+public sealed record ToolResult(string? CallId, string Content, bool IsError) : AgentStreamEvent
+{
+    /// <summary>The <see cref="ToolCall.CallId"/> of the call that spawned the subagent this result belongs to;
+    /// null for the session's own result, and for a door that does not say.</summary>
+    public string? ParentCallId { get; init; }
+}
 
 /// <summary>Per-turn usage tick (RAW token counts — the app prices from its own table).</summary>
 public sealed record UsageLive(long InputTokens, long OutputTokens, long CacheReadTokens) : AgentStreamEvent;

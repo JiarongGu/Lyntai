@@ -6472,3 +6472,14 @@ answer, its re-open condition and the evidence Daoris would send are in `docs/vn
 application, and no backlog row holds it, because its trigger has not occurred. Lane `memory`.
 
 - VP3 — Daoris's repository-facts fixture
+
+## Part 432 — AG10: the Claude CLI door keeps a subagent's lines apart (2026-11-01)
+
+✅ done 2026-11-01 — **Outcome:** `ToolCall` and `ToolResult` gain an init member `ParentCallId`, and `StreamJsonAgentReader` reads `parent_tool_use_id`: a line
+carrying it yields its calls and results with the spawning call's id and moves nothing the session owns (no `PlanUpdated`, `UsageLive`, fallback text, error
+field or remembered model). **What the row left open, read here:** a subagent's `stream_event` text and thinking deltas are dropped, because a `TextDelta` has no
+parent to name and would otherwise join the session's answer text; a nested subagent's line carries its immediate spawner as the wire gives it. Proof: seven
+`StreamJsonAgentReaderTests` over a SOURCE-DERIVED fixture in the shape of Daoris's capture (an ASYNCHRONOUS, un-nested, successful subagent; a synchronous, a
+nested and a failed one were not seen), every existing reader test unchanged, and the `ApiSurface` baseline moved from the emitted `.actual`. Lane `inference`.
+
+- AG10 — the Claude CLI door keeps a subagent's lines apart from the session's
