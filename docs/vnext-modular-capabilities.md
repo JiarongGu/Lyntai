@@ -135,11 +135,12 @@ condition (the two-write gap or the in-place edit cannot be closed in the protot
 
 **Standing.** A reading of **D221** made on Daoris's request, which offered its repository-facts profile as an
 application; it rules nothing beyond **D221** and adds no type, package or default. **The gate is not passed**, and the
-package waits on the first clause below. The backlog rows that close the rest are `TASKS.md` Part 427.
+package waits on the first clause below. Daoris has since declined to be the first application for now (below), so no
+backlog row holds that clause: a trigger that has not occurred is not a task.
 
 | D221 clause | Where it stands |
 | --- | --- |
-| Two applications of DIFFERENT kinds reuse the contract | **Not met: none uses it.** The planned consumers of **D220** have not arrived, and Daoris would be the first. A second of a different kind is not named anywhere in the family. |
+| Two applications of DIFFERENT kinds reuse the contract | **Not met: none uses it.** The planned consumers of **D220** have not arrived, and Daoris declined for now to be the first (below). No application of either kind is named anywhere in the family. |
 | Removing it leaves Core intact | **Holds now and is trivial**: the prototype is test-only and no `Profile*` type is in `Lyntai.Core`'s API baseline. It is proved again for the package itself, not assumed. |
 | The contract suites pass on the chosen backends | **Met on all four stores.** Track A's 42 cases (`ProfileTrackAPostgresTests` is the Postgres arm) and `ProfilePrototypeTests`' costs pass on the in-memory, file, SQLite and Postgres curated stores, and a fixture in the format below replays on all four (`ProfileFixtureTests`). |
 | AOT and dependency reports | **Cannot exist before a package project does** (`IsAotCompatible`, `check-warnings`, `check-bundle`, the `docs/AOT.md` row). The prototype holds no reflection-based serialization, so nothing is known to block them. |
@@ -157,7 +158,17 @@ the one contract (the eight verbs of `IProfileOption`, a snapshot, an export and
 without being reshaped for either. The application adopts the package afterwards. If this reading is wrong, the clause
 cannot be met by anyone before a package exists.
 
-**What Daoris would have to hand over, if it counts as the first application.**
+**Daoris declined, for now.** Daoris decided under its own D191, with two makers' reads, that it does not count as the
+first application today. Each repository fact it reads (stack, gates, lanes, documents, its line and landing, the owner's
+settled choices) already has one declared home with its own history and acceptance, its memory coordinator cites those
+records rather than ingesting them, and the declaration history shows first statements and corrections only, so a
+fixture would exercise two of the six event kinds `person-reference` already covers. **Nothing here is built for it, and
+the gate waits on another application rather than on Daoris.** **It re-opens when** one documented fact that no home
+holds, that both the person and sessions state, and that the coordinator must read exactly, cannot be served by curated
+supersession (**MC12**). Daoris would then send it by quest with its evidence: subject, field, scope, the statements with
+times and sources, the conflicting entries, and the query with its expected answer.
+
+**What Daoris would have to hand over, if it re-opens as the first application.**
 - *The schema*: each repository fact it keeps, as a field id the caller names (**D217**: a model never supplies one), with
   whether it is scoped (a lane, a repository), and who may state it (the owner's word against an inference).
 - *The fixture*: for a few repositories, the events those facts really went through, in order, each with its time and

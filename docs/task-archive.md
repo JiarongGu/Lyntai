@@ -6462,3 +6462,13 @@ Proof: the sentence tables held both ways (the recorded sentence and two near on
 `AgentAccountPoolTests`: the seat skipped for that model, the same account serving another, `ClearAsync` freeing it. Lanes `platform` + `inference`.
 
 - AG12 — a refused model is a hold the pool can keep against one seat
+
+## Part 431 — VP3: Daoris declined to be the first application, for now (2026-11-01)
+
+✅ closed 2026-11-01, declined, nothing built — **Outcome:** Daoris answered the row by quest: under its own D191, with two makers' reads, it does not count
+as the first application today, because each repository fact it reads already has one declared home and its memory coordinator cites those records rather
+than ingesting them. The row's contract (a fixture replayed through `ProfileFixtureTests`) was never exercised, and the contract did not change. The
+answer, its re-open condition and the evidence Daoris would send are in `docs/vnext-modular-capabilities.md` §8; Wave 1's gate waits on another
+application, and no backlog row holds it, because its trigger has not occurred. Lane `memory`.
+
+- VP3 — Daoris's repository-facts fixture
