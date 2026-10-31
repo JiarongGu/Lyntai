@@ -49,6 +49,12 @@ internal static class AcpFrames
         return Request(id, method, parameters);
     }
 
+    public static string SetConfigOption(int id, string sessionId, string configId, string value) =>
+        Request(id, "session/set_config_option", new JsonObject
+        {
+            ["sessionId"] = sessionId, ["configId"] = configId, ["value"] = value,
+        });
+
     public static string Prompt(int id, string sessionId, IEnumerable<string> blocks) => Request(id, "session/prompt", new JsonObject
     {
         ["sessionId"] = sessionId,

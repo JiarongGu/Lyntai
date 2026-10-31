@@ -30,6 +30,7 @@ internal static class ClaudeAgentDoor
                     Claim(AgentAbilities.McpServers, AgentSupport.Supported, "--mcp-config; an unrenderable server refuses the turn"),
                     Claim(AgentAbilities.DisallowedTools, AgentSupport.Supported, "--disallowed-tools, merged with the adapter's own"),
                     Claim(AgentAbilities.SystemPrompt, AgentSupport.Supported, "--append-system-prompt"),
+                    Claim(AgentAbilities.Model, AgentSupport.Supported, "--model with the id; the CLI ends a turn on a model it does not know, model_not_found"),
                     Claim(AgentAbilities.Steering, AgentSupport.Unsupported, "a turn is one process fed its prompt on stdin"),
                     Claim(AgentAbilities.PlanEvents, AgentSupport.Supported, "a TodoWrite call read as the plan; no real capture"),
                     Claim(AgentAbilities.LiveUsage, AgentSupport.Supported, "UsageLive on each assistant message"),

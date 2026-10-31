@@ -44,12 +44,17 @@ public class AcpAgentSessionTests
 
     private static AcpAgentSession Stub(
         string? caps = null, string? log = null, bool loggedOut = false, TimeSpan? grace = null,
-        TimeProvider? time = null, string? homeVariable = null)
+        TimeProvider? time = null, string? homeVariable = null, string? models = null, string? modelId = null,
+        string? alias = null, bool swap = false)
     {
         var env = new Dictionary<string, string?>();
         if (caps is not null) env["LYNTAI_ACP_STUB_CAPS"] = caps;
         if (log is not null) env["LYNTAI_ACP_STUB_LOG"] = log;
         if (loggedOut) env["LYNTAI_ACP_STUB_AUTH"] = "out";
+        if (models is not null) env["LYNTAI_ACP_STUB_MODELS"] = models;
+        if (modelId is not null) env["LYNTAI_ACP_STUB_MODEL_ID"] = modelId;
+        if (alias is not null) env["LYNTAI_ACP_STUB_MODEL_ALIAS"] = alias;
+        if (swap) env["LYNTAI_ACP_STUB_MODEL_SWAP"] = "1";
         return new AcpAgentSession(new ProcessRunner(), new LyntaiOptions(), StubCommand, environment: env,
             accountHomeVariable: homeVariable, cancelGrace: grace, time: time);
     }
@@ -217,6 +222,179 @@ public class AcpAgentSessionTests
     }
 
     private const string AgentResumeTokenSubtype = "resume-token-invalid";
+
+    // ── a model: set before the prompt, or the turn ends ─────────────────────
+    // The config-option shapes are read from Daoris's measured record of claude-agent-acp 0.84.0 and codex-acp 2.1.1
+    // (its docs/2026-10-23-model-effort-doors-evidence.md): SOURCE-DERIVED here, since this repository recorded none.
+
+    private static AgentSessionOptions AskOn(string model, string prompt = "WHICH_MODEL") => Ask(prompt) with { Model = model };
+
+    private static void AssertEndedBeforeThePrompt(IReadOnlyList<AgentStreamEvent> events, List<JsonNode> sent)
+    {
+        var ended = Assert.IsType<SessionEnded>(Assert.Single(events));   // no SessionStarted: the session was never ready to prompt
+        Assert.Equal(ProviderVerdict.Unsupported, ended.Verdict);
+        Assert.True(ended.IsError);
+        Assert.Equal(AgentProvider.OptionRefusedSubtype, ended.Subtype);
+        Assert.Equal(AgentFailureKind.Fatal, ended.Failure!.Kind);
+        Assert.Equal(AgentDelivery.NeverSent, ended.Failure.Delivery);
+        Assert.DoesNotContain(sent, f => Method(f) == "session/prompt");
+    }
+
+    [Fact] // SOURCE-DERIVED
+    public async Task A_model_the_agent_offers_is_set_by_set_config_option_before_the_prompt_and_is_the_one_that_runs()
+    {
+        var log = NewLog();
+
+        var events = await Run(Stub(log: log, models: "default,sonnet,opus"), AskOn("opus"));
+
+        var sent = Sent(log);
+        Assert.Equal(["initialize", "session/new", "session/set_config_option", "session/prompt"], sent.Select(Method));
+        var set = Request(sent, "session/set_config_option")["params"]!;
+        Assert.Equal("acp-stub-session-1", set["sessionId"]!.GetValue<string>());
+        Assert.Equal("model", set["configId"]!.GetValue<string>());
+        Assert.Equal("opus", set["value"]!.GetValue<string>());
+        Assert.IsType<SessionStarted>(events[0]);
+        Assert.Equal("model: opus", Ended(events).FinalText);
+        Assert.Equal(ProviderVerdict.Ok, Ended(events).Verdict);
+    }
+
+    [Fact] // SOURCE-DERIVED: codex-acp's option is not called "model", so it is found by its category
+    public async Task The_model_option_is_found_by_its_category_and_never_by_its_id()
+    {
+        var log = NewLog();
+
+        var events = await Run(Stub(log: log, models: "gpt-a,gpt-b", modelId: "llm-choice"), AskOn("gpt-b"));
+
+        Assert.Equal("llm-choice", Request(Sent(log), "session/set_config_option")["params"]!["configId"]!.GetValue<string>());
+        Assert.Equal("model: gpt-b", Ended(events).FinalText);
+    }
+
+    [Fact] // SOURCE-DERIVED
+    public async Task A_model_the_session_already_runs_on_is_not_set_again()
+    {
+        var log = NewLog();
+
+        var events = await Run(Stub(log: log, models: "gpt-a,gpt-b"), AskOn("gpt-a"));
+
+        Assert.Equal(["initialize", "session/new", "session/prompt"], Sent(log).Select(Method));
+        Assert.Equal("model: gpt-a", Ended(events).FinalText);
+    }
+
+    [Fact] // SOURCE-DERIVED: no model named is the agent's own default, and nothing is set
+    public async Task A_turn_naming_no_model_sets_none_even_where_the_agent_offers_several()
+    {
+        var log = NewLog();
+
+        var events = await Run(Stub(log: log, models: "gpt-a,gpt-b"), Ask("WHICH_MODEL"));
+
+        Assert.Equal(["initialize", "session/new", "session/prompt"], Sent(log).Select(Method));
+        Assert.Equal("model: gpt-a", Ended(events).FinalText);
+    }
+
+    [Fact] // SOURCE-DERIVED: a resumed conversation takes the agent's model again, so it is set there too
+    public async Task A_model_is_set_on_a_resumed_conversation_after_it_opens()
+    {
+        var log = NewLog();
+
+        var events = await Run(Stub(log: log, models: "default,sonnet") , AskOn("sonnet") with { ResumeToken = "conv-1" });
+
+        Assert.Equal(["initialize", "session/resume", "session/set_config_option", "session/prompt"], Sent(log).Select(Method));
+        Assert.Equal("conv-1", Request(Sent(log), "session/set_config_option")["params"]!["sessionId"]!.GetValue<string>());
+        Assert.Equal("model: sonnet", Ended(events).FinalText);
+    }
+
+    [Fact] // SOURCE-DERIVED: Daoris measured -32603 with data.details on claude-agent-acp, before any prompt
+    public async Task A_model_the_agent_refuses_ends_the_turn_before_the_prompt_naming_what_it_offers()
+    {
+        var log = NewLog();
+
+        var events = await Run(Stub(log: log, models: "default,sonnet,opus"), AskOn("claude-nonexistent-9"));
+
+        AssertEndedBeforeThePrompt(events, Sent(log));
+        var ended = Ended(events);
+        Assert.Equal("acp.model.set-refused", ended.Failure!.By);
+        Assert.Contains("claude-nonexistent-9", ended.Diagnostic);
+        Assert.Contains("Invalid value for config option model", ended.Diagnostic);
+        Assert.Contains("It offers: default, sonnet, opus.", ended.Diagnostic);
+    }
+
+    [Fact] // SOURCE-DERIVED: an agent with no model option has nothing to set the model through
+    public async Task A_model_is_refused_before_it_is_set_where_the_agent_states_no_model_option()
+    {
+        var log = NewLog();
+
+        var events = await Run(Stub(log: log), AskOn("sonnet"));
+
+        AssertEndedBeforeThePrompt(events, Sent(log));
+        var ended = Ended(events);
+        Assert.Equal("acp.model.no-option", ended.Failure!.By);
+        Assert.Contains("sonnet", ended.Diagnostic);
+        Assert.DoesNotContain(Sent(log), f => Method(f) == "session/set_config_option");
+    }
+
+    [Fact] // SOURCE-DERIVED: claude-agent-acp accepts a full id it does not list and answers its alias
+    public async Task An_id_the_list_does_not_name_is_the_agents_to_accept_and_spell()
+    {
+        var log = NewLog();
+
+        var events = await Run(Stub(log: log, models: "default,sonnet", alias: "claude-sonnet-5-5=sonnet"), AskOn("claude-sonnet-5-5"));
+
+        Assert.Equal("claude-sonnet-5-5", Request(Sent(log), "session/set_config_option")["params"]!["value"]!.GetValue<string>());
+        Assert.Equal("model: sonnet", Ended(events).FinalText);
+        Assert.Equal(ProviderVerdict.Ok, Ended(events).Verdict);
+    }
+
+    [Fact] // SOURCE-DERIVED: an answer that is no refusal in words but puts another listed value in place is one in effect
+    public async Task An_agent_that_accepts_a_listed_model_and_answers_another_has_not_carried_it()
+    {
+        var log = NewLog();
+
+        var events = await Run(Stub(log: log, models: "default,sonnet,opus", swap: true), AskOn("opus"));
+
+        AssertEndedBeforeThePrompt(events, Sent(log));
+        var ended = Ended(events);
+        Assert.Equal("acp.model.not-taken", ended.Failure!.By);
+        Assert.Contains("answered model 'default' to a set of 'opus'", ended.Diagnostic);
+    }
+
+    [Theory] // SOURCE-DERIVED: a failure the agent states in answer to the set is read as itself, not as the model's refusal
+    [InlineData("""{"code":-32000,"message":"Authentication required"}""", AgentFailureKind.Access)]
+    [InlineData("""{"code":-32603,"message":"Internal error: You’ve hit your limit","data":{"errorKind":"rate_limit"}}""", AgentFailureKind.Limit)]
+    public async Task A_sign_in_or_a_limit_in_answer_to_the_set_is_that_failure_and_not_a_refused_model(string error, AgentFailureKind kind)
+    {
+        var runner = Agent(new()
+        {
+            ["initialize"] = _ => ["""{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":1,"agentCapabilities":{}}}"""],
+            ["session/new"] = _ => ["""{"jsonrpc":"2.0","id":2,"result":{"sessionId":"s-1","configOptions":[{"id":"model","name":"Model","category":"model","type":"select","currentValue":"a","options":[{"value":"a","name":"A"},{"value":"b","name":"B"}]}]}}"""],
+            ["session/set_config_option"] = _ => [$$"""{"jsonrpc":"2.0","id":4,"error":{{error}}}"""],
+        });
+
+        var events = await Run(Scripted(runner), AskOn("b"));
+
+        var ended = Assert.IsType<SessionEnded>(Assert.Single(events));
+        Assert.Equal(kind, ended.Failure!.Kind);
+        Assert.NotEqual(AgentProvider.OptionRefusedSubtype, ended.Subtype);
+        Assert.Equal(AgentDelivery.NeverSent, ended.Failure.Delivery);
+        Assert.DoesNotContain(runner.Exchanged, l => Method(JsonNode.Parse(l)!) == "session/prompt");
+    }
+
+    [Fact] // SOURCE-DERIVED: a grouped option list is flattened, and an answer that names no option is taken as taken
+    public async Task A_grouped_option_list_is_read_flat_and_an_answer_that_lists_no_option_is_an_acknowledgement()
+    {
+        var runner = Agent(new()
+        {
+            ["initialize"] = _ => ["""{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":1,"agentCapabilities":{}}}"""],
+            ["session/new"] = _ => ["""{"jsonrpc":"2.0","id":2,"result":{"sessionId":"s-1","configOptions":[{"id":"m","name":"Model","category":"model","type":"select","currentValue":"a","options":[{"group":"g","name":"G","options":[{"value":"a","name":"A"},{"value":"b","name":"B"}]}]}]}}"""],
+            ["session/set_config_option"] = _ => ["""{"jsonrpc":"2.0","id":4,"result":{}}"""],
+            ["session/prompt"] = _ => [PromptEnded("end_turn")],
+        });
+
+        var events = await Run(Scripted(runner), AskOn("b"));
+
+        Assert.Equal(ProviderVerdict.Ok, Ended(events).Verdict);
+        var set = runner.Exchanged.Select(l => JsonNode.Parse(l)!).Single(f => Method(f) == "session/set_config_option");
+        Assert.Equal("m", set["params"]!["configId"]!.GetValue<string>());
+    }
 
     // ── the updates of a turn, mapped ────────────────────────────────────────
 

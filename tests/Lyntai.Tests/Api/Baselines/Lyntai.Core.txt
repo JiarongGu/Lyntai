@@ -3,6 +3,7 @@ static class Lyntai.Agents.AgentAbilities
     DisallowedTools : String const
     LiveUsage : String const
     McpServers : String const
+    Model : String const
     PlanEvents : String const
     ReadOnlyGate : String const
     Resume : String const

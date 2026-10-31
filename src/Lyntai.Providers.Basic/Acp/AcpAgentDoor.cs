@@ -4,9 +4,9 @@ namespace Lyntai.Providers.Acp;
 
 /// <summary>What the Agent Client Protocol door states about itself, for <see cref="AgentProviderDescriptor"/>.
 /// Nothing here is <see cref="AgentAbilitySource.Measured"/> for an agent: the door is generic, so it states what
-/// IT does, and what only an agent's <c>initialize</c> answer can say (whether it continues a conversation) is
-/// <see cref="AgentSupport.Unknown"/> with the source <see cref="AgentAbilitySource.Negotiated"/>: settled at run
-/// time, per agent, and refused before the prompt when the agent states it cannot.</summary>
+/// IT does, and what only an agent's own answer can say (whether it continues a conversation, whether it takes a
+/// model) is <see cref="AgentSupport.Unknown"/> with the source <see cref="AgentAbilitySource.Negotiated"/>:
+/// settled at run time, per agent, and refused before the prompt when the agent states it cannot.</summary>
 internal static class AcpAgentDoor
 {
     public const string DoorId = "acp";
@@ -30,6 +30,8 @@ internal static class AcpAgentDoor
                     Declared(AgentAbilities.McpServers, AgentSupport.Supported, "session mcpServers; an http server needs the agent's mcpCapabilities.http, else the turn is refused"),
                     Declared(AgentAbilities.DisallowedTools, AgentSupport.Unsupported, "the protocol has no deny list"),
                     Declared(AgentAbilities.SystemPrompt, AgentSupport.Supported, "a leading text block of the prompt; the protocol has no system field"),
+                    new AgentAbility(AgentAbilities.Model, AgentSupport.Unknown, AgentAbilitySource.Negotiated)
+                        { Evidence = "per agent from session/new: a config option of category model, set by session/set_config_option before the prompt; none, or an agent that refuses the id, ends the turn before the prompt" },
                     Declared(AgentAbilities.Steering, AgentSupport.Unsupported, "a turn is one prompt in one process; a second is never sent during it"),
                     Declared(AgentAbilities.PlanEvents, AgentSupport.Unknown, "the plan update is in the published schema and mapped; whether an agent sends one is its own"),
                     Declared(AgentAbilities.LiveUsage, AgentSupport.Unsupported, "usage_update carries context figures, not counts; the prompt's answer carries the turn's usage"),

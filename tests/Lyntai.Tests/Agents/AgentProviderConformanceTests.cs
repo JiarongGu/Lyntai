@@ -33,6 +33,7 @@ public class AgentProviderConformanceTests
                         Claim(AgentAbilities.McpServers, AgentSupport.Unknown, AgentAbilitySource.Declared),
                         Claim(AgentAbilities.DisallowedTools, AgentSupport.Unsupported, AgentAbilitySource.Declared),
                         Claim(AgentAbilities.SystemPrompt, AgentSupport.Unknown, AgentAbilitySource.Declared),
+                        Claim(AgentAbilities.Model, AgentSupport.Unknown, AgentAbilitySource.Negotiated),
                         Claim(AgentAbilities.Steering, AgentSupport.Unsupported, AgentAbilitySource.Declared),
                         Claim(AgentAbilities.PlanEvents, AgentSupport.Unknown, AgentAbilitySource.Declared),
                         Claim(AgentAbilities.LiveUsage, AgentSupport.Unknown, AgentAbilitySource.Declared),
@@ -95,6 +96,7 @@ public class AgentProviderConformanceTests
             AgentAbilities.McpServers => options with { McpServers = [new AgentMcpServer { Name = "app", Command = "app-mcp" }] },
             AgentAbilities.DisallowedTools => options with { DisallowedTools = ["Bash"] },
             AgentAbilities.SystemPrompt => options with { SystemPrompt = "be brief" },
+            AgentAbilities.Model => options with { Model = "model-1" },
             _ => throw new ArgumentOutOfRangeException(nameof(ability), ability, "not an option-shaped ability"),
         };
     }
@@ -180,7 +182,7 @@ public class AgentProviderConformanceTests
     private static readonly string[] OptionAbilities =
     [
         AgentAbilities.Resume, AgentAbilities.ReadOnlyGate, AgentAbilities.McpServers,
-        AgentAbilities.DisallowedTools, AgentAbilities.SystemPrompt, AgentAbilities.Accounts,
+        AgentAbilities.DisallowedTools, AgentAbilities.SystemPrompt, AgentAbilities.Model, AgentAbilities.Accounts,
     ];
 
     [Theory, MemberData(nameof(Doors))]
@@ -263,6 +265,35 @@ public class AgentProviderConformanceTests
 
         static string? AppliesTo(AgentProviderRegistry registry, string id) =>
             registry.Get(id).Describe().Doors[0].Abilities.Single(a => a.Name == AgentAbilities.UsageReading).AppliesTo;
+    }
+
+    [Fact]
+    public void Both_cli_doors_declare_the_model_ability_and_the_protocol_door_negotiates_it_per_agent()
+    {
+        using var sp = Compose(new FakeProcessRunner());
+        var registry = sp.GetRequiredService<AgentProviderRegistry>();
+
+        foreach (var id in new[] { "claude-cli", "codex-cli" })
+        {
+            var claim = DoorOf(registry, id, "cli").Abilities.Single(a => a.Name == AgentAbilities.Model);
+            Assert.Equal((AgentSupport.Supported, AgentAbilitySource.Declared), (claim.Support, claim.Source));
+        }
+
+        var acp = DoorOf(registry, "acp-agent", "acp").Abilities.Single(a => a.Name == AgentAbilities.Model);
+        Assert.Equal((AgentSupport.Unknown, AgentAbilitySource.Negotiated), (acp.Support, acp.Source));
+    }
+
+    [Fact]
+    public void A_door_that_states_the_model_ability_unsupported_refuses_a_turn_that_names_one()
+    {
+        var door = new AgentDoor
+        {
+            Id = "d", Kind = "k",
+            Abilities = [new AgentAbility(AgentAbilities.Model, AgentSupport.Unsupported, AgentAbilitySource.Declared)],
+        };
+
+        Assert.Equal([AgentAbilities.Model], door.Unhonourable(Needing(AgentAbilities.Model)));
+        Assert.Empty(door.Unhonourable(new AgentSessionOptions { Prompt = "go", ToolPolicy = AgentToolPolicy.Write }));
     }
 
     // ── the registry, the doors and the descriptor ───────────────────────────
@@ -349,14 +380,14 @@ public class AgentProviderConformanceTests
     {
         var everything = new AgentSessionOptions
         {
-            Prompt = "go", ResumeToken = "t", SystemPrompt = "s", DisallowedTools = ["Bash"],
+            Prompt = "go", ResumeToken = "t", SystemPrompt = "s", Model = "m", DisallowedTools = ["Bash"],
             McpServers = [new AgentMcpServer { Name = "app", Command = "x" }],
             Account = AccountOf("p"),
         };
 
         Assert.Equal(
             [AgentAbilities.Resume, AgentAbilities.ReadOnlyGate, AgentAbilities.McpServers,
-                AgentAbilities.DisallowedTools, AgentAbilities.SystemPrompt, AgentAbilities.Accounts],
+                AgentAbilities.DisallowedTools, AgentAbilities.SystemPrompt, AgentAbilities.Model, AgentAbilities.Accounts],
             AgentAbilities.Needed(everything));
         Assert.Equal([AgentAbilities.ReadOnlyGate], AgentAbilities.Needed(new AgentSessionOptions { Prompt = "go" }));
         Assert.Empty(AgentAbilities.Needed(new AgentSessionOptions { Prompt = "go", ToolPolicy = AgentToolPolicy.Write }));

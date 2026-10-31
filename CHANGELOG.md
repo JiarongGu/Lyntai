@@ -92,6 +92,16 @@ every addition.
 
 ### Added
 
+- **The ACP door carries `AgentSessionOptions.Model`, or ends the turn before the prompt, and `AgentAbilities.Model` says which a door
+  does.** The door read no model option, so a turn that named a model on an ACP agent ran on the agent's own default and said nothing.
+  It now finds the model option the agent states in its `session/new` answer (by its `category`, never its id) and sets the model with
+  `session/set_config_option` before `session/prompt`. The agent's answer decides: an error, or an answer that puts another value of
+  its own list in the model's place, ends the turn as `Unsupported` with subtype `option-unsupported`, `AgentFailureKind.Fatal` and
+  `NeverSent`, and the diagnostic names the agent's words and the models it offers; an agent that states no model option ends it the
+  same way. An id the list does not name is the agent's to accept (`claude-agent-acp` takes a full id and answers its alias), so the
+  list never judges it. No `SessionStarted` precedes a refused turn. The new `model` ability is `Supported` on both CLI doors and
+  `Unknown`, `Negotiated` on the ACP door, so a door that states it `Unsupported` is refused before anything is spawned, as for any option.
+  **A host's own provider adds a claim for it** (`AgentAbilities.All` gains a member).
 - **A read-only view of another task's memory: `IViewableMemory.ViewOf`, `IMemoryView`, `MemoryViewItem`, `IMemoryViewCheck`**
   (**D242**). A second host reads the facts another host owns and writes, without copying them. `IMemoryView` has no write path in its
   type; a recall, an expansion or `RevisionOfAsync` through it reinforces nothing, co-activates nothing and ages nothing, and a reference
