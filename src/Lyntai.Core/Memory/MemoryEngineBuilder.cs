@@ -18,6 +18,7 @@ namespace Lyntai.Memory;
 public sealed class MemoryEngineBuilder
 {
     private readonly List<MemberSpec> _members = [];
+    private readonly List<Func<IServiceProvider, IMemoryView>> _views = [];
 
     internal MemoryEngineBuilder(string name) => Name = name;
 
@@ -204,6 +205,32 @@ public sealed class MemoryEngineBuilder
         return this;
     }
 
+    /// <summary>Recall from, and expand into, a read-only view another host's task owns — not a member: nothing is written through it
+    /// (<see cref="CompositeMemoryEngine.Views"/>). Resolved when the container is built.</summary>
+    /// <param name="view">Builds the view from the container.</param>
+    public MemoryEngineBuilder UseView(Func<IServiceProvider, IMemoryView> view)
+    {
+        ArgumentNullException.ThrowIfNull(view);
+        _views.Add(view);
+        return this;
+    }
+
+    /// <summary>Read <paramref name="taskKey"/> of the graph engine <paramref name="ownerEngine"/>, which another host owns and writes
+    /// in the store this container's <see cref="IMemoryGraphStore"/> reaches. The view is a graph engine named
+    /// <paramref name="ownerEngine"/> built here for reading only, so references come back naming the owner's engine; it is not
+    /// registered, and the owner's own instance is untouched.</summary>
+    /// <param name="ownerEngine">The owner's graph engine name, as its references carry it ("project/graph").</param>
+    /// <param name="taskKey">The one task to read.</param>
+    /// <param name="options">The ranking knobs this reader reads with; null takes the defaults.</param>
+    /// <param name="check">Asked before each expansion; null permits every reference of the task.</param>
+    public MemoryEngineBuilder UseView(string ownerEngine, string taskKey, GraphMemoryOptions? options = null,
+        IMemoryViewCheck? check = null)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(ownerEngine);
+        ArgumentException.ThrowIfNullOrWhiteSpace(taskKey);
+        return UseView(sp => BuildGraph(sp, ownerEngine, Required<IMemoryGraphStore>(sp), options).ViewOf(taskKey, check));
+    }
+
     /// <summary>Total characters this engine's composed sections may use.</summary>
     /// <param name="characters">The budget.</param>
     public MemoryEngineBuilder Budget(int characters)
@@ -282,6 +309,7 @@ public sealed class MemoryEngineBuilder
             sp.GetService<IMemoryRemovalPolicy>())
         {
             WriteRouting = Routing,
+            Views = [.. _views.Select(v => v(sp))],
         };
 
     private static T Required<T>(IServiceProvider sp) where T : class =>

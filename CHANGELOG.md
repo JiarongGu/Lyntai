@@ -92,6 +92,14 @@ every addition.
 
 ### Added
 
+- **A read-only view of another task's memory: `IViewableMemory.ViewOf`, `IMemoryView`, `MemoryViewItem`, `IMemoryViewCheck`**
+  (**D242**). A second host reads the facts another host owns and writes, without copying them. `IMemoryView` has no write path in its
+  type; a recall, an expansion or `RevisionOfAsync` through it reinforces nothing, co-activates nothing and ages nothing, and a reference
+  outside its task reads as a missing one. Each result names its source task, the owner's reference, its opaque revision, its relations and
+  its `MemoryStanding`, so an owner's supersession or end is read at the next call. A host's `IMemoryViewCheck` is asked about a
+  reference before an expansion reads anything. `CompositeMemoryEngine.Views` (and `MemoryEngineBuilder.UseView`) recall from a view beside
+  the blend's members and route an expansion by `MemoryRef.Engine`; a write naming a view's reference is refused. An engine over a store
+  without revisions, or with no graph member, reports `HoldsView` false and `ViewOf` throws.
 - **A supersession can apply as one change: `ISupersedingMemory.SupersedeAsync`, `MemorySupersession`** (**D242**). One call stores
   the successor and ends every named predecessor, each guarded by the revision its approver read, in one store transaction — afterwards
   the successor is current and every predecessor ended by it, or nothing changed and the result says which predecessors moved, with

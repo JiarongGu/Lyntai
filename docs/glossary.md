@@ -46,3 +46,6 @@ renaming anything: a rename sweep breaks these without failing anything. The sha
   `IKeyedMemory`), scoped to (engine, task); a RECEIPT (`MemoryReceipt`) is what a keyed call that took effect leaves behind. Neither
   is an entry's identity, which stays its content (`MemoryContentKey`): two writers' equal content is still one entry. A
   REPLAY is a repeat the receipt answered, so nothing was applied (`MemoryReceipt.Replayed`).
+- A VIEW (`IMemoryView`, from `IViewableMemory.ViewOf`) is a read-only reading of one task another host owns: it recalls and expands
+  with nothing written back, and its results are references into the owner's engine. It is not a member of a blend (it has no
+  `Supported` and no write); a blend holds it in `Views`. STANDING (`MemoryStanding`) is whether an entry holds at the read.

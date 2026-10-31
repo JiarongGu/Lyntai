@@ -1009,6 +1009,23 @@ ending**: an engine over a store that cannot make the pair atomic (`ISuperseding
 implement) throws `NotSupportedException`. `MemoryChangeGate`'s agent path is unchanged — an agent's observation is its own, and this call is for
 a host that holds the successor and calls after approval.
 
+**To read a task another host owns, ask for a view** (**D242**) — `IViewableMemory.ViewOf(taskKey, check)` on a graph engine or a blend
+returns an `IMemoryView` whose type has no write: `RecallAsync`, `ExpandAsync` and `RevisionOfAsync`, nothing else. **A read through it
+moves nothing the owner holds** — no reinforcement, co-activation, review-log row or age — because it is the engine's own recall and
+expansion with the write-back switched off, so it ranks and returns what the engine would. The reader builds its engine over the owner's
+store and the owner's engine name (`MemoryEngineBuilder.UseView("project/graph", "task")` does), and every result is a reference into the
+owner's engine, never a copy. Each `MemoryViewItem` carries the `MemoryItem` (reference, opaque `Revision`, in-page `Relations`,
+`Validity`), its `SourceTask`, and a `MemoryStanding`: nothing is cached, so an owner's supersession or end reads at the next call, and a
+`History` reading returns the ended entry with who superseded it. `RevisionOfAsync(reference)` is one read by id. A reference of another
+task, another engine or none reads as a missing one. **The host's `IMemoryViewCheck` is asked about the named reference before an
+expansion reads anything**, and a refusal returns nothing; it is a call, not a grant — owners, grants and the change log stay the host's.
+A recall is not checked per reference, and an expansion's neighbours are not asked about: the view is of a task the host already chose
+to share. `CompositeMemoryEngine.Views` recalls from views beside its members (each in its own task, no scope) and routes `ExpandAsync`
+by `MemoryRef.Engine`; `LinkAsync`, `RelateAsync`, `EndAsync`, `ConfirmAsync` on a view's reference throw `NotSupportedException`, and the
+views are not members, so removal, re-embedding and export never visit them. `ExpandInTaskAsync` reaches a view only for the view's own
+task. A reader that relies on a shared fact stores a citation with a `Recheck` (MC5) and adds no cross-task link (**D92**). An engine with no
+graph member, or a store without revisions (`IEndableMemoryGraphStore`), reports `HoldsView` false and `ViewOf` throws.
+
 ### Read the full text of one entry, and what it is linked to
 
 <!-- compile-given: IExpandableMemory expandable = null!; MemoryRef reference = default!; -->

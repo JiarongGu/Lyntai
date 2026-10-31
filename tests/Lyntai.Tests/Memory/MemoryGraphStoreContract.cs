@@ -2839,4 +2839,38 @@ public static class MemoryGraphStoreContract
 
         Assert.Null(await keyed.ReceiptAsync(engine, key, "gone", Jun));
     }
+
+    // ---- the reads a read-only view stands on (docs/DECISIONS.md D242) --------------------------------------------
+
+    private static async Task<string[]> Held(IPortableMemoryGraphStore store, string engine, string key)
+    {
+        var export = await store.ExportAsync(engine, key, null);
+        return [.. export.Nodes.Select(n => (n.Id, n.RecallCount, n.Stability, n.Difficulty, n.Age, n.StrengthAge, n.OrdinalAge,
+                n.VolumeAge, n.ElapsedAge, n.Degree, n.Revision, n.ConfirmedAt).ToString())
+            .Concat(export.Links.Select(l => l.ToString()))];
+    }
+
+    /// <summary><b>A read moves nothing the owner holds</b>: a seed, a fetch by id, a walk and a relation read leave every entry's
+    /// recall count, stability, difficulty, ages, revision and degree, and every link's weight and ages, as they were. A view over a
+    /// task is only read-only if the reads under it are.</summary>
+    public static async Task Reads_move_nothing_the_owner_holds(IMemoryGraphStore store, string key)
+    {
+        var portable = Assert.IsAssignableFrom<IPortableMemoryGraphStore>(store);
+        const string engine = "tv-reads";
+        var a = await store.UpsertAsync(Write(engine, key, "Alice runs the deploy"));
+        var b = await store.UpsertAsync(Write(engine, key, "the deploy needs approval"));
+        await store.LinkAsync(engine, a, b, null, 2, symmetric: true, default);
+        await store.TouchAsync(engine, [new GraphTouch(b, 11, 2, 6.5)]);
+        await Crowd(store, engine, key, 2);
+        var before = await Held(portable, engine, key);
+        Assert.NotEmpty(before);
+
+        await store.SeedAsync(engine, key, "s", "deploy", 10);
+        await store.SeedAsync(engine, key, null, null, 10);
+        await store.GetAsync(engine, a);
+        await store.NeighboursAsync(engine, key, [a], 10);
+        if (store is ITypedLinkMemoryGraphStore typed) await typed.LinksAmongAsync(engine, key, [a, b], ["disputes", "amends"]);
+
+        Assert.Equal(before, await Held(portable, engine, key));
+    }
 }
