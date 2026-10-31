@@ -1,5 +1,6 @@
 using Lyntai.Storage;
 using Lyntai.Storage.FileSystem;
+using Lyntai.Storage.InMemory;
 using Lyntai.Storage.Sqlite;
 using Lyntai.Tests.Storage;
 using Lyntai.Tests.Storage.FileSystem;
@@ -15,7 +16,7 @@ namespace Lyntai.Tests.Memory.Prototype;
 /// </summary>
 public class ProfileTrackATests(ITestOutputHelper output)
 {
-    public static TheoryData<string> Backends => ["sqlite", "files"];
+    public static TheoryData<string> Backends => ["sqlite", "files", "memory"];
 
     public static TheoryData<string, string> Flaws => new()
     {
@@ -26,17 +27,27 @@ public class ProfileTrackATests(ITestOutputHelper output)
         { nameof(ProfileFlaw.SharedSubjects), "isolation" },
     };
 
-    private static Func<(ICuratedMemoryStore, IDisposable)> Open(string backend) => backend == "sqlite"
-        ? () =>
+    private static Func<(ICuratedMemoryStore, IDisposable)> Open(string backend) => backend switch
+    {
+        "sqlite" => () =>
         {
             var db = new TempDb();
             return (new SqliteCuratedMemoryStore(db.Factory), db);
-        }
-        : () =>
+        },
+        "files" => () =>
         {
             var root = new TempRoot();
             return (new FileSystemCuratedMemoryStore(root.Root), root);
-        };
+        },
+        _ => () => (new InMemoryCuratedMemoryStore(), new Nothing()),
+    };
+
+    private sealed class Nothing : IDisposable
+    {
+        public void Dispose()
+        {
+        }
+    }
 
     [Fact]
     public void Every_case_belongs_to_a_named_bucket_and_every_bucket_has_cases()

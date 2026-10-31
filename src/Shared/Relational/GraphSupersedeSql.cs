@@ -61,6 +61,9 @@ internal static class GraphSupersedeSql
         if (results.Any(r => r.Standing != GraphPredecessorStanding.Ended))
         {
             await tx.RollbackAsync(ct).ConfigureAwait(false);
+            // a racer that read the predecessor after the winner ended it finds the winner's receipt, now committed
+            if (key is not null && await GraphReceiptSql.ReplayAsync(conn, null, engine, key, ct).ConfigureAwait(false) is { } won)
+                return await ReplayedAsync(conn, engine, won, predecessors, ct).ConfigureAwait(false);
             return new GraphSupersedeResult(false, null, null,
                 [.. results.Select(r => r.Standing == GraphPredecessorStanding.Ended ? r with { Standing = GraphPredecessorStanding.Unmoved } : r)],
                 false, null);

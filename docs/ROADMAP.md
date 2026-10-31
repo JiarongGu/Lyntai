@@ -46,7 +46,8 @@ _One line per step, because a roadmap entry is not a task: nothing below can sta
 - **Wave 0 of the vNext RFC** is ruled: RV26 yes (**D220**) and VN1 yes within a bound (**D221**). VN2 chose the
   projection over curated memory (**D224**), and RV27's Track A and RV28 are built on it.
 - **Wave 1, a model-free schema-first profile**: the prototype passes RV27's Track A 42 of 42 (test-only code,
-  `docs/memory-measurements.md` §5 `profile-prototype-rv28`), and a package follows only through D25's promotion gate.
+  `docs/memory-measurements.md` §5 `profile-prototype-rv28`), and a package follows only through D25's promotion gate,
+  which is not passed: `docs/vnext-modular-capabilities.md` §8 says clause by clause what is missing.
 - **Wave 2, extraction that picks from a consumer's attribute schema or abstains**, after Wave 1 and only on
   **D217**'s trigger.
 - **Wave 3, context sources over the existing composer**; reflection stays refused (**D167**, **D168**) until a new

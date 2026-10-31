@@ -7,6 +7,23 @@ to `.agents/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-11-01 — racing keyed supersessions on Postgres: five of six callers answered "not applied" instead of the winner's receipt
+
+**Symptom.** `PostgresStorageTests.Graph_store_satisfies_the_contract("Racing_keyed_supersessions_land_once")` failed in the full `verify` run
+and in 2 of 3 isolated runs of the Postgres storage tests, with five of six racers returning `Applied = false` and no receipt. The other stores passed.
+
+**Root cause.** `GraphSupersedeSql.RunAsync` looks for the operation key's receipt once, at the start. Under Postgres's read-committed isolation, six
+callers all find none, all upsert the successor, and the losers then read the predecessor after the winner ended it (or wait on its row and find its
+revision moved). Each answers `Changed` and rolls back, and the answer is final: the receipt the winner committed meanwhile is never looked at again.
+
+**Fix.** When a keyed call rolls back because a predecessor did not end, it looks for the key's receipt once more on a fresh statement and, if the winner
+committed one, answers it as a replay (`src/Shared/Relational/GraphSupersedeSql.cs`). An unkeyed call, or a key nobody holds, answers as before.
+
+**Verify.** The same fact, in 6 runs of the whole Postgres storage class, passed every time (139 of 139) after failing 2 of 3 before. No test was added:
+the contract fact already pins the behaviour and a race fact fails or passes by chance, so six runs are the evidence, not a guarantee.
+
+**Introduced by.** `57fbfee9` (2026-10-31), MC12: the keyed supersession's receipt check ran before the work and not after a lost race.
+
 ## 2026-10-29 — two callers renting from the SQLite pool at once could be handed one handle: `cannot start a transaction within a transaction`, or a disposed `SQLitePCL.sqlite3`
 
 **Symptom.** Three failures of one shape, each green alone and on an unmodified re-run: `ObjectDisposedException … 'SQLitePCL.sqlite3'`
