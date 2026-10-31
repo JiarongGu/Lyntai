@@ -92,6 +92,13 @@ every addition.
 
 ### Added
 
+- **The Claude CLI door keeps a subagent's lines apart from the session's, and `ToolCall` and `ToolResult` carry `ParentCallId`.** A
+  subagent's lines reach the session's stdout with `parent_tool_use_id` set to the call that spawned it, and the reader never read the
+  field: a subagent's `TodoWrite` replaced the session's plan, its usage ticked as the turn's, and its last text or error field could
+  become the turn's fallback text or failure. A line carrying the field now yields its calls and results with `ParentCallId` set to
+  the spawning call (null for the session's own) and moves nothing the session owns: no `PlanUpdated`, `UsageLive`, fallback text,
+  failure reading, reported model or text delta. A line without the field reads as before. Seen with an asynchronous, un-nested,
+  successful subagent only; a synchronous, a nested and a failed one were not.
 - **The ACP door carries `AgentSessionOptions.Model`, or ends the turn before the prompt, and `AgentAbilities.Model` says which a door
   does.** The door read no model option, so a turn that named a model on an ACP agent ran on the agent's own default and said nothing.
   It now finds the model option the agent states in its `session/new` answer (by its `category`, never its id) and sets the model with

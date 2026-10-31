@@ -366,4 +366,112 @@ public class StreamJsonAgentReaderTests
         var final = Assert.Single(events.OfType<UsageFinal>());
         Assert.Equal("claude-sonnet-4-8", final.Model);
     }
+
+    // ── a subagent's lines ───────────────────────────────────────────────────
+
+    // SOURCE-DERIVED: the shape of a host's capture of an ASYNCHRONOUS, un-nested, successful subagent, in which
+    // every line the child produces arrives on the session's stdout with `parent_tool_use_id` set to the `Task`
+    // call that spawned it. A synchronous subagent, a nested one and a failed one were not seen there.
+    private const string SessionPlan =
+        """{"type":"assistant","message":{"model":"claude-opus-4-8","content":[{"type":"tool_use","id":"plan-1","name":"TodoWrite","input":{"todos":[{"content":"survey","status":"in_progress"}]}}]},"parent_tool_use_id":null}""";
+    private const string SessionSpawn =
+        """{"type":"assistant","message":{"model":"claude-opus-4-8","content":[{"type":"tool_use","id":"task-1","name":"Task","input":{"prompt":"look"}}],"usage":{"input_tokens":10,"output_tokens":5,"cache_read_input_tokens":0}},"parent_tool_use_id":null}""";
+    private const string ChildRead =
+        """{"type":"assistant","message":{"model":"claude-haiku-4-5","content":[{"type":"tool_use","id":"read-1","name":"Read","input":{"file_path":"a.txt"}}],"usage":{"input_tokens":900,"output_tokens":40,"cache_read_input_tokens":300}},"parent_tool_use_id":"task-1"}""";
+    private const string ChildPlan =
+        """{"type":"assistant","message":{"content":[{"type":"tool_use","id":"plan-2","name":"TodoWrite","input":{"todos":[{"content":"read a.txt","status":"pending"}]}}]},"parent_tool_use_id":"task-1"}""";
+    private const string ChildResult =
+        """{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"read-1","content":"hello"}]},"parent_tool_use_id":"task-1"}""";
+    private const string ChildText =
+        """{"type":"assistant","message":{"content":[{"type":"text","text":"the child's report"}]},"error":"max_output_tokens","parent_tool_use_id":"task-1"}""";
+    private const string ChildDelta =
+        """{"type":"stream_event","event":{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"child"}},"parent_tool_use_id":"task-1"}""";
+
+    [Fact]
+    public void A_subagents_calls_and_results_name_the_call_that_spawned_it()
+    {
+        var reader = new StreamJsonAgentReader();
+
+        var spawn = Assert.IsType<ToolCall>(Assert.Single(reader.Read(SessionSpawn).OfType<ToolCall>()));
+        var read = Assert.IsType<ToolCall>(Assert.Single(reader.Read(ChildRead).OfType<ToolCall>()));
+        var result = Assert.IsType<ToolResult>(Assert.Single(reader.Read(ChildResult)));
+
+        Assert.Null(spawn.ParentCallId);
+        Assert.Equal("Read", read.Name);
+        Assert.Equal("task-1", read.ParentCallId);
+        Assert.Equal("read-1", result.CallId);
+        Assert.Equal("task-1", result.ParentCallId);
+    }
+
+    [Fact]
+    public void A_line_with_no_parent_field_or_a_null_one_is_the_sessions_own()
+    {
+        var reader = new StreamJsonAgentReader();
+
+        var call = Assert.Single(reader.Read(
+            """{"type":"assistant","message":{"content":[{"type":"tool_use","id":"t1","name":"Read","input":{}}]}}""").OfType<ToolCall>());
+        var nullField = Assert.Single(reader.Read(SessionSpawn).OfType<ToolCall>());
+        var result = Assert.IsType<ToolResult>(Assert.Single(reader.Read(
+            """{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"t1","content":"x"}]},"parent_tool_use_id":null}""")));
+
+        Assert.Null(call.ParentCallId);
+        Assert.Null(nullField.ParentCallId);
+        Assert.Null(result.ParentCallId);
+    }
+
+    [Fact]
+    public void A_subagents_todo_list_does_not_replace_the_sessions_plan()
+    {
+        var reader = new StreamJsonAgentReader();
+
+        var plans = new[] { SessionPlan, ChildPlan }.SelectMany(reader.Read).OfType<PlanUpdated>().ToList();
+
+        var plan = Assert.Single(plans);
+        Assert.Equal("survey", Assert.Single(plan.Entries).Content);
+    }
+
+    [Fact]
+    public void A_subagents_usage_does_not_tick_as_the_turns()
+    {
+        var reader = new StreamJsonAgentReader();
+
+        var live = new[] { SessionSpawn, ChildRead }.SelectMany(reader.Read).OfType<UsageLive>().ToList();
+
+        Assert.Equal(10, Assert.Single(live).InputTokens);
+    }
+
+    [Fact]
+    public void A_subagents_text_and_error_do_not_become_the_turns_fallback_or_failure()
+    {
+        var reader = new StreamJsonAgentReader();
+        _ = new[] { SessionSpawn, ChildRead, ChildResult, ChildText }.SelectMany(reader.Read).ToList();
+
+        var ended = Assert.IsType<SessionEnded>(Assert.Single(reader.Read(
+            """{"type":"result","subtype":"success","is_error":false,"result":"","session_id":"s"}""")));
+
+        Assert.True(string.IsNullOrEmpty(ended.FinalText));
+        Assert.Null(ended.Failure);
+        Assert.Equal(ProviderVerdict.Ok, ended.Verdict);
+    }
+
+    [Fact]
+    public void A_subagents_text_stream_is_not_the_sessions_answer_text()
+    {
+        var reader = new StreamJsonAgentReader();
+
+        Assert.Empty(reader.Read(ChildDelta));
+    }
+
+    [Fact]
+    public void A_subagents_model_is_not_the_turns_reported_model()
+    {
+        var reader = new StreamJsonAgentReader();
+        _ = new[] { SessionSpawn, ChildRead }.SelectMany(reader.Read).ToList();
+
+        var final = Assert.Single(reader.Read(
+            """{"type":"result","subtype":"success","is_error":false,"result":"done","session_id":"s","usage":{"input_tokens":1,"output_tokens":1}}""")
+            .OfType<UsageFinal>());
+
+        Assert.Equal("claude-opus-4-8", final.Model);
+    }
 }

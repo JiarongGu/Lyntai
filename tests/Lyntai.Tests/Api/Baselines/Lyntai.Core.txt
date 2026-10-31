@@ -656,6 +656,7 @@ sealed class Lyntai.Agents.ToolCall
     Equals(ToolCall other) : Boolean
     GetHashCode() : Int32
     Name : String { get; init; }
+    ParentCallId : String { get; init; }
     PrintMembers(StringBuilder builder) : Boolean
     ToString() : String
 static class Lyntai.Agents.ToolInvocation
@@ -700,6 +701,7 @@ sealed class Lyntai.Agents.ToolResult
     Equals(ToolResult other) : Boolean
     GetHashCode() : Int32
     IsError : Boolean { get; init; }
+    ParentCallId : String { get; init; }
     PrintMembers(StringBuilder builder) : Boolean
     ToString() : String
 sealed class Lyntai.Agents.ToolSelectorOptions
