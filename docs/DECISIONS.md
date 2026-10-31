@@ -6976,7 +6976,7 @@ changed-since read), or when a record and an experience must be ranked together.
 ## D242 — a supersession can apply as one change, a view over another task only reads, and a caller's key makes a write answerable (2026-10-31)
 
 **Standing.** Written for the three requests of Daoris's memory coordinator (its design §6, A to C), taken as a working
-position. MC11 and MC12 are built (`docs/task-archive.md` Part 424, 425); MC7 is still `TASKS.md`'s. It amends **D241** on one
+position. MC11, MC12 and MC7 are built (`docs/task-archive.md` Part 424, 425, 426). It amends **D241** on one
 item. Reversing it costs a frozen surface once a release carries it (**D70**).
 
 **Decided.**

@@ -44,7 +44,7 @@ public enum MemoryWriteRouting
 public sealed class CompositeMemoryEngine
     : IMemoryEngine, IExpandableMemory, ITaskExpandableMemory, ILinkableMemory, IForgettableMemory, IPrunableMemory,
         IReindexableMemory, IPortableMemory, ITemporalMemory, IEndableMemory, IMemoryCandidates, IRelatableMemory, IConfirmableMemory,
-        IKeyedMemory, ISupersedingMemory
+        IKeyedMemory, ISupersedingMemory, IViewableMemory
 {
     private readonly IReadOnlyList<IMemoryEngine> _members;
     private readonly ILogger _logger;
@@ -94,6 +94,50 @@ public sealed class CompositeMemoryEngine
     /// source-compatible and NOT binary-compatible, so a pre-compiled caller of the old signature breaks.
     /// A new member costs nothing and breaks nobody. Set it in an object initializer.</para></summary>
     public MemoryWriteRouting WriteRouting { get; init; } = MemoryWriteRouting.FirstCapable;
+
+    private IReadOnlyList<IMemoryView> _views = [];
+
+    /// <summary>Read-only views of other tasks this blend recalls from beside its members, and routes an expansion to by
+    /// <see cref="MemoryRef.Engine"/>. A view has no write path, so a write, link, relation, end or confirmation naming one of its
+    /// references throws <see cref="NotSupportedException"/>; the views are not members, so removal, re-embedding and export never
+    /// visit them. Each is recalled in its own task with no scope, and its results join the blend's cut.
+    /// An <c>init</c> property for the reason <see cref="WriteRouting"/> is.</summary>
+    /// <exception cref="InvalidOperationException">A view returns entries of an engine this blend already has as a member, or of
+    /// one another view returns, which would make a reference ambiguous about its owner.</exception>
+    public IReadOnlyList<IMemoryView> Views
+    {
+        get => _views;
+        init
+        {
+            ArgumentNullException.ThrowIfNull(value);
+            var names = new HashSet<string>(_members.Select(m => m.Name), StringComparer.Ordinal);
+            foreach (var engine in value.SelectMany(v => v.Engines))
+                if (!names.Add(engine))
+                    throw new InvalidOperationException(
+                        $"Memory engine '{Name}' has a view of entries owned by '{engine}', which is already a member or another " +
+                        "view's engine, so a reference to it would not name one owner.");
+            _views = value;
+        }
+    }
+
+    private IMemoryView? ViewFor(MemoryRef reference) =>
+        _views.FirstOrDefault(v => v.Engines.Contains(reference.Engine, StringComparer.Ordinal));
+
+    private static MemoryRecall ToRecall(MemoryViewRecall recall) =>
+        recall.Items.Count == 0 ? MemoryRecall.Empty : new MemoryRecall([.. recall.Items.Select(i => i.Item)], recall.Ran);
+
+    /// <inheritdoc />
+    /// <remarks>True when ANY member holds a view.</remarks>
+    public bool HoldsView => _members.Any(m => m is IViewableMemory { HoldsView: true });
+
+    /// <inheritdoc />
+    /// <remarks>A view of EVERY member that holds one, side by side. Fails LOUD where none does.</remarks>
+    public IMemoryView ViewOf(string taskKey, IMemoryViewCheck? check = null)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(taskKey);
+        List<IMemoryView> views = [.. _members.OfType<IViewableMemory>().Where(m => m.HoldsView).Select(m => m.ViewOf(taskKey, check))];
+        return views.Count == 0 ? throw MemoryViewRefusal.For(Name) : new CompositeMemoryView(taskKey, views);
+    }
 
     /// <inheritdoc />
     public MemoryGrades Supported => _members.Aggregate(MemoryGrades.None, (acc, m) => acc | m.Supported);
@@ -300,6 +344,23 @@ public sealed class CompositeMemoryEngine
             }
         }
 
+        foreach (var view in _views)
+        {
+            ct.ThrowIfCancellationRequested();
+            try
+            {
+                var recall = ToRecall(await view.RecallAsync(new MemoryViewQuery(query.Query, null, query.Limit, query.CharBudget, null, query.Detail)
+                    { Validity = query.Validity }, ct).ConfigureAwait(false));
+                items.AddRange(recall.Items);
+                ran |= recall.Ran;
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "view of task {Task} in {Engine} failed during recall; continuing", view.TaskKey, Name);
+            }
+        }
+
         if (items.Count == 0)
             return candidates is null ? MemoryRecall.Empty : MemoryRecall.Empty with { Candidates = candidates };
         var offered = items;
@@ -369,6 +430,8 @@ public sealed class CompositeMemoryEngine
     public async Task<MemoryRecall> ExpandAsync(MemoryRef reference, int hops = 1, int? charBudget = null,
         MemoryDetail detail = MemoryDetail.Headline, CancellationToken ct = default)
     {
+        if (ViewFor(reference) is { } view)
+            return ToRecall(await view.ExpandAsync(reference, hops, charBudget, detail, default, ct).ConfigureAwait(false));
         var owner = Owner(reference);
         // fail OPEN: a member that cannot expand yields no neighbours rather than an error, because every
         // recall-shaped read in this library degrades rather than throwing
@@ -381,6 +444,8 @@ public sealed class CompositeMemoryEngine
     public async Task<MemoryRecall> ExpandAsync(MemoryRef reference, int hops, int? charBudget, MemoryDetail detail,
         MemoryValidityReading validity, CancellationToken ct = default)
     {
+        if (ViewFor(reference) is { } view)
+            return ToRecall(await view.ExpandAsync(reference, hops, charBudget, detail, validity, ct).ConfigureAwait(false));
         var owner = Owner(reference);
         return owner is IExpandableMemory expandable
             ? await expandable.ExpandAsync(reference, hops, charBudget, detail, validity, ct).ConfigureAwait(false)
@@ -389,10 +454,14 @@ public sealed class CompositeMemoryEngine
 
     /// <inheritdoc />
     /// <remarks>Fails CLOSED where the owning member cannot expand inside a task: it cannot say which task the entry
-    /// is in, and the caller asked for a boundary.</remarks>
+    /// is in, and the caller asked for a boundary. A reference into a view expands only for the view's own task.</remarks>
     public async Task<MemoryRecall> ExpandInTaskAsync(MemoryRef reference, string taskKey, int hops, int? charBudget,
         MemoryDetail detail, MemoryValidityReading validity, CancellationToken ct = default) =>
-        Owner(reference) is ITaskExpandableMemory scoped
+        ViewFor(reference) is { } view
+            ? string.Equals(view.TaskKey, taskKey, StringComparison.Ordinal)
+                ? ToRecall(await view.ExpandAsync(reference, hops, charBudget, detail, validity, ct).ConfigureAwait(false))
+                : MemoryRecall.Empty
+        : Owner(reference) is ITaskExpandableMemory scoped
             ? await scoped.ExpandInTaskAsync(reference, taskKey, hops, charBudget, detail, validity, ct).ConfigureAwait(false)
             : MemoryRecall.Empty;
 
@@ -649,6 +718,11 @@ public sealed class CompositeMemoryEngine
         foreach (var member in _members)
             if (string.Equals(member.Name, reference.Engine, StringComparison.Ordinal))
                 return member;
+
+        if (ViewFor(reference) is not null)
+            throw new NotSupportedException(
+                $"'{reference.Engine}' is a read-only view of memory engine '{Name}': it can be recalled and expanded, never written, " +
+                "linked, related, ended or confirmed through here.");
 
         throw new KeyNotFoundException(
             $"No member of memory engine '{Name}' is named '{reference.Engine}'. " +

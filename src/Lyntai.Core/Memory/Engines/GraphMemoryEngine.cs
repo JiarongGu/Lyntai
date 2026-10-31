@@ -41,7 +41,7 @@ public sealed class GraphMemoryEngine(
     ILogger<GraphMemoryEngine>? logger = null)
     : IMemoryEngine, IExpandableMemory, ITaskExpandableMemory, ILinkableMemory, IForgettableMemory, IPrunableMemory,
         IReindexableMemory, IPortableMemory, ITemporalMemory, IEndableMemory, IMemoryCandidates, IRelatableMemory, IConfirmableMemory,
-        IKeyedMemory, ISupersedingMemory
+        IKeyedMemory, ISupersedingMemory, IViewableMemory
 {
     private readonly GraphMemoryOptions _options = options ?? new GraphMemoryOptions();
     private readonly IMemoryRetrievabilityPolicy _policy =
@@ -1237,7 +1237,12 @@ public sealed class GraphMemoryEngine(
     /// <see cref="KeyNotFoundException"/> from an unknown name propagates to the caller like
     /// <see cref="OperationCanceledException"/> does — a caller mistake, not a storage outage, so it must not
     /// be swallowed into an empty result the caller would read as "nothing matched".</remarks>
-    public async Task<MemoryRecall> RecallAsync(MemoryQuery query, CancellationToken ct = default)
+    public Task<MemoryRecall> RecallAsync(MemoryQuery query, CancellationToken ct = default) =>
+        RecallCoreAsync(query, learn: true, ct);
+
+    /// <summary>The one recall path. <paramref name="learn"/> false is a view's read: everything above the write-back runs, and
+    /// the write-back (reinforcement, co-activation, the review log) does not.</summary>
+    private async Task<MemoryRecall> RecallCoreAsync(MemoryQuery query, bool learn, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(query);
         ct.ThrowIfCancellationRequested();
@@ -1301,7 +1306,7 @@ public sealed class GraphMemoryEngine(
 
         if (scored.Count > 0)
         {
-            await LogAndReinforceAsync(scored, verdict, ct).ConfigureAwait(false);
+            if (learn) await LogAndReinforceAsync(scored, verdict, ct).ConfigureAwait(false);
 
             // A judgement never removes an answer unless a consumer asked for that separately: a mistaken
             // verdict should cost a little learning, not a lost result. Authoritative material is exempt
@@ -1506,18 +1511,18 @@ public sealed class GraphMemoryEngine(
     /// to its page.</remarks>
     public Task<MemoryRecall> ExpandAsync(MemoryRef reference, int hops, int? charBudget, MemoryDetail detail,
         MemoryValidityReading validity, CancellationToken ct = default) =>
-        ExpandCoreAsync(reference, null, hops, charBudget, detail, validity, ct);
+        ExpandCoreAsync(reference, null, hops, charBudget, detail, validity, learn: true, ct);
 
     /// <inheritdoc />
     public Task<MemoryRecall> ExpandInTaskAsync(MemoryRef reference, string taskKey, int hops, int? charBudget,
         MemoryDetail detail, MemoryValidityReading validity, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(taskKey);
-        return ExpandCoreAsync(reference, taskKey, hops, charBudget, detail, validity, ct);
+        return ExpandCoreAsync(reference, taskKey, hops, charBudget, detail, validity, learn: true, ct);
     }
 
     private async Task<MemoryRecall> ExpandCoreAsync(MemoryRef reference, string? onlyTask, int hops, int? charBudget,
-        MemoryDetail detail, MemoryValidityReading validity, CancellationToken ct)
+        MemoryDetail detail, MemoryValidityReading validity, bool learn, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
         validity.ThrowIfIncoherent();
@@ -1560,7 +1565,7 @@ public sealed class GraphMemoryEngine(
 
         // expanding a node reinforces it — digging in one direction is exactly what should make that
         // direction more retrievable next time, and it is the one act here a caller PAID for
-        await ReinforceAsync([node], MemoryReinforcementActs.Expansion, ct).ConfigureAwait(false);
+        if (learn) await ReinforceAsync([node], MemoryReinforcementActs.Expansion, ct).ConfigureAwait(false);
 
         var items = new List<MemoryItem>(walked.Count + 1)
         {
@@ -1579,6 +1584,41 @@ public sealed class GraphMemoryEngine(
         // costs. Null takes the engine's configured budget, itself null (unbounded) unless a host sets one.
         var result = (charBudget ?? _options.ExpandCharBudget) is { } budget ? MemoryBudget.Cut(items, budget) : items;
         return new MemoryRecall(result, RecallSources);
+    }
+
+    // ---- the read-only view (IViewableMemory) ---------------------------------------------------------------
+
+    /// <inheritdoc />
+    public bool HoldsView => store is IEndableMemoryGraphStore;
+
+    /// <inheritdoc />
+    public IMemoryView ViewOf(string taskKey, IMemoryViewCheck? check = null)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(taskKey);
+        return HoldsView ? new GraphMemoryView(this, taskKey, check) : throw MemoryViewRefusal.For(Name);
+    }
+
+    /// <summary>The clock a view judges standing by — the one a recall admits by.</summary>
+    internal DateTimeOffset Now => _clock();
+
+    /// <summary>A recall that writes nothing back: no reinforcement, no co-activation, no review log.</summary>
+    internal Task<MemoryRecall> ReadAsync(MemoryQuery query, CancellationToken ct) =>
+        RecallCoreAsync(query, learn: false, ct);
+
+    /// <summary>An in-task expansion that reinforces nothing.</summary>
+    internal Task<MemoryRecall> ReadExpansionAsync(MemoryRef reference, string taskKey, int hops, int? charBudget,
+        MemoryDetail detail, MemoryValidityReading validity, CancellationToken ct) =>
+        ExpandCoreAsync(reference, taskKey, hops, charBudget, detail, validity, learn: false, ct);
+
+    /// <summary>One entry's revision by id: a single store read, task-checked like an expansion, null for a missing or foreign one.</summary>
+    internal async Task<string?> ReadRevisionAsync(MemoryRef reference, string taskKey, CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        if (!Owns(reference) ||
+            !long.TryParse(reference.Id, NumberStyles.Integer, CultureInfo.InvariantCulture, out var id))
+            return null;
+        var node = await store.GetAsync(Name, id, ct).ConfigureAwait(false);
+        return node is not null && string.Equals(node.TaskKey, taskKey, StringComparison.Ordinal) ? RevisionOf(node) : null;
     }
 
     /// <inheritdoc />

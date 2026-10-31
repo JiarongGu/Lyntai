@@ -6411,3 +6411,18 @@ repeats), nine engine and blend cases including a failed index write leaving it 
 committed line finishes the file, an unwritable file does not undo it), and the baselines. Lanes `memory` + `storage`.
 
 - MC12 — a supersession that applies as one change
+
+## Part 426 — MC7: a read-only view of the owner's task, as a blend member (2026-10-31)
+
+✅ done 2026-10-31 — **Outcome:** `IViewableMemory.ViewOf(taskKey, check)` (graph engine and blend; `HoldsView` false and a throwing `ViewOf`
+where no member holds one) returns an `IMemoryView` whose type has no write: `RecallAsync`, `ExpandAsync`, `RevisionOfAsync`. It is the engine's own
+recall and expansion with the write-back switched off (`GraphMemoryEngine` took a `learn` flag on both paths), so no store changed. Results are
+`MemoryViewItem`s: the `MemoryItem` (reference, revision, relations, validity), the source task and a `MemoryStanding`. `IMemoryViewCheck` is asked
+about the expanded reference before the store is read. `CompositeMemoryEngine.Views` / `MemoryEngineBuilder.UseView` recall beside the members and route
+an expansion by `MemoryRef.Engine`; a write naming a view's reference throws. What it chose, in `docs/memory.md` §9 (its own type rather
+than a member; the check names the expanded reference only; `ExpandInTaskAsync` reaches a view for its own task). Proof: one store fact on the stores run here (SQLite, file, in-process: reads move nothing the owner holds),
+twelve engine and blend cases (no write path by reflection, nothing moved by recall, expansion and revision with a control that does move,
+source task and standing, a refused expansion reading nothing through a call-recording store, the owner's end read at the next recall, writes
+refused through the blend, `UseView` from the container), the baseline. The Postgres leg of that fact was not run (Docker down). Lane `memory`.
+
+- MC7 — a read-only view of the owner's task, as a blend member
