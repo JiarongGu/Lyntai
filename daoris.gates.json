@@ -1,4 +1,8 @@
 {
+  "gates": [
+    { "name": "decisions-index", "run": "node devtools/dev.mjs decisions-index --check", "kind": "check" },
+    { "name": "verify", "run": "node devtools/dev.mjs verify", "kind": "suite" }
+  ],
   "safe": [
     "dotnet restore Lyntai.slnx",
     "dotnet build Lyntai.slnx",
@@ -43,6 +47,12 @@
     "daoris doctor"
   ],
   "integration": {
+    "by": "daoris",
+    "gates": ["decisions-index", "verify"],
+    "merge": [
+      { "paths": "docs/documents.md", "by": "rows" }
+    ],
+    "message": "Merge {title} ({branch})",
     "scratch": [
       "devtools/_test-results/**",
       "devtools/_test-dbs/**",
