@@ -51,6 +51,27 @@ public class CliAgentLoopTests
         Assert.Null(ended.FinalText);
     }
 
+    [Fact]
+    public async Task A_tasks_end_after_the_terminal_is_an_event_and_never_a_second_ending()
+    {
+        // SOURCE-DERIVED, as StreamJsonAgentReaderTests labels it: the binary ends a backgrounded command after the result
+        var runner = new FakeProcessRunner(
+        [
+            """{"type":"system","subtype":"init","session_id":"s-1"}""",
+            """{"type":"system","subtype":"task_started","task_id":"b1","tool_use_id":"toolu_1","description":"npm run gates","task_type":"local_bash"}""",
+            """{"type":"result","subtype":"success","is_error":false,"result":"running","session_id":"s-1"}""",
+            """{"type":"system","subtype":"task_notification","task_id":"b1","tool_use_id":"toolu_1","status":"stopped"}""",
+        ]);
+
+        var events = await Run("claude", runner);
+
+        Assert.Single(events.OfType<SessionEnded>());
+        Assert.Equal(
+            ["SessionStarted", "AgentTaskStarted", "SessionEnded", "AgentTaskEnded"],
+            events.Select(e => e.GetType().Name));
+        Assert.Equal(new AgentTaskEnded("b1", "stopped"), events[^1]);
+    }
+
     [Theory]
     [InlineData("claude")]
     [InlineData("codex")]

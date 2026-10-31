@@ -6483,3 +6483,17 @@ parent to name and would otherwise join the session's answer text; a nested suba
 nested and a failed one were not seen), every existing reader test unchanged, and the `ApiSurface` baseline moved from the emitted `.actual`. Lane `inference`.
 
 - AG10 — the Claude CLI door keeps a subagent's lines apart from the session's
+
+## Part 433 — AG18: background work started and ended, as events (2026-11-01)
+
+✅ done 2026-11-01 — **Outcome:** `AgentTaskStarted` (a task id, the agent's own `task_type` word, a description, the starting call) and `AgentTaskEnded` (the id,
+the agent's status word) join the closed `AgentStreamEvent` hierarchy, and `StreamJsonAgentReader` routes every `system` line whose subtype starts `task_` to its
+own reader before `ReadSystem`, so a task line announces no session and moves nothing the session owns. **What the row left open, read here:** the end is the
+`task_notification` alone, because `task_updated` is a patch that precedes it with a status of its own and reading both ends a task twice; `task_progress` and
+`background_tasks_changed` yield nothing; a task still open at the result is ended by a notification AFTER the one `SessionEnded`, which `CliAgentLoop` already
+allows (an event, never a second terminal). Proof: eight `StreamJsonAgentReaderTests` over a SOURCE-DERIVED fixture in the shape of Daoris's capture (two
+backgrounded commands, one open at the result, and a `local_agent` start), one `CliAgentLoopTests` case through the Claude session, the closed-hierarchy test, and
+the `ApiSurface` baseline moved from the emitted `.actual`. Not seen there: a synchronous subagent, a failed task, a `task_updated` with no notification after
+it. Lane `inference`.
+
+- AG18 — background work started and ended, as events

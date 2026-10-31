@@ -32,6 +32,24 @@ public sealed record ToolResult(string? CallId, string Content, bool IsError) : 
     public string? ParentCallId { get; init; }
 }
 
+/// <summary>The agent started background work: a command it left running, or a subagent it spawned. A turn's
+/// <see cref="SessionEnded"/> does not mean the work finished — the agent's binary ends its background work when the
+/// turn ends — so a task with no <see cref="AgentTaskEnded"/> by then was still open at the terminal.</summary>
+/// <param name="TaskId">The agent's id for the task; the key of its <see cref="AgentTaskEnded"/>.</param>
+/// <param name="Kind">The agent's own word for what kind of work it is (the door states it, nothing here
+/// interprets it); null when the door states none.</param>
+/// <param name="Description">The agent's description of the work; null when the door states none.</param>
+/// <param name="CallId">The <see cref="ToolCall.CallId"/> of the call that started it, which is also the
+/// <see cref="ToolCall.ParentCallId"/> of a subagent's calls; null when the door states none.</param>
+public sealed record AgentTaskStarted(string TaskId, string? Kind, string? Description, string? CallId) : AgentStreamEvent;
+
+/// <summary>Background work ended, in the agent's word for how. It can arrive after the turn's
+/// <see cref="SessionEnded"/>, which is never a second terminal.</summary>
+/// <param name="TaskId">The <see cref="AgentTaskStarted.TaskId"/> it ends.</param>
+/// <param name="Status">The agent's own word for how it ended (for example <c>completed</c> or <c>stopped</c>),
+/// uninterpreted; null when the door states none.</param>
+public sealed record AgentTaskEnded(string TaskId, string? Status) : AgentStreamEvent;
+
 /// <summary>Per-turn usage tick (RAW token counts — the app prices from its own table).</summary>
 public sealed record UsageLive(long InputTokens, long OutputTokens, long CacheReadTokens) : AgentStreamEvent;
 

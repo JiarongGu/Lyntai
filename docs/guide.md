@@ -1065,6 +1065,13 @@ reading only with one of the same door and scope. Both doors read `Turn` from th
 claude's is the turn's total over every API call, and codex's scope is taken from its usage record and has not
 been re-measured across a resumed conversation.
 
+**Background work.** Claude's binary ends the work it backgrounded (a command left running, a subagent) when the turn
+ends, so a `SessionEnded` does not mean that work finished. The Claude door yields `AgentTaskStarted` (the task id,
+the agent's own kind word, a description, and the call that started it, which is the `ParentCallId` of a subagent's
+calls) and `AgentTaskEnded` (the id and the agent's status word, uninterpreted). A task still open at the result is
+ended after the turn's one `SessionEnded`: read on past the terminal if you want its end. Codex and the ACP doors
+emit neither. What to show of a task is yours.
+
 **Why a turn failed** (`SessionEnded.Failure`, set on every failed terminal of both CLI sessions, null on a good
 one). `AgentFailure.Kind` is `Limit`, `Access`, `Transient` or `Fatal`, read from the door's OWN failure — a
 rejected `rate_limit_event`, a result's `api_error_status`, a failed turn's message — and never from what the agent

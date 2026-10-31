@@ -474,4 +474,113 @@ public class StreamJsonAgentReaderTests
 
         Assert.Equal("claude-opus-4-8", final.Model);
     }
+
+    // ── background work (task_* lines) ───────────────────────────────────────
+
+    // SOURCE-DERIVED: the shape of a host's capture of a turn that backgrounds two commands. The first ends before
+    // the result; the second is still running at the result and is ended by the binary after it. A subagent's
+    // `task_started` (task_type local_agent, no description) is the shape of the same host's lineage capture. A
+    // synchronous subagent and a failed task were not seen there.
+    private static readonly string[] BackgroundTurn =
+    [
+        """{"type":"system","subtype":"init","session_id":"sess-bg","cwd":"/work","tools":["Bash"]}""",
+        """{"type":"assistant","message":{"content":[{"type":"tool_use","id":"toolu_fetch","name":"Bash","input":{"command":"git fetch origin","run_in_background":true}}]},"parent_tool_use_id":null}""",
+        """{"type":"system","subtype":"task_started","task_id":"b0fetch","tool_use_id":"toolu_fetch","description":"git fetch","is_backgrounded":true,"task_type":"local_bash"}""",
+        """{"type":"system","subtype":"task_updated","task_id":"b0fetch","patch":{"status":"completed","end_time":1760950801000}}""",
+        """{"type":"system","subtype":"task_notification","task_id":"b0fetch","tool_use_id":"toolu_fetch","status":"completed","output_file":"/tasks/b0fetch.output","summary":"git fetch"}""",
+        """{"type":"system","subtype":"task_started","task_id":"b1gates","tool_use_id":"toolu_gates","description":"npm run gates","is_backgrounded":true,"task_type":"local_bash"}""",
+        """{"type":"system","subtype":"background_tasks_changed","tasks":[{"task_id":"b1gates","task_type":"local_bash","description":"npm run gates"}]}""",
+        """{"type":"result","subtype":"success","is_error":false,"result":"running in the background","session_id":"sess-bg"}""",
+        """{"type":"system","subtype":"task_updated","task_id":"b1gates","patch":{"status":"killed","end_time":1760950827000}}""",
+        """{"type":"system","subtype":"task_notification","task_id":"b1gates","tool_use_id":"toolu_gates","status":"stopped","output_file":"/tasks/b1gates.output","summary":"npm run gates"}""",
+    ];
+
+    [Fact]
+    public void A_started_task_carries_its_id_kind_description_and_the_call_that_started_it()
+    {
+        var reader = new StreamJsonAgentReader();
+
+        var started = BackgroundTurn.SelectMany(reader.Read).OfType<AgentTaskStarted>().ToList();
+
+        Assert.Equal(
+            [new AgentTaskStarted("b0fetch", "local_bash", "git fetch", "toolu_fetch"),
+             new AgentTaskStarted("b1gates", "local_bash", "npm run gates", "toolu_gates")],
+            started);
+    }
+
+    [Fact]
+    public void A_subagents_task_names_the_call_its_lines_name_as_their_parent()
+    {
+        var reader = new StreamJsonAgentReader();
+
+        var started = Assert.IsType<AgentTaskStarted>(Assert.Single(reader.Read(
+            """{"type":"system","subtype":"task_started","task_id":"a9b1","task_type":"local_agent","spawn_depth":1,"tool_use_id":"task-1","subagent_type":"general-purpose"}""")));
+        var child = Assert.Single(reader.Read(ChildRead).OfType<ToolCall>());
+
+        Assert.Equal("local_agent", started.Kind);
+        Assert.Null(started.Description);
+        Assert.Equal(started.CallId, child.ParentCallId);
+    }
+
+    [Fact]
+    public void An_ended_task_carries_the_agents_status_word_once()
+    {
+        var reader = new StreamJsonAgentReader();
+
+        var ended = BackgroundTurn.SelectMany(reader.Read).OfType<AgentTaskEnded>().ToList();
+
+        Assert.Equal([new AgentTaskEnded("b0fetch", "completed"), new AgentTaskEnded("b1gates", "stopped")], ended);
+    }
+
+    [Fact]
+    public void A_task_still_open_at_the_result_is_ended_after_the_one_terminal()
+    {
+        var reader = new StreamJsonAgentReader();
+
+        var events = BackgroundTurn.SelectMany(reader.Read).ToList();
+
+        var terminal = events.FindIndex(e => e is SessionEnded);
+        var ended = Assert.Single(events.OfType<SessionEnded>());
+        Assert.Equal(ProviderVerdict.Ok, ended.Verdict);
+        Assert.Equal("running in the background", ended.FinalText);
+        Assert.Single(events.OfType<AgentTaskStarted>(), s => s.TaskId == "b1gates");
+        Assert.DoesNotContain(events.Take(terminal), e => e is AgentTaskEnded { TaskId: "b1gates" });
+        Assert.Equal(new AgentTaskEnded("b1gates", "stopped"), Assert.IsType<AgentTaskEnded>(events[^1]));
+    }
+
+    [Fact]
+    public void A_task_line_never_reaches_the_sessions_own_events()
+    {
+        var reader = new StreamJsonAgentReader();
+
+        var events = BackgroundTurn.SelectMany(reader.Read).ToList();
+
+        // the session is announced once, by its init; a task line carrying another id announces nothing
+        Assert.Equal("sess-bg", Assert.Single(events.OfType<SessionStarted>()).SessionId);
+        Assert.Empty(reader.Read(
+            """{"type":"system","subtype":"task_started","task_id":"x","session_id":"other","description":"d"}""").OfType<SessionStarted>());
+        Assert.DoesNotContain(events, e => e is TextDelta or Thinking or PlanUpdated or UsageLive);
+    }
+
+    [Theory]
+    [InlineData("""{"type":"system","subtype":"task_started","description":"no id"}""")]
+    [InlineData("""{"type":"system","subtype":"task_started","task_id":"","description":"empty id"}""")]
+    [InlineData("""{"type":"system","subtype":"task_notification","status":"completed"}""")]
+    [InlineData("""{"type":"system","subtype":"task_progress","task_id":"a9b1","description":"Reading README.md"}""")]
+    [InlineData("""{"type":"system","subtype":"task_updated","task_id":"a9b1","patch":{"status":"completed"}}""")]
+    public void A_task_line_that_names_no_task_or_says_nothing_new_yields_nothing(string line)
+    {
+        Assert.Empty(new StreamJsonAgentReader().Read(line));
+    }
+
+    [Fact]
+    public void A_task_line_missing_its_optional_fields_reads_them_as_null()
+    {
+        var reader = new StreamJsonAgentReader();
+
+        Assert.Equal(new AgentTaskStarted("t1", null, null, null),
+            Assert.Single(reader.Read("""{"type":"system","subtype":"task_started","task_id":"t1"}""")));
+        Assert.Equal(new AgentTaskEnded("t1", null),
+            Assert.Single(reader.Read("""{"type":"system","subtype":"task_notification","task_id":"t1"}""")));
+    }
 }

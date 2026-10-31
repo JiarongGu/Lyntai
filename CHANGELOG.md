@@ -92,6 +92,13 @@ every addition.
 
 ### Added
 
+- **The Claude CLI door reads background work as `AgentTaskStarted` and `AgentTaskEnded` events.** The agent's binary ends the work it
+  backgrounded when the turn ends, so a `SessionEnded` never meant that work finished, and nothing said it had started. A `task_started`
+  line now yields `AgentTaskStarted` (the task id, the agent's own kind word, its description and the call that started it; the last
+  is also the `ParentCallId` of a subagent's calls), and a `task_notification` yields `AgentTaskEnded` (the id and the agent's status
+  word). A task still open at the result is ended after the turn's one `SessionEnded`, which is an event and never a second ending. A
+  task line announces no session and moves nothing the session owns. Seen with a backgrounded command and an asynchronous subagent
+  only; a synchronous subagent and a failed task were not.
 - **The Claude CLI door keeps a subagent's lines apart from the session's, and `ToolCall` and `ToolResult` carry `ParentCallId`.** A
   subagent's lines reach the session's stdout with `parent_tool_use_id` set to the call that spawned it, and the reader never read the
   field: a subagent's `TodoWrite` replaced the session's plan, its usage ticked as the turn's, and its last text or error field could

@@ -45,7 +45,9 @@ internal sealed class StreamJsonAgentReader
     // text, model or error field, and no text delta (a TextDelta has no parent to name).
     private IEnumerable<AgentStreamEvent> ReadLine(JsonElement root) => WireJson.String(root, "type") switch
     {
-        "system" => ReadSystem(root),
+        "system" => WireJson.String(root, "subtype") is { } subtype && subtype.StartsWith("task_", StringComparison.Ordinal)
+            ? ReadTask(root, subtype)
+            : ReadSystem(root),
         "stream_event" => WireJson.String(root, "parent_tool_use_id") is null ? ReadStreamEvent(root) : [],
         "assistant" => ReadAssistant(root, WireJson.String(root, "parent_tool_use_id")),
         "user" => ReadUser(root, WireJson.String(root, "parent_tool_use_id")),
@@ -81,6 +83,26 @@ internal sealed class StreamJsonAgentReader
             _sessionId = sessionId;
             yield return new SessionStarted(sessionId);
         }
+    }
+
+    // ── task_* (background work) ─────────────────────────────────────────────
+
+    // A `task_*` line is routed here before ReadSystem, so it can never announce a session or move anything the
+    // session owns. `task_notification` is the end: every capture carries one per task, while `task_updated` is a
+    // patch that precedes it with a status of its own, so reading both would end a task twice. `task_progress` and
+    // `background_tasks_changed` say nothing these two do not.
+    private static IEnumerable<AgentStreamEvent> ReadTask(JsonElement root, string subtype)
+    {
+        if (WireJson.String(root, "task_id") is not { Length: > 0 } id)
+            return [];
+
+        return subtype switch
+        {
+            "task_started" => [new AgentTaskStarted(id, WireJson.String(root, "task_type"),
+                WireJson.String(root, "description"), WireJson.String(root, "tool_use_id"))],
+            "task_notification" => [new AgentTaskEnded(id, WireJson.String(root, "status"))],
+            _ => [],
+        };
     }
 
     // ── stream_event (partial content deltas) ────────────────────────────────
