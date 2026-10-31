@@ -54,6 +54,7 @@
     ],
     "message": "Merge {title} ({branch})",
     "scratch": [
+      "devtools/_verify.log",
       "devtools/_test-results/**",
       "devtools/_test-dbs/**",
       "devtools/_test-scratch/**",
