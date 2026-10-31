@@ -141,7 +141,7 @@ package waits on the first clause below. The backlog rows that close the rest ar
 | --- | --- |
 | Two applications of DIFFERENT kinds reuse the contract | **Not met: none uses it.** The planned consumers of **D220** have not arrived, and Daoris would be the first. A second of a different kind is not named anywhere in the family. |
 | Removing it leaves Core intact | **Holds now and is trivial**: the prototype is test-only and no `Profile*` type is in `Lyntai.Core`'s API baseline. It is proved again for the package itself, not assumed. |
-| The contract suites pass on the chosen backends | **Met on four stores for Track A, three for the costs.** Track A's 42 cases pass on the in-memory, file, SQLite and Postgres curated stores (`ProfileTrackAPostgresTests` is the Postgres arm); `ProfilePrototypeTests` runs on the first three. |
+| The contract suites pass on the chosen backends | **Met on all four stores.** Track A's 42 cases (`ProfileTrackAPostgresTests` is the Postgres arm) and `ProfilePrototypeTests`' costs pass on the in-memory, file, SQLite and Postgres curated stores, and a fixture in the format below replays on all four (`ProfileFixtureTests`). |
 | AOT and dependency reports | **Cannot exist before a package project does** (`IsAotCompatible`, `check-warnings`, `check-bundle`, the `docs/AOT.md` row). The prototype holds no reflection-based serialization, so nothing is known to block them. |
 | A quickstart | **Last**, because it is written against the shipped surface and the two applications' real schemas. |
 
@@ -167,6 +167,31 @@ cannot be met by anyone before a package exists.
 - *Where it does not fit*, said by it first: a fact that is a LIST (its lanes, its gates) is one claim per member or a
   joined value, because a field holds one current claim; a settled choice that is prose with supersession is curated
   memory with an end (**D215**), not a field. Only what a schema names is a profile claim.
+
+**The fixture format, as built.** A fixture is one `tests/Lyntai.Tests/Memory/Prototype/Fixtures/<name>.profile.json`
+(comments and trailing commas allowed, an unknown key refused), and `ProfileFixtureTests` replays every file there on every
+revisioned curated store with no code written for it. `person-reference.profile.json` is the worked example and is a shape
+demonstration, not an application; `not-fitting.profile.json` shows what is reported when a fact does not fit.
+
+- *File*: `name`, `kind` (a label, never read), `subject` (one subject per file), `schema`, `steps`.
+- *Schema field*: `id` (named by the application, **D217**), `scoped` (false), `shape` (`single`; `list` and `prose` are
+  reported as not fitting and replay nothing), `mayState` (`["user","hypothesis"]`; the contract has these two authorities,
+  the stronger outranks the weaker however late it starts, so an owner is `user` and an inference `hypothesis`).
+- *Step*: `id` (unique), `op`, and per op: `set` and `correct` take `field`, `scope`, `value`, `at`, `source` and `authority`
+  (`user`); `correct` also `replaces` (the id of an earlier `set` or `correct` step whose claim it replaces, resolved to the
+  handle the claim had when it was stated) and `outcome` (`applied`, or `stale`, `outranked`, `missing`, `edited`); `rename`
+  takes `from`, `to`, `moved`; `forget` takes nothing; `export` takes `file` and `count`; `import` takes `file` and
+  `imported`. A step names no handle, claim id or row, because those are the store's.
+- *Reads*: a step's `then` is the reads checked, through a new profile over the same entries, after it ran. `current` and
+  `asOf` take `field`, `scope`, `at` and `value` (null: no current claim), and `current` may add `authority`, `rivals` and
+  `outranked` (values, most authoritative then latest first); `history` takes `field`, `scope` and `values`, oldest first;
+  `snapshot` takes `at` and `cells`, every slot of the subject as `{field, scope, value}` ordered by field then scope.
+- *Report*: a mismatch is `step N, field: check: expected X, got Y`; a schema violation (an undeclared field, a scope on an
+  unscoped field, an authority the field does not allow) is a mismatch whose check is `schema`; a `list` or `prose` field is
+  named under not fitting with why, and nothing is written for it.
+
+What the format cannot say: a third authority, an interval query across fields, a reader that is not the subject's, and two
+subjects in one file. Each is a fact that does not fit, or a change to the contract, and not a reason to widen the format.
 
 **Whether Daoris's kind differs from the next one** is a test the second application must pass, not a label: a different
 subject (a repository, not a person), a different authority (an owner and inferences, not a user and hypotheses), and a

@@ -185,8 +185,8 @@ mistake this column exists to prevent.
 | 5982 | A and B, SQLite and files, exact reads (no … | current@k | 869 fields of 99 … | 869/869 exact r… | — | CURRENT |
 | 6002 | the projection over curated memory (D224, `… | case-pass | 42 cases in 9 buc… | projection 40/4… | — | SUPERSEDED by L6084 |
 | 6084 | the RV28 prototype (`ProfileOverCurated`, D… | case-pass | 42 cases in 9 buc… | projection 42/4… | — | CURRENT |
-| 6133 | graph engine on the in-process store, per-w… | current@k | 4 corpora (N = 0,… | 5/5 at N=0 and … | **ships** | CURRENT |
-| 6142 | IMemoryCandidates.FindUpdatesAsync, lexical… | evidence-hit@k | 70 revised-agains… | k=1 8/70 (11%),… | **ships** | CURRENT |
+| 6134 | graph engine on the in-process store, per-w… | current@k | 4 corpora (N = 0,… | 5/5 at N=0 and … | **ships** | CURRENT |
+| 6143 | IMemoryCandidates.FindUpdatesAsync, lexical… | evidence-hit@k | 70 revised-agains… | k=1 8/70 (11%),… | **ships** | CURRENT |
 
 <!-- results:end -->
 
@@ -6128,7 +6128,8 @@ change. Every bucket is still failed by some broken projection.
 claim says, not who may edit the catalogue. Two processes sharing one SQLite or file store are covered by the revision
 gate and the convergence above, not by a lock, and no case here runs two processes. **Postgres is an arm of the test, not of the bench:** `ProfileTrackAPostgresTests` runs the same
 42 cases over a database cut from one migrated template per site and passed 42 of 42 in one run, and it skips when Docker is
-down (`memory-profile` stays store-free).
+down (`memory-profile` stays store-free). `ProfilePrototypeTests` runs the costs above on Postgres too (VP1): all 19 of its
+facts held on the first run, so the store gave no finding.
 
 ### Ended entries crowd the current ones out of the candidate window: 0 of 5 current entries returned once 100 ended ones match better (MC1, 2026-10-30) <!-- result: id=ended-entries-crowd-page-n4 arm="graph engine on the in-process store, per-write ageing, default limit; 5 current entries written first and N ended ones (EndAsync) written after, all matching the query" metric=current@k n="4 corpora (N = 0, 20, 100, 500), one run each, deterministic" value="5/5 at N=0 and N=20, 0/5 at N=100 and N=500; History returns 10 throughout" ships=yes status=CURRENT -->
 
