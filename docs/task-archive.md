@@ -6438,3 +6438,27 @@ is in `docs/vnext-modular-capabilities.md` §8; `person-reference` is a shape de
 
 - VP1 — the profile's costs hold on Postgres, the one store the contract suites have not run them on
 - VP2 — an application's fixture is data, and the contract suite replays it
+## Part 429 — AG11: the ACP door carries a model, or ends the turn (2026-11-01)
+
+✅ done 2026-11-01 — **Outcome:** **D243**. `AgentAbilities.Model` (`Supported`, `Declared` on both CLI doors; `Unknown`, `Negotiated` on the ACP door) and
+`AcpAgentReader`'s model step between `session/new` (`load`, `resume`) and `session/prompt`: the model option found by `category` (`AcpModelOption`), set by
+`session/set_config_option`, the prompt sent only when the agent took it. An agent that states no model option, answers the set with an error, or answers
+another value of its own list ends the turn `Unsupported`, `option-unsupported`, `NeverSent`, with no `SessionStarted` and a diagnostic naming its words and
+what it offers. **What the row got wrong:** it said a model "the agent did not offer" is refused; Daoris's measured record shows `claude-agent-acp` accepts a
+full id its list does not name, so the list never judges and the agent's answer does. Proof: 13 `acp-stub.mjs` and scripted cases in `AcpAgentSessionTests`
+(shapes SOURCE-DERIVED from Daoris's record, none captured here), the conformance theory over the ability, the descriptor tests and the `ApiSurface`
+baseline. Not established: a refusal on a real turn, and the older `models` list. Lanes `inference` + `platform`.
+
+- AG11 — the ACP door carries `AgentSessionOptions.Model`, or refuses it
+
+## Part 430 — AG12: a refused model is a hold the pool keeps against one seat (2026-11-01)
+
+✅ done 2026-11-01 — **Outcome:** **D243**. A refused model is `Fatal` with `AgentRestriction(Unknown, Model, OwnerAction)`, read from the claude CLI's
+`model_not_found` category and its recorded sentence (`ProviderVerdictClassifier`'s `sentence:model-refused`), from `claude-agent-acp`'s `errorKind`, and
+from the ACP door's own refusals; `StreamJsonFailure.Merge` now prefers, among equally severe fields, the one that carries a restriction, so the category
+outranks the bare 404 beside it. No enum member and no duration; the pool needed no change. **Readings:** the codex CLI door states no field and no
+sentence was recorded, so its refusal stays a plain `Fatal`; an ACP agent with no model option holds the model seat too (a hold names no door, **D234**).
+Proof: the sentence tables held both ways (the recorded sentence and two near ones), Daoris's recorded claude frames, an ACP `errorKind` case, and
+`AgentAccountPoolTests`: the seat skipped for that model, the same account serving another, `ClearAsync` freeing it. Lanes `platform` + `inference`.
+
+- AG12 — a refused model is a hold the pool can keep against one seat

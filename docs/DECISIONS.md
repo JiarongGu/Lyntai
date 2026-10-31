@@ -312,8 +312,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D240](#d240--a-mark-or-a-stamp-on-an-entry-states-what-a-writer-or-a-host-said-never-what-the-library-inferred-about-the-world-2026-10-30) | 2026-10-30 | a mark or a stamp on an entry states what a writer or a host said, never what the library inferre… |
 | [D241](#d241--a-model-driven-knowledge-systems-memory-is-kept-current-by-an-end-a-confirmer-applies-a-view-that-only-reads-and-a-check-the-host-stands-behind-2026-10-30) | 2026-10-30 | a model-driven knowledge system's memory is kept current by an end a confirmer applies, a view th… |
 | [D242](#d242--a-supersession-can-apply-as-one-change-a-view-over-another-task-only-reads-and-a-callers-key-makes-a-write-answerable-2026-10-31) | 2026-10-31 | a supersession can apply as one change, a view over another task only reads, and a caller's key m… |
+| [D243](#d243--a-model-is-carried-or-the-turn-ends-the-agents-answer-decides-and-a-refused-model-is-a-hold-on-one-seat-2026-11-01) | 2026-11-01 | a model is carried or the turn ends, the agent's answer decides, and a refused model is a hold on… |
 
-**237 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
+**238 live decisions.** The rest are stubs — `D<n>` is a permanent identifier, so a number is never reused or renumbered (5): [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) → D136 · [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) → D77 · [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) → D133 · [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) → D137 · [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) → D146
 
 <!-- index:end -->
 
@@ -7014,3 +7015,36 @@ agent path. A timer to expire receipts. Federation, merged ranking, replicas, an
 policy, or holding a successor before approval.
 
 **Re-opens** if a store cannot make the pair atomic across a crash (it refuses the capability), or receipts' growth needs more than a purge.
+
+## D243 — a model is carried or the turn ends, the agent's answer decides, and a refused model is a hold on one seat (2026-11-01)
+
+**Standing.** Written from the AG11 and AG12 session (`docs/agent-provider-daoris-study.md` §3.1 row n), taken as a working
+position; both rows are built (`docs/task-archive.md` Part 429, 430). It rests on Daoris's measured record of
+`claude-agent-acp` 0.84.0 and `codex-acp` 2.1.1, which this repository did not capture. Reversing it costs a frozen surface
+once a release carries it (**D70**).
+
+**Decided.**
+- **`AgentAbilities.Model`** is `Supported` on both CLI doors and `Unknown`, `Negotiated` on the ACP door, so a door that states
+  it `Unsupported` is refused before a spawn like any option. The ACP door finds the model option in the `session/new`
+  (`load`, `resume`) answer **by its `category`, never its id**, sets it with `session/set_config_option` and prompts only when
+  the agent took it.
+- **The agent's answer decides, never the list.** An error, or an answer that puts another value of the agent's own list in the
+  model's place, ends the turn before the prompt (`Unsupported`, `option-unsupported`, `NeverSent`, no `SessionStarted`); an agent
+  that states no model option ends it the same way. An id the list does not name is the agent's to accept.
+- **A refused model is `Fatal` with a restriction** whose `Subject` is `Model`, `Cause` `Unknown` and `Recovery` `OwnerAction`:
+  from the claude CLI's `model_not_found` category (read before the bare 404 beside it) and its recorded sentence,
+  `claude-agent-acp`'s `errorKind`, and every ACP refusal above. The pool holds that account and model and nothing wider; only
+  `ClearAsync` frees it.
+
+**Why.** Daoris measured that `claude-agent-acp` accepts a full id its list does not name and answers its alias, so a list
+check would refuse a model that runs, and that both agents refuse an unoffered one at the set with a JSON-RPC error. A hold is
+a fact about a seat and its length is the host's. The seat's account is the agent's (**D234**), so a hold set through one door
+is seen by another door of that agent.
+
+**Rejected.** Refusing a model the list does not name (Daoris's measurement). A new `AgentFailureKind`, `RestrictionCause` or
+`RestrictionSubject` member (the frozen enums already say Fatal and Model). A default duration for the hold. A sentence for the
+codex CLI's refusal (none was recorded). Reading the older `models` list and `session/set_model` (an unstable schema, and
+`configOptions` is on both agents measured).
+
+**Re-opens** when an agent states its model only through the older list, or when a door's refusal is shown to hold for that door
+alone, which needs a hold that names the door.

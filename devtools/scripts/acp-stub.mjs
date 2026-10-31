@@ -15,7 +15,7 @@
 //   LYNTAI_ACP_STUB_LOG    a file every received frame is appended to, one JSON line each, so a test can read
 //                          what the client SENT (cwd, mcpServers, the prompt blocks, session/cancel)
 //   LYNTAI_ACP_STUB_MODELS comma list of the models a model-category config option offers, the first its opening
-//                          value (default none: the session states no model option); the shapes are Daoris's
+//                          value (default none: the session states no model option); the shapes are a host's
 //                          measured record of claude-agent-acp 0.84.0 and codex-acp 2.1.1, not a capture of ours
 //   LYNTAI_ACP_STUB_MODEL_ID     the option's id (default "model"); a client finds it by category, never by id
 //   LYNTAI_ACP_STUB_MODEL_ALIAS  "full=alias": an id the list does not name is accepted and answered as the alias
@@ -101,7 +101,7 @@ const open = (id, method, params) => {
   return send({ id, result: { ...configOptions() } });
 };
 
-// the answer is the whole option list, and a refusal is a JSON-RPC error before any prompt (Daoris's record)
+// the answer is the whole option list, and a refusal is a JSON-RPC error before any prompt (a host's measured record)
 const setConfigOption = (id, params) => {
   if (params.configId !== modelId || models.length === 0)
     return fail(id, -32603, 'Internal error', { details: `Unknown config option: ${params.configId}` });

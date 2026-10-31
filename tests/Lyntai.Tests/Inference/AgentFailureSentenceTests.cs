@@ -42,7 +42,7 @@ public class AgentFailureSentenceTests
     [InlineData("API Error: 529 {\"type\":\"error\",\"error\":{\"type\":\"overloaded_error\",\"message\":\"Overloaded\"}}",
         AgentFailureKind.Transient, RestrictionCause.Capacity, RestrictionSubject.Endpoint, RecoveryKind.Unknown)]
     [InlineData("There's an issue with the selected model (claude-3-opus-20240229). It may not exist or you may not have access to it. Run --model to pick a different model.",
-        AgentFailureKind.Fatal, RestrictionCause.Unknown, RestrictionSubject.Model, RecoveryKind.OwnerAction)]   // REAL: Daoris's record of claude -p 2.1.309
+        AgentFailureKind.Fatal, RestrictionCause.Unknown, RestrictionSubject.Model, RecoveryKind.OwnerAction)]   // REAL: a host's recording of claude -p 2.1.309 (D243)
     [InlineData("Incorrect API key provided", AgentFailureKind.Access, null, null, null)]
     [InlineData("unexpected status 503 Service Unavailable", AgentFailureKind.Transient, null, null, null)]
     public void A_recorded_sentence_reads_as_its_kind(string text, AgentFailureKind kind, RestrictionCause? cause,

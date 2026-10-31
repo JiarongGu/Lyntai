@@ -224,8 +224,8 @@ public class AcpAgentSessionTests
     private const string AgentResumeTokenSubtype = "resume-token-invalid";
 
     // ── a model: set before the prompt, or the turn ends ─────────────────────
-    // The config-option shapes are read from Daoris's measured record of claude-agent-acp 0.84.0 and codex-acp 2.1.1
-    // (its docs/2026-10-23-model-effort-doors-evidence.md): SOURCE-DERIVED here, since this repository recorded none.
+    // The config-option shapes are read from a host's measured record of claude-agent-acp 0.84.0 and codex-acp 2.1.1
+    // (cited in D243): SOURCE-DERIVED here, since this repository recorded none.
 
     private static AgentSessionOptions AskOn(string model, string prompt = "WHICH_MODEL") => Ask(prompt) with { Model = model };
 
@@ -321,7 +321,7 @@ public class AcpAgentSessionTests
         Assert.Equal("model: sonnet", Ended(events).FinalText);
     }
 
-    [Fact] // SOURCE-DERIVED: Daoris measured -32603 with data.details on claude-agent-acp, before any prompt
+    [Fact] // SOURCE-DERIVED: a host measured -32603 with data.details on claude-agent-acp, before any prompt
     public async Task A_model_the_agent_refuses_ends_the_turn_before_the_prompt_naming_what_it_offers()
     {
         var log = NewLog();

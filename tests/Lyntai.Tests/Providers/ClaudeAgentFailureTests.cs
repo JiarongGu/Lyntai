@@ -150,7 +150,7 @@ public class ClaudeAgentFailureTests
         Assert.Equal(new AgentRestriction(RestrictionCause.Unknown, RestrictionSubject.Model, RestrictionRecovery.OwnerAction), failure.Restriction);
     }
 
-    [Fact] // REAL: Daoris's recorded frames (claude -p 2.1.309) of a model the CLI would not run, words and fields as recorded
+    [Fact] // REAL: a host's recorded frames (claude -p 2.1.309, D243) of a model the CLI would not run, words and fields as recorded
     public void A_model_the_cli_will_not_run_is_fatal_and_held_against_that_model_alone()
     {
         var ended = Last(Init,
