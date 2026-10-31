@@ -92,6 +92,14 @@ every addition.
 
 ### Added
 
+- **A memory write can carry a caller's key, and a repeat with it answers a receipt instead of writing again: `OperationKey`,
+  `IKeyedMemory`, `MemoryReceipt`** (**D242**). A remember, a relation, a confirmation and an end each take an optional opaque key
+  scoped to (engine, task); the receipt — call kind, reference, revision after, `Created` or `Refreshed` — commits in the effect's own
+  transaction, a repeat moves no revision and adds no weight, the same key with other content throws `MemoryKeyConflictException`,
+  and `ReceiptAsync` reads one without effect. Receipts expire (`GraphMemoryOptions.ReceiptRetention`, thirty days) and a later keyed
+  write purges them. A new optional store capability, `IKeyedMemoryGraphStore`, on all four stores (one migration adds
+  `lyntai_memory_receipt` on SQLite and Postgres; the portable line does not carry receipts); an engine over a store without it refuses a
+  keyed call. Un-keyed calls are unchanged.
 - **A stored fact can be re-checked by its host, and a failed check ends it: `MemoryWrite.Recheck`, `IConfirmableMemory`**
   (**D240**, **D241**). The re-check is opaque text the library never reads or runs. `DueAsync` lists the live entries last confirmed before an
   instant or never; `ConfirmAsync` records `Held` (a forward-only stamp) or `Failed` (the host confirmed the claim no longer holds: the

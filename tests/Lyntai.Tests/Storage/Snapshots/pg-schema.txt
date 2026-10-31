@@ -89,6 +89,16 @@ lyntai_memory_position|encoded_at|timestamp with time zone|NO|'1970-01-01 00:00:
 lyntai_memory_position|engine|text|NO|
 lyntai_memory_position|ordinal|bigint|NO|0
 lyntai_memory_position|position|double precision|NO|
+lyntai_memory_receipt|created_at|timestamp with time zone|NO|
+lyntai_memory_receipt|engine|text|NO|
+lyntai_memory_receipt|expires_at|timestamp with time zone|NO|
+lyntai_memory_receipt|fingerprint|text|NO|
+lyntai_memory_receipt|kind|integer|NO|
+lyntai_memory_receipt|node_id|bigint|NO|
+lyntai_memory_receipt|op_key|text|NO|
+lyntai_memory_receipt|outcome|integer|NO|
+lyntai_memory_receipt|revision|bigint|NO|
+lyntai_memory_receipt|task_key|text|NO|
 lyntai_memory_review|batch_id|text|NO|
 lyntai_memory_review|created_at|timestamp with time zone|NO|
 lyntai_memory_review|engine|text|NO|
@@ -192,6 +202,9 @@ lyntai_memory_node|ix_lyntai_memory_node_trgm|CREATE INDEX ix_lyntai_memory_node
 lyntai_memory_node|lyntai_memory_node_pkey|CREATE UNIQUE INDEX lyntai_memory_node_pkey ON public.lyntai_memory_node USING btree (id)
 lyntai_memory_node|ux_lyntai_memory_node_dedup|CREATE UNIQUE INDEX ux_lyntai_memory_node_dedup ON public.lyntai_memory_node USING btree (engine, task_key, scope, content_hash)
 lyntai_memory_position|lyntai_memory_position_pkey|CREATE UNIQUE INDEX lyntai_memory_position_pkey ON public.lyntai_memory_position USING btree (engine)
+lyntai_memory_receipt|ix_lyntai_memory_receipt_expiry|CREATE INDEX ix_lyntai_memory_receipt_expiry ON public.lyntai_memory_receipt USING btree (engine, expires_at)
+lyntai_memory_receipt|ix_lyntai_memory_receipt_node|CREATE INDEX ix_lyntai_memory_receipt_node ON public.lyntai_memory_receipt USING btree (node_id)
+lyntai_memory_receipt|lyntai_memory_receipt_pkey|CREATE UNIQUE INDEX lyntai_memory_receipt_pkey ON public.lyntai_memory_receipt USING btree (engine, task_key, op_key)
 lyntai_memory_review|ix_lyntai_memory_review_engine_id|CREATE INDEX ix_lyntai_memory_review_engine_id ON public.lyntai_memory_review USING btree (engine, id)
 lyntai_memory_review|lyntai_memory_review_pkey|CREATE UNIQUE INDEX lyntai_memory_review_pkey ON public.lyntai_memory_review USING btree (id)
 lyntai_memory_subject|ix_lyntai_memory_subject_lookup|CREATE INDEX ix_lyntai_memory_subject_lookup ON public.lyntai_memory_subject USING btree (engine, subject, task_key, scope, node_id DESC)
@@ -217,6 +230,7 @@ lyntai_usage_reservation|lyntai_usage_reservation_pkey|CREATE UNIQUE INDEX lynta
 lyntai_curated_meta|memory_id|lyntai_curated_memory|id|CASCADE
 lyntai_memory_edge|from_id|lyntai_memory_node|id|CASCADE
 lyntai_memory_edge|to_id|lyntai_memory_node|id|CASCADE
+lyntai_memory_receipt|node_id|lyntai_memory_node|id|CASCADE
 lyntai_memory_subject|node_id|lyntai_memory_node|id|CASCADE
 lyntai_message|thread_id|lyntai_thread|id|CASCADE
 lyntai_trace_step|session_id|lyntai_run_trace|session_id|CASCADE

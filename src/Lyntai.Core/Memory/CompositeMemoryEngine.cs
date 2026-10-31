@@ -43,7 +43,8 @@ public enum MemoryWriteRouting
 /// </summary>
 public sealed class CompositeMemoryEngine
     : IMemoryEngine, IExpandableMemory, ITaskExpandableMemory, ILinkableMemory, IForgettableMemory, IPrunableMemory,
-        IReindexableMemory, IPortableMemory, ITemporalMemory, IEndableMemory, IMemoryCandidates, IRelatableMemory, IConfirmableMemory
+        IReindexableMemory, IPortableMemory, ITemporalMemory, IEndableMemory, IMemoryCandidates, IRelatableMemory, IConfirmableMemory,
+        IKeyedMemory
 {
     private readonly IReadOnlyList<IMemoryEngine> _members;
     private readonly ILogger _logger;
@@ -104,6 +105,49 @@ public sealed class CompositeMemoryEngine
     private static bool Holds(IMemoryEngine member) => member is ITemporalMemory { HoldsValidity: true };
 
     /// <inheritdoc />
+    /// <remarks>True when ANY member keeps receipts; a keyed write is routed to such a member.</remarks>
+    public bool HoldsReceipts => _members.Any(Keeps);
+
+    private static bool Keeps(IMemoryEngine member) => member is IKeyedMemory { HoldsReceipts: true };
+
+    /// <inheritdoc />
+    /// <remarks>Every member that keeps receipts is asked, in order, and the first answer wins: a key is scoped to (engine, task), and a
+    /// blend that writes one key through several members holds one receipt in each.</remarks>
+    public async Task<MemoryReceipt?> ReceiptAsync(string taskKey, string key, CancellationToken ct = default)
+    {
+        var keepers = _members.Where(Keeps).Cast<IKeyedMemory>().ToList();
+        if (keepers.Count == 0)
+            throw new NotSupportedException($"Memory engine '{Name}' has no member that keeps receipts.");
+        foreach (var member in keepers)
+            if (await member.ReceiptAsync(taskKey, key, ct).ConfigureAwait(false) is { } held) return held;
+        return null;
+    }
+
+    /// <inheritdoc />
+    /// <remarks>Both ends must name one member; it fails LOUD where that member cannot keep a receipt.</remarks>
+    public async Task<MemoryReceipt> RelateKeyedAsync(string taskKey, MemoryRef from, MemoryRef to, MemoryRelation relation,
+        string operationKey, CancellationToken ct = default)
+    {
+        if (!string.Equals(from.Engine, to.Engine, StringComparison.Ordinal))
+            throw new ArgumentException(
+                $"A relation holds between two entries of one engine; got '{from.Engine}' and '{to.Engine}'.", nameof(to));
+        if (Owner(from) is not IKeyedMemory { HoldsReceipts: true } keyed)
+            throw new NotSupportedException(
+                $"Memory engine '{from.Engine}' cannot keep a receipt, so the relation was not recorded.");
+        return await keyed.RelateKeyedAsync(taskKey, from, to, relation, operationKey, ct).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    /// <remarks>Routed by the reference; fails LOUD where the owning member cannot keep a receipt.</remarks>
+    public async Task<MemoryConfirmResult> ConfirmKeyedAsync(string taskKey, MemoryRef entry, MemoryCheckOutcome outcome,
+        string operationKey, DateTimeOffset? at = null, string? note = null, string? expectedRevision = null,
+        CancellationToken ct = default) =>
+        Owner(entry) is IKeyedMemory { HoldsReceipts: true } keyed
+            ? await keyed.ConfirmKeyedAsync(taskKey, entry, outcome, operationKey, at, note, expectedRevision, ct).ConfigureAwait(false)
+            : throw new NotSupportedException(
+                $"Memory engine '{entry.Engine}' cannot keep a receipt, so the confirmation of '{entry.Id}' was not recorded.");
+
+    /// <inheritdoc />
     /// <remarks>Returns the FIRST written member's reference. Under
     /// <see cref="MemoryWriteRouting.EveryCapable"/> the others hold their own copies under their own ids;
     /// address one of those through its member engine, which <c>IMemoryEngineFactory</c> indexes by
@@ -152,7 +196,21 @@ public sealed class CompositeMemoryEngine
                     "Nothing was written.", nameof(write));
             capable = [owner];
         }
-        else if (write.StatesValidity)
+        else if (write.OperationKey is not null)
+        {
+            // a KEY goes only where a receipt is HELD, for the reason valid time does: a member that cannot would drop it, and a
+            // write nobody can settle after a lost answer is the failure the key exists to prevent
+            var cannot = capable.Where(m => !Keeps(m)).Select(m => m.Name).ToList();
+            if (capable.Count == cannot.Count || (WriteRouting == MemoryWriteRouting.EveryCapable && cannot.Count > 0))
+                throw new NotSupportedException(
+                    $"Memory engine '{Name}' cannot keep this write's operation key: " +
+                    (capable.Count == cannot.Count
+                        ? "no member that can store it holds receipts"
+                        : $"member(s) {string.Join(", ", cannot)} would drop it") +
+                    ". Nothing was written. Route it to a graph engine over a store that keeps receipts, or send it without a key.");
+            capable = [.. capable.Where(Keeps)];
+        }
+        if (named.Count == 0 && write.StatesValidity)
         {
             var cannot = capable.Where(m => !Holds(m)).Select(m => m.Name).ToList();
             if (capable.Count == cannot.Count || (WriteRouting == MemoryWriteRouting.EveryCapable && cannot.Count > 0))
@@ -181,7 +239,7 @@ public sealed class CompositeMemoryEngine
             ct.ThrowIfCancellationRequested();
             ran |= (await targets[i].RememberAsync(write, ct).ConfigureAwait(false)).Ran;
         }
-        return new MemoryWriteResult(primary.Reference, ran);
+        return new MemoryWriteResult(primary.Reference, ran) { Receipt = primary.Receipt };
     }
 
     /// <inheritdoc />

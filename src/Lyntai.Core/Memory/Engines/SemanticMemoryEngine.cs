@@ -34,6 +34,7 @@ public sealed class SemanticMemoryEngine(
     {
         ArgumentNullException.ThrowIfNull(write);
         MemoryValidityRefusal.ThrowIfStated(write, Name);
+        MemoryKeyRefusal.ThrowIfStated(write, Name);
         if (write.Grade == MemoryGrade.Authoritative)
             throw new NotSupportedException(
                 $"Memory engine '{Name}' stores associative material only and cannot hold an authoritative " +

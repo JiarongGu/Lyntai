@@ -40,7 +40,8 @@ public sealed class GraphMemoryEngine(
     GraphMemorySeams? seams = null,
     ILogger<GraphMemoryEngine>? logger = null)
     : IMemoryEngine, IExpandableMemory, ITaskExpandableMemory, ILinkableMemory, IForgettableMemory, IPrunableMemory,
-        IReindexableMemory, IPortableMemory, ITemporalMemory, IEndableMemory, IMemoryCandidates, IRelatableMemory, IConfirmableMemory
+        IReindexableMemory, IPortableMemory, ITemporalMemory, IEndableMemory, IMemoryCandidates, IRelatableMemory, IConfirmableMemory,
+        IKeyedMemory
 {
     private readonly GraphMemoryOptions _options = options ?? new GraphMemoryOptions();
     private readonly IMemoryRetrievabilityPolicy _policy =
@@ -260,6 +261,10 @@ public sealed class GraphMemoryEngine(
         var relations = await ResolveRelationsAsync(write, ct).ConfigureAwait(false);
         CheckRecheck(write);
 
+        // A repeat of a keyed write answers its receipt BEFORE the embed and the annotation, which are the costly steps
+        var call = await KeyedRememberAsync(write, ct).ConfigureAwait(false);
+        if (call.Replay is { } repeat) return repeat;
+
         // ONE embed, ONE similarity search, shared between salience judgement (which needs the comparison before
         // the node has an id) and EnrichAsync below (linking + indexing, which needs it after). Without a
         // vector store there is nothing to compare against, so nothing is judged or linked — the honest
@@ -295,21 +300,30 @@ public sealed class GraphMemoryEngine(
 
         var (signals, salienceProvenance) = CollectSignals(write, Probe(write, search, _options.MinSimilarity));
 
-        var id = await store.UpsertAsync(
-            new GraphNodeWrite(Name, write.TaskKey, write.Scope, headline, write.Content, grade,
-                _policy.InitialStability * Ordinary(tick.Encoding), Ordinary(tick.Position),
-                write.Metadata, signals,
-                ProvenanceRetrievability: (long)_policy.Provenance,
-                ProvenanceSalience: salienceProvenance,
-                GradeStated: stated, HeadlineStated: write.Headline is not null)
-            {
-                ValidFrom = write.ValidFrom, ValidTo = write.ValidTo,
-                // a write that supersedes starts when it is written unless it says otherwise — and only where it holds
-                // no start already, so repeating the same write does not move it
-                ValidFromIfUnset = predecessors.Count > 0 ? _clock() : null,
-                Recheck = write.Recheck,
-            },
-            ct).ConfigureAwait(false);
+        var node = new GraphNodeWrite(Name, write.TaskKey, write.Scope, headline, write.Content, grade,
+            _policy.InitialStability * Ordinary(tick.Encoding), Ordinary(tick.Position),
+            write.Metadata, signals,
+            ProvenanceRetrievability: (long)_policy.Provenance,
+            ProvenanceSalience: salienceProvenance,
+            GradeStated: stated, HeadlineStated: write.Headline is not null)
+        {
+            ValidFrom = write.ValidFrom, ValidTo = write.ValidTo,
+            // a write that supersedes starts when it is written unless it says otherwise — and only where it holds
+            // no start already, so repeating the same write does not move it
+            ValidFromIfUnset = predecessors.Count > 0 ? _clock() : null,
+            Recheck = write.Recheck,
+        };
+        long id;
+        MemoryReceipt? receipt = null;
+        if (call.Store is { } keyedStore)
+        {
+            var keyed = await keyedStore.UpsertKeyedAsync(node, call.Key!, ct).ConfigureAwait(false);
+            // a racing repeat found the key answered inside the store's own transaction, so nothing was applied here
+            if (keyed.Replayed) return ReplayedWrite(keyed.Receipt!);
+            (id, receipt) = (keyed.Value, ToReceipt(keyed.Receipt!, false));
+        }
+        else
+            id = await store.UpsertAsync(node, ct).ConfigureAwait(false);
 
         if (predecessors.Count > 0)
             await SupersedeAsync(id, predecessors, write.ValidFrom is not null, ct).ConfigureAwait(false);
@@ -321,7 +335,8 @@ public sealed class GraphMemoryEngine(
         return new MemoryWriteResult(new MemoryRef(Name, id.ToString(CultureInfo.InvariantCulture)),
             MemorySources.Graph
             | (indexed ? MemorySources.Similarity : MemorySources.None)
-            | (answered && recorded ? MemorySources.Annotation : MemorySources.None));
+            | (answered && recorded ? MemorySources.Annotation : MemorySources.None))
+        { Receipt = receipt };
     }
 
     /// <summary>What a write states about valid time, checked and resolved before anything is written: the entries it
@@ -474,11 +489,96 @@ public sealed class GraphMemoryEngine(
                 $"{nameof(IConfirmableMemoryGraphStore)}, so the text would be dropped.");
     }
 
+    // ---- keyed calls (IKeyedMemory) -------------------------------------------------------------------------
+
+    /// <summary>One keyed call: the key, which call it is, and a digest of what the caller stated.</summary>
+    private readonly record struct KeyedCall(string Key, MemoryOperationKind Kind, string Fingerprint);
+
+    /// <inheritdoc />
+    public bool HoldsReceipts => store is IKeyedMemoryGraphStore;
+
+    /// <summary>The store that keeps the receipt, and the key stamped with this engine's clock. Refuses a bad key and a store that
+    /// cannot hold one — a key dropped silently is a write nobody can settle.</summary>
+    private (IKeyedMemoryGraphStore Store, GraphOperationKey Key) Keyed(KeyedCall call, string taskKey)
+    {
+        RequireKeyText(call.Key);
+        if (store is not IKeyedMemoryGraphStore keyed)
+            throw new NotSupportedException(
+                $"Memory engine '{Name}' cannot hold a receipt: its store ({store.GetType().Name}) does not implement " +
+                $"{nameof(IKeyedMemoryGraphStore)}, so a keyed call could not be settled after a lost answer. Send it without a key.");
+        var at = _clock();
+        return (keyed, new GraphOperationKey(call.Key, taskKey, call.Kind, call.Fingerprint, at, at + _options.ReceiptRetention));
+    }
+
+    private static void RequireKeyText(string key)
+    {
+        if (string.IsNullOrWhiteSpace(key) || key.Length > MemoryLimits.MaxOperationKeyChars)
+            throw new ArgumentException(
+                $"An operation key is between 1 and {MemoryLimits.MaxOperationKeyChars} characters and not blank; got " +
+                $"{(key is null ? "none" : $"{key.Length} characters")}.", "operationKey");
+    }
+
+    private MemoryReceipt ToReceipt(GraphReceipt held, bool replayed) =>
+        new(held.Key, held.Kind, new MemoryRef(Name, held.NodeId.ToString(CultureInfo.InvariantCulture)),
+            held.Revision.ToString(CultureInfo.InvariantCulture), held.Outcome, held.At, held.ExpiresAt)
+        { Replayed = replayed };
+
+    private MemoryWriteResult ReplayedWrite(GraphReceipt held) =>
+        new(new MemoryRef(Name, held.NodeId.ToString(CultureInfo.InvariantCulture)), MemorySources.Graph)
+        { Receipt = ToReceipt(held, true) };
+
+    /// <summary>A keyed write's key, its store, and — when the key already answers it — the answer, read BEFORE the embed and the
+    /// annotation so a repeat costs neither. A key that answered another call refuses.</summary>
+    private async Task<(IKeyedMemoryGraphStore? Store, GraphOperationKey? Key, MemoryWriteResult? Replay)> KeyedRememberAsync(
+        MemoryWrite write, CancellationToken ct)
+    {
+        if (write.OperationKey is not { } operationKey) return (null, null, null);
+        if (write.Supersedes is { Count: > 0 } || write.Disputes is { Count: > 0 } || write.Amends is { Count: > 0 })
+            throw new ArgumentException(
+                "A keyed write states no supersession or relation: each is its own call with its own receipt — " +
+                $"SupersedeAsync and {nameof(IKeyedMemory.RelateKeyedAsync)}. Nothing was written.", nameof(write));
+        var (keyed, key) = Keyed(new KeyedCall(operationKey, MemoryOperationKind.Remember, MemoryFingerprint.Of(
+            MemoryOperationKind.Remember, Name, write.TaskKey, write.Scope, write.Content, write.Headline, write.Grade,
+            MemoryFingerprint.Bag(write.Metadata), write.ValidFrom, write.ValidTo, write.Recheck)), write.TaskKey);
+        var held = await keyed.ReceiptAsync(Name, write.TaskKey, operationKey, key.At, ct).ConfigureAwait(false);
+        if (held is null) return (keyed, key, null);
+        if (held.Kind != key.Kind || !string.Equals(held.Fingerprint, key.Fingerprint, StringComparison.Ordinal))
+            throw new MemoryKeyConflictException(operationKey, write.TaskKey, held.Kind);
+        return (keyed, key, ReplayedWrite(held));
+    }
+
+    /// <inheritdoc />
+    public async Task<MemoryReceipt?> ReceiptAsync(string taskKey, string key, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(taskKey);
+        ct.ThrowIfCancellationRequested();
+        RequireKeyText(key);
+        if (store is not IKeyedMemoryGraphStore keyed)
+            throw new NotSupportedException(
+                $"Memory engine '{Name}' holds no receipts: its store ({store.GetType().Name}) does not implement {nameof(IKeyedMemoryGraphStore)}.");
+        return await keyed.ReceiptAsync(Name, taskKey, key, _clock(), ct).ConfigureAwait(false) is { } held ? ToReceipt(held, false) : null;
+    }
+
+    /// <inheritdoc />
+    public async Task<MemoryConfirmResult> ConfirmKeyedAsync(string taskKey, MemoryRef entry, MemoryCheckOutcome outcome,
+        string operationKey, DateTimeOffset? at = null, string? note = null, string? expectedRevision = null,
+        CancellationToken ct = default)
+    {
+        RequireKeyText(operationKey);
+        return await ConfirmCoreAsync(taskKey, entry, outcome, at, note, expectedRevision,
+            new KeyedCall(operationKey, MemoryOperationKind.Confirm, MemoryFingerprint.Of(MemoryOperationKind.Confirm, Name, taskKey,
+                entry.Engine, entry.Id, outcome, at, note, expectedRevision)), ct).ConfigureAwait(false);
+    }
+
     /// <inheritdoc />
     /// <remarks>A held check stamps and moves nothing else; a failed one ends through <see cref="EndAsync"/>, at the confirmation
     /// and never an earlier instant. Nothing is run here: the host's check ran elsewhere.</remarks>
-    public async Task<MemoryConfirmResult> ConfirmAsync(string taskKey, MemoryRef entry, MemoryCheckOutcome outcome,
-        DateTimeOffset? at = null, string? note = null, string? expectedRevision = null, CancellationToken ct = default)
+    public Task<MemoryConfirmResult> ConfirmAsync(string taskKey, MemoryRef entry, MemoryCheckOutcome outcome,
+        DateTimeOffset? at = null, string? note = null, string? expectedRevision = null, CancellationToken ct = default) =>
+        ConfirmCoreAsync(taskKey, entry, outcome, at, note, expectedRevision, null, ct);
+
+    private async Task<MemoryConfirmResult> ConfirmCoreAsync(string taskKey, MemoryRef entry, MemoryCheckOutcome outcome,
+        DateTimeOffset? at, string? note, string? expectedRevision, KeyedCall? call, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(taskKey);
         ct.ThrowIfCancellationRequested();
@@ -492,14 +592,14 @@ public sealed class GraphMemoryEngine(
 
         if (outcome == MemoryCheckOutcome.Failed)
         {
-            var ended = await EndAsync(taskKey, entry, new MemoryEnding(note!) { At = instant, ExpectedRevision = expectedRevision }, ct)
-                .ConfigureAwait(false);
+            var ended = await EndCoreAsync(taskKey, entry,
+                new MemoryEnding(note!) { At = instant, ExpectedRevision = expectedRevision }, call, ct).ConfigureAwait(false);
             return new MemoryConfirmResult(ended.Outcome switch
             {
                 MemoryEndOutcome.Ended => MemoryConfirmOutcome.Ended,
                 MemoryEndOutcome.AlreadyEnded => MemoryConfirmOutcome.AlreadyEnded,
                 _ => MemoryConfirmOutcome.Changed,
-            }, ended.Revision);
+            }, ended.Revision) { Receipt = ended.Receipt };
         }
 
         var held = await ReadOwnAsync(entry, taskKey, ct, "confirms").ConfigureAwait(false);
@@ -508,12 +608,22 @@ public sealed class GraphMemoryEngine(
             expected = long.TryParse(token, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed)
                 ? parsed
                 : throw new ArgumentException("The expected revision is not one this engine issued.", nameof(expectedRevision));
-        var result = await confirmable.ConfirmAsync(Name, new GraphConfirm(held.Id, instant, expected), ct).ConfigureAwait(false);
+        var confirm = new GraphConfirm(held.Id, instant, expected);
+        MemoryReceipt? receipt = null;
+        GraphConfirmResult result;
+        if (call is { } keyedCall)
+        {
+            var (keyedStore, key) = Keyed(keyedCall, taskKey);
+            var keyed = await keyedStore.ConfirmKeyedAsync(Name, confirm, key, ct).ConfigureAwait(false);
+            (result, receipt) = (keyed.Value, keyed.Receipt is { } landed ? ToReceipt(landed, keyed.Replayed) : null);
+        }
+        else
+            result = await confirmable.ConfirmAsync(Name, confirm, ct).ConfigureAwait(false);
         var revision = result.Revision?.ToString(CultureInfo.InvariantCulture);
         return result.Outcome switch
         {
-            GraphConfirmOutcome.Stamped => new MemoryConfirmResult(MemoryConfirmOutcome.Stamped, revision),
-            GraphConfirmOutcome.Unchanged => new MemoryConfirmResult(MemoryConfirmOutcome.Unchanged, revision),
+            GraphConfirmOutcome.Stamped => new MemoryConfirmResult(MemoryConfirmOutcome.Stamped, revision) { Receipt = receipt },
+            GraphConfirmOutcome.Unchanged => new MemoryConfirmResult(MemoryConfirmOutcome.Unchanged, revision) { Receipt = receipt },
             GraphConfirmOutcome.Ended => new MemoryConfirmResult(MemoryConfirmOutcome.AlreadyEnded, revision),
             GraphConfirmOutcome.Changed => new MemoryConfirmResult(MemoryConfirmOutcome.Changed, revision),
             _ => throw new ArgumentException($"Memory engine '{Name}' has no entry '{entry.Id}' to confirm.", nameof(entry)),
@@ -575,7 +685,21 @@ public sealed class GraphMemoryEngine(
 
     /// <inheritdoc />
     public async Task RelateAsync(string taskKey, MemoryRef from, MemoryRef to, MemoryRelation relation,
-        CancellationToken ct = default)
+        CancellationToken ct = default) =>
+        await RelateCoreAsync(taskKey, from, to, relation, null, ct).ConfigureAwait(false);
+
+    /// <inheritdoc />
+    public async Task<MemoryReceipt> RelateKeyedAsync(string taskKey, MemoryRef from, MemoryRef to, MemoryRelation relation,
+        string operationKey, CancellationToken ct = default)
+    {
+        RequireKeyText(operationKey);
+        return await RelateCoreAsync(taskKey, from, to, relation, new KeyedCall(operationKey, MemoryOperationKind.Relate,
+            MemoryFingerprint.Of(MemoryOperationKind.Relate, Name, taskKey, from.Engine, from.Id, to.Engine, to.Id, relation)), ct)
+            .ConfigureAwait(false) ?? throw new InvalidOperationException("A keyed relation returned no receipt.");
+    }
+
+    private async Task<MemoryReceipt?> RelateCoreAsync(string taskKey, MemoryRef from, MemoryRef to, MemoryRelation relation,
+        KeyedCall? call, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(taskKey);
         ct.ThrowIfCancellationRequested();
@@ -589,8 +713,18 @@ public sealed class GraphMemoryEngine(
             if (!MemoryValidityReading.Current.Admits(node.Validity, now))
                 throw new ArgumentException(
                     $"Entry '{reference.Id}' is not valid now, and a relation holds between two live entries.", nameof(from));
+        if (call is { } keyedCall)
+        {
+            var (keyedStore, key) = Keyed(keyedCall, taskKey);
+            var keyed = await keyedStore.LinkKeyedAsync(Name, source.Id, target.Id, KindOf(relation), 1, key, ct).ConfigureAwait(false);
+            return keyed.Receipt is { } landed
+                ? ToReceipt(landed, keyed.Replayed)
+                : throw new InvalidOperationException(
+                    $"An entry of the relation was removed before it was written, so nothing was recorded and key '{keyedCall.Key}' answers nothing.");
+        }
         // the edge's strengthening is a LinkAsync's, so repeating it only adds weight and the read is unchanged
         await store.LinkAsync(Name, source.Id, target.Id, KindOf(relation), 1, false, ct).ConfigureAwait(false);
+        return null;
     }
 
     /// <summary>Attach each item's relations whose other end is in the SAME page. Best-effort, like every read here: a
@@ -631,8 +765,19 @@ public sealed class GraphMemoryEngine(
     /// <inheritdoc />
     /// <remarks>Ends through <see cref="IEndableMemoryGraphStore.EndAsync"/>, which applies it in one conditional step;
     /// every refusal is checked here first, in the order a supersession checks them.</remarks>
-    public async Task<MemoryEndResult> EndAsync(string taskKey, MemoryRef entry, MemoryEnding ending,
+    public Task<MemoryEndResult> EndAsync(string taskKey, MemoryRef entry, MemoryEnding ending,
         CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(ending);
+        return EndCoreAsync(taskKey, entry, ending, ending.OperationKey is { } operationKey
+            ? new KeyedCall(operationKey, MemoryOperationKind.End, MemoryFingerprint.Of(MemoryOperationKind.End, Name, taskKey,
+                entry.Engine, entry.Id, ending.Reason?.Trim(), ending.At, ending.Successor?.Engine, ending.Successor?.Id,
+                ending.ExpectedRevision))
+            : null, ct);
+    }
+
+    private async Task<MemoryEndResult> EndCoreAsync(string taskKey, MemoryRef entry, MemoryEnding ending, KeyedCall? call,
+        CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(taskKey);
         ArgumentNullException.ThrowIfNull(ending);
@@ -665,13 +810,22 @@ public sealed class GraphMemoryEngine(
                 ? parsed
                 : throw new ArgumentException("The expected revision is not one this engine issued.", nameof(ending));
 
-        var result = await endable.EndAsync(Name, new GraphEnd(held.Id, ending.Reason.Trim(), at, by, expected), ct)
-            .ConfigureAwait(false);
+        var graphEnd = new GraphEnd(held.Id, ending.Reason.Trim(), at, by, expected);
+        MemoryReceipt? receipt = null;
+        GraphEndResult result;
+        if (call is { } keyedCall)
+        {
+            var (keyedStore, key) = Keyed(keyedCall, taskKey);
+            var keyed = await keyedStore.EndKeyedAsync(Name, graphEnd, key, ct).ConfigureAwait(false);
+            (result, receipt) = (keyed.Value, keyed.Receipt is { } landed ? ToReceipt(landed, keyed.Replayed) : null);
+        }
+        else
+            result = await endable.EndAsync(Name, graphEnd, ct).ConfigureAwait(false);
         var revision = result.Revision?.ToString(CultureInfo.InvariantCulture);
         switch (result.Outcome)
         {
-            case GraphEndOutcome.Ended: return new MemoryEndResult(MemoryEndOutcome.Ended, revision);
-            case GraphEndOutcome.AlreadyEnded: return new MemoryEndResult(MemoryEndOutcome.AlreadyEnded, revision);
+            case GraphEndOutcome.Ended: return new MemoryEndResult(MemoryEndOutcome.Ended, revision) { Receipt = receipt };
+            case GraphEndOutcome.AlreadyEnded: return new MemoryEndResult(MemoryEndOutcome.AlreadyEnded, revision) { Receipt = receipt };
             case GraphEndOutcome.Changed: return new MemoryEndResult(MemoryEndOutcome.Changed, revision);
             case GraphEndOutcome.Refused:
                 var other = (await store.GetAsync(Name, held.Id, ct).ConfigureAwait(false))?.SupersededBy;

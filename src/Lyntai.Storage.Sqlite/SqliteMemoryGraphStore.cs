@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Data;
 using Dapper;
 using Lyntai.Memory;
+using Lyntai.Storage.Relational;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -37,7 +38,7 @@ public sealed class SqliteMemoryGraphStore(
     IDbConnectionFactory factory,
     ILogger<SqliteMemoryGraphStore>? logger = null,
     Func<DateTimeOffset>? clock = null) : ICountableMemoryGraphStore, IPortableMemoryGraphStore, IConfirmableMemoryGraphStore,
-    ITypedLinkMemoryGraphStore
+    ITypedLinkMemoryGraphStore, IKeyedMemoryGraphStore
 {
     private readonly ILogger _logger = logger ?? NullLogger<SqliteMemoryGraphStore>.Instance;
     private readonly Func<DateTimeOffset> _clock = clock ?? (() => DateTimeOffset.UtcNow);
@@ -61,6 +62,18 @@ public sealed class SqliteMemoryGraphStore(
     public async Task<long> UpsertAsync(GraphNodeWrite write, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(write);
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
+        await using var tx = await conn.BeginTransactionAsync(ct).ConfigureAwait(false);
+        var (id, _) = await UpsertInAsync(conn, tx, write, ct).ConfigureAwait(false);
+        await tx.CommitAsync(ct).ConfigureAwait(false);
+        return id;
+    }
+
+    // The upsert on a transaction the caller owns, so a keyed call lands its receipt in the SAME one. A new row starts at revision 0
+    // and a refresh adds one, so the revision this returns says which of the two happened.
+    private async Task<(long Id, long Revision)> UpsertInAsync(IDbConnection conn, IDbTransaction tx, GraphNodeWrite write,
+        CancellationToken ct)
+    {
         var hash = MemoryContentKey.Of(write.Content);
         var metadata = CuratedMetadataJson.Serialize(write.Metadata);
         // NULL, not "{}", for an empty bag — the DO UPDATE SET below reads NULL as "no opinion" and keeps
@@ -77,8 +90,6 @@ public sealed class SqliteMemoryGraphStore(
         var hasDifficultySignal = write.Signals.Values.ContainsKey(MemorySignals.WellKnown.Difficulty);
         var difficulty = MemorySignals.Difficulty(write.Signals);
         var now = _clock();
-        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
-        await using var tx = await conn.BeginTransactionAsync(ct).ConfigureAwait(false);
 
         // Advance FIRST and atomically, position and the three primitives together.
         var totals = await conn.QuerySingleAsync<MemoryPositionRow>(new CommandDefinition(
@@ -91,7 +102,7 @@ public sealed class SqliteMemoryGraphStore(
         // atomic on ux_lyntai_memory_node_dedup: identical content REFRESHES rather than duplicating.
         // RETURNING id, never last_insert_rowid() — that is per-connection and returns 0 on another
         // pooled connection.
-        var id = await conn.ExecuteScalarAsync<long>(new CommandDefinition("""
+        return await conn.QuerySingleAsync<(long Id, long Revision)>(new CommandDefinition("""
             INSERT INTO lyntai_memory_node
                 (engine, task_key, scope, headline, content, content_hash, grade, metadata, signals, salience,
                  created_at, last_recalled_position, recall_count, stability, difficulty,
@@ -131,7 +142,7 @@ public sealed class SqliteMemoryGraphStore(
                               -- an ABSENT re-check keeps the stored one, and the stamp is never touched by a refresh
                               recheck = COALESCE(@recheck, lyntai_memory_node.recheck),
                               encoding_ordinal = @ordinal, encoding_chars = @chars, encoding_at = @now
-            RETURNING id
+            RETURNING id, revision
             """, new
         {
             engine = write.Engine, taskKey = write.TaskKey, scope = write.Scope,
@@ -143,9 +154,6 @@ public sealed class SqliteMemoryGraphStore(
             stability = write.InitialStability, ordinal = totals.Ordinal, chars = totals.Chars,
             provenanceRetrievability = write.ProvenanceRetrievability, provenanceSalience = write.ProvenanceSalience,
         }, transaction: tx, cancellationToken: ct)).ConfigureAwait(false);
-
-        await tx.CommitAsync(ct).ConfigureAwait(false);
-        return id;
     }
 
     /// <inheritdoc />
@@ -171,19 +179,97 @@ public sealed class SqliteMemoryGraphStore(
         ct.ThrowIfCancellationRequested();
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         await using var tx = await conn.BeginTransactionAsync(ct).ConfigureAwait(false);
+        var result = await EndInAsync(conn, tx, engine, end, ct).ConfigureAwait(false);
+        await tx.CommitAsync(ct).ConfigureAwait(false);
+        return result;
+    }
+
+    private static async Task<GraphEndResult> EndInAsync(IDbConnection conn, IDbTransaction tx, string engine, GraphEnd end,
+        CancellationToken ct)
+    {
         var args = new
         {
             id = end.Id, engine, reason = end.Reason, by = end.By, at = end.At.ToUniversalTime(), expected = end.ExpectedRevision,
         };
         var revision = await conn.ExecuteScalarAsync<long?>(new CommandDefinition(MemoryGraphSql.End, args,
             transaction: tx, cancellationToken: ct)).ConfigureAwait(false);
-        var result = revision is { } landed
+        return revision is { } landed
             ? new GraphEndResult(GraphEndOutcome.Ended, landed)
             : MemoryGraphSql.Classify(await conn.QuerySingleOrDefaultAsync<EndStateRow>(new CommandDefinition(
                 MemoryGraphSql.EndState, new { id = end.Id, engine }, transaction: tx, cancellationToken: ct))
                 .ConfigureAwait(false), end.ExpectedRevision, end.By);
-        await tx.CommitAsync(ct).ConfigureAwait(false);
-        return result;
+    }
+
+    /// <inheritdoc />
+    public async Task<GraphReceipt?> ReceiptAsync(string engine, string taskKey, string key, DateTimeOffset now,
+        CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
+        return await GraphReceiptSql.ReadAsync(conn, null, engine, taskKey, key, now, ct).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public Task<GraphKeyed<long>> UpsertKeyedAsync(GraphNodeWrite write, GraphOperationKey key, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(write);
+        ArgumentNullException.ThrowIfNull(key);
+        return GraphReceiptSql.RunAsync(factory, write.Engine, key, held => held.NodeId, async (conn, tx) =>
+        {
+            var (id, revision) = await UpsertInAsync(conn, tx, write, ct).ConfigureAwait(false);
+            return (id, new GraphReceiptSql.Effect(id, revision,
+                revision == 0 ? MemoryOperationOutcome.Created : MemoryOperationOutcome.Refreshed));
+        }, ct);
+    }
+
+    /// <inheritdoc />
+    public Task<GraphKeyed<bool>> LinkKeyedAsync(string engine, long from, long to, string kind, double weight,
+        GraphOperationKey key, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(key);
+        return GraphReceiptSql.RunAsync(factory, engine, key, _ => true, async (conn, tx) =>
+        {
+            if (from == to) return (false, null);   // a self-edge is never written, so it is never answered
+            var totals = await TotalsAsync(conn, engine, ct, tx).ConfigureAwait(false);
+            var written = await StrengthenAsync(conn, from, to, kind, weight, totals, ct, tx).ConfigureAwait(false) > 0;
+            if (!written) return (false, null);
+            var revision = await conn.ExecuteScalarAsync<long>(new CommandDefinition(
+                "SELECT revision FROM lyntai_memory_node WHERE id = @from AND engine = @engine", new { from, engine },
+                transaction: tx, cancellationToken: ct)).ConfigureAwait(false);
+            return (true, new GraphReceiptSql.Effect(from, revision, MemoryOperationOutcome.Applied));
+        }, ct);
+    }
+
+    /// <inheritdoc />
+    public Task<GraphKeyed<GraphConfirmResult>> ConfirmKeyedAsync(string engine, GraphConfirm confirm, GraphOperationKey key,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(confirm);
+        ArgumentNullException.ThrowIfNull(key);
+        return GraphReceiptSql.RunAsync(factory, engine, key,
+            held => new GraphConfirmResult(GraphConfirmOutcome.Unchanged, held.Revision), async (conn, tx) =>
+            {
+                var result = await ConfirmInAsync(conn, tx, engine, confirm, ct).ConfigureAwait(false);
+                return (result, result.Outcome == GraphConfirmOutcome.Stamped
+                    ? new GraphReceiptSql.Effect(confirm.Id, result.Revision!.Value, MemoryOperationOutcome.Applied)
+                    : (GraphReceiptSql.Effect?)null);
+            }, ct);
+    }
+
+    /// <inheritdoc />
+    public Task<GraphKeyed<GraphEndResult>> EndKeyedAsync(string engine, GraphEnd end, GraphOperationKey key,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(end);
+        ArgumentNullException.ThrowIfNull(key);
+        return GraphReceiptSql.RunAsync(factory, engine, key,
+            held => new GraphEndResult(GraphEndOutcome.AlreadyEnded, held.Revision), async (conn, tx) =>
+            {
+                var result = await EndInAsync(conn, tx, engine, end, ct).ConfigureAwait(false);
+                return (result, result.Outcome == GraphEndOutcome.Ended
+                    ? new GraphReceiptSql.Effect(end.Id, result.Revision!.Value, MemoryOperationOutcome.Applied)
+                    : (GraphReceiptSql.Effect?)null);
+            }, ct);
     }
 
     /// <inheritdoc />
@@ -351,16 +437,22 @@ public sealed class SqliteMemoryGraphStore(
         ct.ThrowIfCancellationRequested();
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         await using var tx = await conn.BeginTransactionAsync(ct).ConfigureAwait(false);
+        var result = await ConfirmInAsync(conn, tx, engine, confirm, ct).ConfigureAwait(false);
+        await tx.CommitAsync(ct).ConfigureAwait(false);
+        return result;
+    }
+
+    private static async Task<GraphConfirmResult> ConfirmInAsync(IDbConnection conn, IDbTransaction tx, string engine,
+        GraphConfirm confirm, CancellationToken ct)
+    {
         var revision = await conn.ExecuteScalarAsync<long?>(new CommandDefinition(MemoryGraphSql.Confirm,
             new { id = confirm.Id, engine, at = confirm.At.ToUniversalTime(), expected = confirm.ExpectedRevision },
             transaction: tx, cancellationToken: ct)).ConfigureAwait(false);
-        var result = revision is { } landed
+        return revision is { } landed
             ? new GraphConfirmResult(GraphConfirmOutcome.Stamped, landed)
             : MemoryGraphSql.ClassifyConfirm(await conn.QuerySingleOrDefaultAsync<EndStateRow>(new CommandDefinition(
                 MemoryGraphSql.EndState, new { id = confirm.Id, engine }, transaction: tx, cancellationToken: ct))
                 .ConfigureAwait(false), confirm.ExpectedRevision);
-        await tx.CommitAsync(ct).ConfigureAwait(false);
-        return result;
     }
 
     /// <inheritdoc />
@@ -526,7 +618,7 @@ public sealed class SqliteMemoryGraphStore(
             await RecordReviewsAsync(conn, engine, work.Reviews, work.ReviewLogCap, ct).ConfigureAwait(false);
     }
 
-    private static Task StrengthenAsync(IDbConnection conn, long from, long to, string kind,
+    private static Task<int> StrengthenAsync(IDbConnection conn, long from, long to, string kind,
         double weight, MemoryPositionRow totals, CancellationToken ct, IDbTransaction? tx = null) =>
         conn.ExecuteAsync(new CommandDefinition(MemoryGraphSql.StrengthenEdge,
             new

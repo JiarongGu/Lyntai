@@ -23,10 +23,76 @@ namespace Lyntai.Storage.InMemory;
 /// <param name="clock">Time source for the audit timestamps; null takes the system clock.</param>
 public sealed class InMemoryMemoryGraphStore(Func<DateTimeOffset>? clock = null)
     : ICountableMemoryGraphStore, IPortableMemoryGraphStore, IConfirmableMemoryGraphStore,
-        ITypedLinkMemoryGraphStore
+        ITypedLinkMemoryGraphStore, IKeyedMemoryGraphStore
 {
     private readonly MemoryGraphState _graph = new(clock ?? (() => DateTimeOffset.UtcNow));
     private readonly Lock _lock = new();
+
+    /// <inheritdoc />
+    public Task<GraphReceipt?> ReceiptAsync(string engine, string taskKey, string key, DateTimeOffset now,
+        CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        lock (_lock) return Task.FromResult(_graph.LiveReceipt(engine, taskKey, key, now));
+    }
+
+    /// <inheritdoc />
+    public Task<GraphKeyed<long>> UpsertKeyedAsync(GraphNodeWrite write, GraphOperationKey key, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(write);
+        ArgumentNullException.ThrowIfNull(key);
+        ct.ThrowIfCancellationRequested();
+        lock (_lock)
+        {
+            var change = _graph.PlanUpsertKeyed(write, key, out var result);
+            _graph.Apply(change);
+            return Task.FromResult(result);
+        }
+    }
+
+    /// <inheritdoc />
+    public Task<GraphKeyed<bool>> LinkKeyedAsync(string engine, long from, long to, string kind, double weight,
+        GraphOperationKey key, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(key);
+        ct.ThrowIfCancellationRequested();
+        lock (_lock)
+        {
+            var change = _graph.PlanLinkKeyed(engine, new GraphEdgeWrite(from, to, kind, weight), key, out var result);
+            _graph.Apply(change);
+            return Task.FromResult(result);
+        }
+    }
+
+    /// <inheritdoc />
+    public Task<GraphKeyed<GraphConfirmResult>> ConfirmKeyedAsync(string engine, GraphConfirm confirm, GraphOperationKey key,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(confirm);
+        ArgumentNullException.ThrowIfNull(key);
+        ct.ThrowIfCancellationRequested();
+        lock (_lock)
+        {
+            var change = _graph.PlanConfirmKeyed(engine, confirm, key, out var result);
+            _graph.Apply(change);
+            return Task.FromResult(result);
+        }
+    }
+
+    /// <inheritdoc />
+    public Task<GraphKeyed<GraphEndResult>> EndKeyedAsync(string engine, GraphEnd end, GraphOperationKey key,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(end);
+        ArgumentNullException.ThrowIfNull(key);
+        ct.ThrowIfCancellationRequested();
+        lock (_lock)
+        {
+            var change = _graph.PlanEndKeyed(engine, end, key, out var result);
+            _graph.Apply(change);
+            return Task.FromResult(result);
+        }
+    }
 
     /// <inheritdoc />
     public Task<int> SupersedeAsync(string engine, IReadOnlyList<GraphSupersession> supersessions,

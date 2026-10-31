@@ -978,6 +978,22 @@ mismatches, and the call returns `MemoryEndOutcome.Changed` with the revision fo
 read again, never dropped. A store that does not implement `IEndableMemoryGraphStore` throws `NotSupportedException`
 on any end. Ended entries are filtered after the candidates are gathered, so a scope dense in them can return fewer than `Limit`, never an ended one.
 
+**To settle a write whose answer was lost, give it a key** (**D242**) — `MemoryWrite.OperationKey`, `MemoryEnding.OperationKey`, or
+`IKeyedMemory.RelateKeyedAsync` / `ConfirmKeyedAsync` for the two that take no record. The key is opaque, at most
+`MemoryLimits.MaxOperationKeyChars`, and scoped to (engine, task); it is **not** an entry's identity, which stays its content. A keyed call
+that takes effect leaves a `MemoryReceipt` — the call kind, the reference, the revision after, and an outcome that tells `Created` from
+`Refreshed` — **in the effect's own transaction**, so it exists exactly when the effect does. **A repeat with the key answers the
+receipt and applies nothing**: no revision moves, no weight is added, nothing is stamped, and the result carries `Receipt.Replayed`. A
+repeated keyed end reports `AlreadyEnded` even on the revision it was first reviewed on, which an un-keyed repeat refuses as `Changed`. **A call
+that changed nothing leaves no receipt** (a stale revision, an entry already ended), so its key is still free for the call that will. The
+same key with other content, or for another kind of call, throws `MemoryKeyConflictException` and applies nothing. `IKeyedMemory.ReceiptAsync(taskKey, key)`
+reads a receipt without effect. A receipt names its expiry (`GraphMemoryOptions.ReceiptRetention`, thirty days) and a later keyed
+write purges the expired ones — the library runs no timer — so a repeat after it is a new call, which the revision guard answers.
+Removing an entry removes the receipts that name it. **An engine over a store that cannot hold receipts refuses a keyed call**
+(`IKeyedMemoryGraphStore`, which all four shipped stores implement; the portable line does not carry receipts), and a lexical, semantic
+or curated engine refuses one; an un-keyed call is unchanged on every store. A keyed write states no `Supersedes`, `Disputes` or `Amends`: each
+is its own call with its own receipt. A repeat of a keyed write answers before the embed and the annotation run, so it costs neither.
+
 ### Read the full text of one entry, and what it is linked to
 
 <!-- compile-given: IExpandableMemory expandable = null!; MemoryRef reference = default!; -->

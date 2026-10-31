@@ -59,6 +59,7 @@ public sealed class CuratedMemoryEngine(
     {
         ArgumentNullException.ThrowIfNull(write);
         MemoryValidityRefusal.ThrowIfStated(write, Name);
+        MemoryKeyRefusal.ThrowIfStated(write, Name);
         if (kind is null)
             throw new NotSupportedException(
                 $"Memory engine '{Name}' reads every section of the catalog (kind: null) and cannot write: " +

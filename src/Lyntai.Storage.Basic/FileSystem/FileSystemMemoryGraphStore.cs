@@ -15,7 +15,7 @@ namespace Lyntai.Storage.FileSystem;
 /// </summary>
 internal sealed class FileSystemMemoryGraphStore(FileSystemRoot root, Func<DateTimeOffset>? clock = null,
     int compactionFloor = 4096) : ICountableMemoryGraphStore, IPortableMemoryGraphStore, IConfirmableMemoryGraphStore,
-    ITypedLinkMemoryGraphStore
+    ITypedLinkMemoryGraphStore, IKeyedMemoryGraphStore
 {
     private const string StateDirectory = "state";
 
@@ -32,6 +32,7 @@ internal sealed class FileSystemMemoryGraphStore(FileSystemRoot root, Func<DateT
 
     private readonly Lock _lock = new();
     private readonly string _directory = root.Combine("graph");
+    private readonly Func<DateTimeOffset> _clock = clock ?? (() => DateTimeOffset.UtcNow);
     private readonly MemoryGraphState _graph = new(clock ?? (() => DateTimeOffset.UtcNow));
     private readonly Dictionary<string, EngineFiles> _byDirectory = new(StringComparer.Ordinal);
     private readonly Dictionary<string, EngineFiles> _byEngine = new(StringComparer.Ordinal);
@@ -52,6 +53,7 @@ internal sealed class FileSystemMemoryGraphStore(FileSystemRoot root, Func<DateT
         var edges = new Dictionary<GraphEdgeKey, (EdgeLine Line, string Raw, EngineFiles Files)>();
         var subjects = new Dictionary<(string, long), (SubjectsLine Line, string Raw, EngineFiles Files)>();
         var reviews = new Dictionary<long, MemoryReview>();
+        var receipts = new Dictionary<(string, string, string), (string Engine, GraphReceipt Receipt)>();
         var records = new List<(GraphNodeRecord Record, string File, EngineFiles Files)>();
         var onDisk = new HashSet<long>();
         long highWater = 0, reviewHighWater = 0;
@@ -69,6 +71,10 @@ internal sealed class FileSystemMemoryGraphStore(FileSystemRoot root, Func<DateT
                         case NodeLine n: states[(files, n.Id)] = (n, raw); keys.Add("n" + n.Id); break;
                         case EdgeLine e: edges[e.Key] = (e, raw, files); keys.Add($"e{e.Key}"); break;
                         case SubjectsLine s: subjects[(s.Engine, s.NodeId)] = (s, raw, files); keys.Add($"s{s.Engine}\n{s.NodeId}"); break;
+                        case ReceiptLine r:
+                            receipts[(r.Engine, r.Receipt.TaskKey, r.Receipt.Key)] = (r.Engine, r.Receipt);
+                            keys.Add($"r{r.Engine}\n{r.Receipt.TaskKey}\n{r.Receipt.Key}");
+                            break;
                     }
                 });
                 files.Journal.Baseline = keys.Count;
@@ -119,6 +125,8 @@ internal sealed class FileSystemMemoryGraphStore(FileSystemRoot root, Func<DateT
         restore.Reviews.AddRange(reviews.Values.OrderBy(r => r.Id));
 
         _graph.Apply(restore);
+        // a receipt answers only while it is live and its entry is held: Restore drops the rest, and a compaction forgets them
+        _graph.Restore(receipts.Values, _clock());
         _graph.Reserve(
             new[] { highWater }.Concat(states.Keys.Select(k => k.Id)).Concat(onDisk).Concat(records.Select(r => r.Record.Id))
                 .Concat(edges.Keys.SelectMany(k => new[] { k.From, k.To })).Max(),
@@ -206,6 +214,22 @@ internal sealed class FileSystemMemoryGraphStore(FileSystemRoot root, Func<DateT
         foreach (var (_, row) in change.Nodes) Add(row.Record.Engine, GraphLines.Node(row.Id, row.State));
         foreach (var (key, edge) in change.Edges) Add(_graph.Row(key.From)?.Record.Engine ?? engine, GraphLines.Edge(key, edge));
         foreach (var (e, id, subjects) in change.Subjects) Add(e, GraphLines.Subjects(e, id, subjects));
+        // the receipt is the LAST line of the append: a torn tail cuts it first, so it never outlives the effect lines before it
+        foreach (var (e, receipt) in change.Receipts) Add(e, GraphLines.Receipt(e, receipt));
+        foreach (var (files, lines) in batches) files.Journal.Append(lines, files.Engine!, _graph.NextId - 1);
+        return [.. batches.Keys];
+    }
+
+    // The receipt lines alone, for a keyed end or confirmation: their effect is a memory file already written, not a journal line.
+    private List<EngineFiles> JournalReceipts(GraphChange change)
+    {
+        var batches = new Dictionary<EngineFiles, List<string>>();
+        foreach (var (engine, receipt) in change.Receipts)
+        {
+            var files = FilesOf(engine);
+            if (!batches.TryGetValue(files, out var lines)) batches[files] = lines = [];
+            lines.Add(GraphLines.Receipt(engine, receipt));
+        }
         foreach (var (files, lines) in batches) files.Journal.Append(lines, files.Engine!, _graph.NextId - 1);
         return [.. batches.Keys];
     }
@@ -224,6 +248,7 @@ internal sealed class FileSystemMemoryGraphStore(FileSystemRoot root, Func<DateT
         lines.AddRange(rows.Select(r => GraphLines.Node(r.Id, r.State)));
         lines.AddRange(rows.SelectMany(r => _graph.EdgesFrom(r.Id)).Select(e => GraphLines.Edge(e.Key, e.Edge)));
         lines.AddRange(_graph.SubjectSets.Where(s => s.Engine == engine).Select(s => GraphLines.Subjects(s.Engine, s.NodeId, s.Subjects)));
+        lines.AddRange(_graph.ReceiptsOf(engine).Select(r => GraphLines.Receipt(r.Engine, r.Receipt)));
         files.Orphans.RemoveAll(o => !Keeps(o.Ids));
         lines.AddRange(files.Orphans.Select(o => o.Line));
         files.Journal.Rewrite(lines, engine, _graph.NextId - 1);
@@ -238,30 +263,116 @@ internal sealed class FileSystemMemoryGraphStore(FileSystemRoot root, Func<DateT
         lock (_lock)
         {
             Load();
-            var change = _graph.PlanUpsert(write);
-            var (before, after) = change.Nodes[0];
-            var file = before is null
-                ? Path.Combine(FilesOf(after.Record.Engine).Directory, RecordName.For(after.Record.TaskKey),
-                    RecordName.For(after.Record.Scope), FileSystemRoot.IdFile(after.Id))
-                : _files[after.Id][^1];
-            List<EngineFiles> journaled;
-            try
-            {
-                // the journal first: a crash before the memory file leaves unreachable state, never a memory with none
-                journaled = Journal(change, write.Engine);
-                if (before is null || !MemoryGraphState.SameRecord(before.Record, after.Record))
-                    root.Write(file, MemoryFile(after.Record));
-            }
-            // the journal may already hold the new id, and a restart would reserve it — so this process must too
-            catch when (before is null)
-            {
-                _graph.Reserve(after.Id, 0);
-                throw;
-            }
-            if (before is null) _files[after.Id] = [file];
-            ApplyAndCompact(change, journaled);
-            return Task.FromResult(after.Id);
+            return Task.FromResult(WriteUpsert(_graph.PlanUpsert(write), write.Engine));
         }
+    }
+
+    // The upsert's disk steps for a planned change, with or without a receipt riding in it: the receipt is one more journal line,
+    // appended after the effect's own, so a keyed write is exactly as durable as an un-keyed one and no more fragile.
+    private long WriteUpsert(GraphChange change, string engine)
+    {
+        var (before, after) = change.Nodes[0];
+        var file = before is null
+            ? Path.Combine(FilesOf(after.Record.Engine).Directory, RecordName.For(after.Record.TaskKey),
+                RecordName.For(after.Record.Scope), FileSystemRoot.IdFile(after.Id))
+            : _files[after.Id][^1];
+        List<EngineFiles> journaled;
+        try
+        {
+            // the journal first: a crash before the memory file leaves unreachable state, never a memory with none
+            journaled = Journal(change, engine);
+            if (before is null || !MemoryGraphState.SameRecord(before.Record, after.Record))
+                root.Write(file, MemoryFile(after.Record));
+        }
+        // the journal may already hold the new id, and a restart would reserve it — so this process must too
+        catch when (before is null)
+        {
+            _graph.Reserve(after.Id, 0);
+            throw;
+        }
+        if (before is null) _files[after.Id] = [file];
+        ApplyAndCompact(change, journaled);
+        return after.Id;
+    }
+
+    // ---- keyed writes: the effect and its receipt are one change, written as the un-keyed call writes it -----------------
+
+    public Task<GraphReceipt?> ReceiptAsync(string engine, string taskKey, string key, DateTimeOffset now,
+        CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        lock (_lock)
+        {
+            Load();
+            return Task.FromResult(_graph.LiveReceipt(engine, taskKey, key, now));
+        }
+    }
+
+    public Task<GraphKeyed<long>> UpsertKeyedAsync(GraphNodeWrite write, GraphOperationKey key, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(write);
+        ArgumentNullException.ThrowIfNull(key);
+        ct.ThrowIfCancellationRequested();
+        lock (_lock)
+        {
+            Load();
+            var change = _graph.PlanUpsertKeyed(write, key, out var result);
+            if (change.Nodes.Count > 0) WriteUpsert(change, write.Engine);
+            return Task.FromResult(result);
+        }
+    }
+
+    public Task<GraphKeyed<bool>> LinkKeyedAsync(string engine, long from, long to, string kind, double weight,
+        GraphOperationKey key, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(key);
+        ct.ThrowIfCancellationRequested();
+        lock (_lock)
+        {
+            Load();
+            var change = _graph.PlanLinkKeyed(engine, new GraphEdgeWrite(from, to, kind, weight), key, out var result);
+            // the edge line and the receipt line are one append
+            if (change.Edges.Count > 0 || change.Receipts.Count > 0) Commit(change, engine);
+            return Task.FromResult(result);
+        }
+    }
+
+    public Task<GraphKeyed<GraphConfirmResult>> ConfirmKeyedAsync(string engine, GraphConfirm confirm, GraphOperationKey key,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(confirm);
+        ct.ThrowIfCancellationRequested();
+        lock (_lock)
+        {
+            Load();
+            var change = _graph.PlanConfirmKeyed(engine, confirm, key, out var result);
+            ApplyEffectThenReceipt(change);
+            return Task.FromResult(result);
+        }
+    }
+
+    public Task<GraphKeyed<GraphEndResult>> EndKeyedAsync(string engine, GraphEnd end, GraphOperationKey key,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(end);
+        ct.ThrowIfCancellationRequested();
+        lock (_lock)
+        {
+            Load();
+            var change = _graph.PlanEndKeyed(engine, end, key, out var result);
+            ApplyEffectThenReceipt(change);
+            return Task.FromResult(result);
+        }
+    }
+
+    // The memory file first, as an un-keyed end or confirmation writes it, then the receipt's line: a crash between leaves the
+    // effect without its receipt, which a repeat settles by itself (an end reports AlreadyEnded, a confirmation Unchanged).
+    private void ApplyEffectThenReceipt(GraphChange change)
+    {
+        if (change.Receipts.Count == 0) return;
+        foreach (var (_, after) in change.Nodes)
+            root.Write(_files[after.Id][^1], MemoryFile(after.Record));
+        ApplyAndCompact(change, JournalReceipts(change));
     }
 
     public Task<int> SupersedeAsync(string engine, IReadOnlyList<GraphSupersession> supersessions,

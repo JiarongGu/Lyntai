@@ -57,4 +57,10 @@ internal sealed class GraphChange
     public List<long> TrimmedReviews { get; } = [];
 
     public List<(string Engine, long Count)> ReviewCounters { get; } = [];
+
+    /// <summary>Receipts a keyed call leaves, in the change that is the call's effect.</summary>
+    public List<(string Engine, GraphReceipt Receipt)> Receipts { get; } = [];
+
+    /// <summary>Receipts a keyed write found expired and purges, by (engine, task, key).</summary>
+    public List<(string Engine, string TaskKey, string Key)> PurgedReceipts { get; } = [];
 }

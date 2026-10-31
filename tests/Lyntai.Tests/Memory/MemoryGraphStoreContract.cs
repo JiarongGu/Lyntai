@@ -2472,4 +2472,220 @@ public static class MemoryGraphStoreContract
         Assert.Null(successor.ValidTo);
         Assert.Null(successor.SupersededAt);
     }
+
+    // ---- keyed calls and their receipts (docs/DECISIONS.md D242) ----------------------------------------------
+
+    private static GraphOperationKey Op(string key, string task, MemoryOperationKind kind, string fingerprint, DateTimeOffset at,
+        int days = 30) => new(key, task, kind, fingerprint, at, at.AddDays(days));
+
+    /// <summary><b>A keyed remember repeated is answered by its receipt and moves nothing</b>: the same id, one revision step, no
+    /// position advanced — the engine's other entries do not age by a write that did not happen.</summary>
+    public static async Task A_keyed_remember_repeated_leaves_one_revision_step(IMemoryGraphStore store, string key)
+    {
+        var keyed = Assert.IsAssignableFrom<IKeyedMemoryGraphStore>(store);
+        const string engine = "tv-keyed-remember";
+        var probe = await store.UpsertAsync(Write(engine, key, "an unrelated probe"));
+        var op = Op("remember-1", key, MemoryOperationKind.Remember, "fp-a", Jun);
+
+        var first = await keyed.UpsertKeyedAsync(Write(engine, key, "lives in Paris"), op);
+
+        Assert.False(first.Replayed);
+        Assert.Equal(MemoryOperationOutcome.Created, first.Receipt!.Outcome);
+        var held = (await store.GetAsync(engine, first.Value))!;
+        Assert.Equal((first.Value, held.Revision), (first.Receipt.NodeId, first.Receipt.Revision));
+        var probeAge = (await store.GetAsync(engine, probe))!.OrdinalAge;
+
+        var again = await keyed.UpsertKeyedAsync(Write(engine, key, "lives in Paris"), op with { At = Jun.AddDays(2) });
+
+        Assert.True(again.Replayed);
+        Assert.Equal((first.Value, MemoryOperationOutcome.Created), (again.Value, again.Receipt!.Outcome));
+        Assert.Equal(held.Revision, (await store.GetAsync(engine, first.Value))!.Revision);
+        Assert.Equal(probeAge, (await store.GetAsync(engine, probe))!.OrdinalAge);
+    }
+
+    /// <summary><b>A remember that lands on content already held reports <see cref="MemoryOperationOutcome.Refreshed"/></b>, whoever
+    /// wrote it first — the outcome is read from the identity the insert found, not from the caller's history.</summary>
+    public static async Task A_keyed_remember_landing_on_held_content_reports_refreshed(IMemoryGraphStore store, string key)
+    {
+        var keyed = Assert.IsAssignableFrom<IKeyedMemoryGraphStore>(store);
+        const string engine = "tv-keyed-refresh";
+        var other = await store.UpsertAsync(Write(engine, key, "another writer's fact"));
+
+        var landed = await keyed.UpsertKeyedAsync(Write(engine, key, "another writer's fact"),
+            Op("remember-2", key, MemoryOperationKind.Remember, "fp-a", Jun));
+
+        Assert.Equal((other, MemoryOperationOutcome.Refreshed), (landed.Value, landed.Receipt!.Outcome));
+    }
+
+    /// <summary><b>A keyed relation repeated adds no weight.</b></summary>
+    public static async Task A_keyed_relation_repeated_adds_no_weight(IMemoryGraphStore store, string key)
+    {
+        var keyed = Assert.IsAssignableFrom<IKeyedMemoryGraphStore>(store);
+        const string engine = "tv-keyed-relate";
+        var from = await store.UpsertAsync(Write(engine, key, "the claim"));
+        var to = await store.UpsertAsync(Write(engine, key, "the doubt"));
+        var op = Op("relate-1", key, MemoryOperationKind.Relate, "fp-r", Jun);
+
+        var first = await keyed.LinkKeyedAsync(engine, from, to, "disputes", 1, op);
+        var again = await keyed.LinkKeyedAsync(engine, from, to, "disputes", 1, op with { At = Jun.AddDays(1) });
+
+        Assert.True(first.Value);
+        Assert.False(first.Replayed);
+        Assert.True(again.Replayed);
+        Assert.Equal(1, (await store.NeighboursAsync(engine, key, [from], 10)).Single().EdgeWeight);
+        Assert.Equal(first.Receipt!.NodeId, from);
+    }
+
+    /// <summary><b>A keyed confirmation repeated stamps once</b>: the repeat reports <see cref="GraphConfirmOutcome.Unchanged"/> with
+    /// the receipt's revision, and a LATER instant on the repeat is not stamped either.</summary>
+    public static async Task A_keyed_confirmation_repeated_stamps_once(IMemoryGraphStore store, string key)
+    {
+        var keyed = Assert.IsAssignableFrom<IKeyedMemoryGraphStore>(store);
+        const string engine = "tv-keyed-confirm";
+        var id = await store.UpsertAsync(Write(engine, key, "the deploy key is in the vault") with { Recheck = "ask the vault" });
+        var op = Op("confirm-1", key, MemoryOperationKind.Confirm, "fp-c", Jun);
+
+        var first = await keyed.ConfirmKeyedAsync(engine, new GraphConfirm(id, Mar), op);
+        var stamped = (await store.GetAsync(engine, id))!;
+        var again = await keyed.ConfirmKeyedAsync(engine, new GraphConfirm(id, Jun), op with { At = Jun.AddDays(1) });
+
+        Assert.Equal(GraphConfirmOutcome.Stamped, first.Value.Outcome);
+        Assert.True(again.Replayed);
+        Assert.Equal((GraphConfirmOutcome.Unchanged, stamped.Revision), (again.Value.Outcome, again.Value.Revision));
+        var after = (await store.GetAsync(engine, id))!;
+        Assert.Equal((Mar, stamped.Revision), (after.ConfirmedAt, after.Revision));
+    }
+
+    /// <summary><b>A keyed end repeated answers <see cref="GraphEndOutcome.AlreadyEnded"/> from the receipt</b> — even when the repeat
+    /// carries the revision the first one was reviewed on, which an un-keyed repeat would refuse as changed.</summary>
+    public static async Task A_keyed_end_repeated_answers_already_ended_from_the_receipt(IMemoryGraphStore store, string key)
+    {
+        var keyed = Assert.IsAssignableFrom<IKeyedMemoryGraphStore>(store);
+        const string engine = "tv-keyed-end";
+        var id = await store.UpsertAsync(Write(engine, key, "lives in Paris") with { ValidFrom = Jan });
+        var reviewed = (await store.GetAsync(engine, id))!.Revision;
+        var op = Op("end-1", key, MemoryOperationKind.End, "fp-e", Jun);
+
+        var first = await keyed.EndKeyedAsync(engine, new GraphEnd(id, "moved away", Mar, ExpectedRevision: reviewed), op);
+        var again = await keyed.EndKeyedAsync(engine, new GraphEnd(id, "moved away", Mar, ExpectedRevision: reviewed),
+            op with { At = Jun.AddDays(1) });
+
+        Assert.Equal(GraphEndOutcome.Ended, first.Value.Outcome);
+        Assert.True(again.Replayed);
+        Assert.Equal((GraphEndOutcome.AlreadyEnded, first.Value.Revision), (again.Value.Outcome, again.Value.Revision));
+        Assert.Equal(first.Value.Revision, (await store.GetAsync(engine, id))!.Revision);
+    }
+
+    /// <summary><b>A key reused for another call is refused and applies nothing</b> — another fingerprint, or another kind.</summary>
+    public static async Task A_reused_key_with_other_content_is_refused(IMemoryGraphStore store, string key)
+    {
+        var keyed = Assert.IsAssignableFrom<IKeyedMemoryGraphStore>(store);
+        const string engine = "tv-keyed-conflict";
+        var id = (await keyed.UpsertKeyedAsync(Write(engine, key, "lives in Paris"),
+            Op("shared", key, MemoryOperationKind.Remember, "fp-a", Jun))).Value;
+        var revision = (await store.GetAsync(engine, id))!.Revision;
+
+        await Assert.ThrowsAsync<MemoryKeyConflictException>(() => keyed.UpsertKeyedAsync(Write(engine, key, "lives in Rome"),
+            Op("shared", key, MemoryOperationKind.Remember, "fp-b", Jun)));
+        await Assert.ThrowsAsync<MemoryKeyConflictException>(() => keyed.EndKeyedAsync(engine, new GraphEnd(id, "moved", Mar),
+            Op("shared", key, MemoryOperationKind.End, "fp-a", Jun)));
+
+        Assert.Equal(revision, (await store.GetAsync(engine, id))!.Revision);
+        Assert.Null((await store.GetAsync(engine, id))!.EndedReason);
+        Assert.Single(await store.SeedAsync(engine, key, "s", null, 10));
+    }
+
+    /// <summary><b>A call that changed nothing leaves no receipt</b>, so its key is still free for the call that will: a stale
+    /// revision is not an answer.</summary>
+    public static async Task A_call_that_took_no_effect_leaves_no_receipt(IMemoryGraphStore store, string key)
+    {
+        var keyed = Assert.IsAssignableFrom<IKeyedMemoryGraphStore>(store);
+        const string engine = "tv-keyed-noeffect";
+        var id = await store.UpsertAsync(Write(engine, key, "lives in Paris") with { ValidFrom = Jan });
+        var current = (await store.GetAsync(engine, id))!.Revision!.Value;
+        var op = Op("end-2", key, MemoryOperationKind.End, "fp-e", Jun);
+
+        var stale = await keyed.EndKeyedAsync(engine, new GraphEnd(id, "moved", Mar, ExpectedRevision: current + 5), op);
+
+        Assert.Equal(GraphEndOutcome.Changed, stale.Value.Outcome);
+        Assert.Null(stale.Receipt);
+        Assert.Null(await keyed.ReceiptAsync(engine, key, "end-2", Jun));
+        var landed = await keyed.EndKeyedAsync(engine, new GraphEnd(id, "moved", Mar, ExpectedRevision: current), op);
+        Assert.Equal(GraphEndOutcome.Ended, landed.Value.Outcome);
+        Assert.NotNull(landed.Receipt);
+    }
+
+    /// <summary><b>A receipt reads without effect, names its expiry, and is scoped to (engine, task)</b>.</summary>
+    public static async Task A_receipt_reads_without_effect_and_is_scoped_to_its_task(IMemoryGraphStore store, string key)
+    {
+        var keyed = Assert.IsAssignableFrom<IKeyedMemoryGraphStore>(store);
+        const string engine = "tv-keyed-read";
+        var id = (await keyed.UpsertKeyedAsync(Write(engine, key, "lives in Paris"),
+            Op("read-1", key, MemoryOperationKind.Remember, "fp-a", Jun, days: 7))).Value;
+        var revision = (await store.GetAsync(engine, id))!.Revision;
+
+        var read = await keyed.ReceiptAsync(engine, key, "read-1", Jun.AddDays(1));
+        await keyed.ReceiptAsync(engine, key, "read-1", Jun.AddDays(1));
+
+        Assert.Equal((MemoryOperationKind.Remember, id, Jun.AddDays(7)), (read!.Kind, read.NodeId, read.ExpiresAt));
+        Assert.Equal(revision, (await store.GetAsync(engine, id))!.Revision);
+        Assert.Null(await keyed.ReceiptAsync(engine, key + "-another-task", "read-1", Jun.AddDays(1)));
+        Assert.Null(await keyed.ReceiptAsync("another-engine", key, "read-1", Jun.AddDays(1)));
+        // the same key in another task is another key
+        var elsewhere = await keyed.UpsertKeyedAsync(Write(engine, key + "-another-task", "lives in Paris"),
+            Op("read-1", key + "-another-task", MemoryOperationKind.Remember, "fp-z", Jun));
+        Assert.False(elsewhere.Replayed);
+    }
+
+    /// <summary><b>An expired receipt is purged by a later keyed write, and its key is a new call.</b> The library runs no timer: the
+    /// receipt stops answering at its expiry, and the next keyed write of the engine removes it.</summary>
+    public static async Task An_expired_receipt_is_purged_and_its_key_is_new(IMemoryGraphStore store, string key)
+    {
+        var keyed = Assert.IsAssignableFrom<IKeyedMemoryGraphStore>(store);
+        const string engine = "tv-keyed-expiry";
+        var first = await keyed.UpsertKeyedAsync(Write(engine, key, "lives in Paris"),
+            Op("old", key, MemoryOperationKind.Remember, "fp-a", Jan, days: 30));
+        var later = Jan.AddDays(31);
+
+        Assert.Null(await keyed.ReceiptAsync(engine, key, "old", later));   // expired: reads as none before anything purges it
+        await keyed.UpsertKeyedAsync(Write(engine, key, "lives in Rome"), Op("newer", key, MemoryOperationKind.Remember, "fp-b", later));
+        Assert.Null(await keyed.ReceiptAsync(engine, key, "old", Jan.AddDays(5)));   // purged, so even an earlier clock finds nothing
+
+        var again = await keyed.UpsertKeyedAsync(Write(engine, key, "lives in Paris"),
+            Op("old", key, MemoryOperationKind.Remember, "fp-a", later));
+
+        Assert.False(again.Replayed);
+        Assert.Equal(MemoryOperationOutcome.Refreshed, again.Receipt!.Outcome);
+        Assert.Equal(later.AddDays(30), again.Receipt.ExpiresAt);
+    }
+
+    /// <summary><b>Racing repeats of one key land once</b>: exactly one call applies and the rest answer its receipt.</summary>
+    public static async Task Racing_keyed_repeats_land_once(IMemoryGraphStore store, string key)
+    {
+        var keyed = Assert.IsAssignableFrom<IKeyedMemoryGraphStore>(store);
+        const string engine = "tv-keyed-race";
+        var op = Op("race", key, MemoryOperationKind.Remember, "fp-a", Jun);
+
+        var results = await Task.WhenAll(Enumerable.Range(0, 6).Select(_ =>
+            keyed.UpsertKeyedAsync(Write(engine, key, "lives in Paris"), op)));
+
+        Assert.Single(results, r => !r.Replayed);
+        Assert.Single(results.Select(r => r.Value).Distinct());
+        var held = (await store.GetAsync(engine, results[0].Value))!;
+        Assert.Equal(results.Single(r => !r.Replayed).Receipt!.Revision, held.Revision);
+        Assert.Single(await store.SeedAsync(engine, key, "s", null, 10));
+    }
+
+    /// <summary><b>Removing an entry removes the receipts that concern it</b>: a receipt must not answer with a reference to nothing.</summary>
+    public static async Task Removing_an_entry_removes_its_receipts(IMemoryGraphStore store, string key)
+    {
+        var keyed = Assert.IsAssignableFrom<IKeyedMemoryGraphStore>(store);
+        const string engine = "tv-keyed-forget";
+        await keyed.UpsertKeyedAsync(Write(engine, key, "lives in Paris"), Op("gone", key, MemoryOperationKind.Remember, "fp-a", Jun));
+        Assert.NotNull(await keyed.ReceiptAsync(engine, key, "gone", Jun));
+
+        await store.ForgetAsync(engine, key, null);
+
+        Assert.Null(await keyed.ReceiptAsync(engine, key, "gone", Jun));
+    }
 }

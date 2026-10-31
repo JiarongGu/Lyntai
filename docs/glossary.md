@@ -42,3 +42,7 @@ renaming anything: a rename sweep breaks these without failing anything. The sha
   the capability adjective (`ITemporalMemory`, `ITemporalMemoryGraphStore`) and "valid time" the axis. To SUPERSEDE
   is to end an entry at a successor's start because a caller named it (`MemoryWrite.Supersedes`) — it never deletes,
   buries or reinforces, and the engine never infers one.
+- An OPERATION KEY is a caller's opaque name for one call (`MemoryWrite.OperationKey`, `MemoryEnding.OperationKey`,
+  `IKeyedMemory`), scoped to (engine, task); a RECEIPT (`MemoryReceipt`) is what a keyed call that took effect leaves behind. Neither
+  is an entry's identity, which stays its content (`MemoryContentKey`): two writers' equal content is still one entry. A
+  REPLAY is a repeat the receipt answered, so nothing was applied (`MemoryReceipt.Replayed`).

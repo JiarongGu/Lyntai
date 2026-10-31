@@ -397,6 +397,19 @@ public sealed record GraphMemoryOptions
             "a batch of no entries would re-embed nothing.");
     } = 32;
 
+    /// <summary>How long a keyed call's receipt answers (<see cref="IKeyedMemory"/>), thirty days by default. The library runs no
+    /// timer: a later keyed write purges the expired receipts, so an idle engine holds them until it next writes. A repeat after
+    /// the expiry is a new call, which the revision guard answers.</summary>
+    /// <exception cref="ArgumentOutOfRangeException">Set to zero or less: a receipt that expires at once answers nothing.</exception>
+    public TimeSpan ReceiptRetention
+    {
+        get;
+        init => field = value > TimeSpan.Zero
+            ? value
+            : throw new ArgumentOutOfRangeException(nameof(value), value,
+                $"{nameof(GraphMemoryOptions)}.{nameof(ReceiptRetention)} must be positive: a receipt that expires at once answers nothing.");
+    } = TimeSpan.FromDays(30);
+
     /// <summary>Why a count whose zero already means "none" refuses a negative: it can only be a mistake,
     /// and reading it as zero would hide that.</summary>
     private const string ZeroIsOff = "zero already means none, so a negative count can only be a mistake.";

@@ -20,6 +20,8 @@ internal sealed class MemoryGraphState(Func<DateTimeOffset> clock)
     private readonly Dictionary<long, MemoryReview> _reviews = [];
     // MemoryReviewLogPacing's per-engine counters: in-process only, so a restart resets them (a SOFT cap)
     private readonly Dictionary<string, long> _reviewCounters = new(StringComparer.Ordinal);
+    // a keyed call's answer, by (engine, task, key); expiry is judged by the caller's clock, never here
+    private readonly Dictionary<(string Engine, string TaskKey, string Key), GraphReceipt> _receipts = [];
     private long _nextId = 1;
     private long _nextReview = 1;
 
@@ -56,6 +58,44 @@ internal sealed class MemoryGraphState(Func<DateTimeOffset> clock)
     private static bool SameMetadata(IReadOnlyDictionary<string, string>? a, IReadOnlyDictionary<string, string>? b) =>
         (a is null || a.Count == 0) ? (b is null || b.Count == 0)
         : b is not null && a.Count == b.Count && a.All(p => b.TryGetValue(p.Key, out var v) && v == p.Value);
+
+    // ---- receipts --------------------------------------------------------------------------------------
+
+    public IEnumerable<(string Engine, GraphReceipt Receipt)> ReceiptsOf(string engine) =>
+        _receipts.Where(r => r.Key.Engine == engine).Select(r => (r.Key.Engine, r.Value));
+
+    /// <summary>The key's receipt, or null when there is none or it expired at <paramref name="now"/>.</summary>
+    public GraphReceipt? LiveReceipt(string engine, string taskKey, string key, DateTimeOffset now) =>
+        _receipts.TryGetValue((engine, taskKey, key), out var r) && r.ExpiresAt > now ? r : null;
+
+    /// <summary>The receipt that already answers <paramref name="key"/>, if any. One that answers a different call refuses:
+    /// a key names one call.</summary>
+    /// <exception cref="MemoryKeyConflictException">The key answered another kind or other content.</exception>
+    public GraphReceipt? Replay(string engine, GraphOperationKey key)
+    {
+        if (LiveReceipt(engine, key.TaskKey, key.Key, key.At) is not { } held) return null;
+        if (held.Kind != key.Kind || !string.Equals(held.Fingerprint, key.Fingerprint, StringComparison.Ordinal))
+            throw new MemoryKeyConflictException(key.Key, key.TaskKey, held.Kind);
+        return held;
+    }
+
+    /// <summary>Plan the purge of the engine's expired receipts into <paramref name="change"/>: every keyed call does, so the
+    /// library runs no timer.</summary>
+    public void PlanPurge(string engine, DateTimeOffset now, GraphChange change)
+    {
+        foreach (var (k, r) in _receipts)
+            if (k.Engine == engine && r.ExpiresAt <= now) change.PurgedReceipts.Add(k);
+    }
+
+    /// <summary>Plan the key's receipt into <paramref name="change"/>, returning it.</summary>
+    public GraphReceipt Stamp(GraphChange change, string engine, GraphOperationKey key, long nodeId, long revision,
+        MemoryOperationOutcome outcome)
+    {
+        var receipt = new GraphReceipt(key.Key, key.TaskKey, key.Kind, key.Fingerprint, nodeId, revision, outcome, key.At.ToUniversalTime(),
+            key.ExpiresAt.ToUniversalTime());
+        change.Receipts.Add((engine, receipt));
+        return receipt;
+    }
 
     // ---- planners: compute, never mutate ---------------------------------------------------------------
 
@@ -325,6 +365,72 @@ internal sealed class MemoryGraphState(Func<DateTimeOffset> clock)
         return change;
     }
 
+    // ---- keyed planners: the effect and its receipt are ONE change, so a store applies (or journals) both or neither ----
+
+    public GraphChange PlanUpsertKeyed(GraphNodeWrite write, GraphOperationKey key, out GraphKeyed<long> result)
+    {
+        if (Replay(write.Engine, key) is { } held)
+        {
+            result = new GraphKeyed<long>(held.NodeId, true, held);
+            return new GraphChange();
+        }
+        var change = PlanUpsert(write);
+        PlanPurge(write.Engine, key.At, change);
+        var (before, after) = change.Nodes[0];
+        var receipt = Stamp(change, write.Engine, key, after.Id, after.Record.Revision,
+            before is null ? MemoryOperationOutcome.Created : MemoryOperationOutcome.Refreshed);
+        result = new GraphKeyed<long>(after.Id, false, receipt);
+        return change;
+    }
+
+    public GraphChange PlanLinkKeyed(string engine, GraphEdgeWrite edge, GraphOperationKey key, out GraphKeyed<bool> result)
+    {
+        if (Replay(engine, key) is { } held)
+        {
+            result = new GraphKeyed<bool>(true, true, held);
+            return new GraphChange();
+        }
+        var change = PlanLink(engine, [edge]);
+        PlanPurge(engine, key.At, change);
+        var written = change.Edges.Count > 0 && _nodes.TryGetValue(edge.From, out var from) && from.Record.Engine == engine;
+        result = new GraphKeyed<bool>(written, false,
+            written ? Stamp(change, engine, key, edge.From, _nodes[edge.From].Record.Revision, MemoryOperationOutcome.Applied) : null);
+        return change;
+    }
+
+    public GraphChange PlanConfirmKeyed(string engine, GraphConfirm confirm, GraphOperationKey key,
+        out GraphKeyed<GraphConfirmResult> result)
+    {
+        if (Replay(engine, key) is { } held)
+        {
+            result = new GraphKeyed<GraphConfirmResult>(new GraphConfirmResult(GraphConfirmOutcome.Unchanged, held.Revision), true, held);
+            return new GraphChange();
+        }
+        var change = PlanConfirm(engine, confirm, out var plain);
+        PlanPurge(engine, key.At, change);
+        result = new GraphKeyed<GraphConfirmResult>(plain, false,
+            plain.Outcome == GraphConfirmOutcome.Stamped
+                ? Stamp(change, engine, key, confirm.Id, plain.Revision!.Value, MemoryOperationOutcome.Applied)
+                : null);
+        return change;
+    }
+
+    public GraphChange PlanEndKeyed(string engine, GraphEnd end, GraphOperationKey key, out GraphKeyed<GraphEndResult> result)
+    {
+        if (Replay(engine, key) is { } held)
+        {
+            result = new GraphKeyed<GraphEndResult>(new GraphEndResult(GraphEndOutcome.AlreadyEnded, held.Revision), true, held);
+            return new GraphChange();
+        }
+        var change = PlanEnd(engine, end, out var plain);
+        PlanPurge(engine, key.At, change);
+        result = new GraphKeyed<GraphEndResult>(plain, false,
+            plain.Outcome == GraphEndOutcome.Ended
+                ? Stamp(change, engine, key, end.Id, plain.Revision!.Value, MemoryOperationOutcome.Applied)
+                : null);
+        return change;
+    }
+
     /// <summary>The entries that carry a re-check, are valid at <paramref name="now"/>, and were last confirmed before
     /// <paramref name="since"/> or never — never-confirmed first, then longest unconfirmed.</summary>
     public IReadOnlyList<GraphNode> Due(string engine, string taskKey, string? scope, DateTimeOffset since,
@@ -472,6 +578,15 @@ internal sealed class MemoryGraphState(Func<DateTimeOffset> clock)
         }
         foreach (var id in change.TrimmedReviews) _reviews.Remove(id);
         foreach (var (engine, count) in change.ReviewCounters) _reviewCounters[engine] = count;
+        foreach (var purged in change.PurgedReceipts) _receipts.Remove(purged);
+        foreach (var (engine, receipt) in change.Receipts) _receipts[(engine, receipt.TaskKey, receipt.Key)] = receipt;
+    }
+
+    /// <summary>Restore receipts read from disk, dropping those that expired or concern an entry that is gone.</summary>
+    public void Restore(IEnumerable<(string Engine, GraphReceipt Receipt)> receipts, DateTimeOffset now)
+    {
+        foreach (var (engine, r) in receipts)
+            if (r.ExpiresAt > now && Holds(engine, r.NodeId)) _receipts[(engine, r.TaskKey, r.Key)] = r;
     }
 
     private static (string, string, string, string) Identity(GraphNodeRecord r) => (r.Engine, r.TaskKey, r.Scope, r.Content);
@@ -494,6 +609,9 @@ internal sealed class MemoryGraphState(Func<DateTimeOffset> clock)
                     if (edges.Count == 0) _out.Remove(source);
                 }
         _subjects.Remove(id);
+        // a receipt names an entry, and answering for one that is gone would settle a lost reply with a reference to nothing
+        foreach (var key in _receipts.Where(r => r.Value.NodeId == id && r.Key.Engine == row.Record.Engine).Select(r => r.Key).ToList())
+            _receipts.Remove(key);
     }
 
     // ---- reads ---------------------------------------------------------------------------------------------

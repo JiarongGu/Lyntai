@@ -19,6 +19,8 @@ internal sealed record SubjectsLine(string Engine, long NodeId, IReadOnlyList<st
 
 internal sealed record ReviewLine(MemoryReview Review) : GraphLine;
 
+internal sealed record ReceiptLine(string Engine, GraphReceipt Receipt) : GraphLine;
+
 /// <summary>
 /// One JSON object per line for the graph store's journals. Each record line ASSIGNS the full state of one
 /// record, so a journal is replayed by keeping the last line per record. Doubles round-trip exactly; a
@@ -89,6 +91,21 @@ internal static class GraphLines
         w.WriteEndArray();
     });
 
+    // the entry is "entry", not "node": a line is told apart by its first discriminator key, and "node" is NodeLine's
+    public static string Receipt(string engine, GraphReceipt r) => Encode(w =>
+    {
+        w.WriteString("receipt", r.Key);
+        w.WriteString("engine", engine);
+        w.WriteString("task", r.TaskKey);
+        w.WriteNumber("kind", (int)r.Kind);
+        w.WriteString("fingerprint", r.Fingerprint);
+        w.WriteNumber("entry", r.NodeId);
+        w.WriteNumber("revision", r.Revision);
+        w.WriteNumber("outcome", (int)r.Outcome);
+        Time(w, "at", r.At);
+        Time(w, "expires", r.ExpiresAt);
+    });
+
     public static string Review(MemoryReview r) => Encode(w =>
     {
         w.WriteNumber("review", r.Id);
@@ -116,6 +133,10 @@ internal static class GraphLines
             if (e.ValueKind != JsonValueKind.Object) throw new FormatException("a graph line is a JSON object");
             if (e.TryGetProperty("lyntai", out var schema))
                 return new HeaderLine(schema.GetInt64(), OptionalString(e, "engine"), e.TryGetProperty("ids", out var ids) ? ids.GetInt64() : 0);
+            if (e.TryGetProperty("receipt", out var receiptKey))
+                return new ReceiptLine(e.GetProperty("engine").GetString()!, new GraphReceipt(receiptKey.GetString()!,
+                    e.GetProperty("task").GetString()!, (MemoryOperationKind)Long(e, "kind"), e.GetProperty("fingerprint").GetString()!,
+                    Long(e, "entry"), Long(e, "revision"), (MemoryOperationOutcome)Long(e, "outcome"), Time(e, "at"), Time(e, "expires")));
             if (e.TryGetProperty("totals", out var engine))
                 return new TotalsLine(engine.GetString()!, new GraphTotals(Number(e, "position"), Long(e, "ordinal"),
                     Long(e, "chars"), Time(e, "at")));

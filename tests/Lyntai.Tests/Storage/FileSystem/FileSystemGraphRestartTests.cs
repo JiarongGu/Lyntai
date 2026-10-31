@@ -418,4 +418,61 @@ public class FileSystemGraphRestartTests : IDisposable
             Assert.Equal((1, 2d), (nodeB!.Degree, nodeB.Strength));
         }
     }
+
+    private GraphOperationKey Keyed(string key, MemoryOperationKind kind, string fingerprint = "fp", int days = 30) =>
+        new(key, "task", kind, fingerprint, _now, _now.AddDays(days));
+
+    // A receipt is a journal line, so it outlives the process exactly as the effect beside it does — and a repeat after a restart
+    // answers it instead of writing a second time.
+    [Fact]
+    public async Task A_receipt_survives_a_restart_and_a_repeat_after_it_answers_it()
+    {
+        var store = Open(_temp.Root);
+        var first = await store.UpsertKeyedAsync(Write("lives in Paris"), Keyed("k1", MemoryOperationKind.Remember));
+        var ended = await store.EndKeyedAsync("e", new GraphEnd((await store.UpsertAsync(Write("lives in Rome"))), "moved", _now),
+            Keyed("k2", MemoryOperationKind.End));
+
+        var reopened = Open(_temp.Reopen());
+        var again = await reopened.UpsertKeyedAsync(Write("lives in Paris"), Keyed("k1", MemoryOperationKind.Remember));
+        var endedAgain = await reopened.EndKeyedAsync("e", new GraphEnd(ended.Receipt!.NodeId, "moved", _now),
+            Keyed("k2", MemoryOperationKind.End));
+
+        Assert.True(again.Replayed);
+        Assert.Equal((first.Value, first.Receipt!.Revision), (again.Value, again.Receipt!.Revision));
+        Assert.Equal((GraphEndOutcome.AlreadyEnded, true), (endedAgain.Value.Outcome, endedAgain.Replayed));
+        Assert.Equal(first.Receipt.Revision, (await reopened.GetAsync("e", first.Value))!.Revision);
+    }
+
+    [Fact]
+    public async Task An_expired_receipt_and_one_whose_entry_was_removed_do_not_come_back_after_a_restart()
+    {
+        var store = Open(_temp.Root);
+        var kept = await store.UpsertKeyedAsync(Write("lives in Paris"), Keyed("short", MemoryOperationKind.Remember, days: 1));
+        var removed = await store.UpsertKeyedAsync(Write("lives in Rome"), Keyed("removed", MemoryOperationKind.Remember));
+        await store.DeleteAsync("e", [removed.Value]);
+
+        _now = _now.AddDays(2);
+        var reopened = Open(_temp.Reopen());
+
+        Assert.Null(await reopened.ReceiptAsync("e", "task", "short", _now));
+        Assert.Null(await reopened.ReceiptAsync("e", "task", "removed", _now.AddDays(-2)));
+        Assert.Equal(kept.Value, (await reopened.GetAsync("e", kept.Value))!.Id);
+    }
+
+    [Fact]
+    public async Task A_receipt_line_torn_by_a_crash_is_set_aside_and_its_key_is_a_new_call()
+    {
+        var store = Open(_temp.Root);
+        var first = await store.UpsertKeyedAsync(Write("lives in Paris"), Keyed("k1", MemoryOperationKind.Remember));
+        // the crash cut the journal inside the receipt, the last line of the append
+        var lines = File.ReadAllLines(JournalPath);
+        Assert.StartsWith("{\"receipt\"", lines[^1], StringComparison.Ordinal);
+        File.WriteAllText(JournalPath, string.Join("\n", lines[..^1]) + "\n" + lines[^1][..40]);
+
+        var reopened = Open(_temp.Reopen());
+
+        Assert.Null(await reopened.ReceiptAsync("e", "task", "k1", _now));
+        Assert.Equal("lives in Paris", (await reopened.GetAsync("e", first.Value))!.Content);
+        Assert.True(File.Exists(JournalPath + ".torn"));
+    }
 }

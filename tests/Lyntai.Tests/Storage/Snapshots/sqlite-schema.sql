@@ -26,6 +26,12 @@ ON lyntai_memory_node(engine, task_key, scope, salience DESC);
 -- index ix_lyntai_memory_node_scope
 CREATE INDEX ix_lyntai_memory_node_scope ON lyntai_memory_node(engine, task_key, scope);
 
+-- index ix_lyntai_memory_receipt_expiry
+CREATE INDEX ix_lyntai_memory_receipt_expiry ON lyntai_memory_receipt(engine, expires_at);
+
+-- index ix_lyntai_memory_receipt_node
+CREATE INDEX ix_lyntai_memory_receipt_node ON lyntai_memory_receipt(node_id);
+
 -- index ix_lyntai_memory_review_engine_id
 CREATE INDEX ix_lyntai_memory_review_engine_id ON lyntai_memory_review(engine, id);
 
@@ -201,6 +207,21 @@ CREATE TABLE lyntai_memory_position (
     engine TEXT PRIMARY KEY,
     position REAL NOT NULL
 , ordinal INTEGER NOT NULL DEFAULT 0, chars INTEGER NOT NULL DEFAULT 0, encoded_at TEXT NOT NULL DEFAULT '1970-01-01T00:00:00.0000000+00:00');
+
+-- table lyntai_memory_receipt
+CREATE TABLE lyntai_memory_receipt (
+    engine TEXT NOT NULL,
+    task_key TEXT NOT NULL,
+    op_key TEXT NOT NULL,
+    kind INTEGER NOT NULL,
+    fingerprint TEXT NOT NULL,
+    node_id INTEGER NOT NULL REFERENCES lyntai_memory_node(id) ON DELETE CASCADE,
+    revision INTEGER NOT NULL,
+    outcome INTEGER NOT NULL,
+    created_at TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    PRIMARY KEY (engine, task_key, op_key)
+);
 
 -- table lyntai_memory_review
 CREATE TABLE lyntai_memory_review (

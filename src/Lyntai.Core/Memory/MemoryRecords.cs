@@ -58,6 +58,12 @@ public sealed record MemoryWrite(
     /// one. A store that cannot hold it makes the engine refuse the write (<see cref="IConfirmableMemoryGraphStore"/>).</summary>
     public string? Recheck { get; init; }
 
+    /// <summary>The caller's key, which makes this write answerable: the result carries a <see cref="MemoryReceipt"/>, and a repeat with the
+    /// key answers it, moving no revision. Null states none. Scoped to (engine, task) and at most <see cref="MemoryLimits.MaxOperationKeyChars"/>
+    /// characters (<see cref="IKeyedMemory"/>). A keyed write states no <see cref="Supersedes"/>, <see cref="Disputes"/> or
+    /// <see cref="Amends"/> — those are other calls with their own receipts — and an engine that cannot hold a receipt refuses it.</summary>
+    public string? OperationKey { get; init; }
+
     /// <summary>Whether this write states valid time at all — what an engine that cannot hold it refuses.</summary>
     public bool StatesValidity => ValidFrom is not null || ValidTo is not null || Supersedes is { Count: > 0 };
 }
@@ -193,6 +199,9 @@ public static class MemoryLimits
 {
     /// <summary>The longest <see cref="MemoryWrite.Recheck"/>, in characters.</summary>
     public const int MaxRecheckChars = 2000;
+
+    /// <summary>The longest operation key (<see cref="MemoryWrite.OperationKey"/>), in characters.</summary>
+    public const int MaxOperationKeyChars = 200;
 }
 
 /// <summary>The result of a recall, with the tiers that actually ran.</summary>
@@ -239,4 +248,9 @@ public sealed record MemoryRecall(IReadOnlyList<MemoryItem> Items, MemorySources
 /// <param name="Reference">The entry's address — what expansion and linking take.</param>
 /// <param name="Ran">The tiers that took the write. Test one with <see cref="Enum.HasFlag"/>: members may be
 /// added.</param>
-public sealed record MemoryWriteResult(MemoryRef Reference, MemorySources Ran);
+public sealed record MemoryWriteResult(MemoryRef Reference, MemorySources Ran)
+{
+    /// <summary>The key's receipt when the write carried a <see cref="MemoryWrite.OperationKey"/>; null otherwise. A repeat reports
+    /// <see cref="MemoryReceipt.Replayed"/> and <see cref="Ran"/> of <see cref="MemorySources.Graph"/> alone, since nothing ran.</summary>
+    public MemoryReceipt? Receipt { get; init; }
+}

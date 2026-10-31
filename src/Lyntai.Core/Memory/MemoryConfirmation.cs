@@ -29,7 +29,12 @@ public enum MemoryConfirmOutcome
 /// <summary>The outcome of one confirmation.</summary>
 /// <param name="Outcome">What happened.</param>
 /// <param name="Revision">The entry's revision after the call — for <see cref="MemoryConfirmOutcome.Changed"/>, the one found.</param>
-public readonly record struct MemoryConfirmResult(MemoryConfirmOutcome Outcome, string? Revision);
+public readonly record struct MemoryConfirmResult(MemoryConfirmOutcome Outcome, string? Revision)
+{
+    /// <summary>The key's receipt when the confirmation was keyed (<see cref="IKeyedMemory.ConfirmKeyedAsync"/>) and took effect, or was a
+    /// repeat; null otherwise.</summary>
+    public MemoryReceipt? Receipt { get; init; }
+}
 
 /// <summary>OPTIONAL capability: a host records what its own check of a stored fact concluded, and asks what is due for one.
 /// <para><b>The library runs no check and ends no entry by age.</b> An entry carries an opaque <see cref="MemoryWrite.Recheck"/> text

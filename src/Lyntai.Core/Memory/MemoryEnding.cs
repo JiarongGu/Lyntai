@@ -14,6 +14,10 @@ public sealed record MemoryEnding(string Reason)
     /// <summary>The <see cref="MemoryItem.Revision"/> the end was reviewed on, or null for an unconditional end. A
     /// store that cannot hold one makes the call throw <see cref="NotSupportedException"/> rather than end anyway.</summary>
     public string? ExpectedRevision { get; init; }
+
+    /// <summary>The caller's key (<see cref="IKeyedMemory"/>): the result carries a receipt, and a repeat with it reports
+    /// <see cref="MemoryEndOutcome.AlreadyEnded"/> whatever revision it expected. Null states none.</summary>
+    public string? OperationKey { get; init; }
 }
 
 /// <summary>What <see cref="IEndableMemory.EndAsync"/> did.</summary>
@@ -31,7 +35,11 @@ public enum MemoryEndOutcome
 /// <param name="Outcome">What happened.</param>
 /// <param name="Revision">The entry's revision after the call — for <see cref="MemoryEndOutcome.Changed"/>, the one found,
 /// which is what a fresh review reads.</param>
-public readonly record struct MemoryEndResult(MemoryEndOutcome Outcome, string? Revision);
+public readonly record struct MemoryEndResult(MemoryEndOutcome Outcome, string? Revision)
+{
+    /// <summary>The key's receipt when the end carried a <see cref="MemoryEnding.OperationKey"/> and took effect, or was a repeat; null otherwise.</summary>
+    public MemoryReceipt? Receipt { get; init; }
+}
 
 /// <summary>OPTIONAL capability: an engine that ends one entry by reference with a reason, which keeps it whole under
 /// <see cref="MemoryValidityReading.History"/> and takes it out of <see cref="MemoryValidityReading.Current"/>.
