@@ -152,7 +152,7 @@ home for a trap. Move the rule to the record that owns it, keep a pointer, then 
 `safe` lists the commands a session may run unasked. **`integration.scratch` lists the ignored output Lyntai's own
 checks write again**, so a tree is removed after landing rather than kept for it: globs over repository-relative
 paths, `/` separated, `*` within one segment, a trailing `/**` for the folder and all under it. It is output a run
-rewrites: the `test` trx (`_test-results`), per-test databases and scratch (`_test-dbs`, `_test-scratch`), the
+rewrites: a `verify` run's redirected output (`_verify.log`; the exit code is read off the run, never through a pipe), the `test` trx (`_test-results`), per-test databases and scratch (`_test-dbs`, `_test-scratch`), the
 guards' fixture trees (`_guard-tests-*`), the e2e data folders (`_e2e-*-data`), `check-samples`' project
 (`_samples`), `consumer-smoke`'s app and feed, the Playground's default data folder, the image-pipeline sample's
 output and `devtools/_live`, the conventional `LYNTAI_LIVE_OUTPUT_DIR` for a live suite's renders.
