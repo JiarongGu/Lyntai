@@ -1,0 +1,23 @@
+// What the contract cannot hold, said by the fixture first: a LIST and a PROSE decision. The replay names both as not
+// fitting and replays nothing on them; the one field that fits replays and its reads pass. Like person-reference this is
+// a shape demonstration, not an application.
+{
+  "name": "not-fitting",
+  "kind": "demonstration",
+  "subject": "x1",
+  "schema": [
+    { "id": "stack.language" },
+    { "id": "lanes", "shape": "list" },
+    { "id": "decision.storage", "shape": "prose" }
+  ],
+  "steps": [
+    { "id": "s1", "op": "set", "field": "stack.language", "value": "C#", "at": "2026-01-01T00:00:00Z", "source": "owner:1",
+      "then": [ { "read": "current", "field": "stack.language", "at": "2026-07-01T00:00:00Z", "value": "C#" } ] },
+    { "id": "s2", "op": "set", "field": "lanes", "value": "memory, storage", "at": "2026-01-01T00:00:00Z", "source": "owner:1",
+      "then": [ { "read": "current", "field": "lanes", "at": "2026-07-01T00:00:00Z", "value": "memory, storage" } ] },
+    { "id": "s3", "op": "set", "field": "decision.storage", "value": "Files, not a database, because the host has none.", "at": "2026-01-01T00:00:00Z", "source": "owner:1",
+      "then": [ { "read": "history", "field": "decision.storage", "values": ["Files, not a database, because the host has none."] } ] },
+    { "id": "s4", "op": "correct", "field": "stack.language", "value": "C# 14", "at": "2026-03-01T00:00:00Z", "source": "owner:2", "replaces": "s1",
+      "then": [ { "read": "current", "field": "stack.language", "at": "2026-07-01T00:00:00Z", "value": "C# 14" } ] }
+  ]
+}

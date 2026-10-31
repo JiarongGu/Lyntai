@@ -1,9 +1,5 @@
 using Lyntai.Storage;
-using Lyntai.Storage.FileSystem;
-using Lyntai.Storage.InMemory;
-using Lyntai.Storage.Sqlite;
 using Lyntai.Tests.Storage;
-using Lyntai.Tests.Storage.FileSystem;
 
 namespace Lyntai.Tests.Memory.Prototype;
 
@@ -25,7 +21,7 @@ public class ProfilePrototypeTests(PostgresFixture pg)
 
     private static readonly ProfileField City = new("u1", "address.city");
 
-    public static TheoryData<string> Backends => ["sqlite", "files", "memory", "postgres"];
+    public static TheoryData<string> Backends => [.. ProfileBackends.All];
 
     private Rig NewRig(string backend) => new(backend, pg);
 
@@ -68,44 +64,17 @@ public class ProfilePrototypeTests(PostgresFixture pg)
             inner.ForCompositionAsync(taskKey, scopes, enabledOnly, ct);
     }
 
-    private sealed class NoLease : IDisposable
-    {
-        public void Dispose()
-        {
-        }
-    }
-
     private sealed class Rig : IDisposable
     {
         private readonly IDisposable _lease;
 
         internal Rig(string backend, PostgresFixture pg)
         {
-            if (backend == "postgres")
-            {
-                (Raw, _lease) = Revisioned(ProfilePostgresSites.For(pg).Open());
-            }
-            else if (backend == "sqlite")
-            {
-                var db = new TempDb();
-                (_lease, Raw) = (db, new SqliteCuratedMemoryStore(db.Factory));
-            }
-            else if (backend == "files")
-            {
-                var root = new TempRoot();
-                (_lease, Raw) = (root, new FileSystemCuratedMemoryStore(root.Root));
-            }
-            else
-            {
-                (_lease, Raw) = (new NoLease(), new InMemoryCuratedMemoryStore());
-            }
-
+            var (store, lease) = ProfileBackends.Open(backend, pg);
+            (Raw, _lease) = ((IRevisionedCuratedMemoryStore)store, lease);
             Crashing = new CrashingStore(Raw);
             Profile = new ProfileOverCurated(Crashing);
         }
-
-        private static (IRevisionedCuratedMemoryStore, IDisposable) Revisioned((ICuratedMemoryStore Store, IDisposable Lease) site) =>
-            ((IRevisionedCuratedMemoryStore)site.Store, site.Lease);
 
         internal IRevisionedCuratedMemoryStore Raw { get; }
 
