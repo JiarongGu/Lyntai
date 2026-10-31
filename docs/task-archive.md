@@ -6378,3 +6378,36 @@ exit status and never a model's reading (**D241**), and a failed claim a model c
 `memory` + `storage`.
 
 - MC5 — a stored fact can be re-checked by its host, and a failed check ends it
+
+## Part 424 — MC11: a caller's operation key on every memory write, with a receipt (2026-10-31)
+
+✅ done 2026-10-31 — **Outcome:** `MemoryWrite.OperationKey`, `MemoryEnding.OperationKey` and `IKeyedMemory` (`RelateKeyedAsync`, `ConfirmKeyedAsync`,
+`ReceiptAsync`, `HoldsReceipts`) over the optional `IKeyedMemoryGraphStore : IConfirmableMemoryGraphStore, ITypedLinkMemoryGraphStore` on all four stores;
+`MemoryReceipt` (kind, reference, revision after, `Created`/`Refreshed`/`Applied`, expiry, `Replayed`), `MemoryKeyConflictException`,
+`GraphMemoryOptions.ReceiptRetention` (thirty days). One migration adds `lyntai_memory_receipt` on SQLite and Postgres (receipt rows cascade with
+their entry); the in-process store keeps receipts in the change that is the effect, the file store as the last line of the effect's journal append.
+The SQL stores share one runner (`GraphReceiptSql`: purge first, which also takes SQLite's write lock, then replay, effect, receipt). **Readings:** a
+receipt is written only for a call that took effect, and a keyed remember states no `Supersedes`/`Disputes`/`Amends` (**D242** "As built"). Proof: 11
+store facts on four stores including Postgres live (a repeated remember leaves one revision step and no position moved, a repeated relation adds no
+weight, a repeated confirmation stamps once, a repeated end answers `AlreadyEnded` on the revision it was reviewed on, a reused key refused, a landing
+on another writer's content `Refreshed`, an expired receipt purged and its key new, racing repeats landing once, removal taking the receipt),
+ten engine and blend cases, three file-store restart cases, both schema goldens and the `ApiSurface` baselines. A trap hit and filed:
+`.agents/knowledge/pitfalls.md` (a journal line kind's discriminator against another kind's data field). Lanes `memory` + `storage`.
+
+- MC11 — a caller's operation key on every memory write, with a receipt
+
+## Part 425 — MC12: a supersession that applies as one change (2026-10-31)
+
+✅ done 2026-10-31 — **Outcome:** `ISupersedingMemory.SupersedeAsync(MemorySupersession)` over the optional `ISupersedingMemoryGraphStore :
+IKeyedMemoryGraphStore` (`SupersedeWithAsync`) on all four stores: the successor is stored and every predecessor ended with the reason, each guarded by
+the revision read, or nothing changes and `MemorySupersessionResult.Predecessors` says per entry `Unmoved`, `Changed` (with the revision found),
+`Refused` or `Missing`. The in-process store plans the whole change and applies it under its lock; the SQL stores run it in one transaction through
+`GraphSupersedeSql`; the **file store commits it as ONE journal line** (`{"commit":[…]}` holding the successor, every end and the receipt) after the
+successor's file, and a restart finishes a predecessor's memory file the line already committed. A key makes it one receipt and a repeat answers `Applied`
+naming the successor. The engine shares a remember's embed, annotation and derived steps through `PrepareAsync`, and the blend sends the call to the
+member that holds the predecessors. `MemoryChangeGate`'s store-first path and un-keyed `Supersedes` are unchanged (a test pins it). Proof: five store
+facts on four stores (all predecessors ended, one stale revision stores nothing and the position does not move, a keyed repeat, the refusals, racing
+repeats), nine engine and blend cases including a failed index write leaving it applied, three file-store crash cases (torn line leaves neither, a
+committed line finishes the file, an unwritable file does not undo it), and the baselines. Lanes `memory` + `storage`.
+
+- MC12 — a supersession that applies as one change

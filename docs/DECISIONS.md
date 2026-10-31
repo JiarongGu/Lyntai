@@ -6976,8 +6976,8 @@ changed-since read), or when a record and an experience must be ranked together.
 ## D242 — a supersession can apply as one change, a view over another task only reads, and a caller's key makes a write answerable (2026-10-31)
 
 **Standing.** Written for the three requests of Daoris's memory coordinator (its design §6, A to C), taken as a working
-position: nothing ships with it and the rows are `TASKS.md` MC11, MC12 and MC7, which it widens. It amends **D241** on one
-item and keeps the rest whole. Reversing it costs a row now and a frozen surface once a release carries it (**D70**).
+position. MC11 and MC12 are built (`docs/task-archive.md` Part 424, 425); MC7 is still `TASKS.md`'s. It amends **D241** on one
+item. Reversing it costs a frozen surface once a release carries it (**D70**).
 
 **Decided.**
 - **A keyed write is answerable** (C). A remember, a relation, a confirmation, an end and a supersession each take an optional
@@ -6992,15 +6992,16 @@ item and keeps the rest whole. Reversing it costs a row now and a frozen surface
   carries the key, so it is one receipt. The embed and annotation precede it; the similarity index and subject links follow
   it, are derived, and a failure there leaves the supersession applied and is reported as the sources already are.
 - **Both are optional store capabilities**, as ending is (`IEndableMemoryGraphStore`): an engine over a store without one
-  refuses the call and never falls back to insert-then-end, and an unkeyed call is unchanged on every store.
-- **The gate's agent path stays store-first**: an agent's observation is its own; the new call is for a host that holds the
-  successor and calls after approval.
+  refuses the call and never falls back to insert-then-end; an unkeyed call is unchanged on every store. **The gate's agent path
+  stays store-first**: an agent's observation is its own; the new call is for a host that holds the successor after approval.
+- **As built:** a receipt is written only for a call that TOOK EFFECT, so a stale revision leaves none and its key stays free. A
+  keyed remember states no `Supersedes`, `Disputes` or `Amends` (each is its own keyed call). A receipt goes with its entry.
 - **The view is MC7, widened** (B). The row stands: no write path in its type, nothing of the owner's moved (use stamp,
   confirmation, co-activation, decay), a reference outside its task refused, references and never copies. It adds the source
   task on each result beside the reference, revision, relations and retirement standing it reads; `RevisionOf(reference)`
   as one read by id; a host-supplied check per reference before an expansion reads anything; and a capability member plus
   a refusing call for an engine without it. The check is a call, not a grant: owners, grants and the log stay out.
-- **Presentation (X) is the host's**: the revision read and the receipt are what it stands on.
+  **Presentation (X) is the host's**: the revision read and the receipt are what it stands on.
 
 **Why.** **D241** refused the transaction because it widened a store contract and a retry repaired the window. It widens one
 as ending did, optionally, and a retry stops holding once a view shows another repository the window. After a lost response
@@ -7012,5 +7013,4 @@ each predecessor (a remember and a relation have none; one table answers all fiv
 agent path. A timer to expire receipts. Federation, merged ranking, replicas, and the library knowing repositories, quests or
 policy, or holding a successor before approval.
 
-**Re-opens** if a store cannot make the pair atomic across a crash (it then refuses the capability), or if receipts' growth
-needs more than a purge on write.
+**Re-opens** if a store cannot make the pair atomic across a crash (it refuses the capability), or receipts' growth needs more than a purge.
