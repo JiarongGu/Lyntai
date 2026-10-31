@@ -1,6 +1,6 @@
 # The agent-provider layer against Daoris's accepted provider design — a study
 
-**Status: a study (`docs/documents.md`), 2026-10-29; AG20 is built, the rest is not.** It reads Lyntai's layer
+**Status: a study (`docs/documents.md`), 2026-10-29; AG20, AG11 and AG12 are built, the rest is not.** It reads Lyntai's layer
 (`docs/agent-provider-layer.md`, **D219**, rows AG1 to AG9 closed in `docs/task-archive.md`) against two designs
 Daoris has since accepted, and files what a host that runs coding agents still needs from the layer as rows AG10 to
 AG20 in `TASKS.md` (Part 412 there) and **D233**. AG20 was ruled and built as **D234**, and §9 states how a host
@@ -157,7 +157,7 @@ to a provider; the rule language and skills; the plugin catalogue and its manife
 
 ## 7. Order of the rows
 
-AG20 is built (**D234**); AG10 to AG19 are startable, and this is the order they are built in, one sitting each:
+AG20, AG11 and AG12 are built (**D234**, **D243**); AG10 and AG13 to AG19 are startable, and this is the order they are built in, one sitting each:
 
 1. **AG10**: a defect against measured evidence in a shipped reader, small, and it needs nothing.
 2. **AG11**, then **AG12**: the second reads the refusal the first makes, and a pool pick must not drop a model

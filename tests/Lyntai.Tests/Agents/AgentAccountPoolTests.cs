@@ -89,6 +89,40 @@ public class AgentAccountPoolTests
         Assert.Equal(("a", "sonnet"), (Name(next), next.Seat.Choice.Model));
     }
 
+    // what both CLI doors and the protocol door state for a model the agent will not run: fatal, held on the model alone
+    private static SessionEnded ModelRefused() =>
+        new(ProviderVerdict.Unsupported, true, AgentProvider.OptionRefusedSubtype, null, null, "the agent refused model 'opus'")
+        {
+            Failure = new AgentFailure(AgentFailureKind.Fatal, "test")
+            {
+                Restriction = new AgentRestriction(RestrictionCause.Unknown, RestrictionSubject.Model, RestrictionRecovery.OwnerAction),
+                Delivery = AgentDelivery.NeverSent,
+            },
+        };
+
+    [Fact]
+    public async Task A_refused_model_skips_that_seat_the_same_account_serves_another_model_and_a_clear_frees_it()
+    {
+        var clock = new ManualTimeProvider();
+        var pool = Pool(clock, Choice("opus", "claude-cli", "a"), Choice("sonnet", "claude-cli", "a"));
+
+        await pool.ReportAsync(await Take(pool), ModelRefused());
+
+        var hold = Assert.Single(await pool.HoldsAsync());
+        Assert.Equal(("account claude-cli/a, model opus", AgentHoldState.Blocked, (DateTimeOffset?)null), (hold.Scope, hold.State, hold.ReadyAt));
+        var sonnet = await Take(pool);
+        Assert.Equal(("a", "sonnet"), (Name(sonnet), sonnet.Seat.Choice.Model));
+        await pool.ReportAsync(sonnet, Ok());
+        clock.Advance(TimeSpan.FromDays(30));
+        Assert.Equal("sonnet", (await Take(pool)).Seat.Choice.Model);   // no duration was chosen: only the host frees it
+
+        Assert.True(await pool.ClearAsync(hold.Id, hold.Revision));
+        var probe = await Take(pool);
+        Assert.Equal(("opus", true), (probe.Seat.Choice.Model, probe.Seat.IsProbe));
+        await pool.ReportAsync(probe, Ok());
+        Assert.Empty(await pool.HoldsAsync());
+    }
+
     [Fact]
     public async Task Rotation_lands_at_a_turns_end_never_inside_one()
     {

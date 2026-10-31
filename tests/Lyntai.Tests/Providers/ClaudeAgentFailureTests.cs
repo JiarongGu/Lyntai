@@ -144,6 +144,52 @@ public class ClaudeAgentFailureTests
         Assert.Equal(expected, ended.Failure!.Kind);
     }
 
+    private static void AssertModelRefused(AgentFailure failure)
+    {
+        Assert.Equal(AgentFailureKind.Fatal, failure.Kind);
+        Assert.Equal(new AgentRestriction(RestrictionCause.Unknown, RestrictionSubject.Model, RestrictionRecovery.OwnerAction), failure.Restriction);
+    }
+
+    [Fact] // REAL: a host's recorded frames (claude -p 2.1.309, D243) of a model the CLI would not run, words and fields as recorded
+    public void A_model_the_cli_will_not_run_is_fatal_and_held_against_that_model_alone()
+    {
+        var ended = Last(Init,
+            """{"type":"assistant","message":{"model":"<synthetic>","content":[{"type":"text","text":"There's an issue with the selected model (claude-3-opus-20240229). It may not exist or you may not have access to it. Run --model to pick a different model."}]},"error":"model_not_found"}""",
+            Result("""
+                "subtype":"success","is_error":true,"api_error_status":404,"num_turns":1,"modelUsage":{},"result":"There's an issue with the selected model (claude-3-opus-20240229). It may not exist or you may not have access to it. Run --model to pick a different model."
+                """));
+
+        AssertModelRefused(ended.Failure!);
+        Assert.Equal("claude.assistant.error=model_not_found", ended.Failure!.By);   // the category, not the bare 404 beside it
+    }
+
+    [Fact] // the category alone, with no status and words of the CLI's own that no table knows
+    public void The_model_not_found_category_alone_is_a_refused_model()
+    {
+        var ended = Last(Init,
+            """{"type":"assistant","error":"model_not_found","message":{"content":[{"type":"text","text":"x"}]}}""",
+            Result("""
+                "subtype":"success","is_error":true,"result":"x"
+                """));
+
+        AssertModelRefused(ended.Failure!);
+    }
+
+    [Fact] // a 404 is not a model refusal unless the CLI's words or category say the model was
+    public void A_404_whose_words_name_the_model_is_one_and_any_other_404_is_not()
+    {
+        var named = Last(Init, Result("""
+            "subtype":"success","is_error":true,"api_error_status":404,"result":"There's an issue with the selected model (x). It may not exist or you may not have access to it."
+            """));
+        var other = Last(Init, Result("""
+            "subtype":"success","is_error":true,"api_error_status":404,"result":"the page was not found"
+            """));
+
+        AssertModelRefused(named.Failure!);
+        Assert.Equal(AgentFailureKind.Fatal, other.Failure!.Kind);
+        Assert.Null(other.Failure.Restriction);
+    }
+
     [Fact] // an ordinary frame is `allowed`, even while spending overage: never a limit
     public void An_allowed_rate_limit_frame_is_not_a_limit()
     {

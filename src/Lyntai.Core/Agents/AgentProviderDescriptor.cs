@@ -163,6 +163,10 @@ public static class AgentAbilities
     /// <summary>Carry <see cref="AgentSessionOptions.SystemPrompt"/> as a standing instruction.</summary>
     public const string SystemPrompt = "system-prompt";
 
+    /// <summary>Run the turn on <see cref="AgentSessionOptions.Model"/>. A door that states it carries the id or ends
+    /// the turn before the prompt; none runs a turn on another model and says nothing.</summary>
+    public const string Model = "model";
+
     /// <summary>Take a word from the host while a turn is running.</summary>
     public const string Steering = "steering";
 
@@ -186,19 +190,20 @@ public static class AgentAbilities
 
     /// <summary>Every ability a provider states, in a fixed order.</summary>
     public static IReadOnlyList<string> All { get; } =
-        [Resume, ReadOnlyGate, McpServers, DisallowedTools, SystemPrompt, Steering, PlanEvents, LiveUsage, TypedFailures, Accounts, UsageReading];
+        [Resume, ReadOnlyGate, McpServers, DisallowedTools, SystemPrompt, Model, Steering, PlanEvents, LiveUsage, TypedFailures, Accounts, UsageReading];
 
     /// <summary>The abilities <paramref name="options"/> asks a door for. Only the option-shaped ones appear:
     /// an event ability (plan events, live usage) is something a door emits, not something a turn asks for.</summary>
     public static IReadOnlyList<string> Needed(AgentSessionOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
-        var needed = new List<string>(6);
+        var needed = new List<string>(7);
         if (options.ResumeToken is not null) needed.Add(Resume);
         if (options.ToolPolicy == AgentToolPolicy.ReadOnly) needed.Add(ReadOnlyGate);
         if (options.McpServers.Count > 0) needed.Add(McpServers);
         if (options.DisallowedTools.Count > 0) needed.Add(DisallowedTools);
         if (!string.IsNullOrEmpty(options.SystemPrompt)) needed.Add(SystemPrompt);
+        if (!string.IsNullOrEmpty(options.Model)) needed.Add(Model);
         if (options.Account is not null) needed.Add(Accounts);
         return needed;
     }

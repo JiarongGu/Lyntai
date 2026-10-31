@@ -10,7 +10,8 @@ namespace Lyntai.Providers.Acp;
 
 /// <summary>One ACP turn, as a client: feed it each line the agent writes with <see cref="Read"/> and it yields
 /// the events, writing the client's next frames to the outbox as it goes — <c>initialize</c>, then
-/// <c>session/new</c>, <c>session/load</c> or <c>session/resume</c>, then <c>session/prompt</c>. Tolerant: a line
+/// <c>session/new</c>, <c>session/load</c> or <c>session/resume</c>, then — for a <see cref="AgentSessionOptions.Model"/> — the
+/// <c>session/set_config_option</c> of the agent's model option, then <c>session/prompt</c>. Tolerant: a line
 /// that is not JSON, or is JSON of an unexpected shape, yields nothing and never throws.
 /// <para><b>The mapping.</b> <c>agent_message_chunk</c> is <see cref="TextDelta"/>, <c>agent_thought_chunk</c>
 /// <see cref="Thinking"/>, <c>plan</c> <see cref="PlanUpdated"/>, <c>tool_call</c> a <see cref="ToolCall"/> and a
@@ -25,8 +26,10 @@ internal sealed class AcpAgentReader
     private const int InitializeId = 1;
     private const int OpenId = 2;
     private const int PromptId = 3;
+    private const int SetModelId = 4;
+    private const int MaxOfferedNamed = 25;
 
-    private enum Phase { Initializing, Opening, Prompting, Done }
+    private enum Phase { Initializing, Opening, Configuring, Prompting, Done }
 
     private readonly AgentSessionOptions _options;
     private readonly string _cwd;
@@ -41,6 +44,7 @@ internal sealed class AcpAgentReader
     private bool _cancelSent;
     private RejectedLimit? _rejected;
     private AcpTypedFailure? _typed;
+    private AcpModelOption? _modelOption;
 
     /// <param name="options">The turn.</param>
     /// <param name="cwd">The absolute working directory the session opens in.</param>
@@ -144,12 +148,28 @@ internal sealed class AcpAgentReader
                     break;
                 }
 
-                events.Add(new SessionStarted(_sessionId));
-                _phase = Phase.Prompting;
-                string[] blocks = string.IsNullOrEmpty(_options.SystemPrompt)
-                    ? [_options.Prompt]
-                    : [_options.SystemPrompt, _options.Prompt];
-                Send(AcpFrames.Prompt(PromptId, _sessionId, blocks));
+                if (_options.Model is { Length: > 0 } wanted)
+                {
+                    _modelOption = AcpModelOption.Read(result);
+                    if (_modelOption is null)
+                    {
+                        End(events, ModelRefused($"the agent states no model option (a config option of category model), so model '{wanted}' cannot be set on it.", "acp.model.no-option"));
+                        break;
+                    }
+
+                    if (_modelOption.Current != wanted)
+                    {
+                        _phase = Phase.Configuring;
+                        Send(AcpFrames.SetConfigOption(SetModelId, _sessionId, _modelOption.Id, wanted));
+                        break;
+                    }
+                }
+
+                StartPrompt(events);
+                break;
+
+            case SetModelId when _phase == Phase.Configuring:
+                ReadModelSet(error, result, events);
                 break;
 
             case PromptId when _phase == Phase.Prompting:
@@ -157,6 +177,64 @@ internal sealed class AcpAgentReader
                 break;
         }
     }
+
+    // The session is announced only once it is ready to be prompted, so a turn refused before this point shows the
+    // caller nothing and its delivery reads NeverSent.
+    private void StartPrompt(List<AgentStreamEvent> events)
+    {
+        events.Add(new SessionStarted(_sessionId!));
+        _phase = Phase.Prompting;
+        string[] blocks = string.IsNullOrEmpty(_options.SystemPrompt)
+            ? [_options.Prompt]
+            : [_options.SystemPrompt, _options.Prompt];
+        Send(AcpFrames.Prompt(PromptId, _sessionId!, blocks));
+    }
+
+    // The agent's answer to session/set_config_option is the verdict on the model: an error refuses it, and so does
+    // an answer that puts another value of the agent's own list in its place. An id the list does not name is the
+    // agent's to accept and to spell (claude-agent-acp answers an alias for a full id), so it is never judged by the list.
+    private void ReadModelSet(JsonElement? error, JsonElement result, List<AgentStreamEvent> events)
+    {
+        var wanted = _options.Model!;
+        if (error is { } setError)
+        {
+            // a limit or a sign-in the agent states here is that, and not a refusal of the model
+            var failure = AcpFailure.FromError(setError, null, null, _time, out var words);
+            if (failure.Kind != AgentFailureKind.Fatal)
+            {
+                End(events, FailedByError(setError));
+                return;
+            }
+
+            var details = WireJson.Object(setError, "data") is { } data ? WireJson.String(data, "details") : null;
+            End(events, ModelRefused(
+                $"the agent refused model '{wanted}': {(string.IsNullOrEmpty(details) ? words : $"{words}: {details}")}. {OfferedWords()}",
+                "acp.model.set-refused"));
+            return;
+        }
+
+        if (AcpModelOption.Read(result) is { Current: { } now } && now != wanted && _modelOption!.Offered.Contains(wanted))
+        {
+            End(events, ModelRefused($"the agent answered model '{now}' to a set of '{wanted}', which it lists. {OfferedWords()}", "acp.model.not-taken"));
+            return;
+        }
+
+        StartPrompt(events);
+    }
+
+    private string OfferedWords()
+    {
+        var offered = _modelOption!.Offered;
+        return offered.Count == 0
+            ? "It lists no model."
+            : $"It offers: {string.Join(", ", offered.Take(MaxOfferedNamed))}{(offered.Count > MaxOfferedNamed ? ", …" : "")}.";
+    }
+
+    private static SessionEnded ModelRefused(string why, string by) =>
+        new(ProviderVerdict.Unsupported, true, AgentProvider.OptionRefusedSubtype, null, null, why)
+        {
+            Failure = StreamJsonFailure.ModelRefused(by),
+        };
 
     private void Open(AcpCapabilities agent, List<AgentStreamEvent> events)
     {

@@ -32,7 +32,8 @@ public record AgentSessionOptions
 
     /// <summary>The BACKEND's own model id, passed through verbatim; null = whatever that backend defaults
     /// to. Lyntai neither validates it nor maps it — which model to run is the consuming application's
-    /// choice, and the spelling is the backend's.
+    /// choice, and the spelling is the backend's. Needs <see cref="AgentAbilities.Model"/>: a door never runs the
+    /// turn on another model, so the protocol door ends the turn before the prompt when its agent refuses the id.
     /// <para><b>Unrelated to router candidate selection.</b> An agent session drives one configured backend
     /// directly, so this does not participate in <see cref="Lyntai.Inference.TextRequest.Model"/>'s routing
     /// precedence and nothing here falls over to another provider.</para></summary>

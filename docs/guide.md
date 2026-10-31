@@ -1081,7 +1081,7 @@ name an `Access` failure, and the verdict of such a fault is still its stderr's 
 `IAgentProvider` under the same `id`, and `AddLyntai` registers the `AgentProviderRegistry` that resolves one by id;
 an unknown id throws `KeyNotFoundException` naming the ids that exist. `Describe()` returns an
 `AgentProviderDescriptor`: its doors (`Id`, `Kind`) and, per door, one claim for EACH ability in `AgentAbilities.All`
-(resume, read-only gate, MCP servers, disallowed tools, system prompt, steering, plan events, live usage, typed
+(resume, read-only gate, MCP servers, disallowed tools, system prompt, model, steering, plan events, live usage, typed
 failures, accounts, usage reading). A claim is `Supported`, `Unsupported` or `Unknown`, with a `Source` (`Declared`, `Negotiated`,
 `Measured`) and its `Evidence`; an ability nobody measured is `Unknown`, which a host reads as not promised, never
 as not possible. Ask the descriptor rather than branching on an id. `Open(doorId)` returns the door's session, and
@@ -1141,7 +1141,13 @@ A turn is `initialize`, then `session/new`, or for a `ResumeToken` `session/resu
 answer states `sessionCapabilities.resume` and `session/load` where it states `loadSession`, then `session/prompt`.
 An agent that states neither refuses the turn before the prompt (`option-unsupported`, `NeverSent`), which is why
 the door states `resume` as `Unknown` with the source `Negotiated`: only the agent can say. A load's replay of the
-conversation is dropped. The mapping is the protocol's own words and nothing inferred: `agent_message_chunk` is
+conversation is dropped. **A `Model`** is set between the two: the door reads the agent's model option from the
+`session/new` answer by its `category` (never its id: `claude-agent-acp` calls it `model`, `codex-acp` another word),
+sends `session/set_config_option` and prompts only when the agent took it. An agent that states no model option, one that
+answers the set with an error, and one that answers another model from its own list end the turn the same way as an
+unsupported `resume` (`option-unsupported`, `NeverSent`, no `SessionStarted`), with the agent's words and the models it
+offers in the diagnostic; an id the list does not name is the agent's to accept, so the list does not judge it. The
+door states `model` as `Unknown`, `Negotiated` for the same reason. The mapping is the protocol's own words and nothing inferred: `agent_message_chunk` is
 `TextDelta`, `agent_thought_chunk` `Thinking`, `plan` `PlanUpdated`, `tool_call` a `ToolCall` and a finished
 `tool_call_update` a `ToolResult` (the name is the protocol's `kind`, the payload the update's own object, so read
 `title` and `rawInput` from it), and the prompt's `usage` is a `UsageFinal` and a `UsageReading`. A count the agent

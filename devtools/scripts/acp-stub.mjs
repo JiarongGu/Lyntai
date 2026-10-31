@@ -14,6 +14,13 @@
 //   LYNTAI_ACP_STUB_AUTH   "out" = session/new/load/resume answer REAL's -32000 "Authentication required"
 //   LYNTAI_ACP_STUB_LOG    a file every received frame is appended to, one JSON line each, so a test can read
 //                          what the client SENT (cwd, mcpServers, the prompt blocks, session/cancel)
+//   LYNTAI_ACP_STUB_MODELS comma list of the models a model-category config option offers, the first its opening
+//                          value (default none: the session states no model option); the shapes are a host's
+//                          measured record of claude-agent-acp 0.84.0 and codex-acp 2.1.1, not a capture of ours
+//   LYNTAI_ACP_STUB_MODEL_ID     the option's id (default "model"); a client finds it by category, never by id
+//   LYNTAI_ACP_STUB_MODEL_ALIAS  "full=alias": an id the list does not name is accepted and answered as the alias
+//                                (claude-agent-acp does this for a full id)
+//   LYNTAI_ACP_STUB_MODEL_SWAP   "1" = a set is accepted and answered with the opening value instead
 //
 // A marker in the prompt text picks a behaviour, each commented where `prompt` handles it; none echoes the
 // last line with usage and ends the turn.
@@ -68,9 +75,22 @@ const initialize = (id, params) => {
   });
 };
 
+const models = (process.env.LYNTAI_ACP_STUB_MODELS ?? '').split(',').map((m) => m.trim()).filter(Boolean);
+const modelId = process.env.LYNTAI_ACP_STUB_MODEL_ID ?? 'model';
+const [aliasFrom, aliasTo] = (process.env.LYNTAI_ACP_STUB_MODEL_ALIAS ?? '=').split('=');
+let currentModel = models[0];
+
+const configOptions = () => models.length === 0 ? {} : {
+  configOptions: [
+    { id: 'mode', name: 'Mode', category: 'mode', type: 'select', currentValue: 'default', options: [{ value: 'default', name: 'Default' }] },
+    { id: modelId, name: 'Model', category: 'model', type: 'select', currentValue: currentModel,
+      options: models.map((value) => ({ value, name: value })) },
+  ],
+};
+
 const open = (id, method, params) => {
   if (process.env.LYNTAI_ACP_STUB_AUTH === 'out') return fail(id, -32000, 'Authentication required');   // REAL
-  if (method === 'session/new') return send({ id, result: { sessionId: SESSION } });
+  if (method === 'session/new') return send({ id, result: { sessionId: SESSION, ...configOptions() } });
   SESSION = params.sessionId;
   if (params.sessionId === 'unknown-session') return fail(id, -32002, 'Resource not found', { reason: 'resource_not_found' });
   if (method === 'session/load') {
@@ -78,7 +98,19 @@ const open = (id, method, params) => {
     text('user_message_chunk', 'an earlier question', params.sessionId);
     text('agent_message_chunk', 'an earlier answer', params.sessionId);
   }
-  return send({ id, result: {} });
+  return send({ id, result: { ...configOptions() } });
+};
+
+// the answer is the whole option list, and a refusal is a JSON-RPC error before any prompt (a host's measured record)
+const setConfigOption = (id, params) => {
+  if (params.configId !== modelId || models.length === 0)
+    return fail(id, -32603, 'Internal error', { details: `Unknown config option: ${params.configId}` });
+  if (process.env.LYNTAI_ACP_STUB_MODEL_SWAP !== '1') {
+    if (models.includes(params.value)) currentModel = params.value;
+    else if (aliasFrom && params.value === aliasFrom) currentModel = aliasTo;
+    else return fail(id, -32603, 'Internal error', { details: `Invalid value for config option ${modelId}: ${params.value}` });
+  }
+  return send({ id, result: configOptions() });
 };
 
 const usage = { totalTokens: 6491, inputTokens: 6489, outputTokens: 2, cachedReadTokens: 11 };
@@ -175,6 +207,12 @@ const prompt = async (id, params) => {
     return end(id);
   }
 
+  // says the model the session is on, so a test can tell a carried model from one that was only asked for
+  if (mark('WHICH_MODEL')) {
+    text('agent_message_chunk', `model: ${currentModel ?? '(none)'}`);
+    return end(id);
+  }
+
   const last = said.split(/\r?\n/).map((l) => l.trim()).filter(Boolean).pop() ?? '';
   text('agent_message_chunk', `acp stub reply: ${last.slice(0, 200)}`);
   return end(id);
@@ -197,6 +235,7 @@ input.on('line', (line) => {
     case 'session/new':
     case 'session/load':
     case 'session/resume': return open(frame.id, frame.method, frame.params ?? {});
+    case 'session/set_config_option': return setConfigOption(frame.id, frame.params ?? {});
     case 'session/prompt': void prompt(frame.id, frame.params ?? {}); return;
     case 'session/cancel': cancelled = true; if (cancelWaiter) cancelWaiter(); return;
     default: if (frame.id !== undefined) fail(frame.id, -32601, `method not found: ${frame.method}`);

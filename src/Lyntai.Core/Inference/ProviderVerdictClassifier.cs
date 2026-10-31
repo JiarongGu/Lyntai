@@ -60,7 +60,7 @@ public static partial class ProviderVerdictClassifier
     }
 
     /// <summary>Read an agent door's own failure SENTENCE as a failure: the kind, and what it restricts when the
-    /// words say. Order is limit, then access, then transient; null when no entry reads it, which a caller takes
+    /// words say. Order is limit, then access, then a refused model, then transient; null when no entry reads it, which a caller takes
     /// as <see cref="AgentFailureKind.Fatal"/>. Call it only with words the DOOR reported (an error field, a
     /// failed turn's message) — an agent's own message or a tool's output is never evidence of a failure.
     /// <para>The verdict is the same table's: <see cref="FromAgentFailure"/> maps the kinds back, and
@@ -89,6 +89,11 @@ public static partial class ProviderVerdictClassifier
         if (RateLimitPattern().IsMatch(text)) return ReadLimit(text, time);
         if (ContextWindowPattern().IsMatch(text)) return null;
         if (AuthPattern().IsMatch(text)) return new AgentFailure(AgentFailureKind.Access, "sentence:auth");
+        if (ModelRefusedPattern().IsMatch(text))
+            return new AgentFailure(AgentFailureKind.Fatal, "sentence:model-refused")
+            {
+                Restriction = new(RestrictionCause.Unknown, RestrictionSubject.Model, RestrictionRecovery.OwnerAction),
+            };
         return ReadTransient(text);
     }
 
@@ -264,6 +269,11 @@ public static partial class ProviderVerdictClassifier
 
     [GeneratedRegex(@"content[\s_-]?(?:filter|policy)|policy\s+violation", RegexOptions.IgnoreCase)]
     private static partial Regex RefusalPattern();
+
+    // Claude Code's own words for a model it will not run (recorded: "There's an issue with the selected model (x). It
+    // may not exist or you may not have access to it."): one sentence for unknown, retired and unentitled alike
+    [GeneratedRegex(@"issue\s+with\s+the\s+selected\s+model|may\s+not\s+exist\s+or\s+you\s+may\s+not\s+have\s+access", RegexOptions.IgnoreCase)]
+    private static partial Regex ModelRefusedPattern();
 
     /// <summary>Classify a THROWN exception the way every router does, which is <see cref="FromException"/> with
     /// one extra rule: never <see cref="ProviderVerdict.Refused"/>. A refusal is a judgement the backend made

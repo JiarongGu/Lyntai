@@ -15,36 +15,34 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 23 across 7 Parts: 17 startable, 3 blocked, 3 watch
+## Open items — 21 across 7 Parts: 15 startable, 3 blocked, 3 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 124 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
-| 165 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 192 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 251 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
-| 269 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
-| 304 | 412 | AG10 — the Claude CLI door keeps a subagent's lines apart from the session's | startable |  |
-| 317 | 412 | AG11 — the ACP door carries `AgentSessionOptions.Model`, or refuses it | startable |  |
-| 327 | 412 | AG12 — a refused model is a hold the pool can keep against one seat | startable |  |
-| 335 | 412 | AG13 — an HTTP response's own facts are read as an `AgentFailure` | startable |  |
-| 344 | 412 | AG14 — an HTTP door: `IToolLoop` as an agent provider | startable |  |
-| 354 | 412 | AG15 — an ACP dialect seam | startable |  |
-| 362 | 412 | AG16 — the event-stream rules, held by one theory | startable |  |
-| 370 | 412 | AG17 — an account that is a key, and the variables a provider reads | startable |  |
-| 379 | 412 | AG18 — background work started and ended, as events | startable |  |
-| 386 | 412 | AG19 — an ACP permission request the host can answer | startable |  |
-| 401 | 416 | AG21 — the usage exchange writes each request after the answer it depends on | startable |  |
-| 413 | 416 | AG22 — the host names where the usage server runs and what it is told of it… | startable |  |
-| 426 | 416 | AG23 — an allowance reading carries what the server stated | startable |  |
-| 441 | 416 | AG24 — a host's policy for a version the library has not validated | startable |  |
-| 462 | 417 | MC3 — measure the candidate list's similarity basis | startable |  |
-| 470 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | startable |  |
-| 483 | 417 | MC10 — a scope dense in ended entries still returns its current ones | startable |  |
-| 499 | 427 | VP3 — Daoris's repository-facts fixture | blocked · data | Daoris's schema, events and expected reads, handed over by quest in the for… |
+| 122 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
+| 163 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 190 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 249 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
+| 267 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
+| 302 | 412 | AG10 — the Claude CLI door keeps a subagent's lines apart from the session's | startable |  |
+| 315 | 412 | AG13 — an HTTP response's own facts are read as an `AgentFailure` | startable |  |
+| 324 | 412 | AG14 — an HTTP door: `IToolLoop` as an agent provider | startable |  |
+| 334 | 412 | AG15 — an ACP dialect seam | startable |  |
+| 342 | 412 | AG16 — the event-stream rules, held by one theory | startable |  |
+| 350 | 412 | AG17 — an account that is a key, and the variables a provider reads | startable |  |
+| 359 | 412 | AG18 — background work started and ended, as events | startable |  |
+| 366 | 412 | AG19 — an ACP permission request the host can answer | startable |  |
+| 381 | 416 | AG21 — the usage exchange writes each request after the answer it depends on | startable |  |
+| 393 | 416 | AG22 — the host names where the usage server runs and what it is told of it… | startable |  |
+| 406 | 416 | AG23 — an allowance reading carries what the server stated | startable |  |
+| 421 | 416 | AG24 — a host's policy for a version the library has not validated | startable |  |
+| 442 | 417 | MC3 — measure the candidate list's similarity basis | startable |  |
+| 450 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | startable |  |
+| 463 | 417 | MC10 — a scope dense in ended entries still returns its current ones | startable |  |
+| 479 | 427 | VP3 — Daoris's repository-facts fixture | blocked · data | Daoris's schema, events and expected reads, handed over by quest in the for… |
 
 <!-- open-items:end -->
 
@@ -313,24 +311,6 @@ stand on is **D233**, and the study's §7 is the order they are built in. The fi
   calls carry the parent id, the plan and fallback text stay the session's, a line with no field reads as before (every
   existing reader test unchanged); the `ApiSurface` baselines move from the emitted `.actual`. **Not established:** a
   synchronous subagent, a nested one and a failed one were not seen there, so the fixture names which it is.
-
-- [ ] **AG11 — the ACP door carries `AgentSessionOptions.Model`, or refuses it** (lane `inference`, then `platform` for <!-- item: state=startable -->
-  the ability). The door never reads the option (nothing under `Acp/` names it, `configOptions` or
-  `session/set_config_option`), so `AgentPick.Apply` handing a pool choice's model to an ACP provider drops it silently,
-  which is what `docs/agent-provider-layer.md` §5.1 forbids. **Contract.** A `model` ability in
-  `AgentAbilities.All` (both CLI doors `Supported`, `Declared`; the ACP door `Unknown` until the agent's `session/new`
-  answer lists a model option, `Negotiated`, as resume is); a turn naming a model the agent did not offer ends before
-  the prompt with `Unsupported`, `NeverSent` and a diagnostic naming the offered values; one it offered is set by
-  `session/set_config_option` before the prompt. **Proof.** SOURCE-DERIVED captures through `acp-stub.mjs` (offered and
-  not offered), the conformance theory over the new ability, the descriptor tests, and the `ApiSurface` baselines.
-
-- [ ] **AG12 — a refused model is a hold the pool can keep against one seat** (lanes `platform` + `inference`, after <!-- item: state=startable -->
-  AG11). A `model_not_found` reads `Fatal` with no restriction (`StreamJsonFailure.cs:126`) and the reducer holds a fatal
-  failure only when it carries one, so the pool picks the same account and model again. **Contract.** A refused model
-  (both CLI doors' category, the ACP door's AG11 refusal) is `Fatal` with a restriction whose subject is the model and
-  whose recovery is `OwnerAction`, so the pool holds that account and model and nothing wider; no enum member is added
-  and no duration is chosen (a host clears it). **Proof.** the failure tables held both ways on recorded sentences, and a
-  reducer case: the seat is skipped for that model, the same account serves another model, `ClearAsync` frees it.
 
 - [ ] **AG13 — an HTTP response's own facts are read as an `AgentFailure`** (lane `inference`). Today <!-- item: state=startable -->
   `ProviderVerdictClassifier.FromHttpFailure` returns a verdict from the status and the body and no header is read, so a

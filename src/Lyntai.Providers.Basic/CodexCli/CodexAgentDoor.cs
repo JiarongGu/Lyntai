@@ -31,6 +31,7 @@ internal static class CodexAgentDoor
                     Declared(AgentAbilities.McpServers, AgentSupport.Supported, "-c overrides; an unrenderable server refuses the turn"),
                     Declared(AgentAbilities.DisallowedTools, AgentSupport.Unsupported, "its tool gate is the sandbox, not a deny list"),
                     Declared(AgentAbilities.SystemPrompt, AgentSupport.Supported, "a leading block of the prompt; exec has no flag"),
+                    Declared(AgentAbilities.Model, AgentSupport.Supported, "--model with the id"),
                     Declared(AgentAbilities.Steering, AgentSupport.Unsupported, "a turn is one process fed its prompt on stdin"),
                     Declared(AgentAbilities.PlanEvents, AgentSupport.Unknown, "read from the published todo_list item; no real capture"),
                     Declared(AgentAbilities.LiveUsage, AgentSupport.Unsupported, "usage arrives once, on turn.completed"),
