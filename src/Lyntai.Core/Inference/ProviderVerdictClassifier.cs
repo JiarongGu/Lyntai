@@ -118,9 +118,11 @@ public static partial class ProviderVerdictClassifier
             read is ProviderVerdict.Refused or ProviderVerdict.ContextWindowExceeded ? read : ProviderVerdict.Failed;
     }
 
-    private static AgentFailure ReadLimit(string text, TimeProvider time)
+    // `stated` is a recovery the response carried outside the words (a header); it leads the sentence's own
+    private static AgentFailure ReadLimit(string text, TimeProvider time, string? by = null,
+        RestrictionRecovery? stated = null, bool credit = false)
     {
-        var credit = CreditPattern().IsMatch(text);
+        credit |= CreditPattern().IsMatch(text);
         var cause = credit ? RestrictionCause.Credit
             : ConcurrencyPattern().IsMatch(text) ? RestrictionCause.Concurrency
             : QuotaPattern().IsMatch(text) ? RestrictionCause.Quota
@@ -129,9 +131,9 @@ public static partial class ProviderVerdictClassifier
             : ModelLimitPattern().IsMatch(text) ? RestrictionSubject.Model
             : cause is RestrictionCause.Credit or RestrictionCause.Quota ? RestrictionSubject.Account
             : RestrictionSubject.Unknown;
-        var recovery = credit ? RestrictionRecovery.OwnerAction : StatedRecovery.Read(text, time) ?? RestrictionRecovery.Unknown;
+        var recovery = credit ? RestrictionRecovery.OwnerAction : stated ?? StatedRecovery.Read(text, time) ?? RestrictionRecovery.Unknown;
 
-        return new AgentFailure(AgentFailureKind.Limit, $"sentence:limit-{cause.ToString().ToLowerInvariant()}")
+        return new AgentFailure(AgentFailureKind.Limit, by ?? $"sentence:limit-{cause.ToString().ToLowerInvariant()}")
         {
             Restriction = new AgentRestriction(cause, subject, recovery),
         };

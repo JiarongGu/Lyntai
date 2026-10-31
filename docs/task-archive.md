@@ -6497,3 +6497,15 @@ the `ApiSurface` baseline moved from the emitted `.actual`. Not seen there: a sy
 it. Lane `inference`.
 
 - AG18 — background work started and ended, as events
+## Part 434 — AG13: an HTTP response's own facts read as an `AgentFailure` (2026-11-01)
+
+✅ done 2026-11-01 — **Outcome:** `ProviderVerdictClassifier.ReadHttpFailure(status, headers, body, time)` is a pure public reader returning an `AgentFailure`, or
+null for a 2xx whose body has no top-level `error` member. A 429 is a limit whose recovery is `RetryNotBefore` from `Retry-After` (seconds or an HTTP date, else the
+envelope's own stated wait, else `Unknown`); a 402, a credit code or a credit sentence is a `Credit` limit needing an owner whatever the status or header says;
+401 and 403 or an access code are `Access`; 529, 408 and 5xx are `Transient`, on the model when the envelope names its capacity. **What the row left open, read
+here:** a numeric envelope `code` is never taken for a status (`TASKS.md` Part 75 holds that unmeasured), so an in-band `{"code":429}` over words no entry reads is
+`Fatal`; a context-window sentence on a 500 is `Fatal`, not transient; `FromHttpFailure` and the routers calling it are unchanged. Proof:
+`HttpFailureReaderTests`, SOURCE-DERIVED OpenAI-, Anthropic- and OpenRouter-style envelopes held both ways, including a completion whose text quotes a limit; the
+`ApiSurface` baseline moved from the emitted `.actual`. Lane `inference`.
+
+- AG13 — an HTTP response's own facts are read as an `AgentFailure`

@@ -1854,6 +1854,7 @@ static class Lyntai.Inference.ProviderVerdictClassifier
     static FromHttpFailure(HttpStatusCode status, String body, Boolean hasCredentials) : ProviderVerdict
     static FromThrown(Exception ex) : ProviderVerdict
     static ReadAgentFailure(String text, TimeProvider time = null) : AgentFailure
+    static ReadHttpFailure(HttpStatusCode status, HttpHeaders headers, String body, TimeProvider time = null) : AgentFailure
 static class Lyntai.Inference.ProviderVerdictExtensions
     static IsBlameless(ProviderVerdict verdict) : Boolean
     static IsOk(ProviderVerdict verdict) : Boolean
