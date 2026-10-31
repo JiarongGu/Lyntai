@@ -1,5 +1,6 @@
 using Lyntai.Storage;
 using Lyntai.Storage.FileSystem;
+using Lyntai.Storage.InMemory;
 using Lyntai.Storage.Sqlite;
 using Lyntai.Tests.Storage;
 using Lyntai.Tests.Storage.FileSystem;
@@ -22,7 +23,7 @@ public class ProfilePrototypeTests
 
     private static readonly ProfileField City = new("u1", "address.city");
 
-    public static TheoryData<string> Backends => ["sqlite", "files"];
+    public static TheoryData<string> Backends => ["sqlite", "files", "memory"];
 
     /// <summary>A store that can be told to fail the next add, the crash that leaves a correction half written.</summary>
     private sealed class CrashingStore(IRevisionedCuratedMemoryStore inner) : IRevisionedCuratedMemoryStore
@@ -63,6 +64,13 @@ public class ProfilePrototypeTests
             inner.ForCompositionAsync(taskKey, scopes, enabledOnly, ct);
     }
 
+    private sealed class NoLease : IDisposable
+    {
+        public void Dispose()
+        {
+        }
+    }
+
     private sealed class Rig : IDisposable
     {
         private readonly IDisposable _lease;
@@ -74,10 +82,14 @@ public class ProfilePrototypeTests
                 var db = new TempDb();
                 (_lease, Raw) = (db, new SqliteCuratedMemoryStore(db.Factory));
             }
-            else
+            else if (backend == "files")
             {
                 var root = new TempRoot();
                 (_lease, Raw) = (root, new FileSystemCuratedMemoryStore(root.Root));
+            }
+            else
+            {
+                (_lease, Raw) = (new NoLease(), new InMemoryCuratedMemoryStore());
             }
 
             Crashing = new CrashingStore(Raw);

@@ -130,3 +130,44 @@ condition (the two-write gap or the in-place edit cannot be closed in the protot
 - **Attributes beyond VN2's.** A claim carries scope, authority, status and revision. A user's claim outranks a
   hypothesis and a hypothesis cannot end it; a narrative summary is a cache stamped with the snapshot's version and
   never answers a read. None of this is a published contract: the prototype stays under `tests/`.
+
+## 8. Wave 1 judged against D221's gate
+
+**Standing.** A reading of **D221** made on Daoris's request, which offered its repository-facts profile as an
+application; it rules nothing beyond **D221** and adds no type, package or default. **The gate is not passed**, and the
+package waits on the first clause below. The backlog rows that close the rest are `TASKS.md` Part 427.
+
+| D221 clause | Where it stands |
+| --- | --- |
+| Two applications of DIFFERENT kinds reuse the contract | **Not met: none uses it.** The planned consumers of **D220** have not arrived, and Daoris would be the first. A second of a different kind is not named anywhere in the family. |
+| Removing it leaves Core intact | **Holds now and is trivial**: the prototype is test-only and no `Profile*` type is in `Lyntai.Core`'s API baseline. It is proved again for the package itself, not assumed. |
+| The contract suites pass on the chosen backends | **Met on four stores for Track A, three for the costs.** Track A's 42 cases pass on the in-memory, file, SQLite and Postgres curated stores (`ProfileTrackAPostgresTests` is the Postgres arm); `ProfilePrototypeTests` runs on the first three. |
+| AOT and dependency reports | **Cannot exist before a package project does** (`IsAotCompatible`, `check-warnings`, `check-bundle`, the `docs/AOT.md` row). The prototype holds no reflection-based serialization, so nothing is known to block them. |
+| A quickstart | **Last**, because it is written against the shipped surface and the two applications' real schemas. |
+
+**Reading: "the chosen backends" are every store that implements `IRevisionedCuratedMemoryStore`**, because the
+projection's correction needs that interface and nothing else. Choosing fewer would let the suite pass where a
+shipped store would not.
+
+**Reading: "reuse the contract" is shown by an application's own fixture, replayed unchanged.** An application cannot
+call a contract nobody has published, and **D221** forbids publishing one to be tried (a preview train is rejected, and a
+package is an adoption boundary, not a way to publish an unsettled contract). So the clause is read as: each
+application hands a fixture, its schema and the events its claims really went through, with the reads it expects, and
+the one contract (the eight verbs of `IProfileOption`, a snapshot, an export and an import) answers all of them
+without being reshaped for either. The application adopts the package afterwards. If this reading is wrong, the clause
+cannot be met by anyone before a package exists.
+
+**What Daoris would have to hand over, if it counts as the first application.**
+- *The schema*: each repository fact it keeps, as a field id the caller names (**D217**: a model never supplies one), with
+  whether it is scoped (a lane, a repository), and who may state it (the owner's word against an inference).
+- *The fixture*: for a few repositories, the events those facts really went through, in order, each with its time and
+  source: a first statement, a correction, a field changed while the rest stand, a disputed value, a renamed field, one
+  forget; and the read the coordinator would make after each.
+- *The reads it makes*: current value, value at a time, history, rivals, and the whole subject as a snapshot.
+- *Where it does not fit*, said by it first: a fact that is a LIST (its lanes, its gates) is one claim per member or a
+  joined value, because a field holds one current claim; a settled choice that is prose with supersession is curated
+  memory with an end (**D215**), not a field. Only what a schema names is a profile claim.
+
+**Whether Daoris's kind differs from the next one** is a test the second application must pass, not a label: a different
+subject (a repository, not a person), a different authority (an owner and inferences, not a user and hypotheses), and a
+schema that comes from somewhere else. One application's policy shown twice is not two applications (**D221**).
