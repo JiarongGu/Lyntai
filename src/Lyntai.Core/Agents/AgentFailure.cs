@@ -126,7 +126,10 @@ public enum AgentDelivery
 /// <param name="By">The field or sentence entry that decided it, for a log or a test to name.</param>
 public sealed record AgentFailure(AgentFailureKind Kind, string By)
 {
-    /// <summary>What the failure holds back, when it says. Null for a failure that restricts nothing.</summary>
+    /// <summary>What the failure holds back, when it says. Null for a failure that restricts nothing. A
+    /// <see cref="AgentFailureKind.Fatal"/> one carries a restriction only for a model the agent refused
+    /// (<see cref="RestrictionSubject.Model"/>, <see cref="RecoveryKind.OwnerAction"/>): a pool holds that account and
+    /// model and nothing wider until the host clears it.</summary>
     public AgentRestriction? Restriction { get; init; }
 
     /// <summary>Whether the prompt was delivered. The door's session loop sets it from what the turn showed

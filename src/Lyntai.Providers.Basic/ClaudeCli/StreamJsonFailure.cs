@@ -59,6 +59,7 @@ internal static class StreamJsonFailure
         var fields = readings
             .OfType<AgentFailure>()
             .OrderBy(f => Rank(f.Kind))
+            .ThenBy(f => f.Restriction is null ? 1 : 0)
             .ToList();
         if (fields.Count == 0)
             return sentence is { } s ? s with { By = $"{unreadBy}:{s.By}" } : new AgentFailure(AgentFailureKind.Fatal, unreadBy);
@@ -123,10 +124,18 @@ internal static class StreamJsonFailure
             "overloaded" => new AgentFailure(AgentFailureKind.Transient, by)
                 { Restriction = new(RestrictionCause.Capacity, RestrictionSubject.Endpoint, RestrictionRecovery.Unknown) },
             "server_error" => new AgentFailure(AgentFailureKind.Transient, by),
-            "invalid_request" or "model_not_found" or "max_output_tokens" => new AgentFailure(AgentFailureKind.Fatal, by),
+            "model_not_found" => ModelRefused(by),
+            "invalid_request" or "max_output_tokens" => new AgentFailure(AgentFailureKind.Fatal, by),
             _ => null,   // "unknown" and anything new say nothing, so the sentence may
         };
     }
+
+    /// <summary>A model the agent will not run: fatal, and held against the one model on the one account — the pool
+    /// skips that seat and nothing wider — until a person acts on it, since waiting does not help.</summary>
+    internal static AgentFailure ModelRefused(string by) => new(AgentFailureKind.Fatal, by)
+    {
+        Restriction = new AgentRestriction(RestrictionCause.Unknown, RestrictionSubject.Model, RestrictionRecovery.OwnerAction),
+    };
 
     private static AgentRestriction Open() => new(RestrictionCause.Unknown, RestrictionSubject.Unknown, RestrictionRecovery.Unknown);
 }

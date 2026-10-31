@@ -102,6 +102,15 @@ every addition.
   list never judges it. No `SessionStarted` precedes a refused turn. The new `model` ability is `Supported` on both CLI doors and
   `Unknown`, `Negotiated` on the ACP door, so a door that states it `Unsupported` is refused before anything is spawned, as for any option.
   **A host's own provider adds a claim for it** (`AgentAbilities.All` gains a member).
+- **A model an agent will not run is a hold the pool keeps against that account and model.** A `model_not_found` read `Fatal` with no
+  restriction, and the pool holds a fatal failure only when it carries one, so it picked the same account and model again. The failure
+  is now `Fatal` with a restriction whose `Subject` is `Model`, `Cause` `Unknown` and `Recovery` `OwnerAction`, so the pool skips that
+  seat, serves another model on the same account, and frees it only when the host calls `ClearAsync`: no enum member and no duration
+  was added. It is read from the claude CLI's `model_not_found` category (before the bare 404 beside it) and its own sentence ("There's
+  an issue with the selected model…"), from `claude-agent-acp`'s `errorKind` of the same name, and from each refusal the ACP door makes
+  for `AgentSessionOptions.Model`. The codex CLI door states no field and no sentence for it was recorded, so its refusal is still a
+  plain `Fatal`. Where one door's field read equally severe but one carried a restriction and the other none, the one that carries it
+  now decides.
 - **A read-only view of another task's memory: `IViewableMemory.ViewOf`, `IMemoryView`, `MemoryViewItem`, `IMemoryViewCheck`**
   (**D242**). A second host reads the facts another host owns and writes, without copying them. `IMemoryView` has no write path in its
   type; a recall, an expansion or `RevisionOfAsync` through it reinforces nothing, co-activates nothing and ages nothing, and a reference

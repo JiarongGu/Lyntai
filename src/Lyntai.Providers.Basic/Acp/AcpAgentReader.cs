@@ -233,7 +233,7 @@ internal sealed class AcpAgentReader
     private static SessionEnded ModelRefused(string why, string by) =>
         new(ProviderVerdict.Unsupported, true, AgentProvider.OptionRefusedSubtype, null, null, why)
         {
-            Failure = new AgentFailure(AgentFailureKind.Fatal, by),
+            Failure = StreamJsonFailure.ModelRefused(by),
         };
 
     private void Open(AcpCapabilities agent, List<AgentStreamEvent> events)

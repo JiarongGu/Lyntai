@@ -237,7 +237,25 @@ public class AcpAgentSessionTests
         Assert.Equal(AgentProvider.OptionRefusedSubtype, ended.Subtype);
         Assert.Equal(AgentFailureKind.Fatal, ended.Failure!.Kind);
         Assert.Equal(AgentDelivery.NeverSent, ended.Failure.Delivery);
+        Assert.Equal(new AgentRestriction(RestrictionCause.Unknown, RestrictionSubject.Model, RestrictionRecovery.OwnerAction), ended.Failure.Restriction);
         Assert.DoesNotContain(sent, f => Method(f) == "session/prompt");
+    }
+
+    [Fact] // SOURCE-DERIVED: claude-agent-acp puts the SDK's category in data.errorKind, here on a turn the agent ran and refused
+    public async Task A_model_not_found_on_the_prompt_is_a_refused_model_the_pool_can_hold()
+    {
+        var runner = Agent(new()
+        {
+            ["initialize"] = _ => ["""{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":1,"agentCapabilities":{}}}"""],
+            ["session/new"] = _ => ["""{"jsonrpc":"2.0","id":2,"result":{"sessionId":"s-1"}}"""],
+            ["session/prompt"] = _ => ["""{"jsonrpc":"2.0","id":3,"error":{"code":-32603,"message":"Internal error","data":{"errorKind":"model_not_found"}}}"""],
+        });
+
+        var ended = Ended(await Run(Scripted(runner), Ask()));
+
+        Assert.Equal(AgentFailureKind.Fatal, ended.Failure!.Kind);
+        Assert.Equal("acp.data.errorKind=model_not_found", ended.Failure.By);
+        Assert.Equal(new AgentRestriction(RestrictionCause.Unknown, RestrictionSubject.Model, RestrictionRecovery.OwnerAction), ended.Failure.Restriction);
     }
 
     [Fact] // SOURCE-DERIVED

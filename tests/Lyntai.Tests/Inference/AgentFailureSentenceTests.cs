@@ -41,6 +41,8 @@ public class AgentFailureSentenceTests
         AgentFailureKind.Transient, RestrictionCause.Capacity, RestrictionSubject.Model, RecoveryKind.Unknown)]
     [InlineData("API Error: 529 {\"type\":\"error\",\"error\":{\"type\":\"overloaded_error\",\"message\":\"Overloaded\"}}",
         AgentFailureKind.Transient, RestrictionCause.Capacity, RestrictionSubject.Endpoint, RecoveryKind.Unknown)]
+    [InlineData("There's an issue with the selected model (claude-3-opus-20240229). It may not exist or you may not have access to it. Run --model to pick a different model.",
+        AgentFailureKind.Fatal, RestrictionCause.Unknown, RestrictionSubject.Model, RecoveryKind.OwnerAction)]   // REAL: Daoris's record of claude -p 2.1.309
     [InlineData("Incorrect API key provided", AgentFailureKind.Access, null, null, null)]
     [InlineData("unexpected status 503 Service Unavailable", AgentFailureKind.Transient, null, null, null)]
     public void A_recorded_sentence_reads_as_its_kind(string text, AgentFailureKind kind, RestrictionCause? cause,
@@ -68,6 +70,8 @@ public class AgentFailureSentenceTests
     [InlineData("The nightly build resets at 3pm each day")]
     [InlineData("I hit your endpoint with a request limit of ten")]
     [InlineData("the model is available")]
+    [InlineData("I raised an issue with the selected file in the tracker")]   // the model sentence needs its own words
+    [InlineData("the selected model is fine; the file may not exist")]
     [InlineData("something exploded")]
     [InlineData("This model's maximum context length is 8192 tokens")]   // the window is not an allowance
     [InlineData("")]
@@ -158,6 +162,7 @@ public class AgentFailureSentenceTests
     [InlineData("Incorrect API key provided")]
     [InlineData("Selected model is at capacity. Please try a different model.")]
     [InlineData("API Error: 529 overloaded_error")]
+    [InlineData("There's an issue with the selected model (x). It may not exist or you may not have access to it.")]
     [InlineData("something exploded")]
     public void The_text_verdict_and_the_failure_verdict_agree(string text)
     {
