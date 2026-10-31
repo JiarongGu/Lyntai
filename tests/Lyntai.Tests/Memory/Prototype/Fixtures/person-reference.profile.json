@@ -1,0 +1,60 @@
+// The REFERENCE fixture: a person's profile, written to show the format and to be the proof that the replay works.
+// It is NOT an application: nobody's facts went through these events, so it counts toward none of D221's "two applications".
+{
+  "name": "person-reference",
+  "kind": "person",
+  "subject": "u1",
+  "schema": [
+    { "id": "name" },
+    { "id": "address.city", "scoped": true },
+    { "id": "address.zip" },
+    { "id": "address.street" },
+    { "id": "address.line1" }
+  ],
+  "steps": [
+    { "id": "s1", "op": "set", "field": "name", "value": "Ada", "at": "2026-01-01T00:00:00Z", "source": "chat:1",
+      "then": [ { "read": "current", "field": "name", "at": "2026-07-01T00:00:00Z", "value": "Ada", "authority": "user", "rivals": [], "outranked": [] } ] },
+    { "id": "s2", "op": "set", "field": "address.city", "scope": "home", "value": "Paris", "at": "2026-01-01T00:00:00Z", "source": "chat:1" },
+    { "id": "s3", "op": "set", "field": "address.city", "scope": "work", "value": "Lyon", "at": "2026-01-01T00:00:00Z", "source": "chat:2" },
+    { "id": "s4", "op": "set", "field": "address.zip", "value": "75001", "at": "2026-01-01T00:00:00Z", "source": "chat:1" },
+    { "id": "s5", "op": "correct", "field": "address.city", "scope": "home", "value": "Berlin", "at": "2026-03-01T00:00:00Z", "source": "chat:3", "replaces": "s2",
+      "then": [
+        { "read": "current", "field": "address.city", "scope": "home", "at": "2026-07-01T00:00:00Z", "value": "Berlin" },
+        { "read": "asOf", "field": "address.city", "scope": "home", "at": "2026-02-01T00:00:00Z", "value": "Paris" },
+        { "read": "asOf", "field": "address.city", "scope": "home", "at": "2026-12-01T00:00:00Z", "value": "Berlin" },
+        { "read": "history", "field": "address.city", "scope": "home", "values": ["Paris", "Berlin"] },
+        { "read": "current", "field": "address.city", "scope": "work", "at": "2026-07-01T00:00:00Z", "value": "Lyon" }
+      ] },
+    // a hypothesis never outranks the user's word, however late it starts, and is reported rather than hidden
+    { "id": "s6", "op": "set", "field": "name", "value": "Al", "at": "2026-02-01T00:00:00Z", "source": "model:1", "authority": "hypothesis",
+      "then": [ { "read": "current", "field": "name", "at": "2026-07-01T00:00:00Z", "value": "Ada", "authority": "user", "rivals": [], "outranked": ["Al"] } ] },
+    { "id": "s7", "op": "correct", "field": "name", "value": "Alan", "at": "2026-04-01T00:00:00Z", "source": "model:2", "authority": "hypothesis", "replaces": "s1", "outcome": "outranked",
+      "then": [ { "read": "current", "field": "name", "at": "2026-07-01T00:00:00Z", "value": "Ada" } ] },
+    // two claims of one authority that both hold are a dispute: the later start wins and the other is a rival
+    { "id": "s8", "op": "set", "field": "address.zip", "value": "10115", "at": "2026-03-01T00:00:00Z", "source": "chat:4",
+      "then": [ { "read": "current", "field": "address.zip", "at": "2026-07-01T00:00:00Z", "value": "10115", "rivals": ["75001"] } ] },
+    { "id": "s9", "op": "set", "field": "address.street", "value": "Rue de Rivoli", "at": "2026-01-01T00:00:00Z", "source": "chat:1" },
+    { "id": "s10", "op": "rename", "from": "address.street", "to": "address.line1", "moved": 1,
+      "then": [
+        { "read": "current", "field": "address.line1", "at": "2026-07-01T00:00:00Z", "value": "Rue de Rivoli" },
+        { "read": "current", "field": "address.street", "at": "2026-07-01T00:00:00Z", "value": null }
+      ] },
+    { "id": "s11", "op": "export", "file": "before-forget", "count": 8 },
+    { "id": "s12", "op": "forget",
+      "then": [
+        { "read": "snapshot", "at": "2026-07-01T00:00:00Z", "cells": [] },
+        { "read": "current", "field": "name", "at": "2026-07-01T00:00:00Z", "value": null }
+      ] },
+    { "id": "s13", "op": "import", "file": "before-forget", "imported": 8,
+      "then": [
+        { "read": "history", "field": "address.city", "scope": "home", "values": ["Paris", "Berlin"] },
+        { "read": "snapshot", "at": "2026-07-01T00:00:00Z", "cells": [
+          { "field": "address.city", "scope": "home", "value": "Berlin" },
+          { "field": "address.city", "scope": "work", "value": "Lyon" },
+          { "field": "address.line1", "value": "Rue de Rivoli" },
+          { "field": "address.zip", "value": "10115" },
+          { "field": "name", "value": "Ada" }
+        ] }
+      ] }
+  ]
+}

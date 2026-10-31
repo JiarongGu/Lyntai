@@ -15,38 +15,36 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 25 across 7 Parts: 19 startable, 3 blocked, 3 watch
+## Open items — 23 across 7 Parts: 17 startable, 3 blocked, 3 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 126 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
-| 167 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 194 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 253 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
-| 271 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
-| 306 | 412 | AG10 — the Claude CLI door keeps a subagent's lines apart from the session's | startable |  |
-| 319 | 412 | AG11 — the ACP door carries `AgentSessionOptions.Model`, or refuses it | startable |  |
-| 329 | 412 | AG12 — a refused model is a hold the pool can keep against one seat | startable |  |
-| 337 | 412 | AG13 — an HTTP response's own facts are read as an `AgentFailure` | startable |  |
-| 346 | 412 | AG14 — an HTTP door: `IToolLoop` as an agent provider | startable |  |
-| 356 | 412 | AG15 — an ACP dialect seam | startable |  |
-| 364 | 412 | AG16 — the event-stream rules, held by one theory | startable |  |
-| 372 | 412 | AG17 — an account that is a key, and the variables a provider reads | startable |  |
-| 381 | 412 | AG18 — background work started and ended, as events | startable |  |
-| 388 | 412 | AG19 — an ACP permission request the host can answer | startable |  |
-| 403 | 416 | AG21 — the usage exchange writes each request after the answer it depends on | startable |  |
-| 415 | 416 | AG22 — the host names where the usage server runs and what it is told of it… | startable |  |
-| 428 | 416 | AG23 — an allowance reading carries what the server stated | startable |  |
-| 443 | 416 | AG24 — a host's policy for a version the library has not validated | startable |  |
-| 464 | 417 | MC3 — measure the candidate list's similarity basis | startable |  |
-| 472 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | startable |  |
-| 485 | 417 | MC10 — a scope dense in ended entries still returns its current ones | startable |  |
-| 501 | 427 | VP1 — the profile's costs hold on Postgres, the one store the contract suit… | startable |  |
-| 508 | 427 | VP2 — an application's fixture is data, and the contract suite replays it | startable |  |
-| 519 | 427 | VP3 — Daoris's repository-facts fixture | blocked · data | Daoris's schema, events and expected reads, handed over by quest in the sha… |
+| 124 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
+| 165 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 192 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 251 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
+| 269 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
+| 304 | 412 | AG10 — the Claude CLI door keeps a subagent's lines apart from the session's | startable |  |
+| 317 | 412 | AG11 — the ACP door carries `AgentSessionOptions.Model`, or refuses it | startable |  |
+| 327 | 412 | AG12 — a refused model is a hold the pool can keep against one seat | startable |  |
+| 335 | 412 | AG13 — an HTTP response's own facts are read as an `AgentFailure` | startable |  |
+| 344 | 412 | AG14 — an HTTP door: `IToolLoop` as an agent provider | startable |  |
+| 354 | 412 | AG15 — an ACP dialect seam | startable |  |
+| 362 | 412 | AG16 — the event-stream rules, held by one theory | startable |  |
+| 370 | 412 | AG17 — an account that is a key, and the variables a provider reads | startable |  |
+| 379 | 412 | AG18 — background work started and ended, as events | startable |  |
+| 386 | 412 | AG19 — an ACP permission request the host can answer | startable |  |
+| 401 | 416 | AG21 — the usage exchange writes each request after the answer it depends on | startable |  |
+| 413 | 416 | AG22 — the host names where the usage server runs and what it is told of it… | startable |  |
+| 426 | 416 | AG23 — an allowance reading carries what the server stated | startable |  |
+| 441 | 416 | AG24 — a host's policy for a version the library has not validated | startable |  |
+| 462 | 417 | MC3 — measure the candidate list's similarity basis | startable |  |
+| 470 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | startable |  |
+| 483 | 417 | MC10 — a scope dense in ended entries still returns its current ones | startable |  |
+| 499 | 427 | VP3 — Daoris's repository-facts fixture | blocked · data | Daoris's schema, events and expected reads, handed over by quest in the for… |
 
 <!-- open-items:end -->
 
@@ -494,32 +492,14 @@ unreleased until a release carries it (**D70**, **D235**). **What a YES does to 
 ## Part 427 — Wave 1's profile toward D221's promotion gate, after Daoris's offer of its repository facts (2026-11-01)
 
 _`docs/vnext-modular-capabilities.md` §8 judges the gate clause by clause and names what Daoris would hand over. **A YES on
-each row below moves a clause of the gate; none builds the package**, which waits on two applications of different kinds
+the row below moves a clause of the gate; none builds the package**, which waits on two applications of different kinds
 (§8) and is not filed here, because its trigger has not occurred. The prototype stays under `tests/` and adds no public
 type (**D70**, **D218**, **D220**)._
 
-- [ ] **VP1 — the profile's costs hold on Postgres, the one store the contract suites have not run them on** (lane `memory`; <!-- item: state=startable -->
-  **D221**'s "contract suites pass on the chosen backends"). Track A passes on all four revisioned curated stores
-  (`ProfileTrackAPostgresTests`), but `ProfilePrototypeTests` (a crash between a correction's two writes, an entry edited in
-  place, the attributes a field carries) runs on three. **Proof.** Every fact in it passes on Postgres through the same
-  per-site database cut from a migrated template, skipping with the Docker-down reason when the container is absent; a fact
-  that cannot hold there is a finding about the store, written in `docs/memory-measurements.md` §5, not a skipped arm.
-
-- [ ] **VP2 — an application's fixture is data, and the contract suite replays it** (lane `memory`; <!-- item: state=startable -->
-  **D221**'s "two applications reuse the contract", read in `docs/vnext-modular-capabilities.md` §8).
-  Track A's cases are code written against one person-shaped schema, so an application has nowhere to hand its own facts.
-  **Contract.** A fixture file is a schema (field ids, scoped or not, who may state each), an ordered list of events (a
-  set, a correction naming the claim it replaces, a rename, a forget, an export and import) and the reads expected after
-  them; a test replays every fixture on every revisioned curated store through `IProfileOption` and reports a mismatch as
-  the field, the step and the two values. A fact the contract cannot hold is reported as not fitting, never coerced.
-  **Proof.** A reference fixture of the person kind replays on all four stores; a changed expectation fails with the step
-  named; a list-valued field and a prose decision are reported as not fitting. The reference fixture is NOT an application,
-  and no document counts it as one.
-
-- [ ] **VP3 — Daoris's repository-facts fixture** (the first application, if it counts). <!-- item: state=blocked kind=data needs="Daoris's schema, events and expected reads, handed over by quest in the shape vnext-modular-capabilities.md §8 lists" -->
+- [ ] **VP3 — Daoris's repository-facts fixture** (the first application, if it counts). <!-- item: state=blocked kind=data needs="Daoris's schema, events and expected reads, handed over by quest in the format vnext-modular-capabilities.md §8 gives" -->
   Daoris offered its repository memory coordinator as an application of a profile: a repository's stack, gates, lanes
-  and settled choices, each a claim with scope, authority and revision. **Proof.** Its fixture replays through VP2 on
-  every store with no reshaping of the contract; where a fact does not fit, Daoris says so and this item records which, and
+  and settled choices, each a claim with scope, authority and revision. **Proof.** Its fixture replays through
+  `ProfileFixtureTests` (`docs/task-archive.md` Part 428) on every store with no reshaping of the contract; where a fact does not fit, Daoris says so and this item records which, and
   whether the contract changes (a decision) or the fact stays curated memory. It counts toward the gate only with a second
   application of a different kind beside it.
 

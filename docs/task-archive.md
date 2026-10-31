@@ -6426,3 +6426,15 @@ source task and standing, a refused expansion reading nothing through a call-rec
 refused through the blend, `UseView` from the container), the baseline. The Postgres leg of that fact was not run (Docker down). Lane `memory`.
 
 - MC7 — a read-only view of the owner's task, as a blend member
+
+## Part 428 — VP1 and VP2: the profile's costs on Postgres, and a fixture as data (2026-11-01)
+
+✅ done 2026-11-01 — **Outcome:** **VP1**: `ProfilePrototypeTests` takes Postgres as a fourth store (`ProfileBackends`, `ProfilePostgresSites`: one
+database cut from a migrated template per site, shared with `ProfileTrackAPostgresTests`), skipping with the Docker-down reason; all 19 facts held on
+the first run, so there is no finding about the store. **VP2**: a fixture is `Fixtures/<name>.profile.json` (a schema, ordered steps, the reads
+expected after each), replayed through `ProfileOverCurated` by `ProfileFixtureReplay` on all four revisioned stores; a mismatch is the step, the
+field and the two values, a `list` or `prose` field is reported as not fitting and written nowhere, and a schema violation is a mismatch. The format
+is in `docs/vnext-modular-capabilities.md` §8; `person-reference` is a shape demonstration and no document counts it as an application. Lane `memory`.
+
+- VP1 — the profile's costs hold on Postgres, the one store the contract suites have not run them on
+- VP2 — an application's fixture is data, and the contract suite replays it
