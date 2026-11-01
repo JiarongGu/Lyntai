@@ -3,7 +3,7 @@
 **Status: a study (`docs/documents.md`), 2026-10-29; AG20, AG11, AG12, AG10, AG13, AG14, AG15, AG16, AG17, AG18 and AG19 are built, the rest is not.** It reads Lyntai's layer
 (`docs/agent-provider-layer.md`, **D219**, rows AG1 to AG9 closed in `docs/task-archive.md`) against two designs
 Daoris has since accepted, and files what a host that runs coding agents still needs from the layer as rows AG10 to
-AG20 in `TASKS.md` (Part 412 there) and **D233**. AG20 was ruled and built as **D234**, and §9 states how a host
+AG20 in `TASKS.md` (all closed in `docs/task-archive.md` since) and **D233**. AG20 was ruled and built as **D234**, and §9 states how a host
 consumes the layer before a release (**D235**). Its reasoning is read here; the other rows are built in later
 sessions. A type named below is a shipped one unless the row that proposes it says otherwise, and the `ApiSurface`
 baselines hold what shipped.
