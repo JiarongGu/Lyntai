@@ -78,18 +78,32 @@ internal sealed partial class ClaudeUsageDialect(string providerId) : IUsageDial
                 if (available.ValueKind == JsonValueKind.False) return unknown(AgentAllowanceUnknown.NotReported);
 
                 if (WireJson.Object(body, "rate_limits") is not { } limits) return unknown(AgentAllowanceUnknown.Unrecognised);
-                var windows = new List<AgentAllowanceWindow>(2);
-                foreach (var (property, name, length) in Windows)
+                // the account's own windows, then each scoped week in the order the vendor lists them
+                var candidates = Windows.Select(w => (w.Property, w.Name, w.Length, Scope: (string?)null)).ToList();
+                foreach (var property in limits.EnumerateObject())
+                    if (property.Name.Length > ScopedWeekPrefix.Length && property.Name.StartsWith(ScopedWeekPrefix, StringComparison.Ordinal))
+                        candidates.Add((property.Name, AgentAllowanceWindow.Weekly, TimeSpan.FromDays(7), property.Name[ScopedWeekPrefix.Length..]));
+
+                var windows = new List<AgentAllowanceWindow>(candidates.Count);
+                foreach (var (property, name, length, scope) in candidates)
                 {
                     if (!limits.TryGetProperty(property, out var window) || window.ValueKind == JsonValueKind.Null) continue;
-                    if (window.ValueKind != JsonValueKind.Object) return unknown(AgentAllowanceUnknown.Unrecognised);
-                    if (!Whole(window, "utilization", out var used) || used is null or < 0 or > 100) return unknown(AgentAllowanceUnknown.Unrecognised);
-                    if (!Moment(window, "resets_at", out var resetsAt)) return unknown(AgentAllowanceUnknown.Unrecognised);
-                    windows.Add(new AgentAllowanceWindow(name, used, length, resetsAt));
+                    if (window.ValueKind != JsonValueKind.Object
+                        || !WireJson.Percent(window, "utilization", out var used, out var step)
+                        || !Moment(window, "resets_at", out var resetsAt))
+                        return unknown(AgentAllowanceUnknown.Unrecognised);
+                    // a window that states neither a use nor a reset says nothing
+                    if (used is null && resetsAt is null) continue;
+                    windows.Add(new AgentAllowanceWindow(name, used, length, resetsAt) { Scope = scope, UsedStep = step });
                 }
                 if (windows.Count == 0) return unknown(AgentAllowanceUnknown.Unrecognised);
 
-                return new AgentAllowanceReading { MeasuredAt = measuredAt, Windows = windows, Plan = WireJson.String(body, "subscription_type") };
+                if (!Rows(limits, out var rows)) return unknown(AgentAllowanceUnknown.Unrecognised);
+
+                return new AgentAllowanceReading
+                {
+                    MeasuredAt = measuredAt, Windows = windows, Limits = rows, Plan = WireJson.String(body, "subscription_type"),
+                };
             }
         }
         catch (Exception ex) when (WireJson.IsShapeFault(ex))
@@ -129,12 +143,26 @@ internal sealed partial class ClaudeUsageDialect(string providerId) : IUsageDial
         return null;
     }
 
-    private static bool Whole(JsonElement parent, string name, out int? value)
+    private const string ScopedWeekPrefix = "seven_day_";
+
+    // rate_limits.limits[]: each row by kind and scope; the row's severity is the server's judgement and is not read
+    private static bool Rows(JsonElement limits, out List<AgentAllowanceLimit> rows)
     {
-        value = null;
-        if (!parent.TryGetProperty(name, out var el) || el.ValueKind == JsonValueKind.Null) return true;
-        if (el.ValueKind != JsonValueKind.Number || !el.TryGetInt32(out var number)) return false;
-        value = number;
+        rows = [];
+        if (!limits.TryGetProperty("limits", out var array) || array.ValueKind == JsonValueKind.Null) return true;
+        if (array.ValueKind != JsonValueKind.Array) return false;
+        foreach (var row in array.EnumerateArray())
+        {
+            if (row.ValueKind != JsonValueKind.Object || WireJson.String(row, "kind") is not { Length: > 0 } kind) return false;
+            string? scope = null;
+            if (row.TryGetProperty("scope", out var scoped) && scoped.ValueKind != JsonValueKind.Null)
+            {
+                if (scoped.ValueKind != JsonValueKind.String) return false;
+                scope = scoped.GetString();
+            }
+            if (!WireJson.Percent(row, "percent", out var used, out var step) || !Moment(row, "resets_at", out var resetsAt)) return false;
+            rows.Add(new AgentAllowanceLimit(kind, scope, used, step, resetsAt));
+        }
         return true;
     }
 

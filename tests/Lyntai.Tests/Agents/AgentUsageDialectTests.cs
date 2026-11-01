@@ -25,8 +25,8 @@ public class AgentUsageDialectTests
         Assert.Equal("team", reading.Plan);
         Assert.Equal(
             [
-                new AgentAllowanceWindow(AgentAllowanceWindow.FiveHour, 23, TimeSpan.FromHours(5), new DateTimeOffset(2026, 10, 12, 14, 0, 0, TimeSpan.Zero)),
-                new AgentAllowanceWindow(AgentAllowanceWindow.Weekly, 79, TimeSpan.FromDays(7), new DateTimeOffset(2026, 10, 15, 9, 30, 0, TimeSpan.Zero)),
+                new AgentAllowanceWindow(AgentAllowanceWindow.FiveHour, 23, TimeSpan.FromHours(5), new DateTimeOffset(2026, 10, 12, 14, 0, 0, TimeSpan.Zero)) { UsedStep = 1 },
+                new AgentAllowanceWindow(AgentAllowanceWindow.Weekly, 79, TimeSpan.FromDays(7), new DateTimeOffset(2026, 10, 15, 9, 30, 0, TimeSpan.Zero)) { UsedStep = 1 },
             ],
             reading.Windows);
         Assert.True(reading.HasRoom);
@@ -38,7 +38,7 @@ public class AgentUsageDialectTests
         var reading = Claude.Read([UsageCaptures.ClaudeWeekFull_2_1_296], Now);
 
         Assert.True(reading.IsKnown);
-        Assert.Equal(new AgentAllowanceWindow(AgentAllowanceWindow.FiveHour, 0, TimeSpan.FromHours(5), null), reading.Windows[0]);
+        Assert.Equal(new AgentAllowanceWindow(AgentAllowanceWindow.FiveHour, 0, TimeSpan.FromHours(5), null) { UsedStep = 1 }, reading.Windows[0]);
         Assert.Equal(100, reading.Windows[1].UsedPercent);
         Assert.False(reading.HasRoom);
     }
@@ -77,8 +77,17 @@ public class AgentUsageDialectTests
     [InlineData("""{"type":"control_response","response":{"subtype":"success","request_id":"usage","response":{"rate_limits_available":true,"rate_limits":{"five_hour":null,"seven_day":null}}}}""")]
     [InlineData("""{"type":"control_response","response":{"subtype":"success","request_id":"usage","response":{"rate_limits_available":true,"rate_limits":{"seven_day":{"utilization":"79"}}}}}""")]
     [InlineData("""{"type":"control_response","response":{"subtype":"success","request_id":"usage","response":{"rate_limits_available":true,"rate_limits":{"seven_day":{"utilization":101}}}}}""")]
-    [InlineData("""{"type":"control_response","response":{"subtype":"success","request_id":"usage","response":{"rate_limits_available":true,"rate_limits":{"seven_day":{"utilization":79.5}}}}}""")]
+    [InlineData("""{"type":"control_response","response":{"subtype":"success","request_id":"usage","response":{"rate_limits_available":true,"rate_limits":{"seven_day":{"utilization":-0.5}}}}}""")]
+    [InlineData("""{"type":"control_response","response":{"subtype":"success","request_id":"usage","response":{"rate_limits_available":true,"rate_limits":{"seven_day":{"utilization":100.1}}}}}""")]
     [InlineData("""{"type":"control_response","response":{"subtype":"success","request_id":"usage","response":{"rate_limits_available":true,"rate_limits":{"seven_day":{"utilization":79,"resets_at":"soon"}}}}}""")]
+    [InlineData("""{"type":"control_response","response":{"subtype":"success","request_id":"usage","response":{"rate_limits_available":true,"rate_limits":{"five_hour":{"utilization":5},"seven_day_opus":{"utilization":"x"}}}}}""")]
+    [InlineData("""{"type":"control_response","response":{"subtype":"success","request_id":"usage","response":{"rate_limits_available":true,"rate_limits":{"five_hour":{"utilization":5},"seven_day_opus":7}}}}""")]
+    [InlineData("""{"type":"control_response","response":{"subtype":"success","request_id":"usage","response":{"rate_limits_available":true,"rate_limits":{"five_hour":{"utilization":5},"limits":{}}}}}""")]
+    [InlineData("""{"type":"control_response","response":{"subtype":"success","request_id":"usage","response":{"rate_limits_available":true,"rate_limits":{"five_hour":{"utilization":5},"limits":["row"]}}}}""")]
+    [InlineData("""{"type":"control_response","response":{"subtype":"success","request_id":"usage","response":{"rate_limits_available":true,"rate_limits":{"five_hour":{"utilization":5},"limits":[{"percent":5}]}}}}""")]
+    [InlineData("""{"type":"control_response","response":{"subtype":"success","request_id":"usage","response":{"rate_limits_available":true,"rate_limits":{"five_hour":{"utilization":5},"limits":[{"kind":"session","percent":105}]}}}}""")]
+    [InlineData("""{"type":"control_response","response":{"subtype":"success","request_id":"usage","response":{"rate_limits_available":true,"rate_limits":{"five_hour":{"utilization":5},"limits":[{"kind":"session","scope":3}]}}}}""")]
+    [InlineData("""{"type":"control_response","response":{"subtype":"success","request_id":"usage","response":{"rate_limits_available":true,"rate_limits":{"five_hour":{"utilization":5},"limits":[{"kind":"session","resets_at":"soon"}]}}}}""")]
     [InlineData("""{"type":"control_response","response":{"subtype":"success","request_id":"usage","response":{"rate_limits_available":true,"rate_limits":{"seven_day":{}}}}}""")]
     [InlineData("""{"type":"control_response","response":{"subtype":"success","request_id":"usage","response":{"rate_limits_available":true,"rate_limits":{"five_hour":{"utilization":5},"seven_day":[]}}}}""")]
     [InlineData("""{"type":"control_response","response":"gone"}""")]
@@ -130,8 +139,8 @@ public class AgentUsageDialectTests
         Assert.Equal("plus", reading.Plan);
         Assert.Equal(
             [
-                new AgentAllowanceWindow(AgentAllowanceWindow.FiveHour, 1, TimeSpan.FromMinutes(300), DateTimeOffset.FromUnixTimeSeconds(1792000000)),
-                new AgentAllowanceWindow(AgentAllowanceWindow.Weekly, 15, TimeSpan.FromMinutes(10080), DateTimeOffset.FromUnixTimeSeconds(1792400000)),
+                new AgentAllowanceWindow(AgentAllowanceWindow.FiveHour, 1, TimeSpan.FromMinutes(300), DateTimeOffset.FromUnixTimeSeconds(1792000000)) { UsedStep = 1 },
+                new AgentAllowanceWindow(AgentAllowanceWindow.Weekly, 15, TimeSpan.FromMinutes(10080), DateTimeOffset.FromUnixTimeSeconds(1792400000)) { UsedStep = 1 },
             ],
             reading.Windows);
         Assert.True(reading.HasRoom);
@@ -178,8 +187,15 @@ public class AgentUsageDialectTests
     [InlineData("""{"id":2,"result":{"rateLimits":{"primary":null,"secondary":null}}}""")]
     [InlineData("""{"id":2,"result":{"rateLimits":{"primary":{"usedPercent":"1","windowDurationMins":300}}}}""")]
     [InlineData("""{"id":2,"result":{"rateLimits":{"primary":{"usedPercent":101,"windowDurationMins":300}}}}""")]
-    [InlineData("""{"id":2,"result":{"rateLimits":{"primary":{"usedPercent":1.5,"windowDurationMins":300}}}}""")]
+    [InlineData("""{"id":2,"result":{"rateLimits":{"primary":{"usedPercent":-0.5,"windowDurationMins":300}}}}""")]
+    [InlineData("""{"id":2,"result":{"rateLimits":{"primary":{"usedPercent":100.5,"windowDurationMins":300}}}}""")]
     [InlineData("""{"id":2,"result":{"rateLimits":{"primary":{"usedPercent":1}}}}""")]
+    [InlineData("""{"id":2,"result":{"rateLimits":{"primary":{"resetsAt":1792000000}}}}""")]
+    [InlineData("""{"id":2,"result":{"rateLimits":{"limitId":"codex","primary":{"usedPercent":1,"windowDurationMins":300},"secondary":null},"rateLimitsByLimitId":[]}}""")]
+    [InlineData("""{"id":2,"result":{"rateLimits":{"limitId":"codex","primary":{"usedPercent":1,"windowDurationMins":300}},"rateLimitsByLimitId":{"other":7}}}""")]
+    [InlineData("""{"id":2,"result":{"rateLimits":{"limitId":"codex","primary":{"usedPercent":1,"windowDurationMins":300}},"rateLimitsByLimitId":{"other":{"primary":{"usedPercent":"x","windowDurationMins":300}}}}}""")]
+    [InlineData("""{"id":2,"result":{"rateLimits":{"limitId":"codex","primary":{"usedPercent":1,"windowDurationMins":300}},"rateLimitsByLimitId":{"other":{"primary":{"usedPercent":1}}}}}""")]
+    [InlineData("""{"id":2,"result":{"rateLimits":{"limitId":"codex","primary":{"usedPercent":1,"windowDurationMins":300}},"rateLimitsByLimitId":{"other":{"secondary":[]}}}}""")]
     [InlineData("""{"id":2,"result":{"rateLimits":{"primary":{"usedPercent":1,"windowDurationMins":0}}}}""")]
     [InlineData("""{"id":2,"result":{"rateLimits":{"primary":{"usedPercent":1,"windowDurationMins":300,"resetsAt":"tomorrow"}}}}""")]
     [InlineData("""{"id":2,"result":{"rateLimits":{"primary":{"usedPercent":1,"windowDurationMins":300,"resetsAt":99999999999999}}}}""")]
@@ -290,6 +306,169 @@ public class AgentUsageDialectTests
     [InlineData("", null)]
     public void Codex_reads_the_version_the_binary_prints(string output, string? expected) =>
         Assert.Equal(expected, Codex.ParseVersion(output));
+
+    // ── what the server stated: precision, scope, absence (D237) ──────────────────────────────────
+
+    private static string ClaudeLimits(string limits) =>
+        """{"type":"control_response","response":{"subtype":"success","request_id":"usage","response":{"rate_limits_available":true,"rate_limits":""" + limits + "}}}";
+
+    [Fact]
+    public void Claude_a_fractional_use_is_kept_as_written_with_the_step_its_digits_show()
+    {
+        var reading = Claude.Read([UsageCaptures.ClaudeFractional_2_1_296], Now);
+
+        Assert.True(reading.IsKnown);
+        Assert.Equal(23.5, reading.Windows[0].UsedPercent);
+        Assert.Equal(0.1, reading.Windows[0].UsedStep);
+        Assert.Equal(79, reading.Windows[1].UsedPercent);
+        Assert.Equal(1, reading.Windows[1].UsedStep);
+        Assert.All(reading.Windows, w => Assert.Null(w.Scope));
+        var row = Assert.Single(reading.Limits);
+        Assert.Equal(12.5, row.UsedPercent);
+        Assert.Equal(0.01, row.UsedStep);
+        Assert.True(reading.HasRoom);
+    }
+
+    [Fact]
+    public void Claude_a_use_written_in_exponent_form_has_a_value_and_no_step()
+    {
+        var reading = Claude.Read([ClaudeLimits("""{"five_hour":{"utilization":1.5e1}}""")], Now);
+
+        var window = Assert.Single(reading.Windows);
+        Assert.Equal(15, window.UsedPercent);
+        Assert.Null(window.UsedStep);
+    }
+
+    [Fact]
+    public void Claude_a_full_scoped_week_is_a_scoped_window_and_the_accounts_own_windows_still_have_room()
+    {
+        var reading = Claude.Read([UsageCaptures.ClaudeScopedWeekFull_2_1_296], Now);
+
+        Assert.True(reading.IsKnown);
+        Assert.Equal(
+            [
+                (AgentAllowanceWindow.FiveHour, (string?)null, 40.0),
+                (AgentAllowanceWindow.Weekly, null, 60.0),
+                (AgentAllowanceWindow.Weekly, "opus", 100.0),
+            ],
+            reading.Windows.Select(w => (w.Name, w.Scope, w.UsedPercent!.Value)).ToArray());
+        Assert.Equal(TimeSpan.FromDays(7), reading.Windows[2].Length);
+        Assert.True(reading.HasRoom);
+    }
+
+    [Fact]
+    public void Claude_reads_the_limit_rows_by_kind_and_scope_and_never_their_severity()
+    {
+        var reading = Claude.Read([UsageCaptures.ClaudeScopedWeekFull_2_1_296], Now);
+
+        Assert.Equal(
+            [
+                new AgentAllowanceLimit("weekly_all", null, 60, 1, new DateTimeOffset(2026, 10, 15, 9, 30, 0, TimeSpan.Zero)),
+                new AgentAllowanceLimit("weekly_scoped", "opus", 100, 1, new DateTimeOffset(2026, 10, 15, 9, 30, 0, TimeSpan.Zero)),
+            ],
+            reading.Limits);
+        Assert.DoesNotContain("critical", reading.ToString());
+        Assert.Equal(2, Claude.Read([UsageCaptures.ClaudeSignedIn_2_1_296], Now).Limits.Count);
+        Assert.Empty(Claude.Read([UsageCaptures.ClaudeWeekFull_2_1_296], Now).Limits);
+    }
+
+    [Fact]
+    public void Claude_a_window_with_a_use_and_no_reset_is_kept_and_so_is_one_with_a_reset_and_no_use()
+    {
+        var reading = Claude.Read(
+            [ClaudeLimits("""{"five_hour":{"utilization":30},"seven_day":{"resets_at":"2026-10-15T09:30:00+00:00"}}""")], Now);
+
+        Assert.Equal(2, reading.Windows.Count);
+        Assert.Equal(new AgentAllowanceWindow(AgentAllowanceWindow.FiveHour, 30, TimeSpan.FromHours(5), null) { UsedStep = 1 }, reading.Windows[0]);
+        Assert.Null(reading.Windows[1].UsedPercent);
+        Assert.Null(reading.Windows[1].UsedStep);
+        Assert.NotNull(reading.Windows[1].ResetsAt);
+        Assert.Null(reading.HasRoom);
+    }
+
+    [Fact]
+    public void Claude_a_window_stating_neither_a_use_nor_a_reset_says_nothing_and_is_left_out()
+    {
+        var reading = Claude.Read([ClaudeLimits("""{"five_hour":{"utilization":30},"seven_day":{},"seven_day_opus":{}}""")], Now);
+
+        Assert.Equal([AgentAllowanceWindow.FiveHour], reading.Windows.Select(w => w.Name).ToArray());
+        Assert.True(reading.HasRoom);
+    }
+
+    [Fact]
+    public void Codex_a_fractional_use_is_kept_as_written_with_the_step_its_digits_show()
+    {
+        var reading = Codex.Read([UsageCaptures.CodexFractional_0_160_0], Now);
+
+        Assert.True(reading.IsKnown);
+        Assert.Equal("codex", reading.LimitId);
+        Assert.Equal([(1.5, 0.1), (15.25, 0.01)], reading.Windows.Select(w => (w.UsedPercent!.Value, w.UsedStep!.Value)).ToArray());
+        Assert.True(reading.HasRoom);
+    }
+
+    [Fact]
+    public void Codex_a_second_limit_reads_as_scoped_windows_and_its_full_week_does_not_end_the_accounts_room()
+    {
+        var reading = Codex.Read([UsageCaptures.CodexSecondLimit_0_160_0], Now);
+
+        Assert.True(reading.IsKnown);
+        Assert.Equal("codex", reading.LimitId);
+        Assert.Equal(
+            [
+                (AgentAllowanceWindow.FiveHour, (string?)null, 1.0),
+                (AgentAllowanceWindow.Weekly, null, 15.0),
+                (AgentAllowanceWindow.Weekly, "codex_other", 100.0),
+            ],
+            reading.Windows.Select(w => (w.Name, w.Scope, w.UsedPercent!.Value)).ToArray());
+        Assert.True(reading.HasRoom);
+        Assert.Empty(reading.Limits);
+    }
+
+    [Fact]
+    public void Codex_without_an_own_limit_id_reads_no_other_limit_because_the_own_one_cannot_be_told_apart()
+    {
+        var reading = Codex.Read(
+            ["""{"id":2,"result":{"rateLimits":{"primary":{"usedPercent":1,"windowDurationMins":300}},"rateLimitsByLimitId":{"codex":{"primary":{"usedPercent":1,"windowDurationMins":300}}}}}"""], Now);
+
+        Assert.Single(reading.Windows);
+        Assert.Null(reading.LimitId);
+    }
+
+    [Fact]
+    public void Codex_a_window_with_a_use_and_no_reset_is_kept_and_so_is_one_with_a_reset_and_no_use()
+    {
+        var reading = Codex.Read(
+            ["""{"id":2,"result":{"rateLimits":{"primary":{"usedPercent":30,"windowDurationMins":300},"secondary":{"windowDurationMins":10080,"resetsAt":1792400000}}}}"""], Now);
+
+        Assert.Equal(2, reading.Windows.Count);
+        Assert.Equal(30, reading.Windows[0].UsedPercent);
+        Assert.Null(reading.Windows[0].ResetsAt);
+        Assert.Null(reading.Windows[1].UsedPercent);
+        Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(1792400000), reading.Windows[1].ResetsAt);
+        Assert.Null(reading.HasRoom);
+    }
+
+    [Fact]
+    public void Codex_a_window_stating_neither_a_use_nor_a_reset_says_nothing_and_is_left_out()
+    {
+        var reading = Codex.Read(
+            ["""{"id":2,"result":{"rateLimits":{"primary":{"usedPercent":30,"windowDurationMins":300},"secondary":{"windowDurationMins":10080}}}}"""], Now);
+
+        Assert.Equal([AgentAllowanceWindow.FiveHour], reading.Windows.Select(w => w.Name).ToArray());
+    }
+
+    [Fact]
+    public void HasRoom_reads_the_accounts_own_windows_only()
+    {
+        AgentAllowanceReading Of(params AgentAllowanceWindow[] windows) => new() { MeasuredAt = Now, Windows = windows };
+        var own = new AgentAllowanceWindow(AgentAllowanceWindow.Weekly, 20, null, null);
+        var full = new AgentAllowanceWindow(AgentAllowanceWindow.Weekly, 100, null, null) { Scope = "opus" };
+
+        Assert.True(Of(own, full).HasRoom);
+        Assert.False(Of(own with { UsedPercent = 100 }, full).HasRoom);
+        Assert.Null(Of(full).HasRoom); // no own window stated: unknown, never "room"
+        Assert.Null(Of(own with { UsedPercent = null }, full).HasRoom);
+    }
 
     // ── the validated set ─────────────────────────────────────────────────────────────────────────
 

@@ -98,33 +98,59 @@ internal sealed partial class CodexUsageDialect(string providerId) : IUsageDiale
                     return unknown(AgentAllowanceUnknown.Unrecognised);
 
                 var windows = new List<AgentAllowanceWindow>(2);
-                foreach (var property in new[] { "primary", "secondary" })
+                if (!ReadWindows(limits, null, windows)) return unknown(AgentAllowanceUnknown.Unrecognised);
+
+                // the other limits the server named, each as scoped windows. Without the own limit's id there is no
+                // telling which entry is the one already read above, so none is taken.
+                var limitId = WireJson.String(limits, "limitId");
+                if (limitId is not null && result.TryGetProperty("rateLimitsByLimitId", out var byId) && byId.ValueKind != JsonValueKind.Null)
                 {
-                    if (!limits.TryGetProperty(property, out var window) || window.ValueKind == JsonValueKind.Null) continue;
-                    if (window.ValueKind != JsonValueKind.Object) return unknown(AgentAllowanceUnknown.Unrecognised);
-
-                    var used = WireJson.Int32(window, "usedPercent");
-                    var minutes = WireJson.Int64(window, "windowDurationMins");
-                    if (used is null or < 0 or > 100 || minutes is null or <= 0) return unknown(AgentAllowanceUnknown.Unrecognised);
-
-                    DateTimeOffset? resetsAt = null;
-                    if (window.TryGetProperty("resetsAt", out var reset) && reset.ValueKind != JsonValueKind.Null)
+                    if (byId.ValueKind != JsonValueKind.Object) return unknown(AgentAllowanceUnknown.Unrecognised);
+                    foreach (var other in byId.EnumerateObject())
                     {
-                        if (reset.ValueKind != JsonValueKind.Number || !reset.TryGetInt64(out var seconds)
-                            || seconds is < 0 or > 253_402_300_799) return unknown(AgentAllowanceUnknown.Unrecognised);
-                        resetsAt = DateTimeOffset.FromUnixTimeSeconds(seconds);
+                        if (other.Name == limitId || other.Value.ValueKind == JsonValueKind.Null) continue;
+                        if (other.Value.ValueKind != JsonValueKind.Object || !ReadWindows(other.Value, other.Name, windows))
+                            return unknown(AgentAllowanceUnknown.Unrecognised);
                     }
-                    windows.Add(new AgentAllowanceWindow(NameOf(minutes.Value), used, TimeSpan.FromMinutes(minutes.Value), resetsAt));
                 }
                 if (windows.Count == 0) return unknown(AgentAllowanceUnknown.Unrecognised);
 
-                return new AgentAllowanceReading { MeasuredAt = measuredAt, Windows = windows, Plan = WireJson.String(limits, "planType") };
+                return new AgentAllowanceReading
+                {
+                    MeasuredAt = measuredAt, Windows = windows, LimitId = limitId, Plan = WireJson.String(limits, "planType"),
+                };
             }
         }
         catch (Exception ex) when (WireJson.IsShapeFault(ex) || ex is ArgumentOutOfRangeException or OverflowException)
         {
             return unknown(AgentAllowanceUnknown.Unrecognised);
         }
+    }
+
+    // the primary and secondary windows of one rate-limit snapshot; false when a window states something unrecognisable
+    private static bool ReadWindows(JsonElement snapshot, string? scope, List<AgentAllowanceWindow> into)
+    {
+        foreach (var property in new[] { "primary", "secondary" })
+        {
+            if (!snapshot.TryGetProperty(property, out var window) || window.ValueKind == JsonValueKind.Null) continue;
+            if (window.ValueKind != JsonValueKind.Object || !WireJson.Percent(window, "usedPercent", out var used, out var step))
+                return false;
+
+            DateTimeOffset? resetsAt = null;
+            if (window.TryGetProperty("resetsAt", out var reset) && reset.ValueKind != JsonValueKind.Null)
+            {
+                if (reset.ValueKind != JsonValueKind.Number || !reset.TryGetInt64(out var seconds)
+                    || seconds is < 0 or > 253_402_300_799) return false;
+                resetsAt = DateTimeOffset.FromUnixTimeSeconds(seconds);
+            }
+            // a window that states neither a use nor a reset says nothing
+            if (used is null && resetsAt is null) continue;
+
+            if (WireJson.Int64(window, "windowDurationMins") is not { } minutes || minutes <= 0) return false;
+            into.Add(new AgentAllowanceWindow(NameOf(minutes), used, TimeSpan.FromMinutes(minutes), resetsAt)
+                { Scope = scope, UsedStep = step });
+        }
+        return true;
     }
 
     private static string NameOf(long minutes) => minutes switch
