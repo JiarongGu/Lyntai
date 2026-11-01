@@ -42,8 +42,7 @@ internal sealed class AcpAgentReader
     private Phase _phase = Phase.Initializing;
     private string? _sessionId;
     private bool _cancelSent;
-    private RejectedLimit? _rejected;
-    private AcpTypedFailure? _typed;
+    private readonly AcpExtensionSet _extensions;
     private AcpModelOption? _modelOption;
 
     /// <param name="options">The turn.</param>
@@ -51,13 +50,17 @@ internal sealed class AcpAgentReader
     /// <param name="clientVersion">What the client says its version is.</param>
     /// <param name="outbox">Where the client's frames go, one per line.</param>
     /// <param name="time">The clock a usage reading is stamped from and a sentence's time is read against.</param>
-    public AcpAgentReader(AgentSessionOptions options, string cwd, string clientVersion, ChannelWriter<string> outbox, TimeProvider time)
+    /// <param name="extensions">The readers of the agent's own extensions.</param>
+    public AcpAgentReader(
+        AgentSessionOptions options, string cwd, string clientVersion, ChannelWriter<string> outbox, TimeProvider time,
+        IReadOnlyList<IAcpExtensionReader> extensions)
     {
         _options = options;
         _cwd = cwd;
         _clientVersion = clientVersion;
         _outbox = outbox;
         _time = time;
+        _extensions = new AcpExtensionSet(extensions, time);
     }
 
     /// <summary>Queue <c>initialize</c>, the first frame.</summary>
@@ -199,7 +202,7 @@ internal sealed class AcpAgentReader
         if (error is { } setError)
         {
             // a limit or a sign-in the agent states here is that, and not a refusal of the model
-            var failure = AcpFailure.FromError(setError, null, null, _time, out var words);
+            var failure = AcpFailure.FromError(setError, _extensions, _time, out var words);
             if (failure.Kind != AgentFailureKind.Fatal)
             {
                 End(events, FailedByError(setError));
@@ -319,17 +322,9 @@ internal sealed class AcpAgentReader
             case "tool_call_update":
                 ReadToolUpdate(update, events);
                 break;
-
-            // the agent's own failure field, read for the turn's end; a warning is a notice, not an ending
-            case "session_info_update" when AcpTypedFailure.Read(update) is { } typed:
-                _typed = typed;
-                break;
-
-            // claude-agent-acp forwards the CLI's rate_limit_info here unchanged
-            case "usage_update" when WireJson.Object(update, "_meta") is { } meta && WireJson.Object(meta, "_claude/rateLimit") is { } info:
-                _rejected = StreamJsonFailure.ReadRejectionInfo(info) ?? _rejected;
-                break;
         }
+
+        _extensions.ReadUpdate(update, events);
     }
 
     private static string? ChunkText(JsonElement update) =>
@@ -389,13 +384,12 @@ internal sealed class AcpAgentReader
         if (WireJson.Object(result, "usage") is { } usage) AddUsage(usage, events);
 
         // codex-acp ends a failed turn end_turn and says the failure only as a field of this answer (when the client
-        // declared it); an earlier update's may have been recovered from, so only this one ends the turn
-        var typed = AcpTypedFailure.Read(result);
+        // declared it): a reader states it, whatever the stop reason
         var stopReason = WireJson.String(result, "stopReason");
-        if (typed is { EndsTurn: true })
+        if (_extensions.ReadTurnEnd(result) is { Count: > 0 } stated)
         {
-            var failure = AcpFailure.FromTypedEnd(typed, _rejected, _time);
-            End(events, new SessionEnded(AcpFailure.VerdictOf(failure, typed.Title), true, "session-failure", _sessionId, null, typed.Title)
+            var failure = AcpFailure.FromStatedEnd(stated, _extensions, _time, out var statedWords);
+            End(events, new SessionEnded(AcpFailure.VerdictOf(failure, statedWords), true, "session-failure", _sessionId, null, statedWords)
                 { Failure = failure });
             return;
         }
@@ -430,7 +424,7 @@ internal sealed class AcpAgentReader
 
     private SessionEnded FailedByError(JsonElement error)
     {
-        var failure = AcpFailure.FromError(error, _rejected, _typed, _time, out var words);
+        var failure = AcpFailure.FromError(error, _extensions, _time, out var words);
         return new SessionEnded(AcpFailure.VerdictOf(failure, words), true, "jsonrpc-error", _sessionId, null, words) { Failure = failure };
     }
 

@@ -1162,6 +1162,18 @@ var result = await door.RunAsync(new AgentSessionOptions { Prompt = "Summarise t
 Console.WriteLine($"{result.Verdict}: {result.FinalText}");
 ```
 
+**An agent with extensions of its own** is taught to the door by an `IAcpExtensionReader` passed as `extensions:`, which
+reads an update's `_meta`, an error's `data` and a prompt answer's `_meta` and answers events or an `AgentFailure`. Naming
+a set replaces the default, which is every shipped reader (`AcpExtensionReaders.Default`), so a door for one agent narrows
+to that agent's keys and a third agent's reader is named beside them.
+
+<!-- compile-given: IAcpExtensionReader myAgentReader; -->
+```csharp
+services.AddLyntai(b => b
+    .AddAcpAgentSession("my-acp", "my-agent-acp",
+        extensions: [AcpExtensionReaders.AirSessionFailure, myAgentReader]));
+```
+
 A turn is `initialize`, then `session/new`, or for a `ResumeToken` `session/resume` where the agent's `initialize`
 answer states `sessionCapabilities.resume` and `session/load` where it states `loadSession`, then `session/prompt`.
 An agent that states neither refuses the turn before the prompt (`option-unsupported`, `NeverSent`), which is why

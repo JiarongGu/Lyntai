@@ -118,6 +118,16 @@ every addition.
   the response's own status, `Retry-After` and error envelope through `ReadHttpFailure`, a transport fault being `Transient`; `Delivery`
   is `NeverSent` only for a connection that never opened, `Taken` once any response arrived, and `Uncertain` after a tool ran or for a
   request that may have left unanswered. A cancelled call propagates and is never a failure. `docs/guide.md` says how to compose it.
+- **`IAcpExtensionReader` teaches the ACP door a third agent's extensions, and a door reads exactly the set its registration names.**
+  The door read the two shipped agents' `_meta`, error `data` and limit frames inline for every agent, so an agent with keys of its
+  own could not be read without a fork. A reader answers three things, each defaulting to nothing: an update (`AcpUpdateReading`: events
+  to yield, and a failure held until the turn fails; the same reader's next reading replaces it, a reading with none clears it), an error
+  (an `AgentFailure`) and a prompt's answer (`AcpStatedFailure`: a failure stated on a turn the agent ended normally). The shipped reads are
+  `AcpExtensionReaders.Claude`, `.Codex` and `.AirSessionFailure`, and `.Default` is all three, which is what `AddAcpAgentSession` and
+  `AcpAgentSession` read when `extensions` is null, so nothing changes for a host that names none; naming a set narrows a door to it, and
+  an empty one reads none of them. The door keeps the protocol's own reads (the sign-in code, the stop reasons, the model option); a reader's
+  `SessionStarted` or `SessionEnded` is dropped, and a JSON shape fault in a reader loses only its reading. Proved with an invented agent
+  whose keys no shipped reader knows, not with a real one.
 - **An `AgentAccount` can be a key, and a provider declares the variables it reads.** An agent run on an API key or through a
   gateway could not vary per turn, because an account was a name and a home, and a host that wanted an agent not to inherit another
   provider's key had no list to strip from. `AgentAccount.Home` is now optional and `AgentAccount.Environment` carries entries the

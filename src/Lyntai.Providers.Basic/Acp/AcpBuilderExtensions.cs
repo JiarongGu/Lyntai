@@ -42,6 +42,12 @@ public static class AcpBuilderExtensions
     /// names: what an <see cref="AgentAccount.Environment"/> entry may set, and what a host strips from an inherited
     /// environment (<see cref="AgentAccountMapping.Variables"/>). None = an account entry is refused. Needs
     /// <paramref name="accountHomeVariable"/>.</param>
+    /// <param name="extensions">What reads this agent's own extensions — its <c>_meta</c>, an error's <c>data</c>, a limit
+    /// frame (<see cref="IAcpExtensionReader"/>) — and exactly what this door reads: a reader left out is not
+    /// consulted, so a door for one agent narrows to its own, and a host's reader for a third agent is named beside
+    /// the shipped ones in <see cref="AcpExtensionReaders"/>. Null = <see cref="AcpExtensionReaders.Default"/>, which
+    /// is every shipped reader and what the door read before the parameter existed. The set belongs to this
+    /// registration and not to the container, because two agents' doors read different keys.</param>
     /// <exception cref="ArgumentException"><paramref name="agent"/> or <paramref name="accountVariables"/> is given
     /// without <paramref name="accountHomeVariable"/>, or a variable name is not one an environment can carry.</exception>
     /// <exception cref="InvalidOperationException"><paramref name="agent"/> is shared with a door registered through
@@ -54,7 +60,8 @@ public static class AcpBuilderExtensions
         IReadOnlyDictionary<string, string?>? environment = null,
         string? accountHomeVariable = null,
         string? agent = null,
-        IEnumerable<string>? accountVariables = null)
+        IEnumerable<string>? accountVariables = null,
+        IEnumerable<IAcpExtensionReader>? extensions = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(id);
         ArgumentException.ThrowIfNullOrWhiteSpace(command);
@@ -63,6 +70,9 @@ public static class AcpBuilderExtensions
         if (accountVariables is not null && accountHomeVariable is null)
             throw new ArgumentException("The variables an account may set are declared with the home variable.", nameof(accountVariables));
         ArgumentException.ThrowIfNullOrWhiteSpace(agent ?? id, nameof(agent));
+        var readers = extensions?.ToList();
+        if (readers is not null && readers.Contains(null!))
+            throw new ArgumentException("A reader is null.", nameof(extensions));
         var descriptor = AcpAgentDoor.Describe(id, accountHomeVariable, agent, accountVariables);
         builder.AddAgentProvider(descriptor, sp => new AgentProvider(descriptor,
             _ => sp.GetRequiredKeyedService<IAgentSession>(id)));
@@ -74,7 +84,8 @@ public static class AcpBuilderExtensions
             environment,
             accountHomeVariable,
             logger: sp.GetService<ILogger<AcpAgentSession>>(),
-            accountVariables: accountVariables));
+            accountVariables: accountVariables,
+            extensions: readers));
         return builder;
     }
 }

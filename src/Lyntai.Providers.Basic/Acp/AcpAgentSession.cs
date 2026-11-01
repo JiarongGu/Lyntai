@@ -21,8 +21,8 @@ namespace Lyntai.Providers.Acp;
 /// <c>session/load</c> where it states that, else a refusal before the prompt (<see cref="ProviderVerdict.Unsupported"/>)
 /// — then <c>session/prompt</c>. Its events are the updates <see cref="AgentStreamEvent"/> has a case for, and its
 /// failure is read from the agent's own fields: the error's code and <c>data</c>, a typed session failure, a rejected
-/// limit frame. The agent's prose never classifies. <see cref="SessionEnded.SessionId"/> is the conversation's
-/// resume token.</para>
+/// limit frame, each through the door's <see cref="IAcpExtensionReader"/>s. The agent's prose never classifies.
+/// <see cref="SessionEnded.SessionId"/> is the conversation's resume token.</para>
 /// <para><b>Cancelling</b> the token sends <c>session/cancel</c> and gives the agent its grace period to answer
 /// before the process is killed; the cancellation then propagates, as on the CLI doors.</para>
 /// <para><b>Permission requests</b> follow <see cref="AgentSessionOptions.ToolPolicy"/>: read-only rejects each,
@@ -45,6 +45,7 @@ public sealed class AcpAgentSession : IAgentSession
     private readonly AgentAccountMapping? _accounts;
     private readonly TimeSpan _cancelGrace;
     private readonly TimeProvider _time;
+    private readonly IReadOnlyList<IAcpExtensionReader> _extensions;
 
     /// <param name="runner">Process execution — BYO to sandbox, audit or remote the spawn. It must implement
     /// <see cref="IProcessRunner.ExchangeLinesAsync"/>, which the shipped <see cref="ProcessRunner"/> does.</param>
@@ -64,6 +65,9 @@ public sealed class AcpAgentSession : IAgentSession
     /// <param name="accountVariables">The other variables the agent reads for a key or a gateway's address, which an
     /// account's <see cref="AgentAccount.Environment"/> may set. Needs <paramref name="accountHomeVariable"/>; none
     /// means an account entry is refused.</param>
+    /// <param name="extensions">What reads the agent's own extensions (<see cref="IAcpExtensionReader"/>), and exactly
+    /// what the door reads: a reader left out is not consulted. Null = <see cref="AcpExtensionReaders.Default"/>; an
+    /// empty set reads none.</param>
     public AcpAgentSession(
         IProcessRunner runner,
         LyntaiOptions options,
@@ -74,9 +78,12 @@ public sealed class AcpAgentSession : IAgentSession
         TimeSpan? cancelGrace = null,
         ILogger<AcpAgentSession>? logger = null,
         TimeProvider? time = null,
-        IEnumerable<string>? accountVariables = null)
+        IEnumerable<string>? accountVariables = null,
+        IEnumerable<IAcpExtensionReader>? extensions = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(command);
+        _extensions = extensions is null ? AcpExtensionReaders.Default : extensions.ToList();
+        if (_extensions.Contains(null!)) throw new ArgumentException("A reader is null.", nameof(extensions));
         _runner = runner;
         _options = options;
         _command = command;
@@ -134,7 +141,7 @@ public sealed class AcpAgentSession : IAgentSession
 
         var cwd = Path.GetFullPath(options.WorkingDirectory ?? Directory.GetCurrentDirectory());
         var outbox = Channel.CreateUnbounded<string>(new UnboundedChannelOptions { SingleReader = true });
-        var reader = new AcpAgentReader(options, cwd, ClientVersion, outbox.Writer, _time);
+        var reader = new AcpAgentReader(options, cwd, ClientVersion, outbox.Writer, _time, _extensions);
         reader.Start();
 
         // the runner is cancelled by this source and never by the caller's token, so a cancelled turn gets to say

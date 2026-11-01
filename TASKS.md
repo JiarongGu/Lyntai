@@ -15,28 +15,27 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 15 across 6 Parts: 10 startable, 2 blocked, 3 watch
+## Open items — 14 across 6 Parts: 9 startable, 2 blocked, 3 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 116 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
-| 157 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 184 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 243 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
-| 261 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
-| 296 | 412 | AG15 — an ACP dialect seam | startable |  |
-| 304 | 412 | AG16 — the event-stream rules, held by one theory | startable |  |
-| 312 | 412 | AG19 — an ACP permission request the host can answer | startable |  |
-| 327 | 416 | AG21 — the usage exchange writes each request after the answer it depends on | startable |  |
-| 339 | 416 | AG22 — the host names where the usage server runs and what it is told of it… | startable |  |
-| 352 | 416 | AG23 — an allowance reading carries what the server stated | startable |  |
-| 367 | 416 | AG24 — a host's policy for a version the library has not validated | startable |  |
-| 388 | 417 | MC3 — measure the candidate list's similarity basis | startable |  |
-| 396 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | startable |  |
-| 409 | 417 | MC10 — a scope dense in ended entries still returns its current ones | startable |  |
+| 115 | 33 | GEN-VERIFY-FAL, the last line — the Hugging Face route | blocked · env | an hf_ token for the router route |
+| 156 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 183 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 242 | 99 | `InputSegmenterTests.Counting_NFKC_is_LINEAR_in_the_length_of_the_text` fai… | watch · data | a recurrence under the full parallel run, with the ratio it read — the mess… |
+| 260 | 99 | `AgentUsageProcessTests.A_server_that_never_answers_is_ended_with_its_child… | watch · data | a recurrence under the full parallel run, with the load it ran under; it fa… |
+| 295 | 412 | AG16 — the event-stream rules, held by one theory | startable |  |
+| 303 | 412 | AG19 — an ACP permission request the host can answer | startable |  |
+| 318 | 416 | AG21 — the usage exchange writes each request after the answer it depends on | startable |  |
+| 330 | 416 | AG22 — the host names where the usage server runs and what it is told of it… | startable |  |
+| 343 | 416 | AG23 — an allowance reading carries what the server stated | startable |  |
+| 358 | 416 | AG24 — a host's policy for a version the library has not validated | startable |  |
+| 379 | 417 | MC3 — measure the candidate list's similarity basis | startable |  |
+| 387 | 417 | MC8 — run the wrong-end instrument on an adjudicated corpus, with a bar wri… | startable |  |
+| 400 | 417 | MC10 — a scope dense in ended entries still returns its current ones | startable |  |
 
 <!-- open-items:end -->
 
@@ -292,14 +291,6 @@ there is nothing here to code: what remains is evidence only recurrence can supp
 _The study is `docs/agent-provider-daoris-study.md`: it answers every Daoris row, and these are the general gaps it found.
 Each is one sitting, none is built, and each capture a test uses is labelled REAL or SOURCE-DERIVED. The decision they
 stand on is **D233**, and the study's §7 is the order they are built in._
-
-- [ ] **AG15 — an ACP dialect seam** (lane `inference`). `AcpAgentReader` and `AcpFailure` read both vendors' extensions <!-- item: state=startable -->
-  inline for every agent (`AcpAgentReader.cs:251`), so a third agent's `_meta`, error `data` and limit frames cannot be
-  taught without a fork. **Contract.** A public dialect interface registered through `AddAcpAgentSession`: it reads an
-  update's extension, an error's `data` and a turn's end, answering events or an `AgentFailure`; the built-in reads
-  become the default composite, so nothing changes for a host that names none, and a host naming a set narrows what its
-  door reads. **Proof.** Every existing ACP test unchanged; a stand-in with a vocabulary of its own (extension keys no
-  built-in reads) read by a registered dialect; the built-in reads fed that stand-in's keys give nothing.
 
 - [ ] **AG16 — the event-stream rules, held by one theory** (lanes `platform` + `tools`). The conformance theory holds the <!-- item: state=startable -->
   descriptor and the spawn, and each stream rule is held door by door. **Contract.** A theory over the registry, from one
