@@ -1,4 +1,6 @@
+using System.Buffers;
 using System.Globalization;
+using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Lyntai.Agents;
@@ -31,13 +33,32 @@ internal sealed partial class CodexUsageDialect(string providerId) : IUsageDiale
 
     public IReadOnlyList<string> ServerArgs { get; } = ["app-server"];
 
-    public IReadOnlyList<UsageStep> Steps { get; } =
+    public IReadOnlyList<UsageStep> StepsFor(string clientName, string clientVersion) =>
     [
-        new([$$$$"""{"id":{{{{InitializeRequestId}}}},"method":"initialize","params":{"clientInfo":{"name":"lyntai","version":"1"}}}"""],
-            line => IsAnswerTo(line, InitializeRequestId)),
+        new([Initialize(clientName, clientVersion)], line => IsAnswerTo(line, InitializeRequestId)),
         new(["""{"method":"initialized"}""", $$"""{"id":{{UsageRequestId}},"method":"account/rateLimits/read","params":null}"""],
             line => IsAnswerTo(line, UsageRequestId)),
     ];
+
+    // the host's client name and version are text, so a writer carries them and nothing splices them into the line
+    private static string Initialize(string clientName, string clientVersion)
+    {
+        var buffer = new ArrayBufferWriter<byte>();
+        using (var writer = new Utf8JsonWriter(buffer))
+        {
+            writer.WriteStartObject();
+            writer.WriteNumber("id", InitializeRequestId);
+            writer.WriteString("method", "initialize");
+            writer.WriteStartObject("params");
+            writer.WriteStartObject("clientInfo");
+            writer.WriteString("name", clientName);
+            writer.WriteString("version", clientVersion);
+            writer.WriteEndObject();
+            writer.WriteEndObject();
+            writer.WriteEndObject();
+        }
+        return Encoding.UTF8.GetString(buffer.WrittenSpan);
+    }
 
     public string? ParseVersion(string output) =>
         VersionPattern().Match(output) is { Success: true } m ? m.Groups[1].Value : null;

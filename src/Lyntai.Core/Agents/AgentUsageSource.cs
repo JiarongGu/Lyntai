@@ -131,9 +131,39 @@ public sealed class AgentUsageReadingOptions
     /// under a fresh home has taken most of ten.</summary>
     public TimeSpan Timeout { get; set; } = TimeSpan.FromSeconds(30);
 
+    /// <summary>The folder the vendor's server runs in, chosen per account: a fully qualified path, or null for the
+    /// default, a fresh empty folder under the system's temporary folder that is removed when the read ends. A named
+    /// folder is created when absent and <b>never removed or emptied</b>: it is the host's. <b>To the vendor it is a
+    /// project</b>: it keys state by that path and loads the project's extensions from it, so name one only where
+    /// that is meant. A path that is not fully qualified, holds a control character, or comes from a function that
+    /// throws reads <see cref="AgentAllowanceUnknown.AccountRefused"/> before anything is started. Default null.</summary>
+    public Func<AgentAccount, string?>? WorkingDirectory { get; set; }
+
+    /// <summary>The name the server is told its client has, where the protocol carries one (Codex's
+    /// <c>initialize</c>) and ignored where it carries none (Claude's control request). A server may act on it.
+    /// Non-empty, at most 64 characters and free of control characters; written by a
+    /// JSON writer, so a quote or backslash is carried intact. Default <c>"lyntai"</c>.</summary>
+    public string ClientName { get; set; } = "lyntai";
+
+    /// <summary>The version the server is told its client is, under the same rules and the same reach as
+    /// <see cref="ClientName"/>. Default <c>"1"</c>.</summary>
+    public string ClientVersion { get; set; } = "1";
+
+    private const int MaxClientLength = 64;
+
     internal void Validate()
     {
         if (Timeout <= TimeSpan.Zero || Timeout > TimeSpan.FromMinutes(5))
             throw new ArgumentOutOfRangeException(nameof(Timeout), Timeout, "A usage read needs a timeout between 0 and 5 minutes.");
+        CheckClient(ClientName, nameof(ClientName));
+        CheckClient(ClientVersion, nameof(ClientVersion));
+    }
+
+    // the value is left out of the message: it is a host's text, and may hold the control character it is refused for
+    private static void CheckClient(string? value, string name)
+    {
+        if (string.IsNullOrEmpty(value) || value.Length > MaxClientLength || value.Any(char.IsControl))
+            throw new ArgumentOutOfRangeException(name,
+                $"A usage read's {name} is 1 to {MaxClientLength} characters with no control character.");
     }
 }
