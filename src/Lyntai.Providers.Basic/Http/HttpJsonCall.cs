@@ -10,8 +10,10 @@ namespace Lyntai.Providers.Http;
 /// <param name="Verdict"><see cref="ProviderVerdict.Ok"/> with a body, else why there is none.</param>
 /// <param name="Detail">The failure's detail; null on success.</param>
 /// <param name="Status">The failed response's status; null on success and when no response arrived.</param>
+/// <param name="Headers">The response's headers, success or failure; null when no response arrived.</param>
 internal readonly record struct HttpJsonResponse(
-    string? Body, ProviderVerdict Verdict, string? Detail, HttpStatusCode? Status = null);
+    string? Body, ProviderVerdict Verdict, string? Detail, HttpStatusCode? Status = null,
+    System.Net.Http.Headers.HttpResponseHeaders? Headers = null);
 
 /// <summary>The buffered JSON POST every HTTP surface in this package makes — the chat engine, the vector
 /// transport and the rerank transport — with ONE policy for how it fails:
@@ -46,8 +48,11 @@ internal static class HttpJsonCall
     /// <param name="id">The provider id, leading every detail.</param>
     /// <param name="what">The surface, for the detail (<c>embeddings</c>, <c>rerank</c>); null for chat.</param>
     /// <param name="ct">The caller's cancellation, which propagates.</param>
+    /// <param name="exchanges">Told what the response's own facts were, for an agent turn; null for every other
+    /// surface.</param>
     public static async Task<HttpJsonResponse> SendAsync(HttpClient http, HttpRequestMessage request,
-        TimeSpan timeout, bool hasCredentials, string id, string? what, CancellationToken ct)
+        TimeSpan timeout, bool hasCredentials, string id, string? what, CancellationToken ct,
+        HttpExchanges? exchanges = null)
     {
         var surface = what is null ? "" : what + " ";
         using (request)
@@ -60,21 +65,25 @@ internal static class HttpJsonCall
                 if (!response.IsSuccessStatusCode)
                 {
                     var errorBody = await HttpBody.SafeRead(response, timeoutCts.Token).ConfigureAwait(false);
+                    exchanges?.Rejected(response.StatusCode, response.Headers, errorBody);
                     return new(null,
                         ProviderVerdictClassifier.FromHttpFailure(response.StatusCode, errorBody, hasCredentials),
                         $"{id}: {surface}HTTP {(int)response.StatusCode} {HttpBody.Head(errorBody)}",
                         response.StatusCode);
                 }
+                exchanges?.Answered();
                 var body = await response.Content.ReadAsStringAsync(timeoutCts.Token).ConfigureAwait(false);
-                return new(body, ProviderVerdict.Ok, null);
+                return new(body, ProviderVerdict.Ok, null, Headers: response.Headers);
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
             catch (OperationCanceledException)
             {
+                exchanges?.TimedOut();
                 return new(null, ProviderVerdict.Timeout, $"{id}: no {surface}response within {timeout}");
             }
             catch (HttpRequestException ex)
             {
+                exchanges?.Unreached(ex);
                 return new(null, ProviderVerdict.Failed, $"{id}: {ex.Message}");
             }
         }

@@ -171,6 +171,7 @@ sealed class Lyntai.Agents.AgentDoor
 static class Lyntai.Agents.AgentDoorKinds
     Acp : String const
     Cli : String const
+    Http : String const
 sealed class Lyntai.Agents.AgentFailure
     .ctor(AgentFailureKind Kind, String By)
     By : String { get; init; }

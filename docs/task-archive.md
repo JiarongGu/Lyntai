@@ -6509,3 +6509,17 @@ here:** a numeric envelope `code` is never taken for a status (`TASKS.md` Part 7
 `ApiSurface` baseline moved from the emitted `.actual`. Lane `inference`.
 
 - AG13 — an HTTP response's own facts are read as an `AgentFailure`
+## Part 435 — AG14: an HTTP door, `IToolLoop` as an agent provider (2026-11-01)
+
+✅ done 2026-11-01 — **Outcome:** `AddHttpAgentSession(id, configure, httpClient)` (`Lyntai.Providers.Basic`, no new package, **D233**) registers a keyed `IAgentSession` and
+an `IAgentProvider` with one door, `"http"`, kind `AgentDoorKinds.Http`; each turn builds a fresh provider and `ToolLoop` over the one pinned endpoint, so nothing falls
+over and the retry budget stays `RetryingAgentSession`'s. The chat engine reports each exchange's status, `Retry-After` and body to an internal `HttpExchanges`, which
+`ReadHttpFailure` reads into `SessionEnded.Failure`. **What the row left open, read here:** `read-only-gate` is `Supported` by offering a read-only turn no tool (a write turn
+the registered ones less `DisallowedTools`), since the default policy is read-only and `Unsupported` would refuse every default turn; `model` is `Unknown`, the id being
+the request's field and the endpoint's to honour; `NeverSent` is a connection that provably never opened (`NeverReachedTheBackend`'s set), `Taken` any response, an error
+status included, `Uncertain` a tool that ran or a request that may have left unanswered; a cancelled call propagates and is no failure; the evidence line sits on the
+`read-only-gate` claim, there being no door-level field. Proof: `HttpAgentSessionTests` over a scripted handler (SOURCE-DERIVED OpenAI-shaped bodies and streams, 429 with and
+without `Retry-After`, 402, 401, 503, an in-band error buffered and streamed), the conformance theory with the HTTP door registered, and the `ApiSurface` baselines moved
+from the emitted `.actual`. Lanes `platform` and `inference`.
+
+- AG14 — an HTTP door: `IToolLoop` as an agent provider

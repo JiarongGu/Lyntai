@@ -31,7 +31,8 @@ internal sealed class HttpChatEngine(
     Func<HttpClient> httpFactory,
     LyntaiOptions options,
     ILogger logger,
-    bool disposeHttpClient)
+    bool disposeHttpClient,
+    HttpExchanges? exchanges = null)
 {
     /// <summary>Get the per-call HttpClient. Lyntai-created clients (from the named IHttpClientFactory
     /// client) are disposed after each call; an APP-supplied (BYO) client is NEVER disposed — the app
@@ -52,7 +53,7 @@ internal sealed class HttpChatEngine(
         for (var attempt = 0; ; attempt++)
         {
             var reply = await HttpJsonCall.SendAsync(http, BuildRequest(req, model, stream: false), timeout,
-                _hasCredentials, id, what: null, ct).ConfigureAwait(false);
+                _hasCredentials, id, what: null, ct, exchanges).ConfigureAwait(false);
             if (reply.Body is not { } body)
             {
                 WarnOfRefusedFields(req, reply.Status, reply.Verdict, reply.Detail);
@@ -76,7 +77,11 @@ internal sealed class HttpChatEngine(
 
             // The backend ANSWERED, at HTTP 200, in the other channel. Classified before the retry on
             // purpose: re-sending to a host that just reported a rate limit is the harm, not the symptom.
-            if (HttpBody.InBandError(body) is { } inBand) return InBandFailure(inBand);
+            if (HttpBody.InBandError(body) is { } inBand)
+            {
+                exchanges?.Rejected(HttpStatusCode.OK, reply.Headers, body);
+                return InBandFailure(inBand);
+            }
 
             if (attempt == 0)
             {
@@ -112,13 +117,17 @@ internal sealed class HttpChatEngine(
         using var stream = await okResponse.Content.ReadAsStreamAsync(timeoutCts.Token).ConfigureAwait(false);
         using var reader = new StreamReader(stream, Encoding.UTF8);
 
-        var progress = new StreamProgress();
+        var progress = new StreamProgress { Headers = okResponse.Headers };
         // the guarded loop (arm/read/stop + caller-cancel rethrow + fault→terminal) lives once in Core
         var guarded = GuardedStream.ReadAll<string, TextChunk>(
             async () => await reader.ReadLineAsync(timeoutCts.Token).ConfigureAwait(false),
-            ex => TextChunk.Error(
-                timeoutCts.IsCancellationRequested ? ProviderVerdict.Timeout : ProviderVerdict.Failed,
-                $"{id}: stream broke — {ex.Message}"),
+            ex =>
+            {
+                exchanges?.Broke(timeoutCts.IsCancellationRequested);
+                return TextChunk.Error(
+                    timeoutCts.IsCancellationRequested ? ProviderVerdict.Timeout : ProviderVerdict.Failed,
+                    $"{id}: stream broke — {ex.Message}");
+            },
             ct, new InactivityClock(timeoutCts, timeout));
         await foreach (var (line, terminal) in guarded.ConfigureAwait(false))
         {
@@ -166,6 +175,7 @@ internal sealed class HttpChatEngine(
             if (!response.IsSuccessStatusCode)
             {
                 var errorBody = await HttpBody.SafeRead(response, timeoutCts.Token).ConfigureAwait(false);
+                exchanges?.Rejected(response.StatusCode, response.Headers, errorBody);
                 startupError = TextChunk.Error(
                     ProviderVerdictClassifier.FromHttpFailure(response.StatusCode, errorBody, _hasCredentials),
                     $"{id}: HTTP {(int)response.StatusCode} {HttpBody.Head(errorBody)}");
@@ -175,14 +185,20 @@ internal sealed class HttpChatEngine(
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (OperationCanceledException)
         {
+            exchanges?.TimedOut();
             startupError = TextChunk.Error(ProviderVerdict.Timeout, $"{id}: no response within {timeout}");
         }
         catch (HttpRequestException ex)
         {
+            exchanges?.Unreached(ex);
             startupError = TextChunk.Error(ProviderVerdict.Failed, $"{id}: {ex.Message}");
         }
 
-        if (startupError is null) return (response, null);
+        if (startupError is null)
+        {
+            exchanges?.Answered();
+            return (response, null);
+        }
         response?.Dispose();
         return (null, startupError);
     }
@@ -227,6 +243,9 @@ internal sealed class HttpChatEngine(
         /// mirror of the trap this fix closes). So it is consulted only on the zero-content path, where the
         /// alternative is a reasonless "no output".</summary>
         public string? InBandError { get; set; }
+
+        /// <summary>The response's headers, which an in-band error read for an agent turn needs.</summary>
+        public System.Net.Http.Headers.HttpResponseHeaders? Headers { get; init; }
     }
 
     /// <summary>How a stream ENDS: the assembled tool calls, then exactly one terminal chunk — a
@@ -271,6 +290,7 @@ internal sealed class HttpChatEngine(
         // no reason and the wrong routing (Failed advances and strikes; RateLimited cools).
         if (!progress.SawContent)
         {
+            if (progress.InBandError is not null) exchanges?.RejectedInBand(progress.Headers, progress.InBandError);
             var reply = progress.InBandError is not null
                 ? InBandFailure(progress.InBandError)
                 : new TextResponse("", ProviderVerdict.Failed, Detail: $"{id}: no output produced");

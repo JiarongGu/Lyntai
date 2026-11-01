@@ -6714,6 +6714,8 @@ conversation). **D219** §10 deferred it; Daoris has built the ACP half (`prompt
 **Re-opens** on a host that needs a word taken mid-turn, with a first measurement of which of the two CLI doors and which
 ACP agents accept one; and on a hosted agent with a cancellation Lyntai can confirm.
 
+**Built 2026-11-01** as `AddHttpAgentSession`: `docs/task-archive.md` Part 435 says how the row's open points were read.
+
 ## D234 — one account serves every door of an agent: each door stays its own provider and names the agent that owns the account (2026-10-29)
 
 **Standing.** Written from the AG20 session (`docs/agent-provider-daoris-study.md` §3.1 row d); the owner's acceptance of

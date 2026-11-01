@@ -1181,6 +1181,41 @@ member the shipped runner has, or the turn is refused (`runner-unsupported`) bef
 (`devtools/scripts/acp-stub.mjs`) at zero tokens; set `LYNTAI_LIVE_ACP=1` with an agent installed to run the two live
 tests, which use an empty home with every credential variable removed and so cannot sign in or spend a token.
 
+**A chat-completions endpoint as an agent** (`AddHttpAgentSession`, **D233**). A model reached over HTTP is one more
+provider when Lyntai's own `ToolLoop` is its executor: the registered tools, guards, selector and `IToolApprover`s run
+the turn, and the door is `"http"` (kind `AgentDoorKinds.Http`), keyed by `id` and an `IAgentProvider`, with no unkeyed
+session. It speaks the OpenAI-shaped wire at the URL it is given (an Ollama server at its `/v1`) and has **one pinned
+route**: nothing falls over to another endpoint, so a retry is `AddAgentRetry`'s alone.
+
+<!-- compile-given: string key; -->
+```csharp
+services.AddLyntai(b => b
+    .AddHttpAgentSession("openrouter-agent", o =>
+    {
+        o.BaseUrl = "https://openrouter.ai/api/v1";
+        o.ApiKey = key;
+        o.Model = "vendor/model";
+    }));
+
+var door = sp.GetRequiredService<AgentProviderRegistry>().Get("openrouter-agent").Open("http");
+var result = await door.RunAsync(new AgentSessionOptions { Prompt = "Summarise the open tasks.", ToolPolicy = AgentToolPolicy.Write });
+Console.WriteLine($"{result.Verdict}: {result.FinalText}");
+```
+
+A turn's events are the loop's, at turn granularity: assistant text, a `ToolCall` and a `ToolResult` per round trip, a
+`UsageFinal` and one `SessionEnded`, with no `SessionStarted` since the loop has no session id. **A read-only turn is
+offered no tool**; a write turn is offered the registered ones less `DisallowedTools`. The door states `resume`,
+`mcp-servers`, `steering`, `plan-events`, `live-usage`, `accounts` and `usage-reading` `Unsupported` (the key is the
+registration's own), `model` `Unknown` (the id is the request's `model` field, and whether the endpoint runs it is the
+endpoint's: a single-model `llama-server` answers with the one it loaded), and every option it cannot honour is refused
+before any call. **The turn's prompt, system prompt and each tool's result go to the endpoint, which may be a remote
+service**; which repositories that may include is yours to admit. A failed turn's `Failure` is read from the response's
+own status, `Retry-After` and error envelope (`ProviderVerdictClassifier.ReadHttpFailure`), a transport fault being
+`Transient`. `Delivery` is `NeverSent` only when the connection never opened, `Taken` once any response arrived,
+`Uncertain` once a tool ran and for a request that may have left without an answer. Cancelling the token propagates
+as on the other doors, never as a failure. Like every session it is not bound by the front door: no cap, limiter,
+cache or refusal screen applies.
+
 **Retrying a transient failure** (`AddAgentRetry`, off unless you call it). Every registered `IAgentSession` —
 unkeyed and keyed, whichever order you register them in — is wrapped in a `RetryingAgentSession` when `AddLyntai`
 finishes composing. It acts on `Failure.Kind == Transient` and nothing else, at most `MaxRetries` times (default

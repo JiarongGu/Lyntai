@@ -48,6 +48,20 @@ public sealed class HttpModelProvider : IModelProvider, IVectorProvider, IScoreP
         LyntaiOptions options,
         ILogger<HttpModelProvider>? logger = null,
         bool disposeHttpClient = true)
+        : this(id, config, httpFactory, options, logger, disposeHttpClient, exchanges: null)
+    {
+    }
+
+    /// <summary>The constructor an agent turn builds the provider through, so its chat calls report the
+    /// response's own facts to <paramref name="exchanges"/>.</summary>
+    internal HttpModelProvider(
+        string id,
+        HttpModelOptions config,
+        Func<HttpClient> httpFactory,
+        LyntaiOptions options,
+        ILogger<HttpModelProvider>? logger,
+        bool disposeHttpClient,
+        HttpExchanges? exchanges)
     {
         Validate(config);
         _id = id;
@@ -58,7 +72,7 @@ public sealed class HttpModelProvider : IModelProvider, IVectorProvider, IScoreP
         Capabilities = CapabilitiesFor(config);
         ILogger log = logger ?? NullLogger<HttpModelProvider>.Instance;
         _chat = ServesText(config)
-            ? new HttpChatEngine(id, new OpenAiChatWire(config), httpFactory, options, log, disposeHttpClient)
+            ? new HttpChatEngine(id, new OpenAiChatWire(config), httpFactory, options, log, disposeHttpClient, exchanges)
             : null;
         _embeddings = ServesVectors(config)
             ? new HttpVectorTransport(id, VectorSettings(config), httpFactory, options, log, disposeHttpClient)

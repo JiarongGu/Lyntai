@@ -6,9 +6,9 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Lyntai.Tests.Agents;
 
-/// <summary>The conformance theory over EVERY registered <see cref="IAgentProvider"/>: the two CLI doors and a
-/// host's own stand-in, all through one registry from one source, at zero tokens (a recording runner stands in
-/// for the spawn). The set is read from the registry, so a provider added to it is held to the same rules
+/// <summary>The conformance theory over EVERY registered <see cref="IAgentProvider"/>: the two CLI doors, the
+/// protocol door, the HTTP door and a host's own stand-in, all through one registry from one source, at zero tokens
+/// (a recording runner stands in for the spawn, and a counting handler for the HTTP door's call). The set is read from the registry, so a provider added to it is held to the same rules
 /// without this file changing.</summary>
 public class AgentProviderConformanceTests
 {
@@ -59,14 +59,33 @@ public class AgentProviderConformanceTests
         }
     }
 
-    private static ServiceProvider Compose(FakeProcessRunner runner)
+    /// <summary>An endpoint that answers every request with one plain completion and counts them: the HTTP door's
+    /// spawn.</summary>
+    private sealed class CountingHandler : HttpMessageHandler
     {
+        public int Calls { get; private set; }
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
+        {
+            Calls++;
+            return Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.OK)
+            {
+                Content = new StringContent("""{"choices":[{"message":{"role":"assistant","content":"done"},"finish_reason":"stop"}]}"""),
+            });
+        }
+    }
+
+    private static ServiceProvider Compose(FakeProcessRunner runner, CountingHandler? endpoint = null)
+    {
+        endpoint ??= new CountingHandler();
         var services = new ServiceCollection();
         services.AddSingleton<IProcessRunner>(runner);
         services.AddLyntai(b => b
             .AddClaudeCliAgentSession(command: "claude")
             .AddCodexCliAgentSession(command: "codex")
             .AddAcpAgentSession("acp-agent", "acp-agent-cmd", accountHomeVariable: "ACP_AGENT_HOME")
+            .AddHttpAgentSession("http-agent", o => { o.BaseUrl = "https://endpoint.test"; o.ApiKey = "k"; },
+                _ => new HttpClient(endpoint, disposeHandler: false))
             .AddAgentProvider(_ => StandInProvider(runner)));
         return services.BuildServiceProvider();
     }
@@ -140,7 +159,8 @@ public class AgentProviderConformanceTests
     public async Task An_option_the_door_cannot_honour_is_refused_before_a_spawn(string providerId, string doorId)
     {
         var runner = new FakeProcessRunner();
-        using var sp = Compose(runner);
+        var endpoint = new CountingHandler();
+        using var sp = Compose(runner, endpoint);
         var registry = sp.GetRequiredService<AgentProviderRegistry>();
         var door = DoorOf(registry, providerId, doorId);
 
@@ -158,13 +178,15 @@ public class AgentProviderConformanceTests
         }
 
         Assert.Empty(runner.Calls);
+        Assert.Equal(0, endpoint.Calls);
     }
 
     [Theory, MemberData(nameof(Doors))]
     public async Task An_option_the_door_supports_or_has_not_measured_reaches_the_spawn(string providerId, string doorId)
     {
         var runner = new FakeProcessRunner();
-        using var sp = Compose(runner);
+        var endpoint = new CountingHandler();
+        using var sp = Compose(runner, endpoint);
         var registry = sp.GetRequiredService<AgentProviderRegistry>();
         var door = DoorOf(registry, providerId, doorId);
 
@@ -176,7 +198,7 @@ public class AgentProviderConformanceTests
             Assert.DoesNotContain(events, e => e is SessionEnded { Subtype: AgentProvider.OptionRefusedSubtype });
         }
 
-        Assert.Equal(reachable.Count, runner.Calls.Count);
+        Assert.Equal(reachable.Count, runner.Calls.Count + endpoint.Calls);
     }
 
     private static readonly string[] OptionAbilities =
@@ -200,7 +222,8 @@ public class AgentProviderConformanceTests
     public async Task An_account_of_another_provider_is_refused_before_a_spawn(string providerId, string doorId)
     {
         var runner = new FakeProcessRunner();
-        using var sp = Compose(runner);
+        var endpoint = new CountingHandler();
+        using var sp = Compose(runner, endpoint);
         var registry = sp.GetRequiredService<AgentProviderRegistry>();
         var foreign = Needing(AgentAbilities.Accounts, registry.Ids.First(id => id != providerId));
 
@@ -214,6 +237,7 @@ public class AgentProviderConformanceTests
         Assert.Equal(AgentFailureKind.Fatal, ended.Failure!.Kind);
         Assert.Equal(AgentDelivery.NeverSent, ended.Failure.Delivery);
         Assert.Empty(runner.Calls);
+        Assert.Equal(0, endpoint.Calls);
     }
 
     [Theory, MemberData(nameof(Doors))]
@@ -299,15 +323,16 @@ public class AgentProviderConformanceTests
     // ── the registry, the doors and the descriptor ───────────────────────────
 
     [Fact]
-    public void Both_cli_doors_the_acp_door_and_a_hosts_own_are_registered_by_id()
+    public void Both_cli_doors_the_acp_and_http_doors_and_a_hosts_own_are_registered_by_id()
     {
         using var sp = Compose(new FakeProcessRunner());
         var registry = sp.GetRequiredService<AgentProviderRegistry>();
 
-        Assert.Equal(["acp-agent", "claude-cli", "codex-cli", StandIn], registry.Ids);
+        Assert.Equal(["acp-agent", "claude-cli", "codex-cli", "http-agent", StandIn], registry.Ids);
         Assert.Equal(registry.Ids, registry.All.Select(p => p.Describe().Id));
         Assert.Equal(AgentDoorKinds.Cli, Assert.Single(registry.Get("claude-cli").Describe().Doors).Kind);
         Assert.Equal(AgentDoorKinds.Acp, Assert.Single(registry.Get("acp-agent").Describe().Doors).Kind);
+        Assert.Equal(AgentDoorKinds.Http, Assert.Single(registry.Get("http-agent").Describe().Doors).Kind);
     }
 
     [Fact]
@@ -319,7 +344,7 @@ public class AgentProviderConformanceTests
         var ex = Assert.Throws<KeyNotFoundException>(() => registry.Get("gemini-cli"));
 
         Assert.Contains("gemini-cli", ex.Message);
-        Assert.Contains("acp-agent, claude-cli, codex-cli, stand-in", ex.Message);
+        Assert.Contains("acp-agent, claude-cli, codex-cli, http-agent, stand-in", ex.Message);
         Assert.False(registry.TryGet("gemini-cli", out _));
         Assert.True(registry.TryGet("codex-cli", out var found));
         Assert.Equal("codex-cli", found.Describe().Id);

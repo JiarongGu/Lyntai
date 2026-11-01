@@ -107,6 +107,17 @@ every addition.
   and the endpoint otherwise; the envelope's string `code` and `type` are read before its sentence. A 2xx body is a failure only through
   its top-level `error` member, and a limit the model's own text merely quotes is never read (the result is null). A numeric `code` is
   not taken for a status. `FromHttpFailure` and the routers that call it are unchanged.
+- **`AddHttpAgentSession(id, configure, httpClient)` makes a chat-completions endpoint one more agent provider, and `AgentDoorKinds.Http`
+  names its door.** `ToolLoop` already yielded `AgentStreamEvent`s and one `SessionEnded`, but nothing described it as a provider. The
+  registration adds a keyed `IAgentSession` and an `IAgentProvider` with one door, `"http"`, and no unkeyed session. Lyntai's own tool
+  loop is the executor, over **one pinned route with no fallback**, so a retry is `AddAgentRetry`'s alone. The door states what the loop
+  measurably does: `system-prompt`, `disallowed-tools`, `read-only-gate` (a read-only turn is offered no tool) and `typed-failures`
+  `Supported`; `resume`, `mcp-servers`, `steering`, `plan-events`, `live-usage`, `accounts` and `usage-reading` `Unsupported`; `model`
+  `Unknown`, since whether the endpoint runs the id a turn names is the endpoint's. An option it cannot honour is refused before any call,
+  and the evidence says a turn's prompt, system prompt and tool results go to the endpoint. A failed terminal's `Failure` is read from
+  the response's own status, `Retry-After` and error envelope through `ReadHttpFailure`, a transport fault being `Transient`; `Delivery`
+  is `NeverSent` only for a connection that never opened, `Taken` once any response arrived, and `Uncertain` after a tool ran or for a
+  request that may have left unanswered. A cancelled call propagates and is never a failure. `docs/guide.md` says how to compose it.
 - **The Claude CLI door keeps a subagent's lines apart from the session's, and `ToolCall` and `ToolResult` carry `ParentCallId`.** A
   subagent's lines reach the session's stdout with `parent_tool_use_id` set to the call that spawned it, and the reader never read the
   field: a subagent's `TodoWrite` replaced the session's plan, its usage ticked as the turn's, and its last text or error field could
