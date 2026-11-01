@@ -374,6 +374,32 @@ enum Lyntai.Agents.AgentSupport
     Unknown : AgentSupport const
     Unsupported : AgentSupport const
     value__ : Int32
+sealed class Lyntai.Agents.AgentTaskEnded
+    .ctor(String TaskId, String Status)
+    Deconstruct(String& TaskId, String& Status) : Void
+    EqualityContract : Type { protected get; }
+    Equals(AgentStreamEvent other) : Boolean
+    Equals(AgentTaskEnded other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    PrintMembers(StringBuilder builder) : Boolean
+    Status : String { get; init; }
+    TaskId : String { get; init; }
+    ToString() : String
+sealed class Lyntai.Agents.AgentTaskStarted
+    .ctor(String TaskId, String Kind, String Description, String CallId)
+    CallId : String { get; init; }
+    Deconstruct(String& TaskId, String& Kind, String& Description, String& CallId) : Void
+    Description : String { get; init; }
+    EqualityContract : Type { protected get; }
+    Equals(AgentStreamEvent other) : Boolean
+    Equals(AgentTaskStarted other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Kind : String { get; init; }
+    PrintMembers(StringBuilder builder) : Boolean
+    TaskId : String { get; init; }
+    ToString() : String
 enum Lyntai.Agents.AgentToolPolicy
     ReadOnly : AgentToolPolicy const
     Write : AgentToolPolicy const
