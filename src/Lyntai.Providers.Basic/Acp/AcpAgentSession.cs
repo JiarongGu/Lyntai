@@ -26,7 +26,8 @@ namespace Lyntai.Providers.Acp;
 /// <para><b>Cancelling</b> the token sends <c>session/cancel</c> and gives the agent its grace period to answer
 /// before the process is killed; the cancellation then propagates, as on the CLI doors.</para>
 /// <para><b>Permission requests</b> follow <see cref="AgentSessionOptions.ToolPolicy"/>: read-only rejects each,
-/// write allows each once, never for good. The client offers the agent no filesystem and no terminal.</para></summary>
+/// write allows each once, never for good, unless a write turn has an <see cref="IAcpPermissionApprover"/>, which
+/// answers each instead. The client offers the agent no filesystem and no terminal.</para></summary>
 public sealed class AcpAgentSession : IAgentSession
 {
     /// <summary>How long a cancelled turn waits for the agent's answer to <c>session/cancel</c> before the process
@@ -46,6 +47,7 @@ public sealed class AcpAgentSession : IAgentSession
     private readonly TimeSpan _cancelGrace;
     private readonly TimeProvider _time;
     private readonly IReadOnlyList<IAcpExtensionReader> _extensions;
+    private readonly IAcpPermissionApprover? _permissions;
 
     /// <param name="runner">Process execution — BYO to sandbox, audit or remote the spawn. It must implement
     /// <see cref="IProcessRunner.ExchangeLinesAsync"/>, which the shipped <see cref="ProcessRunner"/> does.</param>
@@ -68,6 +70,9 @@ public sealed class AcpAgentSession : IAgentSession
     /// <param name="extensions">What reads the agent's own extensions (<see cref="IAcpExtensionReader"/>), and exactly
     /// what the door reads: a reader left out is not consulted. Null = <see cref="AcpExtensionReaders.Default"/>; an
     /// empty set reads none.</param>
+    /// <param name="permissionApprover">Who answers the agent's permission requests in a write turn
+    /// (<see cref="IAcpPermissionApprover"/>); null = the tool policy answers them. A session built without one
+    /// is the door that states <see cref="AgentAbilities.PermissionRequests"/> unsupported.</param>
     public AcpAgentSession(
         IProcessRunner runner,
         LyntaiOptions options,
@@ -79,9 +84,11 @@ public sealed class AcpAgentSession : IAgentSession
         ILogger<AcpAgentSession>? logger = null,
         TimeProvider? time = null,
         IEnumerable<string>? accountVariables = null,
-        IEnumerable<IAcpExtensionReader>? extensions = null)
+        IEnumerable<IAcpExtensionReader>? extensions = null,
+        IAcpPermissionApprover? permissionApprover = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(command);
+        _permissions = permissionApprover;
         _extensions = extensions is null ? AcpExtensionReaders.Default : extensions.ToList();
         if (_extensions.Contains(null!)) throw new ArgumentException("A reader is null.", nameof(extensions));
         _runner = runner;
@@ -141,7 +148,8 @@ public sealed class AcpAgentSession : IAgentSession
 
         var cwd = Path.GetFullPath(options.WorkingDirectory ?? Directory.GetCurrentDirectory());
         var outbox = Channel.CreateUnbounded<string>(new UnboundedChannelOptions { SingleReader = true });
-        var reader = new AcpAgentReader(options, cwd, ClientVersion, outbox.Writer, _time, _extensions);
+        var inactivity = _options.ResolveTimeout(options.TimeoutSeconds);
+        var reader = new AcpAgentReader(options, cwd, ClientVersion, outbox.Writer, _time, _extensions, _permissions, inactivity, _logger);
         reader.Start();
 
         // the runner is cancelled by this source and never by the caller's token, so a cancelled turn gets to say
@@ -158,7 +166,7 @@ public sealed class AcpAgentSession : IAgentSession
         try
         {
             lines = _runner.ExchangeLinesAsync(tokens[0], [.. tokens.Skip(1), .. _arguments],
-                outbox.Reader.ReadAllAsync(CancellationToken.None), _options.ResolveTimeout(options.TimeoutSeconds),
+                outbox.Reader.ReadAllAsync(CancellationToken.None), inactivity,
                 workingDirectory: cwd, environment: AgentAccounts.Merge(_environment, accountEnvironment), ct: kill.Token);
         }
         catch (NotSupportedException ex)

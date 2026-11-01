@@ -125,6 +125,16 @@ every addition.
   the response's own status, `Retry-After` and error envelope through `ReadHttpFailure`, a transport fault being `Transient`; `Delivery`
   is `NeverSent` only for a connection that never opened, `Taken` once any response arrived, and `Uncertain` after a tool ran or for a
   request that may have left unanswered. A cancelled call propagates and is never a failure. `docs/guide.md` says how to compose it.
+- **An `IAcpPermissionApprover` hands an ACP agent's permission request to the host, so an application that lets a person decide a
+  tool call can.** The door rejected every request of a read-only turn and allowed each of a write turn once, so nothing was left to
+  decide. Registered through `AddAcpAgentSession(permissionApprover:)` (and `AcpAgentSession`'s constructor), it is asked each
+  `session/request_permission` of a write turn with the agent's tool call and its options, and answers `Approve` (the `allow_once`
+  option), `Deny` (`reject_once`, else `reject_always`, else `cancelled`) or `Choose(optionId)`. The response is written once: with the answer,
+  as `cancelled` when the turn is cancelled, or as a refusal when half of the turn's inactivity window has passed unanswered, and an approver
+  that throws, answers null or names an option not offered refuses. A read-only turn never asks it. The new ability `permission-requests`
+  (`AgentAbilities.PermissionRequests`, in `All`) is `Supported` on a door registered with one and `Unsupported` on every other door. With none
+  registered the door behaves exactly as before. Proved against SOURCE-DERIVED `session/request_permission` frames through the stand-in agent
+  (answered allow, answered deny, a named option, never answered, cancelled), not against a real agent.
 - **`IAcpExtensionReader` teaches the ACP door a third agent's extensions, and a door reads exactly the set its registration names.**
   The door read the two shipped agents' `_meta`, error `data` and limit frames inline for every agent, so an agent with keys of its
   own could not be read without a fork. A reader answers three things, each defaulting to nothing: an update (`AcpUpdateReading`: events

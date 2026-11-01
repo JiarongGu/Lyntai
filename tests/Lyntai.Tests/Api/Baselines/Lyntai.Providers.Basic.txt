@@ -1,5 +1,5 @@
 static class Lyntai.AcpBuilderExtensions
-    static AddAcpAgentSession(LyntaiBuilder builder, String id, String command, IReadOnlyList<String> arguments = null, IReadOnlyDictionary<String,String> environment = null, String accountHomeVariable = null, String agent = null, IEnumerable<String> accountVariables = null, IEnumerable<IAcpExtensionReader> extensions = null) : LyntaiBuilder
+    static AddAcpAgentSession(LyntaiBuilder builder, String id, String command, IReadOnlyList<String> arguments = null, IReadOnlyDictionary<String,String> environment = null, String accountHomeVariable = null, String agent = null, IEnumerable<String> accountVariables = null, IEnumerable<IAcpExtensionReader> extensions = null, IAcpPermissionApprover permissionApprover = null) : LyntaiBuilder
 static class Lyntai.ClaudeCliBuilderExtensions
     static AddClaudeCliAgentSession(LyntaiBuilder builder, String command = null, IReadOnlyDictionary<String,String> environment = null, String id = "claude-cli", String agent = null) : LyntaiBuilder
     static AddClaudeCliProvider(LyntaiBuilder builder, ClaudeCliBackend backend, String command = null, IReadOnlyDictionary<String,String> environment = null, String id = "claude-cli") : LyntaiBuilder
@@ -25,7 +25,7 @@ static class Lyntai.OllamaBuilderExtensions
     static AddOllamaProvider(LyntaiBuilder builder, String baseUrl = null, String model = null, String id = "ollama", Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
     static AddOllamaProvider(LyntaiBuilder builder, String id, Action<OllamaOptions> configure, Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
 sealed class Lyntai.Providers.Acp.AcpAgentSession
-    .ctor(IProcessRunner runner, LyntaiOptions options, String command, IReadOnlyList<String> arguments = null, IReadOnlyDictionary<String,String> environment = null, String accountHomeVariable = null, Nullable<TimeSpan> cancelGrace = null, ILogger<AcpAgentSession> logger = null, TimeProvider time = null, IEnumerable<String> accountVariables = null, IEnumerable<IAcpExtensionReader> extensions = null)
+    .ctor(IProcessRunner runner, LyntaiOptions options, String command, IReadOnlyList<String> arguments = null, IReadOnlyDictionary<String,String> environment = null, String accountHomeVariable = null, Nullable<TimeSpan> cancelGrace = null, ILogger<AcpAgentSession> logger = null, TimeProvider time = null, IEnumerable<String> accountVariables = null, IEnumerable<IAcpExtensionReader> extensions = null, IAcpPermissionApprover permissionApprover = null)
     StreamAsync(AgentSessionOptions options, CancellationToken ct = default) : IAsyncEnumerable<AgentStreamEvent>
     static DefaultCancelGrace : TimeSpan
 static class Lyntai.Providers.Acp.AcpExtensionReaders
@@ -33,6 +33,36 @@ static class Lyntai.Providers.Acp.AcpExtensionReaders
     static Claude : IAcpExtensionReader { get; }
     static Codex : IAcpExtensionReader { get; }
     static Default : IReadOnlyList<IAcpExtensionReader> { get; }
+sealed class Lyntai.Providers.Acp.AcpPermissionAnswer
+    Approves : Boolean { get; }
+    Equals(AcpPermissionAnswer other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    OptionId : String { get; }
+    ToString() : String
+    static Approve : AcpPermissionAnswer { get; }
+    static Choose(String optionId) : AcpPermissionAnswer
+    static Deny : AcpPermissionAnswer { get; }
+sealed class Lyntai.Providers.Acp.AcpPermissionOption
+    .ctor(String OptionId, String Name, String Kind)
+    Deconstruct(String& OptionId, String& Name, String& Kind) : Void
+    Equals(AcpPermissionOption other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Kind : String { get; init; }
+    Name : String { get; init; }
+    OptionId : String { get; init; }
+    ToString() : String
+sealed class Lyntai.Providers.Acp.AcpPermissionRequest
+    .ctor(String SessionId, String ToolCallJson, IReadOnlyList<AcpPermissionOption> Options)
+    Deconstruct(String& SessionId, String& ToolCallJson, IReadOnlyList`1& Options) : Void
+    Equals(AcpPermissionRequest other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Options : IReadOnlyList<AcpPermissionOption> { get; init; }
+    SessionId : String { get; init; }
+    ToString() : String
+    ToolCallJson : String { get; init; }
 sealed class Lyntai.Providers.Acp.AcpStatedFailure
     .ctor(String By, String Words = null, AgentFailure Failure = null)
     By : String { get; init; }
@@ -56,6 +86,8 @@ interface Lyntai.Providers.Acp.IAcpExtensionReader
     ReadError(JsonElement error, TimeProvider time) : AgentFailure
     ReadTurnEnd(JsonElement answer, TimeProvider time) : AcpStatedFailure
     ReadUpdate(JsonElement update, TimeProvider time) : AcpUpdateReading
+interface Lyntai.Providers.Acp.IAcpPermissionApprover
+    ApproveAsync(AcpPermissionRequest request, CancellationToken ct = default) : Task<AcpPermissionAnswer>
 sealed class Lyntai.Providers.ClaudeCli.ClaudeAgentOptions
     .ctor()
     AllowedTools : IReadOnlyList<String> { get; init; }

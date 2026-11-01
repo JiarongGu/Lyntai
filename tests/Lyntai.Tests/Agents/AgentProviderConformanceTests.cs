@@ -40,6 +40,7 @@ public class AgentProviderConformanceTests
                         Claim(AgentAbilities.TypedFailures, AgentSupport.Unsupported, AgentAbilitySource.Declared),
                         Claim(AgentAbilities.Accounts, AgentSupport.Unsupported, AgentAbilitySource.Declared),
                         Claim(AgentAbilities.UsageReading, AgentSupport.Unsupported, AgentAbilitySource.Declared),
+                        Claim(AgentAbilities.PermissionRequests, AgentSupport.Unsupported, AgentAbilitySource.Declared),
                     ],
                 },
             ],

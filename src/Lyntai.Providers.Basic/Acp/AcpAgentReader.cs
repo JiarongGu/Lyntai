@@ -5,6 +5,8 @@ using Lyntai.Agents;
 using Lyntai.Inference;
 using Lyntai.Providers.Basic;
 using Lyntai.Providers.ClaudeCli;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Lyntai.Providers.Acp;
 
@@ -44,6 +46,10 @@ internal sealed class AcpAgentReader
     private bool _cancelSent;
     private readonly AcpExtensionSet _extensions;
     private AcpModelOption? _modelOption;
+    private readonly IAcpPermissionApprover? _approver;
+    private readonly TimeSpan _permissionWindow;
+    private readonly ILogger _logger;
+    private readonly List<HeldPermission> _held = [];
 
     /// <param name="options">The turn.</param>
     /// <param name="cwd">The absolute working directory the session opens in.</param>
@@ -51,10 +57,19 @@ internal sealed class AcpAgentReader
     /// <param name="outbox">Where the client's frames go, one per line.</param>
     /// <param name="time">The clock a usage reading is stamped from and a sentence's time is read against.</param>
     /// <param name="extensions">The readers of the agent's own extensions.</param>
+    /// <param name="approver">Who answers a write turn's permission requests; null = the tool policy does.</param>
+    /// <param name="inactivity">The turn's inactivity window: half of it is what the approver has to answer, the
+    /// rest is the agent's to act on a refusal before the runner's clock ends the process.</param>
+    /// <param name="logger">Diagnostics; null = none.</param>
     public AcpAgentReader(
         AgentSessionOptions options, string cwd, string clientVersion, ChannelWriter<string> outbox, TimeProvider time,
-        IReadOnlyList<IAcpExtensionReader> extensions)
+        IReadOnlyList<IAcpExtensionReader> extensions, IAcpPermissionApprover? approver = null,
+        TimeSpan inactivity = default, ILogger? logger = null)
     {
+        _approver = approver;
+        // no window to halve (a host that configured none, or a reader built without one): the request waits on the approver alone
+        _permissionWindow = inactivity > TimeSpan.Zero && inactivity < TimeSpan.FromMilliseconds(uint.MaxValue - 1) ? inactivity / 2 : Timeout.InfiniteTimeSpan;
+        _logger = logger ?? NullLogger.Instance;
         _options = options;
         _cwd = cwd;
         _clientVersion = clientVersion;
@@ -75,6 +90,7 @@ internal sealed class AcpAgentReader
             if (_phase != Phase.Prompting || _cancelSent || _sessionId is null) return false;
             _cancelSent = true;
             Send(AcpFrames.Cancel(_sessionId));
+            ReleaseHeld(answerCancelled: true);   // the protocol: a cancelled turn answers each pending request cancelled
             return true;
         }
     }
@@ -271,7 +287,8 @@ internal sealed class AcpAgentReader
     }
 
     // A tool policy is a gate on what the agent ASKS to do: ReadOnly rejects every request, Write allows each one
-    // once and never for good. An agent in a mode that asks for nothing is gated by its mode, not by this.
+    // once and never for good, unless a write turn has an approver, which answers instead. An agent in a mode that
+    // asks for nothing is gated by its mode, not by this.
     private void ReadRequest(string method, JsonElement id, JsonElement root)
     {
         if (method != "session/request_permission")
@@ -280,21 +297,96 @@ internal sealed class AcpAgentReader
             return;
         }
 
-        string[] wanted = _options.ToolPolicy == AgentToolPolicy.ReadOnly ? ["reject_once", "reject_always"] : ["allow_once"];
-        string? chosen = null;
-        if (WireJson.Object(root, "params") is { } parameters && WireJson.Array(parameters, "options") is { } options)
+        var parameters = WireJson.Object(root, "params");
+        var offered = parameters is { } p ? OfferedOptions(p) : [];
+        if (_approver is null || _options.ToolPolicy == AgentToolPolicy.ReadOnly || _phase != Phase.Prompting)
         {
-            foreach (var kind in wanted)
-            {
-                chosen = options.EnumerateArray()
-                    .Where(o => WireJson.String(o, "kind") == kind)
-                    .Select(o => WireJson.String(o, "optionId"))
-                    .FirstOrDefault(optionId => optionId is not null);
-                if (chosen is not null) break;
-            }
+            Send(PermissionAnswer(id, _options.ToolPolicy == AgentToolPolicy.ReadOnly ? AcpPermissionAnswer.Deny : AcpPermissionAnswer.Approve, offered));
+            return;
         }
-        Send(chosen is null ? AcpFrames.PermissionCancelled(id) : AcpFrames.PermissionSelected(id, chosen));
+
+        var toolCall = parameters is { } q && WireJson.Object(q, "toolCall") is { } call ? call.GetRawText() : "{}";
+        Hold(new HeldPermission(id.Clone(), new CancellationTokenSource(_permissionWindow, _time)),
+            new AcpPermissionRequest(_sessionId!, toolCall, offered));
     }
+
+    private static IReadOnlyList<AcpPermissionOption> OfferedOptions(JsonElement parameters)
+    {
+        var offered = new List<AcpPermissionOption>();
+        if (WireJson.Array(parameters, "options") is not { } options) return offered;
+        foreach (var option in options.EnumerateArray())
+        {
+            if (WireJson.String(option, "optionId") is { } optionId)
+                offered.Add(new AcpPermissionOption(optionId, WireJson.String(option, "name") ?? "", WireJson.String(option, "kind") ?? ""));
+        }
+        return offered;
+    }
+
+    // The agent's options hold what was asked: approve is the allow_once, deny the reject_once and then reject_always, a
+    // named id only when offered. No such option, and the protocol's own way to say no is the cancelled outcome.
+    private static string PermissionAnswer(JsonElement id, AcpPermissionAnswer? answer, IReadOnlyList<AcpPermissionOption> offered)
+    {
+        string[] kinds = answer is { Approves: true } ? ["allow_once"] : ["reject_once", "reject_always"];
+        var chosen = answer?.OptionId is { } named && offered.Any(o => o.OptionId == named)
+            ? named
+            : kinds.Select(kind => offered.FirstOrDefault(o => o.Kind == kind)?.OptionId).FirstOrDefault(optionId => optionId is not null);
+        return chosen is null ? AcpFrames.PermissionCancelled(id) : AcpFrames.PermissionSelected(id, chosen);
+    }
+
+    // ── a request held for the host ──────────────────────────────────────────
+
+    // One held request is answered once: whichever of the approver, the window, the caller's cancel or the turn's end
+    // takes it out of _held first. The approver runs off the reading loop and off the lock, since it may block, and
+    // its token is cancelled outside the lock too, since a host's callback on it is not ours.
+    private void Hold(HeldPermission held, AcpPermissionRequest request)
+    {
+        _held.Add(held);
+        var token = held.Window.Token;
+        _ = Task.Run(async () =>
+        {
+            AcpPermissionAnswer? answer = null;
+            try
+            {
+                answer = await _approver!.ApproveAsync(request, token).WaitAsync(token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (token.IsCancellationRequested)
+            {
+                // the window passed, or the turn went away: a refusal, or nothing to send
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "an ACP permission approver failed; the request is refused");
+            }
+
+            lock (_gate)
+            {
+                if (!_held.Remove(held)) return;
+                Send(PermissionAnswer(held.Id, answer, request.Options));
+            }
+            held.Window.Dispose();
+        });
+    }
+
+    private void ReleaseHeld(bool answerCancelled)
+    {
+        var released = _held.ToList();
+        _held.Clear();
+        if (answerCancelled)
+        {
+            foreach (var held in released) Send(AcpFrames.PermissionCancelled(held.Id));
+        }
+        if (released.Count == 0) return;
+        _ = Task.Run(() =>
+        {
+            foreach (var held in released)
+            {
+                held.Window.Cancel();
+                held.Window.Dispose();
+            }
+        });
+    }
+
+    private sealed record HeldPermission(JsonElement Id, CancellationTokenSource Window);
 
     // ── the prompt's updates ─────────────────────────────────────────────────
 
@@ -442,6 +534,7 @@ internal sealed class AcpAgentReader
     {
         events.Add(terminal);
         _phase = Phase.Done;
+        ReleaseHeld(answerCancelled: false);
         _outbox.TryComplete();
     }
 

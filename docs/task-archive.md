@@ -6564,3 +6564,19 @@ expansion keeps the original window. Proof: `MemoryGraphStoreContract.A_scope_de
 emitted `.actual`. Lane `memory`.
 
 - MC10 — a scope dense in ended entries still returns its current ones
+
+## Part 439 — AG19: an ACP permission request the host can answer (2026-11-01)
+
+✅ done 2026-11-01 — **Outcome:** `AddAcpAgentSession(permissionApprover:)` and `AcpAgentSession`'s constructor take an `IAcpPermissionApprover`, asked each `session/request_permission` of a
+write turn with the agent's `toolCall` JSON and its options; it answers `Approve`, `Deny` or `Choose(optionId)`. The new ability `permission-requests` (`AgentAbilities.PermissionRequests`, in `All`)
+is `Supported` on a door registered with one and `Unsupported` on every other door, the three shipped ones included. With none registered the door is unchanged. **Read here, where the row
+left it open:** a read-only turn is never asked, because `read-only-gate` is a promise a host's callback must not weaken; `Approve` is the `allow_once` option only and never an `allow_always`
+(naming one is `Choose`'s, the host's own act); the row's "turn's inactivity clock" is HALF of that window, because the runner's clock is the child's silence and a silent agent waiting
+on a person never resets it, so a refusal written at the full window would reach a process the same clock is killing; the response is written once, by whichever of the approver, that
+half-window, the caller's cancel (the protocol's `cancelled`) or the turn's end takes the held request first, and an approver that throws, answers null or names an option not offered
+refuses. The approver runs off the reading loop. No decision was recorded: no alternative the study left open constrains later work. Proof: `AcpPermissionApproverTests` against the
+stand-in agent with SOURCE-DERIVED frames (answered allow, answered deny, a named option, one not offered, throws and null, a person who takes a moment, never answered with a late
+answer dropped, cancelled turn answered `cancelled` once, read-only never asked, no approver unchanged, the ability on both registrations); `AgentProviderConformanceTests` states the
+new ability on every door; the `ApiSurface` baselines moved from the emitted `.actual`. Lane `inference`.
+
+- AG19 — an ACP permission request the host can answer

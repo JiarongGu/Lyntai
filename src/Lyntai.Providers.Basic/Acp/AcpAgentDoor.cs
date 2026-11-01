@@ -12,7 +12,8 @@ internal static class AcpAgentDoor
     public const string DoorId = "acp";
 
     public static AgentProviderDescriptor Describe(
-        string providerId, string? accountHomeVariable, string? agent = null, IEnumerable<string>? accountVariables = null) => new()
+        string providerId, string? accountHomeVariable, string? agent = null, IEnumerable<string>? accountVariables = null,
+        bool permissionApprover = false) => new()
     {
         Id = providerId,
         Agent = agent,
@@ -43,6 +44,11 @@ internal static class AcpAgentDoor
                             ? "registered without the agent's configuration-home variable"
                             : $"the account's home in {accountHomeVariable}, and its entries among the declared variables, for the child"),
                     Declared(AgentAbilities.UsageReading, AgentSupport.Unsupported, "the door reads no allowance: the protocol has no usage question, and a turn reports its own usage"),
+                    Declared(AgentAbilities.PermissionRequests,
+                        permissionApprover ? AgentSupport.Supported : AgentSupport.Unsupported,
+                        permissionApprover
+                            ? "each session/request_permission of a write turn is put to the registered IAcpPermissionApprover; a read-only turn rejects it unasked, and no answer within half the inactivity window is a refusal"
+                            : "no IAcpPermissionApprover is registered, so the turn's tool policy answers every request"),
                 ],
             },
         ],
